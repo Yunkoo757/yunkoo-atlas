@@ -1,0 +1,117 @@
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+  background: rgba(0, 0, 0, 0.45);
+  animation: fadeIn 0.12s var(--ease-out);
+}
+.cmdk {
+  width: 640px;
+  max-width: calc(100vw - 32px);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--popover-bg);
+  border: 0.8px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  overflow: hidden;
+  animation: cmdkIn 0.16s var(--ease-out);
+}
+@keyframes cmdkIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cmdk-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 52px;
+  border-bottom: 0.8px solid var(--border-subtle);
+}
+.cmdk-search-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.cmdk-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-lg);
+}
+.cmdk-input::placeholder {
+  color: var(--text-quaternary);
+}
+
+.cmdk-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+.cmdk-group {
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  padding: 8px 8px 4px;
+}
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-8);
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+  text-align: left;
+}
+.cmdk-item.is-active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.cmdk-item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.cmdk-item.is-active .cmdk-item-icon {
+  color: var(--text-secondary);
+}
+.cmdk-item-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmdk-item-hint {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.cmdk-item-enter {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.cmdk-empty {
+  padding: 32px;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+}

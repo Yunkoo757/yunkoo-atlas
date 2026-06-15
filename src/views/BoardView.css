@@ -1,0 +1,118 @@
+.board-scroll {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  overflow-x: auto;
+}
+.bd-col {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-8);
+  transition: background var(--dur-base) var(--ease-out);
+}
+.bd-col.is-over {
+  background: var(--bg-elevated);
+}
+.bd-col-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+}
+.bd-col-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.bd-col-count {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+}
+.bd-col-add {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.bd-col-header:hover .bd-col-add {
+  opacity: 1;
+}
+.bd-col-add:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.bd-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px 8px;
+  overflow-y: auto;
+}
+
+.bd-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow-low);
+  transition: border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+  animation: cardIn 0.3s var(--ease-out) both;
+}
+.bd-card:hover {
+  border-color: var(--border-strong);
+}
+.bd-card.is-dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+.bd-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bd-card-ref {
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.bd-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bd-card-symbol {
+  font-size: var(--fs-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.bd-card-strategy {
+  font-size: var(--fs-mini);
+  color: var(--text-secondary);
+}
+.bd-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.bd-card-r {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+}

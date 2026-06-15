@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# env
+.env
+.env.*
+!.env.example
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# vite
+.vite/
+
+# playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

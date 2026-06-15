@@ -1,0 +1,14 @@
+.app-shell {
+  display: flex;
+  height: 100%;
+  background: var(--bg-app);
+}
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-subtle);
+  overflow: hidden;
+}

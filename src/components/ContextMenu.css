@@ -1,0 +1,67 @@
+.ctx {
+  position: fixed;
+  z-index: 120;
+  min-width: 200px;
+  background: var(--popover-bg);
+  border: 0.8px solid var(--popover-border);
+  border-radius: var(--radius-8);
+  box-shadow: var(--popover-shadow);
+  padding: 4px;
+  animation: menu-in 0.12s var(--ease-out);
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.ctx-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.ctx-item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.ctx-item:hover .ctx-item-icon {
+  color: var(--text-secondary);
+}
+.ctx-item-label {
+  flex: 1;
+  white-space: nowrap;
+}
+.ctx-item-hint {
+  font-size: var(--fs-mini);
+  color: var(--text-quaternary);
+  flex-shrink: 0;
+}
+.ctx-item.is-danger {
+  color: var(--neg);
+}
+.ctx-item.is-danger .ctx-item-icon {
+  color: var(--neg);
+}
+.ctx-item.is-danger:hover {
+  background: color-mix(in srgb, var(--neg) 14%, transparent);
+  color: var(--neg);
+}
+.ctx-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0;
+}
+.ctx-label {
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  padding: 6px 8px 4px;
+}

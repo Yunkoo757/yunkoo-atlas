@@ -1,0 +1,189 @@
+/* ============================================================
+   tokens.css  —  从 linear.app 真实运行时提取的设计 token
+   说明：
+   - 上半部分「LINEAR 原生」原样保留 Linear 的变量名与值（LCH 色彩空间，
+     围绕色相 272 靛紫统一偏色），保证逐像素一致。
+   - 下半部分「语义别名」把原生 token 映射成组件易用的名字。
+   - 已剔除 --sx-* (styled-components 哈希) 与浏览器插件注入的噪音。
+   ============================================================ */
+
+:root {
+  /* ========== ① LINEAR 原生 token（真实值） ========== */
+
+  /* —— 背景（LCH，色相 272）—— */
+  --bg-color: lch(1.82% 0 272 / 1);              /* 最底：app 外壳 */
+  --color-bg-primary: lch(4.52% 0.3 272);         /* 主表面 */
+  --color-bg-secondary: lch(9.02% 2.1 272 / 1);   /* 抬升表面/卡片 */
+  --color-bg-tertiary: lch(11.27% 3 272 / 1);     /* hover */
+  --color-bg-quaternary: lch(7.22% 0.75 272 / 1);
+  --bg-base-color: lch(4.52% 0.3 272);
+  --bg-sidebar-color: lch(1.82% 0 272 / 1);
+
+  /* —— 文字 —— */
+  --color-text-primary: lch(100% 0 272 / 1);
+  --color-text-secondary: lch(90.35% 1.15 272 / 1);
+  --color-text-tertiary: lch(61.399% 1.15 272 / 1);
+  --color-text-quaternary: lch(36.308% 1.15 272 / 1);
+
+  /* —— 边框 —— */
+  --color-border-primary: lch(8.84% 1.38 272 / 1);
+  --color-border-secondary: lch(13.16% 1.38 272 / 1);
+  --color-border-tertiary: lch(15.32% 1.38 272 / 1);
+  --bg-border-color: lch(13.16% 1.38 272 / 1);
+
+  /* —— 品牌 / 焦点 —— */
+  --accent: #5e6ad2;
+  --focus-ring-color: #5e69d1;
+  --focus-ring-outline: 1px solid #5e69d1;
+  --focus-ring-width: 1px;
+  --ai-selection-bg: lch(61.399% 1.15 272 / 0.1);
+
+  /* —— 弹出面板 popover（测量自真实 Linear 浮层）—— */
+  --popover-bg: lch(9.92 0.75 272);
+  --popover-border: lch(18.56 1.83 272);
+  --popover-radius: 12px;
+  --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
+    0 1px 1px lch(0 0 0 / 0.125);
+
+  /* —— 字体栈 —— */
+  --font-regular: "Inter Variable", "SF Pro Display", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+    "Open Sans", "Helvetica Neue", "Linear Thai", sans-serif;
+  --font-display: var(--font-regular);
+  --font-monospace: "Berkeley Mono", "JetBrains Mono", "SFMono Regular",
+    Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Segoe UI", "Twemoji Mozilla", "Noto Color Emoji", "Android Emoji";
+
+  /* —— 字号阶梯（真实值）—— */
+  --font-size-title1: 2.25rem;
+  --font-size-title2: 1.5rem;
+  --font-size-title3: 1.25rem;
+  --font-size-large: 1.125rem;
+  --font-size-largePlus: 1.125rem;
+  --font-size-regular: 0.9375rem;     /* 15px —— UI 主字号 */
+  --font-size-regularPlus: 0.9375rem;
+  --font-size-small: 0.8125rem;       /* 13px */
+  --font-size-smallPlus: 0.8125rem;
+  --font-size-mini: 0.75rem;          /* 12px */
+  --font-size-miniPlus: 0.75rem;
+  --font-size-micro: 0.6875rem;       /* 11px */
+
+  /* —— 字重（注意 normal = 450）—— */
+  --font-weight-light: 300;
+  --font-weight-normal: 450;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* —— 圆角 —— */
+  --control-border-radius: 8px;
+  --editor-block-radius: 6px;
+  --settings-list-view-item-radius: 10px;
+  --radius-rounded: 9999px;
+
+  /* —— 过渡速度（Linear 标准）—— */
+  --speed-quickTransition: 0.1s;
+  --speed-regularTransition: 0.25s;
+  --speed-slowTransition: 0.35s;
+  --speed-highlightFadeIn: 0s;
+  --speed-highlightFadeOut: 0.15s;
+
+  /* —— 缓动曲线（Linear 全套）—— */
+  --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-out-cubic: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-out-circ: cubic-bezier(0.075, 0.82, 0.165, 1);
+  --ease-in-out-cubic: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --ease-in-out-quart: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* —— 布局尺寸 —— */
+  --sidebar-width: 244px;
+
+  /* —— 编辑器（真实值）—— */
+  --editor-font-size: 0.9375rem;
+  --editor-text-color: #e2e3e5;
+  --editor-line-height: 1.6;
+  --editor-letter-spacing: -0.00666667em;
+  --editor-block-spacing: 1rem;
+  --editor-list-inset: 1.5rem;
+  --editor-safe-area: 16px;
+
+  /* ========== ② 语义别名（供组件使用） ========== */
+
+  /* 背景层级 */
+  --bg-app: var(--bg-color);
+  --bg-surface: var(--color-bg-primary);
+  --bg-elevated: var(--color-bg-secondary);
+  --bg-hover: var(--color-bg-tertiary);
+  --bg-selected: lch(13% 3 272 / 1);
+  --bg-sidebar: var(--bg-sidebar-color);
+
+  /* 边框 */
+  --border-subtle: var(--color-border-primary);
+  --border-default: var(--color-border-secondary);
+  --border-strong: var(--color-border-tertiary);
+
+  /* 文字 */
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-tertiary: var(--color-text-tertiary);
+  --text-quaternary: var(--color-text-quaternary);
+
+  /* 品牌 */
+  --accent-hover: color-mix(in srgb, var(--accent) 88%, white 12%);
+  --accent-text: #ffffff;
+
+  /* 业务语义色（交易盈亏，非 Linear 原生，自定义但沿用其调性） */
+  --pos: lch(72% 45 152);   /* 盈利绿 */
+  --neg: lch(58% 62 28);    /* 亏损红 */
+  --warn: lch(80% 70 85);   /* 警告黄 */
+
+  /* 字体别名 */
+  --font-ui: var(--font-regular);
+  --font-mono: var(--font-monospace);
+
+  /* 间距阶梯（Linear 用 4px 基准） */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* 圆角别名 */
+  --radius-4: 4px;
+  --radius-6: var(--editor-block-radius);
+  --radius-8: var(--control-border-radius);
+  --radius-10: var(--settings-list-view-item-radius);
+  --radius-full: var(--radius-rounded);
+
+  /* 字号别名 */
+  --fs-micro: var(--font-size-micro);
+  --fs-mini: var(--font-size-mini);
+  --fs-sm: var(--font-size-small);
+  --fs-base: var(--font-size-regular);
+  --fs-lg: var(--font-size-large);
+  --fs-title: var(--font-size-title3);
+  --fs-h: var(--font-size-title2);
+
+  /* 阴影（Linear 风格，多层叠加柔光） */
+  --shadow-low: 0 1px 1px #0000001f;
+  --shadow-med: 0 3px 8px #0000001f, 0 2px 5px #0000001f, 0 1px 1px #0000001f;
+  --shadow-high: 0 4px 40px #00000019, 0 3px 20px #0000001f,
+    0 3px 12px #0000001f, 0 2px 8px #0000001f, 0 1px 1px #0000001f;
+
+  /* 缓动别名 */
+  --ease-out: var(--ease-out-quart);
+  --ease-in-out: var(--ease-in-out-cubic);
+  --dur-fast: var(--speed-quickTransition);
+  --dur-base: 0.16s;
+  --dur-slow: var(--speed-regularTransition);
+
+  /* 布局 */
+  --sidebar-w: var(--sidebar-width);
+  --header-h: 48px;
+}

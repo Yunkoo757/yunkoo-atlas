@@ -1,0 +1,168 @@
+.editor {
+  font-size: var(--editor-font-size);
+  line-height: var(--editor-line-height);
+  letter-spacing: var(--editor-letter-spacing);
+  color: var(--editor-text-color);
+}
+.editor .ProseMirror {
+  outline: none;
+  min-height: 240px;
+}
+.editor .ProseMirror > * + * {
+  margin-top: var(--editor-block-spacing);
+}
+.editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-quaternary);
+  pointer-events: none;
+  height: 0;
+}
+
+.editor h1,
+.editor h2,
+.editor h3 {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.editor h1 {
+  font-size: var(--font-size-title3);
+}
+.editor h2 {
+  font-size: var(--font-size-large);
+}
+
+.editor ul,
+.editor ol {
+  padding-left: var(--editor-list-inset);
+}
+.editor li::marker {
+  color: var(--text-tertiary);
+}
+
+.editor blockquote {
+  border-left: 2px solid var(--border-strong);
+  padding-left: 14px;
+  color: var(--text-secondary);
+}
+
+.editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-8);
+  border: 1px solid var(--border-subtle);
+  margin: 4px 0;
+}
+.editor img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.editor code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-4);
+  padding: 1px 5px;
+}
+.editor pre {
+  font-family: var(--font-mono);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  padding: 12px 14px;
+  font-size: var(--fs-sm);
+  overflow-x: auto;
+}
+.editor pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* 任务清单 —— Linear 风格复选框 */
+.editor ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 4px;
+}
+.editor ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.editor ul[data-type='taskList'] li > label {
+  margin-top: 0.32em;
+  flex-shrink: 0;
+}
+.editor ul[data-type='taskList'] input[type='checkbox'] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+  position: relative;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.editor ul[data-type='taskList'] input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.editor ul[data-type='taskList'] input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+}
+.editor ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+/* ===== BubbleMenu 浮动工具条 ===== */
+.bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--popover-bg);
+  border: 0.8px solid var(--popover-border);
+  border-radius: var(--radius-8);
+  box-shadow: var(--popover-shadow);
+}
+.bubble-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.bubble-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border-default);
+  margin: 0 3px;
+}
+.bubble-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-6);
+  color: var(--text-secondary);
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.bubble-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.bubble-btn.is-on {
+  background: var(--bg-selected);
+  color: var(--accent);
+}
