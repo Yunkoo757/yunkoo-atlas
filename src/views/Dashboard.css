@@ -3,12 +3,49 @@
   overflow-y: auto;
   padding: 24px;
 }
+
+.db-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.db-segmented {
+  display: flex;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  padding: 1px;
+}
+
+.db-seg {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  transition: all var(--dur-fast) var(--ease-out);
+  white-space: nowrap;
+}
+
+.db-seg:hover:not(.is-on) {
+  color: var(--text-secondary);
+}
+
+.db-seg.is-on {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .db-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 .db-card {
+  min-width: 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-10);
@@ -28,11 +65,13 @@
   color: var(--text-tertiary);
 }
 .db-card-value {
-  font-size: 26px;
+  font-size: clamp(20px, 2.2vw, 26px);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
   line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .db-card-sub {
   font-size: var(--fs-micro);
@@ -47,6 +86,10 @@
   overflow: hidden;
 }
 .db-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -55,8 +98,60 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
+.db-panel-hint {
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
+}
 .db-chart {
   padding: 16px 12px 12px;
+}
+.db-chart-empty,
+.db-strats-empty {
+  padding: 48px 18px;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+}
+
+.db-chart-tip {
+  background: var(--popover-bg);
+  border: 0.8px solid var(--popover-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+  box-shadow: var(--popover-shadow);
+  cursor: pointer;
+  min-width: 140px;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.db-chart-tip:hover {
+  border-color: var(--border-strong);
+}
+.db-chart-tip-ref {
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+}
+.db-chart-tip-symbol {
+  font-weight: var(--font-weight-medium);
+  margin-bottom: 8px;
+}
+.db-chart-tip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.db-chart-tip-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.db-chart-tip-hint {
+  margin-top: 6px;
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
 }
 
 /* 策略表现 */
@@ -64,16 +159,28 @@
   display: flex;
   flex-direction: column;
 }
-.db-strat {
+a.db-strat {
   display: grid;
   grid-template-columns: 160px 120px 1fr 96px;
   align-items: center;
   gap: 16px;
   padding: 12px 18px;
   border-bottom: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--dur-fast) var(--ease-out);
 }
-.db-strat:last-child {
+a.db-strat:last-child {
   border-bottom: none;
+}
+a.db-strat:hover {
+  background: var(--bg-hover);
+}
+.db-strat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .db-strat-name {
   font-size: var(--fs-sm);

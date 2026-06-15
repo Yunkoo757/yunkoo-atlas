@@ -1,59 +1,170 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, Star, Bell, Calendar } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
+import { StrategyIcon, StrategyLabel } from '@/components/StrategyIcon'
+import { getStrategyName, sortStrategies } from '@/lib/strategies'
 import { useStore } from '@/store/useStore'
+import type { Strategy } from '@/data/strategies'
+import { tradeDetailPath } from '@/lib/tradeRoute'
 import { STATUS_META, type TradeStatus, type Trade } from '@/data/trades'
+import {
+  filterTrades,
+  applyDisplayPrefs,
+  type ListFilter,
+} from '@/lib/tradeFilters'
 import { fmtMoney, fmtR, fmtDate } from '@/lib/format'
+import { toast } from '@/lib/toast'
+import { transitionTradeStatus, toggleTradeDone } from '@/lib/tradeTransition'
+import { STATUS_ORDER, isRowDone } from '@/lib/tradeStatus'
+import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import './ListView.css'
 
-const ORDER: TradeStatus[] = ['planned', 'open', 'win', 'breakeven', 'loss']
-
 export function ListView({
+  title = '交易',
   view,
   onView,
+  filter = { type: 'all' },
+  header,
 }: {
+  title?: string
   view: 'list' | 'board'
   onView: (v: 'list' | 'board') => void
+  filter?: ListFilter
+  header?: ReactNode
 }) {
   const trades = useStore((s) => s.trades)
+  const strategies = useStore((s) => s.strategies)
+  const pinnedStrategyIds = useStore((s) => s.pinnedStrategyIds)
+  const sortedStrategies = useMemo(
+    () => sortStrategies(strategies, pinnedStrategyIds),
+    [strategies, pinnedStrategyIds],
+  )
+  const display = useStore((s) => s.display)
+  const starredIds = useStore((s) => s.starredIds)
+  const subscribedIds = useStore((s) => s.subscribedIds)
   const openComposer = useStore((s) => s.openComposer)
   const setStatus = useStore((s) => s.setStatus)
+  const updateTradeData = useStore((s) => s.updateTradeData)
   const removeTrade = useStore((s) => s.removeTrade)
+  const toggleStar = useStore((s) => s.toggleStar)
+  const isStarred = useStore((s) => s.isStarred)
   const [ctx, setCtx] = useState<CtxState | null>(null)
+  const transition = {
+    updateTradeData,
+    setStatus,
+    toast,
+  }
+
+  const visible = useMemo(() => {
+    const filtered = filterTrades(trades, filter, starredIds)
+    return applyDisplayPrefs(filtered, display, filter)
+  }, [trades, filter, starredIds, display])
 
   const onRowContext = (e: React.MouseEvent, t: Trade) => {
     e.preventDefault()
     setCtx({
       x: e.clientX,
       y: e.clientY,
-      items: buildTradeCtxItems(t, { setStatus, openComposer, removeTrade }),
+      items: buildTradeCtxItems(t, {
+        setStatus,
+        changeStatus: (s) => transitionTradeStatus(t, s, transition),
+        openComposer,
+        removeTrade,
+        toggleStar,
+        isStarred,
+      }),
     })
   }
 
   const groups = useMemo(() => {
+    if (display.groupByDate && !display.groupByStrategy) {
+      const map = new Map<string, Trade[]>()
+      visible.forEach((t) => {
+        const key = t.openedAt.slice(0, 10)
+        if (!map.has(key)) map.set(key, [])
+        map.get(key)!.push(t)
+      })
+      return [...map.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([date, items]) => ({
+          kind: 'date' as const,
+          date,
+          items,
+        }))
+        .filter((g) => display.showEmptyGroups || g.items.length > 0)
+    }
+
+    if (display.groupByStrategy) {
+      const map = new Map<string, Trade[]>()
+      sortedStrategies.forEach((s) => map.set(s.id, []))
+      visible.forEach((t) => {
+        if (!map.has(t.strategyId)) map.set(t.strategyId, [])
+        map.get(t.strategyId)!.push(t)
+      })
+      const orderedIds = [
+        ...sortedStrategies.map((s) => s.id),
+        ...[...map.keys()].filter((id) => !sortedStrategies.some((s) => s.id === id)),
+      ]
+      return orderedIds
+        .map((strategyId) => ({
+          kind: 'strategy' as const,
+          strategyId,
+          items: map.get(strategyId) ?? [],
+        }))
+        .filter((g) => display.showEmptyGroups || g.items.length > 0)
+    }
+
     const map = new Map<TradeStatus, Trade[]>()
-    ORDER.forEach((s) => map.set(s, []))
-    trades.forEach((t) => map.get(t.status)!.push(t))
-    return ORDER.map((s) => ({ status: s, items: map.get(s)! })).filter(
-      (g) => g.items.length > 0,
-    )
-  }, [trades])
+    STATUS_ORDER.forEach((s) => map.set(s, []))
+    visible.forEach((t) => {
+      if (!map.has(t.status)) map.set(t.status, [])
+      map.get(t.status)!.push(t)
+    })
+    return STATUS_ORDER.map((s) => ({
+      kind: 'status' as const,
+      status: s,
+      items: map.get(s) ?? [],
+    })).filter((g) => display.showEmptyGroups || g.items.length > 0)
+  }, [
+    visible,
+    display.showEmptyGroups,
+    display.groupByStrategy,
+    display.groupByDate,
+    sortedStrategies,
+  ])
 
   let rowIndex = 0
 
+  const emptyHint =
+    filter.type === 'inbox'
+      ? '收件箱为空：没有计划中或持仓中的交易。'
+      : filter.type === 'mine'
+        ? '暂无进行中的交易（计划中或持仓中）。'
+        : filter.type === 'starred'
+          ? '还没有星标交易，在详情页点击星标即可添加。'
+          : filter.type === 'strategy'
+            ? `「${getStrategyName(strategies, filter.strategyId)}」策略下暂无交易。`
+            : filter.type === 'missed'
+              ? '还没有记录错过的机会。'
+              : filter.type === 'period'
+                ? '该时间段内没有按开仓日匹配的交易。'
+                : '记录你的第一笔交易，开始构建你的复盘日志。'
+
+  const subtitle = getTradesPageSubtitle(filter)
+
   return (
     <>
-      <Topbar title="交易" view={view} onView={onView} />
+      <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
       <div className="list-scroll">
         {groups.length === 0 ? (
           <EmptyState
             title="还没有交易"
-            hint="记录你的第一笔交易，开始构建你的复盘日志。"
+            hint={emptyHint}
             action={
               <button className="empty-btn" onClick={() => openComposer()}>
                 <Plus size={15} />
@@ -63,17 +174,67 @@ export function ListView({
           />
         ) : (
           groups.map((g) => (
-            <section key={g.status} className="lv-group">
+            <section
+              key={
+                g.kind === 'strategy'
+                  ? g.strategyId
+                  : g.kind === 'date'
+                    ? g.date
+                    : g.status
+              }
+              className="lv-group"
+            >
               <div className="lv-group-header">
-                <StatusIcon status={g.status} size={15} />
-                <span className="lv-group-title">{STATUS_META[g.status].label}</span>
+                {g.kind === 'strategy' ? (
+                  <>
+                    {(() => {
+                      const s = strategies.find((x) => x.id === g.strategyId)
+                      return s ? (
+                        <StrategyIcon icon={s.icon} color={s.color} size={13} />
+                      ) : (
+                        <StatusIcon status="planned" size={15} />
+                      )
+                    })()}
+                    <span className="lv-group-title">
+                      {getStrategyName(strategies, g.strategyId)}
+                    </span>
+                  </>
+                ) : g.kind === 'date' ? (
+                  <>
+                    <Calendar size={13} className="lv-group-cal" aria-hidden />
+                    <span className="lv-group-title">{fmtDate(g.date)}</span>
+                  </>
+                ) : (
+                  <>
+                    <StatusIcon status={g.status} size={15} />
+                    <span className="lv-group-title">{STATUS_META[g.status].label}</span>
+                  </>
+                )}
                 <span className="lv-group-count">{g.items.length}</span>
                 <button className="lv-group-add" title="新建交易" onClick={() => openComposer()}>
                   <Plus size={15} />
                 </button>
               </div>
               {g.items.map((t) => (
-                <Row key={t.id} t={t} index={rowIndex++} onContext={onRowContext} />
+                <Row
+                  key={t.id}
+                  t={t}
+                  index={rowIndex++}
+                  strategies={strategies}
+                  starred={isStarred(t.id)}
+                  followed={subscribedIds.includes(t.id)}
+                  onToggleStar={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toggleStar(t.id)
+                  }}
+                  onContext={onRowContext}
+                  onToggleDone={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toggleTradeDone(t, transition)
+                  }}
+                />
               ))}
             </section>
           ))
@@ -88,27 +249,41 @@ function Row({
   t,
   index,
   onContext,
+  onToggleDone,
+  onToggleStar,
+  strategies,
+  starred,
+  followed,
 }: {
   t: Trade
   index: number
   onContext: (e: React.MouseEvent, t: Trade) => void
+  onToggleDone: (e: React.MouseEvent) => void
+  onToggleStar: (e: React.MouseEvent) => void
+  strategies: Strategy[]
+  starred: boolean
+  followed: boolean
 }) {
+  const done = isRowDone(t.status)
+  const showPnl = t.status !== 'planned' && t.status !== 'open'
   return (
     <Link
-      to={`/trade/${t.id}`}
+      to={tradeDetailPath(t)}
       className="lv-row"
       style={{ animationDelay: `${Math.min(index, 16) * 22}ms` }}
       onContextMenu={(e) => onContext(e, t)}
     >
-      <span className="lv-check">
-        <span className="lv-check-box" />
+      <span className="lv-check" onClick={onToggleDone}>
+        <span className={'lv-check-box' + (done ? ' is-done' : '')} />
       </span>
       <ConvictionIcon conviction={t.conviction} />
       <StatusIcon status={t.status} />
       <span className="lv-ref">{t.ref}</span>
       <span className="lv-symbol">{t.symbol}</span>
       <SideTag side={t.side} />
-      <span className="lv-title">{t.strategy}</span>
+      <span className="lv-title">
+        <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={14} />
+      </span>
       <div className="lv-spacer" />
       <div className="lv-tags">
         {t.tags.map((tag) => (
@@ -121,11 +296,22 @@ function Row({
         className="lv-pnl"
         style={{ color: t.pnl > 0 ? 'var(--pos)' : t.pnl < 0 ? 'var(--neg)' : 'var(--text-tertiary)' }}
       >
-        {t.status === 'planned' ? '—' : fmtMoney(t.pnl)}
+        {showPnl ? fmtMoney(t.pnl) : '—'}
       </span>
-      <span className="lv-r">{t.status === 'planned' ? '' : fmtR(t.rMultiple)}</span>
+      <span className="lv-r">{showPnl ? fmtR(t.rMultiple) : ''}</span>
       <span className="lv-avatar">Y</span>
       <span className="lv-date">{fmtDate(t.openedAt)}</span>
+      {followed && (
+        <Bell size={12} className="lv-followed" aria-label="已置顶关注" />
+      )}
+      <button
+        type="button"
+        className={'lv-star' + (starred ? ' is-starred' : '')}
+        title={starred ? '取消星标' : '星标'}
+        onClick={onToggleStar}
+      >
+        <Star size={13} fill={starred ? 'currentColor' : 'none'} />
+      </button>
     </Link>
   )
 }

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Search,
   PenSquare,
@@ -8,12 +8,19 @@ import {
   LayoutGrid,
   BarChart3,
   ChevronDown,
-  ChevronRight,
-  Box,
-  MoreHorizontal,
+  Settings2,
+  Star,
+  HardDriveDownload,
+  Calendar,
+  Ban,
+  FileEdit,
+  GraduationCap,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useStore } from '@/store/useStore'
+import { StrategyIcon } from '@/components/StrategyIcon'
+import { sortStrategies } from '@/lib/strategies'
+import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import './Sidebar.css'
 
 const NAV = [
@@ -22,20 +29,46 @@ const NAV = [
   { to: '/dashboard', label: '仪表盘', icon: BarChart3 },
 ]
 
-export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+export function Sidebar({
+  onOpenSearch,
+  onOpenDataIO,
+}: {
+  onOpenSearch?: () => void
+  onOpenDataIO?: () => void
+}) {
   const [favOpen, setFavOpen] = useState(true)
   const [wsOpen, setWsOpen] = useState(true)
+  const [timeOpen, setTimeOpen] = useState(false)
+  const [simOpen, setSimOpen] = useState(false)
   const openComposer = useStore((s) => s.openComposer)
+  const strategies = useStore((s) => s.strategies)
+  const pinnedStrategyIds = useStore((s) => s.pinnedStrategyIds)
+  const sortedStrategies = useMemo(
+    () => sortStrategies(strategies, pinnedStrategyIds),
+    [strategies, pinnedStrategyIds],
+  )
+  const navigate = useNavigate()
+
+  const isActive = (to: string) => {
+    const path = window.location.pathname
+    if (to === '/list') {
+      return path === '/list' || path === '/board'
+    }
+    return path === to || path.startsWith(to + '/')
+  }
+
+  const isPeriodActive = (slug: string) => {
+    const path = window.location.pathname
+    return path === `/period/${slug}` || path === `/period/${slug}/board`
+  }
 
   return (
     <aside className="sidebar">
-      {/* 工作区头：头像 + 名称 + 搜索/撰写 */}
       <div className="sb-header">
-        <button className="sb-ws">
+        <div className="sb-ws sb-ws-static" title="单用户工作区">
           <span className="sb-ws-avatar">Y</span>
           <span className="sb-ws-name">Yunkoo</span>
-          <ChevronDown size={14} className="sb-ws-chevron" />
-        </button>
+        </div>
         <div className="sb-header-actions">
           <button className="sb-hbtn" title="搜索 (Ctrl+K)" onClick={onOpenSearch}>
             <Search size={16} />
@@ -46,19 +79,83 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         </div>
       </div>
 
-      {/* 置顶项 */}
       <nav className="sb-section sb-top">
-        <button className="sb-item">
+        <NavLink to="/inbox" className={({ isActive: a }) => 'sb-item' + (a ? ' is-active' : '')}>
           <Inbox size={16} />
           <span>收件箱</span>
-        </button>
-        <button className="sb-item">
+        </NavLink>
+        <NavLink
+          to="/my-trades"
+          className={({ isActive: a }) => 'sb-item' + (a ? ' is-active' : '')}
+        >
           <Target size={16} />
           <span>我的交易</span>
-        </button>
+        </NavLink>
+        <NavLink
+          to="/favorites"
+          className={({ isActive: a }) => 'sb-item' + (a ? ' is-active' : '')}
+        >
+          <Star size={16} />
+          <span>星标交易</span>
+        </NavLink>
+        <NavLink
+          to="/missed"
+          className={({ isActive: a }) => 'sb-item' + (a ? ' is-active' : '')}
+        >
+          <Ban size={16} />
+          <span>错过的机会</span>
+        </NavLink>
       </nav>
 
-      {/* 工作区分组 */}
+      <div className="sb-section">
+        <button className="sb-group-label" onClick={() => setTimeOpen((o) => !o)}>
+          <span>时间</span>
+          <ChevronDown
+            size={12}
+            className={'sb-group-chev' + (timeOpen ? '' : ' is-closed')}
+          />
+        </button>
+        {timeOpen &&
+          CALENDAR_PERIODS.map((slug) => (
+            <button
+              key={slug}
+              className={'sb-item' + (isPeriodActive(slug) ? ' is-active' : '')}
+              onClick={() => navigate(`/period/${slug}`)}
+            >
+              <Calendar size={16} />
+              <span>{PERIOD_LABELS[slug]}</span>
+            </button>
+          ))}
+      </div>
+
+      <div className="sb-section">
+        <button className="sb-group-label" onClick={() => setSimOpen((o) => !o)}>
+          <span>模拟</span>
+          <ChevronDown
+            size={12}
+            className={'sb-group-chev' + (simOpen ? '' : ' is-closed')}
+          />
+        </button>
+        {simOpen && (
+          <>
+            <NavLink
+              to="/paper"
+              className={({ isActive: a }) => 'sb-item' + (a ? ' is-active' : '')}
+            >
+              <FileEdit size={16} />
+              <span>纸面</span>
+            </NavLink>
+            <NavLink
+              to="/practice"
+              className={({ isActive: a }) => 'sb-item' + (a ? ' is-active' : '')}
+            >
+              <GraduationCap size={16} />
+              <span>练习复盘</span>
+            </NavLink>
+          </>
+        )}
+      </div>
+
       <div className="sb-section">
         <button className="sb-group-label" onClick={() => setWsOpen((o) => !o)}>
           <span>工作区</span>
@@ -72,46 +169,54 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
-                'sb-item' + (isActive ? ' is-active' : '')
-              }
+              className={() => 'sb-item' + (isActive(to) ? ' is-active' : '')}
             >
               <Icon size={16} />
               <span>{label}</span>
             </NavLink>
           ))}
         {wsOpen && (
-          <button className="sb-item">
-            <MoreHorizontal size={16} />
-            <span>更多</span>
+          <button className="sb-item" onClick={onOpenDataIO}>
+            <HardDriveDownload size={16} />
+            <span>导入/导出数据</span>
           </button>
         )}
       </div>
 
-      {/* 收藏分组 */}
       <div className="sb-section">
         <button className="sb-group-label" onClick={() => setFavOpen((o) => !o)}>
-          <span>收藏</span>
+          <span>策略</span>
           <ChevronDown
             size={12}
             className={'sb-group-chev' + (favOpen ? '' : ' is-closed')}
           />
         </button>
         {favOpen &&
-          ['Breakout 策略', 'Trend Following', 'Mean Reversion'].map((s) => (
-            <button className="sb-item" key={s}>
-              <Box size={16} />
-              <span>{s}</span>
+          sortedStrategies.map((s) => (
+            <button
+              className={
+                'sb-item' +
+                (window.location.pathname.startsWith(`/strategy/${s.id}`) ? ' is-active' : '')
+              }
+              key={s.id}
+              onClick={() => navigate(`/strategy/${s.id}`)}
+            >
+              <StrategyIcon icon={s.icon} color={s.color} size={16} variant="nav" />
+              <span>{s.name}</span>
             </button>
           ))}
-      </div>
-
-      {/* 团队（折叠占位）*/}
-      <div className="sb-section">
-        <button className="sb-group-label">
-          <span>我的团队</span>
-          <ChevronRight size={12} className="sb-group-chev" />
-        </button>
+        {favOpen && (
+          <button
+            className={
+              'sb-item sb-item-ghost' +
+              (window.location.pathname === '/strategies' ? ' is-active' : '')
+            }
+            onClick={() => navigate('/strategies')}
+          >
+            <Settings2 size={16} />
+            <span>管理策略…</span>
+          </button>
+        )}
       </div>
     </aside>
   )

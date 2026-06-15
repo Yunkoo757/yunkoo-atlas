@@ -19,6 +19,10 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
+.lv-group-cal {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
 .lv-group-count {
   font-size: var(--fs-mini);
   color: var(--text-tertiary);
@@ -71,10 +75,56 @@
   border: 1.5px solid var(--border-strong);
   border-radius: var(--radius-4);
   opacity: 0;
+  position: relative;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
-.lv-row:hover .lv-check-box {
+.lv-check-box.is-done {
+  opacity: 0;
+  background: var(--accent);
+  border-color: var(--accent);
+  position: relative;
+}
+.lv-check-box.is-done::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  width: 5px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.lv-row:hover .lv-check-box.is-done {
   opacity: 1;
+}
+
+.lv-star {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.lv-star.is-starred {
+  opacity: 1;
+  color: var(--accent);
+}
+.lv-row:hover .lv-star {
+  opacity: 1;
+}
+.lv-star:hover {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}
+.lv-star.is-starred:hover {
+  color: var(--accent);
 }
 
 .lv-ref {
@@ -83,6 +133,11 @@
   font-variant-numeric: tabular-nums;
   width: 58px;
   flex-shrink: 0;
+}
+.lv-followed {
+  color: var(--accent);
+  flex-shrink: 0;
+  opacity: 0.85;
 }
 .lv-symbol {
   font-size: var(--fs-sm);

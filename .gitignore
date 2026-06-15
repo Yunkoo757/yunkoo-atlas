@@ -3,6 +3,7 @@ node_modules/
 
 # build
 dist/
+dist-electron/
 
 # logs
 *.log
@@ -24,6 +25,12 @@ Thumbs.db
 
 # vite
 .vite/
+tsconfig.tsbuildinfo
+
+# QA artifacts (generated locally)
+qa-screenshots/
+qa-screenshots-electron/
+qa-err.txt
 
 # playwright
 test-results/

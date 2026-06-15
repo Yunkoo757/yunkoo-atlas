@@ -4,6 +4,7 @@ import type { TradeStatus, Conviction } from '@/data/trades'
 const STATUS_COLOR: Record<TradeStatus, string> = {
   planned: 'var(--text-tertiary)',
   open: '#f2c94c',
+  missed: '#f2994a',
   win: 'var(--pos)',
   breakeven: 'var(--text-secondary)',
   loss: 'var(--neg)',
@@ -49,6 +50,22 @@ export function StatusIcon({
         {status === 'breakeven' && (
           <path d="M4.5 7h5" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
         )}
+      </svg>
+    )
+  }
+
+  if (status === 'missed') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 14 14" aria-label="错过 · 假设盈亏" role="img">
+        <title>错过 · 假设盈亏</title>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={c} strokeWidth="1.5" />
+        <path
+          d="M4.8 9.2 L9.2 4.8"
+          fill="none"
+          stroke={c}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
       </svg>
     )
   }

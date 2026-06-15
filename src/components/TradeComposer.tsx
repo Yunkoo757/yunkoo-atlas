@@ -1,24 +1,43 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Menu } from '@/components/Menu'
+import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
+import { StrategyIcon } from '@/components/StrategyIcon'
+import { getStrategyName } from '@/lib/strategies'
+import { calcPnl, calcRSimple } from '@/lib/tradeCalc'
+import { collectAllTags } from '@/lib/tags'
 import {
   STATUS_META,
   CONVICTION_META,
-  STRATEGIES,
+  TRADE_KIND_META,
+  MISS_REASON_META,
   type Trade,
   type TradeStatus,
   type Conviction,
   type TradeSide,
+  type TradeKind,
+  type MissReason,
 } from '@/data/trades'
+import { STATUS_ORDER } from '@/lib/tradeStatus'
+import { isTerminal } from '@/lib/tradeStatus'
 import './TradeComposer.css'
 
-const STATUS_OPTS: TradeStatus[] = ['planned', 'open', 'win', 'breakeven', 'loss']
+const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
+const KIND_OPTS: TradeKind[] = ['live', 'paper', 'practice']
+const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 
-function blankTrade(): Trade {
+function defaultKindFromPath(pathname: string): TradeKind {
+  if (pathname.startsWith('/paper')) return 'paper'
+  if (pathname.startsWith('/practice')) return 'practice'
+  return 'live'
+}
+
+function blankTrade(strategyId: string, kind: TradeKind): Trade {
   return {
     id: '',
     ref: '',
@@ -26,10 +45,12 @@ function blankTrade(): Trade {
     side: 'long',
     status: 'planned',
     conviction: 'medium',
-    strategy: STRATEGIES[0],
+    strategyId,
+    tradeKind: kind,
     tags: [],
     entry: 0,
     exit: null,
+    stopLoss: null,
     size: 0,
     pnl: 0,
     rMultiple: 0,
@@ -39,23 +60,63 @@ function blankTrade(): Trade {
   }
 }
 
+function noteToPlain(html: string): string {
+  if (!html) return ''
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent?.trim() ?? ''
+}
+
+function plainToNote(text: string): string {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+  return `<p>${trimmed.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`
+}
+
 export function TradeComposer() {
+  const location = useLocation()
   const open = useStore((s) => s.composerOpen)
   const editing = useStore((s) => s.composerTrade)
   const trades = useStore((s) => s.trades)
+  const strategies = useStore((s) => s.strategies)
   const upsert = useStore((s) => s.upsertTrade)
   const close = useStore((s) => s.closeComposer)
 
-  const [form, setForm] = useState<Trade>(blankTrade())
-  const [tagsText, setTagsText] = useState('')
+  const [form, setForm] = useState<Trade>(
+    blankTrade(strategies[0]?.id ?? 'breakout', defaultKindFromPath(location.pathname)),
+  )
+  const [noteText, setNoteText] = useState('')
+  const pnlTouched = useRef(false)
+  const rTouched = useRef(false)
+
+  const allTags = collectAllTags(trades)
 
   useEffect(() => {
     if (open) {
-      const base = editing ?? blankTrade()
+      const kind = editing?.tradeKind ?? defaultKindFromPath(location.pathname)
+      const base = editing ?? blankTrade(strategies[0]?.id ?? 'breakout', kind)
       setForm(base)
-      setTagsText(base.tags.join(', '))
+      setNoteText(noteToPlain(base.note))
+      pnlTouched.current = false
+      rTouched.current = false
     }
-  }, [open, editing])
+  }, [open, editing, strategies, location.pathname])
+
+  useEffect(() => {
+    if (!open || pnlTouched.current) return
+    const { side, entry, exit, size } = form
+    if (exit == null || !entry || !size) return
+    const suggested = calcPnl(side, entry, exit, size)
+    if (suggested == null) return
+    setForm((f) => {
+      const next = { ...f, pnl: suggested }
+      if (!rTouched.current) {
+        const r = calcRSimple(suggested, entry, exit, size)
+        if (r != null) next.rMultiple = r
+      }
+      return next
+    })
+  }, [open, form.side, form.entry, form.exit, form.size])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -80,18 +141,15 @@ export function TradeComposer() {
 
   const save = () => {
     if (!form.symbol.trim()) return
-    const tags = tagsText
-      .split(/[,，]/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    const isClosed =
-      form.status === 'win' || form.status === 'loss' || form.status === 'breakeven'
     const trade: Trade = {
       ...form,
-      tags,
+      note: plainToNote(noteText),
       id: form.id || String(Date.now()),
       ref: form.ref || nextRef(),
-      closedAt: isClosed ? form.closedAt ?? form.openedAt : null,
+      tradeKind: form.tradeKind ?? 'live',
+      closedAt: isTerminal(form.status)
+        ? form.closedAt ?? form.openedAt
+        : null,
     }
     upsert(trade)
     close()
@@ -163,11 +221,57 @@ export function TradeComposer() {
               }
             />
             <Menu
-              value={form.strategy}
-              onSelect={(v) => set('strategy', v)}
-              options={STRATEGIES.map((s) => ({ value: s, label: s }))}
-              trigger={<button className="tc-pill tc-pill-ghost">{form.strategy}</button>}
+              value={form.strategyId}
+              onSelect={(v) => set('strategyId', v)}
+              options={strategies.map((s) => ({
+                value: s.id,
+                label: s.name,
+                icon: <StrategyIcon icon={s.icon} color={s.color} size={14} />,
+              }))}
+              trigger={
+                <button className="tc-pill tc-pill-ghost">
+                  {(() => {
+                    const s = strategies.find((x) => x.id === form.strategyId)
+                    return s ? (
+                      <>
+                        <StrategyIcon icon={s.icon} color={s.color} size={14} />
+                        {s.name}
+                      </>
+                    ) : (
+                      getStrategyName(strategies, form.strategyId)
+                    )
+                  })()}
+                </button>
+              }
             />
+            <Menu
+              value={form.tradeKind}
+              onSelect={(v) => set('tradeKind', v as TradeKind)}
+              options={KIND_OPTS.map((k) => ({
+                value: k,
+                label: TRADE_KIND_META[k].label,
+              }))}
+              trigger={
+                <button className="tc-pill tc-pill-ghost">
+                  {TRADE_KIND_META[form.tradeKind].label}
+                </button>
+              }
+            />
+            {form.status === 'missed' && (
+              <Menu
+                value={form.missReason ?? 'other'}
+                onSelect={(v) => set('missReason', v as MissReason)}
+                options={MISS_OPTS.map((r) => ({
+                  value: r,
+                  label: MISS_REASON_META[r].label,
+                }))}
+                trigger={
+                  <button className="tc-pill tc-pill-ghost">
+                    {MISS_REASON_META[form.missReason ?? 'other'].label}
+                  </button>
+                }
+              />
+            )}
           </div>
 
           {/* 数值网格 */}
@@ -178,22 +282,77 @@ export function TradeComposer() {
             <Field label="出场">
               <input type="number" value={form.exit ?? ''} onChange={(e) => set('exit', e.target.value === '' ? null : +e.target.value)} />
             </Field>
+            <Field label="止损">
+              <input
+                type="number"
+                value={form.stopLoss ?? ''}
+                onChange={(e) =>
+                  set('stopLoss', e.target.value === '' ? null : +e.target.value)
+                }
+              />
+            </Field>
             <Field label="仓位">
               <input type="number" value={form.size || ''} onChange={(e) => set('size', +e.target.value)} />
             </Field>
             <Field label="盈亏 ($)">
-              <input type="number" value={form.pnl || ''} onChange={(e) => set('pnl', +e.target.value)} />
+              <input
+                type="number"
+                value={form.pnl || ''}
+                onChange={(e) => {
+                  pnlTouched.current = true
+                  set('pnl', +e.target.value)
+                }}
+              />
             </Field>
             <Field label="R 倍数">
-              <input type="number" step="0.1" value={form.rMultiple || ''} onChange={(e) => set('rMultiple', +e.target.value)} />
+              <input
+                type="number"
+                step="0.1"
+                value={form.rMultiple || ''}
+                onChange={(e) => {
+                  rTouched.current = true
+                  set('rMultiple', +e.target.value)
+                }}
+              />
             </Field>
             <Field label="开仓日">
               <input type="date" value={form.openedAt} onChange={(e) => set('openedAt', e.target.value)} />
             </Field>
+            {isTerminal(form.status) && (
+              <Field label="平仓日">
+                <input
+                  type="date"
+                  value={form.closedAt ?? form.openedAt}
+                  onChange={(e) => set('closedAt', e.target.value)}
+                />
+              </Field>
+            )}
           </div>
 
-          <Field label="标签（逗号分隔）">
-            <input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="日内, 突破" />
+          <Field label="标签">
+            <TagEditor
+              tags={form.tags}
+              suggestions={allTags}
+              onAdd={(tag) =>
+                setForm((f) => ({
+                  ...f,
+                  tags: f.tags.includes(tag) ? f.tags : [...f.tags, tag],
+                }))
+              }
+              onRemove={(tag) =>
+                setForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))
+              }
+            />
+          </Field>
+
+          <Field label="备注">
+            <textarea
+              className="tc-note"
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="进场理由、止损计划、复盘要点…"
+              rows={3}
+            />
           </Field>
         </div>
 

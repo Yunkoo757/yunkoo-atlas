@@ -128,6 +128,27 @@
 .tc-field input:focus {
   border-color: var(--accent);
 }
+.tc-field textarea.tc-note {
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-6);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.tc-field textarea.tc-note::placeholder {
+  color: var(--text-quaternary);
+}
+.tc-field textarea.tc-note:focus {
+  border-color: var(--accent);
+}
 
 .tc-foot {
   display: flex;

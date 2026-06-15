@@ -89,6 +89,11 @@
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
+.bd-card-followed {
+  color: var(--accent);
+  flex-shrink: 0;
+  opacity: 0.85;
+}
 .bd-card-title {
   display: flex;
   align-items: center;

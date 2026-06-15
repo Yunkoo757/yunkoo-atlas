@@ -1,0 +1,108 @@
+.display-menu-root {
+  position: relative;
+}
+
+.display-menu-root .tb-btn.is-open {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.display-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--popover-bg);
+  border: 0.8px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  z-index: 50;
+  animation: fadeIn 0.12s var(--ease-out) both;
+}
+
+.display-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.display-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.display-switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--bg-selected);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.display-switch.is-on {
+  background: var(--accent);
+}
+
+.display-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.display-switch.is-on .display-switch-knob {
+  transform: translateX(14px);
+}
+
+.display-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-subtle);
+}
+
+.display-label {
+  padding: 4px 8px 2px;
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.display-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.display-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.display-item.is-on {
+  color: var(--text-primary);
+}
+
+.display-item svg {
+  color: var(--accent);
+}

@@ -1,21 +1,31 @@
-import { SlidersHorizontal, LayoutGrid, List } from 'lucide-react'
+import { LayoutGrid, List } from 'lucide-react'
+import { DisplayMenu } from '@/components/DisplayMenu'
+import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import './Topbar.css'
 
 export function Topbar({
   title,
+  subtitle,
   view,
   onView,
+  showDisplay = true,
+  showSaveStatus = true,
 }: {
   title: string
+  subtitle?: string
   view?: 'list' | 'board'
   onView?: (v: 'list' | 'board') => void
+  showDisplay?: boolean
+  showSaveStatus?: boolean
 }) {
   return (
     <header className="topbar">
       <div className="tb-left">
         <span className="tb-title">{title}</span>
+        {subtitle && <span className="tb-subtitle">{subtitle}</span>}
       </div>
       <div className="tb-right">
+        {showSaveStatus && <SaveStatusIndicator />}
         {onView && (
           <div className="tb-segmented">
             <button
@@ -32,10 +42,7 @@ export function Topbar({
             </button>
           </div>
         )}
-        <button className="tb-btn">
-          <SlidersHorizontal size={14} />
-          <span>显示</span>
-        </button>
+        {showDisplay && <DisplayMenu />}
       </div>
     </header>
   )

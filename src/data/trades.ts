@@ -3,13 +3,50 @@
 export type TradeStatus =
   | 'planned' // 计划中（像 Backlog）
   | 'open' // 持仓中（像 In Progress）
+  | 'missed' // 错过机会（假设盈亏，不计入实盘 KPI）
   | 'win' // 已平 - 盈利（像 Done）
   | 'loss' // 已平 - 亏损（像 Canceled）
   | 'breakeven' // 已平 - 保本
 
+export type TradeKind = 'live' | 'paper' | 'practice'
+
+export type MissReason =
+  | 'hesitation'
+  | 'missed_setup'
+  | 'no_alert'
+  | 'rule_break'
+  | 'other'
+
 export type TradeSide = 'long' | 'short'
 
 export type Conviction = 'low' | 'medium' | 'high' | 'urgent' // 信心度，沿用优先级视觉
+
+export interface TradeComment {
+  id: string
+  text: string
+  createdAt: string
+}
+
+export type ActivityKind =
+  | 'create'
+  | 'status'
+  | 'strategy'
+  | 'tag'
+  | 'comment'
+  | 'note'
+
+export interface ActivityEvent {
+  id: string
+  kind: ActivityKind
+  timestamp: string
+  status?: TradeStatus
+  strategyId?: string
+  fromStrategyId?: string
+  tag?: string
+  tagAction?: 'add' | 'remove'
+  commentId?: string
+  text?: string
+}
 
 export interface Trade {
   id: string
@@ -18,25 +55,22 @@ export interface Trade {
   side: TradeSide
   status: TradeStatus
   conviction: Conviction
-  strategy: string // 策略归类（像 Project）
+  strategyId: string // 策略 ID，关联 Strategy 实体
   tags: string[]
+  tradeKind: TradeKind
   entry: number
   exit: number | null
+  stopLoss?: number | null
   size: number // 仓位
   pnl: number // 盈亏金额
   rMultiple: number // R 倍数
   openedAt: string // ISO date
   closedAt: string | null
+  missReason?: MissReason
   note: string // 富文本（TipTap JSON 序列化后的 HTML，简化为 HTML 字符串）
+  comments?: TradeComment[]
+  activities?: ActivityEvent[]
 }
-
-export const STRATEGIES = [
-  'Breakout',
-  'Mean Reversion',
-  'Trend Following',
-  'News Catalyst',
-  'Scalp',
-] as const
 
 export const STATUS_META: Record<
   TradeStatus,
@@ -44,9 +78,24 @@ export const STATUS_META: Record<
 > = {
   planned: { label: '计划中', order: 0 },
   open: { label: '持仓中', order: 1 },
-  win: { label: '盈利', order: 2 },
-  breakeven: { label: '保本', order: 3 },
-  loss: { label: '亏损', order: 4 },
+  missed: { label: '错过', order: 2 },
+  win: { label: '盈利', order: 3 },
+  breakeven: { label: '保本', order: 4 },
+  loss: { label: '亏损', order: 5 },
+}
+
+export const TRADE_KIND_META: Record<TradeKind, { label: string }> = {
+  live: { label: '实盘' },
+  paper: { label: '纸面' },
+  practice: { label: '练习' },
+}
+
+export const MISS_REASON_META: Record<MissReason, { label: string }> = {
+  hesitation: { label: '犹豫未进' },
+  missed_setup: { label: '错过形态' },
+  no_alert: { label: '未设提醒' },
+  rule_break: { label: '违反规则' },
+  other: { label: '其他' },
 }
 
 export const CONVICTION_META: Record<Conviction, { label: string }> = {
@@ -65,7 +114,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'long',
     status: 'win',
     conviction: 'high',
-    strategy: 'Breakout',
+    strategyId: 'breakout',
+    tradeKind: 'live',
     tags: ['日内', '突破'],
     entry: 61200,
     exit: 64850,
@@ -83,7 +133,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'short',
     status: 'loss',
     conviction: 'medium',
-    strategy: 'Mean Reversion',
+    strategyId: 'mean-reversion',
+    tradeKind: 'live',
     tags: ['财报', '逆势'],
     entry: 214.5,
     exit: 219.2,
@@ -101,7 +152,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'long',
     status: 'open',
     conviction: 'high',
-    strategy: 'Trend Following',
+    strategyId: 'trend-following',
+    tradeKind: 'live',
     tags: ['波段'],
     entry: 3380,
     exit: null,
@@ -119,7 +171,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'long',
     status: 'planned',
     conviction: 'urgent',
-    strategy: 'News Catalyst',
+    strategyId: 'news-catalyst',
+    tradeKind: 'live',
     tags: ['催化', '关注'],
     entry: 0,
     exit: null,
@@ -137,7 +190,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'long',
     status: 'win',
     conviction: 'medium',
-    strategy: 'Scalp',
+    strategyId: 'scalp',
+    tradeKind: 'live',
     tags: ['日内', '剥头皮'],
     entry: 148.2,
     exit: 151.0,
@@ -155,7 +209,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'short',
     status: 'breakeven',
     conviction: 'low',
-    strategy: 'Mean Reversion',
+    strategyId: 'mean-reversion',
+    tradeKind: 'live',
     tags: ['试探'],
     entry: 248,
     exit: 248.3,
@@ -173,7 +228,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'short',
     status: 'win',
     conviction: 'high',
-    strategy: 'Trend Following',
+    strategyId: 'trend-following',
+    tradeKind: 'live',
     tags: ['波段', '顶背离'],
     entry: 66800,
     exit: 63200,
@@ -191,7 +247,8 @@ export const SEED_TRADES: Trade[] = [
     side: 'long',
     status: 'loss',
     conviction: 'medium',
-    strategy: 'Breakout',
+    strategyId: 'breakout',
+    tradeKind: 'live',
     tags: ['假突破'],
     entry: 452,
     exit: 446.5,
@@ -201,5 +258,44 @@ export const SEED_TRADES: Trade[] = [
     openedAt: '2026-06-03',
     closedAt: '2026-06-04',
     note: '<p>假突破被套，纪律止损。</p>',
+  },
+  {
+    id: '9',
+    ref: 'TRD-134',
+    symbol: 'DOGE/USDT',
+    side: 'long',
+    status: 'missed',
+    conviction: 'high',
+    strategyId: 'breakout',
+    tradeKind: 'live',
+    tags: ['错过', '突破'],
+    entry: 0.182,
+    exit: 0.195,
+    size: 5000,
+    pnl: 65,
+    rMultiple: 1.2,
+    openedAt: '2026-06-14',
+    closedAt: '2026-06-14',
+    missReason: 'hesitation',
+    note: '<p>突破当根犹豫未进，事后按假设出场复盘。</p>',
+  },
+  {
+    id: '10',
+    ref: 'TRD-133',
+    symbol: 'EUR/USD',
+    side: 'short',
+    status: 'win',
+    conviction: 'medium',
+    strategyId: 'mean-reversion',
+    tradeKind: 'paper',
+    tags: ['纸面', '回归'],
+    entry: 1.085,
+    exit: 1.081,
+    size: 1,
+    pnl: 400,
+    rMultiple: 1.5,
+    openedAt: '2026-06-11',
+    closedAt: '2026-06-12',
+    note: '<p>纸面练习：均值回归做空。</p>',
   },
 ]

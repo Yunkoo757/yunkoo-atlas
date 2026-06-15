@@ -1,0 +1,59 @@
+.sh {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border-radius: var(--radius-10);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.sh-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sh-info {
+  min-width: 0;
+}
+
+.sh-name {
+  margin: 0;
+  font-size: var(--font-size-title3);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+}
+
+.sh-sub {
+  margin: 4px 0 0;
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+}
+
+.sh-stats {
+  display: flex;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+.sh-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.sh-stat-label {
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
+}
+
+.sh-stat-value {
+  font-size: var(--fs-base);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}

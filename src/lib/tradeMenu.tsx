@@ -1,29 +1,57 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Star, Ban } from 'lucide-react'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
+import { STATUS_ORDER } from '@/lib/tradeStatus'
 import type { CtxItem } from '@/components/ContextMenu'
-
-const ORDER: TradeStatus[] = ['planned', 'open', 'win', 'breakeven', 'loss']
 
 export function buildTradeCtxItems(
   trade: Trade,
   a: {
     setStatus: (id: string, s: TradeStatus) => void
+    changeStatus?: (status: TradeStatus) => void
     openComposer: (t?: Trade | null) => void
     removeTrade: (id: string) => void
+    toggleStar?: (id: string) => void
+    isStarred?: (id: string) => boolean
   },
 ): CtxItem[] {
-  return [
+  const starred = a.isStarred?.(trade.id)
+  const applyStatus = (s: TradeStatus) => {
+    if (a.changeStatus) a.changeStatus(s)
+    else a.setStatus(trade.id, s)
+  }
+  const items: CtxItem[] = [
     { type: 'label', text: '改为状态' },
-    ...ORDER.map(
+    ...STATUS_ORDER.map(
       (s): CtxItem => ({
         type: 'item',
         icon: <StatusIcon status={s} size={15} />,
         label: STATUS_META[s].label,
-        onClick: () => a.setStatus(trade.id, s),
+        onClick: () => applyStatus(s),
       }),
     ),
+  ]
+
+  if (trade.status === 'planned') {
+    items.push(
+      { type: 'divider' },
+      {
+        type: 'item',
+        icon: <Ban size={15} />,
+        label: '标记为错过',
+        onClick: () => applyStatus('missed'),
+      },
+    )
+  }
+
+  items.push(
     { type: 'divider' },
+    {
+      type: 'item',
+      icon: <Star size={15} fill={starred ? 'currentColor' : 'none'} />,
+      label: starred ? '取消收藏' : '加入收藏',
+      onClick: () => a.toggleStar?.(trade.id),
+    },
     {
       type: 'item',
       icon: <Pencil size={15} />,
@@ -39,5 +67,7 @@ export function buildTradeCtxItems(
       danger: true,
       onClick: () => a.removeTrade(trade.id),
     },
-  ]
+  )
+
+  return items
 }

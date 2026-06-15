@@ -29,7 +29,7 @@ export function Editor({
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Image.configure({ inline: false, allowBase64: true }),
+      Image.configure({ inline: false, allowBase64: false }),
       Placeholder.configure({
         placeholder: '写下这笔交易的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图',
       }),
@@ -160,19 +160,14 @@ function BBtn({
   )
 }
 
-// 把图片文件读成 base64 data URL 并插入为 image 节点。
+// 粘贴/拖入图片时使用 blob URL，持久化时由 normalizeNoteForStorage 外置为附件。
 function insertImageFile(
   view: { state: any; dispatch: (tr: any) => void },
   file: File,
 ) {
-  const reader = new FileReader()
-  reader.onload = () => {
-    const src = reader.result
-    if (typeof src !== 'string') return
-    const { schema } = view.state
-    const node = schema.nodes.image?.create({ src })
-    if (!node) return
-    view.dispatch(view.state.tr.replaceSelectionWith(node).scrollIntoView())
-  }
-  reader.readAsDataURL(file)
+  const url = URL.createObjectURL(file)
+  const { schema } = view.state
+  const node = schema.nodes.image?.create({ src: url })
+  if (!node) return
+  view.dispatch(view.state.tr.replaceSelectionWith(node).scrollIntoView())
 }

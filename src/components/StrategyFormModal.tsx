@@ -1,0 +1,169 @@
+import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
+import { X } from 'lucide-react'
+import {
+  STRATEGY_COLOR_PRESETS,
+  STRATEGY_ICON_OPTIONS,
+  type Strategy,
+  type StrategyIconId,
+  slugifyStrategyName,
+} from '@/data/strategies'
+import { DEFAULT_REVIEW_TEMPLATE_HTML } from '@/lib/reviewTemplates'
+import { StrategyIcon } from '@/components/StrategyIcon'
+import './StrategyFormModal.css'
+
+export function StrategyFormModal({
+  open,
+  initial,
+  existingNames,
+  onClose,
+  onSave,
+}: {
+  open: boolean
+  initial: Strategy | null
+  existingNames: string[]
+  onClose: () => void
+  onSave: (data: Omit<Strategy, 'id'>, id?: string) => void
+}) {
+  const [name, setName] = useState('')
+  const [icon, setIcon] = useState<StrategyIconId>('target')
+  const [color, setColor] = useState<string>(STRATEGY_COLOR_PRESETS[0])
+  const [reviewTemplateHtml, setReviewTemplateHtml] = useState('')
+
+  useEffect(() => {
+    if (open) {
+      setName(initial?.name ?? '')
+      setIcon(initial?.icon ?? 'target')
+      setColor(initial?.color ?? STRATEGY_COLOR_PRESETS[0])
+      setReviewTemplateHtml(initial?.reviewTemplateHtml ?? DEFAULT_REVIEW_TEMPLATE_HTML)
+    }
+  }, [open, initial])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  const trimmed = name.trim()
+  const nameTaken =
+    trimmed &&
+    existingNames.some(
+      (n) => n.toLowerCase() === trimmed.toLowerCase() && n !== initial?.name,
+    )
+
+  const save = () => {
+    if (!trimmed || nameTaken) return
+    onSave({ name: trimmed, icon, color, reviewTemplateHtml: reviewTemplateHtml.trim() || undefined }, initial?.id)
+    onClose()
+  }
+
+  return createPortal(
+    <div className="sfm-overlay" onMouseDown={onClose}>
+      <div className="sfm" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="sfm-head">
+          <span>{initial ? '编辑策略' : '新建策略'}</span>
+          <button className="sfm-close" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="sfm-body">
+          <label className="sfm-field">
+            <span className="sfm-label">名称</span>
+            <input
+              className="sfm-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="如 Breakout、波段趋势"
+              autoFocus
+            />
+            {nameTaken && <span className="sfm-error">名称已存在</span>}
+          </label>
+
+          <div className="sfm-field">
+            <span className="sfm-label">图标</span>
+            <div className="sfm-icon-grid">
+              {STRATEGY_ICON_OPTIONS.map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={'sfm-icon-opt' + (icon === id ? ' is-on' : '')}
+                  title={label}
+                  onClick={() => setIcon(id)}
+                  style={
+                    icon === id
+                      ? {
+                          background: `color-mix(in srgb, ${color} 24%, transparent)`,
+                          color,
+                          borderColor: color,
+                        }
+                      : undefined
+                  }
+                >
+                  <Icon size={18} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="sfm-field">
+            <span className="sfm-label">配色</span>
+            <div className="sfm-color-grid">
+              {STRATEGY_COLOR_PRESETS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={'sfm-color-opt' + (color === c ? ' is-on' : '')}
+                  style={{ background: c }}
+                  title={c}
+                  onClick={() => setColor(c)}
+                />
+              ))}
+            </div>
+            <div className="sfm-preview">
+              <StrategyIcon icon={icon} color={color} size={18} />
+              <span style={{ color }}>{trimmed || '预览'}</span>
+            </div>
+          </div>
+
+          <label className="sfm-field">
+            <span className="sfm-label">复盘结构</span>
+            <textarea
+              className="sfm-textarea"
+              value={reviewTemplateHtml}
+              onChange={(e) => setReviewTemplateHtml(e.target.value)}
+              rows={4}
+              placeholder="详情页可一键填入的复盘提纲（支持清单、引用等）"
+            />
+          </label>
+        </div>
+
+        <div className="sfm-foot">
+          <button className="sfm-btn sfm-btn-ghost" onClick={onClose}>
+            取消
+          </button>
+          <button
+            className="sfm-btn sfm-btn-primary"
+            disabled={!trimmed || !!nameTaken}
+            onClick={save}
+          >
+            {initial ? '保存' : '创建'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+export function uniqueStrategyId(name: string, existing: Strategy[]): string {
+  let base = slugifyStrategyName(name)
+  if (!existing.some((s) => s.id === base)) return base
+  let i = 2
+  while (existing.some((s) => s.id === `${base}-${i}`)) i++
+  return `${base}-${i}`
+}

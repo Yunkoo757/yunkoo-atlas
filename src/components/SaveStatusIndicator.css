@@ -1,0 +1,23 @@
+.save-status {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--radius-4);
+  white-space: nowrap;
+}
+
+.save-status--dirty {
+  color: var(--text-secondary);
+}
+
+.save-status--saving {
+  color: var(--text-secondary);
+}
+
+.save-status--saved {
+  color: var(--text-tertiary);
+}
+
+.save-status--error {
+  color: var(--color-danger, #e5484d);
+}

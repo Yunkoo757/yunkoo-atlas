@@ -6,6 +6,11 @@
   padding: 0;
 }
 
+html {
+  color-scheme: dark;
+  background: var(--bg-app);
+}
+
 html,
 body,
 #root {

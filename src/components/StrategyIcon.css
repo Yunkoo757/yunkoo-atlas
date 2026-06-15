@@ -1,0 +1,28 @@
+.strategy-icon {
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-6);
+  flex-shrink: 0;
+}
+
+.strategy-icon--nav {
+  background: none !important;
+}
+
+.strategy-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.strategy-label span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strategy-label-fallback {
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+}

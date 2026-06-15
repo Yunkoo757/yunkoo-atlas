@@ -1,0 +1,111 @@
+.tag-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px 4px;
+  align-items: center;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--fs-micro);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  padding: 2px 4px 2px 9px;
+}
+
+.tag-chip-remove {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  color: var(--text-quaternary);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.tag-chip-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.tag-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 6px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.tag-add-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.tag-input {
+  flex: 1;
+  min-width: 100px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-6);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+}
+
+.tag-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.tag-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 100px;
+}
+
+.tag-input-wrap .tag-input {
+  width: 100%;
+}
+
+.tag-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-md);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.tag-suggest-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.tag-suggest-item:hover,
+.tag-suggest-item.is-active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
