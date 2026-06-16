@@ -1,10 +1,10 @@
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react'
+import { useEditor, EditorContent, BubbleMenu, type Editor as TiptapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Bold,
   Italic,
@@ -15,7 +15,13 @@ import {
   ListChecks,
   Quote,
 } from 'lucide-react'
+import { ImageLightbox } from '@/components/ImageLightbox'
 import './Editor.css'
+
+const editorBridge = {
+  editor: null as TiptapEditor | null,
+  openLightbox: (_src: string) => {},
+}
 
 export function Editor({
   content,
@@ -24,6 +30,9 @@ export function Editor({
   content: string
   onChange: (html: string) => void
 }) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+  editorBridge.openLightbox = setLightboxSrc
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -36,32 +45,58 @@ export function Editor({
     ],
     content,
     editorProps: {
-      handlePaste(view, event) {
+      handlePaste(_view, event) {
         const items = event.clipboardData?.items
         if (!items) return false
         for (const it of Array.from(items)) {
           if (it.type.startsWith('image/')) {
             const file = it.getAsFile()
-            if (file) {
-              insertImageFile(view, file)
+            if (file && editorBridge.editor) {
+              insertImageFile(editorBridge.editor, file)
               return true
             }
           }
         }
         return false
       },
-      handleDrop(view, event) {
+      handleDrop(_view, event) {
         const files = (event as DragEvent).dataTransfer?.files
         if (files && files.length && files[0].type.startsWith('image/')) {
-          insertImageFile(view, files[0])
-          event.preventDefault()
-          return true
+          if (editorBridge.editor) {
+            insertImageFile(editorBridge.editor, files[0])
+            event.preventDefault()
+            return true
+          }
         }
         return false
+      },
+      handleDOMEvents: {
+        dblclick(_view, event) {
+          const target = event.target as HTMLElement
+          if (target.tagName !== 'IMG') return false
+          const src = target.getAttribute('src')
+          if (!src) return false
+          event.preventDefault()
+          editorBridge.openLightbox(src)
+          return true
+        },
+        click(view, event) {
+          const target = event.target as HTMLElement
+          if (!target.classList.contains('ProseMirror')) return false
+          const coords = view.posAtCoords({
+            left: event.clientX,
+            top: event.clientY,
+          })
+          if (coords) return false
+          editorBridge.editor?.chain().focus('end').run()
+          return true
+        },
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
+
+  editorBridge.editor = editor
 
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
@@ -77,6 +112,10 @@ export function Editor({
           editor={editor}
           tippyOptions={{ duration: 120 }}
           className="bubble-menu"
+          shouldShow={({ editor: ed, state }) => {
+            if (ed.isActive('image')) return false
+            return !state.selection.empty
+          }}
         >
           <BtnGroup>
             <BBtn
@@ -136,6 +175,7 @@ export function Editor({
         </BubbleMenu>
       )}
       <EditorContent editor={editor} className="editor" />
+      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </>
   )
 }
@@ -161,13 +201,13 @@ function BBtn({
 }
 
 // 粘贴/拖入图片时使用 blob URL，持久化时由 normalizeNoteForStorage 外置为附件。
-function insertImageFile(
-  view: { state: any; dispatch: (tr: any) => void },
-  file: File,
-) {
+function insertImageFile(editor: TiptapEditor, file: File) {
   const url = URL.createObjectURL(file)
-  const { schema } = view.state
-  const node = schema.nodes.image?.create({ src: url })
-  if (!node) return
-  view.dispatch(view.state.tr.replaceSelectionWith(node).scrollIntoView())
+  editor
+    .chain()
+    .focus()
+    .setImage({ src: url })
+    .createParagraphNear()
+    .focus()
+    .run()
 }
