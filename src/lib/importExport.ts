@@ -1,7 +1,8 @@
 import type { Strategy } from '@/data/strategies'
 import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind } from '@/data/trades'
-import { DEFAULT_DISPLAY, type DisplayPrefs } from '@/lib/tradeFilters'
+import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
+import { normalizeTrades } from '@/lib/tradeKind'
 import { useStore } from '@/store/useStore'
 import {
   collectAssetIdsFromNotes,
@@ -47,10 +48,9 @@ const TRADE_STATUSES: TradeStatus[] = [
   'loss',
   'breakeven',
 ]
-const TRADE_KINDS: TradeKind[] = ['live', 'paper', 'practice']
+const TRADE_KINDS: TradeKind[] = ['live', 'paper']
 const TRADE_SIDES: TradeSide[] = ['long', 'short']
 const CONVICTIONS: Conviction[] = ['low', 'medium', 'high', 'urgent']
-const SORT_BY = ['date', 'pnl', 'conviction'] as const
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -83,7 +83,13 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   if (typeof v.openedAt !== 'string') return false
   if (v.closedAt !== null && typeof v.closedAt !== 'string') return false
   if (typeof v.note !== 'string') return false
-  if (v.tradeKind !== undefined && !TRADE_KINDS.includes(v.tradeKind as TradeKind)) return false
+  if (
+    v.tradeKind !== undefined &&
+    v.tradeKind !== 'practice' &&
+    !TRADE_KINDS.includes(v.tradeKind as TradeKind)
+  ) {
+    return false
+  }
   return true
 }
 
@@ -99,18 +105,7 @@ function isStrategy(v: unknown): v is Strategy {
 
 function parseDisplay(v: unknown): DisplayPrefs {
   if (!isRecord(v)) return { ...DEFAULT_DISPLAY }
-  return {
-    hideClosed: typeof v.hideClosed === 'boolean' ? v.hideClosed : DEFAULT_DISPLAY.hideClosed,
-    showEmptyGroups:
-      typeof v.showEmptyGroups === 'boolean' ? v.showEmptyGroups : DEFAULT_DISPLAY.showEmptyGroups,
-    groupByStrategy:
-      typeof v.groupByStrategy === 'boolean' ? v.groupByStrategy : DEFAULT_DISPLAY.groupByStrategy,
-    sortBy: SORT_BY.includes(v.sortBy as (typeof SORT_BY)[number])
-      ? (v.sortBy as DisplayPrefs['sortBy'])
-      : DEFAULT_DISPLAY.sortBy,
-    groupByDate:
-      typeof v.groupByDate === 'boolean' ? v.groupByDate : DEFAULT_DISPLAY.groupByDate,
-  }
+  return normalizeDisplay(v as Partial<DisplayPrefs>)
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
@@ -232,7 +227,7 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
   }
   return {
     strategies,
-    trades: Array.from(tradeMap.values()),
+    trades: normalizeTrades(Array.from(tradeMap.values())),
     starredIds: [...new Set([...current.starredIds, ...payload.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...payload.subscribedIds])],
     pinnedStrategyIds: [
@@ -281,7 +276,10 @@ export async function importJournalArchive(): Promise<boolean> {
   if (!isElectron()) return false
   const result = await getJournalBridge()!.importJournalZip()
   if (!result.ok) return false
-  if (result.snapshot) applySnapshotToStore(result.snapshot)
+  if (result.snapshot) {
+    applySnapshotToStore(result.snapshot)
+    await flushPersistNow()
+  }
   return true
 }
 

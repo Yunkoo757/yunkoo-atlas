@@ -49,7 +49,8 @@
   height: 22px;
   border-radius: 4px;
   color: var(--text-tertiary);
-  transition: all var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .tb-seg.is-on {
   background: var(--bg-hover);

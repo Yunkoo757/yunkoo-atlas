@@ -17,7 +17,9 @@ export function IconButton({
   return (
     <button
       className={'icon-btn' + (active ? ' is-active' : '')}
+      type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
     >
       {children}

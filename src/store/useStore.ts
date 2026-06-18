@@ -9,6 +9,7 @@ import {
 import { type Strategy } from '@/data/strategies'
 import {
   DEFAULT_DISPLAY,
+  normalizeDisplay,
   type DisplayPrefs,
 } from '@/lib/tradeFilters'
 import type { ExportPayload } from '@/lib/importExport'
@@ -167,16 +168,34 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => ({
           trades: s.trades.map((t) => {
             if (t.id !== id || t.note === note) return t
-            const updated = { ...t, note }
-            return appendActivity(updated, {
+            const now = new Date().toISOString()
+            const activities = [...(t.activities ?? [])]
+            const last = activities[activities.length - 1]
+            if (last?.kind === 'note') {
+              activities[activities.length - 1] = { ...last, timestamp: now }
+              return { ...t, note, activities }
+            }
+            return appendActivity({ ...t, note }, {
               kind: 'note',
-              timestamp: new Date().toISOString(),
+              timestamp: now,
             })
           }),
         })),
       updateTradeData: (id, patch) =>
         set((s) => ({
-          trades: s.trades.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+          trades: s.trades.map((t) => {
+            if (t.id !== id) return t
+            const updated = { ...t, ...patch }
+            if (patch.tradeKind && patch.tradeKind !== t.tradeKind) {
+              return appendActivity(updated, {
+                kind: 'tradeKind',
+                timestamp: new Date().toISOString(),
+                fromTradeKind: t.tradeKind,
+                toTradeKind: patch.tradeKind,
+              })
+            }
+            return updated
+          }),
         })),
       addComment: (id, text) => {
         const trimmed = text.trim()
@@ -235,7 +254,7 @@ export const useStore = create<State>()((set, get) => ({
             : [...s.pinnedStrategyIds, id],
         })),
       setDisplay: (patch) =>
-        set((s) => ({ display: { ...s.display, ...patch } })),
+        set((s) => ({ display: normalizeDisplay({ ...s.display, ...patch }) })),
       addStrategy: (strategy) =>
         set((s) => {
           if (s.strategies.some((x) => x.id === strategy.id || x.name === strategy.name)) {

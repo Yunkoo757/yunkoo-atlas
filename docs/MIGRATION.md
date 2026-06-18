@@ -1,0 +1,286 @@
+# Linear Journal — 环境迁移与依赖说明
+
+> 用于在新电脑上克隆、安装依赖并正常运行本项目。  
+> 最后更新：2026-06-16
+
+---
+
+## 1. 项目简介
+
+| 项 | 说明 |
+|---|---|
+| 包名 | `linear-journal` |
+| 类型 | React 单页应用 + 可选 Electron 桌面壳 |
+| 包管理器 | **pnpm**（仓库含 `pnpm-lock.yaml`，请勿改用 npm/yarn） |
+| Web 开发端口 | `http://localhost:5180` |
+| 数据存储 | 浏览器 **IndexedDB**（Web）/ 本地库目录（Electron） |
+
+---
+
+## 2. 系统环境要求
+
+### 2.1 必需
+
+| 软件 | 推荐版本 | 说明 |
+|------|----------|------|
+| **Node.js** | 20 LTS 或 22 LTS | 当前开发机：v22.22.0；需 ≥ 18 |
+| **pnpm** | 9.x | 当前开发机：10.5.2；安装：`npm install -g pnpm` |
+| **Git** | 任意较新版本 | 用于克隆仓库 |
+
+### 2.2 可选（按使用场景）
+
+| 软件 | 何时需要 |
+|------|----------|
+| **Visual Studio Build Tools**（Windows） | 仅当 `sharp` 等原生模块安装失败时；一般 pnpm 会拉预编译包 |
+| **Playwright 浏览器** | 跑 `pnpm qa` 时；首次可执行 `pnpm exec playwright install chromium` |
+
+### 2.3 操作系统
+
+- **Windows 10/11**：主要开发与测试环境
+- **macOS / Linux**：Web 版通常可跑；Electron 桌面版未在本文环境逐项验证
+
+---
+
+## 3. 新电脑快速上手（5 步）
+
+```powershell
+# 1. 克隆（或拷贝整个项目目录，见第 8 节）
+git clone <你的仓库地址> Linear
+cd Linear
+
+# 2. 安装依赖（必须用 pnpm）
+pnpm install
+
+# 3. 类型检查
+pnpm exec tsc -b
+
+# 4. 启动 Web 开发服
+pnpm dev
+# 浏览器打开 http://localhost:5180
+
+# 5. （可选）Electron 桌面开发
+pnpm dev:electron
+```
+
+**不要拷贝 `node_modules/`**，在新机器上执行 `pnpm install` 重新安装。
+
+---
+
+## 4. npm 脚本一览
+
+| 命令 | 作用 |
+|------|------|
+| `pnpm dev` | Web 开发（Vite + IndexedDB） |
+| `pnpm dev:electron` | Electron 联调（`ELECTRON=1`） |
+| `pnpm build` | Web 生产构建（`tsc -b` + `vite build`） |
+| `pnpm build:app` | Electron 构建 + 复制 `sql-wasm.wasm` |
+| `pnpm preview` | 预览 Web 构建结果 |
+| `pnpm qa` | Web 自动化 QA（需另开终端跑 dev） |
+| `pnpm qa:core` | Web QA 核心用例 |
+| `pnpm qa:image` | Web QA 图片用例 |
+| `pnpm qa:electron` | Electron headless QA（需先 `build:app`） |
+
+---
+
+## 5. 生产依赖（dependencies）
+
+安装后位于 `node_modules/`，**无需手动安装**。
+
+| 包名 | 版本约束 | 用途 |
+|------|----------|------|
+| `react` | ^18.3.1 | UI 框架 |
+| `react-dom` | ^18.3.1 | React DOM |
+| `react-router-dom` | ^6.26.2 | 路由 |
+| `zustand` | ^4.5.5 | 全局状态 |
+| `@tiptap/react` | ^2.8.0 | 富文本编辑器 |
+| `@tiptap/starter-kit` | ^2.8.0 | 编辑器基础扩展 |
+| `@tiptap/extension-bubble-menu` | ^2.8.0 | 浮动格式菜单 |
+| `@tiptap/extension-image` | ^2.8.0 | 图片 |
+| `@tiptap/extension-placeholder` | ^2.8.0 | 占位符 |
+| `@tiptap/extension-task-list` | ^2.8.0 | 任务列表 |
+| `@tiptap/extension-task-item` | ^2.8.0 | 任务项 |
+| `lucide-react` | ^0.451.0 | 图标 |
+| `recharts` | ^2.12.7 | 仪表盘图表 |
+| `clsx` | ^2.1.1 | className 工具 |
+| `@fontsource-variable/inter` | ^5.2.8 | 界面字体 |
+| `@fontsource/jetbrains-mono` | ^5.2.8 | 等宽字体 |
+| `sql.js` | ^1.14.1 | Electron 端 SQLite（WASM） |
+| `sharp` | ^0.35.1 | Electron 端图片压缩/WebP |
+| `archiver` | ^8.0.0 | `.journal.zip` 打包 |
+| `extract-zip` | ^2.0.1 | zip 解压 |
+
+---
+
+## 6. 开发依赖（devDependencies）
+
+| 包名 | 版本约束 | 用途 |
+|------|----------|------|
+| `vite` | ^5.4.8 | 构建与开发服务器 |
+| `@vitejs/plugin-react` | ^4.3.2 | React 支持 |
+| `typescript` | ^5.6.2 | 类型检查 |
+| `@types/react` | ^18.3.11 | React 类型 |
+| `@types/react-dom` | ^18.3.0 | React DOM 类型 |
+| `electron` | ^42.4.0 | 桌面壳（体积大，首次 install 较慢） |
+| `vite-plugin-electron` | ^1.0.4 | Electron 集成 |
+| `vite-plugin-electron-renderer` | ^1.0.0 | 渲染进程配置 |
+| `cross-env` | ^10.1.0 | 跨平台环境变量 |
+| `playwright` | ^1.60.0 | Web QA |
+| `puppeteer-core` | ^25.1.0 | 部分脚本/检查 |
+| `chrome-remote-interface` | ^0.34.0 | CDP 调试 |
+| `@types/archiver` | ^8.0.0 | archiver 类型 |
+| `@types/extract-zip` | ^2.0.3 | extract-zip 类型 |
+
+---
+
+## 7. 构建与运行时配置
+
+### 7.1 Vite（`vite.config.ts`）
+
+- 路径别名：`@` → `src/`
+- 开发端口：**5180**
+- Electron 模式：`ELECTRON=1` 时启用 `vite-plugin-electron`，`base: './'`
+
+### 7.2 TypeScript（`tsconfig.json`）
+
+- 目标：ES2020
+- 严格模式：`strict: true`
+- 仅检查 `src/`（Electron 由 Vite 单独编译）
+
+### 7.3 环境变量
+
+| 变量 | 用途 |
+|------|------|
+| `ELECTRON=1` | 以 Electron 模式启动 Vite |
+| `LINEAR_JOURNAL_LIBRARY` | 覆盖桌面版数据库目录 |
+| `LINEAR_JOURNAL_QA=1` | Electron QA 模式（跑完退出） |
+| `QA_BASE_URL` | Web QA 目标地址（默认常为 `http://localhost:5181`，注意与 dev 端口 5180 区分） |
+| `VITE_DEV_SERVER_URL` | Electron dev 加载的 Vite 地址 |
+
+### 7.4 Electron 数据目录（桌面版）
+
+默认路径：
+
+```
+%USERPROFILE%\Documents\Linear Journal\
+├── manifest.json
+├── journal.db
+├── attachments\
+└── backups\
+```
+
+可通过环境变量 `LINEAR_JOURNAL_LIBRARY` 指向其他目录。
+
+---
+
+## 8. 迁移时要带什么、不要带什么
+
+### 8.1 代码仓库
+
+```text
+✅ 必须带：整个 Git 仓库（或至少以下文件）
+   - package.json
+   - pnpm-lock.yaml
+   - pnpm-workspace.yaml
+   - src/
+   - electron/
+   - index.html
+   - vite.config.ts
+   - tsconfig.json
+   - scripts/
+
+❌ 不要依赖拷贝：
+   - node_modules/      （在新机器 pnpm install）
+   - dist/              （构建产物）
+   - dist-electron/     （Electron 构建产物）
+   - .vite/
+   - tsconfig.tsbuildinfo
+```
+
+### 8.2 用户数据（交易记录）
+
+**Web 版（IndexedDB）** — 数据在浏览器里，换电脑不会自动跟过来：
+
+1. 旧电脑：打开应用 → **设置 → 数据** → **导出 JSON**
+2. 新电脑：安装并启动后 → **设置 → 数据** → **导入 JSON**
+
+**Electron 桌面版** — 数据在本地文件夹：
+
+1. 复制整个 `Documents\Linear Journal` 目录到新电脑相同位置，或
+2. 使用应用内导出 `.journal.zip` / JSON，在新电脑导入
+
+**旧版 localStorage**：若曾用极早版本，首次启动会自动从 key `linear-journal` 迁入 IndexedDB。
+
+---
+
+## 9. 常见问题排查
+
+### 9.1 浏览器打不开 / `ERR_CONNECTION_REFUSED`
+
+- 原因：开发服务器未启动
+- 处理：在项目根目录执行 `pnpm dev`，确认终端出现 `http://localhost:5180/`
+
+### 9.2 页面黑屏
+
+常见原因与处理：
+
+| 原因 | 处理 |
+|------|------|
+| dev 未启动 | 见 9.1 |
+| 旧数据字段缺失导致 JS 报错 | 硬刷新 `Ctrl+Shift+R`；或设置里导出后重新导入 |
+| 控制台有红色报错 | F12 → Console，根据报错修复或反馈 |
+
+### 9.3 `pnpm install` 失败
+
+| 现象 | 建议 |
+|------|------|
+| `sharp` 安装失败 | 确认 Node 版本 ≥ 18；Windows 可装 [VS Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) 后重试 |
+| `electron` 下载慢/失败 | 配置镜像或代理；多试几次 `pnpm install` |
+| 用了 npm/yarn | 删除 `node_modules`，改用 **pnpm install** |
+
+### 9.4 端口 5180 被占用
+
+修改 `vite.config.ts` 中 `server.port`，或关闭占用该端口的进程。
+
+### 9.5 文件编码
+
+- 所有源码为 **UTF-8（无 BOM）**
+- 含中文的文件不要用 GBK/ANSI 保存，否则可能乱码或构建异常
+
+---
+
+## 10. 技术栈速查
+
+```
+React 18 + TypeScript 5
+Vite 5
+Zustand（状态，IndexedDB/Electron 持久化）
+React Router 6
+TipTap 2（复盘笔记）
+Recharts（仪表盘）
+Lucide React（图标）
+
+Web 存储：IndexedDB（src/storage/indexedDbAdapter.ts）
+Electron：sql.js + sharp + 本地文件（electron/library/）
+```
+
+---
+
+## 11. 相关文档
+
+- 开发交接与架构细节：`docs/DEVELOPMENT.md`
+- 编码规范：`CLAUDE.md`（UTF-8、中文回复等）
+
+---
+
+## 12. 迁移检查清单
+
+在新电脑上按顺序打勾：
+
+- [ ] 已安装 Node.js（≥ 18，推荐 20/22 LTS）
+- [ ] 已安装 pnpm（`pnpm -v` 有输出）
+- [ ] 已克隆/拷贝项目且包含 `pnpm-lock.yaml`
+- [ ] 已执行 `pnpm install` 无报错
+- [ ] 已执行 `pnpm exec tsc -b` 无报错
+- [ ] `pnpm dev` 后 `http://localhost:5180` 可打开
+- [ ] （如需旧数据）已导入 JSON 或复制 Electron 库目录
+- [ ] （可选）`pnpm dev:electron` 桌面版可启动

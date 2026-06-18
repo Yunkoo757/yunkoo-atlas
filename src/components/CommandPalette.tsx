@@ -8,23 +8,23 @@ import {
   Plus,
   CornerDownLeft,
   Search,
-  Inbox,
   Star,
-  Target,
   Settings2,
   Tag,
   HardDriveDownload,
   Ban,
   Calendar,
-  FileEdit,
-  GraduationCap,
+  FlaskConical,
+  CircleDot,
 } from 'lucide-react'
 import { tradeDetailPath } from '@/lib/tradeRoute'
-import { getStrategyName } from '@/lib/strategies'
+import { getStrategyName, countTradesByStrategy, sortStrategies } from '@/lib/strategies'
+import { StrategyIcon } from '@/components/StrategyIcon'
 import { collectAllTags } from '@/lib/tags'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
+import { getShortcutHint } from '@/shortcuts/ShortcutHost'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import './CommandPalette.css'
 
@@ -41,11 +41,9 @@ interface Cmd {
 export function CommandPalette({
   open,
   onClose,
-  onOpenDataIO,
 }: {
   open: boolean
   onClose: () => void
-  onOpenDataIO?: () => void
 }) {
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
@@ -61,36 +59,49 @@ export function CommandPalette({
       navigate(to)
       onClose()
     }
-    const nav: Cmd[] = [
-      { id: 'n-inbox', group: '导航', icon: <Inbox size={16} />, label: '收件箱', run: go('/inbox') },
-      { id: 'n-mine', group: '导航', icon: <Target size={16} />, label: '我的交易', run: go('/my-trades') },
-      { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', run: go('/favorites') },
-      { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', run: go('/missed') },
-      { id: 'n-paper', group: '导航', icon: <FileEdit size={16} />, label: '纸面', run: go('/paper') },
-      { id: 'n-practice', group: '导航', icon: <GraduationCap size={16} />, label: '练习复盘', run: go('/practice') },
-      ...CALENDAR_PERIODS.map((slug) => ({
-        id: 'n-period-' + slug,
-        group: '时间',
-        icon: <Calendar size={16} />,
-        label: PERIOD_LABELS[slug],
-        keywords: `period ${slug}`,
-        run: go(`/period/${slug}`),
-      })),
-      { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '交易列表', run: go('/list') },
+    const viewNav: Cmd[] = [
+      { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '全部交易', hint: '实盘', run: go('/list') },
+      { id: 'n-active', group: '导航', icon: <CircleDot size={16} />, label: '进行中', hint: '计划 + 持仓', run: go('/active') },
       { id: 'n-board', group: '导航', icon: <LayoutGrid size={16} />, label: '看板', run: go('/board') },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', run: go('/dashboard') },
-      { id: 'n-strat', group: '导航', icon: <Settings2 size={16} />, label: '管理策略', run: go('/strategies') },
+      { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', run: go('/favorites') },
+      { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', run: go('/missed') },
+      { id: 'n-sim', group: '导航', icon: <FlaskConical size={16} />, label: '模拟回测', run: go('/sim') },
     ]
-    const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: 'C', run: () => { onClose(); openComposer() } },
+    const periodNav: Cmd[] = CALENDAR_PERIODS.map((slug) => ({
+      id: 'n-period-' + slug,
+      group: '时间',
+      icon: <Calendar size={16} />,
+      label: PERIOD_LABELS[slug],
+      keywords: `period ${slug}`,
+      run: go(`/period/${slug}`),
+    }))
+    const strategyNav: Cmd[] = sortStrategies(strategies, []).map((s) => {
+      const count = countTradesByStrategy(trades, s.id)
+      return {
+        id: 'strat-' + s.id,
+        group: '策略',
+        icon: <StrategyIcon icon={s.icon} color={s.color} size={16} variant="nav" />,
+        label: s.name,
+        hint: `${count} 笔交易`,
+        keywords: `strategy ${s.name}`,
+        run: go(`/strategy/${s.id}`),
+      }
+    })
+    const settingsNav: Cmd[] = [
+      { id: 'n-strat', group: '设置', icon: <Settings2 size={16} />, label: '编辑策略', run: go('/settings/strategies') },
+      { id: 'n-settings', group: '设置', icon: <Settings2 size={16} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
       {
         id: 'a-io',
-        group: '操作',
+        group: '设置',
         icon: <HardDriveDownload size={16} />,
         label: '导入/导出数据',
         keywords: '备份 恢复 backup export import',
-        run: () => { onClose(); onOpenDataIO?.() },
+        run: () => { onClose(); navigate('/settings/data') },
       },
+    ]
+    const actions: Cmd[] = [
+      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: getShortcutHint('global.newTrade') ?? 'C', run: () => { onClose(); openComposer() } },
     ]
     const tradeCmds: Cmd[] = trades.map((t) => {
       const stratName = getStrategyName(strategies, t.strategyId)
@@ -116,8 +127,8 @@ export function CommandPalette({
         run: first ? go(tradeDetailPath(first)) : () => {},
       }
     })
-    return [...nav, ...actions, ...tagCmds, ...tradeCmds]
-  }, [trades, strategies, navigate, onClose, openComposer, onOpenDataIO])
+    return [...viewNav, ...periodNav, ...strategyNav, ...settingsNav, ...actions, ...tagCmds, ...tradeCmds]
+  }, [trades, strategies, navigate, onClose, openComposer])
 
   const filtered = useMemo(() => {
     if (!q.trim()) return commands

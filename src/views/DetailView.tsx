@@ -37,7 +37,7 @@ import {
 } from '@/data/trades'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
-import { getTradeActivities } from '@/lib/activities'
+import { getTradeActivities, type DisplayActivityEvent } from '@/lib/activities'
 import { findTradeByRouteParam, tradeDetailPath } from '@/lib/tradeRoute'
 import { collectAllTags } from '@/lib/tags'
 import { toast } from '@/lib/toast'
@@ -49,9 +49,11 @@ import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import './DetailView.css'
 
+const FEED_VISIBLE = 8
+
 const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
-const KIND_OPTS: TradeKind[] = ['live', 'paper', 'practice']
+const KIND_OPTS: TradeKind[] = ['live', 'paper']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 
 export function DetailView() {
@@ -81,7 +83,16 @@ export function DetailView() {
   const subscribedIds = useStore((s) => s.subscribedIds)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
+  const [feedExpanded, setFeedExpanded] = useState(false)
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const commentRef = useRef<HTMLTextAreaElement>(null)
+
+  const adjustCommentHeight = useCallback(() => {
+    const el = commentRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [])
 
   useEffect(() => {
     if (!trade || !routeParam || routeParam === trade.ref) return
@@ -131,20 +142,32 @@ export function DetailView() {
   const subscribed = trade ? subscribedIds.includes(trade.id) : false
   const allTags = useMemo(() => collectAllTags(trades), [trades])
 
+  useEffect(() => {
+    setFeedExpanded(false)
+  }, [trade?.id])
+
   const feedItems = useMemo(() => {
     if (!trade) return []
-    return getTradeActivities(trade).map((event) => ({
+    const all = getTradeActivities(trade).map((event) => ({
       event,
       node: renderActivity(event, strategies),
     }))
-  }, [trade, strategies])
+    if (feedExpanded || all.length <= FEED_VISIBLE) return all
+    return all.slice(-FEED_VISIBLE)
+  }, [trade, strategies, feedExpanded])
+
+  const feedHiddenCount = useMemo(() => {
+    if (!trade) return 0
+    const total = getTradeActivities(trade).length
+    return feedExpanded || total <= FEED_VISIBLE ? 0 : total - FEED_VISIBLE
+  }, [trade, feedExpanded])
 
   if (!trade) {
     return (
       <>
         <header className="dv-topbar">
           <div className="dv-tb-left">
-            <Link to="/list" className="dv-back">
+            <Link to="/list" className="dv-back" aria-label="返回列表">
               <ChevronLeft size={16} />
             </Link>
             <span className="dv-crumb">交易</span>
@@ -179,6 +202,10 @@ export function DetailView() {
     if (!comment.trim()) return
     addComment(trade.id, comment)
     setComment('')
+    requestAnimationFrame(() => {
+      const el = commentRef.current
+      if (el) el.style.height = 'auto'
+    })
     toast('评论已发布')
   }
 
@@ -193,7 +220,7 @@ export function DetailView() {
     <>
       <header className="dv-topbar">
         <div className="dv-tb-left">
-          <Link to="/list" className="dv-back">
+          <Link to="/list" className="dv-back" aria-label="返回列表">
             <ChevronLeft size={16} />
           </Link>
           <span className="dv-crumb">交易</span>
@@ -279,6 +306,15 @@ export function DetailView() {
             />
 
             <section className="dv-activity">
+              {feedHiddenCount > 0 && (
+                <button
+                  type="button"
+                  className="dv-feed-more"
+                  onClick={() => setFeedExpanded(true)}
+                >
+                  展开更早的 {feedHiddenCount} 条
+                </button>
+              )}
               <ul className="dv-feed">
                 {feedItems.map(({ event, node }) => (
                   <FeedItem
@@ -303,10 +339,14 @@ export function DetailView() {
                 <div className="dv-comment-avatar">Y</div>
                 <div className="dv-comment-box">
                   <textarea
+                    ref={commentRef}
                     className="dv-comment-input"
                     placeholder="留下复盘评论…"
                     value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    onChange={(e) => {
+                      setComment(e.target.value)
+                      adjustCommentHeight()
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault()
@@ -515,7 +555,7 @@ export function DetailView() {
                 </button>
               }
             />
-            <Link to="/strategies" className="dv-strategy-manage">
+            <Link to="/settings/strategies" className="dv-strategy-manage">
               管理策略…
             </Link>
           </Section>
@@ -699,7 +739,7 @@ function DataRow({
 }
 
 function renderActivity(
-  event: ActivityEvent,
+  event: DisplayActivityEvent,
   strategies: Strategy[],
 ): React.ReactNode {
   const time = fmtDateTime(event.timestamp)
@@ -738,12 +778,15 @@ function renderActivity(
           你 <b>评论</b>：{event.text} · {time}
         </>
       )
-    case 'note':
+    case 'note': {
+      const edits = event.noteEditCount ?? 1
       return (
         <>
-          你 <b>更新了复盘笔记</b> · {time}
+          你 <b>更新了复盘笔记</b>
+          {edits > 1 ? `（${edits} 次）` : ''} · {time}
         </>
       )
+    }
     default:
       return null
   }

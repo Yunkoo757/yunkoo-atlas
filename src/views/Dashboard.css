@@ -208,3 +208,34 @@ a.db-strat:hover {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+@media (max-width: 1200px) {
+  .db-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  a.db-strat {
+    grid-template-columns: 1fr auto;
+    gap: 10px 16px;
+  }
+  .db-strat-bar {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .db-scroll {
+    padding: 16px;
+  }
+  .db-cards {
+    grid-template-columns: 1fr;
+  }
+  a.db-strat {
+    grid-template-columns: 1fr;
+  }
+  .db-strat-pnl {
+    text-align: left;
+  }
+}

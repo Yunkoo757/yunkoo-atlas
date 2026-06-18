@@ -66,7 +66,7 @@
 .dv-main-inner {
   max-width: 896px;
   margin: 0 auto;
-  padding: 32px 60px 80px;
+  padding: 32px 60px 48px;
   animation: fadeIn 0.3s var(--ease-out) both;
 }
 .dv-title {
@@ -86,12 +86,24 @@
   margin-top: 36px;
   padding-top: 24px;
   border-top: 1px solid var(--border-subtle);
+  width: 100%;
+  min-width: 0;
+}
+.dv-feed-more {
+  display: block;
+  margin-bottom: 12px;
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+  padding: 0;
+}
+.dv-feed-more:hover {
+  color: var(--text-secondary);
 }
 .dv-feed {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   margin-bottom: 20px;
 }
 .dv-feed-item {
@@ -161,6 +173,8 @@
   display: flex;
   gap: 10px;
   align-items: flex-start;
+  width: 100%;
+  min-width: 0;
 }
 .dv-comment-avatar {
   width: 24px;
@@ -176,25 +190,31 @@
 }
 .dv-comment-box {
   flex: 1;
+  min-width: 0;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-8);
   background: var(--bg-elevated);
   transition: border-color var(--dur-base) var(--ease-out);
+  overflow: hidden;
 }
 .dv-comment-box:focus-within {
   border-color: var(--border-strong);
 }
 .dv-comment-input {
+  display: block;
   width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 160px;
   background: none;
   border: none;
-  outline: none;
   resize: none;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--fs-base);
   line-height: 1.5;
   padding: 9px 12px 4px;
+  overflow-y: auto;
 }
 .dv-comment-input::placeholder {
   color: var(--text-quaternary);
@@ -356,10 +376,29 @@
   font-family: var(--font-ui);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-  outline: none;
   text-align: right;
 }
 
+@media (max-width: 1080px) {
+  .dv-body {
+    flex-direction: column;
+  }
+  .dv-props {
+    width: 100%;
+    flex-shrink: 0;
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+    max-height: min(360px, 42vh);
+    padding-bottom: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dv-main-inner {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
 .dv-tags-row {
   display: flex;
   flex-wrap: wrap;

@@ -56,9 +56,23 @@ button {
   color: inherit;
 }
 
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
 a {
   color: inherit;
   text-decoration: none;
+}
+
+a.lv-row:visited .lv-title {
+  color: color-mix(in srgb, var(--text-secondary) 82%, var(--text-quaternary) 18%);
 }
 
 /* ===== 全局微动效关键帧 ===== */
@@ -109,4 +123,9 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* 全屏看图时禁止背后页面接收点击 */
+body.img-lightbox-open .app-shell {
+  pointer-events: none;
 }

@@ -7,7 +7,7 @@ import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { StrategyIcon, StrategyLabel } from '@/components/StrategyIcon'
-import { getStrategyName, sortStrategies } from '@/lib/strategies'
+import { getStrategyName } from '@/lib/strategies'
 import { useStore } from '@/store/useStore'
 import type { Strategy } from '@/data/strategies'
 import { tradeDetailPath } from '@/lib/tradeRoute'
@@ -22,6 +22,7 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus, toggleTradeDone } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isRowDone } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
+import { useListContextSync } from '@/shortcuts/useListContextSync'
 import './ListView.css'
 
 export function ListView({
@@ -39,10 +40,9 @@ export function ListView({
 }) {
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
-  const pinnedStrategyIds = useStore((s) => s.pinnedStrategyIds)
   const sortedStrategies = useMemo(
-    () => sortStrategies(strategies, pinnedStrategyIds),
-    [strategies, pinnedStrategyIds],
+    () => [...strategies].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN')),
+    [strategies],
   )
   const display = useStore((s) => s.display)
   const starredIds = useStore((s) => s.starredIds)
@@ -59,6 +59,8 @@ export function ListView({
     setStatus,
     toast,
   }
+
+  useListContextSync(filter)
 
   const visible = useMemo(() => {
     const filtered = filterTrades(trades, filter, starredIds)
@@ -141,11 +143,9 @@ export function ListView({
   let rowIndex = 0
 
   const emptyHint =
-    filter.type === 'inbox'
-      ? '收件箱为空：没有计划中或持仓中的交易。'
-      : filter.type === 'mine'
-        ? '暂无进行中的交易（计划中或持仓中）。'
-        : filter.type === 'starred'
+    filter.type === 'active'
+      ? '暂无进行中的交易（计划中或持仓中）。'
+      : filter.type === 'starred'
           ? '还没有星标交易，在详情页点击星标即可添加。'
           : filter.type === 'strategy'
             ? `「${getStrategyName(strategies, filter.strategyId)}」策略下暂无交易。`

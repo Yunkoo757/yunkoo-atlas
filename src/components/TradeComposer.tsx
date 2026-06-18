@@ -28,12 +28,18 @@ import './TradeComposer.css'
 
 const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
-const KIND_OPTS: TradeKind[] = ['live', 'paper', 'practice']
+const KIND_OPTS: TradeKind[] = ['live', 'paper']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 
 function defaultKindFromPath(pathname: string): TradeKind {
-  if (pathname.startsWith('/paper')) return 'paper'
-  if (pathname.startsWith('/practice')) return 'practice'
+  // /paper and /practice are legacy routes that redirect to /sim (kept for backward compat)
+  if (
+    pathname.startsWith('/sim') ||
+    pathname.startsWith('/paper') ||
+    pathname.startsWith('/practice')
+  ) {
+    return 'paper'
+  }
   return 'live'
 }
 

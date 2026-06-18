@@ -1,0 +1,27 @@
+.display-settings-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: var(--bg-surface);
+  padding: 8px;
+  max-width: 400px;
+}
+
+.display-settings-card + .display-settings-card {
+  margin-top: 16px;
+}
+
+.display-settings-hint {
+  padding: 0 10px 8px;
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+.display-settings-card .display-toggle,
+.display-settings-card .display-item {
+  width: 100%;
+}
+
+.display-settings-card .display-label {
+  padding: 8px 10px 4px;
+}

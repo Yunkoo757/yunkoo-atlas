@@ -8,7 +8,7 @@ export type TradeStatus =
   | 'loss' // 已平 - 亏损（像 Canceled）
   | 'breakeven' // 已平 - 保本
 
-export type TradeKind = 'live' | 'paper' | 'practice'
+export type TradeKind = 'live' | 'paper'
 
 export type MissReason =
   | 'hesitation'
@@ -34,6 +34,7 @@ export type ActivityKind =
   | 'tag'
   | 'comment'
   | 'note'
+  | 'tradeKind'
 
 export interface ActivityEvent {
   id: string
@@ -46,6 +47,8 @@ export interface ActivityEvent {
   tagAction?: 'add' | 'remove'
   commentId?: string
   text?: string
+  fromTradeKind?: TradeKind
+  toTradeKind?: TradeKind
 }
 
 export interface Trade {
@@ -86,8 +89,7 @@ export const STATUS_META: Record<
 
 export const TRADE_KIND_META: Record<TradeKind, { label: string }> = {
   live: { label: '实盘' },
-  paper: { label: '纸面' },
-  practice: { label: '练习' },
+  paper: { label: '模拟' },
 }
 
 export const MISS_REASON_META: Record<MissReason, { label: string }> = {

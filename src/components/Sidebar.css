@@ -167,6 +167,32 @@
   color: var(--text-secondary);
 }
 
-.sb-item .strategy-icon {
-  flex-shrink: 0;
+.sb-section-grow {
+  flex: 1;
+  min-height: 0;
+}
+
+.sb-spacer {
+  flex: 1;
+  min-height: 0;
+}
+
+.sb-group-label-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sb-group-label.is-active-group {
+  color: var(--text-secondary);
+}
+
+.sb-footer {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sb-settings {
+  color: var(--text-tertiary);
 }

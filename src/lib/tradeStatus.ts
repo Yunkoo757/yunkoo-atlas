@@ -10,7 +10,7 @@ export const STATUS_ORDER: TradeStatus[] = [
   'loss',
 ]
 
-/** 收件箱：仍可执行 */
+/** 进行中：计划中或持仓中 */
 export function isActive(status: TradeStatus): boolean {
   return status === 'planned' || status === 'open'
 }

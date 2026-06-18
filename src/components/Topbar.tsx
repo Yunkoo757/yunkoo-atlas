@@ -27,15 +27,21 @@ export function Topbar({
       <div className="tb-right">
         {showSaveStatus && <SaveStatusIndicator />}
         {onView && (
-          <div className="tb-segmented">
+          <div className="tb-segmented" role="group" aria-label="视图切换">
             <button
+              type="button"
               className={'tb-seg' + (view === 'list' ? ' is-on' : '')}
+              aria-label="列表视图"
+              aria-pressed={view === 'list'}
               onClick={() => onView('list')}
             >
               <List size={15} />
             </button>
             <button
+              type="button"
               className={'tb-seg' + (view === 'board' ? ' is-on' : '')}
+              aria-label="看板视图"
+              aria-pressed={view === 'board'}
               onClick={() => onView('board')}
             >
               <LayoutGrid size={15} />

@@ -70,7 +70,6 @@
   font-size: var(--fs-sm);
 }
 .sfm-input:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -88,7 +87,6 @@
 }
 
 .sfm-textarea:focus {
-  outline: none;
   border-color: var(--accent);
 }
 

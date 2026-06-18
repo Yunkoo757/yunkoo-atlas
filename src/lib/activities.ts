@@ -62,11 +62,38 @@ export function synthesizeActivities(trade: Trade): ActivityEvent[] {
 export function getTradeActivities(trade: Trade): ActivityEvent[] {
   if (trade.activities?.length) {
     const commentIds = new Set((trade.comments ?? []).map((c) => c.id))
-    return [...trade.activities]
+    const sorted = [...trade.activities]
       .filter((a) => a.kind !== 'comment' || !a.commentId || commentIds.has(a.commentId))
       .sort((a, b) => +new Date(a.timestamp) - +new Date(b.timestamp))
+    return compressActivitiesForDisplay(sorted)
   }
   return synthesizeActivities(trade)
+}
+
+/** 展示用：合并连续的笔记更新，避免自动保存刷屏 */
+export type DisplayActivityEvent = ActivityEvent & { noteEditCount?: number }
+
+export function compressActivitiesForDisplay(
+  events: ActivityEvent[],
+): DisplayActivityEvent[] {
+  const out: DisplayActivityEvent[] = []
+  for (const e of events) {
+    if (e.kind === 'note') {
+      const prev = out[out.length - 1]
+      if (prev?.kind === 'note') {
+        out[out.length - 1] = {
+          ...prev,
+          timestamp: e.timestamp,
+          noteEditCount: (prev.noteEditCount ?? 1) + 1,
+        }
+        continue
+      }
+      out.push({ ...e, noteEditCount: 1 })
+      continue
+    }
+    out.push(e)
+  }
+  return out
 }
 
 export function createActivity(trade: Trade): Trade {

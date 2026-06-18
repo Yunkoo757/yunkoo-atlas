@@ -6,9 +6,12 @@ import {
   migrateFromLocalStorageIfNeeded,
 } from '@/storage/migrate'
 import { pickPersisted, schedulePersist } from '@/storage/persist'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { isElectron } from '@/storage/runtime'
 import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
+import { normalizeDisplay } from '@/lib/tradeFilters'
+import { normalizeTrades } from '@/lib/tradeKind'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
@@ -37,13 +40,14 @@ export async function bootstrapStorage(): Promise<void> {
   const snapshot = await adapter.loadSnapshot()
   if (snapshot) {
     useStore.setState({
-      trades: snapshot.trades,
+      trades: normalizeTrades(snapshot.trades),
       strategies: snapshot.strategies,
       starredIds: snapshot.starredIds,
       subscribedIds: snapshot.subscribedIds,
       pinnedStrategyIds: snapshot.pinnedStrategyIds,
-      display: snapshot.display,
+      display: normalizeDisplay(snapshot.display),
     })
+    useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
   }
 
   hydrated = true
@@ -51,6 +55,12 @@ export async function bootstrapStorage(): Promise<void> {
 
   useStore.subscribe((state) => {
     if (!hydrated) return
-    schedulePersist(pickPersisted(state))
+    schedulePersist(pickPersisted(state, useShortcutStore.getState().bindings))
+  })
+
+  useShortcutStore.subscribe((state, prev) => {
+    if (!hydrated) return
+    if (state.bindings === prev.bindings) return
+    schedulePersist(pickPersisted(useStore.getState(), state.bindings))
   })
 }

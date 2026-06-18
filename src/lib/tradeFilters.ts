@@ -2,11 +2,12 @@ import type { Trade, TradeKind, Conviction } from '@/data/trades'
 import type { CalendarPeriod } from '@/lib/periods'
 import { tradeInPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed } from '@/lib/tradeStatus'
+import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
+import { normalizeSidebarPins } from '@/lib/tradeKind'
 
 export type ListFilterType =
   | 'all'
-  | 'inbox'
-  | 'mine'
+  | 'active'
   | 'starred'
   | 'strategy'
   | 'period'
@@ -16,7 +17,7 @@ export interface ListFilter {
   type: ListFilterType
   strategyId?: string
   period?: CalendarPeriod
-  /** 默认不过滤；主列表传 live，纸面/练习页传对应 kind */
+  /** 默认不过滤；主列表传 live，模拟页传 paper */
   tradeKind?: TradeKind
 }
 
@@ -26,6 +27,8 @@ export interface DisplayPrefs {
   groupByStrategy: boolean
   groupByDate: boolean
   sortBy: 'date' | 'pnl' | 'conviction'
+  /** 侧栏直接展示的快捷入口（其余收在「更多」） */
+  sidebarPins: SidebarNavId[]
 }
 
 export const DEFAULT_DISPLAY: DisplayPrefs = {
@@ -34,6 +37,29 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   groupByStrategy: false,
   groupByDate: false,
   sortBy: 'date',
+  sidebarPins: [...DEFAULT_SIDEBAR_PINS],
+}
+
+const SORT_BY = ['date', 'pnl', 'conviction'] as const
+
+/** 合并旧版/残缺 display，避免缺字段导致渲染崩溃 */
+export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayPrefs {
+  const d = input ?? {}
+  const sidebarPins = Array.isArray(d.sidebarPins)
+    ? normalizeSidebarPins(d.sidebarPins)
+    : [...DEFAULT_DISPLAY.sidebarPins]
+  return {
+    hideClosed: typeof d.hideClosed === 'boolean' ? d.hideClosed : DEFAULT_DISPLAY.hideClosed,
+    showEmptyGroups:
+      typeof d.showEmptyGroups === 'boolean' ? d.showEmptyGroups : DEFAULT_DISPLAY.showEmptyGroups,
+    groupByStrategy:
+      typeof d.groupByStrategy === 'boolean' ? d.groupByStrategy : DEFAULT_DISPLAY.groupByStrategy,
+    groupByDate: typeof d.groupByDate === 'boolean' ? d.groupByDate : DEFAULT_DISPLAY.groupByDate,
+    sortBy: SORT_BY.includes(d.sortBy as (typeof SORT_BY)[number])
+      ? (d.sortBy as DisplayPrefs['sortBy'])
+      : DEFAULT_DISPLAY.sortBy,
+    sidebarPins,
+  }
 }
 
 /** 命令面板 / 搜索：查询词按空格分词，每词须在字段中命中 */
@@ -58,8 +84,7 @@ export function filterTrades(
 ): Trade[] {
   let out = trades
   switch (filter.type) {
-    case 'inbox':
-    case 'mine':
+    case 'active':
       out = trades.filter((t) => isActive(t.status))
       break
     case 'starred':

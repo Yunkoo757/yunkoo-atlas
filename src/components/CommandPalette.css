@@ -49,7 +49,6 @@
   flex: 1;
   background: none;
   border: none;
-  outline: none;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--fs-lg);

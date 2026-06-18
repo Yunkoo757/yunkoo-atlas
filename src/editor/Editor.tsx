@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import {
   Bold,
   Italic,
@@ -15,12 +15,19 @@ import {
   ListChecks,
   Quote,
 } from 'lucide-react'
-import { ImageLightbox } from '@/components/ImageLightbox'
+import { useShortcutStore } from '@/store/shortcutStore'
+import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import './Editor.css'
 
 const editorBridge = {
   editor: null as TiptapEditor | null,
-  openLightbox: (_src: string) => {},
+  openLightbox: (src: string) => {
+    editorBridge.editor?.commands.blur()
+    const html = editorBridge.editor?.getHTML() ?? ''
+    const images = collectImageSrcsFromHtml(html)
+    const list = images.length > 0 ? images : [src]
+    useShortcutStore.getState().openLightbox(list, indexOfImageSrc(list, src))
+  },
 }
 
 export function Editor({
@@ -30,9 +37,7 @@ export function Editor({
   content: string
   onChange: (html: string) => void
 }) {
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
-  editorBridge.openLightbox = setLightboxSrc
-
+  const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -99,6 +104,11 @@ export function Editor({
   editorBridge.editor = editor
 
   useEffect(() => {
+    if (!editor) return
+    editor.setEditable(!lightboxOpen)
+  }, [editor, lightboxOpen])
+
+  useEffect(() => {
     if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content, false)
     }
@@ -113,6 +123,7 @@ export function Editor({
           tippyOptions={{ duration: 120 }}
           className="bubble-menu"
           shouldShow={({ editor: ed, state }) => {
+            if (lightboxOpen) return false
             if (ed.isActive('image')) return false
             return !state.selection.empty
           }}
@@ -175,7 +186,6 @@ export function Editor({
         </BubbleMenu>
       )}
       <EditorContent editor={editor} className="editor" />
-      <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </>
   )
 }

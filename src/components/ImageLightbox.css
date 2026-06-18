@@ -7,6 +7,7 @@
   place-items: center;
   padding: 48px 24px;
   animation: fadeIn 0.14s var(--ease-out) both;
+  pointer-events: auto;
 }
 
 .img-lightbox-img {
@@ -36,4 +37,41 @@
 .img-lightbox-close:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.img-lightbox-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+.img-lightbox-nav:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.img-lightbox-nav--prev {
+  left: 20px;
+}
+.img-lightbox-nav--next {
+  right: 20px;
+}
+
+.img-lightbox-counter {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-micro);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
 }

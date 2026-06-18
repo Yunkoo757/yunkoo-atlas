@@ -1,7 +1,8 @@
 import { SEED_TRADES } from '@/data/trades'
 import { DEFAULT_STRATEGIES } from '@/data/strategies'
-import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { DEFAULT_DISPLAY, normalizeDisplay } from '@/lib/tradeFilters'
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
+import { normalizeTrades } from '@/lib/tradeKind'
 import { externalizeNoteImages, collectAssetIdsFromNotes } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -27,14 +28,14 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
     const s = parsed.state
     if (!s) return null
     const strategies = ensureStrategies(s.strategies)
-    const trades = migrateTrades(s.trades ?? [], strategies)
+    const trades = normalizeTrades(migrateTrades(s.trades ?? [], strategies))
     return {
       trades,
       strategies,
       starredIds: s.starredIds ?? [],
       subscribedIds: s.subscribedIds ?? [],
       pinnedStrategyIds: s.pinnedStrategyIds ?? [],
-      display: { ...DEFAULT_DISPLAY, ...s.display },
+      display: normalizeDisplay(s.display),
     }
   } catch {
     return null

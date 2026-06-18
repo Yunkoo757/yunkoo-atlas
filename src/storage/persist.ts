@@ -2,6 +2,8 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { getStorage } from '@/storage/index'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useStore } from '@/store/useStore'
+import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
+import type { ShortcutBinding } from '@/shortcuts/types'
 
 const SAVE_DEBOUNCE_MS = 400
 
@@ -9,14 +11,18 @@ let timer: ReturnType<typeof setTimeout> | null = null
 let pending: PersistedSnapshot | null = null
 let flushing: Promise<void> | null = null
 
-export function pickPersisted(state: {
+export function pickPersisted(
+  state: {
   trades: PersistedSnapshot['trades']
   strategies: PersistedSnapshot['strategies']
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
   display: PersistedSnapshot['display']
-}): PersistedSnapshot {
+},
+  shortcutBindings?: Record<string, ShortcutBinding | null>,
+): PersistedSnapshot {
+  const shortcuts = bindingsForPersist(shortcutBindings ?? {})
   return {
     trades: state.trades,
     strategies: state.strategies,
@@ -24,6 +30,7 @@ export function pickPersisted(state: {
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
     display: state.display,
+    ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }
 }
 
@@ -61,7 +68,7 @@ export async function flushPersistNow(): Promise<void> {
   }
   if (flushing) await flushing
   if (!pending) {
-    pending = pickPersisted(useStore.getState())
+    pending = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
   }
   await flush()
 }

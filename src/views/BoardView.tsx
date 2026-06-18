@@ -19,6 +19,7 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
+import { useListContextSync } from '@/shortcuts/useListContextSync'
 import './BoardView.css'
 
 export function BoardView({
@@ -49,6 +50,8 @@ export function BoardView({
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
 
+  useListContextSync(filter)
+
   const visible = useMemo(() => {
     const filtered = filterTrades(trades, filter, starredIds)
     return applyDisplayPrefs(filtered, display, filter)
@@ -67,11 +70,9 @@ export function BoardView({
   }, [visible, display.showEmptyGroups])
 
   const emptyHint =
-    filter.type === 'inbox'
-      ? '收件箱为空：没有计划中或持仓中的交易。'
-      : filter.type === 'mine'
-        ? '暂无进行中的交易（计划中或持仓中）。'
-        : filter.type === 'starred'
+    filter.type === 'active'
+      ? '暂无进行中的交易（计划中或持仓中）。'
+      : filter.type === 'starred'
           ? '还没有星标交易。'
           : '当前筛选下没有交易。'
 

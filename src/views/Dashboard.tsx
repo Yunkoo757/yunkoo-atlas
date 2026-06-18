@@ -41,7 +41,7 @@ const RANGE_OPTS: { value: TimeRange; label: string }[] = [
 
 const KIND_OPTS: { value: DashboardKind; label: string }[] = [
   { value: 'live', label: '实盘' },
-  { value: 'paper', label: '纸面' },
+  { value: 'paper', label: '模拟' },
   { value: 'all', label: '全部类型' },
 ]
 

@@ -204,3 +204,13 @@
   text-align: right;
   flex-shrink: 0;
 }
+
+@media (hover: none) {
+  .lv-star,
+  .lv-group-add {
+    opacity: 1;
+  }
+  .lv-check-box.is-done {
+    opacity: 1;
+  }
+}
