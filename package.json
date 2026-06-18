@@ -2,6 +2,8 @@
   "name": "linear-journal",
   "private": true,
   "version": "0.0.0",
+  "description": "Linear-style trading journal with IndexedDB and Electron desktop support",
+  "author": "Linear Journal",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -10,6 +12,9 @@
     "build": "tsc -b && vite build",
     "build:app": "cross-env ELECTRON=1 vite build && node scripts/copy-sql-wasm.mjs",
     "preview": "vite preview",
+    "dist": "pnpm build:app && electron-builder",
+    "dist:mac": "pnpm build:app && electron-builder --mac",
+    "dist:win": "pnpm build:app && electron-builder --win",
     "qa": "node scripts/qa-phase1.mjs && node scripts/qa-phase1-image.mjs",
     "qa:core": "node scripts/qa-phase1.mjs",
     "qa:image": "node scripts/qa-phase1-image.mjs",
@@ -46,11 +51,49 @@
     "chrome-remote-interface": "^0.34.0",
     "cross-env": "^10.1.0",
     "electron": "^42.4.0",
+    "electron-builder": "^26.15.3",
     "playwright": "^1.60.0",
     "puppeteer-core": "^25.1.0",
     "typescript": "^5.6.2",
     "vite": "^5.4.8",
     "vite-plugin-electron": "^1.0.4",
     "vite-plugin-electron-renderer": "^1.0.0"
+  },
+  "build": {
+    "appId": "com.linear-journal.app",
+    "productName": "Linear Journal",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "sql-wasm.wasm"
+      }
+    ],
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ],
+      "category": "public.app-category.finance",
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
