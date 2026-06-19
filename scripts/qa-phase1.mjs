@@ -100,28 +100,27 @@ try {
   record('仪表盘可访问', await page.getByText('仪表盘').first().isVisible())
   await page.screenshot({ path: join(OUT, '04-dashboard.png') })
 
-  // 8. 导入/导出弹窗
-  await page.getByRole('button', { name: '导入/导出数据' }).click()
-  const modal = page.locator('.dio')
-  await modal.waitFor({ timeout: 3000 })
-  const idbText = await modal.getByText('IndexedDB').isVisible()
-  record('导入/导出弹窗打开', await modal.isVisible())
-  record('文案提及 IndexedDB', idbText)
+  // 8. 数据导入/导出设置页
+  await page.goto(`${BASE}/settings/data`)
+  await page.waitForURL(/\/settings\/data/)
+  const dataPage = page.locator('.data-settings')
+  await dataPage.waitFor({ timeout: 5000 })
+  const hasExportBtn = await page.locator('.dio-btn-primary').first().isVisible()
+  record('数据设置页可访问', await dataPage.isVisible())
+  record('导出按钮可见', hasExportBtn)
   await page.screenshot({ path: join(OUT, '05-data-io.png') })
-  await page.keyboard.press('Escape')
 
-  // 9. 导出 JSON 含 version 3
+  // 9. 导出 JSON 含 version 4
   const exportPayload = await page.evaluate(async () => {
     const { buildExportPayload } = await import('/src/lib/importExport.ts')
     return buildExportPayload()
   }).catch(() => null)
 
   if (exportPayload) {
-    record('导出 payload version=3', exportPayload.version === 3, `v${exportPayload.version}`)
+    record('导出 payload version=4', exportPayload.version === 4, `v${exportPayload.version}`)
     record('导出含 assets 数组', Array.isArray(exportPayload.assets), `len=${exportPayload.assets?.length ?? 0}`)
   } else {
-    // fallback: open modal and trigger download check via store
-    record('导出 payload version=3', false, 'evaluate 导入失败，跳过')
+    record('导出 payload version=4', false, 'evaluate 导入失败，跳过')
   }
 
   // 10. IndexedDB 存在

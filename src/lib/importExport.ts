@@ -14,7 +14,7 @@ import { flushPersistNow } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
 
-export const EXPORT_VERSION = 3
+export const EXPORT_VERSION = 4 // 4: +shortcuts bindings, +tradeKind activities
 
 export interface ExportPayload {
   version: number
