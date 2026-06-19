@@ -23,6 +23,8 @@ export function appendActivity(
     ...(event.tagAction !== undefined ? { tagAction: event.tagAction } : {}),
     ...(event.commentId !== undefined ? { commentId: event.commentId } : {}),
     ...(event.text !== undefined ? { text: event.text } : {}),
+    ...(event.fromTradeKind !== undefined ? { fromTradeKind: event.fromTradeKind } : {}),
+    ...(event.toTradeKind !== undefined ? { toTradeKind: event.toTradeKind } : {}),
   }
   return {
     ...trade,

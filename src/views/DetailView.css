@@ -208,6 +208,7 @@
   max-height: 160px;
   background: none;
   border: none;
+  outline: none;
   resize: none;
   color: var(--text-primary);
   font-family: var(--font-ui);
@@ -225,19 +226,6 @@
   justify-content: flex-end;
   gap: 6px;
   padding: 4px 6px 6px;
-}
-.dv-comment-attach {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-6);
-  color: var(--text-tertiary);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.dv-comment-attach:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
 }
 .dv-comment-send {
   display: grid;

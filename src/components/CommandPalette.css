@@ -40,10 +40,16 @@
   padding: 0 16px;
   height: 52px;
   border-bottom: 0.8px solid var(--border-subtle);
+  position: relative;
 }
 .cmdk-search-icon {
   color: var(--text-tertiary);
   flex-shrink: 0;
+  transition: opacity 0.15s var(--ease-out);
+}
+.cmdk-input-row:focus-within .cmdk-search-icon,
+.cmdk-input-row.has-value .cmdk-search-icon {
+  opacity: 0.45;
 }
 .cmdk-input {
   flex: 1;
@@ -56,17 +62,50 @@
 .cmdk-input::placeholder {
   color: var(--text-quaternary);
 }
+.cmdk-clear {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.cmdk-input-row.has-value .cmdk-clear {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cmdk-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
 
 .cmdk-list {
   flex: 1;
   overflow-y: auto;
   padding: 6px;
+  /* scroll shadow: top + bottom gradient masks */
+  background:
+    linear-gradient(var(--popover-bg) 30%, transparent) center top,
+    linear-gradient(transparent, var(--popover-bg) 70%) center bottom,
+    radial-gradient(farthest-side at 50% 0, rgba(0,0,0,0.25), transparent) center top,
+    radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,0.25), transparent) center bottom;
+  background-repeat: no-repeat;
+  background-size: 100% 20px, 100% 20px, 100% 8px, 100% 8px;
+  background-attachment: local, local, scroll, scroll;
 }
 .cmdk-group {
   font-size: var(--fs-micro);
   font-weight: var(--font-weight-medium);
   color: var(--text-tertiary);
   padding: 8px 8px 4px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--popover-bg);
 }
 .cmdk-item {
   display: flex;
@@ -79,6 +118,7 @@
   font-size: var(--fs-base);
   color: var(--text-secondary);
   text-align: left;
+  transition: background 0.1s var(--ease-out), color 0.1s var(--ease-out);
 }
 .cmdk-item.is-active {
   background: var(--bg-hover);

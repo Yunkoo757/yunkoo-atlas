@@ -16,6 +16,8 @@ import {
   Calendar,
   FlaskConical,
   CircleDot,
+  X,
+  Keyboard,
 } from 'lucide-react'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { getStrategyName, countTradesByStrategy, sortStrategies } from '@/lib/strategies'
@@ -90,7 +92,7 @@ export function CommandPalette({
     })
     const settingsNav: Cmd[] = [
       { id: 'n-strat', group: '设置', icon: <Settings2 size={16} />, label: '编辑策略', run: go('/settings/strategies') },
-      { id: 'n-settings', group: '设置', icon: <Settings2 size={16} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
+      { id: 'n-settings', group: '设置', icon: <Keyboard size={16} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
       {
         id: 'a-io',
         group: '设置',
@@ -179,7 +181,7 @@ export function CommandPalette({
   return createPortal(
     <div className="cmdk-overlay" onMouseDown={onClose}>
       <div className="cmdk" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="cmdk-input-row">
+        <div className={'cmdk-input-row' + (q ? ' has-value' : '')}>
           <Search size={16} className="cmdk-search-icon" />
           <input
             ref={inputRef}
@@ -189,6 +191,14 @@ export function CommandPalette({
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
           />
+          <button
+            className="cmdk-clear"
+            onClick={() => { setQ(''); inputRef.current?.focus() }}
+            tabIndex={-1}
+            aria-label="清除搜索"
+          >
+            <X size={14} />
+          </button>
         </div>
         <div className="cmdk-list" ref={listRef}>
           {filtered.length === 0 && (

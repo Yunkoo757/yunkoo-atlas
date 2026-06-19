@@ -9,10 +9,10 @@ import {
   Star,
   Bell,
   Copy,
-  ArrowUp,
   Pencil,
   Trash2,
   X,
+  Send,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
@@ -90,8 +90,10 @@ export function DetailView() {
   const adjustCommentHeight = useCallback(() => {
     const el = commentRef.current
     if (!el) return
+    const prev = el.style.height
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+    const h = Math.min(el.scrollHeight, 160)
+    el.style.height = prev === `${h}px` ? prev : `${h}px`
   }, [])
 
   useEffect(() => {
@@ -362,7 +364,7 @@ export function DetailView() {
                       onClick={sendComment}
                       title="发送"
                     >
-                      <ArrowUp size={15} />
+                      <Send size={14} />
                     </button>
                   </div>
                 </div>
@@ -784,6 +786,15 @@ function renderActivity(
         <>
           你 <b>更新了复盘笔记</b>
           {edits > 1 ? `（${edits} 次）` : ''} · {time}
+        </>
+      )
+    }
+    case 'tradeKind': {
+      const fromLabel = event.fromTradeKind ? TRADE_KIND_META[event.fromTradeKind]?.label : ''
+      const toLabel = event.toTradeKind ? TRADE_KIND_META[event.toTradeKind]?.label : ''
+      return (
+        <>
+          你将类型从 <b>{fromLabel}</b> 改为 <b>{toLabel}</b> · {time}
         </>
       )
     }

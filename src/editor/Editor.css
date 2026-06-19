@@ -6,7 +6,7 @@
 }
 .editor .ProseMirror {
   outline: none;
-  min-height: 240px;
+  min-height: 120px;
 }
 .editor .ProseMirror > * + * {
   margin-top: var(--editor-block-spacing);
