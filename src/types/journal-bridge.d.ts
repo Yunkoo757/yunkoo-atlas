@@ -1,5 +1,11 @@
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 
+export interface BackupInfo {
+  name: string
+  timestamp: number
+  size: number
+}
+
 export interface JournalBridge {
   isElectron: true
   getLibraryPath(): Promise<string>
@@ -14,6 +20,11 @@ export interface JournalBridge {
   importJournalZip(): Promise<
     { ok: true; snapshot: PersistedSnapshot | null } | { ok: false }
   >
+  // 备份
+  createBackup(): Promise<string | null>
+  listBackups(): Promise<BackupInfo[]>
+  restoreBackup(fileName: string): Promise<boolean>
+  deleteBackup(fileName: string): Promise<boolean>
 }
 
 declare global {

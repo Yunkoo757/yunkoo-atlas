@@ -3,6 +3,8 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { registerLibraryIpc } from './library/ipc'
+import { startAutoBackup } from './library/backup'
+import { LibraryStorage } from './library/storage'
 import { runElectronQaAndExit } from './qa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -77,6 +79,15 @@ app.whenReady().then(async () => {
   if (process.env.LINEAR_JOURNAL_QA === '1') {
     await runElectronQaAndExit()
     return
+  }
+
+  // 启动自动备份：15 分钟间隔 + 退出前备份
+  try {
+    const lib = new LibraryStorage()
+    await lib.open()
+    startAutoBackup(lib)
+  } catch (err) {
+    console.error('[electron] auto-backup init failed', err)
   }
 
   createWindow()

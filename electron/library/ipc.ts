@@ -3,6 +3,7 @@ import path from 'node:path'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath } from './journalZip'
 import { getLibraryPath } from './paths'
+import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup } from './backup'
 
 let storage: LibraryStorage | null = null
 
@@ -69,6 +70,25 @@ export function registerLibraryIpc(): void {
     if (result.canceled || !result.filePath) return { ok: false as const }
     await exportJournalZip(await ensureStorage(), result.filePath)
     return { ok: true as const, path: result.filePath }
+  })
+
+  // ---- 备份 ----
+  ipcMain.handle('backup:create', async () => createBackup(await ensureStorage()))
+
+  ipcMain.handle('backup:list', async () => listBackups())
+
+  ipcMain.handle('backup:restore', async (_e, fileName: string) => {
+    return restoreBackup(fileName)
+  })
+
+  ipcMain.handle('backup:delete', async (_e, fileName: string) => {
+    return deleteBackup(fileName)
+  })
+
+  // 启动自动备份（15 分钟 + 退出前）
+  ipcMain.handle('backup:startAuto', async () => {
+    startAutoBackup(await ensureStorage())
+    return true
   })
 
   ipcMain.handle('journal:importZip', async () => {

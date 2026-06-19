@@ -97,3 +97,50 @@
   line-height: 1.55;
   color: var(--text-tertiary);
 }
+
+/* ---- 备份列表 ---- */
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.backup-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-8);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.backup-row:hover {
+  background: var(--bg-hover);
+}
+
+.backup-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.backup-time {
+  flex: 1;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.backup-size {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.backup-row:hover .backup-actions {
+  opacity: 1;
+}

@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '../src/storage/types'
 
+export interface BackupInfo {
+  name: string
+  timestamp: number
+  size: number
+}
+
 export interface JournalBridge {
   isElectron: true
   getLibraryPath(): Promise<string>
@@ -15,6 +21,11 @@ export interface JournalBridge {
   importJournalZip(): Promise<
     { ok: true; snapshot: PersistedSnapshot | null } | { ok: false }
   >
+  // 备份
+  createBackup(): Promise<string | null>
+  listBackups(): Promise<BackupInfo[]>
+  restoreBackup(fileName: string): Promise<boolean>
+  deleteBackup(fileName: string): Promise<boolean>
 }
 
 const bridge: JournalBridge = {
@@ -30,6 +41,10 @@ const bridge: JournalBridge = {
   importAssets: (assets) => ipcRenderer.invoke('storage:importAssets', assets),
   exportJournalZip: () => ipcRenderer.invoke('journal:exportZip'),
   importJournalZip: () => ipcRenderer.invoke('journal:importZip'),
+  createBackup: () => ipcRenderer.invoke('backup:create'),
+  listBackups: () => ipcRenderer.invoke('backup:list'),
+  restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
+  deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', fileName),
 }
 
 contextBridge.exposeInMainWorld('journalBridge', bridge)
