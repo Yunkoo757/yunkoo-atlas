@@ -22,6 +22,12 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus, toggleTradeDone } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isRowDone } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
+import {
+  classifyDateBucket,
+  formatDateBucket,
+  compareDateBucket,
+  type DateBucket,
+} from '@/lib/periods'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import './ListView.css'
 
@@ -85,19 +91,38 @@ export function ListView({
 
   const groups = useMemo(() => {
     if (display.groupByDate && !display.groupByStrategy) {
-      const map = new Map<string, Trade[]>()
+      const map = new Map<string, { trades: Trade[]; ts: number }>()
       visible.forEach((t) => {
-        const key = t.openedAt.slice(0, 10)
-        if (!map.has(key)) map.set(key, [])
-        map.get(key)!.push(t)
+        const bucket = classifyDateBucket(t.openedAt)
+        const key = typeof bucket === 'object'
+          ? `${bucket.year}-${String(bucket.month).padStart(2, '0')}`
+          : bucket
+        const ts = new Date(t.openedAt).getTime()
+        if (!map.has(key)) map.set(key, { trades: [], ts })
+        map.get(key)!.trades.push(t)
+        // 保留最早的时间戳用于排序
+        if (ts < map.get(key)!.ts) map.get(key)!.ts = ts
       })
       return [...map.entries()]
-        .sort((a, b) => b[0].localeCompare(a[0]))
-        .map(([date, items]) => ({
-          kind: 'date' as const,
-          date,
-          items,
-        }))
+        .sort((a, b) => {
+          const bucketA = a[0].startsWith('20') // YYYY-MM format
+            ? { year: Number(a[0].slice(0, 4)), month: Number(a[0].slice(5)) } as const
+            : a[0] as DateBucket
+          const bucketB = b[0].startsWith('20')
+            ? { year: Number(b[0].slice(0, 4)), month: Number(b[0].slice(5)) } as const
+            : b[0] as DateBucket
+          return compareDateBucket(bucketA, bucketB, a[1].ts, b[1].ts)
+        })
+        .map(([key, { trades: items }]) => {
+          const bucket: DateBucket = key.startsWith('20')
+            ? { year: Number(key.slice(0, 4)), month: Number(key.slice(5)) }
+            : key as DateBucket
+          return {
+            kind: 'date' as const,
+            date: formatDateBucket(bucket as DateBucket),
+            items,
+          }
+        })
         .filter((g) => display.showEmptyGroups || g.items.length > 0)
     }
 
