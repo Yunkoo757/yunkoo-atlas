@@ -63,6 +63,7 @@
     "appId": "com.linear-journal.app",
     "productName": "Linear Journal",
     "electronDist": "node_modules/electron/dist",
+    "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },

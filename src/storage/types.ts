@@ -3,7 +3,7 @@ import type { Trade } from '@/data/trades'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { ShortcutBinding } from '@/shortcuts/types'
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4 // 4: +shortcuts bindings, +tradeKind activity
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
 export interface LibraryManifest {
