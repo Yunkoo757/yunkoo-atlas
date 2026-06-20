@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload, AlertTriangle, Archive, FileSpreadsheet } from 'lucide-react'
+import { Download, Upload, AlertTriangle, FileSpreadsheet, Package, Archive } from 'lucide-react'
 import {
   applyImport,
   downloadExport,
+  downloadWebJournalZip,
   exportJournalArchive,
   getLibraryPath,
   importJournalArchive,
   parseImportJson,
+  ASSET_WARN_COUNT,
+  ASSET_WARN_BYTES,
+  type AssetStats,
 } from '@/lib/importExport'
 import { isElectron } from '@/storage/runtime'
 import { toast } from '@/lib/toast'
@@ -18,16 +22,43 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
   const electron = isElectron()
   const [libraryPath, setLibraryPath] = useState<string | null>(null)
   const [csvOpen, setCsvOpen] = useState(false)
+  const [warnMsg, setWarnMsg] = useState('')
 
   useEffect(() => {
     if (!electron) return
     void getLibraryPath().then(setLibraryPath)
   }, [electron])
 
+  const formatWarn = (s: AssetStats): string | null => {
+    if (s.count > ASSET_WARN_COUNT || s.totalBytes > ASSET_WARN_BYTES) {
+      return `检测到 ${s.count} 张图片（约 ${s.formattedSize}），JSON 导出会内嵌 base64 导致文件巨大且导入缓慢。建议使用 .journal.zip 格式导出。`
+    }
+    return null
+  }
+
   const onExport = async () => {
     try {
-      await downloadExport()
-      toast('JSON 备份已下载')
+      const stats = await downloadExport()
+      const warn = formatWarn(stats)
+      if (warn) {
+        setWarnMsg(warn)
+      } else {
+        toast('JSON 备份已下载')
+      }
+    } catch {
+      toast('导出失败')
+    }
+  }
+
+  const onExportWebZip = async () => {
+    try {
+      const stats = await downloadWebJournalZip()
+      const warn = formatWarn(stats)
+      if (warn) {
+        setWarnMsg(`已导出 ${stats.count} 张图片（约 ${stats.formattedSize}）。` + (warn ? ' ' + warn : ''))
+      } else {
+        toast('交易库已导出 (.journal.zip)')
+      }
     } catch {
       toast('导出失败')
     }
@@ -95,7 +126,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
       <section className="dio-section">
         <h3 className="dio-section-title">导出 JSON 备份</h3>
         <p className="dio-desc">
-          轻量 JSON，含交易、策略、偏好与内嵌附件元数据，适合快速备份。
+          轻量 JSON，含交易、策略、偏好与内嵌附件元数据，适合快速备份。笔记图片较多时建议用下方 ZIP 格式。
         </p>
         <button type="button" className="dio-btn dio-btn-primary" onClick={onExport}>
           <Download size={16} />
@@ -103,15 +134,36 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         </button>
       </section>
 
-      {electron && (
-        <section className="dio-section">
-          <h3 className="dio-section-title">导出完整交易库 (.journal.zip)</h3>
-          <p className="dio-desc">
-            包含 journal.db、manifest.json 与 attachments/，适合整库迁移或冷备份。
-          </p>
-          <button type="button" className="dio-btn" onClick={onExportZip}>
-            <Archive size={16} />
-            <span>导出 .journal.zip</span>
+      {/* 通用 ZIP 导出（Web + Electron 均可用） */}
+      <section className="dio-section">
+        <h3 className="dio-section-title">导出完整备份 (.journal.zip)</h3>
+        <p className="dio-desc">
+          打包 data.json + 所有附件图片为 ZIP，图片按原始二进制存储，适合大量图片场景。
+          {electron && '桌面版通过 Electron 原生导出；Web 版在浏览器中构建 ZIP 下载。'}
+        </p>
+        <button
+          type="button"
+          className="dio-btn"
+          onClick={electron ? onExportZip : onExportWebZip}
+        >
+          <Package size={16} />
+          <span>导出 .journal.zip</span>
+        </button>
+      </section>
+
+      {warnMsg && (
+        <section className="dio-section dio-section-warn">
+          <div className="dio-warn-head">
+            <AlertTriangle size={16} />
+            <span>导出提示</span>
+          </div>
+          <p className="dio-desc">{warnMsg}</p>
+          <button
+            type="button"
+            className="dio-btn dio-btn-ghost"
+            onClick={() => setWarnMsg('')}
+          >
+            知道了
           </button>
         </section>
       )}
