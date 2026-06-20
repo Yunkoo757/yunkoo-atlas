@@ -1,6 +1,15 @@
 .list-scroll {
   flex: 1;
   overflow-y: auto;
+  /* 启用 GPU 合成层，隔离滚动重绘 */
+  will-change: scroll-position;
+}
+
+.lv-group {
+  /* 浏览器级虚拟化：跳过屏幕外区域的渲染，大幅减少大列表的布局/绘制开销 */
+  content-visibility: auto;
+  /* 给浏览器一个预估高度，用于不渲染区块的占位计算。header 36px + 预估每项 40px */
+  contain-intrinsic-size: auto 36px;
 }
 
 .lv-group-header {
