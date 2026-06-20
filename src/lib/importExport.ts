@@ -108,47 +108,9 @@ function parseDisplay(v: unknown): DisplayPrefs {
   return normalizeDisplay(v as Partial<DisplayPrefs>)
 }
 
-export interface AssetStats {
-  count: number
-  totalBytes: number
-  /** 格式化后的体积描述，如 "12.5 MB" */
-  formattedSize: string
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-/** 统计资产数量和总体积 */
-export function estimateAssetStats(assets: ExportAssetRecord[]): AssetStats {
-  let totalBytes = 0
-  for (const a of assets) {
-    // base64 解码后大小 ≈ 原始字节数 * 0.75
-    totalBytes += Math.round(a.data.length * 0.75)
-  }
-  return {
-    count: assets.length,
-    totalBytes,
-    formattedSize: formatBytes(totalBytes),
-  }
-}
-
-/** 资产预警阈值 */
-export const ASSET_WARN_COUNT = 10
-export const ASSET_WARN_BYTES = 50 * 1024 * 1024 // 50 MB
-
 export async function buildExportPayload(): Promise<ExportPayload> {
   const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display } =
     useStore.getState()
-  const storage = getStorage()
-  const assetIds = collectAssetIdsFromNotes(trades)
-  const assets: ExportAssetRecord[] = []
-  for (const id of assetIds) {
-    const rec = await storage.getAssetForExport(id)
-    if (rec) assets.push(rec)
-  }
   return {
     version: EXPORT_VERSION,
     trades,
@@ -157,13 +119,11 @@ export async function buildExportPayload(): Promise<ExportPayload> {
     subscribedIds,
     pinnedStrategyIds,
     display,
-    assets,
   }
 }
 
-export async function downloadExport(): Promise<AssetStats> {
+export async function downloadExport(): Promise<void> {
   const payload = await buildExportPayload()
-  const stats = estimateAssetStats(payload.assets ?? [])
   const json = JSON.stringify(payload, null, 2)
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -175,24 +135,37 @@ export async function downloadExport(): Promise<AssetStats> {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
-  return stats
 }
 
 /**
- * Web 端导出 .journal.zip。
- * 包含 data.json（交易数据）+ assets/ 目录（图片原始二进制），
- * 比 JSON 内嵌 base64 更适合图片密集场景。
+ * Web 端导出 .journal.zip — 主力备份格式。
+ * 包含 data.json（元数据）+ assets/ 目录（图片原始二进制）。
+ * 图片按原始格式存储，无 base64 膨胀，适合大量图片场景。
  */
-export async function downloadWebJournalZip(): Promise<AssetStats> {
-  const payload = await buildExportPayload()
-  const assets = payload.assets ?? []
-  const stats = estimateAssetStats(assets)
+export async function downloadWebJournalZip(): Promise<void> {
+  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display } =
+    useStore.getState()
+  const storage = getStorage()
+  const assetIds = collectAssetIdsFromNotes(trades)
+  const assets: ExportAssetRecord[] = []
+  for (const id of assetIds) {
+    const rec = await storage.getAssetForExport(id)
+    if (rec) assets.push(rec)
+  }
 
-  // 构建不含 assets base64 的元数据（zip 中图片作为独立文件）
-  const meta = { ...payload, assets: assets.map((a) => ({ id: a.id, mime: a.mime })) }
+  // 元数据：不含 assets base64，仅保留 id+mime 引用
+  const meta = {
+    version: EXPORT_VERSION,
+    trades,
+    strategies,
+    starredIds,
+    subscribedIds,
+    pinnedStrategyIds,
+    display,
+    assets: assets.map((a) => ({ id: a.id, mime: a.mime })),
+  }
   const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
 
-  // 收集所有文件条目
   interface ZipEntry {
     name: string
     data: Uint8Array
@@ -216,7 +189,6 @@ export async function downloadWebJournalZip(): Promise<AssetStats> {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
-  return stats
 }
 
 // ---- minimal ZIP builder (stored, no compression) ----

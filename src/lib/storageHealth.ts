@@ -1,7 +1,26 @@
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import type { ExportAssetRecord } from '@/storage/types'
-import { estimateAssetStats, type AssetStats } from '@/lib/importExport'
+
+export interface AssetStats {
+  count: number
+  totalBytes: number
+  formattedSize: string
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function estimateAssetStats(assets: ExportAssetRecord[]): AssetStats {
+  let totalBytes = 0
+  for (const a of assets) {
+    totalBytes += Math.round(a.data.length * 0.75)
+  }
+  return { count: assets.length, totalBytes, formattedSize: formatBytes(totalBytes) }
+}
 
 export interface StorageHealth {
   tradeCount: number

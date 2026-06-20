@@ -5,7 +5,7 @@ import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
-import { estimateAssetStats, type AssetStats } from '@/lib/importExport'
+import { type AssetStats } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, AlertTriangle } from 'lucide-react'
 
 function fmtBackupTime(ts: number): string {
@@ -52,9 +52,11 @@ export function DataSettingsPanel() {
         }
       } catch { /* 忽略 */ }
     }
-    const stats = estimateAssetStats(
-      assetIds.map((id) => ({ id, mime: '', data: '' })),
-    )
+    const stats: AssetStats = {
+      count: assetIds.length,
+      totalBytes: 0,
+      formattedSize: '0 B',
+    }
 
     let backupCount = 0
     let backupTotalSize = 0

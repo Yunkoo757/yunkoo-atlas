@@ -8,9 +8,6 @@ import {
   getLibraryPath,
   importJournalArchive,
   parseImportJson,
-  ASSET_WARN_COUNT,
-  ASSET_WARN_BYTES,
-  type AssetStats,
 } from '@/lib/importExport'
 import { isElectron } from '@/storage/runtime'
 import { toast } from '@/lib/toast'
@@ -22,43 +19,16 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
   const electron = isElectron()
   const [libraryPath, setLibraryPath] = useState<string | null>(null)
   const [csvOpen, setCsvOpen] = useState(false)
-  const [warnMsg, setWarnMsg] = useState('')
 
   useEffect(() => {
     if (!electron) return
     void getLibraryPath().then(setLibraryPath)
   }, [electron])
 
-  const formatWarn = (s: AssetStats): string | null => {
-    if (s.count > ASSET_WARN_COUNT || s.totalBytes > ASSET_WARN_BYTES) {
-      return `检测到 ${s.count} 张图片（约 ${s.formattedSize}），JSON 导出会内嵌 base64 导致文件巨大且导入缓慢。建议使用 .journal.zip 格式导出。`
-    }
-    return null
-  }
-
-  const onExport = async () => {
+  const onExportJson = async () => {
     try {
-      const stats = await downloadExport()
-      const warn = formatWarn(stats)
-      if (warn) {
-        setWarnMsg(warn)
-      } else {
-        toast('JSON 备份已下载')
-      }
-    } catch {
-      toast('导出失败')
-    }
-  }
-
-  const onExportWebZip = async () => {
-    try {
-      const stats = await downloadWebJournalZip()
-      const warn = formatWarn(stats)
-      if (warn) {
-        setWarnMsg(`已导出 ${stats.count} 张图片（约 ${stats.formattedSize}）。` + (warn ? ' ' + warn : ''))
-      } else {
-        toast('交易库已导出 (.journal.zip)')
-      }
+      await downloadExport()
+      toast('JSON 备份已下载（不含图片）')
     } catch {
       toast('导出失败')
     }
@@ -66,9 +36,14 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
 
   const onExportZip = async () => {
     try {
-      const result = await exportJournalArchive()
-      if (result.ok) toast('交易库已导出')
-      else toast('已取消导出')
+      if (electron) {
+        const result = await exportJournalArchive()
+        if (result.ok) toast('交易库已导出')
+        else toast('已取消导出')
+      } else {
+        await downloadWebJournalZip()
+        toast('交易库已导出 (.journal.zip)')
+      }
     } catch {
       toast('导出失败')
     }
@@ -123,50 +98,30 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         </section>
       )}
 
-      <section className="dio-section">
-        <h3 className="dio-section-title">导出 JSON 备份</h3>
-        <p className="dio-desc">
-          轻量 JSON，含交易、策略、偏好与内嵌附件元数据，适合快速备份。笔记图片较多时建议用下方 ZIP 格式。
-        </p>
-        <button type="button" className="dio-btn dio-btn-primary" onClick={onExport}>
-          <Download size={16} />
-          <span>下载 JSON 备份</span>
-        </button>
-      </section>
-
-      {/* 通用 ZIP 导出（Web + Electron 均可用） */}
+      {/* 主力：完整备份 */}
       <section className="dio-section">
         <h3 className="dio-section-title">导出完整备份 (.journal.zip)</h3>
         <p className="dio-desc">
-          打包 data.json + 所有附件图片为 ZIP，图片按原始二进制存储，适合大量图片场景。
-          {electron && '桌面版通过 Electron 原生导出；Web 版在浏览器中构建 ZIP 下载。'}
+          完整备份：交易数据 + 策略 + 笔记图片，图片按原始二进制存储，
+          适合日常备份、整库迁移、大量图片场景。
         </p>
-        <button
-          type="button"
-          className="dio-btn"
-          onClick={electron ? onExportZip : onExportWebZip}
-        >
+        <button type="button" className="dio-btn dio-btn-primary" onClick={onExportZip}>
           <Package size={16} />
           <span>导出 .journal.zip</span>
         </button>
       </section>
 
-      {warnMsg && (
-        <section className="dio-section dio-section-warn">
-          <div className="dio-warn-head">
-            <AlertTriangle size={16} />
-            <span>导出提示</span>
-          </div>
-          <p className="dio-desc">{warnMsg}</p>
-          <button
-            type="button"
-            className="dio-btn dio-btn-ghost"
-            onClick={() => setWarnMsg('')}
-          >
-            知道了
-          </button>
-        </section>
-      )}
+      {/* 辅助：轻量 JSON（纯数据，不含图片） */}
+      <section className="dio-section">
+        <h3 className="dio-section-title">导出 JSON（纯数据）</h3>
+        <p className="dio-desc">
+          轻量 JSON，仅含交易、策略与偏好元数据，不含笔记图片。适合快速备份或手写导入。
+        </p>
+        <button type="button" className="dio-btn" onClick={onExportJson}>
+          <Download size={16} />
+          <span>下载 JSON</span>
+        </button>
+      </section>
 
       <section className="dio-section">
         <h3 className="dio-section-title">导入 JSON 备份</h3>
@@ -217,12 +172,12 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
           <span>注意</span>
         </div>
         <ul className="dio-danger-list">
-          <li>JSON 导入会合并到当前数据；.journal.zip 导入会替换整库。</li>
+          <li>JSON 导入会合并到当前数据（不含图片）；.journal.zip 导入会替换整库。</li>
           <li>请确认备份文件来源可信，避免导入恶意数据。</li>
           <li>
             {electron
               ? '桌面版数据保存在「文档/Linear Journal」文件夹，可用 iCloud 同步该目录。'
-              : '浏览器版数据保存在 IndexedDB，建议定期导出 JSON 备份。'}
+              : '浏览器版数据保存在 IndexedDB，建议定期导出 .journal.zip 备份。'}
           </li>
         </ul>
       </section>
