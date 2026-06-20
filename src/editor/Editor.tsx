@@ -6,7 +6,6 @@ import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
 import { useEffect } from 'react'
 import { getStorage } from '@/storage'
-import { assetUrl } from '@/storage/assets'
 import {
   Bold,
   Italic,
@@ -219,23 +218,26 @@ function BBtn({
   )
 }
 
-// 粘贴/拖入图片时使用 blob URL，持久化时由 normalizeNoteForStorage 外置为附件。
+// 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
 async function insertImageFile(editor: TiptapEditor, file: File) {
-  const url = URL.createObjectURL(file)
-  editor.chain().focus().setImage({ src: url }).createParagraphNear().focus().run()
-
   try {
     const storage = getStorage()
     const id = await storage.saveAsset(file, file.type || 'image/png')
-    const persistentUrl = assetUrl(id)
-    // 替换编辑器中该图片的 src
-    const html = editor.getHTML()
-    const updated = html.replace(url, persistentUrl)
-    if (updated !== html && editor.isEditable) {
-      editor.commands.setContent(updated, false)
-      URL.revokeObjectURL(url)
-    }
+    const displayUrl = await storage.getAssetObjectUrl(id)
+    if (!displayUrl) throw new Error('getAssetObjectUrl returned null')
+
+    editor
+      .chain()
+      .focus()
+      .setImage({ src: displayUrl })
+      .updateAttributes('image', { 'data-asset-id': id })
+      .createParagraphNear()
+      .focus()
+      .run()
   } catch (e) {
-    console.error('Image persist failed', e)
+    // 持久化失败时回退到临时 blob URL（至少图片能显示）
+    const url = URL.createObjectURL(file)
+    editor.chain().focus().setImage({ src: url }).createParagraphNear().focus().run()
+    console.error('Image persist failed, using blob fallback', e)
   }
 }
