@@ -9,6 +9,12 @@ export interface BackupInfo {
 
 export interface JournalBridge {
   isElectron: true
+  // 库路径引导
+  getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
+  pickLibraryFolder(): Promise<string | null>
+  createNewLibrary(libPath: string): Promise<{ ok: boolean }>
+  openExistingLibrary(libPath: string): Promise<{ ok: boolean; error?: string }>
+  // 存储
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
   getManifest(): Promise<LibraryManifest>
@@ -30,6 +36,10 @@ export interface JournalBridge {
 
 const bridge: JournalBridge = {
   isElectron: true,
+  getLibraryStatus: () => ipcRenderer.invoke('library:getStatus'),
+  pickLibraryFolder: () => ipcRenderer.invoke('library:pickFolder'),
+  createNewLibrary: (libPath) => ipcRenderer.invoke('library:createNew', libPath),
+  openExistingLibrary: (libPath) => ipcRenderer.invoke('library:openExisting', libPath),
   getLibraryPath: () => ipcRenderer.invoke('library:getPath'),
   storageOpen: () => ipcRenderer.invoke('storage:open'),
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),

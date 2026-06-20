@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { registerLibraryIpc } from './library/ipc'
 import { startAutoBackup } from './library/backup'
 import { LibraryStorage } from './library/storage'
+import { readLibraryConfig } from './library/paths'
 import { runElectronQaAndExit } from './qa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -81,11 +82,15 @@ app.whenReady().then(async () => {
     return
   }
 
-  // 启动自动备份：15 分钟间隔 + 退出前备份
+  // 如果库已初始化（有 saved config），提前启动自动备份
+  // 否则由 library:createNew / library:openExisting IPC 延迟启动
   try {
-    const lib = new LibraryStorage()
-    await lib.open()
-    startAutoBackup(lib)
+    const cfg = readLibraryConfig()
+    if (cfg && cfg.libraryPath) {
+      const lib = new LibraryStorage()
+      await lib.open()
+      startAutoBackup(lib)
+    }
   } catch (err) {
     console.error('[electron] auto-backup init failed', err)
   }

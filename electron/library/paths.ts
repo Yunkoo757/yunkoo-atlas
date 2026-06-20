@@ -2,11 +2,39 @@ import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 
+const CONFIG_FILE = 'library-config.json'
+
+function getConfigPath(): string {
+  return path.join(app.getPath('userData'), CONFIG_FILE)
+}
+
+export interface LibraryConfig {
+  libraryPath: string
+}
+
+export function readLibraryConfig(): LibraryConfig | null {
+  try {
+    const raw = fs.readFileSync(getConfigPath(), 'utf-8')
+    const cfg = JSON.parse(raw) as LibraryConfig
+    if (cfg.libraryPath && fs.existsSync(cfg.libraryPath)) return cfg
+    return null
+  } catch {
+    return null
+  }
+}
+
+export function saveLibraryConfig(cfg: LibraryConfig): void {
+  fs.mkdirSync(path.dirname(getConfigPath()), { recursive: true })
+  fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf-8')
+}
+
 export function getDefaultLibraryPath(): string {
   return path.join(app.getPath('documents'), 'Linear Journal')
 }
 
 export function getLibraryPath(): string {
+  const saved = readLibraryConfig()
+  if (saved) return saved.libraryPath
   const custom = process.env.LINEAR_JOURNAL_LIBRARY
   return custom ? path.resolve(custom) : getDefaultLibraryPath()
 }

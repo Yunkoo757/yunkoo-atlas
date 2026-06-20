@@ -12,6 +12,8 @@ import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
 import { flushPersistNow } from './storage/persist'
+import { isElectron } from './storage/runtime'
+import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
@@ -219,15 +221,45 @@ function Shell() {
 
 export function App() {
   const [ready, setReady] = useState(false)
+  const [needsWelcome, setNeedsWelcome] = useState(false)
 
   useEffect(() => {
-    bootstrapStorage()
-      .then(() => setReady(true))
-      .catch((e) => {
-        console.error('Storage bootstrap failed', e)
-        setReady(true)
-      })
+    const init = async () => {
+      // Electron: check if library needs initialization
+      if (isElectron()) {
+        try {
+          const bridge = (window as any).journalBridge
+          const status = await bridge.getLibraryStatus()
+          if (!status.initialized) {
+            setNeedsWelcome(true)
+            setReady(true) // show UI (welcome screen) but don't bootstrap yet
+            return
+          }
+        } catch (e) {
+          console.error('Library status check failed', e)
+        }
+      }
+      // Normal bootstrap
+      await bootstrapStorage()
+      setReady(true)
+    }
+
+    init().catch((e) => {
+      console.error('Storage bootstrap failed', e)
+      setReady(true)
+    })
   }, [])
+
+  const handleWelcomeReady = async () => {
+    setNeedsWelcome(false)
+    setReady(false)
+    try {
+      await bootstrapStorage()
+    } catch (e) {
+      console.error('Storage bootstrap failed after welcome', e)
+    }
+    setReady(true)
+  }
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -236,6 +268,10 @@ export function App() {
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [])
+
+  if (needsWelcome) {
+    return <WelcomeScreen onReady={handleWelcomeReady} />
+  }
 
   if (!ready) {
     return (

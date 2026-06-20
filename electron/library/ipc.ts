@@ -1,8 +1,10 @@
 import { ipcMain, dialog, BrowserWindow, app } from 'electron'
 import path from 'node:path'
+import fs from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath } from './journalZip'
-import { getLibraryPath } from './paths'
+import { getLibraryPath, saveLibraryConfig, ensureLibraryDirs } from './paths'
 import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup } from './backup'
 
 let storage: LibraryStorage | null = null
@@ -22,6 +24,63 @@ function bufferFromPayload(data: ArrayBuffer | Uint8Array | number[]): Buffer {
 }
 
 export function registerLibraryIpc(): void {
+  // ---- 库路径引导 ----
+  ipcMain.handle('library:getStatus', async () => {
+    const libPath = getLibraryPath()
+    const manifestFile = path.join(libPath, 'manifest.json')
+    const initialized = (() => {
+      try { return fs.existsSync(manifestFile) } catch { return false }
+    })()
+    return { initialized, path: libPath }
+  })
+
+  ipcMain.handle('library:pickFolder', async () => {
+    const win = BrowserWindow.getFocusedWindow()
+    const result = await dialog.showOpenDialog(win ?? undefined, {
+      title: '选择交易库目录',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || !result.filePaths[0]) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('library:createNew', async (_e, libPath: string) => {
+    const dirs = ensureLibraryDirs(libPath)
+    // 写入初始 manifest
+    const manifest = {
+      schemaVersion: 4,
+      libraryId: randomUUID(),
+      createdAt: new Date().toISOString(),
+      platform: 'electron' as const,
+    }
+    fs.writeFileSync(dirs.manifestFile, JSON.stringify(manifest, null, 2), 'utf-8')
+    saveLibraryConfig({ libraryPath: libPath })
+    // 重新打开 storage 以指向新路径
+    if (storage) storage.close()
+    storage = null
+    const reopened = new LibraryStorage()
+    await reopened.open()
+    storage = reopened
+    startAutoBackup(reopened)
+    return { ok: true }
+  })
+
+  ipcMain.handle('library:openExisting', async (_e, libPath: string) => {
+    const manifestFile = path.join(libPath, 'manifest.json')
+    if (!fs.existsSync(manifestFile)) {
+      return { ok: false, error: '所选目录中没有找到交易库 (manifest.json)' }
+    }
+    saveLibraryConfig({ libraryPath: libPath })
+    if (storage) storage.close()
+    storage = null
+    const reopened = new LibraryStorage()
+    await reopened.open()
+    storage = reopened
+    startAutoBackup(reopened)
+    return { ok: true }
+  })
+
+  // ---- 常规 storage IPC ----
   ipcMain.handle('library:getPath', async () => (await ensureStorage()).getLibraryPath())
 
   ipcMain.handle('storage:open', async () => {
