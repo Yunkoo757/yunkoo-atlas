@@ -21,6 +21,8 @@ export type TradeSide = 'long' | 'short'
 
 export type Conviction = 'low' | 'medium' | 'high' | 'urgent' // 信心度，沿用优先级视觉
 
+export type ReviewStatus = 'unreviewed' | 'reviewed' | 'focus'
+
 export interface TradeComment {
   id: string
   text: string
@@ -60,6 +62,8 @@ export interface Trade {
   conviction: Conviction
   strategyId: string // 策略 ID，关联 Strategy 实体
   tags: string[]
+  mistakeTags: string[]
+  reviewStatus: ReviewStatus
   tradeKind: TradeKind
   entry: number
   exit: number | null
@@ -119,6 +123,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'breakout',
     tradeKind: 'live',
     tags: ['日内', '突破'],
+    mistakeTags: [],
+    reviewStatus: 'reviewed',
     entry: 61200,
     exit: 64850,
     size: 0.5,
@@ -138,6 +144,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'mean-reversion',
     tradeKind: 'live',
     tags: ['财报', '逆势'],
+    mistakeTags: ['逆势交易'],
+    reviewStatus: 'focus',
     entry: 214.5,
     exit: 219.2,
     size: 100,
@@ -157,6 +165,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'trend-following',
     tradeKind: 'live',
     tags: ['波段'],
+    mistakeTags: [],
+    reviewStatus: 'unreviewed',
     entry: 3380,
     exit: null,
     size: 4,
@@ -176,6 +186,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'news-catalyst',
     tradeKind: 'live',
     tags: ['催化', '关注'],
+    mistakeTags: [],
+    reviewStatus: 'unreviewed',
     entry: 0,
     exit: null,
     size: 50,
@@ -195,6 +207,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'scalp',
     tradeKind: 'live',
     tags: ['日内', '剥头皮'],
+    mistakeTags: ['过早止盈'],
+    reviewStatus: 'reviewed',
     entry: 148.2,
     exit: 151.0,
     size: 20,
@@ -214,6 +228,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'mean-reversion',
     tradeKind: 'live',
     tags: ['试探'],
+    mistakeTags: [],
+    reviewStatus: 'reviewed',
     entry: 248,
     exit: 248.3,
     size: 30,
@@ -233,6 +249,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'trend-following',
     tradeKind: 'live',
     tags: ['波段', '顶背离'],
+    mistakeTags: [],
+    reviewStatus: 'reviewed',
     entry: 66800,
     exit: 63200,
     size: 0.3,
@@ -252,6 +270,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'breakout',
     tradeKind: 'live',
     tags: ['假突破'],
+    mistakeTags: ['假突破', '追单'],
+    reviewStatus: 'focus',
     entry: 452,
     exit: 446.5,
     size: 40,
@@ -271,6 +291,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'breakout',
     tradeKind: 'live',
     tags: ['错过', '突破'],
+    mistakeTags: ['犹豫未进'],
+    reviewStatus: 'focus',
     entry: 0.182,
     exit: 0.195,
     size: 5000,
@@ -291,6 +313,8 @@ export const SEED_TRADES: Trade[] = [
     strategyId: 'mean-reversion',
     tradeKind: 'paper',
     tags: ['纸面', '回归'],
+    mistakeTags: [],
+    reviewStatus: 'reviewed',
     entry: 1.085,
     exit: 1.081,
     size: 1,

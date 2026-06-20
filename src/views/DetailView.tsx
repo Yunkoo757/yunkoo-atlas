@@ -32,9 +32,11 @@ import {
   type TradeSide,
   type TradeKind,
   type MissReason,
+  type ReviewStatus,
   type ActivityEvent,
   type ActivityKind,
 } from '@/data/trades'
+import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import { getTradeActivities, type DisplayActivityEvent } from '@/lib/activities'
@@ -55,6 +57,7 @@ const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
 const KIND_OPTS: TradeKind[] = ['live', 'paper']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
+const REVIEW_OPTS: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
 
 export function DetailView() {
   const { id: routeParam } = useParams()
@@ -85,6 +88,8 @@ export function DetailView() {
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingHtmlRef = useRef<string | null>(null)
+  const pendingTradeIdRef = useRef<string | null>(null)
   const commentRef = useRef<HTMLTextAreaElement>(null)
 
   const adjustCommentHeight = useCallback(() => {
@@ -103,6 +108,8 @@ export function DetailView() {
 
   const persistEditorNote = useCallback(
     (html: string, tradeId: string) => {
+      pendingHtmlRef.current = html
+      pendingTradeIdRef.current = tradeId
       if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
       noteSaveTimer.current = setTimeout(async () => {
         const normalized = await normalizeNoteForStorage(html, getStorage())
@@ -126,7 +133,20 @@ export function DetailView() {
 
   useEffect(() => {
     return () => {
-      if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
+      if (noteSaveTimer.current) {
+        clearTimeout(noteSaveTimer.current)
+        // 立即执行保存
+        const html = pendingHtmlRef.current
+        const tradeId = pendingTradeIdRef.current
+        if (html && tradeId) {
+          normalizeNoteForStorage(html, getStorage()).then((normalized) => {
+            const current = useStore.getState().trades.find((t) => t.id === tradeId)
+            if (current && normalized !== current.note) {
+              useStore.getState().updateNote(tradeId, normalized)
+            }
+          }).catch(() => {})
+        }
+      }
     }
   }, [])
 
@@ -143,6 +163,14 @@ export function DetailView() {
   const starred = trade ? starredIds.includes(trade.id) : false
   const subscribed = trade ? subscribedIds.includes(trade.id) : false
   const allTags = useMemo(() => collectAllTags(trades), [trades])
+  const allMistakeTags = useMemo(
+    () => [
+      ...new Set(
+        trades.flatMap((t) => t.mistakeTags ?? []).map((tag) => tag.trim()).filter(Boolean),
+      ),
+    ],
+    [trades],
+  )
 
   useEffect(() => {
     setFeedExpanded(false)
@@ -432,6 +460,19 @@ export function DetailView() {
                 </button>
               }
             />
+            <Menu
+              value={trade.reviewStatus}
+              onSelect={(v) => updateTradeData(trade.id, { reviewStatus: v as ReviewStatus })}
+              options={REVIEW_OPTS.map((s) => ({
+                value: s,
+                label: REVIEW_STATUS_META[s].label,
+              }))}
+              trigger={
+                <button className="dv-pitem dv-pitem-ghost">
+                  <span>复盘 · {REVIEW_STATUS_META[trade.reviewStatus].label}</span>
+                </button>
+              }
+            />
             {trade.status === 'missed' && (
               <Menu
                 value={trade.missReason ?? 'other'}
@@ -539,6 +580,25 @@ export function DetailView() {
               suggestions={allTags}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
+            />
+          </Section>
+
+          <Section title="错误 / 违规">
+            <TagEditor
+              tags={trade.mistakeTags}
+              suggestions={allMistakeTags}
+              onAdd={(tag) =>
+                updateTradeData(trade.id, {
+                  mistakeTags: trade.mistakeTags.includes(tag)
+                    ? trade.mistakeTags
+                    : [...trade.mistakeTags, tag],
+                })
+              }
+              onRemove={(tag) =>
+                updateTradeData(trade.id, {
+                  mistakeTags: trade.mistakeTags.filter((t) => t !== tag),
+                })
+              }
             />
           </Section>
 

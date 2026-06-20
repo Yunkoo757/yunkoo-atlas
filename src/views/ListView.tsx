@@ -12,6 +12,7 @@ import { useStore } from '@/store/useStore'
 import type { Strategy } from '@/data/strategies'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { STATUS_META, type TradeStatus, type Trade } from '@/data/trades'
+import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
 import {
   filterTrades,
   applyDisplayPrefs,
@@ -313,6 +314,16 @@ function Row({
       <div className="lv-tags">
         {t.tags.map((tag) => (
           <span className="lv-tag" key={tag}>
+            {tag}
+          </span>
+        ))}
+        {t.reviewStatus !== 'unreviewed' && (
+          <span className={'lv-review lv-review-' + t.reviewStatus}>
+            {REVIEW_STATUS_META[t.reviewStatus].label}
+          </span>
+        )}
+        {t.mistakeTags.slice(0, 2).map((tag) => (
+          <span className="lv-mistake" key={tag}>
             {tag}
           </span>
         ))}

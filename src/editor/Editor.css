@@ -60,6 +60,18 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+.editor .editor-missing-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-8);
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+}
 
 .editor code {
   font-family: var(--font-mono);

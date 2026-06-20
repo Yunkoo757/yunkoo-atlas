@@ -17,6 +17,10 @@ export function parseAssetId(src: string): string | null {
   return id || null
 }
 
+function missingAssetPlaceholder(id: string): string {
+  return `<span class="editor-missing-image" data-missing-asset-id="${id}">图片附件缺失</span>`
+}
+
 function dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string } | null {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
   if (!match) return null
@@ -61,24 +65,27 @@ export async function resolveNoteForDisplay(
 ): Promise<string> {
   if (!html.includes(ASSET_URL_PREFIX)) return html
 
-  const parts: string[] = []
-  let last = 0
-  let match: RegExpExecArray | null
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const images = doc.querySelectorAll('img[src^="journal-asset://"]')
 
-  ASSET_IMG_RE.lastIndex = 0
-  while ((match = ASSET_IMG_RE.exec(html)) !== null) {
-    parts.push(html.slice(last, match.index))
-    const id = match[2]
+  for (const img of images) {
+    const src = img.getAttribute('src') ?? ''
+    const id = parseAssetId(src)
+    if (!id) continue
     const url = await adapter.getAssetObjectUrl(id)
     if (url) {
-      parts.push(`<img${match[1]} src="${url}" data-asset-id="${id}"${match[3]}>`)
+      img.setAttribute('src', url)
+      img.setAttribute('data-asset-id', id)
     } else {
-      parts.push(match[0])
+      const placeholder = doc.createElement('span')
+      placeholder.className = 'editor-missing-image'
+      placeholder.setAttribute('data-missing-asset-id', id)
+      placeholder.textContent = '图片附件缺失'
+      img.replaceWith(placeholder)
     }
-    last = match.index + match[0].length
   }
-  parts.push(html.slice(last))
-  return parts.join('')
+
+  return doc.body.innerHTML
 }
 
 /** 持久化用：blob URL / 新粘贴 → asset 引用 */
@@ -130,7 +137,13 @@ export async function normalizeNoteForStorage(
         img.removeAttribute('data-asset-id')
         changed = true
       } catch {
-        /* keep as-is */
+        const placeholder = doc.createElement('img')
+        placeholder.setAttribute('src', '')
+        placeholder.setAttribute('alt', '图片未能保存')
+        placeholder.className = 'editor-missing-image'
+        placeholder.setAttribute('data-unsaved-image', 'true')
+        img.replaceWith(placeholder)
+        changed = true
       }
     }
   }

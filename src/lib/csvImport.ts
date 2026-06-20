@@ -390,6 +390,8 @@ export function finalizeTrade(
     conviction: partial.conviction ?? 'medium',
     strategyId: partial.strategyId,
     tags: partial.tags ?? [],
+    mistakeTags: partial.mistakeTags ?? [],
+    reviewStatus: partial.reviewStatus ?? 'unreviewed',
     tradeKind: partial.tradeKind ?? 'live',
     entry: partial.entry,
     exit: partial.exit ?? null,

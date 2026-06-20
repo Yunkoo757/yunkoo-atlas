@@ -178,6 +178,27 @@
   padding: 1px 8px;
   white-space: nowrap;
 }
+.lv-review,
+.lv-mistake {
+  font-size: var(--fs-micro);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.lv-review {
+  color: var(--text-secondary);
+  background: var(--bg-selected);
+}
+.lv-review-focus {
+  color: var(--accent);
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+.lv-mistake {
+  color: var(--neg);
+  border: 1px solid color-mix(in oklab, var(--neg) 30%, transparent);
+  background: color-mix(in oklab, var(--neg) 10%, transparent);
+}
 .lv-pnl {
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);

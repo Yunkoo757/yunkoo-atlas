@@ -4,7 +4,8 @@ import { Plus, Pencil, Trash2, ChevronRight } from 'lucide-react'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { StrategyFormModal, uniqueStrategyId } from '@/components/StrategyFormModal'
 import { useStore } from '@/store/useStore'
-import { countTradesByStrategy } from '@/lib/strategies'
+import { computeStrategyStats } from '@/lib/strategies'
+import { fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import type { Strategy } from '@/data/strategies'
 import '@/views/StrategiesView.css'
@@ -26,10 +27,14 @@ export function StrategiesPanel() {
     () =>
       [...strategies]
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
-        .map((s) => ({
-          ...s,
-          count: countTradesByStrategy(trades, s.id),
-        })),
+        .map((s) => {
+          const stats = computeStrategyStats(trades, s.id)
+          return {
+            ...s,
+            count: stats.tradeCount,
+            stats,
+          }
+        }),
     [strategies, trades],
   )
 
@@ -99,6 +104,19 @@ export function StrategiesPanel() {
                   {s.name}
                 </Link>
                 <span className="st-row-meta">{s.count} 笔交易</span>
+                <div className="st-row-stats">
+                  <span>{s.stats.closedCount ? `${s.stats.winRate.toFixed(0)}% 胜率` : '胜率 —'}</span>
+                  <span>{s.stats.closedCount ? `${fmtR(s.stats.totalR)} 总R` : '总R —'}</span>
+                  <span>{s.stats.closedCount ? `${fmtR(s.stats.averageR)} 均R` : '均R —'}</span>
+                  <span>{s.stats.reviewedCount}/{s.stats.tradeCount} 已复盘</span>
+                </div>
+                {s.stats.topMistakes.length > 0 && (
+                  <div className="st-row-mistakes">
+                    {s.stats.topMistakes.map((m) => (
+                      <span key={m.tag}>{m.tag} ×{m.count}</span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="st-row-actions">
                 <button type="button" className="st-act" title="编辑" onClick={() => openEdit(s)}>

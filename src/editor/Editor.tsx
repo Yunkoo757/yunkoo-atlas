@@ -5,6 +5,8 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
 import { useEffect } from 'react'
+import { getStorage } from '@/storage'
+import { assetUrl } from '@/storage/assets'
 import {
   Bold,
   Italic,
@@ -43,7 +45,14 @@ export function Editor({
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Image.configure({ inline: false, allowBase64: false }),
+      Image.configure({ inline: false, allowBase64: false }).extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            'data-asset-id': { default: null },
+          }
+        },
+      }),
       Placeholder.configure({
         placeholder: '写下这笔交易的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图',
       }),
@@ -211,13 +220,22 @@ function BBtn({
 }
 
 // 粘贴/拖入图片时使用 blob URL，持久化时由 normalizeNoteForStorage 外置为附件。
-function insertImageFile(editor: TiptapEditor, file: File) {
+async function insertImageFile(editor: TiptapEditor, file: File) {
   const url = URL.createObjectURL(file)
-  editor
-    .chain()
-    .focus()
-    .setImage({ src: url })
-    .createParagraphNear()
-    .focus()
-    .run()
+  editor.chain().focus().setImage({ src: url }).createParagraphNear().focus().run()
+
+  try {
+    const storage = getStorage()
+    const id = await storage.saveAsset(file, file.type || 'image/png')
+    const persistentUrl = assetUrl(id)
+    // 替换编辑器中该图片的 src
+    const html = editor.getHTML()
+    const updated = html.replace(url, persistentUrl)
+    if (updated !== html && editor.isEditable) {
+      editor.commands.setContent(updated, false)
+      URL.revokeObjectURL(url)
+    }
+  } catch (e) {
+    console.error('Image persist failed', e)
+  }
 }

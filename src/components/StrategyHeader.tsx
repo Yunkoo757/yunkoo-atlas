@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { useStore } from '@/store/useStore'
 import { computeStrategyStats } from '@/lib/strategies'
-import { fmtMoney } from '@/lib/format'
+import { fmtMoney, fmtR } from '@/lib/format'
 import './StrategyHeader.css'
 
 export function StrategyHeader({ strategyId }: { strategyId: string }) {
@@ -51,6 +51,28 @@ export function StrategyHeader({ strategyId }: { strategyId: string }) {
             }}
           >
             {stats.closedCount > 0 ? fmtMoney(stats.totalPnl) : '—'}
+          </span>
+        </div>
+        <div className="sh-stat">
+          <span className="sh-stat-label">总 R</span>
+          <span
+            className="sh-stat-value"
+            style={{
+              color:
+                stats.closedCount === 0
+                  ? 'var(--text-tertiary)'
+                  : stats.totalR >= 0
+                    ? 'var(--pos)'
+                    : 'var(--neg)',
+            }}
+          >
+            {stats.closedCount > 0 ? fmtR(stats.totalR) : '—'}
+          </span>
+        </div>
+        <div className="sh-stat">
+          <span className="sh-stat-label">均 R</span>
+          <span className="sh-stat-value">
+            {stats.closedCount > 0 ? fmtR(stats.averageR) : '—'}
           </span>
         </div>
       </div>

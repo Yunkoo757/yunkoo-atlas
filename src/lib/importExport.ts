@@ -1,5 +1,12 @@
 import type { Strategy } from '@/data/strategies'
-import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind } from '@/data/trades'
+import type {
+  Trade,
+  TradeStatus,
+  TradeSide,
+  Conviction,
+  TradeKind,
+  ReviewStatus,
+} from '@/data/trades'
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
@@ -14,7 +21,7 @@ import { flushPersistNow } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
 
-export const EXPORT_VERSION = 4 // 4: +shortcuts bindings, +tradeKind activities
+export const EXPORT_VERSION = 5 // 5: +reviewStatus, +mistakeTags
 
 export interface ExportPayload {
   version: number
@@ -36,6 +43,8 @@ export interface PersistedSlice {
   display: DisplayPrefs
 }
 
+interface ExportState extends PersistedSlice {}
+
 export type ImportResult =
   | { ok: true; data: ExportPayload }
   | { ok: false; error: string }
@@ -51,6 +60,7 @@ const TRADE_STATUSES: TradeStatus[] = [
 const TRADE_KINDS: TradeKind[] = ['live', 'paper']
 const TRADE_SIDES: TradeSide[] = ['long', 'short']
 const CONVICTIONS: Conviction[] = ['low', 'medium', 'high', 'urgent']
+const REVIEW_STATUSES: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -75,6 +85,13 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   if (!CONVICTIONS.includes(v.conviction as Conviction)) return false
   if (typeof v.strategyId !== 'string' && typeof v.strategy !== 'string') return false
   if (!Array.isArray(v.tags) || !v.tags.every((t) => typeof t === 'string')) return false
+  if (v.mistakeTags !== undefined && !isStringArray(v.mistakeTags)) return false
+  if (
+    v.reviewStatus !== undefined &&
+    !REVIEW_STATUSES.includes(v.reviewStatus as ReviewStatus)
+  ) {
+    return false
+  }
   if (typeof v.entry !== 'number') return false
   if (v.exit !== null && typeof v.exit !== 'number') return false
   if (typeof v.size !== 'number') return false
@@ -108,18 +125,36 @@ function parseDisplay(v: unknown): DisplayPrefs {
   return normalizeDisplay(v as Partial<DisplayPrefs>)
 }
 
+export async function buildExportPayloadFromState(
+  state: ExportState,
+  getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
+): Promise<ExportPayload> {
+  const assetIds = collectAssetIdsFromNotes(state.trades)
+  const assets: ExportAssetRecord[] = []
+  for (const id of assetIds) {
+    const record = await getAssetForExport(id)
+    if (record) assets.push(record)
+  }
+  return {
+    version: EXPORT_VERSION,
+    trades: state.trades,
+    strategies: state.strategies,
+    starredIds: state.starredIds,
+    subscribedIds: state.subscribedIds,
+    pinnedStrategyIds: state.pinnedStrategyIds,
+    display: state.display,
+    assets,
+  }
+}
+
 export async function buildExportPayload(): Promise<ExportPayload> {
   const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display } =
     useStore.getState()
-  return {
-    version: EXPORT_VERSION,
-    trades,
-    strategies,
-    starredIds,
-    subscribedIds,
-    pinnedStrategyIds,
-    display,
-  }
+  const storage = getStorage()
+  return buildExportPayloadFromState(
+    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display },
+    (id) => storage.getAssetForExport(id),
+  )
 }
 
 export async function downloadExport(): Promise<void> {

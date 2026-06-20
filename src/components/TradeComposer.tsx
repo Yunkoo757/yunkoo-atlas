@@ -21,7 +21,9 @@ import {
   type TradeSide,
   type TradeKind,
   type MissReason,
+  type ReviewStatus,
 } from '@/data/trades'
+import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { isTerminal } from '@/lib/tradeStatus'
 import './TradeComposer.css'
@@ -30,6 +32,7 @@ const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
 const KIND_OPTS: TradeKind[] = ['live', 'paper']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
+const REVIEW_OPTS: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
 const SYMBOL_PRESETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT']
 
 function defaultKindFromPath(pathname: string): TradeKind {
@@ -55,6 +58,8 @@ function blankTrade(strategyId: string, kind: TradeKind): Trade {
     strategyId,
     tradeKind: kind,
     tags: [],
+    mistakeTags: [],
+    reviewStatus: 'unreviewed',
     entry: 0,
     exit: null,
     stopLoss: null,
@@ -100,6 +105,9 @@ export function TradeComposer() {
   const rTouched = useRef(false)
 
   const allTags = collectAllTags(trades)
+  const allMistakeTags = [
+    ...new Set(trades.flatMap((t) => t.mistakeTags ?? []).map((t) => t.trim()).filter(Boolean)),
+  ]
 
   useEffect(() => {
     if (open) {
@@ -279,6 +287,19 @@ export function TradeComposer() {
                 </button>
               }
             />
+            <Menu
+              value={form.reviewStatus}
+              onSelect={(v) => set('reviewStatus', v as ReviewStatus)}
+              options={REVIEW_OPTS.map((s) => ({
+                value: s,
+                label: REVIEW_STATUS_META[s].label,
+              }))}
+              trigger={
+                <button className="tc-pill tc-pill-ghost">
+                  {REVIEW_STATUS_META[form.reviewStatus].label}
+                </button>
+              }
+            />
             {form.status === 'missed' && (
               <Menu
                 value={form.missReason ?? 'other'}
@@ -366,6 +387,25 @@ export function TradeComposer() {
               }
               onRemove={(tag) =>
                 setForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))
+              }
+            />
+          </Field>
+
+          <Field label="错误 / 违规标签">
+            <TagEditor
+              tags={form.mistakeTags}
+              suggestions={allMistakeTags}
+              onAdd={(tag) =>
+                setForm((f) => ({
+                  ...f,
+                  mistakeTags: f.mistakeTags.includes(tag) ? f.mistakeTags : [...f.mistakeTags, tag],
+                }))
+              }
+              onRemove={(tag) =>
+                setForm((f) => ({
+                  ...f,
+                  mistakeTags: f.mistakeTags.filter((t) => t !== tag),
+                }))
               }
             />
           </Field>

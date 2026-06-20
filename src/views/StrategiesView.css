@@ -64,7 +64,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .st-row-name {
@@ -79,6 +79,28 @@
 .st-row-meta {
   font-size: var(--fs-mini);
   color: var(--text-tertiary);
+}
+.st-row-stats,
+.st-row-mistakes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.st-row-stats span,
+.st-row-mistakes span {
+  font-size: var(--fs-micro);
+  border-radius: var(--radius-full);
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+.st-row-stats span {
+  color: var(--text-tertiary);
+  background: var(--bg-selected);
+}
+.st-row-mistakes span {
+  color: var(--neg);
+  border: 1px solid color-mix(in oklab, var(--neg) 28%, transparent);
+  background: color-mix(in oklab, var(--neg) 9%, transparent);
 }
 
 .st-row-actions {

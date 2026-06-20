@@ -2,6 +2,7 @@ import type { Strategy } from '@/data/strategies'
 import { DEFAULT_STRATEGIES } from '@/data/strategies'
 import type { Trade, TradeKind } from '@/data/trades'
 import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
+import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
 
 export function getStrategy(
   strategies: Strategy[],
@@ -44,7 +45,13 @@ export function computeStrategyStats(
   const wins = closed.filter((t) => t.pnl > 0)
   const totalPnl = closed.reduce((s, t) => s + t.pnl, 0)
   const winRate = closed.length ? (wins.length / closed.length) * 100 : 0
-  return { tradeCount: all.length, closedCount: closed.length, winRate, totalPnl }
+  return {
+    ...summarizeStrategyPerformance(trades, strategyId, options),
+    tradeCount: all.length,
+    closedCount: closed.length,
+    winRate,
+    totalPnl,
+  }
 }
 
 /** 将旧版 trade.strategy（名称字符串）迁移为 strategyId，并补全 tradeKind */

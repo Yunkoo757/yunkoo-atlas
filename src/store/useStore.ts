@@ -16,6 +16,7 @@ import type { ExportPayload } from '@/lib/importExport'
 import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
 import { isTerminal } from '@/lib/tradeStatus'
+import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 
 interface State {
   trades: Trade[]
@@ -52,6 +53,8 @@ interface State {
         | 'stopLoss'
         | 'missReason'
         | 'tradeKind'
+        | 'mistakeTags'
+        | 'reviewStatus'
       >
     >,
   ) => void
@@ -301,13 +304,13 @@ export const useStore = create<State>()((set, get) => ({
           const exists = s.trades.some((t) => t.id === trade.id)
           const strategyId =
             trade.strategyId || s.strategies[0]?.id || 'uncategorized'
-          let normalized: Trade = {
+          let normalized: Trade = normalizeReviewFields({
             ...trade,
             strategyId,
             tradeKind: trade.tradeKind ?? 'live',
             comments: trade.comments ?? [],
             activities: trade.activities,
-          }
+          })
           if (!exists) {
             const withCreate = createActivity(normalized)
             return { trades: [withCreate, ...s.trades] }
