@@ -91,10 +91,20 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 .sb-top {
   margin-top: 8px;
+}
+
+.sb-section-label {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-quaternary);
 }
 
 .sb-group-label {
@@ -158,6 +168,17 @@
 }
 .sb-item.is-active svg {
   color: var(--text-primary);
+}
+
+.sb-item-count {
+  margin-left: auto;
+  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-item.is-active .sb-item-count {
+  color: var(--text-tertiary);
 }
 
 .sb-item-ghost {

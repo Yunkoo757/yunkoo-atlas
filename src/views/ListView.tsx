@@ -227,7 +227,7 @@ export function ListView({
                 ) : g.kind === 'date' ? (
                   <>
                     <Calendar size={13} className="lv-group-cal" aria-hidden />
-                    <span className="lv-group-title">{fmtDate(g.date)}</span>
+                    <span className="lv-group-title">{g.date}</span>
                   </>
                 ) : (
                   <>

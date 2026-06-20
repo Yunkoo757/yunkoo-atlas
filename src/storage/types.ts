@@ -30,6 +30,7 @@ export interface PersistedSnapshot {
   pinnedStrategyIds: string[]
   display: DisplayPrefs
   shortcuts?: Record<string, ShortcutBinding | null>
+  tagPresets?: string[]
 }
 
 export interface ExportAssetRecord {

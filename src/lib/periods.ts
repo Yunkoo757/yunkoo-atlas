@@ -32,7 +32,9 @@ export interface DateBounds {
 
 /** 解析 YYYY-MM-DD 为本地日历日（避免 UTC 偏移） */
 export function parseLocalDate(iso: string): Date {
+  if (!iso || iso.length < 10) return new Date()
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date()
   return new Date(y, m - 1, d)
 }
 

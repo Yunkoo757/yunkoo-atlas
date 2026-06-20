@@ -30,6 +30,7 @@ const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
 const KIND_OPTS: TradeKind[] = ['live', 'paper']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
+const SYMBOL_PRESETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT']
 
 function defaultKindFromPath(pathname: string): TradeKind {
   // /paper and /practice are legacy routes that redirect to /sim (kept for backward compat)
@@ -87,6 +88,9 @@ export function TradeComposer() {
   const strategies = useStore((s) => s.strategies)
   const upsert = useStore((s) => s.upsertTrade)
   const close = useStore((s) => s.closeComposer)
+  const tagPresets = useStore((s) => s.tagPresets)
+  const addTagPreset = useStore((s) => s.addTagPreset)
+  const removeTagPreset = useStore((s) => s.removeTagPreset)
 
   const [form, setForm] = useState<Trade>(
     blankTrade(strategies[0]?.id ?? 'breakout', defaultKindFromPath(location.pathname)),
@@ -174,11 +178,23 @@ export function TradeComposer() {
         <div className="tc-body">
           <input
             className="tc-symbol"
-            placeholder="标的，如 BTC/USDT"
+            placeholder="标的，如 BTCUSDT"
             value={form.symbol}
             onChange={(e) => set('symbol', e.target.value)}
             autoFocus
           />
+          <div className="tc-symbol-presets" aria-label="标的预置">
+            {SYMBOL_PRESETS.map((symbol) => (
+              <button
+                key={symbol}
+                type="button"
+                className={'tc-symbol-preset' + (form.symbol === symbol ? ' is-active' : '')}
+                onClick={() => set('symbol', symbol)}
+              >
+                {symbol}
+              </button>
+            ))}
+          </div>
 
           {/* 属性药丸行 */}
           <div className="tc-pills">
@@ -339,6 +355,9 @@ export function TradeComposer() {
             <TagEditor
               tags={form.tags}
               suggestions={allTags}
+              presets={tagPresets}
+              onAddPreset={addTagPreset}
+              onRemovePreset={removeTagPreset}
               onAdd={(tag) =>
                 setForm((f) => ({
                   ...f,

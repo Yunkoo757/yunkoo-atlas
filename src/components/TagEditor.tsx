@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react'
-import { Tag, X } from 'lucide-react'
+import { Tag, X, Plus, Trash2 } from 'lucide-react'
 import './TagEditor.css'
 
 export function TagEditor({
@@ -7,12 +7,19 @@ export function TagEditor({
   onAdd,
   onRemove,
   suggestions = [],
+  presets = [],
+  onAddPreset,
+  onRemovePreset,
 }: {
   tags: string[]
   onAdd: (tag: string) => void
   onRemove: (tag: string) => void
   /** 已有标签列表，用于输入时 autocomplete */
   suggestions?: string[]
+  /** 预置标签 */
+  presets?: string[]
+  onAddPreset?: (tag: string) => void
+  onRemovePreset?: (tag: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
@@ -85,6 +92,47 @@ export function TagEditor({
 
   return (
     <div className="tag-editor">
+      {presets.length > 0 && (
+        <div className="tag-presets-row">
+          {presets.map((p) => (
+            <span
+              className={'tag-preset-chip' + (tags.includes(p) ? ' is-used' : '')}
+              key={p}
+            >
+              <button
+                type="button"
+                className="tag-preset-label"
+                title={`添加标签「${p}」`}
+                onClick={() => { if (!tags.includes(p)) onAdd(p) }}
+                disabled={tags.includes(p)}
+              >
+                {p}
+              </button>
+              {onRemovePreset && (
+                <button
+                  type="button"
+                  className="tag-preset-remove"
+                  title={`删除预置「${p}」`}
+                  onClick={() => onRemovePreset(p)}
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </span>
+          ))}
+          {onAddPreset && editing && value.trim() && !presets.includes(value.trim()) && (
+            <button
+              type="button"
+              className="tag-preset-add-btn"
+              title="添加为预置标签"
+              onClick={() => { onAddPreset(value.trim()); setValue('') }}
+            >
+              <Plus size={12} />
+              <span>预置</span>
+            </button>
+          )}
+        </div>
+      )}
       {tags.map((t) => (
         <span className="tag-chip" key={t}>
           {t}

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   ListTodo,
-  LayoutGrid,
   BarChart3,
   Plus,
   CornerDownLeft,
@@ -64,7 +63,6 @@ export function CommandPalette({
     const viewNav: Cmd[] = [
       { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '全部交易', hint: '实盘', run: go('/list') },
       { id: 'n-active', group: '导航', icon: <CircleDot size={16} />, label: '进行中', hint: '计划 + 持仓', run: go('/active') },
-      { id: 'n-board', group: '导航', icon: <LayoutGrid size={16} />, label: '看板', run: go('/board') },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', run: go('/dashboard') },
       { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', run: go('/favorites') },
       { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', run: go('/missed') },

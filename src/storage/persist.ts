@@ -19,6 +19,7 @@ export function pickPersisted(
   subscribedIds: string[]
   pinnedStrategyIds: string[]
   display: PersistedSnapshot['display']
+  tagPresets: string[]
 },
   shortcutBindings?: Record<string, ShortcutBinding | null>,
 ): PersistedSnapshot {
@@ -30,6 +31,7 @@ export function pickPersisted(
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
     display: state.display,
+    tagPresets: state.tagPresets,
     ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }
 }

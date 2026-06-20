@@ -27,7 +27,7 @@ export interface DisplayPrefs {
   groupByStrategy: boolean
   groupByDate: boolean
   sortBy: 'date' | 'pnl' | 'conviction'
-  /** 侧栏直接展示的快捷入口（其余收在「更多」） */
+  /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
   sidebarPins: SidebarNavId[]
 }
 

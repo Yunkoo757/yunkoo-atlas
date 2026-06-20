@@ -1,35 +1,29 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   Search,
   PenSquare,
   ListTodo,
-  LayoutGrid,
   BarChart3,
-  ChevronDown,
+  CalendarDays,
   Settings2,
-  MoreHorizontal,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
 import { useStore } from '@/store/useStore'
 import {
   SECONDARY_NAV,
   isSidebarNavActive,
-  type SidebarNavId,
 } from '@/lib/sidebarNav'
+import { isActive, isMissed } from '@/lib/tradeStatus'
+import { CALENDAR_PERIODS, PERIOD_LABELS, tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
+import { countTradesByStrategy, sortStrategies } from '@/lib/strategies'
+import { StrategyIcon } from '@/components/StrategyIcon'
 import './Sidebar.css'
 
-const MAIN_NAV = [
+const WORKBENCH_NAV = [
   {
     to: '/list',
     label: '交易',
     icon: ListTodo,
-    active: (path: string) => path === '/list',
-  },
-  {
-    to: '/board',
-    label: '看板',
-    icon: LayoutGrid,
-    active: (path: string) => path === '/board' || path.endsWith('/board'),
+    active: (path: string) => path === '/list' || path === '/board',
   },
   {
     to: '/dashboard',
@@ -39,35 +33,50 @@ const MAIN_NAV = [
   },
 ] as const
 
-function SecondaryLink({ id, to, label, icon: Icon }: (typeof SECONDARY_NAV)[number]) {
-  const path = window.location.pathname
+const SIDEBAR_PERIODS: CalendarPeriod[] = ['today', 'this-week']
+const MAX_SIDEBAR_STRATEGIES = 4
+
+function SecondaryLink({
+  path,
+  count,
+  item: { to, label, icon: Icon },
+}: {
+  path: string
+  count?: number
+  item: (typeof SECONDARY_NAV)[number]
+}) {
   const active = isSidebarNavActive(path, to)
   return (
-    <NavLink key={id} to={to} className={() => 'sb-item' + (active ? ' is-active' : '')}>
+    <NavLink to={to} className={() => 'sb-item' + (active ? ' is-active' : '')}>
       <Icon size={16} />
       <span>{label}</span>
+      {typeof count === 'number' && <span className="sb-item-count">{count}</span>}
     </NavLink>
   )
 }
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
-  const [moreOpen, setMoreOpen] = useState(false)
+  const { pathname: path } = useLocation()
   const openComposer = useStore((s) => s.openComposer)
-  const sidebarPins = useStore((s) => s.display.sidebarPins)
-
-  const path = window.location.pathname
+  const trades = useStore((s) => s.trades)
+  const starredIds = useStore((s) => s.starredIds)
+  const strategies = useStore((s) => s.strategies)
+  const pinnedStrategyIds = useStore((s) => s.pinnedStrategyIds)
 
   const isPathActive = (fn: (path: string) => boolean) => fn(path)
+  const sortedStrategies = sortStrategies(strategies, pinnedStrategyIds)
+  const sidebarStrategies = sortedStrategies.slice(0, MAX_SIDEBAR_STRATEGIES)
 
-  const { pinned, more } = useMemo(() => {
-    const pinSet = new Set<SidebarNavId>(sidebarPins)
-    const pinnedItems = SECONDARY_NAV.filter((item) => pinSet.has(item.id))
-    const moreItems = SECONDARY_NAV.filter((item) => !pinSet.has(item.id))
-    return { pinned: pinnedItems, more: moreItems }
-  }, [sidebarPins])
-
-  const isMoreActive = more.some((item) => isSidebarNavActive(path, item.to))
   const isSettingsActive = path.startsWith('/settings')
+  const counts = {
+    all: trades.filter((trade) => trade.tradeKind !== 'paper').length,
+    active: trades.filter((trade) => trade.tradeKind !== 'paper' && isActive(trade.status)).length,
+    favorites: starredIds.length,
+    missed: trades.filter((trade) => isMissed(trade.status)).length,
+    paper: trades.filter((trade) => trade.tradeKind === 'paper').length,
+  }
+  const periodCount = (period: CalendarPeriod) =>
+    trades.filter((trade) => trade.tradeKind !== 'paper' && tradeInPeriod(trade, period)).length
 
   return (
     <aside className="sidebar">
@@ -99,7 +108,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       </div>
 
       <nav className="sb-section sb-top">
-        {MAIN_NAV.map(({ to, label, icon: Icon, active }) => (
+        <div className="sb-section-label">工作台</div>
+        {WORKBENCH_NAV.map(({ to, label, icon: Icon, active }) => (
           <NavLink
             key={to}
             to={to}
@@ -107,31 +117,68 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           >
             <Icon size={16} />
             <span>{label}</span>
+            {to === '/list' && <span className="sb-item-count">{counts.all}</span>}
           </NavLink>
-        ))}
-        {pinned.map((item) => (
-          <SecondaryLink key={item.id} {...item} />
         ))}
       </nav>
 
-      {more.length > 0 && (
-        <div className="sb-section">
-          <button
-            type="button"
-            className={'sb-group-label' + (isMoreActive ? ' is-active-group' : '')}
-            onClick={() => setMoreOpen((o) => !o)}
-          >
-            <span className="sb-group-label-inner">
-              <MoreHorizontal size={12} />
-              更多
-            </span>
-            <ChevronDown
-              size={12}
-              className={'sb-group-chev' + (moreOpen ? '' : ' is-closed')}
-            />
-          </button>
-          {moreOpen && more.map((item) => <SecondaryLink key={item.id} {...item} />)}
-        </div>
+      <nav className="sb-section">
+        <div className="sb-section-label">智能视图</div>
+        {SECONDARY_NAV.map((item) => (
+          <SecondaryLink
+            key={item.id}
+            path={path}
+            item={item}
+            count={counts[item.id]}
+          />
+        ))}
+      </nav>
+
+      <nav className="sb-section">
+        <div className="sb-section-label">时间</div>
+        {SIDEBAR_PERIODS.map((period) => {
+          const to = `/period/${period}`
+          const active = isSidebarNavActive(path, to)
+          return (
+            <NavLink
+              key={period}
+              to={to}
+              className={() => 'sb-item' + (active ? ' is-active' : '')}
+            >
+              <CalendarDays size={16} />
+              <span>{PERIOD_LABELS[period]}</span>
+              <span className="sb-item-count">{periodCount(period)}</span>
+            </NavLink>
+          )
+        })}
+      </nav>
+
+      {sidebarStrategies.length > 0 && (
+        <nav className="sb-section">
+          <div className="sb-section-label">策略</div>
+          {sidebarStrategies.map((strategy) => {
+            const to = `/strategy/${strategy.id}`
+            const active = isSidebarNavActive(path, to)
+            return (
+              <NavLink
+                key={strategy.id}
+                to={to}
+                className={() => 'sb-item' + (active ? ' is-active' : '')}
+              >
+                <StrategyIcon
+                  icon={strategy.icon}
+                  color={strategy.color}
+                  size={14}
+                  variant="nav"
+                />
+                <span>{strategy.name}</span>
+                <span className="sb-item-count">
+                  {countTradesByStrategy(trades, strategy.id)}
+                </span>
+              </NavLink>
+            )
+          })}
+        </nav>
       )}
 
       <div className="sb-spacer" />

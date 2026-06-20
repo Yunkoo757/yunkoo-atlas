@@ -10,7 +10,7 @@
   animation: fadeIn 0.12s var(--ease-out);
 }
 .cmdk {
-  width: 640px;
+  width: min(720px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   max-height: 60vh;
   display: flex;
@@ -37,8 +37,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 16px;
+  flex: 0 0 52px;
   height: 52px;
+  min-height: 52px;
+  padding: 0 16px;
   border-bottom: 0.8px solid var(--border-subtle);
   position: relative;
 }
@@ -52,12 +54,20 @@
   opacity: 0.45;
 }
 .cmdk-input {
-  flex: 1;
-  background: none;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  background: transparent;
   border: none;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--fs-lg);
+  line-height: 28px;
+  padding: 0 4px;
+}
+.cmdk-input:focus,
+.cmdk-input:focus-visible {
+  outline: none;
 }
 .cmdk-input::placeholder {
   color: var(--text-quaternary);
@@ -85,6 +95,7 @@
 
 .cmdk-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 6px;
   /* scroll shadow: top + bottom gradient masks */
@@ -110,10 +121,10 @@
 .cmdk-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   height: 40px;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: var(--radius-8);
   font-size: var(--fs-base);
   color: var(--text-secondary);

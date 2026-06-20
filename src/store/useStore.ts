@@ -27,6 +27,7 @@ interface State {
   subscribedIds: string[]
   pinnedStrategyIds: string[]
   display: DisplayPrefs
+  tagPresets: string[]
   setStatus: (id: string, status: TradeStatus) => void
   setConviction: (id: string, conviction: Conviction) => void
   setSide: (id: string, side: TradeSide) => void
@@ -59,6 +60,8 @@ interface State {
   toggleStar: (id: string) => void
   toggleSubscribe: (id: string) => void
   togglePinStrategy: (id: string) => void
+  addTagPreset: (tag: string) => void
+  removeTagPreset: (tag: string) => void
   setDisplay: (patch: Partial<DisplayPrefs>) => void
   addStrategy: (strategy: Strategy) => void
   updateStrategy: (id: string, patch: Partial<Omit<Strategy, 'id'>>) => void
@@ -85,6 +88,7 @@ export const useStore = create<State>()((set, get) => ({
       starredIds: [],
       subscribedIds: [],
       pinnedStrategyIds: [],
+      tagPresets: [],
       display: DEFAULT_DISPLAY,
       setStatus: (id, status) =>
         set((s) => ({
@@ -253,6 +257,16 @@ export const useStore = create<State>()((set, get) => ({
             ? s.pinnedStrategyIds.filter((x) => x !== id)
             : [...s.pinnedStrategyIds, id],
         })),
+      addTagPreset: (tag) => {
+        const t = tag.trim()
+        if (!t) return
+        set((s) => {
+          if (s.tagPresets.includes(t)) return s
+          return { tagPresets: [...s.tagPresets, t].sort((a, b) => a.localeCompare(b, 'zh-CN')) }
+        })
+      },
+      removeTagPreset: (tag) =>
+        set((s) => ({ tagPresets: s.tagPresets.filter((p) => p !== tag) })),
       setDisplay: (patch) =>
         set((s) => ({ display: normalizeDisplay({ ...s.display, ...patch }) })),
       addStrategy: (strategy) =>

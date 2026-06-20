@@ -217,6 +217,10 @@
   padding: 9px 12px 4px;
   overflow-y: auto;
 }
+.dv-comment-input:focus,
+.dv-comment-input:focus-visible {
+  outline: none;
+}
 .dv-comment-input::placeholder {
   color: var(--text-quaternary);
 }

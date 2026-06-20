@@ -5,6 +5,7 @@ export function newActivityId(): string {
 }
 
 function toIsoTimestamp(value: string): string {
+  if (!value) return new Date().toISOString()
   return value.includes('T') ? value : `${value}T00:00:00.000Z`
 }
 
