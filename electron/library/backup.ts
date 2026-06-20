@@ -6,6 +6,7 @@ import { getLibraryPath, ensureLibraryDirs } from './paths'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
 const DEFAULT_MAX_BACKUPS = 20
+const DEFAULT_MAX_TOTAL_SIZE = 500 * 1024 * 1024 // 500 MB 备份总容量上限
 
 let intervalTimer: ReturnType<typeof setInterval> | null = null
 let quitHandler: (() => void) | null = null
@@ -39,26 +40,72 @@ export function createBackup(storage: LibraryStorage): string | null {
   }
 }
 
-export function rotateBackups(backupsDir: string, maxCount: number = DEFAULT_MAX_BACKUPS): void {
+export function rotateBackups(
+  backupsDir: string,
+  maxCount: number = DEFAULT_MAX_BACKUPS,
+  maxTotalSize: number = DEFAULT_MAX_TOTAL_SIZE,
+): void {
   try {
     if (!fs.existsSync(backupsDir)) return
     const files = fs
       .readdirSync(backupsDir)
       .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
-      .map((f) => ({
-        name: f,
-        path: path.join(backupsDir, f),
-        timestamp: parseTimestampFromName(f) ?? 0,
-      }))
+      .map((f) => {
+        const fp = path.join(backupsDir, f)
+        return {
+          name: f,
+          path: fp,
+          timestamp: parseTimestampFromName(f) ?? 0,
+          size: (() => { try { return fs.statSync(fp).size } catch { return 0 } })(),
+        }
+      })
       .sort((a, b) => b.timestamp - a.timestamp) // 最新在前
 
-    // 删除超出保留数量的旧备份
+    // 按数量限制删除
+    const toDelete = new Set<string>()
     for (const file of files.slice(maxCount)) {
-      fs.unlinkSync(file.path)
+      toDelete.add(file.path)
+    }
+
+    // 按总容量限制删除（保留最新且不超限）
+    let totalSize = 0
+    for (const file of files) {
+      if (toDelete.has(file.path)) continue
+      totalSize += file.size
+      if (totalSize > maxTotalSize) {
+        toDelete.add(file.path)
+      }
+    }
+
+    for (const p of toDelete) {
+      try { fs.unlinkSync(p) } catch { /* 忽略 */ }
     }
   } catch (err) {
     console.error('[backup] rotate failed', err)
   }
+}
+
+/** 获取备份总大小信息 */
+export function getBackupStats(): { count: number; totalSize: number } {
+  const { backups } = (() => {
+    try {
+      const { getLibraryPath, ensureLibraryDirs } = require('./paths')
+      return ensureLibraryDirs(getLibraryPath())
+    } catch {
+      return { backups: '' }
+    }
+  })()
+  if (!backups || !fs.existsSync(backups)) return { count: 0, totalSize: 0 }
+
+  const files = fs
+    .readdirSync(backups)
+    .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
+
+  let totalSize = 0
+  for (const f of files) {
+    try { totalSize += fs.statSync(path.join(backups, f)).size } catch { /* 忽略 */ }
+  }
+  return { count: files.length, totalSize }
 }
 
 export function listBackups(): { name: string; timestamp: number; size: number }[] {

@@ -32,6 +32,7 @@ export interface JournalBridge {
   listBackups(): Promise<BackupInfo[]>
   restoreBackup(fileName: string): Promise<boolean>
   deleteBackup(fileName: string): Promise<boolean>
+  getBackupStats(): Promise<{ count: number; totalSize: number }>
 }
 
 const bridge: JournalBridge = {
@@ -55,6 +56,7 @@ const bridge: JournalBridge = {
   listBackups: () => ipcRenderer.invoke('backup:list'),
   restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
   deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', fileName),
+  getBackupStats: () => ipcRenderer.invoke('backup:stats'),
 }
 
 contextBridge.exposeInMainWorld('journalBridge', bridge)

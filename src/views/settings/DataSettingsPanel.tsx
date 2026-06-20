@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { DataIOContent } from '@/components/DataIOContent'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
-import { Save, RotateCcw, Trash2, Clock } from 'lucide-react'
+import { useStore } from '@/store/useStore'
+import { collectAssetIdsFromNotes, getStorage } from '@/storage'
+import { estimateAssetStats, type AssetStats } from '@/lib/importExport'
+import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, AlertTriangle } from 'lucide-react'
 
 function fmtBackupTime(ts: number): string {
   const d = new Date(ts)
@@ -25,6 +28,64 @@ export function DataSettingsPanel() {
   const electron = isElectron()
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backing, setBacking] = useState(false)
+  const [health, setHealth] = useState<{
+    tradeCount: number
+    attachmentCount: number
+    attachmentStats: AssetStats
+    backupCount: number
+    backupTotalSize: number
+    orphanedCount: number
+  } | null>(null)
+  const trades = useStore((s) => s.trades)
+
+  const refreshHealth = useCallback(async () => {
+    const assetIds = collectAssetIdsFromNotes(trades)
+    const storage = getStorage()
+    let totalBytes = 0
+    let count = 0
+    for (const id of assetIds) {
+      try {
+        const rec = await storage.getAssetForExport(id)
+        if (rec) {
+          count++
+          totalBytes += Math.round(rec.data.length * 0.75)
+        }
+      } catch { /* 忽略 */ }
+    }
+    const stats = estimateAssetStats(
+      assetIds.map((id) => ({ id, mime: '', data: '' })),
+    )
+
+    let backupCount = 0
+    let backupTotalSize = 0
+    if (electron) {
+      try {
+        const bridge = getJournalBridge()
+        if (bridge) {
+          const bs = await bridge.getBackupStats()
+          backupCount = bs.count
+          backupTotalSize = bs.totalSize
+        }
+      } catch { /* 忽略 */ }
+    }
+
+    setHealth({
+      tradeCount: trades.length,
+      attachmentCount: assetIds.length,
+      attachmentStats: { count, totalBytes, formattedSize: fmtBackupSize(totalBytes) },
+      backupCount,
+      backupTotalSize,
+      orphanedCount: 0,
+    })
+  }, [trades, electron])
+
+  useEffect(() => {
+    refreshHealth()
+  }, [refreshHealth])
+
+  const WARN_TRADE_COUNT = 500
+  const WARN_ATTACH_SIZE = 100 * 1024 * 1024 // 100 MB
+  const WARN_BACKUP_SIZE = 500 * 1024 * 1024 // 500 MB
 
   const refreshBackups = async () => {
     if (!electron) return
@@ -91,12 +152,73 @@ export function DataSettingsPanel() {
       </div>
       <DataIOContent />
 
+      {/* 存储健康面板 */}
+      <section className="settings-page-section" style={{ marginTop: 32 }}>
+        <div className="settings-page-head">
+          <h2 className="settings-page-title">存储健康</h2>
+          <p className="settings-page-desc">
+            监控数据规模，及时发现膨胀风险。
+          </p>
+        </div>
+
+        {health && (
+          <div className="health-grid">
+            <div className={'health-card' + (health.tradeCount > WARN_TRADE_COUNT ? ' health-warn' : '')}>
+              <Database size={18} />
+              <span className="health-label">交易数</span>
+              <span className="health-value">{health.tradeCount}</span>
+              {health.tradeCount > WARN_TRADE_COUNT && (
+                <span className="health-note">建议启用列表虚拟化</span>
+              )}
+            </div>
+            <div className={'health-card' + (health.attachmentStats.totalBytes > WARN_ATTACH_SIZE ? ' health-warn' : '')}>
+              <Image size={18} />
+              <span className="health-label">笔记图片</span>
+              <span className="health-value">
+                {health.attachmentStats.count} 张 · {health.attachmentStats.formattedSize}
+              </span>
+              {health.attachmentStats.totalBytes > WARN_ATTACH_SIZE && (
+                <span className="health-note">建议用 .journal.zip 导出</span>
+              )}
+            </div>
+            {electron && (
+              <div className={'health-card' + (health.backupTotalSize > WARN_BACKUP_SIZE ? ' health-warn' : '')}>
+                <HardDrive size={18} />
+                <span className="health-label">备份占用</span>
+                <span className="health-value">
+                  {health.backupCount} 份 · {fmtBackupSize(health.backupTotalSize)}
+                </span>
+                {health.backupTotalSize > WARN_BACKUP_SIZE && (
+                  <span className="health-note">超出建议上限，自动清理最旧备份</span>
+                )}
+              </div>
+            )}
+            {health.orphanedCount > 0 && (
+              <div className="health-card health-warn">
+                <AlertTriangle size={18} />
+                <span className="health-label">孤立附件</span>
+                <span className="health-value">{health.orphanedCount} 个</span>
+                <span className="health-note">不再被任何笔记引用</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button
+          className="dio-btn"
+          onClick={refreshHealth}
+          style={{ marginTop: 12 }}
+        >
+          刷新检查
+        </button>
+      </section>
+
       {electron && (
         <section className="settings-page-section" style={{ marginTop: 32 }}>
           <div className="settings-page-head">
             <h2 className="settings-page-title">自动备份</h2>
             <p className="settings-page-desc">
-              每 15 分钟自动备份 + 退出前备份，保留最近 20 份。
+              每 15 分钟自动备份 + 退出前备份。最多保留 20 份，总容量不超过 500 MB。
             </p>
           </div>
 

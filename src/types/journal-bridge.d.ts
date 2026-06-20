@@ -8,6 +8,12 @@ export interface BackupInfo {
 
 export interface JournalBridge {
   isElectron: true
+  // 库路径引导
+  getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
+  pickLibraryFolder(): Promise<string | null>
+  createNewLibrary(libPath: string): Promise<{ ok: boolean }>
+  openExistingLibrary(libPath: string): Promise<{ ok: boolean; error?: string }>
+  // 存储
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
   getManifest(): Promise<LibraryManifest>
@@ -25,6 +31,7 @@ export interface JournalBridge {
   listBackups(): Promise<BackupInfo[]>
   restoreBackup(fileName: string): Promise<boolean>
   deleteBackup(fileName: string): Promise<boolean>
+  getBackupStats(): Promise<{ count: number; totalSize: number }>
 }
 
 declare global {

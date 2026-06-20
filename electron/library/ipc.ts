@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath } from './journalZip'
 import { getLibraryPath, saveLibraryConfig, ensureLibraryDirs } from './paths'
-import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup } from './backup'
+import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, getBackupStats } from './backup'
 
 let storage: LibraryStorage | null = null
 
@@ -143,6 +143,8 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('backup:delete', async (_e, fileName: string) => {
     return deleteBackup(fileName)
   })
+
+  ipcMain.handle('backup:stats', async () => getBackupStats())
 
   // 启动自动备份（15 分钟 + 退出前）
   ipcMain.handle('backup:startAuto', async () => {
