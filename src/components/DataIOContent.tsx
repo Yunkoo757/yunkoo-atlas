@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload, AlertTriangle, Archive } from 'lucide-react'
+import { Download, Upload, AlertTriangle, Archive, FileSpreadsheet } from 'lucide-react'
 import {
   applyImport,
   downloadExport,
@@ -10,12 +10,14 @@ import {
 } from '@/lib/importExport'
 import { isElectron } from '@/storage/runtime'
 import { toast } from '@/lib/toast'
+import { CsvImportModal } from './CsvImportModal'
 import './DataIOContent.css'
 
 export function DataIOContent({ onDone }: { onDone?: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const electron = isElectron()
   const [libraryPath, setLibraryPath] = useState<string | null>(null)
+  const [csvOpen, setCsvOpen] = useState(false)
 
   useEffect(() => {
     if (!electron) return
@@ -145,6 +147,18 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         </section>
       )}
 
+      <section className="dio-section">
+        <h3 className="dio-section-title">从 CSV 导入交易</h3>
+        <p className="dio-desc">
+          支持从其他交易日志工具导出的 CSV 文件导入。自动识别中英文表头，
+          交互式映射字段后预览确认。
+        </p>
+        <button type="button" className="dio-btn" onClick={() => setCsvOpen(true)}>
+          <FileSpreadsheet size={16} />
+          <span>导入 CSV 文件</span>
+        </button>
+      </section>
+
       <section className="dio-danger">
         <div className="dio-danger-head">
           <AlertTriangle size={16} />
@@ -160,6 +174,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
           </li>
         </ul>
       </section>
+      <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
     </div>
   )
 }
