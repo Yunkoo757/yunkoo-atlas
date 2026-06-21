@@ -2,6 +2,8 @@ import type { StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
 
+// This browser storage name is intentionally kept for backward compatibility.
+// Export payload/schema versions are tracked separately by SCHEMA_VERSION.
 const DB_NAME = 'linear-journal-v3'
 const DB_VERSION = 1
 

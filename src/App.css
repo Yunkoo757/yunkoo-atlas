@@ -47,3 +47,14 @@
   border-left: 1px solid var(--border-subtle);
   overflow: hidden;
 }
+
+@media (max-width: 640px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .app-main {
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+}

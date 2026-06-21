@@ -140,6 +140,7 @@ export function TagEditor({
             type="button"
             className="tag-chip-remove"
             title="移除标签"
+            aria-label={`移除标签「${t}」`}
             onClick={() => onRemove(t)}
           >
             <X size={11} />

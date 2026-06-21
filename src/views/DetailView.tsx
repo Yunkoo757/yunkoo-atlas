@@ -343,6 +343,48 @@ export function DetailView() {
               {trade.symbol}
               <SideTag side={trade.side} />
             </h1>
+            <div className="dv-summary">
+              <div className="dv-summary-item">
+                <span className="dv-summary-label">状态</span>
+                <span className="dv-summary-value">{STATUS_META[trade.status].label}</span>
+              </div>
+              <div className="dv-summary-item">
+                <span className="dv-summary-label">入场</span>
+                <span className="dv-summary-value">{fmtPrice(trade.entry)}</span>
+              </div>
+              <div className="dv-summary-item">
+                <span className="dv-summary-label">止损</span>
+                <span className="dv-summary-value">
+                  {trade.stopLoss == null ? '—' : fmtPrice(trade.stopLoss)}
+                </span>
+              </div>
+              <div className="dv-summary-item">
+                <span className="dv-summary-label">仓位</span>
+                <span className="dv-summary-value">{trade.size}</span>
+              </div>
+              <div className="dv-summary-item">
+                <span className="dv-summary-label">结果</span>
+                <span
+                  className="dv-summary-value"
+                  style={{
+                    color:
+                      trade.pnl > 0
+                        ? 'var(--pos)'
+                        : trade.pnl < 0
+                          ? 'var(--neg)'
+                          : undefined,
+                  }}
+                >
+                  {trade.status === 'planned' || trade.status === 'open'
+                    ? '—'
+                    : `${fmtMoney(trade.pnl)} · ${fmtR(trade.rMultiple)}`}
+                </span>
+              </div>
+              <div className="dv-summary-item">
+                <span className="dv-summary-label">开仓</span>
+                <span className="dv-summary-value">{fmtDate(trade.openedAt)}</span>
+              </div>
+            </div>
 
             {!trade.note.trim() && (
               <button
@@ -420,10 +462,12 @@ export function DetailView() {
                   />
                   <div className="dv-comment-bar">
                     <button
+                      type="button"
                       className="dv-comment-send"
                       disabled={!comment.trim()}
                       onClick={sendComment}
                       title="发送"
+                      aria-label="发送评论"
                     >
                       <Send size={14} />
                     </button>
@@ -925,6 +969,7 @@ function FeedItem({
           type="button"
           className="dv-feed-delete"
           title="删除评论"
+          aria-label="删除评论"
           onClick={onDelete}
         >
           <X size={13} />

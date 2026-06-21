@@ -130,6 +130,8 @@ export function Dashboard() {
     const byKind = filterByKind(trades, kind)
     return buildStats(filterByRange(byKind, range), strategyDefs)
   }, [trades, strategyDefs, range, kind])
+  const rangeLabel = RANGE_OPTS.find((o) => o.value === range)?.label ?? '全部'
+  const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '全部类型'
 
   const openTrade = (tradeId: string) => {
     const t = trades.find((x) => x.id === tradeId)
@@ -180,7 +182,12 @@ export function Dashboard() {
 
         <section className="db-panel">
           <div className="db-panel-head">
-            <span className="db-panel-title">累计盈亏曲线</span>
+            <div>
+              <span className="db-panel-title">累计盈亏曲线</span>
+              <div className="db-panel-sub">
+                {stats.count} 笔已平仓 · {kindLabel} · {rangeLabel}
+              </div>
+            </div>
             {stats.curve.length > 0 && (
               <span className="db-panel-hint">悬停或点击数据点查看交易</span>
             )}
@@ -189,7 +196,7 @@ export function Dashboard() {
             {stats.curve.length === 0 ? (
               <div className="db-chart-empty">该时间范围内暂无已平仓交易</div>
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={stats.curve} margin={{ left: -16, right: 8, top: 8 }}>
                   <defs>
                     <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
@@ -210,6 +217,7 @@ export function Dashboard() {
                     stroke="var(--accent)"
                     strokeWidth={2}
                     fill="url(#eq)"
+                    dot={{ r: 2.5, strokeWidth: 1, fill: 'var(--bg-elevated)' }}
                     activeDot={{
                       r: 5,
                       cursor: 'pointer',

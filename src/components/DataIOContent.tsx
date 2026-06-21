@@ -101,12 +101,13 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         </section>
       )}
 
-      {/* 主力：完整备份 */}
-      <section className="dio-section">
-        <h3 className="dio-section-title">导出完整备份 (.journal.zip)</h3>
+      <section className="dio-zone dio-zone-primary">
+        <div className="dio-zone-head">
+          <span className="dio-zone-kicker">推荐备份</span>
+          <h3 className="dio-section-title">导出完整备份 (.journal.zip)</h3>
+        </div>
         <p className="dio-desc">
-          完整备份：交易数据 + 策略 + 笔记图片，图片按原始二进制存储，
-          适合日常备份、整库迁移、大量图片场景。
+          交易数据、策略与笔记图片都会写入压缩包。适合日常备份、整库迁移和大量图片场景。
         </p>
         <button type="button" className="dio-btn dio-btn-primary" onClick={onExportZip}>
           <Package size={16} />
@@ -114,41 +115,57 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         </button>
       </section>
 
-      {/* 辅助：轻量 JSON（纯数据，不含图片） */}
-      <section className="dio-section">
-        <h3 className="dio-section-title">导出 JSON（纯数据）</h3>
-        <p className="dio-desc">
-          轻量 JSON，仅含交易、策略与偏好元数据，不含笔记图片。适合快速备份或手写导入。
-        </p>
-        <button type="button" className="dio-btn" onClick={onExportJson}>
-          <Download size={16} />
-          <span>下载 JSON</span>
-        </button>
-      </section>
+      <div className="dio-zone-grid">
+        <section className="dio-zone">
+          <div className="dio-zone-head">
+            <span className="dio-zone-kicker">轻量导出</span>
+            <h3 className="dio-section-title">JSON（纯数据）</h3>
+          </div>
+          <p className="dio-desc">
+            仅含交易、策略与偏好元数据，不含笔记图片。适合快速备份或手写导入。
+          </p>
+          <button type="button" className="dio-btn" onClick={onExportJson}>
+            <Download size={16} />
+            <span>下载 JSON</span>
+          </button>
+        </section>
 
-      <section className="dio-section">
-        <h3 className="dio-section-title">导入 JSON 备份</h3>
-        <p className="dio-desc">
-          合并导入 JSON。相同 ID 的交易与策略将被覆盖，收藏与订阅会合并。
-        </p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,application/json"
-          className="dio-file-input"
-          onChange={onFileChange}
-        />
-        <button type="button" className="dio-btn" onClick={() => fileRef.current?.click()}>
-          <Upload size={16} />
-          <span>选择 JSON 文件</span>
-        </button>
-      </section>
+        <section className="dio-zone">
+          <div className="dio-zone-head">
+            <span className="dio-zone-kicker">导入 / 恢复</span>
+            <h3 className="dio-section-title">JSON 与 CSV</h3>
+          </div>
+          <p className="dio-desc">
+            JSON 会合并到当前数据；CSV 适合从其他交易日志工具迁移交易记录。
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json,application/json"
+            className="dio-file-input"
+            onChange={onFileChange}
+          />
+          <div className="dio-actions">
+            <button type="button" className="dio-btn" onClick={() => fileRef.current?.click()}>
+              <Upload size={16} />
+              <span>选择 JSON 文件</span>
+            </button>
+            <button type="button" className="dio-btn" onClick={() => setCsvOpen(true)}>
+              <FileSpreadsheet size={16} />
+              <span>导入 CSV 文件</span>
+            </button>
+          </div>
+        </section>
+      </div>
 
       {electron && (
-        <section className="dio-section">
-          <h3 className="dio-section-title">导入完整交易库 (.journal.zip)</h3>
+        <section className="dio-zone dio-zone-danger">
+          <div className="dio-zone-head">
+            <span className="dio-zone-kicker">整库替换</span>
+            <h3 className="dio-section-title">导入完整交易库 (.journal.zip)</h3>
+          </div>
           <p className="dio-desc">
-            将用压缩包内容替换当前库（journal.db 与附件）。操作前请先导出备份。
+            将用压缩包内容替换当前库（journal.db 与附件）。操作前请先导出完整备份。
           </p>
           <button type="button" className="dio-btn dio-btn-warn" onClick={onImportZip}>
             <Archive size={16} />
@@ -156,18 +173,6 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
           </button>
         </section>
       )}
-
-      <section className="dio-section">
-        <h3 className="dio-section-title">从 CSV 导入交易</h3>
-        <p className="dio-desc">
-          支持从其他交易日志工具导出的 CSV 文件导入。自动识别中英文表头，
-          交互式映射字段后预览确认。
-        </p>
-        <button type="button" className="dio-btn" onClick={() => setCsvOpen(true)}>
-          <FileSpreadsheet size={16} />
-          <span>导入 CSV 文件</span>
-        </button>
-      </section>
 
       <section className="dio-danger">
         <div className="dio-danger-head">

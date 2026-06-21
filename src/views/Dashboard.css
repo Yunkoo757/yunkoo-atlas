@@ -98,6 +98,11 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
+.db-panel-sub {
+  margin-top: 4px;
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
+}
 .db-panel-hint {
   font-size: var(--fs-micro);
   color: var(--text-quaternary);
@@ -231,6 +236,17 @@ a.db-strat:hover {
   }
   .db-cards {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .db-card {
+    padding: 14px 16px;
+  }
+  .db-panel-head {
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+  .db-panel-hint {
+    display: none;
   }
   a.db-strat {
     grid-template-columns: 1fr;

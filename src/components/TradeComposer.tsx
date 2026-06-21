@@ -184,13 +184,16 @@ export function TradeComposer() {
         </div>
 
         <div className="tc-body">
-          <input
-            className="tc-symbol"
-            placeholder="标的，如 BTCUSDT"
-            value={form.symbol}
-            onChange={(e) => set('symbol', e.target.value)}
-            autoFocus
-          />
+          <label className="tc-symbol-field">
+            <span className="tc-symbol-label">标的</span>
+            <input
+              className="tc-symbol"
+              placeholder="如 BTCUSDT"
+              value={form.symbol}
+              onChange={(e) => set('symbol', e.target.value)}
+              autoFocus
+            />
+          </label>
           <div className="tc-symbol-presets" aria-label="标的预置">
             {SYMBOL_PRESETS.map((symbol) => (
               <button

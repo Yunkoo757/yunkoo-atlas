@@ -53,6 +53,15 @@
   flex-direction: column;
   gap: 18px;
 }
+.tc-symbol-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tc-symbol-label {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+}
 .tc-symbol {
   width: 100%;
   background: none;

@@ -238,7 +238,12 @@ export function ListView({
                   </>
                 )}
                 <span className="lv-group-count">{g.items.length}</span>
-                <button className="lv-group-add" title="新建交易" onClick={() => openComposer()}>
+                <button
+                  className="lv-group-add"
+                  title="新建交易"
+                  aria-label="新建交易"
+                  onClick={() => openComposer()}
+                >
                   <Plus size={15} />
                 </button>
               </div>
@@ -293,6 +298,8 @@ function Row({
 }) {
   const done = isRowDone(t.status)
   const showPnl = t.status !== 'planned' && t.status !== 'open'
+  const visibleTags = t.tags.slice(0, 2)
+  const hiddenTagCount = Math.max(0, t.tags.length - visibleTags.length)
   return (
     <Link
       to={tradeDetailPath(t)}
@@ -303,20 +310,27 @@ function Row({
       <span className="lv-check" onClick={onToggleDone}>
         <span className={'lv-check-box' + (done ? ' is-done' : '')} />
       </span>
-      <ConvictionIcon conviction={t.conviction} />
-      <StatusIcon status={t.status} />
+      <span className="lv-conviction">
+        <ConvictionIcon conviction={t.conviction} />
+      </span>
+      <span className="lv-status">
+        <StatusIcon status={t.status} />
+      </span>
       <span className="lv-symbol">{t.symbol}</span>
-      <SideTag side={t.side} />
+      <span className="lv-side">
+        <SideTag side={t.side} />
+      </span>
       <span className="lv-title">
         <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={14} />
       </span>
       <div className="lv-spacer" />
       <div className="lv-tags">
-        {t.tags.map((tag) => (
+        {visibleTags.map((tag) => (
           <span className="lv-tag" key={tag}>
             {tag}
           </span>
         ))}
+        {hiddenTagCount > 0 && <span className="lv-tag lv-tag-more">+{hiddenTagCount}</span>}
         {t.reviewStatus !== 'unreviewed' && (
           <span className={'lv-review lv-review-' + t.reviewStatus}>
             {REVIEW_STATUS_META[t.reviewStatus].label}
@@ -344,6 +358,7 @@ function Row({
         type="button"
         className={'lv-star' + (starred ? ' is-starred' : '')}
         title={starred ? '取消星标' : '星标'}
+        aria-label={starred ? '取消星标' : '星标'}
         onClick={onToggleStar}
       >
         <Star size={13} fill={starred ? 'currentColor' : 'none'} />

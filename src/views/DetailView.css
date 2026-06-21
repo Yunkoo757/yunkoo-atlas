@@ -80,6 +80,38 @@
   margin: 0 0 8px;
   line-height: 1.33;
 }
+.dv-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 24px;
+}
+.dv-summary-item {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: var(--bg-elevated);
+}
+.dv-summary-label,
+.dv-summary-value {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-summary-label {
+  margin-bottom: 4px;
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
+}
+.dv-summary-value {
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ===== 活动流 + 评论 ===== */
 .dv-activity {
@@ -389,6 +421,9 @@
   .dv-main-inner {
     padding-left: 24px;
     padding-right: 24px;
+  }
+  .dv-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 .dv-tags-row {
