@@ -62,7 +62,7 @@
 
 .tag-preset-remove:hover {
   background: var(--bg-hover);
-  color: var(--danger);
+  color: var(--neg);
 }
 
 .tag-preset-add-btn {

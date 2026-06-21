@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: lch(0 0 0 / 0.82);
+  background: var(--overlay-dark);
   display: grid;
   place-items: center;
   padding: 48px 24px;

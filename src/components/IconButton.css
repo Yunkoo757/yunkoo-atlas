@@ -20,8 +20,8 @@
   background-color: var(--bg-selected);
 }
 .icon-btn.is-active {
-  color: #f2c94c;
+  color: var(--star-color);
 }
 .icon-btn.is-active:hover {
-  color: #f2c94c;
+  color: var(--star-color);
 }

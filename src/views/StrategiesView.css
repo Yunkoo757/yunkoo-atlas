@@ -28,7 +28,7 @@
   padding: 0 14px;
   border-radius: var(--radius-8);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   flex-shrink: 0;
@@ -125,10 +125,10 @@
   color: var(--neg);
 }
 .st-act-pinned {
-  color: #f2c94c;
+  color: var(--star-color);
 }
 .st-act-pinned:hover {
-  color: #f2c94c;
+  color: var(--star-color);
 }
 .st-act:disabled {
   opacity: 0.35;
@@ -139,7 +139,7 @@
   position: fixed;
   inset: 0;
   z-index: 210;
-  background: lch(0 0 0 / 0.45);
+  background: var(--overlay-bg);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -198,7 +198,7 @@
 }
 .st-del-danger {
   background: var(--neg);
-  color: #fff;
+  color: var(--accent-text);
 }
 .st-del-danger:hover {
   filter: brightness(1.08);

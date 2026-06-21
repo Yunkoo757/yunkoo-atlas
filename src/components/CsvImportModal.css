@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-bg);
   padding: 24px;
 }
 
@@ -206,7 +206,7 @@
 }
 
 .csv-err-cell {
-  color: var(--danger);
+  color: var(--neg);
   font-size: var(--fs-mini);
   max-width: 200px;
   overflow: hidden;
@@ -230,11 +230,11 @@
 
 /* ---- Shared ---- */
 .csv-ok {
-  color: var(--success, #4caf50);
+  color: var(--pos);
 }
 
 .csv-bad {
-  color: var(--danger);
+  color: var(--neg);
 }
 
 .csv-error {
@@ -242,7 +242,7 @@
   padding: 8px 12px;
   border-radius: var(--radius-6);
   background: rgba(255, 80, 80, 0.1);
-  color: var(--danger);
+  color: var(--neg);
   font-size: var(--fs-sm);
 }
 
@@ -273,7 +273,7 @@
 
 .csv-btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   border: none;
 }
 

@@ -110,7 +110,7 @@
 
 .welcome-btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   border: none;
 }
 
@@ -132,7 +132,7 @@
 .welcome-error {
   margin: 0;
   font-size: var(--fs-sm);
-  color: var(--danger);
+  color: var(--neg);
 }
 
 .welcome-hint {

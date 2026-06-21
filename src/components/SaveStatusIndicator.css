@@ -19,5 +19,5 @@
 }
 
 .save-status--error {
-  color: var(--color-danger, #e5484d);
+  color: var(--neg);
 }

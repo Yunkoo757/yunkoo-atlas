@@ -32,7 +32,7 @@ function createWindow() {
     height: 860,
     minWidth: 960,
     minHeight: 640,
-    title: 'Trading Journal',
+    title: 'Yunkoo Atlas',
     backgroundColor: WINDOW_BG,
     autoHideMenuBar: true,
     webPreferences: {

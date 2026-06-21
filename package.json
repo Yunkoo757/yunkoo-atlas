@@ -1,9 +1,9 @@
 {
-  "name": "linear-journal",
+  "name": "yunkoo-atlas",
   "private": true,
   "version": "0.0.0",
-  "description": "Linear-style trading journal with IndexedDB and Electron desktop support",
-  "author": "Linear Journal",
+  "description": "Yunkoo Atlas — trading journal with IndexedDB and Electron desktop support",
+  "author": "Yunkoo Atlas",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -60,8 +60,8 @@
     "vite-plugin-electron-renderer": "^1.0.0"
   },
   "build": {
-    "appId": "com.linear-journal.app",
-    "productName": "Linear Journal",
+    "appId": "com.yunkoo-atlas.app",
+    "productName": "Yunkoo Atlas",
     "electronDist": "node_modules/electron/dist",
     "icon": "build/icon.ico",
     "directories": {

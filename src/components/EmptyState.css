@@ -34,7 +34,7 @@
   padding: 0 12px;
   border-radius: var(--radius-8);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   transition: background var(--dur-fast) var(--ease-out);

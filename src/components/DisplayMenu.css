@@ -59,7 +59,7 @@
   width: 14px;
   height: 14px;
   border-radius: var(--radius-full);
-  background: #fff;
+  background: var(--accent-text);
   transition: transform var(--dur-fast) var(--ease-out);
 }
 

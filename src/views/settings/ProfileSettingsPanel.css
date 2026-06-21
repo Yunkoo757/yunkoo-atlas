@@ -17,7 +17,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--accent-bg, #e8f0fe);
+  background: var(--accent-bg);
   font-size: 24px;
   line-height: 1;
   flex-shrink: 0;
@@ -75,13 +75,13 @@
 }
 
 .profile-avatar-item:hover {
-  border-color: var(--accent-color, #3b82f6);
+  border-color: var(--accent-color);
   background: var(--bg-hover);
 }
 
 .profile-avatar-item.is-selected {
-  border-color: var(--accent-color, #3b82f6);
-  background: var(--accent-bg, #e8f0fe);
+  border-color: var(--accent-color);
+  background: var(--accent-bg);
 }
 
 .profile-avatar-emoji {
@@ -129,7 +129,7 @@
 }
 
 .profile-name-input:focus {
-  border-color: var(--accent-color, #3b82f6);
+  border-color: var(--accent-color);
 }
 
 .profile-section-hint {

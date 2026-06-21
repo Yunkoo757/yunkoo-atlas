@@ -6,7 +6,7 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 12vh;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--overlay-bg);
   animation: fadeIn 0.12s var(--ease-out);
 }
 .tc {
@@ -210,7 +210,7 @@
 }
 .tc-btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 .tc-btn-primary:hover {
   background: var(--accent-hover);

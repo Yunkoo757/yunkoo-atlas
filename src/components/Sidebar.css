@@ -42,7 +42,7 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f2c94c, #e8843c);
+  background: linear-gradient(135deg, var(--star-color), #e8843c);
   color: #1a1205;
   display: grid;
   place-items: center;

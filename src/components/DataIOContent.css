@@ -62,11 +62,11 @@
 .dio-btn-primary {
   background: var(--accent);
   border-color: transparent;
-  color: #fff;
+  color: var(--accent-text);
 }
 .dio-btn-primary:hover {
   background: var(--accent-hover);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .dio-file-input {

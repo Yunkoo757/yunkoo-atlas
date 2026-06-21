@@ -184,7 +184,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
           <li>请确认备份文件来源可信，避免导入恶意数据。</li>
           <li>
             {electron
-              ? '桌面版数据保存在「文档/Linear Journal」文件夹，可用 iCloud 同步该目录。'
+              ? '桌面版数据保存在「文档/Yunkoo Atlas」文件夹，可用 iCloud 同步该目录。'
               : '浏览器版数据保存在 IndexedDB，建议定期导出 .journal.zip 备份。'}
           </li>
         </ul>

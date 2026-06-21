@@ -29,7 +29,7 @@ export function saveLibraryConfig(cfg: LibraryConfig): void {
 }
 
 export function getDefaultLibraryPath(): string {
-  return path.join(app.getPath('documents'), 'Linear Journal')
+  return path.join(app.getPath('documents'), 'Yunkoo Atlas')
 }
 
 export function getLibraryPath(): string {

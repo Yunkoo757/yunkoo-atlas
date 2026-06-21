@@ -6,7 +6,7 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 14vh;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--overlay-bg);
   animation: fadeIn 0.12s var(--ease-out);
 }
 .cmdk {

@@ -214,7 +214,7 @@
   height: 24px;
   border-radius: var(--radius-lg);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   display: grid;
   place-items: center;
   font-size: var(--fs-mini);
@@ -271,7 +271,7 @@
   height: 26px;
   border-radius: var(--radius-full);
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   transition: background var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
 }
@@ -295,7 +295,6 @@
   padding: 10px 8px 0;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
   animation: panelIn 0.3s var(--ease-out) both;
 }
 .dv-section {
