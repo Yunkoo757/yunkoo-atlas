@@ -22,6 +22,7 @@ export interface CaseComment {
 
 export type CaseLifecycle = '待验证' | '已裁决' | '已废弃'
 export type CaseOutcome = '正例' | '反例' | '误判' | '模糊' | '待验证'
+export type CaseNextActionTone = 'pending' | 'warn' | 'done'
 
 export interface CaseRecord {
   id: string
@@ -98,6 +99,19 @@ export function deriveOutcome(rec: CaseRecord, dt?: DisputeType): CaseOutcome {
 export function formatCaseId(id: string): string {
   const base = id.replace(/-/g, '')
   return `CAS-${base.slice(0, 3).toUpperCase()}`
+}
+
+export function getCaseNextAction(rec: CaseRecord): {
+  label: string
+  tone: CaseNextActionTone
+} {
+  if (!rec.linkedTradeIds?.length) return { label: '补来源交易', tone: 'warn' }
+  if (rec.images.length === 0) return { label: '补截图证据', tone: 'warn' }
+  if (!rec.note?.trim()) return { label: '写判断依据', tone: 'pending' }
+  if (!rec.finalVerdict) return { label: '设置最终裁决', tone: 'pending' }
+  if (rec.recheck) return { label: '安排复看', tone: 'pending' }
+  if (rec.finalVerdict === '废弃') return { label: '已废弃归档', tone: 'done' }
+  return { label: '可沉淀复用', tone: 'done' }
 }
 
 /** 裁决结果色系映射 */

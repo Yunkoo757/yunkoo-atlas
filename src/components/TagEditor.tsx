@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react'
-import { Tag, X, Plus, Trash2 } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { Tag, X, Plus } from 'lucide-react'
+import { HoverPreview } from '@/components/HoverPreview'
 import './TagEditor.css'
 
 export function TagEditor({
@@ -10,6 +11,7 @@ export function TagEditor({
   presets = [],
   onAddPreset,
   onRemovePreset,
+  getTagPreview,
 }: {
   tags: string[]
   onAdd: (tag: string) => void
@@ -20,6 +22,7 @@ export function TagEditor({
   presets?: string[]
   onAddPreset?: (tag: string) => void
   onRemovePreset?: (tag: string) => void
+  getTagPreview?: (tag: string) => ReactNode
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
@@ -90,33 +93,47 @@ export function TagEditor({
     commit()
   }
 
+  const withPreview = (tag: string, node: ReactNode) => {
+    const preview = getTagPreview?.(tag)
+    if (!preview) return node
+    return (
+      <HoverPreview content={preview}>
+        {node}
+      </HoverPreview>
+    )
+  }
+
   return (
     <div className="tag-editor">
       {presets.length > 0 && (
         <div className="tag-presets-row">
           {presets.map((p) => (
-            <span
-              className={'tag-preset-chip' + (tags.includes(p) ? ' is-used' : '')}
-              key={p}
-            >
-              <button
-                type="button"
-                className="tag-preset-label"
-                title={`添加标签「${p}」`}
-                onClick={() => { if (!tags.includes(p)) onAdd(p) }}
-                disabled={tags.includes(p)}
-              >
-                {p}
-              </button>
-              {onRemovePreset && (
-                <button
-                  type="button"
-                  className="tag-preset-remove"
-                  title={`删除预置「${p}」`}
-                  onClick={() => onRemovePreset(p)}
+            <span key={p}>
+              {withPreview(
+                p,
+                <span
+                  className={'tag-preset-chip' + (tags.includes(p) ? ' is-used' : '')}
                 >
-                  <X size={10} />
-                </button>
+                  <button
+                    type="button"
+                    className="tag-preset-label"
+                    title={`添加标签「${p}」`}
+                    onClick={() => { if (!tags.includes(p)) onAdd(p) }}
+                    disabled={tags.includes(p)}
+                  >
+                    {p}
+                  </button>
+                  {onRemovePreset && (
+                    <button
+                      type="button"
+                      className="tag-preset-remove"
+                      title={`删除预置「${p}」`}
+                      onClick={() => onRemovePreset(p)}
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </span>,
               )}
             </span>
           ))}
@@ -134,17 +151,22 @@ export function TagEditor({
         </div>
       )}
       {tags.map((t) => (
-        <span className="tag-chip" key={t}>
-          {t}
-          <button
-            type="button"
-            className="tag-chip-remove"
-            title="移除标签"
-            aria-label={`移除标签「${t}」`}
-            onClick={() => onRemove(t)}
-          >
-            <X size={11} />
-          </button>
+        <span key={t}>
+          {withPreview(
+            t,
+            <span className="tag-chip">
+              {t}
+              <button
+                type="button"
+                className="tag-chip-remove"
+                title="移除标签"
+                aria-label={`移除标签「${t}」`}
+                onClick={() => onRemove(t)}
+              >
+                <X size={11} />
+              </button>
+            </span>,
+          )}
         </span>
       ))}
       {editing ? (

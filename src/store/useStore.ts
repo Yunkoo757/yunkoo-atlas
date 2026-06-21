@@ -21,6 +21,10 @@ import { appendActivity, createActivity } from '@/lib/activities'
 import { isTerminal } from '@/lib/tradeStatus'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 
+export interface CaseModalContext {
+  sourceTradeId?: string
+}
+
 interface State {
   trades: Trade[]
   strategies: Strategy[]
@@ -28,7 +32,8 @@ interface State {
   composerOpen: boolean
   composerTrade: Trade | null
   caseModalOpen: boolean
-  setCaseModalOpen: (open: boolean) => void
+  caseModalContext: CaseModalContext | null
+  setCaseModalOpen: (open: boolean, context?: CaseModalContext | null) => void
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -109,7 +114,9 @@ export const useStore = create<State>()((set, get) => ({
       composerOpen: false,
       composerTrade: null,
       caseModalOpen: false,
-      setCaseModalOpen: (open) => set({ caseModalOpen: open }),
+      caseModalContext: null,
+      setCaseModalOpen: (open, context = null) =>
+        set({ caseModalOpen: open, caseModalContext: open ? context : null }),
       starredIds: [],
       subscribedIds: [],
       pinnedStrategyIds: [],

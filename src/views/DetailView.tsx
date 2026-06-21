@@ -13,6 +13,11 @@ import {
   Trash2,
   X,
   Send,
+  BookOpen,
+  Tag as TagIcon,
+  CalendarDays,
+  Box,
+  UserCircle,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
@@ -51,6 +56,8 @@ import { getStorage, normalizeNoteForStorage, resolveNoteForDisplay } from '@/st
 import { setPreFlushCallback } from '@/storage/persist'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
+import { deriveLifecycle, formatCaseId, getDisputeType } from '@/data/case'
+import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
@@ -86,6 +93,10 @@ export function DetailView() {
   const toggleSubscribe = useStore((s) => s.toggleSubscribe)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
+  const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
+  const cases = useStore((s) => s.cases)
+  const disputeTypes = useStore((s) => s.disputeTypes)
+  const profile = useStore((s) => s.profile)
   const starredIds = useStore((s) => s.starredIds)
   const subscribedIds = useStore((s) => s.subscribedIds)
   const [comment, setComment] = useState('')
@@ -197,6 +208,10 @@ export function DetailView() {
 
   const starred = trade ? starredIds.includes(trade.id) : false
   const subscribed = trade ? subscribedIds.includes(trade.id) : false
+  const relatedCases = useMemo(
+    () => (trade ? cases.filter((c) => c.linkedTradeIds?.includes(trade.id)) : []),
+    [cases, trade],
+  )
   const allTags = useMemo(() => collectAllTags(trades), [trades])
   const allMistakeTags = useMemo(
     () => [
@@ -205,6 +220,85 @@ export function DetailView() {
       ),
     ],
     [trades],
+  )
+  const tagPreview = (tag: string, kind: 'tag' | 'mistake' = 'tag') => {
+    const usedBy = trades.filter((t) =>
+      kind === 'mistake' ? t.mistakeTags.includes(tag) : t.tags.includes(tag),
+    )
+    return (
+      <>
+        <PreviewHeader
+          icon={
+            <span
+              className="hp-head-icon-dot"
+              style={{ background: kind === 'mistake' ? 'var(--neg)' : 'var(--accent)' }}
+            />
+          }
+          title={tag}
+          subtitle={kind === 'mistake' ? '错误 / 违规标签' : '交易标签'}
+        />
+        <div className="hp-divider" />
+        <PreviewMeta>
+          <span className="hp-meta-item">
+            <TagIcon size={14} />
+            <span className="hp-meta-strong">{usedBy.length}</span> 笔交易使用
+          </span>
+          <span className="hp-meta-item">
+            <UserCircle size={14} />
+            {profile.displayName}
+          </span>
+        </PreviewMeta>
+      </>
+    )
+  }
+
+  const strategyPreview = (strategyId: string) => {
+    const strategy = strategies.find((s) => s.id === strategyId)
+    const strategyTrades = trades.filter((t) => t.strategyId === strategyId)
+    const closed = strategyTrades.filter((t) => isTerminal(t.status))
+    const wins = closed.filter((t) => t.status === 'win').length
+    const totalR = strategyTrades.reduce((sum, t) => sum + t.rMultiple, 0)
+    const winRate = closed.length > 0 ? Math.round((wins / closed.length) * 100) : null
+    return (
+      <>
+        <PreviewHeader
+          icon={
+            strategy ? (
+              <StrategyIcon icon={strategy.icon} color={strategy.color} size={18} variant="nav" />
+            ) : (
+              <Box size={16} />
+            )
+          }
+          title={strategy?.name ?? '未设置策略'}
+          subtitle="策略项目"
+        />
+        <div className="hp-divider" />
+        <PreviewMeta>
+          <span className="hp-meta-item">
+            <Box size={14} />
+            <span className="hp-meta-strong">{strategyTrades.length}</span> 笔交易
+          </span>
+          <span className="hp-meta-item">
+            {winRate == null ? '暂无胜率' : `${winRate}% 胜率`} · {fmtR(totalR)}
+          </span>
+        </PreviewMeta>
+      </>
+    )
+  }
+
+  const datePreview = (label: string, value: string) => (
+    <>
+      <PreviewHeader
+        icon={<CalendarDays size={17} />}
+        title={`${label} · ${fmtDate(value)}`}
+        subtitle={relativeDateLabel(value)}
+      />
+      <div className="hp-divider" />
+      <PreviewMeta>
+        <span className="hp-meta-item">点击修改日期</span>
+        <span className="hp-meta-item"><span className="hp-kbd">Enter</span> 保存</span>
+      </PreviewMeta>
+    </>
   )
 
   useEffect(() => {
@@ -281,6 +375,10 @@ export function DetailView() {
     navigate('/list')
   }
 
+  const createCaseFromTrade = () => {
+    setCaseModalOpen(true, { sourceTradeId: trade.id })
+  }
+
   return (
     <>
       <header className="dv-topbar">
@@ -296,6 +394,9 @@ export function DetailView() {
           <SaveStatusIndicator />
           <IconButton title="复制链接" onClick={copyLink}>
             <Link2 size={15} />
+          </IconButton>
+          <IconButton title="沉淀为判例" onClick={createCaseFromTrade}>
+            <BookOpen size={15} />
           </IconButton>
           <IconButton
             title={starred ? '取消收藏' : '收藏'}
@@ -481,6 +582,71 @@ export function DetailView() {
         </div>
 
         <aside className="dv-props">
+          <Section title="判例">
+            {relatedCases.length > 0 ? (
+              <div className="dv-case-list">
+                {relatedCases.map((item) => {
+                  const dt = getDisputeType(item.disputeTypeId, disputeTypes)
+                  return (
+                    <HoverPreview
+                      key={item.id}
+                      content={
+                        <>
+                          <PreviewHeader
+                            icon={<BookOpen size={17} />}
+                            title={formatCaseId(item.id)}
+                            subtitle={dt?.name ?? '未知类型'}
+                          />
+                          <div className="hp-divider" />
+                          <PreviewMeta>
+                            <span className="hp-meta-item">{deriveLifecycle(item)}</span>
+                            <span className="hp-meta-item">
+                              {item.images.length} 张证据图
+                            </span>
+                          </PreviewMeta>
+                        </>
+                      }
+                    >
+                      <Link
+                        className="dv-case-link"
+                        to={`/cases?case=${item.id}`}
+                      >
+                        <span className="dv-case-id">{formatCaseId(item.id)}</span>
+                        <span className="dv-case-name">{dt?.name ?? '未知类型'}</span>
+                        <span className="dv-case-state">{deriveLifecycle(item)}</span>
+                      </Link>
+                    </HoverPreview>
+                  )
+                })}
+              </div>
+            ) : null}
+            <HoverPreview
+              content={
+                <>
+                  <PreviewHeader
+                    icon={<BookOpen size={17} />}
+                    title="沉淀为判例"
+                    subtitle={`${trade.ref} · ${trade.symbol}`}
+                  />
+                  <div className="hp-divider" />
+                  <PreviewMeta>
+                    <span className="hp-meta-item">从当前交易创建判例</span>
+                    <span className="hp-meta-item">{relatedCases.length} 条已关联</span>
+                  </PreviewMeta>
+                </>
+              }
+            >
+              <button
+                type="button"
+                className="dv-case-row"
+                onClick={createCaseFromTrade}
+              >
+                <BookOpen size={14} />
+                <span>{relatedCases.length > 0 ? '沉淀新判例' : '沉淀为判例'}</span>
+              </button>
+            </HoverPreview>
+          </Section>
+
           <Section title="属性">
             <Menu
               value={trade.status}
@@ -640,12 +806,14 @@ export function DetailView() {
             <EditableDateRow
               label="开仓"
               value={trade.openedAt}
+              preview={datePreview('开仓', trade.openedAt)}
               onSave={(v) => updateTradeData(trade.id, { openedAt: v })}
             />
             {isTerminal(trade.status) ? (
               <EditableDateRow
                 label="平仓"
                 value={trade.closedAt ?? trade.openedAt}
+                preview={datePreview('平仓', trade.closedAt ?? trade.openedAt)}
                 onSave={(v) => updateTradeData(trade.id, { closedAt: v })}
               />
             ) : (
@@ -660,6 +828,7 @@ export function DetailView() {
               presets={tagPresets}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
+              getTagPreview={(tag) => tagPreview(tag)}
             />
           </Section>
 
@@ -668,6 +837,7 @@ export function DetailView() {
               tags={trade.mistakeTags}
               suggestions={allMistakeTags}
               presets={mistakeTagPresets}
+              getTagPreview={(tag) => tagPreview(tag, 'mistake')}
               onAdd={(tag) =>
                 updateTradeData(trade.id, {
                   mistakeTags: trade.mistakeTags.includes(tag)
@@ -693,9 +863,11 @@ export function DetailView() {
                 icon: <StrategyIcon icon={s.icon} color={s.color} size={16} />,
               }))}
               trigger={
-                <button className="dv-pitem dv-pitem-ghost">
-                  <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
-                </button>
+                <HoverPreview content={strategyPreview(trade.strategyId)}>
+                  <button className="dv-pitem dv-pitem-ghost">
+                    <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
+                  </button>
+                </HoverPreview>
               }
             />
             <Link to="/settings/strategies" className="dv-strategy-manage">
@@ -814,10 +986,12 @@ function EditableDataRow({
 function EditableDateRow({
   label,
   value,
+  preview,
   onSave,
 }: {
   label: string
   value: string
+  preview?: React.ReactNode
   onSave: (v: string) => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -854,12 +1028,15 @@ function EditableDateRow({
     )
   }
 
-  return (
+  const row = (
     <button className="dv-datarow dv-datarow-btn" onClick={() => setEditing(true)} type="button">
       <span className="dv-datarow-label">{label}</span>
       <span className="dv-datarow-value">{fmtDate(value)}</span>
     </button>
   )
+
+  if (!preview) return row
+  return <HoverPreview content={preview}>{row}</HoverPreview>
 }
 
 function DataRow({
@@ -879,6 +1056,18 @@ function DataRow({
       </span>
     </div>
   )
+}
+
+function relativeDateLabel(value: string): string {
+  const target = new Date(`${value.slice(0, 10)}T00:00:00`)
+  if (Number.isNaN(target.getTime())) return '日期待确认'
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = Math.round((target.getTime() - today.getTime()) / 86400000)
+  if (days === 0) return '今天'
+  if (days === 1) return '明天'
+  if (days === -1) return '昨天'
+  return days > 0 ? `${days} 天后` : `${Math.abs(days)} 天前`
 }
 
 function renderActivity(

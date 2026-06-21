@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
+  type CaseImage,
   type CaseRecord,
   type DisputeType,
   deriveLifecycle,
   deriveOutcome,
   formatCaseId,
+  getCaseNextAction,
   getDisputeType,
   OUTCOME_COLORS,
 } from '@/data/case'
@@ -12,7 +15,9 @@ import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getStorage } from '@/storage'
 import { fmtDateTime } from '@/lib/format'
-import { X, Star, Trash2, RotateCcw, Check, Plus, Image } from 'lucide-react'
+import { tradeDetailPath } from '@/lib/tradeRoute'
+import type { Trade } from '@/data/trades'
+import { X, Star, Trash2, RotateCcw, Check, Plus, Image, Link2, ArrowUpRight } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import './CaseDetail.css'
 
@@ -27,16 +32,23 @@ export function CaseDetail({
 }) {
   const updateCase = useStore((s) => s.updateCase)
   const removeCase = useStore((s) => s.removeCase)
+  const trades = useStore((s) => s.trades)
+  const strategies = useStore((s) => s.strategies)
   const openLightbox = useShortcutStore((s) => s.openLightbox)
 
   const dt = getDisputeType(rec.disputeTypeId, disputeTypes)
   const lifecycle = deriveLifecycle(rec)
   const outcome = deriveOutcome(rec, dt)
   const colors = OUTCOME_COLORS[outcome]
+  const nextAction = getCaseNextAction(rec)
+  const linkedTrades = (rec.linkedTradeIds ?? [])
+    .map((id) => trades.find((t) => t.id === id))
+    .filter((trade): trade is Trade => Boolean(trade))
 
   const [noteDraft, setNoteDraft] = useState(rec.note ?? '')
   const [tagInput, setTagInput] = useState('')
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({})
+  const [savingImages, setSavingImages] = useState(false)
 
   useEffect(() => {
     const urls: Record<string, string> = {}
@@ -45,21 +57,71 @@ export function CaseDetail({
       rec.images.map(async (img) => {
         try {
           const url = await getStorage().getAssetObjectUrl(img.fileId)
-          if (url && !cancelled) urls[img.fileId] = url
+          if (!url) return
+          if (cancelled) {
+            URL.revokeObjectURL(url)
+            return
+          }
+          urls[img.fileId] = url
         } catch { /* ignore */ }
       }),
     ).then(() => { if (!cancelled) setImageUrls(urls) })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      Object.values(urls).forEach((url) => URL.revokeObjectURL(url))
+    }
   }, [rec.images])
+
+  useEffect(() => {
+    setNoteDraft(rec.note ?? '')
+  }, [rec.id, rec.note])
 
   const finalOptions = dt
     ? [...dt.options, '仍无法裁决', '废弃']
     : ['仍无法裁决', '废弃']
 
   const handleSetFinalVerdict = (verdict: string) => {
-    updateCase(rec.id, { finalVerdict: rec.finalVerdict === verdict ? undefined : verdict })
+    const clearing = rec.finalVerdict === verdict
+    updateCase(rec.id, {
+      finalVerdict: clearing ? undefined : verdict,
+      recheck: !clearing && verdict === '仍无法裁决' ? true : rec.recheck,
+    })
     toast(rec.finalVerdict === verdict ? '已撤销最终裁决' : `最终裁决：${verdict}`)
   }
+
+  const appendImageBlobs = useCallback(
+    async (files: File[]) => {
+      const imageFiles = files.filter((file) => file.type.startsWith('image/'))
+      if (imageFiles.length === 0) return
+      setSavingImages(true)
+      try {
+        const startOrder = rec.images.length
+        const saved: CaseImage[] = []
+        for (let i = 0; i < imageFiles.length; i++) {
+          const file = imageFiles[i]
+          const fileId = await getStorage().saveAsset(file, file.type)
+          saved.push({ fileId, order: startOrder + i })
+        }
+        updateCase(rec.id, { images: [...rec.images, ...saved] })
+        toast(`已补充 ${saved.length} 张截图`)
+      } catch (err) {
+        console.error('[case] append image failed', err)
+        toast('截图保存失败')
+      } finally {
+        setSavingImages(false)
+      }
+    },
+    [rec.id, rec.images, updateCase],
+  )
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? [])
+      if (files.length > 0) void appendImageBlobs(files)
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [appendImageBlobs])
 
   const handleSaveNote = () => {
     const trimmed = noteDraft.trim()
@@ -117,9 +179,42 @@ export function CaseDetail({
             <span className="cd-confidence">信心度 {rec.confidence}%</span>
           </div>
 
+          <div className={'cd-next-action cd-next-action-' + nextAction.tone}>
+            <span className="cd-next-label">下一步</span>
+            <span className="cd-next-value">{nextAction.label}</span>
+          </div>
+
+          <div className="cd-field">
+            <span className="cd-label">来源交易</span>
+            {linkedTrades.length === 0 ? (
+              <div className="cd-source-empty">
+                <Link2 size={14} />
+                <span>这条判例还没有来源交易。建议从交易详情的“沉淀为判例”入口创建。</span>
+              </div>
+            ) : (
+              <div className="cd-source-list">
+                {linkedTrades.map((trade) => {
+                  const strategy = strategies.find((s) => s.id === trade.strategyId)
+                  return (
+                    <Link
+                      key={trade.id}
+                      className="cd-source-card"
+                      to={tradeDetailPath(trade)}
+                    >
+                      <span className="cd-source-ref">{trade.ref}</span>
+                      <span className="cd-source-symbol">{trade.symbol}</span>
+                      <span className="cd-source-strategy">{strategy?.name ?? '未设置策略'}</span>
+                      <ArrowUpRight size={13} />
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* 初始裁决 */}
           <div className="cd-field">
-            <span className="cd-label">初始裁决</span>
+            <span className="cd-label">判断</span>
             <span className="cd-value">{rec.initialVerdict}</span>
           </div>
 
@@ -183,7 +278,7 @@ export function CaseDetail({
 
           {/* 笔记 */}
           <div className="cd-field">
-            <span className="cd-label">笔记</span>
+            <span className="cd-label">复盘笔记</span>
             <textarea
               className="cd-textarea"
               value={noteDraft}
@@ -202,14 +297,28 @@ export function CaseDetail({
 
           {/* 截图区 */}
           <div className="cd-field">
-            <span className="cd-label">截图 ({rec.images.length})</span>
+            <span className="cd-label">证据截图 ({rec.images.length})</span>
             {rec.images.length === 0 ? (
-              <div className="cd-images-empty">
+              <div
+                className="cd-images-empty"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  void appendImageBlobs(Array.from(e.dataTransfer.files))
+                }}
+              >
                 <Image size={16} />
-                <span>暂无截图</span>
+                <span>{savingImages ? '保存截图中…' : '粘贴或拖入截图补证据'}</span>
               </div>
             ) : (
-              <div className="cd-images-strip">
+              <div
+                className="cd-images-strip"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  void appendImageBlobs(Array.from(e.dataTransfer.files))
+                }}
+              >
                 {rec.images.map((img, idx) => {
                   const src = imageUrls[img.fileId]
                   const urls = rec.images
@@ -233,6 +342,15 @@ export function CaseDetail({
                     </div>
                   )
                 })}
+                <button
+                  type="button"
+                  className="cd-image-add"
+                  disabled={savingImages}
+                  onClick={() => toast('可直接 Ctrl+V 粘贴截图，或拖入图片文件')}
+                >
+                  <Plus size={14} />
+                  <span>{savingImages ? '保存中' : '补截图'}</span>
+                </button>
               </div>
             )}
           </div>

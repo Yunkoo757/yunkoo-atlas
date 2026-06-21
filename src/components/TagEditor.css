@@ -186,3 +186,89 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+.dv-props .tag-editor {
+  align-self: stretch;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 1px 4px 2px;
+}
+
+.dv-props .tag-presets-row {
+  flex-wrap: nowrap;
+  width: 100%;
+  gap: 4px;
+  margin: 0 0 2px;
+  padding: 0 0 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px dashed color-mix(in srgb, var(--border-subtle) 60%, transparent);
+  scrollbar-width: none;
+}
+
+.dv-props .tag-presets-row::-webkit-scrollbar {
+  display: none;
+}
+
+.dv-props .tag-preset-chip {
+  flex: 0 0 auto;
+  height: 22px;
+  border-color: var(--border-subtle);
+  background: transparent;
+}
+
+.dv-props .tag-preset-label {
+  padding: 0 8px;
+  font-size: var(--fs-micro);
+}
+
+.dv-props .tag-preset-remove {
+  width: 0;
+  opacity: 0;
+}
+
+.dv-props .tag-preset-chip:hover .tag-preset-remove {
+  width: 18px;
+  opacity: 1;
+}
+
+.dv-props .tag-chip {
+  max-width: 100%;
+  min-height: 23px;
+  padding: 0 8px;
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+}
+
+.dv-props .tag-chip-remove {
+  width: 0;
+  opacity: 0;
+}
+
+.dv-props .tag-chip:hover .tag-chip-remove {
+  width: 16px;
+  opacity: 1;
+}
+
+.dv-props .tag-add-btn {
+  width: 26px;
+  height: 26px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border-radius: var(--radius-6);
+  color: var(--text-quaternary);
+}
+
+.dv-props .tag-add-btn span {
+  display: none;
+}
+
+.dv-props .tag-input-wrap {
+  min-width: 100%;
+}
+
+.dv-props .tag-input {
+  height: 27px;
+  font-size: var(--fs-sm);
+}

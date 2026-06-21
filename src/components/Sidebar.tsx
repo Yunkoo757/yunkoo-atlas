@@ -1,4 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import {
   Search,
   PenSquare,
@@ -59,7 +60,7 @@ function SecondaryLink({
 }
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
-  const { pathname: path } = useLocation()
+  const { pathname: path, search } = useLocation()
   const navigate = useNavigate()
   const openComposer = useStore((s) => s.openComposer)
   const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
@@ -75,6 +76,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const isPathActive = (fn: (path: string) => boolean) => fn(path)
   const sortedStrategies = sortStrategies(strategies, pinnedStrategyIds)
   const sidebarStrategies = sortedStrategies.slice(0, MAX_SIDEBAR_STRATEGIES)
+
+  useEffect(() => {
+    const nextModule = path.startsWith('/cases') ? 'case' : 'trade'
+    if (activeModule !== nextModule) setModule(nextModule)
+  }, [activeModule, path, setModule])
 
   const profile = useStore((s) => s.profile)
   const isSettingsActive = path.startsWith('/settings')
@@ -219,7 +225,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       )}
 
       {activeModule === 'case' && (
-        <CaseNav cases={cases} disputeTypes={disputeTypes} path={path} />
+        <CaseNav cases={cases} disputeTypes={disputeTypes} path={path} search={search} />
       )}
 
       <div className="sb-spacer" />
@@ -241,11 +247,14 @@ function CaseNav({
   cases,
   disputeTypes,
   path,
+  search,
 }: {
   cases: CaseRecord[]
   disputeTypes: DisputeType[]
   path: string
+  search: string
 }) {
+  const query = new URLSearchParams(search)
   const pending = cases.filter((c) => deriveLifecycle(c) === '待验证').length
   const decided = cases.filter((c) => deriveLifecycle(c) === '已裁决').length
   const discarded = cases.filter((c) => deriveLifecycle(c) === '已废弃').length
@@ -258,28 +267,28 @@ function CaseNav({
         <div className="sb-section-label">生命周期</div>
         <NavLink
           to="/cases"
-          className={() => 'sb-item' + (path === '/cases' ? ' is-active' : '')}
+          className={() => 'sb-item' + (path === '/cases' && !search ? ' is-active' : '')}
         >
           <span>全部</span>
           <span className="sb-item-count">{cases.length}</span>
         </NavLink>
         <NavLink
           to="/cases?lifecycle=待验证"
-          className="sb-item"
+          className={() => 'sb-item' + (query.get('lifecycle') === '待验证' ? ' is-active' : '')}
         >
           <span>待验证</span>
           <span className="sb-item-count">{pending}</span>
         </NavLink>
         <NavLink
           to="/cases?lifecycle=已裁决"
-          className="sb-item"
+          className={() => 'sb-item' + (query.get('lifecycle') === '已裁决' ? ' is-active' : '')}
         >
           <span>已裁决</span>
           <span className="sb-item-count">{decided}</span>
         </NavLink>
         <NavLink
           to="/cases?lifecycle=已废弃"
-          className="sb-item"
+          className={() => 'sb-item' + (query.get('lifecycle') === '已废弃' ? ' is-active' : '')}
         >
           <span>已废弃</span>
           <span className="sb-item-count">{discarded}</span>
@@ -287,11 +296,17 @@ function CaseNav({
       </nav>
       <nav className="sb-section">
         <div className="sb-section-label">标志</div>
-        <NavLink to="/cases?star=true" className="sb-item">
+        <NavLink
+          to="/cases?star=true"
+          className={() => 'sb-item' + (query.get('star') === 'true' ? ' is-active' : '')}
+        >
           <span>典型案例</span>
           <span className="sb-item-count">{starred}</span>
         </NavLink>
-        <NavLink to="/cases?recheck=true" className="sb-item">
+        <NavLink
+          to="/cases?recheck=true"
+          className={() => 'sb-item' + (query.get('recheck') === 'true' ? ' is-active' : '')}
+        >
           <span>需要复看</span>
           <span className="sb-item-count">{recheck}</span>
         </NavLink>
@@ -306,7 +321,7 @@ function CaseNav({
               <NavLink
                 key={dt.id}
                 to={`/cases?disputeType=${dt.id}`}
-                className="sb-item"
+                className={() => 'sb-item' + (query.get('disputeType') === dt.id ? ' is-active' : '')}
               >
                 <span>{dt.name}</span>
                 <span className="sb-item-count">{count}</span>

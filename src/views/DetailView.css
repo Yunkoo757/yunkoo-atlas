@@ -285,18 +285,18 @@
 
 /* ===== 右侧分组面板 ===== */
 .dv-props {
-  width: 240px;
+  width: 248px;
   flex-shrink: 0;
   border-left: 1px solid var(--border-subtle);
-  padding: 12px 12px 0;
+  padding: 10px 10px 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   animation: panelIn 0.3s var(--ease-out) both;
 }
 .dv-section {
-  padding: 8px 0 12px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 7px 0 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
 }
 .dv-section:last-of-type {
   border-bottom: none;
@@ -304,14 +304,14 @@
 .dv-section-head {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   width: 100%;
-  height: 24px;
+  height: 22px;
   padding: 0 6px;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-mini);
   font-weight: var(--font-weight-normal);
   color: var(--text-tertiary);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .dv-section-head:hover {
   color: var(--text-secondary);
@@ -327,17 +327,82 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: 0;
+}
+.dv-section-body > .hover-preview-anchor {
+  display: flex;
+  align-self: stretch;
+}
+.dv-case-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  margin: 0 4px;
+  padding: 0 7px;
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.dv-case-row:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.dv-case-row svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.dv-case-list {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
   gap: 1px;
+  padding: 0 2px 3px;
+}
+.dv-case-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 6px;
+  border-radius: var(--radius-6);
+  color: var(--text-secondary);
+}
+.dv-case-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.dv-case-id {
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.dv-case-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-mini);
+}
+.dv-case-state {
+  color: var(--text-tertiary);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
 }
 
 /* 图标+值 药丸（贴合内容宽，对齐 Linear 真实计算值）*/
 .dv-pitem {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px 0 6px;
-  border-radius: var(--radius-full);
+  gap: 7px;
+  height: 27px;
+  padding: 0 8px 0 6px;
+  border-radius: var(--radius-6);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
@@ -354,6 +419,9 @@
 .dv-pitem-ghost svg {
   color: var(--text-tertiary);
 }
+.dv-pitem svg {
+  flex-shrink: 0;
+}
 
 /* 交易数据 label→value 行 */
 .dv-datarow {
@@ -361,11 +429,11 @@
   align-items: center;
   justify-content: space-between;
   align-self: stretch;
-  min-height: 28px;
+  min-height: 27px;
   padding: 0 6px;
 }
 .dv-datarow-label {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-mini);
   color: var(--text-tertiary);
 }
 .dv-datarow-value {
@@ -391,7 +459,7 @@
 .dv-datarow-input {
   flex: 1;
   max-width: 120px;
-  height: 26px;
+  height: 25px;
   padding: 0 8px;
   background: var(--bg-elevated);
   border: 1px solid var(--accent);
@@ -442,7 +510,7 @@
 }
 
 .dv-props-foot {
-  padding: 12px 0;
+  padding: 9px 0;
   border-top: 1px solid var(--border-subtle);
 }
 .dv-copy-id {

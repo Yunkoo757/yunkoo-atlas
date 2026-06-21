@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { useStore } from '@/store/useStore'
@@ -8,13 +8,16 @@ import {
   deriveLifecycle,
   deriveOutcome,
   formatCaseId,
+  getCaseNextAction,
   getDisputeType,
   OUTCOME_COLORS,
 } from '@/data/case'
 import { fmtDate } from '@/lib/format'
-import { Star, AlertTriangle, Trash2, Plus } from 'lucide-react'
+import { Star, AlertTriangle, Trash2, Plus, Link2, Camera } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { CaseDetail } from './CaseDetail'
+import type { Trade } from '@/data/trades'
+import type { Strategy } from '@/data/strategies'
 import './CaseList.css'
 
 type GroupedCases = { label: string; items: CaseRecord[] }[]
@@ -49,6 +52,8 @@ function groupCases(cases: CaseRecord[], disputeTypes: DisputeType[]): GroupedCa
 function CaseCard({
   rec,
   disputeTypes,
+  trades,
+  strategies,
   selected,
   onToggle,
   onDelete,
@@ -56,6 +61,8 @@ function CaseCard({
 }: {
   rec: CaseRecord
   disputeTypes: DisputeType[]
+  trades: Trade[]
+  strategies: Strategy[]
   selected: boolean
   onToggle: () => void
   onDelete: () => void
@@ -66,6 +73,13 @@ function CaseCard({
   const colors = OUTCOME_COLORS[outcome]
   const caseId = formatCaseId(rec.id)
   const abbrev = (dt?.name ?? '??').slice(0, 2).toUpperCase()
+  const nextAction = getCaseNextAction(rec)
+  const sourceTrades = (rec.linkedTradeIds ?? [])
+    .map((id) => trades.find((t) => t.id === id))
+    .filter(Boolean) as Trade[]
+  const source = sourceTrades[0]
+  const sourceStrategy = source ? strategies.find((s) => s.id === source.strategyId) : undefined
+  const notePreview = getCaseNotePreview(rec.note)
 
   return (
     <div
@@ -88,14 +102,28 @@ function CaseCard({
           {rec.star && <span className="cl-flag cl-flag-star">典型</span>}
           {rec.recheck && <span className="cl-flag cl-flag-recheck">复看</span>}
         </div>
+        <div className="cl-context-row">
+          {source ? (
+            <span className="cl-source">
+              <Link2 size={11} />
+              {source.ref} · {source.symbol}
+              {sourceStrategy ? ` · ${sourceStrategy.name}` : ''}
+            </span>
+          ) : (
+            <span className="cl-source cl-source-missing">未关联交易</span>
+          )}
+          <span className={'cl-next cl-next-' + nextAction.tone}>
+            {nextAction.label}
+          </span>
+        </div>
         <div className="cl-meta-row">
           <span className="cl-chip">{rec.confidence}%</span>
-          <span className="cl-chip">{rec.images.length}图</span>
+          <span className="cl-chip cl-chip-icon"><Camera size={11} />{rec.images.length}</span>
           {rec.tags?.slice(0, 3).map((t) => (
             <span className="cl-chip" key={t}>{t}</span>
           ))}
-          {rec.note && (
-            <span className="cl-note">{rec.note}</span>
+          {notePreview && (
+            <span className="cl-note">{notePreview}</span>
           )}
         </div>
       </div>
@@ -115,9 +143,26 @@ function CaseCard({
   )
 }
 
+function getCaseNotePreview(note: string | undefined): string {
+  if (!note?.trim()) return ''
+  const ignoredPrefixes = ['来源交易', '策略', '交易标签', '错误 / 违规']
+  const line = note
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .find((item) => {
+      if (!item) return false
+      if (ignoredPrefixes.some((prefix) => item.startsWith(prefix))) return false
+      if (item.endsWith('：') || item.endsWith(':')) return false
+      return true
+    })
+  return line ?? ''
+}
+
 export function CaseList() {
   const cases = useStore((s) => s.cases)
   const disputeTypes = useStore((s) => s.disputeTypes)
+  const trades = useStore((s) => s.trades)
+  const strategies = useStore((s) => s.strategies)
   const removeCase = useStore((s) => s.removeCase)
   const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -128,6 +173,12 @@ export function CaseList() {
   const starFilter = searchParams.get('star')
   const recheckFilter = searchParams.get('recheck')
   const disputeTypeFilter = searchParams.get('disputeType')
+  const caseParam = searchParams.get('case')
+
+  useEffect(() => {
+    if (!caseParam) return
+    if (cases.some((c) => c.id === caseParam)) setDetailId(caseParam)
+  }, [caseParam, cases])
 
   const filtered = useMemo(() => {
     let list = [...cases]
@@ -147,6 +198,7 @@ export function CaseList() {
   }, [cases, lifecycleFilter, starFilter, recheckFilter, disputeTypeFilter])
 
   const grouped = useMemo(() => groupCases(filtered, disputeTypes), [filtered, disputeTypes])
+  const detailCase = detailId ? cases.find((c) => c.id === detailId) : null
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -165,6 +217,21 @@ export function CaseList() {
   }
 
   const clearFilter = () => setSearchParams({})
+
+  const openCase = (id: string) => {
+    const next = new URLSearchParams(searchParams)
+    next.set('case', id)
+    setSearchParams(next)
+    setDetailId(id)
+  }
+
+  const closeDetail = () => {
+    setDetailId(null)
+    if (!caseParam) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('case')
+    setSearchParams(next, { replace: true })
+  }
 
   return (
     <div className="case-list-page">
@@ -240,10 +307,12 @@ export function CaseList() {
                   key={rec.id}
                   rec={rec}
                   disputeTypes={disputeTypes}
+                  trades={trades}
+                  strategies={strategies}
                   selected={selected.has(rec.id)}
                   onToggle={() => toggleSelect(rec.id)}
                   onDelete={() => handleDelete(rec.id)}
-                  onClick={() => setDetailId(rec.id)}
+                  onClick={() => openCase(rec.id)}
                 />
               ))}
             </div>
@@ -252,17 +321,25 @@ export function CaseList() {
             <div className="cl-empty">
               <AlertTriangle size={18} />
               <p>暂无判例记录</p>
-              <p className="cl-empty-hint">点击右上角 + 或粘贴截图创建判例</p>
+              <p className="cl-empty-hint">从交易详情沉淀争议点，或先创建一条独立判例。</p>
+              <button
+                type="button"
+                className="cl-empty-action"
+                onClick={() => setCaseModalOpen(true)}
+              >
+                <Plus size={14} />
+                创建第一条判例
+              </button>
             </div>
           )}
         </div>
       </div>
 
-      {detailId && (
+      {detailCase && (
         <CaseDetail
-          rec={cases.find((c) => c.id === detailId)!}
+          rec={detailCase}
           disputeTypes={disputeTypes}
-          onClose={() => setDetailId(null)}
+          onClose={closeDetail}
         />
       )}
     </div>

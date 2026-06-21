@@ -1,10 +1,13 @@
 import { createPortal } from 'react-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { X, Image } from 'lucide-react'
 import type { CaseImage } from '@/data/case'
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
+import { STATUS_META, TRADE_KIND_META, type Trade } from '@/data/trades'
+import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
 
 interface PendingImage {
   blob: Blob
@@ -13,16 +16,26 @@ interface PendingImage {
 }
 
 export function NewCaseModal() {
+  const navigate = useNavigate()
   const open = useStore((s) => s.caseModalOpen)
+  const context = useStore((s) => s.caseModalContext)
   const addCase = useStore((s) => s.addCase)
   const disputeTypes = useStore((s) => s.disputeTypes)
   const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
+  const trades = useStore((s) => s.trades)
+  const strategies = useStore((s) => s.strategies)
   const [disputeTypeId, setDisputeTypeId] = useState(disputeTypes[0]?.id ?? '')
   const [verdict, setVerdict] = useState('是')
   const [confidence, setConfidence] = useState<30 | 50 | 70 | 90>(70)
   const [images, setImages] = useState<PendingImage[]>([])
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const dropRef = useRef<HTMLDivElement>(null)
+
+  const sourceTrade = trades.find((t) => t.id === context?.sourceTradeId)
+  const sourceStrategy = sourceTrade
+    ? strategies.find((s) => s.id === sourceTrade.strategyId)
+    : undefined
 
   // Reset state when modal opens
   useEffect(() => {
@@ -31,8 +44,14 @@ export function NewCaseModal() {
       setVerdict(disputeTypes[0]?.options[0] ?? '是')
       setConfidence(70)
       setImages([])
+      setNote(buildSourceNote(sourceTrade, sourceStrategy?.name))
+    } else {
+      setImages((prev) => {
+        prev.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+        return []
+      })
     }
-  }, [open, disputeTypes])
+  }, [open, disputeTypes, sourceTrade, sourceStrategy?.name])
 
   // Global paste handler
   const handlePaste = useCallback((e: ClipboardEvent) => {
@@ -99,18 +118,26 @@ export function NewCaseModal() {
       images.forEach((img) => URL.revokeObjectURL(img.previewUrl))
 
       const now = new Date().toISOString()
+      const id = crypto.randomUUID()
+      const sourceTags = sourceTrade
+        ? [...new Set([...sourceTrade.tags, ...sourceTrade.mistakeTags])]
+        : []
       addCase({
-        id: crypto.randomUUID(),
+        id,
         disputeTypeId,
         initialVerdict: verdict,
         confidence,
         images: savedImages,
+        note: note.trim() || undefined,
+        tags: sourceTags.length ? sourceTags : undefined,
+        linkedTradeIds: sourceTrade ? [sourceTrade.id] : undefined,
         createdAt: now,
         updatedAt: now,
       })
       toast(savedImages.length > 0 ? `判例已创建（${savedImages.length} 张截图）` : '判例已创建')
       setImages([])
       setCaseModalOpen(false)
+      navigate(`/cases?case=${id}`)
     } catch {
       toast('创建失败')
     } finally {
@@ -127,6 +154,24 @@ export function NewCaseModal() {
             <X size={16} />
           </button>
         </div>
+
+        {sourceTrade && (
+          <div className="ncm-source">
+            <div className="ncm-source-main">
+              <span className="ncm-source-ref">{sourceTrade.ref}</span>
+              <span className="ncm-source-symbol">{sourceTrade.symbol}</span>
+              <span className="ncm-source-side">
+                {sourceTrade.side === 'long' ? '做多' : '做空'}
+              </span>
+            </div>
+            <div className="ncm-source-meta">
+              <span>{sourceStrategy?.name ?? '未设置策略'}</span>
+              <span>{STATUS_META[sourceTrade.status].label}</span>
+              <span>{TRADE_KIND_META[sourceTrade.tradeKind].label}</span>
+              <span>复盘 {REVIEW_STATUS_META[sourceTrade.reviewStatus].label}</span>
+            </div>
+          </div>
+        )}
 
         <div className="ncm-field">
           <span className="ncm-label">纠纷类型</span>
@@ -184,6 +229,18 @@ export function NewCaseModal() {
           </div>
         </div>
 
+        <div className="ncm-field">
+          <span className="ncm-label">判断依据</span>
+          <textarea
+            className="ncm-textarea"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="记录为什么这样裁决，后续复盘时可以继续修正…"
+            rows={sourceTrade ? 5 : 4}
+          />
+          <span className="ncm-field-hint">建议写清触发条件、反证点和需要复看的截图位置。</span>
+        </div>
+
         {/* Image drop zone */}
         <div className="ncm-field">
           <span className="ncm-label">截图</span>
@@ -230,4 +287,20 @@ export function NewCaseModal() {
     </div>,
     document.body,
   )
+}
+
+function buildSourceNote(
+  trade: Trade | undefined,
+  strategyName: string | undefined,
+): string {
+  if (!trade) return ''
+  const lines = [
+    `来源交易：${trade.ref} · ${trade.symbol} · ${trade.side === 'long' ? '做多' : '做空'}`,
+    `策略：${strategyName ?? '未设置策略'}；状态：${STATUS_META[trade.status].label}；复盘：${REVIEW_STATUS_META[trade.reviewStatus].label}`,
+  ]
+  if (trade.tags.length) lines.push(`交易标签：${trade.tags.join(' / ')}`)
+  if (trade.mistakeTags.length) lines.push(`错误 / 违规：${trade.mistakeTags.join(' / ')}`)
+  lines.push('争议点：')
+  lines.push('反证点：')
+  return lines.join('\n')
 }
