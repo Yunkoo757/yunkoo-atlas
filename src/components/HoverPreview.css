@@ -8,7 +8,7 @@
   z-index: 500;
   padding: 14px 16px 12px;
   border: 1px solid color-mix(in srgb, var(--border-default) 82%, transparent);
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-xl);
   background:
     linear-gradient(
       180deg,

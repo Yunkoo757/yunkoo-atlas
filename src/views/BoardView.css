@@ -2,7 +2,7 @@
   flex: 1;
   display: flex;
   gap: 12px;
-  padding: 12px;
+  padding: 12px 14px 18px;
   overflow-x: auto;
 }
 .bd-col {
@@ -10,11 +10,16 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-8);
-  transition: background var(--dur-base) var(--ease-out);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--bg-elevated) 26%, transparent);
+  overflow: hidden;
+  transition: background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
 }
 .bd-col.is-over {
-  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
 }
 .bd-col-header {
   display: flex;
@@ -37,7 +42,7 @@
   place-items: center;
   width: 22px;
   height: 22px;
-  border-radius: var(--radius-6);
+  border-radius: var(--radius-lg);
   color: var(--text-tertiary);
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out),
@@ -54,14 +59,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 0 4px 8px;
+  padding: 0 8px 10px;
   overflow-y: auto;
 }
 
 .bd-card {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-xl);
   padding: 10px;
   cursor: pointer;
   display: flex;

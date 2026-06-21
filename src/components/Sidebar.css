@@ -26,7 +26,7 @@
   flex: 1;
   min-width: 0;
   padding: 2px 8px;
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-lg);
   transition: background var(--dur-fast) var(--ease-out);
 }
 .sb-ws:hover {
@@ -80,7 +80,7 @@
   padding: 3px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-xl);
 }
 .sb-module-tab {
   height: 28px;
@@ -88,7 +88,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: var(--radius-6);
+  border-radius: var(--radius-lg);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-tertiary);
@@ -118,7 +118,7 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-6);
+  border-radius: var(--radius-lg);
   color: var(--text-tertiary);
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
@@ -184,7 +184,7 @@
   height: 28px;
   margin: 1px 0;
   padding: 0 8px;
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-lg);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);

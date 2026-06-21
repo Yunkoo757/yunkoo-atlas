@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import './Menu.css'
 
@@ -23,7 +23,9 @@ export function Menu({
   align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
+  const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom')
   const ref = useRef<HTMLDivElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -39,13 +41,31 @@ export function Menu({
     }
   }, [open])
 
+  useLayoutEffect(() => {
+    if (!open) return
+    setPlacement('bottom')
+    const frame = requestAnimationFrame(() => {
+      const rootRect = ref.current?.getBoundingClientRect()
+      const popRect = popRef.current?.getBoundingClientRect()
+      if (!rootRect || !popRect) return
+      const bottomOverflow = popRect.bottom > window.innerHeight - 8
+      const hasRoomAbove = rootRect.top > popRect.height + 12
+      setPlacement(bottomOverflow && hasRoomAbove ? 'top' : 'bottom')
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [open])
+
   return (
     <div className="menu-root" ref={ref}>
       <div className="menu-trigger" onClick={() => setOpen((o) => !o)}>
         {trigger}
       </div>
       {open && (
-        <div className={'menu-pop menu-' + align} role="menu">
+        <div
+          className={`menu-pop menu-${align} menu-placement-${placement}`}
+          role="menu"
+          ref={popRef}
+        >
           {options.map((o) => (
             <button
               key={o.value}
