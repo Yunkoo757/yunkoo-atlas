@@ -90,7 +90,7 @@ export async function migrateElectronLibraryIfNeeded(
   adapter: StorageAdapter,
 ): Promise<boolean> {
   const existing = await adapter.loadSnapshot()
-  if (existing && existing.trades.length > 0) return false
+  if (existing) return false
 
   const idb = getIndexedDbAdapter()
   await idb.open()

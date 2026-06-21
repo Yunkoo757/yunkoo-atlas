@@ -126,6 +126,6 @@ a.lv-row:visited .lv-title {
 }
 
 /* 全屏看图时禁止背后页面接收点击 */
-body.img-lightbox-open .app-shell {
+body.img-lightbox-open .app-main {
   pointer-events: none;
 }

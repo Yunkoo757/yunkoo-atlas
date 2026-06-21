@@ -122,4 +122,4 @@ try {
   console.log(`保留测试库: ${LIB}`)
 }
 
-process.exit(passed === total ? 0 : 1)
+process.exitCode = passed === total ? 0 : 1

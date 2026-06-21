@@ -11,6 +11,7 @@ import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/trad
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { useStore } from '@/store/useStore'
+import { useShortcutStore } from '@/store/shortcutStore'
 import {
   collectAssetIdsFromNotes,
   externalizeNoteImages,
@@ -449,15 +450,17 @@ export async function applyImport(payload: ExportPayload): Promise<void> {
   await flushPersistNow()
 }
 
-function applySnapshotToStore(snapshot: PersistedSnapshot): void {
+export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   useStore.setState({
-    trades: snapshot.trades,
+    trades: normalizeTrades(snapshot.trades),
     strategies: snapshot.strategies,
     starredIds: snapshot.starredIds,
     subscribedIds: snapshot.subscribedIds,
     pinnedStrategyIds: snapshot.pinnedStrategyIds,
-    display: snapshot.display,
+    display: normalizeDisplay(snapshot.display),
+    tagPresets: snapshot.tagPresets ?? [],
   })
+  useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }
 
 export async function exportJournalArchive(): Promise<{ ok: boolean; path?: string }> {
@@ -467,15 +470,24 @@ export async function exportJournalArchive(): Promise<{ ok: boolean; path?: stri
 }
 
 /** 桌面端：整库替换导入 .journal.zip */
-export async function importJournalArchive(): Promise<boolean> {
-  if (!isElectron()) return false
+export async function importJournalArchive(): Promise<{
+  ok: boolean
+  canceled?: boolean
+  error?: string
+}> {
+  if (!isElectron()) return { ok: false, error: 'Electron bridge is not available' }
   const result = await getJournalBridge()!.importJournalZip()
-  if (!result.ok) return false
-  if (result.snapshot) {
-    applySnapshotToStore(result.snapshot)
-    await flushPersistNow()
+  if (!result.ok) {
+    console.error('[importJournalArchive] result not ok', result.error)
+    return { ok: false, canceled: result.canceled, error: result.error }
   }
-  return true
+  if (!result.snapshot) {
+    console.error('[importJournalArchive] snapshot is null after import')
+    return { ok: false, error: 'Imported archive did not contain a readable snapshot' }
+  }
+  applySnapshotToStore(result.snapshot)
+  await flushPersistNow()
+  return { ok: true }
 }
 
 export async function getLibraryPath(): Promise<string | null> {

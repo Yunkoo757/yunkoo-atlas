@@ -110,17 +110,17 @@ try {
   record('导出按钮可见', hasExportBtn)
   await page.screenshot({ path: join(OUT, '05-data-io.png') })
 
-  // 9. 导出 JSON 含 version 4
+  // 9. 导出 JSON 含 version 5
   const exportPayload = await page.evaluate(async () => {
     const { buildExportPayload } = await import('/src/lib/importExport.ts')
     return buildExportPayload()
   }).catch(() => null)
 
   if (exportPayload) {
-    record('导出 payload version=4', exportPayload.version === 4, `v${exportPayload.version}`)
+    record('导出 payload version=5', exportPayload.version === 5, `v${exportPayload.version}`)
     record('导出含 assets 数组', Array.isArray(exportPayload.assets), `len=${exportPayload.assets?.length ?? 0}`)
   } else {
-    record('导出 payload version=4', false, 'evaluate 导入失败，跳过')
+    record('导出 payload version=5', false, 'evaluate 导入失败，跳过')
   }
 
   // 10. IndexedDB 存在

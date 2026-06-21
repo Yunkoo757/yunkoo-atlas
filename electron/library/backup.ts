@@ -14,14 +14,23 @@ let lastBackupAt = 0
 let storageRef: LibraryStorage | null = null
 
 function backupFileName(timestamp: number): string {
-  const iso = new Date(timestamp).toISOString().replace(/[:.]/g, '-')
+  const iso = new Date(timestamp).toISOString().replace(/[:T.]/g, '-')
   return `journal-${iso}.db`
 }
 
 function parseTimestampFromName(name: string): number | null {
-  const m = name.match(/^journal-(.+)\.db$/)
+  const m = name.match(/^journal-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.db$/)
   if (!m) return null
-  return Date.parse(m[1].replace(/-/g, ':').replace(/(\d{2})(\d{2})$/, '.$2'))
+  const ts = Date.UTC(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+    Number(m[6]),
+    Number(m[7]),
+  )
+  return isNaN(ts) ? null : ts
 }
 
 export function createBackup(storage: LibraryStorage): string | null {
@@ -55,7 +64,7 @@ export function rotateBackups(
         return {
           name: f,
           path: fp,
-          timestamp: parseTimestampFromName(f) ?? 0,
+          timestamp: parseTimestampFromName(f) || 0,
           size: (() => { try { return fs.statSync(fp).size } catch { return 0 } })(),
         }
       })
@@ -87,14 +96,7 @@ export function rotateBackups(
 
 /** 获取备份总大小信息 */
 export function getBackupStats(): { count: number; totalSize: number } {
-  const { backups } = (() => {
-    try {
-      const { getLibraryPath, ensureLibraryDirs } = require('./paths')
-      return ensureLibraryDirs(getLibraryPath())
-    } catch {
-      return { backups: '' }
-    }
-  })()
+  const { backups } = ensureLibraryDirs(getLibraryPath())
   if (!backups || !fs.existsSync(backups)) return { count: 0, totalSize: 0 }
 
   const files = fs
@@ -120,7 +122,7 @@ export function listBackups(): { name: string; timestamp: number; size: number }
       const stat = fs.statSync(fp)
       return {
         name: f,
-        timestamp: parseTimestampFromName(f) ?? stat.mtimeMs,
+        timestamp: parseTimestampFromName(f) || stat.mtimeMs,
         size: stat.size,
       }
     })
@@ -132,6 +134,7 @@ export function startAutoBackup(
   intervalMs: number = DEFAULT_INTERVAL_MS,
   maxBackups: number = DEFAULT_MAX_BACKUPS,
 ): void {
+  stopAutoBackup()
   storageRef = storage
 
   // 定时备份
@@ -147,12 +150,14 @@ export function startAutoBackup(
   // 退出前备份
   quitHandler = () => {
     if (storageRef) {
-      storageRef.close()
+      // 备份磁盘上的最新数据（saveSnapshot 后已 persistDb，退出前复制 db 文件）
       const result = createBackupFromDb()
       if (result) {
         const { backups } = ensureLibraryDirs(getLibraryPath())
         rotateBackups(backups, maxBackups)
       }
+      // 释放 sql.js 内存但不调用 persistDb — 防止过期数据覆盖
+      storageRef.release()
     }
   }
   app.on('before-quit', quitHandler)

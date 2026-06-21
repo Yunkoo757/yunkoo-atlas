@@ -47,6 +47,7 @@ import { syncStatusFromPnl } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isTerminal } from '@/lib/tradeStatus'
 import { DEFAULT_REVIEW_TEMPLATE_HTML } from '@/lib/reviewTemplates'
 import { getStorage, normalizeNoteForStorage, resolveNoteForDisplay } from '@/storage'
+import { setPreFlushCallback } from '@/storage/persist'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import './DetailView.css'
@@ -90,6 +91,7 @@ export function DetailView() {
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingHtmlRef = useRef<string | null>(null)
   const pendingTradeIdRef = useRef<string | null>(null)
+  const noteResolvedRef = useRef(false)   // 初始内容是否已加载，防止空 onUpdate 覆盖真实笔记
   const commentRef = useRef<HTMLTextAreaElement>(null)
 
   const adjustCommentHeight = useCallback(() => {
@@ -112,6 +114,7 @@ export function DetailView() {
       pendingTradeIdRef.current = tradeId
       if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
       noteSaveTimer.current = setTimeout(async () => {
+        noteSaveTimer.current = null
         const normalized = await normalizeNoteForStorage(html, getStorage())
         const current = useStore.getState().trades.find((t) => t.id === tradeId)
         if (current && normalized !== current.note) updateNote(tradeId, normalized)
@@ -122,9 +125,13 @@ export function DetailView() {
 
   useEffect(() => {
     if (!trade) return
+    noteResolvedRef.current = false   // 切换交易时重置，阻止旧 onUpdate 写入空内容
     let cancelled = false
     resolveNoteForDisplay(trade.note, getStorage()).then((html) => {
-      if (!cancelled) setEditorHtml(html)
+      if (!cancelled) {
+        setEditorHtml(html)
+        noteResolvedRef.current = true  // 标记初始内容已就绪，允许后续编辑触发保存
+      }
     })
     return () => {
       cancelled = true
@@ -150,10 +157,35 @@ export function DetailView() {
     }
   }, [])
 
+  // beforeunload 前先归一化 note，确保 flushPersistNow 收到的是 journal-asset:// 而非 blob:
+  useEffect(() => {
+    setPreFlushCallback(async () => {
+      // 清除待处理定时器（如有）
+      if (noteSaveTimer.current) {
+        clearTimeout(noteSaveTimer.current)
+        noteSaveTimer.current = null
+      }
+      // 无论定时器状态如何，只要有 pending HTML 就归一化
+      const html = pendingHtmlRef.current
+      const tradeId = pendingTradeIdRef.current
+      if (html && tradeId) {
+        try {
+          const normalized = await normalizeNoteForStorage(html, getStorage())
+          const current = useStore.getState().trades.find((t) => t.id === tradeId)
+          if (current && normalized !== current.note) {
+            useStore.getState().updateNote(tradeId, normalized)
+          }
+        } catch { /* 尽力而为 */ }
+      }
+    })
+    return () => { setPreFlushCallback(null) }
+  }, [])
+
   const onEditorChange = useCallback(
     (html: string) => {
       setEditorHtml(html)
       if (!trade?.id) return
+      if (!noteResolvedRef.current) return  // 初始内容尚未加载，拒绝保存空/占位内容
       useSaveStatus.getState().setDirty()
       persistEditorNote(html, trade.id)
     },

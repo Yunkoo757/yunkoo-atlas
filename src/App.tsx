@@ -1,5 +1,6 @@
 import {
   BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -11,7 +12,7 @@ import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
-import { flushPersistNow } from './storage/persist'
+import { flushPersistNow, hasPendingChanges } from './storage/persist'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
@@ -206,6 +207,7 @@ function Shell() {
             <Route path="data" element={<DataSettingsPanel />} />
           </Route>
           <Route path="/strategies" element={<Navigate to="/settings/strategies" replace />} />
+          <Route path="*" element={<Navigate to="/list" replace />} />
         </Routes>
       </main>
       <CommandPalette
@@ -262,11 +264,37 @@ export function App() {
   }
 
   useEffect(() => {
-    const onBeforeUnload = () => {
-      void flushPersistNow()
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasPendingChanges()) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+      flushPersistNow().catch(() => {})
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushPersistNow().catch(() => {})
+      }
     }
     window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    // Electron 主进程关闭前触发 flush
+    if (isElectron()) {
+      try {
+        const bridge = (window as any).journalBridge
+        if (bridge?.onBeforeClose) {
+          bridge.onBeforeClose(() => {
+            flushPersistNow().catch(() => {})
+          })
+        }
+      } catch { /* bridge not available */ }
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [])
 
   if (needsWelcome) {
@@ -282,9 +310,10 @@ export function App() {
     )
   }
 
+  const Router = isElectron() ? HashRouter : BrowserRouter
   return (
-    <BrowserRouter>
+    <Router>
       <Shell />
-    </BrowserRouter>
+    </Router>
   )
 }

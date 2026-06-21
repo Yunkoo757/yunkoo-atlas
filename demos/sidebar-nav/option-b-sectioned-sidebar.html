@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Option B - Sectioned sidebar</title>
+  <style>
+    :root {
+      --app: #eceef0;
+      --sidebar: #f8f7f3;
+      --main: #ffffff;
+      --ink: #202124;
+      --muted: #6f746d;
+      --soft: #90978d;
+      --line: #dedbd3;
+      --selected: #e7ead8;
+      --selected-ink: #566221;
+      --hover: #efeee9;
+      --green: #2f6f5e;
+      --red: #b4533c;
+      --amber: #a46a18;
+      --blue: #4267a7;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--app);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .frame {
+      width: min(1180px, 100%);
+      height: min(760px, calc(100vh - 48px));
+      min-height: 620px;
+      display: grid;
+      grid-template-columns: 244px minmax(0, 1fr);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--main);
+      box-shadow: 0 22px 60px rgba(34, 32, 28, .12);
+    }
+    aside {
+      background: var(--sidebar);
+      border-right: 1px solid var(--line);
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+      overflow: auto;
+    }
+    .workspace {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      display: inline-grid;
+      place-items: center;
+      color: #172015;
+      background: #f2c94c;
+      font-size: 11px;
+      margin-right: 7px;
+    }
+    .tools {
+      display: flex;
+      gap: 4px;
+    }
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+    }
+    .icon-btn:hover { background: var(--hover); }
+    .section {
+      display: grid;
+      gap: 2px;
+    }
+    .section-head {
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      color: var(--soft);
+      font-size: 11px;
+      font-weight: 760;
+    }
+    .item {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px;
+      border-radius: 8px;
+      color: #3b3d39;
+      font-size: 13px;
+      text-decoration: none;
+    }
+    .item:hover { background: var(--hover); }
+    .item.active {
+      background: var(--selected);
+      color: var(--selected-ink);
+      font-weight: 720;
+    }
+    .count {
+      margin-left: auto;
+      color: var(--soft);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .pill {
+      margin-left: auto;
+      height: 18px;
+      min-width: 28px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid var(--line);
+      display: inline-grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 0 6px;
+    }
+    .mark {
+      width: 14px;
+      height: 14px;
+      flex: none;
+      border-radius: 5px;
+      border: 1px solid #c9c4b8;
+      background: #fff;
+    }
+    .mark.green { background: #dce9e3; border-color: #b9d5c9; }
+    .mark.red { background: #f1dfd8; border-color: #ddb8ab; }
+    .mark.amber { background: #f4e8cf; border-color: #dec48e; }
+    .mark.blue { background: #dee6f4; border-color: #b9c9e4; }
+    .spacer { flex: 1; }
+    main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 54px minmax(0, 1fr);
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .seg {
+      display: inline-flex;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f5f4ef;
+    }
+    .seg button {
+      border: 0;
+      background: transparent;
+      border-radius: 6px;
+      width: 34px;
+      height: 26px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .seg button.active {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 1px 3px rgba(32, 33, 36, .12);
+    }
+    .content {
+      padding: 16px;
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: left;
+      font-weight: 700;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+    }
+    td {
+      border-bottom: 1px solid #ece8df;
+      padding: 12px 8px;
+      white-space: nowrap;
+    }
+    tr:hover td { background: #fbfaf7; }
+    .sym { font-weight: 760; }
+    .gain { color: var(--green); font-weight: 720; }
+    .loss { color: var(--red); font-weight: 720; }
+    @media (max-width: 820px) {
+      body { padding: 0; }
+      .frame {
+        width: 100%;
+        height: 100vh;
+        min-height: 0;
+        border: 0;
+        border-radius: 0;
+        grid-template-columns: 206px minmax(0, 1fr);
+      }
+      .subtitle { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <aside>
+      <div class="workspace">
+        <span><span class="avatar">Y</span>Yunkoo</span>
+        <span class="tools"><button class="icon-btn" title="搜索">⌕</button><button class="icon-btn" title="新建">＋</button></span>
+      </div>
+      <div class="section">
+        <div class="section-head"><span>工作台</span></div>
+        <a class="item active" href="#"><span class="mark green"></span><span>交易</span><span class="pill">128</span></a>
+        <a class="item" href="#"><span class="mark blue"></span><span>仪表盘</span></a>
+      </div>
+      <div class="section">
+        <div class="section-head"><span>智能视图</span><span>固定</span></div>
+        <a class="item" href="#"><span class="mark green"></span><span>进行中</span><span class="count">18</span></a>
+        <a class="item" href="#"><span class="mark amber"></span><span>星标交易</span><span class="count">9</span></a>
+        <a class="item" href="#"><span class="mark red"></span><span>错过的机会</span><span class="count">6</span></a>
+        <a class="item" href="#"><span class="mark blue"></span><span>模拟</span><span class="count">22</span></a>
+      </div>
+      <div class="section">
+        <div class="section-head"><span>时间</span></div>
+        <a class="item" href="#"><span class="mark"></span><span>今天</span><span class="count">4</span></a>
+        <a class="item" href="#"><span class="mark"></span><span>本周</span><span class="count">16</span></a>
+      </div>
+      <div class="section">
+        <div class="section-head"><span>策略</span></div>
+        <a class="item" href="#"><span class="mark green"></span><span>趋势突破</span><span class="count">42</span></a>
+        <a class="item" href="#"><span class="mark amber"></span><span>事件驱动</span><span class="count">27</span></a>
+      </div>
+      <div class="spacer"></div>
+      <div class="section">
+        <a class="item" href="#"><span class="mark"></span><span>设置</span></a>
+      </div>
+    </aside>
+    <main>
+      <header>
+        <div><h1 style="display:inline">交易</h1><span class="subtitle">全部实盘 · 128 笔</span></div>
+        <div class="seg" aria-label="视图">
+          <button type="button" class="active" title="列表">☰</button>
+          <button type="button" title="看板">▦</button>
+        </div>
+      </header>
+      <section class="content">
+        <table>
+          <thead>
+            <tr><th>标的</th><th>状态</th><th>策略</th><th>开仓日</th><th>结果</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="sym">TSLA</td><td>持仓中</td><td>趋势突破</td><td>06-18</td><td class="gain">+2.1R</td></tr>
+            <tr><td class="sym">NVDA</td><td>计划中</td><td>事件驱动</td><td>06-19</td><td>-</td></tr>
+            <tr><td class="sym">AMD</td><td>复盘中</td><td>趋势突破</td><td>06-17</td><td class="loss">-0.3R</td></tr>
+            <tr><td class="sym">META</td><td>持仓中</td><td>平台突破</td><td>06-14</td><td class="gain">+0.7R</td></tr>
+            <tr><td class="sym">AAPL</td><td>已完成</td><td>趋势突破</td><td>06-11</td><td class="gain">+1.4R</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

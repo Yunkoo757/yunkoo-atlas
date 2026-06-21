@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { getStorage } from '@/storage'
 import {
   Bold,
@@ -39,6 +39,8 @@ export function Editor({
   onChange: (html: string) => void
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -106,7 +108,7 @@ export function Editor({
         },
       },
     },
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onUpdate: ({ editor }) => onChangeRef.current(editor.getHTML()),
   })
 
   editorBridge.editor = editor

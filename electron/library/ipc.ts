@@ -5,9 +5,11 @@ import { randomUUID } from 'node:crypto'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath } from './journalZip'
 import { getLibraryPath, saveLibraryConfig, ensureLibraryDirs } from './paths'
-import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, getBackupStats } from './backup'
+import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, stopAutoBackup, getBackupStats } from './backup'
+import { SCHEMA_VERSION } from '../../src/storage/types'
 
 let storage: LibraryStorage | null = null
+let autoBackupStarted = false
 
 async function ensureStorage(): Promise<LibraryStorage> {
   if (!storage) {
@@ -21,6 +23,19 @@ function bufferFromPayload(data: ArrayBuffer | Uint8Array | number[]): Buffer {
   if (data instanceof ArrayBuffer) return Buffer.from(data)
   if (data instanceof Uint8Array) return Buffer.from(data)
   return Buffer.from(data)
+}
+
+function toErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+async function reopenStorageWithAutoBackup(): Promise<LibraryStorage> {
+  const reopened = new LibraryStorage()
+  await reopened.open()
+  storage = reopened
+  startAutoBackup(reopened)
+  autoBackupStarted = true
+  return reopened
 }
 
 export function registerLibraryIpc(): void {
@@ -48,7 +63,7 @@ export function registerLibraryIpc(): void {
     const dirs = ensureLibraryDirs(libPath)
     // 写入初始 manifest
     const manifest = {
-      schemaVersion: 4,
+      schemaVersion: SCHEMA_VERSION,
       libraryId: randomUUID(),
       createdAt: new Date().toISOString(),
       platform: 'electron' as const,
@@ -62,6 +77,7 @@ export function registerLibraryIpc(): void {
     await reopened.open()
     storage = reopened
     startAutoBackup(reopened)
+    autoBackupStarted = true
     return { ok: true }
   })
 
@@ -77,6 +93,7 @@ export function registerLibraryIpc(): void {
     await reopened.open()
     storage = reopened
     startAutoBackup(reopened)
+    autoBackupStarted = true
     return { ok: true }
   })
 
@@ -85,6 +102,11 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('storage:open', async () => {
     await ensureStorage()
+    // 首次打开时启动自动备份（幂等防护）
+    if (!autoBackupStarted && storage) {
+      startAutoBackup(storage)
+      autoBackupStarted = true
+    }
     return true
   })
 
@@ -137,7 +159,18 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('backup:list', async () => listBackups())
 
   ipcMain.handle('backup:restore', async (_e, fileName: string) => {
-    return restoreBackup(fileName)
+    if (storage) storage.close()
+    storage = null
+
+    const ok = restoreBackup(fileName)
+    if (!ok) return false
+
+    // 重新加载 storage 以读取恢复后的数据
+    const reopened = new LibraryStorage()
+    await reopened.open()
+    storage = reopened
+    const snapshot = reopened.loadSnapshot()
+    return snapshot
   })
 
   ipcMain.handle('backup:delete', async (_e, fileName: string) => {
@@ -159,16 +192,32 @@ export function registerLibraryIpc(): void {
       filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
       properties: ['openFile'],
     })
-    if (result.canceled || !result.filePaths[0]) return { ok: false as const }
+    if (result.canceled || !result.filePaths[0]) {
+      return { ok: false as const, canceled: true as const }
+    }
 
+    stopAutoBackup()
     if (storage) storage.close()
     storage = null
 
-    await importJournalZipToPath(getLibraryPath(), result.filePaths[0])
+    try {
+      await importJournalZipToPath(getLibraryPath(), result.filePaths[0])
+    } catch (err) {
+      console.error('[journal:importZip] import failed', err)
+      const message = toErrorMessage(err)
+      try {
+        await reopenStorageWithAutoBackup()
+      } catch (reopenErr) {
+        console.error('[journal:importZip] reopen failed after import error', reopenErr)
+        return {
+          ok: false as const,
+          error: `${message}; failed to reopen current library: ${toErrorMessage(reopenErr)}`,
+        }
+      }
+      return { ok: false as const, error: message }
+    }
 
-    const reopened = new LibraryStorage()
-    await reopened.open()
-    storage = reopened
+    const reopened = await reopenStorageWithAutoBackup()
     return { ok: true as const, snapshot: reopened.loadSnapshot() }
   })
 }

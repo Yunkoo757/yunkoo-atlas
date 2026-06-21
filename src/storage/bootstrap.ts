@@ -46,6 +46,7 @@ export async function bootstrapStorage(): Promise<void> {
       subscribedIds: snapshot.subscribedIds,
       pinnedStrategyIds: snapshot.pinnedStrategyIds,
       display: normalizeDisplay(snapshot.display),
+      tagPresets: snapshot.tagPresets ?? [],
     })
     useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
   }

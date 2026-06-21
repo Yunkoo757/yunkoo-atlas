@@ -91,7 +91,14 @@ export class LibraryStorage {
 
   close(): void {
     if (this.db) {
-      this.persistDb()
+      this.db.close()
+      this.db = null
+    }
+  }
+
+  /** Close db without a final export; mutations already persist at write time. */
+  release(): void {
+    if (this.db) {
       this.db.close()
       this.db = null
     }

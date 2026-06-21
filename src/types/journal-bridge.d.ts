@@ -24,12 +24,13 @@ export interface JournalBridge {
   importAssets(assets: ExportAssetRecord[]): Promise<boolean>
   exportJournalZip(): Promise<{ ok: true; path: string } | { ok: false }>
   importJournalZip(): Promise<
-    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false }
+    | { ok: true; snapshot: PersistedSnapshot | null }
+    | { ok: false; canceled?: boolean; error?: string }
   >
   // 备份
   createBackup(): Promise<string | null>
   listBackups(): Promise<BackupInfo[]>
-  restoreBackup(fileName: string): Promise<boolean>
+  restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
 }

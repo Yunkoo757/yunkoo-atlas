@@ -5,7 +5,13 @@ import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import type { ShortcutBinding } from '@/shortcuts/types'
 
-const SAVE_DEBOUNCE_MS = 400
+const SAVE_DEBOUNCE_MS = 100
+
+let preFlushCallback: (() => Promise<void>) | null = null
+
+export function setPreFlushCallback(cb: (() => Promise<void>) | null): void {
+  preFlushCallback = cb
+}
 
 let timer: ReturnType<typeof setTimeout> | null = null
 let pending: PersistedSnapshot | null = null
@@ -51,6 +57,11 @@ async function flush(): Promise<void> {
   }
 }
 
+/** 是否有未持久化的变更（用于 beforeunload 避免无条件弹窗） */
+export function hasPendingChanges(): boolean {
+  return !!pending || useSaveStatus.getState().status === 'dirty'
+}
+
 export function schedulePersist(snapshot: PersistedSnapshot): void {
   pending = snapshot
   useSaveStatus.getState().setDirty()
@@ -69,8 +80,12 @@ export async function flushPersistNow(): Promise<void> {
     timer = null
   }
   if (flushing) await flushing
-  if (!pending) {
-    pending = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
+
+  if (preFlushCallback) {
+    try { await preFlushCallback() } catch { /* 不回滚——尽力而为 */ }
   }
+
+  // 始终从最新 store 重建 pending，不依赖之前的 schedulePersist 设置
+  pending = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
   await flush()
 }

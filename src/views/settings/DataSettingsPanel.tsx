@@ -3,6 +3,8 @@ import { DataIOContent } from '@/components/DataIOContent'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
+import { applySnapshotToStore } from '@/lib/importExport'
+import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
@@ -123,9 +125,11 @@ export function DataSettingsPanel() {
     if (!electron) return
     if (!window.confirm(`确定恢复备份 ${name.slice(0, 34)}…？\n当前数据将被替换。`)) return
     try {
-      const ok = await getJournalBridge()!.restoreBackup(name)
-      if (ok) {
-        toast('已恢复，请重启应用以加载数据')
+      const result = await getJournalBridge()!.restoreBackup(name)
+      if (result && typeof result === 'object') {
+        applySnapshotToStore(result)
+        await flushPersistNow()
+        toast('备份已恢复')
       } else {
         toast('恢复失败')
       }
@@ -270,7 +274,7 @@ export function DataSettingsPanel() {
 
           {backups.length > 0 && (
             <p className="dio-section-muted" style={{ marginTop: 8 }}>
-              恢复备份后需重启应用。备份文件位于库目录的 <code>backups/</code> 下。
+              备份文件位于库目录的 <code>backups/</code> 下。
             </p>
           )}
         </section>

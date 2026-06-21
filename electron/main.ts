@@ -3,9 +3,6 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { registerLibraryIpc } from './library/ipc'
-import { startAutoBackup } from './library/backup'
-import { LibraryStorage } from './library/storage'
-import { readLibraryConfig } from './library/paths'
 import { runElectronQaAndExit } from './qa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -72,6 +69,11 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+
+  // 窗口关闭前通知渲染进程 flush 持久化数据
+  mainWindow.on('close', () => {
+    mainWindow?.webContents.send('app:before-close')
+  })
 }
 
 app.whenReady().then(async () => {
@@ -80,19 +82,6 @@ app.whenReady().then(async () => {
   if (process.env.LINEAR_JOURNAL_QA === '1') {
     await runElectronQaAndExit()
     return
-  }
-
-  // 如果库已初始化（有 saved config），提前启动自动备份
-  // 否则由 library:createNew / library:openExisting IPC 延迟启动
-  try {
-    const cfg = readLibraryConfig()
-    if (cfg && cfg.libraryPath) {
-      const lib = new LibraryStorage()
-      await lib.open()
-      startAutoBackup(lib)
-    }
-  } catch (err) {
-    console.error('[electron] auto-backup init failed', err)
   }
 
   createWindow()

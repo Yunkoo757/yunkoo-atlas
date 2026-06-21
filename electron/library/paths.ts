@@ -33,9 +33,10 @@ export function getDefaultLibraryPath(): string {
 }
 
 export function getLibraryPath(): string {
+  const custom = process.env.LINEAR_JOURNAL_LIBRARY
+  if (process.env.LINEAR_JOURNAL_QA === '1' && custom) return path.resolve(custom)
   const saved = readLibraryConfig()
   if (saved) return saved.libraryPath
-  const custom = process.env.LINEAR_JOURNAL_LIBRARY
   return custom ? path.resolve(custom) : getDefaultLibraryPath()
 }
 

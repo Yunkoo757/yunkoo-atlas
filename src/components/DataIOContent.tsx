@@ -51,13 +51,16 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
 
   const onImportZip = async () => {
     try {
-      const ok = await importJournalArchive()
-      if (ok) {
+      const result = await importJournalArchive()
+      if (result.ok) {
         toast('交易库已导入')
         onDone?.()
+      } else if (!result.canceled) {
+        toast(result.error ? `导入失败：${result.error}` : '导入失败')
       }
-    } catch {
-      toast('导入失败')
+      // 注：用户取消文件对话框时不显示 toast，这是预期行为
+    } catch (err) {
+      toast(err instanceof Error ? `导入失败：${err.message}` : '导入失败')
     }
   }
 

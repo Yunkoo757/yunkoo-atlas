@@ -45,7 +45,7 @@ function armSequenceTimer(): void {
   sequenceTimer = setTimeout(clearSequence, SEQUENCE_TIMEOUT_MS)
 }
 
-function getActiveScopes(): Set<ShortcutScope> {
+function getActiveScopes(pathname?: string): Set<ShortcutScope> {
   const scopes = new Set<ShortcutScope>(['global', 'navigation'])
   const { lightbox, cmdkOpen, dataIOOpen } = useShortcutStore.getState()
   const composerOpen = useStore.getState().composerOpen
@@ -54,8 +54,8 @@ function getActiveScopes(): Set<ShortcutScope> {
   if (cmdkOpen || dataIOOpen || composerOpen) scopes.add('overlay')
 
   if (typeof window !== 'undefined') {
-    const path = window.location.pathname
-    if (path.startsWith('/trade/')) scopes.add('detail')
+    const p = pathname ?? window.location.pathname
+    if (p.startsWith('/trade/')) scopes.add('detail')
   }
 
   return scopes
@@ -67,10 +67,10 @@ function bindingMatchesSequence(binding: ShortcutBinding, buffer: string[]): boo
   return binding.every((chord, i) => chord.key === buffer[i])
 }
 
-function hasSequencePrefix(buffer: string[]): boolean {
+function hasSequencePrefix(buffer: string[], pathname?: string): boolean {
   if (buffer.length === 0) return false
   const { bindings } = useShortcutStore.getState()
-  const scopes = getActiveScopes()
+  const scopes = getActiveScopes(pathname)
 
   for (const action of SHORTCUT_ACTIONS) {
     if (!scopes.has(action.scope)) continue
@@ -85,9 +85,9 @@ function hasSequencePrefix(buffer: string[]): boolean {
   return false
 }
 
-function findSequenceMatch(buffer: string[]): string | null {
+function findSequenceMatch(buffer: string[], pathname?: string): string | null {
   const { bindings } = useShortcutStore.getState()
-  const scopes = getActiveScopes()
+  const scopes = getActiveScopes(pathname)
 
   for (const action of SHORTCUT_ACTIONS) {
     if (!scopes.has(action.scope)) continue
@@ -98,11 +98,11 @@ function findSequenceMatch(buffer: string[]): string | null {
   return null
 }
 
-function findChordMatch(e: KeyboardEvent): string | null {
+function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
   const { bindings, lightbox, cmdkOpen, dataIOOpen } = useShortcutStore.getState()
   const composerOpen = useStore.getState().composerOpen
   const typing = isTypingTarget(e.target)
-  const scopes = getActiveScopes()
+  const scopes = getActiveScopes(pathname)
 
   const candidates: { id: string; priority: number }[] = []
 
@@ -139,7 +139,7 @@ function runAction(id: string): boolean {
   return true
 }
 
-export function handleShortcutKeydown(e: KeyboardEvent): boolean {
+export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): boolean {
   // Guard against race: handlers map may be empty before first setShortcutHandlers call
   if (Object.keys(handlers).length === 0) return false
 
@@ -163,7 +163,7 @@ export function handleShortcutKeydown(e: KeyboardEvent): boolean {
     return false
   }
 
-  const matchedChord = findChordMatch(e)
+  const matchedChord = findChordMatch(e, pathname)
   if (matchedChord) {
     if (runAction(matchedChord)) {
       e.preventDefault()
@@ -186,11 +186,11 @@ export function handleShortcutKeydown(e: KeyboardEvent): boolean {
   sequenceBuffer.push(key)
   armSequenceTimer()
 
-  if (hasSequencePrefix(sequenceBuffer)) {
+  if (hasSequencePrefix(sequenceBuffer, pathname)) {
     e.preventDefault()
   }
 
-  const seqMatch = findSequenceMatch(sequenceBuffer)
+  const seqMatch = findSequenceMatch(sequenceBuffer, pathname)
   if (seqMatch) {
     if (runAction(seqMatch)) {
       e.preventDefault()

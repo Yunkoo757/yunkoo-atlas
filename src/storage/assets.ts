@@ -85,6 +85,26 @@ export async function resolveNoteForDisplay(
     }
   }
 
+  // 防御性处理：如果 note 中残留 blob: URL 但有 data-asset-id，
+  // 尝试从存储恢复正确的 blob URL（解决刷新竞态）
+  const blobImages = doc.querySelectorAll('img[data-asset-id][src^="blob:"]')
+  for (const img of blobImages) {
+    const id = img.getAttribute('data-asset-id')
+    if (!id) continue
+    const url = await adapter.getAssetObjectUrl(id)
+    if (url) {
+      img.setAttribute('src', url)
+      // data-asset-id 已经设置，保持不变
+    } else {
+      // 资产缺失，替换为占位符（与主循环一致）
+      const placeholder = doc.createElement('span')
+      placeholder.className = 'editor-missing-image'
+      placeholder.setAttribute('data-missing-asset-id', id)
+      placeholder.textContent = '图片附件缺失'
+      img.replaceWith(placeholder)
+    }
+  }
+
   return doc.body.innerHTML
 }
 
@@ -128,22 +148,29 @@ export async function normalizeNoteForStorage(
     }
 
     if (src.startsWith('blob:')) {
-      try {
-        const res = await fetch(src)
-        const blob = await res.blob()
-        const mime = blob.type || 'image/png'
-        const id = existingId ?? (await adapter.saveAsset(blob, mime))
-        img.setAttribute('src', assetUrl(id))
+      if (existingId) {
+        // insertImageFile 已存入 IndexedDB，直接用现有 ID 建立 journal-asset:// 引用
+        img.setAttribute('src', assetUrl(existingId))
         img.removeAttribute('data-asset-id')
         changed = true
-      } catch {
-        const placeholder = doc.createElement('img')
-        placeholder.setAttribute('src', '')
-        placeholder.setAttribute('alt', '图片未能保存')
-        placeholder.className = 'editor-missing-image'
-        placeholder.setAttribute('data-unsaved-image', 'true')
-        img.replaceWith(placeholder)
-        changed = true
+      } else {
+        try {
+          const res = await fetch(src)
+          const blob = await res.blob()
+          const mime = blob.type || 'image/png'
+          const id = await adapter.saveAsset(blob, mime)
+          img.setAttribute('src', assetUrl(id))
+          img.removeAttribute('data-asset-id')
+          changed = true
+        } catch {
+          const placeholder = doc.createElement('img')
+          placeholder.setAttribute('src', '')
+          placeholder.setAttribute('alt', '图片未能保存')
+          placeholder.className = 'editor-missing-image'
+          placeholder.setAttribute('data-unsaved-image', 'true')
+          img.replaceWith(placeholder)
+          changed = true
+        }
       }
     }
   }

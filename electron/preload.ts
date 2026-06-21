@@ -9,6 +9,8 @@ export interface BackupInfo {
 
 export interface JournalBridge {
   isElectron: true
+  /** 注册主进程关闭前回调 */
+  onBeforeClose(callback: () => void): void
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>
@@ -30,13 +32,16 @@ export interface JournalBridge {
   // 备份
   createBackup(): Promise<string | null>
   listBackups(): Promise<BackupInfo[]>
-  restoreBackup(fileName: string): Promise<boolean>
+  restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
 }
 
 const bridge: JournalBridge = {
   isElectron: true,
+  onBeforeClose: (callback) => {
+    ipcRenderer.on('app:before-close', () => callback())
+  },
   getLibraryStatus: () => ipcRenderer.invoke('library:getStatus'),
   pickLibraryFolder: () => ipcRenderer.invoke('library:pickFolder'),
   createNewLibrary: (libPath) => ipcRenderer.invoke('library:createNew', libPath),

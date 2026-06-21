@@ -118,11 +118,11 @@ export function useShortcutHost({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      handleShortcutKeydown(e)
+      handleShortcutKeydown(e, pathname)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [pathname])
 }
 
 export function getShortcutHint(actionId: string): string | undefined {

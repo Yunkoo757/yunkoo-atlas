@@ -3,7 +3,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { LibraryStorage } from './library/storage'
 import { processImageBuffer } from './library/images'
-import { exportJournalZip } from './library/journalZip'
+import { exportJournalZip, importJournalZipToPath } from './library/journalZip'
+import { createBackup, restoreBackup } from './library/backup'
+import { SCHEMA_VERSION } from '../src/storage/types'
+import { ZipArchive } from 'archiver'
 
 export interface QaCheck {
   name: string
@@ -62,6 +65,45 @@ function seedSnapshot() {
   }
 }
 
+function snapshotWithRef(ref: string) {
+  const snapshot = seedSnapshot()
+  return {
+    ...snapshot,
+    trades: snapshot.trades.map((trade) => ({ ...trade, ref })),
+  }
+}
+
+function writeProgress(message: string): void {
+  const progressPath = process.env.LINEAR_JOURNAL_QA_PROGRESS
+  if (!progressPath) return
+  fs.appendFileSync(progressPath, `${new Date().toISOString()} ${message}\n`, 'utf8')
+}
+
+async function writeWebJournalZip(destinationFile: string, snapshot = seedSnapshot()): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const output = fs.createWriteStream(destinationFile)
+    const archive = new ZipArchive({ zlib: { level: 9 } })
+
+    output.on('close', () => resolve())
+    archive.on('error', reject)
+    archive.pipe(output)
+    archive.append(
+      JSON.stringify({
+        version: SCHEMA_VERSION,
+        trades: snapshot.trades,
+        strategies: snapshot.strategies,
+        starredIds: snapshot.starredIds,
+        subscribedIds: snapshot.subscribedIds,
+        pinnedStrategyIds: snapshot.pinnedStrategyIds,
+        display: snapshot.display,
+        assets: [],
+      }),
+      { name: 'data.json' },
+    )
+    void archive.finalize()
+  })
+}
+
 export async function runElectronQa(): Promise<QaCheck[]> {
   const checks: QaCheck[] = []
   const record = (name: string, pass: boolean, detail = '') => {
@@ -80,7 +122,11 @@ export async function runElectronQa(): Promise<QaCheck[]> {
 
     const manifest = storage.readManifest()
     record('manifest.platform=electron', manifest.platform === 'electron', manifest.platform)
-    record('manifest.schemaVersion=3', manifest.schemaVersion === 3, `v${manifest.schemaVersion}`)
+    record(
+      `manifest.schemaVersion=${SCHEMA_VERSION}`,
+      manifest.schemaVersion === SCHEMA_VERSION,
+      `v${manifest.schemaVersion}`,
+    )
 
     let snapshot = storage.loadSnapshot()
     if (!snapshot?.trades?.length) {
@@ -99,9 +145,66 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     record('附件写入磁盘', fs.existsSync(assetFile), assetId)
 
     const zipPath = path.join(paths.root, '_qa-export.journal.zip')
+    storage.saveSnapshot(snapshotWithRef('TRD-DESKTOPZIP'))
     await exportJournalZip(storage, zipPath)
     record('journal.zip 导出', fs.existsSync(zipPath), `${fs.statSync(zipPath).size} bytes`)
+    storage.saveSnapshot(snapshotWithRef('TRD-AFTER-EXPORT'))
+    storage.release()
+    await importJournalZipToPath(paths.root, zipPath)
+    await storage.open()
+    const desktopZipSnapshot = storage.loadSnapshot()
+    record(
+      'journal.zip import accepts manifest/db archive',
+      desktopZipSnapshot?.trades?.[0]?.ref === 'TRD-DESKTOPZIP',
+      desktopZipSnapshot?.trades?.[0]?.ref ?? '',
+    )
     fs.rmSync(zipPath, { force: true })
+
+    storage.saveSnapshot(snapshotWithRef('TRD-BACKUP'))
+    const backupPath = createBackup(storage)
+    storage.saveSnapshot(snapshotWithRef('TRD-CURRENT'))
+    const backupName = backupPath ? path.basename(backupPath) : ''
+    record('backup.create', !!backupName, backupName)
+    record('backup.restore returns true', backupName ? restoreBackup(backupName) : false)
+    storage.close()
+    await storage.open()
+    const restoredSnapshot = storage.loadSnapshot()
+    record(
+      'backup.restore keeps restored db after close',
+      restoredSnapshot?.trades?.[0]?.ref === 'TRD-BACKUP',
+      restoredSnapshot?.trades?.[0]?.ref ?? '',
+    )
+
+    const webZipPath = path.join(paths.root, '_qa-web-export.journal.zip')
+    await writeWebJournalZip(webZipPath, snapshotWithRef('TRD-WEBZIP'))
+    storage.release()
+    await importJournalZipToPath(paths.root, webZipPath)
+    await storage.open()
+    const importedSnapshot = storage.loadSnapshot()
+    record(
+      'journal.zip import accepts data.json archive',
+      importedSnapshot?.trades?.[0]?.ref === 'TRD-WEBZIP',
+      importedSnapshot?.trades?.[0]?.ref ?? '',
+    )
+    fs.rmSync(webZipPath, { force: true })
+
+    const providedZipPath = process.env.LINEAR_JOURNAL_QA_IMPORT_ZIP
+    if (providedZipPath) {
+      writeProgress(`provided import: release storage ${providedZipPath}`)
+      storage.release()
+      writeProgress('provided import: start importJournalZipToPath')
+      await importJournalZipToPath(paths.root, providedZipPath)
+      writeProgress('provided import: importJournalZipToPath done')
+      await storage.open()
+      writeProgress('provided import: storage.open done')
+      const providedSnapshot = storage.loadSnapshot()
+      writeProgress('provided import: loadSnapshot done')
+      record(
+        'journal.zip import accepts provided archive',
+        (providedSnapshot?.trades?.length ?? 0) > 0,
+        `${providedSnapshot?.trades?.length ?? 0} trades`,
+      )
+    }
   } catch (e) {
     record('主进程 QA 异常', false, String(e))
   } finally {
