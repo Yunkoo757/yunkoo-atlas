@@ -14,6 +14,8 @@ import {
 } from '@/lib/tradeFilters'
 import { type UserProfile } from '@/storage/types'
 import type { ExportPayload } from '@/lib/importExport'
+import type { CaseRecord, DisputeType } from '@/data/case'
+import { BUILTIN_DISPUTE_TYPES } from '@/data/case'
 import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
 import { isTerminal } from '@/lib/tradeStatus'
@@ -25,6 +27,8 @@ interface State {
   selectedId: string | null
   composerOpen: boolean
   composerTrade: Trade | null
+  caseModalOpen: boolean
+  setCaseModalOpen: (open: boolean) => void
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -32,10 +36,17 @@ interface State {
   tagPresets: string[]
   mistakeTagPresets: string[]
   profile: UserProfile
+  cases: CaseRecord[]
+  disputeTypes: DisputeType[]
+  activeModule: 'trade' | 'case'
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
   hydrateProfile: (profile?: UserProfile) => void
+  setModule: (module: 'trade' | 'case') => void
+  addCase: (rec: CaseRecord) => void
+  updateCase: (id: string, patch: Partial<CaseRecord>) => void
+  removeCase: (id: string) => void
   setStatus: (id: string, status: TradeStatus) => void
   setConviction: (id: string, conviction: Conviction) => void
   setSide: (id: string, side: TradeSide) => void
@@ -97,6 +108,8 @@ export const useStore = create<State>()((set, get) => ({
       selectedId: null,
       composerOpen: false,
       composerTrade: null,
+      caseModalOpen: false,
+      setCaseModalOpen: (open) => set({ caseModalOpen: open }),
       starredIds: [],
       subscribedIds: [],
       pinnedStrategyIds: [],
@@ -104,6 +117,9 @@ export const useStore = create<State>()((set, get) => ({
       mistakeTagPresets: [],
       display: DEFAULT_DISPLAY,
       profile: { avatarId: null, displayName: 'Yunkoo' },
+      cases: [],
+      disputeTypes: [...BUILTIN_DISPUTE_TYPES],
+      activeModule: 'trade',
       setAvatar: (avatarId) =>
         set((s) => ({
           profile: { ...s.profile, avatarId, customAvatarDataUrl: null },
@@ -124,6 +140,17 @@ export const useStore = create<State>()((set, get) => ({
               }
             : s.profile,
         })),
+      setModule: (module) => set({ activeModule: module }),
+      addCase: (rec) =>
+        set((s) => ({ cases: [rec, ...s.cases] })),
+      updateCase: (id, patch) =>
+        set((s) => ({
+          cases: s.cases.map((c) =>
+            c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c,
+          ),
+        })),
+      removeCase: (id) =>
+        set((s) => ({ cases: s.cases.filter((c) => c.id !== id) })),
       setStatus: (id, status) =>
         set((s) => ({
           trades: s.trades.map((t) => {

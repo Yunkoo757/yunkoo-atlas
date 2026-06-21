@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
   PenSquare,
@@ -17,6 +17,8 @@ import { CALENDAR_PERIODS, PERIOD_LABELS, tradeInPeriod, type CalendarPeriod } f
 import { countTradesByStrategy, sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { UserAvatar } from '@/components/UserAvatar'
+import type { CaseRecord, DisputeType } from '@/data/case'
+import { deriveLifecycle } from '@/data/case'
 import './Sidebar.css'
 
 const WORKBENCH_NAV = [
@@ -58,11 +60,17 @@ function SecondaryLink({
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const { pathname: path } = useLocation()
+  const navigate = useNavigate()
   const openComposer = useStore((s) => s.openComposer)
+  const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
   const trades = useStore((s) => s.trades)
   const starredIds = useStore((s) => s.starredIds)
   const strategies = useStore((s) => s.strategies)
   const pinnedStrategyIds = useStore((s) => s.pinnedStrategyIds)
+  const activeModule = useStore((s) => s.activeModule)
+  const setModule = useStore((s) => s.setModule)
+  const cases = useStore((s) => s.cases)
+  const disputeTypes = useStore((s) => s.disputeTypes)
 
   const isPathActive = (fn: (path: string) => boolean) => fn(path)
   const sortedStrategies = sortStrategies(strategies, pinnedStrategyIds)
@@ -100,16 +108,41 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <button
             type="button"
             className="sb-hbtn"
-            title="新建交易"
-            aria-label="新建交易"
-            onClick={() => openComposer()}
+            title={activeModule === 'case' ? '新建判例' : '新建交易'}
+            aria-label={activeModule === 'case' ? '新建判例' : '新建交易'}
+            onClick={() => {
+              if (activeModule === 'case') setCaseModalOpen(true)
+              else openComposer()
+            }}
           >
             <PenSquare size={16} />
           </button>
         </div>
       </div>
 
-      <nav className="sb-section sb-top">
+      {/* 模块切换器 — 独立分段 */}
+      <div className="sb-module-switch">
+        <div className="sb-module-switch-inner">
+          <button
+            type="button"
+            className={'sb-module-tab' + (activeModule === 'trade' ? ' is-active' : '')}
+            onClick={() => { setModule('trade'); navigate('/list') }}
+          >
+            复盘
+          </button>
+          <button
+            type="button"
+            className={'sb-module-tab' + (activeModule === 'case' ? ' is-active' : '')}
+            onClick={() => { setModule('case'); navigate('/cases') }}
+          >
+            判例
+          </button>
+        </div>
+      </div>
+
+      {activeModule === 'trade' && (
+        <>
+          <nav className="sb-section sb-top">
         <div className="sb-section-label">工作台</div>
         {WORKBENCH_NAV.map(({ to, label, icon: Icon, active }) => (
           <NavLink
@@ -182,6 +215,12 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           })}
         </nav>
       )}
+        </>
+      )}
+
+      {activeModule === 'case' && (
+        <CaseNav cases={cases} disputeTypes={disputeTypes} path={path} />
+      )}
 
       <div className="sb-spacer" />
 
@@ -195,5 +234,87 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         </NavLink>
       </div>
     </aside>
+  )
+}
+
+function CaseNav({
+  cases,
+  disputeTypes,
+  path,
+}: {
+  cases: CaseRecord[]
+  disputeTypes: DisputeType[]
+  path: string
+}) {
+  const pending = cases.filter((c) => deriveLifecycle(c) === '待验证').length
+  const decided = cases.filter((c) => deriveLifecycle(c) === '已裁决').length
+  const discarded = cases.filter((c) => deriveLifecycle(c) === '已废弃').length
+  const starred = cases.filter((c) => c.star).length
+  const recheck = cases.filter((c) => c.recheck).length
+
+  return (
+    <>
+      <nav className="sb-section">
+        <div className="sb-section-label">生命周期</div>
+        <NavLink
+          to="/cases"
+          className={() => 'sb-item' + (path === '/cases' ? ' is-active' : '')}
+        >
+          <span>全部</span>
+          <span className="sb-item-count">{cases.length}</span>
+        </NavLink>
+        <NavLink
+          to="/cases?lifecycle=待验证"
+          className="sb-item"
+        >
+          <span>待验证</span>
+          <span className="sb-item-count">{pending}</span>
+        </NavLink>
+        <NavLink
+          to="/cases?lifecycle=已裁决"
+          className="sb-item"
+        >
+          <span>已裁决</span>
+          <span className="sb-item-count">{decided}</span>
+        </NavLink>
+        <NavLink
+          to="/cases?lifecycle=已废弃"
+          className="sb-item"
+        >
+          <span>已废弃</span>
+          <span className="sb-item-count">{discarded}</span>
+        </NavLink>
+      </nav>
+      <nav className="sb-section">
+        <div className="sb-section-label">标志</div>
+        <NavLink to="/cases?star=true" className="sb-item">
+          <span>典型案例</span>
+          <span className="sb-item-count">{starred}</span>
+        </NavLink>
+        <NavLink to="/cases?recheck=true" className="sb-item">
+          <span>需要复看</span>
+          <span className="sb-item-count">{recheck}</span>
+        </NavLink>
+      </nav>
+      {disputeTypes.length > 0 && (
+        <nav className="sb-section">
+          <div className="sb-section-label">纠纷类型</div>
+          {disputeTypes.slice(0, 6).map((dt) => {
+            const count = cases.filter((c) => c.disputeTypeId === dt.id).length
+            if (count === 0) return null
+            return (
+              <NavLink
+                key={dt.id}
+                to={`/cases?disputeType=${dt.id}`}
+                className="sb-item"
+              >
+                <span>{dt.name}</span>
+                <span className="sb-item-count">{count}</span>
+              </NavLink>
+            )
+          })}
+        </nav>
+      )}
+    </>
   )
 }

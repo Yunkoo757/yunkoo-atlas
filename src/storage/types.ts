@@ -2,8 +2,9 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { ShortcutBinding } from '@/shortcuts/types'
+import type { CaseRecord, DisputeType } from '@/data/case'
 
-export const SCHEMA_VERSION = 5 // 5: +reviewStatus, +mistakeTags
+export const SCHEMA_VERSION = 6 // 6: +caseLibrary
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
 export interface LibraryManifest {
@@ -39,6 +40,8 @@ export interface PersistedSnapshot {
   tagPresets?: string[]
   mistakeTagPresets?: string[]
   profile?: UserProfile
+  cases?: CaseRecord[]
+  disputeTypes?: DisputeType[]
 }
 
 export interface ExportAssetRecord {

@@ -43,7 +43,20 @@ export function useShortcutHost({
   useEffect(() => {
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
-      'global.newTrade': () => openComposer(),
+      'global.newTrade': () => {
+        const mod = useStore.getState().activeModule
+        if (mod === 'case') {
+          useStore.getState().setCaseModalOpen(true)
+        } else {
+          openComposer()
+        }
+      },
+      'global.switchModule': () => {
+        const mod = useStore.getState().activeModule
+        const next = mod === 'trade' ? 'case' : 'trade'
+        useStore.getState().setModule(next)
+        navigate(next === 'case' ? '/cases' : '/list')
+      },
       'global.closeOverlay': () => {
         if (lightbox) closeLightbox()
         else if (cmdkOpen) setCmdkOpen(false)

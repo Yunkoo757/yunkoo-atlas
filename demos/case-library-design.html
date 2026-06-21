@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>判例库模块 — 前端设计方案</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0c;
+  --sidebar: #0d0d0f;
+  --surface: #121215;
+  --elevated: #18181c;
+  --hover: rgba(255,255,255,0.04);
+  --active: rgba(255,255,255,0.06);
+  --border: #1e1e24;
+  --text: #d4d4d6;
+  --text-sec: #8b8b92;
+  --text-ter: #555;
+  --accent: #3b82f6;
+  --pos: #22c55e;
+  --neg: #ef4444;
+  --warn: #eab308;
+  --pending: #60a5fa;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-full: 9999px;
+  --fs-sm: 13px;
+  --fs-mini: 11px;
+  --fs-base: 14px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+
+.app {
+  display: flex; height: 100vh;
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: 220px; flex-shrink: 0; background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sb-ws {
+  display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+  text-decoration: none; color: inherit;
+}
+.sb-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, #f2c94c, #e8843c);
+  display: grid; place-items: center; font-size: 12px; font-weight: 600; color: #1a1205;
+}
+.sb-name { font-size: var(--fs-sm); font-weight: 600; }
+.sb-section { padding: 6px 10px; }
+.sb-label {
+  font-size: var(--fs-mini); color: var(--text-ter); text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 4px 6px 8px;
+}
+.sb-item {
+  display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+  border-radius: var(--radius-sm); font-size: var(--fs-sm); color: var(--text-sec);
+  text-decoration: none; cursor: pointer; transition: background 80ms var(--ease);
+  height: 30px; user-select: none;
+}
+.sb-item:hover { background: var(--hover); }
+.sb-item.active { background: var(--active); color: var(--text); }
+.sb-count { margin-left: auto; font-size: var(--fs-mini); color: var(--text-ter); font-variant-numeric: tabular-nums; }
+
+/* Module switcher */
+.module-switch {
+  display: flex; margin: 10px 10px 6px; background: var(--elevated);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden;
+}
+.module-tab {
+  flex: 1; text-align: center; padding: 6px 0; font-size: var(--fs-sm);
+  color: var(--text-sec); cursor: pointer; user-select: none;
+  transition: all 120ms var(--ease); border-radius: 6px; margin: 2px;
+}
+.module-tab:hover { color: var(--text); }
+.module-tab.active {
+  background: var(--active); color: var(--text); font-weight: 500;
+}
+.module-indicator {
+  font-size: 10px; color: var(--text-ter); margin-top: 1px;
+}
+
+.sb-footer { margin-top: auto; padding: 8px 10px; border-top: 1px solid var(--border); }
+.sb-spacer { flex: 1; }
+
+/* ===== Main Content ===== */
+.main {
+  flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+}
+
+/* Topbar */
+.topbar {
+  height: 44px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; flex-shrink: 0;
+}
+.tb-title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.tb-right { display: flex; align-items: center; gap: 8px; }
+
+/* Content */
+.content {
+  flex: 1; overflow-y: auto; padding: 0;
+}
+
+/* ===== Case List ===== */
+.case-list { padding: 0; }
+.case-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 20px 10px; border-bottom: 1px solid var(--border);
+}
+.case-header-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.case-header-count { font-size: var(--fs-mini); color: var(--text-ter); }
+
+/* Filter Chips */
+.filter-chips {
+  display: flex; gap: 6px; padding: 10px 20px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.fchip {
+  padding: 3px 10px; border-radius: var(--radius-full); font-size: var(--fs-mini);
+  cursor: pointer; user-select: none; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text-sec);
+  transition: all 80ms var(--ease);
+}
+.fchip:hover { background: var(--hover); color: var(--text); }
+.fchip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fchip-count { opacity: 0.6; margin-left: 2px; font-size: 10px; }
+
+/* Group rows */
+.group-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 20px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 1;
+}
+.group-caret { color: var(--text-ter); font-size: 10px; width: 14px; text-align: center; }
+.group-name { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.group-count { font-size: var(--fs-mini); color: var(--text-ter); }
+.group-chips { display: flex; gap: 4px; margin-left: auto; }
+.gchip {
+  font-size: 10px; padding: 1px 6px; border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+.gchip.green { background: rgba(34,197,94,0.12); color: var(--pos); }
+.gchip.yellow { background: rgba(234,179,8,0.12); color: var(--warn); }
+
+/* Case cards */
+.case-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 20px; height: 44px; border-bottom: 1px solid rgba(255,255,255,0.03);
+  cursor: pointer; transition: background 60ms var(--ease);
+}
+.case-card:hover { background: var(--hover); }
+.case-card.selected { background: rgba(59,130,246,0.08); }
+
+.cc-check {
+  width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border);
+  flex-shrink: 0; display: grid; place-items: center; opacity: 0;
+  transition: opacity 80ms var(--ease);
+}
+.case-card:hover .cc-check, .cc-check.visible { opacity: 1; }
+
+.cc-icon {
+  width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0;
+  display: grid; place-items: center; font-size: 10px; font-weight: 700;
+  color: #fff;
+}
+.cc-icon.pos { background: rgba(34,197,94,0.3); color: var(--pos); }
+.cc-icon.neg { background: rgba(239,68,68,0.3); color: var(--neg); }
+.cc-icon.mis { background: rgba(234,179,8,0.3); color: var(--warn); }
+.cc-icon.pen { background: rgba(96,165,250,0.3); color: var(--pending); }
+
+.cc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cc-title-row { display: flex; align-items: center; gap: 8px; }
+.cc-id { font-size: var(--fs-sm); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.cc-type { font-size: var(--fs-mini); color: var(--text-sec); }
+.cc-flag {
+  font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500;
+}
+.cc-flag.star { background: rgba(234,179,8,0.12); color: var(--warn); }
+.cc-flag.recheck { background: rgba(96,165,250,0.12); color: var(--pending); }
+
+.cc-meta-row { display: flex; gap: 10px; align-items: center; }
+.cc-chip {
+  font-size: 10px; padding: 0 5px; border-radius: var(--radius-full);
+  border: 1px solid rgba(255,255,255,0.06); color: var(--text-ter);
+  background: rgba(255,255,255,0.02);
+}
+.cc-note {
+  font-size: var(--fs-mini); color: var(--text-ter);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+}
+
+.cc-outcome {
+  width: 80px; flex-shrink: 0; display: flex; align-items: center; gap: 5px;
+  font-size: var(--fs-mini);
+}
+.cc-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.cc-dot.pos { background: var(--pos); }
+.cc-dot.neg { background: var(--neg); }
+.cc-dot.mis { background: var(--warn); }
+.cc-dot.pen { background: var(--pending); }
+.cc-dot.vague { background: var(--text-ter); }
+
+.cc-date {
+  width: 70px; flex-shrink: 0; font-size: var(--fs-mini); color: var(--text-ter);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-del {
+  width: 24px; height: 24px; border-radius: var(--radius-sm); flex-shrink: 0;
+  display: grid; place-items: center; color: var(--text-ter); opacity: 0;
+  cursor: pointer; font-size: 14px; background: none; border: none;
+  transition: opacity 80ms var(--ease);
+}
+.case-card:hover .cc-del { opacity: 1; }
+.cc-del:hover { background: rgba(239,68,68,0.12); color: var(--neg); }
+
+/* ===== New Case Button ===== */
+.fab {
+  position: fixed; bottom: 28px; right: 28px;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--accent); color: #fff; border: none;
+  cursor: pointer; display: grid; place-items: center;
+  font-size: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transition: transform 120ms var(--ease), background 120ms var(--ease);
+}
+.fab:hover { transform: scale(1.06); background: #2563eb; }
+
+/* ===== Transition hint ===== */
+.transition-note {
+  position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+  background: var(--elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-full); padding: 8px 16px;
+  font-size: var(--fs-sm); color: var(--text-sec);
+  animation: fadeUp 1.5s var(--ease) forwards;
+  pointer-events: none;
+}
+@keyframes fadeUp {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Tabs at bottom of sidebar */
+.module-desc {
+  font-size: 10px; color: var(--text-ter); line-height: 1.4;
+  padding: 4px 10px 6px;
+}
+
+/* New case modal */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.5); display: grid; place-items: center;
+}
+.modal {
+  width: 400px; background: var(--elevated); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  animation: scaleIn 160ms var(--ease);
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+.modal-field { margin-bottom: 14px; }
+.modal-label { font-size: var(--fs-mini); color: var(--text-sec); margin-bottom: 6px; display: block; }
+.modal-select {
+  width: 100%; padding: 8px 10px; font-size: var(--fs-sm);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); outline: none;
+}
+.modal-select:focus { border-color: var(--accent); }
+.modal-btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.modal-btn {
+  padding: 6px 12px; font-size: var(--fs-sm); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-sec);
+  cursor: pointer; transition: all 80ms var(--ease);
+}
+.modal-btn:hover { background: var(--hover); color: var(--text); }
+.modal-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.modal-submit {
+  padding: 7px 20px; border-radius: var(--radius-sm); background: var(--accent);
+  color: #fff; font-size: var(--fs-sm); font-weight: 500; border: none; cursor: pointer;
+}
+.modal-cancel {
+  padding: 7px 14px; border-radius: var(--radius-sm); background: none; border: 1px solid var(--border);
+  color: var(--text-sec); font-size: var(--fs-sm); cursor: pointer;
+}
+.image-drop {
+  width: 100%; height: 80px; border: 2px dashed var(--border); border-radius: var(--radius);
+  display: grid; place-items: center; color: var(--text-ter); font-size: var(--fs-sm);
+  cursor: pointer; transition: border-color 80ms var(--ease);
+}
+.image-drop:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Tooltip for module switch */
+.click-hint {
+  position: absolute; top: 8px; right: -60px;
+  font-size: 10px; color: var(--accent); white-space: nowrap;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <!-- ===== Sidebar ===== -->
+  <aside class="sidebar">
+    <a class="sb-ws" href="#">
+      <span class="sb-avatar">Y</span>
+      <span class="sb-name">Yunkoo</span>
+    </a>
+
+    <!-- ★ 模块切换器 ★ -->
+    <div class="module-switch" id="moduleSwitch">
+      <div class="module-tab active" data-module="trade" onclick="switchModule('trade')">
+        <div>复盘</div>
+        <div class="module-indicator">交易日志</div>
+      </div>
+      <div class="module-tab" data-module="case" onclick="switchModule('case')">
+        <div>判例</div>
+        <div class="module-indicator">信号裁决</div>
+      </div>
+    </div>
+
+    <!-- 复盘导航 -->
+    <div id="tradeNav">
+      <nav class="sb-section">
+        <div class="sb-label">工作台</div>
+        <a class="sb-item active" href="#">📋 交易</a>
+        <a class="sb-item" href="#">📊 仪表盘</a>
+      </nav>
+      <nav class="sb-section">
+        <div class="sb-label">智能视图</div>
+        <a class="sb-item" href="#">进行中 <span class="sb-count">12</span></a>
+        <a class="sb-item" href="#">星标 <span class="sb-count">5</span></a>
+        <a class="sb-item" href="#">错过 <span class="sb-count">3</span></a>
+        <a class="sb-item" href="#">模拟 <span class="sb-count">8</span></a>
+      </nav>
+      <nav class="sb-section">
+        <div class="sb-label">时间</div>
+        <a class="sb-item" href="#">📅 今天 <span class="sb-count">2</span></a>
+        <a class="sb-item" href="#">📅 本周 <span class="sb-count">7</span></a>
+      </nav>
+      <nav class="sb-section">
+        <div class="sb-label">策略</div>
+        <a class="sb-item" href="#">🔵 趋势跟随 <span class="sb-count">14</span></a>
+        <a class="sb-item" href="#">🟢 突破 <span class="sb-count">9</span></a>
+        <a class="sb-item" href="#">🟡 反转 <span class="sb-count">4</span></a>
+        <a class="sb-item" href="#">🔴 区间 <span class="sb-count">6</span></a>
+        <a class="sb-item" href="#">⚪ 日内 <span class="sb-count">3</span></a>
+      </nav>
+    </div>
+
+    <!-- 判例导航 (初始隐藏) -->
+    <div id="caseNav" style="display:none">
+      <nav class="sb-section">
+        <div class="sb-label">生命週期</div>
+        <a class="sb-item active" href="#">全部 <span class="sb-count">42</span></a>
+        <a class="sb-item" href="#">⏳ 待验证 <span class="sb-count">14</span></a>
+        <a class="sb-item" href="#">✅ 已裁决 <span class="sb-count">25</span></a>
+        <a class="sb-item" href="#">🗑 已废弃 <span class="sb-count">3</span></a>
+      </nav>
+      <nav class="sb-section">
+        <div class="sb-label">裁决结果</div>
+        <a class="sb-item" href="#">🟢 正例 <span class="sb-count">12</span></a>
+        <a class="sb-item" href="#">🔴 反例 <span class="sb-count">8</span></a>
+        <a class="sb-item" href="#">🟡 误判 <span class="sb-count">5</span></a>
+        <a class="sb-item" href="#">⬜ 模糊 <span class="sb-count">7</span></a>
+      </nav>
+      <nav class="sb-section">
+        <div class="sb-label">标志</div>
+        <a class="sb-item" href="#">⭐ 典型案例 <span class="sb-count">6</span></a>
+        <a class="sb-item" href="#">🔄 需要复看 <span class="sb-count">9</span></a>
+      </nav>
+      <nav class="sb-section">
+        <div class="sb-label">纠纷类型</div>
+        <a class="sb-item" href="#">4H iBOS <span class="sb-count">11</span></a>
+        <a class="sb-item" href="#">1H iBOS <span class="sb-count">7</span></a>
+        <a class="sb-item" href="#">结构反转 <span class="sb-count">6</span></a>
+        <a class="sb-item" href="#">BOS 有效性 <span class="sb-count">5</span></a>
+        <a class="sb-item" href="#">IDM 标准性 <span class="sb-count">4</span></a>
+      </nav>
+      <div class="module-desc">
+        判例库用于记录有争议的盘面截图，<br>
+        标注纠纷类型并做出裁决判断，<br>
+        形成可检索的信号判例知识库。
+      </div>
+    </div>
+
+    <div class="sb-spacer"></div>
+    <div class="sb-footer">
+      <a class="sb-item" href="#">⚙ 设置</a>
+    </div>
+  </aside>
+
+  <!-- ===== Main ===== -->
+  <main class="main">
+    <!-- Topbar -->
+    <header class="topbar" id="topbar">
+      <span class="tb-title" id="topbarTitle">交易</span>
+      <div class="tb-right" id="topbarRight">
+        <span style="font-size:var(--fs-mini);color:var(--text-ter);">Ctrl+K 搜索</span>
+      </div>
+    </header>
+
+    <!-- Content area -->
+    <div class="content" id="content">
+      <!-- 默认: 交易列表占位 -->
+      <div id="tradeContent">
+        <div style="padding:60px 40px;text-align:center;color:var(--text-ter);">
+          <div style="font-size:40px;margin-bottom:12px;">📋</div>
+          <div style="font-size:var(--fs-sm);">交易复盘模块（当前内容区）</div>
+          <div style="font-size:var(--fs-mini);margin-top:4px;">点击左侧「判例」切换模块</div>
+        </div>
+      </div>
+
+      <!-- Case list content (初始隐藏) -->
+      <div id="caseContent" style="display:none">
+        <div class="case-list">
+          <!-- Filter chips -->
+          <div class="filter-chips">
+            <span class="fchip active">全部<span class="fchip-count">42</span></span>
+            <span class="fchip">待验证<span class="fchip-count">14</span></span>
+            <span class="fchip">已裁决<span class="fchip-count">25</span></span>
+            <span class="fchip">正例<span class="fchip-count">12</span></span>
+            <span class="fchip">误判<span class="fchip-count">5</span></span>
+            <span class="fchip">4H<span class="fchip-count">11</span></span>
+            <span class="fchip">iBOS<span class="fchip-count">18</span></span>
+            <span class="fchip">⭐典型<span class="fchip-count">6</span></span>
+          </div>
+
+          <!-- Group: 待验证 -->
+          <div class="group-row">
+            <span class="group-caret">▾</span>
+            <span class="group-name">待验证</span>
+            <span class="group-count">14</span>
+            <div class="group-chips">
+              <span class="gchip yellow">误判 5</span>
+            </div>
+          </div>
+          <div class="case-card">
+            <span class="cc-check"></span>
+            <span class="cc-icon pen">iB</span>
+            <div class="cc-body">
+              <div class="cc-title-row">
+                <span class="cc-id">CAS-A1B</span>
+                <span class="cc-type">4H iBOS 是否成立</span>
+                <span class="cc-flag recheck">复看</span>
+              </div>
+              <div class="cc-meta-row">
+                <span class="cc-chip">70%</span>
+                <span class="cc-chip">2图</span>
+                <span class="cc-chip">4H</span>
+                <span class="cc-note">4H 结构正确，BOS 有效确认，但入场点位争议较大</span>
+              </div>
+            </div>
+            <span class="cc-outcome"><span class="cc-dot pen"></span>待验证</span>
+            <span class="cc-date">Jun 21</span>
+            <span class="cc-del">×</span>
+          </div>
+          <div class="case-card">
+            <span class="cc-check"></span>
+            <span class="cc-icon pen">SL</span>
+            <div class="cc-body">
+              <div class="cc-title-row">
+                <span class="cc-id">CAS-C2D</span>
+                <span class="cc-type">结构反转 vs 流动性猎取</span>
+                <span class="cc-flag star">典型</span>
+                <span class="cc-flag recheck">复看</span>
+              </div>
+              <div class="cc-meta-row">
+                <span class="cc-chip">90%</span>
+                <span class="cc-chip">3图</span>
+                <span class="cc-chip">4H</span>
+                <span class="cc-note">疑似流动性猎取，需要更多确认信号</span>
+              </div>
+            </div>
+            <span class="cc-outcome"><span class="cc-dot pen"></span>待验证</span>
+            <span class="cc-date">Jun 20</span>
+            <span class="cc-del">×</span>
+          </div>
+
+          <!-- Group: 已裁决 — 正例 -->
+          <div class="group-row">
+            <span class="group-caret">▾</span>
+            <span class="group-name">已裁决</span>
+            <span class="group-count">25</span>
+            <div class="group-chips">
+              <span class="gchip green">正例 12</span>
+              <span class="gchip yellow">误判 5</span>
+            </div>
+          </div>
+          <div class="case-card">
+            <span class="cc-check"></span>
+            <span class="cc-icon pos">iB</span>
+            <div class="cc-body">
+              <div class="cc-title-row">
+                <span class="cc-id">CAS-E5F</span>
+                <span class="cc-type">4H iBOS 是否成立</span>
+              </div>
+              <div class="cc-meta-row">
+                <span class="cc-chip">70%</span>
+                <span class="cc-chip">2图</span>
+                <span class="cc-note">典型 iBOS 结构，确认有效</span>
+              </div>
+            </div>
+            <span class="cc-outcome"><span class="cc-dot pos"></span>正例</span>
+            <span class="cc-date">Jun 19</span>
+            <span class="cc-del">×</span>
+          </div>
+          <div class="case-card">
+            <span class="cc-check"></span>
+            <span class="cc-icon neg">BO</span>
+            <div class="cc-body">
+              <div class="cc-title-row">
+                <span class="cc-id">CAS-G7H</span>
+                <span class="cc-type">BOS 是否有效</span>
+              </div>
+              <div class="cc-meta-row">
+                <span class="cc-chip">50%</span>
+                <span class="cc-chip">1图</span>
+                <span class="cc-note">信号模糊，判定为无效 BOS</span>
+              </div>
+            </div>
+            <span class="cc-outcome"><span class="cc-dot neg"></span>反例</span>
+            <span class="cc-date">Jun 18</span>
+            <span class="cc-del">×</span>
+          </div>
+          <div class="case-card selected">
+            <span class="cc-check visible">✓</span>
+            <span class="cc-icon mis">SR</span>
+            <div class="cc-body">
+              <div class="cc-title-row">
+                <span class="cc-id">CAS-I9J</span>
+                <span class="cc-type">结构反转 vs 流动性猎取</span>
+                <span class="cc-flag recheck">复看</span>
+              </div>
+              <div class="cc-meta-row">
+                <span class="cc-chip">90%</span>
+                <span class="cc-chip">3图</span>
+                <span class="cc-note">初始判断「结构反转」，复审后认定为「流动性猎取」</span>
+              </div>
+            </div>
+            <span class="cc-outcome"><span class="cc-dot mis"></span>误判</span>
+            <span class="cc-date">Jun 17</span>
+            <span class="cc-del">×</span>
+          </div>
+          <div class="case-card">
+            <span class="cc-check"></span>
+            <span class="cc-icon pos">ID</span>
+            <div class="cc-body">
+              <div class="cc-title-row">
+                <span class="cc-id">CAS-K1L</span>
+                <span class="cc-type">IDM 是否标准</span>
+              </div>
+              <div class="cc-meta-row">
+                <span class="cc-chip">70%</span>
+                <span class="cc-chip">2图</span>
+                <span class="cc-note">标准 IDM 结构，正例</span>
+              </div>
+            </div>
+            <span class="cc-outcome"><span class="cc-dot pos"></span>正例</span>
+            <span class="cc-date">Jun 16</span>
+            <span class="cc-del">×</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- FAB: New case -->
+<button class="fab" id="fabBtn" style="display:none" title="新建判例 (Ctrl+V 粘贴截图)">+</button>
+
+<script>
+function switchModule(module) {
+  // Update tabs
+  document.querySelectorAll('.module-tab').forEach(t => t.classList.toggle('active', t.dataset.module === module));
+
+  // Show/hide nav
+  document.getElementById('tradeNav').style.display = module === 'trade' ? '' : 'none';
+  document.getElementById('caseNav').style.display = module === 'case' ? '' : 'none';
+
+  // Show/hide content
+  document.getElementById('tradeContent').style.display = module === 'trade' ? '' : 'none';
+  document.getElementById('caseContent').style.display = module === 'case' ? '' : 'none';
+
+  // Update topbar
+  document.getElementById('topbarTitle').textContent = module === 'trade' ? '交易' : '判例库';
+
+  // FAB
+  document.getElementById('fabBtn').style.display = module === 'case' ? '' : 'none';
+}
+
+// Click FAB to show modal
+document.getElementById('fabBtn').addEventListener('click', function() {
+  showModal();
+});
+
+function showModal() {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal">' +
+    '<div class="modal-title">新建判例</div>' +
+    '<div class="modal-field"><span class="modal-label">纠纷类型</span><select class="modal-select"><option>4H iBOS 是否成立</option><option>1H iBOS 是否成立</option><option>15m iBOS 是否成立</option><option>结构反转 vs 流动性猎取</option><option>复杂回调 vs 简单回调</option><option>BOS 是否有效</option><option>IDM 是否标准</option><option>是否破 BOS 下方流动性</option><option>其他纠纷</option></select></div>' +
+    '<div class="modal-field"><span class="modal-label">初始裁决</span><div class="modal-btn-group"><span class="modal-btn selected">是</span><span class="modal-btn">不是</span><span class="modal-btn">暂不确定</span></div></div>' +
+    '<div class="modal-field"><span class="modal-label">信心度</span><div class="modal-btn-group"><span class="modal-btn">30%</span><span class="modal-btn selected">50%</span><span class="modal-btn">70%</span><span class="modal-btn">90%</span></div></div>' +
+    '<div class="image-drop" onclick="this.innerHTML=\\'📎 已粘贴 1 张截图 (EUR/USD 4H)\\'">📷 点击或 Ctrl+V 粘贴截图</div>' +
+    '<div class="modal-foot"><button class="modal-cancel" onclick="this.closest(\\'.modal-overlay\\').remove()">取消</button><button class="modal-submit" onclick="this.closest(\\'.modal-overlay\\').remove()">保存判例</button></div>' +
+    '</div>';
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+</script>
+
+</body>
+</html>

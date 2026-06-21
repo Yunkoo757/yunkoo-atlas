@@ -50,6 +50,12 @@ export async function bootstrapStorage(): Promise<void> {
       mistakeTagPresets: snapshot.mistakeTagPresets ?? [],
     })
     useStore.getState().hydrateProfile(snapshot.profile)
+    if (snapshot.cases) {
+      useStore.setState({ cases: snapshot.cases })
+    }
+    if (snapshot.disputeTypes) {
+      useStore.setState({ disputeTypes: snapshot.disputeTypes })
+    }
     useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
   }
 

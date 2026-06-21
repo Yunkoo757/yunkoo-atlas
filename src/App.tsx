@@ -18,6 +18,7 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
+import { NewCaseModal } from './components/NewCaseModal'
 import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
 import { ListView } from './views/ListView'
@@ -31,6 +32,7 @@ import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
 import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
 import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
+import { CaseList } from './views/CaseList'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import type { ListFilter } from './lib/tradeFilters'
@@ -201,6 +203,7 @@ function Shell() {
           <Route path="/strategy/:id/board" element={<StrategyPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trade/:id" element={<DetailView />} />
+          <Route path="/cases" element={<CaseList />} />
           <Route path="/settings" element={<SettingsLayout />}>
             <Route index element={<Navigate to="profile" replace />} />
             <Route path="profile" element={<ProfileSettingsPanel />} />
@@ -219,6 +222,7 @@ function Shell() {
         onClose={() => setCmdkOpen(false)}
       />
       <TradeComposer />
+      <NewCaseModal />
       <ImageLightbox />
       <ToastHost />
     </div>

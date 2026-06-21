@@ -17,8 +17,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 36px;
-  padding-right: 2px;
+  padding: 4px 6px 6px;
 }
 .sb-ws {
   display: flex;
@@ -26,8 +25,7 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
-  height: 100%;
-  padding: 0 6px;
+  padding: 2px 8px;
   border-radius: var(--radius-8);
   transition: background var(--dur-fast) var(--ease-out);
 }
@@ -67,6 +65,49 @@
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
+/* 模块切换 — 独立分段 */
+.sb-module-switch {
+  display: flex;
+  margin: 0 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.sb-module-switch-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+  padding: 3px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+}
+.sb-module-tab {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.sb-module-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.sb-module-tab.is-active {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+
 .sb-header-actions {
   display: flex;
   align-items: center;
@@ -242,6 +283,23 @@
   .sb-header {
     flex: 0 0 auto;
     height: 32px;
+  }
+
+  .sb-module-switch {
+    flex: 0 0 auto;
+    margin: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .sb-module-switch-inner {
+    width: auto;
+    min-width: 124px;
+  }
+
+  .sb-module-tab {
+    height: 32px;
+    padding: 0 8px;
   }
 
   .sb-ws {

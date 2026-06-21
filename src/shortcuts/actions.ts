@@ -10,10 +10,17 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'global.newTrade',
-    label: '新建交易',
+    label: '新建（交易/判例）',
     category: '通用',
     scope: 'global',
     defaultBinding: { key: 'c' },
+  },
+  {
+    id: 'global.switchModule',
+    label: '切换模块',
+    category: '通用',
+    scope: 'global',
+    defaultBinding: { mod: true, key: '.' },
   },
   {
     id: 'global.closeOverlay',
