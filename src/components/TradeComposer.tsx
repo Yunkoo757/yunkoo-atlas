@@ -94,6 +94,7 @@ export function TradeComposer() {
   const upsert = useStore((s) => s.upsertTrade)
   const close = useStore((s) => s.closeComposer)
   const tagPresets = useStore((s) => s.tagPresets)
+  const mistakeTagPresets = useStore((s) => s.mistakeTagPresets)
   const addTagPreset = useStore((s) => s.addTagPreset)
   const removeTagPreset = useStore((s) => s.removeTagPreset)
 
@@ -398,6 +399,7 @@ export function TradeComposer() {
             <TagEditor
               tags={form.mistakeTags}
               suggestions={allMistakeTags}
+              presets={mistakeTagPresets}
               onAdd={(tag) =>
                 setForm((f) => ({
                   ...f,

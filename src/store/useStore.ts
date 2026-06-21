@@ -30,6 +30,7 @@ interface State {
   pinnedStrategyIds: string[]
   display: DisplayPrefs
   tagPresets: string[]
+  mistakeTagPresets: string[]
   profile: UserProfile
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
@@ -71,6 +72,8 @@ interface State {
   togglePinStrategy: (id: string) => void
   addTagPreset: (tag: string) => void
   removeTagPreset: (tag: string) => void
+  addMistakeTagPreset: (tag: string) => void
+  removeMistakeTagPreset: (tag: string) => void
   setDisplay: (patch: Partial<DisplayPrefs>) => void
   addStrategy: (strategy: Strategy) => void
   updateStrategy: (id: string, patch: Partial<Omit<Strategy, 'id'>>) => void
@@ -98,6 +101,7 @@ export const useStore = create<State>()((set, get) => ({
       subscribedIds: [],
       pinnedStrategyIds: [],
       tagPresets: [],
+      mistakeTagPresets: [],
       display: DEFAULT_DISPLAY,
       profile: { avatarId: null, displayName: 'Yunkoo' },
       setAvatar: (avatarId) =>
@@ -297,6 +301,16 @@ export const useStore = create<State>()((set, get) => ({
       },
       removeTagPreset: (tag) =>
         set((s) => ({ tagPresets: s.tagPresets.filter((p) => p !== tag) })),
+      addMistakeTagPreset: (tag) => {
+        const t = tag.trim()
+        if (!t) return
+        set((s) => {
+          if (s.mistakeTagPresets.includes(t)) return s
+          return { mistakeTagPresets: [...s.mistakeTagPresets, t].sort((a, b) => a.localeCompare(b, 'zh-CN')) }
+        })
+      },
+      removeMistakeTagPreset: (tag) =>
+        set((s) => ({ mistakeTagPresets: s.mistakeTagPresets.filter((p) => p !== tag) })),
       setDisplay: (patch) =>
         set((s) => ({ display: normalizeDisplay({ ...s.display, ...patch }) })),
       addStrategy: (strategy) =>

@@ -1,0 +1,110 @@
+.tag-section {
+  margin-bottom: 32px;
+}
+
+.tag-section-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tag-section-desc {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  margin-bottom: 16px;
+}
+
+.tag-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tag-input {
+  flex: 1;
+  max-width: 260px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: var(--fs-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-6);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  outline: none;
+}
+.tag-input:focus {
+  border-color: var(--accent);
+}
+
+.tag-batch {
+  margin-bottom: 14px;
+}
+.tag-batch-summary {
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 8px;
+}
+.tag-batch-summary:hover {
+  color: var(--text-secondary);
+}
+.tag-batch-input {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-6);
+  resize: vertical;
+  outline: none;
+}
+.tag-batch-input:focus {
+  border-color: var(--accent);
+}
+
+.tag-section-empty {
+  font-size: var(--fs-sm);
+  color: var(--text-quaternary);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.tag-chip-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--text-quaternary);
+  cursor: pointer;
+}
+.tag-chip-remove:hover {
+  background: var(--bg-hover);
+  color: var(--neg);
+}

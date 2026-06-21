@@ -26,6 +26,7 @@ export function pickPersisted(
   pinnedStrategyIds: string[]
   display: PersistedSnapshot['display']
   tagPresets: string[]
+  mistakeTagPresets: string[]
   profile: PersistedSnapshot['profile']
 },
   shortcutBindings?: Record<string, ShortcutBinding | null>,
@@ -39,6 +40,7 @@ export function pickPersisted(
     pinnedStrategyIds: state.pinnedStrategyIds,
     display: state.display,
     tagPresets: state.tagPresets,
+    mistakeTagPresets: state.mistakeTagPresets,
     profile: state.profile,
     ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }

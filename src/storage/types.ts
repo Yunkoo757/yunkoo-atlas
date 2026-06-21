@@ -37,6 +37,7 @@ export interface PersistedSnapshot {
   display: DisplayPrefs
   shortcuts?: Record<string, ShortcutBinding | null>
   tagPresets?: string[]
+  mistakeTagPresets?: string[]
   profile?: UserProfile
 }
 

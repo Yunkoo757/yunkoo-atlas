@@ -30,6 +30,7 @@ import { StrategiesPanel } from './views/settings/StrategiesPanel'
 import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
 import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
 import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
+import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import type { ListFilter } from './lib/tradeFilters'
@@ -205,6 +206,7 @@ function Shell() {
             <Route path="profile" element={<ProfileSettingsPanel />} />
             <Route path="shortcuts" element={<ShortcutsPanel />} />
             <Route path="strategies" element={<StrategiesPanel />} />
+            <Route path="tags" element={<TagPresetsPanel />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
             <Route path="data" element={<DataSettingsPanel />} />
           </Route>

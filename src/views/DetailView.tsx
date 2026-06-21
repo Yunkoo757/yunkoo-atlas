@@ -78,6 +78,8 @@ export function DetailView() {
   const setSide = useStore((s) => s.setSide)
   const addTag = useStore((s) => s.addTag)
   const removeTag = useStore((s) => s.removeTag)
+  const tagPresets = useStore((s) => s.tagPresets)
+  const mistakeTagPresets = useStore((s) => s.mistakeTagPresets)
   const addComment = useStore((s) => s.addComment)
   const removeComment = useStore((s) => s.removeComment)
   const toggleStar = useStore((s) => s.toggleStar)
@@ -655,6 +657,7 @@ export function DetailView() {
             <TagEditor
               tags={trade.tags}
               suggestions={allTags}
+              presets={tagPresets}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
             />
@@ -664,6 +667,7 @@ export function DetailView() {
             <TagEditor
               tags={trade.mistakeTags}
               suggestions={allMistakeTags}
+              presets={mistakeTagPresets}
               onAdd={(tag) =>
                 updateTradeData(trade.id, {
                   mistakeTags: trade.mistakeTags.includes(tag)

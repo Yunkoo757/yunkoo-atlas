@@ -459,6 +459,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
     pinnedStrategyIds: snapshot.pinnedStrategyIds,
     display: normalizeDisplay(snapshot.display),
     tagPresets: snapshot.tagPresets ?? [],
+    mistakeTagPresets: snapshot.mistakeTagPresets ?? [],
   })
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }
