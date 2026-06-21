@@ -19,6 +19,7 @@ import {
   type ListFilter,
 } from '@/lib/tradeFilters'
 import { fmtMoney, fmtR, fmtDate } from '@/lib/format'
+import { UserAvatar } from '@/components/UserAvatar'
 import { toast } from '@/lib/toast'
 import { transitionTradeStatus, toggleTradeDone } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isRowDone } from '@/lib/tradeStatus'
@@ -304,7 +305,6 @@ function Row({
       </span>
       <ConvictionIcon conviction={t.conviction} />
       <StatusIcon status={t.status} />
-      <span className="lv-ref">{t.ref}</span>
       <span className="lv-symbol">{t.symbol}</span>
       <SideTag side={t.side} />
       <span className="lv-title">
@@ -335,7 +335,7 @@ function Row({
         {showPnl ? fmtMoney(t.pnl) : '—'}
       </span>
       <span className="lv-r">{showPnl ? fmtR(t.rMultiple) : ''}</span>
-      <span className="lv-avatar">Y</span>
+      <UserAvatar className="lv-avatar" />
       <span className="lv-date">{fmtDate(t.openedAt)}</span>
       {followed && (
         <Bell size={12} className="lv-followed" aria-label="已置顶关注" />

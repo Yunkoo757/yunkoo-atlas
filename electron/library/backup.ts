@@ -5,8 +5,15 @@ import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs } from './paths'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
-const DEFAULT_MAX_BACKUPS = 20
+const DEFAULT_MAX_BACKUPS = 7
 const DEFAULT_MAX_TOTAL_SIZE = 500 * 1024 * 1024 // 500 MB 备份总容量上限
+
+interface BackupMeta {
+  tradeCount: number
+  strategyCount: number
+  attachmentCount: number
+  librarySizeBytes: number
+}
 
 let intervalTimer: ReturnType<typeof setInterval> | null = null
 let quitHandler: (() => void) | null = null
@@ -42,6 +49,21 @@ export function createBackup(storage: LibraryStorage): string | null {
     const dest = path.join(backups, backupFileName(now))
     fs.copyFileSync(dbFile, dest)
     lastBackupAt = now
+
+    // 写入备份元数据（交易数/策略数/附件数/库大小）
+    try {
+      const counts = storage.getCounts()
+      const meta: BackupMeta = {
+        tradeCount: counts.tradeCount,
+        strategyCount: counts.strategyCount,
+        attachmentCount: counts.assetCount,
+        librarySizeBytes: (() => { try { return fs.statSync(dbFile).size } catch { return 0 } })(),
+      }
+      fs.writeFileSync(dest + '.meta.json', JSON.stringify(meta), 'utf-8')
+    } catch (metaErr) {
+      console.error('[backup] meta write failed', metaErr)
+    }
+
     return dest
   } catch (err) {
     console.error('[backup] create failed', err)
@@ -88,6 +110,7 @@ export function rotateBackups(
 
     for (const p of toDelete) {
       try { fs.unlinkSync(p) } catch { /* 忽略 */ }
+      try { const mp = p + '.meta.json'; if (fs.existsSync(mp)) fs.unlinkSync(mp) } catch { /* 忽略 */ }
     }
   } catch (err) {
     console.error('[backup] rotate failed', err)
@@ -110,7 +133,7 @@ export function getBackupStats(): { count: number; totalSize: number } {
   return { count: files.length, totalSize }
 }
 
-export function listBackups(): { name: string; timestamp: number; size: number }[] {
+export function listBackups(): { name: string; timestamp: number; size: number; tradeCount?: number; strategyCount?: number; attachmentCount?: number }[] {
   const { backups } = ensureLibraryDirs(getLibraryPath())
   if (!fs.existsSync(backups)) return []
 
@@ -120,11 +143,22 @@ export function listBackups(): { name: string; timestamp: number; size: number }
     .map((f) => {
       const fp = path.join(backups, f)
       const stat = fs.statSync(fp)
-      return {
+      const info: ReturnType<typeof listBackups>[number] = {
         name: f,
         timestamp: parseTimestampFromName(f) || stat.mtimeMs,
         size: stat.size,
       }
+      // 读取元数据（如果存在）
+      const metaPath = fp + '.meta.json'
+      try {
+        if (fs.existsSync(metaPath)) {
+          const meta: BackupMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
+          info.tradeCount = meta.tradeCount
+          info.strategyCount = meta.strategyCount
+          info.attachmentCount = meta.attachmentCount
+        }
+      } catch { /* 元数据读取失败不影响列表 */ }
+      return info
     })
     .sort((a, b) => b.timestamp - a.timestamp)
 }
@@ -150,32 +184,15 @@ export function startAutoBackup(
   // 退出前备份
   quitHandler = () => {
     if (storageRef) {
-      // 备份磁盘上的最新数据（saveSnapshot 后已 persistDb，退出前复制 db 文件）
-      const result = createBackupFromDb()
+      const result = createBackup(storageRef)
       if (result) {
         const { backups } = ensureLibraryDirs(getLibraryPath())
         rotateBackups(backups, maxBackups)
       }
-      // 释放 sql.js 内存但不调用 persistDb — 防止过期数据覆盖
       storageRef.release()
     }
   }
   app.on('before-quit', quitHandler)
-}
-
-function createBackupFromDb(): string | null {
-  try {
-    const { backups, dbFile } = ensureLibraryDirs(getLibraryPath())
-    if (!fs.existsSync(dbFile)) return null
-
-    const now = Date.now()
-    const dest = path.join(backups, backupFileName(now))
-    fs.copyFileSync(dbFile, dest)
-    return dest
-  } catch (err) {
-    console.error('[backup] before-quit backup failed', err)
-    return null
-  }
 }
 
 export function stopAutoBackup(): void {
@@ -216,6 +233,9 @@ export function deleteBackup(fileName: string): boolean {
     const fp = path.join(backups, fileName)
     if (!fs.existsSync(fp)) return false
     fs.unlinkSync(fp)
+    // 同步清理元数据文件
+    const metaPath = fp + '.meta.json'
+    try { if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath) } catch { /* 忽略 */ }
     return true
   } catch {
     return false

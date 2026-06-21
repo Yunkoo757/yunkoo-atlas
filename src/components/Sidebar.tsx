@@ -16,6 +16,7 @@ import { isActive, isMissed } from '@/lib/tradeStatus'
 import { CALENDAR_PERIODS, PERIOD_LABELS, tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
 import { countTradesByStrategy, sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
+import { UserAvatar } from '@/components/UserAvatar'
 import './Sidebar.css'
 
 const WORKBENCH_NAV = [
@@ -34,7 +35,7 @@ const WORKBENCH_NAV = [
 ] as const
 
 const SIDEBAR_PERIODS: CalendarPeriod[] = ['today', 'this-week']
-const MAX_SIDEBAR_STRATEGIES = 4
+const MAX_SIDEBAR_STRATEGIES = 5
 
 function SecondaryLink({
   path,
@@ -67,6 +68,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const sortedStrategies = sortStrategies(strategies, pinnedStrategyIds)
   const sidebarStrategies = sortedStrategies.slice(0, MAX_SIDEBAR_STRATEGIES)
 
+  const profile = useStore((s) => s.profile)
   const isSettingsActive = path.startsWith('/settings')
   const counts = {
     all: trades.filter((trade) => trade.tradeKind !== 'paper').length,
@@ -81,10 +83,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   return (
     <aside className="sidebar">
       <div className="sb-header">
-        <div className="sb-ws sb-ws-static" title="单用户工作区">
-          <span className="sb-ws-avatar">Y</span>
-          <span className="sb-ws-name">Yunkoo</span>
-        </div>
+        <NavLink to="/settings/profile" className="sb-ws sb-ws-static" title="编辑个人资料">
+          <UserAvatar className="sb-ws-avatar" />
+          <span className="sb-ws-name">{profile.displayName}</span>
+        </NavLink>
         <div className="sb-header-actions">
           <button
             type="button"

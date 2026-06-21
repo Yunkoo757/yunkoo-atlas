@@ -210,6 +210,25 @@ export class LibraryStorage {
     return { id, mime: row.mime, bytes: new Uint8Array(bytes) }
   }
 
+  /** 返回交易数 / 策略数 / 附件数，供备份元数据使用 */
+  getCounts(): { tradeCount: number; strategyCount: number; assetCount: number } {
+    const snapshot = this.loadSnapshot()
+    const db = this.requireDb()
+    let assetCount = 0
+    try {
+      const stmt = db.prepare('SELECT COUNT(*) as cnt FROM assets')
+      if (stmt.step()) {
+        assetCount = (stmt.getAsObject() as { cnt: number }).cnt
+      }
+      stmt.free()
+    } catch { /* 忽略 */ }
+    return {
+      tradeCount: snapshot?.trades.length ?? 0,
+      strategyCount: snapshot?.strategies.length ?? 0,
+      assetCount,
+    }
+  }
+
   importAsset(id: string, mime: string, buffer: Buffer): void {
     const db = this.requireDb()
     const createdAt = new Date().toISOString()

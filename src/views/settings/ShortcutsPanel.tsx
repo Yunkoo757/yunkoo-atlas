@@ -68,7 +68,7 @@ export function ShortcutsPanel() {
         <div>
           <h1 className="settings-page-title">键盘快捷键</h1>
           <p className="settings-page-desc">
-            序列导航键（如 G → L）为固定组合，暂不支持修改。点击「录制」可自定义单键或组合键。
+            点击「录制」可自定义任意快捷键（单键或 Ctrl/Alt/Shift 组合键）。
           </p>
         </div>
         <button
@@ -102,42 +102,36 @@ export function ShortcutsPanel() {
                     )}
                   </span>
                   <span className="shortcuts-actions">
-                    {action.sequenceFixed ? (
-                      <span className="shortcuts-fixed">固定</span>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="shortcuts-btn"
-                          onClick={() => setRecordingId(action.id)}
-                        >
-                          录制
-                        </button>
-                        {!isDefault && (
-                          <button
-                            type="button"
-                            className="shortcuts-btn shortcuts-btn--ghost"
-                            onClick={() => {
-                              resetBinding(action.id)
-                              toast('已恢复默认')
-                            }}
-                          >
-                            重置
-                          </button>
-                        )}
-                        {binding && !isSequence(binding) && (
-                          <button
-                            type="button"
-                            className="shortcuts-btn shortcuts-btn--ghost"
-                            onClick={() => {
-                              setBinding(action.id, null)
-                              toast('已禁用')
-                            }}
-                          >
-                            禁用
-                          </button>
-                        )}
-                      </>
+                    <button
+                      type="button"
+                      className="shortcuts-btn"
+                      onClick={() => setRecordingId(action.id)}
+                    >
+                      录制
+                    </button>
+                    {!isDefault && (
+                      <button
+                        type="button"
+                        className="shortcuts-btn shortcuts-btn--ghost"
+                        onClick={() => {
+                          resetBinding(action.id)
+                          toast('已恢复默认')
+                        }}
+                      >
+                        重置
+                      </button>
+                    )}
+                    {binding && !isSequence(binding) && (
+                      <button
+                        type="button"
+                        className="shortcuts-btn shortcuts-btn--ghost"
+                        onClick={() => {
+                          setBinding(action.id, null)
+                          toast('已禁用')
+                        }}
+                      >
+                        禁用
+                      </button>
                     )}
                   </span>
                 </div>

@@ -137,10 +137,10 @@
 }
 
 .lv-ref {
-  font-size: var(--fs-mini);
+  font-size: 10px;
   color: var(--text-tertiary);
+  opacity: 0.35;
   font-variant-numeric: tabular-nums;
-  width: 58px;
   flex-shrink: 0;
 }
 .lv-followed {

@@ -5,6 +5,9 @@ export interface BackupInfo {
   name: string
   timestamp: number
   size: number
+  tradeCount?: number
+  strategyCount?: number
+  attachmentCount?: number
 }
 
 export interface JournalBridge {

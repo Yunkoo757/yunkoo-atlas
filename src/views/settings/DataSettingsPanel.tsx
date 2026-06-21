@@ -224,7 +224,7 @@ export function DataSettingsPanel() {
           <div className="settings-page-head">
             <h2 className="settings-page-title">自动备份</h2>
             <p className="settings-page-desc">
-              每 15 分钟自动备份 + 退出前备份。最多保留 20 份，总容量不超过 500 MB。
+              每 15 分钟自动备份 + 退出前备份。最多保留 7 份，总容量不超过 500 MB。
             </p>
           </div>
 
@@ -249,6 +249,11 @@ export function DataSettingsPanel() {
                 <div key={b.name} className="backup-row">
                   <Clock size={14} className="backup-icon" />
                   <span className="backup-time">{fmtBackupTime(b.timestamp)}</span>
+                  <span className="backup-meta">
+                    {b.tradeCount != null ? `${b.tradeCount} 笔交易` : ''}
+                    {b.strategyCount != null ? ` · ${b.strategyCount} 策略` : ''}
+                    {b.attachmentCount != null ? ` · ${b.attachmentCount} 附件` : ''}
+                  </span>
                   <span className="backup-size">{fmtBackupSize(b.size)}</span>
                   <div className="backup-actions">
                     <button

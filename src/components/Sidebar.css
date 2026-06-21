@@ -35,21 +35,21 @@
   background: var(--bg-hover);
 }
 .sb-ws-static {
-  cursor: default;
-  pointer-events: none;
+  text-decoration: none;
 }
 .sb-ws-static:hover {
-  background: transparent;
+  background: var(--bg-hover);
 }
 .sb-ws-avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-6);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background: linear-gradient(135deg, #f2c94c, #e8843c);
   color: #1a1205;
   display: grid;
   place-items: center;
-  font-size: var(--fs-mini);
+  font-size: 14px;
+  line-height: 1;
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }

@@ -1,7 +1,5 @@
 import type { ShortcutActionMeta } from '@/shortcuts/types'
 
-const seq = (keys: string[]) => keys.map((key) => ({ key }))
-
 export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   {
     id: 'global.commandPalette',
@@ -31,64 +29,56 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     label: '进行中',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: seq(['g', 'i']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '1' },
   },
   {
     id: 'nav.favorites',
     label: '星标交易',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: seq(['g', 'f']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '2' },
   },
   {
     id: 'nav.missed',
     label: '错过的机会',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: seq(['g', 'x']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '3' },
   },
   {
     id: 'nav.sim',
     label: '模拟回测',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: seq(['g', 'p']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '4' },
   },
   {
     id: 'nav.list',
     label: '全部交易',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: seq(['g', 'l']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '5' },
   },
   {
     id: 'nav.board',
     label: '看板',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: seq(['g', 'b']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '6' },
   },
   {
     id: 'nav.dashboard',
     label: '仪表盘',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: seq(['g', 'd']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '7' },
   },
   {
     id: 'nav.strategies',
     label: '管理策略',
     category: '设置',
     scope: 'navigation',
-    defaultBinding: seq(['g', 's']),
-    sequenceFixed: true,
+    defaultBinding: { mod: true, key: '8' },
   },
 
   {

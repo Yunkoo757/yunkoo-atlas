@@ -12,6 +12,7 @@ import {
   normalizeDisplay,
   type DisplayPrefs,
 } from '@/lib/tradeFilters'
+import { type UserProfile } from '@/storage/types'
 import type { ExportPayload } from '@/lib/importExport'
 import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
@@ -29,6 +30,11 @@ interface State {
   pinnedStrategyIds: string[]
   display: DisplayPrefs
   tagPresets: string[]
+  profile: UserProfile
+  setAvatar: (avatarId: string | null) => void
+  setCustomAvatar: (dataUrl: string | null) => void
+  setDisplayName: (name: string) => void
+  hydrateProfile: (profile?: UserProfile) => void
   setStatus: (id: string, status: TradeStatus) => void
   setConviction: (id: string, conviction: Conviction) => void
   setSide: (id: string, side: TradeSide) => void
@@ -93,6 +99,27 @@ export const useStore = create<State>()((set, get) => ({
       pinnedStrategyIds: [],
       tagPresets: [],
       display: DEFAULT_DISPLAY,
+      profile: { avatarId: null, displayName: 'Yunkoo' },
+      setAvatar: (avatarId) =>
+        set((s) => ({
+          profile: { ...s.profile, avatarId, customAvatarDataUrl: null },
+        })),
+      setCustomAvatar: (dataUrl) =>
+        set((s) => ({
+          profile: { ...s.profile, customAvatarDataUrl: dataUrl, avatarId: null },
+        })),
+      setDisplayName: (displayName) =>
+        set((s) => ({ profile: { ...s.profile, displayName: displayName.trim() || 'Yunkoo' } })),
+      hydrateProfile: (profile) =>
+        set((s) => ({
+          profile: profile
+            ? {
+                avatarId: profile.avatarId ?? null,
+                displayName: profile.displayName || 'Yunkoo',
+                customAvatarDataUrl: profile.customAvatarDataUrl ?? null,
+              }
+            : s.profile,
+        })),
       setStatus: (id, status) =>
         set((s) => ({
           trades: s.trades.map((t) => {

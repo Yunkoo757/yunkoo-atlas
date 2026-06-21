@@ -21,6 +21,7 @@ import { IconButton } from '@/components/IconButton'
 import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { StrategyIcon, StrategyLabel } from '@/components/StrategyIcon'
+import { UserAvatar } from '@/components/UserAvatar'
 import type { Strategy } from '@/data/strategies'
 import {
   STATUS_META,
@@ -398,7 +399,7 @@ export function DetailView() {
               </ul>
 
               <div className="dv-comment">
-                <div className="dv-comment-avatar">Y</div>
+                <UserAvatar className="dv-comment-avatar" />
                 <div className="dv-comment-box">
                   <textarea
                     ref={commentRef}

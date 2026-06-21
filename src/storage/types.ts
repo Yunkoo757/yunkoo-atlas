@@ -22,6 +22,12 @@ export interface StoredAsset {
   createdAt: string
 }
 
+export interface UserProfile {
+  avatarId: string | null
+  displayName: string
+  customAvatarDataUrl?: string | null
+}
+
 export interface PersistedSnapshot {
   trades: Trade[]
   strategies: Strategy[]
@@ -31,6 +37,7 @@ export interface PersistedSnapshot {
   display: DisplayPrefs
   shortcuts?: Record<string, ShortcutBinding | null>
   tagPresets?: string[]
+  profile?: UserProfile
 }
 
 export interface ExportAssetRecord {

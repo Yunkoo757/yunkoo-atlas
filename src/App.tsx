@@ -29,6 +29,7 @@ import { ShortcutsPanel } from './views/settings/ShortcutsPanel'
 import { StrategiesPanel } from './views/settings/StrategiesPanel'
 import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
 import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
+import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import type { ListFilter } from './lib/tradeFilters'
@@ -200,7 +201,8 @@ function Shell() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/settings" element={<SettingsLayout />}>
-            <Route index element={<Navigate to="shortcuts" replace />} />
+            <Route index element={<Navigate to="profile" replace />} />
+            <Route path="profile" element={<ProfileSettingsPanel />} />
             <Route path="shortcuts" element={<ShortcutsPanel />} />
             <Route path="strategies" element={<StrategiesPanel />} />
             <Route path="display" element={<DisplaySettingsPanel />} />

@@ -123,10 +123,19 @@
 }
 
 .backup-time {
-  flex: 1;
   font-size: var(--fs-sm);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.backup-meta {
+  flex: 1;
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .backup-size {

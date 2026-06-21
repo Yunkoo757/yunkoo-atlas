@@ -1,9 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2 } from 'lucide-react'
+import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
 import './SettingsLayout.css'
 
 const NAV = [
+  { to: '/settings/profile', label: '资料', icon: UserCircle },
   { to: '/settings/shortcuts', label: '快捷键', icon: Keyboard },
   { to: '/settings/strategies', label: '策略', icon: Settings2 },
   { to: '/settings/display', label: '显示', icon: SlidersHorizontal },

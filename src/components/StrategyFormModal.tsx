@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { X } from 'lucide-react'
 import {
   STRATEGY_COLOR_PRESETS,
@@ -29,6 +29,7 @@ export function StrategyFormModal({
   const [icon, setIcon] = useState<StrategyIconId>('target')
   const [color, setColor] = useState<string>(STRATEGY_COLOR_PRESETS[0])
   const [reviewTemplateHtml, setReviewTemplateHtml] = useState('')
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -36,6 +37,12 @@ export function StrategyFormModal({
       setIcon(initial?.icon ?? 'target')
       setColor(initial?.color ?? STRATEGY_COLOR_PRESETS[0])
       setReviewTemplateHtml(initial?.reviewTemplateHtml ?? DEFAULT_REVIEW_TEMPLATE_HTML)
+      // 状态初始化后再聚焦，避免 autoFocus 与 useEffect 设值竞争导致焦点丢失
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          nameInputRef.current?.focus()
+        })
+      })
     }
   }, [open, initial])
 
@@ -75,11 +82,11 @@ export function StrategyFormModal({
           <label className="sfm-field">
             <span className="sfm-label">名称</span>
             <input
+              ref={nameInputRef}
               className="sfm-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="如 Breakout、波段趋势"
-              autoFocus
             />
             {nameTaken && <span className="sfm-error">名称已存在</span>}
           </label>
