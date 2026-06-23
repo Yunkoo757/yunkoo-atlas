@@ -23,6 +23,20 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: { mod: true, key: '.' },
   },
   {
+    id: 'global.undo',
+    label: '撤销',
+    category: '通用',
+    scope: 'global',
+    defaultBinding: { mod: true, key: 'z' },
+  },
+  {
+    id: 'global.redo',
+    label: '重做',
+    category: '通用',
+    scope: 'global',
+    defaultBinding: { mod: true, shift: true, key: 'z' },
+  },
+  {
     id: 'global.closeOverlay',
     label: '关闭弹层',
     category: '通用',

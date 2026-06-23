@@ -61,6 +61,20 @@
   color: var(--text-primary);
 }
 
+.lv-row.is-selected {
+  background: var(--bg-selected);
+}
+
+.lv-select {
+  width: 18px; height: 18px; border-radius: var(--radius-4);
+  border: 1px solid var(--border-default); flex-shrink: 0;
+  display: grid; place-items: center; cursor: pointer;
+  opacity: 0; transition: opacity 80ms var(--ease-out), background 80ms var(--ease-out);
+  color: var(--accent-text);
+}
+.lv-row:hover .lv-select, .lv-select.is-checked { opacity: 1; }
+.lv-select.is-checked { background: var(--accent); border-color: var(--accent); }
+
 .lv-row {
   display: flex;
   align-items: center;
@@ -361,3 +375,27 @@
     color: var(--text-quaternary);
   }
 }
+
+/* Batch bar */
+.lv-batch-bar {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px; border-radius: var(--radius-full);
+  background: var(--popover-bg); border: 1px solid var(--popover-border);
+  box-shadow: var(--popover-shadow-deep);
+  z-index: 60;
+}
+.lv-batch-count {
+  font-size: var(--fs-sm); color: var(--text-tertiary);
+  margin-right: 4px;
+}
+.lv-batch-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 12px; border-radius: var(--radius-full);
+  font-size: var(--fs-sm); color: var(--text-secondary);
+  background: none; border: 1px solid var(--border-default);
+  cursor: pointer; transition: all 80ms var(--ease-out);
+}
+.lv-batch-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.lv-batch-btn-danger { color: var(--neg); border-color: color-mix(in srgb, var(--neg) 26%, transparent); }
+.lv-batch-btn-danger:hover { background: color-mix(in srgb, var(--neg) 12%, transparent); }

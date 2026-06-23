@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
+import { toast } from '@/lib/toast'
 import {
   useShortcutStore,
   resolveBinding,
@@ -56,6 +57,14 @@ export function useShortcutHost({
         const next = mod === 'trade' ? 'case' : 'trade'
         useStore.getState().setModule(next)
         navigate(next === 'case' ? '/cases' : '/list')
+      },
+      'global.undo': () => {
+        const s = useStore.getState()
+        if (s.undoStack.length > 0) { s.undo(); toast('已撤销') }
+      },
+      'global.redo': () => {
+        const s = useStore.getState()
+        if (s.redoStack.length > 0) { s.redo(); toast('已重做') }
       },
       'global.closeOverlay': () => {
         if (lightbox) closeLightbox()

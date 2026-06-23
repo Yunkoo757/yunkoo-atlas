@@ -328,10 +328,13 @@
 .ncm-close:hover { background: var(--bg-hover); color: var(--text-primary); }
 .ncm-body {
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 .ncm-title {
   font-size: var(--fs-base); font-weight: 600;
-  color: var(--text-primary); margin-bottom: 16px;
+  color: var(--text-primary); margin-bottom: 0;
 }
 .ncm-source {
   margin: -4px 0 16px;
@@ -370,17 +373,24 @@
   flex-wrap: wrap;
 }
 .ncm-field {
-  margin-bottom: 14px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 .ncm-label {
-  display: block; font-size: var(--fs-mini);
-  color: var(--text-tertiary); margin-bottom: 6px;
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
 }
 .ncm-select {
-  width: 100%; padding: 7px 10px; font-size: var(--fs-sm);
+  display: inline-flex; align-items: center;
+  height: 28px; padding: 0 28px 0 10px; font-size: var(--fs-sm);
   background: var(--bg-surface); border: 1px solid var(--border-default);
-  border-radius: var(--radius-6); color: var(--text-primary); outline: none;
+  border-radius: var(--radius-full); color: var(--text-primary); outline: none;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  width: auto; min-width: 200px;
+  cursor: pointer; transition: border-color 80ms var(--ease-out), background 80ms var(--ease-out);
 }
+.ncm-select:hover { background: var(--bg-hover); border-color: var(--border-strong); }
 .ncm-select:focus { border-color: var(--accent); }
 .ncm-textarea {
   width: 100%;
@@ -413,62 +423,72 @@
   display: flex; gap: 6px; flex-wrap: wrap;
 }
 .ncm-btn {
-  padding: 5px 12px; font-size: var(--fs-sm);
-  border-radius: var(--radius-6); border: 1px solid var(--border-default);
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 12px; font-size: var(--fs-sm);
+  border-radius: var(--radius-full); border: 1px solid var(--border-default);
   background: var(--bg-surface); color: var(--text-secondary);
   cursor: pointer; transition: all 80ms var(--ease-out);
 }
-.ncm-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.ncm-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
 .ncm-btn.is-on {
   background: var(--accent); color: var(--accent-text); border-color: var(--accent);
 }
 
 .ncm-foot {
-  display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;
 }
 .ncm-submit {
-  padding: 7px 18px; border-radius: var(--radius-6);
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 28px; padding: 0 16px; border-radius: var(--radius-full);
   background: var(--accent); color: var(--accent-text);
   font-size: var(--fs-sm); font-weight: 500; border: none; cursor: pointer;
 }
+.ncm-submit:hover { background: var(--accent-hover); }
+.ncm-submit:disabled { opacity: 0.5; cursor: default; }
 .ncm-cancel {
-  padding: 7px 14px; border-radius: var(--radius-6);
+  display: inline-flex; align-items: center;
+  height: 28px; padding: 0 14px; border-radius: var(--radius-full);
   background: none; border: 1px solid var(--border-default);
   color: var(--text-secondary); font-size: var(--fs-sm); cursor: pointer;
 }
+.ncm-cancel:hover { background: var(--bg-hover); }
 
 /* Image drop */
 .ncm-drop {
-  min-height: 72px; border: 2px dashed var(--border-subtle);
+  min-height: 80px; border: 1px dashed var(--border-default);
   border-radius: var(--radius-8); display: flex; align-items: center;
-  justify-content: center; cursor: pointer; transition: border-color 80ms var(--ease-out);
+  justify-content: center; cursor: pointer;
+  transition: border-color 80ms var(--ease-out), background 80ms var(--ease-out);
+  background: var(--bg-surface);
 }
-.ncm-drop:hover { border-color: var(--accent); }
+.ncm-drop:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); }
 .ncm-drop-hint {
   display: flex; align-items: center; gap: 8px;
   font-size: var(--fs-mini); color: var(--text-tertiary);
 }
 .ncm-images { display: flex; gap: 6px; padding: 8px; flex-wrap: wrap; width: 100%; }
 .ncm-thumb {
-  width: 64px; height: 48px; border-radius: var(--radius-6);
+  width: 64px; height: 48px; border-radius: var(--radius-8);
   overflow: hidden; position: relative; border: 1px solid var(--border-subtle);
+  transition: border-color 80ms var(--ease-out);
 }
+.ncm-thumb:hover { border-color: var(--accent); }
 .ncm-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .ncm-thumb-remove {
   position: absolute; top: 2px; right: 2px;
   width: 16px; height: 16px; border-radius: 50%;
-  background: color-mix(in srgb, var(--bg-app) 70%, transparent); color: var(--text-primary);
+  background: rgba(0,0,0,0.6); color: #fff;
   display: grid; place-items: center; border: none; cursor: pointer;
   opacity: 0; transition: opacity 80ms var(--ease-out);
 }
 .ncm-thumb:hover .ncm-thumb-remove { opacity: 1; }
 .ncm-drop-more {
-  width: 64px; height: 48px; border-radius: var(--radius-6);
-  border: 1px dashed var(--border-subtle); display: grid; place-items: center;
+  width: 64px; height: 48px; border-radius: var(--radius-8);
+  border: 1px dashed var(--border-default); display: grid; place-items: center;
   color: var(--text-tertiary); font-size: 18px; cursor: pointer;
+  transition: border-color 80ms var(--ease-out), color 80ms var(--ease-out);
 }
 .ncm-drop-more:hover { border-color: var(--accent); color: var(--accent); }
-.ncm-submit:disabled { opacity: 0.5; cursor: default; }
 
 @media (max-width: 640px) {
   .cl-toolbar {

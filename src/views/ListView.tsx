@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Star, Bell, Calendar } from 'lucide-react'
+import { Plus, Star, Bell, Calendar, Check, Trash2, Copy } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
@@ -59,6 +59,7 @@ export function ListView({
   const setStatus = useStore((s) => s.setStatus)
   const updateTradeData = useStore((s) => s.updateTradeData)
   const removeTrade = useStore((s) => s.removeTrade)
+  const upsertTrade = useStore((s) => s.upsertTrade)
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
   const [ctx, setCtx] = useState<CtxState | null>(null)
@@ -79,6 +80,36 @@ export function ListView({
   const navigate = useNavigate()
   const focusId = focusIdx >= 0 && focusIdx < visible.length ? visible[focusIdx].id : null
 
+  const [selIds, setSelIds] = useState<Set<string>>(new Set())
+  const toggleSel = (id: string) => {
+    setSelIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      return next
+    })
+  }
+
+  const batchDelete = () => {
+    if (!window.confirm(`确定删除 ${selIds.size} 笔交易？此操作不可撤销。`)) return
+    selIds.forEach((id) => removeTrade(id))
+    toast(`已删除 ${selIds.size} 笔交易`)
+    setSelIds(new Set())
+  }
+
+  const batchCopy = () => {
+    let copied = 0
+    selIds.forEach((id) => {
+      const t = trades.find((x) => x.id === id)
+      if (t) {
+        const newId = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 8)
+        upsertTrade({ ...t, id: newId, ref: `TRD-${Date.now().toString(36).toUpperCase()}` })
+        copied++
+      }
+    })
+    toast(`已复制 ${copied} 笔交易`)
+    setSelIds(new Set())
+  }
+
   // 键盘导航
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -91,9 +122,26 @@ export function ListView({
         navigate(tradeDetailPath(visible[focusIdx]))
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [visible, focusIdx, navigate])
+
+  // Ctrl+A 全选 + Esc 清除
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && visible.length > 0) {
+        e.preventDefault()
+        e.stopPropagation()
+        setSelIds(new Set(visible.map((t) => t.id)))
+      }
+      if (e.key === 'Escape' && selIds.size > 0) {
+        setSelIds(new Set())
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [visible, selIds.size])
 
   // 列表变化时重置焦点
   useEffect(() => { setFocusIdx(-1) }, [visible.length])
@@ -290,6 +338,12 @@ export function ListView({
                     toggleTradeDone(t, transition)
                   }}
                   focused={t.id === focusId}
+                  selected={selIds.has(t.id)}
+                  onToggleSelect={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toggleSel(t.id)
+                  }}
                 />
               ))}
             </section>
@@ -297,6 +351,19 @@ export function ListView({
         )}
       </div>
       <ContextMenu state={ctx} onClose={() => setCtx(null)} />
+      {selIds.size > 0 && (
+        <div className="lv-batch-bar">
+          <span className="lv-batch-count">已选 {selIds.size} 项</span>
+          <button className="lv-batch-btn" onClick={batchCopy} title="复制选中交易">
+            <Copy size={14} />
+            <span>复制</span>
+          </button>
+          <button className="lv-batch-btn lv-batch-btn-danger" onClick={batchDelete} title="删除选中交易">
+            <Trash2 size={14} />
+            <span>删除</span>
+          </button>
+        </div>
+      )}
     </>
   )
 }
@@ -311,10 +378,14 @@ function Row({
   starred,
   followed,
   focused,
+  selected,
+  onToggleSelect,
 }: {
   t: Trade
   index: number
   focused: boolean
+  selected: boolean
+  onToggleSelect: (e: React.MouseEvent) => void
   onContext: (e: React.MouseEvent, t: Trade) => void
   onToggleDone: (e: React.MouseEvent) => void
   onToggleStar: (e: React.MouseEvent) => void
@@ -329,10 +400,13 @@ function Row({
   return (
     <Link
       to={tradeDetailPath(t)}
-      className={'lv-row' + (focused ? ' is-focused' : '')}
+      className={'lv-row' + (focused ? ' is-focused' : '') + (selected ? ' is-selected' : '')}
       style={{ animationDelay: `${Math.min(index, 16) * 22}ms` }}
       onContextMenu={(e) => onContext(e, t)}
     >
+      <span className={'lv-select' + (selected ? ' is-checked' : '')} onClick={onToggleSelect}>
+        {selected && <Check size={12} />}
+      </span>
       <span className="lv-check" onClick={onToggleDone}>
         <span className={'lv-check-box' + (done ? ' is-done' : '')} />
       </span>

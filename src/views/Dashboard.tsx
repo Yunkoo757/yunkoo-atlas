@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -116,7 +118,18 @@ function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
     .sort((a, b) => b.pnl - a.pnl)
   const maxAbs = Math.max(1, ...strategies.map((s) => Math.abs(s.pnl)))
 
-  return { total, winRate, avgR, count: closed.length, curve, strategies, maxAbs }
+  // R 倍数分布
+  const rBuckets = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 5, 10]
+  const rDist = rBuckets.map((lo, i) => {
+    const hi = rBuckets[i + 1]
+    const label = hi ? `${lo}~${hi}` : `>${lo}`
+    const n = hi
+      ? closed.filter((t) => t.rMultiple >= lo && t.rMultiple < hi).length
+      : closed.filter((t) => t.rMultiple >= lo).length
+    return { label, n, lo }
+  })
+
+  return { total, winRate, avgR, count: closed.length, curve, strategies, maxAbs, rDist }
 }
 
 export function Dashboard() {
@@ -267,6 +280,38 @@ export function Dashboard() {
                   </div>
                 </Link>
               ))
+            )}
+          </div>
+        </section>
+
+        <section className="db-panel">
+          <div className="db-panel-head">
+            <span className="db-panel-title">R 倍数分布</span>
+          </div>
+          <div className="db-chart">
+            {stats.count === 0 ? (
+              <div className="db-chart-empty">该时间范围内暂无已平仓交易</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={stats.rDist} margin={{ left: -16, right: 8, top: 4 }}>
+                  <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null
+                      const d = payload[0].payload as { label: string; n: number }
+                      return (
+                        <div className="db-tooltip">
+                          <span>R {d.label}</span>
+                          <strong>{d.n} 笔</strong>
+                        </div>
+                      )
+                    }}
+                  />
+                  <Bar dataKey="n" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </div>
         </section>

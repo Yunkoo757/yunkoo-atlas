@@ -34,6 +34,11 @@ interface State {
   caseModalOpen: boolean
   caseModalContext: CaseModalContext | null
   setCaseModalOpen: (open: boolean, context?: CaseModalContext | null) => void
+  undoStack: Trade[][]
+  redoStack: Trade[][]
+  pushUndo: () => void
+  undo: () => void
+  redo: () => void
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -120,6 +125,33 @@ export const useStore = create<State>()((set, get) => ({
       caseModalContext: null,
       setCaseModalOpen: (open, context = null) =>
         set({ caseModalOpen: open, caseModalContext: open ? context : null }),
+      undoStack: [],
+      redoStack: [],
+      pushUndo: () =>
+        set((s) => ({
+          undoStack: [...s.undoStack.slice(-49), [...s.trades]],
+          redoStack: [],
+        })),
+      undo: () =>
+        set((s) => {
+          if (s.undoStack.length === 0) return s
+          const prev = s.undoStack[s.undoStack.length - 1]
+          return {
+            trades: prev,
+            undoStack: s.undoStack.slice(0, -1),
+            redoStack: [...s.redoStack, [...s.trades]],
+          }
+        }),
+      redo: () =>
+        set((s) => {
+          if (s.redoStack.length === 0) return s
+          const next = s.redoStack[s.redoStack.length - 1]
+          return {
+            trades: next,
+            redoStack: s.redoStack.slice(0, -1),
+            undoStack: [...s.undoStack, [...s.trades]],
+          }
+        }),
       starredIds: [],
       subscribedIds: [],
       pinnedStrategyIds: [],
@@ -173,6 +205,8 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => ({ disputeTypes: s.disputeTypes.filter((d) => !d.builtin || d.id !== id) })),
       setStatus: (id, status) =>
         set((s) => ({
+          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [...s.trades]] : s.undoStack,
+          redoStack: [],
           trades: s.trades.map((t) => {
             if (t.id !== id) return t
             if (t.status === status) return t
@@ -268,6 +302,8 @@ export const useStore = create<State>()((set, get) => ({
         })),
       updateTradeData: (id, patch) =>
         set((s) => ({
+          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [...s.trades]] : s.undoStack,
+          redoStack: [],
           trades: s.trades.map((t) => {
             if (t.id !== id) return t
             const updated = { ...t, ...patch }
@@ -417,6 +453,8 @@ export const useStore = create<State>()((set, get) => ({
         }),
       removeTrade: (id) =>
         set((s) => ({
+          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [...s.trades]] : s.undoStack,
+          redoStack: [],
           trades: s.trades.filter((t) => t.id !== id),
           starredIds: s.starredIds.filter((x) => x !== id),
           subscribedIds: s.subscribedIds.filter((x) => x !== id),
