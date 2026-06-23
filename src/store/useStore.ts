@@ -52,6 +52,9 @@ interface State {
   addCase: (rec: CaseRecord) => void
   updateCase: (id: string, patch: Partial<CaseRecord>) => void
   removeCase: (id: string) => void
+  addDisputeType: (dt: DisputeType) => void
+  updateDisputeType: (id: string, patch: Partial<DisputeType>) => void
+  removeDisputeType: (id: string) => void
   setStatus: (id: string, status: TradeStatus) => void
   setConviction: (id: string, conviction: Conviction) => void
   setSide: (id: string, side: TradeSide) => void
@@ -158,6 +161,16 @@ export const useStore = create<State>()((set, get) => ({
         })),
       removeCase: (id) =>
         set((s) => ({ cases: s.cases.filter((c) => c.id !== id) })),
+      addDisputeType: (dt) =>
+        set((s) => ({ disputeTypes: [...s.disputeTypes, dt] })),
+      updateDisputeType: (id, patch) =>
+        set((s) => ({
+          disputeTypes: s.disputeTypes.map((d) =>
+            d.id === id ? { ...d, ...patch } : d,
+          ),
+        })),
+      removeDisputeType: (id) =>
+        set((s) => ({ disputeTypes: s.disputeTypes.filter((d) => !d.builtin || d.id !== id) })),
       setStatus: (id, status) =>
         set((s) => ({
           trades: s.trades.map((t) => {

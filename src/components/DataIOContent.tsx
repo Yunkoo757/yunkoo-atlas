@@ -77,9 +77,8 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         return
       }
       applyImport(result.data)
-        .then(() => {
-          const count = result.data.trades.length
-          toast(`已导入 ${count} 笔交易`)
+        .then((r) => {
+          toast(r.summary)
           onDone?.()
         })
         .catch(() => toast('导入失败'))

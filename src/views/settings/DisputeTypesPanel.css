@@ -1,0 +1,78 @@
+.dt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.dt-add-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 14px; border-radius: var(--radius-8);
+  background: var(--accent); color: var(--accent-text); border: none;
+  font-size: var(--fs-sm); font-weight: var(--font-weight-medium); cursor: pointer;
+  white-space: nowrap; flex-shrink: 0;
+}
+.dt-add-btn:hover { background: var(--accent-hover); }
+
+.dt-list { display: flex; flex-direction: column; gap: 2px; margin-top: 16px; }
+.dt-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; border-radius: var(--radius-8);
+  transition: background 80ms var(--ease-out);
+}
+.dt-row:hover { background: var(--bg-hover); }
+.dt-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dt-row-name { font-size: var(--fs-sm); font-weight: 500; color: var(--text-primary); }
+.dt-row-meta { font-size: var(--fs-mini); color: var(--text-tertiary); }
+.dt-row-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.dt-act {
+  width: 28px; height: 28px; border-radius: var(--radius-6);
+  display: grid; place-items: center; background: none; border: none;
+  color: var(--text-tertiary); cursor: pointer; opacity: 0;
+  transition: opacity 80ms var(--ease-out), background 80ms var(--ease-out);
+}
+.dt-row:hover .dt-act { opacity: 1; }
+.dt-act:hover { background: var(--bg-hover); color: var(--text-primary); }
+.dt-act-danger:hover { background: color-mix(in srgb, var(--neg) 12%, transparent); color: var(--neg); }
+.dt-badge { font-size: var(--fs-mini); color: var(--text-quaternary); padding: 2px 8px; border-radius: var(--radius-full); border: 1px solid var(--border-subtle); }
+
+.dt-modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--overlay-bg); display: grid; place-items: center; padding: 24px;
+}
+.dt-modal {
+  width: 420px; max-width: 100%;
+  background: var(--popover-bg); border: 0.8px solid var(--popover-border);
+  border-radius: var(--popover-radius); box-shadow: var(--popover-shadow);
+  overflow: hidden; animation: cmdkIn 0.16s var(--ease-out);
+}
+.dt-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 48px; padding: 0 12px 0 20px;
+  border-bottom: 0.8px solid var(--border-subtle);
+  font-size: var(--fs-sm); font-weight: var(--font-weight-semibold); color: var(--text-primary);
+}
+.dt-modal-close {
+  width: 28px; height: 28px; border-radius: var(--radius-8);
+  display: grid; place-items: center; color: var(--text-tertiary);
+  background: none; border: none; cursor: pointer;
+}
+.dt-modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+.dt-modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.dt-field { display: flex; flex-direction: column; gap: 6px; }
+.dt-field span { font-size: var(--fs-mini); color: var(--text-tertiary); }
+.dt-input {
+  height: 34px; padding: 0 10px; font-size: var(--fs-sm);
+  border: 1px solid var(--border-default); border-radius: var(--radius-6);
+  background: var(--bg-surface); color: var(--text-primary); outline: none;
+}
+.dt-input:focus { border-color: var(--accent); }
+.dt-modal-foot {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 20px; border-top: 1px solid var(--border-subtle);
+}
+.dt-modal-foot button {
+  height: 32px; padding: 0 14px; border-radius: var(--radius-8);
+  font-size: var(--fs-sm); cursor: pointer;
+  background: none; border: 1px solid var(--border-default); color: var(--text-secondary);
+}
+.dt-modal-foot button:hover { background: var(--bg-hover); }
+.dt-btn-primary {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--accent) !important; color: var(--accent-text) !important; border-color: var(--accent) !important;
+}
+.dt-btn-primary:hover { background: var(--accent-hover) !important; }

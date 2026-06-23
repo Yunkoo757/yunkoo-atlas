@@ -13,9 +13,12 @@ import {
   OUTCOME_COLORS,
 } from '@/data/case'
 import { fmtDate } from '@/lib/format'
-import { Star, AlertTriangle, Trash2, Plus, Link2, Camera } from 'lucide-react'
+import { Star, AlertTriangle, Trash2, Plus, Link2, Camera, Gavel } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { CaseDetail } from './CaseDetail'
+import { ContextMenu, type CtxState } from '@/components/ContextMenu'
+import { buildCaseCtxItems } from '@/lib/caseMenu'
+import { CaseCompare } from '@/components/CaseCompare'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import './CaseList.css'
@@ -58,6 +61,8 @@ function CaseCard({
   onToggle,
   onDelete,
   onClick,
+  onContextMenu,
+  focused,
 }: {
   rec: CaseRecord
   disputeTypes: DisputeType[]
@@ -67,6 +72,8 @@ function CaseCard({
   onToggle: () => void
   onDelete: () => void
   onClick: () => void
+  onContextMenu: (e: React.MouseEvent) => void
+  focused: boolean
 }) {
   const dt = getDisputeType(rec.disputeTypeId, disputeTypes)
   const outcome = deriveOutcome(rec, dt)
@@ -83,8 +90,9 @@ function CaseCard({
 
   return (
     <div
-      className={'cl-card' + (selected ? ' is-selected' : '')}
+      className={'cl-card' + (selected ? ' is-selected' : '') + (focused ? ' is-focused' : '')}
       onClick={onClick}
+      onContextMenu={onContextMenu}
     >
       <span
         className={'cl-check' + (selected ? ' is-visible' : '')}
@@ -164,10 +172,14 @@ export function CaseList() {
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const removeCase = useStore((s) => s.removeCase)
+  const updateCase = useStore((s) => s.updateCase)
   const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
   const [searchParams, setSearchParams] = useSearchParams()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [ctx, setCtx] = useState<CtxState | null>(null)
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [focusIdx, setFocusIdx] = useState(-1)
 
   const lifecycleFilter = searchParams.get('lifecycle')
   const starFilter = searchParams.get('star')
@@ -200,6 +212,24 @@ export function CaseList() {
   const grouped = useMemo(() => groupCases(filtered, disputeTypes), [filtered, disputeTypes])
   const detailCase = detailId ? cases.find((c) => c.id === detailId) : null
 
+  // 键盘导航
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (filtered.length === 0) return
+      if (e.key === 'j') { e.preventDefault(); setFocusIdx((i) => Math.min(i + 1, filtered.length - 1)) }
+      else if (e.key === 'k') { e.preventDefault(); setFocusIdx((i) => Math.max(i - 1, 0)) }
+      else if (e.key === 'Enter' && focusIdx >= 0 && filtered[focusIdx]) {
+        e.preventDefault()
+        openCase(filtered[focusIdx].id)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [filtered, focusIdx])
+
+  useEffect(() => { setFocusIdx(-1) }, [filtered.length])
+
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
@@ -223,6 +253,15 @@ export function CaseList() {
     next.set('case', id)
     setSearchParams(next)
     setDetailId(id)
+  }
+
+  const onCaseContext = (e: React.MouseEvent, rec: CaseRecord) => {
+    e.preventDefault()
+    setCtx({
+      x: e.clientX,
+      y: e.clientY,
+      items: buildCaseCtxItems(rec, disputeTypes, { updateCase, removeCase }),
+    })
   }
 
   const closeDetail = () => {
@@ -292,6 +331,17 @@ export function CaseList() {
           <Plus size={14} />
           <span>新建判例</span>
         </button>
+        {selected.size >= 2 && (
+          <button
+            type="button"
+            className="cl-create-btn"
+            onClick={() => setCompareOpen(true)}
+            style={{ marginLeft: 4 }}
+          >
+            <Gavel size={14} />
+            <span>对比 {selected.size}</span>
+          </button>
+        )}
         </div>
 
         {/* Grouped list */}
@@ -313,6 +363,8 @@ export function CaseList() {
                   onToggle={() => toggleSelect(rec.id)}
                   onDelete={() => handleDelete(rec.id)}
                   onClick={() => openCase(rec.id)}
+                  onContextMenu={(e) => onCaseContext(e, rec)}
+                  focused={rec.id === filtered[focusIdx]?.id}
                 />
               ))}
             </div>
@@ -340,6 +392,14 @@ export function CaseList() {
           rec={detailCase}
           disputeTypes={disputeTypes}
           onClose={closeDetail}
+        />
+      )}
+      <ContextMenu state={ctx} onClose={() => setCtx(null)} />
+      {compareOpen && (
+        <CaseCompare
+          cases={cases.filter((c) => selected.has(c.id))}
+          disputeTypes={disputeTypes}
+          onClose={() => setCompareOpen(false)}
         />
       )}
     </div>

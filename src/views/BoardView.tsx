@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Plus, Bell } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
@@ -48,6 +48,8 @@ export function BoardView({
   const isStarred = useStore((s) => s.isStarred)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
+  const [dragImg, setDragImg] = useState<HTMLImageElement | null>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
 
   useListContextSync(filter)
@@ -115,14 +117,37 @@ export function BoardView({
                 </button>
               </div>
               <div className="bd-col-body">
+                {overCol === c.status && overIdx === 0 && (
+                  <div className="bd-drop-indicator" />
+                )}
                 {c.items.map((t, i) => (
-                  <article
+                  <React.Fragment key={`wrap-${t.id}`}>
+                    <article
                     key={t.id}
                     className={'bd-card' + (dragId === t.id ? ' is-dragging' : '')}
                     style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                     draggable
-                    onDragStart={() => setDragId(t.id)}
-                    onDragEnd={() => setDragId(null)}
+                    onDragStart={(e) => {
+                      setDragId(t.id)
+                      const el = e.currentTarget as HTMLElement
+                      const rect = el.getBoundingClientRect()
+                      const ghost = el.cloneNode(true) as HTMLElement
+                      ghost.style.position = 'absolute'
+                      ghost.style.top = '-9999px'
+                      ghost.style.width = `${rect.width}px`
+                      ghost.style.opacity = '0.85'
+                      ghost.style.transform = 'rotate(2deg)'
+                      document.body.appendChild(ghost)
+                      e.dataTransfer.setDragImage(ghost, rect.width / 2, 20)
+                      requestAnimationFrame(() => ghost.remove())
+                    }}
+                    onDragEnd={() => { setDragId(null); setOverCol(null); setOverIdx(null) }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      const mid = rect.top + rect.height / 2
+                      setOverIdx(e.clientY < mid ? i : i + 1)
+                    }}
                     onClick={() => onOpen(t.id)}
                     onContextMenu={(e) => {
                       e.preventDefault()
@@ -174,6 +199,10 @@ export function BoardView({
                       )}
                     </div>
                   </article>
+                  {overCol === c.status && overIdx === i + 1 && (
+                    <div className="bd-drop-indicator" key={`ind-${i}`} />
+                  )}
+                </React.Fragment>
                 ))}
               </div>
             </div>

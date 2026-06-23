@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Star, Bell, Calendar } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
@@ -74,6 +74,29 @@ export function ListView({
     const filtered = filterTrades(trades, filter, starredIds)
     return applyDisplayPrefs(filtered, display, filter)
   }, [trades, filter, starredIds, display])
+
+  const [focusIdx, setFocusIdx] = useState(-1)
+  const navigate = useNavigate()
+  const focusId = focusIdx >= 0 && focusIdx < visible.length ? visible[focusIdx].id : null
+
+  // 键盘导航
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (visible.length === 0) return
+      if (e.key === 'j') { e.preventDefault(); setFocusIdx((i) => Math.min(i + 1, visible.length - 1)) }
+      else if (e.key === 'k') { e.preventDefault(); setFocusIdx((i) => Math.max(i - 1, 0)) }
+      else if (e.key === 'Enter' && focusIdx >= 0 && visible[focusIdx]) {
+        e.preventDefault()
+        navigate(tradeDetailPath(visible[focusIdx]))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [visible, focusIdx, navigate])
+
+  // 列表变化时重置焦点
+  useEffect(() => { setFocusIdx(-1) }, [visible.length])
 
   const onRowContext = (e: React.MouseEvent, t: Trade) => {
     e.preventDefault()
@@ -266,6 +289,7 @@ export function ListView({
                     e.stopPropagation()
                     toggleTradeDone(t, transition)
                   }}
+                  focused={t.id === focusId}
                 />
               ))}
             </section>
@@ -286,9 +310,11 @@ function Row({
   strategies,
   starred,
   followed,
+  focused,
 }: {
   t: Trade
   index: number
+  focused: boolean
   onContext: (e: React.MouseEvent, t: Trade) => void
   onToggleDone: (e: React.MouseEvent) => void
   onToggleStar: (e: React.MouseEvent) => void
@@ -303,7 +329,7 @@ function Row({
   return (
     <Link
       to={tradeDetailPath(t)}
-      className="lv-row"
+      className={'lv-row' + (focused ? ' is-focused' : '')}
       style={{ animationDelay: `${Math.min(index, 16) * 22}ms` }}
       onContextMenu={(e) => onContext(e, t)}
     >

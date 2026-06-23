@@ -32,6 +32,7 @@ import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
 import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
 import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
+import { DisputeTypesPanel } from './views/settings/DisputeTypesPanel'
 import { CaseList } from './views/CaseList'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
@@ -210,6 +211,7 @@ function Shell() {
             <Route path="shortcuts" element={<ShortcutsPanel />} />
             <Route path="strategies" element={<StrategiesPanel />} />
             <Route path="tags" element={<TagPresetsPanel />} />
+            <Route path="dispute-types" element={<DisputeTypesPanel />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
             <Route path="data" element={<DataSettingsPanel />} />
           </Route>

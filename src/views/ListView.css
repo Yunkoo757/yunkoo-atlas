@@ -79,6 +79,11 @@
   background: var(--bg-hover);
   box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
+.lv-row.is-focused {
+  background: var(--bg-selected);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+}
 
 /* hover 复选框 */
 .lv-check {

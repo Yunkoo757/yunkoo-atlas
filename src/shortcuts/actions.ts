@@ -126,6 +126,28 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
 
   {
+    id: 'list.focusNext',
+    label: '下一行',
+    category: '列表',
+    scope: 'navigation',
+    defaultBinding: { key: 'j' },
+  },
+  {
+    id: 'list.focusPrev',
+    label: '上一行',
+    category: '列表',
+    scope: 'navigation',
+    defaultBinding: { key: 'k' },
+  },
+  {
+    id: 'list.openFocused',
+    label: '打开选中行',
+    category: '列表',
+    scope: 'navigation',
+    defaultBinding: { key: 'enter' },
+  },
+
+  {
     id: 'image.prev',
     label: '上一张图片',
     category: '图片',

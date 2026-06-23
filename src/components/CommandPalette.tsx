@@ -17,6 +17,7 @@ import {
   CircleDot,
   X,
   Keyboard,
+  Gavel,
 } from 'lucide-react'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { getStrategyName, countTradesByStrategy, sortStrategies } from '@/lib/strategies'
@@ -26,6 +27,7 @@ import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { getShortcutHint } from '@/shortcuts/ShortcutHost'
+import { formatCaseId, deriveOutcome, getDisputeType } from '@/data/case'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import './CommandPalette.css'
 
@@ -51,6 +53,8 @@ export function CommandPalette({
   const navigate = useNavigate()
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
+  const cases = useStore((s) => s.cases)
+  const disputeTypes = useStore((s) => s.disputeTypes)
   const openComposer = useStore((s) => s.openComposer)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -127,8 +131,21 @@ export function CommandPalette({
         run: first ? go(tradeDetailPath(first)) : () => {},
       }
     })
-    return [...viewNav, ...periodNav, ...strategyNav, ...settingsNav, ...actions, ...tagCmds, ...tradeCmds]
-  }, [trades, strategies, navigate, onClose, openComposer])
+    const caseCmds: Cmd[] = cases.map((c) => {
+      const dt = getDisputeType(c.disputeTypeId, disputeTypes)
+      const outcome = deriveOutcome(c, dt)
+      return {
+        id: 'case-' + c.id,
+        group: '判例',
+        icon: <Gavel size={16} />,
+        label: `${formatCaseId(c.id)} · ${dt?.name ?? '未知'}`,
+        hint: `${outcome} · ${c.confidence}%`,
+        keywords: `${formatCaseId(c.id)} ${dt?.name ?? ''} ${c.tags?.join(' ') ?? ''}`,
+        run: go(`/cases?case=${c.id}`),
+      }
+    })
+    return [...viewNav, ...periodNav, ...strategyNav, ...settingsNav, ...actions, ...tagCmds, ...caseCmds, ...tradeCmds]
+  }, [trades, strategies, cases, disputeTypes, navigate, onClose, openComposer])
 
   const filtered = useMemo(() => {
     if (!q.trim()) return commands

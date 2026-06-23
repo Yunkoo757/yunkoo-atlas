@@ -148,12 +148,13 @@ export function NewCaseModal() {
   return createPortal(
     <div className="ncm-overlay" onMouseDown={() => setCaseModalOpen(false)}>
       <div className="ncm" onMouseDown={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span className="ncm-title">新建判例</span>
-          <button onClick={() => setCaseModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+        <div className="ncm-head">
+          <span className="ncm-head-title">新建判例</span>
+          <button className="ncm-close" onClick={() => setCaseModalOpen(false)}>
             <X size={16} />
           </button>
         </div>
+        <div className="ncm-body">
 
         {sourceTrade && (
           <div className="ncm-source">
@@ -275,6 +276,7 @@ export function NewCaseModal() {
               </div>
             )}
           </div>
+        </div>
         </div>
 
         <div className="ncm-foot">

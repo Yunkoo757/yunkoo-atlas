@@ -18,6 +18,7 @@ import {
   getStorage,
 } from '@/storage'
 import type { ExportAssetRecord } from '@/storage/types'
+import type { CaseRecord, DisputeType } from '@/data/case'
 import { flushPersistNow } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -32,6 +33,10 @@ export interface ExportPayload {
   subscribedIds: string[]
   pinnedStrategyIds: string[]
   display: DisplayPrefs
+  tagPresets?: string[]
+  mistakeTagPresets?: string[]
+  cases?: CaseRecord[]
+  disputeTypes?: DisputeType[]
   assets?: ExportAssetRecord[]
 }
 
@@ -44,7 +49,12 @@ export interface PersistedSlice {
   display: DisplayPrefs
 }
 
-interface ExportState extends PersistedSlice {}
+interface ExportState extends PersistedSlice {
+  tagPresets?: string[]
+  mistakeTagPresets?: string[]
+  cases?: CaseRecord[]
+  disputeTypes?: DisputeType[]
+}
 
 export type ImportResult =
   | { ok: true; data: ExportPayload }
@@ -130,7 +140,10 @@ export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
 ): Promise<ExportPayload> {
-  const assetIds = collectAssetIdsFromNotes(state.trades)
+  const assetIds = new Set(collectAssetIdsFromNotes(state.trades))
+  for (const c of (state.cases ?? [])) {
+    for (const img of c.images) assetIds.add(img.fileId)
+  }
   const assets: ExportAssetRecord[] = []
   for (const id of assetIds) {
     const record = await getAssetForExport(id)
@@ -144,16 +157,20 @@ export async function buildExportPayloadFromState(
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
     display: state.display,
+    tagPresets: state.tagPresets,
+    mistakeTagPresets: state.mistakeTagPresets,
+    cases: state.cases,
+    disputeTypes: state.disputeTypes,
     assets,
   }
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display } =
+  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display },
+    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -179,10 +196,14 @@ export async function downloadExport(): Promise<void> {
  * 图片按原始格式存储，无 base64 膨胀，适合大量图片场景。
  */
 export async function downloadWebJournalZip(): Promise<void> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display } =
+  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes } =
     useStore.getState()
   const storage = getStorage()
-  const assetIds = collectAssetIdsFromNotes(trades)
+  const assetIds = new Set(collectAssetIdsFromNotes(trades))
+  // 收集判例截图
+  for (const c of cases) {
+    for (const img of c.images) assetIds.add(img.fileId)
+  }
   const assets: ExportAssetRecord[] = []
   for (const id of assetIds) {
     const rec = await storage.getAssetForExport(id)
@@ -198,6 +219,10 @@ export async function downloadWebJournalZip(): Promise<void> {
     subscribedIds,
     pinnedStrategyIds,
     display,
+    tagPresets,
+    mistakeTagPresets,
+    cases,
+    disputeTypes,
     assets: assets.map((a) => ({ id: a.id, mime: a.mime })),
   }
   const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
@@ -391,6 +416,22 @@ export function parseImportJson(text: string): ImportResult {
     }
   }
 
+  if (raw.cases !== undefined && !Array.isArray(raw.cases)) {
+    return { ok: false, error: 'cases 必须是数组' }
+  }
+
+  if (raw.disputeTypes !== undefined && !Array.isArray(raw.disputeTypes)) {
+    return { ok: false, error: 'disputeTypes 必须是数组' }
+  }
+
+  if (raw.tagPresets !== undefined && !isStringArray(raw.tagPresets)) {
+    return { ok: false, error: 'tagPresets 必须是字符串数组' }
+  }
+
+  if (raw.mistakeTagPresets !== undefined && !isStringArray(raw.mistakeTagPresets)) {
+    return { ok: false, error: 'mistakeTagPresets 必须是字符串数组' }
+  }
+
   return {
     ok: true,
     data: {
@@ -402,6 +443,10 @@ export function parseImportJson(text: string): ImportResult {
       pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
       display: parseDisplay(raw.display),
       assets: raw.assets as ExportAssetRecord[] | undefined,
+      cases: raw.cases ?? [],
+      disputeTypes: raw.disputeTypes ?? [],
+      tagPresets: raw.tagPresets ?? [],
+      mistakeTagPresets: raw.mistakeTagPresets ?? [],
     },
   }
 }
@@ -433,7 +478,7 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
   }
 }
 
-export async function applyImport(payload: ExportPayload): Promise<void> {
+export async function applyImport(payload: ExportPayload): Promise<{ summary: string }> {
   const storage = getStorage()
   if (payload.assets?.length) {
     await storage.importAssets(payload.assets)
@@ -446,8 +491,15 @@ export async function applyImport(payload: ExportPayload): Promise<void> {
     })),
   )
 
+  const caseCount = payload.cases?.length ?? 0
+  const assetCount = payload.assets?.length ?? 0
+  const parts: string[] = [`${trades.length} 笔交易`]
+  if (caseCount > 0) parts.push(`${caseCount} 条判例`)
+  if (assetCount > 0) parts.push(`${assetCount} 个附件`)
+
   useStore.getState().importData({ ...payload, trades })
   await flushPersistNow()
+  return { summary: `已导入 ${parts.join('、')}` }
 }
 
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
