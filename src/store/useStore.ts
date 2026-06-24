@@ -34,9 +34,9 @@ interface State {
   caseModalOpen: boolean
   caseModalContext: CaseModalContext | null
   setCaseModalOpen: (open: boolean, context?: CaseModalContext | null) => void
-  undoStack: Trade[][]
-  redoStack: Trade[][]
-  pushUndo: () => void
+  undoStack: { id: string; prev: Trade }[][]
+  redoStack: { id: string; prev: Trade }[][]
+  pushUndo: (snapshots: { id: string; prev: Trade }[]) => void
   undo: () => void
   redo: () => void
   starredIds: string[]
@@ -127,29 +127,43 @@ export const useStore = create<State>()((set, get) => ({
         set({ caseModalOpen: open, caseModalContext: open ? context : null }),
       undoStack: [],
       redoStack: [],
-      pushUndo: () =>
+      pushUndo: (snapshots) =>
         set((s) => ({
-          undoStack: [...s.undoStack.slice(-49), [...s.trades]],
+          undoStack: [...s.undoStack.slice(-49), snapshots],
           redoStack: [],
         })),
       undo: () =>
         set((s) => {
           if (s.undoStack.length === 0) return s
-          const prev = s.undoStack[s.undoStack.length - 1]
+          const snapshots = s.undoStack[s.undoStack.length - 1]
+          const redoSnaps = snapshots.map(({ id }) => ({
+            id,
+            prev: s.trades.find((t) => t.id === id) ?? snapshots.find((x) => x.id === id)!.prev,
+          }))
           return {
-            trades: prev,
+            trades: s.trades.map((t) => {
+              const snap = snapshots.find((x) => x.id === t.id)
+              return snap ? snap.prev : t
+            }),
             undoStack: s.undoStack.slice(0, -1),
-            redoStack: [...s.redoStack, [...s.trades]],
+            redoStack: [...s.redoStack, redoSnaps],
           }
         }),
       redo: () =>
         set((s) => {
           if (s.redoStack.length === 0) return s
-          const next = s.redoStack[s.redoStack.length - 1]
+          const snapshots = s.redoStack[s.redoStack.length - 1]
+          const undoSnaps = snapshots.map(({ id }) => ({
+            id,
+            prev: s.trades.find((t) => t.id === id) ?? snapshots.find((x) => x.id === id)!.prev,
+          }))
           return {
-            trades: next,
+            trades: s.trades.map((t) => {
+              const snap = snapshots.find((x) => x.id === t.id)
+              return snap ? snap.prev : t
+            }),
             redoStack: s.redoStack.slice(0, -1),
-            undoStack: [...s.undoStack, [...s.trades]],
+            undoStack: [...s.undoStack, undoSnaps],
           }
         }),
       starredIds: [],
@@ -205,7 +219,7 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => ({ disputeTypes: s.disputeTypes.filter((d) => !d.builtin || d.id !== id) })),
       setStatus: (id, status) =>
         set((s) => ({
-          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [...s.trades]] : s.undoStack,
+          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
           redoStack: [],
           trades: s.trades.map((t) => {
             if (t.id !== id) return t
@@ -302,7 +316,7 @@ export const useStore = create<State>()((set, get) => ({
         })),
       updateTradeData: (id, patch) =>
         set((s) => ({
-          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [...s.trades]] : s.undoStack,
+          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
           redoStack: [],
           trades: s.trades.map((t) => {
             if (t.id !== id) return t
@@ -453,7 +467,7 @@ export const useStore = create<State>()((set, get) => ({
         }),
       removeTrade: (id) =>
         set((s) => ({
-          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [...s.trades]] : s.undoStack,
+          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
           redoStack: [],
           trades: s.trades.filter((t) => t.id !== id),
           starredIds: s.starredIds.filter((x) => x !== id),

@@ -51,7 +51,6 @@ import { collectAllTags } from '@/lib/tags'
 import { toast } from '@/lib/toast'
 import { syncStatusFromPnl } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isTerminal } from '@/lib/tradeStatus'
-import { DEFAULT_REVIEW_TEMPLATE_HTML } from '@/lib/reviewTemplates'
 import { getStorage, normalizeNoteForStorage, resolveNoteForDisplay } from '@/storage'
 import { setPreFlushCallback } from '@/storage/persist'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
@@ -446,68 +445,6 @@ export function DetailView() {
               {trade.symbol}
               <SideTag side={trade.side} />
             </h1>
-            <div className="dv-summary">
-              <div className="dv-summary-item">
-                <span className="dv-summary-label">状态</span>
-                <span className="dv-summary-value">{STATUS_META[trade.status].label}</span>
-              </div>
-              <div className="dv-summary-item">
-                <span className="dv-summary-label">入场</span>
-                <span className="dv-summary-value">{fmtPrice(trade.entry)}</span>
-              </div>
-              <div className="dv-summary-item">
-                <span className="dv-summary-label">止损</span>
-                <span className="dv-summary-value">
-                  {trade.stopLoss == null ? '—' : fmtPrice(trade.stopLoss)}
-                </span>
-              </div>
-              <div className="dv-summary-item">
-                <span className="dv-summary-label">仓位</span>
-                <span className="dv-summary-value">{trade.size}</span>
-              </div>
-              <div className="dv-summary-item">
-                <span className="dv-summary-label">结果</span>
-                <span
-                  className="dv-summary-value"
-                  style={{
-                    color:
-                      trade.pnl > 0
-                        ? 'var(--pos)'
-                        : trade.pnl < 0
-                          ? 'var(--neg)'
-                          : undefined,
-                  }}
-                >
-                  {trade.status === 'planned' || trade.status === 'open'
-                    ? '—'
-                    : `${fmtMoney(trade.pnl)} · ${fmtR(trade.rMultiple)}`}
-                </span>
-              </div>
-              <div className="dv-summary-item">
-                <span className="dv-summary-label">开仓</span>
-                <span className="dv-summary-value">{fmtDate(trade.openedAt)}</span>
-              </div>
-            </div>
-
-            {!trade.note.trim() && (
-              <button
-                type="button"
-                className="dv-template-btn"
-                onClick={() => {
-                  const strat = strategies.find((s) => s.id === trade.strategyId)
-                  const html = strat?.reviewTemplateHtml ?? DEFAULT_REVIEW_TEMPLATE_HTML
-                  setEditorHtml(html)
-                  if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
-                  void normalizeNoteForStorage(html, getStorage()).then((normalized) => {
-                    updateNote(trade.id, normalized)
-                  })
-                  toast('已填入复盘结构')
-                }}
-              >
-                使用策略模板
-              </button>
-            )}
-
             <Editor
               content={editorHtml}
               onChange={onEditorChange}
