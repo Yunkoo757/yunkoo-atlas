@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus, Star, Bell, Calendar, Check, Trash2, Copy } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
+import type { WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
@@ -42,8 +43,8 @@ export function ListView({
   header,
 }: {
   title?: string
-  view: 'list' | 'board'
-  onView: (v: 'list' | 'board') => void
+  view: WorkbenchView
+  onView: (v: WorkbenchView) => void
   filter?: ListFilter
   header?: ReactNode
 }) {
