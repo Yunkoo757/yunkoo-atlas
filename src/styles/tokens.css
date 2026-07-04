@@ -144,6 +144,21 @@
   --warn: lch(80% 70 85);   /* 警告黄 */
   --pending: lch(68% 40 252); /* 待处理蓝 */
 
+  /* 业务语义色背景（12%透明度，用于标签/徽章背景） */
+  --pos-bg: color-mix(in srgb, var(--pos) 12%, transparent);
+  --neg-bg: color-mix(in srgb, var(--neg) 12%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
+  --pending-bg: color-mix(in srgb, var(--pending) 12%, transparent);
+  --faint-bg: color-mix(in srgb, #fff 4%, transparent); /* 极淡背景，用于模糊标签 */
+
+  /* 警告状态色（用于危险操作、错误提示等） */
+  --warn-action: lch(55 55 35); /* 橙黄色，用于警告按钮 */
+  --warn-action-border: color-mix(in srgb, var(--warn-action) 35%, transparent);
+  --warn-action-bg: color-mix(in srgb, var(--warn-action) 8%, transparent);
+  --error-action: lch(55 62 28); /* 错误红，用于错误按钮 */
+  --error-action-bg: color-mix(in srgb, var(--error-action) 6%, transparent);
+  --error-action-border: color-mix(in srgb, var(--error-action) 10%, transparent);
+
   /* 语义别名 — 消除分散的 var(--xxx, fallback) 写法 */
   --success: var(--pos);
   --danger: var(--neg);
@@ -203,8 +218,11 @@
   /* 阴影（Linear 风格，多层叠加柔光） */
   --shadow-low: 0 1px 1px #0000001f;
   --shadow-med: 0 3px 8px #0000001f, 0 2px 5px #0000001f, 0 1px 1px #0000001f;
+  --shadow-md: var(--shadow-med); /* 别名，保持向后兼容 */
   --shadow-high: 0 4px 40px #00000019, 0 3px 20px #0000001f,
     0 3px 12px #0000001f, 0 2px 8px #0000001f, 0 1px 1px #0000001f;
+  --popover-shadow-deep: 0 6px 16px lch(0 0 0 / 0.2), 0 4px 10px lch(0 0 0 / 0.15),
+    0 2px 4px lch(0 0 0 / 0.1); /* 更深的弹出框阴影，用于模态/深层浮层 */
 
   /* 缓动别名 */
   --ease-out: var(--ease-out-quart);

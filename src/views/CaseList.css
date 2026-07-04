@@ -48,9 +48,9 @@
   color: var(--text-secondary);
 }
 .cl-filter-chip.is-active {
-  background: var(--bg-selected);
-  color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-default));
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
 }
 .cl-filter-count {
   opacity: 0.55;
@@ -147,7 +147,7 @@
 .cl-icon {
   width: 22px; height: 22px; border-radius: 4px;
   flex-shrink: 0; display: grid; place-items: center;
-  font-size: 9px; font-weight: 700;
+  font-size: var(--fs-micro); font-weight: 700;
 }
 
 .cl-body {
@@ -477,7 +477,7 @@
 .ncm-thumb-remove {
   position: absolute; top: 2px; right: 2px;
   width: 16px; height: 16px; border-radius: 50%;
-  background: rgba(0,0,0,0.6); color: #fff;
+  background: var(--overlay-bg); color: var(--text-primary);
   display: grid; place-items: center; border: none; cursor: pointer;
   opacity: 0; transition: opacity 80ms var(--ease-out);
 }

@@ -77,6 +77,8 @@ export interface Trade {
   note: string // 富文本（TipTap JSON 序列化后的 HTML，简化为 HTML 字符串）
   comments?: TradeComment[]
   activities?: ActivityEvent[]
+  deletedAt?: string // 删除时间（ISO 格式），undefined 表示未删除
+  deletedBy?: string // 删除操作来源（可选，用于审计）
 }
 
 export const STATUS_META: Record<
@@ -111,217 +113,29 @@ export const CONVICTION_META: Record<Conviction, { label: string }> = {
   low: { label: '低' },
 }
 
+/** 判断交易是否已删除（软删除） */
+export function isTradeDeleted(trade: Trade): boolean {
+  return trade.deletedAt !== undefined
+}
+
+/** 判断交易是否已过期（超过 30 天） */
+export function isTradeExpired(trade: Trade): boolean {
+  if (!trade.deletedAt) return false
+  const deletedTime = new Date(trade.deletedAt).getTime()
+  const now = Date.now()
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+  return (now - deletedTime) > thirtyDaysMs
+}
+
+/** 计算剩余天数（用于回收站显示） */
+export function getTradeRemainingDays(trade: Trade): number {
+  if (!trade.deletedAt) return -1
+  const deletedTime = new Date(trade.deletedAt).getTime()
+  const now = Date.now()
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+  const remainingMs = thirtyDaysMs - (now - deletedTime)
+  return Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
+}
+
 // —— 种子数据 ——
-export const SEED_TRADES: Trade[] = [
-  {
-    id: '1',
-    ref: 'TRD-142',
-    symbol: 'BTC/USDT',
-    side: 'long',
-    status: 'win',
-    conviction: 'high',
-    strategyId: 'breakout',
-    tradeKind: 'live',
-    tags: ['日内', '突破'],
-    mistakeTags: [],
-    reviewStatus: 'reviewed',
-    entry: 61200,
-    exit: 64850,
-    size: 0.5,
-    pnl: 1825,
-    rMultiple: 2.4,
-    openedAt: '2026-06-10',
-    closedAt: '2026-06-11',
-    note: '<p>日线级别三角形末端突破，放量确认后顺势进场。</p><ul data-type="taskList"><li data-type="taskItem" data-checked="true">等待 4H 收线确认</li><li data-type="taskItem" data-checked="true">止损放在前低下方</li></ul><blockquote>复盘：进场点偏晚，可在突破当根更早介入。</blockquote>',
-  },
-  {
-    id: '2',
-    ref: 'TRD-141',
-    symbol: 'AAPL',
-    side: 'short',
-    status: 'loss',
-    conviction: 'medium',
-    strategyId: 'mean-reversion',
-    tradeKind: 'live',
-    tags: ['财报', '逆势'],
-    mistakeTags: ['逆势交易'],
-    reviewStatus: 'focus',
-    entry: 214.5,
-    exit: 219.2,
-    size: 100,
-    pnl: -470,
-    rMultiple: -1.0,
-    openedAt: '2026-06-08',
-    closedAt: '2026-06-09',
-    note: '<p>财报前博弈回调，但市场情绪过强，止损出局。</p><blockquote>教训：财报前不逆势。</blockquote>',
-  },
-  {
-    id: '3',
-    ref: 'TRD-140',
-    symbol: 'ETH/USDT',
-    side: 'long',
-    status: 'open',
-    conviction: 'high',
-    strategyId: 'trend-following',
-    tradeKind: 'live',
-    tags: ['波段'],
-    mistakeTags: [],
-    reviewStatus: 'unreviewed',
-    entry: 3380,
-    exit: null,
-    size: 4,
-    pnl: 520,
-    rMultiple: 1.3,
-    openedAt: '2026-06-13',
-    closedAt: null,
-    note: '<p>跟随上升趋势，回踩 EMA20 进场，持仓中。</p>',
-  },
-  {
-    id: '4',
-    ref: 'TRD-139',
-    symbol: 'NVDA',
-    side: 'long',
-    status: 'planned',
-    conviction: 'urgent',
-    strategyId: 'news-catalyst',
-    tradeKind: 'live',
-    tags: ['催化', '关注'],
-    mistakeTags: [],
-    reviewStatus: 'unreviewed',
-    entry: 0,
-    exit: null,
-    size: 50,
-    pnl: 0,
-    rMultiple: 0,
-    openedAt: '2026-06-15',
-    closedAt: null,
-    note: '<p>等待发布会催化，计划在 130 上方突破时进场。</p>',
-  },
-  {
-    id: '5',
-    ref: 'TRD-138',
-    symbol: 'SOL/USDT',
-    side: 'long',
-    status: 'win',
-    conviction: 'medium',
-    strategyId: 'scalp',
-    tradeKind: 'live',
-    tags: ['日内', '剥头皮'],
-    mistakeTags: ['过早止盈'],
-    reviewStatus: 'reviewed',
-    entry: 148.2,
-    exit: 151.0,
-    size: 20,
-    pnl: 56,
-    rMultiple: 0.8,
-    openedAt: '2026-06-12',
-    closedAt: '2026-06-12',
-    note: '<p>5 分钟级别快进快出。</p>',
-  },
-  {
-    id: '6',
-    ref: 'TRD-137',
-    symbol: 'TSLA',
-    side: 'short',
-    status: 'breakeven',
-    conviction: 'low',
-    strategyId: 'mean-reversion',
-    tradeKind: 'live',
-    tags: ['试探'],
-    mistakeTags: [],
-    reviewStatus: 'reviewed',
-    entry: 248,
-    exit: 248.3,
-    size: 30,
-    pnl: -9,
-    rMultiple: 0.0,
-    openedAt: '2026-06-07',
-    closedAt: '2026-06-07',
-    note: '<p>试探性逆势，无明显机会，保本离场。</p>',
-  },
-  {
-    id: '7',
-    ref: 'TRD-136',
-    symbol: 'BTC/USDT',
-    side: 'short',
-    status: 'win',
-    conviction: 'high',
-    strategyId: 'trend-following',
-    tradeKind: 'live',
-    tags: ['波段', '顶背离'],
-    mistakeTags: [],
-    reviewStatus: 'reviewed',
-    entry: 66800,
-    exit: 63200,
-    size: 0.3,
-    pnl: 1080,
-    rMultiple: 3.1,
-    openedAt: '2026-06-02',
-    closedAt: '2026-06-05',
-    note: '<p>顶背离 + 跌破颈线，顺势做空。教科书级别的一笔。</p>',
-  },
-  {
-    id: '8',
-    ref: 'TRD-135',
-    symbol: 'MSFT',
-    side: 'long',
-    status: 'loss',
-    conviction: 'medium',
-    strategyId: 'breakout',
-    tradeKind: 'live',
-    tags: ['假突破'],
-    mistakeTags: ['假突破', '追单'],
-    reviewStatus: 'focus',
-    entry: 452,
-    exit: 446.5,
-    size: 40,
-    pnl: -220,
-    rMultiple: -1.0,
-    openedAt: '2026-06-03',
-    closedAt: '2026-06-04',
-    note: '<p>假突破被套，纪律止损。</p>',
-  },
-  {
-    id: '9',
-    ref: 'TRD-134',
-    symbol: 'DOGE/USDT',
-    side: 'long',
-    status: 'missed',
-    conviction: 'high',
-    strategyId: 'breakout',
-    tradeKind: 'live',
-    tags: ['错过', '突破'],
-    mistakeTags: ['犹豫未进'],
-    reviewStatus: 'focus',
-    entry: 0.182,
-    exit: 0.195,
-    size: 5000,
-    pnl: 65,
-    rMultiple: 1.2,
-    openedAt: '2026-06-14',
-    closedAt: '2026-06-14',
-    missReason: 'hesitation',
-    note: '<p>突破当根犹豫未进，事后按假设出场复盘。</p>',
-  },
-  {
-    id: '10',
-    ref: 'TRD-133',
-    symbol: 'EUR/USD',
-    side: 'short',
-    status: 'win',
-    conviction: 'medium',
-    strategyId: 'mean-reversion',
-    tradeKind: 'paper',
-    tags: ['纸面', '回归'],
-    mistakeTags: [],
-    reviewStatus: 'reviewed',
-    entry: 1.085,
-    exit: 1.081,
-    size: 1,
-    pnl: 400,
-    rMultiple: 1.5,
-    openedAt: '2026-06-11',
-    closedAt: '2026-06-12',
-    note: '<p>纸面练习：均值回归做空。</p>',
-  },
-]
+export const SEED_TRADES: Trade[] = []

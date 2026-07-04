@@ -32,11 +32,11 @@
 }
 
 .dio-btn-warn {
-  border-color: lch(55 55 35 / 0.35);
+  border-color: var(--warn-action-border);
   color: var(--neg);
 }
 .dio-btn-warn:hover {
-  background: lch(55 55 35 / 0.08);
+  background: var(--warn-action-bg);
   color: var(--neg);
 }
 
@@ -174,8 +174,8 @@
 }
 
 .health-card.health-warn {
-  background: rgba(255, 180, 0, 0.06);
-  border-color: rgba(255, 180, 0, 0.25);
+  background: var(--warn-action-bg);
+  border-color: color-mix(in srgb, var(--warn-action) 25%, transparent);
 }
 
 .health-label {

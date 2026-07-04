@@ -1,0 +1,337 @@
+/* NotionImportModal — 复用 CSV Import Modal 的视觉体系 */
+.nim-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-bg);
+  padding: 24px;
+}
+
+.nim-modal {
+  width: 800px;
+  max-width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--popover-bg);
+  border: 1px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  overflow: hidden;
+}
+
+.nim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 12px;
+}
+
+.nim-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.nim-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.nim-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ---- Upload step ---- */
+.nim-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.nim-upload-area p {
+  margin: 0;
+  font-size: var(--fs-base);
+}
+
+.nim-upload-hint {
+  font-size: var(--fs-sm) !important;
+  color: var(--text-quaternary);
+  max-width: 480px;
+  line-height: 1.5 !important;
+}
+
+.nim-upload-note {
+  padding: 8px 14px;
+  border-radius: var(--radius-6);
+  background: var(--warn-action-bg);
+  border: 1px solid var(--warn-action-border);
+  color: var(--text-tertiary);
+}
+
+.nim-file-input {
+  margin-top: 8px;
+  font-size: var(--fs-sm);
+}
+
+/* ---- Preview step ---- */
+.nim-preview-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 24px 20px;
+  overflow: hidden;
+}
+
+.nim-preview-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.nim-file-name {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.nim-preview-stats {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.nim-preview-table-wrap {
+  overflow: auto;
+  max-height: 50vh;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+}
+
+.nim-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.nim-preview-table th,
+.nim-preview-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.nim-preview-table th {
+  font-size: var(--fs-mini);
+  color: var(--text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+}
+
+.nim-row-err {
+  background: var(--error-action-bg);
+}
+
+.nim-row-warn {
+  background: var(--warn-action-bg);
+}
+
+.nim-cell-symbol {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.nim-cell-tags {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.nim-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-4);
+  background: var(--bg-hover);
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+}
+
+.nim-tag-more {
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
+}
+
+.nim-pnl-pos {
+  color: var(--pos);
+  font-weight: 500;
+}
+
+.nim-pnl-neg {
+  color: var(--neg);
+  font-weight: 500;
+}
+
+.nim-new-badge {
+  font-size: var(--fs-micro);
+  color: var(--accent);
+}
+
+.nim-new-strat {
+  color: var(--accent);
+}
+
+.nim-img-count {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.nim-img-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-4);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+}
+
+.nim-done-images {
+  font-size: var(--fs-sm) !important;
+  font-weight: 400 !important;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nim-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: nim-spin 0.7s linear infinite;
+}
+
+@keyframes nim-spin {
+  to { transform: rotate(360deg); }
+}
+
+.nim-err-cell {
+  color: var(--neg);
+  font-size: var(--fs-mini);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+}
+
+/* ---- Done step ---- */
+.nim-done-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+}
+
+.nim-done-area p {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 500;
+}
+
+.nim-done-hint {
+  font-size: var(--fs-sm) !important;
+  font-weight: 400 !important;
+  color: var(--text-tertiary);
+}
+
+/* ---- Shared ---- */
+.nim-ok {
+  color: var(--pos);
+}
+
+.nim-bad {
+  color: var(--neg);
+}
+
+.nim-error {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-6);
+  background: var(--error-action-border);
+  color: var(--neg);
+  font-size: var(--fs-sm);
+}
+
+.nim-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.nim-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.nim-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nim-btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+}
+
+.nim-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.nim-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+.nim-btn-ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+}

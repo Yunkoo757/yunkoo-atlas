@@ -34,6 +34,8 @@ import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
 import { DisputeTypesPanel } from './views/settings/DisputeTypesPanel'
 import { CaseList } from './views/CaseList'
+import { TrashView } from './views/TrashView'
+import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import type { ListFilter } from './lib/tradeFilters'
@@ -41,6 +43,7 @@ import { PERIOD_LABELS, isValidPeriodSlug } from './lib/periods'
 import { MISSED_PAGE_TITLE } from './lib/pageCopy'
 import { tradeDetailPath } from './lib/tradeRoute'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
+import { cleanExpiredTrash, cleanExpiredTradeTrash } from './lib/trashCleanup'
 import './App.css'
 
 function TradesPage({
@@ -205,6 +208,8 @@ function Shell() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/cases" element={<CaseList />} />
+          <Route path="/trash" element={<TrashView />} />
+          <Route path="/trade-trash" element={<TradeTrashView />} />
           <Route path="/settings" element={<SettingsLayout />}>
             <Route index element={<Navigate to="profile" replace />} />
             <Route path="profile" element={<ProfileSettingsPanel />} />
@@ -253,6 +258,12 @@ export function App() {
       }
       // Normal bootstrap
       await bootstrapStorage()
+
+      // Clean expired trash (30+ days old deleted records)
+      const state = useStore.getState()
+      await cleanExpiredTrash(state.cases, state.purgeCase)
+      await cleanExpiredTradeTrash(state.trades, state.purgeTrade)
+
       setReady(true)
     }
 
