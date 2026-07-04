@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Settings2,
   Trash2,
+  BookOpen,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import {
@@ -31,6 +32,12 @@ const WORKBENCH_NAV = [
     active: (path: string) => path === '/list' || path === '/board',
   },
   {
+    to: '/review-cases',
+    label: '案例记录',
+    icon: BookOpen,
+    active: (path: string) => path.startsWith('/review-cases'),
+  },
+  {
     to: '/dashboard',
     label: '仪表盘',
     icon: BarChart3,
@@ -38,7 +45,7 @@ const WORKBENCH_NAV = [
   },
 ] as const
 
-const SIDEBAR_PERIODS: CalendarPeriod[] = ['today', 'this-week']
+const SIDEBAR_PERIODS: CalendarPeriod[] = CALENDAR_PERIODS
 const MAX_SIDEBAR_STRATEGIES = 5
 
 function SecondaryLink({
@@ -87,15 +94,23 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const isSettingsActive = path.startsWith('/settings')
   const activeTrades = trades.filter((t) => !t.deletedAt)
   const trashTrades = trades.filter((t) => t.deletedAt)
+  const liveTrades = activeTrades.filter((trade) => trade.tradeKind === 'live')
+  const accountTrades = activeTrades.filter((trade) => trade.tradeKind !== 'case')
+  const reviewCaseTrades = activeTrades.filter((trade) => trade.tradeKind === 'case')
   const counts = {
-    all: activeTrades.filter((trade) => trade.tradeKind !== 'paper').length,
-    active: activeTrades.filter((trade) => trade.tradeKind !== 'paper' && isActive(trade.status)).length,
-    favorites: starredIds.length,
-    missed: activeTrades.filter((trade) => isMissed(trade.status)).length,
+    all: liveTrades.length,
+    reviewCases: reviewCaseTrades.length,
+    reviewFocus: reviewCaseTrades.filter((trade) => trade.reviewStatus === 'focus').length,
+    reviewMistakes: reviewCaseTrades.filter((trade) => trade.status === 'missed' || trade.mistakeTags.length > 0).length,
+    reviewUnreviewed: reviewCaseTrades.filter((trade) => trade.reviewStatus === 'unreviewed').length,
+    reviewReviewed: reviewCaseTrades.filter((trade) => trade.reviewStatus === 'reviewed').length,
+    active: liveTrades.filter((trade) => isActive(trade.status)).length,
+    favorites: accountTrades.filter((trade) => starredIds.includes(trade.id)).length,
+    missed: accountTrades.filter((trade) => isMissed(trade.status)).length,
     paper: activeTrades.filter((trade) => trade.tradeKind === 'paper').length,
   }
   const periodCount = (period: CalendarPeriod) =>
-    activeTrades.filter((trade) => trade.tradeKind !== 'paper' && tradeInPeriod(trade, period)).length
+    liveTrades.filter((trade) => tradeInPeriod(trade, period)).length
 
   return (
     <aside className="sidebar">
@@ -117,8 +132,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <button
             type="button"
             className="sb-hbtn"
-            title={activeModule === 'case' ? '新建判例' : '新建交易'}
-            aria-label={activeModule === 'case' ? '新建判例' : '新建交易'}
+            title={activeModule === 'case' ? '新建判例' : path.startsWith('/review-cases') ? '新建案例记录' : '新建交易'}
+            aria-label={activeModule === 'case' ? '新建判例' : path.startsWith('/review-cases') ? '新建案例记录' : '新建交易'}
             onClick={() => {
               if (activeModule === 'case') setCaseModalOpen(true)
               else openComposer()
@@ -162,6 +177,27 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <Icon size={16} />
             <span>{label}</span>
             {to === '/list' && <span className="sb-item-count">{counts.all}</span>}
+            {to === '/review-cases' && <span className="sb-item-count">{counts.reviewCases}</span>}
+          </NavLink>
+        ))}
+      </nav>
+
+      <nav className="sb-section">
+        <div className="sb-section-label">案例记录</div>
+        {[
+          { to: '/review-cases', label: '全部', count: counts.reviewCases },
+          { to: '/review-cases/focus', label: '重点', count: counts.reviewFocus },
+          { to: '/review-cases/mistakes', label: '错题', count: counts.reviewMistakes },
+          { to: '/review-cases/unreviewed', label: '待复看', count: counts.reviewUnreviewed },
+          { to: '/review-cases/reviewed', label: '已掌握', count: counts.reviewReviewed },
+        ].map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={() => 'sb-item' + (path === item.to || path === `${item.to}/board` ? ' is-active' : '')}
+          >
+            <span>{item.label}</span>
+            <span className="sb-item-count">{item.count}</span>
           </NavLink>
         ))}
       </nav>
@@ -217,7 +253,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
                 />
                 <span>{strategy.name}</span>
                 <span className="sb-item-count">
-                  {countTradesByStrategy(activeTrades, strategy.id)}
+                  {countTradesByStrategy(accountTrades, strategy.id)}
                 </span>
               </NavLink>
             )

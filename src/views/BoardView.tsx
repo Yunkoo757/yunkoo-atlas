@@ -19,6 +19,7 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
+import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import './BoardView.css'
 
@@ -44,6 +45,7 @@ export function BoardView({
   const setStatus = useStore((s) => s.setStatus)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
+  const upsertTrade = useStore((s) => s.upsertTrade)
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -79,6 +81,8 @@ export function BoardView({
           : '当前筛选下没有交易。'
 
   const subtitle = getTradesPageSubtitle(filter)
+  const isReviewCaseView = filter.tradeKind === 'case'
+  const recordLabel = isReviewCaseView ? '案例记录' : '交易'
 
   const transition = { updateTradeData, setStatus, toast }
 
@@ -95,7 +99,7 @@ export function BoardView({
       <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
       <div className="board-scroll">
         {cols.length === 0 ? (
-          <EmptyState title="没有交易" hint={emptyHint} />
+          <EmptyState title={isReviewCaseView ? '没有案例记录' : '没有交易'} hint={emptyHint} />
         ) : (
           cols.map((c) => (
             <div
@@ -112,7 +116,7 @@ export function BoardView({
                 <StatusIcon status={c.status} size={15} />
                 <span className="bd-col-title">{STATUS_META[c.status].label}</span>
                 <span className="bd-col-count">{c.items.length}</span>
-                <button className="bd-col-add" title="新建交易" onClick={() => openComposer()}>
+                <button className="bd-col-add" title={`新建${recordLabel}`} onClick={() => openComposer()}>
                   <Plus size={15} />
                 </button>
               </div>
@@ -159,6 +163,15 @@ export function BoardView({
                           changeStatus: (s) => transitionTradeStatus(t, s, transition),
                           openComposer,
                           removeTrade,
+                          createReviewCase: (source) => {
+                            const reviewCase = buildReviewCaseFromTrade(source, {
+                              id: crypto.randomUUID(),
+                              ref: getNextReviewCaseRef(trades),
+                            })
+                            upsertTrade(reviewCase)
+                            toast('已沉淀为案例记录')
+                            onOpen(reviewCase.id)
+                          },
                           toggleStar,
                           isStarred,
                         }),

@@ -1,8 +1,11 @@
 import type { CaseRecord, DisputeType } from '@/data/case'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
-import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
-import { mergeImportPayload } from '@/lib/importExport'
+import { DEFAULT_DISPLAY, filterTrades } from '@/lib/tradeFilters'
+import { mergeImportPayload, parseImportJson } from '@/lib/importExport'
+import { computeStrategyStats } from '@/lib/strategies'
+import { isAccountTrade, isReviewCaseTrade, normalizeTradeKind } from '@/lib/tradeKind'
+import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import {
   attachImagesToPreviewsBySourceId,
   executeNotionImport,
@@ -149,6 +152,149 @@ export function testNotionImportUsesSameValidPreviewListForTradesAndImages(): vo
   assert(result.trades.length === 2, 'invalid preview rows are not imported')
   assert(validPreviews[0]?.rowIndex === 1, 'first imported trade maps to first valid preview')
   assert(validPreviews[1]?.rowIndex === 2, 'second imported trade maps to second valid preview')
+}
+
+export function testReviewCaseTradeKindIsPreservedAndExcludedFromAccountTrades(): void {
+  const reviewCase = { ...trade, id: 'case-trade', tradeKind: 'case' as Trade['tradeKind'] }
+
+  assert(normalizeTradeKind('case') === 'case', 'case trade kind is preserved')
+  assert(isReviewCaseTrade(reviewCase), 'case trade is recognized as review case')
+  assert(!isAccountTrade(reviewCase), 'case trade is excluded from account trades')
+  assert(isAccountTrade(trade), 'live trade remains an account trade')
+}
+
+export function testImportJsonAcceptsReviewCaseTrades(): void {
+  const payload = {
+    version: 5,
+    trades: [{ ...trade, id: 'case-import', tradeKind: 'case' }],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }
+
+  const result = parseImportJson(JSON.stringify(payload))
+
+  assert(result.ok, 'import accepts review case trade kind')
+}
+
+export function testDefaultSmartTradeFiltersExcludeReviewCases(): void {
+  const paperTrade: Trade = { ...trade, id: 'paper-trade', tradeKind: 'paper' }
+  const reviewCase: Trade = { ...trade, id: 'review-case', tradeKind: 'case' }
+
+  const starred = filterTrades(
+    [trade, paperTrade, reviewCase],
+    { type: 'starred' },
+    [trade.id, paperTrade.id, reviewCase.id],
+  )
+  const casesOnly = filterTrades(
+    [trade, paperTrade, reviewCase],
+    { type: 'all', tradeKind: 'case' },
+    [],
+  )
+
+  assert(starred.some((t) => t.id === trade.id), 'starred keeps live trades')
+  assert(starred.some((t) => t.id === paperTrade.id), 'starred keeps paper trades')
+  assert(!starred.some((t) => t.id === reviewCase.id), 'starred excludes review cases')
+  assert(casesOnly.length === 1 && casesOnly[0]?.id === reviewCase.id, 'case view only shows cases')
+}
+
+export function testReviewCaseScopesFilterCaseRecords(): void {
+  const focusCase: Trade = { ...trade, id: 'focus-case', tradeKind: 'case', reviewStatus: 'focus' }
+  const mistakeCase: Trade = {
+    ...trade,
+    id: 'mistake-case',
+    tradeKind: 'case',
+    mistakeTags: ['追单'],
+  }
+  const reviewedCase: Trade = {
+    ...trade,
+    id: 'reviewed-case',
+    tradeKind: 'case',
+    reviewStatus: 'reviewed',
+  }
+
+  const focus = filterTrades(
+    [focusCase, mistakeCase, reviewedCase],
+    { type: 'all', tradeKind: 'case', reviewCaseScope: 'focus' },
+    [],
+  )
+  const mistakes = filterTrades(
+    [focusCase, mistakeCase, reviewedCase],
+    { type: 'all', tradeKind: 'case', reviewCaseScope: 'mistakes' },
+    [],
+  )
+  const reviewed = filterTrades(
+    [focusCase, mistakeCase, reviewedCase],
+    { type: 'all', tradeKind: 'case', reviewCaseScope: 'reviewed' },
+    [],
+  )
+
+  assert(focus.length === 1 && focus[0]?.id === focusCase.id, 'focus scope only keeps focus cases')
+  assert(mistakes.length === 1 && mistakes[0]?.id === mistakeCase.id, 'mistakes scope only keeps mistake cases')
+  assert(reviewed.length === 1 && reviewed[0]?.id === reviewedCase.id, 'reviewed scope only keeps reviewed cases')
+}
+
+export function testStrategyStatsExcludeReviewCasesByDefault(): void {
+  const closedLive: Trade = {
+    ...trade,
+    id: 'live-win',
+    status: 'win',
+    pnl: 100,
+    rMultiple: 2,
+    closedAt: '2026-06-02',
+  }
+  const reviewCase: Trade = {
+    ...closedLive,
+    id: 'case-win',
+    tradeKind: 'case',
+    pnl: 10000,
+    rMultiple: 100,
+  }
+
+  const stats = computeStrategyStats([closedLive, reviewCase], strategy.id)
+
+  assert(stats.tradeCount === 1, 'strategy trade count excludes review cases')
+  assert(stats.totalPnl === 100, 'strategy pnl excludes review cases')
+  assert(stats.totalR === 2, 'strategy R excludes review cases')
+}
+
+export function testBuildReviewCaseFromTradeCopiesReviewFieldsWithoutMutatingSource(): void {
+  const source: Trade = {
+    ...trade,
+    id: 'source-trade',
+    ref: 'TRD-9',
+    tags: ['好形态'],
+    mistakeTags: ['追单'],
+    note: '<p>原始复盘</p>',
+    deletedAt: '2026-06-01T00:00:00.000Z',
+  }
+
+  const copy = buildReviewCaseFromTrade(source, { id: 'case-copy', ref: 'CAS-2' })
+
+  assert(copy.id === 'case-copy', 'copy gets a new id')
+  assert(copy.ref === 'CAS-2', 'copy gets a case ref')
+  assert(copy.tradeKind === 'case', 'copy is a review case')
+  assert(copy.symbol === source.symbol, 'copy keeps symbol')
+  assert(copy.strategyId === source.strategyId, 'copy keeps strategy')
+  assert(copy.tags.includes('好形态'), 'copy keeps tags')
+  assert(copy.mistakeTags.includes('追单'), 'copy keeps mistake tags')
+  assert(copy.note.includes('来源交易：TRD-9'), 'copy records source trade')
+  assert(copy.note.includes('原始复盘'), 'copy keeps note content')
+  assert(!copy.deletedAt, 'copy is not deleted')
+  assert(source.tradeKind === 'live', 'source trade kind is unchanged')
+  assert(source.deletedAt === '2026-06-01T00:00:00.000Z', 'source deletion metadata is unchanged')
+}
+
+export function testGetNextReviewCaseRefUsesExistingCaseRefsOnly(): void {
+  const next = getNextReviewCaseRef([
+    { ...trade, ref: 'TRD-99' },
+    { ...trade, id: 'case-1', ref: 'CAS-1', tradeKind: 'case' },
+    { ...trade, id: 'case-7', ref: 'CAS-7', tradeKind: 'case' },
+  ])
+
+  assert(next === 'CAS-8', 'next review case ref increments highest case ref')
 }
 
 export function testNotionCsvFallbackMatchesImagesByNotionIdNotFolderOrder(): void {

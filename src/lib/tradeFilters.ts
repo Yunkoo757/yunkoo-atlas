@@ -3,7 +3,7 @@ import type { CalendarPeriod } from '@/lib/periods'
 import { tradeInPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed } from '@/lib/tradeStatus'
 import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
-import { normalizeSidebarPins } from '@/lib/tradeKind'
+import { isAccountTrade, normalizeSidebarPins } from '@/lib/tradeKind'
 
 export type ListFilterType =
   | 'all'
@@ -19,7 +19,10 @@ export interface ListFilter {
   period?: CalendarPeriod
   /** 默认不过滤；主列表传 live，模拟页传 paper */
   tradeKind?: TradeKind
+  reviewCaseScope?: ReviewCaseScope
 }
+
+export type ReviewCaseScope = 'all' | 'focus' | 'mistakes' | 'unreviewed' | 'reviewed'
 
 export interface DisplayPrefs {
   hideClosed: boolean
@@ -108,6 +111,17 @@ export function filterTrades(
   }
   if (filter.tradeKind) {
     out = out.filter((t) => t.tradeKind === filter.tradeKind)
+  } else {
+    out = out.filter(isAccountTrade)
+  }
+  if (filter.tradeKind === 'case' && filter.reviewCaseScope && filter.reviewCaseScope !== 'all') {
+    out = out.filter((t) => {
+      if (filter.reviewCaseScope === 'focus') return t.reviewStatus === 'focus'
+      if (filter.reviewCaseScope === 'mistakes') return t.status === 'missed' || t.mistakeTags.length > 0
+      if (filter.reviewCaseScope === 'unreviewed') return t.reviewStatus === 'unreviewed'
+      if (filter.reviewCaseScope === 'reviewed') return t.reviewStatus === 'reviewed'
+      return true
+    })
   }
   return out
 }

@@ -20,9 +20,11 @@ import type { Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { tradeDetailPath } from '@/lib/tradeRoute'
+import { getPeriodBounds, isDateInRange } from '@/lib/periods'
+import { isAccountTrade } from '@/lib/tradeKind'
 import './Dashboard.css'
 
-type TimeRange = 'all' | '30d' | '90d' | 'ytd'
+type TimeRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
 type DashboardKind = 'live' | 'paper' | 'all'
 
 type CurvePoint = {
@@ -36,6 +38,7 @@ type CurvePoint = {
 
 const RANGE_OPTS: { value: TimeRange; label: string }[] = [
   { value: 'all', label: '全部' },
+  { value: 'this-month', label: '本月' },
   { value: '30d', label: '近30天' },
   { value: '90d', label: '近90天' },
   { value: 'ytd', label: '本年' },
@@ -52,13 +55,17 @@ function isClosed(t: Trade) {
 }
 
 function filterByKind(trades: Trade[], kind: DashboardKind): Trade[] {
-  if (kind === 'all') return trades.filter(isClosed)
+  if (kind === 'all') return trades.filter((t) => isAccountTrade(t) && isClosed(t))
   return trades.filter((t) => t.tradeKind === kind && isClosed(t))
 }
 
 function filterByRange(trades: Trade[], range: TimeRange): Trade[] {
   const closed = trades.filter(isClosed)
   if (range === 'all') return closed
+  if (range === 'this-month') {
+    const bounds = getPeriodBounds('this-month')
+    return closed.filter((t) => isDateInRange(t.closedAt ?? t.openedAt, bounds))
+  }
 
   const now = new Date()
   let cutoff: Date

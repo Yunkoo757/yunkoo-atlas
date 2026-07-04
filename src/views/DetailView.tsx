@@ -58,13 +58,14 @@ import { useSaveStatus } from '@/store/saveStatus'
 import { deriveLifecycle, formatCaseId, getDisputeType } from '@/data/case'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import { calculatePnL, calculateRMultiple } from '@/lib/priceCalc'
+import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
 
 const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
-const KIND_OPTS: TradeKind[] = ['live', 'paper']
+const KIND_OPTS: TradeKind[] = ['live', 'paper', 'case']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 const REVIEW_OPTS: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
 
@@ -93,6 +94,7 @@ export function DetailView() {
   const toggleSubscribe = useStore((s) => s.toggleSubscribe)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
+  const upsertTrade = useStore((s) => s.upsertTrade)
   const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
   const cases = useStore((s) => s.cases).filter((c) => !c.deletedAt)
   const disputeTypes = useStore((s) => s.disputeTypes)
@@ -371,21 +373,35 @@ export function DetailView() {
   const onDelete = () => {
     removeTrade(trade.id)
     toast('已移至回收站，30天后自动清空')
-    navigate('/list')
+    navigate(trade.tradeKind === 'case' ? '/review-cases' : '/list')
   }
 
   const createCaseFromTrade = () => {
     setCaseModalOpen(true, { sourceTradeId: trade.id })
   }
 
+  const createReviewCaseFromTrade = () => {
+    if (trade.tradeKind === 'case') return
+    const reviewCase = buildReviewCaseFromTrade(trade, {
+      id: crypto.randomUUID(),
+      ref: getNextReviewCaseRef(trades),
+    })
+    upsertTrade(reviewCase)
+    toast('已沉淀为案例记录')
+    navigate(tradeDetailPath(reviewCase))
+  }
+
+  const detailHome = trade.tradeKind === 'case' ? '/review-cases' : '/list'
+  const detailCrumb = trade.tradeKind === 'case' ? '案例记录' : '交易'
+
   return (
     <>
       <header className="dv-topbar">
         <div className="dv-tb-left">
-          <Link to="/list" className="dv-back" aria-label="返回列表">
+          <Link to={detailHome} className="dv-back" aria-label="返回列表">
             <ChevronLeft size={16} />
           </Link>
-          <span className="dv-crumb">交易</span>
+          <span className="dv-crumb">{detailCrumb}</span>
           <ChevronRight size={13} className="dv-crumb-sep" />
           <span className="dv-crumb dv-crumb-active">{trade.ref}</span>
         </div>
@@ -420,12 +436,16 @@ export function DetailView() {
           <Menu
             align="right"
             options={[
-              { value: 'edit', label: '编辑交易', icon: <Pencil size={16} /> },
+              { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
+              ...(trade.tradeKind === 'case'
+                ? []
+                : [{ value: 'review-case', label: '沉淀为案例记录', icon: <BookOpen size={16} /> }]),
               { value: 'copy', label: '复制编号', icon: <Copy size={16} /> },
-              { value: 'delete', label: '删除交易', icon: <Trash2 size={16} /> },
+              { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={16} /> },
             ]}
             onSelect={(v) => {
               if (v === 'edit') openComposer(trade)
+              else if (v === 'review-case') createReviewCaseFromTrade()
               else if (v === 'copy') copyRef()
               else if (v === 'delete') onDelete()
             }}
