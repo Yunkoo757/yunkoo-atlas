@@ -1,4 +1,5 @@
-.csv-modal-overlay {
+/* NotionImportModal — 复用 CSV Import Modal 的视觉体系 */
+.nim-overlay {
   position: fixed;
   inset: 0;
   z-index: 150;
@@ -9,8 +10,8 @@
   padding: 24px;
 }
 
-.csv-modal {
-  width: 720px;
+.nim-modal {
+  width: 800px;
   max-width: 100%;
   max-height: 85vh;
   display: flex;
@@ -22,20 +23,20 @@
   overflow: hidden;
 }
 
-.csv-modal-header {
+.nim-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 12px;
 }
 
-.csv-modal-header h2 {
+.nim-header h2 {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
 }
 
-.csv-modal-close {
+.nim-close {
   display: grid;
   place-items: center;
   width: 32px;
@@ -44,14 +45,13 @@
   color: var(--text-tertiary);
   transition: background var(--dur-fast) var(--ease-out);
 }
-
-.csv-modal-close:hover {
+.nim-close:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
 /* ---- Upload step ---- */
-.csv-upload-area {
+.nim-upload-area {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -61,102 +61,33 @@
   color: var(--text-tertiary);
 }
 
-.csv-upload-area p {
+.nim-upload-area p {
   margin: 0;
   font-size: var(--fs-base);
 }
 
-.csv-upload-hint {
+.nim-upload-hint {
   font-size: var(--fs-sm) !important;
   color: var(--text-quaternary);
+  max-width: 480px;
+  line-height: 1.5 !important;
 }
 
-.csv-file-input {
+.nim-upload-note {
+  padding: 8px 14px;
+  border-radius: var(--radius-6);
+  background: var(--warn-action-bg);
+  border: 1px solid var(--warn-action-border);
+  color: var(--text-tertiary);
+}
+
+.nim-file-input {
   margin-top: 8px;
   font-size: var(--fs-sm);
 }
 
-/* ---- Map step ---- */
-.csv-map-area {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0 24px 20px;
-  overflow: hidden;
-}
-
-.csv-map-hint {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-tertiary);
-}
-
-.csv-map-table-wrap {
-  overflow: auto;
-  max-height: 50vh;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-}
-
-.csv-map-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--fs-sm);
-}
-
-.csv-map-table th,
-.csv-map-table td {
-  padding: 8px 12px;
-  text-align: left;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.csv-map-table th {
-  font-size: var(--fs-mini);
-  color: var(--text-quaternary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--bg-elevated);
-  position: sticky;
-  top: 0;
-}
-
-.csv-map-col {
-  color: var(--text-secondary);
-  font-weight: 500;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.csv-map-sample {
-  color: var(--text-quaternary);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.csv-map-select {
-  width: 100%;
-  min-width: 120px;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: var(--radius-6);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  font-size: var(--fs-sm);
-}
-
-.csv-map-select.is-mapped {
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
-
 /* ---- Preview step ---- */
-.csv-preview-area {
+.nim-preview-area {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -164,34 +95,49 @@
   overflow: hidden;
 }
 
-.csv-preview-summary {
-  margin: 0;
-  font-size: var(--fs-sm);
+.nim-preview-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-secondary);
 }
 
-.csv-preview-table-wrap {
+.nim-file-name {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.nim-preview-stats {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.nim-preview-table-wrap {
   overflow: auto;
   max-height: 50vh;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
 }
 
-.csv-preview-table {
+.nim-preview-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-sm);
 }
 
-.csv-preview-table th,
-.csv-preview-table td {
+.nim-preview-table th,
+.nim-preview-table td {
   padding: 6px 10px;
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
   white-space: nowrap;
 }
 
-.csv-preview-table th {
+.nim-preview-table th {
   font-size: var(--fs-mini);
   color: var(--text-quaternary);
   text-transform: uppercase;
@@ -201,43 +147,142 @@
   top: 0;
 }
 
-.csv-row-err {
+.nim-row-err {
   background: var(--error-action-bg);
 }
 
-.csv-err-cell {
-  color: var(--neg);
-  font-size: var(--fs-mini);
-  max-width: 200px;
+.nim-row-warn {
+  background: var(--warn-action-bg);
+}
+
+.nim-cell-symbol {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.nim-cell-tags {
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.nim-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-4);
+  background: var(--bg-hover);
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+}
+
+.nim-tag-more {
+  font-size: var(--fs-micro);
+  color: var(--text-quaternary);
+}
+
+.nim-pnl-pos {
+  color: var(--pos);
+  font-weight: 500;
+}
+
+.nim-pnl-neg {
+  color: var(--neg);
+  font-weight: 500;
+}
+
+.nim-new-badge {
+  font-size: var(--fs-micro);
+  color: var(--accent);
+}
+
+.nim-new-strat {
+  color: var(--accent);
+}
+
+.nim-img-count {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.nim-img-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-4);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+}
+
+.nim-done-images {
+  font-size: var(--fs-sm) !important;
+  font-weight: 400 !important;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nim-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: nim-spin 0.7s linear infinite;
+}
+
+@keyframes nim-spin {
+  to { transform: rotate(360deg); }
+}
+
+.nim-err-cell {
+  color: var(--neg);
+  font-size: var(--fs-mini);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
 }
 
 /* ---- Done step ---- */
-.csv-done-area {
+.nim-done-area {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 48px 24px;
 }
 
-.csv-done-area p {
+.nim-done-area p {
   margin: 0;
   font-size: var(--fs-lg);
   font-weight: 500;
 }
 
+.nim-done-hint {
+  font-size: var(--fs-sm) !important;
+  font-weight: 400 !important;
+  color: var(--text-tertiary);
+}
+
 /* ---- Shared ---- */
-.csv-ok {
+.nim-ok {
   color: var(--pos);
 }
 
-.csv-bad {
+.nim-bad {
   color: var(--neg);
 }
 
-.csv-error {
+.nim-error {
   margin: 0;
   padding: 8px 12px;
   border-radius: var(--radius-6);
@@ -246,14 +291,14 @@
   font-size: var(--fs-sm);
 }
 
-.csv-actions {
+.nim-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   padding-top: 8px;
 }
 
-.csv-btn {
+.nim-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -266,27 +311,27 @@
   transition: background var(--dur-fast) var(--ease-out);
 }
 
-.csv-btn:disabled {
+.nim-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.csv-btn-primary {
+.nim-btn-primary {
   background: var(--accent);
   color: var(--accent-text);
   border: none;
 }
 
-.csv-btn-primary:hover:not(:disabled) {
+.nim-btn-primary:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 
-.csv-btn-ghost {
+.nim-btn-ghost {
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border-default);
 }
 
-.csv-btn-ghost:hover:not(:disabled) {
+.nim-btn-ghost:hover:not(:disabled) {
   background: var(--bg-hover);
 }

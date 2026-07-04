@@ -12,6 +12,7 @@ import {
 import { isElectron } from '@/storage/runtime'
 import { toast } from '@/lib/toast'
 import { CsvImportModal } from './CsvImportModal'
+import { NotionImportModal } from './NotionImportModal'
 import './DataIOContent.css'
 
 export function DataIOContent({ onDone }: { onDone?: () => void }) {
@@ -19,6 +20,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
   const electron = isElectron()
   const [libraryPath, setLibraryPath] = useState<string | null>(null)
   const [csvOpen, setCsvOpen] = useState(false)
+  const [notionOpen, setNotionOpen] = useState(false)
 
   useEffect(() => {
     if (!electron) return
@@ -153,6 +155,10 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
               <FileSpreadsheet size={16} />
               <span>导入 CSV 文件</span>
             </button>
+            <button type="button" className="dio-btn" onClick={() => setNotionOpen(true)}>
+              <FileSpreadsheet size={16} />
+              <span>从 Notion 导入</span>
+            </button>
           </div>
         </section>
       </div>
@@ -189,6 +195,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         </ul>
       </section>
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
+      <NotionImportModal open={notionOpen} onClose={() => setNotionOpen(false)} />
     </div>
   )
 }

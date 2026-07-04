@@ -43,7 +43,7 @@
   height: 24px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--star-color), #e8843c);
-  color: #1a1205;
+  color: var(--bg-app);
   display: grid;
   place-items: center;
   font-size: 14px;
@@ -256,6 +256,25 @@
 }
 
 .sb-settings {
+  color: var(--text-tertiary);
+}
+
+.sb-trash {
+  color: var(--text-tertiary);
+  margin-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.sb-trash svg {
+  color: var(--text-quaternary);
+}
+
+.sb-trash:hover {
+  color: var(--text-secondary);
+}
+
+.sb-trash:hover svg {
   color: var(--text-tertiary);
 }
 

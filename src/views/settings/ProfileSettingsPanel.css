@@ -90,7 +90,7 @@
 }
 
 .profile-avatar-label {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   color: var(--text-tertiary);
   white-space: nowrap;
 }

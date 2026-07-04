@@ -123,7 +123,7 @@
   border: 0.8px solid var(--popover-border);
   border-radius: var(--radius-xl);
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--text-primary);
   box-shadow: var(--popover-shadow);
   cursor: pointer;

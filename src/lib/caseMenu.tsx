@@ -47,7 +47,7 @@ export function buildCaseCtxItems(
     {
       type: 'item',
       icon: <Trash2 size={14} />,
-      label: '删除判例',
+      label: '移至回收站',
       danger: true,
       onClick: () => actions.removeCase(rec.id),
     },

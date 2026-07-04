@@ -57,6 +57,8 @@ interface State {
   addCase: (rec: CaseRecord) => void
   updateCase: (id: string, patch: Partial<CaseRecord>) => void
   removeCase: (id: string) => void
+  restoreCase: (id: string) => void
+  purgeCase: (id: string) => void
   addDisputeType: (dt: DisputeType) => void
   updateDisputeType: (id: string, patch: Partial<DisputeType>) => void
   removeDisputeType: (id: string) => void
@@ -104,6 +106,8 @@ interface State {
   removeStrategy: (id: string, reassignToId?: string) => void
   upsertTrade: (trade: Trade) => void
   removeTrade: (id: string) => void
+  restoreTrade: (id: string) => void
+  purgeTrade: (id: string) => void
   openComposer: (trade?: Trade | null) => void
   closeComposer: () => void
   select: (id: string | null) => void
@@ -206,6 +210,20 @@ export const useStore = create<State>()((set, get) => ({
           ),
         })),
       removeCase: (id) =>
+        set((s) => ({
+          cases: s.cases.map((c) =>
+            c.id === id ? { ...c, deletedAt: new Date().toISOString() } : c,
+          ),
+        })),
+      restoreCase: (id) =>
+        set((s) => ({
+          cases: s.cases.map((c) =>
+            c.id === id
+              ? { ...c, deletedAt: undefined, updatedAt: new Date().toISOString() }
+              : c,
+          ),
+        })),
+      purgeCase: (id) =>
         set((s) => ({ cases: s.cases.filter((c) => c.id !== id) })),
       addDisputeType: (dt) =>
         set((s) => ({ disputeTypes: [...s.disputeTypes, dt] })),
@@ -250,16 +268,7 @@ export const useStore = create<State>()((set, get) => ({
         })),
       setStrategy: (id, strategyId) =>
         set((s) => ({
-          trades: s.trades.map((t) => {
-            if (t.id !== id || t.strategyId === strategyId) return t
-            const updated = { ...t, strategyId }
-            return appendActivity(updated, {
-              kind: 'strategy',
-              strategyId,
-              fromStrategyId: t.strategyId,
-              timestamp: new Date().toISOString(),
-            })
-          }),
+          trades: s.trades.map((t) => (t.id === id ? { ...t, strategyId } : t)),
         })),
       setTags: (id, tags) =>
         set((s) => ({
@@ -271,30 +280,16 @@ export const useStore = create<State>()((set, get) => ({
         const trimmed = tag.trim()
         if (!trimmed) return
         set((s) => ({
-          trades: s.trades.map((t) => {
-            if (t.id !== id || t.tags.includes(trimmed)) return t
-            const updated = { ...t, tags: [...t.tags, trimmed] }
-            return appendActivity(updated, {
-              kind: 'tag',
-              tag: trimmed,
-              tagAction: 'add',
-              timestamp: new Date().toISOString(),
-            })
-          }),
+          trades: s.trades.map((t) =>
+            t.id === id && !t.tags.includes(trimmed) ? { ...t, tags: [...t.tags, trimmed] } : t,
+          ),
         }))
       },
       removeTag: (id, tag) => {
         set((s) => ({
-          trades: s.trades.map((t) => {
-            if (t.id !== id || !t.tags.includes(tag)) return t
-            const updated = { ...t, tags: t.tags.filter((x) => x !== tag) }
-            return appendActivity(updated, {
-              kind: 'tag',
-              tag,
-              tagAction: 'remove',
-              timestamp: new Date().toISOString(),
-            })
-          }),
+          trades: s.trades.map((t) =>
+            t.id === id ? { ...t, tags: t.tags.filter((x) => x !== tag) } : t,
+          ),
         }))
       },
       updateNote: (id, note) =>
@@ -320,16 +315,7 @@ export const useStore = create<State>()((set, get) => ({
           redoStack: [],
           trades: s.trades.map((t) => {
             if (t.id !== id) return t
-            const updated = { ...t, ...patch }
-            if (patch.tradeKind && patch.tradeKind !== t.tradeKind) {
-              return appendActivity(updated, {
-                kind: 'tradeKind',
-                timestamp: new Date().toISOString(),
-                fromTradeKind: t.tradeKind,
-                toTradeKind: patch.tradeKind,
-              })
-            }
-            return updated
+            return { ...t, ...patch }
           }),
         })),
       addComment: (id, text) => {
@@ -469,6 +455,18 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => ({
           undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
           redoStack: [],
+          trades: s.trades.map((t) =>
+            t.id === id ? { ...t, deletedAt: new Date().toISOString() } : t
+          ),
+        })),
+      restoreTrade: (id) =>
+        set((s) => ({
+          trades: s.trades.map((t) =>
+            t.id === id ? { ...t, deletedAt: undefined } : t
+          ),
+        })),
+      purgeTrade: (id) =>
+        set((s) => ({
           trades: s.trades.filter((t) => t.id !== id),
           starredIds: s.starredIds.filter((x) => x !== id),
           subscribedIds: s.subscribedIds.filter((x) => x !== id),
