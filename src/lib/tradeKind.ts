@@ -5,7 +5,16 @@ import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 /** 旧版 practice 与 paper 语义相同，统一为 paper（模拟） */
 export function normalizeTradeKind(kind: string | undefined): TradeKind {
   if (kind === 'live') return 'live'
+  if (kind === 'case') return 'case'
   return 'paper'
+}
+
+export function isReviewCaseTrade(trade: Trade): boolean {
+  return trade.tradeKind === 'case'
+}
+
+export function isAccountTrade(trade: Trade): boolean {
+  return trade.tradeKind === 'live' || trade.tradeKind === 'paper'
 }
 
 export function normalizeTrades(trades: Trade[]): Trade[] {

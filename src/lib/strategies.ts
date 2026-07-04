@@ -3,6 +3,7 @@ import { DEFAULT_STRATEGIES } from '@/data/strategies'
 import type { Trade, TradeKind } from '@/data/trades'
 import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
+import { isAccountTrade, normalizeTradeKind } from '@/lib/tradeKind'
 
 export function getStrategy(
   strategies: Strategy[],
@@ -17,7 +18,7 @@ export function getStrategyName(strategies: Strategy[], id: string | undefined):
 }
 
 export function countTradesByStrategy(trades: Trade[], strategyId: string): number {
-  return trades.filter((t) => t.strategyId === strategyId).length
+  return trades.filter((t) => t.strategyId === strategyId && isAccountTrade(t)).length
 }
 
 export function sortStrategies(strategies: Strategy[], pinnedIds: string[]): Strategy[] {
@@ -39,7 +40,7 @@ export function computeStrategyStats(
   const kind = options?.tradeKind ?? 'all'
   const all =
     kind === 'all'
-      ? trades.filter((t) => t.strategyId === strategyId)
+      ? trades.filter((t) => t.strategyId === strategyId && isAccountTrade(t))
       : trades.filter((t) => t.strategyId === strategyId && t.tradeKind === kind)
   const closed = all.filter((t) => isExecutedClosed(t.status))
   const wins = closed.filter((t) => t.pnl > 0)
@@ -76,7 +77,7 @@ export function migrateTradeStrategy(
   }
   return {
     ...base,
-    tradeKind: base.tradeKind ?? 'live',
+    tradeKind: normalizeTradeKind(base.tradeKind),
     closedAt:
       isTerminal(base.status) && !base.closedAt
         ? base.openedAt

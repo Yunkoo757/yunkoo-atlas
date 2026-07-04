@@ -8,7 +8,7 @@ export type TradeStatus =
   | 'loss' // 已平 - 亏损（像 Canceled）
   | 'breakeven' // 已平 - 保本
 
-export type TradeKind = 'live' | 'paper'
+export type TradeKind = 'live' | 'paper' | 'case'
 
 export type MissReason =
   | 'hesitation'
@@ -96,6 +96,7 @@ export const STATUS_META: Record<
 export const TRADE_KIND_META: Record<TradeKind, { label: string }> = {
   live: { label: '实盘' },
   paper: { label: '模拟' },
+  case: { label: '案例' },
 }
 
 export const MISS_REASON_META: Record<MissReason, { label: string }> = {

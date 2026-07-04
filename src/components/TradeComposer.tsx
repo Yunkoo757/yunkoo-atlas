@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { X, Image as ImageIcon } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import type { Trade, TradeKind } from '@/data/trades'
+import { TRADE_KIND_META, type Trade, type TradeKind } from '@/data/trades'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { assetUrl, getStorage } from '@/storage'
 import './TradeComposer.css'
@@ -17,6 +17,9 @@ interface UploadedImage {
 }
 
 function defaultKindFromPath(pathname: string): TradeKind {
+  if (pathname.startsWith('/review-cases')) {
+    return 'case'
+  }
   if (
     pathname.startsWith('/sim') ||
     pathname.startsWith('/paper') ||
@@ -27,12 +30,13 @@ function defaultKindFromPath(pathname: string): TradeKind {
   return 'live'
 }
 
-function getNextRef(trades: Trade[]): string {
+function getNextRef(trades: Trade[], kind: TradeKind): string {
+  const prefix = kind === 'case' ? 'CAS' : 'TRD'
   const maxNum = trades.reduce((max, t) => {
-    const match = t.ref.match(/TRD-(\d+)/)
+    const match = t.ref.match(new RegExp(`^${prefix}-(\\d+)$`))
     return match ? Math.max(max, parseInt(match[1], 10)) : max
   }, 0)
-  return `TRD-${maxNum + 1}`
+  return `${prefix}-${maxNum + 1}`
 }
 
 export function TradeComposer() {
@@ -51,6 +55,9 @@ export function TradeComposer() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
+  const defaultKind = defaultKindFromPath(location.pathname)
+  const activeKind = editing?.tradeKind ?? defaultKind
+  const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
 
   // 自动聚焦
   useEffect(() => {
@@ -159,14 +166,14 @@ export function TradeComposer() {
       return
     }
 
-    const kind = defaultKindFromPath(location.pathname)
+    const kind = defaultKind
     const strategyId = strategies.length > 0 ? strategies[0].id : ''
     const note = await saveImagesToNote(editing?.note ?? '')
 
     const trade: Trade = {
       ...(editing ?? {
         id: crypto.randomUUID(),
-        ref: getNextRef(trades),
+        ref: getNextRef(trades, kind),
         side: 'long',
         status: 'planned',
         conviction: 'medium',
@@ -202,7 +209,7 @@ export function TradeComposer() {
     <div className="composer-overlay" onMouseDown={close}>
       <div className="composer-modal composer-quick" onMouseDown={(e) => e.stopPropagation()}>
         <div className="composer-header">
-          <h3>{editing ? '编辑交易' : '快速记录交易'}</h3>
+          <h3>{editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `快速记录${recordLabel}`}</h3>
           <button className="composer-close" onClick={close} aria-label="关闭">
             <X size={18} />
           </button>
@@ -244,7 +251,7 @@ export function TradeComposer() {
 
           {/* 标的输入 */}
           <div className="composer-field-quick">
-            <label>交易品种</label>
+            <label>{recordLabel}品种</label>
             <input
               ref={inputRef}
               type="text"
@@ -276,7 +283,7 @@ export function TradeComposer() {
             onClick={handleQuickCreate}
             disabled={!symbol.trim()}
           >
-            {editing ? '保存' : '快速创建'}
+            {editing ? '保存' : `快速创建${recordLabel}`}
           </button>
         </div>
       </div>

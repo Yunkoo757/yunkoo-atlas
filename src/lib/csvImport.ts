@@ -183,6 +183,7 @@ function parseTradeKind(val: string): TradeKind | null {
   const v = val.toLowerCase().trim()
   if (['live', '实盘', '真实', 'real'].includes(v)) return 'live'
   if (['paper', '模拟', '练习', 'demo', 'practice'].includes(v)) return 'paper'
+  if (['case', '案例', '案例记录', '复盘案例', '错题'].includes(v)) return 'case'
   return null
 }
 

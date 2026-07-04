@@ -52,7 +52,9 @@ export function summarizeStrategyPerformance(
 ): StrategyPerformance {
   const kind = options?.tradeKind ?? 'all'
   const all = trades.filter(
-    (t) => t.strategyId === strategyId && (kind === 'all' || t.tradeKind === kind),
+    (t) =>
+      t.strategyId === strategyId &&
+      (kind === 'all' ? t.tradeKind === 'live' || t.tradeKind === 'paper' : t.tradeKind === kind),
   )
   const closed = all.filter((t) => isExecutedClosed(t.status))
   const wins = closed.filter((t) => t.rMultiple > 0 || t.pnl > 0)
@@ -82,4 +84,3 @@ export function summarizeStrategyPerformance(
     topMistakes,
   }
 }
-

@@ -38,7 +38,7 @@ import { TrashView } from './views/TrashView'
 import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
-import type { ListFilter } from './lib/tradeFilters'
+import type { ListFilter, ReviewCaseScope } from './lib/tradeFilters'
 import { PERIOD_LABELS, isValidPeriodSlug } from './lib/periods'
 import { MISSED_PAGE_TITLE } from './lib/pageCopy'
 import { tradeDetailPath } from './lib/tradeRoute'
@@ -116,6 +116,34 @@ function SimPage() {
       listPath="/sim"
     />
   )
+}
+
+function ReviewCasesPage() {
+  const { scope: rawScope } = useParams()
+  const scope = normalizeReviewCaseScope(rawScope)
+  const listPath = scope === 'all' ? '/review-cases' : `/review-cases/${scope}`
+  return (
+    <TradesPage
+      title={REVIEW_CASE_SCOPE_LABELS[scope]}
+      filter={{ type: 'all', tradeKind: 'case', reviewCaseScope: scope }}
+      listPath={listPath}
+    />
+  )
+}
+
+const REVIEW_CASE_SCOPE_LABELS: Record<ReviewCaseScope, string> = {
+  all: '案例记录',
+  focus: '重点案例',
+  mistakes: '错题案例',
+  unreviewed: '待复看',
+  reviewed: '已掌握',
+}
+
+function normalizeReviewCaseScope(scope: string | undefined): ReviewCaseScope {
+  if (scope === 'focus' || scope === 'mistakes' || scope === 'unreviewed' || scope === 'reviewed') {
+    return scope
+  }
+  return 'all'
 }
 
 function Shell() {
@@ -199,6 +227,10 @@ function Shell() {
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/sim" element={<SimPage />} />
           <Route path="/sim/board" element={<SimPage />} />
+          <Route path="/review-cases" element={<ReviewCasesPage />} />
+          <Route path="/review-cases/board" element={<ReviewCasesPage />} />
+          <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
+          <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
           <Route path="/paper/board" element={<Navigate to="/sim/board" replace />} />
           <Route path="/practice" element={<Navigate to="/sim" replace />} />

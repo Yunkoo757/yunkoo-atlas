@@ -1,4 +1,4 @@
-import { Pencil, Trash2, Star, Ban } from 'lucide-react'
+import { Pencil, Trash2, Star, Ban, BookOpen } from 'lucide-react'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
@@ -11,6 +11,7 @@ export function buildTradeCtxItems(
     changeStatus?: (status: TradeStatus) => void
     openComposer: (t?: Trade | null) => void
     removeTrade: (id: string) => void
+    createReviewCase?: (trade: Trade) => void
     toggleStar?: (id: string) => void
     isStarred?: (id: string) => boolean
   },
@@ -59,6 +60,16 @@ export function buildTradeCtxItems(
       hint: 'E',
       onClick: () => a.openComposer(trade),
     },
+    ...(trade.tradeKind === 'case' || !a.createReviewCase
+      ? []
+      : [
+          {
+            type: 'item' as const,
+            icon: <BookOpen size={15} />,
+            label: '沉淀为案例记录',
+            onClick: () => a.createReviewCase?.(trade),
+          },
+        ]),
     { type: 'divider' },
     {
       type: 'item',

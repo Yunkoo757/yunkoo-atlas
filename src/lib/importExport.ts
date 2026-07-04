@@ -73,7 +73,7 @@ const TRADE_STATUSES: TradeStatus[] = [
   'loss',
   'breakeven',
 ]
-const TRADE_KINDS: TradeKind[] = ['live', 'paper']
+const TRADE_KINDS: TradeKind[] = ['live', 'paper', 'case']
 const TRADE_SIDES: TradeSide[] = ['long', 'short']
 const CONVICTIONS: Conviction[] = ['low', 'medium', 'high', 'urgent']
 const REVIEW_STATUSES: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']

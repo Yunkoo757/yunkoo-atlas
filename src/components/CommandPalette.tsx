@@ -18,12 +18,14 @@ import {
   X,
   Keyboard,
   Gavel,
+  BookOpen,
 } from 'lucide-react'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { getStrategyName, countTradesByStrategy, sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { collectAllTags } from '@/lib/tags'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
+import { isAccountTrade } from '@/lib/tradeKind'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { getShortcutHint } from '@/shortcuts/ShortcutHost'
@@ -66,6 +68,7 @@ export function CommandPalette({
     }
     const viewNav: Cmd[] = [
       { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '全部交易', hint: '实盘', run: go('/list') },
+      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: '不进统计', run: go('/review-cases') },
       { id: 'n-active', group: '导航', icon: <CircleDot size={16} />, label: '进行中', hint: '计划 + 持仓', run: go('/active') },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', run: go('/dashboard') },
       { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', run: go('/favorites') },
@@ -81,7 +84,7 @@ export function CommandPalette({
       run: go(`/period/${slug}`),
     }))
     const strategyNav: Cmd[] = sortStrategies(strategies, []).map((s) => {
-      const count = countTradesByStrategy(trades, s.id)
+      const count = countTradesByStrategy(trades.filter(isAccountTrade), s.id)
       return {
         id: 'strat-' + s.id,
         group: '策略',

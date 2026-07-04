@@ -24,6 +24,7 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus, toggleTradeDone } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isRowDone } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
+import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import {
   classifyDateBucket,
   formatDateBucket,
@@ -155,6 +156,15 @@ export function ListView({
         changeStatus: (s) => transitionTradeStatus(t, s, transition),
         openComposer,
         removeTrade,
+        createReviewCase: (source) => {
+          const reviewCase = buildReviewCaseFromTrade(source, {
+            id: crypto.randomUUID(),
+            ref: getNextReviewCaseRef(trades),
+          })
+          upsertTrade(reviewCase)
+          toast('已沉淀为案例记录')
+          navigate(tradeDetailPath(reviewCase))
+        },
         toggleStar,
         isStarred,
       }),
@@ -253,6 +263,8 @@ export function ListView({
                 : '记录你的第一笔交易，开始构建你的复盘日志。'
 
   const subtitle = getTradesPageSubtitle(filter)
+  const isReviewCaseView = filter.tradeKind === 'case'
+  const recordLabel = isReviewCaseView ? '案例记录' : '交易'
 
   return (
     <>
@@ -260,12 +272,12 @@ export function ListView({
       <div className="list-scroll">
         {groups.length === 0 ? (
           <EmptyState
-            title="还没有交易"
+            title={isReviewCaseView ? '还没有案例记录' : '还没有交易'}
             hint={emptyHint}
             action={
               <button className="empty-btn" onClick={() => openComposer()}>
                 <Plus size={15} />
-                <span>新建交易</span>
+                <span>新建{recordLabel}</span>
               </button>
             }
           />
@@ -310,8 +322,8 @@ export function ListView({
                 <span className="lv-group-count">{g.items.length}</span>
                 <button
                   className="lv-group-add"
-                  title="新建交易"
-                  aria-label="新建交易"
+                  title={`新建${recordLabel}`}
+                  aria-label={`新建${recordLabel}`}
                   onClick={() => openComposer()}
                 >
                   <Plus size={15} />

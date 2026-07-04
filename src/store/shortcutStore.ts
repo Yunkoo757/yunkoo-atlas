@@ -90,7 +90,8 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
         prev.filter.type === ctx.filter.type &&
         prev.filter.strategyId === ctx.filter.strategyId &&
         prev.filter.period === ctx.filter.period &&
-        prev.filter.tradeKind === ctx.filter.tradeKind
+        prev.filter.tradeKind === ctx.filter.tradeKind &&
+        prev.filter.reviewCaseScope === ctx.filter.reviewCaseScope
       ) {
         return s
       }
