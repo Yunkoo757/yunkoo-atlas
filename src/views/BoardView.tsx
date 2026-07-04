@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Plus, Bell } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
+import type { WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
@@ -31,8 +32,8 @@ export function BoardView({
   filter = { type: 'all' },
 }: {
   title?: string
-  view: 'list' | 'board'
-  onView: (v: 'list' | 'board') => void
+  view: WorkbenchView
+  onView: (v: WorkbenchView) => void
   onOpen: (id: string) => void
   filter?: ListFilter
 }) {

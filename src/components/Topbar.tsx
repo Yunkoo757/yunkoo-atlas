@@ -1,7 +1,9 @@
-import { LayoutGrid, List } from 'lucide-react'
+import { LayoutGrid, List, Table2 } from 'lucide-react'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import './Topbar.css'
+
+export type WorkbenchView = 'list' | 'board' | 'table'
 
 export function Topbar({
   title,
@@ -13,8 +15,8 @@ export function Topbar({
 }: {
   title: string
   subtitle?: string
-  view?: 'list' | 'board'
-  onView?: (v: 'list' | 'board') => void
+  view?: WorkbenchView
+  onView?: (v: WorkbenchView) => void
   showDisplay?: boolean
   showSaveStatus?: boolean
 }) {
@@ -45,6 +47,15 @@ export function Topbar({
               onClick={() => onView('board')}
             >
               <LayoutGrid size={15} />
+            </button>
+            <button
+              type="button"
+              className={'tb-seg' + (view === 'table' ? ' is-on' : '')}
+              aria-label="表格视图"
+              aria-pressed={view === 'table'}
+              onClick={() => onView('table')}
+            >
+              <Table2 size={15} />
             </button>
           </div>
         )}

@@ -3,9 +3,10 @@ export function listPathFromPathname(pathname: string): string | null {
   if (pathname.startsWith('/trade/')) return null
   if (pathname.startsWith('/settings')) return null
   if (pathname === '/dashboard') return null
-  if (pathname.endsWith('/board')) {
-    const base = pathname.slice(0, -'/board'.length)
-    if (base === '' || base === '/board') return '/list'
+  if (pathname.endsWith('/board') || pathname.endsWith('/table')) {
+    const suffix = pathname.endsWith('/board') ? '/board' : '/table'
+    const base = pathname.slice(0, -suffix.length)
+    if (base === '' || base === '/board' || base === '/table') return '/list'
     return base
   }
   return pathname
@@ -21,4 +22,8 @@ export function isDetailPath(pathname: string): boolean {
 
 export function isBoardPath(pathname: string): boolean {
   return pathname === '/board' || pathname.endsWith('/board')
+}
+
+export function isTablePath(pathname: string): boolean {
+  return pathname === '/table' || pathname.endsWith('/table')
 }

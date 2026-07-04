@@ -23,6 +23,7 @@ import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
 import { ListView } from './views/ListView'
 import { BoardView } from './views/BoardView'
+import { TableView } from './views/TableView'
 import { Dashboard } from './views/Dashboard'
 import { DetailView } from './views/DetailView'
 import { SettingsLayout } from './views/settings/SettingsLayout'
@@ -37,6 +38,7 @@ import { CaseList } from './views/CaseList'
 import { TrashView } from './views/TrashView'
 import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
+import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
 import type { ListFilter, ReviewCaseScope } from './lib/tradeFilters'
 import { PERIOD_LABELS, isValidPeriodSlug } from './lib/periods'
@@ -60,11 +62,14 @@ function TradesPage({
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const boardPath = listPath === '/list' ? '/board' : `${listPath}/board`
-  const view: 'list' | 'board' = pathname === boardPath ? 'board' : 'list'
-  const setView = (v: 'list' | 'board') => navigate(v === 'board' ? boardPath : listPath)
+  const tablePath = listPath === '/list' ? '/table' : `${listPath}/table`
+  const view: WorkbenchView = pathname === boardPath ? 'board' : pathname === tablePath ? 'table' : 'list'
+  const setView = (v: WorkbenchView) => navigate(v === 'board' ? boardPath : v === 'table' ? tablePath : listPath)
 
   return view === 'list' ? (
     <ListView title={title} view={view} onView={setView} filter={filter} header={header} />
+  ) : view === 'table' ? (
+    <TableView title={title} view={view} onView={setView} filter={filter} />
   ) : (
     <BoardView
       title={title}
@@ -180,6 +185,12 @@ function Shell() {
             }
           />
           <Route
+            path="/table"
+            element={
+              <TradesPage title="交易" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
+            }
+          />
+          <Route
             path="/active"
             element={
               <TradesPage
@@ -199,16 +210,32 @@ function Shell() {
               />
             }
           />
+          <Route
+            path="/active/table"
+            element={
+              <TradesPage
+                title="进行中"
+                filter={{ type: 'active', tradeKind: 'live' }}
+                listPath="/active"
+              />
+            }
+          />
           <Route path="/inbox" element={<Navigate to="/active" replace />} />
           <Route path="/inbox/board" element={<Navigate to="/active/board" replace />} />
+          <Route path="/inbox/table" element={<Navigate to="/active/table" replace />} />
           <Route path="/my-trades" element={<Navigate to="/list" replace />} />
           <Route path="/my-trades/board" element={<Navigate to="/board" replace />} />
+          <Route path="/my-trades/table" element={<Navigate to="/table" replace />} />
           <Route
             path="/favorites"
             element={<TradesPage title="星标交易" filter={{ type: 'starred' }} listPath="/favorites" />}
           />
           <Route
             path="/favorites/board"
+            element={<TradesPage title="星标交易" filter={{ type: 'starred' }} listPath="/favorites" />}
+          />
+          <Route
+            path="/favorites/table"
             element={<TradesPage title="星标交易" filter={{ type: 'starred' }} listPath="/favorites" />}
           />
           <Route
@@ -223,20 +250,33 @@ function Shell() {
               <TradesPage title={MISSED_PAGE_TITLE} filter={{ type: 'missed' }} listPath="/missed" />
             }
           />
+          <Route
+            path="/missed/table"
+            element={
+              <TradesPage title={MISSED_PAGE_TITLE} filter={{ type: 'missed' }} listPath="/missed" />
+            }
+          />
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
+          <Route path="/period/:slug/table" element={<PeriodPage />} />
           <Route path="/sim" element={<SimPage />} />
           <Route path="/sim/board" element={<SimPage />} />
+          <Route path="/sim/table" element={<SimPage />} />
           <Route path="/review-cases" element={<ReviewCasesPage />} />
           <Route path="/review-cases/board" element={<ReviewCasesPage />} />
+          <Route path="/review-cases/table" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
+          <Route path="/review-cases/:scope/table" element={<ReviewCasesPage />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
           <Route path="/paper/board" element={<Navigate to="/sim/board" replace />} />
+          <Route path="/paper/table" element={<Navigate to="/sim/table" replace />} />
           <Route path="/practice" element={<Navigate to="/sim" replace />} />
           <Route path="/practice/board" element={<Navigate to="/sim/board" replace />} />
+          <Route path="/practice/table" element={<Navigate to="/sim/table" replace />} />
           <Route path="/strategy/:id" element={<StrategyPage />} />
           <Route path="/strategy/:id/board" element={<StrategyPage />} />
+          <Route path="/strategy/:id/table" element={<StrategyPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/cases" element={<CaseList />} />

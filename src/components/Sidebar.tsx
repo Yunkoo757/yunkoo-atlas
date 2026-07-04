@@ -29,7 +29,7 @@ const WORKBENCH_NAV = [
     to: '/list',
     label: '交易',
     icon: ListTodo,
-    active: (path: string) => path === '/list' || path === '/board',
+    active: (path: string) => path === '/list' || path === '/board' || path === '/table',
   },
   {
     to: '/review-cases',

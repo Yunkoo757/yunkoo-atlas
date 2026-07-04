@@ -6,6 +6,7 @@ import { mergeImportPayload, parseImportJson } from '@/lib/importExport'
 import { computeStrategyStats } from '@/lib/strategies'
 import { isAccountTrade, isReviewCaseTrade, normalizeTradeKind } from '@/lib/tradeKind'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
+import { buildTradeTableRow } from '@/lib/tradeTable'
 import {
   attachImagesToPreviewsBySourceId,
   executeNotionImport,
@@ -295,6 +296,36 @@ export function testGetNextReviewCaseRefUsesExistingCaseRefsOnly(): void {
   ])
 
   assert(next === 'CAS-8', 'next review case ref increments highest case ref')
+}
+
+export function testTradeTableRowFormatsDenseRecordFields(): void {
+  const row = buildTradeTableRow(
+    {
+      ...trade,
+      ref: 'TRD-42',
+      symbol: 'BTCUSDT',
+      status: 'win',
+      side: 'long',
+      pnl: 260,
+      rMultiple: 2.4,
+      tags: ['MTF ORA', 'LTF ChoCh'],
+      mistakeTags: ['追单'],
+      openedAt: '2026-07-03',
+    },
+    [strategy],
+  )
+
+  assert(row.ref === 'TRD-42', 'table row keeps ref')
+  assert(row.date === '2026/07/03', 'table row formats date compactly')
+  assert(row.symbol === 'BTCUSDT', 'table row keeps symbol')
+  assert(row.model === 'Breakout', 'table row resolves strategy name')
+  assert(row.position === 'Buy', 'table row maps long to Buy')
+  assert(row.status === 'Closed by T/P', 'table row maps winning status to close reason')
+  assert(row.pnl === 'US$260.00', 'table row formats positive pnl')
+  assert(row.rMultiple === '2.4', 'table row formats R multiple')
+  assert(row.result === 'Profit', 'table row maps winning trade to Profit result')
+  assert(row.confluences.join(',') === 'MTF ORA,LTF ChoCh', 'table row exposes tags as confluences')
+  assert(row.mistakes.join(',') === '追单', 'table row exposes mistake tags')
 }
 
 export function testNotionCsvFallbackMatchesImagesByNotionIdNotFolderOrder(): void {
