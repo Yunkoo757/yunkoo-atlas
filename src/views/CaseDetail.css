@@ -309,7 +309,7 @@
   opacity: 0.55;
 }
 .cd-image-label {
-  font-size: 9px; color: var(--text-quaternary); padding: 1px 4px;
+  font-size: var(--fs-micro); color: var(--text-quaternary); padding: 1px 4px;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cd-image-img { width: 100%; height: 100%; object-fit: cover; }

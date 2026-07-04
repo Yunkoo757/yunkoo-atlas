@@ -97,26 +97,25 @@
   background: var(--bg-selected);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
 }
-}
 
 /* hover 复选框 */
 .lv-check {
-  width: 14px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
+  width: 16px; height: 16px;
+  display: grid; place-items: center;
+  flex-shrink: 0; cursor: pointer;
 }
 .lv-check-box {
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid var(--border-strong);
+  display: inline-grid; place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #666;
   border-radius: var(--radius-4);
-  opacity: 0;
   position: relative;
-  transition: opacity var(--dur-fast) var(--ease-out);
+  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
+.lv-row:hover .lv-check-box { border-color: var(--border-strong); }
 .lv-check-box.is-done {
-  opacity: 0;
+  opacity: 1;
   background: var(--accent);
   border-color: var(--accent);
   position: relative;
@@ -131,9 +130,6 @@
   border: solid var(--accent-text);
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
-}
-.lv-row:hover .lv-check-box.is-done {
-  opacity: 1;
 }
 
 .lv-star {
@@ -165,7 +161,7 @@
 }
 
 .lv-ref {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   color: var(--text-tertiary);
   opacity: 0.35;
   font-variant-numeric: tabular-nums;

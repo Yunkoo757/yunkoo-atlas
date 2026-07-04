@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarDays,
   Settings2,
+  Trash2,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import {
@@ -19,7 +20,7 @@ import { countTradesByStrategy, sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { UserAvatar } from '@/components/UserAvatar'
 import type { CaseRecord, DisputeType } from '@/data/case'
-import { deriveLifecycle } from '@/data/case'
+import { deriveLifecycle, isDeleted } from '@/data/case'
 import './Sidebar.css'
 
 const WORKBENCH_NAV = [
@@ -84,15 +85,17 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
   const profile = useStore((s) => s.profile)
   const isSettingsActive = path.startsWith('/settings')
+  const activeTrades = trades.filter((t) => !t.deletedAt)
+  const trashTrades = trades.filter((t) => t.deletedAt)
   const counts = {
-    all: trades.filter((trade) => trade.tradeKind !== 'paper').length,
-    active: trades.filter((trade) => trade.tradeKind !== 'paper' && isActive(trade.status)).length,
+    all: activeTrades.filter((trade) => trade.tradeKind !== 'paper').length,
+    active: activeTrades.filter((trade) => trade.tradeKind !== 'paper' && isActive(trade.status)).length,
     favorites: starredIds.length,
-    missed: trades.filter((trade) => isMissed(trade.status)).length,
-    paper: trades.filter((trade) => trade.tradeKind === 'paper').length,
+    missed: activeTrades.filter((trade) => isMissed(trade.status)).length,
+    paper: activeTrades.filter((trade) => trade.tradeKind === 'paper').length,
   }
   const periodCount = (period: CalendarPeriod) =>
-    trades.filter((trade) => trade.tradeKind !== 'paper' && tradeInPeriod(trade, period)).length
+    activeTrades.filter((trade) => trade.tradeKind !== 'paper' && tradeInPeriod(trade, period)).length
 
   return (
     <aside className="sidebar">
@@ -214,13 +217,25 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
                 />
                 <span>{strategy.name}</span>
                 <span className="sb-item-count">
-                  {countTradesByStrategy(trades, strategy.id)}
+                  {countTradesByStrategy(activeTrades, strategy.id)}
                 </span>
               </NavLink>
             )
           })}
         </nav>
       )}
+      <nav className="sb-section">
+        <NavLink
+          to="/trade-trash"
+          className={() => 'sb-item sb-trash' + (path === '/trade-trash' ? ' is-active' : '')}
+        >
+          <Trash2 size={16} />
+          <span>回收站</span>
+          {trashTrades.length > 0 && (
+            <span className="sb-item-count">{trashTrades.length}</span>
+          )}
+        </NavLink>
+      </nav>
         </>
       )}
 
@@ -255,11 +270,13 @@ function CaseNav({
   search: string
 }) {
   const query = new URLSearchParams(search)
-  const pending = cases.filter((c) => deriveLifecycle(c) === '待验证').length
-  const decided = cases.filter((c) => deriveLifecycle(c) === '已裁决').length
-  const discarded = cases.filter((c) => deriveLifecycle(c) === '已废弃').length
-  const starred = cases.filter((c) => c.star).length
-  const recheck = cases.filter((c) => c.recheck).length
+  const activeCases = cases.filter((c) => !isDeleted(c))
+  const trashCases = cases.filter((c) => isDeleted(c))
+  const pending = activeCases.filter((c) => deriveLifecycle(c) === '待验证').length
+  const decided = activeCases.filter((c) => deriveLifecycle(c) === '已裁决').length
+  const discarded = activeCases.filter((c) => deriveLifecycle(c) === '已废弃').length
+  const starred = activeCases.filter((c) => c.star).length
+  const recheck = activeCases.filter((c) => c.recheck).length
 
   return (
     <>
@@ -270,7 +287,7 @@ function CaseNav({
           className={() => 'sb-item' + (path === '/cases' && !search ? ' is-active' : '')}
         >
           <span>全部</span>
-          <span className="sb-item-count">{cases.length}</span>
+          <span className="sb-item-count">{activeCases.length}</span>
         </NavLink>
         <NavLink
           to="/cases?lifecycle=待验证"
@@ -315,7 +332,7 @@ function CaseNav({
         <nav className="sb-section">
           <div className="sb-section-label">纠纷类型</div>
           {disputeTypes.slice(0, 6).map((dt) => {
-            const count = cases.filter((c) => c.disputeTypeId === dt.id).length
+            const count = activeCases.filter((c) => c.disputeTypeId === dt.id).length
             if (count === 0) return null
             return (
               <NavLink
@@ -330,6 +347,18 @@ function CaseNav({
           })}
         </nav>
       )}
+      <nav className="sb-section">
+        <NavLink
+          to="/trash"
+          className={() => 'sb-item sb-trash' + (path === '/trash' ? ' is-active' : '')}
+        >
+          <Trash2 size={16} />
+          <span>回收站</span>
+          {trashCases.length > 0 && (
+            <span className="sb-item-count">{trashCases.length}</span>
+          )}
+        </NavLink>
+      </nav>
     </>
   )
 }

@@ -134,7 +134,7 @@ function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const trades = useStore((s) => s.trades)
+  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategyDefs = useStore((s) => s.strategies)
   const [range, setRange] = useState<TimeRange>('all')
   const [kind, setKind] = useState<DashboardKind>('live')

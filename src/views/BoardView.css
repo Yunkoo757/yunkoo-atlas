@@ -32,7 +32,9 @@
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+  transition: color var(--dur-fast) var(--ease-out);
 }
+.bd-col-header:hover .bd-col-title { color: var(--text-primary); }
 .bd-col-count {
   font-size: var(--fs-mini);
   color: var(--text-tertiary);
@@ -86,7 +88,7 @@
 .bd-card.is-dragging {
   opacity: 0.4;
   transform: scale(0.96);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-med);
 }
 
 .bd-drop-indicator {

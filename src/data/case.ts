@@ -52,6 +52,10 @@ export interface CaseRecord {
   createdAt: string
   /** 更新时间 */
   updatedAt: string
+  /** 删除时间（ISO 字符串），undefined 表示未删除 */
+  deletedAt?: string
+  /** 删除操作来源（可选，用于审计） */
+  deletedBy?: string
 }
 
 /** 9 个内置纠纷类型 */
@@ -114,11 +118,35 @@ export function getCaseNextAction(rec: CaseRecord): {
   return { label: '可沉淀复用', tone: 'done' }
 }
 
+/** 判断案例是否已删除（软删除） */
+export function isDeleted(rec: CaseRecord): boolean {
+  return rec.deletedAt !== undefined
+}
+
+/** 判断案例是否已过期（超过 30 天） */
+export function isExpired(rec: CaseRecord): boolean {
+  if (!rec.deletedAt) return false
+  const deletedTime = new Date(rec.deletedAt).getTime()
+  const now = Date.now()
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+  return (now - deletedTime) > thirtyDaysMs
+}
+
+/** 计算剩余天数（用于回收站显示） */
+export function getRemainingDays(rec: CaseRecord): number {
+  if (!rec.deletedAt) return -1
+  const deletedTime = new Date(rec.deletedAt).getTime()
+  const now = Date.now()
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+  const remainingMs = thirtyDaysMs - (now - deletedTime)
+  return Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
+}
+
 /** 裁决结果色系映射 */
 export const OUTCOME_COLORS: Record<CaseOutcome, { dot: string; bg: string; label: string }> = {
-  '正例': { dot: 'var(--pos)', bg: 'rgba(34,197,94,0.12)', label: '正例' },
-  '反例': { dot: 'var(--neg)', bg: 'rgba(239,68,68,0.12)', label: '反例' },
-  '误判': { dot: 'var(--warn)', bg: 'rgba(234,179,8,0.12)', label: '误判' },
-  '模糊': { dot: 'var(--text-tertiary)', bg: 'rgba(255,255,255,0.04)', label: '模糊' },
-  '待验证': { dot: 'var(--pending)', bg: 'rgba(96,165,250,0.12)', label: '待验证' },
+  '正例': { dot: 'var(--pos)', bg: 'var(--pos-bg)', label: '正例' },
+  '反例': { dot: 'var(--neg)', bg: 'var(--neg-bg)', label: '反例' },
+  '误判': { dot: 'var(--warn)', bg: 'var(--warn-bg)', label: '误判' },
+  '模糊': { dot: 'var(--text-tertiary)', bg: 'var(--faint-bg)', label: '模糊' },
+  '待验证': { dot: 'var(--pending)', bg: 'var(--pending-bg)', label: '待验证' },
 }
