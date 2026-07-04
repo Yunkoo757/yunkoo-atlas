@@ -167,12 +167,13 @@ function getCaseNotePreview(note: string | undefined): string {
 }
 
 export function CaseList() {
-  const cases = useStore((s) => s.cases)
+  const cases = useStore((s) => s.cases).filter((c) => !c.deletedAt)
   const disputeTypes = useStore((s) => s.disputeTypes)
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const removeCase = useStore((s) => s.removeCase)
   const updateCase = useStore((s) => s.updateCase)
+  const restoreCase = useStore((s) => s.restoreCase)
   const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
   const [searchParams, setSearchParams] = useSearchParams()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -239,11 +240,8 @@ export function CaseList() {
   }
 
   const handleDelete = (id: string) => {
-    const rec = cases.find((c) => c.id === id)
-    if (!rec) return
-    if (!window.confirm(`删除判例 ${formatCaseId(id)}？`)) return
     removeCase(id)
-    toast('判例已删除')
+    toast('已移至回收站，30天后自动清空')
   }
 
   const clearFilter = () => setSearchParams({})

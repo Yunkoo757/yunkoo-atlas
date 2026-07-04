@@ -35,7 +35,7 @@ export function BoardView({
   onOpen: (id: string) => void
   filter?: ListFilter
 }) {
-  const trades = useStore((s) => s.trades)
+  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategies = useStore((s) => s.strategies)
   const display = useStore((s) => s.display)
   const starredIds = useStore((s) => s.starredIds)

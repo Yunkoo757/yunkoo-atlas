@@ -19,6 +19,7 @@ import {
 } from '@/storage'
 import type { ExportAssetRecord } from '@/storage/types'
 import type { CaseRecord, DisputeType } from '@/data/case'
+import { isDeleted } from '@/data/case'
 import { flushPersistNow } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -47,6 +48,10 @@ export interface PersistedSlice {
   subscribedIds: string[]
   pinnedStrategyIds: string[]
   display: DisplayPrefs
+  tagPresets?: string[]
+  mistakeTagPresets?: string[]
+  cases?: CaseRecord[]
+  disputeTypes?: DisputeType[]
 }
 
 interface ExportState extends PersistedSlice {
@@ -140,8 +145,11 @@ export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
 ): Promise<ExportPayload> {
+  // Filter out deleted cases for export
+  const activeCases = (state.cases ?? []).filter((c) => !isDeleted(c))
+
   const assetIds = new Set(collectAssetIdsFromNotes(state.trades))
-  for (const c of (state.cases ?? [])) {
+  for (const c of activeCases) {
     for (const img of c.images) assetIds.add(img.fileId)
   }
   const assets: ExportAssetRecord[] = []
@@ -159,7 +167,7 @@ export async function buildExportPayloadFromState(
     display: state.display,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
-    cases: state.cases,
+    cases: activeCases, // Only export active (non-deleted) cases
     disputeTypes: state.disputeTypes,
     assets,
   }
@@ -466,6 +474,14 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
   for (const t of migrated) {
     tradeMap.set(t.id, t)
   }
+  const caseMap = new Map((current.cases ?? []).map((c) => [c.id, c]))
+  for (const c of payload.cases ?? []) {
+    caseMap.set(c.id, c)
+  }
+  const disputeTypeMap = new Map((current.disputeTypes ?? []).map((d) => [d.id, d]))
+  for (const d of payload.disputeTypes ?? []) {
+    disputeTypeMap.set(d.id, d)
+  }
   return {
     strategies,
     trades: normalizeTrades(Array.from(tradeMap.values())),
@@ -475,6 +491,12 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
       ...new Set([...current.pinnedStrategyIds, ...payload.pinnedStrategyIds]),
     ],
     display: { ...current.display, ...payload.display },
+    tagPresets: [...new Set([...(current.tagPresets ?? []), ...(payload.tagPresets ?? [])])],
+    mistakeTagPresets: [
+      ...new Set([...(current.mistakeTagPresets ?? []), ...(payload.mistakeTagPresets ?? [])]),
+    ],
+    cases: Array.from(caseMap.values()),
+    disputeTypes: Array.from(disputeTypeMap.values()),
   }
 }
 
@@ -497,7 +519,18 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
   if (caseCount > 0) parts.push(`${caseCount} 条判例`)
   if (assetCount > 0) parts.push(`${assetCount} 个附件`)
 
-  useStore.getState().importData({ ...payload, trades })
+  // Preserve local deleted cases when importing
+  const currentCases = useStore.getState().cases
+  const localDeletedCases = currentCases.filter((c) => isDeleted(c))
+  const importedCases = payload.cases ?? []
+
+  // Merge: imported cases + local deleted cases (avoid duplicates)
+  const caseMap = new Map<string, CaseRecord>()
+  for (const c of importedCases) caseMap.set(c.id, c)
+  for (const c of localDeletedCases) caseMap.set(c.id, c) // Local deleted cases take precedence
+  const mergedCases = Array.from(caseMap.values())
+
+  useStore.getState().importData({ ...payload, trades, cases: mergedCases })
   await flushPersistNow()
   return { summary: `已导入 ${parts.join('、')}` }
 }

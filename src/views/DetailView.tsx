@@ -57,6 +57,7 @@ import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { deriveLifecycle, formatCaseId, getDisputeType } from '@/data/case'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
+import { calculatePnL, calculateRMultiple } from '@/lib/priceCalc'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
@@ -70,7 +71,7 @@ const REVIEW_OPTS: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
 export function DetailView() {
   const { id: routeParam } = useParams()
   const navigate = useNavigate()
-  const trades = useStore((s) => s.trades)
+  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const trade = useMemo(
     () => findTradeByRouteParam(trades, routeParam),
     [trades, routeParam],
@@ -93,7 +94,7 @@ export function DetailView() {
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
   const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
-  const cases = useStore((s) => s.cases)
+  const cases = useStore((s) => s.cases).filter((c) => !c.deletedAt)
   const disputeTypes = useStore((s) => s.disputeTypes)
   const profile = useStore((s) => s.profile)
   const starredIds = useStore((s) => s.starredIds)
@@ -368,9 +369,8 @@ export function DetailView() {
   }
 
   const onDelete = () => {
-    if (!window.confirm(`确定删除 ${trade.ref}？`)) return
     removeTrade(trade.id)
-    toast('交易已删除')
+    toast('已移至回收站，30天后自动清空')
     navigate('/list')
   }
 
@@ -678,7 +678,22 @@ export function DetailView() {
               value={trade.entry}
               format={(v) => fmtPrice(v as number)}
               inputType="number"
-              onSave={(v) => updateTradeData(trade.id, { entry: v as number })}
+              onSave={(v) => {
+                const entry = v as number
+                const updates: Partial<import('@/data/trades').Trade> = { entry }
+
+                // 自动计算盈亏和 R 倍数
+                if (trade.exit && entry > 0 && trade.size > 0) {
+                  const pnl = calculatePnL(entry, trade.exit, trade.size, trade.side)
+                  updates.pnl = pnl
+                  if (trade.stopLoss) {
+                    const rMultiple = calculateRMultiple(pnl, trade.stopLoss, entry, trade.size, trade.side)
+                    updates.rMultiple = rMultiple
+                  }
+                }
+
+                updateTradeData(trade.id, updates)
+              }}
             />
             <EditableDataRow
               label="出场"
@@ -686,7 +701,22 @@ export function DetailView() {
               format={(v) => (v == null ? '—' : fmtPrice(v as number))}
               inputType="number"
               nullable
-              onSave={(v) => updateTradeData(trade.id, { exit: v as number | null })}
+              onSave={(v) => {
+                const exit = v as number | null
+                const updates: Partial<import('@/data/trades').Trade> = { exit }
+
+                // 自动计算盈亏和 R 倍数
+                if (exit && trade.entry > 0 && trade.size > 0) {
+                  const pnl = calculatePnL(trade.entry, exit, trade.size, trade.side)
+                  updates.pnl = pnl
+                  if (trade.stopLoss) {
+                    const rMultiple = calculateRMultiple(pnl, trade.stopLoss, trade.entry, trade.size, trade.side)
+                    updates.rMultiple = rMultiple
+                  }
+                }
+
+                updateTradeData(trade.id, updates)
+              }}
             />
             <EditableDataRow
               label="仓位"
@@ -701,7 +731,18 @@ export function DetailView() {
               format={(v) => (v == null ? '—' : fmtPrice(v))}
               inputType="number"
               nullable
-              onSave={(v) => updateTradeData(trade.id, { stopLoss: v })}
+              onSave={(v) => {
+                const stopLoss = v as number | null
+                const updates: Partial<import('@/data/trades').Trade> = { stopLoss }
+
+                // 自动计算 R 倍数
+                if (stopLoss && trade.entry > 0 && trade.size > 0 && trade.pnl !== 0) {
+                  const rMultiple = calculateRMultiple(trade.pnl, stopLoss, trade.entry, trade.size, trade.side)
+                  updates.rMultiple = rMultiple
+                }
+
+                updateTradeData(trade.id, updates)
+              }}
             />
             <EditableDataRow
               label="盈亏"

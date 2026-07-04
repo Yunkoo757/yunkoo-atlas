@@ -148,10 +148,13 @@ export function CaseDetail({
   const toggleRecheck = () => updateCase(rec.id, { recheck: !rec.recheck })
 
   const handleDelete = () => {
-    if (!window.confirm(`确定删除判例 ${formatCaseId(rec.id)}？此操作不可撤销。`)) return
     removeCase(rec.id)
-    toast('判例已删除')
+    toast('已移至回收站，30天后自动清空')
     onClose()
+    // 跳转到回收站页面
+    setTimeout(() => {
+      window.location.href = '/trash'
+    }, 1500)
   }
 
   return (

@@ -46,7 +46,7 @@ export function ListView({
   filter?: ListFilter
   header?: ReactNode
 }) {
-  const trades = useStore((s) => s.trades)
+  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategies = useStore((s) => s.strategies)
   const sortedStrategies = useMemo(
     () => [...strategies].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN')),
@@ -90,9 +90,8 @@ export function ListView({
   }
 
   const batchDelete = () => {
-    if (!window.confirm(`确定删除 ${selIds.size} 笔交易？此操作不可撤销。`)) return
     selIds.forEach((id) => removeTrade(id))
-    toast(`已删除 ${selIds.size} 笔交易`)
+    toast(`已将 ${selIds.size} 笔交易移至回收站，30天后自动清空`)
     setSelIds(new Set())
   }
 
@@ -332,11 +331,6 @@ export function ListView({
                     toggleStar(t.id)
                   }}
                   onContext={onRowContext}
-                  onToggleDone={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    toggleTradeDone(t, transition)
-                  }}
                   focused={t.id === focusId}
                   selected={selIds.has(t.id)}
                   onToggleSelect={(e) => {
@@ -372,7 +366,6 @@ function Row({
   t,
   index,
   onContext,
-  onToggleDone,
   onToggleStar,
   strategies,
   starred,
@@ -387,7 +380,6 @@ function Row({
   selected: boolean
   onToggleSelect: (e: React.MouseEvent) => void
   onContext: (e: React.MouseEvent, t: Trade) => void
-  onToggleDone: (e: React.MouseEvent) => void
   onToggleStar: (e: React.MouseEvent) => void
   strategies: Strategy[]
   starred: boolean
@@ -404,11 +396,10 @@ function Row({
       style={{ animationDelay: `${Math.min(index, 16) * 22}ms` }}
       onContextMenu={(e) => onContext(e, t)}
     >
-      <span className={'lv-select' + (selected ? ' is-checked' : '')} onClick={onToggleSelect}>
-        {selected && <Check size={12} />}
-      </span>
-      <span className="lv-check" onClick={onToggleDone}>
-        <span className={'lv-check-box' + (done ? ' is-done' : '')} />
+      <span className="lv-check" onClick={onToggleSelect}>
+        <span className={'lv-check-box' + (selected ? ' is-done' : '')}>
+          {selected && <Check size={11} />}
+        </span>
       </span>
       <span className="lv-conviction">
         <ConvictionIcon conviction={t.conviction} />
