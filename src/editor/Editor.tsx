@@ -34,9 +34,11 @@ const editorBridge = {
 export function Editor({
   content,
   onChange,
+  placeholder = '写下这笔交易的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图',
 }: {
   content: string
   onChange: (html: string) => void
+  placeholder?: string
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
@@ -55,7 +57,7 @@ export function Editor({
         },
       }),
       Placeholder.configure({
-        placeholder: '写下这笔交易的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图',
+        placeholder,
       }),
     ],
     content,

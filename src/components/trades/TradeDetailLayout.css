@@ -1,0 +1,118 @@
+.trade-detail-layout {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.trade-detail-properties-toggle,
+.trade-detail-properties-backdrop,
+.trade-detail-properties-close {
+  display: none;
+}
+
+.trade-detail-layout .dv-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  min-height: 0;
+}
+
+.trade-detail-layout .dv-main {
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.trade-detail-layout .dv-props {
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 1180px) {
+  .trade-detail-layout .dv-body {
+    grid-template-columns: minmax(0, 1fr) 264px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .trade-detail-layout .dv-body {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .trade-detail-layout .dv-main,
+  .trade-detail-layout .dv-props {
+    overflow: visible;
+  }
+
+  .trade-detail-layout .dv-props {
+    position: fixed;
+    top: 52px;
+    right: 8px;
+    bottom: 8px;
+    z-index: 52;
+    width: min(360px, 92vw);
+    overflow-y: auto;
+    background: var(--bg-surface);
+    border-top: 0;
+    border-left: 1px solid var(--border-default);
+    box-shadow: var(--shadow-high);
+    visibility: hidden;
+    transform: translateX(100%);
+    transition:
+      transform var(--motion-panel) var(--ease-out),
+      visibility 0s linear var(--motion-panel);
+  }
+
+  .trade-detail-layout .dv-props.is-properties-open {
+    visibility: visible;
+    transform: translateX(0);
+    transition-delay: 0s;
+  }
+
+  .trade-detail-properties-close {
+    position: sticky;
+    top: 8px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: var(--control-height);
+    height: var(--control-height);
+    margin: 8px 8px 0 auto;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-6);
+  }
+
+  .trade-detail-properties-toggle {
+    position: fixed;
+    top: 60px;
+    right: 18px;
+    z-index: 54;
+    display: grid;
+    place-items: center;
+    width: var(--control-height);
+    height: var(--control-height);
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-6);
+  }
+
+  .trade-detail-properties-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 51;
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--overlay-bg);
+    border-radius: 0;
+  }
+}

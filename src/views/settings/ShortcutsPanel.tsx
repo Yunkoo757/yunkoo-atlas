@@ -1,5 +1,6 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
+import { ArrowRight, Ban, LockKeyhole, RotateCcw } from 'lucide-react'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { formatBinding } from '@/shortcuts/format'
 import { chordFromEvent, chordKey, isSequence, parseChordKey } from '@/shortcuts/chords'
@@ -8,6 +9,34 @@ import { findBindingConflicts } from '@/shortcuts/engine'
 import { resolveBinding, useShortcutStore } from '@/store/shortcutStore'
 import { toast } from '@/lib/toast'
 import '@/views/ShortcutsView.css'
+
+function splitChordLabel(chord: KeyChord): string[] {
+  const formatted = formatBinding(chord)
+  if (formatted.includes('+')) return formatted.split('+')
+  return formatted.match(/[⌘⌥⇧]|[^⌘⌥⇧]+/g) ?? [formatted]
+}
+
+function ShortcutKeycaps({ binding }: { binding: ShortcutBinding | null }) {
+  if (!binding) return <span className="shortcuts-unassigned">未设置</span>
+
+  const chords = isSequence(binding) ? binding : [binding]
+  return (
+    <span className="shortcuts-keycap-list" aria-hidden="true">
+      {chords.map((chord, chordIndex) => (
+        <Fragment key={chordKey(chord)}>
+          {chordIndex > 0 && <ArrowRight className="shortcuts-sequence-arrow" size={12} />}
+          <span className="shortcuts-chord">
+            {splitChordLabel(chord).map((label) => (
+              <kbd key={label} className="shortcuts-keycap">
+                {label}
+              </kbd>
+            ))}
+          </span>
+        </Fragment>
+      ))}
+    </span>
+  )
+}
 
 export function ShortcutsPanel() {
   const bindings = useShortcutStore((s) => s.bindings)
@@ -30,11 +59,21 @@ export function ShortcutsPanel() {
       if (!recordingId) return
       e.preventDefault()
       e.stopPropagation()
+      e.stopImmediatePropagation()
 
       if (e.key === 'Escape') {
         setRecordingId(null)
         return
       }
+
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        setBinding(recordingId, null)
+        setRecordingId(null)
+        toast('快捷键已禁用')
+        return
+      }
+
+      if (e.repeat) return
 
       const chord = chordFromEvent(e)
       if (!chord.key) return
@@ -65,12 +104,7 @@ export function ShortcutsPanel() {
   return (
     <div className="settings-page shortcuts-panel">
       <div className="settings-page-head shortcuts-panel-head">
-        <div>
-          <h1 className="settings-page-title">键盘快捷键</h1>
-          <p className="settings-page-desc">
-            点击「录制」可自定义任意快捷键（单键或 Ctrl/Alt/Shift 组合键）。
-          </p>
-        </div>
+        <h1 className="settings-page-title">键盘快捷键</h1>
         <button
           type="button"
           className="shortcuts-reset-all"
@@ -91,49 +125,88 @@ export function ShortcutsPanel() {
               const binding = resolveBinding(action.id, bindings)
               const isRecording = recordingId === action.id
               const isDefault = !action.sequenceFixed && !(action.id in bindings)
+              const bindingLabel = formatBinding(binding)
               return (
-                <div key={action.id} className="shortcuts-row">
+                <div
+                  key={action.id}
+                  className={`shortcuts-row${isRecording ? ' is-recording' : ''}`}
+                >
                   <span className="shortcuts-label">{action.label}</span>
-                  <span className="shortcuts-keys">
-                    {isRecording ? (
-                      <span className="shortcuts-recording">按下新快捷键…</span>
+                  <div className="shortcuts-row-controls">
+                    {action.sequenceFixed ? (
+                      <Tooltip
+                        label={`${action.label}为固定序列快捷键`}
+                        content="固定序列快捷键"
+                      >
+                        <span
+                          className="shortcuts-capture is-fixed"
+                          aria-label={`${bindingLabel}，固定快捷键`}
+                        >
+                          <ShortcutKeycaps binding={binding} />
+                          <LockKeyhole size={12} />
+                        </span>
+                      </Tooltip>
                     ) : (
-                      <kbd>{formatBinding(binding)}</kbd>
-                    )}
-                  </span>
-                  <span className="shortcuts-actions">
-                    <button
-                      type="button"
-                      className="shortcuts-btn"
-                      onClick={() => setRecordingId(action.id)}
-                    >
-                      录制
-                    </button>
-                    {!isDefault && (
                       <button
                         type="button"
-                        className="shortcuts-btn shortcuts-btn--ghost"
-                        onClick={() => {
-                          resetBinding(action.id)
-                          toast('已恢复默认')
+                        className="shortcuts-capture"
+                        aria-label={
+                          isRecording
+                            ? `${action.label}，等待输入新快捷键`
+                            : `${action.label}，当前快捷键 ${bindingLabel}，点击修改`
+                        }
+                        aria-pressed={isRecording}
+                        onClick={() => setRecordingId(isRecording ? null : action.id)}
+                        onBlur={() => {
+                          if (isRecording) setRecordingId(null)
                         }}
                       >
-                        重置
+                        {isRecording ? (
+                          <span className="shortcuts-recording">
+                            <span className="shortcuts-recording-dot" />
+                            等待输入
+                          </span>
+                        ) : (
+                          <ShortcutKeycaps binding={binding} />
+                        )}
                       </button>
                     )}
-                    {binding && !isSequence(binding) && (
-                      <button
-                        type="button"
-                        className="shortcuts-btn shortcuts-btn--ghost"
-                        onClick={() => {
-                          setBinding(action.id, null)
-                          toast('已禁用')
-                        }}
-                      >
-                        禁用
-                      </button>
-                    )}
-                  </span>
+
+                    <span className="shortcuts-actions">
+                      {!isDefault && !action.sequenceFixed && (
+                        <Tooltip label={`恢复${action.label}的默认快捷键`} content="恢复默认">
+                          <button
+                            type="button"
+                            className="shortcuts-action"
+                            aria-label={`恢复${action.label}的默认快捷键`}
+                            onClick={() => {
+                              setRecordingId(null)
+                              resetBinding(action.id)
+                              toast('已恢复默认')
+                            }}
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        </Tooltip>
+                      )}
+                      {binding && !isSequence(binding) && !action.sequenceFixed && (
+                        <Tooltip label={`禁用${action.label}快捷键`} content="禁用快捷键">
+                          <button
+                            type="button"
+                            className="shortcuts-action"
+                            aria-label={`禁用${action.label}快捷键`}
+                            onClick={() => {
+                              setRecordingId(null)
+                              setBinding(action.id, null)
+                              toast('已禁用')
+                            }}
+                          >
+                            <Ban size={14} />
+                          </button>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </div>
                 </div>
               )
             })}

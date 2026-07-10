@@ -133,14 +133,16 @@
   height: 28px;
   padding: 0 10px;
   border-radius: var(--radius-6);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
   font-size: var(--fs-sm);
   color: var(--text-primary);
 }
 
 .tag-input:focus {
-  border-color: var(--accent);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .tag-input-wrap {

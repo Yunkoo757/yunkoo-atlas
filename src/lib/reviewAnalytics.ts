@@ -1,13 +1,23 @@
-import type { ReviewStatus, Trade, TradeKind } from '@/data/trades'
+import type { ReviewCategory, ReviewStatus, Trade, TradeKind } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 
 export const DEFAULT_REVIEW_STATUS: ReviewStatus = 'unreviewed'
+export const DEFAULT_REVIEW_CATEGORY: ReviewCategory = 'normal'
 
 export const REVIEW_STATUS_META: Record<ReviewStatus, { label: string }> = {
   unreviewed: { label: '未复盘' },
   reviewed: { label: '已复盘' },
   focus: { label: '重点复盘' },
 }
+
+const REVIEW_CATEGORIES: ReviewCategory[] = [
+  'normal',
+  'mistake',
+  'focus',
+  'ambiguous',
+  'recheck',
+  'mastered',
+]
 
 export interface MistakeSummary {
   tag: string
@@ -34,11 +44,25 @@ export function normalizeReviewFields(trade: Trade): Trade {
   const mistakeTags = Array.isArray(trade.mistakeTags)
     ? [...new Set(trade.mistakeTags.map((x) => x.trim()).filter(Boolean))]
     : []
+  const rawCategory = trade.reviewCategory as ReviewCategory | undefined
+  const reviewCategory = rawCategory && REVIEW_CATEGORIES.includes(rawCategory)
+    ? rawCategory
+    : inferReviewCategory({ ...trade, mistakeTags, reviewStatus })
   return {
     ...trade,
     mistakeTags,
     reviewStatus,
+    reviewCategory,
   }
+}
+
+function inferReviewCategory(
+  trade: Pick<Trade, 'status' | 'mistakeTags' | 'reviewStatus'>,
+): ReviewCategory {
+  if (trade.reviewStatus === 'focus') return 'focus'
+  if (trade.reviewStatus === 'reviewed') return 'mastered'
+  if (trade.status === 'missed' || trade.mistakeTags.length > 0) return 'mistake'
+  return DEFAULT_REVIEW_CATEGORY
 }
 
 export function normalizeReviewTrades(trades: Trade[]): Trade[] {

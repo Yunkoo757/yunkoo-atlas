@@ -3,6 +3,7 @@ import { useStore } from '@/store/useStore'
 import type { DisputeType } from '@/data/case'
 import { Plus, Pencil, Trash2, X, Check, Shield } from 'lucide-react'
 import { toast } from '@/lib/toast'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './DisputeTypesPanel.css'
 
 function uniqueDtId(name: string, existing: DisputeType[]): string {
@@ -99,21 +100,25 @@ export function DisputeTypesPanel() {
                 <span className="dt-badge">内置</span>
               ) : (
                 <>
-                  <button className="dt-act" title="编辑" onClick={() => startEdit(dt)}>
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    className="dt-act dt-act-danger"
-                    title="删除"
-                    onClick={() => {
-                      if (window.confirm(`删除「${dt.name}」？已有判例不受影响。`)) {
-                        removeDisputeType(dt.id)
-                        toast(`已删除「${dt.name}」`)
-                      }
-                    }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <Tooltip content="编辑" label={`编辑 ${dt.name}`}>
+                    <button className="dt-act" aria-label={`编辑 ${dt.name}`} onClick={() => startEdit(dt)}>
+                      <Pencil size={14} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="删除" label={`删除 ${dt.name}`}>
+                    <button
+                      className="dt-act dt-act-danger"
+                      aria-label={`删除 ${dt.name}`}
+                      onClick={() => {
+                        if (window.confirm(`删除「${dt.name}」？已有判例不受影响。`)) {
+                          removeDisputeType(dt.id)
+                          toast(`已删除「${dt.name}」`)
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </Tooltip>
                 </>
               )}
             </div>

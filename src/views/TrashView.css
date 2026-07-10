@@ -86,9 +86,9 @@
   width: 100%;
   height: 32px;
   padding: 0 32px 0 12px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--field-border);
   border-radius: var(--radius-8);
-  background: var(--bg-elevated);
+  background: var(--field-bg);
   color: var(--text-primary);
   font-size: var(--fs-sm);
   font-family: var(--font-ui);
@@ -101,7 +101,9 @@
 
 .trash-search-input:focus {
   outline: none;
-  border-color: var(--accent);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .trash-search-clear {

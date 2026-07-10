@@ -141,16 +141,14 @@
 .csv-map-select {
   width: 100%;
   min-width: 120px;
+}
+
+.csv-map-select .ui-select-trigger {
   height: 32px;
-  padding: 0 8px;
-  border-radius: var(--radius-6);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
   font-size: var(--fs-sm);
 }
 
-.csv-map-select.is-mapped {
+.csv-map-select.is-mapped .ui-select-trigger {
   border-color: var(--accent);
   color: var(--text-primary);
 }

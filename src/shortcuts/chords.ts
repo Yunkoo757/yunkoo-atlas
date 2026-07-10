@@ -1,6 +1,6 @@
 import type { KeyChord, ShortcutBinding } from '@/shortcuts/types'
 
-const MOD_KEYS = new Set(['control', 'meta', 'os'])
+const MOD_KEYS = new Set(['control', 'meta', 'os', 'shift', 'alt', 'altgraph'])
 
 export function normalizeKey(key: string): string {
   const k = key.toLowerCase()

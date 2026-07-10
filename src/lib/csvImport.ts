@@ -1,4 +1,4 @@
-import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind } from '@/data/trades'
+import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind, ReviewCategory } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 
 export interface CsvParseResult {
@@ -23,7 +23,7 @@ export interface ImportPreview {
 
 export type TradeField =
   | 'symbol' | 'side' | 'status' | 'conviction' | 'strategyId'
-  | 'tags' | 'tradeKind' | 'entry' | 'exit' | 'size' | 'pnl'
+  | 'tags' | 'tradeKind' | 'reviewCategory' | 'entry' | 'exit' | 'size' | 'pnl'
   | 'rMultiple' | 'openedAt' | 'closedAt' | 'note' | 'stopLoss' | 'missReason'
 
 const TRADE_FIELDS: { key: TradeField; label: string; required: boolean; type: string }[] = [
@@ -34,6 +34,7 @@ const TRADE_FIELDS: { key: TradeField; label: string; required: boolean; type: s
   { key: 'strategyId', label: '策略', required: true, type: 'strategy' },
   { key: 'tags', label: '标签', required: false, type: 'tags' },
   { key: 'tradeKind', label: '类型', required: false, type: 'tradeKind' },
+  { key: 'reviewCategory', label: '快速分类', required: false, type: 'reviewCategory' },
   { key: 'entry', label: '入场价', required: true, type: 'number' },
   { key: 'exit', label: '出场价', required: false, type: 'number' },
   { key: 'size', label: '仓位', required: true, type: 'number' },
@@ -127,6 +128,7 @@ export function autoMapFields(headers: string[]): FieldMapping {
     [/^(策略|strategy|setup|system|plan|method)$/i, 'strategyId'],
     [/^(标签|tags?|labels?|categories)$/i, 'tags'],
     [/^(类型|kind|mode|account|实盘\/模拟)$/i, 'tradeKind'],
+    [/^(快速分类|分类|复盘分类|case category|review category|category)$/i, 'reviewCategory'],
     [/^(入场|entry|入场价|进场|开仓价|buy)/i, 'entry'],
     [/^(出场|exit|出场价|离场|平仓价|sell)/i, 'exit'],
     [/^(仓位|size|quantity|qty|volume|lots|amount|手数)/i, 'size'],
@@ -184,6 +186,17 @@ function parseTradeKind(val: string): TradeKind | null {
   if (['live', '实盘', '真实', 'real'].includes(v)) return 'live'
   if (['paper', '模拟', '练习', 'demo', 'practice'].includes(v)) return 'paper'
   if (['case', '案例', '案例记录', '复盘案例', '错题'].includes(v)) return 'case'
+  return null
+}
+
+function parseReviewCategory(val: string): ReviewCategory | null {
+  const v = val.toLowerCase().trim()
+  if (['normal', '普通', '日常'].includes(v)) return 'normal'
+  if (['mistake', '错题', '错误'].includes(v)) return 'mistake'
+  if (['focus', '重点', '重点案例'].includes(v)) return 'focus'
+  if (['ambiguous', '模糊', '模棱两可'].includes(v)) return 'ambiguous'
+  if (['recheck', '待复看', '复看'].includes(v)) return 'recheck'
+  if (['mastered', '已掌握', '掌握'].includes(v)) return 'mastered'
   return null
 }
 
@@ -296,6 +309,9 @@ export function mapRowToTrade(
       case 'tradeKind':
         trade.tradeKind = parseTradeKind(raw) ?? 'live'
         break
+      case 'reviewCategory':
+        trade.reviewCategory = parseReviewCategory(raw) ?? 'normal'
+        break
       case 'entry': {
         const n = parseNumber(raw)
         if (n !== null) trade.entry = n
@@ -390,9 +406,11 @@ export function finalizeTrade(
     status: partial.status,
     conviction: partial.conviction ?? 'medium',
     strategyId: partial.strategyId,
+    session: partial.session,
     tags: partial.tags ?? [],
     mistakeTags: partial.mistakeTags ?? [],
     reviewStatus: partial.reviewStatus ?? 'unreviewed',
+    reviewCategory: partial.reviewCategory ?? 'normal',
     tradeKind: partial.tradeKind ?? 'live',
     entry: partial.entry,
     exit: partial.exit ?? null,

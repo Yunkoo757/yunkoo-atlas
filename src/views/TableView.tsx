@@ -10,6 +10,7 @@ import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildTradeTableRow } from '@/lib/tradeTable'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import type { Trade } from '@/data/trades'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './TableView.css'
 
 type SortKey = 'date' | 'symbol' | 'pnl' | 'r'
@@ -53,16 +54,17 @@ export function TableView({
   }
 
   const subtitle = getTradesPageSubtitle(filter)
-  const recordLabel = filter.tradeKind === 'case' ? '案例记录' : '交易'
+  const isReviewCaseView = filter.tradeKind === 'case'
+  const recordLabel = isReviewCaseView ? '案例记录' : '交易'
 
   return (
     <>
       <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
-      <div className="tv-scroll">
+      <div className={'tv-scroll' + (isReviewCaseView ? ' tv-scroll-case' : '')}>
         {visible.length === 0 ? (
           <EmptyState
-            title={filter.tradeKind === 'case' ? '还没有案例记录' : '还没有交易'}
-            hint="表格视图会把关键字段横向展开，适合快速对比和复盘。"
+            title={isReviewCaseView ? '还没有案例记录' : '还没有交易'}
+            hint={isReviewCaseView ? '表格适合批量对比错题、重点案例和复盘状态。' : '表格视图会把关键字段横向展开，适合快速对比和复盘。'}
             action={
               <button className="empty-btn" onClick={() => openComposer()}>
                 <Plus size={15} />
@@ -71,7 +73,7 @@ export function TableView({
             }
           />
         ) : (
-          <table className="trade-table">
+          <table className={'trade-table' + (isReviewCaseView ? ' trade-table-case' : '')}>
             <thead>
               <tr>
                 <th className="tv-sticky tv-col-ref">Trade</th>
@@ -183,7 +185,15 @@ function ChipList({
           {item}
         </span>
       ))}
-      {items.length > 3 && <span className="tv-chip tv-chip-more">+{items.length - 3}</span>}
+      {items.length > 3 && (
+        <Tooltip
+          content={items.slice(3).join(' · ')}
+          label={`其余标签：${items.slice(3).join('、')}`}
+          focusable
+        >
+          <span className="tv-chip tv-chip-more">+{items.length - 3}</span>
+        </Tooltip>
+      )}
     </div>
   )
 }

@@ -102,6 +102,6 @@ export function compressActivitiesForDisplay(
 export function createActivity(trade: Trade): Trade {
   return appendActivity(trade, {
     kind: 'create',
-    timestamp: toIsoTimestamp(trade.openedAt),
+    timestamp: toIsoTimestamp(trade.recordedAt ?? trade.openedAt),
   })
 }

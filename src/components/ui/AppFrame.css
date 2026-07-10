@@ -1,0 +1,42 @@
+.ui-app-frame {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-app);
+}
+
+.ui-main-frame {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: calc(100% - var(--sidebar-width) - var(--main-inset));
+  max-width: calc(100% - var(--sidebar-width) - var(--main-inset));
+  margin: var(--main-inset) var(--main-inset) var(--main-inset) 0;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--main-radius);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #fff 2%, transparent) inset,
+    0 1px 2px lch(0 0 0 / 0.18);
+}
+
+@media (max-width: 640px) {
+  .ui-app-frame {
+    flex-direction: column;
+  }
+
+  .ui-main-frame {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}

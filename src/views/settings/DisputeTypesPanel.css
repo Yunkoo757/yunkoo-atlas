@@ -8,10 +8,11 @@
 }
 .dt-add-btn:hover { background: var(--accent-hover); }
 
-.dt-list { display: flex; flex-direction: column; gap: 2px; margin-top: 16px; }
+.dt-list { display: flex; flex-direction: column; gap: 0; margin-top: 16px; border-top: 1px solid var(--border-subtle); }
 .dt-row {
   display: flex; align-items: center; gap: 12px;
-  padding: 8px 12px; border-radius: var(--radius-8);
+  min-height: 48px; padding: 8px 0; border-radius: 0;
+  border-bottom: 1px solid var(--border-subtle);
   transition: background 80ms var(--ease-out);
 }
 .dt-row:hover { background: var(--bg-hover); }
@@ -57,10 +58,10 @@
 .dt-field span { font-size: var(--fs-mini); color: var(--text-tertiary); }
 .dt-input {
   height: 34px; padding: 0 10px; font-size: var(--fs-sm);
-  border: 1px solid var(--border-default); border-radius: var(--radius-6);
-  background: var(--bg-surface); color: var(--text-primary); outline: none;
+  border: 1px solid var(--field-border); border-radius: var(--radius-6);
+  background: var(--field-bg); color: var(--text-primary); outline: none;
 }
-.dt-input:focus { border-color: var(--accent); }
+.dt-input:focus { background: var(--field-bg-focus); border-color: var(--field-border-focus); box-shadow: var(--field-focus-shadow); }
 .dt-modal-foot {
   display: flex; justify-content: flex-end; gap: 8px;
   padding: 12px 20px; border-top: 1px solid var(--border-subtle);

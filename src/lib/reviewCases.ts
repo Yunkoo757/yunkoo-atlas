@@ -29,6 +29,7 @@ export function buildReviewCaseFromTrade(
     id: options.id,
     ref: options.ref,
     tradeKind: 'case',
+    recordedAt: new Date().toISOString(),
     note,
     comments: [],
     activities: [],

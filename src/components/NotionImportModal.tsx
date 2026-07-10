@@ -11,6 +11,7 @@ import {
 } from '@/lib/notionImport'
 import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './NotionImportModal.css'
 
 interface Props {
@@ -349,7 +350,15 @@ function PreviewRow({ preview }: { preview: NotionTradePreview }) {
         {(t.tags ?? []).slice(0, 3).map((tag) => (
           <span className="nim-tag" key={tag}>{tag}</span>
         ))}
-        {(t.tags ?? []).length > 3 && <span className="nim-tag-more">+{(t.tags ?? []).length - 3}</span>}
+        {(t.tags ?? []).length > 3 && (
+          <Tooltip
+            content={(t.tags ?? []).slice(3).join(' · ')}
+            label={`其余标签：${(t.tags ?? []).slice(3).join('、')}`}
+            focusable
+          >
+            <span className="nim-tag-more">+{(t.tags ?? []).length - 3}</span>
+          </Tooltip>
+        )}
       </td>
       <td className="nim-err-cell">
         {preview.errors.join('; ')}

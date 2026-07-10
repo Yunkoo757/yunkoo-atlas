@@ -1,0 +1,84 @@
+.trade-media,
+.trade-media-empty {
+  width: 100%;
+  margin: 0 0 var(--sp-5);
+}
+
+.trade-media-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 0;
+  max-height: 68vh;
+  overflow: hidden;
+  background: lch(2.6% 0.2 272);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+}
+
+.trade-media-stage img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.trade-media-loading,
+.trade-media-error,
+.trade-media-empty {
+  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+}
+
+.trade-media-error {
+  color: var(--neg);
+}
+
+.trade-media-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: auto;
+  height: 28px;
+  margin: 0 0 var(--sp-3);
+  padding: 0 8px;
+  background: lch(7.2% 0.75 272);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+}
+
+.trade-media-thumbs {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  overflow-x: auto;
+}
+
+.trade-media-thumbs button {
+  width: 72px;
+  height: 48px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  opacity: 0.68;
+}
+
+.trade-media-thumbs button.is-active {
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.trade-media-thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trade-media-editor.has-media .editor .ProseMirror img {
+  display: none;
+}

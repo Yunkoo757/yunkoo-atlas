@@ -32,36 +32,3 @@
     opacity: 0.7;
   }
 }
-
-.app-shell {
-  display: flex;
-  height: 100%;
-  background: var(--bg-app);
-}
-.app-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-surface);
-  margin: var(--frame-gap) var(--frame-gap) var(--frame-gap) 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-2xl);
-  overflow: hidden;
-  box-shadow: 0 0 0 1px color-mix(in srgb, #fff 2%, transparent) inset;
-}
-
-@media (max-width: 640px) {
-  .app-shell {
-    flex-direction: column;
-  }
-
-  .app-main {
-    margin: 0;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
-    border-top: 1px solid var(--border-subtle);
-    border-radius: 0;
-  }
-}

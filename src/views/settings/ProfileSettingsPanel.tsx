@@ -112,7 +112,7 @@ export function ProfileSettingsPanel() {
                 'profile-avatar-item' +
                 (profile.avatarId === a.id ? ' is-selected' : '')
               }
-              title={a.label}
+              aria-label={a.label}
               onClick={() => setAvatar(profile.avatarId === a.id ? null : a.id)}
             >
               <span className="profile-avatar-emoji">{a.emoji}</span>

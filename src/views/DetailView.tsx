@@ -23,6 +23,7 @@ import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
 import { Menu } from '@/components/Menu'
 import { IconButton } from '@/components/IconButton'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { StrategyIcon, StrategyLabel } from '@/components/StrategyIcon'
@@ -32,6 +33,7 @@ import {
   STATUS_META,
   CONVICTION_META,
   TRADE_KIND_META,
+  REVIEW_CATEGORY_META,
   MISS_REASON_META,
   type TradeStatus,
   type Conviction,
@@ -39,6 +41,7 @@ import {
   type TradeKind,
   type MissReason,
   type ReviewStatus,
+  type ReviewCategory,
   type ActivityEvent,
   type ActivityKind,
 } from '@/data/trades'
@@ -59,6 +62,9 @@ import { deriveLifecycle, formatCaseId, getDisputeType } from '@/data/case'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import { calculatePnL, calculateRMultiple } from '@/lib/priceCalc'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
+import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
+import { TradeMedia } from '@/components/trades/TradeMedia'
+import { useShortcutStore } from '@/store/shortcutStore'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
@@ -68,6 +74,15 @@ const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
 const KIND_OPTS: TradeKind[] = ['live', 'paper', 'case']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 const REVIEW_OPTS: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
+const REVIEW_CATEGORY_OPTS: ReviewCategory[] = ['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered']
+
+function extractEditorImages(html: string): string[] {
+  if (!html || typeof DOMParser === 'undefined') return []
+  const document = new DOMParser().parseFromString(html, 'text/html')
+  return [...document.querySelectorAll('img')]
+    .map((image) => image.getAttribute('src') ?? '')
+    .filter(Boolean)
+}
 
 export function DetailView() {
   const { id: routeParam } = useParams()
@@ -104,6 +119,8 @@ export function DetailView() {
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0)
+  const openLightbox = useShortcutStore((s) => s.openLightbox)
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingHtmlRef = useRef<string | null>(null)
   const pendingTradeIdRef = useRef<string | null>(null)
@@ -208,6 +225,12 @@ export function DetailView() {
     [trade?.id, persistEditorNote],
   )
 
+  const editorImages = useMemo(() => extractEditorImages(editorHtml), [editorHtml])
+
+  useEffect(() => {
+    if (activeMediaIndex >= editorImages.length) setActiveMediaIndex(0)
+  }, [activeMediaIndex, editorImages.length])
+
   const starred = trade ? starredIds.includes(trade.id) : false
   const subscribed = trade ? subscribedIds.includes(trade.id) : false
   const relatedCases = useMemo(
@@ -311,7 +334,7 @@ export function DetailView() {
     if (!trade) return []
     const all = getTradeActivities(trade).map((event) => ({
       event,
-      node: renderActivity(event, strategies),
+      node: renderActivity(event, strategies, trade.tradeKind),
     }))
     if (feedExpanded || all.length <= FEED_VISIBLE) return all
     return all.slice(-FEED_VISIBLE)
@@ -395,7 +418,8 @@ export function DetailView() {
   const detailCrumb = trade.tradeKind === 'case' ? '案例记录' : '交易'
 
   return (
-    <>
+    <TradeDetailLayout
+      header={(
       <header className="dv-topbar">
         <div className="dv-tb-left">
           <Link to={detailHome} className="dv-back" aria-label="返回列表">
@@ -457,18 +481,31 @@ export function DetailView() {
           />
         </div>
       </header>
-
-      <div className="dv-body">
-        <div className="dv-main">
+      )}
+      content={(
           <div className="dv-main-inner">
             <h1 className="dv-title">
               {trade.symbol}
               <SideTag side={trade.side} />
             </h1>
-            <Editor
-              content={editorHtml}
-              onChange={onEditorChange}
+            <TradeMedia
+              tradeId={trade.id}
+              images={editorImages}
+              activeIndex={activeMediaIndex}
+              onActiveIndexChange={setActiveMediaIndex}
+              onOpenLightbox={(index) => openLightbox(editorImages, index)}
             />
+            <div className={'trade-media-editor' + (editorImages.length > 0 ? ' has-media' : '')}>
+              <Editor
+                content={editorHtml}
+                onChange={onEditorChange}
+                placeholder={
+                  trade.tradeKind === 'case'
+                    ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'
+                    : undefined
+                }
+              />
+            </div>
 
             <section className="dv-activity">
               {feedHiddenCount > 0 && (
@@ -521,24 +558,25 @@ export function DetailView() {
                     rows={1}
                   />
                   <div className="dv-comment-bar">
-                    <button
-                      type="button"
-                      className="dv-comment-send"
-                      disabled={!comment.trim()}
-                      onClick={sendComment}
-                      title="发送"
-                      aria-label="发送评论"
-                    >
-                      <Send size={14} />
-                    </button>
+                    <Tooltip content="发送评论" label="发送评论">
+                      <button
+                        type="button"
+                        className="dv-comment-send"
+                        disabled={!comment.trim()}
+                        onClick={sendComment}
+                        aria-label="发送评论"
+                      >
+                        <Send size={14} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
               </div>
             </section>
           </div>
-        </div>
-
-        <aside className="dv-props">
+      )}
+      properties={(
+        <>
           <Section title="判例">
             {relatedCases.length > 0 ? (
               <div className="dv-case-list">
@@ -659,6 +697,19 @@ export function DetailView() {
               trigger={
                 <button className="dv-pitem dv-pitem-ghost">
                   <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
+                </button>
+              }
+            />
+            <Menu
+              value={trade.reviewCategory}
+              onSelect={(v) => updateTradeData(trade.id, { reviewCategory: v as ReviewCategory })}
+              options={REVIEW_CATEGORY_OPTS.map((s) => ({
+                value: s,
+                label: REVIEW_CATEGORY_META[s].label,
+              }))}
+              trigger={
+                <button className="dv-pitem dv-pitem-ghost">
+                  <span>分类 · {REVIEW_CATEGORY_META[trade.reviewCategory].label}</span>
                 </button>
               }
             />
@@ -879,9 +930,9 @@ export function DetailView() {
               <span>复制 {trade.ref}</span>
             </button>
           </div>
-        </aside>
-      </div>
-    </>
+        </>
+      )}
+    />
   )
 }
 
@@ -1071,13 +1122,14 @@ function relativeDateLabel(value: string): string {
 function renderActivity(
   event: DisplayActivityEvent,
   strategies: Strategy[],
+  tradeKind: TradeKind,
 ): React.ReactNode {
   const time = fmtDateTime(event.timestamp)
   switch (event.kind) {
     case 'create':
       return (
         <>
-          你 <b>创建</b>了这笔交易 · {fmtDate(event.timestamp)}
+          你 <b>创建</b>了{tradeKind === 'case' ? '这条案例记录' : '这笔交易'} · {fmtDate(event.timestamp)}
         </>
       )
     case 'status':
@@ -1156,15 +1208,16 @@ function FeedItem({
       <span className={'dv-feed-dot dv-feed-dot-' + kind} />
       <span className="dv-feed-text">{children}</span>
       {deletable && onDelete && (
-        <button
-          type="button"
-          className="dv-feed-delete"
-          title="删除评论"
-          aria-label="删除评论"
-          onClick={onDelete}
-        >
-          <X size={13} />
-        </button>
+        <Tooltip content="删除评论" label="删除评论">
+          <button
+            type="button"
+            className="dv-feed-delete"
+            aria-label="删除评论"
+            onClick={onDelete}
+          >
+            <X size={13} />
+          </button>
+        </Tooltip>
       )}
     </li>
   )

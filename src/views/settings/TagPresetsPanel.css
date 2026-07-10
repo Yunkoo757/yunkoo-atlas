@@ -1,5 +1,11 @@
 .tag-section {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tag-section:last-child {
+  border-bottom: 0;
 }
 
 .tag-section-title {
@@ -28,14 +34,16 @@
   height: 32px;
   padding: 0 10px;
   font-size: var(--fs-sm);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
-  background: var(--bg-surface);
+  background: var(--field-bg);
   color: var(--text-primary);
   outline: none;
 }
 .tag-input:focus {
-  border-color: var(--accent);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .tag-batch {
@@ -60,14 +68,16 @@
   font: inherit;
   font-size: var(--fs-sm);
   color: var(--text-primary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   resize: vertical;
   outline: none;
 }
 .tag-batch-input:focus {
-  border-color: var(--accent);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .tag-section-empty {
@@ -86,7 +96,7 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   font-size: var(--fs-sm);

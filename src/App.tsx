@@ -16,6 +16,7 @@ import { flushPersistNow, hasPendingChanges } from './storage/persist'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
+import { AppFrame } from './components/ui/AppFrame'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
 import { NewCaseModal } from './components/NewCaseModal'
@@ -41,9 +42,9 @@ import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
 import type { ListFilter, ReviewCaseScope } from './lib/tradeFilters'
-import { PERIOD_LABELS, isValidPeriodSlug } from './lib/periods'
-import { MISSED_PAGE_TITLE } from './lib/pageCopy'
+import { isValidPeriodSlug } from './lib/periods'
 import { tradeDetailPath } from './lib/tradeRoute'
+import { routeWithSearch } from './lib/tradeView'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTrash, cleanExpiredTradeTrash } from './lib/trashCleanup'
 import './App.css'
@@ -60,12 +61,14 @@ function TradesPage({
   header?: ReactNode
 }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const boardPath = listPath === '/list' ? '/board' : `${listPath}/board`
   const tablePath = listPath === '/list' ? '/table' : `${listPath}/table`
   const view: WorkbenchView = pathname === boardPath ? 'board' : pathname === tablePath ? 'table' : 'list'
-  const setView = (v: WorkbenchView) => navigate(v === 'board' ? boardPath : v === 'table' ? tablePath : listPath)
-
+  const setView = (v: WorkbenchView) => {
+    const target = v === 'board' ? boardPath : v === 'table' ? tablePath : listPath
+    navigate(routeWithSearch(target, search))
+  }
   return view === 'list' ? (
     <ListView title={title} view={view} onView={setView} filter={filter} header={header} />
   ) : view === 'table' ? (
@@ -106,7 +109,7 @@ function PeriodPage() {
   const listPath = `/period/${period}`
   return (
     <TradesPage
-      title={PERIOD_LABELS[period]}
+      title="交易日志"
       filter={{ type: 'period', period, tradeKind: 'live' }}
       listPath={listPath}
     />
@@ -123,25 +126,27 @@ function SimPage() {
   )
 }
 
+function TodayRecordPage() {
+  return (
+    <TradesPage
+      title="今日记录"
+      filter={{ type: 'period', period: 'today', tradeKind: 'live' }}
+      listPath="/today-record"
+    />
+  )
+}
+
 function ReviewCasesPage() {
   const { scope: rawScope } = useParams()
   const scope = normalizeReviewCaseScope(rawScope)
   const listPath = scope === 'all' ? '/review-cases' : `/review-cases/${scope}`
   return (
     <TradesPage
-      title={REVIEW_CASE_SCOPE_LABELS[scope]}
+      title="案例记录"
       filter={{ type: 'all', tradeKind: 'case', reviewCaseScope: scope }}
       listPath={listPath}
     />
   )
-}
-
-const REVIEW_CASE_SCOPE_LABELS: Record<ReviewCaseScope, string> = {
-  all: '案例记录',
-  focus: '重点案例',
-  mistakes: '错题案例',
-  unreviewed: '待复看',
-  reviewed: '已掌握',
 }
 
 function normalizeReviewCaseScope(scope: string | undefined): ReviewCaseScope {
@@ -167,34 +172,33 @@ function Shell() {
   })
 
   return (
-    <div className="app-shell">
-      <Sidebar onOpenSearch={() => setCmdkOpen(true)} />
-      <main className="app-main">
+    <>
+      <AppFrame sidebar={<Sidebar onOpenSearch={() => setCmdkOpen(true)} />}>
         <Routes>
           <Route path="/" element={<Navigate to="/list" replace />} />
           <Route
             path="/list"
             element={
-              <TradesPage title="交易" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
+              <TradesPage title="交易日志" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
             }
           />
           <Route
             path="/board"
             element={
-              <TradesPage title="交易" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
+              <TradesPage title="交易日志" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
             }
           />
           <Route
             path="/table"
             element={
-              <TradesPage title="交易" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
+              <TradesPage title="交易日志" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
             }
           />
           <Route
             path="/active"
             element={
               <TradesPage
-                title="进行中"
+                title="交易日志"
                 filter={{ type: 'active', tradeKind: 'live' }}
                 listPath="/active"
               />
@@ -204,7 +208,7 @@ function Shell() {
             path="/active/board"
             element={
               <TradesPage
-                title="进行中"
+                title="交易日志"
                 filter={{ type: 'active', tradeKind: 'live' }}
                 listPath="/active"
               />
@@ -214,7 +218,7 @@ function Shell() {
             path="/active/table"
             element={
               <TradesPage
-                title="进行中"
+                title="交易日志"
                 filter={{ type: 'active', tradeKind: 'live' }}
                 listPath="/active"
               />
@@ -228,37 +232,40 @@ function Shell() {
           <Route path="/my-trades/table" element={<Navigate to="/table" replace />} />
           <Route
             path="/favorites"
-            element={<TradesPage title="星标交易" filter={{ type: 'starred' }} listPath="/favorites" />}
+            element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
           />
           <Route
             path="/favorites/board"
-            element={<TradesPage title="星标交易" filter={{ type: 'starred' }} listPath="/favorites" />}
+            element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
           />
           <Route
             path="/favorites/table"
-            element={<TradesPage title="星标交易" filter={{ type: 'starred' }} listPath="/favorites" />}
+            element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
           />
           <Route
             path="/missed"
             element={
-              <TradesPage title={MISSED_PAGE_TITLE} filter={{ type: 'missed' }} listPath="/missed" />
+              <TradesPage title="交易日志" filter={{ type: 'missed' }} listPath="/missed" />
             }
           />
           <Route
             path="/missed/board"
             element={
-              <TradesPage title={MISSED_PAGE_TITLE} filter={{ type: 'missed' }} listPath="/missed" />
+              <TradesPage title="交易日志" filter={{ type: 'missed' }} listPath="/missed" />
             }
           />
           <Route
             path="/missed/table"
             element={
-              <TradesPage title={MISSED_PAGE_TITLE} filter={{ type: 'missed' }} listPath="/missed" />
+              <TradesPage title="交易日志" filter={{ type: 'missed' }} listPath="/missed" />
             }
           />
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/period/:slug/table" element={<PeriodPage />} />
+          <Route path="/today-record" element={<TodayRecordPage />} />
+          <Route path="/today-record/board" element={<TodayRecordPage />} />
+          <Route path="/today-record/table" element={<TodayRecordPage />} />
           <Route path="/sim" element={<SimPage />} />
           <Route path="/sim/board" element={<SimPage />} />
           <Route path="/sim/table" element={<SimPage />} />
@@ -295,7 +302,7 @@ function Shell() {
           <Route path="/strategies" element={<Navigate to="/settings/strategies" replace />} />
           <Route path="*" element={<Navigate to="/list" replace />} />
         </Routes>
-      </main>
+      </AppFrame>
       <CommandPalette
         open={cmdkOpen}
         onClose={() => setCmdkOpen(false)}
@@ -304,7 +311,7 @@ function Shell() {
       <NewCaseModal />
       <ImageLightbox />
       <ToastHost />
-    </div>
+    </>
   )
 }
 

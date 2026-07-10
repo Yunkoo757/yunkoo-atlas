@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '@/store/useStore'
 import { Tag, X, Plus, Trash2 } from 'lucide-react'
 import { toast } from '@/lib/toast'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './TagPresetsPanel.css'
 
 export function TagPresetsPanel() {
@@ -148,14 +149,16 @@ function TagSection({
             <span className="tag-chip" key={t}>
               <Tag size={12} />
               {t}
-              <button
-                type="button"
-                className="tag-chip-remove"
-                title={`删除「${t}」`}
-                onClick={() => onRemove(t)}
-              >
-                <X size={11} />
-              </button>
+              <Tooltip content="删除" label={`删除「${t}」`}>
+                <button
+                  type="button"
+                  className="tag-chip-remove"
+                  aria-label={`删除「${t}」`}
+                  onClick={() => onRemove(t)}
+                >
+                  <X size={11} />
+                </button>
+              </Tooltip>
             </span>
           ))}
         </div>

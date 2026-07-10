@@ -12,6 +12,7 @@ import {
   type TradeField,
 } from '@/lib/csvImport'
 import { toast } from '@/lib/toast'
+import { Select } from '@/components/ui/Select'
 import './CsvImportModal.css'
 
 interface Props {
@@ -168,22 +169,20 @@ export function CsvImportModal({ open, onClose }: Props) {
                         {csvResult.rows[0]?.[i] ?? ''}
                       </td>
                       <td>
-                        <select
+                        <Select
                           value={mapping[i] ?? ''}
-                          onChange={(ev) => setMap(i, ev.target.value as TradeField | '')}
+                          onValueChange={(value) => setMap(i, value as TradeField | '')}
+                          ariaLabel={`映射 CSV 列 ${h}`}
                           className={'csv-map-select' + (mapping[i] ? ' is-mapped' : '')}
-                        >
-                          <option value="">— 忽略 —</option>
-                          {TRADE_FIELD_LIST.map((f) => (
-                            <option
-                              key={f.key}
-                              value={f.key}
-                              disabled={usedFields.has(f.key) && mapping[i] !== f.key}
-                            >
-                              {f.label} ({f.key}){f.required ? ' *' : ''}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: '', label: '— 忽略 —' },
+                            ...TRADE_FIELD_LIST.map((field) => ({
+                              value: field.key,
+                              label: `${field.label} (${field.key})${field.required ? ' *' : ''}`,
+                              disabled: usedFields.has(field.key) && mapping[i] !== field.key,
+                            })),
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}

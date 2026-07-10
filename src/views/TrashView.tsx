@@ -291,7 +291,6 @@ export function TrashView() {
                           <button
                             className="trash-btn-restore"
                             onClick={() => handleRestore(rec.id)}
-                            title="恢复案例"
                           >
                             <RotateCcw size={14} />
                             <span>恢复</span>
@@ -299,7 +298,6 @@ export function TrashView() {
                           <button
                             className="trash-btn-purge"
                             onClick={() => handlePurge(rec.id)}
-                            title="彻底删除"
                           >
                             <Trash2 size={14} />
                             <span>彻底删除</span>

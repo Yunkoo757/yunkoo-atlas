@@ -45,18 +45,15 @@ export function useShortcutHost({
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
       'global.newTrade': () => {
-        const mod = useStore.getState().activeModule
-        if (mod === 'case') {
+        if (pathname.startsWith('/cases') || pathname === '/trash') {
           useStore.getState().setCaseModalOpen(true)
         } else {
           openComposer()
         }
       },
       'global.switchModule': () => {
-        const mod = useStore.getState().activeModule
-        const next = mod === 'trade' ? 'case' : 'trade'
-        useStore.getState().setModule(next)
-        navigate(next === 'case' ? '/cases' : '/list')
+        const inCaseLaw = pathname.startsWith('/cases') || pathname === '/trash'
+        navigate(inCaseLaw ? '/list' : '/cases')
       },
       'global.undo': () => {
         const s = useStore.getState()

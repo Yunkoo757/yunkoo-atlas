@@ -12,6 +12,7 @@ import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
@@ -48,6 +49,7 @@ export async function bootstrapStorage(): Promise<void> {
       display: normalizeDisplay(snapshot.display),
       tagPresets: snapshot.tagPresets ?? [],
       mistakeTagPresets: snapshot.mistakeTagPresets ?? [],
+      savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
     })
     useStore.getState().hydrateProfile(snapshot.profile)
     if (snapshot.cases) {

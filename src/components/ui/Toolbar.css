@@ -1,0 +1,92 @@
+.ui-toolbar {
+  display: flex;
+  flex: 0 0 var(--header-h);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  height: var(--header-h);
+  padding: 0 12px;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ui-toolbar-main,
+.ui-toolbar-heading,
+.ui-toolbar-content,
+.ui-toolbar-actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.ui-toolbar-main {
+  flex: 1;
+  gap: var(--sp-3);
+  overflow: hidden;
+}
+
+.ui-toolbar-heading {
+  gap: var(--sp-2);
+  overflow: hidden;
+}
+
+.ui-toolbar-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-toolbar-context {
+  overflow: hidden;
+  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-toolbar-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.ui-toolbar-actions {
+  flex: 0 0 auto;
+  gap: var(--sp-2);
+  max-width: min(50%, 360px);
+  margin-left: var(--sp-3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.ui-toolbar-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.ui-toolbar-actions > * {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .ui-toolbar {
+    padding: 0 var(--sp-2);
+  }
+
+  .ui-toolbar-main {
+    gap: var(--sp-2);
+  }
+
+  .ui-toolbar-context {
+    display: none;
+  }
+
+  .ui-toolbar-actions {
+    max-width: 52%;
+    margin-left: var(--sp-2);
+  }
+}

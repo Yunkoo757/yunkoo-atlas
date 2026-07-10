@@ -5,18 +5,27 @@
   min-height: 0;
 }
 
+.shortcuts-panel {
+  width: min(760px, 100%);
+}
+
 .shortcuts-panel-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 28px;
+}
+
+.shortcuts-panel-head .settings-page-title {
+  margin-bottom: 0;
 }
 
 .shortcuts-inner {
   flex: 1;
   overflow: auto;
-  padding: 20px 32px 48px;
   max-width: 880px;
+  padding: 20px 32px 48px;
 }
 
 .shortcuts-toolbar {
@@ -31,9 +40,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: var(--fs-sm);
   color: var(--text-secondary);
+  font-size: var(--fs-sm);
 }
+
 .shortcuts-back:hover {
   color: var(--text-primary);
 }
@@ -42,128 +52,263 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid transparent;
   border-radius: var(--radius-6);
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  background: transparent;
+  font-size: var(--fs-xs);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
+
 .shortcuts-reset-all:hover {
   color: var(--text-primary);
+  border-color: var(--border-subtle);
   background: var(--bg-hover);
 }
 
-.shortcuts-hint {
-  margin: 0 0 24px;
-  font-size: var(--fs-sm);
-  color: var(--text-tertiary);
-  line-height: 1.5;
-}
-
 .shortcuts-section {
-  margin-bottom: 28px;
+  margin-bottom: 26px;
 }
 
 .shortcuts-section-title {
-  margin: 0 0 10px;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin: 0 8px 8px;
   color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0;
 }
 
 .shortcuts-table {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  overflow: hidden;
-  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .shortcuts-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 16px;
+  grid-template-columns: minmax(180px, 1fr) auto;
   align-items: center;
-  padding: 10px 14px;
+  gap: 20px;
+  min-height: 44px;
+  padding: 0 4px 0 8px;
   border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--dur-fast) var(--ease-out);
 }
-.shortcuts-row:last-child {
-  border-bottom: none;
+
+.shortcuts-row:hover,
+.shortcuts-row:focus-within,
+.shortcuts-row.is-recording {
+  background: color-mix(in srgb, var(--bg-hover) 58%, transparent);
 }
 
 .shortcuts-label {
-  font-size: var(--fs-sm);
   color: var(--text-primary);
+  font-size: var(--fs-sm);
 }
 
-.shortcuts-keys kbd {
-  display: inline-block;
-  min-width: 28px;
-  padding: 3px 8px;
+.shortcuts-row-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.shortcuts-capture {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 116px;
+  min-height: 30px;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-6);
+  color: var(--text-secondary);
+  background: transparent;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+button.shortcuts-capture:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
+}
+
+button.shortcuts-capture:focus-visible,
+button.shortcuts-capture[aria-pressed='true'] {
+  outline: none;
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border-default));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.shortcuts-capture.is-fixed {
+  gap: 7px;
+  color: var(--text-tertiary);
+}
+
+.shortcuts-capture.is-fixed > svg {
+  color: var(--text-quaternary);
+}
+
+.shortcuts-keycap-list,
+.shortcuts-chord {
+  display: inline-flex;
+  align-items: center;
+}
+
+.shortcuts-keycap-list {
+  gap: 6px;
+}
+
+.shortcuts-chord {
+  gap: 3px;
+}
+
+.shortcuts-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-4);
-  font-family: var(--font-ui);
-  font-size: var(--fs-xs);
   color: var(--text-secondary);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  text-align: center;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text-primary) 7%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+}
+
+.shortcuts-sequence-arrow {
+  flex: 0 0 auto;
+  color: var(--text-quaternary);
+}
+
+.shortcuts-unassigned {
+  padding-right: 2px;
+  color: var(--text-quaternary);
+  font-size: var(--fs-xs);
 }
 
 .shortcuts-recording {
-  font-size: var(--fs-xs);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px;
   color: var(--accent);
-  animation: pulse 1.2s ease-in-out infinite;
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+}
+
+.shortcuts-recording-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  animation: shortcutRecordingPulse 1.2s ease-in-out infinite;
 }
 
 .shortcuts-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
   justify-content: flex-end;
-  min-width: 140px;
+  gap: 2px;
+  width: 54px;
+  min-width: 54px;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-.shortcuts-btn {
-  padding: 4px 10px;
-  border-radius: var(--radius-4);
-  font-size: var(--fs-xs);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+.shortcuts-row:hover .shortcuts-actions,
+.shortcuts-row:focus-within .shortcuts-actions,
+.shortcuts-row.is-recording .shortcuts-actions {
+  opacity: 1;
 }
-.shortcuts-btn:hover {
-  color: var(--text-primary);
+
+.shortcuts-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-6);
+  color: var(--text-quaternary);
+  background: transparent;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.shortcuts-action:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
   background: var(--bg-hover);
 }
-.shortcuts-btn--ghost {
-  border-color: transparent;
-  background: transparent;
+
+.shortcuts-action:focus-visible {
+  outline: 1px solid var(--focus-ring-color);
+  outline-offset: 1px;
 }
 
-.shortcuts-fixed {
-  font-size: var(--fs-xs);
-  color: var(--text-quaternary);
+.shortcuts-actions:empty {
+  visibility: hidden;
 }
 
-@keyframes pulse {
+.shortcuts-panel .ui-tooltip-trigger {
+  align-items: center;
+}
+
+@keyframes shortcutRecordingPulse {
   0%,
   100% {
     opacity: 1;
+    transform: scale(1);
   }
+
   50% {
-    opacity: 0.55;
+    opacity: 0.6;
+    transform: scale(0.82);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcuts-recording-dot {
+    animation: none;
   }
 }
 
 @media (max-width: 640px) {
-  .shortcuts-panel .shortcuts-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  .shortcuts-panel-head {
+    align-items: flex-start;
   }
+
+  .shortcuts-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+
+  .shortcuts-capture {
+    min-width: 92px;
+  }
+
   .shortcuts-actions {
-    justify-content: flex-start;
+    width: auto;
     min-width: 0;
+    opacity: 1;
   }
 }

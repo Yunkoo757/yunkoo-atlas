@@ -1,138 +1,209 @@
-/* 极简交易创建样式 */
 .composer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  z-index: 1000;
   display: grid;
   place-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.15s ease-out;
+  padding: 16px;
+  background: var(--overlay-bg);
+  animation: composerFadeIn 120ms var(--ease-out);
 }
 
-.composer-modal {
-  width: 480px;
-  max-height: 90vh;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-12);
-  border: 1px solid var(--border-default);
-  box-shadow: var(--shadow-high);
-  overflow: hidden;
-  animation: slideIn 0.18s var(--ease-out);
-}
-
-/* 极简模式样式 */
+.composer-modal,
 .composer-quick {
-  width: 420px;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+  color: var(--text-secondary);
+  background: var(--popover-bg);
+  border: 0.8px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  animation: composerSlideIn 140ms var(--ease-out);
 }
 
 .composer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-subtle);
+  height: 48px;
+  padding: 0 12px 0 20px;
+  border-bottom: 0.8px solid var(--border-subtle);
 }
 
 .composer-header h3 {
-  font-size: var(--fs-title);
-  font-weight: var(--font-weight-medium);
+  margin: 0;
   color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0;
 }
 
 .composer-close {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: transparent;
-  border: none;
-  color: var(--text-tertiary);
   display: grid;
   place-items: center;
-  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-8);
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .composer-close:hover {
-  background: var(--bg-hover);
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .composer-body-quick {
-  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-/* 图片拖拽区域 */
-.composer-drop-zone {
-  border: 2px dashed var(--border-default);
-  border-radius: var(--radius-12);
-  padding: 40px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 12px;
-  background: var(--bg-surface);
-  cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease-out),
-              background var(--dur-fast) var(--ease-out);
+  padding: 16px 20px;
+  overflow: auto;
 }
 
-.composer-drop-zone:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
-}
-
-.composer-drop-zone.is-dragging {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
-}
-
-.composer-drop-icon {
-  color: var(--text-quaternary);
-}
-
-.composer-drop-zone:hover .composer-drop-icon,
-.composer-drop-zone.is-dragging .composer-drop-icon {
-  color: var(--accent);
-}
-
-.composer-drop-text {
+.composer-field-quick,
+.composer-essential-field {
   display: flex;
+  min-width: 0;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  gap: 5px;
+}
+
+.composer-field-quick label,
+.composer-essential-label {
   color: var(--text-tertiary);
-}
-
-.composer-drop-text strong {
-  font-size: var(--fs-base);
+  font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
 }
 
-.composer-drop-text span {
+.composer-input-quick,
+.composer-essential-field input,
+.composer-side-control {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-secondary);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.composer-input-quick .ui-select-trigger {
+  height: 32px;
+  padding: 0 10px;
+  font-size: var(--fs-sm);
+}
+
+.composer-essential-field input:hover {
+  border-color: var(--border-strong);
+}
+
+.composer-essential-field input:focus {
+  border-color: var(--accent);
+}
+
+.composer-trade-essentials {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 10px;
+}
+
+.composer-essential-field input,
+.composer-essential-field .ui-select-trigger,
+.composer-side-control {
+  height: 28px;
+}
+
+.composer-essential-field input {
+  padding: 0 8px;
   font-size: var(--fs-mini);
 }
 
-/* 图片预览 */
+.composer-side-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 2px;
+}
+
+.composer-side-control button {
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-4);
+}
+
+.composer-side-control button:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.composer-side-control button.is-on {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+
+.composer-attachments {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.composer-drop-zone {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 9px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-6);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.composer-drop-zone:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.composer-drop-zone:focus-visible,
+.composer-drop-zone.is-dragging {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+  border-color: var(--accent);
+  outline: none;
+}
+
 .composer-images-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
-  background: var(--bg-surface);
-  border-radius: var(--radius-10);
+  gap: 6px;
+  min-width: 0;
+}
+
+.composer-images-preview-body {
+  padding-top: 2px;
 }
 
 .composer-image-thumb {
-  width: 80px;
-  height: 80px;
   position: relative;
-  border-radius: var(--radius-8);
+  width: 40px;
+  height: 28px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-4);
 }
 
 .composer-image-thumb img {
@@ -143,97 +214,65 @@
 
 .composer-image-remove {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--overlay-bg);
-  color: var(--text-primary);
-  border: none;
+  top: 2px;
+  right: 2px;
   display: grid;
   place-items: center;
-  cursor: pointer;
-  opacity: 0.8;
+  width: 16px;
+  height: 16px;
+  color: var(--text-primary);
+  background: var(--overlay-dark);
+  border: 0;
+  border-radius: var(--radius-4);
+  opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-.composer-image-remove:hover {
+.composer-image-thumb:hover .composer-image-remove,
+.composer-image-remove:focus-visible {
   opacity: 1;
 }
 
-/* 标的输入 */
-.composer-field-quick {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.composer-field-quick label {
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-}
-
-.composer-input-quick {
-  width: 100%;
-  height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-10);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: var(--fs-base);
-  font-family: var(--font-mono);
-  transition: border-color var(--dur-fast) var(--ease-out);
-}
-
-.composer-input-quick::placeholder {
-  color: var(--text-quaternary);
-}
-
-.composer-input-quick:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-/* 底部按钮 */
 .composer-footer-quick {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-subtle);
 }
 
+.composer-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-btn-secondary,
+.composer-btn-primary {
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-6);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
 .composer-btn-secondary {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
+  color: var(--text-secondary);
   background: transparent;
   border: 1px solid var(--border-default);
-  color: var(--text-secondary);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
 }
 
 .composer-btn-secondary:hover {
+  color: var(--text-primary);
   background: var(--bg-hover);
 }
 
 .composer-btn-primary {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
-  background: var(--accent);
   color: var(--accent-text);
-  border: none;
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
+  background: var(--accent);
+  border: 0;
 }
 
 .composer-btn-primary:hover:not(:disabled) {
@@ -241,26 +280,45 @@
 }
 
 .composer-btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  cursor: default;
+  opacity: 0.45;
 }
 
-@keyframes fadeIn {
+@keyframes composerFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes composerSlideIn {
   from {
     opacity: 0;
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-  }
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
     transform: translateY(0);
-    opacity: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .composer-body-quick {
+    padding: 14px 16px 16px;
+  }
+}
+
+@media (max-width: 400px) {
+  .composer-trade-essentials {
+    grid-template-columns: 1fr;
+  }
+
+  .composer-footer-quick {
+    align-items: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-overlay,
+  .composer-modal {
+    animation: none;
   }
 }

@@ -17,7 +17,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'global.switchModule',
-    label: '切换模块',
+    label: '切换交易与判例',
     category: '通用',
     scope: 'global',
     defaultBinding: { mod: true, key: '.' },
