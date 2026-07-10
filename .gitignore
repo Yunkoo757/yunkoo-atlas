@@ -39,3 +39,6 @@ playwright-report/
 blob-report/
 playwright/.cache/
 .gstack/
+
+# local git worktrees
+.worktrees/
