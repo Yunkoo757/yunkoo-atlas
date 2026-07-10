@@ -17,6 +17,7 @@ const baseTrade: Trade = {
   tags: [],
   mistakeTags: [],
   reviewStatus: DEFAULT_REVIEW_STATUS,
+  reviewCategory: 'normal',
   entry: 100,
   exit: 110,
   size: 1,
@@ -39,6 +40,7 @@ export function testNormalizeReviewFields(): void {
   } as unknown as Trade
   const normalized = normalizeReviewFields(legacy)
   assert(normalized.reviewStatus === 'unreviewed', 'legacy trades default to unreviewed')
+  assert(normalized.reviewCategory === 'normal', 'legacy trades default to normal category')
   assert(Array.isArray(normalized.mistakeTags), 'legacy trades get mistakeTags array')
 }
 
@@ -74,4 +76,3 @@ export function testSummarizeStrategyPerformance(): void {
   assert(stats.topMistakes[0]?.tag === '追单', 'sorts mistake tags by frequency')
   assert(stats.reviewedCount === 2, 'counts reviewed and focus review states')
 }
-

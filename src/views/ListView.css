@@ -1,397 +1,55 @@
 .list-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  /* 启用 GPU 合成层，隔离滚动重绘 */
-  will-change: scroll-position;
-  padding: 6px 10px 18px;
+  background: var(--bg-surface);
 }
 
-.lv-group {
-  /* 浏览器级虚拟化：跳过屏幕外区域的渲染，大幅减少大列表的布局/绘制开销 */
-  content-visibility: auto;
-  /* 给浏览器一个预估高度，用于不渲染区块的占位计算。header 36px + 预估每项 40px */
-  contain-intrinsic-size: auto 36px;
-}
-
-.lv-group-header {
+.lv-batch-bar {
+  position: fixed;
+  bottom: 24px;
+  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
+  z-index: 60;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  margin: 0 0 3px;
-  padding: 0 10px;
-  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 68%, transparent);
-  border-radius: var(--radius-xl);
-  position: sticky;
-  top: 6px;
-  z-index: 1;
-  backdrop-filter: blur(10px);
+  gap: var(--sp-2);
+  padding: 6px 10px;
+  background: var(--popover-bg);
+  border: 1px solid var(--popover-border);
+  border-radius: var(--radius-10);
+  box-shadow: var(--popover-shadow-deep);
+  transform: translateX(-50%);
 }
-.lv-group-title {
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-.lv-group-cal {
-  flex-shrink: 0;
+
+.lv-batch-count {
+  margin-right: 4px;
   color: var(--text-tertiary);
-}
-.lv-group-count {
   font-size: var(--fs-mini);
-  color: var(--text-tertiary);
-}
-.lv-group-add {
-  margin-left: auto;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-lg);
-  color: var(--text-tertiary);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
-}
-.lv-group-header:hover .lv-group-add {
-  opacity: 1;
-}
-.lv-group-add:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
-.lv-row.is-selected {
-  background: var(--bg-selected);
-}
-
-.lv-select {
-  width: 18px; height: 18px; border-radius: var(--radius-4);
-  border: 1px solid var(--border-default); flex-shrink: 0;
-  display: grid; place-items: center; cursor: pointer;
-  opacity: 0; transition: opacity 80ms var(--ease-out), background 80ms var(--ease-out);
-  color: var(--accent-text);
-}
-.lv-row:hover .lv-select, .lv-select.is-checked { opacity: 1; }
-.lv-select.is-checked { background: var(--accent); border-color: var(--accent); }
-
-.lv-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  margin: 1px 0;
-  padding: 0 10px;
-  border-radius: var(--radius-lg);
-  box-shadow: inset 0 -1px color-mix(in srgb, var(--border-subtle) 72%, transparent);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
-  animation: rowIn 0.28s var(--ease-out) both;
-}
-.lv-row:hover {
-  background: var(--bg-hover);
-  box-shadow: inset 0 0 0 1px var(--border-subtle);
-}
-.lv-row.is-focused {
-  background: var(--bg-selected);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
-}
-
-/* hover 复选框 */
-.lv-check {
-  width: 16px; height: 16px;
-  display: grid; place-items: center;
-  flex-shrink: 0; cursor: pointer;
-}
-.lv-check-box {
-  display: inline-grid; place-items: center;
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid #666;
-  border-radius: var(--radius-4);
-  position: relative;
-  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
-}
-.lv-row:hover .lv-check-box { border-color: var(--border-strong); }
-.lv-check-box.is-done {
-  opacity: 1;
-  background: var(--accent);
-  border-color: var(--accent);
-  position: relative;
-}
-.lv-check-box.is-done::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 1px;
-  width: 5px;
-  height: 8px;
-  border: solid var(--accent-text);
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-}
-
-.lv-star {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  border-radius: var(--radius-lg);
-  color: var(--text-tertiary);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
-}
-.lv-star.is-starred {
-  opacity: 1;
-  color: var(--accent);
-}
-.lv-row:hover .lv-star {
-  opacity: 1;
-}
-.lv-star:hover {
-  background: var(--bg-selected);
-  color: var(--text-primary);
-}
-.lv-star.is-starred:hover {
-  color: var(--accent);
-}
-
-.lv-ref {
-  font-size: var(--fs-micro);
-  color: var(--text-tertiary);
-  opacity: 0.35;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-.lv-followed {
-  color: var(--accent);
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-.lv-symbol {
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  flex-shrink: 0;
-}
-.lv-conviction,
-.lv-status,
-.lv-side {
+.lv-batch-btn {
   display: inline-flex;
   align-items: center;
-  flex-shrink: 0;
-}
-.lv-title {
-  font-size: var(--fs-sm);
+  gap: 5px;
+  height: var(--control-height);
+  padding: 0 9px;
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lv-spacer {
-  flex: 1;
-  min-width: 12px;
-}
-.lv-tags {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-.lv-tag {
-  font-size: var(--fs-micro);
-  color: var(--text-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-full);
-  padding: 1px 8px;
-  white-space: nowrap;
-}
-.lv-tag-more {
-  color: var(--text-quaternary);
-  border-style: dashed;
-}
-.lv-review,
-.lv-mistake {
-  font-size: var(--fs-micro);
-  border-radius: var(--radius-full);
-  padding: 1px 8px;
-  white-space: nowrap;
-}
-.lv-review {
-  color: var(--text-secondary);
-  background: var(--bg-selected);
-}
-.lv-review-focus {
-  color: var(--accent);
-  border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
-  background: color-mix(in oklab, var(--accent) 12%, transparent);
-}
-.lv-mistake {
-  color: var(--neg);
-  border: 1px solid color-mix(in oklab, var(--neg) 30%, transparent);
-  background: color-mix(in oklab, var(--neg) 10%, transparent);
-}
-.lv-pnl {
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  font-variant-numeric: tabular-nums;
-  width: 84px;
-  text-align: right;
-  flex-shrink: 0;
-}
-.lv-r {
   font-size: var(--fs-mini);
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-  width: 48px;
-  text-align: right;
-  flex-shrink: 0;
-}
-.lv-avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-full);
-  background: var(--bg-selected);
-  color: var(--text-secondary);
-  display: grid;
-  place-items: center;
-  font-size: var(--fs-micro);
-  font-weight: var(--font-weight-semibold);
-  flex-shrink: 0;
-}
-.lv-date {
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
-  width: 52px;
-  text-align: right;
-  flex-shrink: 0;
+  border-radius: var(--radius-6);
 }
 
-@media (hover: none) {
-  .lv-star,
-  .lv-group-add {
-    opacity: 1;
-  }
-  .lv-check-box.is-done {
-    opacity: 1;
-  }
+.lv-batch-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.lv-batch-btn-danger {
+  color: var(--neg);
 }
 
 @media (max-width: 640px) {
-  .lv-row {
-    display: grid;
-    grid-template-columns: 18px minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-    gap: 6px 8px;
-    min-height: 66px;
-    height: auto;
-    padding: 9px 14px;
-    align-items: center;
-  }
-
-  .lv-check {
-    display: none;
-  }
-
-  .lv-conviction {
-    display: none;
-  }
-
-  .lv-status {
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: center;
-  }
-
-  .lv-symbol {
-    grid-column: 2;
-    grid-row: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--fs-base);
-  }
-
-  .lv-side {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    margin-right: 74px;
-  }
-
-  .lv-title {
-    grid-column: 2;
-    grid-row: 2;
-    min-width: 0;
-    color: var(--text-tertiary);
-  }
-
-  .lv-tags {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: end;
-    max-width: 52%;
-    overflow: hidden;
-  }
-
-  .lv-tags .lv-tag:nth-of-type(n+2),
-  .lv-tags .lv-review,
-  .lv-tags .lv-mistake:nth-of-type(n+2) {
-    display: none;
-  }
-
-  .lv-spacer,
-  .lv-avatar,
-  .lv-followed,
-  .lv-star {
-    display: none;
-  }
-
-  .lv-pnl {
-    grid-column: 3;
-    grid-row: 1;
-    width: 72px;
-    align-self: end;
-    font-size: var(--fs-sm);
-  }
-
-  .lv-r {
-    display: none;
-  }
-
-  .lv-date {
-    grid-column: 3;
-    grid-row: 2;
-    width: 72px;
-    align-self: start;
-    color: var(--text-quaternary);
+  .lv-batch-bar {
+    left: 50%;
+    bottom: 12px;
   }
 }
-
-/* Batch bar */
-.lv-batch-bar {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 16px; border-radius: var(--radius-full);
-  background: var(--popover-bg); border: 1px solid var(--popover-border);
-  box-shadow: var(--popover-shadow-deep);
-  z-index: 60;
-}
-.lv-batch-count {
-  font-size: var(--fs-sm); color: var(--text-tertiary);
-  margin-right: 4px;
-}
-.lv-batch-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  height: 28px; padding: 0 12px; border-radius: var(--radius-full);
-  font-size: var(--fs-sm); color: var(--text-secondary);
-  background: none; border: 1px solid var(--border-default);
-  cursor: pointer; transition: all 80ms var(--ease-out);
-}
-.lv-batch-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
-.lv-batch-btn-danger { color: var(--neg); border-color: color-mix(in srgb, var(--neg) 26%, transparent); }
-.lv-batch-btn-danger:hover { background: color-mix(in srgb, var(--neg) 12%, transparent); }

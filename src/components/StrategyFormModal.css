@@ -64,13 +64,15 @@
   height: 36px;
   padding: 0 12px;
   border-radius: var(--radius-8);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
   color: var(--text-primary);
   font-size: var(--fs-sm);
 }
 .sfm-input:focus {
-  border-color: var(--accent);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .sfm-textarea {
@@ -81,13 +83,16 @@
   font-size: var(--fs-small);
   color: var(--text-primary);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
   border-radius: var(--radius-6);
   resize: vertical;
 }
 
 .sfm-textarea:focus {
-  border-color: var(--accent);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .sfm-error {
@@ -99,6 +104,11 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
+}
+
+.sfm-icon-grid > .ui-tooltip-trigger,
+.sfm-icon-grid .sfm-icon-opt {
+  width: 100%;
 }
 
 .sfm-icon-opt {

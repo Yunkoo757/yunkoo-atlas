@@ -19,6 +19,7 @@ import { CaseDetail } from './CaseDetail'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { buildCaseCtxItems } from '@/lib/caseMenu'
 import { CaseCompare } from '@/components/CaseCompare'
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import './CaseList.css'
@@ -140,13 +141,15 @@ function CaseCard({
         {colors.label}
       </span>
       <span className="cl-date">{fmtDate(rec.updatedAt)}</span>
-      <button
-        className="cl-del"
-        title="删除判例"
-        onClick={(e) => { e.stopPropagation(); onDelete() }}
-      >
-        <Trash2 size={13} />
-      </button>
+      <Tooltip content="删除判例" label="删除判例">
+        <button
+          className="cl-del"
+          aria-label="删除判例"
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+        >
+          <Trash2 size={13} />
+        </button>
+      </Tooltip>
     </div>
   )
 }

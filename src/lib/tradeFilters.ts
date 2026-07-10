@@ -116,10 +116,12 @@ export function filterTrades(
   }
   if (filter.tradeKind === 'case' && filter.reviewCaseScope && filter.reviewCaseScope !== 'all') {
     out = out.filter((t) => {
-      if (filter.reviewCaseScope === 'focus') return t.reviewStatus === 'focus'
-      if (filter.reviewCaseScope === 'mistakes') return t.status === 'missed' || t.mistakeTags.length > 0
-      if (filter.reviewCaseScope === 'unreviewed') return t.reviewStatus === 'unreviewed'
-      if (filter.reviewCaseScope === 'reviewed') return t.reviewStatus === 'reviewed'
+      if (filter.reviewCaseScope === 'focus') return t.reviewCategory === 'focus' || t.reviewStatus === 'focus'
+      if (filter.reviewCaseScope === 'mistakes') {
+        return t.reviewCategory === 'mistake' || t.reviewCategory === 'ambiguous' || t.status === 'missed' || t.mistakeTags.length > 0
+      }
+      if (filter.reviewCaseScope === 'unreviewed') return t.reviewCategory === 'recheck' || t.reviewStatus === 'unreviewed'
+      if (filter.reviewCaseScope === 'reviewed') return t.reviewCategory === 'mastered' || t.reviewStatus === 'reviewed'
       return true
     })
   }

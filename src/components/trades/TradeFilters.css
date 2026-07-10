@@ -1,0 +1,118 @@
+.trade-filter-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: var(--sp-3);
+  z-index: 40;
+  width: min(560px, calc(100vw - var(--sidebar-width) - 48px));
+  color: var(--text-secondary);
+  background: var(--popover-bg);
+  border: 1px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  overflow: hidden;
+}
+
+.trade-filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.trade-filter-head strong {
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.trade-filter-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.trade-filter-head-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-6);
+  color: var(--text-quaternary);
+}
+
+.trade-filter-head-actions button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.trade-filter-body {
+  padding: 12px;
+}
+
+.trade-filter-section h3 {
+  margin: 0 0 8px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-medium);
+}
+
+.trade-filter-scope-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trade-filter-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.trade-filter-condition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trade-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-micro);
+}
+
+.trade-filter-field .ui-select-trigger {
+  height: 30px;
+}
+
+@media (max-width: 760px) {
+  .trade-filter-panel {
+    left: 8px;
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 88px);
+    overflow-y: auto;
+  }
+
+  .trade-filter-scope-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trade-filter-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .trade-filter-scope-grid,
+  .trade-filter-condition-grid {
+    grid-template-columns: 1fr;
+  }
+}

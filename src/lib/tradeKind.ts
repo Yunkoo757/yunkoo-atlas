@@ -9,6 +9,18 @@ export function normalizeTradeKind(kind: string | undefined): TradeKind {
   return 'paper'
 }
 
+export function defaultTradeKindForPath(pathname: string): TradeKind {
+  if (pathname.startsWith('/review-cases')) return 'case'
+  if (
+    pathname.startsWith('/sim') ||
+    pathname.startsWith('/paper') ||
+    pathname.startsWith('/practice')
+  ) {
+    return 'paper'
+  }
+  return 'live'
+}
+
 export function isReviewCaseTrade(trade: Trade): boolean {
   return trade.tradeKind === 'case'
 }

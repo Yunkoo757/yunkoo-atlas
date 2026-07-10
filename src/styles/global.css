@@ -56,13 +56,132 @@ button {
   color: inherit;
 }
 
+:where(
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='number'],
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='email'],
+  input[type='password'],
+  input[type='url'],
+  textarea
+) {
+  color: var(--text-primary);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  outline: none;
+  caret-color: var(--text-primary);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+:where(
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='number'],
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='email'],
+  input[type='password'],
+  input[type='url'],
+  textarea
+):hover:not(:disabled):not([readonly]) {
+  background: var(--field-bg-hover);
+  border-color: var(--field-border-hover);
+}
+
+:where(
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='number'],
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='email'],
+  input[type='password'],
+  input[type='url'],
+  textarea
+):focus-visible {
+  outline: none;
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
+}
+
+:where(input, textarea)::placeholder {
+  color: var(--field-placeholder);
+  opacity: 1;
+}
+
+:where(input, textarea):disabled {
+  cursor: default;
+  color: var(--text-quaternary);
+  background: var(--field-bg-disabled);
+  opacity: 0.7;
+}
+
+:where(input):-webkit-autofill,
+:where(input):-webkit-autofill:hover,
+:where(input):-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  box-shadow: 0 0 0 1000px var(--field-bg) inset;
+}
+
+input[type='file'] {
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+}
+
+input[type='file']::file-selector-button {
+  height: 30px;
+  margin-right: 10px;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+input[type='file']::file-selector-button:hover {
+  color: var(--text-primary);
+  background: var(--field-bg-hover);
+  border-color: var(--field-border-hover);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.62;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+input[type='date']:hover::-webkit-calendar-picker-indicator,
+input[type='datetime-local']:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.9;
+}
+
 button:focus:not(:focus-visible),
 a:focus:not(:focus-visible) {
   outline: none;
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus-ring-color);
+  outline: var(--focus-ring-outline);
   outline-offset: 2px;
 }
 
@@ -126,6 +245,6 @@ a.lv-row:visited .lv-title {
 }
 
 /* 全屏看图时禁止背后页面接收点击 */
-body.img-lightbox-open .app-main {
+body.img-lightbox-open .ui-main-frame {
   pointer-events: none;
 }

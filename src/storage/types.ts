@@ -3,6 +3,7 @@ import type { Trade } from '@/data/trades'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { ShortcutBinding } from '@/shortcuts/types'
 import type { CaseRecord, DisputeType } from '@/data/case'
+import type { SavedTradeView } from '@/lib/savedTradeViews'
 
 export const SCHEMA_VERSION = 6 // 6: +caseLibrary
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
@@ -42,6 +43,7 @@ export interface PersistedSnapshot {
   profile?: UserProfile
   cases?: CaseRecord[]
   disputeTypes?: DisputeType[]
+  savedTradeViews?: SavedTradeView[]
 }
 
 export interface ExportAssetRecord {

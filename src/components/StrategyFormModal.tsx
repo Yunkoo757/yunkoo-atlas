@@ -10,6 +10,7 @@ import {
 } from '@/data/strategies'
 import { DEFAULT_REVIEW_TEMPLATE_HTML } from '@/lib/reviewTemplates'
 import { StrategyIcon } from '@/components/StrategyIcon'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyFormModal.css'
 
 export function StrategyFormModal({
@@ -95,24 +96,25 @@ export function StrategyFormModal({
             <span className="sfm-label">图标</span>
             <div className="sfm-icon-grid">
               {STRATEGY_ICON_OPTIONS.map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={'sfm-icon-opt' + (icon === id ? ' is-on' : '')}
-                  title={label}
-                  onClick={() => setIcon(id)}
-                  style={
-                    icon === id
-                      ? {
-                          background: `color-mix(in srgb, ${color} 24%, transparent)`,
-                          color,
-                          borderColor: color,
-                        }
-                      : undefined
-                  }
-                >
-                  <Icon size={18} />
-                </button>
+                <Tooltip content={label} label={label} key={id}>
+                  <button
+                    type="button"
+                    className={'sfm-icon-opt' + (icon === id ? ' is-on' : '')}
+                    aria-label={label}
+                    onClick={() => setIcon(id)}
+                    style={
+                      icon === id
+                        ? {
+                            background: `color-mix(in srgb, ${color} 24%, transparent)`,
+                            color,
+                            borderColor: color,
+                          }
+                        : undefined
+                    }
+                  >
+                    <Icon size={18} />
+                  </button>
+                </Tooltip>
               ))}
             </div>
           </div>
@@ -121,14 +123,15 @@ export function StrategyFormModal({
             <span className="sfm-label">配色</span>
             <div className="sfm-color-grid">
               {STRATEGY_COLOR_PRESETS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={'sfm-color-opt' + (color === c ? ' is-on' : '')}
-                  style={{ background: c }}
-                  title={c}
-                  onClick={() => setColor(c)}
-                />
+                <Tooltip content={c} label={`选择配色 ${c}`} key={c}>
+                  <button
+                    type="button"
+                    className={'sfm-color-opt' + (color === c ? ' is-on' : '')}
+                    style={{ background: c }}
+                    aria-label={`选择配色 ${c}`}
+                    onClick={() => setColor(c)}
+                  />
+                </Tooltip>
               ))}
             </div>
             <div className="sfm-preview">

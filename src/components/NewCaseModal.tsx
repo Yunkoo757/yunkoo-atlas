@@ -8,6 +8,8 @@ import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
 import { STATUS_META, TRADE_KIND_META, type Trade } from '@/data/trades'
 import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
+import { Tooltip } from '@/components/ui/Tooltip'
+import { Select } from '@/components/ui/Select'
 
 interface PendingImage {
   blob: Blob
@@ -176,19 +178,20 @@ export function NewCaseModal() {
 
         <div className="ncm-field">
           <span className="ncm-label">纠纷类型</span>
-          <select
+          <Select
             className="ncm-select"
             value={disputeTypeId}
-            onChange={(e) => {
-              setDisputeTypeId(e.target.value)
-              const selected = disputeTypes.find((d) => d.id === e.target.value)
+            ariaLabel="纠纷类型"
+            onValueChange={(value) => {
+              setDisputeTypeId(value)
+              const selected = disputeTypes.find((d) => d.id === value)
               if (selected) setVerdict(selected.options[0])
             }}
-          >
-            {disputeTypes.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
+            options={disputeTypes.map((disputeType) => ({
+              value: disputeType.id,
+              label: disputeType.name,
+            }))}
+          />
         </div>
 
         <div className="ncm-field">
@@ -261,13 +264,15 @@ export function NewCaseModal() {
                 {images.map((img, i) => (
                   <div className="ncm-thumb" key={i}>
                     <img src={img.previewUrl} alt={`截图 ${i + 1}`} />
-                    <button
-                      className="ncm-thumb-remove"
-                      onClick={() => removeImage(i)}
-                      title="移除"
-                    >
-                      <X size={12} />
-                    </button>
+                    <Tooltip content="移除" label={`移除截图 ${i + 1}`}>
+                      <button
+                        className="ncm-thumb-remove"
+                        aria-label={`移除截图 ${i + 1}`}
+                        onClick={() => removeImage(i)}
+                      >
+                        <X size={12} />
+                      </button>
+                    </Tooltip>
                   </div>
                 ))}
                 <div className="ncm-drop-more" onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>

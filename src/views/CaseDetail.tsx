@@ -19,6 +19,7 @@ import { tradeDetailPath } from '@/lib/tradeRoute'
 import type { Trade } from '@/data/trades'
 import { X, Star, Trash2, RotateCcw, Check, Plus, Image, Link2, ArrowUpRight } from 'lucide-react'
 import { toast } from '@/lib/toast'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './CaseDetail.css'
 
 export function CaseDetail({
@@ -248,13 +249,15 @@ export function CaseDetail({
               {(rec.tags ?? []).map((t) => (
                 <span className="cd-tag" key={t}>
                   {t}
-                  <button
-                    className="cd-tag-remove"
-                    onClick={() => removeTag(t)}
-                    title={`移除「${t}」`}
-                  >
-                    <X size={10} />
-                  </button>
+                  <Tooltip content="移除" label={`移除「${t}」`}>
+                    <button
+                      className="cd-tag-remove"
+                      aria-label={`移除「${t}」`}
+                      onClick={() => removeTag(t)}
+                    >
+                      <X size={10} />
+                    </button>
+                  </Tooltip>
                 </span>
               ))}
             </div>
@@ -328,21 +331,34 @@ export function CaseDetail({
                     .map((i) => imageUrls[i.fileId])
                     .filter(Boolean) as string[]
                   return (
-                    <div
-                      className="cd-image-thumb"
+                    <Tooltip
+                      content={img.label ?? '放大查看'}
+                      label={img.label ?? '放大查看截图'}
                       key={img.fileId}
-                      title={img.label ?? '点击放大查看'}
-                      onClick={() => {
-                        if (urls.length > 0) openLightbox(urls, idx)
-                      }}
                     >
-                      {src ? (
-                        <img src={src} alt={img.label ?? '截图'} className="cd-image-img" />
-                      ) : (
-                        <span className="cd-image-placeholder">📷</span>
-                      )}
-                      {img.label && <span className="cd-image-label">{img.label}</span>}
-                    </div>
+                      <div
+                        className="cd-image-thumb"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={img.label ?? '放大查看截图'}
+                        onClick={() => {
+                          if (urls.length > 0) openLightbox(urls, idx)
+                        }}
+                        onKeyDown={(event) => {
+                          if ((event.key === 'Enter' || event.key === ' ') && urls.length > 0) {
+                            event.preventDefault()
+                            openLightbox(urls, idx)
+                          }
+                        }}
+                      >
+                        {src ? (
+                          <img src={src} alt={img.label ?? '截图'} className="cd-image-img" />
+                        ) : (
+                          <span className="cd-image-placeholder">📷</span>
+                        )}
+                        {img.label && <span className="cd-image-label">{img.label}</span>}
+                      </div>
+                    </Tooltip>
                   )
                 })}
                 <button

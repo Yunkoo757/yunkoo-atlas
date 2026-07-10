@@ -1,13 +1,14 @@
 .display-settings-card {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: var(--bg-surface);
-  padding: 8px;
-  max-width: 400px;
+  max-width: 520px;
+  padding: 8px 0;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
 }
 
 .display-settings-card + .display-settings-card {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .display-settings-hint {

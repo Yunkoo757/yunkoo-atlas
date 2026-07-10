@@ -1,6 +1,7 @@
 import { LayoutGrid, List, Table2 } from 'lucide-react'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
+import { Toolbar } from '@/components/ui/Toolbar'
 import './Topbar.css'
 
 export type WorkbenchView = 'list' | 'board' | 'table'
@@ -21,12 +22,11 @@ export function Topbar({
   showSaveStatus?: boolean
 }) {
   return (
-    <header className="topbar">
-      <div className="tb-left">
-        <span className="tb-title">{title}</span>
-        {subtitle && <span className="tb-subtitle">{subtitle}</span>}
-      </div>
-      <div className="tb-right">
+    <Toolbar
+      title={title}
+      context={subtitle}
+      actions={(
+        <div className="tb-right">
         {showSaveStatus && <SaveStatusIndicator />}
         {onView && (
           <div className="tb-segmented" role="group" aria-label="视图切换">
@@ -60,7 +60,8 @@ export function Topbar({
           </div>
         )}
         {showDisplay && <DisplayMenu />}
-      </div>
-    </header>
+        </div>
+      )}
+    />
   )
 }

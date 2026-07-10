@@ -117,7 +117,7 @@ export function TagEditor({
                   <button
                     type="button"
                     className="tag-preset-label"
-                    title={`添加标签「${p}」`}
+                    aria-label={`添加标签「${p}」`}
                     onClick={() => { if (!tags.includes(p)) onAdd(p) }}
                     disabled={tags.includes(p)}
                   >
@@ -127,7 +127,7 @@ export function TagEditor({
                     <button
                       type="button"
                       className="tag-preset-remove"
-                      title={`删除预置「${p}」`}
+                      aria-label={`删除预置「${p}」`}
                       onClick={() => onRemovePreset(p)}
                     >
                       <X size={10} />
@@ -141,7 +141,7 @@ export function TagEditor({
             <button
               type="button"
               className="tag-preset-add-btn"
-              title="添加为预置标签"
+              aria-label="添加为预置标签"
               onClick={() => { onAddPreset(value.trim()); setValue('') }}
             >
               <Plus size={12} />
@@ -159,7 +159,6 @@ export function TagEditor({
               <button
                 type="button"
                 className="tag-chip-remove"
-                title="移除标签"
                 aria-label={`移除标签「${t}」`}
                 onClick={() => onRemove(t)}
               >

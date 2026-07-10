@@ -30,6 +30,7 @@ export function pickPersisted(
   profile: PersistedSnapshot['profile']
   cases: PersistedSnapshot['cases']
   disputeTypes: PersistedSnapshot['disputeTypes']
+  savedTradeViews: PersistedSnapshot['savedTradeViews']
 },
   shortcutBindings?: Record<string, ShortcutBinding | null>,
 ): PersistedSnapshot {
@@ -46,6 +47,7 @@ export function pickPersisted(
     profile: state.profile,
     cases: state.cases,
     disputeTypes: state.disputeTypes,
+    savedTradeViews: state.savedTradeViews,
     ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }
 }

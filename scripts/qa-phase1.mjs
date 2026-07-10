@@ -31,6 +31,11 @@ page.on('console', (msg) => {
   }
 })
 
+async function selectValue(trigger, value) {
+  await trigger.click()
+  await page.locator(`.ui-select-option[data-value="${value}"]`).click()
+}
+
 try {
   // 1. 启动加载
   await page.goto(BASE, { waitUntil: 'networkidle' })
@@ -42,18 +47,24 @@ try {
   record('应用启动并进入列表', true)
   await page.screenshot({ path: join(OUT, '01-list.png') })
 
-  // 2. 列表有交易数据
-  const tradeLink = page.locator('a[href^="/trade/"]').first()
-  await tradeLink.waitFor({ timeout: 5000 })
-  const tradeCount = await page.locator('a[href^="/trade/"]').count()
+  // 2. 干净浏览器没有种子数据，先通过真实 UI 创建测试交易
+  let tradeCount = await page.locator('.trade-row').count()
+  if (tradeCount === 0) {
+    await page.locator('body').press('c')
+    await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'BTCUSDT')
+    await page.locator('.composer-btn-primary').click()
+    await page.waitForURL(/\/trade\//, { timeout: 10000 })
+    tradeCount = 1
+  } else {
+    await page.locator('.trade-row-open').first().click()
+    await page.waitForURL(/\/trade\//, { timeout: 10000 })
+  }
   record('列表展示交易', tradeCount > 0, `${tradeCount} 条`)
 
   // 3. 详情页 + 笔记编辑
-  await tradeLink.click()
   await page.waitForURL(/\/trade\//)
   const editor = page.locator('.editor .ProseMirror')
   await editor.waitFor({ timeout: 5000 })
-  const beforeNote = await editor.innerText()
   const stamp = `QA-${Date.now()}`
   await editor.click()
   await editor.press('End')
@@ -62,33 +73,21 @@ try {
   record('详情页笔记可编辑', (await editor.innerText()).includes(stamp))
 
   // 4. 刷新后笔记持久化（IndexedDB）
-  const tradeUrl = page.url()
   await page.reload({ waitUntil: 'networkidle' })
   await editor.waitFor({ timeout: 5000 })
   const afterReload = await editor.innerText()
   record('刷新后笔记仍在', afterReload.includes(stamp), `stamp=${stamp}`)
   await page.screenshot({ path: join(OUT, '02-detail-note.png') })
 
-  // 5. 保存状态（回到列表触发 store 变更）
-  await page.goto(`${BASE}/list`)
-  await page.waitForURL(/\/list/)
-  // 星标一笔交易
-  const starBtn = page.locator('button[title="星标"], button[aria-label="星标"]').first()
-  if (await starBtn.count()) {
-    await starBtn.click()
-    await page.waitForTimeout(500)
-    const saveStatus = page.locator('.save-status')
-    const hasStatus = await saveStatus.isVisible().catch(() => false)
-    record('Topbar 保存状态可见', hasStatus, hasStatus ? await saveStatus.innerText() : '未出现')
-    await page.waitForTimeout(500)
-    const saved = await page.locator('.save-status--saved, .save-status').filter({ hasText: '已保存' }).isVisible().catch(() => false)
-    record('防抖保存完成', saved || hasStatus)
-  } else {
-    record('Topbar 保存状态可见', false, '未找到星标按钮')
-  }
+  // 5. 笔记写入后保存状态可见并完成
+  const saveStatus = page.locator('.save-status')
+  const hasStatus = await saveStatus.isVisible().catch(() => false)
+  record('Topbar 保存状态可见', hasStatus, hasStatus ? await saveStatus.innerText() : '未出现')
+  const saved = hasStatus && (await saveStatus.innerText()).includes('已保存')
+  record('防抖保存完成', saved)
 
   // 6. 错过的机会页
-  await page.getByRole('link', { name: '错过的机会' }).click()
+  await page.goto(`${BASE}/missed`, { waitUntil: 'networkidle' })
   await page.waitForURL(/\/missed/)
   const missedTitle = await page.getByText('错过的机会').first().isVisible()
   record('错过的机会页可访问', missedTitle)
@@ -110,17 +109,17 @@ try {
   record('导出按钮可见', hasExportBtn)
   await page.screenshot({ path: join(OUT, '05-data-io.png') })
 
-  // 9. 导出 JSON 含 version 5
+  // 9. 导出 JSON 含当前版本
   const exportPayload = await page.evaluate(async () => {
     const { buildExportPayload } = await import('/src/lib/importExport.ts')
     return buildExportPayload()
   }).catch(() => null)
 
   if (exportPayload) {
-    record('导出 payload version=5', exportPayload.version === 5, `v${exportPayload.version}`)
+    record('导出 payload version=6', exportPayload.version === 6, `v${exportPayload.version}`)
     record('导出含 assets 数组', Array.isArray(exportPayload.assets), `len=${exportPayload.assets?.length ?? 0}`)
   } else {
-    record('导出 payload version=5', false, 'evaluate 导入失败，跳过')
+    record('导出 payload version=6', false, 'evaluate 导入失败，跳过')
   }
 
   // 10. IndexedDB 存在

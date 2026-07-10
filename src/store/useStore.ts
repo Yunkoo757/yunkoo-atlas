@@ -20,6 +20,10 @@ import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
 import { isTerminal } from '@/lib/tradeStatus'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
+import {
+  normalizeSavedTradeViews,
+  type SavedTradeView,
+} from '@/lib/savedTradeViews'
 
 export interface CaseModalContext {
   sourceTradeId?: string
@@ -48,12 +52,15 @@ interface State {
   profile: UserProfile
   cases: CaseRecord[]
   disputeTypes: DisputeType[]
-  activeModule: 'trade' | 'case'
+  savedTradeViews: SavedTradeView[]
+  saveTradeView: (view: SavedTradeView) => void
+  renameTradeView: (id: string, name: string) => void
+  removeTradeView: (id: string) => void
+  togglePinTradeView: (id: string) => void
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
   hydrateProfile: (profile?: UserProfile) => void
-  setModule: (module: 'trade' | 'case') => void
   addCase: (rec: CaseRecord) => void
   updateCase: (id: string, patch: Partial<CaseRecord>) => void
   removeCase: (id: string) => void
@@ -88,6 +95,7 @@ interface State {
         | 'tradeKind'
         | 'mistakeTags'
         | 'reviewStatus'
+        | 'reviewCategory'
       >
     >,
   ) => void
@@ -179,7 +187,41 @@ export const useStore = create<State>()((set, get) => ({
       profile: { avatarId: null, displayName: 'Yunkoo' },
       cases: [],
       disputeTypes: [...BUILTIN_DISPUTE_TYPES],
-      activeModule: 'trade',
+      savedTradeViews: [],
+      saveTradeView: (view) =>
+        set((s) => ({
+          savedTradeViews: normalizeSavedTradeViews([
+            ...s.savedTradeViews.filter((item) => item.id !== view.id),
+            view,
+          ]),
+        })),
+      renameTradeView: (id, name) => {
+        const trimmed = name.trim().slice(0, 24)
+        if (!trimmed) return
+        set((s) => ({
+          savedTradeViews: s.savedTradeViews.map((view) =>
+            view.id === id
+              ? { ...view, name: trimmed, updatedAt: new Date().toISOString() }
+              : view,
+          ),
+        }))
+      },
+      removeTradeView: (id) =>
+        set((s) => ({ savedTradeViews: s.savedTradeViews.filter((view) => view.id !== id) })),
+      togglePinTradeView: (id) =>
+        set((s) => {
+          const target = s.savedTradeViews.find((view) => view.id === id)
+          if (!target) return s
+          const pinnedCount = s.savedTradeViews.filter((view) => view.pinned).length
+          if (!target.pinned && pinnedCount >= 4) return s
+          return {
+            savedTradeViews: s.savedTradeViews.map((view) =>
+              view.id === id
+                ? { ...view, pinned: !view.pinned, updatedAt: new Date().toISOString() }
+                : view,
+            ),
+          }
+        }),
       setAvatar: (avatarId) =>
         set((s) => ({
           profile: { ...s.profile, avatarId, customAvatarDataUrl: null },
@@ -200,7 +242,6 @@ export const useStore = create<State>()((set, get) => ({
               }
             : s.profile,
         })),
-      setModule: (module) => set({ activeModule: module }),
       addCase: (rec) =>
         set((s) => ({ cases: [rec, ...s.cases] })),
       updateCase: (id, patch) =>

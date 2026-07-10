@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './IconButton.css'
 
 // 精确还原 Linear 顶栏图标按钮：28×28、完全圆角、0.8px 透明描边、
@@ -14,15 +15,15 @@ export function IconButton({
   onClick?: () => void
   active?: boolean
 }) {
-  return (
+  const button = (
     <button
       className={'icon-btn' + (active ? ' is-active' : '')}
       type="button"
-      title={title}
       aria-label={title}
       onClick={onClick}
     >
       {children}
     </button>
   )
+  return title ? <Tooltip content={title} label={title}>{button}</Tooltip> : button
 }

@@ -275,7 +275,6 @@ export function TradeTrashView() {
                           <button
                             className="trash-btn-restore"
                             onClick={() => handleRestore(trade.id)}
-                            title="恢复交易"
                           >
                             <RotateCcw size={14} />
                             <span>恢复</span>
@@ -283,7 +282,6 @@ export function TradeTrashView() {
                           <button
                             className="trash-btn-purge"
                             onClick={() => handlePurge(trade.id)}
-                            title="彻底删除"
                           >
                             <Trash2 size={14} />
                             <span>彻底删除</span>

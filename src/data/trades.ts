@@ -23,6 +23,8 @@ export type Conviction = 'low' | 'medium' | 'high' | 'urgent' // 信心度，沿
 
 export type ReviewStatus = 'unreviewed' | 'reviewed' | 'focus'
 
+export type ReviewCategory = 'normal' | 'mistake' | 'focus' | 'ambiguous' | 'recheck' | 'mastered'
+
 export interface TradeComment {
   id: string
   text: string
@@ -61,9 +63,11 @@ export interface Trade {
   status: TradeStatus
   conviction: Conviction
   strategyId: string // 策略 ID，关联 Strategy 实体
+  session?: string // 交易时段，如 London Open / Asia / New York
   tags: string[]
   mistakeTags: string[]
   reviewStatus: ReviewStatus
+  reviewCategory: ReviewCategory
   tradeKind: TradeKind
   entry: number
   exit: number | null
@@ -72,6 +76,7 @@ export interface Trade {
   pnl: number // 盈亏金额
   rMultiple: number // R 倍数
   openedAt: string // ISO date
+  recordedAt?: string // 记录收录时间；案例排序不受来源交易日期影响
   closedAt: string | null
   missReason?: MissReason
   note: string // 富文本（TipTap JSON 序列化后的 HTML，简化为 HTML 字符串）
@@ -97,6 +102,15 @@ export const TRADE_KIND_META: Record<TradeKind, { label: string }> = {
   live: { label: '实盘' },
   paper: { label: '模拟' },
   case: { label: '案例' },
+}
+
+export const REVIEW_CATEGORY_META: Record<ReviewCategory, { label: string }> = {
+  normal: { label: '普通' },
+  mistake: { label: '错题' },
+  focus: { label: '重点' },
+  ambiguous: { label: '模糊' },
+  recheck: { label: '待复看' },
+  mastered: { label: '已掌握' },
 }
 
 export const MISS_REASON_META: Record<MissReason, { label: string }> = {

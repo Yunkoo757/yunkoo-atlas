@@ -1,0 +1,78 @@
+.ui-filter-shell {
+  position: relative;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ui-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 40px;
+  padding: 6px 12px;
+  overflow: visible;
+}
+
+.ui-filter-trigger,
+.ui-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 26px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  border: 1px solid transparent;
+  border-radius: var(--radius-6);
+  transition:
+    color var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out);
+}
+
+.ui-filter-trigger {
+  gap: 6px;
+  padding: 0 8px;
+  margin-left: auto;
+}
+
+.ui-filter-trigger:hover,
+.ui-filter-trigger.is-open,
+.ui-filter-chip:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
+
+.ui-active-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ui-filter-bar:has(.quick-view-bar) .ui-active-filters:not(:empty) {
+  padding-left: 6px;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.ui-active-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.ui-filter-chip {
+  gap: 4px;
+  padding: 0 7px;
+  white-space: nowrap;
+}
+
+.ui-filter-chip-static {
+  cursor: default;
+}
+
+.ui-filter-empty {
+  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+}

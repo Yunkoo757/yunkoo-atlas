@@ -103,6 +103,12 @@
 
   /* —— 布局尺寸 —— */
   --sidebar-width: 244px;
+  --main-inset: 8px;
+  --main-radius: 12px;
+  --control-height: 28px;
+  --trade-row-height: 44px;
+  --chip-height-sm: 20px;
+  --chip-height-md: 24px;
 
   /* —— 编辑器（真实值）—— */
   --editor-font-size: 0.9375rem;
@@ -122,6 +128,17 @@
   --bg-hover: var(--color-bg-tertiary);
   --bg-selected: lch(13% 3 272 / 1);
   --bg-sidebar: var(--bg-sidebar-color);
+
+  /* 表单控件表面 */
+  --field-bg: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-surface));
+  --field-bg-hover: color-mix(in srgb, var(--bg-hover) 68%, var(--field-bg));
+  --field-bg-focus: color-mix(in srgb, var(--accent) 5%, var(--field-bg));
+  --field-bg-disabled: color-mix(in srgb, var(--bg-surface) 84%, transparent);
+  --field-border: color-mix(in srgb, var(--border-default) 78%, transparent);
+  --field-border-hover: var(--border-strong);
+  --field-border-focus: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
+  --field-placeholder: var(--text-quaternary);
+  --field-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
 
   /* 边框 */
   --border-subtle: var(--color-border-primary);
@@ -228,11 +245,15 @@
   --ease-out: var(--ease-out-quart);
   --ease-in-out: var(--ease-in-out-cubic);
   --dur-fast: var(--speed-quickTransition);
-  --dur-base: 0.16s;
+  --dur-base: var(--motion-ui);
   --dur-slow: var(--speed-regularTransition);
+  --motion-fast: 100ms;
+  --motion-ui: 150ms;
+  --motion-panel: 250ms;
+  --motion-page: 350ms;
 
   /* 布局 */
   --sidebar-w: var(--sidebar-width);
-  --header-h: 48px;
-  --frame-gap: 8px;
+  --header-h: 44px;
+  --frame-gap: var(--main-inset);
 }

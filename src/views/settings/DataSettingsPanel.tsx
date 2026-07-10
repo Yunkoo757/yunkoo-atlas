@@ -9,6 +9,7 @@ import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, AlertTriangle } from 'lucide-react'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 function fmtBackupTime(ts: number): string {
   const d = new Date(ts)
@@ -259,18 +260,19 @@ export function DataSettingsPanel() {
                     <button
                       className="dio-btn"
                       onClick={() => handleRestore(b.name)}
-                      title="恢复此备份"
                     >
                       <RotateCcw size={13} />
                       <span>恢复</span>
                     </button>
-                    <button
-                      className="dio-btn dio-btn-warn"
-                      onClick={() => handleDelete(b.name)}
-                      title="删除此备份"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <Tooltip content="删除备份" label="删除此备份">
+                      <button
+                        className="dio-btn dio-btn-warn"
+                        aria-label="删除此备份"
+                        onClick={() => handleDelete(b.name)}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
               ))}

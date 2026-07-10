@@ -6,6 +6,7 @@ import type {
   Conviction,
   TradeKind,
   ReviewStatus,
+  ReviewCategory,
 } from '@/data/trades'
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
@@ -23,8 +24,13 @@ import { isDeleted } from '@/data/case'
 import { flushPersistNow } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
+import {
+  mergeSavedTradeViews,
+  normalizeSavedTradeViews,
+  type SavedTradeView,
+} from '@/lib/savedTradeViews'
 
-export const EXPORT_VERSION = 5 // 5: +reviewStatus, +mistakeTags
+export const EXPORT_VERSION = 6 // 6: +savedTradeViews
 
 export interface ExportPayload {
   version: number
@@ -38,6 +44,7 @@ export interface ExportPayload {
   mistakeTagPresets?: string[]
   cases?: CaseRecord[]
   disputeTypes?: DisputeType[]
+  savedTradeViews?: SavedTradeView[]
   assets?: ExportAssetRecord[]
 }
 
@@ -52,6 +59,7 @@ export interface PersistedSlice {
   mistakeTagPresets?: string[]
   cases?: CaseRecord[]
   disputeTypes?: DisputeType[]
+  savedTradeViews?: SavedTradeView[]
 }
 
 interface ExportState extends PersistedSlice {
@@ -59,6 +67,7 @@ interface ExportState extends PersistedSlice {
   mistakeTagPresets?: string[]
   cases?: CaseRecord[]
   disputeTypes?: DisputeType[]
+  savedTradeViews?: SavedTradeView[]
 }
 
 export type ImportResult =
@@ -77,6 +86,7 @@ const TRADE_KINDS: TradeKind[] = ['live', 'paper', 'case']
 const TRADE_SIDES: TradeSide[] = ['long', 'short']
 const CONVICTIONS: Conviction[] = ['low', 'medium', 'high', 'urgent']
 const REVIEW_STATUSES: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
+const REVIEW_CATEGORIES: ReviewCategory[] = ['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered']
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -100,11 +110,18 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   if (!TRADE_STATUSES.includes(v.status as TradeStatus)) return false
   if (!CONVICTIONS.includes(v.conviction as Conviction)) return false
   if (typeof v.strategyId !== 'string' && typeof v.strategy !== 'string') return false
+  if (v.session !== undefined && typeof v.session !== 'string') return false
   if (!Array.isArray(v.tags) || !v.tags.every((t) => typeof t === 'string')) return false
   if (v.mistakeTags !== undefined && !isStringArray(v.mistakeTags)) return false
   if (
     v.reviewStatus !== undefined &&
     !REVIEW_STATUSES.includes(v.reviewStatus as ReviewStatus)
+  ) {
+    return false
+  }
+  if (
+    v.reviewCategory !== undefined &&
+    !REVIEW_CATEGORIES.includes(v.reviewCategory as ReviewCategory)
   ) {
     return false
   }
@@ -169,16 +186,17 @@ export async function buildExportPayloadFromState(
     mistakeTagPresets: state.mistakeTagPresets,
     cases: activeCases, // Only export active (non-deleted) cases
     disputeTypes: state.disputeTypes,
+    savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
     assets,
   }
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes } =
+  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes, savedTradeViews } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes },
+    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes, savedTradeViews },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -204,7 +222,7 @@ export async function downloadExport(): Promise<void> {
  * 图片按原始格式存储，无 base64 膨胀，适合大量图片场景。
  */
 export async function downloadWebJournalZip(): Promise<void> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes } =
+  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes, savedTradeViews } =
     useStore.getState()
   const storage = getStorage()
   const assetIds = new Set(collectAssetIdsFromNotes(trades))
@@ -231,6 +249,7 @@ export async function downloadWebJournalZip(): Promise<void> {
     mistakeTagPresets,
     cases,
     disputeTypes,
+    savedTradeViews,
     assets: assets.map((a) => ({ id: a.id, mime: a.mime })),
   }
   const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
@@ -440,6 +459,10 @@ export function parseImportJson(text: string): ImportResult {
     return { ok: false, error: 'mistakeTagPresets 必须是字符串数组' }
   }
 
+  if (raw.savedTradeViews !== undefined && !Array.isArray(raw.savedTradeViews)) {
+    return { ok: false, error: 'savedTradeViews 必须是数组' }
+  }
+
   return {
     ok: true,
     data: {
@@ -455,6 +478,7 @@ export function parseImportJson(text: string): ImportResult {
       disputeTypes: raw.disputeTypes ?? [],
       tagPresets: raw.tagPresets ?? [],
       mistakeTagPresets: raw.mistakeTagPresets ?? [],
+      savedTradeViews: normalizeSavedTradeViews(raw.savedTradeViews),
     },
   }
 }
@@ -497,6 +521,10 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
     ],
     cases: Array.from(caseMap.values()),
     disputeTypes: Array.from(disputeTypeMap.values()),
+    savedTradeViews: mergeSavedTradeViews(
+      current.savedTradeViews ?? [],
+      payload.savedTradeViews ?? [],
+    ),
   }
 }
 
@@ -547,6 +575,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
     mistakeTagPresets: snapshot.mistakeTagPresets ?? [],
     cases: snapshot.cases ?? [],
     disputeTypes: snapshot.disputeTypes ?? [],
+    savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
   })
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }

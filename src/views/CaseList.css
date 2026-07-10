@@ -8,7 +8,7 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding: 10px 12px 18px;
+  padding: 0 0 18px;
 }
 
 .cl-toolbar {
@@ -16,11 +16,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 8px 12px 0;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 74%, transparent);
-  border-radius: var(--radius-2xl);
-  background: color-mix(in srgb, var(--bg-elevated) 30%, transparent);
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
 }
 .cl-filters {
   display: flex;
@@ -33,7 +34,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 10px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   font-size: var(--fs-mini);
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
@@ -66,7 +67,7 @@
   height: 32px;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border-default));
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-6);
   background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
   color: var(--text-primary);
   font-size: var(--fs-sm);
@@ -84,11 +85,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 3px;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  margin-bottom: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -110,12 +112,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 1px 0;
-  padding: 0 10px;
-  min-height: 66px;
+  margin: 0;
+  padding: 0 12px;
+  min-height: 52px;
   content-visibility: auto;
-  contain-intrinsic-size: auto 66px;
-  border-radius: var(--radius-xl);
+  contain-intrinsic-size: auto 52px;
+  border-radius: 0;
   box-shadow: inset 0 -1px color-mix(in srgb, var(--border-subtle) 70%, transparent);
   cursor: pointer;
   transition: background 60ms var(--ease-out),
@@ -123,7 +125,7 @@
 }
 .cl-card:hover {
   background: var(--bg-hover);
-  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  box-shadow: inset 0 -1px var(--border-subtle);
 }
 .cl-card.is-focused {
   background: var(--bg-selected);
@@ -204,7 +206,7 @@
   align-items: center;
   height: 18px;
   padding: 0 7px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-6);
   font-size: var(--fs-micro);
   font-weight: var(--font-weight-medium);
   border: 1px solid var(--border-subtle);
@@ -226,7 +228,7 @@
 }
 .cl-chip {
   display: inline-flex; align-items: center; gap: 3px;
-  font-size: var(--fs-micro); padding: 0 5px; border-radius: var(--radius-full);
+  font-size: var(--fs-micro); padding: 0 5px; border-radius: var(--radius-6);
   border: 1px solid var(--border-subtle); color: var(--text-tertiary);
   background: var(--bg-elevated);
   white-space: nowrap;
@@ -267,9 +269,9 @@
   max-width: 440px;
   margin: 92px auto 0;
   padding: 38px 24px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
-  border-radius: var(--radius-2xl);
-  background: color-mix(in srgb, var(--bg-elevated) 42%, transparent);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-tertiary);
 }
 .cl-empty-hint {
@@ -380,24 +382,21 @@
   color: var(--text-tertiary);
 }
 .ncm-select {
-  display: inline-flex; align-items: center;
-  height: 28px; padding: 0 28px 0 10px; font-size: var(--fs-sm);
-  background: var(--bg-surface); border: 1px solid var(--border-default);
-  border-radius: var(--radius-full); color: var(--text-primary); outline: none;
-  appearance: none; -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 8px center;
-  width: auto; min-width: 200px;
-  cursor: pointer; transition: border-color 80ms var(--ease-out), background 80ms var(--ease-out);
+  width: 200px;
+  max-width: 100%;
 }
-.ncm-select:hover { background: var(--bg-hover); border-color: var(--border-strong); }
-.ncm-select:focus { border-color: var(--accent); }
+.ncm-select .ui-select-trigger {
+  height: 28px;
+  padding: 0 8px 0 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
+}
 .ncm-textarea {
   width: 100%;
   min-height: 98px;
   padding: 8px 10px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   color: var(--text-primary);
   font-family: var(--font-ui);
@@ -407,7 +406,9 @@
   outline: none;
 }
 .ncm-textarea:focus {
-  border-color: var(--accent);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 .ncm-textarea::placeholder {
   color: var(--text-quaternary);
@@ -529,7 +530,7 @@
   }
 
   .cl-card {
-    min-height: 74px;
+    min-height: 60px;
   }
 
   .cl-context-row {

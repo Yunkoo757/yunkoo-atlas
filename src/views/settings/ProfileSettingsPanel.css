@@ -2,12 +2,14 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px 24px;
+  padding: 16px 0;
   margin-top: 8px;
   margin-bottom: 24px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
 }
 
 .profile-preview-avatar {
@@ -49,14 +51,13 @@
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   margin-bottom: 12px;
 }
 
 .profile-avatar-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
   gap: 8px;
 }
 
@@ -66,9 +67,9 @@
   align-items: center;
   gap: 4px;
   padding: 10px 4px;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  background: transparent;
   cursor: pointer;
   transition: border-color var(--dur-fast) var(--ease-out),
               background var(--dur-fast) var(--ease-out);
@@ -121,15 +122,17 @@
   max-width: 280px;
   padding: 8px 12px;
   font-size: var(--fs-base);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  background: var(--field-bg);
   color: var(--text-primary);
   outline: none;
 }
 
 .profile-name-input:focus {
-  border-color: var(--accent-color);
+  background: var(--field-bg-focus);
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .profile-section-hint {

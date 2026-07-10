@@ -8,6 +8,8 @@ import { computeStrategyStats } from '@/lib/strategies'
 import { fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import type { Strategy } from '@/data/strategies'
+import { Tooltip } from '@/components/ui/Tooltip'
+import { Select } from '@/components/ui/Select'
 import '@/views/StrategiesView.css'
 
 export function StrategiesPanel() {
@@ -119,25 +121,31 @@ export function StrategiesPanel() {
                 )}
               </div>
               <div className="st-row-actions">
-                <button type="button" className="st-act" title="编辑" onClick={() => openEdit(s)}>
-                  <Pencil size={15} />
-                </button>
-                <button
-                  type="button"
-                  className="st-act st-act-danger"
-                  title="删除"
-                  onClick={() => {
-                    setDeleteTarget(s)
-                    setDeleteCount(s.count)
-                    setReassignId(strategies.find((x) => x.id !== s.id)?.id ?? '')
-                  }}
-                  disabled={strategies.length <= 1}
-                >
-                  <Trash2 size={15} />
-                </button>
-                <Link to={`/strategy/${s.id}`} className="st-act" title="查看交易">
-                  <ChevronRight size={15} />
-                </Link>
+                <Tooltip content="编辑" label={`编辑 ${s.name}`}>
+                  <button type="button" className="st-act" aria-label={`编辑 ${s.name}`} onClick={() => openEdit(s)}>
+                    <Pencil size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="删除" label={`删除 ${s.name}`}>
+                  <button
+                    type="button"
+                    className="st-act st-act-danger"
+                    aria-label={`删除 ${s.name}`}
+                    onClick={() => {
+                      setDeleteTarget(s)
+                      setDeleteCount(s.count)
+                      setReassignId(strategies.find((x) => x.id !== s.id)?.id ?? '')
+                    }}
+                    disabled={strategies.length <= 1}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="查看交易" label={`查看 ${s.name} 交易`}>
+                  <Link to={`/strategy/${s.id}`} className="st-act" aria-label={`查看 ${s.name} 交易`}>
+                    <ChevronRight size={15} />
+                  </Link>
+                </Tooltip>
               </div>
             </div>
           ))}
@@ -161,19 +169,15 @@ export function StrategiesPanel() {
                 <p>
                   该策略下有 <b>{deleteCount}</b> 笔交易，删除前需迁移到其他策略。
                 </p>
-                <select
+                <Select
                   className="st-del-select"
                   value={reassignId}
-                  onChange={(e) => setReassignId(e.target.value)}
-                >
-                  {strategies
+                  onValueChange={setReassignId}
+                  ariaLabel="迁移到策略"
+                  options={strategies
                     .filter((s) => s.id !== deleteTarget.id)
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                </select>
+                    .map((strategy) => ({ value: strategy.id, label: strategy.name }))}
+                />
               </>
             ) : (
               <p>此策略下没有交易，可直接删除。</p>

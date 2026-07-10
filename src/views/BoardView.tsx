@@ -9,7 +9,7 @@ import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
 import { getStrategyName } from '@/lib/strategies'
 import { useStore } from '@/store/useStore'
-import { STATUS_META, type TradeStatus, type Trade } from '@/data/trades'
+import { REVIEW_CATEGORY_META, STATUS_META, type TradeStatus, type Trade } from '@/data/trades'
 import {
   filterTrades,
   applyDisplayPrefs,
@@ -22,6 +22,7 @@ import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './BoardView.css'
 
 export function BoardView({
@@ -98,7 +99,7 @@ export function BoardView({
   return (
     <>
       <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
-      <div className="board-scroll">
+      <div className={'board-scroll' + (isReviewCaseView ? ' board-scroll-case' : '')}>
         {cols.length === 0 ? (
           <EmptyState title={isReviewCaseView ? '没有案例记录' : '没有交易'} hint={emptyHint} />
         ) : (
@@ -117,9 +118,13 @@ export function BoardView({
                 <StatusIcon status={c.status} size={15} />
                 <span className="bd-col-title">{STATUS_META[c.status].label}</span>
                 <span className="bd-col-count">{c.items.length}</span>
-                <button className="bd-col-add" title={`新建${recordLabel}`} onClick={() => openComposer()}>
-                  <Plus size={15} />
-                </button>
+                <span className="bd-col-add-wrap">
+                  <Tooltip content={`新建${recordLabel}`} label={`新建${recordLabel}`}>
+                    <button className="bd-col-add" aria-label={`新建${recordLabel}`} onClick={() => openComposer()}>
+                      <Plus size={15} />
+                    </button>
+                  </Tooltip>
+                </span>
               </div>
               <div className="bd-col-body">
                 {overCol === c.status && overIdx === 0 && (
@@ -129,7 +134,7 @@ export function BoardView({
                   <React.Fragment key={`wrap-${t.id}`}>
                     <article
                     key={t.id}
-                    className={'bd-card' + (dragId === t.id ? ' is-dragging' : '')}
+                    className={'bd-card' + (isReviewCaseView ? ' bd-card-case' : '') + (dragId === t.id ? ' is-dragging' : '')}
                     style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                     draggable
                     onDragStart={(e) => {
@@ -184,7 +189,13 @@ export function BoardView({
                       {subscribedIds.includes(t.id) && (
                         <Bell size={12} className="bd-card-followed" aria-label="已置顶关注" />
                       )}
-                      <ConvictionIcon conviction={t.conviction} />
+                      {isReviewCaseView ? (
+                        <span className={'bd-category-badge bd-category-badge-' + t.reviewCategory}>
+                          {REVIEW_CATEGORY_META[t.reviewCategory].label}
+                        </span>
+                      ) : (
+                        <ConvictionIcon conviction={t.conviction} />
+                      )}
                     </div>
                     <div className="bd-card-title">
                       <span className="bd-card-symbol">{t.symbol}</span>
@@ -193,6 +204,16 @@ export function BoardView({
                     <div className="bd-card-strategy">
                       <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={13} />
                     </div>
+                    {isReviewCaseView && (t.tags.length > 0 || t.mistakeTags.length > 0) && (
+                      <div className="bd-case-tags">
+                        {t.mistakeTags.slice(0, 2).map((tag) => (
+                          <span className="bd-case-tag bd-case-tag-danger" key={tag}>{tag}</span>
+                        ))}
+                        {t.tags.slice(0, t.mistakeTags.length > 0 ? 1 : 2).map((tag) => (
+                          <span className="bd-case-tag" key={tag}>{tag}</span>
+                        ))}
+                      </div>
+                    )}
                     <div className="bd-card-foot">
                       <span
                         style={{
