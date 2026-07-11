@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>侧栏质感方案 · Yunkoo Atlas</title>
+  <style>
+    :root {
+      --page: #07080a;
+      --panel: #0c0d10;
+      --sidebar: #050506;
+      --border: #1a1b1f;
+      --hover: #14151a;
+      --active: #1c1d22;
+      --text: #e8e9ed;
+      --muted: #8b8e98;
+      --faint: #5c5f69;
+      --ghost: #3d404a;
+      --accent: #7c86ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(1200px 500px at 20% -10%, #1a1f3a 0%, transparent 55%),
+        var(--page);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 720px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--panel) 88%, #12141c);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .card.is-rec {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .preview {
+      height: 520px;
+      background: #08090c;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+    }
+    .side {
+      width: 244px;
+      padding: 10px 10px 12px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      padding: 0 6px 8px;
+      margin-bottom: 2px;
+    }
+    .avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #f0c14b, #c9891e);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #1a1205;
+    }
+    .brand-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f2f4;
+    }
+    .brand-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 2px;
+    }
+    .hbtn {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      color: var(--faint);
+    }
+    .hbtn:hover { background: var(--hover); color: var(--muted); }
+    .label {
+      margin: 12px 8px 5px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--faint);
+    }
+    .item {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 8px;
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .item svg {
+      width: 16px;
+      height: 16px;
+      flex: none;
+      color: var(--ghost);
+    }
+    .item .count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .item.is-active {
+      background: var(--active);
+      color: #f3f4f6;
+    }
+    .item.is-active svg { color: #d5d7de; }
+    .spacer { flex: 1; }
+    .foot {
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+    .main {
+      flex: 1;
+      padding: 18px;
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .meta {
+      padding: 14px 16px 16px;
+    }
+    .meta h2 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: 650;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+      color: #c9ceff;
+    }
+    .meta p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+    .meta ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    /* —— A：当前实心混搭 —— */
+    .a .item svg { color: #6a6e7a; }
+    .a .item.is-active svg { color: #ececf0; }
+    .a .ico-fill { fill: currentColor; stroke: none; }
+    .a .ico-stroke { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* —— B：细描边 chrome —— */
+    .b .item { height: 32px; }
+    .b .label { color: #4e515a; letter-spacing: 0.06em; text-transform: uppercase; font-size: 10.5px; }
+    .b .item svg {
+      color: #6e727d;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .b .item.is-active {
+      background: #191a1f;
+      color: #f4f5f7;
+    }
+    .b .item.is-active svg { color: #d9dbe3; }
+
+    /* —— C：推荐 · 描边 + 更静层级 —— */
+    .c .side { padding: 12px 10px 14px; gap: 2px; }
+    .c .item {
+      height: 33px;
+      color: #7a7e89;
+      border-radius: 8px;
+    }
+    .c .label {
+      margin: 14px 8px 6px;
+      color: #454851;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .c .item svg {
+      color: #60646f;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .c .item:hover { background: #121318; color: #c8CAD2; }
+    .c .item:hover svg { color: #9ea2ae; }
+    .c .item.is-active {
+      background: #1a1b21;
+      color: #f5f6f8;
+    }
+    .c .item.is-active svg { color: #e4e6ec; }
+    .c .item .count { color: #4a4d57; }
+    .c .item.is-active .count { color: #6d717c; }
+    .c .brand-name { color: #eceef2; font-weight: 600; }
+    .c .hbtn { color: #555864; border-radius: 999px; }
+    .c .hbtn:hover { background: #15161b; color: #a0a4b0; }
+
+    .note {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border: 1px dashed color-mix(in srgb, var(--border) 80%, #3a3f55);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>侧栏质感方案对比</h1>
+      <p>
+        三套方案共用同一信息结构，只改「图标线型 + 层级对比 + 行距」。
+        目标：靠近 Linear 那种冷静、精密的 chrome，而不是继续堆实心 glyph。
+      </p>
+    </header>
+
+    <div class="grid">
+      <!-- A -->
+      <article class="card">
+        <div class="preview a">
+          <aside class="side">
+            <div class="brand">
+              <span class="avatar">YU</span>
+              <span class="brand-name">Yunkoo</span>
+              <div class="brand-actions">
+                <span class="hbtn" aria-hidden="true">
+                  <svg viewBox="0 0 16 16"><circle class="ico-stroke" cx="7" cy="7" r="4.5"/><path class="ico-stroke" d="M10.5 10.5 L13.5 13.5"/></svg>
+                </span>
+                <span class="hbtn" aria-hidden="true">
+                  <svg viewBox="0 0 16 16"><path class="ico-fill" d="M3 12.5V10l7.2-7.2a1 1 0 0 1 1.4 0l1.1 1.1a1 1 0 0 1 0 1.4L5.5 12.5H3z"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="label">工作台</div>
+            <div class="item"><svg viewBox="0 0 16 16"><rect class="ico-stroke" x="2.5" y="3" width="11" height="10" rx="1.5"/><path class="ico-stroke" d="M2.5 6.5h11"/></svg>今日记录</div>
+            <div class="item is-active"><svg viewBox="0 0 16 16"><path class="ico-stroke" d="M3 4h4v4H3zM9 4h4v4H9zM3 10h4v3H3zM9 10h4v3H9z"/></svg>交易日志<span class="count">31</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><path class="ico-stroke" d="M3 3.5h7l3 3V13a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1v-8.5a1 1 0 0 1 1-1z"/><path class="ico-stroke" d="M10 3.5V7h3.2"/></svg>案例记录<span class="count">5</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><rect class="ico-fill" x="2" y="2" width="5" height="5" rx="1"/><rect class="ico-fill" x="9" y="2" width="5" height="5" rx="1"/><rect class="ico-fill" x="2" y="9" width="5" height="5" rx="1"/><rect class="ico-fill" x="9" y="9" width="5" height="5" rx="1"/></svg>仪表盘</div>
+            <div class="label">我的空间</div>
+            <div class="item"><svg viewBox="0 0 16 16"><circle class="ico-fill" cx="8" cy="8" r="5"/></svg>进行中</div>
+            <div class="item"><svg viewBox="0 0 16 16"><path class="ico-fill" d="M8 2.2l1.6 3.3 3.6.5-2.6 2.6.6 3.6L8 10.8 4.8 12.2l.6-3.6L2.8 6l3.6-.5z"/></svg>星标交易<span class="count">2</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><path class="ico-fill" d="M3 3h10v2H3zm0 4h10v6H3z"/></svg>错过的机会</div>
+            <div class="item"><svg viewBox="0 0 16 16"><path class="ico-stroke" d="M5 4h6v9H5zM6.5 2.5h3"/><circle class="ico-stroke" cx="8" cy="9" r="1.6"/></svg>模拟回测</div>
+            <div class="spacer"></div>
+            <div class="foot">
+              <div class="item"><svg viewBox="0 0 16 16"><path class="ico-fill" d="M3 4h10l-1 9H4zM6 4V3h4v1"/></svg>回收站</div>
+              <div class="item"><svg viewBox="0 0 16 16"><circle class="ico-fill" cx="8" cy="8" r="2"/><path class="ico-stroke" d="M8 2.5v1.2M8 12.3v1.2M2.5 8h1.2M12.3 8h1.2M4.1 4.1l.9.9M11 11l.9.9M11.9 4.1l-.9.9M5 11l-.9.9"/></svg>设置</div>
+            </div>
+          </aside>
+          <div class="main">A · 现状气质<br/>实心 + 描边混用，选中态偏亮，图标光学重量不一致。</div>
+        </div>
+        <div class="meta">
+          <h2>A · 当前实心混搭</h2>
+          <p>接近你现在的侧栏：星/圆实心，其余描边，视觉重心不稳。</p>
+          <ul>
+            <li>优点：信息识别快、对比强</li>
+            <li>代价：缺少 Linear 那种「精密零件」感</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- B -->
+      <article class="card">
+        <div class="preview b">
+          <aside class="side">
+            <div class="brand">
+              <span class="avatar">YU</span>
+              <span class="brand-name">Yunkoo</span>
+              <div class="brand-actions">
+                <span class="hbtn"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg></span>
+                <span class="hbtn"><svg viewBox="0 0 16 16"><path d="M3.5 12.5V10l6.8-6.8a1 1 0 0 1 1.4 0l1.1 1.1a1 1 0 0 1 0 1.4L6 12.5H3.5z"/><path d="M9.2 4.2l2.6 2.6"/></svg></span>
+              </div>
+            </div>
+            <div class="label">Workbench</div>
+            <div class="item"><svg viewBox="0 0 16 16"><rect x="2.75" y="3.25" width="10.5" height="9.5" rx="1.5"/><path d="M2.75 6.5h10.5M6 3.25v3.25M10 3.25v3.25"/></svg>今日记录</div>
+            <div class="item is-active"><svg viewBox="0 0 16 16"><path d="M4 4.2h2.4v2.4H4zM9.6 4.2H12v2.4H9.6zM4 9.4h2.4V12H4zM9.6 9.4H12V12H9.6z"/></svg>交易日志<span class="count">31</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><path d="M3.2 3.4h6.4l3.2 3.2V12.6a1 1 0 0 1-1 1H3.2a1 1 0 0 1-1-1V4.4a1 1 0 0 1 1-1z"/><path d="M9.6 3.4v3.2h3.2"/></svg>案例记录<span class="count">5</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></svg>仪表盘</div>
+            <div class="label">My space</div>
+            <div class="item"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.6"/></svg>进行中</div>
+            <div class="item"><svg viewBox="0 0 16 16"><path d="M8 2.6l1.45 3.05 3.35.48-2.42 2.36.57 3.34L8 10.4 4.95 11.83l.57-3.34L3.1 6.13l3.35-.48z"/></svg>星标交易<span class="count">2</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/><path d="M5.2 5.2l5.6 5.6"/></svg>错过的机会</div>
+            <div class="item"><svg viewBox="0 0 16 16"><path d="M5.2 3.8h5.6v8.4H5.2z"/><path d="M6.6 2.6h2.8"/><circle cx="8" cy="9.2" r="1.5"/></svg>模拟回测</div>
+            <div class="spacer"></div>
+            <div class="foot">
+              <div class="item"><svg viewBox="0 0 16 16"><path d="M3.5 4.2h9l-.9 8.6H4.4z"/><path d="M6.2 4.2V3h3.6v1.2"/></svg>回收站</div>
+              <div class="item"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2"/><path d="M8 2.4v1.3M8 12.3v1.3M2.4 8h1.3M12.3 8h1.3M4.05 4.05l.92.92M11.03 11.03l.92.92M11.95 4.05l-.92.92M4.97 11.03l-.92.92"/></svg>设置</div>
+            </div>
+          </aside>
+          <div class="main">B · Linear chrome<br/>统一 1.5 描边、无填充、分区标题更淡。</div>
+        </div>
+        <div class="meta">
+          <h2>B · 细描边 chrome</h2>
+          <p>最接近 Linear 产品侧栏：同一线宽、同一端点、几乎全描边。</p>
+          <ul>
+            <li>优点：质感提升最明显</li>
+            <li>代价：需要替换侧栏图标集（不宜继续用实心 emoji glyph）</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- C -->
+      <article class="card is-rec">
+        <div class="preview c">
+          <aside class="side">
+            <div class="brand">
+              <span class="avatar">YU</span>
+              <span class="brand-name">Yunkoo</span>
+              <div class="brand-actions">
+                <span class="hbtn"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 L13.5 13.5"/></svg></span>
+                <span class="hbtn"><svg viewBox="0 0 16 16"><path d="M3.5 12.5V10l6.8-6.8a1 1 0 0 1 1.4 0l1.1 1.1a1 1 0 0 1 0 1.4L6 12.5H3.5z"/><path d="M9.2 4.2l2.6 2.6"/></svg></span>
+              </div>
+            </div>
+            <div class="label">工作台</div>
+            <div class="item"><svg viewBox="0 0 16 16"><rect x="2.75" y="3.25" width="10.5" height="9.5" rx="1.5"/><path d="M2.75 6.5h10.5M6 3.25v3.25M10 3.25v3.25"/></svg>今日记录</div>
+            <div class="item is-active"><svg viewBox="0 0 16 16"><path d="M3.4 3.8h3v3h-3zM9.6 3.8h3v3h-3zM3.4 9.2h3v3h-3zM9.6 9.2h3v3h-3z"/></svg>交易日志<span class="count">31</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><path d="M3.2 3.4h6.4l3.2 3.2V12.6a1 1 0 0 1-1 1H3.2a1 1 0 0 1-1-1V4.4a1 1 0 0 1 1-1z"/><path d="M9.6 3.4v3.2h3.2"/></svg>案例记录<span class="count">5</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></svg>仪表盘</div>
+            <div class="label">我的空间</div>
+            <div class="item"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.55"/></svg>进行中</div>
+            <div class="item"><svg viewBox="0 0 16 16"><path d="M8 2.6l1.45 3.05 3.35.48-2.42 2.36.57 3.34L8 10.4 4.95 11.83l.57-3.34L3.1 6.13l3.35-.48z"/></svg>星标交易<span class="count">2</span></div>
+            <div class="item"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/><path d="M5.2 5.2l5.6 5.6"/></svg>错过的机会</div>
+            <div class="item"><svg viewBox="0 0 16 16"><path d="M5.2 3.8h5.6v8.4H5.2z"/><path d="M6.6 2.6h2.8"/><circle cx="8" cy="9.2" r="1.5"/></svg>模拟回测</div>
+            <div class="spacer"></div>
+            <div class="foot">
+              <div class="item"><svg viewBox="0 0 16 16"><path d="M3.5 4.2h9l-.9 8.6H4.4z"/><path d="M6.2 4.2V3h3.6v1.2"/></svg>回收站</div>
+              <div class="item"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2"/><path d="M8 2.4v1.3M8 12.3v1.3M2.4 8h1.3M12.3 8h1.3M4.05 4.05l.92.92M11.03 11.03l.92.92M11.95 4.05l-.92.92M4.97 11.03l-.92.92"/></svg>设置</div>
+            </div>
+          </aside>
+          <div class="main">C · 推荐<br/>描边 chrome + 更静分区 + 略增行距，选中仍清楚但不吵。</div>
+        </div>
+        <div class="meta">
+          <h2>C · 描边 + 静层级 <span class="badge">推荐</span></h2>
+          <p>在 B 的图标语言上，再压低分区标题、放宽行高、弱化未选中态。</p>
+          <ul>
+            <li>质感最接近 Linear 截图</li>
+            <li>实现成本可控：侧栏专用 stroke 图标 + 少量 CSS token</li>
+            <li>列表状态圆仍可用 Linear Issue 状态（业务语义另算）</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+
+    <div class="note">
+      选型建议：若目标是「侧栏像 Linear」，选 <b>C</b>；若只要图标统一、层级先不动，选 <b>B</b>。
+      不建议继续用现有实心 emoji 库当导航 chrome——那套更适合内容装饰，不是精密工具栏。
+      回复 A / B / C，我再写成设计稿并落实施计划。
+    </div>
+  </div>
+</body>
+</html>
