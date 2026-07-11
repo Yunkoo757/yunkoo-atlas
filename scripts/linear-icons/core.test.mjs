@@ -78,3 +78,10 @@ test('generated manifest contains all 301 records', async () => {
   )
   assert.equal(manifest.count, 301)
 })
+
+test('gallery shell exposes required controls', async () => {
+  const html = await fs.readFile('assets/linear-icon-system/gallery.html', 'utf8')
+  for (const id of ['icon-search', 'theme-toggle', 'icon-size', 'progress-control', 'static-grid', 'motion-grid']) {
+    assert.match(html, new RegExp(`id="${id}"`))
+  }
+})

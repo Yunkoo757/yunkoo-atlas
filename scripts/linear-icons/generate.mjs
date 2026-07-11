@@ -173,4 +173,11 @@ await fs.writeFile(
   'utf8',
 )
 
+const galleryData = `window.LINEAR_ICON_MANIFEST = ${JSON.stringify({
+  count: records.length,
+  duplicates,
+  icons: manifestRecords,
+})};\n`
+await fs.writeFile(path.join(root, 'gallery-data.js'), galleryData, 'utf8')
+
 console.log(`Generated ${records.length} Linear static icons`)
