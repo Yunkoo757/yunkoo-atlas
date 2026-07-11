@@ -585,11 +585,24 @@
   background: var(--bg-hover);
 }
 .dv-pitem-ghost {
-  color: var(--text-tertiary);
-  font-weight: var(--font-weight-normal);
+  height: 32px;
+  padding: 0 9px;
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid transparent;
+  background: transparent;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.dv-pitem-ghost:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--bg-hover);
 }
 .dv-pitem-ghost svg {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 .dv-pitem svg {
   flex-shrink: 0;
@@ -701,13 +714,20 @@
 }
 .dv-strategy-manage {
   display: inline-block;
-  margin: 4px 6px 0;
+  margin: 5px 9px 0;
   font-size: var(--fs-mini);
   color: var(--text-tertiary);
 }
 .dv-strategy-manage:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+
+@media (max-width: 1024px) {
+  .dv-pitem-ghost {
+    height: 44px;
+    padding-inline: 12px;
+  }
 }
 .dv-empty {
   display: grid;
