@@ -180,8 +180,39 @@ export function CommandPalette({
   let flatIndex = -1
 
   return createPortal(
-    <div className="cmdk-overlay" onMouseDown={onClose}>
-      <div className="cmdk" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="cmdk-overlay" role="presentation" onMouseDown={onClose}>
+      <div
+        className="cmdk"
+        role="dialog"
+        aria-modal="true"
+        aria-label="搜索与命令"
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && !event.defaultPrevented) {
+            event.stopPropagation()
+            onClose()
+            return
+          }
+          if (event.key !== 'Tab') return
+
+          const focusable = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              'input:not(:disabled), button:not(:disabled):not([tabindex="-1"])',
+            ),
+          ).filter((element) => element.offsetParent !== null)
+          const first = focusable[0]
+          const last = focusable[focusable.length - 1]
+          if (!first || !last) return
+
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault()
+            last.focus()
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault()
+            first.focus()
+          }
+        }}
+      >
         <div className={'cmdk-input-row' + (q ? ' has-value' : '')}>
           <Search size={16} className="cmdk-search-icon" />
           <input
