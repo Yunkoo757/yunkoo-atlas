@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>列表行留白 · 方案再评估</title>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --surface: #111114;
+      --surface2: #16161b;
+      --border: #2a2a33;
+      --text: #f2f2f5;
+      --text2: #c8c8d0;
+      --text3: #8b8b98;
+      --text4: #5c5c6a;
+      --pos: #5fbf8a;
+      --neg: #e28888;
+      --accent: #5e6ad2;
+      --warn: #c4a035;
+      --font: "Geist Sans", "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, monospace;
+      --row-h: 40px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .page { max-width: 1180px; margin: 0 auto; padding: 28px 22px 56px; }
+    h1 { margin: 0 0 6px; font-size: 22px; color: var(--text); font-weight: 600; }
+    .lede { margin: 0 0 16px; max-width: 780px; color: var(--text3); font-size: 14px; }
+    .verdict {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      margin-bottom: 16px;
+      font-size: 13.5px;
+      color: var(--text3);
+    }
+    .verdict strong { color: var(--text); }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center;
+    }
+    .seg {
+      display: inline-flex; padding: 3px; border: 1px solid var(--border);
+      border-radius: 999px; background: var(--surface);
+    }
+    .seg button {
+      height: 28px; padding: 0 12px; border: 0; border-radius: 999px;
+      background: transparent; color: var(--text3); font: inherit; font-size: 12.5px; cursor: pointer;
+    }
+    .seg button.is-on {
+      color: var(--text);
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+    .panel { display: none; }
+    .panel.is-on { display: block; }
+    .meta {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
+    }
+    @media (max-width: 800px) { .meta { grid-template-columns: 1fr; } }
+    .card {
+      padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); font-size: 12.5px; color: var(--text3);
+    }
+    .card h2 { margin: 0 0 6px; font-size: 13px; color: var(--text); }
+    .pill {
+      display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; margin-left: 6px;
+    }
+    .pill.bad { background: rgba(226,85,85,.16); color: #f0a8a8; }
+    .pill.ok { background: color-mix(in srgb, var(--accent) 20%, transparent); color: #c5c9f5; }
+    .pill.mid { background: rgba(196,160,53,.16); color: #e6d59a; }
+    .stage {
+      border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #0e0e12;
+    }
+    .stage-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface2);
+      font-size: 13px; color: var(--text);
+      font-weight: 600;
+    }
+    .stage-head span { font-weight: 400; color: var(--text3); font-size: 12px; }
+    .frame {
+      position: relative;
+      min-height: 220px;
+    }
+    .frame::after {
+      content: attr(data-note);
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      max-width: 160px;
+      padding: 8px 10px;
+      border: 1px dashed rgba(226,85,85,.45);
+      border-radius: 8px;
+      background: rgba(226,85,85,.06);
+      color: #e28888;
+      font-size: 11px;
+      line-height: 1.4;
+      pointer-events: none;
+      opacity: 0;
+    }
+    .frame.show-void::after { opacity: 1; }
+    .row {
+      display: grid;
+      align-items: center;
+      column-gap: 12px;
+      height: var(--row-h);
+      padding: 0 14px;
+      border-bottom: 1px solid #1a1a20;
+      font-size: 12px;
+      position: relative;
+    }
+    .row:last-child { border-bottom: 0; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--pos); }
+    .dot.loss { border-color: var(--neg); }
+    .ref { color: var(--text4); font-family: var(--mono); font-size: 11px; }
+    .sym { color: var(--text); font-weight: 550; font-variant-numeric: tabular-nums; }
+    .side {
+      padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text3); font-size: 11px;
+    }
+    .strat {
+      display: inline-flex; align-items: center; gap: 5px; color: var(--text3); font-size: 11.5px;
+      padding-left: 8px; border-left: 1px solid var(--border);
+    }
+    .ico { width: 14px; height: 14px; border-radius: 4px; background: #7c5cff; }
+    .ico.o { background: #d9773a; }
+    .chip {
+      height: 18px; padding: 0 7px; border-radius: 4px; font-size: 10.5px; line-height: 18px;
+      color: var(--text3); background: #14141a; white-space: nowrap;
+    }
+    .chip.tf { background: transparent; border: 1px solid var(--border); }
+    .chip.err {
+      background: transparent; border: 1px solid color-mix(in srgb, var(--neg) 26%, var(--border));
+      color: color-mix(in srgb, var(--neg) 72%, var(--text3));
+    }
+    .id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .tags { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
+    .pnl { font-family: var(--mono); font-size: 11.5px; text-align: right; color: var(--pos); }
+    .pnl.neg { color: var(--neg); }
+    .pnl.z { color: var(--text4); }
+    .r { font-family: var(--mono); font-size: 11.5px; text-align: right; color: var(--pos); }
+    .r.neg { color: var(--neg); }
+    .r.z { color: var(--text4); }
+    .date { font-family: var(--mono); font-size: 11.5px; text-align: right; color: var(--text3); }
+    .star { color: #8b7cf0; text-align: center; font-size: 12px; }
+
+    /* A: current v2 — left packed */
+    .a .row {
+      grid-template-columns:
+        16px 50px minmax(200px, 248px) minmax(88px, 188px) 34px 72px 52px 54px 22px;
+    }
+    /* B: old — 1fr tags vacuum */
+    .b .row {
+      grid-template-columns:
+        16px 50px minmax(200px, 280px) minmax(120px, 1fr) 34px 72px 52px 54px 22px;
+    }
+    /* C: recommended — spacer then right-anchored metrics */
+    .c .row {
+      grid-template-columns:
+        16px 50px minmax(200px, 248px) minmax(88px, 200px) 34px minmax(24px, 1fr) 72px 52px 54px 22px;
+    }
+    .spacer {
+      position: relative;
+      min-height: 1px;
+    }
+    .c .frame[data-show-spacer="1"] .spacer::after {
+      content: "弹性间距（可接受）";
+      position: absolute;
+      inset: 6px 10%;
+      border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+      border-radius: 6px;
+      color: #a8aee8;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+    .compare-note {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 800px) { .compare-note { grid-template-columns: 1fr; } }
+    .note {
+      margin-top: 16px; padding: 12px 14px; border: 1px dashed var(--border);
+      border-radius: 10px; font-size: 12.5px; color: var(--text3);
+    }
+    .note strong { color: var(--text2); }
+    code { font-family: var(--mono); font-size: 11.5px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>列表行留白 · 再评估</h1>
+    <p class="lede">
+      你的感觉对：当前 v2 在宽屏上会「右侧空一大块」。这不是质感没做好，而是<strong>布局策略矫枉过正</strong>。
+    </p>
+
+    <div class="verdict">
+      <strong>结论：v2 方向半对、落地有问题。</strong>
+      对的是降噪、错误弱化、结果列定宽；错的是去掉所有弹性列后，整行内容左锁死，宽屏剩余宽度堆在行尾外侧，看起来像设计没做完。
+      推荐改成「左身份 + 标签上限 + <em>中间弹性间距</em> + <em>结果右锚定</em>」——空的是间距，不是信息空洞。
+    </div>
+
+    <div class="toolbar">
+      <div class="seg" role="tablist">
+        <button type="button" class="is-on" data-tab="c">C 推荐 · 结果右锚定</button>
+        <button type="button" data-tab="a">A 当前 v2 · 左锁死</button>
+        <button type="button" data-tab="b">B 旧方案 · 中段真空</button>
+      </div>
+    </div>
+
+    <section class="panel" id="panel-a">
+      <div class="meta">
+        <div class="card">
+          <h2>A · 当前线上 v2 <span class="pill bad">有问题</span></h2>
+          <p>列宽全封顶、无 <code>1fr</code>。内容总宽约 750px，主区更宽时余量全落在<strong>最右侧外侧</strong>，像缺了一截。</p>
+        </div>
+        <div class="card">
+          <h2>为何当初会这样</h2>
+          <p>为消灭「标签列 1fr 造成的中段真空」而矫枉过正；修了扫视断裂，却引入「版面未撑满」。</p>
+        </div>
+      </div>
+      <div class="stage a">
+        <div class="stage-head">当前 v2 <span>宽屏示意 · 注意右侧大空</span></div>
+        <div class="frame show-void" data-note="死空白：内容锁在左侧，右侧像没布局">
+          <div class="row">
+            <span class="dot"></span><span class="ref">TRD-27</span>
+            <span class="id"><span class="sym">EURUSD</span><span class="side">多</span><span class="strat"><span class="ico"></span>导航3</span></span>
+            <span class="tags"><span class="chip">价格收盘</span></span>
+            <span class="chip tf">4H</span>
+            <span class="pnl">$356</span><span class="r">+2.9R</span><span class="date">7月2日</span><span class="star">★</span>
+          </div>
+          <div class="row">
+            <span class="dot loss"></span><span class="ref">TRD-24</span>
+            <span class="id"><span class="sym">BTCUSDT</span><span class="side">多</span><span class="strat"><span class="ico o"></span>导航1</span></span>
+            <span class="tags"><span class="chip">MTF ORA</span><span class="chip err">技术分析错误</span></span>
+            <span class="chip tf">15M</span>
+            <span class="pnl neg">-$333</span><span class="r neg">-2.0R</span><span class="date">7月5日</span><span class="star"></span>
+          </div>
+          <div class="row">
+            <span class="dot" style="border-color:var(--text4)"></span><span class="ref">TRD-25</span>
+            <span class="id"><span class="sym">BTCUSDT</span><span class="side">多</span><span class="strat"><span class="ico o"></span>导航1</span></span>
+            <span class="tags"></span>
+            <span class="chip tf">15M</span>
+            <span class="pnl z">$0</span><span class="r z">0.0R</span><span class="date">7月3日</span><span class="star"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-b">
+      <div class="meta">
+        <div class="card">
+          <h2>B · 旧布局 <span class="pill mid">也不好</span></h2>
+          <p>标签列 <code>1fr</code> 吃掉中间。无标签时中段真空，目光从品种跳到盈亏要跨半屏——这是我们当初要修的。</p>
+        </div>
+        <div class="card">
+          <h2>和 A 的区别</h2>
+          <p>空在<strong>信息之间</strong>（更伤扫视）；A 空在<strong>信息之后</strong>（伤完成感）。两者都不是终局。</p>
+        </div>
+      </div>
+      <div class="stage b">
+        <div class="stage-head">旧方案 <span>中段真空更伤扫视</span></div>
+        <div class="frame show-void" data-note="信息空洞：品种与结果被拉开">
+          <div class="row">
+            <span class="dot"></span><span class="ref">TRD-27</span>
+            <span class="id"><span class="sym">EURUSD</span><span class="side">多</span><span class="strat"><span class="ico"></span>导航3</span></span>
+            <span class="tags"><span class="chip">价格收盘</span></span>
+            <span class="chip tf">4H</span>
+            <span class="pnl">$356</span><span class="r">+2.9R</span><span class="date">7月2日</span><span class="star">★</span>
+          </div>
+          <div class="row">
+            <span class="dot" style="border-color:var(--text4)"></span><span class="ref">TRD-25</span>
+            <span class="id"><span class="sym">BTCUSDT</span><span class="side">多</span><span class="strat"><span class="ico o"></span>导航1</span></span>
+            <span class="tags"></span>
+            <span class="chip tf">15M</span>
+            <span class="pnl z">$0</span><span class="r z">0.0R</span><span class="date">7月3日</span><span class="star"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel is-on" id="panel-c">
+      <div class="meta">
+        <div class="card">
+          <h2>C · 推荐修正 <span class="pill ok">建议落地</span></h2>
+          <p>保留 v2 的降噪与弱错误；在周期与 PnL 之间加 <code>1fr</code> 弹性间距，让 <strong>PnL / R / 日期贴主区右缘</strong>。空的是间距，不是漏做的列。</p>
+        </div>
+        <div class="card">
+          <h2>扫视是否回来？</h2>
+          <p>结果永远在右缘，形成稳定「右锚」；眼睛走「左身份 → 右结果」，比中段随机真空更可预期（邮件列表/Linear 同款）。</p>
+        </div>
+      </div>
+      <div class="stage c">
+        <div class="stage-head">推荐 C <span>结果右锚定 · 中间为弹性间距</span></div>
+        <div class="frame" data-show-spacer="1">
+          <div class="row">
+            <span class="dot"></span><span class="ref">TRD-27</span>
+            <span class="id"><span class="sym">EURUSD</span><span class="side">多</span><span class="strat"><span class="ico"></span>导航3</span></span>
+            <span class="tags"><span class="chip">价格收盘</span></span>
+            <span class="chip tf">4H</span>
+            <span class="spacer"></span>
+            <span class="pnl">$356</span><span class="r">+2.9R</span><span class="date">7月2日</span><span class="star">★</span>
+          </div>
+          <div class="row">
+            <span class="dot loss"></span><span class="ref">TRD-24</span>
+            <span class="id"><span class="sym">BTCUSDT</span><span class="side">多</span><span class="strat"><span class="ico o"></span>导航1</span></span>
+            <span class="tags"><span class="chip">MTF ORA</span><span class="chip err">技术分析错误</span></span>
+            <span class="chip tf">15M</span>
+            <span class="spacer"></span>
+            <span class="pnl neg">-$333</span><span class="r neg">-2.0R</span><span class="date">7月5日</span><span class="star"></span>
+          </div>
+          <div class="row">
+            <span class="dot" style="border-color:var(--text4)"></span><span class="ref">TRD-25</span>
+            <span class="id"><span class="sym">BTCUSDT</span><span class="side">多</span><span class="strat"><span class="ico o"></span>导航1</span></span>
+            <span class="tags"></span>
+            <span class="chip tf">15M</span>
+            <span class="spacer"></span>
+            <span class="pnl z">$0</span><span class="r z">0.0R</span><span class="date">7月3日</span><span class="star"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-note">
+        <div class="card"><h2>保留自 v2</h2>策略彩标、方向/周期中性、错误弱描边进标签槽、结果列定宽。</div>
+        <div class="card"><h2>修正点</h2>周期与 PnL 之间加弹性列；结果簇贴右，消除「右侧没做完」感。</div>
+        <div class="card"><h2>不做</h2>不把标签再改回无限 <code>1fr</code>；不恢复错误红底实心 pill。</div>
+      </div>
+    </section>
+
+    <div class="note">
+      <strong>评估一句话：</strong>方案不是推倒重来，是 v2 + 结果右锚定。
+      若同意，回「按 C 改」；我再动正式 CSS（改动面很小）。暂不改产品代码。
+    </div>
+  </div>
+  <script>
+    const panels = {
+      a: document.getElementById("panel-a"),
+      b: document.getElementById("panel-b"),
+      c: document.getElementById("panel-c"),
+    };
+    document.querySelectorAll(".seg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".seg button").forEach((b) => b.classList.remove("is-on"));
+        btn.classList.add("is-on");
+        const tab = btn.dataset.tab;
+        Object.entries(panels).forEach(([k, el]) => el.classList.toggle("is-on", k === tab));
+      });
+    });
+  </script>
+</body>
+</html>

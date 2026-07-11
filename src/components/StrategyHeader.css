@@ -1,50 +1,36 @@
 .sh {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding: 16px 18px;
-  border-radius: var(--radius-10);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-}
-
-.sh-main {
-  display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.sh-info {
-  min-width: 0;
-}
-
-.sh-name {
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 36px;
   margin: 0;
-  font-size: var(--font-size-title3);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
 }
 
 .sh-sub {
-  margin: 4px 0 0;
-  font-size: var(--fs-mini);
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sh-stats {
   display: flex;
-  gap: 24px;
   flex-shrink: 0;
+  gap: 18px;
 }
 
 .sh-stat {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 1px;
 }
 
 .sh-stat-label {
@@ -53,7 +39,8 @@
 }
 
 .sh-stat-value {
-  font-size: var(--fs-base);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }

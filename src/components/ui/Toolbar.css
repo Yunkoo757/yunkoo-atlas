@@ -27,7 +27,7 @@
 }
 
 .ui-toolbar-heading {
-  gap: var(--sp-2);
+  gap: 10px;
   overflow: hidden;
 }
 
@@ -39,6 +39,13 @@
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ui-toolbar-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 12px;
+  background: var(--border-default);
 }
 
 .ui-toolbar-context {

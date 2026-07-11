@@ -346,28 +346,54 @@ export function App() {
       // Normal bootstrap
       await bootstrapStorage()
 
+      // 等字体就绪再亮屏，避免 Inter swap 导致列表从左到右重排
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        await Promise.race([
+          document.fonts.ready,
+          new Promise((resolve) => window.setTimeout(resolve, 1200)),
+        ])
+      }
+
       // Clean expired trash (30+ days old deleted records)
       const state = useStore.getState()
       await cleanExpiredTradeTrash(state.trades, state.purgeTrade)
 
       setReady(true)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document.documentElement.dataset.uiSettled = '1'
+        })
+      })
     }
 
     init().catch((e) => {
       console.error('Storage bootstrap failed', e)
       setReady(true)
+      document.documentElement.dataset.uiSettled = '1'
     })
   }, [])
 
   const handleWelcomeReady = async () => {
     setNeedsWelcome(false)
     setReady(false)
+    document.documentElement.removeAttribute('data-ui-settled')
     try {
       await bootstrapStorage()
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        await Promise.race([
+          document.fonts.ready,
+          new Promise((resolve) => window.setTimeout(resolve, 1200)),
+        ])
+      }
     } catch (e) {
       console.error('Storage bootstrap failed after welcome', e)
     }
     setReady(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.documentElement.dataset.uiSettled = '1'
+      })
+    })
   }
 
   useEffect(() => {

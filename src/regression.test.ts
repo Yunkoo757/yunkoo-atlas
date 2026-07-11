@@ -201,6 +201,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(dailyItems.length === 7, '日常列表应只保留前 8 个 pinned 中的有效项')
   assert(!dailyItems.some((item) => item.item.id === 'saved-invalid'), '失效项不得进入日常列表')
   assert(!dailyItems.some((item) => item.item.id === 'case-mistakes'), '第 9 个配置项不得进入 pinned 日常列表')
+  assert(source.includes('data-sidebar-overflow'), 'Sidebar 应为 overflow 项渲染「更多」分区')
+  assert(source.includes('sb-workspace-editor-backdrop'), 'Sidebar 管理器应支持点击外部关闭')
   assert(source.includes('state.display.sidebarWorkspaceItems'), 'Sidebar 应读取统一工作区配置')
   assert(source.includes('resolveSidebarWorkspaceItem'), 'Sidebar 应通过统一解析器准备日常项')
   assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')

@@ -14,7 +14,12 @@ export function Toolbar({ title, context, actions, children }: ToolbarProps) {
       <div className="ui-toolbar-main">
         <div className="ui-toolbar-heading">
           <span className="ui-toolbar-title">{title}</span>
-          {context && <span className="ui-toolbar-context">{context}</span>}
+          {context ? (
+            <>
+              <span className="ui-toolbar-sep" aria-hidden="true" />
+              <span className="ui-toolbar-context">{context}</span>
+            </>
+          ) : null}
         </div>
         {children && <div className="ui-toolbar-content">{children}</div>}
       </div>

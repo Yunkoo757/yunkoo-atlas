@@ -134,11 +134,11 @@ export function tradeInPeriod(
 
 export function formatPeriodSubtitle(period: CalendarPeriod, now = new Date()): string {
   const bounds = getPeriodBounds(period, now)
-  const label = PERIOD_LABELS[period]
+  // 今日页标题已是「今日记录」，副标题不再重复「今日」
   if (period === 'today') {
-    return `${label} · ${bounds.start} · 按开仓日`
+    return `${bounds.start} · 按开仓日`
   }
-  return `${label} · ${bounds.start} – ${bounds.end} · 按开仓日`
+  return `${PERIOD_LABELS[period]} · ${bounds.start} – ${bounds.end} · 按开仓日`
 }
 
 export function isValidPeriodSlug(slug: string): slug is CalendarPeriod {

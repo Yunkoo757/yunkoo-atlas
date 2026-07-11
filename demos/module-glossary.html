@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yunkoo Atlas · 模块词典</title>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --surface: #111114;
+      --surface2: #17171c;
+      --hover: #1e1e26;
+      --border: #2a2a33;
+      --text: #f2f2f5;
+      --text2: #c8c8d0;
+      --text3: #8b8b98;
+      --text4: #5c5c6a;
+      --accent: #5e6ad2;
+      --accent-soft: color-mix(in srgb, #5e6ad2 18%, transparent);
+      --ok: #3d9a6a;
+      --warn: #c4a035;
+      --font: "Geist Sans", "Inter", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 22px 64px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .lede {
+      margin: 0 0 18px;
+      max-width: 720px;
+      color: var(--text3);
+      font-size: 14px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+      align-items: center;
+    }
+    .search {
+      flex: 1;
+      min-width: 200px;
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+    }
+    .search:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+    }
+    .chip {
+      height: 30px;
+      padding: 0 11px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text3);
+      font: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .chip.is-on {
+      color: var(--text);
+      background: var(--accent-soft);
+      border-color: transparent;
+    }
+    .map {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+    @media (max-width: 900px) {
+      .map { grid-template-columns: 1fr 1fr; }
+    }
+    .map-card {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .map-card h2 {
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .map-card p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--text3);
+    }
+    .section {
+      margin-bottom: 22px;
+    }
+    .section-h {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 0 0 10px;
+    }
+    .section-h h3 {
+      margin: 0;
+      font-size: 15px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .section-h span {
+      font-size: 12px;
+      color: var(--text4);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    .mod {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 14px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      text-align: left;
+      color: inherit;
+      font: inherit;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .mod:hover { background: var(--hover); }
+    .mod.is-selected {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    }
+    .mod.is-hidden { display: none; }
+    .mod-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .mod-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .badge {
+      flex-shrink: 0;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: var(--surface2);
+      color: var(--text3);
+      border: 1px solid var(--border);
+    }
+    .badge.primary { color: #c5c9f5; background: var(--accent-soft); border-color: transparent; }
+    .badge.surface { color: #b8dcc8; background: color-mix(in srgb, var(--ok) 18%, transparent); border-color: transparent; }
+    .badge.warn { color: #e6d59a; background: color-mix(in srgb, var(--warn) 18%, transparent); border-color: transparent; }
+    .mod-def {
+      margin: 0;
+      font-size: 12.5px;
+      color: var(--text3);
+    }
+    .mod-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text4);
+    }
+    .mod-meta code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--surface2);
+      color: var(--text3);
+    }
+    .detail {
+      position: sticky;
+      bottom: 12px;
+      margin-top: 8px;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--surface) 92%, #000);
+      box-shadow: 0 12px 40px rgba(0,0,0,.45);
+      display: none;
+    }
+    .detail.is-on { display: block; }
+    .detail h4 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      color: var(--text);
+    }
+    .detail p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--text3);
+    }
+    .detail dl {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 6px 10px;
+      margin: 0;
+      font-size: 12.5px;
+    }
+    .detail dt { color: var(--text4); }
+    .detail dd { margin: 0; color: var(--text2); }
+    .alias {
+      text-decoration: line-through;
+      color: var(--text4);
+      margin-right: 6px;
+    }
+    .note {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px dashed var(--border);
+      font-size: 12.5px;
+      color: var(--text3);
+    }
+    .note strong { color: var(--text2); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Yunkoo Atlas · 模块词典</h1>
+    <p class="lede">
+      沟通时请优先用「建议统一名」。本页按产品真实结构拆解，不改正式代码。
+      点卡片看详情；筛选/搜索可快速对齐「我们说的是哪一块」。
+    </p>
+
+    <div class="toolbar">
+      <input class="search" id="q" type="search" placeholder="搜索：交易日志 / 模拟 / Detail / 快捷视图…" />
+      <button type="button" class="chip is-on" data-layer="all">全部</button>
+      <button type="button" class="chip" data-layer="shell">壳层</button>
+      <button type="button" class="chip" data-layer="primary">一级模块</button>
+      <button type="button" class="chip" data-layer="quick">快捷导航</button>
+      <button type="button" class="chip" data-layer="workbench">工作台能力</button>
+      <button type="button" class="chip" data-layer="record">记录与类型</button>
+      <button type="button" class="chip" data-layer="settings">设置</button>
+      <button type="button" class="chip" data-layer="overlay">全局浮层</button>
+    </div>
+
+    <div class="map" aria-label="四层产品地图">
+      <div class="map-card">
+        <h2>1. 壳层</h2>
+        <p>侧栏 + 主框 + 顶栏，所有页面共用。</p>
+      </div>
+      <div class="map-card">
+        <h2>2. 一级模块</h2>
+        <p>今日记录 / 交易日志 / 案例记录 / 仪表盘。</p>
+      </div>
+      <div class="map-card">
+        <h2>3. 快捷 + 工作台</h2>
+        <p>快捷入口、列表/看板/表格、筛选、快捷视图、详情。</p>
+      </div>
+      <div class="map-card">
+        <h2>4. 设置与浮层</h2>
+        <p>策略/标签/数据等配置；命令面板、新建弹层、灯箱。</p>
+      </div>
+    </div>
+
+    <div id="sections"></div>
+
+    <div class="note">
+      <strong>命名对齐提示：</strong>
+      「模拟回测」是侧栏/导航统一名；数据字段仍是 <code>tradeKind: paper</code>。
+      「交易日志」是一级模块名；进行中/星标/错过是<strong>快捷视图入口</strong>，不是新的一级模块。
+      「案例记录」≠ 旧「判例」；笔记本是案例模块内的子能力（设计已确认，实现进度以代码为准）。
+      改某模块时，请直接说统一名，例如：「改<strong>交易详情</strong>右侧属性栏」，而不是「改那个侧边栏」。
+    </div>
+
+    <div class="detail" id="detail" aria-live="polite"></div>
+  </div>
+
+  <script>
+    /** @typedef {{ id:string, layer:string, name:string, kind:string, def:string, route?:string, code?:string, aka?:string[], avoid?:string[], talk?:string }} Mod */
+
+    /** @type {Mod[]} */
+    const MODULES = [
+      // 壳层
+      {
+        id: "app-shell",
+        layer: "shell",
+        name: "应用壳层",
+        kind: "结构",
+        def: "整站外框：左侧栏 + 主内容框 + 外边距/圆角。所有业务页都嵌在壳层里。",
+        code: "AppFrame / Sidebar",
+        talk: "改壳层 = 改全局布局，不是改某个业务页内容。",
+      },
+      {
+        id: "sidebar",
+        layer: "shell",
+        name: "侧栏",
+        kind: "结构",
+        def: "左侧常驻导航：工作台一级模块、快捷区、回收站/设置；顶栏含搜索与新建图标。",
+        route: "全局",
+        code: "Sidebar",
+        aka: ["左侧工具栏", "左边栏"],
+        talk: "说「侧栏」即可；不要和「交易详情右侧属性栏」混称侧边栏。",
+      },
+      {
+        id: "topbar",
+        layer: "shell",
+        name: "页面顶栏",
+        kind: "结构",
+        def: "主内容区顶部：标题、副标题、列表/看板/表格切换、显示与筛选入口。",
+        code: "Topbar / TradeFilters 顶区",
+        aka: ["工具栏", "页头"],
+        talk: "筛选、快捷视图在顶栏一带，不在侧栏。",
+      },
+
+      // 一级
+      {
+        id: "today-record",
+        layer: "primary",
+        name: "今日记录",
+        kind: "一级模块",
+        def: "当天的实盘交易快速入口；本质是「交易日志」在 period=today 的切片。",
+        route: "/today-record",
+        code: "tradeKind: live + period today",
+        talk: "说「今日记录模块」；不要叫「今天的交易日志页」除非强调它是同一工作台。",
+      },
+      {
+        id: "trade-log",
+        layer: "primary",
+        name: "交易日志",
+        kind: "一级模块",
+        def: "实盘交易的主工作台。默认看全部实盘；可通过筛选/快捷入口切到进行中、时间段、策略等。",
+        route: "/list",
+        code: "tradeKind: live",
+        aka: ["实盘交易", "我的交易", "trades"],
+        avoid: ["inbox（已重定向到进行中）"],
+        talk: "产品一级名固定叫「交易日志」；数据语义是实盘。",
+      },
+      {
+        id: "review-cases",
+        layer: "primary",
+        name: "案例记录",
+        kind: "一级模块",
+        def: "独立复盘样本集合，不计入仪表盘/账户 KPI。可有系统视图（全部/重点/错题/待复看/已掌握）与笔记本子能力。",
+        route: "/review-cases",
+        code: "tradeKind: case",
+        aka: ["复盘案例"],
+        avoid: ["判例（已废弃旧名）", "cases 旧路由"],
+        talk: "统一说「案例记录」；子视图用「案例 · 错题」这种说法。",
+      },
+      {
+        id: "dashboard",
+        layer: "primary",
+        name: "仪表盘",
+        kind: "一级模块",
+        def: "账户/策略层面的统计与趋势；默认基于实盘，案例与模拟通常不计入核心 KPI。",
+        route: "/dashboard",
+        code: "Dashboard",
+        aka: ["统计页", "KPI"],
+        talk: "说「仪表盘」；细指标再点名具体图或筛选。",
+      },
+
+      // 快捷
+      {
+        id: "quick-nav",
+        layer: "quick",
+        name: "快捷（侧栏分区）",
+        kind: "导航分区",
+        def: "侧栏「工作台」下方的常驻快捷入口区，由 sidebarPins 控制显示项。",
+        route: "侧栏第二节",
+        code: "SECONDARY_NAV / resolvePinnedSecondaryNav",
+        talk: "说「侧栏快捷区」；不要和顶栏「快捷视图」混淆。",
+      },
+      {
+        id: "active",
+        layer: "quick",
+        name: "进行中",
+        kind: "快捷入口",
+        def: "打开交易日志工作台，并筛到计划中 + 持仓中的实盘交易。",
+        route: "/active",
+        code: "filter.type: active",
+        aka: ["inbox（旧）"],
+        talk: "是快捷入口，不是一级模块。",
+      },
+      {
+        id: "favorites",
+        layer: "quick",
+        name: "星标交易",
+        kind: "快捷入口",
+        def: "打开星标筛选后的交易列表（账户类交易）。",
+        route: "/favorites",
+        code: "filter.type: starred",
+        talk: "说「星标交易」或「星标入口」。",
+      },
+      {
+        id: "missed",
+        layer: "quick",
+        name: "错过的机会",
+        kind: "快捷入口",
+        def: "未实际执行的机会记录，关注假设盈亏；有独立文案语义。",
+        route: "/missed",
+        code: "filter.type: missed",
+        talk: "完整说「错过的机会」，可简称「错过」。",
+      },
+      {
+        id: "sim",
+        layer: "quick",
+        name: "模拟回测",
+        kind: "快捷入口 / 工作台",
+        def: "模拟盘交易工作台，不计入实盘 KPI。侧栏统一称「模拟回测」。",
+        route: "/sim",
+        code: "tradeKind: paper",
+        aka: ["模拟", "paper", "practice（旧路由）"],
+        talk: "对外统一「模拟回测」；对代码可说 paper。",
+      },
+
+      // 工作台能力
+      {
+        id: "workbench-modes",
+        layer: "workbench",
+        name: "工作台形态",
+        kind: "能力",
+        def: "同一模块下的三种呈现：列表 / 看板 / 表格。切换保留当前筛选与路径语义。",
+        route: "*/board · */table",
+        code: "workbenchMode / ListView BoardView TableView",
+        aka: ["视图模式"],
+        talk: "说「切到看板」时指形态，不是「快捷视图」。",
+      },
+      {
+        id: "quick-views",
+        layer: "workbench",
+        name: "快捷视图",
+        kind: "能力",
+        def: "列表顶栏的保存筛选组合（如全部/本周/本月/亏损及用户自建）。属于顶栏，不属于侧栏。",
+        code: "QuickViewBar / savedTradeViews",
+        aka: ["保存视图", "顶栏 tabs"],
+        talk: "务必与「侧栏快捷」区分开。",
+      },
+      {
+        id: "filters",
+        layer: "workbench",
+        name: "筛选器",
+        kind: "能力",
+        def: "时间、策略、状态、品种、方向、标签等条件面板；可保存为快捷视图。",
+        code: "TradeFilters",
+        talk: "说「打开筛选器 / 改筛选条件」。",
+      },
+      {
+        id: "trade-detail",
+        layer: "workbench",
+        name: "交易详情",
+        kind: "页面",
+        def: "单笔交易独立页：中间为笔记/截图文档流，右侧为交易属性栏。",
+        route: "/trade/:id",
+        code: "DetailView",
+        aka: ["详情页", "复盘页"],
+        talk: "右侧叫「属性栏」，不要叫侧栏。",
+      },
+      {
+        id: "property-panel",
+        layer: "workbench",
+        name: "属性栏",
+        kind: "区域",
+        def: "交易详情右侧（窄屏可为抽屉）：状态、品种、盈亏、标签等结构化字段。",
+        code: "DetailView 右侧",
+        aka: ["属性侧栏", "右栏"],
+        avoid: ["侧栏（易与全局左侧栏混淆）"],
+        talk: "沟通时固定「属性栏」或「详情右栏」。",
+      },
+      {
+        id: "strategy-scoped",
+        layer: "workbench",
+        name: "策略切片",
+        kind: "派生页",
+        def: "按单个策略过滤的交易日志工作台，通常从策略设置或筛选进入，不占一级侧栏。",
+        route: "/strategy/:id",
+        code: "filter.type: strategy",
+        talk: "说「某策略的交易列表」即可。",
+      },
+      {
+        id: "trash",
+        layer: "workbench",
+        name: "回收站",
+        kind: "工具页",
+        def: "已删除交易的暂存与清理入口。",
+        route: "/trade-trash",
+        code: "TradeTrashView",
+        talk: "说「回收站」。",
+      },
+      {
+        id: "notebook",
+        layer: "workbench",
+        name: "复盘笔记本",
+        kind: "案例子能力",
+        def: "挂在案例记录内部的用户自定义专题容器；可关联多条案例，不新增一级侧栏。",
+        code: "review notebooks（设计已确认）",
+        talk: "说「案例里的笔记本」；未实现时注明「设计中」。",
+      },
+
+      // 记录与类型
+      {
+        id: "trade-record",
+        layer: "record",
+        name: "交易记录",
+        kind: "数据实体",
+        def: "系统核心实体 Trade：字段、笔记、截图、标签、活动等。三种 tradeKind 共用结构。",
+        code: "Trade",
+        aka: ["一笔交易", "一条记录"],
+        talk: "泛指时说「交易记录」；要区分类型时加实盘/模拟/案例。",
+      },
+      {
+        id: "kind-live",
+        layer: "record",
+        name: "实盘",
+        kind: "记录类型",
+        def: "真实账户交易；进入交易日志与仪表盘统计。",
+        code: "tradeKind: live",
+        talk: "类型名「实盘」；模块名仍是「交易日志」。",
+      },
+      {
+        id: "kind-paper",
+        layer: "record",
+        name: "模拟（类型）",
+        kind: "记录类型",
+        def: "模拟/回测交易数据标签；对应模块入口名「模拟回测」。",
+        code: "tradeKind: paper",
+        aka: ["paper"],
+        talk: "说类型时用「模拟」或 paper；说入口用「模拟回测」。",
+      },
+      {
+        id: "kind-case",
+        layer: "record",
+        name: "案例（类型）",
+        kind: "记录类型",
+        def: "复盘样本类型；对应模块「案例记录」，默认不进仪表盘。",
+        code: "tradeKind: case",
+        talk: "类型「案例」↔ 模块「案例记录」。",
+      },
+
+      // 设置
+      {
+        id: "settings",
+        layer: "settings",
+        name: "设置",
+        kind: "一级入口",
+        def: "配置中心：资料、快捷键、策略、标签、品种、显示、数据。",
+        route: "/settings",
+        talk: "说「设置 · 策略」这种二级说法。",
+      },
+      {
+        id: "settings-profile",
+        layer: "settings",
+        name: "资料",
+        kind: "设置子页",
+        def: "显示名、头像等个人资料。",
+        route: "/settings/profile",
+      },
+      {
+        id: "settings-shortcuts",
+        layer: "settings",
+        name: "快捷键",
+        kind: "设置子页",
+        def: "键盘快捷键绑定与说明。",
+        route: "/settings/shortcuts",
+      },
+      {
+        id: "settings-strategies",
+        layer: "settings",
+        name: "策略",
+        kind: "设置子页",
+        def: "策略字典维护；交易可挂策略，列表可按策略切片。",
+        route: "/settings/strategies",
+        talk: "「策略」指配置实体；「策略切片」指过滤后的列表页。",
+      },
+      {
+        id: "settings-tags",
+        layer: "settings",
+        name: "标签",
+        kind: "设置子页",
+        def: "标签预设（含历史争议类型等合并进标签体系）。",
+        route: "/settings/tags",
+      },
+      {
+        id: "settings-symbols",
+        layer: "settings",
+        name: "品种",
+        kind: "设置子页",
+        def: "交易品种与图标目录。",
+        route: "/settings/symbols",
+      },
+      {
+        id: "settings-display",
+        layer: "settings",
+        name: "显示",
+        kind: "设置子页",
+        def: "显示偏好：排序、隐藏已平仓、侧栏 pins 等展示层配置。",
+        route: "/settings/display",
+      },
+      {
+        id: "settings-data",
+        layer: "settings",
+        name: "数据",
+        kind: "设置子页",
+        def: "导入导出、备份、Notion 导入、本地库等数据操作。",
+        route: "/settings/data",
+        aka: ["导入导出"],
+      },
+
+      // 浮层
+      {
+        id: "cmdk",
+        layer: "overlay",
+        name: "命令面板",
+        kind: "全局浮层",
+        def: "Ctrl/Cmd+K 打开的全局搜索与导航/动作入口。",
+        code: "CommandPalette",
+        aka: ["cmdk", "搜索面板"],
+        talk: "说「命令面板」，不要叫「搜索页」。",
+      },
+      {
+        id: "composer",
+        layer: "overlay",
+        name: "新建交易",
+        kind: "全局浮层",
+        def: "快速创建交易/案例的撰写弹层（Composer）。",
+        code: "TradeComposer",
+        aka: ["撰写器", "快速新建"],
+        talk: "说「新建弹层」或「Composer」。",
+      },
+      {
+        id: "lightbox",
+        layer: "overlay",
+        name: "图片灯箱",
+        kind: "全局浮层",
+        def: "全屏查看交易截图；只读浏览，不写回编辑器文档。",
+        code: "ImageLightbox",
+        talk: "说「灯箱」。",
+      },
+    ];
+
+    const LAYER_LABEL = {
+      shell: "壳层",
+      primary: "一级模块",
+      quick: "快捷导航",
+      workbench: "工作台能力",
+      record: "记录与类型",
+      settings: "设置",
+      overlay: "全局浮层",
+    };
+
+    const LAYER_ORDER = ["shell", "primary", "quick", "workbench", "record", "settings", "overlay"];
+
+    const KIND_CLASS = {
+      "一级模块": "primary",
+      "结构": "surface",
+      "快捷入口": "warn",
+      "快捷入口 / 工作台": "warn",
+      "导航分区": "warn",
+    };
+
+    const sectionsEl = document.getElementById("sections");
+    const detailEl = document.getElementById("detail");
+    const qEl = document.getElementById("q");
+    let layer = "all";
+    let selected = null;
+
+    function matches(m, q) {
+      if (!q) return true;
+      const bag = [m.name, m.def, m.route, m.code, m.talk, ...(m.aka || []), ...(m.avoid || [])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return bag.includes(q.toLowerCase());
+    }
+
+    function render() {
+      const q = qEl.value.trim();
+      const byLayer = {};
+      for (const m of MODULES) {
+        if (layer !== "all" && m.layer !== layer) continue;
+        if (!matches(m, q)) continue;
+        (byLayer[m.layer] ||= []).push(m);
+      }
+
+      sectionsEl.innerHTML = "";
+      for (const key of LAYER_ORDER) {
+        const list = byLayer[key];
+        if (!list || !list.length) continue;
+        const sec = document.createElement("section");
+        sec.className = "section";
+        sec.innerHTML = `<div class="section-h"><h3>${LAYER_LABEL[key]}</h3><span>${list.length} 项</span></div>`;
+        const grid = document.createElement("div");
+        grid.className = "grid";
+        for (const m of list) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "mod" + (selected === m.id ? " is-selected" : "");
+          btn.dataset.id = m.id;
+          const badgeClass = KIND_CLASS[m.kind] || "";
+          btn.innerHTML = `
+            <div class="mod-top">
+              <div class="mod-name">${m.name}</div>
+              <span class="badge ${badgeClass}">${m.kind}</span>
+            </div>
+            <p class="mod-def">${m.def}</p>
+            <div class="mod-meta">
+              ${m.route ? `<code>${m.route}</code>` : ""}
+              ${m.code ? `<code>${m.code}</code>` : ""}
+            </div>
+          `;
+          btn.addEventListener("click", () => select(m.id));
+          grid.appendChild(btn);
+        }
+        sec.appendChild(grid);
+        sectionsEl.appendChild(sec);
+      }
+
+      if (!sectionsEl.children.length) {
+        sectionsEl.innerHTML = `<p class="lede">没有匹配项，换个关键词试试。</p>`;
+      }
+    }
+
+    function select(id) {
+      selected = id;
+      const m = MODULES.find((x) => x.id === id);
+      if (!m) return;
+      detailEl.className = "detail is-on";
+      detailEl.innerHTML = `
+        <h4>${m.name}</h4>
+        <p>${m.def}</p>
+        <dl>
+          <dt>层级</dt><dd>${LAYER_LABEL[m.layer]} · ${m.kind}</dd>
+          <dt>路由</dt><dd>${m.route || "—"}</dd>
+          <dt>代码锚点</dt><dd>${m.code || "—"}</dd>
+          <dt>也称</dt><dd>${(m.aka && m.aka.length) ? m.aka.join("、") : "—"}</dd>
+          <dt>避免叫</dt><dd>${(m.avoid && m.avoid.length) ? m.avoid.map(a => `<span class="alias">${a}</span>`).join("") : "—"}</dd>
+          <dt>怎么说</dt><dd>${m.talk || "直接用统一名即可。"}</dd>
+        </dl>
+      `;
+      render();
+      detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    qEl.addEventListener("input", render);
+    document.querySelectorAll(".chip[data-layer]").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".chip[data-layer]").forEach((c) => c.classList.remove("is-on"));
+        chip.classList.add("is-on");
+        layer = chip.dataset.layer;
+        render();
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>

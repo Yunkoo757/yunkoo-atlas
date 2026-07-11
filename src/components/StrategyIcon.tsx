@@ -50,10 +50,19 @@ export function StrategyLabel({
   size?: number
 }) {
   const s = strategies.find((x) => x.id === strategyId)
-  if (!s) return <span className="strategy-label-fallback">未分类</span>
+  const iconSize = size - 2
+  const box = iconSize + 8
+  if (!s) {
+    return (
+      <span className="strategy-label strategy-label-fallback">
+        <span className="strategy-icon is-placeholder" style={{ width: box, height: box }} aria-hidden />
+        <span>未分类</span>
+      </span>
+    )
+  }
   return (
     <span className="strategy-label">
-      <StrategyIcon icon={s.icon} color={s.color} size={size - 2} />
+      <StrategyIcon icon={s.icon} color={s.color} size={iconSize} />
       <span>{s.name}</span>
     </span>
   )

@@ -73,7 +73,7 @@ export function SidebarTargetPicker({ items, sources, onChange, onBack }: Sideba
     setCapacityMessage('')
     if (!existing) {
       const placement = pinnedCount >= MAX_PINNED_SIDEBAR_ITEMS ? 'overflow' : 'pinned'
-      if (placement === 'overflow') setCapacityMessage('常驻项目已满，已添加到更多')
+      if (placement === 'overflow') setCapacityMessage('常驻已满，已放入「更多」——可返回列表改回常驻或删除')
       onChange(reindex([
         ...items,
         { id: key, target: { ...catalogItem.target }, placement, order: items.length },

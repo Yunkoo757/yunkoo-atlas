@@ -73,7 +73,8 @@ export async function bootstrapStorage(): Promise<void> {
   }
 
   hydrated = true
-  useSaveStatus.getState().setSaved()
+  // 启动后保持 idle，避免顶栏立刻插入「已保存」把视图按钮挤一下
+  useSaveStatus.getState().reset()
 
   useStore.subscribe((state) => {
     if (!hydrated) return

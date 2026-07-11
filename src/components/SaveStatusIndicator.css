@@ -1,9 +1,15 @@
 .save-status {
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 4.5em;
+  min-height: 1.2em;
   padding: 2px 6px;
   border-radius: var(--radius-4);
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .save-status--dirty {
@@ -20,4 +26,8 @@
 
 .save-status--error {
   color: var(--neg);
+}
+
+.save-status--idle {
+  visibility: hidden;
 }

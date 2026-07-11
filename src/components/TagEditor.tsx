@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react'
 import { Tag, X, Plus } from 'lucide-react'
-import { HoverPreview } from '@/components/HoverPreview'
 import './TagEditor.css'
 
 export function TagEditor({
@@ -11,7 +10,6 @@ export function TagEditor({
   presets = [],
   onAddPreset,
   onRemovePreset,
-  getTagPreview,
 }: {
   tags: string[]
   onAdd: (tag: string) => void
@@ -22,13 +20,17 @@ export function TagEditor({
   presets?: string[]
   onAddPreset?: (tag: string) => void
   onRemovePreset?: (tag: string) => void
-  getTagPreview?: (tag: string) => ReactNode
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
   const [activeIdx, setActiveIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+
+  const availablePresets = useMemo(
+    () => presets.filter((p) => !tags.includes(p)),
+    [presets, tags],
+  )
 
   const matches = useMemo(() => {
     const q = value.trim().toLowerCase()
@@ -97,121 +99,104 @@ export function TagEditor({
     commit()
   }
 
-  const withPreview = (tag: string, node: ReactNode) => {
-    const preview = getTagPreview?.(tag)
-    if (!preview) return node
-    return (
-      <HoverPreview content={preview}>
-        {node}
-      </HoverPreview>
-    )
-  }
-
   return (
     <div className="tag-editor">
-      {(presets.length > 0 || onAddPreset) && (
-        <div className="tag-presets-row">
-          {presets.map((p) => (
-            <span key={p}>
-              {withPreview(
-                p,
-                <span
-                  className={'tag-preset-chip' + (tags.includes(p) ? ' is-used' : '')}
-                >
-                  <button
-                    type="button"
-                    className="tag-preset-label"
-                    aria-label={`添加标签「${p}」`}
-                    onClick={() => { if (!tags.includes(p)) onAdd(p) }}
-                    disabled={tags.includes(p)}
-                  >
-                    {p}
-                  </button>
-                  {onRemovePreset && (
+      <div className="tag-selected-row">
+        {tags.map((t) => (
+          <span key={t} className="tag-chip" title={t}>
+            <span className="tag-chip-label">{t}</span>
+            <button
+              type="button"
+              className="tag-chip-remove"
+              aria-label={`移除标签「${t}」`}
+              onClick={() => onRemove(t)}
+            >
+              <X size={11} />
+            </button>
+          </span>
+        ))}
+        {editing ? (
+          <div className="tag-input-wrap" ref={wrapRef}>
+            <input
+              ref={inputRef}
+              className="tag-input"
+              value={value}
+              placeholder="输入标签…"
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={onKey}
+              onBlur={onBlur}
+              role="combobox"
+              aria-expanded={showDropdown}
+              aria-autocomplete="list"
+            />
+            {showDropdown && (
+              <ul className="tag-suggest" role="listbox">
+                {matches.map((s, i) => (
+                  <li key={s}>
                     <button
                       type="button"
-                      className="tag-preset-remove"
-                      aria-label={`删除预置「${p}」`}
-                      onClick={() => onRemovePreset(p)}
+                      role="option"
+                      aria-selected={i === activeIdx}
+                      className={'tag-suggest-item' + (i === activeIdx ? ' is-active' : '')}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => commit(s)}
+                      onMouseEnter={() => setActiveIdx(i)}
                     >
-                      <X size={10} />
+                      {s}
                     </button>
-                  )}
-                </span>,
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <button type="button" className="tag-add-btn" onClick={() => setEditing(true)}>
+            <Tag size={14} />
+            <span>添加标签</span>
+          </button>
+        )}
+        {onAddPreset && editing && value.trim() && !presets.includes(value.trim()) && (
+          <button
+            type="button"
+            className="tag-preset-add-btn"
+            aria-label="添加为预置标签"
+            onClick={() => {
+              onAddPreset(value.trim())
+              setValue('')
+            }}
+          >
+            <Plus size={12} />
+            <span>预置</span>
+          </button>
+        )}
+      </div>
+
+      {availablePresets.length > 0 ? (
+        <div className="tag-presets-row" aria-label="可添加的预置标签">
+          {availablePresets.map((p) => (
+            <span key={p} className="tag-preset-chip" title={p}>
+              <button
+                type="button"
+                className="tag-preset-label"
+                aria-label={`添加标签「${p}」`}
+                onClick={() => onAdd(p)}
+              >
+                {p}
+              </button>
+              {onRemovePreset && (
+                <button
+                  type="button"
+                  className="tag-preset-remove"
+                  aria-label={`删除预置「${p}」`}
+                  onClick={() => onRemovePreset(p)}
+                >
+                  <X size={10} />
+                </button>
               )}
             </span>
           ))}
-          {onAddPreset && editing && value.trim() && !presets.includes(value.trim()) && (
-            <button
-              type="button"
-              className="tag-preset-add-btn"
-              aria-label="添加为预置标签"
-              onClick={() => { onAddPreset(value.trim()); setValue('') }}
-            >
-              <Plus size={12} />
-              <span>预置</span>
-            </button>
-          )}
         </div>
-      )}
-      {tags.map((t) => (
-        <span key={t}>
-          {withPreview(
-            t,
-            <span className="tag-chip">
-              {t}
-              <button
-                type="button"
-                className="tag-chip-remove"
-                aria-label={`移除标签「${t}」`}
-                onClick={() => onRemove(t)}
-              >
-                <X size={11} />
-              </button>
-            </span>,
-          )}
-        </span>
-      ))}
-      {editing ? (
-        <div className="tag-input-wrap" ref={wrapRef}>
-          <input
-            ref={inputRef}
-            className="tag-input"
-            value={value}
-            placeholder="输入标签…"
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={onKey}
-            onBlur={onBlur}
-            role="combobox"
-            aria-expanded={showDropdown}
-            aria-autocomplete="list"
-          />
-          {showDropdown && (
-            <ul className="tag-suggest" role="listbox">
-              {matches.map((s, i) => (
-                <li key={s}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={i === activeIdx}
-                    className={'tag-suggest-item' + (i === activeIdx ? ' is-active' : '')}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => commit(s)}
-                    onMouseEnter={() => setActiveIdx(i)}
-                  >
-                    {s}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : (
-        <button type="button" className="tag-add-btn" onClick={() => setEditing(true)}>
-          <Tag size={14} />
-          <span>添加标签</span>
-        </button>
-      )}
+      ) : null}
     </div>
   )
 }

@@ -18,6 +18,9 @@
   height: 24px;
   border-radius: var(--radius-full);
   color: var(--text-tertiary);
+}
+
+html[data-ui-settled='1'] .tb-seg {
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
