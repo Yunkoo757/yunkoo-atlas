@@ -19,7 +19,7 @@ export function DisplaySettingsPanel() {
       <div className="settings-page-head">
         <h1 className="settings-page-title">显示偏好</h1>
         <p className="settings-page-desc">
-          列表默认排序与分组。各页面顶栏的「显示」菜单可临时覆盖列表设置。
+          列表 / 看板 / 表格共用这些默认偏好。顶栏「显示」菜单可按当前视图快速调整。
         </p>
       </div>
       <div className="display-settings-card">
@@ -35,7 +35,7 @@ export function DisplaySettingsPanel() {
           onChange={(v) => setDisplay({ showEmptyGroups: v })}
         />
         <ToggleRow
-          label="按日期分组"
+          label="按月份分组"
           checked={display.groupByDate}
           onChange={(v) =>
             setDisplay({

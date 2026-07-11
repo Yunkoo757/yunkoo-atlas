@@ -39,6 +39,11 @@ playwright-report/
 blob-report/
 playwright/.cache/
 .gstack/
+.superpowers/
+
+# local scratch files
+*.backup
+.claude/settings.local.json
 
 # local git worktrees
 .worktrees/

@@ -18,7 +18,7 @@ import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
 import { isTerminal } from '@/lib/tradeStatus'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
-import { promoteTradeSession } from '@/lib/tradeView'
+import { promoteTradeSession, promoteTradeNotionMeta } from '@/lib/tradeView'
 import {
   normalizeSavedTradeViews,
   type SavedTradeView,
@@ -94,6 +94,8 @@ interface State {
         | 'reviewCategory'
         | 'timeframe'
         | 'session'
+        | 'psychology'
+        | 'narrative'
       >
     >,
   ) => void
@@ -533,14 +535,16 @@ export const useStore = create<State>()((set, get) => ({
           const exists = s.trades.some((t) => t.id === trade.id)
           const strategyId =
             trade.strategyId || s.strategies[0]?.id || 'uncategorized'
-          let normalized: Trade = promoteTradeSession(
-            normalizeReviewFields({
-              ...trade,
-              strategyId,
-              tradeKind: trade.tradeKind ?? 'live',
-              comments: trade.comments ?? [],
-              activities: trade.activities,
-            }),
+          let normalized: Trade = promoteTradeNotionMeta(
+            promoteTradeSession(
+              normalizeReviewFields({
+                ...trade,
+                strategyId,
+                tradeKind: trade.tradeKind ?? 'live',
+                comments: trade.comments ?? [],
+                activities: trade.activities,
+              }),
+            ),
           )
           const symbolKey = normalizeSymbol(normalized.symbol)
           const symbolCatalog =

@@ -1,14 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
+import { TradeFilters } from '@/components/trades/TradeFilters'
 import { useStore } from '@/store/useStore'
-import { filterTrades, applyDisplayPrefs, type ListFilter } from '@/lib/tradeFilters'
+import type { ListFilter } from '@/lib/tradeFilters'
 import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildTradeTableRow } from '@/lib/tradeTable'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
+import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import type { Trade } from '@/data/trades'
 import { SymbolLabel } from '@/components/SymbolIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -22,17 +24,16 @@ export function TableView({
   view,
   onView,
   filter = { type: 'all' },
+  header,
 }: {
   title?: string
   view: WorkbenchView
   onView: (v: WorkbenchView) => void
   filter?: ListFilter
+  header?: ReactNode
 }) {
-  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
-  const display = useStore((s) => s.display)
-  const starredIds = useStore((s) => s.starredIds)
   const openComposer = useStore((s) => s.openComposer)
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -40,6 +41,7 @@ export function TableView({
   const location = useLocation()
 
   useListContextSync(filter)
+  const { trades, visible: baseVisible } = useWorkbenchVisibleTrades(filter)
 
   const detailState = tradeDetailNavState({
     pathname: location.pathname,
@@ -49,11 +51,10 @@ export function TableView({
     navigate(tradeDetailPath(trade), { state: detailState })
   }
 
-  const visible = useMemo(() => {
-    const filtered = filterTrades(trades, filter, starredIds)
-    const ordered = applyDisplayPrefs(filtered, display, filter)
-    return sortTradesForTable(ordered, sortKey, sortDir)
-  }, [trades, filter, starredIds, display, sortKey, sortDir])
+  const visible = useMemo(
+    () => sortTradesForTable(baseVisible, sortKey, sortDir),
+    [baseVisible, sortKey, sortDir],
+  )
 
   const setSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -71,6 +72,8 @@ export function TableView({
   return (
     <>
       <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
+      {header}
+      <TradeFilters filter={filter} trades={trades} strategies={strategies} />
       <div className={'tv-scroll' + (isReviewCaseView ? ' tv-scroll-case' : '')}>
         {visible.length === 0 ? (
           <EmptyState

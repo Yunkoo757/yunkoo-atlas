@@ -12,8 +12,27 @@ export function listPathFromPathname(pathname: string): string | null {
   return pathname
 }
 
+export type WorkbenchMode = 'list' | 'board' | 'table'
+
 export function boardPathFromListPath(listPath: string): string {
   return listPath === '/list' ? '/board' : `${listPath}/board`
+}
+
+export function tablePathFromListPath(listPath: string): string {
+  return listPath === '/list' ? '/table' : `${listPath}/table`
+}
+
+export function workbenchModeFromPathname(pathname: string): WorkbenchMode {
+  if (isBoardPath(pathname)) return 'board'
+  if (isTablePath(pathname)) return 'table'
+  return 'list'
+}
+
+/** 在列表根路径上套用当前工作台形态（列表 / 看板 / 表格） */
+export function pathWithWorkbenchMode(listPath: string, mode: WorkbenchMode): string {
+  if (mode === 'board') return boardPathFromListPath(listPath)
+  if (mode === 'table') return tablePathFromListPath(listPath)
+  return listPath
 }
 
 export function isDetailPath(pathname: string): boolean {

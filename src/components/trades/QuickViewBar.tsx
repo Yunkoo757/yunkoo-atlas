@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { BookmarkPlus, Check, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -17,6 +17,8 @@ import {
   type WorkspaceKind,
   type WorkspaceViewTarget,
 } from '@/lib/workspaceViews'
+import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
+import { clampPopoverLeft } from '@/lib/popoverPosition'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -75,7 +77,9 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const [name, setName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
+  const [popoverLeft, setPopoverLeft] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  const overflowAnchorRef = useRef<HTMLDivElement>(null)
   const primaryViews = getWorkspacePrimaryViews(kind)
   const moreGroups = kind === 'trade' ? TRADE_MORE_GROUPS : []
   const workspaceSavedViews = savedViews.filter((view) => isSavedViewInWorkspace(view, kind))
@@ -97,6 +101,20 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     }
   }, [panel])
 
+  useLayoutEffect(() => {
+    if (!panel || !overflowAnchorRef.current) return
+    const updatePosition = () => {
+      const rect = overflowAnchorRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = Math.min(panel === 'more' ? 480 : 300, window.innerWidth - 16)
+      const left = clampPopoverLeft(rect.left, width, window.innerWidth)
+      setPopoverLeft(left - rect.left)
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    return () => window.removeEventListener('resize', updatePosition)
+  }, [panel])
+
   const goTarget = (target: WorkspaceViewTarget) => {
     const next = new URLSearchParams(location.search)
     const currentView = getActiveWorkspaceView(kind, location.pathname, location.search)
@@ -105,12 +123,20 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     }
     for (const [key, value] of new URLSearchParams(target.search ?? '')) next.set(key, value)
     setPanel(null)
-    navigate({ pathname: target.pathname, search: next.toString() ? `?${next}` : '' })
+    const mode = workbenchModeFromPathname(location.pathname)
+    navigate({
+      pathname: pathWithWorkbenchMode(target.pathname, mode),
+      search: next.toString() ? `?${next}` : '',
+    })
   }
 
   const goSavedView = (view: SavedTradeView) => {
     setPanel(null)
-    navigate({ pathname: view.pathname, search: savedViewSearch(view) })
+    const mode = workbenchModeFromPathname(location.pathname)
+    navigate({
+      pathname: pathWithWorkbenchMode(normalizeSavedViewPath(view.pathname), mode),
+      search: savedViewSearch(view),
+    })
   }
 
   const openSave = () => {
@@ -175,120 +201,128 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
         ))}
       </div>
 
-      <Tooltip content="视图选项" label="视图选项">
-        <button
-          type="button"
-          className={'quick-view-overflow' + (panel ? ' is-active' : '')}
-          onClick={() => setPanel((value) => (value === 'more' ? null : 'more'))}
-          aria-label="视图选项"
-          aria-expanded={panel === 'more'}
-        >
-          <MoreHorizontal size={15} />
-        </button>
-      </Tooltip>
-
-      {panel === 'more' && (
-        <div className="quick-view-popover quick-view-menu" role="dialog" aria-label="视图选项">
-          <button type="button" className="quick-view-save-entry" onClick={openSave}>
-            <BookmarkPlus size={14} />
-            <span>保存当前视图</span>
+      <div className="quick-view-overflow-anchor" ref={overflowAnchorRef}>
+        <Tooltip content="视图选项" label="视图选项">
+          <button
+            type="button"
+            className={'quick-view-overflow' + (panel ? ' is-active' : '')}
+            onClick={() => setPanel((value) => (value === 'more' ? null : 'more'))}
+            aria-label="视图选项"
+            aria-expanded={panel === 'more'}
+          >
+            <MoreHorizontal size={15} />
           </button>
-          {moreGroups.length > 0 && (
-            <div className="quick-view-groups">
-              {moreGroups.map((group) => (
-                <section className="quick-view-group" key={group.label}>
-                  <h3>{group.label}</h3>
-                  {group.items.map((item) => (
-                    <button type="button" key={item.id} onClick={() => goTarget(item)}>
-                      <span>{item.label}</span>
-                      {matchesWorkspaceView(item, location.pathname, location.search) && <Check size={13} />}
-                    </button>
-                  ))}
-                </section>
-              ))}
-            </div>
-          )}
-          {workspaceSavedViews.length > 0 && (
-            <section className="quick-view-manage">
-              <h3>已保存视图</h3>
-              {workspaceSavedViews.map((view) => (
-                <div className="quick-view-manage-row" key={view.id}>
-                  {editingId === view.id ? (
-                    <input
-                      value={editingName}
-                      onChange={(event) => setEditingName(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') commitRename(view.id)
-                        if (event.key === 'Escape') setEditingId(null)
-                      }}
-                      onBlur={() => commitRename(view.id)}
-                      autoFocus
-                      maxLength={24}
-                      aria-label="视图名称"
-                    />
-                  ) : (
-                    <button type="button" className="quick-view-manage-name" onClick={() => goSavedView(view)}>
-                      <span>{view.name}</span>
-                      {savedViewMatchesLocation(view, location.pathname, location.search) && <Check size={13} />}
-                    </button>
-                  )}
-                  <Tooltip content="重命名" label={`重命名 ${view.name}`}>
-                    <button
-                      type="button"
-                      className="quick-view-icon"
-                      onClick={() => {
-                        setEditingId(view.id)
-                        setEditingName(view.name)
-                      }}
-                      aria-label={`重命名 ${view.name}`}
-                    >
-                      <Pencil size={12} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={view.pinned ? '取消固定' : '固定到顶部'} label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}>
-                    <button
-                      type="button"
-                      className="quick-view-icon"
-                      onClick={() => {
-                        if (!view.pinned && pinned.length >= 4) {
-                          toast('每个模块最多固定 4 个视图')
-                          return
-                        }
-                        togglePinTradeView(view.id)
-                      }}
-                      aria-label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}
-                    >
-                      {view.pinned ? <PinOff size={12} /> : <Pin size={12} />}
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="删除" label={`删除 ${view.name}`}>
-                    <button type="button" className="quick-view-icon is-danger" onClick={() => removeTradeView(view.id)} aria-label={`删除 ${view.name}`}>
-                      <Trash2 size={12} />
-                    </button>
-                  </Tooltip>
-                </div>
-              ))}
-            </section>
-          )}
-        </div>
-      )}
+        </Tooltip>
 
-      {panel === 'save' && (
-        <form
-          className="quick-view-popover quick-view-save"
-          onSubmit={(event) => {
-            event.preventDefault()
-            createSavedView()
-          }}
-        >
-          <label htmlFor="saved-view-name">保存当前视图</label>
-          <input id="saved-view-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} autoFocus />
-          <div className="quick-view-save-actions">
-            <span>{pinned.length < 4 ? '保存后固定到顶部' : '保存到视图选项'}</span>
-            <button type="submit" disabled={!name.trim()}>保存</button>
+        {panel === 'more' && (
+          <div
+            className="quick-view-popover quick-view-menu"
+            role="dialog"
+            aria-label="视图选项"
+            style={{ left: popoverLeft }}
+          >
+            <button type="button" className="quick-view-save-entry" onClick={openSave}>
+              <BookmarkPlus size={14} />
+              <span>保存当前视图</span>
+            </button>
+            {moreGroups.length > 0 && (
+              <div className="quick-view-groups">
+                {moreGroups.map((group) => (
+                  <section className="quick-view-group" key={group.label}>
+                    <h3>{group.label}</h3>
+                    {group.items.map((item) => (
+                      <button type="button" key={item.id} onClick={() => goTarget(item)}>
+                        <span>{item.label}</span>
+                        {matchesWorkspaceView(item, location.pathname, location.search) && <Check size={13} />}
+                      </button>
+                    ))}
+                  </section>
+                ))}
+              </div>
+            )}
+            {workspaceSavedViews.length > 0 && (
+              <section className="quick-view-manage">
+                <h3>已保存视图</h3>
+                {workspaceSavedViews.map((view) => (
+                  <div className="quick-view-manage-row" key={view.id}>
+                    {editingId === view.id ? (
+                      <input
+                        value={editingName}
+                        onChange={(event) => setEditingName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') commitRename(view.id)
+                          if (event.key === 'Escape') setEditingId(null)
+                        }}
+                        onBlur={() => commitRename(view.id)}
+                        autoFocus
+                        maxLength={24}
+                        aria-label="视图名称"
+                      />
+                    ) : (
+                      <button type="button" className="quick-view-manage-name" onClick={() => goSavedView(view)}>
+                        <span>{view.name}</span>
+                        {savedViewMatchesLocation(view, location.pathname, location.search) && <Check size={13} />}
+                      </button>
+                    )}
+                    <Tooltip content="重命名" label={`重命名 ${view.name}`}>
+                      <button
+                        type="button"
+                        className="quick-view-icon"
+                        onClick={() => {
+                          setEditingId(view.id)
+                          setEditingName(view.name)
+                        }}
+                        aria-label={`重命名 ${view.name}`}
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={view.pinned ? '取消固定' : '固定到顶部'} label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}>
+                      <button
+                        type="button"
+                        className="quick-view-icon"
+                        onClick={() => {
+                          if (!view.pinned && pinned.length >= 4) {
+                            toast('每个模块最多固定 4 个视图')
+                            return
+                          }
+                          togglePinTradeView(view.id)
+                        }}
+                        aria-label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}
+                      >
+                        {view.pinned ? <PinOff size={12} /> : <Pin size={12} />}
+                      </button>
+                    </Tooltip>
+                    <Tooltip content="删除" label={`删除 ${view.name}`}>
+                      <button type="button" className="quick-view-icon is-danger" onClick={() => removeTradeView(view.id)} aria-label={`删除 ${view.name}`}>
+                        <Trash2 size={12} />
+                      </button>
+                    </Tooltip>
+                  </div>
+                ))}
+              </section>
+            )}
           </div>
-        </form>
-      )}
+        )}
+
+        {panel === 'save' && (
+          <form
+            className="quick-view-popover quick-view-save"
+            style={{ left: popoverLeft }}
+            onSubmit={(event) => {
+              event.preventDefault()
+              createSavedView()
+            }}
+          >
+            <label htmlFor="saved-view-name">保存当前视图</label>
+            <input id="saved-view-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} autoFocus />
+            <div className="quick-view-save-actions">
+              <span>{pinned.length < 4 ? '保存后固定到顶部' : '保存到视图选项'}</span>
+              <button type="submit" disabled={!name.trim()}>保存</button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   )
 }

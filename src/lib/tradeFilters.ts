@@ -43,7 +43,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   hideClosed: false,
   showEmptyGroups: false,
   groupByStrategy: false,
-  groupByDate: false,
+  groupByDate: true,
   sortBy: 'date',
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
 }
@@ -165,7 +165,8 @@ export function applyDisplayPrefs(
   filter?: ListFilter,
 ): Trade[] {
   let out = [...trades]
-  const skipHideClosed = filter?.type === 'missed'
+  // 错过机会页要看终态；案例记录是复盘样本，不受「隐藏已平仓」影响
+  const skipHideClosed = filter?.type === 'missed' || filter?.tradeKind === 'case'
   if (prefs.hideClosed && !skipHideClosed) {
     out = out.filter((t) => !isHiddenWhenClosedFilter(t.status))
   }

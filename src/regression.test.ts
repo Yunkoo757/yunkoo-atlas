@@ -1,6 +1,6 @@
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
-import { DEFAULT_DISPLAY, filterTrades } from '@/lib/tradeFilters'
+import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs } from '@/lib/tradeFilters'
 import { mergeImportPayload, parseImportJson } from '@/lib/importExport'
 import { collectTagOptions, mergeTagPresets } from '@/lib/tags'
 import { computeStrategyStats } from '@/lib/strategies'
@@ -12,6 +12,9 @@ import {
 } from '@/lib/tradeKind'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { buildTradeTableRow } from '@/lib/tradeTable'
+import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
+import { clampPopoverLeft } from '@/lib/popoverPosition'
+import { isHiddenWhenClosedFilter } from '@/lib/tradeStatus'
 import {
   attachImagesToPreviewsBySourceId,
   executeNotionImport,
@@ -25,7 +28,7 @@ import { cleanExpiredTradeTrash } from '@/lib/trashCleanup'
 import { PRIMARY_NAV } from '@/lib/sidebarNav'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
-import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
+import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
 import { chordFromEvent } from '@/shortcuts/chords'
 import {
   mergeSavedTradeViews,
@@ -42,6 +45,8 @@ import {
   groupTradesByMonth,
   intersectSelectedTradeIds,
   normalizeSession,
+  normalizePsychology,
+  promoteTradeNotionMeta,
   promoteTradeSession,
   routeWithSearch,
   sortReviewCasesByRecentActivity,
@@ -246,6 +251,17 @@ export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
   assert(normalizeSession('伦敦开盘') === 'London Open', '中文标签应规范为预设值')
   assert(normalizeSession('') === undefined, '空时段表示未设置')
 
+  const metaPromoted = promoteTradeNotionMeta({
+    ...trade,
+    note: '<p><strong>市场叙事</strong>: Bullish</p>\n<p><strong>心理状态</strong>: Neutral</p>\n<p>真实笔记</p>',
+  })
+  assert(metaPromoted.psychology === 'Neutral', '正文心理状态应提升为属性')
+  assert(metaPromoted.narrative === 'Bullish', '正文市场叙事应提升为属性')
+  assert(!metaPromoted.note.includes('心理状态'), '提升后正文不应再保留心理状态')
+  assert(!metaPromoted.note.includes('市场叙事'), '提升后正文不应再保留市场叙事')
+  assert(metaPromoted.note.includes('真实笔记'), '提升后应保留真实笔记内容')
+  assert(normalizePsychology('中性') === 'Neutral', '中文心理状态应规范为预设值')
+
   const filtered = filterTradesByFacets(
     [
       { ...trade, id: 'long', symbol: 'BTCUSDT', side: 'long', tags: ['ORA'] },
@@ -292,6 +308,25 @@ export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
   const target = routeWithSearch('/period/this-month', '?symbol=BTCUSDT&side=long')
   assert(target.pathname === '/period/this-month', '路由目标 pathname 应正确')
   assert(target.search === '?symbol=BTCUSDT&side=long', '跨路由切换必须保留组合筛选查询')
+}
+
+export function testWorkbenchModePreservedWhenSwitchingQuickViews(): void {
+  assert(pathWithWorkbenchMode('/period/this-week', 'board') === '/period/this-week/board', '看板下本周应落在 board 路由')
+  assert(pathWithWorkbenchMode('/list', 'board') === '/board', '全部在看板形态应为 /board')
+  assert(pathWithWorkbenchMode('/list', 'table') === '/table', '全部在表格形态应为 /table')
+  assert(pathWithWorkbenchMode('/review-cases/mistakes', 'table') === '/review-cases/mistakes/table', '案例错题表格路径应保留 table')
+  assert(workbenchModeFromPathname('/period/this-week/board') === 'board', '应从路径识别看板形态')
+  assert(workbenchModeFromPathname('/strategy/%E5%AF%BC%E8%88%AA3/board') === 'board', '中文策略的编码路径应识别为看板形态')
+  assert(workbenchModeFromPathname('/strategy/%E5%AF%BC%E8%88%AA3/table') === 'table', '中文策略的编码路径应识别为表格形态')
+  assert(workbenchModeFromPathname('/table') === 'table', '应从路径识别表格形态')
+  assert(workbenchModeFromPathname('/period/this-week') === 'list', '无后缀应为列表形态')
+}
+
+export function testPopoverPositionStaysAnchoredInsideViewport(): void {
+  assert(clampPopoverLeft(440, 480, 2048) === 440, '宽屏应保持与触发器左侧对齐')
+  assert(clampPopoverLeft(440, 480, 900) === 412, '空间不足时应向左夹取到 8px 安全边距')
+  assert(clampPopoverLeft(195, 359, 375) === 8, '窄屏弹层不得溢出视口右侧')
+  assert(clampPopoverLeft(4, 359, 375) === 8, '窄屏弹层不得溢出视口左侧')
 }
 
 export function testTradeDetailReturnRemembersListView(): void {
@@ -365,9 +400,20 @@ export function testNormalizeTimeframePresetsAndAliases(): void {
   assert(normalizeTimeframe(' 1h ') === '1H', '应去除空格并大写')
   assert(normalizeTimeframe('') === undefined, '空值应视为未设置')
   assert(normalizeTimeframe('1D') === '1D', '日线预设应保持不变')
+  assert(normalizeTimeframe('1 Hour') === '1H', 'Notion 英文小时应映射到 1H')
+  assert(normalizeTimeframe('4 Hour') === '4H', 'Notion 4 Hour 应映射到 4H')
+  assert(normalizeTimeframe('15 minutes') === '15M', 'Notion 英文分钟应映射到 15M')
+  assert(normalizeTimeframe('5 minutes') === '5M', 'Notion 5 minutes 应映射到 5M')
+  assert(normalizeTimeframe('1HOUR') === '1H', '已导入的 1HOUR 脏数据应纠正为 1H')
+  assert(normalizeTimeframe('15MINUTES') === '15M', '已导入的 15MINUTES 脏数据应纠正为 15M')
+  assert(normalizeTimeframe('15MIN') === '15M', '15MIN 缩写应映射到 15M')
+  assert(normalizeTimeframe('4小时') === '4H', '中文小时应映射到 4H')
+  assert(normalizeTimeframe('15分钟') === '15M', '中文分钟应映射到 15M')
   assert(resolveTimeframe('') === '4H', '未录入波段级别应默认 4H')
   assert(resolveTimeframe(undefined) === '4H', '缺失波段级别应默认 4H')
   assert(resolveTimeframe('15M') === '15M', '已录入级别应保留')
+  assert(getTimeframeTone('1 Hour') === 'hour', 'Notion 小时级别应使用小时色调')
+  assert(getTimeframeTone('15 minutes') === 'minute', 'Notion 分钟级别应使用分钟色调')
 }
 
 export function testSavedTradeViewsNormalizeMatchAndMerge(): void {
@@ -585,6 +631,67 @@ export function testDefaultSmartTradeFiltersExcludeReviewCases(): void {
   assert(casesOnly.length === 1 && casesOnly[0]?.id === reviewCase.id, 'case view only shows cases')
 }
 
+export function testHideClosedDisplayPrefDoesNotHideReviewCases(): void {
+  const closedLive: Trade = { ...trade, id: 'closed-live', status: 'win', tradeKind: 'live' }
+  const closedCase: Trade = {
+    ...trade,
+    id: 'closed-case',
+    status: 'loss',
+    tradeKind: 'case',
+    reviewCategory: 'mistake',
+  }
+  const openCase: Trade = {
+    ...trade,
+    id: 'open-case',
+    status: 'planned',
+    tradeKind: 'case',
+  }
+
+  const liveHidden = applyDisplayPrefs(
+    [closedLive],
+    { ...DEFAULT_DISPLAY, hideClosed: true },
+    { type: 'all', tradeKind: 'live' },
+  )
+  const casesVisible = applyDisplayPrefs(
+    [closedCase, openCase],
+    { ...DEFAULT_DISPLAY, hideClosed: true },
+    { type: 'all', tradeKind: 'case' },
+  )
+
+  assert(liveHidden.length === 0, '交易日志隐藏已平仓仍生效')
+  assert(
+    casesVisible.length === 2 &&
+      casesVisible.some((item) => item.id === 'closed-case') &&
+      casesVisible.some((item) => item.id === 'open-case'),
+    '案例记录不受隐藏已平仓影响，侧栏有数时列表应能看见',
+  )
+}
+
+export function testStatusFacetOverridesHideClosed(): void {
+  const lossTrade: Trade = { ...trade, id: 'loss-trade', status: 'loss' }
+  const openTrade: Trade = { ...trade, id: 'open-trade', status: 'open' }
+  const hideClosedPrefs = { ...DEFAULT_DISPLAY, hideClosed: true }
+
+  const withoutOverride = filterTradesByFacets(
+    applyDisplayPrefs([lossTrade, openTrade], hideClosedPrefs, { type: 'all', tradeKind: 'live' }),
+    { status: 'loss' },
+  )
+  assert(withoutOverride.length === 0, '先隐藏已平仓再筛亏损会得到空结果（旧行为）')
+
+  const prefs =
+    isHiddenWhenClosedFilter('loss')
+      ? { ...hideClosedPrefs, hideClosed: false }
+      : hideClosedPrefs
+  const withOverride = filterTradesByFacets(
+    applyDisplayPrefs([lossTrade, openTrade], prefs, { type: 'all', tradeKind: 'live' }),
+    { status: 'loss' },
+  )
+  assert(
+    withOverride.length === 1 && withOverride[0]?.id === 'loss-trade',
+    '显式筛选亏损/盈利等已平仓状态时，应绕过隐藏已平仓',
+  )
+}
+
 export function testReviewCaseScopesFilterCaseRecords(): void {
   const focusCase: Trade = {
     ...trade,
@@ -780,6 +887,23 @@ export async function testSampleNotionZipKeepsImagesAttachedToTrades(): Promise<
   )
 }
 
+export async function testNotionZipUnwrapsNestedExportBlockWrapper(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const JSZip = (await import('jszip')).default
+  const inner = await fs.readFile('Notion/ExportBlock-53a72011-14a6-46a0-8a93-5b5cdc4301a7-Part-1.zip')
+  const outer = new JSZip()
+  outer.file(
+    'af09a22c-f4e3-451f-b5fe-eb0c5e2c41b0_ExportBlock-bee829d0-769d-410f-8e6b-b036b53a8567-Part-1.zip',
+    inner,
+  )
+  const wrapped = await outer.generateAsync({ type: 'arraybuffer' })
+  const result = await parseNotionZip(wrapped, [strategy])
+  const withImages = result.previews.filter((preview) => preview.imageCount > 0)
+
+  assert(result.previews.length >= 3, 'nested ExportBlock wrapper still produces trade previews')
+  assert(withImages.length >= 3, 'nested ExportBlock wrapper still attaches images')
+}
+
 export function testNotionMultiSelectTagsStripEveryEmbeddedUrl(): void {
   const csv = [
     'Trade,Date,Symbol,Model,Session,Time Frame,Confluences,Entry Signal,Position,Status,S/L Pips,Net PnL,Max R/R,Weight,Profit/Loss,Mistakes',
@@ -793,6 +917,20 @@ export function testNotionMultiSelectTagsStripEveryEmbeddedUrl(): void {
   assert(tags.includes('情绪化交易'), 'keeps second mistake tag text')
   assert(!tags.some((tag) => tag.includes('http')), 'removes embedded Notion URLs')
   assert(result.previews[0]?.trade.session === 'London Open', 'preserves session as structured trade data')
+}
+
+export function testNotionPsychologyAndNarrativeBecomeTradeProperties(): void {
+  const csv = [
+    'Date,Symbol,Position,Status,Narrative,Psychology,Net PnL',
+    '2026/06/27,EURUSD,Buy,Closed by S/L,Bullish,Neutral,US$0',
+  ].join('\n')
+  const result = parseNotionCsv(csv, [strategy])
+  const preview = result.previews[0]
+
+  assert(preview?.trade.psychology === 'Neutral', '心理状态应写入 Trade.psychology')
+  assert(preview?.trade.narrative === 'Bullish', '市场叙事应写入 Trade.narrative')
+  assert(!preview?.noteHtml.includes('心理状态'), '心理状态不得再写入正文')
+  assert(!preview?.noteHtml.includes('市场叙事'), '市场叙事不得再写入正文')
 }
 
 export async function testCleanExpiredTradeTrashPurgesExpiredTradesOnly(): Promise<void> {

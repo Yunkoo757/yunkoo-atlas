@@ -32,7 +32,7 @@ export function useShortcutHost({
   onToggleCmdk: () => void
 }) {
   const navigate = useNavigate()
-  const { pathname, state: locationState } = useLocation()
+  const { pathname, search, state: locationState } = useLocation()
   const trades = useStore((s) => s.trades)
   const openComposer = useStore((s) => s.openComposer)
   const closeComposer = useStore((s) => s.closeComposer)
@@ -77,19 +77,22 @@ export function useShortcutHost({
         const memory = useStore.getState().display.workspaceMemory?.trade
         navigate(workspaceRouteHref(resolveWorkspaceNavTarget('trade', memory)))
       },
-      'nav.board': () => navigate('/board'),
+      'nav.board': () => {
+        const listPath = listPathFromPathname(pathname) ?? '/list'
+        navigate(routeWithSearch(boardPathFromListPath(listPath), search))
+      },
       'nav.dashboard': () => navigate('/dashboard'),
       'nav.strategies': () => navigate('/settings/strategies'),
 
       'view.list': () => {
         const listContext = useShortcutStore.getState().listContext
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
-        navigate(listPath)
+        navigate(routeWithSearch(listPath, search || listContext?.listSearch || ''))
       },
       'view.board': () => {
         const listContext = useShortcutStore.getState().listContext
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
-        navigate(boardPathFromListPath(listPath))
+        navigate(routeWithSearch(boardPathFromListPath(listPath), search || listContext?.listSearch || ''))
       },
 
       'trade.prev': () => {
@@ -135,6 +138,7 @@ export function useShortcutHost({
     })
   }, [
     pathname,
+    search,
     locationState,
     trades,
     lightbox,

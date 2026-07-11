@@ -18,8 +18,53 @@ import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import type { CsvParseResult } from '@/lib/csvImport'
 import { parseCsv } from '@/lib/csvImport'
-import { normalizeSession } from '@/lib/tradeView'
+import { normalizeSession, normalizeNarrative, normalizePsychology } from '@/lib/tradeView'
 import JSZip from 'jszip'
+
+/** Notion 网页导出常再包一层 ExportBlock-*-Part-N.zip */
+const NOTION_NESTED_ZIP_LIMIT = 8
+
+const NOTION_CONTENT_FILE_RE = /\.(md|csv|png|jpe?g|gif|webp|bmp|svg)$/i
+
+function isNotionNestedZipPath(path: string): boolean {
+  return /\.zip$/i.test(path)
+}
+
+/**
+ * 展开 Notion 导出的嵌套 zip（外层仅含 Part-N.zip 的情况），合并为可解析的内容包。
+ * 兼容：单层 Part zip、外层包装、多 Part 合并。
+ */
+export async function resolveNotionExportZip(zipBuffer: ArrayBuffer): Promise<JSZip> {
+  const merged = new JSZip()
+  const queue: ArrayBuffer[] = [zipBuffer]
+  let steps = 0
+
+  while (queue.length > 0 && steps < NOTION_NESTED_ZIP_LIMIT) {
+    steps += 1
+    const current = await JSZip.loadAsync(queue.shift()!)
+    const nested: ArrayBuffer[] = []
+
+    for (const [relativePath, entry] of Object.entries(current.files)) {
+      if (entry.dir) continue
+      if (isNotionNestedZipPath(relativePath)) {
+        nested.push(await entry.async('arraybuffer'))
+        continue
+      }
+      if (merged.file(relativePath)) continue
+      merged.file(relativePath, await entry.async('uint8array'))
+    }
+
+    for (const part of nested) queue.push(part)
+  }
+
+  return merged
+}
+
+function notionZipHasImportableContent(zip: JSZip): boolean {
+  return Object.keys(zip.files).some(
+    (path) => !zip.files[path]?.dir && NOTION_CONTENT_FILE_RE.test(path),
+  )
+}
 
 // ============================================================
 // ① Notion URL 清洗
@@ -208,7 +253,6 @@ function buildTradeFromFrontmatter(
   const warnings: string[] = []
   const collectedTags: string[] = []
   const mistakeTags: string[] = []
-  const noteParts: string[] = []
 
   // Symbol
   const symbol = stripNotionUrl(fm['symbol'] ?? '').toUpperCase()
@@ -264,7 +308,9 @@ function buildTradeFromFrontmatter(
   const entrySignal = stripNotionUrl(fm['entry signal'] ?? '')
   if (entrySignal) collectedTags.push(entrySignal)
 
-  const timeFrame = stripNotionUrl(fm['time frame'] ?? '')
+  const timeFrame = stripNotionUrl(
+    fm['time frame'] ?? fm['timeframe'] ?? fm['timeFrame'] ?? '',
+  )
   const timeframe = normalizeTimeframe(timeFrame)
 
   const session = stripNotionUrl(fm['session'] ?? '')
@@ -284,12 +330,9 @@ function buildTradeFromFrontmatter(
     })
   }
 
-  // === Note ===
-  const narrative = stripNotionUrl(fm['narrative'] ?? '')
-  if (narrative) noteParts.push(`<p><strong>市场叙事</strong>: ${narrative}</p>`)
-
-  const psychology = stripNotionUrl(fm['psychology'] ?? '')
-  if (psychology) noteParts.push(`<p><strong>心理状态</strong>: ${psychology}</p>`)
+  // 市场叙事 / 心理状态写入独立属性，不再塞进复盘正文
+  const narrative = normalizeNarrative(stripNotionUrl(fm['narrative'] ?? ''))
+  const psychology = normalizePsychology(stripNotionUrl(fm['psychology'] ?? ''))
 
   // Missing price warning
   warnings.push('Notion 数据缺少入场价/出场价/仓位，已默认设为 0')
@@ -304,6 +347,8 @@ function buildTradeFromFrontmatter(
       strategyId,
       session: normalizeSession(session),
       timeframe: resolveTimeframe(timeframe),
+      narrative,
+      psychology,
       tradeKind: 'live',
       entry: 0,
       exit: null,
@@ -321,7 +366,7 @@ function buildTradeFromFrontmatter(
     newStrategyName,
     collectedTags,
     mistakeTags,
-    noteHtml: noteParts.join('\n'),
+    noteHtml: '',
     errors,
     warnings,
     rowIndex: index,
@@ -334,13 +379,23 @@ function buildTradeFromFrontmatter(
 
 /**
  * 解析 Notion "Markdown & CSV" 导出的 .zip 文件
- * 自动识别 .md 文件、匹配对应图片
+ * 自动识别 .md 文件、匹配对应图片；兼容外层再包一层 ExportBlock Part zip。
  */
 export async function parseNotionZip(
   zipBuffer: ArrayBuffer,
   existingStrategies: Strategy[],
 ): Promise<NotionImportResult> {
-  const zip = await JSZip.loadAsync(zipBuffer)
+  const zip = await resolveNotionExportZip(zipBuffer)
+  if (!notionZipHasImportableContent(zip)) {
+    return {
+      previews: [],
+      newStrategies: [],
+      totalRows: 0,
+      validRows: 0,
+      errorRows: 0,
+      totalImages: 0,
+    }
+  }
 
   // ---- 建立图片索引 + 收集 md 文件 ----
   const imageIndex = new Map<string, JSZip.JSZipObject>()
@@ -727,6 +782,8 @@ export function executeNotionImport(
       strategyId,
       session: preview.trade.session,
       timeframe: resolveTimeframe(preview.trade.timeframe),
+      narrative: preview.trade.narrative,
+      psychology: preview.trade.psychology,
       tags: preview.trade.tags ?? [],
       mistakeTags: preview.trade.mistakeTags ?? [],
       reviewStatus: 'unreviewed',

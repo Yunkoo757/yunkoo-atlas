@@ -42,6 +42,7 @@ import type { ListFilter, ReviewCaseScope } from './lib/tradeFilters'
 import { isValidPeriodSlug } from './lib/periods'
 import { tradeDetailPath, tradeDetailNavState } from './lib/tradeRoute'
 import { routeWithSearch } from './lib/tradeView'
+import { workbenchModeFromPathname } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import './App.css'
@@ -61,7 +62,7 @@ function TradesPage({
   const { pathname, search } = useLocation()
   const boardPath = listPath === '/list' ? '/board' : `${listPath}/board`
   const tablePath = listPath === '/list' ? '/table' : `${listPath}/table`
-  const view: WorkbenchView = pathname === boardPath ? 'board' : pathname === tablePath ? 'table' : 'list'
+  const view: WorkbenchView = workbenchModeFromPathname(pathname)
   const setView = (v: WorkbenchView) => {
     const target = v === 'board' ? boardPath : v === 'table' ? tablePath : listPath
     navigate(routeWithSearch(target, search))
@@ -69,13 +70,14 @@ function TradesPage({
   return view === 'list' ? (
     <ListView title={title} view={view} onView={setView} filter={filter} header={header} />
   ) : view === 'table' ? (
-    <TableView title={title} view={view} onView={setView} filter={filter} />
+    <TableView title={title} view={view} onView={setView} filter={filter} header={header} />
   ) : (
     <BoardView
       title={title}
       view={view}
       onView={setView}
       filter={filter}
+      header={header}
       onOpen={(id) => {
         const t = useStore.getState().trades.find((x) => x.id === id)
         navigate(t ? tradeDetailPath(t) : `/trade/${id}`, {

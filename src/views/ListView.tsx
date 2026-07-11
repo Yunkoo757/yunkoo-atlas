@@ -1,44 +1,30 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { EmptyState } from '@/components/EmptyState'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { TradeFilters } from '@/components/trades/TradeFilters'
 import { TradeList, type TradeListGroup } from '@/components/trades/TradeList'
-import type { ReviewCategory, Trade, TradeSide, TradeStatus } from '@/data/trades'
+import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
-import { applyDisplayPrefs, filterTrades } from '@/lib/tradeFilters'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { getStrategyName } from '@/lib/strategies'
-import { CALENDAR_PERIODS, type CalendarPeriod } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
-import { STATUS_ORDER } from '@/lib/tradeStatus'
 import {
-  filterTradesByFacets,
   groupTradesByMonth,
   intersectSelectedTradeIds,
   sortReviewCasesByRecentActivity,
   sortTradesByOpenedAtDesc,
-  type TradeFacetFilters,
-  type TradeSessionKind,
 } from '@/lib/tradeView'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
+import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { useStore } from '@/store/useStore'
 import './ListView.css'
-
-const REVIEW_CATEGORIES: ReviewCategory[] = [
-  'normal',
-  'mistake',
-  'focus',
-  'ambiguous',
-  'recheck',
-  'mastered',
-]
 
 export function ListView({
   title = '交易',
@@ -65,7 +51,6 @@ export function ListView({
   const upsertTrade = useStore((state) => state.upsertTrade)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
-  const [searchParams] = useSearchParams()
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -73,6 +58,7 @@ export function ListView({
   const location = useLocation()
 
   useListContextSync(filter)
+  const { visible } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = (trade: Trade) => {
     navigate(tradeDetailPath(trade), {
@@ -82,37 +68,6 @@ export function ListView({
       }),
     })
   }
-
-  const facets = useMemo<TradeFacetFilters>(() => {
-    const side = searchParams.get('side')
-    const status = searchParams.get('status')
-    const reviewCategory = searchParams.get('reviewCategory')
-    const session = searchParams.get('session')
-    const period = searchParams.get('period')
-    return {
-      symbol: searchParams.get('symbol') || undefined,
-      side: side === 'long' || side === 'short' ? (side as TradeSide) : undefined,
-      status: STATUS_ORDER.includes(status as TradeStatus) ? (status as TradeStatus) : undefined,
-      tag: searchParams.get('tag') || undefined,
-      mistakeTag: searchParams.get('mistakeTag') || undefined,
-      reviewCategory: REVIEW_CATEGORIES.includes(reviewCategory as ReviewCategory)
-        ? (reviewCategory as ReviewCategory)
-        : undefined,
-      session: ['london', 'asia', 'new-york', 'outside', 'other'].includes(session ?? '')
-        ? (session as TradeSessionKind)
-        : undefined,
-      period: CALENDAR_PERIODS.includes(period as CalendarPeriod)
-        ? (period as CalendarPeriod)
-        : undefined,
-      strategyId: searchParams.get('strategyId') || undefined,
-    }
-  }, [searchParams])
-
-  const visible = useMemo(() => {
-    const routeFiltered = filterTrades(trades, filter, starredIds)
-    const preferred = applyDisplayPrefs(routeFiltered, display, filter)
-    return filterTradesByFacets(preferred, facets)
-  }, [trades, filter, starredIds, display, facets])
 
   const groups = useMemo<TradeListGroup[]>(() => {
     if (filter.tradeKind === 'case') {
@@ -144,8 +99,12 @@ export function ListView({
         .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
     }
 
-    return groupTradesByMonth(visible)
-  }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, strategies])
+    if (display.groupByDate) {
+      return groupTradesByMonth(visible)
+    }
+
+    return [{ key: 'all', items: sortTradesByOpenedAtDesc(visible) }]
+  }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, display.groupByDate, strategies])
 
   const focusedId =
     focusIndex >= 0 && focusIndex < visible.length ? visible[focusIndex].id : null

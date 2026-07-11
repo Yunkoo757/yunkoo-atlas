@@ -25,7 +25,7 @@ body {
   background: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "cv01", "cv02", "ss03";
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
 
 ::selection {

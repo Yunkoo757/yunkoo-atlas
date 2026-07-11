@@ -45,10 +45,9 @@
   --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
     0 1px 1px lch(0 0 0 / 0.125);
 
-  /* —— 字体栈 —— */
-  --font-regular: "Inter Variable", "SF Pro Display", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
-    "Open Sans", "Helvetica Neue", "Linear Thai", sans-serif;
+  /* —— 字体栈（对齐 TradingView 全局控制中心：Inter → Geist → SF Pro Text）—— */
+  --font-regular: Inter, "Geist Sans", Geist, "SF Pro Text", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-display: var(--font-regular);
   --font-monospace: "Berkeley Mono", "JetBrains Mono", "SFMono Regular",
     Consolas, "Liberation Mono", Menlo, Courier, monospace;

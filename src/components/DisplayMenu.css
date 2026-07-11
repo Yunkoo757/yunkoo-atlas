@@ -8,16 +8,14 @@
 }
 
 .display-pop {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 200px;
+  position: fixed;
+  min-width: 220px;
   padding: 6px;
   background: var(--popover-bg);
   border: 0.8px solid var(--popover-border);
   border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
-  z-index: 50;
+  z-index: 80;
   animation: fadeIn 0.12s var(--ease-out) both;
 }
 

@@ -1,7 +1,7 @@
-# Linear Journal — 环境迁移与依赖说明
+# Yunkoo Atlas — 环境迁移与依赖说明
 
 > 用于在新电脑上克隆、安装依赖并正常运行本项目。  
-> 最后更新：2026-06-16
+> 最后更新：2026-07-11
 
 ---
 
@@ -9,7 +9,7 @@
 
 | 项 | 说明 |
 |---|---|
-| 包名 | `linear-journal` |
+| 包名 | `yunkoo-atlas` |
 | 类型 | React 单页应用 + 可选 Electron 桌面壳 |
 | 包管理器 | **pnpm**（仓库含 `pnpm-lock.yaml`，请勿改用 npm/yarn） |
 | Web 开发端口 | `http://localhost:5180` |
@@ -72,12 +72,16 @@ pnpm dev:electron
 |------|------|
 | `pnpm dev` | Web 开发（Vite + IndexedDB） |
 | `pnpm dev:electron` | Electron 联调（`ELECTRON=1`） |
+| `pnpm test` | 领域逻辑与导入、图片回归测试 |
 | `pnpm build` | Web 生产构建（`tsc -b` + `vite build`） |
 | `pnpm build:app` | Electron 构建 + 复制 `sql-wasm.wasm` |
 | `pnpm preview` | 预览 Web 构建结果 |
 | `pnpm qa` | Web 自动化 QA（需另开终端跑 dev） |
 | `pnpm qa:core` | Web QA 核心用例 |
 | `pnpm qa:image` | Web QA 图片用例 |
+| `pnpm qa:workbench` | 核心工作区流程 QA |
+| `pnpm qa:design` | 设计令牌与布局契约检查 |
+| `pnpm qa:linear` | Linear 重构页面与响应式检查 |
 | `pnpm qa:electron` | Electron headless QA（需先 `build:app`） |
 
 ---
@@ -267,8 +271,10 @@ Electron：sql.js + sharp + 本地文件（electron/library/）
 
 ## 11. 相关文档
 
-- 开发交接与架构细节：`docs/DEVELOPMENT.md`
-- 编码规范：`CLAUDE.md`（UTF-8、中文回复等）
+- 编码与协作规范：`AGENTS.md`
+- 当前视觉依据：`docs/linear-frontend-design-system-analysis.md`
+- 当前前端规格：`docs/superpowers/specs/2026-07-10-linear-frontend-rebuild-design.md`
+- 后续功能规格：`docs/superpowers/specs/2026-07-11-review-notebooks-record-clipboard-design.md`
 
 ---
 

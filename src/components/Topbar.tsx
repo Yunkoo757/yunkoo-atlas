@@ -59,7 +59,7 @@ export function Topbar({
             </button>
           </div>
         )}
-        {showDisplay && <DisplayMenu />}
+        {showDisplay && <DisplayMenu view={view ?? 'list'} />}
         </div>
       )}
     />
