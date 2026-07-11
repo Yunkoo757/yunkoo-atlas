@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>侧栏信息架构 · 方案对照</title>
+  <style>
+    :root {
+      --bg: lch(1.82% 0 272);
+      --surface: lch(4.52% 0.3 272);
+      --hover: lch(11.27% 3 272);
+      --active: lch(9.02% 2.1 272);
+      --text: lch(100% 0 272);
+      --text2: lch(90.35% 1.15 272);
+      --text3: lch(61.4% 1.15 272);
+      --text4: lch(36.3% 1.15 272);
+      --border: lch(13.16% 1.38 272);
+      --accent: #5e6ad2;
+      --sidebar-w: 244px;
+      --radius: 8px;
+      --font: "Inter", "Geist Sans", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background: #0a0a0c;
+      color: var(--text2);
+    }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .lede {
+      margin: 0 0 20px;
+      max-width: 720px;
+      color: var(--text3);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .tab {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text3);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .tab.is-on {
+      color: var(--text);
+      background: var(--active);
+      border-color: transparent;
+    }
+    .panel { display: none; }
+    .panel.is-on { display: block; }
+    .meta {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 900px) {
+      .meta { grid-template-columns: 1fr; }
+    }
+    .card {
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .card p, .card li {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text3);
+    }
+    .card ul { margin: 8px 0 0; padding-left: 18px; }
+    .badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+      color: #c5c9f5;
+      font-size: 11px;
+    }
+    .stage {
+      display: flex;
+      gap: 12px;
+      min-height: 640px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+      gap: 1px;
+      background: var(--bg);
+      border-right: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    }
+    .sb-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 36px;
+      padding: 0 3px 6px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+    .avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: lch(72% 62 82);
+      color: #111;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .brand span { font-size: 13px; font-weight: 550; color: var(--text2); }
+    .hbtns { display: flex; gap: 2px; }
+    .hbtn {
+      width: 26px;
+      height: 26px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text3);
+      cursor: pointer;
+    }
+    .hbtn:hover { background: var(--hover); color: var(--text); }
+    .label {
+      margin: 10px 8px 4px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--text4);
+    }
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 6px;
+      color: var(--text3);
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .item:hover { background: var(--hover); color: var(--text2); }
+    .item.is-active {
+      background: var(--active);
+      color: var(--text);
+    }
+    .item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.9; }
+    .item .grow { flex: 1; min-width: 0; }
+    .count {
+      font-size: 12px;
+      color: var(--text4);
+      font-variant-numeric: tabular-nums;
+    }
+    .spacer { flex: 1; min-height: 12px; }
+    .actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 6px 4px 8px;
+    }
+    .action-chip {
+      height: 30px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--surface) 80%, transparent);
+      color: var(--text3);
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .action-chip:hover { color: var(--text); background: var(--hover); }
+    .nested {
+      margin: 0 0 0 12px;
+      padding-left: 10px;
+      border-left: 1px solid var(--border);
+    }
+    .nested .item { height: 26px; font-size: 12.5px; }
+    .pin-hint {
+      margin: 4px 8px 8px;
+      font-size: 11px;
+      color: var(--text4);
+    }
+    .main {
+      flex: 1;
+      margin: 8px 8px 8px 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: 18px 20px;
+    }
+    .main h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .main p { margin: 0; color: var(--text3); font-size: 13px; line-height: 1.5; }
+    .rec {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: #c9cdf5;
+      font-size: 12.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>侧栏优化 · 三套方案对照</h1>
+    <p class="lede">
+      当前侧栏只剩「工作台」4 项 + 底部回收站/设置，中间大片空白。
+      <code>SECONDARY_NAV</code>（进行中 / 星标 / 错过 / 模拟）与路由仍在，但 UI 未渲染。
+      下面三套方案都不改正式代码，仅供确认方向。
+    </p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab is-on" type="button" data-tab="a">方案 A · 恢复快捷区</button>
+      <button class="tab" type="button" data-tab="b">方案 B · 固定视图 + 模拟</button>
+      <button class="tab" type="button" data-tab="c">方案 C · 模块内嵌套</button>
+    </div>
+
+    <!-- A -->
+    <section class="panel is-on" id="panel-a">
+      <div class="meta">
+        <div class="card">
+          <h2>方案 A · 恢复快捷区 <span class="badge">推荐起步</span></h2>
+          <p>在一级导航与底部工具之间，加回「快捷」分区：进行中、星标、错过机会、模拟回测。沿用已有 <code>SECONDARY_NAV</code> / <code>sidebarPins</code>。</p>
+          <ul>
+            <li>改动小、立刻补上「模拟」入口</li>
+            <li>填补空白，不推翻现有一级 IA</li>
+            <li>风险：若继续往侧栏塞筛选，会重回臃肿</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>适用</h2>
+          <p>你最在意「模拟回测」和几个高频状态入口常驻可见；筛选仍放在列表顶栏。</p>
+          <p class="rec">建议：先落地 A，快捷操作（导入/命令面板）用顶栏图标或侧栏底上一排小按钮，不必全做一级栏目。</p>
+        </div>
+      </div>
+      <div class="stage">
+        <aside class="sidebar" aria-label="方案 A">
+          <div class="sb-header">
+            <div class="brand"><div class="avatar">Y</div><span>Yunkoo</span></div>
+            <div class="hbtns">
+              <button class="hbtn" title="搜索" aria-label="搜索">⌕</button>
+              <button class="hbtn" title="新建" aria-label="新建">✎</button>
+            </div>
+          </div>
+          <div class="label">工作台</div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="grow">今日记录</span><span class="count">2</span></div>
+          <div class="item is-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="grow">交易日志</span><span class="count">14</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span class="grow">案例记录</span><span class="count">4</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span class="grow">仪表盘</span></div>
+
+          <div class="label">快捷</div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg><span class="grow">进行中</span><span class="count">1</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg><span class="grow">星标交易</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5 5l14 14"/></svg><span class="grow">错过的机会</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v4H9z"/><path d="M7 7h10v14H7z"/><path d="M10 11h4"/></svg><span class="grow">模拟回测</span></div>
+          <p class="pin-hint">可配置显示哪些固定项（沿用 sidebarPins）</p>
+
+          <div class="spacer"></div>
+          <div class="actions-row">
+            <button class="action-chip" type="button">导入</button>
+            <button class="action-chip" type="button">命令面板</button>
+          </div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg><span class="grow">回收站</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/></svg><span class="grow">设置</span></div>
+        </aside>
+        <div class="main">
+          <h3>交易日志</h3>
+          <p>主区仍用顶部快捷视图 / 筛选。侧栏只承载「模块 + 高频状态/模拟」，避免把时间/策略再塞回来。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- B -->
+    <section class="panel" id="panel-b">
+      <div class="meta">
+        <div class="card">
+          <h2>方案 B · 固定视图 + 模拟一级</h2>
+          <p>一级仍保留 4 个工作台模块；「模拟回测」升为与案例并列的一级（或紧挨工作台）。中间用「我的视图」展示已固定的保存视图（如导航3、本周亏损）。</p>
+          <ul>
+            <li>与已做的保存视图能力对齐</li>
+            <li>侧栏内容随用户固定视图变化，空白被有意义地填满</li>
+            <li>风险：未固定任何视图时仍偏空；需教用户「固定到侧栏」</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>适用</h2>
+          <p>你希望侧栏反映个人工作流，而不是写死一堆系统状态。</p>
+          <p class="rec">可与 A 组合：系统快捷 2～3 项 + 我的固定视图。</p>
+        </div>
+      </div>
+      <div class="stage">
+        <aside class="sidebar" aria-label="方案 B">
+          <div class="sb-header">
+            <div class="brand"><div class="avatar">Y</div><span>Yunkoo</span></div>
+            <div class="hbtns">
+              <button class="hbtn" title="搜索">⌕</button>
+              <button class="hbtn" title="新建">✎</button>
+            </div>
+          </div>
+          <div class="label">工作台</div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="grow">今日记录</span><span class="count">2</span></div>
+          <div class="item is-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="grow">交易日志</span><span class="count">14</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span class="grow">案例记录</span><span class="count">4</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v4H9z"/><path d="M7 7h10v14H7z"/></svg><span class="grow">模拟回测</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span class="grow">仪表盘</span></div>
+
+          <div class="label">我的视图</div>
+          <div class="item"><span class="grow">导航3</span></div>
+          <div class="item"><span class="grow">本周 · 伦敦盘</span></div>
+          <div class="item"><span class="grow">亏损复盘</span></div>
+          <p class="pin-hint">来自已固定的保存视图（最多 4～6）</p>
+
+          <div class="spacer"></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg><span class="grow">回收站</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/></svg><span class="grow">设置</span></div>
+        </aside>
+        <div class="main">
+          <h3>交易日志 · 导航3</h3>
+          <p>点击「我的视图」直接还原 pathname + search；与列表顶栏固定芯片同源。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- C -->
+    <section class="panel" id="panel-c">
+      <div class="meta">
+        <div class="card">
+          <h2>方案 C · 模块内嵌套</h2>
+          <p>点开「交易日志」展开子项（全部 / 进行中 / 星标 / 模拟）；「案例记录」展开重点/错题/待复看。更像 Linear Issue 的树。</p>
+          <ul>
+            <li>层级清晰，子项跟模块绑定</li>
+            <li>交互更重，默认折叠时「模拟」仍可能被藏住</li>
+            <li>风险：与顶栏快捷视图职责重叠，要仔细划界</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>适用</h2>
+          <p>你希望侧栏承担「模块内导航」，顶栏少放芯片。</p>
+          <p class="rec">一般不如 A/B 直接；除非你明确要弱化顶栏快捷视图。</p>
+        </div>
+      </div>
+      <div class="stage">
+        <aside class="sidebar" aria-label="方案 C">
+          <div class="sb-header">
+            <div class="brand"><div class="avatar">Y</div><span>Yunkoo</span></div>
+            <div class="hbtns">
+              <button class="hbtn" title="搜索">⌕</button>
+              <button class="hbtn" title="新建">✎</button>
+            </div>
+          </div>
+          <div class="label">工作台</div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="grow">今日记录</span></div>
+          <div class="item is-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="grow">交易日志</span><span class="count">14</span></div>
+          <div class="nested">
+            <div class="item is-active"><span class="grow">全部</span></div>
+            <div class="item"><span class="grow">进行中</span></div>
+            <div class="item"><span class="grow">星标</span></div>
+            <div class="item"><span class="grow">模拟回测</span></div>
+          </div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span class="grow">案例记录</span><span class="count">4</span></div>
+          <div class="nested">
+            <div class="item"><span class="grow">重点</span></div>
+            <div class="item"><span class="grow">错题</span></div>
+            <div class="item"><span class="grow">待复看</span></div>
+          </div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span class="grow">仪表盘</span></div>
+          <div class="spacer"></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg><span class="grow">回收站</span></div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/></svg><span class="grow">设置</span></div>
+        </aside>
+        <div class="main">
+          <h3>嵌套导航示意</h3>
+          <p>展开态信息密度高；折叠时「模拟」又可能消失，需要默认展开交易日志或把模拟提到一级。</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const tabs = [...document.querySelectorAll('.tab')]
+    const panels = {
+      a: document.getElementById('panel-a'),
+      b: document.getElementById('panel-b'),
+      c: document.getElementById('panel-c'),
+    }
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => t.classList.toggle('is-on', t === tab))
+        Object.entries(panels).forEach(([key, panel]) => {
+          panel.classList.toggle('is-on', key === tab.dataset.tab)
+        })
+      })
+    })
+  </script>
+</body>
+</html>

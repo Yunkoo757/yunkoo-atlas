@@ -17,8 +17,11 @@ import { clampPopoverLeft } from '@/lib/popoverPosition'
 import { isHiddenWhenClosedFilter } from '@/lib/tradeStatus'
 import {
   attachImagesToPreviewsBySourceId,
+  applyNotionImageAssetsToNote,
   executeNotionImport,
   getImportableNotionPreviews,
+  notionBodyMarkdownToHtml,
+  parseNotionMd,
   type ImageFile,
   type NotionTradePreview,
   parseNotionZip,
@@ -936,6 +939,63 @@ export function testNotionPsychologyAndNarrativeBecomeTradeProperties(): void {
   assert(preview?.trade.narrative === 'Bullish', '市场叙事应写入 Trade.narrative')
   assert(!preview?.noteHtml.includes('心理状态'), '心理状态不得再写入正文')
   assert(!preview?.noteHtml.includes('市场叙事'), '市场叙事不得再写入正文')
+}
+
+export function testNotionMarkdownBodyBecomesNoteHtml(): void {
+  const md = [
+    '# Trade #',
+    'ID: 42',
+    'Date: 2026/06/27',
+    'Symbol: BTCUSDT',
+    'Position: Buy',
+    'Status: Closed by T/P',
+    'Narrative: Bullish',
+    'Psychology: Neutral',
+    '',
+    '## 复盘',
+    '',
+    '结构突破后继续持有，**不要追单**。',
+    '',
+    '- 入场理由充分',
+    '- 出场偏早',
+    '',
+    '![chart](Trade%20#/image.png)',
+    '',
+    '下次注意节奏。',
+    '',
+    '![follow-up](Trade%20#/image%201.png)',
+  ].join('\n')
+
+  const parsed = parseNotionMd(md)
+  assert(parsed.frontmatter.symbol?.includes('BTCUSDT') ?? false, 'frontmatter 仍应解析')
+  assert(parsed.images.length === 2, '正文图片引用应单独收集')
+  assert(parsed.bodyMarkdown.includes('结构突破后继续持有'), '正文文字不得丢弃')
+  assert(parsed.bodyMarkdown.includes('![chart](Trade%20#/image.png)'), '正文应保留图片行以维持顺序')
+
+  const html = notionBodyMarkdownToHtml(parsed.bodyMarkdown)
+  assert(html.includes('<h2>复盘</h2>'), '标题应转为 HTML')
+  assert(html.includes('<strong>不要追单</strong>'), '粗体应转为 HTML')
+  assert(html.includes('<li>入场理由充分</li>'), '列表应转为 HTML')
+  assert(html.includes('下次注意节奏'), '段落文字应保留')
+  assert(html.includes('data-notion-img="0"'), '首图应保留为占位')
+  assert(html.includes('data-notion-img="1"'), '次图应保留为占位')
+
+  const firstText = html.indexOf('结构突破')
+  const firstImg = html.indexOf('data-notion-img="0"')
+  const midText = html.indexOf('下次注意节奏')
+  const secondImg = html.indexOf('data-notion-img="1"')
+  assert(firstText >= 0 && firstImg > firstText, '第一段文字应在第一张图之前')
+  assert(midText > firstImg && secondImg > midText, '图文交错顺序应与 Notion 原文一致')
+
+  const applied = applyNotionImageAssetsToNote(html, ['asset-a', 'asset-b'])
+  assert(applied.includes('journal-asset://asset-a'), '占位应替换为首张资源')
+  assert(applied.includes('journal-asset://asset-b'), '占位应替换为次张资源')
+  assert(!applied.includes('data-notion-img'), '替换后不应残留占位')
+  assert(
+    applied.indexOf('journal-asset://asset-a') < applied.indexOf('下次注意节奏') &&
+      applied.indexOf('下次注意节奏') < applied.indexOf('journal-asset://asset-b'),
+    '替换后仍应保持图文交错顺序',
+  )
 }
 
 export async function testCleanExpiredTradeTrashPurgesExpiredTradesOnly(): Promise<void> {
