@@ -50,3 +50,10 @@
 .empty-btn:hover {
   background: var(--accent-hover);
 }
+
+@media (max-width: 640px) {
+  .empty-btn {
+    height: 44px;
+    padding: 0 16px;
+  }
+}

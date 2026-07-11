@@ -76,3 +76,14 @@
   color: var(--text-quaternary);
   font-size: var(--fs-mini);
 }
+
+@media (max-width: 640px) {
+  .ui-filter-bar {
+    min-height: 56px;
+  }
+
+  .ui-filter-trigger,
+  .ui-filter-chip {
+    height: 44px;
+  }
+}
