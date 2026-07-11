@@ -39,7 +39,7 @@ export const SECONDARY_NAV: SidebarNavItem[] = [
   { id: 'active', to: '/active', label: '进行中', icon: CircleDot },
   { id: 'favorites', to: '/favorites', label: '星标交易', icon: Star },
   { id: 'missed', to: '/missed', label: '错过的机会', icon: Ban },
-  { id: 'paper', to: '/sim', label: '模拟', icon: FlaskConical },
+  { id: 'paper', to: '/sim', label: '模拟回测', icon: FlaskConical },
 ]
 
 /** 默认固定在侧栏的快捷入口 */
@@ -49,6 +49,19 @@ export const DEFAULT_SIDEBAR_PINS: SidebarNavId[] = [
   'missed',
   'paper',
 ]
+
+/** 按 sidebarPins 顺序解析快捷导航；空数组 → 空列表（侧栏不渲染「快捷」区） */
+export function resolvePinnedSecondaryNav(
+  pins: readonly SidebarNavId[],
+): SidebarNavItem[] {
+  const byId = new Map(SECONDARY_NAV.map((item) => [item.id, item]))
+  const out: SidebarNavItem[] = []
+  for (const id of pins) {
+    const item = byId.get(id)
+    if (item) out.push(item)
+  }
+  return out
+}
 
 export function isSidebarNavActive(path: string, to: string): boolean {
   return path === to || path.startsWith(`${to}/`)

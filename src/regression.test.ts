@@ -28,7 +28,12 @@ import {
   parseNotionCsv,
 } from '@/lib/notionImport'
 import { cleanExpiredTradeTrash } from '@/lib/trashCleanup'
-import { PRIMARY_NAV } from '@/lib/sidebarNav'
+import {
+  PRIMARY_NAV,
+  SECONDARY_NAV,
+  DEFAULT_SIDEBAR_PINS,
+  resolvePinnedSecondaryNav,
+} from '@/lib/sidebarNav'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
@@ -113,6 +118,50 @@ export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void 
   assert(
     routes.every((route) => !route.startsWith('/period/') && !route.startsWith('/strategy/')),
     '时间和策略路由不得出现在一级侧栏导航',
+  )
+}
+
+export function testSecondarySidebarQuickNavMatchesApprovedArchitecture(): void {
+  const routes = SECONDARY_NAV.map((item) => item.to)
+  const expected = ['/active', '/favorites', '/missed', '/sim']
+  assert(
+    JSON.stringify(routes) === JSON.stringify(expected),
+    `快捷导航路由应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
+  )
+  assert(
+    routes.every((route) => !route.startsWith('/period/') && !route.startsWith('/strategy/')),
+    '时间和策略路由不得出现在快捷侧栏导航',
+  )
+  const paper = SECONDARY_NAV.find((item) => item.id === 'paper')
+  assert(paper?.label === '模拟回测', 'paper 项侧栏文案应为「模拟回测」')
+  assert(
+    JSON.stringify(DEFAULT_SIDEBAR_PINS) === JSON.stringify(['active', 'favorites', 'missed', 'paper']),
+    '默认 sidebarPins 应包含四项快捷入口',
+  )
+}
+
+export function testResolvePinnedSecondaryNavOrdersAndHidesEmpty(): void {
+  const defaultItems = resolvePinnedSecondaryNav(DEFAULT_SIDEBAR_PINS)
+  assert(
+    defaultItems.map((item) => item.id).join(',') === 'active,favorites,missed,paper',
+    '默认 pins 应按 SECONDARY_NAV 四项顺序解析',
+  )
+  assert(
+    defaultItems.map((item) => item.to).join(',') === '/active,/favorites,/missed,/sim',
+    '默认 pins 路由顺序错误',
+  )
+
+  const reordered = resolvePinnedSecondaryNav(['paper', 'active'])
+  assert(
+    reordered.map((item) => item.id).join(',') === 'paper,active',
+    '应严格按 sidebarPins 顺序渲染',
+  )
+
+  assert(resolvePinnedSecondaryNav([]).length === 0, '空 pins 应得到空列表（侧栏隐藏整区）')
+  assert(
+    resolvePinnedSecondaryNav(['active', 'unknown' as never, 'missed']).map((item) => item.id).join(',') ===
+      'active,missed',
+    '未知 id 应被跳过',
   )
 }
 
