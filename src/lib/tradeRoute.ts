@@ -1,9 +1,15 @@
 import type { Trade } from '@/data/trades'
 import { routeWithSearch } from '@/lib/tradeView'
+import {
+  isCaseWorkspaceEntryPath,
+  isTodayWorkspaceEntryPath,
+  isTradeWorkspaceEntryPath,
+} from '@/lib/workspaceViews'
 
 export type TradeDetailFrom = {
   pathname: string
   search?: string
+  anchorTradeId?: string
 }
 
 export type TradeDetailLocationState = {
@@ -31,6 +37,7 @@ export function tradeDetailNavState(from: TradeDetailFrom): TradeDetailLocationS
     from: {
       pathname: from.pathname,
       search: from.search ?? '',
+      ...(from.anchorTradeId ? { anchorTradeId: from.anchorTradeId } : {}),
     },
   }
 }
@@ -44,11 +51,22 @@ export function resolveTradeDetailReturn(options: {
 }): { pathname: string; search: string } {
   const fallback = options.tradeKind === 'case' ? '/review-cases' : '/list'
 
-  if (options.from?.pathname) {
+  if (options.from?.pathname && isValidDetailSource(options.from.pathname, options.tradeKind)) {
     return routeWithSearch(options.from.pathname, options.from.search ?? '')
   }
   if (options.listPath) {
     return routeWithSearch(options.listPath, options.listSearch ?? '')
   }
   return routeWithSearch(fallback, '')
+}
+
+function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | undefined): boolean {
+  if (tradeKind === 'case') return isCaseWorkspaceEntryPath(pathname)
+  if (isCaseWorkspaceEntryPath(pathname)) return false
+  return (
+    isTodayWorkspaceEntryPath(pathname) ||
+    isTradeWorkspaceEntryPath(pathname) ||
+    pathname === '/sim' ||
+    pathname.startsWith('/sim/')
+  )
 }

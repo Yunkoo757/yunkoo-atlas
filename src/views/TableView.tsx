@@ -11,6 +11,7 @@ import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildTradeTableRow } from '@/lib/tradeTable'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
+import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import type { Trade } from '@/data/trades'
 import { SymbolLabel } from '@/components/SymbolIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -41,15 +42,20 @@ export function TableView({
   const location = useLocation()
 
   useListContextSync(filter)
+  useTradeReturnAnchor()
   const { trades, visible: baseVisible } = useWorkbenchVisibleTrades(filter)
 
-  const detailState = tradeDetailNavState({
+  const openTrade = (trade: Trade) => {
+    const from = detailFrom(trade)
+    rememberTradeReturnAnchor(from)
+    navigate(tradeDetailPath(trade), { state: tradeDetailNavState(from) })
+  }
+
+  const detailFrom = (trade: Trade) => ({
     pathname: location.pathname,
     search: location.search,
+    anchorTradeId: trade.id,
   })
-  const openTrade = (trade: Trade) => {
-    navigate(tradeDetailPath(trade), { state: detailState })
-  }
 
   const visible = useMemo(
     () => sortTradesForTable(baseVisible, sortKey, sortDir),
@@ -109,9 +115,14 @@ export function TableView({
               {visible.map((trade) => {
                 const row = buildTradeTableRow(trade, strategies)
                 return (
-                  <tr key={trade.id} onDoubleClick={() => openTrade(trade)}>
+                  <tr key={trade.id} data-trade-id={trade.id} onDoubleClick={() => openTrade(trade)}>
                     <td className="tv-sticky tv-col-ref">
-                      <Link to={tradeDetailPath(trade)} state={detailState} className="tv-ref">
+                      <Link
+                        to={tradeDetailPath(trade)}
+                        state={tradeDetailNavState(detailFrom(trade))}
+                        className="tv-ref"
+                        onClick={() => rememberTradeReturnAnchor(detailFrom(trade))}
+                      >
                         {row.ref}
                       </Link>
                     </td>

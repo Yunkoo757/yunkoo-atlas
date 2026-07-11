@@ -54,6 +54,7 @@ import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
 import { findTradeByRouteParam, tradeDetailPath, resolveTradeDetailReturn, type TradeDetailLocationState } from '@/lib/tradeRoute'
+import { tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
 import { collectMistakeTagOptions, collectTagOptions } from '@/lib/tags'
 import {
   SESSION_PRESETS,
@@ -151,15 +152,15 @@ export function DetailView() {
     })
   }, [trade, routeParam, navigate, location.state])
 
+  const from = (location.state as TradeDetailLocationState | null)?.from
   const detailReturn = useMemo(() => {
-    const from = (location.state as TradeDetailLocationState | null)?.from
     return resolveTradeDetailReturn({
       from,
       listPath: listContext?.listPath,
       listSearch: listContext?.listSearch,
       tradeKind: trade?.tradeKind,
     })
-  }, [location.state, listContext?.listPath, listContext?.listSearch, trade?.tradeKind])
+  }, [from, listContext?.listPath, listContext?.listSearch, trade?.tradeKind])
 
   const persistEditorNote = useCallback(
     (html: string, tradeId: string) => {
@@ -372,7 +373,12 @@ export function DetailView() {
       <>
         <header className="dv-topbar">
           <div className="dv-tb-left">
-            <Link to={detailReturn} className="dv-back" aria-label="返回列表">
+            <Link
+              to={detailReturn}
+              state={tradeReturnLocationState(from?.anchorTradeId)}
+              className="dv-back"
+              aria-label="返回列表"
+            >
               <ChevronLeft size={16} />
             </Link>
             <span className="dv-crumb">交易</span>
@@ -417,7 +423,7 @@ export function DetailView() {
   const onDelete = () => {
     removeTrade(trade.id)
     toast('已移至回收站，30天后自动清空')
-    navigate(detailReturn)
+    navigate(detailReturn, { state: tradeReturnLocationState(from?.anchorTradeId) })
   }
 
   const createReviewCaseFromTrade = () => {
@@ -438,7 +444,12 @@ export function DetailView() {
       header={(
       <header className="dv-topbar">
         <div className="dv-tb-left">
-          <Link to={detailReturn} className="dv-back" aria-label="返回列表">
+          <Link
+            to={detailReturn}
+            state={tradeReturnLocationState(from?.anchorTradeId)}
+            className="dv-back"
+            aria-label="返回列表"
+          >
             <ChevronLeft size={16} />
           </Link>
           <span className="dv-crumb">{detailCrumb}</span>

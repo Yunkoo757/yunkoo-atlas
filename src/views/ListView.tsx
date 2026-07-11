@@ -23,6 +23,7 @@ import {
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
+import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useStore } from '@/store/useStore'
 import './ListView.css'
 
@@ -58,14 +59,18 @@ export function ListView({
   const location = useLocation()
 
   useListContextSync(filter)
+  useTradeReturnAnchor()
   const { visible } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = (trade: Trade) => {
+    const from = {
+      pathname: location.pathname,
+      search: location.search,
+      anchorTradeId: trade.id,
+    }
+    rememberTradeReturnAnchor(from)
     navigate(tradeDetailPath(trade), {
-      state: tradeDetailNavState({
-        pathname: location.pathname,
-        search: location.search,
-      }),
+      state: tradeDetailNavState(from),
     })
   }
 

@@ -21,6 +21,7 @@ import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
+import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './BoardView.css'
 
@@ -58,6 +59,7 @@ export function BoardView({
   const [ctx, setCtx] = useState<CtxState | null>(null)
 
   useListContextSync(filter)
+  useTradeReturnAnchor()
   const { trades, visible } = useWorkbenchVisibleTrades(filter)
 
   const cols = useMemo(() => {
@@ -142,6 +144,7 @@ export function BoardView({
                   <React.Fragment key={`wrap-${t.id}`}>
                     <article
                     key={t.id}
+                    data-trade-id={t.id}
                     className={'bd-card' + (isReviewCaseView ? ' bd-card-case' : '') + (dragId === t.id ? ' is-dragging' : '')}
                     style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                     draggable

@@ -1,6 +1,7 @@
 import { normalizeSavedViewPath } from '@/lib/savedTradeViews'
+import type { Strategy } from '@/data/strategies'
 
-export type WorkspaceKind = 'trade' | 'case'
+export type WorkspaceKind = 'today' | 'trade' | 'case'
 
 export type WorkspaceRouteMemory = {
   pathname: string
@@ -15,6 +16,7 @@ export type WorkspaceViewTarget = {
 }
 
 const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
+  today: [{ id: 'today', label: '今日', pathname: '/today-record' }],
   trade: [
     { id: 'all', label: '全部', pathname: '/list' },
     { id: 'week', label: '本周', pathname: '/period/this-week' },
@@ -64,16 +66,20 @@ export function isSavedViewInWorkspace(
   kind: WorkspaceKind,
 ): boolean {
   const pathname = normalizeSavedViewPath(view.pathname)
+  if (kind === 'today') return pathname === '/today-record'
   if (kind === 'case') return pathname.startsWith('/review-cases')
   return (
     pathname === '/list' ||
-    pathname === '/today-record' ||
     pathname.startsWith('/period/') ||
     pathname.startsWith('/strategy/') ||
     pathname === '/active' ||
     pathname === '/favorites' ||
     pathname === '/missed'
   )
+}
+
+export function isTodayWorkspaceEntryPath(pathname: string): boolean {
+  return normalizeSavedViewPath(pathname) === '/today-record'
 }
 
 /** 侧栏「交易日志」可记忆的列表路径（不含今日记录 / 模拟 / 详情） */
@@ -99,6 +105,7 @@ export function isCaseWorkspaceEntryPath(pathname: string): boolean {
 }
 
 export function rememberableWorkspaceKind(pathname: string): WorkspaceKind | null {
+  if (isTodayWorkspaceEntryPath(pathname)) return 'today'
   if (isCaseWorkspaceEntryPath(pathname)) return 'case'
   if (isTradeWorkspaceEntryPath(pathname)) return 'trade'
   return null
@@ -107,14 +114,24 @@ export function rememberableWorkspaceKind(pathname: string): WorkspaceKind | nul
 export function resolveWorkspaceNavTarget(
   kind: WorkspaceKind,
   memory: WorkspaceRouteMemory | null | undefined,
+  strategies?: readonly Pick<Strategy, 'id'>[],
 ): WorkspaceRouteMemory {
   const fallback: WorkspaceRouteMemory =
-    kind === 'case'
+    kind === 'today'
+      ? { pathname: '/today-record', search: '' }
+      : kind === 'case'
       ? { pathname: '/review-cases', search: '' }
       : { pathname: '/list', search: '' }
   if (!memory?.pathname) return fallback
+  if (kind === 'today' && !isTodayWorkspaceEntryPath(memory.pathname)) return fallback
   if (kind === 'trade' && !isTradeWorkspaceEntryPath(memory.pathname)) return fallback
   if (kind === 'case' && !isCaseWorkspaceEntryPath(memory.pathname)) return fallback
+  if (kind === 'trade' && strategies) {
+    const strategyMatch = normalizeSavedViewPath(memory.pathname).match(/^\/strategy\/([^/]+)$/)
+    if (strategyMatch && !strategies.some((strategy) => strategy.id === strategyMatch[1])) {
+      return fallback
+    }
+  }
   return {
     pathname: memory.pathname,
     search: memory.search ?? '',

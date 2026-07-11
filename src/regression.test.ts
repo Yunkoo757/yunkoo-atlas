@@ -46,7 +46,7 @@ import {
   filterTrades as filterWorkbenchTrades,
   getWorkbenchVisibleTrades,
 } from '@/lib/workbenchTrades'
-import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
+import { resolveTradeDetailReturn, tradeDetailNavState } from '@/lib/tradeRoute'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
 import { chordFromEvent } from '@/shortcuts/chords'
@@ -447,8 +447,16 @@ export function testWorkspaceViewsNeverCrossRecordDomains(): void {
 export function testWorkspaceNavRemembersLastQuickView(): void {
   assert(rememberableWorkspaceKind('/period/this-week') === 'trade', '本周应记入交易工作区')
   assert(rememberableWorkspaceKind('/list') === 'trade', '全部列表应记入交易工作区')
-  assert(rememberableWorkspaceKind('/today-record') === null, '今日记录不占用交易日志记忆')
+  assert(rememberableWorkspaceKind('/today-record') === 'today', '今日记录应记入今日工作区')
+  assert(rememberableWorkspaceKind('/today-record/table') === 'today', '今日表格应记入今日工作区')
   assert(rememberableWorkspaceKind('/review-cases/mistakes') === 'case', '错题应记入案例工作区')
+
+  const today = resolveWorkspaceNavTarget('today', {
+    pathname: '/today-record/board',
+    search: '?session=london',
+  })
+  assert(today.pathname === '/today-record/board', '今日工作区应还原上次视图形态')
+  assert(today.search === '?session=london', '今日工作区应还原筛选条件')
 
   const remembered = resolveWorkspaceNavTarget('trade', {
     pathname: '/period/this-week',
@@ -470,6 +478,20 @@ export function testWorkspaceNavRemembersLastQuickView(): void {
     search: '',
   })
   assert(fallback.pathname === '/list', '非法记忆应回退到全部')
+
+  const deletedStrategy = resolveWorkspaceNavTarget(
+    'trade',
+    { pathname: '/strategy/deleted/board', search: '?status=win' },
+    [strategy],
+  )
+  assert(deletedStrategy.pathname === '/list', '已删除策略的工作区记忆应回退到全部')
+
+  const existingStrategy = resolveWorkspaceNavTarget(
+    'trade',
+    { pathname: `/strategy/${strategy.id}/table`, search: '?status=win' },
+    [strategy],
+  )
+  assert(existingStrategy.pathname === `/strategy/${strategy.id}/table`, '现有策略记忆应保持视图形态')
 
   const display = normalizeDisplay({
     workspaceMemory: {
@@ -639,6 +661,13 @@ export function testPopoverPositionStaysAnchoredInsideViewport(): void {
 }
 
 export function testTradeDetailReturnRemembersListView(): void {
+  const detailState = tradeDetailNavState({
+    pathname: '/table',
+    search: '?status=loss',
+    anchorTradeId: trade.id,
+  })
+  assert(detailState.from?.anchorTradeId === trade.id, '详情路由 state 应保存来源交易锚点')
+
   const fromState = resolveTradeDetailReturn({
     from: { pathname: '/list', search: '?status=loss&session=london' },
     listPath: '/list',
@@ -662,6 +691,18 @@ export function testTradeDetailReturnRemembersListView(): void {
   const fallback = resolveTradeDetailReturn({ tradeKind: 'case' })
   assert(fallback.pathname === '/review-cases', '无上下文时案例详情回退到案例列表')
   assert(fallback.search === '', '无上下文时不应伪造查询参数')
+
+  const invalidCaseSource = resolveTradeDetailReturn({
+    from: { pathname: '/list', search: '?status=loss', anchorTradeId: trade.id },
+    tradeKind: 'case',
+  })
+  assert(invalidCaseSource.pathname === '/review-cases', '案例详情的失效交易来源应回退到案例列表')
+
+  const invalidLiveSource = resolveTradeDetailReturn({
+    from: { pathname: '/review-cases/mistakes', anchorTradeId: trade.id },
+    tradeKind: 'live',
+  })
+  assert(invalidLiveSource.pathname === '/list', '交易详情的失效案例来源应回退到交易列表')
 }
 
 export function testSymbolIconsResolveDefaultsAndOverrides(): void {
