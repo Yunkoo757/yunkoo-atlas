@@ -75,24 +75,26 @@
   box-shadow: var(--field-focus-shadow);
 }
 
-.sfm-textarea {
+.sfm-editor {
   width: 100%;
-  min-height: 80px;
-  padding: 8px 10px;
-  font: inherit;
-  font-size: var(--fs-small);
+  min-height: 132px;
+  padding: 10px 12px;
   color: var(--text-primary);
-  background: var(--bg-elevated);
   border: 1px solid var(--field-border);
   background: var(--field-bg);
   border-radius: var(--radius-6);
-  resize: vertical;
 }
 
-.sfm-textarea:focus {
+.sfm-editor:focus-within {
   background: var(--field-bg-focus);
   border-color: var(--field-border-focus);
   box-shadow: var(--field-focus-shadow);
+}
+
+.sfm-editor .editor .ProseMirror {
+  min-height: 110px;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .sfm-error {
