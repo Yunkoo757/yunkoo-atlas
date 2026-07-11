@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M6.5 3.51a3.25 3.25 0 0 0-3 3.24v6a.75.75 0 0 1-1.5 0v-6a4.75 4.75 0 0 1 4.584-4.747 1.5 1.5 0 0 1 2.914.425l3.677-1.387c.395-.149.825.126.825.527v2.864c0 .401-.43.676-.825.527L9.5 3.573V4.4A3 3 0 0 1 11 7v3.5H5V7a3 3 0 0 1 1.5-2.599zM5 14.5V13h6v1.5a.5.5 0 0 1-.5.5h-5a.5.5 0 0 1-.5-.5\"></path>"
+
+export function LinearExtinguisherIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

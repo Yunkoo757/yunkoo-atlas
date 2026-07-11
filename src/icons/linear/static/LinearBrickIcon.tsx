@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path fill-rule=\"evenodd\" d=\"M3 3a.5.5 0 0 1 .5-.5h3A.5.5 0 0 1 7 3v1h2V3a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1h.75c.69 0 1.25.56 1.25 1.25v7.5c0 .69-.56 1.25-1.25 1.25H2.25C1.56 14 1 13.44 1 12.75v-7.5C1 4.56 1.56 4 2.25 4H3zm-.5 2.5v7h11v-7z\" clip-rule=\"evenodd\"></path>"
+
+export function LinearBrickIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

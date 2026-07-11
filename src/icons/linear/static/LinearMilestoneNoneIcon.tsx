@@ -1,0 +1,9 @@
+// Generated from svg-1.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"m9.692 12.41 1.164.945-1.033 1.271a2.34 2.34 0 0 1-3.646 0l-1.034-1.27 1.164-.947 1.034 1.27a.84.84 0 0 0 1.318 0zM3.66 5.657l.582.474-1.032 1.27a.96.96 0 0 0 0 1.196l1.032 1.27-.582.474-.001-.001-.581.474-1.032-1.271a2.46 2.46 0 0 1 0-3.088l1.032-1.27zm10.295.798a2.46 2.46 0 0 1 0 3.088l-1.032 1.27-.582-.473-.582-.473h-.001l1.033-1.27a.96.96 0 0 0 .092-1.06l-.092-.136-1.033-1.27 1.165-.946zM6.267 1.268a2.34 2.34 0 0 1 3.556.106l1.033 1.27-1.165.947L8.66 2.32a.84.84 0 0 0-1.318 0L6.307 3.59l-1.164-.946 1.034-1.27z\"></path>"
+
+export function LinearMilestoneNoneIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"m8.415 8.5-6.3-6.115A1.15 1.15 0 0 0 2 2.912V14.09c0 .214.044.392.119.534zm.365-.354 1.94-1.887-7.398-4.087A1.2 1.2 0 0 0 2.738 2a.7.7 0 0 0-.247.043zm4.676-.375-2.268-1.253-2.04 1.985 2.04 1.98 2.268-1.254c.726-.4.726-1.057 0-1.458M8.784 8.858l-6.275 6.105c.224.074.505.039.813-.13l7.402-4.093z\"></path>"
+
+export function LinearGooglePlayIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

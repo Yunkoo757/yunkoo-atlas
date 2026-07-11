@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M8.67 3c.403 0 .724.312.704.683l-.42 5.2c-.019.346-.328.617-.704.617h-.5c-.376 0-.685-.271-.704-.617l-.42-5.2c-.02-.371.3-.683.704-.683zM9 12a1 1 0 1 1-2 0 1 1 0 0 1 2 0\"></path>"
+
+export function LinearExclamationMarkIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

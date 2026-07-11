@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path fill-rule=\"evenodd\" d=\"M3.647 2.242 1.16 11A3 3 0 0 0 1 12a3 3 0 1 0 6 0V9.5c0-.466.323-.978.788-1q.212-.01.424 0c.465.022.788.534.788 1V12a3 3 0 1 0 6 0 3 3 0 0 0-.16-1l-2.487-8.758A1.709 1.709 0 0 0 9 2.709v1.425A3.6 3.6 0 0 0 8 4c-.364 0-.706.049-1 .134V2.709a1.709 1.709 0 0 0-3.353-.467M2.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0m9.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3\" clip-rule=\"evenodd\"></path>"
+
+export function LinearBinocularIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

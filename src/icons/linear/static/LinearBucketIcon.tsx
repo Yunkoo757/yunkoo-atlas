@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path fill-rule=\"evenodd\" d=\"M8 1c3.314 0 6 1.559 6 3.481q0 .254-.06.497l-1.961 7.859a.5.5 0 0 1-.089.183Q10.36 15 8 15q-2.362 0-3.88-1.98a.5.5 0 0 1-.067-.117l-.02-.065-1.955-7.795A2 2 0 0 1 2 4.481C2 2.56 4.686 1 8 1m0 .995c-2.623 0-4.75 1.113-4.75 2.486S5.377 6.968 8 6.968s4.75-1.113 4.75-2.487c0-1.373-2.127-2.486-4.75-2.486\" clip-rule=\"evenodd\"></path>"
+
+export function LinearBucketIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}
