@@ -1,4 +1,4 @@
-import { Bell, Check, Star } from 'lucide-react'
+import { Bell, Check, Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import { REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'

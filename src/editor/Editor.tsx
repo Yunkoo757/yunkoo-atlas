@@ -15,7 +15,7 @@ import {
   List,
   ListChecks,
   Quote,
-} from 'lucide-react'
+} from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'

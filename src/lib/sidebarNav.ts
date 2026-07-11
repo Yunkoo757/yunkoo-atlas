@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import type { AppIcon } from '@/icons/appIcons'
 import {
   BarChart3,
   Ban,
@@ -8,7 +8,7 @@ import {
   FlaskConical,
   ListTodo,
   Star,
-} from 'lucide-react'
+} from '@/icons/appIcons'
 
 export type PrimarySidebarNavId = 'today' | 'trades' | 'reviewCases' | 'dashboard'
 
@@ -16,7 +16,7 @@ export interface PrimarySidebarNavItem {
   id: PrimarySidebarNavId
   to: string
   label: string
-  icon: LucideIcon
+  icon: AppIcon
 }
 
 export const PRIMARY_NAV: PrimarySidebarNavItem[] = [
@@ -32,7 +32,7 @@ export interface SidebarNavItem {
   id: SidebarNavId
   to: string
   label: string
-  icon: LucideIcon
+  icon: AppIcon
 }
 
 export const SECONDARY_NAV: SidebarNavItem[] = [

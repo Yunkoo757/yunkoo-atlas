@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from 'react'
-import { SlidersHorizontal, X } from 'lucide-react'
+import { SlidersHorizontal, X } from '@/icons/appIcons'
 import './FilterBar.css'
 
 export type ActiveFilter = {

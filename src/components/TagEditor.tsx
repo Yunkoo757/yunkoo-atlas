@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react'
-import { Tag, X, Plus } from 'lucide-react'
+import { Tag, X, Plus } from '@/icons/appIcons'
 import './TagEditor.css'
 
 export function TagEditor({

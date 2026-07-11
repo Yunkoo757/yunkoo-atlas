@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { Plus } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { TradeRow } from '@/components/trades/TradeRow'

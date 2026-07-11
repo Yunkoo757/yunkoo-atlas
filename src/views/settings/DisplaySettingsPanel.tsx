@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import '@/components/DisplayMenu.css'

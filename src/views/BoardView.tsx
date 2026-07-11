@@ -1,5 +1,5 @@
 import React, { useMemo, useState, type ReactNode } from 'react'
-import { Plus, Bell } from 'lucide-react'
+import { Plus, Bell } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'

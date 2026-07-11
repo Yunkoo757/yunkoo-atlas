@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { Upload, X, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
+import { Upload, X, ArrowRight, AlertCircle, CheckCircle } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import {
   parseCsv,

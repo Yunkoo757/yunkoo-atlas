@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { RotateCcw, X } from 'lucide-react'
+import { RotateCcw, X } from '@/icons/appIcons'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import {

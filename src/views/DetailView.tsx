@@ -16,7 +16,7 @@ import {
   BookOpen,
   CalendarDays,
   Box,
-} from 'lucide-react'
+} from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
 import { Menu } from '@/components/Menu'

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getShortcutHint } from '@/shortcuts/ShortcutHost'
 import './ImageLightbox.css'

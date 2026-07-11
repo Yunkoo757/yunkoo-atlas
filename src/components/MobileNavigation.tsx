@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { Menu, Search, Settings2, Trash2 } from 'lucide-react'
+import { Menu, Search, Settings2, Trash2 } from '@/icons/appIcons'
 import { NavLink } from 'react-router-dom'
 import { PRIMARY_NAV } from '@/lib/sidebarNav'
 import { workspaceRouteHref } from '@/lib/workspaceViews'

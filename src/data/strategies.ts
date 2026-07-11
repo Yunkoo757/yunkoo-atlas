@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import type { AppIcon } from '@/icons/appIcons'
 import {
   TrendingUp,
   ArrowLeftRight,
@@ -14,7 +14,7 @@ import {
   LineChart,
   Crosshair,
   Gauge,
-} from 'lucide-react'
+} from '@/icons/appIcons'
 
 export type StrategyIconId =
   | 'trending-up'
@@ -43,7 +43,7 @@ export interface Strategy {
 export const STRATEGY_ICON_OPTIONS: {
   id: StrategyIconId
   label: string
-  Icon: LucideIcon
+  Icon: AppIcon
 }[] = [
   { id: 'trending-up', label: '趋势', Icon: TrendingUp },
   { id: 'arrow-left-right', label: '回归', Icon: ArrowLeftRight },
@@ -86,9 +86,9 @@ export const DEFAULT_STRATEGIES: Strategy[] = [
 
 const ICON_MAP = Object.fromEntries(
   STRATEGY_ICON_OPTIONS.map((o) => [o.id, o.Icon]),
-) as Record<StrategyIconId, LucideIcon>
+) as Record<StrategyIconId, AppIcon>
 
-export function getStrategyIcon(icon: StrategyIconId): LucideIcon {
+export function getStrategyIcon(icon: StrategyIconId): AppIcon {
   return ICON_MAP[icon] ?? Target
 }
 

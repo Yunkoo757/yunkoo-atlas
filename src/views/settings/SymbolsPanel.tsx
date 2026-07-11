@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { ImagePlus, RotateCcw, Shapes, Trash2 } from 'lucide-react'
+import { ImagePlus, RotateCcw, Shapes, Trash2 } from '@/icons/appIcons'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { SymbolPresetSvg } from '@/components/SymbolPresetSvg'
 import {

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, SlidersHorizontal } from 'lucide-react'
+import { Check, SlidersHorizontal } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { WorkbenchView } from '@/components/Topbar'

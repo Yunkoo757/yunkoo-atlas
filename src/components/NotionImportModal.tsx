@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload, X, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from 'lucide-react'
+import { Upload, X, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import {
   applyNotionImageAssetsToNote,

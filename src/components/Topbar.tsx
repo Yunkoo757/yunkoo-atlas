@@ -1,4 +1,4 @@
-import { LayoutGrid, List, Table2 } from 'lucide-react'
+import { LayoutGrid, List, Table2 } from '@/icons/appIcons'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { Toolbar } from '@/components/ui/Toolbar'

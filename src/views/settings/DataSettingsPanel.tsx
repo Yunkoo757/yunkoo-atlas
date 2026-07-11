@@ -8,7 +8,7 @@ import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
-import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, AlertTriangle } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, AlertTriangle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 
 function fmtBackupTime(ts: number): string {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FolderOpen, Plus, HardDrive } from 'lucide-react'
+import { FolderOpen, Plus, HardDrive } from '@/icons/appIcons'
 import './WelcomeScreen.css'
 
 interface Props {

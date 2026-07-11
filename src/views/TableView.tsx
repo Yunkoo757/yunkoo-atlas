@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus } from '@/icons/appIcons'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { TradeFilters } from '@/components/trades/TradeFilters'
