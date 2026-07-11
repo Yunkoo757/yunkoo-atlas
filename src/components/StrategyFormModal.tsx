@@ -11,6 +11,7 @@ import {
 import { DEFAULT_REVIEW_TEMPLATE_HTML } from '@/lib/reviewTemplates'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { Editor } from '@/editor/Editor'
 import './StrategyFormModal.css'
 
 export function StrategyFormModal({
@@ -140,16 +141,16 @@ export function StrategyFormModal({
             </div>
           </div>
 
-          <label className="sfm-field">
+          <div className="sfm-field">
             <span className="sfm-label">复盘结构</span>
-            <textarea
-              className="sfm-textarea"
-              value={reviewTemplateHtml}
-              onChange={(e) => setReviewTemplateHtml(e.target.value)}
-              rows={4}
-              placeholder="详情页可一键填入的复盘提纲（支持清单、引用等）"
-            />
-          </label>
+            <div className="sfm-editor">
+              <Editor
+                content={reviewTemplateHtml}
+                onChange={setReviewTemplateHtml}
+                placeholder="写下复盘提纲；输入“- ”建立清单，“> ”插入引用"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="sfm-foot">
