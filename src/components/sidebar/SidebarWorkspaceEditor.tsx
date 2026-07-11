@@ -22,6 +22,7 @@ export type SidebarWorkspaceEditorProps = {
   sources: SidebarTargetSources
   onCommit: (items: SidebarWorkspaceItem[]) => void
   onCancel: () => void
+  variant?: 'popover' | 'mobile-fullscreen'
 }
 
 export const SIDEBAR_WORKSPACE_EDITOR_ID = 'sidebar-workspace-editor'
@@ -47,7 +48,7 @@ function moveItem(items: SidebarWorkspaceItem[], itemId: string, targetId: strin
   return reindex(next)
 }
 
-export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: SidebarWorkspaceEditorProps) {
+export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel, variant = 'popover' }: SidebarWorkspaceEditorProps) {
   const [draft, setDraft] = useState<SidebarWorkspaceItem[]>(() => items.map((item) => ({ ...item, target: { ...item.target } })))
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [removal, setRemoval] = useState<Removal | null>(null)
@@ -118,9 +119,10 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
   return (
     <section
       id={SIDEBAR_WORKSPACE_EDITOR_ID}
-      className="sb-workspace-editor"
+      className={`sb-workspace-editor${variant === 'mobile-fullscreen' ? ' is-mobile-fullscreen' : ''}`}
       role="dialog"
       aria-labelledby={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID}
+      data-mobile-fullscreen={variant === 'mobile-fullscreen' ? 'true' : undefined}
     >
       <header className="sb-workspace-editor-header">
         <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>管理我的空间</h2>
@@ -136,7 +138,7 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
         />
       ) : (
         <>
-          <p className="sb-editor-help">拖动排序，或使用 Alt + ↑ / ↓</p>
+          <p className="sb-editor-help">{variant === 'mobile-fullscreen' ? '使用上移 / 下移按钮排序' : '拖动排序，或使用 Alt + ↑ / ↓'}</p>
           <div className="sb-editor-list">
             {draft.map((item, index) => {
               const resolved = resolveSidebarWorkspaceItem(item, sources)
@@ -147,7 +149,7 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
                   className="sb-editor-item"
                   data-sidebar-item
                   data-sidebar-placement={item.placement}
-                  draggable
+                  draggable={variant !== 'mobile-fullscreen'}
                   onDragStart={(event) => {
                     setDraggedId(item.id)
                     event.dataTransfer.effectAllowed = 'move'
@@ -189,6 +191,24 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
                   </span>
                   <span className="sb-editor-item-label" data-sidebar-item-label>{resolved.label}</span>
                   {resolved.invalid ? <span className="sb-editor-invalid">已失效</span> : null}
+                  <span className="sb-editor-mobile-moves">
+                    <button
+                      type="button"
+                      aria-label={`上移 ${resolved.label}`}
+                      disabled={index === 0}
+                      onClick={() => moveByKeyboard(item.id, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`下移 ${resolved.label}`}
+                      disabled={index === draft.length - 1}
+                      onClick={() => moveByKeyboard(item.id, 1)}
+                    >
+                      ↓
+                    </button>
+                  </span>
                   <button type="button" onClick={() => togglePlacement(item)}>
                     {item.placement === 'pinned' ? '移至更多' : '常驻侧栏'}
                   </button>

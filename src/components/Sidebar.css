@@ -229,77 +229,8 @@
   color: var(--text-tertiary);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 899px) {
   .sidebar {
-    width: 100%;
-    height: auto;
-    max-height: 72px;
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 6px 8px;
-    gap: 6px;
-    background:
-      linear-gradient(to right, transparent calc(100% - 28px), var(--bg-sidebar)),
-      var(--bg-sidebar);
-    scrollbar-width: none;
-  }
-
-  .sidebar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .sb-header {
-    flex: 0 0 auto;
-    height: 32px;
-  }
-
-  .sb-ws {
-    width: 34px;
-    flex: 0 0 auto;
-    justify-content: center;
-    padding: 0 5px;
-  }
-
-  .sb-ws-name,
-  .sb-ws-chevron,
-  .sb-section-label,
-  .sb-item-count {
-    display: none;
-  }
-
-  .sb-section {
-    flex: 0 0 auto;
-    flex-direction: row;
-    margin-top: 0;
-    gap: 4px;
-  }
-
-  .sb-spacer {
-    display: none;
-  }
-
-  .sb-utility {
-    flex: 0 0 auto;
-    margin-top: 0;
-    padding: 0;
-    border-top: none;
-  }
-
-  .sb-item {
-    width: auto;
-    height: 32px;
-    margin: 0;
-    white-space: nowrap;
-    flex: 0 0 auto;
-  }
-
-  .sb-subitem {
-    padding-left: 9px;
-  }
-
-  .sb-context .sb-subitem::before {
     display: none;
   }
 }
