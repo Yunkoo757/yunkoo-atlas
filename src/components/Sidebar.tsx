@@ -91,6 +91,7 @@ export function useSidebarNavigationModel() {
 
   return {
     path,
+    search,
     trades,
     strategies,
     sidebarWorkspaceItems,

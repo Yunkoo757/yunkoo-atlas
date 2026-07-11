@@ -116,6 +116,38 @@ async function expectFocused(locator) {
   throw new Error('Expected element to be focused')
 }
 
+async function expectFocusInside(locator) {
+  const inside = await locator.evaluate((element) => element.contains(document.activeElement))
+  if (!inside) throw new Error('Expected focus to remain inside modal')
+}
+
+async function expectNoHorizontalOverflow(page, locator) {
+  const documentWidths = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }))
+  if (documentWidths.scrollWidth > documentWidths.clientWidth) {
+    throw new Error(`Document overflowed horizontally: ${documentWidths.scrollWidth} > ${documentWidths.clientWidth}`)
+  }
+  if (!locator) return
+  const elementWidths = await locator.evaluate((element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+  }))
+  if (elementWidths.scrollWidth > elementWidths.clientWidth) {
+    throw new Error(`Modal overflowed horizontally: ${elementWidths.scrollWidth} > ${elementWidths.clientWidth}`)
+  }
+}
+
+async function expectMobileCurrentCount(page, expected) {
+  const current = page.locator('.mobile-navigation [aria-current="page"], .mobile-navigation-drawer [aria-current="page"]')
+  const actual = await current.count()
+  if (actual !== expected) {
+    const labels = await current.evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label') ?? element.textContent?.trim()))
+    throw new Error(`Expected ${expected} mobile page current, received ${actual}: ${JSON.stringify(labels)}`)
+  }
+}
+
 await verifyExistingViteConflict()
 const vite = startVite()
 let browser
@@ -287,9 +319,13 @@ try {
   const defaultLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
   expectEqual(defaultLabels, ['进行中', '星标交易', '错过的机会', '模拟回测'], 'Restore default must persist exact default names and order')
 
-  await page.setViewportSize({ width: 900, height: 844 })
-  await expectVisible(page.locator('.sidebar'))
-  await expectCount(page.getByRole('navigation', { name: '移动导航' }), 0)
+  for (const width of [1920, 1440, 900]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expectVisible(page.locator('.sidebar'))
+    await expectCount(page.getByRole('navigation', { name: '移动导航' }), 0)
+    await expectNoHorizontalOverflow(page)
+  }
+  const desktopCoreHrefs = await page.locator('.sb-primary > a').evaluateAll((elements) => elements.map((element) => element.getAttribute('href')))
 
   await page.evaluate(async () => {
     const { useStore } = await import('/src/store/useStore.ts')
@@ -315,33 +351,107 @@ try {
     ['今日', '交易', '案例', '仪表盘', '更多'],
     'Mobile navigation must expose exactly five named actions',
   )
+  expectEqual(
+    await mobileNavigation.locator(':scope > a').evaluateAll((elements) => elements.map((element) => element.getAttribute('href'))),
+    desktopCoreHrefs,
+    'Mobile core navigation hrefs must come from the same targets as desktop',
+  )
   for (const action of await mobileActions.all()) {
     const box = await action.boundingBox()
     if (!box || box.height < 44 || box.width < 44) throw new Error('Every mobile navigation action must have a 44px hit target')
   }
-  const viewportWidth = await page.evaluate(() => document.documentElement.clientWidth)
-  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
-  if (scrollWidth > viewportWidth) throw new Error(`Mobile page overflowed horizontally: ${scrollWidth} > ${viewportWidth}`)
+  await expectNoHorizontalOverflow(page)
+  await expectMobileCurrentCount(page, 1)
 
-  const moreButton = mobileNavigation.getByRole('button', { name: '更多', exact: true })
+  const moreButton = page.locator('.mobile-navigation > button[aria-label="更多"]')
   await moreButton.click()
   const drawer = page.getByRole('dialog', { name: '更多' })
   await expectVisible(drawer)
+  await expectAttribute(drawer, 'aria-modal', 'true')
+  await expectAttribute(moreButton, 'aria-expanded', 'true')
+  if ((await moreButton.getAttribute('class'))?.includes('is-active')) throw new Error('More must not use page-active styling while open')
+  await expectFocused(drawer.getByRole('button', { name: '关闭更多' }))
+  const overlayZIndex = Number(await page.locator('.mobile-navigation-overlay').evaluate((element) => getComputedStyle(element).zIndex))
+  const navigationZIndex = Number(await page.locator('.mobile-navigation').evaluate((element) => getComputedStyle(element).zIndex))
+  if (overlayZIndex <= navigationZIndex) throw new Error(`Drawer overlay must stack above mobile navigation: ${overlayZIndex} <= ${navigationZIndex}`)
+  for (const background of [page.locator('.ui-main-frame'), page.locator('.mobile-navigation')]) {
+    if (!(await background.evaluate((element) => element.inert))) throw new Error('Modal background must be inert')
+    await expectAttribute(background, 'aria-hidden', 'true')
+  }
+  if (await page.evaluate(() => document.body.style.overflow) !== 'hidden') throw new Error('Opening a mobile modal must lock body scrolling')
   expectEqual(
     await drawer.locator('[data-mobile-workspace-item]').allTextContents(),
     ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图'],
     'More drawer must contain every valid pinned and overflow item in order',
   )
-  for (const name of ['搜索', '设置', '回收站', '管理我的空间']) {
+  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图', '搜索', '设置', '回收站', '管理我的空间']
+  expectEqual(
+    await drawer.locator('[data-mobile-drawer-item]').allTextContents(),
+    expectedDrawerItems,
+    'More drawer workspace and utility items must preserve their complete order',
+  )
+  for (const name of expectedDrawerItems.slice(5)) {
     await expectVisible(drawer.getByRole(name === '设置' || name === '回收站' ? 'link' : 'button', { name, exact: true }))
   }
   for (const action of await drawer.locator('a, button').all()) {
     const box = await action.boundingBox()
     if (!box || box.height < 44) throw new Error('Every mobile drawer action must have a 44px hit target')
   }
-  await drawer.getByRole('button', { name: '关闭更多' }).click()
+  await drawer.locator('[data-mobile-drawer-item]').last().focus()
+  await page.keyboard.press('Tab')
+  await expectFocusInside(drawer)
+  await drawer.getByRole('button', { name: '关闭更多' }).focus()
+  await page.keyboard.press('Shift+Tab')
+  await expectFocusInside(drawer)
+  await page.locator('.mobile-navigation-backdrop').click({ position: { x: 4, y: 4 } })
   await expectCount(drawer, 0)
   await expectFocused(moreButton)
+  await expectAttribute(moreButton, 'aria-expanded', 'false')
+  for (const background of [page.locator('.ui-main-frame'), page.locator('.mobile-navigation')]) {
+    if (await background.evaluate((element) => element.inert)) throw new Error('Closing a mobile modal must restore background interaction')
+    await expectAttribute(background, 'aria-hidden', null)
+  }
+  if (await page.evaluate(() => document.body.style.overflow) === 'hidden') throw new Error('Closing a mobile modal must restore body scrolling')
+
+  await moreButton.click()
+  await page.keyboard.press('Escape')
+  await expectCount(drawer, 0)
+  await expectFocused(moreButton)
+
+  await moreButton.click()
+  await page.evaluate(() => {
+    history.pushState({}, '', '/dashboard')
+    dispatchEvent(new PopStateEvent('popstate'))
+  })
+  await expectCount(drawer, 0)
+  await expectMobileCurrentCount(page, 1)
+
+  const coreLabels = ['今日', '交易', '案例', '仪表盘']
+  for (const label of coreLabels) {
+    await moreButton.click()
+    await page.locator(`.mobile-navigation > a[aria-label="${label}"]`).click({ force: true })
+    await expectCount(drawer, 0)
+    await expectMobileCurrentCount(page, 1)
+  }
+
+  for (const label of expectedDrawerItems.slice(0, 5)) {
+    await moreButton.click()
+    await drawer.getByRole('link', { name: label, exact: true }).click()
+    await expectCount(drawer, 0)
+    await moreButton.click()
+    await expectMobileCurrentCount(page, 1)
+    expectEqual(await drawer.locator('[data-mobile-drawer-item]').allTextContents(), expectedDrawerItems, 'Drawer order changed after workspace navigation')
+    await page.keyboard.press('Escape')
+  }
+
+  for (const label of ['设置', '回收站']) {
+    await moreButton.click()
+    await drawer.getByRole('link', { name: label, exact: true }).click()
+    await expectCount(drawer, 0)
+    await moreButton.click()
+    await expectMobileCurrentCount(page, 1)
+    await page.keyboard.press('Escape')
+  }
 
   await moreButton.click()
   await drawer.getByRole('button', { name: '管理我的空间', exact: true }).click()
@@ -349,17 +459,31 @@ try {
   const mobileEditor = page.getByRole('dialog', { name: '管理我的空间' })
   await expectVisible(mobileEditor)
   await expectAttribute(mobileEditor, 'data-mobile-fullscreen', 'true')
+  await expectAttribute(mobileEditor, 'aria-modal', 'true')
+  await expectFocused(mobileEditor.getByRole('heading', { name: '管理我的空间' }))
+  for (const background of [page.locator('.ui-main-frame'), page.locator('.mobile-navigation')]) {
+    if (!(await background.evaluate((element) => element.inert))) throw new Error('Full-screen editor background must be inert')
+    await expectAttribute(background, 'aria-hidden', 'true')
+  }
+  if (await page.evaluate(() => document.body.style.overflow) !== 'hidden') throw new Error('Full-screen editor must lock body scrolling')
+  await expectNoHorizontalOverflow(page, mobileEditor)
   const firstMobileLabel = (await mobileEditor.locator('[data-sidebar-item-label]').first().textContent()) ?? ''
   await expectVisible(mobileEditor.getByRole('button', { name: `下移 ${firstMobileLabel}` }))
   await expectVisible(mobileEditor.getByRole('button', { name: `上移 ${firstMobileLabel}` }))
+  await mobileEditor.getByRole('button', { name: `下移 ${firstMobileLabel}` }).focus()
+  await page.keyboard.press('Shift+Tab')
+  await expectFocusInside(mobileEditor)
   await mobileEditor.getByRole('button', { name: `下移 ${firstMobileLabel}` }).click()
   const movedMobileLabels = await mobileEditor.locator('[data-sidebar-item-label]').allTextContents()
   if (movedMobileLabels[1] !== firstMobileLabel) throw new Error('Mobile down button did not reorder the first item')
-  await mobileEditor.getByRole('button', { name: '取消', exact: true }).click()
+  await mobileEditor.getByRole('button', { name: '完成', exact: true }).focus()
+  await page.keyboard.press('Tab')
+  await expectFocusInside(mobileEditor)
+  await page.keyboard.press('Escape')
   await expectCount(mobileEditor, 0)
   await expectFocused(moreButton)
-  const finalScrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
-  if (finalScrollWidth > viewportWidth) throw new Error(`Mobile editor overflowed horizontally: ${finalScrollWidth} > ${viewportWidth}`)
+  if (await page.evaluate(() => document.body.style.overflow) === 'hidden') throw new Error('Closing full-screen editor must restore body scrolling')
+  await expectNoHorizontalOverflow(page)
 
   console.log('PASS: sidebar workspace manager and responsive mobile navigation contract')
 } finally {

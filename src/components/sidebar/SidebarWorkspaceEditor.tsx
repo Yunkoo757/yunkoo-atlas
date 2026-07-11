@@ -121,6 +121,7 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel, var
       id={SIDEBAR_WORKSPACE_EDITOR_ID}
       className={`sb-workspace-editor${variant === 'mobile-fullscreen' ? ' is-mobile-fullscreen' : ''}`}
       role="dialog"
+      aria-modal={variant === 'mobile-fullscreen' ? 'true' : undefined}
       aria-labelledby={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID}
       data-mobile-fullscreen={variant === 'mobile-fullscreen' ? 'true' : undefined}
     >
