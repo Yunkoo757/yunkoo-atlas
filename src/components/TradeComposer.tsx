@@ -24,6 +24,7 @@ import {
 } from '@/lib/tradeView'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
+import { formatYmd } from '@/lib/periods'
 import { assetUrl, getStorage } from '@/storage'
 import './TradeComposer.css'
 
@@ -66,7 +67,7 @@ export function TradeComposer() {
   const [side, setSide] = useState<TradeSide>('long')
   const [timeframe, setTimeframe] = useState<string>(DEFAULT_TIMEFRAME)
   const [session, setSession] = useState('')
-  const [openedAt, setOpenedAt] = useState(() => new Date().toISOString().slice(0, 10))
+  const [openedAt, setOpenedAt] = useState(() => formatYmd(new Date()))
   const [strategyId, setStrategyId] = useState('')
   const [reviewCategory, setReviewCategory] = useState<ReviewCategory>('normal')
   const [images, setImages] = useState<UploadedImage[]>([])
@@ -92,7 +93,7 @@ export function TradeComposer() {
     setSide(editing?.side ?? 'long')
     setTimeframe(resolveTimeframe(editing?.timeframe))
     setSession(editing ? getSessionSelectValue(editing) : '')
-    setOpenedAt(editing?.openedAt.slice(0, 10) ?? new Date().toISOString().slice(0, 10))
+    setOpenedAt(editing?.openedAt.slice(0, 10) ?? formatYmd(new Date()))
     setStrategyId(editing?.strategyId ?? strategies[0]?.id ?? '')
     setReviewCategory(editing?.reviewCategory ?? 'normal')
   }, [open, editing, strategies, defaultSymbol])
@@ -105,7 +106,7 @@ export function TradeComposer() {
       setSide('long')
       setTimeframe(DEFAULT_TIMEFRAME)
       setSession('')
-      setOpenedAt(new Date().toISOString().slice(0, 10))
+      setOpenedAt(formatYmd(new Date()))
       setStrategyId('')
       setReviewCategory('normal')
       setImages([])
