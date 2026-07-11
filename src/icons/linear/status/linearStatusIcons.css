@@ -1,0 +1,37 @@
+.linear-project-status--transition circle,
+.linear-project-status--transition path {
+  transition: all 240ms;
+}
+
+.linear-project-status__completion {
+  transform-origin: center;
+  animation: linear-project-status-scale 240ms cubic-bezier(.5, 1.4, .4, 1) 60ms both;
+}
+
+.linear-cycle-progress circle {
+  transition:
+    transform 0.6s,
+    stroke-dashoffset 0.6s;
+}
+
+@keyframes linear-project-status-scale {
+  from {
+    transform: scale(.5);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linear-project-status--transition circle,
+  .linear-project-status--transition path,
+  .linear-project-status__completion,
+  .linear-cycle-progress circle {
+    animation: none !important;
+    transition: none !important;
+  }
+}
