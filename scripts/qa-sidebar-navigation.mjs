@@ -82,6 +82,10 @@ async function expectVisible(locator) {
   await locator.waitFor({ state: 'visible', timeout: 5000 })
 }
 
+async function expectHidden(locator) {
+  await locator.waitFor({ state: 'hidden', timeout: 5000 })
+}
+
 async function expectText(locator, expected) {
   await expectVisible(locator)
   const actual = (await locator.textContent()) ?? ''
@@ -283,7 +287,81 @@ try {
   const defaultLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
   expectEqual(defaultLabels, ['进行中', '星标交易', '错过的机会', '模拟回测'], 'Restore default must persist exact default names and order')
 
-  console.log('PASS: sidebar workspace manager contract')
+  await page.setViewportSize({ width: 900, height: 844 })
+  await expectVisible(page.locator('.sidebar'))
+  await expectCount(page.getByRole('navigation', { name: '移动导航' }), 0)
+
+  await page.evaluate(async () => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    const state = useStore.getState()
+    state.replaceSidebarWorkspaceItems([
+      ...state.display.sidebarWorkspaceItems,
+      {
+        id: 'qa-mobile-overflow',
+        target: { kind: 'saved-view', viewId: 'qa-saved-view' },
+        placement: 'overflow',
+        order: state.display.sidebarWorkspaceItems.length,
+      },
+    ])
+  })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expectHidden(page.locator('.sidebar'))
+  const mobileNavigation = page.getByRole('navigation', { name: '移动导航' })
+  await expectVisible(mobileNavigation)
+  const mobileActions = mobileNavigation.locator('a, button')
+  expectEqual(
+    await mobileActions.evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label') ?? element.textContent?.trim() ?? '')),
+    ['今日', '交易', '案例', '仪表盘', '更多'],
+    'Mobile navigation must expose exactly five named actions',
+  )
+  for (const action of await mobileActions.all()) {
+    const box = await action.boundingBox()
+    if (!box || box.height < 44 || box.width < 44) throw new Error('Every mobile navigation action must have a 44px hit target')
+  }
+  const viewportWidth = await page.evaluate(() => document.documentElement.clientWidth)
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+  if (scrollWidth > viewportWidth) throw new Error(`Mobile page overflowed horizontally: ${scrollWidth} > ${viewportWidth}`)
+
+  const moreButton = mobileNavigation.getByRole('button', { name: '更多', exact: true })
+  await moreButton.click()
+  const drawer = page.getByRole('dialog', { name: '更多' })
+  await expectVisible(drawer)
+  expectEqual(
+    await drawer.locator('[data-mobile-workspace-item]').allTextContents(),
+    ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图'],
+    'More drawer must contain every valid pinned and overflow item in order',
+  )
+  for (const name of ['搜索', '设置', '回收站', '管理我的空间']) {
+    await expectVisible(drawer.getByRole(name === '设置' || name === '回收站' ? 'link' : 'button', { name, exact: true }))
+  }
+  for (const action of await drawer.locator('a, button').all()) {
+    const box = await action.boundingBox()
+    if (!box || box.height < 44) throw new Error('Every mobile drawer action must have a 44px hit target')
+  }
+  await drawer.getByRole('button', { name: '关闭更多' }).click()
+  await expectCount(drawer, 0)
+  await expectFocused(moreButton)
+
+  await moreButton.click()
+  await drawer.getByRole('button', { name: '管理我的空间', exact: true }).click()
+  await expectCount(drawer, 0)
+  const mobileEditor = page.getByRole('dialog', { name: '管理我的空间' })
+  await expectVisible(mobileEditor)
+  await expectAttribute(mobileEditor, 'data-mobile-fullscreen', 'true')
+  const firstMobileLabel = (await mobileEditor.locator('[data-sidebar-item-label]').first().textContent()) ?? ''
+  await expectVisible(mobileEditor.getByRole('button', { name: `下移 ${firstMobileLabel}` }))
+  await expectVisible(mobileEditor.getByRole('button', { name: `上移 ${firstMobileLabel}` }))
+  await mobileEditor.getByRole('button', { name: `下移 ${firstMobileLabel}` }).click()
+  const movedMobileLabels = await mobileEditor.locator('[data-sidebar-item-label]').allTextContents()
+  if (movedMobileLabels[1] !== firstMobileLabel) throw new Error('Mobile down button did not reorder the first item')
+  await mobileEditor.getByRole('button', { name: '取消', exact: true }).click()
+  await expectCount(mobileEditor, 0)
+  await expectFocused(moreButton)
+  const finalScrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+  if (finalScrollWidth > viewportWidth) throw new Error(`Mobile editor overflowed horizontally: ${finalScrollWidth} > ${viewportWidth}`)
+
+  console.log('PASS: sidebar workspace manager and responsive mobile navigation contract')
 } finally {
   await browser?.close()
   await stopVite(vite)

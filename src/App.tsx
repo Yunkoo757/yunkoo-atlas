@@ -16,6 +16,7 @@ import { flushPersistNow, hasPendingChanges } from './storage/persist'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
+import { MobileNavigation } from './components/MobileNavigation'
 import { AppFrame } from './components/ui/AppFrame'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
@@ -177,7 +178,10 @@ function Shell() {
 
   return (
     <>
-      <AppFrame sidebar={<Sidebar onOpenSearch={() => setCmdkOpen(true)} />}>
+      <AppFrame
+        sidebar={<Sidebar onOpenSearch={() => setCmdkOpen(true)} />}
+        mobileNavigation={<MobileNavigation onOpenSearch={() => setCmdkOpen(true)} />}
+      >
         <Routes>
           <Route path="/" element={<Navigate to="/list" replace />} />
           <Route

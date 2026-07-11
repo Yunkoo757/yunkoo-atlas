@@ -38,7 +38,7 @@ function Count({ value }: { value?: number }) {
   return <span className="sb-item-count">{value}</span>
 }
 
-const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], LucideIcon> = {
+export const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], LucideIcon> = {
   active: CircleDot,
   favorites: Star,
   missed: Ban,
@@ -48,16 +48,11 @@ const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], LucideIcon> 
   'case-view': BookOpen,
 }
 
-export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
-  const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
-  const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
+export function useSidebarNavigationModel() {
   const { pathname: path, search } = useLocation()
-  const openComposer = useStore((state) => state.openComposer)
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
-  const profile = useStore((state) => state.profile)
   const display = useStore((state) => state.display)
-  const workspaceMemory = display.workspaceMemory
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
@@ -65,8 +60,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const countContext = { trades, starredIds, display }
 
   const workspaceItems = sidebarWorkspaceItems
-    .filter((item) => item.placement === 'pinned')
-    .slice(0, 8)
     .map((item) => resolveSidebarWorkspaceItem(item, { savedViews: savedTradeViews, strategies }))
     .filter((item) => !item.invalid)
     .map((item) => ({
@@ -74,33 +67,65 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       count: countSidebarTarget(item, countContext),
     }))
   const selection = resolveSidebarSelection({ pathname: path, search, items: workspaceItems })
-
-  const inReviewCases = path.startsWith('/review-cases')
-  const isSettingsActive = path.startsWith('/settings')
-
+  const workspaceMemory = display.workspaceMemory
   const todayTarget = resolveWorkspaceNavTarget('today', workspaceMemory?.today, strategies)
   const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
-
   const counts = {
     today: countSidebarRoute(todayTarget.pathname, todayTarget.search, countContext),
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
   }
-
   const primaryCount = (id: PrimarySidebarNavId) => {
     if (id === 'today') return counts.today
     if (id === 'trades') return counts.trades
     if (id === 'reviewCases') return counts.reviewCases
     return undefined
   }
-
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
     if (id === 'today') return workspaceRouteHref(todayTarget)
     if (id === 'trades') return workspaceRouteHref(tradeTarget)
     if (id === 'reviewCases') return workspaceRouteHref(caseTarget)
     return fallback
   }
+
+  return {
+    path,
+    trades,
+    strategies,
+    sidebarWorkspaceItems,
+    savedTradeViews,
+    replaceSidebarWorkspaceItems,
+    workspaceItems,
+    selection,
+    primaryCount,
+    primaryHref,
+  }
+}
+
+export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+  const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
+  const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
+  const openComposer = useStore((state) => state.openComposer)
+  const profile = useStore((state) => state.profile)
+  const {
+    path,
+    trades,
+    strategies,
+    sidebarWorkspaceItems,
+    savedTradeViews,
+    replaceSidebarWorkspaceItems,
+    workspaceItems,
+    selection,
+    primaryCount,
+    primaryHref,
+  } = useSidebarNavigationModel()
+  const pinnedWorkspaceItems = workspaceItems
+    .filter((item) => item.item.placement === 'pinned')
+    .slice(0, 8)
+
+  const inReviewCases = path.startsWith('/review-cases')
+  const isSettingsActive = path.startsWith('/settings')
 
   const createLabel = inReviewCases ? '新建案例记录' : '新建交易'
   const openWorkspaceEditor = (button: HTMLButtonElement) => {
@@ -173,7 +198,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             ···
           </button>
         </div>
-        {workspaceItems.map((item) => {
+        {pinnedWorkspaceItems.map((item) => {
           const Icon = WORKSPACE_ICONS[item.icon]
           const active = selection.activeWorkspaceItemId === item.item.id
           const modified = selection.modifiedWorkspaceItemId === item.item.id
