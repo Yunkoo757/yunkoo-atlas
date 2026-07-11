@@ -70,7 +70,7 @@
   height: 44px;
   min-height: 44px;
   padding: 10px 12px;
-  border-style: dashed;
+  border: 1px dashed var(--border-strong);
   background: var(--bg-elevated);
   color: var(--text-tertiary);
   font-size: var(--fs-sm);
