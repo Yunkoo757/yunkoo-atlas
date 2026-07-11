@@ -28,6 +28,11 @@
   color: var(--text-primary);
 }
 
+.sfm-head h2 {
+  margin: 0;
+  font: inherit;
+}
+
 .sfm-close {
   display: grid;
   place-items: center;

@@ -71,11 +71,36 @@ export function StrategyFormModal({
   }
 
   return createPortal(
-    <div className="sfm-overlay" onMouseDown={onClose}>
-      <div className="sfm" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="sfm-overlay" role="presentation" onMouseDown={onClose}>
+      <div
+        className="sfm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="strategy-form-title"
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key !== 'Tab') return
+          const focusable = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not(:disabled), input:not(:disabled), [contenteditable="true"]',
+            ),
+          ).filter((element) => element.offsetParent !== null)
+          const first = focusable[0]
+          const last = focusable[focusable.length - 1]
+          if (!first || !last) return
+
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault()
+            last.focus()
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault()
+            first.focus()
+          }
+        }}
+      >
         <div className="sfm-head">
-          <span>{initial ? '编辑策略' : '新建策略'}</span>
-          <button className="sfm-close" onClick={onClose}>
+          <h2 id="strategy-form-title">{initial ? '编辑策略' : '新建策略'}</h2>
+          <button className="sfm-close" onClick={onClose} aria-label="关闭策略表单">
             <X size={16} />
           </button>
         </div>
