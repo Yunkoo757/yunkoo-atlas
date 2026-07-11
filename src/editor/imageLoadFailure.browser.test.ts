@@ -5,6 +5,7 @@ import {
   ImageLoadFailure,
   setEditorImageLoadFailed,
 } from './imageLoadFailure'
+import '../styles/tokens.css'
 import './Editor.css'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -53,8 +54,19 @@ testWindow.__editorImageLoadFailureTest = (async () => {
     const fallback = editor.view.dom.querySelector<HTMLElement>('.editor-image-load-fallback')
     assert(fallback?.textContent === '图片加载失败', '失败图片原位置应出现中文 widget decoration')
     assert(getComputedStyle(image).display === 'none', '失败图片应由 node decoration 隐藏')
-    assert(getComputedStyle(fallback).display === 'block', '错误占位应作为块级文档流内容显示')
+    const fallbackStyle = getComputedStyle(fallback)
+    assert(fallbackStyle.display === 'block', '错误占位应作为块级文档流内容显示')
     assert(fallback.getBoundingClientRect().height === 44, '错误占位应保持 44px 轻量高度')
+    assert(fallbackStyle.borderTopWidth === '1px', '错误占位应使用 1px 轻边框')
+    assert(fallbackStyle.borderTopStyle === 'dashed', '错误占位应使用虚线边框')
+    const borderReference = document.createElement('div')
+    borderReference.style.borderColor = 'var(--border-strong)'
+    document.body.append(borderReference)
+    assert(
+      fallbackStyle.borderTopColor === getComputedStyle(borderReference).borderTopColor,
+      '错误占位应使用 --border-strong 边框色',
+    )
+    borderReference.remove()
 
     assert(!setEditorImageLoadFailed(editor, nonImage, true), '非 IMG 事件目标不得被处理')
     assert(editor.getHTML() === originalHtml, '忽略非 IMG 后 HTML 应保持不变')
