@@ -1,5 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LinearFaceHeartEyesIcon, LinearIcon, LinearIssueStatusIcon, LinearOpenAIIcon } from '@/icons/linear'
+import {
+  LinearCycleProgressIcon,
+  LinearFaceHeartEyesIcon,
+  LinearGridLoaderIcon,
+  LinearGridProgressIcon,
+  LinearIcon,
+  LinearIssueStatusIcon,
+  LinearOpenAIIcon,
+  LinearProjectStatusIcon,
+} from '@/icons/linear'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -45,10 +54,36 @@ export function testIssueProgressClampsInvalidValues(): void {
   assert(below === nan, 'negative and NaN progress both clamp to zero')
 }
 
-import { LinearGridLoaderIcon, LinearGridProgressIcon } from '@/icons/linear'
+export function testProjectStatusKeepsHexagonMaskAndProgress(): void {
+  const html = renderToStaticMarkup(<LinearProjectStatusIcon state="started" progress={0.42} />)
+  assert(html.includes('M2.95778 3.02069'), 'keeps original hexagon')
+  assert(html.includes('stroke-dasharray="calc(10.5504) 25.12"'), 'uses progress circumference')
+  assert(html.includes('<mask'), 'uses the original hole mask')
+}
+
+export function testCycleProgressKeepsOriginalTransitionGeometry(): void {
+  const html = renderToStaticMarkup(<LinearCycleProgressIcon active progress={0.6} />)
+  assert(html.includes('stroke-dasharray'), 'renders circumference')
+  assert(html.includes('stroke-linecap="round"'), 'keeps rounded active arc')
+}
 
 export function testGridLoaderExposesEveryVerifiedVariant(): void {
-  const variants = ['scope','upDown','pong','blowOut','ufo','down','zap','hourglass','stats','cat','agent','read','unread','outlines'] as const
+  const variants = [
+    'scope',
+    'upDown',
+    'pong',
+    'blowOut',
+    'ufo',
+    'down',
+    'zap',
+    'hourglass',
+    'stats',
+    'cat',
+    'agent',
+    'read',
+    'unread',
+    'outlines',
+  ] as const
   for (const variant of variants) {
     const html = renderToStaticMarkup(<LinearGridLoaderIcon variant={variant} />)
     assert(html.includes(`data-variant="${variant}"`), `renders ${variant}`)
