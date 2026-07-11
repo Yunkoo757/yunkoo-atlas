@@ -1,0 +1,143 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --panel: #171a21;
+  --text: #f4f6fb;
+  --muted: #9aa3b2;
+  --border: #2a3140;
+  --accent: #5e6ad2;
+}
+
+body[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --text: #171a21;
+  --muted: #5b6472;
+  --border: #d7dbe3;
+  --accent: #5e6ad2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Segoe UI, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: end;
+  padding: 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.gallery-header h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.gallery-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.gallery-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.gallery-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gallery-controls input,
+.gallery-controls button {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 0 10px;
+}
+
+#icon-search {
+  width: min(280px, 40vw);
+}
+
+.gallery-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 24px;
+}
+
+.category-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel);
+}
+
+main {
+  padding: 0 24px 40px;
+}
+
+.icon-grid,
+.motion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.icon-card,
+.motion-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  min-height: 120px;
+}
+
+.icon-card img,
+.motion-card svg {
+  color: var(--text);
+}
+
+.icon-card strong,
+.motion-card strong {
+  font-size: 13px;
+}
+
+.icon-card span,
+.icon-card code,
+.motion-card span {
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.motion-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}

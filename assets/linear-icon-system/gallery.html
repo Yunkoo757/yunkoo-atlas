@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Linear Icon Gallery</title>
+    <link rel="stylesheet" href="./gallery.css" />
+  </head>
+  <body data-theme="dark">
+    <header class="gallery-header">
+      <div>
+        <h1>Linear Icon Gallery</h1>
+        <p>
+          离线预览 · <span id="visible-count">0</span> /
+          <span id="total-count">0</span>
+        </p>
+      </div>
+      <div class="gallery-controls">
+        <label>
+          搜索
+          <input id="icon-search" type="search" placeholder="name / LinearName / Component" />
+        </label>
+        <label>
+          尺寸
+          <input id="icon-size" type="range" min="12" max="48" value="16" />
+        </label>
+        <label>
+          进度
+          <input id="progress-control" type="range" min="0" max="1" step="0.01" value="0.5" />
+        </label>
+        <button id="theme-toggle" type="button">切换主题</button>
+      </div>
+    </header>
+
+    <section class="gallery-categories" id="category-counts" aria-label="分类统计"></section>
+
+    <main>
+      <section>
+        <h2>静态图标</h2>
+        <div id="static-grid" class="icon-grid"></div>
+      </section>
+      <section>
+        <h2>状态与动效</h2>
+        <div id="motion-grid" class="motion-grid"></div>
+      </section>
+    </main>
+
+    <script src="./gallery-data.js" defer></script>
+    <script src="./gallery.js" defer></script>
+  </body>
+</html>
