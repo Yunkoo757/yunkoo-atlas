@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GripVertical, Trash2 } from 'lucide-react'
 import type { Strategy } from '@/data/strategies'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
@@ -23,6 +23,9 @@ export type SidebarWorkspaceEditorProps = {
   onCommit: (items: SidebarWorkspaceItem[]) => void
   onCancel: () => void
 }
+
+export const SIDEBAR_WORKSPACE_EDITOR_ID = 'sidebar-workspace-editor'
+const SIDEBAR_WORKSPACE_EDITOR_TITLE_ID = 'sidebar-workspace-editor-title'
 
 type Removal = {
   item: SidebarWorkspaceItem
@@ -51,9 +54,12 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
   const [pickerOpen, setPickerOpen] = useState(false)
   const [confirmDefaults, setConfirmDefaults] = useState(false)
   const [capacityMessage, setCapacityMessage] = useState('')
+  const [announcement, setAnnouncement] = useState('')
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const pinnedCount = draft.filter((item) => item.placement === 'pinned').length
 
   useEffect(() => {
+    titleRef.current?.focus()
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
@@ -93,15 +99,31 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
   const moveByKeyboard = (itemId: string, direction: -1 | 1) => {
     const index = draft.findIndex((item) => item.id === itemId)
     const target = draft[index + direction]
-    if (target) setDraft((current) => moveItem(current, itemId, target.id))
+    if (target) applyMove(itemId, target.id)
+  }
+
+  const applyMove = (itemId: string, targetId: string) => {
+    const next = moveItem(draft, itemId, targetId)
+    if (next === draft) return
+    setDraft(next)
+    const moved = next.find((item) => item.id === itemId)
+    if (!moved) return
+    const label = resolveSidebarWorkspaceItem(moved, sources).label
+    setAnnouncement(`${label} 已移动到第 ${next.indexOf(moved) + 1} 项，共 ${next.length} 项`)
   }
 
   return (
-    <section className="sb-workspace-editor" aria-label="管理我的空间">
+    <section
+      id={SIDEBAR_WORKSPACE_EDITOR_ID}
+      className="sb-workspace-editor"
+      role="dialog"
+      aria-labelledby={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID}
+    >
       <header className="sb-workspace-editor-header">
-        <h2>管理我的空间</h2>
+        <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>管理我的空间</h2>
         <span data-sidebar-capacity>{pinnedCount} / 8</span>
       </header>
+      <span className="sb-screen-reader" aria-live="polite">{announcement}</span>
       {pickerOpen ? (
         <SidebarTargetPicker
           items={draft}
@@ -113,15 +135,16 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
         <>
           <p className="sb-editor-help">拖动排序，或使用 Alt + ↑ / ↓</p>
           <div className="sb-editor-list">
-            {draft.map((item) => {
+            {draft.map((item, index) => {
               const resolved = resolveSidebarWorkspaceItem(item, sources)
+              const descriptionId = `sidebar-sort-description-${index}`
               return (
                 <div
                   key={item.id}
                   className="sb-editor-item"
                   data-sidebar-item
+                  data-sidebar-placement={item.placement}
                   draggable
-                  tabIndex={0}
                   onDragStart={(event) => {
                     setDraggedId(item.id)
                     event.dataTransfer.effectAllowed = 'move'
@@ -134,23 +157,33 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
                   onDrop={(event) => {
                     event.preventDefault()
                     const sourceId = draggedId ?? event.dataTransfer.getData('text/plain')
-                    setDraft((current) => moveItem(current, sourceId, item.id))
+                    applyMove(sourceId, item.id)
                     setDraggedId(null)
                   }}
-                  onKeyDown={(event) => {
-                    if (event.altKey && event.key === 'ArrowUp') {
-                      event.preventDefault()
-                      moveByKeyboard(item.id, -1)
-                    } else if (event.altKey && event.key === 'ArrowDown') {
-                      event.preventDefault()
-                      moveByKeyboard(item.id, 1)
-                    } else if (event.key === 'Delete') {
-                      event.preventDefault()
-                      removeItem(item, resolved.label)
-                    }
-                  }}
                 >
-                  <GripVertical size={15} aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="sb-editor-sort-handle"
+                    aria-label={`排序 ${resolved.label}`}
+                    aria-describedby={descriptionId}
+                    onKeyDown={(event) => {
+                      if (event.altKey && event.key === 'ArrowUp') {
+                        event.preventDefault()
+                        moveByKeyboard(item.id, -1)
+                      } else if (event.altKey && event.key === 'ArrowDown') {
+                        event.preventDefault()
+                        moveByKeyboard(item.id, 1)
+                      } else if (event.key === 'Delete') {
+                        event.preventDefault()
+                        removeItem(item, resolved.label)
+                      }
+                    }}
+                  >
+                    <GripVertical size={15} aria-hidden="true" />
+                  </button>
+                  <span id={descriptionId} className="sb-screen-reader">
+                    第 {index + 1} 项，共 {draft.length} 项。使用 Alt + 上/下方向键排序
+                  </span>
                   <span className="sb-editor-item-label" data-sidebar-item-label>{resolved.label}</span>
                   {resolved.invalid ? <span className="sb-editor-invalid">已失效</span> : null}
                   <button type="button" onClick={() => togglePlacement(item)}>
