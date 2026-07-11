@@ -84,6 +84,51 @@
   color: var(--text-tertiary);
 }
 
+.db-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: 56px 24px;
+  border-top: 1px solid var(--border-subtle);
+  text-align: center;
+}
+
+.db-empty h2 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.db-empty p {
+  max-width: 420px;
+  margin: 8px 0 20px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.db-empty-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-8);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.db-empty-action:hover {
+  background: var(--accent-hover);
+}
+
 .db-panel {
   margin-top: 0;
   background: transparent;
@@ -257,6 +302,14 @@ a.db-strat:hover {
   }
   .db-card:nth-last-child(-n + 2) {
     border-bottom: 0;
+  }
+  .db-empty {
+    min-height: 320px;
+    padding: 48px 24px;
+  }
+  .db-empty-action {
+    min-height: 44px;
+    padding: 0 16px;
   }
   .db-panel-head {
     align-items: flex-start;
