@@ -1,39 +1,70 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { PenSquare, Search, Settings2, Trash2 } from 'lucide-react'
+import {
+  Ban,
+  BookOpen,
+  Bookmark,
+  CircleDot,
+  FlaskConical,
+  PenSquare,
+  Search,
+  Settings2,
+  Star,
+  Target,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react'
 import { UserAvatar } from '@/components/UserAvatar'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
 import {
-  PRIMARY_NAV,
-  isSidebarNavActive,
-  resolvePinnedSecondaryNav,
-  type PrimarySidebarNavId,
-  type SidebarNavId,
-} from '@/lib/sidebarNav'
-import { filterTrades } from '@/lib/tradeFilters'
+  countSidebarTarget,
+  resolveSidebarSelection,
+  resolveSidebarWorkspaceItem,
+  type ResolvedSidebarWorkspaceItem,
+} from '@/lib/sidebarWorkspace'
 import { tradeInPeriod } from '@/lib/periods'
-import {
-  rememberableWorkspaceKind,
-  resolveWorkspaceNavTarget,
-  workspaceRouteHref,
-} from '@/lib/workspaceViews'
+import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { useStore } from '@/store/useStore'
 import './Sidebar.css'
+import './sidebar/SidebarWorkspace.css'
 
 function Count({ value }: { value?: number }) {
   if (!value) return null
   return <span className="sb-item-count">{value}</span>
 }
 
+const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], LucideIcon> = {
+  active: CircleDot,
+  favorites: Star,
+  missed: Ban,
+  paper: FlaskConical,
+  'saved-view': Bookmark,
+  strategy: Target,
+  'case-view': BookOpen,
+}
+
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
-  const { pathname: path } = useLocation()
+  const { pathname: path, search } = useLocation()
   const openComposer = useStore((state) => state.openComposer)
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
   const profile = useStore((state) => state.profile)
-  const workspaceMemory = useStore((state) => state.display.workspaceMemory)
+  const display = useStore((state) => state.display)
+  const workspaceMemory = display.workspaceMemory
   const starredIds = useStore((state) => state.starredIds)
-  const sidebarPins = useStore((state) => state.display.sidebarPins)
-  const quickNav = resolvePinnedSecondaryNav(sidebarPins)
+  const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
+  const savedTradeViews = useStore((state) => state.savedTradeViews)
+
+  const workspaceItems = sidebarWorkspaceItems
+    .filter((item) => item.placement === 'pinned')
+    .slice(0, 8)
+    .map((item) => resolveSidebarWorkspaceItem(item, { savedViews: savedTradeViews, strategies }))
+    .filter((item) => !item.invalid)
+    .map((item) => ({
+      ...item,
+      count: countSidebarTarget(item, { trades, starredIds, display }),
+    }))
+  const selection = resolveSidebarSelection({ pathname: path, search, items: workspaceItems })
 
   const activeTrades = trades.filter((trade) => !trade.deletedAt)
   const liveTrades = activeTrades.filter((trade) => trade.tradeKind === 'live')
@@ -64,33 +95,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     return undefined
   }
 
-  const secondaryCount = (id: SidebarNavId): number | undefined => {
-    if (id === 'active') {
-      return filterTrades(activeTrades, { type: 'active', tradeKind: 'live' }, starredIds).length
-    }
-    if (id === 'favorites') {
-      return filterTrades(activeTrades, { type: 'starred' }, starredIds).length
-    }
-    if (id === 'missed') {
-      return filterTrades(activeTrades, { type: 'missed' }, starredIds).length
-    }
-    if (id === 'paper') {
-      return filterTrades(activeTrades, { type: 'all', tradeKind: 'paper' }, starredIds).length
-    }
-    return undefined
-  }
-
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
     if (id === 'today') return todayHref
     if (id === 'trades') return tradeHref
     if (id === 'reviewCases') return caseHref
     return fallback
-  }
-
-  const primaryActive = (id: PrimarySidebarNavId, fallback: string) => {
-    if (id === 'trades') return rememberableWorkspaceKind(path) === 'trade'
-    if (id === 'reviewCases') return rememberableWorkspaceKind(path) === 'case'
-    return isSidebarNavActive(path, fallback)
   }
 
   const createLabel = inReviewCases ? '新建案例记录' : '新建交易'
@@ -132,33 +141,51 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <NavLink
             key={id}
             to={primaryHref(id, to)}
-            className={() => 'sb-item' + (primaryActive(id, to) ? ' is-active' : '')}
+            className={() => 'sb-item' + (selection.activePrimaryId === id ? ' is-active' : '')}
+            aria-current={selection.activePrimaryId === id ? 'page' : undefined}
           >
             <Icon size={16} />
-            <span>{label}</span>
+            <span className="sb-item-label">{label}</span>
             <Count value={primaryCount(id)} />
           </NavLink>
         ))}
       </nav>
 
-      {quickNav.length > 0 ? (
-        <nav className="sb-section sb-quick" aria-label="快捷导航">
-          <div className="sb-section-label">快捷</div>
-          {quickNav.map(({ id, to, label, icon: Icon }) => (
+      <nav className="sb-section sb-workspace" aria-label="我的空间">
+        <div className="sb-section-label sb-workspace-heading">
+          <span>我的空间</span>
+          <button type="button" className="sb-workspace-menu" aria-label="管理我的空间">
+            ···
+          </button>
+        </div>
+        {workspaceItems.map((item) => {
+          const Icon = WORKSPACE_ICONS[item.icon]
+          const active = selection.activeWorkspaceItemId === item.item.id
+          const modified = selection.modifiedWorkspaceItemId === item.item.id
+          return (
             <NavLink
-              key={id}
-              to={to}
-              className={() =>
-                'sb-item' + (isSidebarNavActive(path, to) ? ' is-active' : '')
-              }
+              key={item.item.id}
+              to={workspaceRouteHref(item)}
+              className={() => `sb-item${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}`}
+              aria-current={active ? 'page' : undefined}
             >
               <Icon size={16} />
-              <span>{label}</span>
-              <Count value={secondaryCount(id)} />
+              <span className="sb-item-label">{item.label}</span>
+              {modified ? (
+                <span className="sb-modified-indicator">
+                  <span className="sb-modified-dot" aria-hidden="true" />
+                  <span className="sb-screen-reader">当前条件已修改</span>
+                </span>
+              ) : null}
+              <Count value={item.count} />
             </NavLink>
-          ))}
-        </nav>
-      ) : null}
+          )
+        })}
+        <button type="button" className="sb-workspace-manage" aria-label="添加或管理我的空间">
+          <span aria-hidden="true">＋</span>
+          <span>添加或管理</span>
+        </button>
+      </nav>
 
       <div className="sb-spacer" />
 
@@ -170,7 +197,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }
         >
           <Trash2 size={16} />
-          <span>回收站</span>
+          <span className="sb-item-label">回收站</span>
           <Count value={trades.filter((trade) => Boolean(trade.deletedAt)).length} />
         </NavLink>
         <NavLink
@@ -178,7 +205,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           className={() => 'sb-item sb-settings' + (isSettingsActive ? ' is-active' : '')}
         >
           <Settings2 size={16} />
-          <span>设置</span>
+          <span className="sb-item-label">设置</span>
         </NavLink>
       </nav>
     </aside>
