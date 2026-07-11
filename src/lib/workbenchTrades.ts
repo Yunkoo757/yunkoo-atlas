@@ -59,16 +59,34 @@ export function parseTradeFacets(search: string | URLSearchParams): TradeFacetFi
   }
 }
 
-function filterByListTarget(trades: Trade[], filter: ListFilter, starredIds: string[]): Trade[] {
+export function filterTrades(
+  trades: Trade[],
+  filter: ListFilter,
+  starredIds: string[],
+): Trade[] {
   let visible = trades
-  if (filter.type === 'active') visible = trades.filter((trade) => isActive(trade.status))
-  if (filter.type === 'starred') visible = trades.filter((trade) => starredIds.includes(trade.id))
-  if (filter.type === 'missed') visible = trades.filter((trade) => isMissed(trade.status))
-  if (filter.type === 'strategy' && filter.strategyId) {
-    visible = trades.filter((trade) => trade.strategyId === filter.strategyId)
-  }
-  if (filter.type === 'period' && filter.period) {
-    visible = trades.filter((trade) => tradeInPeriod(trade, filter.period!))
+  switch (filter.type) {
+    case 'active':
+      visible = trades.filter((trade) => isActive(trade.status))
+      break
+    case 'starred':
+      visible = trades.filter((trade) => starredIds.includes(trade.id))
+      break
+    case 'strategy':
+      if (filter.strategyId) {
+        visible = trades.filter((trade) => trade.strategyId === filter.strategyId)
+      }
+      break
+    case 'missed':
+      visible = trades.filter((trade) => isMissed(trade.status))
+      break
+    case 'period':
+      if (filter.period) {
+        visible = trades.filter((trade) => tradeInPeriod(trade, filter.period!))
+      }
+      break
+    default:
+      break
   }
 
   visible = filter.tradeKind
@@ -93,26 +111,26 @@ function filterByListTarget(trades: Trade[], filter: ListFilter, starredIds: str
     if (filter.reviewCaseScope === 'unreviewed') {
       return trade.reviewCategory === 'recheck' || trade.reviewStatus === 'unreviewed'
     }
-    return trade.reviewCategory === 'mastered' || trade.reviewStatus === 'reviewed'
+    if (filter.reviewCaseScope === 'reviewed') {
+      return trade.reviewCategory === 'mastered' || trade.reviewStatus === 'reviewed'
+    }
+    return true
   })
 }
 
-function applyWorkbenchDisplayPrefs(
+export function applyDisplayPrefs(
   trades: Trade[],
-  display: DisplayPrefs,
-  filter: ListFilter,
-  status: TradeStatus | undefined,
+  prefs: DisplayPrefs,
+  filter?: ListFilter,
 ): Trade[] {
-  const skipHideClosed =
-    filter.type === 'missed' ||
-    filter.tradeKind === 'case' ||
-    Boolean(status && isHiddenWhenClosedFilter(status))
-  const visible = display.hideClosed && !skipHideClosed
+  // 错过机会页要看终态；案例记录是复盘样本，不受「隐藏已平仓」影响
+  const skipHideClosed = filter?.type === 'missed' || filter?.tradeKind === 'case'
+  const visible = prefs.hideClosed && !skipHideClosed
     ? trades.filter((trade) => !isHiddenWhenClosedFilter(trade.status))
     : [...trades]
   return visible.sort((left, right) => {
-    if (display.sortBy === 'pnl') return right.pnl - left.pnl
-    if (display.sortBy === 'conviction') {
+    if (prefs.sortBy === 'pnl') return right.pnl - left.pnl
+    if (prefs.sortBy === 'conviction') {
       return CONVICTION_RANK[right.conviction] - CONVICTION_RANK[left.conviction]
     }
     return +new Date(right.openedAt) - +new Date(left.openedAt)
@@ -128,12 +146,11 @@ export function getWorkbenchVisibleTrades(options: {
 }): Trade[] {
   const facets = parseTradeFacets(options.search)
   const trades = options.trades.filter((trade) => !trade.deletedAt)
-  const routeFiltered = filterByListTarget(trades, options.filter, options.starredIds)
-  const preferred = applyWorkbenchDisplayPrefs(
-    routeFiltered,
-    options.display,
-    options.filter,
-    facets.status,
-  )
+  const routeFiltered = filterTrades(trades, options.filter, options.starredIds)
+  // 用户显式筛选已平仓状态时，不能再被「隐藏已平仓」吃掉。
+  const prefs = facets.status && isHiddenWhenClosedFilter(facets.status)
+    ? { ...options.display, hideClosed: false }
+    : options.display
+  const preferred = applyDisplayPrefs(routeFiltered, prefs, options.filter)
   return filterTradesByFacets(preferred, facets)
 }

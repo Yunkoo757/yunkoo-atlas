@@ -1,9 +1,7 @@
-import type { Trade, TradeKind, Conviction } from '@/data/trades'
+import type { TradeKind } from '@/data/trades'
 import type { CalendarPeriod } from '@/lib/periods'
-import { tradeInPeriod } from '@/lib/periods'
-import { isActive, isHiddenWhenClosedFilter, isMissed } from '@/lib/tradeStatus'
 import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
-import { isAccountTrade, normalizeSidebarPins } from '@/lib/tradeKind'
+import { normalizeSidebarPins } from '@/lib/tradeKind'
 import {
   migrateSidebarPins,
   normalizeSidebarWorkspaceItems,
@@ -28,6 +26,8 @@ export interface ListFilter {
 }
 
 export type ReviewCaseScope = 'all' | 'focus' | 'mistakes' | 'unreviewed' | 'reviewed'
+
+export { applyDisplayPrefs, filterTrades } from '@/lib/workbenchTrades'
 
 export interface DisplayPrefs {
   hideClosed: boolean
@@ -116,80 +116,4 @@ export function matchesSearchQuery(query: string, ...fields: (string | undefined
   if (tokens.length === 0) return true
   const haystack = fields.filter(Boolean).join(' ').toLowerCase()
   return tokens.every((t) => haystack.includes(t))
-}
-
-const CONVICTION_RANK: Record<Conviction, number> = {
-  urgent: 4,
-  high: 3,
-  medium: 2,
-  low: 1,
-}
-
-export function filterTrades(
-  trades: Trade[],
-  filter: ListFilter,
-  starredIds: string[],
-): Trade[] {
-  let out = trades
-  switch (filter.type) {
-    case 'active':
-      out = trades.filter((t) => isActive(t.status))
-      break
-    case 'starred':
-      out = trades.filter((t) => starredIds.includes(t.id))
-      break
-    case 'strategy':
-      if (filter.strategyId) {
-        out = trades.filter((t) => t.strategyId === filter.strategyId)
-      }
-      break
-    case 'missed':
-      out = trades.filter((t) => isMissed(t.status))
-      break
-    case 'period':
-      if (filter.period) {
-        out = trades.filter((t) => tradeInPeriod(t, filter.period!))
-      }
-      break
-    default:
-      break
-  }
-  if (filter.tradeKind) {
-    out = out.filter((t) => t.tradeKind === filter.tradeKind)
-  } else {
-    out = out.filter(isAccountTrade)
-  }
-  if (filter.tradeKind === 'case' && filter.reviewCaseScope && filter.reviewCaseScope !== 'all') {
-    out = out.filter((t) => {
-      if (filter.reviewCaseScope === 'focus') return t.reviewCategory === 'focus' || t.reviewStatus === 'focus'
-      if (filter.reviewCaseScope === 'mistakes') {
-        return t.reviewCategory === 'mistake' || t.reviewCategory === 'ambiguous' || t.status === 'missed' || t.mistakeTags.length > 0
-      }
-      if (filter.reviewCaseScope === 'unreviewed') return t.reviewCategory === 'recheck' || t.reviewStatus === 'unreviewed'
-      if (filter.reviewCaseScope === 'reviewed') return t.reviewCategory === 'mastered' || t.reviewStatus === 'reviewed'
-      return true
-    })
-  }
-  return out
-}
-
-export function applyDisplayPrefs(
-  trades: Trade[],
-  prefs: DisplayPrefs,
-  filter?: ListFilter,
-): Trade[] {
-  let out = [...trades]
-  // 错过机会页要看终态；案例记录是复盘样本，不受「隐藏已平仓」影响
-  const skipHideClosed = filter?.type === 'missed' || filter?.tradeKind === 'case'
-  if (prefs.hideClosed && !skipHideClosed) {
-    out = out.filter((t) => !isHiddenWhenClosedFilter(t.status))
-  }
-  out.sort((a, b) => {
-    if (prefs.sortBy === 'pnl') return b.pnl - a.pnl
-    if (prefs.sortBy === 'conviction') {
-      return CONVICTION_RANK[b.conviction] - CONVICTION_RANK[a.conviction]
-    }
-    return +new Date(b.openedAt) - +new Date(a.openedAt)
-  })
-  return out
 }

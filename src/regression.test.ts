@@ -41,7 +41,11 @@ import {
   resolveSidebarWorkspaceItem,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
-import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
+import {
+  applyDisplayPrefs as applyWorkbenchDisplayPrefs,
+  filterTrades as filterWorkbenchTrades,
+  getWorkbenchVisibleTrades,
+} from '@/lib/workbenchTrades'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
@@ -373,6 +377,44 @@ export function testSidebarTargetCountsMatchWorkbenchFiltering(): void {
     )
   }
   assert(countSidebarTarget(cases[1]!.target, context) === 1, '显式亏损筛选应覆盖 hideClosed')
+}
+
+export function testTradeFiltersReexportTheWorkbenchRuleSourceWithoutBehaviorDrift(): void {
+  assert(filterTrades === filterWorkbenchTrades, '路由筛选必须从 workbenchTrades 共享唯一实现')
+  assert(
+    applyDisplayPrefs === applyWorkbenchDisplayPrefs,
+    '显示偏好筛选必须从 workbenchTrades 共享唯一实现',
+  )
+
+  const openLive: Trade = { ...trade, id: 'open-live', status: 'open' }
+  const lossLive: Trade = { ...trade, id: 'loss-live', status: 'loss' }
+  const openPaper: Trade = { ...trade, id: 'open-paper', status: 'open', tradeKind: 'paper' }
+  const activeLive = filterTrades(
+    [openLive, lossLive, openPaper],
+    { type: 'active', tradeKind: 'live' },
+    [],
+  )
+  assert(
+    activeLive.length === 1 && activeLive[0]?.id === openLive.id,
+    '共享路由筛选应保留 active + live 的既有语义',
+  )
+
+  const display = { ...DEFAULT_DISPLAY, hideClosed: true }
+  assert(
+    applyDisplayPrefs([openLive, lossLive], display, { type: 'all', tradeKind: 'live' }).length === 1,
+    '兼容导出的显示偏好函数仍应隐藏终态交易',
+  )
+  const explicitLoss = getWorkbenchVisibleTrades({
+    trades: [openLive, lossLive],
+    filter: { type: 'all', tradeKind: 'live' },
+    starredIds: [],
+    display,
+    search: '?status=loss',
+  })
+  assert(
+    explicitLoss.length === 1 && explicitLoss[0]?.id === lossLive.id,
+    '工作台显式终态查询仍应覆盖 hideClosed',
+  )
 }
 
 export function testWorkspaceViewsNeverCrossRecordDomains(): void {
