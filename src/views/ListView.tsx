@@ -226,10 +226,13 @@ export function ListView({
   }
 
   const isReviewCaseView = filter.tradeKind === 'case'
-  const recordLabel = isReviewCaseView ? '案例记录' : '交易'
+  const isPaperView = filter.tradeKind === 'paper'
+  const recordLabel = isReviewCaseView ? '案例记录' : isPaperView ? '模拟交易' : '交易'
   const emptyHint =
     isReviewCaseView
       ? '记录典型案例，沉淀可复用的交易模式。'
+      : isPaperView
+        ? '创建模拟交易，验证策略与执行流程。'
       : filter.type === 'active'
       ? '暂无进行中的交易。'
       : filter.type === 'starred'
@@ -250,7 +253,7 @@ export function ListView({
       <div className="list-scroll">
         {visible.length === 0 ? (
           <EmptyState
-            title={isReviewCaseView ? '还没有案例记录' : '还没有交易'}
+            title={isReviewCaseView ? '还没有案例记录' : isPaperView ? '还没有模拟交易' : '还没有交易'}
             hint={emptyHint}
             action={(
               <button className="empty-btn" onClick={() => openComposer()}>
