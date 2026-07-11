@@ -45,6 +45,7 @@ import { routeWithSearch } from './lib/tradeView'
 import { workbenchModeFromPathname } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
+import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import './App.css'
 
 function TradesPage({
@@ -80,8 +81,10 @@ function TradesPage({
       header={header}
       onOpen={(id) => {
         const t = useStore.getState().trades.find((x) => x.id === id)
+        const from = { pathname, search, anchorTradeId: t?.id ?? id }
+        rememberTradeReturnAnchor(from)
         navigate(t ? tradeDetailPath(t) : `/trade/${id}`, {
-          state: tradeDetailNavState({ pathname, search }),
+          state: tradeDetailNavState(from),
         })
       }}
     />

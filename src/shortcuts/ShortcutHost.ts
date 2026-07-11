@@ -74,8 +74,9 @@ export function useShortcutHost({
       'nav.missed': () => navigate('/missed'),
       'nav.sim': () => navigate('/sim'),
       'nav.list': () => {
-        const memory = useStore.getState().display.workspaceMemory?.trade
-        navigate(workspaceRouteHref(resolveWorkspaceNavTarget('trade', memory)))
+        const state = useStore.getState()
+        const memory = state.display.workspaceMemory?.trade
+        navigate(workspaceRouteHref(resolveWorkspaceNavTarget('trade', memory, state.strategies)))
       },
       'nav.board': () => {
         const listPath = listPathFromPathname(pathname) ?? '/list'

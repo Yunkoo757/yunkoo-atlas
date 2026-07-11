@@ -38,7 +38,7 @@ export interface DisplayPrefs {
   /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
   sidebarPins: SidebarNavId[]
   sidebarWorkspaceItems: SidebarWorkspaceItem[]
-  /** 侧栏「交易日志 / 案例记录」上次进入的工作区路由 */
+  /** 侧栏「今日记录 / 交易日志 / 案例记录」上次进入的工作区路由 */
   workspaceMemory?: {
     today?: { pathname: string; search: string }
     trade?: { pathname: string; search: string }

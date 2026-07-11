@@ -28,6 +28,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const { pathname: path } = useLocation()
   const openComposer = useStore((state) => state.openComposer)
   const trades = useStore((state) => state.trades)
+  const strategies = useStore((state) => state.strategies)
   const profile = useStore((state) => state.profile)
   const workspaceMemory = useStore((state) => state.display.workspaceMemory)
   const starredIds = useStore((state) => state.starredIds)
@@ -40,8 +41,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const inReviewCases = path.startsWith('/review-cases')
   const isSettingsActive = path.startsWith('/settings')
 
+  const todayHref = workspaceRouteHref(
+    resolveWorkspaceNavTarget('today', workspaceMemory?.today, strategies),
+  )
   const tradeHref = workspaceRouteHref(
-    resolveWorkspaceNavTarget('trade', workspaceMemory?.trade),
+    resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies),
   )
   const caseHref = workspaceRouteHref(
     resolveWorkspaceNavTarget('case', workspaceMemory?.case),
@@ -77,6 +81,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
+    if (id === 'today') return todayHref
     if (id === 'trades') return tradeHref
     if (id === 'reviewCases') return caseHref
     return fallback
