@@ -59,6 +59,31 @@ export function ProfileSettingsPanel() {
         <span className="profile-preview-name">{profile.displayName}</span>
       </div>
 
+      {/* 名称 */}
+      <section className="profile-section">
+        <h2 className="profile-section-title">显示名称</h2>
+        <div className="profile-name-row">
+          <input
+            type="text"
+            className="profile-name-input"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleNameSave() }}
+            placeholder="输入名称…"
+            maxLength={24}
+          />
+          <button
+            type="button"
+            className="dio-btn dio-btn-primary"
+            onClick={handleNameSave}
+            disabled={!nameDraft.trim() || nameDraft.trim() === profile.displayName}
+          >
+            <Check size={14} />
+            <span>{saved ? '已保存' : '保存'}</span>
+          </button>
+        </div>
+      </section>
+
       {/* 自定义图片上传 */}
       <section className="profile-section">
         <h2 className="profile-section-title">自定义头像</h2>
@@ -134,30 +159,6 @@ export function ProfileSettingsPanel() {
         )}
       </section>
 
-      {/* 名称 */}
-      <section className="profile-section">
-        <h2 className="profile-section-title">显示名称</h2>
-        <div className="profile-name-row">
-          <input
-            type="text"
-            className="profile-name-input"
-            value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleNameSave() }}
-            placeholder="输入名称…"
-            maxLength={24}
-          />
-          <button
-            type="button"
-            className="dio-btn dio-btn-primary"
-            onClick={handleNameSave}
-            disabled={!nameDraft.trim() || nameDraft.trim() === profile.displayName}
-          >
-            <Check size={14} />
-            <span>{saved ? '已保存' : '保存'}</span>
-          </button>
-        </div>
-      </section>
     </div>
   )
 }
