@@ -2,7 +2,14 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { PenSquare, Search, Settings2, Trash2 } from 'lucide-react'
 import { UserAvatar } from '@/components/UserAvatar'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { PRIMARY_NAV, isSidebarNavActive, type PrimarySidebarNavId } from '@/lib/sidebarNav'
+import {
+  PRIMARY_NAV,
+  isSidebarNavActive,
+  resolvePinnedSecondaryNav,
+  type PrimarySidebarNavId,
+  type SidebarNavId,
+} from '@/lib/sidebarNav'
+import { filterTrades } from '@/lib/tradeFilters'
 import { tradeInPeriod } from '@/lib/periods'
 import {
   rememberableWorkspaceKind,
@@ -23,6 +30,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const trades = useStore((state) => state.trades)
   const profile = useStore((state) => state.profile)
   const workspaceMemory = useStore((state) => state.display.workspaceMemory)
+  const starredIds = useStore((state) => state.starredIds)
+  const sidebarPins = useStore((state) => state.display.sidebarPins)
+  const quickNav = resolvePinnedSecondaryNav(sidebarPins)
 
   const activeTrades = trades.filter((trade) => !trade.deletedAt)
   const liveTrades = activeTrades.filter((trade) => trade.tradeKind === 'live')
@@ -47,6 +57,22 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     if (id === 'today') return counts.today
     if (id === 'trades') return counts.trades
     if (id === 'reviewCases') return counts.reviewCases
+    return undefined
+  }
+
+  const secondaryCount = (id: SidebarNavId): number | undefined => {
+    if (id === 'active') {
+      return filterTrades(activeTrades, { type: 'active', tradeKind: 'live' }, starredIds).length
+    }
+    if (id === 'favorites') {
+      return filterTrades(activeTrades, { type: 'starred' }, starredIds).length
+    }
+    if (id === 'missed') {
+      return filterTrades(activeTrades, { type: 'missed' }, starredIds).length
+    }
+    if (id === 'paper') {
+      return filterTrades(activeTrades, { type: 'all', tradeKind: 'paper' }, starredIds).length
+    }
     return undefined
   }
 
@@ -109,6 +135,25 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           </NavLink>
         ))}
       </nav>
+
+      {quickNav.length > 0 ? (
+        <nav className="sb-section sb-quick" aria-label="快捷导航">
+          <div className="sb-section-label">快捷</div>
+          {quickNav.map(({ id, to, label, icon: Icon }) => (
+            <NavLink
+              key={id}
+              to={to}
+              className={() =>
+                'sb-item' + (isSidebarNavActive(path, to) ? ' is-active' : '')
+              }
+            >
+              <Icon size={16} />
+              <span>{label}</span>
+              <Count value={secondaryCount(id)} />
+            </NavLink>
+          ))}
+        </nav>
+      ) : null}
 
       <div className="sb-spacer" />
 
