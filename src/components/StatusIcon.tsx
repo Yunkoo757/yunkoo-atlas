@@ -1,6 +1,7 @@
 import type { TradeStatus, Conviction } from '@/data/trades'
+import { LinearIssueStatusIcon } from '@/icons/linear'
+import type { LinearIssueState } from '@/icons/linear'
 
-// Linear 风格状态圈：用 SVG 描边圆 + 扇形进度还原（原创绘制）。
 const STATUS_COLOR: Record<TradeStatus, string> = {
   planned: 'var(--text-tertiary)',
   open: '#f2c94c',
@@ -10,6 +11,18 @@ const STATUS_COLOR: Record<TradeStatus, string> = {
   loss: 'var(--neg)',
 }
 
+const STATUS_TO_LINEAR: Record<
+  TradeStatus,
+  { state: LinearIssueState; progress?: number; title?: string }
+> = {
+  planned: { state: 'backlog' },
+  open: { state: 'started', progress: 0.55 },
+  missed: { state: 'canceled', title: '错过 · 假设盈亏' },
+  win: { state: 'completed' },
+  breakeven: { state: 'duplicate' },
+  loss: { state: 'canceled' },
+}
+
 export function StatusIcon({
   status,
   size = 14,
@@ -17,90 +30,15 @@ export function StatusIcon({
   status: TradeStatus
   size?: number
 }) {
-  const c = STATUS_COLOR[status]
-  const r = 6
-  const cx = 7
-  const cy = 7
-  const circ = 2 * Math.PI * r
-
-  // 已平仓状态画实心勾，进行中画 3/4 扇形，计划中画虚线圈
-  if (status === 'win' || status === 'loss' || status === 'breakeven') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={c} strokeWidth="1.5" />
-        <circle cx={cx} cy={cy} r={r} fill={c} fillOpacity={0.25} />
-        {status === 'win' && (
-          <path
-            d="M4.5 7.2l1.8 1.8 3.2-3.6"
-            fill="none"
-            stroke={c}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        )}
-        {status === 'loss' && (
-          <path
-            d="M5 5l4 4M9 5l-4 4"
-            stroke={c}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        )}
-        {status === 'breakeven' && (
-          <path d="M4.5 7h5" stroke={c} strokeWidth="1.5" strokeLinecap="round" />
-        )}
-      </svg>
-    )
-  }
-
-  if (status === 'missed') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 14 14" aria-label="错过 · 假设盈亏" role="img">
-        <title>错过 · 假设盈亏</title>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={c} strokeWidth="1.5" />
-        <path
-          d="M4.8 9.2 L9.2 4.8"
-          fill="none"
-          stroke={c}
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
-      </svg>
-    )
-  }
-
-  if (status === 'open') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={c} strokeWidth="1.5" />
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r / 2}
-          fill="none"
-          stroke={c}
-          strokeWidth={r}
-          strokeDasharray={`${circ * 0.55} ${circ}`}
-          transform="rotate(-90 7 7)"
-        />
-      </svg>
-    )
-  }
-
-  // planned —— 虚线圆
+  const mapped = STATUS_TO_LINEAR[status]
   return (
-    <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden>
-      <circle
-        cx={cx}
-        cy={cy}
-        r={r}
-        fill="none"
-        stroke={c}
-        strokeWidth="1.5"
-        strokeDasharray="1.8 2.2"
-      />
-    </svg>
+    <LinearIssueStatusIcon
+      state={mapped.state}
+      progress={mapped.progress}
+      size={size}
+      color={STATUS_COLOR[status]}
+      title={mapped.title}
+    />
   )
 }
 
