@@ -245,6 +245,15 @@
 }
 
 @media (max-width: 760px) {
+  .quick-view-chip,
+  .quick-view-overflow {
+    height: 44px;
+  }
+
+  .quick-view-overflow {
+    width: 44px;
+  }
+
   .quick-view-primary {
     overflow-x: auto;
     scrollbar-width: none;
