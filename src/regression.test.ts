@@ -64,7 +64,7 @@ import {
   partitionDisplayActivities,
   type DisplayActivityEvent,
 } from '@/lib/activities'
-import { syncEditorLightboxEditable } from '@/editor/Editor'
+import { setEditorImageLoadFailed, syncEditorLightboxEditable } from '@/editor/Editor'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -986,4 +986,34 @@ export function testLightboxModeDoesNotEmitAnEditorUpdate(): void {
     JSON.stringify(calls) === JSON.stringify([[false, false], [true, false]]),
     '灯箱开关只应切换编辑器可编辑性，不得发出文档更新事件',
   )
+}
+
+export function testEditorImageLoadFailureIsDomOnlyAndReversible(): void {
+  const image = {
+    tagName: 'IMG',
+    dataset: {} as Record<string, string>,
+    alt: '原始说明',
+    getAttribute(name: string) {
+      return name === 'alt' ? this.alt : null
+    },
+    setAttribute(name: string, value: string) {
+      if (name === 'alt') this.alt = value
+    },
+    removeAttribute(name: string) {
+      if (name === 'alt') this.alt = ''
+    },
+  }
+  const nonImage = { tagName: 'DIV', dataset: {} as Record<string, string> }
+
+  setEditorImageLoadFailed(image as unknown as EventTarget, true)
+  setEditorImageLoadFailed(nonImage as unknown as EventTarget, true)
+
+  assert(image.dataset.imageLoadError === '图片加载失败', '失败图片应带有中文 DOM 错误标记')
+  assert(image.alt === '图片加载失败', '失败图片应在原节点显示中文替代文本')
+  assert(nonImage.dataset.imageLoadError === undefined, '非图片事件目标不得被修改')
+
+  setEditorImageLoadFailed(image as unknown as EventTarget, false)
+
+  assert(image.dataset.imageLoadError === undefined, '同一图片成功加载后应清除错误标记')
+  assert(image.alt === '原始说明', '同一图片成功加载后应恢复原始替代文本')
 }

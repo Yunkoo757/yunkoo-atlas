@@ -31,6 +31,30 @@ const editorBridge = {
   },
 }
 
+const editorImageOriginalAlt = new WeakMap<HTMLImageElement, string | null>()
+
+export function setEditorImageLoadFailed(target: EventTarget | null, failed: boolean): void {
+  const image = target as HTMLImageElement | null
+  if (!image || image.tagName !== 'IMG') return
+
+  if (failed) {
+    if (!editorImageOriginalAlt.has(image)) {
+      editorImageOriginalAlt.set(image, image.getAttribute('alt'))
+    }
+    image.dataset.imageLoadError = '图片加载失败'
+    image.alt = '图片加载失败'
+    return
+  }
+
+  delete image.dataset.imageLoadError
+  if (!editorImageOriginalAlt.has(image)) return
+
+  const originalAlt = editorImageOriginalAlt.get(image)
+  if (originalAlt === null) image.removeAttribute('alt')
+  else image.setAttribute('alt', originalAlt ?? '')
+  editorImageOriginalAlt.delete(image)
+}
+
 export function syncEditorLightboxEditable(
   editor: Pick<TiptapEditor, 'setEditable'>,
   lightboxOpen: boolean,
@@ -204,7 +228,12 @@ export function Editor({
           </BtnGroup>
         </BubbleMenu>
       )}
-      <EditorContent editor={editor} className="editor" />
+      <EditorContent
+        editor={editor}
+        className="editor"
+        onErrorCapture={(event) => setEditorImageLoadFailed(event.target, true)}
+        onLoadCapture={(event) => setEditorImageLoadFailed(event.target, false)}
+      />
     </>
   )
 }
