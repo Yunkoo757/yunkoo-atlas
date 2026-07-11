@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LinearFaceHeartEyesIcon, LinearIcon, LinearOpenAIIcon } from '@/icons/linear'
+import { LinearFaceHeartEyesIcon, LinearIcon, LinearIssueStatusIcon, LinearOpenAIIcon } from '@/icons/linear'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -28,4 +28,19 @@ export function testLinearIconResolvesTypedRegistryName(): void {
   assert(html.includes('width="24"'), 'forwards size')
   assert(html.includes('role="img"'), 'title enables image role')
   assert(html.includes('<title>喜欢</title>'), 'renders accessible title')
+}
+
+export function testIssueStatusUsesExactLinearBranches(): void {
+  const backlog = renderToStaticMarkup(<LinearIssueStatusIcon state="backlog" />)
+  const started = renderToStaticMarkup(<LinearIssueStatusIcon state="started" progress={0.5} />)
+  const completed = renderToStaticMarkup(<LinearIssueStatusIcon state="completed" />)
+  assert(backlog.includes('13.9408 7.91426'), 'uses original backlog path')
+  assert(started.includes('<path'), 'started renders a parameterized sector')
+  assert(completed.includes('11.101 5.10104'), 'uses original completed path')
+}
+
+export function testIssueProgressClampsInvalidValues(): void {
+  const below = renderToStaticMarkup(<LinearIssueStatusIcon state="started" progress={-2} />)
+  const nan = renderToStaticMarkup(<LinearIssueStatusIcon state="started" progress={Number.NaN} />)
+  assert(below === nan, 'negative and NaN progress both clamp to zero')
 }
