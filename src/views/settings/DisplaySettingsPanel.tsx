@@ -61,6 +61,7 @@ export function DisplaySettingsPanel() {
             key={o.value}
             type="button"
             className={'display-item' + (display.sortBy === o.value ? ' is-on' : '')}
+            aria-pressed={display.sortBy === o.value}
             onClick={() => setDisplay({ sortBy: o.value })}
           >
             <span>{o.label}</span>
@@ -82,7 +83,13 @@ function ToggleRow({
   onChange: (v: boolean) => void
 }) {
   return (
-    <button type="button" className="display-toggle" onClick={() => onChange(!checked)}>
+    <button
+      type="button"
+      className="display-toggle"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+    >
       <span>{label}</span>
       <span className={'display-switch' + (checked ? ' is-on' : '')}>
         <span className="display-switch-knob" />
