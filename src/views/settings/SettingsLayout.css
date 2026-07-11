@@ -102,6 +102,9 @@
     border-radius: 0;
     padding: 12px;
   }
+  .settings-nav-item {
+    height: 44px;
+  }
   .settings-panel {
     border-left: none;
     border-right: none;

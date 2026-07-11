@@ -153,3 +153,9 @@
   font-size: var(--fs-mini);
   color: var(--text-tertiary);
 }
+
+@media (max-width: 480px) {
+  .profile-name-input {
+    min-height: 44px;
+  }
+}
