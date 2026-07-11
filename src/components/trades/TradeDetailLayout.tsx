@@ -46,6 +46,14 @@ export function TradeDetailLayout({
     closeRef.current?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        const target = event.target
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          (target instanceof HTMLElement && target.isContentEditable)
+        ) {
+          return
+        }
         event.preventDefault()
         event.stopPropagation()
         restoreFocusRef.current = true
