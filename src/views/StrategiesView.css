@@ -229,6 +229,12 @@
 }
 
 @media (max-width: 640px) {
+  .st-row-name {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
   .st-add,
   .st-act,
   .st-del-btn,
