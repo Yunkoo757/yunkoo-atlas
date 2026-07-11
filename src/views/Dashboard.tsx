@@ -264,6 +264,7 @@ export function Dashboard() {
                   <Area
                     type="monotone"
                     dataKey="equity"
+                    isAnimationActive={false}
                     stroke="var(--accent)"
                     strokeWidth={2}
                     fill="url(#eq)"
@@ -346,7 +347,13 @@ export function Dashboard() {
                       )
                     }}
                   />
-                  <Bar dataKey="n" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                  <Bar
+                    dataKey="n"
+                    fill="var(--accent)"
+                    radius={[3, 3, 0, 0]}
+                    maxBarSize={32}
+                    isAnimationActive={false}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}
