@@ -26,3 +26,10 @@
 .display-settings-card .display-label {
   padding: 8px 10px 4px;
 }
+
+@media (max-width: 640px) {
+  .display-settings-card .display-toggle,
+  .display-settings-card .display-item {
+    min-height: 44px;
+  }
+}
