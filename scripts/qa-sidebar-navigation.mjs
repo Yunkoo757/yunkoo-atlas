@@ -403,6 +403,11 @@ try {
   await drawer.getByRole('button', { name: '关闭更多' }).focus()
   await page.keyboard.press('Shift+Tab')
   await expectFocusInside(drawer)
+  await drawer.getByRole('button', { name: '关闭更多' }).click()
+  await expectCount(drawer, 0)
+  await expectFocused(moreButton)
+
+  await moreButton.click()
   await page.locator('.mobile-navigation-backdrop').click({ position: { x: 4, y: 4 } })
   await expectCount(drawer, 0)
   await expectFocused(moreButton)
@@ -424,6 +429,7 @@ try {
     dispatchEvent(new PopStateEvent('popstate'))
   })
   await expectCount(drawer, 0)
+  await expectFocused(moreButton)
   await expectMobileCurrentCount(page, 1)
 
   const coreLabels = ['今日', '交易', '案例', '仪表盘']
@@ -431,6 +437,7 @@ try {
     await moreButton.click()
     await page.locator(`.mobile-navigation > a[aria-label="${label}"]`).click({ force: true })
     await expectCount(drawer, 0)
+    await expectFocused(moreButton)
     await expectMobileCurrentCount(page, 1)
   }
 
@@ -438,6 +445,7 @@ try {
     await moreButton.click()
     await drawer.getByRole('link', { name: label, exact: true }).click()
     await expectCount(drawer, 0)
+    await expectFocused(moreButton)
     await moreButton.click()
     await expectMobileCurrentCount(page, 1)
     expectEqual(await drawer.locator('[data-mobile-drawer-item]').allTextContents(), expectedDrawerItems, 'Drawer order changed after workspace navigation')
@@ -448,10 +456,20 @@ try {
     await moreButton.click()
     await drawer.getByRole('link', { name: label, exact: true }).click()
     await expectCount(drawer, 0)
+    await expectFocused(moreButton)
     await moreButton.click()
     await expectMobileCurrentCount(page, 1)
     await page.keyboard.press('Escape')
   }
+
+  await moreButton.click()
+  await drawer.getByRole('button', { name: '搜索', exact: true }).click()
+  await expectCount(drawer, 0)
+  const commandPaletteInput = page.locator('.cmdk-input')
+  await expectVisible(commandPaletteInput)
+  await expectFocused(commandPaletteInput)
+  await commandPaletteInput.press('Escape')
+  await expectCount(commandPaletteInput, 0)
 
   await moreButton.click()
   await drawer.getByRole('button', { name: '管理我的空间', exact: true }).click()
@@ -484,6 +502,33 @@ try {
   await expectFocused(moreButton)
   if (await page.evaluate(() => document.body.style.overflow) === 'hidden') throw new Error('Closing full-screen editor must restore body scrolling')
   await expectNoHorizontalOverflow(page)
+
+  await moreButton.click()
+  await drawer.getByRole('button', { name: '管理我的空间', exact: true }).click()
+  await expectVisible(mobileEditor)
+  await mobileEditor.getByRole('button', { name: '取消', exact: true }).click()
+  await expectCount(mobileEditor, 0)
+  await expectFocused(moreButton)
+
+  const orderBeforeCommit = await page.evaluate(async () => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    return useStore.getState().display.sidebarWorkspaceItems.map((item) => item.id)
+  })
+  await moreButton.click()
+  await drawer.getByRole('button', { name: '管理我的空间', exact: true }).click()
+  await expectVisible(mobileEditor)
+  const commitFirstLabel = (await mobileEditor.locator('[data-sidebar-item-label]').first().textContent()) ?? ''
+  await mobileEditor.getByRole('button', { name: `下移 ${commitFirstLabel}` }).click()
+  await mobileEditor.getByRole('button', { name: '完成', exact: true }).click()
+  await expectCount(mobileEditor, 0)
+  await expectFocused(moreButton)
+  const orderAfterCommit = await page.evaluate(async () => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    return useStore.getState().display.sidebarWorkspaceItems.map((item) => item.id)
+  })
+  if (orderAfterCommit[1] !== orderBeforeCommit[0] || orderAfterCommit[0] !== orderBeforeCommit[1]) {
+    throw new Error('Completing the mobile editor did not commit the reordered workspace state')
+  }
 
   console.log('PASS: sidebar workspace manager and responsive mobile navigation contract')
 } finally {
