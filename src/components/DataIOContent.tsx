@@ -93,7 +93,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
     <div className="dio-content">
       {electron && libraryPath && (
         <section className="dio-section dio-section-muted">
-          <h3 className="dio-section-title">本地库</h3>
+          <h2 className="dio-section-title">本地库</h2>
           <p className="dio-desc dio-mono">{libraryPath}</p>
           <p className="dio-desc">
             数据保存在 journal.db、manifest.json 与 attachments/ 文件夹中，可用 iCloud
@@ -105,7 +105,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
       <section className="dio-zone dio-zone-primary">
         <div className="dio-zone-head">
           <span className="dio-zone-kicker">推荐备份</span>
-          <h3 className="dio-section-title">导出完整备份 (.journal.zip)</h3>
+          <h2 className="dio-section-title">导出完整备份 (.journal.zip)</h2>
         </div>
         <p className="dio-desc">
           交易数据、策略与笔记图片都会写入压缩包。适合日常备份、整库迁移和大量图片场景。
@@ -120,7 +120,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         <section className="dio-zone">
           <div className="dio-zone-head">
             <span className="dio-zone-kicker">轻量导出</span>
-            <h3 className="dio-section-title">JSON（纯数据）</h3>
+            <h2 className="dio-section-title">JSON（纯数据）</h2>
           </div>
           <p className="dio-desc">
             仅含交易、策略与偏好元数据，不含笔记图片。适合快速备份或手写导入。
@@ -134,7 +134,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         <section className="dio-zone">
           <div className="dio-zone-head">
             <span className="dio-zone-kicker">导入 / 恢复</span>
-            <h3 className="dio-section-title">JSON 与 CSV</h3>
+            <h2 className="dio-section-title">JSON 与 CSV</h2>
           </div>
           <p className="dio-desc">
             JSON 会合并到当前数据；CSV 适合从其他交易日志工具迁移交易记录。
@@ -167,7 +167,7 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         <section className="dio-zone dio-zone-danger">
           <div className="dio-zone-head">
             <span className="dio-zone-kicker">整库替换</span>
-            <h3 className="dio-section-title">导入完整交易库 (.journal.zip)</h3>
+            <h2 className="dio-section-title">导入完整交易库 (.journal.zip)</h2>
           </div>
           <p className="dio-desc">
             将用压缩包内容替换当前库（journal.db 与附件）。操作前请先导出完整备份。
