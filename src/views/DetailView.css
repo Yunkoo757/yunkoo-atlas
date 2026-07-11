@@ -657,9 +657,30 @@
 }
 
 @media (max-width: 768px) {
+  .dv-topbar {
+    height: 52px;
+    padding-inline: 4px 8px;
+  }
+  .dv-back,
+  .dv-tb-right .icon-btn {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+  }
+  .dv-tb-right {
+    gap: 0;
+    max-width: none;
+  }
   .dv-main-inner {
     padding-left: 24px;
     padding-right: 24px;
+  }
+  .dv-comment-send {
+    width: 44px;
+    height: 44px;
+  }
+  .dv-activity-toggle {
+    min-height: 44px;
   }
   .dv-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -724,6 +745,18 @@
 }
 
 @media (max-width: 1024px) {
+  .dv-props .dv-section-head,
+  .dv-props .dv-prop-row,
+  .dv-props .dv-datarow-btn,
+  .dv-props .dv-copy-id {
+    min-height: 44px;
+  }
+  .dv-strategy-manage {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    margin-block: 0;
+  }
   .dv-pitem-ghost {
     height: 44px;
     padding-inline: 12px;

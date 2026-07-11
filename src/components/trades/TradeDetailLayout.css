@@ -81,8 +81,9 @@
     z-index: 1;
     display: grid;
     place-items: center;
-    width: var(--control-height);
-    height: var(--control-height);
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
     margin: 8px 8px 0 auto;
     color: var(--text-secondary);
     background: var(--bg-elevated);
@@ -97,8 +98,8 @@
     z-index: 54;
     display: grid;
     place-items: center;
-    width: var(--control-height);
-    height: var(--control-height);
+    width: 44px;
+    height: 44px;
     color: var(--text-secondary);
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
