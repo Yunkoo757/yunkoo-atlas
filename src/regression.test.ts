@@ -34,6 +34,7 @@ import {
   DEFAULT_SIDEBAR_PINS,
   resolvePinnedSecondaryNav,
 } from '@/lib/sidebarNav'
+import { normalizeSidebarWorkspaceItems } from '@/lib/sidebarWorkspace'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
@@ -163,6 +164,37 @@ export function testResolvePinnedSecondaryNavOrdersAndHidesEmpty(): void {
       'active,missed',
     '未知 id 应被跳过',
   )
+}
+
+export function testNormalizeDisplayMigratesSidebarPinsInOriginalOrder(): void {
+  const display = normalizeDisplay({ sidebarPins: ['missed', 'active', 'paper'] })
+
+  assert(
+    display.sidebarWorkspaceItems.map((item) =>
+      item.target.kind === 'system' ? item.target.id : '',
+    ).join(',') === 'missed,active,paper',
+    '旧 sidebarPins 迁移后应保持原始顺序',
+  )
+}
+
+export function testNormalizeSidebarWorkspaceItemsDeduplicatesAndLimitsPinnedItems(): void {
+  const items = normalizeSidebarWorkspaceItems([
+    { id: 'active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 0 },
+    { id: 'favorites', target: { kind: 'system', id: 'favorites' }, placement: 'pinned', order: 1 },
+    { id: 'missed', target: { kind: 'system', id: 'missed' }, placement: 'pinned', order: 2 },
+    { id: 'paper', target: { kind: 'system', id: 'paper' }, placement: 'pinned', order: 3 },
+    { id: 'saved-a', target: { kind: 'saved-view', viewId: 'view-a' }, placement: 'pinned', order: 4 },
+    { id: 'strategy-a', target: { kind: 'strategy', strategyId: 'strategy-a' }, placement: 'pinned', order: 5 },
+    { id: 'case-focus', target: { kind: 'case-view', scope: 'focus' }, placement: 'pinned', order: 6 },
+    { id: 'case-mistakes', target: { kind: 'case-view', scope: 'mistakes' }, placement: 'pinned', order: 7 },
+    { id: 'case-reviewed', target: { kind: 'case-view', scope: 'reviewed' }, placement: 'pinned', order: 8 },
+    { id: 'saved-a-copy', target: { kind: 'saved-view', viewId: 'view-a' }, placement: 'pinned', order: 9 },
+  ])
+
+  assert(items.length === 9, '语义重复项应被删除')
+  assert(items.filter((item) => item.placement === 'pinned').length === 8, '最多只能固定 8 项')
+  assert(items[8]?.placement === 'overflow', '第 9 个固定项应进入 overflow')
+  assert(items.map((item) => item.order).join(',') === '0,1,2,3,4,5,6,7,8', 'order 应连续重写')
 }
 
 export function testWorkspaceViewsNeverCrossRecordDomains(): void {
