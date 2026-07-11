@@ -409,7 +409,8 @@
   }
 
   .sb-workspace-editor.is-mobile-fullscreen .sb-editor-defaults button,
-  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-actions button:not(.is-primary) {
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-actions button:not(.is-primary),
+  .sb-workspace-editor.is-mobile-fullscreen .sb-target-picker-heading button {
     color: var(--text-tertiary);
   }
 
