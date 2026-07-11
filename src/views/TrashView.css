@@ -9,6 +9,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-6);
   font-size: var(--fs-sm);
   color: var(--text-secondary);
   cursor: pointer;
@@ -16,7 +19,15 @@
 }
 
 .trash-back-btn:hover {
+  background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .trash-back-btn,
+  .trash-batch-btn {
+    min-height: 44px;
+  }
 }
 
 .trash-batch-btn {
