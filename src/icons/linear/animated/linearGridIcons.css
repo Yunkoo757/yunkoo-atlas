@@ -1,0 +1,32 @@
+.linear-grid-loader {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.linear-grid-loader__sprite {
+  animation: linear-grid-loader-shift var(--linear-grid-loader-duration) steps(var(--linear-grid-loader-frames), end) infinite;
+  animation-delay: var(--linear-grid-loader-delay, 0ms);
+  transform: translate(0);
+  will-change: transform;
+}
+
+.linear-grid-loader--paused .linear-grid-loader__sprite {
+  animation-play-state: paused;
+}
+
+@keyframes linear-grid-loader-shift {
+  from {
+    transform: translate(0);
+  }
+
+  to {
+    transform: translate(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .linear-grid-loader__sprite {
+    animation: none;
+    transform: var(--linear-grid-loader-reduced-transform, translate(0));
+  }
+}

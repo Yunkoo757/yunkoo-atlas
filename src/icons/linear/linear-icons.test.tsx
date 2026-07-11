@@ -44,3 +44,19 @@ export function testIssueProgressClampsInvalidValues(): void {
   const nan = renderToStaticMarkup(<LinearIssueStatusIcon state="started" progress={Number.NaN} />)
   assert(below === nan, 'negative and NaN progress both clamp to zero')
 }
+
+import { LinearGridLoaderIcon, LinearGridProgressIcon } from '@/icons/linear'
+
+export function testGridLoaderExposesEveryVerifiedVariant(): void {
+  const variants = ['scope','upDown','pong','blowOut','ufo','down','zap','hourglass','stats','cat','agent','read','unread','outlines'] as const
+  for (const variant of variants) {
+    const html = renderToStaticMarkup(<LinearGridLoaderIcon variant={variant} />)
+    assert(html.includes(`data-variant="${variant}"`), `renders ${variant}`)
+  }
+}
+
+export function testGridProgressRendersTwentyFiveDots(): void {
+  const html = renderToStaticMarkup(<LinearGridProgressIcon progress={0.52} />)
+  assert((html.match(/<circle/g) ?? []).length === 25, 'renders a 5x5 grid')
+  assert(html.includes('600ms linear infinite'), 'pulses the frontier dot')
+}
