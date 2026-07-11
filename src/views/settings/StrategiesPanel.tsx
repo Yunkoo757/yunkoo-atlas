@@ -88,7 +88,7 @@ export function StrategiesPanel() {
           <div>
             <h1 className="settings-page-title">交易策略</h1>
             <p className="settings-page-desc">
-              维护策略分类、图标与配色。查看案例请用 Ctrl+K 搜索策略名，或在列表开启「按策略分组」。
+              维护策略分类、图标与配色。查看案例请用命令面板搜索策略名，或在列表开启「按策略分组」。
             </p>
           </div>
           <button type="button" className="st-add" onClick={openCreate}>
