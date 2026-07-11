@@ -60,6 +60,9 @@ export function SidebarWorkspaceEditor({ items, sources, onCommit, onCancel }: S
 
   useEffect(() => {
     titleRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()

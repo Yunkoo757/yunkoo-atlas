@@ -3,6 +3,7 @@ import { chromium } from 'playwright'
 
 const PORT = 41713
 const BASE = `http://127.0.0.1:${PORT}`
+const stripAnsi = (value) => value.replace(/\x1b\[[0-9;]*m/g, '')
 
 function startVite() {
   const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], {
@@ -12,7 +13,11 @@ function startVite() {
   let output = ''
   child.stdout.on('data', (chunk) => { output += chunk.toString() })
   child.stderr.on('data', (chunk) => { output += chunk.toString() })
-  return { child, output: () => output }
+  return {
+    child,
+    output: () => output,
+    hasReadySignal: () => /Local:\s+http:\/\/127\.0\.0\.1:\d+\//.test(stripAnsi(output)),
+  }
 }
 
 async function waitForVite(vite) {
@@ -22,6 +27,10 @@ async function waitForVite(vite) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (earlyExit) {
       throw new Error(`Vite exited before ready (${earlyExit.signal ?? `code ${earlyExit.code}`}): ${vite.output().trim()}`)
+    }
+    if (!vite.hasReadySignal()) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      continue
     }
     try {
       const response = await fetch(BASE)
@@ -36,6 +45,37 @@ async function waitForVite(vite) {
     await new Promise((resolve) => setTimeout(resolve, 200))
   }
   throw new Error('Vite did not start in time')
+}
+
+async function stopVite(vite) {
+  if (vite.child.exitCode !== null) return
+  const stopped = new Promise((resolve) => vite.child.once('exit', resolve))
+  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 100))])
+  if (vite.child.exitCode === null) vite.child.kill()
+  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 1000))])
+}
+
+async function verifyExistingViteConflict() {
+  const existing = startVite()
+  let contender
+  try {
+    await waitForVite(existing)
+    contender = startVite()
+    let conflictError = null
+    try {
+      await waitForVite(contender)
+    } catch (error) {
+      conflictError = error
+    }
+    if (!conflictError) throw new Error('QA incorrectly treated the existing Vite as the contender process')
+    const message = String(conflictError)
+    if (!message.includes('Vite exited before ready') || !message.includes('already in use')) {
+      throw conflictError
+    }
+  } finally {
+    if (contender) await stopVite(contender)
+    await stopVite(existing)
+  }
 }
 
 async function expectVisible(locator) {
@@ -72,6 +112,7 @@ async function expectFocused(locator) {
   throw new Error('Expected element to be focused')
 }
 
+await verifyExistingViteConflict()
 const vite = startVite()
 let browser
 
@@ -150,6 +191,13 @@ try {
 
   await editor.getByRole('button', { name: '浏览可添加项目' }).click()
   await expectVisible(editor.getByRole('heading', { name: '选择项目' }))
+  const search = editor.getByRole('searchbox', { name: '搜索可添加项目' })
+  await search.focus()
+  await page.evaluate(async () => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    useStore.getState().setDisplayName('QA 父级重渲染')
+  })
+  await expectFocused(search)
   for (const group of ['系统快捷', '我的视图', '策略', '案例视图']) {
     await expectVisible(editor.getByRole('heading', { name: group }))
   }
@@ -168,7 +216,6 @@ try {
   await breakout.click()
   await expectAttribute(breakout, 'aria-label', 'Breakout：未添加')
 
-  const search = editor.getByRole('searchbox', { name: '搜索可添加项目' })
   await search.fill('Breakout')
   await expectVisible(editor.getByRole('button', { name: /Breakout/ }))
   await search.fill('不会匹配失效引用')
@@ -239,5 +286,5 @@ try {
   console.log('PASS: sidebar workspace manager contract')
 } finally {
   await browser?.close()
-  vite.child.kill()
+  await stopVite(vite)
 }
