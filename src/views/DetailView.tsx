@@ -907,6 +907,13 @@ export function DetailView() {
               }
               inputType="number"
               step="0.1"
+              color={
+                trade.rMultiple > 0
+                  ? 'var(--pos)'
+                  : trade.rMultiple < 0
+                    ? 'var(--neg)'
+                    : undefined
+              }
               onSave={(v) => updateTradeData(trade.id, { rMultiple: v as number })}
             />
           </Section>
