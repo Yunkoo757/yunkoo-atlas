@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { Topbar } from '@/components/Topbar'
 import { StrategyIcon } from '@/components/StrategyIcon'
+import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { getStrategyName } from '@/lib/strategies'
 import type { Strategy } from '@/data/strategies'
@@ -143,6 +144,7 @@ export function Dashboard() {
   const navigate = useNavigate()
   const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategyDefs = useStore((s) => s.strategies)
+  const openComposer = useStore((s) => s.openComposer)
   const [range, setRange] = useState<TimeRange>('all')
   const [kind, setKind] = useState<DashboardKind>('live')
 
@@ -152,6 +154,7 @@ export function Dashboard() {
   }, [trades, strategyDefs, range, kind])
   const rangeLabel = RANGE_OPTS.find((o) => o.value === range)?.label ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '全部类型'
+  const hasClosedTrades = trades.some((trade) => isExecutedClosed(trade.status))
 
   const openTrade = (tradeId: string) => {
     const t = trades.find((x) => x.id === tradeId)
@@ -210,6 +213,23 @@ export function Dashboard() {
           <Card label="盈利笔数" value={String(Math.round((stats.winRate / 100) * stats.count))} sub={`共 ${stats.count} 笔`} muted />
         </div>
 
+        {!hasClosedTrades ? (
+          <section className="db-empty" aria-labelledby="dashboard-empty-title">
+            <h2 id="dashboard-empty-title">还没有已平仓交易</h2>
+            <p>完成交易并填写结果后，这里会自动生成盈亏曲线、策略表现和 R 倍数分布。</p>
+            {trades.length > 0 ? (
+              <button type="button" className="db-empty-action" onClick={() => navigate('/active')}>
+                查看进行中交易
+              </button>
+            ) : (
+              <button type="button" className="db-empty-action" onClick={() => openComposer()}>
+                <Plus size={15} />
+                新建交易
+              </button>
+            )}
+          </section>
+        ) : (
+          <>
         <section className="db-panel">
           <div className="db-panel-head">
             <div>
@@ -332,6 +352,8 @@ export function Dashboard() {
             )}
           </div>
         </section>
+          </>
+        )}
       </div>
     </>
   )
