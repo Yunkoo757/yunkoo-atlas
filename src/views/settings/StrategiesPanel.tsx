@@ -161,9 +161,22 @@ export function StrategiesPanel() {
       />
 
       {deleteTarget && (
-        <div className="st-del-overlay" onMouseDown={() => setDeleteTarget(null)}>
-          <div className="st-del" onMouseDown={(e) => e.stopPropagation()}>
-            <h3>删除策略「{deleteTarget.name}」？</h3>
+        <div
+          className="st-del-overlay"
+          role="presentation"
+          onMouseDown={() => setDeleteTarget(null)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setDeleteTarget(null)
+          }}
+        >
+          <div
+            className="st-del"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="strategy-delete-title"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h3 id="strategy-delete-title">删除策略「{deleteTarget.name}」？</h3>
             {deleteCount > 0 ? (
               <>
                 <p>
@@ -183,7 +196,7 @@ export function StrategiesPanel() {
               <p>此策略下没有交易，可直接删除。</p>
             )}
             <div className="st-del-foot">
-              <button type="button" className="st-del-btn" onClick={() => setDeleteTarget(null)}>
+              <button type="button" className="st-del-btn" onClick={() => setDeleteTarget(null)} autoFocus>
                 取消
               </button>
               <button type="button" className="st-del-btn st-del-danger" onClick={confirmDelete}>
