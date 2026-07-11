@@ -154,19 +154,41 @@ async function expectUrl(page, expectedPathAndSearch, message) {
   if (actual !== expectedPathAndSearch) throw new Error(`${message}: expected ${expectedPathAndSearch}, received ${actual}`)
 }
 
-async function expectTradeInScrollViewport(page, tradeId, scrollSelector) {
-  const metrics = await page.locator(`[data-trade-id="${tradeId}"]`).evaluate((element, selector) => {
+async function expectTradeInScrollViewport(page, tradeId, scrollContract) {
+  const contract = typeof scrollContract === 'string'
+    ? { containerSelector: scrollContract, intersectWindow: false }
+    : scrollContract
+  const metrics = await page.locator(`[data-trade-id="${tradeId}"]`).evaluate((element, options) => {
     const target = element.getBoundingClientRect()
-    const scroll = element.closest(selector)?.getBoundingClientRect()
-    return scroll && {
+    const scroll = element.closest(options.containerSelector)?.getBoundingClientRect()
+    if (!scroll) return null
+    const visible = options.intersectWindow
+      ? {
+          top: Math.max(scroll.top, 0),
+          right: Math.min(scroll.right, innerWidth),
+          bottom: Math.min(scroll.bottom, innerHeight),
+          left: Math.max(scroll.left, 0),
+        }
+      : scroll
+    return {
       targetTop: target.top,
+      targetRight: target.right,
       targetBottom: target.bottom,
-      scrollTop: scroll.top,
-      scrollBottom: scroll.bottom,
+      targetLeft: target.left,
+      visibleTop: visible.top,
+      visibleRight: visible.right,
+      visibleBottom: visible.bottom,
+      visibleLeft: visible.left,
     }
-  }, scrollSelector)
-  if (!metrics || metrics.targetBottom <= metrics.scrollTop || metrics.targetTop >= metrics.scrollBottom) {
-    throw new Error(`${tradeId} was not restored into ${scrollSelector} viewport: ${JSON.stringify(metrics)}`)
+  }, contract)
+  if (
+    !metrics ||
+    metrics.targetBottom <= metrics.visibleTop ||
+    metrics.targetTop >= metrics.visibleBottom ||
+    metrics.targetRight <= metrics.visibleLeft ||
+    metrics.targetLeft >= metrics.visibleRight
+  ) {
+    throw new Error(`${tradeId} was not restored into ${contract.containerSelector} viewport: ${JSON.stringify(metrics)}`)
   }
 }
 
@@ -403,7 +425,7 @@ try {
   await page.setViewportSize({ width: 900, height: 600 })
   for (const scenario of [
     { path: '/list', scroll: '.list-scroll', open: 'button' },
-    { path: '/board', scroll: '.board-scroll', open: 'card' },
+    { path: '/board', scroll: { containerSelector: '.bd-col-body', intersectWindow: true }, open: 'card' },
     { path: '/table', scroll: '.tv-scroll', open: 'link' },
   ]) {
     await page.goto(`${BASE}${scenario.path}`, { waitUntil: 'domcontentloaded' })
