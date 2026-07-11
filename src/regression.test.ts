@@ -60,6 +60,10 @@ import {
   rememberableWorkspaceKind,
 } from '@/lib/workspaceViews'
 import { normalizeDisplay } from '@/lib/tradeFilters'
+import {
+  partitionDisplayActivities,
+  type DisplayActivityEvent,
+} from '@/lib/activities'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -952,4 +956,16 @@ export async function testCleanExpiredTradeTrashPurgesExpiredTradesOnly(): Promi
 
   assert(count === 1, 'only expired deleted trades are cleaned')
   assert(purged.length === 1 && purged[0] === 'expired', 'purges the expired trade id')
+}
+
+export function testDisplayActivitiesSeparateVisibleCommentsFromSystemHistory(): void {
+  const events: DisplayActivityEvent[] = [
+    { id: 'create', kind: 'create', timestamp: '2026-07-01T00:00:00.000Z' },
+    { id: 'comment', kind: 'comment', commentId: 'comment', text: '等待确认', timestamp: '2026-07-02T00:00:00.000Z' },
+    { id: 'note', kind: 'note', timestamp: '2026-07-03T00:00:00.000Z' },
+  ]
+  const result = partitionDisplayActivities(events)
+
+  assert(result.comments.map((event) => event.id).join(',') === 'comment', '评论应进入默认可见区域')
+  assert(result.system.map((event) => event.id).join(',') === 'create,note', '系统活动应进入折叠区域并保持顺序')
 }

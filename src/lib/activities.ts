@@ -76,6 +76,19 @@ export function getTradeActivities(trade: Trade): ActivityEvent[] {
 /** 展示用：合并连续的笔记更新，避免自动保存刷屏 */
 export type DisplayActivityEvent = ActivityEvent & { noteEditCount?: number }
 
+export function partitionDisplayActivities(events: DisplayActivityEvent[]): {
+  comments: DisplayActivityEvent[]
+  system: DisplayActivityEvent[]
+} {
+  const comments: DisplayActivityEvent[] = []
+  const system: DisplayActivityEvent[] = []
+  for (const event of events) {
+    if (event.kind === 'comment') comments.push(event)
+    else system.push(event)
+  }
+  return { comments, system }
+}
+
 export function compressActivitiesForDisplay(
   events: ActivityEvent[],
 ): DisplayActivityEvent[] {
