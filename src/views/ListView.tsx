@@ -228,7 +228,9 @@ export function ListView({
   const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例记录' : '交易'
   const emptyHint =
-    filter.type === 'active'
+    isReviewCaseView
+      ? '记录典型案例，沉淀可复用的交易模式。'
+      : filter.type === 'active'
       ? '暂无进行中的交易。'
       : filter.type === 'starred'
         ? '还没有星标交易。'
