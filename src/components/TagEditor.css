@@ -192,36 +192,68 @@
 .dv-props .tag-editor {
   align-self: stretch;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 1px 4px 2px;
+  gap: 6px;
+  padding: 2px 4px 4px;
 }
 
 .dv-props .tag-presets-row {
-  flex-wrap: nowrap;
+  order: 2;
+  flex-wrap: wrap;
   width: 100%;
-  gap: 4px;
-  margin: 0 0 2px;
-  padding: 0 0 3px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  border-bottom: 1px dashed color-mix(in srgb, var(--border-subtle) 60%, transparent);
-  scrollbar-width: none;
+  max-height: 58px;
+  gap: 5px;
+  margin: 0;
+  padding: 0 2px 2px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-bottom: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+.dv-props .tag-editor > span {
+  order: 1;
+}
+
+.dv-props .tag-input-wrap,
+.dv-props .tag-add-btn {
+  order: 3;
 }
 
 .dv-props .tag-presets-row::-webkit-scrollbar {
-  display: none;
+  width: 3px;
 }
 
 .dv-props .tag-preset-chip {
   flex: 0 0 auto;
-  height: 22px;
-  border-color: var(--border-subtle);
-  background: transparent;
+  height: 24px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--bg-hover) 58%, transparent);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.dv-props .tag-preset-chip:hover {
+  border-color: var(--border-default);
+  background: var(--bg-hover);
+}
+
+.dv-props .tag-preset-chip.is-used {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.dv-props .tag-preset-chip.is-used .tag-preset-label {
+  color: var(--text-quaternary);
 }
 
 .dv-props .tag-preset-label {
   padding: 0 8px;
   font-size: var(--fs-micro);
+  color: var(--text-tertiary);
 }
 
 .dv-props .tag-preset-remove {
@@ -229,41 +261,53 @@
   opacity: 0;
 }
 
-.dv-props .tag-preset-chip:hover .tag-preset-remove {
+.dv-props .tag-preset-chip:hover .tag-preset-remove,
+.dv-props .tag-preset-chip:focus-within .tag-preset-remove {
   width: 18px;
   opacity: 1;
 }
 
 .dv-props .tag-chip {
   max-width: 100%;
-  min-height: 23px;
-  padding: 0 8px;
-  border-color: var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  min-height: 25px;
+  gap: 4px;
+  padding: 0 4px 0 8px;
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
+  font-weight: var(--font-weight-medium);
+}
+
+.dv-props .tag-chip::before {
+  content: '\2713';
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
 }
 
 .dv-props .tag-chip-remove {
-  width: 0;
-  opacity: 0;
+  width: 17px;
+  opacity: 0.72;
 }
 
 .dv-props .tag-chip:hover .tag-chip-remove {
-  width: 16px;
   opacity: 1;
 }
 
 .dv-props .tag-add-btn {
-  width: 26px;
+  width: auto;
   height: 26px;
   justify-content: center;
-  gap: 0;
-  padding: 0;
-  border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  gap: 4px;
+  padding: 0 8px 0 6px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
 }
 
 .dv-props .tag-add-btn span {
-  display: none;
+  display: inline;
+  font-size: var(--fs-micro);
 }
 
 .dv-props .tag-input-wrap {
@@ -273,4 +317,30 @@
 .dv-props .tag-input {
   height: 27px;
   font-size: var(--fs-sm);
+}
+
+@media (max-width: 1024px) {
+  .dv-props .tag-presets-row {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .dv-props .tag-preset-chip,
+  .dv-props .tag-chip,
+  .dv-props .tag-add-btn {
+    min-height: 44px;
+  }
+
+  .dv-props .tag-preset-label {
+    min-height: 42px;
+    padding-inline: 12px;
+  }
+
+  .dv-props .tag-preset-remove,
+  .dv-props .tag-preset-chip:hover .tag-preset-remove,
+  .dv-props .tag-preset-chip:focus-within .tag-preset-remove,
+  .dv-props .tag-chip-remove {
+    width: 32px;
+    height: 42px;
+  }
 }
