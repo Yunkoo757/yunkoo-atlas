@@ -398,6 +398,28 @@
     justify-content: center;
   }
 
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-item > button,
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-defaults button,
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-actions button {
+    min-width: 44px;
+  }
+
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-item {
+    color: var(--text-secondary);
+  }
+
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-defaults button,
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-actions button:not(.is-primary) {
+    color: var(--text-tertiary);
+  }
+
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-help,
+  .sb-workspace-editor.is-mobile-fullscreen .sb-editor-empty {
+    color: var(--text-tertiary);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+  }
+
   .sb-workspace-editor.is-mobile-fullscreen .sb-target-groups {
     grid-template-columns: 1fr;
   }
