@@ -245,10 +245,43 @@ export function TradeComposer() {
   if (!open) return null
 
   return createPortal(
-    <div className="composer-overlay" onMouseDown={close}>
-      <div className="composer-modal composer-quick" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="composer-overlay" role="presentation" onMouseDown={close}>
+      <div
+        className="composer-modal composer-quick"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trade-composer-title"
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && !event.defaultPrevented) {
+            event.stopPropagation()
+            close()
+            return
+          }
+          if (event.key !== 'Tab') return
+
+          const focusable = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not(:disabled), input:not(:disabled), [role="button"][tabindex="0"]',
+            ),
+          ).filter((element) => element.offsetParent !== null)
+          const first = focusable[0]
+          const last = focusable[focusable.length - 1]
+          if (!first || !last) return
+
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault()
+            last.focus()
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault()
+            first.focus()
+          }
+        }}
+      >
         <div className="composer-header">
-          <h3>{editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}</h3>
+          <h3 id="trade-composer-title">
+            {editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}
+          </h3>
           <button className="composer-close" onClick={close} aria-label="关闭">
             <X size={18} />
           </button>
