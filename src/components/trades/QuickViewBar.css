@@ -250,6 +250,10 @@
     height: 44px;
   }
 
+  .quick-view-chip {
+    min-width: 44px;
+  }
+
   .quick-view-overflow {
     width: 44px;
   }
