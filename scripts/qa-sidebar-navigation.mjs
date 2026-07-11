@@ -462,12 +462,30 @@ try {
     await page.keyboard.press('Escape')
   }
 
+  await page.locator('.mobile-navigation > a[aria-label="今日"]').click()
+  await expectCount(drawer, 0)
   await moreButton.click()
+  await moreButton.evaluate((element) => {
+    const target = element
+    target.dataset.qaFocusCount = '0'
+    target.addEventListener('focus', () => {
+      target.dataset.qaFocusCount = String(Number(target.dataset.qaFocusCount ?? '0') + 1)
+    }, { once: true })
+  })
   await drawer.getByRole('button', { name: '搜索', exact: true }).click()
   await expectCount(drawer, 0)
   const commandPaletteInput = page.locator('.cmdk-input')
   await expectVisible(commandPaletteInput)
   await expectFocused(commandPaletteInput)
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  await page.waitForTimeout(50)
+  await expectFocused(commandPaletteInput)
+  if (await moreButton.evaluate((element) => element === document.activeElement)) {
+    throw new Error('Closed-drawer core navigation left a stale restore flag that stole Command Palette focus')
+  }
+  if (await moreButton.getAttribute('data-qa-focus-count') !== '0') {
+    throw new Error('Closed-drawer core navigation caused More to take transient focus during search modal transition')
+  }
   await commandPaletteInput.press('Escape')
   await expectCount(commandPaletteInput, 0)
 

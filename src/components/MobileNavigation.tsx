@@ -127,6 +127,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
   } = useSidebarNavigationModel()
 
   const closeDrawer = () => {
+    if (!drawerOpen) return
     restoreMoreFocusRef.current = true
     setDrawerOpen(false)
   }
