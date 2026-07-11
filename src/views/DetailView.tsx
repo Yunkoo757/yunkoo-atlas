@@ -1085,6 +1085,7 @@ function EditableDataRow({
         <input
           ref={inputRef}
           className="dv-datarow-input"
+          aria-label={label}
           type={inputType}
           step={step}
           value={draft}
@@ -1092,7 +1093,10 @@ function EditableDataRow({
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit()
-            if (e.key === 'Escape') setEditing(false)
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              setEditing(false)
+            }
           }}
         />
       </div>
@@ -1141,13 +1145,17 @@ function EditableDateRow({
         <input
           ref={inputRef}
           className="dv-datarow-input"
+          aria-label={label}
           type="date"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit()
-            if (e.key === 'Escape') setEditing(false)
+            if (e.key === 'Escape') {
+              e.stopPropagation()
+              setEditing(false)
+            }
           }}
         />
       </div>
