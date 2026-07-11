@@ -145,8 +145,8 @@
 
 .trade-row-ref {
   overflow: hidden;
-  color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
@@ -360,10 +360,16 @@
   font-variant-numeric: tabular-nums;
 }
 
-.trade-row-pnl,
+.trade-row-pnl {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+}
+
 .trade-row-r {
   font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
 }
 
 .trade-row-pnl.is-positive {
@@ -376,7 +382,7 @@
 
 .trade-row-pnl.is-zero,
 .trade-row-r.is-zero {
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 
 .trade-row-r.is-positive {
@@ -390,7 +396,7 @@
 .trade-row-date {
   color: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--fs-mini);
 }
 
 .trade-row-end {
