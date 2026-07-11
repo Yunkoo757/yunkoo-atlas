@@ -127,7 +127,7 @@
   color: var(--text-quaternary);
   flex-shrink: 0;
 }
-.sb-item > span:not(.sb-item-count) {
+.sb-item-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

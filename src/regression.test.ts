@@ -133,23 +133,72 @@ export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void 
   )
 }
 
-export function testSecondarySidebarQuickNavMatchesApprovedArchitecture(): void {
+export function testLegacySecondarySidebarMetadataSupportsWorkspaceMigration(): void {
   const routes = SECONDARY_NAV.map((item) => item.to)
   const expected = ['/active', '/favorites', '/missed', '/sim']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
-    `快捷导航路由应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
+    `旧快捷导航迁移路由应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
   )
   assert(
     routes.every((route) => !route.startsWith('/period/') && !route.startsWith('/strategy/')),
-    '时间和策略路由不得出现在快捷侧栏导航',
+    '旧快捷入口只用于迁移，不得混入时间和策略路由',
   )
   const paper = SECONDARY_NAV.find((item) => item.id === 'paper')
   assert(paper?.label === '模拟回测', 'paper 项侧栏文案应为「模拟回测」')
   assert(
     JSON.stringify(DEFAULT_SIDEBAR_PINS) === JSON.stringify(['active', 'favorites', 'missed', 'paper']),
-    '默认 sidebarPins 应包含四项快捷入口',
+    '默认 sidebarPins 应保留四项系统入口用于历史配置迁移',
   )
+}
+
+export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContract(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/components/Sidebar.tsx', 'utf8')
+  const defaultSystemTargets = DEFAULT_DISPLAY.sidebarWorkspaceItems
+    .filter((item) => item.target.kind === 'system')
+    .map((item) => item.target.kind === 'system' ? item.target.id : '')
+
+  assert(
+    defaultSystemTargets.join(',') === 'active,favorites,missed,paper',
+    '默认工作区配置应包含四个系统目标并保持迁移顺序',
+  )
+  assert(
+    PRIMARY_NAV.map((item) => item.id).join(',') === 'today,trades,reviewCases,dashboard',
+    '核心模块顺序必须保持今日、交易、案例、仪表盘',
+  )
+
+  const savedView = {
+    id: 'saved-valid',
+    name: '有效保存视图',
+    pathname: '/list',
+    search: { status: 'loss' },
+    pinned: false,
+    order: 0,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-01T00:00:00.000Z',
+  }
+  const configured = normalizeSidebarWorkspaceItems([
+    ...DEFAULT_DISPLAY.sidebarWorkspaceItems,
+    { id: 'saved-valid', target: { kind: 'saved-view', viewId: savedView.id }, placement: 'pinned', order: 4 },
+    { id: 'strategy-valid', target: { kind: 'strategy', strategyId: strategy.id }, placement: 'pinned', order: 5 },
+    { id: 'case-focus', target: { kind: 'case-view', scope: 'focus' }, placement: 'pinned', order: 6 },
+    { id: 'saved-invalid', target: { kind: 'saved-view', viewId: 'deleted' }, placement: 'pinned', order: 7 },
+    { id: 'case-mistakes', target: { kind: 'case-view', scope: 'mistakes' }, placement: 'pinned', order: 8 },
+  ] as SidebarWorkspaceItem[])
+  const dailyItems = configured
+    .filter((item) => item.placement === 'pinned')
+    .map((item) => resolveSidebarWorkspaceItem(item, { savedViews: [savedView], strategies: [strategy] }))
+    .filter((item) => !item.invalid)
+
+  assert(dailyItems.length === 7, '日常列表应只保留前 8 个 pinned 中的有效项')
+  assert(!dailyItems.some((item) => item.item.id === 'saved-invalid'), '失效项不得进入日常列表')
+  assert(!dailyItems.some((item) => item.item.id === 'case-mistakes'), '第 9 个配置项不得进入 pinned 日常列表')
+  assert(source.includes('state.display.sidebarWorkspaceItems'), 'Sidebar 应读取统一工作区配置')
+  assert(source.includes('resolveSidebarWorkspaceItem'), 'Sidebar 应通过统一解析器准备日常项')
+  assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')
+  assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
+  assert(!source.includes('resolvePinnedSecondaryNav'), 'Sidebar 不得继续直接解析旧 sidebarPins')
 }
 
 export function testResolvePinnedSecondaryNavOrdersAndHidesEmpty(): void {

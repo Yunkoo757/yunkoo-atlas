@@ -1,0 +1,70 @@
+.sb-workspace-heading {
+  justify-content: space-between;
+}
+
+.sb-workspace-menu {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 20px;
+  margin-right: -4px;
+  border-radius: var(--radius-6);
+  color: var(--text-quaternary);
+  font-size: var(--fs-sm);
+  letter-spacing: 1px;
+}
+
+.sb-workspace-menu:hover,
+.sb-workspace-manage:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.sb-workspace-manage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 8px;
+  border-radius: var(--radius-6);
+  color: var(--text-quaternary);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.sb-modified-indicator {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sb-modified-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.sb-item.is-modified .sb-modified-dot {
+  background: var(--text-tertiary);
+}
+
+.sb-screen-reader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .sb-workspace-menu,
+  .sb-workspace-manage,
+  .sb-modified-indicator {
+    display: none;
+  }
+}
