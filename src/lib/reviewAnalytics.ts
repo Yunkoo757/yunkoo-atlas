@@ -1,4 +1,5 @@
 import type { ReviewCategory, ReviewStatus, Trade, TradeKind } from '@/data/trades'
+import { resolveTimeframe } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 
 export const DEFAULT_REVIEW_STATUS: ReviewStatus = 'unreviewed'
@@ -53,6 +54,7 @@ export function normalizeReviewFields(trade: Trade): Trade {
     mistakeTags,
     reviewStatus,
     reviewCategory,
+    timeframe: resolveTimeframe(trade.timeframe),
   }
 }
 

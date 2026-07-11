@@ -28,9 +28,9 @@ export function pickPersisted(
   tagPresets: string[]
   mistakeTagPresets: string[]
   profile: PersistedSnapshot['profile']
-  cases: PersistedSnapshot['cases']
-  disputeTypes: PersistedSnapshot['disputeTypes']
   savedTradeViews: PersistedSnapshot['savedTradeViews']
+  symbolIcons: PersistedSnapshot['symbolIcons']
+  symbolCatalog: PersistedSnapshot['symbolCatalog']
 },
   shortcutBindings?: Record<string, ShortcutBinding | null>,
 ): PersistedSnapshot {
@@ -45,9 +45,9 @@ export function pickPersisted(
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
     profile: state.profile,
-    cases: state.cases,
-    disputeTypes: state.disputeTypes,
     savedTradeViews: state.savedTradeViews,
+    symbolIcons: state.symbolIcons,
+    symbolCatalog: state.symbolCatalog,
     ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }
 }

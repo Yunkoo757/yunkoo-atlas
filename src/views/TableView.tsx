@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { useStore } from '@/store/useStore'
 import { filterTrades, applyDisplayPrefs, type ListFilter } from '@/lib/tradeFilters'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildTradeTableRow } from '@/lib/tradeTable'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import type { Trade } from '@/data/trades'
+import { SymbolLabel } from '@/components/SymbolIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './TableView.css'
 
@@ -29,14 +30,24 @@ export function TableView({
 }) {
   const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategies = useStore((s) => s.strategies)
+  const symbolIcons = useStore((s) => s.symbolIcons)
   const display = useStore((s) => s.display)
   const starredIds = useStore((s) => s.starredIds)
   const openComposer = useStore((s) => s.openComposer)
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const navigate = useNavigate()
+  const location = useLocation()
 
   useListContextSync(filter)
+
+  const detailState = tradeDetailNavState({
+    pathname: location.pathname,
+    search: location.search,
+  })
+  const openTrade = (trade: Trade) => {
+    navigate(tradeDetailPath(trade), { state: detailState })
+  }
 
   const visible = useMemo(() => {
     const filtered = filterTrades(trades, filter, starredIds)
@@ -79,6 +90,7 @@ export function TableView({
                 <th className="tv-sticky tv-col-ref">Trade</th>
                 <SortTh label="Date" sortKey="date" active={sortKey} dir={sortDir} onSort={setSort} />
                 <SortTh label="Symbol" sortKey="symbol" active={sortKey} dir={sortDir} onSort={setSort} />
+                <th>Timeframe</th>
                 <th>Model</th>
                 <th>Confluences</th>
                 <th>Entry Signal</th>
@@ -94,15 +106,18 @@ export function TableView({
               {visible.map((trade) => {
                 const row = buildTradeTableRow(trade, strategies)
                 return (
-                  <tr key={trade.id} onDoubleClick={() => navigate(tradeDetailPath(trade))}>
+                  <tr key={trade.id} onDoubleClick={() => openTrade(trade)}>
                     <td className="tv-sticky tv-col-ref">
-                      <Link to={tradeDetailPath(trade)} className="tv-ref">
+                      <Link to={tradeDetailPath(trade)} state={detailState} className="tv-ref">
                         {row.ref}
                       </Link>
                     </td>
                     <td className="tv-date">{row.date}</td>
                     <td>
-                      <span className="tv-symbol">{row.symbol}</span>
+                      <SymbolLabel symbol={row.symbol} overrides={symbolIcons} size={15} />
+                    </td>
+                    <td>
+                      <span className="tv-muted-chip">{row.timeframe}</span>
                     </td>
                     <td>
                       <span className="tv-muted-chip">{row.model}</span>

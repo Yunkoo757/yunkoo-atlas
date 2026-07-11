@@ -59,8 +59,8 @@
   position: relative;
   display: grid;
   grid-template-columns:
-    18px 18px 58px minmax(280px, 360px) minmax(220px, 1fr)
-    minmax(120px, 180px) 72px 58px 64px 26px;
+    18px 18px 58px minmax(280px, 360px) minmax(200px, 1fr)
+    44px minmax(110px, 170px) 72px 58px 64px 26px;
   align-items: center;
   column-gap: 10px;
   height: var(--trade-row-height);
@@ -169,11 +169,22 @@
   min-width: 0;
 }
 
+.trade-row-symbol-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
 .trade-row-symbol strong {
+  flex: 0 0 8.5ch;
+  width: 8.5ch;
   overflow: hidden;
   color: var(--text-primary);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -197,6 +208,14 @@
   overflow: hidden;
 }
 
+.trade-row-timeframe-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .trade-row-mistakes {
   justify-content: flex-end;
   gap: 4px;
@@ -210,7 +229,8 @@
 
 .trade-row-tag,
 .trade-row-more,
-.trade-row-session {
+.trade-row-session,
+.trade-row-timeframe {
   flex: 0 0 auto;
   height: var(--chip-height-sm);
   padding: 0 7px;
@@ -223,6 +243,35 @@
   background: lch(7.2% 0.75 272);
   border: 1px solid transparent;
   border-radius: var(--radius-full);
+}
+
+.trade-row-timeframe {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.trade-row-timeframe.is-minute {
+  color: lch(74% 28 195);
+  background: lch(16% 6 195 / 0.42);
+  border-color: lch(30% 10 195 / 0.42);
+}
+
+.trade-row-timeframe.is-hour {
+  color: lch(74% 30 300);
+  background: lch(16% 7 300 / 0.42);
+  border-color: lch(30% 11 300 / 0.42);
+}
+
+.trade-row-timeframe.is-day {
+  color: lch(76% 28 55);
+  background: lch(16% 6 55 / 0.42);
+  border-color: lch(30% 10 55 / 0.4);
+}
+
+.trade-row-timeframe.is-other {
+  color: var(--text-tertiary);
+  background: lch(8.4% 1.1 272);
+  border-color: var(--border-subtle);
 }
 
 .trade-row-session {
@@ -337,8 +386,8 @@
 @media (max-width: 1080px) {
   .trade-row {
     grid-template-columns:
-      18px 18px minmax(160px, 1fr) minmax(110px, 150px)
-      minmax(90px, 120px) 50px 58px 24px;
+      18px 18px minmax(160px, 1fr) minmax(100px, 140px) 40px
+      minmax(80px, 110px) 50px 58px 24px;
   }
 
   .trade-row-ref,
@@ -350,7 +399,7 @@
 
 @media (max-width: 700px) {
   .trade-row {
-    grid-template-columns: 18px minmax(120px, 1fr) 54px 58px 26px;
+    grid-template-columns: 18px minmax(120px, 1fr) 40px 54px 58px 26px;
     column-gap: 6px;
     padding: 0 var(--sp-2);
   }

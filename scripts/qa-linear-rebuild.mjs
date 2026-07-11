@@ -62,14 +62,6 @@ async function seedData() {
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/)
 
-  await open('/cases')
-  await page.locator('.cl-create-btn').filter({ hasText: '新建判例' }).click()
-  await page.locator('.ncm').waitFor({ state: 'visible' })
-  await page.locator('.ncm-textarea').fill('最终验收判例')
-  await page.locator('.ncm-submit').click()
-  await page.waitForURL((url) => url.pathname === '/cases' && url.searchParams.has('case'))
-  await page.locator('.cd-close').click()
-
   return tradeDetailPath
 }
 
@@ -81,7 +73,6 @@ try {
     { name: 'review-cases', path: '/review-cases', selector: '.list-scroll' },
     { name: 'trade-detail', path: tradeDetailPath, selector: '.trade-detail-layout' },
     { name: 'dashboard', path: '/dashboard', selector: '.db-scroll' },
-    { name: 'cases', path: '/cases', selector: '.cl-content' },
     { name: 'settings-profile', path: '/settings/profile', selector: '.settings-panel' },
   ]
 

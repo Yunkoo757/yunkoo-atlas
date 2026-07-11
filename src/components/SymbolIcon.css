@@ -1,0 +1,38 @@
+.symbol-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--radius-4);
+  border: 1px solid color-mix(in srgb, var(--border-default) 70%, transparent);
+  line-height: 1;
+  user-select: none;
+}
+
+.symbol-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.symbol-icon.is-glyph {
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
+}
+
+.symbol-icon.is-svg {
+  border-color: color-mix(in srgb, var(--border-default) 40%, transparent);
+}
+
+.symbol-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.symbol-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

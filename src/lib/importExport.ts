@@ -19,8 +19,6 @@ import {
   getStorage,
 } from '@/storage'
 import type { ExportAssetRecord } from '@/storage/types'
-import type { CaseRecord, DisputeType } from '@/data/case'
-import { isDeleted } from '@/data/case'
 import { flushPersistNow } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -29,6 +27,18 @@ import {
   normalizeSavedTradeViews,
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
+import {
+  mergeSymbolIcons,
+  normalizeSymbolIcons,
+  mergeSymbolCatalog,
+  normalizeSymbolCatalog,
+  type SymbolIconsMap,
+} from '@/lib/symbolIcons'
+import {
+  collectAllMistakeTags,
+  collectAllTags,
+  mergeTagPresets,
+} from '@/lib/tags'
 
 export const EXPORT_VERSION = 6 // 6: +savedTradeViews
 
@@ -42,9 +52,9 @@ export interface ExportPayload {
   display: DisplayPrefs
   tagPresets?: string[]
   mistakeTagPresets?: string[]
-  cases?: CaseRecord[]
-  disputeTypes?: DisputeType[]
   savedTradeViews?: SavedTradeView[]
+  symbolIcons?: SymbolIconsMap
+  symbolCatalog?: string[]
   assets?: ExportAssetRecord[]
 }
 
@@ -57,17 +67,17 @@ export interface PersistedSlice {
   display: DisplayPrefs
   tagPresets?: string[]
   mistakeTagPresets?: string[]
-  cases?: CaseRecord[]
-  disputeTypes?: DisputeType[]
   savedTradeViews?: SavedTradeView[]
+  symbolIcons?: SymbolIconsMap
+  symbolCatalog?: string[]
 }
 
 interface ExportState extends PersistedSlice {
   tagPresets?: string[]
   mistakeTagPresets?: string[]
-  cases?: CaseRecord[]
-  disputeTypes?: DisputeType[]
   savedTradeViews?: SavedTradeView[]
+  symbolIcons?: SymbolIconsMap
+  symbolCatalog?: string[]
 }
 
 export type ImportResult =
@@ -111,6 +121,7 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   if (!CONVICTIONS.includes(v.conviction as Conviction)) return false
   if (typeof v.strategyId !== 'string' && typeof v.strategy !== 'string') return false
   if (v.session !== undefined && typeof v.session !== 'string') return false
+  if (v.timeframe !== undefined && typeof v.timeframe !== 'string') return false
   if (!Array.isArray(v.tags) || !v.tags.every((t) => typeof t === 'string')) return false
   if (v.mistakeTags !== undefined && !isStringArray(v.mistakeTags)) return false
   if (
@@ -162,13 +173,7 @@ export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
 ): Promise<ExportPayload> {
-  // Filter out deleted cases for export
-  const activeCases = (state.cases ?? []).filter((c) => !isDeleted(c))
-
   const assetIds = new Set(collectAssetIdsFromNotes(state.trades))
-  for (const c of activeCases) {
-    for (const img of c.images) assetIds.add(img.fileId)
-  }
   const assets: ExportAssetRecord[] = []
   for (const id of assetIds) {
     const record = await getAssetForExport(id)
@@ -184,19 +189,19 @@ export async function buildExportPayloadFromState(
     display: state.display,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
-    cases: activeCases, // Only export active (non-deleted) cases
-    disputeTypes: state.disputeTypes,
     savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
+    symbolIcons: normalizeSymbolIcons(state.symbolIcons),
+    symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
     assets,
   }
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes, savedTradeViews } =
+  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes, savedTradeViews },
+    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -222,14 +227,10 @@ export async function downloadExport(): Promise<void> {
  * 图片按原始格式存储，无 base64 膨胀，适合大量图片场景。
  */
 export async function downloadWebJournalZip(): Promise<void> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, cases, disputeTypes, savedTradeViews } =
+  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
     useStore.getState()
   const storage = getStorage()
   const assetIds = new Set(collectAssetIdsFromNotes(trades))
-  // 收集判例截图
-  for (const c of cases) {
-    for (const img of c.images) assetIds.add(img.fileId)
-  }
   const assets: ExportAssetRecord[] = []
   for (const id of assetIds) {
     const rec = await storage.getAssetForExport(id)
@@ -247,9 +248,9 @@ export async function downloadWebJournalZip(): Promise<void> {
     display,
     tagPresets,
     mistakeTagPresets,
-    cases,
-    disputeTypes,
     savedTradeViews,
+    symbolIcons,
+    symbolCatalog,
     assets: assets.map((a) => ({ id: a.id, mime: a.mime })),
   }
   const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
@@ -443,13 +444,7 @@ export function parseImportJson(text: string): ImportResult {
     }
   }
 
-  if (raw.cases !== undefined && !Array.isArray(raw.cases)) {
-    return { ok: false, error: 'cases 必须是数组' }
-  }
-
-  if (raw.disputeTypes !== undefined && !Array.isArray(raw.disputeTypes)) {
-    return { ok: false, error: 'disputeTypes 必须是数组' }
-  }
+  // 旧备份中的 cases / disputeTypes 字段忽略（判例库已移除）
 
   if (raw.tagPresets !== undefined && !isStringArray(raw.tagPresets)) {
     return { ok: false, error: 'tagPresets 必须是字符串数组' }
@@ -463,6 +458,14 @@ export function parseImportJson(text: string): ImportResult {
     return { ok: false, error: 'savedTradeViews 必须是数组' }
   }
 
+  if (raw.symbolIcons !== undefined && (typeof raw.symbolIcons !== 'object' || raw.symbolIcons === null || Array.isArray(raw.symbolIcons))) {
+    return { ok: false, error: 'symbolIcons 必须是对象' }
+  }
+
+  if (raw.symbolCatalog !== undefined && !Array.isArray(raw.symbolCatalog)) {
+    return { ok: false, error: 'symbolCatalog 必须是数组' }
+  }
+
   return {
     ok: true,
     data: {
@@ -474,11 +477,16 @@ export function parseImportJson(text: string): ImportResult {
       pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
       display: parseDisplay(raw.display),
       assets: raw.assets as ExportAssetRecord[] | undefined,
-      cases: raw.cases ?? [],
-      disputeTypes: raw.disputeTypes ?? [],
       tagPresets: raw.tagPresets ?? [],
       mistakeTagPresets: raw.mistakeTagPresets ?? [],
       savedTradeViews: normalizeSavedTradeViews(raw.savedTradeViews),
+      symbolIcons: normalizeSymbolIcons(raw.symbolIcons),
+      symbolCatalog: normalizeSymbolCatalog(
+        raw.symbolCatalog ?? [
+          ...Object.keys(normalizeSymbolIcons(raw.symbolIcons)),
+          ...((raw.trades as Trade[] | undefined) ?? []).map((trade) => trade.symbol),
+        ],
+      ),
     },
   }
 }
@@ -498,32 +506,37 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
   for (const t of migrated) {
     tradeMap.set(t.id, t)
   }
-  const caseMap = new Map((current.cases ?? []).map((c) => [c.id, c]))
-  for (const c of payload.cases ?? []) {
-    caseMap.set(c.id, c)
-  }
-  const disputeTypeMap = new Map((current.disputeTypes ?? []).map((d) => [d.id, d]))
-  for (const d of payload.disputeTypes ?? []) {
-    disputeTypeMap.set(d.id, d)
-  }
+  const trades = normalizeTrades(Array.from(tradeMap.values()))
   return {
     strategies,
-    trades: normalizeTrades(Array.from(tradeMap.values())),
+    trades,
     starredIds: [...new Set([...current.starredIds, ...payload.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...payload.subscribedIds])],
     pinnedStrategyIds: [
       ...new Set([...current.pinnedStrategyIds, ...payload.pinnedStrategyIds]),
     ],
     display: { ...current.display, ...payload.display },
-    tagPresets: [...new Set([...(current.tagPresets ?? []), ...(payload.tagPresets ?? [])])],
-    mistakeTagPresets: [
-      ...new Set([...(current.mistakeTagPresets ?? []), ...(payload.mistakeTagPresets ?? [])]),
-    ],
-    cases: Array.from(caseMap.values()),
-    disputeTypes: Array.from(disputeTypeMap.values()),
+    tagPresets: mergeTagPresets(
+      current.tagPresets ?? [],
+      payload.tagPresets ?? [],
+      collectAllTags(trades),
+    ),
+    mistakeTagPresets: mergeTagPresets(
+      current.mistakeTagPresets ?? [],
+      payload.mistakeTagPresets ?? [],
+      collectAllMistakeTags(trades),
+    ),
     savedTradeViews: mergeSavedTradeViews(
       current.savedTradeViews ?? [],
       payload.savedTradeViews ?? [],
+    ),
+    symbolIcons: mergeSymbolIcons(
+      current.symbolIcons ?? {},
+      payload.symbolIcons ?? {},
+    ),
+    symbolCatalog: mergeSymbolCatalog(
+      current.symbolCatalog ?? [],
+      payload.symbolCatalog ?? [],
     ),
   }
 }
@@ -541,41 +554,37 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     })),
   )
 
-  const caseCount = payload.cases?.length ?? 0
   const assetCount = payload.assets?.length ?? 0
   const parts: string[] = [`${trades.length} 笔交易`]
-  if (caseCount > 0) parts.push(`${caseCount} 条判例`)
   if (assetCount > 0) parts.push(`${assetCount} 个附件`)
 
-  // Preserve local deleted cases when importing
-  const currentCases = useStore.getState().cases
-  const localDeletedCases = currentCases.filter((c) => isDeleted(c))
-  const importedCases = payload.cases ?? []
-
-  // Merge: imported cases + local deleted cases (avoid duplicates)
-  const caseMap = new Map<string, CaseRecord>()
-  for (const c of importedCases) caseMap.set(c.id, c)
-  for (const c of localDeletedCases) caseMap.set(c.id, c) // Local deleted cases take precedence
-  const mergedCases = Array.from(caseMap.values())
-
-  useStore.getState().importData({ ...payload, trades, cases: mergedCases })
+  useStore.getState().importData({ ...payload, trades })
   await flushPersistNow()
   return { summary: `已导入 ${parts.join('、')}` }
 }
 
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
+  const trades = normalizeTrades(snapshot.trades)
   useStore.setState({
-    trades: normalizeTrades(snapshot.trades),
+    trades,
     strategies: snapshot.strategies,
     starredIds: snapshot.starredIds,
     subscribedIds: snapshot.subscribedIds,
     pinnedStrategyIds: snapshot.pinnedStrategyIds,
     display: normalizeDisplay(snapshot.display),
-    tagPresets: snapshot.tagPresets ?? [],
-    mistakeTagPresets: snapshot.mistakeTagPresets ?? [],
-    cases: snapshot.cases ?? [],
-    disputeTypes: snapshot.disputeTypes ?? [],
+    tagPresets: mergeTagPresets(snapshot.tagPresets ?? [], collectAllTags(trades)),
+    mistakeTagPresets: mergeTagPresets(
+      snapshot.mistakeTagPresets ?? [],
+      collectAllMistakeTags(trades),
+    ),
     savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
+    symbolIcons: normalizeSymbolIcons(snapshot.symbolIcons),
+    symbolCatalog: normalizeSymbolCatalog(
+      snapshot.symbolCatalog ?? [
+        ...Object.keys(normalizeSymbolIcons(snapshot.symbolIcons)),
+        ...trades.map((trade) => trade.symbol),
+      ],
+    ),
   })
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }

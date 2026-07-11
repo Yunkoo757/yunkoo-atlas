@@ -6,10 +6,11 @@ import { EmptyState } from '@/components/EmptyState'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
+import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
 import { getStrategyName } from '@/lib/strategies'
 import { useStore } from '@/store/useStore'
-import { REVIEW_CATEGORY_META, STATUS_META, type TradeStatus, type Trade } from '@/data/trades'
+import { REVIEW_CATEGORY_META, STATUS_META, getTimeframeTone, resolveTimeframe, type TradeStatus, type Trade } from '@/data/trades'
 import {
   filterTrades,
   applyDisplayPrefs,
@@ -40,6 +41,7 @@ export function BoardView({
 }) {
   const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategies = useStore((s) => s.strategies)
+  const symbolIcons = useStore((s) => s.symbolIcons)
   const display = useStore((s) => s.display)
   const starredIds = useStore((s) => s.starredIds)
   const subscribedIds = useStore((s) => s.subscribedIds)
@@ -198,22 +200,33 @@ export function BoardView({
                       )}
                     </div>
                     <div className="bd-card-title">
-                      <span className="bd-card-symbol">{t.symbol}</span>
+                      <span className="bd-card-symbol">
+                        <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={15} />
+                        {t.symbol}
+                      </span>
                       <SideTag side={t.side} />
                     </div>
                     <div className="bd-card-strategy">
                       <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={13} />
                     </div>
-                    {isReviewCaseView && (t.tags.length > 0 || t.mistakeTags.length > 0) && (
-                      <div className="bd-case-tags">
-                        {t.mistakeTags.slice(0, 2).map((tag) => (
-                          <span className="bd-case-tag bd-case-tag-danger" key={tag}>{tag}</span>
-                        ))}
-                        {t.tags.slice(0, t.mistakeTags.length > 0 ? 1 : 2).map((tag) => (
-                          <span className="bd-case-tag" key={tag}>{tag}</span>
-                        ))}
+                    <div className="bd-case-tags">
+                        <span
+                          className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(resolveTimeframe(t.timeframe))}`}
+                          title={`波段级别 ${resolveTimeframe(t.timeframe)}`}
+                        >
+                          {resolveTimeframe(t.timeframe)}
+                        </span>
+                        {isReviewCaseView &&
+                          t.mistakeTags.slice(0, 2).map((tag) => (
+                            <span className="bd-case-tag bd-case-tag-danger" key={tag}>{tag}</span>
+                          ))}
+                        {isReviewCaseView &&
+                          t.tags
+                            .slice(0, t.mistakeTags.length > 0 ? 1 : 2)
+                            .map((tag) => (
+                              <span className="bd-case-tag" key={tag}>{tag}</span>
+                            ))}
                       </div>
-                    )}
                     <div className="bd-card-foot">
                       <span
                         style={{

@@ -42,6 +42,7 @@ export function testNormalizeReviewFields(): void {
   assert(normalized.reviewStatus === 'unreviewed', 'legacy trades default to unreviewed')
   assert(normalized.reviewCategory === 'normal', 'legacy trades default to normal category')
   assert(Array.isArray(normalized.mistakeTags), 'legacy trades get mistakeTags array')
+  assert(normalized.timeframe === '4H', 'legacy trades without timeframe default to 4H')
 }
 
 export function testSummarizeStrategyPerformance(): void {

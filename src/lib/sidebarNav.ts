@@ -7,11 +7,10 @@ import {
   CircleDot,
   FlaskConical,
   ListTodo,
-  Scale,
   Star,
 } from 'lucide-react'
 
-export type PrimarySidebarNavId = 'today' | 'trades' | 'reviewCases' | 'dashboard' | 'cases'
+export type PrimarySidebarNavId = 'today' | 'trades' | 'reviewCases' | 'dashboard'
 
 export interface PrimarySidebarNavItem {
   id: PrimarySidebarNavId
@@ -25,7 +24,6 @@ export const PRIMARY_NAV: PrimarySidebarNavItem[] = [
   { id: 'trades', to: '/list', label: '交易日志', icon: ListTodo },
   { id: 'reviewCases', to: '/review-cases', label: '案例记录', icon: BookOpen },
   { id: 'dashboard', to: '/dashboard', label: '仪表盘', icon: BarChart3 },
-  { id: 'cases', to: '/cases', label: '判例', icon: Scale },
 ]
 
 export type SidebarNavId = 'active' | 'favorites' | 'missed' | 'paper'

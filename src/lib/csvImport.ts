@@ -1,4 +1,5 @@
 import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind, ReviewCategory } from '@/data/trades'
+import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 
 export interface CsvParseResult {
@@ -25,6 +26,7 @@ export type TradeField =
   | 'symbol' | 'side' | 'status' | 'conviction' | 'strategyId'
   | 'tags' | 'tradeKind' | 'reviewCategory' | 'entry' | 'exit' | 'size' | 'pnl'
   | 'rMultiple' | 'openedAt' | 'closedAt' | 'note' | 'stopLoss' | 'missReason'
+  | 'session' | 'timeframe'
 
 const TRADE_FIELDS: { key: TradeField; label: string; required: boolean; type: string }[] = [
   { key: 'symbol', label: '标的', required: true, type: 'string' },
@@ -35,6 +37,8 @@ const TRADE_FIELDS: { key: TradeField; label: string; required: boolean; type: s
   { key: 'tags', label: '标签', required: false, type: 'tags' },
   { key: 'tradeKind', label: '类型', required: false, type: 'tradeKind' },
   { key: 'reviewCategory', label: '快速分类', required: false, type: 'reviewCategory' },
+  { key: 'session', label: '交易时段', required: false, type: 'string' },
+  { key: 'timeframe', label: '波段级别', required: false, type: 'string' },
   { key: 'entry', label: '入场价', required: true, type: 'number' },
   { key: 'exit', label: '出场价', required: false, type: 'number' },
   { key: 'size', label: '仓位', required: true, type: 'number' },
@@ -367,6 +371,14 @@ export function mapRowToTrade(
         else if (raw.trim()) errors.push(`错过原因无效: "${raw}"`)
         break
       }
+      case 'session':
+        if (raw.trim()) trade.session = raw.trim()
+        break
+      case 'timeframe': {
+        const tf = normalizeTimeframe(raw)
+        if (tf) trade.timeframe = tf
+        break
+      }
     }
   }
 
@@ -407,6 +419,7 @@ export function finalizeTrade(
     conviction: partial.conviction ?? 'medium',
     strategyId: partial.strategyId,
     session: partial.session,
+    timeframe: resolveTimeframe(partial.timeframe),
     tags: partial.tags ?? [],
     mistakeTags: partial.mistakeTags ?? [],
     reviewStatus: partial.reviewStatus ?? 'unreviewed',

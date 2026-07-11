@@ -17,8 +17,12 @@ import {
   isDetailPath,
   listPathFromPathname,
 } from '@/lib/routeContext'
-import { tradeDetailPath } from '@/lib/tradeRoute'
-import { findTradeByRouteParam } from '@/lib/tradeRoute'
+import { tradeDetailPath, resolveTradeDetailReturn, findTradeByRouteParam } from '@/lib/tradeRoute'
+import { routeWithSearch } from '@/lib/tradeView'
+import {
+  resolveWorkspaceNavTarget,
+  workspaceRouteHref,
+} from '@/lib/workspaceViews'
 import { formatBinding } from '@/shortcuts/format'
 import { getActionMeta } from '@/shortcuts/actions'
 
@@ -28,7 +32,7 @@ export function useShortcutHost({
   onToggleCmdk: () => void
 }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, state: locationState } = useLocation()
   const trades = useStore((s) => s.trades)
   const openComposer = useStore((s) => s.openComposer)
   const closeComposer = useStore((s) => s.closeComposer)
@@ -45,15 +49,11 @@ export function useShortcutHost({
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
       'global.newTrade': () => {
-        if (pathname.startsWith('/cases') || pathname === '/trash') {
-          useStore.getState().setCaseModalOpen(true)
-        } else {
-          openComposer()
-        }
+        openComposer()
       },
       'global.switchModule': () => {
-        const inCaseLaw = pathname.startsWith('/cases') || pathname === '/trash'
-        navigate(inCaseLaw ? '/list' : '/cases')
+        const inReviewCases = pathname.startsWith('/review-cases')
+        navigate(inReviewCases ? '/list' : '/review-cases')
       },
       'global.undo': () => {
         const s = useStore.getState()
@@ -73,7 +73,10 @@ export function useShortcutHost({
       'nav.favorites': () => navigate('/favorites'),
       'nav.missed': () => navigate('/missed'),
       'nav.sim': () => navigate('/sim'),
-      'nav.list': () => navigate('/list'),
+      'nav.list': () => {
+        const memory = useStore.getState().display.workspaceMemory?.trade
+        navigate(workspaceRouteHref(resolveWorkspaceNavTarget('trade', memory)))
+      },
       'nav.board': () => navigate('/board'),
       'nav.dashboard': () => navigate('/dashboard'),
       'nav.strategies': () => navigate('/settings/strategies'),
@@ -97,7 +100,7 @@ export function useShortcutHost({
           findAdjacentTradeId(listContext, trade?.id, 'prev') ??
           fallbackAdjacentTradeId(trades, trade?.id, 'prev')
         const next = trades.find((t) => t.id === id)
-        if (next) navigate(tradeDetailPath(next))
+        if (next) navigate(tradeDetailPath(next), { state: locationState })
       },
       'trade.next': () => {
         const listContext = useShortcutStore.getState().listContext
@@ -107,12 +110,23 @@ export function useShortcutHost({
           findAdjacentTradeId(listContext, trade?.id, 'next') ??
           fallbackAdjacentTradeId(trades, trade?.id, 'next')
         const next = trades.find((t) => t.id === id)
-        if (next) navigate(tradeDetailPath(next))
+        if (next) navigate(tradeDetailPath(next), { state: locationState })
       },
       'trade.backToList': () => {
         const listContext = useShortcutStore.getState().listContext
-        const listPath = listContext?.listPath ?? '/list'
-        navigate(isBoardPath(pathname) ? boardPathFromListPath(listPath) : listPath)
+        const param = pathname.replace(/^\/trade\//, '')
+        const trade = findTradeByRouteParam(trades, param)
+        const target = resolveTradeDetailReturn({
+          from: (locationState as { from?: { pathname: string; search?: string } } | null)?.from,
+          listPath: listContext?.listPath,
+          listSearch: listContext?.listSearch,
+          tradeKind: trade?.tradeKind,
+        })
+        if (isBoardPath(pathname) && listContext?.listPath) {
+          navigate(routeWithSearch(boardPathFromListPath(listContext.listPath), listContext.listSearch))
+          return
+        }
+        navigate(target)
       },
 
       'image.prev': lightboxPrev,
@@ -121,6 +135,7 @@ export function useShortcutHost({
     })
   }, [
     pathname,
+    locationState,
     trades,
     lightbox,
     cmdkOpen,

@@ -50,7 +50,11 @@ export function TagEditor({
 
   const commit = (tag?: string) => {
     const t = (tag ?? value).trim()
-    if (t && !tags.includes(t)) onAdd(t)
+    if (t && !tags.includes(t)) {
+      onAdd(t)
+      // 手动录入默认写入预设，便于后续点选
+      if (onAddPreset && !presets.includes(t)) onAddPreset(t)
+    }
     setValue('')
     setEditing(false)
     setActiveIdx(0)
@@ -105,7 +109,7 @@ export function TagEditor({
 
   return (
     <div className="tag-editor">
-      {presets.length > 0 && (
+      {(presets.length > 0 || onAddPreset) && (
         <div className="tag-presets-row">
           {presets.map((p) => (
             <span key={p}>
