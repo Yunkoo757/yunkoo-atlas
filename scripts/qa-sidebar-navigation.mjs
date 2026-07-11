@@ -249,8 +249,10 @@ try {
   if (!headingId) throw new Error('Manager heading must have an id')
   await expectAttribute(editor, 'aria-labelledby', headingId)
   await expectFocused(editorHeading)
-  await expectText(page.locator('[data-sidebar-capacity]'), /\d+ \/ 8/)
+  await expectText(page.locator('[data-sidebar-capacity]'), /常驻 \d+ \/ 8/)
   await expectVisible(page.getByRole('button', { name: '浏览可添加项目' }))
+  await expectVisible(editor.getByRole('heading', { name: '常驻侧栏' }))
+  await expectVisible(editor.getByRole('heading', { name: '更多' }))
 
   const rows = editor.locator('[data-sidebar-item]')
   await expectAttribute(rows.nth(0), 'tabindex', null)
@@ -267,12 +269,18 @@ try {
   if (dailyLabels[0] !== originalLabels[0]) throw new Error('Escape persisted the draft unexpectedly')
 
   await manageButton.click()
+  await expectVisible(editor)
+  await page.getByRole('button', { name: '关闭管理我的空间' }).click()
+  await expectCount(editor, 0)
+  await expectFocused(manageButton)
+
+  await manageButton.click()
   const firstHandle = rows.nth(0).getByRole('button', { name: `排序 ${originalLabels[0]}` })
   const descriptionId = await firstHandle.getAttribute('aria-describedby')
   if (!descriptionId) throw new Error('Sort handle must describe position and shortcuts')
-  await expectText(editor.locator(`#${descriptionId}`), /第 1 项，共 \d+ 项。使用 Alt \+ 上\/下方向键排序/)
+  await expectText(editor.locator(`#${descriptionId}`), /常驻第 1 项，共 \d+ 项。使用 Alt \+ 上\/下方向键排序/)
   await firstHandle.press('Alt+ArrowDown')
-  await expectText(editor.locator('[aria-live="polite"]'), new RegExp(`${originalLabels[0]} 已移动到第 2 项，共 ${originalLabels.length} 项`))
+  await expectText(editor.locator('[aria-live="polite"]'), new RegExp(`${originalLabels[0]} 已移动到常驻第 2 项`))
   const keyboardLabels = await rows.locator('[data-sidebar-item-label]').allTextContents()
   if (keyboardLabels.join('|') !== draggedLabels.join('|')) throw new Error('Keyboard and drag ordering diverged')
   const beforeDelete = await rows.evaluateAll((elements) => elements.map((element) => ({
@@ -325,11 +333,12 @@ try {
   await editor.getByRole('button', { name: /^Breakout：/ }).click()
   await editor.getByRole('button', { name: /^重点：/ }).click()
   await editor.getByRole('button', { name: /^Mean Reversion：/ }).click()
-  await expectText(page.locator('[data-sidebar-capacity]'), /8 \/ 8/)
+  await expectText(page.locator('[data-sidebar-capacity]'), /常驻 8 \/ 8/)
   await editor.getByRole('button', { name: /^Trend Following：/ }).click()
-  await expectVisible(editor.getByText('常驻项目已满，已添加到更多'))
+  await expectVisible(editor.getByText(/常驻已满，已放入「更多」/))
   await expectText(editor.getByRole('button', { name: /^Trend Following：/ }), /更多/)
   await editor.getByRole('button', { name: '返回管理列表' }).click()
+  await expectVisible(editor.locator('[data-sidebar-editor-overflow] [data-sidebar-item-label]', { hasText: 'Trend Following' }))
 
   await editor.getByRole('button', { name: '完成' }).click()
   await page.waitForTimeout(250)
@@ -339,6 +348,9 @@ try {
   if (persistedLabels[0] !== originalLabels[1] || persistedLabels[1] !== originalLabels[0]) {
     throw new Error('Completed ordering was not persisted across refresh')
   }
+  await expectVisible(page.locator('[data-sidebar-overflow] .sb-item-label', { hasText: 'Trend Following' }))
+  await expectCount(page.locator('.sb-workspace > a', { hasText: 'Trend Following' }), 0)
+  await expectVisible(page.getByRole('button', { name: '管理更多项目' }))
 
   const savedWorkspaceLink = page.locator('.sb-workspace > a', { hasText: 'QA 保存视图' })
   await savedWorkspaceLink.click()
@@ -501,7 +513,7 @@ try {
   await expectCount(restoredEditor.getByText('确认恢复默认项目？当前草稿将被替换。'), 0)
   await restoredEditor.getByRole('button', { name: '恢复默认' }).click()
   await restoredEditor.getByRole('button', { name: '确认恢复默认' }).click()
-  await expectText(page.locator('[data-sidebar-capacity]'), /4 \/ 8/)
+  await expectText(page.locator('[data-sidebar-capacity]'), /常驻 4 \/ 8/)
   await restoredEditor.getByRole('button', { name: '完成' }).click()
   await page.waitForTimeout(250)
   await page.reload({ waitUntil: 'domcontentloaded' })

@@ -142,10 +142,24 @@ export function ConvictionIcon({
   )
 }
 
-// 多空方向小标
-export function SideTag({ side }: { side: 'long' | 'short' }) {
+// 多空方向小标；quiet 用于列表行（弱描边 + 轻语义字色，与行内标签一致）
+export function SideTag({
+  side,
+  quiet = false,
+}: {
+  side: 'long' | 'short'
+  quiet?: boolean
+}) {
+  if (quiet) {
+    return (
+      <span className="side-tag is-quiet" data-side={side}>
+        {side === 'long' ? '多' : '空'}
+      </span>
+    )
+  }
   return (
     <span
+      className="side-tag"
       style={{
         fontSize: 'var(--fs-micro)',
         fontWeight: 'var(--font-weight-semibold)',

@@ -34,8 +34,14 @@ import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
 function Count({ value }: { value?: number }) {
-  if (!value) return null
-  return <span className="sb-item-count">{value}</span>
+  return (
+    <span
+      className={'sb-item-count' + (!value ? ' is-empty' : '')}
+      aria-hidden={!value}
+    >
+      {value || 0}
+    </span>
+  )
 }
 
 export const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], LucideIcon> = {
@@ -112,6 +118,7 @@ export function useSidebarNavigationModel() {
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
+  const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
   const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
   const openComposer = useStore((state) => state.openComposer)
   const profile = useStore((state) => state.profile)
@@ -130,18 +137,49 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const pinnedWorkspaceItems = workspaceItems
     .filter((item) => item.item.placement === 'pinned')
     .slice(0, 8)
+  const overflowWorkspaceItems = workspaceItems.filter(
+    (item) => item.item.placement === 'overflow',
+  )
 
   const inReviewCases = path.startsWith('/review-cases')
   const isSettingsActive = path.startsWith('/settings')
 
   const createLabel = inReviewCases ? '新建案例记录' : '新建交易'
-  const openWorkspaceEditor = (button: HTMLButtonElement) => {
+  const openWorkspaceEditor = (
+    button: HTMLButtonElement,
+    section: 'pinned' | 'overflow' = 'pinned',
+  ) => {
     workspaceEditorOpener.current = button
+    setWorkspaceEditorSection(section)
     setWorkspaceEditorOpen(true)
   }
   const closeWorkspaceEditor = () => {
     setWorkspaceEditorOpen(false)
     requestAnimationFrame(() => workspaceEditorOpener.current?.focus())
+  }
+
+  const renderWorkspaceLink = (item: (typeof workspaceItems)[number]) => {
+    const Icon = WORKSPACE_ICONS[item.icon]
+    const active = selection.activeWorkspaceItemId === item.item.id
+    const modified = selection.modifiedWorkspaceItemId === item.item.id
+    return (
+      <NavLink
+        key={item.item.id}
+        to={workspaceRouteHref(item)}
+        className={() => `sb-item${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}`}
+        aria-current={active ? 'page' : undefined}
+      >
+        <Icon size={16} />
+        <span className="sb-item-label">{item.label}</span>
+        {modified ? (
+          <span className="sb-modified-indicator">
+            <span className="sb-modified-dot" aria-hidden="true" />
+            <span className="sb-screen-reader">当前条件已修改</span>
+          </span>
+        ) : null}
+        <Count value={item.count} />
+      </NavLink>
+    )
   }
 
   return (
@@ -205,29 +243,25 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             ···
           </button>
         </div>
-        {pinnedWorkspaceItems.map((item) => {
-          const Icon = WORKSPACE_ICONS[item.icon]
-          const active = selection.activeWorkspaceItemId === item.item.id
-          const modified = selection.modifiedWorkspaceItemId === item.item.id
-          return (
-            <NavLink
-              key={item.item.id}
-              to={workspaceRouteHref(item)}
-              className={() => `sb-item${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}`}
-              aria-current={active ? 'page' : undefined}
-            >
-              <Icon size={16} />
-              <span className="sb-item-label">{item.label}</span>
-              {modified ? (
-                <span className="sb-modified-indicator">
-                  <span className="sb-modified-dot" aria-hidden="true" />
-                  <span className="sb-screen-reader">当前条件已修改</span>
-                </span>
-              ) : null}
-              <Count value={item.count} />
-            </NavLink>
-          )
-        })}
+        {pinnedWorkspaceItems.map(renderWorkspaceLink)}
+        {overflowWorkspaceItems.length > 0 ? (
+          <div className="sb-workspace-overflow" data-sidebar-overflow>
+            <div className="sb-workspace-overflow-heading">
+              <span className="sb-section-label sb-workspace-overflow-label">更多</span>
+              <button
+                type="button"
+                className="sb-workspace-overflow-manage"
+                aria-label="管理更多项目"
+                aria-expanded={workspaceEditorOpen}
+                aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
+                onClick={(event) => openWorkspaceEditor(event.currentTarget, 'overflow')}
+              >
+                管理
+              </button>
+            </div>
+            {overflowWorkspaceItems.map(renderWorkspaceLink)}
+          </div>
+        ) : null}
         <button
           type="button"
           className="sb-workspace-manage"
@@ -239,18 +273,29 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <span aria-hidden="true">＋</span>
           <span>添加或管理</span>
         </button>
-        {workspaceEditorOpen ? (
+      </nav>
+
+      {workspaceEditorOpen ? (
+        <div className="sb-workspace-editor-portal" role="presentation">
+          <button
+            type="button"
+            className="sb-workspace-editor-backdrop"
+            aria-label="关闭管理我的空间"
+            tabIndex={-1}
+            onClick={closeWorkspaceEditor}
+          />
           <SidebarWorkspaceEditor
             items={sidebarWorkspaceItems}
             sources={{ savedViews: savedTradeViews, strategies }}
+            initialSection={workspaceEditorSection}
             onCommit={(items) => {
               replaceSidebarWorkspaceItems(items)
               closeWorkspaceEditor()
             }}
             onCancel={closeWorkspaceEditor}
           />
-        ) : null}
-      </nav>
+        </div>
+      ) : null}
 
       <div className="sb-spacer" />
 

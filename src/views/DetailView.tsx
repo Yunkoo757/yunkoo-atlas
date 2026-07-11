@@ -14,10 +14,8 @@ import {
   X,
   Send,
   BookOpen,
-  Tag as TagIcon,
   CalendarDays,
   Box,
-  UserCircle,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
@@ -256,36 +254,6 @@ export function DetailView() {
     () => collectMistakeTagOptions(mistakeTagPresets, trades),
     [mistakeTagPresets, trades],
   )
-  const tagPreview = (tag: string, kind: 'tag' | 'mistake' = 'tag') => {
-    const usedBy = trades.filter((t) =>
-      kind === 'mistake' ? t.mistakeTags.includes(tag) : t.tags.includes(tag),
-    )
-    return (
-      <>
-        <PreviewHeader
-          icon={
-            <span
-              className="hp-head-icon-dot"
-              style={{ background: kind === 'mistake' ? 'var(--neg)' : 'var(--accent)' }}
-            />
-          }
-          title={tag}
-          subtitle={kind === 'mistake' ? '错误 / 违规标签' : '交易标签'}
-        />
-        <div className="hp-divider" />
-        <PreviewMeta>
-          <span className="hp-meta-item">
-            <TagIcon size={14} />
-            <span className="hp-meta-strong">{usedBy.length}</span> 笔交易使用
-          </span>
-          <span className="hp-meta-item">
-            <UserCircle size={14} />
-            {profile.displayName}
-          </span>
-        </PreviewMeta>
-      </>
-    )
-  }
 
   const strategyPreview = (strategyId: string) => {
     const strategy = strategies.find((s) => s.id === strategyId)
@@ -971,7 +939,6 @@ export function DetailView() {
               onRemove={(tag) => removeTag(trade.id, tag)}
               onAddPreset={addTagPreset}
               onRemovePreset={removeTagPreset}
-              getTagPreview={(tag) => tagPreview(tag)}
             />
           </Section>
 
@@ -980,7 +947,6 @@ export function DetailView() {
               tags={trade.mistakeTags}
               suggestions={allMistakeTags}
               presets={mistakeTagPresets}
-              getTagPreview={(tag) => tagPreview(tag, 'mistake')}
               onAddPreset={addMistakeTagPreset}
               onRemovePreset={removeMistakeTagPreset}
               onAdd={(tag) =>

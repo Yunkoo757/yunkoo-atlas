@@ -20,12 +20,16 @@ body,
 body {
   font-family: var(--font-ui);
   font-size: var(--fs-base);
+  font-weight: var(--font-weight-normal);
   line-height: 1.5;
   color: var(--text-primary);
   background: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "rlig" 1, "calt" 1;
+  /* Inter / Notion 常用数字与连字特性 */
+  font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
+  /* 减少系统字体与 Inter 切换时的合成字形跳动 */
+  font-synthesis: none;
 }
 
 ::selection {

@@ -120,6 +120,9 @@
   font-weight: var(--font-weight-medium);
   color: var(--text-tertiary);
   text-align: left;
+}
+
+html[data-ui-settled='1'] .sb-item {
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
@@ -150,9 +153,15 @@
 
 .sb-item-count {
   margin-left: auto;
+  min-width: 2ch;
   color: var(--text-quaternary);
   font-size: var(--fs-micro);
   font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.sb-item-count.is-empty {
+  visibility: hidden;
 }
 
 .sb-item.is-active .sb-item-count {

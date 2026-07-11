@@ -45,12 +45,13 @@
   --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
     0 1px 1px lch(0 0 0 / 0.125);
 
-  /* —— 字体栈（对齐 TradingView 全局控制中心：Inter → Geist → SF Pro Text）—— */
-  --font-regular: Inter, "Geist Sans", Geist, "SF Pro Text", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* —— 字体栈（对齐 Notion Web：Inter 主导拉丁；CJK 回退系统黑体）—— */
+  --font-regular: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --font-display: var(--font-regular);
-  --font-monospace: "Berkeley Mono", "JetBrains Mono", "SFMono Regular",
-    Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  --font-monospace: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
+    Menlo, Courier, monospace;
   --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Segoe UI", "Twemoji Mozilla", "Noto Color Emoji", "Android Emoji";
 
@@ -68,9 +69,9 @@
   --font-size-miniPlus: 0.75rem;
   --font-size-micro: 0.6875rem;       /* 11px */
 
-  /* —— 字重（注意 normal = 450）—— */
+  /* —— 字重（对齐 Notion：常规 400）—— */
   --font-weight-light: 300;
-  --font-weight-normal: 450;
+  --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;

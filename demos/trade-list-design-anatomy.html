@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>交易日志列表 · 设计解剖</title>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --surface: #121216;
+      --border: #2a2a33;
+      --text: #f0f0f4;
+      --text2: #b8b8c2;
+      --text3: #7a7a88;
+      --hot: #e25555;
+      --ok: #3d9a6a;
+      --accent: #5e6ad2;
+      --font: "Geist Sans", "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 28px 22px 48px; }
+    h1 { margin: 0 0 6px; font-size: 22px; color: var(--text); }
+    .lede { margin: 0 0 20px; color: var(--text3); font-size: 14px; max-width: 640px; }
+    .verdict {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      margin-bottom: 18px;
+      font-size: 13.5px;
+    }
+    .verdict strong { color: var(--text); }
+    h2 { margin: 22px 0 10px; font-size: 15px; color: var(--text); }
+    .mock {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0e0e12;
+      margin-bottom: 10px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 22px 52px 90px 36px 70px 1fr 40px 70px 52px 56px 24px;
+      gap: 8px;
+      align-items: center;
+      height: 40px;
+      padding: 0 12px;
+      font-size: 12px;
+      border-bottom: 1px solid #1c1c22;
+      position: relative;
+    }
+    .row:last-child { border-bottom: 0; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      padding: 0 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: #1a1a22;
+      color: var(--text3);
+      white-space: nowrap;
+    }
+    .pill.g { color: #7dcea0; background: rgba(61,154,106,.15); }
+    .pill.r { color: #f0a0a0; background: rgba(226,85,85,.16); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+    .dot.bad { background: var(--hot); }
+    .muted { color: var(--text3); }
+    .pnl.g { color: #6fbf8f; font-variant-numeric: tabular-nums; }
+    .pnl.r { color: #e28888; font-variant-numeric: tabular-nums; }
+    .gap-zone {
+      position: relative;
+      min-height: 1px;
+    }
+    .gap-zone::after {
+      content: "真空带 · 目光跳跃";
+      position: absolute;
+      inset: 4px 8%;
+      border: 1px dashed rgba(226,85,85,.55);
+      border-radius: 6px;
+      color: #e28888;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(226,85,85,.06);
+      pointer-events: none;
+    }
+    .anno {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    @media (max-width: 800px) { .anno { grid-template-columns: 1fr; } }
+    .card {
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      font-size: 12.5px;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 13px; color: var(--text); }
+    .tag { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 10px; margin-right: 4px; }
+    .tag.p0 { background: rgba(226,85,85,.18); color: #f0a8a8; }
+    .tag.p1 { background: rgba(196,160,53,.18); color: #e6d59a; }
+    .tag.p2 { background: #1a1a22; color: var(--text3); }
+    .scan {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin: 8px 0 0;
+      font-size: 11px;
+      color: var(--text3);
+      flex-wrap: wrap;
+    }
+    .scan span {
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #1a1a22;
+      border: 1px solid var(--border);
+    }
+    .scan .arrow { border: 0; background: transparent; color: var(--accent); padding: 0 2px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>交易日志列表 · 设计解剖</h1>
+    <p class="lede">配合评估 Canvas 使用。下面用示意行标出「目光怎么走」和「哪里在抢戏」。</p>
+
+    <div class="verdict">
+      <strong>成色：可用偏糙。</strong>
+      骨架对（列表 + 月分组 + 快捷视图），失分在行内扫描断裂与同级色块过多，不是缺功能。
+    </div>
+
+    <h2>理想扫视 vs 现状</h2>
+    <div class="scan">
+      <span>理想</span>
+      <span>品种</span><span class="arrow">→</span>
+      <span>结果(PnL/R)</span><span class="arrow">→</span>
+      <span>原因标签</span>
+    </div>
+    <div class="scan">
+      <span>现状</span>
+      <span>状态+ID+品种+方向+策略</span><span class="arrow">→</span>
+      <span style="border-color:rgba(226,85,85,.5);color:#e28888">大段空白</span><span class="arrow">→</span>
+      <span>周期+盈亏+R+日期+星标+错误</span>
+    </div>
+
+    <h2>问题示意行（标签少时真空更明显）</h2>
+    <div class="mock" aria-hidden="true">
+      <div class="row">
+        <div class="dot"></div>
+        <div class="muted">TRD-27</div>
+        <div>EURUSD</div>
+        <div class="pill g">多</div>
+        <div>导航3</div>
+        <div class="gap-zone"></div>
+        <div class="pill">4H</div>
+        <div class="pnl g">+$356</div>
+        <div class="pnl g">+2.9R</div>
+        <div class="muted">7月2日</div>
+        <div class="muted">★</div>
+      </div>
+      <div class="row">
+        <div class="dot bad"></div>
+        <div class="muted">TRD-24</div>
+        <div>BTCUSDT</div>
+        <div class="pill g">多</div>
+        <div>导航1</div>
+        <div>
+          <span class="pill">价格收盘</span>
+          <span class="pill r">技术分析错误</span>
+        </div>
+        <div class="pill">15M</div>
+        <div class="pnl r">-$333</div>
+        <div class="pnl r">-2.0R</div>
+        <div class="muted">7月5日</div>
+        <div></div>
+      </div>
+    </div>
+
+    <div class="anno">
+      <div class="card">
+        <h3><span class="tag p0">P0</span> 扫描路径</h3>
+        左信息簇与右结果簇被 `1fr` 标签列撑开。复盘核心问题「做了什么→赚了多少」被横向打断。
+      </div>
+      <div class="card">
+        <h3><span class="tag p0">P0</span> 权重竞争</h3>
+        状态色、方向绿、策略彩标、标签、错误红、盈亏红绿同时在线，没有明确主信号。
+      </div>
+      <div class="card">
+        <h3><span class="tag p1">P1</span> 列漂移</h3>
+        标签多少变化时，周期与 PnL 左右晃，难以竖着比 R。应用定宽结果列。
+      </div>
+    </div>
+
+    <h2>优先三刀</h2>
+    <div class="anno">
+      <div class="card"><h3>1. 行网格</h3>结果簇定宽右对齐；标签列设 max 并省略。</div>
+      <div class="card"><h3>2. 降噪</h3>方向/策略退中性；强色只留给 PnL/R（或状态点）。</div>
+      <div class="card"><h3>3. 顶栏语义</h3>分清：实盘类型 · 快捷视图 · 临时筛选。</div>
+    </div>
+
+    <p class="lede" style="margin-top:18px">完整条目见 Cursor Canvas：trade-list-design-review</p>
+  </div>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import { Bell, Check, Star } from 'lucide-react'
 import type { Strategy } from '@/data/strategies'
-import { REVIEW_CATEGORY_META, getTimeframeTone, resolveTimeframe, type Trade } from '@/data/trades'
+import { REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
@@ -38,7 +38,7 @@ export function TradeRow({
   const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
   const symbolIcons = useStore((state) => state.symbolIcons)
-  const regularTags = getVisibleTradeTags(trade, 1)
+  const regularTags = getVisibleTradeTags(trade, 2)
   const reviewLabel =
     regularTags.visible.length === 0 &&
     trade.mistakeTags.length === 0 &&
@@ -76,7 +76,7 @@ export function TradeRow({
           <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={16} />
           <strong>{trade.symbol}</strong>
         </span>
-        <SideTag side={trade.side} />
+        <SideTag side={trade.side} quiet />
         <span className="trade-row-strategy">
           <StrategyLabel strategyId={trade.strategyId} strategies={strategies} size={14} />
         </span>
@@ -90,9 +90,15 @@ export function TradeRow({
           </Tooltip>
         )}
         {regularTags.visible.map((tag) => (
-          <span className="trade-row-tag" key={tag}>{tag}</span>
+          <Tooltip content={tag} label={`标签：${tag}`} key={tag}>
+            <span className="trade-row-tag">{tag}</span>
+          </Tooltip>
         ))}
-        {reviewLabel && <span className="trade-row-tag is-review">{reviewLabel}</span>}
+        {reviewLabel && (
+          <Tooltip content={reviewLabel} label={`复盘分类：${reviewLabel}`}>
+            <span className="trade-row-tag is-review">{reviewLabel}</span>
+          </Tooltip>
+        )}
         {regularTags.hiddenCount > 0 && (
           <Tooltip
             content={regularTags.hidden.join(' · ')}
@@ -102,16 +108,6 @@ export function TradeRow({
             <span className="trade-row-more">+{regularTags.hiddenCount}</span>
           </Tooltip>
         )}
-      </span>
-      <span className="trade-row-timeframe-slot">
-        <span
-          className={`trade-row-timeframe is-${getTimeframeTone(timeframe)}`}
-          title={`波段级别 ${timeframe}`}
-        >
-          {timeframe}
-        </span>
-      </span>
-      <span className="trade-row-mistakes">
         {trade.mistakeTags.slice(0, 1).map((tag) => (
           <Tooltip content={tag} label={`错误标签：${tag}`} key={tag}>
             <span className="trade-row-tag is-mistake">{tag}</span>
@@ -128,6 +124,11 @@ export function TradeRow({
             </span>
           </Tooltip>
         )}
+      </span>
+      <span className="trade-row-timeframe-slot">
+        <span className="trade-row-timeframe" title={`波段级别 ${timeframe}`}>
+          {timeframe}
+        </span>
       </span>
       <span className={'trade-row-pnl' + (trade.pnl > 0 ? ' is-positive' : trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? fmtMoney(trade.pnl) : '—'}

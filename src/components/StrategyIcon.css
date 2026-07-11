@@ -5,6 +5,10 @@
   flex-shrink: 0;
 }
 
+.strategy-icon.is-placeholder {
+  background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
+}
+
 .strategy-icon--nav {
   background: none !important;
 }
@@ -16,7 +20,7 @@
   min-width: 0;
 }
 
-.strategy-label span:last-child {
+.strategy-label > span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

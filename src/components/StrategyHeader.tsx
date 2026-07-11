@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
-import { StrategyIcon } from '@/components/StrategyIcon'
 import { useStore } from '@/store/useStore'
 import { computeStrategyStats } from '@/lib/strategies'
 import { fmtMoney, fmtR } from '@/lib/format'
 import './StrategyHeader.css'
 
+/** 策略页统计条：标题已由 Topbar 承接，这里只保留轻量指标，避免双标题大 banner */
 export function StrategyHeader({ strategyId }: { strategyId: string }) {
   const strategy = useStore((s) => s.getStrategy(strategyId))
   const trades = useStore((s) => s.trades)
@@ -17,19 +17,11 @@ export function StrategyHeader({ strategyId }: { strategyId: string }) {
   if (!strategy) return null
 
   return (
-    <header className="sh">
-      <div className="sh-main">
-        <StrategyIcon icon={strategy.icon} color={strategy.color} size={22} />
-        <div className="sh-info">
-          <h1 className="sh-name" style={{ color: strategy.color }}>
-            {strategy.name}
-          </h1>
-          <p className="sh-sub">
-            {stats.tradeCount} 笔交易
-            {stats.closedCount > 0 && ` · ${stats.closedCount} 笔已平`}
-          </p>
-        </div>
-      </div>
+    <header className="sh" aria-label={`${strategy.name} 统计`}>
+      <p className="sh-sub">
+        {stats.tradeCount} 笔交易
+        {stats.closedCount > 0 ? ` · ${stats.closedCount} 笔已平` : ''}
+      </p>
       <div className="sh-stats">
         <div className="sh-stat">
           <span className="sh-stat-label">胜率</span>

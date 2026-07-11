@@ -61,6 +61,97 @@
   border: 0;
 }
 
+.sb-workspace-overflow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sb-workspace-overflow-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 4px;
+}
+
+.sb-workspace-overflow-label {
+  margin: 0;
+}
+
+.sb-workspace-overflow-manage {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: var(--radius-6);
+  color: var(--text-quaternary);
+  font-size: var(--fs-micro);
+}
+
+.sb-workspace-overflow-manage:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.sb-editor-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.sb-editor-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+
+.sb-editor-group-header h3 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sb-editor-group-header span {
+  color: var(--text-quaternary);
+  font-size: var(--fs-micro);
+}
+
+.sb-editor-empty {
+  margin: 0;
+  padding: 8px 6px;
+  border-radius: var(--radius-6);
+  background: var(--bg-hover);
+  color: var(--text-quaternary);
+  font-size: var(--fs-micro);
+  line-height: 1.45;
+}
+
+.sb-workspace-editor-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.sb-workspace-editor-backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: default;
+}
+
 .sb-workspace-editor {
   position: absolute;
   z-index: 20;
@@ -75,6 +166,7 @@
   background: var(--bg-elevated);
   box-shadow: var(--shadow-high);
   user-select: text;
+  pointer-events: auto;
 }
 
 .sb-workspace-editor-header {

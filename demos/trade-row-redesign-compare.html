@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>交易列表行 · 改稿对照 v2</title>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --surface: #111114;
+      --surface2: #16161b;
+      --hover: #15151c;
+      --selected: #1a1a24;
+      --border: #2a2a33;
+      --border-soft: #1e1e26;
+      --text: #f2f2f5;
+      --text2: #c8c8d0;
+      --text3: #8b8b98;
+      --text4: #5c5c6a;
+      --pos: #5fbf8a;
+      --neg: #e28888;
+      --accent: #5e6ad2;
+      --font: "Geist Sans", "Inter", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+      --row-h: 40px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text2);
+      line-height: 1.45;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 22px 56px;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .ver {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+      vertical-align: middle;
+      color: #c5c9f5;
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+    .lede {
+      margin: 0 0 16px;
+      max-width: 760px;
+      color: var(--text3);
+      font-size: 14px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+    .seg {
+      display: inline-flex;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+    }
+    .seg button {
+      height: 28px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text3);
+      font: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .seg button.is-on {
+      color: var(--text);
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+    .hint { font-size: 12px; color: var(--text4); }
+    .panel { display: none; }
+    .panel.is-on { display: block; }
+    .meta {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 860px) { .meta { grid-template-columns: 1fr; } }
+    .card {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      font-size: 12.5px;
+      color: var(--text3);
+    }
+    .card h2 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .card ul { margin: 6px 0 0; padding-left: 16px; }
+    .card li { margin: 3px 0; }
+    .ok { color: #9dceb0; }
+    .stage {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0e0e12;
+    }
+    .stage-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .stage-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .stage-sub {
+      margin-left: 8px;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text3);
+    }
+    .group {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 12px 14px 6px;
+      font-size: 12.5px;
+      font-weight: 550;
+      color: var(--text2);
+    }
+    .group b {
+      color: var(--text4);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ——— shared bits ——— */
+    .ref {
+      color: var(--text4);
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+      font-family: var(--mono);
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1.5px solid currentColor;
+      display: grid;
+      place-items: center;
+      font-size: 8px;
+      line-height: 1;
+    }
+    .dot.win { color: var(--pos); }
+    .dot.loss { color: var(--neg); }
+    .dot.flat { color: var(--text4); }
+    .ico {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      font-size: 8px;
+      background: #2a3140;
+      color: #cde;
+    }
+    .ico.btc { background: #3a2e14; color: #f0c14b; }
+    .ico.eth { background: #1e2438; color: #9bb0ff; }
+    .strat-ico {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .strat-ico.p { background: #7c5cff; }
+    .strat-ico.o { background: #d9773a; }
+    .strat-ico.b { background: #3b82c4; }
+    .pnl, .r, .date {
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .pnl.pos, .r.pos { color: var(--pos); }
+    .pnl.neg, .r.neg { color: var(--neg); }
+    .pnl.zero, .r.zero { color: var(--text4); }
+    .date { color: var(--text3); font-size: 11.5px; }
+    .star {
+      color: #8b7cf0;
+      font-size: 12px;
+      text-align: center;
+      opacity: 0;
+    }
+    .row:hover .star,
+    .star.is-on { opacity: 1; }
+
+    /* ——— BEFORE ——— */
+    .before-row {
+      display: grid;
+      grid-template-columns:
+        18px 58px minmax(280px, 360px) minmax(200px, 1fr)
+        44px minmax(110px, 170px) 72px 58px 64px 26px;
+      align-items: center;
+      column-gap: 10px;
+      height: var(--row-h);
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border-soft);
+      font-size: 12px;
+    }
+    .before-row:hover { background: var(--hover); }
+    .b-primary {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .b-sym {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+    .b-sym strong {
+      width: 8.5ch;
+      color: var(--text);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .side-hot {
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      font-size: 11px;
+      line-height: 18px;
+      color: #7dcea0;
+      background: rgba(61, 154, 106, 0.18);
+    }
+    .strat {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: 4px;
+      padding-left: 10px;
+      border-left: 1px solid var(--border);
+      color: var(--text3);
+      min-width: 0;
+      overflow: hidden;
+    }
+    .tags {
+      display: flex;
+      gap: 4px;
+      min-width: 0;
+      overflow: hidden;
+      align-items: center;
+    }
+    .chip {
+      flex: 0 0 auto;
+      height: 18px;
+      padding: 0 7px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      line-height: 18px;
+      color: color-mix(in srgb, var(--text3) 88%, var(--text2));
+      background: #14141a;
+      border: 1px solid transparent;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .chip.tf-m {
+      color: #6eb8c9;
+      background: rgba(40, 120, 140, 0.28);
+      border-color: rgba(60, 140, 160, 0.35);
+    }
+    .chip.tf-h {
+      color: #b39ddb;
+      background: rgba(90, 60, 140, 0.28);
+      border-color: rgba(120, 90, 170, 0.35);
+    }
+    .chip.mistake {
+      color: #f0a0a0;
+      background: rgba(180, 60, 60, 0.22);
+      border-color: rgba(200, 80, 80, 0.3);
+      max-width: 140px;
+    }
+    .mistakes {
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* ——— AFTER v2 ——— */
+    .after-row {
+      display: grid;
+      /* status ref | identity(symbol+side+strat) | tags | tf | results | star */
+      grid-template-columns:
+        16px 50px minmax(200px, 248px) minmax(88px, 188px) 34px 72px 52px 54px 22px;
+      align-items: center;
+      column-gap: 12px;
+      height: var(--row-h);
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border-soft);
+      font-size: 12px;
+    }
+    .after-row:hover { background: var(--hover); }
+    .after-row.is-selected {
+      background: var(--selected);
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    .identity {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .a-sym {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      min-width: 0;
+    }
+    .a-sym strong {
+      width: 7.8ch;
+      color: var(--text);
+      font-weight: 550;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .side-quiet {
+      flex: 0 0 auto;
+      height: 18px;
+      min-width: 22px;
+      padding: 0 5px;
+      border-radius: 4px;
+      font-size: 11px;
+      line-height: 16px;
+      text-align: center;
+      color: var(--text3);
+      background: transparent;
+      border: 1px solid var(--border);
+    }
+    .strat-keep {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      padding-left: 8px;
+      margin-left: 2px;
+      border-left: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .strat-keep .name {
+      overflow: hidden;
+      color: var(--text3);
+      font-size: 11.5px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .chip.quiet {
+      color: var(--text3);
+      background: #14141a;
+      border-color: transparent;
+      border-radius: 4px;
+    }
+    .chip.more {
+      color: var(--text4);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0 5px;
+    }
+    .chip.tf-quiet {
+      color: var(--text3);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      justify-self: start;
+    }
+    .chip.mistake-quiet {
+      color: color-mix(in srgb, var(--neg) 72%, var(--text3));
+      background: transparent;
+      border: 1px solid color-mix(in srgb, var(--neg) 26%, var(--border));
+      border-radius: 4px;
+      max-width: 9.5ch;
+    }
+    .after-row .pnl,
+    .after-row .r,
+    .after-row .date {
+      font-family: var(--mono);
+      font-size: 11.5px;
+    }
+    .col-guide {
+      display: grid;
+      grid-template-columns:
+        16px 50px minmax(200px, 248px) minmax(88px, 188px) 34px 72px 52px 54px 22px;
+      column-gap: 12px;
+      padding: 6px 14px 4px;
+      font-size: 10px;
+      color: var(--text4);
+      font-family: var(--mono);
+    }
+    .col-guide span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .scan {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin: 0 0 12px;
+      font-size: 11.5px;
+      color: var(--text3);
+    }
+    .scan em {
+      font-style: normal;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text2);
+    }
+    .scan .arrow { color: var(--accent); padding: 0 2px; }
+    .callouts {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    @media (max-width: 860px) { .callouts { grid-template-columns: 1fr; } }
+    .callout {
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      font-size: 12.5px;
+      color: var(--text3);
+    }
+    .callout h3 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      margin-right: 4px;
+      background: color-mix(in srgb, var(--accent) 18%, transparent);
+      color: #c5c9f5;
+    }
+    .note {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      font-size: 12.5px;
+      color: var(--text3);
+    }
+    .note strong { color: var(--text2); }
+    .diff-list { margin: 0; padding-left: 16px; }
+    .diff-list li { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>交易列表行 · 改稿对照 <span class="ver">v2</span></h1>
+    <p class="lede">
+      按你的反馈调整：<span class="ok">保留策略彩标</span>；错误标签弱描边并入标签槽；
+      同时收紧身份区、抬高分组对比、示意选中态。仍不改正式代码。
+    </p>
+
+    <div class="toolbar">
+      <div class="seg" role="tablist">
+        <button type="button" class="is-on" data-tab="after">改稿 v2</button>
+        <button type="button" data-tab="before">现状</button>
+        <button type="button" data-tab="both">并排关键行</button>
+      </div>
+      <span class="hint">主：品种 + 结果 · 次：方向/周期 · 辅：策略彩标 + 标签</span>
+    </div>
+
+    <!-- AFTER -->
+    <section class="panel is-on" id="panel-after">
+      <div class="meta">
+        <div class="card">
+          <h2>v2 相对 v1 的变化</h2>
+          <ul class="diff-list">
+            <li><span class="ok">加回</span> 策略彩色方块（14px）+ 次级策略名</li>
+            <li>身份区合并为一列：品种 | 方向描边 | 策略彩标，减少碎片</li>
+            <li>错误标签保持弱描边，与普通标签同槽；过长截断</li>
+            <li>去掉行内「大 1fr 真空」；结果三列定宽 tabular</li>
+            <li>分组标题略提亮；选中行左侧细 accent 条；星标默认隐藏、悬停/已标显示</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>仍刻意克制</h2>
+          <ul>
+            <li>方向、周期不染色（避免与盈亏抢语义色）</li>
+            <li>不恢复错误红底实心 pill</li>
+            <li>不加新徽章或复盘进度条</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="scan">
+        理想扫视
+        <em>品种</em><span class="arrow">→</span>
+        <em>结果 PnL/R</em><span class="arrow">→</span>
+        <em>策略彩标 / 标签</em>
+      </div>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div>
+            <span class="stage-title">改稿 v2</span>
+            <span class="stage-sub">第 4 行示意选中态</span>
+          </div>
+        </div>
+        <div class="col-guide" aria-hidden="true">
+          <span>●</span><span>ref</span><span>identity</span><span>tags</span><span>tf</span><span>pnl</span><span>R</span><span>date</span><span>★</span>
+        </div>
+        <div class="group">2026年7月 <b>6</b></div>
+
+        <div class="after-row row">
+          <span class="dot win">✓</span>
+          <span class="ref">TRD-27</span>
+          <span class="identity">
+            <span class="a-sym"><span class="ico">€</span><strong>EURUSD</strong></span>
+            <span class="side-quiet">多</span>
+            <span class="strat-keep"><span class="strat-ico p"></span><span class="name">导航3</span></span>
+          </span>
+          <span class="tags"><span class="chip quiet">价格收盘</span></span>
+          <span class="chip tf-quiet">4H</span>
+          <span class="pnl pos">$356</span>
+          <span class="r pos">+2.9R</span>
+          <span class="date">7月2日</span>
+          <span class="star is-on">★</span>
+        </div>
+        <div class="after-row row">
+          <span class="dot win">✓</span>
+          <span class="ref">TRD-26</span>
+          <span class="identity">
+            <span class="a-sym"><span class="ico">€</span><strong>EURUSD</strong></span>
+            <span class="side-quiet">多</span>
+            <span class="strat-keep"><span class="strat-ico p"></span><span class="name">导航3</span></span>
+          </span>
+          <span class="tags"><span class="chip quiet">价格收盘</span></span>
+          <span class="chip tf-quiet">4H</span>
+          <span class="pnl pos">$960</span>
+          <span class="r pos">+12.0R</span>
+          <span class="date">7月2日</span>
+          <span class="star">★</span>
+        </div>
+        <div class="after-row row">
+          <span class="dot flat">–</span>
+          <span class="ref">TRD-25</span>
+          <span class="identity">
+            <span class="a-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+            <span class="side-quiet">多</span>
+            <span class="strat-keep"><span class="strat-ico o"></span><span class="name">导航1</span></span>
+          </span>
+          <span class="tags"></span>
+          <span class="chip tf-quiet">15M</span>
+          <span class="pnl zero">$0</span>
+          <span class="r zero">0.0R</span>
+          <span class="date">7月3日</span>
+          <span class="star">★</span>
+        </div>
+        <div class="after-row row is-selected">
+          <span class="dot loss">×</span>
+          <span class="ref">TRD-24</span>
+          <span class="identity">
+            <span class="a-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+            <span class="side-quiet">多</span>
+            <span class="strat-keep"><span class="strat-ico o"></span><span class="name">导航1</span></span>
+          </span>
+          <span class="tags">
+            <span class="chip quiet">MTF ORA</span>
+            <span class="chip mistake-quiet">技术分析错误</span>
+          </span>
+          <span class="chip tf-quiet">15M</span>
+          <span class="pnl neg">-$333</span>
+          <span class="r neg">-2.0R</span>
+          <span class="date">7月5日</span>
+          <span class="star">★</span>
+        </div>
+        <div class="after-row row">
+          <span class="dot win">✓</span>
+          <span class="ref">TRD-23</span>
+          <span class="identity">
+            <span class="a-sym"><span class="ico eth">◆</span><strong>ETHUSDT</strong></span>
+            <span class="side-quiet">多</span>
+            <span class="strat-keep"><span class="strat-ico p"></span><span class="name">导航3</span></span>
+          </span>
+          <span class="tags">
+            <span class="chip quiet">Liquidity Sweep</span>
+            <span class="chip more">+2</span>
+          </span>
+          <span class="chip tf-quiet">1H</span>
+          <span class="pnl pos">$214</span>
+          <span class="r pos">+1.8R</span>
+          <span class="date">7月6日</span>
+          <span class="star">★</span>
+        </div>
+        <div class="after-row row">
+          <span class="dot loss">×</span>
+          <span class="ref">TRD-22</span>
+          <span class="identity">
+            <span class="a-sym"><span class="ico">◎</span><strong>SOLUSDT</strong></span>
+            <span class="side-quiet">多</span>
+            <span class="strat-keep"><span class="strat-ico b"></span><span class="name">导航1</span></span>
+          </span>
+          <span class="tags">
+            <span class="chip mistake-quiet">止损位不可更改</span>
+          </span>
+          <span class="chip tf-quiet">5M</span>
+          <span class="pnl neg">-$128</span>
+          <span class="r neg">-1.2R</span>
+          <span class="date">7月7日</span>
+          <span class="star">★</span>
+        </div>
+      </div>
+
+      <div class="callouts">
+        <div class="callout">
+          <h3><span class="tag">策略</span> 彩标保留</h3>
+          彩色方块仍作策略识别；名称保持次级灰，避免整行变「图标墙」。
+        </div>
+        <div class="callout">
+          <h3><span class="tag">错误</span> 弱描边</h3>
+          与普通标签同槽；不再占结果前一列，盈亏竖对齐不受干扰。
+        </div>
+        <div class="callout">
+          <h3><span class="tag">结构</span> 身份合一</h3>
+          品种/方向/策略收成一列，标签与结果各守边界，宽屏也不再拉出真空带。
+        </div>
+      </div>
+    </section>
+
+    <!-- BEFORE -->
+    <section class="panel" id="panel-before">
+      <div class="meta">
+        <div class="card">
+          <h2>现状（对照）</h2>
+          <ul>
+            <li>标签 <code>1fr</code> 造成中段真空</li>
+            <li>错误红底单独一列，与结果抢视线</li>
+            <li>方向/周期强染色 + 策略彩标叠加</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>说明</h2>
+          <p>近似结构还原，非像素截图。重点看布局与权重，不抠图标细节。</p>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="stage-head">
+          <div>
+            <span class="stage-title">现状</span>
+            <span class="stage-sub">左簇 → 真空 → 右簇</span>
+          </div>
+        </div>
+        <div class="group" style="color:var(--text3)">2026年7月 <b>6</b></div>
+        <div class="before-row">
+          <span class="dot win">✓</span>
+          <span class="ref">TRD-27</span>
+          <span class="b-primary">
+            <span class="b-sym"><span class="ico">€</span><strong>EURUSD</strong></span>
+            <span class="side-hot">多</span>
+            <span class="strat"><span class="strat-ico p"></span>导航3</span>
+          </span>
+          <span class="tags"><span class="chip">价格收盘</span></span>
+          <span class="chip tf-h">4H</span>
+          <span class="mistakes"></span>
+          <span class="pnl pos">$356</span>
+          <span class="r pos">+2.9R</span>
+          <span class="date">7月2日</span>
+          <span class="star is-on" style="opacity:1">★</span>
+        </div>
+        <div class="before-row">
+          <span class="dot flat">–</span>
+          <span class="ref">TRD-25</span>
+          <span class="b-primary">
+            <span class="b-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+            <span class="side-hot">多</span>
+            <span class="strat"><span class="strat-ico o"></span>导航1</span>
+          </span>
+          <span class="tags"></span>
+          <span class="chip tf-m">15M</span>
+          <span class="mistakes"></span>
+          <span class="pnl zero">$0</span>
+          <span class="r zero">0.0R</span>
+          <span class="date">7月3日</span>
+          <span></span>
+        </div>
+        <div class="before-row">
+          <span class="dot loss">×</span>
+          <span class="ref">TRD-24</span>
+          <span class="b-primary">
+            <span class="b-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+            <span class="side-hot">多</span>
+            <span class="strat"><span class="strat-ico o"></span>导航1</span>
+          </span>
+          <span class="tags"><span class="chip">MTF ORA</span></span>
+          <span class="chip tf-m">15M</span>
+          <span class="mistakes"><span class="chip mistake">技术分析错误</span></span>
+          <span class="pnl neg">-$333</span>
+          <span class="r neg">-2.0R</span>
+          <span class="date">7月5日</span>
+          <span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOTH -->
+    <section class="panel" id="panel-both">
+      <div class="meta">
+        <div class="card">
+          <h2>并排看这两行</h2>
+          <p>无标签行 + 带错误行。改稿后结果列仍对齐；策略彩标仍在；错误不再顶在盈亏前面。</p>
+        </div>
+        <div class="card">
+          <h2>待你确认</h2>
+          <p>若 v2 方向 OK，下一步才动 <code>TradeRow</code> / <code>TradeList.css</code>。仍可再调：策略名是否可隐藏只留彩标、错误最大宽度等。</p>
+        </div>
+      </div>
+      <div style="display:grid;gap:12px">
+        <div class="stage">
+          <div class="stage-head"><span class="stage-title">现状</span></div>
+          <div class="before-row">
+            <span class="dot flat">–</span>
+            <span class="ref">TRD-25</span>
+            <span class="b-primary">
+              <span class="b-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+              <span class="side-hot">多</span>
+              <span class="strat"><span class="strat-ico o"></span>导航1</span>
+            </span>
+            <span class="tags"></span>
+            <span class="chip tf-m">15M</span>
+            <span class="mistakes"></span>
+            <span class="pnl zero">$0</span>
+            <span class="r zero">0.0R</span>
+            <span class="date">7月3日</span>
+            <span></span>
+          </div>
+          <div class="before-row">
+            <span class="dot loss">×</span>
+            <span class="ref">TRD-24</span>
+            <span class="b-primary">
+              <span class="b-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+              <span class="side-hot">多</span>
+              <span class="strat"><span class="strat-ico o"></span>导航1</span>
+            </span>
+            <span class="tags"><span class="chip">MTF ORA</span></span>
+            <span class="chip tf-m">15M</span>
+            <span class="mistakes"><span class="chip mistake">技术分析错误</span></span>
+            <span class="pnl neg">-$333</span>
+            <span class="r neg">-2.0R</span>
+            <span class="date">7月5日</span>
+            <span></span>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-head"><span class="stage-title">改稿 v2</span></div>
+          <div class="after-row row">
+            <span class="dot flat">–</span>
+            <span class="ref">TRD-25</span>
+            <span class="identity">
+              <span class="a-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+              <span class="side-quiet">多</span>
+              <span class="strat-keep"><span class="strat-ico o"></span><span class="name">导航1</span></span>
+            </span>
+            <span class="tags"></span>
+            <span class="chip tf-quiet">15M</span>
+            <span class="pnl zero">$0</span>
+            <span class="r zero">0.0R</span>
+            <span class="date">7月3日</span>
+            <span class="star">★</span>
+          </div>
+          <div class="after-row row is-selected">
+            <span class="dot loss">×</span>
+            <span class="ref">TRD-24</span>
+            <span class="identity">
+              <span class="a-sym"><span class="ico btc">₿</span><strong>BTCUSDT</strong></span>
+              <span class="side-quiet">多</span>
+              <span class="strat-keep"><span class="strat-ico o"></span><span class="name">导航1</span></span>
+            </span>
+            <span class="tags">
+              <span class="chip quiet">MTF ORA</span>
+              <span class="chip mistake-quiet">技术分析错误</span>
+            </span>
+            <span class="chip tf-quiet">15M</span>
+            <span class="pnl neg">-$333</span>
+            <span class="r neg">-2.0R</span>
+            <span class="date">7月5日</span>
+            <span class="star">★</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="note">
+      <strong>请确认 v2：</strong>
+      ① 策略彩标 + 次级文字是否合适？
+      ② 错误弱描边进标签槽是否 OK？
+      ③ 方向/周期保持中性是否接受？
+      回复「按 v2 做」或继续点名微调；确认前仍不动正式代码。
+    </div>
+  </div>
+
+  <script>
+    const panels = {
+      after: document.getElementById("panel-after"),
+      before: document.getElementById("panel-before"),
+      both: document.getElementById("panel-both"),
+    };
+    document.querySelectorAll(".seg button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".seg button").forEach((b) => b.classList.remove("is-on"));
+        btn.classList.add("is-on");
+        const tab = btn.dataset.tab;
+        Object.entries(panels).forEach(([key, el]) => {
+          el.classList.toggle("is-on", key === tab);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
