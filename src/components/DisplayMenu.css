@@ -104,3 +104,10 @@
 .display-item svg {
   color: var(--accent);
 }
+
+@media (max-width: 640px) {
+  .display-pop .display-toggle,
+  .display-pop .display-item {
+    min-height: 44px;
+  }
+}
