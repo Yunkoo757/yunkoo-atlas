@@ -13,7 +13,7 @@ export function Toolbar({ title, context, actions, children }: ToolbarProps) {
     <header className="ui-toolbar">
       <div className="ui-toolbar-main">
         <div className="ui-toolbar-heading">
-          <span className="ui-toolbar-title">{title}</span>
+          <h1 className="ui-toolbar-title">{title}</h1>
           {context ? (
             <>
               <span className="ui-toolbar-sep" aria-hidden="true" />
