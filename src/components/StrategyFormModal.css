@@ -193,3 +193,38 @@
 .sfm-btn-primary:not(:disabled):hover {
   background: var(--accent-hover);
 }
+
+@media (max-width: 520px) {
+  .sfm-overlay {
+    padding: 16px;
+  }
+
+  .sfm {
+    display: flex;
+    max-height: calc(100svh - 32px);
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sfm-close,
+  .sfm-input,
+  .sfm-icon-opt,
+  .sfm-color-opt,
+  .sfm-btn {
+    min-height: 44px;
+  }
+
+  .sfm-close,
+  .sfm-color-opt {
+    width: 44px;
+  }
+
+  .sfm-body {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .sfm-icon-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
