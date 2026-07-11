@@ -1,7 +1,7 @@
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs } from '@/lib/tradeFilters'
-import { mergeImportPayload, parseImportJson } from '@/lib/importExport'
+import { buildExportPayloadFromState, mergeImportPayload, parseImportJson } from '@/lib/importExport'
 import { collectTagOptions, mergeTagPresets } from '@/lib/tags'
 import { computeStrategyStats } from '@/lib/strategies'
 import {
@@ -87,6 +87,7 @@ import {
   type DisplayActivityEvent,
 } from '@/lib/activities'
 import { syncEditorLightboxEditable } from '@/editor/Editor'
+import { useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -237,6 +238,115 @@ export function testNormalizeDisplayMigratesSidebarPinsInOriginalOrder(): void {
     ).join(',') === 'missed,active,paper',
     '旧 sidebarPins 迁移后应保持原始顺序',
   )
+}
+
+export function testNormalizeDisplayPrefersExplicitWorkspaceItemsOverLegacyPins(): void {
+  const display = normalizeDisplay({
+    sidebarPins: ['missed', 'active'],
+    sidebarWorkspaceItems: [
+      { id: 'paper-first', target: { kind: 'system', id: 'paper' }, placement: 'pinned', order: 0 },
+    ],
+  })
+
+  assert(
+    display.sidebarWorkspaceItems.length === 1 &&
+      display.sidebarWorkspaceItems[0]?.target.kind === 'system' &&
+      display.sidebarWorkspaceItems[0].target.id === 'paper',
+    '显式 sidebarWorkspaceItems 应优先于旧 sidebarPins',
+  )
+}
+
+export function testReplaceSidebarWorkspaceItemsNormalizesWithoutMutatingLegacyPins(): void {
+  const original = useStore.getState().display
+  const legacyPins = ['missed', 'active'] as typeof original.sidebarPins
+  useStore.setState({ display: normalizeDisplay({ ...original, sidebarPins: legacyPins }) })
+
+  try {
+    useStore.getState().replaceSidebarWorkspaceItems([
+      { id: 'paper', target: { kind: 'system', id: 'paper' }, placement: 'pinned', order: 9 },
+      { id: 'paper-copy', target: { kind: 'system', id: 'paper' }, placement: 'pinned', order: 10 },
+      { id: 'active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 11 },
+    ])
+    const display = useStore.getState().display
+    assert(display.sidebarPins.join(',') === legacyPins.join(','), '替换工作区项目不得改写旧 sidebarPins')
+    assert(display.sidebarWorkspaceItems.length === 2, '替换工作区项目应再次去重规范化')
+    assert(display.sidebarWorkspaceItems.map((item) => item.order).join(',') === '0,1', '替换后 order 应连续规范化')
+  } finally {
+    useStore.setState({ display: original })
+  }
+}
+
+export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInvalidData(): Promise<void> {
+  const rawItems: SidebarWorkspaceItem[] = [
+    { id: 'active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 0 },
+    { id: 'saved-valid', target: { kind: 'saved-view', viewId: 'saved-valid' }, placement: 'pinned', order: 1 },
+    { id: 'strategy-valid', target: { kind: 'strategy', strategyId: strategy.id }, placement: 'pinned', order: 2 },
+    { id: 'case-focus', target: { kind: 'case-view', scope: 'focus' }, placement: 'pinned', order: 3 },
+    { id: 'paper', target: { kind: 'system', id: 'paper' }, placement: 'pinned', order: 4 },
+    { id: 'missing-view', target: { kind: 'saved-view', viewId: 'deleted-view' }, placement: 'pinned', order: 5 },
+    { id: 'missing-strategy', target: { kind: 'strategy', strategyId: 'deleted-strategy' }, placement: 'pinned', order: 6 },
+    { id: 'case-reviewed', target: { kind: 'case-view', scope: 'reviewed' }, placement: 'pinned', order: 7 },
+    { id: 'case-mistakes', target: { kind: 'case-view', scope: 'mistakes' }, placement: 'pinned', order: 8 },
+    { id: 'saved-duplicate', target: { kind: 'saved-view', viewId: 'saved-valid' }, placement: 'overflow', order: 9 },
+  ]
+  const display = { ...DEFAULT_DISPLAY, sidebarWorkspaceItems: rawItems }
+  const exported = await buildExportPayloadFromState({
+    trades: [],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display,
+    savedTradeViews: [],
+  }, async () => null)
+  const parsed = parseImportJson(JSON.stringify(exported))
+  assert(parsed.ok, '导出的完整 display 应可重新导入')
+  if (!parsed.ok) return
+
+  const merged = mergeImportPayload({
+    trades: [],
+    strategies: [],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }, parsed.data)
+  const items = merged.display.sidebarWorkspaceItems
+
+  assert(items.length === 9, '重复目标应在导入边界去重且不丢失失效引用')
+  assert(items.map((item) => item.id).join(',') === rawItems.slice(0, 9).map((item) => item.id).join(','), '导入应保留目标顺序')
+  assert(items.filter((item) => item.placement === 'pinned').length === 8, '导入后最多保留 8 个 pinned')
+  assert(items[8]?.placement === 'overflow', '第 9 个 pinned 应规范化为 overflow')
+  assert(items.some((item) => item.id === 'missing-view'), '导入不得删除失效保存视图引用')
+  assert(items.some((item) => item.id === 'missing-strategy'), '导入不得删除失效策略引用')
+  const paper = resolveSidebarWorkspaceItem(items[4]!, { savedViews: [], strategies: [] })
+  assert(paper.pathname === '/sim', '旧 paper 别名最终应解析到 /sim')
+}
+
+export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
+  const corruptedItems = [
+    { id: 'active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 99 },
+    { id: 'active-copy', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 100 },
+  ] as SidebarWorkspaceItem[]
+  const merged = mergeImportPayload({
+    trades: [],
+    strategies: [],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }, {
+    version: 6,
+    trades: [],
+    strategies: [],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: { ...DEFAULT_DISPLAY, sidebarWorkspaceItems: corruptedItems },
+  })
+
+  assert(merged.display.sidebarWorkspaceItems.length === 1, 'mergeImportPayload 应统一去重损坏的工作区项目')
+  assert(merged.display.sidebarWorkspaceItems[0]?.order === 0, 'mergeImportPayload 应统一重写损坏的 order')
 }
 
 export function testNormalizeSidebarWorkspaceItemsDeduplicatesAndLimitsPinnedItems(): void {

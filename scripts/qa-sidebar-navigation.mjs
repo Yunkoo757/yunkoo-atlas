@@ -148,6 +148,28 @@ async function expectMobileCurrentCount(page, expected) {
   }
 }
 
+async function expectUrl(page, expectedPathAndSearch, message) {
+  await page.waitForFunction((expected) => `${location.pathname}${location.search}` === expected, expectedPathAndSearch)
+  const actual = await page.evaluate(() => `${location.pathname}${location.search}`)
+  if (actual !== expectedPathAndSearch) throw new Error(`${message}: expected ${expectedPathAndSearch}, received ${actual}`)
+}
+
+async function expectTradeInScrollViewport(page, tradeId, scrollSelector) {
+  const metrics = await page.locator(`[data-trade-id="${tradeId}"]`).evaluate((element, selector) => {
+    const target = element.getBoundingClientRect()
+    const scroll = element.closest(selector)?.getBoundingClientRect()
+    return scroll && {
+      targetTop: target.top,
+      targetBottom: target.bottom,
+      scrollTop: scroll.top,
+      scrollBottom: scroll.bottom,
+    }
+  }, scrollSelector)
+  if (!metrics || metrics.targetBottom <= metrics.scrollTop || metrics.targetTop >= metrics.scrollBottom) {
+    throw new Error(`${tradeId} was not restored into ${scrollSelector} viewport: ${JSON.stringify(metrics)}`)
+  }
+}
+
 await verifyExistingViteConflict()
 const vite = startVite()
 let browser
@@ -156,8 +178,27 @@ try {
   await waitForVite(vite)
   browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  const browserProblems = []
+  page.on('pageerror', (error) => browserProblems.push(`pageerror: ${error.message}`))
+  page.on('console', (message) => {
+    const text = message.text()
+    if (message.type() === 'error' || /each child.*unique.*key|accessible name/i.test(text)) {
+      browserProblems.push(`${message.type()}: ${text}`)
+    }
+  })
   await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+
+  expectEqual(
+    await page.locator('.sb-primary > a .sb-item-label').allTextContents(),
+    ['今日记录', '交易日志', '案例记录', '仪表盘'],
+    'Default core modules must preserve their approved order',
+  )
+  expectEqual(
+    await page.locator('.sb-workspace > a .sb-item-label').allTextContents(),
+    ['进行中', '星标交易', '错过的机会', '模拟回测'],
+    'Default workspace must expose the four system items',
+  )
 
   await page.evaluate(async () => {
     const { useStore } = await import('/src/store/useStore.ts')
@@ -258,12 +299,14 @@ try {
   await expectCount(editor.getByText('已删除的保存视图'), 0)
   await search.fill('')
 
-  for (const strategy of ['Breakout', 'Mean Reversion', 'Trend Following', 'News Catalyst', 'Scalp']) {
-    await editor.getByRole('button', { name: new RegExp(`^${strategy}：`) }).click()
-  }
+  await editor.getByRole('button', { name: /^QA 保存视图：/ }).click()
+  await editor.getByRole('button', { name: /^Breakout：/ }).click()
+  await editor.getByRole('button', { name: /^重点：/ }).click()
+  await editor.getByRole('button', { name: /^Mean Reversion：/ }).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /8 \/ 8/)
+  await editor.getByRole('button', { name: /^Trend Following：/ }).click()
   await expectVisible(editor.getByText('常驻项目已满，已添加到更多'))
-  await expectText(editor.getByRole('button', { name: /^Scalp：/ }), /更多/)
+  await expectText(editor.getByRole('button', { name: /^Trend Following：/ }), /更多/)
   await editor.getByRole('button', { name: '返回管理列表' }).click()
 
   await editor.getByRole('button', { name: '完成' }).click()
@@ -275,18 +318,112 @@ try {
     throw new Error('Completed ordering was not persisted across refresh')
   }
 
-  await page.evaluate(async () => {
+  const savedWorkspaceLink = page.locator('.sb-workspace > a', { hasText: 'QA 保存视图' })
+  await savedWorkspaceLink.click()
+  await expectUrl(page, '/list?status=open', 'Saved view must navigate to its exact query')
+  await expectAttribute(savedWorkspaceLink, 'aria-current', 'page')
+  expectEqual(
+    await page.locator('.sidebar a.sb-item.is-active .sb-item-label').allTextContents(),
+    ['QA 保存视图'],
+    'Exact saved view must be the only strongly selected sidebar item',
+  )
+  await expectCount(savedWorkspaceLink.locator('.sb-modified-dot'), 0)
+  await page.goto(`${BASE}/list?status=open&side=long`, { waitUntil: 'domcontentloaded' })
+  await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+  const modifiedSavedLink = page.locator('.sb-workspace > a', { hasText: 'QA 保存视图' })
+  await expectAttribute(modifiedSavedLink, 'aria-current', 'page')
+  expectEqual(
+    await page.locator('.sidebar a.sb-item.is-active .sb-item-label').allTextContents(),
+    ['QA 保存视图'],
+    'Modified saved view must remain the only strongly selected sidebar item',
+  )
+  await expectCount(modifiedSavedLink.locator('.sb-modified-dot'), 1)
+  await modifiedSavedLink.click()
+  await expectUrl(page, '/list?status=open', 'Clicking a modified saved view must restore its original query')
+
+  const coreLink = (label) => page.locator('.sb-primary > a', { hasText: label })
+  await page.goto(`${BASE}/active/board?status=open`, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(250)
+  await coreLink('今日').click()
+  await coreLink('交易').click()
+  await expectUrl(page, '/active/board?status=open', 'Trade core must restore pathname, search, and board mode')
+
+  await page.goto(`${BASE}/today-record/table?status=planned`, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(250)
+  await coreLink('案例').click()
+  await coreLink('今日').click()
+  await expectUrl(page, '/today-record/table?status=planned', 'Today core must restore pathname, search, and table mode')
+
+  await page.goto(`${BASE}/review-cases/mistakes/board?reviewStatus=focus`, { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(250)
+  await coreLink('交易').click()
+  await coreLink('案例').click()
+  await expectUrl(page, '/review-cases/mistakes/board?reviewStatus=focus', 'Case core must restore pathname, search, and board mode')
+
+  const anchorTradeId = await page.evaluate(async () => {
     const { useStore } = await import('/src/store/useStore.ts')
     const state = useStore.getState()
-    state.replaceSidebarWorkspaceItems([
-      ...state.display.sidebarWorkspaceItems,
-      {
-        id: 'qa-invalid-saved-view',
-        target: { kind: 'saved-view', viewId: 'missing-view' },
-        placement: 'overflow',
-        order: state.display.sidebarWorkspaceItems.length,
-      },
-    ])
+    const strategyId = state.strategies[0]?.id
+    if (!strategyId) throw new Error('Anchor QA requires a strategy')
+    const source = {
+      id: 'qa-anchor-source',
+      ref: 'QA-SOURCE',
+      symbol: 'QASOURCE',
+      side: 'long',
+      status: 'planned',
+      conviction: 'medium',
+      strategyId,
+      tags: [],
+      mistakeTags: [],
+      reviewStatus: 'unreviewed',
+      reviewCategory: 'normal',
+      tradeKind: 'live',
+      entry: 0,
+      exit: null,
+      stopLoss: null,
+      size: 0,
+      pnl: 0,
+      rMultiple: 0,
+      openedAt: '2026-06-01',
+      closedAt: null,
+      note: '',
+    }
+    const trades = Array.from({ length: 36 }, (_, index) => ({
+      ...source,
+      id: `qa-anchor-${index}`,
+      ref: `QA-${String(index).padStart(3, '0')}`,
+      symbol: `QA${index}`,
+      status: 'planned',
+      openedAt: `2026-06-${String((index % 28) + 1).padStart(2, '0')}`,
+      deletedAt: undefined,
+    }))
+    useStore.setState({ trades })
+    return trades[35].id
+  })
+  await page.setViewportSize({ width: 900, height: 600 })
+  for (const scenario of [
+    { path: '/list', scroll: '.list-scroll', open: 'button' },
+    { path: '/board', scroll: '.board-scroll', open: 'card' },
+    { path: '/table', scroll: '.tv-scroll', open: 'link' },
+  ]) {
+    await page.goto(`${BASE}${scenario.path}`, { waitUntil: 'domcontentloaded' })
+    await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+    const anchor = page.locator(`[data-trade-id="${anchorTradeId}"]`)
+    await expectVisible(anchor)
+    await anchor.scrollIntoViewIfNeeded()
+    if (scenario.open === 'button') await anchor.locator('.trade-row-open').click()
+    else if (scenario.open === 'link') await anchor.locator('a').click()
+    else await anchor.click()
+    await expectVisible(page.getByRole('link', { name: '返回列表' }).first())
+    await page.getByRole('link', { name: '返回列表' }).first().click()
+    await expectUrl(page, scenario.path, `${scenario.path} detail return must preserve its source route`)
+    await expectTradeInScrollViewport(page, anchorTradeId, scenario.scroll)
+  }
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  await page.evaluate(async () => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    useStore.getState().removeTradeView('qa-saved-view')
   })
   await expectCount(page.locator('.sb-workspace > a', { hasText: '已删除的保存视图' }), 0)
   await page.getByRole('button', { name: '管理我的空间', exact: true }).click()
@@ -330,6 +467,16 @@ try {
   await page.evaluate(async () => {
     const { useStore } = await import('/src/store/useStore.ts')
     const state = useStore.getState()
+    state.saveTradeView({
+      id: 'qa-saved-view',
+      name: 'QA 保存视图',
+      pathname: '/list',
+      search: { status: 'open' },
+      pinned: false,
+      order: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
     state.replaceSidebarWorkspaceItems([
       ...state.display.sidebarWorkspaceItems,
       {
@@ -548,7 +695,11 @@ try {
     throw new Error('Completing the mobile editor did not commit the reordered workspace state')
   }
 
-  console.log('PASS: sidebar workspace manager and responsive mobile navigation contract')
+  if (browserProblems.length > 0) {
+    throw new Error(`Browser console reported unexpected problems:\n${browserProblems.join('\n')}`)
+  }
+
+  console.log('PASS: nine sidebar workflows, detail return anchors, and 1920/1440/900/390 responsive contract')
 } finally {
   await browser?.close()
   await stopVite(vite)

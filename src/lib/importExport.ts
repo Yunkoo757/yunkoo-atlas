@@ -517,7 +517,7 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
     pinnedStrategyIds: [
       ...new Set([...current.pinnedStrategyIds, ...payload.pinnedStrategyIds]),
     ],
-    display: { ...current.display, ...payload.display },
+    display: normalizeDisplay({ ...current.display, ...payload.display }),
     tagPresets: mergeTagPresets(
       current.tagPresets ?? [],
       payload.tagPresets ?? [],

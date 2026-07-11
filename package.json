@@ -21,6 +21,7 @@
     "qa:image": "node scripts/qa-phase1-image.mjs",
     "qa:workbench": "node scripts/qa-workbench.mjs",
     "qa:design": "node scripts/qa-design-contract.mjs",
+    "qa:sidebar": "node scripts/qa-sidebar-navigation.mjs",
     "qa:linear": "node scripts/qa-linear-rebuild.mjs",
     "qa:electron": "node scripts/qa-electron.mjs"
   },
