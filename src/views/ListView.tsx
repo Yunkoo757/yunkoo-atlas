@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Copy, Plus, Trash2 } from 'lucide-react'
+import { Copy, Plus, Trash2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { EmptyState } from '@/components/EmptyState'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'

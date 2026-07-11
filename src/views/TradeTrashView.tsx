@@ -11,7 +11,7 @@ import {
 } from '@/data/trades'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
-import { Trash2, RotateCcw, AlertTriangle, CheckSquare, Square } from 'lucide-react'
+import { Trash2, RotateCcw, AlertTriangle, CheckSquare, Square } from '@/icons/appIcons'
 import { toast } from '@/lib/toast'
 import { EmptyState } from '@/components/EmptyState'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'

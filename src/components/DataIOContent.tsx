@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload, AlertTriangle, FileSpreadsheet, Package, Archive } from 'lucide-react'
+import { Download, Upload, AlertTriangle, FileSpreadsheet, Package, Archive } from '@/icons/appIcons'
 import {
   applyImport,
   downloadExport,

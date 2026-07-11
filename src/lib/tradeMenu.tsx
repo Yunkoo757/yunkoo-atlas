@@ -1,4 +1,4 @@
-import { Pencil, Trash2, Star, Ban, BookOpen } from 'lucide-react'
+import { Pencil, Trash2, Star, Ban, BookOpen } from '@/icons/appIcons'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'

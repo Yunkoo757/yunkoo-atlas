@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { GripVertical, Trash2 } from 'lucide-react'
+import { GripVertical, Trash2 } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 import { DEFAULT_SIDEBAR_PINS } from '@/lib/sidebarNav'

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { BookmarkPlus, Check, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
+import { BookmarkPlus, Check, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from '@/icons/appIcons'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   normalizeSavedViewPath,

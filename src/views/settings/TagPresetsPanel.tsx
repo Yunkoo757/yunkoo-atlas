@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '@/store/useStore'
-import { Tag, X, Plus } from 'lucide-react'
+import { Tag, X, Plus } from '@/icons/appIcons'
 import { toast } from '@/lib/toast'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './TagPresetsPanel.css'

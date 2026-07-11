@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Check } from 'lucide-react'
+import { Check } from '@/icons/appIcons'
 import './Menu.css'
 
 export interface MenuOption {

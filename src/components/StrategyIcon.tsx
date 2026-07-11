@@ -35,7 +35,7 @@ export function StrategyIcon({
             }
       }
     >
-      <Icon size={size} strokeWidth={isNav ? 1.75 : 2} />
+      <Icon size={size} />
     </span>
   )
 }

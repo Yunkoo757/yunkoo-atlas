@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useState, useRef } from 'react'
-import { X } from 'lucide-react'
+import { X } from '@/icons/appIcons'
 import {
   STRATEGY_COLOR_PRESETS,
   STRATEGY_ICON_OPTIONS,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Pencil, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight } from '@/icons/appIcons'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { StrategyFormModal, uniqueStrategyId } from '@/components/StrategyFormModal'
 import { useStore } from '@/store/useStore'

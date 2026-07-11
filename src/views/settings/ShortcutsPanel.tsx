@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
-import { ArrowRight, Ban, LockKeyhole, RotateCcw } from 'lucide-react'
+import { ArrowRight, Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { formatBinding } from '@/shortcuts/format'

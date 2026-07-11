@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { PanelRight, X } from 'lucide-react'
+import { PanelRight, X } from '@/icons/appIcons'
 import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({

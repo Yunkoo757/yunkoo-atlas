@@ -18,7 +18,7 @@ import {
   X,
   Keyboard,
   BookOpen,
-} from 'lucide-react'
+} from '@/icons/appIcons'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { getStrategyName, countTradesByStrategy, sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'

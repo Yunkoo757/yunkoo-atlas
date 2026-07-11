@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes } from 'lucide-react'
+import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import './SettingsLayout.css'
 

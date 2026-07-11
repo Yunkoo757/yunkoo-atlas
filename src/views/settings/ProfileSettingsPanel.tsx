@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { AVATAR_PRESETS, resizeAvatarImage } from '@/lib/avatars'
 import { UserAvatar } from '@/components/UserAvatar'
-import { Check, Upload, X } from 'lucide-react'
+import { Check, Upload, X } from '@/icons/appIcons'
 import './ProfileSettingsPanel.css'
 
 export function ProfileSettingsPanel() {

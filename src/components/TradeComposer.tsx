@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { X, ImagePlus } from 'lucide-react'
+import { X, ImagePlus } from '@/icons/appIcons'
 import { Select } from '@/components/ui/Select'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { useStore } from '@/store/useStore'

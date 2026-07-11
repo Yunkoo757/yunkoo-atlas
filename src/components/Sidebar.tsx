@@ -12,8 +12,8 @@ import {
   Star,
   Target,
   Trash2,
-  type LucideIcon,
-} from 'lucide-react'
+  type AppIcon,
+} from '@/icons/appIcons'
 import { UserAvatar } from '@/components/UserAvatar'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
@@ -45,7 +45,7 @@ function Count({ value }: { value?: number }) {
   )
 }
 
-export const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], LucideIcon> = {
+export const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], AppIcon> = {
   active: CircleDot,
   favorites: Star,
   missed: Ban,
