@@ -16,7 +16,7 @@ const NAV = [
 export function SettingsLayout() {
   return (
     <div className="settings-layout">
-      <Topbar title="设置" showDisplay={false} />
+      <Topbar title="设置" titleAsHeading={false} showDisplay={false} />
       <div className="settings-body">
         <nav className="settings-nav" aria-label="设置分类">
           {NAV.map(({ to, label, icon: Icon }) => (

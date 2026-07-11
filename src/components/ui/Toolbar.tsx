@@ -3,17 +3,22 @@ import './Toolbar.css'
 
 type ToolbarProps = {
   title: string
+  titleAsHeading?: boolean
   context?: ReactNode
   actions?: ReactNode
   children?: ReactNode
 }
 
-export function Toolbar({ title, context, actions, children }: ToolbarProps) {
+export function Toolbar({ title, titleAsHeading = true, context, actions, children }: ToolbarProps) {
   return (
     <header className="ui-toolbar">
       <div className="ui-toolbar-main">
         <div className="ui-toolbar-heading">
-          <h1 className="ui-toolbar-title">{title}</h1>
+          {titleAsHeading ? (
+            <h1 className="ui-toolbar-title">{title}</h1>
+          ) : (
+            <span className="ui-toolbar-title">{title}</span>
+          )}
           {context ? (
             <>
               <span className="ui-toolbar-sep" aria-hidden="true" />

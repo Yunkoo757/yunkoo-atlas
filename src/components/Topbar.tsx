@@ -13,6 +13,7 @@ export function Topbar({
   onView,
   showDisplay = true,
   showSaveStatus = true,
+  titleAsHeading = true,
 }: {
   title: string
   subtitle?: string
@@ -20,10 +21,12 @@ export function Topbar({
   onView?: (v: WorkbenchView) => void
   showDisplay?: boolean
   showSaveStatus?: boolean
+  titleAsHeading?: boolean
 }) {
   return (
     <Toolbar
       title={title}
+      titleAsHeading={titleAsHeading}
       context={subtitle}
       actions={(
         <div className="tb-right">
