@@ -8,6 +8,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "test": "node scripts/run-regression-tests.mjs",
+    "test:icons": "node --test scripts/linear-icons/core.test.mjs",
     "dev": "vite",
     "dev:electron": "cross-env ELECTRON=1 vite",
     "build": "tsc -b && vite build",
