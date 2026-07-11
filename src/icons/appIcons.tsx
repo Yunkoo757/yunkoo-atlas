@@ -57,6 +57,12 @@ import {
   LinearViewFinderIcon,
   LinearWriteIcon,
   LinearLinkIcon,
+  LinearCheckIcon,
+  LinearChevronDownIcon,
+  LinearChevronLeftIcon,
+  LinearChevronRightIcon,
+  LinearChevronUpIcon,
+  LinearCloseIcon,
 } from '@/icons/linear'
 
 export type AppIcon = ComponentType<LinearStaticIconProps>
@@ -126,17 +132,17 @@ export const SlidersHorizontal = LinearCustomViewIcon
 export const DesignTools = LinearDesignToolsIcon
 export const Send = LinearSendIcon
 export const Link2 = LinearLinkIcon
+export const X = LinearCloseIcon
+export const Check = LinearCheckIcon
+export const ChevronDown = LinearChevronDownIcon
+export const ChevronLeft = LinearChevronLeftIcon
+export const ChevronRight = LinearChevronRightIcon
+export const ChevronUp = LinearChevronUpIcon
 
-/* —— 缺口：保留 Lucide —— */
+/* —— 剩余缺口：保留 Lucide —— */
 export {
-  X,
-  Check,
   CheckSquare,
   Square,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
   ArrowDown,
   ArrowUp,
   ArrowRight,
