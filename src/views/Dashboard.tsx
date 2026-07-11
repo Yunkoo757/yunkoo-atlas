@@ -194,9 +194,19 @@ export function Dashboard() {
         </div>
 
         <div className="db-cards">
-          <Card label="净盈亏" value={fmtMoney(stats.total)} sub="已平仓累计" accent={stats.total >= 0} />
+          <Card
+            label="净盈亏"
+            value={fmtMoney(stats.total)}
+            sub="已平仓累计"
+            accent={stats.total === 0 ? undefined : stats.total > 0}
+          />
           <Card label="胜率" value={stats.winRate.toFixed(0) + '%'} sub={`${stats.count} 笔已平`} />
-          <Card label="平均 R" value={(stats.avgR >= 0 ? '+' : '') + stats.avgR.toFixed(2)} sub="每笔风险回报" accent={stats.avgR >= 0} />
+          <Card
+            label="平均 R"
+            value={(stats.avgR > 0 ? '+' : '') + stats.avgR.toFixed(2)}
+            sub="每笔风险回报"
+            accent={stats.avgR === 0 ? undefined : stats.avgR > 0}
+          />
           <Card label="盈利笔数" value={String(Math.round((stats.winRate / 100) * stats.count))} sub={`共 ${stats.count} 笔`} muted />
         </div>
 
