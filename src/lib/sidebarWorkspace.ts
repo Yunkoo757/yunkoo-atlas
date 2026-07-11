@@ -116,18 +116,20 @@ export function normalizeSidebarWorkspaceItems(value: unknown): SidebarWorkspace
 
   normalized.sort((a, b) => a.item.order - b.item.order || a.inputIndex - b.inputIndex)
 
-  const seen = new Set<string>()
+  const seenTargets = new Set<string>()
+  const seenIds = new Set<string>()
   let pinnedCount = 0
   return normalized.flatMap(({ item }) => {
     const key = sidebarTargetKey(item.target)
-    if (seen.has(key)) return []
-    seen.add(key)
+    if (seenTargets.has(key) || seenIds.has(item.id)) return []
+    seenTargets.add(key)
+    seenIds.add(item.id)
     let placement = item.placement
     if (placement === 'pinned') {
       if (pinnedCount >= MAX_PINNED_SIDEBAR_ITEMS) placement = 'overflow'
       pinnedCount += 1
     }
-    return [{ ...item, placement, order: seen.size - 1 }]
+    return [{ ...item, placement, order: seenIds.size - 1 }]
   })
 }
 

@@ -88,6 +88,10 @@ import {
 } from '@/lib/activities'
 import { syncEditorLightboxEditable } from '@/editor/Editor'
 import { useStore } from '@/store/useStore'
+import {
+  parseTradeReturnAnchor,
+  serializeTradeReturnAnchor,
+} from '@/hooks/useTradeReturnAnchor'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -327,6 +331,7 @@ export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
   const corruptedItems = [
     { id: 'active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 99 },
     { id: 'active-copy', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 100 },
+    { id: 'active', target: { kind: 'system', id: 'favorites' }, placement: 'pinned', order: 101 },
   ] as SidebarWorkspaceItem[]
   const merged = mergeImportPayload({
     trades: [],
@@ -367,6 +372,19 @@ export function testNormalizeSidebarWorkspaceItemsDeduplicatesAndLimitsPinnedIte
   assert(items.filter((item) => item.placement === 'pinned').length === 8, '最多只能固定 8 项')
   assert(items[8]?.placement === 'overflow', '第 9 个固定项应进入 overflow')
   assert(items.map((item) => item.order).join(',') === '0,1,2,3,4,5,6,7,8', 'order 应连续重写')
+}
+
+export function testNormalizeSidebarWorkspaceItemsKeepsFirstDuplicateId(): void {
+  const items = normalizeSidebarWorkspaceItems([
+    { id: 'duplicate', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 0 },
+    { id: 'duplicate', target: { kind: 'system', id: 'favorites' }, placement: 'pinned', order: 1 },
+  ])
+
+  assert(items.length === 1, '相同 id 的损坏导入项只能保留一个')
+  assert(
+    items[0]?.target.kind === 'system' && items[0].target.id === 'active',
+    '相同 id 的损坏导入项应保留排序更早的项目',
+  )
 }
 
 export function testSidebarWorkspaceResolvesEveryTargetKindAndKeepsInvalidReferences(): void {
@@ -706,6 +724,26 @@ export function testWorkspaceNavRemembersLastQuickView(): void {
   )
   assert(existingStrategy.pathname === `/strategy/${strategy.id}/table`, '现有策略记忆应保持视图形态')
 
+  for (const pathname of ['/period/not-a-period', '/period/this-week/extra']) {
+    assert(
+      resolveWorkspaceNavTarget('trade', { pathname, search: '?status=win' }).pathname === '/list',
+      `非法周期记忆 ${pathname} 应回退到全部`,
+    )
+  }
+  for (const pathname of ['/review-cases/unknown', '/review-cases/focus/extra']) {
+    assert(
+      resolveWorkspaceNavTarget('case', { pathname, search: '?reviewStatus=focus' }).pathname === '/review-cases',
+      `非法案例记忆 ${pathname} 应回退到案例全部`,
+    )
+  }
+  assert(
+    resolveWorkspaceNavTarget('case', {
+      pathname: '/review-cases/focus/board',
+      search: '?reviewStatus=focus',
+    }).pathname === '/review-cases/focus/board',
+    '合法案例范围应保留工作台视图后缀',
+  )
+
   const display = normalizeDisplay({
     workspaceMemory: {
       trade: { pathname: '/period/this-month', search: '' },
@@ -916,6 +954,15 @@ export function testTradeDetailReturnRemembersListView(): void {
     tradeKind: 'live',
   })
   assert(invalidLiveSource.pathname === '/list', '交易详情的失效案例来源应回退到交易列表')
+}
+
+export function testTradeReturnAnchorSerializationExpires(): void {
+  const createdAt = 1_000_000
+  const serialized = serializeTradeReturnAnchor('trade-42', createdAt)
+
+  assert(parseTradeReturnAnchor(serialized, createdAt) === 'trade-42', '返回锚点应可从版本化存储中恢复')
+  assert(parseTradeReturnAnchor(serialized, createdAt + 30_001) === null, '超过恢复窗口的返回锚点必须过期')
+  assert(parseTradeReturnAnchor('trade-42', createdAt) === null, '旧的无版本锚点不得无限保留')
 }
 
 export function testCaseDetailRejectsStaleLiveListContext(): void {

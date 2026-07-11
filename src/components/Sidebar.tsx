@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Ban,
@@ -57,16 +57,22 @@ export function useSidebarNavigationModel() {
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
   const replaceSidebarWorkspaceItems = useStore((state) => state.replaceSidebarWorkspaceItems)
-  const countContext = { trades, starredIds, display }
+  const countContext = useMemo(() => ({ trades, starredIds, display }), [trades, starredIds, display])
 
-  const workspaceItems = sidebarWorkspaceItems
-    .map((item) => resolveSidebarWorkspaceItem(item, { savedViews: savedTradeViews, strategies }))
-    .filter((item) => !item.invalid)
-    .map((item) => ({
-      ...item,
-      count: countSidebarTarget(item, countContext),
-    }))
-  const selection = resolveSidebarSelection({ pathname: path, search, items: workspaceItems })
+  const workspaceItems = useMemo(
+    () => sidebarWorkspaceItems
+      .map((item) => resolveSidebarWorkspaceItem(item, { savedViews: savedTradeViews, strategies }))
+      .filter((item) => !item.invalid)
+      .map((item) => ({
+        ...item,
+        count: countSidebarTarget(item, countContext),
+      })),
+    [countContext, savedTradeViews, sidebarWorkspaceItems, strategies],
+  )
+  const selection = useMemo(
+    () => resolveSidebarSelection({ pathname: path, search, items: workspaceItems }),
+    [path, search, workspaceItems],
+  )
   const workspaceMemory = display.workspaceMemory
   const todayTarget = resolveWorkspaceNavTarget('today', workspaceMemory?.today, strategies)
   const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
