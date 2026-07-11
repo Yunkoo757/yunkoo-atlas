@@ -25,10 +25,12 @@ export function buildListNavigationContext(
   display: DisplayPrefs,
   starredIds: string[],
   listPath: string,
+  listSearch = '',
 ): ListNavigationContext {
   return {
     filter,
     listPath,
+    listSearch,
     orderedIds: buildOrderedTradeIds(trades, filter, display, starredIds),
   }
 }

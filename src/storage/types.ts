@@ -2,10 +2,9 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { ShortcutBinding } from '@/shortcuts/types'
-import type { CaseRecord, DisputeType } from '@/data/case'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 
-export const SCHEMA_VERSION = 6 // 6: +caseLibrary
+export const SCHEMA_VERSION = 6
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
 export interface LibraryManifest {
@@ -41,9 +40,15 @@ export interface PersistedSnapshot {
   tagPresets?: string[]
   mistakeTagPresets?: string[]
   profile?: UserProfile
-  cases?: CaseRecord[]
-  disputeTypes?: DisputeType[]
+  /** @deprecated 判例库已移除；旧快照可能仍含此字段，加载时忽略 */
+  cases?: unknown[]
+  /** @deprecated 判例库已移除；旧快照可能仍含此字段，加载时忽略 */
+  disputeTypes?: unknown[]
   savedTradeViews?: SavedTradeView[]
+  /** 品种图标覆盖：预设或自定义上传 */
+  symbolIcons?: import('@/lib/symbolIcons').SymbolIconsMap
+  /** 品种目录：设置与新建交易共用 */
+  symbolCatalog?: string[]
 }
 
 export interface ExportAssetRecord {

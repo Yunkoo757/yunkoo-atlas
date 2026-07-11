@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type KeyboardEvent,
   type MutableRefObject,
+  type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
@@ -17,6 +18,7 @@ export type SelectOption = {
   value: string
   label: string
   disabled?: boolean
+  icon?: ReactNode
 }
 
 type SelectPosition = {
@@ -137,6 +139,7 @@ export const Select = forwardRef<
 
     if (event.key === 'Escape') {
       event.preventDefault()
+      event.stopPropagation()
       setOpen(false)
       return
     }
@@ -234,7 +237,8 @@ export const Select = forwardRef<
         onKeyDown={handleKeyDown}
       >
         <span className={`ui-select-value${selected ? '' : ' is-placeholder'}`}>
-          {selected?.label ?? placeholder}
+          {selected?.icon ? <span className="ui-select-option-icon">{selected.icon}</span> : null}
+          <span className="ui-select-option-label">{selected?.label ?? placeholder}</span>
         </span>
         <ChevronDown className="ui-select-chevron" size={14} />
       </button>
@@ -264,7 +268,10 @@ export const Select = forwardRef<
               }}
               onClick={() => selectOption(index)}
             >
-              <span>{option.label}</span>
+              <span className="ui-select-option-main">
+                {option.icon ? <span className="ui-select-option-icon">{option.icon}</span> : null}
+                <span className="ui-select-option-label">{option.label}</span>
+              </span>
               {option.value === value && <Check size={13} />}
             </button>
           ))}

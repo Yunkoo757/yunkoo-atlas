@@ -1,11 +1,13 @@
 import { Bell, Check, Star } from 'lucide-react'
 import type { Strategy } from '@/data/strategies'
-import { REVIEW_CATEGORY_META, type Trade } from '@/data/trades'
+import { REVIEW_CATEGORY_META, getTimeframeTone, resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
+import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { useStore } from '@/store/useStore'
 
 export type TradeRowProps = {
   trade: Trade
@@ -34,6 +36,8 @@ export function TradeRow({
 }: TradeRowProps) {
   const showResult = trade.status !== 'planned' && trade.status !== 'open'
   const session = getTradeSessionMeta(trade)
+  const timeframe = resolveTimeframe(trade.timeframe)
+  const symbolIcons = useStore((state) => state.symbolIcons)
   const regularTags = getVisibleTradeTags(trade, 1)
   const reviewLabel =
     regularTags.visible.length === 0 &&
@@ -68,7 +72,10 @@ export function TradeRow({
       <span className="trade-row-status"><StatusIcon status={trade.status} /></span>
       <span className="trade-row-ref">{trade.ref}</span>
       <span className="trade-row-symbol trade-row-primary">
-        <strong>{trade.symbol}</strong>
+        <span className="trade-row-symbol-main">
+          <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={16} />
+          <strong>{trade.symbol}</strong>
+        </span>
         <SideTag side={trade.side} />
         <span className="trade-row-strategy">
           <StrategyLabel strategyId={trade.strategyId} strategies={strategies} size={14} />
@@ -95,6 +102,14 @@ export function TradeRow({
             <span className="trade-row-more">+{regularTags.hiddenCount}</span>
           </Tooltip>
         )}
+      </span>
+      <span className="trade-row-timeframe-slot">
+        <span
+          className={`trade-row-timeframe is-${getTimeframeTone(timeframe)}`}
+          title={`波段级别 ${timeframe}`}
+        >
+          {timeframe}
+        </span>
       </span>
       <span className="trade-row-mistakes">
         {trade.mistakeTags.slice(0, 1).map((tag) => (

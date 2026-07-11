@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { RotateCcw, X } from 'lucide-react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
@@ -14,11 +14,14 @@ import type { ListFilter } from '@/lib/tradeFilters'
 import { PERIOD_LABELS } from '@/lib/periods'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { getStrategyName } from '@/lib/strategies'
+import { collectSymbolOptions } from '@/lib/symbolIcons'
+import { collectMistakeTagOptions, collectTagOptions } from '@/lib/tags'
 import { routeWithSearch } from '@/lib/tradeView'
 import { savedViewMatchesLocation } from '@/lib/savedTradeViews'
 import { getActiveWorkspaceView, type WorkspaceKind } from '@/lib/workspaceViews'
 import { FilterBar, type ActiveFilter } from '@/components/ui/FilterBar'
 import { QuickViewBar } from '@/components/trades/QuickViewBar'
+import { SymbolIcon } from '@/components/SymbolIcon'
 import { Select } from '@/components/ui/Select'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
@@ -46,6 +49,10 @@ export function TradeFilters({
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
+  const symbolCatalog = useStore((state) => state.symbolCatalog)
+  const symbolIcons = useStore((state) => state.symbolIcons)
+  const tagPresets = useStore((state) => state.tagPresets)
+  const mistakeTagPresets = useStore((state) => state.mistakeTagPresets)
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -55,16 +62,16 @@ export function TradeFilters({
   const filterLabel = isCaseWorkspace ? '筛选案例' : '筛选交易'
   const filterDialogLabel = isCaseWorkspace ? '案例筛选' : '交易筛选'
   const symbols = useMemo(
-    () => [...new Set(trades.map((trade) => trade.symbol).filter(Boolean))].sort(),
-    [trades],
+    () => collectSymbolOptions(symbolCatalog, trades.map((trade) => trade.symbol)),
+    [symbolCatalog, trades],
   )
   const tags = useMemo(
-    () => [...new Set(trades.flatMap((trade) => trade.tags).filter(Boolean))].sort(),
-    [trades],
+    () => collectTagOptions(tagPresets, trades),
+    [tagPresets, trades],
   )
   const mistakeTags = useMemo(
-    () => [...new Set(trades.flatMap((trade) => trade.mistakeTags).filter(Boolean))].sort(),
-    [trades],
+    () => collectMistakeTagOptions(mistakeTagPresets, trades),
+    [mistakeTagPresets, trades],
   )
 
   const setParam = (key: string, value: string) => {
@@ -275,7 +282,14 @@ export function TradeFilters({
                   label="品种"
                   value={searchParams.get('symbol') ?? ''}
                   onChange={(value) => setParam('symbol', value)}
-                  options={[['', '全部品种'], ...symbols.map((value) => [value, value] as [string, string])]}
+                  options={[
+                    { value: '', label: '全部品种' },
+                    ...symbols.map((value) => ({
+                      value,
+                      label: value,
+                      icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={14} />,
+                    })),
+                  ]}
                 />
                 <FilterSelect
                   label="方向"
@@ -346,7 +360,7 @@ function FilterSelect({
   label: string
   value: string
   onChange: (value: string) => void
-  options: Array<[string, string]>
+  options: Array<[string, string] | { value: string; label: string; icon?: ReactNode }>
 }) {
   return (
     <div className="trade-filter-field">
@@ -355,10 +369,11 @@ function FilterSelect({
         value={value}
         onValueChange={onChange}
         ariaLabel={label}
-        options={options.map(([optionValue, optionLabel]) => ({
-          value: optionValue,
-          label: optionLabel,
-        }))}
+        options={options.map((option) =>
+          Array.isArray(option)
+            ? { value: option[0], label: option[1] }
+            : option,
+        )}
       />
     </div>
   )

@@ -32,6 +32,11 @@ export interface DisplayPrefs {
   sortBy: 'date' | 'pnl' | 'conviction'
   /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
   sidebarPins: SidebarNavId[]
+  /** 侧栏「交易日志 / 案例记录」上次进入的工作区路由 */
+  workspaceMemory?: {
+    trade?: { pathname: string; search: string }
+    case?: { pathname: string; search: string }
+  }
 }
 
 export const DEFAULT_DISPLAY: DisplayPrefs = {
@@ -45,12 +50,37 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
 
 const SORT_BY = ['date', 'pnl', 'conviction'] as const
 
+function normalizeWorkspaceRoute(input: unknown): { pathname: string; search: string } | undefined {
+  if (!input || typeof input !== 'object') return undefined
+  const route = input as Record<string, unknown>
+  if (typeof route.pathname !== 'string' || !route.pathname.startsWith('/')) return undefined
+  return {
+    pathname: route.pathname,
+    search: typeof route.search === 'string' ? route.search : '',
+  }
+}
+
+function normalizeWorkspaceMemory(
+  input: unknown,
+): DisplayPrefs['workspaceMemory'] {
+  if (!input || typeof input !== 'object') return undefined
+  const memory = input as Record<string, unknown>
+  const trade = normalizeWorkspaceRoute(memory.trade)
+  const caseRoute = normalizeWorkspaceRoute(memory.case)
+  if (!trade && !caseRoute) return undefined
+  return {
+    ...(trade ? { trade } : {}),
+    ...(caseRoute ? { case: caseRoute } : {}),
+  }
+}
+
 /** 合并旧版/残缺 display，避免缺字段导致渲染崩溃 */
 export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayPrefs {
   const d = input ?? {}
   const sidebarPins = Array.isArray(d.sidebarPins)
     ? normalizeSidebarPins(d.sidebarPins)
     : [...DEFAULT_DISPLAY.sidebarPins]
+  const workspaceMemory = normalizeWorkspaceMemory(d.workspaceMemory)
   return {
     hideClosed: typeof d.hideClosed === 'boolean' ? d.hideClosed : DEFAULT_DISPLAY.hideClosed,
     showEmptyGroups:
@@ -62,6 +92,7 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
       ? (d.sortBy as DisplayPrefs['sortBy'])
       : DEFAULT_DISPLAY.sortBy,
     sidebarPins,
+    ...(workspaceMemory ? { workspaceMemory } : {}),
   }
 }
 

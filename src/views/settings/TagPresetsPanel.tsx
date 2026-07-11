@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '@/store/useStore'
-import { Tag, X, Plus, Trash2 } from 'lucide-react'
+import { Tag, X, Plus } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './TagPresetsPanel.css'
@@ -18,7 +18,7 @@ export function TagPresetsPanel() {
       <div className="settings-page-head">
         <h1 className="settings-page-title">标签管理</h1>
         <p className="settings-page-desc">
-          预置标签会在标签编辑器顶部显示为快捷按钮，点击即可添加，减少重复输入。
+          手动录入的标签会自动保存到这里，之后可直接点选。也可在本页统一新增、批量导入或删除。
         </p>
       </div>
 

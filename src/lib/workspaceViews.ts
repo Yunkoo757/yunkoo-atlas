@@ -2,6 +2,11 @@ import { normalizeSavedViewPath } from '@/lib/savedTradeViews'
 
 export type WorkspaceKind = 'trade' | 'case'
 
+export type WorkspaceRouteMemory = {
+  pathname: string
+  search: string
+}
+
 export type WorkspaceViewTarget = {
   id: string
   label: string
@@ -69,4 +74,53 @@ export function isSavedViewInWorkspace(
     pathname === '/favorites' ||
     pathname === '/missed'
   )
+}
+
+/** 侧栏「交易日志」可记忆的列表路径（不含今日记录 / 模拟 / 详情） */
+export function isTradeWorkspaceEntryPath(pathname: string): boolean {
+  const p = normalizeSavedViewPath(pathname)
+  if (p.startsWith('/review-cases')) return false
+  if (p === '/today-record') return false
+  if (p === '/sim' || p.startsWith('/sim/')) return false
+  if (p === '/dashboard' || p.startsWith('/settings')) return false
+  if (p === '/trade-trash' || p.startsWith('/trade/')) return false
+  return (
+    p === '/list' ||
+    p.startsWith('/period/') ||
+    p === '/active' ||
+    p === '/favorites' ||
+    p === '/missed' ||
+    p.startsWith('/strategy/')
+  )
+}
+
+export function isCaseWorkspaceEntryPath(pathname: string): boolean {
+  return normalizeSavedViewPath(pathname).startsWith('/review-cases')
+}
+
+export function rememberableWorkspaceKind(pathname: string): WorkspaceKind | null {
+  if (isCaseWorkspaceEntryPath(pathname)) return 'case'
+  if (isTradeWorkspaceEntryPath(pathname)) return 'trade'
+  return null
+}
+
+export function resolveWorkspaceNavTarget(
+  kind: WorkspaceKind,
+  memory: WorkspaceRouteMemory | null | undefined,
+): WorkspaceRouteMemory {
+  const fallback: WorkspaceRouteMemory =
+    kind === 'case'
+      ? { pathname: '/review-cases', search: '' }
+      : { pathname: '/list', search: '' }
+  if (!memory?.pathname) return fallback
+  if (kind === 'trade' && !isTradeWorkspaceEntryPath(memory.pathname)) return fallback
+  if (kind === 'case' && !isCaseWorkspaceEntryPath(memory.pathname)) return fallback
+  return {
+    pathname: memory.pathname,
+    search: memory.search ?? '',
+  }
+}
+
+export function workspaceRouteHref(route: WorkspaceRouteMemory): string {
+  return `${route.pathname}${route.search ?? ''}`
 }

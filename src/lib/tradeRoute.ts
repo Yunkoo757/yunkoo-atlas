@@ -1,4 +1,14 @@
 import type { Trade } from '@/data/trades'
+import { routeWithSearch } from '@/lib/tradeView'
+
+export type TradeDetailFrom = {
+  pathname: string
+  search?: string
+}
+
+export type TradeDetailLocationState = {
+  from?: TradeDetailFrom
+}
 
 /** 路由参数：支持内部 id 或 TRD-xxx 编号 */
 export function findTradeByRouteParam(
@@ -14,4 +24,31 @@ export function findTradeByRouteParam(
 
 export function tradeDetailPath(trade: Pick<Trade, 'ref'>): string {
   return `/trade/${trade.ref}`
+}
+
+export function tradeDetailNavState(from: TradeDetailFrom): TradeDetailLocationState {
+  return {
+    from: {
+      pathname: from.pathname,
+      search: from.search ?? '',
+    },
+  }
+}
+
+/** 详情页返回目标：优先路由 state，其次列表上下文，最后按交易类型兜底 */
+export function resolveTradeDetailReturn(options: {
+  from?: TradeDetailFrom | null
+  listPath?: string | null
+  listSearch?: string | null
+  tradeKind?: Trade['tradeKind']
+}): { pathname: string; search: string } {
+  const fallback = options.tradeKind === 'case' ? '/review-cases' : '/list'
+
+  if (options.from?.pathname) {
+    return routeWithSearch(options.from.pathname, options.from.search ?? '')
+  }
+  if (options.listPath) {
+    return routeWithSearch(options.listPath, options.listSearch ?? '')
+  }
+  return routeWithSearch(fallback, '')
 }

@@ -1,8 +1,8 @@
-import type { CaseRecord, DisputeType } from '@/data/case'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, filterTrades } from '@/lib/tradeFilters'
 import { mergeImportPayload, parseImportJson } from '@/lib/importExport'
+import { collectTagOptions, mergeTagPresets } from '@/lib/tags'
 import { computeStrategyStats } from '@/lib/strategies'
 import {
   defaultTradeKindForPath,
@@ -23,6 +23,9 @@ import {
 } from '@/lib/notionImport'
 import { cleanExpiredTradeTrash } from '@/lib/trashCleanup'
 import { PRIMARY_NAV } from '@/lib/sidebarNav'
+import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
+import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
+import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import { chordFromEvent } from '@/shortcuts/chords'
 import {
   mergeSavedTradeViews,
@@ -34,9 +37,12 @@ import {
   filterTradesByFacets,
   getReviewCaseActivityTime,
   getTradeSessionMeta,
+  getSessionSelectValue,
   getVisibleTradeTags,
   groupTradesByMonth,
   intersectSelectedTradeIds,
+  normalizeSession,
+  promoteTradeSession,
   routeWithSearch,
   sortReviewCasesByRecentActivity,
   sortTradesByOpenedAtDesc,
@@ -45,7 +51,10 @@ import {
   getActiveWorkspaceView,
   getWorkspacePrimaryViews,
   isSavedViewInWorkspace,
+  resolveWorkspaceNavTarget,
+  rememberableWorkspaceKind,
 } from '@/lib/workspaceViews'
+import { normalizeDisplay } from '@/lib/tradeFilters'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -83,7 +92,7 @@ export function testQuickCaptureDefaultsFollowRouteContext(): void {
 
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
-  const expected = ['/today-record', '/list', '/review-cases', '/dashboard', '/cases']
+  const expected = ['/today-record', '/list', '/review-cases', '/dashboard']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
     `一级导航应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
@@ -118,6 +127,46 @@ export function testWorkspaceViewsNeverCrossRecordDomains(): void {
     isSavedViewInWorkspace({ pathname: '/review-cases/focus' }, 'case') &&
       !isSavedViewInWorkspace({ pathname: '/review-cases/focus' }, 'trade'),
     '保存视图只能显示在所属模块内',
+  )
+}
+
+export function testWorkspaceNavRemembersLastQuickView(): void {
+  assert(rememberableWorkspaceKind('/period/this-week') === 'trade', '本周应记入交易工作区')
+  assert(rememberableWorkspaceKind('/list') === 'trade', '全部列表应记入交易工作区')
+  assert(rememberableWorkspaceKind('/today-record') === null, '今日记录不占用交易日志记忆')
+  assert(rememberableWorkspaceKind('/review-cases/mistakes') === 'case', '错题应记入案例工作区')
+
+  const remembered = resolveWorkspaceNavTarget('trade', {
+    pathname: '/period/this-week',
+    search: '',
+  })
+  assert(
+    remembered.pathname === '/period/this-week',
+    '侧栏交易日志应还原上次快捷视图',
+  )
+
+  const loss = resolveWorkspaceNavTarget('trade', {
+    pathname: '/list',
+    search: '?status=loss',
+  })
+  assert(loss.search === '?status=loss', '亏损筛选应随记忆一并还原')
+
+  const fallback = resolveWorkspaceNavTarget('trade', {
+    pathname: '/settings',
+    search: '',
+  })
+  assert(fallback.pathname === '/list', '非法记忆应回退到全部')
+
+  const display = normalizeDisplay({
+    workspaceMemory: {
+      trade: { pathname: '/period/this-month', search: '' },
+      case: { pathname: '/review-cases/focus', search: '' },
+    },
+  })
+  assert(
+    display.workspaceMemory?.trade?.pathname === '/period/this-month' &&
+      display.workspaceMemory?.case?.pathname === '/review-cases/focus',
+    'workspaceMemory 应经 normalizeDisplay 持久化保留',
   )
 }
 
@@ -187,6 +236,16 @@ export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
   assert(londonSession?.label === '伦敦开盘', '旧交易应从标签中识别伦敦开盘时段')
   assert(londonSession?.kind === 'london', '伦敦时段应返回稳定的视觉类型')
 
+  const promoted = promoteTradeSession({
+    ...trade,
+    session: undefined,
+    tags: ['London Open', 'MTF ORA'],
+  })
+  assert(promoted.session === 'London Open', '标签中的时段应提升为独立 session 字段')
+  assert(getSessionSelectValue(promoted) === 'London Open', '下拉应能选中已提升的时段')
+  assert(normalizeSession('伦敦开盘') === 'London Open', '中文标签应规范为预设值')
+  assert(normalizeSession('') === undefined, '空时段表示未设置')
+
   const filtered = filterTradesByFacets(
     [
       { ...trade, id: 'long', symbol: 'BTCUSDT', side: 'long', tags: ['ORA'] },
@@ -233,6 +292,82 @@ export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
   const target = routeWithSearch('/period/this-month', '?symbol=BTCUSDT&side=long')
   assert(target.pathname === '/period/this-month', '路由目标 pathname 应正确')
   assert(target.search === '?symbol=BTCUSDT&side=long', '跨路由切换必须保留组合筛选查询')
+}
+
+export function testTradeDetailReturnRemembersListView(): void {
+  const fromState = resolveTradeDetailReturn({
+    from: { pathname: '/list', search: '?status=loss&session=london' },
+    listPath: '/list',
+    listSearch: '',
+    tradeKind: 'live',
+  })
+  assert(fromState.pathname === '/list', '优先使用详情路由 state 的 pathname')
+  assert(
+    fromState.search === '?status=loss&session=london',
+    '优先使用详情路由 state 的自定义视图查询',
+  )
+
+  const fromContext = resolveTradeDetailReturn({
+    listPath: '/review-cases/mistakes',
+    listSearch: '?symbol=BTCUSDT',
+    tradeKind: 'case',
+  })
+  assert(fromContext.pathname === '/review-cases/mistakes', '无 state 时回退到列表上下文路径')
+  assert(fromContext.search === '?symbol=BTCUSDT', '无 state 时回退到列表上下文查询')
+
+  const fallback = resolveTradeDetailReturn({ tradeKind: 'case' })
+  assert(fallback.pathname === '/review-cases', '无上下文时案例详情回退到案例列表')
+  assert(fallback.search === '', '无上下文时不应伪造查询参数')
+}
+
+export function testSymbolIconsResolveDefaultsAndOverrides(): void {
+  assert(normalizeSymbol(' btc_usdt ') === 'BTCUSDT', '品种名应规范化为大写无分隔符')
+  assert(detectSymbolMarket('BTCUSDT') === 'crypto', 'USDT 交易对应加密货币')
+  assert(detectSymbolMarket('EURUSD') === 'forex', '六位货币对应外汇')
+  assert(detectSymbolMarket('XAUUSD') === 'metal', 'XAU 对应贵金属')
+
+  const btc = resolveSymbolIcon('BTCUSDT')
+  assert(btc.type === 'glyph' && btc.glyph === '₿', 'BTC 默认使用比特币占位符')
+
+  const xau = resolveSymbolIcon('XAUUSD')
+  assert(xau.type === 'svg' && xau.svgId === 'gold-bar', '黄金默认使用金条 SVG')
+
+  const custom = resolveSymbolIcon('BTCUSDT', {
+    BTCUSDT: {
+      presetId: null,
+      customDataUrl: 'data:image/png;base64,abc',
+      updatedAt: '2026-07-11T00:00:00.000Z',
+    },
+  })
+  assert(custom.type === 'image' && custom.src.startsWith('data:'), '自定义上传应覆盖默认图标')
+}
+
+export function testSymbolCatalogSyncsComposerAndSettings(): void {
+  const catalog = normalizeSymbolCatalog(['xauusd', 'BTCUSDT', 'BTCUSDT', ''])
+  assert(catalog[0] === 'XAUUSD', '目录应规范化并去重')
+  assert(catalog.filter((item) => item === 'BTCUSDT').length === 1, '重复品种只保留一次')
+
+  const options = collectSymbolOptions(catalog, ['SOLUSDT'], ['legacy'])
+  assert(options.includes('SOLUSDT'), '交易中出现的品种应进入共用选项')
+  assert(options.includes('LEGACY'), '编辑中的历史品种应进入共用选项')
+  assert(options.includes('XAUUSD'), '设置目录中的品种应出现在新建下拉')
+
+  const empty = normalizeSymbolCatalog([])
+  assert(
+    empty.length === DEFAULT_SYMBOL_CATALOG.length,
+    '空目录应回退到默认品种，避免新建交易无选项',
+  )
+}
+
+export function testNormalizeTimeframePresetsAndAliases(): void {
+  assert(normalizeTimeframe('15m') === '15M', '分钟级别应大写')
+  assert(normalizeTimeframe('h4') === '4H', 'H4 写法应规范为 4H')
+  assert(normalizeTimeframe(' 1h ') === '1H', '应去除空格并大写')
+  assert(normalizeTimeframe('') === undefined, '空值应视为未设置')
+  assert(normalizeTimeframe('1D') === '1D', '日线预设应保持不变')
+  assert(resolveTimeframe('') === '4H', '未录入波段级别应默认 4H')
+  assert(resolveTimeframe(undefined) === '4H', '缺失波段级别应默认 4H')
+  assert(resolveTimeframe('15M') === '15M', '已录入级别应保留')
 }
 
 export function testSavedTradeViewsNormalizeMatchAndMerge(): void {
@@ -306,24 +441,6 @@ const trade: Trade = {
   note: '',
 }
 
-const caseRecord: CaseRecord = {
-  id: 'case-1',
-  disputeTypeId: 'dt_custom',
-  initialVerdict: '是',
-  confidence: 70,
-  images: [],
-  createdAt: '2026-06-01T00:00:00.000Z',
-  updatedAt: '2026-06-01T00:00:00.000Z',
-}
-
-const disputeType: DisputeType = {
-  id: 'dt_custom',
-  name: '自定义',
-  options: ['是', '否'],
-  positiveOption: '是',
-  builtin: false,
-}
-
 function preview(rowIndex: number, errors: string[] = [], sourceId?: string): NotionTradePreview {
   return {
     rowIndex,
@@ -361,7 +478,13 @@ function image(name: string): ImageFile {
   }
 }
 
-export function testMergeImportPayloadKeepsCaseAndPresetData(): void {
+export function testMergeImportPayloadKeepsPresetData(): void {
+  const importedTrade: Trade = {
+    ...trade,
+    id: 'import-with-tags',
+    tags: ['交易标签'],
+    mistakeTags: ['追单'],
+  }
   const merged = mergeImportPayload(
     {
       trades: [],
@@ -372,12 +495,10 @@ export function testMergeImportPayloadKeepsCaseAndPresetData(): void {
       display: DEFAULT_DISPLAY,
       tagPresets: ['本地标签'],
       mistakeTagPresets: ['本地错误'],
-      cases: [],
-      disputeTypes: [],
     },
     {
       version: 5,
-      trades: [trade],
+      trades: [importedTrade],
       strategies: [strategy],
       starredIds: [],
       subscribedIds: [],
@@ -385,18 +506,27 @@ export function testMergeImportPayloadKeepsCaseAndPresetData(): void {
       display: DEFAULT_DISPLAY,
       tagPresets: ['导入标签'],
       mistakeTagPresets: ['导入错误'],
-      cases: [caseRecord],
-      disputeTypes: [disputeType],
     },
   )
 
-  assert(merged.cases?.some((c) => c.id === caseRecord.id), 'imports cases into state')
-  assert(
-    merged.disputeTypes?.some((d) => d.id === disputeType.id),
-    'imports dispute types into state',
-  )
   assert(merged.tagPresets?.includes('导入标签'), 'imports tag presets')
   assert(merged.mistakeTagPresets?.includes('导入错误'), 'imports mistake tag presets')
+  assert(merged.tagPresets?.includes('本地标签'), 'keeps local tag presets')
+  assert(merged.tagPresets?.includes('交易标签'), 'harvests tags from imported trades into presets')
+  assert(
+    merged.mistakeTagPresets?.includes('追单'),
+    'harvests mistake tags from imported trades into presets',
+  )
+  assert(merged.trades.some((t) => t.id === importedTrade.id), 'imports trades into state')
+}
+
+export function testMergeTagPresetsDedupesAndSorts(): void {
+  const merged = mergeTagPresets([' 突破 ', '趋势'], ['突破', '', '假突破'], ['趋势'])
+  assert(merged.length === 3, '标签预设应去重、去空')
+  assert(merged.includes('突破') && merged.includes('趋势') && merged.includes('假突破'), '应保留全部有效标签')
+  assert(merged[0] === [...merged].sort((a, b) => a.localeCompare(b, 'zh-CN'))[0], '应按中文排序')
+  assert(collectTagOptions(['预设A'], [{ ...trade, tags: ['交易B'] }]).includes('预设A'), '选项应包含预设')
+  assert(collectTagOptions(['预设A'], [{ ...trade, tags: ['交易B'] }]).includes('交易B'), '选项应包含交易标签')
 }
 
 export function testNotionImportUsesSameValidPreviewListForTradesAndImages(): void {
@@ -554,6 +684,7 @@ export function testBuildReviewCaseFromTradeCopiesReviewFieldsWithoutMutatingSou
     ref: 'TRD-9',
     tags: ['好形态'],
     mistakeTags: ['追单'],
+    timeframe: '15M',
     note: '<p>原始复盘</p>',
     deletedAt: '2026-06-01T00:00:00.000Z',
   }
@@ -565,6 +696,7 @@ export function testBuildReviewCaseFromTradeCopiesReviewFieldsWithoutMutatingSou
   assert(copy.tradeKind === 'case', 'copy is a review case')
   assert(copy.symbol === source.symbol, 'copy keeps symbol')
   assert(copy.strategyId === source.strategyId, 'copy keeps strategy')
+  assert(copy.timeframe === source.timeframe, 'copy keeps timeframe')
   assert(copy.tags.includes('好形态'), 'copy keeps tags')
   assert(copy.mistakeTags.includes('追单'), 'copy keeps mistake tags')
   assert(copy.note.includes('来源交易：TRD-9'), 'copy records source trade')
@@ -592,6 +724,7 @@ export function testTradeTableRowFormatsDenseRecordFields(): void {
       symbol: 'BTCUSDT',
       status: 'win',
       side: 'long',
+      timeframe: '4H',
       pnl: 260,
       rMultiple: 2.4,
       tags: ['MTF ORA', 'LTF ChoCh'],
@@ -604,6 +737,7 @@ export function testTradeTableRowFormatsDenseRecordFields(): void {
   assert(row.ref === 'TRD-42', 'table row keeps ref')
   assert(row.date === '2026/07/03', 'table row formats date compactly')
   assert(row.symbol === 'BTCUSDT', 'table row keeps symbol')
+  assert(row.timeframe === '4H', 'table row exposes timeframe')
   assert(row.model === 'Breakout', 'table row resolves strategy name')
   assert(row.position === 'Buy', 'table row maps long to Buy')
   assert(row.status === 'Closed by T/P', 'table row maps winning status to close reason')

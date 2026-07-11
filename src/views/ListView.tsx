@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Copy, Plus, Trash2 } from 'lucide-react'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { EmptyState } from '@/components/EmptyState'
@@ -15,7 +15,7 @@ import { getStrategyName } from '@/lib/strategies'
 import { CALENDAR_PERIODS, type CalendarPeriod } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import {
   filterTradesByFacets,
@@ -70,8 +70,18 @@ export function ListView({
   const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
+  const location = useLocation()
 
   useListContextSync(filter)
+
+  const openTrade = (trade: Trade) => {
+    navigate(tradeDetailPath(trade), {
+      state: tradeDetailNavState({
+        pathname: location.pathname,
+        search: location.search,
+      }),
+    })
+  }
 
   const facets = useMemo<TradeFacetFilters>(() => {
     const side = searchParams.get('side')
@@ -157,7 +167,7 @@ export function ListView({
         setFocusIndex((index) => Math.max(index - 1, 0))
       } else if (event.key === 'Enter' && focusIndex >= 0 && visible[focusIndex]) {
         event.preventDefault()
-        navigate(tradeDetailPath(visible[focusIndex]))
+        openTrade(visible[focusIndex])
       }
     }
     window.addEventListener('keydown', onKeyDown, true)
@@ -243,7 +253,7 @@ export function ListView({
           })
           upsertTrade(reviewCase)
           toast('已沉淀为案例记录')
-          navigate(tradeDetailPath(reviewCase))
+          openTrade(reviewCase)
         },
         toggleStar,
         isStarred,
@@ -291,7 +301,7 @@ export function ListView({
             selectedIds={selectedIds}
             starredIds={starredIds}
             followedIds={subscribedIds}
-            onOpen={(trade) => navigate(tradeDetailPath(trade))}
+            onOpen={openTrade}
             onSelect={toggleSelection}
             onToggleStar={(trade) => toggleStar(trade.id)}
             onContextMenu={openContextMenu}

@@ -14,20 +14,22 @@ import {
 } from '@/lib/tradeFilters'
 import { type UserProfile } from '@/storage/types'
 import type { ExportPayload } from '@/lib/importExport'
-import type { CaseRecord, DisputeType } from '@/data/case'
-import { BUILTIN_DISPUTE_TYPES } from '@/data/case'
 import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
 import { isTerminal } from '@/lib/tradeStatus'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
+import { promoteTradeSession } from '@/lib/tradeView'
 import {
   normalizeSavedTradeViews,
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
-
-export interface CaseModalContext {
-  sourceTradeId?: string
-}
+import {
+  normalizeSymbol,
+  type SymbolIconsMap,
+  DEFAULT_SYMBOL_CATALOG,
+  normalizeSymbolCatalog,
+} from '@/lib/symbolIcons'
+import { mergeTagPresets } from '@/lib/tags'
 
 interface State {
   trades: Trade[]
@@ -35,9 +37,6 @@ interface State {
   selectedId: string | null
   composerOpen: boolean
   composerTrade: Trade | null
-  caseModalOpen: boolean
-  caseModalContext: CaseModalContext | null
-  setCaseModalOpen: (open: boolean, context?: CaseModalContext | null) => void
   undoStack: { id: string; prev: Trade }[][]
   redoStack: { id: string; prev: Trade }[][]
   pushUndo: (snapshots: { id: string; prev: Trade }[]) => void
@@ -50,25 +49,22 @@ interface State {
   tagPresets: string[]
   mistakeTagPresets: string[]
   profile: UserProfile
-  cases: CaseRecord[]
-  disputeTypes: DisputeType[]
   savedTradeViews: SavedTradeView[]
+  symbolIcons: SymbolIconsMap
+  symbolCatalog: string[]
   saveTradeView: (view: SavedTradeView) => void
   renameTradeView: (id: string, name: string) => void
   removeTradeView: (id: string) => void
   togglePinTradeView: (id: string) => void
+  setSymbolIconPreset: (symbol: string, presetId: string | null) => void
+  setSymbolIconCustom: (symbol: string, dataUrl: string | null) => void
+  clearSymbolIcon: (symbol: string) => void
+  addSymbolToCatalog: (symbol: string) => void
+  removeSymbolFromCatalog: (symbol: string) => void
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
   hydrateProfile: (profile?: UserProfile) => void
-  addCase: (rec: CaseRecord) => void
-  updateCase: (id: string, patch: Partial<CaseRecord>) => void
-  removeCase: (id: string) => void
-  restoreCase: (id: string) => void
-  purgeCase: (id: string) => void
-  addDisputeType: (dt: DisputeType) => void
-  updateDisputeType: (id: string, patch: Partial<DisputeType>) => void
-  removeDisputeType: (id: string) => void
   setStatus: (id: string, status: TradeStatus) => void
   setConviction: (id: string, conviction: Conviction) => void
   setSide: (id: string, side: TradeSide) => void
@@ -96,6 +92,8 @@ interface State {
         | 'mistakeTags'
         | 'reviewStatus'
         | 'reviewCategory'
+        | 'timeframe'
+        | 'session'
       >
     >,
   ) => void
@@ -133,10 +131,6 @@ export const useStore = create<State>()((set, get) => ({
       selectedId: null,
       composerOpen: false,
       composerTrade: null,
-      caseModalOpen: false,
-      caseModalContext: null,
-      setCaseModalOpen: (open, context = null) =>
-        set({ caseModalOpen: open, caseModalContext: open ? context : null }),
       undoStack: [],
       redoStack: [],
       pushUndo: (snapshots) =>
@@ -185,9 +179,9 @@ export const useStore = create<State>()((set, get) => ({
       mistakeTagPresets: [],
       display: DEFAULT_DISPLAY,
       profile: { avatarId: null, displayName: 'Yunkoo' },
-      cases: [],
-      disputeTypes: [...BUILTIN_DISPUTE_TYPES],
       savedTradeViews: [],
+      symbolIcons: {},
+      symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       saveTradeView: (view) =>
         set((s) => ({
           savedTradeViews: normalizeSavedTradeViews([
@@ -222,6 +216,99 @@ export const useStore = create<State>()((set, get) => ({
             ),
           }
         }),
+      setSymbolIconPreset: (symbol, presetId) => {
+        const key = normalizeSymbol(symbol)
+        if (!key) return
+        set((s) => {
+          const catalog = s.symbolCatalog.includes(key)
+            ? s.symbolCatalog
+            : normalizeSymbolCatalog([...s.symbolCatalog, key])
+          if (!presetId) {
+            const next = { ...s.symbolIcons }
+            const current = next[key]
+            if (!current?.customDataUrl) {
+              delete next[key]
+              return { symbolIcons: next, symbolCatalog: catalog }
+            }
+            next[key] = {
+              ...current,
+              presetId: null,
+              updatedAt: new Date().toISOString(),
+            }
+            return { symbolIcons: next, symbolCatalog: catalog }
+          }
+          return {
+            symbolCatalog: catalog,
+            symbolIcons: {
+              ...s.symbolIcons,
+              [key]: {
+                presetId,
+                customDataUrl: null,
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          }
+        })
+      },
+      setSymbolIconCustom: (symbol, dataUrl) => {
+        const key = normalizeSymbol(symbol)
+        if (!key) return
+        set((s) => {
+          const catalog = s.symbolCatalog.includes(key)
+            ? s.symbolCatalog
+            : normalizeSymbolCatalog([...s.symbolCatalog, key])
+          if (!dataUrl) {
+            const next = { ...s.symbolIcons }
+            const current = next[key]
+            if (!current?.presetId) {
+              delete next[key]
+              return { symbolIcons: next, symbolCatalog: catalog }
+            }
+            next[key] = {
+              ...current,
+              customDataUrl: null,
+              updatedAt: new Date().toISOString(),
+            }
+            return { symbolIcons: next, symbolCatalog: catalog }
+          }
+          return {
+            symbolCatalog: catalog,
+            symbolIcons: {
+              ...s.symbolIcons,
+              [key]: {
+                presetId: null,
+                customDataUrl: dataUrl,
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          }
+        })
+      },
+      clearSymbolIcon: (symbol) => {
+        const key = normalizeSymbol(symbol)
+        if (!key) return
+        set((s) => {
+          if (!(key in s.symbolIcons)) return s
+          const next = { ...s.symbolIcons }
+          delete next[key]
+          return { symbolIcons: next }
+        })
+      },
+      addSymbolToCatalog: (symbol) => {
+        const key = normalizeSymbol(symbol)
+        if (!key) return
+        set((s) => {
+          if (s.symbolCatalog.includes(key)) return s
+          return { symbolCatalog: normalizeSymbolCatalog([...s.symbolCatalog, key]) }
+        })
+      },
+      removeSymbolFromCatalog: (symbol) => {
+        const key = normalizeSymbol(symbol)
+        if (!key) return
+        set((s) => ({
+          symbolCatalog: s.symbolCatalog.filter((item) => item !== key),
+        }))
+      },
       setAvatar: (avatarId) =>
         set((s) => ({
           profile: { ...s.profile, avatarId, customAvatarDataUrl: null },
@@ -242,40 +329,6 @@ export const useStore = create<State>()((set, get) => ({
               }
             : s.profile,
         })),
-      addCase: (rec) =>
-        set((s) => ({ cases: [rec, ...s.cases] })),
-      updateCase: (id, patch) =>
-        set((s) => ({
-          cases: s.cases.map((c) =>
-            c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c,
-          ),
-        })),
-      removeCase: (id) =>
-        set((s) => ({
-          cases: s.cases.map((c) =>
-            c.id === id ? { ...c, deletedAt: new Date().toISOString() } : c,
-          ),
-        })),
-      restoreCase: (id) =>
-        set((s) => ({
-          cases: s.cases.map((c) =>
-            c.id === id
-              ? { ...c, deletedAt: undefined, updatedAt: new Date().toISOString() }
-              : c,
-          ),
-        })),
-      purgeCase: (id) =>
-        set((s) => ({ cases: s.cases.filter((c) => c.id !== id) })),
-      addDisputeType: (dt) =>
-        set((s) => ({ disputeTypes: [...s.disputeTypes, dt] })),
-      updateDisputeType: (id, patch) =>
-        set((s) => ({
-          disputeTypes: s.disputeTypes.map((d) =>
-            d.id === id ? { ...d, ...patch } : d,
-          ),
-        })),
-      removeDisputeType: (id) =>
-        set((s) => ({ disputeTypes: s.disputeTypes.filter((d) => !d.builtin || d.id !== id) })),
       setStatus: (id, status) =>
         set((s) => ({
           undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
@@ -312,15 +365,20 @@ export const useStore = create<State>()((set, get) => ({
           trades: s.trades.map((t) => (t.id === id ? { ...t, strategyId } : t)),
         })),
       setTags: (id, tags) =>
-        set((s) => ({
-          trades: s.trades.map((t) =>
-            t.id === id ? { ...t, tags: [...new Set(tags.map((x) => x.trim()).filter(Boolean))] } : t,
-          ),
-        })),
+        set((s) => {
+          const nextTags = [...new Set(tags.map((x) => x.trim()).filter(Boolean))]
+          return {
+            tagPresets: mergeTagPresets(s.tagPresets, nextTags),
+            trades: s.trades.map((t) =>
+              t.id === id ? { ...t, tags: nextTags } : t,
+            ),
+          }
+        }),
       addTag: (id, tag) => {
         const trimmed = tag.trim()
         if (!trimmed) return
         set((s) => ({
+          tagPresets: mergeTagPresets(s.tagPresets, [trimmed]),
           trades: s.trades.map((t) =>
             t.id === id && !t.tags.includes(trimmed) ? { ...t, tags: [...t.tags, trimmed] } : t,
           ),
@@ -351,14 +409,20 @@ export const useStore = create<State>()((set, get) => ({
           }),
         })),
       updateTradeData: (id, patch) =>
-        set((s) => ({
-          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
-          redoStack: [],
-          trades: s.trades.map((t) => {
-            if (t.id !== id) return t
-            return { ...t, ...patch }
-          }),
-        })),
+        set((s) => {
+          const nextMistakePresets = patch.mistakeTags
+            ? mergeTagPresets(s.mistakeTagPresets, patch.mistakeTags)
+            : s.mistakeTagPresets
+          return {
+            undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
+            redoStack: [],
+            mistakeTagPresets: nextMistakePresets,
+            trades: s.trades.map((t) => {
+              if (t.id !== id) return t
+              return { ...t, ...patch }
+            }),
+          }
+        }),
       addComment: (id, text) => {
         const trimmed = text.trim()
         if (!trimmed) return
@@ -420,7 +484,7 @@ export const useStore = create<State>()((set, get) => ({
         if (!t) return
         set((s) => {
           if (s.tagPresets.includes(t)) return s
-          return { tagPresets: [...s.tagPresets, t].sort((a, b) => a.localeCompare(b, 'zh-CN')) }
+          return { tagPresets: mergeTagPresets(s.tagPresets, [t]) }
         })
       },
       removeTagPreset: (tag) =>
@@ -430,7 +494,7 @@ export const useStore = create<State>()((set, get) => ({
         if (!t) return
         set((s) => {
           if (s.mistakeTagPresets.includes(t)) return s
-          return { mistakeTagPresets: [...s.mistakeTagPresets, t].sort((a, b) => a.localeCompare(b, 'zh-CN')) }
+          return { mistakeTagPresets: mergeTagPresets(s.mistakeTagPresets, [t]) }
         })
       },
       removeMistakeTagPreset: (tag) =>
@@ -469,16 +533,33 @@ export const useStore = create<State>()((set, get) => ({
           const exists = s.trades.some((t) => t.id === trade.id)
           const strategyId =
             trade.strategyId || s.strategies[0]?.id || 'uncategorized'
-          let normalized: Trade = normalizeReviewFields({
-            ...trade,
-            strategyId,
-            tradeKind: trade.tradeKind ?? 'live',
-            comments: trade.comments ?? [],
-            activities: trade.activities,
-          })
+          let normalized: Trade = promoteTradeSession(
+            normalizeReviewFields({
+              ...trade,
+              strategyId,
+              tradeKind: trade.tradeKind ?? 'live',
+              comments: trade.comments ?? [],
+              activities: trade.activities,
+            }),
+          )
+          const symbolKey = normalizeSymbol(normalized.symbol)
+          const symbolCatalog =
+            symbolKey && !s.symbolCatalog.includes(symbolKey)
+              ? normalizeSymbolCatalog([...s.symbolCatalog, symbolKey])
+              : s.symbolCatalog
+          const tagPresets = mergeTagPresets(s.tagPresets, normalized.tags)
+          const mistakeTagPresets = mergeTagPresets(
+            s.mistakeTagPresets,
+            normalized.mistakeTags,
+          )
           if (!exists) {
             const withCreate = createActivity(normalized)
-            return { trades: [withCreate, ...s.trades] }
+            return {
+              trades: [withCreate, ...s.trades],
+              symbolCatalog,
+              tagPresets,
+              mistakeTagPresets,
+            }
           }
           const prev = s.trades.find((t) => t.id === trade.id)
           if (prev && prev.status !== normalized.status) {
@@ -490,6 +571,9 @@ export const useStore = create<State>()((set, get) => ({
           }
           return {
             trades: s.trades.map((t) => (t.id === trade.id ? normalized : t)),
+            symbolCatalog,
+            tagPresets,
+            mistakeTagPresets,
           }
         }),
       removeTrade: (id) =>

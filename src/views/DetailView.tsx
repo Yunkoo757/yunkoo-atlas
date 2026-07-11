@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import {
   ChevronLeft,
@@ -26,6 +26,7 @@ import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
+import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyIcon, StrategyLabel } from '@/components/StrategyIcon'
 import { UserAvatar } from '@/components/UserAvatar'
 import type { Strategy } from '@/data/strategies'
@@ -35,6 +36,9 @@ import {
   TRADE_KIND_META,
   REVIEW_CATEGORY_META,
   MISS_REASON_META,
+  TIMEFRAME_PRESETS,
+  getTimeframeTone,
+  resolveTimeframe,
   type TradeStatus,
   type Conviction,
   type TradeSide,
@@ -49,8 +53,14 @@ import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import { getTradeActivities, type DisplayActivityEvent } from '@/lib/activities'
-import { findTradeByRouteParam, tradeDetailPath } from '@/lib/tradeRoute'
-import { collectAllTags } from '@/lib/tags'
+import { findTradeByRouteParam, tradeDetailPath, resolveTradeDetailReturn, type TradeDetailLocationState } from '@/lib/tradeRoute'
+import { collectMistakeTagOptions, collectTagOptions } from '@/lib/tags'
+import {
+  SESSION_PRESETS,
+  getSessionSelectValue,
+  getTradeSessionMeta,
+  normalizeSession,
+} from '@/lib/tradeView'
 import { toast } from '@/lib/toast'
 import { syncStatusFromPnl } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isTerminal } from '@/lib/tradeStatus'
@@ -58,7 +68,6 @@ import { getStorage, normalizeNoteForStorage, resolveNoteForDisplay } from '@/st
 import { setPreFlushCallback } from '@/storage/persist'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
-import { deriveLifecycle, formatCaseId, getDisputeType } from '@/data/case'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import { calculatePnL, calculateRMultiple } from '@/lib/priceCalc'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
@@ -87,6 +96,8 @@ function extractEditorImages(html: string): string[] {
 export function DetailView() {
   const { id: routeParam } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const listContext = useShortcutStore((s) => s.listContext)
   const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const trade = useMemo(
     () => findTradeByRouteParam(trades, routeParam),
@@ -103,6 +114,10 @@ export function DetailView() {
   const removeTag = useStore((s) => s.removeTag)
   const tagPresets = useStore((s) => s.tagPresets)
   const mistakeTagPresets = useStore((s) => s.mistakeTagPresets)
+  const addTagPreset = useStore((s) => s.addTagPreset)
+  const removeTagPreset = useStore((s) => s.removeTagPreset)
+  const addMistakeTagPreset = useStore((s) => s.addMistakeTagPreset)
+  const removeMistakeTagPreset = useStore((s) => s.removeMistakeTagPreset)
   const addComment = useStore((s) => s.addComment)
   const removeComment = useStore((s) => s.removeComment)
   const toggleStar = useStore((s) => s.toggleStar)
@@ -110,10 +125,8 @@ export function DetailView() {
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
   const upsertTrade = useStore((s) => s.upsertTrade)
-  const setCaseModalOpen = useStore((s) => s.setCaseModalOpen)
-  const cases = useStore((s) => s.cases).filter((c) => !c.deletedAt)
-  const disputeTypes = useStore((s) => s.disputeTypes)
   const profile = useStore((s) => s.profile)
+  const symbolIcons = useStore((s) => s.symbolIcons)
   const starredIds = useStore((s) => s.starredIds)
   const subscribedIds = useStore((s) => s.subscribedIds)
   const [comment, setComment] = useState('')
@@ -138,8 +151,21 @@ export function DetailView() {
 
   useEffect(() => {
     if (!trade || !routeParam || routeParam === trade.ref) return
-    navigate(tradeDetailPath(trade), { replace: true })
-  }, [trade, routeParam, navigate])
+    navigate(tradeDetailPath(trade), {
+      replace: true,
+      state: location.state,
+    })
+  }, [trade, routeParam, navigate, location.state])
+
+  const detailReturn = useMemo(() => {
+    const from = (location.state as TradeDetailLocationState | null)?.from
+    return resolveTradeDetailReturn({
+      from,
+      listPath: listContext?.listPath,
+      listSearch: listContext?.listSearch,
+      tradeKind: trade?.tradeKind,
+    })
+  }, [location.state, listContext?.listPath, listContext?.listSearch, trade?.tradeKind])
 
   const persistEditorNote = useCallback(
     (html: string, tradeId: string) => {
@@ -233,18 +259,13 @@ export function DetailView() {
 
   const starred = trade ? starredIds.includes(trade.id) : false
   const subscribed = trade ? subscribedIds.includes(trade.id) : false
-  const relatedCases = useMemo(
-    () => (trade ? cases.filter((c) => c.linkedTradeIds?.includes(trade.id)) : []),
-    [cases, trade],
+  const allTags = useMemo(
+    () => collectTagOptions(tagPresets, trades),
+    [tagPresets, trades],
   )
-  const allTags = useMemo(() => collectAllTags(trades), [trades])
   const allMistakeTags = useMemo(
-    () => [
-      ...new Set(
-        trades.flatMap((t) => t.mistakeTags ?? []).map((tag) => tag.trim()).filter(Boolean),
-      ),
-    ],
-    [trades],
+    () => collectMistakeTagOptions(mistakeTagPresets, trades),
+    [mistakeTagPresets, trades],
   )
   const tagPreview = (tag: string, kind: 'tag' | 'mistake' = 'tag') => {
     const usedBy = trades.filter((t) =>
@@ -351,7 +372,7 @@ export function DetailView() {
       <>
         <header className="dv-topbar">
           <div className="dv-tb-left">
-            <Link to="/list" className="dv-back" aria-label="返回列表">
+            <Link to={detailReturn} className="dv-back" aria-label="返回列表">
               <ChevronLeft size={16} />
             </Link>
             <span className="dv-crumb">交易</span>
@@ -396,11 +417,7 @@ export function DetailView() {
   const onDelete = () => {
     removeTrade(trade.id)
     toast('已移至回收站，30天后自动清空')
-    navigate(trade.tradeKind === 'case' ? '/review-cases' : '/list')
-  }
-
-  const createCaseFromTrade = () => {
-    setCaseModalOpen(true, { sourceTradeId: trade.id })
+    navigate(detailReturn)
   }
 
   const createReviewCaseFromTrade = () => {
@@ -411,10 +428,9 @@ export function DetailView() {
     })
     upsertTrade(reviewCase)
     toast('已沉淀为案例记录')
-    navigate(tradeDetailPath(reviewCase))
+    navigate(tradeDetailPath(reviewCase), { state: location.state })
   }
 
-  const detailHome = trade.tradeKind === 'case' ? '/review-cases' : '/list'
   const detailCrumb = trade.tradeKind === 'case' ? '案例记录' : '交易'
 
   return (
@@ -422,7 +438,7 @@ export function DetailView() {
       header={(
       <header className="dv-topbar">
         <div className="dv-tb-left">
-          <Link to={detailHome} className="dv-back" aria-label="返回列表">
+          <Link to={detailReturn} className="dv-back" aria-label="返回列表">
             <ChevronLeft size={16} />
           </Link>
           <span className="dv-crumb">{detailCrumb}</span>
@@ -433,9 +449,6 @@ export function DetailView() {
           <SaveStatusIndicator />
           <IconButton title="复制链接" onClick={copyLink}>
             <Link2 size={15} />
-          </IconButton>
-          <IconButton title="沉淀为判例" onClick={createCaseFromTrade}>
-            <BookOpen size={15} />
           </IconButton>
           <IconButton
             title={starred ? '取消收藏' : '收藏'}
@@ -485,6 +498,7 @@ export function DetailView() {
       content={(
           <div className="dv-main-inner">
             <h1 className="dv-title">
+              <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={22} />
               {trade.symbol}
               <SideTag side={trade.side} />
             </h1>
@@ -577,71 +591,6 @@ export function DetailView() {
       )}
       properties={(
         <>
-          <Section title="判例">
-            {relatedCases.length > 0 ? (
-              <div className="dv-case-list">
-                {relatedCases.map((item) => {
-                  const dt = getDisputeType(item.disputeTypeId, disputeTypes)
-                  return (
-                    <HoverPreview
-                      key={item.id}
-                      content={
-                        <>
-                          <PreviewHeader
-                            icon={<BookOpen size={17} />}
-                            title={formatCaseId(item.id)}
-                            subtitle={dt?.name ?? '未知类型'}
-                          />
-                          <div className="hp-divider" />
-                          <PreviewMeta>
-                            <span className="hp-meta-item">{deriveLifecycle(item)}</span>
-                            <span className="hp-meta-item">
-                              {item.images.length} 张证据图
-                            </span>
-                          </PreviewMeta>
-                        </>
-                      }
-                    >
-                      <Link
-                        className="dv-case-link"
-                        to={`/cases?case=${item.id}`}
-                      >
-                        <span className="dv-case-id">{formatCaseId(item.id)}</span>
-                        <span className="dv-case-name">{dt?.name ?? '未知类型'}</span>
-                        <span className="dv-case-state">{deriveLifecycle(item)}</span>
-                      </Link>
-                    </HoverPreview>
-                  )
-                })}
-              </div>
-            ) : null}
-            <HoverPreview
-              content={
-                <>
-                  <PreviewHeader
-                    icon={<BookOpen size={17} />}
-                    title="沉淀为判例"
-                    subtitle={`${trade.ref} · ${trade.symbol}`}
-                  />
-                  <div className="hp-divider" />
-                  <PreviewMeta>
-                    <span className="hp-meta-item">从当前交易创建判例</span>
-                    <span className="hp-meta-item">{relatedCases.length} 条已关联</span>
-                  </PreviewMeta>
-                </>
-              }
-            >
-              <button
-                type="button"
-                className="dv-case-row"
-                onClick={createCaseFromTrade}
-              >
-                <BookOpen size={14} />
-                <span>{relatedCases.length > 0 ? '沉淀新判例' : '沉淀为判例'}</span>
-              </button>
-            </HoverPreview>
-          </Section>
-
           <Section title="属性">
             <Menu
               value={trade.status}
@@ -652,10 +601,10 @@ export function DetailView() {
                 icon: <StatusIcon status={s} size={16} />,
               }))}
               trigger={
-                <button className="dv-pitem">
-                  <StatusIcon status={trade.status} size={16} />
+                <PropTrigger label="状态">
+                  <StatusIcon status={trade.status} size={15} />
                   <span>{STATUS_META[trade.status].label}</span>
-                </button>
+                </PropTrigger>
               }
             />
             <Menu
@@ -667,10 +616,10 @@ export function DetailView() {
                 icon: <ConvictionIcon conviction={c} size={16} />,
               }))}
               trigger={
-                <button className="dv-pitem">
-                  <ConvictionIcon conviction={trade.conviction} size={16} />
-                  <span>信心度 {CONVICTION_META[trade.conviction].label}</span>
-                </button>
+                <PropTrigger label="信心度">
+                  <ConvictionIcon conviction={trade.conviction} size={15} />
+                  <span>{CONVICTION_META[trade.conviction].label}</span>
+                </PropTrigger>
               }
             />
             <Menu
@@ -681,10 +630,66 @@ export function DetailView() {
                 { value: 'short', label: '做空' },
               ]}
               trigger={
-                <button className="dv-pitem">
+                <PropTrigger label="方向">
                   <SideTag side={trade.side} />
                   <span>{trade.side === 'long' ? '做多' : '做空'}</span>
-                </button>
+                </PropTrigger>
+              }
+            />
+            <Menu
+              value={resolveTimeframe(trade.timeframe)}
+              onSelect={(v) =>
+                updateTradeData(trade.id, {
+                  timeframe: resolveTimeframe(v),
+                })
+              }
+              options={TIMEFRAME_PRESETS.map((preset) => ({
+                value: preset,
+                label: preset,
+              }))}
+              trigger={
+                <PropTrigger label="波段级别">
+                  <span
+                    className={
+                      'dv-prop-chip is-timeframe is-' +
+                      getTimeframeTone(resolveTimeframe(trade.timeframe))
+                    }
+                  >
+                    {resolveTimeframe(trade.timeframe)}
+                  </span>
+                </PropTrigger>
+              }
+            />
+            <Menu
+              value={getSessionSelectValue(trade)}
+              onSelect={(v) =>
+                updateTradeData(trade.id, {
+                  session: normalizeSession(v),
+                })
+              }
+              options={[
+                { value: '', label: '未设置' },
+                ...SESSION_PRESETS.map((preset) => ({
+                  value: preset.value,
+                  label: preset.label,
+                })),
+              ]}
+              trigger={
+                <PropTrigger label="交易时段">
+                  {getSessionSelectValue(trade) ? (
+                    <span
+                      className={
+                        'dv-prop-chip is-session is-' +
+                        (getTradeSessionMeta(trade)?.kind ?? 'other')
+                      }
+                    >
+                      {SESSION_PRESETS.find((p) => p.value === getSessionSelectValue(trade))
+                        ?.label ?? getSessionSelectValue(trade)}
+                    </span>
+                  ) : (
+                    <span className="dv-prop-empty">未设置</span>
+                  )}
+                </PropTrigger>
               }
             />
             <Menu
@@ -695,9 +700,11 @@ export function DetailView() {
                 label: TRADE_KIND_META[k].label,
               }))}
               trigger={
-                <button className="dv-pitem dv-pitem-ghost">
-                  <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
-                </button>
+                <PropTrigger label="类型">
+                  <span className="dv-prop-chip is-neutral">
+                    {TRADE_KIND_META[trade.tradeKind].label}
+                  </span>
+                </PropTrigger>
               }
             />
             <Menu
@@ -708,9 +715,16 @@ export function DetailView() {
                 label: REVIEW_CATEGORY_META[s].label,
               }))}
               trigger={
-                <button className="dv-pitem dv-pitem-ghost">
-                  <span>分类 · {REVIEW_CATEGORY_META[trade.reviewCategory].label}</span>
-                </button>
+                <PropTrigger label="分类">
+                  <span
+                    className={
+                      'dv-prop-chip is-category' +
+                      (trade.reviewCategory === 'mistake' ? ' is-mistake' : '')
+                    }
+                  >
+                    {REVIEW_CATEGORY_META[trade.reviewCategory].label}
+                  </span>
+                </PropTrigger>
               }
             />
             <Menu
@@ -721,9 +735,11 @@ export function DetailView() {
                 label: REVIEW_STATUS_META[s].label,
               }))}
               trigger={
-                <button className="dv-pitem dv-pitem-ghost">
-                  <span>复盘 · {REVIEW_STATUS_META[trade.reviewStatus].label}</span>
-                </button>
+                <PropTrigger label="复盘">
+                  <span className="dv-prop-chip is-neutral">
+                    {REVIEW_STATUS_META[trade.reviewStatus].label}
+                  </span>
+                </PropTrigger>
               }
             />
             {trade.status === 'missed' && (
@@ -735,9 +751,11 @@ export function DetailView() {
                   label: MISS_REASON_META[r].label,
                 }))}
                 trigger={
-                  <button className="dv-pitem dv-pitem-ghost">
-                    <span>错过原因 · {MISS_REASON_META[trade.missReason ?? 'other'].label}</span>
-                  </button>
+                  <PropTrigger label="错过原因">
+                    <span className="dv-prop-chip is-neutral">
+                      {MISS_REASON_META[trade.missReason ?? 'other'].label}
+                    </span>
+                  </PropTrigger>
                 }
               />
             )}
@@ -877,6 +895,8 @@ export function DetailView() {
               presets={tagPresets}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
+              onAddPreset={addTagPreset}
+              onRemovePreset={removeTagPreset}
               getTagPreview={(tag) => tagPreview(tag)}
             />
           </Section>
@@ -887,6 +907,8 @@ export function DetailView() {
               suggestions={allMistakeTags}
               presets={mistakeTagPresets}
               getTagPreview={(tag) => tagPreview(tag, 'mistake')}
+              onAddPreset={addMistakeTagPreset}
+              onRemovePreset={removeMistakeTagPreset}
               onAdd={(tag) =>
                 updateTradeData(trade.id, {
                   mistakeTags: trade.mistakeTags.includes(tag)
@@ -955,6 +977,21 @@ function Section({
       </button>
       {open && <div className="dv-section-body">{children}</div>}
     </div>
+  )
+}
+
+function PropTrigger({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <button type="button" className="dv-prop-row">
+      <span className="dv-prop-label">{label}</span>
+      <span className="dv-prop-value">{children}</span>
+    </button>
   )
 }
 

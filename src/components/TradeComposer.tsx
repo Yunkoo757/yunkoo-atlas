@@ -1,23 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { X, ImagePlus } from 'lucide-react'
 import { Select } from '@/components/ui/Select'
+import { SymbolIcon } from '@/components/SymbolIcon'
 import { useStore } from '@/store/useStore'
 import {
   REVIEW_CATEGORY_META,
+  TIMEFRAME_PRESETS,
   TRADE_KIND_META,
+  DEFAULT_TIMEFRAME,
+  resolveTimeframe,
   type ReviewCategory,
   type Trade,
   type TradeKind,
   type TradeSide,
 } from '@/data/trades'
+import { collectSymbolOptions, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
+import {
+  SESSION_PRESETS,
+  getSessionSelectValue,
+  normalizeSession,
+} from '@/lib/tradeView'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
 import { assetUrl, getStorage } from '@/storage'
 import './TradeComposer.css'
 
-const SYMBOL_PRESETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSDT', 'ETHUSDT']
 const QUICK_CATEGORIES: ReviewCategory[] = ['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered']
 
 interface UploadedImage {
@@ -42,11 +51,21 @@ export function TradeComposer() {
   const editing = useStore((s) => s.composerTrade)
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
+  const symbolCatalog = useStore((s) => s.symbolCatalog)
+  const symbolIcons = useStore((s) => s.symbolIcons)
   const upsert = useStore((s) => s.upsertTrade)
   const close = useStore((s) => s.closeComposer)
 
-  const [symbol, setSymbol] = useState(SYMBOL_PRESETS[0])
+  const symbolOptions = useMemo(
+    () => collectSymbolOptions(symbolCatalog, [], editing?.symbol ? [editing.symbol] : []),
+    [symbolCatalog, editing?.symbol],
+  )
+  const defaultSymbol = symbolOptions[0] ?? DEFAULT_SYMBOL_CATALOG[0]
+
+  const [symbol, setSymbol] = useState(defaultSymbol)
   const [side, setSide] = useState<TradeSide>('long')
+  const [timeframe, setTimeframe] = useState<string>(DEFAULT_TIMEFRAME)
+  const [session, setSession] = useState('')
   const [openedAt, setOpenedAt] = useState(() => new Date().toISOString().slice(0, 10))
   const [strategyId, setStrategyId] = useState('')
   const [reviewCategory, setReviewCategory] = useState<ReviewCategory>('normal')
@@ -69,26 +88,30 @@ export function TradeComposer() {
 
   useEffect(() => {
     if (!open) return
-    setSymbol(editing?.symbol ?? SYMBOL_PRESETS[0])
+    setSymbol(editing?.symbol ?? defaultSymbol)
     setSide(editing?.side ?? 'long')
+    setTimeframe(resolveTimeframe(editing?.timeframe))
+    setSession(editing ? getSessionSelectValue(editing) : '')
     setOpenedAt(editing?.openedAt.slice(0, 10) ?? new Date().toISOString().slice(0, 10))
     setStrategyId(editing?.strategyId ?? strategies[0]?.id ?? '')
     setReviewCategory(editing?.reviewCategory ?? 'normal')
-  }, [open, editing, strategies])
+  }, [open, editing, strategies, defaultSymbol])
 
   // 重置状态
   useEffect(() => {
     if (!open) {
       images.forEach((img) => URL.revokeObjectURL(img.preview))
-      setSymbol(SYMBOL_PRESETS[0])
+      setSymbol(defaultSymbol)
       setSide('long')
+      setTimeframe(DEFAULT_TIMEFRAME)
+      setSession('')
       setOpenedAt(new Date().toISOString().slice(0, 10))
       setStrategyId('')
       setReviewCategory('normal')
       setImages([])
       setIsDragging(false)
     }
-  }, [open])
+  }, [open, defaultSymbol])
 
   // 处理粘贴图片
   useEffect(() => {
@@ -204,6 +227,8 @@ export function TradeComposer() {
       }),
       symbol: symbol.trim().toUpperCase(),
       side,
+      timeframe: resolveTimeframe(timeframe),
+      session: normalizeSession(session),
       strategyId,
       openedAt,
       note,
@@ -238,12 +263,16 @@ export function TradeComposer() {
               onValueChange={setSymbol}
               ariaLabel={`${recordLabel}品种`}
               className="composer-input-quick"
-              options={[
-                ...(editing && !SYMBOL_PRESETS.includes(editing.symbol)
-                  ? [{ value: editing.symbol, label: `${editing.symbol}（历史）` }]
-                  : []),
-                ...SYMBOL_PRESETS.map((preset) => ({ value: preset, label: preset })),
-              ]}
+              options={symbolOptions.map((preset) => ({
+                value: preset,
+                label:
+                  editing &&
+                  editing.symbol === preset &&
+                  !symbolCatalog.includes(preset)
+                    ? `${preset}（历史）`
+                    : preset,
+                icon: <SymbolIcon symbol={preset} overrides={symbolIcons} size={14} />,
+              }))}
             />
           </div>
 
@@ -268,6 +297,34 @@ export function TradeComposer() {
                   做空
                 </button>
               </div>
+            </div>
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">波段级别</span>
+              <Select
+                value={timeframe || DEFAULT_TIMEFRAME}
+                onValueChange={setTimeframe}
+                ariaLabel="参与波段级别"
+                options={TIMEFRAME_PRESETS.map((preset) => ({
+                  value: preset,
+                  label: preset,
+                }))}
+              />
+            </div>
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">交易时段</span>
+              <Select
+                value={session}
+                onValueChange={setSession}
+                ariaLabel="交易时段"
+                placeholder="未设置"
+                options={[
+                  { value: '', label: '未设置' },
+                  ...SESSION_PRESETS.map((preset) => ({
+                    value: preset.value,
+                    label: preset.label,
+                  })),
+                ]}
+              />
             </div>
             <label className="composer-essential-field">
               <span className="composer-essential-label">交易日期</span>

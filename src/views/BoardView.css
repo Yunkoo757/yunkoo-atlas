@@ -127,9 +127,40 @@
   gap: 6px;
 }
 .bd-card-symbol {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fs-base);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+}
+.bd-card-timeframe {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.bd-card-timeframe.is-minute {
+  color: lch(74% 28 195);
+  background: lch(16% 6 195 / 0.42);
+  border-color: lch(30% 10 195 / 0.42);
+}
+
+.bd-card-timeframe.is-hour {
+  color: lch(74% 30 300);
+  background: lch(16% 7 300 / 0.42);
+  border-color: lch(30% 11 300 / 0.42);
+}
+
+.bd-card-timeframe.is-day {
+  color: lch(76% 28 55);
+  background: lch(16% 6 55 / 0.42);
+  border-color: lch(30% 10 55 / 0.4);
+}
+
+.bd-card-timeframe.is-other {
+  color: var(--text-tertiary);
+  background: color-mix(in srgb, var(--bg-elevated) 62%, transparent);
+  border-color: var(--border-subtle);
 }
 .bd-card-strategy {
   font-size: var(--fs-mini);

@@ -64,6 +64,8 @@ export interface Trade {
   conviction: Conviction
   strategyId: string // 策略 ID，关联 Strategy 实体
   session?: string // 交易时段，如 London Open / Asia / New York
+  /** 参与波段级别，如 15M / 1H / 4H */
+  timeframe?: string
   tags: string[]
   mistakeTags: string[]
   reviewStatus: ReviewStatus
@@ -126,6 +128,62 @@ export const CONVICTION_META: Record<Conviction, { label: string }> = {
   high: { label: '高' },
   medium: { label: '中' },
   low: { label: '低' },
+}
+
+/** 新建/编辑时可选的波段级别预设 */
+export const TIMEFRAME_PRESETS = [
+  '1M',
+  '5M',
+  '15M',
+  '30M',
+  '1H',
+  '2H',
+  '4H',
+  '1D',
+  '1W',
+] as const
+
+export type TimeframePreset = (typeof TIMEFRAME_PRESETS)[number]
+
+/** 未录入时的默认波段级别 */
+export const DEFAULT_TIMEFRAME: TimeframePreset = '4H'
+
+/** 规范化波段级别：去空格、大写，并兼容 H1 / M15 写法 */
+export function normalizeTimeframe(value: string | null | undefined): string | undefined {
+  if (!value) return undefined
+  let raw = value.trim().toUpperCase().replace(/\s+/g, '')
+  if (!raw) return undefined
+  raw = raw
+    .replace(/小时/g, 'H')
+    .replace(/分钟|分/g, 'M')
+    .replace(/天|日/g, 'D')
+    .replace(/周/g, 'W')
+  const hMatch = /^H(\d+)$/.exec(raw)
+  if (hMatch) return `${hMatch[1]}H`
+  const mMatch = /^M(\d+)$/.exec(raw)
+  if (mMatch) return `${mMatch[1]}M`
+  const dMatch = /^D(\d+)$/.exec(raw)
+  if (dMatch) return dMatch[1] === '1' ? '1D' : `${dMatch[1]}D`
+  const wMatch = /^W(\d+)$/.exec(raw)
+  if (wMatch) return wMatch[1] === '1' ? '1W' : `${wMatch[1]}W`
+  return raw
+}
+
+/** 解析波段级别；空值回退默认 4H */
+export function resolveTimeframe(value: string | null | undefined): string {
+  return normalizeTimeframe(value) ?? DEFAULT_TIMEFRAME
+}
+
+export type TimeframeTone = 'minute' | 'hour' | 'day' | 'other'
+
+/** 波段级别色调：分钟 / 小时 / 日线，便于胶囊分色 */
+export function getTimeframeTone(value: string | null | undefined): TimeframeTone {
+  const key = normalizeTimeframe(value)
+  if (!key) return 'other'
+  if (/^\d+M$/.test(key)) return 'minute'
+  if (/^\d+H$/.test(key)) return 'hour'
+  if (/^\d+[DW]$/.test(key)) return 'day'
+  return 'other'
 }
 
 /** 判断交易是否已删除（软删除） */

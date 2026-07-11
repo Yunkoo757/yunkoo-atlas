@@ -10,14 +10,14 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'global.newTrade',
-    label: '新建（交易/判例）',
+    label: '新建交易',
     category: '通用',
     scope: 'global',
     defaultBinding: { key: 'c' },
   },
   {
     id: 'global.switchModule',
-    label: '切换交易与判例',
+    label: '切换交易与案例记录',
     category: '通用',
     scope: 'global',
     defaultBinding: { mod: true, key: '.' },
@@ -136,7 +136,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     label: '返回列表',
     category: '交易',
     scope: 'detail',
-    defaultBinding: { key: 'u' },
+    defaultBinding: { key: 'escape' },
   },
 
   {

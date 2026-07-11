@@ -19,7 +19,6 @@ import { Sidebar } from './components/Sidebar'
 import { AppFrame } from './components/ui/AppFrame'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
-import { NewCaseModal } from './components/NewCaseModal'
 import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
 import { ListView } from './views/ListView'
@@ -34,19 +33,17 @@ import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
 import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
 import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
-import { DisputeTypesPanel } from './views/settings/DisputeTypesPanel'
-import { CaseList } from './views/CaseList'
-import { TrashView } from './views/TrashView'
+import { SymbolsPanel } from './views/settings/SymbolsPanel'
 import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
 import type { ListFilter, ReviewCaseScope } from './lib/tradeFilters'
 import { isValidPeriodSlug } from './lib/periods'
-import { tradeDetailPath } from './lib/tradeRoute'
+import { tradeDetailPath, tradeDetailNavState } from './lib/tradeRoute'
 import { routeWithSearch } from './lib/tradeView'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
-import { cleanExpiredTrash, cleanExpiredTradeTrash } from './lib/trashCleanup'
+import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import './App.css'
 
 function TradesPage({
@@ -81,7 +78,9 @@ function TradesPage({
       filter={filter}
       onOpen={(id) => {
         const t = useStore.getState().trades.find((x) => x.id === id)
-        navigate(t ? tradeDetailPath(t) : `/trade/${id}`)
+        navigate(t ? tradeDetailPath(t) : `/trade/${id}`, {
+          state: tradeDetailNavState({ pathname, search }),
+        })
       }}
     />
   )
@@ -286,8 +285,8 @@ function Shell() {
           <Route path="/strategy/:id/table" element={<StrategyPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trade/:id" element={<DetailView />} />
-          <Route path="/cases" element={<CaseList />} />
-          <Route path="/trash" element={<TrashView />} />
+          <Route path="/cases" element={<Navigate to="/list" replace />} />
+          <Route path="/trash" element={<Navigate to="/trade-trash" replace />} />
           <Route path="/trade-trash" element={<TradeTrashView />} />
           <Route path="/settings" element={<SettingsLayout />}>
             <Route index element={<Navigate to="profile" replace />} />
@@ -295,7 +294,8 @@ function Shell() {
             <Route path="shortcuts" element={<ShortcutsPanel />} />
             <Route path="strategies" element={<StrategiesPanel />} />
             <Route path="tags" element={<TagPresetsPanel />} />
-            <Route path="dispute-types" element={<DisputeTypesPanel />} />
+            <Route path="symbols" element={<SymbolsPanel />} />
+            <Route path="dispute-types" element={<Navigate to="/settings/tags" replace />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
             <Route path="data" element={<DataSettingsPanel />} />
           </Route>
@@ -308,7 +308,6 @@ function Shell() {
         onClose={() => setCmdkOpen(false)}
       />
       <TradeComposer />
-      <NewCaseModal />
       <ImageLightbox />
       <ToastHost />
     </>
@@ -340,7 +339,6 @@ export function App() {
 
       // Clean expired trash (30+ days old deleted records)
       const state = useStore.getState()
-      await cleanExpiredTrash(state.cases, state.purgeCase)
       await cleanExpiredTradeTrash(state.trades, state.purgeTrade)
 
       setReady(true)

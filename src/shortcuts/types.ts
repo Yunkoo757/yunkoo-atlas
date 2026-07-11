@@ -32,5 +32,7 @@ export interface ShortcutActionMeta {
 export interface ListNavigationContext {
   filter: import('@/lib/tradeFilters').ListFilter
   listPath: string
+  /** 列表页当前 search（含自定义视图筛选），用于详情返回时还原 */
+  listSearch: string
   orderedIds: string[]
 }

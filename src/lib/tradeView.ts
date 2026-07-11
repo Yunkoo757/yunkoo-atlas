@@ -27,6 +27,19 @@ export type TradeSessionMeta = {
   kind: TradeSessionKind
 }
 
+/** 新建 / 详情可点选的交易时段预设（写入 Trade.session） */
+export const SESSION_PRESETS = [
+  { value: 'London Open', label: '伦敦开盘', kind: 'london' },
+  { value: 'London Close', label: '伦敦收盘', kind: 'london' },
+  { value: 'Asia', label: '亚盘', kind: 'asia' },
+  { value: 'New York Open', label: '纽约开盘', kind: 'new-york' },
+  { value: 'New York Close', label: '纽约收盘', kind: 'new-york' },
+  { value: 'New York', label: '纽约盘', kind: 'new-york' },
+  { value: 'Out of Session', label: '盘外时段', kind: 'outside' },
+] as const
+
+export type SessionPresetValue = (typeof SESSION_PRESETS)[number]['value']
+
 function sessionMetaFromValue(value: string): TradeSessionMeta | null {
   const raw = value.trim()
   if (!raw) return null
@@ -70,6 +83,41 @@ export function getTradeSessionMeta(trade: Trade): TradeSessionMeta | null {
     if (meta) return meta
   }
   return null
+}
+
+/** 规范化时段字符串；空值表示未设置 */
+export function normalizeSession(value: string | null | undefined): string | undefined {
+  const raw = value?.trim()
+  if (!raw) return undefined
+  const exact = SESSION_PRESETS.find(
+    (preset) => preset.value.toLowerCase() === raw.toLowerCase() || preset.label === raw,
+  )
+  if (exact) return exact.value
+  const meta = sessionMetaFromValue(raw)
+  if (!meta) return raw
+  const byLabel = SESSION_PRESETS.find((preset) => preset.label === meta.label)
+  return byLabel?.value ?? raw
+}
+
+/** 下拉当前值：优先 session 字段，兼容旧数据里写在标签中的时段 */
+export function getSessionSelectValue(trade: Pick<Trade, 'session' | 'tags'>): string {
+  const meta = getTradeSessionMeta(trade as Trade)
+  if (!meta) return ''
+  const preset = SESSION_PRESETS.find(
+    (item) => item.label === meta.label || item.value.toLowerCase() === meta.raw.toLowerCase(),
+  )
+  return preset?.value ?? meta.raw
+}
+
+/** 把标签里的时段提升为独立 session 字段，避免新案例只能靠标签 */
+export function promoteTradeSession(trade: Trade): Trade {
+  const normalized = normalizeSession(trade.session)
+  if (normalized) {
+    return normalized === trade.session ? trade : { ...trade, session: normalized }
+  }
+  const fromTags = getSessionSelectValue(trade)
+  if (!fromTags) return trade
+  return { ...trade, session: fromTags }
 }
 
 function tradeTime(trade: Trade) {

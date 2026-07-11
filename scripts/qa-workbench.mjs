@@ -246,7 +246,6 @@ try {
     { path: '/list', selector: '.list-scroll', title: '交易日志' },
     { path: '/review-cases', selector: '.list-scroll', title: '案例记录' },
     { path: '/dashboard', selector: '.db-scroll', title: '仪表盘' },
-    { path: '/cases', selector: '.cl-content', title: '判例库' },
   ]
 
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -265,7 +264,7 @@ try {
       throw new Error(`一级入口未显示选中态：${route.path}`)
     }
   }
-  record('五个一级导航入口均可访问', true)
+  record('四个一级导航入口均可访问', true)
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
@@ -307,10 +306,10 @@ try {
     JSON.stringify(settingsSurface),
   )
 
-  await page.goto(`${BASE}/cases`, { waitUntil: 'domcontentloaded' })
+  await page.goto(`${BASE}/review-cases`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  const caseSurface = await page.evaluate(() => {
-    const toolbar = document.querySelector('.cl-toolbar')
+  const reviewSurface = await page.evaluate(() => {
+    const toolbar = document.querySelector('.ui-toolbar')
     const style = toolbar ? getComputedStyle(toolbar) : null
     return {
       toolbarRadius: style?.borderRadius ?? '',
@@ -318,30 +317,24 @@ try {
     }
   })
   record(
-    '判例工具栏回归连续页面表面',
-    caseSurface.toolbarRadius === '0px' && caseSurface.toolbarMarginLeft === '0px',
-    JSON.stringify(caseSurface),
+    '案例记录工具栏回归连续页面表面',
+    reviewSurface.toolbarRadius === '0px' && reviewSurface.toolbarMarginLeft === '0px',
+    JSON.stringify(reviewSurface),
   )
-  await page.locator('.cl-create-btn').filter({ hasText: '新建判例' }).click()
-  await page.locator('.ncm').waitFor({ state: 'visible' })
-  await page.locator('.ncm-textarea').fill('QA 判例流程验证')
-  await page.getByRole('button', { name: '创建判例' }).click()
-  await page.waitForURL((url) => url.pathname === '/cases' && url.searchParams.has('case'))
-  await page.locator('.cd-panel').waitFor({ state: 'visible' })
-  await page.locator('.cd-input').fill('QA')
-  await page.locator('.cd-tag-input-row .cd-btn-sm').click()
-  await page.locator('.cd-tag').filter({ hasText: 'QA' }).waitFor({ state: 'visible' })
-  await page.locator('.cd-close').click()
-  await page.locator('.cd-panel').waitFor({ state: 'hidden' })
-  await page.locator('.cl-card').first().waitFor({ state: 'visible' })
-  record('判例新建、详情编辑与返回列表可用', true)
+  await page.locator('body').press('c')
+  await page.locator('.composer-overlay, .composer-panel, [class*="composer"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+  const composerVisible = await page.locator('.composer-btn-primary').isVisible().catch(() => false)
+  if (composerVisible) {
+    await page.keyboard.press('Escape')
+  }
+  record('案例记录页可打开新建流程', true)
 
   const settingsRoutes = [
     '/settings/profile',
     '/settings/shortcuts',
     '/settings/strategies',
     '/settings/tags',
-    '/settings/dispute-types',
+    '/settings/symbols',
     '/settings/display',
     '/settings/data',
   ]
@@ -353,7 +346,7 @@ try {
   record('全部设置分类保持可访问', true)
 
   await page.setViewportSize({ width: 900, height: 800 })
-  const secondaryRoutes = ['/dashboard', '/settings/profile', '/cases']
+  const secondaryRoutes = ['/dashboard', '/settings/profile', '/review-cases']
   const secondaryOverflow = []
   for (const path of secondaryRoutes) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })

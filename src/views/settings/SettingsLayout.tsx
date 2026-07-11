@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Gavel } from 'lucide-react'
+import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
 import './SettingsLayout.css'
 
@@ -8,7 +8,7 @@ const NAV = [
   { to: '/settings/shortcuts', label: '快捷键', icon: Keyboard },
   { to: '/settings/strategies', label: '策略', icon: Settings2 },
   { to: '/settings/tags', label: '标签', icon: Tag },
-  { to: '/settings/dispute-types', label: '纠纷', icon: Gavel },
+  { to: '/settings/symbols', label: '品种', icon: Shapes },
   { to: '/settings/display', label: '显示', icon: SlidersHorizontal },
   { to: '/settings/data', label: '数据', icon: HardDriveDownload },
 ] as const

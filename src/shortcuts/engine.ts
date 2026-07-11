@@ -155,6 +155,23 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
 
   if (typing && !lightbox) {
     clearSequence()
+    // 详情正文编辑器（contenteditable）按 Esc 仍可返回记忆中的列表；
+    // 普通 input/textarea 不抢，避免打断标签/评论输入。
+    const el = e.target as HTMLElement | null
+    const inFormField =
+      el?.tagName === 'INPUT' ||
+      el?.tagName === 'TEXTAREA' ||
+      !!el?.closest?.('input, textarea, [role="combobox"]')
+    if (
+      !inFormField &&
+      chord.key === 'escape' &&
+      (pathname ?? window.location.pathname).startsWith('/trade/')
+    ) {
+      if (runAction('trade.backToList')) {
+        e.preventDefault()
+        return true
+      }
+    }
     return false
   }
 

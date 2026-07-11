@@ -14,9 +14,11 @@
  */
 
 import type { Trade, TradeStatus, TradeSide, Conviction } from '@/data/trades'
+import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import type { CsvParseResult } from '@/lib/csvImport'
 import { parseCsv } from '@/lib/csvImport'
+import { normalizeSession } from '@/lib/tradeView'
 import JSZip from 'jszip'
 
 // ============================================================
@@ -263,10 +265,9 @@ function buildTradeFromFrontmatter(
   if (entrySignal) collectedTags.push(entrySignal)
 
   const timeFrame = stripNotionUrl(fm['time frame'] ?? '')
-  if (timeFrame) collectedTags.push(timeFrame)
+  const timeframe = normalizeTimeframe(timeFrame)
 
   const session = stripNotionUrl(fm['session'] ?? '')
-  if (session) collectedTags.push(session)
 
   const orderType = stripNotionUrl(fm['order type'] ?? '')
   if (orderType) collectedTags.push(orderType)
@@ -301,7 +302,8 @@ function buildTradeFromFrontmatter(
       status,
       conviction,
       strategyId,
-      session: session || undefined,
+      session: normalizeSession(session),
+      timeframe: resolveTimeframe(timeframe),
       tradeKind: 'live',
       entry: 0,
       exit: null,
@@ -724,6 +726,7 @@ export function executeNotionImport(
       conviction: preview.trade.conviction ?? 'medium',
       strategyId,
       session: preview.trade.session,
+      timeframe: resolveTimeframe(preview.trade.timeframe),
       tags: preview.trade.tags ?? [],
       mistakeTags: preview.trade.mistakeTags ?? [],
       reviewStatus: 'unreviewed',
