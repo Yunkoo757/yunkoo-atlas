@@ -279,3 +279,24 @@
   height: 20px;
   font-size: var(--fs-micro);
 }
+
+@media (max-width: 700px) {
+  .trade-table th,
+  .trade-table td,
+  .trade-table-case th,
+  .trade-table-case td {
+    height: 44px;
+  }
+  .tv-ref {
+    display: flex;
+    align-items: center;
+    width: calc(100% + 20px);
+    min-height: 44px;
+    margin-inline: -10px;
+    padding-inline: 10px;
+  }
+  .tv-sort {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
