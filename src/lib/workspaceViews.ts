@@ -1,5 +1,6 @@
 import { normalizeSavedViewPath } from '@/lib/savedTradeViews'
 import type { Strategy } from '@/data/strategies'
+import { isValidPeriodSlug } from '@/lib/periods'
 
 export type WorkspaceKind = 'today' | 'trade' | 'case'
 
@@ -85,23 +86,15 @@ export function isTodayWorkspaceEntryPath(pathname: string): boolean {
 /** 侧栏「交易日志」可记忆的列表路径（不含今日记录 / 模拟 / 详情） */
 export function isTradeWorkspaceEntryPath(pathname: string): boolean {
   const p = normalizeSavedViewPath(pathname)
-  if (p.startsWith('/review-cases')) return false
-  if (p === '/today-record') return false
-  if (p === '/sim' || p.startsWith('/sim/')) return false
-  if (p === '/dashboard' || p.startsWith('/settings')) return false
-  if (p === '/trade-trash' || p.startsWith('/trade/')) return false
-  return (
-    p === '/list' ||
-    p.startsWith('/period/') ||
-    p === '/active' ||
-    p === '/favorites' ||
-    p === '/missed' ||
-    p.startsWith('/strategy/')
-  )
+  if (p === '/list' || p === '/active' || p === '/favorites' || p === '/missed') return true
+  const period = p.match(/^\/period\/([^/]+)$/)?.[1]
+  if (period) return isValidPeriodSlug(period)
+  return /^\/strategy\/[^/]+$/.test(p)
 }
 
 export function isCaseWorkspaceEntryPath(pathname: string): boolean {
-  return normalizeSavedViewPath(pathname).startsWith('/review-cases')
+  const p = normalizeSavedViewPath(pathname)
+  return PRIMARY_VIEWS.case.some((view) => view.pathname === p)
 }
 
 export function rememberableWorkspaceKind(pathname: string): WorkspaceKind | null {

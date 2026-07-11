@@ -139,6 +139,19 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
   useMobileModal({ open: editorOpen, modalRef: editorModalRef, onClose: closeEditor })
 
   useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 900px)')
+    const closeModalsOnDesktop = () => {
+      if (!desktop.matches) return
+      restoreMoreFocusRef.current = false
+      setDrawerOpen(false)
+      setEditorOpen(false)
+    }
+    closeModalsOnDesktop()
+    desktop.addEventListener('change', closeModalsOnDesktop)
+    return () => desktop.removeEventListener('change', closeModalsOnDesktop)
+  }, [])
+
+  useEffect(() => {
     if (drawerOpen || editorOpen || !restoreMoreFocusRef.current) return
     restoreMoreFocusRef.current = false
     const frame = requestAnimationFrame(() => moreButtonRef.current?.focus())

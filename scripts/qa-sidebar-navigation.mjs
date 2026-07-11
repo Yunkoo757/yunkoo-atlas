@@ -441,6 +441,37 @@ try {
     await expectUrl(page, scenario.path, `${scenario.path} detail return must preserve its source route`)
     await expectTradeInScrollViewport(page, anchorTradeId, scenario.scroll)
   }
+  await coreLink('仪表盘').click()
+  await page.evaluate(async () => {
+    const { rememberTradeReturnAnchor } = await import('/src/hooks/useTradeReturnAnchor.ts')
+    rememberTradeReturnAnchor({ pathname: '/list', search: '', anchorTradeId: 'qa-abandoned-anchor' })
+  })
+  await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
+  await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+  await expectUrl(page, '/list', 'Abandoned anchor setup must enter its intended list route')
+  await page.waitForTimeout(250)
+  const abandonedAnchorStored = await page.evaluate(() =>
+    Object.keys(sessionStorage).some((key) => key.startsWith('trade-return-anchor:')),
+  )
+  if (abandonedAnchorStored) throw new Error('An attempted missing return anchor must be consumed immediately')
+  await page.evaluate(async () => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    const state = useStore.getState()
+    const source = state.trades[0]
+    if (!source) throw new Error('Abandoned anchor QA requires a source trade')
+    useStore.setState({
+      trades: [
+        ...state.trades,
+        { ...source, id: 'qa-abandoned-anchor', ref: 'QA-ABANDONED', openedAt: '2020-01-01' },
+      ],
+    })
+  })
+  await coreLink('仪表盘').click()
+  await coreLink('交易').click()
+  await expectUrl(page, '/list', 'Trade core must return after abandoned anchor setup')
+  await page.waitForTimeout(250)
+  const abandonedScrollTop = await page.locator('.list-scroll').evaluate((element) => element.scrollTop)
+  if (abandonedScrollTop > 20) throw new Error(`Consumed missing anchor caused surprise later scrolling: ${abandonedScrollTop}`)
   await page.setViewportSize({ width: 1440, height: 900 })
 
   await page.evaluate(async () => {
@@ -548,6 +579,17 @@ try {
     await expectAttribute(background, 'aria-hidden', 'true')
   }
   if (await page.evaluate(() => document.body.style.overflow) !== 'hidden') throw new Error('Opening a mobile modal must lock body scrolling')
+  await page.setViewportSize({ width: 900, height: 844 })
+  await expectVisible(page.locator('.sidebar'))
+  await expectCount(drawer, 0)
+  await page.waitForFunction(() => !document.querySelector('.ui-main-frame')?.inert && document.body.style.overflow !== 'hidden')
+  await expectCount(page.locator('.mobile-navigation-overlay'), 0)
+  if (await page.locator('.ui-main-frame').evaluate((element) => element.inert)) throw new Error('Desktop main must be interactive after closing drawer across breakpoint')
+  await expectAttribute(page.locator('.ui-main-frame'), 'aria-hidden', null)
+  if (await page.evaluate(() => document.body.style.overflow) === 'hidden') throw new Error('Crossing to desktop with drawer open must restore body scrolling')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await moreButton.click()
+  await expectVisible(drawer)
   expectEqual(
     await drawer.locator('[data-mobile-workspace-item]').allTextContents(),
     ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图'],
@@ -671,6 +713,18 @@ try {
     await expectAttribute(background, 'aria-hidden', 'true')
   }
   if (await page.evaluate(() => document.body.style.overflow) !== 'hidden') throw new Error('Full-screen editor must lock body scrolling')
+  await page.setViewportSize({ width: 900, height: 844 })
+  await expectVisible(page.locator('.sidebar'))
+  await page.waitForFunction(() => !document.querySelector('.ui-main-frame')?.inert && document.body.style.overflow !== 'hidden')
+  await expectCount(page.locator('.mobile-navigation-editor-host'), 0)
+  await expectCount(page.locator('.mobile-navigation-overlay'), 0)
+  if (await page.locator('.ui-main-frame').evaluate((element) => element.inert)) throw new Error('Desktop main must be interactive after closing editor across breakpoint')
+  await expectAttribute(page.locator('.ui-main-frame'), 'aria-hidden', null)
+  if (await page.evaluate(() => document.body.style.overflow) === 'hidden') throw new Error('Crossing to desktop with editor open must restore body scrolling')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await moreButton.click()
+  await drawer.getByRole('button', { name: '管理我的空间', exact: true }).click()
+  await expectVisible(mobileEditor)
   await expectNoHorizontalOverflow(page, mobileEditor)
   const firstMobileLabel = (await mobileEditor.locator('[data-sidebar-item-label]').first().textContent()) ?? ''
   await expectVisible(mobileEditor.getByRole('button', { name: `下移 ${firstMobileLabel}` }))
