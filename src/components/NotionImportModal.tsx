@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { Upload, X, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import {
+  applyNotionImageAssetsToNote,
   parseNotionCsv,
   parseNotionZip,
   executeNotionImport,
@@ -116,19 +117,13 @@ export function NotionImportModal({ open, onClose }: Props) {
 
     setImportedImages(totalImages)
 
-    // 3. 写入交易（将图片注入 note）
+    // 3. 写入交易（按正文占位顺序注入图片，保持图文交错）
     for (let i = 0; i < newTrades.length; i++) {
       const trade = newTrades[i]!
       const preview = importablePreviews[i]
       if (preview) {
         const assetIds = imageAssetMap.get(preview.rowIndex) ?? []
-        if (assetIds.length > 0) {
-          // 在 note 末尾追加图片
-          const imgTags = assetIds
-            .map((aid) => `<img src="journal-asset://${aid}" />`)
-            .join('\n')
-          trade.note = (trade.note ? trade.note + '\n' : '') + imgTags
-        }
+        trade.note = applyNotionImageAssetsToNote(trade.note || '', assetIds)
       }
       upsertTrade(trade)
     }

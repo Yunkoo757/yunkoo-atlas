@@ -7,9 +7,9 @@
  *
  * Markdown 解析流程：
  * 1. 解压 zip → 找到所有 .md 文件
- * 2. 解析每个 .md 的 frontmatter（key: value）+ 图片引用
+ * 2. 解析每个 .md 的 frontmatter（key: value）+ 正文文字 + 图片引用
  * 3. 从 zip 内的子目录匹配图片二进制
- * 4. 清洗 Notion URL，映射字段到 Trade
+ * 4. 清洗 Notion URL，映射字段到 Trade；正文 Markdown 转为 note HTML
  * 5. 图片通过 ImageFile 接口传出，由调用方写入 storage
  */
 
@@ -152,12 +152,17 @@ interface MdFrontmatter {
 
 /**
  * 解析 Notion 导出的 .md 文件
- * 格式：每行 "Key: Value"，空行后是 Markdown 正文
+ * 格式：每行 "Key: Value"，空行后是 Markdown 正文（含图片与复盘文字）
  */
-function parseNotionMd(text: string): { frontmatter: MdFrontmatter; images: string[] } {
+export function parseNotionMd(text: string): {
+  frontmatter: MdFrontmatter
+  images: string[]
+  bodyMarkdown: string
+} {
   const lines = text.split('\n')
   const frontmatter: MdFrontmatter = {}
   const images: string[] = []
+  const bodyLines: string[] = []
   let inFrontmatter = true
   let hasFrontmatterField = false
 
@@ -186,14 +191,163 @@ function parseNotionMd(text: string): { frontmatter: MdFrontmatter; images: stri
       inFrontmatter = false
     }
 
-    // 正文：匹配图片 ![alt](path)
+    // 正文：图片引用既入 images 列表，也保留在正文里以维持图文顺序
     const imgMatch = line.match(/^!\[.*\]\((.+)\)$/)
     if (imgMatch) {
       images.push(decodeURIComponent(imgMatch[1]!))
+      bodyLines.push(line)
+      continue
     }
+    bodyLines.push(line)
   }
 
-  return { frontmatter, images }
+  return {
+    frontmatter,
+    images,
+    bodyMarkdown: bodyLines.join('\n').trim(),
+  }
+}
+
+function escapeHtmlText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function formatInlineMarkdown(text: string): string {
+  let out = escapeHtmlText(text)
+  out = out.replace(/`([^`]+)`/g, '<code>$1</code>')
+  out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  out = out.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>')
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+  return out
+}
+
+/**
+ * 将 Notion 导出正文中的基础 Markdown 转成 TipTap 可用的 HTML。
+ * 图片转为 `data-notion-img` 占位，导入落盘后再替换为 journal-asset://，以保持图文交错顺序。
+ */
+export function notionBodyMarkdownToHtml(markdown: string): string {
+  const raw = markdown.replace(/\r\n/g, '\n').trim()
+  if (!raw) return ''
+
+  const lines = raw.split('\n')
+  const blocks: string[] = []
+  let paragraph: string[] = []
+  let listItems: string[] = []
+  let listTag: 'ul' | 'ol' | null = null
+  let imageIndex = 0
+
+  const flushParagraph = () => {
+    if (paragraph.length === 0) return
+    blocks.push(`<p>${formatInlineMarkdown(paragraph.join(' '))}</p>`)
+    paragraph = []
+  }
+
+  const flushList = () => {
+    if (!listTag || listItems.length === 0) {
+      listItems = []
+      listTag = null
+      return
+    }
+    blocks.push(
+      `<${listTag}>${listItems.map((item) => `<li>${formatInlineMarkdown(item)}</li>`).join('')}</${listTag}>`,
+    )
+    listItems = []
+    listTag = null
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      flushParagraph()
+      flushList()
+      continue
+    }
+
+    const imgMatch = /^!\[([^\]]*)\]\((.+)\)$/.exec(trimmed)
+    if (imgMatch) {
+      flushParagraph()
+      flushList()
+      const alt = escapeHtmlText(imgMatch[1] ?? '')
+      blocks.push(`<img data-notion-img="${imageIndex}" alt="${alt}" />`)
+      imageIndex += 1
+      continue
+    }
+
+    const heading = /^(#{1,3})\s+(.+)$/.exec(trimmed)
+    if (heading) {
+      flushParagraph()
+      flushList()
+      const level = heading[1]!.length
+      blocks.push(`<h${level}>${formatInlineMarkdown(heading[2]!)}</h${level}>`)
+      continue
+    }
+
+    const quote = /^>\s?(.*)$/.exec(trimmed)
+    if (quote) {
+      flushParagraph()
+      flushList()
+      blocks.push(`<blockquote><p>${formatInlineMarkdown(quote[1] ?? '')}</p></blockquote>`)
+      continue
+    }
+
+    const ul = /^[-*+]\s+(.+)$/.exec(trimmed)
+    if (ul) {
+      flushParagraph()
+      if (listTag && listTag !== 'ul') flushList()
+      listTag = 'ul'
+      listItems.push(ul[1]!)
+      continue
+    }
+
+    const ol = /^\d+[.)]\s+(.+)$/.exec(trimmed)
+    if (ol) {
+      flushParagraph()
+      if (listTag && listTag !== 'ol') flushList()
+      listTag = 'ol'
+      listItems.push(ol[1]!)
+      continue
+    }
+
+    flushList()
+    paragraph.push(trimmed)
+  }
+
+  flushParagraph()
+  flushList()
+  return blocks.join('\n')
+}
+
+/** 把正文中的 Notion 图片占位替换为已落盘的 journal-asset 地址；无占位时回退为末尾追加 */
+export function applyNotionImageAssetsToNote(noteHtml: string, assetIds: string[]): string {
+  if (assetIds.length === 0) return noteHtml
+
+  const hasPlaceholders = /data-notion-img="\d+"/.test(noteHtml)
+  if (!hasPlaceholders) {
+    const imgTags = assetIds.map((aid) => `<img src="journal-asset://${aid}" />`).join('\n')
+    return noteHtml ? `${noteHtml}\n${imgTags}` : imgTags
+  }
+
+  const used = new Set<number>()
+  const replaced = noteHtml.replace(
+    /<img\b[^>]*\bdata-notion-img="(\d+)"[^>]*>/gi,
+    (_match, rawIndex: string) => {
+      const index = Number(rawIndex)
+      const assetId = assetIds[index]
+      if (!assetId) return ''
+      used.add(index)
+      return `<img src="journal-asset://${assetId}" />`
+    },
+  )
+
+  const leftovers = assetIds
+    .map((assetId, index) => (used.has(index) ? '' : `<img src="journal-asset://${assetId}" />`))
+    .filter(Boolean)
+  if (leftovers.length === 0) return replaced
+  return replaced ? `${replaced}\n${leftovers.join('\n')}` : leftovers.join('\n')
 }
 
 // ============================================================
@@ -465,12 +619,16 @@ export async function parseNotionZip(
     const groups: NotionImageGroup[] = []
     for (const md of mdEntries) {
       const text = await md.entry.async('string')
-      const { frontmatter, images: mdImageRefs } = parseNotionMd(text)
+      const { frontmatter, images: mdImageRefs, bodyMarkdown } = parseNotionMd(text)
       const sourceId = stripNotionUrl(frontmatter['id'] ?? '') || undefined
       if (!sourceId) continue
       const mdDir = md.path.substring(0, md.path.lastIndexOf('/') + 1)
       const matched = await matchImages(mdDir, mdImageRefs)
-      groups.push({ sourceId, images: matched })
+      groups.push({
+        sourceId,
+        images: matched,
+        noteHtml: notionBodyMarkdownToHtml(bodyMarkdown),
+      })
     }
     return groups
   }
@@ -486,7 +644,7 @@ export async function parseNotionZip(
   let mdTradeCount = 0
   for (const md of mdEntries) {
     const text = await md.entry.async('string')
-    const { frontmatter, images: mdImageRefs } = parseNotionMd(text)
+    const { frontmatter, images: mdImageRefs, bodyMarkdown } = parseNotionMd(text)
 
     const sym = stripNotionUrl(frontmatter['symbol'] ?? '')
     const date = stripNotionUrl(frontmatter['date'] ?? '')
@@ -497,6 +655,7 @@ export async function parseNotionZip(
 
     const preview = buildTradeFromFrontmatter(frontmatter, mdTradeCount++, existingStrategies)
     if (preview.newStrategyName) newStrategySet.add(preview.newStrategyName)
+    preview.noteHtml = notionBodyMarkdownToHtml(bodyMarkdown)
 
     const mdDir = md.path.substring(0, md.path.lastIndexOf('/') + 1)
     const matched = await matchImages(mdDir, mdImageRefs)
@@ -695,6 +854,8 @@ export interface NotionImportOptions {
 export interface NotionImageGroup {
   sourceId?: string
   images: ImageFile[]
+  /** 对应 .md 正文转成的 HTML（不含图片） */
+  noteHtml?: string
 }
 
 export function attachImagesToPreviewsBySourceId(
@@ -704,12 +865,20 @@ export function attachImagesToPreviewsBySourceId(
   const imagesById = new Map(
     imageGroups
       .filter((group): group is NotionImageGroup & { sourceId: string } => !!group.sourceId)
-      .map((group) => [group.sourceId, group.images]),
+      .map((group) => [group.sourceId, group]),
   )
 
   return previews.map((preview) => {
-    const images = preview.sourceId ? imagesById.get(preview.sourceId) ?? [] : []
-    return { ...preview, images, imageCount: images.length }
+    if (!preview.sourceId) return preview
+    const group = imagesById.get(preview.sourceId)
+    if (!group) return preview
+    const images = group.images
+    return {
+      ...preview,
+      noteHtml: preview.noteHtml || group.noteHtml || '',
+      images,
+      imageCount: images.length,
+    }
   })
 }
 
