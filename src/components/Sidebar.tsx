@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Ban,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { useStore } from '@/store/useStore'
+import { SidebarWorkspaceEditor } from '@/components/sidebar/SidebarWorkspaceEditor'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -44,6 +46,8 @@ const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], LucideIcon> 
 }
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+  const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
+  const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
   const { pathname: path, search } = useLocation()
   const openComposer = useStore((state) => state.openComposer)
   const trades = useStore((state) => state.trades)
@@ -54,6 +58,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
+  const replaceSidebarWorkspaceItems = useStore((state) => state.replaceSidebarWorkspaceItems)
   const countContext = { trades, starredIds, display }
 
   const workspaceItems = sidebarWorkspaceItems
@@ -95,6 +100,14 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   const createLabel = inReviewCases ? '新建案例记录' : '新建交易'
+  const openWorkspaceEditor = (button: HTMLButtonElement) => {
+    workspaceEditorOpener.current = button
+    setWorkspaceEditorOpen(true)
+  }
+  const closeWorkspaceEditor = () => {
+    setWorkspaceEditorOpen(false)
+    requestAnimationFrame(() => workspaceEditorOpener.current?.focus())
+  }
 
   return (
     <aside className="sidebar">
@@ -146,7 +159,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       <nav className="sb-section sb-workspace" aria-label="我的空间">
         <div className="sb-section-label sb-workspace-heading">
           <span>我的空间</span>
-          <button type="button" className="sb-workspace-menu" aria-label="管理我的空间">
+          <button type="button" className="sb-workspace-menu" aria-label="管理我的空间" onClick={(event) => openWorkspaceEditor(event.currentTarget)}>
             ···
           </button>
         </div>
@@ -173,10 +186,21 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             </NavLink>
           )
         })}
-        <button type="button" className="sb-workspace-manage" aria-label="添加或管理我的空间">
+        <button type="button" className="sb-workspace-manage" aria-label="添加或管理我的空间" onClick={(event) => openWorkspaceEditor(event.currentTarget)}>
           <span aria-hidden="true">＋</span>
           <span>添加或管理</span>
         </button>
+        {workspaceEditorOpen ? (
+          <SidebarWorkspaceEditor
+            items={sidebarWorkspaceItems}
+            sources={{ savedViews: savedTradeViews, strategies }}
+            onCommit={(items) => {
+              replaceSidebarWorkspaceItems(items)
+              closeWorkspaceEditor()
+            }}
+            onCancel={closeWorkspaceEditor}
+          />
+        ) : null}
       </nav>
 
       <div className="sb-spacer" />
