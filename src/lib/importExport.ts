@@ -122,6 +122,8 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   if (typeof v.strategyId !== 'string' && typeof v.strategy !== 'string') return false
   if (v.session !== undefined && typeof v.session !== 'string') return false
   if (v.timeframe !== undefined && typeof v.timeframe !== 'string') return false
+  if (v.psychology !== undefined && typeof v.psychology !== 'string') return false
+  if (v.narrative !== undefined && typeof v.narrative !== 'string') return false
   if (!Array.isArray(v.tags) || !v.tags.every((t) => typeof t === 'string')) return false
   if (v.mistakeTags !== undefined && !isStringArray(v.mistakeTags)) return false
   if (

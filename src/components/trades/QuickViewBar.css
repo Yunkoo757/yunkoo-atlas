@@ -62,10 +62,16 @@
   width: 26px;
 }
 
+.quick-view-overflow-anchor {
+  position: relative;
+  flex: 0 0 auto;
+}
+
 .quick-view-popover {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
+  right: auto;
   z-index: 42;
   color: var(--text-secondary);
   background: var(--popover-bg);
@@ -249,7 +255,8 @@
   }
 
   .quick-view-menu {
-    right: -34px;
-    width: calc(100vw - 16px);
+    left: 0;
+    right: auto;
+    width: min(480px, calc(100vw - 16px));
   }
 }

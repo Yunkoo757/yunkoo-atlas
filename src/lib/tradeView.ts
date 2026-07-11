@@ -120,6 +120,119 @@ export function promoteTradeSession(trade: Trade): Trade {
   return { ...trade, session: fromTags }
 }
 
+/** 心理状态预设（写入 Trade.psychology） */
+export const PSYCHOLOGY_PRESETS = [
+  { value: 'Neutral', label: '中性' },
+  { value: 'Confident', label: '自信' },
+  { value: 'Calm', label: '冷静' },
+  { value: 'Fearful', label: '恐惧' },
+  { value: 'Anxious', label: '焦虑' },
+  { value: 'FOMO', label: 'FOMO' },
+  { value: 'Revenge', label: '报复交易' },
+] as const
+
+/** 市场叙事预设（写入 Trade.narrative） */
+export const NARRATIVE_PRESETS = [
+  { value: 'Bullish', label: '看涨' },
+  { value: 'Bearish', label: '看跌' },
+  { value: 'Neutral', label: '中性' },
+  { value: 'Range', label: '震荡' },
+] as const
+
+const PSYCHOLOGY_ALIASES: Record<string, string> = {
+  neutral: 'Neutral',
+  中性: 'Neutral',
+  confident: 'Confident',
+  自信: 'Confident',
+  calm: 'Calm',
+  冷静: 'Calm',
+  fearful: 'Fearful',
+  fear: 'Fearful',
+  恐惧: 'Fearful',
+  anxious: 'Anxious',
+  焦虑: 'Anxious',
+  fomo: 'FOMO',
+  revenge: 'Revenge',
+  报复: 'Revenge',
+  报复交易: 'Revenge',
+}
+
+const NARRATIVE_ALIASES: Record<string, string> = {
+  bullish: 'Bullish',
+  看涨: 'Bullish',
+  偏多: 'Bullish',
+  bearish: 'Bearish',
+  看跌: 'Bearish',
+  偏空: 'Bearish',
+  neutral: 'Neutral',
+  中性: 'Neutral',
+  range: 'Range',
+  ranging: 'Range',
+  震荡: 'Range',
+}
+
+export function normalizePsychology(value: string | null | undefined): string | undefined {
+  const raw = value?.trim()
+  if (!raw) return undefined
+  return PSYCHOLOGY_ALIASES[raw.toLowerCase()] ?? raw
+}
+
+export function normalizeNarrative(value: string | null | undefined): string | undefined {
+  const raw = value?.trim()
+  if (!raw) return undefined
+  return NARRATIVE_ALIASES[raw.toLowerCase()] ?? raw
+}
+
+const NOTION_BODY_META_RE =
+  /<p>\s*<strong>\s*(市场叙事|心理状态)\s*<\/strong>\s*:\s*([^<]*)<\/p>/gi
+
+/** 从旧版 Notion 导入正文中拆出叙事/心理状态，并清除对应段落 */
+export function extractNotionBodyMeta(note: string): {
+  note: string
+  narrative?: string
+  psychology?: string
+} {
+  let narrative: string | undefined
+  let psychology: string | undefined
+  const cleaned = note
+    .replace(NOTION_BODY_META_RE, (_match, label: string, value: string) => {
+      const trimmed = value.trim()
+      if (!trimmed) return ''
+      if (label === '市场叙事') narrative = trimmed
+      if (label === '心理状态') psychology = trimmed
+      return ''
+    })
+    .replace(/(?:\s*<p>\s*<\/p>\s*)+/gi, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  return {
+    note: cleaned,
+    narrative: normalizeNarrative(narrative),
+    psychology: normalizePsychology(psychology),
+  }
+}
+
+/** 提升正文里的叙事/心理状态为独立属性，避免继续堆在笔记里 */
+export function promoteTradeNotionMeta(trade: Trade): Trade {
+  const extracted = extractNotionBodyMeta(trade.note ?? '')
+  const psychology = normalizePsychology(trade.psychology) ?? extracted.psychology
+  const narrative = normalizeNarrative(trade.narrative) ?? extracted.narrative
+  const note = extracted.note
+  if (
+    note === (trade.note ?? '') &&
+    psychology === trade.psychology &&
+    narrative === trade.narrative
+  ) {
+    return trade
+  }
+  return {
+    ...trade,
+    note,
+    ...(psychology ? { psychology } : { psychology: undefined }),
+    ...(narrative ? { narrative } : { narrative: undefined }),
+  }
+}
+
 function tradeTime(trade: Trade) {
   const value = new Date(trade.openedAt).getTime()
   return Number.isFinite(value) ? value : 0

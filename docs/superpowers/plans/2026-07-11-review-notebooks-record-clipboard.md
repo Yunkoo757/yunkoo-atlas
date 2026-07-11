@@ -19,7 +19,7 @@
 - Notebook and case copies remain excluded from account/dashboard statistics.
 - Editable controls and Tiptap editors must retain native text/image `Ctrl+C` and `Ctrl+V` behavior.
 - Reuse existing design tokens, `TradeList`, `TradeRow`, `Editor`, `Select`, `Tooltip`, and modal patterns.
-- Work with the existing dirty `dev` worktree; never revert unrelated changes and stage only paths explicitly touched by the active task.
+- Continue in the existing `codex/review-notebooks` worktree; preserve its uncommitted changes, never revert unrelated work, and stage only paths explicitly touched by the active task.
 
 ---
 
@@ -126,7 +126,7 @@ const entries = [
 ]
 ```
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: FAIL because `@/data/reviewNotebooks` does not exist.
 
 - [ ] **Step 3: Add the notebook model and pure helpers**
@@ -165,7 +165,7 @@ sourceRecordRef?: string
 
 - [ ] **Step 4: Run domain tests**
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: all tests PASS, including `testReviewNotebooksNormalizeSortAndMerge`.
 
 - [ ] **Step 5: Commit the domain slice**
@@ -230,7 +230,7 @@ export function testRemovingNotebookOnlyRemovesMembership(): void {
 
 - [ ] **Step 2: Run tests to verify failure**
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: FAIL on missing `reviewNotebooks`, version 7, asset collection, and `removeNotebookFromAllTrades`.
 
 - [ ] **Step 3: Implement persistence and pure membership cleanup**
@@ -280,7 +280,7 @@ insertTrades: (trades: Trade[]) => void
 
 - [ ] **Step 5: Run tests and build**
 
-Run: `npm test && npm run build`  
+Run: `pnpm test && pnpm run build`
 Expected: all tests PASS and TypeScript build succeeds.
 
 - [ ] **Step 6: Commit persistence slice**
@@ -342,7 +342,7 @@ Also test multiple unique refs, unchanged source snapshots, direct provenance, p
 
 Add `'src/lib/recordClipboard.test.ts'` to `scripts/run-regression-tests.mjs`.
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: FAIL because clipboard module and functions do not exist.
 
 - [ ] **Step 3: Implement versioned clipboard types and pure conversion**
@@ -397,7 +397,7 @@ interface RecordClipboardState {
 
 - [ ] **Step 5: Run clipboard tests**
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: all record clipboard conversion and guard tests PASS.
 
 - [ ] **Step 6: Commit clipboard core**
@@ -442,7 +442,7 @@ export function testNotebookViewBelongsOnlyToCaseWorkspace(): void {
 }
 ```
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: FAIL because the notebook view target is missing.
 
 - [ ] **Step 2: Add route configuration and visual separation**
@@ -505,7 +505,7 @@ Replace the duplicated note loading/debounce block in `DetailView` with this hoo
 
 - [ ] **Step 6: Run tests, build, and visual smoke test**
 
-Run: `npm test && npm run build`  
+Run: `pnpm test && pnpm run build`
 Expected: PASS.
 
 Open `/review-cases/notebooks` and `/review-cases/notebooks/:id` at 1440x900 and 900x800. Verify no horizontal overflow, no cards inside cards, and the notebook editor/list remains one continuous page surface.
@@ -551,7 +551,7 @@ export function testNotebookMembershipIsManyToManyAndDeduplicated(): void {
 }
 ```
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: FAIL because membership helper is missing.
 
 - [ ] **Step 2: Implement pure membership helpers and store wrappers**
@@ -588,7 +588,7 @@ On case list and notebook detail batch bars:
 
 - [ ] **Step 6: Run tests and browser checks**
 
-Run: `npm test && npm run build`  
+Run: `pnpm test && pnpm run build`
 Expected: PASS.
 
 Browser checks: assign one case to two notebooks, remove it from one, verify it remains in the other and in `案例记录 > 全部`.
@@ -640,7 +640,7 @@ export function testEditableClipboardElementsAreNeverIntercepted(): void {
 }
 ```
 
-Run: `npm test`  
+Run: `pnpm test`
 Expected: FAIL on missing serializers and target guard.
 
 - [ ] **Step 2: Implement system clipboard serialization with in-memory fallback**
@@ -698,7 +698,7 @@ Before materialization, compute `pasteGuardKey(bundle, target)`. If `wasRecently
 
 - [ ] **Step 8: Run tests and keyboard smoke checks**
 
-Run: `npm test && npm run build`  
+Run: `pnpm test && pnpm run build`
 Expected: PASS.
 
 Manual/browser checks:
@@ -732,7 +732,7 @@ git commit -m "feat: enable record copy paste across workspaces"
 
 **Interfaces:**
 - Consumes all previous tasks.
-- Produces repeatable `npm run qa:notebooks` coverage and baseline screenshots.
+- Produces repeatable `pnpm run qa:notebooks` coverage and baseline screenshots.
 
 - [ ] **Step 1: Add the notebook QA script before final polish**
 
@@ -767,7 +767,7 @@ Assert notebook rows use the standard control/row tokens, the page has no card n
 
 - [ ] **Step 4: Run focused QA and fix only observed failures**
 
-Run: `npm run qa:notebooks`  
+Run: `pnpm run qa:notebooks`
 Expected: every notebook and clipboard assertion passes with no console/page errors.
 
 Use screenshots to correct only concrete spacing, focus, truncation, or overflow issues. Do not add decorative cards or unrelated redesigns.
@@ -777,13 +777,13 @@ Use screenshots to correct only concrete spacing, focus, truncation, or overflow
 Run:
 
 ```powershell
-npm test
-npm run qa:image
-npm run qa:workbench
-npm run qa:notebooks
-npm run qa:linear
-npm run qa:design
-npm run build
+pnpm test
+pnpm run qa:image
+pnpm run qa:workbench
+pnpm run qa:notebooks
+pnpm run qa:linear
+pnpm run qa:design
+pnpm run build
 git diff --check
 ```
 

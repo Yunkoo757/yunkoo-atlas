@@ -1,15 +1,14 @@
 .trade-filter-panel {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: var(--sp-3);
-  z-index: 40;
-  width: min(560px, calc(100vw - var(--sidebar-width) - 48px));
+  position: fixed;
+  z-index: 80;
+  width: min(560px, calc(100vw - 16px));
   color: var(--text-secondary);
   background: var(--popover-bg);
   border: 1px solid var(--popover-border);
   border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .trade-filter-head {
@@ -94,13 +93,6 @@
 }
 
 @media (max-width: 760px) {
-  .trade-filter-panel {
-    left: 8px;
-    width: calc(100vw - 16px);
-    max-height: calc(100vh - 88px);
-    overflow-y: auto;
-  }
-
   .trade-filter-scope-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

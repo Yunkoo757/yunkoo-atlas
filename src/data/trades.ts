@@ -66,6 +66,10 @@ export interface Trade {
   session?: string // 交易时段，如 London Open / Asia / New York
   /** 参与波段级别，如 15M / 1H / 4H */
   timeframe?: string
+  /** 市场叙事，如 Bullish / Bearish（Notion Narrative） */
+  narrative?: string
+  /** 心理状态，如 Neutral / FOMO（Notion Psychology） */
+  psychology?: string
   tags: string[]
   mistakeTags: string[]
   reviewStatus: ReviewStatus
@@ -148,24 +152,46 @@ export type TimeframePreset = (typeof TIMEFRAME_PRESETS)[number]
 /** 未录入时的默认波段级别 */
 export const DEFAULT_TIMEFRAME: TimeframePreset = '4H'
 
-/** 规范化波段级别：去空格、大写，并兼容 H1 / M15 写法 */
+/** 规范化波段级别：对齐 TIMEFRAME_PRESETS，兼容 Notion/中英文别名 */
 export function normalizeTimeframe(value: string | null | undefined): string | undefined {
   if (!value) return undefined
   let raw = value.trim().toUpperCase().replace(/\s+/g, '')
   if (!raw) return undefined
+
   raw = raw
     .replace(/小时/g, 'H')
-    .replace(/分钟|分/g, 'M')
+    .replace(/分钟/g, 'M')
+    .replace(/日线/g, 'D')
     .replace(/天|日/g, 'D')
-    .replace(/周/g, 'W')
-  const hMatch = /^H(\d+)$/.exec(raw)
-  if (hMatch) return `${hMatch[1]}H`
-  const mMatch = /^M(\d+)$/.exec(raw)
-  if (mMatch) return `${mMatch[1]}M`
-  const dMatch = /^D(\d+)$/.exec(raw)
-  if (dMatch) return dMatch[1] === '1' ? '1D' : `${dMatch[1]}D`
-  const wMatch = /^W(\d+)$/.exec(raw)
-  if (wMatch) return wMatch[1] === '1' ? '1W' : `${wMatch[1]}W`
+    .replace(/周线?/g, 'W')
+    .replace(/MINUTES?/g, 'M')
+    .replace(/MINS?/g, 'M')
+    .replace(/HOURS?/g, 'H')
+    .replace(/HRS?/g, 'H')
+    .replace(/DAILY/g, '1D')
+    .replace(/DAYS?/g, 'D')
+    .replace(/WEEKLY/g, '1W')
+    .replace(/WEEKS?/g, 'W')
+
+  const hPrefix = /^H(\d+)$/.exec(raw)
+  if (hPrefix) raw = `${hPrefix[1]}H`
+  const mPrefix = /^M(\d+)$/.exec(raw)
+  if (mPrefix) raw = `${mPrefix[1]}M`
+  const dPrefix = /^D(\d+)$/.exec(raw)
+  if (dPrefix) raw = dPrefix[1] === '1' ? '1D' : `${dPrefix[1]}D`
+  const wPrefix = /^W(\d+)$/.exec(raw)
+  if (wPrefix) raw = wPrefix[1] === '1' ? '1W' : `${wPrefix[1]}W`
+
+  const compact = /^(\d+)(M|H|D|W)$/.exec(raw)
+  if (compact) {
+    const amount = compact[1]!
+    const unit = compact[2]! as 'M' | 'H' | 'D' | 'W'
+    if (unit === 'D' && amount === '1') return '1D'
+    if (unit === 'W' && amount === '1') return '1W'
+    return `${amount}${unit}`
+  }
+
+  if ((TIMEFRAME_PRESETS as readonly string[]).includes(raw)) return raw
   return raw
 }
 

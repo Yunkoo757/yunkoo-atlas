@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, type ReactNode } from 'react'
 import { Plus, Bell } from 'lucide-react'
 import { Topbar } from '@/components/Topbar'
 import type { WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
+import { TradeFilters } from '@/components/trades/TradeFilters'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -11,11 +12,7 @@ import { StrategyLabel } from '@/components/StrategyIcon'
 import { getStrategyName } from '@/lib/strategies'
 import { useStore } from '@/store/useStore'
 import { REVIEW_CATEGORY_META, STATUS_META, getTimeframeTone, resolveTimeframe, type TradeStatus, type Trade } from '@/data/trades'
-import {
-  filterTrades,
-  applyDisplayPrefs,
-  type ListFilter,
-} from '@/lib/tradeFilters'
+import type { ListFilter } from '@/lib/tradeFilters'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
@@ -23,6 +20,7 @@ import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
+import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './BoardView.css'
 
@@ -32,14 +30,15 @@ export function BoardView({
   onView,
   onOpen,
   filter = { type: 'all' },
+  header,
 }: {
   title?: string
   view: WorkbenchView
   onView: (v: WorkbenchView) => void
   onOpen: (id: string) => void
   filter?: ListFilter
+  header?: ReactNode
 }) {
-  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const display = useStore((s) => s.display)
@@ -59,11 +58,7 @@ export function BoardView({
   const [ctx, setCtx] = useState<CtxState | null>(null)
 
   useListContextSync(filter)
-
-  const visible = useMemo(() => {
-    const filtered = filterTrades(trades, filter, starredIds)
-    return applyDisplayPrefs(filtered, display, filter)
-  }, [trades, filter, starredIds, display])
+  const { trades, visible } = useWorkbenchVisibleTrades(filter)
 
   const cols = useMemo(() => {
     const map = new Map<TradeStatus, Trade[]>()
@@ -101,9 +96,20 @@ export function BoardView({
   return (
     <>
       <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
+      {header}
+      <TradeFilters filter={filter} trades={trades} strategies={strategies} />
       <div className={'board-scroll' + (isReviewCaseView ? ' board-scroll-case' : '')}>
         {cols.length === 0 ? (
-          <EmptyState title={isReviewCaseView ? '没有案例记录' : '没有交易'} hint={emptyHint} />
+          <EmptyState
+            title={isReviewCaseView ? '没有案例记录' : '没有交易'}
+            hint={emptyHint}
+            action={
+              <button className="empty-btn" onClick={() => openComposer()}>
+                <Plus size={15} />
+                <span>新建{recordLabel}</span>
+              </button>
+            }
+          />
         ) : (
           cols.map((c) => (
             <div

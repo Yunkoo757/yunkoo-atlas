@@ -57,9 +57,13 @@ import { findTradeByRouteParam, tradeDetailPath, resolveTradeDetailReturn, type 
 import { collectMistakeTagOptions, collectTagOptions } from '@/lib/tags'
 import {
   SESSION_PRESETS,
+  PSYCHOLOGY_PRESETS,
+  NARRATIVE_PRESETS,
   getSessionSelectValue,
   getTradeSessionMeta,
   normalizeSession,
+  normalizePsychology,
+  normalizeNarrative,
 } from '@/lib/tradeView'
 import { toast } from '@/lib/toast'
 import { syncStatusFromPnl } from '@/lib/tradeTransition'
@@ -685,6 +689,60 @@ export function DetailView() {
                     >
                       {SESSION_PRESETS.find((p) => p.value === getSessionSelectValue(trade))
                         ?.label ?? getSessionSelectValue(trade)}
+                    </span>
+                  ) : (
+                    <span className="dv-prop-empty">未设置</span>
+                  )}
+                </PropTrigger>
+              }
+            />
+            <Menu
+              value={trade.psychology ?? ''}
+              onSelect={(v) =>
+                updateTradeData(trade.id, {
+                  psychology: normalizePsychology(v),
+                })
+              }
+              options={[
+                { value: '', label: '未设置' },
+                ...PSYCHOLOGY_PRESETS.map((preset) => ({
+                  value: preset.value,
+                  label: preset.label,
+                })),
+              ]}
+              trigger={
+                <PropTrigger label="心理状态">
+                  {trade.psychology ? (
+                    <span className="dv-prop-chip is-neutral">
+                      {PSYCHOLOGY_PRESETS.find((p) => p.value === trade.psychology)?.label ??
+                        trade.psychology}
+                    </span>
+                  ) : (
+                    <span className="dv-prop-empty">未设置</span>
+                  )}
+                </PropTrigger>
+              }
+            />
+            <Menu
+              value={trade.narrative ?? ''}
+              onSelect={(v) =>
+                updateTradeData(trade.id, {
+                  narrative: normalizeNarrative(v),
+                })
+              }
+              options={[
+                { value: '', label: '未设置' },
+                ...NARRATIVE_PRESETS.map((preset) => ({
+                  value: preset.value,
+                  label: preset.label,
+                })),
+              ]}
+              trigger={
+                <PropTrigger label="市场叙事">
+                  {trade.narrative ? (
+                    <span className="dv-prop-chip is-neutral">
+                      {NARRATIVE_PRESETS.find((p) => p.value === trade.narrative)?.label ??
+                        trade.narrative}
                     </span>
                   ) : (
                     <span className="dv-prop-empty">未设置</span>
