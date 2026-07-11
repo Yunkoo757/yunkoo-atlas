@@ -54,7 +54,7 @@ export function resolveTradeDetailReturn(options: {
   if (options.from?.pathname && isValidDetailSource(options.from.pathname, options.tradeKind)) {
     return routeWithSearch(options.from.pathname, options.from.search ?? '')
   }
-  if (options.listPath) {
+  if (options.listPath && isValidDetailSource(options.listPath, options.tradeKind)) {
     return routeWithSearch(options.listPath, options.listSearch ?? '')
   }
   return routeWithSearch(fallback, '')
