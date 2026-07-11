@@ -1,5 +1,11 @@
 import type { ShortcutActionMeta } from '@/shortcuts/types'
 
+/**
+ * 默认快捷键风格对齐 TradingView 全局控制中心：
+ * - 常用操作用单键（不抢浏览器 Ctrl+数字）
+ * - 并列跳转用 Alt+数字
+ * - Shift 留给次级变体；Ctrl/⌘ 只保留系统级（面板 / 撤销）
+ */
 export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   {
     id: 'global.commandPalette',
@@ -13,14 +19,14 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     label: '新建交易',
     category: '通用',
     scope: 'global',
-    defaultBinding: { key: 'c' },
+    defaultBinding: { key: 'n' },
   },
   {
     id: 'global.switchModule',
     label: '切换交易与案例记录',
     category: '通用',
     scope: 'global',
-    defaultBinding: { mod: true, key: '.' },
+    defaultBinding: { alt: true, key: 'w' },
   },
   {
     id: 'global.undo',
@@ -50,56 +56,56 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     label: '进行中',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '1' },
+    defaultBinding: { alt: true, key: '1' },
   },
   {
     id: 'nav.favorites',
     label: '星标交易',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '2' },
+    defaultBinding: { alt: true, key: '2' },
   },
   {
     id: 'nav.missed',
     label: '错过的机会',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '3' },
+    defaultBinding: { alt: true, key: '3' },
   },
   {
     id: 'nav.sim',
     label: '模拟回测',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '4' },
+    defaultBinding: { alt: true, key: '4' },
   },
   {
     id: 'nav.list',
     label: '全部交易',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '5' },
+    defaultBinding: { alt: true, key: '5' },
   },
   {
     id: 'nav.board',
     label: '看板',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '6' },
+    defaultBinding: { alt: true, key: '6' },
   },
   {
     id: 'nav.dashboard',
     label: '仪表盘',
     category: '导航',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '7' },
+    defaultBinding: { alt: true, key: '7' },
   },
   {
     id: 'nav.strategies',
     label: '管理策略',
     category: '设置',
     scope: 'navigation',
-    defaultBinding: { mod: true, key: '8' },
+    defaultBinding: { alt: true, key: '8' },
   },
 
   {
@@ -107,14 +113,14 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     label: '切换到列表视图',
     category: '视图',
     scope: 'navigation',
-    defaultBinding: { shift: true, key: 'l' },
+    defaultBinding: { key: 'l' },
   },
   {
     id: 'view.board',
     label: '切换到看板视图',
     category: '视图',
     scope: 'navigation',
-    defaultBinding: { shift: true, key: 'b' },
+    defaultBinding: { key: 'b' },
   },
 
   {
@@ -144,6 +150,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     label: '下一行',
     category: '列表',
     scope: 'navigation',
+    // 单键字母，避免方向键抢走列表滚动（对齐插件：高频操作用单键）
     defaultBinding: { key: 'j' },
   },
   {

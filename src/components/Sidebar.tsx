@@ -30,6 +30,7 @@ import {
   SIDEBAR_WORKSPACE_EDITOR_ID,
   SidebarWorkspaceEditor,
 } from '@/components/sidebar/SidebarWorkspaceEditor'
+import { getShortcutHint } from '@/shortcuts/ShortcutHost'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -190,21 +191,27 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <span className="sb-ws-name">{profile.displayName}</span>
         </NavLink>
         <div className="sb-header-actions">
-          <Tooltip content="搜索" label="搜索">
+          <Tooltip
+            content={`搜索 (${getShortcutHint('global.commandPalette') ?? 'Ctrl+K'})`}
+            label="搜索"
+          >
             <button
               type="button"
               className="sb-hbtn"
-              aria-label="搜索 (Ctrl+K)"
+              aria-label={`搜索 (${getShortcutHint('global.commandPalette') ?? 'Ctrl+K'})`}
               onClick={onOpenSearch}
             >
               <Search size={16} />
             </button>
           </Tooltip>
-          <Tooltip content={createLabel} label={createLabel}>
+          <Tooltip
+            content={`${createLabel} (${getShortcutHint('global.newTrade') ?? 'N'})`}
+            label={createLabel}
+          >
             <button
               type="button"
               className="sb-hbtn"
-              aria-label={createLabel}
+              aria-label={`${createLabel} (${getShortcutHint('global.newTrade') ?? 'N'})`}
               onClick={() => openComposer()}
             >
               <PenSquare size={16} />

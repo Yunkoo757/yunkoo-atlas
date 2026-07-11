@@ -104,7 +104,7 @@ export function CommandPalette({
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: getShortcutHint('global.newTrade') ?? 'C', run: () => { onClose(); openComposer() } },
+      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: getShortcutHint('global.newTrade') ?? 'N', run: () => { onClose(); openComposer() } },
     ]
     const tradeCmds: Cmd[] = trades.map((t) => {
       const stratName = getStrategyName(strategies, t.strategyId)
