@@ -52,7 +52,7 @@ import {
 import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
-import { getTradeActivities, type DisplayActivityEvent } from '@/lib/activities'
+import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
 import { findTradeByRouteParam, tradeDetailPath, resolveTradeDetailReturn, type TradeDetailLocationState } from '@/lib/tradeRoute'
 import { collectMistakeTagOptions, collectTagOptions } from '@/lib/tags'
 import {
@@ -76,7 +76,6 @@ import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPrev
 import { calculatePnL, calculateRMultiple } from '@/lib/priceCalc'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
-import { TradeMedia } from '@/components/trades/TradeMedia'
 import { useShortcutStore } from '@/store/shortcutStore'
 import './DetailView.css'
 
@@ -88,14 +87,6 @@ const KIND_OPTS: TradeKind[] = ['live', 'paper', 'case']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 const REVIEW_OPTS: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
 const REVIEW_CATEGORY_OPTS: ReviewCategory[] = ['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered']
-
-function extractEditorImages(html: string): string[] {
-  if (!html || typeof DOMParser === 'undefined') return []
-  const document = new DOMParser().parseFromString(html, 'text/html')
-  return [...document.querySelectorAll('img')]
-    .map((image) => image.getAttribute('src') ?? '')
-    .filter(Boolean)
-}
 
 export function DetailView() {
   const { id: routeParam } = useParams()
@@ -136,8 +127,7 @@ export function DetailView() {
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0)
-  const openLightbox = useShortcutStore((s) => s.openLightbox)
+  const [activityOpen, setActivityOpen] = useState(false)
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingHtmlRef = useRef<string | null>(null)
   const pendingTradeIdRef = useRef<string | null>(null)
@@ -255,12 +245,6 @@ export function DetailView() {
     [trade?.id, persistEditorNote],
   )
 
-  const editorImages = useMemo(() => extractEditorImages(editorHtml), [editorHtml])
-
-  useEffect(() => {
-    if (activeMediaIndex >= editorImages.length) setActiveMediaIndex(0)
-  }, [activeMediaIndex, editorImages.length])
-
   const starred = trade ? starredIds.includes(trade.id) : false
   const subscribed = trade ? subscribedIds.includes(trade.id) : false
   const allTags = useMemo(
@@ -352,24 +336,36 @@ export function DetailView() {
   )
 
   useEffect(() => {
+    setActivityOpen(false)
     setFeedExpanded(false)
   }, [trade?.id])
 
-  const feedItems = useMemo(() => {
-    if (!trade) return []
-    const all = getTradeActivities(trade).map((event) => ({
+  const activities = useMemo(
+    () => (trade ? partitionDisplayActivities(getTradeActivities(trade)) : { comments: [], system: [] }),
+    [trade],
+  )
+
+  const commentItems = useMemo(
+    () => activities.comments.map((event) => ({
       event,
-      node: renderActivity(event, strategies, trade.tradeKind),
+      node: trade ? renderActivity(event, strategies, trade.tradeKind) : null,
+    })),
+    [activities.comments, strategies, trade],
+  )
+
+  const systemFeedItems = useMemo(() => {
+    const all = activities.system.map((event) => ({
+      event,
+      node: trade ? renderActivity(event, strategies, trade.tradeKind) : null,
     }))
     if (feedExpanded || all.length <= FEED_VISIBLE) return all
     return all.slice(-FEED_VISIBLE)
-  }, [trade, strategies, feedExpanded])
+  }, [activities.system, strategies, trade, feedExpanded])
 
-  const feedHiddenCount = useMemo(() => {
-    if (!trade) return 0
-    const total = getTradeActivities(trade).length
-    return feedExpanded || total <= FEED_VISIBLE ? 0 : total - FEED_VISIBLE
-  }, [trade, feedExpanded])
+  const feedHiddenCount =
+    feedExpanded || activities.system.length <= FEED_VISIBLE
+      ? 0
+      : activities.system.length - FEED_VISIBLE
 
   if (!trade) {
     return (
@@ -506,14 +502,7 @@ export function DetailView() {
               {trade.symbol}
               <SideTag side={trade.side} />
             </h1>
-            <TradeMedia
-              tradeId={trade.id}
-              images={editorImages}
-              activeIndex={activeMediaIndex}
-              onActiveIndexChange={setActiveMediaIndex}
-              onOpenLightbox={(index) => openLightbox(editorImages, index)}
-            />
-            <div className={'trade-media-editor' + (editorImages.length > 0 ? ' has-media' : '')}>
+            <div className="dv-document">
               <Editor
                 content={editorHtml}
                 onChange={onEditorChange}
@@ -525,36 +514,24 @@ export function DetailView() {
               />
             </div>
 
-            <section className="dv-activity">
-              {feedHiddenCount > 0 && (
-                <button
-                  type="button"
-                  className="dv-feed-more"
-                  onClick={() => setFeedExpanded(true)}
-                >
-                  展开更早的 {feedHiddenCount} 条
-                </button>
+            <section className="dv-comments" aria-label="复盘评论">
+              {commentItems.length > 0 && (
+                <ul className="dv-feed dv-comment-feed">
+                  {commentItems.map(({ event, node }) => (
+                    <FeedItem
+                      key={event.id}
+                      kind={event.kind}
+                      deletable
+                      onDelete={event.commentId ? () => {
+                        removeComment(trade.id, event.commentId!)
+                        toast('评论已删除')
+                      } : undefined}
+                    >
+                      {node}
+                    </FeedItem>
+                  ))}
+                </ul>
               )}
-              <ul className="dv-feed">
-                {feedItems.map(({ event, node }) => (
-                  <FeedItem
-                    key={event.id}
-                    kind={event.kind}
-                    deletable={event.kind === 'comment'}
-                    onDelete={
-                      event.kind === 'comment' && event.commentId
-                        ? () => {
-                            removeComment(trade.id, event.commentId!)
-                            toast('评论已删除')
-                          }
-                        : undefined
-                    }
-                  >
-                    {node}
-                  </FeedItem>
-                ))}
-              </ul>
-
               <div className="dv-comment">
                 <UserAvatar className="dv-comment-avatar" />
                 <div className="dv-comment-box">
@@ -563,13 +540,13 @@ export function DetailView() {
                     className="dv-comment-input"
                     placeholder="留下复盘评论…"
                     value={comment}
-                    onChange={(e) => {
-                      setComment(e.target.value)
+                    onChange={(event) => {
+                      setComment(event.target.value)
                       adjustCommentHeight()
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault()
                         sendComment()
                       }
                     }}
@@ -591,6 +568,34 @@ export function DetailView() {
                 </div>
               </div>
             </section>
+
+            {activities.system.length > 0 && (
+              <section className="dv-system-activity">
+                <button
+                  type="button"
+                  className="dv-activity-toggle"
+                  aria-expanded={activityOpen}
+                  onClick={() => setActivityOpen((open) => !open)}
+                >
+                  <span>活动记录 · {activities.system.length}</span>
+                  <ChevronDown size={13} className={activityOpen ? 'is-open' : ''} />
+                </button>
+                {activityOpen && (
+                  <div className="dv-activity-panel">
+                    {feedHiddenCount > 0 && (
+                      <button type="button" className="dv-feed-more" onClick={() => setFeedExpanded(true)}>
+                        展开更早的 {feedHiddenCount} 条
+                      </button>
+                    )}
+                    <ul className="dv-feed">
+                      {systemFeedItems.map(({ event, node }) => (
+                        <FeedItem key={event.id} kind={event.kind}>{node}</FeedItem>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
       )}
       properties={(
