@@ -13,6 +13,14 @@
   margin-bottom: 10px;
   opacity: 0.9;
 }
+
+.empty-art path {
+  stroke: var(--text-quaternary);
+}
+
+.empty-art rect {
+  fill: var(--text-quaternary);
+}
 .empty-title {
   font-size: var(--fs-base);
   font-weight: var(--font-weight-medium);
