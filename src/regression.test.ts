@@ -64,6 +64,7 @@ import {
   partitionDisplayActivities,
   type DisplayActivityEvent,
 } from '@/lib/activities'
+import { syncEditorLightboxEditable } from '@/editor/Editor'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -968,4 +969,21 @@ export function testDisplayActivitiesSeparateVisibleCommentsFromSystemHistory():
 
   assert(result.comments.map((event) => event.id).join(',') === 'comment', '评论应进入默认可见区域')
   assert(result.system.map((event) => event.id).join(',') === 'create,note', '系统活动应进入折叠区域并保持顺序')
+}
+
+export function testLightboxModeDoesNotEmitAnEditorUpdate(): void {
+  const calls: Array<[boolean, boolean | undefined]> = []
+  const editor = {
+    setEditable(editable: boolean, emitUpdate?: boolean) {
+      calls.push([editable, emitUpdate])
+    },
+  }
+
+  syncEditorLightboxEditable(editor, true)
+  syncEditorLightboxEditable(editor, false)
+
+  assert(
+    JSON.stringify(calls) === JSON.stringify([[false, false], [true, false]]),
+    '灯箱开关只应切换编辑器可编辑性，不得发出文档更新事件',
+  )
 }
