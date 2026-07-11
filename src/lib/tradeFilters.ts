@@ -4,6 +4,11 @@ import { tradeInPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed } from '@/lib/tradeStatus'
 import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
 import { isAccountTrade, normalizeSidebarPins } from '@/lib/tradeKind'
+import {
+  migrateSidebarPins,
+  normalizeSidebarWorkspaceItems,
+  type SidebarWorkspaceItem,
+} from '@/lib/sidebarWorkspace'
 
 export type ListFilterType =
   | 'all'
@@ -32,8 +37,10 @@ export interface DisplayPrefs {
   sortBy: 'date' | 'pnl' | 'conviction'
   /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
   sidebarPins: SidebarNavId[]
+  sidebarWorkspaceItems: SidebarWorkspaceItem[]
   /** 侧栏「交易日志 / 案例记录」上次进入的工作区路由 */
   workspaceMemory?: {
+    today?: { pathname: string; search: string }
     trade?: { pathname: string; search: string }
     case?: { pathname: string; search: string }
   }
@@ -46,6 +53,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   groupByDate: true,
   sortBy: 'date',
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
+  sidebarWorkspaceItems: migrateSidebarPins(DEFAULT_SIDEBAR_PINS),
 }
 
 const SORT_BY = ['date', 'pnl', 'conviction'] as const
@@ -65,10 +73,12 @@ function normalizeWorkspaceMemory(
 ): DisplayPrefs['workspaceMemory'] {
   if (!input || typeof input !== 'object') return undefined
   const memory = input as Record<string, unknown>
+  const today = normalizeWorkspaceRoute(memory.today)
   const trade = normalizeWorkspaceRoute(memory.trade)
   const caseRoute = normalizeWorkspaceRoute(memory.case)
-  if (!trade && !caseRoute) return undefined
+  if (!today && !trade && !caseRoute) return undefined
   return {
+    ...(today ? { today } : {}),
     ...(trade ? { trade } : {}),
     ...(caseRoute ? { case: caseRoute } : {}),
   }
@@ -80,6 +90,9 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
   const sidebarPins = Array.isArray(d.sidebarPins)
     ? normalizeSidebarPins(d.sidebarPins)
     : [...DEFAULT_DISPLAY.sidebarPins]
+  const sidebarWorkspaceItems = Object.prototype.hasOwnProperty.call(d, 'sidebarWorkspaceItems')
+    ? normalizeSidebarWorkspaceItems(d.sidebarWorkspaceItems)
+    : migrateSidebarPins(sidebarPins)
   const workspaceMemory = normalizeWorkspaceMemory(d.workspaceMemory)
   return {
     hideClosed: typeof d.hideClosed === 'boolean' ? d.hideClosed : DEFAULT_DISPLAY.hideClosed,
@@ -92,6 +105,7 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
       ? (d.sortBy as DisplayPrefs['sortBy'])
       : DEFAULT_DISPLAY.sortBy,
     sidebarPins,
+    sidebarWorkspaceItems,
     ...(workspaceMemory ? { workspaceMemory } : {}),
   }
 }

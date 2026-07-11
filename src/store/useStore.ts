@@ -30,6 +30,10 @@ import {
   normalizeSymbolCatalog,
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
+import {
+  normalizeSidebarWorkspaceItems,
+  type SidebarWorkspaceItem,
+} from '@/lib/sidebarWorkspace'
 
 interface State {
   trades: Trade[]
@@ -109,6 +113,7 @@ interface State {
   addMistakeTagPreset: (tag: string) => void
   removeMistakeTagPreset: (tag: string) => void
   setDisplay: (patch: Partial<DisplayPrefs>) => void
+  replaceSidebarWorkspaceItems: (items: SidebarWorkspaceItem[]) => void
   addStrategy: (strategy: Strategy) => void
   updateStrategy: (id: string, patch: Partial<Omit<Strategy, 'id'>>) => void
   removeStrategy: (id: string, reassignToId?: string) => void
@@ -503,6 +508,13 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => ({ mistakeTagPresets: s.mistakeTagPresets.filter((p) => p !== tag) })),
       setDisplay: (patch) =>
         set((s) => ({ display: normalizeDisplay({ ...s.display, ...patch }) })),
+      replaceSidebarWorkspaceItems: (items) =>
+        set((s) => ({
+          display: {
+            ...s.display,
+            sidebarWorkspaceItems: normalizeSidebarWorkspaceItems(items),
+          },
+        })),
       addStrategy: (strategy) =>
         set((s) => {
           if (s.strategies.some((x) => x.id === strategy.id || x.name === strategy.name)) {
