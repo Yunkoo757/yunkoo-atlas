@@ -1,19 +1,19 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type ComponentType } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  Ban,
-  BookOpen,
-  Bookmark,
-  CircleDot,
-  FlaskConical,
-  PenSquare,
-  Search,
-  Settings2,
-  Star,
-  Target,
-  Trash2,
-  type AppIcon,
-} from '@/icons/appIcons'
+  SidebarActiveIcon,
+  SidebarBookIcon,
+  SidebarBookmarkIcon,
+  SidebarFlaskIcon,
+  SidebarMissedIcon,
+  SidebarSearchIcon,
+  SidebarSettingsIcon,
+  SidebarStarIcon,
+  SidebarTargetIcon,
+  SidebarTrashIcon,
+  SidebarWriteIcon,
+  type SidebarChromeIconProps,
+} from '@/icons/sidebarChrome'
 import { UserAvatar } from '@/components/UserAvatar'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
@@ -45,14 +45,17 @@ function Count({ value }: { value?: number }) {
   )
 }
 
-export const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], AppIcon> = {
-  active: CircleDot,
-  favorites: Star,
-  missed: Ban,
-  paper: FlaskConical,
-  'saved-view': Bookmark,
-  strategy: Target,
-  'case-view': BookOpen,
+export const WORKSPACE_ICONS: Record<
+  ResolvedSidebarWorkspaceItem['icon'],
+  ComponentType<SidebarChromeIconProps>
+> = {
+  active: SidebarActiveIcon,
+  favorites: SidebarStarIcon,
+  missed: SidebarMissedIcon,
+  paper: SidebarFlaskIcon,
+  'saved-view': SidebarBookmarkIcon,
+  strategy: SidebarTargetIcon,
+  'case-view': SidebarBookIcon,
 }
 
 export function useSidebarNavigationModel() {
@@ -201,7 +204,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               aria-label={`搜索 (${getShortcutHint('global.commandPalette') ?? 'Ctrl+K'})`}
               onClick={onOpenSearch}
             >
-              <Search size={16} />
+              <SidebarSearchIcon size={16} />
             </button>
           </Tooltip>
           <Tooltip
@@ -214,7 +217,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               aria-label={`${createLabel} (${getShortcutHint('global.newTrade') ?? 'N'})`}
               onClick={() => openComposer()}
             >
-              <PenSquare size={16} />
+              <SidebarWriteIcon size={16} />
             </button>
           </Tooltip>
         </div>
@@ -313,7 +316,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             'sb-item sb-trash' + (path === '/trade-trash' ? ' is-active' : '')
           }
         >
-          <Trash2 size={16} />
+          <SidebarTrashIcon size={16} />
           <span className="sb-item-label">回收站</span>
           <Count value={trades.filter((trade) => Boolean(trade.deletedAt)).length} />
         </NavLink>
@@ -321,7 +324,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           to="/settings"
           className={() => 'sb-item sb-settings' + (isSettingsActive ? ' is-active' : '')}
         >
-          <Settings2 size={16} />
+          <SidebarSettingsIcon size={16} />
           <span className="sb-item-label">设置</span>
         </NavLink>
       </nav>
