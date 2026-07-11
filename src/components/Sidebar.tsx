@@ -17,12 +17,12 @@ import { UserAvatar } from '@/components/UserAvatar'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
 import {
+  countSidebarRoute,
   countSidebarTarget,
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
   type ResolvedSidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
-import { tradeInPeriod } from '@/lib/periods'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { useStore } from '@/store/useStore'
 import './Sidebar.css'
@@ -54,6 +54,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
+  const countContext = { trades, starredIds, display }
 
   const workspaceItems = sidebarWorkspaceItems
     .filter((item) => item.placement === 'pinned')
@@ -62,30 +63,21 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     .filter((item) => !item.invalid)
     .map((item) => ({
       ...item,
-      count: countSidebarTarget(item, { trades, starredIds, display }),
+      count: countSidebarTarget(item, countContext),
     }))
   const selection = resolveSidebarSelection({ pathname: path, search, items: workspaceItems })
 
-  const activeTrades = trades.filter((trade) => !trade.deletedAt)
-  const liveTrades = activeTrades.filter((trade) => trade.tradeKind === 'live')
-  const reviewCaseTrades = activeTrades.filter((trade) => trade.tradeKind === 'case')
   const inReviewCases = path.startsWith('/review-cases')
   const isSettingsActive = path.startsWith('/settings')
 
-  const todayHref = workspaceRouteHref(
-    resolveWorkspaceNavTarget('today', workspaceMemory?.today, strategies),
-  )
-  const tradeHref = workspaceRouteHref(
-    resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies),
-  )
-  const caseHref = workspaceRouteHref(
-    resolveWorkspaceNavTarget('case', workspaceMemory?.case),
-  )
+  const todayTarget = resolveWorkspaceNavTarget('today', workspaceMemory?.today, strategies)
+  const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
+  const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
 
   const counts = {
-    today: liveTrades.filter((trade) => tradeInPeriod(trade, 'today')).length,
-    trades: liveTrades.length,
-    reviewCases: reviewCaseTrades.length,
+    today: countSidebarRoute(todayTarget.pathname, todayTarget.search, countContext),
+    trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
+    reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
   }
 
   const primaryCount = (id: PrimarySidebarNavId) => {
@@ -96,9 +88,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
-    if (id === 'today') return todayHref
-    if (id === 'trades') return tradeHref
-    if (id === 'reviewCases') return caseHref
+    if (id === 'today') return workspaceRouteHref(todayTarget)
+    if (id === 'trades') return workspaceRouteHref(tradeTarget)
+    if (id === 'reviewCases') return workspaceRouteHref(caseTarget)
     return fallback
   }
 

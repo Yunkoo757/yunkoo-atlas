@@ -318,11 +318,19 @@ export function countSidebarTarget(
   context: SidebarCountContext,
 ): number | undefined {
   if (target.invalid) return undefined
-  const filter = listTargetForPath(target.pathname)
+  return countSidebarRoute(target.pathname, target.search, context)
+}
+
+export function countSidebarRoute(
+  pathname: string,
+  search: string,
+  context: SidebarCountContext,
+): number | undefined {
+  const filter = listTargetForPath(pathname)
   if (!filter) return undefined
   return getWorkbenchVisibleTrades({
     ...context,
     filter,
-    search: target.search,
+    search,
   }).length
 }
