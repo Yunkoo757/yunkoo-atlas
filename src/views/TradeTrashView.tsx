@@ -14,6 +14,7 @@ import { getStrategyName } from '@/lib/strategies'
 import { Trash2, RotateCcw, AlertTriangle, CheckSquare, Square } from '@/icons/appIcons'
 import { toast } from '@/lib/toast'
 import { EmptyState } from '@/components/EmptyState'
+import { Toolbar } from '@/components/ui/Toolbar'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
 import './TrashView.css'
@@ -153,14 +154,9 @@ export function TradeTrashView() {
 
   return (
     <div className="trash-view">
-      <header className="topbar">
-        <div className="tb-left">
-          <button className="trash-back-btn" onClick={handleBack}>
-            ← 交易列表
-          </button>
-          <span className="tb-title">回收站 ({trashTrades.length})</span>
-        </div>
-        {selected.size > 0 && (
+      <Toolbar
+        title={`回收站 (${trashTrades.length})`}
+        actions={selected.size > 0 ? (
           <div className="tb-right">
             <button className="trash-batch-btn trash-batch-restore" onClick={handleBatchRestore}>
               <RotateCcw size={14} />
@@ -171,8 +167,12 @@ export function TradeTrashView() {
               <span>彻底删除 ({selected.size})</span>
             </button>
           </div>
-        )}
-      </header>
+        ) : undefined}
+      >
+        <button className="trash-back-btn" onClick={handleBack}>
+          ← 交易列表
+        </button>
+      </Toolbar>
 
       {trashTrades.length > 0 && (
         <div className="trash-search">
