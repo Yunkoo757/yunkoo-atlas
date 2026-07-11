@@ -14,6 +14,7 @@ import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCase
 import { buildTradeTableRow } from '@/lib/tradeTable'
 import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
 import { clampPopoverLeft } from '@/lib/popoverPosition'
+import { formatYmd } from '@/lib/periods'
 import { isHiddenWhenClosedFilter } from '@/lib/tradeStatus'
 import {
   attachImagesToPreviewsBySourceId,
@@ -35,6 +36,7 @@ import {
   resolvePinnedSecondaryNav,
 } from '@/lib/sidebarNav'
 import {
+  countSidebarRoute,
   countSidebarTarget,
   normalizeSidebarWorkspaceItems,
   resolveSidebarSelection,
@@ -426,6 +428,58 @@ export function testSidebarTargetCountsMatchWorkbenchFiltering(): void {
     )
   }
   assert(countSidebarTarget(cases[1]!.target, context) === 1, '显式亏损筛选应覆盖 hideClosed')
+}
+
+export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): void {
+  const today = formatYmd(new Date())
+  const trades: Trade[] = [
+    { ...trade, id: 'today-open', status: 'open', openedAt: today },
+    { ...trade, id: 'today-loss', status: 'loss', openedAt: today },
+    { ...trade, id: 'older-open', status: 'open', openedAt: '2026-06-01' },
+    {
+      ...trade,
+      id: 'focus-case',
+      tradeKind: 'case',
+      reviewCategory: 'focus',
+      openedAt: '2026-06-01',
+    },
+  ]
+  const display = { ...DEFAULT_DISPLAY, hideClosed: true }
+  const context = { trades, starredIds: [], display }
+  const cases = [
+    {
+      pathname: '/today-record/table',
+      search: '',
+      filter: { type: 'period', period: 'today', tradeKind: 'live' } as const,
+    },
+    {
+      pathname: '/list/board',
+      search: '',
+      filter: { type: 'all', tradeKind: 'live' } as const,
+    },
+    {
+      pathname: '/list/table',
+      search: '?status=loss',
+      filter: { type: 'all', tradeKind: 'live' } as const,
+    },
+    {
+      pathname: '/review-cases/focus',
+      search: '',
+      filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'focus' } as const,
+    },
+  ]
+
+  for (const entry of cases) {
+    const pageCount = getWorkbenchVisibleTrades({
+      ...context,
+      filter: entry.filter,
+      search: entry.search,
+    }).length
+    assert(
+      countSidebarRoute(entry.pathname, entry.search, context) === pageCount,
+      `${entry.pathname}${entry.search} 的核心侧栏计数应与恢复后的工作台一致`,
+    )
+  }
 }
 
 export function testTradeFiltersReexportTheWorkbenchRuleSourceWithoutBehaviorDrift(): void {
