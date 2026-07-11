@@ -113,6 +113,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
   const drawerRef = useRef<HTMLElement>(null)
   const editorModalRef = useRef<HTMLDivElement>(null)
   const locationRef = useRef('')
+  const restoreMoreFocusRef = useRef(false)
   const {
     path,
     search,
@@ -125,19 +126,23 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
     primaryHref,
   } = useSidebarNavigationModel()
 
-  const returnFocusToMore = () => {
-    requestAnimationFrame(() => moreButtonRef.current?.focus())
-  }
   const closeDrawer = () => {
+    restoreMoreFocusRef.current = true
     setDrawerOpen(false)
-    returnFocusToMore()
   }
   const closeEditor = () => {
+    restoreMoreFocusRef.current = true
     setEditorOpen(false)
-    returnFocusToMore()
   }
   useMobileModal({ open: drawerOpen, modalRef: drawerRef, onClose: closeDrawer })
   useMobileModal({ open: editorOpen, modalRef: editorModalRef, onClose: closeEditor })
+
+  useEffect(() => {
+    if (drawerOpen || editorOpen || !restoreMoreFocusRef.current) return
+    restoreMoreFocusRef.current = false
+    const frame = requestAnimationFrame(() => moreButtonRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [drawerOpen, editorOpen])
 
   useEffect(() => {
     const location = `${path}${search}`
@@ -147,8 +152,8 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
     }
     if (locationRef.current === location) return
     locationRef.current = location
-    setDrawerOpen(false)
-  }, [path, search])
+    if (drawerOpen) closeDrawer()
+  }, [path, search, drawerOpen])
 
   return (
     <>
@@ -163,7 +168,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
               className={`mobile-navigation-action${active ? ' is-active' : ''}`}
               aria-label={label}
               aria-current={active ? 'page' : 'false'}
-              onClick={() => setDrawerOpen(false)}
+              onClick={closeDrawer}
             >
               <Icon size={20} aria-hidden="true" />
               <span>{label}</span>
@@ -203,7 +208,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
                     data-mobile-drawer-item
                     className={active ? 'is-active' : undefined}
                     aria-current={active ? 'page' : undefined}
-                    onClick={() => setDrawerOpen(false)}
+                    onClick={closeDrawer}
                   >
                     <Icon size={18} aria-hidden="true" />
                     <span>{item.label}</span>
@@ -228,7 +233,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
                 data-mobile-drawer-item
                 className={path.startsWith('/settings') ? 'is-active' : undefined}
                 aria-current={path.startsWith('/settings') ? 'page' : undefined}
-                onClick={() => setDrawerOpen(false)}
+                onClick={closeDrawer}
               >
                 <Settings2 size={18} aria-hidden="true" />
                 <span>设置</span>
@@ -238,7 +243,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
                 data-mobile-drawer-item
                 className={path === '/trade-trash' ? 'is-active' : undefined}
                 aria-current={path === '/trade-trash' ? 'page' : undefined}
-                onClick={() => setDrawerOpen(false)}
+                onClick={closeDrawer}
               >
                 <Trash2 size={18} aria-hidden="true" />
                 <span>回收站</span>
