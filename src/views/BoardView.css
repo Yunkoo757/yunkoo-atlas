@@ -233,6 +233,18 @@
   font-size: var(--fs-mini);
 }
 
+@media (max-width: 700px) {
+  .bd-col-header {
+    min-height: 44px;
+    padding-block: 0;
+  }
+  .bd-col-add {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+  }
+}
+
 .bd-category-badge,
 .bd-case-tag {
   display: inline-flex;
