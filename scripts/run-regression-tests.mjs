@@ -8,6 +8,7 @@ const entries = [
   'src/regression.test.ts',
   'src/lib/reviewAnalytics.test.ts',
   'src/lib/importExportAssets.test.ts',
+  'src/icons/linear/linear-icons.test.tsx',
 ]
 
 let failed = 0
