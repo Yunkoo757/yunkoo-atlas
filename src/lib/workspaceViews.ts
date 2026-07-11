@@ -121,8 +121,14 @@ export function resolveWorkspaceNavTarget(
   if (kind === 'case' && !isCaseWorkspaceEntryPath(memory.pathname)) return fallback
   if (kind === 'trade' && strategies) {
     const strategyMatch = normalizeSavedViewPath(memory.pathname).match(/^\/strategy\/([^/]+)$/)
-    if (strategyMatch && !strategies.some((strategy) => strategy.id === strategyMatch[1])) {
-      return fallback
+    if (strategyMatch) {
+      let strategyId: string
+      try {
+        strategyId = decodeURIComponent(strategyMatch[1])
+      } catch {
+        return fallback
+      }
+      if (!strategies.some((strategy) => strategy.id === strategyId)) return fallback
     }
   }
   return {

@@ -757,6 +757,28 @@ export function testWorkspaceNavRemembersLastQuickView(): void {
   )
 }
 
+export function testWorkspaceNavKeepsEncodedUnicodeStrategyMemory(): void {
+  const memory = {
+    pathname: '/strategy/%E5%AF%BC%E8%88%AA3/table',
+    search: '?status=win',
+  }
+  const resolved = resolveWorkspaceNavTarget('trade', memory, [{ id: '导航3' }])
+
+  assert(resolved.pathname === memory.pathname, '编码后的 Unicode 策略 ID 应匹配原始策略 ID')
+  assert(resolved.search === memory.search, '合法策略记忆应保留筛选条件')
+}
+
+export function testWorkspaceNavRejectsMalformedEncodedStrategyMemory(): void {
+  const resolved = resolveWorkspaceNavTarget(
+    'trade',
+    { pathname: '/strategy/%E0%A4%A/table', search: '?status=win' },
+    [{ id: '导航3' }],
+  )
+
+  assert(resolved.pathname === '/list', '无法解码的策略 ID 应回退到交易列表')
+  assert(resolved.search === '', '无法解码的策略 ID 不应保留筛选条件')
+}
+
 export function testReviewCasesSortByCollectionAndRecentActivity(): void {
   const collectedRecently: Trade = {
     ...trade,
