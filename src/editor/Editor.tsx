@@ -31,6 +31,13 @@ const editorBridge = {
   },
 }
 
+export function syncEditorLightboxEditable(
+  editor: Pick<TiptapEditor, 'setEditable'>,
+  lightboxOpen: boolean,
+): void {
+  editor.setEditable(!lightboxOpen, false)
+}
+
 export function Editor({
   content,
   onChange,
@@ -117,7 +124,7 @@ export function Editor({
 
   useEffect(() => {
     if (!editor) return
-    editor.setEditable(!lightboxOpen)
+    syncEditorLightboxEditable(editor, lightboxOpen)
   }, [editor, lightboxOpen])
 
   useEffect(() => {
