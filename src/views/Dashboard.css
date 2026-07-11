@@ -78,8 +78,8 @@
   text-overflow: ellipsis;
 }
 .db-card-sub {
-  font-size: var(--fs-micro);
-  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
 }
 
 .db-panel {
@@ -105,12 +105,12 @@
 }
 .db-panel-sub {
   margin-top: 4px;
-  font-size: var(--fs-micro);
-  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
 }
 .db-panel-hint {
-  font-size: var(--fs-micro);
-  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
 }
 .db-chart {
   padding: 12px 12px 18px;
