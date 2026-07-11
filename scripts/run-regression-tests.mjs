@@ -1,4 +1,5 @@
-import { build } from 'vite'
+import { build, createServer } from 'vite'
+import { chromium } from 'playwright'
 import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs/promises'
@@ -51,6 +52,31 @@ for (const entry of entries) {
   }
 
   await fs.rm(outDir, { recursive: true, force: true })
+}
+
+const server = await createServer({
+  configFile: path.resolve('vite.config.ts'),
+  logLevel: 'error',
+  server: { host: '127.0.0.1', port: 0, open: false },
+})
+let browser
+try {
+  await server.listen()
+  const baseUrl = server.resolvedUrls?.local[0]
+  if (!baseUrl) throw new Error('Vite test server did not expose a local URL')
+  browser = await chromium.launch({ headless: true })
+  const page = await browser.newPage()
+  await page.goto(new URL('/src/editor/imageLoadFailure.browser.test.html', baseUrl).href)
+  await page.waitForFunction(() => '__editorImageLoadFailureTest' in window, null, { timeout: 5000 })
+  await page.evaluate(() => window.__editorImageLoadFailureTest)
+  console.log('PASS src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations')
+} catch (err) {
+  failed += 1
+  console.error('FAIL src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations')
+  console.error(err)
+} finally {
+  await browser?.close()
+  await server.close()
 }
 
 if (failed > 0) {

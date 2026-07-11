@@ -60,7 +60,11 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-.editor .ProseMirror img[data-image-load-error] {
+.editor .ProseMirror img.editor-image-load-failed {
+  display: none;
+}
+.editor .editor-image-load-fallback {
+  display: block;
   box-sizing: border-box;
   width: 100%;
   height: 44px;
@@ -72,7 +76,6 @@
   font-size: var(--fs-sm);
   line-height: 22px;
   text-align: center;
-  cursor: default;
 }
 .editor .editor-missing-image {
   display: flex;
