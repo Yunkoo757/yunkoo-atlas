@@ -107,4 +107,18 @@
   .trade-filter-condition-grid {
     grid-template-columns: 1fr;
   }
+
+  .trade-filter-head {
+    height: 52px;
+    padding-right: 4px;
+  }
+
+  .trade-filter-head-actions button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .trade-filter-field .ui-select-trigger {
+    height: 44px;
+  }
 }
