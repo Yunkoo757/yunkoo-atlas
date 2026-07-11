@@ -1,0 +1,4 @@
+
+!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="b115715d-3ab3-5e0a-8cba-e3b94e3b0d47")}catch(e){}}();
+import{n as e}from"./rolldown-runtime.Cmlxbba-.js";import{n as t,t as n}from"./vendor-react.4CtHp4wB.js";import{Yt as r,qt as i}from"./html.5XD_JD9a.js";function a(e){return(0,o.jsx)(i,{...e,children:(0,o.jsxs)(`svg`,{children:[(0,o.jsx)(`rect`,{x:`1`,y:`8`,width:`3`,height:`6`,rx:`1`}),(0,o.jsx)(`rect`,{x:`6`,y:`5`,width:`3`,height:`9`,rx:`1`}),(0,o.jsx)(`rect`,{x:`11`,y:`2`,width:`3`,height:`12`,rx:`1`})]})})}var o,s=e((()=>{t(),r(),o=n()}));export{s as n,a as t};
+//# debugId=b115715d-3ab3-5e0a-8cba-e3b94e3b0d47

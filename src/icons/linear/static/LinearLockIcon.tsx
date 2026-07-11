@@ -1,0 +1,9 @@
+// Generated from svg-1.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M11 7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zM8 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m0-8a3 3 0 0 1 3 3v2H9.5V4a1.5 1.5 0 0 0-3 0v2H5V4a3 3 0 0 1 3-3\"></path>"
+
+export function LinearLockIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

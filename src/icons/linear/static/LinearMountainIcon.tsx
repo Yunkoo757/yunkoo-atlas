@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<svg><path d=\"M14.3 14.017c.618-.198.88-.925.568-1.502L8.934 1.561a1.058 1.058 0 0 0-1.868 0L1.132 12.515c-.312.577-.05 1.304.569 1.502q.2.063.402.123a20.66 20.66 0 0 0 12.196-.123m-3.833-6.21c-.229.35-.514.733-.899 1.012 0 0-1.057-1-1.5-1-.5 0-2 1-2 1s-.363-.452-.627-.841L8 3.254z\"></path></svg>"
+
+export function LinearMountainIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

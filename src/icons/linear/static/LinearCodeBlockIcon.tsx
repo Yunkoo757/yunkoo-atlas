@@ -1,0 +1,9 @@
+// Generated from svg-1.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M9.897 1.085a.75.75 0 0 1 .588.883l-2.5 12.5a.75.75 0 0 1-1.47-.295l2.5-12.5a.75.75 0 0 1 .882-.588m1.844 3.185a.75.75 0 0 1 1.06.042l3 3.25a.75.75 0 0 1 0 1.017l-3 3.25a.75.75 0 1 1-1.102-1.017l2.53-2.742L11.7 5.33a.75.75 0 0 1 .042-1.06m-7.543.042A.75.75 0 1 1 5.3 5.329L2.771 8.07l2.53 2.742A.75.75 0 1 1 4.2 11.829l-3-3.25a.75.75 0 0 1 0-1.017z\"></path>"
+
+export function LinearCodeBlockIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

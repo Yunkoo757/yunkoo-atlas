@@ -1,0 +1,9 @@
+// Generated from svg-1.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M2.323 5.68A1 1 0 0 0 2 6.415v8.083a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3.515a2 2 0 0 1 4 0v3.515a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5V6.416a1 1 0 0 0-.323-.737L9.015 1.396a1.5 1.5 0 0 0-2.03 0z\"></path>"
+
+export function LinearHomeIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

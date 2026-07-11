@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M11.445 1.17 7 5.002H4a1 1 0 0 0-1 1V10a1 1 0 0 0 1 1h3l4.445 3.834A1 1 0 0 0 13 14.002v-12a1 1 0 0 0-1.555-.832\"></path>"
+
+export function LinearSoundIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

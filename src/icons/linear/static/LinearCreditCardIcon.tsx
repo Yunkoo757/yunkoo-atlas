@@ -1,0 +1,9 @@
+// Generated from svg-1.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M15 7v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 11.5V7zm-2.5 1h-3a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5m1-5A1.5 1.5 0 0 1 15 4.5V5H1v-.5A1.5 1.5 0 0 1 2.5 3z\"></path>"
+
+export function LinearCreditCardIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

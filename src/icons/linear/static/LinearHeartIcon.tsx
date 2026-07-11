@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M5 1C2.79 1 1 2.798 1 5.016 1 8.721 4.811 12.7 6.81 14.53a1.746 1.746 0 0 0 2.38 0c2-1.83 5.81-5.809 5.81-9.514A4.01 4.01 0 0 0 11 1a3.98 3.98 0 0 0-3 1.36A3.98 3.98 0 0 0 5 1\"></path>"
+
+export function LinearHeartIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

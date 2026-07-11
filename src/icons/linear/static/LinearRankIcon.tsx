@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"m1.252 4.978 6.5-3.834a.49.49 0 0 1 .496 0l6.5 3.834a.52.52 0 0 1 .252.448v.876c0 .396-.415.644-.748.448L8.248 3.209a.49.49 0 0 0-.496 0l-6.004 3.54C1.415 6.947 1 6.699 1 6.303v-.876a.52.52 0 0 1 .252-.448\"></path><path d=\"m1.252 9.107 6.5-3.834a.49.49 0 0 1 .496 0l6.5 3.834a.52.52 0 0 1 .252.448v.876c0 .396-.415.644-.748.448L8.248 7.337a.49.49 0 0 0-.496 0L1.748 10.88c-.333.196-.748-.052-.748-.448v-.876a.52.52 0 0 1 .252-.448\"></path><path d=\"m7.743 9.407-6.491 3.829a.52.52 0 0 0-.252.448v.875c0 .397.415.645.748.448l6.004-3.54a.49.49 0 0 1 .496 0l6.004 3.54c.333.197.748-.051.748-.448V13.5a.52.52 0 0 0-.239-.44L8.252 9.415a.49.49 0 0 0-.509-.008\"></path>"
+
+export function LinearRankIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

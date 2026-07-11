@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import test from 'node:test'
 import {
   assertUnique,
@@ -43,4 +45,36 @@ test('rejects duplicate generated names', () => {
     () => assertUnique([{ name: 'face' }, { name: 'face' }], 'name'),
     /Duplicate name: face/,
   )
+})
+
+test('real archive resolves to 301 unique officially categorized icons', async () => {
+  const root = path.resolve('assets/linear-icon-system/raw')
+  const files = ['svg-1.svg', 'svg-2.svg', 'svg-3.svg']
+  const symbols = (await Promise.all(files.map(async (file) =>
+    parseSymbols(await fs.readFile(path.join(root, file), 'utf8'), file),
+  ))).flat()
+  const unique = new Map(symbols.map((symbol) => [symbol.linearName, symbol]))
+  const moduleSource = await fs.readFile(
+    path.join(root, 'modules/EmojiContainer.CeAZEvLX.js'),
+    'utf8',
+  )
+  const categories = parseOfficialCategories(moduleSource)
+  assert.equal(unique.size, 301)
+  assert.deepEqual(
+    [...unique.keys()].filter((name) => !categories.has(name)).sort(),
+    [
+      'AiWriting', 'Alarm', 'AlarmDelete', 'Anonymous', 'BarGraph', 'Biscuit',
+      'ChatLine', 'Circle', 'Clock', 'Clock--outline', 'EmptyCircle',
+      'ExclamationMark', 'Flag', 'GooglePlay', 'LinearAi', 'QuestionMark',
+      'Ramp', 'Report', 'Resolved', 'ResolvedChat', 'ScatterPlot', 'SmallLock',
+      'SoundMuted', 'Starred', 'Stopwatch',
+    ].sort(),
+  )
+})
+
+test('generated manifest contains all 301 records', async () => {
+  const manifest = JSON.parse(
+    await fs.readFile('assets/linear-icon-system/manifest.json', 'utf8'),
+  )
+  assert.equal(manifest.count, 301)
 })

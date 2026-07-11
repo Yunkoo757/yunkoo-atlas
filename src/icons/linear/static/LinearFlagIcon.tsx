@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M4.374 1.032a.75.75 0 0 1 .743.648l.007.102v12.476a.75.75 0 0 1-1.494.102l-.006-.102V1.782a.75.75 0 0 1 .75-.75m2.343-.023.077.027 7.535 3.375a.5.5 0 0 1 .093.859l-.081.048-7.535 3.624a.5.5 0 0 1-.71-.368l-.007-.083V1.493a.5.5 0 0 1 .628-.484\"></path>"
+
+export function LinearFlagIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

@@ -1,0 +1,1808 @@
+[
+  {
+    "id": "Attachment",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Attachment.svg"
+  },
+  {
+    "id": "Blockquote",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Blockquote.svg"
+  },
+  {
+    "id": "Calendar",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Calendar.svg"
+  },
+  {
+    "id": "Checklist",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Checklist.svg"
+  },
+  {
+    "id": "CodeBlock",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "CodeBlock.svg"
+  },
+  {
+    "id": "Comment",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Comment.svg"
+  },
+  {
+    "id": "CreditCard",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "CreditCard.svg"
+  },
+  {
+    "id": "CustomView",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "CustomView.svg"
+  },
+  {
+    "id": "Favorite",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Favorite.svg"
+  },
+  {
+    "id": "Folder",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Folder.svg"
+  },
+  {
+    "id": "Home",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Home.svg"
+  },
+  {
+    "id": "Inbox",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Inbox.svg"
+  },
+  {
+    "id": "Initiative",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Initiative.svg"
+  },
+  {
+    "id": "IssueStatusBacklog",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "IssueStatusBacklog.svg"
+  },
+  {
+    "id": "IssueStatusDone",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "IssueStatusDone.svg"
+  },
+  {
+    "id": "IssueStatusReview",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "IssueStatusReview.svg"
+  },
+  {
+    "id": "IssueStatusStarted",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "IssueStatusStarted.svg"
+  },
+  {
+    "id": "IssueStatusTodo",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "IssueStatusTodo.svg"
+  },
+  {
+    "id": "IssueStatusTriage",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "IssueStatusTriage.svg"
+  },
+  {
+    "id": "Label",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Label.svg"
+  },
+  {
+    "id": "Link",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Link.svg"
+  },
+  {
+    "id": "Lock",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Lock.svg"
+  },
+  {
+    "id": "MilestoneNone",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "MilestoneNone.svg"
+  },
+  {
+    "id": "MilestoneStatusDone",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "MilestoneStatusDone.svg"
+  },
+  {
+    "id": "MilestoneStatusPlanned",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "MilestoneStatusPlanned.svg"
+  },
+  {
+    "id": "MilestoneStatusStarted",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "MilestoneStatusStarted.svg"
+  },
+  {
+    "id": "MyIssues",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "MyIssues.svg"
+  },
+  {
+    "id": "Project",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Project.svg"
+  },
+  {
+    "id": "Refresh",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Refresh.svg"
+  },
+  {
+    "id": "Search",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Search.svg"
+  },
+  {
+    "id": "Send",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Send.svg"
+  },
+  {
+    "id": "Subscribe",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Subscribe.svg"
+  },
+  {
+    "id": "Team",
+    "viewBox": "0 0 16 16",
+    "source": "svg-1",
+    "file": "Team.svg"
+  },
+  {
+    "id": "Anthropic",
+    "viewBox": "0 0 16 16",
+    "source": "svg-2",
+    "file": "Anthropic.svg"
+  },
+  {
+    "id": "Claude",
+    "viewBox": "0 0 16 16",
+    "source": "svg-2",
+    "file": "Claude.svg"
+  },
+  {
+    "id": "Cursor",
+    "viewBox": "0 0 16 16",
+    "source": "svg-2",
+    "file": "Cursor.svg"
+  },
+  {
+    "id": "GitHub",
+    "viewBox": "0 0 16 16",
+    "source": "svg-2",
+    "file": "GitHub.svg"
+  },
+  {
+    "id": "GitLab",
+    "viewBox": "0 0 16 16",
+    "source": "svg-2",
+    "file": "GitLab.svg"
+  },
+  {
+    "id": "Meta",
+    "viewBox": "0 0 16 16",
+    "source": "svg-2",
+    "file": "Meta.svg"
+  },
+  {
+    "id": "OpenAI",
+    "viewBox": "0 0 16 16",
+    "source": "svg-2",
+    "file": "OpenAI.svg"
+  },
+  {
+    "id": "Ramp",
+    "viewBox": "0 0 35 30",
+    "source": "svg-2",
+    "file": "Ramp.svg"
+  },
+  {
+    "id": "Accessibility",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Accessibility.svg"
+  },
+  {
+    "id": "Africa",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Africa.svg"
+  },
+  {
+    "id": "AiApp",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "AiApp.svg"
+  },
+  {
+    "id": "AiDocument",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "AiDocument.svg"
+  },
+  {
+    "id": "Ai",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Ai.svg"
+  },
+  {
+    "id": "AiWriting",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "AiWriting.svg"
+  },
+  {
+    "id": "AirTag",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "AirTag.svg"
+  },
+  {
+    "id": "Airplane",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Airplane.svg"
+  },
+  {
+    "id": "AlarmClock",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "AlarmClock.svg"
+  },
+  {
+    "id": "AlarmDelete",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "AlarmDelete.svg"
+  },
+  {
+    "id": "Alarm",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Alarm.svg"
+  },
+  {
+    "id": "Alert",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Alert.svg"
+  },
+  {
+    "id": "AmericanFootBall",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "AmericanFootBall.svg"
+  },
+  {
+    "id": "Anchor",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Anchor.svg"
+  },
+  {
+    "id": "Android",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Android.svg"
+  },
+  {
+    "id": "Anonymous",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Anonymous.svg"
+  },
+  {
+    "id": "Apple",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Apple.svg"
+  },
+  {
+    "id": "Asia",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Asia.svg"
+  },
+  {
+    "id": "Asterisk",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Asterisk.svg"
+  },
+  {
+    "id": "Astronaut",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Astronaut.svg"
+  },
+  {
+    "id": "Australia",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Australia.svg"
+  },
+  {
+    "id": "Auth0",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Auth0.svg"
+  },
+  {
+    "id": "Automation",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Automation.svg"
+  },
+  {
+    "id": "Bandage",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bandage.svg"
+  },
+  {
+    "id": "Bank",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bank.svg"
+  },
+  {
+    "id": "BarChart",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "BarChart.svg"
+  },
+  {
+    "id": "BarGraph",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "BarGraph.svg"
+  },
+  {
+    "id": "Basket",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Basket.svg"
+  },
+  {
+    "id": "Basketball",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Basketball.svg"
+  },
+  {
+    "id": "Battery",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Battery.svg"
+  },
+  {
+    "id": "Bed",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bed.svg"
+  },
+  {
+    "id": "Bike",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bike.svg"
+  },
+  {
+    "id": "Binocular",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Binocular.svg"
+  },
+  {
+    "id": "Bitcoin",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bitcoin.svg"
+  },
+  {
+    "id": "Bluetooth",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bluetooth.svg"
+  },
+  {
+    "id": "Bolt",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bolt.svg"
+  },
+  {
+    "id": "Bones",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bones.svg"
+  },
+  {
+    "id": "Book",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Book.svg"
+  },
+  {
+    "id": "BookOpen",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "BookOpen.svg"
+  },
+  {
+    "id": "Bookmark",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bookmark.svg"
+  },
+  {
+    "id": "Boombox",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Boombox.svg"
+  },
+  {
+    "id": "BowlingBall",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "BowlingBall.svg"
+  },
+  {
+    "id": "Box",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Box.svg"
+  },
+  {
+    "id": "BoxOpen",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "BoxOpen.svg"
+  },
+  {
+    "id": "Brain",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Brain.svg"
+  },
+  {
+    "id": "Brick",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Brick.svg"
+  },
+  {
+    "id": "Briefcase",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Briefcase.svg"
+  },
+  {
+    "id": "Brush",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Brush.svg"
+  },
+  {
+    "id": "Bucket",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bucket.svg"
+  },
+  {
+    "id": "Bug",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bug.svg"
+  },
+  {
+    "id": "Burger",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Burger.svg"
+  },
+  {
+    "id": "Bus",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Bus.svg"
+  },
+  {
+    "id": "Calculator",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Calculator.svg"
+  },
+  {
+    "id": "CameraAi",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "CameraAi.svg"
+  },
+  {
+    "id": "Camera",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Camera.svg"
+  },
+  {
+    "id": "Car",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Car.svg"
+  },
+  {
+    "id": "CarPool",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "CarPool.svg"
+  },
+  {
+    "id": "Cart",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Cart.svg"
+  },
+  {
+    "id": "Chart",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Chart.svg"
+  },
+  {
+    "id": "Chat",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Chat.svg"
+  },
+  {
+    "id": "ChatLine",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ChatLine.svg"
+  },
+  {
+    "id": "Chemist",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Chemist.svg"
+  },
+  {
+    "id": "Chip",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Chip.svg"
+  },
+  {
+    "id": "Chrome",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Chrome.svg"
+  },
+  {
+    "id": "Circle",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Circle.svg"
+  },
+  {
+    "id": "ClickButton",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ClickButton.svg"
+  },
+  {
+    "id": "Clock--outline",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Clock--outline.svg"
+  },
+  {
+    "id": "Clock",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Clock.svg"
+  },
+  {
+    "id": "ClockOutline",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ClockOutline.svg"
+  },
+  {
+    "id": "ClothHanger",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ClothHanger.svg"
+  },
+  {
+    "id": "Cloud",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Cloud.svg"
+  },
+  {
+    "id": "Coffee",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Coffee.svg"
+  },
+  {
+    "id": "Comodore",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Comodore.svg"
+  },
+  {
+    "id": "Compass",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Compass.svg"
+  },
+  {
+    "id": "Computer",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Computer.svg"
+  },
+  {
+    "id": "Cone",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Cone.svg"
+  },
+  {
+    "id": "Connected",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Connected.svg"
+  },
+  {
+    "id": "ConstructionBarrier",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ConstructionBarrier.svg"
+  },
+  {
+    "id": "Conversation",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Conversation.svg"
+  },
+  {
+    "id": "Biscuit",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Biscuit.svg"
+  },
+  {
+    "id": "Crane",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Crane.svg"
+  },
+  {
+    "id": "Cross",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Cross.svg"
+  },
+  {
+    "id": "Crown",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Crown.svg"
+  },
+  {
+    "id": "CrystalBall",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "CrystalBall.svg"
+  },
+  {
+    "id": "Cube",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Cube.svg"
+  },
+  {
+    "id": "Dashboard",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Dashboard.svg"
+  },
+  {
+    "id": "Database",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Database.svg"
+  },
+  {
+    "id": "DesignTools",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "DesignTools.svg"
+  },
+  {
+    "id": "DesktopWindow",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "DesktopWindow.svg"
+  },
+  {
+    "id": "Diagram",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Diagram.svg"
+  },
+  {
+    "id": "Dice",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Dice.svg"
+  },
+  {
+    "id": "Dino",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Dino.svg"
+  },
+  {
+    "id": "Direction",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Direction.svg"
+  },
+  {
+    "id": "Discord",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Discord.svg"
+  },
+  {
+    "id": "Dna",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Dna.svg"
+  },
+  {
+    "id": "DollarBill",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "DollarBill.svg"
+  },
+  {
+    "id": "Dollar",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Dollar.svg"
+  },
+  {
+    "id": "Dumbbell",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Dumbbell.svg"
+  },
+  {
+    "id": "Edge",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Edge.svg"
+  },
+  {
+    "id": "Education",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Education.svg"
+  },
+  {
+    "id": "ElectricPlug",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ElectricPlug.svg"
+  },
+  {
+    "id": "Email",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Email.svg"
+  },
+  {
+    "id": "EmptyCircle",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "EmptyCircle.svg"
+  },
+  {
+    "id": "Eraser",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Eraser.svg"
+  },
+  {
+    "id": "Ethereum",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Ethereum.svg"
+  },
+  {
+    "id": "Euro",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Euro.svg"
+  },
+  {
+    "id": "Europe",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Europe.svg"
+  },
+  {
+    "id": "ExclamationMark",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ExclamationMark.svg"
+  },
+  {
+    "id": "Extinguisher",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Extinguisher.svg"
+  },
+  {
+    "id": "FaceFlatSmile",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceFlatSmile.svg"
+  },
+  {
+    "id": "FaceHeartEyes",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceHeartEyes.svg"
+  },
+  {
+    "id": "Face",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Face.svg"
+  },
+  {
+    "id": "FaceId",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceId.svg"
+  },
+  {
+    "id": "FaceMask",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceMask.svg"
+  },
+  {
+    "id": "FaceMonocle",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceMonocle.svg"
+  },
+  {
+    "id": "FaceStarEyes",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceStarEyes.svg"
+  },
+  {
+    "id": "FaceSunglasses",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceSunglasses.svg"
+  },
+  {
+    "id": "FaceSurprise",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceSurprise.svg"
+  },
+  {
+    "id": "FaceTired",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceTired.svg"
+  },
+  {
+    "id": "FaceTongue",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FaceTongue.svg"
+  },
+  {
+    "id": "Factory",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Factory.svg"
+  },
+  {
+    "id": "Feather",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Feather.svg"
+  },
+  {
+    "id": "Figma",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Figma.svg"
+  },
+  {
+    "id": "Fire",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Fire.svg"
+  },
+  {
+    "id": "Firefox",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Firefox.svg"
+  },
+  {
+    "id": "Flag",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Flag.svg"
+  },
+  {
+    "id": "Flashlight",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Flashlight.svg"
+  },
+  {
+    "id": "FloppyDisk",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FloppyDisk.svg"
+  },
+  {
+    "id": "Flower",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Flower.svg"
+  },
+  {
+    "id": "FootPrint",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "FootPrint.svg"
+  },
+  {
+    "id": "Garage",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Garage.svg"
+  },
+  {
+    "id": "Gears",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Gears.svg"
+  },
+  {
+    "id": "Golf",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Golf.svg"
+  },
+  {
+    "id": "GooglePlay",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "GooglePlay.svg"
+  },
+  {
+    "id": "Hack",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Hack.svg"
+  },
+  {
+    "id": "Health",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Health.svg"
+  },
+  {
+    "id": "Hear",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Hear.svg"
+  },
+  {
+    "id": "Heart",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Heart.svg"
+  },
+  {
+    "id": "Hourglass",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Hourglass.svg"
+  },
+  {
+    "id": "Image",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Image.svg"
+  },
+  {
+    "id": "Intercom",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Intercom.svg"
+  },
+  {
+    "id": "Jersey",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Jersey.svg"
+  },
+  {
+    "id": "Joystick",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Joystick.svg"
+  },
+  {
+    "id": "Judge",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Judge.svg"
+  },
+  {
+    "id": "Ladder",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Ladder.svg"
+  },
+  {
+    "id": "Leaf",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Leaf.svg"
+  },
+  {
+    "id": "LightBulb",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "LightBulb.svg"
+  },
+  {
+    "id": "LinearAi",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "LinearAi.svg"
+  },
+  {
+    "id": "Linear",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Linear.svg"
+  },
+  {
+    "id": "LockerRoom",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "LockerRoom.svg"
+  },
+  {
+    "id": "MacOS",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MacOS.svg"
+  },
+  {
+    "id": "Mac",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Mac.svg"
+  },
+  {
+    "id": "MagicWand",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MagicWand.svg"
+  },
+  {
+    "id": "Magnet",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Magnet.svg"
+  },
+  {
+    "id": "Mask",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Mask.svg"
+  },
+  {
+    "id": "Megaphone",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Megaphone.svg"
+  },
+  {
+    "id": "Mic",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Mic.svg"
+  },
+  {
+    "id": "MicrosoftTeams",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MicrosoftTeams.svg"
+  },
+  {
+    "id": "MilitaryTruck",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MilitaryTruck.svg"
+  },
+  {
+    "id": "MobilePhone",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MobilePhone.svg"
+  },
+  {
+    "id": "Modem",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Modem.svg"
+  },
+  {
+    "id": "MoneyStack",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MoneyStack.svg"
+  },
+  {
+    "id": "Moon",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Moon.svg"
+  },
+  {
+    "id": "Mountain",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Mountain.svg"
+  },
+  {
+    "id": "MovingStaircase",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MovingStaircase.svg"
+  },
+  {
+    "id": "MusicKey",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MusicKey.svg"
+  },
+  {
+    "id": "MusicTape",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "MusicTape.svg"
+  },
+  {
+    "id": "Network",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Network.svg"
+  },
+  {
+    "id": "NorthAmerica",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "NorthAmerica.svg"
+  },
+  {
+    "id": "NotePad",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "NotePad.svg"
+  },
+  {
+    "id": "Notified",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Notified.svg"
+  },
+  {
+    "id": "Notion",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Notion.svg"
+  },
+  {
+    "id": "OnePassword",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "OnePassword.svg"
+  },
+  {
+    "id": "Page",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Page.svg"
+  },
+  {
+    "id": "Paint",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Paint.svg"
+  },
+  {
+    "id": "PalmTree",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "PalmTree.svg"
+  },
+  {
+    "id": "Phone",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Phone.svg"
+  },
+  {
+    "id": "PieChart",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "PieChart.svg"
+  },
+  {
+    "id": "Pills",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Pills.svg"
+  },
+  {
+    "id": "Pin",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Pin.svg"
+  },
+  {
+    "id": "PingPong",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "PingPong.svg"
+  },
+  {
+    "id": "Pizza",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Pizza.svg"
+  },
+  {
+    "id": "Pointer",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Pointer.svg"
+  },
+  {
+    "id": "PokerCard",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "PokerCard.svg"
+  },
+  {
+    "id": "Policy",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Policy.svg"
+  },
+  {
+    "id": "Present",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Present.svg"
+  },
+  {
+    "id": "Process",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Process.svg"
+  },
+  {
+    "id": "QuestionMark",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "QuestionMark.svg"
+  },
+  {
+    "id": "Radar",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Radar.svg"
+  },
+  {
+    "id": "Ramen",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Ramen.svg"
+  },
+  {
+    "id": "Rank",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Rank.svg"
+  },
+  {
+    "id": "Recycle",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Recycle.svg"
+  },
+  {
+    "id": "Report",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Report.svg"
+  },
+  {
+    "id": "ResolvedChat",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ResolvedChat.svg"
+  },
+  {
+    "id": "Resolved",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Resolved.svg"
+  },
+  {
+    "id": "Robot",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Robot.svg"
+  },
+  {
+    "id": "Rocket",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Rocket.svg"
+  },
+  {
+    "id": "Routing",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Routing.svg"
+  },
+  {
+    "id": "Runner",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Runner.svg"
+  },
+  {
+    "id": "SafetyKit",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "SafetyKit.svg"
+  },
+  {
+    "id": "ScatterPlot",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ScatterPlot.svg"
+  },
+  {
+    "id": "Scissors",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Scissors.svg"
+  },
+  {
+    "id": "Sentry",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Sentry.svg"
+  },
+  {
+    "id": "Server",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Server.svg"
+  },
+  {
+    "id": "Shield",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Shield.svg"
+  },
+  {
+    "id": "Ship",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Ship.svg"
+  },
+  {
+    "id": "Shop",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Shop.svg"
+  },
+  {
+    "id": "Shrug",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Shrug.svg"
+  },
+  {
+    "id": "Sign",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Sign.svg"
+  },
+  {
+    "id": "Signature",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Signature.svg"
+  },
+  {
+    "id": "Skull",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Skull.svg"
+  },
+  {
+    "id": "Slack",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Slack.svg"
+  },
+  {
+    "id": "SmallLock",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "SmallLock.svg"
+  },
+  {
+    "id": "SoccerBall",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "SoccerBall.svg"
+  },
+  {
+    "id": "Solana",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Solana.svg"
+  },
+  {
+    "id": "Sound",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Sound.svg"
+  },
+  {
+    "id": "SoundMuted",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "SoundMuted.svg"
+  },
+  {
+    "id": "SouthAmerica",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "SouthAmerica.svg"
+  },
+  {
+    "id": "Spaces",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Spaces.svg"
+  },
+  {
+    "id": "Speaker",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Speaker.svg"
+  },
+  {
+    "id": "Speedometer",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Speedometer.svg"
+  },
+  {
+    "id": "Spreadsheet",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Spreadsheet.svg"
+  },
+  {
+    "id": "Stadium",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Stadium.svg"
+  },
+  {
+    "id": "Starred",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Starred.svg"
+  },
+  {
+    "id": "Stopwatch",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Stopwatch.svg"
+  },
+  {
+    "id": "Storm",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Storm.svg"
+  },
+  {
+    "id": "Subgroup",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Subgroup.svg"
+  },
+  {
+    "id": "Sun",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Sun.svg"
+  },
+  {
+    "id": "Surfer",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Surfer.svg"
+  },
+  {
+    "id": "Tablet",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Tablet.svg"
+  },
+  {
+    "id": "Taxi",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Taxi.svg"
+  },
+  {
+    "id": "TeeShirt",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "TeeShirt.svg"
+  },
+  {
+    "id": "TennisBall",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "TennisBall.svg"
+  },
+  {
+    "id": "Terminal",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Terminal.svg"
+  },
+  {
+    "id": "TextBlock",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "TextBlock.svg"
+  },
+  {
+    "id": "TextParagraph",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "TextParagraph.svg"
+  },
+  {
+    "id": "ThumbsDown",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ThumbsDown.svg"
+  },
+  {
+    "id": "ThumbsUp",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ThumbsUp.svg"
+  },
+  {
+    "id": "Tower",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Tower.svg"
+  },
+  {
+    "id": "TrafficLight",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "TrafficLight.svg"
+  },
+  {
+    "id": "Train",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Train.svg"
+  },
+  {
+    "id": "Tram",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Tram.svg"
+  },
+  {
+    "id": "Trash",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Trash.svg"
+  },
+  {
+    "id": "Tree",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Tree.svg"
+  },
+  {
+    "id": "Umbrella",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Umbrella.svg"
+  },
+  {
+    "id": "UnhappyFace",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "UnhappyFace.svg"
+  },
+  {
+    "id": "Union",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Union.svg"
+  },
+  {
+    "id": "Users",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Users.svg"
+  },
+  {
+    "id": "Video",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Video.svg"
+  },
+  {
+    "id": "ViewFinder",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "ViewFinder.svg"
+  },
+  {
+    "id": "VisionPro",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "VisionPro.svg"
+  },
+  {
+    "id": "Wall",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Wall.svg"
+  },
+  {
+    "id": "Watch",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Watch.svg"
+  },
+  {
+    "id": "WindTurbine",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "WindTurbine.svg"
+  },
+  {
+    "id": "World",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "World.svg"
+  },
+  {
+    "id": "Wrench",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Wrench.svg"
+  },
+  {
+    "id": "Write",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Write.svg"
+  },
+  {
+    "id": "WritingAI",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "WritingAI.svg"
+  },
+  {
+    "id": "Zapier",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Zapier.svg"
+  },
+  {
+    "id": "Zendesk",
+    "viewBox": "0 0 16 16",
+    "source": "svg-3",
+    "file": "Zendesk.svg"
+  }
+]

@@ -1,0 +1,1482 @@
+{
+  "pageUrl": "https://linear.app/yunkoo/team/YUN/overview",
+  "inventoryId": "732984fb-8ecf-41a7-8f46-094e1eebeaf2",
+  "assets": [
+    {
+      "id": "ec7212387cd35b9c",
+      "kind": "script",
+      "name": "rolldown-runtime.Cmlxbba-.js",
+      "url": "https://static.linear.app/client/assets/rolldown-runtime.Cmlxbba-.js"
+    },
+    {
+      "id": "b2153f44fe8c77a4",
+      "kind": "script",
+      "name": "html.5XD_JD9a.js",
+      "url": "https://static.linear.app/client/assets/html.5XD_JD9a.js"
+    },
+    {
+      "id": "1f4371db01fb6c3e",
+      "kind": "script",
+      "name": "preload-helper.DZ2AUIyU.js",
+      "url": "https://static.linear.app/client/assets/preload-helper.DZ2AUIyU.js"
+    },
+    {
+      "id": "2ba5bffc5f4325a5",
+      "kind": "script",
+      "name": "browser.DLh72fuW.js",
+      "url": "https://static.linear.app/client/assets/browser.DLh72fuW.js"
+    },
+    {
+      "id": "17ed276c36d25a7e",
+      "kind": "script",
+      "name": "UnreachableCaseError.hQtiBAMj.js",
+      "url": "https://static.linear.app/client/assets/UnreachableCaseError.hQtiBAMj.js"
+    },
+    {
+      "id": "03a4623bcfa77e27",
+      "kind": "script",
+      "name": "resolveValueOrGetter.5euAn8G-.js",
+      "url": "https://static.linear.app/client/assets/resolveValueOrGetter.5euAn8G-.js"
+    },
+    {
+      "id": "26ade5ceb6264260",
+      "kind": "script",
+      "name": "vendor-date-fns.BvNZzvX2.js",
+      "url": "https://static.linear.app/client/assets/vendor-date-fns.BvNZzvX2.js"
+    },
+    {
+      "id": "c7d96efe5c99e38b",
+      "kind": "script",
+      "name": "vendor-pluralize.CuRM6zhp.js",
+      "url": "https://static.linear.app/client/assets/vendor-pluralize.CuRM6zhp.js"
+    },
+    {
+      "id": "3fa365fc7ff35335",
+      "kind": "script",
+      "name": "vendor-react.4CtHp4wB.js",
+      "url": "https://static.linear.app/client/assets/vendor-react.4CtHp4wB.js"
+    },
+    {
+      "id": "b4ef2ae79abed2f5",
+      "kind": "script",
+      "name": "ClientStorage.VtLqKqj6.js",
+      "url": "https://static.linear.app/client/assets/ClientStorage.VtLqKqj6.js"
+    },
+    {
+      "id": "354ab4925bae41f0",
+      "kind": "script",
+      "name": "vendor-sentry.WxP2lg-W.js",
+      "url": "https://static.linear.app/client/assets/vendor-sentry.WxP2lg-W.js"
+    },
+    {
+      "id": "677264721ea9ff28",
+      "kind": "script",
+      "name": "vendor-graphql.CV-nxzIo.js",
+      "url": "https://static.linear.app/client/assets/vendor-graphql.CV-nxzIo.js"
+    },
+    {
+      "id": "264b61d9b5c7d767",
+      "kind": "script",
+      "name": "vendor-graphql-request.BZLqn9k6.js",
+      "url": "https://static.linear.app/client/assets/vendor-graphql-request.BZLqn9k6.js"
+    },
+    {
+      "id": "7ba4b50f9bec2c55",
+      "kind": "script",
+      "name": "vendor-mobx.np9Iqs_t.js",
+      "url": "https://static.linear.app/client/assets/vendor-mobx.np9Iqs_t.js"
+    },
+    {
+      "id": "0b38848491bfb2fd",
+      "kind": "script",
+      "name": "vendor-react-router.D3W7Xzuq.js",
+      "url": "https://static.linear.app/client/assets/vendor-react-router.D3W7Xzuq.js"
+    },
+    {
+      "id": "25e05f8b98a5fbcc",
+      "kind": "script",
+      "name": "vendor-lodash.D-pniuPC.js",
+      "url": "https://static.linear.app/client/assets/vendor-lodash.D-pniuPC.js"
+    },
+    {
+      "id": "d6e73df2664c73fe",
+      "kind": "script",
+      "name": "vendor-uuid.CttrDSXb.js",
+      "url": "https://static.linear.app/client/assets/vendor-uuid.CttrDSXb.js"
+    },
+    {
+      "id": "107c35c619d93831",
+      "kind": "script",
+      "name": "Logger.DQb9viM4.js",
+      "url": "https://static.linear.app/client/assets/Logger.DQb9viM4.js"
+    },
+    {
+      "id": "a0961354566556fe",
+      "kind": "script",
+      "name": "ArrayPool.Dd4-KO4u.js",
+      "url": "https://static.linear.app/client/assets/ArrayPool.Dd4-KO4u.js"
+    },
+    {
+      "id": "a00b71bac41daadd",
+      "kind": "script",
+      "name": "vendor-idb._JdEUS0K.js",
+      "url": "https://static.linear.app/client/assets/vendor-idb._JdEUS0K.js"
+    },
+    {
+      "id": "ebd796d099746fee",
+      "kind": "script",
+      "name": "Signal.Cj4i7YtI.js",
+      "url": "https://static.linear.app/client/assets/Signal.Cj4i7YtI.js"
+    },
+    {
+      "id": "c6a0e30165aa3ec8",
+      "kind": "script",
+      "name": "vendor-object-hash.BF44JO4G.js",
+      "url": "https://static.linear.app/client/assets/vendor-object-hash.BF44JO4G.js"
+    },
+    {
+      "id": "25ddd715af97bbf9",
+      "kind": "script",
+      "name": "Tracing.1zJAEYP-.js",
+      "url": "https://static.linear.app/client/assets/Tracing.1zJAEYP-.js"
+    },
+    {
+      "id": "9a966105045072a4",
+      "kind": "script",
+      "name": "Decorators.BWnUMwkV.js",
+      "url": "https://static.linear.app/client/assets/Decorators.BWnUMwkV.js"
+    },
+    {
+      "id": "6e9487bbd1382f85",
+      "kind": "script",
+      "name": "hash.DQKC1OvE.js",
+      "url": "https://static.linear.app/client/assets/hash.DQKC1OvE.js"
+    },
+    {
+      "id": "330115a058aa5935",
+      "kind": "script",
+      "name": "vendor-emotion.BQ767AMs.js",
+      "url": "https://static.linear.app/client/assets/vendor-emotion.BQ767AMs.js"
+    },
+    {
+      "id": "c2127c6e64bb6efc",
+      "kind": "script",
+      "name": "config.YzGBgaKA.js",
+      "url": "https://static.linear.app/client/assets/config.YzGBgaKA.js"
+    },
+    {
+      "id": "732fdffcb7046236",
+      "kind": "script",
+      "name": "vendor-comlink.DoQe23SC.js",
+      "url": "https://static.linear.app/client/assets/vendor-comlink.DoQe23SC.js"
+    },
+    {
+      "id": "73002ccbdb419514",
+      "kind": "script",
+      "name": "WorkerPool.B_iIo760.js",
+      "url": "https://static.linear.app/client/assets/WorkerPool.B_iIo760.js"
+    },
+    {
+      "id": "84b47fde9c696534",
+      "kind": "script",
+      "name": "stylis.CgRfWDCR.js",
+      "url": "https://static.linear.app/client/assets/stylis.CgRfWDCR.js"
+    },
+    {
+      "id": "4b013679922fdb8b",
+      "kind": "script",
+      "name": "SearchScoreHelper.CdmOnSVI.js",
+      "url": "https://static.linear.app/client/assets/SearchScoreHelper.CdmOnSVI.js"
+    },
+    {
+      "id": "e1416f9bebd8610a",
+      "kind": "script",
+      "name": "validation.D0htvKPx.js",
+      "url": "https://static.linear.app/client/assets/validation.D0htvKPx.js"
+    },
+    {
+      "id": "fdc989d4a344f0fb",
+      "kind": "script",
+      "name": "ThemeProvider.DeOmCkhs.js",
+      "url": "https://static.linear.app/client/assets/ThemeProvider.DeOmCkhs.js"
+    },
+    {
+      "id": "a9975a125aa657ff",
+      "kind": "script",
+      "name": "Locale.eHPAX9qC.js",
+      "url": "https://static.linear.app/client/assets/Locale.eHPAX9qC.js"
+    },
+    {
+      "id": "8b49b4c04a3cdf6a",
+      "kind": "script",
+      "name": "InitiativesTab.DzfvS36Z.js",
+      "url": "https://static.linear.app/client/assets/InitiativesTab.DzfvS36Z.js"
+    },
+    {
+      "id": "825d2f27ec7b33ae",
+      "kind": "script",
+      "name": "matchPath.DUhyGLm7.js",
+      "url": "https://static.linear.app/client/assets/matchPath.DUhyGLm7.js"
+    },
+    {
+      "id": "fa6024f96a3d754d",
+      "kind": "script",
+      "name": "vendor-diff.Dz-_98PM.js",
+      "url": "https://static.linear.app/client/assets/vendor-diff.Dz-_98PM.js"
+    },
+    {
+      "id": "cead0f1e49d397f9",
+      "kind": "script",
+      "name": "vendor-fflate.Al3T1JJw.js",
+      "url": "https://static.linear.app/client/assets/vendor-fflate.Al3T1JJw.js"
+    },
+    {
+      "id": "bb330e9325b98776",
+      "kind": "script",
+      "name": "vendor-mobx-utils.CjSvMLNA.js",
+      "url": "https://static.linear.app/client/assets/vendor-mobx-utils.CjSvMLNA.js"
+    },
+    {
+      "id": "374d0b6d5a4ebe55",
+      "kind": "script",
+      "name": "vendor-prosemirror-transform.BfEOf8SC.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-transform.BfEOf8SC.js"
+    },
+    {
+      "id": "adb92d4b0d47909f",
+      "kind": "script",
+      "name": "vendor-lib0.B5wRv-Aj.js",
+      "url": "https://static.linear.app/client/assets/vendor-lib0.B5wRv-Aj.js"
+    },
+    {
+      "id": "b521f3dd9a71c9ae",
+      "kind": "script",
+      "name": "vendor-prosemirror-changeset.DZrQf_Nx.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-changeset.DZrQf_Nx.js"
+    },
+    {
+      "id": "da353f2d9110fb5e",
+      "kind": "script",
+      "name": "vendor-markdown-it.CDfgP8bw.js",
+      "url": "https://static.linear.app/client/assets/vendor-markdown-it.CDfgP8bw.js"
+    },
+    {
+      "id": "548fa7fe1f40e3ed",
+      "kind": "script",
+      "name": "vendor-prosemirror-state.DUUAb2VW.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-state.DUUAb2VW.js"
+    },
+    {
+      "id": "5f834ed07b23f150",
+      "kind": "script",
+      "name": "vendor-prosemirror-model.DrDI8oXA.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-model.DrDI8oXA.js"
+    },
+    {
+      "id": "beeffe7fbfb5b16e",
+      "kind": "script",
+      "name": "vendor-prosemirror-markdown.RR2euZye.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-markdown.RR2euZye.js"
+    },
+    {
+      "id": "8cd44c29cf388bcf",
+      "kind": "script",
+      "name": "vendor-prosemirror-tables.CNkByB5q.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-tables.CNkByB5q.js"
+    },
+    {
+      "id": "253530fba28848c1",
+      "kind": "script",
+      "name": "vendor-prosemirror-view.DTIa1v-s.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-view.DTIa1v-s.js"
+    },
+    {
+      "id": "aa0ac30fb46e3900",
+      "kind": "script",
+      "name": "vendor-prosemirror-commands.DQaTvLS4.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-commands.DQaTvLS4.js"
+    },
+    {
+      "id": "d592470ff641f155",
+      "kind": "script",
+      "name": "vendor-spacetime.pobu6qf0.js",
+      "url": "https://static.linear.app/client/assets/vendor-spacetime.pobu6qf0.js"
+    },
+    {
+      "id": "926ecb20f76f81c8",
+      "kind": "script",
+      "name": "vendor-yjs.BEO_NNkX.js",
+      "url": "https://static.linear.app/client/assets/vendor-yjs.BEO_NNkX.js"
+    },
+    {
+      "id": "436a54a318b3146e",
+      "kind": "script",
+      "name": "vendor-yup.Djun2uih.js",
+      "url": "https://static.linear.app/client/assets/vendor-yup.Djun2uih.js"
+    },
+    {
+      "id": "429a8ea3b3201633",
+      "kind": "script",
+      "name": "vendor-y-prosemirror.DGZwcNZB.js",
+      "url": "https://static.linear.app/client/assets/vendor-y-prosemirror.DGZwcNZB.js"
+    },
+    {
+      "id": "f41faad8be43a8da",
+      "kind": "script",
+      "name": "vendor-zod.Cnx6fEo2.js",
+      "url": "https://static.linear.app/client/assets/vendor-zod.Cnx6fEo2.js"
+    },
+    {
+      "id": "132eb46f510d681c",
+      "kind": "script",
+      "name": "timezones.B0Ju2hEk.js",
+      "url": "https://static.linear.app/client/assets/timezones.B0Ju2hEk.js"
+    },
+    {
+      "id": "0c644ad32aa79ac8",
+      "kind": "script",
+      "name": "LoadingDoneHelper.7f9Gr4hb.js",
+      "url": "https://static.linear.app/client/assets/LoadingDoneHelper.7f9Gr4hb.js"
+    },
+    {
+      "id": "c6b113197876d583",
+      "kind": "script",
+      "name": "VisibilityHelper.DQmYJPS_.js",
+      "url": "https://static.linear.app/client/assets/VisibilityHelper.DQmYJPS_.js"
+    },
+    {
+      "id": "0b2a03c710548c3a",
+      "kind": "script",
+      "name": "Text.j_Q0_Q3a.js",
+      "url": "https://static.linear.app/client/assets/Text.j_Q0_Q3a.js"
+    },
+    {
+      "id": "d45a87b1f8b8c1a5",
+      "kind": "script",
+      "name": "timezone.tfCyu1d6.js",
+      "url": "https://static.linear.app/client/assets/timezone.tfCyu1d6.js"
+    },
+    {
+      "id": "957b1f5db3d522db",
+      "kind": "script",
+      "name": "vendor-semver.CO5irhDd.js",
+      "url": "https://static.linear.app/client/assets/vendor-semver.CO5irhDd.js"
+    },
+    {
+      "id": "a6ec6f7fd445b87f",
+      "kind": "script",
+      "name": "Icon.stylex.DFpLzmUx.js",
+      "url": "https://static.linear.app/client/assets/Icon.stylex.DFpLzmUx.js"
+    },
+    {
+      "id": "52f20dcaebd3ad6e",
+      "kind": "script",
+      "name": "mergeRefs.DvAqMvtq.js",
+      "url": "https://static.linear.app/client/assets/mergeRefs.DvAqMvtq.js"
+    },
+    {
+      "id": "ad3e61f68e8419c1",
+      "kind": "script",
+      "name": "KeyboardHelper.AdtWZOyK.js",
+      "url": "https://static.linear.app/client/assets/KeyboardHelper.AdtWZOyK.js"
+    },
+    {
+      "id": "986682a5656f67c5",
+      "kind": "script",
+      "name": "store.Cb-UhZ0r.js",
+      "url": "https://static.linear.app/client/assets/store.Cb-UhZ0r.js"
+    },
+    {
+      "id": "eb1b568c0a3300b1",
+      "kind": "script",
+      "name": "EmojiHelper.DD7S7Mfu.js",
+      "url": "https://static.linear.app/client/assets/EmojiHelper.DD7S7Mfu.js"
+    },
+    {
+      "id": "a0187f7bddaf6567",
+      "kind": "script",
+      "name": "Root.mCcrMLNG.js",
+      "url": "https://static.linear.app/client/assets/Root.mCcrMLNG.js"
+    },
+    {
+      "id": "73bda3b977065fbc",
+      "kind": "script",
+      "name": "AgentToolbarActions.C6BGl3Ys.js",
+      "url": "https://static.linear.app/client/assets/AgentToolbarActions.C6BGl3Ys.js"
+    },
+    {
+      "id": "5a455238a96e2066",
+      "kind": "script",
+      "name": "DecorativeIcon.DdcrIF87.js",
+      "url": "https://static.linear.app/client/assets/DecorativeIcon.DdcrIF87.js"
+    },
+    {
+      "id": "710bc93aae5d4a08",
+      "kind": "script",
+      "name": "Diff.Bb2Y7kgV.js",
+      "url": "https://static.linear.app/client/assets/Diff.Bb2Y7kgV.js"
+    },
+    {
+      "id": "6f9d8b5c64aeb3e0",
+      "kind": "script",
+      "name": "vendor-lowlight.BbvDEjAs.js",
+      "url": "https://static.linear.app/client/assets/vendor-lowlight.BbvDEjAs.js"
+    },
+    {
+      "id": "bb6483758081bc78",
+      "kind": "script",
+      "name": "vendor-chenglou.KrnlOWTL.js",
+      "url": "https://static.linear.app/client/assets/vendor-chenglou.KrnlOWTL.js"
+    },
+    {
+      "id": "64de381b53e54867",
+      "kind": "script",
+      "name": "default.BC5vZuc8.js",
+      "url": "https://static.linear.app/client/assets/default.BC5vZuc8.js"
+    },
+    {
+      "id": "cfc573bd004602de",
+      "kind": "script",
+      "name": "Button.JkdF8Grf.js",
+      "url": "https://static.linear.app/client/assets/Button.JkdF8Grf.js"
+    },
+    {
+      "id": "5cb7375ecf04ce33",
+      "kind": "script",
+      "name": "vendor-highlight.js.nHobxjgm.js",
+      "url": "https://static.linear.app/client/assets/vendor-highlight.js.nHobxjgm.js"
+    },
+    {
+      "id": "aa3c00985ecc1314",
+      "kind": "stylesheet",
+      "name": "Button-DU3VfWVC.css",
+      "url": "https://static.linear.app/client/assets/Button-DU3VfWVC.css"
+    },
+    {
+      "id": "979bf208b9cc16a0",
+      "kind": "script",
+      "name": "IconButton.uLzvwrCp.js",
+      "url": "https://static.linear.app/client/assets/IconButton.uLzvwrCp.js"
+    },
+    {
+      "id": "d266c34e47353ce5",
+      "kind": "script",
+      "name": "DivButton.CcmiQRLe.js",
+      "url": "https://static.linear.app/client/assets/DivButton.CcmiQRLe.js"
+    },
+    {
+      "id": "bb4d150dded716cb",
+      "kind": "script",
+      "name": "Tooltip.PRJfmuEy.js",
+      "url": "https://static.linear.app/client/assets/Tooltip.PRJfmuEy.js"
+    },
+    {
+      "id": "67fe2a8439295408",
+      "kind": "script",
+      "name": "vendor-mobx-react-lite.DCRn5BPr.js",
+      "url": "https://static.linear.app/client/assets/vendor-mobx-react-lite.DCRn5BPr.js"
+    },
+    {
+      "id": "28fe2cb1745a7023",
+      "kind": "script",
+      "name": "vendor-react-spring.CBrypBMm.js",
+      "url": "https://static.linear.app/client/assets/vendor-react-spring.CBrypBMm.js"
+    },
+    {
+      "id": "a67b7e626a1599b8",
+      "kind": "script",
+      "name": "vendor-react-dom.BVZX_2bM.js",
+      "url": "https://static.linear.app/client/assets/vendor-react-dom.BVZX_2bM.js"
+    },
+    {
+      "id": "f702090332ab5a04",
+      "kind": "script",
+      "name": "shim.CrwiNa-7.js",
+      "url": "https://static.linear.app/client/assets/shim.CrwiNa-7.js"
+    },
+    {
+      "id": "38c37c1f73de2638",
+      "kind": "script",
+      "name": "Popover.B4YgFYOE.js",
+      "url": "https://static.linear.app/client/assets/Popover.B4YgFYOE.js"
+    },
+    {
+      "id": "53229f4be63082f7",
+      "kind": "script",
+      "name": "vendor-popperjs.Csd-JZMY.js",
+      "url": "https://static.linear.app/client/assets/vendor-popperjs.Csd-JZMY.js"
+    },
+    {
+      "id": "b8e9e5340df419bb",
+      "kind": "script",
+      "name": "useIsDialog.CSMC8h3g.js",
+      "url": "https://static.linear.app/client/assets/useIsDialog.CSMC8h3g.js"
+    },
+    {
+      "id": "83620a4aa08759ea",
+      "kind": "script",
+      "name": "useKeyPressEvent.DxLQd-G_.js",
+      "url": "https://static.linear.app/client/assets/useKeyPressEvent.DxLQd-G_.js"
+    },
+    {
+      "id": "3cbea909fb476a99",
+      "kind": "script",
+      "name": "useAsRef.Cxul-qi9.js",
+      "url": "https://static.linear.app/client/assets/useAsRef.Cxul-qi9.js"
+    },
+    {
+      "id": "8ba9b51712a7c2dc",
+      "kind": "script",
+      "name": "useReducedMotion.hiCEHHWR.js",
+      "url": "https://static.linear.app/client/assets/useReducedMotion.hiCEHHWR.js"
+    },
+    {
+      "id": "1db9a73d483f03a9",
+      "kind": "script",
+      "name": "electronMixins.module.DpkAK6hM.js",
+      "url": "https://static.linear.app/client/assets/electronMixins.module.DpkAK6hM.js"
+    },
+    {
+      "id": "4e5f981f25101d2e",
+      "kind": "stylesheet",
+      "name": "electronMixins-Bw9WXLWW.css",
+      "url": "https://static.linear.app/client/assets/electronMixins-Bw9WXLWW.css"
+    },
+    {
+      "id": "09cc5e551e4f4e72",
+      "kind": "script",
+      "name": "Flex.CwfItK2c.js",
+      "url": "https://static.linear.app/client/assets/Flex.CwfItK2c.js"
+    },
+    {
+      "id": "27d55ac56ecc87ac",
+      "kind": "script",
+      "name": "useSharedState.B2lRi__J.js",
+      "url": "https://static.linear.app/client/assets/useSharedState.B2lRi__J.js"
+    },
+    {
+      "id": "b19f20c789fc3cb4",
+      "kind": "script",
+      "name": "Elevated.lNRMRurV.js",
+      "url": "https://static.linear.app/client/assets/Elevated.lNRMRurV.js"
+    },
+    {
+      "id": "925aff34ec5cbe3a",
+      "kind": "stylesheet",
+      "name": "Tooltip-TzaSp9uA.css",
+      "url": "https://static.linear.app/client/assets/Tooltip-TzaSp9uA.css"
+    },
+    {
+      "id": "137b2f0832d68a71",
+      "kind": "script",
+      "name": "useVerticalResizer.BPToqsw0.js",
+      "url": "https://static.linear.app/client/assets/useVerticalResizer.BPToqsw0.js"
+    },
+    {
+      "id": "dbf5beb56b7ab305",
+      "kind": "stylesheet",
+      "name": "useVerticalResizer-BtbjBqCq.css",
+      "url": "https://static.linear.app/client/assets/useVerticalResizer-BtbjBqCq.css"
+    },
+    {
+      "id": "95e728a36fc334e6",
+      "kind": "script",
+      "name": "PlusIcon.xT_6rpCH.js",
+      "url": "https://static.linear.app/client/assets/PlusIcon.xT_6rpCH.js"
+    },
+    {
+      "id": "e2faf94f49c30e6a",
+      "kind": "script",
+      "name": "Avatar.CfvvjnyD.js",
+      "url": "https://static.linear.app/client/assets/Avatar.CfvvjnyD.js"
+    },
+    {
+      "id": "a5f05fb23b187b48",
+      "kind": "script",
+      "name": "PopoverContext.DTdVLWDG.js",
+      "url": "https://static.linear.app/client/assets/PopoverContext.DTdVLWDG.js"
+    },
+    {
+      "id": "1002fc18c1818c4d",
+      "kind": "script",
+      "name": "Link.CoVHZ8Mj.js",
+      "url": "https://static.linear.app/client/assets/Link.CoVHZ8Mj.js"
+    },
+    {
+      "id": "a9e4d3bd76c07f94",
+      "kind": "script",
+      "name": "ExternalLink.BJHa5Hjd.js",
+      "url": "https://static.linear.app/client/assets/ExternalLink.BJHa5Hjd.js"
+    },
+    {
+      "id": "4238a1b5f0072f42",
+      "kind": "script",
+      "name": "FastIssueDraftCreateState.Bw8eLc6i.js",
+      "url": "https://static.linear.app/client/assets/FastIssueDraftCreateState.Bw8eLc6i.js"
+    },
+    {
+      "id": "b5760bc0c4766048",
+      "kind": "script",
+      "name": "DraftHelper.-NGlQ8rj.js",
+      "url": "https://static.linear.app/client/assets/DraftHelper.-NGlQ8rj.js"
+    },
+    {
+      "id": "d6a66eee67020e51",
+      "kind": "script",
+      "name": "LazyFastIssueEditorLoader.3TOtMZrh.js",
+      "url": "https://static.linear.app/client/assets/LazyFastIssueEditorLoader.3TOtMZrh.js"
+    },
+    {
+      "id": "b3645efe4be46d11",
+      "kind": "script",
+      "name": "LocalDraft.CM-MeTW8.js",
+      "url": "https://static.linear.app/client/assets/LocalDraft.CM-MeTW8.js"
+    },
+    {
+      "id": "26b8f42f5912d05a",
+      "kind": "script",
+      "name": "useStore.DJfVbEN8.js",
+      "url": "https://static.linear.app/client/assets/useStore.DJfVbEN8.js"
+    },
+    {
+      "id": "f00e9e9835264f86",
+      "kind": "script",
+      "name": "redactUrl.DIfctLK1.js",
+      "url": "https://static.linear.app/client/assets/redactUrl.DIfctLK1.js"
+    },
+    {
+      "id": "73df7b41fd3cbd6c",
+      "kind": "script",
+      "name": "ApplicationStoreContext.Cs54F-rJ.js",
+      "url": "https://static.linear.app/client/assets/ApplicationStoreContext.Cs54F-rJ.js"
+    },
+    {
+      "id": "c408a6c02eb330a8",
+      "kind": "script",
+      "name": "TeamLabel.C-32yVjC.js",
+      "url": "https://static.linear.app/client/assets/TeamLabel.C-32yVjC.js"
+    },
+    {
+      "id": "2ceb855314ddedbd",
+      "kind": "script",
+      "name": "TeamsIcon.DQsStVVe.js",
+      "url": "https://static.linear.app/client/assets/TeamsIcon.DQsStVVe.js"
+    },
+    {
+      "id": "ca9067470eca6df5",
+      "kind": "script",
+      "name": "suspenseObserver.BrhVBQ9w.js",
+      "url": "https://static.linear.app/client/assets/suspenseObserver.BrhVBQ9w.js"
+    },
+    {
+      "id": "82326d78cdd8bd95",
+      "kind": "script",
+      "name": "SecurityExtensionDetector.Chp5UGiq.js",
+      "url": "https://static.linear.app/client/assets/SecurityExtensionDetector.Chp5UGiq.js"
+    },
+    {
+      "id": "5aebba35d6f8f20c",
+      "kind": "script",
+      "name": "vendor-react-use.B5KXkfsL.js",
+      "url": "https://static.linear.app/client/assets/vendor-react-use.B5KXkfsL.js"
+    },
+    {
+      "id": "5d9fde53110b7bba",
+      "kind": "script",
+      "name": "src.BcWTfVUc.js",
+      "url": "https://static.linear.app/client/assets/src.BcWTfVUc.js"
+    },
+    {
+      "id": "48c074062652530b",
+      "kind": "script",
+      "name": "useScreenSize.BESpEFEJ.js",
+      "url": "https://static.linear.app/client/assets/useScreenSize.BESpEFEJ.js"
+    },
+    {
+      "id": "dc06b805033faa00",
+      "kind": "script",
+      "name": "react-use.CHMEuTl1.js",
+      "url": "https://static.linear.app/client/assets/react-use.CHMEuTl1.js"
+    },
+    {
+      "id": "f192d62ea1221acf",
+      "kind": "script",
+      "name": "GridLoaderIcon.Co0y5dEn.js",
+      "url": "https://static.linear.app/client/assets/GridLoaderIcon.Co0y5dEn.js"
+    },
+    {
+      "id": "73c57538196c175e",
+      "kind": "stylesheet",
+      "name": "GridLoaderIcon-CeNB58KF.css",
+      "url": "https://static.linear.app/client/assets/GridLoaderIcon-CeNB58KF.css"
+    },
+    {
+      "id": "553f5199b5aa69dd",
+      "kind": "script",
+      "name": "electronMixins.DYS0ODuk.js",
+      "url": "https://static.linear.app/client/assets/electronMixins.DYS0ODuk.js"
+    },
+    {
+      "id": "54765997197e0d63",
+      "kind": "script",
+      "name": "EmojiContainer.CeAZEvLX.js",
+      "url": "https://static.linear.app/client/assets/EmojiContainer.CeAZEvLX.js"
+    },
+    {
+      "id": "d854b3c80152a0bf",
+      "kind": "script",
+      "name": "resolvePromise.BA2PJy0w.js",
+      "url": "https://static.linear.app/client/assets/resolvePromise.BA2PJy0w.js"
+    },
+    {
+      "id": "f88322956217fa2c",
+      "kind": "script",
+      "name": "ChevronIcon.lWqxv3iV.js",
+      "url": "https://static.linear.app/client/assets/ChevronIcon.lWqxv3iV.js"
+    },
+    {
+      "id": "9eeaa80c92faed48",
+      "kind": "script",
+      "name": "MutedBadge.Dmy1QdIT.js",
+      "url": "https://static.linear.app/client/assets/MutedBadge.Dmy1QdIT.js"
+    },
+    {
+      "id": "0cebee2819d02e57",
+      "kind": "script",
+      "name": "IssueIcon.C1INCCrq.js",
+      "url": "https://static.linear.app/client/assets/IssueIcon.C1INCCrq.js"
+    },
+    {
+      "id": "1ae8a86a530fa6c6",
+      "kind": "script",
+      "name": "CustomerDefaultLogoIcon.bOxxJKjX.js",
+      "url": "https://static.linear.app/client/assets/CustomerDefaultLogoIcon.bOxxJKjX.js"
+    },
+    {
+      "id": "c69d92f210a01787",
+      "kind": "script",
+      "name": "LinearLogoBordered.zkhWfPNg.js",
+      "url": "https://static.linear.app/client/assets/LinearLogoBordered.zkhWfPNg.js"
+    },
+    {
+      "id": "fa284a77ff2e5cfd",
+      "kind": "script",
+      "name": "HorizontalRule.BVdPrrTt.js",
+      "url": "https://static.linear.app/client/assets/HorizontalRule.BVdPrrTt.js"
+    },
+    {
+      "id": "112510f1d20f6f0e",
+      "kind": "script",
+      "name": "LazyEditorComponent.DLjlorR4.js",
+      "url": "https://static.linear.app/client/assets/LazyEditorComponent.DLjlorR4.js"
+    },
+    {
+      "id": "141474a8224ee9ee",
+      "kind": "script",
+      "name": "useFlag.BkVOAZD0.js",
+      "url": "https://static.linear.app/client/assets/useFlag.BkVOAZD0.js"
+    },
+    {
+      "id": "2d6ea7515ed50b7f",
+      "kind": "script",
+      "name": "Avatar.DhZZX1M6.js",
+      "url": "https://static.linear.app/client/assets/Avatar.DhZZX1M6.js"
+    },
+    {
+      "id": "0f5f6cc1594ac6ad",
+      "kind": "script",
+      "name": "useIsMounted.Bs1VjmyJ.js",
+      "url": "https://static.linear.app/client/assets/useIsMounted.Bs1VjmyJ.js"
+    },
+    {
+      "id": "880b938ba0197db6",
+      "kind": "script",
+      "name": "SimpleActionMenu.BeigsN3e.js",
+      "url": "https://static.linear.app/client/assets/SimpleActionMenu.BeigsN3e.js"
+    },
+    {
+      "id": "6943e7f333400c8a",
+      "kind": "script",
+      "name": "vendor-focus-trap.OaBMRzvI.js",
+      "url": "https://static.linear.app/client/assets/vendor-focus-trap.OaBMRzvI.js"
+    },
+    {
+      "id": "0f39ff6e9385c8d2",
+      "kind": "script",
+      "name": "vendor-tabbable.C68pKDe6.js",
+      "url": "https://static.linear.app/client/assets/vendor-tabbable.C68pKDe6.js"
+    },
+    {
+      "id": "a87166af82345c3a",
+      "kind": "script",
+      "name": "vendor-react-window.BfNvsPmd.js",
+      "url": "https://static.linear.app/client/assets/vendor-react-window.BfNvsPmd.js"
+    },
+    {
+      "id": "d9e4452da88321df",
+      "kind": "script",
+      "name": "Input.Qu5w9aCc.js",
+      "url": "https://static.linear.app/client/assets/Input.Qu5w9aCc.js"
+    },
+    {
+      "id": "ff321448cb4f3eeb",
+      "kind": "stylesheet",
+      "name": "Input-DxSL0lOB.css",
+      "url": "https://static.linear.app/client/assets/Input-DxSL0lOB.css"
+    },
+    {
+      "id": "163841983752f468",
+      "kind": "script",
+      "name": "useComponentSize.DJARB0mi.js",
+      "url": "https://static.linear.app/client/assets/useComponentSize.DJARB0mi.js"
+    },
+    {
+      "id": "ea647800390594e2",
+      "kind": "stylesheet",
+      "name": "SimpleActionMenu-CWdNBVaN.css",
+      "url": "https://static.linear.app/client/assets/SimpleActionMenu-CWdNBVaN.css"
+    },
+    {
+      "id": "7bbf9c2833d7a005",
+      "kind": "script",
+      "name": "Select.BQfLjLav.js",
+      "url": "https://static.linear.app/client/assets/Select.BQfLjLav.js"
+    },
+    {
+      "id": "00ddcceff0a7259a",
+      "kind": "script",
+      "name": "vendor-radix-ui.CqxTT7l6.js",
+      "url": "https://static.linear.app/client/assets/vendor-radix-ui.CqxTT7l6.js"
+    },
+    {
+      "id": "6ebdd657ce32629c",
+      "kind": "script",
+      "name": "tslib.es6.CKvMHan2.js",
+      "url": "https://static.linear.app/client/assets/tslib.es6.CKvMHan2.js"
+    },
+    {
+      "id": "c0a46a9221e6d756",
+      "kind": "script",
+      "name": "ChevronDownIcon.Cckh4mZG.js",
+      "url": "https://static.linear.app/client/assets/ChevronDownIcon.Cckh4mZG.js"
+    },
+    {
+      "id": "d34ca331ac12e995",
+      "kind": "script",
+      "name": "vendor-html-entities.DMwxTCi4.js",
+      "url": "https://static.linear.app/client/assets/vendor-html-entities.DMwxTCi4.js"
+    },
+    {
+      "id": "a0e3daa8ef61e6d1",
+      "kind": "script",
+      "name": "react.CxaX9ux5.js",
+      "url": "https://static.linear.app/client/assets/react.CxaX9ux5.js"
+    },
+    {
+      "id": "cc43443e2301fd49",
+      "kind": "script",
+      "name": "vendor-prosemirror-dropcursor.1lk5QFcS.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-dropcursor.1lk5QFcS.js"
+    },
+    {
+      "id": "c2a06eef6d5e1c39",
+      "kind": "script",
+      "name": "vendor-prosemirror-gapcursor.kVnTVS6m.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-gapcursor.kVnTVS6m.js"
+    },
+    {
+      "id": "1581700937c27419",
+      "kind": "script",
+      "name": "vendor-prosemirror-history.DMq10n2Y.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-history.DMq10n2Y.js"
+    },
+    {
+      "id": "ab652b4cb0e2948d",
+      "kind": "script",
+      "name": "vendor-prosemirror-inputrules.Bka5_Kmr.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-inputrules.Bka5_Kmr.js"
+    },
+    {
+      "id": "27fc613b55e1d966",
+      "kind": "script",
+      "name": "vendor-prosemirror-schema-list.DlihAuKP.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-schema-list.DlihAuKP.js"
+    },
+    {
+      "id": "130bb9d3d4383e87",
+      "kind": "script",
+      "name": "vendor-prosemirror-utils.BWtIb-eB.js",
+      "url": "https://static.linear.app/client/assets/vendor-prosemirror-utils.BWtIb-eB.js"
+    },
+    {
+      "id": "4efc961c4fd2028e",
+      "kind": "script",
+      "name": "GridLoaderProgressIcon.DLqkL-dY.js",
+      "url": "https://static.linear.app/client/assets/GridLoaderProgressIcon.DLqkL-dY.js"
+    },
+    {
+      "id": "a92f0017129ddf3b",
+      "kind": "script",
+      "name": "useReducerWithEffects.DlMNCSmp.js",
+      "url": "https://static.linear.app/client/assets/useReducerWithEffects.DlMNCSmp.js"
+    },
+    {
+      "id": "4026bac7b4f9c4ca",
+      "kind": "script",
+      "name": "DelayedMount.D4SReLZi.js",
+      "url": "https://static.linear.app/client/assets/DelayedMount.D4SReLZi.js"
+    },
+    {
+      "id": "20db014ac29492a0",
+      "kind": "stylesheet",
+      "name": "useIsMounted-CfrSe5rJ.css",
+      "url": "https://static.linear.app/client/assets/useIsMounted-CfrSe5rJ.css"
+    },
+    {
+      "id": "44d53f23d8268a67",
+      "kind": "script",
+      "name": "pullRequestUrlByGitHubInfoQuery.ykP4L66f.js",
+      "url": "https://static.linear.app/client/assets/pullRequestUrlByGitHubInfoQuery.ykP4L66f.js"
+    },
+    {
+      "id": "bbeb3075643a2774",
+      "kind": "script",
+      "name": "CloseIcon.Cof_WPZM.js",
+      "url": "https://static.linear.app/client/assets/CloseIcon.Cof_WPZM.js"
+    },
+    {
+      "id": "a41275814dcd00b6",
+      "kind": "script",
+      "name": "usePromise.6LsY9oSb.js",
+      "url": "https://static.linear.app/client/assets/usePromise.6LsY9oSb.js"
+    },
+    {
+      "id": "e9c526332bfe401c",
+      "kind": "script",
+      "name": "useUserSettings.BES3UijE.js",
+      "url": "https://static.linear.app/client/assets/useUserSettings.BES3UijE.js"
+    },
+    {
+      "id": "6b6a9bab33e155ad",
+      "kind": "script",
+      "name": "useUser.j-WMa685.js",
+      "url": "https://static.linear.app/client/assets/useUser.j-WMa685.js"
+    },
+    {
+      "id": "63b10db71570437f",
+      "kind": "script",
+      "name": "AutoResizingContainer.BZIb-r0D.js",
+      "url": "https://static.linear.app/client/assets/AutoResizingContainer.BZIb-r0D.js"
+    },
+    {
+      "id": "f7804c99a5764f34",
+      "kind": "stylesheet",
+      "name": "Avatar-Cxp1fEZG.css",
+      "url": "https://static.linear.app/client/assets/Avatar-Cxp1fEZG.css"
+    },
+    {
+      "id": "5066083d440a4ec9",
+      "kind": "script",
+      "name": "ActionContextMenuType.C7QzHCF2.js",
+      "url": "https://static.linear.app/client/assets/ActionContextMenuType.C7QzHCF2.js"
+    },
+    {
+      "id": "359868fdb186b908",
+      "kind": "script",
+      "name": "RegisterAction.CkuojG60.js",
+      "url": "https://static.linear.app/client/assets/RegisterAction.CkuojG60.js"
+    },
+    {
+      "id": "75ec86cb50f18479",
+      "kind": "script",
+      "name": "InitiativeIcon.BC6fkoF8.js",
+      "url": "https://static.linear.app/client/assets/InitiativeIcon.BC6fkoF8.js"
+    },
+    {
+      "id": "c660995831a73a0a",
+      "kind": "script",
+      "name": "CurrentUserIcon.DZcXxWW3.js",
+      "url": "https://static.linear.app/client/assets/CurrentUserIcon.DZcXxWW3.js"
+    },
+    {
+      "id": "51568e40053a1c2c",
+      "kind": "script",
+      "name": "modelActionFormatter.DYSFFNmm.js",
+      "url": "https://static.linear.app/client/assets/modelActionFormatter.DYSFFNmm.js"
+    },
+    {
+      "id": "7ab50d17f1d373c4",
+      "kind": "script",
+      "name": "AiConversationContextHelper.Duj2_VD5.js",
+      "url": "https://static.linear.app/client/assets/AiConversationContextHelper.Duj2_VD5.js"
+    },
+    {
+      "id": "c1807230ff26bb7f",
+      "kind": "script",
+      "name": "LinearLogo.B6ThshKD.js",
+      "url": "https://static.linear.app/client/assets/LinearLogo.B6ThshKD.js"
+    },
+    {
+      "id": "190febeb8a27ee98",
+      "kind": "script",
+      "name": "ModelIcon.DLcUmUHm.js",
+      "url": "https://static.linear.app/client/assets/ModelIcon.DLcUmUHm.js"
+    },
+    {
+      "id": "0fe1be65f8d50e79",
+      "kind": "script",
+      "name": "TemplateModelIcon.CG2NTPO1.js",
+      "url": "https://static.linear.app/client/assets/TemplateModelIcon.CG2NTPO1.js"
+    },
+    {
+      "id": "0325086f2fb52775",
+      "kind": "script",
+      "name": "CustomerLogo.Dix9R3a4.js",
+      "url": "https://static.linear.app/client/assets/CustomerLogo.Dix9R3a4.js"
+    },
+    {
+      "id": "5200b413f9bd8803",
+      "kind": "script",
+      "name": "CustomerStatusIcon.BBeOU8nA.js",
+      "url": "https://static.linear.app/client/assets/CustomerStatusIcon.BBeOU8nA.js"
+    },
+    {
+      "id": "b975581b4679fd8f",
+      "kind": "script",
+      "name": "usersBlockFilterUtils.C9bS1mZf.js",
+      "url": "https://static.linear.app/client/assets/usersBlockFilterUtils.C9bS1mZf.js"
+    },
+    {
+      "id": "7aec762ff02c5938",
+      "kind": "script",
+      "name": "SubscriptionsControl.D9fUnLbl.js",
+      "url": "https://static.linear.app/client/assets/SubscriptionsControl.D9fUnLbl.js"
+    },
+    {
+      "id": "80ea743677f2d123",
+      "kind": "script",
+      "name": "StateTypeIcon.C5khezQ2.js",
+      "url": "https://static.linear.app/client/assets/StateTypeIcon.C5khezQ2.js"
+    },
+    {
+      "id": "4aa2b63e08fa4ef9",
+      "kind": "script",
+      "name": "ActionMenuBackdrop.BApnhGp5.js",
+      "url": "https://static.linear.app/client/assets/ActionMenuBackdrop.BApnhGp5.js"
+    },
+    {
+      "id": "09610ace1d34628e",
+      "kind": "script",
+      "name": "DeveloperToolbar.D6fDwpAI.js",
+      "url": "https://static.linear.app/client/assets/DeveloperToolbar.D6fDwpAI.js"
+    },
+    {
+      "id": "9023cc8f33f8feef",
+      "kind": "script",
+      "name": "IncidentCommunication.B5et8CI4.js",
+      "url": "https://static.linear.app/client/assets/IncidentCommunication.B5et8CI4.js"
+    },
+    {
+      "id": "456318d48bb8ff4b",
+      "kind": "script",
+      "name": "useApplicationStore.BK8xJY6q.js",
+      "url": "https://static.linear.app/client/assets/useApplicationStore.BK8xJY6q.js"
+    },
+    {
+      "id": "00b382f15f3e528c",
+      "kind": "script",
+      "name": "useTheme.DjnYVZ83.js",
+      "url": "https://static.linear.app/client/assets/useTheme.DjnYVZ83.js"
+    },
+    {
+      "id": "e4daf14c47e536c4",
+      "kind": "script",
+      "name": "pageSizes.stylex.CPr3xKX_.js",
+      "url": "https://static.linear.app/client/assets/pageSizes.stylex.CPr3xKX_.js"
+    },
+    {
+      "id": "32f0aec9485b0b97",
+      "kind": "script",
+      "name": "vendor-tanstack.BS_Z6sMJ.js",
+      "url": "https://static.linear.app/client/assets/vendor-tanstack.BS_Z6sMJ.js"
+    },
+    {
+      "id": "a1808e95c69f4018",
+      "kind": "script",
+      "name": "lightThemeRefresh.CpLi64J1.js",
+      "url": "https://static.linear.app/client/assets/lightThemeRefresh.CpLi64J1.js"
+    },
+    {
+      "id": "fe016541485dbc60",
+      "kind": "script",
+      "name": "AgentToolbarState.BkUANIa2.js",
+      "url": "https://static.linear.app/client/assets/AgentToolbarState.BkUANIa2.js"
+    },
+    {
+      "id": "bcfd41eae4fce295",
+      "kind": "script",
+      "name": "ActionTrigger.Cu_7FwRU.js",
+      "url": "https://static.linear.app/client/assets/ActionTrigger.Cu_7FwRU.js"
+    },
+    {
+      "id": "9493650f177aa51a",
+      "kind": "script",
+      "name": "labelBlockFilterUtils.Bmc4Zo-_.js",
+      "url": "https://static.linear.app/client/assets/labelBlockFilterUtils.Bmc4Zo-_.js"
+    },
+    {
+      "id": "fa86f7bd95955eed",
+      "kind": "script",
+      "name": "teamBlockFilterUtils.kDbU7tEF.js",
+      "url": "https://static.linear.app/client/assets/teamBlockFilterUtils.kDbU7tEF.js"
+    },
+    {
+      "id": "d20b680f148b0f3d",
+      "kind": "script",
+      "name": "ChevronRightIcon.BsC0uqEU.js",
+      "url": "https://static.linear.app/client/assets/ChevronRightIcon.BsC0uqEU.js"
+    },
+    {
+      "id": "495667bc2171075d",
+      "kind": "stylesheet",
+      "name": "Tabs-CNcBYrgv.css",
+      "url": "https://static.linear.app/client/assets/Tabs-CNcBYrgv.css"
+    },
+    {
+      "id": "f368df171eb02c13",
+      "kind": "stylesheet",
+      "name": "useOnlyGrowHeight-sZI6vFi6.css",
+      "url": "https://static.linear.app/client/assets/useOnlyGrowHeight-sZI6vFi6.css"
+    },
+    {
+      "id": "8d9b779649397a23",
+      "kind": "stylesheet",
+      "name": "useSidebarDesktop-CgHgzGyG.css",
+      "url": "https://static.linear.app/client/assets/useSidebarDesktop-CgHgzGyG.css"
+    },
+    {
+      "id": "dde750bae5b46953",
+      "kind": "script",
+      "name": "LazyFastTriageAcceptEditorLoader.CvTHrH7_.js",
+      "url": "https://static.linear.app/client/assets/LazyFastTriageAcceptEditorLoader.CvTHrH7_.js"
+    },
+    {
+      "id": "a1061c8e40f44a86",
+      "kind": "script",
+      "name": "FastIssueCreateState.DdErTCbx.js",
+      "url": "https://static.linear.app/client/assets/FastIssueCreateState.DdErTCbx.js"
+    },
+    {
+      "id": "a4d3d8eb731aa655",
+      "kind": "script",
+      "name": "LocalDraftIssueCreate.pcLU5c98.js",
+      "url": "https://static.linear.app/client/assets/LocalDraftIssueCreate.pcLU5c98.js"
+    },
+    {
+      "id": "29c38ebd4f2e8a99",
+      "kind": "script",
+      "name": "ModalComponents.C9kIMzVR.js",
+      "url": "https://static.linear.app/client/assets/ModalComponents.C9kIMzVR.js"
+    },
+    {
+      "id": "fa46755e9619f37f",
+      "kind": "script",
+      "name": "OrganizationLogo.BxEB4cUh.js",
+      "url": "https://static.linear.app/client/assets/OrganizationLogo.BxEB4cUh.js"
+    },
+    {
+      "id": "dc1531cdd1344a71",
+      "kind": "script",
+      "name": "ToastLink.DmPmkk4P.js",
+      "url": "https://static.linear.app/client/assets/ToastLink.DmPmkk4P.js"
+    },
+    {
+      "id": "d3ef7d9aefef1347",
+      "kind": "script",
+      "name": "ProjectStatusIcon.w6ECDhj2.js",
+      "url": "https://static.linear.app/client/assets/ProjectStatusIcon.w6ECDhj2.js"
+    },
+    {
+      "id": "f22ed60a30cccffa",
+      "kind": "script",
+      "name": "editor.03uj1dH4.js",
+      "url": "https://static.linear.app/client/assets/editor.03uj1dH4.js"
+    },
+    {
+      "id": "3c43adf539bf9f1f",
+      "kind": "stylesheet",
+      "name": "editor-q9Kr0LQ3.css",
+      "url": "https://static.linear.app/client/assets/editor-q9Kr0LQ3.css"
+    },
+    {
+      "id": "60430a8de9a51532",
+      "kind": "script",
+      "name": "dateBlockFilterUtils.BV7oPFdA.js",
+      "url": "https://static.linear.app/client/assets/dateBlockFilterUtils.BV7oPFdA.js"
+    },
+    {
+      "id": "7bb0fa959cfffbaa",
+      "kind": "script",
+      "name": "PriorityIcon.DmxC_RZ3.js",
+      "url": "https://static.linear.app/client/assets/PriorityIcon.DmxC_RZ3.js"
+    },
+    {
+      "id": "07089d46abfcfbd9",
+      "kind": "script",
+      "name": "InitiativeFilterBlocks.BxwfePDf.js",
+      "url": "https://static.linear.app/client/assets/InitiativeFilterBlocks.BxwfePDf.js"
+    },
+    {
+      "id": "47b1a77f2816b0a5",
+      "kind": "script",
+      "name": "CreatorIcon.DlX1YELm.js",
+      "url": "https://static.linear.app/client/assets/CreatorIcon.DlX1YELm.js"
+    },
+    {
+      "id": "242a2a23cdb1ad1a",
+      "kind": "script",
+      "name": "ProjectFilterBlocks.BuxhGEV4.js",
+      "url": "https://static.linear.app/client/assets/ProjectFilterBlocks.BuxhGEV4.js"
+    },
+    {
+      "id": "97881b1d93fe7ee6",
+      "kind": "script",
+      "name": "UpdatedIcon.C08gm03P.js",
+      "url": "https://static.linear.app/client/assets/UpdatedIcon.C08gm03P.js"
+    },
+    {
+      "id": "3220ec3a4b4c26e0",
+      "kind": "script",
+      "name": "projectBlockFilterUtils.BjdZMndw.js",
+      "url": "https://static.linear.app/client/assets/projectBlockFilterUtils.BjdZMndw.js"
+    },
+    {
+      "id": "ca7d8e74fde934ab",
+      "kind": "script",
+      "name": "getAssigneeFilterOptionsForContext._P7vG9Q_.js",
+      "url": "https://static.linear.app/client/assets/getAssigneeFilterOptionsForContext._P7vG9Q_.js"
+    },
+    {
+      "id": "47aa73f4fa07ddbd",
+      "kind": "script",
+      "name": "ProjectsRelevance.BGI1pjqx.js",
+      "url": "https://static.linear.app/client/assets/ProjectsRelevance.BGI1pjqx.js"
+    },
+    {
+      "id": "463f3e98dab00c78",
+      "kind": "script",
+      "name": "LogoutHelper.DPH91x4Z.js",
+      "url": "https://static.linear.app/client/assets/LogoutHelper.DPH91x4Z.js"
+    },
+    {
+      "id": "4b86509d01a81519",
+      "kind": "script",
+      "name": "PermissionHelper.BUKQRB0Y.js",
+      "url": "https://static.linear.app/client/assets/PermissionHelper.BUKQRB0Y.js"
+    },
+    {
+      "id": "af63a4c7bf268518",
+      "kind": "script",
+      "name": "ReviewsHelper.D6OOOx-_.js",
+      "url": "https://static.linear.app/client/assets/ReviewsHelper.D6OOOx-_.js"
+    },
+    {
+      "id": "950ad5a8ab33bf0e",
+      "kind": "script",
+      "name": "GongOAuth.tMcX1_7z.js",
+      "url": "https://static.linear.app/client/assets/GongOAuth.tMcX1_7z.js"
+    },
+    {
+      "id": "9db4011d29a75dd1",
+      "kind": "script",
+      "name": "IntercomOAuth.BtsDGbkN.js",
+      "url": "https://static.linear.app/client/assets/IntercomOAuth.BtsDGbkN.js"
+    },
+    {
+      "id": "308ca8729a0a45ab",
+      "kind": "script",
+      "name": "openAuthView.BX632_2D.js",
+      "url": "https://static.linear.app/client/assets/openAuthView.BX632_2D.js"
+    },
+    {
+      "id": "1f0586d77c4b0f38",
+      "kind": "script",
+      "name": "integrationConnectionProgress.BSCBfU3w.js",
+      "url": "https://static.linear.app/client/assets/integrationConnectionProgress.BSCBfU3w.js"
+    },
+    {
+      "id": "9da16f2b7d882a98",
+      "kind": "script",
+      "name": "JiraOAuth.BH2sbyIH.js",
+      "url": "https://static.linear.app/client/assets/JiraOAuth.BH2sbyIH.js"
+    },
+    {
+      "id": "6c393d9b2f10b3d0",
+      "kind": "script",
+      "name": "PagerDutyOAuth.DK42VolB.js",
+      "url": "https://static.linear.app/client/assets/PagerDutyOAuth.DK42VolB.js"
+    },
+    {
+      "id": "1e96a22c305bd9e1",
+      "kind": "script",
+      "name": "SalesforceOAuth.BlNdnjhT.js",
+      "url": "https://static.linear.app/client/assets/SalesforceOAuth.BlNdnjhT.js"
+    },
+    {
+      "id": "bb9a82834efe82a9",
+      "kind": "script",
+      "name": "ZendeskOAuth.D23XrCdb.js",
+      "url": "https://static.linear.app/client/assets/ZendeskOAuth.D23XrCdb.js"
+    },
+    {
+      "id": "211c9ffecfef3fc7",
+      "kind": "script",
+      "name": "LayoutConstants.stylex.CQLkz4Fq.js",
+      "url": "https://static.linear.app/client/assets/LayoutConstants.stylex.CQLkz4Fq.js"
+    },
+    {
+      "id": "9f1b820d594e3288",
+      "kind": "script",
+      "name": "reviewPageMode.CGF_GHxy.js",
+      "url": "https://static.linear.app/client/assets/reviewPageMode.CGF_GHxy.js"
+    },
+    {
+      "id": "8a6b3f6a8e0e0f62",
+      "kind": "script",
+      "name": "vendor-react-medium-image-zoom.DbKRONXP.js",
+      "url": "https://static.linear.app/client/assets/vendor-react-medium-image-zoom.DbKRONXP.js"
+    },
+    {
+      "id": "3277385622b02ab3",
+      "kind": "stylesheet",
+      "name": "vendor-react-medium-image-zoom-T8makrnF.css",
+      "url": "https://static.linear.app/client/assets/vendor-react-medium-image-zoom-T8makrnF.css"
+    },
+    {
+      "id": "43c8298900caee57",
+      "kind": "script",
+      "name": "desktopServer.CkxtCl9Z.js",
+      "url": "https://static.linear.app/client/assets/desktopServer.CkxtCl9Z.js"
+    },
+    {
+      "id": "041c1fa6b37b1fcb",
+      "kind": "script",
+      "name": "__vite-browser-external.sAfOX7G5.js",
+      "url": "https://static.linear.app/client/assets/__vite-browser-external.sAfOX7G5.js"
+    },
+    {
+      "id": "70372144d560f899",
+      "kind": "script",
+      "name": "queryClient.DQM6bnLY.js",
+      "url": "https://static.linear.app/client/assets/queryClient.DQM6bnLY.js"
+    },
+    {
+      "id": "f4977d127fbd0d6d",
+      "kind": "stylesheet",
+      "name": "AgentToolbarActions-CA9W0M7O.css",
+      "url": "https://static.linear.app/client/assets/AgentToolbarActions-CA9W0M7O.css"
+    },
+    {
+      "id": "daa78be841b35e35",
+      "kind": "script",
+      "name": "SimpleErrorBoundary.C3U91JEU.js",
+      "url": "https://static.linear.app/client/assets/SimpleErrorBoundary.C3U91JEU.js"
+    },
+    {
+      "id": "7b545295147c66e8",
+      "kind": "script",
+      "name": "RouteErrorBoundary.CwMWxdUS.js",
+      "url": "https://static.linear.app/client/assets/RouteErrorBoundary.CwMWxdUS.js"
+    },
+    {
+      "id": "54fa45f3ba93ccaf",
+      "kind": "script",
+      "name": "RouteErrorResponse.BbkH7kxn.js",
+      "url": "https://static.linear.app/client/assets/RouteErrorResponse.BbkH7kxn.js"
+    },
+    {
+      "id": "40c29769f341c476",
+      "kind": "script",
+      "name": "Error404Message.anMdduPq.js",
+      "url": "https://static.linear.app/client/assets/Error404Message.anMdduPq.js"
+    },
+    {
+      "id": "d85e744e1a0d03b3",
+      "kind": "script",
+      "name": "getViewFilters.DzrhRYM2.js",
+      "url": "https://static.linear.app/client/assets/getViewFilters.DzrhRYM2.js"
+    },
+    {
+      "id": "ac7651fc522e1de5",
+      "kind": "script",
+      "name": "InlineFilter.B9Vt1hwB.js",
+      "url": "https://static.linear.app/client/assets/InlineFilter.B9Vt1hwB.js"
+    },
+    {
+      "id": "ff2bdbf4f6b8aed4",
+      "kind": "script",
+      "name": "DiffComputer.Dckr8dH4.js",
+      "url": "https://static.linear.app/client/assets/DiffComputer.Dckr8dH4.js"
+    },
+    {
+      "id": "7f7e77c82e954a42",
+      "kind": "script",
+      "name": "BackgroundReviewProcessor.Bq2I3xAW.js",
+      "url": "https://static.linear.app/client/assets/BackgroundReviewProcessor.Bq2I3xAW.js"
+    },
+    {
+      "id": "7406606a48679c15",
+      "kind": "script",
+      "name": "resolveIssueViewAndRelatedModels.CiWPBh-9.js",
+      "url": "https://static.linear.app/client/assets/resolveIssueViewAndRelatedModels.CiWPBh-9.js"
+    },
+    {
+      "id": "37b87ff8114c4803",
+      "kind": "script",
+      "name": "RenderPerformanceReporting.DnWYUhV3.js",
+      "url": "https://static.linear.app/client/assets/RenderPerformanceReporting.DnWYUhV3.js"
+    },
+    {
+      "id": "a35d0260d9818d49",
+      "kind": "script",
+      "name": "redirects.C9cNMq4Z.js",
+      "url": "https://static.linear.app/client/assets/redirects.C9cNMq4Z.js"
+    },
+    {
+      "id": "2d65767c662a8131",
+      "kind": "script",
+      "name": "routeProtection.Yp1zfhXO.js",
+      "url": "https://static.linear.app/client/assets/routeProtection.Yp1zfhXO.js"
+    },
+    {
+      "id": "483f6c7e3d46259a",
+      "kind": "script",
+      "name": "AuthDesktopRedirect.Bf5sNVH7.js",
+      "url": "https://static.linear.app/client/assets/AuthDesktopRedirect.Bf5sNVH7.js"
+    },
+    {
+      "id": "1bdd16d63d08f766",
+      "kind": "script",
+      "name": "IssueCommentsAndHistoryData.AF-IXF1p.js",
+      "url": "https://static.linear.app/client/assets/IssueCommentsAndHistoryData.AF-IXF1p.js"
+    },
+    {
+      "id": "28678532a217c2dd",
+      "kind": "script",
+      "name": "PostSummaryFullUpdatePreload.Jj6y2SGi.js",
+      "url": "https://static.linear.app/client/assets/PostSummaryFullUpdatePreload.Jj6y2SGi.js"
+    },
+    {
+      "id": "94e04dc3609480b7",
+      "kind": "script",
+      "name": "LazyLoginView.BneOCB0m.js",
+      "url": "https://static.linear.app/client/assets/LazyLoginView.BneOCB0m.js"
+    },
+    {
+      "id": "ffc92cdee80c2d43",
+      "kind": "stylesheet",
+      "name": "Root-huwtNLMs.css",
+      "url": "https://static.linear.app/client/assets/Root-huwtNLMs.css"
+    }
+  ]
+}

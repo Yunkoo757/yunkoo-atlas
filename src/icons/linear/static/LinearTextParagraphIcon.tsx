@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M1 2.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5V3a.5.5 0 0 1-.5.5H4.25v3.25a.5.5 0 0 1-.5.5h-.5a.5.5 0 0 1-.5-.5V3.5H1.5A.5.5 0 0 1 1 3zm7 0a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 .5.5V3a.5.5 0 0 1-.5.5h-6A.5.5 0 0 1 8 3zM8 6a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 .5.5v.5a.5.5 0 0 1-.5.5h-6a.5.5 0 0 1-.5-.5zM1.5 9a.5.5 0 0 0-.5.5v.5a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-.5a.5.5 0 0 0-.5-.5zM1 13a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 .5.5v.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5z\"></path>"
+
+export function LinearTextParagraphIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

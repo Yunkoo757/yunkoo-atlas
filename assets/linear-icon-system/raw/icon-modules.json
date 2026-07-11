@@ -1,0 +1,206 @@
+[
+  {
+    "id": "330115a058aa5935",
+    "kind": "script",
+    "name": "vendor-emotion.BQ767AMs.js",
+    "url": "https://static.linear.app/client/assets/vendor-emotion.BQ767AMs.js"
+  },
+  {
+    "id": "0c644ad32aa79ac8",
+    "kind": "script",
+    "name": "LoadingDoneHelper.7f9Gr4hb.js",
+    "url": "https://static.linear.app/client/assets/LoadingDoneHelper.7f9Gr4hb.js"
+  },
+  {
+    "id": "a6ec6f7fd445b87f",
+    "kind": "script",
+    "name": "Icon.stylex.DFpLzmUx.js",
+    "url": "https://static.linear.app/client/assets/Icon.stylex.DFpLzmUx.js"
+  },
+  {
+    "id": "eb1b568c0a3300b1",
+    "kind": "script",
+    "name": "EmojiHelper.DD7S7Mfu.js",
+    "url": "https://static.linear.app/client/assets/EmojiHelper.DD7S7Mfu.js"
+  },
+  {
+    "id": "5a455238a96e2066",
+    "kind": "script",
+    "name": "DecorativeIcon.DdcrIF87.js",
+    "url": "https://static.linear.app/client/assets/DecorativeIcon.DdcrIF87.js"
+  },
+  {
+    "id": "979bf208b9cc16a0",
+    "kind": "script",
+    "name": "IconButton.uLzvwrCp.js",
+    "url": "https://static.linear.app/client/assets/IconButton.uLzvwrCp.js"
+  },
+  {
+    "id": "8ba9b51712a7c2dc",
+    "kind": "script",
+    "name": "useReducedMotion.hiCEHHWR.js",
+    "url": "https://static.linear.app/client/assets/useReducedMotion.hiCEHHWR.js"
+  },
+  {
+    "id": "95e728a36fc334e6",
+    "kind": "script",
+    "name": "PlusIcon.xT_6rpCH.js",
+    "url": "https://static.linear.app/client/assets/PlusIcon.xT_6rpCH.js"
+  },
+  {
+    "id": "e2faf94f49c30e6a",
+    "kind": "script",
+    "name": "Avatar.CfvvjnyD.js",
+    "url": "https://static.linear.app/client/assets/Avatar.CfvvjnyD.js"
+  },
+  {
+    "id": "2ceb855314ddedbd",
+    "kind": "script",
+    "name": "TeamsIcon.DQsStVVe.js",
+    "url": "https://static.linear.app/client/assets/TeamsIcon.DQsStVVe.js"
+  },
+  {
+    "id": "f192d62ea1221acf",
+    "kind": "script",
+    "name": "GridLoaderIcon.Co0y5dEn.js",
+    "url": "https://static.linear.app/client/assets/GridLoaderIcon.Co0y5dEn.js"
+  },
+  {
+    "id": "73c57538196c175e",
+    "kind": "stylesheet",
+    "name": "GridLoaderIcon-CeNB58KF.css",
+    "url": "https://static.linear.app/client/assets/GridLoaderIcon-CeNB58KF.css"
+  },
+  {
+    "id": "54765997197e0d63",
+    "kind": "script",
+    "name": "EmojiContainer.CeAZEvLX.js",
+    "url": "https://static.linear.app/client/assets/EmojiContainer.CeAZEvLX.js"
+  },
+  {
+    "id": "f88322956217fa2c",
+    "kind": "script",
+    "name": "ChevronIcon.lWqxv3iV.js",
+    "url": "https://static.linear.app/client/assets/ChevronIcon.lWqxv3iV.js"
+  },
+  {
+    "id": "0cebee2819d02e57",
+    "kind": "script",
+    "name": "IssueIcon.C1INCCrq.js",
+    "url": "https://static.linear.app/client/assets/IssueIcon.C1INCCrq.js"
+  },
+  {
+    "id": "1ae8a86a530fa6c6",
+    "kind": "script",
+    "name": "CustomerDefaultLogoIcon.bOxxJKjX.js",
+    "url": "https://static.linear.app/client/assets/CustomerDefaultLogoIcon.bOxxJKjX.js"
+  },
+  {
+    "id": "2d6ea7515ed50b7f",
+    "kind": "script",
+    "name": "Avatar.DhZZX1M6.js",
+    "url": "https://static.linear.app/client/assets/Avatar.DhZZX1M6.js"
+  },
+  {
+    "id": "c0a46a9221e6d756",
+    "kind": "script",
+    "name": "ChevronDownIcon.Cckh4mZG.js",
+    "url": "https://static.linear.app/client/assets/ChevronDownIcon.Cckh4mZG.js"
+  },
+  {
+    "id": "4efc961c4fd2028e",
+    "kind": "script",
+    "name": "GridLoaderProgressIcon.DLqkL-dY.js",
+    "url": "https://static.linear.app/client/assets/GridLoaderProgressIcon.DLqkL-dY.js"
+  },
+  {
+    "id": "bbeb3075643a2774",
+    "kind": "script",
+    "name": "CloseIcon.Cof_WPZM.js",
+    "url": "https://static.linear.app/client/assets/CloseIcon.Cof_WPZM.js"
+  },
+  {
+    "id": "f7804c99a5764f34",
+    "kind": "stylesheet",
+    "name": "Avatar-Cxp1fEZG.css",
+    "url": "https://static.linear.app/client/assets/Avatar-Cxp1fEZG.css"
+  },
+  {
+    "id": "75ec86cb50f18479",
+    "kind": "script",
+    "name": "InitiativeIcon.BC6fkoF8.js",
+    "url": "https://static.linear.app/client/assets/InitiativeIcon.BC6fkoF8.js"
+  },
+  {
+    "id": "c660995831a73a0a",
+    "kind": "script",
+    "name": "CurrentUserIcon.DZcXxWW3.js",
+    "url": "https://static.linear.app/client/assets/CurrentUserIcon.DZcXxWW3.js"
+  },
+  {
+    "id": "7ab50d17f1d373c4",
+    "kind": "script",
+    "name": "AiConversationContextHelper.Duj2_VD5.js",
+    "url": "https://static.linear.app/client/assets/AiConversationContextHelper.Duj2_VD5.js"
+  },
+  {
+    "id": "190febeb8a27ee98",
+    "kind": "script",
+    "name": "ModelIcon.DLcUmUHm.js",
+    "url": "https://static.linear.app/client/assets/ModelIcon.DLcUmUHm.js"
+  },
+  {
+    "id": "0fe1be65f8d50e79",
+    "kind": "script",
+    "name": "TemplateModelIcon.CG2NTPO1.js",
+    "url": "https://static.linear.app/client/assets/TemplateModelIcon.CG2NTPO1.js"
+  },
+  {
+    "id": "5200b413f9bd8803",
+    "kind": "script",
+    "name": "CustomerStatusIcon.BBeOU8nA.js",
+    "url": "https://static.linear.app/client/assets/CustomerStatusIcon.BBeOU8nA.js"
+  },
+  {
+    "id": "80ea743677f2d123",
+    "kind": "script",
+    "name": "StateTypeIcon.C5khezQ2.js",
+    "url": "https://static.linear.app/client/assets/StateTypeIcon.C5khezQ2.js"
+  },
+  {
+    "id": "d20b680f148b0f3d",
+    "kind": "script",
+    "name": "ChevronRightIcon.BsC0uqEU.js",
+    "url": "https://static.linear.app/client/assets/ChevronRightIcon.BsC0uqEU.js"
+  },
+  {
+    "id": "d3ef7d9aefef1347",
+    "kind": "script",
+    "name": "ProjectStatusIcon.w6ECDhj2.js",
+    "url": "https://static.linear.app/client/assets/ProjectStatusIcon.w6ECDhj2.js"
+  },
+  {
+    "id": "7bb0fa959cfffbaa",
+    "kind": "script",
+    "name": "PriorityIcon.DmxC_RZ3.js",
+    "url": "https://static.linear.app/client/assets/PriorityIcon.DmxC_RZ3.js"
+  },
+  {
+    "id": "47b1a77f2816b0a5",
+    "kind": "script",
+    "name": "CreatorIcon.DlX1YELm.js",
+    "url": "https://static.linear.app/client/assets/CreatorIcon.DlX1YELm.js"
+  },
+  {
+    "id": "97881b1d93fe7ee6",
+    "kind": "script",
+    "name": "UpdatedIcon.C08gm03P.js",
+    "url": "https://static.linear.app/client/assets/UpdatedIcon.C08gm03P.js"
+  },
+  {
+    "id": "1f0586d77c4b0f38",
+    "kind": "script",
+    "name": "integrationConnectionProgress.BSCBfU3w.js",
+    "url": "https://static.linear.app/client/assets/integrationConnectionProgress.BSCBfU3w.js"
+  }
+]

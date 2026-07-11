@@ -1,0 +1,4 @@
+
+!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="539aa354-f078-5766-9989-0364a1895280")}catch(e){}}();
+import{n as e}from"./rolldown-runtime.Cmlxbba-.js";import{n as t,t as n}from"./vendor-react.4CtHp4wB.js";import{Yt as r,qt as i}from"./html.5XD_JD9a.js";function a(e){return(0,o.jsx)(i,{...e,children:(0,o.jsx)(`svg`,{children:(0,o.jsx)(`path`,{d:`M8.75 4C8.75 3.58579 8.41421 3.25 8 3.25C7.58579 3.25 7.25 3.58579 7.25 4V7.25H4C3.58579 7.25 3.25 7.58579 3.25 8C3.25 8.41421 3.58579 8.75 4 8.75H7.25V12C7.25 12.4142 7.58579 12.75 8 12.75C8.41421 12.75 8.75 12.4142 8.75 12V8.75H12C12.4142 8.75 12.75 8.41421 12.75 8C12.75 7.58579 12.4142 7.25 12 7.25H8.75V4Z`})})})}var o,s=e((()=>{t(),r(),o=n()}));export{s as n,a as t};
+//# debugId=539aa354-f078-5766-9989-0364a1895280

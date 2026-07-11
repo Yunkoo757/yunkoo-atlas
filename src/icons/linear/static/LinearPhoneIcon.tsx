@@ -1,0 +1,9 @@
+// Generated from svg-3.svg; do not edit.
+import { StaticLinearSvg } from '../StaticLinearSvg'
+import type { LinearStaticIconProps } from '../types'
+
+const body = "<path d=\"M6.81 1.137c.496.728.857 1.682 1.037 2.727.09.41-.226.728-.496.955l-.99.636c-.721.5 2.612 5.909 3.377 5.5l1.036-.637c.27-.182.72-.318 1.036-.045.856.636 1.531 1.363 1.982 2.136q.316.5-2.072 2.409C8.207 16.636.595 4.318 3.748 1.956q2.748-1.32 3.063-.819\"></path>"
+
+export function LinearPhoneIcon(props: LinearStaticIconProps) {
+  return <StaticLinearSvg {...props} body={body} viewBox="0 0 16 16" />
+}

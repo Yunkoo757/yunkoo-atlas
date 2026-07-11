@@ -1,0 +1,4 @@
+
+!function(){try{var e="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:{},n=(new e.Error).stack;n&&(e._sentryDebugIds=e._sentryDebugIds||{},e._sentryDebugIds[n]="1daee3c0-4ffb-5ce2-9b14-e2ec3c2ebd59")}catch(e){}}();
+import{n as e,s as t}from"./rolldown-runtime.Cmlxbba-.js";import{n}from"./vendor-react.4CtHp4wB.js";function r(){let[e,t]=a.useState(i);return a.useEffect(()=>{let e=window.matchMedia(o),n=()=>{t(e.matches)};return e.addEventListener?.(`change`,n),()=>{e.removeEventListener?.(`change`,n)}},[]),e}function i(){return typeof window>`u`?!1:window.matchMedia(o).matches}var a,o,s=e((()=>{a=t(n(),1),o=`(prefers-reduced-motion: reduce)`}));export{r as n,s as t};
+//# debugId=1daee3c0-4ffb-5ce2-9b14-e2ec3c2ebd59
