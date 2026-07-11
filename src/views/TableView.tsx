@@ -20,6 +20,17 @@ import './TableView.css'
 type SortKey = 'date' | 'symbol' | 'pnl' | 'r'
 type SortDir = 'asc' | 'desc'
 
+const TABLE_POSITION_LABEL = { Buy: '做多', Sell: '做空' } as const
+const TABLE_STATUS_LABEL: Record<string, string> = {
+  Planned: '计划中',
+  Open: '持仓中',
+  MISS: '错过',
+  'Closed by T/P': '盈利',
+  'Closed by S/L': '亏损',
+  Breakeven: '保本',
+}
+const TABLE_RESULT_LABEL = { Profit: '盈利', Loss: '亏损', Breakeven: '保本' } as const
+
 export function TableView({
   title = '交易',
   view,
@@ -96,19 +107,19 @@ export function TableView({
           <table className={'trade-table' + (isReviewCaseView ? ' trade-table-case' : '')}>
             <thead>
               <tr>
-                <th className="tv-sticky tv-col-ref">Trade</th>
-                <SortTh label="Date" sortKey="date" active={sortKey} dir={sortDir} onSort={setSort} />
-                <SortTh label="Symbol" sortKey="symbol" active={sortKey} dir={sortDir} onSort={setSort} />
-                <th>Timeframe</th>
-                <th>Model</th>
-                <th>Confluences</th>
-                <th>Entry Signal</th>
-                <th>Position</th>
-                <th>Status</th>
-                <SortTh label="Net PnL" sortKey="pnl" active={sortKey} dir={sortDir} onSort={setSort} align="right" />
-                <SortTh label="Max R/R" sortKey="r" active={sortKey} dir={sortDir} onSort={setSort} align="right" />
-                <th>Profit/Loss</th>
-                <th>Mistakes</th>
+                <th className="tv-sticky tv-col-ref">交易</th>
+                <SortTh label="日期" sortKey="date" active={sortKey} dir={sortDir} onSort={setSort} />
+                <SortTh label="品种" sortKey="symbol" active={sortKey} dir={sortDir} onSort={setSort} />
+                <th>周期</th>
+                <th>策略</th>
+                <th>共振条件</th>
+                <th>入场信号</th>
+                <th>方向</th>
+                <th>状态</th>
+                <SortTh label="净盈亏" sortKey="pnl" active={sortKey} dir={sortDir} onSort={setSort} align="right" />
+                <SortTh label="最大 R/R" sortKey="r" active={sortKey} dir={sortDir} onSort={setSort} align="right" />
+                <th>结果</th>
+                <th>错误</th>
               </tr>
             </thead>
             <tbody>
@@ -143,10 +154,10 @@ export function TableView({
                       <span className="tv-muted-chip">{row.entrySignal}</span>
                     </td>
                     <td>
-                      <span className={'tv-side tv-side-' + trade.side}>{row.position}</span>
+                      <span className={'tv-side tv-side-' + trade.side}>{TABLE_POSITION_LABEL[row.position]}</span>
                     </td>
                     <td>
-                      <span className={'tv-status tv-status-' + trade.status}>{row.status}</span>
+                      <span className={'tv-status tv-status-' + trade.status}>{TABLE_STATUS_LABEL[row.status] ?? row.status}</span>
                     </td>
                     <td className={trade.pnl > 0 ? 'tv-num tv-pos' : trade.pnl < 0 ? 'tv-num tv-neg' : 'tv-num'}>
                       {row.pnl}
@@ -154,7 +165,7 @@ export function TableView({
                     <td className="tv-num">{row.rMultiple}</td>
                     <td>
                       <span className={'tv-result tv-result-' + row.result.toLowerCase()}>
-                        {row.result}
+                        {TABLE_RESULT_LABEL[row.result]}
                       </span>
                     </td>
                     <td>
