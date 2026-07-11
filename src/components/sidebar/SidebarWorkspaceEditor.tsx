@@ -255,6 +255,25 @@ export function SidebarWorkspaceEditor({
       aria-modal={variant === 'mobile-fullscreen' ? 'true' : undefined}
       aria-labelledby={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID}
       data-mobile-fullscreen={variant === 'mobile-fullscreen' ? 'true' : undefined}
+      onKeyDown={(event) => {
+        if (variant !== 'mobile-fullscreen' || event.key !== 'Tab') return
+        const focusable = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), input:not(:disabled)',
+          ),
+        ).filter((element) => element.offsetParent !== null)
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (!first || !last) return
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }}
     >
       <header className="sb-workspace-editor-header">
         <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
