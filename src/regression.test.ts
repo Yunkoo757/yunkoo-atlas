@@ -705,6 +705,30 @@ export function testTradeDetailReturnRemembersListView(): void {
   assert(invalidLiveSource.pathname === '/list', '交易详情的失效案例来源应回退到交易列表')
 }
 
+export function testCaseDetailRejectsStaleLiveListContext(): void {
+  const result = resolveTradeDetailReturn({
+    from: { pathname: '/list', anchorTradeId: trade.id },
+    listPath: '/list',
+    listSearch: '?status=loss',
+    tradeKind: 'case',
+  })
+
+  assert(result.pathname === '/review-cases', '案例详情不得返回 stale 交易列表上下文')
+  assert(result.search === '', '案例类型回退不得保留 stale 交易筛选')
+}
+
+export function testLiveDetailRejectsStaleCaseListContext(): void {
+  const result = resolveTradeDetailReturn({
+    from: { pathname: '/review-cases/mistakes', anchorTradeId: trade.id },
+    listPath: '/review-cases/focus',
+    listSearch: '?symbol=BTCUSDT',
+    tradeKind: 'live',
+  })
+
+  assert(result.pathname === '/list', '交易详情不得返回 stale 案例列表上下文')
+  assert(result.search === '', '交易类型回退不得保留 stale 案例筛选')
+}
+
 export function testSymbolIconsResolveDefaultsAndOverrides(): void {
   assert(normalizeSymbol(' btc_usdt ') === 'BTCUSDT', '品种名应规范化为大写无分隔符')
   assert(detectSymbolMarket('BTCUSDT') === 'crypto', 'USDT 交易对应加密货币')
