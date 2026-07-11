@@ -1,5 +1,14 @@
-import type { SidebarNavId } from '@/lib/sidebarNav'
-import type { ReviewCaseScope } from '@/lib/tradeFilters'
+import type { Strategy } from '@/data/strategies'
+import type { Trade } from '@/data/trades'
+import {
+  savedViewSearch,
+  normalizeSavedViewPath,
+  type SavedTradeView,
+} from '@/lib/savedTradeViews'
+import { PRIMARY_NAV, SECONDARY_NAV, type PrimarySidebarNavId, type SidebarNavId } from '@/lib/sidebarNav'
+import type { DisplayPrefs, ListFilter, ReviewCaseScope } from '@/lib/tradeFilters'
+import { isValidPeriodSlug } from '@/lib/periods'
+import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 
 export type SidebarTarget =
   | { kind: 'system'; id: SidebarNavId }
@@ -12,6 +21,22 @@ export type SidebarWorkspaceItem = {
   target: SidebarTarget
   placement: 'pinned' | 'overflow'
   order: number
+}
+
+export type ResolvedSidebarWorkspaceItem = {
+  item: SidebarWorkspaceItem
+  key: string
+  label: string
+  pathname: string
+  search: string
+  icon: 'active' | 'favorites' | 'missed' | 'paper' | 'saved-view' | 'strategy' | 'case-view'
+  invalid: boolean
+}
+
+export type SidebarCountContext = {
+  trades: Trade[]
+  starredIds: string[]
+  display: DisplayPrefs
 }
 
 export const MAX_PINNED_SIDEBAR_ITEMS = 8
@@ -115,4 +140,189 @@ export function migrateSidebarPins(pins: readonly SidebarNavId[]): SidebarWorksp
       order,
     })),
   )
+}
+
+const CASE_VIEW_LABELS: Record<Exclude<ReviewCaseScope, 'all'>, string> = {
+  focus: '重点',
+  mistakes: '错题',
+  unreviewed: '待复看',
+  reviewed: '已掌握',
+}
+
+export function resolveSidebarWorkspaceItem(
+  item: SidebarWorkspaceItem,
+  sources: { savedViews: SavedTradeView[]; strategies: Strategy[] },
+): ResolvedSidebarWorkspaceItem {
+  const target = item.target
+  const key = sidebarTargetKey(target)
+  if (target.kind === 'system') {
+    const nav = SECONDARY_NAV.find((candidate) => candidate.id === target.id)!
+    return {
+      item,
+      key,
+      label: nav.label,
+      pathname: nav.to,
+      search: '',
+      icon: target.id,
+      invalid: false,
+    }
+  }
+  if (target.kind === 'saved-view') {
+    const view = sources.savedViews.find((candidate) => candidate.id === target.viewId)
+    return {
+      item,
+      key,
+      label: view?.name ?? '已删除的保存视图',
+      pathname: view?.pathname ?? '/list',
+      search: view ? savedViewSearch(view) : '',
+      icon: 'saved-view',
+      invalid: !view,
+    }
+  }
+  if (target.kind === 'strategy') {
+    const strategy = sources.strategies.find((candidate) => candidate.id === target.strategyId)
+    return {
+      item,
+      key,
+      label: strategy?.name ?? '已删除的策略',
+      pathname: `/strategy/${encodeURIComponent(target.strategyId)}`,
+      search: '',
+      icon: 'strategy',
+      invalid: !strategy,
+    }
+  }
+  return {
+    item,
+    key,
+    label: CASE_VIEW_LABELS[target.scope],
+    pathname: `/review-cases/${target.scope}`,
+    search: '',
+    icon: 'case-view',
+    invalid: false,
+  }
+}
+
+function normalizeTargetPath(pathname: string): string {
+  const normalized = normalizeSavedViewPath(pathname)
+  if (normalized === '/paper' || normalized === '/practice') return '/sim'
+  return normalized
+}
+
+function canonicalSearch(search: string): string {
+  return [...new URLSearchParams(search).entries()]
+    .sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+      leftKey.localeCompare(rightKey) || leftValue.localeCompare(rightValue),
+    )
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&')
+}
+
+function isStrictSearchSubset(targetSearch: string, currentSearch: string): boolean {
+  const target = new URLSearchParams(targetSearch)
+  const current = new URLSearchParams(currentSearch)
+  if (canonicalSearch(targetSearch) === canonicalSearch(currentSearch)) return false
+  return [...target.entries()].every(([key, value]) => current.getAll(key).includes(value))
+}
+
+function primaryIdForPath(pathname: string): PrimarySidebarNavId | undefined {
+  const path = normalizeTargetPath(pathname)
+  if (path === '/today-record') return 'today'
+  if (path.startsWith('/review-cases')) return 'reviewCases'
+  if (path === '/dashboard') return 'dashboard'
+  if (
+    path === '/list' ||
+    path === '/active' ||
+    path === '/favorites' ||
+    path === '/missed' ||
+    path === '/sim' ||
+    path.startsWith('/period/') ||
+    path.startsWith('/strategy/')
+  ) {
+    return 'trades'
+  }
+  return PRIMARY_NAV.find((item) => normalizeTargetPath(item.to) === path)?.id
+}
+
+export function resolveSidebarSelection(options: {
+  pathname: string
+  search: string
+  items: ResolvedSidebarWorkspaceItem[]
+}): {
+  activeWorkspaceItemId?: string
+  activePrimaryId?: PrimarySidebarNavId
+  modifiedWorkspaceItemId?: string
+} {
+  const pathname = normalizeTargetPath(options.pathname)
+  const validItems = options.items.filter((item) => !item.invalid)
+  const exact = validItems
+    .filter(
+      (item) =>
+        normalizeTargetPath(item.pathname) === pathname &&
+        canonicalSearch(item.search) === canonicalSearch(options.search),
+    )
+    .sort((left, right) => Number(right.item.target.kind === 'saved-view') - Number(left.item.target.kind === 'saved-view'))[0]
+  if (exact) return { activeWorkspaceItemId: exact.item.id }
+
+  const modified = validItems
+    .filter(
+      (item) =>
+        normalizeTargetPath(item.pathname) === pathname &&
+        isStrictSearchSubset(item.search, options.search),
+    )
+    .sort(
+      (left, right) =>
+        new URLSearchParams(right.search).size - new URLSearchParams(left.search).size,
+    )[0]
+  if (modified) {
+    return {
+      activeWorkspaceItemId: modified.item.id,
+      modifiedWorkspaceItemId: modified.item.id,
+    }
+  }
+  return { activePrimaryId: primaryIdForPath(pathname) }
+}
+
+function listTargetForPath(pathname: string): ListFilter | undefined {
+  const path = normalizeTargetPath(pathname)
+  if (path === '/list') return { type: 'all', tradeKind: 'live' }
+  if (path === '/active') return { type: 'active', tradeKind: 'live' }
+  if (path === '/favorites') return { type: 'starred' }
+  if (path === '/missed') return { type: 'missed' }
+  if (path === '/sim') return { type: 'all', tradeKind: 'paper' }
+  if (path === '/today-record') return { type: 'period', period: 'today', tradeKind: 'live' }
+  if (path === '/review-cases') {
+    return { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' }
+  }
+  if (path.startsWith('/review-cases/')) {
+    const scope = path.slice('/review-cases/'.length)
+    if (CASE_SCOPES.includes(scope as Exclude<ReviewCaseScope, 'all'>)) {
+      return {
+        type: 'all',
+        tradeKind: 'case',
+        reviewCaseScope: scope as Exclude<ReviewCaseScope, 'all'>,
+      }
+    }
+  }
+  if (path.startsWith('/strategy/')) {
+    return { type: 'strategy', strategyId: decodeURIComponent(path.slice('/strategy/'.length)) }
+  }
+  if (path.startsWith('/period/')) {
+    const period = path.slice('/period/'.length)
+    if (isValidPeriodSlug(period)) return { type: 'period', period, tradeKind: 'live' }
+  }
+  return undefined
+}
+
+export function countSidebarTarget(
+  target: ResolvedSidebarWorkspaceItem,
+  context: SidebarCountContext,
+): number | undefined {
+  if (target.invalid) return undefined
+  const filter = listTargetForPath(target.pathname)
+  if (!filter) return undefined
+  return getWorkbenchVisibleTrades({
+    ...context,
+    filter,
+    search: target.search,
+  }).length
 }

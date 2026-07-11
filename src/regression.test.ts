@@ -34,7 +34,14 @@ import {
   DEFAULT_SIDEBAR_PINS,
   resolvePinnedSecondaryNav,
 } from '@/lib/sidebarNav'
-import { normalizeSidebarWorkspaceItems } from '@/lib/sidebarWorkspace'
+import {
+  countSidebarTarget,
+  normalizeSidebarWorkspaceItems,
+  resolveSidebarSelection,
+  resolveSidebarWorkspaceItem,
+  type SidebarWorkspaceItem,
+} from '@/lib/sidebarWorkspace'
+import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
@@ -195,6 +202,177 @@ export function testNormalizeSidebarWorkspaceItemsDeduplicatesAndLimitsPinnedIte
   assert(items.filter((item) => item.placement === 'pinned').length === 8, '最多只能固定 8 项')
   assert(items[8]?.placement === 'overflow', '第 9 个固定项应进入 overflow')
   assert(items.map((item) => item.order).join(',') === '0,1,2,3,4,5,6,7,8', 'order 应连续重写')
+}
+
+export function testSidebarWorkspaceResolvesEveryTargetKindAndKeepsInvalidReferences(): void {
+  const savedView = {
+    id: 'loss-view',
+    name: '重命名后的亏损',
+    pathname: '/list',
+    search: { status: 'loss' },
+    pinned: false,
+    order: 0,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-02T00:00:00.000Z',
+  }
+  const sources = { savedViews: [savedView], strategies: [strategy] }
+  const items: SidebarWorkspaceItem[] = [
+    { id: 'paper', target: { kind: 'system', id: 'paper' }, placement: 'pinned', order: 0 },
+    { id: 'saved', target: { kind: 'saved-view', viewId: savedView.id }, placement: 'pinned', order: 1 },
+    { id: 'strategy', target: { kind: 'strategy', strategyId: strategy.id }, placement: 'pinned', order: 2 },
+    { id: 'mistakes', target: { kind: 'case-view', scope: 'mistakes' }, placement: 'pinned', order: 3 },
+  ]
+  const [paper, saved, resolvedStrategy, mistakes] = items.map((item) =>
+    resolveSidebarWorkspaceItem(item, sources),
+  )
+
+  assert(paper?.pathname === '/sim' && paper.icon === 'paper', 'paper 应解析为模拟回测目标 /sim')
+  assert(saved?.label === '重命名后的亏损' && !saved.invalid, '保存视图应实时显示重命名后的名称')
+  assert(resolvedStrategy?.label === strategy.name && !resolvedStrategy.invalid, '策略应解析当前名称')
+  assert(
+    mistakes?.pathname === '/review-cases/mistakes' && mistakes.icon === 'case-view',
+    '案例错题应解析到固定案例路径',
+  )
+
+  const invalidSaved = resolveSidebarWorkspaceItem(items[1]!, { savedViews: [], strategies: [strategy] })
+  const invalidStrategy = resolveSidebarWorkspaceItem(items[2]!, { savedViews: [savedView], strategies: [] })
+  assert(invalidSaved.invalid, '删除保存视图后应保留引用并标记 invalid')
+  assert(invalidStrategy.invalid, '删除策略后管理列表应保留引用并标记 invalid')
+  assert(
+    [invalidStrategy].filter((item) => !item.invalid).length === 0 && items.includes(items[2]!),
+    '删除策略后日常列表可隐藏失效项，但管理列表仍保留原配置',
+  )
+
+  for (const alias of ['/sim', '/paper', '/practice']) {
+    const selection = resolveSidebarSelection({ pathname: alias, search: '', items: [paper!] })
+    assert(selection.activeWorkspaceItemId === 'paper', `${alias} 应激活 paper 工作区项`)
+  }
+}
+
+export function testSidebarSelectionPrefersExactWorkspaceItemAndMarksModifiedFilters(): void {
+  const savedView = {
+    id: 'loss-view',
+    name: '亏损 EURUSD',
+    pathname: '/list',
+    search: { status: 'loss', symbol: 'EURUSD' },
+    pinned: false,
+    order: 0,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-01T00:00:00.000Z',
+  }
+  const sources = { savedViews: [savedView], strategies: [] }
+  const saved = resolveSidebarWorkspaceItem(
+    { id: 'saved-loss', target: { kind: 'saved-view', viewId: savedView.id }, placement: 'pinned', order: 0 },
+    sources,
+  )
+  const active = resolveSidebarWorkspaceItem(
+    { id: 'fixed-active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 1 },
+    sources,
+  )
+
+  const exact = resolveSidebarSelection({
+    pathname: '/table',
+    search: '?symbol=EURUSD&status=loss',
+    items: [active, saved],
+  })
+  assert(exact.activeWorkspaceItemId === 'saved-loss', '完整查询精确匹配时只应激活保存视图')
+  assert(exact.activePrimaryId === undefined, '保存视图精确匹配时不应同时激活核心导航')
+  assert(exact.modifiedWorkspaceItemId === undefined, '精确匹配不应标记 modified')
+
+  const modified = resolveSidebarSelection({
+    pathname: '/active/board',
+    search: '?symbol=EURUSD',
+    items: [active, saved],
+  })
+  assert(modified.activeWorkspaceItemId === 'fixed-active', '同一路径叠加查询仍应激活固定项')
+  assert(modified.modifiedWorkspaceItemId === 'fixed-active', '额外查询应把固定项标记为 modified')
+
+  const fallbacks = [
+    ['/today-record', 'today'],
+    ['/list', 'trades'],
+    ['/review-cases/focus', 'reviewCases'],
+    ['/dashboard', 'dashboard'],
+  ] as const
+  for (const [pathname, id] of fallbacks) {
+    const selection = resolveSidebarSelection({ pathname, search: '', items: [active] })
+    assert(selection.activePrimaryId === id, `${pathname} 应回退激活核心项 ${id}`)
+  }
+}
+
+export function testSidebarTargetCountsMatchWorkbenchFiltering(): void {
+  const trades: Trade[] = [
+    { ...trade, id: 'open-live', status: 'open' },
+    { ...trade, id: 'loss-live', status: 'loss' },
+    { ...trade, id: 'paper-planned', tradeKind: 'paper' },
+    {
+      ...trade,
+      id: 'mistake-case',
+      tradeKind: 'case',
+      reviewCategory: 'mistake',
+      mistakeTags: ['追单'],
+    },
+    { ...trade, id: 'deleted-open', status: 'open', deletedAt: '2026-07-10T00:00:00.000Z' },
+  ]
+  const display = { ...DEFAULT_DISPLAY, hideClosed: true }
+  const savedView = {
+    id: 'loss-view',
+    name: '亏损',
+    pathname: '/list',
+    search: { status: 'loss' },
+    pinned: false,
+    order: 0,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-01T00:00:00.000Z',
+  }
+  const sources = { savedViews: [savedView], strategies: [strategy] }
+  const context = { trades, starredIds: ['loss-live'], display }
+  const cases = [
+    {
+      target: resolveSidebarWorkspaceItem(
+        { id: 'active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 0 },
+        sources,
+      ),
+      filter: { type: 'active', tradeKind: 'live' } as const,
+      search: '',
+    },
+    {
+      target: resolveSidebarWorkspaceItem(
+        { id: 'saved', target: { kind: 'saved-view', viewId: savedView.id }, placement: 'pinned', order: 1 },
+        sources,
+      ),
+      filter: { type: 'all', tradeKind: 'live' } as const,
+      search: '?status=loss',
+    },
+    {
+      target: resolveSidebarWorkspaceItem(
+        { id: 'strategy', target: { kind: 'strategy', strategyId: strategy.id }, placement: 'pinned', order: 2 },
+        sources,
+      ),
+      filter: { type: 'strategy', strategyId: strategy.id } as const,
+      search: '',
+    },
+    {
+      target: resolveSidebarWorkspaceItem(
+        { id: 'mistakes', target: { kind: 'case-view', scope: 'mistakes' }, placement: 'pinned', order: 3 },
+        sources,
+      ),
+      filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'mistakes' } as const,
+      search: '',
+    },
+  ]
+
+  for (const entry of cases) {
+    const pageCount = getWorkbenchVisibleTrades({
+      ...context,
+      filter: entry.filter,
+      search: entry.search,
+    }).length
+    assert(
+      countSidebarTarget(entry.target, context) === pageCount,
+      `${entry.target.key} 的侧栏计数应与页面筛选一致`,
+    )
+  }
+  assert(countSidebarTarget(cases[1]!.target, context) === 1, '显式亏损筛选应覆盖 hideClosed')
 }
 
 export function testWorkspaceViewsNeverCrossRecordDomains(): void {
