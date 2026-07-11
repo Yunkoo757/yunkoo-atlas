@@ -301,8 +301,40 @@
 }
 
 @media (max-width: 520px) {
+  .composer-header {
+    height: 56px;
+    padding-right: 6px;
+    padding-left: 16px;
+  }
+
+  .composer-close {
+    width: 44px;
+    height: 44px;
+  }
+
   .composer-body-quick {
     padding: 14px 16px 16px;
+  }
+
+  .composer-input-quick .ui-select-trigger,
+  .composer-essential-field input,
+  .composer-essential-field .ui-select-trigger,
+  .composer-side-control {
+    height: 46px;
+    padding: 0;
+  }
+
+  .composer-side-control button {
+    min-height: 44px;
+  }
+
+  .composer-drop-zone {
+    min-height: 44px;
+  }
+
+  .composer-btn-secondary,
+  .composer-btn-primary {
+    height: 44px;
   }
 }
 
