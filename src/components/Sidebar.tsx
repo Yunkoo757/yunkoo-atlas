@@ -26,7 +26,10 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { useStore } from '@/store/useStore'
-import { SidebarWorkspaceEditor } from '@/components/sidebar/SidebarWorkspaceEditor'
+import {
+  SIDEBAR_WORKSPACE_EDITOR_ID,
+  SidebarWorkspaceEditor,
+} from '@/components/sidebar/SidebarWorkspaceEditor'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -159,7 +162,14 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       <nav className="sb-section sb-workspace" aria-label="我的空间">
         <div className="sb-section-label sb-workspace-heading">
           <span>我的空间</span>
-          <button type="button" className="sb-workspace-menu" aria-label="管理我的空间" onClick={(event) => openWorkspaceEditor(event.currentTarget)}>
+          <button
+            type="button"
+            className="sb-workspace-menu"
+            aria-label="管理我的空间"
+            aria-expanded={workspaceEditorOpen}
+            aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
+            onClick={(event) => openWorkspaceEditor(event.currentTarget)}
+          >
             ···
           </button>
         </div>
@@ -186,7 +196,14 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             </NavLink>
           )
         })}
-        <button type="button" className="sb-workspace-manage" aria-label="添加或管理我的空间" onClick={(event) => openWorkspaceEditor(event.currentTarget)}>
+        <button
+          type="button"
+          className="sb-workspace-manage"
+          aria-label="添加或管理我的空间"
+          aria-expanded={workspaceEditorOpen}
+          aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
+          onClick={(event) => openWorkspaceEditor(event.currentTarget)}
+        >
           <span aria-hidden="true">＋</span>
           <span>添加或管理</span>
         </button>
