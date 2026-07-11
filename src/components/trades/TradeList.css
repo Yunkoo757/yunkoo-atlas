@@ -425,8 +425,17 @@
 }
 
 @media (max-width: 700px) {
+  .trade-list-group-header {
+    height: 44px;
+    padding-right: var(--sp-1);
+  }
+  .trade-list-group-header button {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+  }
   .trade-row {
-    grid-template-columns: 18px minmax(120px, 1fr) 48px 54px 48px 22px;
+    grid-template-columns: 18px minmax(120px, 1fr) 48px 54px 48px 44px;
     column-gap: 6px;
     padding: 0 var(--sp-2);
   }
@@ -441,5 +450,10 @@
 
   .trade-row-symbol strong {
     font-size: var(--fs-mini);
+  }
+  .trade-row-star {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
   }
 }
