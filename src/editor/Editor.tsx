@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
+import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'
 import './Editor.css'
 
 const editorBridge = {
@@ -29,30 +30,6 @@ const editorBridge = {
     const list = images.length > 0 ? images : [src]
     useShortcutStore.getState().openLightbox(list, indexOfImageSrc(list, src))
   },
-}
-
-const editorImageOriginalAlt = new WeakMap<HTMLImageElement, string | null>()
-
-export function setEditorImageLoadFailed(target: EventTarget | null, failed: boolean): void {
-  const image = target as HTMLImageElement | null
-  if (!image || image.tagName !== 'IMG') return
-
-  if (failed) {
-    if (!editorImageOriginalAlt.has(image)) {
-      editorImageOriginalAlt.set(image, image.getAttribute('alt'))
-    }
-    image.dataset.imageLoadError = '图片加载失败'
-    image.alt = '图片加载失败'
-    return
-  }
-
-  delete image.dataset.imageLoadError
-  if (!editorImageOriginalAlt.has(image)) return
-
-  const originalAlt = editorImageOriginalAlt.get(image)
-  if (originalAlt === null) image.removeAttribute('alt')
-  else image.setAttribute('alt', originalAlt ?? '')
-  editorImageOriginalAlt.delete(image)
 }
 
 export function syncEditorLightboxEditable(
@@ -87,6 +64,7 @@ export function Editor({
           }
         },
       }),
+      ImageLoadFailure,
       Placeholder.configure({
         placeholder,
       }),
@@ -231,8 +209,8 @@ export function Editor({
       <EditorContent
         editor={editor}
         className="editor"
-        onErrorCapture={(event) => setEditorImageLoadFailed(event.target, true)}
-        onLoadCapture={(event) => setEditorImageLoadFailed(event.target, false)}
+        onErrorCapture={(event) => editor && setEditorImageLoadFailed(editor, event.target, true)}
+        onLoadCapture={(event) => editor && setEditorImageLoadFailed(editor, event.target, false)}
       />
     </>
   )
