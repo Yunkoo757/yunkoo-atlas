@@ -88,6 +88,7 @@
     gap: var(--sp-2);
   }
 
+  .ui-toolbar-sep,
   .ui-toolbar-context {
     display: none;
   }
