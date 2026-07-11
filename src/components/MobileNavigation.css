@@ -31,9 +31,14 @@
   background: var(--bg-hover);
 }
 
+.mobile-navigation-action.is-open {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-hover) 56%, transparent);
+}
+
 .mobile-navigation-overlay {
   position: fixed;
-  z-index: 35;
+  z-index: 50;
   inset: 0;
 }
 
