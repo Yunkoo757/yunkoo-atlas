@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { resolveCommand } from './release-command.mjs'
 
 test('Windows 通过当前 Node 执行 pnpm CLI，避免 spawnSync pnpm.cmd EINVAL', () => {
@@ -32,4 +33,13 @@ test('当前 Windows 环境能够定位真实 pnpm CLI', () => {
 
   assert.equal(invocation.file, process.execPath)
   assert.match(invocation.args[0], /pnpm[\\/]bin[\\/]pnpm\.cjs$/)
+})
+
+test('发布流水线显式安装 Electron 运行时', () => {
+  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  assert.match(
+    workflow,
+    /pnpm exec install-electron/,
+    'Electron 42 不再自动 postinstall，发布前必须执行 install-electron',
+  )
 })
