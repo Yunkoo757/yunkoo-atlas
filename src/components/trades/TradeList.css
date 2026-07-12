@@ -92,12 +92,12 @@
 }
 
 .trade-row:hover {
-  background: lch(8.4% 1.2 272);
+  background: var(--bg-hover);
 }
 
 .trade-row.is-selected,
 .trade-row.is-focused {
-  background: lch(10.7% 0.5 272);
+  background: var(--bg-selected);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
