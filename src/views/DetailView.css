@@ -92,16 +92,19 @@
 .dv-summary {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  gap: 0;
   margin: 18px 0 24px;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .dv-summary-item {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
 }
+.dv-summary-item:last-child { border-right: 0; }
 .dv-summary-label,
 .dv-summary-value {
   display: block;
