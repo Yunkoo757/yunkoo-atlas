@@ -30,7 +30,7 @@
   background: color-mix(in srgb, var(--bg-surface) 94%, var(--bg-elevated));
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   text-align: left;
   backdrop-filter: blur(10px);
 }
@@ -45,7 +45,7 @@
 
 .trade-table tbody tr.is-selected,
 .trade-table tbody tr.is-focused {
-  background: lch(10.7% 0.5 272);
+  background: var(--bg-selected);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
@@ -92,7 +92,7 @@
 
 .tv-ref {
   color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
 }
 
 .tv-date {
@@ -102,7 +102,7 @@
 
 .tv-symbol {
   color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
 }
 
 .tv-muted-chip,
@@ -147,32 +147,32 @@
 
 .tv-side-long {
   color: var(--pos);
-  background: color-mix(in srgb, var(--pos) 32%, transparent);
+  background: color-mix(in srgb, var(--pos) 12%, transparent);
 }
 
 .tv-side-short {
   color: var(--neg);
-  background: color-mix(in srgb, var(--neg) 32%, transparent);
+  background: color-mix(in srgb, var(--neg) 12%, transparent);
 }
 
 .tv-status-win {
   color: var(--pos);
-  background: color-mix(in srgb, var(--pos) 28%, transparent);
+  background: color-mix(in srgb, var(--pos) 11%, transparent);
 }
 
 .tv-status-loss {
   color: var(--neg);
-  background: color-mix(in srgb, var(--neg) 28%, transparent);
+  background: color-mix(in srgb, var(--neg) 11%, transparent);
 }
 
 .tv-status-missed {
   color: var(--status-missed);
-  background: color-mix(in srgb, var(--status-missed) 28%, transparent);
+  background: color-mix(in srgb, var(--status-missed) 11%, transparent);
 }
 
 .tv-status-open {
   color: var(--status-open);
-  background: color-mix(in srgb, var(--status-open) 28%, transparent);
+  background: color-mix(in srgb, var(--status-open) 11%, transparent);
 }
 
 .tv-status-breakeven,
