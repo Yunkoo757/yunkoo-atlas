@@ -7,6 +7,7 @@ import {
   MAX_PINNED_SIDEBAR_ITEMS,
   migrateSidebarPins,
   normalizeSidebarWorkspaceItems,
+  reorderSidebarWorkspaceItem,
   resolveSidebarWorkspaceItem,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
@@ -38,16 +39,6 @@ type Removal = {
 
 function reindex(items: SidebarWorkspaceItem[]): SidebarWorkspaceItem[] {
   return items.map((item, order) => ({ ...item, order }))
-}
-
-function moveItem(items: SidebarWorkspaceItem[], itemId: string, targetId: string): SidebarWorkspaceItem[] {
-  const fromIndex = items.findIndex((item) => item.id === itemId)
-  const targetIndex = items.findIndex((item) => item.id === targetId)
-  if (fromIndex < 0 || targetIndex < 0 || fromIndex === targetIndex) return items
-  const next = [...items]
-  const [moved] = next.splice(fromIndex, 1)
-  next.splice(targetIndex, 0, moved)
-  return reindex(next)
 }
 
 export function SidebarWorkspaceEditor({
@@ -144,7 +135,7 @@ export function SidebarWorkspaceEditor({
     if (!source || !target || source.placement !== placement || target.placement !== placement) {
       return
     }
-    const next = moveItem(draft, itemId, targetId)
+    const next = reorderSidebarWorkspaceItem(draft, itemId, targetId)
     if (next === draft) return
     setDraft(next)
     const moved = next.find((item) => item.id === itemId)
@@ -175,6 +166,11 @@ export function SidebarWorkspaceEditor({
           setDraggedId(item.id)
           event.dataTransfer.effectAllowed = 'move'
           event.dataTransfer.setData('text/plain', item.id)
+          // 避免系统把整行拖成链接预览
+          const blank = document.createElement('canvas')
+          blank.width = 1
+          blank.height = 1
+          event.dataTransfer.setDragImage(blank, 0, 0)
         }}
         onDragOver={(event) => {
           event.preventDefault()

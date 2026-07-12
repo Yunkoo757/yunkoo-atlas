@@ -17,7 +17,7 @@
 
 .rp-status-ring[data-status="open"] { color: var(--pos); background: color-mix(in srgb, var(--pos) 14%, transparent); }
 .rp-status-ring[data-status="closed"] { color: var(--text-tertiary); }
-.rp-status-ring[data-status="missed"] { color: var(--neg); background: color-mix(in srgb, var(--neg) 14%, transparent); }
+.rp-status-ring[data-status="missed"] { color: var(--status-missed); background: color-mix(in srgb, var(--status-missed) 14%, transparent); }
 .rp-status-ring[data-status="planned"] { color: var(--pending); background: color-mix(in srgb, var(--pending) 14%, transparent); }
 
 .rp-divider {

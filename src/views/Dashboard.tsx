@@ -339,13 +339,18 @@ export function Dashboard() {
                   <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
+                    cursor={{ fill: 'color-mix(in srgb, var(--bg-hover) 88%, transparent)' }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
                       const d = payload[0].payload as { label: string; n: number }
                       return (
-                        <div className="db-tooltip">
-                          <span>R {d.label}</span>
-                          <strong>{d.n} 笔</strong>
+                        <div className="db-chart-tip db-chart-tip--compact">
+                          <div className="db-chart-tip-ref">R 倍数区间</div>
+                          <div className="db-chart-tip-symbol">{d.label}</div>
+                          <div className="db-chart-tip-row">
+                            <span>笔数</span>
+                            <strong>{d.n}</strong>
+                          </div>
                         </div>
                       )
                     }}
@@ -356,6 +361,9 @@ export function Dashboard() {
                     radius={[3, 3, 0, 0]}
                     maxBarSize={32}
                     isAnimationActive={false}
+                    activeBar={{
+                      fill: 'color-mix(in srgb, var(--accent) 82%, white 18%)',
+                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>

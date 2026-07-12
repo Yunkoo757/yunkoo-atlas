@@ -133,6 +133,34 @@ export function normalizeSidebarWorkspaceItems(value: unknown): SidebarWorkspace
   })
 }
 
+/** 同 placement 组内重排；跨组或找不到则原样返回 */
+export function reorderSidebarWorkspaceItem(
+  items: SidebarWorkspaceItem[],
+  sourceId: string,
+  targetId: string,
+): SidebarWorkspaceItem[] {
+  if (sourceId === targetId) return items
+  const source = items.find((item) => item.id === sourceId)
+  const target = items.find((item) => item.id === targetId)
+  if (!source || !target || source.placement !== target.placement) return items
+
+  const group = items.filter((item) => item.placement === source.placement)
+  const fromIndex = group.findIndex((item) => item.id === sourceId)
+  const toIndex = group.findIndex((item) => item.id === targetId)
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return items
+
+  const nextGroup = [...group]
+  const [moved] = nextGroup.splice(fromIndex, 1)
+  nextGroup.splice(toIndex, 0, moved)
+
+  let groupCursor = 0
+  const merged = items.map((item) => {
+    if (item.placement !== source.placement) return item
+    return nextGroup[groupCursor++]!
+  })
+  return normalizeSidebarWorkspaceItems(merged.map((item, order) => ({ ...item, order })))
+}
+
 export function migrateSidebarPins(pins: readonly SidebarNavId[]): SidebarWorkspaceItem[] {
   return normalizeSidebarWorkspaceItems(
     pins.map((id, order) => ({
