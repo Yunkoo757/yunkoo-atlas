@@ -203,12 +203,7 @@ export function TradeTrashView() {
                   </button>
                 )}
               </label>
-              <button
-                type="button"
-                className="trash-select-all-btn"
-                onClick={handleSelectAll}
-                aria-pressed={selected.size === filteredTrades.length && filteredTrades.length > 0}
-              >
+              <div className="trash-select-all-btn">
                 <SelectionBox
                   checked={selected.size === filteredTrades.length && filteredTrades.length > 0}
                   alwaysVisible
@@ -219,12 +214,12 @@ export function TradeTrashView() {
                   }
                   onToggle={handleSelectAll}
                 />
-                <span>
+                <button type="button" className="trash-select-all-label" onClick={handleSelectAll}>
                   {selected.size === filteredTrades.length && filteredTrades.length > 0
                     ? '取消全选'
                     : '全选'}
-                </span>
-              </button>
+                </button>
+              </div>
               {searchQuery && (
                 <span className="trash-search-count">
                   找到 {filteredTrades.length} 笔交易
