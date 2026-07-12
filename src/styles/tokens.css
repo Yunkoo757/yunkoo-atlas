@@ -1,49 +1,49 @@
 /* ============================================================
    tokens.css — Atlas 交易工作台设计令牌
-   以冷灰蓝暗色层级承载高密度交易信息；Linear 仅作为空间秩序参考，
+   以中性微靛暗色层级承载高密度交易信息；Linear 仅作为空间秩序参考，
    组件统一消费下方语义别名，避免页面直接绑定某个参考产品的颜色值。
    ============================================================ */
 
 :root {
   /* ========== ① 基础色板 ========== */
 
-  /* —— 背景（LCH，冷灰蓝轴）—— */
-  --bg-color: lch(3.2% 0.8 255 / 1);
-  --color-bg-primary: lch(6.1% 1 255);
-  --color-bg-secondary: lch(9.2% 1.4 255 / 1);
-  --color-bg-tertiary: lch(12.1% 1.8 255 / 1);
-  --color-bg-quaternary: lch(7.7% 1.1 255 / 1);
+  /* —— 背景（LCH，中性微靛轴）—— */
+  --bg-color: lch(1.82% 0 272 / 1);
+  --color-bg-primary: lch(4.52% 0.3 272);
+  --color-bg-secondary: lch(9.02% 2.1 272 / 1);
+  --color-bg-tertiary: lch(11.27% 3 272 / 1);
+  --color-bg-quaternary: lch(7.22% 0.75 272 / 1);
   --bg-base-color: var(--color-bg-primary);
   --bg-sidebar-color: var(--bg-color);
 
   /* —— 文字 —— */
-  --color-text-primary: lch(92% 1.2 255 / 1);
-  --color-text-secondary: lch(73% 1.4 255 / 1);
-  --color-text-tertiary: lch(54% 1.5 255 / 1);
-  --color-text-quaternary: lch(38% 1.3 255 / 1);
+  --color-text-primary: lch(100% 0 272 / 1);
+  --color-text-secondary: lch(90.35% 1.15 272 / 1);
+  --color-text-tertiary: lch(61.399% 1.15 272 / 1);
+  --color-text-quaternary: lch(36.308% 1.15 272 / 1);
 
   /* —— 边框 —— */
-  --color-border-primary: lch(10% 1.2 255 / 1);
-  --color-border-secondary: lch(14% 1.5 255 / 1);
-  --color-border-tertiary: lch(18% 1.8 255 / 1);
-  --bg-border-color: lch(13.16% 1.38 255 / 1);
+  --color-border-primary: lch(8.84% 1.38 272 / 1);
+  --color-border-secondary: lch(13.16% 1.38 272 / 1);
+  --color-border-tertiary: lch(15.32% 1.38 272 / 1);
+  --bg-border-color: lch(13.16% 1.38 272 / 1);
 
   /* —— 品牌 / 焦点 —— */
-  --accent: #6875d8;
+  --accent: #5e6ad2;
   --focus-ring-color: #5e69d1;
   --focus-ring-outline: 1px solid #5e69d1;
   --focus-ring-width: 1px;
-  --ai-selection-bg: lch(61.399% 1.15 255 / 0.1);
+  --ai-selection-bg: lch(61.399% 1.15 272 / 0.1);
 
   /* —— 弹出面板 popover（测量自真实 Linear 浮层）—— */
-  --popover-bg: lch(10.3% 1.5 255);
-  --popover-border: lch(19% 1.8 255);
+  --popover-bg: lch(9.92% 0.75 272);
+  --popover-border: lch(18.56% 1.83 272);
   --popover-radius: 10px;
   --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
     0 1px 1px lch(0 0 0 / 0.125);
 
   /* —— 字体栈（对齐 Notion Web：Inter 主导拉丁；CJK 回退系统黑体）—— */
-  --font-regular: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+  --font-regular: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
     Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --font-display: var(--font-regular);
@@ -123,7 +123,7 @@
   --bg-surface: var(--color-bg-primary);
   --bg-elevated: var(--color-bg-secondary);
   --bg-hover: var(--color-bg-tertiary);
-  --bg-selected: lch(13% 3 255 / 1);
+  --bg-selected: lch(13% 3 272 / 1);
   --bg-active: var(--bg-selected);
   --bg-sidebar: var(--bg-sidebar-color);
 
@@ -151,9 +151,9 @@
 
   /* 角色型文字层级：可读内容不直接消费 disabled 灰阶 */
   --text-strong: var(--color-text-primary);
-  --text-body: lch(79% 1.4 255 / 1);
-  --text-muted: lch(61% 1.5 255 / 1);
-  --text-faint: lch(46% 1.4 255 / 1);
+  --text-body: var(--color-text-secondary);
+  --text-muted: var(--color-text-tertiary);
+  --text-faint: color-mix(in srgb, var(--color-text-tertiary) 72%, var(--color-text-quaternary));
   --text-disabled: var(--color-text-quaternary);
 
   /* 品牌 */
