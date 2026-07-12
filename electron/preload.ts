@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '../src/storage/types'
 import type { AppUpdateState } from '../src/lib/appUpdate'
+import type { WindowSizePresetId } from '../src/lib/windowBounds'
+import type { WindowFrameState } from '../src/types/journal-bridge'
 
 export interface BackupInfo {
   name: string
@@ -39,6 +41,11 @@ export interface JournalBridge {
   restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
+  // 窗口
+  getWindowState(): Promise<WindowFrameState | null>
+  applyWindowPreset(
+    presetId: WindowSizePresetId,
+  ): Promise<{ ok: true; state: WindowFrameState } | { ok: false; error: string }>
   // 应用更新
   getUpdateState(): Promise<AppUpdateState>
   hasUpdateCredential(): Promise<boolean>
@@ -75,6 +82,8 @@ const bridge: JournalBridge = {
   restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
   deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', fileName),
   getBackupStats: () => ipcRenderer.invoke('backup:stats'),
+  getWindowState: () => ipcRenderer.invoke('window:getState'),
+  applyWindowPreset: (presetId) => ipcRenderer.invoke('window:applyPreset', presetId),
   getUpdateState: () => ipcRenderer.invoke('update:getState'),
   hasUpdateCredential: () => ipcRenderer.invoke('update:hasCredential'),
   saveUpdateCredential: (token) => ipcRenderer.invoke('update:saveCredential', token),

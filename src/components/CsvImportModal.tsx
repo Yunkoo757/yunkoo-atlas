@@ -11,6 +11,7 @@ import {
   type ImportPreview,
   type TradeField,
 } from '@/lib/csvImport'
+import type { Trade } from '@/data/trades'
 import {
   buildContentSignature,
   buildLibraryContentIndex,
@@ -20,6 +21,7 @@ import {
 } from '@/lib/tradeDuplicates'
 import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
+import { withPersistSuspended } from '@/storage/persist'
 import { Select } from '@/components/ui/Select'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import './CsvImportModal.css'
@@ -32,7 +34,7 @@ interface Props {
 export function CsvImportModal({ open, onClose }: Props) {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
-  const upsertTrade = useStore((s) => s.upsertTrade)
+  const upsertTrades = useStore((s) => s.upsertTrades)
 
   const [step, setStep] = useState<'upload' | 'map' | 'preview' | 'done'>('upload')
   const [csvResult, setCsvResult] = useState<ReturnType<typeof parseCsv> | null>(null)
@@ -147,17 +149,24 @@ export function CsvImportModal({ open, onClose }: Props) {
       if (!isNaN(n) && n > maxRef) maxRef = n
     }
 
-    let imported = 0
+    const batch: Trade[] = []
     for (const p of valid) {
       maxRef++
       const ref = `TRD-${maxRef}`
       const id = `trade-${Date.now()}-${maxRef}`
       const trade = finalizeTrade(p.trade, strategies, ref, id)
-      if (trade) {
-        upsertTrade(trade)
-        imported++
-      }
+      if (trade) batch.push(trade)
     }
+
+    const imported = batch.length
+    if (imported === 0) {
+      setError('没有可导入的数据行（疑似重复已全部跳过或需修正映射）')
+      return
+    }
+
+    void withPersistSuspended(() => {
+      upsertTrades(batch)
+    })
 
     setStep('done')
     const skipped = skipDuplicates

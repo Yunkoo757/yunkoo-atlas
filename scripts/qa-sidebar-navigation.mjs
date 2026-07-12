@@ -270,7 +270,8 @@ try {
 
   await manageButton.click()
   await expectVisible(editor)
-  await page.getByRole('button', { name: '关闭管理我的空间' }).click()
+  // 弹层居中偏左，点 backdrop 左上角避免命中对话框本体
+  await page.locator('.sb-workspace-editor-backdrop').click({ position: { x: 8, y: 8 } })
   await expectCount(editor, 0)
   await expectFocused(manageButton)
 
@@ -278,7 +279,7 @@ try {
   const firstHandle = rows.nth(0).getByRole('button', { name: `排序 ${originalLabels[0]}` })
   const descriptionId = await firstHandle.getAttribute('aria-describedby')
   if (!descriptionId) throw new Error('Sort handle must describe position and shortcuts')
-  await expectText(editor.locator(`#${descriptionId}`), /常驻第 1 项，共 \d+ 项。使用 Alt \+ 上\/下方向键排序/)
+  await expectText(editor.locator(`[id="${descriptionId}"]`), /常驻第 1 项，共 \d+ 项。使用 Alt \+ 上\/下方向键排序/)
   await firstHandle.press('Alt+ArrowDown')
   await expectText(editor.locator('[aria-live="polite"]'), new RegExp(`${originalLabels[0]} 已移动到常驻第 2 项`))
   const keyboardLabels = await rows.locator('[data-sidebar-item-label]').allTextContents()

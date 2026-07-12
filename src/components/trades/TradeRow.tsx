@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Bell, Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import { REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
@@ -7,6 +8,7 @@ import { StrategyLabel } from '@/components/StrategyIcon'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
+import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 
@@ -17,19 +19,22 @@ export type TradeRowProps = {
   focused: boolean
   starred: boolean
   followed: boolean
+  /** 由列表父级传入，避免每行订阅 store */
+  symbolIcons?: SymbolIconsMap
   onOpen: (trade: Trade) => void
   onSelect: (trade: Trade) => void
   onToggleStar: (trade: Trade) => void
   onContextMenu?: (event: React.MouseEvent, trade: Trade) => void
 }
 
-export function TradeRow({
+export const TradeRow = memo(function TradeRow({
   trade,
   strategies,
   selected,
   focused,
   starred,
   followed,
+  symbolIcons: symbolIconsProp,
   onOpen,
   onSelect,
   onToggleStar,
@@ -38,7 +43,10 @@ export function TradeRow({
   const showResult = trade.status !== 'planned' && trade.status !== 'open'
   const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
-  const symbolIcons = useStore((state) => state.symbolIcons)
+  const symbolIconsFromStore = useStore((state) =>
+    symbolIconsProp === undefined ? state.symbolIcons : null,
+  )
+  const symbolIcons = symbolIconsProp ?? symbolIconsFromStore ?? {}
   const regularTagLimit = trade.mistakeTags.length > 0 ? 1 : 2
   const regularTags = getVisibleTradeTags(trade, regularTagLimit)
   const mistakeTags = {
@@ -155,4 +163,4 @@ export function TradeRow({
       </span>
     </div>
   )
-}
+})

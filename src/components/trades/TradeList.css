@@ -2,8 +2,31 @@
   min-width: 0;
 }
 
+.trade-list-virtual {
+  width: 100%;
+}
+
+.trade-list-virtual-item {
+  box-sizing: border-box;
+}
+
+.trade-list-virtual-item.is-sticky {
+  z-index: 3;
+}
+
+.trade-list-virtual-item .trade-list-group-header,
+.trade-list-virtual-item .trade-row {
+  width: 100%;
+}
+
 .trade-list-group + .trade-list-group {
   margin-top: 1px;
+}
+
+.trade-list-virtual-item .trade-list-group-header {
+  /* sticky 由虚拟行容器承担，避免双重 sticky */
+  position: relative;
+  top: auto;
 }
 
 .trade-list-group-header {

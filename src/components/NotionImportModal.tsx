@@ -20,6 +20,7 @@ import {
 } from '@/lib/tradeDuplicates'
 import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
+import { withPersistSuspended } from '@/storage/persist'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import './NotionImportModal.css'
@@ -34,7 +35,7 @@ type Step = 'upload' | 'preview' | 'importing' | 'done'
 export function NotionImportModal({ open, onClose }: Props) {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
-  const upsertTrade = useStore((s) => s.upsertTrade)
+  const upsertTrades = useStore((s) => s.upsertTrades)
   const addStrategy = useStore((s) => s.addStrategy)
 
   const [step, setStep] = useState<Step>('upload')
@@ -158,13 +159,6 @@ export function NotionImportModal({ open, onClose }: Props) {
     )
     const importablePreviews = getImportableNotionPreviews(selectedPreviews)
 
-    const existingIds = new Set(strategies.map((s) => s.id))
-    for (const s of newStrategies) {
-      if (!existingIds.has(s.id)) {
-        addStrategy(s)
-      }
-    }
-
     let totalImages = 0
     const storage = getStorage()
     const imageAssetMap = new Map<number, string[]>()
@@ -197,8 +191,17 @@ export function NotionImportModal({ open, onClose }: Props) {
         const assetIds = imageAssetMap.get(preview.rowIndex) ?? []
         trade.note = applyNotionImageAssetsToNote(trade.note || '', assetIds)
       }
-      upsertTrade(trade)
     }
+
+    await withPersistSuspended(() => {
+      const existingIds = new Set(useStore.getState().strategies.map((s) => s.id))
+      for (const s of newStrategies) {
+        if (!existingIds.has(s.id)) {
+          addStrategy(s)
+        }
+      }
+      upsertTrades(newTrades)
+    })
 
     setImported(newTrades.length)
     setStep('done')

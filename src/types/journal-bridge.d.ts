@@ -1,5 +1,6 @@
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import type { AppUpdateState } from '@/lib/appUpdate'
+import type { WindowSizePresetId } from '@/lib/windowBounds'
 
 export interface BackupInfo {
   name: string
@@ -8,6 +9,15 @@ export interface BackupInfo {
   tradeCount?: number
   strategyCount?: number
   attachmentCount?: number
+}
+
+export type WindowFrameState = {
+  x?: number
+  y?: number
+  width: number
+  height: number
+  isMaximized: boolean
+  presetId: WindowSizePresetId | null
 }
 
 export interface JournalBridge {
@@ -37,6 +47,11 @@ export interface JournalBridge {
   restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
+  // 窗口
+  getWindowState(): Promise<WindowFrameState | null>
+  applyWindowPreset(
+    presetId: WindowSizePresetId,
+  ): Promise<{ ok: true; state: WindowFrameState } | { ok: false; error: string }>
   // 应用更新
   getUpdateState(): Promise<AppUpdateState>
   hasUpdateCredential(): Promise<boolean>

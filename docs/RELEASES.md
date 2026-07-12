@@ -45,11 +45,13 @@ pnpm release:minor
 发布脚本会依次执行：
 
 1. 检查当前分支、工作区与远程主干。
-2. 运行完整回归测试。
-3. 运行 Electron 生产构建。
-4. 更新 `package.json` 版本并创建发布提交和 Git 标签。
-5. 推送 `main` 和版本标签。
-6. 标签触发 `.github/workflows/release-windows.yml`。
+2. 运行完整回归测试（单元/契约 + Playwright 浏览器用例）。
+3. 运行侧栏导航 QA（自启 Vite）。
+4. 运行 Electron 生产构建。
+5. 运行 Electron 库路径 QA（SQLite / 附件 / journal.zip）。
+6. 更新 `package.json` 版本并创建发布提交和 Git 标签。
+7. 推送 `main` 和版本标签。
+8. 标签触发 `.github/workflows/release-windows.yml`（同样包含上述测试与 QA）。
 
 GitHub Actions 成功后，私有 Release 中应包含：
 
