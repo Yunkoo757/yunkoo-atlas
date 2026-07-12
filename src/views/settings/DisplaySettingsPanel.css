@@ -1,9 +1,8 @@
 .display-settings-card {
-  max-width: 520px;
-  padding: 8px 0;
+  max-width: 620px;
+  padding: 0;
   background: transparent;
   border: 0;
-  border-top: 1px solid var(--border-subtle);
   border-radius: 0;
 }
 
@@ -18,18 +17,83 @@
   line-height: 1.45;
 }
 
-.display-settings-card .display-toggle,
-.display-settings-card .display-item {
-  width: 100%;
+.display-settings-section {
+  padding: 18px 0;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.display-settings-card .display-label {
-  padding: 8px 10px 4px;
+.display-section-head {
+  margin-bottom: 8px;
+}
+.display-section-head h2 {
+  margin: 0 0 3px;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.display-section-head p {
+  margin: 0;
+  font-size: var(--fs-mini);
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+.display-settings-card .display-toggle,
+.display-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: var(--radius-6);
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.display-settings-card .display-toggle:hover,
+.display-choice:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.display-row-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.display-row-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.display-row-desc {
+  margin-top: 2px;
+  font-size: var(--fs-mini);
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+.display-choice-list {
+  border-top: 1px solid var(--border-subtle);
+}
+.display-choice {
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+.display-choice.is-selected {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.display-choice-check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  color: var(--accent);
 }
 
 @media (max-width: 640px) {
   .display-settings-card .display-toggle,
-  .display-settings-card .display-item {
-    min-height: 44px;
+  .display-choice {
+    min-height: 56px;
   }
 }

@@ -4,70 +4,79 @@ import type { DisplayPrefs } from '@/lib/tradeFilters'
 import '@/components/DisplayMenu.css'
 import './DisplaySettingsPanel.css'
 
-const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string }[] = [
-  { value: 'date', label: '开仓日期' },
-  { value: 'pnl', label: '盈亏金额' },
-  { value: 'conviction', label: '信心度' },
+const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string; description: string }[] = [
+  { value: 'date', label: '最近交易', description: '按开仓时间，新记录在前' },
+  { value: 'pnl', label: '盈亏表现', description: '按盈亏金额，从高到低' },
+  { value: 'conviction', label: '交易信心', description: '按信心度，从高到低' },
+]
+
+type GroupMode = 'date' | 'strategy' | 'none'
+
+const GROUP_OPTS: { value: GroupMode; label: string; description: string }[] = [
+  { value: 'date', label: '按月份', description: '按开仓月份组织交易' },
+  { value: 'strategy', label: '按策略', description: '按所属策略组织交易' },
+  { value: 'none', label: '不分组', description: '连续显示全部交易' },
 ]
 
 export function DisplaySettingsPanel() {
   const display = useStore((s) => s.display)
   const setDisplay = useStore((s) => s.setDisplay)
+  const groupMode: GroupMode = display.groupByDate
+    ? 'date'
+    : display.groupByStrategy
+      ? 'strategy'
+      : 'none'
+
+  const setGroupMode = (mode: GroupMode) => {
+    setDisplay({
+      groupByDate: mode === 'date',
+      groupByStrategy: mode === 'strategy',
+    })
+  }
 
   return (
     <div className="settings-page display-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">显示偏好</h1>
         <p className="settings-page-desc">
-          列表 / 看板 / 表格共用这些默认偏好。顶栏「显示」菜单可按当前视图快速调整。
+          设置交易日志的默认呈现方式。你仍可在顶栏「显示」中临时调整当前视图。
         </p>
       </div>
       <div className="display-settings-card">
-        <div className="display-label">列表与看板</div>
-        <ToggleRow
-          label="隐藏已平仓"
-          checked={display.hideClosed}
-          onChange={(v) => setDisplay({ hideClosed: v })}
+        <section className="display-settings-section">
+          <div className="display-section-head">
+            <h2>显示内容</h2>
+            <p>控制默认保留哪些记录与空状态。</p>
+          </div>
+          <ToggleRow
+            label="只看未结束交易"
+            description="隐藏盈利、亏损与保本的已结束记录"
+            checked={display.hideClosed}
+            onChange={(v) => setDisplay({ hideClosed: v })}
+          />
+          <ToggleRow
+            label="保留空状态"
+            description="显示没有交易的看板列与列表分组"
+            checked={display.showEmptyGroups}
+            onChange={(v) => setDisplay({ showEmptyGroups: v })}
+          />
+        </section>
+
+        <ChoiceSection
+          title="分组方式"
+          hint="决定交易日志的第一层结构。"
+          options={GROUP_OPTS}
+          value={groupMode}
+          onChange={setGroupMode}
         />
-        <ToggleRow
-          label="显示空分组"
-          checked={display.showEmptyGroups}
-          onChange={(v) => setDisplay({ showEmptyGroups: v })}
+
+        <ChoiceSection
+          title="默认排序"
+          hint="决定每个列表或分组内的交易顺序。"
+          options={SORT_OPTS}
+          value={display.sortBy}
+          onChange={(value) => setDisplay({ sortBy: value })}
         />
-        <ToggleRow
-          label="按月份分组"
-          checked={display.groupByDate}
-          onChange={(v) =>
-            setDisplay({
-              groupByDate: v,
-              groupByStrategy: v ? false : display.groupByStrategy,
-            })
-          }
-        />
-        <ToggleRow
-          label="按策略分组"
-          checked={display.groupByStrategy}
-          onChange={(v) =>
-            setDisplay({
-              groupByStrategy: v,
-              groupByDate: v ? false : display.groupByDate,
-            })
-          }
-        />
-        <div className="display-divider" />
-        <div className="display-label">默认排序</div>
-        {SORT_OPTS.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            className={'display-item' + (display.sortBy === o.value ? ' is-on' : '')}
-            aria-pressed={display.sortBy === o.value}
-            onClick={() => setDisplay({ sortBy: o.value })}
-          >
-            <span>{o.label}</span>
-            {display.sortBy === o.value && <Check size={14} />}
-          </button>
-        ))}
       </div>
     </div>
   )
@@ -75,10 +84,12 @@ export function DisplaySettingsPanel() {
 
 function ToggleRow({
   label,
+  description,
   checked,
   onChange,
 }: {
   label: string
+  description: string
   checked: boolean
   onChange: (v: boolean) => void
 }) {
@@ -90,10 +101,55 @@ function ToggleRow({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
     >
-      <span>{label}</span>
+      <span className="display-row-copy">
+        <span className="display-row-title">{label}</span>
+        <span className="display-row-desc">{description}</span>
+      </span>
       <span className={'display-switch' + (checked ? ' is-on' : '')}>
         <span className="display-switch-knob" />
       </span>
     </button>
+  )
+}
+
+function ChoiceSection<T extends string>({
+  title,
+  hint,
+  options,
+  value,
+  onChange,
+}: {
+  title: string
+  hint: string
+  options: { value: T; label: string; description: string }[]
+  value: T
+  onChange: (value: T) => void
+}) {
+  return (
+    <section className="display-settings-section">
+      <div className="display-section-head">
+        <h2>{title}</h2>
+        <p>{hint}</p>
+      </div>
+      <div className="display-choice-list">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={'display-choice' + (value === option.value ? ' is-selected' : '')}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            <span className="display-row-copy">
+              <span className="display-row-title">{option.label}</span>
+              <span className="display-row-desc">{option.description}</span>
+            </span>
+            <span className="display-choice-check">
+              {value === option.value && <Check size={14} />}
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
