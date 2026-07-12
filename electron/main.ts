@@ -14,6 +14,11 @@ const WINDOW_BG = '#050506'
 
 nativeTheme.themeSource = 'dark'
 
+// Windows 高分屏：在 ready 前声明，避免系统对整窗做位图拉伸导致发糊
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('high-dpi-support', '1')
+}
+
 function getPreloadPath(): string {
   for (const name of ['preload.cjs', 'preload.js', 'preload.mjs']) {
     const candidate = path.join(__dirname, name)
@@ -108,6 +113,10 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.yunkoo-atlas.app')
+  }
+
   registerLibraryIpc()
   registerWindowIpc()
 

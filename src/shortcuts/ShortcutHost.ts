@@ -25,6 +25,7 @@ import {
 } from '@/lib/workspaceViews'
 import { formatBinding } from '@/shortcuts/format'
 import { getActionMeta } from '@/shortcuts/actions'
+import { requestLightboxReset } from '@/lib/lightboxView'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -136,6 +137,9 @@ export function useShortcutHost({
       'image.prev': lightboxPrev,
       'image.next': lightboxNext,
       'image.close': closeLightbox,
+      'image.reset': () => {
+        requestLightboxReset()
+      },
     })
   }, [
     pathname,

@@ -85,3 +85,11 @@ test('安装包文件名不含空格，必须与 latest.yml 下载地址一致',
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   assert.equal(pkg.build?.win?.artifactName, 'Yunkoo-Atlas-${version}-win-${arch}.${ext}')
 })
+
+test('NSIS 安装包声明高 DPI，避免安装向导发糊', () => {
+  const nsh = readFileSync('build/installer.nsh', 'utf8')
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+  assert.match(nsh, /ManifestDPIAware\s+true/)
+  assert.match(nsh, /ManifestDPIAwareness\s+PerMonitorV2/)
+  assert.equal(pkg.build?.nsis?.include, 'build/installer.nsh')
+})

@@ -206,6 +206,14 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: { key: 'escape' },
     allowWhenTyping: true,
   },
+  {
+    id: 'image.reset',
+    label: '重置图片大小',
+    category: '图片',
+    scope: 'lightbox',
+    defaultBinding: { alt: true, key: 'r' },
+    allowWhenTyping: true,
+  },
 ]
 
 export const SHORTCUT_ACTION_MAP = new Map(

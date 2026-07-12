@@ -50,3 +50,21 @@ export function lightboxViewTransform(view: LightboxView): string {
   // 先以自身中心对齐视口中心，再施加平移与缩放
   return `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`
 }
+
+type LightboxResetHandler = () => void
+
+let resetHandler: LightboxResetHandler | null = null
+
+/** ImageLightbox 挂载时注册，供快捷键触发重置 */
+export function registerLightboxResetHandler(handler: LightboxResetHandler): () => void {
+  resetHandler = handler
+  return () => {
+    if (resetHandler === handler) resetHandler = null
+  }
+}
+
+export function requestLightboxReset(): boolean {
+  if (!resetHandler) return false
+  resetHandler()
+  return true
+}

@@ -7,6 +7,7 @@ import {
   LIGHTBOX_ZOOM_STEP,
   lightboxViewTransform,
   panLightboxView,
+  registerLightboxResetHandler,
   type LightboxView,
   zoomLightboxAtCursor,
 } from '@/lib/lightboxView'
@@ -71,6 +72,11 @@ export function ImageLightbox() {
   }, [lightbox])
 
   const resetView = useCallback(() => setView(LIGHTBOX_VIEW_RESET), [])
+
+  useEffect(() => {
+    if (!lightbox) return
+    return registerLightboxResetHandler(resetView)
+  }, [lightbox, resetView])
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
@@ -189,7 +195,13 @@ export function ImageLightbox() {
               {lightbox.index + 1} / {lightbox.images.length}
             </span>
           )}
-          <button type="button" className="img-lightbox-reset" onClick={resetView}>
+          <button
+            type="button"
+            className="img-lightbox-reset"
+            onClick={resetView}
+            aria-label={`重置图片大小 (${getShortcutHint('image.reset') ?? 'Alt+R'})`}
+            title={getShortcutHint('image.reset') ?? 'Alt+R'}
+          >
             重置
           </button>
         </div>

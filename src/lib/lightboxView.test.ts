@@ -3,6 +3,8 @@ import {
   clampLightboxScale,
   lightboxViewTransform,
   panLightboxView,
+  registerLightboxResetHandler,
+  requestLightboxReset,
   zoomLightboxAtCursor,
 } from '@/lib/lightboxView'
 
@@ -35,4 +37,15 @@ export function testLightboxPanAndTransform(): void {
     lightboxViewTransform(panned) === 'translate(-50%, -50%) translate(12px, -8px) scale(1)',
     'transform 字符串应匹配当前视图',
   )
+}
+
+export function testLightboxResetHandlerRegistry(): void {
+  let calls = 0
+  const unregister = registerLightboxResetHandler(() => {
+    calls += 1
+  })
+  assert(requestLightboxReset() === true, '已注册时应返回 true')
+  assert(calls === 1, '应调用重置 handler')
+  unregister()
+  assert(requestLightboxReset() === false, '注销后应返回 false')
 }
