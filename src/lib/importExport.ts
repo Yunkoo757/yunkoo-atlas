@@ -19,7 +19,7 @@ import {
   getStorage,
 } from '@/storage'
 import type { ExportAssetRecord } from '@/storage/types'
-import { flushPersistNow } from '@/storage/persist'
+import { flushPersistNow, suspendPersist, resumePersist } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
 import {
@@ -32,6 +32,7 @@ import {
   normalizeSymbolIcons,
   mergeSymbolCatalog,
   normalizeSymbolCatalog,
+  DEFAULT_SYMBOL_CATALOG,
   type SymbolIconsMap,
 } from '@/lib/symbolIcons'
 import {
@@ -39,6 +40,8 @@ import {
   collectAllTags,
   mergeTagPresets,
 } from '@/lib/tags'
+import { getElectronAdapter } from '@/storage/electronAdapter'
+import { useSaveStatus } from '@/store/saveStatus'
 
 export const EXPORT_VERSION = 6 // 6: +savedTradeViews
 
@@ -588,7 +591,98 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
       ],
     ),
   })
+  useStore.getState().hydrateProfile(snapshot.profile)
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
+}
+
+/** 空库 / 新建库时重置到默认内存状态。 */
+export function resetEmptyLibraryIntoStore(): void {
+  useStore.setState({
+    trades: [],
+    strategies: [],
+    selectedId: null,
+    composerOpen: false,
+    composerTrade: null,
+    undoStack: [],
+    redoStack: [],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    tagPresets: [],
+    mistakeTagPresets: [],
+    display: { ...DEFAULT_DISPLAY },
+    savedTradeViews: [],
+    symbolIcons: {},
+    symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
+  })
+  useStore.getState().hydrateProfile({ avatarId: null, displayName: 'Yunkoo' })
+  useShortcutStore.getState().hydrateBindings({})
+}
+
+function clearSessionUiAfterLibrarySwitch(): void {
+  useStore.setState({
+    selectedId: null,
+    composerOpen: false,
+    composerTrade: null,
+    undoStack: [],
+    redoStack: [],
+  })
+  useSaveStatus.getState().reset()
+}
+
+/**
+ * 设置内切换活跃库：先保存当前库，再打开/新建目录，最后重载快照到 store。
+ * 挂起 persist，避免切换瞬间把旧内存写入新路径。
+ * @param libPath 已选目录；省略则弹出系统文件夹选择器。
+ */
+export async function switchActiveLibrary(
+  mode: 'open' | 'create',
+  libPath?: string,
+): Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }> {
+  if (!isElectron()) return { ok: false, error: '仅桌面端支持切换库目录' }
+  const bridge = getJournalBridge()
+  if (!bridge) return { ok: false, error: 'Electron bridge is not available' }
+
+  const picked = libPath ?? (await bridge.pickLibraryFolder())
+  if (!picked) return { ok: false, canceled: true }
+
+  await flushPersistNow()
+
+  suspendPersist()
+  try {
+    const result =
+      mode === 'create'
+        ? await bridge.createNewLibrary(picked)
+        : await bridge.openExistingLibrary(picked)
+    if (!result.ok) {
+      const message =
+        mode === 'open' && 'error' in result && typeof result.error === 'string' && result.error
+          ? result.error
+          : '切换库失败'
+      return { ok: false, error: message }
+    }
+
+    getElectronAdapter().clearObjectUrlCache()
+
+    const snapshot = await bridge.loadSnapshot()
+    if (snapshot) {
+      applySnapshotToStore(snapshot)
+      clearSessionUiAfterLibrarySwitch()
+    } else {
+      resetEmptyLibraryIntoStore()
+      useSaveStatus.getState().reset()
+    }
+
+    const path = await bridge.getLibraryPath()
+    return { ok: true, path }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : '切换库时发生错误',
+    }
+  } finally {
+    resumePersist({ flushNow: true })
+  }
 }
 
 export async function exportJournalArchive(): Promise<{ ok: boolean; path?: string }> {

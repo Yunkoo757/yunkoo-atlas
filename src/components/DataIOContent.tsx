@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload, AlertTriangle, FileSpreadsheet, Package, Archive, Search, Trash2 } from '@/icons/appIcons'
+import {
+  Download,
+  Upload,
+  AlertTriangle,
+  FileSpreadsheet,
+  Package,
+  Archive,
+  Search,
+  Trash2,
+  FolderOpen,
+  Plus,
+} from '@/icons/appIcons'
 import {
   applyImport,
   downloadExport,
@@ -8,6 +19,7 @@ import {
   getLibraryPath,
   importJournalArchive,
   parseImportJson,
+  switchActiveLibrary,
 } from '@/lib/importExport'
 import {
   buildLibraryContentIndex,
@@ -16,19 +28,26 @@ import {
   type DuplicateGroup,
 } from '@/lib/tradeDuplicates'
 import { getStorage } from '@/storage'
-import { isElectron } from '@/storage/runtime'
+import { isElectron, getJournalBridge } from '@/storage/runtime'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { CsvImportModal } from './CsvImportModal'
 import { NotionImportModal } from './NotionImportModal'
 import './DataIOContent.css'
 
-export function DataIOContent({ onDone }: { onDone?: () => void }) {
+export function DataIOContent({
+  onDone,
+  onLibraryChanged,
+}: {
+  onDone?: () => void
+  onLibraryChanged?: () => void
+}) {
   const fileRef = useRef<HTMLInputElement>(null)
   const electron = isElectron()
   const trades = useStore((s) => s.trades)
   const removeTrade = useStore((s) => s.removeTrade)
   const [libraryPath, setLibraryPath] = useState<string | null>(null)
+  const [libraryBusy, setLibraryBusy] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
   const [notionOpen, setNotionOpen] = useState(false)
   const [dupScanning, setDupScanning] = useState(false)
@@ -39,6 +58,43 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
     if (!electron) return
     void getLibraryPath().then(setLibraryPath)
   }, [electron])
+
+  const onSwitchLibrary = async (mode: 'open' | 'create') => {
+    if (!electron || libraryBusy) return
+    const bridge = getJournalBridge()
+    if (!bridge) {
+      toast('无法访问桌面能力')
+      return
+    }
+
+    setLibraryBusy(true)
+    try {
+      const picked = await bridge.pickLibraryFolder()
+      if (!picked) return
+
+      const confirmMsg =
+        mode === 'create'
+          ? `将先保存当前库，然后在以下目录创建新库并切换：\n\n${picked}\n\n继续？`
+          : `将先保存当前库，然后打开以下目录中的交易库：\n\n${picked}\n\n继续？`
+      if (!window.confirm(confirmMsg)) return
+
+      const result = await switchActiveLibrary(mode, picked)
+      if (result.canceled) return
+      if (!result.ok) {
+        toast(result.error ? `切换失败：${result.error}` : '切换失败')
+        return
+      }
+      setLibraryPath(result.path ?? null)
+      setDupGroups(null)
+      toast(mode === 'create' ? '已切换到新库' : '已切换交易库')
+      onLibraryChanged?.()
+      onDone?.()
+    } catch (err) {
+      toast(err instanceof Error ? `切换失败：${err.message}` : '切换失败')
+    } finally {
+      setLibraryBusy(false)
+    }
+  }
 
   const onExportJson = async () => {
     try {
@@ -113,10 +169,12 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
       })
       const byId = new Map(trades.map((trade) => [trade.id, trade]))
       const groups = groupObviousDuplicates(
-        library.map((item) => ({
-          trade: byId.get(item.id)!,
-          sig: item.sig,
-        })).filter((item) => Boolean(item.trade)),
+        library
+          .map((item) => ({
+            trade: byId.get(item.id)!,
+            sig: item.sig,
+          }))
+          .filter((item) => Boolean(item.trade)),
       )
       setDupGroups(groups)
       toast(groups.length === 0 ? '未发现明显重复' : `发现 ${groups.length} 组重复`)
@@ -150,20 +208,46 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
 
   return (
     <div className="dio-content">
-      {electron && libraryPath && (
+      {electron && (
         <section className="dio-section dio-section-muted">
           <h2 className="dio-section-title">本地库</h2>
-          <p className="dio-desc dio-mono">{libraryPath}</p>
+          {libraryPath ? (
+            <p className="dio-desc dio-mono">{libraryPath}</p>
+          ) : (
+            <p className="dio-desc">正在读取库路径…</p>
+          )}
           <p className="dio-desc">
             数据保存在 journal.db、manifest.json 与 attachments/ 文件夹中，可用 iCloud
-            网盘同步整个库目录。
+            网盘同步整个库目录。换电脑或换盘符时，可在此打开其他目录中的库。
           </p>
+          <div className="dio-lib-actions">
+            <button
+              type="button"
+              className="dio-btn dio-btn-primary"
+              disabled={libraryBusy}
+              onClick={() => void onSwitchLibrary('open')}
+            >
+              <FolderOpen size={15} />
+              <span>{libraryBusy ? '切换中…' : '打开其他库…'}</span>
+            </button>
+            <button
+              type="button"
+              className="dio-btn"
+              disabled={libraryBusy}
+              onClick={() => void onSwitchLibrary('create')}
+            >
+              <Plus size={15} />
+              <span>在此新建库…</span>
+            </button>
+          </div>
         </section>
       )}
 
       <section className="dio-group" aria-labelledby="dio-export-title">
         <div className="dio-group-head">
-          <h2 id="dio-export-title" className="dio-group-title">备份与导出</h2>
+          <h2 id="dio-export-title" className="dio-group-title">
+            备份与导出
+          </h2>
           <p className="dio-group-desc">完整备份用于日常保护；JSON 适合只取出结构化数据。</p>
         </div>
         <div className="dio-task-list">
@@ -192,7 +276,9 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
 
       <section className="dio-group" aria-labelledby="dio-import-title">
         <div className="dio-group-head">
-          <h2 id="dio-import-title" className="dio-group-title">导入与迁移</h2>
+          <h2 id="dio-import-title" className="dio-group-title">
+            导入与迁移
+          </h2>
           <p className="dio-group-desc">按原始数据来源选择入口，不需要先判断文件格式。</p>
         </div>
         <input
@@ -238,7 +324,9 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
 
       <section className="dio-group" aria-labelledby="dio-dup-title">
         <div className="dio-group-head">
-          <h2 id="dio-dup-title" className="dio-group-title">重复检测</h2>
+          <h2 id="dio-dup-title" className="dio-group-title">
+            重复检测
+          </h2>
           <p className="dio-group-desc">
             按正文与截图内容识别明显抄重，不会把同日同品种多笔正常交易当成重复。
           </p>
@@ -299,7 +387,11 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
                   disabled={dupCleaning}
                 >
                   <Trash2 size={15} />
-                  <span>{dupCleaning ? '清理中…' : `清理 ${dupGroups.reduce((n, g) => n + g.memberIds.length - 1, 0)} 条重复`}</span>
+                  <span>
+                    {dupCleaning
+                      ? '清理中…'
+                      : `清理 ${dupGroups.reduce((n, g) => n + g.memberIds.length - 1, 0)} 条重复`}
+                  </span>
                 </button>
               </>
             )}
@@ -325,7 +417,8 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
       <p className="dio-safety-note">
         <AlertTriangle size={15} />
         <span>
-          仅导入可信文件。{electron
+          仅导入可信文件。
+          {electron
             ? '完整备份会替换当前库，JSON 只合并数据。'
             : '数据保存在当前浏览器中，建议定期导出完整备份。'}
         </span>

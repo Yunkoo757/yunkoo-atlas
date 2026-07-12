@@ -31,6 +31,13 @@
   word-break: break-all;
 }
 
+.dio-lib-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .dio-file-input {
   display: none;
 }
