@@ -254,6 +254,14 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(!source.includes('resolvePinnedSecondaryNav'), 'Sidebar 不得继续直接解析旧 sidebarPins')
 }
 
+export async function testAppOptsIntoStableReactRouterFutureBehavior(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/App.tsx', 'utf8')
+
+  assert(source.includes('v7_startTransition: true'), 'App 应启用 v7_startTransition')
+  assert(source.includes('v7_relativeSplatPath: true'), 'App 应启用 v7_relativeSplatPath')
+}
+
 export function testResolvePinnedSecondaryNavOrdersAndHidesEmpty(): void {
   const defaultItems = resolvePinnedSecondaryNav(DEFAULT_SIDEBAR_PINS)
   assert(
