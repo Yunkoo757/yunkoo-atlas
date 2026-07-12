@@ -1,16 +1,18 @@
 import type { StrategyIconId } from '@/data/strategies'
 import { getStrategyIcon } from '@/data/strategies'
+import { ICON_TILE, iconTileGlyphSize, softIconBackground } from '@/icons/iconSize'
 import './StrategyIcon.css'
 
 export function StrategyIcon({
   icon,
   color,
-  size = 16,
+  size = ICON_TILE,
   className = '',
   variant = 'default',
 }: {
   icon: StrategyIconId
   color: string
+  /** A1：外框 tile 边长（默认 16）；内嵌字形按 0.75 缩放 */
   size?: number
   className?: string
   /** nav：侧栏等导航场景，弱化色块背景 */
@@ -18,7 +20,7 @@ export function StrategyIcon({
 }) {
   const Icon = getStrategyIcon(icon)
   const isNav = variant === 'nav'
-  const box = isNav ? size : size + 8
+  const glyph = isNav ? size : iconTileGlyphSize(size)
   return (
     <span
       className={
@@ -26,16 +28,16 @@ export function StrategyIcon({
       }
       style={
         isNav
-          ? { width: box, height: box }
+          ? { width: size, height: size }
           : {
-              width: box,
-              height: box,
-              background: `color-mix(in srgb, ${color} 22%, transparent)`,
+              width: size,
+              height: size,
+              background: softIconBackground(color),
               color,
             }
       }
     >
-      <Icon size={size} />
+      <Icon size={glyph} />
     </span>
   )
 }
@@ -43,26 +45,29 @@ export function StrategyIcon({
 export function StrategyLabel({
   strategyId,
   strategies,
-  size = 14,
+  size = ICON_TILE,
 }: {
   strategyId: string
   strategies: { id: string; name: string; icon: StrategyIconId; color: string }[]
+  /** A1：tile 边长，与 SymbolIcon 对齐 */
   size?: number
 }) {
   const s = strategies.find((x) => x.id === strategyId)
-  const iconSize = size - 2
-  const box = iconSize + 8
   if (!s) {
     return (
       <span className="strategy-label strategy-label-fallback">
-        <span className="strategy-icon is-placeholder" style={{ width: box, height: box }} aria-hidden />
+        <span
+          className="strategy-icon is-placeholder"
+          style={{ width: size, height: size }}
+          aria-hidden
+        />
         <span>未分类</span>
       </span>
     )
   }
   return (
     <span className="strategy-label">
-      <StrategyIcon icon={s.icon} color={s.color} size={iconSize} />
+      <StrategyIcon icon={s.icon} color={s.color} size={size} />
       <span>{s.name}</span>
     </span>
   )

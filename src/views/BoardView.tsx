@@ -330,13 +330,13 @@ function BoardColumnBody({
                 </div>
                 <div className="bd-card-title">
                   <span className="bd-card-symbol">
-                    <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={15} />
+                    <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={16} />
                     {t.symbol}
                   </span>
                   <SideTag side={t.side} />
                 </div>
                 <div className="bd-card-strategy">
-                  <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={13} />
+                  <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
                 </div>
                 <div className="bd-case-tags">
                   <span

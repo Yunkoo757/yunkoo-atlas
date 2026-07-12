@@ -1,8 +1,11 @@
 import { resolveIconA11y } from '../iconA11y'
 import type { LinearIssueState, LinearProgressIconProps } from '../types'
+import './linearStatusIcons.css'
 
 export interface LinearIssueStatusIconProps extends LinearProgressIconProps {
   state: LinearIssueState
+  /** 完成/取消等终态字形弹出；进度态路径平滑过渡 */
+  animate?: boolean
 }
 
 const TRIAGE_PATH =
@@ -67,19 +70,30 @@ function ArchivedStatusPath({ state, color }: { state: LinearIssueState; color: 
 export function LinearIssueStatusIcon({
   state,
   progress,
+  animate = false,
   size = 14,
   title,
   color,
+  className,
   ...props
 }: LinearIssueStatusIconProps) {
   const a11y = resolveIconA11y(title)
   const iconColor = color ?? 'currentColor'
-  const content =
-    state === 'todo' || state === 'started' ? (
-      <ProgressSector progress={clampProgress(state === 'todo' ? 0 : progress)} color={iconColor} />
-    ) : (
+  const isProgress = state === 'todo' || state === 'started'
+  const content = isProgress ? (
+    <ProgressSector progress={clampProgress(state === 'todo' ? 0 : progress)} color={iconColor} />
+  ) : (
+    <g className={animate ? 'linear-issue-status__completion' : undefined}>
       <ArchivedStatusPath state={state} color={iconColor} />
-    )
+    </g>
+  )
+
+  const svgClassName = [
+    animate ? 'linear-issue-status--transition' : undefined,
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ') || undefined
 
   return (
     <svg
@@ -89,6 +103,7 @@ export function LinearIssueStatusIcon({
       height={size}
       viewBox="0 0 14 14"
       fill="none"
+      className={svgClassName}
       xmlns="http://www.w3.org/2000/svg"
     >
       {a11y.titleNode}

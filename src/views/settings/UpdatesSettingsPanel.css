@@ -95,6 +95,18 @@
   color: var(--field-placeholder);
 }
 
+.update-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.update-progress-row .update-progress {
+  flex: 1;
+  margin: 0;
+}
+
 .update-progress {
   height: 4px;
   margin: 0 0 14px;

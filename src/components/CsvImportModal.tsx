@@ -238,7 +238,7 @@ export function CsvImportModal({ open, onClose }: Props) {
               aria-label="拖放或选择 CSV 文件"
             >
               <div className="csv-drop-icon">
-                <Upload size={16} strokeWidth={1.5} />
+                <Upload size={16} />
               </div>
               <p className="csv-drop-title">拖放或选择文件</p>
               <p className="csv-drop-hint">.csv · .tsv · .txt</p>
@@ -442,7 +442,7 @@ export function CsvImportModal({ open, onClose }: Props) {
         {/* Step 4: Done */}
         {step === 'done' && (
           <div className="csv-done-area">
-            <CheckCircle size={40} strokeWidth={1.5} className="csv-ok" />
+            <CheckCircle size={40} className="csv-ok" />
             <p>导入完成！</p>
             <div className="csv-actions">
               <button className="csv-btn csv-btn-primary" onClick={reset} type="button">

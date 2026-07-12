@@ -1090,7 +1090,7 @@ export function testSymbolIconsResolveDefaultsAndOverrides(): void {
   assert(btc.type === 'glyph' && btc.glyph === '₿', 'BTC 默认使用比特币占位符')
 
   const xau = resolveSymbolIcon('XAUUSD')
-  assert(xau.type === 'svg' && xau.svgId === 'gold-bar', '黄金默认使用金条 SVG')
+  assert(xau.type === 'glyph' && xau.glyph === 'Au', 'A1：黄金默认使用平面 Au glyph')
 
   const custom = resolveSymbolIcon('BTCUSDT', {
     BTCUSDT: {

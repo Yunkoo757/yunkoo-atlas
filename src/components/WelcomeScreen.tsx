@@ -63,7 +63,7 @@ export function WelcomeScreen({ onReady }: Props) {
     <div className="welcome-overlay">
       <div className="welcome-card">
         <div className="welcome-icon">
-          <HardDrive size={40} strokeWidth={1.2} />
+          <HardDrive size={40} />
         </div>
         <h1 className="welcome-title">欢迎使用 Yunkoo Atlas</h1>
         <p className="welcome-desc">

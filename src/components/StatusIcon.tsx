@@ -1,6 +1,9 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { TradeStatus, Conviction } from '@/data/trades'
 import { LinearIssueStatusIcon } from '@/icons/linear'
 import type { LinearIssueState } from '@/icons/linear'
+import { ICON_SM } from '@/icons/iconSize'
+import './StatusIcon.css'
 
 const STATUS_COLOR: Record<TradeStatus, string> = {
   planned: 'var(--text-tertiary)',
@@ -48,48 +51,70 @@ function MissedStatusIcon({ size, color }: { size: number; color: string }) {
 
 export function StatusIcon({
   status,
-  size = 14,
+  size = ICON_SM,
+  animate = true,
 }: {
   status: TradeStatus
   size?: number
+  /** 状态切换时播放 Linear 式 pop；列表首次挂载不播，避免刷屏 */
+  animate?: boolean
 }) {
-  if (status === 'missed') {
-    return <MissedStatusIcon size={size} color={STATUS_COLOR.missed} />
-  }
+  const seen = useRef(false)
+  const [motionTick, setMotionTick] = useState(0)
 
-  const mapped = STATUS_TO_LINEAR[status]
+  useLayoutEffect(() => {
+    if (!animate) return
+    if (!seen.current) {
+      seen.current = true
+      return
+    }
+    setMotionTick((tick) => tick + 1)
+  }, [status, animate])
+
+  const mapped = status === 'missed' ? null : STATUS_TO_LINEAR[status]
+  const glyph =
+    status === 'missed' || !mapped ? (
+      <MissedStatusIcon size={size} color={STATUS_COLOR.missed} />
+    ) : (
+      <LinearIssueStatusIcon
+        state={mapped.state}
+        progress={mapped.progress}
+        size={size}
+        color={STATUS_COLOR[status]}
+        title={mapped.title}
+        animate={animate && motionTick > 0}
+      />
+    )
+
+  if (!animate) return glyph
+
   return (
-    <LinearIssueStatusIcon
-      state={mapped.state}
-      progress={mapped.progress}
-      size={size}
-      color={STATUS_COLOR[status]}
-      title={mapped.title}
-    />
+    <span
+      key={`${status}-${motionTick}`}
+      className={
+        motionTick > 0 ? 'status-icon status-icon--animate' : 'status-icon'
+      }
+    >
+      {glyph}
+    </span>
   )
 }
 
-// 信心度图标：Linear 优先级风格的三段信号条（原创绘制）。
+// 信心度图标：三段信号条；极高与高同为满格，用紧急色区分（不再用红叹号方块）。
 const BARS: Record<Conviction, number> = { low: 1, medium: 2, high: 3, urgent: 3 }
 
 export function ConvictionIcon({
   conviction,
-  size = 14,
+  size = ICON_SM,
 }: {
   conviction: Conviction
   size?: number
 }) {
-  if (conviction === 'urgent') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden>
-        <rect x="1" y="1" width="12" height="12" rx="3" fill="var(--status-urgent)" />
-        <rect x="6.25" y="3.5" width="1.5" height="4.5" rx="0.75" fill="var(--accent-text)" />
-        <rect x="6.25" y="9.5" width="1.5" height="1.5" rx="0.75" fill="var(--accent-text)" />
-      </svg>
-    )
-  }
   const active = BARS[conviction]
   const heights = [4, 7, 10]
+  const on =
+    conviction === 'urgent' ? 'var(--status-urgent)' : 'var(--text-secondary)'
+  const off = 'var(--text-quaternary)'
   return (
     <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden>
       {heights.map((h, i) => (
@@ -100,7 +125,7 @@ export function ConvictionIcon({
           width="2.6"
           height={h}
           rx="1"
-          fill={i < active ? 'var(--text-secondary)' : 'var(--text-quaternary)'}
+          fill={i < active ? on : off}
         />
       ))}
     </svg>

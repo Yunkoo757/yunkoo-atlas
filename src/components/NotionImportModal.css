@@ -377,19 +377,6 @@
   gap: 6px;
 }
 
-.nim-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--border-default);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: nim-spin 0.7s linear infinite;
-}
-
-@keyframes nim-spin {
-  to { transform: rotate(360deg); }
-}
-
 .nim-err-cell {
   color: var(--neg);
   font-size: var(--fs-mini);

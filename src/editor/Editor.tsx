@@ -16,6 +16,7 @@ import {
   ListChecks,
   Quote,
 } from '@/icons/appIcons'
+import { ICON_TOOLBAR } from '@/icons/iconSize'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'
@@ -154,25 +155,25 @@ export function Editor({
               on={editor.isActive('bold')}
               onClick={() => editor.chain().focus().toggleBold().run()}
             >
-              <Bold size={15} />
+              <Bold size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
               on={editor.isActive('italic')}
               onClick={() => editor.chain().focus().toggleItalic().run()}
             >
-              <Italic size={15} />
+              <Italic size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
               on={editor.isActive('strike')}
               onClick={() => editor.chain().focus().toggleStrike().run()}
             >
-              <Strikethrough size={15} />
+              <Strikethrough size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
               on={editor.isActive('code')}
               onClick={() => editor.chain().focus().toggleCode().run()}
             >
-              <Code size={15} />
+              <Code size={ICON_TOOLBAR} />
             </BBtn>
           </BtnGroup>
           <span className="bubble-sep" />
@@ -183,25 +184,25 @@ export function Editor({
                 editor.chain().focus().toggleHeading({ level: 2 }).run()
               }
             >
-              <Heading2 size={15} />
+              <Heading2 size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
               on={editor.isActive('bulletList')}
               onClick={() => editor.chain().focus().toggleBulletList().run()}
             >
-              <List size={15} />
+              <List size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
               on={editor.isActive('taskList')}
               onClick={() => editor.chain().focus().toggleTaskList().run()}
             >
-              <ListChecks size={15} />
+              <ListChecks size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
               on={editor.isActive('blockquote')}
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
             >
-              <Quote size={15} />
+              <Quote size={ICON_TOOLBAR} />
             </BBtn>
           </BtnGroup>
         </BubbleMenu>

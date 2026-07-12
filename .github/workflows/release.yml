@@ -1,0 +1,181 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Electron runtime
+        run: pnpm exec install-electron
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Generate app icon assets
+        run: pnpm icons:app
+
+      - name: Verify tag matches package version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} does not match package version v$version"
+          }
+
+      - name: Run regression tests
+        run: pnpm test
+
+      - name: Run sidebar navigation QA
+        run: pnpm qa:sidebar
+
+      - name: Build application
+        run: pnpm build:app
+
+      - name: Run Electron library QA
+        run: pnpm qa:electron
+
+      - name: Build Windows installer
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+
+      - name: Publish private GitHub Release (Windows assets)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $tag = "${{ github.ref_name }}"
+          $installer = Get-Item "release/Yunkoo-Atlas-$version-win-x64.exe"
+          $blockmap = Get-Item "$($installer.FullName).blockmap"
+          $metadata = Get-Item "release/latest.yml"
+          $files = @($installer, $blockmap, $metadata)
+
+          foreach ($file in $files) {
+            if ($file.Length -le 0) { throw "Release asset is empty: $($file.Name)" }
+          }
+
+          gh release create $tag --verify-tag --title "Yunkoo Atlas $version" --notes @"
+          ## Windows
+          - NSIS 安装包（支持应用内更新）
+
+          ## macOS
+          - DMG / ZIP（arm64 + x64）由同工作流随后上传
+          - 当前为未公证构建，需右键打开或在隐私与安全性中允许
+          - 应用内自动更新仍仅支持 Windows NSIS
+          "@ $installer.FullName $blockmap.FullName $metadata.FullName
+
+          $release = gh release view $tag --json isDraft,assets | ConvertFrom-Json
+          if ($release.isDraft) { throw "Release $tag is still a draft" }
+          $assetNames = @($release.assets | ForEach-Object name)
+          foreach ($file in $files) {
+            if ($assetNames -notcontains $file.Name) {
+              throw "Release asset missing: $($file.Name)"
+            }
+          }
+
+  build-macos:
+    needs: build-windows
+    runs-on: macos-latest
+    timeout-minutes: 75
+    env:
+      # 未配置 Apple 开发者证书时跳过签名，产出可手动安装的 DMG/ZIP
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Electron runtime
+        run: pnpm exec install-electron
+
+      - name: Generate app icon assets
+        run: pnpm icons:app
+
+      - name: Verify tag matches package version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "${{ github.ref_name }}" ]; then
+            echo "Tag ${{ github.ref_name }} does not match package version v$version"
+            exit 1
+          fi
+
+      - name: Build application
+        run: pnpm build:app
+
+      - name: Build macOS DMG and ZIP
+        run: pnpm exec electron-builder --mac dmg zip --publish never
+
+      - name: Upload macOS assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="${{ github.ref_name }}"
+          shopt -s nullglob
+          files=(
+            release/Yunkoo-Atlas-"$version"-mac-*.dmg
+            release/Yunkoo-Atlas-"$version"-mac-*.zip
+          )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No macOS release artifacts found"
+            ls -la release || true
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            if [ ! -s "$file" ]; then
+              echo "Release asset is empty: $file"
+              exit 1
+            fi
+          done
+          gh release upload "$tag" "${files[@]}" --clobber
+          asset_names=$(gh release view "$tag" --json assets --jq '.assets[].name')
+          for file in "${files[@]}"; do
+            base=$(basename "$file")
+            echo "$asset_names" | grep -Fxq "$base" || {
+              echo "Release asset missing after upload: $base"
+              exit 1
+            }
+          done

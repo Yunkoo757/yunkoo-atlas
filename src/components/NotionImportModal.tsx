@@ -1,5 +1,7 @@
 import { useState, useRef, useMemo, type DragEvent } from 'react'
 import { Upload, X, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
+import { LinearGridLoaderIcon } from '@/icons/linear'
+import { ICON_HERO } from '@/icons/iconSize'
 import { useStore } from '@/store/useStore'
 import {
   applyNotionImageAssetsToNote,
@@ -280,7 +282,7 @@ export function NotionImportModal({ open, onClose }: Props) {
               aria-label="拖放或选择 Notion 导出文件"
             >
               <div className="nim-drop-icon">
-                <Upload size={16} strokeWidth={1.5} />
+                <Upload size={16} />
               </div>
               <p className="nim-drop-title">拖放或选择文件</p>
               <p className="nim-drop-hint">.zip · .csv</p>
@@ -433,7 +435,7 @@ export function NotionImportModal({ open, onClose }: Props) {
         {/* Step 2.5: Importing */}
         {step === 'importing' && (
           <div className="nim-done-area">
-            <div className="nim-spinner" />
+            <LinearGridLoaderIcon variant="hourglass" size={ICON_HERO} aria-hidden />
             <p>正在导入…</p>
             <p className="nim-done-hint">截图正在离线保存到本地库，请稍候。</p>
           </div>
@@ -442,7 +444,7 @@ export function NotionImportModal({ open, onClose }: Props) {
         {/* Step 3: Done */}
         {step === 'done' && (
           <div className="nim-done-area">
-            <CheckCircle size={40} strokeWidth={1.5} className="nim-ok" />
+            <CheckCircle size={40} className="nim-ok" />
             <p>已导入 {imported} 笔交易</p>
             {importedImages > 0 && (
               <p className="nim-done-images">
