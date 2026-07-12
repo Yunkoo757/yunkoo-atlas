@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '../src/storage/types'
+import type { AppUpdateState } from '../src/lib/appUpdate'
 
 export interface BackupInfo {
   name: string
@@ -38,6 +39,15 @@ export interface JournalBridge {
   restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
+  // 应用更新
+  getUpdateState(): Promise<AppUpdateState>
+  hasUpdateCredential(): Promise<boolean>
+  saveUpdateCredential(token: string): Promise<boolean>
+  clearUpdateCredential(): Promise<boolean>
+  checkForUpdates(): Promise<AppUpdateState>
+  downloadUpdate(): Promise<AppUpdateState>
+  installUpdate(): Promise<boolean>
+  onUpdateState(callback: (state: AppUpdateState) => void): () => void
 }
 
 const bridge: JournalBridge = {
@@ -65,6 +75,18 @@ const bridge: JournalBridge = {
   restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
   deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', fileName),
   getBackupStats: () => ipcRenderer.invoke('backup:stats'),
+  getUpdateState: () => ipcRenderer.invoke('update:getState'),
+  hasUpdateCredential: () => ipcRenderer.invoke('update:hasCredential'),
+  saveUpdateCredential: (token) => ipcRenderer.invoke('update:saveCredential', token),
+  clearUpdateCredential: () => ipcRenderer.invoke('update:clearCredential'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: AppUpdateState) => callback(state)
+    ipcRenderer.on('update:state', listener)
+    return () => ipcRenderer.removeListener('update:state', listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('journalBridge', bridge)

@@ -11,6 +11,7 @@ const entries = [
   'src/lib/tradeDuplicates.test.ts',
   'src/icons/linear/linear-icons.test.tsx',
   'src/views/TradeTrashView.design.test.ts',
+  'src/lib/appUpdate.test.ts',
 ]
 
 let failed = 0

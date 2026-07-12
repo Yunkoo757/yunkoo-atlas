@@ -19,6 +19,9 @@
     "dist": "pnpm build:app && electron-builder",
     "dist:mac": "pnpm build:app && electron-builder --mac",
     "dist:win": "pnpm build:app && electron-builder --win",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
     "qa": "node scripts/qa-phase1.mjs && node scripts/qa-phase1-image.mjs && node scripts/qa-workbench.mjs",
     "qa:core": "node scripts/qa-phase1.mjs",
     "qa:image": "node scripts/qa-phase1-image.mjs",
@@ -43,6 +46,7 @@
     "@tiptap/starter-kit": "^2.8.0",
     "archiver": "^8.0.0",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.9",
     "extract-zip": "^2.0.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.451.0",
@@ -80,6 +84,14 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Yunkoo757",
+        "repo": "yunkoo-atlas",
+        "private": true
+      }
+    ],
     "files": [
       "dist/**/*",
       "dist-electron/**/*"
