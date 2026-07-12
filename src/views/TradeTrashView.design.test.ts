@@ -15,3 +15,14 @@ export function testTrashSelectAllDoesNotNestButtons() {
     throw new Error('Trash select-all must keep separate checkbox and label controls')
   }
 }
+
+export function testTrashSearchRemainsAvailableWhenNoRowsMatch() {
+  const source = readFileSync(path.resolve('src/views/TradeTrashView.tsx'), 'utf8')
+
+  if (!source.includes("trashTrades.length === 0")) {
+    throw new Error('Trash empty state must depend on the underlying trash, not filtered results')
+  }
+  if (!source.includes("filteredTrades.length === 0 ? (")) {
+    throw new Error('Filtered empty state must render inside the persistent trash toolbar')
+  }
+}

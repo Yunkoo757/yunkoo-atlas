@@ -180,10 +180,10 @@ export function TradeTrashView() {
       />
 
       <div className="trash-content">
-        {filteredTrades.length === 0 ? (
+        {trashTrades.length === 0 ? (
           <EmptyState
-            title={searchQuery ? '未找到匹配交易' : '回收站为空'}
-            hint={searchQuery ? '尝试其他搜索关键词' : '已删除的交易会在 30 天后自动清空'}
+            title="回收站为空"
+            hint="已删除的交易会在 30 天后自动清空"
           />
         ) : (
           <div className="trash-groups">
@@ -231,7 +231,12 @@ export function TradeTrashView() {
               )}
             </div>
 
-            {groups.map((group) => (
+            {filteredTrades.length === 0 ? (
+              <EmptyState
+                title="未找到匹配交易"
+                hint="尝试其他搜索关键词"
+              />
+            ) : groups.map((group) => (
               <div key={group.label} className="trash-group">
                 <div className="trash-group-header">
                   <span className="trash-group-label">{group.label}</span>
