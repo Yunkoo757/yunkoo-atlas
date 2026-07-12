@@ -6,7 +6,7 @@ import { requestScrollToTrade } from '@/lib/tradeScrollTargets'
 const STORAGE_PREFIX = 'trade-return-anchor:'
 const STORAGE_VERSION = 1
 const MAX_AGE_MS = 30_000
-const MAX_RESTORE_FRAMES = 8
+const MAX_RESTORE_FRAMES = 36
 
 type TradeReturnLocationState = {
   restoreTradeId?: string
@@ -83,13 +83,24 @@ export function useTradeReturnAnchor(): void {
     }
     const attemptRestore = () => {
       if (requestScrollToTrade(pending.tradeId)) {
-        // 虚拟列表先滚到索引，下一帧再尝试 DOM 居中（行已挂载）
-        animationFrame = requestAnimationFrame(() => {
+        // 虚拟列表滚到索引后可能需多帧才挂载 DOM
+        let wait = 0
+        const waitForMounted = () => {
           const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
             .find((element) => element.dataset.tradeId === pending.tradeId)
-          target?.scrollIntoView({ block: 'center' })
-          finish()
-        })
+          if (target) {
+            target.scrollIntoView({ block: 'center' })
+            finish()
+            return
+          }
+          if (wait >= 16) {
+            finish()
+            return
+          }
+          wait += 1
+          animationFrame = requestAnimationFrame(waitForMounted)
+        }
+        animationFrame = requestAnimationFrame(waitForMounted)
         return
       }
       const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
