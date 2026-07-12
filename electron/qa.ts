@@ -4,7 +4,7 @@ import path from 'node:path'
 import { LibraryStorage } from './library/storage'
 import { processImageBuffer } from './library/images'
 import { exportJournalZip, importJournalZipToPath } from './library/journalZip'
-import { createBackup, restoreBackup } from './library/backup'
+import { createBackup, restoreBackup, rotateBackups } from './library/backup'
 import { SCHEMA_VERSION } from '../src/storage/types'
 import { ZipArchive } from 'archiver'
 
@@ -205,6 +205,64 @@ export async function runElectronQa(): Promise<QaCheck[]> {
         `${providedSnapshot?.trades?.length ?? 0} trades`,
       )
     }
+
+    // iCloud 可能把 journal.db 改名为冲突副本。缺少主文件时必须恢复已有数据，
+    // 而不是静默创建空库；若只有 manifest，则必须拒绝启动写入。
+    storage.saveSnapshot(snapshotWithRef('TRD-CONFLICT-RECOVERY'))
+    storage.release()
+    const conflictPath = path.join(paths.root, 'journal 2.db')
+    fs.copyFileSync(paths.dbFile, conflictPath)
+    fs.rmSync(paths.dbFile, { force: true })
+    await storage.open()
+    record(
+      'iCloud conflict copy recovers missing journal.db',
+      storage.loadSnapshot()?.trades?.[0]?.ref === 'TRD-CONFLICT-RECOVERY',
+    )
+
+    storage.release()
+    fs.rmSync(conflictPath, { force: true })
+    const protectedDb = fs.readFileSync(paths.dbFile)
+    fs.rmSync(paths.dbFile, { force: true })
+    let missingDbError = ''
+    try {
+      await storage.open()
+    } catch (err) {
+      missingDbError = String(err)
+    }
+    record(
+      'manifest without db blocks empty-library overwrite',
+      missingDbError.includes('已阻止写入空库'),
+      missingDbError,
+    )
+    fs.writeFileSync(paths.dbFile, protectedDb)
+    await storage.open()
+
+    const rotationDir = path.join(paths.root, '_qa-backup-rotation')
+    fs.mkdirSync(rotationDir, { recursive: true })
+    const oldNonEmpty = 'journal-2026-01-01-00-00-00-001Z.db'
+    const middleEmpty = 'journal-2026-01-02-00-00-00-001Z.db'
+    const newestEmpty = 'journal-2026-01-03-00-00-00-001Z.db'
+    for (const [name, tradeCount] of [
+      [oldNonEmpty, 1],
+      [middleEmpty, 0],
+      [newestEmpty, 0],
+    ] as const) {
+      const dbPath = path.join(rotationDir, name)
+      fs.writeFileSync(dbPath, Buffer.alloc(16))
+      fs.writeFileSync(
+        dbPath + '.meta.json',
+        JSON.stringify({ tradeCount, strategyCount: 0, attachmentCount: 0, librarySizeBytes: 16 }),
+        'utf8',
+      )
+    }
+    rotateBackups(rotationDir, 2, 1024)
+    record(
+      'backup rotation preserves non-empty history before empty copies',
+      fs.existsSync(path.join(rotationDir, oldNonEmpty)) &&
+        fs.existsSync(path.join(rotationDir, newestEmpty)) &&
+        !fs.existsSync(path.join(rotationDir, middleEmpty)),
+    )
+    fs.rmSync(rotationDir, { recursive: true, force: true })
   } catch (e) {
     record('主进程 QA 异常', false, String(e))
   } finally {
