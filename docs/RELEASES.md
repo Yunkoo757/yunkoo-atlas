@@ -20,6 +20,13 @@
 
 如果令牌泄露，应立即在 GitHub 撤销并重新生成。
 
+## Windows 高 DPI
+
+- NSIS 安装向导：`build/installer.nsh` 声明 `ManifestDPIAware` + `PerMonitorV2`，避免安装界面被系统位图拉伸发糊。
+- 应用进程：Electron 主进程在 ready 前开启 `high-dpi-support`，按显示器原生缩放渲染。
+
+若旧安装包仍糊：先装新版本覆盖；也可在快捷方式属性 → 兼容性 →「更改高 DPI 设置」中确认未强制系统缩放。
+
 ## 版本规则
 
 - `patch`：错误修复、视觉调整，例如 `1.0.0 → 1.0.1`。
