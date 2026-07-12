@@ -1,4 +1,4 @@
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/bootstrap'
 import { normalizeNoteForStorage } from '@/storage/assets'
 import { useStore } from '@/store/useStore'
 

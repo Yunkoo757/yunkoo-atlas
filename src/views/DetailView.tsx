@@ -67,7 +67,8 @@ import {
 import { toast } from '@/lib/toast'
 import { syncStatusFromPnl } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isTerminal } from '@/lib/tradeStatus'
-import { getStorage, resolveNoteForDisplay } from '@/storage'
+import { getStorage } from '@/storage/bootstrap'
+import { resolveNoteForDisplay } from '@/storage/assets'
 import {
   flushNoteDraftsToStore,
   flushNoteDraftToStore,

@@ -8,7 +8,7 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom'
-import { useEffect, useState, useCallback, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
@@ -28,11 +28,8 @@ import { ICON_XL } from './icons/iconSize'
 import { ListView } from './views/ListView'
 import { BoardView } from './views/BoardView'
 import { TableView } from './views/TableView'
-import { Dashboard } from './views/Dashboard'
-import { DetailView } from './views/DetailView'
 import { SettingsLayout } from './views/settings/SettingsLayout'
 import { ShortcutsPanel } from './views/settings/ShortcutsPanel'
-import { StrategiesPanel } from './views/settings/StrategiesPanel'
 import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
 import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
 import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
@@ -52,6 +49,16 @@ import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import './App.css'
+
+const Dashboard = lazy(() =>
+  import('./views/Dashboard').then((module) => ({ default: module.Dashboard })),
+)
+const DetailView = lazy(() =>
+  import('./views/DetailView').then((module) => ({ default: module.DetailView })),
+)
+const StrategiesPanel = lazy(() =>
+  import('./views/settings/StrategiesPanel').then((module) => ({ default: module.StrategiesPanel })),
+)
 
 function TradesPage({
   title,
@@ -186,7 +193,15 @@ function Shell() {
         sidebar={<Sidebar onOpenSearch={() => setCmdkOpen(true)} />}
         mobileNavigation={<MobileNavigation onOpenSearch={() => setCmdkOpen(true)} />}
       >
-        <Routes>
+        <Suspense
+          fallback={(
+            <div className="app-loading" role="status" aria-live="polite">
+              <LinearGridLoaderIcon variant="scope" size={ICON_XL} aria-hidden />
+              <span>加载页面…</span>
+            </div>
+          )}
+        >
+          <Routes>
           <Route path="/" element={<Navigate to="/list" replace />} />
           <Route
             path="/list"
@@ -315,7 +330,8 @@ function Shell() {
           </Route>
           <Route path="/strategies" element={<Navigate to="/settings/strategies" replace />} />
           <Route path="*" element={<Navigate to="/list" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </AppFrame>
       <CommandPalette
         open={cmdkOpen}
