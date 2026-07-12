@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yunkoo Atlas · 应用图标方案</title>
+  <style>
+    :root {
+      --page: #07080a;
+      --panel: #0e0f12;
+      --elevated: #14151a;
+      --border: #22242b;
+      --text: #f2f2f5;
+      --text2: #a8a8b3;
+      --text3: #6b6b78;
+      --accent: #5e6ad2;
+      --font: "Inter", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(800px 360px at 10% -8%, rgba(94, 106, 210, 0.1), transparent 55%),
+        var(--page);
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 28px 72px; }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+    .lede {
+      margin: 0 0 28px;
+      max-width: 62ch;
+      color: var(--text2);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 800px) { .rules { grid-template-columns: 1fr 1fr; } }
+    .rule {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      font-size: 12.5px;
+      color: var(--text2);
+      line-height: 1.45;
+    }
+    .rule strong { display: block; margin-bottom: 4px; color: var(--text); font-size: 12px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-head h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+    .tag {
+      font-size: 11px;
+      color: var(--text3);
+      letter-spacing: 0.02em;
+    }
+    .tag.rec {
+      color: #b4bcf0;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      min-height: 180px;
+      padding: 28px 20px 18px;
+      background:
+        linear-gradient(90deg, transparent 49.5%, #1a1b20 49.5%, #1a1b20 50.5%, transparent 50.5%),
+        linear-gradient(#1a1b20 1px, transparent 1px),
+        linear-gradient(90deg, #1a1b20 1px, transparent 1px),
+        var(--elevated);
+      background-size: auto, 16px 16px, 16px 16px;
+    }
+    .hero {
+      width: 96px;
+      height: 96px;
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 10px 28px rgba(0,0,0,.35);
+    }
+    .hero svg { display: block; width: 100%; height: 100%; }
+    .thumbs {
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+    }
+    .thumb {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .thumb span {
+      font-size: 10px;
+      color: var(--text3);
+      font-variant-numeric: tabular-nums;
+    }
+    .thumb-box {
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #101116;
+      border: 1px solid #252730;
+    }
+    .thumb-box svg { display: block; width: 100%; height: 100%; }
+    .note {
+      padding: 12px 16px 16px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text2);
+      border-top: 1px solid var(--border);
+    }
+    .footer {
+      margin-top: 24px;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text2);
+    }
+    .footer strong { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>应用图标 · 高级克制方案</h1>
+    <p class="lede">
+      对照现有「猫 + 光标 + 闪电」：缩略时细节糊成一团。下面 6 版坚持少元素、强剪影、1～2 色，
+      并在 16 / 24 / 32 / 48 同步预览——能在小尺寸站住才算过关。
+    </p>
+
+    <div class="rules">
+      <div class="rule"><strong>剪影优先</strong>一块主形，远看仍是符号</div>
+      <div class="rule"><strong>色阶克制</strong>深底 + 一抹强调，忌多色插画</div>
+      <div class="rule"><strong>线宽够粗</strong>小尺寸避免 1px 发丝线</div>
+      <div class="rule"><strong>圆角统一</strong>约 22% 圆角，贴近系统 app icon</div>
+    </div>
+
+    <div class="grid">
+
+      <!-- A -->
+      <article class="card">
+        <div class="card-head">
+          <h2>A · Atlas 轴心</h2>
+          <span class="tag rec">推荐</span>
+        </div>
+        <div class="stage">
+          <div class="hero" aria-hidden="true">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+              <rect width="128" height="128" rx="28" fill="#12141a"/>
+              <circle cx="64" cy="64" r="34" fill="none" stroke="#5e6ad2" stroke-width="7"/>
+              <circle cx="64" cy="64" r="8" fill="#e8eaf6"/>
+              <circle cx="64" cy="30" r="5" fill="#5e6ad2"/>
+            </svg>
+          </div>
+          <div class="thumbs" id="thumbs-a"></div>
+        </div>
+        <div class="note">圆环 + 中心点 + 北向节点。读作「定位 / Atlas」，16px 仍是清晰的靶心剪影。</div>
+      </article>
+
+      <!-- B -->
+      <article class="card">
+        <div class="card-head">
+          <h2>B · 字标 A</h2>
+          <span class="tag">备选</span>
+        </div>
+        <div class="stage">
+          <div class="hero" aria-hidden="true">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+              <rect width="128" height="128" rx="28" fill="#12141a"/>
+              <path d="M40 92 L64 28 L88 92" fill="none" stroke="#f0f1f5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M50 68 H78" stroke="#5e6ad2" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="thumbs" id="thumbs-b"></div>
+        </div>
+        <div class="note">单字母 A，横杠用品牌色。最耐缩、最无角色感；适合长期品牌资产。</div>
+      </article>
+
+      <!-- C -->
+      <article class="card">
+        <div class="card-head">
+          <h2>C · 单烛</h2>
+          <span class="tag">备选</span>
+        </div>
+        <div class="stage">
+          <div class="hero" aria-hidden="true">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+              <rect width="128" height="128" rx="28" fill="#12141a"/>
+              <path d="M64 26 V102" stroke="#3a3d4a" stroke-width="6" stroke-linecap="round"/>
+              <rect x="48" y="44" width="32" height="40" rx="4" fill="#5e6ad2"/>
+            </svg>
+          </div>
+          <div class="thumbs" id="thumbs-c"></div>
+        </div>
+        <div class="note">一根 K 线剪影，不堆多根蜡烛。交易属性明确，但不过度「金融插画」。</div>
+      </article>
+
+      <!-- D -->
+      <article class="card">
+        <div class="card-head">
+          <h2>D · 账页折角</h2>
+          <span class="tag">备选</span>
+        </div>
+        <div class="stage">
+          <div class="hero" aria-hidden="true">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+              <rect width="128" height="128" rx="28" fill="#12141a"/>
+              <path d="M36 30 H78 L92 44 V98 H36 Z" fill="#1c1f28" stroke="#d8dbe8" stroke-width="5" stroke-linejoin="round"/>
+              <path d="M78 30 V44 H92" fill="none" stroke="#5e6ad2" stroke-width="5" stroke-linejoin="round"/>
+              <path d="M48 58 H76 M48 72 H68" stroke="#6a6e7c" stroke-width="5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="thumbs" id="thumbs-d"></div>
+        </div>
+        <div class="note">日记/账本隐喻。折角用 accent 点题；小尺寸时保留「折页」三角形最关键。</div>
+      </article>
+
+      <!-- E -->
+      <article class="card">
+        <div class="card-head">
+          <h2>E · 双弧 R</h2>
+          <span class="tag">备选</span>
+        </div>
+        <div class="stage">
+          <div class="hero" aria-hidden="true">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+              <rect width="128" height="128" rx="28" fill="#12141a"/>
+              <path d="M38 86 C38 46 90 40 90 40" fill="none" stroke="#5e6ad2" stroke-width="8" stroke-linecap="round"/>
+              <path d="M38 42 V94" stroke="#e8eaf6" stroke-width="9" stroke-linecap="round"/>
+              <path d="M38 68 H72" stroke="#e8eaf6" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="thumbs" id="thumbs-e"></div>
+        </div>
+        <div class="note">抽象 R（风险单位）。克制、偏工具感；比字母 A 更「交易圈内」一点。</div>
+      </article>
+
+      <!-- F -->
+      <article class="card">
+        <div class="card-head">
+          <h2>F · 静默菱形</h2>
+          <span class="tag">极简</span>
+        </div>
+        <div class="stage">
+          <div class="hero" aria-hidden="true">
+            <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+              <rect width="128" height="128" rx="28" fill="#12141a"/>
+              <path d="M64 28 L96 64 L64 100 L32 64 Z" fill="none" stroke="#c9ccd8" stroke-width="7" stroke-linejoin="round"/>
+              <path d="M64 48 L80 64 L64 80 L48 64 Z" fill="#5e6ad2"/>
+            </svg>
+          </div>
+          <div class="thumbs" id="thumbs-f"></div>
+        </div>
+        <div class="note">外框菱形 + 实心内芯。零叙事、最高级感；缩略时变成稳定的几何印章。</div>
+      </article>
+
+    </div>
+
+    <div class="footer">
+      <strong>建议：A（Atlas 轴心）或 B（字标 A）。</strong>
+      A 更有产品叙事且小尺寸仍清晰；B 最耐看、最适合长期品牌。
+      回我 <code>A</code>–<code>F</code>（可再微调色：冷紫 accent / 暖金 / 纯灰）即可落地到 Electron 图标与 favicon。
+    </div>
+  </div>
+
+  <script>
+    const sources = {
+      a: `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" rx="28" fill="#12141a"/><circle cx="64" cy="64" r="34" fill="none" stroke="#5e6ad2" stroke-width="7"/><circle cx="64" cy="64" r="8" fill="#e8eaf6"/><circle cx="64" cy="30" r="5" fill="#5e6ad2"/></svg>`,
+      b: `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" rx="28" fill="#12141a"/><path d="M40 92 L64 28 L88 92" fill="none" stroke="#f0f1f5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M50 68 H78" stroke="#5e6ad2" stroke-width="8" stroke-linecap="round"/></svg>`,
+      c: `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" rx="28" fill="#12141a"/><path d="M64 26 V102" stroke="#3a3d4a" stroke-width="6" stroke-linecap="round"/><rect x="48" y="44" width="32" height="40" rx="4" fill="#5e6ad2"/></svg>`,
+      d: `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" rx="28" fill="#12141a"/><path d="M36 30 H78 L92 44 V98 H36 Z" fill="#1c1f28" stroke="#d8dbe8" stroke-width="5" stroke-linejoin="round"/><path d="M78 30 V44 H92" fill="none" stroke="#5e6ad2" stroke-width="5" stroke-linejoin="round"/><path d="M48 58 H76 M48 72 H68" stroke="#6a6e7c" stroke-width="5" stroke-linecap="round"/></svg>`,
+      e: `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" rx="28" fill="#12141a"/><path d="M38 86 C38 46 90 40 90 40" fill="none" stroke="#5e6ad2" stroke-width="8" stroke-linecap="round"/><path d="M38 42 V94" stroke="#e8eaf6" stroke-width="9" stroke-linecap="round"/><path d="M38 68 H72" stroke="#e8eaf6" stroke-width="8" stroke-linecap="round"/></svg>`,
+      f: `<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg"><rect width="128" height="128" rx="28" fill="#12141a"/><path d="M64 28 L96 64 L64 100 L32 64 Z" fill="none" stroke="#c9ccd8" stroke-width="7" stroke-linejoin="round"/><path d="M64 48 L80 64 L64 80 L48 64 Z" fill="#5e6ad2"/></svg>`,
+    }
+    const sizes = [16, 24, 32, 48]
+    for (const [key, svg] of Object.entries(sources)) {
+      const host = document.getElementById('thumbs-' + key)
+      if (!host) continue
+      for (const size of sizes) {
+        const wrap = document.createElement('div')
+        wrap.className = 'thumb'
+        wrap.innerHTML = `<div class="thumb-box" style="width:${size}px;height:${size}px;border-radius:${Math.max(3, Math.round(size * 0.22))}px">${svg}</div><span>${size}</span>`
+        host.appendChild(wrap)
+      }
+    }
+  </script>
+</body>
+</html>

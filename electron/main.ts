@@ -25,9 +25,24 @@ function getIndexHtmlPath(): string {
   return path.join(app.getAppPath(), 'dist', 'index.html')
 }
 
+function getWindowIconPath(): string | undefined {
+  const candidates = app.isPackaged
+    ? [
+        path.join(app.getAppPath(), 'dist', 'icon.png'),
+        path.join(process.resourcesPath, 'icon.png'),
+      ]
+    : [
+        path.join(process.cwd(), 'build', 'icon.ico'),
+        path.join(process.cwd(), 'build', 'icon.png'),
+        path.join(process.cwd(), 'public', 'icon.png'),
+      ]
+  return candidates.find((candidate) => fs.existsSync(candidate))
+}
+
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
+  const icon = getWindowIconPath()
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -36,6 +51,7 @@ function createWindow() {
     title: 'Yunkoo Atlas',
     backgroundColor: WINDOW_BG,
     autoHideMenuBar: true,
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: getPreloadPath(),
       contextIsolation: true,
