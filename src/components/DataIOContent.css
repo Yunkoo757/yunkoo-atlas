@@ -13,9 +13,9 @@
 
 .dio-desc {
   margin: 0 0 12px;
-  font-size: var(--fs-mini);
+  font-size: var(--type-body-size);
   line-height: 1.5;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .dio-section-muted {
@@ -47,9 +47,9 @@
   align-items: flex-start;
   gap: 8px;
   margin: -8px 0 0;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   line-height: 1.5;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 .dio-safety-note svg {
   flex: 0 0 auto;
@@ -143,10 +143,8 @@
 }
 
 .health-label {
-  font-size: var(--fs-mini);
-  color: var(--text-quaternary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
 }
 
 .health-value {
@@ -156,8 +154,8 @@
 }
 
 .health-note {
-  font-size: var(--fs-micro);
-  color: var(--text-quaternary);
+  color: var(--text-faint);
+  font-size: var(--type-caption-size);
 }
 
 .dio-group { min-width: 0; }
@@ -170,9 +168,9 @@
 }
 .dio-group-desc {
   margin: 0;
-  font-size: var(--fs-mini);
+  font-size: var(--type-body-size);
   line-height: 1.5;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 .dio-task-list {
   border-top: 1px solid var(--border-subtle);
@@ -200,7 +198,7 @@
   margin-top: 2px;
   font-size: var(--fs-mini);
   line-height: 1.4;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 .dio-group-danger { margin-top: -12px; border: 1px solid var(--warn-action-border); }
 

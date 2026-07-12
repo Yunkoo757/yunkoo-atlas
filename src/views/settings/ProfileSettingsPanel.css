@@ -47,9 +47,9 @@
 }
 
 .profile-section-title {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-strong);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
   letter-spacing: 0;
   margin-bottom: 12px;
 }
@@ -104,8 +104,8 @@
 }
 
 .profile-avatar-label {
-  font-size: var(--fs-micro);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-caption-size);
   white-space: nowrap;
 }
 
@@ -149,8 +149,8 @@
 }
 
 .profile-section-hint {
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
   margin-bottom: 10px;
   margin-top: -8px;
 }
@@ -163,8 +163,8 @@
 
 .profile-custom-hint {
   margin-top: 8px;
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
 }
 
 @media (max-width: 480px) {
