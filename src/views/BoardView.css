@@ -1,18 +1,18 @@
 .board-scroll {
   flex: 1;
   display: flex;
-  gap: 12px;
-  padding: 12px 14px 18px;
+  gap: 8px;
+  padding: 8px 10px 14px;
   overflow-x: auto;
 }
 .bd-col {
-  width: 280px;
+  width: 272px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
-  border-radius: var(--radius-2xl);
-  background: color-mix(in srgb, var(--bg-elevated) 26%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: color-mix(in srgb, var(--bg-app) 28%, var(--bg-surface));
   overflow: hidden;
   transition: background var(--dur-base) var(--ease-out),
     border-color var(--dur-base) var(--ease-out);
@@ -26,7 +26,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  min-height: 36px;
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .bd-col-title {
   font-size: var(--fs-sm);
@@ -65,21 +67,21 @@
 .bd-col-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 0 8px 10px;
+  gap: 6px;
+  padding: 7px;
   overflow-y: auto;
 }
 
 .bd-card {
-  background: var(--bg-elevated);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-surface));
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  padding: 10px;
+  border-radius: var(--radius-6);
+  padding: 9px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: var(--shadow-low);
+  box-shadow: none;
   transition: border-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out),
@@ -87,7 +89,8 @@
   animation: cardIn 0.3s var(--ease-out) both;
 }
 .bd-card:hover {
-  border-color: var(--border-strong);
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
 }
 .bd-card.is-dragging {
   opacity: 0.4;
@@ -254,7 +257,7 @@
   padding: 0 6px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-4);
   background: var(--bg-surface);
   color: var(--text-tertiary);
   font-size: var(--fs-micro);
