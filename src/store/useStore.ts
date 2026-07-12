@@ -636,8 +636,17 @@ export const useStore = create<State>()((set, get) => ({
           starredIds: s.starredIds.filter((x) => x !== id),
           subscribedIds: s.subscribedIds.filter((x) => x !== id),
         })),
-      openComposer: (trade = null) =>
-        set({ composerOpen: true, composerTrade: trade }),
+      openComposer: (trade = null) => {
+        // 防御：若被直接绑到 onClick，会收到 MouseEvent，不能当 Trade 用
+        const safe =
+          trade &&
+          typeof trade === 'object' &&
+          'id' in trade &&
+          typeof (trade as Trade).id === 'string'
+            ? (trade as Trade)
+            : null
+        set({ composerOpen: true, composerTrade: safe })
+      },
       closeComposer: () => set({ composerOpen: false, composerTrade: null }),
       select: (id) => set({ selectedId: id }),
       getById: (id) => get().trades.find((t) => t.id === id),
