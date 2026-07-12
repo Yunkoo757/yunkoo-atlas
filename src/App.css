@@ -10,25 +10,3 @@
   color: var(--text-secondary);
   font-size: var(--fs-sm);
 }
-
-.app-loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border-strong);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: app-loading-spin 0.7s linear infinite;
-}
-
-@keyframes app-loading-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-loading-spinner {
-    animation: none;
-    opacity: 0.7;
-  }
-}

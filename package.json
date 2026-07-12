@@ -124,7 +124,7 @@
         }
       ],
       "category": "public.app-category.finance",
-      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+      "artifactName": "Yunkoo-Atlas-${version}-mac-${arch}.${ext}"
     },
     "win": {
       "icon": "build/icon.ico",

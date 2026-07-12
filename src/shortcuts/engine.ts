@@ -227,14 +227,46 @@ export function findBindingConflicts(
   actionId: string,
   binding: ShortcutBinding,
   bindings: Record<string, ShortcutBinding | null>,
-): string[] {
+): Array<{ id: string; label: string; sequenceFixed?: boolean }> {
   const key = bindingKey(binding)
-  const conflicts: string[] = []
+  const conflicts: Array<{ id: string; label: string; sequenceFixed?: boolean }> = []
   for (const action of SHORTCUT_ACTIONS) {
     if (action.id === actionId) continue
     const other = resolveBinding(action.id, bindings)
     if (!other) continue
-    if (bindingKey(other) === key) conflicts.push(action.label)
+    if (bindingKey(other) === key) {
+      conflicts.push({
+        id: action.id,
+        label: action.label,
+        sequenceFixed: action.sequenceFixed,
+      })
+    }
   }
   return conflicts
+}
+
+/** 计算覆写后的 bindings patch；固定序列冲突返回 null。 */
+export function buildBindingOverwritePatch(
+  actionId: string,
+  binding: ShortcutBinding | null,
+  bindings: Record<string, ShortcutBinding | null>,
+): { patch: Record<string, ShortcutBinding | null>; clearedLabels: string[] } | { error: string } {
+  if (binding === null) {
+    return { patch: { [actionId]: null }, clearedLabels: [] }
+  }
+  const conflicts = findBindingConflicts(actionId, binding, {
+    ...bindings,
+    [actionId]: binding,
+  })
+  const fixed = conflicts.find((c) => c.sequenceFixed)
+  if (fixed) {
+    return { error: `与固定快捷键「${fixed.label}」冲突，无法覆盖` }
+  }
+  const patch: Record<string, ShortcutBinding | null> = { [actionId]: binding }
+  const clearedLabels: string[] = []
+  for (const conflict of conflicts) {
+    patch[conflict.id] = null
+    clearedLabels.push(conflict.label)
+  }
+  return { patch, clearedLabels }
 }

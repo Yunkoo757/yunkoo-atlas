@@ -1,17 +1,16 @@
-import type { ComponentType } from 'react'
-import type { SidebarChromeIconProps } from '@/icons/sidebarChrome'
+import type { AppIcon } from '@/icons/appIcons'
 import {
-  SidebarActiveIcon,
-  SidebarBookIcon,
-  SidebarCalendarIcon,
-  SidebarDashboardIcon,
-  SidebarFlaskIcon,
-  SidebarIssuesIcon,
-  SidebarMissedIcon,
-  SidebarStarIcon,
-} from '@/icons/sidebarChrome'
+  Ban,
+  BarChart3,
+  BookOpen,
+  Calendar,
+  CircleDot,
+  FlaskConical,
+  ListTodo,
+  Star,
+} from '@/icons/appIcons'
 
-export type SidebarNavIcon = ComponentType<SidebarChromeIconProps>
+export type SidebarNavIcon = AppIcon
 
 export type PrimarySidebarNavId = 'today' | 'trades' | 'reviewCases' | 'dashboard'
 
@@ -23,10 +22,10 @@ export interface PrimarySidebarNavItem {
 }
 
 export const PRIMARY_NAV: PrimarySidebarNavItem[] = [
-  { id: 'today', to: '/today-record', label: '今日记录', icon: SidebarCalendarIcon },
-  { id: 'trades', to: '/list', label: '交易日志', icon: SidebarIssuesIcon },
-  { id: 'reviewCases', to: '/review-cases', label: '案例记录', icon: SidebarBookIcon },
-  { id: 'dashboard', to: '/dashboard', label: '仪表盘', icon: SidebarDashboardIcon },
+  { id: 'today', to: '/today-record', label: '今日记录', icon: Calendar },
+  { id: 'trades', to: '/list', label: '交易日志', icon: ListTodo },
+  { id: 'reviewCases', to: '/review-cases', label: '案例记录', icon: BookOpen },
+  { id: 'dashboard', to: '/dashboard', label: '仪表盘', icon: BarChart3 },
 ]
 
 export type SidebarNavId = 'active' | 'favorites' | 'missed' | 'paper'
@@ -39,10 +38,10 @@ export interface SidebarNavItem {
 }
 
 export const SECONDARY_NAV: SidebarNavItem[] = [
-  { id: 'active', to: '/active', label: '进行中', icon: SidebarActiveIcon },
-  { id: 'favorites', to: '/favorites', label: '星标交易', icon: SidebarStarIcon },
-  { id: 'missed', to: '/missed', label: '错过的机会', icon: SidebarMissedIcon },
-  { id: 'paper', to: '/sim', label: '模拟回测', icon: SidebarFlaskIcon },
+  { id: 'active', to: '/active', label: '进行中', icon: CircleDot },
+  { id: 'favorites', to: '/favorites', label: '星标交易', icon: Star },
+  { id: 'missed', to: '/missed', label: '错过的机会', icon: Ban },
+  { id: 'paper', to: '/sim', label: '模拟回测', icon: FlaskConical },
 ]
 
 /** 默认固定在侧栏的快捷入口 */

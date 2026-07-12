@@ -1,19 +1,19 @@
-import { useMemo, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import type { AppIcon } from '@/icons/appIcons'
 import {
-  SidebarActiveIcon,
-  SidebarBookIcon,
-  SidebarBookmarkIcon,
-  SidebarFlaskIcon,
-  SidebarMissedIcon,
-  SidebarSearchIcon,
-  SidebarSettingsIcon,
-  SidebarStarIcon,
-  SidebarTargetIcon,
-  SidebarTrashIcon,
-  SidebarWriteIcon,
-  type SidebarChromeIconProps,
-} from '@/icons/sidebarChrome'
+  Ban,
+  BookOpen,
+  Bookmark,
+  CircleDot,
+  FlaskConical,
+  Pencil,
+  Search,
+  Settings2,
+  Star,
+  Target,
+  Trash2,
+} from '@/icons/appIcons'
 import { UserAvatar } from '@/components/UserAvatar'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
@@ -32,6 +32,7 @@ import {
   SidebarWorkspaceEditor,
 } from '@/components/sidebar/SidebarWorkspaceEditor'
 import { getShortcutHint } from '@/shortcuts/ShortcutHost'
+import { ICON_MD } from '@/icons/iconSize'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -58,15 +59,15 @@ function Count({ value }: { value?: number }) {
 
 export const WORKSPACE_ICONS: Record<
   ResolvedSidebarWorkspaceItem['icon'],
-  ComponentType<SidebarChromeIconProps>
+  AppIcon
 > = {
-  active: SidebarActiveIcon,
-  favorites: SidebarStarIcon,
-  missed: SidebarMissedIcon,
-  paper: SidebarFlaskIcon,
-  'saved-view': SidebarBookmarkIcon,
-  strategy: SidebarTargetIcon,
-  'case-view': SidebarBookIcon,
+  active: CircleDot,
+  favorites: Star,
+  missed: Ban,
+  paper: FlaskConical,
+  'saved-view': Bookmark,
+  strategy: Target,
+  'case-view': BookOpen,
 }
 
 export function useSidebarNavigationModel() {
@@ -314,7 +315,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           suppressWorkspaceClick.current = false
         }}
       >
-        <Icon size={16} />
+        <Icon size={ICON_MD} />
         <span className="sb-item-label">{item.label}</span>
         {modified ? (
           <span className="sb-modified-indicator">
@@ -350,7 +351,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               aria-label={`搜索 (${getShortcutHint('global.commandPalette') ?? 'Ctrl+K'})`}
               onClick={onOpenSearch}
             >
-              <SidebarSearchIcon size={16} />
+              <Search size={ICON_MD} />
             </button>
           </Tooltip>
           <Tooltip
@@ -363,7 +364,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               aria-label={`${createLabel} (${getShortcutHint('global.newTrade') ?? 'N'})`}
               onClick={() => openComposer()}
             >
-              <SidebarWriteIcon size={16} />
+              <Pencil size={ICON_MD} />
             </button>
           </Tooltip>
         </div>
@@ -380,7 +381,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             className={() => 'sb-item' + (selection.activePrimaryId === id ? ' is-active' : '')}
             aria-current={selection.activePrimaryId === id ? 'page' : undefined}
           >
-            <Icon size={16} />
+            <Icon size={ICON_MD} />
             <span className="sb-item-label">{label}</span>
             <Count value={primaryCount(id)} />
           </NavLink>
@@ -466,7 +467,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             'sb-item sb-trash' + (path === '/trade-trash' ? ' is-active' : '')
           }
         >
-          <SidebarTrashIcon size={16} />
+          <Trash2 size={ICON_MD} />
           <span className="sb-item-label">回收站</span>
           <Count value={trades.filter((trade) => Boolean(trade.deletedAt)).length} />
         </NavLink>
@@ -476,7 +477,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           onDragStart={(event) => event.preventDefault()}
           className={() => 'sb-item sb-settings' + (isSettingsActive ? ' is-active' : '')}
         >
-          <SidebarSettingsIcon size={16} />
+          <Settings2 size={ICON_MD} />
           <span className="sb-item-label">设置</span>
         </NavLink>
       </nav>

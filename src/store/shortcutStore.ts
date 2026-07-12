@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ListNavigationContext, ShortcutBinding } from '@/shortcuts/types'
 import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { isSequence } from '@/shortcuts/chords'
+import { buildBindingOverwritePatch } from '@/shortcuts/engine'
 
 export interface LightboxState {
   images: string[]
@@ -15,6 +16,11 @@ interface ShortcutState {
   cmdkOpen: boolean
   dataIOOpen: boolean
   setBinding: (id: string, binding: ShortcutBinding | null) => void
+  /** 写入绑定；若与其他动作冲突则清空对方（固定序列除外） */
+  assignBinding: (
+    id: string,
+    binding: ShortcutBinding | null,
+  ) => { ok: true; clearedLabels: string[] } | { ok: false; error: string }
   resetBinding: (id: string) => void
   resetAllBindings: () => void
   setListContext: (ctx: ListNavigationContext | null) => void
@@ -69,6 +75,16 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
     set((s) => ({
       bindings: { ...s.bindings, [id]: binding },
     })),
+  assignBinding: (id, binding) => {
+    const result = buildBindingOverwritePatch(id, binding, get().bindings)
+    if ('error' in result) {
+      return { ok: false as const, error: result.error }
+    }
+    set((s) => ({
+      bindings: { ...s.bindings, ...result.patch },
+    }))
+    return { ok: true as const, clearedLabels: result.clearedLabels }
+  },
   resetBinding: (id) =>
     set((s) => {
       const next = { ...s.bindings }

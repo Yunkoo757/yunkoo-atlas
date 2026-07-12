@@ -88,7 +88,7 @@ export const TradeRow = memo(function TradeRow({
         </span>
         <SideTag side={trade.side} quiet />
         <span className="trade-row-strategy">
-          <StrategyLabel strategyId={trade.strategyId} strategies={strategies} size={14} />
+          <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
         </span>
       </span>
       <span className="trade-row-tags">

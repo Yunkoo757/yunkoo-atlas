@@ -199,8 +199,8 @@
 }
 
 .trade-row-symbol-main .symbol-icon {
-  width: 16px;
-  height: 16px;
+  width: var(--icon-tile);
+  height: var(--icon-tile);
 }
 
 .trade-row-symbol strong {
@@ -257,8 +257,8 @@
 }
 
 .trade-row-strategy .strategy-icon {
-  width: 20px;
-  height: 20px;
+  width: var(--icon-tile);
+  height: var(--icon-tile);
   flex-shrink: 0;
 }
 

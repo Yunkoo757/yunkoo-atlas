@@ -4,7 +4,7 @@
 
 - Windows NSIS 安装版：支持应用内检查、下载和重启安装。
 - Windows Portable 便携版：当前不发布，避免与可在线更新的 NSIS 安装包混淆。
-- macOS：保留 DMG/ZIP 构建配置；接入 Apple 签名与公证后再启用正式更新。
+- macOS：CI 产出 arm64/x64 的 DMG 与 ZIP（未公证，供手动安装）；接入 Apple 签名与公证后再启用正式应用内更新。
 - 更新源：私有 GitHub 仓库 `Yunkoo757/yunkoo-atlas` 的 Releases。
 
 ## 首次配置私有更新令牌
@@ -58,13 +58,14 @@ pnpm release:minor
 5. 运行 Electron 库路径 QA（SQLite / 附件 / journal.zip）。
 6. 更新 `package.json` 版本并创建发布提交和 Git 标签。
 7. 推送 `main` 和版本标签。
-8. 标签触发 `.github/workflows/release-windows.yml`（同样包含上述测试与 QA）。
+8. 标签触发 `.github/workflows/release.yml`（Windows 跑完整测试与 QA 并创建 Release；macOS 随后上传 DMG/ZIP）。
 
 GitHub Actions 成功后，私有 Release 中应包含：
 
 - NSIS 安装包 `.exe`
 - `latest.yml`
 - NSIS blockmap
+- macOS `Yunkoo-Atlas-<version>-mac-<arch>.dmg` / `.zip`（arm64 + x64）
 
 只有 NSIS 安装版消费 `latest.yml` 完成自动更新。
 

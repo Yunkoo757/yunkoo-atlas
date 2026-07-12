@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, LockKeyhole, RotateCcw, Shield } from '@/icons/appIcons'
+import { LinearGridLoaderIcon, LinearGridProgressIcon } from '@/icons/linear'
+import { ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { AppUpdateState } from '@/lib/appUpdate'
 import { toast } from '@/lib/toast'
@@ -114,8 +116,15 @@ export function UpdatesSettingsPanel() {
         </div>
 
         {state.phase === 'downloading' && (
-          <div className="update-progress" aria-label={`下载进度 ${state.progress ?? 0}%`}>
-            <span style={{ width: `${state.progress ?? 0}%` }} />
+          <div className="update-progress-row">
+            <LinearGridProgressIcon
+              progress={(state.progress ?? 0) / 100}
+              size={ICON_SM}
+              aria-hidden
+            />
+            <div className="update-progress" aria-label={`下载进度 ${state.progress ?? 0}%`}>
+              <span style={{ width: `${state.progress ?? 0}%` }} />
+            </div>
           </div>
         )}
 
@@ -136,7 +145,11 @@ export function UpdatesSettingsPanel() {
               disabled={!electron || busy || !hasCredential}
               onClick={() => void getJournalBridge()?.checkForUpdates()}
             >
-              <RotateCcw size={14} />
+              {state.phase === 'checking' ? (
+                <LinearGridLoaderIcon variant="scope" size={ICON_SM} aria-hidden />
+              ) : (
+                <RotateCcw size={14} />
+              )}
               {state.phase === 'checking' ? '检查中…' : '检查更新'}
             </button>
           )}

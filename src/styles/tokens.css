@@ -211,6 +211,20 @@
   --sp-6: 24px;
   --sp-8: 32px;
 
+  /* 图标尺寸（方案 A：统一光学网格） */
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 18px;
+  --icon-xl: 20px;
+  --icon-2xl: 22px;
+  --icon-hero: 40px;
+
+  /* 内容标 tile（A1：品种/策略同级软色 chip） */
+  --icon-tile: var(--icon-md);
+  --icon-tile-tint: 20%;
+  --icon-tile-radius: var(--radius-6);
+
   /* 圆角别名 */
   --radius-4: 4px;
   --radius-6: var(--editor-block-radius);

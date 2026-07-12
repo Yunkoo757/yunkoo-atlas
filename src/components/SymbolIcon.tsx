@@ -3,12 +3,13 @@ import {
   type SymbolIconsMap,
 } from '@/lib/symbolIcons'
 import { SymbolPresetSvg } from '@/components/SymbolPresetSvg'
+import { ICON_TILE } from '@/icons/iconSize'
 import './SymbolIcon.css'
 
 export function SymbolIcon({
   symbol,
   overrides,
-  size = 16,
+  size = ICON_TILE,
   className = '',
   title,
 }: {
@@ -24,7 +25,7 @@ export function SymbolIcon({
   if (resolved.type === 'image') {
     return (
       <span
-        className={'symbol-icon' + (className ? ` ${className}` : '')}
+        className={'symbol-icon is-image' + (className ? ` ${className}` : '')}
         style={{ width: size, height: size }}
         title={label}
         aria-hidden
@@ -42,11 +43,12 @@ export function SymbolIcon({
           width: size,
           height: size,
           background: resolved.background,
+          color: resolved.color,
         }}
         title={label}
         aria-hidden
       >
-        <SymbolPresetSvg id={resolved.svgId} size={Math.max(10, Math.round(size * 0.78))} />
+        <SymbolPresetSvg id={resolved.svgId} size={Math.max(10, Math.round(size * 0.75))} />
       </span>
     )
   }
@@ -78,7 +80,7 @@ export function SymbolIcon({
 export function SymbolLabel({
   symbol,
   overrides,
-  size = 16,
+  size = ICON_TILE,
   className = '',
 }: {
   symbol: string

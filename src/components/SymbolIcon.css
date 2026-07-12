@@ -3,8 +3,8 @@
   place-items: center;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: var(--radius-4);
-  border: 1px solid color-mix(in srgb, var(--border-default) 70%, transparent);
+  border-radius: var(--icon-tile-radius);
+  border: none;
   line-height: 1;
   user-select: none;
 }
@@ -21,7 +21,11 @@
 }
 
 .symbol-icon.is-svg {
-  border-color: color-mix(in srgb, var(--border-default) 40%, transparent);
+  /* 与 glyph 同契约：仅软色底，无描边 */
+}
+
+.symbol-icon.is-image {
+  border: 1px solid color-mix(in srgb, var(--border-default) 40%, transparent);
 }
 
 .symbol-label {

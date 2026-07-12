@@ -10,6 +10,7 @@ import fs from 'node:fs/promises'
   'src/lib/importExportAssets.test.ts',
   'src/lib/tradeDuplicates.test.ts',
   'src/lib/lightboxView.test.ts',
+  'src/shortcuts/bindingOverwrite.test.ts',
   'src/icons/linear/linear-icons.test.tsx',
   'src/views/TradeTrashView.design.test.ts',
   'src/lib/appUpdate.test.ts',

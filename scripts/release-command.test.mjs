@@ -36,7 +36,7 @@ test('当前 Windows 环境能够定位真实 pnpm CLI', () => {
 })
 
 test('发布流水线显式安装 Electron 运行时', () => {
-  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   assert.match(
     workflow,
     /pnpm exec install-electron/,
@@ -45,7 +45,7 @@ test('发布流水线显式安装 Electron 运行时', () => {
 })
 
 test('发布流水线从新版图标源重新生成全部应用图标', () => {
-  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 
   assert.match(workflow, /pnpm icons:app/)
@@ -55,7 +55,7 @@ test('发布流水线从新版图标源重新生成全部应用图标', () => {
 })
 
 test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包', () => {
-  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   assert.doesNotMatch(
     workflow,
     /electron-builder --win nsis portable/,
@@ -64,7 +64,7 @@ test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包',
 })
 
 test('发布资产由 GitHub CLI 串行上传并校验', () => {
-  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   assert.match(workflow, /electron-builder --win nsis --x64 --publish never/)
   assert.match(workflow, /gh release create/)
   assert.match(workflow, /latest\.yml/)
@@ -72,7 +72,7 @@ test('发布资产由 GitHub CLI 串行上传并校验', () => {
 })
 
 test('发布门禁包含侧栏与 Electron QA', () => {
-  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const release = readFileSync('scripts/release.mjs', 'utf8')
 
   assert.match(workflow, /pnpm qa:sidebar/)
@@ -84,6 +84,17 @@ test('发布门禁包含侧栏与 Electron QA', () => {
 test('安装包文件名不含空格，必须与 latest.yml 下载地址一致', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   assert.equal(pkg.build?.win?.artifactName, 'Yunkoo-Atlas-${version}-win-${arch}.${ext}')
+  assert.equal(pkg.build?.mac?.artifactName, 'Yunkoo-Atlas-${version}-mac-${arch}.${ext}')
+})
+
+test('发布流水线在 Windows 之后构建并上传 macOS 产物', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+  assert.match(workflow, /build-macos:/)
+  assert.match(workflow, /needs:\s*build-windows/)
+  assert.match(workflow, /runs-on:\s*macos-latest/)
+  assert.match(workflow, /electron-builder --mac dmg zip --publish never/)
+  assert.match(workflow, /gh release upload/)
+  assert.match(workflow, /CSC_IDENTITY_AUTO_DISCOVERY/)
 })
 
 test('NSIS 安装包声明高 DPI，避免安装向导发糊', () => {

@@ -5,7 +5,6 @@ import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { formatBinding } from '@/shortcuts/format'
 import { chordFromEvent, chordKey, isSequence, parseChordKey } from '@/shortcuts/chords'
 import type { KeyChord, ShortcutBinding } from '@/shortcuts/types'
-import { findBindingConflicts } from '@/shortcuts/engine'
 import { resolveBinding, useShortcutStore } from '@/store/shortcutStore'
 import { toast } from '@/lib/toast'
 import '@/views/ShortcutsView.css'
@@ -40,6 +39,7 @@ function ShortcutKeycaps({ binding }: { binding: ShortcutBinding | null }) {
 
 export function ShortcutsPanel() {
   const bindings = useShortcutStore((s) => s.bindings)
+  const assignBinding = useShortcutStore((s) => s.assignBinding)
   const setBinding = useShortcutStore((s) => s.setBinding)
   const resetBinding = useShortcutStore((s) => s.resetBinding)
   const resetAllBindings = useShortcutStore((s) => s.resetAllBindings)
@@ -79,20 +79,20 @@ export function ShortcutsPanel() {
       if (!chord.key) return
 
       const binding: ShortcutBinding = chord
-      const conflicts = findBindingConflicts(recordingId, binding, {
-        ...bindings,
-        [recordingId]: binding,
-      })
-      if (conflicts.length > 0) {
-        toast(`与「${conflicts[0]}」冲突`)
+      const result = assignBinding(recordingId, binding)
+      if (!result.ok) {
+        toast(result.error)
         return
       }
 
-      setBinding(recordingId, binding)
       setRecordingId(null)
-      toast('快捷键已更新')
+      if (result.clearedLabels.length > 0) {
+        toast(`已更新，并覆盖「${result.clearedLabels.join('、')}」`)
+      } else {
+        toast('快捷键已更新')
+      }
     },
-    [recordingId, bindings, setBinding],
+    [recordingId, assignBinding, setBinding],
   )
 
   useEffect(() => {

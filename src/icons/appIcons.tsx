@@ -20,6 +20,7 @@ import {
   LinearChemistIcon,
   LinearCircleIcon,
   LinearClockIcon,
+  LinearCodeBlockIcon,
   LinearCrossIcon,
   LinearCubeIcon,
   LinearCustomViewIcon,
@@ -52,6 +53,7 @@ import {
   LinearSpreadsheetIcon,
   LinearStarredIcon,
   LinearSubgroupIcon,
+  LinearTextBlockIcon,
   LinearTrashIcon,
   LinearUsersIcon,
   LinearViewFinderIcon,
@@ -115,6 +117,9 @@ export const Shapes = LinearCubeIcon
 export const Target = LinearViewFinderIcon
 export const PanelRight = LinearDesktopWindowIcon
 export const Quote = LinearBlockquoteIcon
+export const Code = LinearCodeBlockIcon
+export const Heading2 = LinearTextBlockIcon
+export const ListChecks = LinearChecklistIcon
 export const Zap = LinearBoltIcon
 export const Flame = LinearFireIcon
 export const Rocket = LinearRocketIcon
@@ -139,7 +144,7 @@ export const ChevronLeft = LinearChevronLeftIcon
 export const ChevronRight = LinearChevronRightIcon
 export const ChevronUp = LinearChevronUpIcon
 
-/* —— 剩余缺口：保留 Lucide —— */
+/* —— 剩余缺口：保留 Lucide（无 Linear 近似） —— */
 export {
   ArrowDown,
   ArrowUp,
@@ -156,8 +161,5 @@ export {
   Bold,
   Italic,
   Strikethrough,
-  Code,
-  Heading2,
-  ListChecks,
-  // gap: keep lucide — selection 请用 SelectionBox，勿再导出 CheckSquare/Square
+  // Code / Heading2 / ListChecks 已映射 Linear
 } from 'lucide-react'

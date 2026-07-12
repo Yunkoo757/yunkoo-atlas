@@ -48,21 +48,22 @@ export type ResolvedSymbolIcon =
     }
 
 export const SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
-  { id: 'btc', label: 'Bitcoin', glyph: '₿', color: '#F7931A', background: 'color-mix(in srgb, #F7931A 22%, transparent)' },
-  { id: 'eth', label: 'Ethereum', glyph: 'Ξ', color: '#8B9CFF', background: 'color-mix(in srgb, #627EEA 24%, transparent)' },
-  { id: 'sol', label: 'Solana', glyph: '◎', color: '#14F195', background: 'color-mix(in srgb, #9945FF 22%, transparent)' },
-  { id: 'bnb', label: 'BNB', glyph: 'B', color: '#F3BA2F', background: 'color-mix(in srgb, #F3BA2F 22%, transparent)' },
-  { id: 'sui', label: 'Sui', glyph: 'S', color: '#4DA2FF', background: 'color-mix(in srgb, #4DA2FF 22%, transparent)' },
-  { id: 'xrp', label: 'XRP', glyph: 'X', color: '#E5E7EB', background: 'color-mix(in srgb, #23292F 40%, transparent)' },
-  { id: 'gold', label: '黄金', glyph: 'Au', svgId: 'gold-bar', color: '#FFE08A', background: 'color-mix(in srgb, #C99212 16%, transparent)' },
-  { id: 'silver', label: '白银', glyph: 'Ag', svgId: 'silver-bar', color: '#E8EEF5', background: 'color-mix(in srgb, #8B95A5 16%, transparent)' },
-  { id: 'forex', label: '外汇', glyph: 'Fx', color: '#7DD3FC', background: 'color-mix(in srgb, #0EA5E9 18%, transparent)' },
+  { id: 'btc', label: 'Bitcoin', glyph: '₿', color: '#F7931A', background: 'color-mix(in srgb, #F7931A 20%, transparent)' },
+  { id: 'eth', label: 'Ethereum', glyph: 'Ξ', color: '#8B9CFF', background: 'color-mix(in srgb, #627EEA 20%, transparent)' },
+  { id: 'sol', label: 'Solana', glyph: '◎', color: '#14F195', background: 'color-mix(in srgb, #9945FF 20%, transparent)' },
+  { id: 'bnb', label: 'BNB', glyph: 'B', color: '#F3BA2F', background: 'color-mix(in srgb, #F3BA2F 20%, transparent)' },
+  { id: 'sui', label: 'Sui', glyph: 'S', color: '#4DA2FF', background: 'color-mix(in srgb, #4DA2FF 20%, transparent)' },
+  { id: 'xrp', label: 'XRP', glyph: 'X', color: '#E5E7EB', background: 'color-mix(in srgb, #23292F 20%, transparent)' },
+  /* A1：金/银用平面 glyph，去掉立体金条以免抢戏 */
+  { id: 'gold', label: '黄金', glyph: 'Au', color: '#E8C547', background: 'color-mix(in srgb, #C99212 20%, transparent)' },
+  { id: 'silver', label: '白银', glyph: 'Ag', color: '#C5CDD8', background: 'color-mix(in srgb, #8B95A5 20%, transparent)' },
+  { id: 'forex', label: '外汇', glyph: 'Fx', color: '#7DD3FC', background: 'color-mix(in srgb, #0EA5E9 20%, transparent)' },
   { id: 'eur', label: '欧元', glyph: '€', color: '#60A5FA', background: 'color-mix(in srgb, #2563EB 20%, transparent)' },
-  { id: 'gbp', label: '英镑', glyph: '£', color: '#F9A8D4', background: 'color-mix(in srgb, #DB2777 18%, transparent)' },
-  { id: 'jpy', label: '日元', glyph: '¥', color: '#FCA5A5', background: 'color-mix(in srgb, #DC2626 18%, transparent)' },
-  { id: 'aud', label: '澳元', glyph: 'A$', color: '#86EFAC', background: 'color-mix(in srgb, #16A34A 18%, transparent)' },
-  { id: 'usd', label: '美元', glyph: '$', color: '#86EFAC', background: 'color-mix(in srgb, #15803D 18%, transparent)' },
-  { id: 'index', label: '指数', glyph: 'Ix', color: '#C4B5FD', background: 'color-mix(in srgb, #7C3AED 18%, transparent)' },
+  { id: 'gbp', label: '英镑', glyph: '£', color: '#F9A8D4', background: 'color-mix(in srgb, #DB2777 20%, transparent)' },
+  { id: 'jpy', label: '日元', glyph: '¥', color: '#FCA5A5', background: 'color-mix(in srgb, #DC2626 20%, transparent)' },
+  { id: 'aud', label: '澳元', glyph: 'A$', color: '#86EFAC', background: 'color-mix(in srgb, #16A34A 20%, transparent)' },
+  { id: 'usd', label: '美元', glyph: '$', color: '#86EFAC', background: 'color-mix(in srgb, #15803D 20%, transparent)' },
+  { id: 'index', label: '指数', glyph: 'Ix', color: '#C4B5FD', background: 'color-mix(in srgb, #7C3AED 20%, transparent)' },
   { id: 'generic', label: '通用', glyph: '·', color: 'var(--text-secondary)', background: 'var(--bg-hover)' },
 ]
 
@@ -101,13 +102,13 @@ const BUILTIN_SYMBOL_PRESETS: Record<string, string> = {
 
 const PALETTE = [
   { color: '#93C5FD', background: 'color-mix(in srgb, #3B82F6 20%, transparent)' },
-  { color: '#86EFAC', background: 'color-mix(in srgb, #22C55E 18%, transparent)' },
-  { color: '#FCD34D', background: 'color-mix(in srgb, #EAB308 18%, transparent)' },
-  { color: '#F9A8D4', background: 'color-mix(in srgb, #EC4899 18%, transparent)' },
-  { color: '#C4B5FD', background: 'color-mix(in srgb, #8B5CF6 18%, transparent)' },
-  { color: '#67E8F9', background: 'color-mix(in srgb, #06B6D4 18%, transparent)' },
-  { color: '#FDBA74', background: 'color-mix(in srgb, #F97316 18%, transparent)' },
-  { color: '#FDA4AF', background: 'color-mix(in srgb, #F43F5E 18%, transparent)' },
+  { color: '#86EFAC', background: 'color-mix(in srgb, #22C55E 20%, transparent)' },
+  { color: '#FCD34D', background: 'color-mix(in srgb, #EAB308 20%, transparent)' },
+  { color: '#F9A8D4', background: 'color-mix(in srgb, #EC4899 20%, transparent)' },
+  { color: '#C4B5FD', background: 'color-mix(in srgb, #8B5CF6 20%, transparent)' },
+  { color: '#67E8F9', background: 'color-mix(in srgb, #06B6D4 20%, transparent)' },
+  { color: '#FDBA74', background: 'color-mix(in srgb, #F97316 20%, transparent)' },
+  { color: '#FDA4AF', background: 'color-mix(in srgb, #F43F5E 20%, transparent)' },
 ]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
