@@ -4,8 +4,26 @@
 
 - Windows NSIS 安装版：支持应用内检查、下载和重启安装。
 - Windows Portable 便携版：当前不发布，避免与可在线更新的 NSIS 安装包混淆。
-- macOS：CI 产出 arm64/x64 的 DMG 与 ZIP（未公证，供手动安装）；接入 Apple 签名与公证后再启用正式应用内更新。
+- macOS：CI 产出 arm64 的 DMG / ZIP（**未签名、未公证**，供手动安装）；接入 Apple 开发者证书与公证后再启用正式应用内更新。
 - 更新源：私有 GitHub 仓库 `Yunkoo757/yunkoo-atlas` 的 Releases。
+
+### macOS 提示「已损坏，无法打开」
+
+这是 Gatekeeper 对未公证下载的常见拦截，**不是安装包坏了**。从 GitHub 下载的 `.app` 会带 `com.apple.quarantine` 隔离标记，未公证时系统常直接显示「损坏」。
+
+在「终端」执行（路径按实际安装位置改）：
+
+```bash
+# 若从 DMG 拖到了应用程序
+sudo xattr -cr "/Applications/Yunkoo Atlas.app"
+
+# 或对刚下载的 ZIP 解压目录 / DMG 里的 .app
+xattr -cr "/path/to/Yunkoo Atlas.app"
+```
+
+然后再次双击打开。若仍被拦：系统设置 → 隐私与安全性 → 仍会看到拦截记录，点「仍要打开」。
+
+长期方案：配置 Apple Developer ID 签名 + 公证后，下载即可正常打开。
 
 ## 首次配置私有更新令牌
 

@@ -155,7 +155,7 @@ export function TradeList({
               <header className="trade-list-group-header">
                 <span>{item.label}</span>
                 <span className="trade-list-group-count">{item.count}</span>
-                <button type="button" onClick={onCreate} aria-label="在本组新建交易">
+                <button type="button" onClick={() => onCreate()} aria-label="在本组新建交易">
                   <Plus size={14} />
                 </button>
               </header>
