@@ -14,7 +14,7 @@ import {
   Ban,
   Calendar,
   FlaskConical,
-  CircleDot,
+  Clock,
   X,
   Keyboard,
   BookOpen,
@@ -65,7 +65,7 @@ export function CommandPalette({
     const viewNav: Cmd[] = [
       { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '全部交易', hint: '实盘', run: go('/list') },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: '不进统计', run: go('/review-cases') },
-      { id: 'n-active', group: '导航', icon: <CircleDot size={16} />, label: '进行中', hint: '计划 + 持仓', run: go('/active') },
+      { id: 'n-active', group: '导航', icon: <Clock size={16} />, label: '进行中', hint: '计划 + 持仓', run: go('/active') },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', run: go('/dashboard') },
       { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', run: go('/favorites') },
       { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', run: go('/missed') },

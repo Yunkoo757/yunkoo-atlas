@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Plus, Bell } from '@/icons/appIcons'
+import { Plus, Pin } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
@@ -318,7 +318,9 @@ function BoardColumnBody({
                 <div className="bd-card-top">
                   <span className="bd-card-ref">{t.ref}</span>
                   {subscribedIds.includes(t.id) && (
-                    <Bell size={12} className="bd-card-followed" aria-label="已置顶关注" />
+                    <span className="bd-card-followed" aria-label="已置顶关注">
+                      <Pin size={13} aria-hidden />
+                    </span>
                   )}
                   {isReviewCaseView ? (
                     <span className={'bd-category-badge bd-category-badge-' + t.reviewCategory}>

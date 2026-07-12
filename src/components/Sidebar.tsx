@@ -5,7 +5,7 @@ import {
   Ban,
   BookOpen,
   Bookmark,
-  CircleDot,
+  Clock,
   FlaskConical,
   Pencil,
   Search,
@@ -61,7 +61,7 @@ export const WORKSPACE_ICONS: Record<
   ResolvedSidebarWorkspaceItem['icon'],
   AppIcon
 > = {
-  active: CircleDot,
+  active: Clock,
   favorites: Star,
   missed: Ban,
   paper: FlaskConical,
