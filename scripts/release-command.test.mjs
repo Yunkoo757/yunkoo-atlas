@@ -44,6 +44,16 @@ test('发布流水线显式安装 Electron 运行时', () => {
   )
 })
 
+test('发布流水线从新版图标源重新生成全部应用图标', () => {
+  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+
+  assert.match(workflow, /pnpm icons:app/)
+  assert.equal(pkg.build?.icon, 'build/icon.ico')
+  assert.equal(pkg.build?.win?.icon, 'build/icon.ico')
+  assert.equal(pkg.build?.mac?.icon, 'build/icon.png')
+})
+
 test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包', () => {
   const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
   assert.doesNotMatch(

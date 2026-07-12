@@ -41,6 +41,9 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install chromium
 
+      - name: Generate app icon assets
+        run: pnpm icons:app
+
       - name: Verify tag matches package version
         shell: pwsh
         run: |

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas Icon E · 双弧 R</title>
+  <style>
+    :root {
+      --page: #07080a;
+      --panel: #0e0f12;
+      --border: #22242b;
+      --text: #f2f2f5;
+      --text2: #a8a8b3;
+      --text3: #6b6b78;
+      --font: "Inter", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--page);
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 40px 24px 64px; }
+    h1 { margin: 0 0 6px; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+    p { margin: 0 0 28px; color: var(--text2); font-size: 14px; line-height: 1.55; }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 20px;
+      margin-bottom: 28px;
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+    }
+    .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .item span { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
+    .box {
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #101116;
+      border: 1px solid #252730;
+    }
+    .box svg { display: block; width: 100%; height: 100%; }
+    code {
+      font-family: ui-monospace, "JetBrains Mono", monospace;
+      font-size: 12px;
+      color: #b8c0f5;
+    }
+    .files {
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text2);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>E · 双弧 R（已定稿资源）</h1>
+    <p>仅输出图标文件，未改产品代码。下方为内联 SVG 多尺寸预览（不依赖外部文件加载）。</p>
+
+    <div class="row" id="sizes"></div>
+
+    <div class="files">
+      主图标（含圆角底）：<code>demos/icons/atlas-icon-e.svg</code><br />
+      透明符号（无底板）：<code>demos/icons/atlas-icon-e-mark.svg</code>
+    </div>
+  </div>
+  <script>
+    // Inline to avoid file:// img path / encoding issues on Windows
+    const ICON = `
+      <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="128" height="128" rx="28" fill="#12141a"/>
+        <path d="M38 86 C38 46 90 40 90 40" fill="none" stroke="#5e6ad2" stroke-width="8" stroke-linecap="round"/>
+        <path d="M38 42 V94" stroke="#e8eaf6" stroke-width="9" stroke-linecap="round"/>
+        <path d="M38 68 H72" stroke="#e8eaf6" stroke-width="8" stroke-linecap="round"/>
+      </svg>
+    `
+    const sizes = [16, 24, 32, 48, 64, 128, 256]
+    const host = document.getElementById('sizes')
+    for (const size of sizes) {
+      const r = Math.max(3, Math.round(size * 0.22))
+      const el = document.createElement('div')
+      el.className = 'item'
+      el.innerHTML =
+        '<div class="box" style="width:' + size + 'px;height:' + size + 'px;border-radius:' + r + 'px">' +
+        ICON +
+        '</div><span>' + size + '</span>'
+      host.appendChild(el)
+    }
+  </script>
+</body>
+</html>

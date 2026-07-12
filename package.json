@@ -11,6 +11,7 @@
     "test:icons": "node --test scripts/linear-icons/core.test.mjs",
     "test:release": "node --test scripts/release-command.test.mjs",
     "icons:generate": "node scripts/linear-icons/generate.mjs",
+    "icons:app": "node scripts/generate-app-icon.mjs",
     "qa:icons": "node scripts/qa-linear-icons.mjs",
     "dev": "vite",
     "dev:electron": "cross-env ELECTRON=1 vite",
@@ -104,6 +105,7 @@
       }
     ],
     "mac": {
+      "icon": "build/icon.png",
       "target": [
         {
           "target": "dmg",
@@ -124,6 +126,7 @@
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
