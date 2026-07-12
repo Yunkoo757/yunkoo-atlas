@@ -10,6 +10,7 @@ const entries = [
   'src/lib/importExportAssets.test.ts',
   'src/lib/tradeDuplicates.test.ts',
   'src/icons/linear/linear-icons.test.tsx',
+  'src/views/TradeTrashView.design.test.ts',
 ]
 
 let failed = 0
