@@ -19,8 +19,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--accent-bg);
-  font-size: 24px;
+  background: transparent;
   line-height: 1;
   flex-shrink: 0;
   overflow: hidden;
@@ -57,16 +56,16 @@
 
 .profile-avatar-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .profile-avatar-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 4px;
+  gap: 7px;
+  padding: 8px 5px 7px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-6);
   background: transparent;
@@ -85,9 +84,23 @@
   background: var(--accent-bg);
 }
 
-.profile-avatar-emoji {
-  font-size: 28px;
-  line-height: 1.2;
+.profile-avatar-art {
+  display: block;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px color-mix(in srgb, white 12%, transparent);
+}
+
+.profile-avatar-art svg,
+.profile-preview-avatar svg,
+.sb-ws-avatar svg,
+.lv-avatar svg,
+.dv-comment-avatar svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .profile-avatar-label {
@@ -157,5 +170,14 @@
 @media (max-width: 480px) {
   .profile-name-input {
     min-height: 44px;
+  }
+  .profile-avatar-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 481px) and (max-width: 900px) {
+  .profile-avatar-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useStore } from '@/store/useStore'
-import { AVATAR_PRESETS, resizeAvatarImage } from '@/lib/avatars'
-import { UserAvatar } from '@/components/UserAvatar'
+import { AVATAR_PRESETS, getAvatarPreset, resizeAvatarImage } from '@/lib/avatars'
+import { PresetAvatarGraphic, UserAvatar } from '@/components/UserAvatar'
 import { Check, Upload, X } from '@/icons/appIcons'
 import './ProfileSettingsPanel.css'
 
@@ -43,6 +43,7 @@ export function ProfileSettingsPanel() {
   }
 
   const hasCustom = profile.customAvatarDataUrl ? true : false
+  const activePresetId = getAvatarPreset(profile.avatarId).id
 
   return (
     <div className="settings-page profile-settings">
@@ -127,7 +128,8 @@ export function ProfileSettingsPanel() {
 
       {/* 预置头像选择 */}
       <section className="profile-section">
-        <h2 className="profile-section-title">预置头像</h2>
+        <h2 className="profile-section-title">头像风格</h2>
+        <p className="profile-section-hint">一组为深色界面定制的矢量头像，在侧栏与列表中保持清晰。</p>
         <div className="profile-avatar-grid">
           {AVATAR_PRESETS.map((a) => (
             <button
@@ -135,12 +137,13 @@ export function ProfileSettingsPanel() {
               type="button"
               className={
                 'profile-avatar-item' +
-                (profile.avatarId === a.id ? ' is-selected' : '')
+                (!hasCustom && activePresetId === a.id ? ' is-selected' : '')
               }
               aria-label={a.label}
-              onClick={() => setAvatar(profile.avatarId === a.id ? null : a.id)}
+              aria-pressed={!hasCustom && activePresetId === a.id}
+              onClick={() => setAvatar(a.id)}
             >
-              <span className="profile-avatar-emoji">{a.emoji}</span>
+              <span className="profile-avatar-art"><PresetAvatarGraphic presetId={a.id} /></span>
               <span className="profile-avatar-label">{a.label}</span>
             </button>
           ))}
@@ -154,7 +157,7 @@ export function ProfileSettingsPanel() {
               setCustomAvatar(null)
             }}
           >
-            清除头像（使用首字母）
+            恢复默认头像
           </button>
         )}
       </section>
