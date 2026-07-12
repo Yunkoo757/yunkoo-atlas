@@ -48,6 +48,9 @@ playwright/.cache/
 # local git worktrees
 .worktrees/
 
+# Visual Studio local workspace cache
+.vs/
+
 # local data rescue copies (never commit)
 .rescue*/
 .rescue-*/
