@@ -187,7 +187,8 @@
 
   /* 交易状态色（StatusIcon / 表格 chip 共用） */
   --status-open: var(--star-color);
-  --status-missed: var(--warn-action);
+  /* 错过：低饱和暖石色，勿与亏损红或警告橙抢视线 */
+  --status-missed: lch(58% 14 55);
   --status-urgent: var(--warn-action);
 
   /* accent 辅助 token（组件用） */

@@ -39,6 +39,7 @@ import {
   countSidebarRoute,
   countSidebarTarget,
   normalizeSidebarWorkspaceItems,
+  reorderSidebarWorkspaceItem,
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
   type SidebarWorkspaceItem,
@@ -160,6 +161,28 @@ export function testLegacySecondarySidebarMetadataSupportsWorkspaceMigration(): 
   )
 }
 
+export function testReorderSidebarWorkspaceItemKeepsPlacementGroups(): void {
+  const items = normalizeSidebarWorkspaceItems([
+    { id: 'a', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 0 },
+    { id: 'b', target: { kind: 'system', id: 'favorites' }, placement: 'pinned', order: 1 },
+    { id: 'c', target: { kind: 'system', id: 'missed' }, placement: 'pinned', order: 2 },
+    { id: 'd', target: { kind: 'system', id: 'paper' }, placement: 'overflow', order: 3 },
+  ])
+  const moved = reorderSidebarWorkspaceItem(items, 'a', 'c')
+  assert(
+    moved.filter((item) => item.placement === 'pinned').map((item) => item.id).join(',') === 'b,c,a',
+    '常驻组内应能把第一项拖到第三项位置',
+  )
+  assert(
+    moved.find((item) => item.id === 'd')?.placement === 'overflow',
+    '重排常驻时不得改动更多组',
+  )
+  assert(
+    reorderSidebarWorkspaceItem(items, 'a', 'd') === items,
+    '跨 placement 拖放应被拒绝',
+  )
+}
+
 export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContract(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/components/Sidebar.tsx', 'utf8')
@@ -208,6 +231,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('resolveSidebarWorkspaceItem'), 'Sidebar 应通过统一解析器准备日常项')
   assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')
   assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
+  assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
+  assert(source.includes('onDragStart'), 'Sidebar 应拦截原生链接拖拽预览')
   assert(!source.includes('resolvePinnedSecondaryNav'), 'Sidebar 不得继续直接解析旧 sidebarPins')
 }
 

@@ -12,15 +12,38 @@ const STATUS_COLOR: Record<TradeStatus, string> = {
 }
 
 const STATUS_TO_LINEAR: Record<
-  TradeStatus,
+  Exclude<TradeStatus, 'missed'>,
   { state: LinearIssueState; progress?: number; title?: string }
 > = {
   planned: { state: 'backlog' },
   open: { state: 'started', progress: 0.55 },
-  missed: { state: 'canceled', title: '错过 · 假设盈亏' },
   win: { state: 'completed' },
   breakeven: { state: 'duplicate' },
   loss: { state: 'canceled' },
+}
+
+/** 错过：单斜线实心圆（≠ 亏损的 X，≠ 保本的双斜线） */
+const MISSED_STATUS_PATH =
+  'M7 14C10.866 14 14 10.866 14 7C14 3.13401 10.866 0 7 0C3.13401 0 0 3.13401 0 7C0 10.866 3.13401 14 7 14ZM10.0303 4.96967C10.3232 5.26256 10.3232 5.73744 10.0303 6.03033L6.03033 10.0303C5.73744 10.3232 5.26256 10.3232 4.96967 10.0303C4.67678 9.73744 4.67678 9.26256 4.96967 8.96967L8.96967 4.96967C9.26256 4.67678 9.73744 4.67678 10.0303 4.96967Z'
+
+function MissedStatusIcon({ size, color }: { size: number; color: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 14 14"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path
+        fill={color}
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d={MISSED_STATUS_PATH}
+      />
+    </svg>
+  )
 }
 
 export function StatusIcon({
@@ -30,6 +53,10 @@ export function StatusIcon({
   status: TradeStatus
   size?: number
 }) {
+  if (status === 'missed') {
+    return <MissedStatusIcon size={size} color={STATUS_COLOR.missed} />
+  }
+
   const mapped = STATUS_TO_LINEAR[status]
   return (
     <LinearIssueStatusIcon

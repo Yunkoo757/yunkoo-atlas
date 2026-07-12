@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ComponentType } from 'react'
+import { useMemo, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   SidebarActiveIcon,
@@ -20,6 +20,7 @@ import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
 import {
   countSidebarRoute,
   countSidebarTarget,
+  reorderSidebarWorkspaceItem,
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
   type ResolvedSidebarWorkspaceItem,
@@ -33,6 +34,16 @@ import {
 import { getShortcutHint } from '@/shortcuts/ShortcutHost'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
+
+const WORKSPACE_DRAG_THRESHOLD_PX = 5
+
+type WorkspaceDragGhost = {
+  id: string
+  label: string
+  overId: string | null
+  x: number
+  y: number
+}
 
 function Count({ value }: { value?: number }) {
   return (
@@ -123,7 +134,19 @@ export function useSidebarNavigationModel() {
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
+  const [workspaceDrag, setWorkspaceDrag] = useState<WorkspaceDragGhost | null>(null)
   const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
+  const workspaceDragSession = useRef<{
+    id: string
+    placement: 'pinned' | 'overflow'
+    label: string
+    pointerId: number
+    startX: number
+    startY: number
+    active: boolean
+    overId: string | null
+  } | null>(null)
+  const suppressWorkspaceClick = useRef(false)
   const openComposer = useStore((state) => state.openComposer)
   const profile = useStore((state) => state.profile)
   const {
@@ -162,16 +185,134 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     requestAnimationFrame(() => workspaceEditorOpener.current?.focus())
   }
 
+  const finishWorkspaceDrag = (commit: boolean) => {
+    const session = workspaceDragSession.current
+    workspaceDragSession.current = null
+    setWorkspaceDrag(null)
+    if (!commit || !session?.active || !session.overId || session.overId === session.id) return
+    const next = reorderSidebarWorkspaceItem(sidebarWorkspaceItems, session.id, session.overId)
+    if (next !== sidebarWorkspaceItems) {
+      replaceSidebarWorkspaceItems(next)
+    }
+  }
+
+  const resolveWorkspaceDropTarget = (
+    clientX: number,
+    clientY: number,
+    placement: 'pinned' | 'overflow',
+    sourceId: string,
+  ) => {
+    const hit = document.elementFromPoint(clientX, clientY)
+    const row = hit?.closest<HTMLElement>('[data-sidebar-workspace-id]')
+    const overId = row?.dataset.sidebarWorkspaceId
+    if (!overId || overId === sourceId) return null
+    const overItem = workspaceItems.find((item) => item.item.id === overId)
+    if (!overItem || overItem.item.placement !== placement) return null
+    return overId
+  }
+
+  const onWorkspacePointerDown = (
+    event: ReactPointerEvent<HTMLAnchorElement>,
+    item: (typeof workspaceItems)[number],
+  ) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return
+    }
+    workspaceDragSession.current = {
+      id: item.item.id,
+      placement: item.item.placement,
+      label: item.label,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      overId: null,
+    }
+  }
+
+  const onWorkspacePointerMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = workspaceDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+
+    if (!session.active) {
+      const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
+      if (distance < WORKSPACE_DRAG_THRESHOLD_PX) return
+      session.active = true
+      suppressWorkspaceClick.current = true
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // 捕获失败时仍靠后续 pointer 事件收尾
+      }
+    }
+
+    const overId = resolveWorkspaceDropTarget(
+      event.clientX,
+      event.clientY,
+      session.placement,
+      session.id,
+    )
+    session.overId = overId
+    setWorkspaceDrag({
+      id: session.id,
+      label: session.label,
+      overId,
+      x: event.clientX,
+      y: event.clientY,
+    })
+  }
+
+  const onWorkspacePointerUp = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = workspaceDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    if (session.active) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        // ignore
+      }
+    }
+    finishWorkspaceDrag(true)
+  }
+
+  const onWorkspacePointerCancel = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = workspaceDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    finishWorkspaceDrag(false)
+  }
+
   const renderWorkspaceLink = (item: (typeof workspaceItems)[number]) => {
     const Icon = WORKSPACE_ICONS[item.icon]
     const active = selection.activeWorkspaceItemId === item.item.id
     const modified = selection.modifiedWorkspaceItemId === item.item.id
+    const isDragging = workspaceDrag?.id === item.item.id
+    const isDropTarget = workspaceDrag?.overId === item.item.id
     return (
       <NavLink
         key={item.item.id}
         to={workspaceRouteHref(item)}
-        className={() => `sb-item${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}`}
+        draggable={false}
+        data-sidebar-workspace-id={item.item.id}
+        data-sidebar-workspace-placement={item.item.placement}
+        className={() =>
+          `sb-item${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}${
+            isDragging ? ' is-dragging' : ''
+          }${isDropTarget ? ' is-drop-target' : ''}`
+        }
         aria-current={active ? 'page' : undefined}
+        onDragStart={(event) => {
+          // 禁止 Electron/浏览器把 NavLink 拖成 file:// 预览
+          event.preventDefault()
+        }}
+        onPointerDown={(event) => onWorkspacePointerDown(event, item)}
+        onPointerMove={onWorkspacePointerMove}
+        onPointerUp={onWorkspacePointerUp}
+        onPointerCancel={onWorkspacePointerCancel}
+        onClick={(event) => {
+          if (!suppressWorkspaceClick.current) return
+          event.preventDefault()
+          suppressWorkspaceClick.current = false
+        }}
       >
         <Icon size={16} />
         <span className="sb-item-label">{item.label}</span>
@@ -187,9 +328,14 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')}>
       <div className="sb-header">
-        <NavLink to="/settings/profile" className="sb-ws">
+        <NavLink
+          to="/settings/profile"
+          className="sb-ws"
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
+        >
           <UserAvatar className="sb-ws-avatar" />
           <span className="sb-ws-name">{profile.displayName}</span>
         </NavLink>
@@ -229,6 +375,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <NavLink
             key={id}
             to={primaryHref(id, to)}
+            draggable={false}
+            onDragStart={(event) => event.preventDefault()}
             className={() => 'sb-item' + (selection.activePrimaryId === id ? ' is-active' : '')}
             aria-current={selection.activePrimaryId === id ? 'page' : undefined}
           >
@@ -312,6 +460,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       <nav className="sb-section sb-utility" aria-label="辅助导航">
         <NavLink
           to="/trade-trash"
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
           className={() =>
             'sb-item sb-trash' + (path === '/trade-trash' ? ' is-active' : '')
           }
@@ -322,12 +472,26 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         </NavLink>
         <NavLink
           to="/settings"
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
           className={() => 'sb-item sb-settings' + (isSettingsActive ? ' is-active' : '')}
         >
           <SidebarSettingsIcon size={16} />
           <span className="sb-item-label">设置</span>
         </NavLink>
       </nav>
+
+      {workspaceDrag ? (
+        <div
+          className="sb-workspace-drag-ghost"
+          style={{
+            transform: `translate(${workspaceDrag.x + 12}px, ${workspaceDrag.y + 8}px)`,
+          }}
+          aria-hidden
+        >
+          {workspaceDrag.label}
+        </div>
+      ) : null}
     </aside>
   )
 }
