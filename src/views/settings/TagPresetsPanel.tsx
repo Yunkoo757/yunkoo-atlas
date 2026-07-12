@@ -106,6 +106,7 @@ function TagSection({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+          aria-label={`新增${title}`}
           placeholder="输入标签名…"
           maxLength={24}
         />
@@ -114,6 +115,7 @@ function TagSection({
           className="dio-btn dio-btn-primary"
           onClick={handleAdd}
           disabled={!input.trim()}
+          aria-label={`添加${title}`}
         >
           <Plus size={14} />
           <span>添加</span>
@@ -127,6 +129,7 @@ function TagSection({
           className="tag-batch-input"
           value={batch}
           onChange={(e) => setBatch(e.target.value)}
+          aria-label={`批量导入${title}`}
           placeholder="每行一个标签，或用逗号分隔"
           rows={4}
         />
@@ -135,6 +138,7 @@ function TagSection({
           className="dio-btn"
           onClick={handleBatchAdd}
           disabled={!batch.trim()}
+          aria-label={`导入${title}`}
         >
           导入
         </button>
