@@ -9,15 +9,15 @@
 }
 
 .tag-section-title {
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-strong);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
   margin-bottom: 4px;
 }
 
 .tag-section-desc {
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
   margin-bottom: 16px;
 }
 

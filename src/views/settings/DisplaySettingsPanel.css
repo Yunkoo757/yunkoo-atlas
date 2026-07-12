@@ -12,8 +12,8 @@
 
 .display-settings-hint {
   padding: 0 10px 8px;
-  font-size: var(--fs-micro);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
   line-height: 1.45;
 }
 
@@ -27,15 +27,15 @@
 }
 .display-section-head h2 {
   margin: 0 0 3px;
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  color: var(--text-strong);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .display-section-head p {
   margin: 0;
-  font-size: var(--fs-mini);
-  line-height: 1.45;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
+  line-height: 1.5;
 }
 
 .display-settings-card .display-toggle,
@@ -69,9 +69,9 @@
 }
 .display-row-desc {
   margin-top: 2px;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   line-height: 1.4;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 .display-choice-list {

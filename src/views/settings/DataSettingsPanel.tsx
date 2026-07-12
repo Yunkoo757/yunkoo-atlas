@@ -167,8 +167,8 @@ export function DataSettingsPanel() {
       {/* 存储健康面板 */}
       <section className="settings-page-section" style={{ marginTop: 32 }}>
         <div className="settings-page-head">
-          <h2 className="settings-page-title">存储健康</h2>
-          <p className="settings-page-desc">
+          <h2 className="settings-section-title">存储健康</h2>
+          <p className="settings-section-desc">
             监控数据规模，及时发现膨胀风险。
           </p>
         </div>
@@ -228,8 +228,8 @@ export function DataSettingsPanel() {
       {electron && (
         <section className="settings-page-section" style={{ marginTop: 32 }}>
           <div className="settings-page-head">
-            <h2 className="settings-page-title">自动备份</h2>
-            <p className="settings-page-desc">
+            <h2 className="settings-section-title">自动备份</h2>
+            <p className="settings-section-desc">
               每 15 分钟自动备份 + 退出前备份。最多保留 7 份，总容量不超过 500 MB。
             </p>
           </div>
