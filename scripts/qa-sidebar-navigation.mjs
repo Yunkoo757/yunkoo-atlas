@@ -510,11 +510,15 @@ try {
   await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   await expectUrl(page, '/list', 'Abandoned anchor setup must enter its intended list route')
-  await page.waitForTimeout(250)
+  await page.waitForTimeout(800)
   const abandonedAnchorStored = await page.evaluate(() =>
     Object.keys(sessionStorage).some((key) => key.startsWith('trade-return-anchor:')),
   )
   if (abandonedAnchorStored) throw new Error('An attempted missing return anchor must be consumed immediately')
+  await page.locator('.list-scroll').evaluate((element) => {
+    element.scrollTop = 0
+  })
+  await page.waitForTimeout(100)
   await page.evaluate(async () => {
     const { useStore } = await import('/src/store/useStore.ts')
     const state = useStore.getState()
