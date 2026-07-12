@@ -23,41 +23,13 @@
 .symbols-input {
   flex: 1;
   min-width: 0;
-  height: 32px;
+  height: var(--control-height);
   padding: 0 10px;
   color: var(--text-primary);
   font-size: var(--fs-sm);
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
-}
-
-.symbols-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 10px;
-  color: var(--text-secondary);
-  font-size: var(--fs-mini);
-  background: var(--bg-hover);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-}
-
-.symbols-btn:hover {
-  color: var(--text-primary);
-}
-
-.symbols-btn-primary {
-  color: var(--accent-text);
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.symbols-btn-primary:hover {
-  background: var(--accent-hover);
-  color: var(--accent-text);
 }
 
 .symbols-list {

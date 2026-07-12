@@ -188,6 +188,11 @@
   /* 金色星标 / 置顶 */
   --star-color: #f2c94c;
 
+  /* 交易状态色（StatusIcon / 表格 chip 共用） */
+  --status-open: var(--star-color);
+  --status-missed: var(--warn-action);
+  --status-urgent: var(--warn-action);
+
   /* accent 辅助 token（组件用） */
   --accent-bg: color-mix(in srgb, var(--accent) 12%, transparent);
   --accent-color: var(--accent);
@@ -231,6 +236,8 @@
   --fs-lg: var(--font-size-large);
   --fs-title: var(--font-size-title3);
   --fs-h: var(--font-size-title2);
+  /* 兼容旧写法；等同 micro */
+  --fs-xs: var(--fs-micro);
 
   /* 阴影（Linear 风格，多层叠加柔光） */
   --shadow-low: 0 1px 1px #0000001f;

@@ -24,6 +24,8 @@ import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { BatchActionBar } from '@/components/ui/BatchActionBar'
+import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
 import './ListView.css'
 
@@ -115,46 +117,15 @@ export function ListView({
     focusIndex >= 0 && focusIndex < visible.length ? visible[focusIndex].id : null
   const visibleIdsKey = visible.map((trade) => trade.id).join('\u0000')
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement ||
-        event.target instanceof HTMLSelectElement
-      ) return
-      if (visible.length === 0) return
-      if (event.key === 'j') {
-        event.preventDefault()
-        setFocusIndex((index) => Math.min(index + 1, visible.length - 1))
-      } else if (event.key === 'k') {
-        event.preventDefault()
-        setFocusIndex((index) => Math.max(index - 1, 0))
-      } else if (event.key === 'Enter' && focusIndex >= 0 && visible[focusIndex]) {
-        event.preventDefault()
-        openTrade(visible[focusIndex])
-      }
-    }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [visible, focusIndex, navigate])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.target instanceof HTMLInputElement ||
-        event.target instanceof HTMLTextAreaElement ||
-        event.target instanceof HTMLSelectElement
-      ) return
-      if ((event.ctrlKey || event.metaKey) && event.key === 'a' && visible.length > 0) {
-        event.preventDefault()
-        setSelectedIds(new Set(visible.map((trade) => trade.id)))
-      } else if (event.key === 'Escape' && selectedIds.size > 0) {
-        setSelectedIds(new Set())
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [visible, selectedIds.size])
+  useWorkbenchListKeyboard({
+    items: visible,
+    selectedIds,
+    setSelectedIds,
+    focusIndex,
+    setFocusIndex,
+    onOpenFocused: (index) => openTrade(visible[index]),
+    enableNav: true,
+  })
 
   useEffect(() => setFocusIndex(-1), [visible.length])
 
@@ -279,19 +250,16 @@ export function ListView({
         )}
       </div>
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
-      {selectedIds.size > 0 && (
-        <div className="lv-batch-bar">
-          <span className="lv-batch-count">已选 {selectedIds.size} 项</span>
-          <button className="lv-batch-btn" onClick={batchCopy}>
-            <Copy size={14} />
-            <span>复制</span>
-          </button>
-          <button className="lv-batch-btn lv-batch-btn-danger" onClick={batchDelete}>
-            <Trash2 size={14} />
-            <span>删除</span>
-          </button>
-        </div>
-      )}
+      <BatchActionBar count={selectedIds.size}>
+        <button type="button" className="batch-action-btn" onClick={batchCopy}>
+          <Copy size={14} />
+          <span>复制</span>
+        </button>
+        <button type="button" className="batch-action-btn batch-action-btn-danger" onClick={batchDelete}>
+          <Trash2 size={14} />
+          <span>删除</span>
+        </button>
+      </BatchActionBar>
     </>
   )
 }

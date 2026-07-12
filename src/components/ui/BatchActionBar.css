@@ -1,0 +1,54 @@
+.batch-action-bar {
+  position: fixed;
+  bottom: 24px;
+  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px 10px;
+  background: var(--popover-bg);
+  border: 1px solid var(--popover-border);
+  border-radius: var(--radius-10);
+  box-shadow: var(--popover-shadow-deep);
+  transform: translateX(-50%);
+}
+
+.batch-action-count {
+  margin-right: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  font-variant-numeric: tabular-nums;
+}
+
+.batch-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--control-height);
+  padding: 0 9px;
+  color: var(--text-secondary);
+  font-size: var(--fs-mini);
+  border-radius: var(--radius-6);
+}
+
+.batch-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.batch-action-btn-danger {
+  color: var(--neg);
+}
+
+.batch-action-btn-danger:hover {
+  color: var(--neg);
+  background: var(--error-action-bg);
+}
+
+@media (max-width: 640px) {
+  .batch-action-bar {
+    left: 50%;
+    bottom: 12px;
+  }
+}

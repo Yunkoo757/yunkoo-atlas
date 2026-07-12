@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>回收站质感方案 · Yunkoo Atlas</title>
+  <style>
+    :root {
+      --page: #07080a;
+      --panel: #0c0d10;
+      --surface: #101116;
+      --elevated: #14151b;
+      --border: #1a1b1f;
+      --border-soft: #22242b;
+      --hover: #17181f;
+      --text: #e8e9ed;
+      --muted: #8b8e98;
+      --faint: #5c5f69;
+      --ghost: #3d404a;
+      --accent: #5e6ad2;
+      --pos: #3ecf8e;
+      --neg: #eb5757;
+      --warn: #e5b567;
+      --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(900px 420px at 18% -8%, #151a2e 0%, transparent 55%),
+        var(--page);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 820px;
+    }
+    .problem {
+      margin: 0 0 22px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--panel) 80%, #12141c);
+      color: var(--faint);
+      font-size: 13px;
+      line-height: 1.55;
+      max-width: 820px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 1180px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--panel) 88%, #12141c);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .card.is-rec {
+      border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+    .card-meta {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      padding: 0 8px;
+      margin-bottom: 8px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 18%, transparent);
+      color: #b8bff5;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .card-meta h2 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .card-meta p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .stage {
+      min-height: 520px;
+      background: #0b0c11;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .shell {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: #101116;
+    }
+    .tb {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 44px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tb-left { min-width: 0; }
+    .tb-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .tb-ctx {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--faint);
+    }
+    .tb-back {
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 12.5px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 220px;
+      height: 30px;
+      padding: 0 10px;
+      border: 1px solid var(--border-soft);
+      border-radius: 7px;
+      background: #12131a;
+      color: var(--faint);
+      font-size: 12.5px;
+    }
+    .select-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 28px;
+      padding: 0 6px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .count { font-size: 11.5px; color: var(--ghost); }
+    .group-h {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 14px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--muted);
+      background: color-mix(in srgb, #12141c 92%, transparent);
+      border-bottom: 1px solid var(--border);
+    }
+    .group-h .n { color: var(--ghost); font-variant-numeric: tabular-nums; }
+
+    /* Shared row bits */
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.ok { background: radial-gradient(circle at 40% 35%, #6ee7b7, #22c55e); }
+    .dot.bad { background: radial-gradient(circle at 40% 35%, #fca5a5, #ef4444); }
+    .dot.warn { background: radial-gradient(circle at 40% 35%, #fde68a, #f59e0b); }
+    .side {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .side.long { color: #93c5fd; background: color-mix(in srgb, #3b82f6 18%, transparent); }
+    .side.short { color: #c4b5fd; background: color-mix(in srgb, #8b5cf6 18%, transparent); }
+    .strat {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--faint);
+      font-size: 12px;
+    }
+    .strat i {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: #7c6af0;
+      display: inline-block;
+    }
+
+    /* ========== A Current ========== */
+    .a-row {
+      display: grid;
+      grid-template-columns: 22px 18px 64px minmax(160px, 1fr) 110px 70px 88px 36px;
+      gap: 10px;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border-bottom: 1px solid transparent;
+    }
+    .a-row:hover { background: var(--hover); }
+    .a-ref { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+    .a-sym { font-size: 13px; font-weight: 600; }
+    .a-meta { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .a-pnl { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .a-r { font-size: 11.5px; color: var(--faint); }
+    .a-date { font-size: 11.5px; color: var(--faint); }
+    .a-days { font-size: 11.5px; color: var(--faint); }
+    .a-act { color: var(--ghost); font-size: 14px; opacity: 0; }
+    .a-row:hover .a-act { opacity: 1; }
+
+    /* ========== B Align TradeList (recommended) ========== */
+    .b-row {
+      display: grid;
+      grid-template-columns: 20px 16px 58px minmax(180px, 1.4fr) 96px 56px 72px 76px 52px;
+      column-gap: 10px;
+      align-items: center;
+      height: 36px;
+      padding: 0 14px;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    }
+    .b-row:hover { background: color-mix(in srgb, var(--hover) 80%, transparent); }
+    .b-row.is-urgent {
+      box-shadow: inset 2px 0 0 color-mix(in srgb, var(--warn) 70%, transparent);
+    }
+    .b-check {
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--border-soft);
+      border-radius: 4px;
+      opacity: 0.35;
+    }
+    .b-row:hover .b-check { opacity: 1; }
+    .b-ref {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .b-primary {
+      display: grid;
+      grid-template-columns: max-content 20px minmax(0, 1fr);
+      column-gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+    .b-sym {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+    .b-pnl {
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      text-align: right;
+    }
+    .b-pnl.pos { color: var(--pos); }
+    .b-pnl.neg { color: var(--neg); }
+    .b-pnl.zero { color: var(--faint); }
+    .b-r {
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+      color: var(--faint);
+      text-align: right;
+    }
+    .b-date {
+      font-size: 11.5px;
+      color: var(--faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .b-exp {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      padding: 0 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      font-size: 11px;
+      color: var(--faint);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .b-exp.urgent {
+      color: var(--warn);
+      border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
+      background: color-mix(in srgb, var(--warn) 10%, transparent);
+      font-weight: 600;
+    }
+    .b-acts {
+      display: flex;
+      justify-content: flex-end;
+      gap: 2px;
+      opacity: 0;
+    }
+    .b-row:hover .b-acts { opacity: 1; }
+    .b-acts span {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    /* ========== C Compact archive ========== */
+    .c-shell { background: #0e0f14; }
+    .c-tb {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .c-tb h3 {
+      margin: 0;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+    .c-tb p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--faint);
+      line-height: 1.4;
+    }
+    .c-bar {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .c-search {
+      flex: 1;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #12131a;
+      color: var(--faint);
+      font-size: 12.5px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+    }
+    .c-group {
+      padding: 8px 14px 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ghost);
+    }
+    .c-row {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      padding: 10px 14px;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    }
+    .c-row:hover { background: #13141b; }
+    .c-main { min-width: 0; }
+    .c-line1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .c-ref {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--ghost);
+    }
+    .c-sym {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .c-line2 {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--faint);
+      font-size: 11.5px;
+    }
+    .c-right {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-end;
+    }
+    .c-pnl {
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+    .c-exp {
+      font-size: 11px;
+      color: var(--faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .c-exp.urgent { color: var(--warn); font-weight: 600; }
+
+    /* ========== D Soft surface ========== */
+    .d-shell { background: #0c0d12; padding: 10px 12px 14px; }
+    .d-tb {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 4px 4px 12px;
+    }
+    .d-tb h3 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.02em; }
+    .d-tb p { margin: 4px 0 0; font-size: 12px; color: var(--faint); }
+    .d-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+    .d-list { display: flex; flex-direction: column; gap: 6px; }
+    .d-row {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, #14151c 88%, transparent);
+    }
+    .d-row:hover {
+      border-color: var(--border-soft);
+      background: #161821;
+    }
+    .d-row.urgent {
+      border-color: color-mix(in srgb, var(--warn) 28%, var(--border));
+    }
+    .d-sym { font-size: 13.5px; font-weight: 650; letter-spacing: -0.02em; }
+    .d-sub {
+      margin-top: 3px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--faint);
+    }
+    .d-ref { font-family: var(--mono); font-size: 10.5px; color: var(--ghost); }
+    .d-right { text-align: right; }
+    .d-pnl { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .d-exp {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--faint);
+    }
+    .d-exp.urgent { color: var(--warn); font-weight: 600; }
+
+    footer.note {
+      margin-top: 22px;
+      color: var(--faint);
+      font-size: 12.5px;
+      line-height: 1.55;
+      max-width: 820px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>回收站质感方案</h1>
+      <p>现状问题：行被拉得很空、字号层级弱、恢复操作靠悬停才显、保留天数像普通灰字。目标是贴近交易列表的密度与字体节奏，同时让「即将清空」更可读。</p>
+      <p class="problem">
+        评估结论：优先 <strong style="color:var(--text);font-weight:600">对齐交易列表（方案 B）</strong>——同一套行高/等宽编号/表格数字/分区粘性标题，只加回收站特有的保留天数徽章与恢复操作。避免另起一套卡片语言造成模块割裂。
+      </p>
+    </header>
+
+    <div class="grid">
+      <!-- A -->
+      <article class="card">
+        <div class="card-meta">
+          <h2>A · 现状参照</h2>
+          <p>单行横向拉伸，中间留白大；PnL 无正负色；保留天数为弱灰字；操作仅悬停可见。</p>
+        </div>
+        <div class="stage">
+          <div class="shell">
+            <div class="tb">
+              <div class="tb-left">
+                <h3 class="tb-title">回收站</h3>
+                <p class="tb-ctx">71 笔交易 · 删除后保留 30 天</p>
+              </div>
+              <span class="tb-back">← 返回交易日志</span>
+            </div>
+            <div class="bar">
+              <div class="search">⌕ 搜索回收站</div>
+              <span class="select-all">☐ 全选</span>
+              <span class="count">共 71 笔</span>
+            </div>
+            <div class="group-h"><span>更早</span><span class="n">71</span></div>
+            <div class="a-row">
+              <span>☐</span><span class="dot ok"></span><span class="a-ref">TRD-102</span>
+              <div class="a-meta"><span class="a-sym">BTCUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航1</span></div>
+              <span><span class="a-pnl">$0</span> <span class="a-r">+2.0R</span></span>
+              <span class="a-date">7月12日</span>
+              <span class="a-days">30 天后</span>
+              <span class="a-act">↺</span>
+            </div>
+            <div class="a-row">
+              <span>☐</span><span class="dot bad"></span><span class="a-ref">TRD-101</span>
+              <div class="a-meta"><span class="a-sym">BTCUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航1</span></div>
+              <span><span class="a-pnl">+$150</span> <span class="a-r">+6.0R</span></span>
+              <span class="a-date">7月12日</span>
+              <span class="a-days">30 天后</span>
+              <span class="a-act">↺</span>
+            </div>
+            <div class="a-row">
+              <span>☐</span><span class="dot warn"></span><span class="a-ref">TRD-100</span>
+              <div class="a-meta"><span class="a-sym">SOLUSDT</span><span class="side short">空</span><span class="strat"><i></i>导航4</span></div>
+              <span><span class="a-pnl">-$80</span> <span class="a-r">-1.5R</span></span>
+              <span class="a-date">7月11日</span>
+              <span class="a-days">29 天后</span>
+              <span class="a-act">↺</span>
+            </div>
+            <div class="a-row">
+              <span>☐</span><span class="dot ok"></span><span class="a-ref">TRD-99</span>
+              <div class="a-meta"><span class="a-sym">ETHUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航2</span></div>
+              <span><span class="a-pnl">+$42</span> <span class="a-r">+1.2R</span></span>
+              <span class="a-date">7月10日</span>
+              <span class="a-days">6 天后</span>
+              <span class="a-act">↺</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- B -->
+      <article class="card is-rec">
+        <div class="card-meta">
+          <span class="badge">推荐</span>
+          <h2>B · 对齐交易列表</h2>
+          <p>36px 行高、等宽编号、表格数字、正负色；保留天数做成徽章；紧急项左边线。最贴 Atlas 列表质感。</p>
+        </div>
+        <div class="stage">
+          <div class="shell">
+            <div class="tb">
+              <div class="tb-left">
+                <h3 class="tb-title">回收站</h3>
+                <p class="tb-ctx">71 笔 · 保留 30 天</p>
+              </div>
+              <span class="tb-back">← 返回交易日志</span>
+            </div>
+            <div class="bar">
+              <div class="search">⌕ 搜索</div>
+              <span class="select-all">☐ 全选</span>
+              <span class="count">71</span>
+            </div>
+            <div class="group-h" style="backdrop-filter: blur(8px); background: color-mix(in srgb, #12141c 96%, transparent);">
+              <span>更早</span><span class="n">71</span>
+            </div>
+            <div class="b-row">
+              <span class="b-check"></span><span class="dot ok"></span><span class="b-ref">TRD-102</span>
+              <div class="b-primary"><span class="b-sym">BTCUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航1</span></div>
+              <span class="b-pnl zero">$0</span><span class="b-r">+2.0R</span>
+              <span class="b-date">7月12日</span><span class="b-exp">30 天</span>
+              <div class="b-acts"><span>↺</span><span>×</span></div>
+            </div>
+            <div class="b-row">
+              <span class="b-check"></span><span class="dot bad"></span><span class="b-ref">TRD-101</span>
+              <div class="b-primary"><span class="b-sym">BTCUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航1</span></div>
+              <span class="b-pnl pos">+$150</span><span class="b-r">+6.0R</span>
+              <span class="b-date">7月12日</span><span class="b-exp">30 天</span>
+              <div class="b-acts"><span>↺</span><span>×</span></div>
+            </div>
+            <div class="b-row">
+              <span class="b-check"></span><span class="dot warn"></span><span class="b-ref">TRD-100</span>
+              <div class="b-primary"><span class="b-sym">SOLUSDT</span><span class="side short">空</span><span class="strat"><i></i>导航4</span></div>
+              <span class="b-pnl neg">-$80</span><span class="b-r">-1.5R</span>
+              <span class="b-date">7月11日</span><span class="b-exp">29 天</span>
+              <div class="b-acts"><span>↺</span><span>×</span></div>
+            </div>
+            <div class="b-row is-urgent">
+              <span class="b-check"></span><span class="dot ok"></span><span class="b-ref">TRD-99</span>
+              <div class="b-primary"><span class="b-sym">ETHUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航2</span></div>
+              <span class="b-pnl pos">+$42</span><span class="b-r">+1.2R</span>
+              <span class="b-date">7月10日</span><span class="b-exp urgent">6 天</span>
+              <div class="b-acts"><span>↺</span><span>×</span></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- C -->
+      <article class="card">
+        <div class="card-meta">
+          <h2>C · 紧凑档案</h2>
+          <p>双行密度：主行品种/方向，次行编号与策略；右侧结果+倒计时。更像归档浏览，和列表略有反差。</p>
+        </div>
+        <div class="stage">
+          <div class="shell c-shell">
+            <div class="c-tb">
+              <h3>回收站</h3>
+              <p>71 笔将被保留 30 天 · 到期自动清空</p>
+            </div>
+            <div class="c-bar">
+              <div class="c-search">⌕ 搜索回收站</div>
+              <span class="select-all">☐ 全选</span>
+            </div>
+            <div class="c-group">更早 · 71</div>
+            <div class="c-row">
+              <span class="dot ok"></span>
+              <div class="c-main">
+                <div class="c-line1"><span class="c-sym">BTCUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航1</span></div>
+                <div class="c-line2"><span class="c-ref">TRD-102</span><span>7月12日删除</span></div>
+              </div>
+              <div class="c-right"><span class="c-pnl" style="color:var(--faint)">$0 · +2.0R</span><span class="c-exp">30 天后清空</span></div>
+            </div>
+            <div class="c-row">
+              <span class="dot bad"></span>
+              <div class="c-main">
+                <div class="c-line1"><span class="c-sym">BTCUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航1</span></div>
+                <div class="c-line2"><span class="c-ref">TRD-101</span><span>7月12日删除</span></div>
+              </div>
+              <div class="c-right"><span class="c-pnl" style="color:var(--pos)">+$150 · +6.0R</span><span class="c-exp">30 天后清空</span></div>
+            </div>
+            <div class="c-row">
+              <span class="dot warn"></span>
+              <div class="c-main">
+                <div class="c-line1"><span class="c-sym">SOLUSDT</span><span class="side short">空</span><span class="strat"><i></i>导航4</span></div>
+                <div class="c-line2"><span class="c-ref">TRD-100</span><span>7月11日删除</span></div>
+              </div>
+              <div class="c-right"><span class="c-pnl" style="color:var(--neg)">-$80 · -1.5R</span><span class="c-exp">29 天后清空</span></div>
+            </div>
+            <div class="c-row">
+              <span class="dot ok"></span>
+              <div class="c-main">
+                <div class="c-line1"><span class="c-sym">ETHUSDT</span><span class="side long">多</span><span class="strat"><i></i>导航2</span></div>
+                <div class="c-line2"><span class="c-ref">TRD-99</span><span>7月10日删除</span></div>
+              </div>
+              <div class="c-right"><span class="c-pnl" style="color:var(--pos)">+$42 · +1.2R</span><span class="c-exp urgent">6 天后清空</span></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- D -->
+      <article class="card">
+        <div class="card-meta">
+          <h2>D · Soft surface</h2>
+          <p>行卡片化，标题字重更强、行距更松。质感明显，但和交易日志主列表语言不一致，适合独立「归档」页而非回收站。</p>
+        </div>
+        <div class="stage">
+          <div class="shell d-shell">
+            <div class="d-tb">
+              <div>
+                <h3>回收站</h3>
+                <p>71 笔 · 保留 30 天</p>
+              </div>
+              <span class="tb-back">← 返回</span>
+            </div>
+            <div class="d-bar">
+              <div class="c-search">⌕ 搜索</div>
+              <span class="select-all">☐ 全选</span>
+            </div>
+            <div class="d-list">
+              <div class="d-row">
+                <span class="dot ok"></span>
+                <div>
+                  <div class="d-sym">BTCUSDT <span class="side long">多</span></div>
+                  <div class="d-sub"><span class="d-ref">TRD-102</span><span>导航1</span><span>7月12日</span></div>
+                </div>
+                <div class="d-right"><div class="d-pnl" style="color:var(--faint)">$0</div><div class="d-exp">30 天</div></div>
+              </div>
+              <div class="d-row">
+                <span class="dot bad"></span>
+                <div>
+                  <div class="d-sym">BTCUSDT <span class="side long">多</span></div>
+                  <div class="d-sub"><span class="d-ref">TRD-101</span><span>导航1</span><span>7月12日</span></div>
+                </div>
+                <div class="d-right"><div class="d-pnl" style="color:var(--pos)">+$150</div><div class="d-exp">30 天</div></div>
+              </div>
+              <div class="d-row urgent">
+                <span class="dot ok"></span>
+                <div>
+                  <div class="d-sym">ETHUSDT <span class="side long">多</span></div>
+                  <div class="d-sub"><span class="d-ref">TRD-99</span><span>导航2</span><span>7月10日</span></div>
+                </div>
+                <div class="d-right"><div class="d-pnl" style="color:var(--pos)">+$42</div><div class="d-exp urgent">6 天</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <footer class="note">
+      建议选 <strong style="color:var(--text);font-weight:600">B</strong>：复用交易列表栅格与字体节奏，回收站只增量「保留天数徽章 + 紧急左边线 + 恢复/删除」。打开本文件对比；选定字母后我们再落代码。
+    </footer>
+  </div>
+</body>
+</html>

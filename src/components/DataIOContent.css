@@ -27,53 +27,8 @@
 
 .dio-mono {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-micro);
   word-break: break-all;
-}
-
-.dio-btn-warn {
-  border-color: var(--warn-action-border);
-  color: var(--neg);
-}
-.dio-btn-warn:hover:not(:disabled) {
-  background: var(--warn-action-bg);
-  color: var(--neg);
-}
-
-.dio-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.dio-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.dio-btn-primary {
-  background: var(--accent);
-  border-color: transparent;
-  color: var(--accent-text);
-}
-.dio-btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  color: var(--accent-text);
-}
-
-.dio-btn:disabled {
-  color: var(--text-quaternary);
-  border-color: var(--border-subtle);
-  background: var(--field-bg-disabled);
-  cursor: not-allowed;
 }
 
 .dio-file-input {
@@ -267,7 +222,7 @@
 .dio-dup-reason {
   display: inline-block;
   margin-right: 6px;
-  color: var(--warn, #e5b567);
+  color: var(--warn);
   font-weight: 600;
 }
 

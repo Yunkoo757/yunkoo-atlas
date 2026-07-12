@@ -4,8 +4,8 @@ import type { LinearIssueState } from '@/icons/linear'
 
 const STATUS_COLOR: Record<TradeStatus, string> = {
   planned: 'var(--text-tertiary)',
-  open: '#f2c94c',
-  missed: '#f2994a',
+  open: 'var(--status-open)',
+  missed: 'var(--status-missed)',
   win: 'var(--pos)',
   breakeven: 'var(--text-secondary)',
   loss: 'var(--neg)',
@@ -55,9 +55,9 @@ export function ConvictionIcon({
   if (conviction === 'urgent') {
     return (
       <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden>
-        <rect x="1" y="1" width="12" height="12" rx="3" fill="#f2994a" />
-        <rect x="6.25" y="3.5" width="1.5" height="4.5" rx="0.75" fill="#fff" />
-        <rect x="6.25" y="9.5" width="1.5" height="1.5" rx="0.75" fill="#fff" />
+        <rect x="1" y="1" width="12" height="12" rx="3" fill="var(--status-urgent)" />
+        <rect x="6.25" y="3.5" width="1.5" height="4.5" rx="0.75" fill="var(--accent-text)" />
+        <rect x="6.25" y="9.5" width="1.5" height="1.5" rx="0.75" fill="var(--accent-text)" />
       </svg>
     )
   }
