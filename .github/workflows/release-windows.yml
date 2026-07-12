@@ -65,7 +65,7 @@ jobs:
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
           $tag = "${{ github.ref_name }}"
-          $installer = Get-Item "release/Yunkoo Atlas-$version-win-x64.exe"
+          $installer = Get-Item "release/Yunkoo-Atlas-$version-win-x64.exe"
           $blockmap = Get-Item "$($installer.FullName).blockmap"
           $metadata = Get-Item "release/latest.yml"
           $files = @($installer, $blockmap, $metadata)

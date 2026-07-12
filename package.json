@@ -132,7 +132,7 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+      "artifactName": "Yunkoo-Atlas-${version}-win-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
