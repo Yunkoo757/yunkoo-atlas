@@ -26,6 +26,7 @@ export function Menu({
   const [placement, setPlacement] = useState<'bottom' | 'top'>('bottom')
   const ref = useRef<HTMLDivElement>(null)
   const popRef = useRef<HTMLDivElement>(null)
+  const isSelectionMenu = value !== undefined
 
   useEffect(() => {
     if (!open) return
@@ -75,8 +76,8 @@ export function Menu({
             <button
               key={o.value}
               className="menu-item"
-              role="menuitemradio"
-              aria-checked={o.value === value}
+              role={isSelectionMenu ? 'menuitemradio' : 'menuitem'}
+              aria-checked={isSelectionMenu ? o.value === value : undefined}
               onClick={() => {
                 onSelect(o.value)
                 setOpen(false)
@@ -84,7 +85,9 @@ export function Menu({
             >
               {o.icon && <span className="menu-item-icon">{o.icon}</span>}
               <span className="menu-item-label">{o.label}</span>
-              {o.value === value && <Check size={14} className="menu-item-check" />}
+              {isSelectionMenu && o.value === value && (
+                <Check size={14} className="menu-item-check" />
+              )}
             </button>
           ))}
         </div>
