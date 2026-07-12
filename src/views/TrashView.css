@@ -99,6 +99,10 @@
 .trash-select-all-btn .selection-box {
   opacity: 1;
 }
+.trash-select-all-label {
+  color: inherit;
+  font: inherit;
+}
 
 /* 行悬停时显示勾选（与 trade-row 一致） */
 .trash-item:hover .selection-box,
