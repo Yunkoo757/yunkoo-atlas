@@ -279,7 +279,7 @@
   min-width: 0;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-8);
-  background: lch(7.2% 0.75 272);
+  background: var(--field-bg);
   transition: border-color var(--dur-base) var(--ease-out);
   overflow: hidden;
 }
@@ -344,7 +344,7 @@
   padding: 10px 10px 0;
   display: flex;
   flex-direction: column;
-  background: lch(3.5% 0.3 272);
+  background: var(--bg-app);
   border: 0;
   border-left: 1px solid var(--border-subtle);
   border-radius: 0;
@@ -352,7 +352,7 @@
 .dv-section {
   margin: 0 0 8px;
   padding: 8px 8px 10px;
-  background: lch(7.2% 0.75 272);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
 }
@@ -452,12 +452,12 @@
 }
 .dv-prop-chip.is-neutral {
   color: var(--text-secondary);
-  background: lch(8.4% 1.1 272);
+  background: var(--bg-elevated);
   border-color: var(--border-subtle);
 }
 .dv-prop-chip.is-category {
   color: var(--text-secondary);
-  background: lch(8.4% 1.1 272);
+  background: var(--bg-elevated);
   border-color: var(--border-subtle);
 }
 .dv-prop-chip.is-category.is-mistake {
@@ -482,7 +482,7 @@
 }
 .dv-prop-chip.is-timeframe.is-other {
   color: var(--text-tertiary);
-  background: lch(8.4% 1.1 272);
+  background: var(--bg-elevated);
   border-color: var(--border-subtle);
 }
 .dv-prop-chip.is-session.is-london {
@@ -503,7 +503,7 @@
 .dv-prop-chip.is-session.is-outside,
 .dv-prop-chip.is-session.is-other {
   color: var(--text-tertiary);
-  background: lch(8.4% 1.1 272);
+  background: var(--bg-elevated);
   border-color: var(--border-subtle);
 }
 
