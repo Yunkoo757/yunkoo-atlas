@@ -1,7 +1,7 @@
 .dio-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 28px;
 }
 
 .dio-section-title {
@@ -80,29 +80,19 @@
   display: none;
 }
 
-.dio-danger {
-  padding: 12px 14px;
-  border-radius: var(--radius-8);
-  background: lch(55 55 35 / 0.08);
-  border: 1px solid lch(55 55 35 / 0.2);
-}
-
-.dio-danger-head {
+.dio-safety-note {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -8px 0 0;
   font-size: var(--fs-mini);
-  font-weight: var(--font-weight-semibold);
-  color: var(--neg);
-}
-
-.dio-danger-list {
-  margin: 0;
-  padding-left: 18px;
-  font-size: var(--fs-mini);
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--text-tertiary);
+}
+.dio-safety-note svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--warn-action);
 }
 
 /* ---- 备份列表 ---- */
@@ -165,20 +155,25 @@
 .health-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  gap: 0;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .health-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px;
-  border-radius: var(--radius-8);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 2px 10px;
+  padding: 14px 12px;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border-subtle);
   color: var(--text-secondary);
 }
+.health-card:last-child { border-right: 0; }
+.health-card > svg { grid-row: 1 / span 2; margin-top: 2px; color: var(--text-tertiary); }
 
 .health-card.health-warn {
   background: var(--warn-action-bg);
@@ -203,42 +198,49 @@
   color: var(--text-quaternary);
 }
 
-.dio-zone,
-.dio-section {
-  padding: 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+.dio-group { min-width: 0; }
+.dio-group-head { margin-bottom: 10px; }
+.dio-group-title {
+  margin: 0 0 3px;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
 }
-
-.dio-zone-primary {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent) 7%, var(--bg-elevated));
+.dio-group-desc {
+  margin: 0;
+  font-size: var(--fs-mini);
+  line-height: 1.5;
+  color: var(--text-tertiary);
 }
-
-.dio-zone-danger {
-  border-color: lch(55 55 35 / 0.28);
-  background: lch(55 55 35 / 0.06);
+.dio-task-list {
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
-
-.dio-zone-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.dio-task {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  min-height: 62px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
 }
-
-.dio-zone-head {
-  margin-bottom: 8px;
+.dio-task:last-child { border-bottom: 0; }
+.dio-task-primary { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.dio-task-icon { flex: 0 0 auto; color: var(--text-tertiary); }
+.dio-task-primary .dio-task-icon { color: var(--accent); }
+.dio-task-copy { flex: 1; min-width: 0; }
+.dio-task-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
 }
-
-.dio-zone-kicker {
-  display: block;
-  margin-bottom: 4px;
-  font-size: var(--fs-micro);
-  color: var(--text-quaternary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.dio-task-meta {
+  margin-top: 2px;
+  font-size: var(--fs-mini);
+  line-height: 1.4;
+  color: var(--text-tertiary);
 }
+.dio-group-danger { margin-top: -12px; border: 1px solid var(--warn-action-border); }
 
 .dio-actions {
   display: flex;
@@ -247,21 +249,14 @@
 }
 
 @media (max-width: 480px) {
-  .dio-zone-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dio-btn {
-    width: 100%;
-    height: auto;
-    min-height: 44px;
-    justify-content: center;
-    white-space: normal;
-    text-align: center;
-    padding: 8px 12px;
-  }
+  .dio-content { gap: 24px; }
+  .dio-task { align-items: flex-start; flex-wrap: wrap; padding: 12px 8px; }
+  .dio-task-copy { min-width: calc(100% - 34px); }
+  .dio-task .dio-btn { width: 100%; min-height: 44px; justify-content: center; margin-left: 30px; }
 
   .health-grid {
     grid-template-columns: 1fr;
   }
+  .health-card { border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+  .health-card:last-child { border-bottom: 0; }
 }
