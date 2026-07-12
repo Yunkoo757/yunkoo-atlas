@@ -160,10 +160,10 @@
   transition: background var(--dur-fast) var(--ease-out);
 }
 .trash-item:hover {
-  background: lch(8.4% 1.2 272);
+  background: var(--bg-hover);
 }
 .trash-item.is-selected {
-  background: lch(10.7% 0.5 272);
+  background: var(--bg-selected);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 .trash-item.is-urgent:not(.is-selected) {
