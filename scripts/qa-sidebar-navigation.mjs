@@ -125,9 +125,34 @@ function expectEqual(actual, expected, message) {
   }
 }
 
+async function expectActiveSidebarLabels(page, expected, message) {
+  try {
+    await page.waitForFunction(
+      (labels) => {
+        const actual = [...document.querySelectorAll('.sidebar a.sb-item.is-active .sb-item-label')]
+          .map((element) => element.textContent?.trim() ?? '')
+        return JSON.stringify(actual) === JSON.stringify(labels)
+      },
+      expected,
+      { timeout: 5000 },
+    )
+  } catch {
+    expectEqual(
+      await page.locator('.sidebar a.sb-item.is-active .sb-item-label').allTextContents(),
+      expected,
+      message,
+    )
+  }
+}
+
 async function expectCount(locator, expected) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const actual = await locator.count()
+    if (actual === expected) return
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
   const actual = await locator.count()
-  if (actual !== expected) throw new Error(`Expected count ${expected}, received ${actual}`)
+  throw new Error(`Expected count ${expected}, received ${actual}`)
 }
 
 async function expectFocused(locator) {
@@ -379,8 +404,8 @@ try {
   await savedWorkspaceLink.click()
   await expectUrl(page, '/list?status=open', 'Saved view must navigate to its exact query')
   await expectAttribute(savedWorkspaceLink, 'aria-current', 'page')
-  expectEqual(
-    await page.locator('.sidebar a.sb-item.is-active .sb-item-label').allTextContents(),
+  await expectActiveSidebarLabels(
+    page,
     ['QA 保存视图'],
     'Exact saved view must be the only strongly selected sidebar item',
   )
@@ -389,8 +414,8 @@ try {
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   const modifiedSavedLink = page.locator('.sb-workspace > a', { hasText: 'QA 保存视图' })
   await expectAttribute(modifiedSavedLink, 'aria-current', 'page')
-  expectEqual(
-    await page.locator('.sidebar a.sb-item.is-active .sb-item-label').allTextContents(),
+  await expectActiveSidebarLabels(
+    page,
     ['QA 保存视图'],
     'Modified saved view must remain the only strongly selected sidebar item',
   )
@@ -470,6 +495,7 @@ try {
     if (scenario.open === 'button') await anchor.locator('.trade-row-open').click()
     else if (scenario.open === 'link') await anchor.locator('a').click()
     else await anchor.click()
+    await page.waitForURL((url) => url.pathname.startsWith('/trade/'), { timeout: 10000 })
     await expectVisible(page.getByRole('link', { name: '返回列表' }).first())
     await page.getByRole('link', { name: '返回列表' }).first().click()
     await expectUrl(page, scenario.path, `${scenario.path} detail return must preserve its source route`)

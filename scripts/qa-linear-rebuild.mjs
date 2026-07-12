@@ -18,10 +18,14 @@ const runtimeErrors = []
 
 mkdirSync(OUT, { recursive: true })
 
-page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`))
-page.on('console', (message) => {
-  if (message.type() === 'error') runtimeErrors.push(`console: ${message.text()}`)
-})
+function trackRuntimeErrors(targetPage) {
+  targetPage.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`))
+  targetPage.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(`console: ${message.text()}`)
+  })
+}
+
+trackRuntimeErrors(page)
 
 function record(name, pass, detail = '') {
   results.push({ name, pass, detail })
@@ -48,19 +52,27 @@ async function selectValue(trigger, value) {
 
 async function seedData() {
   await open('/today-record')
-  await page.locator('body').press('c')
+  await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/)
+  await page.evaluate(async () => {
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await flushPersistNow()
+  })
   const tradeDetailPath = new URL(page.url()).pathname
 
   await open('/review-cases')
-  await page.locator('body').press('c')
+  await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'BTCUSDT')
   await selectValue(page.getByRole('combobox', { name: '复盘分类' }), 'focus')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/)
+  await page.evaluate(async () => {
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await flushPersistNow()
+  })
 
   return tradeDetailPath
 }
@@ -77,12 +89,19 @@ try {
   ]
 
   for (const viewport of VIEWPORTS) {
-    await page.setViewportSize({ width: viewport.width, height: viewport.height })
     for (const route of routes) {
-      await open(route.path)
-      await page.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
+      const routePage = await context.newPage()
+      trackRuntimeErrors(routePage)
+      await routePage.setViewportSize({ width: viewport.width, height: viewport.height })
+      await routePage.goto(`${BASE}${route.path}`, { waitUntil: 'domcontentloaded' })
+      const loading = routePage.locator('.app-loading')
+      if (await loading.count()) {
+        await loading.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+      }
+      await routePage.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 10000 })
+      await routePage.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
 
-      const geometry = await page.evaluate(() => {
+      const geometry = await routePage.evaluate(() => {
         const frame = document.querySelector('.ui-main-frame')
         const rect = frame?.getBoundingClientRect()
         const visibleButtons = [...document.querySelectorAll('button')].filter((button) => {
@@ -120,10 +139,11 @@ try {
         pass,
         pass ? '布局与按钮命名通过' : JSON.stringify(geometry),
       )
-      await page.screenshot({
+      await routePage.screenshot({
         path: join(OUT, `${viewport.name}-${route.name}.png`),
         fullPage: false,
       })
+      await routePage.close()
     }
   }
 
