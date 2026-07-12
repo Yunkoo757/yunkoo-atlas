@@ -455,7 +455,7 @@ export function App() {
 
   const Router = isElectron() ? HashRouter : BrowserRouter
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Shell />
     </Router>
   )
