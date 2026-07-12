@@ -325,7 +325,7 @@
 }
 
 .trade-row-tag.is-mistake {
-  max-width: 9.5ch;
+  max-width: none;
   color: color-mix(in srgb, var(--neg) 72%, var(--text-tertiary));
   background: transparent;
   border-color: color-mix(in srgb, var(--neg) 26%, var(--border-default));

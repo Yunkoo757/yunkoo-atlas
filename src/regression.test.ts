@@ -80,6 +80,7 @@ import {
   isSavedViewInWorkspace,
   resolveWorkspaceNavTarget,
   rememberableWorkspaceKind,
+  searchForWorkspaceViewTarget,
 } from '@/lib/workspaceViews'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import {
@@ -665,6 +666,27 @@ export function testWorkspaceViewsNeverCrossRecordDomains(): void {
   assert(
     getActiveWorkspaceView('trade', '/list', '?status=loss&symbol=EURUSD')?.id === 'loss',
     '亏损视图叠加临时条件时仍应保持选中',
+  )
+  assert(
+    getActiveWorkspaceView('trade', '/list', '?status=win') === undefined,
+    '盈利筛选不得误选中「全部」',
+  )
+  assert(
+    getActiveWorkspaceView('trade', '/list', '?status=win&symbol=EURUSD') === undefined,
+    '自建盈利视图叠加临时条件时「全部」不得高亮',
+  )
+  assert(
+    getActiveWorkspaceView('trade', '/list', '?symbol=EURUSD')?.id === 'all',
+    '仅有临时筛选时应选中「全部」',
+  )
+  assert(
+    searchForWorkspaceViewTarget('?status=win&symbol=EURUSD', { search: undefined }) ===
+      '?symbol=EURUSD',
+    '从盈利切回全部应清掉 status 并保留临时筛选',
+  )
+  assert(
+    searchForWorkspaceViewTarget('?status=win', { search: '?status=loss' }) === '?status=loss',
+    '盈利切到亏损应替换 status',
   )
   assert(
     getActiveWorkspaceView('case', '/review-cases/mistakes', '?symbol=EURUSD')?.id === 'mistakes',

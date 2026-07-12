@@ -38,7 +38,13 @@ export function TradeRow({
   const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
   const symbolIcons = useStore((state) => state.symbolIcons)
-  const regularTags = getVisibleTradeTags(trade, 2)
+  const regularTagLimit = trade.mistakeTags.length > 0 ? 1 : 2
+  const regularTags = getVisibleTradeTags(trade, regularTagLimit)
+  const mistakeTags = {
+    visible: trade.mistakeTags.slice(0, 2),
+    hidden: trade.mistakeTags.slice(2),
+    hiddenCount: Math.max(0, trade.mistakeTags.length - 2),
+  }
   const reviewLabel =
     regularTags.visible.length === 0 &&
     trade.mistakeTags.length === 0 &&
@@ -108,19 +114,19 @@ export function TradeRow({
             <span className="trade-row-more">+{regularTags.hiddenCount}</span>
           </Tooltip>
         )}
-        {trade.mistakeTags.slice(0, 1).map((tag) => (
+        {mistakeTags.visible.map((tag) => (
           <Tooltip content={tag} label={`错误标签：${tag}`} key={tag}>
             <span className="trade-row-tag is-mistake">{tag}</span>
           </Tooltip>
         ))}
-        {trade.mistakeTags.length > 1 && (
+        {mistakeTags.hiddenCount > 0 && (
           <Tooltip
-            content={trade.mistakeTags.slice(1).join(' · ')}
-            label={`其余错误标签：${trade.mistakeTags.slice(1).join('、')}`}
+            content={mistakeTags.hidden.join(' · ')}
+            label={`其余错误标签：${mistakeTags.hidden.join('、')}`}
             focusable
           >
             <span className="trade-row-more is-mistake-more">
-              +{trade.mistakeTags.length - 1}
+              +{mistakeTags.hiddenCount}
             </span>
           </Tooltip>
         )}

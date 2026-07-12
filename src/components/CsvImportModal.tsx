@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, type DragEvent } from 'react'
 import { Upload, X, ArrowRight, AlertCircle, CheckCircle } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import {
@@ -11,6 +11,14 @@ import {
   type ImportPreview,
   type TradeField,
 } from '@/lib/csvImport'
+import {
+  buildContentSignature,
+  buildLibraryContentIndex,
+  duplicateReasonLabel,
+  findObviousDuplicate,
+  type DuplicateMatch,
+} from '@/lib/tradeDuplicates'
+import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
 import { Select } from '@/components/ui/Select'
 import './CsvImportModal.css'
@@ -30,14 +38,21 @@ export function CsvImportModal({ open, onClose }: Props) {
   const [mapping, setMapping] = useState<FieldMapping>({})
   const [previews, setPreviews] = useState<ImportPreview[]>([])
   const [error, setError] = useState('')
+  const [fileName, setFileName] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const [skipDuplicates, setSkipDuplicates] = useState(true)
+  const [duplicateByRow, setDuplicateByRow] = useState<Record<number, DuplicateMatch>>({})
+  const [forceImportRows, setForceImportRows] = useState<Record<number, boolean>>({})
   const fileRef = useRef<HTMLInputElement>(null)
 
   const usedFields = useMemo(() => new Set(Object.values(mapping)), [mapping])
+  const duplicateCount = useMemo(() => Object.keys(duplicateByRow).length, [duplicateByRow])
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processFile = async (file: File) => {
     setError('')
-    const file = e.target.files?.[0]
-    if (!file) return
+    setFileName(file.name)
+    setDuplicateByRow({})
+    setForceImportRows({})
     try {
       const text = await file.text()
       const result = parseCsv(text)
@@ -51,6 +66,19 @@ export function CsvImportModal({ open, onClose }: Props) {
     } catch {
       setError('无法读取文件，请确认是有效的 CSV 文件')
     }
+  }
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    await processFile(file)
+  }
+
+  const onDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDragging(false)
+    const file = event.dataTransfer.files?.[0]
+    if (file) await processFile(file)
   }
 
   const setMap = (colIdx: number, field: TradeField | '') => {
@@ -67,7 +95,7 @@ export function CsvImportModal({ open, onClose }: Props) {
     setMapping(next)
   }
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     if (!csvResult) return
     const pre: ImportPreview[] = []
     for (let i = 0; i < csvResult.rows.length; i++) {
@@ -75,12 +103,40 @@ export function CsvImportModal({ open, onClose }: Props) {
     }
     setPreviews(pre)
     setStep('preview')
+    setForceImportRows({})
+
+    try {
+      const storage = getStorage()
+      const library = await buildLibraryContentIndex(trades, async (assetId) => {
+        const rec = await storage.getAssetForExport(assetId)
+        return rec?.data ?? null
+      })
+      const next: Record<number, DuplicateMatch> = {}
+      for (const row of pre) {
+        if (row.errors.length > 0) continue
+        const sig = buildContentSignature(row.trade.note ?? '', [])
+        const match = findObviousDuplicate(sig, library)
+        if (match) next[row.rowIndex] = match
+      }
+      setDuplicateByRow(next)
+    } catch (err) {
+      console.error('[CsvImport] duplicate scan failed', err)
+      setDuplicateByRow({})
+    }
+  }
+
+  const shouldImportPreview = (preview: ImportPreview) => {
+    if (preview.errors.length > 0) return false
+    const dup = duplicateByRow[preview.rowIndex]
+    if (!dup) return true
+    if (!skipDuplicates) return true
+    return Boolean(forceImportRows[preview.rowIndex])
   }
 
   const handleImport = () => {
-    const valid = previews.filter((p) => p.errors.length === 0)
+    const valid = previews.filter(shouldImportPreview)
     if (valid.length === 0) {
-      setError('没有可导入的数据行，请修正映射或数据后重试')
+      setError('没有可导入的数据行（疑似重复已全部跳过或需修正映射）')
       return
     }
 
@@ -103,7 +159,14 @@ export function CsvImportModal({ open, onClose }: Props) {
     }
 
     setStep('done')
-    toast(`成功导入 ${imported} 笔交易`)
+    const skipped = skipDuplicates
+      ? Object.keys(duplicateByRow).filter((row) => !forceImportRows[Number(row)]).length
+      : 0
+    toast(
+      skipped > 0
+        ? `成功导入 ${imported} 笔，跳过 ${skipped} 笔重复`
+        : `成功导入 ${imported} 笔交易`,
+    )
   }
 
   const reset = () => {
@@ -112,35 +175,77 @@ export function CsvImportModal({ open, onClose }: Props) {
     setMapping({})
     setPreviews([])
     setError('')
+    setFileName('')
+    setDragging(false)
+    setSkipDuplicates(true)
+    setDuplicateByRow({})
+    setForceImportRows({})
     if (fileRef.current) fileRef.current.value = ''
   }
 
   if (!open) return null
 
+  const pickFile = () => fileRef.current?.click()
+
   return (
     <div className="csv-modal-overlay" onClick={onClose}>
-      <div className="csv-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={'csv-modal' + (step === 'upload' || step === 'done' ? '' : ' is-wide')}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="csv-modal-header">
-          <h2>导入 CSV 交易数据</h2>
-          <button className="csv-modal-close" onClick={onClose} type="button">
-            <X size={18} />
+          <div>
+            <h2>导入 CSV</h2>
+            {step === 'upload' && (
+              <p className="csv-modal-desc">支持中英文表头，自动匹配字段</p>
+            )}
+          </div>
+          <button className="csv-modal-close" onClick={onClose} type="button" aria-label="关闭">
+            <X size={16} />
           </button>
         </div>
 
         {/* Step 1: Upload */}
         {step === 'upload' && (
           <div className="csv-upload-area">
-            <Upload size={32} strokeWidth={1.5} />
-            <p>选择 CSV 文件，支持逗号、分号、Tab 分隔</p>
-            <p className="csv-upload-hint">
-              自动识别中英文表头，如：标的/symbol、方向/side、入场价/entry 等
-            </p>
+            <div
+              className={'csv-drop' + (dragging ? ' is-drag' : '')}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setDragging(true)
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              onClick={pickFile}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  pickFile()
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="拖放或选择 CSV 文件"
+            >
+              <div className="csv-drop-icon">
+                <Upload size={16} strokeWidth={1.5} />
+              </div>
+              <p className="csv-drop-title">拖放或选择文件</p>
+              <p className="csv-drop-hint">.csv · .tsv · .txt</p>
+            </div>
+            <div className="csv-upload-foot">
+              <span className="csv-file-status">{fileName || '未选择文件'}</span>
+              <button className="csv-btn csv-btn-primary" type="button" onClick={pickFile}>
+                选择文件
+              </button>
+            </div>
+            <p className="csv-upload-tip">如 symbol / side / entry</p>
             <input
               ref={fileRef}
               type="file"
               accept=".csv,.tsv,.txt"
               onChange={handleFile}
-              className="csv-file-input"
+              className="csv-file-input-hidden"
             />
             {error && <p className="csv-error">{error}</p>}
           </div>
@@ -214,7 +319,23 @@ export function CsvImportModal({ open, onClose }: Props) {
               <span className="csv-ok">{previews.filter((p) => p.errors.length === 0).length} 行有效</span>
               {' · '}
               <span className="csv-bad">{previews.filter((p) => p.errors.length > 0).length} 行有误</span>
+              {duplicateCount > 0 && (
+                <>
+                  {' · '}
+                  <span className="csv-dup-count">{duplicateCount} 行疑似重复</span>
+                </>
+              )}
             </p>
+            {duplicateCount > 0 && (
+              <label className="csv-dup-toggle">
+                <input
+                  type="checkbox"
+                  checked={skipDuplicates}
+                  onChange={(event) => setSkipDuplicates(event.target.checked)}
+                />
+                <span>跳过明显重复正文，默认开启</span>
+              </label>
+            )}
             <div className="csv-preview-table-wrap">
               <table className="csv-preview-table">
                 <thead>
@@ -231,25 +352,62 @@ export function CsvImportModal({ open, onClose }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {previews.slice(0, 20).map((p) => (
-                    <tr key={p.rowIndex} className={p.errors.length > 0 ? 'csv-row-err' : ''}>
-                      <td>{p.rowIndex + 1}</td>
-                      <td>
-                        {p.errors.length === 0 ? (
-                          <CheckCircle size={14} className="csv-ok" />
-                        ) : (
-                          <AlertCircle size={14} className="csv-bad" />
-                        )}
-                      </td>
-                      <td>{p.trade.symbol ?? ''}</td>
-                      <td>{p.trade.side ?? ''}</td>
-                      <td>{p.trade.entry ?? ''}</td>
-                      <td>{p.trade.exit ?? ''}</td>
-                      <td>{p.trade.pnl ?? ''}</td>
-                      <td>{p.trade.openedAt ?? ''}</td>
-                      <td className="csv-err-cell">{p.errors.join('; ')}</td>
-                    </tr>
-                  ))}
+                  {previews.slice(0, 20).map((p) => {
+                    const dup = duplicateByRow[p.rowIndex]
+                    return (
+                      <tr
+                        key={p.rowIndex}
+                        className={
+                          p.errors.length > 0 ? 'csv-row-err' : dup ? 'csv-row-dup' : ''
+                        }
+                      >
+                        <td>{p.rowIndex + 1}</td>
+                        <td>
+                          {p.errors.length === 0 ? (
+                            dup ? (
+                              <AlertCircle size={14} className="csv-dup" />
+                            ) : (
+                              <CheckCircle size={14} className="csv-ok" />
+                            )
+                          ) : (
+                            <AlertCircle size={14} className="csv-bad" />
+                          )}
+                        </td>
+                        <td>{p.trade.symbol ?? ''}</td>
+                        <td>{p.trade.side ?? ''}</td>
+                        <td>{p.trade.entry ?? ''}</td>
+                        <td>{p.trade.exit ?? ''}</td>
+                        <td>{p.trade.pnl ?? ''}</td>
+                        <td>{p.trade.openedAt ?? ''}</td>
+                        <td className="csv-err-cell">
+                          {p.errors.join('; ')}
+                          {dup && (
+                            <span className="csv-dup-msg">
+                              {p.errors.length ? ' · ' : ''}
+                              与 {dup.tradeRef} {duplicateReasonLabel(dup.reason)}
+                              {skipDuplicates && (
+                                <>
+                                  {' · '}
+                                  <button
+                                    type="button"
+                                    className="csv-dup-force"
+                                    onClick={() =>
+                                      setForceImportRows((prev) => ({
+                                        ...prev,
+                                        [p.rowIndex]: !prev[p.rowIndex],
+                                      }))
+                                    }
+                                  >
+                                    {forceImportRows[p.rowIndex] ? '取消仍导入' : '仍导入'}
+                                  </button>
+                                </>
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -261,7 +419,7 @@ export function CsvImportModal({ open, onClose }: Props) {
               <button
                 className="csv-btn csv-btn-primary"
                 onClick={handleImport}
-                disabled={previews.filter((p) => p.errors.length === 0).length === 0}
+                disabled={previews.filter(shouldImportPreview).length === 0}
                 type="button"
               >
                 确认导入

@@ -16,6 +16,9 @@ export type WorkspaceViewTarget = {
   search?: string
 }
 
+/** 定义快捷视图身份的 query（临时 facet 如 symbol/tag 不在此列） */
+export const WORKSPACE_VIEW_QUERY_KEYS = ['status', 'session', 'reviewCategory'] as const
+
 const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
   today: [{ id: 'today', label: '今日', pathname: '/today-record' }],
   trade: [
@@ -45,7 +48,12 @@ export function matchesWorkspaceView(
   if (normalizeSavedViewPath(pathname) !== target.pathname) return false
   const current = new URLSearchParams(search)
   const required = new URLSearchParams(target.search ?? '')
-  return [...required.entries()].every(([key, value]) => current.get(key) === value)
+  if (![...required.entries()].every(([key, value]) => current.get(key) === value)) return false
+  // 「全部」等无 search 的基视图：有 status/session 等视图身份参数时不得误选中
+  if (required.size === 0) {
+    return !WORKSPACE_VIEW_QUERY_KEYS.some((key) => Boolean(current.get(key)?.trim()))
+  }
+  return true
 }
 
 export function getActiveWorkspaceView(
@@ -60,6 +68,20 @@ export function getActiveWorkspaceView(
       const rightSpecificity = new URLSearchParams(right.search ?? '').size
       return rightSpecificity - leftSpecificity
     })[0]
+}
+
+/** 切换快捷视图时替换视图身份参数，保留 symbol 等临时筛选 */
+export function searchForWorkspaceViewTarget(
+  currentSearch: string | URLSearchParams,
+  target: Pick<WorkspaceViewTarget, 'search'>,
+): string {
+  const next = new URLSearchParams(
+    typeof currentSearch === 'string' ? currentSearch : currentSearch.toString(),
+  )
+  for (const key of WORKSPACE_VIEW_QUERY_KEYS) next.delete(key)
+  for (const [key, value] of new URLSearchParams(target.search ?? '')) next.set(key, value)
+  const text = next.toString()
+  return text ? `?${text}` : ''
 }
 
 export function isSavedViewInWorkspace(

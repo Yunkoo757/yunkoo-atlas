@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload, AlertTriangle, FileSpreadsheet, Package, Archive } from '@/icons/appIcons'
+import { Download, Upload, AlertTriangle, FileSpreadsheet, Package, Archive, Search, Trash2 } from '@/icons/appIcons'
 import {
   applyImport,
   downloadExport,
@@ -9,8 +9,16 @@ import {
   importJournalArchive,
   parseImportJson,
 } from '@/lib/importExport'
+import {
+  buildLibraryContentIndex,
+  duplicateReasonLabel,
+  groupObviousDuplicates,
+  type DuplicateGroup,
+} from '@/lib/tradeDuplicates'
+import { getStorage } from '@/storage'
 import { isElectron } from '@/storage/runtime'
 import { toast } from '@/lib/toast'
+import { useStore } from '@/store/useStore'
 import { CsvImportModal } from './CsvImportModal'
 import { NotionImportModal } from './NotionImportModal'
 import './DataIOContent.css'
@@ -18,9 +26,14 @@ import './DataIOContent.css'
 export function DataIOContent({ onDone }: { onDone?: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const electron = isElectron()
+  const trades = useStore((s) => s.trades)
+  const removeTrade = useStore((s) => s.removeTrade)
   const [libraryPath, setLibraryPath] = useState<string | null>(null)
   const [csvOpen, setCsvOpen] = useState(false)
   const [notionOpen, setNotionOpen] = useState(false)
+  const [dupScanning, setDupScanning] = useState(false)
+  const [dupGroups, setDupGroups] = useState<DuplicateGroup[] | null>(null)
+  const [dupCleaning, setDupCleaning] = useState(false)
 
   useEffect(() => {
     if (!electron) return
@@ -86,6 +99,52 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         .catch(() => toast('导入失败'))
     } catch {
       toast('读取文件失败')
+    }
+  }
+
+  const onScanDuplicates = async () => {
+    setDupScanning(true)
+    setDupGroups(null)
+    try {
+      const storage = getStorage()
+      const library = await buildLibraryContentIndex(trades, async (assetId) => {
+        const rec = await storage.getAssetForExport(assetId)
+        return rec?.data ?? null
+      })
+      const byId = new Map(trades.map((trade) => [trade.id, trade]))
+      const groups = groupObviousDuplicates(
+        library.map((item) => ({
+          trade: byId.get(item.id)!,
+          sig: item.sig,
+        })).filter((item) => Boolean(item.trade)),
+      )
+      setDupGroups(groups)
+      toast(groups.length === 0 ? '未发现明显重复' : `发现 ${groups.length} 组重复`)
+    } catch (err) {
+      console.error('[DataIO] duplicate scan failed', err)
+      toast('扫描失败')
+    } finally {
+      setDupScanning(false)
+    }
+  }
+
+  const onCleanDuplicates = () => {
+    if (!dupGroups || dupGroups.length === 0) return
+    setDupCleaning(true)
+    try {
+      let removed = 0
+      for (const group of dupGroups) {
+        for (const id of group.memberIds) {
+          if (id === group.keepId) continue
+          removeTrade(id)
+          removed++
+        }
+      }
+      setDupGroups([])
+      toast(`已清理 ${removed} 条重复记录（移入回收站）`)
+      onDone?.()
+    } finally {
+      setDupCleaning(false)
     }
   }
 
@@ -175,6 +234,77 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
             </button>
           </div>
         </div>
+      </section>
+
+      <section className="dio-group" aria-labelledby="dio-dup-title">
+        <div className="dio-group-head">
+          <h2 id="dio-dup-title" className="dio-group-title">重复检测</h2>
+          <p className="dio-group-desc">
+            按正文与截图内容识别明显抄重，不会把同日同品种多笔正常交易当成重复。
+          </p>
+        </div>
+        <div className="dio-task-list">
+          <div className="dio-task">
+            <Search size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">扫描库内重复</div>
+              <div className="dio-task-meta">对照笔记正文与截图指纹</div>
+            </div>
+            <button
+              type="button"
+              className="dio-btn"
+              onClick={onScanDuplicates}
+              disabled={dupScanning}
+            >
+              <span>{dupScanning ? '扫描中…' : '开始扫描'}</span>
+            </button>
+          </div>
+        </div>
+        {dupGroups && (
+          <div className="dio-dup-panel">
+            {dupGroups.length === 0 ? (
+              <p className="dio-desc">没有发现明显重复。</p>
+            ) : (
+              <>
+                <p className="dio-desc">
+                  共 {dupGroups.length} 组。清理时保留较新的一条，其余移入回收站。
+                </p>
+                <ul className="dio-dup-list">
+                  {dupGroups.slice(0, 12).map((group) => {
+                    const members = group.memberIds
+                      .map((id) => trades.find((trade) => trade.id === id))
+                      .filter(Boolean)
+                    return (
+                      <li key={group.id}>
+                        <span className="dio-dup-reason">{duplicateReasonLabel(group.reason)}</span>
+                        <span>
+                          保留 {members.find((m) => m?.id === group.keepId)?.ref ?? '—'}，另有{' '}
+                          {group.memberIds.length - 1} 条：
+                          {members
+                            .filter((m) => m?.id !== group.keepId)
+                            .map((m) => m?.ref)
+                            .join('、')}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {dupGroups.length > 12 && (
+                  <p className="dio-desc">另有 {dupGroups.length - 12} 组未展开显示。</p>
+                )}
+                <button
+                  type="button"
+                  className="dio-btn dio-btn-warn"
+                  onClick={onCleanDuplicates}
+                  disabled={dupCleaning}
+                >
+                  <Trash2 size={15} />
+                  <span>{dupCleaning ? '清理中…' : `清理 ${dupGroups.reduce((n, g) => n + g.memberIds.length - 1, 0)} 条重复`}</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </section>
 
       {electron && (

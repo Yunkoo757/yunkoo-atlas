@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>导入弹窗质感方案 · Yunkoo Atlas</title>
+  <style>
+    :root {
+      --page: #07080a;
+      --panel: #0c0d10;
+      --surface: #101116;
+      --elevated: #14151b;
+      --border: #1a1b1f;
+      --border-soft: #22242b;
+      --hover: #17181f;
+      --text: #e8e9ed;
+      --muted: #8b8e98;
+      --faint: #5c5f69;
+      --ghost: #3d404a;
+      --accent: #5e6ad2;
+      --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+      --pos: #4ade80;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(900px 420px at 18% -8%, #151a2e 0%, transparent 55%),
+        var(--page);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 760px;
+    }
+    .problem {
+      margin: 0 0 26px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--panel) 80%, #12141c);
+      color: var(--faint);
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 760px;
+    }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+    .tab {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .tab.is-on {
+      background: var(--elevated);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--panel) 88%, #12141c);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .card.is-rec {
+      border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+    .card-meta {
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-meta .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      padding: 0 8px;
+      margin-bottom: 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #b8bff5;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .card-meta h2 {
+      margin: 0 0 6px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .card-meta p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .stage {
+      min-height: 420px;
+      background:
+        linear-gradient(180deg, #090a0e 0%, #0b0c11 100%);
+      display: grid;
+      place-items: center;
+      padding: 28px 18px;
+      position: relative;
+    }
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.42);
+    }
+    .stage > * { position: relative; z-index: 1; }
+
+    /* Shared modal chrome helpers */
+    .x {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      color: var(--faint);
+      flex-shrink: 0;
+    }
+    .x:hover { background: var(--hover); color: var(--muted); }
+    .ico {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: default;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border-soft);
+      color: var(--text);
+    }
+    .btn-quiet {
+      background: var(--elevated);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .file-status {
+      font-size: 12px;
+      color: var(--faint);
+    }
+    .tip {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--faint);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--pos) 14%, transparent);
+      color: #86efac;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* ========== A Current (heavy reference) ========== */
+    .a-modal {
+      width: min(520px, 100%);
+      background: #121318;
+      border: 1px solid #262830;
+      border-radius: 14px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.55);
+      overflow: hidden;
+    }
+    .a-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 8px;
+    }
+    .a-head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+    .a-body {
+      padding: 8px 20px 24px;
+      color: var(--muted);
+    }
+    .a-body .big {
+      width: 36px;
+      height: 36px;
+      margin-bottom: 10px;
+      color: var(--faint);
+    }
+    .a-body .lead { margin: 0 0 6px; color: var(--text); font-size: 14px; }
+    .a-body .sub { margin: 0 0 14px; font-size: 12.5px; color: var(--faint); line-height: 1.5; }
+    .a-formats { margin: 0 0 12px; padding-left: 18px; font-size: 12.5px; line-height: 1.7; color: var(--muted); }
+    .a-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+    .a-choose {
+      height: 36px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid #2a2d36;
+      background: #1a1b22;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    /* ========== B Compact Linear (recommended) ========== */
+    .b-modal {
+      width: min(420px, 100%);
+      background: color-mix(in srgb, #0e0f14 92%, #1a1c24);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      overflow: hidden;
+    }
+    .b-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 14px 0;
+    }
+    .b-head h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .b-head .desc {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--faint);
+      line-height: 1.45;
+    }
+    .b-body { padding: 12px 14px 14px; }
+    .b-drop {
+      border: 1px dashed color-mix(in srgb, var(--border-soft) 80%, #3a3d48);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--elevated) 55%, transparent);
+      padding: 18px 14px;
+      text-align: center;
+    }
+    .b-drop .icon-wrap {
+      width: 28px;
+      height: 28px;
+      margin: 0 auto 8px;
+      border-radius: 8px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+    }
+    .b-drop .title {
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .b-drop .hint {
+      margin: 0;
+      font-size: 12px;
+      color: var(--faint);
+    }
+    .b-formats {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 10px;
+    }
+    .b-format {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 30px;
+      padding: 5px 8px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      background: transparent;
+    }
+    .b-format.is-rec {
+      background: color-mix(in srgb, var(--elevated) 55%, transparent);
+    }
+    .b-format .code {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      color: #a8abb6;
+      width: 32px;
+      flex-shrink: 0;
+    }
+    .b-format .name {
+      flex: 1;
+      min-width: 0;
+      font-size: 12.5px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .b-format.is-rec .name { color: var(--text); }
+    .b-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .b-tip {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ========== C Soft sheet ========== */
+    .c-modal {
+      width: min(460px, 100%);
+      background: rgba(16, 17, 22, 0.82);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.4);
+      overflow: hidden;
+    }
+    .c-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .c-head h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
+    .c-body { padding: 14px; }
+    .c-seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 3px;
+      border-radius: 9px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .c-seg button {
+      height: 30px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--faint);
+      font-size: 12.5px;
+      cursor: default;
+    }
+    .c-seg button.is-on {
+      background: rgba(255,255,255,0.07);
+      color: var(--text);
+      font-weight: 500;
+    }
+    .c-drop {
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.025);
+      padding: 22px 16px;
+      text-align: center;
+    }
+    .c-drop p { margin: 0; }
+    .c-drop .t { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+    .c-drop .s { font-size: 12px; color: var(--faint); }
+    .c-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+    }
+    .c-note {
+      margin-top: 12px;
+      font-size: 11.5px;
+      color: var(--ghost);
+      line-height: 1.5;
+    }
+
+    /* ========== D Row list / command density ========== */
+    .d-modal {
+      width: min(400px, 100%);
+      background: #0f1015;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.42);
+      overflow: hidden;
+    }
+    .d-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 10px 8px 12px;
+    }
+    .d-head h3 { margin: 0; font-size: 13px; font-weight: 600; }
+    .d-sub {
+      margin: 0 12px 8px;
+      font-size: 12px;
+      color: var(--faint);
+    }
+    .d-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0 6px 6px;
+    }
+    .d-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: var(--text);
+    }
+    .d-item:hover { background: var(--hover); }
+    .d-item .mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--elevated);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      flex-shrink: 0;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+    }
+    .d-item .main { flex: 1; min-width: 0; }
+    .d-item .name { font-size: 13px; font-weight: 500; }
+    .d-item .meta { font-size: 11.5px; color: var(--faint); margin-top: 1px; }
+    .d-item .chev { color: var(--ghost); }
+    .d-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .panel[hidden] { display: none !important; }
+    footer.note {
+      margin-top: 22px;
+      color: var(--faint);
+      font-size: 12.5px;
+      line-height: 1.55;
+      max-width: 760px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>导入弹窗质感方案</h1>
+      <p>已定 <strong style="color:var(--text);font-weight:600">B Compact Linear</strong>。下方 B 卡为文案打磨版：去掉重复说明，格式行压成单行。</p>
+      <p class="problem">文案原则：标题不复述投放区；格式行只写差异（含截图 / 仅数据）；导出路径留给一行脚注。</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="导入类型">
+      <button class="tab is-on" type="button" data-panel="notion">Notion 导入</button>
+      <button class="tab" type="button" data-panel="csv">CSV 导入</button>
+    </div>
+
+    <!-- ========== Notion panels ========== -->
+    <div class="grid panel" id="panel-notion">
+      <article class="card">
+        <div class="card-meta">
+          <h2>A · 现状参照</h2>
+          <p>宽面板 + 大图标 + 列表说明 + 原生选文件。信息全，但视觉块感最重。</p>
+        </div>
+        <div class="stage">
+          <div class="a-modal" aria-label="现状 Notion">
+            <div class="a-head">
+              <h3>从 Notion 导入交易</h3>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <div class="a-body">
+              <svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 7V4h11v14h-3"/><rect x="4" y="7" width="11" height="13" rx="1.5"/></svg>
+              <p class="lead">选择 Notion 导出的文件</p>
+              <ul class="a-formats">
+                <li>.zip — Markdown &amp; CSV 导出（推荐，含截图离线导入）</li>
+                <li>.csv — 仅数据库 CSV（快速导入，无图片）</li>
+              </ul>
+              <p class="sub tip">提示：Notion 右上角 … → 导出 →「Markdown &amp; CSV」→ 勾选「包含子页面」。下载 .zip 后直接导入，截图会自动离线保存。</p>
+              <div class="a-row">
+                <button class="a-choose" type="button">选择文件</button>
+                <span class="file-status">未选择任何文件</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card is-rec">
+        <div class="card-meta">
+          <span class="badge">已定 · 文案打磨</span>
+          <h2>B · Compact Linear</h2>
+          <p>格式行改单行：扩展名 + 一句差异，去掉与标题/脚注重复的说明。</p>
+        </div>
+        <div class="stage">
+          <div class="b-modal" aria-label="推荐 Notion">
+            <div class="b-head">
+              <div>
+                <h3>从 Notion 导入</h3>
+                <p class="desc">请先导出 Markdown &amp; CSV，再选择文件</p>
+              </div>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <div class="b-body">
+              <div class="b-drop">
+                <div class="icon-wrap">
+                  <svg class="ico" viewBox="0 0 16 16"><path d="M8 10V3M5.5 5.5 8 3l2.5 2.5M3 10.5V12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1.5"/></svg>
+                </div>
+                <p class="title">拖放或选择文件</p>
+                <p class="hint">.zip · .csv</p>
+              </div>
+              <div class="b-formats">
+                <div class="b-format is-rec">
+                  <span class="code">.zip</span>
+                  <span class="name">含截图 <span class="pill">推荐</span></span>
+                </div>
+                <div class="b-format">
+                  <span class="code">.csv</span>
+                  <span class="name">仅数据</span>
+                </div>
+              </div>
+              <div class="b-foot">
+                <span class="file-status">未选择文件</span>
+                <button class="btn btn-primary" type="button">选择文件</button>
+              </div>
+              <div class="b-tip tip">导出时勾选「包含子页面」</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-meta">
+          <h2>C · Soft sheet</h2>
+          <p>毛玻璃壳 + 分段切换 zip/csv。更「空气感」，但和现有实心 popover 略有反差。</p>
+        </div>
+        <div class="stage">
+          <div class="c-modal" aria-label="毛玻璃 Notion">
+            <div class="c-head">
+              <h3>从 Notion 导入</h3>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <div class="c-body">
+              <div class="c-seg">
+                <button type="button" class="is-on">.zip 含截图</button>
+                <button type="button">.csv 仅数据</button>
+              </div>
+              <div class="c-drop">
+                <p class="t">拖放或选择导出文件</p>
+                <p class="s">Markdown &amp; CSV · 含截图离线导入</p>
+              </div>
+              <div class="c-actions">
+                <span class="file-status">未选择文件</span>
+                <button class="btn btn-quiet" type="button">选择文件</button>
+              </div>
+              <p class="c-note">导出路径：… → 导出 → Markdown &amp; CSV → 包含子页面</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-meta">
+          <h2>D · Command density</h2>
+          <p>接近命令面板的行列表密度。最轻，但上传手势弱，适合「先选格式再选文件」。</p>
+        </div>
+        <div class="stage">
+          <div class="d-modal" aria-label="命令密度 Notion">
+            <div class="d-head">
+              <h3>从 Notion 导入</h3>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <p class="d-sub">选择导出格式，然后继续选文件</p>
+            <div class="d-list">
+              <div class="d-item">
+                <div class="mark">zip</div>
+                <div class="main">
+                  <div class="name">Markdown &amp; CSV</div>
+                  <div class="meta">推荐 · 含截图离线导入</div>
+                </div>
+                <span class="chev">›</span>
+              </div>
+              <div class="d-item">
+                <div class="mark">csv</div>
+                <div class="main">
+                  <div class="name">仅数据库 CSV</div>
+                  <div class="meta">快速 · 无图片</div>
+                </div>
+                <span class="chev">›</span>
+              </div>
+            </div>
+            <div class="d-foot">
+              <span class="file-status tip">… → 导出 → Markdown &amp; CSV</span>
+              <button class="btn btn-ghost" type="button">选择文件</button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <!-- ========== CSV panels ========== -->
+    <div class="grid panel" id="panel-csv" hidden>
+      <article class="card">
+        <div class="card-meta">
+          <h2>A · 现状参照</h2>
+          <p>大 Upload 图标 + 说明文案 + 原生文件按钮，块面偏沉。</p>
+        </div>
+        <div class="stage">
+          <div class="a-modal" aria-label="现状 CSV">
+            <div class="a-head">
+              <h3>导入 CSV 交易数据</h3>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <div class="a-body">
+              <svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 7V4h11v14h-3"/><rect x="4" y="7" width="11" height="13" rx="1.5"/></svg>
+              <p class="lead">选择 CSV 文件，支持逗号、分号、Tab 分隔</p>
+              <p class="sub">自动识别中英文表头，如：标的/symbol、方向/side、入场价/entry 等</p>
+              <div class="a-row">
+                <button class="a-choose" type="button">选择文件</button>
+                <span class="file-status">未选择任何文件</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card is-rec">
+        <div class="card-meta">
+          <span class="badge">已定 · 文案打磨</span>
+          <h2>B · Compact Linear</h2>
+          <p>标题一句说清能力；投放区只留动作；字段示例沉到脚注。</p>
+        </div>
+        <div class="stage">
+          <div class="b-modal" aria-label="推荐 CSV">
+            <div class="b-head">
+              <div>
+                <h3>导入 CSV</h3>
+                <p class="desc">支持中英文表头，自动匹配字段</p>
+              </div>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <div class="b-body">
+              <div class="b-drop">
+                <div class="icon-wrap">
+                  <svg class="ico" viewBox="0 0 16 16"><path d="M8 10V3M5.5 5.5 8 3l2.5 2.5M3 10.5V12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1.5"/></svg>
+                </div>
+                <p class="title">拖放或选择文件</p>
+                <p class="hint">.csv · .tsv · .txt</p>
+              </div>
+              <div class="b-foot">
+                <span class="file-status">未选择文件</span>
+                <button class="btn btn-primary" type="button">选择文件</button>
+              </div>
+              <div class="b-tip tip">如 symbol / side / entry</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-meta">
+          <h2>C · Soft sheet</h2>
+          <p>同一毛玻璃壳，去掉分段，只留投放区。轻，但体系需统一到其它弹窗。</p>
+        </div>
+        <div class="stage">
+          <div class="c-modal" aria-label="毛玻璃 CSV">
+            <div class="c-head">
+              <h3>导入 CSV</h3>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <div class="c-body">
+              <div class="c-drop">
+                <p class="t">拖放或选择 CSV 文件</p>
+                <p class="s">逗号 / 分号 / Tab · 自动识别表头</p>
+              </div>
+              <div class="c-actions">
+                <span class="file-status">未选择文件</span>
+                <button class="btn btn-quiet" type="button">选择文件</button>
+              </div>
+              <p class="c-note">示例字段：symbol、side、entry…</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-meta">
+          <h2>D · Command density</h2>
+          <p>极简一行入口。最轻，但缺少投放区的「可放下」暗示。</p>
+        </div>
+        <div class="stage">
+          <div class="d-modal" aria-label="命令密度 CSV">
+            <div class="d-head">
+              <h3>导入 CSV</h3>
+              <span class="x" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              </span>
+            </div>
+            <p class="d-sub">自动识别中英文表头</p>
+            <div class="d-list">
+              <div class="d-item">
+                <div class="mark">
+                  <svg class="ico" viewBox="0 0 16 16"><path d="M8 10V3M5.5 5.5 8 3l2.5 2.5M3 10.5V12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1.5"/></svg>
+                </div>
+                <div class="main">
+                  <div class="name">选择 CSV 文件</div>
+                  <div class="meta">.csv / .tsv / .txt</div>
+                </div>
+                <span class="chev">›</span>
+              </div>
+            </div>
+            <div class="d-foot">
+              <span class="file-status">未选择文件</span>
+              <button class="btn btn-primary" type="button">继续</button>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <footer class="note">
+      建议选 <strong style="color:var(--text);font-weight:600">B</strong>：Notion / CSV 共用 Compact Linear 壳，映射与预览步只收窄宽度与页头密度，不改流程。
+      打开本文件即可对比；选定字母后我再落代码。
+    </footer>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab')
+    const notion = document.getElementById('panel-notion')
+    const csv = document.getElementById('panel-csv')
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => t.classList.remove('is-on'))
+        tab.classList.add('is-on')
+        const id = tab.getAttribute('data-panel')
+        notion.hidden = id !== 'notion'
+        csv.hidden = id !== 'csv'
+      })
+    })
+  </script>
+</body>
+</html>
