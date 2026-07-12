@@ -5,7 +5,7 @@ import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs } from './paths'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
-const DEFAULT_MAX_BACKUPS = 7
+const DEFAULT_MAX_BACKUPS = 20
 const DEFAULT_MAX_TOTAL_SIZE = 500 * 1024 * 1024 // 500 MB 备份总容量上限
 
 interface BackupMeta {
@@ -38,6 +38,17 @@ function parseTimestampFromName(name: string): number | null {
     Number(m[7]),
   )
   return isNaN(ts) ? null : ts
+}
+
+function readBackupTradeCount(dbPath: string): number {
+  try {
+    const metaPath = dbPath + '.meta.json'
+    if (!fs.existsSync(metaPath)) return -1
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as BackupMeta
+    return typeof meta.tradeCount === 'number' ? meta.tradeCount : -1
+  } catch {
+    return -1
+  }
 }
 
 export function createBackup(storage: LibraryStorage): string | null {
@@ -88,23 +99,37 @@ export function rotateBackups(
           path: fp,
           timestamp: parseTimestampFromName(f) || 0,
           size: (() => { try { return fs.statSync(fp).size } catch { return 0 } })(),
+          tradeCount: readBackupTradeCount(fp),
         }
       })
       .sort((a, b) => b.timestamp - a.timestamp) // 最新在前
 
-    // 按数量限制删除
-    const toDelete = new Set<string>()
-    for (const file of files.slice(maxCount)) {
-      toDelete.add(file.path)
+    // 优先保留有交易的备份，避免空库备份把好备份挤掉
+    const keep = new Set<string>()
+    const nonEmpty = files
+      .filter((f) => f.tradeCount > 0)
+      .sort((a, b) => b.timestamp - a.timestamp)
+    const emptyOrUnknown = files
+      .filter((f) => f.tradeCount <= 0)
+      .sort((a, b) => b.timestamp - a.timestamp)
+    for (const file of [...nonEmpty, ...emptyOrUnknown]) {
+      if (keep.size >= maxCount) break
+      keep.add(file.path)
     }
 
-    // 按总容量限制删除（保留最新且不超限）
-    let totalSize = 0
+    const toDelete = new Set<string>()
     for (const file of files) {
-      if (toDelete.has(file.path)) continue
+      if (!keep.has(file.path)) toDelete.add(file.path)
+    }
+
+    // 按总容量限制删除（保留最新且不超限；仍优先丢掉空备份）
+    let totalSize = 0
+    const retained = [...nonEmpty, ...emptyOrUnknown].filter((f) => keep.has(f.path))
+    for (const file of retained) {
       totalSize += file.size
       if (totalSize > maxTotalSize) {
         toDelete.add(file.path)
+        keep.delete(file.path)
       }
     }
 

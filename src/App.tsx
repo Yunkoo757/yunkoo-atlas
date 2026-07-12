@@ -13,6 +13,7 @@ import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
 import { flushPersistNow, hasPendingChanges } from './storage/persist'
+import { isStorageHydrated } from './storage'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
@@ -401,16 +402,21 @@ export function App() {
   }
 
   useEffect(() => {
+    const safeFlush = () => {
+      // hydrate 完成前禁止 flush，避免空默认 store 覆盖 iCloud 库
+      if (!isStorageHydrated()) return
+      flushPersistNow().catch(() => {})
+    }
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasPendingChanges()) {
         e.preventDefault()
         e.returnValue = ''
       }
-      flushPersistNow().catch(() => {})
+      safeFlush()
     }
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        flushPersistNow().catch(() => {})
+        safeFlush()
       }
     }
     window.addEventListener('beforeunload', onBeforeUnload)
@@ -422,7 +428,7 @@ export function App() {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
           bridge.onBeforeClose(() => {
-            flushPersistNow().catch(() => {})
+            safeFlush()
           })
         }
       } catch { /* bridge not available */ }

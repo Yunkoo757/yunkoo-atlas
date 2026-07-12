@@ -10,6 +10,9 @@ import { isImageMime, processImageBuffer } from './images'
 
 const SNAPSHOT_KEY = 'snapshot'
 
+/** iCloud 冲突副本：journal 2.db / journal(1).db / journal (3).db */
+const ICLOUD_CONFLICT_DB_RE = /^journal(?:\s+\d+|\s*\(\d+\))\.db$/i
+
 export interface AssetBytes {
   id: string
   mime: string
@@ -38,6 +41,29 @@ async function getSql() {
   return sqlPromise
 }
 
+/**
+ * 当 journal.db 被 iCloud 改名为冲突副本时，选体积最大且较新的一份恢复。
+ * 返回候选绝对路径；无候选则 null。
+ */
+export function findIcloudConflictDbCandidate(libraryRoot: string): string | null {
+  if (!fs.existsSync(libraryRoot)) return null
+  const candidates: { path: string; size: number; mtimeMs: number }[] = []
+  for (const name of fs.readdirSync(libraryRoot)) {
+    if (!ICLOUD_CONFLICT_DB_RE.test(name)) continue
+    const full = path.join(libraryRoot, name)
+    try {
+      const st = fs.statSync(full)
+      if (!st.isFile() || st.size < 1024) continue
+      candidates.push({ path: full, size: st.size, mtimeMs: st.mtimeMs })
+    } catch {
+      /* skip */
+    }
+  }
+  if (candidates.length === 0) return null
+  candidates.sort((a, b) => b.size - a.size || b.mtimeMs - a.mtimeMs)
+  return candidates[0]?.path ?? null
+}
+
 export class LibraryStorage {
   private db: Database | null = null
   private paths = ensureLibraryDirs(getLibraryPath())
@@ -54,7 +80,23 @@ export class LibraryStorage {
     if (this.db) return
     this.paths = ensureLibraryDirs(getLibraryPath())
     const SQL = await getSql()
-    const created = !fs.existsSync(this.paths.dbFile)
+    let created = !fs.existsSync(this.paths.dbFile)
+
+    // journal.db 缺失但库目录已有 manifest / 冲突副本：禁止静默建空库（会清空交易与头像）
+    if (created) {
+      const conflict = findIcloudConflictDbCandidate(this.paths.root)
+      if (conflict) {
+        console.warn('[library] journal.db missing; recovering from iCloud conflict copy:', conflict)
+        fs.copyFileSync(conflict, this.paths.dbFile)
+        created = false
+      } else if (fs.existsSync(this.paths.manifestFile)) {
+        throw new Error(
+          'journal.db 缺失，但本目录已有库清单（manifest.json）。' +
+            '常见于 iCloud 尚未下完或同步冲突。请等待同步完成，或从设置 → 数据 → 备份中恢复。' +
+            '已阻止写入空库，以免覆盖云端数据。',
+        )
+      }
+    }
 
     if (created) {
       this.db = new SQL.Database()
@@ -86,7 +128,10 @@ export class LibraryStorage {
       })
     }
 
-    this.persistDb()
+    // 仅新建库时落盘。每次 open 都 rewrite 会在 iCloud 上制造大量冲突副本。
+    if (created) {
+      this.persistDb()
+    }
   }
 
   close(): void {

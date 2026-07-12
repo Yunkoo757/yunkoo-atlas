@@ -5,7 +5,7 @@ import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,
 } from '@/storage/migrate'
-import { pickPersisted, schedulePersist } from '@/storage/persist'
+import { enablePersistWrites, pickPersisted, schedulePersist } from '@/storage/persist'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { isElectron } from '@/storage/runtime'
 import { useStore } from '@/store/useStore'
@@ -73,6 +73,7 @@ export async function bootstrapStorage(): Promise<void> {
   }
 
   hydrated = true
+  enablePersistWrites()
   // 启动后保持 idle，避免顶栏立刻插入「已保存」把视图按钮挤一下
   useSaveStatus.getState().reset()
 

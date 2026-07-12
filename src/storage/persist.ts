@@ -19,6 +19,26 @@ let pending: PersistedSnapshot | null = null
 let flushing: Promise<void> | null = null
 /** >0 时只记 pending，不启 debounce 写盘（批量导入等） */
 let suspendDepth = 0
+/**
+ * bootstrap 完成前禁止写盘。否则 visibilitychange / beforeunload
+ * 会把默认空 store（含空头像）盖掉 journal.db。
+ */
+let persistWritesEnabled = false
+
+/** 仅由 bootstrapStorage 在 hydrate 成功后打开。 */
+export function enablePersistWrites(): void {
+  persistWritesEnabled = true
+}
+
+/** 切库 / 测试重置时关闭，避免未 hydrate 的空快照落盘。 */
+export function disablePersistWrites(): void {
+  persistWritesEnabled = false
+  if (timer) {
+    clearTimeout(timer)
+    timer = null
+  }
+  pending = null
+}
 
 export function pickPersisted(
   state: {
@@ -76,6 +96,7 @@ export function hasPendingChanges(): boolean {
 }
 
 export function schedulePersist(snapshot: PersistedSnapshot): void {
+  if (!persistWritesEnabled) return
   pending = snapshot
   useSaveStatus.getState().setDirty()
   if (suspendDepth > 0) return
@@ -124,6 +145,7 @@ export function getPersistSuspendDepth(): number {
 }
 
 export async function flushPersistNow(): Promise<void> {
+  if (!persistWritesEnabled) return
   if (timer) {
     clearTimeout(timer)
     timer = null
