@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from '@/icons/appIcons'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
@@ -20,10 +21,15 @@ import { toast } from '@/lib/toast'
 import type { Trade } from '@/data/trades'
 import { SymbolLabel } from '@/components/SymbolIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import './TableView.css'
 
 type SortKey = 'date' | 'symbol' | 'pnl' | 'r'
 type SortDir = 'asc' | 'desc'
+
+const TABLE_COL_COUNT = 14
+const TABLE_ROW_HEIGHT = 38
+const TABLE_ROW_HEIGHT_CASE = 34
 
 const TABLE_POSITION_LABEL = { Buy: '做多', Sell: '做空' } as const
 const TABLE_STATUS_LABEL: Record<string, string> = {
@@ -57,6 +63,7 @@ export function TableView({
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [focusIndex, setFocusIndex] = useState(-1)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -81,6 +88,29 @@ export function TableView({
     [baseVisible, sortKey, sortDir],
   )
   const visibleIdsKey = visible.map((trade) => trade.id).join('\u0000')
+  const isReviewCaseView = filter.tradeKind === 'case'
+  const rowHeight = isReviewCaseView ? TABLE_ROW_HEIGHT_CASE : TABLE_ROW_HEIGHT
+
+  const rowVirtualizer = useVirtualizer({
+    count: visible.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => rowHeight,
+    overscan: 16,
+  })
+
+  useEffect(() => {
+    return registerTradeScrollTarget((tradeId) => {
+      const index = visible.findIndex((trade) => trade.id === tradeId)
+      if (index < 0) return false
+      rowVirtualizer.scrollToIndex(index, { align: 'center' })
+      return true
+    })
+  }, [visible, rowVirtualizer])
+
+  useEffect(() => {
+    if (focusIndex < 0 || focusIndex >= visible.length) return
+    rowVirtualizer.scrollToIndex(focusIndex, { align: 'auto' })
+  }, [focusIndex, visible.length, rowVirtualizer])
 
   useWorkbenchListKeyboard({
     items: visible,
@@ -148,15 +178,23 @@ export function TableView({
   }
 
   const subtitle = getTradesPageSubtitle(filter)
-  const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例记录' : '交易'
+  const virtualRows = rowVirtualizer.getVirtualItems()
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0]!.start : 0
+  const paddingBottom =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1]!.end
+      : 0
 
   return (
     <>
       <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
       {header}
       <TradeFilters filter={filter} trades={trades} strategies={strategies} />
-      <div className={'tv-scroll' + (isReviewCaseView ? ' tv-scroll-case' : '')}>
+      <div
+        className={'tv-scroll' + (isReviewCaseView ? ' tv-scroll-case' : '')}
+        ref={scrollRef}
+      >
         {visible.length === 0 ? (
           <EmptyState
             title={isReviewCaseView ? '还没有案例记录' : '还没有交易'}
@@ -196,14 +234,21 @@ export function TableView({
               </tr>
             </thead>
             <tbody>
-              {visible.map((trade, index) => {
+              {paddingTop > 0 && (
+                <tr aria-hidden="true" className="tv-virtual-spacer">
+                  <td colSpan={TABLE_COL_COUNT} style={{ height: paddingTop, padding: 0, border: 0 }} />
+                </tr>
+              )}
+              {virtualRows.map((virtualRow) => {
+                const trade = visible[virtualRow.index]!
                 const row = buildTradeTableRow(trade, strategies)
                 const selected = selectedIds.has(trade.id)
-                const focused = index === focusIndex
+                const focused = virtualRow.index === focusIndex
                 return (
                   <tr
                     key={trade.id}
                     data-trade-id={trade.id}
+                    data-index={virtualRow.index}
                     className={
                       (selected ? 'is-selected' : '') + (focused ? ' is-focused' : '')
                     }
@@ -264,6 +309,11 @@ export function TableView({
                   </tr>
                 )
               })}
+              {paddingBottom > 0 && (
+                <tr aria-hidden="true" className="tv-virtual-spacer">
+                  <td colSpan={TABLE_COL_COUNT} style={{ height: paddingBottom, padding: 0, border: 0 }} />
+                </tr>
+              )}
             </tbody>
           </table>
         )}

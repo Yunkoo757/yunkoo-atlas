@@ -5,6 +5,7 @@ import {
   type Trade,
   STATUS_META,
   isTradeDeleted,
+  isTradeExpired,
   getTradeRemainingDays,
 } from '@/data/trades'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
@@ -72,7 +73,7 @@ export function TradeTrashView() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const trashTrades = useMemo(() => {
-    return allTrades.filter((t) => isTradeDeleted(t) && getTradeRemainingDays(t) > 0)
+    return allTrades.filter((t) => isTradeDeleted(t) && !isTradeExpired(t))
   }, [allTrades])
 
   const filteredTrades = useMemo(() => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { TradeDetailFrom } from '@/lib/tradeRoute'
+import { requestScrollToTrade } from '@/lib/tradeScrollTargets'
 
 const STORAGE_PREFIX = 'trade-return-anchor:'
 const STORAGE_VERSION = 1
@@ -81,6 +82,16 @@ export function useTradeReturnAnchor(): void {
       )
     }
     const attemptRestore = () => {
+      if (requestScrollToTrade(pending.tradeId)) {
+        // 虚拟列表先滚到索引，下一帧再尝试 DOM 居中（行已挂载）
+        animationFrame = requestAnimationFrame(() => {
+          const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
+            .find((element) => element.dataset.tradeId === pending.tradeId)
+          target?.scrollIntoView({ block: 'center' })
+          finish()
+        })
+        return
+      }
       const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
         .find((element) => element.dataset.tradeId === pending.tradeId)
       if (target) {

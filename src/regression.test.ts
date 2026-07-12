@@ -1,5 +1,5 @@
 import type { Strategy } from '@/data/strategies'
-import type { Trade } from '@/data/trades'
+import { getTradeRemainingDays, isTradeExpired, type Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs } from '@/lib/tradeFilters'
 import { buildExportPayloadFromState, mergeImportPayload, parseImportJson } from '@/lib/importExport'
 import { collectTagOptions, mergeTagPresets } from '@/lib/tags'
@@ -29,6 +29,24 @@ import {
   parseNotionCsv,
 } from '@/lib/notionImport'
 import { cleanExpiredTradeTrash } from '@/lib/trashCleanup'
+import { buildOrderedTradeIds } from '@/shortcuts/listNav'
+import {
+  getPersistSuspendDepth,
+  resumePersist,
+  suspendPersist,
+} from '@/storage/persist'
+import {
+  clearNoteDraft,
+  getNoteDraft,
+  hasNoteDraft,
+  noteDraftCountForTests,
+  resetNoteDraftsForTests,
+  setNoteDraft,
+} from '@/storage/noteDrafts'
+import {
+  registerTradeScrollTarget,
+  requestScrollToTrade,
+} from '@/lib/tradeScrollTargets'
 import {
   PRIMARY_NAV,
   SECONDARY_NAV,
@@ -1399,6 +1417,62 @@ export function testStatusFacetOverridesHideClosed(): void {
   )
 }
 
+export function testListNavMatchesWorkbenchVisibleTrades(): void {
+  const lossTrade: Trade = { ...trade, id: 'loss-trade', status: 'loss' }
+  const openTrade: Trade = { ...trade, id: 'open-trade', status: 'open' }
+  const deletedTrade: Trade = {
+    ...trade,
+    id: 'deleted-trade',
+    status: 'open',
+    deletedAt: new Date().toISOString(),
+  }
+  const hideClosedPrefs = { ...DEFAULT_DISPLAY, hideClosed: true }
+  const trades = [lossTrade, openTrade, deletedTrade]
+
+  const ordered = buildOrderedTradeIds(
+    trades,
+    { type: 'all', tradeKind: 'live' },
+    hideClosedPrefs,
+    [],
+    '?status=loss',
+  )
+  assert(
+    ordered.join(',') === 'loss-trade',
+    'j/k 导航应与工作台一致：显式亏损筛选绕过 hideClosed，并排除软删',
+  )
+
+  const withoutFacet = buildOrderedTradeIds(
+    trades,
+    { type: 'all', tradeKind: 'live' },
+    hideClosedPrefs,
+    [],
+    '',
+  )
+  assert(
+    withoutFacet.join(',') === 'open-trade',
+    '无状态筛选时 hideClosed 应隐藏亏损，且不含软删',
+  )
+}
+
+export function testTradeExpiredAlignsWithZeroRemainingDays(): void {
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+  const boundary: Trade = {
+    ...trade,
+    id: 'boundary',
+    deletedAt: new Date(Date.now() - thirtyDaysMs).toISOString(),
+  }
+  assert(getTradeRemainingDays(boundary) === 0, '刚好满 30 天时应显示剩余 0 天')
+  assert(isTradeExpired(boundary), '剩余 0 天必须视为过期，避免幽灵记录')
+
+  const stillVisible: Trade = {
+    ...trade,
+    id: 'still-visible',
+    deletedAt: new Date(Date.now() - (thirtyDaysMs - 12 * 60 * 60 * 1000)).toISOString(),
+  }
+  assert(getTradeRemainingDays(stillVisible) >= 1, '未满 30 天应仍有剩余天数')
+  assert(!isTradeExpired(stillVisible), '未满 30 天不得 purge')
+}
+
 export function testReviewCaseScopesFilterCaseRecords(): void {
   const focusCase: Trade = {
     ...trade,
@@ -1698,10 +1772,16 @@ export function testNotionMarkdownBodyBecomesNoteHtml(): void {
 }
 
 export async function testCleanExpiredTradeTrashPurgesExpiredTradesOnly(): Promise<void> {
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
   const expired: Trade = {
     ...trade,
     id: 'expired',
     deletedAt: '2026-05-01T00:00:00.000Z',
+  }
+  const boundary: Trade = {
+    ...trade,
+    id: 'boundary',
+    deletedAt: new Date(Date.now() - thirtyDaysMs).toISOString(),
   }
   const recent: Trade = {
     ...trade,
@@ -1710,12 +1790,15 @@ export async function testCleanExpiredTradeTrashPurgesExpiredTradesOnly(): Promi
   }
   const purged: string[] = []
 
-  const count = await cleanExpiredTradeTrash([expired, recent], (id) => {
+  const count = await cleanExpiredTradeTrash([expired, boundary, recent], (id) => {
     purged.push(id)
   })
 
-  assert(count === 1, 'only expired deleted trades are cleaned')
-  assert(purged.length === 1 && purged[0] === 'expired', 'purges the expired trade id')
+  assert(count === 2, 'expired and zero-remaining boundary trades are cleaned')
+  assert(
+    purged.sort().join(',') === 'boundary,expired',
+    'purges both clearly expired and zero-remaining boundary trades',
+  )
 }
 
 export function testDisplayActivitiesSeparateVisibleCommentsFromSystemHistory(): void {
@@ -1745,4 +1828,79 @@ export function testLightboxModeDoesNotEmitAnEditorUpdate(): void {
     JSON.stringify(calls) === JSON.stringify([[false, false], [true, false]]),
     '灯箱开关只应切换编辑器可编辑性，不得发出文档更新事件',
   )
+}
+
+export function testUpsertTradesNotifiesOnce(): void {
+  const prevTrades = useStore.getState().trades
+  const prevCatalog = useStore.getState().symbolCatalog
+  const prevTags = useStore.getState().tagPresets
+  const prevMistakes = useStore.getState().mistakeTagPresets
+  const strategyId = useStore.getState().strategies[0]?.id ?? 'uncategorized'
+
+  const batch: Trade[] = [1, 2, 3].map((n) => ({
+    ...trade,
+    id: `batch-${n}`,
+    ref: `TRD-BATCH-${n}`,
+    symbol: `SYM${n}`,
+    strategyId,
+  }))
+
+  let commits = 0
+  const unsub = useStore.subscribe(() => {
+    commits += 1
+  })
+  try {
+    useStore.getState().upsertTrades(batch)
+    assert(commits === 1, 'upsertTrades 应对整批只触发一次 store 通知')
+    const ids = useStore.getState().trades.map((t) => t.id)
+    assert(
+      batch.every((t) => ids.includes(t.id)),
+      'upsertTrades 应写入全部交易',
+    )
+  } finally {
+    unsub()
+    useStore.setState({
+      trades: prevTrades,
+      symbolCatalog: prevCatalog,
+      tagPresets: prevTags,
+      mistakeTagPresets: prevMistakes,
+    })
+  }
+}
+
+export function testPersistSuspendNesting(): void {
+  assert(getPersistSuspendDepth() === 0, '初始挂起深度应为 0')
+  suspendPersist()
+  suspendPersist()
+  assert(getPersistSuspendDepth() === 2, 'suspend 应可嵌套')
+  resumePersist({ flushNow: false })
+  assert(getPersistSuspendDepth() === 1, 'resume 应逐层减一')
+  resumePersist({ flushNow: false })
+  assert(getPersistSuspendDepth() === 0, '全部 resume 后深度归零')
+}
+
+export function testNoteDraftsStayLocalUntilCleared(): void {
+  resetNoteDraftsForTests()
+  setNoteDraft('draft-1', '<p>hello</p>')
+  assert(hasNoteDraft('draft-1'), '应记录本地草稿')
+  assert(getNoteDraft('draft-1') === '<p>hello</p>', '应读回草稿 HTML')
+  assert(noteDraftCountForTests() === 1, '草稿计数应为 1')
+  clearNoteDraft('draft-1')
+  assert(!hasNoteDraft('draft-1'), '清除后不应再有草稿')
+  assert(noteDraftCountForTests() === 0, '清除后计数应为 0')
+}
+
+export function testTradeScrollTargetsPreferRegisteredHandler(): void {
+  let seen = ''
+  const unregister = registerTradeScrollTarget((tradeId) => {
+    seen = tradeId
+    return true
+  })
+  try {
+    assert(requestScrollToTrade('row-42') === true, '已注册 handler 时应返回 true')
+    assert(seen === 'row-42', 'handler 应收到目标 tradeId')
+  } finally {
+    unregister()
+  }
+  assert(requestScrollToTrade('row-42') === false, '注销后应回落为 false')
 }

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { registerLibraryIpc } from './library/ipc'
 import { runElectronQaAndExit } from './qa'
 import { registerAppUpdater, scheduleAutomaticUpdateChecks } from './updater'
+import { loadWindowState, registerWindowIpc, trackWindowState } from './windowState'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -43,14 +44,19 @@ let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
   const icon = getWindowIconPath()
+  const windowState = loadWindowState()
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    width: windowState.width,
+    height: windowState.height,
+    ...(typeof windowState.x === 'number' && typeof windowState.y === 'number'
+      ? { x: windowState.x, y: windowState.y }
+      : {}),
     minWidth: 960,
     minHeight: 640,
     title: 'Yunkoo Atlas',
     backgroundColor: WINDOW_BG,
     autoHideMenuBar: true,
+    show: false,
     ...(icon ? { icon } : {}),
     webPreferences: {
       preload: getPreloadPath(),
@@ -58,6 +64,14 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
     },
+  })
+
+  if (windowState.isMaximized) {
+    mainWindow.maximize()
+  }
+  trackWindowState(mainWindow)
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show()
   })
 
   if (process.platform === 'win32') {
@@ -95,6 +109,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   registerLibraryIpc()
+  registerWindowIpc()
 
   if (process.env.LINEAR_JOURNAL_QA === '1') {
     await runElectronQaAndExit()

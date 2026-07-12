@@ -4,14 +4,16 @@ import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 
-const entries = [
+  const entries = [
   'src/regression.test.ts',
   'src/lib/reviewAnalytics.test.ts',
   'src/lib/importExportAssets.test.ts',
   'src/lib/tradeDuplicates.test.ts',
+  'src/lib/lightboxView.test.ts',
   'src/icons/linear/linear-icons.test.tsx',
   'src/views/TradeTrashView.design.test.ts',
   'src/lib/appUpdate.test.ts',
+  'src/lib/windowBounds.test.ts',
 ]
 
 let failed = 0

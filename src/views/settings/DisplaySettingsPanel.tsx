@@ -1,6 +1,13 @@
+import { useEffect, useState } from 'react'
 import { Check } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
+import {
+  WINDOW_SIZE_PRESETS,
+  type WindowSizePresetId,
+} from '@/lib/windowBounds'
+import { getJournalBridge, isElectron } from '@/storage/runtime'
+import type { WindowFrameState } from '@/types/journal-bridge'
 import '@/components/DisplayMenu.css'
 import './DisplaySettingsPanel.css'
 
@@ -21,6 +28,9 @@ const GROUP_OPTS: { value: GroupMode; label: string; description: string }[] = [
 export function DisplaySettingsPanel() {
   const display = useStore((s) => s.display)
   const setDisplay = useStore((s) => s.setDisplay)
+  const electron = isElectron()
+  const [windowState, setWindowState] = useState<WindowFrameState | null>(null)
+  const [windowMessage, setWindowMessage] = useState('')
   const groupMode: GroupMode = display.groupByDate
     ? 'date'
     : display.groupByStrategy
@@ -33,6 +43,40 @@ export function DisplaySettingsPanel() {
       groupByStrategy: mode === 'strategy',
     })
   }
+
+  useEffect(() => {
+    if (!electron) return
+    let cancelled = false
+    void getJournalBridge()
+      ?.getWindowState()
+      .then((state) => {
+        if (!cancelled) setWindowState(state)
+      })
+      .catch(() => {
+        if (!cancelled) setWindowState(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [electron])
+
+  const applyWindowPreset = async (presetId: WindowSizePresetId) => {
+    const bridge = getJournalBridge()
+    if (!bridge) return
+    setWindowMessage('')
+    const result = await bridge.applyWindowPreset(presetId)
+    if (!result.ok) {
+      setWindowMessage(result.error)
+      return
+    }
+    setWindowState(result.state)
+  }
+
+  const currentSizeLabel = windowState
+    ? windowState.isMaximized
+      ? '当前：最大化'
+      : `当前：${windowState.width} × ${windowState.height}`
+    : ''
 
   return (
     <div className="settings-page display-settings">
@@ -77,6 +121,45 @@ export function DisplaySettingsPanel() {
           value={display.sortBy}
           onChange={(value) => setDisplay({ sortBy: value })}
         />
+
+        {electron ? (
+          <section className="display-settings-section">
+            <div className="display-section-head">
+              <h2>主窗口尺寸</h2>
+              <p>
+                一键套用常用分辨率，免去手动拖拽。也可继续自由调整，下次启动仍会记住。
+                {currentSizeLabel ? ` ${currentSizeLabel}` : ''}
+              </p>
+            </div>
+            <div className="display-choice-list" role="listbox" aria-label="主窗口尺寸预置">
+              {WINDOW_SIZE_PRESETS.map((preset) => {
+                const selected = windowState?.presetId === preset.id
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={'display-choice' + (selected ? ' is-selected' : '')}
+                    aria-pressed={selected}
+                    onClick={() => void applyWindowPreset(preset.id)}
+                  >
+                    <span className="display-row-copy">
+                      <span className="display-row-title">{preset.label}</span>
+                      <span className="display-row-desc">{preset.description}</span>
+                    </span>
+                    <span className="display-choice-check">
+                      {selected ? <Check size={14} /> : null}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {windowMessage ? (
+              <p className="display-settings-hint" role="status">
+                {windowMessage}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
       </div>
     </div>
   )

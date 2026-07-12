@@ -55,8 +55,14 @@ jobs:
       - name: Run regression tests
         run: pnpm test
 
+      - name: Run sidebar navigation QA
+        run: pnpm qa:sidebar
+
       - name: Build application
         run: pnpm build:app
+
+      - name: Run Electron library QA
+        run: pnpm qa:electron
 
       - name: Build Windows installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never

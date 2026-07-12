@@ -71,6 +71,16 @@ test('发布资产由 GitHub CLI 串行上传并校验', () => {
   assert.doesNotMatch(workflow, /--publish always/)
 })
 
+test('发布门禁包含侧栏与 Electron QA', () => {
+  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  const release = readFileSync('scripts/release.mjs', 'utf8')
+
+  assert.match(workflow, /pnpm qa:sidebar/)
+  assert.match(workflow, /pnpm qa:electron/)
+  assert.match(release, /qa:sidebar/)
+  assert.match(release, /qa:electron/)
+})
+
 test('安装包文件名不含空格，必须与 latest.yml 下载地址一致', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   assert.equal(pkg.build?.win?.artifactName, 'Yunkoo-Atlas-${version}-win-${arch}.${ext}')

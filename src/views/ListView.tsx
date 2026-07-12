@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Copy, Plus, Trash2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
@@ -57,6 +57,7 @@ export function ListView({
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const listScrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -221,7 +222,7 @@ export function ListView({
       <Topbar title={title} subtitle={getTradesPageSubtitle(filter)} view={view} onView={onView} />
       {header}
       <TradeFilters filter={filter} trades={trades} strategies={strategies} />
-      <div className="list-scroll">
+      <div className="list-scroll" ref={listScrollRef}>
         {visible.length === 0 ? (
           <EmptyState
             title={isReviewCaseView ? '还没有案例记录' : isPaperView ? '还没有模拟交易' : '还没有交易'}
@@ -241,6 +242,7 @@ export function ListView({
             selectedIds={selectedIds}
             starredIds={starredIds}
             followedIds={subscribedIds}
+            scrollParentRef={listScrollRef}
             onOpen={openTrade}
             onSelect={toggleSelection}
             onToggleStar={(trade) => toggleStar(trade.id)}

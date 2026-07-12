@@ -217,19 +217,17 @@ export function isTradeDeleted(trade: Trade): boolean {
   return trade.deletedAt !== undefined
 }
 
-/** 判断交易是否已过期（超过 30 天） */
+/** 判断交易是否已过期（剩余天数 ≤ 0，与回收站 UI 同一边界） */
 export function isTradeExpired(trade: Trade): boolean {
   if (!trade.deletedAt) return false
-  const deletedTime = new Date(trade.deletedAt).getTime()
-  const now = Date.now()
-  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
-  return (now - deletedTime) > thirtyDaysMs
+  return getTradeRemainingDays(trade) <= 0
 }
 
 /** 计算剩余天数（用于回收站显示） */
 export function getTradeRemainingDays(trade: Trade): number {
   if (!trade.deletedAt) return -1
   const deletedTime = new Date(trade.deletedAt).getTime()
+  if (!Number.isFinite(deletedTime)) return -1
   const now = Date.now()
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
   const remainingMs = thirtyDaysMs - (now - deletedTime)

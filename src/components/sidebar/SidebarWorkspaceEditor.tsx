@@ -154,7 +154,7 @@ export function SidebarWorkspaceEditor({
     placement: 'pinned' | 'overflow',
   ) => {
     const resolved = resolveSidebarWorkspaceItem(item, sources)
-    const descriptionId = `sidebar-sort-description-${item.id}`
+    const descriptionId = `sidebar-sort-description-${item.id.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
     return (
       <div
         key={item.id}

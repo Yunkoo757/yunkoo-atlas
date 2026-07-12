@@ -67,7 +67,12 @@ import {
 import { toast } from '@/lib/toast'
 import { syncStatusFromPnl } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isTerminal } from '@/lib/tradeStatus'
-import { getStorage, normalizeNoteForStorage, resolveNoteForDisplay } from '@/storage'
+import { getStorage, resolveNoteForDisplay } from '@/storage'
+import {
+  flushNoteDraftsToStore,
+  flushNoteDraftToStore,
+  setNoteDraft,
+} from '@/storage/noteDrafts'
 import { setPreFlushCallback } from '@/storage/persist'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
@@ -97,7 +102,6 @@ export function DetailView() {
     () => findTradeByRouteParam(trades, routeParam),
     [trades, routeParam],
   )
-  const updateNote = useStore((s) => s.updateNote)
   const updateTradeData = useStore((s) => s.updateTradeData)
   const setStatus = useStore((s) => s.setStatus)
   const setConviction = useStore((s) => s.setConviction)
@@ -133,6 +137,9 @@ export function DetailView() {
   const noteResolvedRef = useRef(false)   // 初始内容是否已加载，防止空 onUpdate 覆盖真实笔记
   const commentRef = useRef<HTMLTextAreaElement>(null)
 
+  /** 键入只更新本地草稿；idle 后再写入 trades，避免全量快照 thrash */
+  const NOTE_IDLE_COMMIT_MS = 2000
+
   const adjustCommentHeight = useCallback(() => {
     const el = commentRef.current
     if (!el) return
@@ -160,33 +167,37 @@ export function DetailView() {
     })
   }, [from, listContext?.listPath, listContext?.listSearch, trade?.tradeKind])
 
-  const persistEditorNote = useCallback(
-    (html: string, tradeId: string) => {
-      pendingHtmlRef.current = html
-      pendingTradeIdRef.current = tradeId
-      if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
-      noteSaveTimer.current = setTimeout(async () => {
-        noteSaveTimer.current = null
-        const normalized = await normalizeNoteForStorage(html, getStorage())
-        const current = useStore.getState().trades.find((t) => t.id === tradeId)
-        if (current && normalized !== current.note) updateNote(tradeId, normalized)
-      }, 400)
-    },
-    [updateNote],
-  )
+  const persistEditorNote = useCallback((html: string, tradeId: string) => {
+    pendingHtmlRef.current = html
+    pendingTradeIdRef.current = tradeId
+    setNoteDraft(tradeId, html)
+    if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
+    noteSaveTimer.current = setTimeout(() => {
+      noteSaveTimer.current = null
+      void flushNoteDraftToStore(tradeId)
+    }, NOTE_IDLE_COMMIT_MS)
+  }, [])
 
   useEffect(() => {
     if (!trade) return
     noteResolvedRef.current = false   // 切换交易时重置，阻止旧 onUpdate 写入空内容
     let cancelled = false
-    resolveNoteForDisplay(trade.note, getStorage()).then((html) => {
-      if (!cancelled) {
-        setEditorHtml(html)
-        noteResolvedRef.current = true  // 标记初始内容已就绪，允许后续编辑触发保存
-      }
+    void flushNoteDraftsToStore().finally(() => {
+      if (cancelled || !trade) return
+      resolveNoteForDisplay(trade.note, getStorage()).then((html) => {
+        if (!cancelled) {
+          setEditorHtml(html)
+          noteResolvedRef.current = true  // 标记初始内容已就绪，允许后续编辑触发保存
+        }
+      })
     })
     return () => {
       cancelled = true
+      if (noteSaveTimer.current) {
+        clearTimeout(noteSaveTimer.current)
+        noteSaveTimer.current = null
+      }
+      void flushNoteDraftToStore(trade.id)
     }
   }, [trade?.id])
 
@@ -194,41 +205,20 @@ export function DetailView() {
     return () => {
       if (noteSaveTimer.current) {
         clearTimeout(noteSaveTimer.current)
-        // 立即执行保存
-        const html = pendingHtmlRef.current
-        const tradeId = pendingTradeIdRef.current
-        if (html && tradeId) {
-          normalizeNoteForStorage(html, getStorage()).then((normalized) => {
-            const current = useStore.getState().trades.find((t) => t.id === tradeId)
-            if (current && normalized !== current.note) {
-              useStore.getState().updateNote(tradeId, normalized)
-            }
-          }).catch(() => {})
-        }
+        noteSaveTimer.current = null
       }
+      void flushNoteDraftsToStore()
     }
   }, [])
 
-  // beforeunload 前先归一化 note，确保 flushPersistNow 收到的是 journal-asset:// 而非 blob:
+  // beforeunload 前先把草稿写入 store，确保 flushPersistNow 收到 journal-asset://
   useEffect(() => {
     setPreFlushCallback(async () => {
-      // 清除待处理定时器（如有）
       if (noteSaveTimer.current) {
         clearTimeout(noteSaveTimer.current)
         noteSaveTimer.current = null
       }
-      // 无论定时器状态如何，只要有 pending HTML 就归一化
-      const html = pendingHtmlRef.current
-      const tradeId = pendingTradeIdRef.current
-      if (html && tradeId) {
-        try {
-          const normalized = await normalizeNoteForStorage(html, getStorage())
-          const current = useStore.getState().trades.find((t) => t.id === tradeId)
-          if (current && normalized !== current.note) {
-            useStore.getState().updateNote(tradeId, normalized)
-          }
-        } catch { /* 尽力而为 */ }
-      }
+      await flushNoteDraftsToStore()
     })
     return () => { setPreFlushCallback(null) }
   }, [])

@@ -35,6 +35,62 @@ import {
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 
+type TradeUpsertSlice = {
+  trades: Trade[]
+  strategies: Strategy[]
+  symbolCatalog: string[]
+  tagPresets: string[]
+  mistakeTagPresets: string[]
+}
+
+function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
+  const exists = s.trades.some((t) => t.id === trade.id)
+  const strategyId = trade.strategyId || s.strategies[0]?.id || 'uncategorized'
+  let normalized: Trade = promoteTradeNotionMeta(
+    promoteTradeSession(
+      normalizeReviewFields({
+        ...trade,
+        strategyId,
+        tradeKind: trade.tradeKind ?? 'live',
+        comments: trade.comments ?? [],
+        activities: trade.activities,
+      }),
+    ),
+  )
+  const symbolKey = normalizeSymbol(normalized.symbol)
+  const symbolCatalog =
+    symbolKey && !s.symbolCatalog.includes(symbolKey)
+      ? normalizeSymbolCatalog([...s.symbolCatalog, symbolKey])
+      : s.symbolCatalog
+  const tagPresets = mergeTagPresets(s.tagPresets, normalized.tags)
+  const mistakeTagPresets = mergeTagPresets(s.mistakeTagPresets, normalized.mistakeTags)
+  if (!exists) {
+    const withCreate = createActivity(normalized)
+    return {
+      trades: [withCreate, ...s.trades],
+      strategies: s.strategies,
+      symbolCatalog,
+      tagPresets,
+      mistakeTagPresets,
+    }
+  }
+  const prev = s.trades.find((t) => t.id === trade.id)
+  if (prev && prev.status !== normalized.status) {
+    normalized = appendActivity(normalized, {
+      kind: 'status',
+      status: normalized.status,
+      timestamp: new Date().toISOString(),
+    })
+  }
+  return {
+    trades: s.trades.map((t) => (t.id === trade.id ? normalized : t)),
+    strategies: s.strategies,
+    symbolCatalog,
+    tagPresets,
+    mistakeTagPresets,
+  }
+}
+
 interface State {
   trades: Trade[]
   strategies: Strategy[]
@@ -118,6 +174,8 @@ interface State {
   updateStrategy: (id: string, patch: Partial<Omit<Strategy, 'id'>>) => void
   removeStrategy: (id: string, reassignToId?: string) => void
   upsertTrade: (trade: Trade) => void
+  /** 单次 setState 批量 upsert，避免 N 次订阅/persist 风暴 */
+  upsertTrades: (trades: Trade[]) => void
   removeTrade: (id: string) => void
   restoreTrade: (id: string) => void
   purgeTrade: (id: string) => void
@@ -542,55 +600,21 @@ export const useStore = create<State>()((set, get) => ({
                 : s.trades,
           }
         }),
-      upsertTrade: (trade) =>
+      upsertTrade: (trade) => set((s) => upsertTradeIntoSlice(s, trade)),
+      upsertTrades: (trades) =>
         set((s) => {
-          const exists = s.trades.some((t) => t.id === trade.id)
-          const strategyId =
-            trade.strategyId || s.strategies[0]?.id || 'uncategorized'
-          let normalized: Trade = promoteTradeNotionMeta(
-            promoteTradeSession(
-              normalizeReviewFields({
-                ...trade,
-                strategyId,
-                tradeKind: trade.tradeKind ?? 'live',
-                comments: trade.comments ?? [],
-                activities: trade.activities,
-              }),
-            ),
-          )
-          const symbolKey = normalizeSymbol(normalized.symbol)
-          const symbolCatalog =
-            symbolKey && !s.symbolCatalog.includes(symbolKey)
-              ? normalizeSymbolCatalog([...s.symbolCatalog, symbolKey])
-              : s.symbolCatalog
-          const tagPresets = mergeTagPresets(s.tagPresets, normalized.tags)
-          const mistakeTagPresets = mergeTagPresets(
-            s.mistakeTagPresets,
-            normalized.mistakeTags,
-          )
-          if (!exists) {
-            const withCreate = createActivity(normalized)
-            return {
-              trades: [withCreate, ...s.trades],
-              symbolCatalog,
-              tagPresets,
-              mistakeTagPresets,
-            }
+          if (trades.length === 0) return s
+          let slice: TradeUpsertSlice = {
+            trades: s.trades,
+            strategies: s.strategies,
+            symbolCatalog: s.symbolCatalog,
+            tagPresets: s.tagPresets,
+            mistakeTagPresets: s.mistakeTagPresets,
           }
-          const prev = s.trades.find((t) => t.id === trade.id)
-          if (prev && prev.status !== normalized.status) {
-            normalized = appendActivity(normalized, {
-              kind: 'status',
-              status: normalized.status,
-              timestamp: new Date().toISOString(),
-            })
+          for (const trade of trades) {
+            slice = upsertTradeIntoSlice(slice, trade)
           }
-          return {
-            trades: s.trades.map((t) => (t.id === trade.id ? normalized : t)),
-            symbolCatalog,
-            tagPresets,
-            mistakeTagPresets,
-          }
+          return slice
         }),
       removeTrade: (id) =>
         set((s) => ({
