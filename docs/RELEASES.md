@@ -3,7 +3,7 @@
 ## 当前支持范围
 
 - Windows NSIS 安装版：支持应用内检查、下载和重启安装。
-- Windows Portable 便携版：只用于临时运行，不启用应用内更新。
+- Windows Portable 便携版：当前不发布，避免与可在线更新的 NSIS 安装包混淆。
 - macOS：保留 DMG/ZIP 构建配置；接入 Apple 签名与公证后再启用正式更新。
 - 更新源：私有 GitHub 仓库 `Yunkoo757/yunkoo-atlas` 的 Releases。
 
@@ -54,7 +54,6 @@ pnpm release:minor
 GitHub Actions 成功后，私有 Release 中应包含：
 
 - NSIS 安装包 `.exe`
-- Portable `.exe`
 - `latest.yml`
 - NSIS blockmap
 
@@ -73,5 +72,5 @@ GitHub Actions 成功后，私有 Release 中应包含：
 - GitHub Actions 失败：不要重复创建新版本，修复工作流后重新运行该任务。
 - 标签与 `package.json` 不一致：删除错误的未发布标签，重新创建正确标签。
 - 客户端提示需要令牌：检查令牌是否过期，以及是否仍有仓库 Contents 只读权限。
-- Portable 提示不支持：改用 Release 中的 NSIS 安装包安装。
+- 便携版提示不支持：改用 Release 中的 NSIS 安装包安装。
 - 更新前备份失败：客户端会取消重启安装，先在“设置 → 数据”修复交易库问题。
