@@ -294,6 +294,20 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
   assert(!source.includes('最多保留 7 份'), '不得继续展示旧的 7 份备份上限')
 }
 
+export async function testTagSettingsExposeDistinctAccessibleControlNames(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/views/settings/TagPresetsPanel.tsx', 'utf8')
+
+  for (const label of [
+    'aria-label={`新增${title}`}',
+    'aria-label={`添加${title}`}',
+    'aria-label={`批量导入${title}`}',
+    'aria-label={`导入${title}`}',
+  ]) {
+    assert(source.includes(label), `标签设置缺少可区分的无障碍名称：${label}`)
+  }
+}
+
 export function testResolvePinnedSecondaryNavOrdersAndHidesEmpty(): void {
   const defaultItems = resolvePinnedSecondaryNav(DEFAULT_SIDEBAR_PINS)
   assert(
