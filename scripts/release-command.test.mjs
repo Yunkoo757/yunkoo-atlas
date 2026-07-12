@@ -43,3 +43,12 @@ test('发布流水线显式安装 Electron 运行时', () => {
     'Electron 42 不再自动 postinstall，发布前必须执行 install-electron',
   )
 })
+
+test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包', () => {
+  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  assert.doesNotMatch(
+    workflow,
+    /electron-builder --win nsis portable/,
+    'NSIS 与 Portable 当前共用 artifactName，不能在同一发布命令并行上传',
+  )
+})
