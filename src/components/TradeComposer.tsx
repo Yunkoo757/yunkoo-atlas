@@ -289,34 +289,33 @@ export function TradeComposer() {
         </div>
 
         <div className="composer-body-quick">
-          <div className="composer-field-quick">
-            <label>{recordLabel}品种</label>
-            <Select
-              ref={inputRef}
-              value={symbol}
-              onValueChange={setSymbol}
-              ariaLabel={`${recordLabel}品种`}
-              className="composer-input-quick"
-              options={symbolOptions.map((preset) => ({
-                value: preset,
-                label:
-                  editing &&
-                  editing.symbol === preset &&
-                  !symbolCatalog.includes(preset)
-                    ? `${preset}（历史）`
-                    : preset,
-                icon: <SymbolIcon symbol={preset} overrides={symbolIcons} size={14} />,
-              }))}
-            />
-          </div>
-
-          <div className="composer-trade-essentials">
+          <section className="composer-identity" aria-label={`${recordLabel}身份`}>
+            <div className="composer-field-quick">
+              <label>{recordLabel}品种</label>
+              <Select
+                ref={inputRef}
+                value={symbol}
+                onValueChange={setSymbol}
+                ariaLabel={`${recordLabel}品种`}
+                className="composer-input-quick"
+                options={symbolOptions.map((preset) => ({
+                  value: preset,
+                  label:
+                    editing &&
+                    editing.symbol === preset &&
+                    !symbolCatalog.includes(preset)
+                      ? `${preset}（历史）`
+                      : preset,
+                  icon: <SymbolIcon symbol={preset} overrides={symbolIcons} size={14} />,
+                }))}
+              />
+            </div>
             <div className="composer-essential-field">
               <span className="composer-essential-label">方向</span>
               <div className="composer-side-control" role="group" aria-label="交易方向">
                 <button
                   type="button"
-                  className={side === 'long' ? 'is-on' : ''}
+                  className={`is-long${side === 'long' ? ' is-on' : ''}`}
                   aria-pressed={side === 'long'}
                   onClick={() => setSide('long')}
                 >
@@ -324,7 +323,7 @@ export function TradeComposer() {
                 </button>
                 <button
                   type="button"
-                  className={side === 'short' ? 'is-on' : ''}
+                  className={`is-short${side === 'short' ? ' is-on' : ''}`}
                   aria-pressed={side === 'short'}
                   onClick={() => setSide('short')}
                 >
@@ -332,72 +331,84 @@ export function TradeComposer() {
                 </button>
               </div>
             </div>
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">波段级别</span>
-              <Select
-                value={timeframe || DEFAULT_TIMEFRAME}
-                onValueChange={setTimeframe}
-                ariaLabel="参与波段级别"
-                options={TIMEFRAME_PRESETS.map((preset) => ({
-                  value: preset,
-                  label: preset,
-                }))}
-              />
+          </section>
+
+          <section className="composer-attributes-section" aria-labelledby="composer-parameters-title">
+            <h4 id="composer-parameters-title">交易参数</h4>
+            <div className="composer-trade-essentials composer-parameter-grid">
+              <div className="composer-essential-field">
+                <span className="composer-essential-label">波段级别</span>
+                <Select
+                  value={timeframe || DEFAULT_TIMEFRAME}
+                  onValueChange={setTimeframe}
+                  ariaLabel="参与波段级别"
+                  options={TIMEFRAME_PRESETS.map((preset) => ({
+                    value: preset,
+                    label: preset,
+                  }))}
+                />
+              </div>
+              <div className="composer-essential-field">
+                <span className="composer-essential-label">交易时段</span>
+                <Select
+                  value={session}
+                  onValueChange={setSession}
+                  ariaLabel="交易时段"
+                  placeholder="未设置"
+                  options={[
+                    { value: '', label: '未设置' },
+                    ...SESSION_PRESETS.map((preset) => ({
+                      value: preset.value,
+                      label: preset.label,
+                    })),
+                  ]}
+                />
+              </div>
+              <label className="composer-essential-field">
+                <span className="composer-essential-label">交易日期</span>
+                <input
+                  type="date"
+                  value={openedAt}
+                  onChange={(event) => setOpenedAt(event.target.value)}
+                  aria-label="交易日期"
+                />
+              </label>
             </div>
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">交易时段</span>
-              <Select
-                value={session}
-                onValueChange={setSession}
-                ariaLabel="交易时段"
-                placeholder="未设置"
-                options={[
-                  { value: '', label: '未设置' },
-                  ...SESSION_PRESETS.map((preset) => ({
-                    value: preset.value,
-                    label: preset.label,
-                  })),
-                ]}
-              />
+          </section>
+
+          <section className="composer-attributes-section" aria-labelledby="composer-archive-title">
+            <h4 id="composer-archive-title">归档信息</h4>
+            <div className="composer-trade-essentials composer-archive-grid">
+              <div className="composer-essential-field composer-essential-strategy">
+                <span className="composer-essential-label">策略</span>
+                <Select
+                  value={strategyId}
+                  onValueChange={setStrategyId}
+                  ariaLabel="交易策略"
+                  options={
+                    strategies.length === 0
+                      ? [{ value: '', label: '未设置' }]
+                      : strategies.map((strategy) => ({
+                          value: strategy.id,
+                          label: strategy.name,
+                        }))
+                  }
+                />
+              </div>
+              <div className="composer-essential-field">
+                <span className="composer-essential-label">复盘分类</span>
+                <Select
+                  value={reviewCategory}
+                  onValueChange={(value) => setReviewCategory(value as ReviewCategory)}
+                  ariaLabel="复盘分类"
+                  options={QUICK_CATEGORIES.map((category) => ({
+                    value: category,
+                    label: REVIEW_CATEGORY_META[category].label,
+                  }))}
+                />
+              </div>
             </div>
-            <label className="composer-essential-field">
-              <span className="composer-essential-label">交易日期</span>
-              <input
-                type="date"
-                value={openedAt}
-                onChange={(event) => setOpenedAt(event.target.value)}
-                aria-label="交易日期"
-              />
-            </label>
-            <div className="composer-essential-field composer-essential-strategy">
-              <span className="composer-essential-label">策略</span>
-              <Select
-                value={strategyId}
-                onValueChange={setStrategyId}
-                ariaLabel="交易策略"
-                options={
-                  strategies.length === 0
-                    ? [{ value: '', label: '未设置' }]
-                    : strategies.map((strategy) => ({
-                        value: strategy.id,
-                        label: strategy.name,
-                      }))
-                }
-              />
-            </div>
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">复盘分类</span>
-              <Select
-                value={reviewCategory}
-                onValueChange={(value) => setReviewCategory(value as ReviewCategory)}
-                ariaLabel="复盘分类"
-                options={QUICK_CATEGORIES.map((category) => ({
-                  value: category,
-                  label: REVIEW_CATEGORY_META[category].label,
-                }))}
-              />
-            </div>
-          </div>
+          </section>
 
           {images.length > 0 && (
             <div className="composer-images-preview composer-images-preview-body">
