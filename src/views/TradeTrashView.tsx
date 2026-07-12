@@ -4,7 +4,6 @@ import { useStore } from '@/store/useStore'
 import {
   type Trade,
   STATUS_META,
-  TRADE_KIND_META,
   CONVICTION_META,
   isTradeDeleted,
   getTradeRemainingDays,
@@ -176,28 +175,6 @@ export function TradeTrashView() {
         </button>
       </Toolbar>
 
-      {trashTrades.length > 0 && (
-        <div className="trash-controls">
-          <label className="trash-search">
-            <Search size={15} />
-            <input
-              type="search"
-              aria-label="搜索回收站"
-              placeholder="搜索编号、品种、策略或状态"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="trash-search-input"
-            />
-            {searchQuery && (
-              <button type="button" className="trash-search-clear" aria-label="清除搜索" onClick={() => setSearchQuery('')}>
-                <X size={14} />
-              </button>
-            )}
-          </label>
-          <span className="trash-retention-note">到期后自动永久删除</span>
-        </div>
-      )}
-
       <div className="trash-content">
         {filteredTrades.length === 0 ? (
           <EmptyState
@@ -207,6 +184,22 @@ export function TradeTrashView() {
         ) : (
           <div className="trash-groups">
             <div className="trash-selection-bar">
+              <label className="trash-search">
+                <Search size={14} />
+                <input
+                  type="search"
+                  aria-label="搜索回收站"
+                  placeholder="搜索回收站"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="trash-search-input"
+                />
+                {searchQuery && (
+                  <button type="button" className="trash-search-clear" aria-label="清除搜索" onClick={() => setSearchQuery('')}>
+                    <X size={13} />
+                  </button>
+                )}
+              </label>
               <button className="trash-select-all-btn" onClick={handleSelectAll}>
                 {selected.size === filteredTrades.length ? (
                   <CheckSquare size={16} />
@@ -225,17 +218,6 @@ export function TradeTrashView() {
               {!searchQuery && (
                 <span className="trash-search-count">共 {filteredTrades.length} 笔</span>
               )}
-            </div>
-
-            <div className="trash-table-head" aria-hidden="true">
-              <span />
-              <span />
-              <span>编号</span>
-              <span>交易</span>
-              <span>结果</span>
-              <span>删除时间</span>
-              <span>自动清除</span>
-              <span />
             </div>
 
             {groups.map((group) => (
@@ -279,7 +261,6 @@ export function TradeTrashView() {
                             <SideTag side={trade.side} quiet />
                             <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
                           </div>
-                          <span className="trash-item-kind">{TRADE_KIND_META[trade.tradeKind].label}</span>
                         </div>
 
                         <div className="trash-item-result">
@@ -299,7 +280,6 @@ export function TradeTrashView() {
                             onClick={() => handleRestore(trade.id)}
                           >
                             <RotateCcw size={14} />
-                            <span>恢复</span>
                           </button>
                           <Tooltip content="永久删除" label={`永久删除 ${trade.ref}`}>
                             <button
