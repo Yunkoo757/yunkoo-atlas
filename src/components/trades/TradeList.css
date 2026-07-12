@@ -267,7 +267,7 @@
   line-height: calc(var(--chip-height-sm) - 2px);
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: lch(7.2% 0.75 272);
+  background: var(--bg-elevated);
   border: 1px solid transparent;
   border-radius: var(--radius-4);
 }
@@ -322,7 +322,7 @@
 .trade-row-session.is-outside,
 .trade-row-session.is-other {
   color: var(--text-tertiary);
-  background: lch(8.4% 1.1 272);
+  background: var(--bg-elevated);
   border-color: var(--border-subtle);
 }
 
