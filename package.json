@@ -7,8 +7,9 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
-    "test": "pnpm test:icons && node scripts/run-regression-tests.mjs",
+    "test": "pnpm test:icons && pnpm test:release && node scripts/run-regression-tests.mjs",
     "test:icons": "node --test scripts/linear-icons/core.test.mjs",
+    "test:release": "node --test scripts/release-command.test.mjs",
     "icons:generate": "node scripts/linear-icons/generate.mjs",
     "qa:icons": "node scripts/qa-linear-icons.mjs",
     "dev": "vite",

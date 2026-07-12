@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { resolveCommand } from './release-command.mjs'
 
 const level = process.argv[2]
 const allowedLevels = new Set(['patch', 'minor', 'major'])
@@ -14,17 +15,27 @@ if (!allowedLevels.has(level)) {
   process.exit(1)
 }
 
-function command(name) {
-  return process.platform === 'win32' && name === 'pnpm' ? 'pnpm.cmd' : name
-}
-
 function run(name, args, options = {}) {
-  const result = spawnSync(command(name), args, {
+  let invocation
+  try {
+    invocation = resolveCommand(name, args)
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
+
+  const result = spawnSync(invocation.file, invocation.args, {
     cwd: process.cwd(),
     encoding: 'utf8',
     stdio: options.capture ? 'pipe' : 'inherit',
   })
-  if (result.status !== 0) process.exit(result.status ?? 1)
+  if (result.status !== 0 || result.error) {
+    console.error(`命令执行失败：${name} ${args.join(' ')}`)
+    if (options.capture && result.stdout?.trim()) console.error(result.stdout.trim())
+    if (options.capture && result.stderr?.trim()) console.error(result.stderr.trim())
+    if (result.error) console.error(result.error.message)
+    process.exit(result.status ?? 1)
+  }
   return options.capture ? result.stdout.trim() : ''
 }
 
