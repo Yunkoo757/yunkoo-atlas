@@ -1,7 +1,7 @@
 # 随机复盘会话（A 抽卡 + B 沉浸）设计
 
 日期：2026-07-12  
-状态：待用户确认后进入实现计划  
+状态：已批准（2026-07-12）；实现计划见 `docs/superpowers/plans/2026-07-12-random-review-session.md`  
 相关 demo：`.superpowers/brainstorm/20260712-random-review/`（本地，不入库）
 
 ## 1. 目标
