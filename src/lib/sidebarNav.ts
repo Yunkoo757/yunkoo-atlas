@@ -4,7 +4,7 @@ import {
   BarChart3,
   BookOpen,
   Calendar,
-  CircleDot,
+  Clock,
   FlaskConical,
   ListTodo,
   Star,
@@ -38,7 +38,7 @@ export interface SidebarNavItem {
 }
 
 export const SECONDARY_NAV: SidebarNavItem[] = [
-  { id: 'active', to: '/active', label: '进行中', icon: CircleDot },
+  { id: 'active', to: '/active', label: '进行中', icon: Clock },
   { id: 'favorites', to: '/favorites', label: '星标交易', icon: Star },
   { id: 'missed', to: '/missed', label: '错过的机会', icon: Ban },
   { id: 'paper', to: '/sim', label: '模拟回测', icon: FlaskConical },

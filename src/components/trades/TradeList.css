@@ -49,6 +49,11 @@
   isolation: isolate;
 }
 
+.trade-list-group-icon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
 .trade-list-group-count {
   color: var(--text-quaternary);
   font-size: var(--fs-micro);
@@ -82,7 +87,7 @@
   /* check | status | ref | identity(固定) | tags(flex) | tf | pnl | R | date | end */
   grid-template-columns:
     18px 16px 50px 236px minmax(180px, 1fr)
-    48px 72px 52px 54px 22px;
+    48px 72px 52px 54px 44px;
   align-items: center;
   column-gap: 14px;
   height: var(--trade-row-height);
@@ -432,10 +437,26 @@
 
 .trade-row-end {
   justify-content: flex-end;
-  gap: 3px;
+  gap: 6px;
 }
 
-.trade-row-followed,
+.trade-row-followed {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: var(--radius-6);
+  color: var(--follow-color);
+  background: color-mix(in srgb, var(--follow-color) 22%, transparent);
+  flex-shrink: 0;
+}
+
+.trade-row-followed svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
 .trade-row-star.is-starred {
   color: var(--accent);
 }
@@ -444,7 +465,7 @@
   .trade-row {
     grid-template-columns:
       18px 16px 200px minmax(120px, 1fr) 48px
-      58px 48px 22px;
+      58px 48px 44px;
     column-gap: 10px;
   }
 

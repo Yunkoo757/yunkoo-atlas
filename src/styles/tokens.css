@@ -190,8 +190,9 @@
   --overlay-bg: lch(0 0 0 / 0.45);
   --overlay-dark: lch(0 0 0 / 0.82);
 
-  /* 金色星标 / 置顶 */
+  /* 星标金；置顶关注另用雾蓝，避免与星标同色抢视线 */
   --star-color: #f2c94c;
+  --follow-color: #5b9fd4;
 
   /* 交易状态色（StatusIcon / 表格 chip 共用） */
   --status-open: var(--star-color);

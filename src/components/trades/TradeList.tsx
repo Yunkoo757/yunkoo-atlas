@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import { useVirtualizer, defaultRangeExtractor, type Range } from '@tanstack/react-virtual'
-import { Plus } from '@/icons/appIcons'
+import { CalendarDays, Plus } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
@@ -153,6 +153,7 @@ export function TradeList({
           >
             {item.kind === 'header' ? (
               <header className="trade-list-group-header">
+                <CalendarDays size={14} className="trade-list-group-icon" aria-hidden="true" />
                 <span>{item.label}</span>
                 <span className="trade-list-group-count">{item.count}</span>
                 <button type="button" onClick={() => onCreate()} aria-label="在本组新建交易">

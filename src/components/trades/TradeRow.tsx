@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Bell, Star } from '@/icons/appIcons'
+import { Pin, Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import { REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
@@ -148,7 +148,11 @@ export const TradeRow = memo(function TradeRow({
       </span>
       <span className="trade-row-date">{fmtDate(trade.openedAt)}</span>
       <span className="trade-row-end">
-        {followed && <Bell size={12} className="trade-row-followed" aria-label="已置顶关注" />}
+        {followed && (
+          <span className="trade-row-followed" aria-label="已置顶关注">
+            <Pin size={13} aria-hidden />
+          </span>
+        )}
         <button
           type="button"
           className={'trade-row-star' + (starred ? ' is-starred' : '')}

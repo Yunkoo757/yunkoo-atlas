@@ -130,9 +130,19 @@
   font-variant-numeric: tabular-nums;
 }
 .bd-card-followed {
-  color: var(--accent);
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: var(--radius-6);
+  color: var(--follow-color);
+  background: color-mix(in srgb, var(--follow-color) 22%, transparent);
   flex-shrink: 0;
-  opacity: 0.85;
+}
+.bd-card-followed svg {
+  width: 13px;
+  height: 13px;
+  display: block;
 }
 .bd-card-title {
   display: flex;
