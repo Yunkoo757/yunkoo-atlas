@@ -102,98 +102,104 @@ export function DataIOContent({ onDone }: { onDone?: () => void }) {
         </section>
       )}
 
-      <section className="dio-zone dio-zone-primary">
-        <div className="dio-zone-head">
-          <span className="dio-zone-kicker">推荐备份</span>
-          <h2 className="dio-section-title">导出完整备份 (.journal.zip)</h2>
+      <section className="dio-group" aria-labelledby="dio-export-title">
+        <div className="dio-group-head">
+          <h2 id="dio-export-title" className="dio-group-title">备份与导出</h2>
+          <p className="dio-group-desc">完整备份用于日常保护；JSON 适合只取出结构化数据。</p>
         </div>
-        <p className="dio-desc">
-          交易数据、策略与笔记图片都会写入压缩包。适合日常备份、整库迁移和大量图片场景。
-        </p>
-        <button type="button" className="dio-btn dio-btn-primary" onClick={onExportZip}>
-          <Package size={16} />
-          <span>导出 .journal.zip</span>
-        </button>
+        <div className="dio-task-list">
+          <div className="dio-task dio-task-primary">
+            <Package size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">完整备份</div>
+              <div className="dio-task-meta">交易、设置与笔记图片 · 推荐</div>
+            </div>
+            <button type="button" className="dio-btn dio-btn-primary" onClick={onExportZip}>
+              <span>导出 .journal.zip</span>
+            </button>
+          </div>
+          <div className="dio-task">
+            <Download size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">JSON 数据副本</div>
+              <div className="dio-task-meta">仅交易、策略与偏好，不含图片</div>
+            </div>
+            <button type="button" className="dio-btn" onClick={onExportJson}>
+              <span>下载 JSON</span>
+            </button>
+          </div>
+        </div>
       </section>
 
-      <div className="dio-zone-grid">
-        <section className="dio-zone">
-          <div className="dio-zone-head">
-            <span className="dio-zone-kicker">轻量导出</span>
-            <h2 className="dio-section-title">JSON（纯数据）</h2>
-          </div>
-          <p className="dio-desc">
-            仅含交易、策略与偏好元数据，不含笔记图片。适合快速备份或手写导入。
-          </p>
-          <button type="button" className="dio-btn" onClick={onExportJson}>
-            <Download size={16} />
-            <span>下载 JSON</span>
-          </button>
-        </section>
-
-        <section className="dio-zone">
-          <div className="dio-zone-head">
-            <span className="dio-zone-kicker">导入 / 恢复</span>
-            <h2 className="dio-section-title">JSON 与 CSV</h2>
-          </div>
-          <p className="dio-desc">
-            JSON 会合并到当前数据；CSV 适合从其他交易日志工具迁移交易记录。
-          </p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json,application/json"
-            className="dio-file-input"
-            onChange={onFileChange}
-          />
-          <div className="dio-actions">
+      <section className="dio-group" aria-labelledby="dio-import-title">
+        <div className="dio-group-head">
+          <h2 id="dio-import-title" className="dio-group-title">导入与迁移</h2>
+          <p className="dio-group-desc">按原始数据来源选择入口，不需要先判断文件格式。</p>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json,application/json"
+          className="dio-file-input"
+          onChange={onFileChange}
+        />
+        <div className="dio-task-list">
+          <div className="dio-task">
+            <Upload size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">Yunkoo JSON</div>
+              <div className="dio-task-meta">合并到当前交易库，不含图片</div>
+            </div>
             <button type="button" className="dio-btn" onClick={() => fileRef.current?.click()}>
-              <Upload size={16} />
-              <span>选择 JSON 文件</span>
+              <span>选择文件</span>
             </button>
+          </div>
+          <div className="dio-task">
+            <FileSpreadsheet size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">其他交易日志</div>
+              <div className="dio-task-meta">导入 CSV，自动识别中英文列名</div>
+            </div>
             <button type="button" className="dio-btn" onClick={() => setCsvOpen(true)}>
-              <FileSpreadsheet size={16} />
-              <span>导入 CSV 文件</span>
+              <span>导入 CSV</span>
             </button>
+          </div>
+          <div className="dio-task">
+            <FileSpreadsheet size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">Notion</div>
+              <div className="dio-task-meta">导入数据库、页面正文与截图</div>
+            </div>
             <button type="button" className="dio-btn" onClick={() => setNotionOpen(true)}>
-              <FileSpreadsheet size={16} />
               <span>从 Notion 导入</span>
             </button>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {electron && (
-        <section className="dio-zone dio-zone-danger">
-          <div className="dio-zone-head">
-            <span className="dio-zone-kicker">整库替换</span>
-            <h2 className="dio-section-title">导入完整交易库 (.journal.zip)</h2>
+        <section className="dio-group dio-group-danger">
+          <div className="dio-task">
+            <Archive size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">恢复完整交易库</div>
+              <div className="dio-task-meta">替换当前数据与附件，操作前请先备份</div>
+            </div>
+            <button type="button" className="dio-btn dio-btn-warn" onClick={onImportZip}>
+              <span>选择 .journal.zip</span>
+            </button>
           </div>
-          <p className="dio-desc">
-            将用压缩包内容替换当前库（journal.db 与附件）。操作前请先导出完整备份。
-          </p>
-          <button type="button" className="dio-btn dio-btn-warn" onClick={onImportZip}>
-            <Archive size={16} />
-            <span>选择 .journal.zip</span>
-          </button>
         </section>
       )}
 
-      <section className="dio-danger">
-        <div className="dio-danger-head">
-          <AlertTriangle size={16} />
-          <span>注意</span>
-        </div>
-        <ul className="dio-danger-list">
-          <li>JSON 导入会合并到当前数据（不含图片）；.journal.zip 导入会替换整库。</li>
-          <li>请确认备份文件来源可信，避免导入恶意数据。</li>
-          <li>
-            {electron
-              ? '桌面版数据保存在「文档/Yunkoo Atlas」文件夹，可用 iCloud 同步该目录。'
-              : '浏览器版数据保存在 IndexedDB，建议定期导出 .journal.zip 备份。'}
-          </li>
-        </ul>
-      </section>
+      <p className="dio-safety-note">
+        <AlertTriangle size={15} />
+        <span>
+          仅导入可信文件。{electron
+            ? '完整备份会替换当前库，JSON 只合并数据。'
+            : '数据保存在当前浏览器中，建议定期导出完整备份。'}
+        </span>
+      </p>
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
       <NotionImportModal open={notionOpen} onClose={() => setNotionOpen(false)} />
     </div>
