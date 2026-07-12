@@ -124,6 +124,7 @@
   --bg-elevated: var(--color-bg-secondary);
   --bg-hover: var(--color-bg-tertiary);
   --bg-selected: lch(13% 3 255 / 1);
+  --bg-active: var(--bg-selected);
   --bg-sidebar: var(--bg-sidebar-color);
 
   /* 表单控件表面 */
@@ -147,6 +148,13 @@
   --text-secondary: var(--color-text-secondary);
   --text-tertiary: var(--color-text-tertiary);
   --text-quaternary: var(--color-text-quaternary);
+
+  /* 角色型文字层级：可读内容不直接消费 disabled 灰阶 */
+  --text-strong: var(--color-text-primary);
+  --text-body: lch(79% 1.4 255 / 1);
+  --text-muted: lch(61% 1.5 255 / 1);
+  --text-faint: lch(46% 1.4 255 / 1);
+  --text-disabled: var(--color-text-quaternary);
 
   /* 品牌 */
   --accent-hover: color-mix(in srgb, var(--accent) 88%, white 12%);
@@ -244,12 +252,28 @@
   --fs-micro: var(--font-size-micro);
   --fs-mini: var(--font-size-mini);
   --fs-sm: var(--font-size-small);
+  --fs-md: var(--font-size-regular);
   --fs-base: var(--font-size-regular);
   --fs-lg: var(--font-size-large);
   --fs-title: var(--font-size-title3);
   --fs-h: var(--font-size-title2);
   /* 兼容旧写法；等同 micro */
   --fs-xs: var(--fs-micro);
+
+  /* 字体角色：页面、弹窗、区块与数据行共享同一层级 */
+  --type-page-title-size: var(--font-size-title3);
+  --type-page-title-weight: var(--font-weight-semibold);
+  --type-dialog-title-size: var(--font-size-regular);
+  --type-dialog-title-weight: var(--font-weight-semibold);
+  --type-section-title-size: var(--font-size-small);
+  --type-section-title-weight: var(--font-weight-semibold);
+  --type-row-size: var(--font-size-small);
+  --type-row-weight: var(--font-weight-medium);
+  --type-body-size: var(--font-size-small);
+  --type-body-weight: var(--font-weight-normal);
+  --type-metadata-size: var(--font-size-mini);
+  --type-metadata-weight: var(--font-weight-medium);
+  --type-caption-size: var(--font-size-micro);
 
   /* 阴影（Linear 风格，多层叠加柔光） */
   --shadow-low: 0 1px 1px #0000001f;
