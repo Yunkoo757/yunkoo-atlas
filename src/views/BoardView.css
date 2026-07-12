@@ -301,6 +301,7 @@
 }
 
 .bd-case-tag-danger {
+  max-width: none;
   color: var(--neg);
   border-color: color-mix(in srgb, var(--neg) 30%, var(--border-subtle));
   background: color-mix(in srgb, var(--neg) 10%, transparent);

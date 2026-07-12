@@ -109,6 +109,7 @@
 }
 
 .tv-chip-mistake {
+  max-width: none;
   color: var(--neg);
   background: color-mix(in srgb, var(--neg) 12%, var(--bg-elevated));
 }
@@ -270,6 +271,7 @@
 }
 
 .trade-table-case .tv-chip-mistake {
+  max-width: none;
   color: var(--neg);
   border-color: color-mix(in srgb, var(--neg) 30%, var(--border-subtle));
   background: color-mix(in srgb, var(--neg) 10%, transparent);

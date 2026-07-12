@@ -14,6 +14,7 @@ import {
   getWorkspacePrimaryViews,
   isSavedViewInWorkspace,
   matchesWorkspaceView,
+  searchForWorkspaceViewTarget,
   type WorkspaceKind,
   type WorkspaceViewTarget,
 } from '@/lib/workspaceViews'
@@ -116,17 +117,11 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   }, [panel])
 
   const goTarget = (target: WorkspaceViewTarget) => {
-    const next = new URLSearchParams(location.search)
-    const currentView = getActiveWorkspaceView(kind, location.pathname, location.search)
-    for (const [key, value] of new URLSearchParams(currentView?.search ?? '')) {
-      if (next.get(key) === value) next.delete(key)
-    }
-    for (const [key, value] of new URLSearchParams(target.search ?? '')) next.set(key, value)
     setPanel(null)
     const mode = workbenchModeFromPathname(location.pathname)
     navigate({
       pathname: pathWithWorkbenchMode(target.pathname, mode),
-      search: next.toString() ? `?${next}` : '',
+      search: searchForWorkspaceViewTarget(location.search, target),
     })
   }
 

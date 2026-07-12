@@ -242,6 +242,35 @@
 }
 .dio-group-danger { margin-top: -12px; border: 1px solid var(--warn-action-border); }
 
+.dio-dup-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: var(--radius-8);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dio-dup-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-mini);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.dio-dup-reason {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--warn, #e5b567);
+  font-weight: 600;
+}
+
 .dio-actions {
   display: flex;
   flex-wrap: wrap;

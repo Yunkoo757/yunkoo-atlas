@@ -1,4 +1,4 @@
-/* NotionImportModal — 复用 CSV Import Modal 的视觉体系 */
+/* NotionImportModal — Compact Linear，与 CSV 导入壳一致 */
 .nim-overlay {
   position: fixed;
   inset: 0;
@@ -11,94 +11,192 @@
 }
 
 .nim-modal {
-  width: 680px;
+  width: 420px;
   max-width: 100%;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
   background: var(--popover-bg);
   border: 1px solid var(--popover-border);
-  border-radius: var(--popover-radius);
+  border-radius: 12px;
   box-shadow: var(--popover-shadow);
   overflow: hidden;
 }
 
+.nim-modal.is-wide {
+  width: min(560px, 100%);
+}
+
 .nim-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 20px 24px 12px;
+  gap: 12px;
+  padding: 14px 14px 0;
 }
 
 .nim-header h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.nim-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-quaternary);
 }
 
 .nim-close {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-6);
-  color: var(--text-tertiary);
-  transition: background var(--dur-fast) var(--ease-out);
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: var(--text-quaternary);
+  flex-shrink: 0;
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .nim-close:hover {
   background: var(--bg-hover);
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
 /* ---- Upload step ---- */
 .nim-upload-area {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 20px 24px 28px;
-  text-align: left;
-  color: var(--text-tertiary);
+  gap: 10px;
+  padding: 12px 14px 14px;
 }
 
-.nim-upload-area p {
-  margin: 0;
-  font-size: var(--fs-base);
-}
-
-.nim-upload-hint {
-  font-size: var(--fs-sm) !important;
-  color: var(--text-quaternary);
-  max-width: 480px;
-  line-height: 1.5 !important;
-}
-
-.nim-upload-note {
-  padding: 10px 0 0;
-  border-top: 1px solid var(--border-subtle);
-  border-radius: 0;
-  background: transparent;
-  border-right: 0;
-  border-bottom: 0;
-  border-left: 0;
-  color: var(--text-tertiary);
-}
-
-.nim-file-input {
-  width: 100%;
-  margin-top: 12px;
-  font-size: var(--fs-sm);
-  color: var(--text-tertiary);
-}
-.nim-file-input::file-selector-button {
-  height: 36px;
-  margin-right: 10px;
-  padding: 0 14px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
+.nim-drop {
+  border: 1px dashed color-mix(in srgb, var(--border-default) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
+  padding: 18px 14px;
+  text-align: center;
   cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.nim-drop:hover,
+.nim-drop.is-drag {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
+}
+
+.nim-drop-icon {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 8px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: grid;
+  place-items: center;
+  color: var(--text-tertiary);
+}
+
+.nim-drop-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.nim-drop-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-quaternary);
+}
+
+.nim-formats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nim-format {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 7px;
+}
+
+.nim-format.is-rec {
+  background: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
+}
+
+.nim-format-code {
+  width: 32px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.nim-format-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.nim-format.is-rec .nim-format-name {
+  color: var(--text-primary);
+}
+
+.nim-format-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pos) 14%, transparent);
+  color: var(--pos);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.nim-upload-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nim-file-status {
+  font-size: 12px;
+  color: var(--text-quaternary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nim-upload-tip {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-quaternary);
+}
+
+.nim-file-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ---- Preview step ---- */
@@ -106,7 +204,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 0 24px 20px;
+  padding: 12px 14px 14px;
   overflow: hidden;
 }
 
@@ -118,7 +216,6 @@
 }
 
 .nim-file-name {
-  font-size: var(--fs-sm);
   font-weight: 500;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -168,6 +265,41 @@
 
 .nim-row-warn {
   background: var(--warn-action-bg);
+}
+
+.nim-row-dup {
+  background: color-mix(in srgb, var(--warn-action-bg) 70%, transparent);
+}
+
+.nim-dup {
+  color: var(--warn, #e5b567);
+}
+
+.nim-dup-count {
+  color: var(--warn, #e5b567);
+}
+
+.nim-dup-scan,
+.nim-dup-toggle {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+}
+
+.nim-dup-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nim-dup-msg {
+  color: var(--warn, #e5b567);
+}
+
+.nim-dup-force {
+  color: var(--accent);
+  text-decoration: underline;
+  font-size: inherit;
 }
 
 .nim-cell-symbol {
@@ -273,7 +405,7 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 48px 24px;
+  padding: 40px 14px;
 }
 
 .nim-done-area p {
@@ -317,10 +449,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 16px;
-  border-radius: var(--radius-6);
-  font-size: var(--fs-sm);
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-out);
