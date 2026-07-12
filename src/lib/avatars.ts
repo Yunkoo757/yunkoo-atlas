@@ -2,49 +2,46 @@ import type { UserProfile } from '@/storage/types'
 
 export interface AvatarPreset {
   id: string
-  emoji: string
   label: string
+  background: string
+  surface: string
+  accent: string
+  variant: 'halo' | 'orbit' | 'split' | 'frame'
 }
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
-  { id: 'trader', emoji: '📈', label: '交易员' },
-  { id: 'bull', emoji: '🐂', label: '牛市' },
-  { id: 'bear', emoji: '🐻', label: '熊市' },
-  { id: 'wolf', emoji: '🐺', label: '华尔街' },
-  { id: 'eagle', emoji: '🦅', label: '鹰眼' },
-  { id: 'owl', emoji: '🦉', label: '智慧' },
-  { id: 'diamond', emoji: '💎', label: '钻石手' },
-  { id: 'rocket', emoji: '🚀', label: '火箭' },
-  { id: 'fire', emoji: '🔥', label: '火热' },
-  { id: 'star2', emoji: '⭐', label: '明星' },
-  { id: 'crown', emoji: '👑', label: '王者' },
-  { id: 'shield', emoji: '🛡️', label: '防守' },
-  { id: 'target', emoji: '🎯', label: '精准' },
-  { id: 'brain', emoji: '🧠', label: '策略' },
-  { id: 'coin', emoji: '🪙', label: '财富' },
-  { id: 'chart', emoji: '📊', label: '图表' },
+  { id: 'obsidian', label: '曜石', background: '#17191f', surface: '#d8c9ad', accent: '#c7a74b', variant: 'halo' },
+  { id: 'cobalt', label: '钴蓝', background: '#18233a', surface: '#d5dceb', accent: '#6686d9', variant: 'orbit' },
+  { id: 'forest', label: '松林', background: '#172823', surface: '#d6ded5', accent: '#6d9d84', variant: 'frame' },
+  { id: 'clay', label: '陶土', background: '#35221f', surface: '#ead5c7', accent: '#c2765d', variant: 'split' },
+  { id: 'sand', label: '砂岩', background: '#302d27', surface: '#e4dccb', accent: '#ae9161', variant: 'frame' },
+  { id: 'violet', label: '鸢尾', background: '#29233a', surface: '#ddd6e8', accent: '#8e75bd', variant: 'orbit' },
+  { id: 'glacier', label: '冰川', background: '#1b2c33', surface: '#d7e4e6', accent: '#6ba7b1', variant: 'split' },
+  { id: 'eclipse', label: '日蚀', background: '#2b2023', surface: '#e2d5cf', accent: '#d08255', variant: 'halo' },
 ]
 
-export function getAvatarEmoji(avatarId: string | null | undefined): string | undefined {
-  if (!avatarId) return undefined
-  return AVATAR_PRESETS.find((a) => a.id === avatarId)?.emoji
+const LEGACY_PRESET_MAP: Record<string, string> = {
+  trader: 'cobalt', bull: 'clay', bear: 'obsidian', wolf: 'glacier',
+  eagle: 'sand', owl: 'forest', diamond: 'glacier', rocket: 'cobalt',
+  fire: 'eclipse', star2: 'sand', crown: 'violet', shield: 'forest',
+  target: 'clay', brain: 'violet', coin: 'sand', chart: 'cobalt',
+}
+
+export function getAvatarPreset(avatarId: string | null | undefined): AvatarPreset {
+  const resolvedId = avatarId ? (LEGACY_PRESET_MAP[avatarId] ?? avatarId) : 'obsidian'
+  return AVATAR_PRESETS.find((preset) => preset.id === resolvedId) ?? AVATAR_PRESETS[0]!
 }
 
 /**
- * 统一头像解析：自定义图片 > 预置 emoji > 首字母
+ * 统一头像解析：自定义图片 > 矢量预置头像。
  */
 export function resolveAvatar(
   profile: UserProfile | undefined | null,
-): { type: 'image'; src: string } | { type: 'emoji'; emoji: string } | { type: 'initial'; letter: string } {
+): { type: 'image'; src: string } | { type: 'preset'; presetId: string } {
   if (profile?.customAvatarDataUrl) {
     return { type: 'image', src: profile.customAvatarDataUrl }
   }
-  const emoji = getAvatarEmoji(profile?.avatarId)
-  if (emoji) {
-    return { type: 'emoji', emoji }
-  }
-  const letter = (profile?.displayName || 'Y').charAt(0).toUpperCase()
-  return { type: 'initial', letter }
+  return { type: 'preset', presetId: getAvatarPreset(profile?.avatarId).id }
 }
 
 /** 缩放并居中裁剪为正方形，压缩到 128×128 JPEG data URL */
