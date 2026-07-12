@@ -167,6 +167,7 @@ export function Dashboard() {
       <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 默认实盘" showDisplay={false} />
       <div className="db-scroll">
         <div className="db-toolbar">
+          <span className="db-toolbar-label">分析范围</span>
           <div className="db-segmented" role="tablist" aria-label="交易类型">
             {KIND_OPTS.map((o) => (
               <button

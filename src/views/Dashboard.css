@@ -6,10 +6,19 @@
 
 .db-toolbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  min-height: 30px;
+  margin-bottom: 12px;
+}
+
+.db-toolbar-label {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
 }
 
 .db-segmented {
@@ -23,9 +32,9 @@
 .db-seg {
   padding: 4px 10px;
   border-radius: 4px;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   transition:
     color var(--dur-fast) var(--ease-out),
     background var(--dur-fast) var(--ease-out);
@@ -38,7 +47,7 @@
 
 .db-seg.is-on {
   background: var(--bg-hover);
-  color: var(--text-primary);
+  color: var(--text-strong);
 }
 
 .db-cards {
@@ -66,12 +75,18 @@
 .db-card:hover {
   background: var(--bg-hover);
 }
+.db-card:first-child {
+  background: color-mix(in srgb, var(--accent) 3%, transparent);
+}
+.db-card:first-child:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
 .db-card-label {
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
 }
 .db-card-value {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -79,9 +94,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.db-card:first-child .db-card-value {
+  font-size: 26px;
+}
 .db-card-sub {
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
 }
 
 .db-empty {
@@ -97,16 +115,16 @@
 
 .db-empty h2 {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--fs-base);
-  font-weight: var(--font-weight-semibold);
+  color: var(--text-strong);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .db-empty p {
   max-width: 420px;
   margin: 8px 0 20px;
-  color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
   line-height: 1.6;
 }
 
@@ -146,18 +164,18 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 .db-panel-title {
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  color: var(--text-strong);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 .db-panel-sub {
   margin-top: 4px;
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
 }
 .db-panel-hint {
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
 }
 .db-chart {
   padding: 12px 12px 18px;
@@ -173,8 +191,8 @@
 .db-strats-empty {
   padding: 48px 18px;
   text-align: center;
-  font-size: var(--fs-sm);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
 }
 
 .db-chart-tip {
