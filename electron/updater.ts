@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
-import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
+import updaterPackage from 'electron-updater'
+import type { ProgressInfo, UpdateInfo } from 'electron-updater'
 import {
   normalizeUpdateCredential,
   redactUpdateError,
@@ -9,6 +10,8 @@ import {
   type AppUpdateEvent,
   type AppUpdateState,
 } from '../src/lib/appUpdate'
+
+const { autoUpdater } = updaterPackage
 
 const AUTO_CHECK_DELAY_MS = 10_000
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000

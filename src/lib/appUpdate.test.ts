@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import {
   normalizeUpdateCredential,
   redactUpdateError,
@@ -52,4 +53,17 @@ export function testUpdateCredentialIsValidatedAndNeverLeakedInErrors() {
   const message = redactUpdateError(`Request failed with token ${token}`)
   assert(!message.includes(token), '错误信息不得包含完整令牌')
   assert(message.includes('[credential]'), '错误信息应保留可诊断的脱敏标记')
+}
+
+export function testElectronUpdaterUsesCommonJsCompatibleRuntimeImport() {
+  const source = readFileSync('electron/updater.ts', 'utf8')
+
+  assert(
+    !/import\s*\{[^}]*\bautoUpdater\b[^}]*\}\s*from\s*['"]electron-updater['"]/.test(source),
+    'electron-updater 是 CommonJS 模块，不能在 Electron ESM 主进程中命名导入 autoUpdater',
+  )
+  assert(
+    /import\s+\w+\s+from\s+['"]electron-updater['"]/.test(source),
+    'electron-updater 运行时必须使用默认导入',
+  )
 }
