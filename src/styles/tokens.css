@@ -1,16 +1,13 @@
 /* ============================================================
-   tokens.css  —  从 linear.app 真实运行时提取的设计 token
-   说明：
-   - 上半部分「LINEAR 原生」原样保留 Linear 的变量名与值（LCH 色彩空间，
-     围绕色相 272 靛紫统一偏色），保证逐像素一致。
-   - 下半部分「语义别名」把原生 token 映射成组件易用的名字。
-   - 已剔除 --sx-* (styled-components 哈希) 与浏览器插件注入的噪音。
+   tokens.css — Atlas 交易工作台设计令牌
+   以冷灰蓝暗色层级承载高密度交易信息；Linear 仅作为空间秩序参考，
+   组件统一消费下方语义别名，避免页面直接绑定某个参考产品的颜色值。
    ============================================================ */
 
 :root {
-  /* ========== ① LINEAR 原生 token（真实值） ========== */
+  /* ========== ① 基础色板 ========== */
 
-  /* —— 背景（LCH，色相 272）—— */
+  /* —— 背景（LCH，冷灰蓝轴）—— */
   --bg-color: lch(3.2% 0.8 255 / 1);
   --color-bg-primary: lch(6.1% 1 255);
   --color-bg-secondary: lch(9.2% 1.4 255 / 1);
@@ -29,14 +26,14 @@
   --color-border-primary: lch(10% 1.2 255 / 1);
   --color-border-secondary: lch(14% 1.5 255 / 1);
   --color-border-tertiary: lch(18% 1.8 255 / 1);
-  --bg-border-color: lch(13.16% 1.38 272 / 1);
+  --bg-border-color: lch(13.16% 1.38 255 / 1);
 
   /* —— 品牌 / 焦点 —— */
   --accent: #6875d8;
   --focus-ring-color: #5e69d1;
   --focus-ring-outline: 1px solid #5e69d1;
   --focus-ring-width: 1px;
-  --ai-selection-bg: lch(61.399% 1.15 272 / 0.1);
+  --ai-selection-bg: lch(61.399% 1.15 255 / 0.1);
 
   /* —— 弹出面板 popover（测量自真实 Linear 浮层）—— */
   --popover-bg: lch(10.3% 1.5 255);
@@ -126,7 +123,7 @@
   --bg-surface: var(--color-bg-primary);
   --bg-elevated: var(--color-bg-secondary);
   --bg-hover: var(--color-bg-tertiary);
-  --bg-selected: lch(13% 3 272 / 1);
+  --bg-selected: lch(13% 3 255 / 1);
   --bg-sidebar: var(--bg-sidebar-color);
 
   /* 表单控件表面 */
