@@ -230,7 +230,7 @@ export function DataSettingsPanel() {
           <div className="settings-page-head">
             <h2 className="settings-section-title">自动备份</h2>
             <p className="settings-section-desc">
-              每 15 分钟自动备份 + 退出前备份。最多保留 7 份，总容量不超过 500 MB。
+              每 15 分钟自动备份 + 退出前备份。最多保留 20 份，总容量不超过 500 MB。
             </p>
           </div>
 

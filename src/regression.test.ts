@@ -262,6 +262,14 @@ export async function testAppOptsIntoStableReactRouterFutureBehavior(): Promise<
   assert(source.includes('v7_relativeSplatPath: true'), 'App 应启用 v7_relativeSplatPath')
 }
 
+export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8')
+
+  assert(source.includes('最多保留 20 份'), '数据设置应展示桌面端实际的 20 份备份上限')
+  assert(!source.includes('最多保留 7 份'), '不得继续展示旧的 7 份备份上限')
+}
+
 export function testResolvePinnedSecondaryNavOrdersAndHidesEmpty(): void {
   const defaultItems = resolvePinnedSecondaryNav(DEFAULT_SIDEBAR_PINS)
   assert(
