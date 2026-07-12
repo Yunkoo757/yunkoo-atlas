@@ -214,13 +214,13 @@
   white-space: nowrap;
 }
 
-/* 固定多空槽，避免字体切换时把策略图标顶走 */
+/* 固定透明多空槽：保留对齐与中文语义，不再制造连续封闭色块 */
 .trade-row .side-tag.is-quiet {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  min-width: 22px;
+  width: 18px;
+  min-width: 18px;
   height: 18px;
   padding: 0;
   box-sizing: border-box;
@@ -229,18 +229,16 @@
   letter-spacing: 0;
   line-height: 1;
   background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-4);
+  border: 0;
+  border-radius: 0;
 }
 
 .trade-row .side-tag.is-quiet[data-side='long'] {
-  color: color-mix(in srgb, var(--pos) 72%, var(--text-tertiary));
-  border-color: color-mix(in srgb, var(--pos) 24%, var(--border-default));
+  color: color-mix(in srgb, var(--pos) 68%, var(--text-tertiary));
 }
 
 .trade-row .side-tag.is-quiet[data-side='short'] {
-  color: color-mix(in srgb, var(--neg) 72%, var(--text-tertiary));
-  border-color: color-mix(in srgb, var(--neg) 24%, var(--border-default));
+  color: color-mix(in srgb, var(--neg) 68%, var(--text-tertiary));
 }
 
 .trade-row-strategy {
@@ -257,9 +255,17 @@
 }
 
 .trade-row-strategy .strategy-icon {
-  width: var(--icon-tile);
-  height: var(--icon-tile);
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
+  border-radius: 0;
+  background: transparent !important;
+  opacity: 0.68;
+}
+
+.trade-row-strategy .strategy-icon > svg {
+  width: 11px;
+  height: 11px;
 }
 
 .trade-row-tags {
