@@ -5,7 +5,7 @@
   justify-content: space-between;
   min-width: 0;
   height: var(--header-h);
-  padding: 0 12px;
+  padding: 0 14px;
   overflow: hidden;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
@@ -36,7 +36,7 @@
   overflow: hidden;
   color: var(--text-primary);
   font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
