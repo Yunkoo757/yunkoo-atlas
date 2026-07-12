@@ -35,6 +35,7 @@ import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
 import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
 import { SymbolsPanel } from './views/settings/SymbolsPanel'
+import { UpdatesSettingsPanel } from './views/settings/UpdatesSettingsPanel'
 import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
@@ -307,6 +308,7 @@ function Shell() {
             <Route path="dispute-types" element={<Navigate to="/settings/tags" replace />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
             <Route path="data" element={<DataSettingsPanel />} />
+            <Route path="updates" element={<UpdatesSettingsPanel />} />
           </Route>
           <Route path="/strategies" element={<Navigate to="/settings/strategies" replace />} />
           <Route path="*" element={<Navigate to="/list" replace />} />

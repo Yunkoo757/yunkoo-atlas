@@ -18,7 +18,14 @@ export default defineConfig({
             },
             build: {
               rollupOptions: {
-                external: ['electron', 'sharp', 'sql.js', 'archiver', 'extract-zip'],
+                external: [
+                  'electron',
+                  'electron-updater',
+                  'sharp',
+                  'sql.js',
+                  'archiver',
+                  'extract-zip',
+                ],
               },
             },
           },

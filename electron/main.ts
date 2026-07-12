@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { registerLibraryIpc } from './library/ipc'
 import { runElectronQaAndExit } from './qa'
+import { registerAppUpdater, scheduleAutomaticUpdateChecks } from './updater'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -84,7 +85,9 @@ app.whenReady().then(async () => {
     return
   }
 
+  registerAppUpdater()
   createWindow()
+  scheduleAutomaticUpdateChecks()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

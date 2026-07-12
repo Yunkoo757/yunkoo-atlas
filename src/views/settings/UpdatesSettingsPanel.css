@@ -1,0 +1,148 @@
+.update-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.update-settings > .settings-page-head {
+  margin-bottom: 0;
+}
+
+.update-section {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.update-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0 14px;
+}
+
+.update-section-head h2 {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.update-section-head p,
+.update-help {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  line-height: 1.55;
+}
+
+.update-status,
+.update-credential-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-4);
+  color: var(--text-tertiary);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+}
+
+.update-status.is-accent {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.update-status.is-ok,
+.update-credential-state.is-ready {
+  color: var(--pos);
+  border-color: color-mix(in srgb, var(--pos) 24%, var(--border-subtle));
+}
+
+.update-status.is-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 24%, var(--border-subtle));
+}
+
+.update-actions,
+.update-token-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 16px;
+}
+
+.update-token-row input {
+  width: min(420px, 100%);
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  background: var(--field-bg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.update-token-row input:focus {
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
+}
+
+.update-token-row input::placeholder {
+  color: var(--field-placeholder);
+}
+
+.update-progress {
+  height: 4px;
+  margin: 0 0 14px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+}
+
+.update-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width var(--dur-base) var(--ease-out);
+}
+
+.update-help {
+  padding: 0 0 16px;
+}
+
+.update-help code {
+  color: var(--text-secondary);
+}
+
+.update-security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  line-height: 1.5;
+}
+
+.update-security-note svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+@media (max-width: 720px) {
+  .update-section-head,
+  .update-token-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .update-status,
+  .update-credential-state {
+    align-self: flex-start;
+  }
+}

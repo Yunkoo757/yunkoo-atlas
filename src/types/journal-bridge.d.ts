@@ -1,4 +1,5 @@
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
+import type { AppUpdateState } from '@/lib/appUpdate'
 
 export interface BackupInfo {
   name: string
@@ -36,6 +37,15 @@ export interface JournalBridge {
   restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
+  // 应用更新
+  getUpdateState(): Promise<AppUpdateState>
+  hasUpdateCredential(): Promise<boolean>
+  saveUpdateCredential(token: string): Promise<boolean>
+  clearUpdateCredential(): Promise<boolean>
+  checkForUpdates(): Promise<AppUpdateState>
+  downloadUpdate(): Promise<AppUpdateState>
+  installUpdate(): Promise<boolean>
+  onUpdateState(callback: (state: AppUpdateState) => void): () => void
 }
 
 declare global {
