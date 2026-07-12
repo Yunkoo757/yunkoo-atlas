@@ -52,3 +52,11 @@ test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包',
     'NSIS 与 Portable 当前共用 artifactName，不能在同一发布命令并行上传',
   )
 })
+
+test('发布资产由 GitHub CLI 串行上传并校验', () => {
+  const workflow = readFileSync('.github/workflows/release-windows.yml', 'utf8')
+  assert.match(workflow, /electron-builder --win nsis --x64 --publish never/)
+  assert.match(workflow, /gh release create/)
+  assert.match(workflow, /latest\.yml/)
+  assert.doesNotMatch(workflow, /--publish always/)
+})
