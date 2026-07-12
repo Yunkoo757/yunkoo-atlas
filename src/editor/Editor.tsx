@@ -5,7 +5,7 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
 import { useEffect, useRef } from 'react'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/bootstrap'
 import {
   Bold,
   Italic,

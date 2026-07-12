@@ -262,6 +262,30 @@ export async function testAppOptsIntoStableReactRouterFutureBehavior(): Promise<
   assert(source.includes('v7_relativeSplatPath: true'), 'App 应启用 v7_relativeSplatPath')
 }
 
+export async function testHeavyRoutesAreLoadedOnDemand(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/App.tsx', 'utf8')
+
+  assert(source.includes("const Dashboard = lazy(() =>"), '仪表盘应按路由延迟加载')
+  assert(source.includes("const DetailView = lazy(() =>"), '交易详情编辑器应按路由延迟加载')
+  assert(source.includes("const StrategiesPanel = lazy(() =>"), '策略编辑器应按设置路由延迟加载')
+  assert(source.includes('<Suspense'), '延迟路由必须提供加载反馈')
+
+  const detailSource = await fs.readFile('src/views/DetailView.tsx', 'utf8')
+  const editorSource = await fs.readFile('src/editor/Editor.tsx', 'utf8')
+  const draftsSource = await fs.readFile('src/storage/noteDrafts.ts', 'utf8')
+  for (const [name, moduleSource] of [
+    ['DetailView', detailSource],
+    ['Editor', editorSource],
+    ['noteDrafts', draftsSource],
+  ] as const) {
+    assert(
+      moduleSource.includes("from '@/storage/bootstrap'"),
+      `${name} 应直接导入 storage/bootstrap，避免延迟分块循环依赖`,
+    )
+  }
+}
+
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8')
