@@ -12,6 +12,7 @@ import fs from 'node:fs/promises'
   'src/lib/lightboxView.test.ts',
   'src/shortcuts/bindingOverwrite.test.ts',
   'src/icons/linear/linear-icons.test.tsx',
+  'src/components/Menu.design.test.ts',
   'src/views/TradeTrashView.design.test.ts',
   'src/lib/appUpdate.test.ts',
   'src/lib/windowBounds.test.ts',
