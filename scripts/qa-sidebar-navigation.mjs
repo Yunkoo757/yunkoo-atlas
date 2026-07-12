@@ -82,6 +82,28 @@ async function expectVisible(locator) {
   await locator.waitFor({ state: 'visible', timeout: 5000 })
 }
 
+/** 虚拟列表下目标行可能未挂载，先滚动再断言可见 */
+async function ensureTradeRowVisible(page, tradeId) {
+  const locator = page.locator(`[data-trade-id="${tradeId}"]`)
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    if ((await locator.count()) > 0 && (await locator.first().isVisible().catch(() => false))) {
+      return locator.first()
+    }
+    await page.evaluate(async (id) => {
+      const { requestScrollToTrade } = await import('/src/lib/tradeScrollTargets.ts')
+      if (requestScrollToTrade(id)) return
+      for (const selector of ['.list-scroll', '.tv-scroll', '.bd-col-body']) {
+        document.querySelectorAll(selector).forEach((element) => {
+          element.scrollTop = element.scrollHeight
+        })
+      }
+    }, tradeId)
+    await page.waitForTimeout(40)
+  }
+  await expectVisible(locator)
+  return locator.first()
+}
+
 async function expectHidden(locator) {
   await locator.waitFor({ state: 'hidden', timeout: 5000 })
 }
@@ -443,8 +465,7 @@ try {
   ]) {
     await page.goto(`${BASE}${scenario.path}`, { waitUntil: 'domcontentloaded' })
     await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-    const anchor = page.locator(`[data-trade-id="${anchorTradeId}"]`)
-    await expectVisible(anchor)
+    const anchor = await ensureTradeRowVisible(page, anchorTradeId)
     await anchor.scrollIntoViewIfNeeded()
     if (scenario.open === 'button') await anchor.locator('.trade-row-open').click()
     else if (scenario.open === 'link') await anchor.locator('a').click()
@@ -452,6 +473,7 @@ try {
     await expectVisible(page.getByRole('link', { name: '返回列表' }).first())
     await page.getByRole('link', { name: '返回列表' }).first().click()
     await expectUrl(page, scenario.path, `${scenario.path} detail return must preserve its source route`)
+    await ensureTradeRowVisible(page, anchorTradeId)
     await expectTradeInScrollViewport(page, anchorTradeId, scenario.scroll)
   }
   await coreLink('仪表盘').click()
