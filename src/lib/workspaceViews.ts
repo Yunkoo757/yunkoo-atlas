@@ -49,6 +49,9 @@ export function matchesWorkspaceView(
   const current = new URLSearchParams(search)
   const required = new URLSearchParams(target.search ?? '')
   if (![...required.entries()].every(([key, value]) => current.get(key) === value)) return false
+  if (target.id === 'all') {
+    return ![...current.values()].some((value) => value.trim())
+  }
   // 「全部」等无 search 的基视图：有 status/session 等视图身份参数时不得误选中
   if (required.size === 0) {
     return !WORKSPACE_VIEW_QUERY_KEYS.some((key) => Boolean(current.get(key)?.trim()))
@@ -70,11 +73,12 @@ export function getActiveWorkspaceView(
     })[0]
 }
 
-/** 切换快捷视图时替换视图身份参数，保留 symbol 等临时筛选 */
+/** 「全部」清除所有筛选；其他快捷视图替换身份参数并保留临时筛选。 */
 export function searchForWorkspaceViewTarget(
   currentSearch: string | URLSearchParams,
-  target: Pick<WorkspaceViewTarget, 'search'>,
+  target: Pick<WorkspaceViewTarget, 'id' | 'search'>,
 ): string {
+  if (target.id === 'all') return ''
   const next = new URLSearchParams(
     typeof currentSearch === 'string' ? currentSearch : currentSearch.toString(),
   )

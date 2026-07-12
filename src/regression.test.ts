@@ -676,16 +676,18 @@ export function testWorkspaceViewsNeverCrossRecordDomains(): void {
     '自建盈利视图叠加临时条件时「全部」不得高亮',
   )
   assert(
-    getActiveWorkspaceView('trade', '/list', '?symbol=EURUSD')?.id === 'all',
-    '仅有临时筛选时应选中「全部」',
+    getActiveWorkspaceView('trade', '/list', '?symbol=EURUSD') === undefined,
+    '存在任何筛选时「全部」都不得高亮',
   )
   assert(
-    searchForWorkspaceViewTarget('?status=win&symbol=EURUSD', { search: undefined }) ===
-      '?symbol=EURUSD',
-    '从盈利切回全部应清掉 status 并保留临时筛选',
+    searchForWorkspaceViewTarget('?status=win&symbol=EURUSD', { id: 'all' }) === '',
+    '从保存视图切回全部应清除所有筛选',
   )
   assert(
-    searchForWorkspaceViewTarget('?status=win', { search: '?status=loss' }) === '?status=loss',
+    searchForWorkspaceViewTarget('?status=win&symbol=EURUSD', {
+      id: 'loss',
+      search: '?status=loss',
+    }) === '?symbol=EURUSD&status=loss',
     '盈利切到亏损应替换 status',
   )
   assert(
