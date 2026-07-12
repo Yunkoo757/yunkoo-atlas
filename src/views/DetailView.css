@@ -143,9 +143,17 @@
 .dv-comments {
   width: 100%;
   min-width: 0;
-  margin-top: 36px;
-  padding-top: 20px;
+  margin-top: 32px;
+  padding-top: 16px;
   border-top: 1px solid var(--border-subtle);
+}
+
+.dv-comments-title {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: 1.5;
 }
 .dv-feed.dv-comment-feed {
   margin-bottom: 16px;
@@ -273,55 +281,84 @@
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
+  margin-top: 8px;
 }
 .dv-comment-box {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-8);
-  background: var(--field-bg);
-  transition: border-color var(--dur-base) var(--ease-out);
+  min-height: 40px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom-color: var(--border-default);
+  border-radius: 0;
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    border-radius var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
   overflow: hidden;
 }
 .dv-comment-box:focus-within {
-  border-color: var(--border-strong);
+  background: var(--field-bg);
+  border-color: var(--field-border-focus);
+  border-radius: var(--radius-8);
+  box-shadow: var(--field-focus-shadow);
 }
 .dv-comment-input {
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: 36px;
+  min-height: 38px;
   max-height: 160px;
   background: none;
   border: none;
   outline: none;
   resize: none;
-  color: var(--text-primary);
+  color: var(--text-body);
   font-family: var(--font-ui);
-  font-size: var(--fs-base);
+  font-size: var(--type-body-size);
   line-height: 1.5;
-  padding: 9px 12px 4px;
+  padding: 9px 40px 8px 10px;
   overflow-y: auto;
 }
 .dv-comment-input:focus,
 .dv-comment-input:focus-visible {
   outline: none;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 .dv-comment-input::placeholder {
-  color: var(--text-quaternary);
+  color: var(--text-muted);
 }
 .dv-comment-bar {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  padding: 4px 6px 6px;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.dv-comment-box:focus-within .dv-comment-bar,
+.dv-comment-box.has-value .dv-comment-bar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 .dv-comment-send {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--accent-text);
@@ -329,8 +366,8 @@
     opacity var(--dur-fast) var(--ease-out);
 }
 .dv-comment-send:disabled {
-  background: var(--bg-selected);
-  color: var(--text-quaternary);
+  color: var(--text-faint);
+  background: transparent;
   cursor: default;
 }
 .dv-comment-send:not(:disabled):hover {

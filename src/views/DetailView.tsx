@@ -484,6 +484,9 @@ export function DetailView() {
             </div>
 
             <section className="dv-comments" aria-label="复盘评论">
+              <h2 className="dv-comments-title">
+                评论{commentItems.length > 0 ? ` · ${commentItems.length}` : ''}
+              </h2>
               {commentItems.length > 0 && (
                 <ul className="dv-feed dv-comment-feed">
                   {commentItems.map(({ event, node }) => (
@@ -503,7 +506,7 @@ export function DetailView() {
               )}
               <div className="dv-comment">
                 <UserAvatar className="dv-comment-avatar" />
-                <div className="dv-comment-box">
+                <div className={`dv-comment-box${comment.trim() ? ' has-value' : ''}`}>
                   <textarea
                     ref={commentRef}
                     className="dv-comment-input"
