@@ -11,12 +11,13 @@ import {
 } from '@/data/trades'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
-import { Trash2, RotateCcw, AlertTriangle, CheckSquare, Square } from '@/icons/appIcons'
+import { Trash2, RotateCcw, AlertTriangle, CheckSquare, Square, Search, X } from '@/icons/appIcons'
 import { toast } from '@/lib/toast'
 import { EmptyState } from '@/components/EmptyState'
 import { Toolbar } from '@/components/ui/Toolbar'
-import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
+import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './TrashView.css'
 
 type TrashGroup = { label: string; items: Trade[]; priority: number }
@@ -155,7 +156,8 @@ export function TradeTrashView() {
   return (
     <div className="trash-view">
       <Toolbar
-        title={`回收站 (${trashTrades.length})`}
+        title="回收站"
+        context={`${trashTrades.length} 笔交易 · 删除后保留 30 天`}
         actions={selected.size > 0 ? (
           <div className="tb-right">
             <button className="trash-batch-btn trash-batch-restore" onClick={handleBatchRestore}>
@@ -170,24 +172,29 @@ export function TradeTrashView() {
         ) : undefined}
       >
         <button className="trash-back-btn" onClick={handleBack}>
-          ← 交易列表
+          ← 返回交易日志
         </button>
       </Toolbar>
 
       {trashTrades.length > 0 && (
-        <div className="trash-search">
-          <input
-            type="text"
-            placeholder="搜索交易ID、标的、策略、状态..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="trash-search-input"
-          />
-          {searchQuery && (
-            <button className="trash-search-clear" onClick={() => setSearchQuery('')}>
-              ×
-            </button>
-          )}
+        <div className="trash-controls">
+          <label className="trash-search">
+            <Search size={15} />
+            <input
+              type="search"
+              aria-label="搜索回收站"
+              placeholder="搜索编号、品种、策略或状态"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="trash-search-input"
+            />
+            {searchQuery && (
+              <button type="button" className="trash-search-clear" aria-label="清除搜索" onClick={() => setSearchQuery('')}>
+                <X size={14} />
+              </button>
+            )}
+          </label>
+          <span className="trash-retention-note">到期后自动永久删除</span>
         </div>
       )}
 
@@ -199,7 +206,7 @@ export function TradeTrashView() {
           />
         ) : (
           <div className="trash-groups">
-            <div className="trash-select-all">
+            <div className="trash-selection-bar">
               <button className="trash-select-all-btn" onClick={handleSelectAll}>
                 {selected.size === filteredTrades.length ? (
                   <CheckSquare size={16} />
@@ -215,6 +222,20 @@ export function TradeTrashView() {
                   找到 {filteredTrades.length} 笔交易
                 </span>
               )}
+              {!searchQuery && (
+                <span className="trash-search-count">共 {filteredTrades.length} 笔</span>
+              )}
+            </div>
+
+            <div className="trash-table-head" aria-hidden="true">
+              <span />
+              <span />
+              <span>编号</span>
+              <span>交易</span>
+              <span>结果</span>
+              <span>删除时间</span>
+              <span>自动清除</span>
+              <span />
             </div>
 
             {groups.map((group) => (
@@ -224,7 +245,7 @@ export function TradeTrashView() {
                   <span className="trash-group-count">{group.items.length}</span>
                 </div>
 
-                <div className="trash-items">
+                <div className="trash-items" role="list">
                   {group.items.map((trade) => {
                     const days = getTradeRemainingDays(trade)
                     const isUrgent = days <= 7
@@ -232,9 +253,15 @@ export function TradeTrashView() {
                     const strategyName = getStrategyName(strategies, trade.strategyId)
 
                     return (
-                      <div key={trade.id} className={`trash-item ${isUrgent ? 'is-urgent' : ''} ${isSelected ? 'is-selected' : ''}`}>
+                      <div key={trade.id} role="listitem" className={`trash-item ${isUrgent ? 'is-urgent' : ''} ${isSelected ? 'is-selected' : ''}`}>
                         <div className="trash-item-checkbox">
-                          <button onClick={() => handleToggleSelect(trade.id)}>
+                          <button
+                            type="button"
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            aria-label={`${isSelected ? '取消选择' : '选择'} ${trade.ref}`}
+                            onClick={() => handleToggleSelect(trade.id)}
+                          >
                             {isSelected ? (
                               <CheckSquare size={16} />
                             ) : (
@@ -243,32 +270,27 @@ export function TradeTrashView() {
                           </button>
                         </div>
 
-                        <div className="trash-item-main">
-                          <div className="trash-item-id">{trade.ref}</div>
-                          <div className={`trash-item-days ${isUrgent ? 'is-urgent' : ''}`}>
-                            {isUrgent && <AlertTriangle size={12} />}
-                            <span>剩余 {days} 天</span>
-                          </div>
-                        </div>
+                        <span className="trash-item-status"><StatusIcon status={trade.status} /></span>
+                        <span className="trash-item-id">{trade.ref}</span>
 
-                        <div className="trash-item-body">
+                        <div className="trash-item-trade">
                           <div className="trash-item-meta">
-                            <span className="trash-item-symbol">{trade.symbol}</span>
-                            <SideTag side={trade.side} />
-                            <StatusIcon status={trade.status} />
-                            <ConvictionIcon conviction={trade.conviction} />
+                            <strong className="trash-item-symbol">{trade.symbol}</strong>
+                            <SideTag side={trade.side} quiet />
                             <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
                           </div>
+                          <span className="trash-item-kind">{TRADE_KIND_META[trade.tradeKind].label}</span>
+                        </div>
 
-                          <div className="trash-item-info">
-                            <span className="trash-item-pnl">{fmtMoney(trade.pnl)}</span>
-                            <span className="trash-item-r">{fmtR(trade.rMultiple)}</span>
-                            <span className="trash-item-kind">{TRADE_KIND_META[trade.tradeKind].label}</span>
-                          </div>
+                        <div className="trash-item-result">
+                          <span className="trash-item-pnl">{fmtMoney(trade.pnl)}</span>
+                          <span className="trash-item-r">{fmtR(trade.rMultiple)}</span>
+                        </div>
 
-                          <div className="trash-item-date">
-                            删除于 {fmtDate(trade.deletedAt!)}
-                          </div>
+                        <span className="trash-item-date">{fmtDate(trade.deletedAt!)}</span>
+                        <div className={`trash-item-days ${isUrgent ? 'is-urgent' : ''}`}>
+                          {isUrgent && <AlertTriangle size={12} />}
+                          <span>{days} 天后</span>
                         </div>
 
                         <div className="trash-item-actions">
@@ -279,13 +301,16 @@ export function TradeTrashView() {
                             <RotateCcw size={14} />
                             <span>恢复</span>
                           </button>
-                          <button
-                            className="trash-btn-purge"
-                            onClick={() => handlePurge(trade.id)}
-                          >
-                            <Trash2 size={14} />
-                            <span>彻底删除</span>
-                          </button>
+                          <Tooltip content="永久删除" label={`永久删除 ${trade.ref}`}>
+                            <button
+                              type="button"
+                              className="trash-btn-purge"
+                              aria-label={`永久删除 ${trade.ref}`}
+                              onClick={() => handlePurge(trade.id)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </Tooltip>
                         </div>
                       </div>
                     )
