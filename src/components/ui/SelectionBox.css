@@ -1,0 +1,28 @@
+.selection-box {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-4);
+  opacity: 0;
+  background: transparent;
+}
+
+.selection-box.is-always-on,
+.selection-box:focus-visible,
+.selection-box.is-selected {
+  opacity: 1;
+}
+
+.selection-box:hover {
+  color: var(--text-secondary);
+}
+
+.selection-box.is-selected {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}

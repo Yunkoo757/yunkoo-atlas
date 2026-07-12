@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>回收站 · 返回控件选型</title>
+  <style>
+    :root {
+      --page: #07080a;
+      --panel: #0c0d10;
+      --surface: #101116;
+      --hover: #17181f;
+      --border: #1a1b1f;
+      --border-soft: #22242b;
+      --text: #f2f2f5;
+      --text2: #c8c8d0;
+      --text3: #8b8b98;
+      --text4: #5c5c6a;
+      --accent: #5e6ad2;
+      --warn: #e2a336;
+      --pos: #4ade80;
+      --neg: #f87171;
+      --font: "Inter", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+      --header-h: 44px;
+      --radius: 6px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background:
+        radial-gradient(900px 420px at 12% -10%, rgba(94, 106, 210, 0.12), transparent 55%),
+        var(--page);
+      color: var(--text);
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 36px 28px 64px; }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+    .lede { margin: 0 0 28px; max-width: 58ch; color: var(--text3); font-size: 14px; line-height: 1.55; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-head h2 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text2);
+    }
+    .tag {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--text4);
+      letter-spacing: 0.02em;
+    }
+    .tag.rec {
+      color: #a8b0f0;
+      background: color-mix(in srgb, var(--accent) 16%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .tag.avoid {
+      color: #d4a0a0;
+    }
+    .preview {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .mock-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: var(--header-h);
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .mock-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .sep {
+      width: 1px;
+      height: 12px;
+      background: var(--border-soft);
+      flex-shrink: 0;
+    }
+    .ctx {
+      font-size: 12px;
+      color: var(--text4);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mock-rows { padding: 8px 0 14px; }
+    .mock-row {
+      display: grid;
+      grid-template-columns: 18px 16px 58px 1fr 72px 48px 56px;
+      gap: 10px;
+      align-items: center;
+      height: 34px;
+      padding: 0 14px;
+      font-size: 12px;
+      color: var(--text3);
+    }
+    .mock-row .mono { font-family: var(--mono); color: var(--text4); font-size: 11px; }
+    .mock-row .sym { color: var(--text); font-weight: 600; font-size: 12.5px; }
+    .mock-row .pos { color: var(--pos); text-align: right; font-variant-numeric: tabular-nums; }
+    .mock-row .neg { color: var(--neg); text-align: right; font-variant-numeric: tabular-nums; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: color-mix(in srgb, var(--pos) 70%, transparent);
+    }
+
+    /* A: AI 味现状 */
+    .a-back {
+      display: inline-flex;
+      align-items: center;
+      height: 32px;
+      padding: 0 8px;
+      border: 0;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text2);
+      font: inherit;
+      font-size: 13px;
+      cursor: default;
+    }
+    .a-back:hover { background: var(--hover); color: var(--text); }
+
+    /* B: 详情同源 — chevron + crumb */
+    .b-heading {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .icon-back {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: var(--radius);
+      color: var(--text2);
+      flex-shrink: 0;
+    }
+    .icon-back:hover { background: var(--hover); color: var(--text); }
+    .crumb { font-size: 13px; color: var(--text2); white-space: nowrap; }
+    .crumb-active { color: var(--text); }
+    .crumb-sep { color: var(--text4); display: grid; place-items: center; }
+
+    /* C: 仅图标贴标题 */
+    .c-heading {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* D: 无返回 */
+    .d-note {
+      font-size: 11px;
+      color: var(--text4);
+      margin-left: 4px;
+    }
+
+    /* E: 父级文字链（非「返回」） */
+    .e-parent {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      height: 24px;
+      padding: 0 4px 0 2px;
+      border-radius: var(--radius);
+      color: var(--text3);
+      font-size: 13px;
+      text-decoration: none;
+    }
+    .e-parent:hover {
+      background: var(--hover);
+      color: var(--text);
+    }
+    .e-parent svg { flex-shrink: 0; opacity: 0.8; }
+
+    .note {
+      padding: 12px 16px 16px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--text3);
+    }
+    .note strong { color: var(--text2); font-weight: 560; }
+    .pros { margin: 8px 0 0; padding: 0; list-style: none; }
+    .pros li {
+      position: relative;
+      padding-left: 12px;
+      margin-top: 4px;
+    }
+    .pros li::before {
+      content: "·";
+      position: absolute;
+      left: 2px;
+      color: var(--text4);
+    }
+
+    .footer {
+      margin-top: 28px;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--accent) 6%, var(--panel));
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text2);
+    }
+    .footer code {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: #b8c0f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>回收站顶栏 · 返回该怎么出现</h1>
+    <p class="lede">
+      问题不是「有没有返回」，而是现在这句「← 返回交易日志」像说明书：箭头字符 +「返回」动词 + 完整目的地名。
+      产品里已有两种成熟语汇——详情用 Chevron + 面包屑；设置页标题即可（侧栏管导航）。下面四版都放在同一顶栏语境里对照。
+    </p>
+
+    <div class="grid">
+      <!-- A -->
+      <article class="card">
+        <div class="card-head">
+          <h2>A · 现状（文字按钮）</h2>
+          <span class="tag avoid">不推荐</span>
+        </div>
+        <div class="preview">
+          <div class="mock-toolbar">
+            <div class="mock-left">
+              <span class="title">回收站</span>
+              <span class="sep"></span>
+              <span class="ctx">3 笔 · 保留 30 天</span>
+              <button type="button" class="a-back">← 返回交易日志</button>
+            </div>
+          </div>
+          <div class="mock-rows">
+            <div class="mock-row"><span></span><span class="dot"></span><span class="mono">T-1042</span><span class="sym">NQ</span><span class="pos">+$820</span><span>+1.6R</span><span>7 天</span></div>
+          </div>
+        </div>
+        <div class="note">
+          <strong>形态：</strong>幽灵文字按钮，塞在 Toolbar children。
+          <ul class="pros">
+            <li>冗长：用户已知在回收站，不必再念「返回××」</li>
+            <li>「←」是字符不是图标，和详情 Chevron 不一致</li>
+            <li>胶囊/描边按钮会更吵，这里已经偏说明书了</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- B -->
+      <article class="card">
+        <div class="card-head">
+          <h2>B · 详情同源（Chevron + 面包屑）</h2>
+          <span class="tag rec">推荐</span>
+        </div>
+        <div class="preview">
+          <div class="mock-toolbar" style="padding-left: 8px;">
+            <div class="b-heading">
+              <span class="icon-back" title="返回交易日志" aria-label="返回交易日志">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="crumb">交易日志</span>
+              <span class="crumb-sep" aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="crumb crumb-active">回收站</span>
+              <span class="sep"></span>
+              <span class="ctx">3 笔 · 保留 30 天</span>
+            </div>
+          </div>
+          <div class="mock-rows">
+            <div class="mock-row"><span></span><span class="dot"></span><span class="mono">T-1042</span><span class="sym">NQ</span><span class="pos">+$820</span><span>+1.6R</span><span>7 天</span></div>
+          </div>
+        </div>
+        <div class="note">
+          <strong>形态：</strong>24×24 图标热区 + 只读面包屑（与详情 <code>dv-back</code> 同构）。
+          <ul class="pros">
+            <li>零新语汇：学过详情就会用</li>
+            <li>不说「返回」，位置关系靠层级表达</li>
+            <li>可点的是图标；「交易日志」也可做成可点父级（可选增强）</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- C -->
+      <article class="card">
+        <div class="card-head">
+          <h2>C · 仅图标</h2>
+          <span class="tag">备选</span>
+        </div>
+        <div class="preview">
+          <div class="mock-toolbar" style="padding-left: 8px;">
+            <div class="c-heading">
+              <span class="icon-back" title="返回交易日志" aria-label="返回交易日志">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3.5L5.5 8 10 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="title">回收站</span>
+              <span class="sep"></span>
+              <span class="ctx">3 笔 · 保留 30 天</span>
+            </div>
+          </div>
+          <div class="mock-rows">
+            <div class="mock-row"><span></span><span class="dot"></span><span class="mono">T-1042</span><span class="sym">NQ</span><span class="pos">+$820</span><span>+1.6R</span><span>7 天</span></div>
+          </div>
+        </div>
+        <div class="note">
+          <strong>形态：</strong>Chevron 贴标题左侧，无面包屑文案。
+          <ul class="pros">
+            <li>最省横向空间，适合窄屏</li>
+            <li>目的地只靠 tooltip / aria，可见性略弱于 B</li>
+            <li>仍比 A 干净；若回收站从多入口进入，不如面包屑清晰</li>
+          </ul>
+        </div>
+      </article>
+
+      <!-- D -->
+      <article class="card">
+        <div class="card-head">
+          <h2>D · 不设返回</h2>
+          <span class="tag">克制</span>
+        </div>
+        <div class="preview">
+          <div class="mock-toolbar">
+            <div class="mock-left">
+              <span class="title">回收站</span>
+              <span class="sep"></span>
+              <span class="ctx">3 笔 · 保留 30 天</span>
+              <span class="d-note">（侧栏点「交易日志」）</span>
+            </div>
+          </div>
+          <div class="mock-rows">
+            <div class="mock-row"><span></span><span class="dot"></span><span class="mono">T-1042</span><span class="sym">NQ</span><span class="pos">+$820</span><span>+1.6R</span><span>7 天</span></div>
+          </div>
+        </div>
+        <div class="note">
+          <strong>形态：</strong>纯 Toolbar 标题，与设置页一致。
+          <ul class="pros">
+            <li>零 AI 味、零多余控件</li>
+            <li>依赖侧栏；从详情「删除后进回收站」等深链时，少一条就近出口</li>
+            <li>适合「回收站是一级侧栏页」的心智——你们已经是</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+
+    <div class="footer">
+      <strong>建议选 B。</strong>
+      不要胶囊、不要描边「返回」按钮——那会把导航做成动作 CTA。
+      回收站与详情同属「从列表派生的子语境」，用 Chevron +「交易日志 / 回收站」最贴现有 <code>DetailView</code>。
+      若你觉得侧栏已经够用、顶栏再挤层级多余，再退到 <strong>D</strong>；窄屏空间紧时用 <strong>C</strong>。
+      回我 <code>B</code> / <code>C</code> / <code>D</code> 即可落地（不改业务逻辑，只改顶栏）。
+    </div>
+  </div>
+</body>
+</html>

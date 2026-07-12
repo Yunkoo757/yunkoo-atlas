@@ -21,6 +21,7 @@ import {
 import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { SelectionBox } from '@/components/ui/SelectionBox'
 import './NotionImportModal.css'
 
 interface Props {
@@ -356,10 +357,11 @@ export function NotionImportModal({ open, onClose }: Props) {
             )}
             {dupScanState === 'done' && duplicateCount > 0 && (
               <label className="nim-dup-toggle">
-                <input
-                  type="checkbox"
+                <SelectionBox
                   checked={skipDuplicates}
-                  onChange={(event) => setSkipDuplicates(event.target.checked)}
+                  alwaysVisible
+                  label="跳过明显重复"
+                  onToggle={() => setSkipDuplicates((value) => !value)}
                 />
                 <span>跳过明显重复（正文/截图相同），默认开启</span>
               </label>

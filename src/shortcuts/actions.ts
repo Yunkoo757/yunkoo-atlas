@@ -167,6 +167,20 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     scope: 'navigation',
     defaultBinding: { key: 'enter' },
   },
+  {
+    id: 'list.selectAll',
+    label: '全选',
+    category: '列表',
+    scope: 'navigation',
+    defaultBinding: { key: 'a', mod: true },
+  },
+  {
+    id: 'list.clearSelection',
+    label: '清空选择',
+    category: '列表',
+    scope: 'navigation',
+    defaultBinding: { key: 'escape' },
+  },
 
   {
     id: 'image.prev',

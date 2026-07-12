@@ -1,0 +1,113 @@
+/* 全局按钮语汇：ghost | bordered | primary | danger
+ * primary 仅用于弹窗确认 / 极少数主路径 CTA
+ * 兼容旧类名 dio-btn / symbols-btn / empty-btn / st-* */
+
+.ui-btn,
+.dio-btn,
+.symbols-btn,
+.st-io,
+.st-add,
+.st-del-btn,
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control-height);
+  padding: 0 10px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.ui-btn:disabled,
+.dio-btn:disabled,
+.symbols-btn:disabled {
+  color: var(--text-quaternary);
+  cursor: not-allowed;
+  opacity: 0.64;
+}
+
+.ui-btn-ghost,
+.st-del-btn {
+  background: transparent;
+  border: 1px solid transparent;
+}
+.ui-btn-ghost:hover:not(:disabled),
+.st-del-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ui-btn-bordered,
+.dio-btn,
+.symbols-btn,
+.st-io {
+  background: transparent;
+  border: 1px solid var(--border-default);
+}
+.ui-btn-bordered:hover:not(:disabled),
+.dio-btn:hover:not(:disabled),
+.symbols-btn:hover:not(:disabled),
+.st-io:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ui-btn-primary,
+.dio-btn-primary,
+.symbols-btn-primary,
+.st-add,
+.empty-btn {
+  background: var(--accent);
+  border: 1px solid transparent;
+  color: var(--accent-text);
+}
+.ui-btn-primary:hover:not(:disabled),
+.dio-btn-primary:hover:not(:disabled),
+.symbols-btn-primary:hover:not(:disabled),
+.st-add:hover:not(:disabled),
+.empty-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: var(--accent-text);
+}
+
+.ui-btn-danger,
+.dio-btn-warn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--neg);
+}
+.ui-btn-danger:hover:not(:disabled),
+.dio-btn-warn:hover:not(:disabled) {
+  background: var(--error-action-bg);
+  color: var(--neg);
+}
+
+.ui-btn-danger-solid,
+.st-del-danger {
+  background: var(--neg);
+  border: 1px solid transparent;
+  color: var(--accent-text);
+}
+.ui-btn-danger-solid:hover:not(:disabled),
+.st-del-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--neg) 88%, white 12%);
+}
+
+@media (max-width: 640px) {
+  .ui-btn,
+  .dio-btn,
+  .symbols-btn,
+  .st-io,
+  .st-add,
+  .st-del-btn,
+  .empty-btn {
+    min-height: 44px;
+  }
+}

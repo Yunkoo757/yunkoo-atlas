@@ -272,11 +272,11 @@
 }
 
 .nim-dup {
-  color: var(--warn, #e5b567);
+  color: var(--warn);
 }
 
 .nim-dup-count {
-  color: var(--warn, #e5b567);
+  color: var(--warn);
 }
 
 .nim-dup-scan,
@@ -293,7 +293,7 @@
 }
 
 .nim-dup-msg {
-  color: var(--warn, #e5b567);
+  color: var(--warn);
 }
 
 .nim-dup-force {

@@ -1,0 +1,89 @@
+.crumbs-nav {
+  display: flex;
+  flex: 0 0 var(--header-h);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  height: var(--header-h);
+  padding: 0 12px 0 8px;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.crumbs-nav-left,
+.crumbs-nav-right,
+.crumbs-nav-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.crumbs-nav-left {
+  flex: 1;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.crumbs-nav-right {
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.crumbs-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-6);
+  color: var(--text-secondary);
+  transition: background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.crumbs-back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.crumbs-label {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.crumbs-label.is-active {
+  color: var(--text-primary);
+}
+
+.crumbs-sep {
+  flex-shrink: 0;
+  color: var(--text-quaternary);
+}
+
+.crumbs-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 12px;
+  margin: 0 4px;
+  background: var(--border-default);
+}
+
+.crumbs-context {
+  overflow: hidden;
+  color: var(--text-quaternary);
+  font-size: var(--fs-mini);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .crumbs-context {
+    display: none;
+  }
+}

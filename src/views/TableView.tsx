@@ -1,17 +1,22 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowUp, Plus } from '@/icons/appIcons'
+import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from '@/icons/appIcons'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { TradeFilters } from '@/components/trades/TradeFilters'
+import { BatchActionBar } from '@/components/ui/BatchActionBar'
+import { SelectionBox } from '@/components/ui/SelectionBox'
 import { useStore } from '@/store/useStore'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildTradeTableRow } from '@/lib/tradeTable'
+import { intersectSelectedTradeIds } from '@/lib/tradeView'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
+import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { toast } from '@/lib/toast'
 import type { Trade } from '@/data/trades'
 import { SymbolLabel } from '@/components/SymbolIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -47,8 +52,11 @@ export function TableView({
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const openComposer = useStore((s) => s.openComposer)
+  const removeTrade = useStore((s) => s.removeTrade)
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [focusIndex, setFocusIndex] = useState(-1)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -72,6 +80,27 @@ export function TableView({
     () => sortTradesForTable(baseVisible, sortKey, sortDir),
     [baseVisible, sortKey, sortDir],
   )
+  const visibleIdsKey = visible.map((trade) => trade.id).join('\u0000')
+
+  useWorkbenchListKeyboard({
+    items: visible,
+    selectedIds,
+    setSelectedIds,
+    focusIndex,
+    setFocusIndex,
+    onOpenFocused: (index) => openTrade(visible[index]),
+    enableNav: true,
+  })
+
+  useEffect(() => setFocusIndex(-1), [visible.length])
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const next = intersectSelectedTradeIds(current, visible)
+      if (next.size === current.size && [...next].every((id) => current.has(id))) return current
+      return next
+    })
+  }, [visibleIdsKey])
 
   const setSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -80,6 +109,42 @@ export function TableView({
     }
     setSortKey(key)
     setSortDir(key === 'symbol' ? 'asc' : 'desc')
+  }
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allSelected = visible.length > 0 && selectedIds.size === visible.length
+
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedIds(new Set())
+    else setSelectedIds(new Set(visible.map((trade) => trade.id)))
+  }
+
+  const batchDelete = () => {
+    const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
+    if (actionableIds.size === 0) return
+    actionableIds.forEach((id) => removeTrade(id))
+    setSelectedIds(new Set())
+    toast(`已移至回收站 ${actionableIds.size} 笔`)
+  }
+
+  const batchCopy = async () => {
+    const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
+    const refs = visible.filter((trade) => actionableIds.has(trade.id)).map((trade) => trade.ref)
+    if (refs.length === 0) return
+    try {
+      await navigator.clipboard.writeText(refs.join('\n'))
+      toast(`已复制 ${refs.length} 个编号`)
+    } catch {
+      toast('复制失败')
+    }
   }
 
   const subtitle = getTradesPageSubtitle(filter)
@@ -95,7 +160,7 @@ export function TableView({
         {visible.length === 0 ? (
           <EmptyState
             title={isReviewCaseView ? '还没有案例记录' : '还没有交易'}
-            hint={isReviewCaseView ? '表格适合批量对比错题、重点案例和复盘状态。' : '表格视图会把关键字段横向展开，适合快速对比和复盘。'}
+            hint={isReviewCaseView ? '用表格对比错题与复盘状态。' : '表格横向展开关键字段，便于对比。'}
             action={
               <button className="empty-btn" onClick={() => openComposer()}>
                 <Plus size={15} />
@@ -107,6 +172,14 @@ export function TableView({
           <table className={'trade-table' + (isReviewCaseView ? ' trade-table-case' : '')}>
             <thead>
               <tr>
+                <th className="tv-sticky tv-col-check">
+                  <SelectionBox
+                    checked={allSelected}
+                    alwaysVisible
+                    label={allSelected ? '取消全选' : '全选'}
+                    onToggle={toggleSelectAll}
+                  />
+                </th>
                 <th className="tv-sticky tv-col-ref">交易</th>
                 <SortTh label="日期" sortKey="date" active={sortKey} dir={sortDir} onSort={setSort} />
                 <SortTh label="品种" sortKey="symbol" active={sortKey} dir={sortDir} onSort={setSort} />
@@ -123,10 +196,27 @@ export function TableView({
               </tr>
             </thead>
             <tbody>
-              {visible.map((trade) => {
+              {visible.map((trade, index) => {
                 const row = buildTradeTableRow(trade, strategies)
+                const selected = selectedIds.has(trade.id)
+                const focused = index === focusIndex
                 return (
-                  <tr key={trade.id} data-trade-id={trade.id} onDoubleClick={() => openTrade(trade)}>
+                  <tr
+                    key={trade.id}
+                    data-trade-id={trade.id}
+                    className={
+                      (selected ? 'is-selected' : '') + (focused ? ' is-focused' : '')
+                    }
+                    onDoubleClick={() => openTrade(trade)}
+                  >
+                    <td className="tv-sticky tv-col-check">
+                      <SelectionBox
+                        checked={selected}
+                        label={`${selected ? '取消选择' : '选择'} ${trade.ref}`}
+                        onToggle={() => toggleSelection(trade.id)}
+                        className="tv-row-check"
+                      />
+                    </td>
                     <td className="tv-sticky tv-col-ref">
                       <Link
                         to={tradeDetailPath(trade)}
@@ -178,6 +268,16 @@ export function TableView({
           </table>
         )}
       </div>
+      <BatchActionBar count={selectedIds.size}>
+        <button type="button" className="batch-action-btn" onClick={batchCopy}>
+          <Copy size={14} />
+          <span>复制</span>
+        </button>
+        <button type="button" className="batch-action-btn batch-action-btn-danger" onClick={batchDelete}>
+          <Trash2 size={14} />
+          <span>删除</span>
+        </button>
+      </BatchActionBar>
     </>
   )
 }

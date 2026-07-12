@@ -285,7 +285,7 @@
 
 .sb-editor-actions button.is-primary {
   background: var(--accent);
-  color: white;
+  color: var(--accent-text);
 }
 
 .sb-target-picker-heading {

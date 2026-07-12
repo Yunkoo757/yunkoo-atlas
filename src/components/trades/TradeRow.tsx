@@ -1,9 +1,10 @@
-import { Bell, Check, Star } from '@/icons/appIcons'
+import { Bell, Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import { REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
+import { SelectionBox } from '@/components/ui/SelectionBox'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -64,17 +65,12 @@ export function TradeRow({
         aria-label={`打开 ${trade.symbol} ${trade.ref}`}
         onClick={() => onOpen(trade)}
       />
-      <button
-        type="button"
-        className={'trade-row-check' + (selected ? ' is-selected' : '')}
-        aria-label={selected ? '取消选择' : '选择交易'}
-        onClick={(event) => {
-          event.stopPropagation()
-          onSelect(trade)
-        }}
-      >
-        {selected && <Check size={11} />}
-      </button>
+      <SelectionBox
+        checked={selected}
+        label={selected ? '取消选择' : '选择交易'}
+        onToggle={() => onSelect(trade)}
+        className="trade-row-check"
+      />
       <span className="trade-row-status"><StatusIcon status={trade.status} /></span>
       <span className="trade-row-ref">{trade.ref}</span>
       <span className="trade-row-symbol trade-row-primary">

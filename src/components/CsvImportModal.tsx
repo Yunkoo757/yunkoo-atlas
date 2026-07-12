@@ -21,6 +21,7 @@ import {
 import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
 import { Select } from '@/components/ui/Select'
+import { SelectionBox } from '@/components/ui/SelectionBox'
 import './CsvImportModal.css'
 
 interface Props {
@@ -328,10 +329,11 @@ export function CsvImportModal({ open, onClose }: Props) {
             </p>
             {duplicateCount > 0 && (
               <label className="csv-dup-toggle">
-                <input
-                  type="checkbox"
+                <SelectionBox
                   checked={skipDuplicates}
-                  onChange={(event) => setSkipDuplicates(event.target.checked)}
+                  alwaysVisible
+                  label="跳过明显重复正文"
+                  onToggle={() => setSkipDuplicates((value) => !value)}
                 />
                 <span>跳过明显重复正文，默认开启</span>
               </label>

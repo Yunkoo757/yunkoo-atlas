@@ -9,7 +9,7 @@
 .trade-list-group-header {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -18,9 +18,12 @@
   color: var(--text-secondary);
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
-  background: lch(6.8% 0.7 272 / 0.98);
+  /* 实底遮罩：半透明 sticky 会导致下方行透出叠字 */
+  background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 0 var(--bg-surface);
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .trade-list-group-count {
@@ -113,8 +116,8 @@
   opacity: 0;
 }
 
-.trade-row-check {
-  border: 1px solid var(--border-default);
+.trade-row-star {
+  /* star 单独保留；check 由 SelectionBox 提供边框 */
 }
 
 .trade-row:hover .trade-row-check,
@@ -122,14 +125,13 @@
 .trade-row-check:focus-visible,
 .trade-row-star:focus-visible,
 .trade-row-check.is-selected,
+.trade-row .selection-box.is-selected,
 .trade-row-star.is-starred {
   opacity: 1;
 }
 
-.trade-row-check.is-selected {
-  color: var(--accent-text);
-  background: var(--accent);
-  border-color: var(--accent);
+.trade-row:hover .selection-box {
+  opacity: 1;
 }
 
 .trade-row-status,

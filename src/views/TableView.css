@@ -43,11 +43,37 @@
   background: var(--bg-hover);
 }
 
+.trade-table tbody tr.is-selected,
+.trade-table tbody tr.is-focused {
+  background: lch(10.7% 0.5 272);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.trade-table tbody tr:hover .selection-box,
+.trade-table tbody tr.is-selected .selection-box {
+  opacity: 1;
+}
+
+.tv-col-check {
+  width: 36px;
+  min-width: 36px;
+  padding-left: 12px;
+  padding-right: 4px;
+}
+
 .tv-sticky {
   position: sticky;
   left: 0;
   z-index: 2;
   background: var(--bg-surface);
+}
+
+.tv-col-check.tv-sticky {
+  left: 0;
+}
+
+.tv-col-ref.tv-sticky {
+  left: 36px;
 }
 
 .trade-table th.tv-sticky {
@@ -120,33 +146,33 @@
 }
 
 .tv-side-long {
-  color: #a7f3d0;
+  color: var(--pos);
   background: color-mix(in srgb, var(--pos) 32%, transparent);
 }
 
 .tv-side-short {
-  color: #fecaca;
+  color: var(--neg);
   background: color-mix(in srgb, var(--neg) 32%, transparent);
 }
 
 .tv-status-win {
-  color: #bbf7d0;
+  color: var(--pos);
   background: color-mix(in srgb, var(--pos) 28%, transparent);
 }
 
 .tv-status-loss {
-  color: #fecaca;
+  color: var(--neg);
   background: color-mix(in srgb, var(--neg) 28%, transparent);
 }
 
 .tv-status-missed {
-  color: #bfdbfe;
-  background: rgba(59, 130, 246, 0.28);
+  color: var(--status-missed);
+  background: color-mix(in srgb, var(--status-missed) 28%, transparent);
 }
 
 .tv-status-open {
-  color: #e9d5ff;
-  background: rgba(168, 85, 247, 0.24);
+  color: var(--status-open);
+  background: color-mix(in srgb, var(--status-open) 28%, transparent);
 }
 
 .tv-status-breakeven,

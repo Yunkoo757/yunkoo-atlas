@@ -280,11 +280,11 @@
 }
 
 .csv-dup {
-  color: var(--warn, #e5b567);
+  color: var(--warn);
 }
 
 .csv-dup-count {
-  color: var(--warn, #e5b567);
+  color: var(--warn);
 }
 
 .csv-dup-toggle {
@@ -297,7 +297,7 @@
 }
 
 .csv-dup-msg {
-  color: var(--warn, #e5b567);
+  color: var(--warn);
 }
 
 .csv-dup-force {

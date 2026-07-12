@@ -141,8 +141,6 @@ export const ChevronUp = LinearChevronUpIcon
 
 /* —— 剩余缺口：保留 Lucide —— */
 export {
-  CheckSquare,
-  Square,
   ArrowDown,
   ArrowUp,
   ArrowRight,
@@ -161,5 +159,5 @@ export {
   Code,
   Heading2,
   ListChecks,
-  // gap: keep lucide
+  // gap: keep lucide — selection 请用 SelectionBox，勿再导出 CheckSquare/Square
 } from 'lucide-react'

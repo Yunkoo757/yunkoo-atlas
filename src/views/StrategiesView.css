@@ -21,20 +21,7 @@
 }
 
 .st-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
   flex-shrink: 0;
-}
-.st-add:hover {
-  background: var(--accent-hover);
 }
 
 .st-list {
@@ -186,46 +173,10 @@
   margin-top: 16px;
 }
 
-.st-del-btn {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
-}
-.st-del-btn:hover {
-  background: var(--bg-hover);
-}
-.st-del-danger {
-  background: var(--neg);
-  color: var(--accent-text);
-}
-.st-del-danger:hover {
-  filter: brightness(1.08);
-}
-
 .st-foot {
   margin-top: 32px;
   padding-top: 20px;
   border-top: 1px solid var(--border-subtle);
-}
-
-.st-io {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.st-io:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {

@@ -12,6 +12,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { Topbar } from '@/components/Topbar'
+import { EmptyState } from '@/components/EmptyState'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
@@ -214,20 +215,22 @@ export function Dashboard() {
         </div>
 
         {!hasClosedTrades ? (
-          <section className="db-empty" aria-labelledby="dashboard-empty-title">
-            <h2 id="dashboard-empty-title">还没有已平仓交易</h2>
-            <p>完成交易并填写结果后，这里会自动生成盈亏曲线、策略表现和 R 倍数分布。</p>
-            {trades.length > 0 ? (
-              <button type="button" className="db-empty-action" onClick={() => navigate('/active')}>
-                查看进行中交易
-              </button>
-            ) : (
-              <button type="button" className="db-empty-action" onClick={() => openComposer()}>
-                <Plus size={15} />
-                新建交易
-              </button>
-            )}
-          </section>
+          <EmptyState
+            title="还没有已平仓交易"
+            hint="平仓并填写结果后，这里会生成盈亏曲线与策略表现。"
+            action={
+              trades.length > 0 ? (
+                <button type="button" className="empty-btn" onClick={() => navigate('/active')}>
+                  查看进行中交易
+                </button>
+              ) : (
+                <button type="button" className="empty-btn" onClick={() => openComposer()}>
+                  <Plus size={15} />
+                  新建交易
+                </button>
+              )
+            }
+          />
         ) : (
           <>
         <section className="db-panel">

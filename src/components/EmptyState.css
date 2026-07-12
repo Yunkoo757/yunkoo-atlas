@@ -34,26 +34,9 @@
 .empty-action {
   margin-top: 12px;
 }
-.empty-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--radius-8);
-  background: var(--accent);
-  color: var(--accent-text);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.empty-btn:hover {
-  background: var(--accent-hover);
-}
 
 @media (max-width: 640px) {
-  .empty-btn {
-    height: 44px;
-    padding: 0 16px;
+  .empty {
+    padding: 24px 16px;
   }
 }
