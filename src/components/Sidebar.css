@@ -78,13 +78,13 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-6);
-  color: color-mix(in srgb, var(--text-quaternary) 88%, transparent);
+  color: var(--text-tertiary);
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
 .sb-hbtn:hover {
   background: var(--bg-hover);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .sb-section {
@@ -106,7 +106,7 @@
   font-size: 10px;
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.02em;
-  color: color-mix(in srgb, var(--text-quaternary) 82%, transparent);
+  color: var(--text-quaternary);
 }
 
 .sb-item {
@@ -120,7 +120,7 @@
   border-radius: var(--radius-6);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
-  color: color-mix(in srgb, var(--text-tertiary) 92%, var(--text-quaternary));
+  color: var(--text-secondary);
   text-align: left;
 }
 
@@ -129,7 +129,7 @@ html[data-ui-settled='1'] .sb-item {
     color var(--dur-fast) var(--ease-out);
 }
 .sb-item svg {
-  color: color-mix(in srgb, var(--text-quaternary) 92%, transparent);
+  color: var(--text-tertiary);
   flex-shrink: 0;
 }
 .sb-item-label {
@@ -188,7 +188,7 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item-count {
   margin-left: auto;
   min-width: 2ch;
-  color: color-mix(in srgb, var(--text-quaternary) 88%, transparent);
+  color: var(--text-quaternary);
   font-size: var(--fs-micro);
   font-variant-numeric: tabular-nums;
   text-align: right;
