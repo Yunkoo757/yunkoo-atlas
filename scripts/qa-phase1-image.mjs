@@ -18,7 +18,7 @@ async function selectValue(trigger, value) {
 async function createTrade(symbol) {
   await page.goto(`${BASE}/list`, { waitUntil: 'networkidle' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-  await page.locator('body').press('c')
+  await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), symbol)
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\//)
@@ -39,17 +39,22 @@ async function pasteAndReadImage() {
   await page.keyboard.press('Control+v')
   await page.waitForTimeout(1200)
   const imgBefore = await page.locator('.editor img').count()
+  const assetIdBefore = await page.locator('.editor img').first().getAttribute('data-asset-id')
+  const srcBefore = await page.locator('.editor img').first().getAttribute('src')
   await page.reload({ waitUntil: 'networkidle' })
   await editor.waitFor()
   const imgAfter = await page.locator('.editor img').count()
+  const assetIdAfter = await page.locator('.editor img').first().getAttribute('data-asset-id')
+  const srcAfter = await page.locator('.editor img').first().getAttribute('src')
   return {
     href: page.url(),
     imgBefore,
     imgAfter,
-    tradeId: await page.locator('.trade-media').getAttribute('data-trade-id'),
-    assetId: await page.locator('.editor img').first().getAttribute('data-asset-id'),
-    editorSrc: await page.locator('.editor img').first().getAttribute('src'),
-    mediaSrc: await page.locator('.trade-media-stage img').first().getAttribute('src'),
+    tradeId: new URL(page.url()).pathname.split('/').pop(),
+    assetId: assetIdAfter,
+    editorSrc: srcAfter,
+    stableAfterReload:
+      assetIdBefore === assetIdAfter && Boolean(srcBefore) && Boolean(srcAfter),
   }
 }
 
@@ -69,36 +74,30 @@ async function pasteGeneratedImage(width, height) {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
   }, { width, height })
   await page.keyboard.press('Control+v')
-  await page.locator('.trade-media-thumbs button').nth(1).waitFor()
+  await page.locator('.editor img').nth(1).waitFor()
   await page.waitForTimeout(1200)
 }
 
 await createTrade('BTCUSDT')
 const firstTrade = await pasteAndReadImage()
 await pasteGeneratedImage(1600, 400)
+const firstTradeSecondAsset = await page.locator('.editor img').nth(1).getAttribute('data-asset-id')
+await page.locator('.editor img').nth(1).dblclick()
+const lightbox = page.getByRole('dialog', { name: '图片预览' })
+await lightbox.waitFor({ state: 'visible' })
+const lightboxCounter = await page.locator('.img-lightbox-counter').innerText()
+await page.keyboard.press('Escape')
+await lightbox.waitFor({ state: 'hidden' })
+const lightboxWorks = lightboxCounter.trim() === '2 / 2'
 await createTrade('ETHUSDT')
 const secondTrade = await pasteAndReadImage()
 await page.goto(firstTrade.href, { waitUntil: 'networkidle' })
 await page.locator('.editor .ProseMirror').waitFor()
-const mediaStage = page.locator('.trade-media-stage')
-const firstStageBox = await mediaStage.boundingBox()
-await page.locator('.trade-media-thumbs button').nth(1).click()
-await mediaStage.locator('img').waitFor()
-const secondStageBox = await mediaStage.boundingBox()
-await page.reload({ waitUntil: 'networkidle' })
-await page.locator('.editor .ProseMirror').waitFor()
-const reloadedStageBox = await page.locator('.trade-media-stage').boundingBox()
-const stableMediaGeometry =
-  Boolean(firstStageBox) &&
-  Boolean(secondStageBox) &&
-  Boolean(reloadedStageBox) &&
-  Math.abs(firstStageBox.height - secondStageBox.height) < 1 &&
-  Math.abs(firstStageBox.height - reloadedStageBox.height) < 1
 const reopenedFirst = {
-  tradeId: await page.locator('.trade-media').getAttribute('data-trade-id'),
+  tradeId: new URL(page.url()).pathname.split('/').pop(),
   assetId: await page.locator('.editor img').first().getAttribute('data-asset-id'),
   editorSrc: await page.locator('.editor img').first().getAttribute('src'),
-  mediaSrc: await page.locator('.trade-media-stage img').first().getAttribute('src'),
+  imageCount: await page.locator('.editor img').count(),
 }
 const twoTradeOwnership =
   Boolean(firstTrade.tradeId) &&
@@ -107,12 +106,15 @@ const twoTradeOwnership =
   Boolean(firstTrade.assetId) &&
   Boolean(secondTrade.assetId) &&
   firstTrade.assetId !== secondTrade.assetId &&
-  secondTrade.mediaSrc === secondTrade.editorSrc &&
+  Boolean(firstTradeSecondAsset) &&
+  firstTradeSecondAsset !== firstTrade.assetId &&
+  firstTradeSecondAsset !== secondTrade.assetId &&
   reopenedFirst.tradeId === firstTrade.tradeId &&
   reopenedFirst.assetId === firstTrade.assetId &&
-  reopenedFirst.mediaSrc === reopenedFirst.editorSrc &&
-  reopenedFirst.assetId !== secondTrade.assetId &&
-  reopenedFirst.mediaSrc !== secondTrade.mediaSrc
+  reopenedFirst.imageCount === 2 &&
+  firstTrade.stableAfterReload &&
+  secondTrade.stableAfterReload &&
+  reopenedFirst.assetId !== secondTrade.assetId
 
 console.log(firstTrade.imgBefore > 0 ? '✓ 粘贴后编辑器出现图片' : '✗ 粘贴后无图片', `(count=${firstTrade.imgBefore})`)
 console.log(firstTrade.imgAfter > 0 ? '✓ 刷新后图片仍在' : '✗ 刷新后图片丢失', `(count=${firstTrade.imgAfter})`)
@@ -121,8 +123,8 @@ console.log(
   `(first=${firstTrade.tradeId ?? 'none'}, second=${secondTrade.tradeId ?? 'none'})`,
 )
 console.log(
-  stableMediaGeometry ? '✓ 不同尺寸截图切换及刷新后主画布高度稳定' : '✗ 主画布随截图尺寸发生位移',
-  `(first=${firstStageBox?.height ?? 'none'}, second=${secondStageBox?.height ?? 'none'}, reload=${reloadedStageBox?.height ?? 'none'})`,
+  lightboxWorks ? '✓ 双击内联截图可打开对应图片预览' : '✗ 图片预览未打开正确索引',
+  `(counter=${lightboxCounter})`,
 )
 
 const assetTests = await page.evaluate(async () => {
@@ -151,7 +153,7 @@ process.exit(
   firstTrade.imgBefore > 0 &&
     firstTrade.imgAfter > 0 &&
     twoTradeOwnership &&
-    stableMediaGeometry &&
+    lightboxWorks &&
     assetTests.every((result) => result.pass)
     ? 0
     : 1,

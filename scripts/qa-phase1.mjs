@@ -50,7 +50,7 @@ try {
   // 2. 干净浏览器没有种子数据，先通过真实 UI 创建测试交易
   let tradeCount = await page.locator('.trade-row').count()
   if (tradeCount === 0) {
-    await page.locator('body').press('c')
+    await page.locator('body').press('n')
     await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'BTCUSDT')
     await page.locator('.composer-btn-primary').click()
     await page.waitForURL(/\/trade\//, { timeout: 10000 })

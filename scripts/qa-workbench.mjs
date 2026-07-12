@@ -12,12 +12,16 @@ const runtimeErrors = []
 
 mkdirSync(BASELINE_OUT, { recursive: true })
 
-page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`))
-page.on('console', (message) => {
-  if (message.type() === 'error') {
-    runtimeErrors.push(`console: ${message.text()}`)
-  }
-})
+function trackRuntimeErrors(targetPage) {
+  targetPage.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`))
+  targetPage.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(`console: ${message.text()}`)
+    }
+  })
+}
+
+trackRuntimeErrors(page)
 
 function record(name, pass, detail = '') {
   results.push({ name, pass, detail })
@@ -29,12 +33,21 @@ async function selectValue(trigger, value) {
   await page.locator(`.ui-select-option[data-value="${value}"]`).click()
 }
 
-async function waitForApp() {
-  const loading = page.locator('.app-loading')
+async function waitForApp(targetPage = page) {
+  const loading = targetPage.locator('.app-loading')
   if (await loading.count()) {
     await loading.waitFor({ state: 'hidden', timeout: 10000 })
   }
-  await page.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 10000 })
+  await targetPage.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 10000 })
+}
+
+async function readSystemActivity() {
+  const toggle = page.getByRole('button', { name: /活动记录/ })
+  await toggle.waitFor({ state: 'visible', timeout: 10000 })
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await toggle.click()
+  }
+  return page.locator('.dv-activity-panel .dv-feed').innerText()
 }
 
 try {
@@ -50,13 +63,13 @@ try {
   const editor = page.locator('.editor .ProseMirror')
   await editor.waitFor({ state: 'visible', timeout: 10000 })
   const placeholder = await editor.locator('p').first().getAttribute('data-placeholder')
-  const activityText = await page.locator('.dv-feed').innerText()
+  const activityText = await readSystemActivity()
   record(
     '案例详情使用案例语义',
     placeholder?.includes('案例记录') === true && activityText.includes('创建了这条案例记录'),
     `placeholder=${placeholder ?? 'none'}`,
   )
-  await page.getByRole('button', { name: '计划中', exact: true }).click()
+  await page.getByRole('button', { name: '状态 计划中', exact: true }).click()
   await page.getByRole('menuitemradio', { name: '盈利', exact: true }).click()
 
   await page.setViewportSize({ width: 1080, height: 800 })
@@ -140,7 +153,7 @@ try {
 
   await page.goto(`${BASE}/today-record`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.locator('body').press('c')
+  await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
   await page.getByLabel('交易日期').fill('2025-06-15')
@@ -156,7 +169,7 @@ try {
   const selectedStrategyName = await strategySelect.locator('.ui-select-value').innerText()
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/, { timeout: 10000 })
-  const liveActivityText = await page.locator('.dv-feed').innerText()
+  const liveActivityText = await readSystemActivity()
   const liveProperties = await page.locator('.dv-props').innerText()
   record(
     '今日记录快速创建实盘交易',
@@ -171,7 +184,7 @@ try {
 
   await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.locator('body').press('c')
+  await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'EURUSD')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/, { timeout: 10000 })
@@ -223,10 +236,14 @@ try {
   const mobileShell = await page.evaluate(() => {
     const frame = document.querySelector('.ui-app-frame')
     const sidebar = document.querySelector('.sidebar')
+    const mobileNavigation = document.querySelector('.mobile-navigation')
     const main = document.querySelector('.ui-main-frame')
     return {
       frameDirection: frame ? getComputedStyle(frame).flexDirection : '',
       sidebarWidth: Math.round(sidebar?.getBoundingClientRect().width ?? 0),
+      mobileNavigationVisible: Boolean(
+        mobileNavigation && mobileNavigation.getBoundingClientRect().height > 0,
+      ),
       mainVisible: Boolean(main && main.getBoundingClientRect().height > 0),
       hasOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     }
@@ -234,7 +251,8 @@ try {
   record(
     '窄屏壳层保持可用且无页面横向溢出',
     mobileShell.frameDirection === 'column' &&
-      mobileShell.sidebarWidth === 375 &&
+      mobileShell.sidebarWidth === 0 &&
+      mobileShell.mobileNavigationVisible &&
       mobileShell.mainVisible &&
       !mobileShell.hasOverflow,
     JSON.stringify(mobileShell),
@@ -250,18 +268,50 @@ try {
 
   await page.setViewportSize({ width: 1440, height: 900 })
   for (const route of primaryRoutes) {
-    const link = page.locator(`nav[aria-label="主要导航"] a[href="${route.path}"]`)
+    const link = page
+      .locator('nav[aria-label="主要导航"] a')
+      .filter({ has: page.locator('.sb-item-label', { hasText: route.title }) })
     await link.waitFor({ state: 'visible', timeout: 10000 })
+    const targetPath = new URL(await link.getAttribute('href'), BASE).pathname
     await link.click()
-    await page.waitForURL((url) => url.pathname === route.path, { timeout: 10000 })
+    await page.waitForURL((url) => url.pathname === targetPath, { timeout: 10000 })
     await waitForApp()
     await page.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
-    await page.getByText(route.title, { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 })
-    if (new URL(page.url()).pathname !== route.path) {
-      throw new Error(`一级入口路由不匹配：期望 ${route.path}，实际 ${page.url()}`)
+    await page.locator('.ui-main-frame').getByText(route.title, { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 })
+    await page.waitForFunction(
+      (path) => {
+        const link = document.querySelector(`nav[aria-label="主要导航"] a[href="${path}"]`)
+        return link?.classList.contains('is-active') && link.getAttribute('aria-current') === 'page'
+      },
+      targetPath,
+      { timeout: 10000 },
+    )
+    if (new URL(page.url()).pathname !== targetPath) {
+      throw new Error(`一级入口路由不匹配：期望 ${targetPath}，实际 ${page.url()}`)
     }
-    if (!(await link.evaluate((element) => element.classList.contains('is-active')))) {
-      throw new Error(`一级入口未显示选中态：${route.path}`)
+    const navState = await link.evaluate((element) => ({
+      href: element.getAttribute('href'),
+      className: element.className,
+      current: element.getAttribute('aria-current'),
+    }))
+    if (!navState.className.includes('is-active') || navState.current !== 'page') {
+      const sidebarState = await page.evaluate(() => ({
+        primary: [...document.querySelectorAll('nav[aria-label="主要导航"] a')].map((element) => ({
+          text: element.textContent?.trim(),
+          href: element.getAttribute('href'),
+          className: element.className,
+          current: element.getAttribute('aria-current'),
+        })),
+        workspace: [...document.querySelectorAll('nav[aria-label="我的空间"] a')].map((element) => ({
+          text: element.textContent?.trim(),
+          href: element.getAttribute('href'),
+          className: element.className,
+          current: element.getAttribute('aria-current'),
+        })),
+      }))
+      throw new Error(
+        `一级入口未显示选中态：${targetPath}；url=${page.url()}；nav=${JSON.stringify(navState)}；sidebar=${JSON.stringify(sidebarState)}`,
+      )
     }
   }
   record('四个一级导航入口均可访问', true)
@@ -321,7 +371,7 @@ try {
     reviewSurface.toolbarRadius === '0px' && reviewSurface.toolbarMarginLeft === '0px',
     JSON.stringify(reviewSurface),
   )
-  await page.locator('body').press('c')
+  await page.locator('body').press('n')
   await page.locator('.composer-overlay, .composer-panel, [class*="composer"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
   const composerVisible = await page.locator('.composer-btn-primary').isVisible().catch(() => false)
   if (composerVisible) {
@@ -461,22 +511,25 @@ try {
   ]
 
   for (const viewport of baselineViewports) {
-    await page.setViewportSize({ width: viewport.width, height: viewport.height })
     for (const route of baselineRoutes) {
-      await page.goto(`${BASE}${route.path}`, { waitUntil: 'domcontentloaded' })
-      await waitForApp()
-      const actualPath = new URL(page.url()).pathname
+      const baselinePage = await context.newPage()
+      trackRuntimeErrors(baselinePage)
+      await baselinePage.setViewportSize({ width: viewport.width, height: viewport.height })
+      await baselinePage.goto(`${BASE}${route.path}`, { waitUntil: 'domcontentloaded' })
+      await waitForApp(baselinePage)
+      const actualPath = new URL(baselinePage.url()).pathname
       if (actualPath !== route.path) {
         throw new Error(`${route.name} 路由不匹配：期望 ${route.path}，实际 ${actualPath}`)
       }
-      await page.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
+      await baselinePage.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
       if (route.title) {
-        await page.getByText(route.title, { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 })
+        await baselinePage.getByText(route.title, { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 })
       }
-      await page.screenshot({
+      await baselinePage.screenshot({
         path: join(BASELINE_OUT, `${viewport.name}-${route.name}.png`),
         fullPage: false,
       })
+      await baselinePage.close()
     }
   }
   record('核心页面基准截图已生成', true, `${baselineRoutes.length * baselineViewports.length} 张`)
