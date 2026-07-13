@@ -54,54 +54,6 @@
   color: var(--text-secondary);
 }
 
-.tag-preset-remove {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 2px;
-  border-radius: var(--radius-full);
-  color: var(--text-quaternary);
-  opacity: 0;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) var(--ease-out);
-}
-
-.tag-preset-chip:hover .tag-preset-remove,
-.tag-preset-chip:focus-within .tag-preset-remove {
-  opacity: 1;
-}
-
-.tag-preset-remove:hover {
-  background: var(--bg-hover);
-  color: var(--neg);
-}
-
-.tag-preset-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  height: 24px;
-  padding: 0 8px 0 6px;
-  border-radius: var(--radius-full);
-  border: 1px dashed var(--border-default);
-  color: var(--text-tertiary);
-  font-size: var(--fs-micro);
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
-}
-
-.tag-preset-add-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
-
 .tag-chip {
   display: inline-flex;
   align-items: center;
@@ -254,7 +206,6 @@
     max-width: 22ch;
   }
 
-  .tag-preset-remove,
   .tag-chip-remove {
     width: 32px;
     height: 32px;

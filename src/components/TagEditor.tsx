@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react'
-import { Tag, X, Plus } from '@/icons/appIcons'
+import { Tag, X } from '@/icons/appIcons'
 import './TagEditor.css'
 
 export function TagEditor({
@@ -8,8 +8,6 @@ export function TagEditor({
   onRemove,
   suggestions = [],
   presets = [],
-  onAddPreset,
-  onRemovePreset,
 }: {
   tags: string[]
   onAdd: (tag: string) => void
@@ -18,8 +16,6 @@ export function TagEditor({
   suggestions?: string[]
   /** 预置标签 */
   presets?: string[]
-  onAddPreset?: (tag: string) => void
-  onRemovePreset?: (tag: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
@@ -54,8 +50,6 @@ export function TagEditor({
     const t = (tag ?? value).trim()
     if (t && !tags.includes(t)) {
       onAdd(t)
-      // 手动录入默认写入预设，便于后续点选
-      if (onAddPreset && !presets.includes(t)) onAddPreset(t)
     }
     setValue('')
     setEditing(false)
@@ -155,20 +149,6 @@ export function TagEditor({
             <span>添加标签</span>
           </button>
         )}
-        {onAddPreset && editing && value.trim() && !presets.includes(value.trim()) && (
-          <button
-            type="button"
-            className="tag-preset-add-btn"
-            aria-label="添加为预置标签"
-            onClick={() => {
-              onAddPreset(value.trim())
-              setValue('')
-            }}
-          >
-            <Plus size={12} />
-            <span>预置</span>
-          </button>
-        )}
       </div>
 
       {availablePresets.length > 0 ? (
@@ -183,16 +163,6 @@ export function TagEditor({
               >
                 {p}
               </button>
-              {onRemovePreset && (
-                <button
-                  type="button"
-                  className="tag-preset-remove"
-                  aria-label={`删除预置「${p}」`}
-                  onClick={() => onRemovePreset(p)}
-                >
-                  <X size={10} />
-                </button>
-              )}
             </span>
           ))}
         </div>
