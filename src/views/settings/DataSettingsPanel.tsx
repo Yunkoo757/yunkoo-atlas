@@ -108,6 +108,7 @@ export function DataSettingsPanel() {
     if (!electron) return
     setBacking(true)
     try {
+      await flushPersistNow()
       const result = await getJournalBridge()!.createBackup()
       if (result) {
         toast('备份已创建')
@@ -126,6 +127,7 @@ export function DataSettingsPanel() {
     if (!electron) return
     if (!window.confirm(`确定恢复备份 ${name.slice(0, 34)}…？\n当前数据将被替换。`)) return
     try {
+      await flushPersistNow()
       const result = await getJournalBridge()!.restoreBackup(name)
       if (result && typeof result === 'object') {
         applySnapshotToStore(result)
@@ -230,7 +232,7 @@ export function DataSettingsPanel() {
           <div className="settings-page-head">
             <h2 className="settings-section-title">自动备份</h2>
             <p className="settings-section-desc">
-              每 15 分钟自动备份 + 退出前备份。最多保留 20 份，总容量不超过 500 MB。
+              每 15 分钟自动创建恢复点，并在退出前再保存一次。包含设置与原始附件，附件会去重；最多保留 20 份，总容量不超过 500 MB。
             </p>
           </div>
 

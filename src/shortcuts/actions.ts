@@ -18,11 +18,11 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('global.newTrade'),
   },
   {
-    id: 'global.switchModule',
-    label: '切换交易与案例记录',
+    id: 'global.newCase',
+    label: '新建案例记录',
     category: '通用',
     scope: 'global',
-    defaultBinding: getDefaultShortcutBinding('global.switchModule'),
+    defaultBinding: getDefaultShortcutBinding('global.newCase'),
   },
   {
     id: 'global.undo',
@@ -47,6 +47,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     allowWhenTyping: true,
   },
 
+  {
+    id: 'nav.today',
+    label: '今日工作台',
+    category: '导航',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.today'),
+  },
   {
     id: 'nav.active',
     label: '进行中',
@@ -77,10 +84,17 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'nav.list',
-    label: '全部交易',
+    label: '交易记录',
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.list'),
+  },
+  {
+    id: 'nav.reviewCases',
+    label: '案例记录',
+    category: '导航',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.reviewCases'),
   },
   {
     id: 'nav.board',
@@ -117,6 +131,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     category: '视图',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('view.board'),
+  },
+  {
+    id: 'view.table',
+    label: '切换到表格视图',
+    category: '视图',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('view.table'),
   },
 
   {
@@ -176,6 +197,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     category: '列表',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('list.clearSelection'),
+  },
+  {
+    id: 'list.toggleFilters',
+    label: '打开或关闭筛选器',
+    category: '列表',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('list.toggleFilters'),
   },
 
   {

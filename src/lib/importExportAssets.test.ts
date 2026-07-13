@@ -1,7 +1,11 @@
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
-import { buildExportPayloadFromState, parseImportJson } from '@/lib/importExport'
+import {
+  buildExportPayloadFromState,
+  buildPortableSnapshotFromState,
+  parseImportJson,
+} from '@/lib/importExport'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -83,4 +87,28 @@ export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): 
   assert(!first?.note.includes('asset-2'), 'first trade does not receive asset-2')
   assert(second?.note.includes('journal-asset://asset-2'), 'second trade keeps asset-2 ownership')
   assert(!second?.note.includes('asset-1'), 'second trade does not receive asset-1')
+}
+
+export function testPortableSnapshotIncludesWorkflowSettingsAndShortcutOverrides(): void {
+  const snapshot = buildPortableSnapshotFromState(
+    {
+      trades: [trade],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+      tagPresets: ['MTF ORA'],
+      mistakeTagPresets: ['追单'],
+      profile: { avatarId: 'monogram-1', displayName: 'Yunkoo' },
+      savedTradeViews: [],
+      symbolIcons: {},
+      symbolCatalog: ['NVDA'],
+    },
+    { 'nav.list': { alt: true, key: 'x' } },
+  )
+  assert(snapshot.profile?.displayName === 'Yunkoo', '完整迁移快照应包含个人资料')
+  assert(snapshot.mistakeTagPresets?.[0] === '追单', '完整迁移快照应包含错误标签库')
+  assert(snapshot.shortcuts?.['nav.list'] != null, '完整迁移快照应包含快捷键覆盖值')
+  assert(snapshot.symbolCatalog?.[0] === 'NVDA', '完整迁移快照应包含品种目录')
 }

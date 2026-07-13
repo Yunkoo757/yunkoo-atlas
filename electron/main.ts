@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, nativeTheme, Menu } from 'electron'
+import { app, BrowserWindow, shell, nativeTheme, Menu, ipcMain } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -145,9 +145,25 @@ function createWindow() {
     mainWindow = null
   })
 
-  // 窗口关闭前通知渲染进程 flush 持久化数据
-  mainWindow.on('close', () => {
-    mainWindow?.webContents.send('app:before-close')
+  // 等待渲染进程把编辑器草稿和最新快照写盘，再允许窗口关闭。
+  let closeReady = false
+  let closeWaiting = false
+  mainWindow.on('close', (event) => {
+    if (closeReady || !mainWindow) return
+    event.preventDefault()
+    if (closeWaiting) return
+    closeWaiting = true
+    const closingWindow = mainWindow
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const finishClose = () => {
+      if (timer) clearTimeout(timer)
+      ipcMain.removeListener('app:before-close-complete', finishClose)
+      closeReady = true
+      if (!closingWindow.isDestroyed()) closingWindow.close()
+    }
+    ipcMain.once('app:before-close-complete', finishClose)
+    timer = setTimeout(finishClose, 2500)
+    closingWindow.webContents.send('app:before-close')
   })
 }
 

@@ -1,0 +1,24 @@
+.shortcut-tooltip-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.shortcut-tooltip-content kbd {
+  min-width: 20px;
+  padding: 1px 5px;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  text-align: center;
+  background: var(--surface-raised);
+  border: 0.8px solid var(--border-strong);
+  border-radius: var(--radius-4);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border-strong) 70%, transparent);
+}
+
+.shortcut-tooltip-content kbd.is-unset {
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-normal);
+}

@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath } from './journalZip'
 import { getLibraryPath, saveLibraryConfig, ensureLibraryDirs } from './paths'
-import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, stopAutoBackup, getBackupStats } from './backup'
+import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, stopAutoBackup, getBackupStats, rotateBackups } from './backup'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 
 let storage: LibraryStorage | null = null
@@ -160,23 +160,27 @@ export function registerLibraryIpc(): void {
   })
 
   // ---- 备份 ----
-  ipcMain.handle('backup:create', async () => createBackup(await ensureStorage()))
+  ipcMain.handle('backup:create', async () => {
+    const result = createBackup(await ensureStorage())
+    if (result) rotateBackups(ensureLibraryDirs(getLibraryPath()).backups)
+    return result
+  })
 
   ipcMain.handle('backup:list', async () => listBackups())
 
   ipcMain.handle('backup:restore', async (_e, fileName: string) => {
-    if (storage) storage.close()
+    const current = await ensureStorage()
+    // 在覆盖资料库前创建一个包含原图的完整恢复点。
+    if (!createBackup(current)) return false
+    stopAutoBackup()
+    autoBackupStarted = false
+    current.close()
     storage = null
 
     const ok = restoreBackup(fileName)
-    if (!ok) return false
-
-    // 重新加载 storage 以读取恢复后的数据
-    const reopened = new LibraryStorage()
-    await reopened.open()
-    storage = reopened
-    const snapshot = reopened.loadSnapshot()
-    return snapshot
+    // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
+    const reopened = await reopenStorageWithAutoBackup()
+    return ok ? reopened.loadSnapshot() : false
   })
 
   ipcMain.handle('backup:delete', async (_e, fileName: string) => {

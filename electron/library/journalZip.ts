@@ -134,7 +134,12 @@ function readWebSnapshot(dataFile: string): {
       pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
       display: raw.display,
       tagPresets: raw.tagPresets ?? [],
+      mistakeTagPresets: raw.mistakeTagPresets ?? [],
       shortcuts: raw.shortcuts,
+      profile: raw.profile,
+      savedTradeViews: raw.savedTradeViews ?? [],
+      symbolIcons: raw.symbolIcons ?? {},
+      symbolCatalog: raw.symbolCatalog ?? [],
     } as PersistedSnapshot,
     assets: Array.isArray(raw.assets)
       ? raw.assets.filter((asset) => typeof asset.id === 'string' && typeof asset.mime === 'string')

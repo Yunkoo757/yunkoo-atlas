@@ -1,10 +1,13 @@
 import {
+  cloneElement,
+  isValidElement,
   useEffect,
   useId,
   useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
+  type ReactElement,
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -16,21 +19,33 @@ type TooltipPosition = {
   placement: 'top' | 'bottom'
 }
 
+function assignElementRef(ref: unknown, node: HTMLElement | null): void {
+  if (typeof ref === 'function') {
+    ref(node)
+    return
+  }
+  if (ref && typeof ref === 'object' && 'current' in ref) {
+    ;(ref as { current: HTMLElement | null }).current = node
+  }
+}
+
 export function Tooltip({
   children,
   content,
   label,
   delay = 160,
   focusable = false,
+  asChild = false,
 }: {
   children: ReactNode
   content: ReactNode
   label: string
   delay?: number
   focusable?: boolean
+  asChild?: boolean
 }) {
   const id = useId()
-  const triggerRef = useRef<HTMLSpanElement>(null)
+  const triggerRef = useRef<HTMLElement | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [open, setOpen] = useState(false)
@@ -101,22 +116,45 @@ export function Tooltip({
     top: position.top,
   }
 
+  const child = isValidElement(children)
+    ? children as ReactElement<Record<string, unknown>>
+    : null
+  const compose = (current: unknown, next: () => void) => (event: unknown) => {
+    if (typeof current === 'function') current(event)
+    next()
+  }
+  const trigger = asChild && child
+    ? cloneElement(child, {
+        ref: (node: HTMLElement | null) => {
+          triggerRef.current = node
+          assignElementRef((child as ReactElement & { ref?: unknown }).ref, node)
+        },
+        onMouseEnter: compose(child.props.onMouseEnter, scheduleOpen),
+        onMouseLeave: compose(child.props.onMouseLeave, close),
+        onFocus: compose(child.props.onFocus, scheduleOpen),
+        onBlur: compose(child.props.onBlur, close),
+        onMouseDown: compose(child.props.onMouseDown, close),
+      } as Record<string, unknown>)
+    : (
+        <span
+          ref={triggerRef}
+          className="ui-tooltip-trigger"
+          tabIndex={focusable ? 0 : undefined}
+          aria-label={focusable ? label : undefined}
+          aria-describedby={focusable && open ? id : undefined}
+          onMouseEnter={scheduleOpen}
+          onMouseLeave={close}
+          onFocus={scheduleOpen}
+          onBlur={close}
+          onMouseDown={close}
+        >
+          {children}
+        </span>
+      )
+
   return (
     <>
-      <span
-        ref={triggerRef}
-        className="ui-tooltip-trigger"
-        tabIndex={focusable ? 0 : undefined}
-        aria-label={focusable ? label : undefined}
-        aria-describedby={focusable && open ? id : undefined}
-        onMouseEnter={scheduleOpen}
-        onMouseLeave={close}
-        onFocus={scheduleOpen}
-        onBlur={close}
-        onMouseDown={close}
-      >
-        {children}
-      </span>
+      {trigger}
       {open && createPortal(
         <div
           ref={tooltipRef}
