@@ -94,6 +94,9 @@ try {
   ]
 
   for (const viewport of VIEWPORTS) {
+    await page.close()
+    page = await context.newPage()
+    trackRuntimeErrors(page)
     for (const route of routes) {
       const routePage = page
       await routePage.setViewportSize({ width: viewport.width, height: viewport.height })
