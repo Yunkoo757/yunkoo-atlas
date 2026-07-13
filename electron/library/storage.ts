@@ -5,6 +5,7 @@ import initSqlJs, { type Database } from 'sql.js'
 import { randomUUID } from 'node:crypto'
 import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types'
 import { SCHEMA_VERSION } from '../../src/storage/types'
+import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import { ensureLibraryDirs, findAttachmentFile, getLibraryPath } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { writeFileAtomicallySync } from './atomicFile'
@@ -196,7 +197,9 @@ export class LibraryStorage {
     }
     const value = String(stmt.getAsObject().value)
     stmt.free()
-    return JSON.parse(value) as PersistedSnapshot
+    const snapshot: unknown = JSON.parse(value)
+    assertValidPersistedSnapshot(snapshot, 'Stored library snapshot')
+    return snapshot
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {
