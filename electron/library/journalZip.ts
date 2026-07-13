@@ -7,6 +7,7 @@ import extract from 'extract-zip'
 import initSqlJs from 'sql.js'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs } from './paths'
+import { writeFileAtomicallySync } from './atomicFile'
 import {
   SCHEMA_VERSION,
   type ExportAssetRecord,
@@ -147,6 +148,64 @@ function readWebSnapshot(dataFile: string): {
   }
 }
 
+function validateManifest(manifestFile: string): void {
+  let manifest: unknown
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'))
+  } catch {
+    throw new Error('Invalid .journal.zip: manifest.json is not valid JSON')
+  }
+  if (
+    typeof manifest !== 'object' ||
+    manifest === null ||
+    typeof (manifest as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
+    typeof (manifest as { libraryId?: unknown }).libraryId !== 'string'
+  ) {
+    throw new Error('Invalid .journal.zip: manifest.json is missing required library fields')
+  }
+}
+
+async function validateDesktopLibrary(
+  paths: ReturnType<typeof ensureLibraryDirs>,
+): Promise<void> {
+  validateManifest(paths.manifestFile)
+  const SQL = await initSqlJs({ locateFile: locateSqlWasm })
+  let db: InstanceType<typeof SQL.Database> | null = null
+  try {
+    db = new SQL.Database(fs.readFileSync(paths.dbFile))
+    const tables = db.exec(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('meta', 'assets')",
+    )
+    const names = new Set((tables[0]?.values ?? []).map((row) => String(row[0])))
+    if (!names.has('meta') || !names.has('assets')) {
+      throw new Error('database is missing required tables')
+    }
+
+    const snapshotRows = db.exec("SELECT value FROM meta WHERE key = 'snapshot'")
+    const snapshotText = snapshotRows[0]?.values[0]?.[0]
+    if (snapshotText != null) {
+      const snapshot = JSON.parse(String(snapshotText)) as Partial<PersistedSnapshot>
+      if (!Array.isArray(snapshot.trades) || !Array.isArray(snapshot.strategies)) {
+        throw new Error('snapshot is missing trades or strategies')
+      }
+    }
+
+    const assets = db.exec('SELECT file_name FROM assets')
+    for (const row of assets[0]?.values ?? []) {
+      const fileName = String(row[0] ?? '')
+      if (!fileName || path.basename(fileName) !== fileName) {
+        throw new Error('asset metadata contains an unsafe file path')
+      }
+    }
+  } catch (err) {
+    throw new Error(
+      `Invalid .journal.zip: journal.db could not be validated (${err instanceof Error ? err.message : String(err)})`,
+    )
+  } finally {
+    db?.close()
+  }
+}
+
 function writeImportProgress(message: string): void {
   const progressPath = process.env.LINEAR_JOURNAL_QA_PROGRESS
   if (!progressPath) return
@@ -197,9 +256,9 @@ async function importWebJournalZip(
     )
   }
 
-  fs.writeFileSync(paths.dbFile, Buffer.from(db.export()))
+  writeFileAtomicallySync(paths.dbFile, Buffer.from(db.export()))
   db.close()
-  fs.writeFileSync(
+  writeFileAtomicallySync(
     paths.manifestFile,
     JSON.stringify({
       schemaVersion: SCHEMA_VERSION,
@@ -211,6 +270,16 @@ async function importWebJournalZip(
   )
 }
 
+function copyAttachmentFiles(source: string, destination: string): void {
+  clearDirectory(destination)
+  if (!fs.existsSync(source)) return
+  for (const name of fs.readdirSync(source)) {
+    const sourceFile = path.join(source, name)
+    if (!fs.statSync(sourceFile).isFile()) continue
+    fs.copyFileSync(sourceFile, path.join(destination, name))
+  }
+}
+
 function backupCurrentLibrary(paths: ReturnType<typeof ensureLibraryDirs>, backupDir: string): void {
   if (fs.existsSync(paths.manifestFile)) {
     fs.copyFileSync(paths.manifestFile, path.join(backupDir, 'manifest.json'))
@@ -219,27 +288,22 @@ function backupCurrentLibrary(paths: ReturnType<typeof ensureLibraryDirs>, backu
     fs.copyFileSync(paths.dbFile, path.join(backupDir, 'journal.db'))
   }
   if (fs.existsSync(paths.attachments)) {
-    for (const name of fs.readdirSync(paths.attachments)) {
-      fs.copyFileSync(path.join(paths.attachments, name), path.join(backupDir, name))
-    }
+    copyAttachmentFiles(paths.attachments, path.join(backupDir, 'attachments'))
   }
 }
 
 function restoreCurrentLibrary(paths: ReturnType<typeof ensureLibraryDirs>, backupDir: string): void {
   const manifestBackup = path.join(backupDir, 'manifest.json')
   const dbBackup = path.join(backupDir, 'journal.db')
+  fs.rmSync(paths.manifestFile, { force: true })
+  fs.rmSync(paths.dbFile, { force: true })
   if (fs.existsSync(manifestBackup)) {
-    fs.copyFileSync(manifestBackup, paths.manifestFile)
+    writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(manifestBackup))
   }
   if (fs.existsSync(dbBackup)) {
-    fs.copyFileSync(dbBackup, paths.dbFile)
+    writeFileAtomicallySync(paths.dbFile, fs.readFileSync(dbBackup))
   }
-
-  clearDirectory(paths.attachments)
-  for (const name of fs.readdirSync(backupDir)) {
-    if (name === 'manifest.json' || name === 'journal.db') continue
-    fs.copyFileSync(path.join(backupDir, name), path.join(paths.attachments, name))
-  }
+  copyAttachmentFiles(path.join(backupDir, 'attachments'), paths.attachments)
 }
 
 export async function importJournalZipToPath(
@@ -249,13 +313,12 @@ export async function importJournalZipToPath(
   const paths = ensureLibraryDirs(libraryRoot)
   const tempDir = path.join(libraryRoot, `.import-${Date.now()}`)
   const preImportBackup = path.join(libraryRoot, `.pre-import-${Date.now()}`)
+  const preparedRoot = path.join(tempDir, 'prepared')
   fs.mkdirSync(tempDir, { recursive: true })
-  fs.mkdirSync(preImportBackup, { recursive: true })
+  let mutationStarted = false
+  let keepRecoveryBackup = false
 
   try {
-    writeImportProgress('importZip: backup current library start')
-    backupCurrentLibrary(paths, preImportBackup)
-    writeImportProgress('importZip: backup current library done')
     writeImportProgress('importZip: extract start')
     await extractZipToDir(zipFile, tempDir)
     writeImportProgress('importZip: extract done')
@@ -264,40 +327,52 @@ export async function importJournalZipToPath(
     const dbSrc = path.join(tempDir, 'journal.db')
     const dataSrc = path.join(tempDir, 'data.json')
     const attachmentsSrc = path.join(tempDir, 'attachments')
+    const preparedPaths = ensureLibraryDirs(preparedRoot)
 
     if (fs.existsSync(manifestSrc) && fs.existsSync(dbSrc)) {
-      writeImportProgress('importZip: manifest/db branch start')
-      fs.copyFileSync(manifestSrc, paths.manifestFile)
-      writeImportProgress('importZip: manifest copied')
-      fs.copyFileSync(dbSrc, paths.dbFile)
-      writeImportProgress('importZip: db copied')
-
-      if (fs.existsSync(attachmentsSrc)) {
-        writeImportProgress('importZip: clear attachments start')
-        clearDirectory(paths.attachments)
-        writeImportProgress('importZip: clear attachments done')
-        for (const name of fs.readdirSync(attachmentsSrc)) {
-          writeImportProgress(`importZip: copy attachment ${name} start`)
-          fs.copyFileSync(path.join(attachmentsSrc, name), path.join(paths.attachments, name))
-          writeImportProgress(`importZip: copy attachment ${name} done`)
-        }
-      }
-      writeImportProgress('importZip: manifest/db branch done')
+      fs.copyFileSync(manifestSrc, preparedPaths.manifestFile)
+      fs.copyFileSync(dbSrc, preparedPaths.dbFile)
+      copyAttachmentFiles(attachmentsSrc, preparedPaths.attachments)
     } else if (fs.existsSync(dataSrc)) {
-      writeImportProgress('importZip: data.json branch start')
-      await importWebJournalZip(paths, tempDir)
-      writeImportProgress('importZip: data.json branch done')
+      await importWebJournalZip(preparedPaths, tempDir)
     } else {
       throw new Error('Invalid .journal.zip: missing manifest.json/journal.db or data.json')
     }
+
+    writeImportProgress('importZip: validate prepared library start')
+    await validateDesktopLibrary(preparedPaths)
+    writeImportProgress('importZip: validate prepared library done')
+
+    fs.mkdirSync(preImportBackup, { recursive: true })
+    writeImportProgress('importZip: backup current library start')
+    backupCurrentLibrary(paths, preImportBackup)
+    writeImportProgress('importZip: backup current library done')
+
+    mutationStarted = true
+    writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(preparedPaths.manifestFile))
+    writeFileAtomicallySync(paths.dbFile, fs.readFileSync(preparedPaths.dbFile))
+    copyAttachmentFiles(preparedPaths.attachments, paths.attachments)
   } catch (err) {
     writeImportProgress(`importZip: error ${err instanceof Error ? err.message : String(err)}`)
-    restoreCurrentLibrary(paths, preImportBackup)
+    if (mutationStarted) {
+      try {
+        restoreCurrentLibrary(paths, preImportBackup)
+      } catch (restoreErr) {
+        keepRecoveryBackup = true
+        throw new Error(
+          `${err instanceof Error ? err.message : String(err)}; ` +
+            `恢复当前交易库失败，安全副本已保留在 ${preImportBackup}: ` +
+            `${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`,
+        )
+      }
+    }
     throw err
   } finally {
     writeImportProgress('importZip: cleanup start')
     fs.rmSync(tempDir, { recursive: true, force: true })
-    fs.rmSync(preImportBackup, { recursive: true, force: true })
+    if (!keepRecoveryBackup) {
+      fs.rmSync(preImportBackup, { recursive: true, force: true })
+    }
     writeImportProgress('importZip: cleanup done')
   }
 }

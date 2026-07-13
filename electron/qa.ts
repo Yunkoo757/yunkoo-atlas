@@ -109,6 +109,27 @@ async function writeWebJournalZip(destinationFile: string, snapshot = seedSnapsh
   })
 }
 
+async function writeCorruptDesktopZip(destinationFile: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const output = fs.createWriteStream(destinationFile)
+    const archive = new ZipArchive({ zlib: { level: 9 } })
+    output.on('close', () => resolve())
+    archive.on('error', reject)
+    archive.pipe(output)
+    archive.append(
+      JSON.stringify({
+        schemaVersion: SCHEMA_VERSION,
+        libraryId: 'qa-corrupt-library',
+        createdAt: new Date().toISOString(),
+        platform: 'electron',
+      }),
+      { name: 'manifest.json' },
+    )
+    archive.append('not-a-sqlite-database', { name: 'journal.db' })
+    void archive.finalize()
+  })
+}
+
 export async function runElectronQa(): Promise<QaCheck[]> {
   const checks: QaCheck[] = []
   const record = (name: string, pass: boolean, detail = '') => {
@@ -185,6 +206,24 @@ export async function runElectronQa(): Promise<QaCheck[]> {
       desktopZipSnapshot?.trades?.[0]?.ref ?? '',
     )
     fs.rmSync(zipPath, { force: true })
+
+    storage.saveSnapshot(snapshotWithRef('TRD-BEFORE-CORRUPT-IMPORT'))
+    const corruptZipPath = path.join(paths.root, '_qa-corrupt.journal.zip')
+    await writeCorruptDesktopZip(corruptZipPath)
+    storage.release()
+    let corruptImportRejected = false
+    try {
+      await importJournalZipToPath(paths.root, corruptZipPath)
+    } catch {
+      corruptImportRejected = true
+    }
+    await storage.open()
+    record(
+      'corrupt journal.zip is rejected before replacing current library',
+      corruptImportRejected &&
+        storage.loadSnapshot()?.trades?.[0]?.ref === 'TRD-BEFORE-CORRUPT-IMPORT',
+    )
+    fs.rmSync(corruptZipPath, { force: true })
 
     storage.saveSnapshot(snapshotWithRef('TRD-BACKUP'))
     const backupPath = createBackup(storage)
