@@ -1,7 +1,12 @@
 import type { Strategy } from '@/data/strategies'
 import { getTradeRemainingDays, isTradeExpired, type Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs } from '@/lib/tradeFilters'
-import { buildExportPayloadFromState, mergeImportPayload, parseImportJson } from '@/lib/importExport'
+import {
+  buildExportPayloadFromState,
+  mergeImportPayload,
+  parseImportJson,
+  resetEmptyLibraryIntoStore,
+} from '@/lib/importExport'
 import { collectTagOptions, mergeTagPresets } from '@/lib/tags'
 import { computeStrategyStats } from '@/lib/strategies'
 import {
@@ -35,6 +40,9 @@ import {
   resumePersist,
   suspendPersist,
 } from '@/storage/persist'
+import { migrateFromLocalStorageIfNeeded } from '@/storage/migrate'
+import type { StorageAdapter } from '@/storage/adapter'
+import type { PersistedSnapshot } from '@/storage/types'
 import {
   clearNoteDraft,
   getNoteDraft,
@@ -70,7 +78,8 @@ import {
 import { resolveTradeDetailReturn, tradeDetailNavState } from '@/lib/tradeRoute'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
-import { chordFromEvent } from '@/shortcuts/chords'
+import { bindingKey, chordFromEvent } from '@/shortcuts/chords'
+import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import {
   mergeSavedTradeViews,
   normalizeSavedTradeViews,
@@ -108,6 +117,7 @@ import {
 } from '@/lib/activities'
 import { syncEditorLightboxEditable } from '@/editor/Editor'
 import { useStore } from '@/store/useStore'
+import { useShortcutStore } from '@/store/shortcutStore'
 import {
   parseTradeReturnAnchor,
   serializeTradeReturnAnchor,
@@ -252,6 +262,130 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
   assert(source.includes('onDragStart'), 'Sidebar 应拦截原生链接拖拽预览')
   assert(!source.includes('resolvePinnedSecondaryNav'), 'Sidebar 不得继续直接解析旧 sidebarPins')
+}
+
+export function testEmptyLibraryUsesApprovedDefaultProfile(): void {
+  const previous = useStore.getState()
+  const previousBindings = useShortcutStore.getState().bindings
+  try {
+    resetEmptyLibraryIntoStore()
+    const state = useStore.getState()
+    assert(
+      state.strategies.map((strategy) => strategy.id).join(',') ===
+        'navigation-1,navigation-2,navigation-3,navigation-4',
+      '新建交易库应使用已确认的四个默认策略',
+    )
+    assert(
+      state.tagPresets.join(',') === 'MTF ORA,no idm预期A,no idm预期B,LTF ChoCh,1m bos',
+      '新建交易库应使用已确认的普通标签词库',
+    )
+    assert(
+      state.mistakeTagPresets.join(',') ===
+        '缺乏耐心,技术分析错误,仓位大小错误,修改止损,周末交易,过度分析,情绪化交易,受新闻影响',
+      '新建交易库应使用已确认的错误与违规词库',
+    )
+    assert(
+      state.display.groupByDate && !state.display.groupByStrategy && state.display.sortBy === 'date',
+      '新建交易库应默认按月份分组并按日期排序',
+    )
+  } finally {
+    useStore.setState({
+      trades: previous.trades,
+      strategies: previous.strategies,
+      selectedId: previous.selectedId,
+      composerOpen: previous.composerOpen,
+      composerTrade: previous.composerTrade,
+      closeTradeRequest: previous.closeTradeRequest,
+      undoStack: previous.undoStack,
+      redoStack: previous.redoStack,
+      starredIds: previous.starredIds,
+      subscribedIds: previous.subscribedIds,
+      pinnedStrategyIds: previous.pinnedStrategyIds,
+      tagPresets: previous.tagPresets,
+      mistakeTagPresets: previous.mistakeTagPresets,
+      display: previous.display,
+      profile: previous.profile,
+      savedTradeViews: previous.savedTradeViews,
+      symbolIcons: previous.symbolIcons,
+      symbolCatalog: previous.symbolCatalog,
+    })
+    useShortcutStore.getState().hydrateBindings(previousBindings)
+  }
+}
+
+export function testApprovedShortcutDefaultsMatchProfile(): void {
+  const expected: Record<string, string> = {
+    'global.commandPalette': 'w',
+    'global.newTrade': 'n',
+    'global.switchModule': 'alt+w',
+    'global.undo': 'mod+z',
+    'global.redo': 'mod+shift+z',
+    'global.closeOverlay': 'escape',
+    'nav.active': 'alt+1',
+    'nav.favorites': 'alt+2',
+    'nav.missed': 'alt+3',
+    'nav.sim': 'g',
+    'nav.list': 'alt+4',
+    'nav.board': 'alt+5',
+    'nav.dashboard': 'i',
+    'nav.strategies': 'o',
+    'view.list': 'l',
+    'view.board': 'b',
+    'trade.prev': 'q',
+    'trade.next': 'e',
+    'trade.backToList': 'escape',
+    'list.focusNext': 'q',
+    'list.focusPrev': 'e',
+    'list.openFocused': 'enter',
+    'list.selectAll': 'mod+a',
+    'list.clearSelection': 'escape',
+    'image.prev': 'w',
+    'image.next': 's',
+    'image.close': 'escape',
+    'image.reset': 'alt+r',
+  }
+  assert(
+    SHORTCUT_ACTIONS.length === Object.keys(expected).length,
+    '默认配置应覆盖每一个可配置快捷键动作',
+  )
+  for (const action of SHORTCUT_ACTIONS) {
+    assert(
+      bindingKey(action.defaultBinding) === expected[action.id],
+      `${action.label} 应使用已确认的默认快捷键 ${expected[action.id]}`,
+    )
+  }
+}
+
+export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): Promise<void> {
+  let saved: PersistedSnapshot | null = null
+  const adapter: StorageAdapter = {
+    open: async () => undefined,
+    getManifest: async () => { throw new Error('本测试不读取 manifest') },
+    loadSnapshot: async () => null,
+    saveSnapshot: async (snapshot) => { saved = snapshot },
+    saveAsset: async () => { throw new Error('空库不应写入附件') },
+    getAssetObjectUrl: async () => null,
+    getAssetForExport: async () => null,
+    importAssets: async () => undefined,
+  }
+
+  const migrated = await migrateFromLocalStorageIfNeeded(adapter)
+  assert(migrated, '首次安装应生成并保存初始快照')
+  if (saved === null) throw new Error('首次安装应写入可读取的初始快照')
+  const snapshot: PersistedSnapshot = saved
+  assert(
+    snapshot.strategies.map((strategy) => strategy.id).join(',') ===
+      'navigation-1,navigation-2,navigation-3,navigation-4',
+    '首次安装快照应固化默认策略',
+  )
+  assert(
+    snapshot.tagPresets?.join(',') === 'MTF ORA,no idm预期A,no idm预期B,LTF ChoCh,1m bos',
+    '首次安装快照应固化普通标签词库',
+  )
+  assert(
+    snapshot.mistakeTagPresets?.length === 8,
+    '首次安装快照应固化错误与违规词库',
+  )
 }
 
 export async function testAppOptsIntoStableReactRouterFutureBehavior(): Promise<void> {

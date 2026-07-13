@@ -1,5 +1,9 @@
 import { SEED_TRADES } from '@/data/trades'
 import { DEFAULT_STRATEGIES } from '@/data/strategies'
+import {
+  createDefaultMistakeTagPresets,
+  createDefaultTagPresets,
+} from '@/config/defaultProfile'
 import { DEFAULT_DISPLAY, normalizeDisplay } from '@/lib/tradeFilters'
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
@@ -70,6 +74,8 @@ export async function migrateFromLocalStorageIfNeeded(
       subscribedIds: [],
       pinnedStrategyIds: [],
       display: { ...DEFAULT_DISPLAY },
+      tagPresets: createDefaultTagPresets(),
+      mistakeTagPresets: createDefaultMistakeTagPresets(),
     }
   }
 
@@ -105,6 +111,8 @@ export async function migrateElectronLibraryIfNeeded(
       subscribedIds: [],
       pinnedStrategyIds: [],
       display: { ...DEFAULT_DISPLAY },
+      tagPresets: createDefaultTagPresets(),
+      mistakeTagPresets: createDefaultMistakeTagPresets(),
     }
   }
 

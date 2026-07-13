@@ -1,4 +1,5 @@
 import type { TradeKind } from '@/data/trades'
+import { DEFAULT_PROFILE_DISPLAY } from '@/config/defaultProfile'
 import type { CalendarPeriod } from '@/lib/periods'
 import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
 import { normalizeSidebarPins } from '@/lib/tradeKind'
@@ -47,11 +48,11 @@ export interface DisplayPrefs {
 }
 
 export const DEFAULT_DISPLAY: DisplayPrefs = {
-  hideClosed: false,
-  showEmptyGroups: false,
-  groupByStrategy: false,
-  groupByDate: true,
-  sortBy: 'date',
+  hideClosed: DEFAULT_PROFILE_DISPLAY.hideClosed,
+  showEmptyGroups: DEFAULT_PROFILE_DISPLAY.showEmptyGroups,
+  groupByStrategy: DEFAULT_PROFILE_DISPLAY.groupMode === 'strategy',
+  groupByDate: DEFAULT_PROFILE_DISPLAY.groupMode === 'date',
+  sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
   sidebarWorkspaceItems: migrateSidebarPins(DEFAULT_SIDEBAR_PINS),
 }
