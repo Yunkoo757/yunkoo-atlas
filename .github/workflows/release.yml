@@ -77,7 +77,13 @@ jobs:
             if ($file.Length -le 0) { throw "Release asset is empty: $($file.Name)" }
           }
 
-          gh release create $tag --verify-tag --title "Yunkoo Atlas $version" --notes @"
+          $isPrerelease = $version.Contains('-')
+          $releaseTitle = if ($isPrerelease) { "Yunkoo Atlas $version (Preview)" } else { "Yunkoo Atlas $version" }
+          $releaseChannel = if ($isPrerelease) { '预览版：不会进入正式版自动更新通道' } else { '正式版' }
+          $notes = @"
+          ## 发布通道
+          - $releaseChannel
+
           ## Windows
           - NSIS 安装包（支持应用内更新）
 
@@ -85,10 +91,35 @@ jobs:
           - DMG / ZIP（arm64 + x64）由同工作流随后上传
           - 当前为未公证构建，需右键打开或在隐私与安全性中允许
           - 应用内自动更新仍仅支持 Windows NSIS
-          "@ $installer.FullName $blockmap.FullName $metadata.FullName
+          "@
+          $releaseArgs = @('release', 'create', $tag, '--verify-tag', '--title', $releaseTitle)
+          if ($isPrerelease) { $releaseArgs += @('--prerelease', '--latest=false') }
+          $releaseArgs += @('--notes', $notes, $installer.FullName, $blockmap.FullName, $metadata.FullName)
+          $assetPaths = @($files | ForEach-Object FullName)
 
-          $release = gh release view $tag --json isDraft,assets | ConvertFrom-Json
+          gh release view $tag --json id *> $null
+          $releaseExists = $LASTEXITCODE -eq 0
+          if ($releaseExists) {
+            $editArgs = @('release', 'edit', $tag, '--title', $releaseTitle, '--notes', $notes)
+            if ($isPrerelease) {
+              $editArgs += @('--prerelease', '--latest=false')
+            } else {
+              $editArgs += '--prerelease=false'
+            }
+            & gh @editArgs
+            if ($LASTEXITCODE -ne 0) { throw "Failed to update release $tag" }
+            gh release upload $tag @assetPaths --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload release assets for $tag" }
+          } else {
+            & gh @releaseArgs
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create release $tag" }
+          }
+
+          $release = gh release view $tag --json isDraft,isPrerelease,assets | ConvertFrom-Json
           if ($release.isDraft) { throw "Release $tag is still a draft" }
+          if ([bool]$release.isPrerelease -ne $isPrerelease) {
+            throw "Release prerelease state does not match version $version"
+          }
           $assetNames = @($release.assets | ForEach-Object name)
           foreach ($file in $files) {
             if ($assetNames -notcontains $file.Name) {
