@@ -71,14 +71,15 @@ test('发布资产由 GitHub CLI 串行上传并校验', () => {
   assert.doesNotMatch(workflow, /--publish always/)
 })
 
-test('本地发布与 GitHub Release 共用完整质量门禁', () => {
+test('本地发布运行完整门禁，云端打包复验构建与 Electron 数据链路', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const release = readFileSync('scripts/release.mjs', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   const qualityGate = readFileSync('scripts/qa-release.mjs', 'utf8')
 
-  assert.match(workflow, /pnpm qa:release/)
   assert.match(release, /qa:release/)
+  assert.match(workflow, /pnpm build:app/)
+  assert.match(workflow, /pnpm qa:electron/)
   assert.equal(pkg.scripts['qa:release'], 'node scripts/qa-release.mjs')
   assert.match(qualityGate, /\['qa:sidebar'\]/)
   assert.match(qualityGate, /\['qa:electron'\]/)
