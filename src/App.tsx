@@ -440,8 +440,10 @@ export function App() {
       try {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
-          bridge.onBeforeClose(() => {
-            safeFlush()
+          bridge.onBeforeClose(async () => {
+            if (!isStorageHydrated()) return
+            await flushPersistNow()
+            await bridge.createBackup()
           })
         }
       } catch { /* bridge not available */ }

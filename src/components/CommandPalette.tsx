@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ListTodo,
   BarChart3,
@@ -27,8 +27,11 @@ import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
-import { getShortcutHint } from '@/shortcuts/ShortcutHost'
+import { useShortcutStore } from '@/store/shortcutStore'
+import { getShortcutHintModel } from '@/shortcuts/hints'
+import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
 import { StatusIcon } from '@/components/StatusIcon'
+import { newTradeKindForPath } from '@/lib/tradeKind'
 import './CommandPalette.css'
 
 interface Cmd {
@@ -51,9 +54,12 @@ export function CommandPalette({
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
+  const display = useStore((s) => s.display)
   const openComposer = useStore((s) => s.openComposer)
+  const shortcutBindings = useShortcutStore((s) => s.bindings)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -62,14 +68,17 @@ export function CommandPalette({
       navigate(to)
       onClose()
     }
+    const shortcutHint = (actionId: string) =>
+      getShortcutHintModel(actionId, shortcutBindings).hint ?? undefined
     const viewNav: Cmd[] = [
-      { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '全部交易', hint: '实盘', run: go('/list') },
-      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: '不进统计', run: go('/review-cases') },
-      { id: 'n-active', group: '导航', icon: <Clock size={16} />, label: '进行中', hint: '计划 + 持仓', run: go('/active') },
-      { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', run: go('/dashboard') },
-      { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', run: go('/favorites') },
-      { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', run: go('/missed') },
-      { id: 'n-sim', group: '导航', icon: <FlaskConical size={16} />, label: '模拟回测', run: go('/sim') },
+      { id: 'n-today', group: '导航', icon: <Calendar size={16} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
+      { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '交易记录', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
+      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
+      { id: 'n-active', group: '导航', icon: <Clock size={16} />, label: '进行中', hint: shortcutHint('nav.active'), run: go('/active') },
+      { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', hint: shortcutHint('nav.dashboard'), run: go('/dashboard') },
+      { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', hint: shortcutHint('nav.favorites'), run: go('/favorites') },
+      { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', hint: shortcutHint('nav.missed'), run: go('/missed') },
+      { id: 'n-sim', group: '导航', icon: <FlaskConical size={16} />, label: '模拟回测', hint: shortcutHint('nav.sim'), run: go('/sim') },
     ]
     const periodNav: Cmd[] = CALENDAR_PERIODS.map((slug) => ({
       id: 'n-period-' + slug,
@@ -104,7 +113,8 @@ export function CommandPalette({
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: getShortcutHint('global.newTrade') ?? 'N', run: () => { onClose(); openComposer() } },
+      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { onClose(); openComposer(null, newTradeKindForPath(pathname)) } },
+      { id: 'a-new-case', group: '操作', icon: <BookOpen size={16} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { onClose(); openComposer(null, 'case') } },
     ]
     const tradeCmds: Cmd[] = trades.map((t) => {
       const stratName = getStrategyName(strategies, t.strategyId)
@@ -131,7 +141,7 @@ export function CommandPalette({
       }
     })
     return [...viewNav, ...periodNav, ...strategyNav, ...settingsNav, ...actions, ...tagCmds, ...tradeCmds]
-  }, [trades, strategies, navigate, onClose, openComposer])
+  }, [trades, strategies, display, shortcutBindings, pathname, navigate, onClose, openComposer])
 
   const filtered = useMemo(() => {
     if (!q.trim()) return commands

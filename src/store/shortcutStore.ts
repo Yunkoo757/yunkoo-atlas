@@ -65,6 +65,18 @@ export function bindingsForPersist(
   return out
 }
 
+export function migrateShortcutBindings(
+  bindings: Record<string, ShortcutBinding | null> | undefined,
+): Record<string, ShortcutBinding | null> {
+  if (!bindings) return {}
+  const next = { ...bindings }
+  if ('global.switchModule' in next && !('nav.list' in next)) {
+    next['nav.list'] = next['global.switchModule'] ?? null
+  }
+  delete next['global.switchModule']
+  return next
+}
+
 export const useShortcutStore = create<ShortcutState>()((set, get) => ({
   bindings: {},
   listContext: null,
@@ -145,5 +157,5 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
   setCmdkOpen: (open) => set({ cmdkOpen: open }),
   setDataIOOpen: (open) => set({ dataIOOpen: open }),
   hydrateBindings: (bindings) =>
-    set({ bindings: bindings ? { ...bindings } : {} }),
+    set({ bindings: migrateShortcutBindings(bindings) }),
 }))

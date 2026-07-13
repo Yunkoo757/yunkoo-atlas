@@ -1,5 +1,6 @@
 import type { ReactNode, RefObject } from 'react'
 import { SlidersHorizontal, X } from '@/icons/appIcons'
+import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import './FilterBar.css'
 
 export type ActiveFilter = {
@@ -18,6 +19,7 @@ export function FilterBar({
   panelId,
   quickViews,
   label = '筛选交易',
+  shortcutActionId,
 }: {
   activeFilters: ActiveFilter[]
   open: boolean
@@ -28,7 +30,23 @@ export function FilterBar({
   panelId?: string
   quickViews?: ReactNode
   label?: string
+  shortcutActionId?: string
 }) {
+  const trigger = (
+    <button
+      type="button"
+      className={'ui-filter-trigger' + (open ? ' is-open' : '')}
+      ref={triggerRef}
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={panelId}
+      aria-haspopup="dialog"
+      aria-label={label}
+    >
+      <SlidersHorizontal size={14} />
+      <span>筛选</span>
+    </button>
+  )
   return (
     <div className="ui-filter-shell" ref={rootRef}>
       <div className="ui-filter-bar">
@@ -57,19 +75,9 @@ export function FilterBar({
             )
           ) : null}
         </div>
-        <button
-          type="button"
-          className={'ui-filter-trigger' + (open ? ' is-open' : '')}
-          ref={triggerRef}
-          onClick={onToggle}
-          aria-expanded={open}
-          aria-controls={panelId}
-          aria-haspopup="dialog"
-          aria-label={label}
-        >
-          <SlidersHorizontal size={14} />
-          <span>筛选</span>
-        </button>
+        {shortcutActionId ? (
+          <ShortcutTooltip actionId={shortcutActionId} label={label}>{trigger}</ShortcutTooltip>
+        ) : trigger}
       </div>
       {open && children}
     </div>

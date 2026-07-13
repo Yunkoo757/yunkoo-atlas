@@ -4,6 +4,7 @@ import {
   type TradeStatus,
   type Conviction,
   type TradeSide,
+  type TradeKind,
   type TradeComment,
 } from '@/data/trades'
 import { type Strategy } from '@/data/strategies'
@@ -96,6 +97,8 @@ interface State {
   selectedId: string | null
   composerOpen: boolean
   composerTrade: Trade | null
+  /** 仅用于显式“新建交易/案例”动作；null 时仍按当前页面推断。 */
+  composerKind: TradeKind | null
   closeTradeRequest: {
     tradeId: string
     targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
@@ -186,7 +189,7 @@ interface State {
   removeTrade: (id: string) => void
   restoreTrade: (id: string) => void
   purgeTrade: (id: string) => void
-  openComposer: (trade?: Trade | null) => void
+  openComposer: (trade?: Trade | null, kind?: TradeKind | null) => void
   closeComposer: () => void
   requestTradeClose: (
     tradeId: string,
@@ -208,6 +211,7 @@ export const useStore = create<State>()((set, get) => ({
       selectedId: null,
       composerOpen: false,
       composerTrade: null,
+      composerKind: null,
       closeTradeRequest: null,
       undoStack: [],
       redoStack: [],
@@ -643,7 +647,7 @@ export const useStore = create<State>()((set, get) => ({
           starredIds: s.starredIds.filter((x) => x !== id),
           subscribedIds: s.subscribedIds.filter((x) => x !== id),
         })),
-      openComposer: (trade = null) => {
+      openComposer: (trade = null, kind = null) => {
         // 防御：若被直接绑到 onClick，会收到 MouseEvent，不能当 Trade 用
         const safe =
           trade &&
@@ -652,9 +656,13 @@ export const useStore = create<State>()((set, get) => ({
           typeof (trade as Trade).id === 'string'
             ? (trade as Trade)
             : null
-        set({ composerOpen: true, composerTrade: safe })
+        set({
+          composerOpen: true,
+          composerTrade: safe,
+          composerKind: safe?.tradeKind ?? kind,
+        })
       },
-      closeComposer: () => set({ composerOpen: false, composerTrade: null }),
+      closeComposer: () => set({ composerOpen: false, composerTrade: null, composerKind: null }),
       requestTradeClose: (tradeId, targetStatus) => {
         const active =
           typeof document !== 'undefined' && document.activeElement instanceof HTMLElement

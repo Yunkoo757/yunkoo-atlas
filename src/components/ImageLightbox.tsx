@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
-import { getShortcutHint } from '@/shortcuts/ShortcutHost'
+import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import {
   LIGHTBOX_VIEW_RESET,
   LIGHTBOX_ZOOM_STEP,
@@ -20,6 +20,10 @@ export function ImageLightbox() {
   const closeLightbox = useShortcutStore((s) => s.closeLightbox)
   const lightboxPrev = useShortcutStore((s) => s.lightboxPrev)
   const lightboxNext = useShortcutStore((s) => s.lightboxNext)
+  const closeShortcut = useShortcutHint('image.close').hint
+  const previousShortcut = useShortcutHint('image.prev').hint
+  const nextShortcut = useShortcutHint('image.next').hint
+  const resetShortcut = useShortcutHint('image.reset').hint
   const closeRef = useRef<HTMLButtonElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<LightboxView>(LIGHTBOX_VIEW_RESET)
@@ -197,7 +201,8 @@ export function ImageLightbox() {
           type="button"
           className="img-lightbox-close"
           onClick={closeLightbox}
-          aria-label={`关闭预览 (${getShortcutHint('image.close') ?? 'Esc'})`}
+          aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
+          title={closeShortcut ? `关闭预览 · ${closeShortcut}` : '关闭预览'}
         >
           <X size={18} />
         </button>
@@ -207,7 +212,8 @@ export function ImageLightbox() {
               type="button"
               className="img-lightbox-nav img-lightbox-nav--prev"
               onClick={lightboxPrev}
-              aria-label={`上一张 (${getShortcutHint('image.prev') ?? '←'})`}
+              aria-label={previousShortcut ? `上一张（${previousShortcut}）` : '上一张'}
+              title={previousShortcut ? `上一张 · ${previousShortcut}` : '上一张'}
             >
               <ChevronLeft size={22} />
             </button>
@@ -215,7 +221,8 @@ export function ImageLightbox() {
               type="button"
               className="img-lightbox-nav img-lightbox-nav--next"
               onClick={lightboxNext}
-              aria-label={`下一张 (${getShortcutHint('image.next') ?? '→'})`}
+              aria-label={nextShortcut ? `下一张（${nextShortcut}）` : '下一张'}
+              title={nextShortcut ? `下一张 · ${nextShortcut}` : '下一张'}
             >
               <ChevronRight size={22} />
             </button>
@@ -232,8 +239,8 @@ export function ImageLightbox() {
             type="button"
             className="img-lightbox-reset"
             onClick={fitImage}
-            aria-label={`适合窗口 (${getShortcutHint('image.reset') ?? 'Alt+R'})`}
-            title={getShortcutHint('image.reset') ?? 'Alt+R'}
+            aria-label={resetShortcut ? `适合窗口（${resetShortcut}）` : '适合窗口'}
+            title={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'}
           >
             适合窗口
           </button>

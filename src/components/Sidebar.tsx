@@ -15,8 +15,9 @@ import {
   Trash2,
 } from '@/icons/appIcons'
 import { UserAvatar } from '@/components/UserAvatar'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
+import type { SidebarNavId } from '@/lib/sidebarNav'
 import {
   countSidebarRoute,
   countSidebarTarget,
@@ -32,12 +33,26 @@ import {
   SIDEBAR_WORKSPACE_EDITOR_ID,
   SidebarWorkspaceEditor,
 } from '@/components/sidebar/SidebarWorkspaceEditor'
-import { getShortcutHint } from '@/shortcuts/ShortcutHost'
 import { ICON_MD } from '@/icons/iconSize'
+import { newTradeKindForPath } from '@/lib/tradeKind'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
 const WORKSPACE_DRAG_THRESHOLD_PX = 5
+
+const PRIMARY_NAV_SHORTCUTS: Record<PrimarySidebarNavId, string> = {
+  today: 'nav.today',
+  trades: 'nav.list',
+  reviewCases: 'nav.reviewCases',
+  dashboard: 'nav.dashboard',
+}
+
+const SYSTEM_NAV_SHORTCUTS: Record<SidebarNavId, string> = {
+  active: 'nav.active',
+  favorites: 'nav.favorites',
+  missed: 'nav.missed',
+  paper: 'nav.sim',
+}
 
 type WorkspaceDragGhost = {
   id: string
@@ -289,7 +304,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     const modified = selection.modifiedWorkspaceItemId === item.item.id
     const isDragging = workspaceDrag?.id === item.item.id
     const isDropTarget = workspaceDrag?.overId === item.item.id
-    return (
+    const link = (
       <NavLink
         key={item.item.id}
         to={workspaceRouteHref(item)}
@@ -327,6 +342,17 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         <Count value={item.count} />
       </NavLink>
     )
+    return item.item.target.kind === 'system' ? (
+      <ShortcutTooltip
+        key={item.item.id}
+        actionId={SYSTEM_NAV_SHORTCUTS[item.item.target.id]}
+        label={item.label}
+      >
+        {link}
+      </ShortcutTooltip>
+    ) : (
+      link
+    )
   }
 
   return (
@@ -342,50 +368,46 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <span className="sb-ws-name">{profile.displayName}</span>
         </NavLink>
         <div className="sb-header-actions">
-          <Tooltip
-            content={`搜索 (${getShortcutHint('global.commandPalette') ?? 'Ctrl+K'})`}
-            label="搜索"
-          >
+          <ShortcutTooltip actionId="global.commandPalette" label="搜索">
             <button
               type="button"
               className="sb-hbtn"
-              aria-label={`搜索 (${getShortcutHint('global.commandPalette') ?? 'Ctrl+K'})`}
               onClick={onOpenSearch}
             >
               <Search size={ICON_MD} />
             </button>
-          </Tooltip>
-          <Tooltip
-            content={`${createLabel} (${getShortcutHint('global.newTrade') ?? 'N'})`}
+          </ShortcutTooltip>
+          <ShortcutTooltip
+            actionId={inReviewCases ? 'global.newCase' : 'global.newTrade'}
             label={createLabel}
           >
             <button
               type="button"
               className="sb-hbtn"
-              aria-label={`${createLabel} (${getShortcutHint('global.newTrade') ?? 'N'})`}
-              onClick={() => openComposer()}
+              onClick={() => openComposer(null, inReviewCases ? 'case' : newTradeKindForPath(path))}
             >
               <Pencil size={ICON_MD} />
             </button>
-          </Tooltip>
+          </ShortcutTooltip>
         </div>
       </div>
 
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作台</div>
         {PRIMARY_NAV.map(({ id, to, label, icon: Icon }) => (
-          <NavLink
-            key={id}
-            to={primaryHref(id, to)}
-            draggable={false}
-            onDragStart={(event) => event.preventDefault()}
-            className={() => 'sb-item' + (selection.activePrimaryId === id ? ' is-active' : '')}
-            aria-current={selection.activePrimaryId === id ? 'page' : undefined}
-          >
-            <Icon size={ICON_MD} />
-            <span className="sb-item-label">{label}</span>
-            <Count value={primaryCount(id)} />
-          </NavLink>
+          <ShortcutTooltip key={id} actionId={PRIMARY_NAV_SHORTCUTS[id]} label={label}>
+            <NavLink
+              to={primaryHref(id, to)}
+              draggable={false}
+              onDragStart={(event) => event.preventDefault()}
+              className={() => 'sb-item' + (selection.activePrimaryId === id ? ' is-active' : '')}
+              aria-current={selection.activePrimaryId === id ? 'page' : undefined}
+            >
+              <Icon size={ICON_MD} />
+              <span className="sb-item-label">{label}</span>
+              <Count value={primaryCount(id)} />
+            </NavLink>
+          </ShortcutTooltip>
         ))}
       </nav>
 

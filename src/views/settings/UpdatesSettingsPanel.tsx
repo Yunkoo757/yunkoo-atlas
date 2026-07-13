@@ -5,6 +5,7 @@ import { ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { AppUpdateState } from '@/lib/appUpdate'
 import { toast } from '@/lib/toast'
+import { flushPersistNow } from '@/storage/persist'
 import './UpdatesSettingsPanel.css'
 
 const FALLBACK_STATE: AppUpdateState = {
@@ -88,6 +89,7 @@ export function UpdatesSettingsPanel() {
 
   const installUpdate = async () => {
     if (!electron) return
+    await flushPersistNow()
     const backup = await getJournalBridge()!.createBackup()
     if (!backup) {
       toast('无法创建更新前备份，已取消安装')

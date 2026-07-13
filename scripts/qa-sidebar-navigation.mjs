@@ -280,6 +280,27 @@ try {
     'Default workspace must expose the four system items',
   )
 
+  const tradeNav = page.locator('.sb-primary > a').nth(1)
+  await tradeNav.hover()
+  const shortcutTooltip = page.locator('.shortcut-tooltip-content')
+  await shortcutTooltip.waitFor({ state: 'visible', timeout: 2000 })
+  expectEqual(
+    (await shortcutTooltip.textContent())?.replace(/\s+/g, ''),
+    '交易日志Alt+W',
+    'Navigation hover must expose the current shortcut',
+  )
+  await page.evaluate(async () => {
+    const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
+    useShortcutStore.getState().setBinding('nav.list', { alt: true, key: 'x' })
+  })
+  await page.waitForFunction(() =>
+    document.querySelector('.shortcut-tooltip-content')?.textContent?.includes('Alt+X'),
+  )
+  await page.evaluate(async () => {
+    const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
+    useShortcutStore.getState().resetBinding('nav.list')
+  })
+
   await page.evaluate(async () => {
     const { useStore } = await import('/src/store/useStore.ts')
     useStore.getState().saveTradeView({

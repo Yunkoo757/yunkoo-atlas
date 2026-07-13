@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 import { app } from 'electron'
 import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs } from './paths'
@@ -13,6 +14,10 @@ interface BackupMeta {
   strategyCount: number
   attachmentCount: number
   librarySizeBytes: number
+  /** 该恢复点引用的原始附件文件；旧版元数据没有此字段。 */
+  attachmentFiles?: string[]
+  /** 原文件名与内容寻址仓库文件的映射。 */
+  attachmentEntries?: { fileName: string; vaultName: string }[]
 }
 
 let intervalTimer: ReturnType<typeof setInterval> | null = null
@@ -51,35 +56,197 @@ function readBackupTradeCount(dbPath: string): number {
   }
 }
 
+function readBackupMeta(dbPath: string): BackupMeta | null {
+  try {
+    const metaPath = dbPath + '.meta.json'
+    if (!fs.existsSync(metaPath)) return null
+    return JSON.parse(fs.readFileSync(metaPath, 'utf8')) as BackupMeta
+  } catch {
+    return null
+  }
+}
+
+function backupAssetVault(backupsDir: string): string {
+  return path.join(backupsDir, 'assets')
+}
+
+function backupManifestPath(dbBackupPath: string): string {
+  return dbBackupPath + '.manifest.json'
+}
+
+function listAttachmentFiles(attachmentsDir: string): string[] {
+  if (!fs.existsSync(attachmentsDir)) return []
+  return fs.readdirSync(attachmentsDir)
+    .filter((name) => fs.statSync(path.join(attachmentsDir, name)).isFile())
+    .sort()
+}
+
+function storeBackupAttachment(source: string, vault: string): string {
+  const vaultName = createHash('sha256').update(fs.readFileSync(source)).digest('hex')
+  const destination = path.join(vault, vaultName)
+  if (!fs.existsSync(destination)) fs.copyFileSync(source, destination)
+  return vaultName
+}
+
+function backupDbFiles(backupsDir: string): string[] {
+  if (!fs.existsSync(backupsDir)) return []
+  return fs.readdirSync(backupsDir)
+    .filter((name) => name.startsWith('journal-') && name.endsWith('.db'))
+}
+
+function pruneBackupAssetVault(backupsDir: string): void {
+  const referenced = new Set<string>()
+  for (const name of backupDbFiles(backupsDir)) {
+    const meta = readBackupMeta(path.join(backupsDir, name))
+    for (const attachment of meta?.attachmentFiles ?? []) referenced.add(attachment)
+    for (const attachment of meta?.attachmentEntries ?? []) referenced.add(attachment.vaultName)
+  }
+  const vault = backupAssetVault(backupsDir)
+  if (!fs.existsSync(vault)) return
+  for (const name of fs.readdirSync(vault)) {
+    if (!referenced.has(name)) fs.rmSync(path.join(vault, name), { force: true })
+  }
+}
+
+function fileSize(pathname: string): number {
+  try {
+    return fs.statSync(pathname).isFile() ? fs.statSync(pathname).size : 0
+  } catch {
+    return 0
+  }
+}
+
+function backupTotalSize(backupsDir: string): number {
+  let total = 0
+  for (const name of fs.readdirSync(backupsDir)) {
+    const pathname = path.join(backupsDir, name)
+    if (name === 'assets' && fs.statSync(pathname).isDirectory()) {
+      for (const asset of fs.readdirSync(pathname)) total += fileSize(path.join(pathname, asset))
+    } else {
+      total += fileSize(pathname)
+    }
+  }
+  return total
+}
+
+function deleteBackupFiles(dbPath: string): void {
+  fs.rmSync(dbPath, { force: true })
+  fs.rmSync(dbPath + '.meta.json', { force: true })
+  fs.rmSync(backupManifestPath(dbPath), { force: true })
+}
+
+export function createBackupAtPath(
+  storage: Pick<LibraryStorage, 'getCounts'>,
+  libraryPath: string,
+  now: number = Date.now(),
+): string | null {
+  const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
+  if (!fs.existsSync(dbFile)) return null
+
+  const dest = path.join(backups, backupFileName(now))
+  fs.copyFileSync(dbFile, dest)
+  if (fs.existsSync(manifestFile)) {
+    fs.copyFileSync(manifestFile, backupManifestPath(dest))
+  }
+
+  const attachmentFiles = listAttachmentFiles(attachments)
+  const vault = backupAssetVault(backups)
+  fs.mkdirSync(vault, { recursive: true })
+  const attachmentEntries = attachmentFiles.map((fileName) => ({
+    fileName,
+    vaultName: storeBackupAttachment(path.join(attachments, fileName), vault),
+  }))
+
+  const counts = storage.getCounts()
+  const meta: BackupMeta = {
+    tradeCount: counts.tradeCount,
+    strategyCount: counts.strategyCount,
+    attachmentCount: counts.assetCount,
+    librarySizeBytes: fs.statSync(dbFile).size,
+    attachmentEntries,
+  }
+  fs.writeFileSync(dest + '.meta.json', JSON.stringify(meta), 'utf-8')
+  return dest
+}
+
 export function createBackup(storage: LibraryStorage): string | null {
   try {
-    const { backups, dbFile } = ensureLibraryDirs(getLibraryPath())
-    if (!fs.existsSync(dbFile)) return null
-
     const now = Date.now()
-    const dest = path.join(backups, backupFileName(now))
-    fs.copyFileSync(dbFile, dest)
-    lastBackupAt = now
-
-    // 写入备份元数据（交易数/策略数/附件数/库大小）
-    try {
-      const counts = storage.getCounts()
-      const meta: BackupMeta = {
-        tradeCount: counts.tradeCount,
-        strategyCount: counts.strategyCount,
-        attachmentCount: counts.assetCount,
-        librarySizeBytes: (() => { try { return fs.statSync(dbFile).size } catch { return 0 } })(),
-      }
-      fs.writeFileSync(dest + '.meta.json', JSON.stringify(meta), 'utf-8')
-    } catch (metaErr) {
-      console.error('[backup] meta write failed', metaErr)
-    }
-
+    const dest = createBackupAtPath(storage, getLibraryPath(), now)
+    if (dest) lastBackupAt = now
     return dest
   } catch (err) {
     console.error('[backup] create failed', err)
     return null
   }
+}
+
+export function getBackupStatsAtPath(libraryPath: string): { count: number; totalSize: number } {
+  const { backups } = ensureLibraryDirs(libraryPath)
+  return {
+    count: backupDbFiles(backups).length,
+    totalSize: backupTotalSize(backups),
+  }
+}
+
+export function deleteBackupAtPath(libraryPath: string, fileName: string): boolean {
+  const { backups } = ensureLibraryDirs(libraryPath)
+  const fp = path.join(backups, path.basename(fileName))
+  if (!fs.existsSync(fp)) return false
+  deleteBackupFiles(fp)
+  pruneBackupAssetVault(backups)
+  return true
+}
+
+export function restoreBackupAtPath(libraryPath: string, fileName: string): boolean {
+  const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
+  const safeName = path.basename(fileName)
+  const src = path.join(backups, safeName)
+  if (!fs.existsSync(src)) return false
+
+  const meta = readBackupMeta(src)
+  const attachmentEntries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map((fileName) => ({
+    fileName,
+    vaultName: fileName,
+  }))
+  let stagedAttachments: string | null = null
+  if (attachmentEntries) {
+    const vault = backupAssetVault(backups)
+    stagedAttachments = path.join(libraryPath, `.attachments-restore-${Date.now()}`)
+    fs.mkdirSync(stagedAttachments, { recursive: true })
+    try {
+      for (const entry of attachmentEntries) {
+        const fileName = path.basename(entry.fileName)
+        const vaultName = path.basename(entry.vaultName)
+        const source = path.join(vault, vaultName)
+        if (!fs.existsSync(source)) throw new Error(`Backup attachment is missing: ${fileName}`)
+        fs.copyFileSync(source, path.join(stagedAttachments, fileName))
+      }
+    } catch (error) {
+      fs.rmSync(stagedAttachments, { recursive: true, force: true })
+      throw error
+    }
+  }
+
+  fs.copyFileSync(src, dbFile)
+  const savedManifest = backupManifestPath(src)
+  if (fs.existsSync(savedManifest)) fs.copyFileSync(savedManifest, manifestFile)
+
+  if (stagedAttachments) {
+    const previousAttachments = path.join(libraryPath, `.attachments-previous-${Date.now()}`)
+    fs.renameSync(attachments, previousAttachments)
+    try {
+      fs.renameSync(stagedAttachments, attachments)
+      fs.rmSync(previousAttachments, { recursive: true, force: true })
+    } catch (error) {
+      if (!fs.existsSync(attachments) && fs.existsSync(previousAttachments)) {
+        fs.renameSync(previousAttachments, attachments)
+      }
+      fs.rmSync(stagedAttachments, { recursive: true, force: true })
+      throw error
+    }
+  }
+  return true
 }
 
 export function rotateBackups(
@@ -98,7 +265,6 @@ export function rotateBackups(
           name: f,
           path: fp,
           timestamp: parseTimestampFromName(f) || 0,
-          size: (() => { try { return fs.statSync(fp).size } catch { return 0 } })(),
           tradeCount: readBackupTradeCount(fp),
         }
       })
@@ -122,20 +288,25 @@ export function rotateBackups(
       if (!keep.has(file.path)) toDelete.add(file.path)
     }
 
-    // 按总容量限制删除（保留最新且不超限；仍优先丢掉空备份）
-    let totalSize = 0
-    const retained = [...nonEmpty, ...emptyOrUnknown].filter((f) => keep.has(f.path))
-    for (const file of retained) {
-      totalSize += file.size
-      if (totalSize > maxTotalSize) {
-        toDelete.add(file.path)
-        keep.delete(file.path)
-      }
-    }
-
     for (const p of toDelete) {
-      try { fs.unlinkSync(p) } catch { /* 忽略 */ }
-      try { const mp = p + '.meta.json'; if (fs.existsSync(mp)) fs.unlinkSync(mp) } catch { /* 忽略 */ }
+      deleteBackupFiles(p)
+      keep.delete(p)
+    }
+    pruneBackupAssetVault(backupsDir)
+
+    // 总容量包含数据库、清单、元数据与去重附件；超限时先删空备份，再删最旧备份。
+    const capacityCandidates = files
+      .filter((file) => keep.has(file.path) && fs.existsSync(file.path))
+      .sort((left, right) => {
+        const leftEmpty = left.tradeCount <= 0
+        const rightEmpty = right.tradeCount <= 0
+        if (leftEmpty !== rightEmpty) return leftEmpty ? -1 : 1
+        return left.timestamp - right.timestamp
+      })
+    for (const file of capacityCandidates) {
+      if (backupTotalSize(backupsDir) <= maxTotalSize) break
+      deleteBackupFiles(file.path)
+      pruneBackupAssetVault(backupsDir)
     }
   } catch (err) {
     console.error('[backup] rotate failed', err)
@@ -144,18 +315,7 @@ export function rotateBackups(
 
 /** 获取备份总大小信息 */
 export function getBackupStats(): { count: number; totalSize: number } {
-  const { backups } = ensureLibraryDirs(getLibraryPath())
-  if (!backups || !fs.existsSync(backups)) return { count: 0, totalSize: 0 }
-
-  const files = fs
-    .readdirSync(backups)
-    .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
-
-  let totalSize = 0
-  for (const f of files) {
-    try { totalSize += fs.statSync(path.join(backups, f)).size } catch { /* 忽略 */ }
-  }
-  return { count: files.length, totalSize }
+  return getBackupStatsAtPath(getLibraryPath())
 }
 
 export function listBackups(): { name: string; timestamp: number; size: number; tradeCount?: number; strategyCount?: number; attachmentCount?: number }[] {
@@ -209,10 +369,13 @@ export function startAutoBackup(
   // 退出前备份
   quitHandler = () => {
     if (storageRef) {
-      const result = createBackup(storageRef)
-      if (result) {
-        const { backups } = ensureLibraryDirs(getLibraryPath())
-        rotateBackups(backups, maxBackups)
+      // 正常关窗时渲染进程会先落盘并创建恢复点；这里只处理强制退出等兜底路径。
+      if (Date.now() - lastBackupAt > 5000) {
+        const result = createBackup(storageRef)
+        if (result) {
+          const { backups } = ensureLibraryDirs(getLibraryPath())
+          rotateBackups(backups, maxBackups)
+        }
       }
       storageRef.release()
     }
@@ -234,18 +397,7 @@ export function stopAutoBackup(): void {
 
 export function restoreBackup(fileName: string): boolean {
   try {
-    const { backups, dbFile } = ensureLibraryDirs(getLibraryPath())
-    const src = path.join(backups, fileName)
-    if (!fs.existsSync(src)) return false
-
-    // 恢复前先备份当前状态
-    if (fs.existsSync(dbFile)) {
-      const rescue = path.join(backups, `pre-restore-${Date.now()}.db`)
-      fs.copyFileSync(dbFile, rescue)
-    }
-
-    fs.copyFileSync(src, dbFile)
-    return true
+    return restoreBackupAtPath(getLibraryPath(), path.basename(fileName))
   } catch (err) {
     console.error('[backup] restore failed', err)
     return false
@@ -254,14 +406,7 @@ export function restoreBackup(fileName: string): boolean {
 
 export function deleteBackup(fileName: string): boolean {
   try {
-    const { backups } = ensureLibraryDirs(getLibraryPath())
-    const fp = path.join(backups, fileName)
-    if (!fs.existsSync(fp)) return false
-    fs.unlinkSync(fp)
-    // 同步清理元数据文件
-    const metaPath = fp + '.meta.json'
-    try { if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath) } catch { /* 忽略 */ }
-    return true
+    return deleteBackupAtPath(getLibraryPath(), fileName)
   } catch {
     return false
   }

@@ -16,16 +16,14 @@ import {
   isBoardPath,
   isDetailPath,
   listPathFromPathname,
+  tablePathFromListPath,
 } from '@/lib/routeContext'
 import { tradeDetailPath, resolveTradeDetailReturn, findTradeByRouteParam } from '@/lib/tradeRoute'
 import { routeWithSearch } from '@/lib/tradeView'
-import {
-  resolveWorkspaceNavTarget,
-  workspaceRouteHref,
-} from '@/lib/workspaceViews'
-import { formatBinding } from '@/shortcuts/format'
+import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxReset } from '@/lib/lightboxView'
+import { newTradeKindForPath } from '@/lib/tradeKind'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -52,11 +50,10 @@ export function useShortcutHost({
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
       'global.newTrade': () => {
-        openComposer()
+        openComposer(null, newTradeKindForPath(pathname))
       },
-      'global.switchModule': () => {
-        const inReviewCases = pathname.startsWith('/review-cases')
-        navigate(inReviewCases ? '/list' : '/review-cases')
+      'global.newCase': () => {
+        openComposer(null, 'case')
       },
       'global.undo': () => {
         const s = useStore.getState()
@@ -73,14 +70,18 @@ export function useShortcutHost({
         else if (closeTradeRequest) cancelTradeClose()
       },
 
+      'nav.today': () => navigate('/today-record'),
       'nav.active': () => navigate('/active'),
       'nav.favorites': () => navigate('/favorites'),
       'nav.missed': () => navigate('/missed'),
       'nav.sim': () => navigate('/sim'),
       'nav.list': () => {
         const state = useStore.getState()
-        const memory = state.display.workspaceMemory?.trade
-        navigate(workspaceRouteHref(resolveWorkspaceNavTarget('trade', memory, state.strategies)))
+        navigate(resolveShortcutWorkspaceHref('trade', state.display, state.strategies))
+      },
+      'nav.reviewCases': () => {
+        const state = useStore.getState()
+        navigate(resolveShortcutWorkspaceHref('case', state.display, state.strategies))
       },
       'nav.board': () => {
         const listPath = listPathFromPathname(pathname) ?? '/list'
@@ -98,6 +99,17 @@ export function useShortcutHost({
         const listContext = useShortcutStore.getState().listContext
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
         navigate(routeWithSearch(boardPathFromListPath(listPath), search || listContext?.listSearch || ''))
+      },
+      'view.table': () => {
+        const listContext = useShortcutStore.getState().listContext
+        const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
+        navigate(routeWithSearch(tablePathFromListPath(listPath), search || listContext?.listSearch || ''))
+      },
+
+      'list.toggleFilters': () => {
+        if (listPathFromPathname(pathname)) {
+          window.dispatchEvent(new CustomEvent('atlas:toggle-trade-filters'))
+        }
       },
 
       'trade.prev': () => {
@@ -171,13 +183,6 @@ export function useShortcutHost({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [pathname])
-}
-
-export function getShortcutHint(actionId: string): string | undefined {
-  const bindings = useShortcutStore.getState().bindings
-  const binding = resolveBinding(actionId, bindings)
-  if (!binding) return undefined
-  return formatBinding(binding)
 }
 
 export function isShortcutContextDetail(pathname: string): boolean {

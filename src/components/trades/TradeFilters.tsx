@@ -183,6 +183,12 @@ export function TradeFilters({
   }, [open])
 
   useEffect(() => {
+    const toggleFromShortcut = () => setOpen((current) => !current)
+    window.addEventListener('atlas:toggle-trade-filters', toggleFromShortcut)
+    return () => window.removeEventListener('atlas:toggle-trade-filters', toggleFromShortcut)
+  }, [])
+
+  useEffect(() => {
     if (!open) return
     panelRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus()
 
@@ -370,6 +376,7 @@ export function TradeFilters({
         triggerRef={triggerRef}
         panelId={panelId}
         label={filterLabel}
+        shortcutActionId="list.toggleFilters"
         quickViews={filter.tradeKind === 'paper' ? undefined : <QuickViewBar kind={workspaceKind} />}
       />
       {panel}

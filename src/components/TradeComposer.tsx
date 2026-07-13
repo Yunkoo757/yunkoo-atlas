@@ -50,6 +50,7 @@ export function TradeComposer() {
   const location = useLocation()
   const open = useStore((s) => s.composerOpen)
   const editing = useStore((s) => s.composerTrade)
+  const requestedKind = useStore((s) => s.composerKind)
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const symbolCatalog = useStore((s) => s.symbolCatalog)
@@ -77,7 +78,7 @@ export function TradeComposer() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const defaultKind = defaultTradeKindForPath(location.pathname)
-  const activeKind = editing?.tradeKind ?? defaultKind
+  const activeKind = editing?.tradeKind ?? requestedKind ?? defaultKind
   const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
 
   // 自动聚焦

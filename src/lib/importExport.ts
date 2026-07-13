@@ -16,7 +16,7 @@ import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/trad
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { useStore } from '@/store/useStore'
-import { useShortcutStore } from '@/store/shortcutStore'
+import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import {
   collectAssetIdsFromNotes,
   externalizeNoteImages,
@@ -81,6 +81,43 @@ interface ExportState extends PersistedSlice {
   savedTradeViews?: SavedTradeView[]
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
+}
+
+interface PortableSnapshotState {
+  trades: PersistedSnapshot['trades']
+  strategies: PersistedSnapshot['strategies']
+  starredIds: string[]
+  subscribedIds: string[]
+  pinnedStrategyIds: string[]
+  display: PersistedSnapshot['display']
+  tagPresets: string[]
+  mistakeTagPresets: string[]
+  profile: PersistedSnapshot['profile']
+  savedTradeViews: PersistedSnapshot['savedTradeViews']
+  symbolIcons: PersistedSnapshot['symbolIcons']
+  symbolCatalog: PersistedSnapshot['symbolCatalog']
+}
+
+export function buildPortableSnapshotFromState(
+  state: PortableSnapshotState,
+  shortcutBindings: Parameters<typeof bindingsForPersist>[0],
+): PersistedSnapshot {
+  const shortcuts = bindingsForPersist(shortcutBindings)
+  return {
+    trades: state.trades,
+    strategies: state.strategies,
+    starredIds: state.starredIds,
+    subscribedIds: state.subscribedIds,
+    pinnedStrategyIds: state.pinnedStrategyIds,
+    display: state.display,
+    tagPresets: state.tagPresets,
+    mistakeTagPresets: state.mistakeTagPresets,
+    profile: state.profile,
+    savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
+    symbolIcons: normalizeSymbolIcons(state.symbolIcons),
+    symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
+    ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
+  }
 }
 
 export type ImportResult =
@@ -212,6 +249,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
 }
 
 export async function downloadExport(): Promise<void> {
+  await flushPersistNow()
   const payload = await buildExportPayload()
   const json = JSON.stringify(payload, null, 2)
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
@@ -232,8 +270,13 @@ export async function downloadExport(): Promise<void> {
  * 图片按原始格式存储，无 base64 膨胀，适合大量图片场景。
  */
 export async function downloadWebJournalZip(): Promise<void> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
-    useStore.getState()
+  await flushPersistNow()
+  const state = useStore.getState()
+  const portableSnapshot = buildPortableSnapshotFromState(
+    state,
+    useShortcutStore.getState().bindings,
+  )
+  const { trades } = portableSnapshot
   const storage = getStorage()
   const assetIds = new Set(collectAssetIdsFromNotes(trades))
   const assets: ExportAssetRecord[] = []
@@ -245,17 +288,7 @@ export async function downloadWebJournalZip(): Promise<void> {
   // 元数据：不含 assets base64，仅保留 id+mime 引用
   const meta = {
     version: EXPORT_VERSION,
-    trades,
-    strategies,
-    starredIds,
-    subscribedIds,
-    pinnedStrategyIds,
-    display,
-    tagPresets,
-    mistakeTagPresets,
-    savedTradeViews,
-    symbolIcons,
-    symbolCatalog,
+    ...portableSnapshot,
     assets: assets.map((a) => ({ id: a.id, mime: a.mime })),
   }
   const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
@@ -598,6 +631,7 @@ export function resetEmptyLibraryIntoStore(): void {
     selectedId: null,
     composerOpen: false,
     composerTrade: null,
+    composerKind: null,
     undoStack: [],
     redoStack: [],
     starredIds: [],
@@ -619,6 +653,7 @@ function clearSessionUiAfterLibrarySwitch(): void {
     selectedId: null,
     composerOpen: false,
     composerTrade: null,
+    composerKind: null,
     undoStack: [],
     redoStack: [],
   })
@@ -682,6 +717,7 @@ export async function switchActiveLibrary(
 
 export async function exportJournalArchive(): Promise<{ ok: boolean; path?: string }> {
   if (!isElectron()) return { ok: false }
+  await flushPersistNow()
   const result = await getJournalBridge()!.exportJournalZip()
   return result.ok ? { ok: true, path: result.path } : { ok: false }
 }

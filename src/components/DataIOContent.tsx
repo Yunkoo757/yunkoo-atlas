@@ -10,6 +10,9 @@ import {
   Trash2,
   FolderOpen,
   Plus,
+  Database,
+  Shield,
+  LockKeyhole,
 } from '@/icons/appIcons'
 import {
   applyImport,
@@ -99,7 +102,7 @@ export function DataIOContent({
   const onExportJson = async () => {
     try {
       await downloadExport()
-      toast('JSON 备份已下载（不含图片）')
+      toast('JSON 数据副本已下载')
     } catch {
       toast('导出失败')
     }
@@ -243,6 +246,42 @@ export function DataIOContent({
         </section>
       )}
 
+      <section className="dio-group" aria-labelledby="dio-boundary-title">
+        <div className="dio-group-head">
+          <h2 id="dio-boundary-title" className="dio-group-title">保存边界</h2>
+          <p className="dio-group-desc">区分自动保存、恢复点和仅保留在此电脑的配置。</p>
+        </div>
+        <div className="dio-task-list">
+          <div className="dio-task">
+            <Database size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">自动保存到当前资料库</div>
+              <div className="dio-task-meta">
+                交易与案例、策略、标签、快捷键、显示偏好、个人资料和保存视图；笔记原图保存在 attachments/。
+              </div>
+            </div>
+          </div>
+          {electron && (
+            <div className="dio-task">
+              <Shield size={18} className="dio-task-icon" />
+              <div className="dio-task-copy">
+                <div className="dio-task-title">自动恢复点</div>
+                <div className="dio-task-meta">
+                  每 15 分钟及退出前保存数据库、资料库清单和原始附件；相同附件只保留一份。
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="dio-task">
+            <LockKeyhole size={18} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">仅保留在这台电脑</div>
+              <div className="dio-task-meta">GitHub 更新令牌、窗口位置与当前资料库路径不会写入资料库或导出文件。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="dio-group" aria-labelledby="dio-export-title">
         <div className="dio-group-head">
           <h2 id="dio-export-title" className="dio-group-title">
@@ -255,7 +294,7 @@ export function DataIOContent({
             <Package size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">完整备份</div>
-              <div className="dio-task-meta">交易、设置与笔记图片 · 推荐</div>
+              <div className="dio-task-meta">交易、设置、快捷键与原始笔记图片 · 推荐</div>
             </div>
             <button type="button" className="dio-btn dio-btn-primary" onClick={onExportZip}>
               <span>导出 .journal.zip</span>
@@ -265,7 +304,7 @@ export function DataIOContent({
             <Download size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">JSON 数据副本</div>
-              <div className="dio-task-meta">仅交易、策略与偏好，不含图片</div>
+              <div className="dio-task-meta">交易、策略、标签与嵌入图片；不含个人资料和快捷键</div>
             </div>
             <button type="button" className="dio-btn" onClick={onExportJson}>
               <span>下载 JSON</span>
@@ -293,7 +332,7 @@ export function DataIOContent({
             <Upload size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">Yunkoo JSON</div>
-              <div className="dio-task-meta">合并到当前交易库，不含图片</div>
+              <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
             </div>
             <button type="button" className="dio-btn" onClick={() => fileRef.current?.click()}>
               <span>选择文件</span>

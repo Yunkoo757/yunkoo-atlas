@@ -23,6 +23,11 @@ export function defaultTradeKindForPath(pathname: string): TradeKind {
   return 'live'
 }
 
+/** “新建交易”排除案例类型，但在模拟工作区仍创建模拟交易。 */
+export function newTradeKindForPath(pathname: string): Extract<TradeKind, 'live' | 'paper'> {
+  return defaultTradeKindForPath(pathname) === 'paper' ? 'paper' : 'live'
+}
+
 export function isReviewCaseTrade(trade: Trade): boolean {
   return trade.tradeKind === 'case'
 }
