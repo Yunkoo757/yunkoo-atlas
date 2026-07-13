@@ -17,7 +17,7 @@ export default defineConfig({
               alias: { '@': path.resolve(__dirname, 'src') },
             },
             build: {
-              rollupOptions: {
+              rolldownOptions: {
                 external: [
                   'electron',
                   'electron-updater',
@@ -34,7 +34,7 @@ export default defineConfig({
           input: 'electron/preload.ts',
           vite: {
             build: {
-              rollupOptions: {
+              rolldownOptions: {
                 output: {
                   format: 'cjs',
                   entryFileNames: 'preload.cjs',
@@ -49,7 +49,7 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, 'src') },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('/node_modules/@tiptap/') || id.includes('/node_modules/prosemirror-')) {

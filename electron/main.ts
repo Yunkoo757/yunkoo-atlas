@@ -6,6 +6,7 @@ import { registerLibraryIpc } from './library/ipc'
 import { runElectronQaAndExit } from './qa'
 import { registerAppUpdater, scheduleAutomaticUpdateChecks } from './updater'
 import { loadWindowState, registerWindowIpc, trackWindowState } from './windowState'
+import { initializeDiagnostics, logDiagnostic } from './diagnostics'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -47,9 +48,37 @@ function getWindowIconPath(): string | undefined {
 
 let mainWindow: BrowserWindow | null = null
 
+function isAllowedExternalUrl(rawUrl: string): boolean {
+  try {
+    return ['https:', 'mailto:'].includes(new URL(rawUrl).protocol)
+  } catch {
+    return false
+  }
+}
+
+function openExternalUrl(rawUrl: string): void {
+  if (!isAllowedExternalUrl(rawUrl)) {
+    logDiagnostic('warn', 'blocked-external-url')
+    return
+  }
+  void shell.openExternal(rawUrl)
+}
+
+function isTrustedAppNavigation(rawUrl: string, devUrl: string | undefined, indexHtml: string): boolean {
+  try {
+    const target = new URL(rawUrl)
+    if (devUrl) return target.origin === new URL(devUrl).origin
+    return target.protocol === 'file:' && path.normalize(fileURLToPath(target)) === path.normalize(indexHtml)
+  } catch {
+    return false
+  }
+}
+
 function createWindow() {
   const icon = getWindowIconPath()
   const windowState = loadWindowState()
+  const devUrl = process.env.VITE_DEV_SERVER_URL
+  const indexHtml = getIndexHtmlPath()
   mainWindow = new BrowserWindow({
     width: windowState.width,
     height: windowState.height,
@@ -67,7 +96,7 @@ function createWindow() {
       preload: getPreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   })
 
@@ -84,21 +113,31 @@ function createWindow() {
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    openExternalUrl(url)
     return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isTrustedAppNavigation(url, devUrl, indexHtml)) return
+    event.preventDefault()
+    openExternalUrl(url)
   })
 
   mainWindow.webContents.on('did-fail-load', (_event, code, desc, url) => {
     console.error(`[electron] did-fail-load ${code} ${desc} ${url}`)
+    logDiagnostic('error', 'did-fail-load', { code, description: desc })
   })
 
-  const devUrl = process.env.VITE_DEV_SERVER_URL
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    logDiagnostic('error', 'render-process-gone', details)
+  })
+
   if (devUrl) {
     void mainWindow.loadURL(devUrl)
   } else {
-    const indexHtml = getIndexHtmlPath()
     void mainWindow.loadFile(indexHtml).catch((err) => {
       console.error('[electron] loadFile failed', indexHtml, err)
+      logDiagnostic('error', 'load-file-failed', err)
     })
   }
 
@@ -113,6 +152,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  initializeDiagnostics()
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.yunkoo-atlas.app')
   }
@@ -132,6 +172,10 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('child-process-gone', (_event, details) => {
+  logDiagnostic('error', 'child-process-gone', details)
 })
 
 app.on('window-all-closed', () => {

@@ -59,10 +59,7 @@ if (local !== remote) {
   process.exit(1)
 }
 
-run('pnpm', ['test'])
-run('pnpm', ['qa:sidebar'])
-run('pnpm', ['build:app'])
-run('pnpm', ['qa:electron'])
+run('pnpm', ['qa:release'])
 run('pnpm', ['version', level, '--message', 'chore: release v%s'])
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'))

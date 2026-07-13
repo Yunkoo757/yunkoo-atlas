@@ -67,3 +67,29 @@ export function testElectronUpdaterUsesCommonJsCompatibleRuntimeImport() {
     'electron-updater 运行时必须使用默认导入',
   )
 }
+
+export function testMacOsUpdaterClearlyUsesManualInstallation() {
+  const source = readFileSync('electron/updater.ts', 'utf8')
+
+  assert(
+    source.includes("process.platform === 'darwin'"),
+    'macOS 必须有独立的平台分支',
+  )
+  assert(
+    source.includes('macOS 当前仅支持手动下载并安装新版本'),
+    '未签名公证前不得暗示 macOS 支持应用内自动更新',
+  )
+}
+
+export function testElectronWindowEnforcesNavigationAndCrashDiagnostics() {
+  const main = readFileSync('electron/main.ts', 'utf8')
+  const diagnostics = readFileSync('electron/diagnostics.ts', 'utf8')
+  const html = readFileSync('index.html', 'utf8')
+
+  assert(main.includes('sandbox: true'), '渲染窗口应启用 Chromium 沙箱')
+  assert(main.includes("['https:', 'mailto:']"), '外部链接必须限制到安全协议')
+  assert(main.includes("webContents.on('will-navigate'"), '必须阻止未授权页面跳转')
+  assert(main.includes("webContents.on('render-process-gone'"), '必须记录渲染进程崩溃')
+  assert(diagnostics.includes('uncaughtExceptionMonitor'), '必须记录主进程未捕获异常')
+  assert(html.includes('Content-Security-Policy'), '渲染页面必须声明 CSP')
+}

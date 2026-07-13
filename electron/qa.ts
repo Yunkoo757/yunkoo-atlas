@@ -5,7 +5,7 @@ import { LibraryStorage } from './library/storage'
 import { processImageBuffer } from './library/images'
 import { exportJournalZip, importJournalZipToPath } from './library/journalZip'
 import { createBackup, restoreBackup, rotateBackups } from './library/backup'
-import { SCHEMA_VERSION } from '../src/storage/types'
+import { SCHEMA_VERSION, type PersistedSnapshot } from '../src/storage/types'
 import { ZipArchive } from 'archiver'
 
 export interface QaCheck {
@@ -21,7 +21,7 @@ function pngBuf(): Buffer {
   )
 }
 
-function seedSnapshot() {
+function seedSnapshot(): PersistedSnapshot {
   return {
     trades: [
       {
@@ -33,6 +33,9 @@ function seedSnapshot() {
         conviction: 'medium',
         strategyId: 'qa-strategy',
         tags: ['qa'],
+        mistakeTags: [],
+        reviewStatus: 'unreviewed',
+        reviewCategory: 'normal',
         tradeKind: 'live',
         entry: 100,
         exit: 110,
@@ -61,6 +64,8 @@ function seedSnapshot() {
       groupByStrategy: false,
       groupByDate: true,
       sortBy: 'date',
+      sidebarPins: [],
+      sidebarWorkspaceItems: [],
     },
   }
 }

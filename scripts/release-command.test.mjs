@@ -71,14 +71,37 @@ test('发布资产由 GitHub CLI 串行上传并校验', () => {
   assert.doesNotMatch(workflow, /--publish always/)
 })
 
-test('发布门禁包含侧栏与 Electron QA', () => {
+test('本地发布与 GitHub Release 共用完整质量门禁', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const release = readFileSync('scripts/release.mjs', 'utf8')
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+  const qualityGate = readFileSync('scripts/qa-release.mjs', 'utf8')
 
-  assert.match(workflow, /pnpm qa:sidebar/)
-  assert.match(workflow, /pnpm qa:electron/)
-  assert.match(release, /qa:sidebar/)
-  assert.match(release, /qa:electron/)
+  assert.match(workflow, /pnpm qa:release/)
+  assert.match(release, /qa:release/)
+  assert.equal(pkg.scripts['qa:release'], 'node scripts/qa-release.mjs')
+  assert.match(qualityGate, /\['qa:sidebar'\]/)
+  assert.match(qualityGate, /\['qa:electron'\]/)
+  assert.match(qualityGate, /\['qa:design'\]/)
+  assert.match(qualityGate, /\['qa:linear'\]/)
+  assert.match(qualityGate, /waitForVite/)
+})
+
+test('常规 CI 在主干与拉取请求上运行同一质量门禁', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
+
+  assert.match(workflow, /push:/)
+  assert.match(workflow, /pull_request:/)
+  assert.match(workflow, /pnpm qa:release/)
+})
+
+test('应用构建同时检查渲染进程与 Electron 主进程类型', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+  const electronTsconfig = readFileSync('tsconfig.electron.json', 'utf8')
+
+  assert.match(pkg.scripts.typecheck, /tsconfig\.electron\.json/)
+  assert.match(pkg.scripts['build:app'], /pnpm typecheck/)
+  assert.match(electronTsconfig, /"include": \["electron"\]/)
 })
 
 test('安装包文件名不含空格，必须与 latest.yml 下载地址一致', () => {
