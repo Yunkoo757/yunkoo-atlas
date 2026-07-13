@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import updaterPackage from 'electron-updater'
 import type { ProgressInfo, UpdateInfo } from 'electron-updater'
+import { writeFileAtomicallySync } from './library/atomicFile'
 import {
   normalizeUpdateCredential,
   redactUpdateError,
@@ -19,6 +20,7 @@ const CREDENTIAL_FILE = 'github-update-credential.json'
 
 let state: AppUpdateState
 let autoCheckTimer: ReturnType<typeof setInterval> | null = null
+let autoCheckDelayTimer: ReturnType<typeof setTimeout> | null = null
 let registered = false
 
 function initialState(): AppUpdateState {
@@ -63,11 +65,12 @@ function writeStoredCredential(value: string): void {
 
   const encrypted = safeStorage.encryptString(token).toString('base64')
   fs.mkdirSync(path.dirname(credentialPath()), { recursive: true })
-  fs.writeFileSync(
+  writeFileAtomicallySync(
     credentialPath(),
     JSON.stringify({ version: 1, encrypted }),
-    { encoding: 'utf8', mode: 0o600 },
+    'utf8',
   )
+  if (process.platform !== 'win32') fs.chmodSync(credentialPath(), 0o600)
   process.env.GH_TOKEN = token
 }
 
@@ -169,10 +172,12 @@ export function registerAppUpdater(): void {
   ipcMain.handle('update:hasCredential', () => Boolean(readStoredCredential()))
   ipcMain.handle('update:saveCredential', (_event, token: string) => {
     writeStoredCredential(token)
+    scheduleAutomaticUpdateChecks()
     return true
   })
   ipcMain.handle('update:clearCredential', () => {
     clearStoredCredential()
+    scheduleAutomaticUpdateChecks()
     transition({
       type: 'credential-required',
       message: '私有仓库需要只读 GitHub 更新令牌。',
@@ -182,7 +187,14 @@ export function registerAppUpdater(): void {
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:download', async () => {
     if (state.phase !== 'available') return state
-    await autoUpdater.downloadUpdate()
+    try {
+      await autoUpdater.downloadUpdate()
+    } catch (error) {
+      transition({
+        type: 'error',
+        message: redactUpdateError(error instanceof Error ? error.message : String(error)),
+      })
+    }
     return state
   })
   ipcMain.handle('update:install', () => {
@@ -225,8 +237,18 @@ export function registerAppUpdater(): void {
 }
 
 export function scheduleAutomaticUpdateChecks(): void {
+  if (autoCheckDelayTimer) {
+    clearTimeout(autoCheckDelayTimer)
+    autoCheckDelayTimer = null
+  }
+  if (autoCheckTimer) {
+    clearInterval(autoCheckTimer)
+    autoCheckTimer = null
+  }
   if (supportMessage() || !readStoredCredential()) return
-  setTimeout(() => void checkForUpdates(), AUTO_CHECK_DELAY_MS)
-  if (autoCheckTimer) clearInterval(autoCheckTimer)
+  autoCheckDelayTimer = setTimeout(() => {
+    autoCheckDelayTimer = null
+    void checkForUpdates()
+  }, AUTO_CHECK_DELAY_MS)
   autoCheckTimer = setInterval(() => void checkForUpdates(), AUTO_CHECK_INTERVAL_MS)
 }
