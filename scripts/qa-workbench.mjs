@@ -395,16 +395,22 @@ try {
   }
   record('全部设置分类保持可访问', true)
 
-  await page.setViewportSize({ width: 900, height: 800 })
   const secondaryRoutes = ['/dashboard', '/settings/profile', '/review-cases']
   const secondaryOverflow = []
   for (const path of secondaryRoutes) {
-    await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })
-    await waitForApp()
-    const overflow = await page.evaluate(() =>
-      document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    )
-    if (overflow) secondaryOverflow.push(path)
+    const secondaryPage = await context.newPage()
+    trackRuntimeErrors(secondaryPage)
+    try {
+      await secondaryPage.setViewportSize({ width: 900, height: 800 })
+      await secondaryPage.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })
+      await waitForApp(secondaryPage)
+      const overflow = await secondaryPage.evaluate(() =>
+        document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      )
+      if (overflow) secondaryOverflow.push(path)
+    } finally {
+      await secondaryPage.close()
+    }
   }
   record(
     '次级页面 900px 视口无横向溢出',
