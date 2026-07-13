@@ -151,6 +151,14 @@ function isAssetRecord(v: unknown): v is ExportAssetRecord {
   return typeof v.id === 'string' && typeof v.mime === 'string' && typeof v.data === 'string'
 }
 
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+function isNullableFiniteNumber(v: unknown): v is number | null {
+  return v === null || isFiniteNumber(v)
+}
+
 function isTrade(v: unknown): v is Trade & { strategy?: string } {
   if (!isRecord(v)) return false
   if (typeof v.id !== 'string' || !v.id) return false
@@ -178,11 +186,11 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   ) {
     return false
   }
-  if (typeof v.entry !== 'number') return false
-  if (v.exit !== null && typeof v.exit !== 'number') return false
-  if (typeof v.size !== 'number') return false
-  if (typeof v.pnl !== 'number') return false
-  if (typeof v.rMultiple !== 'number') return false
+  if (!isFiniteNumber(v.entry)) return false
+  if (!isNullableFiniteNumber(v.exit)) return false
+  if (!isFiniteNumber(v.size)) return false
+  if (!isNullableFiniteNumber(v.pnl)) return false
+  if (!isNullableFiniteNumber(v.rMultiple)) return false
   if (typeof v.openedAt !== 'string') return false
   if (v.closedAt !== null && typeof v.closedAt !== 'string') return false
   if (typeof v.note !== 'string') return false
