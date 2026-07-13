@@ -68,6 +68,18 @@ export function testElectronUpdaterUsesCommonJsCompatibleRuntimeImport() {
   )
 }
 
+export function testUpdaterReschedulesAfterCredentialChangesAndHandlesDownloadErrors() {
+  const source = readFileSync('electron/updater.ts', 'utf8')
+  const scheduleCalls = source.match(/scheduleAutomaticUpdateChecks\(\)/g) ?? []
+  assert(scheduleCalls.length >= 3, '启动、保存令牌和清除令牌后都应重新配置自动检查计划')
+  assert(source.includes('autoCheckDelayTimer'), '延迟检查必须可取消，避免重复计时器')
+  assert(
+    source.includes("await autoUpdater.downloadUpdate()") &&
+      source.includes("message: redactUpdateError"),
+    '更新下载失败必须转为可见的错误状态而不是未处理 Promise',
+  )
+}
+
 export function testMacOsUpdaterClearlyUsesManualInstallation() {
   const source = readFileSync('electron/updater.ts', 'utf8')
 
