@@ -115,7 +115,14 @@ export const TradeRow = memo(function TradeRow({
             content={reviewLabel}
             label={`${trade.tradeKind === 'case' ? '案例类型' : '复盘分类'}：${reviewLabel}`}
           >
-            <span className="trade-row-tag is-review">{reviewLabel}</span>
+            <span
+              className={
+                'trade-row-tag is-review' +
+                ((trade.caseType ?? trade.reviewCategory) === 'ambiguous' ? ' is-ambiguous' : '')
+              }
+            >
+              {reviewLabel}
+            </span>
           </Tooltip>
         )}
         {regularTags.hiddenCount > 0 && (

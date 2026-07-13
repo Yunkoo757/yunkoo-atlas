@@ -428,8 +428,8 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8')
 
-  assert(source.includes('最多保留 20 份'), '数据设置应展示桌面端实际的 20 份备份上限')
-  assert(!source.includes('最多保留 7 份'), '不得继续展示旧的 7 份备份上限')
+  assert(source.includes('最多保留 7 份'), '数据设置应展示桌面端实际的 7 份备份上限')
+  assert(!source.includes('最多保留 20 份'), '不得继续展示旧的 20 份备份上限')
 }
 
 export async function testTagSettingsExposeDistinctAccessibleControlNames(): Promise<void> {
@@ -1680,6 +1680,21 @@ export function testReviewCaseScopesFilterCaseRecords(): void {
     reviewCategory: 'mistake',
     mistakeTags: ['追单'],
   }
+  const ambiguousCase: Trade = {
+    ...trade,
+    id: 'ambiguous-case',
+    tradeKind: 'case',
+    caseType: 'ambiguous',
+    reviewCategory: 'ambiguous',
+  }
+  const missedCase: Trade = {
+    ...trade,
+    id: 'missed-case',
+    tradeKind: 'case',
+    caseType: 'missed',
+    reviewCategory: 'normal',
+    status: 'missed',
+  }
   const reviewedCase: Trade = {
     ...trade,
     id: 'reviewed-case',
@@ -1701,7 +1716,7 @@ export function testReviewCaseScopesFilterCaseRecords(): void {
     [],
   )
   const mistakes = filterTrades(
-    [focusCase, mistakeCase, reviewedCase],
+    [focusCase, mistakeCase, ambiguousCase, missedCase, reviewedCase],
     { type: 'all', tradeKind: 'case', reviewCaseScope: 'mistakes' },
     [],
   )
@@ -1722,7 +1737,10 @@ export function testReviewCaseScopesFilterCaseRecords(): void {
   )
 
   assert(focus.length === 1 && focus[0]?.id === focusCase.id, 'focus scope only keeps focus cases')
-  assert(mistakes.length === 1 && mistakes[0]?.id === mistakeCase.id, 'mistakes scope only keeps mistake cases')
+  assert(
+    mistakes.length === 1 && mistakes[0]?.id === mistakeCase.id,
+    'mistakes scope must exclude ambiguous and missed cases without mistake evidence',
+  )
   assert(reviewed.length === 1 && reviewed[0]?.id === reviewedCase.id, 'reviewed scope only keeps reviewed cases')
   assert(
     unreviewed.length === 2 &&

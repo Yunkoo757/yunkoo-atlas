@@ -379,6 +379,12 @@
   background: var(--accent-bg);
 }
 
+.trade-row-tag.is-review.is-ambiguous {
+  color: color-mix(in srgb, var(--warn) 36%, var(--text-tertiary));
+  background: transparent;
+  border-color: color-mix(in srgb, var(--warn) 15%, var(--border-subtle));
+}
+
 .trade-row-more {
   color: var(--text-quaternary);
   background: transparent;
