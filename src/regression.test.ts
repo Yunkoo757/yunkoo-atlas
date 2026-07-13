@@ -2129,6 +2129,44 @@ export function testCaseTagEditingDoesNotMutateGlobalPresets(): void {
   }
 }
 
+export function testUndoHistoryKeepsTheLatestFiftyMutations(): void {
+  const previous = useStore.getState()
+  const editable: Trade = { ...trade, id: 'undo-window', ref: 'TRD-UNDO', size: 0 }
+  try {
+    useStore.setState({ trades: [editable], undoStack: [], redoStack: [] })
+    for (let size = 1; size <= 51; size += 1) {
+      useStore.getState().updateTradeData(editable.id, { size })
+    }
+
+    assert(useStore.getState().undoStack.length === 50, '撤销历史必须保持固定 50 条容量')
+    useStore.getState().undo()
+    assert(useStore.getState().trades[0]?.size === 50, '撤销必须回退最近一次操作，而不是陈旧操作')
+  } finally {
+    useStore.setState({
+      trades: previous.trades,
+      undoStack: previous.undoStack,
+      redoStack: previous.redoStack,
+    })
+  }
+}
+
+export function testMissingTradeDoesNotCreateInvalidUndoSnapshot(): void {
+  const previous = useStore.getState()
+  try {
+    useStore.setState({ trades: [], undoStack: [], redoStack: [] })
+    useStore.getState().setStatus('missing', 'win')
+    useStore.getState().updateTradeData('missing', { size: 2 })
+    useStore.getState().removeTrade('missing')
+    assert(useStore.getState().undoStack.length === 0, '不存在的记录不得污染撤销历史')
+  } finally {
+    useStore.setState({
+      trades: previous.trades,
+      undoStack: previous.undoStack,
+      redoStack: previous.redoStack,
+    })
+  }
+}
+
 export function testPersistSuspendNesting(): void {
   assert(getPersistSuspendDepth() === 0, '初始挂起深度应为 0')
   suspendPersist()

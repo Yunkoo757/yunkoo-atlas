@@ -45,6 +45,15 @@ type TradeUpsertSlice = {
   mistakeTagPresets: string[]
 }
 
+type UndoSnapshot = { id: string; prev: Trade }
+
+function appendBoundedHistory(
+  stack: UndoSnapshot[][],
+  snapshots: UndoSnapshot[],
+): UndoSnapshot[][] {
+  return [...stack.slice(-49), snapshots]
+}
+
 function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
   const exists = s.trades.some((t) => t.id === trade.id)
   const strategyId = trade.strategyId || s.strategies[0]?.id || 'uncategorized'
@@ -217,7 +226,7 @@ export const useStore = create<State>()((set, get) => ({
       redoStack: [],
       pushUndo: (snapshots) =>
         set((s) => ({
-          undoStack: [...s.undoStack.slice(-49), snapshots],
+          undoStack: appendBoundedHistory(s.undoStack, snapshots),
           redoStack: [],
         })),
       undo: () =>
@@ -234,7 +243,7 @@ export const useStore = create<State>()((set, get) => ({
               return snap ? snap.prev : t
             }),
             undoStack: s.undoStack.slice(0, -1),
-            redoStack: [...s.redoStack, redoSnaps],
+            redoStack: appendBoundedHistory(s.redoStack, redoSnaps),
           }
         }),
       redo: () =>
@@ -251,7 +260,7 @@ export const useStore = create<State>()((set, get) => ({
               return snap ? snap.prev : t
             }),
             redoStack: s.redoStack.slice(0, -1),
-            undoStack: [...s.undoStack, undoSnaps],
+            undoStack: appendBoundedHistory(s.undoStack, undoSnaps),
           }
         }),
       starredIds: [],
@@ -412,28 +421,31 @@ export const useStore = create<State>()((set, get) => ({
             : s.profile,
         })),
       setStatus: (id, status) =>
-        set((s) => ({
-          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
-          redoStack: [],
-          trades: s.trades.map((t) => {
-            if (t.id !== id) return t
-            if (t.status === status) return t
-            const closed = isTerminal(status)
-            const updated = {
-              ...t,
-              status,
-              closedAt: closed
-                ? t.closedAt ?? new Date().toISOString().slice(0, 10)
-                : null,
-              missReason: status === 'missed' ? t.missReason : undefined,
-            }
-            return appendActivity(updated, {
-              kind: 'status',
-              status,
-              timestamp: new Date().toISOString(),
-            })
-          }),
-        })),
+        set((s) => {
+          const previous = s.trades.find((t) => t.id === id)
+          if (!previous || previous.status === status) return s
+          return {
+            undoStack: appendBoundedHistory(s.undoStack, [{ id, prev: previous }]),
+            redoStack: [],
+            trades: s.trades.map((t) => {
+              if (t.id !== id) return t
+              const closed = isTerminal(status)
+              const updated = {
+                ...t,
+                status,
+                closedAt: closed
+                  ? t.closedAt ?? new Date().toISOString().slice(0, 10)
+                  : null,
+                missReason: status === 'missed' ? t.missReason : undefined,
+              }
+              return appendActivity(updated, {
+                kind: 'status',
+                status,
+                timestamp: new Date().toISOString(),
+              })
+            }),
+          }
+        }),
       setConviction: (id, conviction) =>
         set((s) => ({
           trades: s.trades.map((t) => (t.id === id ? { ...t, conviction } : t)),
@@ -490,8 +502,10 @@ export const useStore = create<State>()((set, get) => ({
         })),
       updateTradeData: (id, patch) =>
         set((s) => {
+          const previous = s.trades.find((t) => t.id === id)
+          if (!previous) return s
           return {
-            undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
+            undoStack: appendBoundedHistory(s.undoStack, [{ id, prev: previous }]),
             redoStack: [],
             trades: s.trades.map((t) => {
               if (t.id !== id) return t
@@ -628,13 +642,17 @@ export const useStore = create<State>()((set, get) => ({
           return slice
         }),
       removeTrade: (id) =>
-        set((s) => ({
-          undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
-          redoStack: [],
-          trades: s.trades.map((t) =>
-            t.id === id ? { ...t, deletedAt: new Date().toISOString() } : t
-          ),
-        })),
+        set((s) => {
+          const previous = s.trades.find((t) => t.id === id)
+          if (!previous || previous.deletedAt) return s
+          return {
+            undoStack: appendBoundedHistory(s.undoStack, [{ id, prev: previous }]),
+            redoStack: [],
+            trades: s.trades.map((t) =>
+              t.id === id ? { ...t, deletedAt: new Date().toISOString() } : t
+            ),
+          }
+        }),
       restoreTrade: (id) =>
         set((s) => ({
           trades: s.trades.map((t) =>
