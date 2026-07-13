@@ -29,29 +29,26 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-export function testCloseCalculatesMetricsFromExecutionPrices(): void {
-  const result = prepareTradeClose(trade, {
-    outcome: 'win',
+export function testClosePriceWithoutStopRequiresAnotherResultMode(): void {
+  const result = prepareTradeClose({ ...trade, stopLoss: null }, {
+    outcome: 'loss',
+    resultMode: 'price',
+    value: null,
     exit: 110,
-    pnl: null,
-    rMultiple: null,
     closedAt: '2026-07-13',
   })
 
-  assert(result.ok, 'valid execution prices should close the trade')
-  if (!result.ok) return
-  assert(result.status === 'win', 'positive result should close as win')
-  assert(result.patch.pnl === 20, 'PnL should be calculated from entry, exit and size')
-  assert(result.patch.rMultiple === 2, 'R should use the initial stop risk')
-  assert(result.patch.reviewStatus === 'unreviewed', 'closing should enter the review queue')
+  assert(!result.ok, 'price mode without initial risk should ask for cash or R instead')
+  if (result.ok) return
+  assert(result.error.includes('止损'), 'the error should explain why price R is unavailable')
 }
 
 export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'loss',
+    resultMode: 'r',
+    value: 1.5,
     exit: null,
-    pnl: null,
-    rMultiple: -1.5,
     closedAt: '2026-07-13',
   })
 
@@ -62,23 +59,114 @@ export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {
   assert(result.status === 'loss', 'negative R should close as loss')
 }
 
-export function testCloseRejectsMissingOrConflictingResults(): void {
-  const missing = prepareTradeClose(trade, {
+export function testCloseKeepsCashResultAsTheOnlyAuthority(): void {
+  const forexTrade = {
+    ...trade,
+    entry: 1.1,
+    stopLoss: 1.095,
+    size: 1,
+    rMultiple: -1,
+  }
+  const result = prepareTradeClose(forexTrade, {
     outcome: 'win',
-    exit: null,
-    pnl: null,
-    rMultiple: null,
-    closedAt: '2026-07-13',
-  })
-  const conflict = prepareTradeClose(trade, {
-    outcome: 'win',
-    exit: null,
-    pnl: -20,
-    rMultiple: 2,
+    resultMode: 'pnl',
+    value: 1_000,
+    exit: 1.11,
     closedAt: '2026-07-13',
   })
 
-  assert(!missing.ok, 'close must capture PnL, R or enough prices to calculate them')
-  assert(!conflict.ok, 'contradictory metrics must not be saved')
+  assert(result.ok, 'an explicit cash result should not conflict with stale R data')
+  if (!result.ok) return
+  assert(result.patch.pnl === 1_000, 'explicit cash PnL should be preserved')
+  assert(result.patch.rMultiple === null, 'cash mode must not invent or preserve an R result')
 }
 
+export function testCloseAppliesLossDirectionToCashMagnitude(): void {
+  const result = prepareTradeClose(trade, {
+    outcome: 'loss',
+    resultMode: 'pnl',
+    value: 500,
+    exit: null,
+    closedAt: '2026-07-13',
+  })
+
+  assert(result.ok, 'loss cash input should accept an unsigned magnitude')
+  if (!result.ok) return
+  assert(result.status === 'loss', 'loss selection should determine the result direction')
+  assert(result.patch.pnl === -500, 'loss cash magnitude should be stored as a negative value')
+}
+
+export function testCloseKeepsRResultAsTheOnlyAuthority(): void {
+  const result = prepareTradeClose({ ...trade, pnl: 500 }, {
+    outcome: 'loss',
+    resultMode: 'r',
+    value: 1.5,
+    exit: null,
+    closedAt: '2026-07-13',
+  })
+
+  assert(result.ok, 'R mode should ignore stale cash data and accept an unsigned magnitude')
+  if (!result.ok) return
+  assert(result.patch.pnl === null, 'R mode must clear stale cash PnL')
+  assert(result.patch.rMultiple === -1.5, 'loss R magnitude should be stored as a negative value')
+}
+
+export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
+  const result = prepareTradeClose(trade, {
+    outcome: 'breakeven',
+    resultMode: 'pnl',
+    value: null,
+    exit: null,
+    closedAt: '2026-07-13',
+  })
+
+  assert(result.ok, 'breakeven should close without forcing a redundant zero input')
+  if (!result.ok) return
+  assert(result.status === 'breakeven', 'breakeven selection should remain authoritative')
+  assert(result.patch.pnl === 0, 'cash mode should store an explicit breakeven result')
+  assert(result.patch.rMultiple === null, 'cash mode should not invent an R result')
+}
+
+export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
+  const forexTrade = {
+    ...trade,
+    entry: 1.1,
+    stopLoss: 1.095,
+    size: 1,
+    pnl: 1_000,
+    rMultiple: -1,
+  }
+  const result = prepareTradeClose(forexTrade, {
+    outcome: 'loss',
+    resultMode: 'price',
+    value: null,
+    exit: 1.11,
+    closedAt: '2026-07-13',
+  })
+
+  assert(result.ok, 'price mode should derive a coherent result from execution prices')
+  if (!result.ok) return
+  assert(result.status === 'win', 'price direction should determine the closed outcome')
+  assert(result.patch.pnl === null, 'price mode must not invent cash PnL without contract metadata')
+  assert(result.patch.rMultiple === 2, 'price mode should calculate R from price risk directly')
+}
+
+export function testCloseRejectsMissingPrimaryResult(): void {
+  const missing = prepareTradeClose(trade, {
+    outcome: 'win',
+    resultMode: 'pnl',
+    value: null,
+    exit: null,
+    closedAt: '2026-07-13',
+  })
+  const missingPrice = prepareTradeClose(trade, {
+    outcome: 'win',
+    resultMode: 'price',
+    value: null,
+    exit: null,
+    closedAt: '2026-07-13',
+  })
+
+  assert(!missing.ok, 'cash mode should require a cash result')
+  assert(!missingPrice.ok, 'price mode should require an exit price')
+}
