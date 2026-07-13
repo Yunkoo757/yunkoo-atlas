@@ -2,6 +2,7 @@ import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind, ReviewCatego
 import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { calcRFromStop } from '@/lib/tradeCalc'
+import { formatYmd } from '@/lib/periods'
 
 export interface CsvParseResult {
   headers: string[]
@@ -240,7 +241,7 @@ function parseDate(val: string): string | null {
   // 尝试原生 Date 解析（ISO 8601 等）
   const d = new Date(v)
   if (!isNaN(d.getTime())) {
-    return d.toISOString().slice(0, 10)
+    return formatYmd(d)
   }
   return null
 }
@@ -413,8 +414,6 @@ export function finalizeTrade(
   if (!partial.symbol || !partial.side || !partial.status || !partial.entry || !partial.size || !partial.openedAt || !partial.strategyId) {
     return null
   }
-
-  const now = new Date().toISOString().slice(0, 10)
 
   return {
     id: nextId,

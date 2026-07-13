@@ -32,6 +32,7 @@ import {
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics } from '@/lib/tradeTruth'
+import { formatYmd } from '@/lib/periods'
 import {
   normalizeSidebarWorkspaceItems,
   type SidebarWorkspaceItem,
@@ -434,7 +435,7 @@ export const useStore = create<State>()((set, get) => ({
                 ...t,
                 status,
                 closedAt: closed
-                  ? t.closedAt ?? new Date().toISOString().slice(0, 10)
+                  ? t.closedAt ?? formatYmd(new Date())
                   : null,
                 missReason: status === 'missed' ? t.missReason : undefined,
               }

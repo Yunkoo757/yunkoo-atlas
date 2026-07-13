@@ -233,7 +233,7 @@ export function TradeComposer() {
           ? {
               caseType,
               masteryState: 'new' as const,
-              nextReviewAt: nextReview.toISOString().slice(0, 10),
+              nextReviewAt: formatYmd(nextReview),
             }
           : {}),
         entry: 0,

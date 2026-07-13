@@ -9,6 +9,7 @@ import type {
 import { resolveTimeframe } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
+import { formatYmd, parseLocalDate } from '@/lib/periods'
 
 export const DEFAULT_REVIEW_STATUS: ReviewStatus = 'unreviewed'
 export const DEFAULT_REVIEW_CATEGORY: ReviewCategory = 'normal'
@@ -65,10 +66,13 @@ export function normalizeReviewFields(trade: Trade): Trade {
     : undefined
   let nextReviewAt = trade.nextReviewAt
   if (trade.tradeKind === 'case' && masteryState !== 'mastered' && !nextReviewAt) {
-    const base = new Date(trade.recordedAt ?? trade.openedAt)
+    const rawDate = trade.recordedAt ?? trade.openedAt
+    const base = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? parseLocalDate(rawDate)
+      : new Date(rawDate)
     if (Number.isFinite(base.getTime())) {
       base.setDate(base.getDate() + 3)
-      nextReviewAt = base.toISOString().slice(0, 10)
+      nextReviewAt = formatYmd(base)
     }
   }
   if (masteryState === 'mastered') nextReviewAt = null
