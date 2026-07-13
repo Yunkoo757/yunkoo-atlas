@@ -53,3 +53,13 @@ export async function testStorageHealthOnlyReportsMeasuredAttachmentData(): Prom
     '图片数量与容量必须来自实际读取成功的附件',
   )
 }
+
+export async function testLibraryLocationConfigUsesAtomicPersistence(): Promise<void> {
+  const paths = await fs.readFile('electron/library/paths.ts', 'utf8')
+  assert(paths.includes("import { writeFileAtomicallySync } from './atomicFile'"), '资料库路径配置应复用原子写入')
+  assert(
+    paths.includes('writeFileAtomicallySync(getConfigPath(), JSON.stringify(cfg, null, 2)'),
+    '切换资料库后不得直接覆盖路径配置文件',
+  )
+  assert(!paths.includes('fs.writeFileSync(getConfigPath()'), '资料库路径配置不得存在中断后半写文件风险')
+}

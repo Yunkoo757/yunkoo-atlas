@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import { writeFileAtomicallySync } from './atomicFile'
 
 const CONFIG_FILE = 'library-config.json'
 
@@ -25,7 +26,7 @@ export function readLibraryConfig(): LibraryConfig | null {
 
 export function saveLibraryConfig(cfg: LibraryConfig): void {
   fs.mkdirSync(path.dirname(getConfigPath()), { recursive: true })
-  fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf-8')
+  writeFileAtomicallySync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf8')
 }
 
 export function getDefaultLibraryPath(): string {
