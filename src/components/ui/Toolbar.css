@@ -50,7 +50,7 @@
 
 .ui-toolbar-context {
   overflow: hidden;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--fs-mini);
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -82,7 +82,7 @@
 
 .tag-section-empty {
   font-size: var(--fs-sm);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 
 .tag-list {

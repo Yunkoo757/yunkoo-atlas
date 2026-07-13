@@ -67,6 +67,16 @@ export function TradeCloseDialog() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!request) return
+    const target = request.returnFocus
+    return () => {
+      requestAnimationFrame(() => {
+        if (target?.isConnected) target.focus()
+      })
+    }
+  }, [request])
+
+  useEffect(() => {
     if (!trade || !request) return
     const nextOutcome = initialOutcome(
       trade.status,
@@ -157,7 +167,32 @@ export function TradeCloseDialog() {
         if (event.target === event.currentTarget) cancelTradeClose()
       }}
     >
-      <form className="trade-close-dialog" role="dialog" aria-modal="true" aria-labelledby="trade-close-title" onSubmit={submit}>
+      <form
+        className="trade-close-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trade-close-title"
+        onSubmit={submit}
+        onKeyDown={(event) => {
+          if (event.key !== 'Tab') return
+          const focusable = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not(:disabled), input:not(:disabled)',
+            ),
+          ).filter((element) => element.getClientRects().length > 0)
+          const first = focusable[0]
+          const last = focusable[focusable.length - 1]
+          if (!first || !last) return
+
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault()
+            last.focus()
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault()
+            first.focus()
+          }
+        }}
+      >
         <header className="trade-close-header">
           <div>
             <span className="trade-close-eyebrow">{trade.ref} · {trade.symbol}</span>

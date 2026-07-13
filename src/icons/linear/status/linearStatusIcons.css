@@ -1,6 +1,10 @@
 .linear-project-status--transition circle,
 .linear-project-status--transition path {
-  transition: all 240ms;
+  transition:
+    fill 240ms,
+    stroke 240ms,
+    opacity 240ms,
+    transform 240ms;
 }
 
 .linear-project-status__completion {

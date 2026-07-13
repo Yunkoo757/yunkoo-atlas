@@ -7,6 +7,7 @@ const OUT = join(process.cwd(), '.gstack', 'qa-reports', 'linear-rebuild')
 const VIEWPORTS = [
   { name: '1440x900', width: 1440, height: 900 },
   { name: '1920x1080', width: 1920, height: 1080 },
+  { name: '1180x800', width: 1180, height: 800 },
   { name: '900x800', width: 900, height: 800 },
 ]
 
@@ -55,13 +56,14 @@ async function seedData() {
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
+  await selectValue(page.getByRole('combobox', { name: '交易策略' }), 'mean-reversion')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/)
-  await page.evaluate(async () => {
-    const { flushPersistNow } = await import('/src/storage/persist.ts')
-    await flushPersistNow()
-  })
+  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('已保存', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
   const tradeDetailPath = new URL(page.url()).pathname
+  await open(tradeDetailPath)
+  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
 
   await open('/review-cases')
   await page.locator('body').press('n')
@@ -69,10 +71,8 @@ async function seedData() {
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/)
-  await page.evaluate(async () => {
-    const { flushPersistNow } = await import('/src/storage/persist.ts')
-    await flushPersistNow()
-  })
+  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('已保存', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
 
   return tradeDetailPath
 }
@@ -90,8 +90,7 @@ try {
 
   for (const viewport of VIEWPORTS) {
     for (const route of routes) {
-      const routePage = await context.newPage()
-      trackRuntimeErrors(routePage)
+      const routePage = page
       await routePage.setViewportSize({ width: viewport.width, height: viewport.height })
       await routePage.goto(`${BASE}${route.path}`, { waitUntil: 'domcontentloaded' })
       const loading = routePage.locator('.app-loading')
@@ -99,7 +98,15 @@ try {
         await loading.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
       }
       await routePage.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 10000 })
-      await routePage.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
+      try {
+        await routePage.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
+      } catch (error) {
+        const bodyText = await routePage.locator('body').innerText().catch(() => '')
+        throw new Error(
+          `${viewport.name} ${route.name} 未出现 ${route.selector}；` +
+            `url=${routePage.url()}；body=${bodyText.trim().slice(0, 240)}；${String(error)}`,
+        )
+      }
 
       const geometry = await routePage.evaluate(() => {
         const frame = document.querySelector('.ui-main-frame')
@@ -118,6 +125,25 @@ try {
             return !name
           })
           .map((button) => button.className || '<button>')
+        const clippedStrategyLabels = [...document.querySelectorAll(
+          '.trade-row-strategy .strategy-label > span:last-child',
+        )]
+          .filter((label) => label.offsetParent !== null && label.scrollWidth > label.clientWidth + 1)
+          .map((label) => label.textContent?.trim() ?? '')
+        const unexpectedFontFamilies = [...document.querySelectorAll('body *')]
+          .filter((element) => {
+            if (!(element instanceof HTMLElement) || element.offsetParent === null) return false
+            return [...element.childNodes].some(
+              (node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()),
+            )
+          })
+          .map((element) => getComputedStyle(element).fontFamily)
+          .filter(
+            (fontFamily, index, families) =>
+              !fontFamily.includes('Inter Variable') &&
+              !fontFamily.includes('JetBrains Mono') &&
+              families.indexOf(fontFamily) === index,
+          )
         return {
           documentOverflow:
             document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -126,6 +152,8 @@ try {
             rect && rect.left >= 0 && rect.right <= document.documentElement.clientWidth + 1,
           ),
           unnamedButtons,
+          clippedStrategyLabels,
+          unexpectedFontFamilies,
         }
       })
 
@@ -133,7 +161,9 @@ try {
         !geometry.documentOverflow &&
         geometry.frameVisible &&
         geometry.frameInsideViewport &&
-        geometry.unnamedButtons.length === 0
+        geometry.unnamedButtons.length === 0 &&
+        geometry.clippedStrategyLabels.length === 0 &&
+        geometry.unexpectedFontFamilies.length === 0
       record(
         `${viewport.name} ${route.name}`,
         pass,
@@ -143,9 +173,38 @@ try {
         path: join(OUT, `${viewport.name}-${route.name}.png`),
         fullPage: false,
       })
-      await routePage.close()
     }
   }
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await open('/list')
+  await page.locator('body').press('n')
+  await page.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 })
+  const reducedMotionOffenders = await page.evaluate(() => {
+    const durationToMs = (value) => {
+      const duration = Number.parseFloat(value)
+      if (!Number.isFinite(duration)) return 0
+      return value.trim().endsWith('ms') ? duration : duration * 1000
+    }
+    return [...document.querySelectorAll('*')]
+      .filter((element) => element instanceof HTMLElement && element.offsetParent !== null)
+      .flatMap((element) => {
+        const style = getComputedStyle(element)
+        const animationMs = Math.max(...style.animationDuration.split(',').map(durationToMs))
+        const transitionMs = Math.max(...style.transitionDuration.split(',').map(durationToMs))
+        return animationMs > 1 || transitionMs > 1
+          ? [{ className: element.className, animationMs, transitionMs }]
+          : []
+      })
+      .slice(0, 10)
+  })
+  record(
+    '减弱动效模式压制非必要动画与过渡',
+    reducedMotionOffenders.length === 0,
+    reducedMotionOffenders.length === 0 ? 'clean' : JSON.stringify(reducedMotionOffenders),
+  )
+  await page.keyboard.press('Escape')
 
   record(
     '最终基准无页面或控制台错误',

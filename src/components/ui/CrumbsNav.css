@@ -59,6 +59,7 @@
 
 .crumbs-label.is-active {
   color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .crumbs-sep {
@@ -76,7 +77,7 @@
 
 .crumbs-context {
   overflow: hidden;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--fs-mini);
   text-overflow: ellipsis;
   white-space: nowrap;

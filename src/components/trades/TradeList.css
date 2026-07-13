@@ -86,7 +86,7 @@
   display: grid;
   /* check | status | ref | identity(固定) | tags(flex) | tf | pnl | R | date | end */
   grid-template-columns:
-    18px 16px 50px 236px minmax(180px, 1fr)
+    18px 16px 50px 252px minmax(180px, 1fr)
     48px 72px 52px 54px 44px;
   align-items: center;
   column-gap: 14px;
@@ -444,7 +444,7 @@
   color: var(--accent);
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1200px) {
   .trade-row {
     grid-template-columns:
       18px 16px 200px minmax(120px, 1fr) 48px

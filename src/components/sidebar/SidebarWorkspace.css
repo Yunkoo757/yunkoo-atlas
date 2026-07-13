@@ -6,7 +6,7 @@
   display: grid;
   place-items: center;
   width: 24px;
-  height: 20px;
+  height: 24px;
   margin-right: -4px;
   border-radius: var(--radius-6);
   color: var(--text-quaternary);

@@ -169,6 +169,7 @@ try {
   const selectedStrategyName = await strategySelect.locator('.ui-select-value').innerText()
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/, { timeout: 10000 })
+  const reviewedTradeRef = decodeURIComponent(new URL(page.url()).pathname.split('/').pop() ?? '')
   const liveActivityText = await readSystemActivity()
   const liveProperties = await page.locator('.dv-props').innerText()
   record(
@@ -180,6 +181,74 @@ try {
       liveProperties.includes('6月15日') &&
       liveProperties.includes(selectedStrategyName),
     JSON.stringify({ url: page.url(), selectedStrategyId, selectedStrategyName }),
+  )
+
+  const closeStatusTrigger = page.getByRole('button', { name: '状态 计划中', exact: true })
+  await closeStatusTrigger.click()
+  await page.getByRole('menuitemradio', { name: '盈利', exact: true }).click()
+  const closeDialog = page.getByRole('dialog', { name: '完成平仓' })
+  await closeDialog.waitFor({ state: 'visible', timeout: 10000 })
+  const closeDialogDismiss = closeDialog.getByRole('button', { name: '关闭', exact: true })
+  const closeDialogSubmit = closeDialog.getByRole('button', { name: '保存并待复盘', exact: true })
+  const initialFocusInside = await closeDialog.evaluate((element) =>
+    element.contains(document.activeElement),
+  )
+  await closeDialogDismiss.focus()
+  await page.keyboard.press('Shift+Tab')
+  const wrapsBackward = await closeDialogSubmit.evaluate(
+    (element) => element === document.activeElement,
+  )
+  await page.keyboard.press('Tab')
+  const wrapsForward = await closeDialogDismiss.evaluate(
+    (element) => element === document.activeElement,
+  )
+  await page.keyboard.press('Escape')
+  await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
+  await page.waitForTimeout(50)
+  const focusReturned = await closeStatusTrigger.evaluate(
+    (element) => element === document.activeElement,
+  )
+  const activeAfterClose = await page.evaluate(() => {
+    const active = document.activeElement
+    return active instanceof HTMLElement
+      ? {
+          tag: active.tagName,
+          className: active.className,
+          ariaLabel: active.getAttribute('aria-label'),
+          text: active.textContent?.trim().slice(0, 80) ?? '',
+        }
+      : null
+  })
+  record(
+    '平仓弹窗圈定焦点并在关闭后返还',
+    initialFocusInside && wrapsBackward && wrapsForward && focusReturned,
+    JSON.stringify({
+      initialFocusInside,
+      wrapsBackward,
+      wrapsForward,
+      focusReturned,
+      activeAfterClose,
+    }),
+  )
+
+  await closeStatusTrigger.click()
+  await page.getByRole('menuitemradio', { name: '盈利', exact: true }).click()
+  await closeDialog.waitFor({ state: 'visible', timeout: 10000 })
+  await closeDialog.getByRole('radio', { name: 'R 倍数', exact: true }).click()
+  await closeDialog.getByPlaceholder('例如 1.5').fill('2')
+  await closeDialog.getByRole('button', { name: '保存并待复盘', exact: true }).click()
+  await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
+  await page.getByText('交易待复盘', { exact: true }).waitFor({ state: 'visible' })
+  await page.getByRole('button', { name: '完成复盘', exact: true }).click()
+  await page.getByText('复盘已完成', { exact: true }).waitFor({ state: 'visible' })
+  const reviewedStageText = await page.locator('.dv-review-stage').innerText()
+  const reviewedPropertiesText = await page.locator('.dv-props').innerText()
+  record(
+    'R 倍数平仓后可无笔记完成复盘',
+    reviewedStageText.includes('复盘已完成') &&
+      /盈亏\s+—/.test(reviewedPropertiesText) &&
+      /R 倍数\s+\+2\.0R/.test(reviewedPropertiesText),
+    JSON.stringify({ reviewedTradeRef, reviewedStageText, reviewedPropertiesText }),
   )
 
   await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
@@ -197,7 +266,7 @@ try {
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
-    dashboardClosedCount === '0/0 笔结果有效',
+    dashboardClosedCount === '1/1 笔结果有效',
     dashboardClosedCount,
   )
 
