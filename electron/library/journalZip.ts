@@ -13,6 +13,7 @@ import {
   type ExportAssetRecord,
   type PersistedSnapshot,
 } from '../../src/storage/types'
+import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 
 export async function exportJournalZip(
   storage: LibraryStorage,
@@ -126,8 +127,7 @@ function readWebSnapshot(dataFile: string): {
   if (!Array.isArray(raw.trades) || !Array.isArray(raw.strategies)) {
     throw new Error('Invalid .journal.zip: data.json is missing trades or strategies')
   }
-  return {
-    snapshot: {
+  const snapshot = {
       trades: raw.trades,
       strategies: raw.strategies,
       starredIds: raw.starredIds ?? [],
@@ -141,7 +141,10 @@ function readWebSnapshot(dataFile: string): {
       savedTradeViews: raw.savedTradeViews ?? [],
       symbolIcons: raw.symbolIcons ?? {},
       symbolCatalog: raw.symbolCatalog ?? [],
-    } as PersistedSnapshot,
+    } as PersistedSnapshot
+  assertValidPersistedSnapshot(snapshot, 'Invalid .journal.zip: data.json snapshot')
+  return {
+    snapshot,
     assets: Array.isArray(raw.assets)
       ? raw.assets.filter((asset) => typeof asset.id === 'string' && typeof asset.mime === 'string')
       : [],
@@ -184,10 +187,8 @@ async function validateDesktopLibrary(
     const snapshotRows = db.exec("SELECT value FROM meta WHERE key = 'snapshot'")
     const snapshotText = snapshotRows[0]?.values[0]?.[0]
     if (snapshotText != null) {
-      const snapshot = JSON.parse(String(snapshotText)) as Partial<PersistedSnapshot>
-      if (!Array.isArray(snapshot.trades) || !Array.isArray(snapshot.strategies)) {
-        throw new Error('snapshot is missing trades or strategies')
-      }
+      const snapshot: unknown = JSON.parse(String(snapshotText))
+      assertValidPersistedSnapshot(snapshot, 'database snapshot')
     }
 
     const assets = db.exec('SELECT file_name FROM assets')

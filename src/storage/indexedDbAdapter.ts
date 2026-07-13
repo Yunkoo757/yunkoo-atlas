@@ -1,6 +1,7 @@
 import type { StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
+import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
@@ -109,7 +110,10 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
 
   async loadSnapshot(): Promise<PersistedSnapshot | null> {
     const db = this.requireDb()
-    return (await idbGet<PersistedSnapshot>(db, STORE_SNAPSHOT, 'main')) ?? null
+    const snapshot = (await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')) ?? null
+    if (!snapshot) return null
+    assertValidPersistedSnapshot(snapshot, 'Stored browser snapshot')
+    return snapshot
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
