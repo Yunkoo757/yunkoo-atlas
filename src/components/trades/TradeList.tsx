@@ -46,7 +46,6 @@ export function TradeList({
   focusedId,
   selectedIds,
   starredIds,
-  followedIds,
   scrollParentRef,
   onOpen,
   onSelect,
@@ -59,7 +58,6 @@ export function TradeList({
   focusedId: string | null
   selectedIds: Set<string>
   starredIds: string[]
-  followedIds: string[]
   /** 外层 `.list-scroll`；未传则用本组件内查找 */
   scrollParentRef?: RefObject<HTMLElement | null>
   onOpen: (trade: Trade) => void
@@ -168,7 +166,6 @@ export function TradeList({
                 focused={item.trade.id === focusedId}
                 selected={selectedIds.has(item.trade.id)}
                 starred={starredIds.includes(item.trade.id)}
-                followed={followedIds.includes(item.trade.id)}
                 onOpen={onOpen}
                 onSelect={onSelect}
                 onToggleStar={onToggleStar}

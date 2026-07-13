@@ -249,7 +249,7 @@ export function TradeTrashView() {
                     const isUrgent = days <= 7
                     const isSelected = selected.has(trade.id)
                     const pnlTone =
-                      trade.pnl > 0 ? ' is-positive' : trade.pnl < 0 ? ' is-negative' : ''
+                      trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ''
 
                     return (
                       <div

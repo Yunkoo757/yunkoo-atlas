@@ -430,10 +430,11 @@ function buildTradeFromFrontmatter(
   if ((status === 'planned' || status === 'open') && plStatus) status = plStatus
 
   // PnL
-  const pnl = parseNotionMoney(stripNotionUrl(fm['net pnl'] ?? '')) ?? 0
+  const pnl = parseNotionMoney(stripNotionUrl(fm['net pnl'] ?? ''))
 
   // R
-  const rMultiple = parseFloat(stripNotionUrl(fm['max r/r'] ?? '')) || 0
+  const parsedR = parseFloat(stripNotionUrl(fm['max r/r'] ?? ''))
+  const rMultiple = Number.isFinite(parsedR) ? parsedR : null
 
   // Stop Loss
   const stopLoss = parseFloat(stripNotionUrl(fm['s/l pips'] ?? '')) || null
@@ -489,7 +490,7 @@ function buildTradeFromFrontmatter(
   const psychology = normalizePsychology(stripNotionUrl(fm['psychology'] ?? ''))
 
   // Missing price warning
-  warnings.push('Notion 数据缺少入场价/出场价/仓位，已默认设为 0')
+  warnings.push('Notion 数据缺少入场价/出场价/仓位，结果字段会标记为待校验')
 
   return {
     sourceId: stripNotionUrl(fm['id'] ?? '') || undefined,

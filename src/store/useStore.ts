@@ -30,6 +30,7 @@ import {
   normalizeSymbolCatalog,
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
+import { normalizeTradeMetrics } from '@/lib/tradeTruth'
 import {
   normalizeSidebarWorkspaceItems,
   type SidebarWorkspaceItem,
@@ -46,7 +47,7 @@ type TradeUpsertSlice = {
 function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
   const exists = s.trades.some((t) => t.id === trade.id)
   const strategyId = trade.strategyId || s.strategies[0]?.id || 'uncategorized'
-  let normalized: Trade = promoteTradeNotionMeta(
+  let normalized: Trade = normalizeTradeMetrics(promoteTradeNotionMeta(
     promoteTradeSession(
       normalizeReviewFields({
         ...trade,
@@ -56,7 +57,7 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
         activities: trade.activities,
       }),
     ),
-  )
+  ))
   const symbolKey = normalizeSymbol(normalized.symbol)
   const symbolCatalog =
     symbolKey && !s.symbolCatalog.includes(symbolKey)
@@ -95,6 +96,10 @@ interface State {
   selectedId: string | null
   composerOpen: boolean
   composerTrade: Trade | null
+  closeTradeRequest: {
+    tradeId: string
+    targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
+  } | null
   undoStack: { id: string; prev: Trade }[][]
   redoStack: { id: string; prev: Trade }[][]
   pushUndo: (snapshots: { id: string; prev: Trade }[]) => void
@@ -154,6 +159,9 @@ interface State {
         | 'session'
         | 'psychology'
         | 'narrative'
+        | 'caseType'
+        | 'masteryState'
+        | 'nextReviewAt'
       >
     >,
   ) => void
@@ -179,6 +187,11 @@ interface State {
   purgeTrade: (id: string) => void
   openComposer: (trade?: Trade | null) => void
   closeComposer: () => void
+  requestTradeClose: (
+    tradeId: string,
+    targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>,
+  ) => void
+  cancelTradeClose: () => void
   select: (id: string | null) => void
   getById: (id: string) => Trade | undefined
   getStrategy: (id: string) => Strategy | undefined
@@ -194,6 +207,7 @@ export const useStore = create<State>()((set, get) => ({
       selectedId: null,
       composerOpen: false,
       composerTrade: null,
+      closeTradeRequest: null,
       undoStack: [],
       redoStack: [],
       pushUndo: (snapshots) =>
@@ -640,6 +654,9 @@ export const useStore = create<State>()((set, get) => ({
         set({ composerOpen: true, composerTrade: safe })
       },
       closeComposer: () => set({ composerOpen: false, composerTrade: null }),
+      requestTradeClose: (tradeId, targetStatus) =>
+        set({ closeTradeRequest: { tradeId, targetStatus } }),
+      cancelTradeClose: () => set({ closeTradeRequest: null }),
       select: (id) => set({ selectedId: id }),
       getById: (id) => get().trades.find((t) => t.id === id),
       getStrategy: (id) => get().strategies.find((s) => s.id === id),

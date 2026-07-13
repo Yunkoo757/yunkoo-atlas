@@ -25,6 +25,10 @@ export type ReviewStatus = 'unreviewed' | 'reviewed' | 'focus'
 
 export type ReviewCategory = 'normal' | 'mistake' | 'focus' | 'ambiguous' | 'recheck' | 'mastered'
 
+export type CaseType = 'exemplar' | 'mistake' | 'ambiguous' | 'missed'
+
+export type MasteryState = 'new' | 'recheck' | 'mastered'
+
 export interface TradeComment {
   id: string
   text: string
@@ -75,12 +79,17 @@ export interface Trade {
   reviewStatus: ReviewStatus
   reviewCategory: ReviewCategory
   tradeKind: TradeKind
+  /** 案例来源交易；仅案例记录使用，保证知识条目可追溯。 */
+  sourceTradeId?: string
+  caseType?: CaseType
+  masteryState?: MasteryState
+  nextReviewAt?: string | null
   entry: number
   exit: number | null
   stopLoss?: number | null
   size: number // 仓位
-  pnl: number // 盈亏金额
-  rMultiple: number // R 倍数
+  pnl: number | null // 盈亏金额；null 表示尚未填写，0 表示真实保本
+  rMultiple: number | null // R 倍数；null 表示尚未填写，0 表示真实保本
   openedAt: string // ISO date
   recordedAt?: string // 记录收录时间；案例排序不受来源交易日期影响
   closedAt: string | null
@@ -115,6 +124,19 @@ export const REVIEW_CATEGORY_META: Record<ReviewCategory, { label: string }> = {
   mistake: { label: '错题' },
   focus: { label: '重点' },
   ambiguous: { label: '模糊' },
+  recheck: { label: '待复看' },
+  mastered: { label: '已掌握' },
+}
+
+export const CASE_TYPE_META: Record<CaseType, { label: string }> = {
+  exemplar: { label: '优秀范例' },
+  mistake: { label: '错误案例' },
+  ambiguous: { label: '模糊决策' },
+  missed: { label: '错过机会' },
+}
+
+export const MASTERY_STATE_META: Record<MasteryState, { label: string }> = {
+  new: { label: '新案例' },
   recheck: { label: '待复看' },
   mastered: { label: '已掌握' },
 }

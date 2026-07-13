@@ -1,6 +1,7 @@
 import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind, ReviewCategory } from '@/data/trades'
 import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
+import { calcRFromStop } from '@/lib/tradeCalc'
 
 export interface CsvParseResult {
   headers: string[]
@@ -388,9 +389,14 @@ export function mapRowToTrade(
       trade.pnl = (trade.exit - trade.entry) * trade.size
       if (trade.side === 'short') trade.pnl = -trade.pnl
     }
-    if (trade.rMultiple === undefined && trade.pnl !== undefined && trade.entry && trade.size) {
-      const risk = Math.abs(trade.entry - trade.size) // approximate
-      trade.rMultiple = risk > 0 ? trade.pnl / risk : 0
+    if (trade.rMultiple === undefined && trade.pnl != null && trade.entry && trade.size) {
+      trade.rMultiple = calcRFromStop(
+        trade.side ?? 'long',
+        trade.pnl,
+        trade.entry,
+        trade.stopLoss,
+        trade.size,
+      )
     }
   }
 
@@ -429,8 +435,8 @@ export function finalizeTrade(
     exit: partial.exit ?? null,
     stopLoss: partial.stopLoss ?? null,
     size: partial.size,
-    pnl: partial.pnl ?? 0,
-    rMultiple: partial.rMultiple ?? 0,
+    pnl: partial.pnl ?? null,
+    rMultiple: partial.rMultiple ?? null,
     openedAt: partial.openedAt,
     closedAt: partial.closedAt ?? null,
     missReason: partial.missReason,

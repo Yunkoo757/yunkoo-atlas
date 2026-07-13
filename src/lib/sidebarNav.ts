@@ -22,7 +22,7 @@ export interface PrimarySidebarNavItem {
 }
 
 export const PRIMARY_NAV: PrimarySidebarNavItem[] = [
-  { id: 'today', to: '/today-record', label: '今日记录', icon: Calendar },
+  { id: 'today', to: '/today-record', label: '今日工作台', icon: Calendar },
   { id: 'trades', to: '/list', label: '交易日志', icon: ListTodo },
   { id: 'reviewCases', to: '/review-cases', label: '案例记录', icon: BookOpen },
   { id: 'dashboard', to: '/dashboard', label: '仪表盘', icon: BarChart3 },

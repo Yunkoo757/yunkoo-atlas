@@ -48,10 +48,10 @@ function armSequenceTimer(): void {
 function getActiveScopes(pathname?: string): Set<ShortcutScope> {
   const scopes = new Set<ShortcutScope>(['global', 'navigation'])
   const { lightbox, cmdkOpen, dataIOOpen } = useShortcutStore.getState()
-  const composerOpen = useStore.getState().composerOpen
+  const { composerOpen, closeTradeRequest } = useStore.getState()
 
   if (lightbox) scopes.add('lightbox')
-  if (cmdkOpen || dataIOOpen || composerOpen) scopes.add('overlay')
+  if (cmdkOpen || dataIOOpen || composerOpen || closeTradeRequest) scopes.add('overlay')
 
   if (typeof window !== 'undefined') {
     const p = pathname ?? window.location.pathname
@@ -100,7 +100,7 @@ function findSequenceMatch(buffer: string[], pathname?: string): string | null {
 
 function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
   const { bindings, lightbox, cmdkOpen, dataIOOpen } = useShortcutStore.getState()
-  const composerOpen = useStore.getState().composerOpen
+  const { composerOpen, closeTradeRequest } = useStore.getState()
   const typing = isTypingTarget(e.target)
   const scopes = getActiveScopes(pathname)
 
@@ -114,7 +114,7 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
     if (typing && !meta.allowWhenTyping) continue
 
     if (meta.id === 'global.closeOverlay') {
-      if (!lightbox && !cmdkOpen && !dataIOOpen && !composerOpen) continue
+      if (!lightbox && !cmdkOpen && !dataIOOpen && !composerOpen && !closeTradeRequest) continue
     }
 
     if (meta.scope === 'lightbox' && !lightbox) continue
@@ -150,7 +150,7 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
   if (!chord.key) return false
 
   const typing = isTypingTarget(e.target)
-  const composerOpen = useStore.getState().composerOpen
+  const { composerOpen, closeTradeRequest } = useStore.getState()
   const { dataIOOpen, lightbox } = useShortcutStore.getState()
 
   if (typing && !lightbox) {
@@ -175,7 +175,7 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
     return false
   }
 
-  if (composerOpen && !lightbox) {
+  if ((composerOpen || closeTradeRequest) && !lightbox) {
     clearSequence()
     return false
   }

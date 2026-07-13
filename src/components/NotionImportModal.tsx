@@ -512,10 +512,10 @@ function PreviewRow({
           t.strategyId || '—'
         )}
       </td>
-      <td className={t.pnl && t.pnl > 0 ? 'nim-pnl-pos' : t.pnl && t.pnl < 0 ? 'nim-pnl-neg' : ''}>
-        {t.pnl !== undefined ? `$${t.pnl.toFixed(2)}` : '—'}
+      <td className={t.pnl != null && t.pnl > 0 ? 'nim-pnl-pos' : t.pnl != null && t.pnl < 0 ? 'nim-pnl-neg' : ''}>
+        {t.pnl != null ? `$${t.pnl.toFixed(2)}` : '—'}
       </td>
-      <td>{t.rMultiple ? t.rMultiple.toFixed(2) : '—'}</td>
+      <td>{t.rMultiple != null ? t.rMultiple.toFixed(2) : '—'}</td>
       <td>{t.openedAt ?? '—'}</td>
       <td>
         {preview.imageCount > 0 ? (

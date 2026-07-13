@@ -7,7 +7,6 @@ import {
   Link2,
   MoreHorizontal,
   Star,
-  Bell,
   Copy,
   Pencil,
   Trash2,
@@ -16,6 +15,8 @@ import {
   BookOpen,
   CalendarDays,
   Box,
+  AlertCircle,
+  CheckCircle,
 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
@@ -32,7 +33,8 @@ import {
   STATUS_META,
   CONVICTION_META,
   TRADE_KIND_META,
-  REVIEW_CATEGORY_META,
+  CASE_TYPE_META,
+  MASTERY_STATE_META,
   MISS_REASON_META,
   TIMEFRAME_PRESETS,
   getTimeframeTone,
@@ -42,12 +44,11 @@ import {
   type TradeSide,
   type TradeKind,
   type MissReason,
-  type ReviewStatus,
-  type ReviewCategory,
+  type CaseType,
+  type MasteryState,
   type ActivityEvent,
   type ActivityKind,
 } from '@/data/trades'
-import { REVIEW_STATUS_META } from '@/lib/reviewAnalytics'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
@@ -64,7 +65,7 @@ import {
   normalizeNarrative,
 } from '@/lib/tradeView'
 import { toast } from '@/lib/toast'
-import { syncStatusFromPnl } from '@/lib/tradeTransition'
+import { syncStatusFromResult } from '@/lib/tradeTransition'
 import { STATUS_ORDER, isTerminal } from '@/lib/tradeStatus'
 import { getStorage } from '@/storage/bootstrap'
 import { resolveNoteForDisplay } from '@/storage/assets'
@@ -77,8 +78,12 @@ import { setPreFlushCallback } from '@/storage/persist'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
-import { calculatePnL, calculateRMultiple } from '@/lib/priceCalc'
+import { calcPnl, calcRFromStop } from '@/lib/tradeCalc'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
+import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
+import { transitionTradeStatus } from '@/lib/tradeTransition'
+import { isAccountTrade } from '@/lib/tradeKind'
+import { stripNoteToPlainText } from '@/lib/tradeDuplicates'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
 import './DetailView.css'
@@ -89,8 +94,8 @@ const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
 const KIND_OPTS: TradeKind[] = ['live', 'paper', 'case']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
-const REVIEW_OPTS: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
-const REVIEW_CATEGORY_OPTS: ReviewCategory[] = ['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered']
+const CASE_TYPE_OPTS: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
+const MASTERY_OPTS: MasteryState[] = ['new', 'recheck', 'mastered']
 
 export function DetailView() {
   const { id: routeParam } = useParams()
@@ -104,6 +109,7 @@ export function DetailView() {
   )
   const updateTradeData = useStore((s) => s.updateTradeData)
   const setStatus = useStore((s) => s.setStatus)
+  const requestTradeClose = useStore((s) => s.requestTradeClose)
   const setConviction = useStore((s) => s.setConviction)
   const setStrategy = useStore((s) => s.setStrategy)
   const strategies = useStore((s) => s.strategies)
@@ -115,14 +121,12 @@ export function DetailView() {
   const addComment = useStore((s) => s.addComment)
   const removeComment = useStore((s) => s.removeComment)
   const toggleStar = useStore((s) => s.toggleStar)
-  const toggleSubscribe = useStore((s) => s.toggleSubscribe)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
   const upsertTrade = useStore((s) => s.upsertTrade)
   const profile = useStore((s) => s.profile)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const starredIds = useStore((s) => s.starredIds)
-  const subscribedIds = useStore((s) => s.subscribedIds)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
@@ -231,15 +235,15 @@ export function DetailView() {
   )
 
   const starred = trade ? starredIds.includes(trade.id) : false
-  const subscribed = trade ? subscribedIds.includes(trade.id) : false
 
   const strategyPreview = (strategyId: string) => {
     const strategy = strategies.find((s) => s.id === strategyId)
-    const strategyTrades = trades.filter((t) => t.strategyId === strategyId)
-    const closed = strategyTrades.filter((t) => isTerminal(t.status))
-    const wins = closed.filter((t) => t.status === 'win').length
-    const totalR = strategyTrades.reduce((sum, t) => sum + t.rMultiple, 0)
-    const winRate = closed.length > 0 ? Math.round((wins / closed.length) * 100) : null
+    const strategyTrades = trades.filter(
+      (t) => t.strategyId === strategyId && isAccountTrade(t),
+    )
+    const result = summarizeTradeResults(strategyTrades)
+    const totalR = strategyTrades.reduce((sum, t) => sum + (t.rMultiple ?? 0), 0)
+    const winRate = result.winRate == null ? null : Math.round(result.winRate)
     return (
       <>
         <PreviewHeader
@@ -363,7 +367,7 @@ export function DetailView() {
       const el = commentRef.current
       if (el) el.style.height = 'auto'
     })
-    toast('评论已发布')
+    toast('复盘追记已保存')
   }
 
   const onDelete = () => {
@@ -379,11 +383,56 @@ export function DetailView() {
       ref: getNextReviewCaseRef(trades),
     })
     upsertTrade(reviewCase)
-    toast('已沉淀为案例记录')
+    toast('已提炼为可复看案例')
     navigate(tradeDetailPath(reviewCase), { state: location.state })
   }
 
   const detailCrumb = trade.tradeKind === 'case' ? '案例记录' : '交易'
+  const truth = resolveTradeTruth(trade)
+  const needsResult =
+    trade.tradeKind !== 'case' && truth.executionState === 'closed' && !truth.isResultComplete
+  const needsReview =
+    trade.tradeKind !== 'case' &&
+    trade.reviewStatus !== 'reviewed' &&
+    (truth.executionState === 'missed' ||
+      (truth.executionState === 'closed' && truth.isResultComplete))
+  const reviewComplete =
+    trade.tradeKind !== 'case' &&
+    trade.reviewStatus === 'reviewed' &&
+    (truth.executionState === 'missed' || truth.executionState === 'closed')
+  const sourceTrade = trade.sourceTradeId
+    ? trades.find((item) => item.id === trade.sourceTradeId)
+    : undefined
+
+  const completeReview = async () => {
+    if (stripNoteToPlainText(editorHtml).length < 8) {
+      toast('请先写下关键判断或下一次行动，再完成复盘')
+      return
+    }
+    await flushNoteDraftToStore(trade.id)
+    updateTradeData(trade.id, { reviewStatus: 'reviewed' })
+    toast(`${trade.ref} 复盘已完成`)
+  }
+
+  const updateCaseMastery = (masteryState: MasteryState) => {
+    const nextReview = new Date()
+    nextReview.setDate(nextReview.getDate() + (masteryState === 'new' ? 3 : 7))
+    updateTradeData(trade.id, {
+      masteryState,
+      nextReviewAt: masteryState === 'mastered' ? null : nextReview.toISOString().slice(0, 10),
+      reviewStatus: masteryState === 'mastered' ? 'reviewed' : 'unreviewed',
+      reviewCategory:
+        masteryState === 'mastered'
+          ? 'mastered'
+          : masteryState === 'recheck'
+            ? 'recheck'
+            : trade.caseType === 'mistake'
+              ? 'mistake'
+              : trade.caseType === 'ambiguous'
+                ? 'ambiguous'
+                : 'normal',
+    })
+  }
 
   return (
     <TradeDetailLayout
@@ -417,23 +466,13 @@ export function DetailView() {
           >
             <Star size={15} fill={starred ? 'currentColor' : 'none'} />
           </IconButton>
-          <IconButton
-            title={subscribed ? '取消置顶关注' : '置顶关注'}
-            active={subscribed}
-            onClick={() => {
-              toggleSubscribe(trade.id)
-              toast(subscribed ? '已取消置顶关注' : '已加入关注列表')
-            }}
-          >
-            <Bell size={15} fill={subscribed ? 'currentColor' : 'none'} />
-          </IconButton>
           <Menu
             align="right"
             options={[
               { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
               ...(trade.tradeKind === 'case'
                 ? []
-                : [{ value: 'review-case', label: '沉淀为案例记录', icon: <BookOpen size={16} /> }]),
+                : [{ value: 'review-case', label: '提炼为案例', icon: <BookOpen size={16} /> }]),
               { value: 'copy', label: '复制编号', icon: <Copy size={16} /> },
               { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={16} /> },
             ]}
@@ -459,6 +498,69 @@ export function DetailView() {
               {trade.symbol}
               <SideTag side={trade.side} />
             </h1>
+            {trade.tradeKind === 'case' && trade.sourceTradeId && (
+              <section className="dv-case-source" aria-label="案例来源">
+                <BookOpen size={15} aria-hidden />
+                <div>
+                  <span>来源交易</span>
+                  <strong>{sourceTrade ? `${sourceTrade.ref} · ${sourceTrade.symbol}` : '原交易已不存在'}</strong>
+                </div>
+                {sourceTrade && (
+                  <button type="button" onClick={() => navigate(tradeDetailPath(sourceTrade), { state: location.state })}>
+                    查看原交易
+                  </button>
+                )}
+              </section>
+            )}
+            {(needsResult || needsReview || reviewComplete) && (
+              <section
+                className={
+                  'dv-review-stage' +
+                  (needsResult ? ' is-result-pending' : '') +
+                  (reviewComplete ? ' is-complete' : '')
+                }
+                aria-label="交易闭环状态"
+              >
+                <span className="dv-review-stage-icon">
+                  {reviewComplete ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                </span>
+                <div>
+                  <strong>
+                    {needsResult ? '交易结果待补齐' : reviewComplete ? '复盘已完成' : '交易待复盘'}
+                  </strong>
+                  <span>
+                    {needsResult
+                      ? '补充盈亏或 R 倍数后，才会计入统计。'
+                      : reviewComplete
+                        ? '这笔交易已完成记录、结算与复盘闭环。'
+                        : '写下关键判断、执行偏差和下一次行动。'}
+                  </span>
+                </div>
+                {needsResult ? (
+                  <button
+                    type="button"
+                    onClick={() => requestTradeClose(
+                      trade.id,
+                      trade.status === 'win' || trade.status === 'loss' || trade.status === 'breakeven'
+                        ? trade.status
+                        : undefined,
+                    )}
+                  >
+                    补齐结果
+                  </button>
+                ) : needsReview ? (
+                  <button type="button" onClick={() => void completeReview()}>完成复盘</button>
+                ) : (
+                  <button
+                    type="button"
+                    className="is-secondary"
+                    onClick={() => updateTradeData(trade.id, { reviewStatus: 'unreviewed' })}
+                  >
+                    重新复盘
+                  </button>
+                )}
+              </section>
+            )}
             <div className="dv-document">
               <Editor
                 content={editorHtml}
@@ -471,9 +573,9 @@ export function DetailView() {
               />
             </div>
 
-            <section className="dv-comments" aria-label="复盘评论">
+            <section className="dv-comments" aria-label="复盘追记">
               <h2 className="dv-comments-title">
-                评论{commentItems.length > 0 ? ` · ${commentItems.length}` : ''}
+                复盘追记{commentItems.length > 0 ? ` · ${commentItems.length}` : ''}
               </h2>
               {commentItems.length > 0 && (
                 <ul className="dv-feed dv-comment-feed">
@@ -484,7 +586,7 @@ export function DetailView() {
                       deletable
                       onDelete={event.commentId ? () => {
                         removeComment(trade.id, event.commentId!)
-                        toast('评论已删除')
+                        toast('复盘追记已删除')
                       } : undefined}
                     >
                       {node}
@@ -498,7 +600,7 @@ export function DetailView() {
                   <textarea
                     ref={commentRef}
                     className="dv-comment-input"
-                    placeholder="留下复盘评论…"
+                    placeholder="补充后续观察或新的理解…"
                     value={comment}
                     onChange={(event) => {
                       setComment(event.target.value)
@@ -513,13 +615,13 @@ export function DetailView() {
                     rows={1}
                   />
                   <div className="dv-comment-bar">
-                    <Tooltip content="发送评论" label="发送评论">
+                    <Tooltip content="保存追记" label="保存追记">
                       <button
                         type="button"
                         className="dv-comment-send"
                         disabled={!comment.trim()}
                         onClick={sendComment}
-                        aria-label="发送评论"
+                        aria-label="保存追记"
                       >
                         <Send size={14} />
                       </button>
@@ -563,7 +665,13 @@ export function DetailView() {
           <Section title="属性">
             <Menu
               value={trade.status}
-              onSelect={(v) => setStatus(trade.id, v as TradeStatus)}
+              onSelect={(v) =>
+                transitionTradeStatus(trade, v as TradeStatus, {
+                  setStatus,
+                  requestTradeClose,
+                  toast,
+                })
+              }
               options={STATUS_OPTS.map((s) => ({
                 value: s,
                 label: STATUS_META[s].label,
@@ -730,41 +838,40 @@ export function DetailView() {
                 </PropTrigger>
               }
             />
-            <Menu
-              value={trade.reviewCategory}
-              onSelect={(v) => updateTradeData(trade.id, { reviewCategory: v as ReviewCategory })}
-              options={REVIEW_CATEGORY_OPTS.map((s) => ({
-                value: s,
-                label: REVIEW_CATEGORY_META[s].label,
-              }))}
-              trigger={
-                <PropTrigger label="分类">
-                  <span
-                    className={
-                      'dv-prop-chip is-category' +
-                      (trade.reviewCategory === 'mistake' ? ' is-mistake' : '')
-                    }
-                  >
-                    {REVIEW_CATEGORY_META[trade.reviewCategory].label}
-                  </span>
-                </PropTrigger>
-              }
-            />
-            <Menu
-              value={trade.reviewStatus}
-              onSelect={(v) => updateTradeData(trade.id, { reviewStatus: v as ReviewStatus })}
-              options={REVIEW_OPTS.map((s) => ({
-                value: s,
-                label: REVIEW_STATUS_META[s].label,
-              }))}
-              trigger={
-                <PropTrigger label="复盘">
-                  <span className="dv-prop-chip is-neutral">
-                    {REVIEW_STATUS_META[trade.reviewStatus].label}
-                  </span>
-                </PropTrigger>
-              }
-            />
+            {trade.tradeKind === 'case' && (
+              <>
+                <Menu
+                  value={trade.caseType ?? 'exemplar'}
+                  onSelect={(v) => updateTradeData(trade.id, { caseType: v as CaseType })}
+                  options={CASE_TYPE_OPTS.map((value) => ({
+                    value,
+                    label: CASE_TYPE_META[value].label,
+                  }))}
+                  trigger={
+                    <PropTrigger label="案例类型">
+                      <span className="dv-prop-chip is-category">
+                        {CASE_TYPE_META[trade.caseType ?? 'exemplar'].label}
+                      </span>
+                    </PropTrigger>
+                  }
+                />
+                <Menu
+                  value={trade.masteryState ?? 'new'}
+                  onSelect={(v) => updateCaseMastery(v as MasteryState)}
+                  options={MASTERY_OPTS.map((value) => ({
+                    value,
+                    label: MASTERY_STATE_META[value].label,
+                  }))}
+                  trigger={
+                    <PropTrigger label="掌握状态">
+                      <span className="dv-prop-chip is-neutral">
+                        {MASTERY_STATE_META[trade.masteryState ?? 'new'].label}
+                      </span>
+                    </PropTrigger>
+                  }
+                />
+              </>
+            )}
             {trade.status === 'missed' && (
               <Menu
                 value={trade.missReason ?? 'other'}
@@ -790,17 +897,24 @@ export function DetailView() {
               value={trade.entry}
               format={(v) => fmtPrice(v as number)}
               inputType="number"
+              nullable
               onSave={(v) => {
                 const entry = v as number
                 const updates: Partial<import('@/data/trades').Trade> = { entry }
 
                 // 自动计算盈亏和 R 倍数
                 if (trade.exit && entry > 0 && trade.size > 0) {
-                  const pnl = calculatePnL(entry, trade.exit, trade.size, trade.side)
-                  updates.pnl = pnl
-                  if (trade.stopLoss) {
-                    const rMultiple = calculateRMultiple(pnl, trade.stopLoss, entry, trade.size, trade.side)
-                    updates.rMultiple = rMultiple
+                  const pnl = calcPnl(trade.side, entry, trade.exit, trade.size)
+                  if (pnl != null) {
+                    updates.pnl = pnl
+                    const rMultiple = calcRFromStop(
+                      trade.side,
+                      pnl,
+                      entry,
+                      trade.stopLoss,
+                      trade.size,
+                    )
+                    if (rMultiple != null) updates.rMultiple = rMultiple
                   }
                 }
 
@@ -819,11 +933,17 @@ export function DetailView() {
 
                 // 自动计算盈亏和 R 倍数
                 if (exit && trade.entry > 0 && trade.size > 0) {
-                  const pnl = calculatePnL(trade.entry, exit, trade.size, trade.side)
-                  updates.pnl = pnl
-                  if (trade.stopLoss) {
-                    const rMultiple = calculateRMultiple(pnl, trade.stopLoss, trade.entry, trade.size, trade.side)
-                    updates.rMultiple = rMultiple
+                  const pnl = calcPnl(trade.side, trade.entry, exit, trade.size)
+                  if (pnl != null) {
+                    updates.pnl = pnl
+                    const rMultiple = calcRFromStop(
+                      trade.side,
+                      pnl,
+                      trade.entry,
+                      trade.stopLoss,
+                      trade.size,
+                    )
+                    if (rMultiple != null) updates.rMultiple = rMultiple
                   }
                 }
 
@@ -848,9 +968,15 @@ export function DetailView() {
                 const updates: Partial<import('@/data/trades').Trade> = { stopLoss }
 
                 // 自动计算 R 倍数
-                if (stopLoss && trade.entry > 0 && trade.size > 0 && trade.pnl !== 0) {
-                  const rMultiple = calculateRMultiple(trade.pnl, stopLoss, trade.entry, trade.size, trade.side)
-                  updates.rMultiple = rMultiple
+                if (stopLoss && trade.entry > 0 && trade.size > 0 && trade.pnl != null && trade.pnl !== 0) {
+                  const rMultiple = calcRFromStop(
+                    trade.side,
+                    trade.pnl,
+                    trade.entry,
+                    stopLoss,
+                    trade.size,
+                  )
+                  if (rMultiple != null) updates.rMultiple = rMultiple
                 }
 
                 updateTradeData(trade.id, updates)
@@ -865,17 +991,18 @@ export function DetailView() {
                   : fmtMoney(v as number)
               }
               inputType="number"
+              nullable
               color={
-                trade.pnl > 0
+                trade.pnl != null && trade.pnl > 0
                   ? 'var(--pos)'
-                  : trade.pnl < 0
+                  : trade.pnl != null && trade.pnl < 0
                     ? 'var(--neg)'
                     : undefined
               }
               onSave={(v) => {
-                const pnl = v as number
+                const pnl = v as number | null
                 updateTradeData(trade.id, { pnl })
-                syncStatusFromPnl(trade, pnl, setStatus)
+                if (pnl != null) syncStatusFromResult(trade, pnl, setStatus)
               }}
             />
             <EditableDataRow
@@ -888,14 +1015,19 @@ export function DetailView() {
               }
               inputType="number"
               step="0.1"
+              nullable
               color={
-                trade.rMultiple > 0
+                trade.rMultiple != null && trade.rMultiple > 0
                   ? 'var(--pos)'
-                  : trade.rMultiple < 0
+                  : trade.rMultiple != null && trade.rMultiple < 0
                     ? 'var(--neg)'
                     : undefined
               }
-              onSave={(v) => updateTradeData(trade.id, { rMultiple: v as number })}
+              onSave={(v) => {
+                const rMultiple = v as number | null
+                updateTradeData(trade.id, { rMultiple })
+                if (rMultiple != null) syncStatusFromResult(trade, rMultiple, setStatus)
+              }}
             />
           </Section>
 
@@ -915,6 +1047,14 @@ export function DetailView() {
               />
             ) : (
               <DataRow label="平仓" value="—" />
+            )}
+            {trade.tradeKind === 'case' && trade.masteryState !== 'mastered' && trade.nextReviewAt && (
+              <EditableDateRow
+                label="下次复看"
+                value={trade.nextReviewAt}
+                preview={datePreview('复看', trade.nextReviewAt)}
+                onSave={(value) => updateTradeData(trade.id, { nextReviewAt: value })}
+              />
             )}
           </Section>
 
@@ -1226,7 +1366,7 @@ function renderActivity(
     case 'comment':
       return (
         <>
-          你 <b>评论</b>：{event.text} · {time}
+          你补充了 <b>复盘追记</b>：{event.text} · {time}
         </>
       )
     case 'note': {
@@ -1266,7 +1406,7 @@ function FeedItem({
   const handleContextMenu = (e: React.MouseEvent) => {
     if (!deletable || !onDelete) return
     e.preventDefault()
-    if (window.confirm('删除这条评论？')) onDelete()
+    if (window.confirm('删除这条复盘追记？')) onDelete()
   }
 
   return (
@@ -1277,11 +1417,11 @@ function FeedItem({
       <span className={'dv-feed-dot dv-feed-dot-' + kind} />
       <span className="dv-feed-text">{children}</span>
       {deletable && onDelete && (
-        <Tooltip content="删除评论" label="删除评论">
+        <Tooltip content="删除追记" label="删除追记">
           <button
             type="button"
             className="dv-feed-delete"
-            aria-label="删除评论"
+            aria-label="删除追记"
             onClick={onDelete}
           >
             <X size={13} />

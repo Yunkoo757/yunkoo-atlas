@@ -1,4 +1,4 @@
-import type { Trade } from '@/data/trades'
+import type { CaseType, Trade } from '@/data/trades'
 
 function escapeHtml(value: string): string {
   return value
@@ -23,12 +23,33 @@ export function buildReviewCaseFromTrade(
   const sourceLine = `<p>来源交易：${escapeHtml(source.ref)} · ${escapeHtml(source.symbol)}</p>`
   const note = [sourceLine, source.note].filter(Boolean).join('\n')
   const { deletedAt: _deletedAt, deletedBy: _deletedBy, ...activeSource } = source
+  const caseType: CaseType =
+    source.status === 'missed'
+      ? 'missed'
+      : source.reviewCategory === 'ambiguous'
+        ? 'ambiguous'
+        : source.mistakeTags.length > 0 || source.reviewCategory === 'mistake'
+          ? 'mistake'
+          : 'exemplar'
+  const nextReview = new Date()
+  nextReview.setDate(nextReview.getDate() + 3)
 
   return {
     ...activeSource,
     id: options.id,
     ref: options.ref,
     tradeKind: 'case',
+    sourceTradeId: source.id,
+    caseType,
+    masteryState: 'new',
+    nextReviewAt: nextReview.toISOString().slice(0, 10),
+    reviewStatus: 'unreviewed',
+    reviewCategory:
+      caseType === 'mistake'
+        ? 'mistake'
+        : caseType === 'ambiguous'
+          ? 'ambiguous'
+          : 'normal',
     recordedAt: new Date().toISOString(),
     note,
     comments: [],

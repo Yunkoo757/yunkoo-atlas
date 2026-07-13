@@ -7,6 +7,10 @@ import fs from 'node:fs/promises'
   const entries = [
   'src/regression.test.ts',
   'src/lib/reviewAnalytics.test.ts',
+  'src/lib/tradeTruth.test.ts',
+  'src/lib/tradeCalc.test.ts',
+  'src/lib/tradeClose.test.ts',
+  'src/lib/tradeWorkflow.test.ts',
   'src/lib/importExportAssets.test.ts',
   'src/lib/tradeDuplicates.test.ts',
   'src/lib/lightboxView.test.ts',

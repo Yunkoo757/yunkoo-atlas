@@ -24,6 +24,7 @@ import { isExecutedClosed } from '@/lib/tradeStatus'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { getPeriodBounds, isDateInRange } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
+import { summarizeTradeResults } from '@/lib/tradeTruth'
 import './Dashboard.css'
 
 type TimeRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
@@ -85,13 +86,17 @@ function filterByRange(trades: Trade[], range: TimeRange): Trade[] {
 }
 
 function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
-  const wins = closed.filter((t) => t.pnl > 0)
-  const total = closed.reduce((s, t) => s + t.pnl, 0)
-  const winRate = closed.length ? (wins.length / closed.length) * 100 : 0
-  const avgR =
-    closed.length ? closed.reduce((s, t) => s + t.rMultiple, 0) / closed.length : 0
+  const summary = summarizeTradeResults(closed)
+  const pnlTrades = closed.filter(
+    (trade): trade is Trade & { pnl: number } =>
+      typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
+  )
+  const rTrades = closed.filter(
+    (trade): trade is Trade & { rMultiple: number } =>
+      typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
+  )
 
-  const sorted = [...closed].sort(
+  const sorted = [...pnlTrades].sort(
     (a, b) =>
       +new Date(a.closedAt ?? a.openedAt) - +new Date(b.closedAt ?? b.openedAt),
   )
@@ -109,21 +114,24 @@ function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
     }
   })
 
-  const byStrat = new Map<string, { pnl: number; n: number; wins: number; id: string }>()
+  const byStrat = new Map<string, Trade[]>()
   closed.forEach((t) => {
-    const e = byStrat.get(t.strategyId) ?? { pnl: 0, n: 0, wins: 0, id: t.strategyId }
-    e.pnl += t.pnl
-    e.n += 1
-    if (t.pnl > 0) e.wins += 1
-    byStrat.set(t.strategyId, e)
+    byStrat.set(t.strategyId, [...(byStrat.get(t.strategyId) ?? []), t])
   })
   const strategies = [...byStrat.entries()]
-    .map(([id, v]) => ({
-      ...v,
-      name: getStrategyName(strategyDefs, id),
-      meta: strategyDefs.find((s) => s.id === id),
-      winRate: v.n ? (v.wins / v.n) * 100 : 0,
-    }))
+    .map(([id, strategyTrades]) => {
+      const result = summarizeTradeResults(strategyTrades)
+      return {
+        id,
+        pnl: result.totalPnl,
+        n: result.evaluatedCount,
+        closedCount: result.closedCount,
+        wins: result.winCount,
+        name: getStrategyName(strategyDefs, id),
+        meta: strategyDefs.find((s) => s.id === id),
+        winRate: result.winRate,
+      }
+    })
     .sort((a, b) => b.pnl - a.pnl)
   const maxAbs = Math.max(1, ...strategies.map((s) => Math.abs(s.pnl)))
 
@@ -133,12 +141,12 @@ function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
     const hi = rBuckets[i + 1]
     const label = hi ? `${lo}~${hi}` : `>${lo}`
     const n = hi
-      ? closed.filter((t) => t.rMultiple >= lo && t.rMultiple < hi).length
-      : closed.filter((t) => t.rMultiple >= lo).length
+      ? rTrades.filter((t) => t.rMultiple >= lo && t.rMultiple < hi).length
+      : rTrades.filter((t) => t.rMultiple >= lo).length
     return { label, n, lo }
   })
 
-  return { total, winRate, avgR, count: closed.length, curve, strategies, maxAbs, rDist }
+  return { ...summary, curve, strategies, maxAbs, rDist }
 }
 
 export function Dashboard() {
@@ -155,7 +163,7 @@ export function Dashboard() {
   }, [trades, strategyDefs, range, kind])
   const rangeLabel = RANGE_OPTS.find((o) => o.value === range)?.label ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '全部类型'
-  const hasClosedTrades = trades.some((trade) => isExecutedClosed(trade.status))
+  const hasClosedTrades = stats.closedCount > 0
 
   const openTrade = (tradeId: string) => {
     const t = trades.find((x) => x.id === tradeId)
@@ -201,19 +209,41 @@ export function Dashboard() {
         <div className="db-cards">
           <Card
             label="净盈亏"
-            value={fmtMoney(stats.total)}
-            sub="已平仓累计"
-            accent={stats.total === 0 ? undefined : stats.total > 0}
+            value={fmtMoney(stats.totalPnl)}
+            sub={`${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
+            accent={stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
           />
-          <Card label="胜率" value={stats.winRate.toFixed(0) + '%'} sub={`${stats.count} 笔已平`} />
+          <Card
+            label="胜率"
+            value={stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
+            sub={`${stats.evaluatedCount}/${stats.closedCount} 笔结果有效`}
+          />
           <Card
             label="平均 R"
-            value={(stats.avgR > 0 ? '+' : '') + stats.avgR.toFixed(2)}
-            sub="每笔风险回报"
-            accent={stats.avgR === 0 ? undefined : stats.avgR > 0}
+            value={stats.averageR == null ? '—' : `${stats.averageR > 0 ? '+' : ''}${stats.averageR.toFixed(2)}`}
+            sub={`${stats.rCount}/${stats.closedCount} 笔含 R`}
+            accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
           />
-          <Card label="盈利笔数" value={String(Math.round((stats.winRate / 100) * stats.count))} sub={`共 ${stats.count} 笔`} muted />
+          <Card label="盈利笔数" value={String(stats.winCount)} sub={`共 ${stats.evaluatedCount} 笔有效结果`} muted />
         </div>
+
+        {hasClosedTrades && (
+          <div className={'db-data-health' + (stats.conflictCount > 0 ? ' has-conflict' : '')}>
+            <div>
+              <span className="db-data-health-title">数据完整度</span>
+              <span className="db-data-health-copy">
+                盈亏 {stats.pnlCount}/{stats.closedCount} · R {stats.rCount}/{stats.closedCount}
+              </span>
+            </div>
+            <span className="db-data-health-state">
+              {stats.conflictCount > 0
+                ? `${stats.conflictCount} 笔结果冲突`
+                : stats.evaluatedCount < stats.closedCount
+                  ? `${stats.closedCount - stats.evaluatedCount} 笔待补结果`
+                  : '结果完整'}
+            </span>
+          </div>
+        )}
 
         {!hasClosedTrades ? (
           <EmptyState
@@ -239,7 +269,7 @@ export function Dashboard() {
             <div>
               <span className="db-panel-title">累计盈亏曲线</span>
               <div className="db-panel-sub">
-                {stats.count} 笔已平仓 · {kindLabel} · {rangeLabel}
+                {stats.closedCount} 笔已平仓 · {kindLabel} · {rangeLabel}
               </div>
             </div>
             {stats.curve.length > 0 && (
@@ -304,7 +334,9 @@ export function Dashboard() {
                     )}
                     <div className="db-strat-name">{s.name}</div>
                   </div>
-                  <div className="db-strat-meta">{s.n} 笔 · 胜率 {s.winRate.toFixed(0)}%</div>
+                  <div className="db-strat-meta">
+                    {s.n}/{s.closedCount} 笔结果有效 · 胜率 {s.winRate == null ? '—' : `${s.winRate.toFixed(0)}%`}
+                  </div>
                   <div className="db-strat-bar">
                     <div
                       className="db-strat-fill"
@@ -331,7 +363,7 @@ export function Dashboard() {
             <span className="db-panel-title">R 倍数分布</span>
           </div>
           <div className="db-chart">
-            {stats.count === 0 ? (
+            {stats.rCount === 0 ? (
               <div className="db-chart-empty">该时间范围内暂无已平仓交易</div>
             ) : (
               <ResponsiveContainer width="100%" height={160}>

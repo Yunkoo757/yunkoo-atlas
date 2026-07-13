@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Plus, Pin } from '@/icons/appIcons'
+import { Plus } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { WorkbenchView } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
@@ -13,6 +13,7 @@ import { StrategyLabel } from '@/components/StrategyIcon'
 import { useStore } from '@/store/useStore'
 import {
   REVIEW_CATEGORY_META,
+  CASE_TYPE_META,
   STATUS_META,
   getTimeframeTone,
   resolveTimeframe,
@@ -56,8 +57,7 @@ export function BoardView({
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const display = useStore((s) => s.display)
-  const subscribedIds = useStore((s) => s.subscribedIds)
-  const updateTradeData = useStore((s) => s.updateTradeData)
+  const requestTradeClose = useStore((s) => s.requestTradeClose)
   const setStatus = useStore((s) => s.setStatus)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
@@ -96,7 +96,7 @@ export function BoardView({
   const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例记录' : '交易'
 
-  const transition = { updateTradeData, setStatus, toast }
+  const transition = { requestTradeClose, setStatus, toast }
 
   const onDropToColumn = (status: TradeStatus) => {
     if (!dragId) return
@@ -158,7 +158,6 @@ export function BoardView({
                 isReviewCaseView={isReviewCaseView}
                 strategies={strategies}
                 symbolIcons={symbolIcons}
-                subscribedIds={subscribedIds}
                 dragId={dragId}
                 overCol={overCol}
                 overIdx={overIdx}
@@ -182,7 +181,7 @@ export function BoardView({
                           ref: getNextReviewCaseRef(trades),
                         })
                         upsertTrade(reviewCase)
-                        toast('已沉淀为案例记录')
+                        toast('已提炼为可复看案例')
                         onOpen(reviewCase.id)
                       },
                       toggleStar,
@@ -206,7 +205,6 @@ function BoardColumnBody({
   isReviewCaseView,
   strategies,
   symbolIcons,
-  subscribedIds,
   dragId,
   overCol,
   overIdx,
@@ -221,7 +219,6 @@ function BoardColumnBody({
   isReviewCaseView: boolean
   strategies: Strategy[]
   symbolIcons: SymbolIconsMap
-  subscribedIds: string[]
   dragId: string | null
   overCol: TradeStatus | null
   overIdx: number | null
@@ -317,14 +314,11 @@ function BoardColumnBody({
               >
                 <div className="bd-card-top">
                   <span className="bd-card-ref">{t.ref}</span>
-                  {subscribedIds.includes(t.id) && (
-                    <span className="bd-card-followed" aria-label="已置顶关注">
-                      <Pin size={13} aria-hidden />
-                    </span>
-                  )}
                   {isReviewCaseView ? (
                     <span className={'bd-category-badge bd-category-badge-' + t.reviewCategory}>
-                      {REVIEW_CATEGORY_META[t.reviewCategory].label}
+                      {t.caseType
+                        ? CASE_TYPE_META[t.caseType].label
+                        : REVIEW_CATEGORY_META[t.reviewCategory].label}
                     </span>
                   ) : (
                     <ConvictionIcon conviction={t.conviction} />
@@ -366,9 +360,9 @@ function BoardColumnBody({
                   <span
                     style={{
                       color:
-                        t.pnl > 0
+                        t.pnl != null && t.pnl > 0
                           ? 'var(--pos)'
-                          : t.pnl < 0
+                          : t.pnl != null && t.pnl < 0
                             ? 'var(--neg)'
                             : 'var(--text-tertiary)',
                     }}

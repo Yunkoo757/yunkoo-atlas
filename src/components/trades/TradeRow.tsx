@@ -1,7 +1,7 @@
 import { memo } from 'react'
-import { Pin, Star } from '@/icons/appIcons'
+import { Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
-import { REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
+import { CASE_TYPE_META, REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
@@ -18,7 +18,7 @@ export type TradeRowProps = {
   selected: boolean
   focused: boolean
   starred: boolean
-  followed: boolean
+  selectable?: boolean
   /** 由列表父级传入，避免每行订阅 store */
   symbolIcons?: SymbolIconsMap
   onOpen: (trade: Trade) => void
@@ -33,7 +33,7 @@ export const TradeRow = memo(function TradeRow({
   selected,
   focused,
   starred,
-  followed,
+  selectable = true,
   symbolIcons: symbolIconsProp,
   onOpen,
   onSelect,
@@ -55,11 +55,13 @@ export const TradeRow = memo(function TradeRow({
     hiddenCount: Math.max(0, trade.mistakeTags.length - 2),
   }
   const reviewLabel =
-    regularTags.visible.length === 0 &&
-    trade.mistakeTags.length === 0 &&
-    trade.reviewCategory !== 'normal'
-      ? REVIEW_CATEGORY_META[trade.reviewCategory].label
-      : null
+    trade.tradeKind === 'case' && trade.caseType
+      ? CASE_TYPE_META[trade.caseType].label
+      : regularTags.visible.length === 0 &&
+          trade.mistakeTags.length === 0 &&
+          trade.reviewCategory !== 'normal'
+        ? REVIEW_CATEGORY_META[trade.reviewCategory].label
+        : null
 
   return (
     <div
@@ -73,12 +75,16 @@ export const TradeRow = memo(function TradeRow({
         aria-label={`打开 ${trade.symbol} ${trade.ref}`}
         onClick={() => onOpen(trade)}
       />
-      <SelectionBox
-        checked={selected}
-        label={selected ? '取消选择' : '选择交易'}
-        onToggle={() => onSelect(trade)}
-        className="trade-row-check"
-      />
+      {selectable ? (
+        <SelectionBox
+          checked={selected}
+          label={selected ? '取消选择' : '选择交易'}
+          onToggle={() => onSelect(trade)}
+          className="trade-row-check"
+        />
+      ) : (
+        <span className="trade-row-check-placeholder" aria-hidden />
+      )}
       <span className="trade-row-status"><StatusIcon status={trade.status} /></span>
       <span className="trade-row-ref">{trade.ref}</span>
       <span className="trade-row-symbol trade-row-primary">
@@ -105,7 +111,10 @@ export const TradeRow = memo(function TradeRow({
           </Tooltip>
         ))}
         {reviewLabel && (
-          <Tooltip content={reviewLabel} label={`复盘分类：${reviewLabel}`}>
+          <Tooltip
+            content={reviewLabel}
+            label={`${trade.tradeKind === 'case' ? '案例类型' : '复盘分类'}：${reviewLabel}`}
+          >
             <span className="trade-row-tag is-review">{reviewLabel}</span>
           </Tooltip>
         )}
@@ -140,19 +149,14 @@ export const TradeRow = memo(function TradeRow({
           {timeframe}
         </span>
       </span>
-      <span className={'trade-row-pnl' + (trade.pnl > 0 ? ' is-positive' : trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
+      <span className={'trade-row-pnl' + (trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? fmtMoney(trade.pnl) : '—'}
       </span>
-      <span className={'trade-row-r' + (trade.rMultiple > 0 ? ' is-positive' : trade.rMultiple < 0 ? ' is-negative' : ' is-zero')}>
+      <span className={'trade-row-r' + (trade.rMultiple != null && trade.rMultiple > 0 ? ' is-positive' : trade.rMultiple != null && trade.rMultiple < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? fmtR(trade.rMultiple) : '—'}
       </span>
       <span className="trade-row-date">{fmtDate(trade.openedAt)}</span>
       <span className="trade-row-end">
-        {followed && (
-          <span className="trade-row-followed" aria-label="已置顶关注">
-            <Pin size={13} aria-hidden />
-          </span>
-        )}
         <button
           type="button"
           className={'trade-row-star' + (starred ? ' is-starred' : '')}
