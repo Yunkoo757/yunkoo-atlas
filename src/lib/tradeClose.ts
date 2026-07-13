@@ -1,13 +1,14 @@
 import type { Trade, TradeStatus } from '@/data/trades'
-import { calcPnl, calcRFromStop, pnlToStatus } from '@/lib/tradeCalc'
+import { calcPriceResult, calcRFromPrices, pnlToStatus } from '@/lib/tradeCalc'
 
 export type CloseOutcome = Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
+export type CloseResultMode = 'pnl' | 'r' | 'price'
 
 export type TradeCloseInput = {
   outcome: CloseOutcome
+  resultMode: CloseResultMode
+  value: number | null
   exit: number | null
-  pnl: number | null
-  rMultiple: number | null
   closedAt: string
 }
 
@@ -28,33 +29,44 @@ function finiteOrNull(value: number | null | undefined): number | null {
  */
 export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCloseResult {
   const exit = finiteOrNull(input.exit)
-  let pnl = finiteOrNull(input.pnl)
-  let rMultiple = finiteOrNull(input.rMultiple)
+  const value = finiteOrNull(input.value)
+  let pnl: number | null = null
+  let rMultiple: number | null = null
+  let outcome = input.outcome
 
-  if (pnl == null && exit != null) {
-    pnl = calcPnl(trade.side, trade.entry, exit, trade.size)
-  }
-  if (rMultiple == null && pnl != null) {
-    rMultiple = calcRFromStop(trade.side, pnl, trade.entry, trade.stopLoss, trade.size)
-  }
-
-  if (pnl == null && rMultiple == null) {
-    return { ok: false, error: '请填写盈亏、R 倍数，或提供可计算盈亏的出场价' }
-  }
-
-  const metricOutcomes = [pnl, rMultiple]
-    .filter((value): value is number => value != null)
-    .map(pnlToStatus)
-  if (metricOutcomes.some((outcome) => outcome !== metricOutcomes[0])) {
-    return { ok: false, error: '盈亏与 R 倍数方向不一致，请核对后再保存' }
-  }
-  if (metricOutcomes[0] !== input.outcome) {
-    return { ok: false, error: '选择的结果与数值方向不一致，请核对后再保存' }
+  if (input.resultMode === 'pnl') {
+    if (input.outcome === 'breakeven') {
+      pnl = 0
+    } else {
+      if (value == null || value === 0) {
+        return { ok: false, error: '请输入大于 0 的盈亏金额' }
+      }
+      pnl = input.outcome === 'loss' ? -Math.abs(value) : Math.abs(value)
+    }
+  } else if (input.resultMode === 'r') {
+    if (input.outcome === 'breakeven') {
+      rMultiple = 0
+    } else {
+      if (value == null || value === 0) {
+        return { ok: false, error: '请输入大于 0 的 R 倍数' }
+      }
+      rMultiple = input.outcome === 'loss' ? -Math.abs(value) : Math.abs(value)
+    }
+  } else if (input.resultMode === 'price') {
+    if (exit == null) return { ok: false, error: '请填写出场价' }
+    const priceResult = calcPriceResult(trade.side, trade.entry, exit)
+    if (priceResult == null) return { ok: false, error: '入场价或出场价无效，请核对后再保存' }
+    pnl = null
+    rMultiple = calcRFromPrices(trade.side, trade.entry, exit, trade.stopLoss)
+    if (rMultiple == null) {
+      return { ok: false, error: '缺少有效初始止损，无法按价格计算 R；请改用盈亏金额或 R 倍数' }
+    }
+    outcome = pnlToStatus(priceResult)
   }
 
   return {
     ok: true,
-    status: input.outcome,
+    status: outcome,
     patch: {
       exit,
       pnl,
@@ -64,4 +76,3 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
     },
   }
 }
-

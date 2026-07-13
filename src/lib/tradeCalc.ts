@@ -32,6 +32,30 @@ export function calcRFromStop(
   return calcR(pnl, priceRisk * size)
 }
 
+/** 根据方向计算价格变化，不混入仓位、合约乘数或货币单位。 */
+export function calcPriceResult(
+  side: TradeSide,
+  entry: number,
+  exit: number,
+): number | null {
+  if (!entry || !exit) return null
+  return side === 'long' ? exit - entry : entry - exit
+}
+
+/** 使用纯价格变化计算 R，适用于尚未配置合约金额换算的品种。 */
+export function calcRFromPrices(
+  side: TradeSide,
+  entry: number,
+  exit: number,
+  stopLoss: number | null | undefined,
+): number | null {
+  if (!entry || !exit || !stopLoss) return null
+  const priceResult = calcPriceResult(side, entry, exit)
+  const priceRisk = side === 'long' ? entry - stopLoss : stopLoss - entry
+  if (priceResult == null || priceRisk <= 0) return null
+  return calcR(priceResult, priceRisk)
+}
+
 /** 根据盈亏推断平仓状态 */
 export function pnlToStatus(pnl: number): 'win' | 'loss' | 'breakeven' {
   if (pnl > 0) return 'win'
