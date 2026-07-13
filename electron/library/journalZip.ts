@@ -168,14 +168,11 @@ function validateManifest(manifestFile: string): void {
   }
 }
 
-async function validateDesktopLibrary(
-  paths: ReturnType<typeof ensureLibraryDirs>,
-): Promise<void> {
-  validateManifest(paths.manifestFile)
+export async function validateLibraryDatabaseFile(dbFile: string): Promise<void> {
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   let db: InstanceType<typeof SQL.Database> | null = null
   try {
-    db = new SQL.Database(fs.readFileSync(paths.dbFile))
+    db = new SQL.Database(fs.readFileSync(dbFile))
     const tables = db.exec(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('meta', 'assets')",
     )
@@ -205,6 +202,13 @@ async function validateDesktopLibrary(
   } finally {
     db?.close()
   }
+}
+
+async function validateDesktopLibrary(
+  paths: ReturnType<typeof ensureLibraryDirs>,
+): Promise<void> {
+  validateManifest(paths.manifestFile)
+  await validateLibraryDatabaseFile(paths.dbFile)
 }
 
 function writeImportProgress(message: string): void {

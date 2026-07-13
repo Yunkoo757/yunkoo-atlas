@@ -63,3 +63,11 @@ export async function testLibraryLocationConfigUsesAtomicPersistence(): Promise<
   )
   assert(!paths.includes('fs.writeFileSync(getConfigPath()'), '资料库路径配置不得存在中断后半写文件风险')
 }
+
+export async function testBackupRestoreValidatesDatabaseBeforeMutatingCurrentLibrary(): Promise<void> {
+  const ipc = await fs.readFile('electron/library/ipc.ts', 'utf8')
+  const validation = ipc.indexOf('await validateLibraryDatabaseFile(backupPath)')
+  const safetyBackup = ipc.indexOf('const current = await ensureStorage()', validation)
+  assert(validation >= 0, '恢复点必须先通过 SQLite 与快照结构校验')
+  assert(safetyBackup > validation, '校验失败时不得创建备份、关闭或替换当前资料库')
+}
