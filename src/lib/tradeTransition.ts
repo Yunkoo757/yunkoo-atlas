@@ -32,6 +32,11 @@ export function transitionTradeStatus(
 ): void {
   if (trade.status === nextStatus) return
 
+  if (trade.tradeKind === 'case') {
+    actions.setStatus(trade.id, nextStatus)
+    return
+  }
+
   if (nextStatus === 'open' || nextStatus === 'planned') {
     actions.setStatus(trade.id, nextStatus)
     return
