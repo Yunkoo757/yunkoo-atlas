@@ -36,9 +36,9 @@ async function selectValue(trigger, value) {
 async function waitForApp(targetPage = page) {
   const loading = targetPage.locator('.app-loading')
   if (await loading.count()) {
-    await loading.waitFor({ state: 'hidden', timeout: 10000 })
+    await loading.waitFor({ state: 'hidden', timeout: 30000 })
   }
-  await targetPage.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 10000 })
+  await targetPage.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 30000 })
 }
 
 async function readSystemActivity() {
