@@ -125,6 +125,18 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     record('journal.db 存在', fs.existsSync(paths.dbFile))
     record('attachments/ 存在', fs.existsSync(paths.attachments))
 
+    const explicitLibraryPath = path.join(paths.root, '_qa-explicit-library')
+    const explicitStorage = new LibraryStorage(explicitLibraryPath)
+    await explicitStorage.open()
+    record(
+      'new library opens before global config changes',
+      explicitStorage.getLibraryPath() === explicitLibraryPath &&
+        fs.existsSync(path.join(explicitLibraryPath, 'journal.db')) &&
+        fs.existsSync(path.join(explicitLibraryPath, 'manifest.json')),
+    )
+    explicitStorage.close()
+    fs.rmSync(explicitLibraryPath, { recursive: true, force: true })
+
     const manifest = storage.readManifest()
     record('manifest.platform=electron', manifest.platform === 'electron', manifest.platform)
     record(

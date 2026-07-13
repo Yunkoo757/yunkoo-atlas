@@ -66,7 +66,11 @@ export function findIcloudConflictDbCandidate(libraryRoot: string): string | nul
 
 export class LibraryStorage {
   private db: Database | null = null
-  private paths = ensureLibraryDirs(getLibraryPath())
+  private paths: ReturnType<typeof ensureLibraryDirs>
+
+  constructor(libraryPath = getLibraryPath()) {
+    this.paths = ensureLibraryDirs(path.resolve(libraryPath))
+  }
 
   getLibraryPath(): string {
     return this.paths.root
@@ -78,7 +82,6 @@ export class LibraryStorage {
 
   async open(): Promise<void> {
     if (this.db) return
-    this.paths = ensureLibraryDirs(getLibraryPath())
     const SQL = await getSql()
     let created = !fs.existsSync(this.paths.dbFile)
 
