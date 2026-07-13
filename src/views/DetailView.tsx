@@ -83,7 +83,6 @@ import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCase
 import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { isAccountTrade } from '@/lib/tradeKind'
-import { stripNoteToPlainText } from '@/lib/tradeDuplicates'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
 import './DetailView.css'
@@ -405,10 +404,6 @@ export function DetailView() {
     : undefined
 
   const completeReview = async () => {
-    if (stripNoteToPlainText(editorHtml).length < 8) {
-      toast('请先写下关键判断或下一次行动，再完成复盘')
-      return
-    }
     await flushNoteDraftToStore(trade.id)
     updateTradeData(trade.id, { reviewStatus: 'reviewed' })
     toast(`${trade.ref} 复盘已完成`)
@@ -533,7 +528,7 @@ export function DetailView() {
                       ? '补充盈亏或 R 倍数后，才会计入统计。'
                       : reviewComplete
                         ? '这笔交易已完成记录、结算与复盘闭环。'
-                        : '写下关键判断、执行偏差和下一次行动。'}
+                        : '确认记录无误即可完成，复盘笔记可稍后补充。'}
                   </span>
                 </div>
                 {needsResult ? (
