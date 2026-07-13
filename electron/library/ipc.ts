@@ -2,7 +2,7 @@ import { ipcMain, dialog, BrowserWindow, app, type OpenDialogOptions } from 'ele
 import path from 'node:path'
 import fs from 'node:fs'
 import { LibraryStorage } from './storage'
-import { exportJournalZip, importJournalZipToPath } from './journalZip'
+import { exportJournalZip, importJournalZipToPath, validateLibraryDatabaseFile } from './journalZip'
 import { getLibraryPath, saveLibraryConfig, ensureLibraryDirs } from './paths'
 import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, stopAutoBackup, getBackupStats, rotateBackups } from './backup'
 
@@ -177,6 +177,14 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('backup:list', async () => listBackups())
 
   ipcMain.handle('backup:restore', async (_e, fileName: string) => {
+    const { backups } = ensureLibraryDirs(getLibraryPath())
+    const backupPath = path.join(backups, path.basename(fileName))
+    try {
+      await validateLibraryDatabaseFile(backupPath)
+    } catch (error) {
+      console.error('[backup] rejected invalid restore point', error)
+      return false
+    }
     const current = await ensureStorage()
     // 在覆盖资料库前创建一个包含原图的完整恢复点。
     if (!createBackup(current)) return false
