@@ -197,7 +197,7 @@
 
 .trade-row-symbol-main {
   display: grid;
-  grid-template-columns: 16px 7.8ch;
+  grid-template-columns: 16px 9ch;
   column-gap: 6px;
   align-items: center;
   min-width: 0;
@@ -209,7 +209,7 @@
 }
 
 .trade-row-symbol strong {
-  width: 7.8ch;
+  width: 9ch;
   overflow: hidden;
   color: var(--text-strong);
   font-size: var(--fs-sm);
