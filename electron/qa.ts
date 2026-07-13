@@ -142,12 +142,21 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     record('snapshot 含交易', (snapshot.trades?.length ?? 0) > 0, `${snapshot.trades.length} 条`)
     record('snapshot 含策略', (snapshot.strategies?.length ?? 0) > 0, `${snapshot.strategies.length} 个`)
 
-    const processed = await processImageBuffer(pngBuf(), 'image/png')
-    record('sharp 图片管线', processed.mime.startsWith('image/'), processed.mime)
+    const sourceImage = pngBuf()
+    const processed = await processImageBuffer(sourceImage, 'image/png')
+    record(
+      '图片原文件无损管线',
+      processed.mime === 'image/png' && processed.buffer.equals(sourceImage),
+      processed.mime,
+    )
 
     const assetId = await storage.saveAssetAsync(processed.buffer, processed.mime)
     const assetFile = path.join(paths.attachments, `${assetId}.${processed.ext}`)
     record('附件写入磁盘', fs.existsSync(assetFile), assetId)
+    record(
+      '附件保存前后字节一致',
+      fs.existsSync(assetFile) && fs.readFileSync(assetFile).equals(sourceImage),
+    )
 
     const zipPath = path.join(paths.root, '_qa-export.journal.zip')
     storage.saveSnapshot(snapshotWithRef('TRD-DESKTOPZIP'))

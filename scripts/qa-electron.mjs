@@ -1,6 +1,6 @@
 /**
  * 桌面版 QA — 主进程 headless 模式（LINEAR_JOURNAL_QA=1）
- * 覆盖：SQLite 库、manifest、sharp 附件、journal.zip 导出
+ * 覆盖：SQLite 库、manifest、无损附件、journal.zip 导出
  * UI 流（笔记编辑/粘贴图片）见文末手动清单。
  */
 import { spawn } from 'node:child_process'

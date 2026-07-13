@@ -10,7 +10,39 @@ export type LightboxView = {
   ty: number
 }
 
+export type LightboxImageLayout = {
+  width: number
+  height: number
+  fitScale: number
+}
+
+type LightboxImageLayoutInput = {
+  naturalWidth: number
+  naturalHeight: number
+  viewportWidth: number
+  viewportHeight: number
+  devicePixelRatio: number
+}
+
 export const LIGHTBOX_VIEW_RESET: LightboxView = { scale: 1, tx: 0, ty: 0 }
+
+export function calculateLightboxImageLayout({
+  naturalWidth,
+  naturalHeight,
+  viewportWidth,
+  viewportHeight,
+  devicePixelRatio,
+}: LightboxImageLayoutInput): LightboxImageLayout {
+  const ratio = devicePixelRatio > 0 ? devicePixelRatio : 1
+  const width = naturalWidth / ratio
+  const height = naturalHeight / ratio
+  const fitScale = Math.min(
+    1,
+    Math.max(1, viewportWidth - 64) / width,
+    Math.max(1, viewportHeight - 64) / height,
+  )
+  return { width, height, fitScale }
+}
 
 export function clampLightboxScale(scale: number): number {
   return Math.min(LIGHTBOX_MAX_SCALE, Math.max(LIGHTBOX_MIN_SCALE, scale))
