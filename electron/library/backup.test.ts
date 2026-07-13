@@ -65,6 +65,67 @@ export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): vo
   }
 }
 
+export function testBackupRotationNeverDeletesTheOnlyLatestRestorePoint(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-capacity-floor-'))
+  try {
+    const attachments = path.join(root, 'attachments')
+    fs.mkdirSync(attachments, { recursive: true })
+    fs.writeFileSync(path.join(root, 'journal.db'), 'latest-snapshot')
+    fs.writeFileSync(path.join(attachments, 'large.png'), Buffer.alloc(128, 1))
+    createBackupAtPath(
+      { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }) },
+      root,
+      Date.UTC(2026, 6, 13, 10, 0, 0),
+    )
+
+    const backups = path.join(root, 'backups')
+    rotateBackups(backups, 7, 1)
+    assert(
+      fs.readdirSync(backups).filter((name) => name.endsWith('.db')).length === 1,
+      '即使单份图片超过容量建议值，也必须保留最新恢复点',
+    )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export function testRestoreWithMissingAttachmentLeavesCurrentLibraryUntouched(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-safe-restore-'))
+  try {
+    const attachments = path.join(root, 'attachments')
+    fs.mkdirSync(attachments, { recursive: true })
+    fs.writeFileSync(path.join(root, 'journal.db'), 'backup-db')
+    fs.writeFileSync(path.join(attachments, 'chart.png'), 'backup-image')
+    const backup = createBackupAtPath(
+      { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }) },
+      root,
+      Date.UTC(2026, 6, 13, 10, 0, 0),
+    )!
+
+    fs.writeFileSync(path.join(root, 'journal.db'), 'current-db')
+    fs.writeFileSync(path.join(attachments, 'chart.png'), 'current-image')
+    const meta = JSON.parse(fs.readFileSync(backup + '.meta.json', 'utf8')) as {
+      attachmentEntries: { vaultName: string }[]
+    }
+    fs.rmSync(path.join(root, 'backups', 'assets', meta.attachmentEntries[0]!.vaultName))
+
+    let rejected = false
+    try {
+      restoreBackupAtPath(root, path.basename(backup))
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '缺失附件的恢复点必须拒绝恢复')
+    assert(fs.readFileSync(path.join(root, 'journal.db'), 'utf8') === 'current-db', '失败后数据库不得改变')
+    assert(
+      fs.readFileSync(path.join(attachments, 'chart.png'), 'utf8') === 'current-image',
+      '失败后当前附件不得改变',
+    )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export function testBackupAccountingAndDeletionIncludeDeduplicatedAttachments(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-stats-'))
   try {

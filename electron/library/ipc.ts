@@ -188,6 +188,7 @@ export function registerLibraryIpc(): void {
     const ok = restoreBackup(fileName)
     // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
     const reopened = await reopenStorageWithAutoBackup()
+    rotateBackups(ensureLibraryDirs(getLibraryPath()).backups)
     return ok ? reopened.loadSnapshot() : false
   })
 

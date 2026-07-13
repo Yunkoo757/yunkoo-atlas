@@ -430,6 +430,10 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
 
   assert(source.includes('最多保留 7 份'), '数据设置应展示桌面端实际的 7 份备份上限')
   assert(!source.includes('最多保留 20 份'), '不得继续展示旧的 20 份备份上限')
+  assert(
+    source.includes('await Promise.all([refreshBackups(), refreshHealth()])'),
+    '创建、恢复或删除备份后应同步刷新恢复点列表和存储健康数据',
+  )
 }
 
 export async function testTagSettingsExposeDistinctAccessibleControlNames(): Promise<void> {

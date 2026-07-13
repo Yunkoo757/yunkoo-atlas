@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import { app } from 'electron'
 import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs } from './paths'
+import { writeFileAtomicallySync } from './atomicFile'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
 const DEFAULT_MAX_BACKUPS = 7
@@ -144,29 +145,35 @@ export function createBackupAtPath(
   if (!fs.existsSync(dbFile)) return null
 
   const dest = path.join(backups, backupFileName(now))
-  fs.copyFileSync(dbFile, dest)
-  if (fs.existsSync(manifestFile)) {
-    fs.copyFileSync(manifestFile, backupManifestPath(dest))
-  }
+  try {
+    fs.copyFileSync(dbFile, dest)
+    if (fs.existsSync(manifestFile)) {
+      fs.copyFileSync(manifestFile, backupManifestPath(dest))
+    }
 
-  const attachmentFiles = listAttachmentFiles(attachments)
-  const vault = backupAssetVault(backups)
-  fs.mkdirSync(vault, { recursive: true })
-  const attachmentEntries = attachmentFiles.map((fileName) => ({
-    fileName,
-    vaultName: storeBackupAttachment(path.join(attachments, fileName), vault),
-  }))
+    const attachmentFiles = listAttachmentFiles(attachments)
+    const vault = backupAssetVault(backups)
+    fs.mkdirSync(vault, { recursive: true })
+    const attachmentEntries = attachmentFiles.map((fileName) => ({
+      fileName,
+      vaultName: storeBackupAttachment(path.join(attachments, fileName), vault),
+    }))
 
-  const counts = storage.getCounts()
-  const meta: BackupMeta = {
-    tradeCount: counts.tradeCount,
-    strategyCount: counts.strategyCount,
-    attachmentCount: counts.assetCount,
-    librarySizeBytes: fs.statSync(dbFile).size,
-    attachmentEntries,
+    const counts = storage.getCounts()
+    const meta: BackupMeta = {
+      tradeCount: counts.tradeCount,
+      strategyCount: counts.strategyCount,
+      attachmentCount: counts.assetCount,
+      librarySizeBytes: fs.statSync(dbFile).size,
+      attachmentEntries,
+    }
+    writeFileAtomicallySync(dest + '.meta.json', JSON.stringify(meta), 'utf8')
+    return dest
+  } catch (error) {
+    deleteBackupFiles(dest)
+    pruneBackupAssetVault(backups)
+    throw error
   }
-  fs.writeFileSync(dest + '.meta.json', JSON.stringify(meta), 'utf-8')
-  return dest
 }
 
 export function createBackup(storage: LibraryStorage): string | null {
@@ -228,25 +235,40 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
     }
   }
 
-  fs.copyFileSync(src, dbFile)
+  const originalDb = fs.existsSync(dbFile) ? fs.readFileSync(dbFile) : null
+  const originalManifest = fs.existsSync(manifestFile) ? fs.readFileSync(manifestFile) : null
   const savedManifest = backupManifestPath(src)
-  if (fs.existsSync(savedManifest)) fs.copyFileSync(savedManifest, manifestFile)
-
-  if (stagedAttachments) {
-    const previousAttachments = path.join(libraryPath, `.attachments-previous-${Date.now()}`)
-    fs.renameSync(attachments, previousAttachments)
-    try {
+  let previousAttachments: string | null = null
+  try {
+    if (stagedAttachments) {
+      previousAttachments = path.join(libraryPath, `.attachments-previous-${Date.now()}`)
+      fs.renameSync(attachments, previousAttachments)
       fs.renameSync(stagedAttachments, attachments)
-      fs.rmSync(previousAttachments, { recursive: true, force: true })
-    } catch (error) {
-      if (!fs.existsSync(attachments) && fs.existsSync(previousAttachments)) {
-        fs.renameSync(previousAttachments, attachments)
-      }
-      fs.rmSync(stagedAttachments, { recursive: true, force: true })
-      throw error
     }
+
+    writeFileAtomicallySync(dbFile, fs.readFileSync(src))
+    if (fs.existsSync(savedManifest)) {
+      writeFileAtomicallySync(manifestFile, fs.readFileSync(savedManifest))
+    }
+    if (previousAttachments) {
+      fs.rmSync(previousAttachments, { recursive: true, force: true })
+      previousAttachments = null
+    }
+    return true
+  } catch (error) {
+    if (originalDb) writeFileAtomicallySync(dbFile, originalDb)
+    else fs.rmSync(dbFile, { force: true })
+    if (originalManifest) writeFileAtomicallySync(manifestFile, originalManifest)
+    else fs.rmSync(manifestFile, { force: true })
+    if (previousAttachments && fs.existsSync(previousAttachments)) {
+      fs.rmSync(attachments, { recursive: true, force: true })
+      fs.renameSync(previousAttachments, attachments)
+    }
+    if (stagedAttachments) {
+      fs.rmSync(stagedAttachments, { recursive: true, force: true })
+    }
+    throw error
   }
-  return true
 }
 
 export function rotateBackups(
@@ -272,6 +294,8 @@ export function rotateBackups(
 
     // 优先保留有交易的备份，避免空库备份把好备份挤掉
     const keep = new Set<string>()
+    const newestPath = files[0]?.path
+    if (newestPath) keep.add(newestPath)
     const nonEmpty = files
       .filter((f) => f.tradeCount > 0)
       .sort((a, b) => b.timestamp - a.timestamp)
@@ -279,7 +303,7 @@ export function rotateBackups(
       .filter((f) => f.tradeCount <= 0)
       .sort((a, b) => b.timestamp - a.timestamp)
     for (const file of [...nonEmpty, ...emptyOrUnknown]) {
-      if (keep.size >= maxCount) break
+      if (keep.size >= Math.max(1, maxCount)) break
       keep.add(file.path)
     }
 
@@ -296,7 +320,10 @@ export function rotateBackups(
 
     // 总容量包含数据库、清单、元数据与去重附件；超限时先删空备份，再删最旧备份。
     const capacityCandidates = files
-      .filter((file) => keep.has(file.path) && fs.existsSync(file.path))
+      .filter(
+        (file) =>
+          keep.has(file.path) && file.path !== newestPath && fs.existsSync(file.path),
+      )
       .sort((left, right) => {
         const leftEmpty = left.tradeCount <= 0
         const rightEmpty = right.tradeCount <= 0
