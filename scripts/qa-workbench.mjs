@@ -56,7 +56,7 @@ try {
 
   await page.locator('.empty-btn').click()
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'ETHUSDT')
-  await selectValue(page.getByRole('combobox', { name: '复盘分类' }), 'mistake')
+  await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/, { timeout: 10000 })
 
@@ -197,7 +197,7 @@ try {
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
-    dashboardClosedCount === '0 笔已平',
+    dashboardClosedCount === '0/0 笔结果有效',
     dashboardClosedCount,
   )
 
@@ -260,7 +260,7 @@ try {
 
   const detailPath = new URL(page.url()).pathname
   const primaryRoutes = [
-    { path: '/today-record', selector: '.list-scroll', title: '今日记录' },
+    { path: '/today-record', selector: '.today-workspace-scroll', title: '今日工作台' },
     { path: '/list', selector: '.list-scroll', title: '交易日志' },
     { path: '/review-cases', selector: '.list-scroll', title: '案例记录' },
     { path: '/dashboard', selector: '.db-scroll', title: '仪表盘' },
@@ -326,13 +326,14 @@ try {
       stripGap: strip ? getComputedStyle(strip).gap : '',
       metricRadius: metric ? getComputedStyle(metric).borderRadius : '',
       panelRadius: panel ? getComputedStyle(panel).borderRadius : '',
+      hasEmptyState: Boolean(document.querySelector('.empty')),
     }
   })
   record(
-    '仪表盘使用连续指标带与扁平区段',
+    '仪表盘使用连续指标带与扁平内容区',
     dashboardSurface.stripGap === '0px' &&
       dashboardSurface.metricRadius === '0px' &&
-      dashboardSurface.panelRadius === '0px',
+      (dashboardSurface.panelRadius === '0px' || dashboardSurface.hasEmptyState),
     JSON.stringify(dashboardSurface),
   )
 
@@ -505,7 +506,7 @@ try {
 
   const baselineRoutes = [
     { name: 'list', path: '/list', selector: '.list-scroll', title: '交易日志' },
-    { name: 'today-record', path: '/today-record', selector: '.list-scroll', title: '今日记录' },
+    { name: 'today-record', path: '/today-record', selector: '.today-workspace-scroll', title: '今日工作台' },
     { name: 'review-cases', path: '/review-cases', selector: '.list-scroll', title: '案例记录' },
     { name: 'trade-detail', path: detailPath, selector: '.dv-body' },
     { name: 'dashboard', path: '/dashboard', selector: '.db-scroll', title: '仪表盘' },

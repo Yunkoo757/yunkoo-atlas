@@ -260,7 +260,7 @@ try {
 
   expectEqual(
     await page.locator('.sb-primary > a .sb-item-label').allTextContents(),
-    ['今日记录', '交易日志', '案例记录', '仪表盘'],
+    ['今日工作台', '交易日志', '案例记录', '仪表盘'],
     'Default core modules must preserve their approved order',
   )
   expectEqual(
@@ -434,7 +434,7 @@ try {
   await page.waitForTimeout(250)
   await coreLink('案例').click()
   await coreLink('今日').click()
-  await expectUrl(page, '/today-record/table?status=planned', 'Today core must restore pathname, search, and table mode')
+  await expectUrl(page, '/today-record', 'Today core must restore the canonical focused workspace')
 
   await page.goto(`${BASE}/review-cases/mistakes/board?reviewStatus=focus`, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(250)

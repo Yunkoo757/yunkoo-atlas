@@ -66,7 +66,7 @@ async function seedData() {
   await open('/review-cases')
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'BTCUSDT')
-  await selectValue(page.getByRole('combobox', { name: '复盘分类' }), 'focus')
+  await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/)
   await page.evaluate(async () => {
@@ -81,7 +81,7 @@ try {
   const tradeDetailPath = await seedData()
   const routes = [
     { name: 'list', path: '/list', selector: '.list-scroll' },
-    { name: 'today-record', path: '/today-record', selector: '.list-scroll' },
+    { name: 'today-record', path: '/today-record', selector: '.today-workspace-scroll' },
     { name: 'review-cases', path: '/review-cases', selector: '.list-scroll' },
     { name: 'trade-detail', path: tradeDetailPath, selector: '.trade-detail-layout' },
     { name: 'dashboard', path: '/dashboard', selector: '.db-scroll' },
