@@ -187,10 +187,39 @@ export function registerAppUpdater(): void {
   })
   ipcMain.handle('update:install', () => {
     if (state.phase !== 'downloaded') return false
-    for (const window of BrowserWindow.getAllWindows()) {
+    const windows = BrowserWindow.getAllWindows()
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const finishInstall = (
+      _event: Electron.IpcMainEvent,
+      result?: { ok?: boolean; error?: string },
+    ) => {
+      if (timer) clearTimeout(timer)
+      ipcMain.removeListener('app:before-close-complete', finishInstall)
+      if (result?.ok === false) {
+        for (const window of windows) {
+          if (!window.isDestroyed()) {
+            window.webContents.send(
+              'app:close-save-error',
+              '保存失败，已取消安装更新。请检查磁盘空间后重试。',
+            )
+          }
+        }
+        return
+      }
+      autoUpdater.quitAndInstall(false, true)
+    }
+    ipcMain.once('app:before-close-complete', finishInstall)
+    timer = setTimeout(() => {
+      ipcMain.removeListener('app:before-close-complete', finishInstall)
+      for (const window of windows) {
+        if (!window.isDestroyed()) {
+          window.webContents.send('app:close-save-error', '保存等待超时，已取消安装更新。')
+        }
+      }
+    }, 15_000)
+    for (const window of windows) {
       window.webContents.send('app:before-close')
     }
-    setTimeout(() => autoUpdater.quitAndInstall(false, true), 500)
     return true
   })
 }

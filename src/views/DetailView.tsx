@@ -217,7 +217,10 @@ export function DetailView() {
         clearTimeout(noteSaveTimer.current)
         noteSaveTimer.current = null
       }
-      await flushNoteDraftsToStore()
+      const complete = await flushNoteDraftsToStore()
+      if (!complete) {
+        throw new Error('笔记中的图片尚未保存完成')
+      }
     })
     return () => { setPreFlushCallback(null) }
   }, [])
