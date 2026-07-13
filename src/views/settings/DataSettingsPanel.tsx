@@ -8,7 +8,7 @@ import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
-import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, AlertTriangle } from '@/icons/appIcons'
+import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 
 function fmtBackupTime(ts: number): string {
@@ -33,11 +33,9 @@ export function DataSettingsPanel() {
   const [backing, setBacking] = useState(false)
   const [health, setHealth] = useState<{
     tradeCount: number
-    attachmentCount: number
     attachmentStats: AssetStats
     backupCount: number
     backupTotalSize: number
-    orphanedCount: number
   } | null>(null)
   const trades = useStore((s) => s.trades)
 
@@ -55,12 +53,6 @@ export function DataSettingsPanel() {
         }
       } catch { /* 忽略 */ }
     }
-    const stats: AssetStats = {
-      count: assetIds.length,
-      totalBytes: 0,
-      formattedSize: '0 B',
-    }
-
     let backupCount = 0
     let backupTotalSize = 0
     if (electron) {
@@ -76,11 +68,9 @@ export function DataSettingsPanel() {
 
     setHealth({
       tradeCount: trades.length,
-      attachmentCount: assetIds.length,
       attachmentStats: { count, totalBytes, formattedSize: fmtBackupSize(totalBytes) },
       backupCount,
       backupTotalSize,
-      orphanedCount: 0,
     })
   }, [trades, electron])
 
@@ -210,14 +200,6 @@ export function DataSettingsPanel() {
                 {health.backupTotalSize > WARN_BACKUP_SIZE && (
                   <span className="health-note">超出建议上限，自动清理最旧备份</span>
                 )}
-              </div>
-            )}
-            {health.orphanedCount > 0 && (
-              <div className="health-card health-warn">
-                <AlertTriangle size={18} />
-                <span className="health-label">孤立附件</span>
-                <span className="health-value">{health.orphanedCount} 个</span>
-                <span className="health-note">不再被任何笔记引用</span>
               </div>
             )}
           </div>

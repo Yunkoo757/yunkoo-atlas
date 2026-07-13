@@ -43,3 +43,13 @@ export async function testAttachmentPreviewCachesAreBoundedAndInvalidatedOnImpor
     '整库导入后必须清除桌面附件预览缓存',
   )
 }
+
+export async function testStorageHealthOnlyReportsMeasuredAttachmentData(): Promise<void> {
+  const panel = await fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8')
+  assert(!panel.includes('orphanedCount: 0'), '存储健康不得把未执行的孤立附件扫描报告为零')
+  assert(!panel.includes('const stats: AssetStats'), '存储健康不得保留未使用的伪统计结果')
+  assert(
+    panel.includes('attachmentStats: { count, totalBytes'),
+    '图片数量与容量必须来自实际读取成功的附件',
+  )
+}
