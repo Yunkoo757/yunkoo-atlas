@@ -112,3 +112,30 @@ export function testPortableSnapshotIncludesWorkflowSettingsAndShortcutOverrides
   assert(snapshot.shortcuts?.['nav.list'] != null, '完整迁移快照应包含快捷键覆盖值')
   assert(snapshot.symbolCatalog?.[0] === 'NVDA', '完整迁移快照应包含品种目录')
 }
+
+export function testJsonImportAcceptsOpenTradesWithoutResults(): void {
+  const openTrade: Trade = {
+    ...trade,
+    id: 't-open',
+    ref: 'TRD-OPEN',
+    status: 'open',
+    exit: null,
+    pnl: null,
+    rMultiple: null,
+    closedAt: null,
+  }
+  const parsed = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [openTrade],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }))
+
+  assert(parsed.ok, '包含未结算交易的本软件 JSON 备份必须能够重新导入')
+  if (!parsed.ok) return
+  assert(parsed.data.trades[0]?.pnl === null, '未填写盈亏应保持 null，而不是伪造为 0')
+  assert(parsed.data.trades[0]?.rMultiple === null, '未填写 R 倍数应保持 null')
+}
