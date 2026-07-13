@@ -24,12 +24,12 @@ async function waitForVite(vite) {
   let earlyExit = null
   const handleExit = (code, signal) => { earlyExit = { code, signal } }
   vite.child.once('exit', handleExit)
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  for (let attempt = 0; attempt < 150; attempt += 1) {
     if (earlyExit) {
       throw new Error(`Vite exited before ready (${earlyExit.signal ?? `code ${earlyExit.code}`}): ${vite.output().trim()}`)
     }
     if (!vite.hasReadySignal()) {
-      await new Promise((resolve) => setTimeout(resolve, 50))
+      await new Promise((resolve) => setTimeout(resolve, 100))
       continue
     }
     try {
