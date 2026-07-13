@@ -52,8 +52,11 @@ jobs:
             throw "Tag ${{ github.ref_name }} does not match package version v$version"
           }
 
-      - name: Run complete release quality gate
-        run: pnpm qa:release
+      - name: Build application
+        run: pnpm build:app
+
+      - name: Run Electron library QA
+        run: pnpm qa:electron
 
       - name: Build Windows installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
