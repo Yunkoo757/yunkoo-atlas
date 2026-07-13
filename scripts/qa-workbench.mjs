@@ -6,7 +6,7 @@ const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
 const BASELINE_OUT = join(process.cwd(), '.gstack', 'qa-reports', 'linear-rebuild-baseline')
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-const page = await context.newPage()
+let page = await context.newPage()
 const results = []
 const runtimeErrors = []
 
@@ -491,6 +491,9 @@ try {
     secondaryOverflow.length === 0,
     secondaryOverflow.join(', ') || 'none',
   )
+  await page.close()
+  page = await context.newPage()
+  trackRuntimeErrors(page)
   await page.setViewportSize({ width: 1440, height: 900 })
 
   const reviewCaseRoutes = [
