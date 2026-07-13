@@ -250,6 +250,10 @@ try {
       /R 倍数\s+\+2\.0R/.test(reviewedPropertiesText),
     JSON.stringify({ reviewedTradeRef, reviewedStageText, reviewedPropertiesText }),
   )
+  await page.evaluate(async () => {
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await flushPersistNow()
+  })
 
   await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
