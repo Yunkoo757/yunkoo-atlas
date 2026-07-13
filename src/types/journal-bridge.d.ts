@@ -24,6 +24,7 @@ export interface JournalBridge {
   isElectron: true
   /** 主窗口关闭前完成草稿与快照落盘。 */
   onBeforeClose(callback: () => void | Promise<void>): void
+  onCloseSaveError(callback: (message: string) => void): () => void
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>

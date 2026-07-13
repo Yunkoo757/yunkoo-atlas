@@ -17,6 +17,7 @@ export interface JournalBridge {
   isElectron: true
   /** 注册主进程关闭前回调 */
   onBeforeClose(callback: () => void | Promise<void>): void
+  onCloseSaveError(callback: (message: string) => void): () => void
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>
@@ -63,10 +64,19 @@ const bridge: JournalBridge = {
     ipcRenderer.on('app:before-close', async () => {
       try {
         await callback()
-      } finally {
-        ipcRenderer.send('app:before-close-complete')
+        ipcRenderer.send('app:before-close-complete', { ok: true })
+      } catch (error) {
+        ipcRenderer.send('app:before-close-complete', {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
     })
+  },
+  onCloseSaveError: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message)
+    ipcRenderer.on('app:close-save-error', listener)
+    return () => ipcRenderer.removeListener('app:close-save-error', listener)
   },
   getLibraryStatus: () => ipcRenderer.invoke('library:getStatus'),
   pickLibraryFolder: () => ipcRenderer.invoke('library:pickFolder'),

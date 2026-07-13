@@ -22,10 +22,11 @@ export function getNoteDraft(tradeId: string): string | undefined {
 }
 
 /** 将全部草稿归一化后写入 store；写成功后清除。 */
-export async function flushNoteDraftsToStore(): Promise<void> {
-  if (drafts.size === 0) return
+export async function flushNoteDraftsToStore(): Promise<boolean> {
+  if (drafts.size === 0) return true
   const entries = [...drafts.entries()]
   const storage = getStorage()
+  let complete = true
   for (const [tradeId, html] of entries) {
     try {
       const normalized = await normalizeNoteForStorage(html, storage)
@@ -36,13 +37,15 @@ export async function flushNoteDraftsToStore(): Promise<void> {
       drafts.delete(tradeId)
     } catch {
       /* 保留草稿，下次再试 */
+      complete = false
     }
   }
+  return complete
 }
 
-export async function flushNoteDraftToStore(tradeId: string): Promise<void> {
+export async function flushNoteDraftToStore(tradeId: string): Promise<boolean> {
   const html = drafts.get(tradeId)
-  if (html === undefined) return
+  if (html === undefined) return true
   try {
     const normalized = await normalizeNoteForStorage(html, getStorage())
     const current = useStore.getState().trades.find((t) => t.id === tradeId)
@@ -50,8 +53,10 @@ export async function flushNoteDraftToStore(tradeId: string): Promise<void> {
       useStore.getState().updateNote(tradeId, normalized)
     }
     drafts.delete(tradeId)
+    return true
   } catch {
     /* 保留草稿 */
+    return false
   }
 }
 

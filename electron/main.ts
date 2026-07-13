@@ -155,14 +155,32 @@ function createWindow() {
     closeWaiting = true
     const closingWindow = mainWindow
     let timer: ReturnType<typeof setTimeout> | null = null
-    const finishClose = () => {
+    const cancelClose = (message: string, detail?: unknown) => {
+      if (timer) clearTimeout(timer)
+      ipcMain.removeListener('app:before-close-complete', finishClose)
+      closeWaiting = false
+      logDiagnostic('error', 'close-save-cancelled', detail ?? message)
+      if (!closingWindow.isDestroyed()) {
+        closingWindow.webContents.send('app:close-save-error', message)
+      }
+    }
+    const finishClose = (
+      _event: Electron.IpcMainEvent,
+      result?: { ok?: boolean; error?: string },
+    ) => {
+      if (result?.ok === false) {
+        cancelClose('保存失败，已取消关闭。请检查磁盘空间后重试。', result.error)
+        return
+      }
       if (timer) clearTimeout(timer)
       ipcMain.removeListener('app:before-close-complete', finishClose)
       closeReady = true
       if (!closingWindow.isDestroyed()) closingWindow.close()
     }
     ipcMain.once('app:before-close-complete', finishClose)
-    timer = setTimeout(finishClose, 2500)
+    timer = setTimeout(() => {
+      cancelClose('保存等待超时，已取消关闭。请稍后重试。')
+    }, 15_000)
     closingWindow.webContents.send('app:before-close')
   })
 }

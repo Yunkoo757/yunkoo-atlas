@@ -87,6 +87,7 @@ async function flush(): Promise<void> {
     console.error('Persist failed', e)
     useSaveStatus.getState().setError()
     pending = snapshot
+    throw e
   }
 }
 
@@ -103,9 +104,13 @@ export function schedulePersist(snapshot: PersistedSnapshot): void {
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
     timer = null
-    flushing = flush().finally(() => {
-      flushing = null
-    })
+    flushing = flush()
+      .catch(() => {
+        // 自动保存失败会保留 pending，并由保存状态提示；显式 flush 仍会抛错。
+      })
+      .finally(() => {
+        flushing = null
+      })
   }, SAVE_DEBOUNCE_MS)
 }
 
@@ -126,7 +131,7 @@ export function resumePersist(options?: { flushNow?: boolean }): void {
     if (pending) schedulePersist(pending)
     return
   }
-  void flushPersistNow()
+  void flushPersistNow().catch(() => {})
 }
 
 /** 批量变更期间挂起 persist，结束后单次 flush。 */
@@ -153,7 +158,7 @@ export async function flushPersistNow(): Promise<void> {
   if (flushing) await flushing
 
   if (preFlushCallback) {
-    try { await preFlushCallback() } catch { /* 不回滚——尽力而为 */ }
+    await preFlushCallback()
   }
 
   // 始终从最新 store 重建 pending，不依赖之前的 schedulePersist 设置

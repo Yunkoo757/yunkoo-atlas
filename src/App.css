@@ -10,3 +10,68 @@
   color: var(--text-secondary);
   font-size: var(--fs-sm);
 }
+
+.app-storage-error {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+.app-storage-error-card {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-shadow: var(--popover-shadow);
+}
+
+.app-storage-error-eyebrow,
+.app-storage-error-card small {
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
+
+.app-storage-error-card h1 {
+  margin: 8px 0 10px;
+  font-size: var(--fs-title);
+  line-height: 1.35;
+}
+
+.app-storage-error-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.app-storage-error-actions {
+  display: flex;
+  gap: 8px;
+  margin: 22px 0 14px;
+}
+
+.app-storage-error-actions button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 68%, var(--border-default));
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-storage-error-actions button.is-secondary {
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.app-storage-error-actions button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

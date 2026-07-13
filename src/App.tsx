@@ -49,6 +49,7 @@ import { routeWithSearch } from './lib/tradeView'
 import { workbenchModeFromPathname } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
+import { toast } from './lib/toast'
 import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import './App.css'
 
@@ -344,6 +345,8 @@ function Shell() {
 export function App() {
   const [ready, setReady] = useState(false)
   const [needsWelcome, setNeedsWelcome] = useState(false)
+  const [storageError, setStorageError] = useState<string | null>(null)
+  const [retryingStorage, setRetryingStorage] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -386,7 +389,8 @@ export function App() {
 
     init().catch((e) => {
       console.error('Storage bootstrap failed', e)
-      setReady(true)
+      setStorageError(e instanceof Error ? e.message : String(e))
+      setReady(false)
       document.documentElement.dataset.uiSettled = '1'
     })
   }, [])
@@ -405,6 +409,10 @@ export function App() {
       }
     } catch (e) {
       console.error('Storage bootstrap failed after welcome', e)
+      setStorageError(e instanceof Error ? e.message : String(e))
+      setReady(false)
+      document.documentElement.dataset.uiSettled = '1'
+      return
     }
     setReady(true)
     requestAnimationFrame(() => {
@@ -412,6 +420,27 @@ export function App() {
         document.documentElement.dataset.uiSettled = '1'
       })
     })
+  }
+
+  const handleStorageRetry = async () => {
+    setRetryingStorage(true)
+    setStorageError(null)
+    document.documentElement.removeAttribute('data-ui-settled')
+    try {
+      await bootstrapStorage()
+      const state = useStore.getState()
+      await cleanExpiredTradeTrash(state.trades, state.purgeTrade)
+      setReady(true)
+      requestAnimationFrame(() => {
+        document.documentElement.dataset.uiSettled = '1'
+      })
+    } catch (error) {
+      console.error('Storage bootstrap retry failed', error)
+      setStorageError(error instanceof Error ? error.message : String(error))
+      document.documentElement.dataset.uiSettled = '1'
+    } finally {
+      setRetryingStorage(false)
+    }
   }
 
   useEffect(() => {
@@ -437,6 +466,7 @@ export function App() {
 
     // Electron 主进程关闭前触发 flush
     if (isElectron()) {
+      let unsubscribeCloseError: (() => void) | undefined
       try {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
@@ -446,7 +476,16 @@ export function App() {
             await bridge.createBackup()
           })
         }
+        if (bridge?.onCloseSaveError) {
+          unsubscribeCloseError = bridge.onCloseSaveError((message: string) => toast(message))
+        }
       } catch { /* bridge not available */ }
+
+      return () => {
+        window.removeEventListener('beforeunload', onBeforeUnload)
+        document.removeEventListener('visibilitychange', onVisibilityChange)
+        unsubscribeCloseError?.()
+      }
     }
 
     return () => {
@@ -454,6 +493,37 @@ export function App() {
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [])
+
+  if (storageError) {
+    return (
+      <div className="app-storage-error" role="alert" aria-live="assertive">
+        <div className="app-storage-error-card">
+          <span className="app-storage-error-eyebrow">本地交易库未打开</span>
+          <h1>已停止进入工作区，避免覆盖现有数据</h1>
+          <p>{storageError}</p>
+          <div className="app-storage-error-actions">
+            <button type="button" onClick={() => void handleStorageRetry()} disabled={retryingStorage}>
+              {retryingStorage ? '正在重试…' : '重试打开'}
+            </button>
+            {isElectron() && (
+              <button
+                type="button"
+                className="is-secondary"
+                onClick={() => {
+                  setStorageError(null)
+                  setNeedsWelcome(true)
+                  setReady(true)
+                }}
+              >
+                选择其他资料库
+              </button>
+            )}
+          </div>
+          <small>软件不会在加载失败时创建空数据或继续保存。</small>
+        </div>
+      </div>
+    )
+  }
 
   if (needsWelcome) {
     return <WelcomeScreen onReady={handleWelcomeReady} />
