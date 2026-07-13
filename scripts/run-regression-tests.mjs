@@ -23,6 +23,7 @@ import fs from 'node:fs/promises'
   'src/lib/appUpdate.test.ts',
   'src/lib/windowBounds.test.ts',
   'electron/library/images.test.ts',
+  'electron/library/atomicFile.test.ts',
   'electron/library/backup.test.ts',
 ]
 
