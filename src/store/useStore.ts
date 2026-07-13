@@ -99,6 +99,7 @@ interface State {
   closeTradeRequest: {
     tradeId: string
     targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
+    returnFocus?: HTMLElement | null
   } | null
   undoStack: { id: string; prev: Trade }[][]
   redoStack: { id: string; prev: Trade }[][]
@@ -654,8 +655,22 @@ export const useStore = create<State>()((set, get) => ({
         set({ composerOpen: true, composerTrade: safe })
       },
       closeComposer: () => set({ composerOpen: false, composerTrade: null }),
-      requestTradeClose: (tradeId, targetStatus) =>
-        set({ closeTradeRequest: { tradeId, targetStatus } }),
+      requestTradeClose: (tradeId, targetStatus) => {
+        const active =
+          typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null
+        const menuTrigger = active
+          ?.closest('.menu-root')
+          ?.querySelector<HTMLElement>('.menu-trigger button')
+        set({
+          closeTradeRequest: {
+            tradeId,
+            targetStatus,
+            returnFocus: menuTrigger ?? active,
+          },
+        })
+      },
       cancelTradeClose: () => set({ closeTradeRequest: null }),
       select: (id) => set({ selectedId: id }),
       getById: (id) => get().trades.find((t) => t.id === id),

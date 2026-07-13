@@ -82,7 +82,7 @@ export function StatusIcon({
         size={size}
         color={STATUS_COLOR[status]}
         title={mapped.title}
-        animate={animate && motionTick > 0}
+        animate={false}
       />
     )
 

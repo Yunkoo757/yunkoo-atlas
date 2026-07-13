@@ -18,6 +18,7 @@ import { mergeTagPresets } from '@/lib/tags'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
+let bootstrapPromise: Promise<void> | null = null
 
 export function getStorage(): StorageAdapter {
   if (!storage) {
@@ -30,7 +31,7 @@ export function isStorageHydrated(): boolean {
   return hydrated
 }
 
-export async function bootstrapStorage(): Promise<void> {
+async function runBootstrapStorage(): Promise<void> {
   const adapter = getStorage()
   await adapter.open()
 
@@ -80,4 +81,15 @@ export async function bootstrapStorage(): Promise<void> {
     if (state.bindings === prev.bindings) return
     schedulePersist(pickPersisted(useStore.getState(), state.bindings))
   })
+}
+
+export function bootstrapStorage(): Promise<void> {
+  if (hydrated) return Promise.resolve()
+  if (!bootstrapPromise) {
+    bootstrapPromise = runBootstrapStorage().catch((error) => {
+      bootstrapPromise = null
+      throw error
+    })
+  }
+  return bootstrapPromise
 }

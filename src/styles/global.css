@@ -54,6 +54,7 @@ body {
 
 button {
   font-family: inherit;
+  font-size: inherit;
   cursor: pointer;
   border: none;
   background: none;
@@ -72,6 +73,7 @@ button {
   input[type='url'],
   textarea
 ) {
+  font-family: inherit;
   color: var(--text-primary);
   background: var(--field-bg);
   border: 1px solid var(--field-border);

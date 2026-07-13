@@ -27,7 +27,9 @@
 
 .ui-btn:disabled,
 .dio-btn:disabled,
-.symbols-btn:disabled {
+.symbols-btn:disabled,
+.st-add:disabled,
+.empty-btn:disabled {
   color: var(--text-quaternary);
   cursor: not-allowed;
   opacity: 0.64;
@@ -75,6 +77,17 @@
 .empty-btn:hover:not(:disabled) {
   background: var(--accent-hover);
   color: var(--accent-text);
+}
+
+.ui-btn-primary:disabled,
+.dio-btn-primary:disabled,
+.symbols-btn-primary:disabled,
+.st-add:disabled,
+.empty-btn:disabled {
+  color: var(--text-quaternary);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface));
+  border-color: var(--border-subtle);
+  opacity: 1;
 }
 
 .ui-btn-danger,
