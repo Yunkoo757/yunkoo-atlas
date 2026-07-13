@@ -112,7 +112,7 @@ export function DataSettingsPanel() {
       const result = await getJournalBridge()!.createBackup()
       if (result) {
         toast('备份已创建')
-        void refreshBackups()
+        await Promise.all([refreshBackups(), refreshHealth()])
       } else {
         toast('备份失败')
       }
@@ -133,6 +133,7 @@ export function DataSettingsPanel() {
         applySnapshotToStore(result)
         await flushPersistNow()
         toast('备份已恢复')
+        await Promise.all([refreshBackups(), refreshHealth()])
       } else {
         toast('恢复失败')
       }
@@ -145,8 +146,12 @@ export function DataSettingsPanel() {
     if (!electron) return
     if (!window.confirm(`删除备份 ${name.slice(0, 34)}…？`)) return
     try {
-      await getJournalBridge()!.deleteBackup(name)
-      void refreshBackups()
+      const deleted = await getJournalBridge()!.deleteBackup(name)
+      if (!deleted) {
+        toast('备份不存在或已被删除')
+        return
+      }
+      await Promise.all([refreshBackups(), refreshHealth()])
       toast('备份已删除')
     } catch {
       toast('删除失败')
