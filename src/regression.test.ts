@@ -157,6 +157,30 @@ export function testQuickCaptureDefaultsFollowRouteContext(): void {
   assert(defaultTradeKindForPath('/list') === 'live', '普通交易列表默认创建实盘交易')
 }
 
+export function testBusinessDatesUseTheLocalCalendarDay(): void {
+  const localMidnight = new Date(2026, 6, 14, 0, 30, 0)
+  assert(formatYmd(localMidnight) === '2026-07-14', '香港凌晨的业务日期不得被 UTC 截成前一天')
+}
+
+export async function testBusinessDateWritersAvoidUtcDateSlicing(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  for (const file of [
+    'src/store/useStore.ts',
+    'src/lib/reviewCases.ts',
+    'src/lib/reviewAnalytics.ts',
+    'src/components/TradeComposer.tsx',
+    'src/views/DetailView.tsx',
+    'src/lib/csvImport.ts',
+    'src/lib/notionImport.ts',
+  ]) {
+    const source = await fs.readFile(file, 'utf8')
+    assert(
+      !source.includes('toISOString().slice(0, 10)'),
+      `${file} 的用户业务日期必须按本地日历日生成`,
+    )
+  }
+}
+
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
   const expected = ['/today-record', '/list', '/review-cases', '/dashboard']

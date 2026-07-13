@@ -83,6 +83,7 @@ import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCase
 import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { isAccountTrade } from '@/lib/tradeKind'
+import { formatYmd } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
 import './DetailView.css'
@@ -407,7 +408,11 @@ export function DetailView() {
     : undefined
 
   const completeReview = async () => {
-    await flushNoteDraftToStore(trade.id)
+    const noteSaved = await flushNoteDraftToStore(trade.id)
+    if (!noteSaved) {
+      toast('笔记图片尚未保存，复盘状态未变更')
+      return
+    }
     updateTradeData(trade.id, { reviewStatus: 'reviewed' })
     toast(`${trade.ref} 复盘已完成`)
   }
@@ -417,7 +422,7 @@ export function DetailView() {
     nextReview.setDate(nextReview.getDate() + (masteryState === 'new' ? 3 : 7))
     updateTradeData(trade.id, {
       masteryState,
-      nextReviewAt: masteryState === 'mastered' ? null : nextReview.toISOString().slice(0, 10),
+      nextReviewAt: masteryState === 'mastered' ? null : formatYmd(nextReview),
       reviewStatus: masteryState === 'mastered' ? 'reviewed' : 'unreviewed',
       reviewCategory:
         masteryState === 'mastered'

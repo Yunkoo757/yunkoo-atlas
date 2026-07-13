@@ -1,4 +1,5 @@
 import type { CaseType, Trade } from '@/data/trades'
+import { formatYmd } from '@/lib/periods'
 
 function escapeHtml(value: string): string {
   return value
@@ -42,7 +43,7 @@ export function buildReviewCaseFromTrade(
     sourceTradeId: source.id,
     caseType,
     masteryState: 'new',
-    nextReviewAt: nextReview.toISOString().slice(0, 10),
+    nextReviewAt: formatYmd(nextReview),
     reviewStatus: 'unreviewed',
     reviewCategory:
       caseType === 'mistake'

@@ -19,6 +19,7 @@ import type { Strategy } from '@/data/strategies'
 import type { CsvParseResult } from '@/lib/csvImport'
 import { parseCsv } from '@/lib/csvImport'
 import { normalizeSession, normalizeNarrative, normalizePsychology } from '@/lib/tradeView'
+import { formatYmd } from '@/lib/periods'
 import JSZip from 'jszip'
 
 /** Notion 网页导出常再包一层 ExportBlock-*-Part-N.zip */
@@ -138,7 +139,7 @@ function parseNotionDate(raw: string): string | null {
     return `${cnMatch[1]}-${String(cnMatch[2]).padStart(2, '0')}-${String(cnMatch[3]).padStart(2, '0')}`
   }
   const d = new Date(v)
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10)
+  if (!isNaN(d.getTime())) return formatYmd(d)
   return null
 }
 
@@ -715,7 +716,7 @@ export async function parseNotionZip(
         symbol: 'NOTION-IMPORT', side: 'long', status: 'planned', conviction: 'medium',
         strategyId: existingStrategies[0]?.id ?? '', tradeKind: 'live',
         entry: 0, exit: null, size: 0, pnl: 0, rMultiple: 0,
-        openedAt: new Date().toISOString().slice(0, 10), closedAt: null,
+        openedAt: formatYmd(new Date()), closedAt: null,
         tags: ['notion-import'], mistakeTags: [], reviewStatus: 'unreviewed', reviewCategory: 'normal',
       },
       collectedTags: [], mistakeTags: [],
