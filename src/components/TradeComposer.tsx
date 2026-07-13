@@ -6,12 +6,12 @@ import { Select } from '@/components/ui/Select'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { useStore } from '@/store/useStore'
 import {
-  REVIEW_CATEGORY_META,
+  CASE_TYPE_META,
   TIMEFRAME_PRESETS,
   TRADE_KIND_META,
   DEFAULT_TIMEFRAME,
   resolveTimeframe,
-  type ReviewCategory,
+  type CaseType,
   type Trade,
   type TradeKind,
   type TradeSide,
@@ -28,7 +28,7 @@ import { formatYmd } from '@/lib/periods'
 import { assetUrl, getStorage } from '@/storage'
 import './TradeComposer.css'
 
-const QUICK_CATEGORIES: ReviewCategory[] = ['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered']
+const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
 
 interface UploadedImage {
   id: string
@@ -69,7 +69,7 @@ export function TradeComposer() {
   const [session, setSession] = useState('')
   const [openedAt, setOpenedAt] = useState(() => formatYmd(new Date()))
   const [strategyId, setStrategyId] = useState('')
-  const [reviewCategory, setReviewCategory] = useState<ReviewCategory>('normal')
+  const [caseType, setCaseType] = useState<CaseType>('exemplar')
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
 
@@ -95,7 +95,16 @@ export function TradeComposer() {
     setSession(editing ? getSessionSelectValue(editing) : '')
     setOpenedAt(editing?.openedAt.slice(0, 10) ?? formatYmd(new Date()))
     setStrategyId(editing?.strategyId ?? strategies[0]?.id ?? '')
-    setReviewCategory(editing?.reviewCategory ?? 'normal')
+    setCaseType(
+      editing?.caseType ??
+        (editing?.status === 'missed'
+          ? 'missed'
+          : editing?.reviewCategory === 'mistake'
+            ? 'mistake'
+            : editing?.reviewCategory === 'ambiguous'
+              ? 'ambiguous'
+              : 'exemplar'),
+    )
   }, [open, editing, strategies, defaultSymbol])
 
   // 重置状态
@@ -108,7 +117,7 @@ export function TradeComposer() {
       setSession('')
       setOpenedAt(formatYmd(new Date()))
       setStrategyId('')
-      setReviewCategory('normal')
+      setCaseType('exemplar')
       setImages([])
       setIsDragging(false)
     }
@@ -201,6 +210,10 @@ export function TradeComposer() {
 
     const kind = activeKind
     const note = await saveImagesToNote(editing?.note ?? '')
+    const nextReview = new Date()
+    nextReview.setDate(nextReview.getDate() + 3)
+    const legacyReviewCategory =
+      caseType === 'mistake' ? 'mistake' : caseType === 'ambiguous' ? 'ambiguous' : 'normal'
 
     const trade: Trade = {
       ...(editing ?? {
@@ -214,13 +227,20 @@ export function TradeComposer() {
         tags: [],
         mistakeTags: [],
         reviewStatus: 'unreviewed',
-        reviewCategory,
+        reviewCategory: kind === 'case' ? legacyReviewCategory : 'normal',
+        ...(kind === 'case'
+          ? {
+              caseType,
+              masteryState: 'new' as const,
+              nextReviewAt: nextReview.toISOString().slice(0, 10),
+            }
+          : {}),
         entry: 0,
         exit: null,
         stopLoss: null,
         size: 0,
-        pnl: 0,
-        rMultiple: 0,
+        pnl: null,
+        rMultiple: null,
         openedAt,
         recordedAt: new Date().toISOString(),
         closedAt: null,
@@ -233,7 +253,9 @@ export function TradeComposer() {
       strategyId,
       openedAt,
       note,
-      reviewCategory,
+      reviewCategory:
+        kind === 'case' ? legacyReviewCategory : editing?.reviewCategory ?? 'normal',
+      ...(kind === 'case' ? { caseType } : {}),
     }
 
     upsert(trade)
@@ -378,7 +400,7 @@ export function TradeComposer() {
 
           <section className="composer-attributes-section" aria-labelledby="composer-archive-title">
             <h4 id="composer-archive-title">归档信息</h4>
-            <div className="composer-trade-essentials composer-archive-grid">
+            <div className={`composer-trade-essentials${activeKind === 'case' ? ' composer-archive-grid' : ''}`}>
               <div className="composer-essential-field composer-essential-strategy">
                 <span className="composer-essential-label">策略</span>
                 <Select
@@ -395,18 +417,20 @@ export function TradeComposer() {
                   }
                 />
               </div>
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">复盘分类</span>
-                <Select
-                  value={reviewCategory}
-                  onValueChange={(value) => setReviewCategory(value as ReviewCategory)}
-                  ariaLabel="复盘分类"
-                  options={QUICK_CATEGORIES.map((category) => ({
-                    value: category,
-                    label: REVIEW_CATEGORY_META[category].label,
-                  }))}
-                />
-              </div>
+              {activeKind === 'case' && (
+                <div className="composer-essential-field">
+                  <span className="composer-essential-label">案例类型</span>
+                  <Select
+                    value={caseType}
+                    onValueChange={(value) => setCaseType(value as CaseType)}
+                    ariaLabel="案例类型"
+                    options={CASE_TYPES.map((value) => ({
+                      value,
+                      label: CASE_TYPE_META[value].label,
+                    }))}
+                  />
+                </div>
+              )}
             </div>
           </section>
 

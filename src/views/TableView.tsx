@@ -40,7 +40,7 @@ const TABLE_STATUS_LABEL: Record<string, string> = {
   'Closed by S/L': '亏损',
   Breakeven: '保本',
 }
-const TABLE_RESULT_LABEL = { Profit: '盈利', Loss: '亏损', Breakeven: '保本' } as const
+const TABLE_RESULT_LABEL = { Profit: '盈利', Loss: '亏损', Breakeven: '保本', Pending: '待补' } as const
 
 export function TableView({
   title = '交易',
@@ -294,7 +294,7 @@ export function TableView({
                     <td>
                       <span className={'tv-status tv-status-' + trade.status}>{TABLE_STATUS_LABEL[row.status] ?? row.status}</span>
                     </td>
-                    <td className={trade.pnl > 0 ? 'tv-num tv-pos' : trade.pnl < 0 ? 'tv-num tv-neg' : 'tv-num'}>
+                    <td className={trade.pnl != null && trade.pnl > 0 ? 'tv-num tv-pos' : trade.pnl != null && trade.pnl < 0 ? 'tv-num tv-neg' : 'tv-num'}>
                       {row.pnl}
                     </td>
                     <td className="tv-num">{row.rMultiple}</td>
@@ -392,8 +392,15 @@ function sortTradesForTable(trades: Trade[], key: SortKey, dir: SortDir): Trade[
   const sign = dir === 'asc' ? 1 : -1
   return [...trades].sort((a, b) => {
     if (key === 'symbol') return a.symbol.localeCompare(b.symbol, 'zh-CN') * sign
-    if (key === 'pnl') return (a.pnl - b.pnl) * sign
-    if (key === 'r') return (a.rMultiple - b.rMultiple) * sign
+    if (key === 'pnl') return compareOptionalNumber(a.pnl, b.pnl, sign)
+    if (key === 'r') return compareOptionalNumber(a.rMultiple, b.rMultiple, sign)
     return (+new Date(a.openedAt) - +new Date(b.openedAt)) * sign
   })
+}
+
+function compareOptionalNumber(a: number | null, b: number | null, sign: number): number {
+  if (a == null && b == null) return 0
+  if (a == null) return 1
+  if (b == null) return -1
+  return (a - b) * sign
 }

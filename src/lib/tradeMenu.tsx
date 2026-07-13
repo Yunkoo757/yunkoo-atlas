@@ -66,7 +66,7 @@ export function buildTradeCtxItems(
           {
             type: 'item' as const,
             icon: <BookOpen size={15} />,
-            label: '沉淀为案例记录',
+            label: '提炼为案例',
             onClick: () => a.createReviewCase?.(trade),
           },
         ]),

@@ -30,15 +30,6 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import './TradeFilters.css'
 
-const REVIEW_CATEGORIES: ReviewCategory[] = [
-  'normal',
-  'mistake',
-  'focus',
-  'ambiguous',
-  'recheck',
-  'mastered',
-]
-
 export function TradeFilters({
   filter,
   trades,
@@ -360,17 +351,6 @@ export function TradeFilters({
                     onChange={(value) => setParam('mistakeTag', value)}
                     options={[['', '全部错误'], ...mistakeTags.map((value) => [value, value] as [string, string])]}
                   />
-                  {!isCaseWorkspace && (
-                    <FilterSelect
-                      label="复盘分类"
-                      value={searchParams.get('reviewCategory') ?? ''}
-                      onChange={(value) => setParam('reviewCategory', value)}
-                      options={[
-                        ['', '全部分类'],
-                        ...REVIEW_CATEGORIES.map((value) => [value, REVIEW_CATEGORY_META[value].label] as [string, string]),
-                      ]}
-                    />
-                  )}
                 </div>
               </section>
             </div>

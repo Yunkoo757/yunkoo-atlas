@@ -1,4 +1,5 @@
-export function fmtMoney(n: number): string {
+export function fmtMoney(n: number | null | undefined): string {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
   const sign = n > 0 ? '+' : ''
   return (
     sign +
@@ -10,7 +11,8 @@ export function fmtMoney(n: number): string {
   )
 }
 
-export function fmtR(n: number): string {
+export function fmtR(n: number | null | undefined): string {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
   return (n > 0 ? '+' : '') + n.toFixed(1) + 'R'
 }
 

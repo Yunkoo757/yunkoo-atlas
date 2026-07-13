@@ -18,18 +18,18 @@ export function calcR(pnl: number, risk: number): number | null {
   return Math.round((pnl / risk) * 10) / 10
 }
 
-/**
- * 简易 R：以 |entry - exit| × size 作为 1R 参考（价格位移即风险单位）。
- * 仅作建议值，实际 R 应基于真实止损风险，可手动覆盖。
- */
-export function calcRSimple(
+/** 根据开仓时止损计算真实初始风险对应的 R 倍数。 */
+export function calcRFromStop(
+  side: TradeSide,
   pnl: number,
   entry: number,
-  exit: number,
+  stopLoss: number | null | undefined,
   size: number,
 ): number | null {
-  const riskUnit = Math.abs(exit - entry) * size
-  return calcR(pnl, riskUnit)
+  if (!entry || !stopLoss || !size) return null
+  const priceRisk = side === 'long' ? entry - stopLoss : stopLoss - entry
+  if (priceRisk <= 0) return null
+  return calcR(pnl, priceRisk * size)
 }
 
 /** 根据盈亏推断平仓状态 */

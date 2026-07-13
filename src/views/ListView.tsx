@@ -46,10 +46,9 @@ export function ListView({
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
   const starredIds = useStore((state) => state.starredIds)
-  const subscribedIds = useStore((state) => state.subscribedIds)
   const openComposer = useStore((state) => state.openComposer)
   const setStatus = useStore((state) => state.setStatus)
-  const updateTradeData = useStore((state) => state.updateTradeData)
+  const requestTradeClose = useStore((state) => state.requestTradeClose)
   const removeTrade = useStore((state) => state.removeTrade)
   const upsertTrade = useStore((state) => state.upsertTrade)
   const toggleStar = useStore((state) => state.toggleStar)
@@ -179,7 +178,7 @@ export function ListView({
       items: buildTradeCtxItems(trade, {
         setStatus,
         changeStatus: (status) =>
-          transitionTradeStatus(trade, status, { updateTradeData, setStatus, toast }),
+          transitionTradeStatus(trade, status, { requestTradeClose, setStatus, toast }),
         openComposer,
         removeTrade,
         createReviewCase: (source) => {
@@ -188,7 +187,7 @@ export function ListView({
             ref: getNextReviewCaseRef(trades),
           })
           upsertTrade(reviewCase)
-          toast('已沉淀为案例记录')
+          toast('已提炼为可复看案例')
           openTrade(reviewCase)
         },
         toggleStar,
@@ -241,7 +240,6 @@ export function ListView({
             focusedId={focusedId}
             selectedIds={selectedIds}
             starredIds={starredIds}
-            followedIds={subscribedIds}
             scrollParentRef={listScrollRef}
             onOpen={openTrade}
             onSelect={toggleSelection}

@@ -98,10 +98,17 @@ export function filterTrades(
   }
   return visible.filter((trade) => {
     if (filter.reviewCaseScope === 'focus') {
-      return trade.reviewCategory === 'focus' || trade.reviewStatus === 'focus'
+      return (
+        starredIds.includes(trade.id) ||
+        trade.reviewCategory === 'focus' ||
+        trade.reviewStatus === 'focus'
+      )
     }
     if (filter.reviewCaseScope === 'mistakes') {
       return (
+        trade.caseType === 'mistake' ||
+        trade.caseType === 'ambiguous' ||
+        trade.caseType === 'missed' ||
         trade.reviewCategory === 'mistake' ||
         trade.reviewCategory === 'ambiguous' ||
         trade.status === 'missed' ||
@@ -109,10 +116,19 @@ export function filterTrades(
       )
     }
     if (filter.reviewCaseScope === 'unreviewed') {
-      return trade.reviewCategory === 'recheck' || trade.reviewStatus === 'unreviewed'
+      return (
+        trade.masteryState === 'new' ||
+        trade.masteryState === 'recheck' ||
+        trade.reviewCategory === 'recheck' ||
+        trade.reviewStatus === 'unreviewed'
+      )
     }
     if (filter.reviewCaseScope === 'reviewed') {
-      return trade.reviewCategory === 'mastered' || trade.reviewStatus === 'reviewed'
+      return (
+        trade.masteryState === 'mastered' ||
+        trade.reviewCategory === 'mastered' ||
+        trade.reviewStatus === 'reviewed'
+      )
     }
     return true
   })
@@ -129,12 +145,19 @@ export function applyDisplayPrefs(
     ? trades.filter((trade) => !isHiddenWhenClosedFilter(trade.status))
     : [...trades]
   return visible.sort((left, right) => {
-    if (prefs.sortBy === 'pnl') return right.pnl - left.pnl
+    if (prefs.sortBy === 'pnl') return compareOptionalDesc(left.pnl, right.pnl)
     if (prefs.sortBy === 'conviction') {
       return CONVICTION_RANK[right.conviction] - CONVICTION_RANK[left.conviction]
     }
     return +new Date(right.openedAt) - +new Date(left.openedAt)
   })
+}
+
+function compareOptionalDesc(left: number | null, right: number | null): number {
+  if (left == null && right == null) return 0
+  if (left == null) return 1
+  if (right == null) return -1
+  return right - left
 }
 
 export function getWorkbenchVisibleTrades(options: {

@@ -26,6 +26,7 @@ import {
   type ResolvedSidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
+import { getTodayWorkflowBuckets, toLocalDateKey } from '@/lib/tradeWorkflow'
 import { useStore } from '@/store/useStore'
 import {
   SIDEBAR_WORKSPACE_EDITOR_ID,
@@ -96,11 +97,11 @@ export function useSidebarNavigationModel() {
     [path, search, workspaceItems],
   )
   const workspaceMemory = display.workspaceMemory
-  const todayTarget = resolveWorkspaceNavTarget('today', workspaceMemory?.today, strategies)
+  const todayTarget = { pathname: '/today-record', search: '' }
   const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
   const counts = {
-    today: countSidebarRoute(todayTarget.pathname, todayTarget.search, countContext),
+    today: getTodayWorkflowBuckets(trades, toLocalDateKey()).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
   }

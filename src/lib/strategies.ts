@@ -4,6 +4,7 @@ import type { Trade, TradeKind } from '@/data/trades'
 import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
 import { isAccountTrade, normalizeTradeKind } from '@/lib/tradeKind'
+import { summarizeTradeResults } from '@/lib/tradeTruth'
 
 export function getStrategy(
   strategies: Strategy[],
@@ -43,15 +44,13 @@ export function computeStrategyStats(
       ? trades.filter((t) => t.strategyId === strategyId && isAccountTrade(t))
       : trades.filter((t) => t.strategyId === strategyId && t.tradeKind === kind)
   const closed = all.filter((t) => isExecutedClosed(t.status))
-  const wins = closed.filter((t) => t.pnl > 0)
-  const totalPnl = closed.reduce((s, t) => s + t.pnl, 0)
-  const winRate = closed.length ? (wins.length / closed.length) * 100 : 0
+  const result = summarizeTradeResults(closed)
   return {
     ...summarizeStrategyPerformance(trades, strategyId, options),
     tradeCount: all.length,
-    closedCount: closed.length,
-    winRate,
-    totalPnl,
+    closedCount: result.closedCount,
+    winRate: result.winRate ?? 0,
+    totalPnl: result.totalPnl,
   }
 }
 

@@ -38,6 +38,8 @@ export function useShortcutHost({
   const openComposer = useStore((s) => s.openComposer)
   const closeComposer = useStore((s) => s.closeComposer)
   const composerOpen = useStore((s) => s.composerOpen)
+  const closeTradeRequest = useStore((s) => s.closeTradeRequest)
+  const cancelTradeClose = useStore((s) => s.cancelTradeClose)
 
   const lightbox = useShortcutStore((s) => s.lightbox)
   const cmdkOpen = useShortcutStore((s) => s.cmdkOpen)
@@ -68,6 +70,7 @@ export function useShortcutHost({
         if (lightbox) closeLightbox()
         else if (cmdkOpen) setCmdkOpen(false)
         else if (composerOpen) closeComposer()
+        else if (closeTradeRequest) cancelTradeClose()
       },
 
       'nav.active': () => navigate('/active'),
@@ -149,10 +152,12 @@ export function useShortcutHost({
     lightbox,
     cmdkOpen,
     composerOpen,
+    closeTradeRequest,
     navigate,
     onToggleCmdk,
     openComposer,
     closeComposer,
+    cancelTradeClose,
     closeLightbox,
     lightboxPrev,
     lightboxNext,

@@ -2,6 +2,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { resolveTimeframe } from '@/data/trades'
 import { getStrategyName } from '@/lib/strategies'
+import { resolveTradeTruth } from '@/lib/tradeTruth'
 
 export interface TradeTableRow {
   ref: string
@@ -15,7 +16,7 @@ export interface TradeTableRow {
   status: string
   pnl: string
   rMultiple: string
-  result: 'Profit' | 'Loss' | 'Breakeven'
+  result: 'Profit' | 'Loss' | 'Breakeven' | 'Pending'
   mistakes: string[]
 }
 
@@ -23,7 +24,8 @@ function formatTableDate(value: string): string {
   return value.slice(0, 10).replace(/-/g, '/')
 }
 
-function formatUsd(value: number): string {
+function formatUsd(value: number | null): string {
+  if (value == null) return '—'
   const sign = value < 0 ? '-' : ''
   return `${sign}US$${Math.abs(value).toFixed(2)}`
 }
@@ -38,9 +40,11 @@ function tableStatus(trade: Trade): string {
 }
 
 function tableResult(trade: Trade): TradeTableRow['result'] {
-  if (trade.pnl > 0 || trade.status === 'win') return 'Profit'
-  if (trade.pnl < 0 || trade.status === 'loss') return 'Loss'
-  return 'Breakeven'
+  const outcome = resolveTradeTruth(trade).outcome
+  if (outcome === 'win') return 'Profit'
+  if (outcome === 'loss') return 'Loss'
+  if (outcome === 'breakeven') return 'Breakeven'
+  return 'Pending'
 }
 
 export function buildTradeTableRow(trade: Trade, strategies: Strategy[]): TradeTableRow {
@@ -55,9 +59,9 @@ export function buildTradeTableRow(trade: Trade, strategies: Strategy[]): TradeT
     position: trade.side === 'long' ? 'Buy' : 'Sell',
     status: tableStatus(trade),
     pnl: formatUsd(trade.pnl),
-    rMultiple: Number.isFinite(trade.rMultiple)
+    rMultiple: typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple)
       ? Number(trade.rMultiple.toFixed(2)).toString()
-      : '0',
+      : '—',
     result: tableResult(trade),
     mistakes: trade.mistakeTags,
   }

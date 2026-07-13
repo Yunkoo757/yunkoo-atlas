@@ -21,6 +21,7 @@ import { MobileNavigation } from './components/MobileNavigation'
 import { AppFrame } from './components/ui/AppFrame'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
+import { TradeCloseDialog } from './components/TradeCloseDialog'
 import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
 import { LinearGridLoaderIcon } from './icons/linear'
@@ -37,6 +38,7 @@ import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
 import { SymbolsPanel } from './views/settings/SymbolsPanel'
 import { UpdatesSettingsPanel } from './views/settings/UpdatesSettingsPanel'
 import { TradeTrashView } from './views/TradeTrashView'
+import { TodayWorkspace } from './views/TodayWorkspace'
 import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
@@ -143,13 +145,7 @@ function SimPage() {
 }
 
 function TodayRecordPage() {
-  return (
-    <TradesPage
-      title="今日记录"
-      filter={{ type: 'period', period: 'today', tradeKind: 'live' }}
-      listPath="/today-record"
-    />
-  )
+  return <TodayWorkspace />
 }
 
 function ReviewCasesPage() {
@@ -291,8 +287,8 @@ function Shell() {
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/period/:slug/table" element={<PeriodPage />} />
           <Route path="/today-record" element={<TodayRecordPage />} />
-          <Route path="/today-record/board" element={<TodayRecordPage />} />
-          <Route path="/today-record/table" element={<TodayRecordPage />} />
+          <Route path="/today-record/board" element={<Navigate to="/today-record" replace />} />
+          <Route path="/today-record/table" element={<Navigate to="/today-record" replace />} />
           <Route path="/sim" element={<SimPage />} />
           <Route path="/sim/board" element={<SimPage />} />
           <Route path="/sim/table" element={<SimPage />} />
@@ -338,6 +334,7 @@ function Shell() {
         onClose={() => setCmdkOpen(false)}
       />
       <TradeComposer />
+      <TradeCloseDialog />
       <ImageLightbox />
       <ToastHost />
     </>

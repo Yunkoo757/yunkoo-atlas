@@ -102,6 +102,39 @@
   font-size: var(--type-metadata-size);
 }
 
+.db-data-health {
+  min-height: 38px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+}
+
+.db-data-health > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.db-data-health-title {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.db-data-health-copy,
+.db-data-health-state {
+  font-variant-numeric: tabular-nums;
+}
+
+.db-data-health.has-conflict .db-data-health-state {
+  color: var(--warn);
+}
+
 .db-empty {
   display: flex;
   flex-direction: column;
