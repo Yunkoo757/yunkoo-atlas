@@ -18,7 +18,7 @@ const VIEWPORTS = [
 
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: VIEWPORTS[0] })
-const page = await context.newPage()
+let page = await context.newPage()
 const results = []
 const runtimeErrors = []
 
@@ -181,6 +181,9 @@ try {
     }
   }
 
+  await page.close()
+  page = await context.newPage()
+  trackRuntimeErrors(page)
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await open('/list')
