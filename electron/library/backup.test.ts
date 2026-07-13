@@ -35,6 +35,25 @@ export function testDefaultBackupRotationKeepsSevenLatestRestorePoints(): void {
   }
 }
 
+export function testBackupsCreatedInTheSameMillisecondRemainIndependent(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-collision-'))
+  try {
+    fs.writeFileSync(path.join(root, 'journal.db'), 'first-snapshot')
+    const counts = { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }) }
+    const now = Date.UTC(2026, 6, 13, 8, 0, 0)
+    const first = createBackupAtPath(counts, root, now)
+    fs.writeFileSync(path.join(root, 'journal.db'), 'second-snapshot')
+    const second = createBackupAtPath(counts, root, now)
+
+    assert(Boolean(first && second), '同一毫秒内的两次备份都应成功')
+    assert(first !== second, '同一毫秒内的备份不得覆盖同名恢复点')
+    assert(fs.readFileSync(first!, 'utf8') === 'first-snapshot', '首个恢复点内容不得被覆盖')
+    assert(fs.readFileSync(second!, 'utf8') === 'second-snapshot', '第二个恢复点应保存最新内容')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-rotate-'))
   try {
