@@ -66,9 +66,28 @@ test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包',
 test('发布资产由 GitHub CLI 串行上传并校验', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   assert.match(workflow, /electron-builder --win nsis --x64 --publish never/)
-  assert.match(workflow, /gh release create/)
+  assert.match(workflow, /\$releaseArgs = @\('release', 'create'/)
+  assert.match(workflow, /& gh @releaseArgs/)
   assert.match(workflow, /latest\.yml/)
   assert.doesNotMatch(workflow, /--publish always/)
+})
+
+test('预览版本创建 GitHub Prerelease，正式客户端继续忽略预发布更新', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+  const updater = readFileSync('electron/updater.ts', 'utf8')
+
+  assert.match(workflow, /\$isPrerelease = \$version\.Contains\('-'\)/)
+  assert.match(workflow, /if \(\$isPrerelease\) \{ \$releaseArgs \+= @\('--prerelease', '--latest=false'\) \}/)
+  assert.match(workflow, /isPrerelease,assets/)
+  assert.match(updater, /autoUpdater\.allowPrerelease = false/)
+})
+
+test('重复执行发布工作流时更新并覆盖既有 Release 资产', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+
+  assert.match(workflow, /\$releaseExists = \$LASTEXITCODE -eq 0/)
+  assert.match(workflow, /'release', 'edit'/)
+  assert.match(workflow, /release upload \$tag @assetPaths --clobber/)
 })
 
 test('本地发布运行完整门禁，云端打包复验构建与 Electron 数据链路', () => {
