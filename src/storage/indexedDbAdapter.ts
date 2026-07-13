@@ -10,6 +10,7 @@ const DB_VERSION = 1
 const STORE_SNAPSHOT = 'snapshot'
 const STORE_ASSETS = 'assets'
 const STORE_META = 'meta'
+const MAX_OBJECT_URL_CACHE = 128
 
 interface AssetRecord {
   id: string
@@ -137,13 +138,24 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
 
   async getAssetObjectUrl(id: string): Promise<string | null> {
     const cached = this.objectUrlCache.get(id)
-    if (cached) return cached
+    if (cached) {
+      this.objectUrlCache.delete(id)
+      this.objectUrlCache.set(id, cached)
+      return cached
+    }
 
     const db = this.requireDb()
     const record = await idbGet<AssetRecord>(db, STORE_ASSETS, id)
     if (!record?.blob) return null
 
     const url = URL.createObjectURL(record.blob)
+    if (this.objectUrlCache.size >= MAX_OBJECT_URL_CACHE) {
+      const oldest = this.objectUrlCache.entries().next().value as [string, string] | undefined
+      if (oldest) {
+        URL.revokeObjectURL(oldest[1])
+        this.objectUrlCache.delete(oldest[0])
+      }
+    }
     this.objectUrlCache.set(id, url)
     return url
   }
@@ -158,6 +170,11 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
 
   async importAssets(assets: ExportAssetRecord[]): Promise<void> {
     const db = this.requireDb()
+    for (const asset of assets) {
+      const cached = this.objectUrlCache.get(asset.id)
+      if (cached) URL.revokeObjectURL(cached)
+      this.objectUrlCache.delete(asset.id)
+    }
     await Promise.all(
       assets.map(
         (a) =>
