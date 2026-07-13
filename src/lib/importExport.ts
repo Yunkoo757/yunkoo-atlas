@@ -746,6 +746,7 @@ export async function importJournalArchive(): Promise<{
     console.error('[importJournalArchive] snapshot is null after import')
     return { ok: false, error: 'Imported archive did not contain a readable snapshot' }
   }
+  getElectronAdapter().clearObjectUrlCache()
   applySnapshotToStore(result.snapshot)
   await flushPersistNow()
   return { ok: true }

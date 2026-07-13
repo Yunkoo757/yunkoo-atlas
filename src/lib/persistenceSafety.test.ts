@@ -26,3 +26,20 @@ export async function testBootstrapFailureCannotExposeAnUnsavableWorkspace(): Pr
   assert(app.includes('已停止进入工作区，避免覆盖现有数据'), '错误页应说明数据保护原因')
   assert(!app.includes("setReady(true)\n      document.documentElement.dataset.uiSettled = '1'"), '启动失败不得继续显示普通工作区')
 }
+
+export async function testAttachmentPreviewCachesAreBoundedAndInvalidatedOnImport(): Promise<void> {
+  const [indexedDb, electron, importExport] = await Promise.all([
+    fs.readFile('src/storage/indexedDbAdapter.ts', 'utf8'),
+    fs.readFile('src/storage/electronAdapter.ts', 'utf8'),
+    fs.readFile('src/lib/importExport.ts', 'utf8'),
+  ])
+  for (const [name, source] of [['IndexedDB', indexedDb], ['Electron', electron]] as const) {
+    assert(source.includes('MAX_OBJECT_URL_CACHE = 128'), `${name} 图片预览缓存必须有上限`)
+    assert(source.includes('URL.revokeObjectURL'), `${name} 淘汰预览时必须释放 Blob URL`)
+    assert(source.includes('this.objectUrlCache.delete(asset.id)'), `${name} 导入同 ID 图片时必须失效旧缓存`)
+  }
+  assert(
+    importExport.includes('getElectronAdapter().clearObjectUrlCache()'),
+    '整库导入后必须清除桌面附件预览缓存',
+  )
+}

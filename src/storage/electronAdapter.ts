@@ -2,6 +2,8 @@ import type { StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { getJournalBridge } from '@/storage/runtime'
 
+const MAX_OBJECT_URL_CACHE = 128
+
 export class ElectronStorageAdapter implements StorageAdapter {
   private objectUrlCache = new Map<string, string>()
 
@@ -30,7 +32,11 @@ export class ElectronStorageAdapter implements StorageAdapter {
 
   async getAssetObjectUrl(id: string): Promise<string | null> {
     const cached = this.objectUrlCache.get(id)
-    if (cached) return cached
+    if (cached) {
+      this.objectUrlCache.delete(id)
+      this.objectUrlCache.set(id, cached)
+      return cached
+    }
 
     const record = await getJournalBridge()!.getAssetBytes(id)
     if (!record) return null
@@ -38,6 +44,13 @@ export class ElectronStorageAdapter implements StorageAdapter {
     const bytes = Uint8Array.from(record.bytes)
     const blob = new Blob([bytes], { type: record.mime })
     const url = URL.createObjectURL(blob)
+    if (this.objectUrlCache.size >= MAX_OBJECT_URL_CACHE) {
+      const oldest = this.objectUrlCache.entries().next().value as [string, string] | undefined
+      if (oldest) {
+        URL.revokeObjectURL(oldest[1])
+        this.objectUrlCache.delete(oldest[0])
+      }
+    }
     this.objectUrlCache.set(id, url)
     return url
   }
@@ -52,6 +65,11 @@ export class ElectronStorageAdapter implements StorageAdapter {
   }
 
   async importAssets(assets: ExportAssetRecord[]): Promise<void> {
+    for (const asset of assets) {
+      const cached = this.objectUrlCache.get(asset.id)
+      if (cached) URL.revokeObjectURL(cached)
+      this.objectUrlCache.delete(asset.id)
+    }
     await getJournalBridge()!.importAssets(assets)
   }
 
