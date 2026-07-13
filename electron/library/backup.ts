@@ -144,7 +144,12 @@ export function createBackupAtPath(
   const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
   if (!fs.existsSync(dbFile)) return null
 
-  const dest = path.join(backups, backupFileName(now))
+  let timestamp = now
+  let dest = path.join(backups, backupFileName(timestamp))
+  while (fs.existsSync(dest)) {
+    timestamp += 1
+    dest = path.join(backups, backupFileName(timestamp))
+  }
   try {
     fs.copyFileSync(dbFile, dest)
     if (fs.existsSync(manifestFile)) {
