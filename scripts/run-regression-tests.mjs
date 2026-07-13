@@ -21,6 +21,7 @@ import fs from 'node:fs/promises'
   'src/views/TradeTrashView.design.test.ts',
   'src/lib/appUpdate.test.ts',
   'src/lib/windowBounds.test.ts',
+  'electron/library/images.test.ts',
 ]
 
 let failed = 0

@@ -1,5 +1,6 @@
 import {
   LIGHTBOX_VIEW_RESET,
+  calculateLightboxImageLayout,
   clampLightboxScale,
   lightboxViewTransform,
   panLightboxView,
@@ -16,6 +17,29 @@ export function testLightboxScaleClamp(): void {
   assert(clampLightboxScale(0.01) === 0.25, '低于下限应钳到 0.25')
   assert(clampLightboxScale(99) === 8, '高于上限应钳到 8')
   assert(clampLightboxScale(1.5) === 1.5, '范围内应原样返回')
+}
+
+export function testLightboxLayoutPreservesPhysicalPixelQuality(): void {
+  const layout = calculateLightboxImageLayout({
+    naturalWidth: 3840,
+    naturalHeight: 2160,
+    viewportWidth: 1600,
+    viewportHeight: 900,
+    devicePixelRatio: 2,
+  })
+
+  assert(layout.width === 1920, '100% 时一个源像素应对应一个屏幕物理像素')
+  assert(layout.height === 1080, '图片高宽应按同一物理像素比例换算')
+  assert(layout.fitScale < 1, '图片超出视口时适合窗口应缩小')
+
+  const small = calculateLightboxImageLayout({
+    naturalWidth: 600,
+    naturalHeight: 400,
+    viewportWidth: 1600,
+    viewportHeight: 900,
+    devicePixelRatio: 1,
+  })
+  assert(small.fitScale === 1, '适合窗口不应放大小图')
 }
 
 export function testLightboxZoomAnchorsAtCursor(): void {

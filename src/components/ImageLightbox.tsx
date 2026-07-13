@@ -5,9 +5,11 @@ import { getShortcutHint } from '@/shortcuts/ShortcutHost'
 import {
   LIGHTBOX_VIEW_RESET,
   LIGHTBOX_ZOOM_STEP,
+  calculateLightboxImageLayout,
   lightboxViewTransform,
   panLightboxView,
   registerLightboxResetHandler,
+  type LightboxImageLayout,
   type LightboxView,
   zoomLightboxAtCursor,
 } from '@/lib/lightboxView'
@@ -21,6 +23,7 @@ export function ImageLightbox() {
   const closeRef = useRef<HTMLButtonElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<LightboxView>(LIGHTBOX_VIEW_RESET)
+  const [imageLayout, setImageLayout] = useState<LightboxImageLayout | null>(null)
   const dragRef = useRef<{
     pointerId: number
     startX: number
@@ -48,6 +51,7 @@ export function ImageLightbox() {
   // 切图时重置变换
   useEffect(() => {
     setView(LIGHTBOX_VIEW_RESET)
+    setImageLayout(null)
     dragRef.current = null
     suppressClickRef.current = false
     setDragging(false)
@@ -71,12 +75,34 @@ export function ImageLightbox() {
     return () => viewport.removeEventListener('wheel', onWheelNative)
   }, [lightbox])
 
-  const resetView = useCallback(() => setView(LIGHTBOX_VIEW_RESET), [])
+  const fitImage = useCallback(() => {
+    setView(imageLayout
+      ? { scale: imageLayout.fitScale, tx: 0, ty: 0 }
+      : LIGHTBOX_VIEW_RESET)
+  }, [imageLayout])
+
+  const showActualSize = useCallback(() => setView(LIGHTBOX_VIEW_RESET), [])
+
+  const onImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const image = event.currentTarget
+    const rect = viewport.getBoundingClientRect()
+    const layout = calculateLightboxImageLayout({
+      naturalWidth: image.naturalWidth,
+      naturalHeight: image.naturalHeight,
+      viewportWidth: rect.width,
+      viewportHeight: rect.height,
+      devicePixelRatio: window.devicePixelRatio,
+    })
+    setImageLayout(layout)
+    setView({ scale: layout.fitScale, tx: 0, ty: 0 })
+  }, [])
 
   useEffect(() => {
     if (!lightbox) return
-    return registerLightboxResetHandler(resetView)
-  }, [lightbox, resetView])
+    return registerLightboxResetHandler(fitImage)
+  }, [fitImage, lightbox])
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
@@ -131,9 +157,9 @@ export function ImageLightbox() {
     (event: React.MouseEvent<HTMLDivElement>) => {
       if ((event.target as HTMLElement).closest('.img-lightbox-chrome')) return
       event.preventDefault()
-      resetView()
+      fitImage()
     },
-    [resetView],
+    [fitImage],
   )
 
   if (!lightbox || lightbox.images.length === 0) return null
@@ -154,7 +180,14 @@ export function ImageLightbox() {
         onDoubleClick={onViewportDoubleClick}
       >
         <div className="img-lightbox-canvas" style={{ transform: lightboxViewTransform(view) }}>
-          <img src={src} alt="" className="img-lightbox-img" draggable={false} />
+          <img
+            src={src}
+            alt=""
+            className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}
+            draggable={false}
+            onLoad={onImageLoad}
+            style={imageLayout ? { width: imageLayout.width, height: imageLayout.height } : undefined}
+          />
         </div>
       </div>
 
@@ -198,11 +231,20 @@ export function ImageLightbox() {
           <button
             type="button"
             className="img-lightbox-reset"
-            onClick={resetView}
-            aria-label={`重置图片大小 (${getShortcutHint('image.reset') ?? 'Alt+R'})`}
+            onClick={fitImage}
+            aria-label={`适合窗口 (${getShortcutHint('image.reset') ?? 'Alt+R'})`}
             title={getShortcutHint('image.reset') ?? 'Alt+R'}
           >
-            重置
+            适合窗口
+          </button>
+          <button
+            type="button"
+            className="img-lightbox-reset"
+            onClick={showActualSize}
+            aria-label="按原始像素显示图片"
+            title="源像素与屏幕物理像素 1:1"
+          >
+            原图 1:1
           </button>
         </div>
       </div>

@@ -30,15 +30,19 @@
 
 .img-lightbox-img {
   display: block;
-  max-width: min(96vw, 1200px);
-  max-height: 92vh;
-  width: auto;
-  height: auto;
+  max-width: none;
+  max-height: none;
+  box-sizing: content-box;
   border-radius: var(--radius-8);
   border: 1px solid var(--border-subtle);
   box-shadow: 0 24px 80px lch(0 0 0 / 0.45);
   object-fit: contain;
+  opacity: 0;
   pointer-events: none;
+}
+
+.img-lightbox-img.is-ready {
+  opacity: 1;
 }
 
 .img-lightbox-chrome {

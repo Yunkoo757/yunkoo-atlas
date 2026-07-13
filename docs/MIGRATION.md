@@ -109,7 +109,7 @@ pnpm dev:electron
 | `@fontsource-variable/inter` | ^5.2.8 | 界面字体 |
 | `@fontsource/jetbrains-mono` | ^5.2.8 | 等宽字体 |
 | `sql.js` | ^1.14.1 | Electron 端 SQLite（WASM） |
-| `sharp` | ^0.35.1 | Electron 端图片压缩/WebP |
+| `sharp` | ^0.35.1 | 应用图标生成 |
 | `archiver` | ^8.0.0 | `.journal.zip` 打包 |
 | `extract-zip` | ^2.0.1 | zip 解压 |
 
@@ -264,7 +264,7 @@ Recharts（仪表盘）
 Lucide React（图标）
 
 Web 存储：IndexedDB（src/storage/indexedDbAdapter.ts）
-Electron：sql.js + sharp + 本地文件（electron/library/）
+Electron：sql.js + 本地文件（electron/library/）
 ```
 
 ---
