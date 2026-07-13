@@ -7,6 +7,7 @@ import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { ensureLibraryDirs, findAttachmentFile, getLibraryPath } from './paths'
 import { isImageMime, processImageBuffer } from './images'
+import { writeFileAtomicallySync } from './atomicFile'
 
 const SNAPSHOT_KEY = 'snapshot'
 
@@ -160,7 +161,7 @@ export class LibraryStorage {
   private persistDb(): void {
     if (!this.db) return
     const data = this.db.export()
-    fs.writeFileSync(this.paths.dbFile, Buffer.from(data))
+    writeFileAtomicallySync(this.paths.dbFile, Buffer.from(data))
   }
 
   readManifest(): LibraryManifest {
@@ -178,7 +179,11 @@ export class LibraryStorage {
   }
 
   writeManifest(manifest: LibraryManifest): void {
-    fs.writeFileSync(this.paths.manifestFile, JSON.stringify(manifest, null, 2), 'utf8')
+    writeFileAtomicallySync(
+      this.paths.manifestFile,
+      JSON.stringify(manifest, null, 2),
+      'utf8',
+    )
   }
 
   loadSnapshot(): PersistedSnapshot | null {
