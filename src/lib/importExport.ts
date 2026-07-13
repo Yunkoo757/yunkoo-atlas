@@ -1,4 +1,8 @@
-import type { Strategy } from '@/data/strategies'
+import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
+import {
+  createDefaultMistakeTagPresets,
+  createDefaultTagPresets,
+} from '@/config/defaultProfile'
 import type {
   Trade,
   TradeStatus,
@@ -590,7 +594,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 export function resetEmptyLibraryIntoStore(): void {
   useStore.setState({
     trades: [],
-    strategies: [],
+    strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
     selectedId: null,
     composerOpen: false,
     composerTrade: null,
@@ -599,8 +603,8 @@ export function resetEmptyLibraryIntoStore(): void {
     starredIds: [],
     subscribedIds: [],
     pinnedStrategyIds: [],
-    tagPresets: [],
-    mistakeTagPresets: [],
+    tagPresets: createDefaultTagPresets(),
+    mistakeTagPresets: createDefaultMistakeTagPresets(),
     display: { ...DEFAULT_DISPLAY },
     savedTradeViews: [],
     symbolIcons: {},

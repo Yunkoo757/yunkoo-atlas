@@ -1,4 +1,5 @@
 import type { AppIcon } from '@/icons/appIcons'
+import { createDefaultStrategies } from '@/config/defaultProfile'
 import {
   TrendingUp,
   ArrowLeftRight,
@@ -76,13 +77,7 @@ export const STRATEGY_COLOR_PRESETS = [
   '#1abc9c',
 ] as const
 
-export const DEFAULT_STRATEGIES: Strategy[] = [
-  { id: 'breakout', name: 'Breakout', icon: 'trending-up', color: '#5e6ad2' },
-  { id: 'mean-reversion', name: 'Mean Reversion', icon: 'arrow-left-right', color: '#bb6bd9' },
-  { id: 'trend-following', name: 'Trend Following', icon: 'activity', color: '#27ae60' },
-  { id: 'news-catalyst', name: 'News Catalyst', icon: 'newspaper', color: '#f2994a' },
-  { id: 'scalp', name: 'Scalp', icon: 'zap', color: '#56ccf2' },
-]
+export const DEFAULT_STRATEGIES: Strategy[] = createDefaultStrategies()
 
 const ICON_MAP = Object.fromEntries(
   STRATEGY_ICON_OPTIONS.map((o) => [o.id, o.Icon]),

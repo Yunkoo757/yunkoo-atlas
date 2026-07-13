@@ -1,0 +1,93 @@
+{
+  "schema": "yunkoo-atlas-default-profile",
+  "schemaVersion": 1,
+  "app": "Yunkoo Atlas",
+  "profile": {
+    "name": "默认配置",
+    "version": "1.0.0",
+    "description": "Yunkoo Atlas 的个人默认工作流配置。"
+  },
+  "settings": {
+    "display": {
+      "hideClosed": false,
+      "showEmptyGroups": false,
+      "groupMode": "date",
+      "sortBy": "date"
+    }
+  },
+  "tags": {
+    "general": [
+      "MTF ORA",
+      "no idm预期A",
+      "no idm预期B",
+      "LTF ChoCh",
+      "1m bos"
+    ],
+    "mistakes": [
+      "缺乏耐心",
+      "技术分析错误",
+      "仓位大小错误",
+      "修改止损",
+      "周末交易",
+      "过度分析",
+      "情绪化交易",
+      "受新闻影响"
+    ]
+  },
+  "strategies": [
+    {
+      "id": "navigation-1",
+      "name": "导航1",
+      "icon": "target",
+      "color": "#5e6ad2"
+    },
+    {
+      "id": "navigation-2",
+      "name": "导航2",
+      "icon": "flame",
+      "color": "#bb6bd9"
+    },
+    {
+      "id": "navigation-3",
+      "name": "导航3",
+      "icon": "activity",
+      "color": "#27ae60"
+    },
+    {
+      "id": "navigation-4",
+      "name": "导航4",
+      "icon": "rocket",
+      "color": "#f2994a"
+    }
+  ],
+  "shortcuts": {
+    "global.commandPalette": { "key": "w" },
+    "global.newTrade": { "key": "n" },
+    "global.switchModule": { "alt": true, "key": "w" },
+    "global.undo": { "mod": true, "key": "z" },
+    "global.redo": { "mod": true, "shift": true, "key": "z" },
+    "global.closeOverlay": { "key": "escape" },
+    "nav.active": { "alt": true, "key": "1" },
+    "nav.favorites": { "alt": true, "key": "2" },
+    "nav.missed": { "alt": true, "key": "3" },
+    "nav.sim": { "key": "g" },
+    "nav.list": { "alt": true, "key": "4" },
+    "nav.board": { "alt": true, "key": "5" },
+    "nav.dashboard": { "key": "i" },
+    "nav.strategies": { "key": "o" },
+    "view.list": { "key": "l" },
+    "view.board": { "key": "b" },
+    "trade.prev": { "key": "q" },
+    "trade.next": { "key": "e" },
+    "trade.backToList": { "key": "escape" },
+    "list.focusNext": { "key": "q" },
+    "list.focusPrev": { "key": "e" },
+    "list.openFocused": { "key": "enter" },
+    "list.selectAll": { "mod": true, "key": "a" },
+    "list.clearSelection": { "key": "escape" },
+    "image.prev": { "key": "w" },
+    "image.next": { "key": "s" },
+    "image.close": { "key": "escape" },
+    "image.reset": { "alt": true, "key": "r" }
+  }
+}
