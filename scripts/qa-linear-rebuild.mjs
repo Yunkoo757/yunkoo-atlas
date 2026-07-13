@@ -71,7 +71,7 @@ async function seedData() {
   await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
 
   await open('/review-cases')
-  await page.locator('body').press('n')
+  await page.locator('body').press('Shift+N')
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'BTCUSDT')
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
