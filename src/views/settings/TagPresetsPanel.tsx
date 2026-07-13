@@ -18,7 +18,7 @@ export function TagPresetsPanel() {
       <div className="settings-page-head">
         <h1 className="settings-page-title">标签管理</h1>
         <p className="settings-page-desc">
-          手动录入的标签会自动保存到这里，之后可直接点选。也可在本页统一新增、批量导入或删除。
+          统一管理所有案例可直接点选的预置标签。案例中临时输入或随外部数据导入的标签，仅对对应案例生效。
         </p>
       </div>
 

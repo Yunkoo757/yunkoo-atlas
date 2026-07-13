@@ -14,11 +14,7 @@ import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { normalizeSymbolIcons, normalizeSymbolCatalog } from '@/lib/symbolIcons'
-import {
-  collectAllMistakeTags,
-  collectAllTags,
-  mergeTagPresets,
-} from '@/lib/tags'
+import { mergeTagPresets } from '@/lib/tags'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
@@ -54,11 +50,8 @@ export async function bootstrapStorage(): Promise<void> {
       subscribedIds: snapshot.subscribedIds,
       pinnedStrategyIds: snapshot.pinnedStrategyIds,
       display: normalizeDisplay(snapshot.display),
-      tagPresets: mergeTagPresets(snapshot.tagPresets ?? [], collectAllTags(trades)),
-      mistakeTagPresets: mergeTagPresets(
-        snapshot.mistakeTagPresets ?? [],
-        collectAllMistakeTags(trades),
-      ),
+      tagPresets: mergeTagPresets(snapshot.tagPresets ?? []),
+      mistakeTagPresets: mergeTagPresets(snapshot.mistakeTagPresets ?? []),
       savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
       symbolIcons: normalizeSymbolIcons(snapshot.symbolIcons),
       symbolCatalog: normalizeSymbolCatalog(

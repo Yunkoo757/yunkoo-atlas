@@ -53,7 +53,6 @@ import { getStrategyName } from '@/lib/strategies'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
 import { findTradeByRouteParam, tradeDetailPath, resolveTradeDetailReturn, type TradeDetailLocationState } from '@/lib/tradeRoute'
 import { tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
-import { collectMistakeTagOptions, collectTagOptions } from '@/lib/tags'
 import {
   SESSION_PRESETS,
   PSYCHOLOGY_PRESETS,
@@ -113,10 +112,6 @@ export function DetailView() {
   const removeTag = useStore((s) => s.removeTag)
   const tagPresets = useStore((s) => s.tagPresets)
   const mistakeTagPresets = useStore((s) => s.mistakeTagPresets)
-  const addTagPreset = useStore((s) => s.addTagPreset)
-  const removeTagPreset = useStore((s) => s.removeTagPreset)
-  const addMistakeTagPreset = useStore((s) => s.addMistakeTagPreset)
-  const removeMistakeTagPreset = useStore((s) => s.removeMistakeTagPreset)
   const addComment = useStore((s) => s.addComment)
   const removeComment = useStore((s) => s.removeComment)
   const toggleStar = useStore((s) => s.toggleStar)
@@ -237,14 +232,6 @@ export function DetailView() {
 
   const starred = trade ? starredIds.includes(trade.id) : false
   const subscribed = trade ? subscribedIds.includes(trade.id) : false
-  const allTags = useMemo(
-    () => collectTagOptions(tagPresets, trades),
-    [tagPresets, trades],
-  )
-  const allMistakeTags = useMemo(
-    () => collectMistakeTagOptions(mistakeTagPresets, trades),
-    [mistakeTagPresets, trades],
-  )
 
   const strategyPreview = (strategyId: string) => {
     const strategy = strategies.find((s) => s.id === strategyId)
@@ -934,22 +921,18 @@ export function DetailView() {
           <Section title="标签">
             <TagEditor
               tags={trade.tags}
-              suggestions={allTags}
+              suggestions={tagPresets}
               presets={tagPresets}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
-              onAddPreset={addTagPreset}
-              onRemovePreset={removeTagPreset}
             />
           </Section>
 
           <Section title="错误 / 违规">
             <TagEditor
               tags={trade.mistakeTags}
-              suggestions={allMistakeTags}
+              suggestions={mistakeTagPresets}
               presets={mistakeTagPresets}
-              onAddPreset={addMistakeTagPreset}
-              onRemovePreset={removeMistakeTagPreset}
               onAdd={(tag) =>
                 updateTradeData(trade.id, {
                   mistakeTags: trade.mistakeTags.includes(tag)

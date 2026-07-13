@@ -35,11 +35,7 @@ import {
   DEFAULT_SYMBOL_CATALOG,
   type SymbolIconsMap,
 } from '@/lib/symbolIcons'
-import {
-  collectAllMistakeTags,
-  collectAllTags,
-  mergeTagPresets,
-} from '@/lib/tags'
+import { mergeTagPresets } from '@/lib/tags'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { useSaveStatus } from '@/store/saveStatus'
 
@@ -524,12 +520,10 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
     tagPresets: mergeTagPresets(
       current.tagPresets ?? [],
       payload.tagPresets ?? [],
-      collectAllTags(trades),
     ),
     mistakeTagPresets: mergeTagPresets(
       current.mistakeTagPresets ?? [],
       payload.mistakeTagPresets ?? [],
-      collectAllMistakeTags(trades),
     ),
     savedTradeViews: mergeSavedTradeViews(
       current.savedTradeViews ?? [],
@@ -577,11 +571,8 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
     subscribedIds: snapshot.subscribedIds,
     pinnedStrategyIds: snapshot.pinnedStrategyIds,
     display: normalizeDisplay(snapshot.display),
-    tagPresets: mergeTagPresets(snapshot.tagPresets ?? [], collectAllTags(trades)),
-    mistakeTagPresets: mergeTagPresets(
-      snapshot.mistakeTagPresets ?? [],
-      collectAllMistakeTags(trades),
-    ),
+    tagPresets: mergeTagPresets(snapshot.tagPresets ?? []),
+    mistakeTagPresets: mergeTagPresets(snapshot.mistakeTagPresets ?? []),
     savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
     symbolIcons: normalizeSymbolIcons(snapshot.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(

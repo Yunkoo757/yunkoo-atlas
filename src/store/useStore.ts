@@ -62,16 +62,14 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
     symbolKey && !s.symbolCatalog.includes(symbolKey)
       ? normalizeSymbolCatalog([...s.symbolCatalog, symbolKey])
       : s.symbolCatalog
-  const tagPresets = mergeTagPresets(s.tagPresets, normalized.tags)
-  const mistakeTagPresets = mergeTagPresets(s.mistakeTagPresets, normalized.mistakeTags)
   if (!exists) {
     const withCreate = createActivity(normalized)
     return {
       trades: [withCreate, ...s.trades],
       strategies: s.strategies,
       symbolCatalog,
-      tagPresets,
-      mistakeTagPresets,
+      tagPresets: s.tagPresets,
+      mistakeTagPresets: s.mistakeTagPresets,
     }
   }
   const prev = s.trades.find((t) => t.id === trade.id)
@@ -86,8 +84,8 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
     trades: s.trades.map((t) => (t.id === trade.id ? normalized : t)),
     strategies: s.strategies,
     symbolCatalog,
-    tagPresets,
-    mistakeTagPresets,
+    tagPresets: s.tagPresets,
+    mistakeTagPresets: s.mistakeTagPresets,
   }
 }
 
@@ -433,7 +431,6 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           const nextTags = [...new Set(tags.map((x) => x.trim()).filter(Boolean))]
           return {
-            tagPresets: mergeTagPresets(s.tagPresets, nextTags),
             trades: s.trades.map((t) =>
               t.id === id ? { ...t, tags: nextTags } : t,
             ),
@@ -443,7 +440,6 @@ export const useStore = create<State>()((set, get) => ({
         const trimmed = tag.trim()
         if (!trimmed) return
         set((s) => ({
-          tagPresets: mergeTagPresets(s.tagPresets, [trimmed]),
           trades: s.trades.map((t) =>
             t.id === id && !t.tags.includes(trimmed) ? { ...t, tags: [...t.tags, trimmed] } : t,
           ),
@@ -475,13 +471,9 @@ export const useStore = create<State>()((set, get) => ({
         })),
       updateTradeData: (id, patch) =>
         set((s) => {
-          const nextMistakePresets = patch.mistakeTags
-            ? mergeTagPresets(s.mistakeTagPresets, patch.mistakeTags)
-            : s.mistakeTagPresets
           return {
             undoStack: s.undoStack.length < 50 ? [...s.undoStack, [{ id, prev: s.trades.find((t) => t.id === id)! }]] : s.undoStack,
             redoStack: [],
-            mistakeTagPresets: nextMistakePresets,
             trades: s.trades.map((t) => {
               if (t.id !== id) return t
               return { ...t, ...patch }

@@ -1303,7 +1303,7 @@ function image(name: string): ImageFile {
   }
 }
 
-export function testMergeImportPayloadKeepsPresetData(): void {
+export function testMergeImportPayloadKeepsOnlyExplicitPresetData(): void {
   const importedTrade: Trade = {
     ...trade,
     id: 'import-with-tags',
@@ -1337,10 +1337,10 @@ export function testMergeImportPayloadKeepsPresetData(): void {
   assert(merged.tagPresets?.includes('导入标签'), 'imports tag presets')
   assert(merged.mistakeTagPresets?.includes('导入错误'), 'imports mistake tag presets')
   assert(merged.tagPresets?.includes('本地标签'), 'keeps local tag presets')
-  assert(merged.tagPresets?.includes('交易标签'), 'harvests tags from imported trades into presets')
+  assert(!merged.tagPresets?.includes('交易标签'), 'does not promote imported trade tags to presets')
   assert(
-    merged.mistakeTagPresets?.includes('追单'),
-    'harvests mistake tags from imported trades into presets',
+    !merged.mistakeTagPresets?.includes('追单'),
+    'does not promote imported mistake tags to presets',
   )
   assert(merged.trades.some((t) => t.id === importedTrade.id), 'imports trades into state')
 }
@@ -1897,6 +1897,8 @@ export function testUpsertTradesNotifiesOnce(): void {
     ref: `TRD-BATCH-${n}`,
     symbol: `SYM${n}`,
     strategyId,
+    tags: [`一次性标签${n}`],
+    mistakeTags: [`一次性错误${n}`],
   }))
 
   let commits = 0
@@ -1911,6 +1913,14 @@ export function testUpsertTradesNotifiesOnce(): void {
       batch.every((t) => ids.includes(t.id)),
       'upsertTrades 应写入全部交易',
     )
+    assert(
+      JSON.stringify(useStore.getState().tagPresets) === JSON.stringify(prevTags),
+      'upsertTrades 不应把案例标签提升为全局预置',
+    )
+    assert(
+      JSON.stringify(useStore.getState().mistakeTagPresets) === JSON.stringify(prevMistakes),
+      'upsertTrades 不应把案例错误提升为全局预置',
+    )
   } finally {
     unsub()
     useStore.setState({
@@ -1918,6 +1928,43 @@ export function testUpsertTradesNotifiesOnce(): void {
       symbolCatalog: prevCatalog,
       tagPresets: prevTags,
       mistakeTagPresets: prevMistakes,
+    })
+  }
+}
+
+export function testCaseTagEditingDoesNotMutateGlobalPresets(): void {
+  const prevTrades = useStore.getState().trades
+  const prevTags = useStore.getState().tagPresets
+  const prevMistakes = useStore.getState().mistakeTagPresets
+  const editable = { ...trade, id: 'case-tag-scope', tags: [], mistakeTags: [] }
+
+  try {
+    useStore.setState({
+      trades: [editable],
+      tagPresets: ['全局标签'],
+      mistakeTagPresets: ['全局错误'],
+    })
+    useStore.getState().addTag(editable.id, '当前案例标签')
+    useStore.getState().updateTradeData(editable.id, { mistakeTags: ['当前案例错误'] })
+
+    const state = useStore.getState()
+    assert(state.trades[0]?.tags.includes('当前案例标签'), '自定义标签应写入当前案例')
+    assert(state.trades[0]?.mistakeTags.includes('当前案例错误'), '自定义错误应写入当前案例')
+    assert(
+      JSON.stringify(state.tagPresets) === JSON.stringify(['全局标签']),
+      '自定义标签不得修改全局预置',
+    )
+    assert(
+      JSON.stringify(state.mistakeTagPresets) === JSON.stringify(['全局错误']),
+      '自定义错误不得修改全局预置',
+    )
+  } finally {
+    useStore.setState({
+      trades: prevTrades,
+      tagPresets: prevTags,
+      mistakeTagPresets: prevMistakes,
+      undoStack: [],
+      redoStack: [],
     })
   }
 }
