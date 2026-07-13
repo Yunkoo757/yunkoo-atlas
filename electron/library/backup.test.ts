@@ -13,6 +13,28 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+export function testDefaultBackupRotationKeepsSevenLatestRestorePoints(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-default-limit-'))
+  try {
+    fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
+    const counts = { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }) }
+    for (let hour = 0; hour < 8; hour += 1) {
+      createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, hour, 0, 0))
+    }
+
+    const backups = path.join(root, 'backups')
+    rotateBackups(backups)
+    const dbFiles = fs.readdirSync(backups).filter((name) => name.endsWith('.db'))
+    assert(dbFiles.length === 7, '默认轮换上限应只保留最新 7 个恢复点')
+    assert(
+      !dbFiles.includes('journal-2026-07-13-00-00-00-000Z.db'),
+      '默认轮换应删除最旧恢复点',
+    )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-rotate-'))
   try {

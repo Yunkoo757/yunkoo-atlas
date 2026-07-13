@@ -107,11 +107,7 @@ export function filterTrades(
     if (filter.reviewCaseScope === 'mistakes') {
       return (
         trade.caseType === 'mistake' ||
-        trade.caseType === 'ambiguous' ||
-        trade.caseType === 'missed' ||
         trade.reviewCategory === 'mistake' ||
-        trade.reviewCategory === 'ambiguous' ||
-        trade.status === 'missed' ||
         trade.mistakeTags.length > 0
       )
     }

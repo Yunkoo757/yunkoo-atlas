@@ -232,7 +232,7 @@ export function DataSettingsPanel() {
           <div className="settings-page-head">
             <h2 className="settings-section-title">自动备份</h2>
             <p className="settings-section-desc">
-              每 15 分钟自动创建恢复点，并在退出前再保存一次。包含设置与原始附件，附件会去重；最多保留 20 份，总容量不超过 500 MB。
+              每 15 分钟自动创建恢复点，并在退出前再保存一次。包含设置与原始附件，附件会去重；最多保留 7 份，总容量不超过 500 MB。
             </p>
           </div>
 

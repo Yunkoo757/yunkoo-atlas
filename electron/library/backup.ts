@@ -6,7 +6,7 @@ import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs } from './paths'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
-const DEFAULT_MAX_BACKUPS = 20
+const DEFAULT_MAX_BACKUPS = 7
 const DEFAULT_MAX_TOTAL_SIZE = 500 * 1024 * 1024 // 500 MB 备份总容量上限
 
 interface BackupMeta {
@@ -355,6 +355,7 @@ export function startAutoBackup(
 ): void {
   stopAutoBackup()
   storageRef = storage
+  rotateBackups(ensureLibraryDirs(getLibraryPath()).backups, maxBackups)
 
   // 定时备份
   intervalTimer = setInterval(() => {
