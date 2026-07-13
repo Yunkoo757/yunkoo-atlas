@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { createServer } from 'vite'
+
+const defaultProfile = JSON.parse(
+  readFileSync(new URL('../src/config/default-profile.json', import.meta.url), 'utf8'),
+)
+const defaultStrategyName = defaultProfile.strategies[0]?.name
+assert.ok(defaultStrategyName, 'Default profile must define a strategy')
 
 const server = await createServer({
   configFile: 'vite.config.ts',
@@ -18,7 +25,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
   await page.goto(new URL('/settings/strategies', baseUrl).href)
 
-  await page.getByRole('button', { name: '删除 Breakout', exact: true }).click()
+  await page.getByRole('button', { name: `删除 ${defaultStrategyName}`, exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.waitFor()
 

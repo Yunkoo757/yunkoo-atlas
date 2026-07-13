@@ -1,9 +1,20 @@
 import { spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
 const PORT = 41713
 const BASE = `http://127.0.0.1:${PORT}`
 const stripAnsi = (value) => value.replace(/\x1b\[[0-9;]*m/g, '')
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const defaultProfile = JSON.parse(
+  readFileSync(new URL('../src/config/default-profile.json', import.meta.url), 'utf8'),
+)
+const [primaryStrategy, secondaryStrategy, overflowStrategy] = defaultProfile.strategies.map(
+  (strategy) => strategy.name,
+)
+if (!primaryStrategy || !secondaryStrategy || !overflowStrategy) {
+  throw new Error('默认配置至少需要三个策略才能运行侧栏容量 QA')
+}
 
 function startVite() {
   const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], {
@@ -359,34 +370,39 @@ try {
   const group = (name) => editor.locator('.sb-target-group').filter({ hasText: name })
   await expectVisible(group('系统快捷').getByRole('button', { name: /^进行中：/ }))
   await expectVisible(group('我的视图').getByRole('button', { name: /^QA 保存视图：/ }))
-  await expectVisible(group('策略').getByRole('button', { name: /^Breakout：/ }))
+  const strategyButton = (name) => editor.getByRole('button', {
+    name: new RegExp(`^${escapeRegExp(name)}：`),
+  })
+  await expectVisible(group('策略').getByRole('button', {
+    name: new RegExp(`^${escapeRegExp(primaryStrategy)}：`),
+  }))
   await expectVisible(group('案例视图').getByRole('button', { name: /^重点：/ }))
 
-  const breakout = editor.getByRole('button', { name: /^Breakout：/ })
-  await expectAttribute(breakout, 'aria-label', 'Breakout：未添加')
-  await breakout.click()
-  await expectAttribute(breakout, 'aria-label', 'Breakout：常驻')
-  await breakout.click()
-  await expectAttribute(breakout, 'aria-label', 'Breakout：更多')
-  await breakout.click()
-  await expectAttribute(breakout, 'aria-label', 'Breakout：未添加')
+  const primaryStrategyButton = strategyButton(primaryStrategy)
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：未添加`)
+  await primaryStrategyButton.click()
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：常驻`)
+  await primaryStrategyButton.click()
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：更多`)
+  await primaryStrategyButton.click()
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：未添加`)
 
-  await search.fill('Breakout')
-  await expectVisible(editor.getByRole('button', { name: /Breakout/ }))
+  await search.fill(primaryStrategy)
+  await expectVisible(strategyButton(primaryStrategy))
   await search.fill('不会匹配失效引用')
   await expectCount(editor.getByText('已删除的保存视图'), 0)
   await search.fill('')
 
   await editor.getByRole('button', { name: /^QA 保存视图：/ }).click()
-  await editor.getByRole('button', { name: /^Breakout：/ }).click()
+  await strategyButton(primaryStrategy).click()
   await editor.getByRole('button', { name: /^重点：/ }).click()
-  await editor.getByRole('button', { name: /^Mean Reversion：/ }).click()
+  await strategyButton(secondaryStrategy).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 8 \/ 8/)
-  await editor.getByRole('button', { name: /^Trend Following：/ }).click()
+  await strategyButton(overflowStrategy).click()
   await expectVisible(editor.getByText(/常驻已满，已放入「更多」/))
-  await expectText(editor.getByRole('button', { name: /^Trend Following：/ }), /更多/)
+  await expectText(strategyButton(overflowStrategy), /更多/)
   await editor.getByRole('button', { name: '返回管理列表' }).click()
-  await expectVisible(editor.locator('[data-sidebar-editor-overflow] [data-sidebar-item-label]', { hasText: 'Trend Following' }))
+  await expectVisible(editor.locator('[data-sidebar-editor-overflow] [data-sidebar-item-label]', { hasText: overflowStrategy }))
 
   await editor.getByRole('button', { name: '完成' }).click()
   await page.waitForTimeout(250)
@@ -396,8 +412,8 @@ try {
   if (persistedLabels[0] !== originalLabels[1] || persistedLabels[1] !== originalLabels[0]) {
     throw new Error('Completed ordering was not persisted across refresh')
   }
-  await expectVisible(page.locator('[data-sidebar-overflow] .sb-item-label', { hasText: 'Trend Following' }))
-  await expectCount(page.locator('.sb-workspace > a', { hasText: 'Trend Following' }), 0)
+  await expectVisible(page.locator('[data-sidebar-overflow] .sb-item-label', { hasText: overflowStrategy }))
+  await expectCount(page.locator('.sb-workspace > a', { hasText: overflowStrategy }), 0)
   await expectVisible(page.getByRole('button', { name: '管理更多项目' }))
 
   const savedWorkspaceLink = page.locator('.sb-workspace > a', { hasText: 'QA 保存视图' })
