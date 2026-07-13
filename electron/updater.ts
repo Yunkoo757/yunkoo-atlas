@@ -94,9 +94,8 @@ function transition(event: AppUpdateEvent): AppUpdateState {
 
 function supportMessage(): string | null {
   if (!app.isPackaged) return '开发模式不会连接更新服务器，请在正式安装版中测试。'
-  if (process.platform !== 'win32' && process.platform !== 'darwin') {
-    return '当前系统暂不支持应用内更新。'
-  }
+  if (process.platform === 'darwin') return 'macOS 当前仅支持手动下载并安装新版本。'
+  if (process.platform !== 'win32') return '当前系统暂不支持应用内更新。'
   if (process.env.PORTABLE_EXECUTABLE_DIR) {
     return '便携版不支持应用内更新，请安装 NSIS 版本。'
   }

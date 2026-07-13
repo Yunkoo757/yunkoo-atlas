@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow, app } from 'electron'
+import { ipcMain, dialog, BrowserWindow, app, type OpenDialogOptions } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { randomUUID } from 'node:crypto'
@@ -51,10 +51,13 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('library:pickFolder', async () => {
     const win = BrowserWindow.getFocusedWindow()
-    const result = await dialog.showOpenDialog(win ?? undefined, {
+    const options: OpenDialogOptions = {
       title: '选择交易库目录',
       properties: ['openDirectory', 'createDirectory'],
-    })
+    }
+    const result = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options)
     if (result.canceled || !result.filePaths[0]) return null
     return result.filePaths[0]
   })
@@ -143,11 +146,14 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('journal:exportZip', async () => {
     const win = BrowserWindow.getFocusedWindow()
     const date = new Date().toISOString().slice(0, 10)
-    const result = await dialog.showSaveDialog(win ?? undefined, {
+    const options = {
       title: '导出交易库',
       defaultPath: path.join(app.getPath('documents'), `linear-journal-${date}.journal.zip`),
       filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
-    })
+    }
+    const result = win
+      ? await dialog.showSaveDialog(win, options)
+      : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return { ok: false as const }
     await exportJournalZip(await ensureStorage(), result.filePath)
     return { ok: true as const, path: result.filePath }
@@ -187,11 +193,14 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('journal:importZip', async () => {
     const win = BrowserWindow.getFocusedWindow()
-    const result = await dialog.showOpenDialog(win ?? undefined, {
+    const options: OpenDialogOptions = {
       title: '导入交易库',
       filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
       properties: ['openFile'],
-    })
+    }
+    const result = win
+      ? await dialog.showOpenDialog(win, options)
+      : await dialog.showOpenDialog(options)
     if (result.canceled || !result.filePaths[0]) {
       return { ok: false as const, canceled: true as const }
     }

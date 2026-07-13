@@ -30,7 +30,7 @@ for (const entry of entries) {
       ssr: path.resolve(entry),
       outDir,
       emptyOutDir: true,
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           entryFileNames: 'runner.mjs',
         },
