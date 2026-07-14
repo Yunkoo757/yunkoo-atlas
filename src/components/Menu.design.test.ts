@@ -11,3 +11,15 @@ export function testMenuUsesActionSemanticsWhenNoSelectionValueIsProvided() {
     throw new Error('Only selection menus may expose aria-checked')
   }
 }
+
+export function testMenuRendersPopupThroughPortal() {
+  const source = readFileSync(path.resolve('src/components/Menu.tsx'), 'utf8')
+  const css = readFileSync(path.resolve('src/components/Menu.css'), 'utf8')
+
+  if (!source.includes("from 'react-dom'") || !source.includes('createPortal(')) {
+    throw new Error('Menu popup must render through a portal to escape overflow clipping')
+  }
+  if (!css.includes('position: fixed')) {
+    throw new Error('Menu popup must use fixed positioning when portaled')
+  }
+}
