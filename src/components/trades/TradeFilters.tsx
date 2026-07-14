@@ -260,7 +260,7 @@ export function TradeFilters({
                   }
                   onChange={(value) => {
                     if (isCaseWorkspace) setParam('period', value)
-                    else if (value === 'today') go('/today-record')
+                    else if (value === 'today') go('/period/today')
                     else if (value) go(`/period/${value}`)
                     else go('/list')
                   }}

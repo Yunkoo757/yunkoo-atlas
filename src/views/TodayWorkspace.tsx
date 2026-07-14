@@ -11,8 +11,9 @@ import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
-import { getTodayWorkflowBuckets, toLocalDateKey } from '@/lib/tradeWorkflow'
+import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import './TodayWorkspace.css'
 
@@ -29,7 +30,7 @@ const WORKFLOW_GROUPS = [
   {
     key: 'active',
     title: '进行中的交易',
-    description: '继续执行计划，或完成平仓结算。',
+    description: '继续执行持仓或已到期计划；未来计划会在到期日出现。',
     icon: Clock,
   },
   {
@@ -61,8 +62,9 @@ export function TodayWorkspace() {
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
-  const today = toLocalDateKey()
+  const today = useLocalDateKey()
   const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
+  const starredIdSet = useMemo(() => new Set(starredIds), [starredIds])
 
   const openTrade = (trade: Trade) => {
     const from = {
@@ -103,7 +105,13 @@ export function TodayWorkspace() {
     })
   }
 
-  const hasAnything = buckets.actionCount > 0 || buckets.todayRecords.length > 0
+  const hasAnything = buckets.actionCount > 0 || buckets.completedToday.length > 0
+  const scrollToGroup = (key: string) => {
+    document.getElementById(`today-${key}`)?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    })
+  }
 
   return (
     <>
@@ -112,7 +120,7 @@ export function TodayWorkspace() {
         <div className="today-workspace-inner">
           <section className="today-focus" aria-labelledby="today-focus-title">
             <div>
-              <span className="today-focus-eyebrow">今日闭环</span>
+              <span className="today-focus-eyebrow">行动队列</span>
               <h1 id="today-focus-title">
                 {buckets.actionCount > 0
                   ? `还有 ${buckets.actionCount} 项需要处理`
@@ -120,7 +128,9 @@ export function TodayWorkspace() {
               </h1>
               <p>
                 {buckets.actionCount > 0
-                  ? '先处理数据缺口，再完成复盘；统计会自动保持可信。'
+                  ? buckets.historicalActionCount > 0
+                    ? `其中 ${buckets.historicalActionCount} 项来自此前遗留；先补齐结果，再完成复盘。`
+                    : '按执行、结果、复盘的顺序完成闭环；统计会自动保持可信。'
                   : '没有遗留的平仓结果或复盘任务，可以开始记录新机会。'}
               </p>
             </div>
@@ -130,13 +140,18 @@ export function TodayWorkspace() {
             </button>
           </section>
 
-          <nav className="today-queue-overview" aria-label="今日任务概览">
+          <nav className="today-queue-overview" aria-label="待处理事项概览">
             {WORKFLOW_GROUPS.map(({ key, title, icon: Icon }) => (
-              <a key={key} href={`#today-${key}`} className={buckets[key].length ? 'has-items' : ''}>
+              <button
+                key={key}
+                type="button"
+                className={buckets[key].length ? 'has-items' : ''}
+                onClick={() => scrollToGroup(key)}
+              >
                 <Icon size={15} aria-hidden />
                 <span>{title}</span>
                 <strong>{buckets[key].length}</strong>
-              </a>
+              </button>
             ))}
           </nav>
 
@@ -169,7 +184,7 @@ export function TodayWorkspace() {
                           focused={false}
                           selected={false}
                           selectable={false}
-                          starred={starredIds.includes(trade.id)}
+                          starred={starredIdSet.has(trade.id)}
                           onOpen={openTrade}
                           onSelect={() => {}}
                           onToggleStar={(item) => toggleStar(item.id)}
@@ -181,17 +196,17 @@ export function TodayWorkspace() {
                 )
               })}
 
-              {buckets.todayRecords.length > 0 && (
+              {buckets.completedToday.length > 0 && (
                 <section id="today-completed" className="today-workflow-group is-completed">
                   <header>
                     <span className="today-group-icon"><CheckCircle size={15} /></span>
                     <div>
-                      <h2>今日记录<span>{buckets.todayRecords.length}</span></h2>
-                      <p>今天已归档且无需继续处理的记录。</p>
+                      <h2>今日已完成<span>{buckets.completedToday.length}</span></h2>
+                      <p>今天已完成结果与复盘，不再需要处理的记录。</p>
                     </div>
                   </header>
                   <div className="today-workflow-list">
-                    {buckets.todayRecords.map((trade) => (
+                    {buckets.completedToday.map((trade) => (
                       <TradeRow
                         key={trade.id}
                         trade={trade}
@@ -200,7 +215,7 @@ export function TodayWorkspace() {
                         focused={false}
                         selected={false}
                         selectable={false}
-                        starred={starredIds.includes(trade.id)}
+                        starred={starredIdSet.has(trade.id)}
                         onOpen={openTrade}
                         onSelect={() => {}}
                         onToggleStar={(item) => toggleStar(item.id)}

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { app } from 'electron'
+import electronRuntime from 'electron'
 import initSqlJs, { type Database } from 'sql.js'
 import { randomUUID } from 'node:crypto'
 import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types'
@@ -23,6 +23,10 @@ export interface AssetBytes {
 }
 
 let sqlPromise: ReturnType<typeof initSqlJs> | null = null
+const electronApp =
+  typeof electronRuntime === 'object' && electronRuntime !== null && 'app' in electronRuntime
+    ? (electronRuntime as { app?: { getAppPath(): string } }).app
+    : undefined
 
 function resolveAttachmentWritePath(attachmentsRoot: string, fileName: string): string {
   const resolvedRoot = path.resolve(attachmentsRoot)
@@ -48,12 +52,18 @@ async function getSql() {
     sqlPromise = initSqlJs({
       locateFile: (file) => {
         const candidates = [
-          path.join(process.resourcesPath, file),
-          path.join(app.getAppPath(), 'dist-electron', file),
-          path.join(app.getAppPath(), file),
+          typeof process.resourcesPath === 'string'
+            ? path.join(process.resourcesPath, file)
+            : null,
+          typeof electronApp?.getAppPath === 'function'
+            ? path.join(electronApp.getAppPath(), 'dist-electron', file)
+            : null,
+          typeof electronApp?.getAppPath === 'function'
+            ? path.join(electronApp.getAppPath(), file)
+            : null,
           path.join(process.cwd(), 'dist-electron', file),
           path.join(process.cwd(), 'node_modules/sql.js/dist', file),
-        ]
+        ].filter((candidate): candidate is string => candidate !== null)
         for (const p of candidates) {
           if (fs.existsSync(p)) return p
         }
@@ -224,6 +234,7 @@ export class LibraryStorage {
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {
+    assertValidPersistedSnapshot(snapshot, 'Library snapshot')
     const db = this.requireDb()
     db.run(
       `INSERT INTO meta (key, value) VALUES (?, ?)
@@ -371,5 +382,99 @@ export class LibraryStorage {
       [id, mime, fileName, buffer.byteLength, createdAt],
     )
     this.persistDb()
+  }
+
+  /** 将导入附件与最终快照作为一次提交写入，失败时保持当前数据库不变。 */
+  async commitImport(
+    snapshot: PersistedSnapshot,
+    assets: Array<{ id: string; mime: string; buffer: Buffer }>,
+    options?: { pruneUnreferenced?: boolean },
+  ): Promise<void> {
+    assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
+    const currentDb = this.requireDb()
+    const SQL = await getSql()
+    const nextDb = new SQL.Database(currentDb.export())
+    const stagedFiles: Array<{ temp: string; target: string }> = []
+    const committedFiles: string[] = []
+    const referencedAssetIds = new Set<string>()
+    for (const trade of snapshot.trades) {
+      const re = /journal-asset:\/\/([^"'\s>]+)/g
+      let match: RegExpExecArray | null
+      while ((match = re.exec(trade.note)) !== null) referencedAssetIds.add(match[1])
+    }
+    const obsoleteImportedFiles: string[] = []
+    let adopted = false
+
+    try {
+      nextDb.run('BEGIN TRANSACTION')
+      for (const asset of assets) {
+        assertSafeAssetId(asset.id)
+        if (options?.pruneUnreferenced && !referencedAssetIds.has(asset.id)) {
+          const existing = findAttachmentFile(this.paths.attachments, asset.id)
+          if (existing) obsoleteImportedFiles.push(existing)
+          nextDb.run('DELETE FROM assets WHERE id = ?', [asset.id])
+          continue
+        }
+        const ext = asset.mime.includes('webp')
+          ? 'webp'
+          : asset.mime.includes('png')
+            ? 'png'
+            : asset.mime.includes('jpeg') || asset.mime.includes('jpg')
+              ? 'jpg'
+              : 'bin'
+        const fileName = `${asset.id}.${ext}`
+        const target = resolveAttachmentWritePath(this.paths.attachments, fileName)
+        if (fs.existsSync(target)) {
+          if (!fs.readFileSync(target).equals(asset.buffer)) {
+            throw new Error(`导入附件 ID 冲突：${asset.id}`)
+          }
+        } else {
+          const temp = resolveAttachmentWritePath(
+            this.paths.attachments,
+            `.${fileName}.${randomUUID()}.tmp`,
+          )
+          fs.writeFileSync(temp, asset.buffer)
+          stagedFiles.push({ temp, target })
+        }
+        nextDb.run(
+          `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             mime = excluded.mime,
+             file_name = excluded.file_name,
+             byte_size = excluded.byte_size`,
+          [asset.id, asset.mime, fileName, asset.buffer.byteLength, new Date().toISOString()],
+        )
+      }
+      nextDb.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+      )
+      nextDb.run('COMMIT')
+
+      for (const staged of stagedFiles) {
+        fs.renameSync(staged.temp, staged.target)
+        committedFiles.push(staged.target)
+      }
+      writeFileAtomicallySync(this.paths.dbFile, Buffer.from(nextDb.export()))
+      currentDb.close()
+      this.db = nextDb
+      adopted = true
+      for (const filePath of obsoleteImportedFiles) {
+        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath) } catch { /* orphan cleanup retries on next import */ }
+      }
+    } catch (error) {
+      try { nextDb.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+      for (const staged of stagedFiles) {
+        try { if (fs.existsSync(staged.temp)) fs.unlinkSync(staged.temp) } catch { /* ignore */ }
+      }
+      for (const filePath of committedFiles) {
+        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath) } catch { /* ignore */ }
+      }
+      throw error
+    } finally {
+      if (!adopted) nextDb.close()
+    }
   }
 }

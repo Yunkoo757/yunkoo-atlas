@@ -24,8 +24,10 @@ import {
 } from '@/lib/tradeView'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
+import { prepareExistingComposerTrade } from '@/lib/tradeComposerSave'
 import { formatYmd } from '@/lib/periods'
 import { assetUrl, getStorage } from '@/storage'
+import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import './TradeComposer.css'
 
 const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
@@ -73,10 +75,13 @@ export function TradeComposer() {
   const [caseType, setCaseType] = useState<CaseType>('exemplar')
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const inputRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const submittingRef = useRef(false)
   const defaultKind = defaultTradeKindForPath(location.pathname)
   const activeKind = editing?.tradeKind ?? requestedKind ?? defaultKind
   const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
@@ -87,6 +92,11 @@ export function TradeComposer() {
       inputRef.current.focus()
     }
   }, [open])
+
+  useEffect(() => {
+    if (submitting) dialogRef.current?.setAttribute('inert', '')
+    else dialogRef.current?.removeAttribute('inert')
+  }, [submitting])
 
   useEffect(() => {
     if (!open) return
@@ -129,6 +139,7 @@ export function TradeComposer() {
     if (!open) return
 
     const handlePaste = async (e: ClipboardEvent) => {
+      if (submittingRef.current) return
       const items = e.clipboardData?.items
       if (!items) return
 
@@ -149,6 +160,7 @@ export function TradeComposer() {
 
   // 添加图片
   const addImage = async (file: File) => {
+    if (submittingRef.current) return
     const id = crypto.randomUUID()
     const preview = URL.createObjectURL(file)
     setImages((prev) => [...prev, { id, file, preview }])
@@ -177,6 +189,7 @@ export function TradeComposer() {
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
+    if (submittingRef.current) return
 
     const files = e.dataTransfer.files
     for (const file of files) {
@@ -187,8 +200,8 @@ export function TradeComposer() {
   }
 
   // 快速创建
-  const saveImagesToNote = async (baseNote: string): Promise<string> => {
-    if (images.length === 0) return baseNote
+  const saveImagesForNote = async (): Promise<string> => {
+    if (images.length === 0) return ''
 
     const storage = getStorage()
     const imgTags: string[] = []
@@ -200,86 +213,108 @@ export function TradeComposer() {
     const intro = editing
       ? ''
       : `<p>已上传 ${images.length} 张截图，请在下方补充详细信息。</p>`
-    return [baseNote, intro, imgTags.join('\n')].filter(Boolean).join('\n')
+    return [intro, imgTags.join('\n')].filter(Boolean).join('\n')
   }
 
-  const handleQuickCreate = async () => {
+  const handleQuickCreate = () => {
+    if (submittingRef.current) return
     if (!symbol.trim()) {
       alert('请输入交易品种')
       return
     }
+    submittingRef.current = true
+    setSubmitting(true)
 
-    const kind = activeKind
-    const note = await saveImagesToNote(editing?.note ?? '')
-    const nextReview = new Date()
-    nextReview.setDate(nextReview.getDate() + 3)
-    const legacyReviewCategory =
-      caseType === 'mistake' ? 'mistake' : caseType === 'ambiguous' ? 'ambiguous' : 'normal'
+    const operation = (async () => {
+      const kind = activeKind
+      const nextReview = new Date()
+      nextReview.setDate(nextReview.getDate() + 3)
+      const legacyReviewCategory: Trade['reviewCategory'] =
+        caseType === 'mistake' ? 'mistake' : caseType === 'ambiguous' ? 'ambiguous' : 'normal'
 
-    const trade: Trade = {
-      ...(editing ?? {
-        id: crypto.randomUUID(),
-        ref: getNextRef(trades, kind),
+      const fields = {
+        symbol: symbol.trim().toUpperCase(),
         side,
-        status: 'planned',
-        conviction: 'medium',
+        timeframe: resolveTimeframe(timeframe),
+        session: normalizeSession(session),
         strategyId,
-        tradeKind: kind,
-        tags: [],
-        mistakeTags: [],
-        reviewStatus: 'unreviewed',
-        reviewCategory: kind === 'case' ? legacyReviewCategory : 'normal',
-        ...(kind === 'case'
-          ? {
-              caseType,
-              masteryState: 'new' as const,
-              nextReviewAt: formatYmd(nextReview),
-            }
-          : {}),
-        entry: 0,
-        exit: null,
-        stopLoss: null,
-        size: 0,
-        pnl: null,
-        rMultiple: null,
         openedAt,
-        recordedAt: new Date().toISOString(),
-        closedAt: null,
-        note: '',
-      }),
-      symbol: symbol.trim().toUpperCase(),
-      side,
-      timeframe: resolveTimeframe(timeframe),
-      session: normalizeSession(session),
-      strategyId,
-      openedAt,
-      note,
-      reviewCategory:
-        kind === 'case' ? legacyReviewCategory : editing?.reviewCategory ?? 'normal',
-      ...(kind === 'case' ? { caseType } : {}),
-    }
+        ...(kind === 'case' ? { caseType, reviewCategory: legacyReviewCategory } : {}),
+      }
+      const trade = editing
+        ? await prepareExistingComposerTrade({
+            id: editing.id,
+            fields,
+            saveImages: saveImagesForNote,
+            getLatest: (id) => useStore.getState().trades.find((item) => item.id === id),
+          })
+        : {
+            id: crypto.randomUUID(),
+            ref: getNextRef(trades, kind),
+            status: 'planned',
+            conviction: 'medium',
+            tradeKind: kind,
+            tags: [],
+            mistakeTags: [],
+            reviewStatus: 'unreviewed',
+            reviewCategory: kind === 'case' ? legacyReviewCategory : 'normal',
+            ...(kind === 'case'
+              ? {
+                  caseType,
+                  masteryState: 'new' as const,
+                  nextReviewAt: formatYmd(nextReview),
+                }
+              : {}),
+            entry: 0,
+            exit: null,
+            stopLoss: null,
+            size: 0,
+            pnl: null,
+            rMultiple: null,
+            recordedAt: new Date().toISOString(),
+            closedAt: null,
+            note: await saveImagesForNote(),
+            ...fields,
+          } satisfies Trade
 
-    upsert(trade)
-    close()
+      if (!trade) {
+        alert(`该${recordLabel}已不存在，未保存本次修改`)
+        close()
+        return
+      }
 
-    // 自动跳转详情页
-    navigate(tradeDetailPath(trade))
+      upsert(trade)
+      close()
+
+      // 自动跳转详情页
+      navigate(tradeDetailPath(trade))
+    })().finally(() => {
+      submittingRef.current = false
+      setSubmitting(false)
+    })
+    return trackPendingStorageOperation(operation)
+  }
+
+  const requestClose = () => {
+    if (!submittingRef.current) close()
   }
 
   if (!open) return null
 
   return createPortal(
-    <div className="composer-overlay" role="presentation" onMouseDown={close}>
+    <div className="composer-overlay" role="presentation" onMouseDown={requestClose}>
       <div
+        ref={dialogRef}
         className="composer-modal composer-quick"
         role="dialog"
         aria-modal="true"
+        aria-busy={submitting}
         aria-labelledby="trade-composer-title"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(event) => {
           if (event.key === 'Escape' && !event.defaultPrevented) {
             event.stopPropagation()
-            close()
+            requestClose()
             return
           }
           if (event.key !== 'Tab') return
@@ -489,15 +524,15 @@ export function TradeComposer() {
             </div>
           </div>
           <div className="composer-footer-actions">
-            <button className="composer-btn-secondary" onClick={close}>
+            <button className="composer-btn-secondary" onClick={requestClose} disabled={submitting}>
               取消
             </button>
             <button
               className="composer-btn-primary"
               onClick={handleQuickCreate}
-              disabled={!symbol.trim()}
+              disabled={!symbol.trim() || submitting}
             >
-              {editing ? '保存' : `创建${recordLabel}`}
+              {submitting ? '保存中…' : editing ? '保存' : `创建${recordLabel}`}
             </button>
           </div>
         </div>

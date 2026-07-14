@@ -15,15 +15,21 @@ import type {
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
 import { ensureStrategies, migrateTrades } from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import {
   collectAssetIdsFromNotes,
-  externalizeNoteImages,
   getStorage,
 } from '@/storage'
 import type { ExportAssetRecord } from '@/storage/types'
-import { flushPersistNow, suspendPersist, resumePersist } from '@/storage/persist'
+import {
+  disablePersistWrites,
+  discardPendingAndResumePersist,
+  flushPersistNow,
+  suspendPersist,
+  resumePersistAndFlush,
+} from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
 import {
@@ -43,6 +49,11 @@ import { mergeTagPresets } from '@/lib/tags'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { useSaveStatus } from '@/store/saveStatus'
 import { isSafeAssetId } from '@/storage/assetId'
+import {
+  flushStorageBeforeCutover,
+  lockStorageCutoverInteraction,
+} from '@/storage/cutover'
+import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 
 export const EXPORT_VERSION = 6 // 6: +savedTradeViews
 
@@ -192,8 +203,16 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   if (!isFiniteNumber(v.size)) return false
   if (!isNullableFiniteNumber(v.pnl)) return false
   if (!isNullableFiniteNumber(v.rMultiple)) return false
+  if (v.stopLoss !== undefined && !isNullableFiniteNumber(v.stopLoss)) return false
+  if (v.initialStopLoss !== undefined && !isNullableFiniteNumber(v.initialStopLoss)) return false
+  if (
+    v.resultSource !== undefined &&
+    !['pnl', 'r', 'price', 'imported'].includes(String(v.resultSource))
+  ) return false
+  if (!isTradeResultAuthorityConsistent(v)) return false
   if (typeof v.openedAt !== 'string') return false
   if (v.closedAt !== null && typeof v.closedAt !== 'string') return false
+  if (v.reviewedAt !== undefined && v.reviewedAt !== null && typeof v.reviewedAt !== 'string') return false
   if (typeof v.note !== 'string') return false
   if (
     v.tradeKind !== undefined &&
@@ -586,26 +605,179 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
   }
 }
 
+const IMPORT_DATA_IMAGE_RE = /<img([^>]*)\ssrc=["']data:(image\/[^;"']+);base64,([^"']+)["']([^>]*)>/gi
+
+/**
+ * 导入附件一律重编号，避免同 ID 不同内容覆盖现有笔记；内嵌图片也只暂存，
+ * 由适配器与最终快照一起提交。
+ */
+export function prepareImportPayloadForCommit(
+  payload: ExportPayload,
+  createId: () => string = () => crypto.randomUUID(),
+): { payload: ExportPayload; assets: ExportAssetRecord[] } {
+  const idMap = new Map<string, string>()
+  const assets = (payload.assets ?? []).map((asset) => {
+    const id = createId()
+    if (!isSafeAssetId(id)) throw new Error('无法为导入附件生成安全 ID')
+    idMap.set(asset.id, id)
+    return { ...asset, id }
+  })
+
+  const trades = payload.trades.map((trade) => {
+    let note = trade.note.replace(
+      /journal-asset:\/\/([^"'\s>]+)/g,
+      (_full, id: string) => {
+        const importedId = idMap.get(id)
+        if (!importedId) throw new Error(`导入内容缺少附件：${id}`)
+        return `journal-asset://${importedId}`
+      },
+    )
+    IMPORT_DATA_IMAGE_RE.lastIndex = 0
+    note = note.replace(
+      IMPORT_DATA_IMAGE_RE,
+      (_full, before: string, mime: string, data: string, after: string) => {
+        const id = createId()
+        if (!isSafeAssetId(id)) throw new Error('无法为内嵌图片生成安全 ID')
+        assets.push({ id, mime, data })
+        return `<img${before} src="journal-asset://${id}"${after}>`
+      },
+    )
+    return { ...trade, note }
+  })
+
+  return {
+    payload: { ...payload, trades, assets },
+    assets,
+  }
+}
+
+const IMPORT_PERSISTED_REFERENCE_KEYS = [
+  'trades',
+  'strategies',
+  'starredIds',
+  'subscribedIds',
+  'pinnedStrategyIds',
+  'display',
+  'tagPresets',
+  'mistakeTagPresets',
+  'profile',
+  'savedTradeViews',
+  'symbolIcons',
+  'symbolCatalog',
+] as const
+
+interface PersistedStateRevision {
+  state: ReturnType<typeof useStore.getState>
+  shortcutBindings: ReturnType<typeof useShortcutStore.getState>['bindings']
+  references: readonly unknown[]
+}
+
+function capturePersistedStateRevision(): PersistedStateRevision {
+  const state = useStore.getState()
+  const shortcutBindings = useShortcutStore.getState().bindings
+  return {
+    state,
+    shortcutBindings,
+    references: [
+      ...IMPORT_PERSISTED_REFERENCE_KEYS.map((key) => state[key]),
+      shortcutBindings,
+    ],
+  }
+}
+
+function hasSamePersistedStateRevision(
+  previous: PersistedStateRevision,
+  next: PersistedStateRevision,
+): boolean {
+  return previous.references.every((value, index) => value === next.references[index])
+}
+
+function captureImportedTradeBaseline(
+  revision: PersistedStateRevision,
+  payload: ExportPayload,
+): Map<string, string | null> {
+  const currentById = new Map(revision.state.trades.map((trade) => [trade.id, trade]))
+  return new Map(
+    payload.trades.map((trade) => {
+      const current = currentById.get(trade.id)
+      return [trade.id, current ? JSON.stringify(current) : null]
+    }),
+  )
+}
+
+function hasConcurrentImportedTradeConflict(
+  baseline: Map<string, string | null>,
+  latest: PersistedStateRevision,
+): boolean {
+  const latestById = new Map(latest.state.trades.map((trade) => [trade.id, trade]))
+  for (const [id, initialValue] of baseline) {
+    const current = latestById.get(id)
+    const currentValue = current ? JSON.stringify(current) : null
+    if (currentValue !== initialValue) return true
+  }
+  return false
+}
+
+function buildImportSnapshot(
+  current: PersistedStateRevision,
+  payload: ExportPayload,
+): PersistedSnapshot {
+  const merged = mergeImportPayload(current.state, payload)
+  return buildPortableSnapshotFromState({
+    ...current.state,
+    ...merged,
+    tagPresets: merged.tagPresets ?? current.state.tagPresets,
+    mistakeTagPresets: merged.mistakeTagPresets ?? current.state.mistakeTagPresets,
+    savedTradeViews: merged.savedTradeViews ?? current.state.savedTradeViews,
+    symbolIcons: merged.symbolIcons ?? current.state.symbolIcons,
+    symbolCatalog: merged.symbolCatalog ?? current.state.symbolCatalog,
+    profile: current.state.profile,
+  }, current.shortcutBindings)
+}
+
 export async function applyImport(payload: ExportPayload): Promise<{ summary: string }> {
   const storage = getStorage()
-  if (payload.assets?.length) {
-    await storage.importAssets(payload.assets)
+  const prepared = prepareImportPayloadForCommit(payload)
+  const unlockInteraction = lockStorageCutoverInteraction()
+  let suspended = false
+  try {
+    await flushStorageBeforeCutover()
+    suspendPersist()
+    suspended = true
+    let revision = capturePersistedStateRevision()
+    const importedTradeBaseline = captureImportedTradeBaseline(revision, prepared.payload)
+    while (true) {
+      const snapshot = buildImportSnapshot(revision, prepared.payload)
+      await storage.commitImport(snapshot, prepared.assets)
+
+      const latest = capturePersistedStateRevision()
+      if (hasSamePersistedStateRevision(revision, latest)) {
+        // 读取、合并与 setState 之间没有 await；不会再让用户事件插入并被整体快照覆盖。
+        applySnapshotToStore(snapshot)
+        break
+      }
+      if (hasConcurrentImportedTradeConflict(importedTradeBaseline, latest)) {
+        // 正常界面在整段提交期间已被冻结；这里是防御性补偿，确保异常后台修改时
+        // 磁盘也恢复到最新本地状态，并由 commitImport 清理本批未引用附件。
+        const localSnapshot = buildPortableSnapshotFromState(
+          latest.state,
+          latest.shortcutBindings,
+        )
+        await storage.commitImport(localSnapshot, prepared.assets, { pruneUnreferenced: true })
+        throw new Error(
+          '导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。',
+        )
+      }
+      revision = latest
+    }
+
+    const parts: string[] = [`${prepared.payload.trades.length} 笔交易`]
+    if (prepared.assets.length > 0) parts.push(`${prepared.assets.length} 个附件`)
+    return { summary: `已导入 ${parts.join('、')}` }
+  } finally {
+    if (suspended) await resumePersistAndFlush()
+    unlockInteraction()
   }
-
-  const trades = await Promise.all(
-    payload.trades.map(async (t) => ({
-      ...t,
-      note: await externalizeNoteImages(t.note, storage),
-    })),
-  )
-
-  const assetCount = payload.assets?.length ?? 0
-  const parts: string[] = [`${trades.length} 笔交易`]
-  if (assetCount > 0) parts.push(`${assetCount} 个附件`)
-
-  useStore.getState().importData({ ...payload, trades })
-  await flushPersistNow()
-  return { summary: `已导入 ${parts.join('、')}` }
 }
 
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
@@ -669,6 +841,17 @@ function clearSessionUiAfterLibrarySwitch(): void {
   useSaveStatus.getState().reset()
 }
 
+async function flushCurrentLibraryAtStableRevision(): Promise<PersistedStateRevision> {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await waitForPendingStorageOperations()
+    const before = capturePersistedStateRevision()
+    await flushPersistNow()
+    const after = capturePersistedStateRevision()
+    if (hasSamePersistedStateRevision(before, after)) return after
+  }
+  throw new Error('切换期间内容持续变化，请停止编辑后重试')
+}
+
 /**
  * 设置内切换活跃库：先保存当前库，再打开/新建目录，最后重载快照到 store。
  * 挂起 persist，避免切换瞬间把旧内存写入新路径。
@@ -685,25 +868,51 @@ export async function switchActiveLibrary(
   const picked = libPath ?? (await bridge.pickLibraryFolder())
   if (!picked) return { ok: false, canceled: true }
 
-  await flushPersistNow()
-
-  suspendPersist()
+  const previousPath = await bridge.getLibraryPath()
+  let prepared: Awaited<ReturnType<typeof bridge.prepareLibrarySwitch>>
   try {
-    const result =
-      mode === 'create'
-        ? await bridge.createNewLibrary(picked)
-        : await bridge.openExistingLibrary(picked)
+    prepared = await bridge.prepareLibrarySwitch(picked, mode)
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : '候选交易库准备失败',
+    }
+  }
+  if (!prepared.ok) {
+    return { ok: false, error: prepared.error ?? '候选交易库准备失败' }
+  }
+
+  const unlockInteraction = lockStorageCutoverInteraction()
+  suspendPersist()
+  let safeToFlush = false
+  let candidateActivated = false
+  try {
+    const stableRevision = await flushCurrentLibraryAtStableRevision()
+    const result = await bridge.activatePreparedLibrary(prepared.token)
     if (!result.ok) {
+      safeToFlush = await bridge.getLibraryPath().then(
+        (activePath) => activePath === previousPath,
+        () => false,
+      )
       const message =
         mode === 'open' && 'error' in result && typeof result.error === 'string' && result.error
           ? result.error
           : '切换库失败'
-      return { ok: false, error: message }
+      return {
+        ok: false,
+        error: safeToFlush
+          ? message
+          : `${message}；资料库状态已变化，为保护数据已暂停自动保存，请重新启动应用`,
+      }
     }
 
+    candidateActivated = true
+    if (!hasSamePersistedStateRevision(stableRevision, capturePersistedStateRevision())) {
+      throw new Error('切库激活期间内容发生变化')
+    }
     getElectronAdapter().clearObjectUrlCache()
 
-    const snapshot = await bridge.loadSnapshot()
+    const snapshot = result.snapshot
     if (snapshot) {
       applySnapshotToStore(snapshot)
       clearSessionUiAfterLibrarySwitch()
@@ -712,15 +921,38 @@ export async function switchActiveLibrary(
       useSaveStatus.getState().reset()
     }
 
-    const path = await bridge.getLibraryPath()
-    return { ok: true, path }
+    safeToFlush = true
+    return { ok: true, path: await bridge.getLibraryPath() }
   } catch (err) {
+    safeToFlush = candidateActivated
+      ? false
+      : await bridge.getLibraryPath().then(
+          (activePath) => activePath === previousPath,
+          () => false,
+        )
     return {
       ok: false,
-      error: err instanceof Error ? err.message : '切换库时发生错误',
+      error: safeToFlush
+        ? (err instanceof Error ? err.message : '切换库时发生错误')
+        : '新资料库载入失败；为保护数据已暂停自动保存，请重新启动应用',
     }
   } finally {
-    resumePersist({ flushNow: true })
+    if (!candidateActivated) {
+      await bridge.cancelPreparedLibrary(prepared.token).catch(() => false)
+    }
+    unlockInteraction()
+    if (safeToFlush) {
+      await resumePersistAndFlush()
+    } else {
+      discardPendingAndResumePersist()
+      disablePersistWrites()
+      useSaveStatus.getState().setError()
+      try {
+        window.location?.reload()
+      } catch {
+        /* 非浏览器测试环境没有 location；正式客户端会立即重新载入当前资料库。 */
+      }
+    }
   }
 }
 
@@ -738,19 +970,28 @@ export async function importJournalArchive(): Promise<{
   error?: string
 }> {
   if (!isElectron()) return { ok: false, error: 'Electron bridge is not available' }
-  const result = await getJournalBridge()!.importJournalZip()
-  if (!result.ok) {
-    console.error('[importJournalArchive] result not ok', result.error)
-    return { ok: false, canceled: result.canceled, error: result.error }
+  const unlockInteraction = lockStorageCutoverInteraction()
+  let suspended = false
+  try {
+    await flushStorageBeforeCutover()
+    suspendPersist()
+    suspended = true
+    const result = await getJournalBridge()!.importJournalZip()
+    if (!result.ok) {
+      console.error('[importJournalArchive] result not ok', result.error)
+      return { ok: false, canceled: result.canceled, error: result.error }
+    }
+    if (!result.snapshot) {
+      console.error('[importJournalArchive] snapshot is null after import')
+      return { ok: false, error: 'Imported archive did not contain a readable snapshot' }
+    }
+    getElectronAdapter().clearObjectUrlCache()
+    applySnapshotToStore(result.snapshot)
+    return { ok: true }
+  } finally {
+    if (suspended) await resumePersistAndFlush()
+    unlockInteraction()
   }
-  if (!result.snapshot) {
-    console.error('[importJournalArchive] snapshot is null after import')
-    return { ok: false, error: 'Imported archive did not contain a readable snapshot' }
-  }
-  getElectronAdapter().clearObjectUrlCache()
-  applySnapshotToStore(result.snapshot)
-  await flushPersistNow()
-  return { ok: true }
 }
 
 export async function getLibraryPath(): Promise<string | null> {

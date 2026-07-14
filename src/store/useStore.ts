@@ -17,7 +17,7 @@ import { type UserProfile } from '@/storage/types'
 import type { ExportPayload } from '@/lib/importExport'
 import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
-import { isTerminal } from '@/lib/tradeStatus'
+import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 import { promoteTradeSession, promoteTradeNotionMeta } from '@/lib/tradeView'
 import {
@@ -31,14 +31,16 @@ import {
   normalizeSymbolCatalog,
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
-import { normalizeTradeMetrics } from '@/lib/tradeTruth'
+import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
 import { formatYmd } from '@/lib/periods'
+import type { TradeClosePatch } from '@/lib/tradeClose'
+import { normalizeInitialStopLoss, prepareTradeResultEdit } from '@/lib/tradeResult'
 import {
   normalizeSidebarWorkspaceItems,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 
-type TradeUpsertSlice = {
+export type TradeUpsertSlice = {
   trades: Trade[]
   strategies: Strategy[]
   symbolCatalog: string[]
@@ -48,6 +50,56 @@ type TradeUpsertSlice = {
 
 type UndoSnapshot = { id: string; prev: Trade }
 
+const EXECUTION_RESULT_KEYS = ['side', 'entry', 'exit', 'stopLoss', 'size'] as const
+const REVIEW_SENSITIVE_RESULT_KEYS = [
+  'status',
+  ...EXECUTION_RESULT_KEYS,
+  'pnl',
+  'rMultiple',
+] as const
+
+function sameResultSemanticValue(left: unknown, right: unknown): boolean {
+  return left === right || (left == null && right == null)
+}
+
+function reopenReviewAfterResultChange(previous: Trade, next: Trade): Trade {
+  if (previous.reviewStatus !== 'reviewed') return next
+  const previousInitialRisk = previous.initialStopLoss ?? previous.stopLoss ?? null
+  const nextInitialRisk = next.initialStopLoss ?? next.stopLoss ?? null
+  const changed =
+    REVIEW_SENSITIVE_RESULT_KEYS.some(
+      (key) => !sameResultSemanticValue(previous[key], next[key]),
+    ) ||
+    !sameResultSemanticValue(previousInitialRisk, nextInitialRisk) ||
+    resolveTradeResultSource(previous) !== resolveTradeResultSource(next)
+  return changed
+    ? { ...next, reviewStatus: 'unreviewed', reviewedAt: null }
+    : next
+}
+
+function reconcileExistingExecutionEdit(previous: Trade, next: Trade): Trade {
+  const patch: Partial<Pick<Trade, (typeof EXECUTION_RESULT_KEYS)[number]>> = {}
+  for (const key of EXECUTION_RESULT_KEYS) {
+    if (!Object.is(previous[key], next[key])) {
+      Object.assign(patch, { [key]: next[key] })
+    }
+  }
+  if (Object.keys(patch).length === 0) return next
+
+  const result = prepareTradeResultEdit({
+    ...previous,
+    status: next.status,
+    pnl: next.pnl,
+    rMultiple: next.rMultiple,
+    resultSource: next.resultSource,
+  }, { kind: 'execution', patch })
+  return {
+    ...next,
+    ...result.patch,
+    ...(result.status && isExecutedClosed(next.status) ? { status: result.status } : {}),
+  }
+}
+
 function appendBoundedHistory(
   stack: UndoSnapshot[][],
   snapshots: UndoSnapshot[],
@@ -56,9 +108,9 @@ function appendBoundedHistory(
 }
 
 function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
-  const exists = s.trades.some((t) => t.id === trade.id)
+  const previousTrade = s.trades.find((t) => t.id === trade.id)
   const strategyId = trade.strategyId || s.strategies[0]?.id || 'uncategorized'
-  let normalized: Trade = normalizeTradeMetrics(promoteTradeNotionMeta(
+  let normalized: Trade = normalizeInitialStopLoss(normalizeTradeMetrics(promoteTradeNotionMeta(
     promoteTradeSession(
       normalizeReviewFields({
         ...trade,
@@ -68,13 +120,19 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
         activities: trade.activities,
       }),
     ),
-  ))
+  )))
+  if (previousTrade) {
+    normalized = reopenReviewAfterResultChange(
+      previousTrade,
+      reconcileExistingExecutionEdit(previousTrade, normalized),
+    )
+  }
   const symbolKey = normalizeSymbol(normalized.symbol)
   const symbolCatalog =
     symbolKey && !s.symbolCatalog.includes(symbolKey)
       ? normalizeSymbolCatalog([...s.symbolCatalog, symbolKey])
       : s.symbolCatalog
-  if (!exists) {
+  if (!previousTrade) {
     const withCreate = createActivity(normalized)
     return {
       trades: [withCreate, ...s.trades],
@@ -84,7 +142,7 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
       mistakeTagPresets: s.mistakeTagPresets,
     }
   }
-  const prev = s.trades.find((t) => t.id === trade.id)
+  const prev = previousTrade
   if (prev && prev.status !== normalized.status) {
     normalized = appendActivity(normalized, {
       kind: 'status',
@@ -99,6 +157,18 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
     tagPresets: s.tagPresets,
     mistakeTagPresets: s.mistakeTagPresets,
   }
+}
+
+/** 纯计算批量写入结果，供需要先落盘、再发布到 store 的原子导入流程复用。 */
+export function applyTradeUpsertsToSlice(
+  initial: TradeUpsertSlice,
+  trades: Trade[],
+): TradeUpsertSlice {
+  let slice = initial
+  for (const trade of trades) {
+    slice = upsertTradeIntoSlice(slice, trade)
+  }
+  return slice
 }
 
 interface State {
@@ -143,6 +213,11 @@ interface State {
   setDisplayName: (name: string) => void
   hydrateProfile: (profile?: UserProfile) => void
   setStatus: (id: string, status: TradeStatus) => void
+  completeTradeClose: (
+    id: string,
+    status: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>,
+    patch: TradeClosePatch,
+  ) => void
   setConviction: (id: string, conviction: Conviction) => void
   setSide: (id: string, side: TradeSide) => void
   setStrategy: (id: string, strategyId: string) => void
@@ -160,14 +235,17 @@ interface State {
         | 'size'
         | 'pnl'
         | 'rMultiple'
+        | 'resultSource'
         | 'side'
         | 'openedAt'
         | 'closedAt'
         | 'stopLoss'
+        | 'initialStopLoss'
         | 'missReason'
         | 'tradeKind'
         | 'mistakeTags'
         | 'reviewStatus'
+        | 'reviewedAt'
         | 'reviewCategory'
         | 'timeframe'
         | 'session'
@@ -446,12 +524,37 @@ export const useStore = create<State>()((set, get) => ({
                   : null,
                 missReason: status === 'missed' ? t.missReason : undefined,
               }
-              return appendActivity(updated, {
+              return appendActivity(reopenReviewAfterResultChange(t, updated), {
                 kind: 'status',
                 status,
                 timestamp: new Date().toISOString(),
               })
             }),
+          }
+        }),
+      completeTradeClose: (id, status, patch) =>
+        set((s) => {
+          const previous = s.trades.find((trade) => trade.id === id)
+          if (!previous) return s
+          const updated = {
+            ...previous,
+            ...patch,
+            status,
+            closedAt: patch.closedAt ?? previous.closedAt ?? formatYmd(new Date()),
+          }
+          const reconciled = reopenReviewAfterResultChange(previous, updated)
+          const withActivity = previous.status === status
+            ? reconciled
+            : appendActivity(reconciled, {
+                kind: 'status',
+                status,
+                timestamp: new Date().toISOString(),
+              })
+          return {
+            undoStack: appendBoundedHistory(s.undoStack, [{ id, prev: previous }]),
+            redoStack: [],
+            closeTradeRequest: null,
+            trades: s.trades.map((trade) => (trade.id === id ? withActivity : trade)),
           }
         }),
       setConviction: (id, conviction) =>
@@ -460,7 +563,13 @@ export const useStore = create<State>()((set, get) => ({
         })),
       setSide: (id, side) =>
         set((s) => ({
-          trades: s.trades.map((t) => (t.id === id ? { ...t, side } : t)),
+          trades: s.trades.map((t) => {
+            if (t.id !== id || t.side === side) return t
+            return reopenReviewAfterResultChange(
+              t,
+              reconcileExistingExecutionEdit(t, { ...t, side }),
+            )
+          }),
         })),
       setStrategy: (id, strategyId) =>
         set((s) => ({
@@ -512,12 +621,21 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           const previous = s.trades.find((t) => t.id === id)
           if (!previous) return s
+          const reviewPatch = patch.reviewStatus === undefined
+            ? {}
+            : patch.reviewStatus === 'reviewed'
+              ? {
+                  reviewedAt: previous.reviewStatus === 'reviewed'
+                    ? previous.reviewedAt ?? new Date().toISOString()
+                    : new Date().toISOString(),
+                }
+              : { reviewedAt: null }
           return {
             undoStack: appendBoundedHistory(s.undoStack, [{ id, prev: previous }]),
             redoStack: [],
             trades: s.trades.map((t) => {
               if (t.id !== id) return t
-              return { ...t, ...patch }
+              return reopenReviewAfterResultChange(t, { ...t, ...patch, ...reviewPatch })
             }),
           }
         }),
@@ -637,17 +755,13 @@ export const useStore = create<State>()((set, get) => ({
       upsertTrades: (trades) =>
         set((s) => {
           if (trades.length === 0) return s
-          let slice: TradeUpsertSlice = {
+          return applyTradeUpsertsToSlice({
             trades: s.trades,
             strategies: s.strategies,
             symbolCatalog: s.symbolCatalog,
             tagPresets: s.tagPresets,
             mistakeTagPresets: s.mistakeTagPresets,
-          }
-          for (const trade of trades) {
-            slice = upsertTradeIntoSlice(slice, trade)
-          }
-          return slice
+          }, trades)
         }),
       removeTrade: (id) => get().removeTrades([id]),
       removeTrades: (ids) =>

@@ -56,8 +56,7 @@ export function TradeCloseDialog() {
     request ? state.trades.find((item) => item.id === request.tradeId) : undefined,
   )
   const cancelTradeClose = useStore((state) => state.cancelTradeClose)
-  const updateTradeData = useStore((state) => state.updateTradeData)
-  const setStatus = useStore((state) => state.setStatus)
+  const completeTradeClose = useStore((state) => state.completeTradeClose)
   const [outcome, setOutcome] = useState<CloseOutcome>('win')
   const [resultMode, setResultMode] = useState<CloseResultMode>('pnl')
   const [exit, setExit] = useState('')
@@ -129,9 +128,7 @@ export function TradeCloseDialog() {
       setError(result.error)
       return
     }
-    updateTradeData(trade.id, result.patch)
-    setStatus(trade.id, result.status)
-    cancelTradeClose()
+    completeTradeClose(trade.id, result.status, result.patch)
     toast(`${trade.ref} 已平仓，已加入待复盘`)
   }
 

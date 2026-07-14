@@ -19,6 +19,9 @@ export type MissReason =
 
 export type TradeSide = 'long' | 'short'
 
+/** 平仓结果的唯一依据。导入数据可能同时携带金额与 R，因此单独标记。 */
+export type TradeResultSource = 'pnl' | 'r' | 'price' | 'imported'
+
 export type Conviction = 'low' | 'medium' | 'high' | 'urgent' // 信心度，沿用优先级视觉
 
 export type ReviewStatus = 'unreviewed' | 'reviewed' | 'focus'
@@ -77,6 +80,8 @@ export interface Trade {
   tags: string[]
   mistakeTags: string[]
   reviewStatus: ReviewStatus
+  /** 最近一次完成复盘的时间；用于今日闭环，不以开/平仓日期代替。 */
+  reviewedAt?: string | null
   reviewCategory: ReviewCategory
   tradeKind: TradeKind
   /** 案例来源交易；仅案例记录使用，保证知识条目可追溯。 */
@@ -87,9 +92,11 @@ export interface Trade {
   entry: number
   exit: number | null
   stopLoss?: number | null
+  initialStopLoss?: number | null // 首次按价格平仓时冻结，避免后续移动止损改写历史 R
   size: number // 仓位
   pnl: number | null // 盈亏金额；null 表示尚未填写，0 表示真实保本
   rMultiple: number | null // R 倍数；null 表示尚未填写，0 表示真实保本
+  resultSource?: TradeResultSource // 用户确认的结果依据；旧数据在载入时推断
   openedAt: string // ISO date
   recordedAt?: string // 记录收录时间；案例排序不受来源交易日期影响
   closedAt: string | null

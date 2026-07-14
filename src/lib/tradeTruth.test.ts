@@ -56,8 +56,10 @@ export function testSummaryUsesOnlyVerifiedResultsAndReportsCoverage(): void {
   assert(summary.evaluatedCount === 2, 'missing and conflicting results must not enter win rate')
   assert(summary.winCount === 1 && summary.lossCount === 1, 'verified outcomes should be counted once')
   assert(summary.winRate === 50, 'win rate denominator should use verified outcomes only')
-  assert(summary.pnlCount === 3, 'PnL coverage should count finite PnL values')
-  assert(summary.rCount === 3, 'R coverage should count finite R values')
+  assert(summary.pnlCount === 2, 'conflicting PnL must be excluded from performance totals')
+  assert(summary.rCount === 2, 'conflicting R must be excluded from performance totals')
+  assert(summary.totalPnl === 5, 'cash totals must use verified records only')
+  assert(summary.averageR === 0.5, 'average R must use verified records only')
 }
 
 export function testLegacyPlaceholderZerosBecomeMissingWithoutErasingBreakeven(): void {
@@ -78,4 +80,47 @@ export function testLegacyPlaceholderZerosBecomeMissingWithoutErasingBreakeven()
   assert(planned.pnl === null && planned.rMultiple === null, 'active placeholders should become missing')
   assert(falseWin.pnl === null && falseWin.rMultiple === null, 'contradictory zero win should become pending')
   assert(breakeven.pnl === 0 && breakeven.rMultiple === 0, 'explicit breakeven zeros must be preserved')
+}
+
+export function testLegacyResultsReceiveOneStableAuthorityDuringNormalization(): void {
+  const cash = normalizeTradeMetrics({ ...baseTrade, pnl: 10, rMultiple: null })
+  const rOnly = normalizeTradeMetrics({ ...baseTrade, pnl: null, rMultiple: 2 })
+  const importedPair = normalizeTradeMetrics({ ...baseTrade, pnl: 10, rMultiple: 2 })
+  const price = normalizeTradeMetrics({
+    ...baseTrade,
+    pnl: null,
+    rMultiple: 2,
+    resultSource: 'price',
+  })
+
+  assert(cash.resultSource === 'pnl', 'legacy cash-only results should become cash-authoritative')
+  assert(rOnly.resultSource === 'r', 'legacy R-only results should become R-authoritative')
+  assert(importedPair.resultSource === 'imported', 'legacy paired metrics must remain traceable as imported')
+  assert(price.resultSource === 'price', 'an explicit price authority must never be inferred away')
+}
+
+export function testDeclaredAuthorityIgnoresNonAuthoritativeMetric(): void {
+  const truth = resolveTradeTruth({
+    ...baseTrade,
+    status: 'win',
+    pnl: 10,
+    rMultiple: -2,
+    resultSource: 'pnl',
+  })
+
+  assert(truth.outcome === 'win', 'declared cash authority must determine the outcome')
+  assert(!truth.hasConflict, 'a stale non-authoritative R must not create a result conflict')
+}
+
+export function testDeclaredAuthorityNeverFallsBackWhenItsMetricIsMissing(): void {
+  const truth = resolveTradeTruth({
+    ...baseTrade,
+    status: 'win',
+    pnl: null,
+    rMultiple: 2,
+    resultSource: 'pnl',
+  })
+
+  assert(truth.outcome === 'unknown', 'missing authoritative cash must remain incomplete')
+  assert(!truth.isResultComplete, 'non-authoritative R must not complete a cash-authority result')
 }

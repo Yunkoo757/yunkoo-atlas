@@ -1,12 +1,21 @@
-import { app } from 'electron'
+import electronRuntime from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { writeFileAtomicallySync } from './atomicFile'
 
 const CONFIG_FILE = 'library-config.json'
+const electronApp =
+  typeof electronRuntime === 'object' && electronRuntime !== null && 'app' in electronRuntime
+    ? (electronRuntime as { app?: { getPath(name: 'userData' | 'documents'): string } }).app
+    : undefined
+
+function requireAppPath(name: 'userData' | 'documents'): string {
+  if (!electronApp) throw new Error('Electron app paths are unavailable')
+  return electronApp.getPath(name)
+}
 
 function getConfigPath(): string {
-  return path.join(app.getPath('userData'), CONFIG_FILE)
+  return path.join(requireAppPath('userData'), CONFIG_FILE)
 }
 
 export interface LibraryConfig {
@@ -30,7 +39,7 @@ export function saveLibraryConfig(cfg: LibraryConfig): void {
 }
 
 export function getDefaultLibraryPath(): string {
-  return path.join(app.getPath('documents'), 'Yunkoo Atlas')
+  return path.join(requireAppPath('documents'), 'Yunkoo Atlas')
 }
 
 export function getLibraryPath(): string {

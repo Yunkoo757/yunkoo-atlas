@@ -20,6 +20,8 @@ import { ICON_TOOLBAR } from '@/icons/iconSize'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'
+import { trackPendingStorageOperation } from '@/storage/pendingOperations'
+import { appendAssetToNoteDraft } from '@/storage/noteDrafts'
 import './Editor.css'
 
 const editorBridge = {
@@ -36,23 +38,38 @@ const editorBridge = {
 export function syncEditorLightboxEditable(
   editor: Pick<TiptapEditor, 'setEditable'>,
   lightboxOpen: boolean,
+  readOnly = false,
 ): void {
-  editor.setEditable(!lightboxOpen, false)
+  editor.setEditable(!lightboxOpen && !readOnly, false)
 }
 
 export function Editor({
   content,
   onChange,
   placeholder = '写下这笔交易的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图',
+  readOnly = false,
+  noteDraftId,
+  allowImages = true,
 }: {
   content: string
   onChange: (html: string) => void
   placeholder?: string
+  readOnly?: boolean
+  noteDraftId?: string
+  allowImages?: boolean
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
+  const readOnlyRef = useRef(readOnly)
+  const editorRef = useRef<TiptapEditor | null>(null)
+  const noteDraftIdRef = useRef(noteDraftId)
+  const allowImagesRef = useRef(allowImages)
   onChangeRef.current = onChange
+  readOnlyRef.current = readOnly
+  noteDraftIdRef.current = noteDraftId
+  allowImagesRef.current = allowImages
   const editor = useEditor({
+    editable: !readOnly,
     extensions: [
       StarterKit,
       TaskList,
@@ -73,13 +90,16 @@ export function Editor({
     content,
     editorProps: {
       handlePaste(_view, event) {
+        if (!allowImagesRef.current) return false
         const items = event.clipboardData?.items
         if (!items) return false
         for (const it of Array.from(items)) {
           if (it.type.startsWith('image/')) {
             const file = it.getAsFile()
-            if (file && editorBridge.editor) {
-              insertImageFile(editorBridge.editor, file)
+            if (file && editorRef.current) {
+              void trackPendingStorageOperation(
+                insertImageFile(editorRef.current, file, noteDraftIdRef.current),
+              )
               return true
             }
           }
@@ -87,10 +107,13 @@ export function Editor({
         return false
       },
       handleDrop(_view, event) {
+        if (!allowImagesRef.current) return false
         const files = (event as DragEvent).dataTransfer?.files
         if (files && files.length && files[0].type.startsWith('image/')) {
-          if (editorBridge.editor) {
-            insertImageFile(editorBridge.editor, files[0])
+          if (editorRef.current) {
+            void trackPendingStorageOperation(
+              insertImageFile(editorRef.current, files[0], noteDraftIdRef.current),
+            )
             event.preventDefault()
             return true
           }
@@ -120,15 +143,18 @@ export function Editor({
         },
       },
     },
-    onUpdate: ({ editor }) => onChangeRef.current(editor.getHTML()),
+    onUpdate: ({ editor }) => {
+      if (!readOnlyRef.current) onChangeRef.current(editor.getHTML())
+    },
   })
 
   editorBridge.editor = editor
+  editorRef.current = editor
 
   useEffect(() => {
     if (!editor) return
-    syncEditorLightboxEditable(editor, lightboxOpen)
-  }, [editor, lightboxOpen])
+    syncEditorLightboxEditable(editor, lightboxOpen, readOnly)
+  }, [editor, lightboxOpen, readOnly])
 
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
@@ -145,7 +171,7 @@ export function Editor({
           tippyOptions={{ duration: 120 }}
           className="bubble-menu"
           shouldShow={({ editor: ed, state }) => {
-            if (lightboxOpen) return false
+            if (lightboxOpen || readOnly) return false
             if (ed.isActive('image')) return false
             return !state.selection.empty
           }}
@@ -238,25 +264,50 @@ function BBtn({
 }
 
 // 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
-async function insertImageFile(editor: TiptapEditor, file: File) {
+async function insertImageFile(editor: TiptapEditor, file: File, noteDraftId?: string) {
+  let savedAssetId: string | null = null
   try {
     const storage = getStorage()
-    const id = await storage.saveAsset(file, file.type || 'image/png')
-    const displayUrl = await storage.getAssetObjectUrl(id)
+    savedAssetId = await storage.saveAsset(file, file.type || 'image/png')
+    if (editor.isDestroyed) {
+      if (noteDraftId) await appendAssetToNoteDraft(noteDraftId, savedAssetId)
+      return
+    }
+    const displayUrl = await storage.getAssetObjectUrl(savedAssetId)
     if (!displayUrl) throw new Error('getAssetObjectUrl returned null')
+
+    if (editor.isDestroyed) {
+      if (noteDraftId) await appendAssetToNoteDraft(noteDraftId, savedAssetId)
+      return
+    }
 
     editor
       .chain()
       .focus()
       .setImage({ src: displayUrl })
-      .updateAttributes('image', { 'data-asset-id': id })
+      .updateAttributes('image', { 'data-asset-id': savedAssetId })
       .createParagraphNear()
       .focus()
       .run()
   } catch (e) {
-    // 持久化失败时回退到临时 blob URL（至少图片能显示）
+    if (editor.isDestroyed) {
+      if (savedAssetId && noteDraftId) {
+        try {
+          await appendAssetToNoteDraft(noteDraftId, savedAssetId)
+        } catch (appendError) {
+          console.error('Saved image draft recovery failed', appendError)
+        }
+      }
+      console.error('Image persistence finished after editor was destroyed', e)
+      return
+    }
+
+    // 编辑器仍在时保留即时预览；已有永久 ID 时同时绑定，后续不会重复写入图片。
     const url = URL.createObjectURL(file)
-    editor.chain().focus().setImage({ src: url }).createParagraphNear().focus().run()
+    const chain = editor.chain().focus().setImage({ src: url })
+    if (savedAssetId) chain.updateAttributes('image', { 'data-asset-id': savedAssetId })
+    const inserted = chain.createParagraphNear().focus().run()
+    if (!inserted) URL.revokeObjectURL(url)
     console.error('Image persist failed, using blob fallback', e)
   }
 }

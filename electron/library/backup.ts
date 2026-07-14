@@ -205,7 +205,7 @@ export function createBackupAtPath(
 export function createBackup(storage: LibraryStorage): string | null {
   try {
     const now = Date.now()
-    const dest = createBackupAtPath(storage, getLibraryPath(), now)
+    const dest = createBackupAtPath(storage, storage.getLibraryPath(), now)
     if (dest) lastBackupAt = now
     return dest
   } catch (err) {
@@ -546,14 +546,16 @@ export function startAutoBackup(
 ): void {
   stopAutoBackup()
   storageRef = storage
-  rotateBackups(ensureLibraryDirs(getLibraryPath()).backups, maxBackups)
+  lastBackupAt = 0
+  const libraryPath = storage.getLibraryPath()
+  rotateBackups(ensureLibraryDirs(libraryPath).backups, maxBackups)
 
   // 定时备份
   intervalTimer = setInterval(() => {
     if (!storageRef) return
     const result = createBackup(storageRef)
     if (result) {
-      const { backups } = ensureLibraryDirs(getLibraryPath())
+      const { backups } = ensureLibraryDirs(storageRef.getLibraryPath())
       rotateBackups(backups, maxBackups)
     }
   }, intervalMs)
@@ -565,7 +567,7 @@ export function startAutoBackup(
       if (Date.now() - lastBackupAt > 5000) {
         const result = createBackup(storageRef)
         if (result) {
-          const { backups } = ensureLibraryDirs(getLibraryPath())
+          const { backups } = ensureLibraryDirs(storageRef.getLibraryPath())
           rotateBackups(backups, maxBackups)
         }
       }

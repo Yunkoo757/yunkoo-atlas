@@ -1,9 +1,11 @@
 import type { PersistedSnapshot } from '@/storage/types'
+import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
 const TRADE_KINDS = new Set(['live', 'paper', 'case'])
 const CONVICTIONS = new Set(['low', 'medium', 'high', 'urgent'])
+const RESULT_SOURCES = new Set(['pnl', 'r', 'price', 'imported'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -40,7 +42,12 @@ function isTrade(value: unknown): boolean {
   if (value.exit !== undefined && !isNullableFiniteNumber(value.exit)) return false
   if (value.pnl !== undefined && !isNullableFiniteNumber(value.pnl)) return false
   if (value.rMultiple !== undefined && !isNullableFiniteNumber(value.rMultiple)) return false
+  if (value.stopLoss !== undefined && !isNullableFiniteNumber(value.stopLoss)) return false
+  if (value.initialStopLoss !== undefined && !isNullableFiniteNumber(value.initialStopLoss)) return false
+  if (value.resultSource !== undefined && !RESULT_SOURCES.has(String(value.resultSource))) return false
+  if (!isTradeResultAuthorityConsistent(value)) return false
   if (value.closedAt !== undefined && value.closedAt !== null && typeof value.closedAt !== 'string') return false
+  if (value.reviewedAt !== undefined && value.reviewedAt !== null && typeof value.reviewedAt !== 'string') return false
   return true
 }
 

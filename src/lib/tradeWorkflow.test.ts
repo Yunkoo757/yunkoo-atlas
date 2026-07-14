@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { useStore } from '@/store/useStore'
 
 const base: Trade = {
   id: 'workflow-1',
@@ -65,10 +66,108 @@ export function testTodayWorkflowSeparatesActionQueuesWithoutDuplicates(): void 
     'verified unreviewed queue is distinct',
   )
   assert(
-    buckets.todayRecords.map((trade) => trade.id).join(',') === 'reviewed-today',
+    buckets.completedToday.map((trade) => trade.id).join(',') === 'reviewed-today',
     'reviewed records remain visible in today history without duplicating action queues',
   )
   assert(buckets.actionCount === 3, 'action count should represent unfinished work')
+}
+
+export function testTodayWorkflowKeepsHistoricalWorkVisibleButLabelsItsScope(): void {
+  const historicalReview = {
+    ...base,
+    id: 'historical-review',
+    status: 'win',
+    exit: 110,
+    pnl: 10,
+    openedAt: '2026-07-11',
+    closedAt: '2026-07-12',
+  } as Trade
+  const reviewedYesterday = {
+    ...historicalReview,
+    id: 'reviewed-yesterday',
+    reviewStatus: 'reviewed',
+  } as Trade
+  const reviewedToday = {
+    ...reviewedYesterday,
+    id: 'reviewed-today',
+    reviewedAt: '2026-07-13T09:30:00.000Z',
+  } as Trade
+
+  const buckets = getTodayWorkflowBuckets(
+    [historicalReview, reviewedYesterday, reviewedToday],
+    '2026-07-13',
+  )
+
+  assert(
+    buckets.reviewPending.map((trade) => trade.id).join(',') === 'historical-review',
+    'historical unfinished work should remain actionable',
+  )
+  assert(buckets.historicalActionCount === 1, 'historical work should be counted separately')
+  assert(
+    buckets.completedToday.map((trade) => trade.id).join(',') === 'reviewed-today',
+    'completed history should contain only records completed today',
+  )
+}
+
+export function testHistoricalTradeCompletedReviewTodayAppearsInCompletedQueue(): void {
+  const historicalReviewedToday = {
+    ...base,
+    id: 'historical-reviewed-today',
+    status: 'win',
+    exit: 110,
+    pnl: 10,
+    closedAt: '2026-07-12',
+    reviewStatus: 'reviewed',
+    reviewedAt: '2026-07-13T08:00:00.000Z',
+  } as Trade
+
+  const buckets = getTodayWorkflowBuckets([historicalReviewedToday], '2026-07-13')
+
+  assert(
+    buckets.completedToday.map((trade) => trade.id).join(',') === 'historical-reviewed-today',
+    'finishing a historical review today should remain visible in today completion history',
+  )
+}
+
+export function testReviewCompletionRecordsAndClearsItsOwnTimestamp(): void {
+  const original = useStore.getState()
+  const trade = {
+    ...base,
+    id: 'review-timestamp',
+    status: 'win',
+    exit: 110,
+    pnl: 10,
+    closedAt: '2026-07-12',
+  } as Trade
+  useStore.setState({ trades: [trade], undoStack: [], redoStack: [] })
+
+  try {
+    useStore.getState().updateTradeData(trade.id, { reviewStatus: 'reviewed' })
+    const reviewed = useStore.getState().trades[0]!
+    assert(Boolean(reviewed.reviewedAt), 'completing a review should record its completion time')
+
+    useStore.getState().updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
+    assert(
+      useStore.getState().trades[0]?.reviewedAt === null,
+      'reopening a review should clear the old completion time',
+    )
+  } finally {
+    useStore.setState({
+      trades: original.trades,
+      undoStack: original.undoStack,
+      redoStack: original.redoStack,
+    })
+  }
+}
+
+export function testTodayWorkflowDefersFuturePlans(): void {
+  const futurePlan = { ...base, id: 'future-plan', status: 'planned', openedAt: '2026-07-14' } as Trade
+  const currentOpen = { ...base, id: 'current-open', status: 'open', openedAt: '2026-07-14' } as Trade
+
+  const buckets = getTodayWorkflowBuckets([futurePlan, currentOpen], '2026-07-13')
+
+  assert(buckets.active.map((trade) => trade.id).join(',') === 'current-open', 'future plans wait until due')
+  assert(buckets.actionCount === 1, 'deferred plans must not inflate today action count')
 }
 
 export function testTodayWorkflowExcludesCasesPaperAndDeletedTrades(): void {
@@ -80,6 +179,6 @@ export function testTodayWorkflowExcludesCasesPaperAndDeletedTrades(): void {
   const buckets = getTodayWorkflowBuckets(hidden, '2026-07-13')
 
   assert(buckets.actionCount === 0, 'non-live and deleted records must not become today actions')
-  assert(buckets.todayRecords.length === 0, 'non-live and deleted records must remain hidden')
+  assert(buckets.completedToday.length === 0, 'non-live and deleted records must remain hidden')
 }
 

@@ -77,6 +77,15 @@ export class ElectronStorageAdapter implements StorageAdapter {
     await getJournalBridge()!.importAssets(assets)
   }
 
+  async commitImport(
+    snapshot: PersistedSnapshot,
+    assets: ExportAssetRecord[],
+    options?: { pruneUnreferenced?: boolean },
+  ): Promise<void> {
+    await getJournalBridge()!.commitImport(snapshot, assets, options)
+    this.clearObjectUrlCache()
+  }
+
   /** 切换库目录后释放旧附件 Object URL，避免串库缓存。 */
   clearObjectUrlCache(): void {
     for (const url of this.objectUrlCache.values()) {

@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { WorkbenchView } from '@/components/Topbar'
-import { EmptyState } from '@/components/EmptyState'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { TradeFilters } from '@/components/trades/TradeFilters'
+import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -34,6 +35,11 @@ import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { Tooltip } from '@/components/ui/Tooltip'
 import type { Strategy } from '@/data/strategies'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
+import {
+  getWorkbenchResetPath,
+  resolveWorkbenchEmptyState,
+  shouldResetWorkbenchHideClosed,
+} from '@/lib/workbenchEmptyState'
 import './BoardView.css'
 
 const CARD_ESTIMATE = 118
@@ -57,6 +63,7 @@ export function BoardView({
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const display = useStore((s) => s.display)
+  const setDisplay = useStore((s) => s.setDisplay)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
   const setStatus = useStore((s) => s.setStatus)
   const openComposer = useStore((s) => s.openComposer)
@@ -68,10 +75,12 @@ export function BoardView({
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { trades, visible } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, workspaceCount } = useWorkbenchVisibleTrades(filter)
 
   const cols = useMemo(() => {
     const map = new Map<TradeStatus, Trade[]>()
@@ -85,16 +94,27 @@ export function BoardView({
     )
   }, [visible, display.showEmptyGroups])
 
-  const emptyHint =
-    filter.type === 'active'
-      ? '暂无进行中的交易（计划中或持仓中）。'
-      : filter.type === 'starred'
-        ? '还没有星标交易。'
-        : '当前筛选下没有交易。'
-
   const subtitle = getTradesPageSubtitle(filter)
   const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例记录' : '交易'
+  const emptyState = resolveWorkbenchEmptyState({
+    totalCount: trades.length,
+    workspaceCount,
+    visibleCount: visible.length,
+    recordKind: filter.tradeKind,
+  })
+  const resetEmptyConditions = () => {
+    if (shouldResetWorkbenchHideClosed({
+      hideClosed: display.hideClosed,
+      trades,
+      filter,
+      starredIds: useStore.getState().starredIds,
+      search: location.search,
+    })) {
+      setDisplay({ hideClosed: false })
+    }
+    navigate(getWorkbenchResetPath(location.pathname, filter.tradeKind), { replace: true })
+  }
 
   const transition = { requestTradeClose, setStatus, toast }
 
@@ -113,16 +133,11 @@ export function BoardView({
       {header}
       <TradeFilters filter={filter} trades={trades} strategies={strategies} />
       <div className={'board-scroll' + (isReviewCaseView ? ' board-scroll-case' : '')}>
-        {cols.length === 0 ? (
-          <EmptyState
-            title={isReviewCaseView ? '没有案例记录' : '没有交易'}
-            hint={emptyHint}
-            action={
-              <button className="empty-btn" onClick={() => openComposer()}>
-                <Plus size={15} />
-                <span>新建{recordLabel}</span>
-              </button>
-            }
+        {emptyState ? (
+          <WorkbenchEmptyState
+            state={emptyState}
+            onCreate={() => openComposer()}
+            onReset={resetEmptyConditions}
           />
         ) : (
           cols.map((c) => (

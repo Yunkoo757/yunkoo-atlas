@@ -24,7 +24,7 @@ import { isExecutedClosed } from '@/lib/tradeStatus'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { getPeriodBounds, isDateInRange } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
-import { summarizeTradeResults } from '@/lib/tradeTruth'
+import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 import './Dashboard.css'
 
 type TimeRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
@@ -87,11 +87,12 @@ function filterByRange(trades: Trade[], range: TimeRange): Trade[] {
 
 function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
   const summary = summarizeTradeResults(closed)
-  const pnlTrades = closed.filter(
+  const verified = closed.filter(isVerifiedTradeResult)
+  const pnlTrades = verified.filter(
     (trade): trade is Trade & { pnl: number } =>
       typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
   )
-  const rTrades = closed.filter(
+  const rTrades = verified.filter(
     (trade): trade is Trade & { rMultiple: number } =>
       typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
   )

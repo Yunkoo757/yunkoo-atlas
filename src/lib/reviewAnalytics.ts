@@ -8,7 +8,7 @@ import type {
 } from '@/data/trades'
 import { resolveTimeframe } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
-import { summarizeTradeResults } from '@/lib/tradeTruth'
+import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
 
 export const DEFAULT_REVIEW_STATUS: ReviewStatus = 'unreviewed'
@@ -133,6 +133,7 @@ export function summarizeStrategyPerformance(
   const closed = all.filter((t) => isExecutedClosed(t.status))
   const result = summarizeTradeResults(closed)
   const rValues = closed
+    .filter(isVerifiedTradeResult)
     .map((trade) => trade.rMultiple)
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
   const totalR = rValues.reduce((sum, value) => sum + value, 0)

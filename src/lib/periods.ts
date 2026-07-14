@@ -134,7 +134,7 @@ export function tradeInPeriod(
 
 export function formatPeriodSubtitle(period: CalendarPeriod, now = new Date()): string {
   const bounds = getPeriodBounds(period, now)
-  // 今日页标题已是「今日记录」，副标题不再重复「今日」
+  // 今日筛选页标题已包含「今日」，副标题不再重复范围名称
   if (period === 'today') {
     return `${bounds.start} · 按开仓日`
   }

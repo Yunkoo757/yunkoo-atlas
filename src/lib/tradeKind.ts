@@ -3,6 +3,7 @@ import type { Trade, TradeKind } from '@/data/trades'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 import { promoteTradeNotionMeta, promoteTradeSession } from '@/lib/tradeView'
 import { normalizeTradeMetrics } from '@/lib/tradeTruth'
+import { normalizeInitialStopLoss } from '@/lib/tradeResult'
 
 /** 旧版 practice 与 paper 语义相同，统一为 paper（模拟） */
 export function normalizeTradeKind(kind: string | undefined): TradeKind {
@@ -40,9 +41,9 @@ export function normalizeTrades(trades: Trade[]): Trade[] {
   return trades.map((t) => {
     const tradeKind = normalizeTradeKind(t.tradeKind as string)
     const normalizedKind = tradeKind === t.tradeKind ? t : { ...t, tradeKind }
-    return normalizeTradeMetrics(
+    return normalizeInitialStopLoss(normalizeTradeMetrics(
       promoteTradeNotionMeta(promoteTradeSession(normalizeReviewFields(normalizedKind))),
-    )
+    ))
   })
 }
 

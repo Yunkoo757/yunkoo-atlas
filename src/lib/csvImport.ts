@@ -1,7 +1,7 @@
 import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind, ReviewCategory } from '@/data/trades'
 import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
-import { calcRFromStop } from '@/lib/tradeCalc'
+import { calcRFromPrices } from '@/lib/tradeCalc'
 import { formatYmd } from '@/lib/periods'
 
 export interface CsvParseResult {
@@ -384,20 +384,16 @@ export function mapRowToTrade(
     }
   }
 
-  // 全自动计算 pnl 和 rMultiple（如果未提供但有 entry/exit/size）
-  if (trade.entry && trade.exit && trade.size) {
-    if (trade.pnl === undefined) {
-      trade.pnl = (trade.exit - trade.entry) * trade.size
-      if (trade.side === 'short') trade.pnl = -trade.pnl
-    }
-    if (trade.rMultiple === undefined && trade.pnl != null && trade.entry && trade.size) {
-      trade.rMultiple = calcRFromStop(
-        trade.side ?? 'long',
-        trade.pnl,
-        trade.entry,
-        trade.stopLoss,
-        trade.size,
-      )
+  const hasPnl = typeof trade.pnl === 'number' && Number.isFinite(trade.pnl)
+  const hasR = typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple)
+  if (hasPnl || hasR) {
+    trade.resultSource = hasPnl && hasR ? 'imported' : hasPnl ? 'pnl' : 'r'
+  } else if (trade.entry && trade.exit && trade.stopLoss && trade.side) {
+    const rMultiple = calcRFromPrices(trade.side, trade.entry, trade.exit, trade.stopLoss)
+    if (rMultiple != null) {
+      trade.rMultiple = rMultiple
+      trade.resultSource = 'price'
+      trade.initialStopLoss = trade.stopLoss
     }
   }
 
@@ -433,9 +429,11 @@ export function finalizeTrade(
     entry: partial.entry,
     exit: partial.exit ?? null,
     stopLoss: partial.stopLoss ?? null,
+    initialStopLoss: partial.initialStopLoss ?? null,
     size: partial.size,
     pnl: partial.pnl ?? null,
     rMultiple: partial.rMultiple ?? null,
+    resultSource: partial.resultSource,
     openedAt: partial.openedAt,
     closedAt: partial.closedAt ?? null,
     missReason: partial.missReason,

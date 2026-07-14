@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -20,11 +20,11 @@ import {
   BookOpen,
 } from '@/icons/appIcons'
 import { tradeDetailPath } from '@/lib/tradeRoute'
-import { getStrategyName, countTradesByStrategy, sortStrategies } from '@/lib/strategies'
+import { sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
-import { collectAllTags } from '@/lib/tags'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { isAccountTrade } from '@/lib/tradeKind'
+import { collectLimitedCommandMatches } from '@/lib/commandPaletteSearch'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -44,6 +44,17 @@ interface Cmd {
   run: () => void
 }
 
+const MAX_SEARCH_RESULTS = 60
+
+interface TagCommandCandidate {
+  kind: 'live' | 'paper' | 'case'
+  path: string
+  group: string
+  unit: string
+  tag: string
+  count: number
+}
+
 export function CommandPalette({
   open,
   onClose,
@@ -51,7 +62,13 @@ export function CommandPalette({
   open: boolean
   onClose: () => void
 }) {
+  if (!open) return null
+  return <CommandPaletteDialog onClose={onClose} />
+}
+
+function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState('')
+  const deferredQuery = useDeferredValue(q)
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -63,7 +80,7 @@ export function CommandPalette({
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const commands = useMemo<Cmd[]>(() => {
+  const searchResult = useMemo(() => {
     const go = (to: string) => () => {
       navigate(to)
       onClose()
@@ -88,18 +105,6 @@ export function CommandPalette({
       keywords: `period ${slug}`,
       run: go(`/period/${slug}`),
     }))
-    const strategyNav: Cmd[] = sortStrategies(strategies, []).map((s) => {
-      const count = countTradesByStrategy(trades.filter(isAccountTrade), s.id)
-      return {
-        id: 'strat-' + s.id,
-        group: '策略',
-        icon: <StrategyIcon icon={s.icon} color={s.color} size={16} variant="nav" />,
-        label: s.name,
-        hint: `${count} 笔交易`,
-        keywords: `strategy ${s.name}`,
-        run: go(`/strategy/${s.id}`),
-      }
-    })
     const settingsNav: Cmd[] = [
       { id: 'n-strat', group: '设置', icon: <Settings2 size={16} />, label: '编辑策略', run: go('/settings/strategies') },
       { id: 'n-settings', group: '设置', icon: <Keyboard size={16} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
@@ -116,53 +121,118 @@ export function CommandPalette({
       { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { onClose(); openComposer(null, newTradeKindForPath(pathname)) } },
       { id: 'a-new-case', group: '操作', icon: <BookOpen size={16} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { onClose(); openComposer(null, 'case') } },
     ]
+
+    const query = deferredQuery.trim()
+    if (!query) {
+      const commands = [...actions, ...viewNav, ...settingsNav]
+      return { commands, total: commands.length }
+    }
+
+    const fixedCommands = [...viewNav, ...periodNav, ...settingsNav, ...actions]
+      .filter((command) => matchesSearchQuery(query, command.label, command.hint, command.keywords))
+    const commands = fixedCommands.slice(0, MAX_SEARCH_RESULTS)
+    let total = fixedCommands.length
+
     const searchableTrades = trades.filter((trade) => !trade.deletedAt)
-    const tradeCmds: Cmd[] = searchableTrades.map((t) => {
-      const stratName = getStrategyName(strategies, t.strategyId)
-      return {
-      id: 't-' + t.id,
-      group: '交易',
-      icon: <StatusIcon status={t.status} size={16} />,
-      label: `${t.symbol} · ${stratName}`,
-      hint: t.ref,
-      keywords: `${t.ref} ${t.symbol} ${stratName} ${t.tags.join(' ')}`,
-      run: go(tradeDetailPath(t)),
-    }})
+
+    const strategyCounts = new Map<string, number>()
+    for (const trade of searchableTrades) {
+      if (!isAccountTrade(trade)) continue
+      strategyCounts.set(trade.strategyId, (strategyCounts.get(trade.strategyId) ?? 0) + 1)
+    }
+    const strategyMatches = collectLimitedCommandMatches(
+      sortStrategies(strategies, []),
+      query,
+      (strategy) => [strategy.name, `strategy ${strategy.name}`],
+      (strategy): Cmd => ({
+        id: 'strat-' + strategy.id,
+        group: '策略',
+        icon: <StrategyIcon icon={strategy.icon} color={strategy.color} size={16} variant="nav" />,
+        label: strategy.name,
+        hint: `${strategyCounts.get(strategy.id) ?? 0} 笔交易`,
+        keywords: `strategy ${strategy.name}`,
+        run: go(`/strategy/${strategy.id}`),
+      }),
+      MAX_SEARCH_RESULTS - commands.length,
+    )
+    commands.push(...strategyMatches.items)
+    total += strategyMatches.total
+
     const tagWorkspaces = [
       { kind: 'live', path: '/list', group: '交易标签', unit: '笔交易' },
       { kind: 'paper', path: '/sim', group: '模拟标签', unit: '笔模拟交易' },
       { kind: 'case', path: '/review-cases', group: '案例标签', unit: '个案例' },
     ] as const
-    const tagCmds: Cmd[] = tagWorkspaces.flatMap(({ kind, path, group, unit }) => {
-      const workspaceTrades = searchableTrades.filter((trade) => trade.tradeKind === kind)
-      return collectAllTags(workspaceTrades).map((tag) => ({
-        id: `tag-${kind}-${tag}`,
-        group,
-        icon: <Tag size={16} />,
-        label: tag,
-        hint: `${workspaceTrades.filter((trade) => trade.tags.includes(tag)).length} ${unit}`,
-        keywords: tag,
-        run: go(`${path}?${new URLSearchParams({ tag }).toString()}`),
-      }))
-    })
-    return [...viewNav, ...periodNav, ...strategyNav, ...settingsNav, ...actions, ...tagCmds, ...tradeCmds]
-  }, [trades, strategies, display, shortcutBindings, pathname, navigate, onClose, openComposer])
-
-  const filtered = useMemo(() => {
-    if (!q.trim()) return commands
-    return commands.filter((c) =>
-      matchesSearchQuery(q, c.label, c.hint, c.keywords),
-    )
-  }, [q, commands])
-
-  // 打开时重置
-  useEffect(() => {
-    if (open) {
-      setQ('')
-      setActive(0)
-      requestAnimationFrame(() => inputRef.current?.focus())
+    const tagCandidates: TagCommandCandidate[] = []
+    for (const workspace of tagWorkspaces) {
+      const counts = new Map<string, number>()
+      for (const trade of searchableTrades) {
+        if (trade.tradeKind !== workspace.kind) continue
+        for (const tag of trade.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+      for (const [tag, count] of counts) {
+        tagCandidates.push({ ...workspace, tag, count })
+      }
     }
-  }, [open])
+    const tagMatches = collectLimitedCommandMatches(
+      tagCandidates,
+      query,
+      (candidate) => [candidate.tag],
+      (candidate): Cmd => {
+        const { tag } = candidate
+        return {
+          id: `tag-${candidate.kind}-${tag}`,
+          group: candidate.group,
+          icon: <Tag size={16} />,
+          label: tag,
+          hint: `${candidate.count} ${candidate.unit}`,
+          keywords: tag,
+          run: go(`${candidate.path}?${new URLSearchParams({ tag }).toString()}`),
+        }
+      },
+      MAX_SEARCH_RESULTS - commands.length,
+    )
+    commands.push(...tagMatches.items)
+    total += tagMatches.total
+
+    const strategyNames = new Map(strategies.map((strategy) => [strategy.id, strategy.name]))
+    const resolveStrategyName = (strategyId: string | undefined) =>
+      (strategyId ? strategyNames.get(strategyId) : undefined) ?? '未分类'
+    const tradeMatches = collectLimitedCommandMatches(
+      searchableTrades,
+      query,
+      (trade) => {
+        const strategyName = resolveStrategyName(trade.strategyId)
+        return [trade.ref, trade.symbol, strategyName, trade.tags.join(' ')]
+      },
+      (trade): Cmd => {
+        const strategyName = resolveStrategyName(trade.strategyId)
+        return {
+          id: 't-' + trade.id,
+          group: '交易',
+          icon: <StatusIcon status={trade.status} size={16} />,
+          label: `${trade.symbol} · ${strategyName}`,
+          hint: trade.ref,
+          keywords: `${trade.ref} ${trade.symbol} ${strategyName} ${trade.tags.join(' ')}`,
+          run: go(tradeDetailPath(trade)),
+        }
+      },
+      MAX_SEARCH_RESULTS - commands.length,
+    )
+    commands.push(...tradeMatches.items)
+    total += tradeMatches.total
+
+    return { commands, total }
+  }, [trades, strategies, display, shortcutBindings, pathname, navigate, onClose, openComposer, deferredQuery])
+
+  const commands = searchResult.commands
+  const hasMore = searchResult.total > commands.length
+  const queryPending = q.trim() !== deferredQuery.trim()
+  const visibleCommands = queryPending ? [] : commands
+
+  useEffect(() => {
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }, [])
 
   useEffect(() => setActive(0), [q])
 
@@ -172,18 +242,16 @@ export function CommandPalette({
     el?.scrollIntoView({ block: 'nearest' })
   }, [active])
 
-  if (!open) return null
-
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActive((a) => Math.min(a + 1, filtered.length - 1))
+      setActive((a) => Math.min(a + 1, Math.max(0, visibleCommands.length - 1)))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActive((a) => Math.max(a - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      filtered[active]?.run()
+      visibleCommands[active]?.run()
     } else if (e.key === 'Escape') {
       e.preventDefault()
       onClose()
@@ -248,10 +316,10 @@ export function CommandPalette({
           </button>
         </div>
         <div className="cmdk-list" ref={listRef}>
-          {filtered.length === 0 && (
+          {visibleCommands.length === 0 && !queryPending && (
             <div className="cmdk-empty">没有匹配项</div>
           )}
-          {filtered.map((c) => {
+          {visibleCommands.map((c) => {
             flatIndex++
             const idx = flatIndex
             const showHeader = c.group !== lastGroup
@@ -274,6 +342,13 @@ export function CommandPalette({
               </div>
             )
           })}
+          {(queryPending || hasMore) && (
+            <div className="cmdk-result-note" role="status">
+              {queryPending
+                ? '正在筛选…'
+                : `显示前 ${commands.length} 项，共 ${searchResult.total} 项 · 继续输入可缩小范围`}
+            </div>
+          )}
         </div>
       </div>
     </div>,

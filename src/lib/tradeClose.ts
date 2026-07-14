@@ -13,7 +13,7 @@ export type TradeCloseInput = {
 }
 
 export type TradeClosePatch = Partial<
-  Pick<Trade, 'exit' | 'pnl' | 'rMultiple' | 'closedAt' | 'reviewStatus'>
+  Pick<Trade, 'exit' | 'pnl' | 'rMultiple' | 'resultSource' | 'initialStopLoss' | 'closedAt' | 'reviewStatus' | 'reviewedAt'>
 >
 
 export type TradeCloseResult =
@@ -32,9 +32,11 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
   const value = finiteOrNull(input.value)
   let pnl: number | null = null
   let rMultiple: number | null = null
+  let resultSource: Trade['resultSource']
   let outcome = input.outcome
 
   if (input.resultMode === 'pnl') {
+    resultSource = 'pnl'
     if (input.outcome === 'breakeven') {
       pnl = 0
     } else {
@@ -44,6 +46,7 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
       pnl = input.outcome === 'loss' ? -Math.abs(value) : Math.abs(value)
     }
   } else if (input.resultMode === 'r') {
+    resultSource = 'r'
     if (input.outcome === 'breakeven') {
       rMultiple = 0
     } else {
@@ -53,11 +56,13 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
       rMultiple = input.outcome === 'loss' ? -Math.abs(value) : Math.abs(value)
     }
   } else if (input.resultMode === 'price') {
+    resultSource = 'price'
     if (exit == null) return { ok: false, error: '请填写出场价' }
     const priceResult = calcPriceResult(trade.side, trade.entry, exit)
     if (priceResult == null) return { ok: false, error: '入场价或出场价无效，请核对后再保存' }
     pnl = null
-    rMultiple = calcRFromPrices(trade.side, trade.entry, exit, trade.stopLoss)
+    const initialStopLoss = trade.initialStopLoss ?? trade.stopLoss ?? null
+    rMultiple = calcRFromPrices(trade.side, trade.entry, exit, initialStopLoss)
     if (rMultiple == null) {
       return { ok: false, error: '缺少有效初始止损，无法按价格计算 R；请改用盈亏金额或 R 倍数' }
     }
@@ -71,8 +76,13 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
       exit,
       pnl,
       rMultiple,
+      resultSource,
+      initialStopLoss: input.resultMode === 'price'
+        ? trade.initialStopLoss ?? trade.stopLoss ?? null
+        : trade.initialStopLoss,
       closedAt: input.closedAt,
       reviewStatus: 'unreviewed',
+      reviewedAt: null,
     },
   }
 }

@@ -1,0 +1,84 @@
+.app-route-loading,
+.app-route-state {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.app-route-loading {
+  gap: 10px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+  animation: fadeIn var(--dur-slow) var(--ease-out) both;
+}
+
+.app-route-state {
+  padding: 40px;
+  color: var(--text-primary);
+}
+
+.app-route-state-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 14px;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-8);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.app-route-state-code {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mini);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-route-state h1 {
+  margin: 8px 0 0;
+  font-size: var(--fs-title);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.app-route-state p {
+  max-width: 420px;
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.app-route-state-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.app-route-error-detail {
+  max-width: 520px;
+  margin-top: 18px;
+  color: var(--text-quaternary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mini);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .app-route-state {
+    padding: 28px 20px;
+  }
+
+  .app-route-state-actions {
+    flex-direction: column;
+    width: min(240px, 100%);
+  }
+}

@@ -164,6 +164,17 @@
   font-size: var(--type-body-size);
 }
 
+.cmdk-result-note {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 10px 6px;
+  background: linear-gradient(to bottom, transparent, var(--popover-bg) 28%);
+  color: var(--text-muted);
+  font-size: var(--type-caption-size);
+  line-height: 20px;
+  text-align: center;
+}
+
 @media (max-width: 520px) {
   .cmdk-input {
     height: 44px;

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { toast } from '@/lib/toast'
@@ -178,6 +179,7 @@ export function useShortcutHost({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (isStorageCutoverInteractionLocked()) return
       handleShortcutKeydown(e, pathname)
     }
     window.addEventListener('keydown', onKey)

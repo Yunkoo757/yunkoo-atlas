@@ -10,6 +10,7 @@ import {
   Copy,
   Pencil,
   Trash2,
+  RotateCcw,
   X,
   Send,
   BookOpen,
@@ -65,27 +66,26 @@ import {
   normalizeNarrative,
 } from '@/lib/tradeView'
 import { toast } from '@/lib/toast'
-import { syncStatusFromResult } from '@/lib/tradeTransition'
-import { STATUS_ORDER, isTerminal } from '@/lib/tradeStatus'
+import { STATUS_ORDER, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { getStorage } from '@/storage/bootstrap'
-import { resolveNoteForDisplay } from '@/storage/assets'
+import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
   flushNoteDraftsToStore,
   flushNoteDraftToStore,
   setNoteDraft,
 } from '@/storage/noteDrafts'
-import { setPreFlushCallback } from '@/storage/persist'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
-import { calcPnl, calcRFromStop } from '@/lib/tradeCalc'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
-import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
+import { isVerifiedTradeResult, resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
+import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { formatYmd } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
+import { loadDetailNote, type DetailNoteLoadResult } from '@/views/detailNoteLoad'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
@@ -102,18 +102,23 @@ export function DetailView() {
   const navigate = useNavigate()
   const location = useLocation()
   const listContext = useShortcutStore((s) => s.listContext)
-  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
+  const allTrades = useStore((s) => s.trades)
+  const trades = useMemo(() => allTrades.filter((item) => !item.deletedAt), [allTrades])
   const trade = useMemo(
     () => findTradeByRouteParam(trades, routeParam),
     [trades, routeParam],
   )
+  const deletedTrade = useMemo(() => {
+    const record = findTradeByRouteParam(allTrades, routeParam)
+    return record?.deletedAt ? record : undefined
+  }, [allTrades, routeParam])
   const updateTradeData = useStore((s) => s.updateTradeData)
+  const completeTradeClose = useStore((s) => s.completeTradeClose)
   const setStatus = useStore((s) => s.setStatus)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
   const setConviction = useStore((s) => s.setConviction)
   const setStrategy = useStore((s) => s.setStrategy)
   const strategies = useStore((s) => s.strategies)
-  const setSide = useStore((s) => s.setSide)
   const addTag = useStore((s) => s.addTag)
   const removeTag = useStore((s) => s.removeTag)
   const tagPresets = useStore((s) => s.tagPresets)
@@ -131,6 +136,12 @@ export function DetailView() {
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
+  const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
+  const [noteRetrying, setNoteRetrying] = useState(false)
+  const [noteLoad, setNoteLoad] = useState<{
+    tradeId: string | null
+    state: DetailNoteLoadResult | { status: 'loading' }
+  }>({ tradeId: null, state: { status: 'loading' } })
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingHtmlRef = useRef<string | null>(null)
   const pendingTradeIdRef = useRef<string | null>(null)
@@ -163,9 +174,9 @@ export function DetailView() {
       from,
       listPath: listContext?.listPath,
       listSearch: listContext?.listSearch,
-      tradeKind: trade?.tradeKind,
+      tradeKind: trade?.tradeKind ?? deletedTrade?.tradeKind,
     })
-  }, [from, listContext?.listPath, listContext?.listSearch, trade?.tradeKind])
+  }, [from, listContext?.listPath, listContext?.listSearch, trade?.tradeKind, deletedTrade?.tradeKind])
 
   const persistEditorNote = useCallback((html: string, tradeId: string) => {
     pendingHtmlRef.current = html
@@ -180,16 +191,29 @@ export function DetailView() {
 
   useEffect(() => {
     if (!trade) return
+    const preserveReadOnlyFallback =
+      noteLoadAttempt > 0 && noteLoad.tradeId === trade.id && noteLoad.state.status === 'error'
     noteResolvedRef.current = false   // 切换交易时重置，阻止旧 onUpdate 写入空内容
+    if (!preserveReadOnlyFallback) {
+      setNoteRetrying(false)
+      setEditorHtml('')
+      setNoteLoad({ tradeId: trade.id, state: { status: 'loading' } })
+    }
     let cancelled = false
-    void flushNoteDraftsToStore().finally(() => {
-      if (cancelled || !trade) return
-      resolveNoteForDisplay(trade.note, getStorage()).then((html) => {
-        if (!cancelled) {
-          setEditorHtml(html)
-          noteResolvedRef.current = true  // 标记初始内容已就绪，允许后续编辑触发保存
-        }
-      })
+    void loadDetailNote(trade.note, async (html) => {
+      if (cancelled) return html
+      return resolveNoteForDisplayResult(html, getStorage())
+    }, async () => {
+      if (!(await flushNoteDraftsToStore())) return false
+      return useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? trade.note
+    }).then((result) => {
+      if (cancelled) return
+      if (result.status === 'ready') {
+        setEditorHtml(result.html)
+        noteResolvedRef.current = true  // 标记初始内容已就绪，允许后续编辑触发保存
+      }
+      setNoteLoad({ tradeId: trade.id, state: result })
+      setNoteRetrying(false)
     })
     return () => {
       cancelled = true
@@ -199,7 +223,7 @@ export function DetailView() {
       }
       void flushNoteDraftToStore(trade.id)
     }
-  }, [trade?.id])
+  }, [trade?.id, noteLoadAttempt])
 
   useEffect(() => {
     return () => {
@@ -209,21 +233,6 @@ export function DetailView() {
       }
       void flushNoteDraftsToStore()
     }
-  }, [])
-
-  // beforeunload 前先把草稿写入 store，确保 flushPersistNow 收到 journal-asset://
-  useEffect(() => {
-    setPreFlushCallback(async () => {
-      if (noteSaveTimer.current) {
-        clearTimeout(noteSaveTimer.current)
-        noteSaveTimer.current = null
-      }
-      const complete = await flushNoteDraftsToStore()
-      if (!complete) {
-        throw new Error('笔记中的图片尚未保存完成')
-      }
-    })
-    return () => { setPreFlushCallback(null) }
   }, [])
 
   const onEditorChange = useCallback(
@@ -245,7 +254,9 @@ export function DetailView() {
       (t) => t.strategyId === strategyId && isAccountTrade(t),
     )
     const result = summarizeTradeResults(strategyTrades)
-    const totalR = strategyTrades.reduce((sum, t) => sum + (t.rMultiple ?? 0), 0)
+    const totalR = strategyTrades
+      .filter(isVerifiedTradeResult)
+      .reduce((sum, t) => sum + (t.rMultiple ?? 0), 0)
     const winRate = result.winRate == null ? null : Math.round(result.winRate)
     return (
       <>
@@ -322,6 +333,7 @@ export function DetailView() {
       : activities.system.length - FEED_VISIBLE
 
   if (!trade) {
+    const recordLabel = deletedTrade?.tradeKind === 'case' ? '案例记录' : '交易'
     return (
       <>
         <header className="dv-topbar">
@@ -334,14 +346,53 @@ export function DetailView() {
             >
               <ChevronLeft size={16} />
             </Link>
-            <span className="dv-crumb">交易</span>
+            <span className="dv-crumb">{recordLabel}</span>
             <ChevronRight size={13} className="dv-crumb-sep" />
-            <span className="dv-crumb dv-crumb-active">未找到</span>
+            <span className="dv-crumb dv-crumb-active">
+              {deletedTrade ? '已移至回收站' : '未找到'}
+            </span>
           </div>
         </header>
-        <div className="dv-empty">未找到该交易</div>
+        <div className="dv-empty">
+          <div className="dv-empty-card">
+            <AlertCircle size={20} aria-hidden />
+            <h1>{deletedTrade ? `该${recordLabel}已移至回收站` : `未找到该${recordLabel}`}</h1>
+            <p>
+              {deletedTrade
+                ? '记录仍在安全保留期内，可前往回收站恢复。'
+                : '它可能已被彻底删除，或当前链接已失效。'}
+            </p>
+            <div className="dv-empty-actions">
+              <Link
+                to={detailReturn}
+                state={tradeReturnLocationState(from?.anchorTradeId)}
+                className="dv-empty-action"
+              >
+                返回{deletedTrade?.tradeKind === 'case' ? '案例记录' : '交易日志'}
+              </Link>
+              {deletedTrade && (
+                <Link to="/trade-trash" className="dv-empty-action is-primary">
+                  前往回收站
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
       </>
     )
+  }
+
+  const activeNoteLoad = noteLoad.tradeId === trade.id
+    ? noteLoad.state
+    : { status: 'loading' as const }
+
+  const commitTradeResultEdit = (edit: TradeResultEdit) => {
+    const result = prepareTradeResultEdit(trade, edit)
+    if (result.status && isExecutedClosed(trade.status)) {
+      completeTradeClose(trade.id, result.status, result.patch)
+      return
+    }
+    updateTradeData(trade.id, result.patch)
   }
 
   const copyLink = async () => {
@@ -564,16 +615,52 @@ export function DetailView() {
                 )}
               </section>
             )}
-            <div className="dv-document">
-              <Editor
-                content={editorHtml}
-                onChange={onEditorChange}
-                placeholder={
-                  trade.tradeKind === 'case'
-                    ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'
-                    : undefined
-                }
-              />
+            <div className={'dv-document' + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}>
+              {activeNoteLoad.status === 'loading' ? (
+                <div className="dv-note-load is-loading" role="status" aria-live="polite">
+                  <span className="dv-note-load-indicator" aria-hidden />
+                  <span>复盘笔记载入中…</span>
+                </div>
+              ) : (
+                <>
+                  {activeNoteLoad.status === 'error' && (
+                    <div className="dv-note-load is-error" role="alert">
+                      <AlertCircle size={16} aria-hidden />
+                      <div>
+                        <strong>复盘笔记未完整载入</strong>
+                        <span>
+                          {activeNoteLoad.reason === 'prepare'
+                            ? '上一份笔记草稿尚未安全保存，当前内容已锁定；请重试载入。'
+                            : '图片附件读取失败，正文已安全保留；当前为只读模式。'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={noteRetrying}
+                        onClick={() => {
+                          setNoteRetrying(true)
+                          setNoteLoadAttempt((value) => value + 1)
+                        }}
+                      >
+                        <RotateCcw size={14} aria-hidden />
+                        {noteRetrying ? '正在载入…' : '重新载入'}
+                      </button>
+                    </div>
+                  )}
+                  <Editor
+                    key={`${trade.id}:note`}
+                    content={activeNoteLoad.status === 'error' ? activeNoteLoad.fallbackHtml : editorHtml}
+                    onChange={onEditorChange}
+                    noteDraftId={trade.id}
+                    readOnly={activeNoteLoad.status === 'error'}
+                  placeholder={
+                    trade.tradeKind === 'case'
+                      ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'
+                      : undefined
+                  }
+                  />
+                </>
+              )}
             </div>
 
             <section className="dv-comments" aria-label="复盘追记">
@@ -704,7 +791,10 @@ export function DetailView() {
             />
             <Menu
               value={trade.side}
-              onSelect={(v) => setSide(trade.id, v as TradeSide)}
+              onSelect={(v) => commitTradeResultEdit({
+                kind: 'execution',
+                patch: { side: v as TradeSide },
+              })}
               options={[
                 { value: 'long', label: '做多' },
                 { value: 'short', label: '做空' },
@@ -901,28 +991,10 @@ export function DetailView() {
               format={(v) => fmtPrice(v as number)}
               inputType="number"
               nullable
-              onSave={(v) => {
-                const entry = v as number
-                const updates: Partial<import('@/data/trades').Trade> = { entry }
-
-                // 自动计算盈亏和 R 倍数
-                if (trade.exit && entry > 0 && trade.size > 0) {
-                  const pnl = calcPnl(trade.side, entry, trade.exit, trade.size)
-                  if (pnl != null) {
-                    updates.pnl = pnl
-                    const rMultiple = calcRFromStop(
-                      trade.side,
-                      pnl,
-                      entry,
-                      trade.stopLoss,
-                      trade.size,
-                    )
-                    if (rMultiple != null) updates.rMultiple = rMultiple
-                  }
-                }
-
-                updateTradeData(trade.id, updates)
-              }}
+              onSave={(v) => commitTradeResultEdit({
+                kind: 'execution',
+                patch: { entry: v as number },
+              })}
             />
             <EditableDataRow
               label="出场"
@@ -930,35 +1002,20 @@ export function DetailView() {
               format={(v) => (v == null ? '—' : fmtPrice(v as number))}
               inputType="number"
               nullable
-              onSave={(v) => {
-                const exit = v as number | null
-                const updates: Partial<import('@/data/trades').Trade> = { exit }
-
-                // 自动计算盈亏和 R 倍数
-                if (exit && trade.entry > 0 && trade.size > 0) {
-                  const pnl = calcPnl(trade.side, trade.entry, exit, trade.size)
-                  if (pnl != null) {
-                    updates.pnl = pnl
-                    const rMultiple = calcRFromStop(
-                      trade.side,
-                      pnl,
-                      trade.entry,
-                      trade.stopLoss,
-                      trade.size,
-                    )
-                    if (rMultiple != null) updates.rMultiple = rMultiple
-                  }
-                }
-
-                updateTradeData(trade.id, updates)
-              }}
+              onSave={(v) => commitTradeResultEdit({
+                kind: 'execution',
+                patch: { exit: v as number | null },
+              })}
             />
             <EditableDataRow
               label="仓位"
               value={trade.size}
               format={String}
               inputType="number"
-              onSave={(v) => updateTradeData(trade.id, { size: v as number })}
+              onSave={(v) => commitTradeResultEdit({
+                kind: 'execution',
+                patch: { size: v as number },
+              })}
             />
             <EditableDataRow
               label="止损"
@@ -966,24 +1023,10 @@ export function DetailView() {
               format={(v) => (v == null ? '—' : fmtPrice(v))}
               inputType="number"
               nullable
-              onSave={(v) => {
-                const stopLoss = v as number | null
-                const updates: Partial<import('@/data/trades').Trade> = { stopLoss }
-
-                // 自动计算 R 倍数
-                if (stopLoss && trade.entry > 0 && trade.size > 0 && trade.pnl != null && trade.pnl !== 0) {
-                  const rMultiple = calcRFromStop(
-                    trade.side,
-                    trade.pnl,
-                    trade.entry,
-                    stopLoss,
-                    trade.size,
-                  )
-                  if (rMultiple != null) updates.rMultiple = rMultiple
-                }
-
-                updateTradeData(trade.id, updates)
-              }}
+              onSave={(v) => commitTradeResultEdit({
+                kind: 'execution',
+                patch: { stopLoss: v as number | null },
+              })}
             />
             <EditableDataRow
               label="盈亏"
@@ -1002,11 +1045,11 @@ export function DetailView() {
                     ? 'var(--neg)'
                     : undefined
               }
-              onSave={(v) => {
-                const pnl = v as number | null
-                updateTradeData(trade.id, { pnl })
-                if (pnl != null) syncStatusFromResult(trade, pnl, setStatus)
-              }}
+              onSave={(v) => commitTradeResultEdit({
+                kind: 'result',
+                source: 'pnl',
+                value: v as number | null,
+              })}
             />
             <EditableDataRow
               label="R 倍数"
@@ -1026,11 +1069,11 @@ export function DetailView() {
                     ? 'var(--neg)'
                     : undefined
               }
-              onSave={(v) => {
-                const rMultiple = v as number | null
-                updateTradeData(trade.id, { rMultiple })
-                if (rMultiple != null) syncStatusFromResult(trade, rMultiple, setStatus)
-              }}
+              onSave={(v) => commitTradeResultEdit({
+                kind: 'result',
+                source: 'r',
+                value: v as number | null,
+              })}
             />
           </Section>
 

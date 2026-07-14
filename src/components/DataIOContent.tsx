@@ -124,6 +124,8 @@ export function DataIOContent({
   }
 
   const onImportZip = async () => {
+    if (libraryBusy) return
+    setLibraryBusy(true)
     try {
       const result = await importJournalArchive()
       if (result.ok) {
@@ -135,6 +137,8 @@ export function DataIOContent({
       // 注：用户取消文件对话框时不显示 toast，这是预期行为
     } catch (err) {
       toast(err instanceof Error ? `导入失败：${err.message}` : '导入失败')
+    } finally {
+      setLibraryBusy(false)
     }
   }
 
@@ -143,6 +147,7 @@ export function DataIOContent({
     e.target.value = ''
     if (!file) return
 
+    setLibraryBusy(true)
     try {
       const text = await file.text()
       const result = parseImportJson(text)
@@ -150,14 +155,13 @@ export function DataIOContent({
         toast(result.error)
         return
       }
-      applyImport(result.data)
-        .then((r) => {
-          toast(r.summary)
-          onDone?.()
-        })
-        .catch(() => toast('导入失败'))
-    } catch {
-      toast('读取文件失败')
+      const imported = await applyImport(result.data)
+      toast(imported.summary)
+      onDone?.()
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '读取文件失败')
+    } finally {
+      setLibraryBusy(false)
     }
   }
 
@@ -334,7 +338,7 @@ export function DataIOContent({
               <div className="dio-task-title">Yunkoo JSON</div>
               <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
             </div>
-            <button type="button" className="dio-btn" onClick={() => fileRef.current?.click()}>
+            <button type="button" className="dio-btn" disabled={libraryBusy} onClick={() => fileRef.current?.click()}>
               <span>选择文件</span>
             </button>
           </div>
@@ -344,7 +348,7 @@ export function DataIOContent({
               <div className="dio-task-title">其他交易日志</div>
               <div className="dio-task-meta">导入 CSV，自动识别中英文列名</div>
             </div>
-            <button type="button" className="dio-btn" onClick={() => setCsvOpen(true)}>
+            <button type="button" className="dio-btn" disabled={libraryBusy} onClick={() => setCsvOpen(true)}>
               <span>导入 CSV</span>
             </button>
           </div>
@@ -354,7 +358,7 @@ export function DataIOContent({
               <div className="dio-task-title">Notion</div>
               <div className="dio-task-meta">导入数据库、页面正文与截图</div>
             </div>
-            <button type="button" className="dio-btn" onClick={() => setNotionOpen(true)}>
+            <button type="button" className="dio-btn" disabled={libraryBusy} onClick={() => setNotionOpen(true)}>
               <span>从 Notion 导入</span>
             </button>
           </div>
@@ -446,8 +450,8 @@ export function DataIOContent({
               <div className="dio-task-title">恢复完整交易库</div>
               <div className="dio-task-meta">替换当前数据与附件，操作前请先备份</div>
             </div>
-            <button type="button" className="dio-btn dio-btn-warn" onClick={onImportZip}>
-              <span>选择 .journal.zip</span>
+            <button type="button" className="dio-btn dio-btn-warn" disabled={libraryBusy} onClick={onImportZip}>
+              <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
             </button>
           </div>
         </section>
