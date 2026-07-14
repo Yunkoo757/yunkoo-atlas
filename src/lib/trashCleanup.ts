@@ -8,13 +8,11 @@ import { isTradeExpired } from '@/data/trades'
 
 export async function cleanExpiredTradeTrash(
   trades: Trade[],
-  purgeTrade: (id: string) => void,
+  purgeTrades: (ids: string[]) => void,
 ): Promise<number> {
   const expiredTrades = trades.filter((t) => isTradeExpired(t))
 
-  for (const t of expiredTrades) {
-    purgeTrade(t.id)
-  }
+  purgeTrades(expiredTrades.map((trade) => trade.id))
 
   if (expiredTrades.length > 0) {
     console.log(`[Trash Cleanup] Cleaned ${expiredTrades.length} expired trade(s)`)

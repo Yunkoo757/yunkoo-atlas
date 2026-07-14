@@ -95,7 +95,12 @@ export function UpdatesSettingsPanel() {
       toast('无法创建更新前备份，已取消安装')
       return
     }
-    toast('备份已创建，正在重启安装更新…')
+    const verification = await getJournalBridge()!.verifyBackup(backup)
+    if (verification.status !== 'verified') {
+      toast(verification.error ?? '更新前备份验证失败，已取消安装')
+      return
+    }
+    toast('备份已验证，正在重启安装更新…')
     await getJournalBridge()!.installUpdate()
   }
 

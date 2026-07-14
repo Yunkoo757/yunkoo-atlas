@@ -83,7 +83,7 @@ export function DisplaySettingsPanel() {
       <div className="settings-page-head">
         <h1 className="settings-page-title">显示偏好</h1>
         <p className="settings-page-desc">
-          设置交易日志的默认呈现方式。你仍可在顶栏「显示」中临时调整当前视图。
+          设置交易视图的默认呈现方式。顶栏「显示」与此处共用同一组偏好，修改后会自动保存。
         </p>
       </div>
       <div className="display-settings-card">

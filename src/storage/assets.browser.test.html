@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Storage asset browser regression</title>
+  </head>
+  <body>
+    <script type="module">
+      import {
+        testInvalidBlobImageIsNotPersistedAsBlobUrl,
+        testMissingAssetRendersDiagnosticPlaceholder,
+      } from './assets.test.ts'
+
+      window.__storageAssetsTest = (async () => {
+        await testMissingAssetRendersDiagnosticPlaceholder()
+        await testInvalidBlobImageIsNotPersistedAsBlobUrl()
+      })()
+    </script>
+  </body>
+</html>

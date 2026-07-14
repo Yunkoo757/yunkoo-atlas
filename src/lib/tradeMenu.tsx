@@ -57,7 +57,6 @@ export function buildTradeCtxItems(
       type: 'item',
       icon: <Pencil size={15} />,
       label: '编辑',
-      hint: 'E',
       onClick: () => a.openComposer(trade),
     },
     ...(trade.tradeKind === 'case' || !a.createReviewCase

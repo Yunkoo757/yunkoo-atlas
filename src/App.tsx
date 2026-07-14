@@ -377,7 +377,7 @@ export function App() {
 
       // Clean expired trash (30+ days old deleted records)
       const state = useStore.getState()
-      await cleanExpiredTradeTrash(state.trades, state.purgeTrade)
+      await cleanExpiredTradeTrash(state.trades, state.purgeTrades)
 
       setReady(true)
       requestAnimationFrame(() => {
@@ -429,7 +429,7 @@ export function App() {
     try {
       await bootstrapStorage()
       const state = useStore.getState()
-      await cleanExpiredTradeTrash(state.trades, state.purgeTrade)
+      await cleanExpiredTradeTrash(state.trades, state.purgeTrades)
       setReady(true)
       requestAnimationFrame(() => {
         document.documentElement.dataset.uiSettled = '1'
@@ -473,7 +473,6 @@ export function App() {
           bridge.onBeforeClose(async () => {
             if (!isStorageHydrated()) return
             await flushPersistNow()
-            await bridge.createBackup()
           })
         }
         if (bridge?.onCloseSaveError) {

@@ -2,9 +2,10 @@ import { ipcMain, dialog, BrowserWindow, app, type OpenDialogOptions } from 'ele
 import path from 'node:path'
 import fs from 'node:fs'
 import { LibraryStorage } from './storage'
-import { exportJournalZip, importJournalZipToPath, validateLibraryDatabaseFile } from './journalZip'
+import { exportJournalZip, importJournalZipToPath } from './journalZip'
 import { getLibraryPath, saveLibraryConfig, ensureLibraryDirs } from './paths'
-import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, stopAutoBackup, getBackupStats, rotateBackups } from './backup'
+import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, stopAutoBackup, getBackupStats, rotateBackups, verifyBackup } from './backup'
+import { assertSafeAssetId } from '../../src/storage/assetId'
 
 let storage: LibraryStorage | null = null
 let autoBackupStarted = false
@@ -142,9 +143,14 @@ export function registerLibraryIpc(): void {
     return (await ensureStorage()).getAssetBytes(id)
   })
 
+  ipcMain.handle('storage:getAssetStats', async (_e, ids: string[]) => {
+    return (await ensureStorage()).getAssetStats(ids)
+  })
+
   ipcMain.handle('storage:importAssets', async (_e, assets: { id: string; mime: string; data: string }[]) => {
     const lib = await ensureStorage()
     for (const a of assets) {
+      assertSafeAssetId(a.id)
       const bin = Buffer.from(a.data, 'base64')
       lib.importAsset(a.id, a.mime, bin)
     }
@@ -170,21 +176,19 @@ export function registerLibraryIpc(): void {
   // ---- 备份 ----
   ipcMain.handle('backup:create', async () => {
     const result = createBackup(await ensureStorage())
-    if (result) rotateBackups(ensureLibraryDirs(getLibraryPath()).backups)
+    if (result) {
+      rotateBackups(ensureLibraryDirs(getLibraryPath()).backups)
+    }
     return result
   })
 
   ipcMain.handle('backup:list', async () => listBackups())
 
+  ipcMain.handle('backup:verify', async (_e, fileName: string) => verifyBackup(fileName))
+
   ipcMain.handle('backup:restore', async (_e, fileName: string) => {
-    const { backups } = ensureLibraryDirs(getLibraryPath())
-    const backupPath = path.join(backups, path.basename(fileName))
-    try {
-      await validateLibraryDatabaseFile(backupPath)
-    } catch (error) {
-      console.error('[backup] rejected invalid restore point', error)
-      return false
-    }
+    const verification = await verifyBackup(fileName)
+    if (verification.status !== 'verified') return false
     const current = await ensureStorage()
     // 在覆盖资料库前创建一个包含原图的完整恢复点。
     if (!createBackup(current)) return false

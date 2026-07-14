@@ -48,7 +48,7 @@ export function DataIOContent({
   const fileRef = useRef<HTMLInputElement>(null)
   const electron = isElectron()
   const trades = useStore((s) => s.trades)
-  const removeTrade = useStore((s) => s.removeTrade)
+  const removeTrades = useStore((s) => s.removeTrades)
   const [libraryPath, setLibraryPath] = useState<string | null>(null)
   const [libraryBusy, setLibraryBusy] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
@@ -193,16 +193,16 @@ export function DataIOContent({
     if (!dupGroups || dupGroups.length === 0) return
     setDupCleaning(true)
     try {
-      let removed = 0
+      const idsToRemove = new Set<string>()
       for (const group of dupGroups) {
         for (const id of group.memberIds) {
           if (id === group.keepId) continue
-          removeTrade(id)
-          removed++
+          idsToRemove.add(id)
         }
       }
+      removeTrades([...idsToRemove])
       setDupGroups([])
-      toast(`已清理 ${removed} 条重复记录（移入回收站）`)
+      toast(`已清理 ${idsToRemove.size} 条重复记录（移入回收站）`)
       onDone?.()
     } finally {
       setDupCleaning(false)

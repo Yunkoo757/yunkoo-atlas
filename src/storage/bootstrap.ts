@@ -15,10 +15,37 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { normalizeSymbolIcons, normalizeSymbolCatalog } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
+import type { PersistedSnapshot } from '@/storage/types'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
+
+const PERSISTED_REFERENCE_KEYS = [
+  'trades',
+  'strategies',
+  'starredIds',
+  'subscribedIds',
+  'pinnedStrategyIds',
+  'display',
+  'tagPresets',
+  'mistakeTagPresets',
+  'profile',
+  'savedTradeViews',
+  'symbolIcons',
+  'symbolCatalog',
+] as const satisfies readonly (keyof PersistedSnapshot)[]
+
+/**
+ * Zustand 内的持久化字段均采用不可变更新；引用未变化代表无需重写全量快照。
+ * shortcuts 由独立 store 的订阅负责，不在此处重复比较。
+ */
+export function haveSamePersistedReferences(
+  previous: PersistedSnapshot,
+  next: PersistedSnapshot,
+): boolean {
+  return PERSISTED_REFERENCE_KEYS.every((key) => previous[key] === next[key])
+}
 
 export function getStorage(): StorageAdapter {
   if (!storage) {
@@ -71,15 +98,20 @@ async function runBootstrapStorage(): Promise<void> {
   // 启动后保持 idle，避免顶栏立刻插入「已保存」把视图按钮挤一下
   useSaveStatus.getState().reset()
 
+  let lastPersisted = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
   useStore.subscribe((state) => {
     if (!hydrated) return
-    schedulePersist(pickPersisted(state, useShortcutStore.getState().bindings))
+    const nextPersisted = pickPersisted(state, useShortcutStore.getState().bindings)
+    if (haveSamePersistedReferences(lastPersisted, nextPersisted)) return
+    lastPersisted = nextPersisted
+    schedulePersist(nextPersisted)
   })
 
   useShortcutStore.subscribe((state, prev) => {
     if (!hydrated) return
     if (state.bindings === prev.bindings) return
-    schedulePersist(pickPersisted(useStore.getState(), state.bindings))
+    lastPersisted = pickPersisted(useStore.getState(), state.bindings)
+    schedulePersist(lastPersisted)
   })
 }
 

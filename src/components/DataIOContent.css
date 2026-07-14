@@ -103,13 +103,26 @@
   font-variant-numeric: tabular-nums;
 }
 
+.backup-verification {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 62px;
+  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.backup-verification.is-verified { color: var(--success); }
+.backup-verification.is-invalid { color: var(--danger); }
+
 .backup-actions {
   display: flex;
   gap: 4px;
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
-.backup-row:hover .backup-actions {
+.backup-row:hover .backup-actions,
+.backup-row:focus-within .backup-actions {
   opacity: 1;
 }
 

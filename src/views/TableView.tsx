@@ -58,7 +58,7 @@ export function TableView({
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const openComposer = useStore((s) => s.openComposer)
-  const removeTrade = useStore((s) => s.removeTrade)
+  const removeTrades = useStore((s) => s.removeTrades)
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -160,7 +160,7 @@ export function TableView({
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
     if (actionableIds.size === 0) return
-    actionableIds.forEach((id) => removeTrade(id))
+    removeTrades([...actionableIds])
     setSelectedIds(new Set())
     toast(`已移至回收站 ${actionableIds.size} 笔`)
   }

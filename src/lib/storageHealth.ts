@@ -1,10 +1,10 @@
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
-import type { ExportAssetRecord } from '@/storage/types'
 
 export interface AssetStats {
   count: number
   totalBytes: number
+  missingCount: number
   formattedSize: string
 }
 
@@ -12,14 +12,6 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function estimateAssetStats(assets: ExportAssetRecord[]): AssetStats {
-  let totalBytes = 0
-  for (const a of assets) {
-    totalBytes += Math.round(a.data.length * 0.75)
-  }
-  return { count: assets.length, totalBytes, formattedSize: formatBytes(totalBytes) }
 }
 
 export interface StorageHealth {
@@ -106,17 +98,11 @@ export async function checkStorageHealth(): Promise<StorageHealth> {
   // 收集实际资产
   const storage = getStorage()
   const assetIds = collectAssetIdsFromNotes(trades)
-  const assets: ExportAssetRecord[] = []
-  for (const id of assetIds) {
-    try {
-      const rec = await storage.getAssetForExport(id)
-      if (rec) assets.push(rec)
-    } catch {
-      // 忽略单个资产错误
-    }
+  const measured = await storage.getAssetStats(assetIds)
+  const attachmentStats = {
+    ...measured,
+    formattedSize: formatBytes(measured.totalBytes),
   }
-
-  const attachmentStats = estimateAssetStats(assets)
   const estimatedTotal = attachmentStats.formattedSize
 
   return {

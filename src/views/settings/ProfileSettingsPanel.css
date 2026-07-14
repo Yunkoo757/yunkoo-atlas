@@ -109,6 +109,11 @@
   white-space: nowrap;
 }
 
+.profile-avatar-item.is-selected .profile-avatar-label {
+  color: var(--text-primary);
+  font-weight: var(--type-metadata-weight);
+}
+
 .profile-reset-avatar {
   margin-top: 10px;
   font-size: var(--fs-mini);

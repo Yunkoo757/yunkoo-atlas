@@ -5,6 +5,7 @@ import { app } from 'electron'
 import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs } from './paths'
 import { writeFileAtomicallySync } from './atomicFile'
+import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
 const DEFAULT_MAX_BACKUPS = 7
@@ -15,10 +16,22 @@ interface BackupMeta {
   strategyCount: number
   attachmentCount: number
   librarySizeBytes: number
+  databaseSha256?: string
+  manifestSha256?: string
   /** 该恢复点引用的原始附件文件；旧版元数据没有此字段。 */
   attachmentFiles?: string[]
   /** 原文件名与内容寻址仓库文件的映射。 */
   attachmentEntries?: { fileName: string; vaultName: string }[]
+  verification?: BackupVerificationResult
+}
+
+export interface BackupVerificationResult {
+  status: 'verified' | 'invalid'
+  checkedAt: number
+  tradeCount?: number
+  strategyCount?: number
+  attachmentCount?: number
+  error?: string
 }
 
 let intervalTimer: ReturnType<typeof setInterval> | null = null
@@ -83,10 +96,14 @@ function listAttachmentFiles(attachmentsDir: string): string[] {
 }
 
 function storeBackupAttachment(source: string, vault: string): string {
-  const vaultName = createHash('sha256').update(fs.readFileSync(source)).digest('hex')
+  const vaultName = sha256File(source)
   const destination = path.join(vault, vaultName)
   if (!fs.existsSync(destination)) fs.copyFileSync(source, destination)
   return vaultName
+}
+
+function sha256File(filePath: string): string {
+  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
 }
 
 function backupDbFiles(backupsDir: string): string[] {
@@ -170,6 +187,10 @@ export function createBackupAtPath(
       strategyCount: counts.strategyCount,
       attachmentCount: counts.assetCount,
       librarySizeBytes: fs.statSync(dbFile).size,
+      databaseSha256: sha256File(dest),
+      ...(fs.existsSync(backupManifestPath(dest))
+        ? { manifestSha256: sha256File(backupManifestPath(dest)) }
+        : {}),
       attachmentEntries,
     }
     writeFileAtomicallySync(dest + '.meta.json', JSON.stringify(meta), 'utf8')
@@ -208,6 +229,143 @@ export function deleteBackupAtPath(libraryPath: string, fileName: string): boole
   deleteBackupFiles(fp)
   pruneBackupAssetVault(backups)
   return true
+}
+
+function persistBackupVerification(
+  dbPath: string,
+  result: BackupVerificationResult,
+  inspection?: { tradeCount: number; strategyCount: number; assets: unknown[] },
+): void {
+  const current = readBackupMeta(dbPath)
+  const meta: BackupMeta = current ?? {
+    tradeCount: inspection?.tradeCount ?? -1,
+    strategyCount: inspection?.strategyCount ?? -1,
+    attachmentCount: inspection?.assets.length ?? -1,
+    librarySizeBytes: fileSize(dbPath),
+  }
+  meta.verification = result
+  writeFileAtomicallySync(dbPath + '.meta.json', JSON.stringify(meta), 'utf8')
+}
+
+export async function verifyBackupAtPath(
+  libraryPath: string,
+  fileName: string,
+): Promise<BackupVerificationResult> {
+  const { backups } = ensureLibraryDirs(libraryPath)
+  const dbPath = path.join(backups, path.basename(fileName))
+  const checkedAt = Date.now()
+  if (!fs.existsSync(dbPath)) {
+    return { status: 'invalid', checkedAt, error: '恢复点文件不存在' }
+  }
+
+  let inspection: Awaited<ReturnType<typeof validateLibraryDatabaseFile>> | undefined
+  const verificationRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-verify-'))
+  try {
+    try {
+      inspection = await validateLibraryDatabaseFile(dbPath)
+    } catch {
+      throw new Error('数据库或快照结构无法读取')
+    }
+
+    const meta = readBackupMeta(dbPath)
+    const attachmentEntries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map((name) => ({
+      fileName: name,
+      vaultName: name,
+    }))
+    if (inspection.assets.length > 0 && !attachmentEntries) {
+      throw new Error('恢复点缺少附件清单')
+    }
+    if (meta) {
+      if (meta.tradeCount !== inspection.tradeCount || meta.strategyCount !== inspection.strategyCount) {
+        throw new Error('恢复点统计与数据库内容不一致')
+      }
+      if (meta.attachmentCount !== inspection.assets.length) {
+        throw new Error('恢复点附件统计与数据库内容不一致')
+      }
+      if (meta.librarySizeBytes !== fileSize(dbPath)) {
+        throw new Error('恢复点数据库大小与元数据不一致')
+      }
+      if (meta.databaseSha256 && sha256File(dbPath) !== meta.databaseSha256) {
+        throw new Error('恢复点数据库校验失败')
+      }
+      const savedManifest = backupManifestPath(dbPath)
+      if (meta.manifestSha256 && (!fs.existsSync(savedManifest) || sha256File(savedManifest) !== meta.manifestSha256)) {
+        throw new Error('恢复点清单校验失败')
+      }
+    }
+
+    const staged = ensureLibraryDirs(verificationRoot)
+    fs.copyFileSync(dbPath, staged.dbFile)
+    const savedManifest = backupManifestPath(dbPath)
+    if (fs.existsSync(savedManifest)) fs.copyFileSync(savedManifest, staged.manifestFile)
+
+    const entriesByName = new Map<string, string>()
+    for (const entry of attachmentEntries ?? []) {
+      if (
+        !entry.fileName ||
+        !entry.vaultName ||
+        path.basename(entry.fileName) !== entry.fileName ||
+        path.basename(entry.vaultName) !== entry.vaultName ||
+        entriesByName.has(entry.fileName)
+      ) {
+        throw new Error('恢复点附件清单损坏')
+      }
+      const source = path.join(backupAssetVault(backups), entry.vaultName)
+      if (!fs.existsSync(source)) throw new Error(`缺少附件：${entry.fileName}`)
+      if (/^[a-f0-9]{64}$/i.test(entry.vaultName)) {
+        const digest = sha256File(source)
+        if (digest !== entry.vaultName.toLowerCase()) throw new Error(`附件校验失败：${entry.fileName}`)
+      }
+      entriesByName.set(entry.fileName, source)
+      fs.copyFileSync(source, path.join(staged.attachments, entry.fileName))
+    }
+
+    for (const asset of inspection.assets) {
+      const source = entriesByName.get(asset.fileName)
+      if (!source) throw new Error(`缺少数据库引用的附件：${asset.fileName}`)
+      if (fileSize(source) !== asset.byteSize) throw new Error(`附件大小不一致：${asset.fileName}`)
+    }
+
+    const stagedInspection = await validateDesktopLibrary(staged)
+    if (
+      stagedInspection.tradeCount !== inspection.tradeCount ||
+      stagedInspection.strategyCount !== inspection.strategyCount ||
+      stagedInspection.assets.length !== inspection.assets.length
+    ) {
+      throw new Error('临时恢复后的数据统计不一致')
+    }
+
+    const result: BackupVerificationResult = {
+      status: 'verified',
+      checkedAt,
+      tradeCount: stagedInspection.tradeCount,
+      strategyCount: stagedInspection.strategyCount,
+      attachmentCount: stagedInspection.assets.length,
+    }
+    persistBackupVerification(dbPath, result, inspection)
+    return result
+  } catch (error) {
+    const result: BackupVerificationResult = {
+      status: 'invalid',
+      checkedAt,
+      tradeCount: inspection?.tradeCount,
+      strategyCount: inspection?.strategyCount,
+      attachmentCount: inspection?.assets.length,
+      error: error instanceof Error ? error.message : '恢复点验证失败',
+    }
+    try {
+      persistBackupVerification(dbPath, result, inspection)
+    } catch {
+      /* 元数据本身不可写时仍返回验证结果 */
+    }
+    return result
+  } finally {
+    fs.rmSync(verificationRoot, { recursive: true, force: true })
+  }
+}
+
+export function verifyBackup(fileName: string): Promise<BackupVerificationResult> {
+  return verifyBackupAtPath(getLibraryPath(), path.basename(fileName))
 }
 
 export function restoreBackupAtPath(libraryPath: string, fileName: string): boolean {
@@ -350,7 +508,7 @@ export function getBackupStats(): { count: number; totalSize: number } {
   return getBackupStatsAtPath(getLibraryPath())
 }
 
-export function listBackups(): { name: string; timestamp: number; size: number; tradeCount?: number; strategyCount?: number; attachmentCount?: number }[] {
+export function listBackups(): { name: string; timestamp: number; size: number; tradeCount?: number; strategyCount?: number; attachmentCount?: number; verification?: BackupVerificationResult }[] {
   const { backups } = ensureLibraryDirs(getLibraryPath())
   if (!fs.existsSync(backups)) return []
 
@@ -373,6 +531,7 @@ export function listBackups(): { name: string; timestamp: number; size: number; 
           info.tradeCount = meta.tradeCount
           info.strategyCount = meta.strategyCount
           info.attachmentCount = meta.attachmentCount
+          info.verification = meta.verification
         }
       } catch { /* 元数据读取失败不影响列表 */ }
       return info

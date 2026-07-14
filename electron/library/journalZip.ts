@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { app } from 'electron'
 import { ZipArchive } from 'archiver'
 import extract from 'extract-zip'
 import initSqlJs from 'sql.js'
@@ -14,6 +13,7 @@ import {
   type PersistedSnapshot,
 } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import { isSafeAssetId } from '../../src/storage/assetId'
 
 export async function exportJournalZip(
   storage: LibraryStorage,
@@ -42,10 +42,15 @@ export async function exportJournalZip(
 }
 
 function locateSqlWasm(file: string): string {
+  const resourcesPath = typeof process.resourcesPath === 'string' ? process.resourcesPath : ''
   const candidates = [
-    path.join(app.getAppPath(), 'dist-electron', file),
-    path.join(app.getAppPath(), file),
-    path.join(process.resourcesPath ?? '', file),
+    ...(resourcesPath
+      ? [
+          path.join(resourcesPath, file),
+          path.join(resourcesPath, 'app.asar', 'dist-electron', file),
+          path.join(resourcesPath, 'app', 'dist-electron', file),
+        ]
+      : []),
     path.join(process.cwd(), 'dist-electron', file),
     path.join(process.cwd(), 'node_modules/sql.js/dist', file),
   ]
@@ -168,7 +173,14 @@ function validateManifest(manifestFile: string): void {
   }
 }
 
-export async function validateLibraryDatabaseFile(dbFile: string): Promise<void> {
+export interface LibraryDatabaseInspection {
+  tradeCount: number
+  strategyCount: number
+  assets: { id: string; mime: string; fileName: string; byteSize: number }[]
+  referencedAssetIds: string[]
+}
+
+export async function validateLibraryDatabaseFile(dbFile: string): Promise<LibraryDatabaseInspection> {
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   let db: InstanceType<typeof SQL.Database> | null = null
   try {
@@ -183,17 +195,53 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<void>
 
     const snapshotRows = db.exec("SELECT value FROM meta WHERE key = 'snapshot'")
     const snapshotText = snapshotRows[0]?.values[0]?.[0]
-    if (snapshotText != null) {
-      const snapshot: unknown = JSON.parse(String(snapshotText))
-      assertValidPersistedSnapshot(snapshot, 'database snapshot')
+    if (snapshotText == null) throw new Error('database snapshot is missing')
+    const snapshot: unknown = JSON.parse(String(snapshotText))
+    assertValidPersistedSnapshot(snapshot, 'database snapshot')
+
+    const referencedAssetIds = new Set<string>()
+    for (const trade of snapshot.trades) {
+      const note = typeof trade.note === 'string' ? trade.note : ''
+      const pattern = /journal-asset:\/\/([^"'\s>]+)/g
+      let match: RegExpExecArray | null
+      while ((match = pattern.exec(note)) !== null) {
+        if (match[1]) referencedAssetIds.add(match[1])
+      }
     }
 
-    const assets = db.exec('SELECT file_name FROM assets')
-    for (const row of assets[0]?.values ?? []) {
-      const fileName = String(row[0] ?? '')
+    const assetRows = db.exec('SELECT id, mime, file_name, byte_size FROM assets')
+    const assets = (assetRows[0]?.values ?? []).map((row) => ({
+      id: String(row[0] ?? ''),
+      mime: String(row[1] ?? ''),
+      fileName: String(row[2] ?? ''),
+      byteSize: Number(row[3]),
+    }))
+    const assetIds = new Set<string>()
+    const assetFileNames = new Set<string>()
+    for (const asset of assets) {
+      const { fileName } = asset
       if (!fileName || path.basename(fileName) !== fileName) {
         throw new Error('asset metadata contains an unsafe file path')
       }
+      if (!isSafeAssetId(asset.id) || !asset.mime || !Number.isFinite(asset.byteSize) || asset.byteSize < 0) {
+        throw new Error('asset metadata is invalid')
+      }
+      if (assetIds.has(asset.id) || assetFileNames.has(asset.fileName)) {
+        throw new Error('asset metadata contains duplicate identifiers or files')
+      }
+      assetIds.add(asset.id)
+      assetFileNames.add(asset.fileName)
+    }
+    for (const referencedId of referencedAssetIds) {
+      if (!assetIds.has(referencedId)) {
+        throw new Error(`snapshot references a missing asset (${referencedId})`)
+      }
+    }
+    return {
+      tradeCount: snapshot.trades.length,
+      strategyCount: snapshot.strategies.length,
+      assets,
+      referencedAssetIds: [...referencedAssetIds],
     }
   } catch (err) {
     throw new Error(
@@ -204,11 +252,18 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<void>
   }
 }
 
-async function validateDesktopLibrary(
+export async function validateDesktopLibrary(
   paths: ReturnType<typeof ensureLibraryDirs>,
-): Promise<void> {
+): Promise<LibraryDatabaseInspection> {
   validateManifest(paths.manifestFile)
-  await validateLibraryDatabaseFile(paths.dbFile)
+  const inspection = await validateLibraryDatabaseFile(paths.dbFile)
+  for (const asset of inspection.assets) {
+    const filePath = path.join(paths.attachments, asset.fileName)
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).size !== asset.byteSize) {
+      throw new Error(`Invalid .journal.zip: attachment is missing or incomplete (${asset.fileName})`)
+    }
+  }
+  return inspection
 }
 
 function writeImportProgress(message: string): void {

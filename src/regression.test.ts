@@ -394,6 +394,7 @@ export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): 
     saveAsset: async () => { throw new Error('空库不应写入附件') },
     getAssetObjectUrl: async () => null,
     getAssetForExport: async () => null,
+    getAssetStats: async () => ({ count: 0, totalBytes: 0, missingCount: 0 }),
     importAssets: async () => undefined,
   }
 
@@ -2031,12 +2032,15 @@ export async function testCleanExpiredTradeTrashPurgesExpiredTradesOnly(): Promi
     deletedAt: new Date().toISOString(),
   }
   const purged: string[] = []
+  let purgeCalls = 0
 
-  const count = await cleanExpiredTradeTrash([expired, boundary, recent], (id) => {
-    purged.push(id)
+  const count = await cleanExpiredTradeTrash([expired, boundary, recent], (ids) => {
+    purgeCalls += 1
+    purged.push(...ids)
   })
 
   assert(count === 2, 'expired and zero-remaining boundary trades are cleaned')
+  assert(purgeCalls === 1, 'expired trash cleanup must purge the full batch in one store action')
   assert(
     purged.sort().join(',') === 'boundary,expired',
     'purges both clearly expired and zero-remaining boundary trades',
@@ -2116,6 +2120,89 @@ export function testUpsertTradesNotifiesOnce(): void {
       symbolCatalog: prevCatalog,
       tagPresets: prevTags,
       mistakeTagPresets: prevMistakes,
+    })
+  }
+}
+
+export function testBatchTradeLifecycleCommitsOnceAndUndoesAsOneAction(): void {
+  const previous = useStore.getState()
+  const first: Trade = { ...trade, id: 'batch-life-1', ref: 'TRD-BATCH-LIFE-1' }
+  const second: Trade = { ...trade, id: 'batch-life-2', ref: 'TRD-BATCH-LIFE-2' }
+  const untouched: Trade = { ...trade, id: 'batch-life-3', ref: 'TRD-BATCH-LIFE-3' }
+
+  useStore.setState({
+    trades: [first, second, untouched],
+    undoStack: [],
+    redoStack: [],
+    starredIds: [first.id, second.id, untouched.id],
+    subscribedIds: [first.id, second.id, untouched.id],
+  })
+  let commits = 0
+  const unsubscribe = useStore.subscribe(() => {
+    commits += 1
+  })
+
+  try {
+    useStore.getState().removeTrades([first.id, second.id, 'missing', first.id])
+    let state = useStore.getState()
+    assert(commits === 1, '批量移入回收站必须只提交一次 store 更新')
+    assert(
+      state.trades.filter((item) => item.id !== untouched.id).every((item) => Boolean(item.deletedAt)),
+      '批量移入回收站必须更新全部有效记录',
+    )
+    assert(!state.trades.find((item) => item.id === untouched.id)?.deletedAt, '未选记录不得被删除')
+    assert(
+      state.undoStack.length === 1 && state.undoStack[0]?.length === 2,
+      '整批删除必须形成一条包含全部记录的撤销操作',
+    )
+
+    useStore.getState().undo()
+    state = useStore.getState()
+    assert(
+      state.trades.every((item) => !item.deletedAt),
+      '一次撤销必须同时恢复整批记录',
+    )
+    assert(state.undoStack.length === 0, '整批撤销后不得残留同批的独立撤销步骤')
+
+    useStore.setState({
+      trades: [
+        { ...first, deletedAt: '2026-07-01T00:00:00.000Z' },
+        { ...second, deletedAt: '2026-07-01T00:00:00.000Z' },
+        untouched,
+      ],
+      undoStack: [],
+      redoStack: [],
+    })
+    commits = 0
+    useStore.getState().restoreTrades([first.id, second.id, 'missing'])
+    state = useStore.getState()
+    assert(commits === 1, '批量恢复必须只提交一次 store 更新')
+    assert(state.trades.every((item) => !item.deletedAt), '批量恢复必须恢复全部有效记录')
+    assert(state.undoStack.length === 0, '批量恢复必须保持现有的不可撤销语义')
+
+    useStore.setState({
+      trades: [first, second, untouched],
+      starredIds: [first.id, second.id, untouched.id],
+      subscribedIds: [first.id, second.id, untouched.id],
+    })
+    commits = 0
+    useStore.getState().purgeTrades([first.id, second.id, 'missing'])
+    state = useStore.getState()
+    assert(commits === 1, '批量彻底删除必须只提交一次 store 更新')
+    assert(
+      state.trades.map((item) => item.id).join(',') === untouched.id,
+      '批量彻底删除必须只移除目标记录',
+    )
+    assert(state.starredIds.join(',') === untouched.id, '彻底删除必须同步清理星标引用')
+    assert(state.subscribedIds.join(',') === untouched.id, '彻底删除必须同步清理订阅引用')
+  } finally {
+    unsubscribe()
+    useStore.setState({
+      trades: previous.trades,
+      undoStack: previous.undoStack,
+      redoStack: previous.redoStack,
+      starredIds: previous.starredIds,
+      subscribedIds: previous.subscribedIds,
     })
   }
 }

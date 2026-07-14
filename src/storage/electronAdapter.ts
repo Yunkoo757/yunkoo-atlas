@@ -1,4 +1,4 @@
-import type { StorageAdapter } from '@/storage/adapter'
+import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { getJournalBridge } from '@/storage/runtime'
 
@@ -62,6 +62,10 @@ export class ElectronStorageAdapter implements StorageAdapter {
     const bytes = record.bytes
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
     return { id: record.id, mime: record.mime, data: btoa(binary) }
+  }
+
+  async getAssetStats(ids: string[]): Promise<AssetStorageStats> {
+    return getJournalBridge()!.getAssetStats(ids)
   }
 
   async importAssets(assets: ExportAssetRecord[]): Promise<void> {

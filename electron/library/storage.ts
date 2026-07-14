@@ -9,6 +9,7 @@ import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidati
 import { ensureLibraryDirs, findAttachmentFile, getLibraryPath } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { writeFileAtomicallySync } from './atomicFile'
+import { assertSafeAssetId } from '../../src/storage/assetId'
 
 const SNAPSHOT_KEY = 'snapshot'
 
@@ -23,11 +24,31 @@ export interface AssetBytes {
 
 let sqlPromise: ReturnType<typeof initSqlJs> | null = null
 
+function resolveAttachmentWritePath(attachmentsRoot: string, fileName: string): string {
+  const resolvedRoot = path.resolve(attachmentsRoot)
+  const resolvedTarget = path.resolve(resolvedRoot, fileName)
+  const relative = path.relative(resolvedRoot, resolvedTarget)
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('附件写入路径越界')
+  }
+  return resolvedTarget
+}
+
+function fileSizeIfPresent(filePath: string): number {
+  try {
+    const stat = fs.statSync(filePath)
+    return stat.isFile() ? stat.size : -1
+  } catch {
+    return -1
+  }
+}
+
 async function getSql() {
   if (!sqlPromise) {
     sqlPromise = initSqlJs({
       locateFile: (file) => {
         const candidates = [
+          path.join(process.resourcesPath, file),
           path.join(app.getAppPath(), 'dist-electron', file),
           path.join(app.getAppPath(), file),
           path.join(process.cwd(), 'dist-electron', file),
@@ -231,7 +252,8 @@ export class LibraryStorage {
     }
 
     const fileName = `${id}.${ext}`
-    const filePath = path.join(this.paths.attachments, fileName)
+    assertSafeAssetId(id)
+    const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
     fs.writeFileSync(filePath, outBuffer)
 
     db.run(
@@ -285,8 +307,49 @@ export class LibraryStorage {
     }
   }
 
+  getAssetStats(ids: string[]): { count: number; totalBytes: number; missingCount: number } {
+    const uniqueIds = [...new Set(ids)]
+    if (uniqueIds.length === 0) return { count: 0, totalBytes: 0, missingCount: 0 }
+
+    const db = this.requireDb()
+    const stmt = db.prepare('SELECT file_name, byte_size FROM assets WHERE id = ?')
+    let count = 0
+    let totalBytes = 0
+    let missingCount = 0
+    try {
+      for (const id of uniqueIds) {
+        stmt.bind([id])
+        if (stmt.step()) {
+          const row = stmt.getAsObject() as { file_name: string; byte_size: number }
+          const byteSize = Number(row.byte_size)
+          let actualSize = -1
+          try {
+            actualSize = fileSizeIfPresent(
+              resolveAttachmentWritePath(this.paths.attachments, row.file_name),
+            )
+          } catch {
+            /* 非法文件名按缺失处理 */
+          }
+          if (Number.isFinite(byteSize) && byteSize >= 0 && actualSize === byteSize) {
+            count += 1
+            totalBytes += actualSize
+          } else {
+            missingCount += 1
+          }
+        } else {
+          missingCount += 1
+        }
+        stmt.reset()
+      }
+    } finally {
+      stmt.free()
+    }
+    return { count, totalBytes, missingCount }
+  }
+
   importAsset(id: string, mime: string, buffer: Buffer): void {
     const db = this.requireDb()
+    assertSafeAssetId(id)
     const createdAt = new Date().toISOString()
     const ext = mime.includes('webp')
       ? 'webp'
@@ -296,7 +359,7 @@ export class LibraryStorage {
           ? 'jpg'
           : 'bin'
     const fileName = `${id}.${ext}`
-    const filePath = path.join(this.paths.attachments, fileName)
+    const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
     fs.writeFileSync(filePath, buffer)
     db.run(
       `INSERT INTO assets (id, mime, file_name, byte_size, created_at)

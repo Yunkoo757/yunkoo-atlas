@@ -1,16 +1,206 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import initSqlJs from 'sql.js'
 import {
   createBackupAtPath,
   deleteBackupAtPath,
   getBackupStatsAtPath,
   rotateBackups,
   restoreBackupAtPath,
+  verifyBackupAtPath,
 } from './backup'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+async function createVerifiableBackup(
+  root: string,
+  options: { referencedAssetId?: string; includeAsset?: boolean } = {},
+): Promise<string> {
+  const includeAsset = options.includeAsset ?? true
+  const attachments = path.join(root, 'attachments')
+  fs.mkdirSync(attachments, { recursive: true })
+  if (includeAsset) {
+    fs.writeFileSync(path.join(attachments, 'asset-1.bin'), Buffer.from('original-asset'))
+  }
+
+  const SQL = await initSqlJs({
+    locateFile: () => path.join(process.cwd(), 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm'),
+  })
+  const db = new SQL.Database()
+  try {
+    db.run(`
+      CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      CREATE TABLE assets (
+        id TEXT PRIMARY KEY,
+        mime TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        byte_size INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `)
+    const trades = options.referencedAssetId
+      ? [{
+          id: 'trade-1',
+          ref: 'TRD-1',
+          symbol: 'BTCUSDT',
+          strategyId: 'strategy-1',
+          openedAt: '2026-07-14',
+          side: 'long',
+          status: 'open',
+          conviction: 'medium',
+          entry: 1,
+          size: 1,
+          note: `<p><img src="journal-asset://${options.referencedAssetId}"></p>`,
+        }]
+      : []
+    db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
+      'snapshot',
+      JSON.stringify({
+        trades,
+        strategies: [],
+        starredIds: [],
+        subscribedIds: [],
+        pinnedStrategyIds: [],
+        display: {},
+      }),
+    ])
+    if (includeAsset) {
+      db.run('INSERT INTO assets VALUES (?, ?, ?, ?, ?)', [
+        'asset-1',
+        'application/octet-stream',
+        'asset-1.bin',
+        14,
+        '2026-07-14T08:00:00.000Z',
+      ])
+    }
+    fs.writeFileSync(path.join(root, 'journal.db'), Buffer.from(db.export()))
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({ schemaVersion: 6, libraryId: 'backup-test-library' }),
+      'utf8',
+    )
+
+    const backup = createBackupAtPath(
+      {
+        getCounts: () => ({
+          tradeCount: trades.length,
+          strategyCount: 0,
+          assetCount: includeAsset ? 1 : 0,
+        }),
+      },
+      root,
+      Date.UTC(2026, 6, 14, 8, 0, 0),
+    )
+    if (!backup) throw new Error('测试恢复点创建失败')
+    return backup
+  } finally {
+    db.close()
+  }
+}
+
+function assertVerificationWorkspaceRemoved(root: string): void {
+  assert(
+    !fs.readdirSync(root).some((name) => name.startsWith('.backup-verify-')),
+    '恢复点验证结束后必须清理临时资料库',
+  )
+}
+
+export async function testBackupVerificationRestoresDatabaseAndAttachmentBytes(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-ok-'))
+  try {
+    const backup = await createVerifiableBackup(root)
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'verified', '完整恢复演练应验证通过')
+    assert(result.tradeCount === 0, '验证结果应包含实际交易数量')
+    assert(result.attachmentCount === 1, '验证结果应包含实际附件数量')
+    assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testBackupVerificationRejectsTamperedAttachmentBytes(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-asset-'))
+  try {
+    const backup = await createVerifiableBackup(root)
+    const meta = JSON.parse(fs.readFileSync(backup + '.meta.json', 'utf8')) as {
+      attachmentEntries: { vaultName: string }[]
+    }
+    const vaultName = meta.attachmentEntries[0]?.vaultName
+    if (!vaultName) throw new Error('测试恢复点缺少附件映射')
+    fs.writeFileSync(path.join(root, 'backups', 'assets', vaultName), 'tampered-asset')
+
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'invalid', '附件字节被篡改后必须拒绝恢复点')
+    assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testBackupVerificationRejectsTamperedMetadata(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-meta-'))
+  try {
+    const backup = await createVerifiableBackup(root)
+    const meta = JSON.parse(fs.readFileSync(backup + '.meta.json', 'utf8')) as Record<string, unknown>
+    meta.tradeCount = 99
+    fs.writeFileSync(backup + '.meta.json', JSON.stringify(meta), 'utf8')
+
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'invalid', '恢复点元数据与数据库不一致时必须拒绝')
+    assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testBackupVerificationRejectsTamperedManifest(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-manifest-'))
+  try {
+    const backup = await createVerifiableBackup(root)
+    fs.writeFileSync(backup + '.manifest.json', '{broken', 'utf8')
+
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'invalid', '资料库清单损坏后不得标记为已验证')
+    assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testBackupVerificationRejectsTamperedDatabaseBytes(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-database-'))
+  try {
+    const backup = await createVerifiableBackup(root)
+    const bytes = fs.readFileSync(backup)
+    bytes[bytes.length - 1] = (bytes[bytes.length - 1] ?? 0) ^ 0xff
+    fs.writeFileSync(backup, bytes)
+
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'invalid', '数据库字节被篡改后不得标记为已验证')
+    assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testBackupVerificationRejectsMissingNoteAttachmentReferences(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-reference-'))
+  try {
+    const backup = await createVerifiableBackup(root, {
+      referencedAssetId: 'missing-asset',
+      includeAsset: false,
+    })
+
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'invalid', '笔记引用缺少附件记录时不得标记为已验证')
+    assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 }
 
 export function testDefaultBackupRotationKeepsSevenLatestRestorePoints(): void {
