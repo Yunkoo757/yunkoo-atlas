@@ -22,4 +22,7 @@ export function testMenuRendersPopupThroughPortal() {
   if (!css.includes('position: fixed')) {
     throw new Error('Menu popup must use fixed positioning when portaled')
   }
+  if (!source.includes('data-menu-id={menuId}')) {
+    throw new Error('Menu root and popup must share data-menu-id so focus can return to the trigger')
+  }
 }
