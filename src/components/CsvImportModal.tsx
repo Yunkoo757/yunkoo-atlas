@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, type DragEvent } from 'react'
+import { useEffect, useState, useMemo, useRef, type DragEvent } from 'react'
 import { Upload, X, ArrowRight, AlertCircle, CheckCircle } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import {
@@ -15,15 +15,17 @@ import type { Trade } from '@/data/trades'
 import {
   buildContentSignature,
   buildLibraryContentIndex,
+  createDuplicateLookupIndex,
   duplicateReasonLabel,
-  findObviousDuplicate,
+  findObviousDuplicateIndexed,
   type DuplicateMatch,
 } from '@/lib/tradeDuplicates'
 import { getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
-import { withPersistSuspended } from '@/storage/persist'
+import { flushPersistNow, withPersistSuspended } from '@/storage/persist'
 import { Select } from '@/components/ui/Select'
 import { SelectionBox } from '@/components/ui/SelectionBox'
+import { normalizeSymbol } from '@/lib/symbolIcons'
 import './CsvImportModal.css'
 
 interface Props {
@@ -35,6 +37,7 @@ export function CsvImportModal({ open, onClose }: Props) {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
   const upsertTrades = useStore((s) => s.upsertTrades)
+  const purgeTrades = useStore((s) => s.purgeTrades)
 
   const [step, setStep] = useState<'upload' | 'map' | 'preview' | 'done'>('upload')
   const [csvResult, setCsvResult] = useState<ReturnType<typeof parseCsv> | null>(null)
@@ -46,18 +49,47 @@ export function CsvImportModal({ open, onClose }: Props) {
   const [skipDuplicates, setSkipDuplicates] = useState(true)
   const [duplicateByRow, setDuplicateByRow] = useState<Record<number, DuplicateMatch>>({})
   const [forceImportRows, setForceImportRows] = useState<Record<number, boolean>>({})
+  const [duplicateScanState, setDuplicateScanState] = useState<'idle' | 'scanning' | 'done'>('idle')
+  const [importing, setImporting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const importingRef = useRef(false)
+  const requestGenerationRef = useRef(0)
 
   const usedFields = useMemo(() => new Set(Object.values(mapping)), [mapping])
   const duplicateCount = useMemo(() => Object.keys(duplicateByRow).length, [duplicateByRow])
 
+  const invalidatePendingRequest = () => {
+    requestGenerationRef.current += 1
+  }
+
+  useEffect(() => {
+    if (!open) {
+      invalidatePendingRequest()
+      setStep('upload')
+      setCsvResult(null)
+      setMapping({})
+      setPreviews([])
+      setFileName('')
+      setError('')
+      setDuplicateByRow({})
+      setForceImportRows({})
+      setDuplicateScanState('idle')
+    }
+  }, [open])
+
+  useEffect(() => () => invalidatePendingRequest(), [])
+
   const processFile = async (file: File) => {
+    const requestGeneration = requestGenerationRef.current + 1
+    requestGenerationRef.current = requestGeneration
     setError('')
     setFileName(file.name)
     setDuplicateByRow({})
     setForceImportRows({})
+    setDuplicateScanState('idle')
     try {
       const text = await file.text()
+      if (requestGenerationRef.current !== requestGeneration) return
       const result = parseCsv(text)
       if (result.headers.length === 0) {
         setError('CSV 文件为空或格式不正确')
@@ -67,6 +99,7 @@ export function CsvImportModal({ open, onClose }: Props) {
       setMapping(autoMapFields(result.headers))
       setStep('map')
     } catch {
+      if (requestGenerationRef.current !== requestGeneration) return
       setError('无法读取文件，请确认是有效的 CSV 文件')
     }
   }
@@ -100,6 +133,8 @@ export function CsvImportModal({ open, onClose }: Props) {
 
   const handlePreview = async () => {
     if (!csvResult) return
+    const requestGeneration = requestGenerationRef.current + 1
+    requestGenerationRef.current = requestGeneration
     const pre: ImportPreview[] = []
     for (let i = 0; i < csvResult.rows.length; i++) {
       pre.push(mapRowToTrade(csvResult.rows[i] ?? [], mapping, i, strategies))
@@ -107,24 +142,34 @@ export function CsvImportModal({ open, onClose }: Props) {
     setPreviews(pre)
     setStep('preview')
     setForceImportRows({})
+    setDuplicateScanState('scanning')
+    setDuplicateByRow({})
 
     try {
       const storage = getStorage()
       const library = await buildLibraryContentIndex(trades, async (assetId) => {
         const rec = await storage.getAssetForExport(assetId)
         return rec?.data ?? null
-      })
+      }, { includeImages: false })
+      const duplicateIndex = createDuplicateLookupIndex(library)
       const next: Record<number, DuplicateMatch> = {}
       for (const row of pre) {
+        if (requestGenerationRef.current !== requestGeneration) return
         if (row.errors.length > 0) continue
         const sig = buildContentSignature(row.trade.note ?? '', [])
-        const match = findObviousDuplicate(sig, library)
+        const match = findObviousDuplicateIndexed(sig, duplicateIndex)
         if (match) next[row.rowIndex] = match
       }
+      if (requestGenerationRef.current !== requestGeneration) return
       setDuplicateByRow(next)
     } catch (err) {
+      if (requestGenerationRef.current !== requestGeneration) return
       console.error('[CsvImport] duplicate scan failed', err)
       setDuplicateByRow({})
+    } finally {
+      if (requestGenerationRef.current === requestGeneration) {
+        setDuplicateScanState('done')
+      }
     }
   }
 
@@ -136,7 +181,8 @@ export function CsvImportModal({ open, onClose }: Props) {
     return Boolean(forceImportRows[preview.rowIndex])
   }
 
-  const handleImport = () => {
+  const handleImport = async () => {
+    if (importingRef.current || duplicateScanState !== 'done') return
     const valid = previews.filter(shouldImportPreview)
     if (valid.length === 0) {
       setError('没有可导入的数据行（疑似重复已全部跳过或需修正映射）')
@@ -164,9 +210,45 @@ export function CsvImportModal({ open, onClose }: Props) {
       return
     }
 
-    void withPersistSuspended(() => {
-      upsertTrades(batch)
-    })
+    importingRef.current = true
+    setImporting(true)
+    const existingTradeIds = new Set(useStore.getState().trades.map((trade) => trade.id))
+    const insertedTradeIds = batch
+      .filter((trade) => !existingTradeIds.has(trade.id))
+      .map((trade) => trade.id)
+    const existingSymbols = new Set(useStore.getState().symbolCatalog)
+    const insertedSymbols = new Set(
+      batch
+        .map((trade) => normalizeSymbol(trade.symbol))
+        .filter((symbol) => symbol && !existingSymbols.has(symbol)),
+    )
+
+    setError('')
+    try {
+      await withPersistSuspended(() => {
+        upsertTrades(batch)
+      })
+    } catch (err) {
+      console.error('[CsvImport] persist failed', err)
+      purgeTrades(insertedTradeIds)
+      useStore.setState((state) => {
+        const usedSymbols = new Set(state.trades.map((trade) => normalizeSymbol(trade.symbol)))
+        return {
+          symbolCatalog: state.symbolCatalog.filter(
+            (symbol) => !insertedSymbols.has(symbol) || usedSymbols.has(symbol),
+          ),
+        }
+      })
+      // 首次失败留下的 pending 含导入批次；回滚后立即用最新 store 覆盖它。
+      await flushPersistNow().catch((rollbackError) => {
+        console.error('[CsvImport] rollback persist failed', rollbackError)
+      })
+      setError('导入失败，交易未能安全保存，请重试')
+      return
+    } finally {
+      importingRef.current = false
+      setImporting(false)
+    }
 
     setStep('done')
     const skipped = skipDuplicates
@@ -180,6 +262,9 @@ export function CsvImportModal({ open, onClose }: Props) {
   }
 
   const reset = () => {
+    invalidatePendingRequest()
+    importingRef.current = false
+    setImporting(false)
     setStep('upload')
     setCsvResult(null)
     setMapping({})
@@ -190,15 +275,30 @@ export function CsvImportModal({ open, onClose }: Props) {
     setSkipDuplicates(true)
     setDuplicateByRow({})
     setForceImportRows({})
+    setDuplicateScanState('idle')
     if (fileRef.current) fileRef.current.value = ''
   }
 
   if (!open) return null
 
+  const requestClose = () => {
+    if (importingRef.current) return
+    reset()
+    onClose()
+  }
+
+  const returnToMapping = () => {
+    invalidatePendingRequest()
+    setDuplicateByRow({})
+    setForceImportRows({})
+    setDuplicateScanState('idle')
+    setStep('map')
+  }
+
   const pickFile = () => fileRef.current?.click()
 
   return (
-    <div className="csv-modal-overlay" onClick={onClose}>
+    <div className="csv-modal-overlay" onClick={requestClose}>
       <div
         className={'csv-modal' + (step === 'upload' || step === 'done' ? '' : ' is-wide')}
         onClick={(e) => e.stopPropagation()}
@@ -210,7 +310,7 @@ export function CsvImportModal({ open, onClose }: Props) {
               <p className="csv-modal-desc">支持中英文表头，自动匹配字段</p>
             )}
           </div>
-          <button className="csv-modal-close" onClick={onClose} type="button" aria-label="关闭">
+          <button className="csv-modal-close" onClick={requestClose} disabled={importing} type="button" aria-label="关闭">
             <X size={16} />
           </button>
         </div>
@@ -423,17 +523,28 @@ export function CsvImportModal({ open, onClose }: Props) {
               </table>
             </div>
             {error && <p className="csv-error">{error}</p>}
+            {duplicateScanState === 'scanning' && (
+              <p className="csv-preview-summary" role="status">正在检测重复记录…</p>
+            )}
             <div className="csv-actions">
-              <button className="csv-btn csv-btn-ghost" onClick={() => setStep('map')} type="button">
+              <button className="csv-btn csv-btn-ghost" onClick={returnToMapping} disabled={importing} type="button">
                 返回调整映射
               </button>
               <button
                 className="csv-btn csv-btn-primary"
                 onClick={handleImport}
-                disabled={previews.filter(shouldImportPreview).length === 0}
+                disabled={
+                  importing ||
+                  duplicateScanState !== 'done' ||
+                  previews.filter(shouldImportPreview).length === 0
+                }
                 type="button"
               >
-                确认导入
+                {importing
+                  ? '正在导入…'
+                  : duplicateScanState === 'scanning'
+                    ? '正在检测重复…'
+                    : '确认导入'}
               </button>
             </div>
           </div>
@@ -448,7 +559,7 @@ export function CsvImportModal({ open, onClose }: Props) {
               <button className="csv-btn csv-btn-primary" onClick={reset} type="button">
                 导入其他文件
               </button>
-              <button className="csv-btn csv-btn-ghost" onClick={onClose} type="button">
+              <button className="csv-btn csv-btn-ghost" onClick={requestClose} type="button">
                 关闭
               </button>
             </div>

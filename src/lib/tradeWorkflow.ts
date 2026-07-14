@@ -5,8 +5,9 @@ export interface TodayWorkflowBuckets {
   active: Trade[]
   resultPending: Trade[]
   reviewPending: Trade[]
-  todayRecords: Trade[]
+  completedToday: Trade[]
   actionCount: number
+  historicalActionCount: number
 }
 
 export function toLocalDateKey(value = new Date()): string {
@@ -23,8 +24,25 @@ function newestFirst(left: Trade, right: Trade): number {
   return rightTime.localeCompare(leftTime)
 }
 
+function dateKeyFromStoredValue(value: string | null | undefined): string | null {
+  if (!value) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? value.slice(0, 10) : toLocalDateKey(parsed)
+}
+
 function sameLocalDate(value: string | null | undefined, date: string): boolean {
-  return Boolean(value?.slice(0, 10) === date)
+  return dateKeyFromStoredValue(value) === date
+}
+
+function completedNewestFirst(left: Trade, right: Trade): number {
+  const leftTime = left.reviewedAt ?? left.closedAt ?? left.openedAt
+  const rightTime = right.reviewedAt ?? right.closedAt ?? right.openedAt
+  return rightTime.localeCompare(leftTime)
+}
+
+function workflowDate(trade: Trade): string {
+  return dateKeyFromStoredValue(trade.closedAt ?? trade.openedAt) ?? ''
 }
 
 /** 把交易库投影为互斥的今日行动队列，避免同一笔交易在多个区块重复出现。 */
@@ -36,10 +54,11 @@ export function getTodayWorkflowBuckets(
   const active: Trade[] = []
   const resultPending: Trade[] = []
   const reviewPending: Trade[] = []
-  const todayRecords: Trade[] = []
+  const completedToday: Trade[] = []
 
   for (const trade of live) {
     if (trade.status === 'planned' || trade.status === 'open') {
+      if (trade.status === 'planned' && workflowDate(trade) > today) continue
       active.push(trade)
       continue
     }
@@ -57,21 +76,27 @@ export function getTodayWorkflowBuckets(
       reviewPending.push(trade)
       continue
     }
-    if (sameLocalDate(trade.openedAt, today) || sameLocalDate(trade.closedAt, today)) {
-      todayRecords.push(trade)
+    if (
+      sameLocalDate(trade.reviewedAt, today) ||
+      (!trade.reviewedAt && (sameLocalDate(trade.openedAt, today) || sameLocalDate(trade.closedAt, today)))
+    ) {
+      completedToday.push(trade)
     }
   }
 
   active.sort(newestFirst)
   resultPending.sort(newestFirst)
   reviewPending.sort(newestFirst)
-  todayRecords.sort(newestFirst)
+  completedToday.sort(completedNewestFirst)
+
+  const actions = [...active, ...resultPending, ...reviewPending]
 
   return {
     active,
     resultPending,
     reviewPending,
-    todayRecords,
-    actionCount: active.length + resultPending.length + reviewPending.length,
+    completedToday,
+    actionCount: actions.length,
+    historicalActionCount: actions.filter((trade) => workflowDate(trade) < today).length,
   }
 }

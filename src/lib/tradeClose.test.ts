@@ -79,6 +79,7 @@ export function testCloseKeepsCashResultAsTheOnlyAuthority(): void {
   if (!result.ok) return
   assert(result.patch.pnl === 1_000, 'explicit cash PnL should be preserved')
   assert(result.patch.rMultiple === null, 'cash mode must not invent or preserve an R result')
+  assert(result.patch.resultSource === 'pnl', 'cash mode must persist PnL as the result authority')
 }
 
 export function testCloseAppliesLossDirectionToCashMagnitude(): void {
@@ -109,6 +110,7 @@ export function testCloseKeepsRResultAsTheOnlyAuthority(): void {
   if (!result.ok) return
   assert(result.patch.pnl === null, 'R mode must clear stale cash PnL')
   assert(result.patch.rMultiple === -1.5, 'loss R magnitude should be stored as a negative value')
+  assert(result.patch.resultSource === 'r', 'R mode must persist R as the result authority')
 }
 
 export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
@@ -149,6 +151,28 @@ export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
   assert(result.status === 'win', 'price direction should determine the closed outcome')
   assert(result.patch.pnl === null, 'price mode must not invent cash PnL without contract metadata')
   assert(result.patch.rMultiple === 2, 'price mode should calculate R from price risk directly')
+  assert(result.patch.resultSource === 'price', 'price mode must persist price as the result authority')
+  assert(result.patch.initialStopLoss === 1.095, 'price mode must freeze the initial risk used for R')
+}
+
+export function testPriceCloseUsesFrozenRiskAfterStopMoves(): void {
+  const result = prepareTradeClose({
+    ...trade,
+    entry: 100,
+    stopLoss: 99,
+    initialStopLoss: 95,
+  }, {
+    outcome: 'win',
+    resultMode: 'price',
+    value: null,
+    exit: 110,
+    closedAt: '2026-07-13',
+  })
+
+  assert(result.ok, 'a moved stop should not block price close when initial risk is frozen')
+  if (!result.ok) return
+  assert(result.patch.rMultiple === 2, 'price close must calculate R from the frozen initial stop')
+  assert(result.patch.initialStopLoss === 95, 'price close must preserve the frozen initial stop')
 }
 
 export function testCloseRejectsMissingPrimaryResult(): void {

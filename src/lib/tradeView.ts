@@ -307,19 +307,21 @@ export function getVisibleTradeTags(trade: Trade, limit = 2) {
   }
 }
 
+export function matchesTradeFacets(trade: Trade, facets: TradeFacetFilters): boolean {
+  if (facets.symbol && trade.symbol !== facets.symbol) return false
+  if (facets.side && trade.side !== facets.side) return false
+  if (facets.status && trade.status !== facets.status) return false
+  if (facets.tag && !trade.tags.includes(facets.tag)) return false
+  if (facets.mistakeTag && !trade.mistakeTags.includes(facets.mistakeTag)) return false
+  if (facets.reviewCategory && trade.reviewCategory !== facets.reviewCategory) return false
+  if (facets.session && getTradeSessionMeta(trade)?.kind !== facets.session) return false
+  if (facets.period && !tradeInPeriod(trade, facets.period)) return false
+  if (facets.strategyId && trade.strategyId !== facets.strategyId) return false
+  return true
+}
+
 export function filterTradesByFacets(trades: Trade[], facets: TradeFacetFilters): Trade[] {
-  return trades.filter((trade) => {
-    if (facets.symbol && trade.symbol !== facets.symbol) return false
-    if (facets.side && trade.side !== facets.side) return false
-    if (facets.status && trade.status !== facets.status) return false
-    if (facets.tag && !trade.tags.includes(facets.tag)) return false
-    if (facets.mistakeTag && !trade.mistakeTags.includes(facets.mistakeTag)) return false
-    if (facets.reviewCategory && trade.reviewCategory !== facets.reviewCategory) return false
-    if (facets.session && getTradeSessionMeta(trade)?.kind !== facets.session) return false
-    if (facets.period && !tradeInPeriod(trade, facets.period)) return false
-    if (facets.strategyId && trade.strategyId !== facets.strategyId) return false
-    return true
-  })
+  return trades.filter((trade) => matchesTradeFacets(trade, facets))
 }
 
 export function intersectSelectedTradeIds(selectedIds: Set<string>, visibleTrades: Trade[]) {

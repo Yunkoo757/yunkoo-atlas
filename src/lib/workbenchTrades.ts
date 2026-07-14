@@ -5,6 +5,7 @@ import { CALENDAR_PERIODS, tradeInPeriod, type CalendarPeriod } from '@/lib/peri
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
 import {
   filterTradesByFacets,
+  matchesTradeFacets,
   type TradeFacetFilters,
   type TradeSessionKind,
 } from '@/lib/tradeView'
@@ -64,70 +65,70 @@ export function filterTrades(
   filter: ListFilter,
   starredIds: string[],
 ): Trade[] {
-  let visible = trades
+  const starred = new Set(starredIds)
+  return trades.filter((trade) => matchesListFilter(trade, filter, starred))
+}
+
+function matchesListFilter(
+  trade: Trade,
+  filter: ListFilter,
+  starredIds: ReadonlySet<string>,
+): boolean {
   switch (filter.type) {
     case 'active':
-      visible = trades.filter((trade) => isActive(trade.status))
+      if (!isActive(trade.status)) return false
       break
     case 'starred':
-      visible = trades.filter((trade) => starredIds.includes(trade.id))
+      if (!starredIds.has(trade.id)) return false
       break
     case 'strategy':
-      if (filter.strategyId) {
-        visible = trades.filter((trade) => trade.strategyId === filter.strategyId)
-      }
+      if (filter.strategyId && trade.strategyId !== filter.strategyId) return false
       break
     case 'missed':
-      visible = trades.filter((trade) => isMissed(trade.status))
+      if (!isMissed(trade.status)) return false
       break
     case 'period':
-      if (filter.period) {
-        visible = trades.filter((trade) => tradeInPeriod(trade, filter.period!))
-      }
+      if (filter.period && !tradeInPeriod(trade, filter.period)) return false
       break
     default:
       break
   }
 
-  visible = filter.tradeKind
-    ? visible.filter((trade) => trade.tradeKind === filter.tradeKind)
-    : visible.filter(isAccountTrade)
+  if (filter.tradeKind ? trade.tradeKind !== filter.tradeKind : !isAccountTrade(trade)) return false
 
   if (filter.tradeKind !== 'case' || !filter.reviewCaseScope || filter.reviewCaseScope === 'all') {
-    return visible
-  }
-  return visible.filter((trade) => {
-    if (filter.reviewCaseScope === 'focus') {
-      return (
-        starredIds.includes(trade.id) ||
-        trade.reviewCategory === 'focus' ||
-        trade.reviewStatus === 'focus'
-      )
-    }
-    if (filter.reviewCaseScope === 'mistakes') {
-      return (
-        trade.caseType === 'mistake' ||
-        trade.reviewCategory === 'mistake' ||
-        trade.mistakeTags.length > 0
-      )
-    }
-    if (filter.reviewCaseScope === 'unreviewed') {
-      return (
-        trade.masteryState === 'new' ||
-        trade.masteryState === 'recheck' ||
-        trade.reviewCategory === 'recheck' ||
-        trade.reviewStatus === 'unreviewed'
-      )
-    }
-    if (filter.reviewCaseScope === 'reviewed') {
-      return (
-        trade.masteryState === 'mastered' ||
-        trade.reviewCategory === 'mastered' ||
-        trade.reviewStatus === 'reviewed'
-      )
-    }
     return true
-  })
+  }
+  if (filter.reviewCaseScope === 'focus') {
+    return (
+      starredIds.has(trade.id) ||
+      trade.reviewCategory === 'focus' ||
+      trade.reviewStatus === 'focus'
+    )
+  }
+  if (filter.reviewCaseScope === 'mistakes') {
+    return (
+      trade.caseType === 'mistake' ||
+      trade.reviewCategory === 'mistake' ||
+      trade.mistakeTags.length > 0
+    )
+  }
+  if (filter.reviewCaseScope === 'unreviewed') {
+    return (
+      trade.masteryState === 'new' ||
+      trade.masteryState === 'recheck' ||
+      trade.reviewCategory === 'recheck' ||
+      trade.reviewStatus === 'unreviewed'
+    )
+  }
+  if (filter.reviewCaseScope === 'reviewed') {
+    return (
+      trade.masteryState === 'mastered' ||
+      trade.reviewCategory === 'mastered' ||
+      trade.reviewStatus === 'reviewed'
+    )
+  }
+  return true
 }
 
 export function applyDisplayPrefs(
@@ -172,4 +173,28 @@ export function getWorkbenchVisibleTrades(options: {
     : options.display
   const preferred = applyDisplayPrefs(routeFiltered, prefs, options.filter)
   return filterTradesByFacets(preferred, facets)
+}
+
+export function countWorkbenchVisibleTrades(options: {
+  trades: Trade[]
+  filter: ListFilter
+  starredIds: string[]
+  display: DisplayPrefs
+  search: string | URLSearchParams
+}): number {
+  const facets = parseTradeFacets(options.search)
+  const starred = new Set(options.starredIds)
+  const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'
+  const hideClosed = options.display.hideClosed && !skipHideClosed && !(
+    facets.status && isHiddenWhenClosedFilter(facets.status)
+  )
+  let count = 0
+  for (const trade of options.trades) {
+    if (trade.deletedAt) continue
+    if (!matchesListFilter(trade, options.filter, starred)) continue
+    if (hideClosed && isHiddenWhenClosedFilter(trade.status)) continue
+    if (!matchesTradeFacets(trade, facets)) continue
+    count += 1
+  }
+  return count
 }

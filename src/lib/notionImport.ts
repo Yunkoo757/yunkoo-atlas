@@ -21,11 +21,25 @@ import { parseCsv } from '@/lib/csvImport'
 import { normalizeSession, normalizeNarrative, normalizePsychology } from '@/lib/tradeView'
 import { formatYmd } from '@/lib/periods'
 import JSZip from 'jszip'
-
-/** Notion 网页导出常再包一层 ExportBlock-*-Part-N.zip */
-const NOTION_NESTED_ZIP_LIMIT = 8
+import {
+  assertNotionImageByteAddition,
+  MAX_NOTION_ARCHIVE_COUNT,
+  MAX_NOTION_EXPANDED_BYTES,
+  MAX_NOTION_IMPORT_ROWS,
+  MAX_NOTION_NESTED_ZIP_DEPTH,
+} from '@/lib/notionImportLimits'
 
 const NOTION_CONTENT_FILE_RE = /\.(md|csv|png|jpe?g|gif|webp|bmp|svg)$/i
+
+type NotionParseOptions = {
+  shouldContinue?: () => boolean
+}
+
+function assertNotionParseContinues(options?: NotionParseOptions): void {
+  if (options?.shouldContinue && !options.shouldContinue()) {
+    throw new Error('Notion import cancelled')
+  }
+}
 
 function isNotionNestedZipPath(path: string): boolean {
   return /\.zip$/i.test(path)
@@ -35,27 +49,72 @@ function isNotionNestedZipPath(path: string): boolean {
  * 展开 Notion 导出的嵌套 zip（外层仅含 Part-N.zip 的情况），合并为可解析的内容包。
  * 兼容：单层 Part zip、外层包装、多 Part 合并。
  */
-export async function resolveNotionExportZip(zipBuffer: ArrayBuffer): Promise<JSZip> {
+export async function resolveNotionExportZip(
+  zipBuffer: ArrayBuffer,
+  options?: NotionParseOptions,
+): Promise<JSZip> {
   const merged = new JSZip()
-  const queue: ArrayBuffer[] = [zipBuffer]
-  let steps = 0
+  const queue: Array<{ buffer: ArrayBuffer; depth: number }> = [{ buffer: zipBuffer, depth: 0 }]
+  let archiveCount = 0
+  let expandedBytes = 0
+  let imageBytes = 0
+  let markdownEntryCount = 0
 
-  while (queue.length > 0 && steps < NOTION_NESTED_ZIP_LIMIT) {
-    steps += 1
-    const current = await JSZip.loadAsync(queue.shift()!)
-    const nested: ArrayBuffer[] = []
+  while (queue.length > 0) {
+    assertNotionParseContinues(options)
+    const queued = queue.shift()!
+    archiveCount += 1
+    if (archiveCount > MAX_NOTION_ARCHIVE_COUNT) {
+      throw new Error('Notion 导出包含过多分卷，请拆分后导入')
+    }
+    const current = await JSZip.loadAsync(queued.buffer)
+    const nested: Array<{ buffer: ArrayBuffer; depth: number } > = []
+    const entries = Object.entries(current.files)
+    const markdownEntries = entries.filter(
+      ([relativePath, entry]) => !entry.dir && /\.md$/i.test(relativePath),
+    ).length
+    if (markdownEntryCount + markdownEntries > MAX_NOTION_IMPORT_ROWS) {
+      throw new Error('Notion 导入记录超过 20000 笔，请拆分后导入')
+    }
+    markdownEntryCount += markdownEntries
 
-    for (const [relativePath, entry] of Object.entries(current.files)) {
+    for (const [relativePath, entry] of entries) {
+      assertNotionParseContinues(options)
       if (entry.dir) continue
+      const hintedBytes = Number(
+        (entry as unknown as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize ?? 0,
+      )
+      if (hintedBytes > MAX_NOTION_EXPANDED_BYTES || expandedBytes + hintedBytes > MAX_NOTION_EXPANDED_BYTES) {
+        throw new Error('Notion 导出解压后超过 160 MB，请拆分后导入')
+      }
       if (isNotionNestedZipPath(relativePath)) {
-        nested.push(await entry.async('arraybuffer'))
+        if (queued.depth >= MAX_NOTION_NESTED_ZIP_DEPTH) {
+          throw new Error('Notion 导出的嵌套层级过深，请重新导出后再试')
+        }
+        const buffer = await entry.async('arraybuffer')
+        assertNotionParseContinues(options)
+        expandedBytes += buffer.byteLength
+        nested.push({ buffer, depth: queued.depth + 1 })
         continue
       }
       if (merged.file(relativePath)) continue
-      merged.file(relativePath, await entry.async('uint8array'))
+      if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(relativePath)) {
+        assertNotionImageByteAddition(hintedBytes, imageBytes)
+      }
+      const data = await entry.async('uint8array')
+      assertNotionParseContinues(options)
+      expandedBytes += data.byteLength
+      if (expandedBytes > MAX_NOTION_EXPANDED_BYTES) {
+        throw new Error('Notion 导出解压后超过 160 MB，请拆分后导入')
+      }
+      if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(relativePath)) {
+        assertNotionImageByteAddition(data.byteLength, imageBytes)
+        imageBytes += data.byteLength
+      }
+      merged.file(relativePath, data)
     }
 
-    for (const part of nested) queue.push(part)
+    queue.push(...nested)
   }
 
   return merged
@@ -540,8 +599,9 @@ function buildTradeFromFrontmatter(
 export async function parseNotionZip(
   zipBuffer: ArrayBuffer,
   existingStrategies: Strategy[],
+  options?: NotionParseOptions,
 ): Promise<NotionImportResult> {
-  const zip = await resolveNotionExportZip(zipBuffer)
+  const zip = await resolveNotionExportZip(zipBuffer, options)
   if (!notionZipHasImportableContent(zip)) {
     return {
       previews: [],
@@ -565,25 +625,48 @@ export async function parseNotionZip(
       imageIndex.set(relativePath, entry)
     }
   })
+  if (mdEntries.length > MAX_NOTION_IMPORT_ROWS) {
+    throw new Error('Notion 导入记录超过 20000 笔，请拆分后导入')
+  }
+
+  const imageReadCache = new Map<string, Promise<ImageFile | null>>()
+  let parsedImageBytes = 0
 
   // ---- 辅助：读取图片二进制 ----
   async function readImage(entry: JSZip.JSZipObject, zipPath: string): Promise<ImageFile | null> {
-    try {
-      const data = await entry.async('uint8array')
-      const name = zipPath.split('/').pop() ?? 'image.png'
-      const ext = name.split('.').pop()?.toLowerCase() ?? 'png'
-      const m: Record<string, string> = {
-        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-        gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml',
+    const cached = imageReadCache.get(zipPath)
+    if (cached) return cached
+    const loading = (async () => {
+      try {
+        assertNotionParseContinues(options)
+        const data = await entry.async('uint8array')
+        assertNotionParseContinues(options)
+        assertNotionImageByteAddition(data.byteLength, parsedImageBytes)
+        parsedImageBytes += data.byteLength
+        const name = zipPath.split('/').pop() ?? 'image.png'
+        const ext = name.split('.').pop()?.toLowerCase() ?? 'png'
+        const m: Record<string, string> = {
+          png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+          gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml',
+        }
+        return { zipPath, name, data, mime: m[ext] ?? 'image/png', size: data.length }
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          (error.message.includes('MB') || error.message === 'Notion import cancelled')
+        ) throw error
+        return null
       }
-      return { zipPath, name, data, mime: m[ext] ?? 'image/png', size: data.length }
-    } catch { return null }
+    })()
+    imageReadCache.set(zipPath, loading)
+    return loading
   }
 
   // ---- 辅助：给定 md 文件目录 + 图片相对路径列表，匹配图片 ----
   async function matchImages(mdDir: string, refs: string[]): Promise<ImageFile[]> {
     const result: ImageFile[] = []
     for (const ref of refs) {
+      assertNotionParseContinues(options)
       const decoded = decodeURIComponent(ref)
       // 候选路径
       const candidates = [
@@ -605,6 +688,7 @@ export async function parseNotionZip(
       if (!found) {
         const targetName = (decoded.split('/').pop() ?? '').toLowerCase()
         for (const [path, entry] of imageIndex.entries()) {
+          assertNotionParseContinues(options)
           const fname = (path.split('/').pop() ?? '').toLowerCase()
           if (fname === targetName && path.includes(mdDir.split('/').slice(-3, -1).join('/'))) {
             const img = await readImage(entry, path)
@@ -620,7 +704,9 @@ export async function parseNotionZip(
   async function collectMdImageGroups(): Promise<NotionImageGroup[]> {
     const groups: NotionImageGroup[] = []
     for (const md of mdEntries) {
+      assertNotionParseContinues(options)
       const text = await md.entry.async('string')
+      assertNotionParseContinues(options)
       const { frontmatter, images: mdImageRefs, bodyMarkdown } = parseNotionMd(text)
       const sourceId = stripNotionUrl(frontmatter['id'] ?? '') || undefined
       if (!sourceId) continue
@@ -645,7 +731,9 @@ export async function parseNotionZip(
 
   let mdTradeCount = 0
   for (const md of mdEntries) {
+    assertNotionParseContinues(options)
     const text = await md.entry.async('string')
+    assertNotionParseContinues(options)
     const { frontmatter, images: mdImageRefs, bodyMarkdown } = parseNotionMd(text)
 
     const sym = stripNotionUrl(frontmatter['symbol'] ?? '')
@@ -690,6 +778,9 @@ export async function parseNotionZip(
 
     if (csvText) {
       const csvResult = parseNotionCsvFromText(csvText, existingStrategies)
+      if (csvResult.totalRows > MAX_NOTION_IMPORT_ROWS) {
+        throw new Error('Notion 导入记录超过 20000 笔，请拆分后导入')
+      }
       console.log('[NotionImport] CSV fallback: ' + csvResult.totalRows + ' rows, ' + csvResult.validRows + ' valid')
       newStrategySet.forEach((s) => csvResult.newStrategies.push(s))
 
@@ -708,6 +799,7 @@ export async function parseNotionZip(
   if (previews.length === 0 && imageIndex.size > 0) {
     const allImgs: ImageFile[] = []
     for (const [path, entry] of imageIndex.entries()) {
+      assertNotionParseContinues(options)
       const img = await readImage(entry, path)
       if (img) allImgs.push(img)
     }
@@ -791,10 +883,31 @@ function mapCsvRowToPreview(
   return buildTradeFromFrontmatter(fm, rowIndex, [])
 }
 
+function assertNotionCsvRowLimit(text: string): void {
+  let nonEmptyLines = 0
+  let lineHasContent = false
+  for (let index = 0; index <= text.length; index++) {
+    const code = index < text.length ? text.charCodeAt(index) : 10
+    if (code === 10) {
+      if (lineHasContent) {
+        nonEmptyLines += 1
+        // 第一条非空行是表头，其后最多接收 MAX_NOTION_IMPORT_ROWS 条记录。
+        if (nonEmptyLines > MAX_NOTION_IMPORT_ROWS + 1) {
+          throw new Error('Notion 导入记录超过 20000 笔，请拆分后导入')
+        }
+      }
+      lineHasContent = false
+    } else if (code > 32) {
+      lineHasContent = true
+    }
+  }
+}
+
 function parseNotionCsvFromText(
   text: string,
   existingStrategies: Strategy[],
 ): NotionImportResult {
+  assertNotionCsvRowLimit(text)
   const csv: CsvParseResult = parseCsv(text)
   const cleanHeaders = csv.headers.map(stripNotionUrl)
   const fields = detectNotionFields(cleanHeaders)

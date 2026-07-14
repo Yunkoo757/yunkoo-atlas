@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Route state browser test</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // The regression runner performs SSR builds before opening this page. In that
+      // process Vite can retain refresh transforms without reinjecting the dev preamble.
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/components/RouteState.browser.test.tsx"></script>
+  </body>
+</html>

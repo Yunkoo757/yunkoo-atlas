@@ -5,6 +5,7 @@ import {
   buildExportPayloadFromState,
   buildPortableSnapshotFromState,
   parseImportJson,
+  prepareImportPayloadForCommit,
 } from '@/lib/importExport'
 
 function assert(condition: unknown, message: string): void {
@@ -89,6 +90,32 @@ export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): 
   assert(!second?.note.includes('asset-1'), 'second trade does not receive asset-1')
 }
 
+export function testJsonImportRejectsMismatchedDeclaredResultAuthority(): void {
+  const payload = {
+    version: 6,
+    trades: [{ ...trade, resultSource: 'pnl' }],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }
+  const rejected = parseImportJson(JSON.stringify(payload))
+  assert(!rejected.ok, 'cash authority with an extra R metric must be rejected')
+
+  const importedPair = parseImportJson(JSON.stringify({
+    ...payload,
+    trades: [{ ...trade, resultSource: 'imported' }],
+  }))
+  assert(importedPair.ok, 'a declared imported pair must remain valid')
+
+  const legacyPair = parseImportJson(JSON.stringify({
+    ...payload,
+    trades: [{ ...trade, resultSource: undefined }],
+  }))
+  assert(legacyPair.ok, 'a legacy pair without declared authority must remain importable')
+}
+
 export function testPortableSnapshotIncludesWorkflowSettingsAndShortcutOverrides(): void {
   const snapshot = buildPortableSnapshotFromState(
     {
@@ -153,4 +180,46 @@ export function testJsonImportRejectsAttachmentPathTraversalIds(): void {
   }))
 
   assert(!parsed.ok, 'JSON 导入必须在进入 IPC 前拒绝路径穿越附件 ID')
+}
+
+export function testJsonImportPreparesFreshAssetIdsBeforeAtomicCommit(): void {
+  const ids = ['fresh-exported', 'fresh-inline']
+  const prepared = prepareImportPayloadForCommit({
+    version: 3,
+    trades: [{
+      ...trade,
+      note: '<p><img src="journal-asset://asset-1"><img src="data:image/png;base64,aW5saW5l"></p>',
+    }],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+    assets: [{ id: 'asset-1', mime: 'image/png', data: 'ZXhwb3J0ZWQ=' }],
+  }, () => ids.shift() ?? 'unexpected')
+
+  const note = prepared.payload.trades[0]?.note ?? ''
+  assert(note.includes('journal-asset://fresh-exported'), 'exported attachment references must use a fresh id')
+  assert(note.includes('journal-asset://fresh-inline'), 'inline images must be staged instead of written early')
+  assert(!note.includes('journal-asset://asset-1'), 'import must never overwrite an existing same-id attachment')
+  assert(prepared.assets.length === 2, 'all imported images should enter one commit batch')
+}
+
+export function testJsonImportRejectsNotesWhoseReferencedAttachmentIsMissing(): void {
+  let rejected = false
+  try {
+    prepareImportPayloadForCommit({
+      version: 6,
+      trades: [{ ...trade, note: '<p><img src="journal-asset://missing-asset"></p>' }],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+      assets: [],
+    })
+  } catch {
+    rejected = true
+  }
+  assert(rejected, '导入笔记引用的附件缺失时必须拒绝，不能错链目标库中的同名附件')
 }

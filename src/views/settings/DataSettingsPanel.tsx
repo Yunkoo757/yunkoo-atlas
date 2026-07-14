@@ -4,12 +4,16 @@ import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
 import { applySnapshotToStore } from '@/lib/importExport'
-import { flushPersistNow } from '@/storage/persist'
+import { flushPersistNow, resumePersistAndFlush, suspendPersist } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, CheckCircle, AlertCircle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
+import {
+  flushStorageBeforeCutover,
+  lockStorageCutoverInteraction,
+} from '@/storage/cutover'
 
 function fmtBackupTime(ts: number): string {
   const d = new Date(ts)
@@ -31,6 +35,7 @@ export function DataSettingsPanel() {
   const electron = isElectron()
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backing, setBacking] = useState(false)
+  const [restoring, setRestoring] = useState<string | null>(null)
   const [verifying, setVerifying] = useState<string | null>(null)
   const [health, setHealth] = useState<{
     tradeCount: number
@@ -119,12 +124,16 @@ export function DataSettingsPanel() {
   const handleRestore = async (name: string) => {
     if (!electron) return
     if (!window.confirm(`确定恢复备份 ${name.slice(0, 34)}…？\n当前数据将被替换。`)) return
+    setRestoring(name)
+    const unlockInteraction = lockStorageCutoverInteraction()
+    let suspended = false
     try {
-      await flushPersistNow()
+      await flushStorageBeforeCutover()
+      suspendPersist()
+      suspended = true
       const result = await getJournalBridge()!.restoreBackup(name)
       if (result && typeof result === 'object') {
         applySnapshotToStore(result)
-        await flushPersistNow()
         toast('备份已恢复')
         await Promise.all([refreshBackups(), refreshHealth()])
       } else {
@@ -132,6 +141,12 @@ export function DataSettingsPanel() {
       }
     } catch {
       toast('恢复失败')
+    } finally {
+      if (suspended) {
+        await resumePersistAndFlush().catch(() => toast('恢复后保存失败，请勿关闭软件'))
+      }
+      unlockInteraction()
+      setRestoring(null)
     }
   }
 
@@ -275,7 +290,7 @@ export function DataSettingsPanel() {
             <button
               className="dio-btn"
               onClick={handleVerifyAll}
-              disabled={backups.length === 0 || verifying !== null}
+              disabled={backups.length === 0 || verifying !== null || restoring !== null}
             >
               <CheckCircle size={14} />
               <span>{verifying === 'all' ? '验证中…' : '验证全部'}</span>
@@ -325,7 +340,7 @@ export function DataSettingsPanel() {
                     <button
                       className="dio-btn"
                       onClick={() => handleVerify(b.name)}
-                      disabled={verifying !== null}
+                      disabled={verifying !== null || restoring !== null}
                     >
                       <CheckCircle size={13} />
                       <span>{verifying === b.name ? '验证中…' : '验证'}</span>
@@ -333,16 +348,17 @@ export function DataSettingsPanel() {
                     <button
                       className="dio-btn"
                       onClick={() => handleRestore(b.name)}
-                      disabled={verifying !== null || b.verification?.status === 'invalid'}
+                      disabled={verifying !== null || restoring !== null || b.verification?.status === 'invalid'}
                     >
                       <RotateCcw size={13} />
-                      <span>恢复</span>
+                      <span>{restoring === b.name ? '恢复中…' : '恢复'}</span>
                     </button>
                     <Tooltip content="删除备份" label="删除此备份">
                       <button
                         className="dio-btn dio-btn-warn"
                         aria-label="删除此备份"
                         onClick={() => handleDelete(b.name)}
+                        disabled={restoring !== null}
                       >
                         <Trash2 size={13} />
                       </button>

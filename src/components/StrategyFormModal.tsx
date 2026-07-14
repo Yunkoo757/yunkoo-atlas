@@ -172,6 +172,7 @@ export function StrategyFormModal({
               <Editor
                 content={reviewTemplateHtml}
                 onChange={setReviewTemplateHtml}
+                allowImages={false}
                 placeholder="写下复盘提纲；输入“- ”建立清单，“> ”插入引用"
               />
             </div>

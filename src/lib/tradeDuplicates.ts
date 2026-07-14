@@ -6,6 +6,7 @@ export type DuplicateReason = 'note' | 'images' | 'note+images'
 export type ContentSignature = {
   noteFp: string
   noteLen: number
+  noteText: string
   imageHashes: string[]
   imageFp: string
 }
@@ -21,6 +22,28 @@ export type DuplicateGroup = {
   reason: DuplicateReason
   keepId: string
   memberIds: string[]
+}
+
+type LibraryContentEntry = {
+  id: string
+  ref: string
+  sig: ContentSignature
+}
+
+export type BuildLibraryContentIndexOptions = {
+  includeImages?: boolean
+  shouldContinue?: () => boolean
+}
+
+type IndexedLibraryEntry = {
+  order: number
+  entry: LibraryContentEntry
+}
+
+export type DuplicateLookupIndex = {
+  strongNote: ReadonlyMap<string, IndexedLibraryEntry>
+  imageSet: ReadonlyMap<string, IndexedLibraryEntry>
+  singleImageWithNote: ReadonlyMap<string, IndexedLibraryEntry>
 }
 
 const NOTE_STRONG_MIN = 24
@@ -86,6 +109,7 @@ export function buildContentSignature(
   return {
     noteFp: note.fp,
     noteLen: note.len,
+    noteText: note.text,
     imageHashes: hashes,
     imageFp: imageSetFingerprint(hashes),
   }
@@ -98,6 +122,7 @@ export function duplicateReason(
   const strongNote =
     Boolean(a.noteFp) &&
     a.noteFp === b.noteFp &&
+    a.noteText === b.noteText &&
     a.noteLen >= NOTE_STRONG_MIN &&
     b.noteLen >= NOTE_STRONG_MIN
 
@@ -112,6 +137,7 @@ export function duplicateReason(
     a.imageHashes.length >= 1 &&
     Boolean(a.noteFp) &&
     a.noteFp === b.noteFp &&
+    a.noteText === b.noteText &&
     a.noteLen >= NOTE_WITH_IMAGE_MIN &&
     b.noteLen >= NOTE_WITH_IMAGE_MIN
   ) {
@@ -122,7 +148,7 @@ export function duplicateReason(
 
 export function findObviousDuplicate(
   candidate: ContentSignature,
-  library: ReadonlyArray<{ id: string; ref: string; sig: ContentSignature }>,
+  library: ReadonlyArray<LibraryContentEntry>,
 ): DuplicateMatch | null {
   for (const item of library) {
     const reason = duplicateReason(candidate, item.sig)
@@ -131,6 +157,89 @@ export function findObviousDuplicate(
     }
   }
   return null
+}
+
+function setFirstIndexedEntry(
+  index: Map<string, IndexedLibraryEntry>,
+  key: string,
+  value: IndexedLibraryEntry,
+): void {
+  if (key && !index.has(key)) index.set(key, value)
+}
+
+function imageNoteKey(imageFp: string, noteFp: string): string {
+  return `${imageFp}\0${noteFp}`
+}
+
+function noteLookupKey(sig: ContentSignature): string {
+  return `${sig.noteFp}\0${sig.noteLen}\0${sig.noteText}`
+}
+
+/**
+ * 为一批导入候选建立一次库内指纹索引，避免每笔候选都重新线性扫描整个库。
+ * 每个键只保留库内最早记录，从而与旧版 findObviousDuplicate 的命中顺序一致。
+ */
+export function createDuplicateLookupIndex(
+  library: ReadonlyArray<LibraryContentEntry>,
+): DuplicateLookupIndex {
+  const strongNote = new Map<string, IndexedLibraryEntry>()
+  const imageSet = new Map<string, IndexedLibraryEntry>()
+  const singleImageWithNote = new Map<string, IndexedLibraryEntry>()
+
+  library.forEach((entry, order) => {
+    const indexed = { order, entry }
+    const { sig } = entry
+    if (sig.noteFp && sig.noteLen >= NOTE_STRONG_MIN) {
+      setFirstIndexedEntry(strongNote, noteLookupKey(sig), indexed)
+    }
+    if (sig.imageFp && sig.imageHashes.length > 0) {
+      setFirstIndexedEntry(imageSet, sig.imageFp, indexed)
+      if (sig.noteFp && sig.noteLen >= NOTE_WITH_IMAGE_MIN) {
+        setFirstIndexedEntry(
+          singleImageWithNote,
+          imageNoteKey(sig.imageFp, noteLookupKey(sig)),
+          indexed,
+        )
+      }
+    }
+  })
+
+  return { strongNote, imageSet, singleImageWithNote }
+}
+
+export function findObviousDuplicateIndexed(
+  candidate: ContentSignature,
+  index: DuplicateLookupIndex,
+): DuplicateMatch | null {
+  let earliest: IndexedLibraryEntry | undefined
+  const consider = (match: IndexedLibraryEntry | undefined) => {
+    if (match && (!earliest || match.order < earliest.order)) earliest = match
+  }
+
+  if (candidate.noteFp && candidate.noteLen >= NOTE_STRONG_MIN) {
+    consider(index.strongNote.get(noteLookupKey(candidate)))
+  }
+  if (candidate.imageFp && candidate.imageHashes.length >= 2) {
+    consider(index.imageSet.get(candidate.imageFp))
+  } else if (
+    candidate.imageFp &&
+    candidate.imageHashes.length === 1 &&
+    candidate.noteFp &&
+    candidate.noteLen >= NOTE_WITH_IMAGE_MIN
+  ) {
+    consider(
+      index.singleImageWithNote.get(imageNoteKey(candidate.imageFp, noteLookupKey(candidate))),
+    )
+  }
+
+  if (!earliest) return null
+  const reason = duplicateReason(candidate, earliest.entry.sig)
+  if (!reason) return null
+  return {
+    tradeId: earliest.entry.id,
+    tradeRef: earliest.entry.ref,
+    reason,
+  }
 }
 
 export function extractAssetIdsFromNote(html: string): string[] {
@@ -173,11 +282,14 @@ export async function hashImageFiles(
 export async function signatureFromTradeNoteAssets(
   trade: Pick<Trade, 'note'>,
   loadAssetBase64: (assetId: string) => Promise<string | null>,
+  shouldContinue?: () => boolean,
 ): Promise<ContentSignature> {
   const assetIds = extractAssetIdsFromNote(trade.note ?? '')
   const hashes: string[] = []
   for (const id of assetIds) {
+    if (shouldContinue && !shouldContinue()) throw new Error('Duplicate scan cancelled')
     const data = await loadAssetBase64(id)
+    if (shouldContinue && !shouldContinue()) throw new Error('Duplicate scan cancelled')
     if (!data) continue
     hashes.push(await hashBytes(base64ToBytes(data)))
   }
@@ -265,16 +377,22 @@ export function duplicateReasonLabel(reason: DuplicateReason): string {
 }
 
 export async function buildLibraryContentIndex(
-  trades: ReadonlyArray<Trade>,
+  trades: ReadonlyArray<Pick<Trade, 'id' | 'ref' | 'note' | 'deletedAt'>>,
   loadAssetBase64: (assetId: string) => Promise<string | null>,
+  options: BuildLibraryContentIndexOptions = {},
 ): Promise<Array<{ id: string; ref: string; sig: ContentSignature }>> {
   const active = trades.filter((trade) => !trade.deletedAt)
   const out: Array<{ id: string; ref: string; sig: ContentSignature }> = []
   for (const trade of active) {
+    if (options.shouldContinue && !options.shouldContinue()) {
+      throw new Error('Duplicate scan cancelled')
+    }
     out.push({
       id: trade.id,
       ref: trade.ref,
-      sig: await signatureFromTradeNoteAssets(trade, loadAssetBase64),
+      sig: options.includeImages === false
+        ? buildContentSignature(trade.note, [])
+        : await signatureFromTradeNoteAssets(trade, loadAssetBase64, options.shouldContinue),
     })
   }
   return out

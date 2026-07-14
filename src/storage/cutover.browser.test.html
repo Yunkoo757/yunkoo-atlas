@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8" /><title>storage cutover interaction test</title></head>
+  <body>
+    <div id="root"></div><div id="portal"></div>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/storage/cutover.browser.test.ts"></script>
+  </body>
+</html>

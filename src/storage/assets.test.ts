@@ -1,5 +1,9 @@
 import type { StorageAdapter } from '@/storage/adapter'
-import { normalizeNoteForStorage, resolveNoteForDisplay } from '@/storage/assets'
+import {
+  normalizeNoteForStorage,
+  resolveNoteForDisplay,
+  resolveNoteForDisplayResult,
+} from '@/storage/assets'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -31,6 +35,7 @@ const missingAssetAdapter: StorageAdapter = {
     return { count: 0, totalBytes: 0, missingCount: 0 }
   },
   async importAssets() {},
+  async commitImport() {},
 }
 
 export async function testMissingAssetRendersDiagnosticPlaceholder(): Promise<void> {
@@ -40,6 +45,17 @@ export async function testMissingAssetRendersDiagnosticPlaceholder(): Promise<vo
   )
   assert(!html.includes('journal-asset://missing-1'), 'missing asset protocol is not left as a broken img')
   assert(html.includes('图片附件缺失'), 'missing asset renders a clear diagnostic placeholder')
+}
+
+export async function testMissingAssetMarksTheResolvedNoteAsReadOnly(): Promise<void> {
+  const result = await resolveNoteForDisplayResult(
+    '<p>正文<img src="journal-asset://missing-1"></p>',
+    missingAssetAdapter,
+  )
+
+  assert(!result.editable, 'a note with missing referenced assets must not become editable')
+  assert(result.html.includes('正文'), 'the degraded note should still retain its written body')
+  assert(result.html.includes('图片附件缺失'), 'the degraded note should explain the missing attachment')
 }
 
 export async function testInvalidBlobImageIsNotPersistedAsBlobUrl(): Promise<void> {

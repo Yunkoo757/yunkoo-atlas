@@ -58,15 +58,23 @@ export async function externalizeNoteImages(
   return parts.join('')
 }
 
-/** 展示用：asset 引用 → blob URL */
-export async function resolveNoteForDisplay(
+export type NoteDisplayResult = {
+  html: string
+  editable: boolean
+}
+
+/** 展示用：asset 引用 → blob URL，并显式报告是否可安全回写。 */
+export async function resolveNoteForDisplayResult(
   html: string,
   adapter: StorageAdapter,
-): Promise<string> {
-  if (!html.includes(ASSET_URL_PREFIX)) return html
+): Promise<NoteDisplayResult> {
+  if (!html.includes(ASSET_URL_PREFIX) && !html.includes('data-asset-id')) {
+    return { html, editable: true }
+  }
 
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const images = doc.querySelectorAll('img[src^="journal-asset://"]')
+  let editable = true
 
   for (const img of images) {
     const src = img.getAttribute('src') ?? ''
@@ -77,6 +85,7 @@ export async function resolveNoteForDisplay(
       img.setAttribute('src', url)
       img.setAttribute('data-asset-id', id)
     } else {
+      editable = false
       const placeholder = doc.createElement('span')
       placeholder.className = 'editor-missing-image'
       placeholder.setAttribute('data-missing-asset-id', id)
@@ -96,6 +105,7 @@ export async function resolveNoteForDisplay(
       img.setAttribute('src', url)
       // data-asset-id 已经设置，保持不变
     } else {
+      editable = false
       // 资产缺失，替换为占位符（与主循环一致）
       const placeholder = doc.createElement('span')
       placeholder.className = 'editor-missing-image'
@@ -105,7 +115,15 @@ export async function resolveNoteForDisplay(
     }
   }
 
-  return doc.body.innerHTML
+  return { html: doc.body.innerHTML, editable }
+}
+
+/** 兼容仅需要 HTML 的调用方。 */
+export async function resolveNoteForDisplay(
+  html: string,
+  adapter: StorageAdapter,
+): Promise<string> {
+  return (await resolveNoteForDisplayResult(html, adapter)).html
 }
 
 /** 持久化用：blob URL / 新粘贴 → asset 引用 */

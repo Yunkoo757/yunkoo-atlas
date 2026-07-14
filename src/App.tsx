@@ -12,7 +12,8 @@ import { Suspense, lazy, useEffect, useState, useCallback, type ReactNode } from
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
-import { flushPersistNow, hasPendingChanges } from './storage/persist'
+import { flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
+import { flushNoteDraftsToStore } from './storage/noteDrafts'
 import { isStorageHydrated } from './storage'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -24,6 +25,7 @@ import { TradeComposer } from './components/TradeComposer'
 import { TradeCloseDialog } from './components/TradeCloseDialog'
 import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
+import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
 import { LinearGridLoaderIcon } from './icons/linear'
 import { ICON_XL } from './icons/iconSize'
 import { ListView } from './views/ListView'
@@ -171,7 +173,7 @@ function normalizeReviewCaseScope(scope: string | undefined): ReviewCaseScope {
 
 function Shell() {
   const [cmdkOpen, setCmdkOpen] = useState(false)
-  const navigate = useNavigate()
+  const location = useLocation()
   const setCmdkOpenStore = useShortcutStore((s) => s.setCmdkOpen)
 
   const toggleCmdk = useCallback(() => setCmdkOpen((o) => !o), [])
@@ -190,15 +192,9 @@ function Shell() {
         sidebar={<Sidebar onOpenSearch={() => setCmdkOpen(true)} />}
         mobileNavigation={<MobileNavigation onOpenSearch={() => setCmdkOpen(true)} />}
       >
-        <Suspense
-          fallback={(
-            <div className="app-loading" role="status" aria-live="polite">
-              <LinearGridLoaderIcon variant="scope" size={ICON_XL} aria-hidden />
-              <span>加载页面…</span>
-            </div>
-          )}
-        >
-          <Routes>
+        <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
+          <Suspense fallback={<DelayedRouteFallback />}>
+            <Routes>
           <Route path="/" element={<Navigate to="/list" replace />} />
           <Route
             path="/list"
@@ -326,9 +322,10 @@ function Shell() {
             <Route path="updates" element={<UpdatesSettingsPanel />} />
           </Route>
           <Route path="/strategies" element={<Navigate to="/settings/strategies" replace />} />
-          <Route path="*" element={<Navigate to="/list" replace />} />
-          </Routes>
-        </Suspense>
+            <Route path="*" element={<RouteNotFound />} />
+            </Routes>
+          </Suspense>
+        </RouteErrorBoundary>
       </AppFrame>
       <CommandPalette
         open={cmdkOpen}
@@ -444,6 +441,10 @@ export function App() {
   }
 
   useEffect(() => {
+    setPreFlushCallback(async () => {
+      const complete = await flushNoteDraftsToStore()
+      if (!complete) throw new Error('笔记中的图片尚未保存完成')
+    })
     const safeFlush = () => {
       // hydrate 完成前禁止 flush，避免空默认 store 覆盖 iCloud 库
       if (!isStorageHydrated()) return
@@ -481,6 +482,7 @@ export function App() {
       } catch { /* bridge not available */ }
 
       return () => {
+        setPreFlushCallback(null)
         window.removeEventListener('beforeunload', onBeforeUnload)
         document.removeEventListener('visibilitychange', onVisibilityChange)
         unsubscribeCloseError?.()
@@ -488,6 +490,7 @@ export function App() {
     }
 
     return () => {
+      setPreFlushCallback(null)
       window.removeEventListener('beforeunload', onBeforeUnload)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }

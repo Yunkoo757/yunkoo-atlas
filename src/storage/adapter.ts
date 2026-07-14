@@ -18,4 +18,9 @@ export interface StorageAdapter {
   getAssetForExport(id: string): Promise<ExportAssetRecord | null>
   getAssetStats(ids: string[]): Promise<AssetStorageStats>
   importAssets(assets: ExportAssetRecord[]): Promise<void>
+  commitImport(
+    snapshot: PersistedSnapshot,
+    assets: ExportAssetRecord[],
+    options?: { pruneUnreferenced?: boolean },
+  ): Promise<void>
 }

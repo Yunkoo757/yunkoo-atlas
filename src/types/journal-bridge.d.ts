@@ -38,8 +38,19 @@ export interface JournalBridge {
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>
-  createNewLibrary(libPath: string): Promise<{ ok: boolean }>
-  openExistingLibrary(libPath: string): Promise<{ ok: boolean; error?: string }>
+  createNewLibrary(libPath: string): Promise<
+    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
+  >
+  openExistingLibrary(libPath: string): Promise<
+    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
+  >
+  prepareLibrarySwitch(libPath: string, mode: 'create' | 'open'): Promise<
+    { ok: true; token: string } | { ok: false; error?: string }
+  >
+  activatePreparedLibrary(token: string): Promise<
+    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
+  >
+  cancelPreparedLibrary(token: string): Promise<boolean>
   // 存储
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
@@ -50,6 +61,11 @@ export interface JournalBridge {
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
   getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>
   importAssets(assets: ExportAssetRecord[]): Promise<boolean>
+  commitImport(
+    snapshot: PersistedSnapshot,
+    assets: ExportAssetRecord[],
+    options?: { pruneUnreferenced?: boolean },
+  ): Promise<boolean>
   exportJournalZip(): Promise<{ ok: true; path: string } | { ok: false }>
   importJournalZip(): Promise<
     | { ok: true; snapshot: PersistedSnapshot | null }

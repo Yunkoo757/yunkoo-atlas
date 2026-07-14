@@ -72,6 +72,7 @@ import {
 } from '@/lib/sidebarWorkspace'
 import {
   applyDisplayPrefs as applyWorkbenchDisplayPrefs,
+  countWorkbenchVisibleTrades,
   filterTrades as filterWorkbenchTrades,
   getWorkbenchVisibleTrades,
 } from '@/lib/workbenchTrades'
@@ -396,6 +397,7 @@ export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): 
     getAssetForExport: async () => null,
     getAssetStats: async () => ({ count: 0, totalBytes: 0, missingCount: 0 }),
     importAssets: async () => undefined,
+    commitImport: async () => undefined,
   }
 
   const migrated = await migrateFromLocalStorageIfNeeded(adapter)
@@ -2121,6 +2123,54 @@ export function testUpsertTradesNotifiesOnce(): void {
       tagPresets: prevTags,
       mistakeTagPresets: prevMistakes,
     })
+  }
+}
+
+export function testWorkbenchCountMatchesVisibleTradesWithoutSorting(): void {
+  const trades: Trade[] = [
+    { ...trade, id: 'open-live', status: 'open', symbol: 'EURUSD' },
+    { ...trade, id: 'hidden-loss', status: 'loss', symbol: 'EURUSD' },
+    { ...trade, id: 'paper-loss', status: 'loss', tradeKind: 'paper', symbol: 'EURUSD' },
+    {
+      ...trade,
+      id: 'mistake-case',
+      tradeKind: 'case',
+      reviewCategory: 'mistake',
+      mistakeTags: ['追单'],
+    },
+    { ...trade, id: 'deleted-open', status: 'open', deletedAt: '2026-07-10T00:00:00.000Z' },
+  ]
+  const display = { ...DEFAULT_DISPLAY, hideClosed: true, sortBy: 'pnl' as const }
+  const cases = [
+    { filter: { type: 'all', tradeKind: 'live' } as const, search: '' },
+    {
+      filter: { type: 'all', tradeKind: 'live' } as const,
+      search: '?status=loss&symbol=EURUSD',
+    },
+    {
+      filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'mistakes' } as const,
+      search: '?mistakeTag=%E8%BF%BD%E5%8D%95',
+    },
+  ]
+
+  const expectedCounts = cases.map((entry) =>
+    getWorkbenchVisibleTrades({ trades, starredIds: ['hidden-loss'], display, ...entry }).length,
+  )
+
+  const originalSort = Array.prototype.sort
+  Array.prototype.sort = function () {
+    throw new Error('count-only path must not sort')
+  }
+  try {
+    for (const [index, entry] of cases.entries()) {
+      const options = { trades, starredIds: ['hidden-loss'], display, ...entry }
+      assert(
+        countWorkbenchVisibleTrades(options) === expectedCounts[index],
+        `count-only 应与 ${entry.search || '默认筛选'} 的工作台结果一致`,
+      )
+    }
+  } finally {
+    Array.prototype.sort = originalSort
   }
 }
 

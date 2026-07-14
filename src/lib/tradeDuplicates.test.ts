@@ -1,7 +1,10 @@
 import {
   buildContentSignature,
+  buildLibraryContentIndex,
+  createDuplicateLookupIndex,
   duplicateReason,
   findObviousDuplicate,
+  findObviousDuplicateIndexed,
   groupObviousDuplicates,
   noteContentFingerprint,
   stripNoteToPlainText,
@@ -90,4 +93,117 @@ export function testFindAndGroupDuplicates(): void {
   assert(groups.length === 1, '应只产出一组重复')
   assert(groups[0]?.keepId === 'new', '应保留较新的一条')
   assert(groups[0]?.memberIds.includes('old'), '旧记录应在组内')
+}
+
+export function testNoteHashCollisionNeverSkipsDistinctContent(): void {
+  const first = 'pmzozazsvwpebirclwfmlslapupgrwng'
+  const second = 'pcxczmnqzsdidsfuvojuvydihcjglkro'
+  const library = [{ id: 'collision-a', ref: 'TRD-A', sig: buildContentSignature(first, []) }]
+  const candidate = buildContentSignature(second, [])
+  assert(library[0]!.sig.noteFp === candidate.noteFp, '回归样本必须保持 32-bit 指纹碰撞')
+  assert(duplicateReason(library[0]!.sig, candidate) === null, '指纹碰撞的不同全文不得判为重复')
+  assert(findObviousDuplicate(candidate, library) === null, '线性查找不得误跳过碰撞正文')
+  assert(
+    findObviousDuplicateIndexed(candidate, createDuplicateLookupIndex(library)) === null,
+    '索引查找必须用规范化全文消除哈希碰撞',
+  )
+}
+
+export function testIndexedDuplicateLookupMatchesLinearSemantics(): void {
+  const sharedNote = '<p>这是一段足够长的复盘正文，用于验证索引查找仍保持原始命中顺序。</p>'
+  const mediumNote = '<p>单图需要正文联合匹配</p>'
+  const library = [
+    {
+      id: 'image-first',
+      ref: 'TRD-1',
+      sig: buildContentSignature('<p>另一段足够长的正文，确保这里只通过截图命中。</p>', ['a', 'b']),
+    },
+    {
+      id: 'note-second',
+      ref: 'TRD-2',
+      sig: buildContentSignature(sharedNote, []),
+    },
+    {
+      id: 'single-image-note',
+      ref: 'TRD-3',
+      sig: buildContentSignature(mediumNote, ['single']),
+    },
+  ]
+  const candidates = [
+    buildContentSignature(sharedNote, ['b', 'a']),
+    buildContentSignature(sharedNote, []),
+    buildContentSignature(mediumNote, ['single']),
+    buildContentSignature('', ['single']),
+    buildContentSignature('<p>完全不同且没有匹配内容的复盘正文。</p>', ['other']),
+  ]
+  const index = createDuplicateLookupIndex(library)
+
+  candidates.forEach((candidate, candidateIndex) => {
+    const linear = findObviousDuplicate(candidate, library)
+    const indexed = findObviousDuplicateIndexed(candidate, index)
+    assert(
+      JSON.stringify(indexed) === JSON.stringify(linear),
+      `索引查找必须保持线性判定语义与首个命中顺序（候选 ${candidateIndex + 1}）`,
+    )
+  })
+}
+
+export function testDuplicateLookupIndexScalesToTenThousandRecords(): void {
+  const library = Array.from({ length: 10_000 }, (_, index) => ({
+    id: `trade-${index}`,
+    ref: `TRD-${index}`,
+    sig: buildContentSignature(
+      `<p>库内复盘正文 ${index}，长度足够且每一条内容都保持唯一用于性能门禁。</p>`,
+      [`image-${index}-a`, `image-${index}-b`],
+    ),
+  }))
+
+  const buildStartedAt = performance.now()
+  const index = createDuplicateLookupIndex(library)
+  const buildElapsed = performance.now() - buildStartedAt
+  const candidates = Array.from({ length: 10_000 }, (_, candidateIndex) =>
+    buildContentSignature(
+      `<p>待导入复盘正文 ${candidateIndex + 20_000}，与库内记录不同且必须快速判定。</p>`,
+      [`candidate-${candidateIndex}-a`, `candidate-${candidateIndex}-b`],
+    ),
+  )
+
+  const lookupStartedAt = performance.now()
+  let hits = 0
+  for (const candidate of candidates) {
+    if (findObviousDuplicateIndexed(candidate, index)) hits += 1
+  }
+  const lookupElapsed = performance.now() - lookupStartedAt
+
+  assert(hits === 0, '10k 性能样本不得产生误判')
+  assert(buildElapsed < 750, `10k 库索引构建应低于 750ms（实际 ${buildElapsed.toFixed(1)}ms）`)
+  assert(lookupElapsed < 750, `10k×10k 未命中查找应低于 750ms（实际 ${lookupElapsed.toFixed(1)}ms）`)
+}
+
+export async function testNoteOnlyLibraryIndexNeverLoadsAttachments(): Promise<void> {
+  const trades = [
+    {
+      id: 'trade-with-assets',
+      ref: 'TRD-1',
+      note: [
+        '<p>这是一段足够长的正文，CSV 重复检测仍应使用正文指纹。</p>',
+        '<img src="journal-asset://asset-one">',
+        '<img src="journal-asset://asset-two">',
+      ].join(''),
+      deletedAt: undefined,
+    },
+  ]
+  let loaderCalls = 0
+  const loader = async () => {
+    loaderCalls += 1
+    return 'AA=='
+  }
+
+  const noteOnly = await buildLibraryContentIndex(trades, loader, { includeImages: false })
+  assert(loaderCalls === 0, 'note-only 库索引不得读取任何附件')
+  assert(Boolean(noteOnly[0]?.sig.noteFp), 'note-only 库索引仍需保留正文指纹')
+  assert(noteOnly[0]?.sig.imageHashes.length === 0, 'note-only 库索引不得生成图片指纹')
+
+  await buildLibraryContentIndex(trades, loader)
+  assert(loaderCalls === 2, '默认完整索引仍应读取全部引用附件，保留 Notion 图片判重语义')
 }

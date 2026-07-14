@@ -31,8 +31,19 @@ export interface JournalBridge {
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>
-  createNewLibrary(libPath: string): Promise<{ ok: boolean }>
-  openExistingLibrary(libPath: string): Promise<{ ok: boolean; error?: string }>
+  createNewLibrary(libPath: string): Promise<
+    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
+  >
+  openExistingLibrary(libPath: string): Promise<
+    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
+  >
+  prepareLibrarySwitch(libPath: string, mode: 'create' | 'open'): Promise<
+    { ok: true; token: string } | { ok: false; error?: string }
+  >
+  activatePreparedLibrary(token: string): Promise<
+    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
+  >
+  cancelPreparedLibrary(token: string): Promise<boolean>
   // 存储
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
@@ -43,6 +54,11 @@ export interface JournalBridge {
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
   getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>
   importAssets(assets: ExportAssetRecord[]): Promise<boolean>
+  commitImport(
+    snapshot: PersistedSnapshot,
+    assets: ExportAssetRecord[],
+    options?: { pruneUnreferenced?: boolean },
+  ): Promise<boolean>
   exportJournalZip(): Promise<{ ok: true; path: string } | { ok: false }>
   importJournalZip(): Promise<
     { ok: true; snapshot: PersistedSnapshot | null } | { ok: false }
@@ -94,6 +110,9 @@ const bridge: JournalBridge = {
   pickLibraryFolder: () => ipcRenderer.invoke('library:pickFolder'),
   createNewLibrary: (libPath) => ipcRenderer.invoke('library:createNew', libPath),
   openExistingLibrary: (libPath) => ipcRenderer.invoke('library:openExisting', libPath),
+  prepareLibrarySwitch: (libPath, mode) => ipcRenderer.invoke('library:prepareSwitch', { libPath, mode }),
+  activatePreparedLibrary: (token) => ipcRenderer.invoke('library:activatePrepared', token),
+  cancelPreparedLibrary: (token) => ipcRenderer.invoke('library:cancelPrepared', token),
   getLibraryPath: () => ipcRenderer.invoke('library:getPath'),
   storageOpen: () => ipcRenderer.invoke('storage:open'),
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),
@@ -104,6 +123,7 @@ const bridge: JournalBridge = {
   getAssetBytes: (id) => ipcRenderer.invoke('storage:getAssetBytes', id),
   getAssetStats: (ids) => ipcRenderer.invoke('storage:getAssetStats', ids),
   importAssets: (assets) => ipcRenderer.invoke('storage:importAssets', assets),
+  commitImport: (snapshot, assets, options) => ipcRenderer.invoke('storage:commitImport', { snapshot, assets, options }),
   exportJournalZip: () => ipcRenderer.invoke('journal:exportZip'),
   importJournalZip: () => ipcRenderer.invoke('journal:importZip'),
   createBackup: () => ipcRenderer.invoke('backup:create'),

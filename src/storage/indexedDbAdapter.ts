@@ -2,6 +2,7 @@ import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
+import { collectAssetIdsFromNotes } from '@/storage/assets'
 
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
@@ -117,6 +118,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
+    assertValidPersistedSnapshot(snapshot, 'Browser snapshot')
     const db = this.requireDb()
     await idbPut(db, STORE_SNAPSHOT, 'main', snapshot)
   }
@@ -227,6 +229,47 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
           }),
       ),
     )
+  }
+
+  async commitImport(
+    snapshot: PersistedSnapshot,
+    assets: ExportAssetRecord[],
+    options?: { pruneUnreferenced?: boolean },
+  ): Promise<void> {
+    assertValidPersistedSnapshot(snapshot, 'Imported browser snapshot')
+    const db = this.requireDb()
+    const referencedAssetIds = new Set(collectAssetIdsFromNotes(snapshot.trades))
+    const records: AssetRecord[] = assets.filter(
+      (asset) => !options?.pruneUnreferenced || referencedAssetIds.has(asset.id),
+    ).map((asset) => {
+      const blob = base64ToBlob(asset.data, asset.mime)
+      return {
+        id: asset.id,
+        mime: asset.mime,
+        byteSize: blob.size,
+        createdAt: new Date().toISOString(),
+        blob,
+      }
+    })
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORE_SNAPSHOT, STORE_ASSETS], 'readwrite')
+      tx.objectStore(STORE_SNAPSHOT).put(snapshot, 'main')
+      const assetStore = tx.objectStore(STORE_ASSETS)
+      records.forEach((record) => assetStore.put(record))
+      if (options?.pruneUnreferenced) {
+        assets.forEach((asset) => {
+          if (!referencedAssetIds.has(asset.id)) assetStore.delete(asset.id)
+        })
+      }
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB import transaction failed'))
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB import transaction aborted'))
+    })
+    for (const asset of assets) {
+      const cached = this.objectUrlCache.get(asset.id)
+      if (cached) URL.revokeObjectURL(cached)
+      this.objectUrlCache.delete(asset.id)
+    }
   }
 }
 

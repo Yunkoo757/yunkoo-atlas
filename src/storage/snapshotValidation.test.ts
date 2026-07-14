@@ -38,3 +38,77 @@ export function testSnapshotValidationRejectsMalformedTradeAndSettingsData(): vo
   }
   assert(rejectedSettings, '损坏的设置数组不得进入资料库快照')
 }
+
+export function testSnapshotValidationChecksResultAuthorityAndInitialRisk(): void {
+  assertValidPersistedSnapshot({
+    ...valid,
+    trades: [{
+      ...valid.trades[0],
+      status: 'win',
+      resultSource: 'price',
+      exit: 110,
+      initialStopLoss: 95,
+      rMultiple: 2,
+    }],
+  })
+
+  for (const tradePatch of [
+    { resultSource: 'guessed' },
+    { initialStopLoss: '95' },
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({
+        ...valid,
+        trades: [{ ...valid.trades[0], ...tradePatch }],
+      })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, 'invalid result metadata must not enter a snapshot')
+  }
+}
+
+export function testSnapshotValidationEnforcesDeclaredResultAuthorityMetrics(): void {
+  const assertTradeAccepted = (tradePatch: Record<string, unknown>) => {
+    assertValidPersistedSnapshot({
+      ...valid,
+      trades: [{ ...valid.trades[0], status: 'win', ...tradePatch }],
+    })
+  }
+  const assertTradeRejected = (tradePatch: Record<string, unknown>) => {
+    let rejected = false
+    try {
+      assertTradeAccepted(tradePatch)
+    } catch {
+      rejected = true
+    }
+    assert(rejected, 'declared authority must match its authoritative metric combination')
+  }
+
+  assertTradeAccepted({ pnl: 10, rMultiple: null, resultSource: 'pnl' })
+  assertTradeAccepted({ pnl: null, rMultiple: 2, resultSource: 'r' })
+  assertTradeAccepted({
+    pnl: null,
+    rMultiple: 2,
+    resultSource: 'price',
+    exit: 110,
+    initialStopLoss: 95,
+  })
+  assertTradeAccepted({ pnl: 10, rMultiple: 2, resultSource: 'imported' })
+  assertTradeAccepted({ pnl: 10, rMultiple: 2, resultSource: undefined })
+
+  assertTradeRejected({ pnl: null, rMultiple: 2, resultSource: 'pnl' })
+  assertTradeRejected({ pnl: 10, rMultiple: 2, resultSource: 'pnl' })
+  assertTradeRejected({ pnl: 10, rMultiple: null, resultSource: 'r' })
+  assertTradeRejected({ pnl: 10, rMultiple: 2, resultSource: 'price' })
+  assertTradeRejected({ pnl: null, rMultiple: 2, resultSource: 'price', exit: null })
+  assertTradeRejected({
+    pnl: null,
+    rMultiple: 3,
+    resultSource: 'price',
+    exit: 110,
+    initialStopLoss: 95,
+  })
+  assertTradeRejected({ pnl: 10, rMultiple: null, resultSource: 'imported' })
+}

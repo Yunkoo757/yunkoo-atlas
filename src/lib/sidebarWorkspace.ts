@@ -8,7 +8,7 @@ import {
 import { PRIMARY_NAV, SECONDARY_NAV, type PrimarySidebarNavId, type SidebarNavId } from '@/lib/sidebarNav'
 import type { DisplayPrefs, ListFilter, ReviewCaseScope } from '@/lib/tradeFilters'
 import { isValidPeriodSlug } from '@/lib/periods'
-import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
+import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 
 export type SidebarTarget =
   | { kind: 'system'; id: SidebarNavId }
@@ -358,9 +358,9 @@ export function countSidebarRoute(
 ): number | undefined {
   const filter = listTargetForPath(pathname)
   if (!filter) return undefined
-  return getWorkbenchVisibleTrades({
+  return countWorkbenchVisibleTrades({
     ...context,
     filter,
     search,
-  }).length
+  })
 }

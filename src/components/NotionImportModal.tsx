@@ -1,30 +1,29 @@
-import { useState, useRef, useMemo, type DragEvent } from 'react'
+import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react'
 import { Upload, X, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
 import { LinearGridLoaderIcon } from '@/icons/linear'
 import { ICON_HERO } from '@/icons/iconSize'
 import { useStore } from '@/store/useStore'
 import {
-  applyNotionImageAssetsToNote,
   parseNotionCsv,
   parseNotionZip,
-  executeNotionImport,
-  getImportableNotionPreviews,
   type NotionTradePreview,
   type NotionImportResult,
 } from '@/lib/notionImport'
+import { commitNotionImportBatch } from '@/lib/notionImportCommit'
 import {
   buildContentSignature,
   buildLibraryContentIndex,
+  createDuplicateLookupIndex,
   duplicateReasonLabel,
-  findObviousDuplicate,
+  findObviousDuplicateIndexed,
   hashImageFiles,
   type DuplicateMatch,
 } from '@/lib/tradeDuplicates'
-import { getStorage } from '@/storage'
+import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
-import { withPersistSuspended } from '@/storage/persist'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { SelectionBox } from '@/components/ui/SelectionBox'
+import { MAX_NOTION_IMPORT_ROWS } from '@/lib/notionImportLimits'
 import './NotionImportModal.css'
 
 interface Props {
@@ -34,12 +33,29 @@ interface Props {
 
 type Step = 'upload' | 'preview' | 'importing' | 'done'
 
+export const MAX_NOTION_CSV_FILE_BYTES = 32 * 1024 * 1024
+export const MAX_NOTION_ZIP_FILE_BYTES = 160 * 1024 * 1024
+const MAX_DUPLICATE_IMAGE_SCAN_COUNT = 300
+const MAX_DUPLICATE_IMAGE_SCAN_BYTES = 128 * 1024 * 1024
+const PREVIEW_ROW_LIMIT = 100
+
+const NOTION_CAPACITY_ERRORS = new Set([
+  '单张原图超过 32 MB，请移除该附件后重试；为保留画质，软件不会自动压缩原图',
+  '本次原图总量超过 96 MB，请分批导入；为保留画质，软件不会自动压缩原图',
+  'Notion 导出解压后超过 160 MB，请拆分后导入',
+  'Notion 导入记录超过 20000 笔，请拆分后导入',
+  'Notion 导出包含过多分卷，请拆分后导入',
+  'Notion 导出的嵌套层级过深，请重新导出后再试',
+])
+
+export function getNotionCapacityErrorMessage(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : ''
+  return NOTION_CAPACITY_ERRORS.has(message) ? message : null
+}
+
 export function NotionImportModal({ open, onClose }: Props) {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
-  const upsertTrades = useStore((s) => s.upsertTrades)
-  const addStrategy = useStore((s) => s.addStrategy)
-
   const [step, setStep] = useState<Step>('upload')
   const [result, setResult] = useState<NotionImportResult | null>(null)
   const [error, setError] = useState('')
@@ -51,73 +67,161 @@ export function NotionImportModal({ open, onClose }: Props) {
   const [duplicateByRow, setDuplicateByRow] = useState<Record<number, DuplicateMatch>>({})
   const [forceImportRows, setForceImportRows] = useState<Record<number, boolean>>({})
   const [dupScanState, setDupScanState] = useState<'idle' | 'scanning' | 'done'>('idle')
+  const [duplicateScanNotice, setDuplicateScanNotice] = useState('')
+  const [parsing, setParsing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const requestGenerationRef = useRef(0)
+  const activeParseGenerationRef = useRef<number | null>(null)
 
   const duplicateCount = useMemo(
     () => Object.keys(duplicateByRow).length,
     [duplicateByRow],
   )
 
-  const detectDuplicates = async (previews: NotionTradePreview[]) => {
+  const invalidatePendingRequest = () => {
+    requestGenerationRef.current += 1
+  }
+
+  useEffect(() => {
+    if (!open) {
+      invalidatePendingRequest()
+      setResult(null)
+      setStep('upload')
+      setFileName('')
+      setImported(0)
+      setImportedImages(0)
+      setDuplicateByRow({})
+      setForceImportRows({})
+      setDupScanState('idle')
+      setDuplicateScanNotice('')
+    }
+  }, [open])
+
+  useEffect(() => () => invalidatePendingRequest(), [])
+
+  const detectDuplicates = async (
+    previews: NotionTradePreview[],
+    requestGeneration: number,
+  ) => {
+    if (requestGenerationRef.current !== requestGeneration) return
     setDupScanState('scanning')
+    setDuplicateScanNotice('')
     setDuplicateByRow({})
     setForceImportRows({})
     try {
       const storage = getStorage()
+      const candidateHasImages = previews.some((preview) => preview.images.length > 0)
+      let includeImages = candidateHasImages
+      if (candidateHasImages) {
+        const assetIds = collectAssetIdsFromNotes(trades)
+        const stats = await storage.getAssetStats(assetIds)
+        if (requestGenerationRef.current !== requestGeneration) return
+        includeImages =
+          stats.count <= MAX_DUPLICATE_IMAGE_SCAN_COUNT &&
+          stats.totalBytes <= MAX_DUPLICATE_IMAGE_SCAN_BYTES
+        if (!includeImages) {
+          setDuplicateScanNotice('图库较大，本次只检查正文重复；截图仍会按原图完整导入')
+        }
+      }
       const library = await buildLibraryContentIndex(trades, async (assetId) => {
         const rec = await storage.getAssetForExport(assetId)
         return rec?.data ?? null
+      }, {
+        includeImages,
+        shouldContinue: () => requestGenerationRef.current === requestGeneration,
       })
+      const duplicateIndex = createDuplicateLookupIndex(library)
       const next: Record<number, DuplicateMatch> = {}
       for (const preview of previews) {
+        if (requestGenerationRef.current !== requestGeneration) return
         if (preview.errors.length > 0) continue
-        const hashes = await hashImageFiles(
-          preview.images.map((img) => ({ data: img.data })),
-        )
+        const hashes = includeImages
+          ? await hashImageFiles(preview.images.map((img) => ({ data: img.data })))
+          : []
+        if (requestGenerationRef.current !== requestGeneration) return
         const sig = buildContentSignature(preview.noteHtml || preview.trade.note || '', hashes)
-        const match = findObviousDuplicate(sig, library)
+        const match = findObviousDuplicateIndexed(sig, duplicateIndex)
         if (match) next[preview.rowIndex] = match
       }
+      if (requestGenerationRef.current !== requestGeneration) return
       setDuplicateByRow(next)
     } catch (err) {
+      if (requestGenerationRef.current !== requestGeneration) return
       console.error('[NotionImport] duplicate scan failed', err)
     } finally {
-      setDupScanState('done')
+      if (requestGenerationRef.current === requestGeneration) {
+        setDupScanState('done')
+      }
     }
   }
 
   const processFile = async (file: File) => {
+    if (activeParseGenerationRef.current !== null) return
+    const requestGeneration = requestGenerationRef.current + 1
+    requestGenerationRef.current = requestGeneration
     setError('')
     setFileName(file.name)
     setDuplicateByRow({})
     setForceImportRows({})
     setDupScanState('idle')
+    setDuplicateScanNotice('')
+
+    const isZip = file.name.toLowerCase().endsWith('.zip')
+    const fileSizeLimit = isZip ? MAX_NOTION_ZIP_FILE_BYTES : MAX_NOTION_CSV_FILE_BYTES
+    if (file.size > fileSizeLimit) {
+      setError(
+        isZip
+          ? 'Notion ZIP 文件超过 160 MB，请拆分后导入'
+          : 'Notion CSV 文件超过 32 MB，请拆分后导入',
+      )
+      return
+    }
+
+    activeParseGenerationRef.current = requestGeneration
+    setParsing(true)
 
     try {
-      if (file.name.endsWith('.zip')) {
+      if (isZip) {
         const buffer = await file.arrayBuffer()
-        const r = await parseNotionZip(buffer, strategies)
+        const r = await parseNotionZip(buffer, strategies, {
+          shouldContinue: () => requestGenerationRef.current === requestGeneration,
+        })
+        if (requestGenerationRef.current !== requestGeneration) return
         if (r.totalRows === 0) {
           setError('ZIP 文件中未找到有效的交易记录（.md 文件为空或无交易数据）')
           return
         }
         setResult(r)
         setStep('preview')
-        void detectDuplicates(r.previews)
+        void detectDuplicates(r.previews, requestGeneration)
       } else {
         const text = await file.text()
+        if (requestGenerationRef.current !== requestGeneration) return
         const r = parseNotionCsv(text, strategies)
+        if (r.totalRows > MAX_NOTION_IMPORT_ROWS) {
+          setError('Notion 导入记录超过 20000 笔，请拆分后导入')
+          return
+        }
         if (r.totalRows === 0) {
           setError('CSV 文件为空或格式不正确')
           return
         }
         setResult(r)
         setStep('preview')
-        void detectDuplicates(r.previews)
+        void detectDuplicates(r.previews, requestGeneration)
       }
     } catch (err) {
+      if (requestGenerationRef.current !== requestGeneration) return
       console.error('[NotionImport] parse error', err)
-      setError('无法解析文件，请确认是 Notion 导出的 .zip 或 CSV 文件')
+      setError(
+        getNotionCapacityErrorMessage(err) ??
+          '无法解析文件，请确认是 Notion 导出的 .zip 或 CSV 文件',
+      )
+    } finally {
+      if (activeParseGenerationRef.current === requestGeneration) {
+        activeParseGenerationRef.current = null
+        setParsing(false)
+      }
     }
   }
 
@@ -130,6 +234,7 @@ export function NotionImportModal({ open, onClose }: Props) {
   const onDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setDragging(false)
+    if (parsing) return
     const file = event.dataTransfer.files?.[0]
     if (file) await processFile(file)
   }
@@ -142,8 +247,22 @@ export function NotionImportModal({ open, onClose }: Props) {
     return Boolean(forceImportRows[preview.rowIndex])
   }
 
+  const visiblePreviews = useMemo(
+    () => result?.previews.slice(0, PREVIEW_ROW_LIMIT) ?? [],
+    [result],
+  )
+  const selectedPreviewCount = useMemo(() => {
+    if (!result) return 0
+    return result.previews.reduce((count, preview) => {
+      if (preview.errors.length > 0) return count
+      const duplicate = duplicateByRow[preview.rowIndex]
+      if (!duplicate || !skipDuplicates || forceImportRows[preview.rowIndex]) return count + 1
+      return count
+    }, 0)
+  }, [result, duplicateByRow, skipDuplicates, forceImportRows])
+
   const handleImport = async () => {
-    if (!result) return
+    if (!result || dupScanState !== 'done') return
 
     const selectedPreviews = result.previews.filter(shouldImportPreview)
     if (selectedPreviews.length === 0) {
@@ -154,57 +273,24 @@ export function NotionImportModal({ open, onClose }: Props) {
     setStep('importing')
     setError('')
 
-    const { trades: newTrades, strategies: newStrategies } = executeNotionImport(
-      selectedPreviews,
-      strategies,
-      trades,
-    )
-    const importablePreviews = getImportableNotionPreviews(selectedPreviews)
-
-    let totalImages = 0
-    const storage = getStorage()
-    const imageAssetMap = new Map<number, string[]>()
-
-    for (const preview of selectedPreviews) {
-      if (preview.images.length === 0) continue
-      const assetIds: string[] = []
-
-      for (const img of preview.images) {
-        try {
-          const blob = new Blob([img.data as BlobPart], { type: img.mime })
-          const file = new File([blob], img.name, { type: img.mime })
-          const assetId = await storage.saveAsset(file, img.mime)
-          assetIds.push(assetId)
-          totalImages++
-        } catch (err) {
-          console.error(`[NotionImport] failed to save image: ${img.name}`, err)
-        }
-      }
-
-      imageAssetMap.set(preview.rowIndex, assetIds)
+    let committed
+    try {
+      committed = await commitNotionImportBatch(selectedPreviews)
+    } catch (err) {
+      console.error('[NotionImport] persist failed', err)
+      setImportedImages(0)
+      setStep('preview')
+      setError(
+        getNotionCapacityErrorMessage(err) ??
+          '导入失败，交易、策略与图片均未写入，请重试',
+      )
+      return
     }
 
+    const totalImages = committed.imageCount
+    const newTrades = committed.importedTrades
+    const newStrategies = committed.newStrategies
     setImportedImages(totalImages)
-
-    for (let i = 0; i < newTrades.length; i++) {
-      const trade = newTrades[i]!
-      const preview = importablePreviews[i]
-      if (preview) {
-        const assetIds = imageAssetMap.get(preview.rowIndex) ?? []
-        trade.note = applyNotionImageAssetsToNote(trade.note || '', assetIds)
-      }
-    }
-
-    await withPersistSuspended(() => {
-      const existingIds = new Set(useStore.getState().strategies.map((s) => s.id))
-      for (const s of newStrategies) {
-        if (!existingIds.has(s.id)) {
-          addStrategy(s)
-        }
-      }
-      upsertTrades(newTrades)
-    })
-
     setImported(newTrades.length)
     setStep('done')
 
@@ -219,10 +305,14 @@ export function NotionImportModal({ open, onClose }: Props) {
     if (totalImages > 0) {
       parts.push(`${totalImages} 张截图`)
     }
+    if (committed.trailingSaveFailed) {
+      parts.push('并发设置待重试保存')
+    }
     toast(`已从 Notion 导入 ${parts.join('，')}`)
   }
 
   const reset = () => {
+    invalidatePendingRequest()
     setStep('upload')
     setResult(null)
     setError('')
@@ -234,15 +324,24 @@ export function NotionImportModal({ open, onClose }: Props) {
     setDuplicateByRow({})
     setForceImportRows({})
     setDupScanState('idle')
+    setDuplicateScanNotice('')
     if (fileRef.current) fileRef.current.value = ''
   }
 
   if (!open) return null
 
-  const pickFile = () => fileRef.current?.click()
+  const requestClose = () => {
+    if (step === 'importing') return
+    reset()
+    onClose()
+  }
+
+  const pickFile = () => {
+    if (!parsing) fileRef.current?.click()
+  }
 
   return (
-    <div className="nim-overlay" onMouseDown={onClose}>
+    <div className="nim-overlay" onMouseDown={requestClose}>
       <div
         className={'nim-modal' + (step === 'upload' || step === 'done' || step === 'importing' ? '' : ' is-wide')}
         onMouseDown={(e) => e.stopPropagation()}
@@ -254,7 +353,7 @@ export function NotionImportModal({ open, onClose }: Props) {
               <p className="nim-desc">请先导出 Markdown & CSV，再选择文件</p>
             )}
           </div>
-          <button className="nim-close" onClick={onClose} type="button" aria-label="关闭">
+          <button className="nim-close" onClick={requestClose} disabled={step === 'importing'} type="button" aria-label="关闭">
             <X size={16} />
           </button>
         </div>
@@ -266,6 +365,7 @@ export function NotionImportModal({ open, onClose }: Props) {
               className={'nim-drop' + (dragging ? ' is-drag' : '')}
               onDragOver={(event) => {
                 event.preventDefault()
+                if (parsing) return
                 setDragging(true)
               }}
               onDragLeave={() => setDragging(false)}
@@ -278,7 +378,9 @@ export function NotionImportModal({ open, onClose }: Props) {
                 }
               }}
               role="button"
-              tabIndex={0}
+              tabIndex={parsing ? -1 : 0}
+              aria-disabled={parsing}
+              aria-busy={parsing}
               aria-label="拖放或选择 Notion 导出文件"
             >
               <div className="nim-drop-icon">
@@ -301,8 +403,8 @@ export function NotionImportModal({ open, onClose }: Props) {
             </div>
             <div className="nim-upload-foot">
               <span className="nim-file-status">{fileName || '未选择文件'}</span>
-              <button className="nim-btn nim-btn-primary" type="button" onClick={pickFile}>
-                选择文件
+              <button className="nim-btn nim-btn-primary" type="button" onClick={pickFile} disabled={parsing}>
+                {parsing ? '正在解析…' : '选择文件'}
               </button>
             </div>
             <p className="nim-upload-tip">导出时勾选「包含子页面」</p>
@@ -311,6 +413,7 @@ export function NotionImportModal({ open, onClose }: Props) {
               type="file"
               accept=".zip,.csv"
               onChange={handleFile}
+              disabled={parsing}
               className="nim-file-input-hidden"
             />
             {error && <p className="nim-error">{error}</p>}
@@ -360,6 +463,14 @@ export function NotionImportModal({ open, onClose }: Props) {
             {dupScanState === 'scanning' && (
               <p className="nim-dup-scan">正在对照库内正文与截图检测重复…</p>
             )}
+            {duplicateScanNotice && (
+              <p className="nim-dup-scan" role="status">{duplicateScanNotice}</p>
+            )}
+            {result.previews.length > PREVIEW_ROW_LIMIT && (
+              <p className="nim-dup-scan" role="status">
+                仅展示前 {PREVIEW_ROW_LIMIT} 笔，确认后仍会导入全部 {selectedPreviewCount} 笔可导入记录
+              </p>
+            )}
             {dupScanState === 'done' && duplicateCount > 0 && (
               <label className="nim-dup-toggle">
                 <SelectionBox
@@ -391,7 +502,7 @@ export function NotionImportModal({ open, onClose }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.previews.map((p) => (
+                  {visiblePreviews.map((p) => (
                     <PreviewRow
                       key={p.rowIndex}
                       preview={p}
@@ -417,14 +528,15 @@ export function NotionImportModal({ open, onClose }: Props) {
                 className="nim-btn nim-btn-primary"
                 onClick={handleImport}
                 disabled={
+                  dupScanState !== 'done' ||
                   result.validRows === 0 ||
-                  result.previews.filter(shouldImportPreview).length === 0
+                  selectedPreviewCount === 0
                 }
                 type="button"
               >
                 确认导入
-                {result.previews.filter(shouldImportPreview).length > 0
-                  ? ` ${result.previews.filter(shouldImportPreview).length} 笔`
+                {selectedPreviewCount > 0
+                  ? ` ${selectedPreviewCount} 笔`
                   : ''}
                 {result.totalImages > 0 ? `（含截图）` : ''} <ArrowRight size={16} />
               </button>
@@ -458,7 +570,7 @@ export function NotionImportModal({ open, onClose }: Props) {
               <button className="nim-btn nim-btn-primary" onClick={reset} type="button">
                 导入更多
               </button>
-              <button className="nim-btn nim-btn-ghost" onClick={onClose} type="button">
+              <button className="nim-btn nim-btn-ghost" onClick={requestClose} type="button">
                 关闭
               </button>
             </div>

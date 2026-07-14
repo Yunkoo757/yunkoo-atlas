@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Copy, Plus, Trash2 } from '@/icons/appIcons'
+import { Copy, Trash2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
-import { EmptyState } from '@/components/EmptyState'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { TradeFilters } from '@/components/trades/TradeFilters'
 import { TradeList, type TradeListGroup } from '@/components/trades/TradeList'
+import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
@@ -21,6 +21,11 @@ import {
   sortTradesByOpenedAtDesc,
 } from '@/lib/tradeView'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
+import {
+  getWorkbenchResetPath,
+  resolveWorkbenchEmptyState,
+  shouldResetWorkbenchHideClosed,
+} from '@/lib/workbenchEmptyState'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
@@ -42,9 +47,9 @@ export function ListView({
   filter?: ListFilter
   header?: ReactNode
 }) {
-  const trades = useStore((state) => state.trades).filter((trade) => !trade.deletedAt)
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
+  const setDisplay = useStore((state) => state.setDisplay)
   const starredIds = useStore((state) => state.starredIds)
   const openComposer = useStore((state) => state.openComposer)
   const setStatus = useStore((state) => state.setStatus)
@@ -63,7 +68,7 @@ export function ListView({
 
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { visible } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, workspaceCount } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = (trade: Trade) => {
     const from = {
@@ -116,7 +121,10 @@ export function ListView({
 
   const focusedId =
     focusIndex >= 0 && focusIndex < visible.length ? visible[focusIndex].id : null
-  const visibleIdsKey = visible.map((trade) => trade.id).join('\u0000')
+  const visibleIdsKey = useMemo(
+    () => visible.map((trade) => trade.id).join('\u0000'),
+    [visible],
+  )
 
   useWorkbenchListKeyboard({
     items: visible,
@@ -197,25 +205,24 @@ export function ListView({
     })
   }
 
-  const isReviewCaseView = filter.tradeKind === 'case'
-  const isPaperView = filter.tradeKind === 'paper'
-  const recordLabel = isReviewCaseView ? '案例记录' : isPaperView ? '模拟交易' : '交易'
-  const emptyHint =
-    isReviewCaseView
-      ? '记录典型案例，沉淀可复用的交易模式。'
-      : isPaperView
-        ? '创建模拟交易，验证策略与执行流程。'
-      : filter.type === 'active'
-      ? '暂无进行中的交易。'
-      : filter.type === 'starred'
-        ? '还没有星标交易。'
-        : filter.type === 'strategy'
-          ? `「${getStrategyName(strategies, filter.strategyId)}」策略下暂无交易。`
-          : filter.type === 'missed'
-            ? '还没有记录错过的机会。'
-            : filter.type === 'period'
-              ? '该时间段内没有按开仓日匹配的交易。'
-              : '记录第一笔交易，开始构建复盘日志。'
+  const emptyState = resolveWorkbenchEmptyState({
+    totalCount: trades.length,
+    workspaceCount,
+    visibleCount: visible.length,
+    recordKind: filter.tradeKind,
+  })
+  const resetEmptyConditions = () => {
+    if (shouldResetWorkbenchHideClosed({
+      hideClosed: display.hideClosed,
+      trades,
+      filter,
+      starredIds,
+      search: location.search,
+    })) {
+      setDisplay({ hideClosed: false })
+    }
+    navigate(getWorkbenchResetPath(location.pathname, filter.tradeKind), { replace: true })
+  }
 
   return (
     <>
@@ -223,16 +230,11 @@ export function ListView({
       {header}
       <TradeFilters filter={filter} trades={trades} strategies={strategies} />
       <div className="list-scroll" ref={listScrollRef}>
-        {visible.length === 0 ? (
-          <EmptyState
-            title={isReviewCaseView ? '还没有案例记录' : isPaperView ? '还没有模拟交易' : '还没有交易'}
-            hint={emptyHint}
-            action={(
-              <button className="empty-btn" onClick={() => openComposer()}>
-                <Plus size={15} />
-                <span>新建{recordLabel}</span>
-              </button>
-            )}
+        {emptyState ? (
+          <WorkbenchEmptyState
+            state={emptyState}
+            onCreate={() => openComposer()}
+            onReset={resetEmptyConditions}
           />
         ) : (
           <TradeList

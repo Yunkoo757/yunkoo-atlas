@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from '@/icons/appIcons'
+import { ArrowDown, ArrowUp, Copy, Trash2 } from '@/icons/appIcons'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
-import { EmptyState } from '@/components/EmptyState'
 import { TradeFilters } from '@/components/trades/TradeFilters'
+import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { useStore } from '@/store/useStore'
@@ -22,6 +22,11 @@ import type { Trade } from '@/data/trades'
 import { SymbolLabel } from '@/components/SymbolIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
+import {
+  getWorkbenchResetPath,
+  resolveWorkbenchEmptyState,
+  shouldResetWorkbenchHideClosed,
+} from '@/lib/workbenchEmptyState'
 import './TableView.css'
 
 type SortKey = 'date' | 'symbol' | 'pnl' | 'r'
@@ -57,6 +62,8 @@ export function TableView({
 }) {
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
+  const display = useStore((s) => s.display)
+  const setDisplay = useStore((s) => s.setDisplay)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrades = useStore((s) => s.removeTrades)
   const [sortKey, setSortKey] = useState<SortKey>('date')
@@ -69,7 +76,7 @@ export function TableView({
 
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { trades, visible: baseVisible } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible: baseVisible, workspaceCount } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = (trade: Trade) => {
     const from = detailFrom(trade)
@@ -87,7 +94,10 @@ export function TableView({
     () => sortTradesForTable(baseVisible, sortKey, sortDir),
     [baseVisible, sortKey, sortDir],
   )
-  const visibleIdsKey = visible.map((trade) => trade.id).join('\u0000')
+  const visibleIdsKey = useMemo(
+    () => visible.map((trade) => trade.id).join('\u0000'),
+    [visible],
+  )
   const isReviewCaseView = filter.tradeKind === 'case'
   const rowHeight = isReviewCaseView ? TABLE_ROW_HEIGHT_CASE : TABLE_ROW_HEIGHT
 
@@ -178,7 +188,24 @@ export function TableView({
   }
 
   const subtitle = getTradesPageSubtitle(filter)
-  const recordLabel = isReviewCaseView ? '案例记录' : '交易'
+  const emptyState = resolveWorkbenchEmptyState({
+    totalCount: trades.length,
+    workspaceCount,
+    visibleCount: visible.length,
+    recordKind: filter.tradeKind,
+  })
+  const resetEmptyConditions = () => {
+    if (shouldResetWorkbenchHideClosed({
+      hideClosed: display.hideClosed,
+      trades,
+      filter,
+      starredIds: useStore.getState().starredIds,
+      search: location.search,
+    })) {
+      setDisplay({ hideClosed: false })
+    }
+    navigate(getWorkbenchResetPath(location.pathname, filter.tradeKind), { replace: true })
+  }
   const virtualRows = rowVirtualizer.getVirtualItems()
   const paddingTop = virtualRows.length > 0 ? virtualRows[0]!.start : 0
   const paddingBottom =
@@ -195,16 +222,11 @@ export function TableView({
         className={'tv-scroll' + (isReviewCaseView ? ' tv-scroll-case' : '')}
         ref={scrollRef}
       >
-        {visible.length === 0 ? (
-          <EmptyState
-            title={isReviewCaseView ? '还没有案例记录' : '还没有交易'}
-            hint={isReviewCaseView ? '用表格对比错题与复盘状态。' : '表格横向展开关键字段，便于对比。'}
-            action={
-              <button className="empty-btn" onClick={() => openComposer()}>
-                <Plus size={15} />
-                <span>新建{recordLabel}</span>
-              </button>
-            }
+        {emptyState ? (
+          <WorkbenchEmptyState
+            state={emptyState}
+            onCreate={() => openComposer()}
+            onReset={resetEmptyConditions}
           />
         ) : (
           <table className={'trade-table' + (isReviewCaseView ? ' trade-table-case' : '')}>
