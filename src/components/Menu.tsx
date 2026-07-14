@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -38,6 +39,7 @@ export function Menu({
   onSelect: (value: string) => void
   align?: 'left' | 'right'
 }) {
+  const menuId = useId()
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<MenuPosition>({
     left: 0,
@@ -121,7 +123,7 @@ export function Menu({
   }
 
   return (
-    <div className="menu-root" ref={rootRef}>
+    <div className="menu-root" ref={rootRef} data-menu-id={menuId}>
       <div
         className="menu-trigger"
         ref={triggerRef}
@@ -136,6 +138,7 @@ export function Menu({
             role="menu"
             ref={popRef}
             style={popStyle}
+            data-menu-id={menuId}
           >
             {options.map((o) => (
               <button

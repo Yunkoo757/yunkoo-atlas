@@ -828,9 +828,13 @@ export const useStore = create<State>()((set, get) => ({
           typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
             ? document.activeElement
             : null
-        const menuTrigger = active
-          ?.closest('.menu-root')
-          ?.querySelector<HTMLElement>('.menu-trigger button')
+        // Menu 弹出层经 portal 挂到 body，需用 data-menu-id 回查 trigger
+        const menuId =
+          active?.closest<HTMLElement>('[data-menu-id]')?.dataset.menuId ?? null
+        const menuRoot = menuId
+          ? document.querySelector<HTMLElement>(`.menu-root[data-menu-id="${CSS.escape(menuId)}"]`)
+          : active?.closest<HTMLElement>('.menu-root')
+        const menuTrigger = menuRoot?.querySelector<HTMLElement>('.menu-trigger button')
         set({
           closeTradeRequest: {
             tradeId,
