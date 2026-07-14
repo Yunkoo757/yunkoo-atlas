@@ -391,6 +391,7 @@ try {
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
+  await page.locator('.db-scroll').waitFor({ state: 'visible', timeout: 15000 })
   const dashboardSurface = await page.evaluate(() => {
     const strip = document.querySelector('.db-cards')
     const metric = document.querySelector('.db-card')
