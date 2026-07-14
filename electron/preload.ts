@@ -11,6 +11,16 @@ export interface BackupInfo {
   tradeCount?: number
   strategyCount?: number
   attachmentCount?: number
+  verification?: BackupVerificationResult
+}
+
+export interface BackupVerificationResult {
+  status: 'verified' | 'invalid'
+  checkedAt: number
+  tradeCount?: number
+  strategyCount?: number
+  attachmentCount?: number
+  error?: string
 }
 
 export interface JournalBridge {
@@ -31,6 +41,7 @@ export interface JournalBridge {
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
+  getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>
   importAssets(assets: ExportAssetRecord[]): Promise<boolean>
   exportJournalZip(): Promise<{ ok: true; path: string } | { ok: false }>
   importJournalZip(): Promise<
@@ -39,6 +50,7 @@ export interface JournalBridge {
   // 备份
   createBackup(): Promise<string | null>
   listBackups(): Promise<BackupInfo[]>
+  verifyBackup(fileName: string): Promise<BackupVerificationResult>
   restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
@@ -90,11 +102,13 @@ const bridge: JournalBridge = {
   saveAsset: (data, mime) =>
     ipcRenderer.invoke('storage:saveAsset', { data, mime }),
   getAssetBytes: (id) => ipcRenderer.invoke('storage:getAssetBytes', id),
+  getAssetStats: (ids) => ipcRenderer.invoke('storage:getAssetStats', ids),
   importAssets: (assets) => ipcRenderer.invoke('storage:importAssets', assets),
   exportJournalZip: () => ipcRenderer.invoke('journal:exportZip'),
   importJournalZip: () => ipcRenderer.invoke('journal:importZip'),
   createBackup: () => ipcRenderer.invoke('backup:create'),
   listBackups: () => ipcRenderer.invoke('backup:list'),
+  verifyBackup: (fileName) => ipcRenderer.invoke('backup:verify', fileName),
   restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
   deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', fileName),
   getBackupStats: () => ipcRenderer.invoke('backup:stats'),

@@ -25,11 +25,25 @@ const SCOPE_PRIORITY: Record<ShortcutScope, number> = {
 }
 
 let handlers: ShortcutHandlerMap = {}
+const registeredHandlerMaps: Array<{ token: symbol; handlers: ShortcutHandlerMap }> = []
 let sequenceBuffer: string[] = []
 let sequenceTimer: ReturnType<typeof setTimeout> | null = null
 
 export function setShortcutHandlers(map: ShortcutHandlerMap): void {
   handlers = map
+}
+
+/**
+ * 为当前挂载的界面注册局部动作。后注册者优先，清理时只移除自己的处理器，
+ * 避免路由切换期间旧组件的 cleanup 覆盖新组件。
+ */
+export function registerShortcutHandlers(map: ShortcutHandlerMap): () => void {
+  const registration = { token: Symbol('shortcut-handlers'), handlers: map }
+  registeredHandlerMaps.push(registration)
+  return () => {
+    const index = registeredHandlerMaps.findIndex((item) => item.token === registration.token)
+    if (index >= 0) registeredHandlerMaps.splice(index, 1)
+  }
 }
 
 function clearSequence(): void {
@@ -133,6 +147,12 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
 }
 
 function runAction(id: string): boolean {
+  for (let index = registeredHandlerMaps.length - 1; index >= 0; index -= 1) {
+    const registered = registeredHandlerMaps[index]?.handlers[id]
+    if (!registered) continue
+    registered()
+    return true
+  }
   const fn = handlers[id]
   if (!fn) return false
   fn()
@@ -140,8 +160,8 @@ function runAction(id: string): boolean {
 }
 
 export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): boolean {
-  // Guard against race: handlers map may be empty before first setShortcutHandlers call
-  if (Object.keys(handlers).length === 0) return false
+  // Guard against race: host 与当前页面都还没注册动作。
+  if (Object.keys(handlers).length === 0 && registeredHandlerMaps.length === 0) return false
 
   const { cmdkOpen } = useShortcutStore.getState()
   if (cmdkOpen) return false

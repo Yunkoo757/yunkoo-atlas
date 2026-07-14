@@ -42,6 +42,7 @@ import {
 import { mergeTagPresets } from '@/lib/tags'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { useSaveStatus } from '@/store/saveStatus'
+import { isSafeAssetId } from '@/storage/assetId'
 
 export const EXPORT_VERSION = 6 // 6: +savedTradeViews
 
@@ -148,7 +149,7 @@ function isStringArray(v: unknown): v is string[] {
 
 function isAssetRecord(v: unknown): v is ExportAssetRecord {
   if (!isRecord(v)) return false
-  return typeof v.id === 'string' && typeof v.mime === 'string' && typeof v.data === 'string'
+  return isSafeAssetId(v.id) && typeof v.mime === 'string' && typeof v.data === 'string'
 }
 
 function isFiniteNumber(v: unknown): v is number {

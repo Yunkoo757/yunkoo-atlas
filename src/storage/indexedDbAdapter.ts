@@ -1,4 +1,4 @@
-import type { StorageAdapter } from '@/storage/adapter'
+import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -170,6 +170,35 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     if (!record?.blob) return null
     const data = await blobToBase64(record.blob)
     return { id: record.id, mime: record.mime, data }
+  }
+
+  async getAssetStats(ids: string[]): Promise<AssetStorageStats> {
+    const uniqueIds = [...new Set(ids)]
+    if (uniqueIds.length === 0) return { count: 0, totalBytes: 0, missingCount: 0 }
+
+    const db = this.requireDb()
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_ASSETS, 'readonly')
+      const store = tx.objectStore(STORE_ASSETS)
+      let count = 0
+      let totalBytes = 0
+      let missingCount = 0
+      for (const id of uniqueIds) {
+        const request = store.get(id)
+        request.onsuccess = () => {
+          const record = request.result as AssetRecord | undefined
+          if (!record?.blob || record.blob.size !== record.byteSize) {
+            missingCount += 1
+            return
+          }
+          count += 1
+          totalBytes += record.blob.size
+        }
+      }
+      tx.oncomplete = () => resolve({ count, totalBytes, missingCount })
+      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB asset statistics failed'))
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB asset statistics aborted'))
+    })
   }
 
   async importAssets(assets: ExportAssetRecord[]): Promise<void> {

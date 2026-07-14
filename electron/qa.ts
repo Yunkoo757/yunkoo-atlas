@@ -190,6 +190,14 @@ export async function runElectronQa(): Promise<QaCheck[]> {
       '附件保存前后字节一致',
       fs.existsSync(assetFile) && fs.readFileSync(assetFile).equals(sourceImage),
     )
+    const assetStats = storage.getAssetStats([assetId, assetId, 'missing'])
+    record(
+      '附件容量只读取元数据并去重',
+      assetStats.count === 1 &&
+        assetStats.totalBytes === sourceImage.byteLength &&
+        assetStats.missingCount === 1,
+      `${assetStats.count} / ${assetStats.totalBytes} bytes / ${assetStats.missingCount} missing`,
+    )
 
     const zipPath = path.join(paths.root, '_qa-export.journal.zip')
     storage.saveSnapshot(snapshotWithRef('TRD-DESKTOPZIP'))

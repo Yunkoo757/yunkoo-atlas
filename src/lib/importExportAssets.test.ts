@@ -139,3 +139,18 @@ export function testJsonImportAcceptsOpenTradesWithoutResults(): void {
   assert(parsed.data.trades[0]?.pnl === null, '未填写盈亏应保持 null，而不是伪造为 0')
   assert(parsed.data.trades[0]?.rMultiple === null, '未填写 R 倍数应保持 null')
 }
+
+export function testJsonImportRejectsAttachmentPathTraversalIds(): void {
+  const parsed = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [trade],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+    assets: [{ id: '../outside', mime: 'image/png', data: 'abc123' }],
+  }))
+
+  assert(!parsed.ok, 'JSON 导入必须在进入 IPC 前拒绝路径穿越附件 ID')
+}

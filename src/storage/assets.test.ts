@@ -27,6 +27,9 @@ const missingAssetAdapter: StorageAdapter = {
   async getAssetForExport() {
     return null
   },
+  async getAssetStats() {
+    return { count: 0, totalBytes: 0, missingCount: 0 }
+  },
   async importAssets() {},
 }
 

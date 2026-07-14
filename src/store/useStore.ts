@@ -197,8 +197,11 @@ interface State {
   /** 单次 setState 批量 upsert，避免 N 次订阅/persist 风暴 */
   upsertTrades: (trades: Trade[]) => void
   removeTrade: (id: string) => void
+  removeTrades: (ids: string[]) => void
   restoreTrade: (id: string) => void
+  restoreTrades: (ids: string[]) => void
   purgeTrade: (id: string) => void
+  purgeTrades: (ids: string[]) => void
   openComposer: (trade?: Trade | null, kind?: TradeKind | null) => void
   closeComposer: () => void
   requestTradeClose: (
@@ -234,13 +237,15 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           if (s.undoStack.length === 0) return s
           const snapshots = s.undoStack[s.undoStack.length - 1]
+          const snapshotById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]))
+          const currentById = new Map(s.trades.map((trade) => [trade.id, trade]))
           const redoSnaps = snapshots.map(({ id }) => ({
             id,
-            prev: s.trades.find((t) => t.id === id) ?? snapshots.find((x) => x.id === id)!.prev,
+            prev: currentById.get(id) ?? snapshotById.get(id)!.prev,
           }))
           return {
             trades: s.trades.map((t) => {
-              const snap = snapshots.find((x) => x.id === t.id)
+              const snap = snapshotById.get(t.id)
               return snap ? snap.prev : t
             }),
             undoStack: s.undoStack.slice(0, -1),
@@ -251,13 +256,15 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           if (s.redoStack.length === 0) return s
           const snapshots = s.redoStack[s.redoStack.length - 1]
+          const snapshotById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]))
+          const currentById = new Map(s.trades.map((trade) => [trade.id, trade]))
           const undoSnaps = snapshots.map(({ id }) => ({
             id,
-            prev: s.trades.find((t) => t.id === id) ?? snapshots.find((x) => x.id === id)!.prev,
+            prev: currentById.get(id) ?? snapshotById.get(id)!.prev,
           }))
           return {
             trades: s.trades.map((t) => {
-              const snap = snapshots.find((x) => x.id === t.id)
+              const snap = snapshotById.get(t.id)
               return snap ? snap.prev : t
             }),
             redoStack: s.redoStack.slice(0, -1),
@@ -642,30 +649,50 @@ export const useStore = create<State>()((set, get) => ({
           }
           return slice
         }),
-      removeTrade: (id) =>
+      removeTrade: (id) => get().removeTrades([id]),
+      removeTrades: (ids) =>
         set((s) => {
-          const previous = s.trades.find((t) => t.id === id)
-          if (!previous || previous.deletedAt) return s
+          if (ids.length === 0) return s
+          const idSet = new Set(ids)
+          const deletedAt = new Date().toISOString()
+          const snapshots: UndoSnapshot[] = []
+          const trades = s.trades.map((trade) => {
+            if (!idSet.has(trade.id) || trade.deletedAt) return trade
+            snapshots.push({ id: trade.id, prev: trade })
+            return { ...trade, deletedAt }
+          })
+          if (snapshots.length === 0) return s
           return {
-            undoStack: appendBoundedHistory(s.undoStack, [{ id, prev: previous }]),
+            undoStack: appendBoundedHistory(s.undoStack, snapshots),
             redoStack: [],
-            trades: s.trades.map((t) =>
-              t.id === id ? { ...t, deletedAt: new Date().toISOString() } : t
-            ),
+            trades,
           }
         }),
-      restoreTrade: (id) =>
-        set((s) => ({
-          trades: s.trades.map((t) =>
-            t.id === id ? { ...t, deletedAt: undefined } : t
-          ),
-        })),
-      purgeTrade: (id) =>
-        set((s) => ({
-          trades: s.trades.filter((t) => t.id !== id),
-          starredIds: s.starredIds.filter((x) => x !== id),
-          subscribedIds: s.subscribedIds.filter((x) => x !== id),
-        })),
+      restoreTrade: (id) => get().restoreTrades([id]),
+      restoreTrades: (ids) =>
+        set((s) => {
+          if (ids.length === 0) return s
+          const idSet = new Set(ids)
+          let changed = false
+          const trades = s.trades.map((trade) => {
+            if (!idSet.has(trade.id) || !trade.deletedAt) return trade
+            changed = true
+            return { ...trade, deletedAt: undefined }
+          })
+          return changed ? { trades } : s
+        }),
+      purgeTrade: (id) => get().purgeTrades([id]),
+      purgeTrades: (ids) =>
+        set((s) => {
+          if (ids.length === 0) return s
+          const idSet = new Set(ids)
+          if (!s.trades.some((trade) => idSet.has(trade.id))) return s
+          return {
+            trades: s.trades.filter((trade) => !idSet.has(trade.id)),
+            starredIds: s.starredIds.filter((id) => !idSet.has(id)),
+            subscribedIds: s.subscribedIds.filter((id) => !idSet.has(id)),
+          }
+        }),
       openComposer: (trade = null, kind = null) => {
         // 防御：若被直接绑到 onClick，会收到 MouseEvent，不能当 Trade 用
         const safe =

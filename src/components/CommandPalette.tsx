@@ -116,7 +116,8 @@ export function CommandPalette({
       { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { onClose(); openComposer(null, newTradeKindForPath(pathname)) } },
       { id: 'a-new-case', group: '操作', icon: <BookOpen size={16} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { onClose(); openComposer(null, 'case') } },
     ]
-    const tradeCmds: Cmd[] = trades.map((t) => {
+    const searchableTrades = trades.filter((trade) => !trade.deletedAt)
+    const tradeCmds: Cmd[] = searchableTrades.map((t) => {
       const stratName = getStrategyName(strategies, t.strategyId)
       return {
       id: 't-' + t.id,
@@ -127,18 +128,22 @@ export function CommandPalette({
       keywords: `${t.ref} ${t.symbol} ${stratName} ${t.tags.join(' ')}`,
       run: go(tradeDetailPath(t)),
     }})
-    const tagCmds: Cmd[] = collectAllTags(trades).map((tag) => {
-      const count = trades.filter((t) => t.tags.includes(tag)).length
-      const first = trades.find((t) => t.tags.includes(tag))
-      return {
-        id: 'tag-' + tag,
-        group: '标签',
+    const tagWorkspaces = [
+      { kind: 'live', path: '/list', group: '交易标签', unit: '笔交易' },
+      { kind: 'paper', path: '/sim', group: '模拟标签', unit: '笔模拟交易' },
+      { kind: 'case', path: '/review-cases', group: '案例标签', unit: '个案例' },
+    ] as const
+    const tagCmds: Cmd[] = tagWorkspaces.flatMap(({ kind, path, group, unit }) => {
+      const workspaceTrades = searchableTrades.filter((trade) => trade.tradeKind === kind)
+      return collectAllTags(workspaceTrades).map((tag) => ({
+        id: `tag-${kind}-${tag}`,
+        group,
         icon: <Tag size={16} />,
         label: tag,
-        hint: `${count} 笔交易`,
+        hint: `${workspaceTrades.filter((trade) => trade.tags.includes(tag)).length} ${unit}`,
         keywords: tag,
-        run: first ? go(tradeDetailPath(first)) : () => {},
-      }
+        run: go(`${path}?${new URLSearchParams({ tag }).toString()}`),
+      }))
     })
     return [...viewNav, ...periodNav, ...strategyNav, ...settingsNav, ...actions, ...tagCmds, ...tradeCmds]
   }, [trades, strategies, display, shortcutBindings, pathname, navigate, onClose, openComposer])

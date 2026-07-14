@@ -8,7 +8,7 @@ import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
-import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database } from '@/icons/appIcons'
+import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, CheckCircle, AlertCircle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 
 function fmtBackupTime(ts: number): string {
@@ -31,6 +31,7 @@ export function DataSettingsPanel() {
   const electron = isElectron()
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backing, setBacking] = useState(false)
+  const [verifying, setVerifying] = useState<string | null>(null)
   const [health, setHealth] = useState<{
     tradeCount: number
     attachmentStats: AssetStats
@@ -42,17 +43,10 @@ export function DataSettingsPanel() {
   const refreshHealth = useCallback(async () => {
     const assetIds = collectAssetIdsFromNotes(trades)
     const storage = getStorage()
-    let totalBytes = 0
-    let count = 0
-    for (const id of assetIds) {
-      try {
-        const rec = await storage.getAssetForExport(id)
-        if (rec) {
-          count++
-          totalBytes += Math.round(rec.data.length * 0.75)
-        }
-      } catch { /* 忽略 */ }
-    }
+    let attachmentStats = { count: 0, totalBytes: 0, missingCount: 0 }
+    try {
+      attachmentStats = await storage.getAssetStats(assetIds)
+    } catch { /* 附件统计失败不影响备份管理 */ }
     let backupCount = 0
     let backupTotalSize = 0
     if (electron) {
@@ -68,7 +62,10 @@ export function DataSettingsPanel() {
 
     setHealth({
       tradeCount: trades.length,
-      attachmentStats: { count, totalBytes, formattedSize: fmtBackupSize(totalBytes) },
+      attachmentStats: {
+        ...attachmentStats,
+        formattedSize: fmtBackupSize(attachmentStats.totalBytes),
+      },
       backupCount,
       backupTotalSize,
     })
@@ -99,9 +96,15 @@ export function DataSettingsPanel() {
     setBacking(true)
     try {
       await flushPersistNow()
-      const result = await getJournalBridge()!.createBackup()
+      const bridge = getJournalBridge()!
+      const result = await bridge.createBackup()
       if (result) {
-        toast('备份已创建')
+        const verification = await bridge.verifyBackup(result)
+        toast(
+          verification.status === 'verified'
+            ? '备份已创建并验证'
+            : verification.error ?? '备份已创建，但验证失败',
+        )
         await Promise.all([refreshBackups(), refreshHealth()])
       } else {
         toast('备份失败')
@@ -129,6 +132,38 @@ export function DataSettingsPanel() {
       }
     } catch {
       toast('恢复失败')
+    }
+  }
+
+  const handleVerify = async (name: string) => {
+    if (!electron) return
+    setVerifying(name)
+    try {
+      const result = await getJournalBridge()!.verifyBackup(name)
+      await refreshBackups()
+      toast(result.status === 'verified' ? '恢复点验证通过' : result.error ?? '恢复点验证失败')
+    } catch {
+      toast('恢复点验证失败')
+    } finally {
+      setVerifying(null)
+    }
+  }
+
+  const handleVerifyAll = async () => {
+    if (!electron || backups.length === 0) return
+    setVerifying('all')
+    let invalidCount = 0
+    try {
+      for (const backup of backups) {
+        const result = await getJournalBridge()!.verifyBackup(backup.name)
+        if (result.status !== 'verified') invalidCount++
+      }
+      await refreshBackups()
+      toast(invalidCount === 0 ? '全部恢复点验证通过' : `${invalidCount} 个恢复点需要处理`)
+    } catch {
+      toast('恢复点验证未完成')
+    } finally {
+      setVerifying(null)
     }
   }
 
@@ -180,7 +215,7 @@ export function DataSettingsPanel() {
                 <span className="health-note">建议启用列表虚拟化</span>
               )}
             </div>
-            <div className={'health-card' + (health.attachmentStats.totalBytes > WARN_ATTACH_SIZE ? ' health-warn' : '')}>
+            <div className={'health-card' + (health.attachmentStats.totalBytes > WARN_ATTACH_SIZE || health.attachmentStats.missingCount > 0 ? ' health-warn' : '')}>
               <Image size={18} />
               <span className="health-label">笔记图片</span>
               <span className="health-value">
@@ -188,6 +223,11 @@ export function DataSettingsPanel() {
               </span>
               {health.attachmentStats.totalBytes > WARN_ATTACH_SIZE && (
                 <span className="health-note">建议用 .journal.zip 导出</span>
+              )}
+              {health.attachmentStats.missingCount > 0 && (
+                <span className="health-note">
+                  {health.attachmentStats.missingCount} 张附件缺失或损坏
+                </span>
               )}
             </div>
             {electron && (
@@ -230,7 +270,15 @@ export function DataSettingsPanel() {
               disabled={backing}
             >
               <Save size={14} />
-              <span>{backing ? '备份中…' : '立即备份'}</span>
+              <span>{backing ? '备份并验证中…' : '立即备份'}</span>
+            </button>
+            <button
+              className="dio-btn"
+              onClick={handleVerifyAll}
+              disabled={backups.length === 0 || verifying !== null}
+            >
+              <CheckCircle size={14} />
+              <span>{verifying === 'all' ? '验证中…' : '验证全部'}</span>
             </button>
           </div>
 
@@ -250,10 +298,42 @@ export function DataSettingsPanel() {
                     {b.attachmentCount != null ? ` · ${b.attachmentCount} 附件` : ''}
                   </span>
                   <span className="backup-size">{fmtBackupSize(b.size)}</span>
+                  {b.verification?.status === 'verified' && (
+                    <Tooltip
+                      content={`最近验证：${fmtBackupTime(b.verification.checkedAt)}`}
+                      label={`已验证，${fmtBackupTime(b.verification.checkedAt)}`}
+                    >
+                      <span className="backup-verification is-verified">
+                        <CheckCircle size={13} />
+                        已验证
+                      </span>
+                    </Tooltip>
+                  )}
+                  {b.verification?.status === 'invalid' && (
+                    <Tooltip
+                      content={b.verification.error ?? '恢复点验证失败'}
+                      label={`验证失败：${b.verification.error ?? '未知原因'}`}
+                    >
+                      <span className="backup-verification is-invalid">
+                        <AlertCircle size={13} />
+                        验证失败
+                      </span>
+                    </Tooltip>
+                  )}
+                  {!b.verification && <span className="backup-verification">未验证</span>}
                   <div className="backup-actions">
                     <button
                       className="dio-btn"
+                      onClick={() => handleVerify(b.name)}
+                      disabled={verifying !== null}
+                    >
+                      <CheckCircle size={13} />
+                      <span>{verifying === b.name ? '验证中…' : '验证'}</span>
+                    </button>
+                    <button
+                      className="dio-btn"
                       onClick={() => handleRestore(b.name)}
+                      disabled={verifying !== null || b.verification?.status === 'invalid'}
                     >
                       <RotateCcw size={13} />
                       <span>恢复</span>

@@ -68,7 +68,9 @@ export function TradeTrashView() {
   const allTrades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const restoreTrade = useStore((s) => s.restoreTrade)
+  const restoreTrades = useStore((s) => s.restoreTrades)
   const purgeTrade = useStore((s) => s.purgeTrade)
+  const purgeTrades = useStore((s) => s.purgeTrades)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -121,7 +123,7 @@ export function TradeTrashView() {
   const handleBatchRestore = () => {
     if (selected.size === 0) return
     const count = selected.size
-    selected.forEach((id) => restoreTrade(id))
+    restoreTrades([...selected])
     setSelected(new Set())
     toast(`已恢复 ${count} 笔交易`)
   }
@@ -132,7 +134,7 @@ export function TradeTrashView() {
     if (!confirmed) return
 
     const count = selected.size
-    selected.forEach((id) => purgeTrade(id))
+    purgeTrades([...selected])
     setSelected(new Set())
     toast(`已彻底删除 ${count} 笔交易`)
   }

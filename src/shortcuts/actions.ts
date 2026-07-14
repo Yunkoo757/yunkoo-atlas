@@ -142,14 +142,14 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
 
   {
     id: 'trade.prev',
-    label: '上一个案例',
+    label: '上一条记录',
     category: '交易',
     scope: 'detail',
     defaultBinding: getDefaultShortcutBinding('trade.prev'),
   },
   {
     id: 'trade.next',
-    label: '下一个案例',
+    label: '下一条记录',
     category: '交易',
     scope: 'detail',
     defaultBinding: getDefaultShortcutBinding('trade.next'),

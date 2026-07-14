@@ -47,6 +47,14 @@ function getWindowIconPath(): string | undefined {
 }
 
 let mainWindow: BrowserWindow | null = null
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+
+function focusMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  if (!mainWindow.isVisible()) mainWindow.show()
+  mainWindow.focus()
+}
 
 function isAllowedExternalUrl(rawUrl: string): boolean {
   try {
@@ -185,28 +193,36 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(async () => {
-  initializeDiagnostics()
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('com.yunkoo-atlas.app')
-  }
-
-  registerLibraryIpc()
-  registerWindowIpc()
-
-  if (process.env.LINEAR_JOURNAL_QA === '1') {
-    await runElectronQaAndExit()
-    return
-  }
-
-  registerAppUpdater()
-  createWindow()
-  scheduleAutomaticUpdateChecks()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+if (!hasSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    focusMainWindow()
   })
-})
+
+  app.whenReady().then(async () => {
+    initializeDiagnostics()
+    if (process.platform === 'win32') {
+      app.setAppUserModelId('com.yunkoo-atlas.app')
+    }
+
+    registerLibraryIpc()
+    registerWindowIpc()
+
+    if (process.env.LINEAR_JOURNAL_QA === '1') {
+      await runElectronQaAndExit()
+      return
+    }
+
+    registerAppUpdater()
+    createWindow()
+    scheduleAutomaticUpdateChecks()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+}
 
 app.on('child-process-gone', (_event, details) => {
   logDiagnostic('error', 'child-process-gone', details)

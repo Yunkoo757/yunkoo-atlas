@@ -50,6 +50,7 @@ export function ListView({
   const setStatus = useStore((state) => state.setStatus)
   const requestTradeClose = useStore((state) => state.requestTradeClose)
   const removeTrade = useStore((state) => state.removeTrade)
+  const removeTrades = useStore((state) => state.removeTrades)
   const upsertTrade = useStore((state) => state.upsertTrade)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
@@ -148,7 +149,7 @@ export function ListView({
 
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
-    actionableIds.forEach((id) => removeTrade(id))
+    removeTrades([...actionableIds])
     toast(`已将 ${actionableIds.size} 笔交易移至回收站，30天后自动清空`)
     setSelectedIds(new Set())
   }

@@ -16,6 +16,7 @@ import fs from 'node:fs/promises'
   'src/lib/tradeDuplicates.test.ts',
   'src/lib/lightboxView.test.ts',
   'src/shortcuts/bindingOverwrite.test.ts',
+  'src/shortcuts/listActions.test.ts',
   'src/shortcuts/workspaceActions.test.ts',
   'src/icons/linear/linear-icons.test.tsx',
   'src/components/Menu.design.test.ts',
@@ -23,7 +24,9 @@ import fs from 'node:fs/promises'
   'src/lib/appUpdate.test.ts',
   'src/lib/windowBounds.test.ts',
   'src/lib/persistenceSafety.test.ts',
+  'src/lib/productFlowPolish.test.ts',
   'src/storage/snapshotValidation.test.ts',
+  'src/storage/assetId.test.ts',
   'electron/library/images.test.ts',
   'electron/library/atomicFile.test.ts',
   'electron/library/backup.test.ts',
@@ -84,14 +87,34 @@ try {
   const baseUrl = server.resolvedUrls?.local[0]
   if (!baseUrl) throw new Error('Vite test server did not expose a local URL')
   browser = await chromium.launch({ headless: true })
+  const browserTests = [
+    {
+      url: '/src/editor/imageLoadFailure.browser.test.html',
+      promiseKey: '__editorImageLoadFailureTest',
+      label: 'src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations',
+    },
+    {
+      url: '/src/storage/assets.browser.test.html',
+      promiseKey: '__storageAssetsTest',
+      label: 'src/storage/assets.test.ts :: browser asset failure handling',
+    },
+  ]
   const page = await browser.newPage()
-  await page.goto(new URL('/src/editor/imageLoadFailure.browser.test.html', baseUrl).href)
-  await page.waitForFunction(() => '__editorImageLoadFailureTest' in window, null, { timeout: 5000 })
-  await page.evaluate(() => window.__editorImageLoadFailureTest)
-  console.log('PASS src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations')
+  for (const browserTest of browserTests) {
+    try {
+      await page.goto(new URL(browserTest.url, baseUrl).href)
+      await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: 5000 })
+      await page.evaluate((key) => window[key], browserTest.promiseKey)
+      console.log(`PASS ${browserTest.label}`)
+    } catch (err) {
+      failed += 1
+      console.error(`FAIL ${browserTest.label}`)
+      console.error(err)
+    }
+  }
 } catch (err) {
   failed += 1
-  console.error('FAIL src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations')
+  console.error('FAIL browser regression harness')
   console.error(err)
 } finally {
   await browser?.close()

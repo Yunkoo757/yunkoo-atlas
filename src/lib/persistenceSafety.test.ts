@@ -1,4 +1,6 @@
 import fs from 'node:fs/promises'
+import { haveSamePersistedReferences } from '@/storage/bootstrap'
+import type { PersistedSnapshot } from '@/storage/types'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -49,9 +51,10 @@ export async function testStorageHealthOnlyReportsMeasuredAttachmentData(): Prom
   assert(!panel.includes('orphanedCount: 0'), '存储健康不得把未执行的孤立附件扫描报告为零')
   assert(!panel.includes('const stats: AssetStats'), '存储健康不得保留未使用的伪统计结果')
   assert(
-    panel.includes('attachmentStats: { count, totalBytes'),
-    '图片数量与容量必须来自实际读取成功的附件',
+    panel.includes('attachmentStats = await storage.getAssetStats(assetIds)'),
+    '图片数量与容量必须直接读取附件元数据',
   )
+  assert(!panel.includes('getAssetForExport(id)'), '存储健康统计不得读取图片正文或生成 Base64')
 }
 
 export async function testLibraryLocationConfigUsesAtomicPersistence(): Promise<void> {
@@ -66,8 +69,57 @@ export async function testLibraryLocationConfigUsesAtomicPersistence(): Promise<
 
 export async function testBackupRestoreValidatesDatabaseBeforeMutatingCurrentLibrary(): Promise<void> {
   const ipc = await fs.readFile('electron/library/ipc.ts', 'utf8')
-  const validation = ipc.indexOf('await validateLibraryDatabaseFile(backupPath)')
+  const validation = ipc.indexOf('const verification = await verifyBackup(fileName)')
+  const rejection = ipc.indexOf("if (verification.status !== 'verified') return false", validation)
   const safetyBackup = ipc.indexOf('const current = await ensureStorage()', validation)
-  assert(validation >= 0, '恢复点必须先通过 SQLite 与快照结构校验')
-  assert(safetyBackup > validation, '校验失败时不得创建备份、关闭或替换当前资料库')
+  assert(validation >= 0 && rejection > validation, '恢复点必须先通过完整恢复演练')
+  assert(safetyBackup > rejection, '校验失败时不得创建备份、关闭或替换当前资料库')
+  assert(
+    !ipc.includes('void verifyBackup(path.basename(result)).catch'),
+    '退出前创建恢复点不得启动同步附件校验并阻塞主进程',
+  )
+  const app = await fs.readFile('src/App.tsx', 'utf8')
+  const closeHandler = app.slice(app.indexOf('bridge.onBeforeClose'), app.indexOf('bridge.onCloseSaveError'))
+  assert(!closeHandler.includes('createBackup'), '窗口 15 秒关闭握手只负责落盘，不得同步处理整库附件')
+}
+
+export async function testRouteLazyChunksAreNotForcedIntoInitialManualChunks(): Promise<void> {
+  const viteConfig = await fs.readFile('vite.config.ts', 'utf8')
+  assert(!viteConfig.includes('manualChunks'), '路由懒加载依赖不得被手工分包重新拉入首屏')
+  assert(!viteConfig.includes('editor-vendor'), '编辑器依赖必须随动态入口按需加载')
+  assert(!viteConfig.includes('charts-vendor'), '图表依赖必须随动态入口按需加载')
+}
+
+export function testTransientUiStateDoesNotScheduleAFullSnapshotRewrite(): void {
+  const base: PersistedSnapshot = {
+    trades: [],
+    strategies: [],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: {
+      hideClosed: false,
+      showEmptyGroups: false,
+      groupByStrategy: false,
+      groupByDate: true,
+      sortBy: 'date',
+      sidebarPins: [],
+      sidebarWorkspaceItems: [],
+    },
+    tagPresets: [],
+    mistakeTagPresets: [],
+    profile: { avatarId: null, displayName: 'Yunkoo' },
+    savedTradeViews: [],
+    symbolIcons: {},
+    symbolCatalog: [],
+  }
+
+  assert(
+    haveSamePersistedReferences(base, { ...base, shortcuts: {} }),
+    '主 store 的临时 UI 更新不得因 shortcuts 快照重建而触发写盘',
+  )
+  assert(
+    !haveSamePersistedReferences(base, { ...base, trades: [...base.trades] }),
+    '持久化字段引用变化必须继续触发写盘',
+  )
 }
