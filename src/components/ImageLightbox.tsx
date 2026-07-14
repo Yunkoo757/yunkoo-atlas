@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, X } from '@/icons/appIcons'
+import { ChevronLeft, ChevronRight, Maximize2, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import {
@@ -228,31 +228,35 @@ export function ImageLightbox() {
             </button>
           </>
         )}
-        <div className="img-lightbox-hud">
-          <span className="img-lightbox-scale">{Math.round(view.scale * 100)}%</span>
-          {hasMany && (
-            <span className="img-lightbox-counter">
-              {lightbox.index + 1} / {lightbox.images.length}
-            </span>
-          )}
-          <button
-            type="button"
-            className="img-lightbox-reset"
-            onClick={fitImage}
-            aria-label={resetShortcut ? `适合窗口（${resetShortcut}）` : '适合窗口'}
-            title={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'}
-          >
-            适合窗口
-          </button>
-          <button
-            type="button"
-            className="img-lightbox-reset"
-            onClick={showActualSize}
-            aria-label="按原始像素显示图片"
-            title="源像素与屏幕物理像素 1:1"
-          >
-            原图 1:1
-          </button>
+        <div className="img-lightbox-hud-dock">
+          <div className="img-lightbox-hud">
+            <span className="img-lightbox-scale">{Math.round(view.scale * 100)}%</span>
+            {hasMany && (
+              <span className="img-lightbox-counter">
+                {lightbox.index + 1} / {lightbox.images.length}
+              </span>
+            )}
+            <button
+              type="button"
+              className="img-lightbox-action"
+              onClick={fitImage}
+              aria-label={resetShortcut ? `适合窗口（${resetShortcut}）` : '适合窗口'}
+              title={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'}
+            >
+              <Maximize2 size={14} aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="img-lightbox-action"
+              onClick={showActualSize}
+              aria-label="原图像素 1:1"
+              title="源像素与屏幕物理像素 1:1"
+            >
+              <span className="img-lightbox-ratio" aria-hidden>
+                1:1
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
