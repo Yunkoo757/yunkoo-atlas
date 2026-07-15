@@ -161,13 +161,15 @@ export class LibraryStorage {
       );
     `)
 
-    if (created || !fs.existsSync(this.paths.manifestFile)) {
+    if (created) {
       this.writeManifest({
         schemaVersion: SCHEMA_VERSION,
         libraryId: randomUUID(),
         createdAt: new Date().toISOString(),
         platform: 'electron',
       })
+    } else if (!fs.existsSync(this.paths.manifestFile)) {
+      throw new Error('journal.db 存在但 manifest.json 缺失，已拒绝猜测版本；请从备份恢复或补回清单')
     }
 
     // 仅新建库时落盘。每次 open 都 rewrite 会在 iCloud 上制造大量冲突副本。
@@ -248,13 +250,6 @@ export class LibraryStorage {
       manifestSchemaVersion: loaded.manifestSchemaVersion,
     })
     assertValidPersistedSnapshot(migrated.snapshot, 'Stored library snapshot')
-    if (migrated.didChange) {
-      this.saveSnapshot(migrated.snapshot)
-      const manifest = this.readManifest()
-      if (manifest.schemaVersion !== SCHEMA_VERSION) {
-        this.writeManifest({ ...manifest, schemaVersion: SCHEMA_VERSION })
-      }
-    }
     return migrated.snapshot
   }
 

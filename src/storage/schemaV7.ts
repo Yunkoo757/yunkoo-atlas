@@ -72,6 +72,12 @@ const METRIC_ORIGINS = new Set<MetricOrigin>(['manual', 'calculated', 'imported'
 const CURRENCY_SOURCES = new Set<PnlCurrencySource>(['manual', 'imported', 'inferred', 'legacy'])
 const RULE_ADHERENCE = new Set<RuleAdherence>(['followed', 'deviated', 'unknown'])
 const EXIT_REASONS = new Set<ExitReason>(['target', 'stop', 'manual', 'time', 'rule', 'other'])
+const REVIEW_STATUSES = new Set(['unreviewed', 'reviewed', 'focus'])
+const REVIEW_CATEGORIES = new Set(['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered'])
+const RESULT_SOURCES = new Set(['pnl', 'r', 'price', 'imported'])
+const CASE_TYPES = new Set(['exemplar', 'mistake', 'ambiguous', 'missed'])
+const MASTERY_STATES = new Set(['new', 'recheck', 'mastered'])
+const STRATEGY_ICONS = new Set(['trending-up', 'arrow-left-right', 'activity', 'newspaper', 'zap', 'target', 'layers', 'bar-chart-2', 'flame', 'rocket', 'shield', 'line-chart', 'crosshair', 'gauge'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -92,7 +98,18 @@ function isCurrency(value: unknown): boolean {
 function isBusinessDate(value: unknown, nullable = false): boolean {
   if (nullable && value === null) return true
   if (typeof value !== 'string') return false
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isFinite(Date.parse(value))
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return false
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
+  return date.getUTCFullYear() === Number(match[1]) &&
+    date.getUTCMonth() === Number(match[2]) - 1 &&
+    date.getUTCDate() === Number(match[3])
+}
+
+function isIsoTimestamp(value: unknown): value is string {
+  return typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})$/.test(value) &&
+    Number.isFinite(Date.parse(value))
 }
 
 function isCosts(value: unknown): value is TradeCostsV7 {
@@ -124,11 +141,22 @@ function assertValidTradeV7(
     !Array.isArray(value.tags) || value.tags.some((tag) => typeof tag !== 'string') ||
     !Array.isArray(value.mistakeTags) || value.mistakeTags.some((tag) => typeof tag !== 'string') ||
     typeof value.note !== 'string' ||
+    !REVIEW_STATUSES.has(String(value.reviewStatus)) ||
+    !REVIEW_CATEGORIES.has(String(value.reviewCategory)) ||
     !TRADE_SIDES.has(String(value.side)) ||
     !TRADE_STATUSES.has(String(value.status)) ||
     !TRADE_KINDS.has(String(value.tradeKind)) ||
     !CONVICTIONS.has(String(value.conviction))
   ) throw new Error(`${label} has invalid core fields`)
+  if (value.resultSource !== undefined && !RESULT_SOURCES.has(String(value.resultSource))) {
+    throw new Error(`${label}.resultSource is invalid`)
+  }
+  if (value.caseType !== undefined && !CASE_TYPES.has(String(value.caseType))) {
+    throw new Error(`${label}.caseType is invalid`)
+  }
+  if (value.masteryState !== undefined && !MASTERY_STATES.has(String(value.masteryState))) {
+    throw new Error(`${label}.masteryState is invalid`)
+  }
   for (const field of ['entry', 'size', 'exit', 'pnl', 'rMultiple'] as const) {
     if (!isNullableFinite(value[field])) throw new Error(`${label}.${field} must be finite or null`)
   }
@@ -167,7 +195,7 @@ function assertValidTradeV7(
     throw new Error(`${label}.closedAtTimestamp is invalid`)
   }
   for (const field of ['openedAtTimestamp', 'closedAtTimestamp'] as const) {
-    if (typeof value[field] === 'string' && !Number.isFinite(Date.parse(value[field]))) {
+    if (typeof value[field] === 'string' && !isIsoTimestamp(value[field])) {
       throw new Error(`${label}.${field} is invalid`)
     }
   }
@@ -215,7 +243,7 @@ export function assertValidV7Snapshot(
       !isRecord(strategy) ||
       typeof strategy.id !== 'string' ||
       typeof strategy.name !== 'string' ||
-      typeof strategy.icon !== 'string' ||
+      typeof strategy.icon !== 'string' || !STRATEGY_ICONS.has(strategy.icon) ||
       typeof strategy.color !== 'string'
     ) {
       throw new Error(`${label}.strategies[${index}] is invalid`)
@@ -236,6 +264,11 @@ export function assertValidV7Snapshot(
       typeof rawVersion.label !== 'string' ||
       rawVersion.createdAt !== null && typeof rawVersion.createdAt !== 'string'
     ) throw new Error(`${label}.strategyVersions[${index}] is invalid`)
+    for (const field of ['rulesHtml', 'reviewTemplateHtml', 'changeNote', 'retiredAt'] as const) {
+      if (rawVersion[field] !== undefined && rawVersion[field] !== null && typeof rawVersion[field] !== 'string') {
+        throw new Error(`${label}.strategyVersions[${index}].${field} is invalid`)
+      }
+    }
     if (!strategyIds.has(rawVersion.strategyId)) {
       throw new Error(`${label}.strategyVersions[${index}] has a missing strategy`)
     }
@@ -254,6 +287,12 @@ export function assertValidV7Snapshot(
     }
   }
   if (!isRecord(value.display)) throw new Error(`${label}.display is missing`)
+  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate'] as const) {
+    if (typeof value.display[field] !== 'boolean') throw new Error(`${label}.display.${field} is invalid`)
+  }
+  if (value.display.sortBy !== 'date' && value.display.sortBy !== 'pnl' && value.display.sortBy !== 'conviction') {
+    throw new Error(`${label}.display.sortBy is invalid`)
+  }
 
   for (const [index, rawStrategy] of value.strategies.entries()) {
     const strategy = rawStrategy as Record<string, unknown>

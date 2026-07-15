@@ -194,6 +194,15 @@ export function testV7ValidatorEnforcesRiskCostAndCurrencyRelations(): void {
   assert(errorFor((snapshot) => {
     snapshot.trades[0]!.strategyVersionId = null
   }).includes('strategyVersionId'), 'strategy trades must remain bound to a version')
+
+  assert(errorFor((snapshot) => {
+    snapshot.trades[0]!.strategyId = ''
+    snapshot.trades[0]!.strategyVersionId = null
+  }) === '', 'a deliberately unassigned trade may remain unversioned')
+
+  assert(errorFor((snapshot) => {
+    snapshot.trades[0]!.openedAt = '2026-02-31'
+  }).includes('core fields'), 'impossible business dates must be rejected')
 }
 
 export function testV6ToV7DoesNotInventCurrencyForInvalidExplicitValues(): void {

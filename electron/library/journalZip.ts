@@ -13,6 +13,7 @@ import {
   type PersistedSnapshot,
 } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import { migrateSnapshotToCurrent } from '../../src/storage/upgrade'
 import { isSafeAssetId } from '../../src/storage/assetId'
 
 export async function exportJournalZip(
@@ -156,7 +157,7 @@ function readWebSnapshot(dataFile: string): {
   }
 }
 
-function validateManifest(manifestFile: string): void {
+function validateManifest(manifestFile: string): number {
   let manifest: unknown
   try {
     manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'))
@@ -171,6 +172,10 @@ function validateManifest(manifestFile: string): void {
   ) {
     throw new Error('Invalid .journal.zip: manifest.json is missing required library fields')
   }
+  const schemaVersion = Number((manifest as { schemaVersion: number }).schemaVersion)
+  if (schemaVersion < 1) throw new Error('Invalid .journal.zip: manifest schema version is invalid')
+  if (schemaVersion > SCHEMA_VERSION) throw new Error(`Invalid .journal.zip: unsupported future schema v${schemaVersion}`)
+  return schemaVersion
 }
 
 export interface LibraryDatabaseInspection {
@@ -180,7 +185,10 @@ export interface LibraryDatabaseInspection {
   referencedAssetIds: string[]
 }
 
-export async function validateLibraryDatabaseFile(dbFile: string): Promise<LibraryDatabaseInspection> {
+export async function validateLibraryDatabaseFile(
+  dbFile: string,
+  manifestSchemaVersion?: number,
+): Promise<LibraryDatabaseInspection> {
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   let db: InstanceType<typeof SQL.Database> | null = null
   try {
@@ -197,10 +205,17 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
     const snapshotText = snapshotRows[0]?.values[0]?.[0]
     if (snapshotText == null) throw new Error('database snapshot is missing')
     const snapshot: unknown = JSON.parse(String(snapshotText))
-    assertValidPersistedSnapshot(snapshot, 'database snapshot')
+    const embeddedSchemaVersion = typeof snapshot === 'object' && snapshot !== null && !Array.isArray(snapshot)
+      ? (snapshot as { schemaVersion?: unknown }).schemaVersion
+      : undefined
+    const migrated = migrateSnapshotToCurrent(snapshot, {
+      source: 'journal-zip',
+      manifestSchemaVersion: manifestSchemaVersion ?? (Number.isInteger(embeddedSchemaVersion) ? undefined : SCHEMA_VERSION),
+    }).snapshot
+    assertValidPersistedSnapshot(migrated, 'database snapshot')
 
     const referencedAssetIds = new Set<string>()
-    for (const trade of snapshot.trades) {
+    for (const trade of migrated.trades) {
       const note = typeof trade.note === 'string' ? trade.note : ''
       const pattern = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
@@ -238,8 +253,8 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
       }
     }
     return {
-      tradeCount: snapshot.trades.length,
-      strategyCount: snapshot.strategies.length,
+      tradeCount: migrated.trades.length,
+      strategyCount: migrated.strategies.length,
       assets,
       referencedAssetIds: [...referencedAssetIds],
     }
@@ -255,8 +270,8 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
 export async function validateDesktopLibrary(
   paths: ReturnType<typeof ensureLibraryDirs>,
 ): Promise<LibraryDatabaseInspection> {
-  validateManifest(paths.manifestFile)
-  const inspection = await validateLibraryDatabaseFile(paths.dbFile)
+  const manifestSchemaVersion = validateManifest(paths.manifestFile)
+  const inspection = await validateLibraryDatabaseFile(paths.dbFile, manifestSchemaVersion)
   for (const asset of inspection.assets) {
     const filePath = path.join(paths.attachments, asset.fileName)
     if (!fs.existsSync(filePath) || fs.statSync(filePath).size !== asset.byteSize) {

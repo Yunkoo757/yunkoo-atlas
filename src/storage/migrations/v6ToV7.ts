@@ -42,10 +42,12 @@ function migrateDateEvidence(
   diagnostics: V7MigrationDiagnostic[],
   tradeId: string,
 ): { date: string | null; timestamp: string | null } {
-  const candidate = typeof existingTimestamp === 'string' && Number.isFinite(Date.parse(existingTimestamp))
+  const candidate = typeof existingTimestamp === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})$/.test(existingTimestamp) &&
+    Number.isFinite(Date.parse(existingTimestamp))
     ? existingTimestamp
     : null
-  if (existingTimestamp !== undefined && candidate === null) {
+  if (existingTimestamp !== undefined && existingTimestamp !== null && candidate === null) {
     diagnostics.push({ tradeId, code: 'invalid-timestamp' })
   }
   if (value === null) {
