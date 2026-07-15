@@ -64,6 +64,7 @@ function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | u
   if (tradeKind === 'case') return isCaseWorkspaceEntryPath(pathname)
   if (isCaseWorkspaceEntryPath(pathname)) return false
   return (
+    pathname === '/dashboard' ||
     isTodayWorkspaceEntryPath(pathname) ||
     isTradeWorkspaceEntryPath(pathname) ||
     pathname === '/sim' ||

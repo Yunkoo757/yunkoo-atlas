@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useMemo, type ReactNode } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
   Area,
@@ -20,10 +20,11 @@ import { getStrategyName } from '@/lib/strategies'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { isUsableTradeResult, summarizeTradeResults, validateTradeResultEvidence } from '@/lib/tradeTruth'
 import {
   selectAnalyticsCandidates,
+  type AnalyticsScope,
   type AnalyticsRange,
   type AnalyticsTradeKind,
 } from '@/lib/analyticsScope'
@@ -33,6 +34,13 @@ import { buildQualityBreakdown } from '@/lib/analyticsQuality'
 import { aggregateMoney, moneyAggregateLabel } from '@/lib/moneyAggregate'
 import { buildTradeAnalytics } from '@/lib/tradeAnalytics'
 import { downsampleSeries } from '@/lib/analyticsSeries'
+import {
+  countDashboardDimensionFilters,
+  parseDashboardQuery,
+  updateDashboardQuery,
+  type DashboardQuality,
+  type DashboardQueryKey,
+} from '@/lib/dashboardQuery'
 import './Dashboard.css'
 
 type TimeRange = AnalyticsRange
@@ -61,12 +69,21 @@ const KIND_OPTS: { value: DashboardKind; label: string }[] = [
   { value: 'all', label: '实盘 + 模拟' },
 ]
 
+const QUALITY_OPTS: { value: DashboardQuality; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'missing', label: '待补' },
+  { value: 'conflict', label: '冲突' },
+  { value: 'confirmed', label: '已确认' },
+  { value: 'verified', label: '已交叉验证' },
+]
+
 export function selectDashboardAnalyticsCandidates(
   trades: readonly Trade[],
   kind: DashboardKind,
   range: TimeRange,
+  dimensions: Omit<AnalyticsScope, 'tradeKind' | 'range'> = {},
 ) {
-  return selectAnalyticsCandidates(trades, { tradeKind: kind, range })
+  return selectAnalyticsCandidates(trades, { ...dimensions, tradeKind: kind, range })
 }
 
 function closedAtSource(trade: Trade): string {
@@ -79,9 +96,17 @@ function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]
   const summary = summarizeTradeResults(closed)
   const metrics = buildAnalyticsMetrics(closed)
   const usable = closed.filter(isUsableTradeResult)
-  const evidenceVerifiedCount = usable.filter(
-    (trade) => validateTradeResultEvidence(trade).quality === 'verified',
-  ).length
+  const evidence = closed.map((trade) => ({
+    trade,
+    validation: validateTradeResultEvidence(trade),
+  }))
+  const evidenceCounts = evidence.reduce<Record<Exclude<DashboardQuality, 'all'>, number>>(
+    (counts, item) => {
+      counts[item.validation.quality] += 1
+      return counts
+    },
+    { missing: 0, conflict: 0, confirmed: 0, verified: 0 },
+  )
   const pnlTrades = usable.filter(
     (trade): trade is Trade & { pnl: number } =>
       typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
@@ -144,29 +169,81 @@ function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]
     strategies,
     maxAbs,
     rDist,
-    evidenceVerifiedCount,
+    evidence,
+    evidenceCounts,
+    evidenceVerifiedCount: evidenceCounts.verified,
   }
 }
 
 export function Dashboard() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const trades = useStore((s) => s.trades)
   const strategyDefs = useStore((s) => s.strategies)
+  const strategyVersions = useStore((s) => s.strategyVersions)
   const openComposer = useStore((s) => s.openComposer)
-  const [range, setRange] = useState<TimeRange>('all')
-  const [kind, setKind] = useState<DashboardKind>('live')
+  const query = useMemo(() => parseDashboardQuery(searchParams), [searchParams])
+  const range = query.range
+  const kind = query.tradeKind
+  const quality = query.quality
+  const activeDimensionCount = countDashboardDimensionFilters(query)
+
+  const setQuery = (key: DashboardQueryKey, value: string | null | undefined) => {
+    setSearchParams(updateDashboardQuery(searchParams, key, value), { replace: true })
+  }
+  const clearDimensions = () => {
+    const next = new URLSearchParams(searchParams)
+    for (const key of [
+      'strategy', 'strategyVersion', 'symbol', 'side', 'timeframe',
+      'session', 'tag', 'mistakeTag', 'currency',
+    ]) next.delete(key)
+    setSearchParams(next, { replace: true })
+  }
+
+  const filterOptions = useMemo(() => {
+    const values = (items: Array<string | null | undefined>) => [...new Set(
+      items.map((item) => item?.trim()).filter((item): item is string => Boolean(item)),
+    )].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    return {
+      symbols: values(trades.map((trade) => trade.symbol)),
+      timeframes: values(trades.map((trade) => trade.timeframe)),
+      sessions: values(trades.map((trade) => trade.session)),
+      tags: values(trades.flatMap((trade) => trade.tags)),
+      mistakeTags: values(trades.flatMap((trade) => trade.mistakeTags)),
+      currencies: values(trades.map((trade) => trade.pnlCurrency)),
+    }
+  }, [trades])
+  const visibleStrategyVersions = useMemo(
+    () => strategyVersions.filter(
+      (version) => !query.scope.strategyId || version.strategyId === query.scope.strategyId,
+    ),
+    [strategyVersions, query.scope.strategyId],
+  )
 
   const stats = useMemo(() => {
-    const candidates = selectDashboardAnalyticsCandidates(trades, kind, range)
+    const candidates = selectDashboardAnalyticsCandidates(trades, kind, range, query.scope)
     return buildStats(candidates.included, candidates.temporalCandidates, strategyDefs)
-  }, [trades, strategyDefs, range, kind])
+  }, [trades, strategyDefs, range, kind, query.scope])
+  const evidenceRows = useMemo(
+    () => quality === 'all'
+      ? []
+      : stats.evidence.filter((item) => item.validation.quality === quality).slice(0, 50),
+    [quality, stats.evidence],
+  )
   const rangeLabel = RANGE_OPTS.find((o) => o.value === range)?.label ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '实盘 + 模拟'
   const hasClosedTrades = stats.closedCount > 0
 
   const openTrade = (tradeId: string) => {
     const t = trades.find((x) => x.id === tradeId)
-    navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`)
+    navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`, {
+      state: tradeDetailNavState({
+        pathname: location.pathname,
+        search: location.search,
+        anchorTradeId: tradeId,
+      }),
+    })
   }
 
   return (
@@ -183,7 +260,7 @@ export function Dashboard() {
                 role="tab"
                 aria-selected={kind === o.value}
                 className={'db-seg' + (kind === o.value ? ' is-on' : '')}
-                onClick={() => setKind(o.value)}
+                onClick={() => setQuery('kind', o.value)}
               >
                 {o.label}
               </button>
@@ -197,13 +274,50 @@ export function Dashboard() {
                 role="tab"
                 aria-selected={range === o.value}
                 className={'db-seg' + (range === o.value ? ' is-on' : '')}
-                onClick={() => setRange(o.value)}
+                onClick={() => setQuery('range', o.value)}
               >
                 {o.label}
               </button>
             ))}
           </div>
         </div>
+
+        <details className="db-filter-details" open={activeDimensionCount > 0}>
+          <summary>
+            <span>细分条件{activeDimensionCount > 0 ? ` · ${activeDimensionCount}` : ''}</span>
+            <span>筛选会写入网址，可复制后恢复同一分析口径</span>
+          </summary>
+          <div className="db-filter-grid">
+            <FilterSelect label="策略" value={query.scope.strategyId} onChange={(value) => setQuery('strategy', value)}>
+              {strategyDefs.map((strategy) => <option value={strategy.id} key={strategy.id}>{strategy.name}</option>)}
+            </FilterSelect>
+            <FilterSelect label="策略版本" value={query.scope.strategyVersionId} onChange={(value) => setQuery('strategyVersion', value)}>
+              {visibleStrategyVersions.map((version) => <option value={version.id} key={version.id}>{version.label}</option>)}
+            </FilterSelect>
+            <FilterSelect label="品种" value={query.scope.symbol} onChange={(value) => setQuery('symbol', value)}>
+              {filterOptions.symbols.map((value) => <option value={value} key={value}>{value}</option>)}
+            </FilterSelect>
+            <FilterSelect label="方向" value={query.scope.side} onChange={(value) => setQuery('side', value)}>
+              <option value="long">多</option><option value="short">空</option>
+            </FilterSelect>
+            <FilterSelect label="周期" value={query.scope.timeframe} onChange={(value) => setQuery('timeframe', value)}>
+              {filterOptions.timeframes.map((value) => <option value={value} key={value}>{value}</option>)}
+            </FilterSelect>
+            <FilterSelect label="时段" value={query.scope.session} onChange={(value) => setQuery('session', value)}>
+              {filterOptions.sessions.map((value) => <option value={value} key={value}>{value}</option>)}
+            </FilterSelect>
+            <FilterSelect label="标签" value={query.scope.tag} onChange={(value) => setQuery('tag', value)}>
+              {filterOptions.tags.map((value) => <option value={value} key={value}>{value}</option>)}
+            </FilterSelect>
+            <FilterSelect label="错误标签" value={query.scope.mistakeTag} onChange={(value) => setQuery('mistakeTag', value)}>
+              {filterOptions.mistakeTags.map((value) => <option value={value} key={value}>{value}</option>)}
+            </FilterSelect>
+            <FilterSelect label="币种" value={query.scope.currency} onChange={(value) => setQuery('currency', value)}>
+              {filterOptions.currencies.map((value) => <option value={value} key={value}>{value}</option>)}
+            </FilterSelect>
+            {activeDimensionCount > 0 && <button type="button" className="db-filter-clear" onClick={clearDimensions}>清除细分条件</button>}
+          </div>
+        </details>
 
         <div className="db-cards">
           <Card
@@ -234,14 +348,54 @@ export function Dashboard() {
                 盈亏 {stats.pnlCount}/{stats.closedCount} · R {stats.rCount}/{stats.closedCount} · 已交叉验证 {stats.evidenceVerifiedCount}
               </span>
             </div>
-            <span className="db-data-health-state">
-              {stats.conflictCount > 0
-                ? `${stats.conflictCount} 笔结果冲突`
-                : stats.evaluatedCount < stats.closedCount
-                  ? `${stats.closedCount - stats.evaluatedCount} 笔待补结果`
-                  : '结果完整'}
-            </span>
+            <div className="db-quality-tabs" aria-label="结果证据质量">
+              {QUALITY_OPTS.map((option) => {
+                const count = option.value === 'all'
+                  ? stats.closedCount
+                  : stats.evidenceCounts[option.value]
+                return (
+                  <button
+                    type="button"
+                    key={option.value}
+                    className={quality === option.value ? 'is-on' : ''}
+                    aria-pressed={quality === option.value}
+                    onClick={() => setQuery('quality', option.value)}
+                  >
+                    {option.label} <span>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
+        )}
+
+        {hasClosedTrades && quality !== 'all' && (
+          <section className="db-evidence-panel" aria-label="结果证据明细">
+            <div className="db-evidence-head">
+              <div>
+                <strong>{QUALITY_OPTS.find((option) => option.value === quality)?.label}交易</strong>
+                <span>点击原始记录核对；返回时保留当前全部分析条件。</span>
+              </div>
+              {stats.evidenceCounts[quality] > evidenceRows.length && (
+                <span>显示前 {evidenceRows.length}/{stats.evidenceCounts[quality]} 笔</span>
+              )}
+            </div>
+            <div className="db-evidence-list">
+              {evidenceRows.map(({ trade, validation }) => (
+                <button type="button" key={trade.id} onClick={() => openTrade(trade.id)}>
+                  <span className="db-evidence-ref">{trade.ref}</span>
+                  <strong>{trade.symbol}</strong>
+                  <span>{getStrategyName(strategyDefs, trade.strategyId)}</span>
+                  <span className="db-evidence-issue">
+                    {validation.issues[0]?.message ?? (validation.quality === 'verified' ? '金额与风险或费用证据一致' : '结果可用，但尚无第二证据交叉校验')}
+                  </span>
+                  <span className="db-evidence-result">
+                    {typeof trade.pnl === 'number' ? fmtMoney(trade.pnl) : '—'} · {typeof trade.rMultiple === 'number' ? `${trade.rMultiple > 0 ? '+' : ''}${trade.rMultiple.toFixed(2)}R` : '—'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
 
         {!hasClosedTrades ? (
@@ -464,6 +618,28 @@ function CurveTooltip({
       </div>
       <div className="db-chart-tip-hint">点击查看交易</div>
     </div>
+  )
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string
+  value?: string
+  onChange: (value: string | null) => void
+  children: ReactNode
+}) {
+  return (
+    <label className="db-filter-field">
+      <span>{label}</span>
+      <select value={value ?? ''} onChange={(event) => onChange(event.target.value || null)}>
+        <option value="">不限</option>
+        {children}
+      </select>
+    </label>
   )
 }
 
