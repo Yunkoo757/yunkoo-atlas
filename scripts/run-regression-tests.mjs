@@ -10,6 +10,7 @@ const entries = [
   'src/lib/analyticsMetrics.test.ts',
   'src/lib/analyticsQuality.test.ts',
   'src/lib/moneyAggregate.test.ts',
+  'src/lib/tradeAnalytics.test.ts',
   'src/lib/rDistribution.test.ts',
   'src/lib/reviewAnalytics.test.ts',
   'src/lib/tradeTruth.test.ts',
