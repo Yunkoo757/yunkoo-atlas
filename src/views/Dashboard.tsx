@@ -31,6 +31,8 @@ import { buildRDistribution } from '@/lib/rDistribution'
 import { buildAnalyticsMetrics } from '@/lib/analyticsMetrics'
 import { buildQualityBreakdown } from '@/lib/analyticsQuality'
 import { aggregateMoney, moneyAggregateLabel } from '@/lib/moneyAggregate'
+import { buildTradeAnalytics } from '@/lib/tradeAnalytics'
+import { downsampleSeries } from '@/lib/analyticsSeries'
 import './Dashboard.css'
 
 type TimeRange = AnalyticsRange
@@ -129,7 +131,17 @@ function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]
 
   const rDist = buildRDistribution(rTrades.map((trade) => trade.rMultiple))
 
-  return { ...summary, metrics, money: aggregateMoney(closed), quality: buildQualityBreakdown(closed), curve, strategies, maxAbs, rDist }
+  return {
+    ...summary,
+    metrics,
+    professional: buildTradeAnalytics(closed, temporal),
+    money: aggregateMoney(closed),
+    quality: buildQualityBreakdown(closed),
+    curve: downsampleSeries(curve, 600, (point) => point.equity),
+    strategies,
+    maxAbs,
+    rDist,
+  }
 }
 
 export function Dashboard() {
@@ -198,16 +210,16 @@ export function Dashboard() {
           />
           <Card
             label="胜率"
-            value={stats.metrics.winRate.value == null ? '—' : `${(stats.metrics.winRate.value * 100).toFixed(0)}%`}
-            sub={`${stats.metrics.winRate.sampleSize}/${stats.closedCount} 笔结果有效 · Wilson 下界`}
+            value={stats.professional.winRate.estimate == null ? '—' : `${(stats.professional.winRate.estimate * 100).toFixed(0)}%`}
+            sub={stats.professional.winRate.low == null ? '暂无可验证结果' : `${stats.professional.winRate.sampleSize}/${stats.closedCount} 笔 · 95% ${(stats.professional.winRate.low * 100).toFixed(0)}–${(stats.professional.winRate.high! * 100).toFixed(0)}%`}
           />
           <Card
             label="平均 R"
-            value={stats.metrics.expectancyR.value == null ? '—' : `${stats.metrics.expectancyR.value > 0 ? '+' : ''}${stats.metrics.expectancyR.value.toFixed(2)}`}
-            sub={`${stats.metrics.expectancyR.sampleSize}/${stats.closedCount} 笔含 R · 期望值`}
-            accent={stats.metrics.expectancyR.value == null || stats.metrics.expectancyR.value === 0 ? undefined : stats.metrics.expectancyR.value > 0}
+            value={stats.professional.expectancyR.value == null ? '—' : `${stats.professional.expectancyR.value > 0 ? '+' : ''}${stats.professional.expectancyR.value.toFixed(2)}`}
+            sub={`${stats.professional.expectancyR.sampleSize}/${stats.closedCount} 笔含 R · 期望值`}
+            accent={stats.professional.expectancyR.value == null || stats.professional.expectancyR.value === 0 ? undefined : stats.professional.expectancyR.value > 0}
           />
-          <Card label="盈利笔数" value={String(stats.winCount)} sub={`共 ${stats.evaluatedCount} 笔有效结果`} muted />
+          <Card label="最大回撤" value={stats.professional.maxDrawdownR.value == null ? '—' : `${stats.professional.maxDrawdownR.value.toFixed(2)}R`} sub={`${stats.professional.maxDrawdownR.sampleSize} 笔时序样本 · 最长连亏 ${stats.professional.longestLosingStreak}`} muted />
         </div>
 
         {hasClosedTrades && (
@@ -285,7 +297,7 @@ export function Dashboard() {
                     stroke="var(--accent)"
                     strokeWidth={2}
                     fill="url(#eq)"
-                    dot={{ r: 2.5, strokeWidth: 1, fill: 'var(--bg-elevated)' }}
+                    dot={false}
                     activeDot={{
                       r: 5,
                       cursor: 'pointer',
