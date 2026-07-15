@@ -123,6 +123,11 @@ try {
       label: 'src/components/CsvImportModal.browser.test.tsx :: persistence failure feedback',
     },
     {
+      url: '/src/components/TradeCloseDialog.browser.test.html',
+      promiseKey: '__tradeCloseDualMetricsTest',
+      label: 'src/components/TradeCloseDialog.browser.test.tsx :: cash and R remain visible and persist together',
+    },
+    {
       url: '/src/components/RouteState.browser.test.html',
       promiseKey: '__routeStateTest',
       label: 'src/components/RouteState.browser.test.tsx :: route recovery and delayed loading',

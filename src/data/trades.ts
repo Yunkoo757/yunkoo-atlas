@@ -19,7 +19,7 @@ export type MissReason =
 
 export type TradeSide = 'long' | 'short'
 
-/** 平仓结果的唯一依据。导入数据可能同时携带金额与 R，因此单独标记。 */
+/** 平仓结果依据。`imported` 为兼容旧数据保留，也表示金额与 R 已共同确认。 */
 export type TradeResultSource = 'pnl' | 'r' | 'price' | 'imported'
 
 export type Conviction = 'low' | 'medium' | 'high' | 'urgent' // 信心度，沿用优先级视觉

@@ -200,6 +200,23 @@ export function testEditingCashResultClearsStaleRAndBecomesAuthoritative(): void
   assert(result.status === 'win', 'the authoritative metric should synchronize the outcome')
 }
 
+export function testEditingCashResultPreservesAConsistentRPair(): void {
+  const result = prepareTradeResultEdit({
+    ...trade,
+    pnl: null,
+    rMultiple: 2,
+    resultSource: 'r',
+  }, {
+    kind: 'result',
+    source: 'pnl',
+    value: 500,
+  })
+
+  assert(result.patch.pnl === 500, 'the edited cash result should be saved')
+  assert(result.patch.rMultiple === undefined, 'a consistent existing R should remain visible')
+  assert(result.patch.resultSource === 'imported', 'a confirmed cash and R pair should use paired authority')
+}
+
 export function testEditingMissedResultKeepsMissedWorkflowIsolated(): void {
   const result = prepareTradeResultEdit({
     ...trade,

@@ -7,7 +7,8 @@ export type CloseResultMode = 'pnl' | 'r' | 'price'
 export type TradeCloseInput = {
   outcome: CloseOutcome
   resultMode: CloseResultMode
-  value: number | null
+  pnl: number | null
+  rMultiple: number | null
   exit: number | null
   closedAt: string
 }
@@ -29,31 +30,33 @@ function finiteOrNull(value: number | null | undefined): number | null {
  */
 export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCloseResult {
   const exit = finiteOrNull(input.exit)
-  const value = finiteOrNull(input.value)
+  const pnlInput = finiteOrNull(input.pnl)
+  const rInput = finiteOrNull(input.rMultiple)
   let pnl: number | null = null
   let rMultiple: number | null = null
   let resultSource: Trade['resultSource']
   let outcome = input.outcome
 
-  if (input.resultMode === 'pnl') {
-    resultSource = 'pnl'
+  if (input.resultMode === 'pnl' || input.resultMode === 'r') {
     if (input.outcome === 'breakeven') {
       pnl = 0
-    } else {
-      if (value == null || value === 0) {
-        return { ok: false, error: '请输入大于 0 的盈亏金额' }
-      }
-      pnl = input.outcome === 'loss' ? -Math.abs(value) : Math.abs(value)
-    }
-  } else if (input.resultMode === 'r') {
-    resultSource = 'r'
-    if (input.outcome === 'breakeven') {
       rMultiple = 0
+      resultSource = 'imported'
     } else {
-      if (value == null || value === 0) {
-        return { ok: false, error: '请输入大于 0 的 R 倍数' }
+      if (pnlInput === 0 || rInput === 0) {
+        return { ok: false, error: '非保本交易的结果数值必须大于 0' }
       }
-      rMultiple = input.outcome === 'loss' ? -Math.abs(value) : Math.abs(value)
+      if (pnlInput == null && rInput == null) {
+        return { ok: false, error: '请至少填写盈亏金额或 R 倍数' }
+      }
+      const direction = input.outcome === 'loss' ? -1 : 1
+      pnl = pnlInput == null ? null : direction * Math.abs(pnlInput)
+      rMultiple = rInput == null ? null : direction * Math.abs(rInput)
+      resultSource = pnl != null && rMultiple != null
+        ? 'imported'
+        : pnl != null
+          ? 'pnl'
+          : 'r'
     }
   } else if (input.resultMode === 'price') {
     resultSource = 'price'

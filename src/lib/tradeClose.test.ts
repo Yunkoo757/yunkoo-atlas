@@ -33,7 +33,8 @@ export function testClosePriceWithoutStopRequiresAnotherResultMode(): void {
   const result = prepareTradeClose({ ...trade, stopLoss: null }, {
     outcome: 'loss',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: 110,
     closedAt: '2026-07-13',
   })
@@ -47,7 +48,8 @@ export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'loss',
     resultMode: 'r',
-    value: 1.5,
+    pnl: null,
+    rMultiple: 1.5,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -57,6 +59,24 @@ export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {
   assert(result.patch.pnl === null, 'missing PnL must remain missing')
   assert(result.patch.rMultiple === -1.5, 'explicit R should be preserved')
   assert(result.status === 'loss', 'negative R should close as loss')
+}
+
+export function testCloseKeepsCashAndRTogetherWhenBothAreProvided(): void {
+  const dualResult = {
+    outcome: 'win' as const,
+    resultMode: 'pnl' as const,
+    pnl: 500,
+    rMultiple: 2,
+    exit: null,
+    closedAt: '2026-07-13',
+  }
+  const result = prepareTradeClose(trade, dualResult)
+
+  assert(result.ok, 'cash and R should be accepted together')
+  if (!result.ok) return
+  assert(result.patch.pnl === 500, 'cash PnL must be preserved')
+  assert(result.patch.rMultiple === 2, 'R multiple must be preserved beside cash PnL')
+  assert(result.patch.resultSource === 'imported', 'a confirmed cash and R pair should use paired authority')
 }
 
 export function testCloseKeepsCashResultAsTheOnlyAuthority(): void {
@@ -70,7 +90,8 @@ export function testCloseKeepsCashResultAsTheOnlyAuthority(): void {
   const result = prepareTradeClose(forexTrade, {
     outcome: 'win',
     resultMode: 'pnl',
-    value: 1_000,
+    pnl: 1_000,
+    rMultiple: null,
     exit: 1.11,
     closedAt: '2026-07-13',
   })
@@ -86,7 +107,8 @@ export function testCloseAppliesLossDirectionToCashMagnitude(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'loss',
     resultMode: 'pnl',
-    value: 500,
+    pnl: 500,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -101,7 +123,8 @@ export function testCloseKeepsRResultAsTheOnlyAuthority(): void {
   const result = prepareTradeClose({ ...trade, pnl: 500 }, {
     outcome: 'loss',
     resultMode: 'r',
-    value: 1.5,
+    pnl: null,
+    rMultiple: 1.5,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -117,7 +140,8 @@ export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'breakeven',
     resultMode: 'pnl',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -126,7 +150,7 @@ export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
   if (!result.ok) return
   assert(result.status === 'breakeven', 'breakeven selection should remain authoritative')
   assert(result.patch.pnl === 0, 'cash mode should store an explicit breakeven result')
-  assert(result.patch.rMultiple === null, 'cash mode should not invent an R result')
+  assert(result.patch.rMultiple === 0, 'breakeven should persist a visible zero R beside cash')
 }
 
 export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
@@ -141,7 +165,8 @@ export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
   const result = prepareTradeClose(forexTrade, {
     outcome: 'loss',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: 1.11,
     closedAt: '2026-07-13',
   })
@@ -164,7 +189,8 @@ export function testPriceCloseUsesFrozenRiskAfterStopMoves(): void {
   }, {
     outcome: 'win',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: 110,
     closedAt: '2026-07-13',
   })
@@ -179,14 +205,16 @@ export function testCloseRejectsMissingPrimaryResult(): void {
   const missing = prepareTradeClose(trade, {
     outcome: 'win',
     resultMode: 'pnl',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
   const missingPrice = prepareTradeClose(trade, {
     outcome: 'win',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
