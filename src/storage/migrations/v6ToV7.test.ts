@@ -203,3 +203,16 @@ export function testV6ToV7DoesNotInventCurrencyForInvalidExplicitValues(): void 
   assert(migrated.pnlCurrency === null && migrated.pnlCurrencySource === null, 'invalid currency must remain unknown')
   assert(result.diagnostics.some((item) => item.code === 'invalid-legacy-currency'), 'invalid currency must be diagnosed')
 }
+
+export function testV6ToV7DoesNotTrustTimestampOutsideBusinessDate(): void {
+  const raw = fixtureSnapshot([{
+    ...baseTrade,
+    id: 'timestamp-conflict',
+    openedAt: '2026-07-01',
+    openedAtTimestamp: '2026-07-02T00:00:00.000Z',
+  } as Trade & { openedAtTimestamp: string }])
+  const result = migrateV6ToV7(raw)
+  const migrated = result.snapshot.trades[0]!
+  assert(migrated.openedAtTimestamp === null, 'timestamp outside business date must not alter temporal grouping')
+  assert(result.diagnostics.some((item) => item.code === 'invalid-timestamp'), 'timestamp conflict must be diagnosed')
+}
