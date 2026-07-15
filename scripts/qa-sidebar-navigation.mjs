@@ -93,6 +93,13 @@ async function expectVisible(locator) {
   await locator.waitFor({ state: 'visible', timeout: 5000 })
 }
 
+async function flushPagePersist(page) {
+  await page.evaluate(async () => {
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await flushPersistNow()
+  })
+}
+
 /** 虚拟列表下目标行可能未挂载，先滚动再断言可见 */
 async function ensureTradeRowVisible(page, tradeId) {
   const locator = page.locator(`[data-trade-id="${tradeId}"]`)
@@ -426,7 +433,7 @@ try {
   await expectVisible(editor.locator('[data-sidebar-editor-overflow] [data-sidebar-item-label]', { hasText: overflowStrategy }))
 
   await editor.getByRole('button', { name: '完成' }).click()
-  await page.waitForTimeout(250)
+  await flushPagePersist(page)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   const persistedLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
@@ -589,7 +596,7 @@ try {
   await invalidRow.getByRole('button', { name: /^删除 / }).click()
   await expectCount(invalidRow, 0)
   await editor.getByRole('button', { name: '完成' }).click()
-  await page.waitForTimeout(250)
+  await flushPagePersist(page)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   await page.getByRole('button', { name: '管理我的空间', exact: true }).click()
@@ -607,7 +614,7 @@ try {
   await restoredEditor.getByRole('button', { name: '确认恢复默认' }).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 4 \/ 8/)
   await restoredEditor.getByRole('button', { name: '完成' }).click()
-  await page.waitForTimeout(250)
+  await flushPagePersist(page)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   const defaultLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
