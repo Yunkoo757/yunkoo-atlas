@@ -77,6 +77,11 @@ const QUALITY_OPTS: { value: DashboardQuality; label: string }[] = [
   { value: 'verified', label: '已交叉验证' },
 ]
 
+const compactAxisNumber = new Intl.NumberFormat('zh-CN', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+
 export function selectDashboardAnalyticsCandidates(
   trades: readonly Trade[],
   kind: DashboardKind,
@@ -434,7 +439,7 @@ export function Dashboard() {
               <div className="db-chart-empty">该时间范围内暂无已平仓交易</div>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={stats.curve} margin={{ left: -16, right: 8, top: 8 }}>
+                <AreaChart data={stats.curve} margin={{ left: 0, right: 8, top: 8 }}>
                   <defs>
                     <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
@@ -443,7 +448,13 @@ export function Dashboard() {
                   </defs>
                   <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    width={56}
+                    tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }}
+                    tickFormatter={(value: number) => compactAxisNumber.format(value)}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip
                     content={<CurveTooltip onOpen={openTrade} />}
                     cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}
