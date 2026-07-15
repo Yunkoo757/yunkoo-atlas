@@ -73,12 +73,11 @@ try {
   record('详情页笔记可编辑', (await editor.innerText()).includes(stamp))
 
   // 4. 笔记写入后保存状态可见并完成
-  const saveStatus = page.locator('.save-status')
-  await page.getByText('已保存', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
-  const hasStatus = await saveStatus.isVisible().catch(() => false)
-  record('Topbar 保存状态可见', hasStatus, hasStatus ? await saveStatus.innerText() : '未出现')
-  const saved = hasStatus && (await saveStatus.innerText()).includes('已保存')
-  record('防抖保存完成', saved)
+  const savedStatus = page.locator('.save-status--saved')
+  await savedStatus.waitFor({ state: 'visible', timeout: 10000 })
+  const statusText = await savedStatus.innerText()
+  record('Topbar 保存状态可见', statusText === '本机已保存', statusText)
+  record('防抖保存完成', statusText === '本机已保存')
 
   // 5. 刷新后笔记持久化（IndexedDB）
   await page.reload({ waitUntil: 'networkidle' })
