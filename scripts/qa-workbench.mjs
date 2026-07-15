@@ -56,6 +56,7 @@ try {
 
   await page.locator('.empty-btn').click()
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'ETHUSDT')
+  await page.getByRole('button', { name: '更多信息', exact: true }).click()
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/, { timeout: 10000 })
@@ -156,6 +157,7 @@ try {
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
+  await page.getByRole('button', { name: '更多信息', exact: true }).click()
   await page.getByLabel('交易日期').fill('2025-06-15')
   const strategySelect = page.getByRole('combobox', { name: '交易策略' })
   await strategySelect.click()
@@ -189,7 +191,7 @@ try {
   const closeDialog = page.getByRole('dialog', { name: '完成平仓' })
   await closeDialog.waitFor({ state: 'visible', timeout: 10000 })
   const closeDialogDismiss = closeDialog.getByRole('button', { name: '关闭', exact: true })
-  const closeDialogSubmit = closeDialog.getByRole('button', { name: '保存并待复盘', exact: true })
+  const closeDialogSubmit = closeDialog.getByRole('button', { name: '确认平仓', exact: true })
   const initialFocusInside = await closeDialog.evaluate((element) =>
     element.contains(document.activeElement),
   )
@@ -234,9 +236,8 @@ try {
   await closeStatusTrigger.click()
   await page.getByRole('menuitemradio', { name: '盈利', exact: true }).click()
   await closeDialog.waitFor({ state: 'visible', timeout: 10000 })
-  await closeDialog.getByRole('radio', { name: 'R 倍数', exact: true }).click()
   await closeDialog.getByPlaceholder('例如 1.5').fill('2')
-  await closeDialog.getByRole('button', { name: '保存并待复盘', exact: true }).click()
+  await closeDialogSubmit.click()
   await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
   await page.getByText('交易待复盘', { exact: true }).waitFor({ state: 'visible' })
   await page.getByRole('button', { name: '完成复盘', exact: true }).click()
