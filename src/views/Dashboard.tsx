@@ -30,6 +30,7 @@ import {
 import { buildRDistribution } from '@/lib/rDistribution'
 import { buildAnalyticsMetrics } from '@/lib/analyticsMetrics'
 import { buildQualityBreakdown } from '@/lib/analyticsQuality'
+import { aggregateMoney, moneyAggregateLabel } from '@/lib/moneyAggregate'
 import './Dashboard.css'
 
 type TimeRange = AnalyticsRange
@@ -128,7 +129,7 @@ function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]
 
   const rDist = buildRDistribution(rTrades.map((trade) => trade.rMultiple))
 
-  return { ...summary, metrics, quality: buildQualityBreakdown(closed), curve, strategies, maxAbs, rDist }
+  return { ...summary, metrics, money: aggregateMoney(closed), quality: buildQualityBreakdown(closed), curve, strategies, maxAbs, rDist }
 }
 
 export function Dashboard() {
@@ -191,9 +192,9 @@ export function Dashboard() {
         <div className="db-cards">
           <Card
             label="累计盈亏"
-            value={stats.metrics.pnl.value == null ? '—' : fmtMoney(stats.metrics.pnl.value)}
+            value={moneyAggregateLabel(stats.money)}
             sub={`${stats.metrics.pnl.sampleSize}/${stats.closedCount} 笔含可验证盈亏`}
-            accent={stats.metrics.pnl.value == null || stats.metrics.pnl.value === 0 ? undefined : stats.metrics.pnl.value > 0}
+            accent={stats.money.state !== 'single-currency' || stats.money.total === 0 ? undefined : stats.money.total > 0}
           />
           <Card
             label="胜率"
