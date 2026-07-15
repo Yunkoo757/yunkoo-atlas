@@ -215,6 +215,26 @@ export function testEditingCashResultPreservesAConsistentRPair(): void {
   assert(result.patch.pnl === 500, 'the edited cash result should be saved')
   assert(result.patch.rMultiple === undefined, 'a consistent existing R should remain visible')
   assert(result.patch.resultSource === 'imported', 'a confirmed cash and R pair should use paired authority')
+  assert(result.patch.pnlBasis === 'net', 'edited cash should declare its net basis')
+  assert(result.patch.pnlSource === 'manual', 'edited cash should retain manual provenance')
+}
+
+export function testEditingNetCashClearsRThatConflictsWithKnownRisk(): void {
+  const result = prepareTradeResultEdit({
+    ...trade,
+    pnl: null,
+    rMultiple: 100,
+    resultSource: 'r',
+    initialRiskAmount: 100,
+  }, {
+    kind: 'result',
+    source: 'pnl',
+    value: 100,
+  })
+
+  assert(result.patch.pnl === 100, 'the edited net cash result should be preserved')
+  assert(result.patch.rMultiple === null, 'a contradictory paired R should be cleared')
+  assert(result.patch.resultSource === 'pnl', 'cash should become the sole authority after conflict')
 }
 
 export function testEditingMissedResultKeepsMissedWorkflowIsolated(): void {

@@ -1,5 +1,6 @@
 import type { Trade, TradeSide } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
+import { resolveTradeTruth } from '@/lib/tradeTruth'
 
 export type AnalyticsTradeKind = 'live' | 'paper' | 'all'
 export type AnalyticsRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
@@ -34,6 +35,17 @@ export interface AnalyticsCandidates {
   temporalCandidates: Trade[]
   missingClosedAt: Trade[]
   excludedCounts: AnalyticsExcludedCounts
+}
+
+export interface AnalyticsUniverse extends AnalyticsCandidates {
+  /** 可安全进入横截面 KPI 的结果。 */
+  usable: Trade[]
+  /** usable 中具有确定平仓日期、可进入顺序指标的结果。 */
+  temporal: Trade[]
+  conflicts: Trade[]
+  missingResults: Trade[]
+  /** usable 中缺少平仓日期、只能参与横截面统计的结果。 */
+  usableMissingClosedAt: Trade[]
 }
 
 export interface AnalyticsSelectionOptions {
@@ -190,4 +202,43 @@ export function selectAnalyticsCandidates(
   }
 
   return { included, temporalCandidates, missingClosedAt, excludedCounts }
+}
+
+/** 在统一 scope 后只做一次证据分区，避免各统计入口自行解释“哪些交易可信”。 */
+export function buildAnalyticsUniverse(
+  trades: readonly Trade[],
+  scope: AnalyticsScope = {},
+  options: AnalyticsSelectionOptions = {},
+): AnalyticsUniverse {
+  const candidates = selectAnalyticsCandidates(trades, scope, options)
+  const temporalIds = new Set(candidates.temporalCandidates.map((trade) => trade.id))
+  const usable: Trade[] = []
+  const temporal: Trade[] = []
+  const conflicts: Trade[] = []
+  const missingResults: Trade[] = []
+  const usableMissingClosedAt: Trade[] = []
+
+  for (const trade of candidates.included) {
+    const truth = resolveTradeTruth(trade)
+    if (truth.hasConflict) {
+      conflicts.push(trade)
+      continue
+    }
+    if (!truth.isResultComplete) {
+      missingResults.push(trade)
+      continue
+    }
+    usable.push(trade)
+    if (temporalIds.has(trade.id)) temporal.push(trade)
+    else usableMissingClosedAt.push(trade)
+  }
+
+  return {
+    ...candidates,
+    usable,
+    temporal,
+    conflicts,
+    missingResults,
+    usableMissingClosedAt,
+  }
 }

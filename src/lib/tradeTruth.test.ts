@@ -3,6 +3,7 @@ import {
   normalizeTradeMetrics,
   resolveTradeTruth,
   summarizeTradeResults,
+  validateTradeResultEvidence,
 } from '@/lib/tradeTruth'
 
 const baseTrade: Trade = {
@@ -123,4 +124,111 @@ export function testDeclaredAuthorityNeverFallsBackWhenItsMetricIsMissing(): voi
 
   assert(truth.outcome === 'unknown', 'missing authoritative cash must remain incomplete')
   assert(!truth.isResultComplete, 'non-authoritative R must not complete a cash-authority result')
+}
+
+export function testUnknownPnlBasisChecksDirectionWithoutInventingAValueConflict(): void {
+  const validation = validateTradeResultEvidence({
+    ...baseTrade,
+    pnl: 100,
+    rMultiple: 100,
+    resultSource: 'imported',
+    initialRiskAmount: 100,
+    pnlBasis: 'unknown',
+  })
+
+  assert(validation.quality === 'confirmed', 'unknown basis evidence should remain confirmed')
+  assert(
+    !validation.issues.some((issue) => issue.code === 'pnl-r-value-conflict'),
+    'unknown basis must not pretend cash can prove the R value',
+  )
+}
+
+export function testNetPnlAndRiskDetectAConflictingRValue(): void {
+  const validation = validateTradeResultEvidence({
+    ...baseTrade,
+    pnl: 100,
+    rMultiple: 100,
+    resultSource: 'imported',
+    initialRiskAmount: 100,
+    pnlBasis: 'net',
+  })
+
+  assert(validation.quality === 'conflict', 'a proven net PnL/R mismatch must be conflicting')
+  assert(
+    validation.issues.some((issue) => issue.code === 'pnl-r-value-conflict'),
+    'the mismatch must expose a stable issue code',
+  )
+}
+
+export function testMatchingNetPnlAndRiskBecomeVerifiedEvidence(): void {
+  const validation = validateTradeResultEvidence({
+    ...baseTrade,
+    pnl: 200,
+    rMultiple: 2,
+    resultSource: 'imported',
+    initialRiskAmount: 100,
+    pnlBasis: 'net',
+  })
+
+  assert(validation.quality === 'verified', 'matching independent evidence should be verified')
+  assert(validation.evidence.calculatedR === 2, 'calculated R should be exposed for explanations')
+}
+
+export function testRiskPercentageUsesPercentagePointsAndMustMatchAmount(): void {
+  const matching = validateTradeResultEvidence({
+    ...baseTrade,
+    initialRiskAmount: 100,
+    accountEquityAtEntry: 10_000,
+    initialRiskPct: 1,
+  })
+  const conflicting = validateTradeResultEvidence({
+    ...baseTrade,
+    initialRiskAmount: 200,
+    accountEquityAtEntry: 10_000,
+    initialRiskPct: 1,
+  })
+
+  assert(
+    !matching.issues.some((issue) => issue.code === 'risk-relationship-conflict'),
+    '1 risk percent point of 10,000 should equal 100',
+  )
+  assert(
+    conflicting.issues.some((issue) => issue.code === 'risk-relationship-conflict'),
+    'inconsistent risk evidence must be diagnosed',
+  )
+}
+
+export function testNonFiniteRiskEvidenceNeverSilentlyBecomesMissing(): void {
+  const validation = validateTradeResultEvidence({
+    ...baseTrade,
+    initialRiskAmount: Number.NaN,
+  })
+
+  assert(
+    validation.issues.some((issue) => issue.code === 'invalid-risk-evidence'),
+    'non-finite risk evidence must be diagnosed instead of downgraded to missing',
+  )
+}
+
+export function testCompleteCostsVerifyNetWithoutDoubleDeductingSlippage(): void {
+  const validation = validateTradeResultEvidence({
+    ...baseTrade,
+    pnl: 90,
+    rMultiple: null,
+    resultSource: 'pnl',
+    pnlBasis: 'net',
+    grossPnl: 100,
+    costs: {
+      commission: 4,
+      exchange: 1,
+      financing: 2,
+      tax: 0,
+      other: 3,
+      completeness: 'complete',
+    },
+    slippageCost: 25,
+  })
+
+  assert(validation.evidence.expectedNetPnl === 90, 'net should subtract serialized costs once')
+  assert(validation.quality === 'verified', 'matching gross and net evidence should be verified')
 }

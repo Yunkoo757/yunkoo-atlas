@@ -78,7 +78,7 @@ import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
-import { isVerifiedTradeResult, resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
+import { isUsableTradeResult, resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
 import { isAccountTrade } from '@/lib/tradeKind'
@@ -255,7 +255,7 @@ export function DetailView() {
     )
     const result = summarizeTradeResults(strategyTrades)
     const totalR = strategyTrades
-      .filter(isVerifiedTradeResult)
+      .filter(isUsableTradeResult)
       .reduce((sum, t) => sum + (t.rMultiple ?? 0), 0)
     const winRate = result.winRate == null ? null : Math.round(result.winRate)
     return (
@@ -445,6 +445,7 @@ export function DetailView() {
   const truth = resolveTradeTruth(trade)
   const needsResult =
     trade.tradeKind !== 'case' && truth.executionState === 'closed' && !truth.isResultComplete
+  const resultConflict = truth.hasConflict
   const needsReview =
     trade.tradeKind !== 'case' &&
     trade.reviewStatus !== 'reviewed' &&
@@ -580,11 +581,19 @@ export function DetailView() {
                 </span>
                 <div>
                   <strong>
-                    {needsResult ? '交易结果待补齐' : reviewComplete ? '复盘已完成' : '交易待复盘'}
+                    {resultConflict
+                      ? '交易结果存在冲突'
+                      : needsResult
+                        ? '交易结果待补齐'
+                        : reviewComplete
+                          ? '复盘已完成'
+                          : '交易待复盘'}
                   </strong>
                   <span>
-                    {needsResult
-                      ? '补充盈亏或 R 倍数后，才会计入统计。'
+                    {resultConflict
+                      ? truth.issues.find((issue) => issue.severity === 'blocking')?.message ?? '请核对结果证据后再计入统计。'
+                      : needsResult
+                        ? '补充盈亏或 R 倍数后，才会计入统计。'
                       : reviewComplete
                         ? '这笔交易已完成记录、结算与复盘闭环。'
                         : '确认记录无误即可完成，复盘笔记可稍后补充。'}
@@ -600,7 +609,7 @@ export function DetailView() {
                         : undefined,
                     )}
                   >
-                    补齐结果
+                    {resultConflict ? '修正结果' : '补齐结果'}
                   </button>
                 ) : needsReview ? (
                   <button type="button" onClick={() => void completeReview()}>完成复盘</button>

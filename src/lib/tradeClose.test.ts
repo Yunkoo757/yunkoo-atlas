@@ -77,6 +77,24 @@ export function testCloseKeepsCashAndRTogetherWhenBothAreProvided(): void {
   assert(result.patch.pnl === 500, 'cash PnL must be preserved')
   assert(result.patch.rMultiple === 2, 'R multiple must be preserved beside cash PnL')
   assert(result.patch.resultSource === 'imported', 'a confirmed cash and R pair should use paired authority')
+  assert(result.patch.pnlBasis === 'net', 'manual cash input should explicitly mean net PnL')
+  assert(result.patch.pnlSource === 'manual', 'manual cash provenance must be retained')
+  assert(result.patch.rSource === 'manual', 'manual R provenance must be retained')
+}
+
+export function testCloseRejectsCashAndRThatConflictWithKnownInitialRisk(): void {
+  const result = prepareTradeClose({ ...trade, initialRiskAmount: 100 }, {
+    outcome: 'win',
+    resultMode: 'pnl',
+    pnl: 100,
+    rMultiple: 100,
+    exit: null,
+    closedAt: '2026-07-13',
+  })
+
+  assert(!result.ok, 'known initial risk must reject a contradictory cash/R pair')
+  if (result.ok) return
+  assert(result.error.includes('1R'), 'the error should explain the R implied by initial risk')
 }
 
 export function testCloseKeepsCashResultAsTheOnlyAuthority(): void {
@@ -177,6 +195,7 @@ export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
   assert(result.patch.pnl === null, 'price mode must not invent cash PnL without contract metadata')
   assert(result.patch.rMultiple === 2, 'price mode should calculate R from price risk directly')
   assert(result.patch.resultSource === 'price', 'price mode must persist price as the result authority')
+  assert(result.patch.rSource === 'calculated', 'price R should preserve calculated provenance')
   assert(result.patch.initialStopLoss === 1.095, 'price mode must freeze the initial risk used for R')
 }
 

@@ -12,6 +12,8 @@ export interface TradeTruth {
   hasR: boolean
   isResultComplete: boolean
   hasConflict: boolean
+  resultQuality: TradeResultValidation['quality']
+  issues: TradeResultIssue[]
 }
 
 export interface TradeResultSummary {
@@ -26,6 +28,119 @@ export interface TradeResultSummary {
   rCount: number
   totalPnl: number
   averageR: number | null
+}
+
+export type TradeResultIssueCode =
+  | 'missing-result'
+  | 'invalid-result-number'
+  | 'status-result-conflict'
+  | 'pnl-r-sign-conflict'
+  | 'pnl-r-value-conflict'
+  | 'invalid-risk-evidence'
+  | 'risk-relationship-conflict'
+  | 'invalid-cost-evidence'
+  | 'gross-net-value-conflict'
+
+export interface TradeResultIssue {
+  code: TradeResultIssueCode
+  severity: 'warning' | 'blocking'
+  message: string
+}
+
+export interface TradeResultValidation {
+  quality: 'missing' | 'confirmed' | 'verified' | 'conflict'
+  issues: TradeResultIssue[]
+  evidence: {
+    pnl: number | null
+    rMultiple: number | null
+    initialRiskAmount: number | null
+    calculatedR: number | null
+    expectedNetPnl: number | null
+    pnlBasis: 'unknown' | 'net'
+    crossChecked: boolean
+  }
+  hasBlockingIssue: boolean
+}
+
+const R_ABSOLUTE_TOLERANCE = 0.01
+const R_RELATIVE_TOLERANCE = 0.01
+const MONEY_ABSOLUTE_TOLERANCE = 0.01
+const MONEY_RELATIVE_TOLERANCE = 0.0001
+
+function approximatelyEqual(
+  actual: number,
+  expected: number,
+  absoluteTolerance: number,
+  relativeTolerance: number,
+): boolean {
+  return Math.abs(actual - expected) <= Math.max(
+    absoluteTolerance,
+    Math.abs(expected) * relativeTolerance,
+  )
+}
+
+function resultSign(value: number): -1 | 0 | 1 {
+  return value > 0 ? 1 : value < 0 ? -1 : 0
+}
+
+function resolveRiskEvidence(trade: Trade, issues: TradeResultIssue[]): number | null {
+  const rawValues = [trade.initialRiskAmount, trade.initialRiskPct, trade.accountEquityAtEntry]
+  const amount = finiteMetric(trade.initialRiskAmount)
+  const pct = finiteMetric(trade.initialRiskPct)
+  const equity = finiteMetric(trade.accountEquityAtEntry)
+  const malformed = rawValues.some(
+    (value) => value !== undefined && value !== null &&
+      (typeof value !== 'number' || !Number.isFinite(value) || value <= 0),
+  )
+  if (malformed) {
+    issues.push({
+      code: 'invalid-risk-evidence',
+      severity: 'blocking',
+      message: '初始风险、账户权益和风险比例必须为正数。',
+    })
+    return null
+  }
+
+  const calculated = pct !== null && equity !== null ? equity * (pct / 100) : null
+  if (
+    amount !== null &&
+    calculated !== null &&
+    !approximatelyEqual(amount, calculated, MONEY_ABSOLUTE_TOLERANCE, MONEY_RELATIVE_TOLERANCE)
+  ) {
+    issues.push({
+      code: 'risk-relationship-conflict',
+      severity: 'blocking',
+      message: '初始风险金额与账户权益、风险比例不一致。',
+    })
+  }
+  return amount ?? calculated
+}
+
+function resolveExpectedNetPnl(trade: Trade, issues: TradeResultIssue[]): number | null {
+  const gross = finiteMetric(trade.grossPnl)
+  if (trade.costs === undefined) return null
+  const values = [
+    trade.costs.commission,
+    trade.costs.exchange,
+    trade.costs.financing,
+    trade.costs.tax,
+    trade.costs.other,
+  ]
+  const invalid = values.some(
+    (value) => value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0),
+  )
+  const incompleteCompleteCosts = trade.costs.completeness === 'complete' &&
+    values.some((value) => typeof value !== 'number' || !Number.isFinite(value))
+  if (invalid || incompleteCompleteCosts) {
+    issues.push({
+      code: 'invalid-cost-evidence',
+      severity: 'blocking',
+      message: '费用必须是非负有限数字；完整费用需要明确填写所有项目。',
+    })
+    return null
+  }
+  if (gross === null || trade.costs.completeness !== 'complete') return null
+  return gross - values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
 }
 
 function executionStateFor(status: TradeStatus): ExecutionState {
@@ -45,7 +160,112 @@ function declaredOutcome(status: TradeStatus): Exclude<TradeOutcome, 'unknown' |
   return null
 }
 
+/**
+ * 解释一笔结果的证据质量。未知口径的历史金额只校验方向；只有明确净额时才校验 R 数值。
+ */
+export function validateTradeResultEvidence(trade: Trade): TradeResultValidation {
+  const issues: TradeResultIssue[] = []
+  if (
+    (trade.pnl !== null && finiteMetric(trade.pnl) === null) ||
+    (trade.rMultiple !== null && finiteMetric(trade.rMultiple) === null) ||
+    (trade.grossPnl !== undefined && trade.grossPnl !== null && finiteMetric(trade.grossPnl) === null)
+  ) {
+    issues.push({
+      code: 'invalid-result-number',
+      severity: 'blocking',
+      message: '盈亏金额与 R 倍数必须是有限数字。',
+    })
+  }
+  const pnl = finiteMetric(trade.pnl)
+  const rMultiple = finiteMetric(trade.rMultiple)
+  const source = resolveTradeResultSource(trade)
+  const pairIsAuthoritative = source === 'imported' && pnl !== null && rMultiple !== null
+  const pnlBasis = trade.pnlBasis === 'net' ? 'net' : 'unknown'
+  const risk = resolveRiskEvidence(trade, issues)
+  const expectedNetPnl = resolveExpectedNetPnl(trade, issues)
+  let calculatedR: number | null = null
+  let crossChecked = false
+
+  if (pairIsAuthoritative && resultSign(pnl) !== resultSign(rMultiple)) {
+    issues.push({
+      code: 'pnl-r-sign-conflict',
+      severity: 'blocking',
+      message: '盈亏金额与 R 倍数方向不一致。',
+    })
+  } else if (pairIsAuthoritative && pnlBasis === 'net' && risk !== null) {
+    calculatedR = pnl / risk
+    if (!approximatelyEqual(rMultiple, calculatedR, R_ABSOLUTE_TOLERANCE, R_RELATIVE_TOLERANCE)) {
+      issues.push({
+        code: 'pnl-r-value-conflict',
+        severity: 'blocking',
+        message: `按初始风险应为 ${Number(calculatedR.toFixed(2))}R。`,
+      })
+    } else {
+      crossChecked = true
+    }
+  }
+
+  if (pnlBasis === 'net' && pnl !== null && expectedNetPnl !== null) {
+    if (!approximatelyEqual(pnl, expectedNetPnl, MONEY_ABSOLUTE_TOLERANCE, MONEY_RELATIVE_TOLERANCE)) {
+      issues.push({
+        code: 'gross-net-value-conflict',
+        severity: 'blocking',
+        message: '净盈亏与毛盈亏减去完整费用后的结果不一致。',
+      })
+    } else {
+      crossChecked = true
+    }
+  }
+
+  const authoritativeMetric = source === 'pnl'
+    ? pnl
+    : source === 'r' || source === 'price'
+      ? rMultiple
+      : pairIsAuthoritative
+        ? pnl
+        : null
+  const declared = declaredOutcome(trade.status)
+  const metric = metricOutcome(authoritativeMetric)
+  if (declared && metric && declared !== metric) {
+    issues.push({
+      code: 'status-result-conflict',
+      severity: 'blocking',
+      message: '交易状态与已确认的结果方向不一致。',
+    })
+  }
+  if (executionStateFor(trade.status) === 'closed' && authoritativeMetric === null) {
+    issues.push({
+      code: 'missing-result',
+      severity: 'warning',
+      message: '已平仓交易尚未记录可判断结果的金额或 R。',
+    })
+  }
+
+  const hasBlockingIssue = issues.some((issue) => issue.severity === 'blocking')
+  return {
+    quality: hasBlockingIssue
+      ? 'conflict'
+      : authoritativeMetric === null
+        ? 'missing'
+        : crossChecked
+          ? 'verified'
+          : 'confirmed',
+    issues,
+    evidence: {
+      pnl,
+      rMultiple,
+      initialRiskAmount: risk,
+      calculatedR,
+      expectedNetPnl,
+      pnlBasis,
+      crossChecked,
+    },
+    hasBlockingIssue,
+  }
+}
+
 export function resolveTradeTruth(trade: Trade): TradeTruth {
+  const validation = validateTradeResultEvidence(trade)
   const executionState = executionStateFor(trade.status)
   const pnlOutcome = metricOutcome(trade.pnl)
   const rOutcome = metricOutcome(trade.rMultiple)
@@ -65,7 +285,7 @@ export function resolveTradeTruth(trade: Trade): TradeTruth {
   const metricConflict = new Set(metricOutcomes).size > 1
   const resolvedMetric = metricConflict ? null : metricOutcomes[0] ?? null
   const declaredConflict = Boolean(declared && resolvedMetric && declared !== resolvedMetric)
-  const hasConflict = metricConflict || declaredConflict
+  const hasConflict = metricConflict || declaredConflict || validation.hasBlockingIssue
   const outcome: TradeOutcome =
     executionState !== 'closed'
       ? 'unknown'
@@ -80,6 +300,8 @@ export function resolveTradeTruth(trade: Trade): TradeTruth {
     hasR: rOutcome !== null,
     isResultComplete: outcome === 'win' || outcome === 'loss' || outcome === 'breakeven',
     hasConflict,
+    resultQuality: validation.quality,
+    issues: validation.issues,
   }
 }
 
@@ -88,8 +310,13 @@ function finiteMetric(value: unknown): number | null {
 }
 
 /** 仅允许结果完整且不存在口径冲突的记录进入绩效聚合。 */
-export function isVerifiedTradeResult(trade: Trade): boolean {
+export function isUsableTradeResult(trade: Trade): boolean {
   return resolveTradeTruth(trade).isResultComplete
+}
+
+/** @deprecated 旧名称会把 confirmed 误解为 verified；新代码请使用 isUsableTradeResult。 */
+export function isVerifiedTradeResult(trade: Trade): boolean {
+  return isUsableTradeResult(trade)
 }
 
 const RESULT_SOURCES = new Set<TradeResultSource>(['pnl', 'r', 'price', 'imported'])

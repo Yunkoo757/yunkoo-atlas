@@ -1,6 +1,6 @@
 import type { Trade, TradeStatus } from '@/data/trades'
 import { calcPriceResult, calcRFromFrozenPriceRisk, pnlToStatus } from '@/lib/tradeCalc'
-import { resolveTradeResultSource } from '@/lib/tradeTruth'
+import { resolveTradeResultSource, validateTradeResultEvidence } from '@/lib/tradeTruth'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 
 type ExecutionPatch = Partial<Pick<Trade, 'side' | 'entry' | 'exit' | 'stopLoss' | 'size'>>
@@ -57,22 +57,34 @@ export function prepareTradeResultEdit(
       const remaining = edit.source === 'pnl' ? trade.rMultiple : trade.pnl
       return {
         patch: edit.source === 'pnl'
-          ? { pnl: null, resultSource: remaining == null ? undefined : 'r' }
-          : { rMultiple: null, resultSource: remaining == null ? undefined : 'pnl' },
+          ? { pnl: null, pnlSource: null, resultSource: remaining == null ? undefined : 'r' }
+          : { rMultiple: null, rSource: null, resultSource: remaining == null ? undefined : 'pnl' },
       }
     }
     const pairedValue = edit.source === 'pnl' ? trade.rMultiple : trade.pnl
-    const keepPair = pairedValue != null && pnlToStatus(pairedValue) === pnlToStatus(value)
+    const signMatches = pairedValue != null && pnlToStatus(pairedValue) === pnlToStatus(value)
+    const provisional = edit.source === 'pnl'
+      ? { ...trade, pnl: value, pnlBasis: 'net' as const, resultSource: 'imported' as const }
+      : { ...trade, rMultiple: value, resultSource: 'imported' as const }
+    const pairConflicts = validateTradeResultEvidence(provisional).issues.some(
+      (issue) => issue.code === 'pnl-r-sign-conflict' || issue.code === 'pnl-r-value-conflict',
+    )
+    const keepPair = signMatches && !pairConflicts
     return {
       patch: edit.source === 'pnl'
         ? {
             pnl: value,
+            pnlBasis: 'net',
+            pnlSource: 'manual',
             ...(keepPair ? {} : { rMultiple: null }),
+            ...(keepPair ? {} : { rSource: null }),
             resultSource: keepPair ? 'imported' : 'pnl',
           }
         : {
             ...(keepPair ? {} : { pnl: null }),
+            ...(keepPair ? {} : { pnlSource: null }),
             rMultiple: value,
+            rSource: 'manual',
             resultSource: keepPair ? 'imported' : 'r',
           },
       status: isExecutedClosed(trade.status) ? pnlToStatus(value) : undefined,
@@ -93,7 +105,9 @@ export function prepareTradeResultEdit(
         ...edit.patch,
         ...initialStopLossPatch,
         pnl: null,
+        pnlSource: null,
         rMultiple,
+        rSource: rMultiple == null ? null : 'calculated',
         resultSource: priceResult == null || rMultiple == null ? undefined : 'price',
       },
       status: priceResult == null || !isExecutedClosed(trade.status)

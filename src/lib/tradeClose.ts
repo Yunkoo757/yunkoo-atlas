@@ -1,5 +1,6 @@
 import type { Trade, TradeStatus } from '@/data/trades'
 import { calcPriceResult, calcRFromPrices, pnlToStatus } from '@/lib/tradeCalc'
+import { validateTradeResultEvidence } from '@/lib/tradeTruth'
 
 export type CloseOutcome = Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
 export type CloseResultMode = 'pnl' | 'r' | 'price'
@@ -14,7 +15,7 @@ export type TradeCloseInput = {
 }
 
 export type TradeClosePatch = Partial<
-  Pick<Trade, 'exit' | 'pnl' | 'rMultiple' | 'resultSource' | 'initialStopLoss' | 'closedAt' | 'reviewStatus' | 'reviewedAt'>
+  Pick<Trade, 'exit' | 'pnl' | 'rMultiple' | 'resultSource' | 'initialStopLoss' | 'closedAt' | 'reviewStatus' | 'reviewedAt' | 'pnlBasis' | 'pnlSource' | 'rSource'>
 >
 
 export type TradeCloseResult =
@@ -73,20 +74,26 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
     outcome = pnlToStatus(priceResult)
   }
 
-  return {
-    ok: true,
-    status: outcome,
-    patch: {
-      exit,
-      pnl,
-      rMultiple,
-      resultSource,
-      initialStopLoss: input.resultMode === 'price'
-        ? trade.initialStopLoss ?? trade.stopLoss ?? null
-        : trade.initialStopLoss,
-      closedAt: input.closedAt,
-      reviewStatus: 'unreviewed',
-      reviewedAt: null,
-    },
+  const patch: TradeClosePatch = {
+    exit,
+    pnl,
+    rMultiple,
+    resultSource,
+    pnlBasis: pnl !== null ? 'net' : trade.pnlBasis,
+    pnlSource: pnl !== null ? 'manual' : null,
+    rSource: rMultiple !== null
+      ? input.resultMode === 'price' ? 'calculated' : 'manual'
+      : null,
+    initialStopLoss: input.resultMode === 'price'
+      ? trade.initialStopLoss ?? trade.stopLoss ?? null
+      : trade.initialStopLoss,
+    closedAt: input.closedAt,
+    reviewStatus: 'unreviewed',
+    reviewedAt: null,
   }
+  const validation = validateTradeResultEvidence({ ...trade, ...patch, status: outcome })
+  const blockingIssue = validation.issues.find((issue) => issue.severity === 'blocking')
+  if (blockingIssue) return { ok: false, error: blockingIssue.message }
+
+  return { ok: true, status: outcome, patch }
 }

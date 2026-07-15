@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { selectAnalyticsCandidates } from '@/lib/analyticsScope'
+import { buildAnalyticsUniverse, selectAnalyticsCandidates } from '@/lib/analyticsScope'
 
 type AnalyticsFixtureTrade = Trade & {
   closedAtTimestamp?: string | null
@@ -204,4 +204,19 @@ export function testAllTimeIgnoresTodayAndAllKindNamesBothAccountKinds(): void {
   ], { tradeKind: 'all', range: 'all' }, { today: 'not-a-date' })
 
   assert(ids(result.included) === 'live,paper', 'all kind combines live and paper but never cases')
+}
+
+export function testAnalyticsUniversePartitionsEvidenceOnceForEveryConsumer(): void {
+  const universe = buildAnalyticsUniverse([
+    fixture('usable-dated'),
+    fixture('usable-undated', { closedAt: null }),
+    fixture('conflict', { pnl: -10, rMultiple: 2 }),
+    fixture('missing-result', { pnl: null, rMultiple: null }),
+  ], { range: 'all' })
+
+  assert(ids(universe.usable) === 'usable-dated,usable-undated', 'only coherent results are usable')
+  assert(ids(universe.temporal) === 'usable-dated', 'only dated usable results enter sequence metrics')
+  assert(ids(universe.usableMissingClosedAt) === 'usable-undated', 'undated usable results remain cross-sectional')
+  assert(ids(universe.conflicts) === 'conflict', 'conflicting evidence has its own partition')
+  assert(ids(universe.missingResults) === 'missing-result', 'missing evidence has its own partition')
 }

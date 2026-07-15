@@ -21,7 +21,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
 import { tradeDetailPath } from '@/lib/tradeRoute'
-import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
+import { isUsableTradeResult, summarizeTradeResults, validateTradeResultEvidence } from '@/lib/tradeTruth'
 import {
   selectAnalyticsCandidates,
   type AnalyticsRange,
@@ -78,12 +78,15 @@ function closedAtSource(trade: Trade): string {
 function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]) {
   const summary = summarizeTradeResults(closed)
   const metrics = buildAnalyticsMetrics(closed)
-  const verified = closed.filter(isVerifiedTradeResult)
-  const pnlTrades = verified.filter(
+  const usable = closed.filter(isUsableTradeResult)
+  const evidenceVerifiedCount = usable.filter(
+    (trade) => validateTradeResultEvidence(trade).quality === 'verified',
+  ).length
+  const pnlTrades = usable.filter(
     (trade): trade is Trade & { pnl: number } =>
       typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
   )
-  const rTrades = verified.filter(
+  const rTrades = usable.filter(
     (trade): trade is Trade & { rMultiple: number } =>
       typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
   )
@@ -141,6 +144,7 @@ function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]
     strategies,
     maxAbs,
     rDist,
+    evidenceVerifiedCount,
   }
 }
 
@@ -205,13 +209,13 @@ export function Dashboard() {
           <Card
             label="累计盈亏"
             value={moneyAggregateLabel(stats.money)}
-            sub={`${stats.metrics.pnl.sampleSize}/${stats.closedCount} 笔含可验证盈亏`}
+            sub={`${stats.metrics.pnl.sampleSize}/${stats.closedCount} 笔含可用盈亏`}
             accent={stats.money.state !== 'single-currency' || stats.money.total === 0 ? undefined : stats.money.total > 0}
           />
           <Card
             label="胜率"
             value={stats.professional.winRate.estimate == null ? '—' : `${(stats.professional.winRate.estimate * 100).toFixed(0)}%`}
-            sub={stats.professional.winRate.low == null ? '暂无可验证结果' : `${stats.professional.winRate.sampleSize}/${stats.closedCount} 笔 · 95% ${(stats.professional.winRate.low * 100).toFixed(0)}–${(stats.professional.winRate.high! * 100).toFixed(0)}%`}
+            sub={stats.professional.winRate.low == null ? '暂无可用结果' : `${stats.professional.winRate.sampleSize}/${stats.closedCount} 笔 · 95% ${(stats.professional.winRate.low * 100).toFixed(0)}–${(stats.professional.winRate.high! * 100).toFixed(0)}%`}
           />
           <Card
             label="平均 R"
@@ -227,7 +231,7 @@ export function Dashboard() {
             <div>
               <span className="db-data-health-title">数据完整度</span>
               <span className="db-data-health-copy">
-                盈亏 {stats.pnlCount}/{stats.closedCount} · R {stats.rCount}/{stats.closedCount}
+                盈亏 {stats.pnlCount}/{stats.closedCount} · R {stats.rCount}/{stats.closedCount} · 已交叉验证 {stats.evidenceVerifiedCount}
               </span>
             </div>
             <span className="db-data-health-state">
@@ -413,7 +417,7 @@ export function Dashboard() {
               <div className="db-strat" key={slice.key}>
                 <div className="db-strat-head"><div className="db-strat-name">{slice.label}</div></div>
                 <div className="db-strat-meta">
-                  {slice.count} 笔 · {slice.metrics.resultCount}/{slice.metrics.closedCount} 笔结果可验证
+                  {slice.count} 笔 · {slice.metrics.resultCount}/{slice.metrics.closedCount} 笔结果可用
                 </div>
                 <div className="db-strat-pnl">
                   期望 R {slice.metrics.expectancyR.value == null ? '—' : slice.metrics.expectancyR.value.toFixed(2)}

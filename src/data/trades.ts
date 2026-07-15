@@ -22,6 +22,22 @@ export type TradeSide = 'long' | 'short'
 /** 平仓结果依据。`imported` 为兼容旧数据保留，也表示金额与 R 已共同确认。 */
 export type TradeResultSource = 'pnl' | 'r' | 'price' | 'imported'
 
+export type MetricOrigin = 'manual' | 'calculated' | 'imported' | 'legacy'
+export type PnlBasis = 'unknown' | 'net'
+export type PnlCurrencySource = 'manual' | 'imported' | 'inferred' | 'legacy'
+export type RuleAdherence = 'followed' | 'deviated' | 'unknown'
+export type ExitReason = 'target' | 'stop' | 'manual' | 'time' | 'rule' | 'other'
+
+export interface TradeCosts {
+  commission: number | null
+  exchange: number | null
+  financing: number | null
+  tax: number | null
+  other: number | null
+  completeness: 'partial' | 'complete'
+  source?: 'manual' | 'imported'
+}
+
 export type Conviction = 'low' | 'medium' | 'high' | 'urgent' // 信心度，沿用优先级视觉
 
 export type ReviewStatus = 'unreviewed' | 'reviewed' | 'focus'
@@ -97,6 +113,24 @@ export interface Trade {
   pnl: number | null // 盈亏金额；null 表示尚未填写，0 表示真实保本
   rMultiple: number | null // R 倍数；null 表示尚未填写，0 表示真实保本
   resultSource?: TradeResultSource // 用户确认的结果依据；旧数据在载入时推断
+  grossPnl?: number | null
+  pnlBasis?: PnlBasis
+  pnlCurrency?: string | null
+  pnlCurrencySource?: PnlCurrencySource | null
+  costs?: TradeCosts
+  /** 滑点证据单独记录；不在 gross→net 中重复扣减。 */
+  slippageCost?: number | null
+  initialRiskAmount?: number | null
+  /** 百分比点，1 表示 1%。 */
+  initialRiskPct?: number | null
+  accountEquityAtEntry?: number | null
+  openedAtTimestamp?: string | null
+  closedAtTimestamp?: string | null
+  strategyVersionId?: string | null
+  pnlSource?: MetricOrigin | null
+  rSource?: MetricOrigin | null
+  ruleAdherence?: RuleAdherence
+  exitReason?: ExitReason
   openedAt: string // ISO date
   recordedAt?: string // 记录收录时间；案例排序不受来源交易日期影响
   closedAt: string | null

@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { isVerifiedTradeResult, resolveTradeTruth } from '@/lib/tradeTruth'
+import { isUsableTradeResult, resolveTradeTruth } from '@/lib/tradeTruth'
 
 export interface NumericMetric {
   value: number | null
@@ -77,7 +77,7 @@ export function buildTradeAnalytics(
   temporal: readonly Trade[] = included,
 ): TradeAnalytics {
   const closed = included.filter((trade) => resolveTradeTruth(trade).executionState === 'closed')
-  const verified = closed.filter(isVerifiedTradeResult)
+  const verified = closed.filter(isUsableTradeResult)
   const rValues = verified
     .map((trade) => trade.rMultiple)
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))

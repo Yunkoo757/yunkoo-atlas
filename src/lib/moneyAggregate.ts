@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { isVerifiedTradeResult } from '@/lib/tradeTruth'
+import { isUsableTradeResult } from '@/lib/tradeTruth'
 
 export type MoneyAggregate =
   | { state: 'none'; sampleSize: 0; total: null; currency: null }
@@ -22,7 +22,7 @@ type MoneyEvidenceTrade = Trade & {
 
 export function aggregateMoney(trades: readonly Trade[]): MoneyAggregate {
   const values = trades
-    .filter(isVerifiedTradeResult)
+    .filter(isUsableTradeResult)
     .filter((trade): trade is Trade & { pnl: number } => typeof trade.pnl === 'number' && Number.isFinite(trade.pnl))
     .map((trade) => trade as MoneyEvidenceTrade & { pnl: number })
   if (values.length === 0) return { state: 'none', sampleSize: 0, total: null, currency: null }

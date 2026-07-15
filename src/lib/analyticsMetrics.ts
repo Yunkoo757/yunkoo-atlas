@@ -1,6 +1,6 @@
 import type { Trade } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
-import { isVerifiedTradeResult } from '@/lib/tradeTruth'
+import { isUsableTradeResult } from '@/lib/tradeTruth'
 
 export interface MetricValue {
   value: number | null
@@ -45,9 +45,9 @@ function wilsonRate(wins: number, total: number): number | null {
 
 export function buildAnalyticsMetrics(trades: Trade[]): AnalyticsMetrics {
   const closed = trades.filter((trade) => isExecutedClosed(trade.status))
-  const verified = closed.filter(isVerifiedTradeResult)
-  const pnlValues = finiteValues(verified.map((trade) => trade.pnl))
-  const rValues = finiteValues(verified.map((trade) => trade.rMultiple))
+  const usable = closed.filter(isUsableTradeResult)
+  const pnlValues = finiteValues(usable.map((trade) => trade.pnl))
+  const rValues = finiteValues(usable.map((trade) => trade.rMultiple))
   const wins = rValues.filter((value) => value > 0)
   const losses = rValues.filter((value) => value < 0)
   const grossWin = wins.reduce((sum, value) => sum + value, 0)
@@ -66,7 +66,7 @@ export function buildAnalyticsMetrics(trades: Trade[]): AnalyticsMetrics {
   }
   const totalR = rValues.reduce((sum, value) => sum + value, 0)
   const total = closed.length
-  const resultCount = verified.length
+  const resultCount = usable.length
 
   return {
     closedCount: total,

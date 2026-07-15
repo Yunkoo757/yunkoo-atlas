@@ -11,7 +11,7 @@ import {
   type AnalyticsTradeKind,
 } from '@/lib/analyticsScope'
 import { isExecutedClosed } from '@/lib/tradeStatus'
-import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
+import { isUsableTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { buildAnalyticsMetrics, type AnalyticsMetrics } from '@/lib/analyticsMetrics'
 
@@ -138,7 +138,7 @@ export function summarizeStrategyPerformance(
   const closed = all.filter((t) => isExecutedClosed(t.status))
   const result = summarizeTradeResults(closed)
   const rValues = closed
-    .filter(isVerifiedTradeResult)
+    .filter(isUsableTradeResult)
     .map((trade) => trade.rMultiple)
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
   const totalR = rValues.reduce((sum, value) => sum + value, 0)
