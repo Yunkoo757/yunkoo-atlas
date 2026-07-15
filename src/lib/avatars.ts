@@ -4,31 +4,33 @@ export interface AvatarPreset {
   id: string
   label: string
   background: string
-  surface: string
+  face: string
   accent: string
-  variant: 'halo' | 'orbit' | 'split' | 'frame'
+  ink: string
 }
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
-  { id: 'obsidian', label: '曜石', background: '#17191f', surface: '#d8c9ad', accent: '#c7a74b', variant: 'halo' },
-  { id: 'cobalt', label: '钴蓝', background: '#18233a', surface: '#d5dceb', accent: '#6686d9', variant: 'orbit' },
-  { id: 'forest', label: '松林', background: '#172823', surface: '#d6ded5', accent: '#6d9d84', variant: 'frame' },
-  { id: 'clay', label: '陶土', background: '#35221f', surface: '#ead5c7', accent: '#c2765d', variant: 'split' },
-  { id: 'sand', label: '砂岩', background: '#302d27', surface: '#e4dccb', accent: '#ae9161', variant: 'frame' },
-  { id: 'violet', label: '鸢尾', background: '#29233a', surface: '#ddd6e8', accent: '#8e75bd', variant: 'orbit' },
-  { id: 'glacier', label: '冰川', background: '#1b2c33', surface: '#d7e4e6', accent: '#6ba7b1', variant: 'split' },
-  { id: 'eclipse', label: '日蚀', background: '#2b2023', surface: '#e2d5cf', accent: '#d08255', variant: 'halo' },
+  { id: 'lime-blue', label: '黄绿蓝', background: '#d8f06b', face: '#f7d86d', accent: '#2768d8', ink: '#122033' },
+  { id: 'mint', label: '薄荷绿', background: '#baf7d0', face: '#f2d58c', accent: '#1fbf83', ink: '#14231d' },
+  { id: 'sky', label: '天空蓝', background: '#bfe7ff', face: '#ffd488', accent: '#2f80ed', ink: '#10213a' },
+  { id: 'rose', label: '玫瑰粉', background: '#ffd3df', face: '#f5d174', accent: '#e65b8a', ink: '#2a1621' },
+  { id: 'mono', label: '黑金', background: '#20242d', face: '#f2c66d', accent: '#32c481', ink: '#0c1117' },
+  { id: 'violet', label: '夜紫', background: '#ddd5ff', face: '#f5cf79', accent: '#7657e8', ink: '#211936' },
+  { id: 'coral', label: '珊瑚橙', background: '#ffd7bd', face: '#f5cf78', accent: '#ed694c', ink: '#2b1812' },
+  { id: 'teal', label: '深海青', background: '#bdece7', face: '#f1d17f', accent: '#149f9d', ink: '#102a2b' },
 ]
 
 const LEGACY_PRESET_MAP: Record<string, string> = {
-  trader: 'cobalt', bull: 'clay', bear: 'obsidian', wolf: 'glacier',
-  eagle: 'sand', owl: 'forest', diamond: 'glacier', rocket: 'cobalt',
-  fire: 'eclipse', star2: 'sand', crown: 'violet', shield: 'forest',
-  target: 'clay', brain: 'violet', coin: 'sand', chart: 'cobalt',
+  obsidian: 'lime-blue', cobalt: 'sky', forest: 'mint', clay: 'coral',
+  sand: 'mono', glacier: 'teal', eclipse: 'rose',
+  trader: 'sky', bull: 'coral', bear: 'mono', wolf: 'teal',
+  eagle: 'lime-blue', owl: 'mint', diamond: 'teal', rocket: 'sky',
+  fire: 'coral', star2: 'lime-blue', crown: 'violet', shield: 'mint',
+  target: 'rose', brain: 'violet', coin: 'mono', chart: 'sky',
 }
 
 export function getAvatarPreset(avatarId: string | null | undefined): AvatarPreset {
-  const resolvedId = avatarId ? (LEGACY_PRESET_MAP[avatarId] ?? avatarId) : 'obsidian'
+  const resolvedId = avatarId ? (LEGACY_PRESET_MAP[avatarId] ?? avatarId) : 'lime-blue'
   return AVATAR_PRESETS.find((preset) => preset.id === resolvedId) ?? AVATAR_PRESETS[0]!
 }
 
