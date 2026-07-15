@@ -37,7 +37,8 @@ async function pasteAndReadImage() {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
   }, pngB64)
   await page.keyboard.press('Control+v')
-  await page.waitForTimeout(1200)
+  await page.locator('.editor img').first().waitFor({ timeout: 10000 })
+  await page.locator('.save-status--saved').waitFor({ state: 'visible', timeout: 10000 })
   const imgBefore = await page.locator('.editor img').count()
   const assetIdBefore = await page.locator('.editor img').first().getAttribute('data-asset-id')
   const srcBefore = await page.locator('.editor img').first().getAttribute('src')
@@ -75,7 +76,7 @@ async function pasteGeneratedImage(width, height) {
   }, { width, height })
   await page.keyboard.press('Control+v')
   await page.locator('.editor img').nth(1).waitFor()
-  await page.waitForTimeout(1200)
+  await page.locator('.save-status--saved').waitFor({ state: 'visible', timeout: 10000 })
 }
 
 await createTrade('BTCUSDT')
