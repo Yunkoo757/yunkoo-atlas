@@ -129,7 +129,14 @@ jobs:
 
   build-macos:
     needs: build-windows
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 75
     env:
       # 未配置 Apple 开发者证书时跳过签名，产出可手动安装的 DMG/ZIP
@@ -174,7 +181,7 @@ jobs:
         run: pnpm qa:electron
 
       - name: Build macOS DMG and ZIP
-        run: pnpm exec electron-builder --mac dmg zip --publish never
+        run: pnpm exec electron-builder --mac dmg zip --${{ matrix.arch }} --publish never
 
       - name: Upload macOS assets to GitHub Release
         env:
@@ -182,19 +189,14 @@ jobs:
         run: |
           version=$(node -p "require('./package.json').version")
           tag="${{ github.ref_name }}"
-          shopt -s nullglob
           files=(
-            release/Yunkoo-Atlas-"$version"-mac-*.dmg
-            release/Yunkoo-Atlas-"$version"-mac-*.zip
+            release/Yunkoo-Atlas-"$version"-mac-${{ matrix.arch }}.dmg
+            release/Yunkoo-Atlas-"$version"-mac-${{ matrix.arch }}.zip
           )
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No macOS release artifacts found"
-            ls -la release || true
-            exit 1
-          fi
           for file in "${files[@]}"; do
             if [ ! -s "$file" ]; then
-              echo "Release asset is empty: $file"
+              echo "Release asset is missing or empty: $file"
+              ls -la release || true
               exit 1
             fi
           done
