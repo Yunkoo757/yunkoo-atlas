@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import { migrateSnapshotToCurrent } from '../../src/storage/upgrade'
 import { ensureLibraryDirs, findAttachmentFile, getLibraryPath } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { writeFileAtomicallySync } from './atomicFile'
@@ -242,8 +243,12 @@ export class LibraryStorage {
   loadSnapshot(): PersistedSnapshot | null {
     const loaded = this.loadRawSnapshot()
     if (!loaded) return null
-    assertValidPersistedSnapshot(loaded.snapshot, 'Stored library snapshot')
-    return loaded.snapshot
+    const migrated = migrateSnapshotToCurrent(loaded.snapshot, {
+      source: 'library',
+      manifestSchemaVersion: loaded.manifestSchemaVersion,
+    })
+    assertValidPersistedSnapshot(migrated.snapshot, 'Stored library snapshot')
+    return migrated.snapshot
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {
