@@ -24,6 +24,8 @@ let bootstrapPromise: Promise<void> | null = null
 const PERSISTED_REFERENCE_KEYS = [
   'trades',
   'strategies',
+  'strategyVersions',
+  'reportingTimeZone',
   'starredIds',
   'subscribedIds',
   'pinnedStrategyIds',
@@ -74,6 +76,8 @@ async function runBootstrapStorage(): Promise<void> {
     useStore.setState({
       trades,
       strategies: snapshot.strategies,
+      strategyVersions: snapshot.strategyVersions ?? [],
+      reportingTimeZone: snapshot.reportingTimeZone ?? null,
       starredIds: snapshot.starredIds,
       subscribedIds: snapshot.subscribedIds,
       pinnedStrategyIds: snapshot.pinnedStrategyIds,

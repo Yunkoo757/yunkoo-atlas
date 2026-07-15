@@ -6,21 +6,14 @@ import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
+import { currentTestSnapshot } from './testSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
 function currentSnapshot(): PersistedSnapshot {
-  return {
-    trades: [],
-    strategies: [],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    display: DEFAULT_DISPLAY,
-    tagPresets: ['raw-load'],
-  }
+  return currentTestSnapshot({ tagPresets: ['raw-load'] })
 }
 
 export async function testRawSnapshotIncludesManifestVersionWithoutChangingSavePath(): Promise<void> {
@@ -85,22 +78,44 @@ export async function testRawSnapshotDoesNotRunCurrentStructureValidation(): Pro
   }
 }
 
-export async function testLegacySnapshotMigrationIsReadWithoutWriteback(): Promise<void> {
+export async function testLegacySnapshotMigrationCommitsValidatedV7Atomically(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-migration-commit-'))
   const storage = new LibraryStorage(root)
   try {
     await storage.open()
     storage.saveSnapshot(currentSnapshot())
+    storage.release()
+
+    const SQL = await initSqlJs({
+      locateFile: (file) => path.join(process.cwd(), 'node_modules/sql.js/dist', file),
+    })
+    const dbFile = path.join(root, 'journal.db')
+    const db = new SQL.Database(fs.readFileSync(dbFile))
+    const legacySnapshot: PersistedSnapshot = {
+      trades: [],
+      strategies: [],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+      tagPresets: ['legacy-v6'],
+    }
+    db.run('UPDATE meta SET value = ? WHERE key = ?', [JSON.stringify(legacySnapshot), 'snapshot'])
+    fs.writeFileSync(dbFile, Buffer.from(db.export()))
+    db.close()
+
     const manifestPath = path.join(root, 'manifest.json')
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
-    fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, schemaVersion: 5 }))
+    fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, schemaVersion: 6 }))
 
+    await storage.open()
     const loaded = storage.loadSnapshot()
     assert(loaded !== null, '旧清单下的快照必须可以迁移读取')
     const committedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
-    assert(committedManifest.schemaVersion === 5, '只读迁移不得改写旧 manifest')
+    assert(committedManifest.schemaVersion === 7, '验证通过后必须提交 v7 manifest')
     const raw = storage.loadRawSnapshot()?.snapshot as { schemaVersion?: number }
-    assert(raw.schemaVersion === undefined, '只读迁移不得改写原始快照')
+    assert(raw.schemaVersion === 7, 'v7 快照与 manifest 必须作为同一次升级提交')
+    assert(loaded?.tagPresets?.[0] === 'legacy-v6', '升级不得丢失旧快照可选字段')
   } finally {
     storage.release()
     fs.rmSync(root, { recursive: true, force: true })

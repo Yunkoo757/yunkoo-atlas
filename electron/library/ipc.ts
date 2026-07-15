@@ -21,6 +21,7 @@ import {
   openValidatedLibraryCandidate,
 } from './libraryActivation'
 import { randomUUID } from 'node:crypto'
+import type { PersistedSnapshot } from '../../src/storage/types'
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
@@ -400,6 +401,13 @@ export function registerLibraryIpc(): void {
     lib.saveSnapshot(snapshot)
     return true
   }))
+
+  ipcMain.handle('storage:commitUpgradeSnapshot', async (_e, payload: {
+    snapshot: PersistedSnapshot
+    targetVersion: number
+  }) => withStorage((lib) =>
+    lib.commitUpgradeSnapshot(payload.snapshot, payload.targetVersion),
+  ))
 
   ipcMain.handle('storage:saveAsset', async (_e, payload: { data: ArrayBuffer; mime: string }) => withStorage(async (lib) => {
     const id = await lib.saveAssetAsync(

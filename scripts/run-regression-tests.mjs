@@ -14,6 +14,7 @@ const entries = [
   'src/lib/analyticsSeries.test.ts',
   'src/lib/rDistribution.test.ts',
   'src/lib/reviewAnalytics.test.ts',
+  'src/lib/strategyVersions.test.ts',
   'src/lib/tradeTruth.test.ts',
   'src/lib/tradeCalc.test.ts',
   'src/lib/tradeClose.test.ts',

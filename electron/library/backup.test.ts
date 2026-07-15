@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import initSqlJs from 'sql.js'
+import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import {
   createBackupAtPath,
   deleteBackupAtPath,
@@ -46,13 +47,22 @@ async function createVerifiableBackup(
           id: 'trade-1',
           ref: 'TRD-1',
           symbol: 'BTCUSDT',
-          strategyId: 'strategy-1',
+          strategyId: '',
           openedAt: '2026-07-14',
+          closedAt: null,
           side: 'long',
           status: 'open',
           conviction: 'medium',
+          tradeKind: 'live',
+          tags: [],
+          mistakeTags: [],
+          reviewStatus: 'unreviewed',
+          reviewCategory: 'normal',
           entry: 1,
+          exit: null,
           size: 1,
+          pnl: null,
+          rMultiple: null,
           note: `<p><img src="journal-asset://${options.referencedAssetId}"></p>`,
         }]
       : []
@@ -64,7 +74,7 @@ async function createVerifiableBackup(
         starredIds: [],
         subscribedIds: [],
         pinnedStrategyIds: [],
-        display: {},
+        display: DEFAULT_DISPLAY,
       }),
     ])
     if (includeAsset) {
@@ -113,7 +123,7 @@ export async function testBackupVerificationRestoresDatabaseAndAttachmentBytes()
   try {
     const backup = await createVerifiableBackup(root)
     const result = await verifyBackupAtPath(root, path.basename(backup))
-    assert(result.status === 'verified', '完整恢复演练应验证通过')
+    assert(result.status === 'verified', `完整恢复演练应验证通过：${result.error ?? '未知错误'}`)
     assert(result.tradeCount === 0, '验证结果应包含实际交易数量')
     assert(result.attachmentCount === 1, '验证结果应包含实际附件数量')
     assertVerificationWorkspaceRemoved(root)

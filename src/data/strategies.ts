@@ -39,6 +39,39 @@ export interface Strategy {
   icon: StrategyIconId
   color: string
   reviewTemplateHtml?: string
+  currentVersionId?: string
+  archivedAt?: string | null
+}
+
+export interface StrategyVersion {
+  id: string
+  strategyId: string
+  version: number
+  label: string
+  rulesHtml?: string
+  reviewTemplateHtml?: string
+  changeNote?: string
+  createdAt: string | null
+  retiredAt?: string | null
+}
+
+export function createStrategyV1(strategy: Strategy): {
+  strategy: Strategy & { currentVersionId: string }
+  version: StrategyVersion
+} {
+  const currentVersionId = `${strategy.id}:v1`
+  return {
+    strategy: { ...strategy, currentVersionId },
+    version: {
+      id: currentVersionId,
+      strategyId: strategy.id,
+      version: 1,
+      label: 'v1',
+      rulesHtml: '',
+      reviewTemplateHtml: strategy.reviewTemplateHtml ?? '',
+      createdAt: null,
+    },
+  }
 }
 
 export const STRATEGY_ICON_OPTIONS: {

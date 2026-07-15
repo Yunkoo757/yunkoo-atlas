@@ -393,6 +393,27 @@ export function normalizeTradeMetrics(trade: Trade): Trade {
   }
 }
 
+/**
+ * v7 持久化要求把“未知”也明确保存；这里只补证据元数据，不改变交易结果本身。
+ */
+export function normalizeTradeEvidenceDefaults(trade: Trade): Trade {
+  const hasPnl = finiteMetric(trade.pnl) !== null
+  const currency = hasPnl ? trade.pnlCurrency ?? 'USD' : null
+  const currencySource = currency === null
+    ? null
+    : trade.pnlCurrencySource ?? 'inferred'
+  return {
+    ...trade,
+    pnlBasis: trade.pnlBasis ?? 'unknown',
+    pnlCurrency: currency,
+    pnlCurrencySource: currencySource,
+    openedAtTimestamp: trade.openedAtTimestamp ?? null,
+    closedAtTimestamp: trade.closedAtTimestamp ?? null,
+    pnlSource: trade.pnlSource ?? null,
+    rSource: trade.rSource ?? null,
+  }
+}
+
 export function summarizeTradeResults(trades: Trade[]): TradeResultSummary {
   const closed = trades.filter((trade) => isExecutedClosed(trade.status))
   const truths = closed.map(resolveTradeTruth)

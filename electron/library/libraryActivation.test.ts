@@ -1,24 +1,17 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { areSameLibrary, openValidatedLibraryCandidate } from './libraryActivation'
 import { LibraryStorage } from './storage'
+import { currentTestSnapshot } from './testSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
 function snapshot(): PersistedSnapshot {
-  return {
-    trades: [],
-    strategies: [],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    display: DEFAULT_DISPLAY,
-  }
+  return currentTestSnapshot()
 }
 
 export async function testLibraryStorageRejectsInvalidSnapshotBeforeDiskWrite(): Promise<void> {

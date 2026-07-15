@@ -5,12 +5,20 @@ import initSqlJs, { type Database } from 'sql.js'
 import { randomUUID } from 'node:crypto'
 import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types'
 import { SCHEMA_VERSION } from '../../src/storage/types'
-import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import {
+  assertValidPersistedSnapshot,
+  assertValidSnapshotForSchema,
+} from '../../src/storage/snapshotValidation'
 import { migrateSnapshotToCurrent } from '../../src/storage/upgrade'
 import { ensureLibraryDirs, findAttachmentFile, getLibraryPath } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId } from '../../src/storage/assetId'
+import {
+  prepareUpgradeRecovery,
+  readUpgradeJournal,
+  recoverOrCommitPendingUpgrade,
+} from './upgradeRecovery'
 
 const SNAPSHOT_KEY = 'snapshot'
 
@@ -122,6 +130,37 @@ export class LibraryStorage {
   async open(): Promise<void> {
     if (this.db) return
     const SQL = await getSql()
+    const pendingUpgrade = readUpgradeJournal(this.paths.root)
+    if (
+      pendingUpgrade?.phase === 'pending-v7' &&
+      fs.existsSync(this.paths.dbFile) &&
+      fs.existsSync(this.paths.manifestFile)
+    ) {
+      recoverOrCommitPendingUpgrade(this.paths.root, () => {
+        let candidate: Database | null = null
+        try {
+          candidate = new SQL.Database(fs.readFileSync(this.paths.dbFile))
+          const stmt = candidate.prepare('SELECT value FROM meta WHERE key = ?')
+          stmt.bind([SNAPSHOT_KEY])
+          if (!stmt.step()) {
+            stmt.free()
+            return false
+          }
+          const snapshot = JSON.parse(String(stmt.getAsObject().value)) as unknown
+          stmt.free()
+          assertValidSnapshotForSchema(
+            snapshot,
+            pendingUpgrade.targetVersion,
+            'Pending upgraded library snapshot',
+          )
+          return true
+        } catch {
+          return false
+        } finally {
+          candidate?.close()
+        }
+      })
+    }
     let created = !fs.existsSync(this.paths.dbFile)
 
     // journal.db 缺失但库目录已有 manifest / 冲突副本：禁止静默建空库（会清空交易与头像）
@@ -250,11 +289,17 @@ export class LibraryStorage {
       manifestSchemaVersion: loaded.manifestSchemaVersion,
     })
     assertValidPersistedSnapshot(migrated.snapshot, 'Stored library snapshot')
+    if (migrated.didChange && migrated.toVersion === 7) {
+      const result = this.commitUpgradeSnapshot(migrated.snapshot, migrated.toVersion)
+      if (result !== 'committed') {
+        throw new Error('资料库升级未完成，已恢复升级前数据，请重新打开后重试')
+      }
+    }
     return migrated.snapshot
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {
-    assertValidPersistedSnapshot(snapshot, 'Library snapshot')
+    assertValidSnapshotForSchema(snapshot, SCHEMA_VERSION, 'Library snapshot')
     const db = this.requireDb()
     db.run(
       `INSERT INTO meta (key, value) VALUES (?, ?)
@@ -262,6 +307,49 @@ export class LibraryStorage {
       [SNAPSHOT_KEY, JSON.stringify(snapshot)],
     )
     this.persistDb()
+  }
+
+  commitUpgradeSnapshot(
+    snapshot: PersistedSnapshot,
+    targetVersion: number,
+  ): 'committed' | 'restored' {
+    assertValidSnapshotForSchema(snapshot, targetVersion, 'Upgraded library snapshot')
+    const current = this.loadRawSnapshot()
+    if (!current) throw new Error('cannot upgrade a library without a source snapshot')
+    const manifest = this.readManifest()
+    if (manifest.schemaVersion >= targetVersion) {
+      if (manifest.schemaVersion !== targetVersion) {
+        throw new Error(`cannot downgrade library v${manifest.schemaVersion} to v${targetVersion}`)
+      }
+      return 'committed'
+    }
+
+    prepareUpgradeRecovery(this.paths.root, targetVersion)
+    const db = this.requireDb()
+    try {
+      db.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+      )
+      this.persistDb()
+      const result = recoverOrCommitPendingUpgrade(this.paths.root, () => {
+        const active = this.loadRawSnapshot()?.snapshot
+        if (active === undefined || active === null) return false
+        assertValidSnapshotForSchema(active, targetVersion, 'Active upgraded library snapshot')
+        return true
+      })
+      if (result !== 'committed') throw new Error('upgraded library did not reach committed state')
+      return 'committed'
+    } catch {
+      recoverOrCommitPendingUpgrade(this.paths.root, () => false)
+      db.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SNAPSHOT_KEY, JSON.stringify(current.snapshot)],
+      )
+      return 'restored'
+    }
   }
 
   async saveAssetAsync(buffer: Buffer, mime: string): Promise<string> {

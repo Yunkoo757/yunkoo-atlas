@@ -1,29 +1,30 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
+import { migrateV6ToV7 } from '../../src/storage/migrations/v6ToV7'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
+import { currentTestSnapshot } from './testSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
 function snapshot(label: string): PersistedSnapshot {
-  return {
-    trades: [],
-    strategies: [],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    display: DEFAULT_DISPLAY,
-    tagPresets: [label],
-  }
+  return currentTestSnapshot({ tagPresets: [label] })
 }
 
 function snapshotWithAsset(label: string, assetId: string): PersistedSnapshot {
-  return {
+  return migrateV6ToV7({
     ...snapshot(label),
+    schemaVersion: 6,
+    strategies: [{
+      id: 'strategy-1',
+      name: '测试策略',
+      icon: 'trending-up',
+      color: '#5e6ad2',
+    }],
+    strategyVersions: undefined,
     trades: [{
       id: `trade-${label}`,
       ref: `TRD-${label}`,
@@ -46,7 +47,7 @@ function snapshotWithAsset(label: string, assetId: string): PersistedSnapshot {
       closedAt: null,
       note: `<img src="journal-asset://${assetId}">`,
     }],
-  }
+  }).snapshot
 }
 
 export async function testImportCommitReplacesSnapshotAndAssetsTogether(): Promise<void> {

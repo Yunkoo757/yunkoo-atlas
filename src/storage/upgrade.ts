@@ -1,4 +1,5 @@
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
+import { migrateV6ToV7 } from '@/storage/migrations/v6ToV7'
 
 export type MigrationSource = 'library' | 'json' | 'journal-zip' | 'backup'
 
@@ -28,6 +29,7 @@ const EXPORT_PRODUCER_SCHEMA = new Map<number, number>([
   [4, 4],
   [5, 5],
   [6, 6],
+  [7, 7],
 ])
 
 function asRecord(value: unknown): UnknownRecord | null {
@@ -86,6 +88,7 @@ const ACTIVE_MIGRATIONS: readonly SnapshotMigrationStep[] = [
       mapTradeRecords(snapshot, (trade) => {
         if (trade.reviewStatus === undefined) trade.reviewStatus = 'unreviewed'
         if (trade.mistakeTags === undefined) trade.mistakeTags = []
+        if (trade.reviewCategory === undefined) trade.reviewCategory = 'normal'
       })
       return advanceEmbeddedVersion(snapshot, 5)
     },
@@ -97,6 +100,13 @@ const ACTIVE_MIGRATIONS: readonly SnapshotMigrationStep[] = [
       return advanceEmbeddedVersion(snapshot, 6)
     },
   },
+  {
+    fromVersion: 6,
+    toVersion: 7,
+    migrate(snapshot) {
+      return migrateV6ToV7(snapshot as PersistedSnapshot).snapshot
+    },
+  },
 ]
 
 function embeddedSchemaVersion(raw: unknown): number | null {
@@ -104,7 +114,7 @@ function embeddedSchemaVersion(raw: unknown): number | null {
   const record = raw as { schemaVersion?: unknown }
   if (Object.prototype.hasOwnProperty.call(record, 'schemaVersion') &&
     (!Number.isInteger(record.schemaVersion) || Number(record.schemaVersion) < 1)) {
-    throw new Error('蹇収 schemaVersion 鏍煎紡鏃犳晥')
+    throw new Error('快照 schemaVersion 格式无效')
   }
   const version = record.schemaVersion
   return Number.isInteger(version) && Number(version) > 0 ? Number(version) : null

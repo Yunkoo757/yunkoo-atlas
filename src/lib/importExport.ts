@@ -1,4 +1,4 @@
-import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
+import { DEFAULT_STRATEGIES, type Strategy, type StrategyVersion } from '@/data/strategies'
 import {
   createDefaultMistakeTagPresets,
   createDefaultTagPresets,
@@ -13,9 +13,17 @@ import type {
   ReviewCategory,
 } from '@/data/trades'
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
-import { ensureStrategies, migrateTrades } from '@/lib/strategies'
+import {
+  bindTradeStrategyVersions,
+  ensureStrategies,
+  ensureStrategyVersionGraph,
+  migrateTrades,
+} from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
-import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
+import {
+  isTradeResultAuthorityConsistent,
+  normalizeTradeEvidenceDefaults,
+} from '@/lib/tradeTruth'
 import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import {
@@ -54,13 +62,17 @@ import {
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
+import { assertValidV7Snapshot } from '@/storage/schemaV7'
+import { migrateV6ToV7 } from '@/storage/migrations/v6ToV7'
 
-export const EXPORT_VERSION = 6 // 6: +savedTradeViews
+export const EXPORT_VERSION = 7 // 7: explicit result evidence + strategy versions
 
 export interface ExportPayload {
   version: number
   trades: (Trade & { strategy?: string })[]
   strategies: Strategy[]
+  strategyVersions?: StrategyVersion[]
+  reportingTimeZone?: string | null
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -76,6 +88,8 @@ export interface ExportPayload {
 export interface PersistedSlice {
   trades: Trade[]
   strategies: Strategy[]
+  strategyVersions?: StrategyVersion[]
+  reportingTimeZone?: string | null
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -98,6 +112,8 @@ interface ExportState extends PersistedSlice {
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
   strategies: PersistedSnapshot['strategies']
+  strategyVersions?: NonNullable<PersistedSnapshot['strategyVersions']>
+  reportingTimeZone?: string | null
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -115,9 +131,17 @@ export function buildPortableSnapshotFromState(
   shortcutBindings: Parameters<typeof bindingsForPersist>[0],
 ): PersistedSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings)
+  const strategyGraph = ensureStrategyVersionGraph(state.strategies, state.strategyVersions ?? [])
+  const trades = bindTradeStrategyVersions(
+    state.trades.map(normalizeTradeEvidenceDefaults),
+    strategyGraph.strategies,
+  )
   return {
-    trades: state.trades,
-    strategies: state.strategies,
+    schemaVersion: EXPORT_VERSION,
+    reportingTimeZone: state.reportingTimeZone ?? null,
+    trades,
+    strategies: strategyGraph.strategies,
+    strategyVersions: strategyGraph.strategyVersions,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
@@ -198,9 +222,9 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   ) {
     return false
   }
-  if (!isFiniteNumber(v.entry)) return false
+  if (!isNullableFiniteNumber(v.entry)) return false
   if (!isNullableFiniteNumber(v.exit)) return false
-  if (!isFiniteNumber(v.size)) return false
+  if (!isNullableFiniteNumber(v.size)) return false
   if (!isNullableFiniteNumber(v.pnl)) return false
   if (!isNullableFiniteNumber(v.rMultiple)) return false
   if (v.stopLoss !== undefined && !isNullableFiniteNumber(v.stopLoss)) return false
@@ -234,6 +258,17 @@ function isStrategy(v: unknown): v is Strategy {
   )
 }
 
+function isStrategyVersion(v: unknown): v is StrategyVersion {
+  if (!isRecord(v)) return false
+  return (
+    typeof v.id === 'string' &&
+    typeof v.strategyId === 'string' &&
+    Number.isInteger(v.version) && Number(v.version) > 0 &&
+    typeof v.label === 'string' &&
+    (v.createdAt === null || typeof v.createdAt === 'string')
+  )
+}
+
 function parseDisplay(v: unknown): DisplayPrefs {
   if (!isRecord(v)) return { ...DEFAULT_DISPLAY }
   return normalizeDisplay(v as Partial<DisplayPrefs>)
@@ -243,7 +278,12 @@ export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
 ): Promise<ExportPayload> {
-  const assetIds = new Set(collectAssetIdsFromNotes(state.trades))
+  const graph = ensureStrategyVersionGraph(state.strategies, state.strategyVersions ?? [])
+  const trades = bindTradeStrategyVersions(
+    state.trades.map(normalizeTradeEvidenceDefaults),
+    graph.strategies,
+  )
+  const assetIds = new Set(collectAssetIdsFromNotes(trades))
   const assets: ExportAssetRecord[] = []
   for (const id of assetIds) {
     const record = await getAssetForExport(id)
@@ -251,8 +291,10 @@ export async function buildExportPayloadFromState(
   }
   return {
     version: EXPORT_VERSION,
-    trades: state.trades,
-    strategies: state.strategies,
+    trades,
+    strategies: graph.strategies,
+    strategyVersions: graph.strategyVersions,
+    reportingTimeZone: state.reportingTimeZone ?? null,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
@@ -267,11 +309,11 @@ export async function buildExportPayloadFromState(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
+  const { trades, strategies, strategyVersions, reportingTimeZone, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog },
+    { trades, strategies, strategyVersions, reportingTimeZone, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -492,6 +534,21 @@ export function parseImportJson(text: string): ImportResult {
     return { ok: false, error: 'strategies 数据格式不正确' }
   }
 
+  if (
+    raw.strategyVersions !== undefined &&
+    (!Array.isArray(raw.strategyVersions) || !raw.strategyVersions.every(isStrategyVersion))
+  ) {
+    return { ok: false, error: 'strategyVersions 数据格式不正确' }
+  }
+
+  if (
+    raw.reportingTimeZone !== undefined &&
+    raw.reportingTimeZone !== null &&
+    typeof raw.reportingTimeZone !== 'string'
+  ) {
+    return { ok: false, error: 'reportingTimeZone 必须是字符串或 null' }
+  }
+
   if (raw.starredIds !== undefined && !isStringArray(raw.starredIds)) {
     return { ok: false, error: 'starredIds 必须是字符串数组' }
   }
@@ -532,25 +589,73 @@ export function parseImportJson(text: string): ImportResult {
     return { ok: false, error: 'symbolCatalog 必须是数组' }
   }
 
+  let currentSnapshot: PersistedSnapshot
+  try {
+    if (raw.version === EXPORT_VERSION) {
+      if (
+        !Array.isArray(raw.strategies) ||
+        !Array.isArray(raw.strategyVersions) ||
+        !Object.prototype.hasOwnProperty.call(raw, 'reportingTimeZone') ||
+        !isStringArray(raw.starredIds) ||
+        !isStringArray(raw.subscribedIds) ||
+        !isStringArray(raw.pinnedStrategyIds) ||
+        !isRecord(raw.display)
+      ) {
+        return { ok: false, error: 'v7 备份缺少必要的数据契约字段' }
+      }
+      const candidate = {
+        ...raw,
+        schemaVersion: 7,
+      }
+      assertValidV7Snapshot(candidate, 'Imported v7 snapshot')
+      currentSnapshot = candidate
+    } else {
+      // v1–v6 JSON 由这一专用兼容解码器补齐旧默认值，再统一进入纯 v6→v7 迁移。
+      const strategies = ensureStrategies(raw.strategies as Strategy[] | undefined)
+      const trades = normalizeTrades(migrateTrades(
+        raw.trades as (Trade & { strategy?: string })[],
+        strategies,
+      ))
+      currentSnapshot = migrateV6ToV7({
+        trades,
+        strategies,
+        starredIds: raw.starredIds ?? [],
+        subscribedIds: raw.subscribedIds ?? [],
+        pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
+        display: parseDisplay(raw.display),
+        tagPresets: raw.tagPresets as string[] | undefined,
+        mistakeTagPresets: raw.mistakeTagPresets as string[] | undefined,
+        savedTradeViews: normalizeSavedTradeViews(raw.savedTradeViews),
+        symbolIcons: normalizeSymbolIcons(raw.symbolIcons),
+        symbolCatalog: normalizeSymbolCatalog(raw.symbolCatalog),
+      }).snapshot
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : '结构校验失败'
+    return { ok: false, error: `备份数据不完整：${detail}` }
+  }
+
   return {
     ok: true,
     data: {
       version: raw.version,
-      trades: raw.trades,
-      strategies: raw.strategies ?? [],
-      starredIds: raw.starredIds ?? [],
-      subscribedIds: raw.subscribedIds ?? [],
-      pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
-      display: parseDisplay(raw.display),
+      trades: currentSnapshot.trades,
+      strategies: currentSnapshot.strategies,
+      strategyVersions: currentSnapshot.strategyVersions ?? [],
+      reportingTimeZone: currentSnapshot.reportingTimeZone ?? null,
+      starredIds: currentSnapshot.starredIds,
+      subscribedIds: currentSnapshot.subscribedIds,
+      pinnedStrategyIds: currentSnapshot.pinnedStrategyIds,
+      display: parseDisplay(currentSnapshot.display),
       assets: raw.assets as ExportAssetRecord[] | undefined,
-      tagPresets: raw.tagPresets ?? [],
-      mistakeTagPresets: raw.mistakeTagPresets ?? [],
-      savedTradeViews: normalizeSavedTradeViews(raw.savedTradeViews),
-      symbolIcons: normalizeSymbolIcons(raw.symbolIcons),
+      tagPresets: currentSnapshot.tagPresets ?? [],
+      mistakeTagPresets: currentSnapshot.mistakeTagPresets ?? [],
+      savedTradeViews: normalizeSavedTradeViews(currentSnapshot.savedTradeViews),
+      symbolIcons: normalizeSymbolIcons(currentSnapshot.symbolIcons),
       symbolCatalog: normalizeSymbolCatalog(
-        raw.symbolCatalog ?? [
-          ...Object.keys(normalizeSymbolIcons(raw.symbolIcons)),
-          ...((raw.trades as Trade[] | undefined) ?? []).map((trade) => trade.symbol),
+        currentSnapshot.symbolCatalog ?? [
+          ...Object.keys(normalizeSymbolIcons(currentSnapshot.symbolIcons)),
+          ...currentSnapshot.trades.map((trade) => trade.symbol),
         ],
       ),
     },
@@ -565,16 +670,34 @@ function mergeStrategies(current: Strategy[], imported: Strategy[]): Strategy[] 
   return Array.from(map.values())
 }
 
+function mergeStrategyVersions(
+  current: readonly StrategyVersion[],
+  imported: readonly StrategyVersion[],
+): StrategyVersion[] {
+  const map = new Map(current.map((version) => [version.id, version]))
+  for (const version of imported) map.set(version.id, version)
+  return [...map.values()]
+}
+
 export function mergeImportPayload(current: PersistedSlice, payload: ExportPayload): PersistedSlice {
-  const strategies = mergeStrategies(current.strategies, ensureStrategies(payload.strategies))
-  const migrated = migrateTrades(payload.trades, strategies)
+  const mergedStrategies = mergeStrategies(current.strategies, ensureStrategies(payload.strategies))
+  const graph = ensureStrategyVersionGraph(
+    mergedStrategies,
+    mergeStrategyVersions(current.strategyVersions ?? [], payload.strategyVersions ?? []),
+  )
+  const migrated = bindTradeStrategyVersions(
+    migrateTrades(payload.trades, graph.strategies),
+    graph.strategies,
+  )
   const tradeMap = new Map(current.trades.map((t) => [t.id, t]))
   for (const t of migrated) {
     tradeMap.set(t.id, t)
   }
   const trades = normalizeTrades(Array.from(tradeMap.values()))
   return {
-    strategies,
+    strategies: graph.strategies,
+    strategyVersions: graph.strategyVersions,
+    reportingTimeZone: payload.reportingTimeZone ?? current.reportingTimeZone ?? null,
     trades,
     starredIds: [...new Set([...current.starredIds, ...payload.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...payload.subscribedIds])],
@@ -654,6 +777,8 @@ export function prepareImportPayloadForCommit(
 const IMPORT_PERSISTED_REFERENCE_KEYS = [
   'trades',
   'strategies',
+  'strategyVersions',
+  'reportingTimeZone',
   'starredIds',
   'subscribedIds',
   'pinnedStrategyIds',
@@ -785,6 +910,8 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   useStore.setState({
     trades,
     strategies: snapshot.strategies,
+    strategyVersions: snapshot.strategyVersions ?? [],
+    reportingTimeZone: snapshot.reportingTimeZone ?? null,
     starredIds: snapshot.starredIds,
     subscribedIds: snapshot.subscribedIds,
     pinnedStrategyIds: snapshot.pinnedStrategyIds,
@@ -806,9 +933,14 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 
 /** 空库 / 新建库时重置到默认内存状态。 */
 export function resetEmptyLibraryIntoStore(): void {
+  const strategyGraph = ensureStrategyVersionGraph(
+    DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
+  )
   useStore.setState({
     trades: [],
-    strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
+    strategies: strategyGraph.strategies,
+    strategyVersions: strategyGraph.strategyVersions,
+    reportingTimeZone: null,
     selectedId: null,
     composerOpen: false,
     composerTrade: null,

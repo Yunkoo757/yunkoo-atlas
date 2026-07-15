@@ -12,6 +12,7 @@ import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/types'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
+import { migrateV6ToV7 } from '@/storage/migrations/v6ToV7'
 
 interface ZustandPersistEnvelope {
   state?: {
@@ -59,6 +60,11 @@ async function externalizeAllNotes(
   return { ...snapshot, trades }
 }
 
+function ensureV7Snapshot(snapshot: PersistedSnapshot): PersistedSnapshot {
+  if (snapshot.schemaVersion === 7) return snapshot
+  return migrateV6ToV7({ ...snapshot, schemaVersion: 6 }).snapshot
+}
+
 export async function migrateFromLocalStorageIfNeeded(
   adapter: StorageAdapter,
 ): Promise<boolean> {
@@ -80,6 +86,7 @@ export async function migrateFromLocalStorageIfNeeded(
   }
 
   snapshot = await externalizeAllNotes(snapshot, adapter)
+  snapshot = ensureV7Snapshot(snapshot)
   await adapter.saveSnapshot(snapshot)
 
   try {
@@ -127,6 +134,7 @@ export async function migrateElectronLibraryIfNeeded(
   }
 
   snapshot = await externalizeAllNotes(snapshot, adapter)
+  snapshot = ensureV7Snapshot(snapshot)
   await adapter.saveSnapshot(snapshot)
   return true
 }

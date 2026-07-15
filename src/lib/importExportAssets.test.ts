@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { assertValidV7Snapshot } from '@/storage/schemaV7'
 import {
   buildExportPayloadFromState,
   buildPortableSnapshotFromState,
@@ -56,6 +57,28 @@ export async function testJsonExportIncludesReferencedAssets(): Promise<void> {
   )
   assert(payload.assets?.length === 1, 'JSON export includes referenced image assets')
   assert(payload.assets?.[0]?.id === 'asset-1', 'export keeps the referenced asset id')
+  assert(payload.strategyVersions?.[0]?.id === 'breakout:v1', 'v7 export includes a deterministic strategy version')
+  assert(payload.reportingTimeZone === null, 'v7 export keeps an explicit unknown reporting timezone')
+  assert(payload.trades[0]?.pnlBasis === 'unknown', 'v7 export makes legacy PnL basis explicit')
+  assertValidV7Snapshot({ ...payload, schemaVersion: 7 })
+}
+
+export async function testV7ImportRejectsBrokenStrategyVersionGraph(): Promise<void> {
+  const payload = await buildExportPayloadFromState(
+    {
+      trades: [trade],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+    },
+    async () => null,
+  )
+  const broken = { ...payload, strategyVersions: [] }
+  const parsed = parseImportJson(JSON.stringify(broken))
+
+  assert(!parsed.ok, 'v7 import must reject trades whose strategy version evidence is missing')
 }
 
 export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): Promise<void> {

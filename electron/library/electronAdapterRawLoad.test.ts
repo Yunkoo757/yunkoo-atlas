@@ -1,23 +1,14 @@
-import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import type { PersistedSnapshot } from '../../src/storage/types'
-import { SCHEMA_VERSION } from '../../src/storage/types'
 import type { JournalBridge } from '../../src/types/journal-bridge'
 import { ElectronStorageAdapter } from '../../src/storage/electronAdapter'
+import { currentTestSnapshot } from './testSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
 function currentSnapshot(): PersistedSnapshot {
-  return {
-    trades: [],
-    strategies: [],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    display: DEFAULT_DISPLAY,
-    tagPresets: ['renderer-migrated'],
-  }
+  return currentTestSnapshot({ tagPresets: ['main-validated'] })
 }
 
 async function withJournalBridge<T>(bridge: Partial<JournalBridge>, run: () => Promise<T>): Promise<T> {
@@ -34,71 +25,39 @@ async function withJournalBridge<T>(bridge: Partial<JournalBridge>, run: () => P
   }
 }
 
-export async function testElectronAdapterLoadsThroughRawMigrationBoundary(): Promise<void> {
+export async function testElectronAdapterUsesMainProcessValidatedLoadBoundary(): Promise<void> {
   const snapshot = currentSnapshot()
   await withJournalBridge({
-    loadRawSnapshot: async () => ({
-      snapshot,
-      manifestSchemaVersion: SCHEMA_VERSION,
-    }),
-    loadSnapshot: async () => {
-      throw new Error('renderer must not use the legacy validated IPC path')
+    loadRawSnapshot: async () => {
+      throw new Error('renderer must not bypass the recoverable main-process upgrade path')
     },
+    loadSnapshot: async () => snapshot,
   }, async () => {
     const loaded = await new ElectronStorageAdapter().loadSnapshot()
-    assert(loaded?.tagPresets?.[0] === 'renderer-migrated', 'renderer 应返回迁移并校验后的当前快照')
+    assert(loaded?.tagPresets?.[0] === 'main-validated', 'renderer 应接收主进程迁移并校验后的当前快照')
   })
 }
 
-export async function testElectronAdapterMigratesLegacyRawSnapshotBeforeValidation(): Promise<void> {
-  const legacySnapshot = {
-    trades: [{
-      id: 'legacy-trade',
-      ref: 'TRD-1',
-      symbol: 'BTCUSDT',
-      side: 'long',
-      status: 'win',
-      conviction: 'medium',
-      strategyId: 'legacy-strategy',
-      tradeKind: 'practice',
-      tags: [],
-      entry: 100,
-      exit: 110,
-      size: 1,
-      pnl: 10,
-      rMultiple: 1,
-      openedAt: '2026-01-01',
-      closedAt: '2026-01-02',
-      note: '',
-    }],
-    strategies: [{
-      id: 'legacy-strategy',
-      name: 'Legacy',
-      icon: 'target',
-      color: '#5e6ad2',
-    }],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    display: DEFAULT_DISPLAY,
-  }
+export async function testElectronAdapterPropagatesMainProcessUpgradeFailure(): Promise<void> {
+  let message = ''
   await withJournalBridge({
-    loadRawSnapshot: async () => ({ snapshot: legacySnapshot, manifestSchemaVersion: 3 }),
+    loadSnapshot: async () => {
+      throw new Error('资料库升级未完成，已恢复升级前数据')
+    },
   }, async () => {
-    const loaded = await new ElectronStorageAdapter().loadSnapshot()
-    assert(loaded?.trades[0]?.tradeKind === 'paper', 'v3 practice 必须经迁移转为 paper')
-    assert(loaded?.trades[0]?.reviewStatus === 'unreviewed', 'v4 旧交易必须补齐当前复盘状态')
-    assert(Array.isArray(loaded?.trades[0]?.mistakeTags), 'v4 旧交易必须补齐错误标签数组')
+    try {
+      await new ElectronStorageAdapter().loadSnapshot()
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
   })
+  assert(message.includes('已恢复升级前数据'), '主进程恢复失败必须原样反馈给 renderer')
 }
 
 export async function testElectronAdapterRejectsFutureLibraryBeforeHydration(): Promise<void> {
   let message = ''
   await withJournalBridge({
-    loadRawSnapshot: async () => ({
-      snapshot: currentSnapshot(),
-      manifestSchemaVersion: SCHEMA_VERSION + 1,
-    }),
+    loadSnapshot: async () => { throw new Error('该数据来自更新版本（v8）') },
   }, async () => {
     try {
       await new ElectronStorageAdapter().loadSnapshot()
@@ -112,10 +71,7 @@ export async function testElectronAdapterRejectsFutureLibraryBeforeHydration(): 
 export async function testElectronAdapterRejectsDamagedCurrentSnapshot(): Promise<void> {
   let message = ''
   await withJournalBridge({
-    loadRawSnapshot: async () => ({
-      snapshot: { ...currentSnapshot(), trades: [{ id: 'broken' }] },
-      manifestSchemaVersion: SCHEMA_VERSION,
-    }),
+    loadSnapshot: async () => { throw new Error('Stored library snapshot has invalid trade') },
   }, async () => {
     try {
       await new ElectronStorageAdapter().loadSnapshot()

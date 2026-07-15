@@ -1,5 +1,5 @@
-import type { Strategy } from '@/data/strategies'
-import { DEFAULT_STRATEGIES } from '@/data/strategies'
+import type { Strategy, StrategyVersion } from '@/data/strategies'
+import { createStrategyV1, DEFAULT_STRATEGIES } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { isTerminal } from '@/lib/tradeStatus'
 import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
@@ -81,4 +81,46 @@ export function migrateTrades(
 export function ensureStrategies(raw: Strategy[] | undefined): Strategy[] {
   if (!raw?.length) return [...DEFAULT_STRATEGIES]
   return raw
+}
+
+export function ensureStrategyVersionGraph(
+  rawStrategies: readonly Strategy[],
+  rawVersions: readonly StrategyVersion[] = [],
+): { strategies: Strategy[]; strategyVersions: StrategyVersion[] } {
+  const strategyIds = new Set(rawStrategies.map((strategy) => strategy.id))
+  const versions = rawVersions.filter(
+    (version, index, values) =>
+      strategyIds.has(version.strategyId) &&
+      values.findIndex((candidate) => candidate.id === version.id) === index,
+  )
+  const versionById = new Map(versions.map((version) => [version.id, version]))
+  const strategyVersions = [...versions]
+  const strategies = rawStrategies.map((strategy) => {
+    const current = strategy.currentVersionId
+      ? versionById.get(strategy.currentVersionId)
+      : undefined
+    if (current?.strategyId === strategy.id) return { ...strategy }
+    const created = createStrategyV1(strategy)
+    if (!versionById.has(created.version.id)) {
+      strategyVersions.push(created.version)
+      versionById.set(created.version.id, created.version)
+    }
+    return created.strategy
+  })
+  return { strategies, strategyVersions }
+}
+
+export function bindTradeStrategyVersions(
+  trades: readonly Trade[],
+  strategies: readonly Strategy[],
+): Trade[] {
+  const versionByStrategy = new Map(
+    strategies.map((strategy) => [strategy.id, strategy.currentVersionId ?? null]),
+  )
+  return trades.map((trade) => ({
+    ...trade,
+    strategyVersionId: trade.strategyId
+      ? trade.strategyVersionId ?? versionByStrategy.get(trade.strategyId) ?? null
+      : null,
+  }))
 }

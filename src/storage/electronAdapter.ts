@@ -1,8 +1,6 @@
 import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { getJournalBridge } from '@/storage/runtime'
-import { migrateSnapshotToCurrent } from '@/storage/upgrade'
-import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 
 const MAX_OBJECT_URL_CACHE = 128
 
@@ -25,18 +23,20 @@ export class ElectronStorageAdapter implements StorageAdapter {
   }
 
   async loadSnapshot(): Promise<PersistedSnapshot | null> {
-    const loaded = await getJournalBridge()!.loadRawSnapshot()
-    if (!loaded) return null
-    const migrated = migrateSnapshotToCurrent(loaded.snapshot, {
-      source: 'library',
-      manifestSchemaVersion: loaded.manifestSchemaVersion,
-    })
-    assertValidPersistedSnapshot(migrated.snapshot, 'Stored library snapshot')
-    return migrated.snapshot
+    return getJournalBridge()!.loadSnapshot()
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
     await getJournalBridge()!.saveSnapshot(snapshot)
+  }
+
+  async commitUpgradeSnapshot(
+    snapshot: PersistedSnapshot,
+    targetVersion: number,
+    validateHydrated?: (snapshot: unknown) => void,
+  ): Promise<'committed' | 'restored'> {
+    validateHydrated?.(snapshot)
+    return getJournalBridge()!.commitUpgradeSnapshot(snapshot, targetVersion)
   }
 
   async saveAsset(blob: Blob, mime: string): Promise<string> {

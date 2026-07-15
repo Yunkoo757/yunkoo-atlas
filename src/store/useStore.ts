@@ -7,7 +7,11 @@ import {
   type TradeKind,
   type TradeComment,
 } from '@/data/trades'
-import { type Strategy } from '@/data/strategies'
+import {
+  createStrategyV1,
+  type Strategy,
+  type StrategyVersion,
+} from '@/data/strategies'
 import {
   DEFAULT_DISPLAY,
   normalizeDisplay,
@@ -31,7 +35,11 @@ import {
   normalizeSymbolCatalog,
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
-import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
+import {
+  normalizeTradeEvidenceDefaults,
+  normalizeTradeMetrics,
+  resolveTradeResultSource,
+} from '@/lib/tradeTruth'
 import { formatYmd } from '@/lib/periods'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import { normalizeInitialStopLoss, prepareTradeResultEdit } from '@/lib/tradeResult'
@@ -110,17 +118,21 @@ function appendBoundedHistory(
 function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
   const previousTrade = s.trades.find((t) => t.id === trade.id)
   const strategyId = trade.strategyId || s.strategies[0]?.id || 'uncategorized'
-  let normalized: Trade = normalizeInitialStopLoss(normalizeTradeMetrics(promoteTradeNotionMeta(
+  const strategyVersionId = trade.strategyVersionId ??
+    s.strategies.find((strategy) => strategy.id === strategyId)?.currentVersionId ??
+    null
+  let normalized: Trade = normalizeTradeEvidenceDefaults(normalizeInitialStopLoss(normalizeTradeMetrics(promoteTradeNotionMeta(
     promoteTradeSession(
       normalizeReviewFields({
         ...trade,
         strategyId,
+        strategyVersionId,
         tradeKind: trade.tradeKind ?? 'live',
         comments: trade.comments ?? [],
         activities: trade.activities,
       }),
     ),
-  )))
+  ))))
   if (previousTrade) {
     normalized = reopenReviewAfterResultChange(
       previousTrade,
@@ -174,6 +186,8 @@ export function applyTradeUpsertsToSlice(
 interface State {
   trades: Trade[]
   strategies: Strategy[]
+  strategyVersions: StrategyVersion[]
+  reportingTimeZone: string | null
   selectedId: string | null
   composerOpen: boolean
   composerTrade: Trade | null
@@ -299,6 +313,8 @@ interface State {
 export const useStore = create<State>()((set, get) => ({
       trades: [],
       strategies: [],
+      strategyVersions: [],
+      reportingTimeZone: null,
       selectedId: null,
       composerOpen: false,
       composerTrade: null,
@@ -572,9 +588,16 @@ export const useStore = create<State>()((set, get) => ({
           }),
         })),
       setStrategy: (id, strategyId) =>
-        set((s) => ({
-          trades: s.trades.map((t) => (t.id === id ? { ...t, strategyId } : t)),
-        })),
+        set((s) => {
+          const strategyVersionId = s.strategies.find(
+            (strategy) => strategy.id === strategyId,
+          )?.currentVersionId ?? null
+          return {
+            trades: s.trades.map((t) =>
+              t.id === id ? { ...t, strategyId, strategyVersionId } : t,
+            ),
+          }
+        }),
       setTags: (id, tags) =>
         set((s) => {
           const nextTags = [...new Set(tags.map((x) => x.trim()).filter(Boolean))]
@@ -729,24 +752,50 @@ export const useStore = create<State>()((set, get) => ({
           if (s.strategies.some((x) => x.id === strategy.id || x.name === strategy.name)) {
             return s
           }
-          return { strategies: [...s.strategies, strategy] }
+          const created = createStrategyV1(strategy)
+          return {
+            strategies: [...s.strategies, created.strategy],
+            strategyVersions: [...s.strategyVersions, created.version],
+          }
         }),
       updateStrategy: (id, patch) =>
-        set((s) => ({
-          strategies: s.strategies.map((x) => (x.id === id ? { ...x, ...patch } : x)),
-        })),
+        set((s) => {
+          const current = s.strategies.find((strategy) => strategy.id === id)
+          if (!current) return s
+          const created = current.currentVersionId ? null : createStrategyV1(current)
+          const currentVersionId = current.currentVersionId ?? created!.strategy.currentVersionId
+          const strategyVersions = created
+            ? [...s.strategyVersions, created.version]
+            : s.strategyVersions
+          return {
+            strategies: s.strategies.map((strategy) =>
+              strategy.id === id ? { ...strategy, ...patch, currentVersionId } : strategy,
+            ),
+            strategyVersions: strategyVersions.map((version) =>
+              version.id === currentVersionId && patch.reviewTemplateHtml !== undefined
+                ? { ...version, reviewTemplateHtml: patch.reviewTemplateHtml }
+                : version,
+            ),
+          }
+        }),
       removeStrategy: (id, reassignToId) =>
         set((s) => {
           if (s.strategies.length <= 1) return s
           const count = s.trades.filter((t) => t.strategyId === id).length
           if (count > 0 && !reassignToId) return s
+          const reassignedVersionId = reassignToId
+            ? s.strategies.find((strategy) => strategy.id === reassignToId)?.currentVersionId ?? null
+            : null
           return {
             strategies: s.strategies.filter((x) => x.id !== id),
+            strategyVersions: s.strategyVersions.filter((version) => version.strategyId !== id),
             pinnedStrategyIds: s.pinnedStrategyIds.filter((x) => x !== id),
             trades:
               count > 0 && reassignToId
                 ? s.trades.map((t) =>
-                    t.strategyId === id ? { ...t, strategyId: reassignToId } : t,
+                    t.strategyId === id
+                      ? { ...t, strategyId: reassignToId, strategyVersionId: reassignedVersionId }
+                      : t,
                   )
                 : s.trades,
           }

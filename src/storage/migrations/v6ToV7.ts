@@ -37,7 +37,7 @@ function finiteOrNull(value: number | null): number | null {
 }
 
 function migrateDateEvidence(
-  value: string | null,
+  value: unknown,
   existingTimestamp: unknown,
   diagnostics: V7MigrationDiagnostic[],
   tradeId: string,
@@ -50,11 +50,15 @@ function migrateDateEvidence(
   if (existingTimestamp !== undefined && existingTimestamp !== null && candidate === null) {
     diagnostics.push({ tradeId, code: 'invalid-timestamp' })
   }
-  if (value === null) {
+  if (value === null || value === undefined) {
     return {
       date: null,
       timestamp: candidate,
     }
+  }
+  if (typeof value !== 'string') {
+    diagnostics.push({ tradeId, code: 'invalid-timestamp' })
+    return { date: null, timestamp: candidate }
   }
   const datePrefix = /^\d{4}-\d{2}-\d{2}/.exec(value)?.[0] ?? value
   const timestamp = candidate && candidate.startsWith(datePrefix)

@@ -63,6 +63,10 @@ export interface JournalBridge {
   loadRawSnapshot(): Promise<RawLibrarySnapshot | null>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
+  commitUpgradeSnapshot(
+    snapshot: PersistedSnapshot,
+    targetVersion: number,
+  ): Promise<'committed' | 'restored'>
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
   getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>

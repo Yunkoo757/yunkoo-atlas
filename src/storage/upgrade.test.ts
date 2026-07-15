@@ -9,6 +9,29 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+function historicalTrade(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 'legacy',
+    ref: 'TRD-legacy',
+    symbol: 'BTCUSDT',
+    side: 'long',
+    status: 'open',
+    conviction: 'medium',
+    strategyId: '',
+    tradeKind: 'live',
+    tags: [],
+    entry: 100,
+    exit: null,
+    size: 1,
+    pnl: null,
+    rMultiple: null,
+    openedAt: '2026-01-01',
+    closedAt: null,
+    note: '',
+    ...overrides,
+  }
+}
+
 export function testCurrentLibrarySnapshotRemainsAnIdentityMigration(): void {
   const raw = {
     trades: [],
@@ -98,11 +121,10 @@ export function testExplicitTargetRunsEveryRegisteredStepWithoutMutatingSource()
 
 export function testHistoricalV3SnapshotNormalizesKnownFieldsAndPreservesUnknownData(): void {
   const raw = {
-    trades: [{
-      id: 'legacy',
+    trades: [historicalTrade({
       tradeKind: 'practice',
       marker: { keep: true },
-    }],
+    })],
     strategies: [],
     starredIds: [],
     subscribedIds: [],
@@ -123,20 +145,22 @@ export function testHistoricalV3SnapshotNormalizesKnownFieldsAndPreservesUnknown
   assert(snapshot.trades[0]?.tradeKind === 'paper', 'legacy practice trades must become paper trades')
   assert(snapshot.trades[0]?.reviewStatus === 'unreviewed', 'v4 to v5 must add review status when missing')
   assert(Array.isArray(snapshot.trades[0]?.mistakeTags), 'v4 to v5 must add mistake tags when missing')
-  assert(snapshot.trades[0]?.marker.keep === true, 'unknown nested trade data must survive migration')
+  assert(
+    (snapshot.trades[0]?.marker as { keep?: boolean } | undefined)?.keep === true,
+    'unknown nested trade data must survive migration',
+  )
   assert(snapshot.futureOptionalField[0] === 'must-survive', 'unknown snapshot fields must survive migration')
   assert(raw.trades[0]?.tradeKind === 'practice', 'historical source objects must remain untouched')
 }
 
 export function testManifestV5WithCurrentV6DialectUsesIdempotentCompatibilityStep(): void {
   const raw = {
-    trades: [{
+    trades: [historicalTrade({
       id: 'current-dialect',
-      tradeKind: 'live',
       reviewStatus: 'reviewed',
       mistakeTags: ['追单'],
       reviewCategory: 'mistake',
-    }],
+    })],
     strategies: [],
     savedTradeViews: [{ id: 'saved', name: '当前视图' }],
     symbolCatalog: ['BTCUSDT'],
@@ -150,7 +174,10 @@ export function testManifestV5WithCurrentV6DialectUsesIdempotentCompatibilitySte
 
   assert(result.didChange, 'stale manifest metadata still needs a compatibility migration receipt')
   assert(snapshot.trades[0]?.reviewStatus === 'reviewed', 'existing current fields must not be reset')
-  assert(snapshot.trades[0]?.mistakeTags[0] === '追单', 'existing arrays must not be replaced')
+  assert(
+    (snapshot.trades[0]?.mistakeTags as string[] | undefined)?.[0] === '追单',
+    'existing arrays must not be replaced',
+  )
   assert(snapshot.savedTradeViews[0]?.id === 'saved', 'later optional fields must remain intact')
   assert(snapshot.symbolCatalog[0] === 'BTCUSDT', 'current dialect extensions must remain intact')
 }
@@ -160,7 +187,16 @@ export function testKnownExportVersionsMapToTheirProducerSchema(): void {
     { trades: [], strategies: [] },
     { source: 'json', exportVersion: 6 },
   )
-  assert(result.fromVersion === 6 && !result.didChange, 'export v6 maps to producer schema v6')
+  assert(
+    result.fromVersion === 6 && result.toVersion === 7 && result.didChange,
+    'export v6 must migrate from producer schema v6 to current v7',
+  )
+
+  const current = migrateSnapshotToCurrent(
+    { trades: [], strategies: [] },
+    { source: 'json', exportVersion: 7 },
+  )
+  assert(current.fromVersion === 7 && !current.didChange, 'export v7 maps to producer schema v7')
 
   let message = ''
   try {

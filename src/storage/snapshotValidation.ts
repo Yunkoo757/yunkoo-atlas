@@ -1,4 +1,5 @@
 import type { PersistedSnapshot } from '@/storage/types'
+import { assertValidV7Snapshot } from '@/storage/schemaV7'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -29,10 +30,8 @@ function isTrade(value: unknown): boolean {
     !TRADE_SIDES.has(String(value.side)) ||
     !TRADE_STATUSES.has(String(value.status)) ||
     !CONVICTIONS.has(String(value.conviction)) ||
-    typeof value.entry !== 'number' ||
-    !Number.isFinite(value.entry) ||
-    typeof value.size !== 'number' ||
-    !Number.isFinite(value.size)
+    !isNullableFiniteNumber(value.entry) ||
+    !isNullableFiniteNumber(value.size)
   ) return false
   if (value.tradeKind !== undefined && !TRADE_KINDS.has(String(value.tradeKind))) return false
   if (value.tags !== undefined && !isStringArray(value.tags)) return false
@@ -63,6 +62,10 @@ export function assertValidPersistedSnapshot(
   value: unknown,
   label = 'snapshot',
 ): asserts value is PersistedSnapshot {
+  if (isRecord(value) && value.schemaVersion === 7) {
+    assertValidV7Snapshot(value, label)
+    return
+  }
   if (!isRecord(value) || !Array.isArray(value.trades) || !Array.isArray(value.strategies)) {
     throw new Error(`${label} is missing trades or strategies`)
   }
@@ -73,4 +76,16 @@ export function assertValidPersistedSnapshot(
       throw new Error(`${label}.${field} must be a string array`)
     }
   }
+}
+
+export function assertValidSnapshotForSchema(
+  value: unknown,
+  schemaVersion: number,
+  label = 'snapshot',
+): asserts value is PersistedSnapshot {
+  if (schemaVersion === 7) {
+    assertValidV7Snapshot(value, label)
+    return
+  }
+  assertValidPersistedSnapshot(value, label)
 }

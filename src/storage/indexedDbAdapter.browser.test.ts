@@ -1,4 +1,5 @@
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
+import { migrateV6ToV7 } from '@/storage/migrations/v6ToV7'
 import type { PersistedSnapshot } from '@/storage/types'
 
 const DB_NAME = 'linear-journal-v3'
@@ -99,6 +100,7 @@ async function run(): Promise<void> {
       sidebarWorkspaceItems: [],
     },
   }
+  const currentV7Snapshot = migrateV6ToV7(currentDialectSnapshot).snapshot
   await putLibraryState(currentDialectSnapshot, {
     schemaVersion: 5,
     libraryId: 'legacy-v5-library',
@@ -111,8 +113,8 @@ async function run(): Promise<void> {
   )
 
   await putLibraryState(currentDialectSnapshot, {
-    schemaVersion: 7,
-    libraryId: 'future-v7-library',
+    schemaVersion: 8,
+    libraryId: 'future-v8-library',
     createdAt: '2026-01-01T00:00:00.000Z',
   })
   let futureVersionError: unknown
@@ -138,20 +140,30 @@ async function run(): Promise<void> {
     damagedSnapshotError = error
   }
   assert(
-    damagedSnapshotError instanceof Error && damagedSnapshotError.message.includes('invalid trade'),
+    damagedSnapshotError instanceof Error && damagedSnapshotError.message.includes('trades[0]'),
     '迁移后的损坏快照必须由当前结构校验拒绝',
   )
 
-  await adapter.saveSnapshot(currentDialectSnapshot)
+  await putLibraryState(currentV7Snapshot, {
+    schemaVersion: 7,
+    libraryId: 'current-v7-library',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  })
+  await adapter.saveSnapshot(currentV7Snapshot)
   const savedRaw = await adapter.loadRawSnapshot()
   const savedSnapshot = await adapter.loadSnapshot()
   assert(
-    JSON.stringify(savedRaw) === JSON.stringify(currentDialectSnapshot) &&
-      JSON.stringify(savedSnapshot) === JSON.stringify(currentDialectSnapshot),
+    JSON.stringify(savedRaw) === JSON.stringify(currentV7Snapshot) &&
+      JSON.stringify(savedSnapshot) === JSON.stringify(currentV7Snapshot),
     '普通 saveSnapshot 必须继续保存并加载当前快照',
   )
 
-  const v7Candidate = { ...currentDialectSnapshot, schemaVersion: 7, reportingTimeZone: null }
+  const v7Candidate = currentV7Snapshot
+  await putLibraryState(currentDialectSnapshot, {
+    schemaVersion: 6,
+    libraryId: 'upgrade-v6-library',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  })
   const commitResult = await adapter.commitUpgradeSnapshot(v7Candidate, 7, () => undefined)
   assert(commitResult === 'committed', 'validated browser upgrade must commit')
   assert((await adapter.getManifest()).schemaVersion === 7, 'browser manifest commits only after hydrate validation')

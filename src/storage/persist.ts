@@ -1,4 +1,4 @@
-import type { PersistedSnapshot } from '@/storage/types'
+import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
 import { getStorage } from '@/storage/index'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useStore } from '@/store/useStore'
@@ -46,6 +46,8 @@ export function pickPersisted(
   state: {
   trades: PersistedSnapshot['trades']
   strategies: PersistedSnapshot['strategies']
+  strategyVersions: NonNullable<PersistedSnapshot['strategyVersions']>
+  reportingTimeZone: string | null
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -61,8 +63,11 @@ export function pickPersisted(
 ): PersistedSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
   return {
+    schemaVersion: SCHEMA_VERSION,
+    reportingTimeZone: state.reportingTimeZone,
     trades: state.trades,
     strategies: state.strategies,
+    strategyVersions: state.strategyVersions,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,

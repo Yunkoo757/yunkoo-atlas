@@ -1,7 +1,10 @@
 import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
-import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
+import {
+  assertValidPersistedSnapshot,
+  assertValidSnapshotForSchema,
+} from '@/storage/snapshotValidation'
 import { collectAssetIdsFromNotes } from '@/storage/assets'
 import { migrateSnapshotToCurrent } from '@/storage/upgrade'
 
@@ -134,9 +137,15 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     const migrated = migrateSnapshotToCurrent(raw, {
       source: 'library',
       manifestSchemaVersion: manifest?.schemaVersion,
-    }).snapshot
-    assertValidPersistedSnapshot(migrated, 'Stored browser snapshot')
-    return migrated
+    })
+    assertValidPersistedSnapshot(migrated.snapshot, 'Stored browser snapshot')
+    if (migrated.didChange && migrated.toVersion === 7) {
+      const result = await this.commitUpgradeSnapshot(migrated.snapshot, migrated.toVersion)
+      if (result !== 'committed') {
+        throw new Error('浏览器资料库升级未完成，已恢复升级前数据，请重新打开后重试')
+      }
+    }
+    return migrated.snapshot
   }
 
   async loadRawSnapshot(): Promise<unknown | null> {
@@ -145,15 +154,16 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
-    assertValidPersistedSnapshot(snapshot, 'Browser snapshot')
+    assertValidSnapshotForSchema(snapshot, SCHEMA_VERSION, 'Browser snapshot')
     const db = this.requireDb()
     await idbPut(db, STORE_SNAPSHOT, 'main', snapshot)
   }
 
   async commitUpgradeSnapshot(
-    migratedSnapshot: unknown,
+    migratedSnapshot: PersistedSnapshot,
     targetVersion: number,
-    validateHydrated: (snapshot: unknown) => void,
+    validateHydrated: (snapshot: unknown) => void = (snapshot) =>
+      assertValidSnapshotForSchema(snapshot, targetVersion, 'Upgraded browser snapshot'),
   ): Promise<'committed' | 'restored'> {
     const db = this.requireDb()
     const currentSnapshot = await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')

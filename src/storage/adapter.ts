@@ -13,6 +13,11 @@ export interface StorageAdapter {
   loadRawSnapshot(): Promise<unknown | null>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<void>
+  commitUpgradeSnapshot?(
+    snapshot: PersistedSnapshot,
+    targetVersion: number,
+    validateHydrated?: (snapshot: unknown) => void,
+  ): Promise<'committed' | 'restored'>
 
   saveAsset(blob: Blob, mime: string): Promise<string>
   getAssetObjectUrl(id: string): Promise<string | null>

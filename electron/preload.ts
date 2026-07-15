@@ -56,6 +56,10 @@ export interface JournalBridge {
   loadRawSnapshot(): Promise<RawLibrarySnapshot | null>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
+  commitUpgradeSnapshot(
+    snapshot: PersistedSnapshot,
+    targetVersion: number,
+  ): Promise<'committed' | 'restored'>
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
   getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>
@@ -125,6 +129,8 @@ const bridge: JournalBridge = {
   loadRawSnapshot: () => ipcRenderer.invoke('storage:loadRawSnapshot'),
   loadSnapshot: () => ipcRenderer.invoke('storage:loadSnapshot'),
   saveSnapshot: (snapshot) => ipcRenderer.invoke('storage:saveSnapshot', snapshot),
+  commitUpgradeSnapshot: (snapshot, targetVersion) =>
+    ipcRenderer.invoke('storage:commitUpgradeSnapshot', { snapshot, targetVersion }),
   saveAsset: (data, mime) =>
     ipcRenderer.invoke('storage:saveAsset', { data, mime }),
   getAssetBytes: (id) => ipcRenderer.invoke('storage:getAssetBytes', id),

@@ -1,10 +1,10 @@
-import type { Strategy } from '@/data/strategies'
+import type { Strategy, StrategyVersion } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { ShortcutBinding } from '@/shortcuts/types'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
 export interface LibraryManifest {
@@ -30,8 +30,11 @@ export interface UserProfile {
 }
 
 export interface PersistedSnapshot {
+  schemaVersion?: number
+  reportingTimeZone?: string | null
   trades: Trade[]
   strategies: Strategy[]
+  strategyVersions?: StrategyVersion[]
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
