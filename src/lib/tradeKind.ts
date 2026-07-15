@@ -37,12 +37,23 @@ export function isAccountTrade(trade: Trade): boolean {
   return trade.tradeKind === 'live' || trade.tradeKind === 'paper'
 }
 
+/** 旧版以 0 表示未填写；载入后统一为真正的缺失值。 */
+function normalizeExecutionPlaceholders<T extends Trade>(trade: T): T {
+  const entry = trade.entry === 0 ? null : trade.entry
+  const size = trade.size === 0 ? null : trade.size
+  return entry === trade.entry && size === trade.size
+    ? trade
+    : { ...trade, entry, size }
+}
+
 export function normalizeTrades(trades: Trade[]): Trade[] {
   return trades.map((t) => {
     const tradeKind = normalizeTradeKind(t.tradeKind as string)
     const normalizedKind = tradeKind === t.tradeKind ? t : { ...t, tradeKind }
     return normalizeInitialStopLoss(normalizeTradeMetrics(
-      promoteTradeNotionMeta(promoteTradeSession(normalizeReviewFields(normalizedKind))),
+      promoteTradeNotionMeta(promoteTradeSession(normalizeReviewFields(
+        normalizeExecutionPlaceholders(normalizedKind),
+      ))),
     ))
   })
 }

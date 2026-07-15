@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { X } from '@/icons/appIcons'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { ChevronDown, X } from '@/icons/appIcons'
 import type { TradeStatus } from '@/data/trades'
 import { pnlToStatus } from '@/lib/tradeCalc'
 import {
+  parsePrimaryCloseResultMode,
   prepareTradeClose,
+  resolveInitialCloseResultMode,
   type CloseOutcome,
   type CloseResultMode,
+  type PrimaryCloseResultMode,
 } from '@/lib/tradeClose'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
@@ -18,11 +21,31 @@ const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
   { value: 'loss', label: '亏损' },
 ]
 
-const RESULT_MODES: Array<{ value: CloseResultMode; label: string }> = [
+const PRIMARY_RESULT_MODES: Array<{ value: PrimaryCloseResultMode; label: string }> = [
   { value: 'pnl', label: '盈亏金额' },
   { value: 'r', label: 'R 倍数' },
-  { value: 'price', label: '出场价格' },
 ]
+
+const PRIMARY_RESULT_MODE_STORAGE_KEY = 'yunkoo-atlas:trade-close-primary-result-mode'
+
+function readRememberedPrimaryResultMode(): PrimaryCloseResultMode | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return parsePrimaryCloseResultMode(window.localStorage.getItem(PRIMARY_RESULT_MODE_STORAGE_KEY))
+  } catch {
+    return null
+  }
+}
+
+function rememberPrimaryResultMode(mode: CloseResultMode): void {
+  const primaryMode = parsePrimaryCloseResultMode(mode)
+  if (!primaryMode || typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(PRIMARY_RESULT_MODE_STORAGE_KEY, primaryMode)
+  } catch {
+    // 本机偏好不可写时不应阻塞平仓。
+  }
+}
 
 function toLocalDate(value = new Date()): string {
   const year = value.getFullYear()
@@ -51,6 +74,7 @@ function initialOutcome(
 }
 
 export function TradeCloseDialog() {
+  const breakevenButtonRef = useRef<HTMLButtonElement>(null)
   const request = useStore((state) => state.closeTradeRequest)
   const trade = useStore((state) =>
     request ? state.trades.find((item) => item.id === request.tradeId) : undefined,
@@ -63,6 +87,7 @@ export function TradeCloseDialog() {
   const [pnl, setPnl] = useState('')
   const [rMultiple, setRMultiple] = useState('')
   const [closedAt, setClosedAt] = useState(toLocalDate())
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -83,13 +108,14 @@ export function TradeCloseDialog() {
       trade.pnl,
       trade.rMultiple,
     )
-    const nextMode = trade.pnl == null && trade.rMultiple != null ? 'r' : 'pnl'
+    const nextMode = resolveInitialCloseResultMode(trade, readRememberedPrimaryResultMode())
     setOutcome(nextOutcome)
     setResultMode(nextMode)
     setExit(trade.exit == null ? '' : String(trade.exit))
     setPnl(trade.pnl == null ? '' : String(Math.abs(trade.pnl)))
     setRMultiple(trade.rMultiple == null ? '' : String(Math.abs(trade.rMultiple)))
     setClosedAt(trade.closedAt ?? toLocalDate())
+    setDetailsOpen(nextMode === 'price')
     setError('')
   }, [trade?.id, request?.targetStatus])
 
@@ -101,6 +127,12 @@ export function TradeCloseDialog() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [request, cancelTradeClose])
+
+  useEffect(() => {
+    if (!request || !trade || resultMode === 'price' || outcome !== 'breakeven') return
+    const frame = requestAnimationFrame(() => breakevenButtonRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [request, trade?.id, resultMode, outcome])
 
   const previewResult = useMemo(() => {
     if (!trade) return null
@@ -114,6 +146,13 @@ export function TradeCloseDialog() {
   }, [trade, outcome, resultMode, exit, pnl, rMultiple, closedAt])
 
   if (!request || !trade) return null
+
+  const chooseResultMode = (mode: CloseResultMode) => {
+    setResultMode(mode)
+    rememberPrimaryResultMode(mode)
+    if (mode === 'price') setDetailsOpen(true)
+    setError('')
+  }
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -129,31 +168,26 @@ export function TradeCloseDialog() {
       return
     }
     completeTradeClose(trade.id, result.status, result.patch)
-    toast(`${trade.ref} 已平仓，已加入待复盘`)
+    toast(`${trade.ref} 已平仓，可稍后复盘`)
   }
 
   const preview = previewResult?.ok ? previewResult : null
   const displayedOutcome = resultMode === 'price' ? preview?.status ?? null : outcome
+  const previewError = resultMode === 'price' && exit.trim() && previewResult && !previewResult.ok
+    ? previewResult.error
+    : ''
+  const effectiveError = error || previewError
+  const feedbackId = 'trade-close-result-feedback'
   const summary = (() => {
-    if (error) return error
-    if (!preview) {
-      if (resultMode === 'price') {
-        if (exit.trim() && previewResult && !previewResult.ok) return previewResult.error
-        return '输入出场价后将按价格方向判断结果，不会自动生成盈亏金额。'
-      }
-      if (outcome === 'breakeven') return '将记录为保本，无需再填写 0。'
-      return resultMode === 'pnl'
-        ? '输入盈亏金额的绝对值，盈利或亏损将决定正负号。'
-        : '输入 R 倍数的绝对值，盈利或亏损将决定正负号。'
-    }
+    if (effectiveError) return effectiveError
     if (resultMode === 'price') {
-      return preview.patch.rMultiple == null
-        ? `按价格判定为${OUTCOMES.find((item) => item.value === preview.status)?.label ?? ''}；缺少有效初始止损，R 将留空。`
-        : `按价格判定为${OUTCOMES.find((item) => item.value === preview.status)?.label ?? ''} · ${fmtR(preview.patch.rMultiple)}`
+      if (!preview) return null
+      return `按价格判定为${OUTCOMES.find((item) => item.value === preview.status)?.label ?? ''} · ${fmtR(preview.patch.rMultiple ?? null)}`
     }
+    if (!preview || outcome === 'breakeven') return null
     return resultMode === 'pnl'
-      ? `将记录 ${fmtMoney(preview.patch.pnl ?? null)}；R 保持为空。`
-      : `将记录 ${fmtR(preview.patch.rMultiple ?? null)}；盈亏金额保持为空。`
+      ? `将记录 ${fmtMoney(preview.patch.pnl ?? null)}`
+      : `将记录 ${fmtR(preview.patch.rMultiple ?? null)}`
   })()
 
   return (
@@ -207,6 +241,7 @@ export function TradeCloseDialog() {
               {OUTCOMES.map((item) => (
                 <button
                   key={item.value}
+                  ref={item.value === 'breakeven' ? breakevenButtonRef : undefined}
                   type="button"
                   role="radio"
                   aria-checked={displayedOutcome === item.value}
@@ -225,92 +260,134 @@ export function TradeCloseDialog() {
           </section>
 
           <section className="trade-close-section">
-            <span className="trade-close-label">记录依据</span>
-            <div className="trade-close-modes" role="radiogroup" aria-label="记录依据">
-              {RESULT_MODES.map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={resultMode === item.value}
-                  className={`trade-close-mode${resultMode === item.value ? ' is-active' : ''}`}
-                  onClick={() => {
-                    setResultMode(item.value)
-                    setError('')
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div className="trade-close-result-heading">
+              <span className="trade-close-label">结果数值</span>
+              <div className="trade-close-modes" role="radiogroup" aria-label="主要结果依据">
+                {PRIMARY_RESULT_MODES.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={resultMode === item.value}
+                    className={`trade-close-mode${resultMode === item.value ? ' is-active' : ''}`}
+                    onClick={() => chooseResultMode(item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </section>
 
-          <div className="trade-close-fields">
-            {resultMode === 'pnl' && outcome !== 'breakeven' ? (
-              <label>
-                <span>盈亏金额 · 输入绝对值</span>
+            <div className="trade-close-primary-field">
+              {resultMode === 'pnl' && outcome !== 'breakeven' ? (
                 <input
+                  aria-label="盈亏金额"
+                  aria-describedby={error ? feedbackId : undefined}
+                  aria-invalid={Boolean(error)}
                   inputMode="decimal"
                   value={pnl}
                   onChange={(event) => {
                     setPnl(event.target.value)
                     setError('')
                   }}
-                  placeholder="例如 500"
+                  placeholder="输入金额绝对值，例如 500"
                   autoFocus
                 />
-              </label>
-            ) : null}
-            {resultMode === 'r' && outcome !== 'breakeven' ? (
-              <label>
-                <span>R 倍数 · 输入绝对值</span>
+              ) : null}
+              {resultMode === 'r' && outcome !== 'breakeven' ? (
                 <input
+                  aria-label="R 倍数"
+                  aria-describedby={error ? feedbackId : undefined}
+                  aria-invalid={Boolean(error)}
                   inputMode="decimal"
                   value={rMultiple}
                   onChange={(event) => {
                     setRMultiple(event.target.value)
                     setError('')
                   }}
-                  placeholder="例如 1.5"
+                  placeholder="输入 R 绝对值，例如 1.5"
                   autoFocus
                 />
-              </label>
-            ) : null}
-            {resultMode !== 'price' && outcome === 'breakeven' ? (
-              <div className="trade-close-zero-result">
-                <span>结果数值</span>
-                <strong>0 · 无需填写</strong>
+              ) : null}
+              {resultMode !== 'price' && outcome === 'breakeven' ? (
+                <span className="trade-close-zero-result">保本将直接记录为 0，无需填写</span>
+              ) : null}
+              {resultMode === 'price' ? (
+                <span className="trade-close-price-selected">正在根据出场价计算结果与 R</span>
+              ) : null}
+            </div>
+          </section>
+
+          {summary ? (
+            <div
+              id={feedbackId}
+              className={`trade-close-summary${effectiveError ? ' is-error' : ''}`}
+              role={effectiveError ? 'alert' : 'status'}
+            >
+              {summary}
+            </div>
+          ) : null}
+
+          <section className={`trade-close-details${detailsOpen ? ' is-open' : ''}`}>
+            <button
+              type="button"
+              className="trade-close-details-trigger"
+              aria-expanded={detailsOpen}
+              aria-controls="trade-close-details-content"
+              onClick={() => setDetailsOpen((open) => !open)}
+            >
+              <span>更多平仓信息</span>
+              <ChevronDown size={14} aria-hidden />
+            </button>
+
+            {detailsOpen ? (
+              <div id="trade-close-details-content" className="trade-close-details-content">
+                <div className="trade-close-price-option">
+                  <div>
+                    <strong>按出场价计算</strong>
+                    <span>根据入场价与初始止损计算结果和 R</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={resultMode === 'price' ? 'is-active' : ''}
+                    aria-pressed={resultMode === 'price'}
+                    onClick={() => chooseResultMode('price')}
+                  >
+                    {resultMode === 'price' ? '已选择' : '使用'}
+                  </button>
+                </div>
+
+                <div className="trade-close-fields">
+                  <label>
+                    <span>平仓日期</span>
+                    <input type="date" value={closedAt} onChange={(event) => setClosedAt(event.target.value)} required />
+                  </label>
+                  <label>
+                    <span>{resultMode === 'price' ? '出场价' : '出场价 · 可选'}</span>
+                    <input
+                      aria-describedby={resultMode === 'price' && effectiveError ? feedbackId : undefined}
+                      aria-invalid={Boolean(resultMode === 'price' && effectiveError)}
+                      inputMode="decimal"
+                      value={exit}
+                      onChange={(event) => {
+                        setExit(event.target.value)
+                        setError('')
+                      }}
+                      placeholder={resultMode === 'price' ? '用于计算结果与 R' : '仅记录，不参与换算'}
+                      autoFocus={resultMode === 'price'}
+                    />
+                  </label>
+                </div>
               </div>
             ) : null}
-            <label>
-              <span>平仓日期</span>
-              <input type="date" value={closedAt} onChange={(event) => setClosedAt(event.target.value)} required />
-            </label>
-            <label className={resultMode === 'price' ? 'trade-close-price-exit' : 'trade-close-optional-exit'}>
-              <span>{resultMode === 'price' ? '出场价' : '出场价 · 可选'}</span>
-              <input
-                inputMode="decimal"
-                value={exit}
-                onChange={(event) => {
-                  setExit(event.target.value)
-                  setError('')
-                }}
-                placeholder={resultMode === 'price' ? '用于判断结果与价格 R' : '仅记录，不参与换算'}
-                autoFocus={resultMode === 'price'}
-              />
-            </label>
-          </div>
-
-          <div className={`trade-close-summary${error ? ' is-error' : ''}`} role={error ? 'alert' : 'status'}>
-            {summary}
-          </div>
+          </section>
         </div>
 
         <footer className="trade-close-footer">
-          <span>保存后进入「待复盘」</span>
+          <span>执行数据可稍后补充</span>
           <div>
             <button type="button" className="trade-close-secondary" onClick={cancelTradeClose}>取消</button>
-            <button type="submit" className="trade-close-primary">保存并待复盘</button>
+            <button type="submit" className="trade-close-primary">确认平仓</button>
           </div>
         </footer>
       </form>

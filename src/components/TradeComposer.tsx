@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { X, ImagePlus } from '@/icons/appIcons'
+import { ChevronDown, X, ImagePlus } from '@/icons/appIcons'
 import { Select } from '@/components/ui/Select'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { useStore } from '@/store/useStore'
@@ -9,8 +9,7 @@ import {
   CASE_TYPE_META,
   TIMEFRAME_PRESETS,
   TRADE_KIND_META,
-  DEFAULT_TIMEFRAME,
-  resolveTimeframe,
+  normalizeTimeframe,
   type CaseType,
   type Trade,
   type TradeKind,
@@ -68,7 +67,7 @@ export function TradeComposer() {
 
   const [symbol, setSymbol] = useState(defaultSymbol)
   const [side, setSide] = useState<TradeSide>('long')
-  const [timeframe, setTimeframe] = useState<string>(DEFAULT_TIMEFRAME)
+  const [timeframe, setTimeframe] = useState('')
   const [session, setSession] = useState('')
   const [openedAt, setOpenedAt] = useState(() => formatYmd(new Date()))
   const [strategyId, setStrategyId] = useState('')
@@ -76,6 +75,7 @@ export function TradeComposer() {
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const inputRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -102,10 +102,14 @@ export function TradeComposer() {
     if (!open) return
     setSymbol(editing?.symbol ?? defaultSymbol)
     setSide(editing?.side ?? 'long')
-    setTimeframe(resolveTimeframe(editing?.timeframe))
+    setTimeframe(normalizeTimeframe(editing?.timeframe) ?? '')
     setSession(editing ? getSessionSelectValue(editing) : '')
     setOpenedAt(editing?.openedAt.slice(0, 10) ?? formatYmd(new Date()))
-    setStrategyId(editing?.strategyId ?? strategies[0]?.id ?? '')
+    setStrategyId(
+      editing?.strategyId && strategies.some((strategy) => strategy.id === editing.strategyId)
+        ? editing.strategyId
+        : '',
+    )
     setCaseType(
       editing?.caseType ??
         (editing?.status === 'missed'
@@ -116,6 +120,7 @@ export function TradeComposer() {
               ? 'ambiguous'
               : 'exemplar'),
     )
+    setDetailsOpen(Boolean(editing))
   }, [open, editing, strategies, defaultSymbol])
 
   // 重置状态
@@ -124,13 +129,14 @@ export function TradeComposer() {
       images.forEach((img) => URL.revokeObjectURL(img.preview))
       setSymbol(defaultSymbol)
       setSide('long')
-      setTimeframe(DEFAULT_TIMEFRAME)
+      setTimeframe('')
       setSession('')
       setOpenedAt(formatYmd(new Date()))
       setStrategyId('')
       setCaseType('exemplar')
       setImages([])
       setIsDragging(false)
+      setDetailsOpen(false)
     }
   }, [open, defaultSymbol])
 
@@ -235,9 +241,9 @@ export function TradeComposer() {
       const fields = {
         symbol: symbol.trim().toUpperCase(),
         side,
-        timeframe: resolveTimeframe(timeframe),
+        timeframe: normalizeTimeframe(timeframe),
         session: normalizeSession(session),
-        strategyId,
+        strategyId: strategyId || 'uncategorized',
         openedAt,
         ...(kind === 'case' ? { caseType, reviewCategory: legacyReviewCategory } : {}),
       }
@@ -265,10 +271,10 @@ export function TradeComposer() {
                   nextReviewAt: formatYmd(nextReview),
                 }
               : {}),
-            entry: 0,
+            entry: null,
             exit: null,
             stopLoss: null,
-            size: 0,
+            size: null,
             pnl: null,
             rMultiple: null,
             recordedAt: new Date().toISOString(),
@@ -391,84 +397,105 @@ export function TradeComposer() {
             </div>
           </section>
 
-          <section className="composer-attributes-section" aria-labelledby="composer-parameters-title">
-            <h4 id="composer-parameters-title">交易参数</h4>
-            <div className="composer-trade-essentials composer-parameter-grid">
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">波段级别</span>
-                <Select
-                  value={timeframe || DEFAULT_TIMEFRAME}
-                  onValueChange={setTimeframe}
-                  ariaLabel="参与波段级别"
-                  options={TIMEFRAME_PRESETS.map((preset) => ({
-                    value: preset,
-                    label: preset,
-                  }))}
-                />
-              </div>
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">交易时段</span>
-                <Select
-                  value={session}
-                  onValueChange={setSession}
-                  ariaLabel="交易时段"
-                  placeholder="未设置"
-                  options={[
-                    { value: '', label: '未设置' },
-                    ...SESSION_PRESETS.map((preset) => ({
-                      value: preset.value,
-                      label: preset.label,
-                    })),
-                  ]}
-                />
-              </div>
-              <label className="composer-essential-field">
-                <span className="composer-essential-label">交易日期</span>
-                <input
-                  type="date"
-                  value={openedAt}
-                  onChange={(event) => setOpenedAt(event.target.value)}
-                  aria-label="交易日期"
-                />
-              </label>
-            </div>
-          </section>
+          <button
+            type="button"
+            className={`composer-details-toggle${detailsOpen ? ' is-open' : ''}`}
+            aria-label="更多信息"
+            aria-expanded={detailsOpen}
+            aria-controls="trade-composer-details-content"
+            onClick={() => setDetailsOpen((current) => !current)}
+          >
+            <span>
+              <strong>更多信息</strong>
+              <small>周期、时段、策略与日期</small>
+            </span>
+            <ChevronDown size={14} aria-hidden />
+          </button>
 
-          <section className="composer-attributes-section" aria-labelledby="composer-archive-title">
-            <h4 id="composer-archive-title">归档信息</h4>
-            <div className={`composer-trade-essentials${activeKind === 'case' ? ' composer-archive-grid' : ''}`}>
-              <div className="composer-essential-field composer-essential-strategy">
-                <span className="composer-essential-label">策略</span>
-                <Select
-                  value={strategyId}
-                  onValueChange={setStrategyId}
-                  ariaLabel="交易策略"
-                  options={
-                    strategies.length === 0
-                      ? [{ value: '', label: '未设置' }]
-                      : strategies.map((strategy) => ({
+          {detailsOpen && (
+            <div id="trade-composer-details-content" className="composer-details-content">
+              <section className="composer-attributes-section" aria-labelledby="composer-parameters-title">
+                <h4 id="composer-parameters-title">交易参数</h4>
+                <div className="composer-trade-essentials composer-parameter-grid">
+                  <div className="composer-essential-field">
+                    <span className="composer-essential-label">波段级别</span>
+                    <Select
+                      value={timeframe}
+                      onValueChange={setTimeframe}
+                      ariaLabel="参与波段级别"
+                      options={[
+                        { value: '', label: '未设置' },
+                        ...TIMEFRAME_PRESETS.map((preset) => ({
+                          value: preset,
+                          label: preset,
+                        })),
+                      ]}
+                    />
+                  </div>
+                  <div className="composer-essential-field">
+                    <span className="composer-essential-label">交易时段</span>
+                    <Select
+                      value={session}
+                      onValueChange={setSession}
+                      ariaLabel="交易时段"
+                      placeholder="未设置"
+                      options={[
+                        { value: '', label: '未设置' },
+                        ...SESSION_PRESETS.map((preset) => ({
+                          value: preset.value,
+                          label: preset.label,
+                        })),
+                      ]}
+                    />
+                  </div>
+                  <label className="composer-essential-field">
+                    <span className="composer-essential-label">交易日期</span>
+                    <input
+                      type="date"
+                      value={openedAt}
+                      onChange={(event) => setOpenedAt(event.target.value)}
+                      aria-label="交易日期"
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="composer-attributes-section" aria-labelledby="composer-archive-title">
+                <h4 id="composer-archive-title">归档信息</h4>
+                <div className={`composer-trade-essentials${activeKind === 'case' ? ' composer-archive-grid' : ''}`}>
+                  <div className="composer-essential-field composer-essential-strategy">
+                    <span className="composer-essential-label">策略</span>
+                    <Select
+                      value={strategyId}
+                      onValueChange={setStrategyId}
+                      ariaLabel="交易策略"
+                      options={[
+                        { value: '', label: '未设置' },
+                        ...strategies.map((strategy) => ({
                           value: strategy.id,
                           label: strategy.name,
-                        }))
-                  }
-                />
-              </div>
-              {activeKind === 'case' && (
-                <div className="composer-essential-field">
-                  <span className="composer-essential-label">案例类型</span>
-                  <Select
-                    value={caseType}
-                    onValueChange={(value) => setCaseType(value as CaseType)}
-                    ariaLabel="案例类型"
-                    options={CASE_TYPES.map((value) => ({
-                      value,
-                      label: CASE_TYPE_META[value].label,
-                    }))}
-                  />
+                        })),
+                      ]}
+                    />
+                  </div>
+                  {activeKind === 'case' && (
+                    <div className="composer-essential-field">
+                      <span className="composer-essential-label">案例类型</span>
+                      <Select
+                        value={caseType}
+                        onValueChange={(value) => setCaseType(value as CaseType)}
+                        ariaLabel="案例类型"
+                        options={CASE_TYPES.map((value) => ({
+                          value,
+                          label: CASE_TYPE_META[value].label,
+                        }))}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
+              </section>
             </div>
-          </section>
+          )}
 
           {images.length > 0 && (
             <div className="composer-images-preview composer-images-preview-body">

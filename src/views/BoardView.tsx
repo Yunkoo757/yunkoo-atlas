@@ -17,7 +17,7 @@ import {
   CASE_TYPE_META,
   STATUS_META,
   getTimeframeTone,
-  resolveTimeframe,
+  normalizeTimeframe,
   type TradeStatus,
   type Trade,
 } from '@/data/trades'
@@ -350,12 +350,14 @@ function BoardColumnBody({
                   <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
                 </div>
                 <div className="bd-case-tags">
-                  <span
-                    className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(resolveTimeframe(t.timeframe))}`}
-                    title={`波段级别 ${resolveTimeframe(t.timeframe)}`}
-                  >
-                    {resolveTimeframe(t.timeframe)}
-                  </span>
+                  {normalizeTimeframe(t.timeframe) ? (
+                    <span
+                      className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(t.timeframe)}`}
+                      title={`波段级别 ${normalizeTimeframe(t.timeframe)}`}
+                    >
+                      {normalizeTimeframe(t.timeframe)}
+                    </span>
+                  ) : null}
                   {isReviewCaseView &&
                     t.mistakeTags.slice(0, 2).map((tag) => (
                       <span className="bd-case-tag bd-case-tag-danger" key={tag}>

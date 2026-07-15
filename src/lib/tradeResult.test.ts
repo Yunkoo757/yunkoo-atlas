@@ -146,6 +146,21 @@ export function testLoadedLegacyTradeFreezesItsBestKnownInitialStop(): void {
   )
 }
 
+export function testLoadedLegacyTradeMigratesUnknownExecutionPlaceholdersToNull(): void {
+  const [normalized] = normalizeTrades([{
+    ...trade,
+    status: 'open',
+    entry: 0,
+    size: 0,
+    pnl: null,
+    rMultiple: null,
+    resultSource: undefined,
+  }])
+
+  assert(normalized?.entry === null, 'legacy zero entry placeholders should become unknown')
+  assert(normalized?.size === null, 'legacy zero size placeholders should become unknown')
+}
+
 export function testPriceAuthorityRecalculatesWhenSideChanges(): void {
   const result = prepareTradeResultEdit({
     ...trade,
@@ -179,6 +194,23 @@ export function testIncompletePriceEditClearsPriceAuthority(): void {
   assert(result.patch.rMultiple === null, 'incomplete prices cannot retain a derived R')
   assert(result.patch.resultSource === undefined, 'incomplete prices must clear price authority')
   assert(result.status === undefined, 'incomplete prices cannot invent a closed outcome')
+}
+
+export function testClearingEntryMakesPriceAuthorityIncomplete(): void {
+  const result = prepareTradeResultEdit({
+    ...trade,
+    pnl: null,
+    rMultiple: 2,
+    resultSource: 'price',
+    initialStopLoss: 1.095,
+  }, {
+    kind: 'execution',
+    patch: { entry: null },
+  })
+
+  assert(result.patch.entry === null, 'clearing entry should remain an intentional edit')
+  assert(result.patch.rMultiple === null, 'a trade without entry cannot retain a price-derived R')
+  assert(result.patch.resultSource === undefined, 'clearing entry must clear price authority')
 }
 
 export function testEditingCashResultClearsStaleRAndBecomesAuthoritative(): void {

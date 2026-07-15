@@ -128,6 +128,11 @@ try {
       label: 'src/components/RouteState.browser.test.tsx :: route recovery and delayed loading',
     },
     {
+      url: '/src/components/TradeComposer.browser.test.html',
+      promiseKey: '__tradeComposerDefaultsTest',
+      label: 'src/components/TradeComposer.browser.test.tsx :: new records remain unclassified',
+    },
+    {
       url: '/src/editor/imageLoadFailure.browser.test.html',
       promiseKey: '__editorImageLoadFailureTest',
       label: 'src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations',

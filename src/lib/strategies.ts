@@ -67,11 +67,11 @@ export function migrateTradeStrategy(
     if (legacy) {
       const byName = strategies.find((s) => s.name === legacy)
       const byId = strategies.find((s) => s.id === legacy)
-      const id = byName?.id ?? byId?.id ?? strategies[0]?.id ?? 'uncategorized'
+      const id = byName?.id ?? byId?.id ?? 'uncategorized'
       const { strategy: _drop, ...rest } = trade as Trade & { strategy?: string }
       base = { ...rest, strategyId: id }
     } else {
-      base = { ...trade, strategyId: strategies[0]?.id ?? 'uncategorized' }
+      base = { ...trade, strategyId: 'uncategorized' }
     }
   }
   return {

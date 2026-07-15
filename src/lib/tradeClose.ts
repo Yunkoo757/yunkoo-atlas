@@ -3,6 +3,7 @@ import { calcPriceResult, calcRFromPrices, pnlToStatus } from '@/lib/tradeCalc'
 
 export type CloseOutcome = Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
 export type CloseResultMode = 'pnl' | 'r' | 'price'
+export type PrimaryCloseResultMode = Exclude<CloseResultMode, 'price'>
 
 export type TradeCloseInput = {
   outcome: CloseOutcome
@@ -22,6 +23,21 @@ export type TradeCloseResult =
 
 function finiteOrNull(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+export function parsePrimaryCloseResultMode(value: unknown): PrimaryCloseResultMode | null {
+  return value === 'pnl' || value === 'r' ? value : null
+}
+
+export function resolveInitialCloseResultMode(
+  trade: Pick<Trade, 'pnl' | 'rMultiple' | 'resultSource'>,
+  rememberedMode: unknown,
+): CloseResultMode {
+  if (trade.resultSource === 'price') return 'price'
+  if (trade.resultSource === 'r') return 'r'
+  if (trade.resultSource === 'pnl') return 'pnl'
+  if (trade.pnl == null && trade.rMultiple != null) return 'r'
+  return parsePrimaryCloseResultMode(rememberedMode) ?? 'pnl'
 }
 
 /**
@@ -58,11 +74,13 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
   } else if (input.resultMode === 'price') {
     resultSource = 'price'
     if (exit == null) return { ok: false, error: '请填写出场价' }
-    const priceResult = calcPriceResult(trade.side, trade.entry, exit)
+    const entry = finiteOrNull(trade.entry)
+    if (entry == null) return { ok: false, error: '缺少有效入场价，无法按价格计算结果' }
+    const priceResult = calcPriceResult(trade.side, entry, exit)
     if (priceResult == null) return { ok: false, error: '入场价或出场价无效，请核对后再保存' }
     pnl = null
     const initialStopLoss = trade.initialStopLoss ?? trade.stopLoss ?? null
-    rMultiple = calcRFromPrices(trade.side, trade.entry, exit, initialStopLoss)
+    rMultiple = calcRFromPrices(trade.side, entry, exit, initialStopLoss)
     if (rMultiple == null) {
       return { ok: false, error: '缺少有效初始止损，无法按价格计算 R；请改用盈亏金额或 R 倍数' }
     }

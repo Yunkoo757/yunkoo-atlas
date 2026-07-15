@@ -1,24 +1,48 @@
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
+import { encodeSnapshotForLegacyReaders } from '@/storage/snapshotCompatibility'
+import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import type { PersistedSnapshot } from '@/storage/types'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-const valid = {
+const valid: PersistedSnapshot = {
   trades: [{
     id: 'trade-1', ref: 'TRD-1', symbol: 'BTCUSDT', side: 'long', status: 'open',
     conviction: 'medium', strategyId: 'strategy-1', tags: [], mistakeTags: [],
+    reviewStatus: 'unreviewed', reviewCategory: 'normal',
     tradeKind: 'live', entry: 100, exit: null, size: 1, pnl: null, rMultiple: null,
     openedAt: '2026-07-14', closedAt: null, note: '',
   }],
   strategies: [{ id: 'strategy-1', name: '趋势', icon: 'trending-up', color: '#5e6ad2' }],
   starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
+  display: DEFAULT_DISPLAY,
 }
 
 export function testSnapshotValidationAcceptsOpenTradesAndLegacyOptionalFields(): void {
   assertValidPersistedSnapshot(valid)
   const legacy = { ...valid, trades: valid.trades.map(({ tradeKind: _tradeKind, mistakeTags: _mistakes, ...trade }) => trade) }
   assertValidPersistedSnapshot(legacy)
+}
+
+export function testSnapshotValidationAcceptsUnknownEntryAndSizeAsNull(): void {
+  assertValidPersistedSnapshot({
+    ...valid,
+    trades: [{ ...valid.trades[0], entry: null, size: null }],
+  })
+}
+
+export function testUnknownExecutionValuesRemainReadableByThePreviousClientOnDisk(): void {
+  const runtimeSnapshot = {
+    ...valid,
+    trades: [{ ...valid.trades[0], entry: null, size: null }],
+  }
+  const encoded = encodeSnapshotForLegacyReaders(runtimeSnapshot)
+
+  assert(encoded.trades[0]?.entry === 0, 'unknown entry should use the previous on-disk sentinel')
+  assert(encoded.trades[0]?.size === 0, 'unknown size should use the previous on-disk sentinel')
+  assert(runtimeSnapshot.trades[0]?.entry === null, 'encoding must not mutate the live runtime trade')
 }
 
 export function testSnapshotValidationRejectsMalformedTradeAndSettingsData(): void {

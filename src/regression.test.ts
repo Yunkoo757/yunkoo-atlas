@@ -1879,6 +1879,9 @@ export function testTradeTableRowFormatsDenseRecordFields(): void {
   assert(row.result === 'Profit', 'table row maps winning trade to Profit result')
   assert(row.confluences.join(',') === 'MTF ORA,LTF ChoCh', 'table row exposes tags as confluences')
   assert(row.mistakes.join(',') === '追单', 'table row exposes mistake tags')
+
+  const withoutTimeframe = buildTradeTableRow({ ...trade, timeframe: undefined }, [strategy])
+  assert(withoutTimeframe.timeframe === '—', '未填写周期的记录不得在表格中伪装成 4H')
 }
 
 export function testNotionCsvFallbackMatchesImagesByNotionIdNotFolderOrder(): void {
@@ -2124,6 +2127,27 @@ export function testUpsertTradesNotifiesOnce(): void {
       mistakeTagPresets: prevMistakes,
     })
   }
+}
+
+export function testNotionResultInfersStatusWhenStatusIsMissing(): void {
+  const csv = [
+    'Date,Symbol,Position,Net PnL,Max R/R',
+    '2026/07/15,EURUSD,Buy,US$120,2',
+  ].join('\n')
+  const result = parseNotionCsv(csv, [strategy])
+
+  assert(result.previews[0]?.trade.status === 'win', '有正向结果的 Notion 记录不得仍归类为计划中')
+}
+
+export async function testNotionImageOnlyArchiveCannotCreateAFakeTrade(): Promise<void> {
+  const JSZip = (await import('jszip')).default
+  const zip = new JSZip()
+  zip.file('screenshots/chart.png', new Uint8Array([137, 80, 78, 71]))
+  const archive = await zip.generateAsync({ type: 'arraybuffer' })
+  const result = await parseNotionZip(archive, [strategy])
+
+  assert(result.validRows === 0, '纯图片包不能生成可提交的伪交易')
+  assert(result.previews.every((item) => item.errors.length > 0), '纯图片包必须明确要求补齐交易归属')
 }
 
 export function testWorkbenchCountMatchesVisibleTradesWithoutSorting(): void {

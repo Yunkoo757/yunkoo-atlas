@@ -1,5 +1,9 @@
 import type { Trade } from '@/data/trades'
-import { prepareTradeClose } from '@/lib/tradeClose'
+import {
+  parsePrimaryCloseResultMode,
+  prepareTradeClose,
+  resolveInitialCloseResultMode,
+} from '@/lib/tradeClose'
 
 const trade: Trade = {
   id: 'close-1',
@@ -29,6 +33,51 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+export function testCloseUsesRememberedPrimaryResultModeForAnUnsettledTrade(): void {
+  const mode = resolveInitialCloseResultMode(trade, 'r')
+
+  assert(mode === 'r', 'an unsettled trade should reuse the most recently chosen primary result mode')
+}
+
+export function testCloseKeepsAnExistingResultSourceAheadOfTheRememberedMode(): void {
+  const mode = resolveInitialCloseResultMode({
+    ...trade,
+    pnl: null,
+    rMultiple: -1.5,
+    resultSource: 'r',
+  }, 'pnl')
+
+  assert(mode === 'r', 'an existing R result should reopen in R mode even when cash was used more recently')
+}
+
+export function testCloseReopensAnExistingPriceResultInPriceMode(): void {
+  const mode = resolveInitialCloseResultMode({
+    ...trade,
+    pnl: null,
+    rMultiple: 2,
+    resultSource: 'price',
+  }, 'pnl')
+
+  assert(mode === 'price', 'an existing price-authority result should remain editable in price mode')
+}
+
+export function testClosePreservesLegacySingleMetricResults(): void {
+  const mode = resolveInitialCloseResultMode({
+    ...trade,
+    pnl: null,
+    rMultiple: -1,
+    resultSource: undefined,
+  }, 'pnl')
+
+  assert(mode === 'r', 'a legacy R-only result should reopen in R mode instead of being cleared by cash mode')
+}
+
+export function testCloseOnlyRemembersCashOrRAsThePrimaryResultMode(): void {
+  assert(parsePrimaryCloseResultMode('r') === 'r', 'R should be a rememberable primary mode')
+  assert(parsePrimaryCloseResultMode('pnl') === 'pnl', 'cash should be a rememberable primary mode')
+  assert(parsePrimaryCloseResultMode('price') === null, 'price should remain an advanced one-off mode')
+}
+
 export function testClosePriceWithoutStopRequiresAnotherResultMode(): void {
   const result = prepareTradeClose({ ...trade, stopLoss: null }, {
     outcome: 'loss',
@@ -41,6 +90,20 @@ export function testClosePriceWithoutStopRequiresAnotherResultMode(): void {
   assert(!result.ok, 'price mode without initial risk should ask for cash or R instead')
   if (result.ok) return
   assert(result.error.includes('止损'), 'the error should explain why price R is unavailable')
+}
+
+export function testClosePriceRequiresARecordedEntryPrice(): void {
+  const result = prepareTradeClose({ ...trade, entry: null }, {
+    outcome: 'win',
+    resultMode: 'price',
+    value: null,
+    exit: 110,
+    closedAt: '2026-07-13',
+  })
+
+  assert(!result.ok, 'price mode should reject a trade whose entry price was never recorded')
+  if (result.ok) return
+  assert(result.error.includes('入场价'), 'the error should direct the user to the missing execution field')
 }
 
 export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {

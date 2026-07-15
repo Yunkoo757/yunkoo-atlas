@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, useId } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -39,7 +39,7 @@ import {
   MISS_REASON_META,
   TIMEFRAME_PRESETS,
   getTimeframeTone,
-  resolveTimeframe,
+  normalizeTimeframe,
   type TradeStatus,
   type Conviction,
   type TradeSide,
@@ -807,25 +807,28 @@ export function DetailView() {
               }
             />
             <Menu
-              value={resolveTimeframe(trade.timeframe)}
+              value={normalizeTimeframe(trade.timeframe) ?? ''}
               onSelect={(v) =>
                 updateTradeData(trade.id, {
-                  timeframe: resolveTimeframe(v),
+                  timeframe: normalizeTimeframe(v),
                 })
               }
-              options={TIMEFRAME_PRESETS.map((preset) => ({
-                value: preset,
-                label: preset,
-              }))}
+              options={[
+                { value: '', label: '未设置' },
+                ...TIMEFRAME_PRESETS.map((preset) => ({
+                  value: preset,
+                  label: preset,
+                })),
+              ]}
               trigger={
                 <PropTrigger label="波段级别">
                   <span
                     className={
                       'dv-prop-chip is-timeframe is-' +
-                      getTimeframeTone(resolveTimeframe(trade.timeframe))
+                      getTimeframeTone(trade.timeframe)
                     }
                   >
-                    {resolveTimeframe(trade.timeframe)}
+                    {normalizeTimeframe(trade.timeframe) ?? '未设置'}
                   </span>
                 </PropTrigger>
               }
@@ -984,16 +987,16 @@ export function DetailView() {
             )}
           </Section>
 
-          <Section title="交易数据">
+          <Section title="执行明细" defaultOpen={false}>
             <EditableDataRow
               label="入场"
               value={trade.entry}
-              format={(v) => fmtPrice(v as number)}
+              format={(v) => (v == null ? '—' : fmtPrice(v))}
               inputType="number"
               nullable
               onSave={(v) => commitTradeResultEdit({
                 kind: 'execution',
-                patch: { entry: v as number },
+                patch: { entry: v as number | null },
               })}
             />
             <EditableDataRow
@@ -1010,11 +1013,12 @@ export function DetailView() {
             <EditableDataRow
               label="仓位"
               value={trade.size}
-              format={String}
+              format={(v) => (v == null ? '—' : String(v))}
               inputType="number"
+              nullable
               onSave={(v) => commitTradeResultEdit({
                 kind: 'execution',
-                patch: { size: v as number },
+                patch: { size: v as number | null },
               })}
             />
             <EditableDataRow
@@ -1028,6 +1032,9 @@ export function DetailView() {
                 patch: { stopLoss: v as number | null },
               })}
             />
+          </Section>
+
+          <Section title="交易结果">
             <EditableDataRow
               label="盈亏"
               value={trade.pnl}
@@ -1171,21 +1178,29 @@ export function DetailView() {
 function Section({
   title,
   children,
+  defaultOpen = true,
 }: {
   title: string
   children: React.ReactNode
+  defaultOpen?: boolean
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
+  const contentId = useId()
   return (
     <div className="dv-section">
-      <button className="dv-section-head" onClick={() => setOpen((o) => !o)}>
+      <button
+        className="dv-section-head"
+        aria-expanded={open}
+        aria-controls={contentId}
+        onClick={() => setOpen((o) => !o)}
+      >
         <span>{title}</span>
         <ChevronDown
           size={13}
           className={'dv-section-chev' + (open ? '' : ' is-closed')}
         />
       </button>
-      {open && <div className="dv-section-body">{children}</div>}
+      {open && <div id={contentId} className="dv-section-body">{children}</div>}
     </div>
   )
 }
@@ -1244,7 +1259,7 @@ function EditableDataRow({
       return
     }
     const num = parseFloat(draft)
-    if (isNaN(num)) return
+    if (!Number.isFinite(num)) return
     if (num !== value) onSave(num)
   }
 

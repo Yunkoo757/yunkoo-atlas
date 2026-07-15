@@ -1,6 +1,7 @@
 import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { getJournalBridge } from '@/storage/runtime'
+import { encodeSnapshotForLegacyReaders } from '@/storage/snapshotCompatibility'
 
 const MAX_OBJECT_URL_CACHE = 128
 
@@ -22,7 +23,7 @@ export class ElectronStorageAdapter implements StorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
-    await getJournalBridge()!.saveSnapshot(snapshot)
+    await getJournalBridge()!.saveSnapshot(encodeSnapshotForLegacyReaders(snapshot))
   }
 
   async saveAsset(blob: Blob, mime: string): Promise<string> {
@@ -82,7 +83,11 @@ export class ElectronStorageAdapter implements StorageAdapter {
     assets: ExportAssetRecord[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
-    await getJournalBridge()!.commitImport(snapshot, assets, options)
+    await getJournalBridge()!.commitImport(
+      encodeSnapshotForLegacyReaders(snapshot),
+      assets,
+      options,
+    )
     this.clearObjectUrlCache()
   }
 

@@ -87,6 +87,58 @@
   line-height: 1.5;
 }
 
+.composer-details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 2px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+}
+
+.composer-details-toggle > span {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.composer-details-toggle strong {
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.composer-details-toggle small {
+  overflow: hidden;
+  color: var(--text-faint);
+  font-size: var(--type-metadata-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-details-toggle:hover strong {
+  color: var(--text-primary);
+}
+
+.composer-details-toggle svg {
+  flex: 0 0 auto;
+  transition: transform 120ms var(--ease-out);
+}
+
+.composer-details-toggle.is-open svg {
+  transform: rotate(180deg);
+}
+
+.composer-details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .composer-field-quick,
 .composer-essential-field {
   display: flex;

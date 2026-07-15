@@ -89,11 +89,11 @@ export interface Trade {
   caseType?: CaseType
   masteryState?: MasteryState
   nextReviewAt?: string | null
-  entry: number
+  entry: number | null // null 表示未知；旧数据中的占位 0 会在载入时迁移
   exit: number | null
   stopLoss?: number | null
   initialStopLoss?: number | null // 首次按价格平仓时冻结，避免后续移动止损改写历史 R
-  size: number // 仓位
+  size: number | null // 仓位；null 表示未记录
   pnl: number | null // 盈亏金额；null 表示尚未填写，0 表示真实保本
   rMultiple: number | null // R 倍数；null 表示尚未填写，0 表示真实保本
   resultSource?: TradeResultSource // 用户确认的结果依据；旧数据在载入时推断

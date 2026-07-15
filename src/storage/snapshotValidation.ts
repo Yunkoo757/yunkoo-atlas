@@ -30,10 +30,8 @@ function isTrade(value: unknown): boolean {
     !TRADE_SIDES.has(String(value.side)) ||
     !TRADE_STATUSES.has(String(value.status)) ||
     !CONVICTIONS.has(String(value.conviction)) ||
-    typeof value.entry !== 'number' ||
-    !Number.isFinite(value.entry) ||
-    typeof value.size !== 'number' ||
-    !Number.isFinite(value.size)
+    !isNullableFiniteNumber(value.entry) ||
+    !isNullableFiniteNumber(value.size)
   ) return false
   if (value.tradeKind !== undefined && !TRADE_KINDS.has(String(value.tradeKind))) return false
   if (value.tags !== undefined && !isStringArray(value.tags)) return false

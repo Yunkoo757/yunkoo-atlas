@@ -70,14 +70,21 @@ export function prepareTradeResultEdit(
   }
   if (resolveTradeResultSource(trade) === 'price') {
     const next = { ...trade, ...edit.patch }
-    const priceResult = calcPriceResult(next.side, next.entry, next.exit ?? 0)
+    const entry = typeof next.entry === 'number' && Number.isFinite(next.entry) && next.entry !== 0
+      ? next.entry
+      : null
+    const priceResult = entry == null
+      ? null
+      : calcPriceResult(next.side, entry, next.exit ?? 0)
     const initialStopLossPatch = 'stopLoss' in edit.patch
       ? freezeInitialStopLossPatch(trade, edit.patch.stopLoss)
       : {}
     const initialStopLoss = initialStopLossPatch.initialStopLoss
       ?? next.initialStopLoss
       ?? next.stopLoss
-    const rMultiple = calcRFromFrozenPriceRisk(next.entry, priceResult, initialStopLoss)
+    const rMultiple = entry == null
+      ? null
+      : calcRFromFrozenPriceRisk(entry, priceResult, initialStopLoss)
     return {
       patch: {
         ...edit.patch,

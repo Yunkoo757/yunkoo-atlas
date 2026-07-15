@@ -1,5 +1,6 @@
 import type { Strategy } from '@/data/strategies'
 import type { NotionTradePreview } from '@/lib/notionImport'
+import { executeNotionImport } from '@/lib/notionImport'
 import {
   commitNotionImportBatch,
   MAX_NOTION_IMAGE_BYTES,
@@ -108,6 +109,43 @@ function seedStore(): { strategies: Strategy[]; tradeIds: string[] } {
   }]
   useStore.setState({ trades: [], strategies })
   return { strategies, tradeIds: [] }
+}
+
+export function testNotionImportDoesNotInventExecutionOrClassificationDefaults(): void {
+  const preview: NotionTradePreview = {
+    trade: {
+      symbol: 'EURUSD',
+      side: 'long',
+      status: 'open',
+      conviction: 'medium',
+      openedAt: '2026-07-15',
+      tags: [],
+      mistakeTags: [],
+    },
+    collectedTags: [],
+    mistakeTags: [],
+    noteHtml: '',
+    images: [],
+    imageCount: 0,
+    errors: [],
+    warnings: [],
+    rowIndex: 1,
+  }
+
+  const result = executeNotionImport([preview], [{
+    id: 'strategy-1',
+    name: '不应被默认选择',
+    icon: 'target',
+    color: '#5e6ad2',
+  }], [])
+  const imported = result.trades[0]
+
+  assert(imported?.strategyId === 'uncategorized', '缺失策略的 Notion 数据必须保持未分类')
+  assert(imported?.timeframe === undefined, '缺失周期的 Notion 数据不得伪造为 4H')
+  assert(imported?.entry === null, '缺失入场价必须保持未知')
+  assert(imported?.size === null, '缺失仓位必须保持未知')
+  assert(imported?.pnl === null, '缺失盈亏必须保持未知')
+  assert(imported?.rMultiple === null, '缺失 R 倍数必须保持未知')
 }
 
 export function testNotionAssetPreparationKeepsAllOriginalBytesLosslessly(): void {

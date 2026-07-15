@@ -110,7 +110,7 @@ export function WelcomeScreen({ onReady }: Props) {
         <p className="welcome-hint">
           库目录中会存储交易数据 (journal.db) 和附件文件。
           <br />
-          建议放在本地磁盘或 iCloud / OneDrive 中以备同步。
+          请放在本地磁盘。云盘可用于存放导出的备份包，不要同步正在使用的库目录。
         </p>
       </div>
     </div>

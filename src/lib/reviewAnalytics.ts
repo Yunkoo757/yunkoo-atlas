@@ -6,7 +6,7 @@ import type {
   Trade,
   TradeKind,
 } from '@/data/trades'
-import { resolveTimeframe } from '@/data/trades'
+import { normalizeTimeframe } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
@@ -82,7 +82,7 @@ export function normalizeReviewFields(trade: Trade): Trade {
     mistakeTags,
     reviewStatus,
     reviewCategory,
-    timeframe: resolveTimeframe(trade.timeframe),
+    timeframe: normalizeTimeframe(trade.timeframe),
     caseType,
     masteryState,
     nextReviewAt,

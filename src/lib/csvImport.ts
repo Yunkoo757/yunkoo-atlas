@@ -1,7 +1,7 @@
 import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind, ReviewCategory } from '@/data/trades'
-import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
+import { normalizeTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
-import { calcRFromPrices } from '@/lib/tradeCalc'
+import { calcRFromPrices, pnlToStatus } from '@/lib/tradeCalc'
 import { formatYmd } from '@/lib/periods'
 
 export interface CsvParseResult {
@@ -33,17 +33,17 @@ export type TradeField =
 const TRADE_FIELDS: { key: TradeField; label: string; required: boolean; type: string }[] = [
   { key: 'symbol', label: '标的', required: true, type: 'string' },
   { key: 'side', label: '方向', required: true, type: 'side' },
-  { key: 'status', label: '状态', required: true, type: 'status' },
+  { key: 'status', label: '状态', required: false, type: 'status' },
   { key: 'conviction', label: '信心度', required: false, type: 'conviction' },
-  { key: 'strategyId', label: '策略', required: true, type: 'strategy' },
+  { key: 'strategyId', label: '策略', required: false, type: 'strategy' },
   { key: 'tags', label: '标签', required: false, type: 'tags' },
   { key: 'tradeKind', label: '类型', required: false, type: 'tradeKind' },
   { key: 'reviewCategory', label: '快速分类', required: false, type: 'reviewCategory' },
   { key: 'session', label: '交易时段', required: false, type: 'string' },
   { key: 'timeframe', label: '波段级别', required: false, type: 'string' },
-  { key: 'entry', label: '入场价', required: true, type: 'number' },
+  { key: 'entry', label: '入场价', required: false, type: 'number' },
   { key: 'exit', label: '出场价', required: false, type: 'number' },
-  { key: 'size', label: '仓位', required: true, type: 'number' },
+  { key: 'size', label: '仓位', required: false, type: 'number' },
   { key: 'pnl', label: '盈亏金额', required: false, type: 'number' },
   { key: 'rMultiple', label: 'R倍数', required: false, type: 'number' },
   { key: 'openedAt', label: '开仓日期', required: true, type: 'date' },
@@ -289,6 +289,7 @@ export function mapRowToTrade(
         break
       }
       case 'status': {
+        if (!raw.trim()) break
         const s = parseStatus(raw)
         if (s) trade.status = s
         else errors.push(`状态无效: "${raw}"（应为 win/loss/open 等）`)
@@ -299,6 +300,7 @@ export function mapRowToTrade(
         break
       case 'strategyId': {
         const name = raw.trim()
+        if (!name) break
         const found = strategies.find(
           (s) => s.name.toLowerCase() === name.toLowerCase(),
         )
@@ -319,6 +321,7 @@ export function mapRowToTrade(
         trade.reviewCategory = parseReviewCategory(raw) ?? 'normal'
         break
       case 'entry': {
+        if (!raw.trim()) break
         const n = parseNumber(raw)
         if (n !== null) trade.entry = n
         else errors.push(`入场价无效: "${raw}"`)
@@ -330,6 +333,7 @@ export function mapRowToTrade(
         break
       }
       case 'size': {
+        if (!raw.trim()) break
         const n = parseNumber(raw)
         if (n !== null) trade.size = n
         else errors.push(`仓位无效: "${raw}"`)
@@ -407,30 +411,37 @@ export function finalizeTrade(
   nextRef: string,
   nextId: string,
 ): Trade | null {
-  if (!partial.symbol || !partial.side || !partial.status || !partial.entry || !partial.size || !partial.openedAt || !partial.strategyId) {
+  if (!partial.symbol || !partial.side || !partial.openedAt) {
     return null
   }
+
+  const resultMetric = partial.pnl ?? partial.rMultiple
+  const status = partial.status ?? (
+    typeof resultMetric === 'number' && Number.isFinite(resultMetric)
+      ? pnlToStatus(resultMetric)
+      : 'planned'
+  )
 
   return {
     id: nextId,
     ref: nextRef,
     symbol: partial.symbol,
     side: partial.side,
-    status: partial.status,
+    status,
     conviction: partial.conviction ?? 'medium',
-    strategyId: partial.strategyId,
+    strategyId: partial.strategyId ?? 'uncategorized',
     session: partial.session,
-    timeframe: resolveTimeframe(partial.timeframe),
+    timeframe: normalizeTimeframe(partial.timeframe),
     tags: partial.tags ?? [],
     mistakeTags: partial.mistakeTags ?? [],
     reviewStatus: partial.reviewStatus ?? 'unreviewed',
     reviewCategory: partial.reviewCategory ?? 'normal',
     tradeKind: partial.tradeKind ?? 'live',
-    entry: partial.entry,
+    entry: partial.entry === 0 ? null : partial.entry ?? null,
     exit: partial.exit ?? null,
     stopLoss: partial.stopLoss ?? null,
     initialStopLoss: partial.initialStopLoss ?? null,
-    size: partial.size,
+    size: partial.size === 0 ? null : partial.size ?? null,
     pnl: partial.pnl ?? null,
     rMultiple: partial.rMultiple ?? null,
     resultSource: partial.resultSource,

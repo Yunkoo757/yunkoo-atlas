@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
-import { CASE_TYPE_META, REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
+import { CASE_TYPE_META, REVIEW_CATEGORY_META, normalizeTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
@@ -42,7 +42,7 @@ export const TradeRow = memo(function TradeRow({
 }: TradeRowProps) {
   const showResult = trade.status !== 'planned' && trade.status !== 'open'
   const session = getTradeSessionMeta(trade)
-  const timeframe = resolveTimeframe(trade.timeframe)
+  const timeframe = normalizeTimeframe(trade.timeframe)
   const symbolIconsFromStore = useStore((state) =>
     symbolIconsProp === undefined ? state.symbolIcons : null,
   )
@@ -152,9 +152,11 @@ export const TradeRow = memo(function TradeRow({
         )}
       </span>
       <span className="trade-row-timeframe-slot">
-        <span className="trade-row-timeframe" title={`波段级别 ${timeframe}`}>
-          {timeframe}
-        </span>
+        {timeframe ? (
+          <span className="trade-row-timeframe" title={`波段级别 ${timeframe}`}>
+            {timeframe}
+          </span>
+        ) : null}
       </span>
       <span className={'trade-row-pnl' + (trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? fmtMoney(trade.pnl) : '—'}

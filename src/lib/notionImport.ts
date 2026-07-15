@@ -14,10 +14,11 @@
  */
 
 import type { Trade, TradeStatus, TradeSide, Conviction } from '@/data/trades'
-import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
+import { normalizeTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import type { CsvParseResult } from '@/lib/csvImport'
 import { parseCsv } from '@/lib/csvImport'
+import { pnlToStatus } from '@/lib/tradeCalc'
 import { normalizeSession, normalizeNarrative, normalizePsychology } from '@/lib/tradeView'
 import { formatYmd } from '@/lib/periods'
 import JSZip from 'jszip'
@@ -144,7 +145,7 @@ function stripNotionUrl(val: string): string {
 // ② 值映射
 // ============================================================
 
-function mapNotionStatus(raw: string): TradeStatus {
+function mapNotionStatus(raw: string): TradeStatus | null {
   const v = raw.toLowerCase()
   if (v.includes('t/p') || v.includes('tp') || v.includes('take profit')) return 'win'
   if (v.includes('s/l') || v.includes('sl') || v.includes('stop loss')) return 'loss'
@@ -152,7 +153,7 @@ function mapNotionStatus(raw: string): TradeStatus {
   if (v.includes('open') || v.includes('持仓') || v.includes('active')) return 'open'
   if (v.includes('plan') || v.includes('计划') || v.includes('pending')) return 'planned'
   if (v.includes('miss') || v.includes('错过')) return 'missed'
-  return 'planned'
+  return null
 }
 
 function mapProfitLossEmoji(raw: string): TradeStatus | null {
@@ -485,7 +486,8 @@ function buildTradeFromFrontmatter(
   // Status
   const statusRaw = stripNotionUrl(fm['status'] ?? '')
   const plRaw = stripNotionUrl(fm['profit/loss'] ?? '')
-  let status = mapNotionStatus(statusRaw)
+  const mappedStatus = mapNotionStatus(statusRaw)
+  let status = mappedStatus ?? 'planned'
   const plStatus = mapProfitLossEmoji(plRaw)
   if ((status === 'planned' || status === 'open') && plStatus) status = plStatus
 
@@ -495,6 +497,11 @@ function buildTradeFromFrontmatter(
   // R
   const parsedR = parseFloat(stripNotionUrl(fm['max r/r'] ?? ''))
   const rMultiple = Number.isFinite(parsedR) ? parsedR : null
+
+  if ((status === 'planned' || status === 'open') && !plStatus) {
+    const resultMetric = pnl ?? rMultiple
+    if (resultMetric != null && Number.isFinite(resultMetric)) status = pnlToStatus(resultMetric)
+  }
 
   // Stop Loss
   const stopLoss = parseFloat(stripNotionUrl(fm['s/l pips'] ?? '')) || null
@@ -561,13 +568,13 @@ function buildTradeFromFrontmatter(
       conviction,
       strategyId,
       session: normalizeSession(session),
-      timeframe: resolveTimeframe(timeframe),
+      timeframe,
       narrative,
       psychology,
       tradeKind: 'live',
-      entry: 0,
+      entry: null,
       exit: null,
-      size: 0,
+      size: null,
       pnl,
       rMultiple,
       stopLoss,
@@ -806,15 +813,16 @@ export async function parseNotionZip(
     previews.push({
       trade: {
         symbol: 'NOTION-IMPORT', side: 'long', status: 'planned', conviction: 'medium',
-        strategyId: existingStrategies[0]?.id ?? '', tradeKind: 'live',
-        entry: 0, exit: null, size: 0, pnl: 0, rMultiple: 0,
+        strategyId: 'uncategorized', tradeKind: 'live',
+        entry: null, exit: null, size: null, pnl: null, rMultiple: null,
         openedAt: formatYmd(new Date()), closedAt: null,
         tags: ['notion-import'], mistakeTags: [], reviewStatus: 'unreviewed', reviewCategory: 'normal',
       },
       collectedTags: [], mistakeTags: [],
       noteHtml: '<p><em>📸 Notion 截图（' + allImgs.length + ' 张）</em></p>',
       images: allImgs, imageCount: allImgs.length,
-      errors: [], warnings: ['无 CSV/.md 交易数据，请手动补全'],
+      errors: ['未找到可归属的交易数据，纯图片包不会创建交易'],
+      warnings: ['请先补充 CSV/.md 交易数据，再重新导入图片'],
       rowIndex: 0,
     })
   }
@@ -854,6 +862,31 @@ const NOTION_FIELD_PATTERNS: [RegExp, NotionField][] = [
   [/^Entry Performance$/i, 'entryPerformance'], [/^News Impact$/i, 'newsImpact'],
 ]
 
+const NOTION_FRONTMATTER_KEYS: Record<NotionField, string> = {
+  id: 'id',
+  symbol: 'symbol',
+  date: 'date',
+  position: 'position',
+  status: 'status',
+  profitLoss: 'profit/loss',
+  pnl: 'net pnl',
+  rMultiple: 'max r/r',
+  stopLoss: 's/l pips',
+  model: 'model',
+  weight: 'weight',
+  confluences: 'confluences',
+  entrySignal: 'entry signal',
+  timeFrame: 'time frame',
+  session: 'session',
+  mistakes: 'mistakes',
+  narrative: 'narrative',
+  psychology: 'psychology',
+  orderType: 'order type',
+  tradeType: 'type of trade',
+  entryPerformance: 'entry performance',
+  newsImpact: 'news impact',
+}
+
 function detectNotionFields(headers: string[]): Map<NotionField, number> {
   const map = new Map<NotionField, number>()
   for (let i = 0; i < headers.length; i++) {
@@ -878,7 +911,7 @@ function mapCsvRowToPreview(
   // Build a synthetic frontmatter from CSV fields
   const fm: MdFrontmatter = {}
   for (const [field, colIdx] of fields.entries()) {
-    fm[field] = getCell(row, colIdx)
+    fm[NOTION_FRONTMATTER_KEYS[field]] = getCell(row, colIdx)
   }
   return buildTradeFromFrontmatter(fm, rowIndex, [])
 }
@@ -1051,7 +1084,7 @@ export function executeNotionImport(
       const found = strategyMap.get(preview.newStrategyName.toLowerCase())
       if (found) strategyId = found.id
     }
-    if (!strategyId && strategies.length > 0) strategyId = strategies[0]!.id
+    if (!strategyId) strategyId = 'uncategorized'
 
     const tradeStatus = preview.trade.status ?? 'planned'
     const isTerminalStatus = tradeStatus === 'win' || tradeStatus === 'loss' || tradeStatus === 'breakeven'
@@ -1065,7 +1098,7 @@ export function executeNotionImport(
       conviction: preview.trade.conviction ?? 'medium',
       strategyId,
       session: preview.trade.session,
-      timeframe: resolveTimeframe(preview.trade.timeframe),
+      timeframe: normalizeTimeframe(preview.trade.timeframe),
       narrative: preview.trade.narrative,
       psychology: preview.trade.psychology,
       tags: preview.trade.tags ?? [],
@@ -1073,12 +1106,12 @@ export function executeNotionImport(
       reviewStatus: 'unreviewed',
       reviewCategory: preview.trade.reviewCategory ?? 'normal',
       tradeKind: 'live',
-      entry: preview.trade.entry ?? 0,
-      exit: null,
+      entry: preview.trade.entry ?? null,
+      exit: preview.trade.exit ?? null,
       stopLoss: preview.trade.stopLoss ?? null,
-      size: 0,
-      pnl: preview.trade.pnl ?? 0,
-      rMultiple: preview.trade.rMultiple ?? 0,
+      size: preview.trade.size ?? null,
+      pnl: preview.trade.pnl ?? null,
+      rMultiple: preview.trade.rMultiple ?? null,
       openedAt: preview.trade.openedAt ?? now.slice(0, 10),
       closedAt: isTerminalStatus ? preview.trade.openedAt ?? null : null,
       note: preview.noteHtml || '',

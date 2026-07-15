@@ -54,6 +54,10 @@ import {
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
+import {
+  encodeSnapshotForLegacyReaders,
+  encodeTradesForLegacyReaders,
+} from '@/storage/snapshotCompatibility'
 
 export const EXPORT_VERSION = 6 // 6: +savedTradeViews
 
@@ -198,9 +202,9 @@ function isTrade(v: unknown): v is Trade & { strategy?: string } {
   ) {
     return false
   }
-  if (!isFiniteNumber(v.entry)) return false
+  if (!isNullableFiniteNumber(v.entry)) return false
   if (!isNullableFiniteNumber(v.exit)) return false
-  if (!isFiniteNumber(v.size)) return false
+  if (!isNullableFiniteNumber(v.size)) return false
   if (!isNullableFiniteNumber(v.pnl)) return false
   if (!isNullableFiniteNumber(v.rMultiple)) return false
   if (v.stopLoss !== undefined && !isNullableFiniteNumber(v.stopLoss)) return false
@@ -251,7 +255,7 @@ export async function buildExportPayloadFromState(
   }
   return {
     version: EXPORT_VERSION,
-    trades: state.trades,
+    trades: encodeTradesForLegacyReaders(state.trades),
     strategies: state.strategies,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
@@ -300,9 +304,11 @@ export async function downloadExport(): Promise<void> {
 export async function downloadWebJournalZip(): Promise<void> {
   await flushPersistNow()
   const state = useStore.getState()
-  const portableSnapshot = buildPortableSnapshotFromState(
-    state,
-    useShortcutStore.getState().bindings,
+  const portableSnapshot = encodeSnapshotForLegacyReaders(
+    buildPortableSnapshotFromState(
+      state,
+      useShortcutStore.getState().bindings,
+    ),
   )
   const { trades } = portableSnapshot
   const storage = getStorage()

@@ -1,6 +1,6 @@
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
-import { resolveTimeframe } from '@/data/trades'
+import { normalizeTimeframe } from '@/data/trades'
 import { getStrategyName } from '@/lib/strategies'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 
@@ -52,7 +52,7 @@ export function buildTradeTableRow(trade: Trade, strategies: Strategy[]): TradeT
     ref: trade.ref,
     date: formatTableDate(trade.openedAt),
     symbol: trade.symbol,
-    timeframe: resolveTimeframe(trade.timeframe),
+    timeframe: normalizeTimeframe(trade.timeframe) ?? '—',
     model: getStrategyName(strategies, trade.strategyId),
     confluences: trade.tags,
     entrySignal: trade.tags[1] ?? trade.tags[0] ?? '—',

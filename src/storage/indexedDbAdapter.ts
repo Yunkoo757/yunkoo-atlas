@@ -2,6 +2,7 @@ import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
+import { encodeSnapshotForLegacyReaders } from '@/storage/snapshotCompatibility'
 import { collectAssetIdsFromNotes } from '@/storage/assets'
 
 // This browser storage name is intentionally kept for backward compatibility.
@@ -120,7 +121,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
     assertValidPersistedSnapshot(snapshot, 'Browser snapshot')
     const db = this.requireDb()
-    await idbPut(db, STORE_SNAPSHOT, 'main', snapshot)
+    await idbPut(db, STORE_SNAPSHOT, 'main', encodeSnapshotForLegacyReaders(snapshot))
   }
 
   async saveAsset(blob: Blob, mime: string): Promise<string> {
@@ -253,7 +254,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     })
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction([STORE_SNAPSHOT, STORE_ASSETS], 'readwrite')
-      tx.objectStore(STORE_SNAPSHOT).put(snapshot, 'main')
+      tx.objectStore(STORE_SNAPSHOT).put(encodeSnapshotForLegacyReaders(snapshot), 'main')
       const assetStore = tx.objectStore(STORE_ASSETS)
       records.forEach((record) => assetStore.put(record))
       if (options?.pruneUnreferenced) {

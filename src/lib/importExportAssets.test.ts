@@ -4,6 +4,7 @@ import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import {
   buildExportPayloadFromState,
   buildPortableSnapshotFromState,
+  mergeImportPayload,
   parseImportJson,
   prepareImportPayloadForCommit,
 } from '@/lib/importExport'
@@ -90,6 +91,43 @@ export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): 
   assert(!second?.note.includes('asset-1'), 'second trade does not receive asset-1')
 }
 
+export async function testUnknownExecutionValuesExportCompatiblyAndRemainImportable(): Promise<void> {
+  const unknownExecutionTrade: Trade = {
+    ...trade,
+    id: 't-unknown-execution',
+    ref: 'TRD-UNKNOWN',
+    status: 'open',
+    entry: null,
+    exit: null,
+    size: null,
+    pnl: null,
+    rMultiple: null,
+    closedAt: null,
+  }
+  const payload = await buildExportPayloadFromState(
+    {
+      trades: [unknownExecutionTrade],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+    },
+    async () => null,
+  )
+
+  assert(payload.trades[0]?.entry === 0, 'portable JSON should keep the legacy unknown-price sentinel')
+  assert(payload.trades[0]?.size === 0, 'portable JSON should keep the legacy unknown-size sentinel')
+  assert(parseImportJson(JSON.stringify(payload)).ok, 'the current exporter output must be accepted by the importer')
+
+  const nullablePayload = {
+    ...payload,
+    trades: [{ ...unknownExecutionTrade }],
+  }
+  const nullableParsed = parseImportJson(JSON.stringify(nullablePayload))
+  assert(nullableParsed.ok, 'newer backups with explicit null execution values must remain importable')
+}
+
 export function testJsonImportRejectsMismatchedDeclaredResultAuthority(): void {
   const payload = {
     version: 6,
@@ -165,6 +203,29 @@ export function testJsonImportAcceptsOpenTradesWithoutResults(): void {
   if (!parsed.ok) return
   assert(parsed.data.trades[0]?.pnl === null, '未填写盈亏应保持 null，而不是伪造为 0')
   assert(parsed.data.trades[0]?.rMultiple === null, '未填写 R 倍数应保持 null')
+}
+
+export function testLegacyBlankStrategyRemainsUncategorizedAfterMerge(): void {
+  const current = {
+    trades: [] as Trade[],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }
+  const payload = {
+    version: 6,
+    trades: [{ ...trade, strategyId: '' }],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }
+  const merged = mergeImportPayload(current, payload)
+
+  assert(merged.trades[0]?.strategyId === 'uncategorized', '空策略不得静默绑定第一条策略')
 }
 
 export function testJsonImportRejectsAttachmentPathTraversalIds(): void {

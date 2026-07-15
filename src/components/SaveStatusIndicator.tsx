@@ -4,10 +4,10 @@ import './SaveStatusIndicator.css'
 
 const LABELS = {
   idle: '',
-  dirty: '未保存',
-  saving: '保存中…',
-  saved: '已保存',
-  error: '保存失败',
+  dirty: '本机未保存',
+  saving: '保存到本机中…',
+  saved: '本机已保存',
+  error: '本机保存失败',
 } as const
 
 const SAVED_VISIBLE_MS = 1600
