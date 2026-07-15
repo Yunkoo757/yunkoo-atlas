@@ -15,6 +15,16 @@ async function selectValue(trigger, value) {
   await trigger.click()
   await page.locator(`.ui-select-option[data-value="${value}"]`).click()
 }
+
+async function flushPageStorage() {
+  await page.evaluate(async () => {
+    const { waitForPendingStorageOperations } = await import('/src/storage/pendingOperations.ts')
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await waitForPendingStorageOperations()
+    await flushPersistNow()
+  })
+}
+
 async function createTrade(symbol) {
   await page.goto(`${BASE}/list`, { waitUntil: 'networkidle' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
@@ -38,12 +48,14 @@ async function pasteAndReadImage() {
   }, pngB64)
   await page.keyboard.press('Control+v')
   await page.locator('.editor img').first().waitFor({ timeout: 10000 })
+  await flushPageStorage()
   await page.locator('.save-status--saved').waitFor({ state: 'visible', timeout: 10000 })
   const imgBefore = await page.locator('.editor img').count()
   const assetIdBefore = await page.locator('.editor img').first().getAttribute('data-asset-id')
   const srcBefore = await page.locator('.editor img').first().getAttribute('src')
   await page.reload({ waitUntil: 'networkidle' })
   await editor.waitFor()
+  await page.locator('.editor img').first().waitFor({ timeout: 30000 })
   const imgAfter = await page.locator('.editor img').count()
   const assetIdAfter = await page.locator('.editor img').first().getAttribute('data-asset-id')
   const srcAfter = await page.locator('.editor img').first().getAttribute('src')
@@ -76,6 +88,7 @@ async function pasteGeneratedImage(width, height) {
   }, { width, height })
   await page.keyboard.press('Control+v')
   await page.locator('.editor img').nth(1).waitFor()
+  await flushPageStorage()
   await page.locator('.save-status--saved').waitFor({ state: 'visible', timeout: 10000 })
 }
 
