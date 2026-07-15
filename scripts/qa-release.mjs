@@ -70,4 +70,5 @@ try {
 }
 
 run('pnpm', ['build:app'])
+run('pnpm', ['qa:performance'])
 run('pnpm', ['qa:electron'])

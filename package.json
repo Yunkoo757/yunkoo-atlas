@@ -33,6 +33,7 @@
     "qa:design": "node scripts/qa-design-contract.mjs",
     "qa:sidebar": "node scripts/qa-sidebar-navigation.mjs",
     "qa:linear": "node scripts/qa-linear-rebuild.mjs",
+    "qa:performance": "node scripts/qa-performance.mjs",
     "qa:electron": "node scripts/qa-electron.mjs",
     "qa:release": "node scripts/qa-release.mjs"
   },
