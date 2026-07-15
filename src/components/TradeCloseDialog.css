@@ -133,7 +133,7 @@
 
 .trade-close-modes {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px;
   padding: 2px;
   background: var(--field-bg);
@@ -175,10 +175,6 @@
   gap: 5px;
 }
 
-.trade-close-optional-exit {
-  grid-column: 1 / -1;
-}
-
 .trade-close-price-exit {
   order: -1;
 }
@@ -186,6 +182,7 @@
 .trade-close-zero-result {
   display: flex;
   min-width: 0;
+  grid-column: 1 / -1;
   flex-direction: column;
   gap: 5px;
 }

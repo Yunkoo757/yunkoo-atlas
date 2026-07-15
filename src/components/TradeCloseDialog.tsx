@@ -19,8 +19,7 @@ const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
 ]
 
 const RESULT_MODES: Array<{ value: CloseResultMode; label: string }> = [
-  { value: 'pnl', label: '盈亏金额' },
-  { value: 'r', label: 'R 倍数' },
+  { value: 'pnl', label: '手动填写' },
   { value: 'price', label: '出场价格' },
 ]
 
@@ -83,7 +82,7 @@ export function TradeCloseDialog() {
       trade.pnl,
       trade.rMultiple,
     )
-    const nextMode = trade.pnl == null && trade.rMultiple != null ? 'r' : 'pnl'
+    const nextMode = trade.resultSource === 'price' ? 'price' : 'pnl'
     setOutcome(nextOutcome)
     setResultMode(nextMode)
     setExit(trade.exit == null ? '' : String(trade.exit))
@@ -107,7 +106,8 @@ export function TradeCloseDialog() {
     return prepareTradeClose(trade, {
       outcome,
       resultMode,
-      value: parseOptionalNumber(resultMode === 'r' ? rMultiple : pnl),
+      pnl: parseOptionalNumber(pnl),
+      rMultiple: parseOptionalNumber(rMultiple),
       exit: parseOptionalNumber(exit),
       closedAt,
     })
@@ -120,7 +120,8 @@ export function TradeCloseDialog() {
     const result = prepareTradeClose(trade, {
       outcome,
       resultMode,
-      value: parseOptionalNumber(resultMode === 'r' ? rMultiple : pnl),
+      pnl: parseOptionalNumber(pnl),
+      rMultiple: parseOptionalNumber(rMultiple),
       exit: parseOptionalNumber(exit),
       closedAt,
     })
@@ -142,18 +143,18 @@ export function TradeCloseDialog() {
         return '输入出场价后将按价格方向判断结果，不会自动生成盈亏金额。'
       }
       if (outcome === 'breakeven') return '将记录为保本，无需再填写 0。'
-      return resultMode === 'pnl'
-        ? '输入盈亏金额的绝对值，盈利或亏损将决定正负号。'
-        : '输入 R 倍数的绝对值，盈利或亏损将决定正负号。'
+      return '至少填写盈亏金额或 R 倍数中的一项；两项都会保存。'
     }
     if (resultMode === 'price') {
       return preview.patch.rMultiple == null
         ? `按价格判定为${OUTCOMES.find((item) => item.value === preview.status)?.label ?? ''}；缺少有效初始止损，R 将留空。`
         : `按价格判定为${OUTCOMES.find((item) => item.value === preview.status)?.label ?? ''} · ${fmtR(preview.patch.rMultiple)}`
     }
-    return resultMode === 'pnl'
-      ? `将记录 ${fmtMoney(preview.patch.pnl ?? null)}；R 保持为空。`
-      : `将记录 ${fmtR(preview.patch.rMultiple ?? null)}；盈亏金额保持为空。`
+    const values = [
+      preview.patch.pnl == null ? null : fmtMoney(preview.patch.pnl),
+      preview.patch.rMultiple == null ? null : fmtR(preview.patch.rMultiple),
+    ].filter(Boolean)
+    return `将记录 ${values.join(' · ')}`
   })()
 
   return (
@@ -246,10 +247,11 @@ export function TradeCloseDialog() {
           </section>
 
           <div className="trade-close-fields">
-            {resultMode === 'pnl' && outcome !== 'breakeven' ? (
+            {resultMode !== 'price' && outcome !== 'breakeven' ? (
               <label>
                 <span>盈亏金额 · 输入绝对值</span>
                 <input
+                  aria-label="盈亏金额"
                   inputMode="decimal"
                   value={pnl}
                   onChange={(event) => {
@@ -261,10 +263,11 @@ export function TradeCloseDialog() {
                 />
               </label>
             ) : null}
-            {resultMode === 'r' && outcome !== 'breakeven' ? (
+            {resultMode !== 'price' && outcome !== 'breakeven' ? (
               <label>
                 <span>R 倍数 · 输入绝对值</span>
                 <input
+                  aria-label="R 倍数"
                   inputMode="decimal"
                   value={rMultiple}
                   onChange={(event) => {
@@ -272,7 +275,6 @@ export function TradeCloseDialog() {
                     setError('')
                   }}
                   placeholder="例如 1.5"
-                  autoFocus
                 />
               </label>
             ) : null}
@@ -286,7 +288,7 @@ export function TradeCloseDialog() {
               <span>平仓日期</span>
               <input type="date" value={closedAt} onChange={(event) => setClosedAt(event.target.value)} required />
             </label>
-            <label className={resultMode === 'price' ? 'trade-close-price-exit' : 'trade-close-optional-exit'}>
+            <label className={resultMode === 'price' ? 'trade-close-price-exit' : undefined}>
               <span>{resultMode === 'price' ? '出场价' : '出场价 · 可选'}</span>
               <input
                 inputMode="decimal"

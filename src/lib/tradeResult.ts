@@ -61,10 +61,20 @@ export function prepareTradeResultEdit(
           : { rMultiple: null, resultSource: remaining == null ? undefined : 'pnl' },
       }
     }
+    const pairedValue = edit.source === 'pnl' ? trade.rMultiple : trade.pnl
+    const keepPair = pairedValue != null && pnlToStatus(pairedValue) === pnlToStatus(value)
     return {
       patch: edit.source === 'pnl'
-        ? { pnl: value, rMultiple: null, resultSource: 'pnl' }
-        : { pnl: null, rMultiple: value, resultSource: 'r' },
+        ? {
+            pnl: value,
+            ...(keepPair ? {} : { rMultiple: null }),
+            resultSource: keepPair ? 'imported' : 'pnl',
+          }
+        : {
+            ...(keepPair ? {} : { pnl: null }),
+            rMultiple: value,
+            resultSource: keepPair ? 'imported' : 'r',
+          },
       status: isExecutedClosed(trade.status) ? pnlToStatus(value) : undefined,
     }
   }
