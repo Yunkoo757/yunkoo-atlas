@@ -101,7 +101,12 @@ const ACTIVE_MIGRATIONS: readonly SnapshotMigrationStep[] = [
 
 function embeddedSchemaVersion(raw: unknown): number | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
-  const version = (raw as { schemaVersion?: unknown }).schemaVersion
+  const record = raw as { schemaVersion?: unknown }
+  if (Object.prototype.hasOwnProperty.call(record, 'schemaVersion') &&
+    (!Number.isInteger(record.schemaVersion) || Number(record.schemaVersion) < 1)) {
+    throw new Error('蹇収 schemaVersion 鏍煎紡鏃犳晥')
+  }
+  const version = record.schemaVersion
   return Number.isInteger(version) && Number(version) > 0 ? Number(version) : null
 }
 
