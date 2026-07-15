@@ -53,3 +53,22 @@ export function testCsvExplicitMetricBecomesTheOnlyResultAuthority(): void {
   assert(trade?.rMultiple === null, 'an explicit cash result must not trigger inferred R')
   assert(trade?.resultSource === 'pnl', 'explicit cash PnL must become authoritative')
 }
+
+export function testCsvCanPreserveMissingEntrySizeAndTimeframe(): void {
+  const trade = finalizeTrade(
+    {
+      symbol: 'BTCUSDT',
+      side: 'long',
+      status: 'planned',
+      strategyId: strategy.id,
+      openedAt: '2026-07-16',
+    },
+    [strategy],
+    'TRD-3',
+    'trade-3',
+  )
+
+  assert(trade?.entry === null, 'missing CSV entry must remain unknown instead of becoming zero')
+  assert(trade?.size === null, 'missing CSV size must remain unknown instead of becoming zero')
+  assert(trade?.timeframe === undefined, 'missing CSV timeframe must remain unset')
+}

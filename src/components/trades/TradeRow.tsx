@@ -152,8 +152,11 @@ export const TradeRow = memo(function TradeRow({
         )}
       </span>
       <span className="trade-row-timeframe-slot">
-        <span className="trade-row-timeframe" title={`波段级别 ${timeframe}`}>
-          {timeframe}
+        <span
+          className="trade-row-timeframe"
+          title={timeframe ? `波段级别 ${timeframe}` : '未设置波段级别'}
+        >
+          {timeframe || '—'}
         </span>
       </span>
       <span className={'trade-row-pnl' + (trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>

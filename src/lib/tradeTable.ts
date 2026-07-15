@@ -52,7 +52,7 @@ export function buildTradeTableRow(trade: Trade, strategies: Strategy[]): TradeT
     ref: trade.ref,
     date: formatTableDate(trade.openedAt),
     symbol: trade.symbol,
-    timeframe: resolveTimeframe(trade.timeframe),
+    timeframe: resolveTimeframe(trade.timeframe) || '—',
     model: getStrategyName(strategies, trade.strategyId),
     confluences: trade.tags,
     entrySignal: trade.tags[1] ?? trade.tags[0] ?? '—',

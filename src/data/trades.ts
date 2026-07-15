@@ -89,11 +89,11 @@ export interface Trade {
   caseType?: CaseType
   masteryState?: MasteryState
   nextReviewAt?: string | null
-  entry: number
+  entry: number | null
   exit: number | null
   stopLoss?: number | null
   initialStopLoss?: number | null // 首次按价格平仓时冻结，避免后续移动止损改写历史 R
-  size: number // 仓位
+  size: number | null // 仓位
   pnl: number | null // 盈亏金额；null 表示尚未填写，0 表示真实保本
   rMultiple: number | null // R 倍数；null 表示尚未填写，0 表示真实保本
   resultSource?: TradeResultSource // 用户确认的结果依据；旧数据在载入时推断
@@ -178,7 +178,7 @@ export const TIMEFRAME_PRESETS = [
 
 export type TimeframePreset = (typeof TIMEFRAME_PRESETS)[number]
 
-/** 未录入时的默认波段级别 */
+/** 显式选择 4H 时使用的预设值；缺失值不再自动回填 */
 export const DEFAULT_TIMEFRAME: TimeframePreset = '4H'
 
 /** 规范化波段级别：对齐 TIMEFRAME_PRESETS，兼容 Notion/中英文别名 */
@@ -224,9 +224,9 @@ export function normalizeTimeframe(value: string | null | undefined): string | u
   return raw
 }
 
-/** 解析波段级别；空值回退默认 4H */
+/** 解析波段级别；空值保持未设置，避免制造并不存在的交易事实 */
 export function resolveTimeframe(value: string | null | undefined): string {
-  return normalizeTimeframe(value) ?? DEFAULT_TIMEFRAME
+  return normalizeTimeframe(value) ?? ''
 }
 
 export type TimeframeTone = 'minute' | 'hour' | 'day' | 'other'

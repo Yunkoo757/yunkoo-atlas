@@ -61,6 +61,7 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
   } else if (input.resultMode === 'price') {
     resultSource = 'price'
     if (exit == null) return { ok: false, error: '请填写出场价' }
+    if (trade.entry == null) return { ok: false, error: '缺少有效入场价，无法按价格计算结果' }
     const priceResult = calcPriceResult(trade.side, trade.entry, exit)
     if (priceResult == null) return { ok: false, error: '入场价或出场价无效，请核对后再保存' }
     pnl = null

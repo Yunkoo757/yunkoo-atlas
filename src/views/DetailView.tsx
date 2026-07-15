@@ -810,7 +810,7 @@ export function DetailView() {
               value={resolveTimeframe(trade.timeframe)}
               onSelect={(v) =>
                 updateTradeData(trade.id, {
-                  timeframe: resolveTimeframe(v),
+                  timeframe: resolveTimeframe(v) || undefined,
                 })
               }
               options={TIMEFRAME_PRESETS.map((preset) => ({
@@ -825,7 +825,7 @@ export function DetailView() {
                       getTimeframeTone(resolveTimeframe(trade.timeframe))
                     }
                   >
-                    {resolveTimeframe(trade.timeframe)}
+                    {resolveTimeframe(trade.timeframe) || '未设置'}
                   </span>
                 </PropTrigger>
               }

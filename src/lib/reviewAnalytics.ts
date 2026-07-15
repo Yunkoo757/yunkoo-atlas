@@ -5,7 +5,7 @@ import type {
   ReviewStatus,
   Trade,
 } from '@/data/trades'
-import { resolveTimeframe } from '@/data/trades'
+import { normalizeTimeframe } from '@/data/trades'
 import {
   selectAnalyticsCandidates,
   type AnalyticsTradeKind,
@@ -88,7 +88,7 @@ export function normalizeReviewFields(trade: Trade): Trade {
     mistakeTags,
     reviewStatus,
     reviewCategory,
-    timeframe: resolveTimeframe(trade.timeframe),
+    timeframe: normalizeTimeframe(trade.timeframe),
     caseType,
     masteryState,
     nextReviewAt,

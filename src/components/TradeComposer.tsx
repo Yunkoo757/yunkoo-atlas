@@ -9,7 +9,6 @@ import {
   CASE_TYPE_META,
   TIMEFRAME_PRESETS,
   TRADE_KIND_META,
-  DEFAULT_TIMEFRAME,
   resolveTimeframe,
   type CaseType,
   type Trade,
@@ -68,7 +67,7 @@ export function TradeComposer() {
 
   const [symbol, setSymbol] = useState(defaultSymbol)
   const [side, setSide] = useState<TradeSide>('long')
-  const [timeframe, setTimeframe] = useState<string>(DEFAULT_TIMEFRAME)
+  const [timeframe, setTimeframe] = useState<string>('')
   const [session, setSession] = useState('')
   const [openedAt, setOpenedAt] = useState(() => formatYmd(new Date()))
   const [strategyId, setStrategyId] = useState('')
@@ -124,7 +123,7 @@ export function TradeComposer() {
       images.forEach((img) => URL.revokeObjectURL(img.preview))
       setSymbol(defaultSymbol)
       setSide('long')
-      setTimeframe(DEFAULT_TIMEFRAME)
+      setTimeframe('')
       setSession('')
       setOpenedAt(formatYmd(new Date()))
       setStrategyId('')
@@ -235,7 +234,7 @@ export function TradeComposer() {
       const fields = {
         symbol: symbol.trim().toUpperCase(),
         side,
-        timeframe: resolveTimeframe(timeframe),
+        timeframe: resolveTimeframe(timeframe) || undefined,
         session: normalizeSession(session),
         strategyId,
         openedAt,
@@ -265,10 +264,10 @@ export function TradeComposer() {
                   nextReviewAt: formatYmd(nextReview),
                 }
               : {}),
-            entry: 0,
+            entry: null,
             exit: null,
             stopLoss: null,
-            size: 0,
+            size: null,
             pnl: null,
             rMultiple: null,
             recordedAt: new Date().toISOString(),
@@ -397,13 +396,17 @@ export function TradeComposer() {
               <div className="composer-essential-field">
                 <span className="composer-essential-label">波段级别</span>
                 <Select
-                  value={timeframe || DEFAULT_TIMEFRAME}
+                  value={timeframe}
                   onValueChange={setTimeframe}
                   ariaLabel="参与波段级别"
-                  options={TIMEFRAME_PRESETS.map((preset) => ({
-                    value: preset,
-                    label: preset,
-                  }))}
+                  placeholder="未设置"
+                  options={[
+                    { value: '', label: '未设置' },
+                    ...TIMEFRAME_PRESETS.map((preset) => ({
+                      value: preset,
+                      label: preset,
+                    })),
+                  ]}
                 />
               </div>
               <div className="composer-essential-field">
