@@ -134,7 +134,7 @@ export function DataSettingsPanel() {
       const result = await getJournalBridge()!.restoreBackup(name)
       if (result && typeof result === 'object') {
         applySnapshotToStore(result)
-        toast('备份已恢复')
+        toast('备份已恢复；如已启用云同步，自动同步已暂停')
         await Promise.all([refreshBackups(), refreshHealth()])
       } else {
         toast('恢复失败')

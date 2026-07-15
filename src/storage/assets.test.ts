@@ -22,6 +22,18 @@ const missingAssetAdapter: StorageAdapter = {
     return null
   },
   async saveSnapshot() {},
+  async getLocalSyncStatus() {
+    return {
+      libraryId: 'test', deviceId: 'test-device', epoch: 1, deviceSeq: 0,
+      pullCursor: null, lastSyncAt: null, pendingCount: 0, conflictCount: 0,
+    }
+  },
+  async listPendingSyncOperations() {
+    return []
+  },
+  async acknowledgeSyncOperations() {},
+  async applyRemoteSyncOperations() { return { appliedCount: 0, conflictCount: 0 } },
+  async listSyncConflicts() { return [] },
   async saveAsset() {
     return 'asset-1'
   },

@@ -2,6 +2,13 @@ import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { getJournalBridge } from '@/storage/runtime'
 import { encodeSnapshotForLegacyReaders } from '@/storage/snapshotCompatibility'
+import type {
+  LocalSyncStatus,
+  RemoteSyncApplyResult,
+  RemoteSyncOperation,
+  SyncConflict,
+  SyncOutboxOperation,
+} from '@/sync/types'
 
 const MAX_OBJECT_URL_CACHE = 128
 
@@ -24,6 +31,29 @@ export class ElectronStorageAdapter implements StorageAdapter {
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
     await getJournalBridge()!.saveSnapshot(encodeSnapshotForLegacyReaders(snapshot))
+  }
+
+  async getLocalSyncStatus(): Promise<LocalSyncStatus> {
+    return getJournalBridge()!.getLocalSyncStatus()
+  }
+
+  async listPendingSyncOperations(limit?: number): Promise<SyncOutboxOperation[]> {
+    return getJournalBridge()!.listPendingSyncOperations(limit)
+  }
+
+  async acknowledgeSyncOperations(operationIds: string[], pullCursor?: string): Promise<void> {
+    await getJournalBridge()!.acknowledgeSyncOperations(operationIds, pullCursor)
+  }
+
+  async applyRemoteSyncOperations(
+    operations: RemoteSyncOperation[],
+    pullCursor: string,
+  ): Promise<RemoteSyncApplyResult> {
+    return getJournalBridge()!.applyRemoteSyncOperations(operations, pullCursor)
+  }
+
+  async listSyncConflicts(limit?: number): Promise<SyncConflict[]> {
+    return getJournalBridge()!.listSyncConflicts(limit)
   }
 
   async saveAsset(blob: Blob, mime: string): Promise<string> {

@@ -42,12 +42,23 @@ import fs from 'node:fs/promises'
   'src/storage/persist.test.ts',
   'src/storage/noteDrafts.test.ts',
   'src/storage/pendingOperations.test.ts',
+  'src/sync/localJournal.test.ts',
+  'src/sync/metadataSync.test.ts',
+  'src/sync/remoteApply.test.ts',
+  'src/sync/httpTransport.test.ts',
+  'src/sync/assetSync.test.ts',
+  'src/sync/runtime.test.ts',
   'src/storage/assetId.test.ts',
   'electron/library/images.test.ts',
   'electron/library/atomicFile.test.ts',
   'electron/library/sessionGate.test.ts',
   'electron/library/libraryActivation.test.ts',
   'electron/library/importCommit.test.ts',
+  'electron/library/localSync.test.ts',
+  'electron/library/metadataSync.integration.test.ts',
+  'electron/sync/cloudSync.integration.test.ts',
+  'electron/sync/configFile.test.ts',
+  'electron/sync/coordinator.test.ts',
   'electron/library/backup.test.ts',
 ]
 
@@ -161,6 +172,11 @@ try {
       url: '/src/storage/cutover.browser.test.html',
       promiseKey: '__storageCutoverTest',
       label: 'src/storage/cutover.browser.test.ts :: cutover blocks shortcuts and portals',
+    },
+    {
+      url: '/src/storage/localSync.browser.test.html',
+      promiseKey: '__localSyncIndexedDbTest',
+      label: 'src/storage/localSync.browser.test.ts :: snapshot and outbox stay atomic',
     },
   ]
   const page = await browser.newPage()

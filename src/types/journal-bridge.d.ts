@@ -1,6 +1,19 @@
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import type { AppUpdateState } from '@/lib/appUpdate'
 import type { WindowSizePresetId } from '@/lib/windowBounds'
+import type {
+  CloudSyncExecution,
+  CloudSyncSetupMode,
+  CloudSyncState,
+  SaveCloudSyncConfigInput,
+} from '@/sync/cloudSync'
+import type {
+  LocalSyncStatus,
+  RemoteSyncApplyResult,
+  RemoteSyncOperation,
+  SyncConflict,
+  SyncOutboxOperation,
+} from '@/sync/types'
 
 export interface BackupInfo {
   name: string
@@ -57,6 +70,22 @@ export interface JournalBridge {
   getManifest(): Promise<LibraryManifest>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
+  getLocalSyncStatus(): Promise<LocalSyncStatus>
+  listPendingSyncOperations(limit?: number): Promise<SyncOutboxOperation[]>
+  acknowledgeSyncOperations(operationIds: string[], pullCursor?: string): Promise<boolean>
+  applyRemoteSyncOperations(
+    operations: RemoteSyncOperation[],
+    pullCursor: string,
+  ): Promise<RemoteSyncApplyResult>
+  listSyncConflicts(limit?: number): Promise<SyncConflict[]>
+  getCloudSyncState(): Promise<CloudSyncState>
+  saveCloudSyncConfig(input: SaveCloudSyncConfigInput): Promise<CloudSyncState>
+  clearCloudSyncConfig(): Promise<CloudSyncState>
+  setupCloudSync(mode: CloudSyncSetupMode): Promise<CloudSyncExecution>
+  runCloudSyncNow(): Promise<CloudSyncExecution>
+  startCloudSync(): Promise<CloudSyncState>
+  onCloudSyncState(callback: (state: CloudSyncState) => void): () => void
+  onCloudSyncRequest(callback: () => void): () => void
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
   getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>

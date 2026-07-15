@@ -7,6 +7,7 @@ import { runElectronQaAndExit } from './qa'
 import { registerAppUpdater, scheduleAutomaticUpdateChecks } from './updater'
 import { loadWindowState, registerWindowIpc, trackWindowState } from './windowState'
 import { initializeDiagnostics, logDiagnostic } from './diagnostics'
+import { registerCloudSync } from './sync'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -208,6 +209,7 @@ if (!hasSingleInstanceLock) {
 
     registerLibraryIpc()
     registerWindowIpc()
+    registerCloudSync()
 
     if (process.env.LINEAR_JOURNAL_QA === '1') {
       await runElectronQaAndExit()

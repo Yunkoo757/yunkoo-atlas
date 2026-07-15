@@ -20,6 +20,7 @@ import {
   LinearChemistIcon,
   LinearCircleIcon,
   LinearClockIcon,
+  LinearCloudIcon,
   LinearCodeBlockIcon,
   LinearCrossIcon,
   LinearCubeIcon,
@@ -100,6 +101,7 @@ export const HardDrive = LinearServerIcon
 export const Save = LinearFloppyDiskIcon
 export const Pin = LinearPinIcon
 export const Clock = LinearClockIcon
+export const Cloud = LinearCloudIcon
 export const Image = LinearImageIcon
 export const ImagePlus = LinearImageIcon
 export const FileSpreadsheet = LinearSpreadsheetIcon

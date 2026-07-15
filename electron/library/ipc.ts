@@ -21,6 +21,7 @@ import {
   openValidatedLibraryCandidate,
 } from './libraryActivation'
 import { randomUUID } from 'node:crypto'
+import { notifyLibraryIdentityChanged } from './changeHooks'
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
@@ -66,6 +67,15 @@ async function ensureStorage(): Promise<LibraryStorage> {
 
 function withStorage<T>(operation: (lib: LibraryStorage) => T | Promise<T>): Promise<T> {
   return operationGate.run(async () => operation(await ensureStorage()))
+}
+
+export function withActiveLibraryStorage<T>(
+  operation: (lib: LibraryStorage) => T | Promise<T>,
+): Promise<T> {
+  return operationGate.run(async () => {
+    if (!storage) throw new Error('本地交易库尚未打开')
+    return operation(storage)
+  })
 }
 
 function bufferFromPayload(data: ArrayBuffer | Uint8Array | number[]): Buffer {
@@ -186,6 +196,7 @@ function activateLibraryCandidate(
   } catch (error) {
     console.error('[library] failed to release previous storage after cutover', error)
   }
+  notifyLibraryIdentityChanged('switch')
   return { ok: true, snapshot }
 }
 
@@ -399,6 +410,29 @@ export function registerLibraryIpc(): void {
     return true
   }))
 
+  ipcMain.handle('storage:getLocalSyncStatus', async () => withStorage((lib) => lib.getLocalSyncStatus()))
+
+  ipcMain.handle('storage:listPendingSyncOperations', async (_e, limit?: number) => (
+    withStorage((lib) => lib.listPendingSyncOperations(limit))
+  ))
+
+  ipcMain.handle('storage:acknowledgeSyncOperations', async (_e, payload: {
+    operationIds: string[]
+    pullCursor?: string
+  }) => withStorage((lib) => {
+    lib.acknowledgeSyncOperations(payload.operationIds, payload.pullCursor)
+    return true
+  }))
+
+  ipcMain.handle('storage:applyRemoteSyncOperations', async (_e, payload: {
+    operations: Parameters<LibraryStorage['applyRemoteSyncOperations']>[0]
+    pullCursor: string
+  }) => withStorage((lib) => lib.applyRemoteSyncOperations(payload.operations, payload.pullCursor)))
+
+  ipcMain.handle('storage:listSyncConflicts', async (_e, limit?: number) => (
+    withStorage((lib) => lib.listSyncConflicts(limit))
+  ))
+
   ipcMain.handle('storage:saveAsset', async (_e, payload: { data: ArrayBuffer; mime: string }) => withStorage(async (lib) => {
     const id = await lib.saveAssetAsync(
       bufferFromPayload(payload.data),
@@ -485,6 +519,7 @@ export function registerLibraryIpc(): void {
         // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
         const reopened = await reopenStorageWithAutoBackup()
         rotateBackups(ensureLibraryDirs(libraryPath).backups)
+        if (ok) notifyLibraryIdentityChanged('restore')
         return ok ? reopened.loadSnapshot() : false
       })
     } catch (error) {
@@ -545,6 +580,7 @@ export function registerLibraryIpc(): void {
         }
 
         const reopened = await reopenStorageWithAutoBackup()
+        notifyLibraryIdentityChanged('import')
         return { ok: true as const, snapshot: reopened.loadSnapshot() }
       })
     } catch (err) {

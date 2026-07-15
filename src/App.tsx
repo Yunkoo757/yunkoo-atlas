@@ -15,7 +15,8 @@ import { bootstrapStorage } from './storage'
 import { flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
 import { flushNoteDraftsToStore } from './storage/noteDrafts'
 import { isStorageHydrated } from './storage'
-import { isElectron } from './storage/runtime'
+import { getJournalBridge, isElectron } from './storage/runtime'
+import { requestCloudSyncNow } from './sync/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
 import { MobileNavigation } from './components/MobileNavigation'
@@ -39,6 +40,7 @@ import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
 import { SymbolsPanel } from './views/settings/SymbolsPanel'
 import { UpdatesSettingsPanel } from './views/settings/UpdatesSettingsPanel'
+import { SyncSettingsPanel } from './views/settings/SyncSettingsPanel'
 import { TradeTrashView } from './views/TradeTrashView'
 import { TodayWorkspace } from './views/TodayWorkspace'
 import { StrategyHeader } from './components/StrategyHeader'
@@ -318,6 +320,7 @@ function Shell() {
             <Route path="symbols" element={<SymbolsPanel />} />
             <Route path="dispute-types" element={<Navigate to="/settings/tags" replace />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
+            <Route path="sync" element={<SyncSettingsPanel />} />
             <Route path="data" element={<DataSettingsPanel />} />
             <Route path="updates" element={<UpdatesSettingsPanel />} />
           </Route>
@@ -391,6 +394,26 @@ export function App() {
       document.documentElement.dataset.uiSettled = '1'
     })
   }, [])
+
+  useEffect(() => {
+    if (!ready || needsWelcome || !isElectron()) return
+    const bridge = getJournalBridge()
+    if (!bridge) return
+    const run = () => {
+      void requestCloudSyncNow().catch((error) => {
+        console.warn('Background cloud sync failed', error)
+      })
+    }
+    const unsubscribe = bridge.onCloudSyncRequest(run)
+    window.addEventListener('online', run)
+    void bridge.startCloudSync().catch((error) => {
+      console.warn('Cloud sync scheduler failed to start', error)
+    })
+    return () => {
+      unsubscribe()
+      window.removeEventListener('online', run)
+    }
+  }, [needsWelcome, ready])
 
   const handleWelcomeReady = async () => {
     setNeedsWelcome(false)

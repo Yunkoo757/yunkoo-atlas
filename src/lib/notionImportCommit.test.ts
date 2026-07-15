@@ -85,6 +85,16 @@ class AtomicMemoryAdapter implements StorageAdapter {
   }
   async loadSnapshot(): Promise<PersistedSnapshot> { return this.committedSnapshot }
   async saveSnapshot(value: PersistedSnapshot): Promise<void> { this.committedSnapshot = value }
+  async getLocalSyncStatus() {
+    return {
+      libraryId: 'test', deviceId: 'test-device', epoch: 1, deviceSeq: 0,
+      pullCursor: null, lastSyncAt: null, pendingCount: 0, conflictCount: 0,
+    }
+  }
+  async listPendingSyncOperations() { return [] }
+  async acknowledgeSyncOperations() {}
+  async applyRemoteSyncOperations() { return { appliedCount: 0, conflictCount: 0 } }
+  async listSyncConflicts() { return [] }
   async saveAsset(): Promise<string> { throw new Error('原子导入不得逐图写入') }
   async getAssetObjectUrl(): Promise<string | null> { return null }
   async getAssetForExport(): Promise<ExportAssetRecord | null> { return null }

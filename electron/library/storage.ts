@@ -10,8 +10,23 @@ import { ensureLibraryDirs, findAttachmentFile, getLibraryPath } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId } from '../../src/storage/assetId'
+import {
+  collectSnapshotBootstrapMutations,
+  collectSnapshotMutations,
+  planLocalSyncBatch,
+} from '../../src/sync/localJournal'
+import { planRemoteSnapshotApply } from '../../src/sync/remoteApply'
+import type {
+  LocalSyncStatus,
+  RemoteSyncApplyResult,
+  RemoteSyncOperation,
+  SnapshotMutation,
+  SyncConflict,
+  SyncOutboxOperation,
+} from '../../src/sync/types'
 
 const SNAPSHOT_KEY = 'snapshot'
+const SYNC_STATE_ROW_ID = 1
 
 /** iCloud 冲突副本：journal 2.db / journal(1).db / journal (3).db */
 const ICLOUD_CONFLICT_DB_RE = /^journal(?:\s+\d+|\s*\(\d+\))\.db$/i
@@ -153,7 +168,65 @@ export class LibraryStorage {
         byte_size INTEGER NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS sync_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        device_id TEXT NOT NULL,
+        epoch INTEGER NOT NULL DEFAULT 1,
+        device_seq INTEGER NOT NULL DEFAULT 0,
+        pull_cursor TEXT,
+        last_sync_at TEXT,
+        bootstrap_prepared INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS sync_outbox (
+        op_id TEXT PRIMARY KEY,
+        device_id TEXT NOT NULL,
+        device_seq INTEGER NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        base_revision INTEGER NOT NULL,
+        revision INTEGER NOT NULL,
+        payload TEXT,
+        created_at TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'pending',
+        UNIQUE(entity_type, entity_id)
+      );
+      CREATE TABLE IF NOT EXISTS entity_versions (
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        revision INTEGER NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(entity_type, entity_id)
+      );
+      CREATE TABLE IF NOT EXISTS sync_conflicts (
+        conflict_id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        local_revision INTEGER NOT NULL,
+        remote_operation TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'unresolved'
+      );
+      CREATE INDEX IF NOT EXISTS sync_outbox_device_seq_idx
+        ON sync_outbox(device_seq);
     `)
+
+    const syncStateColumns = this.db.exec('PRAGMA table_info(sync_state)')[0]?.values ?? []
+    const syncStateColumnNames = new Set(syncStateColumns.map((row) => String(row[1])))
+    const addedBootstrapColumn = !syncStateColumnNames.has('bootstrap_prepared')
+    if (addedBootstrapColumn) {
+      this.db.run('ALTER TABLE sync_state ADD COLUMN bootstrap_prepared INTEGER NOT NULL DEFAULT 0')
+    }
+
+    const syncStateExists = this.hasSyncState()
+    if (!syncStateExists) {
+      this.db.run(
+        `INSERT INTO sync_state (id, device_id, epoch, device_seq)
+         VALUES (?, ?, 1, 0)`,
+        [SYNC_STATE_ROW_ID, randomUUID()],
+      )
+    }
 
     if (created || !fs.existsSync(this.paths.manifestFile)) {
       this.writeManifest({
@@ -165,7 +238,7 @@ export class LibraryStorage {
     }
 
     // 仅新建库时落盘。每次 open 都 rewrite 会在 iCloud 上制造大量冲突副本。
-    if (created) {
+    if (created || !syncStateExists || addedBootstrapColumn) {
       this.persistDb()
     }
   }
@@ -218,6 +291,128 @@ export class LibraryStorage {
     )
   }
 
+  private hasSyncState(): boolean {
+    const db = this.requireDb()
+    const stmt = db.prepare('SELECT 1 FROM sync_state WHERE id = ?')
+    try {
+      stmt.bind([SYNC_STATE_ROW_ID])
+      return stmt.step()
+    } finally {
+      stmt.free()
+    }
+  }
+
+  private getSyncStateRow(
+    db: Database = this.requireDb(),
+  ): Omit<LocalSyncStatus, 'libraryId' | 'pendingCount' | 'conflictCount'> {
+    const stmt = db.prepare(
+      `SELECT device_id, epoch, device_seq, pull_cursor, last_sync_at
+       FROM sync_state WHERE id = ?`,
+    )
+    try {
+      stmt.bind([SYNC_STATE_ROW_ID])
+      if (!stmt.step()) throw new Error('Missing local sync state')
+      const row = stmt.getAsObject() as {
+        device_id: string
+        epoch: number
+        device_seq: number
+        pull_cursor: string | null
+        last_sync_at: string | null
+      }
+      return {
+        deviceId: String(row.device_id),
+        epoch: Number(row.epoch),
+        deviceSeq: Number(row.device_seq),
+        pullCursor: row.pull_cursor === null ? null : String(row.pull_cursor),
+        lastSyncAt: row.last_sync_at === null ? null : String(row.last_sync_at),
+      }
+    } finally {
+      stmt.free()
+    }
+  }
+
+  private applyLocalSyncMutations(
+    db: Database,
+    mutations: SnapshotMutation[],
+    createdAt: string,
+  ): void {
+    if (mutations.length === 0) return
+    const state = this.getSyncStateRow(db)
+    const versionStmt = db.prepare(
+      'SELECT revision FROM entity_versions WHERE entity_type = ? AND entity_id = ?',
+    )
+    const pendingStmt = db.prepare(
+      'SELECT base_revision FROM sync_outbox WHERE entity_type = ? AND entity_id = ?',
+    )
+    let batch: ReturnType<typeof planLocalSyncBatch>
+    try {
+      batch = planLocalSyncBatch({
+        mutations,
+        deviceId: state.deviceId,
+        deviceSeq: state.deviceSeq,
+        createdAt,
+        createOperationId: randomUUID,
+        getCurrentRevision: (entityType, entityId) => {
+          versionStmt.bind([entityType, entityId])
+          const revision = versionStmt.step()
+            ? Number((versionStmt.getAsObject() as { revision: number }).revision)
+            : 0
+          versionStmt.reset()
+          return revision
+        },
+        getPendingOperation: (entityType, entityId) => {
+          pendingStmt.bind([entityType, entityId])
+          const pending = pendingStmt.step()
+            ? { baseRevision: Number((pendingStmt.getAsObject() as { base_revision: number }).base_revision) }
+            : undefined
+          pendingStmt.reset()
+          return pending
+        },
+      })
+    } finally {
+      versionStmt.free()
+      pendingStmt.free()
+    }
+
+    for (const version of batch.versions) {
+      db.run(
+        `INSERT INTO entity_versions (entity_type, entity_id, revision, deleted, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+           revision = excluded.revision,
+           deleted = excluded.deleted,
+           updated_at = excluded.updated_at`,
+        [version.entityType, version.entityId, version.revision, version.deleted ? 1 : 0, version.updatedAt],
+      )
+    }
+    for (const operation of batch.operations) {
+      db.run(
+        `INSERT INTO sync_outbox (
+           op_id, device_id, device_seq, entity_type, entity_id, kind,
+           base_revision, revision, payload, created_at, state
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+         ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+           op_id = excluded.op_id,
+           device_id = excluded.device_id,
+           device_seq = excluded.device_seq,
+           kind = excluded.kind,
+           base_revision = sync_outbox.base_revision,
+           revision = excluded.revision,
+           payload = excluded.payload,
+           created_at = excluded.created_at,
+           state = 'pending'`,
+        [
+          operation.opId, operation.deviceId, operation.deviceSeq,
+          operation.entityType, operation.entityId, operation.kind,
+          operation.baseRevision, operation.revision,
+          operation.payload === null ? null : JSON.stringify(operation.payload), operation.createdAt,
+        ],
+      )
+    }
+
+    db.run('UPDATE sync_state SET device_seq = ? WHERE id = ?', [batch.deviceSeq, SYNC_STATE_ROW_ID])
+  }
+
   loadSnapshot(): PersistedSnapshot | null {
     const db = this.requireDb()
     const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
@@ -236,12 +431,380 @@ export class LibraryStorage {
   saveSnapshot(snapshot: PersistedSnapshot): void {
     assertValidPersistedSnapshot(snapshot, 'Library snapshot')
     const db = this.requireDb()
-    db.run(
-      `INSERT INTO meta (key, value) VALUES (?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [SNAPSHOT_KEY, JSON.stringify(snapshot)],
-    )
+    const previous = this.loadSnapshot()
+    const mutations = previous ? collectSnapshotMutations(previous, snapshot) : []
+    db.run('BEGIN TRANSACTION')
+    try {
+      this.applyLocalSyncMutations(db, mutations, new Date().toISOString())
+      db.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+      )
+      db.run('COMMIT')
+    } catch (error) {
+      try { db.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+      throw error
+    }
     this.persistDb()
+  }
+
+  getLocalSyncStatus(): LocalSyncStatus {
+    const db = this.requireDb()
+    const state = this.getSyncStateRow()
+    const stmt = db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM sync_outbox WHERE state = 'pending') AS pending_count,
+        (SELECT COUNT(*) FROM sync_conflicts WHERE state = 'unresolved') AS conflict_count
+    `)
+    try {
+      if (!stmt.step()) throw new Error('Unable to count pending sync operations')
+      const counts = stmt.getAsObject() as { pending_count: number; conflict_count: number }
+      return {
+        libraryId: this.readManifest().libraryId,
+        ...state,
+        pendingCount: Number(counts.pending_count),
+        conflictCount: Number(counts.conflict_count),
+      }
+    } finally {
+      stmt.free()
+    }
+  }
+
+  resetMetadataSyncEpoch(nextEpoch: number): void {
+    if (!Number.isSafeInteger(nextEpoch) || nextEpoch < 1) {
+      throw new Error('新的同步 epoch 无效')
+    }
+    const db = this.requireDb()
+    const current = this.getSyncStateRow(db)
+    if (nextEpoch <= current.epoch) {
+      throw new Error('新的同步 epoch 必须大于当前值')
+    }
+    db.run('BEGIN TRANSACTION')
+    try {
+      db.run('DELETE FROM sync_outbox')
+      db.run('DELETE FROM sync_conflicts')
+      db.run('DELETE FROM entity_versions')
+      db.run(
+        `UPDATE sync_state
+         SET epoch = ?, device_seq = 0, pull_cursor = NULL,
+             last_sync_at = NULL, bootstrap_prepared = 0
+         WHERE id = ?`,
+        [nextEpoch, SYNC_STATE_ROW_ID],
+      )
+      db.run('COMMIT')
+      this.persistDb()
+    } catch (error) {
+      try { db.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+      throw error
+    }
+  }
+
+  adoptRemoteMetadataEpoch(
+    nextEpoch: number,
+    operations: RemoteSyncOperation[],
+    pullCursor: string,
+  ): PersistedSnapshot {
+    if (!Number.isSafeInteger(nextEpoch) || nextEpoch < 1 || !pullCursor) {
+      throw new Error('远端同步 epoch 检查点无效')
+    }
+    const db = this.requireDb()
+    const currentState = this.getSyncStateRow(db)
+    if (nextEpoch <= currentState.epoch) throw new Error('远端同步 epoch 没有推进')
+    const currentSnapshot = this.loadSnapshot()
+    if (!currentSnapshot) throw new Error('本地资料库尚未初始化')
+    const requiredWorkspaceEntities = new Set([
+      'collections', 'display', 'shortcuts', 'tags', 'profile', 'saved-trade-views', 'symbols',
+    ])
+    for (const operation of operations) {
+      if (operation.entityType === 'workspace' && operation.kind === 'upsert') {
+        requiredWorkspaceEntities.delete(operation.entityId)
+      }
+    }
+    if (requiredWorkspaceEntities.size > 0) {
+      throw new Error(`远端完整检查点缺少：${[...requiredWorkspaceEntities].join(', ')}`)
+    }
+    const emptySnapshot: PersistedSnapshot = {
+      trades: [],
+      strategies: [],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: currentSnapshot.display,
+    }
+    const plan = planRemoteSnapshotApply({
+      snapshot: emptySnapshot,
+      operations,
+      localDeviceId: '__epoch_adoption__',
+      getCurrentRevision: () => 0,
+      hasPendingOperation: () => false,
+    })
+    if (plan.conflicts.length > 0 || plan.appliedCount !== operations.length) {
+      throw new Error('远端完整检查点存在冲突或不连续历史')
+    }
+    assertValidPersistedSnapshot(plan.snapshot, 'Remote epoch snapshot')
+    const syncedAt = new Date().toISOString()
+    db.run('BEGIN TRANSACTION')
+    try {
+      db.run('DELETE FROM sync_outbox')
+      db.run('DELETE FROM sync_conflicts')
+      db.run('DELETE FROM entity_versions')
+      db.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SNAPSHOT_KEY, JSON.stringify(plan.snapshot)],
+      )
+      for (const version of plan.versions) {
+        db.run(
+          `INSERT INTO entity_versions (
+             entity_type, entity_id, revision, deleted, updated_at
+           ) VALUES (?, ?, ?, ?, ?)`,
+          [
+            version.entityType,
+            version.entityId,
+            version.revision,
+            version.deleted ? 1 : 0,
+            version.updatedAt,
+          ],
+        )
+      }
+      db.run(
+        `UPDATE sync_state
+         SET epoch = ?, device_seq = 0, pull_cursor = ?,
+             last_sync_at = ?, bootstrap_prepared = 0
+         WHERE id = ?`,
+        [nextEpoch, pullCursor, syncedAt, SYNC_STATE_ROW_ID],
+      )
+      db.run('COMMIT')
+      this.persistDb()
+      return plan.snapshot
+    } catch (error) {
+      try { db.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+      throw error
+    }
+  }
+
+  listPendingSyncOperations(limit = 500): SyncOutboxOperation[] {
+    const db = this.requireDb()
+    const safeLimit = Number.isFinite(limit)
+      ? Math.max(1, Math.min(Math.trunc(limit), 5000))
+      : 500
+    const stmt = db.prepare(
+      `SELECT op_id, device_id, device_seq, entity_type, entity_id, kind,
+              base_revision, revision, payload, created_at, state
+       FROM sync_outbox
+       WHERE state = 'pending'
+       ORDER BY device_seq ASC
+       LIMIT ?`,
+    )
+    const operations: SyncOutboxOperation[] = []
+    try {
+      stmt.bind([safeLimit])
+      while (stmt.step()) {
+        const row = stmt.getAsObject() as Record<string, unknown>
+        operations.push({
+          opId: String(row.op_id),
+          deviceId: String(row.device_id),
+          deviceSeq: Number(row.device_seq),
+          entityType: String(row.entity_type) as SyncOutboxOperation['entityType'],
+          entityId: String(row.entity_id),
+          kind: String(row.kind) as SyncOutboxOperation['kind'],
+          baseRevision: Number(row.base_revision),
+          revision: Number(row.revision),
+          payload: row.payload === null ? null : JSON.parse(String(row.payload)),
+          createdAt: String(row.created_at),
+          state: 'pending',
+        })
+      }
+      return operations
+    } finally {
+      stmt.free()
+    }
+  }
+
+  acknowledgeSyncOperations(operationIds: string[], pullCursor?: string): void {
+    const db = this.requireDb()
+    const uniqueIds = [...new Set(operationIds.filter(Boolean))]
+    db.run('BEGIN TRANSACTION')
+    try {
+      for (const operationId of uniqueIds) {
+        db.run('DELETE FROM sync_outbox WHERE op_id = ?', [operationId])
+      }
+      db.run(
+        `UPDATE sync_state
+         SET pull_cursor = COALESCE(?, pull_cursor), last_sync_at = ?
+         WHERE id = ?`,
+        [pullCursor ?? null, new Date().toISOString(), SYNC_STATE_ROW_ID],
+      )
+      db.run('COMMIT')
+    } catch (error) {
+      try { db.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+      throw error
+    }
+    this.persistDb()
+  }
+
+  isMetadataSyncBootstrapPrepared(): boolean {
+    const stmt = this.requireDb().prepare(
+      'SELECT bootstrap_prepared FROM sync_state WHERE id = ?',
+    )
+    try {
+      stmt.bind([SYNC_STATE_ROW_ID])
+      if (!stmt.step()) throw new Error('Missing local sync state')
+      return Number((stmt.getAsObject() as { bootstrap_prepared: number }).bootstrap_prepared) === 1
+    } finally {
+      stmt.free()
+    }
+  }
+
+  prepareMetadataSyncBootstrap(): number {
+    const db = this.requireDb()
+    if (this.isMetadataSyncBootstrapPrepared()) return 0
+    const snapshot = this.loadSnapshot()
+    const mutations = snapshot ? collectSnapshotBootstrapMutations(snapshot) : []
+    db.run('BEGIN')
+    try {
+      this.applyLocalSyncMutations(db, mutations, new Date().toISOString())
+      db.run(
+        'UPDATE sync_state SET bootstrap_prepared = 1 WHERE id = ?',
+        [SYNC_STATE_ROW_ID],
+      )
+      db.run('COMMIT')
+      this.persistDb()
+      return mutations.length
+    } catch (error) {
+      try { db.run('ROLLBACK') } catch { /* preserve the original failure */ }
+      throw error
+    }
+  }
+
+  applyRemoteSyncOperations(
+    operations: RemoteSyncOperation[],
+    pullCursor: string,
+  ): RemoteSyncApplyResult {
+    const db = this.requireDb()
+    const snapshot = this.loadSnapshot()
+    if (!snapshot) throw new Error('本地资料库尚未建立快照，无法应用远端同步')
+    const state = this.getSyncStateRow(db)
+    db.run('BEGIN TRANSACTION')
+    try {
+      const versionStmt = db.prepare(
+        'SELECT revision FROM entity_versions WHERE entity_type = ? AND entity_id = ?',
+      )
+      const pendingStmt = db.prepare(
+        "SELECT 1 FROM sync_outbox WHERE entity_type = ? AND entity_id = ? AND state = 'pending'",
+      )
+      let plan: ReturnType<typeof planRemoteSnapshotApply>
+      try {
+        plan = planRemoteSnapshotApply({
+          snapshot,
+          operations,
+          localDeviceId: state.deviceId,
+          getCurrentRevision: (entityType, entityId) => {
+            versionStmt.bind([entityType, entityId])
+            const revision = versionStmt.step()
+              ? Number((versionStmt.getAsObject() as { revision: number }).revision)
+              : 0
+            versionStmt.reset()
+            return revision
+          },
+          hasPendingOperation: (entityType, entityId) => {
+            pendingStmt.bind([entityType, entityId])
+            const pending = pendingStmt.step()
+            pendingStmt.reset()
+            return pending
+          },
+        })
+      } finally {
+        versionStmt.free()
+        pendingStmt.free()
+      }
+      assertValidPersistedSnapshot(plan.snapshot, 'Remote synced library snapshot')
+
+      for (const version of plan.versions) {
+        db.run(
+          `INSERT INTO entity_versions (entity_type, entity_id, revision, deleted, updated_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+             revision = excluded.revision,
+             deleted = excluded.deleted,
+             updated_at = excluded.updated_at`,
+          [version.entityType, version.entityId, version.revision, version.deleted ? 1 : 0, version.updatedAt],
+        )
+      }
+      for (const conflict of plan.conflicts) {
+        db.run(
+          `INSERT INTO sync_conflicts (
+             conflict_id, entity_type, entity_id, local_revision,
+             remote_operation, created_at, state
+           ) VALUES (?, ?, ?, ?, ?, ?, 'unresolved')
+           ON CONFLICT(conflict_id) DO NOTHING`,
+          [
+            conflict.remoteOperation.opId,
+            conflict.remoteOperation.entityType,
+            conflict.remoteOperation.entityId,
+            conflict.localRevision,
+            JSON.stringify(conflict.remoteOperation),
+            new Date().toISOString(),
+          ],
+        )
+      }
+      if (plan.appliedCount > 0) {
+        db.run(
+          `INSERT INTO meta (key, value) VALUES (?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+          [SNAPSHOT_KEY, JSON.stringify(plan.snapshot)],
+        )
+      }
+      db.run(
+        'UPDATE sync_state SET pull_cursor = ?, last_sync_at = ? WHERE id = ?',
+        [pullCursor, new Date().toISOString(), SYNC_STATE_ROW_ID],
+      )
+      db.run('COMMIT')
+      this.persistDb()
+      return {
+        appliedCount: plan.appliedCount,
+        conflictCount: plan.conflicts.length,
+        appliedOperations: plan.appliedOperations,
+      }
+    } catch (error) {
+      try { db.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+      throw error
+    }
+  }
+
+  listSyncConflicts(limit = 100): SyncConflict[] {
+    const db = this.requireDb()
+    const safeLimit = Number.isFinite(limit)
+      ? Math.max(1, Math.min(Math.trunc(limit), 1000))
+      : 100
+    const stmt = db.prepare(
+      `SELECT conflict_id, entity_type, entity_id, local_revision,
+              remote_operation, created_at, state
+       FROM sync_conflicts
+       WHERE state = 'unresolved'
+       ORDER BY created_at ASC
+       LIMIT ?`,
+    )
+    const conflicts: SyncConflict[] = []
+    try {
+      stmt.bind([safeLimit])
+      while (stmt.step()) {
+        const row = stmt.getAsObject() as Record<string, unknown>
+        conflicts.push({
+          conflictId: String(row.conflict_id),
+          entityType: String(row.entity_type) as SyncConflict['entityType'],
+          entityId: String(row.entity_id),
+          localRevision: Number(row.local_revision),
+          remoteOperation: JSON.parse(String(row.remote_operation)) as RemoteSyncOperation,
+          createdAt: String(row.created_at),
+          state: 'unresolved',
+        })
+      }
+      return conflicts
+    } finally {
+      stmt.free()
+    }
   }
 
   async saveAssetAsync(buffer: Buffer, mime: string): Promise<string> {
@@ -392,6 +955,8 @@ export class LibraryStorage {
   ): Promise<void> {
     assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
     const currentDb = this.requireDb()
+    const previous = this.loadSnapshot()
+    const mutations = previous ? collectSnapshotMutations(previous, snapshot) : []
     const SQL = await getSql()
     const nextDb = new SQL.Database(currentDb.export())
     const stagedFiles: Array<{ temp: string; target: string }> = []
@@ -407,6 +972,7 @@ export class LibraryStorage {
 
     try {
       nextDb.run('BEGIN TRANSACTION')
+      this.applyLocalSyncMutations(nextDb, mutations, new Date().toISOString())
       for (const asset of assets) {
         assertSafeAssetId(asset.id)
         if (options?.pruneUnreferenced && !referencedAssetIds.has(asset.id)) {

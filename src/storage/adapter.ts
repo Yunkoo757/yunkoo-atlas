@@ -1,4 +1,11 @@
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
+import type {
+  LocalSyncStatus,
+  RemoteSyncApplyResult,
+  RemoteSyncOperation,
+  SyncConflict,
+  SyncOutboxOperation,
+} from '@/sync/types'
 
 export interface AssetStorageStats {
   count: number
@@ -12,6 +19,14 @@ export interface StorageAdapter {
 
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<void>
+  getLocalSyncStatus(): Promise<LocalSyncStatus>
+  listPendingSyncOperations(limit?: number): Promise<SyncOutboxOperation[]>
+  acknowledgeSyncOperations(operationIds: string[], pullCursor?: string): Promise<void>
+  applyRemoteSyncOperations(
+    operations: RemoteSyncOperation[],
+    pullCursor: string,
+  ): Promise<RemoteSyncApplyResult>
+  listSyncConflicts(limit?: number): Promise<SyncConflict[]>
 
   saveAsset(blob: Blob, mime: string): Promise<string>
   getAssetObjectUrl(id: string): Promise<string | null>

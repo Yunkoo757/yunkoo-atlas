@@ -3,6 +3,19 @@ import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '../s
 import type { AppUpdateState } from '../src/lib/appUpdate'
 import type { WindowSizePresetId } from '../src/lib/windowBounds'
 import type { WindowFrameState } from '../src/types/journal-bridge'
+import type {
+  CloudSyncExecution,
+  CloudSyncSetupMode,
+  CloudSyncState,
+  SaveCloudSyncConfigInput,
+} from '../src/sync/cloudSync'
+import type {
+  LocalSyncStatus,
+  RemoteSyncApplyResult,
+  RemoteSyncOperation,
+  SyncConflict,
+  SyncOutboxOperation,
+} from '../src/sync/types'
 
 export interface BackupInfo {
   name: string
@@ -50,6 +63,22 @@ export interface JournalBridge {
   getManifest(): Promise<LibraryManifest>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
+  getLocalSyncStatus(): Promise<LocalSyncStatus>
+  listPendingSyncOperations(limit?: number): Promise<SyncOutboxOperation[]>
+  acknowledgeSyncOperations(operationIds: string[], pullCursor?: string): Promise<boolean>
+  applyRemoteSyncOperations(
+    operations: RemoteSyncOperation[],
+    pullCursor: string,
+  ): Promise<RemoteSyncApplyResult>
+  listSyncConflicts(limit?: number): Promise<SyncConflict[]>
+  getCloudSyncState(): Promise<CloudSyncState>
+  saveCloudSyncConfig(input: SaveCloudSyncConfigInput): Promise<CloudSyncState>
+  clearCloudSyncConfig(): Promise<CloudSyncState>
+  setupCloudSync(mode: CloudSyncSetupMode): Promise<CloudSyncExecution>
+  runCloudSyncNow(): Promise<CloudSyncExecution>
+  startCloudSync(): Promise<CloudSyncState>
+  onCloudSyncState(callback: (state: CloudSyncState) => void): () => void
+  onCloudSyncRequest(callback: () => void): () => void
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
   getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>
@@ -118,6 +147,31 @@ const bridge: JournalBridge = {
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),
   loadSnapshot: () => ipcRenderer.invoke('storage:loadSnapshot'),
   saveSnapshot: (snapshot) => ipcRenderer.invoke('storage:saveSnapshot', snapshot),
+  getLocalSyncStatus: () => ipcRenderer.invoke('storage:getLocalSyncStatus'),
+  listPendingSyncOperations: (limit) => ipcRenderer.invoke('storage:listPendingSyncOperations', limit),
+  acknowledgeSyncOperations: (operationIds, pullCursor) => (
+    ipcRenderer.invoke('storage:acknowledgeSyncOperations', { operationIds, pullCursor })
+  ),
+  applyRemoteSyncOperations: (operations, pullCursor) => (
+    ipcRenderer.invoke('storage:applyRemoteSyncOperations', { operations, pullCursor })
+  ),
+  listSyncConflicts: (limit) => ipcRenderer.invoke('storage:listSyncConflicts', limit),
+  getCloudSyncState: () => ipcRenderer.invoke('sync:getState'),
+  saveCloudSyncConfig: (input) => ipcRenderer.invoke('sync:saveConfig', input),
+  clearCloudSyncConfig: () => ipcRenderer.invoke('sync:clearConfig'),
+  setupCloudSync: (mode) => ipcRenderer.invoke('sync:setup', mode),
+  runCloudSyncNow: () => ipcRenderer.invoke('sync:runNow'),
+  startCloudSync: () => ipcRenderer.invoke('sync:start'),
+  onCloudSyncState: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: CloudSyncState) => callback(state)
+    ipcRenderer.on('sync:state', listener)
+    return () => ipcRenderer.removeListener('sync:state', listener)
+  },
+  onCloudSyncRequest: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('sync:request', listener)
+    return () => ipcRenderer.removeListener('sync:request', listener)
+  },
   saveAsset: (data, mime) =>
     ipcRenderer.invoke('storage:saveAsset', { data, mime }),
   getAssetBytes: (id) => ipcRenderer.invoke('storage:getAssetBytes', id),

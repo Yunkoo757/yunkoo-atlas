@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Local sync IndexedDB regression</title>
+  </head>
+  <body>
+    <script type="module">
+      import {
+        testIndexedDbSnapshotAndOutboxCommitTogether,
+      } from './localSync.browser.test.ts'
+
+      window.__localSyncIndexedDbTest = (async () => {
+        await testIndexedDbSnapshotAndOutboxCommitTogether()
+      })()
+    </script>
+  </body>
+</html>

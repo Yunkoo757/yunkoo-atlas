@@ -8,9 +8,10 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "typecheck": "tsc -b --pretty false && tsc -p tsconfig.electron.json --pretty false",
-    "test": "pnpm test:icons && pnpm test:release && node scripts/run-regression-tests.mjs",
+    "test": "pnpm test:icons && pnpm test:release && pnpm test:sync-server && node scripts/run-regression-tests.mjs",
     "test:icons": "node --test scripts/linear-icons/core.test.mjs",
     "test:release": "node --test scripts/release-command.test.mjs",
+    "test:sync-server": "node --test server/sync-api/app.test.mjs",
     "icons:generate": "node scripts/linear-icons/generate.mjs",
     "icons:app": "node scripts/generate-app-icon.mjs",
     "qa:icons": "node scripts/qa-linear-icons.mjs",

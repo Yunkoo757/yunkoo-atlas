@@ -3,6 +3,17 @@
 日期：2026-07-15  
 状态：已确认方向，分阶段实施
 
+## 实施进度
+
+- 2026-07-15：阶段 1 完成。空值、交易结果来源与导入语义已稳定。
+- 2026-07-15：阶段 2 完成。本地资料库已增加 `deviceId`、`deviceSeq`、实体 revision、删除墓碑、可合并 outbox、pull cursor 与最近同步时间；Electron 与 IndexedDB 都保证快照、导入结果和 outbox 原子提交。
+- 2026-07-15：阶段 3 客户端与服务端实现完成。已实现有限重试的 push/pull、精确确认、分页游标、远端原子应用、冲突留存、双设备验收，以及面向腾讯轻量云的 Node + SQLite WAL 同步服务与 Caddy HTTPS 配置。
+- 首次升级只建立本地同步基线，不自动把整库标记为待上传；只有用户明确选择“以本机创建云端资料库”后，才会原子生成一次完整 bootstrap，重复执行不会制造新 revision。
+- Electron 已加入独立同步设置页、DPAPI / Keychain 加密令牌、首台设备与新增设备分流、启动/联网/唤醒触发，以及同步期间编辑的实体级合并保护。
+- 2026-07-15：阶段 4A 完成。原图附件按引用扫描、SHA-256 校验、原子无损上传与全部离线下载；同 ID 不同内容显式报错，任何一端都不会被静默覆盖。端到端加密与断点续传继续留在阶段 4B。
+- 2026-07-15：阶段 5A 完成。云同步连接绑定本地资料库 ID；切换资料库、完整导入与恢复备份后自动暂停。用户可明确确认“以本机重建云端”，服务端推进 epoch、清除旧可见历史并等待完整检查点与附件上传后再标记就绪；旧设备连接新 epoch 时原子采用权威快照，同时保留下载期间的新编辑。
+- 腾讯轻量云部署与 Windows/macOS 双机实测尚待完成；当前“待同步”仍表示可靠保存在本机的增量日志，不影响离线使用和启动速度。
+
 ## 目标
 
 - Windows 与 macOS 始终保有可独立使用的完整本地资料库。
@@ -23,9 +34,9 @@
 
 ## 选择
 
-在现有本地存储模块上增加增量同步层，首选 Supabase 提供认证、Postgres、私有对象存储与实时唤醒；应用自行负责本地 outbox、幂等、冲突策略和客户端加密。
+在现有本地存储模块上增加增量同步层。个人使用阶段采用自托管轻量服务：单进程 Node API、SQLite WAL 和 Caddy HTTPS；应用继续负责本地 outbox、幂等、冲突策略与离线体验。该方案能在 2 GB 腾讯轻量服务器上保持低内存和低运维成本。
 
-暂不直接迁移至 PowerSync。该方向可通过独立 PoC 验证 Electron 原生 SQLite 打包、Windows/macOS 双架构和旧资料库迁移后再决定。
+暂不引入 Supabase 或 PowerSync。未来若扩展到多账号、团队权限或高并发，再迁移服务端实现；客户端的 `MetadataSyncTransport` 接口与本地日志协议保持不变。
 
 ## 数据流
 
@@ -36,7 +47,7 @@ Local Storage ── 同一事务 ── Snapshot + Outbox
        ↑                             ↓
   应用远端增量                  Sync Module
                                       ↓
-                          加密操作日志 + 加密附件
+                          HTTPS 元数据 + 原图附件
 ```
 
 任何用户修改都先可靠写入本机，再由后台同步。关闭应用不等待网络。
@@ -46,7 +57,7 @@ Local Storage ── 同一事务 ── Snapshot + Outbox
 - `sync_state`：libraryId、deviceId、epoch、pullCursor、lastSyncAt。
 - `sync_outbox`：opId、deviceSeq、entityType、entityId、baseRevision、payload、state。
 - `entity_versions`：实体 revision、字段组版本、删除墓碑。
-- `asset_sync`：sha256、objectKey、localState、remoteState、byteSize。
+- 服务端 `assets`：sha256、MIME、byteSize 与原图文件路径；客户端每轮按当前快照引用补齐两端缺失附件。
 
 服务端为上传操作分配单调递增 cursor；实时通道只唤醒拉取，不作为数据真相。
 
@@ -54,7 +65,7 @@ Local Storage ── 同一事务 ── Snapshot + Outbox
 
 跨设备同步：
 
-- 交易与案例、评论、标签、策略、保存视图、个人资料、显示偏好。
+- 交易、复盘笔记、评论、标签、策略、保存视图、个人资料、显示偏好。
 - 图片、自定义头像与品种图标。
 - 快捷键的逻辑动作，以及按平台分别保存的绑定。
 
@@ -84,18 +95,18 @@ Local Storage ── 同一事务 ── Snapshot + Outbox
 
 ## 安全
 
-- 同步凭据仅保存在 Electron 主进程。
-- Windows 使用 DPAPI、macOS 使用 Keychain 保存本地密钥。
-- 资料库使用随机 256 位密钥；操作与附件使用唯一 nonce 的 AES-256-GCM。
-- 新设备通过已登录设备批准或恢复密钥获得资料库密钥。
+- 同步令牌仅保存在 Electron 主进程。
+- Windows 使用 DPAPI、macOS 使用 Keychain 加密本机令牌；渲染进程只在用户录入时短暂接触明文。
+- 传输强制使用 HTTPS；服务端以 Bearer Token 鉴权，并对请求大小、实体类型、时间戳、deviceSeq 和 revision 做边界校验。
+- 当前阶段元数据在用户自有服务器的 SQLite 中以明文结构化数据保存；端到端载荷加密与附件加密属于阶段 4，不能把“HTTPS + 私有服务器”误写成端到端加密。
 
 ## 实施顺序
 
 1. 稳定空值、结果来源、实体 ID 与导入规则；停止推荐云盘同步实时库。
 2. 增加本地 outbox、deviceId、revision、墓碑与同步状态，不接入远端。
-3. 完成单账号双设备的元数据增量同步。
-4. 加入附件哈希、加密上传、断点续传和全部离线下载。
-5. 加入冲突中心、恢复 epoch、长期离线与故障恢复测试。
+3. 完成单账号双设备的元数据增量同步，并部署自托管 HTTPS 服务。
+4. 先完成附件哈希、无损上传和全部离线下载；再加入端到端加密与断点续传。
+5. 完成恢复 epoch 与串库保护；继续加入冲突中心、长期离线提示与更完整的故障恢复演练。
 
 ## 验收门槛
 
@@ -104,4 +115,3 @@ Local Storage ── 同一事务 ── Snapshot + Outbox
 - 断网启动与编辑成功率 100%。
 - 崩溃、重复 push、pull 中断、双设备同时平仓、删除后旧设备上线均不丢数据。
 - “全部保留离线”完成后，所有附件通过内容哈希校验并可断网打开。
-
