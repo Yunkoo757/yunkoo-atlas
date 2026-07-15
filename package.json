@@ -8,9 +8,10 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "typecheck": "tsc -b --pretty false && tsc -p tsconfig.electron.json --pretty false",
-    "test": "pnpm test:icons && pnpm test:release && node scripts/run-regression-tests.mjs",
+    "test": "pnpm test:icons && pnpm test:release && pnpm test:analytics-baseline && node scripts/run-regression-tests.mjs",
     "test:icons": "node --test scripts/linear-icons/core.test.mjs",
     "test:release": "node --test scripts/release-command.test.mjs",
+    "test:analytics-baseline": "node --test scripts/fixtures/*.test.mjs",
     "icons:generate": "node scripts/linear-icons/generate.mjs",
     "icons:app": "node scripts/generate-app-icon.mjs",
     "qa:icons": "node scripts/qa-linear-icons.mjs",
@@ -32,6 +33,8 @@
     "qa:design": "node scripts/qa-design-contract.mjs",
     "qa:sidebar": "node scripts/qa-sidebar-navigation.mjs",
     "qa:linear": "node scripts/qa-linear-rebuild.mjs",
+    "benchmark:analytics": "pnpm build && node scripts/benchmark-analytics.mjs",
+    "qa:dashboard-10k": "pnpm build && node scripts/qa-dashboard-10k.mjs",
     "qa:electron": "node scripts/qa-electron.mjs",
     "qa:release": "node scripts/qa-release.mjs"
   },
