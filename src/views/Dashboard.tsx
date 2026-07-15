@@ -29,6 +29,7 @@ import {
 } from '@/lib/analyticsScope'
 import { buildRDistribution } from '@/lib/rDistribution'
 import { buildAnalyticsMetrics } from '@/lib/analyticsMetrics'
+import { buildQualityBreakdown } from '@/lib/analyticsQuality'
 import './Dashboard.css'
 
 type TimeRange = AnalyticsRange
@@ -127,7 +128,7 @@ function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]
 
   const rDist = buildRDistribution(rTrades.map((trade) => trade.rMultiple))
 
-  return { ...summary, metrics, curve, strategies, maxAbs, rDist }
+  return { ...summary, metrics, quality: buildQualityBreakdown(closed), curve, strategies, maxAbs, rDist }
 }
 
 export function Dashboard() {
@@ -382,6 +383,30 @@ export function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             )}
+          </div>
+        </section>
+
+        <section className="db-panel">
+          <div className="db-panel-head">
+            <div>
+              <span className="db-panel-title">质量归因</span>
+              <div className="db-panel-sub">错误标签只用于定位模式，不代表因果结论；样本量与结果覆盖率同时显示。</div>
+            </div>
+          </div>
+          <div className="db-strats">
+            {stats.quality.byMistakeTag.length === 0 ? (
+              <div className="db-strats-empty">暂无错误标签样本</div>
+            ) : stats.quality.byMistakeTag.slice(0, 5).map((slice) => (
+              <div className="db-strat" key={slice.key}>
+                <div className="db-strat-head"><div className="db-strat-name">{slice.label}</div></div>
+                <div className="db-strat-meta">
+                  {slice.count} 笔 · {slice.metrics.resultCount}/{slice.metrics.closedCount} 笔结果可验证
+                </div>
+                <div className="db-strat-pnl">
+                  期望 R {slice.metrics.expectancyR.value == null ? '—' : slice.metrics.expectancyR.value.toFixed(2)}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
           </>
