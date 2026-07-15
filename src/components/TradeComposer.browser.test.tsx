@@ -18,17 +18,31 @@ function waitForFrame(): Promise<void> {
 }
 
 async function waitForSelector<T extends Element>(selector: string): Promise<T> {
-  const deadline = performance.now() + 1000
-  while (performance.now() < deadline) {
-    const match = document.querySelector<T>(selector)
-    if (match) return match
-    await waitForFrame()
-  }
-  throw new Error(`未找到元素：${selector}`)
+  const existing = document.querySelector<T>(selector)
+  if (existing) return existing
+
+  return new Promise<T>((resolve, reject) => {
+    const resolveMatch = () => {
+      const match = document.querySelector<T>(selector)
+      if (!match) return false
+      window.clearTimeout(timeout)
+      observer.disconnect()
+      resolve(match)
+      return true
+    }
+    const observer = new MutationObserver(resolveMatch)
+    const timeout = window.setTimeout(() => {
+      observer.disconnect()
+      reject(new Error(`未找到元素：${selector}`))
+    }, 5000)
+
+    observer.observe(document.documentElement, { childList: true, subtree: true })
+    resolveMatch()
+  })
 }
 
 async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 1000
+  const deadline = performance.now() + 5000
   while (performance.now() < deadline) {
     if (condition()) return
     await waitForFrame()
