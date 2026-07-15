@@ -4,8 +4,10 @@ import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 
-  const entries = [
+const entries = [
   'src/regression.test.ts',
+  'src/lib/analyticsScope.test.ts',
+  'src/lib/rDistribution.test.ts',
   'src/lib/reviewAnalytics.test.ts',
   'src/lib/tradeTruth.test.ts',
   'src/lib/tradeCalc.test.ts',
@@ -32,6 +34,7 @@ import fs from 'node:fs/promises'
   'src/views/TradeTrashView.design.test.ts',
   'src/views/WorkbenchEmptyState.design.test.ts',
   'src/views/WorkbenchPerformance.design.test.ts',
+  'src/views/DashboardAnalytics.test.ts',
   'src/views/detailNoteLoad.test.ts',
   'src/lib/appUpdate.test.ts',
   'src/lib/windowBounds.test.ts',

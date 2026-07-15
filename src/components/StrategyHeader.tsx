@@ -26,7 +26,7 @@ export function StrategyHeader({ strategyId }: { strategyId: string }) {
         <div className="sh-stat">
           <span className="sh-stat-label">胜率</span>
           <span className="sh-stat-value">
-            {stats.closedCount > 0 ? `${stats.winRate.toFixed(0)}%` : '—'}
+            {stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
           </span>
         </div>
         <div className="sh-stat">
@@ -64,7 +64,7 @@ export function StrategyHeader({ strategyId }: { strategyId: string }) {
         <div className="sh-stat">
           <span className="sh-stat-label">均 R</span>
           <span className="sh-stat-value">
-            {stats.closedCount > 0 ? fmtR(stats.averageR) : '—'}
+            {stats.averageR == null ? '—' : fmtR(stats.averageR)}
           </span>
         </div>
       </div>

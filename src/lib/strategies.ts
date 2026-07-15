@@ -1,10 +1,10 @@
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_STRATEGIES } from '@/data/strategies'
-import type { Trade, TradeKind } from '@/data/trades'
-import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
+import type { Trade } from '@/data/trades'
+import { isTerminal } from '@/lib/tradeStatus'
 import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
 import { isAccountTrade, normalizeTradeKind } from '@/lib/tradeKind'
-import { summarizeTradeResults } from '@/lib/tradeTruth'
+import type { AnalyticsTradeKind } from '@/lib/analyticsScope'
 
 export function getStrategy(
   strategies: Strategy[],
@@ -36,22 +36,9 @@ export function sortStrategies(strategies: Strategy[], pinnedIds: string[]): Str
 export function computeStrategyStats(
   trades: Trade[],
   strategyId: string,
-  options?: { tradeKind?: TradeKind | 'all' },
+  options?: { tradeKind?: AnalyticsTradeKind },
 ) {
-  const kind = options?.tradeKind ?? 'all'
-  const all =
-    kind === 'all'
-      ? trades.filter((t) => t.strategyId === strategyId && isAccountTrade(t))
-      : trades.filter((t) => t.strategyId === strategyId && t.tradeKind === kind)
-  const closed = all.filter((t) => isExecutedClosed(t.status))
-  const result = summarizeTradeResults(closed)
-  return {
-    ...summarizeStrategyPerformance(trades, strategyId, options),
-    tradeCount: all.length,
-    closedCount: result.closedCount,
-    winRate: result.winRate ?? 0,
-    totalPnl: result.totalPnl,
-  }
+  return summarizeStrategyPerformance(trades, strategyId, options)
 }
 
 /** 将旧版 trade.strategy（名称字符串）迁移为 strategyId，并补全 tradeKind */

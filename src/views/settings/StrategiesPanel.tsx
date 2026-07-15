@@ -107,9 +107,9 @@ export function StrategiesPanel() {
                 </Link>
                 <span className="st-row-meta">{s.count} 笔交易</span>
                 <div className="st-row-stats">
-                  <span>{s.stats.closedCount ? `${s.stats.winRate.toFixed(0)}% 胜率` : '胜率 —'}</span>
+                  <span>{s.stats.winRate == null ? '胜率 —' : `${s.stats.winRate.toFixed(0)}% 胜率`}</span>
                   <span>{s.stats.closedCount ? `${fmtR(s.stats.totalR)} 总R` : '总R —'}</span>
-                  <span>{s.stats.closedCount ? `${fmtR(s.stats.averageR)} 均R` : '均R —'}</span>
+                  <span>{s.stats.averageR == null ? '均R —' : `${fmtR(s.stats.averageR)} 均R`}</span>
                   <span>{s.stats.reviewedCount}/{s.stats.tradeCount} 已复盘</span>
                 </div>
                 {s.stats.topMistakes.length > 0 && (

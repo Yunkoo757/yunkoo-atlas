@@ -20,15 +20,18 @@ import { getStrategyName } from '@/lib/strategies'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
-import { isExecutedClosed } from '@/lib/tradeStatus'
 import { tradeDetailPath } from '@/lib/tradeRoute'
-import { getPeriodBounds, isDateInRange } from '@/lib/periods'
-import { isAccountTrade } from '@/lib/tradeKind'
 import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
+import {
+  selectAnalyticsCandidates,
+  type AnalyticsRange,
+  type AnalyticsTradeKind,
+} from '@/lib/analyticsScope'
+import { buildRDistribution } from '@/lib/rDistribution'
 import './Dashboard.css'
 
-type TimeRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
-type DashboardKind = 'live' | 'paper' | 'all'
+type TimeRange = AnalyticsRange
+type DashboardKind = AnalyticsTradeKind
 
 type CurvePoint = {
   date: string
@@ -50,42 +53,24 @@ const RANGE_OPTS: { value: TimeRange; label: string }[] = [
 const KIND_OPTS: { value: DashboardKind; label: string }[] = [
   { value: 'live', label: '实盘' },
   { value: 'paper', label: '模拟' },
-  { value: 'all', label: '全部类型' },
+  { value: 'all', label: '实盘 + 模拟' },
 ]
 
-function isClosed(t: Trade) {
-  return isExecutedClosed(t.status)
+export function selectDashboardAnalyticsCandidates(
+  trades: readonly Trade[],
+  kind: DashboardKind,
+  range: TimeRange,
+) {
+  return selectAnalyticsCandidates(trades, { tradeKind: kind, range })
 }
 
-function filterByKind(trades: Trade[], kind: DashboardKind): Trade[] {
-  if (kind === 'all') return trades.filter((t) => isAccountTrade(t) && isClosed(t))
-  return trades.filter((t) => t.tradeKind === kind && isClosed(t))
+function closedAtSource(trade: Trade): string {
+  return (trade as Trade & { closedAtTimestamp?: string | null }).closedAtTimestamp
+    ?? trade.closedAt
+    ?? ''
 }
 
-function filterByRange(trades: Trade[], range: TimeRange): Trade[] {
-  const closed = trades.filter(isClosed)
-  if (range === 'all') return closed
-  if (range === 'this-month') {
-    const bounds = getPeriodBounds('this-month')
-    return closed.filter((t) => isDateInRange(t.closedAt ?? t.openedAt, bounds))
-  }
-
-  const now = new Date()
-  let cutoff: Date
-  if (range === 'ytd') {
-    cutoff = new Date(now.getFullYear(), 0, 1)
-  } else {
-    cutoff = new Date(now)
-    cutoff.setDate(cutoff.getDate() - (range === '30d' ? 30 : 90))
-  }
-
-  return closed.filter((t) => {
-    const d = new Date(t.closedAt ?? t.openedAt)
-    return d >= cutoff
-  })
-}
-
-function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
+function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]) {
   const summary = summarizeTradeResults(closed)
   const verified = closed.filter(isVerifiedTradeResult)
   const pnlTrades = verified.filter(
@@ -97,14 +82,14 @@ function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
       typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
   )
 
-  const sorted = [...pnlTrades].sort(
-    (a, b) =>
-      +new Date(a.closedAt ?? a.openedAt) - +new Date(b.closedAt ?? b.openedAt),
-  )
+  const temporalIds = new Set(temporal.map((trade) => trade.id))
+  const sorted = pnlTrades
+    .filter((trade) => temporalIds.has(trade.id))
+    .sort((a, b) => closedAtSource(a).localeCompare(closedAtSource(b)) || a.ref.localeCompare(b.ref))
   let cum = 0
   const curve: CurvePoint[] = sorted.map((t) => {
     cum += t.pnl
-    const closedOn = (t.closedAt ?? t.openedAt).slice(0, 10)
+    const closedOn = closedAtSource(t).slice(0, 10)
     return {
       date: closedOn.slice(5),
       equity: cum,
@@ -117,7 +102,9 @@ function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
 
   const byStrat = new Map<string, Trade[]>()
   closed.forEach((t) => {
-    byStrat.set(t.strategyId, [...(byStrat.get(t.strategyId) ?? []), t])
+    const strategyTrades = byStrat.get(t.strategyId)
+    if (strategyTrades) strategyTrades.push(t)
+    else byStrat.set(t.strategyId, [t])
   })
   const strategies = [...byStrat.entries()]
     .map(([id, strategyTrades]) => {
@@ -136,34 +123,25 @@ function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
     .sort((a, b) => b.pnl - a.pnl)
   const maxAbs = Math.max(1, ...strategies.map((s) => Math.abs(s.pnl)))
 
-  // R 倍数分布
-  const rBuckets = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 5, 10]
-  const rDist = rBuckets.map((lo, i) => {
-    const hi = rBuckets[i + 1]
-    const label = hi ? `${lo}~${hi}` : `>${lo}`
-    const n = hi
-      ? rTrades.filter((t) => t.rMultiple >= lo && t.rMultiple < hi).length
-      : rTrades.filter((t) => t.rMultiple >= lo).length
-    return { label, n, lo }
-  })
+  const rDist = buildRDistribution(rTrades.map((trade) => trade.rMultiple))
 
   return { ...summary, curve, strategies, maxAbs, rDist }
 }
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
+  const trades = useStore((s) => s.trades)
   const strategyDefs = useStore((s) => s.strategies)
   const openComposer = useStore((s) => s.openComposer)
   const [range, setRange] = useState<TimeRange>('all')
   const [kind, setKind] = useState<DashboardKind>('live')
 
   const stats = useMemo(() => {
-    const byKind = filterByKind(trades, kind)
-    return buildStats(filterByRange(byKind, range), strategyDefs)
+    const candidates = selectDashboardAnalyticsCandidates(trades, kind, range)
+    return buildStats(candidates.included, candidates.temporalCandidates, strategyDefs)
   }, [trades, strategyDefs, range, kind])
   const rangeLabel = RANGE_OPTS.find((o) => o.value === range)?.label ?? '全部'
-  const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '全部类型'
+  const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '实盘 + 模拟'
   const hasClosedTrades = stats.closedCount > 0
 
   const openTrade = (tradeId: string) => {
@@ -209,7 +187,7 @@ export function Dashboard() {
 
         <div className="db-cards">
           <Card
-            label="净盈亏"
+            label="累计盈亏"
             value={fmtMoney(stats.totalPnl)}
             sub={`${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
             accent={stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
@@ -376,21 +354,21 @@ export function Dashboard() {
                     cursor={{ fill: 'color-mix(in srgb, var(--bg-hover) 88%, transparent)' }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
-                      const d = payload[0].payload as { label: string; n: number }
+                      const d = payload[0].payload as { label: string; count: number }
                       return (
                         <div className="db-chart-tip db-chart-tip--compact">
                           <div className="db-chart-tip-ref">R 倍数区间</div>
                           <div className="db-chart-tip-symbol">{d.label}</div>
                           <div className="db-chart-tip-row">
                             <span>笔数</span>
-                            <strong>{d.n}</strong>
+                            <strong>{d.count}</strong>
                           </div>
                         </div>
                       )
                     }}
                   />
                   <Bar
-                    dataKey="n"
+                    dataKey="count"
                     fill="var(--accent)"
                     radius={[3, 3, 0, 0]}
                     maxBarSize={32}

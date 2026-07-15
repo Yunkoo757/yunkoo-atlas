@@ -4,9 +4,12 @@ import type {
   ReviewCategory,
   ReviewStatus,
   Trade,
-  TradeKind,
 } from '@/data/trades'
 import { resolveTimeframe } from '@/data/trades'
+import {
+  selectAnalyticsCandidates,
+  type AnalyticsTradeKind,
+} from '@/lib/analyticsScope'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
@@ -37,9 +40,10 @@ export interface MistakeSummary {
 export interface StrategyPerformance {
   tradeCount: number
   closedCount: number
-  winRate: number
+  winRate: number | null
+  totalPnl: number
   totalR: number
-  averageR: number
+  averageR: number | null
   worstR: number | null
   reviewedCount: number
   topMistakes: MistakeSummary[]
@@ -122,14 +126,13 @@ export function normalizeReviewTrades(trades: Trade[]): Trade[] {
 export function summarizeStrategyPerformance(
   trades: Trade[],
   strategyId: string,
-  options?: { tradeKind?: TradeKind | 'all' },
+  options?: { tradeKind?: AnalyticsTradeKind },
 ): StrategyPerformance {
-  const kind = options?.tradeKind ?? 'all'
-  const all = trades.filter(
-    (t) =>
-      t.strategyId === strategyId &&
-      (kind === 'all' ? t.tradeKind === 'live' || t.tradeKind === 'paper' : t.tradeKind === kind),
-  )
+  const all = selectAnalyticsCandidates(trades, {
+    tradeKind: options?.tradeKind ?? 'live',
+    range: 'all',
+    strategyId,
+  }).included
   const closed = all.filter((t) => isExecutedClosed(t.status))
   const result = summarizeTradeResults(closed)
   const rValues = closed
@@ -137,7 +140,7 @@ export function summarizeStrategyPerformance(
     .map((trade) => trade.rMultiple)
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
   const totalR = rValues.reduce((sum, value) => sum + value, 0)
-  const averageR = rValues.length ? totalR / rValues.length : 0
+  const averageR = rValues.length ? totalR / rValues.length : null
   const worstR = rValues.length ? Math.min(...rValues) : null
   const reviewedCount = all.filter((t) => t.reviewStatus === 'reviewed' || t.reviewStatus === 'focus').length
   const mistakeCounts = new Map<string, number>()
@@ -154,7 +157,8 @@ export function summarizeStrategyPerformance(
   return {
     tradeCount: all.length,
     closedCount: result.closedCount,
-    winRate: result.winRate ?? 0,
+    winRate: result.winRate,
+    totalPnl: result.totalPnl,
     totalR,
     averageR,
     worstR,
