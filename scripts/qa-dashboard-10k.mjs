@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { arch, cpus, platform, release, tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { pathToFileURL } from 'node:url'
 
@@ -41,8 +41,11 @@ export function evaluateDashboardQa(observation) {
       actual: observation.renderedClosedCount,
     },
     { id: 'kpi-cards', passed: observation.cardCount === 4, expected: 4, actual: observation.cardCount },
-    { id: 'dashboard-panels', passed: observation.panelCount === 3, expected: 3, actual: observation.panelCount },
+    { id: 'dashboard-panels', passed: observation.panelCount === 4, expected: 4, actual: observation.panelCount },
     { id: 'data-health', passed: observation.hasDataHealth === true, expected: true, actual: observation.hasDataHealth },
+    { id: 'quality-tabs', passed: observation.qualityTabCount === 5, expected: 5, actual: observation.qualityTabCount },
+    { id: 'conflict-drilldown', passed: observation.conflictRowCount === 1, expected: 1, actual: observation.conflictRowCount },
+    { id: 'detail-return-query', passed: observation.detailReturnPreserved === true, expected: true, actual: observation.detailReturnPreserved },
     { id: 'console-errors', passed: observation.consoleErrors.length === 0, expected: 0, actual: observation.consoleErrors.length },
     { id: 'page-errors', passed: observation.pageErrors.length === 0, expected: 0, actual: observation.pageErrors.length },
   ]
@@ -212,6 +215,41 @@ async function measureSnapshotSave(page) {
   })
 }
 
+async function verifyEvidenceDrilldown(page, screenshotPath) {
+  const qualityTabs = page.locator('.db-quality-tabs button')
+  const qualityTabCount = await qualityTabs.count()
+  const conflictButton = qualityTabs.filter({ hasText: '冲突' })
+  if (await conflictButton.count() !== 1) throw new Error('Expected one conflict quality tab')
+  await conflictButton.click()
+  await page.waitForURL((url) => url.pathname === '/dashboard' && url.searchParams.get('quality') === 'conflict', {
+    timeout: 10_000,
+  })
+
+  await page.locator('.db-evidence-panel').waitFor({ state: 'visible', timeout: 10_000 })
+  const rows = page.locator('.db-evidence-list > button')
+  await rows.first().waitFor({ state: 'visible', timeout: 10_000 })
+  const conflictRowCount = await rows.count()
+  if (screenshotPath) {
+    mkdirSync(dirname(screenshotPath), { recursive: true })
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+  }
+
+  if (conflictRowCount > 0) {
+    await rows.first().click()
+    await page.waitForURL((url) => url.pathname.startsWith('/trade/'), { timeout: 10_000 })
+    await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10_000 })
+    await waitForDashboard(page)
+  }
+
+  return {
+    qualityTabCount,
+    conflictRowCount,
+    detailReturnPreserved:
+      new URL(page.url()).pathname === '/dashboard'
+      && new URL(page.url()).searchParams.get('quality') === 'conflict',
+  }
+}
+
 async function measureRepeated(operation, { warmups, runs }) {
   for (let index = 0; index < warmups; index += 1) await operation(index)
   const rawMs = []
@@ -317,6 +355,10 @@ export async function runDashboard10kQa({ smoke = false, stdoutOnly = false } = 
     }, { warmups, runs })
     if (nextRange === '全部') await measureRangeSwitch(page, '全部')
     const snapshotSave = await measureRepeated(() => measureSnapshotSave(page), { warmups, runs })
+    const evidenceDrilldown = await verifyEvidenceDrilldown(
+      page,
+      process.env.QA_DASHBOARD_SCREENSHOT,
+    )
     const memoryAfter = await browserHeapMetrics(session)
 
     const loadedChecksum = await readFixtureChecksum(page)
@@ -335,6 +377,7 @@ export async function runDashboard10kQa({ smoke = false, stdoutOnly = false } = 
       cardCount,
       panelCount,
       hasDataHealth,
+      ...evidenceDrilldown,
       consoleErrors: errors.console,
       pageErrors: errors.page,
       dashboardEntryP95Ms: dashboardEntry.p95Ms,
