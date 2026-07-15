@@ -169,3 +169,10 @@ test('NSIS 安装包声明高 DPI，避免安装向导发糊', () => {
   assert.match(nsh, /ManifestDPIAwareness\s+PerMonitorV2/)
   assert.equal(pkg.build?.nsis?.include, 'build/installer.nsh')
 })
+
+test('Electron QA 使用独立用户数据目录，不受已运行客户端的单实例锁影响', () => {
+  const qa = readFileSync('scripts/qa-electron.mjs', 'utf8')
+
+  assert.match(qa, /--user-data-dir=/)
+  assert.match(qa, /join\(LIB, ['"]\.electron-user-data['"]\)/)
+})

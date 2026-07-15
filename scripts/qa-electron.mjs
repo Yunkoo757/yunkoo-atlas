@@ -42,7 +42,7 @@ async function readSnapshotFromDb(dbPath) {
 
 function runElectronQa() {
   return new Promise((resolve, reject) => {
-    const child = spawn(electronExe, ['.'], {
+    const child = spawn(electronExe, ['.', `--user-data-dir=${join(LIB, '.electron-user-data')}`], {
       cwd: ROOT,
       env: {
         ...process.env,

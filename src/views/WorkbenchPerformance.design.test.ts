@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 function read(relativePath: string): string {
-  return readFileSync(path.resolve(relativePath), 'utf8')
+  return readFileSync(path.resolve(relativePath), 'utf8').replace(/\r\n?/g, '\n')
 }
 
 export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
