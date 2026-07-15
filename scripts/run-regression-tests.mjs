@@ -133,6 +133,11 @@ try {
       label: 'src/components/TradeComposer.browser.test.tsx :: new records remain unclassified',
     },
     {
+      url: '/src/components/TradeCloseDialog.browser.test.html',
+      promiseKey: '__tradeCloseDualMetricsTest',
+      label: 'src/components/TradeCloseDialog.browser.test.tsx :: cash and R remain visible and persist together',
+    },
+    {
       url: '/src/editor/imageLoadFailure.browser.test.html',
       promiseKey: '__editorImageLoadFailureTest',
       label: 'src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations',

@@ -21,11 +21,6 @@ const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
   { value: 'loss', label: '亏损' },
 ]
 
-const PRIMARY_RESULT_MODES: Array<{ value: PrimaryCloseResultMode; label: string }> = [
-  { value: 'pnl', label: '盈亏金额' },
-  { value: 'r', label: 'R 倍数' },
-]
-
 const PRIMARY_RESULT_MODE_STORAGE_KEY = 'yunkoo-atlas:trade-close-primary-result-mode'
 
 function readRememberedPrimaryResultMode(): PrimaryCloseResultMode | null {
@@ -139,7 +134,8 @@ export function TradeCloseDialog() {
     return prepareTradeClose(trade, {
       outcome,
       resultMode,
-      value: parseOptionalNumber(resultMode === 'r' ? rMultiple : pnl),
+      pnl: parseOptionalNumber(pnl),
+      rMultiple: parseOptionalNumber(rMultiple),
       exit: parseOptionalNumber(exit),
       closedAt,
     })
@@ -159,7 +155,8 @@ export function TradeCloseDialog() {
     const result = prepareTradeClose(trade, {
       outcome,
       resultMode,
-      value: parseOptionalNumber(resultMode === 'r' ? rMultiple : pnl),
+      pnl: parseOptionalNumber(pnl),
+      rMultiple: parseOptionalNumber(rMultiple),
       exit: parseOptionalNumber(exit),
       closedAt,
     })
@@ -185,9 +182,10 @@ export function TradeCloseDialog() {
       return `按价格判定为${OUTCOMES.find((item) => item.value === preview.status)?.label ?? ''} · ${fmtR(preview.patch.rMultiple ?? null)}`
     }
     if (!preview || outcome === 'breakeven') return null
-    return resultMode === 'pnl'
-      ? `将记录 ${fmtMoney(preview.patch.pnl ?? null)}`
-      : `将记录 ${fmtR(preview.patch.rMultiple ?? null)}`
+    return [
+      preview.patch.pnl == null ? null : fmtMoney(preview.patch.pnl),
+      preview.patch.rMultiple == null ? null : fmtR(preview.patch.rMultiple),
+    ].filter(Boolean).join(' · ')
   })()
 
   return (
@@ -262,52 +260,45 @@ export function TradeCloseDialog() {
           <section className="trade-close-section">
             <div className="trade-close-result-heading">
               <span className="trade-close-label">结果数值</span>
-              <div className="trade-close-modes" role="radiogroup" aria-label="主要结果依据">
-                {PRIMARY_RESULT_MODES.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={resultMode === item.value}
-                    className={`trade-close-mode${resultMode === item.value ? ' is-active' : ''}`}
-                    onClick={() => chooseResultMode(item.value)}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+              {resultMode !== 'price' ? <small>至少填写一项，两项都会保存</small> : null}
             </div>
 
-            <div className="trade-close-primary-field">
-              {resultMode === 'pnl' && outcome !== 'breakeven' ? (
-                <input
-                  aria-label="盈亏金额"
-                  aria-describedby={error ? feedbackId : undefined}
-                  aria-invalid={Boolean(error)}
-                  inputMode="decimal"
-                  value={pnl}
-                  onChange={(event) => {
-                    setPnl(event.target.value)
-                    setError('')
-                  }}
-                  placeholder="输入金额绝对值，例如 500"
-                  autoFocus
-                />
-              ) : null}
-              {resultMode === 'r' && outcome !== 'breakeven' ? (
-                <input
-                  aria-label="R 倍数"
-                  aria-describedby={error ? feedbackId : undefined}
-                  aria-invalid={Boolean(error)}
-                  inputMode="decimal"
-                  value={rMultiple}
-                  onChange={(event) => {
-                    setRMultiple(event.target.value)
-                    setError('')
-                  }}
-                  placeholder="输入 R 绝对值，例如 1.5"
-                  autoFocus
-                />
+            <div className={`trade-close-primary-field${resultMode !== 'price' && outcome !== 'breakeven' ? ' is-dual' : ''}`}>
+              {resultMode !== 'price' && outcome !== 'breakeven' ? (
+                <>
+                  <label>
+                    <span>盈亏金额</span>
+                    <input
+                      aria-label="盈亏金额"
+                      aria-describedby={error ? feedbackId : undefined}
+                      aria-invalid={Boolean(error)}
+                      inputMode="decimal"
+                      value={pnl}
+                      onChange={(event) => {
+                        setPnl(event.target.value)
+                        setError('')
+                      }}
+                      placeholder="例如 500"
+                      autoFocus={resultMode === 'pnl'}
+                    />
+                  </label>
+                  <label>
+                    <span>R 倍数</span>
+                    <input
+                      aria-label="R 倍数"
+                      aria-describedby={error ? feedbackId : undefined}
+                      aria-invalid={Boolean(error)}
+                      inputMode="decimal"
+                      value={rMultiple}
+                      onChange={(event) => {
+                        setRMultiple(event.target.value)
+                        setError('')
+                      }}
+                      placeholder="例如 1.5"
+                      autoFocus={resultMode === 'r'}
+                    />
+                  </label>
+                </>
               ) : null}
               {resultMode !== 'price' && outcome === 'breakeven' ? (
                 <span className="trade-close-zero-result">保本将直接记录为 0，无需填写</span>
@@ -351,9 +342,13 @@ export function TradeCloseDialog() {
                     type="button"
                     className={resultMode === 'price' ? 'is-active' : ''}
                     aria-pressed={resultMode === 'price'}
-                    onClick={() => chooseResultMode('price')}
+                    onClick={() => chooseResultMode(
+                      resultMode === 'price'
+                        ? readRememberedPrimaryResultMode() ?? 'pnl'
+                        : 'price',
+                    )}
                   >
-                    {resultMode === 'price' ? '已选择' : '使用'}
+                    {resultMode === 'price' ? '改为手动填写' : '使用'}
                   </button>
                 </div>
 

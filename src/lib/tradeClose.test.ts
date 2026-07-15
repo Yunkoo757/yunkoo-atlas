@@ -82,7 +82,8 @@ export function testClosePriceWithoutStopRequiresAnotherResultMode(): void {
   const result = prepareTradeClose({ ...trade, stopLoss: null }, {
     outcome: 'loss',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: 110,
     closedAt: '2026-07-13',
   })
@@ -96,7 +97,8 @@ export function testClosePriceRequiresARecordedEntryPrice(): void {
   const result = prepareTradeClose({ ...trade, entry: null }, {
     outcome: 'win',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: 110,
     closedAt: '2026-07-13',
   })
@@ -110,7 +112,8 @@ export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'loss',
     resultMode: 'r',
-    value: 1.5,
+    pnl: null,
+    rMultiple: 1.5,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -133,7 +136,8 @@ export function testCloseKeepsCashResultAsTheOnlyAuthority(): void {
   const result = prepareTradeClose(forexTrade, {
     outcome: 'win',
     resultMode: 'pnl',
-    value: 1_000,
+    pnl: 1_000,
+    rMultiple: null,
     exit: 1.11,
     closedAt: '2026-07-13',
   })
@@ -149,7 +153,8 @@ export function testCloseAppliesLossDirectionToCashMagnitude(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'loss',
     resultMode: 'pnl',
-    value: 500,
+    pnl: 500,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -164,7 +169,8 @@ export function testCloseKeepsRResultAsTheOnlyAuthority(): void {
   const result = prepareTradeClose({ ...trade, pnl: 500 }, {
     outcome: 'loss',
     resultMode: 'r',
-    value: 1.5,
+    pnl: null,
+    rMultiple: 1.5,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -180,7 +186,8 @@ export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'breakeven',
     resultMode: 'pnl',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
@@ -189,7 +196,7 @@ export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
   if (!result.ok) return
   assert(result.status === 'breakeven', 'breakeven selection should remain authoritative')
   assert(result.patch.pnl === 0, 'cash mode should store an explicit breakeven result')
-  assert(result.patch.rMultiple === null, 'cash mode should not invent an R result')
+  assert(result.patch.rMultiple === 0, 'breakeven should persist a visible zero R alongside cash')
 }
 
 export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
@@ -204,7 +211,8 @@ export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
   const result = prepareTradeClose(forexTrade, {
     outcome: 'loss',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: 1.11,
     closedAt: '2026-07-13',
   })
@@ -227,7 +235,8 @@ export function testPriceCloseUsesFrozenRiskAfterStopMoves(): void {
   }, {
     outcome: 'win',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: 110,
     closedAt: '2026-07-13',
   })
@@ -242,14 +251,16 @@ export function testCloseRejectsMissingPrimaryResult(): void {
   const missing = prepareTradeClose(trade, {
     outcome: 'win',
     resultMode: 'pnl',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
   const missingPrice = prepareTradeClose(trade, {
     outcome: 'win',
     resultMode: 'price',
-    value: null,
+    pnl: null,
+    rMultiple: null,
     exit: null,
     closedAt: '2026-07-13',
   })
