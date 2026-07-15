@@ -42,6 +42,7 @@ const entries = [
   'src/lib/productFlowPolish.test.ts',
   'src/lib/workbenchEmptyState.test.ts',
   'src/storage/snapshotValidation.test.ts',
+  'src/storage/upgrade.test.ts',
   'src/storage/persist.test.ts',
   'src/storage/noteDrafts.test.ts',
   'src/storage/pendingOperations.test.ts',
