@@ -28,6 +28,7 @@ import {
   type AnalyticsTradeKind,
 } from '@/lib/analyticsScope'
 import { buildRDistribution } from '@/lib/rDistribution'
+import { buildAnalyticsMetrics } from '@/lib/analyticsMetrics'
 import './Dashboard.css'
 
 type TimeRange = AnalyticsRange
@@ -72,6 +73,7 @@ function closedAtSource(trade: Trade): string {
 
 function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]) {
   const summary = summarizeTradeResults(closed)
+  const metrics = buildAnalyticsMetrics(closed)
   const verified = closed.filter(isVerifiedTradeResult)
   const pnlTrades = verified.filter(
     (trade): trade is Trade & { pnl: number } =>
@@ -125,7 +127,7 @@ function buildStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]
 
   const rDist = buildRDistribution(rTrades.map((trade) => trade.rMultiple))
 
-  return { ...summary, curve, strategies, maxAbs, rDist }
+  return { ...summary, metrics, curve, strategies, maxAbs, rDist }
 }
 
 export function Dashboard() {
@@ -188,20 +190,20 @@ export function Dashboard() {
         <div className="db-cards">
           <Card
             label="累计盈亏"
-            value={fmtMoney(stats.totalPnl)}
-            sub={`${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
-            accent={stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
+            value={stats.metrics.pnl.value == null ? '—' : fmtMoney(stats.metrics.pnl.value)}
+            sub={`${stats.metrics.pnl.sampleSize}/${stats.closedCount} 笔含可验证盈亏`}
+            accent={stats.metrics.pnl.value == null || stats.metrics.pnl.value === 0 ? undefined : stats.metrics.pnl.value > 0}
           />
           <Card
             label="胜率"
-            value={stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
-            sub={`${stats.evaluatedCount}/${stats.closedCount} 笔结果有效`}
+            value={stats.metrics.winRate.value == null ? '—' : `${(stats.metrics.winRate.value * 100).toFixed(0)}%`}
+            sub={`${stats.metrics.winRate.sampleSize}/${stats.closedCount} 笔结果有效 · Wilson 下界`}
           />
           <Card
             label="平均 R"
-            value={stats.averageR == null ? '—' : `${stats.averageR > 0 ? '+' : ''}${stats.averageR.toFixed(2)}`}
-            sub={`${stats.rCount}/${stats.closedCount} 笔含 R`}
-            accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
+            value={stats.metrics.expectancyR.value == null ? '—' : `${stats.metrics.expectancyR.value > 0 ? '+' : ''}${stats.metrics.expectancyR.value.toFixed(2)}`}
+            sub={`${stats.metrics.expectancyR.sampleSize}/${stats.closedCount} 笔含 R · 期望值`}
+            accent={stats.metrics.expectancyR.value == null || stats.metrics.expectancyR.value === 0 ? undefined : stats.metrics.expectancyR.value > 0}
           />
           <Card label="盈利笔数" value={String(stats.winCount)} sub={`共 ${stats.evaluatedCount} 笔有效结果`} muted />
         </div>
