@@ -150,6 +150,24 @@ async function run(): Promise<void> {
       JSON.stringify(savedSnapshot) === JSON.stringify(currentDialectSnapshot),
     '普通 saveSnapshot 必须继续保存并加载当前快照',
   )
+
+  const v7Candidate = { ...currentDialectSnapshot, schemaVersion: 7, reportingTimeZone: null }
+  const commitResult = await adapter.commitUpgradeSnapshot(v7Candidate, 7, () => undefined)
+  assert(commitResult === 'committed', 'validated browser upgrade must commit')
+  assert((await adapter.getManifest()).schemaVersion === 7, 'browser manifest commits only after hydrate validation')
+  assert((await adapter.loadRawSnapshot() as { schemaVersion?: number }).schemaVersion === 7, 'browser snapshot and manifest commit together')
+
+  await putLibraryState(currentDialectSnapshot, {
+    schemaVersion: 6,
+    libraryId: 'rollback-v6-library',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  })
+  const rollbackResult = await adapter.commitUpgradeSnapshot(v7Candidate, 7, () => {
+    throw new Error('hydrate failed')
+  })
+  assert(rollbackResult === 'restored', 'failed browser hydrate must restore v6')
+  assert((await adapter.getManifest()).schemaVersion === 6, 'failed browser upgrade restores manifest')
+  assert((await adapter.loadRawSnapshot() as { schemaVersion?: number }).schemaVersion === undefined, 'failed browser upgrade restores raw v6 snapshot')
 }
 
 declare global {

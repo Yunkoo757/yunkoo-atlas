@@ -14,6 +14,14 @@ const STORE_SNAPSHOT = 'snapshot'
 const STORE_ASSETS = 'assets'
 const STORE_META = 'meta'
 const MAX_OBJECT_URL_CACHE = 128
+const UPGRADE_JOURNAL_KEY = 'upgrade-journal'
+const UPGRADE_ROLLBACK_KEY = 'upgrade-rollback'
+
+interface BrowserUpgradeJournal {
+  targetVersion: number
+  phase: 'pending-v7' | 'committed-v7'
+  sourceChecksumSha256: string
+}
 
 interface AssetRecord {
   id: string
@@ -59,6 +67,12 @@ function idbPut(db: IDBDatabase, store: string, key: string, value: unknown): Pr
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
   })
+}
+
+async function checksumJson(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -134,6 +148,56 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     assertValidPersistedSnapshot(snapshot, 'Browser snapshot')
     const db = this.requireDb()
     await idbPut(db, STORE_SNAPSHOT, 'main', snapshot)
+  }
+
+  async commitUpgradeSnapshot(
+    migratedSnapshot: unknown,
+    targetVersion: number,
+    validateHydrated: (snapshot: unknown) => void,
+  ): Promise<'committed' | 'restored'> {
+    const db = this.requireDb()
+    const currentSnapshot = await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')
+    const currentManifest = await idbGet<LibraryManifest>(db, STORE_META, 'manifest')
+    if (currentSnapshot === undefined || !currentManifest) throw new Error('cannot upgrade an incomplete browser library')
+    const journal: BrowserUpgradeJournal = {
+      targetVersion,
+      phase: 'pending-v7',
+      sourceChecksumSha256: await checksumJson(currentSnapshot),
+    }
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readwrite')
+      tx.objectStore(STORE_SNAPSHOT).put(structuredClone(currentSnapshot), UPGRADE_ROLLBACK_KEY)
+      tx.objectStore(STORE_SNAPSHOT).put(structuredClone(migratedSnapshot), 'main')
+      tx.objectStore(STORE_META).put(journal, UPGRADE_JOURNAL_KEY)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB upgrade transaction failed'))
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB upgrade transaction aborted'))
+    })
+    try {
+      validateHydrated(migratedSnapshot)
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_META, 'readwrite')
+        tx.objectStore(STORE_META).put({ ...currentManifest, schemaVersion: targetVersion }, 'manifest')
+        tx.objectStore(STORE_META).put({ ...journal, phase: 'committed-v7' }, UPGRADE_JOURNAL_KEY)
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error ?? new Error('IndexedDB upgrade commit failed'))
+      })
+      return 'committed'
+    } catch {
+      const rollback = await idbGet<unknown>(db, STORE_SNAPSHOT, UPGRADE_ROLLBACK_KEY)
+      if (rollback === undefined || await checksumJson(rollback) !== journal.sourceChecksumSha256) {
+        throw new Error('IndexedDB pre-v7 rollback snapshot is missing or damaged')
+      }
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readwrite')
+        tx.objectStore(STORE_SNAPSHOT).put(rollback, 'main')
+        tx.objectStore(STORE_META).put(currentManifest, 'manifest')
+        tx.objectStore(STORE_META).delete(UPGRADE_JOURNAL_KEY)
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error ?? new Error('IndexedDB upgrade rollback failed'))
+      })
+      return 'restored'
+    }
   }
 
   async saveAsset(blob: Blob, mime: string): Promise<string> {
