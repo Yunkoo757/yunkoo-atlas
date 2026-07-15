@@ -13,6 +13,7 @@ import {
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
+import { buildAnalyticsMetrics, type AnalyticsMetrics } from '@/lib/analyticsMetrics'
 
 export const DEFAULT_REVIEW_STATUS: ReviewStatus = 'unreviewed'
 export const DEFAULT_REVIEW_CATEGORY: ReviewCategory = 'normal'
@@ -47,6 +48,7 @@ export interface StrategyPerformance {
   worstR: number | null
   reviewedCount: number
   topMistakes: MistakeSummary[]
+  metrics: AnalyticsMetrics
 }
 
 export function normalizeReviewFields(trade: Trade): Trade {
@@ -164,5 +166,6 @@ export function summarizeStrategyPerformance(
     worstR,
     reviewedCount,
     topMistakes,
+    metrics: buildAnalyticsMetrics(all),
   }
 }

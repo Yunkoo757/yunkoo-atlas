@@ -60,4 +60,5 @@ export function testDashboardAndStrategyEntrypointsShareTheDefaultLiveScope(): v
     dashboardCandidates.included.map((trade) => trade.id).join(',') === 'live',
     'all three analytics entrypoints must use the closed live candidate set by default',
   )
+  assert(reviewSummary.metrics.resultCount === 1, 'strategy metrics must use the same verified result scope')
 }
