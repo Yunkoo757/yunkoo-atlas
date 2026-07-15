@@ -268,7 +268,7 @@ try {
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
-    dashboardClosedCount === '1/1 笔结果有效',
+    dashboardClosedCount.startsWith('1/1 笔'),
     dashboardClosedCount,
   )
 

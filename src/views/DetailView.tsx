@@ -1019,11 +1019,12 @@ export function DetailView() {
             <EditableDataRow
               label="仓位"
               value={trade.size}
-              format={String}
+              format={(v) => (v == null ? '—' : String(v))}
               inputType="number"
+              nullable
               onSave={(v) => commitTradeResultEdit({
                 kind: 'execution',
-                patch: { size: v as number },
+                patch: { size: v as number | null },
               })}
             />
             <EditableDataRow
