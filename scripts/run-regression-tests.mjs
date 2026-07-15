@@ -61,6 +61,7 @@ const entries = [
   'electron/library/backup.test.ts',
   'electron/library/electronAdapterRawLoad.test.ts',
   'electron/library/rawSnapshot.test.ts',
+  'electron/library/upgradeRecovery.test.ts',
 ]
 
 let failed = 0
