@@ -23,6 +23,8 @@ function pngBuf(): Buffer {
 
 function seedSnapshot(): PersistedSnapshot {
   return {
+    schemaVersion: SCHEMA_VERSION,
+    reportingTimeZone: null,
     trades: [
       {
         id: 'qa-trade-1',
@@ -42,8 +44,17 @@ function seedSnapshot(): PersistedSnapshot {
         size: 1,
         pnl: 10,
         rMultiple: 1,
-        openedAt: '2026-01-01T00:00:00.000Z',
-        closedAt: '2026-01-02T00:00:00.000Z',
+        resultSource: 'imported',
+        pnlBasis: 'unknown',
+        pnlCurrency: 'USD',
+        pnlCurrencySource: 'inferred',
+        openedAtTimestamp: '2026-01-01T00:00:00.000Z',
+        closedAtTimestamp: '2026-01-02T00:00:00.000Z',
+        strategyVersionId: 'qa-strategy:v1',
+        pnlSource: 'legacy',
+        rSource: 'legacy',
+        openedAt: '2026-01-01',
+        closedAt: '2026-01-02',
         note: '<p>QA seed</p>',
       },
     ],
@@ -53,6 +64,18 @@ function seedSnapshot(): PersistedSnapshot {
         name: 'QA 策略',
         icon: 'target',
         color: '#6366f1',
+        currentVersionId: 'qa-strategy:v1',
+      },
+    ],
+    strategyVersions: [
+      {
+        id: 'qa-strategy:v1',
+        strategyId: 'qa-strategy',
+        version: 1,
+        label: 'v1',
+        rulesHtml: '',
+        reviewTemplateHtml: '',
+        createdAt: null,
       },
     ],
     starredIds: [],

@@ -47,7 +47,12 @@ function getWindowIconPath(): string | undefined {
 }
 
 let mainWindow: BrowserWindow | null = null
-const hasSingleInstanceLock = app.requestSingleInstanceLock()
+const isHeadlessQa = process.env.LINEAR_JOURNAL_QA === '1'
+const qaLibraryRoot = isHeadlessQa ? process.env.LINEAR_JOURNAL_LIBRARY : undefined
+if (qaLibraryRoot) {
+  app.setPath('userData', path.join(qaLibraryRoot, '.electron-user-data'))
+}
+const hasSingleInstanceLock = isHeadlessQa || app.requestSingleInstanceLock()
 
 function focusMainWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
