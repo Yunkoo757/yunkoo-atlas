@@ -33,12 +33,46 @@ async function selectValue(trigger, value) {
   await page.locator(`.ui-select-option[data-value="${value}"]`).click()
 }
 
-async function waitForApp(targetPage = page) {
-  const loading = targetPage.locator('.app-loading')
-  if (await loading.count()) {
-    await loading.waitFor({ state: 'hidden', timeout: 30000 })
+async function flushPageStorage(targetPage = page) {
+  if (targetPage.isClosed()) return
+  const appMounted = await targetPage.locator('.ui-main-frame').count().catch(() => 0)
+  if (!appMounted) return
+  await targetPage.evaluate(async () => {
+    const { waitForPendingStorageOperations } = await import('/src/storage/pendingOperations.ts')
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await waitForPendingStorageOperations()
+    await flushPersistNow()
+  })
+}
+
+async function waitForApp(targetPage = page, expectedPath = '') {
+  const terminal = targetPage.locator('.ui-main-frame, .app-storage-error, .welcome-overlay')
+  try {
+    await terminal.first().waitFor({ state: 'visible', timeout: 30000 })
+  } catch (error) {
+    const state = await targetPage.evaluate(() => ({
+      url: window.location.href,
+      readyState: document.readyState,
+      loading: document.querySelector('.app-loading')?.textContent?.trim() ?? '',
+      storageError: document.querySelector('.app-storage-error')?.textContent?.trim() ?? '',
+      body: document.body.innerText.trim().slice(0, 500),
+    })).catch(() => ({ url: targetPage.url(), readyState: 'unavailable', loading: '', storageError: '', body: '' }))
+    throw new Error(
+      `应用未就绪：path=${expectedPath || 'unknown'}；state=${JSON.stringify(state)}；runtime=${runtimeErrors.slice(-3).join(' | ') || 'none'}；cause=${String(error)}`,
+    )
   }
-  await targetPage.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 30000 })
+  if (await targetPage.locator('.app-storage-error').isVisible().catch(() => false)) {
+    throw new Error(`本地库启动失败：${await targetPage.locator('.app-storage-error').innerText()}`)
+  }
+  if (await targetPage.locator('.welcome-overlay').isVisible().catch(() => false)) {
+    throw new Error(`应用意外进入欢迎页：${expectedPath || targetPage.url()}`)
+  }
+}
+
+async function gotoApp(path, targetPage = page) {
+  await flushPageStorage(targetPage)
+  await targetPage.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })
+  await waitForApp(targetPage, path)
 }
 
 async function readSystemActivity() {
@@ -51,8 +85,7 @@ async function readSystemActivity() {
 }
 
 try {
-  await page.goto(`${BASE}/review-cases`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/review-cases')
 
   await page.locator('.empty-btn').click()
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'ETHUSDT')
@@ -152,8 +185,7 @@ try {
 
   await page.setViewportSize({ width: 1280, height: 800 })
 
-  await page.goto(`${BASE}/today-record`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/today-record')
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
@@ -256,8 +288,7 @@ try {
     await flushPersistNow()
   })
 
-  await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/sim')
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'EURUSD')
   await page.locator('.composer-btn-primary').click()
@@ -265,8 +296,7 @@ try {
   const paperProperties = await page.locator('.dv-props').innerText()
   record('模拟页快速创建模拟交易', paperProperties.includes('模拟'), page.url())
 
-  await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/dashboard')
   await page.getByRole('tab', { name: '全部类型' }).click()
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
@@ -275,8 +305,7 @@ try {
     dashboardClosedCount,
   )
 
-  await page.goto(`${BASE}/review-cases/mistakes`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/review-cases/mistakes')
   await page.locator('.trade-row').first().waitFor({ state: 'visible', timeout: 5000 })
   const desktopLayout = await page.evaluate(() => {
     const row = document.querySelector('.trade-row')
@@ -298,8 +327,7 @@ try {
   await rowOpen.press('Enter')
   const keyboardOpened = await page.waitForURL(/\/trade\/CAS-/, { timeout: 2000 }).then(() => true).catch(() => false)
   record('键盘 Enter 可打开交易详情', keyboardOpened, page.url())
-  await page.goto(`${BASE}/review-cases/mistakes`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/review-cases/mistakes')
   await page.locator('.trade-row').first().waitFor({ state: 'visible', timeout: 5000 })
 
   await page.setViewportSize({ width: 375, height: 812 })
@@ -349,7 +377,7 @@ try {
     const targetPath = new URL(await link.getAttribute('href'), BASE).pathname
     await link.click()
     await page.waitForURL((url) => url.pathname === targetPath, { timeout: 10000 })
-    await waitForApp()
+    await waitForApp(page, targetPath)
     await page.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
     await page.locator('.ui-main-frame').getByText(route.title, { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 })
     await page.waitForFunction(
@@ -390,8 +418,7 @@ try {
   }
   record('四个一级导航入口均可访问', true)
 
-  await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/dashboard')
   await page.locator('.db-scroll').waitFor({ state: 'visible', timeout: 15000 })
   const dashboardSurface = await page.evaluate(() => {
     const strip = document.querySelector('.db-cards')
@@ -412,8 +439,7 @@ try {
     JSON.stringify(dashboardSurface),
   )
 
-  await page.goto(`${BASE}/settings/profile`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/settings/profile')
   const settingsSurface = await page.evaluate(() => {
     const nav = document.querySelector('.settings-nav')
     const panel = document.querySelector('.settings-panel')
@@ -432,8 +458,7 @@ try {
     JSON.stringify(settingsSurface),
   )
 
-  await page.goto(`${BASE}/review-cases`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/review-cases')
   const reviewSurface = await page.evaluate(() => {
     const toolbar = document.querySelector('.ui-toolbar')
     const style = toolbar ? getComputedStyle(toolbar) : null
@@ -465,8 +490,7 @@ try {
     '/settings/data',
   ]
   for (const path of settingsRoutes) {
-    await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })
-    await waitForApp()
+    await gotoApp(path)
     await page.locator('.settings-panel').waitFor({ state: 'visible' })
   }
   record('全部设置分类保持可访问', true)
@@ -475,8 +499,7 @@ try {
   const secondaryOverflow = []
   await page.setViewportSize({ width: 900, height: 800 })
   for (const path of secondaryRoutes) {
-    await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })
-    await waitForApp()
+    await gotoApp(path)
     const overflow = await page.evaluate(() =>
       document.documentElement.scrollWidth > document.documentElement.clientWidth,
     )
@@ -497,8 +520,7 @@ try {
     { path: '/review-cases/reviewed', tab: '已掌握' },
   ]
   for (const route of reviewCaseRoutes) {
-    await page.goto(`${BASE}${route.path}`, { waitUntil: 'domcontentloaded' })
-    await waitForApp()
+    await gotoApp(route.path)
     await page.locator('.list-scroll').waitFor({ state: 'visible', timeout: 10000 })
     await page.getByText('案例记录', { exact: true }).first().waitFor({ state: 'visible' })
     const activeTab = page.getByRole('tab', { name: route.tab, exact: true })
@@ -519,16 +541,14 @@ try {
   record('案例筛选器不再承担模块切换', caseTypeSelectorCount === 0)
   await page.keyboard.press('Escape')
 
-  await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/list')
   const tradeTabLabels = await page.getByRole('tab').allTextContents()
   const tradeTabsIsolated =
     ['全部', '本周', '本月', '亏损'].every((label) => tradeTabLabels.includes(label)) &&
     !['重点', '错题', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
   record('交易日志顶部视图不混入案例分类', tradeTabsIsolated, tradeTabLabels.join(', '))
 
-  await page.goto(`${BASE}/list?symbol=ETHUSDT&side=long`, { waitUntil: 'domcontentloaded' })
-  await waitForApp()
+  await gotoApp('/list?symbol=ETHUSDT&side=long')
   await page.getByRole('button', { name: '筛选交易' }).click()
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'visible' })
   await page.keyboard.press('Escape')
@@ -586,13 +606,13 @@ try {
     { name: '1920x1080', width: 1920, height: 1080 },
   ]
 
+  await flushPageStorage()
   for (const viewport of baselineViewports) {
     for (const route of baselineRoutes) {
       const baselinePage = await context.newPage()
       trackRuntimeErrors(baselinePage)
       await baselinePage.setViewportSize({ width: viewport.width, height: viewport.height })
-      await baselinePage.goto(`${BASE}${route.path}`, { waitUntil: 'domcontentloaded' })
-      await waitForApp(baselinePage)
+      await gotoApp(route.path, baselinePage)
       const actualPath = new URL(baselinePage.url()).pathname
       if (actualPath !== route.path) {
         throw new Error(`${route.name} 路由不匹配：期望 ${route.path}，实际 ${actualPath}`)
@@ -605,6 +625,7 @@ try {
         path: join(BASELINE_OUT, `${viewport.name}-${route.name}.png`),
         fullPage: false,
       })
+      await flushPageStorage(baselinePage)
       await baselinePage.close()
     }
   }
