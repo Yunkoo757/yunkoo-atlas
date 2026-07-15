@@ -70,6 +70,8 @@ const TRADE_KINDS = new Set(['live', 'paper', 'case'])
 const CONVICTIONS = new Set(['low', 'medium', 'high', 'urgent'])
 const METRIC_ORIGINS = new Set<MetricOrigin>(['manual', 'calculated', 'imported', 'legacy'])
 const CURRENCY_SOURCES = new Set<PnlCurrencySource>(['manual', 'imported', 'inferred', 'legacy'])
+const RULE_ADHERENCE = new Set<RuleAdherence>(['followed', 'deviated', 'unknown'])
+const EXIT_REASONS = new Set<ExitReason>(['target', 'stop', 'manual', 'time', 'rule', 'other'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -85,6 +87,12 @@ function isOptionalNullableFinite(value: unknown): boolean {
 
 function isCurrency(value: unknown): boolean {
   return value === null || (typeof value === 'string' && /^[A-Z]{3}$/.test(value))
+}
+
+function isBusinessDate(value: unknown, nullable = false): boolean {
+  if (nullable && value === null) return true
+  if (typeof value !== 'string') return false
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isFinite(Date.parse(value))
 }
 
 function isCosts(value: unknown): value is TradeCostsV7 {
@@ -111,8 +119,11 @@ function assertValidTradeV7(
     typeof value.ref !== 'string' ||
     typeof value.symbol !== 'string' ||
     typeof value.strategyId !== 'string' ||
-    typeof value.openedAt !== 'string' ||
-    (value.closedAt !== null && typeof value.closedAt !== 'string') ||
+    !isBusinessDate(value.openedAt) ||
+    !isBusinessDate(value.closedAt, true) ||
+    !Array.isArray(value.tags) || value.tags.some((tag) => typeof tag !== 'string') ||
+    !Array.isArray(value.mistakeTags) || value.mistakeTags.some((tag) => typeof tag !== 'string') ||
+    typeof value.note !== 'string' ||
     !TRADE_SIDES.has(String(value.side)) ||
     !TRADE_STATUSES.has(String(value.status)) ||
     !TRADE_KINDS.has(String(value.tradeKind)) ||
@@ -155,6 +166,17 @@ function assertValidTradeV7(
   if (value.closedAtTimestamp !== null && typeof value.closedAtTimestamp !== 'string') {
     throw new Error(`${label}.closedAtTimestamp is invalid`)
   }
+  for (const field of ['openedAtTimestamp', 'closedAtTimestamp'] as const) {
+    if (typeof value[field] === 'string' && !Number.isFinite(Date.parse(value[field]))) {
+      throw new Error(`${label}.${field} is invalid`)
+    }
+  }
+  if (value.ruleAdherence !== undefined && !RULE_ADHERENCE.has(value.ruleAdherence as RuleAdherence)) {
+    throw new Error(`${label}.ruleAdherence is invalid`)
+  }
+  if (value.exitReason !== undefined && !EXIT_REASONS.has(value.exitReason as ExitReason)) {
+    throw new Error(`${label}.exitReason is invalid`)
+  }
   if (value.strategyVersionId !== null) {
     if (typeof value.strategyVersionId !== 'string') {
       throw new Error(`${label}.strategyVersionId is invalid`)
@@ -163,6 +185,8 @@ function assertValidTradeV7(
     if (!version || version.strategyId !== value.strategyId) {
       throw new Error(`${label}.strategyVersionId does not belong to its strategy`)
     }
+  } else if (value.strategyId !== '') {
+    throw new Error(`${label}.strategyVersionId is required for a strategy trade`)
   }
 }
 
@@ -187,7 +211,13 @@ export function assertValidV7Snapshot(
 
   const strategyIds = new Set<string>()
   for (const [index, strategy] of value.strategies.entries()) {
-    if (!isRecord(strategy) || typeof strategy.id !== 'string' || typeof strategy.name !== 'string') {
+    if (
+      !isRecord(strategy) ||
+      typeof strategy.id !== 'string' ||
+      typeof strategy.name !== 'string' ||
+      typeof strategy.icon !== 'string' ||
+      typeof strategy.color !== 'string'
+    ) {
       throw new Error(`${label}.strategies[${index}] is invalid`)
     }
     if (strategyIds.has(strategy.id)) throw new Error(`${label} has duplicate strategy IDs`)
@@ -216,6 +246,15 @@ export function assertValidV7Snapshot(
     versionNumbers.add(versionKey)
   }
 
+  if (value.reportingTimeZone !== null) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value.reportingTimeZone })
+    } catch {
+      throw new Error(`${label}.reportingTimeZone must be a valid IANA timezone`)
+    }
+  }
+  if (!isRecord(value.display)) throw new Error(`${label}.display is missing`)
+
   for (const [index, rawStrategy] of value.strategies.entries()) {
     const strategy = rawStrategy as Record<string, unknown>
     if (typeof strategy.currentVersionId !== 'string') {
@@ -227,7 +266,12 @@ export function assertValidV7Snapshot(
     }
   }
 
+  const tradeIds = new Set<string>()
   value.trades.forEach((trade, index) => {
+    if (isRecord(trade) && typeof trade.id === 'string') {
+      if (tradeIds.has(trade.id)) throw new Error(`${label} has duplicate trade IDs`)
+      tradeIds.add(trade.id)
+    }
     assertValidTradeV7(trade, versions, `${label}.trades[${index}]`)
   })
 }

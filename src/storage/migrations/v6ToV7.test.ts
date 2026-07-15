@@ -186,4 +186,20 @@ export function testV7ValidatorEnforcesRiskCostAndCurrencyRelations(): void {
       },
     })
   }) === '', 'gross/net/cost conflicts are accepted for later quality diagnostics')
+
+  assert(errorFor((snapshot) => {
+    snapshot.trades[0]!.ruleAdherence = 'invalid' as never
+  }).includes('ruleAdherence'), 'invalid v7 enums must be rejected')
+
+  assert(errorFor((snapshot) => {
+    snapshot.trades[0]!.strategyVersionId = null
+  }).includes('strategyVersionId'), 'strategy trades must remain bound to a version')
+}
+
+export function testV6ToV7DoesNotInventCurrencyForInvalidExplicitValues(): void {
+  const raw = fixtureSnapshot([{ ...baseTrade, id: 'invalid-currency', pnlCurrency: 'US' } as Trade & { pnlCurrency: string }])
+  const result = migrateV6ToV7(raw)
+  const migrated = result.snapshot.trades[0]!
+  assert(migrated.pnlCurrency === null && migrated.pnlCurrencySource === null, 'invalid currency must remain unknown')
+  assert(result.diagnostics.some((item) => item.code === 'invalid-legacy-currency'), 'invalid currency must be diagnosed')
 }
