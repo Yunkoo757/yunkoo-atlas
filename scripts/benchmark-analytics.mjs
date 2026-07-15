@@ -107,8 +107,8 @@ export function selectCurrentDashboardTrades(
 }
 
 /**
- * 冻结 Task 0 时 Dashboard.tsx 私有 buildStats 的等价计算边界。
- * 这里有意保留当前策略分组的数组扩展与 <-3R 漏桶，便于后续量化改进而非美化基线。
+ * Dashboard.tsx 核心统计的独立等价计算边界。
+ * 浏览器渲染、证据分层与质量面板由 qa-dashboard-10k 覆盖，这里只测量纯计算路径。
  */
 export function buildCurrentDashboardStats(closed, strategyDefs) {
   const summary = summarizeTradeResults(closed)
@@ -133,7 +133,9 @@ export function buildCurrentDashboardStats(closed, strategyDefs) {
 
   const byStrategy = new Map()
   closed.forEach((trade) => {
-    byStrategy.set(trade.strategyId, [...(byStrategy.get(trade.strategyId) ?? []), trade])
+    const strategyTrades = byStrategy.get(trade.strategyId)
+    if (strategyTrades) strategyTrades.push(trade)
+    else byStrategy.set(trade.strategyId, [trade])
   })
   const strategyById = new Map(strategyDefs.map((strategy) => [strategy.id, strategy]))
   const strategies = [...byStrategy.entries()]
@@ -152,17 +154,25 @@ export function buildCurrentDashboardStats(closed, strategyDefs) {
     .sort((a, b) => b.pnl - a.pnl)
   const maxAbs = Math.max(1, ...strategies.map((strategy) => Math.abs(strategy.pnl)))
 
-  const rBuckets = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 5, 10]
-  const rDist = rBuckets.map((lo, index) => {
-    const hi = rBuckets[index + 1]
-    return {
-      label: hi ? `${lo}~${hi}` : `>${lo}`,
-      n: hi
-        ? rTrades.filter((trade) => trade.rMultiple >= lo && trade.rMultiple < hi).length
-        : rTrades.filter((trade) => trade.rMultiple >= lo).length,
-      lo,
-    }
-  })
+  const rBucketSpecs = [
+    { label: '< -3', includes: (value) => value < -3 },
+    { label: '-3 ~ -2', includes: (value) => value >= -3 && value < -2 },
+    { label: '-2 ~ -1', includes: (value) => value >= -2 && value < -1 },
+    { label: '-1 ~ -0.5', includes: (value) => value >= -1 && value < -0.5 },
+    { label: '-0.5 ~ 0', includes: (value) => value >= -0.5 && value < 0 },
+    { label: '0', includes: (value) => Object.is(value, 0) || Object.is(value, -0) },
+    { label: '0 ~ 0.5', includes: (value) => value > 0 && value < 0.5 },
+    { label: '0.5 ~ 1', includes: (value) => value >= 0.5 && value < 1 },
+    { label: '1 ~ 2', includes: (value) => value >= 1 && value < 2 },
+    { label: '2 ~ 3', includes: (value) => value >= 2 && value < 3 },
+    { label: '3 ~ 5', includes: (value) => value >= 3 && value < 5 },
+    { label: '5 ~ 10', includes: (value) => value >= 5 && value < 10 },
+    { label: '≥ 10', includes: (value) => value >= 10 },
+  ]
+  const rDist = rBucketSpecs.map((bucket) => ({
+    label: bucket.label,
+    n: rTrades.filter((trade) => bucket.includes(trade.rMultiple)).length,
+  }))
   const bucketedRCount = rDist.reduce((sum, bucket) => sum + bucket.n, 0)
 
   return {
@@ -345,7 +355,7 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
       dashboardBuild: {
         source: 'src/views/Dashboard.tsx::buildStats',
         sourceSha256: sha256(source),
-        implementation: 'private-function-equivalent-kernel',
+        implementation: 'current-core-equivalent-kernel',
         includes: ['result summary', 'equity curve', 'strategy groups', 'R distribution'],
       },
       dashboardEntry: 'deleted filter + live/all scope filter + current buildStats equivalent',
@@ -395,10 +405,9 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
       maxRegressionFromBaselineRatio: 0.1,
       note: 'Task 0 records the baseline; browser interaction budgets are enforced by qa-dashboard-10k.',
     },
-    knownBaselineDefects: [
-      'R distribution omits values below -3R.',
-      'The zero upper bound is treated as falsy, causing overlapping R buckets.',
-      'Strategy grouping copies arrays inside the loop and is intentionally preserved for baseline comparison.',
+    knownBaselineDefects: [],
+    knownLimitations: [
+      'Core microbenchmark excludes browser rendering and evidence/quality UI; qa-dashboard-10k measures those paths.',
     ],
   }
 }
