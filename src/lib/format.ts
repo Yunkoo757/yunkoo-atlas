@@ -21,7 +21,8 @@ export function fmtR(n: number | null | undefined): string {
   }) + 'R'
 }
 
-export function fmtPrice(n: number): string {
+export function fmtPrice(n: number | null | undefined): string {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
   return n.toLocaleString('en-US', { maximumFractionDigits: 8 })
 }
 
