@@ -21,6 +21,9 @@ const missingAssetAdapter: StorageAdapter = {
   async loadSnapshot() {
     return null
   },
+  async loadRawSnapshot() {
+    return null
+  },
   async saveSnapshot() {},
   async saveAsset() {
     return 'asset-1'

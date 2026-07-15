@@ -1,5 +1,4 @@
 import type { PersistedSnapshot } from '@/storage/types'
-import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -45,7 +44,6 @@ function isTrade(value: unknown): boolean {
   if (value.stopLoss !== undefined && !isNullableFiniteNumber(value.stopLoss)) return false
   if (value.initialStopLoss !== undefined && !isNullableFiniteNumber(value.initialStopLoss)) return false
   if (value.resultSource !== undefined && !RESULT_SOURCES.has(String(value.resultSource))) return false
-  if (!isTradeResultAuthorityConsistent(value)) return false
   if (value.closedAt !== undefined && value.closedAt !== null && typeof value.closedAt !== 'string') return false
   if (value.reviewedAt !== undefined && value.reviewedAt !== null && typeof value.reviewedAt !== 'string') return false
   return true

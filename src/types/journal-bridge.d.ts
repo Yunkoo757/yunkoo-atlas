@@ -21,6 +21,11 @@ export interface BackupVerificationResult {
   error?: string
 }
 
+export interface RawLibrarySnapshot {
+  snapshot: unknown
+  manifestSchemaVersion: number
+}
+
 export type WindowFrameState = {
   x?: number
   y?: number
@@ -55,6 +60,7 @@ export interface JournalBridge {
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
   getManifest(): Promise<LibraryManifest>
+  loadRawSnapshot(): Promise<RawLibrarySnapshot | null>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>

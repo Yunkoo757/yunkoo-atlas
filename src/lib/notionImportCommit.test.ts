@@ -82,6 +82,7 @@ class AtomicMemoryAdapter implements StorageAdapter {
   async getManifest(): Promise<LibraryManifest> {
     return { schemaVersion: 6, libraryId: 'test', createdAt: '2026-07-14' }
   }
+  async loadRawSnapshot(): Promise<unknown> { return this.committedSnapshot }
   async loadSnapshot(): Promise<PersistedSnapshot> { return this.committedSnapshot }
   async saveSnapshot(value: PersistedSnapshot): Promise<void> { this.committedSnapshot = value }
   async saveAsset(): Promise<string> { throw new Error('原子导入不得逐图写入') }

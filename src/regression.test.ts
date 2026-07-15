@@ -390,6 +390,7 @@ export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): 
   const adapter: StorageAdapter = {
     open: async () => undefined,
     getManifest: async () => { throw new Error('本测试不读取 manifest') },
+    loadRawSnapshot: async () => null,
     loadSnapshot: async () => null,
     saveSnapshot: async (snapshot) => { saved = snapshot },
     saveAsset: async () => { throw new Error('空库不应写入附件') },

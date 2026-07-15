@@ -10,6 +10,7 @@ export interface StorageAdapter {
   open(): Promise<void>
   getManifest(): Promise<LibraryManifest>
 
+  loadRawSnapshot(): Promise<unknown | null>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<void>
 

@@ -3,6 +3,7 @@ import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/st
 import { SCHEMA_VERSION } from '@/storage/types'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import { collectAssetIdsFromNotes } from '@/storage/assets'
+import { migrateSnapshotToCurrent } from '@/storage/upgrade'
 
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
@@ -88,6 +89,8 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     this.db = await openDb()
     const manifest = await idbGet<LibraryManifest>(this.db, STORE_META, 'manifest')
     if (!manifest) {
+      const existingSnapshot = await idbGet<unknown>(this.db, STORE_SNAPSHOT, 'main')
+      if (existingSnapshot !== undefined) return
       const created: LibraryManifest = {
         schemaVersion: SCHEMA_VERSION,
         libraryId: crypto.randomUUID(),
@@ -110,11 +113,21 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   }
 
   async loadSnapshot(): Promise<PersistedSnapshot | null> {
+    const raw = await this.loadRawSnapshot()
+    if (raw === null) return null
     const db = this.requireDb()
-    const snapshot = (await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')) ?? null
-    if (!snapshot) return null
-    assertValidPersistedSnapshot(snapshot, 'Stored browser snapshot')
-    return snapshot
+    const manifest = await idbGet<LibraryManifest>(db, STORE_META, 'manifest')
+    const migrated = migrateSnapshotToCurrent(raw, {
+      source: 'library',
+      manifestSchemaVersion: manifest?.schemaVersion,
+    }).snapshot
+    assertValidPersistedSnapshot(migrated, 'Stored browser snapshot')
+    return migrated
+  }
+
+  async loadRawSnapshot(): Promise<unknown | null> {
+    const db = this.requireDb()
+    return (await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')) ?? null
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {

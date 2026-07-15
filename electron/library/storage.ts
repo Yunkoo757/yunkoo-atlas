@@ -22,6 +22,11 @@ export interface AssetBytes {
   bytes: Uint8Array
 }
 
+export interface RawLibrarySnapshot {
+  snapshot: unknown
+  manifestSchemaVersion: number
+}
+
 let sqlPromise: ReturnType<typeof initSqlJs> | null = null
 const electronApp =
   typeof electronRuntime === 'object' && electronRuntime !== null && 'app' in electronRuntime
@@ -218,7 +223,7 @@ export class LibraryStorage {
     )
   }
 
-  loadSnapshot(): PersistedSnapshot | null {
+  loadRawSnapshot(): RawLibrarySnapshot | null {
     const db = this.requireDb()
     const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
     stmt.bind([SNAPSHOT_KEY])
@@ -228,9 +233,17 @@ export class LibraryStorage {
     }
     const value = String(stmt.getAsObject().value)
     stmt.free()
-    const snapshot: unknown = JSON.parse(value)
-    assertValidPersistedSnapshot(snapshot, 'Stored library snapshot')
-    return snapshot
+    return {
+      snapshot: JSON.parse(value) as unknown,
+      manifestSchemaVersion: this.readManifest().schemaVersion,
+    }
+  }
+
+  loadSnapshot(): PersistedSnapshot | null {
+    const loaded = this.loadRawSnapshot()
+    if (!loaded) return null
+    assertValidPersistedSnapshot(loaded.snapshot, 'Stored library snapshot')
+    return loaded.snapshot
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {

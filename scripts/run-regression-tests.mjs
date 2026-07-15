@@ -53,6 +53,8 @@ const entries = [
   'electron/library/libraryActivation.test.ts',
   'electron/library/importCommit.test.ts',
   'electron/library/backup.test.ts',
+  'electron/library/electronAdapterRawLoad.test.ts',
+  'electron/library/rawSnapshot.test.ts',
 ]
 
 let failed = 0
@@ -160,6 +162,11 @@ try {
       url: '/src/storage/cutover.browser.test.html',
       promiseKey: '__storageCutoverTest',
       label: 'src/storage/cutover.browser.test.ts :: cutover blocks shortcuts and portals',
+    },
+    {
+      url: '/src/storage/indexedDbAdapter.browser.test.html',
+      promiseKey: '__indexedDbAdapterTest',
+      label: 'src/storage/indexedDbAdapter.browser.test.ts :: raw migration and validation boundary',
     },
   ]
   const page = await browser.newPage()

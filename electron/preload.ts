@@ -23,6 +23,11 @@ export interface BackupVerificationResult {
   error?: string
 }
 
+export interface RawLibrarySnapshot {
+  snapshot: unknown
+  manifestSchemaVersion: number
+}
+
 export interface JournalBridge {
   isElectron: true
   /** 注册主进程关闭前回调 */
@@ -48,6 +53,7 @@ export interface JournalBridge {
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
   getManifest(): Promise<LibraryManifest>
+  loadRawSnapshot(): Promise<RawLibrarySnapshot | null>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>
@@ -116,6 +122,7 @@ const bridge: JournalBridge = {
   getLibraryPath: () => ipcRenderer.invoke('library:getPath'),
   storageOpen: () => ipcRenderer.invoke('storage:open'),
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),
+  loadRawSnapshot: () => ipcRenderer.invoke('storage:loadRawSnapshot'),
   loadSnapshot: () => ipcRenderer.invoke('storage:loadSnapshot'),
   saveSnapshot: (snapshot) => ipcRenderer.invoke('storage:saveSnapshot', snapshot),
   saveAsset: (data, mime) =>

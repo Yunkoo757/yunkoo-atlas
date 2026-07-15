@@ -392,6 +392,8 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('storage:getManifest', async () => withStorage((lib) => lib.readManifest()))
 
+  ipcMain.handle('storage:loadRawSnapshot', async () => withStorage((lib) => lib.loadRawSnapshot()))
+
   ipcMain.handle('storage:loadSnapshot', async () => withStorage((lib) => lib.loadSnapshot()))
 
   ipcMain.handle('storage:saveSnapshot', async (_e, snapshot) => withStorage((lib) => {
