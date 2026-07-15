@@ -481,6 +481,7 @@ try {
 
   const anchorTradeId = await page.evaluate(async () => {
     const { useStore } = await import('/src/store/useStore.ts')
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
     const state = useStore.getState()
     const strategyId = state.strategies[0]?.id
     if (!strategyId) throw new Error('Anchor QA requires a strategy')
@@ -516,7 +517,9 @@ try {
       openedAt: `2026-06-${String((index % 28) + 1).padStart(2, '0')}`,
       deletedAt: undefined,
     }))
-    useStore.setState({ trades })
+    useStore.setState({ trades: [] })
+    useStore.getState().upsertTrades(trades)
+    await flushPersistNow()
     return trades[35].id
   })
   await page.setViewportSize({ width: 900, height: 600 })
