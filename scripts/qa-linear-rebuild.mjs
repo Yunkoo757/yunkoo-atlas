@@ -61,11 +61,12 @@ async function seedData() {
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
+  await page.getByRole('button', { name: '更多信息', exact: true }).click()
   await selectValue(page.getByRole('combobox', { name: '交易策略' }), seededStrategyId)
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/)
   await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByText('已保存', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.locator('.save-status--saved').waitFor({ state: 'visible', timeout: 10000 })
   const tradeDetailPath = new URL(page.url()).pathname
   await open(tradeDetailPath)
   await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
@@ -73,11 +74,12 @@ async function seedData() {
   await open('/review-cases')
   await page.locator('body').press('Shift+N')
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'BTCUSDT')
+  await page.getByRole('button', { name: '更多信息', exact: true }).click()
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/)
   await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByText('已保存', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await page.locator('.save-status--saved').waitFor({ state: 'visible', timeout: 10000 })
 
   return tradeDetailPath
 }
