@@ -115,6 +115,17 @@ test('常规 CI 在主干与拉取请求上运行同一质量门禁', () => {
   assert.match(workflow, /pnpm qa:release/)
 })
 
+test('常规 CI 在 macOS runner 验证桌面构建与数据链路', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
+  const macJob = workflow.slice(workflow.indexOf('  macos-desktop:'))
+  const buildIndex = macJob.indexOf('pnpm build:app')
+  const qaIndex = macJob.indexOf('pnpm qa:electron')
+
+  assert.match(macJob, /runs-on:\s*macos-latest/)
+  assert.ok(buildIndex >= 0, 'macOS CI 缺少生产构建验证')
+  assert.ok(qaIndex > buildIndex, 'macOS CI 必须在生产构建后运行 Electron 数据链路验收')
+})
+
 test('应用构建同时检查渲染进程与 Electron 主进程类型', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   const electronTsconfig = readFileSync('tsconfig.electron.json', 'utf8')
@@ -138,6 +149,17 @@ test('发布流水线在 Windows 之后构建并上传 macOS 产物', () => {
   assert.match(workflow, /electron-builder --mac dmg zip --publish never/)
   assert.match(workflow, /gh release upload/)
   assert.match(workflow, /CSC_IDENTITY_AUTO_DISCOVERY/)
+})
+
+test('macOS 发布必须在打包前通过 Electron 数据链路验收', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+  const macJob = workflow.slice(workflow.indexOf('  build-macos:'))
+  const qaIndex = macJob.indexOf('pnpm qa:electron')
+  const packageIndex = macJob.indexOf('electron-builder --mac dmg zip --publish never')
+
+  assert.ok(qaIndex >= 0, 'macOS 发布任务缺少 Electron 数据链路验收')
+  assert.ok(packageIndex >= 0, 'macOS 发布任务缺少 DMG/ZIP 打包步骤')
+  assert.ok(qaIndex < packageIndex, 'Electron 数据链路验收必须发生在 macOS 打包之前')
 })
 
 test('NSIS 安装包声明高 DPI，避免安装向导发糊', () => {

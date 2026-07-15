@@ -170,6 +170,9 @@ jobs:
       - name: Build application
         run: pnpm build:app
 
+      - name: Run Electron library QA
+        run: pnpm qa:electron
+
       - name: Build macOS DMG and ZIP
         run: pnpm exec electron-builder --mac dmg zip --publish never
 
