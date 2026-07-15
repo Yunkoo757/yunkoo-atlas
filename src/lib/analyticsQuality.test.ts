@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { buildQualityBreakdown } from '@/lib/analyticsQuality'
+import { buildMistakeTagQuality, buildQualityBreakdown } from '@/lib/analyticsQuality'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -21,4 +21,12 @@ export function testQualityBreakdownKeepsOverlappingTagSamples(): void {
   assert(result.byStrategy[0]?.key === 'a' && result.byStrategy[0]?.count === 2, 'strategy groups are deterministic')
   assert(result.byMistakeTag.find((slice) => slice.key === 'late')?.count === 2, 'multi-tag trades count in every relevant slice')
   assert(result.bySession.find((slice) => slice.key === 'London')?.count === 2, 'session slices preserve source values')
+}
+
+export function testMistakeTagQualityBuildsOnlyTheRequestedDimension(): void {
+  const trades = [trade('a', 's', ['追单']), trade('b', 's', ['追单', '提前离场'])]
+  const result = buildMistakeTagQuality(trades)
+
+  assert(result.find((slice) => slice.key === '追单')?.count === 2, 'focused mistake breakdown keeps overlapping samples')
+  assert(result.length === 2, 'focused mistake breakdown does not fabricate unrelated dimensions')
 }

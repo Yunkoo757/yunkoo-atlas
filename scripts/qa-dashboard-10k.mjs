@@ -61,10 +61,12 @@ export function evaluateDashboardQa(observation) {
   )
   return {
     functionalPassed: checks.every((check) => check.passed),
+    releasePassed: checks.every((check) => check.passed)
+      && Object.values(budgetResults).every((result) => result.withinBudget),
     checks,
     performance: {
-      enforced: false,
-      reason: 'Task 0 freezes the baseline; Preview B enforces absolute and 10% regression budgets.',
+      enforced: true,
+      reason: 'Preview B enforces the frozen absolute performance budgets.',
       withinAllAbsoluteBudgets: Object.values(budgetResults).every((result) => result.withinBudget),
       budgets: budgetResults,
     },
@@ -469,7 +471,7 @@ async function main() {
     stdoutOnly: process.argv.includes('--stdout-only'),
   })
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
-  if (!report.evaluation.functionalPassed) process.exitCode = 1
+  if (!report.evaluation.releasePassed) process.exitCode = 1
 }
 
 const entryPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null

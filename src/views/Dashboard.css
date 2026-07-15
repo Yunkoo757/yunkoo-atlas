@@ -535,6 +535,17 @@ a.db-strat:last-child {
 a.db-strat:hover {
   background: var(--bg-hover);
 }
+.db-strats > div.db-strat {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.db-strats > div.db-strat:last-child {
+  border-bottom: 0;
+}
 .db-strat-head {
   display: flex;
   align-items: center;
@@ -631,6 +642,12 @@ a.db-strat:hover {
     grid-template-columns: 1fr auto;
     gap: 10px 16px;
   }
+  .db-strats > div.db-strat {
+    grid-template-columns: 1fr auto;
+  }
+  .db-strats > div.db-strat .db-strat-head {
+    grid-column: 1 / -1;
+  }
   .db-strat-metrics {
     grid-column: 1 / -1;
   }
@@ -694,6 +711,12 @@ a.db-strat:hover {
   }
   a.db-strat {
     grid-template-columns: 1fr;
+  }
+  .db-strats > div.db-strat {
+    grid-template-columns: 1fr;
+  }
+  .db-strats > div.db-strat .db-strat-pnl {
+    text-align: left;
   }
   .db-strat-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));

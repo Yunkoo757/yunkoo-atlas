@@ -372,14 +372,11 @@ export function App() {
         ])
       }
 
-      // Clean expired trash (30+ days old deleted records)
-      const state = useStore.getState()
-      await cleanExpiredTradeTrash(state.trades, state.purgeTrades)
-
       setReady(true)
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           document.documentElement.dataset.uiSettled = '1'
+          scheduleExpiredTrashCleanup()
         })
       })
     }
@@ -425,11 +422,10 @@ export function App() {
     document.documentElement.removeAttribute('data-ui-settled')
     try {
       await bootstrapStorage()
-      const state = useStore.getState()
-      await cleanExpiredTradeTrash(state.trades, state.purgeTrades)
       setReady(true)
       requestAnimationFrame(() => {
         document.documentElement.dataset.uiSettled = '1'
+        scheduleExpiredTrashCleanup()
       })
     } catch (error) {
       console.error('Storage bootstrap retry failed', error)
@@ -546,4 +542,12 @@ export function App() {
       <Shell />
     </Router>
   )
+}
+
+function scheduleExpiredTrashCleanup(): void {
+  const run = () => {
+    const state = useStore.getState()
+    void cleanExpiredTradeTrash(state.trades, state.purgeTrades)
+  }
+  globalThis.setTimeout(run, 1_000)
 }

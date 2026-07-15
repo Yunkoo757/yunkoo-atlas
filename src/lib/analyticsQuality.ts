@@ -48,3 +48,15 @@ export function buildQualityBreakdown(trades: Trade[]): QualityBreakdown {
     bySession: slices(bySession),
   }
 }
+
+export function buildMistakeTagQuality(trades: Trade[]): QualitySlice[] {
+  const byMistakeTag = new Map<string, Trade[]>()
+  for (const trade of trades) {
+    for (const tag of trade.mistakeTags) {
+      const tagged = byMistakeTag.get(tag) ?? []
+      tagged.push(trade)
+      byMistakeTag.set(tag, tagged)
+    }
+  }
+  return slices(byMistakeTag)
+}

@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { isUsableTradeResult, resolveTradeTruth } from '@/lib/tradeTruth'
+import { resolveTradeTruth } from '@/lib/tradeTruth'
 
 export interface NumericMetric {
   value: number | null
@@ -77,15 +77,23 @@ export function buildTradeAnalytics(
   included: readonly Trade[],
   temporal: readonly Trade[] = included,
 ): TradeAnalytics {
-  const closed = included.filter((trade) => resolveTradeTruth(trade).executionState === 'closed')
-  const verified = closed.filter(isUsableTradeResult)
-  const verifiedTruths = verified.map(resolveTradeTruth)
+  const closed: Trade[] = []
+  const verified: Trade[] = []
+  const verifiedOutcomes: Array<ReturnType<typeof resolveTradeTruth>['outcome']> = []
+  for (const trade of included) {
+    const truth = resolveTradeTruth(trade)
+    if (truth.executionState !== 'closed') continue
+    closed.push(trade)
+    if (!truth.isResultComplete) continue
+    verified.push(trade)
+    verifiedOutcomes.push(truth.outcome)
+  }
   const rValues = verified
     .map((trade) => trade.rMultiple)
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
   const wins = rValues.filter((value) => value > 0)
   const losses = rValues.filter((value) => value < 0)
-  const outcomeWinCount = verifiedTruths.filter((truth) => truth.outcome === 'win').length
+  const outcomeWinCount = verifiedOutcomes.filter((outcome) => outcome === 'win').length
   const totalRValue = rValues.reduce((sum, value) => sum + value, 0)
   const grossWin = wins.reduce((sum, value) => sum + value, 0)
   const grossLoss = Math.abs(losses.reduce((sum, value) => sum + value, 0))
@@ -100,12 +108,14 @@ export function buildTradeAnalytics(
 
   const temporalIds = new Set(temporal.map((trade) => trade.id))
   const temporalSequence = verified
-    .filter((trade) =>
-      temporalIds.has(trade.id) &&
-      closeKey(trade) !== '',
+    .map((_trade, index) => index)
+    .filter((index) =>
+      temporalIds.has(verified[index]!.id) &&
+      closeKey(verified[index]!) !== '',
     )
-    .sort((a, b) => closeKey(a).localeCompare(closeKey(b)) || a.ref.localeCompare(b.ref))
+    .sort((a, b) => closeKey(verified[a]!).localeCompare(closeKey(verified[b]!)) || verified[a]!.ref.localeCompare(verified[b]!.ref))
   const sequence = temporalSequence
+    .map((index) => verified[index]!)
     .filter((trade): trade is Trade & { rMultiple: number } =>
       typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
     )
@@ -120,8 +130,8 @@ export function buildTradeAnalytics(
     peak = Math.max(peak, equity)
     maxDrawdown = Math.max(maxDrawdown, peak - equity)
   }
-  for (const trade of temporalSequence) {
-    losingStreak = resolveTradeTruth(trade).outcome === 'loss' ? losingStreak + 1 : 0
+  for (const index of temporalSequence) {
+    losingStreak = verifiedOutcomes[index] === 'loss' ? losingStreak + 1 : 0
     longestLosingStreak = Math.max(longestLosingStreak, losingStreak)
   }
   const rolling = (window: 20 | 50 | 100): NumericMetric => {

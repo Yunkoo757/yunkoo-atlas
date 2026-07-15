@@ -3,7 +3,7 @@ import type { Strategy } from '@/data/strategies'
 import { computeStrategyStats } from '@/lib/strategies'
 import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
-import { buildDashboardStats, selectDashboardAnalyticsCandidates } from '@/views/Dashboard'
+import { buildDashboardStats, buildDashboardTrendCurve, selectDashboardAnalyticsCandidates } from '@/views/Dashboard'
 
 const base: Trade = {
   id: 'live',
@@ -89,8 +89,8 @@ export function testDashboardNeverBuildsCrossCurrencyMoneyCurvesAndKeepsStrategy
   const stats = buildDashboardStats([usd, eur], [usd, eur], strategies)
 
   assert(stats.money.state === 'mixed-currency', 'mixed currencies remain explicit')
-  assert(stats.curves.money.length === 0, 'mixed currencies must never produce an additive money curve')
-  assert(stats.curves.r.at(-1)?.value === 3, 'currency-independent cumulative R remains available')
+  assert(buildDashboardTrendCurve('money', stats.temporalPnl, stats.temporalR, stats.money).length === 0, 'mixed currencies must never produce an additive money curve')
+  assert(buildDashboardTrendCurve('r', stats.temporalPnl, stats.temporalR, stats.money).at(-1)?.value === 3, 'currency-independent cumulative R remains available')
   assert(stats.strategies.map((strategy) => strategy.id).join(',') === 'pullback,breakout', 'strategy rows keep configured order')
 }
 
@@ -104,6 +104,7 @@ export function testDashboardRollingTwentyRequiresACompleteWindow(): void {
   }))
   const stats = buildDashboardStats(trades, trades, [])
 
-  assert(stats.curves.rolling20.length === 1, 'rolling 20 does not publish partial windows')
-  assert(stats.curves.rolling20[0]?.value === 0.9, 'rolling 20 uses exactly the latest twenty R values')
+  const curve = buildDashboardTrendCurve('rolling20', stats.temporalPnl, stats.temporalR, stats.money)
+  assert(curve.length === 1, 'rolling 20 does not publish partial windows')
+  assert(curve[0]?.value === 0.9, 'rolling 20 uses exactly the latest twenty R values')
 }

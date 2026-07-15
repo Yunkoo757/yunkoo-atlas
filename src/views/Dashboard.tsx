@@ -29,11 +29,10 @@ import {
   type AnalyticsTradeKind,
 } from '@/lib/analyticsScope'
 import { buildRDistribution } from '@/lib/rDistribution'
-import { buildAnalyticsMetrics } from '@/lib/analyticsMetrics'
-import { buildQualityBreakdown } from '@/lib/analyticsQuality'
-import { aggregateMoney, moneyAggregateLabel, moneyAggregateTitle } from '@/lib/moneyAggregate'
+import { buildMistakeTagQuality } from '@/lib/analyticsQuality'
+import { aggregateMoney, moneyAggregateLabel, moneyAggregateTitle, type MoneyAggregate } from '@/lib/moneyAggregate'
 import { buildTradeAnalytics } from '@/lib/tradeAnalytics'
-import { downsampleSeries } from '@/lib/analyticsSeries'
+import { downsampleIndices } from '@/lib/analyticsSeries'
 import {
   countDashboardDimensionFilters,
   parseDashboardQuery,
@@ -103,20 +102,8 @@ function closedAtSource(trade: Trade): string {
 
 export function buildDashboardStats(closed: Trade[], temporal: Trade[], strategyDefs: Strategy[]) {
   const summary = summarizeTradeResults(closed)
-  const metrics = buildAnalyticsMetrics(closed)
   const money = aggregateMoney(closed)
   const usable = closed.filter(isUsableTradeResult)
-  const evidence = closed.map((trade) => ({
-    trade,
-    validation: validateTradeResultEvidence(trade),
-  }))
-  const evidenceCounts = evidence.reduce<Record<Exclude<DashboardQuality, 'all'>, number>>(
-    (counts, item) => {
-      counts[item.validation.quality] += 1
-      return counts
-    },
-    { missing: 0, conflict: 0, confirmed: 0, verified: 0 },
-  )
   const pnlTrades = usable.filter(
     (trade): trade is Trade & { pnl: number } =>
       typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
@@ -145,52 +132,6 @@ export function buildDashboardStats(closed: Trade[], temporal: Trade[], strategy
   const temporalR = rTrades
     .filter((trade) => temporalIds.has(trade.id))
     .sort(sortByClose)
-  let cumulativeR = 0
-  const rCurve: CurvePoint[] = temporalR.map((t) => {
-    cumulativeR += t.rMultiple
-    const closedOn = closedAtSource(t).slice(0, 10)
-    return {
-      date: closedOn.slice(5),
-      value: cumulativeR,
-      label: t.symbol,
-      tradeId: t.id,
-      ref: t.ref,
-      result: t.rMultiple,
-      mode: 'r',
-    }
-  })
-  let cumulativeMoney = 0
-  const moneyCurve: CurvePoint[] = money.state === 'single-currency'
-    ? temporalPnl.map((t) => {
-        cumulativeMoney += t.pnl
-        const closedOn = closedAtSource(t).slice(0, 10)
-        return {
-          date: closedOn.slice(5),
-          value: cumulativeMoney,
-          label: t.symbol,
-          tradeId: t.id,
-          ref: t.ref,
-          result: t.pnl,
-          mode: 'money',
-          currency: money.currency,
-        }
-      })
-    : []
-  const rolling20Curve: CurvePoint[] = temporalR.slice(19).map((t, index) => {
-    const window = temporalR.slice(index, index + 20)
-    const value = window.reduce((sum, trade) => sum + trade.rMultiple, 0) / 20
-    const closedOn = closedAtSource(t).slice(0, 10)
-    return {
-      date: closedOn.slice(5),
-      value,
-      label: t.symbol,
-      tradeId: t.id,
-      ref: t.ref,
-      result: t.rMultiple,
-      mode: 'rolling20',
-    }
-  })
-
   const byStrat = new Map<string, Trade[]>()
   closed.forEach((t) => {
     const strategyTrades = byStrat.get(t.strategyId)
@@ -219,23 +160,73 @@ export function buildDashboardStats(closed: Trade[], temporal: Trade[], strategy
 
   return {
     ...summary,
-    metrics,
     professional: buildTradeAnalytics(closed, temporal),
     money,
-    quality: buildQualityBreakdown(closed),
-    curves: {
-      r: downsampleSeries(rCurve, 600, (point) => point.value),
-      money: downsampleSeries(moneyCurve, 600, (point) => point.value),
-      rolling20: downsampleSeries(rolling20Curve, 600, (point) => point.value),
-    },
+    mistakeTagQuality: buildMistakeTagQuality(closed),
+    temporalPnl,
+    temporalR,
     strategies,
     rDist,
-    evidence,
-    evidenceCounts,
+    evidenceSource: closed,
+    evidenceCounts: summary.qualityCounts,
     feeCompleteCount,
     currencyKnownCount,
     riskCount,
     sessionCount,
+  }
+}
+
+export function buildDashboardTrendCurve(
+  mode: TrendMode,
+  temporalPnl: Array<Trade & { pnl: number }>,
+  temporalR: Array<Trade & { rMultiple: number }>,
+  money: MoneyAggregate,
+): CurvePoint[] {
+  let cumulative = 0
+  let source: Trade[]
+  let results: number[]
+  let values: number[]
+  let currency: string | undefined
+  if (mode === 'money') {
+    if (money.state !== 'single-currency') return []
+    source = temporalPnl
+    results = temporalPnl.map((trade) => trade.pnl)
+    values = results.map((result) => {
+      cumulative += result
+      return cumulative
+    })
+    currency = money.currency
+  } else if (mode === 'rolling20') {
+    source = temporalR.slice(19)
+    results = source.map((trade) => trade.rMultiple ?? 0)
+    let windowTotal = temporalR.slice(0, 20).reduce((sum, trade) => sum + trade.rMultiple, 0)
+    values = source.map((_trade, index) => {
+      if (index > 0) windowTotal += temporalR[index + 19]!.rMultiple - temporalR[index - 1]!.rMultiple
+      return windowTotal / 20
+    })
+  } else {
+    source = temporalR
+    results = temporalR.map((trade) => trade.rMultiple)
+    values = results.map((result) => {
+      cumulative += result
+      return cumulative
+    })
+  }
+  return downsampleIndices(values.length, 600, (index) => values[index]!)
+    .map((index) => curvePoint(source[index]!, values[index]!, results[index]!, mode, currency))
+}
+
+function curvePoint(trade: Trade, value: number, result: number, mode: TrendMode, currency?: string): CurvePoint {
+  const closedOn = closedAtSource(trade).slice(0, 10)
+  return {
+    date: closedOn.slice(5),
+    value,
+    label: trade.symbol,
+    tradeId: trade.id,
+    ref: trade.ref,
+    result,
+    mode,
+    currency,
   }
 }
 
@@ -295,10 +286,17 @@ export function Dashboard() {
     if (trendMode === 'money' && stats.money.state !== 'single-currency') setTrendMode('r')
   }, [stats.money.state, trendMode])
   const evidenceRows = useMemo(
-    () => quality === 'all'
-      ? []
-      : stats.evidence.filter((item) => item.validation.quality === quality).slice(0, 50),
-    [quality, stats.evidence],
+    () => {
+      if (quality === 'all') return []
+      const rows: Array<{ trade: Trade; validation: ReturnType<typeof validateTradeResultEvidence> }> = []
+      for (const trade of stats.evidenceSource) {
+        const validation = validateTradeResultEvidence(trade)
+        if (validation.quality === quality) rows.push({ trade, validation })
+        if (rows.length === 50) break
+      }
+      return rows
+    },
+    [quality, stats.evidenceSource],
   )
   const strategyRows = useMemo(() => {
     if (strategySort === 'configured') return stats.strategies
@@ -319,7 +317,10 @@ export function Dashboard() {
   const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '实盘 + 模拟'
   const hasClosedTrades = stats.closedCount > 0
   const hasNonDefaultAnalysisScope = activeDimensionCount > 0 || range !== 'all' || kind !== 'live' || quality !== 'all'
-  const curve = stats.curves[trendMode]
+  const curve = useMemo(
+    () => buildDashboardTrendCurve(trendMode, stats.temporalPnl, stats.temporalR, stats.money),
+    [trendMode, stats.temporalPnl, stats.temporalR, stats.money],
+  )
   const trendTitle = trendMode === 'r'
     ? '累计 R 曲线'
     : trendMode === 'money'
@@ -414,7 +415,7 @@ export function Dashboard() {
           <Card
             label={moneyAggregateTitle(stats.money)}
             value={moneyAggregateLabel(stats.money)}
-            sub={`${stats.metrics.pnl.sampleSize}/${stats.closedCount} 笔含可用盈亏`}
+            sub={`${stats.pnlCount}/${stats.closedCount} 笔含可用盈亏`}
             accent={stats.money.state !== 'single-currency' || stats.money.total === 0 ? undefined : stats.money.total > 0}
             title="仅合计结果可信且币种一致的金额；不做跨币种换算。"
           />
@@ -704,9 +705,9 @@ export function Dashboard() {
             </div>
           </div>
           <div className="db-strats">
-            {stats.quality.byMistakeTag.length === 0 ? (
+            {stats.mistakeTagQuality.length === 0 ? (
               <div className="db-strats-empty">暂无错误标签样本</div>
-            ) : stats.quality.byMistakeTag.slice(0, 5).map((slice) => (
+            ) : stats.mistakeTagQuality.slice(0, 5).map((slice) => (
               <div className="db-strat" key={slice.key}>
                 <div className="db-strat-head"><div className="db-strat-name">{slice.label}</div></div>
                 <div className="db-strat-meta">

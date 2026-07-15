@@ -1158,6 +1158,16 @@ export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
   assert(!metaPromoted.note.includes('市场叙事'), '提升后正文不应再保留市场叙事')
   assert(metaPromoted.note.includes('真实笔记'), '提升后应保留真实笔记内容')
   assert(normalizePsychology('中性') === 'Neutral', '中文心理状态应规范为预设值')
+  const canonicalNotionTrade = {
+    ...trade,
+    note: '<p>已规范化笔记</p>',
+    psychology: 'Neutral',
+    narrative: 'Bullish',
+  }
+  assert(
+    promoteTradeNotionMeta(canonicalNotionTrade) === canonicalNotionTrade,
+    '已规范化正文应复用原对象，避免每次启动重复扫描长笔记',
+  )
 
   const filtered = filterTradesByFacets(
     [

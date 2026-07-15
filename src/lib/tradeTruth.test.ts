@@ -61,6 +61,8 @@ export function testSummaryUsesOnlyVerifiedResultsAndReportsCoverage(): void {
   assert(summary.rCount === 2, 'conflicting R must be excluded from performance totals')
   assert(summary.totalPnl === 5, 'cash totals must use verified records only')
   assert(summary.averageR === 0.5, 'average R must use verified records only')
+  assert(summary.qualityCounts.missing === 1 && summary.qualityCounts.conflict === 1, 'summary exposes evidence quality without a second validation scan')
+  assert(summary.qualityCounts.confirmed + summary.qualityCounts.verified === 2, 'every closed result enters exactly one quality state')
 }
 
 export function testLegacyPlaceholderZerosBecomeMissingWithoutErasingBreakeven(): void {

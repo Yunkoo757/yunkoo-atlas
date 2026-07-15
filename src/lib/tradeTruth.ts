@@ -28,6 +28,7 @@ export interface TradeResultSummary {
   rCount: number
   totalPnl: number
   averageR: number | null
+  qualityCounts: Record<TradeResultValidation['quality'], number>
 }
 
 export type TradeResultIssueCode =
@@ -431,6 +432,13 @@ export function summarizeTradeResults(trades: Trade[]): TradeResultSummary {
     .map((trade) => finiteMetric(trade.rMultiple))
     .filter((value): value is number => value !== null)
   const winCount = evaluated.filter((truth) => truth.outcome === 'win').length
+  const qualityCounts = truths.reduce<Record<TradeResultValidation['quality'], number>>(
+    (counts, truth) => {
+      counts[truth.resultQuality] += 1
+      return counts
+    },
+    { missing: 0, confirmed: 0, verified: 0, conflict: 0 },
+  )
 
   return {
     closedCount: closed.length,
@@ -446,5 +454,6 @@ export function summarizeTradeResults(trades: Trade[]): TradeResultSummary {
     averageR: rValues.length
       ? rValues.reduce((sum, value) => sum + value, 0) / rValues.length
       : null,
+    qualityCounts,
   }
 }
