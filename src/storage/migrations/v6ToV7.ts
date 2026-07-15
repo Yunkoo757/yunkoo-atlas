@@ -65,6 +65,7 @@ function migrateCurrency(
   }
   if (rawCurrency !== undefined && rawCurrency !== null && rawCurrency !== '') {
     diagnostics.push({ tradeId, code: 'invalid-legacy-currency' })
+    return { currency: null, source: null }
   }
   if (pnl !== null) return { currency: 'USD', source: 'inferred' }
   return { currency: null, source: null }
@@ -114,7 +115,7 @@ export function migrateV6ToV7(source: PersistedSnapshot): V6ToV7MigrationResult 
     const currency = migrateCurrency(legacy.pnlCurrency, pnl, diagnostics, trade.id)
     const strategyVersionId = strategyVersionByStrategy.get(trade.strategyId) ?? null
     if (strategyVersionId === null && trade.strategyId) {
-      diagnostics.push({ tradeId: trade.id, code: 'missing-strategy-version' })
+      throw new Error(`trade ${trade.id} references missing strategy ${trade.strategyId}`)
     }
 
     return {

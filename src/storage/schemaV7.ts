@@ -83,12 +83,6 @@ function isOptionalNullableFinite(value: unknown): boolean {
   return value === undefined || isNullableFinite(value)
 }
 
-function isPositiveWhenPresent(value: unknown): boolean {
-  return value === undefined || value === null || (
-    typeof value === 'number' && Number.isFinite(value) && value > 0
-  )
-}
-
 function isCurrency(value: unknown): boolean {
   return value === null || (typeof value === 'string' && /^[A-Z]{3}$/.test(value))
 }
@@ -104,18 +98,6 @@ function isCosts(value: unknown): value is TradeCostsV7 {
     if (value.completeness === 'complete' && typeof amount !== 'number') return false
   }
   return true
-}
-
-function hasConsistentRisk(trade: Record<string, unknown>): boolean {
-  const risk = trade.initialRiskAmount
-  const pct = trade.initialRiskPct
-  const equity = trade.accountEquityAtEntry
-  if (!isPositiveWhenPresent(risk) || !isPositiveWhenPresent(pct) || !isPositiveWhenPresent(equity)) {
-    return false
-  }
-  if (typeof risk !== 'number' || typeof pct !== 'number' || typeof equity !== 'number') return true
-  const expectedPct = (risk / equity) * 100
-  return Math.abs(pct - expectedPct) <= Math.abs(expectedPct) * 0.01
 }
 
 function assertValidTradeV7(
@@ -145,7 +127,9 @@ function assertValidTradeV7(
   if (typeof value.slippageCost === 'number' && value.slippageCost < 0) {
     throw new Error(`${label}.slippageCost cannot be negative`)
   }
-  if (!hasConsistentRisk(value)) throw new Error(`${label} has invalid risk fields`)
+  for (const field of ['initialRiskAmount', 'initialRiskPct', 'accountEquityAtEntry'] as const) {
+    if (!isOptionalNullableFinite(value[field])) throw new Error(`${label}.${field} must be finite or null`)
+  }
   if (value.pnlBasis !== 'unknown' && value.pnlBasis !== 'net') {
     throw new Error(`${label}.pnlBasis is invalid`)
   }
@@ -164,22 +148,6 @@ function assertValidTradeV7(
   }
   if (value.costs !== undefined && !isCosts(value.costs)) {
     throw new Error(`${label}.costs is invalid`)
-  }
-  if (
-    typeof value.grossPnl === 'number' &&
-    typeof value.pnl === 'number' &&
-    value.pnlBasis === 'net' &&
-    isRecord(value.costs) &&
-    value.costs.completeness === 'complete'
-  ) {
-    const completeCosts = value.costs
-    const explicitCosts = (['commission', 'exchange', 'financing', 'tax', 'other'] as const)
-      .reduce((sum, field) => sum + Number(completeCosts[field]), 0)
-    const expectedNet = value.grossPnl - explicitCosts
-    const tolerance = Math.max(0.01, Math.abs(expectedNet) * 0.0001)
-    if (Math.abs(value.pnl - expectedNet) > tolerance) {
-      throw new Error(`${label}.grossPnl and complete costs do not match net pnl`)
-    }
   }
   if (value.openedAtTimestamp !== null && typeof value.openedAtTimestamp !== 'string') {
     throw new Error(`${label}.openedAtTimestamp is invalid`)
@@ -210,6 +178,11 @@ export function assertValidV7Snapshot(
   }
   if (!Array.isArray(value.trades) || !Array.isArray(value.strategies) || !Array.isArray(value.strategyVersions)) {
     throw new Error(`${label} is missing v7 collections`)
+  }
+  for (const field of ['starredIds', 'subscribedIds', 'pinnedStrategyIds'] as const) {
+    if (!Array.isArray(value[field]) || value[field].some((id) => typeof id !== 'string')) {
+      throw new Error(`${label}.${field} must be an array of strings`)
+    }
   }
 
   const strategyIds = new Set<string>()

@@ -101,8 +101,16 @@ export function testV6ToV7MakesCurrencyProvenanceAndStrategyV1Explicit(): void {
     { ...baseTrade, id: 'no-money', pnl: null },
     { ...baseTrade, id: 'unknown-strategy', strategyId: 'missing' },
   ])
-  const result = migrateV6ToV7(raw)
-  const [explicit, inferred, noMoney, unknownStrategy] = result.snapshot.trades
+  let message = ''
+  try {
+    migrateV6ToV7(raw)
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert(message.includes('missing strategy'), 'orphan strategy references must fail explicitly')
+
+  const result = migrateV6ToV7({ ...raw, trades: raw.trades.slice(0, 3) })
+  const [explicit, inferred, noMoney] = result.snapshot.trades
 
   assert(explicit?.pnlCurrency === 'EUR' && explicit.pnlCurrencySource === 'legacy', 'explicit legacy currency is preserved')
   assert(inferred?.pnlCurrency === 'USD' && inferred.pnlCurrencySource === 'inferred', 'current fixed-dollar legacy amount is marked inferred USD')
@@ -112,7 +120,6 @@ export function testV6ToV7MakesCurrencyProvenanceAndStrategyV1Explicit(): void {
   assert(result.snapshot.strategyVersions[0]?.reviewTemplateHtml === '<p>复盘模板</p>', 'review template is copied into v1')
   assert(result.snapshot.strategies[0]?.currentVersionId === 'breakout:v1', 'strategy points to its v1')
   assert(explicit?.strategyVersionId === 'breakout:v1', 'known strategy trades bind to v1')
-  assert(unknownStrategy?.strategyVersionId === null, 'unknown strategy references stay explicitly unversioned')
 }
 
 export function testV7ValidatorRejectsBrokenStrategyVersionReferences(): void {
@@ -147,7 +154,7 @@ export function testV7ValidatorEnforcesRiskCostAndCurrencyRelations(): void {
       accountEquityAtEntry: 10_000,
       initialRiskPct: 10,
     })
-  }).includes('risk'), 'inconsistent risk amount/equity/percent must be rejected')
+  }) === '', 'risk result conflicts are accepted for later quality diagnostics')
 
   assert(errorFor((snapshot) => {
     snapshot.trades[0]!.costs = {
@@ -178,5 +185,5 @@ export function testV7ValidatorEnforcesRiskCostAndCurrencyRelations(): void {
         completeness: 'complete',
       },
     })
-  }).includes('grossPnl'), 'net PnL must agree with gross PnL minus complete costs')
+  }) === '', 'gross/net/cost conflicts are accepted for later quality diagnostics')
 }
