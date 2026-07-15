@@ -248,6 +248,13 @@ export class LibraryStorage {
       manifestSchemaVersion: loaded.manifestSchemaVersion,
     })
     assertValidPersistedSnapshot(migrated.snapshot, 'Stored library snapshot')
+    if (migrated.didChange) {
+      this.saveSnapshot(migrated.snapshot)
+      const manifest = this.readManifest()
+      if (manifest.schemaVersion !== SCHEMA_VERSION) {
+        this.writeManifest({ ...manifest, schemaVersion: SCHEMA_VERSION })
+      }
+    }
     return migrated.snapshot
   }
 

@@ -192,6 +192,9 @@ export function migrateSnapshot(
     version = step.toVersion
   }
 
+  const finalRecord = asRecord(snapshot)
+  if (finalRecord) finalRecord.schemaVersion = targetVersion
+
   return {
     snapshot,
     fromVersion,

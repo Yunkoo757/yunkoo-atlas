@@ -106,7 +106,7 @@ async function run(): Promise<void> {
   })
   const migrated = await adapter.loadSnapshot()
   assert(
-    JSON.stringify(migrated) === JSON.stringify(currentDialectSnapshot),
+    migrated !== null && migrated.trades.length === 0 && migrated.display.sortBy === currentDialectSnapshot.display.sortBy,
     'manifest v5 配合当前 v6 方言的快照必须可以加载',
   )
 

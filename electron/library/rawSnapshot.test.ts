@@ -84,3 +84,25 @@ export async function testRawSnapshotDoesNotRunCurrentStructureValidation(): Pro
     fs.rmSync(root, { recursive: true, force: true })
   }
 }
+
+export async function testLegacySnapshotMigrationIsCommittedWithManifest(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-migration-commit-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.saveSnapshot(currentSnapshot())
+    const manifestPath = path.join(root, 'manifest.json')
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+    fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, schemaVersion: 5 }))
+
+    const loaded = storage.loadSnapshot()
+    assert(loaded !== null, '旧清单下的快照必须可以迁移读取')
+    const committedManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+    assert(committedManifest.schemaVersion === SCHEMA_VERSION, '迁移后 manifest 必须升级到当前版本')
+    const raw = storage.loadRawSnapshot()?.snapshot as { schemaVersion?: number }
+    assert(raw.schemaVersion === SCHEMA_VERSION, '迁移后的快照必须写回版本字段')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
