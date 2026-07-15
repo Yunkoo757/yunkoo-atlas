@@ -59,6 +59,41 @@ function putLibraryState(snapshot: unknown, manifest: unknown): Promise<void> {
   })
 }
 
+async function checksumJson(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function putPendingUpgradeState(
+  active: unknown,
+  rollback: unknown,
+  manifest: unknown,
+): Promise<void> {
+  const sourceChecksumSha256 = await checksumJson(rollback)
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
+    request.onerror = () => reject(request.error ?? new Error('无法打开测试资料库'))
+    request.onsuccess = () => {
+      const db = request.result
+      const transaction = db.transaction(['snapshot', 'meta'], 'readwrite')
+      transaction.objectStore('snapshot').put(active, 'main')
+      transaction.objectStore('snapshot').put(rollback, 'upgrade-rollback')
+      transaction.objectStore('meta').put(manifest, 'manifest')
+      transaction.objectStore('meta').put({
+        targetVersion: 7,
+        phase: 'pending-v7',
+        sourceChecksumSha256,
+      }, 'upgrade-journal')
+      transaction.oncomplete = () => {
+        db.close()
+        resolve()
+      }
+      transaction.onerror = () => reject(transaction.error ?? new Error('无法写入待恢复升级状态'))
+    }
+  })
+}
+
 async function run(): Promise<void> {
   await deleteDatabase()
   const raw = { legacyMarker: 'keep-me-raw' }
@@ -180,6 +215,27 @@ async function run(): Promise<void> {
   assert(rollbackResult === 'restored', 'failed browser hydrate must restore v6')
   assert((await adapter.getManifest()).schemaVersion === 6, 'failed browser upgrade restores manifest')
   assert((await adapter.loadRawSnapshot() as { schemaVersion?: number }).schemaVersion === undefined, 'failed browser upgrade restores raw v6 snapshot')
+
+  const pendingManifest = {
+    schemaVersion: 6,
+    libraryId: 'pending-upgrade-library',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }
+  await putPendingUpgradeState(currentV7Snapshot, currentDialectSnapshot, pendingManifest)
+  const resumedCommit = new IndexedDbStorageAdapter()
+  await resumedCommit.open()
+  assert((await resumedCommit.getManifest()).schemaVersion === 7, 'startup commits a valid pending browser upgrade')
+  assert((await resumedCommit.loadRawSnapshot() as { schemaVersion?: number }).schemaVersion === 7, 'startup keeps the valid v7 snapshot')
+
+  await putPendingUpgradeState(
+    { ...currentV7Snapshot, trades: [{}] },
+    currentDialectSnapshot,
+    pendingManifest,
+  )
+  const resumedRollback = new IndexedDbStorageAdapter()
+  await resumedRollback.open()
+  assert((await resumedRollback.getManifest()).schemaVersion === 6, 'startup restores the v6 manifest after invalid pending data')
+  assert((await resumedRollback.loadRawSnapshot() as { schemaVersion?: number }).schemaVersion === undefined, 'startup restores the verified v6 snapshot')
 }
 
 declare global {

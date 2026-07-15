@@ -78,6 +78,54 @@ async function checksumJson(value: unknown): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+function assertBrowserUpgradeJournal(value: unknown): asserts value is BrowserUpgradeJournal {
+  if (
+    typeof value !== 'object' || value === null ||
+    !Number.isInteger((value as BrowserUpgradeJournal).targetVersion) ||
+    (value as BrowserUpgradeJournal).targetVersion < 1 ||
+    !['pending-v7', 'committed-v7'].includes((value as BrowserUpgradeJournal).phase) ||
+    !/^[a-f0-9]{64}$/.test((value as BrowserUpgradeJournal).sourceChecksumSha256)
+  ) throw new Error('IndexedDB upgrade journal is invalid')
+}
+
+async function recoverPendingBrowserUpgrade(db: IDBDatabase): Promise<void> {
+  const journal = await idbGet<unknown>(db, STORE_META, UPGRADE_JOURNAL_KEY)
+  if (journal === undefined) return
+  assertBrowserUpgradeJournal(journal)
+  if (journal.phase === 'committed-v7') return
+
+  const rollback = await idbGet<unknown>(db, STORE_SNAPSHOT, UPGRADE_ROLLBACK_KEY)
+  const manifest = await idbGet<LibraryManifest>(db, STORE_META, 'manifest')
+  if (
+    rollback === undefined ||
+    !manifest ||
+    await checksumJson(rollback) !== journal.sourceChecksumSha256
+  ) throw new Error('IndexedDB pre-v7 rollback snapshot is missing or damaged')
+
+  const active = await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')
+  try {
+    assertValidSnapshotForSchema(active, journal.targetVersion, 'Pending browser upgrade snapshot')
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_META, 'readwrite')
+      tx.objectStore(STORE_META).put({ ...manifest, schemaVersion: journal.targetVersion }, 'manifest')
+      tx.objectStore(STORE_META).put({ ...journal, phase: 'committed-v7' }, UPGRADE_JOURNAL_KEY)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB pending upgrade commit failed'))
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB pending upgrade commit aborted'))
+    })
+  } catch {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readwrite')
+      tx.objectStore(STORE_SNAPSHOT).put(rollback, 'main')
+      tx.objectStore(STORE_META).put(manifest, 'manifest')
+      tx.objectStore(STORE_META).delete(UPGRADE_JOURNAL_KEY)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB pending upgrade rollback failed'))
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB pending upgrade rollback aborted'))
+    })
+  }
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -104,6 +152,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
 
   async open(): Promise<void> {
     this.db = await openDb()
+    await recoverPendingBrowserUpgrade(this.db)
     const manifest = await idbGet<LibraryManifest>(this.db, STORE_META, 'manifest')
     if (!manifest) {
       const existingSnapshot = await idbGet<unknown>(this.db, STORE_SNAPSHOT, 'main')

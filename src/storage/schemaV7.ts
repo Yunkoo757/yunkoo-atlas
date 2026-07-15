@@ -1,6 +1,7 @@
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { PersistedSnapshot } from '@/storage/types'
+import { isStrictIsoTimestamp } from '@/storage/isoTimestamp'
 
 export type MetricOrigin = 'manual' | 'calculated' | 'imported' | 'legacy'
 export type PnlBasis = 'unknown' | 'net'
@@ -106,12 +107,6 @@ function isBusinessDate(value: unknown, nullable = false): boolean {
     date.getUTCDate() === Number(match[3])
 }
 
-function isIsoTimestamp(value: unknown): value is string {
-  return typeof value === 'string' &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})$/.test(value) &&
-    Number.isFinite(Date.parse(value))
-}
-
 function isCosts(value: unknown): value is TradeCostsV7 {
   if (!isRecord(value)) return false
   if (value.completeness !== 'partial' && value.completeness !== 'complete') return false
@@ -195,7 +190,7 @@ function assertValidTradeV7(
     throw new Error(`${label}.closedAtTimestamp is invalid`)
   }
   for (const field of ['openedAtTimestamp', 'closedAtTimestamp'] as const) {
-    if (typeof value[field] === 'string' && !isIsoTimestamp(value[field])) {
+    if (typeof value[field] === 'string' && !isStrictIsoTimestamp(value[field])) {
       throw new Error(`${label}.${field} is invalid`)
     }
   }

@@ -225,3 +225,26 @@ export function testV6ToV7DoesNotTrustTimestampOutsideBusinessDate(): void {
   assert(migrated.openedAtTimestamp === null, 'timestamp outside business date must not alter temporal grouping')
   assert(result.diagnostics.some((item) => item.code === 'invalid-timestamp'), 'timestamp conflict must be diagnosed')
 }
+
+export function testV7RejectsCalendarOverflowInsideIsoTimestamp(): void {
+  const snapshot = migrateV6ToV7(fixtureSnapshot()).snapshot
+  snapshot.trades[0]!.openedAtTimestamp = '2026-02-30T12:00:00Z'
+
+  let message = ''
+  try {
+    assertValidV7Snapshot(snapshot)
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert(message.includes('openedAtTimestamp'), 'calendar-overflow timestamps must be rejected')
+
+  const legacy = fixtureSnapshot()
+  legacy.trades[0] = {
+    ...legacy.trades[0]!,
+    openedAt: '2026-02-28',
+    openedAtTimestamp: '2026-02-30T12:00:00Z',
+  } as Trade & { openedAtTimestamp: string }
+  const migrated = migrateV6ToV7(legacy)
+  assert(migrated.snapshot.trades[0]!.openedAtTimestamp === null, 'migration must not preserve normalized overflow dates')
+  assert(migrated.diagnostics.some((item) => item.code === 'invalid-timestamp'), 'overflow timestamps must be diagnosed')
+}
