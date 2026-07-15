@@ -38,7 +38,11 @@ export function aggregateMoney(trades: readonly Trade[]): MoneyAggregate {
     sampleSize: values.length,
     total: values.reduce((sum, trade) => sum + trade.pnl, 0),
     currency: currencies[0]!,
-    currencyConfidence: values.every((trade) => trade.pnlCurrencySource === 'manual' || trade.pnlCurrencySource === 'imported')
+    currencyConfidence: values.every((trade) =>
+      trade.pnlCurrencySource === 'manual' ||
+      trade.pnlCurrencySource === 'imported' ||
+      trade.pnlCurrencySource === 'legacy',
+    )
       ? 'confirmed'
       : 'inferred',
     basis: values.every((trade) => trade.pnlBasis === 'net') ? 'net' : 'unknown',
@@ -51,4 +55,11 @@ export function moneyAggregateLabel(value: MoneyAggregate): string {
   if (value.state === 'mixed-currency') return '多币种，无法合计'
   const sign = value.total > 0 ? '+' : ''
   return `${sign}${value.total.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${value.currency}`
+}
+
+export function moneyAggregateTitle(value: MoneyAggregate): string {
+  if (value.state !== 'single-currency') return '累计盈亏'
+  if (value.basis === 'net' && value.currencyConfidence === 'confirmed') return '净盈亏'
+  if (value.currencyConfidence === 'inferred') return `累计盈亏（推断 ${value.currency}）`
+  return '累计盈亏'
 }

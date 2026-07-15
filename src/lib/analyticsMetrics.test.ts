@@ -32,3 +32,18 @@ export function testAnalyticsMetricsReturnNullForEmptySamples(): void {
   assert(result.expectancyR.value === null && result.winRate.value === null, 'empty metrics must be null')
   assert(result.expectancyR.coverage === 0, 'empty metrics have zero coverage')
 }
+
+export function testAnalyticsMetricsNeverSerializeInfinityAndCountCashOnlyOutcomes(): void {
+  const cashWin = {
+    ...trade('cash-win', 'win', 100, null),
+    resultSource: 'pnl' as const,
+  }
+  const rWin = {
+    ...trade('r-win', 'win', null, 2),
+    resultSource: 'r' as const,
+  }
+  const result = buildAnalyticsMetrics([cashWin, rWin])
+
+  assert(result.winRate.value === 1 && result.winRate.sampleSize === 2, 'win rate uses every usable outcome')
+  assert(result.profitFactor.value === null, 'all-win R samples stay null instead of Infinity')
+}

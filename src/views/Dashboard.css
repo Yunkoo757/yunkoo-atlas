@@ -196,8 +196,37 @@
 .db-data-health > div:first-child {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
+}
+.db-secondary-metrics {
+  min-height: 36px;
+  padding: 0 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.db-secondary-metric {
+  min-width: 0;
+  padding-right: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.db-secondary-metric small {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+}
+.db-secondary-metric strong {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .db-quality-tabs {
@@ -393,6 +422,20 @@
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
 }
+.db-trend-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.db-trend-switch .db-seg {
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: var(--fs-mini);
+}
+.db-trend-switch .db-seg:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
 .db-chart {
   padding: 12px 12px 18px;
 }
@@ -477,7 +520,7 @@
 }
 a.db-strat {
   display: grid;
-  grid-template-columns: 160px 120px 1fr 96px;
+  grid-template-columns: 160px 132px minmax(0, 1fr);
   align-items: center;
   gap: 16px;
   padding: 12px 18px;
@@ -507,18 +550,49 @@ a.db-strat:hover {
   font-size: var(--fs-mini);
   color: var(--text-tertiary);
 }
-.db-strat-bar {
-  height: 6px;
-  background: var(--bg-hover);
-  border-radius: var(--radius-full);
-  overflow: hidden;
+.db-strat-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(92px, 1fr));
+  gap: 16px;
 }
-.db-strat-fill {
-  height: 100%;
-  border-radius: var(--radius-full);
-  transition: width var(--dur-slow) var(--ease-out);
+.db-strat-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.db-strat-metric small {
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-regular);
+}
+.db-strat-metric strong {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.db-strategy-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-micro);
+}
+.db-strategy-sort select {
+  min-height: 28px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font: inherit;
 }
 .db-strat-pnl {
+  color: var(--text-secondary);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
@@ -547,11 +621,17 @@ a.db-strat:hover {
 }
 
 @media (max-width: 900px) {
+  .db-secondary-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
   a.db-strat {
     grid-template-columns: 1fr auto;
     gap: 10px 16px;
   }
-  .db-strat-bar {
+  .db-strat-metrics {
     grid-column: 1 / -1;
   }
   .db-filter-grid {
@@ -603,13 +683,19 @@ a.db-strat:hover {
     align-items: flex-start;
     padding: 12px 16px;
   }
+  .db-secondary-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .db-trend-actions {
+    align-items: flex-end;
+  }
   .db-panel-hint {
     display: none;
   }
   a.db-strat {
     grid-template-columns: 1fr;
   }
-  .db-strat-pnl {
-    text-align: left;
+  .db-strat-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

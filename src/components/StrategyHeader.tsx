@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useStore } from '@/store/useStore'
 import { computeStrategyStats } from '@/lib/strategies'
-import { fmtMoney, fmtR } from '@/lib/format'
+import { fmtR } from '@/lib/format'
+import { moneyAggregateLabel } from '@/lib/moneyAggregate'
 import './StrategyHeader.css'
 
 /** 策略页统计条：标题已由 Topbar 承接，这里只保留轻量指标，避免双标题大 banner */
@@ -35,14 +36,14 @@ export function StrategyHeader({ strategyId }: { strategyId: string }) {
             className="sh-stat-value"
             style={{
               color:
-                stats.closedCount === 0
+                stats.money.state !== 'single-currency' || stats.money.total === 0
                   ? 'var(--text-tertiary)'
-                  : stats.totalPnl >= 0
+                  : stats.money.total > 0
                     ? 'var(--pos)'
                     : 'var(--neg)',
             }}
           >
-            {stats.closedCount > 0 ? fmtMoney(stats.totalPnl) : '—'}
+            {moneyAggregateLabel(stats.money)}
           </span>
         </div>
         <div className="sh-stat">

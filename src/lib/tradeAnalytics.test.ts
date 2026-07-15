@@ -37,3 +37,25 @@ export function testTradeAnalyticsReportsWilsonIntervalAndRollingWindows(): void
   assert(result.winRate.estimate === 0.6 && result.winRate.low! < 0.6 && result.winRate.high! > 0.6, 'win rate includes 95% Wilson interval')
   assert(result.rollingExpectancy[20].sampleSize === 20, 'rolling 20 uses the latest 20 temporal results')
 }
+
+export function testWinRateAndLosingStreakDoNotRequireRValues(): void {
+  const cashOnly = (id: string, pnl: number, closedAt: string): Trade => ({
+    ...make(id, null, closedAt),
+    status: pnl > 0 ? 'win' : pnl < 0 ? 'loss' : 'breakeven',
+    pnl,
+    rMultiple: null,
+    resultSource: 'pnl',
+  })
+  const trades = [
+    cashOnly('cash-win', 100, '2026-01-01'),
+    cashOnly('cash-loss-1', -50, '2026-01-02'),
+    cashOnly('cash-loss-2', -25, '2026-01-03'),
+    make('r-win', 1, '2026-01-04'),
+  ]
+  const result = buildTradeAnalytics(trades)
+
+  assert(result.rCount === 1, 'R coverage remains independent from outcome coverage')
+  assert(result.temporalVerifiedCount === 4, 'temporal outcome coverage includes cash-only results')
+  assert(result.winRate.sampleSize === 4 && result.winRate.estimate === 0.5, 'cash-only outcomes contribute to win rate')
+  assert(result.longestLosingStreak === 2, 'cash-only losses contribute to temporal losing streaks')
+}

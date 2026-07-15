@@ -280,6 +280,11 @@ export async function runDashboard10kQa({ smoke = false, stdoutOnly = false } = 
   const packageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8'))
   const warmups = smoke ? 1 : 5
   const runs = smoke ? 2 : 30
+  const viewportWidth = Number.parseInt(process.env.QA_DASHBOARD_WIDTH ?? '1440', 10)
+  const viewportHeight = Number.parseInt(process.env.QA_DASHBOARD_HEIGHT ?? '900', 10)
+  if (!Number.isInteger(viewportWidth) || viewportWidth < 640 || !Number.isInteger(viewportHeight) || viewportHeight < 480) {
+    throw new Error('QA_DASHBOARD_WIDTH/HEIGHT must be valid desktop viewport dimensions')
+  }
   const snapshot = createAnalyticsSnapshot({
     count: 10_000,
     seed: ANALYTICS_FIXTURE_SEED,
@@ -317,7 +322,7 @@ export async function runDashboard10kQa({ smoke = false, stdoutOnly = false } = 
       args: ['--enable-precise-memory-info'],
     })
     context = await browser.newContext({
-      viewport: { width: 1_440, height: 900 },
+      viewport: { width: viewportWidth, height: viewportHeight },
       deviceScaleFactor: 1,
     })
     page = await context.newPage()
@@ -404,7 +409,7 @@ export async function runDashboard10kQa({ smoke = false, stdoutOnly = false } = 
         logicalCpuCount: cpus().length,
         node: process.version,
       },
-      viewport: { width: 1_440, height: 900, deviceScaleFactor: 1 },
+      viewport: { width: viewportWidth, height: viewportHeight, deviceScaleFactor: 1 },
       measurementPolicy: { mode: smoke ? 'smoke' : 'baseline', warmups, runs },
       isolation: {
         browserContext: 'ephemeral',

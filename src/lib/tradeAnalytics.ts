@@ -24,6 +24,7 @@ export type ProfitFactorMetric =
 export interface TradeAnalytics {
   closedCount: number
   verifiedCount: number
+  temporalVerifiedCount: number
   rCount: number
   totalR: NumericMetric
   expectancyR: NumericMetric
@@ -78,11 +79,13 @@ export function buildTradeAnalytics(
 ): TradeAnalytics {
   const closed = included.filter((trade) => resolveTradeTruth(trade).executionState === 'closed')
   const verified = closed.filter(isUsableTradeResult)
+  const verifiedTruths = verified.map(resolveTradeTruth)
   const rValues = verified
     .map((trade) => trade.rMultiple)
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
   const wins = rValues.filter((value) => value > 0)
   const losses = rValues.filter((value) => value < 0)
+  const outcomeWinCount = verifiedTruths.filter((truth) => truth.outcome === 'win').length
   const totalRValue = rValues.reduce((sum, value) => sum + value, 0)
   const grossWin = wins.reduce((sum, value) => sum + value, 0)
   const grossLoss = Math.abs(losses.reduce((sum, value) => sum + value, 0))
@@ -96,14 +99,16 @@ export function buildTradeAnalytics(
         : { state: 'value', value: grossWin / grossLoss, sampleSize: rValues.length, coverage }
 
   const temporalIds = new Set(temporal.map((trade) => trade.id))
-  const sequence = verified
-    .filter((trade): trade is Trade & { rMultiple: number } =>
+  const temporalSequence = verified
+    .filter((trade) =>
       temporalIds.has(trade.id) &&
-      closeKey(trade) !== '' &&
-      typeof trade.rMultiple === 'number' &&
-      Number.isFinite(trade.rMultiple),
+      closeKey(trade) !== '',
     )
     .sort((a, b) => closeKey(a).localeCompare(closeKey(b)) || a.ref.localeCompare(b.ref))
+  const sequence = temporalSequence
+    .filter((trade): trade is Trade & { rMultiple: number } =>
+      typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
+    )
     .map((trade) => trade.rMultiple)
   let equity = 0
   let peak = 0
@@ -114,7 +119,9 @@ export function buildTradeAnalytics(
     equity += value
     peak = Math.max(peak, equity)
     maxDrawdown = Math.max(maxDrawdown, peak - equity)
-    losingStreak = value < 0 ? losingStreak + 1 : 0
+  }
+  for (const trade of temporalSequence) {
+    losingStreak = resolveTradeTruth(trade).outcome === 'loss' ? losingStreak + 1 : 0
     longestLosingStreak = Math.max(longestLosingStreak, losingStreak)
   }
   const rolling = (window: 20 | 50 | 100): NumericMetric => {
@@ -125,13 +132,14 @@ export function buildTradeAnalytics(
   return {
     closedCount: closed.length,
     verifiedCount: verified.length,
+    temporalVerifiedCount: temporalSequence.length,
     rCount: rValues.length,
     totalR: metric(rValues.length ? totalRValue : null, rValues.length, closed.length),
     expectancyR: metric(rValues.length ? totalRValue / rValues.length : null, rValues.length, closed.length),
     medianR: metric(median(rValues), rValues.length, closed.length),
     averageWinR: metric(wins.length ? grossWin / wins.length : null, wins.length, rValues.length),
     averageLossR: metric(losses.length ? losses.reduce((sum, value) => sum + value, 0) / losses.length : null, losses.length, rValues.length),
-    winRate: wilson(wins.length, rValues.length, closed.length),
+    winRate: wilson(outcomeWinCount, verified.length, closed.length),
     profitFactor,
     maxDrawdownR: metric(sequence.length ? maxDrawdown : null, sequence.length, rValues.length),
     currentDrawdownR: metric(sequence.length ? peak - equity : null, sequence.length, rValues.length),

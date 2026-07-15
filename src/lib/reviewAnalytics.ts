@@ -14,6 +14,7 @@ import { isExecutedClosed } from '@/lib/tradeStatus'
 import { isUsableTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { buildAnalyticsMetrics, type AnalyticsMetrics } from '@/lib/analyticsMetrics'
+import { aggregateMoney, type MoneyAggregate } from '@/lib/moneyAggregate'
 
 export const DEFAULT_REVIEW_STATUS: ReviewStatus = 'unreviewed'
 export const DEFAULT_REVIEW_CATEGORY: ReviewCategory = 'normal'
@@ -43,6 +44,7 @@ export interface StrategyPerformance {
   closedCount: number
   winRate: number | null
   totalPnl: number
+  money: MoneyAggregate
   totalR: number
   averageR: number | null
   worstR: number | null
@@ -161,6 +163,7 @@ export function summarizeStrategyPerformance(
     closedCount: result.closedCount,
     winRate: result.winRate,
     totalPnl: result.totalPnl,
+    money: aggregateMoney(closed),
     totalR,
     averageR,
     worstR,
