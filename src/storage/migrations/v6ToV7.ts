@@ -14,6 +14,7 @@ export type V7MigrationDiagnosticCode =
   | 'placeholder-r-zero'
   | 'missing-strategy-version'
   | 'invalid-legacy-currency'
+  | 'invalid-timestamp'
 
 export interface V7MigrationDiagnostic {
   tradeId: string
@@ -38,19 +39,30 @@ function finiteOrNull(value: number | null): number | null {
 function migrateDateEvidence(
   value: string | null,
   existingTimestamp: unknown,
+  diagnostics: V7MigrationDiagnostic[],
+  tradeId: string,
 ): { date: string | null; timestamp: string | null } {
+  const candidate = typeof existingTimestamp === 'string' && Number.isFinite(Date.parse(existingTimestamp))
+    ? existingTimestamp
+    : null
+  if (existingTimestamp !== undefined && candidate === null) {
+    diagnostics.push({ tradeId, code: 'invalid-timestamp' })
+  }
   if (value === null) {
     return {
       date: null,
-      timestamp: typeof existingTimestamp === 'string' ? existingTimestamp : null,
+      timestamp: candidate,
     }
   }
   const datePrefix = /^\d{4}-\d{2}-\d{2}/.exec(value)?.[0] ?? value
-  const timestamp = typeof existingTimestamp === 'string'
-    ? existingTimestamp
+  const timestamp = candidate && candidate.startsWith(datePrefix)
+    ? candidate
     : value.length > 10
       ? value
       : null
+  if (candidate && !candidate.startsWith(datePrefix)) {
+    diagnostics.push({ tradeId, code: 'invalid-timestamp' })
+  }
   return { date: datePrefix, timestamp }
 }
 
@@ -110,8 +122,8 @@ export function migrateV6ToV7(source: PersistedSnapshot): V6ToV7MigrationResult 
       diagnostics.push({ tradeId: trade.id, code: 'placeholder-r-zero' })
     }
 
-    const opened = migrateDateEvidence(trade.openedAt, legacy.openedAtTimestamp)
-    const closed = migrateDateEvidence(trade.closedAt, legacy.closedAtTimestamp)
+    const opened = migrateDateEvidence(trade.openedAt, legacy.openedAtTimestamp, diagnostics, trade.id)
+    const closed = migrateDateEvidence(trade.closedAt, legacy.closedAtTimestamp, diagnostics, trade.id)
     const currency = migrateCurrency(legacy.pnlCurrency, pnl, diagnostics, trade.id)
     const strategyVersionId = strategyVersionByStrategy.get(trade.strategyId) ?? null
     if (strategyVersionId === null && trade.strategyId) {
