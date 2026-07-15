@@ -75,6 +75,25 @@ async function gotoApp(path, targetPage = page) {
   await waitForApp(targetPage, path)
 }
 
+async function navigateApp(path, targetPage = page) {
+  await flushPageStorage(targetPage)
+  const expected = new URL(path, BASE)
+  await targetPage.evaluate((href) => {
+    window.history.pushState(window.history.state, '', href)
+    window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }))
+  }, expected.href)
+  await targetPage.waitForURL(
+    (url) => url.pathname === expected.pathname && url.search === expected.search,
+    { timeout: 10000 },
+  )
+  await targetPage.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  }))
+  if (await targetPage.locator('.app-route-error').isVisible().catch(() => false)) {
+    throw new Error(`前端路由加载失败：${path}；${await targetPage.locator('.app-route-error').innerText()}`)
+  }
+}
+
 async function readSystemActivity() {
   const toggle = page.getByRole('button', { name: /活动记录/ })
   await toggle.waitFor({ state: 'visible', timeout: 10000 })
@@ -185,7 +204,8 @@ try {
 
   await page.setViewportSize({ width: 1280, height: 800 })
 
-  await gotoApp('/today-record')
+  await navigateApp('/today-record')
+  await page.locator('.today-workspace-scroll').waitFor({ state: 'visible', timeout: 10000 })
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
@@ -288,7 +308,8 @@ try {
     await flushPersistNow()
   })
 
-  await gotoApp('/sim')
+  await navigateApp('/sim')
+  await page.locator('.list-scroll').waitFor({ state: 'visible', timeout: 10000 })
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'EURUSD')
   await page.locator('.composer-btn-primary').click()
@@ -296,7 +317,8 @@ try {
   const paperProperties = await page.locator('.dv-props').innerText()
   record('模拟页快速创建模拟交易', paperProperties.includes('模拟'), page.url())
 
-  await gotoApp('/dashboard')
+  await navigateApp('/dashboard')
+  await page.locator('.db-scroll').waitFor({ state: 'visible', timeout: 10000 })
   await page.getByRole('tab', { name: '全部类型' }).click()
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
@@ -327,7 +349,7 @@ try {
   await rowOpen.press('Enter')
   const keyboardOpened = await page.waitForURL(/\/trade\/CAS-/, { timeout: 2000 }).then(() => true).catch(() => false)
   record('键盘 Enter 可打开交易详情', keyboardOpened, page.url())
-  await gotoApp('/review-cases/mistakes')
+  await navigateApp('/review-cases/mistakes')
   await page.locator('.trade-row').first().waitFor({ state: 'visible', timeout: 5000 })
 
   await page.setViewportSize({ width: 375, height: 812 })
@@ -418,7 +440,7 @@ try {
   }
   record('四个一级导航入口均可访问', true)
 
-  await gotoApp('/dashboard')
+  await navigateApp('/dashboard')
   await page.locator('.db-scroll').waitFor({ state: 'visible', timeout: 15000 })
   const dashboardSurface = await page.evaluate(() => {
     const strip = document.querySelector('.db-cards')
@@ -439,7 +461,8 @@ try {
     JSON.stringify(dashboardSurface),
   )
 
-  await gotoApp('/settings/profile')
+  await navigateApp('/settings/profile')
+  await page.locator('.settings-layout').waitFor({ state: 'visible', timeout: 10000 })
   const settingsSurface = await page.evaluate(() => {
     const nav = document.querySelector('.settings-nav')
     const panel = document.querySelector('.settings-panel')
@@ -458,7 +481,8 @@ try {
     JSON.stringify(settingsSurface),
   )
 
-  await gotoApp('/review-cases')
+  await navigateApp('/review-cases')
+  await page.locator('.list-scroll').waitFor({ state: 'visible', timeout: 10000 })
   const reviewSurface = await page.evaluate(() => {
     const toolbar = document.querySelector('.ui-toolbar')
     const style = toolbar ? getComputedStyle(toolbar) : null
@@ -490,20 +514,26 @@ try {
     '/settings/data',
   ]
   for (const path of settingsRoutes) {
-    await gotoApp(path)
+    await navigateApp(path)
     await page.locator('.settings-panel').waitFor({ state: 'visible' })
+    await page.locator(`.settings-nav-item[href="${path}"][aria-current="page"]`).waitFor({ state: 'visible' })
   }
   record('全部设置分类保持可访问', true)
 
-  const secondaryRoutes = ['/dashboard', '/settings/profile', '/review-cases']
+  const secondaryRoutes = [
+    { path: '/dashboard', selector: '.db-scroll' },
+    { path: '/settings/profile', selector: '.settings-layout' },
+    { path: '/review-cases', selector: '.list-scroll' },
+  ]
   const secondaryOverflow = []
   await page.setViewportSize({ width: 900, height: 800 })
-  for (const path of secondaryRoutes) {
-    await gotoApp(path)
+  for (const route of secondaryRoutes) {
+    await navigateApp(route.path)
+    await page.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
     const overflow = await page.evaluate(() =>
       document.documentElement.scrollWidth > document.documentElement.clientWidth,
     )
-    if (overflow) secondaryOverflow.push(path)
+    if (overflow) secondaryOverflow.push(route.path)
   }
   record(
     '次级页面 900px 视口无横向溢出',
@@ -520,7 +550,7 @@ try {
     { path: '/review-cases/reviewed', tab: '已掌握' },
   ]
   for (const route of reviewCaseRoutes) {
-    await gotoApp(route.path)
+    await navigateApp(route.path)
     await page.locator('.list-scroll').waitFor({ state: 'visible', timeout: 10000 })
     await page.getByText('案例记录', { exact: true }).first().waitFor({ state: 'visible' })
     const activeTab = page.getByRole('tab', { name: route.tab, exact: true })
@@ -541,14 +571,14 @@ try {
   record('案例筛选器不再承担模块切换', caseTypeSelectorCount === 0)
   await page.keyboard.press('Escape')
 
-  await gotoApp('/list')
+  await navigateApp('/list')
   const tradeTabLabels = await page.getByRole('tab').allTextContents()
   const tradeTabsIsolated =
     ['全部', '本周', '本月', '亏损'].every((label) => tradeTabLabels.includes(label)) &&
     !['重点', '错题', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
   record('交易日志顶部视图不混入案例分类', tradeTabsIsolated, tradeTabLabels.join(', '))
 
-  await gotoApp('/list?symbol=ETHUSDT&side=long')
+  await navigateApp('/list?symbol=ETHUSDT&side=long')
   await page.getByRole('button', { name: '筛选交易' }).click()
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'visible' })
   await page.keyboard.press('Escape')
@@ -607,12 +637,18 @@ try {
   ]
 
   await flushPageStorage()
+  const baselinePage = await context.newPage()
+  trackRuntimeErrors(baselinePage)
+  let baselineLoaded = false
   for (const viewport of baselineViewports) {
     for (const route of baselineRoutes) {
-      const baselinePage = await context.newPage()
-      trackRuntimeErrors(baselinePage)
       await baselinePage.setViewportSize({ width: viewport.width, height: viewport.height })
-      await gotoApp(route.path, baselinePage)
+      if (baselineLoaded) {
+        await navigateApp(route.path, baselinePage)
+      } else {
+        await gotoApp(route.path, baselinePage)
+        baselineLoaded = true
+      }
       const actualPath = new URL(baselinePage.url()).pathname
       if (actualPath !== route.path) {
         throw new Error(`${route.name} 路由不匹配：期望 ${route.path}，实际 ${actualPath}`)
@@ -625,10 +661,10 @@ try {
         path: join(BASELINE_OUT, `${viewport.name}-${route.name}.png`),
         fullPage: false,
       })
-      await flushPageStorage(baselinePage)
-      await baselinePage.close()
     }
   }
+  await flushPageStorage(baselinePage)
+  await baselinePage.close()
   record('核心页面基准截图已生成', true, `${baselineRoutes.length * baselineViewports.length} 张`)
   record(
     '基准流程无页面或控制台错误',
