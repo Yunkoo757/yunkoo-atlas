@@ -36,6 +36,7 @@
     "benchmark:analytics": "pnpm build && node scripts/benchmark-analytics.mjs",
     "qa:dashboard-10k": "pnpm build && node scripts/qa-dashboard-10k.mjs",
     "qa:electron": "node scripts/qa-electron.mjs",
+    "qa:ci": "node scripts/qa-ci.mjs",
     "qa:release": "node scripts/qa-release.mjs"
   },
   "dependencies": {
