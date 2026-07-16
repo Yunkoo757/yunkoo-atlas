@@ -214,12 +214,25 @@ export function extractNotionBodyMeta(note: string): {
 
 /** 提升正文里的叙事/心理状态为独立属性，避免继续堆在笔记里 */
 export function promoteTradeNotionMeta(trade: Trade): Trade {
-  const extracted = extractNotionBodyMeta(trade.note ?? '')
-  const psychology = normalizePsychology(trade.psychology) ?? extracted.psychology
-  const narrative = normalizeNarrative(trade.narrative) ?? extracted.narrative
+  const currentNote = trade.note ?? ''
+  const normalizedPsychology = normalizePsychology(trade.psychology)
+  const normalizedNarrative = normalizeNarrative(trade.narrative)
+  if (
+    !currentNote.includes('市场叙事') &&
+    !currentNote.includes('心理状态') &&
+    currentNote === currentNote.trim() &&
+    normalizedPsychology === trade.psychology &&
+    normalizedNarrative === trade.narrative
+  ) {
+    return trade
+  }
+
+  const extracted = extractNotionBodyMeta(currentNote)
+  const psychology = normalizedPsychology ?? extracted.psychology
+  const narrative = normalizedNarrative ?? extracted.narrative
   const note = extracted.note
   if (
-    note === (trade.note ?? '') &&
+    note === currentNote &&
     psychology === trade.psychology &&
     narrative === trade.narrative
   ) {

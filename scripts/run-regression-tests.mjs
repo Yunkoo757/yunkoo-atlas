@@ -6,6 +6,7 @@ import fs from 'node:fs/promises'
 
   const entries = [
   'src/regression.test.ts',
+  'src/lib/dashboardStats.test.ts',
   'src/lib/reviewAnalytics.test.ts',
   'src/lib/tradeTruth.test.ts',
   'src/lib/tradeCalc.test.ts',

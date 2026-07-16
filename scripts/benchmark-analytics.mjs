@@ -15,6 +15,7 @@ import {
 
 const CLOSED_STATUSES = new Set(['win', 'loss', 'breakeven'])
 const ACCOUNT_KINDS = new Set(['live', 'paper'])
+const MAX_DASHBOARD_CURVE_POINTS = 600
 
 function finite(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -81,6 +82,35 @@ function summarizeTradeResults(trades) {
   }
 }
 
+function downsampleDashboardCurve(points, maxPoints = MAX_DASHBOARD_CURVE_POINTS) {
+  const limit = Math.max(3, Math.floor(maxPoints))
+  if (points.length <= limit) return points
+
+  const interiorLength = points.length - 2
+  const bucketCount = Math.max(1, Math.floor((limit - 2) / 2))
+  const sampled = [points[0]]
+
+  for (let bucketIndex = 0; bucketIndex < bucketCount; bucketIndex += 1) {
+    const start = 1 + Math.floor((bucketIndex * interiorLength) / bucketCount)
+    const end = 1 + Math.floor(((bucketIndex + 1) * interiorLength) / bucketCount)
+    if (start >= end) continue
+
+    let minIndex = start
+    let maxIndex = start
+    for (let pointIndex = start + 1; pointIndex < end; pointIndex += 1) {
+      if (points[pointIndex].equity < points[minIndex].equity) minIndex = pointIndex
+      if (points[pointIndex].equity > points[maxIndex].equity) maxIndex = pointIndex
+    }
+
+    if (minIndex === maxIndex) sampled.push(points[minIndex])
+    else if (minIndex < maxIndex) sampled.push(points[minIndex], points[maxIndex])
+    else sampled.push(points[maxIndex], points[minIndex])
+  }
+
+  sampled.push(points.at(-1))
+  return sampled
+}
+
 export function selectCurrentDashboardTrades(
   trades,
   { kind = 'live', range = 'all', now = new Date() } = {},
@@ -106,10 +136,7 @@ export function selectCurrentDashboardTrades(
   return selected
 }
 
-/**
- * 冻结 Task 0 时 Dashboard.tsx 私有 buildStats 的等价计算边界。
- * 这里有意保留当前策略分组的数组扩展与 <-3R 漏桶，便于后续量化改进而非美化基线。
- */
+/** 当前 Dashboard 统计内核的纯 Node 等价实现，用于可重复的微基准。 */
 export function buildCurrentDashboardStats(closed, strategyDefs) {
   const summary = summarizeTradeResults(closed)
   const verified = closed.filter((trade) => ['win', 'loss', 'breakeven'].includes(resolveOutcome(trade)))
@@ -119,7 +146,7 @@ export function buildCurrentDashboardStats(closed, strategyDefs) {
     (a, b) => +new Date(a.closedAt ?? a.openedAt) - +new Date(b.closedAt ?? b.openedAt),
   )
   let cumulative = 0
-  const curve = sorted.map((trade) => {
+  const fullCurve = sorted.map((trade) => {
     cumulative += trade.pnl
     return {
       date: (trade.closedAt ?? trade.openedAt).slice(5, 10),
@@ -130,11 +157,14 @@ export function buildCurrentDashboardStats(closed, strategyDefs) {
       pnl: trade.pnl,
     }
   })
+  const curve = downsampleDashboardCurve(fullCurve)
 
   const byStrategy = new Map()
-  closed.forEach((trade) => {
-    byStrategy.set(trade.strategyId, [...(byStrategy.get(trade.strategyId) ?? []), trade])
-  })
+  for (const trade of closed) {
+    const strategyTrades = byStrategy.get(trade.strategyId)
+    if (strategyTrades) strategyTrades.push(trade)
+    else byStrategy.set(trade.strategyId, [trade])
+  }
   const strategyById = new Map(strategyDefs.map((strategy) => [strategy.id, strategy]))
   const strategies = [...byStrategy.entries()]
     .map(([id, strategyTrades]) => {
@@ -152,17 +182,32 @@ export function buildCurrentDashboardStats(closed, strategyDefs) {
     .sort((a, b) => b.pnl - a.pnl)
   const maxAbs = Math.max(1, ...strategies.map((strategy) => Math.abs(strategy.pnl)))
 
-  const rBuckets = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 5, 10]
-  const rDist = rBuckets.map((lo, index) => {
-    const hi = rBuckets[index + 1]
-    return {
-      label: hi ? `${lo}~${hi}` : `>${lo}`,
-      n: hi
-        ? rTrades.filter((trade) => trade.rMultiple >= lo && trade.rMultiple < hi).length
-        : rTrades.filter((trade) => trade.rMultiple >= lo).length,
-      lo,
-    }
-  })
+  const rRanges = [
+    { label: '<-3', min: Number.NEGATIVE_INFINITY, max: -3 },
+    { label: '-3~-2', min: -3, max: -2 },
+    { label: '-2~-1', min: -2, max: -1 },
+    { label: '-1~-0.5', min: -1, max: -0.5 },
+    { label: '-0.5~0', min: -0.5, max: 0 },
+    { label: '0~0.5', min: 0, max: 0.5 },
+    { label: '0.5~1', min: 0.5, max: 1 },
+    { label: '1~2', min: 1, max: 2 },
+    { label: '2~3', min: 2, max: 3 },
+    { label: '3~5', min: 3, max: 5 },
+    { label: '5~10', min: 5, max: 10 },
+    { label: '≥10', min: 10, max: Number.POSITIVE_INFINITY },
+  ]
+  const rCounts = Array.from({ length: rRanges.length }, () => 0)
+  for (const trade of rTrades) {
+    const bucketIndex = rRanges.findIndex(
+      (range) => trade.rMultiple >= range.min && trade.rMultiple < range.max,
+    )
+    if (bucketIndex >= 0) rCounts[bucketIndex] += 1
+  }
+  const rDist = rRanges.map((range, index) => ({
+    label: range.label,
+    n: rCounts[index],
+    lo: range.min,
+  }))
   const bucketedRCount = rDist.reduce((sum, bucket) => sum + bucket.n, 0)
 
   return {
@@ -309,7 +354,7 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
   const save1k = measureSync(() => JSON.stringify(dense1k.snapshot), options)
   const save10k = measureSync(() => JSON.stringify(dense10k.snapshot), options)
   const memoryAfter = process.memoryUsage()
-  const sourcePath = resolve('src/views/Dashboard.tsx')
+  const sourcePath = resolve('src/lib/dashboardStats.ts')
   const source = readFileSync(sourcePath)
   const packageJson = readPackage()
 
@@ -343,13 +388,19 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
     },
     boundaries: {
       dashboardBuild: {
-        source: 'src/views/Dashboard.tsx::buildStats',
+        source: 'src/lib/dashboardStats.ts::buildDashboardStats',
         sourceSha256: sha256(source),
-        implementation: 'private-function-equivalent-kernel',
-        includes: ['result summary', 'equity curve', 'strategy groups', 'R distribution'],
+        implementation: 'current-dashboard-equivalent-kernel',
+        includes: [
+          'result summary',
+          'sampled equity curve',
+          'linear strategy groups',
+          'exclusive R distribution',
+        ],
       },
-      dashboardEntry: 'deleted filter + live/all scope filter + current buildStats equivalent',
-      rangeSwitch: '90d filter using current closedAt ?? openedAt rule + current buildStats equivalent',
+      dashboardEntry: 'deleted filter + live/all scope filter + current dashboard stats equivalent',
+      rangeSwitch:
+        '90d filter using current closedAt ?? openedAt rule + current dashboard stats equivalent',
       hydrate: 'JSON.parse of an isolated complete snapshot; no IndexedDB or real library',
       save: 'JSON.stringify of an isolated complete snapshot; no disk or real library',
     },
@@ -369,12 +420,14 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
         closedCount: build1k.lastValue.closedCount,
         evaluatedCount: build1k.lastValue.evaluatedCount,
         conflictCount: build1k.lastValue.conflictCount,
+        curvePointCount: build1k.lastValue.curve.length,
         rDistributionCountDelta: build1k.lastValue.rDistributionCountDelta,
       },
       dashboardBuild10k: {
         closedCount: build10k.lastValue.closedCount,
         evaluatedCount: build10k.lastValue.evaluatedCount,
         conflictCount: build10k.lastValue.conflictCount,
+        curvePointCount: build10k.lastValue.curve.length,
         rDistributionCountDelta: build10k.lastValue.rDistributionCountDelta,
       },
     },
@@ -393,13 +446,9 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
       warmHydrateP95Ms: 600,
       fullSnapshotSaveP95Ms: 1_200,
       maxRegressionFromBaselineRatio: 0.1,
-      note: 'Task 0 records the baseline; browser interaction budgets are enforced by qa-dashboard-10k.',
+      note: 'The microbenchmark tracks the current dashboard kernel; browser interaction budgets are enforced by qa-dashboard-10k.',
     },
-    knownBaselineDefects: [
-      'R distribution omits values below -3R.',
-      'The zero upper bound is treated as falsy, causing overlapping R buckets.',
-      'Strategy grouping copies arrays inside the loop and is intentionally preserved for baseline comparison.',
-    ],
+    knownBaselineDefects: [],
   }
 }
 

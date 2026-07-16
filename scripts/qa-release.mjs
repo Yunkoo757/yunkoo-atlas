@@ -70,4 +70,5 @@ try {
 }
 
 run('pnpm', ['build:app'])
+run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
 run('pnpm', ['qa:electron'])
