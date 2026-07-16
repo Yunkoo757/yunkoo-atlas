@@ -23,6 +23,13 @@ function trackRuntimeErrors(targetPage) {
 
 trackRuntimeErrors(page)
 
+async function recyclePage(viewport = { width: 1280, height: 800 }) {
+  await page.close()
+  page = await context.newPage()
+  trackRuntimeErrors(page)
+  await page.setViewportSize(viewport)
+}
+
 function record(name, pass, detail = '') {
   results.push({ name, pass, detail })
   console.log(`${pass ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`)
@@ -482,6 +489,8 @@ try {
   }
   record('案例记录页可打开新建流程', true)
 
+  await recyclePage()
+
   const settingsRoutes = [
     '/settings/profile',
     '/settings/shortcuts',
@@ -500,7 +509,7 @@ try {
 
   const secondaryRoutes = ['/dashboard', '/settings/profile', '/review-cases']
   const secondaryOverflow = []
-  await page.setViewportSize({ width: 900, height: 800 })
+  await recyclePage({ width: 900, height: 800 })
   for (const path of secondaryRoutes) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })
     await waitForApp()
@@ -514,7 +523,7 @@ try {
     secondaryOverflow.length === 0,
     secondaryOverflow.join(', ') || 'none',
   )
-  await page.setViewportSize({ width: 1440, height: 900 })
+  await recyclePage({ width: 1440, height: 900 })
 
   const reviewCaseRoutes = [
     { path: '/review-cases', tab: '全部' },
@@ -625,6 +634,7 @@ try {
     { name: '1920x1080', width: 1920, height: 1080 },
   ]
 
+  await page.close()
   for (const viewport of baselineViewports) {
     for (const route of baselineRoutes) {
       const baselinePage = await context.newPage()

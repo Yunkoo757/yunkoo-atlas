@@ -136,6 +136,15 @@ test('常规 CI 在主干与拉取请求上运行同一质量门禁', () => {
   assert.match(workflow, /pnpm qa:release/)
 })
 
+test('工作台长流程分段回收浏览器页面，避免 Windows CI 内存耗尽', () => {
+  const workbenchQa = readFileSync('scripts/qa-workbench.mjs', 'utf8')
+  const recycleCalls = workbenchQa.match(/await recyclePage\(/g) ?? []
+
+  assert.match(workbenchQa, /async function recyclePage/)
+  assert.ok(recycleCalls.length >= 3, '长流程至少应在三个阶段边界回收旧渲染页面')
+  assert.match(workbenchQa, /await page\.close\(\)\s*\r?\n\s*for \(const viewport of baselineViewports\)/)
+})
+
 test('应用构建同时检查渲染进程与 Electron 主进程类型', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   const electronTsconfig = readFileSync('tsconfig.electron.json', 'utf8')
