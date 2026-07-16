@@ -131,16 +131,22 @@ export async function testFailedExplicitFlushStaysInErrorAndCanRetryTheLatestSto
       () => {},
     )
     assert(useSaveStatus.getState().status === 'error', '写盘失败后不得显示已保存')
+    assert(
+      useSaveStatus.getState().errorMessage === 'disk full',
+      '写盘失败后必须保留可呈现给用户的具体原因',
+    )
 
     snapshotWithName('B')
     const retry = flushPersistNow()
     await waitUntil(() => attempt >= 2, '失败后的显式保存未开始重试')
     assert(useSaveStatus.getState().status === 'saving', '重试尚未完成时应保持保存中')
+    assert(useSaveStatus.getState().errorMessage === null, '开始重试时应清除旧错误原因')
     retrySave.resolve()
     await retry
 
     assert(savedNames.join(',') === 'A,B', '失败后的显式重试必须从最新 store 重建快照')
     assert(useSaveStatus.getState().status === 'saved', '最新快照重试成功后才能显示已保存')
+    assert(useSaveStatus.getState().errorMessage === null, '重试成功后不得残留旧错误原因')
   } finally {
     console.error = originalConsoleError
     disablePersistWrites()

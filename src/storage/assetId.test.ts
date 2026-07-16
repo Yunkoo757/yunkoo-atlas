@@ -46,6 +46,10 @@ export async function testAttachmentImportAndDesktopInstanceSafetyAreWiredAtBoun
   assert(storage.includes('path.relative(resolvedRoot, resolvedTarget)'), '附件落盘前必须验证目标仍在附件目录内')
 
   assert(main.includes('app.requestSingleInstanceLock()'), '桌面端必须申请单实例锁')
+  assert(
+    main.includes("process.env.LINEAR_JOURNAL_QA === '1' || app.requestSingleInstanceLock()"),
+    '桌面 QA 必须绕过日常客户端的单实例锁，避免发布门禁被正在运行的客户端误拦截',
+  )
   assert(main.includes("app.on('second-instance'"), '主实例必须处理第二实例启动事件')
   assert(main.includes('mainWindow.isMinimized()'), '第二实例启动时应恢复最小化窗口')
   assert(main.includes('mainWindow.focus()'), '第二实例启动时应聚焦现有窗口')

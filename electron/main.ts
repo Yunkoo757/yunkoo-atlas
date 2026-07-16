@@ -47,7 +47,8 @@ function getWindowIconPath(): string | undefined {
 }
 
 let mainWindow: BrowserWindow | null = null
-const hasSingleInstanceLock = app.requestSingleInstanceLock()
+const hasSingleInstanceLock =
+  process.env.LINEAR_JOURNAL_QA === '1' || app.requestSingleInstanceLock()
 
 function focusMainWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
