@@ -86,7 +86,7 @@
   display: grid;
   /* check | status | ref | identity(固定) | tags(flex) | tf | pnl | R | date | end */
   grid-template-columns:
-    18px 16px 50px 252px minmax(180px, 1fr)
+    var(--trade-select-column, 18px) 16px 50px 252px minmax(180px, 1fr)
     48px 72px 52px 54px 44px;
   align-items: center;
   column-gap: 14px;
@@ -453,7 +453,7 @@
 @media (max-width: 1200px) {
   .trade-row {
     grid-template-columns:
-      18px 16px 200px minmax(120px, 1fr) 48px
+      var(--trade-select-column, 18px) 16px 200px minmax(120px, 1fr) 48px
       58px 48px 44px;
     column-gap: 10px;
   }
@@ -462,6 +462,29 @@
   .trade-row-strategy,
   .trade-row-pnl {
     display: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .trade-row {
+    grid-template-columns:
+      44px 16px minmax(140px, 1fr) minmax(80px, 1fr)
+      48px 48px 54px 44px;
+    column-gap: 8px;
+  }
+}
+
+@media (max-width: 899px), (pointer: coarse) {
+  .trade-row {
+    --trade-select-column: 44px;
+  }
+
+  .trade-row-check,
+  .trade-row-check-placeholder,
+  .trade-row-star {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
   }
 }
 
@@ -476,15 +499,15 @@
     opacity: 1;
   }
   .trade-row {
-    grid-template-columns: 18px minmax(120px, 1fr) 48px 54px 48px 44px;
+    grid-template-columns: 44px 16px minmax(100px, 1fr) 48px 54px 44px;
     column-gap: 6px;
     padding: 0 var(--sp-2);
   }
 
-  .trade-row-check,
   .trade-row-ref,
   .trade-row-strategy,
   .trade-row-tags,
+  .trade-row-timeframe-slot,
   .trade-row-pnl {
     display: none;
   }

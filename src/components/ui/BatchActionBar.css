@@ -46,9 +46,22 @@
   background: var(--error-action-bg);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 899px), (pointer: coarse) {
   .batch-action-bar {
     left: 50%;
-    bottom: 12px;
+    bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+  }
+
+  .batch-action-count,
+  .batch-action-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .batch-action-btn {
+    min-width: 44px;
+    min-height: 44px;
   }
 }

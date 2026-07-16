@@ -5,7 +5,10 @@
   "profile": {
     "name": "默认配置",
     "version": "1.0.0",
-    "description": "Yunkoo Atlas 的个人默认工作流配置。"
+    "description": "Yunkoo Atlas 新资料库的中性起始配置。"
+  },
+  "user": {
+    "displayName": "交易者"
   },
   "settings": {
     "display": {
@@ -16,48 +19,20 @@
     }
   },
   "tags": {
-    "general": [
-      "MTF ORA",
-      "no idm预期A",
-      "no idm预期B",
-      "LTF ChoCh",
-      "1m bos"
-    ],
+    "general": [],
     "mistakes": [
       "缺乏耐心",
-      "技术分析错误",
       "仓位大小错误",
       "修改止损",
-      "周末交易",
-      "过度分析",
-      "情绪化交易",
-      "受新闻影响"
+      "情绪化交易"
     ]
   },
   "strategies": [
     {
-      "id": "navigation-1",
-      "name": "导航1",
+      "id": "uncategorized",
+      "name": "未分类",
       "icon": "target",
       "color": "#5e6ad2"
-    },
-    {
-      "id": "navigation-2",
-      "name": "导航2",
-      "icon": "flame",
-      "color": "#bb6bd9"
-    },
-    {
-      "id": "navigation-3",
-      "name": "导航3",
-      "icon": "activity",
-      "color": "#27ae60"
-    },
-    {
-      "id": "navigation-4",
-      "name": "导航4",
-      "icon": "rocket",
-      "color": "#f2994a"
     }
   ],
   "shortcuts": {

@@ -1,19 +1,26 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
+import type { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { ZipArchive } from 'archiver'
-import extract from 'extract-zip'
 import initSqlJs from 'sql.js'
+import * as yauzl from 'yauzl'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs } from './paths'
 import { writeFileAtomicallySync } from './atomicFile'
 import {
   SCHEMA_VERSION,
-  type ExportAssetRecord,
   type PersistedSnapshot,
 } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import { isSafeAssetId } from '../../src/storage/assetId'
+import {
+  WEB_JOURNAL_EXPORT_VERSION,
+  normalizeWebJournalImageMime,
+  webJournalExtensionsForMime,
+} from '../../src/lib/webJournalArchiveContract'
+import { createDefaultStrategies } from '../../src/config/defaultProfile'
 
 export async function exportJournalZip(
   storage: LibraryStorage,
@@ -70,69 +77,428 @@ function clearDirectory(dir: string): void {
   }
 }
 
-async function extractZipToDir(zipFile: string, destinationDir: string): Promise<void> {
-  const libraryRoot = path.dirname(destinationDir)
-  const zipPath = path.resolve(zipFile).toLowerCase()
-  const libraryPath = path.resolve(libraryRoot).toLowerCase()
-  const zipInsideLibrary = zipPath.startsWith(libraryPath + path.sep)
+export const MAX_DESKTOP_JOURNAL_ARCHIVE_BYTES = 1024 * 1024 * 1024
+export const MAX_DESKTOP_JOURNAL_ENTRY_COUNT = 20_000
+export const MAX_DESKTOP_JOURNAL_ENTRY_BYTES = 256 * 1024 * 1024
+export const MAX_DESKTOP_JOURNAL_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
+const DESKTOP_JOURNAL_EXTRACTION_TIMEOUT_MS = 5 * 60_000
 
-  if (process.platform === 'win32' && !zipInsideLibrary) {
-    const { execFileSync } = await import('node:child_process')
-    execFileSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        '$ErrorActionPreference = "Stop"; Expand-Archive -LiteralPath $env:LINEAR_JOURNAL_ZIP_FILE -DestinationPath $env:LINEAR_JOURNAL_ZIP_DEST -Force',
-      ],
+export interface JournalZipEntryLimits {
+  maxEntryCount: number
+  maxEntryBytes: number
+  maxExpandedBytes: number
+}
+
+interface JournalZipEntryMetadata {
+  fileName: string
+  compressedSize: number
+  uncompressedSize: number
+  compressionMethod: number
+  generalPurposeBitFlag: number
+  externalFileAttributes: number
+}
+
+const DEFAULT_JOURNAL_ZIP_ENTRY_LIMITS: Readonly<JournalZipEntryLimits> = {
+  maxEntryCount: MAX_DESKTOP_JOURNAL_ENTRY_COUNT,
+  maxEntryBytes: MAX_DESKTOP_JOURNAL_ENTRY_BYTES,
+  maxExpandedBytes: MAX_DESKTOP_JOURNAL_EXPANDED_BYTES,
+}
+
+function archiveLimitError(message: string): Error {
+  return new Error(`Invalid .journal.zip: ${message}`)
+}
+
+function canonicalArchivePath(fileName: string): string {
+  if (
+    !fileName ||
+    fileName.includes('\\') ||
+    fileName.includes('\0') ||
+    fileName.startsWith('/') ||
+    /^[A-Za-z]:/.test(fileName)
+  ) {
+    throw archiveLimitError(`unsafe archive path (${fileName || 'empty path'})`)
+  }
+  const isDirectory = fileName.endsWith('/')
+  const segments = fileName.split('/')
+  if (segments.includes('..')) {
+    throw archiveLimitError(`archive path traversal (${fileName})`)
+  }
+  const canonical = `${segments.filter((segment) => segment && segment !== '.').join('/')}${isDirectory ? '/' : ''}`
+  if (canonical !== fileName) {
+    throw archiveLimitError(`non-canonical archive path (${fileName})`)
+  }
+  return canonical
+}
+
+export function createJournalZipEntryGuard(
+  limits: JournalZipEntryLimits = DEFAULT_JOURNAL_ZIP_ENTRY_LIMITS,
+): (entry: JournalZipEntryMetadata) => void {
+  let entryCount = 0
+  let expandedBytes = 0
+  const canonicalPaths = new Set<string>()
+
+  return (entry) => {
+    entryCount += 1
+    if (entryCount > limits.maxEntryCount) {
+      throw archiveLimitError(`archive contains more than ${limits.maxEntryCount} entries`)
+    }
+    if (!Number.isSafeInteger(entry.compressedSize) || entry.compressedSize < 0 ||
+      !Number.isSafeInteger(entry.uncompressedSize) || entry.uncompressedSize < 0) {
+      throw archiveLimitError(`invalid entry size (${entry.fileName})`)
+    }
+    if ((entry.generalPurposeBitFlag & 0x0001) !== 0) {
+      throw archiveLimitError(`encrypted entries are not supported (${entry.fileName})`)
+    }
+    if (entry.compressionMethod !== 0 && entry.compressionMethod !== 8) {
+      throw archiveLimitError(`unsupported compression method (${entry.fileName})`)
+    }
+    if (entry.uncompressedSize > limits.maxEntryBytes) {
+      throw archiveLimitError(`entry exceeds ${Math.floor(limits.maxEntryBytes / 1024 / 1024)} MB (${entry.fileName})`)
+    }
+    expandedBytes += entry.uncompressedSize
+    if (expandedBytes > limits.maxExpandedBytes) {
+      throw archiveLimitError(`expanded archive exceeds ${Math.floor(limits.maxExpandedBytes / 1024 / 1024)} MB`)
+    }
+
+    const mode = (entry.externalFileAttributes >>> 16) & 0xffff
+    const fileType = mode & 0xf000
+    if (fileType === 0xa000) {
+      throw archiveLimitError(`symbolic links are not allowed (${entry.fileName})`)
+    }
+    if (fileType !== 0 && fileType !== 0x4000 && fileType !== 0x8000) {
+      throw archiveLimitError(`non-regular archive entry (${entry.fileName})`)
+    }
+
+    const canonical = canonicalArchivePath(entry.fileName)
+    const portableKey = canonical.toLowerCase()
+    if (canonicalPaths.has(portableKey)) {
+      throw archiveLimitError(`duplicate archive path (${entry.fileName})`)
+    }
+    canonicalPaths.add(portableKey)
+  }
+}
+
+function openJournalZip(zipFile: string): Promise<yauzl.ZipFile> {
+  return new Promise((resolve, reject) => {
+    yauzl.open(
+      zipFile,
       {
-        env: {
-          ...process.env,
-          LINEAR_JOURNAL_ZIP_FILE: zipFile,
-          LINEAR_JOURNAL_ZIP_DEST: destinationDir,
-        },
-        windowsHide: true,
-        timeout: 60_000,
-        maxBuffer: 1024 * 1024,
+        autoClose: true,
+        lazyEntries: true,
+        strictFileNames: true,
+        validateEntrySizes: true,
+      },
+      (error, openedZip) => {
+        if (error || !openedZip) {
+          reject(error ?? archiveLimitError('unable to open archive'))
+          return
+        }
+        resolve(openedZip)
       },
     )
-    return
+  })
+}
+
+function openJournalZipEntry(
+  zipFile: yauzl.ZipFile,
+  entry: yauzl.Entry,
+): Promise<Readable> {
+  return new Promise((resolve, reject) => {
+    zipFile.openReadStream(entry, (error, stream) => {
+      if (error || !stream) {
+        reject(error ?? archiveLimitError(`unable to read entry (${entry.fileName})`))
+        return
+      }
+      resolve(stream)
+    })
+  })
+}
+
+async function extractZipToDir(zipFilePath: string, destinationDir: string): Promise<void> {
+  const archiveStat = fs.statSync(zipFilePath)
+  if (!archiveStat.isFile() || archiveStat.size === 0) {
+    throw archiveLimitError('archive must be a non-empty regular file')
+  }
+  if (archiveStat.size > MAX_DESKTOP_JOURNAL_ARCHIVE_BYTES) {
+    throw archiveLimitError(`compressed archive exceeds ${MAX_DESKTOP_JOURNAL_ARCHIVE_BYTES / 1024 / 1024} MB`)
   }
 
-  await extract(zipFile, { dir: destinationDir })
+  const destinationRoot = path.resolve(destinationDir)
+  fs.mkdirSync(destinationRoot, { recursive: true })
+  const openedZip = await openJournalZip(zipFilePath)
+  const guardEntry = createJournalZipEntryGuard()
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false
+    let currentReadStream: Readable | null = null
+    let currentWriteStream: fs.WriteStream | null = null
+    let actualExpandedBytes = 0
+
+    const finish = (error?: unknown) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      if (error) {
+        const normalized = error instanceof Error ? error : new Error(String(error))
+        currentReadStream?.destroy(normalized)
+        currentWriteStream?.destroy(normalized)
+        try { openedZip.close() } catch { /* 已关闭。 */ }
+        reject(normalized)
+      } else {
+        resolve()
+      }
+    }
+
+    const timeout = setTimeout(() => {
+      finish(archiveLimitError('archive extraction timed out'))
+    }, DESKTOP_JOURNAL_EXTRACTION_TIMEOUT_MS)
+
+    const extractEntry = async (entry: yauzl.Entry) => {
+      try {
+        guardEntry(entry)
+        const segments = entry.fileName.split('/').filter(Boolean)
+        const targetPath = path.resolve(destinationRoot, ...segments)
+        if (!isPathInside(destinationRoot, targetPath)) {
+          throw archiveLimitError(`archive entry escapes extraction root (${entry.fileName})`)
+        }
+
+        const mode = (entry.externalFileAttributes >>> 16) & 0xffff
+        const isDirectory = entry.fileName.endsWith('/') || (mode & 0xf000) === 0x4000
+        if (isDirectory) {
+          fs.mkdirSync(targetPath, { recursive: true })
+          openedZip.readEntry()
+          return
+        }
+
+        fs.mkdirSync(path.dirname(targetPath), { recursive: true })
+        const readStream = await openJournalZipEntry(openedZip, entry)
+        const writeStream = fs.createWriteStream(targetPath, { flags: 'wx', mode: 0o600 })
+        currentReadStream = readStream
+        currentWriteStream = writeStream
+        let actualEntryBytes = 0
+        readStream.on('data', (chunk: Buffer) => {
+          actualEntryBytes += chunk.byteLength
+          actualExpandedBytes += chunk.byteLength
+          if (actualEntryBytes > MAX_DESKTOP_JOURNAL_ENTRY_BYTES) {
+            readStream.destroy(archiveLimitError(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${entry.fileName})`))
+          } else if (actualExpandedBytes > MAX_DESKTOP_JOURNAL_EXPANDED_BYTES) {
+            readStream.destroy(archiveLimitError(`expanded archive exceeds ${MAX_DESKTOP_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB`))
+          }
+        })
+        await pipeline(readStream, writeStream)
+        if (actualEntryBytes !== entry.uncompressedSize) {
+          throw archiveLimitError(`entry size does not match ZIP directory (${entry.fileName})`)
+        }
+        currentReadStream = null
+        currentWriteStream = null
+        openedZip.readEntry()
+      } catch (error) {
+        finish(error)
+      }
+    }
+
+    openedZip.once('error', finish)
+    openedZip.once('end', () => finish())
+    openedZip.on('entry', (entry: yauzl.Entry) => { void extractEntry(entry) })
+    openedZip.readEntry()
+  })
 }
 
-function mimeToExt(mime: string): string {
-  if (mime.includes('webp')) return 'webp'
-  if (mime.includes('png')) return 'png'
-  if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg'
-  if (mime.includes('gif')) return 'gif'
-  if (mime.includes('svg')) return 'svg'
-  if (mime.includes('bmp')) return 'bmp'
-  return 'bin'
+function isPathInside(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate)
+  return relative === '' || (
+    !path.isAbsolute(relative) &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`)
+  )
 }
 
-function findWebAssetFile(assetsDir: string, id: string): string | null {
-  if (!fs.existsSync(assetsDir)) return null
-  for (const name of fs.readdirSync(assetsDir)) {
-    if (name.startsWith(`${id}.`)) return path.join(assetsDir, name)
+export function assertRegularArchiveTree(root: string): void {
+  const rootStat = fs.lstatSync(root)
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new Error('Invalid .journal.zip: extracted archive root must be a regular directory')
   }
-  return null
+
+  const realRoot = fs.realpathSync.native(root)
+  const pending = [root]
+  let entryCount = 0
+  let expandedBytes = 0
+  while (pending.length > 0) {
+    const current = pending.pop()!
+    for (const name of fs.readdirSync(current)) {
+      const entryPath = path.join(current, name)
+      const entryStat = fs.lstatSync(entryPath)
+      entryCount += 1
+      if (entryCount > MAX_DESKTOP_JOURNAL_ENTRY_COUNT) {
+        throw archiveLimitError(`archive contains more than ${MAX_DESKTOP_JOURNAL_ENTRY_COUNT} entries`)
+      }
+      if (entryStat.isSymbolicLink()) {
+        throw new Error(`Invalid .journal.zip: symbolic links are not allowed (${path.relative(root, entryPath)})`)
+      }
+      if (!entryStat.isFile() && !entryStat.isDirectory()) {
+        throw new Error(`Invalid .journal.zip: non-regular archive entry (${path.relative(root, entryPath)})`)
+      }
+
+      const realEntry = fs.realpathSync.native(entryPath)
+      if (!isPathInside(realRoot, realEntry)) {
+        throw new Error(`Invalid .journal.zip: archive entry escapes extraction root (${path.relative(root, entryPath)})`)
+      }
+      if (entryStat.isDirectory()) {
+        pending.push(entryPath)
+      } else {
+        if (entryStat.size > MAX_DESKTOP_JOURNAL_ENTRY_BYTES) {
+          throw archiveLimitError(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${path.relative(root, entryPath)})`)
+        }
+        expandedBytes += entryStat.size
+        if (expandedBytes > MAX_DESKTOP_JOURNAL_EXPANDED_BYTES) {
+          throw archiveLimitError(`expanded archive exceeds ${MAX_DESKTOP_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB`)
+        }
+      }
+    }
+  }
 }
 
-function readWebSnapshot(dataFile: string): {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function validateWebArchiveVersions(raw: Record<string, unknown>): void {
+  if (!Number.isInteger(raw.version) || Number(raw.version) < 1) {
+    throw new Error('Invalid .journal.zip: data.json is missing a valid export version')
+  }
+  if (Number(raw.version) > WEB_JOURNAL_EXPORT_VERSION) {
+    throw new Error(
+      `该 Web 归档来自更新版本（v${raw.version}），当前仅支持至 v${WEB_JOURNAL_EXPORT_VERSION}`,
+    )
+  }
+
+  if (raw.schemaVersion === undefined) return
+  if (!Number.isInteger(raw.schemaVersion) || Number(raw.schemaVersion) < 1) {
+    throw new Error('Invalid .journal.zip: data.json contains an invalid schema version')
+  }
+  if (Number(raw.schemaVersion) > SCHEMA_VERSION) {
+    throw new Error(
+      `该 Web 归档的资料库来自更新版本（v${raw.schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
+    )
+  }
+}
+
+interface WebAssetImport {
+  id: string
+  mime: string
+  fileName: string
+  sourcePath: string
+}
+
+function isCompatibleWebAssetExtension(mime: string, extension: string): boolean {
+  return webJournalExtensionsForMime(mime).has(extension)
+}
+
+function validateWebAssets(
+  value: unknown,
+  snapshot: PersistedSnapshot,
+  assetsDir: string,
+): WebAssetImport[] {
+  if (value !== undefined && !Array.isArray(value)) {
+    throw new Error('Invalid .journal.zip: data.json assets must be an array')
+  }
+
+  const declarations = new Map<string, { id: string; mime: string }>()
+  for (const item of value ?? []) {
+    if (!isRecord(item) || !isSafeAssetId(item.id)) {
+      throw new Error('Invalid .journal.zip: data.json contains an invalid asset id')
+    }
+    const mime = normalizeWebJournalImageMime(item.mime)
+    if (!mime) {
+      throw new Error(`Invalid .journal.zip: asset ${item.id} has an invalid image MIME type`)
+    }
+    if (declarations.has(item.id)) {
+      throw new Error(`Invalid .journal.zip: duplicate asset declaration (${item.id})`)
+    }
+    declarations.set(item.id, { id: item.id, mime })
+  }
+
+  const referencedIds = new Set<string>()
+  for (const trade of snapshot.trades) {
+    const note = typeof trade.note === 'string' ? trade.note : ''
+    for (const match of note.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
+      const id = match[1]
+      if (!isSafeAssetId(id)) {
+        throw new Error(
+          `Invalid .journal.zip: trade ${trade.ref || trade.id} references an invalid asset`,
+        )
+      }
+      if (!declarations.has(id)) {
+        throw new Error(
+          `Invalid .journal.zip: trade ${trade.ref || trade.id} references an undeclared asset (${id})`,
+        )
+      }
+      referencedIds.add(id)
+    }
+  }
+  for (const id of declarations.keys()) {
+    if (!referencedIds.has(id)) {
+      throw new Error(`Invalid .journal.zip: asset ${id} 未被任何交易正文引用`)
+    }
+  }
+
+  const files = new Map<string, WebAssetImport>()
+  if (fs.existsSync(assetsDir)) {
+    for (const entry of fs.readdirSync(assetsDir, { withFileTypes: true })) {
+      if (!entry.isFile()) {
+        throw new Error(
+          `Invalid .journal.zip: assets contains an unsupported entry (${entry.name})`,
+        )
+      }
+      const match = /^([A-Za-z0-9_-]{1,128})\.([A-Za-z0-9]+)$/.exec(entry.name)
+      if (!match) {
+        throw new Error(`Invalid .journal.zip: assets contains an invalid file name (${entry.name})`)
+      }
+      const [, id, extension] = match
+      const declaration = declarations.get(id)
+      if (!declaration) {
+        throw new Error(`Invalid .journal.zip: asset file is not declared (${id})`)
+      }
+      if (files.has(id)) {
+        throw new Error(`Invalid .journal.zip: duplicate asset file (${id})`)
+      }
+      const normalizedExtension = extension.toLowerCase()
+      if (
+        extension !== normalizedExtension ||
+        !isCompatibleWebAssetExtension(declaration.mime, normalizedExtension)
+      ) {
+        throw new Error(`Invalid .journal.zip: asset ${id} extension does not match its MIME type`)
+      }
+      files.set(id, {
+        ...declaration,
+        fileName: entry.name,
+        sourcePath: path.join(assetsDir, entry.name),
+      })
+    }
+  }
+
+  for (const id of declarations.keys()) {
+    if (!files.has(id)) {
+      throw new Error(`Invalid .journal.zip: declared asset is missing (${id})`)
+    }
+  }
+  return [...declarations.keys()].map((id) => files.get(id)!)
+}
+
+function readWebSnapshot(dataFile: string, assetsDir: string): {
   snapshot: PersistedSnapshot
-  assets: Pick<ExportAssetRecord, 'id' | 'mime'>[]
+  assets: WebAssetImport[]
 } {
-  const raw = JSON.parse(fs.readFileSync(dataFile, 'utf8')) as Partial<PersistedSnapshot> & {
-    assets?: Pick<ExportAssetRecord, 'id' | 'mime'>[]
+  const parsed: unknown = JSON.parse(fs.readFileSync(dataFile, 'utf8'))
+  if (!isRecord(parsed)) {
+    throw new Error('Invalid .journal.zip: data.json must contain an object')
   }
+  const raw = parsed as Partial<PersistedSnapshot> & Record<string, unknown>
+  validateWebArchiveVersions(raw)
   if (!Array.isArray(raw.trades) || !Array.isArray(raw.strategies)) {
     throw new Error('Invalid .journal.zip: data.json is missing trades or strategies')
   }
-  const snapshot = {
+  const candidate = {
       trades: raw.trades,
       strategies: raw.strategies,
       starredIds: raw.starredIds ?? [],
@@ -147,13 +513,23 @@ function readWebSnapshot(dataFile: string): {
       symbolIcons: raw.symbolIcons ?? {},
       symbolCatalog: raw.symbolCatalog ?? [],
     } as PersistedSnapshot
-  assertValidPersistedSnapshot(snapshot, 'Invalid .journal.zip: data.json snapshot')
-  return {
-    snapshot,
-    assets: Array.isArray(raw.assets)
-      ? raw.assets.filter((asset) => typeof asset.id === 'string' && typeof asset.mime === 'string')
-      : [],
+  assertValidPersistedSnapshot(candidate, 'Invalid .journal.zip: data.json snapshot')
+  const strategies = candidate.trades.length > 0 && candidate.strategies.length === 0
+    ? createDefaultStrategies()
+    : candidate.strategies
+  const strategyIds = new Set(strategies.map((strategy) => strategy.id))
+  const fallbackStrategyId = strategies[0]?.id
+  const snapshot: PersistedSnapshot = {
+    ...candidate,
+    strategies,
+    trades: candidate.trades.map((trade) =>
+      strategyIds.has(trade.strategyId) || !fallbackStrategyId
+        ? trade
+        : { ...trade, strategyId: fallbackStrategyId },
+    ),
   }
+  assertValidPersistedSnapshot(snapshot, 'Invalid .journal.zip: normalized snapshot')
+  return { snapshot, assets: validateWebAssets(raw.assets, snapshot, assetsDir) }
 }
 
 function validateManifest(manifestFile: string): void {
@@ -163,13 +539,22 @@ function validateManifest(manifestFile: string): void {
   } catch {
     throw new Error('Invalid .journal.zip: manifest.json is not valid JSON')
   }
+  if (typeof manifest !== 'object' || manifest === null) {
+    throw new Error('Invalid .journal.zip: manifest.json is missing required library fields')
+  }
+  const fields = manifest as Record<string, unknown>
   if (
-    typeof manifest !== 'object' ||
-    manifest === null ||
-    typeof (manifest as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
-    typeof (manifest as { libraryId?: unknown }).libraryId !== 'string'
+    !Number.isInteger(fields.schemaVersion) ||
+    Number(fields.schemaVersion) < 1 ||
+    typeof fields.libraryId !== 'string' ||
+    fields.libraryId.length === 0
   ) {
     throw new Error('Invalid .journal.zip: manifest.json is missing required library fields')
+  }
+  if (Number(fields.schemaVersion) > SCHEMA_VERSION) {
+    throw new Error(
+      `该桌面归档来自更新版本（v${fields.schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
+    )
   }
 }
 
@@ -257,11 +642,39 @@ export async function validateDesktopLibrary(
 ): Promise<LibraryDatabaseInspection> {
   validateManifest(paths.manifestFile)
   const inspection = await validateLibraryDatabaseFile(paths.dbFile)
-  for (const asset of inspection.assets) {
-    const filePath = path.join(paths.attachments, asset.fileName)
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).size !== asset.byteSize) {
-      throw new Error(`Invalid .journal.zip: attachment is missing or incomplete (${asset.fileName})`)
+  const expectedAssets = new Map(inspection.assets.map((asset) => [asset.fileName, asset]))
+  const actualFileNames: string[] = []
+
+  if (fs.existsSync(paths.attachments)) {
+    const attachmentsStat = fs.lstatSync(paths.attachments)
+    if (attachmentsStat.isSymbolicLink() || !attachmentsStat.isDirectory()) {
+      throw new Error('Invalid .journal.zip: attachments must be a regular directory')
     }
+    actualFileNames.push(...fs.readdirSync(paths.attachments))
+  }
+
+  for (const fileName of actualFileNames) {
+    const filePath = path.join(paths.attachments, fileName)
+    const fileStat = fs.lstatSync(filePath)
+    if (fileStat.isSymbolicLink()) {
+      throw new Error(`Invalid .journal.zip: attachment must not be a symbolic link (${fileName})`)
+    }
+    if (!fileStat.isFile()) {
+      throw new Error(`Invalid .journal.zip: attachment must be a regular file (${fileName})`)
+    }
+    const asset = expectedAssets.get(fileName)
+    if (!asset) {
+      throw new Error(`Invalid .journal.zip: unexpected attachment (${fileName})`)
+    }
+    if (fileStat.size !== asset.byteSize) {
+      throw new Error(`Invalid .journal.zip: attachment is missing or incomplete (${fileName})`)
+    }
+    expectedAssets.delete(fileName)
+  }
+
+  const missingFileName = expectedAssets.keys().next().value as string | undefined
+  if (missingFileName) {
+    throw new Error(`Invalid .journal.zip: attachment is missing or incomplete (${missingFileName})`)
   }
   return inspection
 }
@@ -278,7 +691,7 @@ async function importWebJournalZip(
 ): Promise<void> {
   const dataSrc = path.join(tempDir, 'data.json')
   const assetsSrc = path.join(tempDir, 'assets')
-  const { snapshot, assets } = readWebSnapshot(dataSrc)
+  const { snapshot, assets } = readWebSnapshot(dataSrc, assetsSrc)
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   const db = new SQL.Database()
 
@@ -303,16 +716,12 @@ async function importWebJournalZip(
   clearDirectory(paths.attachments)
   const createdAt = new Date().toISOString()
   for (const asset of assets) {
-    const src = findWebAssetFile(assetsSrc, asset.id)
-    if (!src) continue
-    const ext = path.extname(src).slice(1) || mimeToExt(asset.mime)
-    const fileName = `${asset.id}.${ext}`
-    const dest = path.join(paths.attachments, fileName)
-    fs.copyFileSync(src, dest)
+    const dest = path.join(paths.attachments, asset.fileName)
+    fs.copyFileSync(asset.sourcePath, dest)
     db.run(
       `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
        VALUES (?, ?, ?, ?, ?)`,
-      [asset.id, asset.mime, fileName, fs.statSync(dest).size, createdAt],
+      [asset.id, asset.mime, asset.fileName, fs.statSync(dest).size, createdAt],
     )
   }
 
@@ -331,12 +740,28 @@ async function importWebJournalZip(
 }
 
 function copyAttachmentFiles(source: string, destination: string): void {
-  clearDirectory(destination)
-  if (!fs.existsSync(source)) return
-  for (const name of fs.readdirSync(source)) {
+  const files: Array<{ name: string; sourceFile: string }> = []
+  if (fs.existsSync(source)) {
+    const sourceStat = fs.lstatSync(source)
+    if (sourceStat.isSymbolicLink() || !sourceStat.isDirectory()) {
+      throw new Error('Attachment source must be a regular directory')
+    }
+  }
+  for (const name of fs.existsSync(source) ? fs.readdirSync(source) : []) {
     const sourceFile = path.join(source, name)
-    if (!fs.statSync(sourceFile).isFile()) continue
-    fs.copyFileSync(sourceFile, path.join(destination, name))
+    const fileStat = fs.lstatSync(sourceFile)
+    if (fileStat.isSymbolicLink()) {
+      throw new Error(`Attachment source must not contain symbolic links (${name})`)
+    }
+    if (!fileStat.isFile()) {
+      throw new Error(`Attachment source must contain regular files only (${name})`)
+    }
+    files.push({ name, sourceFile })
+  }
+
+  clearDirectory(destination)
+  for (const file of files) {
+    fs.copyFileSync(file.sourceFile, path.join(destination, file.name))
   }
 }
 
@@ -373,6 +798,7 @@ export async function importJournalZipToPath(
   const paths = ensureLibraryDirs(libraryRoot)
   const tempDir = path.join(libraryRoot, `.import-${Date.now()}`)
   const preImportBackup = path.join(libraryRoot, `.pre-import-${Date.now()}`)
+  const extractedRoot = path.join(tempDir, 'extracted')
   const preparedRoot = path.join(tempDir, 'prepared')
   fs.mkdirSync(tempDir, { recursive: true })
   let mutationStarted = false
@@ -380,13 +806,14 @@ export async function importJournalZipToPath(
 
   try {
     writeImportProgress('importZip: extract start')
-    await extractZipToDir(zipFile, tempDir)
+    await extractZipToDir(zipFile, extractedRoot)
+    assertRegularArchiveTree(extractedRoot)
     writeImportProgress('importZip: extract done')
 
-    const manifestSrc = path.join(tempDir, 'manifest.json')
-    const dbSrc = path.join(tempDir, 'journal.db')
-    const dataSrc = path.join(tempDir, 'data.json')
-    const attachmentsSrc = path.join(tempDir, 'attachments')
+    const manifestSrc = path.join(extractedRoot, 'manifest.json')
+    const dbSrc = path.join(extractedRoot, 'journal.db')
+    const dataSrc = path.join(extractedRoot, 'data.json')
+    const attachmentsSrc = path.join(extractedRoot, 'attachments')
     const preparedPaths = ensureLibraryDirs(preparedRoot)
 
     if (fs.existsSync(manifestSrc) && fs.existsSync(dbSrc)) {
@@ -394,7 +821,7 @@ export async function importJournalZipToPath(
       fs.copyFileSync(dbSrc, preparedPaths.dbFile)
       copyAttachmentFiles(attachmentsSrc, preparedPaths.attachments)
     } else if (fs.existsSync(dataSrc)) {
-      await importWebJournalZip(preparedPaths, tempDir)
+      await importWebJournalZip(preparedPaths, extractedRoot)
     } else {
       throw new Error('Invalid .journal.zip: missing manifest.json/journal.db or data.json')
     }

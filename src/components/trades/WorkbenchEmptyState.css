@@ -1,0 +1,18 @@
+.workbench-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .workbench-empty-actions {
+    flex-direction: column;
+    width: min(100%, 220px);
+  }
+
+  .workbench-empty-actions > * {
+    width: 100%;
+    min-height: 44px;
+  }
+}

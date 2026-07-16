@@ -3,13 +3,11 @@ import { useSearchParams } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { isAccountTrade } from '@/lib/tradeKind'
-import { filterTradesByFacets, type TradeFacetFilters } from '@/lib/tradeView'
-import { isHiddenWhenClosedFilter } from '@/lib/tradeStatus'
 import {
-  applyDisplayPrefs,
-  filterTrades,
+  deriveWorkbenchVisibleTrades,
   parseTradeFacets,
 } from '@/lib/workbenchTrades'
+import type { TradeFacetFilters } from '@/lib/tradeView'
 import { useStore } from '@/store/useStore'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 
@@ -26,11 +24,29 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   const [searchParams] = useSearchParams()
   const localDateKey = useLocalDateKey()
 
-  const trades = useMemo(
-    () => storedTrades.filter((trade) => !trade.deletedAt),
-    [storedTrades],
-  )
   const facets = useMemo<TradeFacetFilters>(() => parseTradeFacets(searchParams), [searchParams])
+
+  const derived = useMemo(() => deriveWorkbenchVisibleTrades({
+    trades: storedTrades,
+    filter,
+    starredIds,
+    display,
+    search: searchParams,
+  }), [
+    storedTrades,
+    filter.type,
+    filter.tradeKind,
+    filter.strategyId,
+    filter.period,
+    filter.reviewCaseScope,
+    filter.analysisScope?.kind,
+    filter.analysisScope?.range,
+    localDateKey,
+    starredIds,
+    display,
+    searchParams,
+  ])
+  const { trades, visible } = derived
 
   const workspaceCount = useMemo(
     () => trades.reduce(
@@ -41,25 +57,6 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     ),
     [trades, filter.tradeKind],
   )
-
-  const visible = useMemo(() => {
-    const routeFiltered = filterTrades(trades, filter, starredIds)
-    const prefs = facets.status && isHiddenWhenClosedFilter(facets.status)
-      ? { ...display, hideClosed: false }
-      : display
-    return filterTradesByFacets(applyDisplayPrefs(routeFiltered, prefs, filter), facets)
-  }, [
-    trades,
-    filter.type,
-    filter.tradeKind,
-    filter.strategyId,
-    filter.period,
-    filter.reviewCaseScope,
-    localDateKey,
-    starredIds,
-    display,
-    facets,
-  ])
 
   return { trades, visible, facets, workspaceCount }
 }

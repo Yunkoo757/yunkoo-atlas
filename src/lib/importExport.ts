@@ -1,21 +1,16 @@
 import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
 import {
+  createDefaultUserProfile,
   createDefaultMistakeTagPresets,
   createDefaultTagPresets,
 } from '@/config/defaultProfile'
-import type {
-  Trade,
-  TradeStatus,
-  TradeSide,
-  Conviction,
-  TradeKind,
-  ReviewStatus,
-  ReviewCategory,
-} from '@/data/trades'
+import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
-import { ensureStrategies, migrateTrades } from '@/lib/strategies'
+import {
+  ensureStrategies,
+  normalizeTradeStrategyReferences,
+} from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
-import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import {
@@ -32,6 +27,7 @@ import {
 } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
+import { SCHEMA_VERSION } from '@/storage/types'
 import {
   mergeSavedTradeViews,
   normalizeSavedTradeViews,
@@ -47,6 +43,7 @@ import {
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { getElectronAdapter } from '@/storage/electronAdapter'
+import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { useSaveStatus } from '@/store/saveStatus'
 import { isSafeAssetId } from '@/storage/assetId'
 import {
@@ -54,8 +51,23 @@ import {
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
+import {
+  MAX_WEB_JOURNAL_ARCHIVE_BYTES,
+  MAX_WEB_JOURNAL_ENTRY_BYTES,
+  MAX_WEB_JOURNAL_ENTRY_COUNT,
+  MAX_WEB_JOURNAL_EXPANDED_BYTES,
+  WEB_JOURNAL_EXPORT_VERSION,
+  normalizeWebJournalImageMime,
+  webJournalExtensionForMime,
+  type ParsedWebJournalArchive,
+} from '@/lib/webJournalArchive'
+import { clearReviewSessionStorage } from '@/lib/reviewSession'
+import {
+  assertValidPersistedSnapshot,
+  isValidPersistedTrade,
+} from '@/storage/snapshotValidation'
 
-export const EXPORT_VERSION = 6 // 6: +savedTradeViews
+export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 6: +savedTradeViews
 
 export interface ExportPayload {
   version: number
@@ -136,20 +148,6 @@ export type ImportResult =
   | { ok: true; data: ExportPayload }
   | { ok: false; error: string }
 
-const TRADE_STATUSES: TradeStatus[] = [
-  'planned',
-  'open',
-  'missed',
-  'win',
-  'loss',
-  'breakeven',
-]
-const TRADE_KINDS: TradeKind[] = ['live', 'paper', 'case']
-const TRADE_SIDES: TradeSide[] = ['long', 'short']
-const CONVICTIONS: Conviction[] = ['low', 'medium', 'high', 'urgent']
-const REVIEW_STATUSES: ReviewStatus[] = ['unreviewed', 'reviewed', 'focus']
-const REVIEW_CATEGORIES: ReviewCategory[] = ['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered']
-
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
@@ -158,80 +156,18 @@ function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === 'string')
 }
 
-function isAssetRecord(v: unknown): v is ExportAssetRecord {
-  if (!isRecord(v)) return false
-  return isSafeAssetId(v.id) && typeof v.mime === 'string' && typeof v.data === 'string'
-}
-
-function isFiniteNumber(v: unknown): v is number {
-  return typeof v === 'number' && Number.isFinite(v)
-}
-
-function isNullableFiniteNumber(v: unknown): v is number | null {
-  return v === null || isFiniteNumber(v)
-}
-
-function isTrade(v: unknown): v is Trade & { strategy?: string } {
-  if (!isRecord(v)) return false
-  if (typeof v.id !== 'string' || !v.id) return false
-  if (typeof v.ref !== 'string') return false
-  if (typeof v.symbol !== 'string') return false
-  if (!TRADE_SIDES.includes(v.side as TradeSide)) return false
-  if (!TRADE_STATUSES.includes(v.status as TradeStatus)) return false
-  if (!CONVICTIONS.includes(v.conviction as Conviction)) return false
-  if (typeof v.strategyId !== 'string' && typeof v.strategy !== 'string') return false
-  if (v.session !== undefined && typeof v.session !== 'string') return false
-  if (v.timeframe !== undefined && typeof v.timeframe !== 'string') return false
-  if (v.psychology !== undefined && typeof v.psychology !== 'string') return false
-  if (v.narrative !== undefined && typeof v.narrative !== 'string') return false
-  if (!Array.isArray(v.tags) || !v.tags.every((t) => typeof t === 'string')) return false
-  if (v.mistakeTags !== undefined && !isStringArray(v.mistakeTags)) return false
-  if (
-    v.reviewStatus !== undefined &&
-    !REVIEW_STATUSES.includes(v.reviewStatus as ReviewStatus)
-  ) {
-    return false
-  }
-  if (
-    v.reviewCategory !== undefined &&
-    !REVIEW_CATEGORIES.includes(v.reviewCategory as ReviewCategory)
-  ) {
-    return false
-  }
-  if (!isFiniteNumber(v.entry)) return false
-  if (!isNullableFiniteNumber(v.exit)) return false
-  if (!isFiniteNumber(v.size)) return false
-  if (!isNullableFiniteNumber(v.pnl)) return false
-  if (!isNullableFiniteNumber(v.rMultiple)) return false
-  if (v.stopLoss !== undefined && !isNullableFiniteNumber(v.stopLoss)) return false
-  if (v.initialStopLoss !== undefined && !isNullableFiniteNumber(v.initialStopLoss)) return false
-  if (
-    v.resultSource !== undefined &&
-    !['pnl', 'r', 'price', 'imported'].includes(String(v.resultSource))
-  ) return false
-  if (!isTradeResultAuthorityConsistent(v)) return false
-  if (typeof v.openedAt !== 'string') return false
-  if (v.closedAt !== null && typeof v.closedAt !== 'string') return false
-  if (v.reviewedAt !== undefined && v.reviewedAt !== null && typeof v.reviewedAt !== 'string') return false
-  if (typeof v.note !== 'string') return false
-  if (
-    v.tradeKind !== undefined &&
-    v.tradeKind !== 'practice' &&
-    !TRADE_KINDS.includes(v.tradeKind as TradeKind)
-  ) {
-    return false
-  }
-  return true
-}
-
-function isStrategy(v: unknown): v is Strategy {
-  if (!isRecord(v)) return false
-  return (
-    typeof v.id === 'string' &&
-    typeof v.name === 'string' &&
-    typeof v.icon === 'string' &&
-    typeof v.color === 'string'
-  )
+function normalizeLegacyImportTrade(
+  value: unknown,
+): (Trade & { strategy?: string }) | null {
+  if (!isRecord(value)) return null
+  const strategyId = typeof value.strategyId === 'string'
+    ? value.strategyId
+    : value.strategy
+  const tradeKind = value.tradeKind === 'practice' ? 'paper' : value.tradeKind
+  const candidate = { ...value, strategyId, tradeKind }
+  return isValidPersistedTrade(candidate)
+    ? candidate as Trade & { strategy?: string }
+    : null
 }
 
 function parseDisplay(v: unknown): DisplayPrefs {
@@ -239,16 +175,87 @@ function parseDisplay(v: unknown): DisplayPrefs {
   return normalizeDisplay(v as Partial<DisplayPrefs>)
 }
 
+const STRICT_BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+const IMPORT_DATA_IMAGE_SRC_RE = /<img\b[^>]*\ssrc=["'](data:[^"']*)["'][^>]*>/gi
+const IMPORT_DATA_IMAGE_RE = /<img([^>]*)\ssrc=["']data:([^;,"']+);base64,([^"']+)["']([^>]*)>/gi
+
+function isStrictBase64(value: unknown): value is string {
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    value.length % 4 !== 0 ||
+    !STRICT_BASE64_RE.test(value)
+  ) return false
+
+  if (value.endsWith('==')) {
+    return BASE64_ALPHABET.indexOf(value[value.length - 3] ?? '') % 16 === 0
+  }
+  if (value.endsWith('=')) {
+    return BASE64_ALPHABET.indexOf(value[value.length - 2] ?? '') % 4 === 0
+  }
+  return true
+}
+
+function assertValidInlineImportImages(trades: readonly { note: string }[]): void {
+  for (const trade of trades) {
+    IMPORT_DATA_IMAGE_SRC_RE.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = IMPORT_DATA_IMAGE_SRC_RE.exec(trade.note)) !== null) {
+      const parsed = /^data:([^;,]+);base64,(.*)$/i.exec(match[1] ?? '')
+      const mime = normalizeWebJournalImageMime(parsed?.[1])
+      if (!parsed || !mime) {
+        throw new Error(`交易 ${trade.note ? '笔记中的' : ''}内嵌附件不是受支持的图片`)
+      }
+      if (!isStrictBase64(parsed[2])) {
+        throw new Error('交易笔记中的内嵌图片内容已损坏')
+      }
+    }
+  }
+}
+
+function normalizeAndValidateImportAssets(
+  trades: readonly { note: string }[],
+  value: unknown,
+): ExportAssetRecord[] {
+  if (value !== undefined && !Array.isArray(value)) {
+    throw new Error('assets 数据格式不正确')
+  }
+
+  const normalized: ExportAssetRecord[] = []
+  const assetIds = new Set<string>()
+  for (const v of value ?? []) {
+    if (!isRecord(v) || !isSafeAssetId(v.id)) {
+      throw new Error('assets 中存在非法附件 ID')
+    }
+    if (assetIds.has(v.id)) {
+      throw new Error(`assets 中存在重复附件 ID：${v.id}`)
+    }
+    const mime = normalizeWebJournalImageMime(v.mime)
+    if (!mime) throw new Error(`附件 ${v.id} 不是受支持的图片`)
+    if (!isStrictBase64(v.data)) throw new Error(`附件 ${v.id} 的内容已损坏`)
+    assetIds.add(v.id)
+    normalized.push({ id: v.id, mime, data: v.data })
+  }
+
+  const referencedIds = new Set(collectAssetIdsFromNotes([...trades]))
+  for (const id of referencedIds) {
+    if (!isSafeAssetId(id)) throw new Error(`交易笔记引用了非法附件 ID：${id}`)
+    if (!assetIds.has(id)) throw new Error(`导入内容缺少附件：${id}`)
+  }
+  for (const id of assetIds) {
+    if (!referencedIds.has(id)) throw new Error(`附件 ${id} 未被任何交易笔记引用`)
+  }
+  assertValidInlineImportImages(trades)
+  return normalized
+}
+
 export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
 ): Promise<ExportPayload> {
   const assetIds = new Set(collectAssetIdsFromNotes(state.trades))
-  const assets: ExportAssetRecord[] = []
-  for (const id of assetIds) {
-    const record = await getAssetForExport(id)
-    if (record) assets.push(record)
-  }
+  const assets = await loadReferencedAssetsForExport(assetIds, getAssetForExport)
   return {
     version: EXPORT_VERSION,
     trades: state.trades,
@@ -264,6 +271,39 @@ export async function buildExportPayloadFromState(
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
     assets,
   }
+}
+
+export async function loadReferencedAssetsForExport(
+  assetIds: Iterable<string>,
+  getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
+): Promise<ExportAssetRecord[]> {
+  const assets: ExportAssetRecord[] = []
+  let missingCount = 0
+  for (const id of new Set(assetIds)) {
+    if (!isSafeAssetId(id)) {
+      throw new Error('无法创建可恢复备份：笔记中存在非法附件引用。')
+    }
+    const record = await getAssetForExport(id)
+    if (!record) {
+      missingCount += 1
+      continue
+    }
+    if (
+      record.id !== id ||
+      !isSafeAssetId(record.id) ||
+      typeof record.mime !== 'string' ||
+      typeof record.data !== 'string'
+    ) {
+      throw new Error(`无法创建可恢复备份：附件 ${id} 的存储记录无效。`)
+    }
+    assets.push(record)
+  }
+  if (missingCount > 0) {
+    throw new Error(
+      `无法创建可恢复备份：有 ${missingCount} 个笔记附件缺失。请先检查存储健康，再重新导出。`,
+    )
+  }
+  return assets
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
@@ -307,34 +347,12 @@ export async function downloadWebJournalZip(): Promise<void> {
   const { trades } = portableSnapshot
   const storage = getStorage()
   const assetIds = new Set(collectAssetIdsFromNotes(trades))
-  const assets: ExportAssetRecord[] = []
-  for (const id of assetIds) {
-    const rec = await storage.getAssetForExport(id)
-    if (rec) assets.push(rec)
-  }
+  const assets = await loadReferencedAssetsForExport(
+    assetIds,
+    (id) => storage.getAssetForExport(id),
+  )
 
-  // 元数据：不含 assets base64，仅保留 id+mime 引用
-  const meta = {
-    version: EXPORT_VERSION,
-    ...portableSnapshot,
-    assets: assets.map((a) => ({ id: a.id, mime: a.mime })),
-  }
-  const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
-
-  interface ZipEntry {
-    name: string
-    data: Uint8Array
-  }
-  const entries: ZipEntry[] = [
-    { name: 'data.json', data: metaJson },
-  ]
-  for (const a of assets) {
-    const bin = base64ToBytes(a.data)
-    const ext = mimeToExt(a.mime)
-    entries.push({ name: `assets/${a.id}.${ext}`, data: bin })
-  }
-
-  const zipBlob = buildZipBlob(entries)
+  const zipBlob = buildWebJournalArchiveBlob(portableSnapshot, assets)
   const url = URL.createObjectURL(zipBlob)
   const a = document.createElement('a')
   const date = new Date().toISOString().slice(0, 10)
@@ -346,6 +364,91 @@ export async function downloadWebJournalZip(): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
+/**
+ * 构建一个能被当前 Web 恢复器重新读取的完整归档。
+ * 导出前即执行与解析器一致的附件类型、条目与容量检查，避免下载不可恢复的文件。
+ */
+export function buildWebJournalArchiveBlob(
+  snapshot: PersistedSnapshot,
+  assets: readonly ExportAssetRecord[],
+): Blob {
+  const referencedIds = new Set(collectAssetIdsFromNotes(snapshot.trades))
+  const assetById = new Map<string, ExportAssetRecord>()
+  const normalizedAssets: Array<ExportAssetRecord & { extension: string }> = []
+
+  for (const asset of assets) {
+    if (!isSafeAssetId(asset.id)) {
+      throw new Error('无法创建 Web 归档：附件 ID 无效。')
+    }
+    if (assetById.has(asset.id)) {
+      throw new Error(`无法创建 Web 归档：附件 ${asset.id} 重复。`)
+    }
+    const mime = normalizeWebJournalImageMime(asset.mime)
+    const extension = webJournalExtensionForMime(mime)
+    if (!mime || !extension) {
+      throw new Error(`无法创建 Web 归档：附件 ${asset.id} 不是受支持的图片。`)
+    }
+    if (!referencedIds.has(asset.id)) {
+      throw new Error(`无法创建 Web 归档：附件 ${asset.id} 未被任何笔记引用。`)
+    }
+    const normalized = { ...asset, mime, extension }
+    assetById.set(asset.id, normalized)
+    normalizedAssets.push(normalized)
+  }
+
+  for (const id of referencedIds) {
+    if (!isSafeAssetId(id) || !assetById.has(id)) {
+      throw new Error(`无法创建 Web 归档：笔记引用的附件 ${id} 缺失。`)
+    }
+  }
+
+  if (normalizedAssets.length + 1 > MAX_WEB_JOURNAL_ENTRY_COUNT) {
+    throw new Error(`无法创建 Web 归档：条目超过 ${MAX_WEB_JOURNAL_ENTRY_COUNT} 个。`)
+  }
+
+  // 元数据不含 base64，只保留附件声明；二进制写入 assets/。
+  const meta = {
+    ...snapshot,
+    version: EXPORT_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    assets: normalizedAssets.map(({ id, mime }) => ({ id, mime })),
+  }
+  const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
+  if (metaJson.byteLength > MAX_WEB_JOURNAL_ENTRY_BYTES) {
+    throw new Error('无法创建 Web 归档：data.json 超过单文件容量限制。')
+  }
+
+  const entries: Array<{ name: string; data: Uint8Array }> = [
+    { name: 'data.json', data: metaJson },
+  ]
+  let expandedBytes = metaJson.byteLength
+  for (const asset of normalizedAssets) {
+    if (asset.data.length > Math.ceil(MAX_WEB_JOURNAL_ENTRY_BYTES * 4 / 3) + 4) {
+      throw new Error(`无法创建 Web 归档：附件 ${asset.id} 超过单文件容量限制。`)
+    }
+    let data: Uint8Array
+    try {
+      data = base64ToBytes(asset.data)
+    } catch {
+      throw new Error(`无法创建 Web 归档：附件 ${asset.id} 的内容已损坏。`)
+    }
+    if (data.byteLength > MAX_WEB_JOURNAL_ENTRY_BYTES) {
+      throw new Error(`无法创建 Web 归档：附件 ${asset.id} 超过单文件容量限制。`)
+    }
+    expandedBytes += data.byteLength
+    if (expandedBytes > MAX_WEB_JOURNAL_EXPANDED_BYTES) {
+      throw new Error('无法创建 Web 归档：归档解压后超过容量限制。')
+    }
+    entries.push({ name: `assets/${asset.id}.${asset.extension}`, data })
+  }
+
+  const archive = buildZipBlob(entries)
+  if (archive.size > MAX_WEB_JOURNAL_ARCHIVE_BYTES) {
+    throw new Error('无法创建 Web 归档：压缩包超过容量限制。')
+  }
+  return archive
+}
+
 // ---- minimal ZIP builder (stored, no compression) ----
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -353,18 +456,6 @@ function base64ToBytes(b64: string): Uint8Array {
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
   return bytes
-}
-
-function mimeToExt(mime: string): string {
-  const map: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'image/gif': 'gif',
-    'image/svg+xml': 'svg',
-    'image/bmp': 'bmp',
-  }
-  return map[mime] ?? 'bin'
 }
 
 function buildZipBlob(entries: { name: string; data: Uint8Array }[]): Blob {
@@ -480,16 +571,13 @@ export function parseImportJson(text: string): ImportResult {
     return { ok: false, error: '缺少 trades 数组' }
   }
 
-  if (!raw.trades.every(isTrade)) {
+  const trades = raw.trades.map(normalizeLegacyImportTrade)
+  if (trades.some((trade) => trade === null)) {
     return { ok: false, error: 'trades 数据格式不正确' }
   }
 
   if (raw.strategies !== undefined && !Array.isArray(raw.strategies)) {
     return { ok: false, error: 'strategies 必须是数组' }
-  }
-
-  if (raw.strategies && !raw.strategies.every(isStrategy)) {
-    return { ok: false, error: 'strategies 数据格式不正确' }
   }
 
   if (raw.starredIds !== undefined && !isStringArray(raw.starredIds)) {
@@ -504,12 +592,6 @@ export function parseImportJson(text: string): ImportResult {
     return { ok: false, error: 'pinnedStrategyIds 必须是字符串数组' }
   }
 
-  if (raw.assets !== undefined) {
-    if (!Array.isArray(raw.assets) || !raw.assets.every(isAssetRecord)) {
-      return { ok: false, error: 'assets 数据格式不正确' }
-    }
-  }
-
   // 旧备份中的 cases / disputeTypes 字段忽略（判例库已移除）
 
   if (raw.tagPresets !== undefined && !isStringArray(raw.tagPresets)) {
@@ -520,37 +602,49 @@ export function parseImportJson(text: string): ImportResult {
     return { ok: false, error: 'mistakeTagPresets 必须是字符串数组' }
   }
 
-  if (raw.savedTradeViews !== undefined && !Array.isArray(raw.savedTradeViews)) {
-    return { ok: false, error: 'savedTradeViews 必须是数组' }
+  const snapshotCandidate: unknown = {
+    trades,
+    strategies: raw.strategies ?? [],
+    starredIds: raw.starredIds ?? [],
+    subscribedIds: raw.subscribedIds ?? [],
+    pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
+    display: parseDisplay(raw.display),
+    tagPresets: raw.tagPresets,
+    mistakeTagPresets: raw.mistakeTagPresets,
+    savedTradeViews: raw.savedTradeViews,
+    symbolIcons: raw.symbolIcons,
+    symbolCatalog: raw.symbolCatalog,
   }
-
-  if (raw.symbolIcons !== undefined && (typeof raw.symbolIcons !== 'object' || raw.symbolIcons === null || Array.isArray(raw.symbolIcons))) {
-    return { ok: false, error: 'symbolIcons 必须是对象' }
-  }
-
-  if (raw.symbolCatalog !== undefined && !Array.isArray(raw.symbolCatalog)) {
-    return { ok: false, error: 'symbolCatalog 必须是数组' }
+  let assets: ExportAssetRecord[]
+  try {
+    assertValidPersistedSnapshot(snapshotCandidate, 'JSON backup')
+    assets = normalizeAndValidateImportAssets(snapshotCandidate.trades, raw.assets)
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : '备份内容结构损坏',
+    }
   }
 
   return {
     ok: true,
     data: {
       version: raw.version,
-      trades: raw.trades,
-      strategies: raw.strategies ?? [],
-      starredIds: raw.starredIds ?? [],
-      subscribedIds: raw.subscribedIds ?? [],
-      pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
-      display: parseDisplay(raw.display),
-      assets: raw.assets as ExportAssetRecord[] | undefined,
-      tagPresets: raw.tagPresets ?? [],
-      mistakeTagPresets: raw.mistakeTagPresets ?? [],
-      savedTradeViews: normalizeSavedTradeViews(raw.savedTradeViews),
-      symbolIcons: normalizeSymbolIcons(raw.symbolIcons),
+      trades: snapshotCandidate.trades,
+      strategies: snapshotCandidate.strategies,
+      starredIds: snapshotCandidate.starredIds,
+      subscribedIds: snapshotCandidate.subscribedIds,
+      pinnedStrategyIds: snapshotCandidate.pinnedStrategyIds,
+      display: snapshotCandidate.display,
+      assets: raw.assets === undefined ? undefined : assets,
+      tagPresets: snapshotCandidate.tagPresets ?? [],
+      mistakeTagPresets: snapshotCandidate.mistakeTagPresets ?? [],
+      savedTradeViews: normalizeSavedTradeViews(snapshotCandidate.savedTradeViews),
+      symbolIcons: normalizeSymbolIcons(snapshotCandidate.symbolIcons),
       symbolCatalog: normalizeSymbolCatalog(
-        raw.symbolCatalog ?? [
-          ...Object.keys(normalizeSymbolIcons(raw.symbolIcons)),
-          ...((raw.trades as Trade[] | undefined) ?? []).map((trade) => trade.symbol),
+        snapshotCandidate.symbolCatalog ?? [
+          ...Object.keys(normalizeSymbolIcons(snapshotCandidate.symbolIcons)),
+          ...snapshotCandidate.trades.map((trade) => trade.symbol),
         ],
       ),
     },
@@ -566,8 +660,14 @@ function mergeStrategies(current: Strategy[], imported: Strategy[]): Strategy[] 
 }
 
 export function mergeImportPayload(current: PersistedSlice, payload: ExportPayload): PersistedSlice {
-  const strategies = mergeStrategies(current.strategies, ensureStrategies(payload.strategies))
-  const migrated = migrateTrades(payload.trades, strategies)
+  const combinedStrategies = mergeStrategies(
+    current.strategies,
+    ensureStrategies(payload.strategies),
+  )
+  const { strategies, trades: migrated } = normalizeTradeStrategyReferences(
+    payload.trades,
+    combinedStrategies,
+  )
   const tradeMap = new Map(current.trades.map((t) => [t.id, t]))
   for (const t of migrated) {
     tradeMap.set(t.id, t)
@@ -605,8 +705,6 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
   }
 }
 
-const IMPORT_DATA_IMAGE_RE = /<img([^>]*)\ssrc=["']data:(image\/[^;"']+);base64,([^"']+)["']([^>]*)>/gi
-
 /**
  * 导入附件一律重编号，避免同 ID 不同内容覆盖现有笔记；内嵌图片也只暂存，
  * 由适配器与最终快照一起提交。
@@ -615,10 +713,18 @@ export function prepareImportPayloadForCommit(
   payload: ExportPayload,
   createId: () => string = () => crypto.randomUUID(),
 ): { payload: ExportPayload; assets: ExportAssetRecord[] } {
+  const sourceAssets = normalizeAndValidateImportAssets(payload.trades, payload.assets)
   const idMap = new Map<string, string>()
-  const assets = (payload.assets ?? []).map((asset) => {
+  const generatedIds = new Set<string>()
+  const nextAssetId = (): string => {
     const id = createId()
     if (!isSafeAssetId(id)) throw new Error('无法为导入附件生成安全 ID')
+    if (generatedIds.has(id)) throw new Error('导入附件生成了重复 ID')
+    generatedIds.add(id)
+    return id
+  }
+  const assets = sourceAssets.map((asset) => {
+    const id = nextAssetId()
     idMap.set(asset.id, id)
     return { ...asset, id }
   })
@@ -636,9 +742,12 @@ export function prepareImportPayloadForCommit(
     note = note.replace(
       IMPORT_DATA_IMAGE_RE,
       (_full, before: string, mime: string, data: string, after: string) => {
-        const id = createId()
-        if (!isSafeAssetId(id)) throw new Error('无法为内嵌图片生成安全 ID')
-        assets.push({ id, mime, data })
+        const normalizedMime = normalizeWebJournalImageMime(mime)
+        if (!normalizedMime || !isStrictBase64(data)) {
+          throw new Error('交易笔记中的内嵌图片内容已损坏')
+        }
+        const id = nextAssetId()
+        assets.push({ id, mime: normalizedMime, data })
         return `<img${before} src="journal-asset://${id}"${after}>`
       },
     )
@@ -781,10 +890,11 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
 }
 
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
-  const trades = normalizeTrades(snapshot.trades)
+  const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
+  const trades = normalizeTrades(normalized.trades)
   useStore.setState({
     trades,
-    strategies: snapshot.strategies,
+    strategies: normalized.strategies,
     starredIds: snapshot.starredIds,
     subscribedIds: snapshot.subscribedIds,
     pinnedStrategyIds: snapshot.pinnedStrategyIds,
@@ -800,7 +910,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
       ],
     ),
   })
-  useStore.getState().hydrateProfile(snapshot.profile)
+  useStore.getState().hydrateProfile(snapshot.profile ?? createDefaultUserProfile())
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }
 
@@ -813,6 +923,7 @@ export function resetEmptyLibraryIntoStore(): void {
     composerOpen: false,
     composerTrade: null,
     composerKind: null,
+    closeTradeRequest: null,
     undoStack: [],
     redoStack: [],
     starredIds: [],
@@ -825,19 +936,21 @@ export function resetEmptyLibraryIntoStore(): void {
     symbolIcons: {},
     symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
   })
-  useStore.getState().hydrateProfile({ avatarId: null, displayName: 'Yunkoo' })
+  useStore.getState().hydrateProfile(createDefaultUserProfile())
   useShortcutStore.getState().hydrateBindings({})
 }
 
-function clearSessionUiAfterLibrarySwitch(): void {
+export function clearSessionUiAfterLibrarySwitch(): void {
   useStore.setState({
     selectedId: null,
     composerOpen: false,
     composerTrade: null,
     composerKind: null,
+    closeTradeRequest: null,
     undoStack: [],
     redoStack: [],
   })
+  useShortcutStore.setState({ listContext: null, lightbox: null })
   useSaveStatus.getState().reset()
 }
 
@@ -972,6 +1085,7 @@ export async function importJournalArchive(): Promise<{
   if (!isElectron()) return { ok: false, error: 'Electron bridge is not available' }
   const unlockInteraction = lockStorageCutoverInteraction()
   let suspended = false
+  let safeToFlush = true
   try {
     await flushStorageBeforeCutover()
     suspendPersist()
@@ -981,16 +1095,86 @@ export async function importJournalArchive(): Promise<{
       console.error('[importJournalArchive] result not ok', result.error)
       return { ok: false, canceled: result.canceled, error: result.error }
     }
+    // ok 表示 bridge 已完成磁盘替换；即使返回快照异常也不得再写回旧内存。
+    safeToFlush = false
     if (!result.snapshot) {
       console.error('[importJournalArchive] snapshot is null after import')
       return { ok: false, error: 'Imported archive did not contain a readable snapshot' }
     }
     getElectronAdapter().clearObjectUrlCache()
+    const manifest = await getStorage().getManifest()
+    clearReviewSessionStorage(manifest.libraryId)
     applySnapshotToStore(result.snapshot)
+    clearSessionUiAfterLibrarySwitch()
+    safeToFlush = true
     return { ok: true }
   } finally {
-    if (suspended) await resumePersistAndFlush()
-    unlockInteraction()
+    try {
+      if (suspended) {
+        if (safeToFlush) {
+          await resumePersistAndFlush()
+        } else {
+          discardPendingAndResumePersist()
+          disablePersistWrites()
+          useSaveStatus.getState().setError('完整恢复后的内存载入失败，自动保存已暂停')
+          try {
+            window.location?.reload()
+          } catch {
+            /* 正式客户端会重新载入已经替换的资料库。 */
+          }
+        }
+      }
+    } finally {
+      unlockInteraction()
+    }
+  }
+}
+
+/** 浏览器端：用已经完整校验的 Web 归档精确替换当前交易库。 */
+export async function restoreWebJournalArchive(
+  archive: ParsedWebJournalArchive,
+): Promise<{ summary: string }> {
+  if (isElectron()) throw new Error('浏览器归档恢复仅在 Web 存储中可用')
+
+  const unlockInteraction = lockStorageCutoverInteraction()
+  let suspended = false
+  let safeToFlush = true
+  try {
+    await flushStorageBeforeCutover()
+    suspendPersist()
+    suspended = true
+
+    await getIndexedDbAdapter().replaceArchive(archive.snapshot, archive.assets)
+    // 从这里到内存快照完成切换前，不能让旧内存重新写回已经替换的新库。
+    safeToFlush = false
+    const manifest = await getIndexedDbAdapter().getManifest()
+    clearReviewSessionStorage(manifest.libraryId)
+    applySnapshotToStore(archive.snapshot)
+    clearSessionUiAfterLibrarySwitch()
+    safeToFlush = true
+
+    const parts = [`${archive.snapshot.trades.length} 条记录`]
+    if (archive.assets.length > 0) parts.push(`${archive.assets.length} 个附件`)
+    return { summary: `已恢复 ${parts.join('、')}` }
+  } finally {
+    try {
+      if (suspended) {
+        if (safeToFlush) {
+          await resumePersistAndFlush()
+        } else {
+          discardPendingAndResumePersist()
+          disablePersistWrites()
+          useSaveStatus.getState().setError('完整恢复后的内存载入失败，自动保存已暂停')
+          try {
+            window.location?.reload()
+          } catch {
+            /* 正式浏览器会重新载入已经原子提交的新资料库。 */
+          }
+        }
+      }
+    } finally {
+      unlockInteraction()
+    }
   }
 }
 

@@ -9,7 +9,7 @@ export const BUILTIN_REVIEW_TEMPLATES: { id: string; label: string; html: string
   {
     id: 'post-trade',
     label: '盘后复盘',
-    html: `<p><strong>执行</strong></p><p>实际进场 vs 计划：</p><p><strong>情绪</strong></p><p></p><blockquote>教训：</blockquote>`,
+    html: `<h2>计划与实际</h2><p><strong>原计划：</strong></p><p><strong>实际执行：</strong></p><h2>决策与偏差</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false">入场符合策略定义</li><li data-type="taskItem" data-checked="false">仓位与止损符合风控</li><li data-type="taskItem" data-checked="false">退出遵循原计划</li></ul><p><strong>主要偏差 / 根因：</strong></p><h2>下一次行动</h2><blockquote>下次我会：</blockquote>`,
   },
   {
     id: 'missed-review',
@@ -18,4 +18,30 @@ export const BUILTIN_REVIEW_TEMPLATES: { id: string; label: string; html: string
   },
 ]
 
-export const DEFAULT_REVIEW_TEMPLATE_HTML = BUILTIN_REVIEW_TEMPLATES[0].html
+export const DEFAULT_REVIEW_TEMPLATE_HTML = BUILTIN_REVIEW_TEMPLATES.find(
+  (template) => template.id === 'post-trade',
+)!.html
+
+const MISSED_REVIEW_TEMPLATE_HTML = BUILTIN_REVIEW_TEMPLATES.find(
+  (template) => template.id === 'missed-review',
+)!.html
+
+export function hasMeaningfulReviewTemplate(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim().length > 0
+}
+
+export function resolveReviewTemplateHtml(
+  strategyTemplateHtml?: string,
+  isMissedTrade = false,
+): string {
+  const customTemplate = hasMeaningfulReviewTemplate(strategyTemplateHtml)
+    ? strategyTemplateHtml.trim()
+    : ''
+  if (customTemplate) return customTemplate
+  return isMissedTrade ? MISSED_REVIEW_TEMPLATE_HTML : DEFAULT_REVIEW_TEMPLATE_HTML
+}

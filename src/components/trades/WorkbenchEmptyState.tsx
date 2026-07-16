@@ -1,6 +1,8 @@
+import { Link } from 'react-router-dom'
 import { Plus, RotateCcw } from '@/icons/appIcons'
 import { EmptyState } from '@/components/EmptyState'
 import type { WorkbenchEmptyState as WorkbenchEmptyStateModel } from '@/lib/workbenchEmptyState'
+import './WorkbenchEmptyState.css'
 
 export function WorkbenchEmptyState({
   state,
@@ -17,10 +19,21 @@ export function WorkbenchEmptyState({
       title={state.title}
       hint={state.hint}
       action={(
-        <button className="empty-btn" onClick={create ? onCreate : onReset}>
-          {create ? <Plus size={15} /> : <RotateCcw size={15} />}
-          <span>{state.actionLabel}</span>
-        </button>
+        state.kind === 'library' ? (
+          <div className="workbench-empty-actions">
+            <button type="button" className="empty-btn" onClick={onCreate}>
+              <Plus size={15} />
+              <span>{state.actionLabel}</span>
+            </button>
+            <Link className="ui-btn ui-btn-bordered" to="/settings/data">导入备份</Link>
+            <Link className="ui-btn ui-btn-bordered" to="/settings/strategies">配置策略</Link>
+          </div>
+        ) : (
+          <button type="button" className="empty-btn" onClick={create ? onCreate : onReset}>
+            {create ? <Plus size={15} /> : <RotateCcw size={15} />}
+            <span>{state.actionLabel}</span>
+          </button>
+        )
       )}
     />
   )

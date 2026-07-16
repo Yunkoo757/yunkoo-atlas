@@ -140,6 +140,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  height: auto;
   min-height: 300px;
   padding: 56px 24px;
   border-top: 1px solid var(--border-subtle);
@@ -212,6 +213,56 @@
 }
 .db-chart {
   padding: 12px 12px 18px;
+}
+
+.db-chart-data {
+  margin: 4px 6px 0;
+  color: var(--text-secondary);
+  font-size: var(--type-metadata-size);
+}
+
+.db-chart-data summary {
+  width: fit-content;
+  min-height: 32px;
+  padding: 7px 2px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.db-chart-data-scroll {
+  max-height: 320px;
+  margin-top: 6px;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+}
+
+.db-chart-data table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-chart-data th,
+.db-chart-data td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.db-chart-data th {
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.db-chart-data td {
+  color: var(--text-tertiary);
+}
+
+.db-chart-data a {
+  color: var(--accent);
+  text-decoration: none;
 }
 .db-chart .recharts-tooltip-wrapper {
   outline: none;
@@ -355,6 +406,11 @@ a.db-strat:hover {
   }
   .db-strat-bar {
     grid-column: 1 / -1;
+  }
+
+  .db-seg,
+  .db-chart-data summary {
+    min-height: 44px;
   }
 }
 

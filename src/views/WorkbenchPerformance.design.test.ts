@@ -8,11 +8,14 @@ function read(relativePath: string): string {
 export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
   const source = read('src/hooks/useWorkbenchVisibleTrades.ts')
 
-  if (!source.includes('const trades = useMemo(')) {
-    throw new Error('workbench hook must memoize the active trade collection')
+  if (!source.includes('const derived = useMemo(')) {
+    throw new Error('workbench hook must memoize the active and visible trade derivation')
   }
-  if (source.includes('getWorkbenchVisibleTrades')) {
-    throw new Error('workbench hook must not filter deleted trades a second time')
+  if (!source.includes('deriveWorkbenchVisibleTrades({')) {
+    throw new Error('workbench hook must reuse the shared visible-trade derivation')
+  }
+  if (source.includes('filterTradesByFacets(applyDisplayPrefs')) {
+    throw new Error('workbench hook must not maintain a second filtering pipeline')
   }
 }
 

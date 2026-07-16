@@ -6,13 +6,15 @@ export function EmptyState({
   title,
   hint,
   action,
+  className,
 }: {
   title: string
   hint?: string
   action?: ReactNode
+  className?: string
 }) {
   return (
-    <div className="empty">
+    <div className={`empty${className ? ` ${className}` : ''}`}>
       <div className="empty-art" aria-hidden>
         <svg width="92" height="72" viewBox="0 0 92 72" fill="none">
           {/* 托盘外形（原创绘制）*/}
@@ -40,8 +42,10 @@ export function EmptyState({
           />
         </svg>
       </div>
-      <div className="empty-title">{title}</div>
-      {hint && <div className="empty-hint">{hint}</div>}
+      <div role="status" aria-live="polite" aria-atomic="true">
+        <h2 className="empty-title">{title}</h2>
+        {hint && <div className="empty-hint">{hint}</div>}
+      </div>
       {action && <div className="empty-action">{action}</div>}
     </div>
   )

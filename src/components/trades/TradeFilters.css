@@ -102,6 +102,18 @@
   }
 }
 
+@media (max-width: 899px), (pointer: coarse) {
+  .trade-filter-head {
+    min-height: 52px;
+  }
+
+  .trade-filter-head-actions button,
+  .trade-filter-field .ui-select-trigger {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 480px) {
   .trade-filter-scope-grid,
   .trade-filter-condition-grid {

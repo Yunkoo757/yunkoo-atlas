@@ -181,9 +181,9 @@ async function measureDashboardEntry(page) {
 
 async function measureRangeSwitch(page, rangeName) {
   return page.evaluate(async (label) => {
-    const button = [...document.querySelectorAll('button[role="tab"]')]
+    const button = [...document.querySelectorAll('button.db-seg')]
       .find((candidate) => candidate.textContent?.trim() === label)
-    if (!(button instanceof HTMLButtonElement)) throw new Error(`Missing range tab: ${label}`)
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`Missing range button: ${label}`)
     const startedAt = performance.now()
     button.click()
     await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)))

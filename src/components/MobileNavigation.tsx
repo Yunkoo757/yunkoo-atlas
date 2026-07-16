@@ -11,8 +11,12 @@ const MOBILE_LABELS = {
   today: '今日',
   trades: '交易',
   reviewCases: '案例',
+  reviewSession: '复盘',
   dashboard: '仪表盘',
 } as const
+
+const MOBILE_PRIMARY_NAV = PRIMARY_NAV.filter((item) => item.id !== 'reviewSession')
+const REVIEW_SESSION_NAV = PRIMARY_NAV.find((item) => item.id === 'reviewSession')
 
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled]):not([tabindex="-1"])',
@@ -106,7 +110,11 @@ function useMobileModal({
   }, [open, modalRef])
 }
 
-export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }) {
+export function MobileNavigation({
+  onOpenSearch,
+}: {
+  onOpenSearch?: (returnFocusTo?: HTMLElement | null) => void
+}) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const moreButtonRef = useRef<HTMLButtonElement>(null)
@@ -172,7 +180,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
   return (
     <>
       <nav className="mobile-navigation" aria-label="移动导航">
-        {PRIMARY_NAV.map(({ id, to, icon: Icon }) => {
+        {MOBILE_PRIMARY_NAV.map(({ id, to, icon: Icon }) => {
           const active = selection.activePrimaryId === id
           const label = MOBILE_LABELS[id]
           return (
@@ -192,7 +200,7 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
         <button
           ref={moreButtonRef}
           type="button"
-          className={`mobile-navigation-action${drawerOpen ? ' is-open' : ''}`}
+          className={`mobile-navigation-action${drawerOpen ? ' is-open' : ''}${selection.activePrimaryId === 'reviewSession' ? ' is-active' : ''}`}
           aria-label="更多"
           aria-expanded={drawerOpen}
           onClick={() => setDrawerOpen(true)}
@@ -231,12 +239,27 @@ export function MobileNavigation({ onOpenSearch }: { onOpenSearch?: () => void }
               })}
             </nav>
             <nav className="mobile-navigation-utilities" aria-label="辅助导航">
+              {REVIEW_SESSION_NAV ? (
+                <NavLink
+                  to={primaryHref(REVIEW_SESSION_NAV.id, REVIEW_SESSION_NAV.to)}
+                  data-mobile-drawer-item
+                  className={selection.activePrimaryId === REVIEW_SESSION_NAV.id ? 'is-active' : undefined}
+                  aria-current={selection.activePrimaryId === REVIEW_SESSION_NAV.id ? 'page' : undefined}
+                  onClick={closeDrawer}
+                >
+                  <REVIEW_SESSION_NAV.icon size={18} aria-hidden="true" />
+                  <span>{REVIEW_SESSION_NAV.label}</span>
+                </NavLink>
+              ) : null}
               <button
                 type="button"
                 data-mobile-drawer-item
                 onClick={() => {
+                  restoreMoreFocusRef.current = false
                   setDrawerOpen(false)
-                  onOpenSearch?.()
+                  requestAnimationFrame(() => {
+                    onOpenSearch?.(moreButtonRef.current)
+                  })
                 }}
               >
                 <Search size={18} aria-hidden="true" />

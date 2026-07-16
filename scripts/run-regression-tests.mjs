@@ -6,12 +6,17 @@ import fs from 'node:fs/promises'
 
   const entries = [
   'src/regression.test.ts',
+  'src/lib/analysisScope.test.ts',
   'src/lib/dashboardStats.test.ts',
+  'src/lib/strategies.test.ts',
   'src/lib/reviewAnalytics.test.ts',
+  'src/lib/reviewSession.test.ts',
+  'src/lib/reviewCompletion.test.ts',
   'src/lib/tradeTruth.test.ts',
   'src/lib/tradeCalc.test.ts',
   'src/lib/tradeClose.test.ts',
   'src/lib/tradeCloseStore.test.ts',
+  'src/lib/tradeCopy.test.ts',
   'src/lib/tradeResult.test.ts',
   'src/lib/tradeComposerSave.test.ts',
   'src/lib/csvImport.test.ts',
@@ -19,6 +24,8 @@ import fs from 'node:fs/promises'
   'src/lib/tradeTransition.test.ts',
   'src/lib/tradeWorkflow.test.ts',
   'src/lib/importExportAssets.test.ts',
+  'src/lib/webJournalArchive.test.ts',
+  'src/lib/workspaceFacetConsistency.test.ts',
   'src/lib/importConcurrency.test.ts',
   'src/lib/notionImportCommit.test.ts',
   'src/lib/notionImportLimits.test.ts',
@@ -40,6 +47,7 @@ import fs from 'node:fs/promises'
   'src/lib/productFlowPolish.test.ts',
   'src/lib/workbenchEmptyState.test.ts',
   'src/storage/snapshotValidation.test.ts',
+  'src/storage/migrateDefaults.test.ts',
   'src/storage/persist.test.ts',
   'src/storage/noteDrafts.test.ts',
   'src/storage/pendingOperations.test.ts',
@@ -50,6 +58,7 @@ import fs from 'node:fs/promises'
   'electron/library/libraryActivation.test.ts',
   'electron/library/importCommit.test.ts',
   'electron/library/backup.test.ts',
+  'electron/library/journalZip.test.ts',
 ]
 
 let failed = 0
@@ -139,6 +148,36 @@ try {
       label: 'src/components/RouteState.browser.test.tsx :: route recovery and delayed loading',
     },
     {
+      url: '/src/components/DataIOWebArchive.browser.test.html',
+      promiseKey: '__dataIOWebArchiveRestoreTest',
+      label: 'src/components/DataIOWebArchive.browser.test.tsx :: validated web archive replaces snapshot and assets',
+    },
+    {
+      url: '/src/components/ui/ModalShell.browser.test.html',
+      promiseKey: '__modalShellBehaviorTest',
+      label: 'src/components/ui/ModalShell.browser.test.tsx :: focus trap, busy escape and focus restoration',
+    },
+    {
+      url: '/src/components/CommandPalette.browser.test.html',
+      promiseKey: '__commandPaletteAccessibilityTest',
+      label: 'src/components/CommandPalette.browser.test.tsx :: combobox semantics, keyboard selection and focus restoration',
+    },
+    {
+      url: '/src/views/DashboardScope.browser.test.html',
+      promiseKey: '__dashboardAnalysisScopeTest',
+      label: 'src/views/DashboardScope.browser.test.tsx :: dashboard analysis scope survives drill-down',
+    },
+    {
+      url: '/src/views/ReviewCompletion.browser.test.html',
+      promiseKey: '__reviewCompletionFlowTest',
+      label: 'src/views/ReviewCompletion.browser.test.tsx :: review output is required and strategy template is usable',
+    },
+    {
+      url: '/src/views/ReviewSession.browser.test.html',
+      promiseKey: '__reviewSessionFlowTest',
+      label: 'src/views/ReviewSession.browser.test.tsx :: concealed card, keyboard capture, missing image and detail restore',
+    },
+    {
       url: '/src/editor/imageLoadFailure.browser.test.html',
       promiseKey: '__editorImageLoadFailureTest',
       label: 'src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations',
@@ -152,6 +191,11 @@ try {
       url: '/src/storage/assets.browser.test.html',
       promiseKey: '__storageAssetsTest',
       label: 'src/storage/assets.test.ts :: browser asset failure handling',
+    },
+    {
+      url: '/src/storage/IndexedDbArchiveReplace.browser.test.html',
+      promiseKey: '__indexedDbArchiveReplaceTest',
+      label: 'src/storage/IndexedDbArchiveReplace.browser.test.ts :: archive replacement is atomic and clears old assets',
     },
     {
       url: '/src/storage/noteDrafts.browser.test.html',

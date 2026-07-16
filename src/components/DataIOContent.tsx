@@ -22,8 +22,13 @@ import {
   getLibraryPath,
   importJournalArchive,
   parseImportJson,
+  restoreWebJournalArchive,
   switchActiveLibrary,
 } from '@/lib/importExport'
+import {
+  parseWebJournalArchive,
+  type ParsedWebJournalArchive,
+} from '@/lib/webJournalArchive'
 import {
   buildLibraryContentIndex,
   duplicateReasonLabel,
@@ -36,7 +41,14 @@ import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { CsvImportModal } from './CsvImportModal'
 import { NotionImportModal } from './NotionImportModal'
+import { ModalShell } from '@/components/ui/ModalShell'
 import './DataIOContent.css'
+
+function formatArchiveBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
 
 export function DataIOContent({
   onDone,
@@ -46,6 +58,7 @@ export function DataIOContent({
   onLibraryChanged?: () => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const archiveFileRef = useRef<HTMLInputElement>(null)
   const electron = isElectron()
   const trades = useStore((s) => s.trades)
   const removeTrades = useStore((s) => s.removeTrades)
@@ -56,6 +69,17 @@ export function DataIOContent({
   const [dupScanning, setDupScanning] = useState(false)
   const [dupGroups, setDupGroups] = useState<DuplicateGroup[] | null>(null)
   const [dupCleaning, setDupCleaning] = useState(false)
+  const [webArchive, setWebArchive] = useState<ParsedWebJournalArchive | null>(null)
+  const [archiveRestoring, setArchiveRestoring] = useState(false)
+  const [archiveBackingUp, setArchiveBackingUp] = useState(false)
+  const duplicateScanTradesRef = useRef<typeof trades | null>(null)
+  const dataBusy = libraryBusy || dupScanning || dupCleaning
+
+  useEffect(() => {
+    if (duplicateScanTradesRef.current === trades) return
+    duplicateScanTradesRef.current = null
+    setDupGroups(null)
+  }, [trades])
 
   useEffect(() => {
     if (!electron) return
@@ -63,7 +87,7 @@ export function DataIOContent({
   }, [electron])
 
   const onSwitchLibrary = async (mode: 'open' | 'create') => {
-    if (!electron || libraryBusy) return
+    if (!electron || dataBusy) return
     const bridge = getJournalBridge()
     if (!bridge) {
       toast('无法访问桌面能力')
@@ -103,8 +127,8 @@ export function DataIOContent({
     try {
       await downloadExport()
       toast('JSON 数据副本已下载')
-    } catch {
-      toast('导出失败')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '导出失败')
     }
   }
 
@@ -118,18 +142,20 @@ export function DataIOContent({
         await downloadWebJournalZip()
         toast('交易库已导出 (.journal.zip)')
       }
-    } catch {
-      toast('导出失败')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '导出失败')
     }
   }
 
   const onImportZip = async () => {
-    if (libraryBusy) return
+    if (dataBusy) return
     setLibraryBusy(true)
     try {
       const result = await importJournalArchive()
       if (result.ok) {
+        setDupGroups(null)
         toast('交易库已导入')
+        onLibraryChanged?.()
         onDone?.()
       } else if (!result.canceled) {
         toast(result.error ? `导入失败：${result.error}` : '导入失败')
@@ -142,10 +168,58 @@ export function DataIOContent({
     }
   }
 
+  const onWebArchiveChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || dataBusy) return
+
+    setLibraryBusy(true)
+    setWebArchive(null)
+    try {
+      setWebArchive(await parseWebJournalArchive(file))
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '无法读取完整备份')
+    } finally {
+      setLibraryBusy(false)
+    }
+  }
+
+  const onRestoreWebArchive = async () => {
+    if (!webArchive || archiveRestoring) return
+    setArchiveRestoring(true)
+    setLibraryBusy(true)
+    try {
+      const result = await restoreWebJournalArchive(webArchive)
+      toast(result.summary)
+      setWebArchive(null)
+      setDupGroups(null)
+      onLibraryChanged?.()
+      onDone?.()
+    } catch (error) {
+      toast(error instanceof Error ? `恢复失败：${error.message}` : '恢复失败')
+    } finally {
+      setArchiveRestoring(false)
+      setLibraryBusy(false)
+    }
+  }
+
+  const onDownloadRestorePoint = async () => {
+    if (archiveBackingUp) return
+    setArchiveBackingUp(true)
+    try {
+      await downloadWebJournalZip()
+      toast('当前交易库恢复点已下载')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '当前交易库导出失败，请重试')
+    } finally {
+      setArchiveBackingUp(false)
+    }
+  }
+
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
+    if (!file || dataBusy) return
 
     setLibraryBusy(true)
     try {
@@ -156,6 +230,7 @@ export function DataIOContent({
         return
       }
       const imported = await applyImport(result.data)
+      setDupGroups(null)
       toast(imported.summary)
       onDone?.()
     } catch (error) {
@@ -166,8 +241,11 @@ export function DataIOContent({
   }
 
   const onScanDuplicates = async () => {
+    if (dataBusy) return
     setDupScanning(true)
     setDupGroups(null)
+    const scannedTrades = trades
+    duplicateScanTradesRef.current = scannedTrades
     try {
       const storage = getStorage()
       const library = await buildLibraryContentIndex(trades, async (assetId) => {
@@ -183,6 +261,11 @@ export function DataIOContent({
           }))
           .filter((item) => Boolean(item.trade)),
       )
+      if (useStore.getState().trades !== scannedTrades) {
+        duplicateScanTradesRef.current = null
+        toast('资料库已变化，请重新扫描重复项')
+        return
+      }
       setDupGroups(groups)
       toast(groups.length === 0 ? '未发现明显重复' : `发现 ${groups.length} 组重复`)
     } catch (err) {
@@ -195,6 +278,12 @@ export function DataIOContent({
 
   const onCleanDuplicates = () => {
     if (!dupGroups || dupGroups.length === 0) return
+    if (duplicateScanTradesRef.current !== useStore.getState().trades) {
+      duplicateScanTradesRef.current = null
+      setDupGroups(null)
+      toast('资料库已变化，请重新扫描重复项')
+      return
+    }
     setDupCleaning(true)
     try {
       const idsToRemove = new Set<string>()
@@ -231,7 +320,7 @@ export function DataIOContent({
             <button
               type="button"
               className="dio-btn dio-btn-primary"
-              disabled={libraryBusy}
+              disabled={dataBusy}
               onClick={() => void onSwitchLibrary('open')}
             >
               <FolderOpen size={15} />
@@ -240,7 +329,7 @@ export function DataIOContent({
             <button
               type="button"
               className="dio-btn"
-              disabled={libraryBusy}
+              disabled={dataBusy}
               onClick={() => void onSwitchLibrary('create')}
             >
               <Plus size={15} />
@@ -261,7 +350,10 @@ export function DataIOContent({
             <div className="dio-task-copy">
               <div className="dio-task-title">自动保存到当前资料库</div>
               <div className="dio-task-meta">
-                交易与案例、策略、标签、快捷键、显示偏好、个人资料和保存视图；笔记原图保存在 attachments/。
+                交易与案例、策略、标签、快捷键、显示偏好、个人资料和保存视图；
+                {electron
+                  ? '笔记原图保存在资料库的 attachments/ 文件夹。'
+                  : '笔记原图保存在浏览器 IndexedDB 的同一资料库中。'}
               </div>
             </div>
           </div>
@@ -279,8 +371,12 @@ export function DataIOContent({
           <div className="dio-task">
             <LockKeyhole size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
-              <div className="dio-task-title">仅保留在这台电脑</div>
-              <div className="dio-task-meta">GitHub 更新令牌、窗口位置与当前资料库路径不会写入资料库或导出文件。</div>
+              <div className="dio-task-title">{electron ? '仅保留在这台电脑' : '仅保留在当前浏览器'}</div>
+              <div className="dio-task-meta">
+                {electron
+                  ? 'GitHub 更新令牌、窗口位置、当前资料库路径与随机复盘轮次不会写入资料库或导出文件。'
+                  : '随机复盘的当前轮次只保留在此标签页，不会写入资料库或导出文件。'}
+              </div>
             </div>
           </div>
         </div>
@@ -331,6 +427,15 @@ export function DataIOContent({
           className="dio-file-input"
           onChange={onFileChange}
         />
+        {!electron && (
+          <input
+            ref={archiveFileRef}
+            type="file"
+            accept=".journal.zip,.zip,application/zip"
+            className="dio-file-input"
+            onChange={onWebArchiveChange}
+          />
+        )}
         <div className="dio-task-list">
           <div className="dio-task">
             <Upload size={18} className="dio-task-icon" />
@@ -338,7 +443,7 @@ export function DataIOContent({
               <div className="dio-task-title">Yunkoo JSON</div>
               <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
             </div>
-            <button type="button" className="dio-btn" disabled={libraryBusy} onClick={() => fileRef.current?.click()}>
+            <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => fileRef.current?.click()}>
               <span>选择文件</span>
             </button>
           </div>
@@ -348,7 +453,7 @@ export function DataIOContent({
               <div className="dio-task-title">其他交易日志</div>
               <div className="dio-task-meta">导入 CSV，自动识别中英文列名</div>
             </div>
-            <button type="button" className="dio-btn" disabled={libraryBusy} onClick={() => setCsvOpen(true)}>
+            <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => setCsvOpen(true)}>
               <span>导入 CSV</span>
             </button>
           </div>
@@ -358,7 +463,7 @@ export function DataIOContent({
               <div className="dio-task-title">Notion</div>
               <div className="dio-task-meta">导入数据库、页面正文与截图</div>
             </div>
-            <button type="button" className="dio-btn" disabled={libraryBusy} onClick={() => setNotionOpen(true)}>
+            <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => setNotionOpen(true)}>
               <span>从 Notion 导入</span>
             </button>
           </div>
@@ -385,7 +490,7 @@ export function DataIOContent({
               type="button"
               className="dio-btn"
               onClick={onScanDuplicates}
-              disabled={dupScanning}
+              disabled={dataBusy}
             >
               <span>{dupScanning ? '扫描中…' : '开始扫描'}</span>
             </button>
@@ -442,20 +547,27 @@ export function DataIOContent({
         )}
       </section>
 
-      {electron && (
-        <section className="dio-group dio-group-danger">
-          <div className="dio-task">
-            <Archive size={18} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">恢复完整交易库</div>
-              <div className="dio-task-meta">替换当前数据与附件，操作前请先备份</div>
+      <section className="dio-group dio-group-danger">
+        <div className="dio-task">
+          <Archive size={18} className="dio-task-icon" />
+          <div className="dio-task-copy">
+            <div className="dio-task-title">恢复完整交易库</div>
+            <div className="dio-task-meta">
+              {electron
+                ? '替换当前桌面资料库与附件，操作前请先备份'
+                : '校验浏览器完整备份后，精确替换当前数据、设置与附件'}
             </div>
-            <button type="button" className="dio-btn dio-btn-warn" disabled={libraryBusy} onClick={onImportZip}>
-              <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
-            </button>
           </div>
-        </section>
-      )}
+          <button
+            type="button"
+            className="dio-btn dio-btn-warn"
+            disabled={dataBusy}
+            onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
+          >
+            <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
+          </button>
+        </div>
+      </section>
 
       <p className="dio-safety-note">
         <AlertTriangle size={15} />
@@ -463,11 +575,76 @@ export function DataIOContent({
           仅导入可信文件。
           {electron
             ? '完整备份会替换当前库，JSON 只合并数据。'
-            : '数据保存在当前浏览器中，建议定期导出完整备份。'}
+            : '完整备份恢复会替换当前库，JSON 导入只合并数据。'}
         </span>
       </p>
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
       <NotionImportModal open={notionOpen} onClose={() => setNotionOpen(false)} />
+      {webArchive && (
+        <ModalShell
+          title="恢复完整交易库"
+          description="归档已通过格式与附件校验。确认后将精确替换当前浏览器资料库。"
+          busy={archiveRestoring}
+          onClose={() => setWebArchive(null)}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="dio-btn"
+                disabled={archiveRestoring || archiveBackingUp}
+                onClick={onDownloadRestorePoint}
+              >
+                {archiveBackingUp ? '正在导出…' : '先下载当前库'}
+              </button>
+              <button
+                type="button"
+                className="dio-btn"
+                data-autofocus
+                disabled={archiveRestoring}
+                onClick={() => setWebArchive(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="dio-btn dio-btn-warn"
+                disabled={archiveRestoring || archiveBackingUp}
+                onClick={onRestoreWebArchive}
+              >
+                {archiveRestoring ? '正在替换…' : '替换当前资料库'}
+              </button>
+            </>
+          )}
+        >
+          <div className="dio-restore-warning" role="alert">
+            <AlertTriangle size={17} />
+            <span>当前记录、设置、快捷键和附件都会被归档内容替换；此操作不是合并。</span>
+          </div>
+          <dl className="dio-restore-grid">
+            <div><dt>交易与案例</dt><dd>{webArchive.preview.tradeCount}</dd></div>
+            <div><dt>策略</dt><dd>{webArchive.preview.strategyCount}</dd></div>
+            <div><dt>原始附件</dt><dd>{webArchive.preview.assetCount}</dd></div>
+            <div><dt>附件大小</dt><dd>{formatArchiveBytes(webArchive.preview.assetBytes)}</dd></div>
+            <div><dt>快捷键</dt><dd>{webArchive.preview.shortcutCount}</dd></div>
+            <div><dt>保存视图</dt><dd>{webArchive.preview.savedViewCount}</dd></div>
+            <div>
+              <dt>标签设置</dt>
+              <dd>{webArchive.preview.tagPresetCount} 标签 · {webArchive.preview.mistakeTagPresetCount} 错误标签</dd>
+            </div>
+            <div>
+              <dt>工作区设置</dt>
+              <dd>显示偏好 · {webArchive.preview.pinnedStrategyCount} 固定策略 · {webArchive.preview.symbolCatalogCount} 品种</dd>
+            </div>
+          </dl>
+          <div className="dio-restore-meta">
+            <span>导出格式 v{webArchive.preview.exportVersion}</span>
+            <span>解压后 {formatArchiveBytes(webArchive.preview.expandedBytes)}</span>
+            {webArchive.preview.profileDisplayName ? (
+              <span>资料：{webArchive.preview.profileDisplayName}</span>
+            ) : null}
+          </div>
+        </ModalShell>
+      )}
     </div>
   )
 }

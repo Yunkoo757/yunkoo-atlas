@@ -26,3 +26,37 @@
   background: var(--accent);
   border-color: var(--accent);
 }
+
+@media (max-width: 899px), (pointer: coarse) {
+  .selection-box {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    opacity: 1;
+  }
+
+  .selection-box::before {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    content: '';
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-4);
+  }
+
+  .selection-box.is-selected {
+    background: transparent;
+  }
+
+  .selection-box.is-selected::before {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .selection-box svg {
+    position: relative;
+    z-index: 1;
+  }
+}
