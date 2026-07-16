@@ -561,11 +561,18 @@ try {
 
   await page.goto(`${BASE}/list?symbol=ETHUSDT&side=long`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.getByRole('button', { name: '筛选交易' }).click()
+  const filterTrigger = page.getByRole('button', { name: '筛选交易' })
+  await filterTrigger.click()
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'visible' })
   await page.keyboard.press('Escape')
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'hidden' })
-  const triggerFocused = await page.getByRole('button', { name: '筛选交易' }).evaluate(
+  const filterTriggerHandle = await filterTrigger.elementHandle()
+  if (!filterTriggerHandle) throw new Error('筛选器触发按钮不存在')
+  await page.waitForFunction(
+    (element) => element === document.activeElement,
+    filterTriggerHandle,
+  )
+  const triggerFocused = await filterTrigger.evaluate(
     (element) => element === document.activeElement,
   )
   record('筛选器 Escape 关闭并返还焦点', triggerFocused)
