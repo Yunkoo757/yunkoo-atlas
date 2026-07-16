@@ -8,6 +8,7 @@ import {
 import { PRIMARY_NAV, SECONDARY_NAV, type PrimarySidebarNavId, type SidebarNavId } from '@/lib/sidebarNav'
 import type { DisplayPrefs, ListFilter, ReviewCaseScope } from '@/lib/tradeFilters'
 import { isValidPeriodSlug } from '@/lib/periods'
+import { parseAnalysisScope } from '@/lib/analysisScope'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 
 export type SidebarTarget =
@@ -312,7 +313,7 @@ export function resolveSidebarSelection(options: {
   return { activePrimaryId: primaryIdForPath(pathname) }
 }
 
-function listTargetForPath(pathname: string): ListFilter | undefined {
+function listTargetForPath(pathname: string, search = ''): ListFilter | undefined {
   const path = normalizeTargetPath(pathname)
   if (path === '/list') return { type: 'all', tradeKind: 'live' }
   if (path === '/active') return { type: 'active', tradeKind: 'live' }
@@ -334,7 +335,12 @@ function listTargetForPath(pathname: string): ListFilter | undefined {
     }
   }
   if (path.startsWith('/strategy/')) {
-    return { type: 'strategy', strategyId: decodeURIComponent(path.slice('/strategy/'.length)) }
+    const parsedScope = parseAnalysisScope(search)
+    return {
+      type: 'strategy',
+      strategyId: decodeURIComponent(path.slice('/strategy/'.length)),
+      analysisScope: parsedScope.explicit ? parsedScope.scope : undefined,
+    }
   }
   if (path.startsWith('/period/')) {
     const period = path.slice('/period/'.length)
@@ -356,7 +362,7 @@ export function countSidebarRoute(
   search: string,
   context: SidebarCountContext,
 ): number | undefined {
-  const filter = listTargetForPath(pathname)
+  const filter = listTargetForPath(pathname, search)
   if (!filter) return undefined
   return countWorkbenchVisibleTrades({
     ...context,

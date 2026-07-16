@@ -1,20 +1,18 @@
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
 const PORT = 41713
 const BASE = `http://127.0.0.1:${PORT}`
 const stripAnsi = (value) => value.replace(/\x1b\[[0-9;]*m/g, '')
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-const defaultProfile = JSON.parse(
-  readFileSync(new URL('../src/config/default-profile.json', import.meta.url), 'utf8'),
-)
-const [primaryStrategy, secondaryStrategy, overflowStrategy] = defaultProfile.strategies.map(
+const qaStrategies = [
+  { id: 'qa-sidebar-primary', name: 'QA 趋势策略', icon: 'target', color: '#5e6ad2' },
+  { id: 'qa-sidebar-secondary', name: 'QA 突破策略', icon: 'zap', color: '#26b5ce' },
+  { id: 'qa-sidebar-overflow', name: 'QA 区间策略', icon: 'activity', color: '#e0a526' },
+]
+const [primaryStrategy, secondaryStrategy, overflowStrategy] = qaStrategies.map(
   (strategy) => strategy.name,
 )
-if (!primaryStrategy || !secondaryStrategy || !overflowStrategy) {
-  throw new Error('默认配置至少需要三个策略才能运行侧栏容量 QA')
-}
 
 function startVite() {
   const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], {
@@ -268,10 +266,14 @@ try {
   })
   await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+  await page.evaluate(async (strategies) => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    for (const strategy of strategies) useStore.getState().addStrategy(strategy)
+  }, qaStrategies)
 
   expectEqual(
     await page.locator('.sb-primary > a .sb-item-label').allTextContents(),
-    ['今日工作台', '交易日志', '案例记录', '仪表盘'],
+    ['今日工作台', '交易日志', '案例记录', '随机复盘', '仪表盘'],
     'Default core modules must preserve their approved order',
   )
   expectEqual(
@@ -653,7 +655,7 @@ try {
   )
   expectEqual(
     await mobileNavigation.locator(':scope > a').evaluateAll((elements) => elements.map((element) => element.getAttribute('href'))),
-    desktopCoreHrefs,
+    desktopCoreHrefs.filter((href) => href !== '/review-session'),
     'Mobile core navigation hrefs must come from the same targets as desktop',
   )
   for (const action of await mobileActions.all()) {
@@ -695,14 +697,15 @@ try {
     ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图'],
     'More drawer must contain every valid pinned and overflow item in order',
   )
-  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图', '搜索', '设置', '回收站', '管理我的空间']
+  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
   expectEqual(
     await drawer.locator('[data-mobile-drawer-item]').allTextContents(),
     expectedDrawerItems,
     'More drawer workspace and utility items must preserve their complete order',
   )
   for (const name of expectedDrawerItems.slice(5)) {
-    await expectVisible(drawer.getByRole(name === '设置' || name === '回收站' ? 'link' : 'button', { name, exact: true }))
+    const role = ['随机复盘', '设置', '回收站'].includes(name) ? 'link' : 'button'
+    await expectVisible(drawer.getByRole(role, { name, exact: true }))
   }
   for (const action of await drawer.locator('a, button').all()) {
     const box = await action.boundingBox()

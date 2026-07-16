@@ -22,6 +22,8 @@ import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { appendAssetToNoteDraft } from '@/storage/noteDrafts'
+import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
+import { toast } from '@/lib/toast'
 import './Editor.css'
 
 const editorBridge = {
@@ -50,6 +52,7 @@ export function Editor({
   readOnly = false,
   noteDraftId,
   allowImages = true,
+  ariaLabel,
 }: {
   content: string
   onChange: (html: string) => void
@@ -57,6 +60,7 @@ export function Editor({
   readOnly?: boolean
   noteDraftId?: string
   allowImages?: boolean
+  ariaLabel?: string
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
@@ -89,6 +93,7 @@ export function Editor({
     ],
     content,
     editorProps: {
+      attributes: ariaLabel ? { 'aria-label': ariaLabel } : {},
       handlePaste(_view, event) {
         if (!allowImagesRef.current) return false
         const items = event.clipboardData?.items
@@ -265,6 +270,10 @@ function BBtn({
 
 // 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
 async function insertImageFile(editor: TiptapEditor, file: File, noteDraftId?: string) {
+  if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
+    toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
+    return
+  }
   let savedAssetId: string | null = null
   try {
     const storage = getStorage()

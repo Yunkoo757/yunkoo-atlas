@@ -11,6 +11,7 @@ import type { ListFilter } from '@/lib/tradeFilters'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { getStrategyName } from '@/lib/strategies'
+import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
@@ -30,6 +31,7 @@ import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { BatchActionBar } from '@/components/ui/BatchActionBar'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
 import './ListView.css'
@@ -57,11 +59,13 @@ export function ListView({
   const removeTrade = useStore((state) => state.removeTrade)
   const removeTrades = useStore((state) => state.removeTrades)
   const upsertTrade = useStore((state) => state.upsertTrade)
+  const upsertTrades = useStore((state) => state.upsertTrades)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [copyCandidateIds, setCopyCandidateIds] = useState<string[] | null>(null)
   const listScrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -162,22 +166,68 @@ export function ListView({
     setSelectedIds(new Set())
   }
 
-  const batchCopy = () => {
-    let copied = 0
+  const requestBatchCopy = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
-    actionableIds.forEach((id) => {
-      const source = trades.find((trade) => trade.id === id)
-      if (!source) return
-      upsertTrade({
-        ...source,
-        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        ref: `TRD-${Date.now().toString(36).toUpperCase()}`,
-      })
-      copied += 1
-    })
-    toast(`已复制 ${copied} 笔交易`)
-    setSelectedIds(new Set())
+    if (actionableIds.size === 0) {
+      toast('当前没有可复制的记录')
+      return
+    }
+    setCopyCandidateIds([...actionableIds])
   }
+
+  const confirmBatchCopy = () => {
+    if (!copyCandidateIds) return
+    const sourceById = new Map(trades.map((trade) => [trade.id, trade]))
+    const sources = copyCandidateIds
+      .map((id) => sourceById.get(id))
+      .filter((trade): trade is Trade => Boolean(trade && !trade.deletedAt))
+    if (sources.length !== copyCandidateIds.length) {
+      toast('部分源记录已变化，请重新选择后再复制')
+      setCopyCandidateIds(null)
+      return
+    }
+
+    try {
+      const copies = buildSafeTradeCopies(sources, trades, {
+        now: new Date(),
+        createId: () => crypto.randomUUID(),
+      })
+      upsertTrades(copies)
+
+      const hasCases = sources.some((trade) => trade.tradeKind === 'case')
+      const hasAccountTrades = sources.some((trade) => trade.tradeKind !== 'case')
+      toast(
+        hasCases && hasAccountTrades
+          ? `已安全复制 ${copies.length} 条记录`
+          : hasCases
+            ? `已复制 ${copies.length} 个案例`
+            : `已将 ${copies.length} 笔交易复制为新计划`,
+      )
+      setSelectedIds(new Set())
+      setCopyCandidateIds(null)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '安全复制失败，源记录未改变')
+      setCopyCandidateIds(null)
+    }
+  }
+
+  const selectedSources = visible.filter((trade) => selectedIds.has(trade.id))
+  const selectionHasCases = selectedSources.some((trade) => trade.tradeKind === 'case')
+  const selectionHasAccountTrades = selectedSources.some((trade) => trade.tradeKind !== 'case')
+  const copyActionLabel = selectionHasCases && selectionHasAccountTrades
+    ? '安全复制'
+    : selectionHasCases
+      ? '复制案例'
+      : '复制为新计划'
+  const copyCandidateSet = new Set(copyCandidateIds ?? [])
+  const copyCandidates = trades.filter((trade) => copyCandidateSet.has(trade.id))
+  const copyAccountCount = copyCandidates.filter((trade) => trade.tradeKind !== 'case').length
+  const copyCaseCount = copyCandidates.length - copyAccountCount
+  const copyConfirmLabel = copyAccountCount > 0 && copyCaseCount > 0
+    ? `创建 ${copyCandidates.length} 条安全副本`
+    : copyCaseCount > 0
+      ? `复制 ${copyCaseCount} 个案例`
+      : `创建 ${copyAccountCount} 笔新计划`
 
   const openContextMenu = (event: React.MouseEvent, trade: Trade) => {
     event.preventDefault()
@@ -228,7 +278,9 @@ export function ListView({
     <>
       <Topbar title={title} subtitle={getTradesPageSubtitle(filter)} view={view} onView={onView} />
       {header}
-      <TradeFilters filter={filter} trades={trades} strategies={strategies} />
+      {emptyState?.kind !== 'library' ? (
+        <TradeFilters filter={filter} trades={trades} strategies={strategies} />
+      ) : null}
       <div className="list-scroll" ref={listScrollRef}>
         {emptyState ? (
           <WorkbenchEmptyState
@@ -254,15 +306,81 @@ export function ListView({
       </div>
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       <BatchActionBar count={selectedIds.size}>
-        <button type="button" className="batch-action-btn" onClick={batchCopy}>
+        <button type="button" className="batch-action-btn" onClick={requestBatchCopy}>
           <Copy size={14} />
-          <span>复制</span>
+          <span>{copyActionLabel}</span>
         </button>
         <button type="button" className="batch-action-btn batch-action-btn-danger" onClick={batchDelete}>
           <Trash2 size={14} />
           <span>删除</span>
         </button>
       </BatchActionBar>
+      {copyCandidateIds ? (
+        <ModalShell
+          title="确认安全复制"
+          description={`将为已选 ${copyCandidates.length} 条记录创建独立副本；源记录不会改变。`}
+          onClose={() => setCopyCandidateIds(null)}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="dio-btn"
+                data-autofocus
+                onClick={() => setCopyCandidateIds(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="dio-btn dio-btn-primary"
+                disabled={copyCandidates.length !== copyCandidateIds.length}
+                onClick={confirmBatchCopy}
+              >
+                {copyConfirmLabel}
+              </button>
+            </>
+          )}
+        >
+          <div className="copy-preview">
+            {copyAccountCount > 0 ? (
+              <section className="copy-preview-section">
+                <div className="copy-preview-heading">
+                  <strong>{copyAccountCount} 笔实盘/模拟记录</strong>
+                  <span>目标：新的计划</span>
+                </div>
+                <dl className="copy-preview-list">
+                  <div>
+                    <dt>保留</dt>
+                    <dd>品种、方向、策略、周期、标签、入场、止损、仓位与交易上下文</dd>
+                  </div>
+                  <div>
+                    <dt>清空</dt>
+                    <dd>成交与平仓结果、盈亏/R、复盘正文与状态、错误标签、评论、活动、删除及案例字段</dd>
+                  </div>
+                </dl>
+              </section>
+            ) : null}
+            {copyCaseCount > 0 ? (
+              <section className="copy-preview-section">
+                <div className="copy-preview-heading">
+                  <strong>{copyCaseCount} 个案例</strong>
+                  <span>目标：新的知识案例</span>
+                </div>
+                <dl className="copy-preview-list">
+                  <div>
+                    <dt>保留</dt>
+                    <dd>案例正文、分类、标签、错误标签与来源追溯</dd>
+                  </div>
+                  <div>
+                    <dt>重置</dt>
+                    <dd>掌握状态、复看进度、复盘完成时间、评论、活动与删除状态</dd>
+                  </div>
+                </dl>
+              </section>
+            ) : null}
+          </div>
+        </ModalShell>
+      ) : null}
     </>
   )
 }

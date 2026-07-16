@@ -18,6 +18,22 @@ export function testAllWorkbenchLayoutsShareRecoverableEmptyStates(): void {
   }
 }
 
+export function testEmptyLibraryOffersThreeReachableFirstUseActions(): void {
+  const source = readFileSync(
+    path.resolve('src/components/trades/WorkbenchEmptyState.tsx'),
+    'utf8',
+  )
+  if (!source.includes('<span>{state.actionLabel}</span>')) {
+    throw new Error('The empty library primary action must name the current record kind')
+  }
+  if (!source.includes('to="/settings/data">导入备份</Link>')) {
+    throw new Error('The empty library backup action must reach the existing data settings')
+  }
+  if (!source.includes('to="/settings/strategies">配置策略</Link>')) {
+    throw new Error('The empty library strategy action must reach the existing strategy settings')
+  }
+}
+
 export function testBoardEmptyStateWinsOverShowingEmptyColumns(): void {
   const source = readFileSync(path.resolve('src/views/BoardView.tsx'), 'utf8')
   if (!source.includes('{emptyState ? (')) {

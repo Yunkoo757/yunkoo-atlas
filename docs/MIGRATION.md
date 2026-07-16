@@ -1,7 +1,7 @@
 # Yunkoo Atlas — 环境迁移与依赖说明
 
 > 用于在新电脑上克隆、安装依赖并正常运行本项目。  
-> 最后更新：2026-07-11
+> 最后更新：2026-07-16
 
 ---
 
@@ -23,8 +23,8 @@
 
 | 软件 | 推荐版本 | 说明 |
 |------|----------|------|
-| **Node.js** | 20 LTS 或 22 LTS | 当前开发机：v22.22.0；需 ≥ 18 |
-| **pnpm** | 9.x | 当前开发机：10.5.2；安装：`npm install -g pnpm` |
+| **Node.js** | 20 LTS 或 22 LTS | 当前开发机：v22.22.0；Vite 8 要求 `^20.19.0` 或 `≥22.12.0` |
+| **pnpm** | 10.x | 发布验证：10.34.5；安装：`npm install -g pnpm@10` |
 | **Git** | 任意较新版本 | 用于克隆仓库 |
 
 ### 2.2 可选（按使用场景）
@@ -51,8 +51,8 @@ cd Linear
 # 2. 安装依赖（必须用 pnpm）
 pnpm install
 
-# 3. 类型检查
-pnpm exec tsc -b
+# 3. 类型检查（Web + Electron）
+pnpm typecheck
 
 # 4. 启动 Web 开发服
 pnpm dev
@@ -73,10 +73,11 @@ pnpm dev:electron
 | `pnpm dev` | Web 开发（Vite + IndexedDB） |
 | `pnpm dev:electron` | Electron 联调（`ELECTRON=1`） |
 | `pnpm test` | 领域逻辑与导入、图片回归测试 |
-| `pnpm build` | Web 生产构建（`tsc -b` + `vite build`） |
+| `pnpm build` | Web 生产构建（`pnpm typecheck` + `vite build`） |
 | `pnpm build:app` | Electron 构建 + 复制 `sql-wasm.wasm` |
 | `pnpm preview` | 预览 Web 构建结果 |
-| `pnpm qa` | Web 自动化 QA（需另开终端跑 dev） |
+| `pnpm qa` | Web 自动化 QA；默认连接 5181，若复用 `pnpm dev`，先设置 `$env:QA_BASE_URL='http://localhost:5180'` |
+| `pnpm qa:release` | 自启服务并执行测试、构建、设计、Electron 与 10k 性能的完整发布门禁 |
 | `pnpm qa:core` | Web QA 核心用例 |
 | `pnpm qa:image` | Web QA 图片用例 |
 | `pnpm qa:workbench` | 核心工作区流程 QA |
@@ -92,26 +93,30 @@ pnpm dev:electron
 
 | 包名 | 版本约束 | 用途 |
 |------|----------|------|
-| `react` | ^18.3.1 | UI 框架 |
-| `react-dom` | ^18.3.1 | React DOM |
-| `react-router-dom` | ^6.26.2 | 路由 |
-| `zustand` | ^4.5.5 | 全局状态 |
-| `@tiptap/react` | ^2.8.0 | 富文本编辑器 |
-| `@tiptap/starter-kit` | ^2.8.0 | 编辑器基础扩展 |
-| `@tiptap/extension-bubble-menu` | ^2.8.0 | 浮动格式菜单 |
-| `@tiptap/extension-image` | ^2.8.0 | 图片 |
-| `@tiptap/extension-placeholder` | ^2.8.0 | 占位符 |
-| `@tiptap/extension-task-list` | ^2.8.0 | 任务列表 |
-| `@tiptap/extension-task-item` | ^2.8.0 | 任务项 |
-| `lucide-react` | ^0.451.0 | 图标 |
-| `recharts` | ^2.12.7 | 仪表盘图表 |
+| `react` | 18.3.1 | UI 框架 |
+| `react-dom` | 18.3.1 | React DOM |
+| `react-router-dom` | 6.26.2 | 路由 |
+| `zustand` | 4.5.5 | 全局状态 |
+| `@tiptap/react` | 2.8.0 | 富文本编辑器 |
+| `@tiptap/starter-kit` | 2.8.0 | 编辑器基础扩展 |
+| `@tiptap/extension-bubble-menu` | 2.8.0 | 浮动格式菜单 |
+| `@tiptap/extension-image` | 2.8.0 | 图片 |
+| `@tiptap/extension-placeholder` | 2.8.0 | 占位符 |
+| `@tiptap/extension-task-list` | 2.8.0 | 任务列表 |
+| `@tiptap/extension-task-item` | 2.8.0 | 任务项 |
+| `lucide-react` | 0.451.0 | 图标 |
+| `recharts` | 2.12.7 | 仪表盘图表 |
 | `clsx` | ^2.1.1 | className 工具 |
-| `@fontsource-variable/inter` | ^5.2.8 | 界面字体 |
+| `@fontsource-variable/inter` | 5.2.8 | 界面字体 |
+| `@fontsource/geist-sans` | ^5.2.5 | 界面字体 |
 | `@fontsource/jetbrains-mono` | ^5.2.8 | 等宽字体 |
-| `sql.js` | ^1.14.1 | Electron 端 SQLite（WASM） |
+| `@tanstack/react-virtual` | ^3.14.5 | 大数据列表虚拟化 |
+| `sql.js` | 1.14.1 | Electron 端 SQLite（WASM） |
 | `sharp` | ^0.35.1 | 应用图标生成 |
 | `archiver` | ^8.0.0 | `.journal.zip` 打包 |
-| `extract-zip` | ^2.0.1 | zip 解压 |
+| `yauzl` | ^2.10.0 | Electron 端有界流式 zip 解压 |
+| `jszip` | ^3.10.1 | Web 端 `.journal.zip` 导出与恢复 |
+| `electron-updater` | ^6.8.9 | Electron 在线更新 |
 
 ---
 
@@ -119,20 +124,20 @@ pnpm dev:electron
 
 | 包名 | 版本约束 | 用途 |
 |------|----------|------|
-| `vite` | ^5.4.8 | 构建与开发服务器 |
-| `@vitejs/plugin-react` | ^4.3.2 | React 支持 |
+| `vite` | ^8.1.4 | 构建与开发服务器 |
+| `@vitejs/plugin-react` | ^6.0.3 | React 支持 |
 | `typescript` | ^5.6.2 | 类型检查 |
 | `@types/react` | ^18.3.11 | React 类型 |
 | `@types/react-dom` | ^18.3.0 | React DOM 类型 |
-| `electron` | ^42.4.0 | 桌面壳（体积大，首次 install 较慢） |
-| `vite-plugin-electron` | ^1.0.4 | Electron 集成 |
+| `electron` | ^43.1.0 | 桌面壳（体积大，首次 install 较慢） |
+| `vite-plugin-electron` | ^1.1.0 | Electron 集成 |
 | `vite-plugin-electron-renderer` | ^1.0.0 | 渲染进程配置 |
 | `cross-env` | ^10.1.0 | 跨平台环境变量 |
 | `playwright` | ^1.60.0 | Web QA |
 | `puppeteer-core` | ^25.1.0 | 部分脚本/检查 |
 | `chrome-remote-interface` | ^0.34.0 | CDP 调试 |
 | `@types/archiver` | ^8.0.0 | archiver 类型 |
-| `@types/extract-zip` | ^2.0.3 | extract-zip 类型 |
+| `@types/yauzl` | ^2.10.3 | yauzl 类型 |
 
 ---
 
@@ -204,15 +209,27 @@ pnpm dev:electron
 
 **Web 版（IndexedDB）** — 数据在浏览器里，换电脑不会自动跟过来：
 
-1. 旧电脑：打开应用 → **设置 → 数据** → **导出 JSON**
-2. 新电脑：安装并启动后 → **设置 → 数据** → **导入 JSON**
+1. 旧电脑：打开应用 → **设置 → 数据** → 导出完整 `.journal.zip` 归档。
+2. 新电脑：安装并启动后 → **设置 → 数据** → **恢复完整交易库**。
+3. 选择归档后先核对记录、策略、附件、快捷键、保存视图和个人资料预览，再确认整库替换。
+
+完整恢复是原子替换，不是与当前资料合并。建议先下载当前库作为安全副本；格式、版本、快照或附件校验失败时不会改写当前 IndexedDB。JSON 导入仍用于选择性合并，不等同于完整迁移。
 
 **Electron 桌面版** — 数据在本地文件夹：
 
 1. 复制整个 `Documents\Linear Journal` 目录到新电脑相同位置，或
 2. 使用应用内导出 `.journal.zip` / JSON，在新电脑导入
 
+浏览器归档与 Electron 本地库归档不是同一种格式。当前支持将 Web 端导出的 `data.json + assets` 完整归档导入 Electron；Electron 的 `manifest.json + journal.db` 完整归档仍不能在 Web 端恢复。浏览器遇到桌面格式时会明确拒绝，不会尝试写入。
+
 **旧版 localStorage**：若曾用极早版本，首次启动会自动从 key `linear-journal` 迁入 IndexedDB。
+
+### 8.3 数据格式兼容边界
+
+- 当前持久化 schema 为 **v6**，本轮没有升级到 v7。
+- 新版本会继续规范化和读取现有 v6 快照；未来版本归档会在写盘前被拒绝并说明版本不兼容。
+- `subscribedIds` 等历史字段继续保留读取兼容，但不代表当前界面已经提供对应功能。
+- 随机复盘会话只写入当前标签页的 `sessionStorage`，不进入资料库快照或备份。
 
 ---
 
@@ -237,7 +254,7 @@ pnpm dev:electron
 
 | 现象 | 建议 |
 |------|------|
-| `sharp` 安装失败 | 确认 Node 版本 ≥ 18；Windows 可装 [VS Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) 后重试 |
+| `sharp` 安装失败 | 确认 Node 满足 `^20.19.0` 或 `≥22.12.0`；Windows 可装 [VS Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) 后重试 |
 | `electron` 下载慢/失败 | 配置镜像或代理；多试几次 `pnpm install` |
 | 用了 npm/yarn | 删除 `node_modules`，改用 **pnpm install** |
 
@@ -256,7 +273,7 @@ pnpm dev:electron
 
 ```
 React 18 + TypeScript 5
-Vite 5
+Vite 8
 Zustand（状态，IndexedDB/Electron 持久化）
 React Router 6
 TipTap 2（复盘笔记）
@@ -282,11 +299,11 @@ Electron：sql.js + 本地文件（electron/library/）
 
 在新电脑上按顺序打勾：
 
-- [ ] 已安装 Node.js（≥ 18，推荐 20/22 LTS）
+- [ ] 已安装 Node.js（`^20.19.0` 或 `≥22.12.0`）
 - [ ] 已安装 pnpm（`pnpm -v` 有输出）
 - [ ] 已克隆/拷贝项目且包含 `pnpm-lock.yaml`
 - [ ] 已执行 `pnpm install` 无报错
-- [ ] 已执行 `pnpm exec tsc -b` 无报错
+- [ ] 已执行 `pnpm typecheck` 无报错
 - [ ] `pnpm dev` 后 `http://localhost:5180` 可打开
-- [ ] （如需旧数据）已导入 JSON 或复制 Electron 库目录
+- [ ] （如需旧数据）Web 已通过完整 `.journal.zip` 恢复，或已复制 Electron 库目录
 - [ ] （可选）`pnpm dev:electron` 桌面版可启动

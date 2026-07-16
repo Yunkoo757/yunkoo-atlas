@@ -1,6 +1,7 @@
 import profileJson from '@/config/default-profile.json'
 import type { Strategy, StrategyIconId } from '@/data/strategies'
 import type { ShortcutBinding } from '@/shortcuts/types'
+import type { UserProfile } from '@/storage/types'
 
 type DefaultGroupMode = 'date' | 'strategy' | 'none'
 type DefaultSort = 'date' | 'pnl' | 'conviction'
@@ -13,6 +14,9 @@ interface DefaultProfile {
     name: string
     version: string
     description: string
+  }
+  user: {
+    displayName: string
   }
   settings: {
     display: {
@@ -37,6 +41,15 @@ interface DefaultProfile {
 
 export const DEFAULT_PROFILE = profileJson as DefaultProfile
 export const DEFAULT_PROFILE_DISPLAY = DEFAULT_PROFILE.settings.display
+export const DEFAULT_USER_DISPLAY_NAME = DEFAULT_PROFILE.user.displayName
+
+export function createDefaultUserProfile(): UserProfile {
+  return {
+    avatarId: null,
+    displayName: DEFAULT_USER_DISPLAY_NAME,
+    customAvatarDataUrl: null,
+  }
+}
 
 export function createDefaultStrategies(): Strategy[] {
   return DEFAULT_PROFILE.strategies.map((strategy) => ({ ...strategy }))

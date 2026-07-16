@@ -1,4 +1,5 @@
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
+import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 
 export type SavedTradeView = {
   id: string
@@ -25,9 +26,11 @@ const SESSION_LABELS: Record<string, string> = {
   'new-york': '纽约盘',
   asia: '亚盘',
   outside: '盘外时段',
+  other: '其他时段',
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
+  normal: '普通',
   mistake: '错题集',
   focus: '重点案例',
   ambiguous: '模棱两可',
@@ -35,8 +38,56 @@ const CATEGORY_LABELS: Record<string, string> = {
   mastered: '已掌握',
 }
 
+const CASE_TYPE_LABELS: Record<string, string> = {
+  exemplar: '优秀范例',
+  mistake: '错误案例',
+  ambiguous: '模糊决策',
+  missed: '错过机会',
+}
+
+const MASTERY_LABELS: Record<string, string> = {
+  new: '新案例',
+  recheck: '待复看',
+  mastered: '已掌握',
+}
+
+const TRADE_KIND_LABELS: Record<string, string> = {
+  live: '实盘',
+  paper: '模拟',
+}
+
+const ENUM_FACET_VALUES: Record<string, readonly string[]> = {
+  tradeKind: Object.keys(TRADE_KIND_LABELS),
+  side: ['long', 'short'],
+  status: Object.keys(STATUS_LABELS),
+  reviewCategory: Object.keys(CATEGORY_LABELS),
+  caseType: Object.keys(CASE_TYPE_LABELS),
+  masteryState: Object.keys(MASTERY_LABELS),
+  session: Object.keys(SESSION_LABELS),
+  period: CALENDAR_PERIODS,
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 清理已知单选 facet，保留 symbol/tag/source 等自由文本或未来参数。 */
+export function canonicalizeTradeViewSearch(
+  search: string | URLSearchParams | Record<string, string>,
+): URLSearchParams {
+  const params = new URLSearchParams(
+    search instanceof URLSearchParams ? search.toString() : search,
+  )
+  for (const [key, allowed] of Object.entries(ENUM_FACET_VALUES)) {
+    const raw = params.get(key)
+    const value = raw?.trim()
+    if (!value || !allowed.includes(value)) {
+      params.delete(key)
+      continue
+    }
+    if (raw !== value || params.getAll(key).length > 1) params.set(key, value)
+  }
+  return params
 }
 
 export function normalizeSavedViewPath(pathname: string): string {
@@ -45,12 +96,17 @@ export function normalizeSavedViewPath(pathname: string): string {
   if (legacyListPath) return legacyListPath
   if (clean === '/board') return '/list'
   const withoutMode = clean.replace(/\/board\/?$/, '')
-  return withoutMode.startsWith('/') ? withoutMode : `/${withoutMode}`
+  const withLeadingSlash = withoutMode.startsWith('/') ? withoutMode : `/${withoutMode}`
+  const normalized = withLeadingSlash.length > 1
+    ? withLeadingSlash.replace(/\/+$/, '')
+    : withLeadingSlash
+  if (normalized === '/paper' || normalized === '/practice') return '/sim'
+  return normalized
 }
 
 function normalizeSearch(search: unknown): Record<string, string> {
   if (!isRecord(search)) return {}
-  return Object.fromEntries(
+  const normalized = Object.fromEntries(
     Object.entries(search)
       .filter((entry): entry is [string, string] => {
         const [key, value] = entry
@@ -59,18 +115,19 @@ function normalizeSearch(search: unknown): Record<string, string> {
       .map(([key, value]) => [key.trim(), value.trim()])
       .sort(([left], [right]) => left.localeCompare(right)),
   )
+  return searchParamsToRecord(new URLSearchParams(normalized))
 }
 
 export function searchParamsToRecord(searchParams: URLSearchParams): Record<string, string> {
   return Object.fromEntries(
-    [...searchParams.entries()]
+    [...canonicalizeTradeViewSearch(searchParams).entries()]
       .filter(([key, value]) => Boolean(key.trim()) && Boolean(value.trim()))
       .sort(([left], [right]) => left.localeCompare(right)),
   )
 }
 
 export function savedViewSearch(view: SavedTradeView): string {
-  const search = new URLSearchParams(view.search).toString()
+  const search = canonicalizeTradeViewSearch(view.search).toString()
   return search ? `?${search}` : ''
 }
 
@@ -144,16 +201,33 @@ function routeLabel(pathname: string): string | null {
   return null
 }
 
-export function suggestSavedViewName(pathname: string, params: URLSearchParams): string {
+export function suggestSavedViewName(
+  pathname: string,
+  params: URLSearchParams,
+  strategyName?: string,
+): string {
+  const canonical = canonicalizeTradeViewSearch(params)
   const labels = [routeLabel(pathname)]
-  const status = params.get('status')
-  const session = params.get('session')
-  const category = params.get('reviewCategory')
+  const period = canonical.get('period')
+  const strategyId = canonical.get('strategyId')
+  const status = canonical.get('status')
+  const session = canonical.get('session')
+  const category = canonical.get('reviewCategory')
+  const caseType = canonical.get('caseType')
+  const masteryState = canonical.get('masteryState')
+  const tradeKind = canonical.get('tradeKind')
+  if (period) {
+    labels.push(PERIOD_LABELS[period as keyof typeof PERIOD_LABELS] ?? period)
+  }
+  if (strategyId) labels.push(strategyName?.trim() || strategyId)
   if (status) labels.push(STATUS_LABELS[status] ?? status)
   if (category) labels.push(CATEGORY_LABELS[category] ?? category)
+  if (caseType) labels.push(CASE_TYPE_LABELS[caseType] ?? caseType)
+  if (masteryState) labels.push(MASTERY_LABELS[masteryState] ?? masteryState)
+  if (tradeKind) labels.push(TRADE_KIND_LABELS[tradeKind] ?? tradeKind)
   if (session) labels.push(SESSION_LABELS[session] ?? session)
   for (const key of ['symbol', 'side', 'tag', 'mistakeTag']) {
-    const value = params.get(key)
+    const value = canonical.get(key)
     if (value) labels.push(key === 'side' ? (value === 'long' ? '做多' : '做空') : value)
   }
   return labels.filter((label): label is string => Boolean(label)).join(' · ') || '我的视图'

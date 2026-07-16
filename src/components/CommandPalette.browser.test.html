@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command palette accessibility browser test</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/components/CommandPalette.browser.test.tsx"></script>
+  </body>
+</html>

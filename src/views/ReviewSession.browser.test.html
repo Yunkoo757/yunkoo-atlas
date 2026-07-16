@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random review session browser test</title>
+    <style>
+      #root { width: 1280px; min-height: 900px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/views/ReviewSession.browser.test.tsx"></script>
+  </body>
+</html>

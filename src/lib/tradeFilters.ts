@@ -1,6 +1,8 @@
 import type { TradeKind } from '@/data/trades'
 import { DEFAULT_PROFILE_DISPLAY } from '@/config/defaultProfile'
 import type { CalendarPeriod } from '@/lib/periods'
+import type { AnalysisScope } from '@/lib/analysisScope'
+import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
 import { normalizeSidebarPins } from '@/lib/tradeKind'
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
@@ -24,10 +26,12 @@ export interface ListFilter {
   period?: CalendarPeriod
   /** 默认不过滤；主列表传 live，模拟页传 paper */
   tradeKind?: TradeKind
+  /** 仅用于仪表盘下钻：按平仓日、交易类型与日期范围锁定分析样本。 */
+  analysisScope?: AnalysisScope
   reviewCaseScope?: ReviewCaseScope
 }
 
-export type ReviewCaseScope = 'all' | 'focus' | 'mistakes' | 'unreviewed' | 'reviewed'
+export type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 
 export { applyDisplayPrefs, filterTrades } from '@/lib/workbenchTrades'
 

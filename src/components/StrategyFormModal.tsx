@@ -38,7 +38,11 @@ export function StrategyFormModal({
       setName(initial?.name ?? '')
       setIcon(initial?.icon ?? 'target')
       setColor(initial?.color ?? STRATEGY_COLOR_PRESETS[0])
-      setReviewTemplateHtml(initial?.reviewTemplateHtml ?? DEFAULT_REVIEW_TEMPLATE_HTML)
+      setReviewTemplateHtml(
+        typeof initial?.reviewTemplateHtml === 'string'
+          ? initial.reviewTemplateHtml
+          : DEFAULT_REVIEW_TEMPLATE_HTML,
+      )
       // 状态初始化后再聚焦，避免 autoFocus 与 useEffect 设值竞争导致焦点丢失
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -173,6 +177,7 @@ export function StrategyFormModal({
                 content={reviewTemplateHtml}
                 onChange={setReviewTemplateHtml}
                 allowImages={false}
+                ariaLabel="策略复盘结构"
                 placeholder="写下复盘提纲；输入“- ”建立清单，“> ”插入引用"
               />
             </div>

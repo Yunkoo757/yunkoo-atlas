@@ -1,14 +1,9 @@
 import { chromium } from 'playwright'
-import { mkdirSync, readFileSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
 const OUT = join(process.cwd(), '.gstack', 'qa-reports', 'linear-rebuild')
-const defaultProfile = JSON.parse(
-  readFileSync(new URL('../src/config/default-profile.json', import.meta.url), 'utf8'),
-)
-const seededStrategyId = defaultProfile.strategies[1]?.id
-if (!seededStrategyId) throw new Error('默认配置至少需要两个策略才能运行最终 QA')
 const VIEWPORTS = [
   { name: '1440x900', width: 1440, height: 900 },
   { name: '1920x1080', width: 1920, height: 1080 },
@@ -61,7 +56,6 @@ async function seedData() {
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
-  await selectValue(page.getByRole('combobox', { name: '交易策略' }), seededStrategyId)
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/)
   await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })

@@ -52,6 +52,7 @@ import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { toast } from './lib/toast'
 import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
+import { parseAnalysisScope } from './lib/analysisScope'
 import './App.css'
 
 const Dashboard = lazy(() =>
@@ -59,6 +60,9 @@ const Dashboard = lazy(() =>
 )
 const DetailView = lazy(() =>
   import('./views/DetailView').then((module) => ({ default: module.DetailView })),
+)
+const ReviewSessionView = lazy(() =>
+  import('./views/ReviewSessionView').then((module) => ({ default: module.ReviewSessionView })),
 )
 const StrategiesPanel = lazy(() =>
   import('./views/settings/StrategiesPanel').then((module) => ({ default: module.StrategiesPanel })),
@@ -106,16 +110,19 @@ function TradesPage({
 
 function StrategyPage() {
   const { id } = useParams()
+  const { search } = useLocation()
   const strategies = useStore((s) => s.strategies)
   const strategyId = id ?? ''
-  const listPath = `/strategy/${strategyId}`
+  const listPath = `/strategy/${encodeURIComponent(strategyId)}`
   const title = getStrategyName(strategies, strategyId)
+  const parsedScope = parseAnalysisScope(search)
+  const analysisScope = parsedScope.explicit ? parsedScope.scope : undefined
   return (
     <TradesPage
       title={title}
-      filter={{ type: 'strategy', strategyId }}
+      filter={{ type: 'strategy', strategyId, analysisScope }}
       listPath={listPath}
-      header={<StrategyHeader strategyId={strategyId} />}
+      header={<StrategyHeader strategyId={strategyId} analysisScope={analysisScope} search={search} />}
     />
   )
 }
@@ -176,10 +183,18 @@ function LegacyRouteFallback() {
 
 function Shell() {
   const [cmdkOpen, setCmdkOpen] = useState(false)
+  const [cmdkReturnFocus, setCmdkReturnFocus] = useState<HTMLElement | null>(null)
   const location = useLocation()
   const setCmdkOpenStore = useShortcutStore((s) => s.setCmdkOpen)
 
-  const toggleCmdk = useCallback(() => setCmdkOpen((o) => !o), [])
+  const toggleCmdk = useCallback(() => {
+    setCmdkReturnFocus(null)
+    setCmdkOpen((o) => !o)
+  }, [])
+  const openCmdk = useCallback((returnFocusTo?: HTMLElement | null) => {
+    setCmdkReturnFocus(returnFocusTo ?? null)
+    setCmdkOpen(true)
+  }, [])
 
   useEffect(() => {
     setCmdkOpenStore(cmdkOpen)
@@ -192,8 +207,8 @@ function Shell() {
   return (
     <>
       <AppFrame
-        sidebar={<Sidebar onOpenSearch={() => setCmdkOpen(true)} />}
-        mobileNavigation={<MobileNavigation onOpenSearch={() => setCmdkOpen(true)} />}
+        sidebar={<Sidebar onOpenSearch={() => openCmdk()} />}
+        mobileNavigation={<MobileNavigation onOpenSearch={openCmdk} />}
       >
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
           <Suspense fallback={<DelayedRouteFallback />}>
@@ -265,6 +280,7 @@ function Shell() {
           <Route path="/review-cases/board" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
+          <Route path="/review-session" element={<ReviewSessionView />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
           <Route path="/paper/board" element={<Navigate to="/sim/board" replace />} />
           <Route path="/practice" element={<Navigate to="/sim" replace />} />
@@ -297,6 +313,7 @@ function Shell() {
       <CommandPalette
         open={cmdkOpen}
         onClose={() => setCmdkOpen(false)}
+        returnFocusTo={cmdkReturnFocus}
       />
       <TradeComposer />
       <TradeCloseDialog />

@@ -40,7 +40,7 @@ import './sidebar/SidebarWorkspace.css'
 
 const WORKSPACE_DRAG_THRESHOLD_PX = 5
 
-const PRIMARY_NAV_SHORTCUTS: Record<PrimarySidebarNavId, string> = {
+const PRIMARY_NAV_SHORTCUTS: Partial<Record<PrimarySidebarNavId, string>> = {
   today: 'nav.today',
   trades: 'nav.list',
   reviewCases: 'nav.reviewCases',
@@ -394,9 +394,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作台</div>
-        {PRIMARY_NAV.map(({ id, to, label, icon: Icon }) => (
-          <ShortcutTooltip key={id} actionId={PRIMARY_NAV_SHORTCUTS[id]} label={label}>
+        {PRIMARY_NAV.map(({ id, to, label, icon: Icon }) => {
+          const link = (
             <NavLink
+              key={id}
               to={primaryHref(id, to)}
               draggable={false}
               onDragStart={(event) => event.preventDefault()}
@@ -407,8 +408,14 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               <span className="sb-item-label">{label}</span>
               <Count value={primaryCount(id)} />
             </NavLink>
-          </ShortcutTooltip>
-        ))}
+          )
+          const shortcutId = PRIMARY_NAV_SHORTCUTS[id]
+          return shortcutId ? (
+            <ShortcutTooltip key={id} actionId={shortcutId} label={label}>
+              {link}
+            </ShortcutTooltip>
+          ) : link
+        })}
       </nav>
 
       <nav className="sb-section sb-workspace" aria-label="我的空间">

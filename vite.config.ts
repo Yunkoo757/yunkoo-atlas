@@ -24,7 +24,7 @@ export default defineConfig({
                   'sharp',
                   'sql.js',
                   'archiver',
-                  'extract-zip',
+                  'yauzl',
                 ],
               },
             },

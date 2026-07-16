@@ -1,0 +1,94 @@
+import type { Trade } from '@/data/trades'
+import { formatYmd, isDateInRange } from '@/lib/periods'
+import { isAccountTrade } from '@/lib/tradeKind'
+import { isExecutedClosed } from '@/lib/tradeStatus'
+
+export type AnalysisKind = 'live' | 'paper' | 'all'
+export type AnalysisRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
+
+export interface AnalysisScope {
+  kind: AnalysisKind
+  range: AnalysisRange
+}
+
+export interface ParsedAnalysisScope {
+  scope: AnalysisScope
+  explicit: boolean
+}
+
+export const DEFAULT_ANALYSIS_SCOPE: AnalysisScope = {
+  kind: 'live',
+  range: 'all',
+}
+
+const ANALYSIS_KINDS: AnalysisKind[] = ['live', 'paper', 'all']
+const ANALYSIS_RANGES: AnalysisRange[] = ['all', 'this-month', '30d', '90d', 'ytd']
+
+export function parseAnalysisScope(
+  input: string | URLSearchParams,
+): ParsedAnalysisScope {
+  const params = typeof input === 'string' ? new URLSearchParams(input) : input
+  const rawKind = params.get('kind')
+  const rawRange = params.get('range')
+  const kind = ANALYSIS_KINDS.includes(rawKind as AnalysisKind)
+    ? rawKind as AnalysisKind
+    : DEFAULT_ANALYSIS_SCOPE.kind
+  const range = ANALYSIS_RANGES.includes(rawRange as AnalysisRange)
+    ? rawRange as AnalysisRange
+    : DEFAULT_ANALYSIS_SCOPE.range
+  return {
+    scope: { kind, range },
+    explicit:
+      ANALYSIS_KINDS.includes(rawKind as AnalysisKind) ||
+      ANALYSIS_RANGES.includes(rawRange as AnalysisRange),
+  }
+}
+
+export function filterTradesByAnalysisScope(
+  trades: readonly Trade[],
+  scope: AnalysisScope,
+  now = new Date(),
+): Trade[] {
+  const scoped = trades.filter((trade) =>
+    !trade.deletedAt &&
+    isAccountTrade(trade) &&
+    isExecutedClosed(trade.status) &&
+    (scope.kind === 'all' || trade.tradeKind === scope.kind),
+  )
+  if (scope.range === 'all') return scoped
+
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  let start: Date
+  if (scope.range === 'this-month') {
+    start = new Date(end.getFullYear(), end.getMonth(), 1)
+  } else if (scope.range === 'ytd') {
+    start = new Date(end.getFullYear(), 0, 1)
+  } else {
+    const dayCount = scope.range === '30d' ? 30 : scope.range === '90d' ? 90 : null
+    if (dayCount === null) return scoped
+    start = new Date(end)
+    start.setDate(start.getDate() - (dayCount - 1))
+  }
+  const bounds = { start: formatYmd(start), end: formatYmd(end) }
+  return scoped.filter((trade) => isDateInRange(trade.closedAt ?? trade.openedAt, bounds))
+}
+
+export function writeAnalysisScope(
+  input: string | URLSearchParams,
+  scope: AnalysisScope,
+): URLSearchParams {
+  const params = new URLSearchParams(input)
+  params.set('kind', scope.kind)
+  params.set('range', scope.range)
+  return params
+}
+
+export function strategyAnalysisHref(
+  strategyId: string,
+  scope: AnalysisScope,
+): string {
+  const params = new URLSearchParams()
+  params.set('kind', scope.kind)
+  params.set('range', scope.range)
+  return `/strategy/${encodeURIComponent(strategyId)}?${params.toString()}`
+}

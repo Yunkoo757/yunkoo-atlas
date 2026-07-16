@@ -21,7 +21,14 @@
 .empty-art rect {
   fill: var(--text-quaternary);
 }
+.empty > [role='status'] {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+}
 .empty-title {
+  margin: 0;
   font-size: var(--fs-base);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);

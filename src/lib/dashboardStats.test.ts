@@ -1,9 +1,13 @@
 import {
   MAX_DASHBOARD_CURVE_POINTS,
+  buildDashboardStats,
   buildRDistribution,
+  describeDashboardResultHealth,
   downsampleDashboardCurve,
   type DashboardCurvePoint,
 } from './dashboardStats'
+import type { Trade } from '@/data/trades'
+import type { Strategy } from '@/data/strategies'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -49,4 +53,69 @@ export function testDashboardRDistributionCountsEveryFiniteValueExactlyOnce(): v
   assert(distribution.at(-1)?.label === '≥10' && distribution.at(-1)?.n === 2, '10R 及以上必须进入最后一档')
   assert(distribution.find((bucket) => bucket.label === '-0.5~0')?.n === 1, '负值区间不得与 0R 重叠')
   assert(distribution.find((bucket) => bucket.label === '0~0.5')?.n === 1, '0R 只能计入非负区间一次')
+}
+
+const strategy: Strategy = {
+  id: 'strategy-1',
+  name: '测试策略',
+  icon: 'target',
+  color: '#5e6ad2',
+}
+
+function closedTrade(id: string, patch: Partial<Trade> = {}): Trade {
+  return {
+    id,
+    ref: `TRD-${id}`,
+    symbol: 'BTCUSDT',
+    side: 'long',
+    status: 'win',
+    conviction: 'medium',
+    strategyId: strategy.id,
+    tags: [],
+    mistakeTags: [],
+    reviewStatus: 'unreviewed',
+    reviewCategory: 'normal',
+    tradeKind: 'live',
+    entry: 100,
+    exit: null,
+    size: 1,
+    pnl: null,
+    rMultiple: 2,
+    resultSource: 'r',
+    openedAt: '2026-07-01',
+    closedAt: '2026-07-02',
+    note: '',
+    ...patch,
+  }
+}
+
+export function testDashboardDoesNotTurnMissingPnlIntoZero(): void {
+  const stats = buildDashboardStats([closedTrade('r-only')], [strategy])
+
+  assert(stats.totalPnl === 0, '聚合的数值恒等元仍应为 0')
+  assert(stats.pnlCount === 0, '只填写 R 的交易不得计入盈亏覆盖')
+  assert(stats.strategies[0]?.pnlCount === 0, '策略行必须暴露真实盈亏覆盖')
+  assert(stats.curve.length === 0, '缺少盈亏时不得绘制伪造的零收益曲线')
+}
+
+export function testDashboardHealthReportsConflictsAndMissingResultsTogether(): void {
+  const conflict = closedTrade('conflict', {
+    pnl: 10,
+    rMultiple: -1,
+    resultSource: 'imported',
+  })
+  const missing = closedTrade('missing', {
+    status: 'loss',
+    pnl: null,
+    rMultiple: null,
+    resultSource: undefined,
+  })
+  const stats = buildDashboardStats([conflict, missing], [strategy])
+
+  assert(stats.conflictCount === 1, '必须识别结果冲突')
+  assert(stats.missingResultCount === 1, '冲突记录不得被重复计入待补结果')
+  assert(
+    describeDashboardResultHealth(stats) === '1 笔结果冲突 · 1 笔待补结果',
+    '混合数据问题必须同时呈现，不能让冲突遮住缺失结果',
+  )
 }

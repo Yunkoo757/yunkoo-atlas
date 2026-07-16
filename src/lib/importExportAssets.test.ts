@@ -4,6 +4,8 @@ import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import {
   buildExportPayloadFromState,
   buildPortableSnapshotFromState,
+  loadReferencedAssetsForExport,
+  mergeImportPayload,
   parseImportJson,
   prepareImportPayloadForCommit,
 } from '@/lib/importExport'
@@ -58,6 +60,22 @@ export async function testJsonExportIncludesReferencedAssets(): Promise<void> {
   assert(payload.assets?.[0]?.id === 'asset-1', 'export keeps the referenced asset id')
 }
 
+export async function testExportRejectsMissingReferencedAssetsInsteadOfCreatingPartialBackup(): Promise<void> {
+  let message = ''
+  try {
+    await loadReferencedAssetsForExport(
+      ['asset-1', 'missing-asset'],
+      async (id) => id === 'asset-1'
+        ? { id, mime: 'image/png', data: 'abc123' }
+        : null,
+    )
+  } catch (error) {
+    message = error instanceof Error ? error.message : ''
+  }
+  assert(message.includes('1 个笔记附件缺失'), '缺图时必须拒绝导出并说明缺失数量')
+  assert(message.includes('存储健康'), '缺图错误必须告诉用户下一步如何处理')
+}
+
 export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): Promise<void> {
   const secondTrade: Trade = {
     ...trade,
@@ -75,7 +93,11 @@ export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): 
       pinnedStrategyIds: [],
       display: DEFAULT_DISPLAY,
     },
-    async (id: string) => ({ id, mime: 'image/png', data: `data-${id}` }),
+    async (id: string) => ({
+      id,
+      mime: 'image/png',
+      data: id === 'asset-1' ? 'YXNzZXQtMQ==' : 'YXNzZXQtMg==',
+    }),
   )
 
   assert(payload.assets?.length === 2, 'two referenced assets are exported independently')
@@ -93,7 +115,7 @@ export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): 
 export function testJsonImportRejectsMismatchedDeclaredResultAuthority(): void {
   const payload = {
     version: 6,
-    trades: [{ ...trade, resultSource: 'pnl' }],
+    trades: [{ ...trade, note: '', resultSource: 'pnl' }],
     strategies: [strategy],
     starredIds: [],
     subscribedIds: [],
@@ -105,13 +127,13 @@ export function testJsonImportRejectsMismatchedDeclaredResultAuthority(): void {
 
   const importedPair = parseImportJson(JSON.stringify({
     ...payload,
-    trades: [{ ...trade, resultSource: 'imported' }],
+    trades: [{ ...trade, note: '', resultSource: 'imported' }],
   }))
   assert(importedPair.ok, 'a declared imported pair must remain valid')
 
   const legacyPair = parseImportJson(JSON.stringify({
     ...payload,
-    trades: [{ ...trade, resultSource: undefined }],
+    trades: [{ ...trade, note: '', resultSource: undefined }],
   }))
   assert(legacyPair.ok, 'a legacy pair without declared authority must remain importable')
 }
@@ -150,6 +172,7 @@ export function testJsonImportAcceptsOpenTradesWithoutResults(): void {
     pnl: null,
     rMultiple: null,
     closedAt: null,
+    note: '',
   }
   const parsed = parseImportJson(JSON.stringify({
     version: 6,
@@ -165,6 +188,39 @@ export function testJsonImportAcceptsOpenTradesWithoutResults(): void {
   if (!parsed.ok) return
   assert(parsed.data.trades[0]?.pnl === null, '未填写盈亏应保持 null，而不是伪造为 0')
   assert(parsed.data.trades[0]?.rMultiple === null, '未填写 R 倍数应保持 null')
+}
+
+export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferences(): void {
+  const parsed = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [{ ...trade, note: '', strategyId: 'missing-strategy' }],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+  }))
+  assert(parsed.ok, '缺少 strategies 的旧 JSON 仍应兼容导入')
+  if (!parsed.ok) return
+
+  const merged = mergeImportPayload({
+    trades: [],
+    strategies: [],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+    tagPresets: [],
+    mistakeTagPresets: [],
+    savedTradeViews: [],
+    symbolIcons: {},
+    symbolCatalog: [],
+  }, parsed.data)
+
+  assert(merged.strategies.length === 1, '有交易的旧 JSON 必须补中性策略')
+  assert(
+    merged.strategies.some((item) => item.id === merged.trades[0]?.strategyId),
+    '旧 JSON 导入后的交易不得形成悬空策略引用',
+  )
 }
 
 export function testJsonImportRejectsAttachmentPathTraversalIds(): void {
@@ -222,4 +278,134 @@ export function testJsonImportRejectsNotesWhoseReferencedAttachmentIsMissing(): 
     rejected = true
   }
   assert(rejected, '导入笔记引用的附件缺失时必须拒绝，不能错链目标库中的同名附件')
+}
+
+export function testJsonImportReusesSharedTradeValidationAndKeepsLegacyCompatibility(): void {
+  const plainTrade = { ...trade, note: '' }
+  for (const malformed of [
+    { comments: [{ id: 'comment-1', text: 42, createdAt: '2026-07-16' }] },
+    { activities: [{ id: 'activity-1', kind: 'unknown', timestamp: '2026-07-16' }] },
+    { caseType: 'unknown' },
+    { masteryState: 'learning' },
+  ]) {
+    const parsed = parseImportJson(JSON.stringify({
+      version: 6,
+      trades: [{ ...plainTrade, ...malformed }],
+      strategies: [strategy],
+    }))
+    assert(!parsed.ok, '普通 JSON 导入必须复用共享 Trade 边界并拒绝畸形工作流字段')
+  }
+
+  const { strategyId: _strategyId, ...legacyTrade } = plainTrade
+  const parsed = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [{ ...legacyTrade, strategy: strategy.id, tradeKind: 'practice' }],
+    strategies: [strategy],
+  }))
+  assert(parsed.ok, '旧 strategy 字段与 practice 类型仍应可导入')
+  if (!parsed.ok) return
+  assert(parsed.data.trades[0]?.strategyId === strategy.id, '旧 strategy 字段应迁移为 strategyId')
+  assert(parsed.data.trades[0]?.tradeKind === 'paper', '旧 practice 类型应迁移为 paper')
+}
+
+export function testJsonImportRejectsDuplicateEntityAndAttachmentIds(): void {
+  const plainTrade = { ...trade, note: '' }
+  const duplicateTrade = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [plainTrade, { ...plainTrade, ref: 'TRD-DUPLICATE' }],
+    strategies: [strategy],
+  }))
+  assert(!duplicateTrade.ok, '重复交易 ID 必须在合并前拒绝')
+
+  const duplicateStrategy = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [plainTrade],
+    strategies: [strategy, { ...strategy, name: 'Duplicate' }],
+  }))
+  assert(!duplicateStrategy.ok, '重复策略 ID 必须在合并前拒绝')
+
+  const duplicateAsset = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [{ ...plainTrade, note: '<img src="journal-asset://asset-1">' }],
+    strategies: [strategy],
+    assets: [
+      { id: 'asset-1', mime: 'image/png', data: 'aW1hZ2U=' },
+      { id: 'asset-1', mime: 'image/png', data: 'aW1hZ2U=' },
+    ],
+  }))
+  assert(!duplicateAsset.ok, '重复附件 ID 必须在重编号前拒绝')
+}
+
+export function testJsonImportValidatesImageMimeBase64AndReferenceClosure(): void {
+  const plainTrade = { ...trade, note: '' }
+  const valid = parseImportJson(JSON.stringify({
+    version: 6,
+    trades: [{ ...plainTrade, note: '<img src="journal-asset://asset-1">' }],
+    strategies: [strategy],
+    assets: [{ id: 'asset-1', mime: 'IMAGE/X-LINEAR-CAPTURE', data: 'aW1hZ2U=' }],
+  }))
+  assert(valid.ok, '合法 image/* MIME 与规范 Base64 应可导入')
+  if (valid.ok) {
+    assert(valid.data.assets?.[0]?.mime === 'image/x-linear-capture', '附件 MIME 应规范化')
+  }
+
+  for (const payload of [
+    {
+      trades: [{ ...plainTrade, note: '<img src="journal-asset://asset-1">' }],
+      assets: [{ id: 'asset-1', mime: 'text/html', data: 'aW1hZ2U=' }],
+    },
+    {
+      trades: [{ ...plainTrade, note: '<img src="journal-asset://asset-1">' }],
+      assets: [{ id: 'asset-1', mime: 'image/png', data: 'Zh==' }],
+    },
+    {
+      trades: [{ ...plainTrade, note: '<img src="journal-asset://missing">' }],
+      assets: [],
+    },
+    {
+      trades: [plainTrade],
+      assets: [{ id: 'orphan', mime: 'image/png', data: 'aW1hZ2U=' }],
+    },
+    {
+      trades: [{ ...plainTrade, note: '<img src="journal-asset://../outside">' }],
+      assets: [],
+    },
+    {
+      trades: [{ ...plainTrade, note: '<img src="data:text/html;base64,aW1hZ2U=">' }],
+      assets: [],
+    },
+    {
+      trades: [{ ...plainTrade, note: '<img src="data:image/png;base64,Zh==">' }],
+      assets: [],
+    },
+  ]) {
+    const parsed = parseImportJson(JSON.stringify({
+      version: 6,
+      strategies: [strategy],
+      ...payload,
+    }))
+    assert(!parsed.ok, '损坏 MIME、Base64 或不闭合的附件引用必须在提交前拒绝')
+  }
+}
+
+export function testJsonImportRejectsDuplicateGeneratedAssetIds(): void {
+  let rejected = false
+  try {
+    prepareImportPayloadForCommit({
+      version: 6,
+      trades: [{
+        ...trade,
+        note: '<img src="journal-asset://asset-1"><img src="data:image/png;base64,aW1hZ2U=">',
+      }],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+      assets: [{ id: 'asset-1', mime: 'image/png', data: 'aW1hZ2U=' }],
+    }, () => 'same-generated-id')
+  } catch {
+    rejected = true
+  }
+  assert(rejected, '重编号器生成重复附件 ID 时必须中止整个导入')
 }

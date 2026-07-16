@@ -1,8 +1,17 @@
-import type { ReviewCategory, Trade, TradeSide, TradeStatus } from '@/data/trades'
+import type {
+  CaseType,
+  MasteryState,
+  ReviewCategory,
+  Trade,
+  TradeSide,
+  TradeStatus,
+} from '@/data/trades'
 import { isAccountTrade } from '@/lib/tradeKind'
+import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
+import { matchesReviewCaseScope } from '@/lib/reviewCaseScope'
 import {
   filterTradesByFacets,
   matchesTradeFacets,
@@ -27,6 +36,9 @@ const TRADE_SESSIONS: TradeSessionKind[] = [
   'other',
 ]
 
+const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
+const MASTERY_STATES: MasteryState[] = ['new', 'recheck', 'mastered']
+
 const CONVICTION_RANK: Record<Trade['conviction'], number> = {
   urgent: 4,
   high: 3,
@@ -36,12 +48,16 @@ const CONVICTION_RANK: Record<Trade['conviction'], number> = {
 
 export function parseTradeFacets(search: string | URLSearchParams): TradeFacetFilters {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
+  const tradeKind = params.get('tradeKind')
   const side = params.get('side')
   const status = params.get('status')
   const reviewCategory = params.get('reviewCategory')
+  const caseType = params.get('caseType')
+  const masteryState = params.get('masteryState')
   const session = params.get('session')
   const period = params.get('period')
   return {
+    tradeKind: tradeKind === 'live' || tradeKind === 'paper' ? tradeKind : undefined,
     symbol: params.get('symbol') || undefined,
     side: side === 'long' || side === 'short' ? (side as TradeSide) : undefined,
     status: STATUS_ORDER.includes(status as TradeStatus) ? (status as TradeStatus) : undefined,
@@ -49,6 +65,12 @@ export function parseTradeFacets(search: string | URLSearchParams): TradeFacetFi
     mistakeTag: params.get('mistakeTag') || undefined,
     reviewCategory: REVIEW_CATEGORIES.includes(reviewCategory as ReviewCategory)
       ? (reviewCategory as ReviewCategory)
+      : undefined,
+    caseType: CASE_TYPES.includes(caseType as CaseType)
+      ? (caseType as CaseType)
+      : undefined,
+    masteryState: MASTERY_STATES.includes(masteryState as MasteryState)
+      ? (masteryState as MasteryState)
       : undefined,
     session: TRADE_SESSIONS.includes(session as TradeSessionKind)
       ? (session as TradeSessionKind)
@@ -58,6 +80,29 @@ export function parseTradeFacets(search: string | URLSearchParams): TradeFacetFi
       : undefined,
     strategyId: params.get('strategyId') || undefined,
   }
+}
+
+/** 将 facet 写成稳定顺序的查询字符串，供保存视图与路由往返测试共用。 */
+export function serializeTradeFacets(facets: TradeFacetFilters): string {
+  const params = new URLSearchParams()
+  const entries: Array<[string, string | undefined]> = [
+    ['tradeKind', facets.tradeKind],
+    ['symbol', facets.symbol],
+    ['side', facets.side],
+    ['status', facets.status],
+    ['tag', facets.tag],
+    ['mistakeTag', facets.mistakeTag],
+    ['reviewCategory', facets.reviewCategory],
+    ['caseType', facets.caseType],
+    ['masteryState', facets.masteryState],
+    ['session', facets.session],
+    ['period', facets.period],
+    ['strategyId', facets.strategyId],
+  ]
+  for (const [key, value] of entries) {
+    if (value) params.set(key, value)
+  }
+  return params.toString()
 }
 
 export function filterTrades(
@@ -96,37 +141,8 @@ function matchesListFilter(
 
   if (filter.tradeKind ? trade.tradeKind !== filter.tradeKind : !isAccountTrade(trade)) return false
 
-  if (filter.tradeKind !== 'case' || !filter.reviewCaseScope || filter.reviewCaseScope === 'all') {
-    return true
-  }
-  if (filter.reviewCaseScope === 'focus') {
-    return (
-      starredIds.has(trade.id) ||
-      trade.reviewCategory === 'focus' ||
-      trade.reviewStatus === 'focus'
-    )
-  }
-  if (filter.reviewCaseScope === 'mistakes') {
-    return (
-      trade.caseType === 'mistake' ||
-      trade.reviewCategory === 'mistake' ||
-      trade.mistakeTags.length > 0
-    )
-  }
-  if (filter.reviewCaseScope === 'unreviewed') {
-    return (
-      trade.masteryState === 'new' ||
-      trade.masteryState === 'recheck' ||
-      trade.reviewCategory === 'recheck' ||
-      trade.reviewStatus === 'unreviewed'
-    )
-  }
-  if (filter.reviewCaseScope === 'reviewed') {
-    return (
-      trade.masteryState === 'mastered' ||
-      trade.reviewCategory === 'mastered' ||
-      trade.reviewStatus === 'reviewed'
-    )
+  if (filter.tradeKind === 'case') {
+    return matchesReviewCaseScope(trade, filter.reviewCaseScope, starredIds)
   }
   return true
 }
@@ -157,22 +173,41 @@ function compareOptionalDesc(left: number | null, right: number | null): number 
   return right - left
 }
 
-export function getWorkbenchVisibleTrades(options: {
+type WorkbenchTradeDerivationOptions = {
   trades: Trade[]
   filter: ListFilter
   starredIds: string[]
   display: DisplayPrefs
   search: string | URLSearchParams
-}): Trade[] {
-  const facets = parseTradeFacets(options.search)
+}
+
+export function deriveWorkbenchVisibleTrades(
+  options: WorkbenchTradeDerivationOptions,
+): { trades: Trade[]; visible: Trade[] } {
+  const parsedFacets = parseTradeFacets(options.search)
+  const facets = options.filter.tradeKind || (
+    options.filter.analysisScope && options.filter.analysisScope.kind !== 'all'
+  )
+    ? { ...parsedFacets, tradeKind: undefined }
+    : parsedFacets
   const trades = options.trades.filter((trade) => !trade.deletedAt)
   const routeFiltered = filterTrades(trades, options.filter, options.starredIds)
+  const analysisFiltered = options.filter.analysisScope
+    ? filterTradesByAnalysisScope(routeFiltered, options.filter.analysisScope)
+    : routeFiltered
   // 用户显式筛选已平仓状态时，不能再被「隐藏已平仓」吃掉。
-  const prefs = facets.status && isHiddenWhenClosedFilter(facets.status)
+  const prefs = options.filter.analysisScope || (facets.status && isHiddenWhenClosedFilter(facets.status))
     ? { ...options.display, hideClosed: false }
     : options.display
-  const preferred = applyDisplayPrefs(routeFiltered, prefs, options.filter)
-  return filterTradesByFacets(preferred, facets)
+  const preferred = applyDisplayPrefs(analysisFiltered, prefs, options.filter)
+  return {
+    trades,
+    visible: filterTradesByFacets(preferred, facets),
+  }
+}
+
+export function getWorkbenchVisibleTrades(options: WorkbenchTradeDerivationOptions): Trade[] {
+  return deriveWorkbenchVisibleTrades(options).visible
 }
 
 export function countWorkbenchVisibleTrades(options: {
@@ -182,14 +217,22 @@ export function countWorkbenchVisibleTrades(options: {
   display: DisplayPrefs
   search: string | URLSearchParams
 }): number {
-  const facets = parseTradeFacets(options.search)
+  const parsedFacets = parseTradeFacets(options.search)
+  const facets = options.filter.tradeKind || (
+    options.filter.analysisScope && options.filter.analysisScope.kind !== 'all'
+  )
+    ? { ...parsedFacets, tradeKind: undefined }
+    : parsedFacets
   const starred = new Set(options.starredIds)
   const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'
-  const hideClosed = options.display.hideClosed && !skipHideClosed && !(
+  const hideClosed = options.display.hideClosed && !skipHideClosed && !options.filter.analysisScope && !(
     facets.status && isHiddenWhenClosedFilter(facets.status)
   )
+  const sourceTrades = options.filter.analysisScope
+    ? filterTradesByAnalysisScope(options.trades, options.filter.analysisScope)
+    : options.trades
   let count = 0
-  for (const trade of options.trades) {
+  for (const trade of sourceTrades) {
     if (trade.deletedAt) continue
     if (!matchesListFilter(trade, options.filter, starred)) continue
     if (hideClosed && isHiddenWhenClosedFilter(trade.status)) continue

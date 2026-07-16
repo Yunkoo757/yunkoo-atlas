@@ -185,9 +185,27 @@ export async function testBusinessDateWritersAvoidUtcDateSlicing(): Promise<void
   }
 }
 
+export async function testElectronJournalImportRequiresExplicitReplacementConfirmation(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('electron/library/ipc.ts', 'utf8')
+  const handler = source.slice(source.indexOf("ipcMain.handle('journal:importZip'"))
+  const confirmationIndex = handler.indexOf('dialog.showMessageBox')
+  const replacementIndex = handler.indexOf('operationGate.runExclusive')
+  assert(confirmationIndex >= 0, '桌面整库导入必须显示覆盖确认对话框')
+  assert(
+    confirmationIndex < replacementIndex,
+    '桌面整库导入必须先确认，再进入不可逆的替换流程',
+  )
+  assert(
+    handler.includes("buttons: ['取消', '替换交易库']") &&
+      handler.includes('confirmation.response !== 1'),
+    '覆盖确认必须默认取消，且只有明确选择“替换交易库”才可继续',
+  )
+}
+
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
-  const expected = ['/today-record', '/list', '/review-cases', '/dashboard']
+  const expected = ['/today-record', '/list', '/review-cases', '/review-session', '/dashboard']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
     `一级导航应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
@@ -251,8 +269,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
     '默认工作区配置应包含四个系统目标并保持迁移顺序',
   )
   assert(
-    PRIMARY_NAV.map((item) => item.id).join(',') === 'today,trades,reviewCases,dashboard',
-    '核心模块顺序必须保持今日、交易、案例、仪表盘',
+    PRIMARY_NAV.map((item) => item.id).join(',') === 'today,trades,reviewCases,reviewSession,dashboard',
+    '核心模块顺序必须保持今日、交易、案例、随机复盘、仪表盘',
   )
 
   const savedView = {
@@ -299,18 +317,22 @@ export function testEmptyLibraryUsesApprovedDefaultProfile(): void {
     resetEmptyLibraryIntoStore()
     const state = useStore.getState()
     assert(
-      state.strategies.map((strategy) => strategy.id).join(',') ===
-        'navigation-1,navigation-2,navigation-3,navigation-4',
-      '新建交易库应使用已确认的四个默认策略',
+      state.strategies.map((strategy) => `${strategy.id}:${strategy.name}`).join(',') ===
+        'uncategorized:未分类',
+      '新建交易库应只提供中性的未分类策略',
     )
     assert(
-      state.tagPresets.join(',') === 'MTF ORA,no idm预期A,no idm预期B,LTF ChoCh,1m bos',
-      '新建交易库应使用已确认的普通标签词库',
+      state.tagPresets.length === 0,
+      '新建交易库不应预置个人化普通标签',
     )
     assert(
       state.mistakeTagPresets.join(',') ===
-        '缺乏耐心,技术分析错误,仓位大小错误,修改止损,周末交易,过度分析,情绪化交易,受新闻影响',
-      '新建交易库应使用已确认的错误与违规词库',
+        '缺乏耐心,仓位大小错误,修改止损,情绪化交易',
+      '新建交易库应只保留少量通用错误标签',
+    )
+    assert(
+      state.profile.displayName === '交易者',
+      '新建交易库应使用中性的显示名称',
     )
     assert(
       state.display.groupByDate && !state.display.groupByStrategy && state.display.sortBy === 'date',
@@ -412,18 +434,23 @@ export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): 
   assert(migrated, '首次安装应生成并保存初始快照')
   if (saved === null) throw new Error('首次安装应写入可读取的初始快照')
   const snapshot: PersistedSnapshot = saved
+  assert(snapshot.trades.length === 0, '首次安装必须从真实空库开始，不得注入演示成交')
   assert(
-    snapshot.strategies.map((strategy) => strategy.id).join(',') ===
-      'navigation-1,navigation-2,navigation-3,navigation-4',
-    '首次安装快照应固化默认策略',
+    snapshot.strategies.map((strategy) => `${strategy.id}:${strategy.name}`).join(',') ===
+      'uncategorized:未分类',
+    '首次安装快照应固化中性未分类策略',
   )
   assert(
-    snapshot.tagPresets?.join(',') === 'MTF ORA,no idm预期A,no idm预期B,LTF ChoCh,1m bos',
-    '首次安装快照应固化普通标签词库',
+    snapshot.tagPresets?.length === 0,
+    '首次安装快照不应固化个人化普通标签',
   )
   assert(
-    snapshot.mistakeTagPresets?.length === 8,
-    '首次安装快照应固化错误与违规词库',
+    snapshot.mistakeTagPresets?.join(',') === '缺乏耐心,仓位大小错误,修改止损,情绪化交易',
+    '首次安装快照应固化少量通用错误标签',
+  )
+  assert(
+    snapshot.profile?.displayName === '交易者',
+    '首次安装快照应固化中性显示名称',
   )
 }
 
@@ -843,6 +870,14 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
     { ...trade, id: 'older-open', status: 'open', openedAt: '2026-06-01' },
     {
       ...trade,
+      id: 'scoped-paper-win',
+      tradeKind: 'paper',
+      status: 'win',
+      openedAt: today,
+      closedAt: today,
+    },
+    {
+      ...trade,
       id: 'focus-case',
       tradeKind: 'case',
       reviewCategory: 'focus',
@@ -871,6 +906,15 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
       pathname: '/review-cases/focus',
       search: '',
       filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'focus' } as const,
+    },
+    {
+      pathname: `/strategy/${strategy.id}`,
+      search: '?kind=paper&range=30d',
+      filter: {
+        type: 'strategy',
+        strategyId: strategy.id,
+        analysisScope: { kind: 'paper', range: '30d' },
+      } as const,
     },
   ]
 
@@ -2125,10 +2169,20 @@ export function testUpsertTradesNotifiesOnce(): void {
 }
 
 export function testWorkbenchCountMatchesVisibleTradesWithoutSorting(): void {
+  const today = formatYmd(new Date())
   const trades: Trade[] = [
     { ...trade, id: 'open-live', status: 'open', symbol: 'EURUSD' },
     { ...trade, id: 'hidden-loss', status: 'loss', symbol: 'EURUSD' },
     { ...trade, id: 'paper-loss', status: 'loss', tradeKind: 'paper', symbol: 'EURUSD' },
+    {
+      ...trade,
+      id: 'scoped-paper-win',
+      status: 'win',
+      tradeKind: 'paper',
+      symbol: 'EURUSD',
+      openedAt: today,
+      closedAt: today,
+    },
     {
       ...trade,
       id: 'mistake-case',
@@ -2148,6 +2202,14 @@ export function testWorkbenchCountMatchesVisibleTradesWithoutSorting(): void {
     {
       filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'mistakes' } as const,
       search: '?mistakeTag=%E8%BF%BD%E5%8D%95',
+    },
+    {
+      filter: {
+        type: 'strategy',
+        strategyId: strategy.id,
+        analysisScope: { kind: 'paper', range: '30d' },
+      } as const,
+      search: '?kind=paper&range=30d',
     },
   ]
 

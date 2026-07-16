@@ -1,4 +1,12 @@
-import type { ReviewCategory, Trade, TradeSide, TradeStatus } from '@/data/trades'
+import type {
+  CaseType,
+  MasteryState,
+  ReviewCategory,
+  Trade,
+  TradeKind,
+  TradeSide,
+  TradeStatus,
+} from '@/data/trades'
 import { tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
 
 export type TradeMonthGroup = {
@@ -8,12 +16,15 @@ export type TradeMonthGroup = {
 }
 
 export type TradeFacetFilters = {
+  tradeKind?: Extract<TradeKind, 'live' | 'paper'>
   symbol?: string
   side?: TradeSide
   status?: TradeStatus
   tag?: string
   mistakeTag?: string
   reviewCategory?: ReviewCategory
+  caseType?: CaseType
+  masteryState?: MasteryState
   session?: TradeSessionKind
   period?: CalendarPeriod
   strategyId?: string
@@ -321,12 +332,15 @@ export function getVisibleTradeTags(trade: Trade, limit = 2) {
 }
 
 export function matchesTradeFacets(trade: Trade, facets: TradeFacetFilters): boolean {
+  if (facets.tradeKind && trade.tradeKind !== facets.tradeKind) return false
   if (facets.symbol && trade.symbol !== facets.symbol) return false
   if (facets.side && trade.side !== facets.side) return false
   if (facets.status && trade.status !== facets.status) return false
   if (facets.tag && !trade.tags.includes(facets.tag)) return false
   if (facets.mistakeTag && !trade.mistakeTags.includes(facets.mistakeTag)) return false
   if (facets.reviewCategory && trade.reviewCategory !== facets.reviewCategory) return false
+  if (facets.caseType && trade.caseType !== facets.caseType) return false
+  if (facets.masteryState && trade.masteryState !== facets.masteryState) return false
   if (facets.session && getTradeSessionMeta(trade)?.kind !== facets.session) return false
   if (facets.period && !tradeInPeriod(trade, facets.period)) return false
   if (facets.strategyId && trade.strategyId !== facets.strategyId) return false

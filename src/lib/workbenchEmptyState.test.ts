@@ -43,6 +43,32 @@ export function testEmptyLibraryInvitesCreatingTheFirstRecord(): void {
   if (state.title !== '还没有任何记录') {
     throw new Error('An empty library needs distinct copy from an empty filter result')
   }
+  if (
+    state.actionLabel !== '新建交易' ||
+    !state.hint.includes('导入备份') ||
+    !state.hint.includes('配置策略')
+  ) {
+    throw new Error('An empty library must expose the three first-use recovery paths')
+  }
+}
+
+export function testEmptyLibraryCreationMatchesTheCurrentWorkspace(): void {
+  const cases = resolveWorkbenchEmptyState({
+    totalCount: 0,
+    workspaceCount: 0,
+    visibleCount: 0,
+    recordKind: 'case',
+  })
+  const paper = resolveWorkbenchEmptyState({
+    totalCount: 0,
+    workspaceCount: 0,
+    visibleCount: 0,
+    recordKind: 'paper',
+  })
+
+  if (cases?.actionLabel !== '新建案例记录' || paper?.actionLabel !== '新建模拟交易') {
+    throw new Error('空资料库的主操作必须沿用当前工作区的记录语义')
+  }
 }
 
 export function testEmptyWorkspaceInvitesCreatingTheRelevantRecordKind(): void {

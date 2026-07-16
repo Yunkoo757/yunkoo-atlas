@@ -23,6 +23,13 @@ function trackRuntimeErrors(targetPage) {
 
 trackRuntimeErrors(page)
 
+async function recyclePage(viewport = { width: 1280, height: 800 }) {
+  await page.close()
+  page = await context.newPage()
+  trackRuntimeErrors(page)
+  await page.setViewportSize(viewport)
+}
+
 function record(name, pass, detail = '') {
   results.push({ name, pass, detail })
   console.log(`${pass ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`)
@@ -238,12 +245,14 @@ try {
   await closeDialog.getByRole('button', { name: '保存并待复盘', exact: true }).click()
   await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
   await page.getByText('交易待复盘', { exact: true }).waitFor({ state: 'visible' })
+  await editor.click()
+  await editor.fill('复盘证据：确认入场依据，并记录下一次执行改进。')
   await page.getByRole('button', { name: '完成复盘', exact: true }).click()
   await page.getByText('复盘已完成', { exact: true }).waitFor({ state: 'visible' })
   const reviewedStageText = await page.locator('.dv-review-stage').innerText()
   const reviewedPropertiesText = await page.locator('.dv-props').innerText()
   record(
-    'R 倍数平仓后可无笔记完成复盘',
+    'R 倍数平仓并补充证据后可完成复盘',
     reviewedStageText.includes('复盘已完成') &&
       /盈亏\s+—/.test(reviewedPropertiesText) &&
       /R 倍数\s+\+2\.0R/.test(reviewedPropertiesText),
@@ -265,7 +274,7 @@ try {
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.getByRole('tab', { name: '全部类型' }).click()
+  await page.getByRole('button', { name: '全部类型' }).click()
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
@@ -289,6 +298,33 @@ try {
     '1280px 交易列表不裁切',
     desktopLayout.rowExists && desktopLayout.rowRight <= desktopLayout.viewportWidth,
     `rowRight=${Math.round(desktopLayout.rowRight)}, viewport=${desktopLayout.viewportWidth}`,
+  )
+
+  const caseRowsBeforeCopy = await page.locator('.trade-row').count()
+  await page.locator('.trade-row-check').first().check()
+  await page.getByRole('button', { name: '复制案例', exact: true }).click()
+  const copyDialog = page.getByRole('dialog', { name: '确认安全复制' })
+  await copyDialog.waitFor({ state: 'visible', timeout: 5000 })
+  const copyPreviewText = await copyDialog.innerText()
+  record(
+    '安全复制先预览目标语义与数据影响',
+    (await page.locator('.trade-row').count()) === caseRowsBeforeCopy &&
+      copyPreviewText.includes('目标：新的知识案例') &&
+      copyPreviewText.includes('保留') &&
+      copyPreviewText.includes('重置'),
+    copyPreviewText.replace(/\s+/g, ' ').slice(0, 220),
+  )
+  await copyDialog.getByRole('button', { name: '取消', exact: true }).click()
+  await page.getByRole('button', { name: '复制案例', exact: true }).click()
+  await copyDialog.getByRole('button', { name: '复制 1 个案例', exact: true }).click()
+  await page.waitForFunction(
+    (expected) => document.querySelectorAll('.trade-row').length === expected,
+    caseRowsBeforeCopy + 1,
+  )
+  record(
+    '确认后一次提交生成独立案例副本',
+    (await page.locator('.trade-row').count()) === caseRowsBeforeCopy + 1,
+    `rows=${await page.locator('.trade-row').count()}`,
   )
 
   const rowOpen = page.locator('.trade-row-open').first()
@@ -453,6 +489,8 @@ try {
   }
   record('案例记录页可打开新建流程', true)
 
+  await recyclePage()
+
   const settingsRoutes = [
     '/settings/profile',
     '/settings/shortcuts',
@@ -471,7 +509,7 @@ try {
 
   const secondaryRoutes = ['/dashboard', '/settings/profile', '/review-cases']
   const secondaryOverflow = []
-  await page.setViewportSize({ width: 900, height: 800 })
+  await recyclePage({ width: 900, height: 800 })
   for (const path of secondaryRoutes) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' })
     await waitForApp()
@@ -485,7 +523,7 @@ try {
     secondaryOverflow.length === 0,
     secondaryOverflow.join(', ') || 'none',
   )
-  await page.setViewportSize({ width: 1440, height: 900 })
+  await recyclePage({ width: 1440, height: 900 })
 
   const reviewCaseRoutes = [
     { path: '/review-cases', tab: '全部' },
@@ -513,8 +551,13 @@ try {
 
   await page.getByRole('button', { name: '筛选案例' }).click()
   await page.getByRole('dialog', { name: '案例筛选' }).waitFor({ state: 'visible' })
-  const caseTypeSelectorCount = await page.getByRole('combobox', { name: '类型' }).count()
-  record('案例筛选器不再承担模块切换', caseTypeSelectorCount === 0)
+  const caseTypeSelectorCount = await page.getByRole('combobox', { name: '案例类型', exact: true }).count()
+  const masterySelectorCount = await page.getByRole('combobox', { name: '掌握状态', exact: true }).count()
+  const reviewCategorySelectorCount = await page.getByRole('combobox', { name: '复盘分类', exact: true }).count()
+  record(
+    '案例筛选器覆盖类型、掌握状态与复盘分类',
+    caseTypeSelectorCount === 1 && masterySelectorCount === 1 && reviewCategorySelectorCount === 1,
+  )
   await page.keyboard.press('Escape')
 
   await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
@@ -527,11 +570,18 @@ try {
 
   await page.goto(`${BASE}/list?symbol=ETHUSDT&side=long`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.getByRole('button', { name: '筛选交易' }).click()
+  const filterTrigger = page.getByRole('button', { name: '筛选交易' })
+  await filterTrigger.click()
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'visible' })
   await page.keyboard.press('Escape')
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'hidden' })
-  const triggerFocused = await page.getByRole('button', { name: '筛选交易' }).evaluate(
+  const filterTriggerHandle = await filterTrigger.elementHandle()
+  if (!filterTriggerHandle) throw new Error('筛选器触发按钮不存在')
+  await page.waitForFunction(
+    (element) => element === document.activeElement,
+    filterTriggerHandle,
+  )
+  const triggerFocused = await filterTrigger.evaluate(
     (element) => element === document.activeElement,
   )
   record('筛选器 Escape 关闭并返还焦点', triggerFocused)
@@ -584,6 +634,7 @@ try {
     { name: '1920x1080', width: 1920, height: 1080 },
   ]
 
+  await page.close()
   for (const viewport of baselineViewports) {
     for (const route of baselineRoutes) {
       const baselinePage = await context.newPage()

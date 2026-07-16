@@ -78,10 +78,15 @@ import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
-import { isVerifiedTradeResult, resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
+import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
-import { isAccountTrade } from '@/lib/tradeKind'
+import { computeStrategyStats } from '@/lib/strategies'
+import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
+import {
+  hasMeaningfulReviewTemplate,
+  resolveReviewTemplateHtml,
+} from '@/lib/reviewTemplates'
 import { formatYmd } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -138,6 +143,8 @@ export function DetailView() {
   const [activityOpen, setActivityOpen] = useState(false)
   const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
   const [noteRetrying, setNoteRetrying] = useState(false)
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewIssue, setReviewIssue] = useState<string | null>(null)
   const [noteLoad, setNoteLoad] = useState<{
     tradeId: string | null
     state: DetailNoteLoadResult | { status: 'loading' }
@@ -238,6 +245,7 @@ export function DetailView() {
   const onEditorChange = useCallback(
     (html: string) => {
       setEditorHtml(html)
+      setReviewIssue(null)
       if (!trade?.id) return
       if (!noteResolvedRef.current) return  // 初始内容尚未加载，拒绝保存空/占位内容
       useSaveStatus.getState().setDirty()
@@ -250,14 +258,8 @@ export function DetailView() {
 
   const strategyPreview = (strategyId: string) => {
     const strategy = strategies.find((s) => s.id === strategyId)
-    const strategyTrades = trades.filter(
-      (t) => t.strategyId === strategyId && isAccountTrade(t),
-    )
-    const result = summarizeTradeResults(strategyTrades)
-    const totalR = strategyTrades
-      .filter(isVerifiedTradeResult)
-      .reduce((sum, t) => sum + (t.rMultiple ?? 0), 0)
-    const winRate = result.winRate == null ? null : Math.round(result.winRate)
+    const stats = computeStrategyStats(trades, strategyId)
+    const winRate = stats.winRate == null ? null : Math.round(stats.winRate)
     return (
       <>
         <PreviewHeader
@@ -275,10 +277,10 @@ export function DetailView() {
         <PreviewMeta>
           <span className="hp-meta-item">
             <Box size={14} />
-            <span className="hp-meta-strong">{strategyTrades.length}</span> 笔交易
+            <span className="hp-meta-strong">{stats.tradeCount}</span> 笔交易
           </span>
           <span className="hp-meta-item">
-            {winRate == null ? '暂无胜率' : `${winRate}% 胜率`} · {fmtR(totalR)}
+            {winRate == null ? '暂无胜率' : `${winRate}% 胜率`} · {fmtR(stats.totalR)}
           </span>
         </PreviewMeta>
       </>
@@ -303,6 +305,8 @@ export function DetailView() {
   useEffect(() => {
     setActivityOpen(false)
     setFeedExpanded(false)
+    setReviewIssue(null)
+    setReviewSubmitting(false)
   }, [trade?.id])
 
   const activities = useMemo(
@@ -385,6 +389,15 @@ export function DetailView() {
   const activeNoteLoad = noteLoad.tradeId === trade.id
     ? noteLoad.state
     : { status: 'loading' as const }
+  const reviewStrategy = strategies.find((strategy) => strategy.id === trade.strategyId)
+  const reviewTemplateHtml = resolveReviewTemplateHtml(
+    reviewStrategy?.reviewTemplateHtml,
+    trade.status === 'missed',
+  )
+  const hasStrategyReviewTemplate = hasMeaningfulReviewTemplate(
+    reviewStrategy?.reviewTemplateHtml,
+  )
+  const reviewReadiness = evaluateReviewCompletion(editorHtml, reviewTemplateHtml)
 
   const commitTradeResultEdit = (edit: TradeResultEdit) => {
     const result = prepareTradeResultEdit(trade, edit)
@@ -445,6 +458,7 @@ export function DetailView() {
   const truth = resolveTradeTruth(trade)
   const needsResult =
     trade.tradeKind !== 'case' && truth.executionState === 'closed' && !truth.isResultComplete
+  const hasResultConflict = needsResult && truth.hasConflict
   const needsReview =
     trade.tradeKind !== 'case' &&
     trade.reviewStatus !== 'reviewed' &&
@@ -459,13 +473,52 @@ export function DetailView() {
     : undefined
 
   const completeReview = async () => {
-    const noteSaved = await flushNoteDraftToStore(trade.id)
-    if (!noteSaved) {
-      toast('笔记图片尚未保存，复盘状态未变更')
+    if (reviewSubmitting || activeNoteLoad.status !== 'ready' || !reviewReadiness.ready) return
+
+    setReviewSubmitting(true)
+    setReviewIssue(null)
+    try {
+      const noteSaved = await flushNoteDraftToStore(trade.id)
+      if (!noteSaved) {
+        const message = '笔记图片尚未保存，复盘状态未变更'
+        setReviewIssue(message)
+        toast(message)
+        return
+      }
+
+      const latestNote = useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? ''
+      const latestReadiness = evaluateReviewCompletion(latestNote, reviewTemplateHtml)
+      if (!latestReadiness.ready) {
+        const message = latestReadiness.reason === 'empty'
+          ? '笔记已变为空白，请补充复盘内容后重试'
+          : '请补充复盘结论、勾选检查项或加入截图证据'
+        setReviewIssue(message)
+        toast(message)
+        return
+      }
+
+      updateTradeData(trade.id, { reviewStatus: 'reviewed' })
+      toast(`${trade.ref} 复盘已完成`)
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
+  const applyReviewTemplate = () => {
+    if (activeNoteLoad.status !== 'ready') {
+      toast('复盘笔记尚未载入，请稍后再试')
       return
     }
-    updateTradeData(trade.id, { reviewStatus: 'reviewed' })
-    toast(`${trade.ref} 复盘已完成`)
+    if (evaluateReviewCompletion(editorHtml).reason !== 'empty') {
+      toast('当前复盘已有内容，未覆盖原笔记')
+      return
+    }
+
+    onEditorChange(reviewTemplateHtml)
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>('.dv-document .ProseMirror')?.focus()
+    })
+    toast(hasStrategyReviewTemplate ? '已应用策略复盘模板' : '已应用复盘模板')
   }
 
   const updateCaseMastery = (masteryState: MasteryState) => {
@@ -571,6 +624,7 @@ export function DetailView() {
                 className={
                   'dv-review-stage' +
                   (needsResult ? ' is-result-pending' : '') +
+                  (hasResultConflict ? ' is-result-conflict' : '') +
                   (reviewComplete ? ' is-complete' : '')
                 }
                 aria-label="交易闭环状态"
@@ -578,41 +632,70 @@ export function DetailView() {
                 <span className="dv-review-stage-icon">
                   {reviewComplete ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                 </span>
-                <div>
+                <div className="dv-review-stage-copy">
                   <strong>
-                    {needsResult ? '交易结果待补齐' : reviewComplete ? '复盘已完成' : '交易待复盘'}
+                    {hasResultConflict
+                      ? '交易结果存在冲突'
+                      : needsResult
+                        ? '交易结果待补齐'
+                        : reviewComplete
+                          ? '复盘已完成'
+                          : '交易待复盘'}
                   </strong>
-                  <span>
-                    {needsResult
-                      ? '补充盈亏或 R 倍数后，才会计入统计。'
+                  <span aria-live="polite">
+                    {hasResultConflict
+                      ? '盈亏、R 倍数或结算状态方向不一致，请核对后重新确认。'
+                      : needsResult
+                        ? '补充盈亏或 R 倍数后，才会计入统计。'
                       : reviewComplete
                         ? '这笔交易已完成记录、结算与复盘闭环。'
-                        : '确认记录无误即可完成，复盘笔记可稍后补充。'}
+                        : reviewIssue ?? '完成前请留下结论、勾选检查项或加入截图证据。'}
                   </span>
                 </div>
-                {needsResult ? (
-                  <button
-                    type="button"
-                    onClick={() => requestTradeClose(
-                      trade.id,
-                      trade.status === 'win' || trade.status === 'loss' || trade.status === 'breakeven'
-                        ? trade.status
-                        : undefined,
-                    )}
-                  >
-                    补齐结果
-                  </button>
-                ) : needsReview ? (
-                  <button type="button" onClick={() => void completeReview()}>完成复盘</button>
-                ) : (
-                  <button
-                    type="button"
-                    className="is-secondary"
-                    onClick={() => updateTradeData(trade.id, { reviewStatus: 'unreviewed' })}
-                  >
-                    重新复盘
-                  </button>
-                )}
+                <div className="dv-review-stage-actions">
+                  {needsResult ? (
+                    <button
+                      type="button"
+                      onClick={() => requestTradeClose(
+                        trade.id,
+                        trade.status === 'win' || trade.status === 'loss' || trade.status === 'breakeven'
+                          ? trade.status
+                          : undefined,
+                      )}
+                    >
+                      {hasResultConflict ? '修正结果' : '补齐结果'}
+                    </button>
+                  ) : needsReview ? (
+                    <>
+                      {activeNoteLoad.status === 'ready' &&
+                        evaluateReviewCompletion(editorHtml).reason === 'empty' && (
+                          <button type="button" onClick={applyReviewTemplate}>
+                            {hasStrategyReviewTemplate ? '使用策略模板' : '使用复盘模板'}
+                          </button>
+                        )}
+                      <button
+                        type="button"
+                        className={reviewReadiness.ready ? undefined : 'is-secondary'}
+                        disabled={
+                          activeNoteLoad.status !== 'ready' ||
+                          !reviewReadiness.ready ||
+                          reviewSubmitting
+                        }
+                        onClick={() => void completeReview()}
+                      >
+                        {reviewSubmitting ? '正在保存…' : '完成复盘'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="is-secondary"
+                      onClick={() => updateTradeData(trade.id, { reviewStatus: 'unreviewed' })}
+                    >
+                      重新复盘
+                    </button>
+                  )}
+                </div>
               </section>
             )}
             <div className={'dv-document' + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}>
@@ -651,6 +734,7 @@ export function DetailView() {
                     key={`${trade.id}:note`}
                     content={activeNoteLoad.status === 'error' ? activeNoteLoad.fallbackHtml : editorHtml}
                     onChange={onEditorChange}
+                    ariaLabel={trade.tradeKind === 'case' ? '案例复盘笔记' : '交易复盘笔记'}
                     noteDraftId={trade.id}
                     readOnly={activeNoteLoad.status === 'error'}
                   placeholder={
@@ -690,6 +774,7 @@ export function DetailView() {
                   <textarea
                     ref={commentRef}
                     className="dv-comment-input"
+                    aria-label="新增复盘追记"
                     placeholder="补充后续观察或新的理解…"
                     value={comment}
                     onChange={(event) => {

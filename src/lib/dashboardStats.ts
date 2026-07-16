@@ -86,8 +86,26 @@ export function buildRDistribution(values: number[]): DashboardRBucket[] {
   }))
 }
 
+export function describeDashboardResultHealth({
+  conflictCount,
+  missingResultCount,
+}: {
+  conflictCount: number
+  missingResultCount: number
+}): string {
+  const issues = [
+    conflictCount > 0 ? `${conflictCount} 笔结果冲突` : '',
+    missingResultCount > 0 ? `${missingResultCount} 笔待补结果` : '',
+  ].filter(Boolean)
+  return issues.join(' · ') || '结果完整'
+}
+
 export function buildDashboardStats(closed: Trade[], strategyDefs: Strategy[]) {
   const summary = summarizeTradeResults(closed)
+  const missingResultCount = Math.max(
+    0,
+    summary.closedCount - summary.evaluatedCount - summary.conflictCount,
+  )
   const verified = closed.filter(isVerifiedTradeResult)
   const pnlTrades = verified.filter(
     (trade): trade is Trade & { pnl: number } =>
@@ -130,6 +148,7 @@ export function buildDashboardStats(closed: Trade[], strategyDefs: Strategy[]) {
       return {
         id,
         pnl: result.totalPnl,
+        pnlCount: result.pnlCount,
         n: result.evaluatedCount,
         closedCount: result.closedCount,
         wins: result.winCount,
@@ -138,11 +157,21 @@ export function buildDashboardStats(closed: Trade[], strategyDefs: Strategy[]) {
         winRate: result.winRate,
       }
     })
-    .sort((left, right) => right.pnl - left.pnl)
-  const maxAbs = Math.max(1, ...strategies.map((strategy) => Math.abs(strategy.pnl)))
+    .sort((left, right) => {
+      if (left.pnlCount === 0 && right.pnlCount > 0) return 1
+      if (right.pnlCount === 0 && left.pnlCount > 0) return -1
+      return right.pnl - left.pnl
+    })
+  const maxAbs = Math.max(
+    1,
+    ...strategies
+      .filter((strategy) => strategy.pnlCount > 0)
+      .map((strategy) => Math.abs(strategy.pnl)),
+  )
 
   return {
     ...summary,
+    missingResultCount,
     curve: downsampleDashboardCurve(fullCurve),
     strategies,
     maxAbs,

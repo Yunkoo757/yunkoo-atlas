@@ -7,3 +7,66 @@
 }
 
 /* 批量操作条已抽到 components/ui/BatchActionBar.css */
+
+.copy-preview {
+  display: grid;
+  gap: 14px;
+}
+
+.copy-preview-section {
+  padding: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+}
+
+.copy-preview-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.copy-preview-heading strong {
+  color: var(--text-primary);
+  font-size: var(--type-body-size);
+}
+
+.copy-preview-heading span {
+  color: var(--text-tertiary);
+  font-size: var(--type-body-size);
+}
+
+.copy-preview-list {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.copy-preview-list > div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.copy-preview-list dt {
+  color: var(--text-secondary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.copy-preview-list dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-body-size);
+  line-height: 1.55;
+}
+
+@media (max-width: 899px) {
+  .copy-preview-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}
