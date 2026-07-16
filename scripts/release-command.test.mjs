@@ -172,7 +172,15 @@ test('发布流水线在 Windows 之后构建并上传 macOS 产物', () => {
   assert.match(workflow, /build-macos:/)
   assert.match(workflow, /needs:\s*build-windows/)
   assert.match(workflow, /runs-on:\s*macos-latest/)
-  assert.match(workflow, /electron-builder --mac dmg zip --publish never/)
+  assert.match(workflow, /electron-builder --mac dmg zip --x64 --arm64 --publish never/)
+  for (const asset of [
+    'mac-arm64.dmg',
+    'mac-arm64.zip',
+    'mac-x64.dmg',
+    'mac-x64.zip',
+  ]) {
+    assert.match(workflow, new RegExp(asset.replace('.', '\\.')))
+  }
   assert.match(workflow, /gh release upload/)
   assert.match(workflow, /CSC_IDENTITY_AUTO_DISCOVERY/)
 })
