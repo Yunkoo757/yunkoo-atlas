@@ -17,7 +17,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
       QA_PERFORMANCE_PROFILE: hosted-windows
 
     steps:
@@ -45,7 +44,7 @@ jobs:
         id: playwright-cache
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/ms-playwright
+          path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright Chromium

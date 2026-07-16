@@ -19,8 +19,6 @@ jobs:
   quality:
     runs-on: windows-latest
     timeout-minutes: 15
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
 
     steps:
       - name: Checkout repository
@@ -44,7 +42,7 @@ jobs:
         id: playwright-cache
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/ms-playwright
+          path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright Chromium
@@ -57,8 +55,6 @@ jobs:
   performance:
     runs-on: windows-latest
     timeout-minutes: 20
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
 
     steps:
       - name: Checkout repository
@@ -82,7 +78,7 @@ jobs:
         id: playwright-cache
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/ms-playwright
+          path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright Chromium
