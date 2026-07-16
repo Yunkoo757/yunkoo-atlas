@@ -31,6 +31,8 @@ const ABSOLUTE_BUDGETS_BY_PROFILE = Object.freeze({
   'hosted-windows': Object.freeze({
     ...DEFAULT_ABSOLUTE_BUDGETS_MS,
     dashboardEntryP95Ms: 270,
+    // 共享 runner 的首次浏览器导航波动较大；热恢复 P95 继续承担稳定性能门禁。
+    coldHydrateMs: 4_000,
     warmHydrateP95Ms: 1_400,
   }),
 })
