@@ -84,7 +84,7 @@ async function run(): Promise<void> {
     ids: ['old'],
     cursor: 0,
     filters: DEFAULT_REVIEW_SESSION_FILTERS,
-    flipped: true,
+    assessments: { old: 'recheck' },
   })
   const oldAssetId = await adapter.saveAsset(
     new Blob(['old-image'], { type: 'image/png' }),

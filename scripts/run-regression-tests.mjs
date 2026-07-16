@@ -175,7 +175,7 @@ try {
     {
       url: '/src/views/ReviewSession.browser.test.html',
       promiseKey: '__reviewSessionFlowTest',
-      label: 'src/views/ReviewSession.browser.test.tsx :: concealed card, keyboard capture, missing image and detail restore',
+      label: 'src/views/ReviewSession.browser.test.tsx :: direct review, mastery assessment, image gallery and detail restore',
     },
     {
       url: '/src/editor/imageLoadFailure.browser.test.html',

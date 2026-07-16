@@ -188,7 +188,7 @@ export async function testResultConflictsAndReviewShortcutsHaveDedicatedRecovery
     review.includes('data-review-session-focus') &&
       review.includes("? '[data-review-session-focus]'") &&
       review.includes('data-review-session-finished-focus'),
-    '随机复盘翻面/换卡后必须把焦点留在可连续接收快捷键的容器',
+    '随机复盘评估/换条后必须把焦点留在可连续接收快捷键的容器',
   )
   assert(
     review.includes('const rTone = metricTone(trade.rMultiple)') &&

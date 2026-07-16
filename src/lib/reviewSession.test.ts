@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import {
   DEFAULT_REVIEW_SESSION_FILTERS,
+  buildReviewAssessmentPatch,
   buildReviewSessionPool,
   clearReviewSessionStorage,
   loadReviewSession,
@@ -145,24 +146,48 @@ export function testReviewSessionShufflePreservesUniqueMembershipAndInput(): voi
   assert(new Set(shuffled).size === input.length, '单轮队列不得出现重复 id')
 }
 
+export function testReviewAssessmentBuildsMasteryAndRecheckPlans(): void {
+  const now = new Date(2026, 6, 16, 12)
+  const unfamiliar = buildReviewAssessmentPatch(
+    { ...baseTrade, reviewCategory: 'mistake' },
+    'unfamiliar',
+    now,
+  )
+  assert(unfamiliar.masteryState === 'new' && unfamiliar.nextReviewAt === '2026-07-19',
+    '还没掌握应安排 3 天后复看')
+  assert(unfamiliar.reviewCategory === 'mistake', '还没掌握不得抹掉原有错误分类')
+
+  const recheck = buildReviewAssessmentPatch(baseTrade, 'recheck', now)
+  assert(recheck.masteryState === 'recheck' && recheck.nextReviewAt === '2026-07-23',
+    '基本理解应安排 7 天后复看')
+  assert(recheck.reviewStatus === 'unreviewed' && recheck.reviewCategory === 'recheck',
+    '基本理解应回到待复看状态')
+
+  const mastered = buildReviewAssessmentPatch(baseTrade, 'mastered', now)
+  assert(mastered.masteryState === 'mastered' && mastered.nextReviewAt === null,
+    '已经掌握应清空复看日期')
+  assert(mastered.reviewStatus === 'reviewed' && mastered.reviewCategory === 'mastered',
+    '已经掌握应同步完成状态')
+}
+
 export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void {
   const storage = new MemoryStorage()
   const snapshot: ReviewSessionSnapshot = {
     ids: ['case-1', 'live-1'],
     cursor: 1,
     filters: DEFAULT_REVIEW_SESSION_FILTERS,
-    flipped: true,
+    assessments: { 'case-1': 'recheck' },
   }
 
   const runtimeSnapshot = Object.assign({}, snapshot, { transientTrade: baseTrade })
   assert(saveReviewSession('library-a', runtimeSnapshot, storage), '可用 sessionStorage 应保存成功')
   assert(loadReviewSession('library-a', storage)?.cursor === 1, '同一资料库应恢复当前进度')
   assert(loadReviewSession('library-b', storage) === null, '其他资料库不得读取当前队列')
-  assert(reviewSessionStorageKey('library-a').includes(':v1:'), '会话存储键必须包含版本')
+  assert(reviewSessionStorageKey('library-a').includes(':v2:'), '会话存储键必须包含版本')
 
   const raw = storage.getItem(reviewSessionStorageKey('library-a')) ?? ''
-  assert(Object.keys(JSON.parse(raw)).sort().join(',') === 'cursor,filters,flipped,ids',
-    '会话只应保存 ids、cursor、filters 与 flipped')
+  assert(Object.keys(JSON.parse(raw)).sort().join(',') === 'assessments,cursor,filters,ids',
+    '会话只应保存随机队列、游标、范围与本轮评估')
 }
 
 export function testReviewSessionStorageFailuresDegradeSafely(): void {
@@ -180,7 +205,7 @@ export function testReviewSessionStorageFailuresDegradeSafely(): void {
     ids: ['live-1'],
     cursor: 0,
     filters: DEFAULT_REVIEW_SESSION_FILTERS,
-    flipped: false,
+    assessments: {},
   }
   assert(!saveReviewSession('library-a', snapshot, unavailable), '配额失败不得中断会话')
   assert(loadReviewSession('library-a', unavailable) === null, '不可用存储应降级为无恢复能力')
@@ -193,7 +218,7 @@ export function testReviewSessionStorageClearIsScopedToCurrentLibrary(): void {
     ids: ['live-1'],
     cursor: 0,
     filters: DEFAULT_REVIEW_SESSION_FILTERS,
-    flipped: false,
+    assessments: {},
   }
   saveReviewSession('library-a', snapshot, storage)
   saveReviewSession('library-b', snapshot, storage)
@@ -204,9 +229,12 @@ export function testReviewSessionStorageClearIsScopedToCurrentLibrary(): void {
 }
 
 export function testReviewSessionKeyboardActionsExcludeEditingAndModifiedInput(): void {
-  assert(reviewSessionKeyAction(keyEvent(' ')) === 'flip', 'Space 应翻面')
-  assert(reviewSessionKeyAction(keyEvent('n')) === 'next', 'N 应进入下一张')
-  assert(reviewSessionKeyAction(keyEvent('ArrowRight')) === 'next', '右方向键应进入下一张')
+  assert(reviewSessionKeyAction(keyEvent('1')) === 'unfamiliar', '1 应记录还没掌握')
+  assert(reviewSessionKeyAction(keyEvent('2')) === 'recheck', '2 应记录基本理解')
+  assert(reviewSessionKeyAction(keyEvent('3')) === 'mastered', '3 应记录已经掌握')
+  assert(reviewSessionKeyAction(keyEvent(' ')) === null, 'Space 不再承担翻面操作')
+  assert(reviewSessionKeyAction(keyEvent('n')) === 'skip', 'N 应跳过当前记录')
+  assert(reviewSessionKeyAction(keyEvent('ArrowRight')) === 'skip', '右方向键应跳过当前记录')
   assert(reviewSessionKeyAction(keyEvent('n', { repeat: true })) === null, '长按重复事件应忽略')
   assert(reviewSessionKeyAction(keyEvent('n', { isComposing: true })) === null, '输入法组合态应忽略')
   assert(reviewSessionKeyAction(keyEvent('n', { keyCode: 229 })) === null, '输入法 229 事件应忽略')
@@ -228,7 +256,7 @@ export function testReviewSessionRestoreDropsUnavailableRecordsWithoutLosingCurr
     ids: ['deleted', 'case-1', 'live-1', 'missing'],
     cursor: 2,
     filters: DEFAULT_REVIEW_SESSION_FILTERS,
-    flipped: true,
+    assessments: { deleted: 'mastered', 'case-1': 'recheck' },
   }
   const trades: Trade[] = [
     { ...baseTrade, id: 'deleted', deletedAt: '2026-07-16T00:00:00.000Z' },
@@ -240,7 +268,8 @@ export function testReviewSessionRestoreDropsUnavailableRecordsWithoutLosingCurr
 
   assert(restored?.ids.join(',') === 'case-1,live-1', '恢复时应剔除删除或不存在的记录')
   assert(restored?.cursor === 1, '剔除前序记录后仍应停留在同一张卡')
-  assert(restored?.flipped === true, '有效当前卡应保留翻转状态')
+  assert(restored?.assessments['case-1'] === 'recheck', '有效记录的本轮评估应保留')
+  assert(restored?.assessments.deleted === undefined, '失效记录的评估应一并剔除')
 }
 
 export function testReviewSessionIsAValidDetailReturnForCasesAndTrades(): void {

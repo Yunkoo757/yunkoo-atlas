@@ -74,7 +74,7 @@ const trade: Trade = {
   resultSource: 'imported',
   openedAt: '2026-07-15',
   closedAt: '2026-07-16',
-  note: '<p>秘密结论：等待回踩确认。</p><img src="journal-asset://missing-review-chart">',
+  note: '<p>复盘结论：等待回踩确认。</p><img alt="结构图" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%235e6ad2%22/%3E%3C/svg%3E"><img src="journal-asset://missing-review-chart">',
 }
 
 function DetailProbe() {
@@ -132,84 +132,85 @@ async function run(): Promise<void> {
 
   try {
     await waitFor(
-      () => document.body.textContent?.includes('将开始 1 张') === true,
-      '随机复盘没有显示实时牌池数量',
+      () => document.body.textContent?.includes('可随机复盘 1 条') === true,
+      '随机复盘没有显示实时范围数量',
     )
-    findButton('开始复盘')?.click()
+    findButton('随机开始')?.click()
     await waitFor(
-      () => Boolean(document.querySelector('.review-session-card.is-front')),
-      '开始后没有进入卡片正面',
-    )
-    await waitFor(
-      () => document.activeElement?.hasAttribute('data-review-session-focus') === true,
-      '开始复盘后没有把焦点移入卡片',
-    )
-    const frontCard = document.querySelector<HTMLButtonElement>('.review-session-card.is-front')
-    assert(frontCard?.hasAttribute('aria-labelledby'), '正面卡片必须关联可见交易信息作为名称')
-    assert(!frontCard?.hasAttribute('aria-label'), '正面卡片不得用简略 aria-label 覆盖可见信息')
-    assert(!document.body.textContent?.includes('秘密结论'), '卡片正面 DOM 不得包含笔记正文')
-    assert(!document.querySelector('.review-session-card.is-front img'), '卡片正面 DOM 不得包含笔记图片')
-
-    document.body.dispatchEvent(new KeyboardEvent('keydown', {
-      key: ' ',
-      bubbles: true,
-      cancelable: true,
-    }))
-    await waitFor(
-      () => document.body.textContent?.includes('秘密结论') === true,
-      'Space 没有翻面并按需载入笔记',
+      () => Boolean(document.querySelector('.review-session-workspace')),
+      '开始后没有直接打开完整交易',
     )
     await waitFor(
       () => document.activeElement?.hasAttribute('data-review-session-focus') === true,
-      '翻面后没有把焦点移到可连续使用快捷键的卡片容器',
+      '开始复盘后没有把焦点移入当前交易',
     )
+    await waitFor(
+      () => document.body.textContent?.includes('复盘结论') === true,
+      '完整交易没有直接显示复盘正文',
+    )
+    assert(!document.querySelector('.review-session-card.is-front, .review-session-card.is-back'), '随机复盘不得再出现正反面卡片')
+    assert(document.querySelectorAll('.review-session-gallery img').length === 1, '有效截图应从正文拆入受控图片画廊')
     assert(
       document.body.textContent?.includes('图片附件缺失'),
       '图片读取失败应显示可继续复盘的缺失占位',
     )
 
     const openDetail = findButton('打开详情')
-    assert(openDetail, '复盘卡背面缺少详情入口')
+    assert(openDetail, '完整复盘缺少详情入口')
     openDetail.focus()
     const buttonSpaceAccepted = openDetail.dispatchEvent(new KeyboardEvent('keydown', {
       key: ' ',
       bubbles: true,
       cancelable: true,
     }))
-    assert(buttonSpaceAccepted, '按钮获得焦点时 Space 不得被全局翻面快捷键消费')
-    assert(document.body.textContent?.includes('秘密结论'), '按钮 Space 不得意外翻回卡片正面')
+    assert(buttonSpaceAccepted, '按钮获得焦点时 Space 必须保留原生激活行为')
+    assert(document.body.textContent?.includes('复盘结论'), '按钮 Space 不得推进当前交易')
 
     openDetail.click()
     await waitFor(() => Boolean(document.querySelector('[data-detail-probe]')), '没有进入交易详情')
     assert(document.body.textContent?.includes('/review-session'), '详情来源没有记录随机复盘')
     findButton('返回复盘')?.click()
     await waitFor(
-      () => document.body.textContent?.includes('秘密结论') === true,
-      '从详情返回后没有恢复同一张卡及翻面状态',
+      () => document.body.textContent?.includes('复盘结论') === true,
+      '从详情返回后没有恢复同一条完整交易',
     )
-    assert(loadReviewSession(manifest.libraryId)?.flipped === true, '翻面状态没有写入版本化会话')
+    assert(loadReviewSession(manifest.libraryId)?.cursor === 0, '打开详情不得推进随机队列')
 
     const shortcutTarget = document.activeElement ?? document.body
     const accepted = shortcutTarget.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'n',
+      key: '2',
       bubbles: true,
       cancelable: true,
     }))
-    assert(!accepted, 'N 应在捕获阶段被随机复盘消费')
+    assert(!accepted, '掌握度快捷键应在捕获阶段被随机复盘消费')
     await waitFor(
-      () => loadReviewSession(manifest.libraryId)?.cursor === 1,
-      'N 没有推进并保存会话游标',
+      () => loadReviewSession(manifest.libraryId)?.assessments[trade.id] === 'recheck',
+      '基本理解没有写入会话结果',
     )
-    assert(!useStore.getState().composerOpen, '随机复盘中的 N 不得触发全局新建交易')
+    const assessed = useStore.getState().trades.find((item) => item.id === trade.id)
+    assert(assessed?.masteryState === 'recheck', '评估没有写回记录掌握度')
+    assert(assessed.reviewCategory === 'recheck' && Boolean(assessed.nextReviewAt), '基本理解没有生成复看计划')
     await waitFor(
       () => document.body.textContent?.includes('本轮完成') === true,
-      'N 没有进入下一张或完成本轮',
+      '评估后没有进入下一条或完成本轮',
     )
     await waitFor(
       () => document.activeElement?.hasAttribute('data-review-session-finished-focus') === true,
       '完成本轮后没有把焦点移到完成状态',
     )
     assert(document.querySelector('[data-review-session-finished-focus]')?.getAttribute('role') === 'status', '完成状态必须向读屏播报')
+    assert(document.body.textContent?.includes('基本理解') === true, '完成页没有汇总掌握度')
+
+    findButton('再随机一轮')?.click()
+    await waitFor(() => Boolean(document.querySelector('.review-session-workspace')), '无法再次随机开始')
+    const skipAccepted = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'n',
+      bubbles: true,
+      cancelable: true,
+    }))
+    assert(!skipAccepted, 'N 应在捕获阶段执行跳过')
+    await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 1, 'N 没有跳过当前记录')
+    assert(!useStore.getState().composerOpen, '随机复盘中的 N 不得触发全局新建交易')
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)

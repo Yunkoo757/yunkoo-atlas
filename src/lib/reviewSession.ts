@@ -1,4 +1,5 @@
 import type { Trade } from '@/data/trades'
+import { formatYmd } from '@/lib/periods'
 import {
   matchesReviewCaseScope,
   type ReviewCaseScope,
@@ -16,11 +17,53 @@ export type ReviewSessionSnapshot = {
   ids: string[]
   cursor: number
   filters: ReviewSessionFilters
-  flipped: boolean
+  assessments: Partial<Record<string, ReviewSessionAssessment>>
+}
+
+export type ReviewSessionAssessment = 'unfamiliar' | 'recheck' | 'mastered'
+
+export function buildReviewAssessmentPatch(
+  trade: Trade,
+  assessment: ReviewSessionAssessment,
+  now: Date = new Date(),
+) {
+  if (assessment === 'mastered') {
+    return {
+      masteryState: 'mastered' as const,
+      nextReviewAt: null,
+      reviewStatus: 'reviewed' as const,
+      reviewCategory: 'mastered' as const,
+    }
+  }
+
+  const nextReview = new Date(now)
+  nextReview.setDate(nextReview.getDate() + (assessment === 'unfamiliar' ? 3 : 7))
+  if (assessment === 'recheck') {
+    return {
+      masteryState: 'recheck' as const,
+      nextReviewAt: formatYmd(nextReview),
+      reviewStatus: 'unreviewed' as const,
+      reviewCategory: 'recheck' as const,
+    }
+  }
+
+  const reviewCategory = trade.reviewCategory !== 'mastered' && trade.reviewCategory !== 'recheck'
+    ? trade.reviewCategory
+    : trade.caseType === 'mistake'
+      ? 'mistake' as const
+      : trade.caseType === 'ambiguous'
+        ? 'ambiguous' as const
+        : 'normal' as const
+  return {
+    masteryState: 'new' as const,
+    nextReviewAt: formatYmd(nextReview),
+    reviewStatus: 'unreviewed' as const,
+    reviewCategory,
+  }
 }
 
 export type ReviewSessionStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-export type ReviewSessionKeyAction = 'flip' | 'next'
+export type ReviewSessionKeyAction = ReviewSessionAssessment | 'skip'
 
 const REVIEW_SESSION_SCOPES: ReviewCaseScope[] = [
   'all',
@@ -88,17 +131,17 @@ export function reconcileReviewSession(
   const ids = snapshot.ids.filter((id) => eligibleIds.has(id))
   if (ids.length === 0) return null
 
-  const originalCurrentId = snapshot.ids[snapshot.cursor]
   const cursor = snapshot.cursor >= snapshot.ids.length
     ? ids.length
     : snapshot.ids.slice(0, snapshot.cursor).filter((id) => eligibleIds.has(id)).length
-  const currentPreserved = originalCurrentId !== undefined && ids[cursor] === originalCurrentId
 
   return {
     ids,
     cursor: Math.min(cursor, ids.length),
     filters: snapshot.filters,
-    flipped: currentPreserved ? snapshot.flipped : false,
+    assessments: Object.fromEntries(
+      Object.entries(snapshot.assessments).filter(([id]) => eligibleIds.has(id)),
+    ),
   }
 }
 
@@ -124,13 +167,15 @@ export function reviewSessionKeyAction(event: KeyboardEvent): ReviewSessionKeyAc
   ) return null
 
   const key = normalizeKey(event.key)
-  if (key === 'space') return 'flip'
-  if (key === 'n' || key === 'arrowright') return 'next'
+  if (key === '1') return 'unfamiliar'
+  if (key === '2') return 'recheck'
+  if (key === '3') return 'mastered'
+  if (key === 'n' || key === 'arrowright') return 'skip'
   return null
 }
 
 export function reviewSessionStorageKey(libraryId: string): string {
-  return `yunkoo-atlas:review-session:v1:${encodeURIComponent(libraryId)}`
+  return `yunkoo-atlas:review-session:v2:${encodeURIComponent(libraryId)}`
 }
 
 function browserSessionStorage(): ReviewSessionStorage | null {
@@ -157,7 +202,7 @@ export function saveReviewSession(
         caseScope: snapshot.filters.caseScope,
         requireContent: snapshot.filters.requireContent,
       },
-      flipped: snapshot.flipped,
+      assessments: snapshot.assessments,
     }))
     return true
   } catch {
@@ -215,8 +260,16 @@ function isReviewSessionSnapshot(value: unknown): value is ReviewSessionSnapshot
   if (!Number.isInteger(snapshot.cursor) || snapshot.cursor! < 0 || snapshot.cursor! > snapshot.ids.length) {
     return false
   }
-  if (typeof snapshot.flipped !== 'boolean' || !isReviewSessionFilters(snapshot.filters)) return false
+  if (!isReviewSessionFilters(snapshot.filters) || !isReviewSessionAssessments(snapshot.assessments)) return false
   return new Set(snapshot.ids).size === snapshot.ids.length
+}
+
+function isReviewSessionAssessments(
+  value: unknown,
+): value is Partial<Record<string, ReviewSessionAssessment>> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const valid = new Set<ReviewSessionAssessment>(['unfamiliar', 'recheck', 'mastered'])
+  return Object.entries(value).every(([id, assessment]) => id.length > 0 && valid.has(assessment as ReviewSessionAssessment))
 }
 
 function isReviewSessionFilters(value: unknown): value is ReviewSessionFilters {
