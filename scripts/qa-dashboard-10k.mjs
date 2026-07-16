@@ -31,6 +31,7 @@ const ABSOLUTE_BUDGETS_BY_PROFILE = Object.freeze({
   'hosted-windows': Object.freeze({
     ...DEFAULT_ABSOLUTE_BUDGETS_MS,
     dashboardEntryP95Ms: 270,
+    coldHydrateMs: 2_200,
     warmHydrateP95Ms: 1_400,
   }),
 })
