@@ -90,7 +90,7 @@ test('重复执行发布工作流时更新并覆盖既有 Release 资产', () =>
   assert.match(workflow, /release upload \$tag @assetPaths --clobber/)
 })
 
-test('本地发布运行完整门禁，云端打包复验构建与 Electron 数据链路', () => {
+test('本地发布运行完整门禁，CI 打包复验构建与 Electron 数据链路', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const release = readFileSync('scripts/release.mjs', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))

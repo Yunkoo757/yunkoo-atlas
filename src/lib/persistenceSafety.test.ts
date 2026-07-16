@@ -67,18 +67,24 @@ export async function testLibraryLocationConfigUsesAtomicPersistence(): Promise<
   assert(!paths.includes('fs.writeFileSync(getConfigPath()'), '资料库路径配置不得存在中断后半写文件风险')
 }
 
-export async function testActiveLibraryCopyNeverRecommendsCloudFolderSync(): Promise<void> {
-  const [dataSettings, welcome] = await Promise.all([
+export async function testUserDataStorageHasNoCloudSyncSurfaceOrRuntime(): Promise<void> {
+  const [dataSettings, welcome, app, storage, ipc, qa, settingsLayout] = await Promise.all([
     fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
     fs.readFile('src/components/WelcomeScreen.tsx', 'utf8'),
+    fs.readFile('src/App.tsx', 'utf8'),
+    fs.readFile('electron/library/storage.ts', 'utf8'),
+    fs.readFile('electron/library/ipc.ts', 'utf8'),
+    fs.readFile('electron/qa.ts', 'utf8'),
+    fs.readFile('src/views/settings/SettingsLayout.tsx', 'utf8'),
   ])
-  assert(!dataSettings.includes('可用 iCloud'), '数据设置不得推荐同步正在使用的资料库目录')
-  assert(!welcome.includes('iCloud / OneDrive 中以备同步'), '首次建库不得引导用户把活动资料库放进网盘')
-  assert(
-    dataSettings.includes('不要同步正在使用的库目录'),
-    '数据设置必须明确区分活动资料库与可安全同步的导出备份',
-  )
-  assert(welcome.includes('云盘可用于存放导出的备份包'), '首次建库应说明云盘只用于导出备份')
+  const productSources = [dataSettings, welcome, app, storage, ipc, qa, settingsLayout].join('\n')
+  for (const forbidden of ['iCloud', 'OneDrive', '云盘', '云同步', '云端数据']) {
+    assert(!productSources.includes(forbidden), `产品不得保留用户数据云同步语境：${forbidden}`)
+  }
+  assert(!storage.includes('findIcloudConflictDbCandidate'), '本地存储不得保留云盘冲突副本恢复实现')
+  assert(!app.includes('/settings/sync'), '设置中不得保留云同步入口')
+  assert(dataSettings.includes('本机磁盘'), '数据设置必须明确资料库保存在本机磁盘')
+  assert(welcome.includes('定期创建完整备份'), '首次建库必须给出本地备份建议')
 }
 
 export async function testBackupRestoreValidatesDatabaseBeforeMutatingCurrentLibrary(): Promise<void> {

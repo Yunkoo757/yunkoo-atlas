@@ -224,8 +224,8 @@ export function DataIOContent({
             <p className="dio-desc">正在读取库路径…</p>
           )}
           <p className="dio-desc">
-            数据保存在 journal.db、manifest.json 与 attachments/ 文件夹中。请放在本地磁盘；不要同步正在使用的库目录。
-            跨设备迁移请先导出完整备份，再在另一台设备导入。
+            数据保存在本机磁盘的 journal.db、manifest.json 与 attachments/ 文件夹中。
+            更换电脑时，请先导出完整备份，再在另一台设备导入。
           </p>
           <div className="dio-lib-actions">
             <button

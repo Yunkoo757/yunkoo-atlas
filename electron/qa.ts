@@ -279,21 +279,8 @@ export async function runElectronQa(): Promise<QaCheck[]> {
       )
     }
 
-    // iCloud 可能把 journal.db 改名为冲突副本。缺少主文件时必须恢复已有数据，
-    // 而不是静默创建空库；若只有 manifest，则必须拒绝启动写入。
-    storage.saveSnapshot(snapshotWithRef('TRD-CONFLICT-RECOVERY'))
+    // 数据库主文件缺失但 manifest 仍存在时，必须拒绝静默创建空库。
     storage.release()
-    const conflictPath = path.join(paths.root, 'journal 2.db')
-    fs.copyFileSync(paths.dbFile, conflictPath)
-    fs.rmSync(paths.dbFile, { force: true })
-    await storage.open()
-    record(
-      'iCloud conflict copy recovers missing journal.db',
-      storage.loadSnapshot()?.trades?.[0]?.ref === 'TRD-CONFLICT-RECOVERY',
-    )
-
-    storage.release()
-    fs.rmSync(conflictPath, { force: true })
     const protectedDb = fs.readFileSync(paths.dbFile)
     fs.rmSync(paths.dbFile, { force: true })
     let missingDbError = ''

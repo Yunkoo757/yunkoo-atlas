@@ -245,7 +245,7 @@ async function prepareActiveLibrarySwitch(
       return { ok: false, error: '所选目录已经是当前交易库' }
     }
 
-    // “打开”先做一次完整校验，但不长期缓存 DB；激活时会重新打开，避免覆盖云盘新版本。
+    // “打开”先做一次完整校验，但不长期缓存 DB；激活时重新打开，读取磁盘最新版本。
     if (mode === 'open') {
       const validated = await openLibrarySwitchCandidate(resolvedPath, mode)
       if (areSameLibrary(sourceStorage, validated.candidate)) {

@@ -446,7 +446,7 @@ export function App() {
       if (!complete) throw new Error('笔记中的图片尚未保存完成')
     })
     const safeFlush = () => {
-      // hydrate 完成前禁止 flush，避免空默认 store 覆盖 iCloud 库
+      // hydrate 完成前禁止 flush，避免空默认 store 覆盖磁盘资料库
       if (!isStorageHydrated()) return
       flushPersistNow().catch(() => {})
     }
