@@ -51,7 +51,7 @@ test('校验和或页面错误会让 10k 功能基线失败', () => {
   assert.ok(result.checks.some((check) => !check.passed))
 })
 
-test('托管 Windows 的 10k 热恢复预算冻结在 750ms', () => {
+test('本地与托管 Windows 的 10k 热恢复预算分别冻结', () => {
   const observation = {
     expectedChecksum: 'fixture-checksum',
     loadedChecksum: 'fixture-checksum',
@@ -74,8 +74,20 @@ test('托管 Windows 的 10k 热恢复预算冻结在 750ms', () => {
     ...observation,
     warmHydrateP95Ms: 750.001,
   })
+  const hostedAtBudget = evaluateDashboardQa(
+    { ...observation, warmHydrateP95Ms: 1_200 },
+    { budgetProfile: 'hosted-windows' },
+  )
+  const hostedOverBudget = evaluateDashboardQa(
+    { ...observation, warmHydrateP95Ms: 1_200.001 },
+    { budgetProfile: 'hosted-windows' },
+  )
 
   assert.equal(atBudget.performance.budgets.warmHydrateP95Ms.budgetMs, 750)
   assert.equal(atBudget.releasePassed, true)
   assert.equal(overBudget.releasePassed, false)
+  assert.equal(hostedAtBudget.performance.budgetProfile, 'hosted-windows')
+  assert.equal(hostedAtBudget.performance.budgets.warmHydrateP95Ms.budgetMs, 1_200)
+  assert.equal(hostedAtBudget.releasePassed, true)
+  assert.equal(hostedOverBudget.releasePassed, false)
 })
