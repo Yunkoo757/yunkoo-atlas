@@ -53,7 +53,7 @@ xattr -cr "/path/to/Yunkoo Atlas.app"
 
 `package.json` 的 `version` 是唯一版本来源。Git 标签必须与它完全一致，例如 `v1.0.1`。
 
-带预发布后缀的版本（例如 `1.2.15-preview.5`）使用同名 `v` 标签发布。工作流会将其标记为 GitHub Prerelease，并设置为非 latest；该版本不会进入正式版客户端的自动更新通道。
+带预发布后缀的版本（例如 `1.2.15-preview.6`）使用同名 `v` 标签发布。工作流会将其标记为 GitHub Prerelease，并设置为非 latest；该版本不会进入正式版客户端的自动更新通道。
 
 ## 发布命令
 

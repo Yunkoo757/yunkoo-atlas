@@ -171,7 +171,7 @@ jobs:
         run: pnpm build:app
 
       - name: Build macOS DMG and ZIP
-        run: pnpm exec electron-builder --mac dmg zip --publish never
+        run: pnpm exec electron-builder --mac dmg zip --x64 --arm64 --publish never
 
       - name: Upload macOS assets to GitHub Release
         env:
@@ -179,19 +179,16 @@ jobs:
         run: |
           version=$(node -p "require('./package.json').version")
           tag="${{ github.ref_name }}"
-          shopt -s nullglob
           files=(
-            release/Yunkoo-Atlas-"$version"-mac-*.dmg
-            release/Yunkoo-Atlas-"$version"-mac-*.zip
+            release/Yunkoo-Atlas-"$version"-mac-arm64.dmg
+            release/Yunkoo-Atlas-"$version"-mac-arm64.zip
+            release/Yunkoo-Atlas-"$version"-mac-x64.dmg
+            release/Yunkoo-Atlas-"$version"-mac-x64.zip
           )
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No macOS release artifacts found"
-            ls -la release || true
-            exit 1
-          fi
           for file in "${files[@]}"; do
             if [ ! -s "$file" ]; then
-              echo "Release asset is empty: $file"
+              echo "Required macOS release asset is missing or empty: $file"
+              ls -la release || true
               exit 1
             fi
           done
