@@ -35,6 +35,26 @@ test('当前 Windows 环境能够定位真实 pnpm CLI', () => {
   assert.match(invocation.args[0], /pnpm[\\/]bin[\\/]pnpm\.cjs$/)
 })
 
+test('pnpm 安装版本只能由 packageManager 或 Action 配置其中一处声明', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+  const packageManagerDeclaresPnpm = /^pnpm@/.test(pkg.packageManager ?? '')
+
+  for (const workflowPath of [
+    '.github/workflows/ci.yml',
+    '.github/workflows/release.yml',
+  ]) {
+    const workflow = readFileSync(workflowPath, 'utf8')
+    const actionDeclaresPnpm =
+      /uses:\s*pnpm\/action-setup@v4[\s\S]{0,200}?with:\s*\r?\n\s+version:\s*\S+/.test(workflow)
+
+    assert.equal(
+      Number(packageManagerDeclaresPnpm) + Number(actionDeclaresPnpm),
+      1,
+      `${workflowPath} 不得与 package.json 重复声明 pnpm 版本`,
+    )
+  }
+})
+
 test('发布流水线显式安装 Electron 运行时', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   assert.match(
