@@ -1,8 +1,18 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
+function normalizeSourceText(source: string): string {
+  return source.replace(/\r\n?/g, '\n')
+}
+
 function read(relativePath: string): string {
-  return readFileSync(path.resolve(relativePath), 'utf8')
+  return normalizeSourceText(readFileSync(path.resolve(relativePath), 'utf8'))
+}
+
+export function testSourceContractsNormalizeWindowsLineEndings(): void {
+  if (normalizeSourceText('first\r\nsecond\rthird') !== 'first\nsecond\nthird') {
+    throw new Error('source-contract tests must compare normalized line endings')
+  }
 }
 
 export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
