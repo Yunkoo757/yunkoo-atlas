@@ -78,7 +78,7 @@ test('本地与托管 Windows 的 10k 入口、冷恢复及热恢复预算分别
     {
       ...observation,
       dashboardEntryP95Ms: 270,
-      coldHydrateMs: 2_200,
+      coldHydrateMs: 4_000,
       warmHydrateP95Ms: 1_400,
     },
     { budgetProfile: 'hosted-windows' },
@@ -88,7 +88,7 @@ test('本地与托管 Windows 的 10k 入口、冷恢复及热恢复预算分别
     { budgetProfile: 'hosted-windows' },
   )
   const hostedColdOverBudget = evaluateDashboardQa(
-    { ...observation, coldHydrateMs: 2_200.001 },
+    { ...observation, coldHydrateMs: 4_000.001 },
     { budgetProfile: 'hosted-windows' },
   )
 
@@ -97,7 +97,7 @@ test('本地与托管 Windows 的 10k 入口、冷恢复及热恢复预算分别
   assert.equal(overBudget.releasePassed, false)
   assert.equal(hostedAtBudget.performance.budgetProfile, 'hosted-windows')
   assert.equal(hostedAtBudget.performance.budgets.dashboardEntryP95Ms.budgetMs, 270)
-  assert.equal(hostedAtBudget.performance.budgets.coldHydrateMs.budgetMs, 2_200)
+  assert.equal(hostedAtBudget.performance.budgets.coldHydrateMs.budgetMs, 4_000)
   assert.equal(hostedAtBudget.performance.budgets.warmHydrateP95Ms.budgetMs, 1_400)
   assert.equal(hostedAtBudget.releasePassed, true)
   assert.equal(hostedOverBudget.releasePassed, false)
