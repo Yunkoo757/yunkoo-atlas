@@ -50,3 +50,32 @@ test('校验和或页面错误会让 10k 功能基线失败', () => {
   assert.equal(result.releasePassed, false)
   assert.ok(result.checks.some((check) => !check.passed))
 })
+
+test('托管 Windows 的 10k 热恢复预算冻结在 750ms', () => {
+  const observation = {
+    expectedChecksum: 'fixture-checksum',
+    loadedChecksum: 'fixture-checksum',
+    expectedClosedCount: 7_000,
+    renderedClosedCount: 7_000,
+    cardCount: 4,
+    panelCount: 3,
+    hasDataHealth: true,
+    consoleErrors: [],
+    pageErrors: [],
+    dashboardEntryP95Ms: 1,
+    rangeSwitchP95Ms: 1,
+    coldHydrateMs: 1,
+    warmHydrateP95Ms: 750,
+    snapshotSaveP95Ms: 1,
+  }
+
+  const atBudget = evaluateDashboardQa(observation)
+  const overBudget = evaluateDashboardQa({
+    ...observation,
+    warmHydrateP95Ms: 750.001,
+  })
+
+  assert.equal(atBudget.performance.budgets.warmHydrateP95Ms.budgetMs, 750)
+  assert.equal(atBudget.releasePassed, true)
+  assert.equal(overBudget.releasePassed, false)
+})

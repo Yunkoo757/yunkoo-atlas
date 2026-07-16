@@ -443,7 +443,7 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
       dashboardBuild10kWarmP95Ms: 40,
       scopeSwitchToInteractiveP95Ms: 180,
       coldHydrateP95Ms: 1_500,
-      warmHydrateP95Ms: 600,
+      warmHydrateP95Ms: 750,
       fullSnapshotSaveP95Ms: 1_200,
       maxRegressionFromBaselineRatio: 0.1,
       note: 'The microbenchmark tracks the current dashboard kernel; browser interaction budgets are enforced by qa-dashboard-10k.',

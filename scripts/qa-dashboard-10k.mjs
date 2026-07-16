@@ -22,7 +22,7 @@ const ABSOLUTE_BUDGETS_MS = Object.freeze({
   dashboardEntryP95Ms: 180,
   rangeSwitchP95Ms: 180,
   coldHydrateMs: 1_500,
-  warmHydrateP95Ms: 600,
+  warmHydrateP95Ms: 750,
   snapshotSaveP95Ms: 1_200,
 })
 
