@@ -16,28 +16,20 @@ import { EmptyState } from '@/components/EmptyState'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
-import { getStrategyName } from '@/lib/strategies'
-import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { getPeriodBounds, isDateInRange } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
-import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
+import {
+  buildDashboardStats,
+  type DashboardCurvePoint,
+} from '@/lib/dashboardStats'
 import './Dashboard.css'
 
 type TimeRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
 type DashboardKind = 'live' | 'paper' | 'all'
-
-type CurvePoint = {
-  date: string
-  equity: number
-  label: string
-  tradeId: string
-  ref: string
-  pnl: number
-}
 
 const RANGE_OPTS: { value: TimeRange; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -85,82 +77,18 @@ function filterByRange(trades: Trade[], range: TimeRange): Trade[] {
   })
 }
 
-function buildStats(closed: Trade[], strategyDefs: Strategy[]) {
-  const summary = summarizeTradeResults(closed)
-  const verified = closed.filter(isVerifiedTradeResult)
-  const pnlTrades = verified.filter(
-    (trade): trade is Trade & { pnl: number } =>
-      typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
-  )
-  const rTrades = verified.filter(
-    (trade): trade is Trade & { rMultiple: number } =>
-      typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
-  )
-
-  const sorted = [...pnlTrades].sort(
-    (a, b) =>
-      +new Date(a.closedAt ?? a.openedAt) - +new Date(b.closedAt ?? b.openedAt),
-  )
-  let cum = 0
-  const curve: CurvePoint[] = sorted.map((t) => {
-    cum += t.pnl
-    const closedOn = (t.closedAt ?? t.openedAt).slice(0, 10)
-    return {
-      date: closedOn.slice(5),
-      equity: cum,
-      label: t.symbol,
-      tradeId: t.id,
-      ref: t.ref,
-      pnl: t.pnl,
-    }
-  })
-
-  const byStrat = new Map<string, Trade[]>()
-  closed.forEach((t) => {
-    byStrat.set(t.strategyId, [...(byStrat.get(t.strategyId) ?? []), t])
-  })
-  const strategies = [...byStrat.entries()]
-    .map(([id, strategyTrades]) => {
-      const result = summarizeTradeResults(strategyTrades)
-      return {
-        id,
-        pnl: result.totalPnl,
-        n: result.evaluatedCount,
-        closedCount: result.closedCount,
-        wins: result.winCount,
-        name: getStrategyName(strategyDefs, id),
-        meta: strategyDefs.find((s) => s.id === id),
-        winRate: result.winRate,
-      }
-    })
-    .sort((a, b) => b.pnl - a.pnl)
-  const maxAbs = Math.max(1, ...strategies.map((s) => Math.abs(s.pnl)))
-
-  // R 倍数分布
-  const rBuckets = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 5, 10]
-  const rDist = rBuckets.map((lo, i) => {
-    const hi = rBuckets[i + 1]
-    const label = hi ? `${lo}~${hi}` : `>${lo}`
-    const n = hi
-      ? rTrades.filter((t) => t.rMultiple >= lo && t.rMultiple < hi).length
-      : rTrades.filter((t) => t.rMultiple >= lo).length
-    return { label, n, lo }
-  })
-
-  return { ...summary, curve, strategies, maxAbs, rDist }
-}
-
 export function Dashboard() {
   const navigate = useNavigate()
-  const trades = useStore((s) => s.trades).filter((t) => !t.deletedAt)
+  const allTrades = useStore((s) => s.trades)
   const strategyDefs = useStore((s) => s.strategies)
   const openComposer = useStore((s) => s.openComposer)
   const [range, setRange] = useState<TimeRange>('all')
   const [kind, setKind] = useState<DashboardKind>('live')
+  const trades = useMemo(() => allTrades.filter((trade) => !trade.deletedAt), [allTrades])
 
   const stats = useMemo(() => {
     const byKind = filterByKind(trades, kind)
-    return buildStats(filterByRange(byKind, range), strategyDefs)
+    return buildDashboardStats(filterByRange(byKind, range), strategyDefs)
   }, [trades, strategyDefs, range, kind])
   const rangeLabel = RANGE_OPTS.find((o) => o.value === range)?.label ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '全部类型'
@@ -274,7 +202,7 @@ export function Dashboard() {
               </div>
             </div>
             {stats.curve.length > 0 && (
-              <span className="db-panel-hint">悬停或点击数据点查看交易</span>
+              <span className="db-panel-hint">悬停查看走势，点击高亮节点打开交易</span>
             )}
           </div>
           <div className="db-chart">
@@ -303,12 +231,14 @@ export function Dashboard() {
                     stroke="var(--accent)"
                     strokeWidth={2}
                     fill="url(#eq)"
-                    dot={{ r: 2.5, strokeWidth: 1, fill: 'var(--bg-elevated)' }}
+                    dot={stats.curve.length <= 120
+                      ? { r: 2.5, strokeWidth: 1, fill: 'var(--bg-elevated)' }
+                      : false}
                     activeDot={{
                       r: 5,
                       cursor: 'pointer',
                       onClick: (_e, dot) => {
-                        const p = (dot as { payload?: CurvePoint }).payload
+                        const p = (dot as { payload?: DashboardCurvePoint }).payload
                         if (p?.tradeId) openTrade(p.tradeId)
                       },
                     }}
@@ -417,7 +347,7 @@ function CurveTooltip({
   onOpen,
 }: {
   active?: boolean
-  payload?: Array<{ payload: CurvePoint }>
+  payload?: Array<{ payload: DashboardCurvePoint }>
   onOpen: (tradeId: string) => void
 }) {
   if (!active || !payload?.[0]) return null

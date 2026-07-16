@@ -56,13 +56,18 @@ export function evaluateDashboardQa(observation) {
       },
     ]),
   )
+  const functionalPassed = checks.every((check) => check.passed)
+  const withinAllAbsoluteBudgets = Object.values(budgetResults).every(
+    (result) => result.withinBudget,
+  )
   return {
-    functionalPassed: checks.every((check) => check.passed),
+    functionalPassed,
+    releasePassed: functionalPassed && withinAllAbsoluteBudgets,
     checks,
     performance: {
-      enforced: false,
-      reason: 'Task 0 freezes the baseline; Preview B enforces absolute and 10% regression budgets.',
-      withinAllAbsoluteBudgets: Object.values(budgetResults).every((result) => result.withinBudget),
+      enforced: true,
+      reason: '10K 仪表盘门禁执行冻结的绝对性能预算。',
+      withinAllAbsoluteBudgets,
       budgets: budgetResults,
     },
   }
@@ -421,7 +426,7 @@ async function main() {
     stdoutOnly: process.argv.includes('--stdout-only'),
   })
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
-  if (!report.evaluation.functionalPassed) process.exitCode = 1
+  if (!report.evaluation.releasePassed) process.exitCode = 1
 }
 
 const entryPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null
