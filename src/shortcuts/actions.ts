@@ -133,14 +133,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('view.board'),
   },
   {
-    id: 'view.table',
-    label: '切换到表格视图',
-    category: '视图',
-    scope: 'navigation',
-    defaultBinding: getDefaultShortcutBinding('view.table'),
-  },
-
-  {
     id: 'trade.prev',
     label: '上一条记录',
     category: '交易',

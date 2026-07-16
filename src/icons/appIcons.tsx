@@ -89,7 +89,6 @@ export const BarChart2 = LinearBarChartIcon
 export const ListTodo = LinearMyIssuesIcon
 export const List = LinearChecklistIcon
 export const BookOpen = LinearBookOpenIcon
-export const Table2 = LinearSpreadsheetIcon
 export const LayoutGrid = LinearDashboardIcon
 export const CircleDot = LinearCircleIcon
 export const Ban = LinearFlagIcon

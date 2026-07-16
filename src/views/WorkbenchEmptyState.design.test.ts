@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
-const WORKBENCH_VIEWS = ['ListView.tsx', 'TableView.tsx', 'BoardView.tsx'] as const
+const WORKBENCH_VIEWS = ['ListView.tsx', 'BoardView.tsx'] as const
 
 export function testAllWorkbenchLayoutsShareRecoverableEmptyStates(): void {
   for (const file of WORKBENCH_VIEWS) {

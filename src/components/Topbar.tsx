@@ -1,11 +1,11 @@
-import { LayoutGrid, List, Table2 } from '@/icons/appIcons'
+import { LayoutGrid, List } from '@/icons/appIcons'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import './Topbar.css'
 
-export type WorkbenchView = 'list' | 'board' | 'table'
+export type WorkbenchView = 'list' | 'board'
 
 export function Topbar({
   title,
@@ -52,16 +52,6 @@ export function Topbar({
                 onClick={() => onView('board')}
               >
                 <LayoutGrid size={15} />
-              </button>
-            </ShortcutTooltip>
-            <ShortcutTooltip actionId="view.table" label="表格视图">
-              <button
-                type="button"
-                className={'tb-seg' + (view === 'table' ? ' is-on' : '')}
-                aria-pressed={view === 'table'}
-                onClick={() => onView('table')}
-              >
-                <Table2 size={15} />
               </button>
             </ShortcutTooltip>
           </div>

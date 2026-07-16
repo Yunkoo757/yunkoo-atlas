@@ -103,7 +103,7 @@ async function ensureTradeRowVisible(page, tradeId) {
     await page.evaluate(async (id) => {
       const { requestScrollToTrade } = await import('/src/lib/tradeScrollTargets.ts')
       if (requestScrollToTrade(id)) return
-      for (const selector of ['.list-scroll', '.tv-scroll', '.bd-col-body']) {
+      for (const selector of ['.list-scroll', '.bd-col-body']) {
         document.querySelectorAll(selector).forEach((element) => {
           element.scrollTop = element.scrollHeight
         })
@@ -468,7 +468,7 @@ try {
   await expectUrl(page, '/active/board?status=open', 'Trade core must restore pathname, search, and board mode')
 
   await page.goto(`${BASE}/today-record/table?status=planned`, { waitUntil: 'domcontentloaded' })
-  await page.waitForTimeout(250)
+  await expectUrl(page, '/today-record?status=planned', 'Legacy table URL must redirect to the canonical list')
   await coreLink('案例').click()
   await coreLink('今日').click()
   await expectUrl(page, '/today-record', 'Today core must restore the canonical focused workspace')
@@ -523,14 +523,12 @@ try {
   for (const scenario of [
     { path: '/list', scroll: '.list-scroll', open: 'button' },
     { path: '/board', scroll: { containerSelector: '.bd-col-body', intersectWindow: true }, open: 'card' },
-    { path: '/table', scroll: '.tv-scroll', open: 'link' },
   ]) {
     await page.goto(`${BASE}${scenario.path}`, { waitUntil: 'domcontentloaded' })
     await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
     const anchor = await ensureTradeRowVisible(page, anchorTradeId)
     await anchor.scrollIntoViewIfNeeded()
     if (scenario.open === 'button') await anchor.locator('.trade-row-open').click()
-    else if (scenario.open === 'link') await anchor.locator('a').click()
     else await anchor.click()
     await page.waitForURL((url) => url.pathname.startsWith('/trade/'), { timeout: 10000 })
     await expectVisible(page.getByRole('link', { name: '返回列表' }).first())

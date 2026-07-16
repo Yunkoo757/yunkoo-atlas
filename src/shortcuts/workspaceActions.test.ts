@@ -77,7 +77,7 @@ export function testNewCaseHasAnIndependentConfigurableShortcut(): void {
 export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
   const expected = new Map([
     ['nav.today', 'alt+t'],
-    ['view.table', 't'],
+    ['view.board', 'b'],
     ['list.toggleFilters', 'f'],
   ])
   for (const [id, binding] of expected) {

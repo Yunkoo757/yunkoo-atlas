@@ -30,7 +30,6 @@ import { LinearGridLoaderIcon } from './icons/linear'
 import { ICON_XL } from './icons/iconSize'
 import { ListView } from './views/ListView'
 import { BoardView } from './views/BoardView'
-import { TableView } from './views/TableView'
 import { SettingsLayout } from './views/settings/SettingsLayout'
 import { ShortcutsPanel } from './views/settings/ShortcutsPanel'
 import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
@@ -48,7 +47,7 @@ import type { ListFilter, ReviewCaseScope } from './lib/tradeFilters'
 import { isValidPeriodSlug } from './lib/periods'
 import { tradeDetailPath, tradeDetailNavState } from './lib/tradeRoute'
 import { routeWithSearch } from './lib/tradeView'
-import { workbenchModeFromPathname } from './lib/routeContext'
+import { listPathFromLegacyTablePath, workbenchModeFromPathname } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { toast } from './lib/toast'
@@ -79,16 +78,13 @@ function TradesPage({
   const navigate = useNavigate()
   const { pathname, search } = useLocation()
   const boardPath = listPath === '/list' ? '/board' : `${listPath}/board`
-  const tablePath = listPath === '/list' ? '/table' : `${listPath}/table`
   const view: WorkbenchView = workbenchModeFromPathname(pathname)
   const setView = (v: WorkbenchView) => {
-    const target = v === 'board' ? boardPath : v === 'table' ? tablePath : listPath
+    const target = v === 'board' ? boardPath : listPath
     navigate(routeWithSearch(target, search))
   }
   return view === 'list' ? (
     <ListView title={title} view={view} onView={setView} filter={filter} header={header} />
-  ) : view === 'table' ? (
-    <TableView title={title} view={view} onView={setView} filter={filter} header={header} />
   ) : (
     <BoardView
       title={title}
@@ -171,6 +167,13 @@ function normalizeReviewCaseScope(scope: string | undefined): ReviewCaseScope {
   return 'all'
 }
 
+function LegacyRouteFallback() {
+  const { pathname, search } = useLocation()
+  const listPath = listPathFromLegacyTablePath(pathname)
+  if (listPath) return <Navigate to={routeWithSearch(listPath, search)} replace />
+  return <RouteNotFound />
+}
+
 function Shell() {
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const location = useLocation()
@@ -209,12 +212,6 @@ function Shell() {
             }
           />
           <Route
-            path="/table"
-            element={
-              <TradesPage title="交易日志" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
-            }
-          />
-          <Route
             path="/active"
             element={
               <TradesPage
@@ -234,32 +231,16 @@ function Shell() {
               />
             }
           />
-          <Route
-            path="/active/table"
-            element={
-              <TradesPage
-                title="交易日志"
-                filter={{ type: 'active', tradeKind: 'live' }}
-                listPath="/active"
-              />
-            }
-          />
           <Route path="/inbox" element={<Navigate to="/active" replace />} />
           <Route path="/inbox/board" element={<Navigate to="/active/board" replace />} />
-          <Route path="/inbox/table" element={<Navigate to="/active/table" replace />} />
           <Route path="/my-trades" element={<Navigate to="/list" replace />} />
           <Route path="/my-trades/board" element={<Navigate to="/board" replace />} />
-          <Route path="/my-trades/table" element={<Navigate to="/table" replace />} />
           <Route
             path="/favorites"
             element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
           />
           <Route
             path="/favorites/board"
-            element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
-          />
-          <Route
-            path="/favorites/table"
             element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
           />
           <Route
@@ -274,36 +255,22 @@ function Shell() {
               <TradesPage title="交易日志" filter={{ type: 'missed' }} listPath="/missed" />
             }
           />
-          <Route
-            path="/missed/table"
-            element={
-              <TradesPage title="交易日志" filter={{ type: 'missed' }} listPath="/missed" />
-            }
-          />
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
-          <Route path="/period/:slug/table" element={<PeriodPage />} />
           <Route path="/today-record" element={<TodayRecordPage />} />
           <Route path="/today-record/board" element={<Navigate to="/today-record" replace />} />
-          <Route path="/today-record/table" element={<Navigate to="/today-record" replace />} />
           <Route path="/sim" element={<SimPage />} />
           <Route path="/sim/board" element={<SimPage />} />
-          <Route path="/sim/table" element={<SimPage />} />
           <Route path="/review-cases" element={<ReviewCasesPage />} />
           <Route path="/review-cases/board" element={<ReviewCasesPage />} />
-          <Route path="/review-cases/table" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
-          <Route path="/review-cases/:scope/table" element={<ReviewCasesPage />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
           <Route path="/paper/board" element={<Navigate to="/sim/board" replace />} />
-          <Route path="/paper/table" element={<Navigate to="/sim/table" replace />} />
           <Route path="/practice" element={<Navigate to="/sim" replace />} />
           <Route path="/practice/board" element={<Navigate to="/sim/board" replace />} />
-          <Route path="/practice/table" element={<Navigate to="/sim/table" replace />} />
           <Route path="/strategy/:id" element={<StrategyPage />} />
           <Route path="/strategy/:id/board" element={<StrategyPage />} />
-          <Route path="/strategy/:id/table" element={<StrategyPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/cases" element={<Navigate to="/list" replace />} />
@@ -322,7 +289,7 @@ function Shell() {
             <Route path="updates" element={<UpdatesSettingsPanel />} />
           </Route>
           <Route path="/strategies" element={<Navigate to="/settings/strategies" replace />} />
-            <Route path="*" element={<RouteNotFound />} />
+            <Route path="*" element={<LegacyRouteFallback />} />
             </Routes>
           </Suspense>
         </RouteErrorBoundary>

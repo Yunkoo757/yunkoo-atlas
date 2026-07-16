@@ -1,3 +1,5 @@
+import { listPathFromLegacyTablePath } from '@/lib/routeContext'
+
 export type SavedTradeView = {
   id: string
   name: string
@@ -39,8 +41,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function normalizeSavedViewPath(pathname: string): string {
   const clean = pathname.trim().split(/[?#]/, 1)[0] || '/list'
-  if (clean === '/board' || clean === '/table') return '/list'
-  const withoutMode = clean.replace(/\/(?:board|table)\/?$/, '')
+  const legacyListPath = listPathFromLegacyTablePath(clean)
+  if (legacyListPath) return legacyListPath
+  if (clean === '/board') return '/list'
+  const withoutMode = clean.replace(/\/board\/?$/, '')
   return withoutMode.startsWith('/') ? withoutMode : `/${withoutMode}`
 }
 

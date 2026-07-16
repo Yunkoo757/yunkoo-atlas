@@ -553,10 +553,10 @@ try {
     { timeout: 10000 },
   )
   record('筛选器进入本月交易并保留组合条件', true, page.url())
-  await page.getByRole('button', { name: '表格视图' }).click()
+  await page.getByRole('button', { name: '看板视图' }).click()
   await page.waitForURL(
     (url) =>
-      url.pathname === '/period/this-month/table' &&
+      url.pathname === '/period/this-month/board' &&
       url.searchParams.get('symbol') === 'ETHUSDT' &&
       url.searchParams.get('side') === 'long',
     { timeout: 10000 },

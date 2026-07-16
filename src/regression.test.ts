@@ -16,8 +16,11 @@ import {
   normalizeTradeKind,
 } from '@/lib/tradeKind'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
-import { buildTradeTableRow } from '@/lib/tradeTable'
-import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
+import {
+  listPathFromLegacyTablePath,
+  pathWithWorkbenchMode,
+  workbenchModeFromPathname,
+} from '@/lib/routeContext'
 import { clampPopoverLeft } from '@/lib/popoverPosition'
 import { formatYmd } from '@/lib/periods'
 import { isHiddenWhenClosedFilter } from '@/lib/tradeStatus'
@@ -118,7 +121,7 @@ import {
 } from '@/lib/activities'
 import { syncEditorLightboxEditable } from '@/editor/Editor'
 import { useStore } from '@/store/useStore'
-import { useShortcutStore } from '@/store/shortcutStore'
+import { migrateShortcutBindings, useShortcutStore } from '@/store/shortcutStore'
 import {
   parseTradeReturnAnchor,
   serializeTradeReturnAnchor,
@@ -358,7 +361,6 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'nav.strategies': 'o',
     'view.list': 'l',
     'view.board': 'b',
-    'view.table': 't',
     'trade.prev': 'q',
     'trade.next': 'e',
     'trade.backToList': 'escape',
@@ -383,6 +385,12 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
       `${action.label} 应使用已确认的默认快捷键 ${expected[action.id]}`,
     )
   }
+
+  const migrated = migrateShortcutBindings({
+    'view.list': { key: 'l' },
+    'view.table': { key: 't' },
+  })
+  assert(!('view.table' in migrated), '历史表格快捷键不得继续进入运行时配置')
 }
 
 export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): Promise<void> {
@@ -723,7 +731,7 @@ export function testSidebarSelectionPrefersExactWorkspaceItemAndMarksModifiedFil
   )
 
   const exact = resolveSidebarSelection({
-    pathname: '/table',
+    pathname: '/board',
     search: '?symbol=EURUSD&status=loss',
     items: [active, saved],
   })
@@ -845,7 +853,7 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
   const context = { trades, starredIds: [], display }
   const cases = [
     {
-      pathname: '/today-record/table',
+      pathname: '/today-record',
       search: '',
       filter: { type: 'period', period: 'today', tradeKind: 'live' } as const,
     },
@@ -855,7 +863,7 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
       filter: { type: 'all', tradeKind: 'live' } as const,
     },
     {
-      pathname: '/list/table',
+      pathname: '/list',
       search: '?status=loss',
       filter: { type: 'all', tradeKind: 'live' } as const,
     },
@@ -971,7 +979,7 @@ export function testWorkspaceNavRemembersLastQuickView(): void {
   assert(rememberableWorkspaceKind('/period/this-week') === 'trade', '本周应记入交易工作区')
   assert(rememberableWorkspaceKind('/list') === 'trade', '全部列表应记入交易工作区')
   assert(rememberableWorkspaceKind('/today-record') === 'today', '今日记录应记入今日工作区')
-  assert(rememberableWorkspaceKind('/today-record/table') === 'today', '今日表格应记入今日工作区')
+  assert(rememberableWorkspaceKind('/today-record/table') === 'today', '旧表格链接仍应识别原工作区')
   assert(rememberableWorkspaceKind('/review-cases/mistakes') === 'case', '错题应记入案例工作区')
 
   const today = resolveWorkspaceNavTarget('today', {
@@ -1014,7 +1022,7 @@ export function testWorkspaceNavRemembersLastQuickView(): void {
     { pathname: `/strategy/${strategy.id}/table`, search: '?status=win' },
     [strategy],
   )
-  assert(existingStrategy.pathname === `/strategy/${strategy.id}/table`, '现有策略记忆应保持视图形态')
+  assert(existingStrategy.pathname === `/strategy/${strategy.id}`, '旧表格记忆应迁移到策略列表')
 
   for (const pathname of ['/period/not-a-period', '/period/this-week/extra']) {
     assert(
@@ -1047,6 +1055,16 @@ export function testWorkspaceNavRemembersLastQuickView(): void {
       display.workspaceMemory?.case?.pathname === '/review-cases/focus',
     'workspaceMemory 应经 normalizeDisplay 持久化保留',
   )
+
+  const migratedDisplay = normalizeDisplay({
+    workspaceMemory: {
+      trade: { pathname: '/active/table', search: '?status=open' },
+    },
+  })
+  assert(
+    migratedDisplay.workspaceMemory?.trade?.pathname === '/active',
+    '历史表格工作区记忆应在载入时迁移到列表',
+  )
 }
 
 export function testWorkspaceNavKeepsEncodedUnicodeStrategyMemory(): void {
@@ -1056,7 +1074,7 @@ export function testWorkspaceNavKeepsEncodedUnicodeStrategyMemory(): void {
   }
   const resolved = resolveWorkspaceNavTarget('trade', memory, [{ id: '导航3' }])
 
-  assert(resolved.pathname === memory.pathname, '编码后的 Unicode 策略 ID 应匹配原始策略 ID')
+  assert(resolved.pathname === '/strategy/%E5%AF%BC%E8%88%AA3', '编码后的旧表格记忆应迁移到策略列表')
   assert(resolved.search === memory.search, '合法策略记忆应保留筛选条件')
 }
 
@@ -1219,13 +1237,15 @@ export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
 export function testWorkbenchModePreservedWhenSwitchingQuickViews(): void {
   assert(pathWithWorkbenchMode('/period/this-week', 'board') === '/period/this-week/board', '看板下本周应落在 board 路由')
   assert(pathWithWorkbenchMode('/list', 'board') === '/board', '全部在看板形态应为 /board')
-  assert(pathWithWorkbenchMode('/list', 'table') === '/table', '全部在表格形态应为 /table')
-  assert(pathWithWorkbenchMode('/review-cases/mistakes', 'table') === '/review-cases/mistakes/table', '案例错题表格路径应保留 table')
   assert(workbenchModeFromPathname('/period/this-week/board') === 'board', '应从路径识别看板形态')
   assert(workbenchModeFromPathname('/strategy/%E5%AF%BC%E8%88%AA3/board') === 'board', '中文策略的编码路径应识别为看板形态')
-  assert(workbenchModeFromPathname('/strategy/%E5%AF%BC%E8%88%AA3/table') === 'table', '中文策略的编码路径应识别为表格形态')
-  assert(workbenchModeFromPathname('/table') === 'table', '应从路径识别表格形态')
   assert(workbenchModeFromPathname('/period/this-week') === 'list', '无后缀应为列表形态')
+  assert(workbenchModeFromPathname('/table') === 'list', '旧表格链接不得恢复成可用视图模式')
+  assert(listPathFromLegacyTablePath('/table') === '/list', '旧根表格链接应回退全部列表')
+  assert(
+    listPathFromLegacyTablePath('/review-cases/mistakes/table') === '/review-cases/mistakes',
+    '旧案例表格链接应回退对应列表',
+  )
 }
 
 export function testPopoverPositionStaysAnchoredInsideViewport(): void {
@@ -1237,7 +1257,7 @@ export function testPopoverPositionStaysAnchoredInsideViewport(): void {
 
 export function testTradeDetailReturnRemembersListView(): void {
   const detailState = tradeDetailNavState({
-    pathname: '/table',
+    pathname: '/board',
     search: '?status=loss',
     anchorTradeId: trade.id,
   })
@@ -1395,12 +1415,12 @@ export function testSavedTradeViewsNormalizeMatchAndMerge(): void {
       '/board',
       '?session=london',
     ),
-    '主交易列表、看板和表格应归一为同一路径',
+    '主交易列表与看板应归一为同一路径',
   )
   assert(normalized[0]?.search.empty === undefined, '应移除空查询条件')
   assert(
     savedViewMatchesLocation(normalized[0]!, '/period/this-month/table', '?session=london'),
-    '列表、看板和表格应匹配同一保存视图',
+    '旧表格链接应兼容匹配同一保存视图',
   )
 
   const merged = mergeSavedTradeViews(normalized, [
@@ -1857,38 +1877,6 @@ export function testGetNextReviewCaseRefUsesExistingCaseRefsOnly(): void {
   ])
 
   assert(next === 'CAS-8', 'next review case ref increments highest case ref')
-}
-
-export function testTradeTableRowFormatsDenseRecordFields(): void {
-  const row = buildTradeTableRow(
-    {
-      ...trade,
-      ref: 'TRD-42',
-      symbol: 'BTCUSDT',
-      status: 'win',
-      side: 'long',
-      timeframe: '4H',
-      pnl: 260,
-      rMultiple: 2.4,
-      tags: ['MTF ORA', 'LTF ChoCh'],
-      mistakeTags: ['追单'],
-      openedAt: '2026-07-03',
-    },
-    [strategy],
-  )
-
-  assert(row.ref === 'TRD-42', 'table row keeps ref')
-  assert(row.date === '2026/07/03', 'table row formats date compactly')
-  assert(row.symbol === 'BTCUSDT', 'table row keeps symbol')
-  assert(row.timeframe === '4H', 'table row exposes timeframe')
-  assert(row.model === 'Breakout', 'table row resolves strategy name')
-  assert(row.position === 'Buy', 'table row maps long to Buy')
-  assert(row.status === 'Closed by T/P', 'table row maps winning status to close reason')
-  assert(row.pnl === 'US$260.00', 'table row formats positive pnl')
-  assert(row.rMultiple === '2.4', 'table row formats R multiple')
-  assert(row.result === 'Profit', 'table row maps winning trade to Profit result')
-  assert(row.confluences.join(',') === 'MTF ORA,LTF ChoCh', 'table row exposes tags as confluences')
-  assert(row.mistakes.join(',') === '追单', 'table row exposes mistake tags')
 }
 
 export function testNotionCsvFallbackMatchesImagesByNotionIdNotFolderOrder(): void {

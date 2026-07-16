@@ -91,11 +91,11 @@ export function testNonEmptyViewDoesNotRenderAnEmptyState(): void {
 }
 
 export function testResetPathClearsConditionsButKeepsTheCurrentLayout(): void {
-  const caseTablePath = getWorkbenchResetPath('/review-cases/mistakes/table', 'case')
+  const legacyCaseTablePath = getWorkbenchResetPath('/review-cases/mistakes/table', 'case')
   const liveBoardPath = getWorkbenchResetPath('/strategy/navigation-1/board', 'live')
 
-  if (caseTablePath !== '/review-cases/table') {
-    throw new Error('Reset must keep the table layout while returning to all cases')
+  if (legacyCaseTablePath !== '/review-cases') {
+    throw new Error('Legacy table paths must reset into the canonical case list')
   }
   if (liveBoardPath !== '/board') {
     throw new Error('Reset must keep the board layout while returning to all trades')
