@@ -50,3 +50,45 @@ test('校验和或页面错误会让 10k 功能基线失败', () => {
   assert.equal(result.releasePassed, false)
   assert.ok(result.checks.some((check) => !check.passed))
 })
+
+test('本地与托管 Windows 的 10k 入口及热恢复预算分别冻结', () => {
+  const observation = {
+    expectedChecksum: 'fixture-checksum',
+    loadedChecksum: 'fixture-checksum',
+    expectedClosedCount: 7_000,
+    renderedClosedCount: 7_000,
+    cardCount: 4,
+    panelCount: 3,
+    hasDataHealth: true,
+    consoleErrors: [],
+    pageErrors: [],
+    dashboardEntryP95Ms: 1,
+    rangeSwitchP95Ms: 1,
+    coldHydrateMs: 1,
+    warmHydrateP95Ms: 750,
+    snapshotSaveP95Ms: 1,
+  }
+
+  const atBudget = evaluateDashboardQa(observation)
+  const overBudget = evaluateDashboardQa({
+    ...observation,
+    warmHydrateP95Ms: 750.001,
+  })
+  const hostedAtBudget = evaluateDashboardQa(
+    { ...observation, dashboardEntryP95Ms: 270, warmHydrateP95Ms: 1_400 },
+    { budgetProfile: 'hosted-windows' },
+  )
+  const hostedOverBudget = evaluateDashboardQa(
+    { ...observation, dashboardEntryP95Ms: 270.001, warmHydrateP95Ms: 1_400 },
+    { budgetProfile: 'hosted-windows' },
+  )
+
+  assert.equal(atBudget.performance.budgets.warmHydrateP95Ms.budgetMs, 750)
+  assert.equal(atBudget.releasePassed, true)
+  assert.equal(overBudget.releasePassed, false)
+  assert.equal(hostedAtBudget.performance.budgetProfile, 'hosted-windows')
+  assert.equal(hostedAtBudget.performance.budgets.dashboardEntryP95Ms.budgetMs, 270)
+  assert.equal(hostedAtBudget.performance.budgets.warmHydrateP95Ms.budgetMs, 1_400)
+  assert.equal(hostedAtBudget.releasePassed, true)
+  assert.equal(hostedOverBudget.releasePassed, false)
+})

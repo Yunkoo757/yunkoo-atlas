@@ -3,8 +3,17 @@ import { DataIOContent } from '@/components/DataIOContent'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
-import { applySnapshotToStore } from '@/lib/importExport'
-import { flushPersistNow, resumePersistAndFlush, suspendPersist } from '@/storage/persist'
+import {
+  applySnapshotToStore,
+  clearSessionUiAfterLibrarySwitch,
+} from '@/lib/importExport'
+import {
+  disablePersistWrites,
+  discardPendingAndResumePersist,
+  flushPersistNow,
+  resumePersistAndFlush,
+  suspendPersist,
+} from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
@@ -14,6 +23,9 @@ import {
   flushStorageBeforeCutover,
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
+import { getElectronAdapter } from '@/storage/electronAdapter'
+import { clearReviewSessionStorage } from '@/lib/reviewSession'
+import { useSaveStatus } from '@/store/saveStatus'
 
 function fmtBackupTime(ts: number): string {
   const d = new Date(ts)
@@ -80,7 +92,6 @@ export function DataSettingsPanel() {
     refreshHealth()
   }, [refreshHealth])
 
-  const WARN_TRADE_COUNT = 500
   const WARN_ATTACH_SIZE = 100 * 1024 * 1024 // 100 MB
   const WARN_BACKUP_SIZE = 500 * 1024 * 1024 // 500 MB
 
@@ -127,13 +138,21 @@ export function DataSettingsPanel() {
     setRestoring(name)
     const unlockInteraction = lockStorageCutoverInteraction()
     let suspended = false
+    let safeToFlush = true
     try {
       await flushStorageBeforeCutover()
       suspendPersist()
       suspended = true
       const result = await getJournalBridge()!.restoreBackup(name)
       if (result && typeof result === 'object') {
+        // bridge 已替换磁盘内容；内存切换完成前禁止旧快照重新写回。
+        safeToFlush = false
+        getElectronAdapter().clearObjectUrlCache()
+        const manifest = await getStorage().getManifest()
+        clearReviewSessionStorage(manifest.libraryId)
         applySnapshotToStore(result)
+        clearSessionUiAfterLibrarySwitch()
+        safeToFlush = true
         toast('备份已恢复')
         await Promise.all([refreshBackups(), refreshHealth()])
       } else {
@@ -143,7 +162,18 @@ export function DataSettingsPanel() {
       toast('恢复失败')
     } finally {
       if (suspended) {
-        await resumePersistAndFlush().catch(() => toast('恢复后保存失败，请勿关闭软件'))
+        if (safeToFlush) {
+          await resumePersistAndFlush().catch(() => toast('恢复后保存失败，请勿关闭软件'))
+        } else {
+          discardPendingAndResumePersist()
+          disablePersistWrites()
+          useSaveStatus.getState().setError('备份已恢复，但内存载入失败，自动保存已暂停')
+          try {
+            window.location?.reload()
+          } catch {
+            /* 正式客户端会重新载入已经恢复的资料库。 */
+          }
+        }
       }
       unlockInteraction()
       setRestoring(null)
@@ -222,13 +252,10 @@ export function DataSettingsPanel() {
 
         {health && (
           <div className="health-grid">
-            <div className={'health-card' + (health.tradeCount > WARN_TRADE_COUNT ? ' health-warn' : '')}>
+            <div className="health-card">
               <Database size={18} />
               <span className="health-label">交易数</span>
               <span className="health-value">{health.tradeCount}</span>
-              {health.tradeCount > WARN_TRADE_COUNT && (
-                <span className="health-note">建议启用列表虚拟化</span>
-              )}
             </div>
             <div className={'health-card' + (health.attachmentStats.totalBytes > WARN_ATTACH_SIZE || health.attachmentStats.missingCount > 0 ? ' health-warn' : '')}>
               <Image size={18} />
@@ -237,7 +264,11 @@ export function DataSettingsPanel() {
                 {health.attachmentStats.count} 张 · {health.attachmentStats.formattedSize}
               </span>
               {health.attachmentStats.totalBytes > WARN_ATTACH_SIZE && (
-                <span className="health-note">建议用 .journal.zip 导出</span>
+                <span className="health-note">
+                  {electron
+                    ? '附件较多，建议创建并验证恢复点'
+                    : '已接近浏览器完整备份 128 MB 上限，建议清理原图或分库'}
+                </span>
               )}
               {health.attachmentStats.missingCount > 0 && (
                 <span className="health-note">

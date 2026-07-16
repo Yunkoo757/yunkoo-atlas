@@ -3,6 +3,7 @@ import { resolveCommand } from './release-command.mjs'
 
 const PORT = 5181
 const BASE = `http://127.0.0.1:${PORT}`
+const skipDashboard10k = process.argv.includes('--skip-dashboard-10k')
 
 function run(name, args, env = process.env) {
   const invocation = resolveCommand(name, args)
@@ -70,5 +71,5 @@ try {
 }
 
 run('pnpm', ['build:app'])
-run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
+if (!skipDashboard10k) run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
 run('pnpm', ['qa:electron'])

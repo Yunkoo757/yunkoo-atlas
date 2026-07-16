@@ -4,7 +4,11 @@ import { Plus, Pencil, Trash2, ChevronRight } from '@/icons/appIcons'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { StrategyFormModal, uniqueStrategyId } from '@/components/StrategyFormModal'
 import { useStore } from '@/store/useStore'
-import { computeStrategyStats } from '@/lib/strategies'
+import {
+  computeStrategyStats,
+  countStrategyReferences,
+  formatStrategyMetricCoverage,
+} from '@/lib/strategies'
 import { fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import type { Strategy } from '@/data/strategies'
@@ -30,10 +34,17 @@ export function StrategiesPanel() {
       [...strategies]
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
         .map((s) => {
-          const stats = computeStrategyStats(trades, s.id)
+          const stats = computeStrategyStats(trades, s.id, { tradeKind: 'live' })
           return {
             ...s,
             count: stats.tradeCount,
+            linkedCount: countStrategyReferences(trades, s.id),
+            pnlCoverage: formatStrategyMetricCoverage(stats.pnlCount, stats.closedCount),
+            rCoverage: formatStrategyMetricCoverage(stats.rCount, stats.closedCount),
+            pendingResultCount: Math.max(
+              0,
+              stats.closedCount - stats.evaluatedCount - stats.conflictCount,
+            ),
             stats,
           }
         }),
@@ -88,7 +99,7 @@ export function StrategiesPanel() {
           <div>
             <h1 className="settings-page-title">交易策略</h1>
             <p className="settings-page-desc">
-              维护策略分类、图标与配色，并查看每种策略的执行表现。
+              维护策略分类、图标与配色，并查看每种策略的实盘执行表现。
             </p>
           </div>
           <button type="button" className="st-add" onClick={openCreate}>
@@ -105,12 +116,16 @@ export function StrategiesPanel() {
                 <Link to={`/strategy/${s.id}`} className="st-row-name" style={{ color: s.color }}>
                   {s.name}
                 </Link>
-                <span className="st-row-meta">{s.count} 笔交易</span>
+                <span className="st-row-meta">{s.count} 笔实盘交易</span>
                 <div className="st-row-stats">
-                  <span>{s.stats.closedCount ? `${s.stats.winRate.toFixed(0)}% 胜率` : '胜率 —'}</span>
-                  <span>{s.stats.closedCount ? `${fmtR(s.stats.totalR)} 总R` : '总R —'}</span>
-                  <span>{s.stats.closedCount ? `${fmtR(s.stats.averageR)} 均R` : '均R —'}</span>
+                  <span>{s.stats.winRate == null ? '胜率 —' : `${s.stats.winRate.toFixed(0)}% 胜率`}</span>
+                  <span>{s.stats.totalR == null ? '总R —' : `${fmtR(s.stats.totalR)} 总R`}</span>
+                  <span>{s.stats.averageR == null ? '均R —' : `${fmtR(s.stats.averageR)} 均R`}</span>
                   <span>{s.stats.reviewedCount}/{s.stats.tradeCount} 已复盘</span>
+                  {s.pnlCoverage && <span>盈亏 {s.pnlCoverage}</span>}
+                  {s.rCoverage && <span>R {s.rCoverage}</span>}
+                  {s.pendingResultCount > 0 && <span>{s.pendingResultCount} 笔待补结果</span>}
+                  {s.stats.conflictCount > 0 && <span>{s.stats.conflictCount} 笔结果冲突</span>}
                 </div>
                 {s.stats.topMistakes.length > 0 && (
                   <div className="st-row-mistakes">
@@ -133,7 +148,7 @@ export function StrategiesPanel() {
                     aria-label={`删除 ${s.name}`}
                     onClick={() => {
                       setDeleteTarget(s)
-                      setDeleteCount(s.count)
+                      setDeleteCount(s.linkedCount)
                       setReassignId(strategies.find((x) => x.id !== s.id)?.id ?? '')
                     }}
                     disabled={strategies.length <= 1}

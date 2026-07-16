@@ -15,6 +15,7 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { normalizeSymbolIcons, normalizeSymbolCatalog } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
+import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import type { PersistedSnapshot } from '@/storage/types'
 
 let storage: StorageAdapter | null = null
@@ -70,10 +71,11 @@ async function runBootstrapStorage(): Promise<void> {
 
   const snapshot = await adapter.loadSnapshot()
   if (snapshot) {
-    const trades = normalizeTrades(snapshot.trades)
+    const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
+    const trades = normalizeTrades(normalized.trades)
     useStore.setState({
       trades,
-      strategies: snapshot.strategies,
+      strategies: normalized.strategies,
       starredIds: snapshot.starredIds,
       subscribedIds: snapshot.subscribedIds,
       pinnedStrategyIds: snapshot.pinnedStrategyIds,

@@ -519,6 +519,24 @@ export function registerLibraryIpc(): void {
       return { ok: false as const, canceled: true as const }
     }
 
+    const selectedArchive = result.filePaths[0]
+    const confirmationOptions = {
+      type: 'warning' as const,
+      title: '替换当前交易库？',
+      message: '导入归档会覆盖当前交易库',
+      detail: `将使用“${path.basename(selectedArchive)}”替换当前交易、策略、设置与附件。此操作完成后无法直接撤销，请先确认已保留需要的备份。`,
+      buttons: ['取消', '替换交易库'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    }
+    const confirmation = win
+      ? await dialog.showMessageBox(win, confirmationOptions)
+      : await dialog.showMessageBox(confirmationOptions)
+    if (confirmation.response !== 1) {
+      return { ok: false as const, canceled: true as const }
+    }
+
     try {
       return await operationGate.runExclusive(async () => {
         const current = await ensureStorage()
@@ -528,7 +546,7 @@ export function registerLibraryIpc(): void {
         storage = null
 
         try {
-          await importJournalZipToPath(libraryPath, result.filePaths[0]!)
+          await importJournalZipToPath(libraryPath, selectedArchive)
         } catch (err) {
           console.error('[journal:importZip] import failed', err)
           const message = toErrorMessage(err)

@@ -115,6 +115,11 @@
   border-color: color-mix(in srgb, var(--warn) 20%, var(--border-subtle));
 }
 
+.dv-review-stage.is-result-conflict {
+  background: color-mix(in srgb, var(--neg) 5%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--neg) 20%, var(--border-subtle));
+}
+
 .dv-review-stage.is-complete {
   background: color-mix(in srgb, var(--pos) 4%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--pos) 14%, var(--border-subtle));
@@ -131,9 +136,10 @@
 }
 
 .dv-review-stage.is-result-pending .dv-review-stage-icon { color: var(--warn); }
+.dv-review-stage.is-result-conflict .dv-review-stage-icon { color: var(--neg); background: var(--error-action-bg); }
 .dv-review-stage.is-complete .dv-review-stage-icon { color: var(--pos); background: var(--pos-bg); }
 
-.dv-review-stage > div {
+.dv-review-stage-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -146,7 +152,7 @@
   font-weight: var(--font-weight-medium);
 }
 
-.dv-review-stage div span {
+.dv-review-stage-copy > span {
   overflow: hidden;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
@@ -154,7 +160,14 @@
   white-space: nowrap;
 }
 
-.dv-review-stage > button {
+.dv-review-stage-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.dv-review-stage-actions > button {
   height: 30px;
   padding: 0 10px;
   color: var(--accent-text);
@@ -165,13 +178,17 @@
   border-radius: var(--radius-6);
 }
 
-.dv-review-stage > button:hover { background: var(--accent-hover); }
-.dv-review-stage > button.is-secondary {
+.dv-review-stage-actions > button:hover { background: var(--accent-hover); }
+.dv-review-stage-actions > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.dv-review-stage-actions > button.is-secondary {
   color: var(--text-secondary);
   background: transparent;
   border: 1px solid var(--border-default);
 }
-.dv-review-stage > button.is-secondary:hover { color: var(--text-primary); background: var(--bg-hover); }
+.dv-review-stage-actions > button.is-secondary:hover { color: var(--text-primary); background: var(--bg-hover); }
 
 .dv-case-source {
   display: grid;
@@ -997,6 +1014,25 @@
   height: 100%;
   padding: 32px;
   color: var(--text-tertiary);
+}
+
+@media (max-width: 520px) {
+  .dv-review-stage {
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: start;
+  }
+  .dv-review-stage-copy > span {
+    overflow: visible;
+    white-space: normal;
+  }
+  .dv-review-stage-actions {
+    grid-column: 2;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .dv-review-stage-actions > button {
+    min-height: 44px;
+  }
 }
 .dv-empty-card {
   display: flex;

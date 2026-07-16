@@ -168,14 +168,15 @@
   position: sticky;
   bottom: 0;
   padding: 8px 10px 6px;
-  background: linear-gradient(to bottom, transparent, var(--popover-bg) 28%);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--popover-bg);
   color: var(--text-muted);
   font-size: var(--type-caption-size);
   line-height: 20px;
   text-align: center;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 899px), (pointer: coarse) {
   .cmdk-input {
     height: 44px;
     line-height: 44px;
@@ -184,5 +185,9 @@
   .cmdk-clear,
   .cmdk-item {
     height: 44px;
+  }
+
+  .cmdk-clear {
+    width: 44px;
   }
 }

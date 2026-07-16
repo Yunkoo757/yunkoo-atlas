@@ -23,25 +23,21 @@ export function resolveWorkbenchEmptyState(options: {
   recordKind?: TradeKind
 }): WorkbenchEmptyState | null {
   if (options.visibleCount > 0) return null
-  if (options.totalCount === 0) {
-    return {
-      kind: 'library',
-      title: '还没有任何记录',
-      hint: '新建第一条记录，开始积累你的复盘样本。',
-      action: 'create',
-      actionLabel: options.recordKind === 'case'
-        ? '新建案例记录'
-        : options.recordKind === 'paper'
-          ? '新建模拟交易'
-          : '新建交易',
-    }
-  }
-
   const recordLabel = options.recordKind === 'case'
     ? '案例记录'
     : options.recordKind === 'paper'
       ? '模拟交易'
       : '交易'
+  if (options.totalCount === 0) {
+    return {
+      kind: 'library',
+      title: '还没有任何记录',
+      hint: `新建${recordLabel}、导入备份，或先配置策略，开始建立你的复盘资料库。`,
+      action: 'create',
+      actionLabel: `新建${recordLabel}`,
+    }
+  }
+
   if (options.workspaceCount === 0) {
     return {
       kind: 'workspace',

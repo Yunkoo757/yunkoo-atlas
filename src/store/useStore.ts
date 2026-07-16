@@ -39,6 +39,10 @@ import {
   normalizeSidebarWorkspaceItems,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
+import {
+  DEFAULT_USER_DISPLAY_NAME,
+  createDefaultStrategies,
+} from '@/config/defaultProfile'
 
 export type TradeUpsertSlice = {
   trades: Trade[]
@@ -109,7 +113,10 @@ function appendBoundedHistory(
 
 function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
   const previousTrade = s.trades.find((t) => t.id === trade.id)
-  const strategyId = trade.strategyId || s.strategies[0]?.id || 'uncategorized'
+  const strategies = s.strategies.length > 0 ? s.strategies : createDefaultStrategies()
+  const strategyId = strategies.some((strategy) => strategy.id === trade.strategyId)
+    ? trade.strategyId
+    : strategies[0]?.id ?? 'uncategorized'
   let normalized: Trade = normalizeInitialStopLoss(normalizeTradeMetrics(promoteTradeNotionMeta(
     promoteTradeSession(
       normalizeReviewFields({
@@ -136,7 +143,7 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
     const withCreate = createActivity(normalized)
     return {
       trades: [withCreate, ...s.trades],
-      strategies: s.strategies,
+      strategies,
       symbolCatalog,
       tagPresets: s.tagPresets,
       mistakeTagPresets: s.mistakeTagPresets,
@@ -152,7 +159,7 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
   }
   return {
     trades: s.trades.map((t) => (t.id === trade.id ? normalized : t)),
-    strategies: s.strategies,
+    strategies,
     symbolCatalog,
     tagPresets: s.tagPresets,
     mistakeTagPresets: s.mistakeTagPresets,
@@ -355,7 +362,7 @@ export const useStore = create<State>()((set, get) => ({
       tagPresets: [],
       mistakeTagPresets: [],
       display: DEFAULT_DISPLAY,
-      profile: { avatarId: null, displayName: 'Yunkoo' },
+      profile: { avatarId: null, displayName: DEFAULT_USER_DISPLAY_NAME },
       savedTradeViews: [],
       symbolIcons: {},
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
@@ -495,13 +502,18 @@ export const useStore = create<State>()((set, get) => ({
           profile: { ...s.profile, customAvatarDataUrl: dataUrl, avatarId: null },
         })),
       setDisplayName: (displayName) =>
-        set((s) => ({ profile: { ...s.profile, displayName: displayName.trim() || 'Yunkoo' } })),
+        set((s) => ({
+          profile: {
+            ...s.profile,
+            displayName: displayName.trim() || DEFAULT_USER_DISPLAY_NAME,
+          },
+        })),
       hydrateProfile: (profile) =>
         set((s) => ({
           profile: profile
             ? {
                 avatarId: profile.avatarId ?? null,
-                displayName: profile.displayName || 'Yunkoo',
+                displayName: profile.displayName || DEFAULT_USER_DISPLAY_NAME,
                 customAvatarDataUrl: profile.customAvatarDataUrl ?? null,
               }
             : s.profile,

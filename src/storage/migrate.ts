@@ -1,11 +1,15 @@
 import { SEED_TRADES } from '@/data/trades'
 import { DEFAULT_STRATEGIES } from '@/data/strategies'
 import {
+  createDefaultUserProfile,
   createDefaultMistakeTagPresets,
   createDefaultTagPresets,
 } from '@/config/defaultProfile'
 import { DEFAULT_DISPLAY, normalizeDisplay } from '@/lib/tradeFilters'
-import { ensureStrategies, migrateTrades } from '@/lib/strategies'
+import {
+  migrateTrades,
+  normalizeTradeStrategyReferences,
+} from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { externalizeNoteImages, collectAssetIdsFromNotes } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
@@ -31,11 +35,11 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
     const parsed = JSON.parse(raw) as ZustandPersistEnvelope
     const s = parsed.state
     if (!s) return null
-    const strategies = ensureStrategies(s.strategies)
-    const trades = normalizeTrades(migrateTrades(s.trades ?? [], strategies))
+    const normalized = normalizeTradeStrategyReferences(s.trades ?? [], s.strategies)
+    const trades = normalizeTrades(normalized.trades)
     return {
       trades,
-      strategies,
+      strategies: normalized.strategies,
       starredIds: s.starredIds ?? [],
       subscribedIds: s.subscribedIds ?? [],
       pinnedStrategyIds: s.pinnedStrategyIds ?? [],
@@ -76,6 +80,7 @@ export async function migrateFromLocalStorageIfNeeded(
       display: { ...DEFAULT_DISPLAY },
       tagPresets: createDefaultTagPresets(),
       mistakeTagPresets: createDefaultMistakeTagPresets(),
+      profile: createDefaultUserProfile(),
     }
   }
 
@@ -94,16 +99,18 @@ export async function migrateFromLocalStorageIfNeeded(
 /** Electron 首次启动：从 IndexedDB（或种子数据）迁入本地库文件夹 */
 export async function migrateElectronLibraryIfNeeded(
   adapter: StorageAdapter,
+  indexedDbAdapter: StorageAdapter = getIndexedDbAdapter(),
 ): Promise<boolean> {
   const existing = await adapter.loadSnapshot()
   if (existing) return false
 
-  const idb = getIndexedDbAdapter()
+  const idb = indexedDbAdapter
   await idb.open()
   await migrateFromLocalStorageIfNeeded(idb)
 
   let snapshot = await idb.loadSnapshot()
-  if (!snapshot || snapshot.trades.length === 0) {
+  // 零交易是有效资料库状态；只有快照真正缺失时才生成新库默认。
+  if (!snapshot) {
     snapshot = {
       trades: migrateTrades(SEED_TRADES, DEFAULT_STRATEGIES),
       strategies: [...DEFAULT_STRATEGIES],
@@ -113,6 +120,7 @@ export async function migrateElectronLibraryIfNeeded(
       display: { ...DEFAULT_DISPLAY },
       tagPresets: createDefaultTagPresets(),
       mistakeTagPresets: createDefaultMistakeTagPresets(),
+      profile: createDefaultUserProfile(),
     }
   }
 

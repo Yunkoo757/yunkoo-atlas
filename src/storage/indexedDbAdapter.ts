@@ -84,6 +84,17 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   private db: IDBDatabase | null = null
   private objectUrlCache = new Map<string, string>()
 
+  clearObjectUrlCache(): void {
+    for (const url of this.objectUrlCache.values()) {
+      try {
+        URL.revokeObjectURL(url)
+      } catch {
+        /* 测试环境可能没有完整的 URL API。 */
+      }
+    }
+    this.objectUrlCache.clear()
+  }
+
   async open(): Promise<void> {
     this.db = await openDb()
     const manifest = await idbGet<LibraryManifest>(this.db, STORE_META, 'manifest')
@@ -270,6 +281,52 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
       if (cached) URL.revokeObjectURL(cached)
       this.objectUrlCache.delete(asset.id)
     }
+  }
+
+  /**
+   * 浏览器完整归档恢复：用单一事务精确替换快照与全部附件。
+   * 调用方必须先完成 ZIP 解压、格式校验和所有 base64 准备；这里不做异步解压，
+   * 避免 IndexedDB transaction 在等待期间提前 inactive。
+   */
+  async replaceArchive(
+    snapshot: PersistedSnapshot,
+    assets: ExportAssetRecord[],
+  ): Promise<void> {
+    assertValidPersistedSnapshot(snapshot, 'Restored browser snapshot')
+    const db = this.requireDb()
+    const now = new Date().toISOString()
+    const records = assets.map((asset) => {
+      const blob = base64ToBlob(asset.data, asset.mime)
+      return {
+        id: asset.id,
+        mime: asset.mime,
+        byteSize: blob.size,
+        createdAt: now,
+        blob,
+      } satisfies AssetRecord
+    })
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORE_SNAPSHOT, STORE_ASSETS], 'readwrite')
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('IndexedDB archive replacement failed'))
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB archive replacement aborted'))
+      try {
+        tx.objectStore(STORE_SNAPSHOT).put(snapshot, 'main')
+        const assetStore = tx.objectStore(STORE_ASSETS)
+        assetStore.clear()
+        for (const record of records) assetStore.put(record)
+      } catch (error) {
+        try {
+          tx.abort()
+        } catch {
+          /* 事务若已由浏览器终止，保留最初的同步异常。 */
+        }
+        reject(error)
+      }
+    })
+
+    this.clearObjectUrlCache()
   }
 }
 

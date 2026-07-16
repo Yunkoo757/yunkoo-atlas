@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
   Area,
@@ -16,22 +16,27 @@ import { EmptyState } from '@/components/EmptyState'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
-import type { Trade } from '@/data/trades'
+import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { fmtMoney } from '@/lib/format'
-import { isExecutedClosed } from '@/lib/tradeStatus'
 import { tradeDetailPath } from '@/lib/tradeRoute'
-import { getPeriodBounds, isDateInRange } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
+import { isActive } from '@/lib/tradeStatus'
+import {
+  filterTradesByAnalysisScope,
+  parseAnalysisScope,
+  strategyAnalysisHref,
+  writeAnalysisScope,
+  type AnalysisKind,
+  type AnalysisRange,
+} from '@/lib/analysisScope'
 import {
   buildDashboardStats,
+  describeDashboardResultHealth,
   type DashboardCurvePoint,
 } from '@/lib/dashboardStats'
 import './Dashboard.css'
 
-type TimeRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
-type DashboardKind = 'live' | 'paper' | 'all'
-
-const RANGE_OPTS: { value: TimeRange; label: string }[] = [
+const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'this-month', label: '本月' },
   { value: '30d', label: '近30天' },
@@ -39,95 +44,90 @@ const RANGE_OPTS: { value: TimeRange; label: string }[] = [
   { value: 'ytd', label: '本年' },
 ]
 
-const KIND_OPTS: { value: DashboardKind; label: string }[] = [
+const KIND_OPTS: { value: AnalysisKind; label: string }[] = [
   { value: 'live', label: '实盘' },
   { value: 'paper', label: '模拟' },
   { value: 'all', label: '全部类型' },
 ]
 
-function isClosed(t: Trade) {
-  return isExecutedClosed(t.status)
-}
-
-function filterByKind(trades: Trade[], kind: DashboardKind): Trade[] {
-  if (kind === 'all') return trades.filter((t) => isAccountTrade(t) && isClosed(t))
-  return trades.filter((t) => t.tradeKind === kind && isClosed(t))
-}
-
-function filterByRange(trades: Trade[], range: TimeRange): Trade[] {
-  const closed = trades.filter(isClosed)
-  if (range === 'all') return closed
-  if (range === 'this-month') {
-    const bounds = getPeriodBounds('this-month')
-    return closed.filter((t) => isDateInRange(t.closedAt ?? t.openedAt, bounds))
-  }
-
-  const now = new Date()
-  let cutoff: Date
-  if (range === 'ytd') {
-    cutoff = new Date(now.getFullYear(), 0, 1)
-  } else {
-    cutoff = new Date(now)
-    cutoff.setDate(cutoff.getDate() - (range === '30d' ? 30 : 90))
-  }
-
-  return closed.filter((t) => {
-    const d = new Date(t.closedAt ?? t.openedAt)
-    return d >= cutoff
-  })
-}
-
 export function Dashboard() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const allTrades = useStore((s) => s.trades)
   const strategyDefs = useStore((s) => s.strategies)
   const openComposer = useStore((s) => s.openComposer)
-  const [range, setRange] = useState<TimeRange>('all')
-  const [kind, setKind] = useState<DashboardKind>('live')
-  const trades = useMemo(() => allTrades.filter((trade) => !trade.deletedAt), [allTrades])
+  const [curveDataOpen, setCurveDataOpen] = useState(false)
+  const localDateKey = useLocalDateKey()
+  const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
+  const trades = useMemo(
+    () => filterTradesByAnalysisScope(allTrades, scope),
+    [
+      allTrades,
+      scope.kind,
+      scope.range,
+      localDateKey,
+    ],
+  )
+  const activeTrades = useMemo(
+    () => allTrades.filter((trade) =>
+      !trade.deletedAt &&
+      isAccountTrade(trade) &&
+      isActive(trade.status) &&
+      (scope.kind === 'all' || trade.tradeKind === scope.kind),
+    ),
+    [allTrades, scope.kind],
+  )
+  const tradeById = useMemo(
+    () => new Map(allTrades.filter((trade) => !trade.deletedAt).map((trade) => [trade.id, trade])),
+    [allTrades],
+  )
 
-  const stats = useMemo(() => {
-    const byKind = filterByKind(trades, kind)
-    return buildDashboardStats(filterByRange(byKind, range), strategyDefs)
-  }, [trades, strategyDefs, range, kind])
-  const rangeLabel = RANGE_OPTS.find((o) => o.value === range)?.label ?? '全部'
-  const kindLabel = KIND_OPTS.find((o) => o.value === kind)?.label ?? '全部类型'
+  const stats = useMemo(() => buildDashboardStats(trades, strategyDefs), [trades, strategyDefs])
+  const rangeLabel = RANGE_OPTS.find((o) => o.value === scope.range)?.label ?? '全部'
+  const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '全部类型'
   const hasClosedTrades = stats.closedCount > 0
+  const activeTradesPath = scope.kind === 'paper' || (
+    scope.kind === 'all' && !activeTrades.some((trade) => trade.tradeKind === 'live')
+  )
+    ? '/sim'
+    : '/active'
+
+  const updateScope = (patch: Partial<typeof scope>) => {
+    setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
+  }
 
   const openTrade = (tradeId: string) => {
-    const t = trades.find((x) => x.id === tradeId)
+    const t = tradeById.get(tradeId)
     navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`)
   }
 
   return (
     <>
-      <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 默认实盘" showDisplay={false} />
+      <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD · 默认实盘" showDisplay={false} />
       <div className="db-scroll">
         <div className="db-toolbar">
           <span className="db-toolbar-label">分析范围</span>
-          <div className="db-segmented" role="tablist" aria-label="交易类型">
+          <div className="db-segmented" role="group" aria-label="交易类型">
             {KIND_OPTS.map((o) => (
               <button
                 key={o.value}
                 type="button"
-                role="tab"
-                aria-selected={kind === o.value}
-                className={'db-seg' + (kind === o.value ? ' is-on' : '')}
-                onClick={() => setKind(o.value)}
+                aria-pressed={scope.kind === o.value}
+                className={'db-seg' + (scope.kind === o.value ? ' is-on' : '')}
+                onClick={() => updateScope({ kind: o.value })}
               >
                 {o.label}
               </button>
             ))}
           </div>
-          <div className="db-segmented" role="tablist" aria-label="时间范围">
+          <div className="db-segmented" role="group" aria-label="时间范围">
             {RANGE_OPTS.map((o) => (
               <button
                 key={o.value}
                 type="button"
-                role="tab"
-                aria-selected={range === o.value}
-                className={'db-seg' + (range === o.value ? ' is-on' : '')}
-                onClick={() => setRange(o.value)}
+                aria-pressed={scope.range === o.value}
+                className={'db-seg' + (scope.range === o.value ? ' is-on' : '')}
+                onClick={() => updateScope({ range: o.value })}
               >
                 {o.label}
               </button>
@@ -138,9 +138,9 @@ export function Dashboard() {
         <div className="db-cards">
           <Card
             label="净盈亏"
-            value={fmtMoney(stats.totalPnl)}
+            value={stats.pnlCount === 0 ? '—' : fmtMoney(stats.totalPnl)}
             sub={`${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
-            accent={stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
+            accent={stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
           />
           <Card
             label="胜率"
@@ -153,7 +153,12 @@ export function Dashboard() {
             sub={`${stats.rCount}/${stats.closedCount} 笔含 R`}
             accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
           />
-          <Card label="盈利笔数" value={String(stats.winCount)} sub={`共 ${stats.evaluatedCount} 笔有效结果`} muted />
+          <Card
+            label="盈利笔数"
+            value={stats.evaluatedCount === 0 ? '—' : String(stats.winCount)}
+            sub={`共 ${stats.evaluatedCount} 笔有效结果`}
+            muted
+          />
         </div>
 
         {hasClosedTrades && (
@@ -165,22 +170,19 @@ export function Dashboard() {
               </span>
             </div>
             <span className="db-data-health-state">
-              {stats.conflictCount > 0
-                ? `${stats.conflictCount} 笔结果冲突`
-                : stats.evaluatedCount < stats.closedCount
-                  ? `${stats.closedCount - stats.evaluatedCount} 笔待补结果`
-                  : '结果完整'}
+              {describeDashboardResultHealth(stats)}
             </span>
           </div>
         )}
 
         {!hasClosedTrades ? (
           <EmptyState
+            className="db-empty"
             title="还没有已平仓交易"
             hint="平仓并填写结果后，这里会生成盈亏曲线与策略表现。"
             action={
-              trades.length > 0 ? (
-                <button type="button" className="empty-btn" onClick={() => navigate('/active')}>
+              activeTrades.length > 0 ? (
+                <button type="button" className="empty-btn" onClick={() => navigate(activeTradesPath)}>
                   查看进行中交易
                 </button>
               ) : (
@@ -202,15 +204,17 @@ export function Dashboard() {
               </div>
             </div>
             {stats.curve.length > 0 && (
-              <span className="db-panel-hint">悬停查看走势，点击高亮节点打开交易</span>
+              <span className="db-panel-hint">悬停查看走势，或使用下方数据表打开交易</span>
             )}
           </div>
           <div className="db-chart">
             {stats.curve.length === 0 ? (
-              <div className="db-chart-empty">该时间范围内暂无已平仓交易</div>
+              <div className="db-chart-empty">已平仓交易尚未填写有效盈亏</div>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={stats.curve} margin={{ left: -16, right: 8, top: 8 }}>
+              <>
+                <div aria-hidden="true">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={stats.curve} margin={{ left: -16, right: 8, top: 8 }}>
                   <defs>
                     <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
@@ -243,8 +247,40 @@ export function Dashboard() {
                       },
                     }}
                   />
-                </AreaChart>
-              </ResponsiveContainer>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <details
+                  className="db-chart-data"
+                  onToggle={(event) => setCurveDataOpen(event.currentTarget.open)}
+                >
+                  <summary>查看累计盈亏数据（{stats.curve.length} 笔）</summary>
+                  {curveDataOpen ? <div className="db-chart-data-scroll">
+                    <table>
+                      <thead>
+                        <tr><th>交易</th><th>日期</th><th>单笔盈亏</th><th>累计盈亏</th></tr>
+                      </thead>
+                      <tbody>
+                        {stats.curve.map((point) => {
+                          const trade = tradeById.get(point.tradeId)
+                          return (
+                            <tr key={point.tradeId}>
+                              <th scope="row">
+                                <Link to={trade ? tradeDetailPath(trade) : `/trade/${point.tradeId}`}>
+                                  {point.ref} · {point.label}
+                                </Link>
+                              </th>
+                              <td>{point.date}</td>
+                              <td>{fmtMoney(point.pnl)}</td>
+                              <td>{fmtMoney(point.equity)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div> : null}
+                </details>
+              </>
             )}
           </div>
         </section>
@@ -258,7 +294,7 @@ export function Dashboard() {
               <div className="db-strats-empty">该时间范围内暂无策略数据</div>
             ) : (
               stats.strategies.map((s) => (
-                <Link to={`/strategy/${s.id}`} className="db-strat" key={s.id}>
+                <Link to={strategyAnalysisHref(s.id, scope)} className="db-strat" key={s.id}>
                   <div className="db-strat-head">
                     {s.meta && (
                       <StrategyIcon icon={s.meta.icon} color={s.meta.color} size={16} />
@@ -266,22 +302,30 @@ export function Dashboard() {
                     <div className="db-strat-name">{s.name}</div>
                   </div>
                   <div className="db-strat-meta">
-                    {s.n}/{s.closedCount} 笔结果有效 · 胜率 {s.winRate == null ? '—' : `${s.winRate.toFixed(0)}%`}
+                    {s.n}/{s.closedCount} 笔结果有效 · 盈亏 {s.pnlCount}/{s.closedCount} · 胜率 {s.winRate == null ? '—' : `${s.winRate.toFixed(0)}%`}
                   </div>
                   <div className="db-strat-bar">
-                    <div
-                      className="db-strat-fill"
-                      style={{
-                        width: `${(Math.abs(s.pnl) / stats.maxAbs) * 100}%`,
-                        background: s.pnl >= 0 ? 'var(--pos)' : 'var(--neg)',
-                      }}
-                    />
+                    {s.pnlCount > 0 ? (
+                      <div
+                        className="db-strat-fill"
+                        style={{
+                          width: `${(Math.abs(s.pnl) / stats.maxAbs) * 100}%`,
+                          background: s.pnl >= 0 ? 'var(--pos)' : 'var(--neg)',
+                        }}
+                      />
+                    ) : null}
                   </div>
                   <div
                     className="db-strat-pnl"
-                    style={{ color: s.pnl >= 0 ? 'var(--pos)' : 'var(--neg)' }}
+                    style={{
+                      color: s.pnlCount === 0
+                        ? 'var(--text-tertiary)'
+                        : s.pnl >= 0
+                          ? 'var(--pos)'
+                          : 'var(--neg)',
+                    }}
                   >
-                    {fmtMoney(s.pnl)}
+                    {s.pnlCount === 0 ? '—' : fmtMoney(s.pnl)}
                   </div>
                 </Link>
               ))
@@ -295,10 +339,12 @@ export function Dashboard() {
           </div>
           <div className="db-chart">
             {stats.rCount === 0 ? (
-              <div className="db-chart-empty">该时间范围内暂无已平仓交易</div>
+              <div className="db-chart-empty">已平仓交易尚未填写有效 R</div>
             ) : (
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={stats.rDist} margin={{ left: -16, right: 8, top: 4 }}>
+              <>
+                <div aria-hidden="true">
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={stats.rDist} margin={{ left: -16, right: 8, top: 4 }}>
                   <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -329,8 +375,23 @@ export function Dashboard() {
                       fill: 'color-mix(in srgb, var(--accent) 82%, white 18%)',
                     }}
                   />
-                </BarChart>
-              </ResponsiveContainer>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <details className="db-chart-data is-compact">
+                  <summary>查看 R 倍数分布数据</summary>
+                  <div className="db-chart-data-scroll">
+                    <table>
+                      <thead><tr><th>R 区间</th><th>笔数</th></tr></thead>
+                      <tbody>
+                        {stats.rDist.map((bucket) => (
+                          <tr key={bucket.label}><th scope="row">{bucket.label}</th><td>{bucket.n}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              </>
             )}
           </div>
         </section>

@@ -28,6 +28,8 @@ import { prepareExistingComposerTrade } from '@/lib/tradeComposerSave'
 import { formatYmd } from '@/lib/periods'
 import { assetUrl, getStorage } from '@/storage'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
+import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
+import { toast } from '@/lib/toast'
 import './TradeComposer.css'
 
 const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
@@ -161,6 +163,10 @@ export function TradeComposer() {
   // 添加图片
   const addImage = async (file: File) => {
     if (submittingRef.current) return
+    if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
+      toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
+      return
+    }
     const id = crypto.randomUUID()
     const preview = URL.createObjectURL(file)
     setImages((prev) => [...prev, { id, file, preview }])

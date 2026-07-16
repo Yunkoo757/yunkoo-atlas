@@ -4,7 +4,7 @@
 
 - Windows NSIS 安装版：支持应用内检查、下载和重启安装。
 - Windows Portable 便携版：当前不发布，避免与可在线更新的 NSIS 安装包混淆。
-- macOS：CI 产出 arm64 的 DMG / ZIP（**未签名、未公证**，供手动安装）；接入 Apple 开发者证书与公证后再启用正式应用内更新。
+- macOS：CI 产出 arm64 + x64 的 DMG / ZIP（**未签名、未公证**，供手动安装）；接入 Apple 开发者证书与公证后再启用正式应用内更新。
 - 更新源：私有 GitHub 仓库 `Yunkoo757/yunkoo-atlas` 的 Releases。
 
 ### macOS 提示「已损坏，无法打开」
@@ -52,6 +52,8 @@ xattr -cr "/path/to/Yunkoo Atlas.app"
 - `major`：存在不兼容变化，例如 `1.1.0 → 2.0.0`。
 
 `package.json` 的 `version` 是唯一版本来源。Git 标签必须与它完全一致，例如 `v1.0.1`。
+
+带预发布后缀的版本（例如 `1.2.15-preview.5`）使用同名 `v` 标签发布。工作流会将其标记为 GitHub Prerelease，并设置为非 latest；该版本不会进入正式版客户端的自动更新通道。
 
 ## 发布命令
 

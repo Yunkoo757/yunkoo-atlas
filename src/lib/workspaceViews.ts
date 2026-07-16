@@ -1,9 +1,10 @@
-import { normalizeSavedViewPath } from '@/lib/savedTradeViews'
+import { canonicalizeTradeViewSearch, normalizeSavedViewPath } from '@/lib/savedTradeViews'
 import type { Strategy } from '@/data/strategies'
 import { isValidPeriodSlug } from '@/lib/periods'
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 
-export type WorkspaceKind = 'today' | 'trade' | 'case'
+export type WorkspaceKind = 'today' | 'trade' | 'paper' | 'case'
+export type RememberableWorkspaceKind = Exclude<WorkspaceKind, 'paper'>
 
 export type WorkspaceRouteMemory = {
   pathname: string
@@ -18,7 +19,17 @@ export type WorkspaceViewTarget = {
 }
 
 /** 定义快捷视图身份的 query（临时 facet 如 symbol/tag 不在此列） */
-export const WORKSPACE_VIEW_QUERY_KEYS = ['status', 'session', 'reviewCategory'] as const
+export const WORKSPACE_VIEW_QUERY_KEYS = [
+  'status',
+  'session',
+  'period',
+  'reviewCategory',
+  'caseType',
+  'masteryState',
+  // 仅在仪表盘/策略分析页生效；切换到普通工作区后必须移除，避免无效 URL 条件。
+  'kind',
+  'range',
+] as const
 
 const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
   today: [{ id: 'today', label: '今日', pathname: '/today-record' }],
@@ -27,6 +38,12 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'week', label: '本周', pathname: '/period/this-week' },
     { id: 'month', label: '本月', pathname: '/period/this-month' },
     { id: 'loss', label: '亏损', pathname: '/list', search: '?status=loss' },
+  ],
+  paper: [
+    { id: 'all', label: '全部', pathname: '/sim' },
+    { id: 'planned', label: '待执行', pathname: '/sim', search: '?status=planned' },
+    { id: 'open', label: '进行中', pathname: '/sim', search: '?status=open' },
+    { id: 'loss', label: '亏损复盘', pathname: '/sim', search: '?status=loss' },
   ],
   case: [
     { id: 'all', label: '全部', pathname: '/review-cases' },
@@ -80,7 +97,7 @@ export function searchForWorkspaceViewTarget(
   target: Pick<WorkspaceViewTarget, 'id' | 'search'>,
 ): string {
   if (target.id === 'all') return ''
-  const next = new URLSearchParams(
+  const next = canonicalizeTradeViewSearch(
     typeof currentSearch === 'string' ? currentSearch : currentSearch.toString(),
   )
   for (const key of WORKSPACE_VIEW_QUERY_KEYS) next.delete(key)
@@ -96,6 +113,7 @@ export function isSavedViewInWorkspace(
   const pathname = normalizeSavedViewPath(view.pathname)
   if (kind === 'today') return pathname === '/today-record'
   if (kind === 'case') return pathname.startsWith('/review-cases')
+  if (kind === 'paper') return pathname === '/sim'
   return (
     pathname === '/list' ||
     pathname.startsWith('/period/') ||
@@ -124,7 +142,11 @@ export function isCaseWorkspaceEntryPath(pathname: string): boolean {
   return PRIMARY_VIEWS.case.some((view) => view.pathname === p)
 }
 
-export function rememberableWorkspaceKind(pathname: string): WorkspaceKind | null {
+export function isPaperWorkspaceEntryPath(pathname: string): boolean {
+  return normalizeSavedViewPath(pathname) === '/sim'
+}
+
+export function rememberableWorkspaceKind(pathname: string): RememberableWorkspaceKind | null {
   if (isTodayWorkspaceEntryPath(pathname)) return 'today'
   if (isCaseWorkspaceEntryPath(pathname)) return 'case'
   if (isTradeWorkspaceEntryPath(pathname)) return 'trade'
@@ -140,13 +162,16 @@ export function resolveWorkspaceNavTarget(
     kind === 'today'
       ? { pathname: '/today-record', search: '' }
       : kind === 'case'
-      ? { pathname: '/review-cases', search: '' }
-      : { pathname: '/list', search: '' }
+        ? { pathname: '/review-cases', search: '' }
+        : kind === 'paper'
+          ? { pathname: '/sim', search: '' }
+          : { pathname: '/list', search: '' }
   if (!memory?.pathname) return fallback
   const pathname = listPathFromLegacyTablePath(memory.pathname) ?? memory.pathname
   if (kind === 'today' && !isTodayWorkspaceEntryPath(pathname)) return fallback
   if (kind === 'trade' && !isTradeWorkspaceEntryPath(pathname)) return fallback
   if (kind === 'case' && !isCaseWorkspaceEntryPath(pathname)) return fallback
+  if (kind === 'paper' && !isPaperWorkspaceEntryPath(pathname)) return fallback
   if (kind === 'trade' && strategies) {
     const strategyMatch = normalizeSavedViewPath(pathname).match(/^\/strategy\/([^/]+)$/)
     if (strategyMatch) {

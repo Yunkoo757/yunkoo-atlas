@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -18,6 +18,7 @@ import {
   X,
   Keyboard,
   BookOpen,
+  RotateCcw,
 } from '@/icons/appIcons'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { sortStrategies } from '@/lib/strategies'
@@ -58,15 +59,23 @@ interface TagCommandCandidate {
 export function CommandPalette({
   open,
   onClose,
+  returnFocusTo,
 }: {
   open: boolean
   onClose: () => void
+  returnFocusTo?: HTMLElement | null
 }) {
   if (!open) return null
-  return <CommandPaletteDialog onClose={onClose} />
+  return <CommandPaletteDialog onClose={onClose} returnFocusTo={returnFocusTo} />
 }
 
-function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
+function CommandPaletteDialog({
+  onClose,
+  returnFocusTo,
+}: {
+  onClose: () => void
+  returnFocusTo?: HTMLElement | null
+}) {
   const [q, setQ] = useState('')
   const deferredQuery = useDeferredValue(q)
   const [active, setActive] = useState(0)
@@ -79,6 +88,9 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   const shortcutBindings = useShortcutStore((s) => s.bindings)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listboxId = useId()
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const returnFocusFrameRef = useRef<number | null>(null)
 
   const searchResult = useMemo(() => {
     const go = (to: string) => () => {
@@ -91,6 +103,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
       { id: 'n-today', group: '导航', icon: <Calendar size={16} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
       { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '交易记录', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
+      { id: 'n-review-session', group: '导航', icon: <RotateCcw size={16} />, label: '随机复盘', keywords: '随机 抽卡 复盘', hint: '抽卡浏览交易与案例', run: go('/review-session') },
       { id: 'n-active', group: '导航', icon: <Clock size={16} />, label: '进行中', hint: shortcutHint('nav.active'), run: go('/active') },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', hint: shortcutHint('nav.dashboard'), run: go('/dashboard') },
       { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', hint: shortcutHint('nav.favorites'), run: go('/favorites') },
@@ -229,12 +242,36 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
   const hasMore = searchResult.total > commands.length
   const queryPending = q.trim() !== deferredQuery.trim()
   const visibleCommands = queryPending ? [] : commands
+  const activeOptionId = visibleCommands[active]
+    ? `${listboxId}-option-${active}`
+    : undefined
+
+  useEffect(() => {
+    if (returnFocusFrameRef.current !== null) {
+      cancelAnimationFrame(returnFocusFrameRef.current)
+      returnFocusFrameRef.current = null
+    }
+    returnFocusRef.current = returnFocusTo ?? (
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    )
+    return () => {
+      const target = returnFocusRef.current
+      returnFocusFrameRef.current = requestAnimationFrame(() => {
+        returnFocusFrameRef.current = null
+        if (target?.isConnected) target.focus()
+      })
+    }
+  }, [])
 
   useEffect(() => {
     requestAnimationFrame(() => inputRef.current?.focus())
   }, [])
 
   useEffect(() => setActive(0), [q])
+
+  useEffect(() => {
+    setActive((current) => Math.min(current, Math.max(0, visibleCommands.length - 1)))
+  }, [visibleCommands.length])
 
   // 选中项滚动可见
   useEffect(() => {
@@ -301,23 +338,37 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
           <input
             ref={inputRef}
             className="cmdk-input"
+            role="combobox"
+            aria-label="搜索与命令"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            aria-controls={listboxId}
+            aria-activedescendant={activeOptionId}
             placeholder="搜索交易、跳转视图…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
           />
-          <button
-            className="cmdk-clear"
-            onClick={() => { setQ(''); inputRef.current?.focus() }}
-            tabIndex={-1}
-            aria-label="清除搜索"
-          >
-            <X size={14} />
-          </button>
+          {q ? (
+            <button
+              type="button"
+              className="cmdk-clear"
+              onClick={() => { setQ(''); inputRef.current?.focus() }}
+              aria-label="清除搜索"
+            >
+              <X size={14} />
+            </button>
+          ) : null}
         </div>
-        <div className="cmdk-list" ref={listRef}>
+        <div
+          id={listboxId}
+          className="cmdk-list"
+          ref={listRef}
+          role="listbox"
+          aria-label="命令结果"
+        >
           {visibleCommands.length === 0 && !queryPending && (
-            <div className="cmdk-empty">没有匹配项</div>
+            <div className="cmdk-empty" role="status">没有匹配项</div>
           )}
           {visibleCommands.map((c) => {
             flatIndex++
@@ -325,9 +376,14 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
             const showHeader = c.group !== lastGroup
             lastGroup = c.group
             return (
-              <div key={c.id}>
-                {showHeader && <div className="cmdk-group">{c.group}</div>}
+              <div key={c.id} role="presentation">
+                {showHeader && <div className="cmdk-group" role="presentation">{c.group}</div>}
                 <button
+                  id={`${listboxId}-option-${idx}`}
+                  type="button"
+                  role="option"
+                  aria-selected={idx === active}
+                  tabIndex={-1}
                   className={'cmdk-item' + (idx === active ? ' is-active' : '')}
                   onMouseMove={() => setActive(idx)}
                   onClick={() => c.run()}

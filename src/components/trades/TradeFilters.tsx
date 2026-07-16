@@ -1,11 +1,15 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { RotateCcw, X } from '@/icons/appIcons'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import {
+  CASE_TYPE_META,
+  MASTERY_STATE_META,
   REVIEW_CATEGORY_META,
   STATUS_META,
+  type CaseType,
+  type MasteryState,
   type ReviewCategory,
   type Trade,
   type TradeSide,
@@ -20,7 +24,11 @@ import { collectMistakeTagOptions, collectTagOptions } from '@/lib/tags'
 import { routeWithSearch } from '@/lib/tradeView'
 import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
 import { clampPopoverLeft } from '@/lib/popoverPosition'
-import { savedViewMatchesLocation } from '@/lib/savedTradeViews'
+import {
+  canonicalizeTradeViewSearch,
+  normalizeSavedViewPath,
+  savedViewMatchesLocation,
+} from '@/lib/savedTradeViews'
 import { getActiveWorkspaceView, type WorkspaceKind } from '@/lib/workspaceViews'
 import { FilterBar, type ActiveFilter } from '@/components/ui/FilterBar'
 import { QuickViewBar } from '@/components/trades/QuickViewBar'
@@ -29,6 +37,23 @@ import { Select } from '@/components/ui/Select'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import './TradeFilters.css'
+
+const KNOWN_TRADE_VIEW_PARAMS = new Set([
+  'tradeKind',
+  'period',
+  'strategyId',
+  'symbol',
+  'side',
+  'status',
+  'session',
+  'tag',
+  'mistakeTag',
+  'reviewCategory',
+  'caseType',
+  'masteryState',
+  'kind',
+  'range',
+])
 
 export function TradeFilters({
   filter,
@@ -53,10 +78,27 @@ export function TradeFilters({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const panelId = 'trade-filter-panel'
-  const workspaceKind: WorkspaceKind = filter.tradeKind === 'case' ? 'case' : 'trade'
+  const workspaceKind: WorkspaceKind = filter.tradeKind === 'case'
+    ? 'case'
+    : filter.tradeKind === 'paper'
+      ? 'paper'
+      : 'trade'
   const isCaseWorkspace = workspaceKind === 'case'
-  const filterLabel = isCaseWorkspace ? '筛选案例' : '筛选交易'
-  const filterDialogLabel = isCaseWorkspace ? '案例筛选' : '交易筛选'
+  const isPaperWorkspace = workspaceKind === 'paper'
+  const usesQueryScope = isCaseWorkspace || isPaperWorkspace
+  const allowsTradeKindFacet = !filter.tradeKind && (
+    !filter.analysisScope || filter.analysisScope.kind === 'all'
+  )
+  const filterLabel = isCaseWorkspace
+    ? '筛选案例'
+    : isPaperWorkspace
+      ? '筛选模拟交易'
+      : '筛选交易'
+  const filterDialogLabel = isCaseWorkspace
+    ? '案例筛选'
+    : isPaperWorkspace
+      ? '模拟交易筛选'
+      : '交易筛选'
   const symbols = useMemo(
     () => collectSymbolOptions(symbolCatalog, trades.map((trade) => trade.symbol)),
     [symbolCatalog, trades],
@@ -77,8 +119,17 @@ export function TradeFilters({
     setSearchParams(next, { replace: true })
   }
 
+  useEffect(() => {
+    const current = searchParams.toString()
+    const canonical = canonicalizeTradeViewSearch(searchParams)
+    if (!allowsTradeKindFacet) canonical.delete('tradeKind')
+    if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
+  }, [allowsTradeKindFacet, searchParams, setSearchParams])
+
   const activeFilters: ActiveFilter[] = []
-  const quickPeriod = ['/period/this-week', '/period/this-month'].includes(location.pathname)
+  const quickPeriod = ['/period/this-week', '/period/this-month'].includes(
+    normalizeSavedViewPath(location.pathname),
+  )
   if (filter.type === 'period' && filter.period && !quickPeriod) {
     activeFilters.push({ key: 'period', label: PERIOD_LABELS[filter.period] })
   } else if (filter.type === 'strategy') {
@@ -96,6 +147,16 @@ export function TradeFilters({
   }
 
   const facetLabels: Array<[string, string]> = [
+    [
+      'tradeKind',
+      allowsTradeKindFacet
+        ? searchParams.get('tradeKind') === 'live'
+          ? '实盘'
+          : searchParams.get('tradeKind') === 'paper'
+            ? '模拟'
+            : ''
+        : '',
+    ],
     [
       'period',
       searchParams.get('period')
@@ -121,7 +182,9 @@ export function TradeFilters({
             ? '亚盘'
             : searchParams.get('session') === 'outside'
               ? '盘外时段'
-              : '',
+              : searchParams.get('session') === 'other'
+                ? '其他时段'
+                : '',
     ],
     ['tag', searchParams.get('tag') ?? ''],
     ['mistakeTag', searchParams.get('mistakeTag') ?? ''],
@@ -131,21 +194,45 @@ export function TradeFilters({
         ? REVIEW_CATEGORY_META[searchParams.get('reviewCategory') as ReviewCategory]?.label ?? ''
         : '',
     ],
+    [
+      'caseType',
+      searchParams.get('caseType')
+        ? CASE_TYPE_META[searchParams.get('caseType') as CaseType]?.label ?? ''
+        : '',
+    ],
+    [
+      'masteryState',
+      searchParams.get('masteryState')
+        ? MASTERY_STATE_META[searchParams.get('masteryState') as MasteryState]?.label ?? ''
+        : '',
+    ],
   ]
-  const activeWorkspaceView = filter.tradeKind === 'paper'
-    ? undefined
-    : getActiveWorkspaceView(workspaceKind, location.pathname, location.search)
+  const activeWorkspaceView = getActiveWorkspaceView(
+    workspaceKind,
+    location.pathname,
+    location.search,
+  )
   const baselineParams = new URLSearchParams(activeWorkspaceView?.search ?? '')
   for (const [key, label] of facetLabels) {
     if (label && baselineParams.get(key) !== searchParams.get(key)) {
       activeFilters.push({ key, label, onRemove: () => setParam(key, '') })
     }
   }
+  for (const [key, value] of searchParams) {
+    if (KNOWN_TRADE_VIEW_PARAMS.has(key)) continue
+    activeFilters.push({
+      key: `unsupported:${key}:${value}`,
+      label: `未支持条件：${key}=${value}`,
+      onRemove: () => setParam(key, ''),
+    })
+  }
   const searchText = searchParams.toString()
   const currentSavedView = savedViews.some((view) =>
     savedViewMatchesLocation(view, location.pathname, searchText),
   )
-  const visibleActiveFilters = currentSavedView ? [] : activeFilters
+  const visibleActiveFilters = currentSavedView
+    ? activeFilters.filter((item) => item.key.startsWith('unsupported:'))
+    : activeFilters
 
   const go = (path: string) => {
     const mode = workbenchModeFromPathname(location.pathname)
@@ -158,6 +245,18 @@ export function TradeFilters({
     const mode = workbenchModeFromPathname(location.pathname)
     navigate(pathWithWorkbenchMode(base, mode), { replace: true })
   }
+
+  const closeFilters = useCallback(() => {
+    setOpen(false)
+    requestAnimationFrame(() => triggerRef.current?.focus())
+  }, [])
+
+  const toggleFilters = useCallback(() => {
+    setOpen((current) => {
+      if (current) requestAnimationFrame(() => triggerRef.current?.focus())
+      return !current
+    })
+  }, [])
 
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return
@@ -183,10 +282,10 @@ export function TradeFilters({
   }, [open])
 
   useEffect(() => {
-    const toggleFromShortcut = () => setOpen((current) => !current)
+    const toggleFromShortcut = () => toggleFilters()
     window.addEventListener('atlas:toggle-trade-filters', toggleFromShortcut)
     return () => window.removeEventListener('atlas:toggle-trade-filters', toggleFromShortcut)
-  }, [])
+  }, [toggleFilters])
 
   useEffect(() => {
     if (!open) return
@@ -202,8 +301,7 @@ export function TradeFilters({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
-      setOpen(false)
-      triggerRef.current?.focus()
+      closeFilters()
     }
 
     document.addEventListener('pointerdown', onPointerDown)
@@ -212,7 +310,7 @@ export function TradeFilters({
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
+  }, [closeFilters, open])
 
   const panel = open
     ? createPortal(
@@ -238,7 +336,11 @@ export function TradeFilters({
                 </button>
               </Tooltip>
               <Tooltip content="关闭" label="关闭筛选器">
-                <button type="button" onClick={() => setOpen(false)} aria-label="关闭筛选器">
+                <button
+                  type="button"
+                  onClick={closeFilters}
+                  aria-label="关闭筛选器"
+                >
                   <X size={14} />
                 </button>
               </Tooltip>
@@ -252,14 +354,14 @@ export function TradeFilters({
                 <FilterSelect
                   label={isCaseWorkspace ? '来源日期' : '时间'}
                   value={
-                    isCaseWorkspace
+                    usesQueryScope
                       ? searchParams.get('period') ?? ''
                       : filter.type === 'period'
                         ? filter.period ?? ''
                         : ''
                   }
                   onChange={(value) => {
-                    if (isCaseWorkspace) setParam('period', value)
+                    if (usesQueryScope) setParam('period', value)
                     else if (value === 'today') go('/period/today')
                     else if (value) go(`/period/${value}`)
                     else go('/list')
@@ -276,14 +378,14 @@ export function TradeFilters({
                 <FilterSelect
                   label="策略"
                   value={
-                    isCaseWorkspace
+                    usesQueryScope
                       ? searchParams.get('strategyId') ?? ''
                       : filter.type === 'strategy'
                         ? filter.strategyId ?? ''
                         : ''
                   }
                   onChange={(value) =>
-                    isCaseWorkspace
+                    usesQueryScope
                       ? setParam('strategyId', value)
                       : value
                         ? go(`/strategy/${value}`)
@@ -298,47 +400,113 @@ export function TradeFilters({
               <section className="trade-filter-section">
                 <h3>{isCaseWorkspace ? '案例条件' : '交易条件'}</h3>
                 <div className="trade-filter-condition-grid">
-                  <FilterSelect
-                    label="状态"
-                    value={searchParams.get('status') ?? ''}
-                    onChange={(value) => setParam('status', value)}
-                    options={[['', '全部状态'], ...STATUS_ORDER.map((value) => [value, STATUS_META[value].label] as [string, string])]}
-                  />
-                  <FilterSelect
-                    label="品种"
-                    value={searchParams.get('symbol') ?? ''}
-                    onChange={(value) => setParam('symbol', value)}
-                    options={[
-                      { value: '', label: '全部品种' },
-                      ...symbols.map((value) => ({
-                        value,
-                        label: value,
-                        icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={14} />,
-                      })),
-                    ]}
-                  />
-                  <FilterSelect
-                    label="方向"
-                    value={searchParams.get('side') ?? ''}
-                    onChange={(value) => setParam('side', value)}
-                    options={[
-                      ['', '全部方向'],
-                      ['long', '做多'],
-                      ['short', '做空'],
-                    ]}
-                  />
-                  <FilterSelect
-                    label="交易时段"
-                    value={searchParams.get('session') ?? ''}
-                    onChange={(value) => setParam('session', value)}
-                    options={[
-                      ['', '全部时段'],
-                      ['london', '伦敦盘'],
-                      ['new-york', '纽约盘'],
-                      ['asia', '亚盘'],
-                      ['outside', '盘外时段'],
-                    ]}
-                  />
+                  {isCaseWorkspace ? (
+                    <>
+                      <FilterSelect
+                        label="案例类型"
+                        value={searchParams.get('caseType') ?? ''}
+                        onChange={(value) => setParam('caseType', value)}
+                        options={[
+                          ['', '全部类型'],
+                          ...(Object.keys(CASE_TYPE_META) as CaseType[]).map(
+                            (value) => [value, CASE_TYPE_META[value].label] as [string, string],
+                          ),
+                        ]}
+                      />
+                      <FilterSelect
+                        label="掌握状态"
+                        value={searchParams.get('masteryState') ?? ''}
+                        onChange={(value) => setParam('masteryState', value)}
+                        options={[
+                          ['', '全部状态'],
+                          ...(Object.keys(MASTERY_STATE_META) as MasteryState[]).map(
+                            (value) => [value, MASTERY_STATE_META[value].label] as [string, string],
+                          ),
+                        ]}
+                      />
+                      <FilterSelect
+                        label="复盘分类"
+                        value={searchParams.get('reviewCategory') ?? ''}
+                        onChange={(value) => setParam('reviewCategory', value)}
+                        options={[
+                          ['', '全部分类'],
+                          ...(Object.keys(REVIEW_CATEGORY_META) as ReviewCategory[]).map(
+                            (value) => [value, REVIEW_CATEGORY_META[value].label] as [string, string],
+                          ),
+                        ]}
+                      />
+                      <FilterSelect
+                        label="品种"
+                        value={searchParams.get('symbol') ?? ''}
+                        onChange={(value) => setParam('symbol', value)}
+                        options={[
+                          { value: '', label: '全部品种' },
+                          ...symbols.map((value) => ({
+                            value,
+                            label: value,
+                            icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={14} />,
+                          })),
+                        ]}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      {allowsTradeKindFacet ? (
+                        <FilterSelect
+                          label="记录类型"
+                          value={searchParams.get('tradeKind') ?? ''}
+                          onChange={(value) => setParam('tradeKind', value)}
+                          options={[
+                            ['', '全部记录'],
+                            ['live', '实盘'],
+                            ['paper', '模拟'],
+                          ] satisfies Array<[string, string]>}
+                        />
+                      ) : null}
+                      <FilterSelect
+                        label="状态"
+                        value={searchParams.get('status') ?? ''}
+                        onChange={(value) => setParam('status', value)}
+                        options={[['', '全部状态'], ...STATUS_ORDER.map((value) => [value, STATUS_META[value].label] as [string, string])]}
+                      />
+                      <FilterSelect
+                        label="品种"
+                        value={searchParams.get('symbol') ?? ''}
+                        onChange={(value) => setParam('symbol', value)}
+                        options={[
+                          { value: '', label: '全部品种' },
+                          ...symbols.map((value) => ({
+                            value,
+                            label: value,
+                            icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={14} />,
+                          })),
+                        ]}
+                      />
+                      <FilterSelect
+                        label="方向"
+                        value={searchParams.get('side') ?? ''}
+                        onChange={(value) => setParam('side', value)}
+                        options={[
+                          ['', '全部方向'],
+                          ['long', '做多'],
+                          ['short', '做空'],
+                        ]}
+                      />
+                      <FilterSelect
+                        label="交易时段"
+                        value={searchParams.get('session') ?? ''}
+                        onChange={(value) => setParam('session', value)}
+                        options={[
+                          ['', '全部时段'],
+                          ['london', '伦敦盘'],
+                          ['new-york', '纽约盘'],
+                          ['asia', '亚盘'],
+                          ['outside', '盘外时段'],
+                          ['other', '其他时段'],
+                        ]}
+                      />
+                    </>
+                  )}
                 </div>
               </section>
 
@@ -371,13 +539,13 @@ export function TradeFilters({
       <FilterBar
         activeFilters={visibleActiveFilters}
         open={open}
-        onToggle={() => setOpen((value) => !value)}
+        onToggle={toggleFilters}
         rootRef={rootRef}
         triggerRef={triggerRef}
         panelId={panelId}
         label={filterLabel}
         shortcutActionId="list.toggleFilters"
-        quickViews={filter.tradeKind === 'paper' ? undefined : <QuickViewBar kind={workspaceKind} />}
+        quickViews={<QuickViewBar kind={workspaceKind} />}
       />
       {panel}
     </>

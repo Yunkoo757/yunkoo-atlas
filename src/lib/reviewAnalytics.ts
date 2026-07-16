@@ -37,9 +37,9 @@ export interface MistakeSummary {
 export interface StrategyPerformance {
   tradeCount: number
   closedCount: number
-  winRate: number
+  winRate: number | null
   totalR: number
-  averageR: number
+  averageR: number | null
   worstR: number | null
   reviewedCount: number
   topMistakes: MistakeSummary[]
@@ -65,7 +65,7 @@ export function normalizeReviewFields(trade: Trade): Trade {
     ? trade.masteryState ?? inferMasteryState({ reviewStatus, reviewCategory })
     : undefined
   let nextReviewAt = trade.nextReviewAt
-  if (trade.tradeKind === 'case' && masteryState !== 'mastered' && !nextReviewAt) {
+  if (trade.tradeKind === 'case' && masteryState !== 'mastered' && nextReviewAt === undefined) {
     const rawDate = trade.recordedAt ?? trade.openedAt
     const base = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
       ? parseLocalDate(rawDate)
@@ -137,7 +137,7 @@ export function summarizeStrategyPerformance(
     .map((trade) => trade.rMultiple)
     .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
   const totalR = rValues.reduce((sum, value) => sum + value, 0)
-  const averageR = rValues.length ? totalR / rValues.length : 0
+  const averageR = rValues.length ? totalR / rValues.length : null
   const worstR = rValues.length ? Math.min(...rValues) : null
   const reviewedCount = all.filter((t) => t.reviewStatus === 'reviewed' || t.reviewStatus === 'focus').length
   const mistakeCounts = new Map<string, number>()
@@ -154,7 +154,7 @@ export function summarizeStrategyPerformance(
   return {
     tradeCount: all.length,
     closedCount: result.closedCount,
-    winRate: result.winRate ?? 0,
+    winRate: result.winRate,
     totalR,
     averageR,
     worstR,
