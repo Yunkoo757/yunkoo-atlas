@@ -3,6 +3,7 @@ import { DEFAULT_PROFILE_DISPLAY } from '@/config/defaultProfile'
 import type { CalendarPeriod } from '@/lib/periods'
 import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
 import { normalizeSidebarPins } from '@/lib/tradeKind'
+import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import {
   migrateSidebarPins,
   normalizeSidebarWorkspaceItems,
@@ -64,7 +65,7 @@ function normalizeWorkspaceRoute(input: unknown): { pathname: string; search: st
   const route = input as Record<string, unknown>
   if (typeof route.pathname !== 'string' || !route.pathname.startsWith('/')) return undefined
   return {
-    pathname: route.pathname,
+    pathname: listPathFromLegacyTablePath(route.pathname) ?? route.pathname,
     search: typeof route.search === 'string' ? route.search : '',
   }
 }

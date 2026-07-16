@@ -1,6 +1,7 @@
 import { normalizeSavedViewPath } from '@/lib/savedTradeViews'
 import type { Strategy } from '@/data/strategies'
 import { isValidPeriodSlug } from '@/lib/periods'
+import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 
 export type WorkspaceKind = 'today' | 'trade' | 'case'
 
@@ -142,11 +143,12 @@ export function resolveWorkspaceNavTarget(
       ? { pathname: '/review-cases', search: '' }
       : { pathname: '/list', search: '' }
   if (!memory?.pathname) return fallback
-  if (kind === 'today' && !isTodayWorkspaceEntryPath(memory.pathname)) return fallback
-  if (kind === 'trade' && !isTradeWorkspaceEntryPath(memory.pathname)) return fallback
-  if (kind === 'case' && !isCaseWorkspaceEntryPath(memory.pathname)) return fallback
+  const pathname = listPathFromLegacyTablePath(memory.pathname) ?? memory.pathname
+  if (kind === 'today' && !isTodayWorkspaceEntryPath(pathname)) return fallback
+  if (kind === 'trade' && !isTradeWorkspaceEntryPath(pathname)) return fallback
+  if (kind === 'case' && !isCaseWorkspaceEntryPath(pathname)) return fallback
   if (kind === 'trade' && strategies) {
-    const strategyMatch = normalizeSavedViewPath(memory.pathname).match(/^\/strategy\/([^/]+)$/)
+    const strategyMatch = normalizeSavedViewPath(pathname).match(/^\/strategy\/([^/]+)$/)
     if (strategyMatch) {
       let strategyId: string
       try {
@@ -158,7 +160,7 @@ export function resolveWorkspaceNavTarget(
     }
   }
   return {
-    pathname: memory.pathname,
+    pathname,
     search: memory.search ?? '',
   }
 }

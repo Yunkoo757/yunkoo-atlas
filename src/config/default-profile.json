@@ -79,7 +79,6 @@
     "nav.strategies": { "key": "o" },
     "view.list": { "key": "l" },
     "view.board": { "key": "b" },
-    "view.table": { "key": "t" },
     "trade.prev": { "key": "q" },
     "trade.next": { "key": "e" },
     "trade.backToList": { "key": "escape" },

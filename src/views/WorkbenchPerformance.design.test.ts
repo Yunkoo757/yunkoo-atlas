@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 function read(relativePath: string): string {
@@ -17,7 +17,7 @@ export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
 }
 
 export function testSelectionIdentityOnlyScansWhenVisibleRowsChange(): void {
-  for (const file of ['src/views/ListView.tsx', 'src/views/TableView.tsx']) {
+  for (const file of ['src/views/ListView.tsx']) {
     const source = read(file)
     if (!source.includes("const visibleIdsKey = useMemo(\n    () => visible.map((trade) => trade.id).join('\\u0000'),\n    [visible],\n  )")) {
       throw new Error(`${path.basename(file)} must memoize its visible row identity`)
@@ -33,5 +33,19 @@ export function testTodayWorkspaceUsesConstantTimeStarredLookup(): void {
   }
   if (source.includes('starred={starredIds.includes(trade.id)}')) {
     throw new Error('today rows must not linearly scan starred IDs')
+  }
+}
+
+export function testRemovedTableViewHasNoRuntimeSurface(): void {
+  for (const file of ['src/views/TableView.tsx', 'src/views/TableView.css', 'src/lib/tradeTable.ts']) {
+    if (existsSync(path.resolve(file))) {
+      throw new Error(`${file} must remain deleted with the retired table view`)
+    }
+  }
+  const topbar = read('src/components/Topbar.tsx')
+  const actions = read('src/shortcuts/actions.ts')
+  const app = read('src/App.tsx')
+  if (topbar.includes('view.table') || actions.includes('view.table') || app.includes('TableView')) {
+    throw new Error('retired table view must not retain a UI, shortcut, or renderer entry point')
   }
 }

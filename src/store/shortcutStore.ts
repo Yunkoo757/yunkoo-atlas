@@ -74,6 +74,7 @@ export function migrateShortcutBindings(
     next['nav.list'] = next['global.switchModule'] ?? null
   }
   delete next['global.switchModule']
+  delete next['view.table']
   return next
 }
 

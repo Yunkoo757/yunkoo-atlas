@@ -17,7 +17,6 @@ import {
   isBoardPath,
   isDetailPath,
   listPathFromPathname,
-  tablePathFromListPath,
 } from '@/lib/routeContext'
 import { tradeDetailPath, resolveTradeDetailReturn, findTradeByRouteParam } from '@/lib/tradeRoute'
 import { routeWithSearch } from '@/lib/tradeView'
@@ -101,12 +100,6 @@ export function useShortcutHost({
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
         navigate(routeWithSearch(boardPathFromListPath(listPath), search || listContext?.listSearch || ''))
       },
-      'view.table': () => {
-        const listContext = useShortcutStore.getState().listContext
-        const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
-        navigate(routeWithSearch(tablePathFromListPath(listPath), search || listContext?.listSearch || ''))
-      },
-
       'list.toggleFilters': () => {
         if (listPathFromPathname(pathname)) {
           window.dispatchEvent(new CustomEvent('atlas:toggle-trade-filters'))

@@ -22,7 +22,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
 
   const showGrouping = view === 'list'
   const showEmptyGroups = view === 'board'
-  const showSort = view === 'list' || view === 'board' || view === 'table'
+  const showSort = view === 'list' || view === 'board'
 
   useEffect(() => {
     if (!open) return
@@ -110,9 +110,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
             {showSort && (
               <>
                 <div className="display-divider" />
-                <div className="display-label">
-                  {view === 'table' ? '默认排序（列头可再排）' : '排序'}
-                </div>
+                <div className="display-label">排序</div>
                 {SORT_OPTS.map((o) => (
                   <button
                     key={o.value}
