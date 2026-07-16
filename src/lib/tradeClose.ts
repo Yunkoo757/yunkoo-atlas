@@ -59,16 +59,13 @@ export function prepareTradeClose(trade: Trade, input: TradeCloseInput): TradeCl
           : 'r'
     }
   } else if (input.resultMode === 'price') {
-    resultSource = 'price'
     if (exit == null) return { ok: false, error: '请填写出场价' }
     const priceResult = calcPriceResult(trade.side, trade.entry, exit)
     if (priceResult == null) return { ok: false, error: '入场价或出场价无效，请核对后再保存' }
     pnl = null
     const initialStopLoss = trade.initialStopLoss ?? trade.stopLoss ?? null
     rMultiple = calcRFromPrices(trade.side, trade.entry, exit, initialStopLoss)
-    if (rMultiple == null) {
-      return { ok: false, error: '缺少有效初始止损，无法按价格计算 R；请改用盈亏金额或 R 倍数' }
-    }
+    resultSource = rMultiple == null ? undefined : 'price'
     outcome = pnlToStatus(priceResult)
   }
 

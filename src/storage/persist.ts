@@ -86,7 +86,7 @@ async function flush(): Promise<void> {
       await getStorage().saveSnapshot(snapshot)
     } catch (e) {
       console.error('Persist failed', e)
-      useSaveStatus.getState().setError()
+      useSaveStatus.getState().setError(e)
       // 若写盘期间已有更新快照到达，保留更新的完整快照；否则重试本次快照。
       pending ??= snapshot
       throw e
@@ -215,7 +215,7 @@ export async function flushPersistNow(): Promise<void> {
         await preFlushCallback()
       } catch (error) {
         pending = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
-        useSaveStatus.getState().setError()
+        useSaveStatus.getState().setError(error)
         throw error
       }
       const stateAfter = useStore.getState()
@@ -228,8 +228,9 @@ export async function flushPersistNow(): Promise<void> {
       }
       if (writes >= MAX_STABLE_PREFLUSH_WRITES) {
         pending = pickPersisted(stateAfter, shortcutsAfter)
-        useSaveStatus.getState().setError()
-        throw new Error('保存过程中内容持续变化，请稍后重试')
+        const error = new Error('保存过程中内容持续变化，请稍后重试')
+        useSaveStatus.getState().setError(error)
+        throw error
       }
 
       pending = pickPersisted(stateAfter, shortcutsAfter)

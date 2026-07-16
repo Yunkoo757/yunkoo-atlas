@@ -29,7 +29,7 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-export function testClosePriceWithoutStopRequiresAnotherResultMode(): void {
+export function testClosePriceWithoutStopKeepsOutcomeAndLeavesRUnknown(): void {
   const result = prepareTradeClose({ ...trade, stopLoss: null }, {
     outcome: 'loss',
     resultMode: 'price',
@@ -39,9 +39,12 @@ export function testClosePriceWithoutStopRequiresAnotherResultMode(): void {
     closedAt: '2026-07-13',
   })
 
-  assert(!result.ok, 'price mode without initial risk should ask for cash or R instead')
-  if (result.ok) return
-  assert(result.error.includes('止损'), 'the error should explain why price R is unavailable')
+  assert(result.ok, 'valid entry and exit prices should be enough to close without an initial stop')
+  if (!result.ok) return
+  assert(result.status === 'win', 'price direction should still determine the outcome')
+  assert(result.patch.exit === 110, 'the exit price should be preserved')
+  assert(result.patch.rMultiple === null, 'missing initial risk must keep R unknown instead of inventing it')
+  assert(result.patch.resultSource === undefined, 'an outcome without a verified metric must not claim price authority')
 }
 
 export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {

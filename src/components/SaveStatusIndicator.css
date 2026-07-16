@@ -28,6 +28,38 @@
   color: var(--neg);
 }
 
+.save-status-recovery {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.save-status--action {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.save-status--action:hover,
+.save-status--action:focus-visible {
+  color: var(--neg-strong, var(--neg));
+}
+
+.save-status-recovery-link {
+  padding: 2px 4px;
+  color: var(--text-secondary);
+  font-size: var(--fs-mini);
+  text-decoration: none;
+}
+
+.save-status-recovery-link:hover,
+.save-status-recovery-link:focus-visible {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .save-status--idle {
   visibility: hidden;
 }

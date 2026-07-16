@@ -946,7 +946,7 @@ export async function switchActiveLibrary(
     } else {
       discardPendingAndResumePersist()
       disablePersistWrites()
-      useSaveStatus.getState().setError()
+      useSaveStatus.getState().setError('新资料库载入失败，自动保存已暂停')
       try {
         window.location?.reload()
       } catch {

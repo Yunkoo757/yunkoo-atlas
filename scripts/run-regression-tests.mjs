@@ -128,6 +128,11 @@ try {
       label: 'src/components/TradeCloseDialog.browser.test.tsx :: cash and R remain visible and persist together',
     },
     {
+      url: '/src/components/SaveStatusIndicator.browser.test.html',
+      promiseKey: '__saveStatusRecoveryTest',
+      label: 'src/components/SaveStatusIndicator.browser.test.tsx :: save failure exposes reason retry and recovery',
+    },
+    {
       url: '/src/components/RouteState.browser.test.html',
       promiseKey: '__routeStateTest',
       label: 'src/components/RouteState.browser.test.tsx :: route recovery and delayed loading',
