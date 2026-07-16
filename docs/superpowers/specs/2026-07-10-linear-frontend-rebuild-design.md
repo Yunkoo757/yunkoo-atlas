@@ -31,7 +31,7 @@
 
 - 不照搬 Linear 的品牌、文案或问题管理语义。
 - 不重写 Zustand 数据层、IndexedDB / SQLite 适配器或图片资产协议。
-- 不增加云同步、AI 分类、协作和新的统计指标。
+- 保持单机、离线优先，不增加用户数据网络服务、AI 分类、协作和新的统计指标。
 - 不在本次重构中更换 React、React Router、Tiptap、Recharts 或 Lucide。
 
 ## 5. 设计原则

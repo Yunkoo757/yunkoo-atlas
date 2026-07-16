@@ -131,7 +131,7 @@ export function testIpcDoesNotPersistOrActivateCandidateBeforeValidation(): void
   assert(activatePreparedBody.includes('current !== prepared.sourceStorage'), '激活前必须确认准备期间旧库未被替换')
   assert(
     activatePreparedBody.includes('openLibrarySwitchCandidate(prepared.resolvedPath, prepared.mode)'),
-    '激活阶段必须重新打开目标库，读取 prepare 后的云盘更新',
+    '激活阶段必须重新打开目标库，读取 prepare 后的磁盘最新版本',
   )
   assert(activatePreparedBody.includes('areSameLibrary(current, fresh.candidate)'), '激活阶段必须再次确认候选库不是当前库')
   assert(activatePreparedBody.includes('activateLibraryCandidate(fresh)'), '只有激活阶段才能替换新鲜候选库')
