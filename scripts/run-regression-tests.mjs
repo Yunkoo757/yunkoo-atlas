@@ -186,6 +186,11 @@ try {
       label: 'src/views/WeeklyReviewView.browser.test.tsx :: facts, assessment, commitment and yearly trend',
     },
     {
+      url: '/src/views/WeeklyReviewPresentation.browser.test.html',
+      promiseKey: '__weeklyReviewPresentationTest',
+      label: 'src/views/WeeklyReviewPresentation.browser.test.tsx :: fixed taxonomy and single-point trend presentation',
+    },
+    {
       url: '/src/editor/imageLoadFailure.browser.test.html',
       promiseKey: '__editorImageLoadFailureTest',
       label: 'src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations',
@@ -218,6 +223,11 @@ try {
   ]
   const page = await browser.newPage()
   for (const browserTest of browserTests) {
+    const diagnostics = []
+    page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`))
+    page.on('console', (message) => {
+      if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`)
+    })
     try {
       await page.goto(new URL(browserTest.url, baseUrl).href)
       await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: 5000 })
@@ -227,6 +237,8 @@ try {
       failed += 1
       console.error(`FAIL ${browserTest.label}`)
       console.error(err)
+      console.error(`URL ${page.url()}`)
+      if (diagnostics.length) console.error(diagnostics.join('\n'))
     }
   }
 } catch (err) {
