@@ -14,7 +14,6 @@ import {
   X,
   Send,
   BookOpen,
-  CalendarDays,
   Box,
   AlertCircle,
   CheckCircle,
@@ -271,7 +270,7 @@ export function DetailView() {
             )
           }
           title={strategy?.name ?? '未设置策略'}
-          subtitle="策略项目"
+          subtitle="策略"
         />
         <div className="hp-divider" />
         <PreviewMeta>
@@ -286,21 +285,6 @@ export function DetailView() {
       </>
     )
   }
-
-  const datePreview = (label: string, value: string) => (
-    <>
-      <PreviewHeader
-        icon={<CalendarDays size={17} />}
-        title={`${label} · ${fmtDate(value)}`}
-        subtitle={relativeDateLabel(value)}
-      />
-      <div className="hp-divider" />
-      <PreviewMeta>
-        <span className="hp-meta-item">点击修改日期</span>
-        <span className="hp-meta-item"><span className="hp-kbd">Enter</span> 保存</span>
-      </PreviewMeta>
-    </>
-  )
 
   useEffect(() => {
     setActivityOpen(false)
@@ -1071,28 +1055,6 @@ export function DetailView() {
 
           <Section title="交易数据">
             <EditableDataRow
-              label="入场"
-              value={trade.entry}
-              format={(v) => fmtPrice(v as number)}
-              inputType="number"
-              nullable
-              onSave={(v) => commitTradeResultEdit({
-                kind: 'execution',
-                patch: { entry: v as number },
-              })}
-            />
-            <EditableDataRow
-              label="出场"
-              value={trade.exit}
-              format={(v) => (v == null ? '—' : fmtPrice(v as number))}
-              inputType="number"
-              nullable
-              onSave={(v) => commitTradeResultEdit({
-                kind: 'execution',
-                patch: { exit: v as number | null },
-              })}
-            />
-            <EditableDataRow
               label="仓位"
               value={trade.size}
               format={String}
@@ -1166,14 +1128,12 @@ export function DetailView() {
             <EditableDateRow
               label="开仓"
               value={trade.openedAt}
-              preview={datePreview('开仓', trade.openedAt)}
               onSave={(v) => updateTradeData(trade.id, { openedAt: v })}
             />
             {isTerminal(trade.status) ? (
               <EditableDateRow
                 label="平仓"
                 value={trade.closedAt ?? trade.openedAt}
-                preview={datePreview('平仓', trade.closedAt ?? trade.openedAt)}
                 onSave={(v) => updateTradeData(trade.id, { closedAt: v })}
               />
             ) : (
@@ -1183,7 +1143,6 @@ export function DetailView() {
               <EditableDateRow
                 label="下次复看"
                 value={trade.nextReviewAt}
-                preview={datePreview('复看', trade.nextReviewAt)}
                 onSave={(value) => updateTradeData(trade.id, { nextReviewAt: value })}
               />
             )}
@@ -1219,7 +1178,7 @@ export function DetailView() {
             />
           </Section>
 
-          <Section title="项目">
+          <Section title="策略">
             <Menu
               value={trade.strategyId}
               onSelect={(v) => setStrategy(trade.id, v)}
@@ -1371,12 +1330,10 @@ function EditableDataRow({
 function EditableDateRow({
   label,
   value,
-  preview,
   onSave,
 }: {
   label: string
   value: string
-  preview?: React.ReactNode
   onSave: (v: string) => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -1417,15 +1374,12 @@ function EditableDateRow({
     )
   }
 
-  const row = (
+  return (
     <button className="dv-datarow dv-datarow-btn" onClick={() => setEditing(true)} type="button">
       <span className="dv-datarow-label">{label}</span>
       <span className="dv-datarow-value">{fmtDate(value)}</span>
     </button>
   )
-
-  if (!preview) return row
-  return <HoverPreview content={preview}>{row}</HoverPreview>
 }
 
 function DataRow({
@@ -1447,17 +1401,6 @@ function DataRow({
   )
 }
 
-function relativeDateLabel(value: string): string {
-  const target = new Date(`${value.slice(0, 10)}T00:00:00`)
-  if (Number.isNaN(target.getTime())) return '日期待确认'
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const days = Math.round((target.getTime() - today.getTime()) / 86400000)
-  if (days === 0) return '今天'
-  if (days === 1) return '明天'
-  if (days === -1) return '昨天'
-  return days > 0 ? `${days} 天后` : `${Math.abs(days)} 天前`
-}
 
 function renderActivity(
   event: DisplayActivityEvent,

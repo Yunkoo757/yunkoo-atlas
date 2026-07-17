@@ -1,7 +1,7 @@
 # 去掉入场/出场价 + 详情「项目」改「策略」
 
 日期：2026-07-17  
-状态：待用户审阅规格  
+状态：已批准；实现中（见 `docs/superpowers/plans/2026-07-17-remove-entry-exit-prices.md`）  
 相关规格：
 
 - `2026-07-11-trade-detail-document-flow-design.md`（详情属性区）

@@ -564,7 +564,7 @@ export function NotionImportModal({ open, onClose }: Props) {
               </p>
             )}
             <p className="nim-done-hint">
-              请在交易详情中补充入场价、出场价、仓位等数据。
+              请在交易详情中补充仓位、止损与结果数据。
             </p>
             <div className="nim-actions">
               <button className="nim-btn nim-btn-primary" onClick={reset} type="button">

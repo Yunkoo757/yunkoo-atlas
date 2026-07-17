@@ -29,31 +29,12 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-export function testClosePriceWithoutStopKeepsOutcomeAndLeavesRUnknown(): void {
-  const result = prepareTradeClose({ ...trade, stopLoss: null }, {
-    outcome: 'loss',
-    resultMode: 'price',
-    pnl: null,
-    rMultiple: null,
-    exit: 110,
-    closedAt: '2026-07-13',
-  })
-
-  assert(result.ok, 'valid entry and exit prices should be enough to close without an initial stop')
-  if (!result.ok) return
-  assert(result.status === 'win', 'price direction should still determine the outcome')
-  assert(result.patch.exit === 110, 'the exit price should be preserved')
-  assert(result.patch.rMultiple === null, 'missing initial risk must keep R unknown instead of inventing it')
-  assert(result.patch.resultSource === undefined, 'an outcome without a verified metric must not claim price authority')
-}
-
 export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {
   const result = prepareTradeClose(trade, {
     outcome: 'loss',
     resultMode: 'r',
     pnl: null,
     rMultiple: 1.5,
-    exit: null,
     closedAt: '2026-07-13',
   })
 
@@ -62,6 +43,7 @@ export function testCloseAcceptsEitherPnlOrRWithoutInventingTheOther(): void {
   assert(result.patch.pnl === null, 'missing PnL must remain missing')
   assert(result.patch.rMultiple === -1.5, 'explicit R should be preserved')
   assert(result.status === 'loss', 'negative R should close as loss')
+  assert(!('exit' in result.patch), 'close must not write exit price')
 }
 
 export function testCloseKeepsCashAndRTogetherWhenBothAreProvided(): void {
@@ -70,7 +52,6 @@ export function testCloseKeepsCashAndRTogetherWhenBothAreProvided(): void {
     resultMode: 'pnl' as const,
     pnl: 500,
     rMultiple: 2,
-    exit: null,
     closedAt: '2026-07-13',
   }
   const result = prepareTradeClose(trade, dualResult)
@@ -95,7 +76,6 @@ export function testCloseKeepsCashResultAsTheOnlyAuthority(): void {
     resultMode: 'pnl',
     pnl: 1_000,
     rMultiple: null,
-    exit: 1.11,
     closedAt: '2026-07-13',
   })
 
@@ -112,7 +92,6 @@ export function testCloseAppliesLossDirectionToCashMagnitude(): void {
     resultMode: 'pnl',
     pnl: 500,
     rMultiple: null,
-    exit: null,
     closedAt: '2026-07-13',
   })
 
@@ -128,7 +107,6 @@ export function testCloseKeepsRResultAsTheOnlyAuthority(): void {
     resultMode: 'r',
     pnl: null,
     rMultiple: 1.5,
-    exit: null,
     closedAt: '2026-07-13',
   })
 
@@ -145,7 +123,6 @@ export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
     resultMode: 'pnl',
     pnl: null,
     rMultiple: null,
-    exit: null,
     closedAt: '2026-07-13',
   })
 
@@ -156,72 +133,29 @@ export function testCloseSavesBreakevenWithoutExtraNumericInput(): void {
   assert(result.patch.rMultiple === 0, 'breakeven should persist a visible zero R beside cash')
 }
 
-export function testCloseDerivesPriceResultWithoutInventingCashPnl(): void {
-  const forexTrade = {
-    ...trade,
-    entry: 1.1,
-    stopLoss: 1.095,
-    size: 1,
-    pnl: 1_000,
-    rMultiple: -1,
-  }
-  const result = prepareTradeClose(forexTrade, {
-    outcome: 'loss',
-    resultMode: 'price',
-    pnl: null,
-    rMultiple: null,
-    exit: 1.11,
-    closedAt: '2026-07-13',
-  })
-
-  assert(result.ok, 'price mode should derive a coherent result from execution prices')
-  if (!result.ok) return
-  assert(result.status === 'win', 'price direction should determine the closed outcome')
-  assert(result.patch.pnl === null, 'price mode must not invent cash PnL without contract metadata')
-  assert(result.patch.rMultiple === 2, 'price mode should calculate R from price risk directly')
-  assert(result.patch.resultSource === 'price', 'price mode must persist price as the result authority')
-  assert(result.patch.initialStopLoss === 1.095, 'price mode must freeze the initial risk used for R')
-}
-
-export function testPriceCloseUsesFrozenRiskAfterStopMoves(): void {
-  const result = prepareTradeClose({
-    ...trade,
-    entry: 100,
-    stopLoss: 99,
-    initialStopLoss: 95,
-  }, {
-    outcome: 'win',
-    resultMode: 'price',
-    pnl: null,
-    rMultiple: null,
-    exit: 110,
-    closedAt: '2026-07-13',
-  })
-
-  assert(result.ok, 'a moved stop should not block price close when initial risk is frozen')
-  if (!result.ok) return
-  assert(result.patch.rMultiple === 2, 'price close must calculate R from the frozen initial stop')
-  assert(result.patch.initialStopLoss === 95, 'price close must preserve the frozen initial stop')
-}
-
 export function testCloseRejectsMissingPrimaryResult(): void {
   const missing = prepareTradeClose(trade, {
     outcome: 'win',
     resultMode: 'pnl',
     pnl: null,
     rMultiple: null,
-    exit: null,
-    closedAt: '2026-07-13',
-  })
-  const missingPrice = prepareTradeClose(trade, {
-    outcome: 'win',
-    resultMode: 'price',
-    pnl: null,
-    rMultiple: null,
-    exit: null,
     closedAt: '2026-07-13',
   })
 
   assert(!missing.ok, 'cash mode should require a cash result')
-  assert(!missingPrice.ok, 'price mode should require an exit price')
+}
+
+export function testClosePreservesExistingExitOnTrade(): void {
+  const withExit = { ...trade, exit: 110 }
+  const result = prepareTradeClose(withExit, {
+    outcome: 'win',
+    resultMode: 'pnl',
+    pnl: 200,
+    rMultiple: null,
+    closedAt: '2026-07-13',
+  })
+
+  assert(result.ok, 'manual close should succeed without touching exit')
+  if (!result.ok) return
+  assert(!('exit' in result.patch), 'patch must omit exit so historical prices stay untouched')
 }

@@ -107,7 +107,7 @@ export function testAccountCopyKeepsPlanInputsAndClearsHistoricalState(): void {
   assert(copy.missReason === undefined, '新计划不得继承错过原因')
   assert(
     copy.entry === liveSource.entry && copy.stopLoss === liveSource.stopLoss && copy.size === liveSource.size,
-    '新计划必须保留入场、止损与仓位计划',
+    '新计划必须保留止损与仓位计划',
   )
   assert(
     copy.strategyId === liveSource.strategyId && copy.symbol === liveSource.symbol &&

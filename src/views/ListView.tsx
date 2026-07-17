@@ -351,7 +351,7 @@ export function ListView({
                 <dl className="copy-preview-list">
                   <div>
                     <dt>保留</dt>
-                    <dd>品种、方向、策略、周期、标签、入场、止损、仓位与交易上下文</dd>
+                    <dd>品种、方向、策略、周期、标签、止损、仓位与交易上下文</dd>
                   </div>
                   <div>
                     <dt>清空</dt>

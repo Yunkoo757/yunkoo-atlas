@@ -549,8 +549,8 @@ function buildTradeFromFrontmatter(
   const narrative = normalizeNarrative(stripNotionUrl(fm['narrative'] ?? ''))
   const psychology = normalizePsychology(stripNotionUrl(fm['psychology'] ?? ''))
 
-  // Missing price warning
-  warnings.push('Notion 数据缺少入场价/出场价/仓位，结果字段会标记为待校验')
+  // Missing execution metrics warning
+  warnings.push('Notion 数据缺少仓位等执行字段，结果字段会标记为待校验')
 
   return {
     sourceId: stripNotionUrl(fm['id'] ?? '') || undefined,

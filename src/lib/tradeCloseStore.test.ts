@@ -40,7 +40,6 @@ export function testCompletingTradeCloseIsOneAtomicUndoableMutation(): void {
     })
 
     useStore.getState().completeTradeClose(openTrade.id, 'win', {
-      exit: 110,
       pnl: 100,
       rMultiple: null,
       resultSource: 'pnl',
@@ -57,7 +56,7 @@ export function testCompletingTradeCloseIsOneAtomicUndoableMutation(): void {
     state.undo()
     const restored = useStore.getState().trades[0]!
     assert(restored.status === 'open', 'one undo should restore the open status')
-    assert(restored.exit === null && restored.pnl === null, 'one undo should remove every close result field')
+    assert(restored.pnl === null, 'one undo should remove close result fields')
   } finally {
     useStore.setState({
       trades: previous.trades,

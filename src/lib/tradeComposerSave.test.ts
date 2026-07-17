@@ -57,7 +57,6 @@ export async function testComposerUsesLatestTradeAfterDelayedImageSave(): Promis
     })
 
     useStore.getState().completeTradeClose(reviewedTrade.id, 'loss', {
-      exit: 90,
       pnl: null,
       rMultiple: -1.5,
       resultSource: 'r',
