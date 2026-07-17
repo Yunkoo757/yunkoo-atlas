@@ -150,10 +150,13 @@ export function WeeklyReviewView() {
     .sort((left, right) => right.weekStart.localeCompare(left.weekStart))[0]
 
   const availableWeeks = useMemo(() => {
-    const weeks = new Set(reviews.map((item) => item.weekStart))
-    for (let offset = 0; offset < 16; offset += 1) weeks.add(addDays(currentWeek, -offset * 7))
+    const weeks = new Set([currentWeek, ...reviews.map((item) => item.weekStart)])
     return [...weeks].sort((left, right) => right.localeCompare(left))
   }, [reviews, currentWeek])
+  const selectedWeekIndex = availableWeeks.indexOf(selectedWeek)
+  const olderWeek = selectedWeekIndex >= 0 ? availableWeeks[selectedWeekIndex + 1] : undefined
+  const newerWeek = selectedWeekIndex > 0 ? availableWeeks[selectedWeekIndex - 1] : undefined
+  const hasReviewHistory = availableWeeks.length > 1
 
   const commitPatch = useCallback((patch: ReviewPatch) => {
     const existing = useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek)
@@ -237,40 +240,46 @@ export function WeeklyReviewView() {
   return (
     <>
       <Topbar title="周复盘" subtitle="把一周的证据沉淀成下一周可验证的行动" showDisplay={false} />
-      <div className="wr-shell">
-        <aside className="wr-history" aria-label="周复盘历史">
-          <div className="wr-history-title">历史周</div>
-          {availableWeeks.map((week) => {
-            const item = reviews.find((candidate) => candidate.weekStart === week)
-            return (
-              <button
-                key={week}
-                type="button"
-                className={week === selectedWeek ? 'is-active' : ''}
-                onClick={() => changeWeek(week)}
-              >
-                <span>{weekLabel(week, currentWeek)}</span>
-                <small>{week.slice(5).replace('-', '.')}</small>
-                <i className={item?.status === 'completed' ? 'is-complete' : item ? 'is-draft' : ''} />
-              </button>
-            )
-          })}
-        </aside>
+      <div className={`wr-shell${hasReviewHistory ? '' : ' is-first-review'}`}>
+        {hasReviewHistory ? (
+          <aside className="wr-history" aria-label="周复盘历史">
+            <div className="wr-history-title">复盘记录</div>
+            {availableWeeks.map((week) => {
+              const item = reviews.find((candidate) => candidate.weekStart === week)
+              return (
+                <button
+                  key={week}
+                  type="button"
+                  className={week === selectedWeek ? 'is-active' : ''}
+                  onClick={() => changeWeek(week)}
+                >
+                  <span>{weekLabel(week, currentWeek)}</span>
+                  <small>{week.slice(5).replace('-', '.')}</small>
+                  <i className={item?.status === 'completed' ? 'is-complete' : item ? 'is-draft' : ''} />
+                </button>
+              )
+            })}
+          </aside>
+        ) : null}
 
         <main className="wr-main">
           <header className="wr-page-head">
             <div>
-              <div className="wr-kicker">{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
+              <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
               <h1>{formatWeekRange(selectedWeek)}</h1>
-              <p>仅统计实盘已平仓交易 · 按平仓日</p>
+              <p>{selectedWeek === currentWeek ? '本周进行中 · ' : ''}仅统计实盘已平仓交易 · 按平仓日</p>
             </div>
             <div className="wr-head-actions">
               <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">
                 <button type="button" role="tab" aria-selected={tab === 'review'} onClick={() => setTab('review')}>本周复盘</button>
                 <button type="button" role="tab" aria-selected={tab === 'year'} onClick={() => setTab('year')}>年度趋势</button>
               </div>
-              <button type="button" className="wr-week-nav" aria-label="上一周" onClick={() => changeWeek(addDays(selectedWeek, -7))}><ChevronLeft size={16} /></button>
-              <button type="button" className="wr-week-nav" aria-label="下一周" disabled={selectedWeek >= currentWeek} onClick={() => changeWeek(addDays(selectedWeek, 7))}><ChevronRight size={16} /></button>
+              {hasReviewHistory ? (
+                <>
+                  <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && changeWeek(olderWeek)}><ChevronLeft size={16} /></button>
+                  <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && changeWeek(newerWeek)}><ChevronRight size={16} /></button>
+                </>
+              ) : null}
             </div>
           </header>
 
@@ -343,7 +352,6 @@ export function WeeklyReviewView() {
                 <div className="wr-section-head"><div><span>{previousReview ? '06' : '05'}</span><h2>判断与截图</h2></div><small>支持清单、引用和直接粘贴截图</small></div>
                 <div className="wr-editor-wrap">
                   <Editor
-                    key={review.id}
                     content={editorHtml}
                     onChange={onEditorChange}
                     noteDraftId={storedReview ? draftId : undefined}

@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
-import { weekStartFor } from '@/data/weeklyReviews'
+import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -77,6 +77,9 @@ async function run(): Promise<void> {
   assert(rootElement, '缺少测试挂载节点')
   const previous = useStore.getState()
   const root = createRoot(rootElement)
+  const pageErrors: string[] = []
+  const capturePageError = (event: ErrorEvent) => pageErrors.push(event.error?.message ?? event.message)
+  window.addEventListener('error', capturePageError)
   try {
     useStore.setState({
       trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50)],
@@ -93,6 +96,8 @@ async function run(): Promise<void> {
 
     await waitFor(() => document.body.textContent?.includes('+$100') ?? false, '自动周指标未按平仓交易计算')
     assert(document.body.textContent?.includes('50%'), '胜率指标未出现')
+    assert(document.querySelectorAll('.wr-history button').length === 0, '首次复盘不应显示没有历史价值的周次栏')
+    assert(document.body.textContent?.includes('首次周复盘'), '首次复盘缺少明确的首次使用提示')
     if (new URLSearchParams(location.search).has('visual')) {
       await new Promise<void>(() => {})
     }
@@ -121,9 +126,25 @@ async function run(): Promise<void> {
     await waitFor(() => useStore.getState().weeklyReviews[0]?.status === 'draft', '完成的复盘无法重新打开')
     assert(useStore.getState().weeklyReviews[0]?.metricsSnapshot === null, '重开后应恢复实时指标')
 
+    const priorDate = new Date(`${weekStartFor()}T12:00:00`)
+    priorDate.setDate(priorDate.getDate() - 7)
+    const priorReview = {
+      ...createWeeklyReview(weekStartFor(priorDate)),
+      contentHtml: '<p>上一周真实复盘</p>',
+    }
+    useStore.getState().upsertWeeklyReview(priorReview)
+    await waitFor(() => document.querySelectorAll('.wr-history button').length === 2, '真实历史周没有进入复盘记录')
+    const historyButtons = [...document.querySelectorAll<HTMLButtonElement>('.wr-history button')]
+    historyButtons[1]?.click()
+    await waitFor(() => document.body.textContent?.includes('上一周真实复盘') ?? false, '切换历史周后正文没有更新')
+    historyButtons[0]?.click()
+    await waitFor(() => !document.body.textContent?.includes('上一周真实复盘'), '返回本周后仍显示历史正文')
+    assert(!pageErrors.some((message) => message.includes('removeChild')), '切换周次触发了 removeChild 页面异常')
+
     clickButton('年度趋势')
     await waitFor(() => document.body.textContent?.includes('做法评分趋势') ?? false, '年度趋势页不可达')
   } finally {
+    window.removeEventListener('error', capturePageError)
     root.unmount()
     useStore.setState({ trades: previous.trades, weeklyReviews: previous.weeklyReviews })
   }
