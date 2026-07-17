@@ -5,6 +5,16 @@ import { summarizeTradeResults } from '@/lib/tradeTruth'
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
 
+export const WEEKLY_MISTAKE_DIMENSIONS = [
+  '追价',
+  '过早入场',
+  '逆势',
+  '移动止损',
+  '过度交易',
+  '情绪化',
+  '漏记计划',
+] as const
+
 export interface WeeklyReviewMetrics {
   tradeCount: number
   reviewedCount: number
@@ -118,6 +128,17 @@ export function buildWeeklyReviewMetrics(trades: Trade[]): WeeklyReviewMetrics {
     averageR: summary.averageR,
     mistakeTagCounts,
   }
+}
+
+export function summarizeWeeklyMistakeDimensions(reviews: WeeklyReview[]): Record<string, number> {
+  const dimensions = new Set<string>(WEEKLY_MISTAKE_DIMENSIONS)
+  const counts: Record<string, number> = {}
+  for (const review of reviews) {
+    for (const tag of review.mistakeTags) {
+      if (dimensions.has(tag)) counts[tag] = (counts[tag] ?? 0) + 1
+    }
+  }
+  return counts
 }
 
 export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): WeeklyReview[] {

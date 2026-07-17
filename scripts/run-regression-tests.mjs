@@ -8,6 +8,7 @@ import fs from 'node:fs/promises'
   'src/regression.test.ts',
   'src/lib/analysisScope.test.ts',
   'src/data/weeklyReviews.test.ts',
+  'src/data/weeklyReviewTaxonomy.test.ts',
   'src/lib/dashboardStats.test.ts',
   'src/lib/strategies.test.ts',
   'src/lib/reviewAnalytics.test.ts',

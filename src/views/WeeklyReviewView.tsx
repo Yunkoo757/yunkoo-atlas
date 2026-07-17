@@ -14,7 +14,9 @@ import {
 import {
   buildWeeklyReviewMetrics,
   createWeeklyReview,
+  summarizeWeeklyMistakeDimensions,
   tradesClosedInWeek,
+  WEEKLY_MISTAKE_DIMENSIONS,
   weekEndFor,
   weekStartFor,
   type WeeklyReview,
@@ -36,7 +38,6 @@ import { useStore } from '@/store/useStore'
 import './WeeklyReviewView.css'
 
 const STRENGTH_TAGS = ['耐心等待', '计划内交易', '执行果断', '仓位克制', '及时止损', '复盘充分']
-const MISTAKE_TAGS = ['追价', '过早入场', '逆势', '移动止损', '过度交易', '情绪化', '漏记计划']
 const SCORE_FIELDS = [
   { key: 'executionScore', label: '执行纪律' },
   { key: 'riskScore', label: '风险管理' },
@@ -144,6 +145,9 @@ export function WeeklyReviewView() {
   const metrics = review.status === 'completed' && review.metricsSnapshot
     ? review.metricsSnapshot
     : liveMetrics
+  const customMistakeEvidence = Object.entries(metrics.mistakeTagCounts)
+    .filter(([tag]) => !WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number]))
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
   const locked = review.status === 'completed'
   const previousReview = reviews
     .filter((item) => item.weekStart < selectedWeek && item.commitmentText.trim())
@@ -336,7 +340,21 @@ export function WeeklyReviewView() {
               <section className="wr-section">
                 <div className="wr-section-head"><div><span>{previousReview ? '04' : '03'}</span><h2>模式识别</h2></div><small>用于跨周统计，而不是替代你的判断</small></div>
                 <TagGroup title="做得好的" options={STRENGTH_TAGS} selected={review.strengthTags} onChange={(strengthTags) => commitPatch({ strengthTags })} />
-                <TagGroup title="需要纠正的" options={[...new Set([...MISTAKE_TAGS, ...Object.keys(metrics.mistakeTagCounts)])]} selected={review.mistakeTags} onChange={(mistakeTags) => commitPatch({ mistakeTags })} counts={metrics.mistakeTagCounts} />
+                <TagGroup
+                  title="需要纠正的"
+                  options={[...WEEKLY_MISTAKE_DIMENSIONS]}
+                  selected={review.mistakeTags}
+                  onChange={(mistakeTags) => commitPatch({
+                    mistakeTags: mistakeTags.filter((tag) => WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number])),
+                  })}
+                  counts={metrics.mistakeTagCounts}
+                />
+                {customMistakeEvidence.length ? (
+                  <div className="wr-evidence-tags">
+                    <div><label>本周交易标签</label><small>仅作证据提示，不计入年度统计</small></div>
+                    <p>{customMistakeEvidence.map(([tag, count]) => <span key={tag}>{tag}<b>×{count}</b></span>)}</p>
+                  </div>
+                ) : null}
               </section>
 
               <section className="wr-section">
@@ -396,14 +414,13 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
   const completed = reviews.filter((review) => review.status === 'completed')
   const averages = completed.map(scoreAverage).filter((score): score is number => score !== null)
   const average = averages.length ? averages.reduce((sum, score) => sum + score, 0) / averages.length : null
-  const mistakes = new Map<string, number>()
-  for (const review of reviews) for (const tag of review.mistakeTags) mistakes.set(tag, (mistakes.get(tag) ?? 0) + 1)
+  const mistakes = Object.entries(summarizeWeeklyMistakeDimensions(reviews))
   return (
     <div className="wr-year">
       <section className="wr-section wr-year-summary">
         <div><span>已完成</span><strong>{completed.length}</strong><small>周</small></div>
         <div><span>平均做法评分</span><strong>{average?.toFixed(1) ?? '—'}</strong><small>/ 5</small></div>
-        <div><span>最常见错误</span><strong>{[...mistakes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'}</strong><small>结构化标签</small></div>
+        <div><span>最常见错误</span><strong>{mistakes.sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'}</strong><small>固定分类</small></div>
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><TrendingUp size={17} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
