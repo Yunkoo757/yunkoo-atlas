@@ -14,7 +14,6 @@ import {
   X,
   Send,
   BookOpen,
-  Box,
   AlertCircle,
   CheckCircle,
 } from '@/icons/appIcons'
@@ -75,12 +74,10 @@ import {
 } from '@/storage/noteDrafts'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
-import { HoverPreview, PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
-import { computeStrategyStats } from '@/lib/strategies'
 import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
 import {
   hasMeaningfulReviewTemplate,
@@ -254,37 +251,6 @@ export function DetailView() {
   )
 
   const starred = trade ? starredIds.includes(trade.id) : false
-
-  const strategyPreview = (strategyId: string) => {
-    const strategy = strategies.find((s) => s.id === strategyId)
-    const stats = computeStrategyStats(trades, strategyId)
-    const winRate = stats.winRate == null ? null : Math.round(stats.winRate)
-    return (
-      <>
-        <PreviewHeader
-          icon={
-            strategy ? (
-              <StrategyIcon icon={strategy.icon} color={strategy.color} size={18} variant="nav" />
-            ) : (
-              <Box size={16} />
-            )
-          }
-          title={strategy?.name ?? '未设置策略'}
-          subtitle="策略"
-        />
-        <div className="hp-divider" />
-        <PreviewMeta>
-          <span className="hp-meta-item">
-            <Box size={14} />
-            <span className="hp-meta-strong">{stats.tradeCount}</span> 笔交易
-          </span>
-          <span className="hp-meta-item">
-            {winRate == null ? '暂无胜率' : `${winRate}% 胜率`} · {fmtR(stats.totalR)}
-          </span>
-        </PreviewMeta>
-      </>
-    )
-  }
 
   useEffect(() => {
     setActivityOpen(false)
@@ -1188,11 +1154,9 @@ export function DetailView() {
                 icon: <StrategyIcon icon={s.icon} color={s.color} size={16} />,
               }))}
               trigger={
-                <HoverPreview content={strategyPreview(trade.strategyId)}>
-                  <button className="dv-pitem dv-pitem-ghost">
-                    <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
-                  </button>
-                </HoverPreview>
+                <button className="dv-pitem dv-pitem-ghost">
+                  <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
+                </button>
               }
             />
             <Link to="/settings/strategies" className="dv-strategy-manage">
