@@ -45,6 +45,7 @@ export function disablePersistWrites(): void {
 export function pickPersisted(
   state: {
   trades: PersistedSnapshot['trades']
+  weeklyReviews: NonNullable<PersistedSnapshot['weeklyReviews']>
   strategies: PersistedSnapshot['strategies']
   starredIds: string[]
   subscribedIds: string[]
@@ -62,6 +63,7 @@ export function pickPersisted(
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
   return {
     trades: state.trades,
+    weeklyReviews: state.weeklyReviews,
     strategies: state.strategies,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,

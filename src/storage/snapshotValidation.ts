@@ -15,6 +15,8 @@ const MISS_REASONS = new Set(['hesitation', 'missed_setup', 'no_alert', 'rule_br
 const DISPLAY_SORTS = new Set(['date', 'pnl', 'conviction'])
 const SIDEBAR_SYSTEM_IDS = new Set(['active', 'favorites', 'missed', 'paper'])
 const CASE_VIEW_SCOPES = new Set(['focus', 'mistakes', 'unreviewed', 'reviewed'])
+const WEEKLY_REVIEW_STATUSES = new Set(['draft', 'completed'])
+const WEEKLY_COMMITMENT_RESULTS = new Set(['done', 'partial', 'missed', 'not-applicable'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -251,6 +253,52 @@ function hasDuplicateStringId(values: unknown[]): boolean {
   return false
 }
 
+function isWeeklyReviewMetrics(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  for (const field of [
+    'tradeCount', 'reviewedCount', 'evaluatedCount', 'winCount', 'lossCount',
+    'breakevenCount', 'conflictCount', 'pnlCount', 'totalPnl', 'rCount',
+  ]) {
+    if (typeof value[field] !== 'number' || !Number.isFinite(value[field])) return false
+  }
+  if (!isNullableFiniteNumber(value.winRate) || !isNullableFiniteNumber(value.averageR)) return false
+  return isRecord(value.mistakeTagCounts) && Object.values(value.mistakeTagCounts).every(
+    (count) => typeof count === 'number' && Number.isFinite(count),
+  )
+}
+
+function isWeeklyReview(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (
+    typeof value.id !== 'string' || !value.id.trim() ||
+    typeof value.weekStart !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.weekStart) ||
+    typeof value.weekEnd !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.weekEnd) ||
+    !WEEKLY_REVIEW_STATUSES.has(String(value.status)) ||
+    typeof value.contentHtml !== 'string' ||
+    typeof value.commitmentText !== 'string' ||
+    typeof value.commitmentCriteria !== 'string' ||
+    typeof value.createdAt !== 'string' ||
+    typeof value.updatedAt !== 'string'
+  ) return false
+  for (const field of ['executionScore', 'riskScore', 'emotionScore']) {
+    const score = value[field]
+    if (score !== null && (
+      typeof score !== 'number' || !Number.isInteger(score) || score < 1 || score > 5
+    )) return false
+  }
+  for (const field of [
+    'strengthTags', 'mistakeTags', 'highlightTradeIds', 'mistakeTradeIds', 'followUpTradeIds',
+  ]) {
+    if (!isStringArray(value[field])) return false
+  }
+  if (
+    value.previousCommitmentResult !== null &&
+    !WEEKLY_COMMITMENT_RESULTS.has(String(value.previousCommitmentResult))
+  ) return false
+  if (value.completedAt !== null && typeof value.completedAt !== 'string') return false
+  return value.metricsSnapshot === null || isWeeklyReviewMetrics(value.metricsSnapshot)
+}
+
 function isStrategy(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -271,6 +319,19 @@ export function assertValidPersistedSnapshot(
   if (!value.trades.every(isValidPersistedTrade)) throw new Error(`${label} contains an invalid trade`)
   if (!value.strategies.every(isStrategy)) throw new Error(`${label} contains an invalid strategy`)
   if (hasDuplicateStringId(value.trades)) throw new Error(`${label} contains duplicate trade ids`)
+  if (value.weeklyReviews !== undefined) {
+    if (!Array.isArray(value.weeklyReviews) || !value.weeklyReviews.every(isWeeklyReview)) {
+      throw new Error(`${label} contains an invalid weekly review`)
+    }
+    if (hasDuplicateStringId(value.weeklyReviews)) {
+      throw new Error(`${label} contains duplicate weekly review ids`)
+    }
+    const weeks = new Set<string>()
+    for (const review of value.weeklyReviews) {
+      if (weeks.has(review.weekStart)) throw new Error(`${label} contains duplicate weekly review weeks`)
+      weeks.add(review.weekStart)
+    }
+  }
   if (hasDuplicateStringId(value.strategies)) throw new Error(`${label} contains duplicate strategy ids`)
   if (!isDisplayPrefs(value.display)) throw new Error(`${label} contains invalid display settings`)
   if (!isShortcutOverrides(value.shortcuts)) throw new Error(`${label} contains invalid shortcuts`)

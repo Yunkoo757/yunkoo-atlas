@@ -5,6 +5,7 @@ import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { normalizeSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
+import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { migrateShortcutBindings } from '@/store/shortcutStore'
 import { isSafeAssetId } from '@/storage/assetId'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -58,6 +59,7 @@ export interface WebJournalArchivePreview {
   exportVersion: number
   schemaVersion: number | null
   tradeCount: number
+  weeklyReviewCount: number
   strategyCount: number
   assetCount: number
   assetBytes: number
@@ -515,6 +517,7 @@ function buildNormalizedSnapshot(raw: RecordValue): PersistedSnapshot {
 
   const candidate: PersistedSnapshot = {
     trades: raw.trades as PersistedSnapshot['trades'],
+    weeklyReviews: (raw.weeklyReviews ?? []) as NonNullable<PersistedSnapshot['weeklyReviews']>,
     strategies: raw.strategies as PersistedSnapshot['strategies'],
     starredIds: (raw.starredIds ?? []) as string[],
     subscribedIds: (raw.subscribedIds ?? []) as string[],
@@ -542,6 +545,7 @@ function buildNormalizedSnapshot(raw: RecordValue): PersistedSnapshot {
   return {
     ...candidate,
     trades,
+    weeklyReviews: normalizeWeeklyReviews(candidate.weeklyReviews),
     strategies,
     display: normalizeDisplay(candidate.display),
     tagPresets: mergeTagPresets(candidate.tagPresets),
@@ -654,9 +658,21 @@ function validateNoteAssetReferences(
       referencedIds.add(id)
     }
   }
+  for (const review of snapshot.weeklyReviews ?? []) {
+    for (const match of review.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
+      const id = match[1]
+      if (!id || !isSafeAssetId(id)) {
+        throw archiveError('invalid-asset', `周复盘 ${review.weekStart} 引用了非法附件`)
+      }
+      if (!declaredIds.has(id)) {
+        throw archiveError('invalid-asset', `周复盘 ${review.weekStart} 引用了缺失的附件：${id}`)
+      }
+      referencedIds.add(id)
+    }
+  }
   for (const id of declaredIds) {
     if (!referencedIds.has(id)) {
-      throw archiveError('invalid-asset', `附件 ${id} 已声明但未被任何交易正文引用`)
+      throw archiveError('invalid-asset', `附件 ${id} 已声明但未被任何正文引用`)
     }
   }
 }
@@ -889,6 +905,7 @@ export async function parseWebJournalArchive(
       exportVersion,
       schemaVersion,
       tradeCount: snapshot.trades.length,
+      weeklyReviewCount: snapshot.weeklyReviews?.length ?? 0,
       strategyCount: snapshot.strategies.length,
       assetCount: assets.length,
       assetBytes,

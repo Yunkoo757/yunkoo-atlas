@@ -7,6 +7,7 @@ import fs from 'node:fs/promises'
   const entries = [
   'src/regression.test.ts',
   'src/lib/analysisScope.test.ts',
+  'src/data/weeklyReviews.test.ts',
   'src/lib/dashboardStats.test.ts',
   'src/lib/strategies.test.ts',
   'src/lib/reviewAnalytics.test.ts',
@@ -176,6 +177,11 @@ try {
       url: '/src/views/ReviewSession.browser.test.html',
       promiseKey: '__reviewSessionFlowTest',
       label: 'src/views/ReviewSession.browser.test.tsx :: direct review, mastery assessment, image gallery and detail restore',
+    },
+    {
+      url: '/src/views/WeeklyReviewView.browser.test.html',
+      promiseKey: '__weeklyReviewFlowTest',
+      label: 'src/views/WeeklyReviewView.browser.test.tsx :: facts, assessment, commitment and yearly trend',
     },
     {
       url: '/src/editor/imageLoadFailure.browser.test.html',

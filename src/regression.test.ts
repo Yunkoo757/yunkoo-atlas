@@ -205,7 +205,7 @@ export async function testElectronJournalImportRequiresExplicitReplacementConfir
 
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
-  const expected = ['/today-record', '/list', '/review-cases', '/review-session', '/dashboard']
+  const expected = ['/today-record', '/list', '/review-cases', '/weekly-review', '/review-session', '/dashboard']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
     `一级导航应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
@@ -269,8 +269,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
     '默认工作区配置应包含四个系统目标并保持迁移顺序',
   )
   assert(
-    PRIMARY_NAV.map((item) => item.id).join(',') === 'today,trades,reviewCases,reviewSession,dashboard',
-    '核心模块顺序必须保持今日、交易、案例、随机复盘、仪表盘',
+    PRIMARY_NAV.map((item) => item.id).join(',') === 'today,trades,reviewCases,weeklyReview,reviewSession,dashboard',
+    '核心模块顺序必须保持今日、交易、案例、周复盘、随机复盘、仪表盘',
   )
 
   const savedView = {

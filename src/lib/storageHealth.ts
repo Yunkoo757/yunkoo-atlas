@@ -1,5 +1,5 @@
 import { useStore } from '@/store/useStore'
-import { collectAssetIdsFromNotes, getStorage } from '@/storage'
+import { collectAssetIdsFromSnapshot, getStorage } from '@/storage'
 
 export interface AssetStats {
   count: number
@@ -29,8 +29,8 @@ export interface StorageHealth {
 async function collectStoredAssetIds(): Promise<Set<string>> {
   const storage = getStorage()
   // 从所有笔记中收集引用的资产 ID
-  const trades = useStore.getState().trades
-  const referencedIds = collectAssetIdsFromNotes(trades)
+  const { trades, weeklyReviews } = useStore.getState()
+  const referencedIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews })
 
   // 对于 IndexedDB/Electron，尝试获取实际存储的资产列表
   const storedIds = new Set(referencedIds)
@@ -45,8 +45,8 @@ async function collectStoredAssetIds(): Promise<Set<string>> {
 
 /** 检测孤立附件：存储中有但不在任何笔记中引用的资产 */
 export async function detectOrphanedAttachments(): Promise<string[]> {
-  const trades = useStore.getState().trades
-  const referencedIds = collectAssetIdsFromNotes(trades)
+  const { trades, weeklyReviews } = useStore.getState()
+  const referencedIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews })
 
   // 尝试从存储中获取所有已知资产
   // Electron: 扫描 attachments/ 目录
@@ -84,6 +84,12 @@ async function getAllKnownAssetIds(): Promise<Set<string>> {
         if (m[1]) ids.add(m[1].replace(/\/$/, ''))
       }
     }
+    for (const review of snapshot.weeklyReviews ?? []) {
+      const matches = review.contentHtml.matchAll(/(?:journal-asset:\/\/|attachment:)\/?([^\s"'<)]+)/g)
+      for (const match of matches) {
+        if (match[1]) ids.add(match[1].replace(/\/$/, ''))
+      }
+    }
   } catch {
     // 忽略
   }
@@ -92,12 +98,12 @@ async function getAllKnownAssetIds(): Promise<Set<string>> {
 
 /** 完整存储健康检查 */
 export async function checkStorageHealth(): Promise<StorageHealth> {
-  const { trades, strategies } = useStore.getState()
+  const { trades, weeklyReviews, strategies } = useStore.getState()
   const orphaned = await detectOrphanedAttachments()
 
   // 收集实际资产
   const storage = getStorage()
-  const assetIds = collectAssetIdsFromNotes(trades)
+  const assetIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews })
   const measured = await storage.getAssetStats(assetIds)
   const attachmentStats = {
     ...measured,

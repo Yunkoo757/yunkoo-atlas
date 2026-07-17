@@ -34,6 +34,10 @@ import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
 import { formatYmd } from '@/lib/periods'
 import type { TradeClosePatch } from '@/lib/tradeClose'
+import {
+  normalizeWeeklyReviews,
+  type WeeklyReview,
+} from '@/data/weeklyReviews'
 import { normalizeInitialStopLoss, prepareTradeResultEdit } from '@/lib/tradeResult'
 import {
   normalizeSidebarWorkspaceItems,
@@ -180,6 +184,7 @@ export function applyTradeUpsertsToSlice(
 
 interface State {
   trades: Trade[]
+  weeklyReviews: WeeklyReview[]
   strategies: Strategy[]
   selectedId: string | null
   composerOpen: boolean
@@ -301,10 +306,13 @@ interface State {
   isSubscribed: (id: string) => boolean
   isPinnedStrategy: (id: string) => boolean
   importData: (payload: ExportPayload) => void
+  upsertWeeklyReview: (review: WeeklyReview) => void
+  updateWeeklyReview: (id: string, patch: Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>) => void
 }
 
 export const useStore = create<State>()((set, get) => ({
       trades: [],
+      weeklyReviews: [],
       strategies: [],
       selectedId: null,
       composerOpen: false,
@@ -366,6 +374,21 @@ export const useStore = create<State>()((set, get) => ({
       savedTradeViews: [],
       symbolIcons: {},
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
+      upsertWeeklyReview: (review) =>
+        set((state) => ({
+          weeklyReviews: normalizeWeeklyReviews([
+            ...state.weeklyReviews.filter((item) => item.id !== review.id && item.weekStart !== review.weekStart),
+            review,
+          ]),
+        })),
+      updateWeeklyReview: (id, patch) =>
+        set((state) => ({
+          weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((review) =>
+            review.id === id
+              ? { ...review, ...patch, updatedAt: new Date().toISOString() }
+              : review,
+          )),
+        })),
       saveTradeView: (view) =>
         set((s) => ({
           savedTradeViews: normalizeSavedTradeViews([

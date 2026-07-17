@@ -2,7 +2,7 @@ import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
-import { collectAssetIdsFromNotes } from '@/storage/assets'
+import { collectAssetIdsFromSnapshot } from '@/storage/assets'
 
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
@@ -249,7 +249,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   ): Promise<void> {
     assertValidPersistedSnapshot(snapshot, 'Imported browser snapshot')
     const db = this.requireDb()
-    const referencedAssetIds = new Set(collectAssetIdsFromNotes(snapshot.trades))
+    const referencedAssetIds = new Set(collectAssetIdsFromSnapshot(snapshot))
     const records: AssetRecord[] = assets.filter(
       (asset) => !options?.pruneUnreferenced || referencedAssetIds.has(asset.id),
     ).map((asset) => {

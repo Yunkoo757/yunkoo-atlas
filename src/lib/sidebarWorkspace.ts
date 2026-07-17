@@ -259,6 +259,7 @@ function primaryIdForPath(pathname: string): PrimarySidebarNavId | undefined {
   const path = normalizeTargetPath(pathname)
   if (path === '/today-record') return 'today'
   if (path.startsWith('/review-cases')) return 'reviewCases'
+  if (path === '/weekly-review') return 'weeklyReview'
   if (path === '/dashboard') return 'dashboard'
   if (
     path === '/list' ||

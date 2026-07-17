@@ -6,6 +6,21 @@ import { useStore } from '@/store/useStore'
 const drafts = new Map<string, string>()
 const MAX_DRAFT_FLUSH_PASSES = 8
 const activeTradeFlushes = new Map<string, Promise<boolean>>()
+export const WEEKLY_REVIEW_DRAFT_PREFIX = 'weekly-review-draft:'
+
+function weeklyReviewIdFromDraftId(draftId: string): string | null {
+  return draftId.startsWith(WEEKLY_REVIEW_DRAFT_PREFIX)
+    ? draftId.slice(WEEKLY_REVIEW_DRAFT_PREFIX.length)
+    : null
+}
+
+function storedHtmlForDraft(draftId: string): string {
+  const weeklyReviewId = weeklyReviewIdFromDraftId(draftId)
+  if (weeklyReviewId) {
+    return useStore.getState().weeklyReviews.find((review) => review.id === weeklyReviewId)?.contentHtml ?? ''
+  }
+  return useStore.getState().trades.find((trade) => trade.id === draftId)?.note ?? ''
+}
 
 export function setNoteDraft(tradeId: string, html: string): void {
   drafts.set(tradeId, html)
@@ -41,9 +56,17 @@ async function flushSingleNoteDraft(tradeId: string): Promise<boolean> {
     if (html === undefined) return true
     try {
       const normalized = await normalizeNoteForStorage(html, getStorage())
-      const current = useStore.getState().trades.find((t) => t.id === tradeId)
-      if (current && normalized !== current.note) {
-        useStore.getState().updateNote(tradeId, normalized)
+      const weeklyReviewId = weeklyReviewIdFromDraftId(tradeId)
+      if (weeklyReviewId) {
+        const current = useStore.getState().weeklyReviews.find((review) => review.id === weeklyReviewId)
+        if (current && normalized !== current.contentHtml) {
+          useStore.getState().updateWeeklyReview(weeklyReviewId, { contentHtml: normalized })
+        }
+      } else {
+        const current = useStore.getState().trades.find((trade) => trade.id === tradeId)
+        if (current && normalized !== current.note) {
+          useStore.getState().updateNote(tradeId, normalized)
+        }
       }
       // 归一化期间若继续输入，则继续冲洗新值；只有当前值稳定后才能报告成功。
       if (drafts.get(tradeId) === html) drafts.delete(tradeId)
@@ -71,7 +94,7 @@ export function flushNoteDraftToStore(tradeId: string): Promise<boolean> {
 /** 慢图片保存完成时编辑器可能已卸载；将附件幂等合并到该交易的最新草稿。 */
 export function appendAssetToNoteDraft(tradeId: string, assetId: string): Promise<boolean> {
   const src = assetUrl(assetId)
-  const storedNote = useStore.getState().trades.find((trade) => trade.id === tradeId)?.note ?? ''
+  const storedNote = storedHtmlForDraft(tradeId)
   const latest = drafts.get(tradeId) ?? storedNote
   if (!latest.includes(src)) {
     drafts.set(tradeId, `${latest}${latest ? '\n' : ''}<img src="${src}" />`)

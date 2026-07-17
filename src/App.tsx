@@ -64,6 +64,9 @@ const DetailView = lazy(() =>
 const ReviewSessionView = lazy(() =>
   import('./views/ReviewSessionView').then((module) => ({ default: module.ReviewSessionView })),
 )
+const WeeklyReviewView = lazy(() =>
+  import('./views/WeeklyReviewView').then((module) => ({ default: module.WeeklyReviewView })),
+)
 const StrategiesPanel = lazy(() =>
   import('./views/settings/StrategiesPanel').then((module) => ({ default: module.StrategiesPanel })),
 )
@@ -281,6 +284,7 @@ function Shell() {
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
           <Route path="/review-session" element={<ReviewSessionView />} />
+          <Route path="/weekly-review" element={<WeeklyReviewView />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
           <Route path="/paper/board" element={<Navigate to="/sim/board" replace />} />
           <Route path="/practice" element={<Navigate to="/sim" replace />} />

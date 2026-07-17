@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { createWeeklyReview } from '@/data/weeklyReviews'
 import {
   buildExportPayloadFromState,
   buildPortableSnapshotFromState,
@@ -58,6 +59,40 @@ export async function testJsonExportIncludesReferencedAssets(): Promise<void> {
   )
   assert(payload.assets?.length === 1, 'JSON export includes referenced image assets')
   assert(payload.assets?.[0]?.id === 'asset-1', 'export keeps the referenced asset id')
+}
+
+export async function testWeeklyReviewTextAndImagesRoundTripThroughJsonBackup(): Promise<void> {
+  const review = {
+    ...createWeeklyReview('2026-07-13', new Date('2026-07-17T00:00:00.000Z')),
+    contentHtml: '<p>本周证据</p><img src="journal-asset://weekly-asset">',
+    commitmentText: '等待确认',
+    commitmentCriteria: '每笔都有确认截图',
+  }
+  const payload = await buildExportPayloadFromState(
+    {
+      trades: [{ ...trade, note: '' }],
+      weeklyReviews: [review],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+    },
+    async (id) => id === 'weekly-asset'
+      ? { id, mime: 'image/png', data: 'd2Vla2x5' }
+      : null,
+  )
+  assert(payload.assets?.[0]?.id === 'weekly-asset', '周复盘截图必须进入 JSON 备份附件闭包')
+  const parsed = parseImportJson(JSON.stringify(payload))
+  assert(parsed.ok, '包含周复盘的当前 JSON 备份必须能够重新导入')
+  if (!parsed.ok) return
+  assert(parsed.data.weeklyReviews?.[0]?.commitmentText === '等待确认', '周复盘结构化内容必须往返保留')
+
+  const prepared = prepareImportPayloadForCommit(parsed.data, () => 'weekly-asset-fresh')
+  assert(
+    prepared.payload.weeklyReviews?.[0]?.contentHtml.includes('journal-asset://weekly-asset-fresh'),
+    '导入时周复盘截图引用也必须安全重编号',
+  )
 }
 
 export async function testExportRejectsMissingReferencedAssetsInsteadOfCreatingPartialBackup(): Promise<void> {

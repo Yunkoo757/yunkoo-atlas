@@ -15,7 +15,7 @@ import {
   suspendPersist,
 } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
-import { collectAssetIdsFromNotes, getStorage } from '@/storage'
+import { collectAssetIdsFromSnapshot, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, CheckCircle, AlertCircle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -56,9 +56,10 @@ export function DataSettingsPanel() {
     backupTotalSize: number
   } | null>(null)
   const trades = useStore((s) => s.trades)
+  const weeklyReviews = useStore((s) => s.weeklyReviews)
 
   const refreshHealth = useCallback(async () => {
-    const assetIds = collectAssetIdsFromNotes(trades)
+    const assetIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews })
     const storage = getStorage()
     let attachmentStats = { count: 0, totalBytes: 0, missingCount: 0 }
     try {
@@ -86,7 +87,7 @@ export function DataSettingsPanel() {
       backupCount,
       backupTotalSize,
     })
-  }, [trades, electron])
+  }, [trades, weeklyReviews, electron])
 
   useEffect(() => {
     refreshHealth()

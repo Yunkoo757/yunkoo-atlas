@@ -298,7 +298,9 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
     }
 
     openedZip.once('error', finish)
-    openedZip.once('end', () => finish())
+    // yauzl 的 end 只表示条目遍历完成；Windows 上 ZIP 文件句柄要到 close 才释放。
+    // 等待 close 后再允许调用方清理导入目录，避免 ENOTEMPTY / EPERM 竞态。
+    openedZip.once('close', () => finish())
     openedZip.on('entry', (entry: yauzl.Entry) => { void extractEntry(entry) })
     openedZip.readEntry()
   })
@@ -432,6 +434,18 @@ function validateWebAssets(
         throw new Error(
           `Invalid .journal.zip: trade ${trade.ref || trade.id} references an undeclared asset (${id})`,
         )
+      }
+      referencedIds.add(id)
+    }
+  }
+  for (const review of snapshot.weeklyReviews ?? []) {
+    for (const match of review.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
+      const id = match[1]
+      if (!isSafeAssetId(id)) {
+        throw new Error(`Invalid .journal.zip: weekly review ${review.weekStart} references an invalid asset`)
+      }
+      if (!declarations.has(id)) {
+        throw new Error(`Invalid .journal.zip: weekly review ${review.weekStart} references missing asset ${id}`)
       }
       referencedIds.add(id)
     }
@@ -590,6 +604,13 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
       const pattern = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
       while ((match = pattern.exec(note)) !== null) {
+        if (match[1]) referencedAssetIds.add(match[1])
+      }
+    }
+    for (const review of snapshot.weeklyReviews ?? []) {
+      const pattern = /journal-asset:\/\/([^"'\s>]+)/g
+      let match: RegExpExecArray | null
+      while ((match = pattern.exec(review.contentHtml)) !== null) {
         if (match[1]) referencedAssetIds.add(match[1])
       }
     }
@@ -856,9 +877,9 @@ export async function importJournalZipToPath(
     throw err
   } finally {
     writeImportProgress('importZip: cleanup start')
-    fs.rmSync(tempDir, { recursive: true, force: true })
+    fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 })
     if (!keepRecoveryBackup) {
-      fs.rmSync(preImportBackup, { recursive: true, force: true })
+      fs.rmSync(preImportBackup, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 })
     }
     writeImportProgress('importZip: cleanup done')
   }

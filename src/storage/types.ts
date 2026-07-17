@@ -3,8 +3,9 @@ import type { Trade } from '@/data/trades'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { ShortcutBinding } from '@/shortcuts/types'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
+import type { WeeklyReview } from '@/data/weeklyReviews'
 
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
 export interface LibraryManifest {
@@ -31,6 +32,8 @@ export interface UserProfile {
 
 export interface PersistedSnapshot {
   trades: Trade[]
+  /** v7：独立于交易记录的周复盘。旧资料库省略时按空数组加载。 */
+  weeklyReviews?: WeeklyReview[]
   strategies: Strategy[]
   starredIds: string[]
   subscribedIds: string[]

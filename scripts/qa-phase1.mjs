@@ -117,10 +117,10 @@ try {
   }).catch(() => null)
 
   if (exportPayload) {
-    record('导出 payload version=6', exportPayload.version === 6, `v${exportPayload.version}`)
+    record('导出 payload version=7', exportPayload.version === 7, `v${exportPayload.version}`)
     record('导出含 assets 数组', Array.isArray(exportPayload.assets), `len=${exportPayload.assets?.length ?? 0}`)
   } else {
-    record('导出 payload version=6', false, 'evaluate 导入失败，跳过')
+    record('导出 payload version=7', false, 'evaluate 导入失败，跳过')
   }
 
   // 10. IndexedDB 存在

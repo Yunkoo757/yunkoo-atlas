@@ -17,6 +17,7 @@ import { normalizeSymbolIcons, normalizeSymbolCatalog } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import type { PersistedSnapshot } from '@/storage/types'
+import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
@@ -24,6 +25,7 @@ let bootstrapPromise: Promise<void> | null = null
 
 const PERSISTED_REFERENCE_KEYS = [
   'trades',
+  'weeklyReviews',
   'strategies',
   'starredIds',
   'subscribedIds',
@@ -75,6 +77,7 @@ async function runBootstrapStorage(): Promise<void> {
     const trades = normalizeTrades(normalized.trades)
     useStore.setState({
       trades,
+      weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
       strategies: normalized.strategies,
       starredIds: snapshot.starredIds,
       subscribedIds: snapshot.subscribedIds,

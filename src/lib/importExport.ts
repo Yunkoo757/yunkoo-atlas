@@ -5,6 +5,10 @@ import {
   createDefaultTagPresets,
 } from '@/config/defaultProfile'
 import type { Trade } from '@/data/trades'
+import {
+  normalizeWeeklyReviews,
+  type WeeklyReview,
+} from '@/data/weeklyReviews'
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
 import {
   ensureStrategies,
@@ -15,6 +19,8 @@ import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import {
   collectAssetIdsFromNotes,
+  collectAssetIdsFromHtml,
+  collectAssetIdsFromSnapshot,
   getStorage,
 } from '@/storage'
 import type { ExportAssetRecord } from '@/storage/types'
@@ -67,11 +73,12 @@ import {
   isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
 
-export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 6: +savedTradeViews
+export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 7: +weeklyReviews
 
 export interface ExportPayload {
   version: number
   trades: (Trade & { strategy?: string })[]
+  weeklyReviews?: WeeklyReview[]
   strategies: Strategy[]
   starredIds: string[]
   subscribedIds: string[]
@@ -87,6 +94,7 @@ export interface ExportPayload {
 
 export interface PersistedSlice {
   trades: Trade[]
+  weeklyReviews?: WeeklyReview[]
   strategies: Strategy[]
   starredIds: string[]
   subscribedIds: string[]
@@ -109,6 +117,7 @@ interface ExportState extends PersistedSlice {
 
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
+  weeklyReviews?: PersistedSnapshot['weeklyReviews']
   strategies: PersistedSnapshot['strategies']
   starredIds: string[]
   subscribedIds: string[]
@@ -129,6 +138,7 @@ export function buildPortableSnapshotFromState(
   const shortcuts = bindingsForPersist(shortcutBindings)
   return {
     trades: state.trades,
+    weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
     strategies: state.strategies,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
@@ -197,15 +207,15 @@ function isStrictBase64(value: unknown): value is string {
   return true
 }
 
-function assertValidInlineImportImages(trades: readonly { note: string }[]): void {
-  for (const trade of trades) {
+function assertValidInlineImportImages(htmlEntries: readonly string[]): void {
+  for (const html of htmlEntries) {
     IMPORT_DATA_IMAGE_SRC_RE.lastIndex = 0
     let match: RegExpExecArray | null
-    while ((match = IMPORT_DATA_IMAGE_SRC_RE.exec(trade.note)) !== null) {
+    while ((match = IMPORT_DATA_IMAGE_SRC_RE.exec(html)) !== null) {
       const parsed = /^data:([^;,]+);base64,(.*)$/i.exec(match[1] ?? '')
       const mime = normalizeWebJournalImageMime(parsed?.[1])
       if (!parsed || !mime) {
-        throw new Error(`交易 ${trade.note ? '笔记中的' : ''}内嵌附件不是受支持的图片`)
+        throw new Error('正文中的内嵌附件不是受支持的图片')
       }
       if (!isStrictBase64(parsed[2])) {
         throw new Error('交易笔记中的内嵌图片内容已损坏')
@@ -215,7 +225,7 @@ function assertValidInlineImportImages(trades: readonly { note: string }[]): voi
 }
 
 function normalizeAndValidateImportAssets(
-  trades: readonly { note: string }[],
+  htmlEntries: readonly string[],
   value: unknown,
 ): ExportAssetRecord[] {
   if (value !== undefined && !Array.isArray(value)) {
@@ -238,15 +248,15 @@ function normalizeAndValidateImportAssets(
     normalized.push({ id: v.id, mime, data: v.data })
   }
 
-  const referencedIds = new Set(collectAssetIdsFromNotes([...trades]))
+  const referencedIds = new Set(collectAssetIdsFromHtml(htmlEntries))
   for (const id of referencedIds) {
-    if (!isSafeAssetId(id)) throw new Error(`交易笔记引用了非法附件 ID：${id}`)
+    if (!isSafeAssetId(id)) throw new Error(`正文引用了非法附件 ID：${id}`)
     if (!assetIds.has(id)) throw new Error(`导入内容缺少附件：${id}`)
   }
   for (const id of assetIds) {
-    if (!referencedIds.has(id)) throw new Error(`附件 ${id} 未被任何交易笔记引用`)
+    if (!referencedIds.has(id)) throw new Error(`附件 ${id} 未被任何正文引用`)
   }
-  assertValidInlineImportImages(trades)
+  assertValidInlineImportImages(htmlEntries)
   return normalized
 }
 
@@ -254,11 +264,12 @@ export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
 ): Promise<ExportPayload> {
-  const assetIds = new Set(collectAssetIdsFromNotes(state.trades))
+  const assetIds = new Set(collectAssetIdsFromSnapshot(state))
   const assets = await loadReferencedAssetsForExport(assetIds, getAssetForExport)
   return {
     version: EXPORT_VERSION,
     trades: state.trades,
+    weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
     strategies: state.strategies,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
@@ -307,11 +318,11 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
+  const { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog },
+    { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -344,9 +355,8 @@ export async function downloadWebJournalZip(): Promise<void> {
     state,
     useShortcutStore.getState().bindings,
   )
-  const { trades } = portableSnapshot
   const storage = getStorage()
-  const assetIds = new Set(collectAssetIdsFromNotes(trades))
+  const assetIds = new Set(collectAssetIdsFromSnapshot(portableSnapshot))
   const assets = await loadReferencedAssetsForExport(
     assetIds,
     (id) => storage.getAssetForExport(id),
@@ -372,7 +382,7 @@ export function buildWebJournalArchiveBlob(
   snapshot: PersistedSnapshot,
   assets: readonly ExportAssetRecord[],
 ): Blob {
-  const referencedIds = new Set(collectAssetIdsFromNotes(snapshot.trades))
+  const referencedIds = new Set(collectAssetIdsFromSnapshot(snapshot))
   const assetById = new Map<string, ExportAssetRecord>()
   const normalizedAssets: Array<ExportAssetRecord & { extension: string }> = []
 
@@ -604,6 +614,7 @@ export function parseImportJson(text: string): ImportResult {
 
   const snapshotCandidate: unknown = {
     trades,
+    weeklyReviews: raw.weeklyReviews ?? [],
     strategies: raw.strategies ?? [],
     starredIds: raw.starredIds ?? [],
     subscribedIds: raw.subscribedIds ?? [],
@@ -618,7 +629,10 @@ export function parseImportJson(text: string): ImportResult {
   let assets: ExportAssetRecord[]
   try {
     assertValidPersistedSnapshot(snapshotCandidate, 'JSON backup')
-    assets = normalizeAndValidateImportAssets(snapshotCandidate.trades, raw.assets)
+    assets = normalizeAndValidateImportAssets([
+      ...snapshotCandidate.trades.map((trade) => trade.note),
+      ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),
+    ], raw.assets)
   } catch (error) {
     return {
       ok: false,
@@ -631,6 +645,7 @@ export function parseImportJson(text: string): ImportResult {
     data: {
       version: raw.version,
       trades: snapshotCandidate.trades,
+      weeklyReviews: normalizeWeeklyReviews(snapshotCandidate.weeklyReviews),
       strategies: snapshotCandidate.strategies,
       starredIds: snapshotCandidate.starredIds,
       subscribedIds: snapshotCandidate.subscribedIds,
@@ -673,9 +688,14 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
     tradeMap.set(t.id, t)
   }
   const trades = normalizeTrades(Array.from(tradeMap.values()))
+  const weeklyReviews = normalizeWeeklyReviews([
+    ...(current.weeklyReviews ?? []),
+    ...(payload.weeklyReviews ?? []),
+  ])
   return {
     strategies,
     trades,
+    weeklyReviews,
     starredIds: [...new Set([...current.starredIds, ...payload.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...payload.subscribedIds])],
     pinnedStrategyIds: [
@@ -713,7 +733,10 @@ export function prepareImportPayloadForCommit(
   payload: ExportPayload,
   createId: () => string = () => crypto.randomUUID(),
 ): { payload: ExportPayload; assets: ExportAssetRecord[] } {
-  const sourceAssets = normalizeAndValidateImportAssets(payload.trades, payload.assets)
+  const sourceAssets = normalizeAndValidateImportAssets([
+    ...payload.trades.map((trade) => trade.note),
+    ...(payload.weeklyReviews ?? []).map((review) => review.contentHtml),
+  ], payload.assets)
   const idMap = new Map<string, string>()
   const generatedIds = new Set<string>()
   const nextAssetId = (): string => {
@@ -729,8 +752,8 @@ export function prepareImportPayloadForCommit(
     return { ...asset, id }
   })
 
-  const trades = payload.trades.map((trade) => {
-    let note = trade.note.replace(
+  const rewriteHtml = (source: string): string => {
+    let html = source.replace(
       /journal-asset:\/\/([^"'\s>]+)/g,
       (_full, id: string) => {
         const importedId = idMap.get(id)
@@ -739,29 +762,35 @@ export function prepareImportPayloadForCommit(
       },
     )
     IMPORT_DATA_IMAGE_RE.lastIndex = 0
-    note = note.replace(
+    html = html.replace(
       IMPORT_DATA_IMAGE_RE,
       (_full, before: string, mime: string, data: string, after: string) => {
         const normalizedMime = normalizeWebJournalImageMime(mime)
         if (!normalizedMime || !isStrictBase64(data)) {
-          throw new Error('交易笔记中的内嵌图片内容已损坏')
+        throw new Error('正文中的内嵌图片内容已损坏')
         }
         const id = nextAssetId()
         assets.push({ id, mime: normalizedMime, data })
         return `<img${before} src="journal-asset://${id}"${after}>`
       },
     )
-    return { ...trade, note }
-  })
+    return html
+  }
+  const trades = payload.trades.map((trade) => ({ ...trade, note: rewriteHtml(trade.note) }))
+  const weeklyReviews = payload.weeklyReviews?.map((review) => ({
+    ...review,
+    contentHtml: rewriteHtml(review.contentHtml),
+  }))
 
   return {
-    payload: { ...payload, trades, assets },
+    payload: { ...payload, trades, weeklyReviews, assets },
     assets,
   }
 }
 
 const IMPORT_PERSISTED_REFERENCE_KEYS = [
   'trades',
+  'weeklyReviews',
   'strategies',
   'starredIds',
   'subscribedIds',
@@ -894,6 +923,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   const trades = normalizeTrades(normalized.trades)
   useStore.setState({
     trades,
+    weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
     strategies: normalized.strategies,
     starredIds: snapshot.starredIds,
     subscribedIds: snapshot.subscribedIds,
@@ -918,6 +948,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 export function resetEmptyLibraryIntoStore(): void {
   useStore.setState({
     trades: [],
+    weeklyReviews: [],
     strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
     selectedId: null,
     composerOpen: false,

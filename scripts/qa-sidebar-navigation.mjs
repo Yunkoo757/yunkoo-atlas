@@ -273,7 +273,7 @@ try {
 
   expectEqual(
     await page.locator('.sb-primary > a .sb-item-label').allTextContents(),
-    ['今日工作台', '交易日志', '案例记录', '随机复盘', '仪表盘'],
+    ['今日工作台', '交易日志', '案例记录', '周复盘', '随机复盘', '仪表盘'],
     'Default core modules must preserve their approved order',
   )
   expectEqual(
@@ -655,7 +655,7 @@ try {
   )
   expectEqual(
     await mobileNavigation.locator(':scope > a').evaluateAll((elements) => elements.map((element) => element.getAttribute('href'))),
-    desktopCoreHrefs.filter((href) => href !== '/review-session'),
+    desktopCoreHrefs.filter((href) => href !== '/review-session' && href !== '/weekly-review'),
     'Mobile core navigation hrefs must come from the same targets as desktop',
   )
   for (const action of await mobileActions.all()) {
@@ -697,14 +697,14 @@ try {
     ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图'],
     'More drawer must contain every valid pinned and overflow item in order',
   )
-  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
+  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图', '周复盘', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
   expectEqual(
     await drawer.locator('[data-mobile-drawer-item]').allTextContents(),
     expectedDrawerItems,
     'More drawer workspace and utility items must preserve their complete order',
   )
   for (const name of expectedDrawerItems.slice(5)) {
-    const role = ['随机复盘', '设置', '回收站'].includes(name) ? 'link' : 'button'
+    const role = ['周复盘', '随机复盘', '设置', '回收站'].includes(name) ? 'link' : 'button'
     await expectVisible(drawer.getByRole(role, { name, exact: true }))
   }
   for (const action of await drawer.locator('a, button').all()) {

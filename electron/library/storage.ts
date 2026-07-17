@@ -369,6 +369,11 @@ export class LibraryStorage {
       let match: RegExpExecArray | null
       while ((match = re.exec(trade.note)) !== null) referencedAssetIds.add(match[1])
     }
+    for (const review of snapshot.weeklyReviews ?? []) {
+      const re = /journal-asset:\/\/([^"'\s>]+)/g
+      let match: RegExpExecArray | null
+      while ((match = re.exec(review.contentHtml)) !== null) referencedAssetIds.add(match[1])
+    }
     const obsoleteImportedFiles: string[] = []
     let adopted = false
 

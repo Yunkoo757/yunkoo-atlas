@@ -1,5 +1,5 @@
 /** Web .journal.zip 的纯数据契约；可安全复用于浏览器与 Electron 主进程。 */
-export const WEB_JOURNAL_EXPORT_VERSION = 6
+export const WEB_JOURNAL_EXPORT_VERSION = 7
 export const MAX_WEB_JOURNAL_ENTRY_BYTES = 32 * 1024 * 1024
 
 const MIME_EXTENSIONS: Readonly<Record<string, ReadonlySet<string>>> = {

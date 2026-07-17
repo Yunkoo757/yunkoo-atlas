@@ -9,6 +9,8 @@ export {
   normalizeNoteForStorage,
   externalizeNoteImages,
   collectAssetIdsFromNotes,
+  collectAssetIdsFromHtml,
+  collectAssetIdsFromSnapshot,
   ASSET_URL_PREFIX,
 } from '@/storage/assets'
 export type {

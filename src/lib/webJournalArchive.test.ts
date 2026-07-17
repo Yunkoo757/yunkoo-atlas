@@ -186,7 +186,7 @@ export async function testParsesCurrentWebArchiveAndPreservesCompleteSnapshot():
 
   const parsed = await parseWebJournalArchive(new Blob([input]))
 
-  assert(parsed.preview.exportVersion === 6, '应兼容无 schemaVersion 的 version=6 Web 导出')
+  assert(parsed.preview.exportVersion === WEB_JOURNAL_EXPORT_VERSION, '应兼容无 schemaVersion 的当前 Web 导出')
   assert(parsed.preview.schemaVersion === null, '缺少 schemaVersion 时应在预览中明确为 null')
   assert(parsed.preview.tradeCount === 1, '预览应包含记录数量')
   assert(parsed.preview.strategyCount === 1, '预览应包含策略数量')
@@ -336,7 +336,7 @@ export async function testRejectsDeclaredAssetThatNoTradeReferences(): Promise<v
   })
   await expectArchiveError(
     () => parseWebJournalArchive(input),
-    '未被任何交易正文引用',
+    '未被任何正文引用',
     'invalid-asset',
   )
 }

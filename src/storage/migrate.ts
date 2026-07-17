@@ -11,7 +11,7 @@ import {
   normalizeTradeStrategyReferences,
 } from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
-import { externalizeNoteImages, collectAssetIdsFromNotes } from '@/storage/assets'
+import { externalizeNoteImages, collectAssetIdsFromSnapshot } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/types'
@@ -124,7 +124,7 @@ export async function migrateElectronLibraryIfNeeded(
     }
   }
 
-  const assetIds = collectAssetIdsFromNotes(snapshot.trades)
+  const assetIds = collectAssetIdsFromSnapshot(snapshot)
   const assets = []
   for (const id of assetIds) {
     const rec = await idb.getAssetForExport(id)

@@ -622,6 +622,7 @@ export function DataIOContent({
           </div>
           <dl className="dio-restore-grid">
             <div><dt>交易与案例</dt><dd>{webArchive.preview.tradeCount}</dd></div>
+            <div><dt>周复盘</dt><dd>{webArchive.preview.weeklyReviewCount}</dd></div>
             <div><dt>策略</dt><dd>{webArchive.preview.strategyCount}</dd></div>
             <div><dt>原始附件</dt><dd>{webArchive.preview.assetCount}</dd></div>
             <div><dt>附件大小</dt><dd>{formatArchiveBytes(webArchive.preview.assetBytes)}</dd></div>

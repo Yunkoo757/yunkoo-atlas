@@ -196,15 +196,29 @@ export async function normalizeNoteForStorage(
   return changed ? doc.body.innerHTML : html
 }
 
-export function collectAssetIdsFromNotes(trades: { note: string }[]): string[] {
+export function collectAssetIdsFromHtml(htmlEntries: readonly string[]): string[] {
   const ids = new Set<string>()
-  for (const t of trades) {
-    if (!t.note.includes(ASSET_URL_PREFIX)) continue
+  for (const html of htmlEntries) {
+    if (!html.includes(ASSET_URL_PREFIX)) continue
     let match: RegExpExecArray | null
     const re = /journal-asset:\/\/([^"'\s>]+)/g
-    while ((match = re.exec(t.note)) !== null) {
+    while ((match = re.exec(html)) !== null) {
       ids.add(match[1])
     }
   }
   return [...ids]
+}
+
+export function collectAssetIdsFromNotes(trades: { note: string }[]): string[] {
+  return collectAssetIdsFromHtml(trades.map((trade) => trade.note))
+}
+
+export function collectAssetIdsFromSnapshot(snapshot: {
+  trades: { note: string }[]
+  weeklyReviews?: { contentHtml: string }[]
+}): string[] {
+  return collectAssetIdsFromHtml([
+    ...snapshot.trades.map((trade) => trade.note),
+    ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
+  ])
 }
