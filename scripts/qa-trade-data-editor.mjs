@@ -21,15 +21,24 @@ try {
   await page.getByRole('button', { name: '创建交易', exact: true }).click()
   await page.getByRole('button', { name: '打开交易属性', exact: true }).click()
 
-  await page.getByRole('button', { name: '入场 0', exact: true }).click()
-  const entryInput = page.getByRole('spinbutton', { name: '入场', exact: true })
-  assert.ok((await entryInput.boundingBox())?.height >= 44, 'entry editor keeps a 44px mobile target')
-  await entryInput.press('Escape')
+  const tradeDataSection = page.locator('.dv-section').filter({
+    has: page.locator('.dv-section-head', { hasText: '交易数据' }),
+  })
+  const dataLabels = await tradeDataSection.locator('.dv-datarow-label').allTextContents()
+  assert.ok(!dataLabels.includes('入场'), 'trade detail no longer exposes entry price')
+  assert.ok(!dataLabels.includes('出场'), 'trade detail no longer exposes exit price')
 
-  await page.getByRole('button', { name: /^开仓 / }).click()
+  assert.equal(await page.locator('.dv-section-head', { hasText: /^项目$/ }).count(), 0, 'strategy section is not labelled as project')
+  assert.equal(await page.locator('.dv-section-head', { hasText: /^策略$/ }).count(), 1, 'strategy section uses the strategy label')
+
+  const openedAtRow = page.getByRole('button', { name: /^开仓 / })
+  await openedAtRow.hover()
+  await page.waitForTimeout(250)
+  assert.equal(await page.getByRole('tooltip').count(), 0, 'date hover preview has been removed')
+  await openedAtRow.click()
   const openedAtInput = page.getByRole('textbox', { name: '开仓', exact: true })
   assert.ok((await openedAtInput.boundingBox())?.height >= 44, 'date editor keeps a 44px mobile target')
-  console.log('PASS: trade data editors expose field names and mobile touch targets')
+  console.log('PASS: trade detail hides prices and hover previews while keeping inline date editing')
 } finally {
   await browser?.close()
   await server.close()

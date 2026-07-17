@@ -41,7 +41,7 @@ const TRADE_FIELDS: { key: TradeField; label: string; required: boolean; type: s
   { key: 'reviewCategory', label: '快速分类', required: false, type: 'reviewCategory' },
   { key: 'session', label: '交易时段', required: false, type: 'string' },
   { key: 'timeframe', label: '波段级别', required: false, type: 'string' },
-  { key: 'entry', label: '入场价', required: true, type: 'number' },
+  { key: 'entry', label: '入场价', required: false, type: 'number' },
   { key: 'exit', label: '出场价', required: false, type: 'number' },
   { key: 'size', label: '仓位', required: true, type: 'number' },
   { key: 'pnl', label: '盈亏金额', required: false, type: 'number' },
@@ -321,7 +321,7 @@ export function mapRowToTrade(
       case 'entry': {
         const n = parseNumber(raw)
         if (n !== null) trade.entry = n
-        else errors.push(`入场价无效: "${raw}"`)
+        else if (raw.trim()) errors.push(`入场价无效: "${raw}"`)
         break
       }
       case 'exit': {
@@ -407,7 +407,7 @@ export function finalizeTrade(
   nextRef: string,
   nextId: string,
 ): Trade | null {
-  if (!partial.symbol || !partial.side || !partial.status || !partial.entry || !partial.size || !partial.openedAt || !partial.strategyId) {
+  if (!partial.symbol || !partial.side || !partial.status || !partial.size || !partial.openedAt || !partial.strategyId) {
     return null
   }
 
@@ -426,7 +426,7 @@ export function finalizeTrade(
     reviewStatus: partial.reviewStatus ?? 'unreviewed',
     reviewCategory: partial.reviewCategory ?? 'normal',
     tradeKind: partial.tradeKind ?? 'live',
-    entry: partial.entry,
+    entry: partial.entry ?? 0,
     exit: partial.exit ?? null,
     stopLoss: partial.stopLoss ?? null,
     initialStopLoss: partial.initialStopLoss ?? null,

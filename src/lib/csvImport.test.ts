@@ -53,3 +53,25 @@ export function testCsvExplicitMetricBecomesTheOnlyResultAuthority(): void {
   assert(trade?.rMultiple === null, 'an explicit cash result must not trigger inferred R')
   assert(trade?.resultSource === 'pnl', 'explicit cash PnL must become authoritative')
 }
+
+export function testCsvImportDoesNotRequireEntryOrExitPrices(): void {
+  const mapping: FieldMapping = {
+    0: 'symbol',
+    1: 'side',
+    2: 'status',
+    3: 'strategyId',
+    4: 'size',
+    5: 'openedAt',
+  }
+  const preview = mapRowToTrade(
+    ['EURUSD', 'long', 'open', '突破', '1', '2026-07-01'],
+    mapping,
+    0,
+    [strategy],
+  )
+  const trade = finalizeTrade(preview.trade, [strategy], 'TRD-3', 'trade-3')
+
+  assert(preview.errors.length === 0, '缺少入场/出场价不应产生导入错误')
+  assert(trade?.entry === 0, '无历史入场价时应使用兼容默认值')
+  assert(trade?.exit === null, '无历史出场价时应保留为空')
+}

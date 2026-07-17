@@ -85,7 +85,7 @@ async function run(): Promise<void> {
     const input = await waitForFileInput()
     const files = new DataTransfer()
     files.items.add(new File([
-      'symbol,side,status,strategy,entry,size,openedAt\nBTCUSDT,long,open,测试策略,100,1,2026-07-14',
+      'symbol,side,status,strategy,size,openedAt\nBTCUSDT,long,open,测试策略,1,2026-07-14',
     ], 'trades.csv', { type: 'text/csv' }))
     Object.defineProperty(input, 'files', { configurable: true, value: files.files })
     input.dispatchEvent(new Event('change', { bubbles: true }))

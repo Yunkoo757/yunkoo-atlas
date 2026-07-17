@@ -47,7 +47,7 @@ const trade: Trade = {
   reviewStatus: 'unreviewed',
   reviewCategory: 'normal',
   entry: 0,
-  exit: null,
+  exit: 1.2345,
   size: 0,
   pnl: null,
   rMultiple: null,
@@ -76,6 +76,9 @@ async function run(): Promise<void> {
     const rInput = document.querySelector<HTMLInputElement>('input[aria-label="R 倍数"]')
     assert(pnlInput, '平仓时应同时显示盈亏金额输入框')
     assert(rInput, '平仓时应同时显示 R 倍数输入框')
+    assert(!document.querySelector('input[aria-label="出场价"]'), '平仓不应再要求出场价')
+    assert(!document.body.textContent?.includes('记录依据'), '平仓不应再显示价格记录方式')
+    assert(!document.body.textContent?.includes('出场价格'), '平仓不应再提供出场价格模式')
 
     enterValue(pnlInput, '500')
     enterValue(rInput, '2')
@@ -88,6 +91,7 @@ async function run(): Promise<void> {
     const closed = useStore.getState().trades[0]
     assert(closed?.pnl === 500, '盈亏金额必须保存')
     assert(closed?.rMultiple === 2, 'R 倍数必须与金额同时保存')
+    assert(closed?.exit === trade.exit, '平仓不得覆盖历史出场价兼容数据')
   } finally {
     root.unmount()
     useStore.setState({

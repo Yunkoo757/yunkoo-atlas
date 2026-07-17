@@ -48,4 +48,7 @@
 ### Task 4: 回归
 
 - [x] `pnpm typecheck` 通过
-- [x] 相关单测通过（浏览器 harness 因本机 Playwright 缺失未跑）
+- [x] 全量单测与浏览器 harness 通过
+- [x] 详情页移动端回归通过：无入场/出场价、无日期浮层、保留行内日期编辑
+- [x] CSV 无入场/出场价的导入回归通过
+- [x] `pnpm qa:release` 通过（含构建、10k 性能与 Electron 数据链路）
