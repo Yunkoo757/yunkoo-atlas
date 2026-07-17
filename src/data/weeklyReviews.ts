@@ -54,6 +54,11 @@ export interface WeeklyReview {
   completedAt: string | null
 }
 
+export interface WeeklyReviewTrendPoint {
+  week: string
+  score: number
+}
+
 function addDays(date: Date, days: number): Date {
   const next = new Date(date)
   next.setDate(next.getDate() + days)
@@ -139,6 +144,22 @@ export function summarizeWeeklyMistakeDimensions(reviews: WeeklyReview[]): Recor
     }
   }
   return counts
+}
+
+export function weeklyReviewScoreAverage(review: WeeklyReview): number | null {
+  const scores = [review.executionScore, review.riskScore, review.emotionScore]
+  return scores.every((score) => score !== null)
+    ? scores.reduce<number>((sum, score) => sum + (score ?? 0), 0) / scores.length
+    : null
+}
+
+export function buildWeeklyReviewTrend(reviews: WeeklyReview[]): WeeklyReviewTrendPoint[] {
+  return reviews.flatMap((review) => {
+    if (review.status !== 'completed') return []
+    const score = weeklyReviewScoreAverage(review)
+    if (score === null) return []
+    return [{ week: review.weekStart.slice(5), score: Number(score.toFixed(1)) }]
+  })
 }
 
 export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): WeeklyReview[] {

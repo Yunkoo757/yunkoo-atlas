@@ -13,10 +13,12 @@ import {
 } from '@/icons/appIcons'
 import {
   buildWeeklyReviewMetrics,
+  buildWeeklyReviewTrend,
   createWeeklyReview,
   summarizeWeeklyMistakeDimensions,
   tradesClosedInWeek,
   WEEKLY_MISTAKE_DIMENSIONS,
+  weeklyReviewScoreAverage,
   weekEndFor,
   weekStartFor,
   type WeeklyReview,
@@ -71,13 +73,6 @@ function weekLabel(start: string, currentWeek: string): string {
   if (start === currentWeek) return '本周'
   if (start === addDays(currentWeek, -7)) return '上周'
   return `${parseLocalDate(start).getMonth() + 1}月${parseLocalDate(start).getDate()}日`
-}
-
-function scoreAverage(review: WeeklyReview): number | null {
-  const scores = [review.executionScore, review.riskScore, review.emotionScore]
-  return scores.every((score) => score !== null)
-    ? scores.reduce<number>((sum, score) => sum + (score ?? 0), 0) / scores.length
-    : null
 }
 
 function toggleValue(values: string[], value: string): string[] {
@@ -233,13 +228,7 @@ export function WeeklyReviewView() {
   const yearReviews = reviews
     .filter((item) => item.weekStart.startsWith(`${year}-`))
     .sort((left, right) => left.weekStart.localeCompare(right.weekStart))
-  const trendData = yearReviews.map((item) => ({
-    week: item.weekStart.slice(5),
-    score: scoreAverage(item),
-    execution: item.executionScore,
-    risk: item.riskScore,
-    emotion: item.emotionScore,
-  }))
+  const trendData = buildWeeklyReviewTrend(yearReviews)
 
   return (
     <>
@@ -410,9 +399,9 @@ function TagGroup({ title, options, selected, onChange, counts }: { title: strin
   )
 }
 
-function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyReview[]; data: Array<Record<string, string | number | null>> }) {
+function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyReview[]; data: ReturnType<typeof buildWeeklyReviewTrend> }) {
   const completed = reviews.filter((review) => review.status === 'completed')
-  const averages = completed.map(scoreAverage).filter((score): score is number => score !== null)
+  const averages = completed.map(weeklyReviewScoreAverage).filter((score): score is number => score !== null)
   const average = averages.length ? averages.reduce((sum, score) => sum + score, 0) / averages.length : null
   const mistakes = Object.entries(summarizeWeeklyMistakeDimensions(reviews))
   return (
@@ -424,11 +413,11 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><TrendingUp size={17} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
-        {data.length ? <div className="wr-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={data}><XAxis dataKey="week" stroke="var(--text-quaternary)" fontSize={11} /><YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} stroke="var(--text-quaternary)" fontSize={11} width={24} /><Tooltip contentStyle={{ background: 'var(--popover-bg)', border: '1px solid var(--border-default)', borderRadius: 8 }} /><Line type="monotone" dataKey="score" name="平均评分" stroke="var(--accent)" strokeWidth={2} connectNulls dot={{ r: 3 }} /></LineChart></ResponsiveContainer></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}
+        {data.length >= 2 ? <div className="wr-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={data}><XAxis dataKey="week" stroke="var(--text-quaternary)" fontSize={11} /><YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} stroke="var(--text-quaternary)" fontSize={11} width={24} /><Tooltip contentStyle={{ background: 'var(--popover-bg)', border: '1px solid var(--border-default)', borderRadius: 8 }} /><Line type="monotone" dataKey="score" name="平均评分" stroke="var(--accent)" strokeWidth={2} connectNulls dot={{ r: 3 }} /></LineChart></ResponsiveContainer></div> : data.length === 1 ? <div className="wr-trend-start"><div><span>趋势起点</span><strong>{data[0].score.toFixed(1)}</strong><small>/ 5</small></div><p>再完成 1 次周复盘后，这里会显示评分变化。</p></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><span>52</span><h2>全年复盘节奏</h2></div><small>颜色越亮，做法评分越高</small></div>
-        <div className="wr-heatmap">{Array.from({ length: 53 }, (_, index) => { const start = weekStartFor(new Date(year, 0, 1)); const week = addDays(start, index * 7); const review = reviews.find((item) => item.weekStart === week); const score = review ? scoreAverage(review) : null; return <i key={week} title={`${formatWeekRange(week)}${score ? ` · ${score.toFixed(1)} 分` : ''}`} style={{ '--level': score ? score / 5 : 0 } as React.CSSProperties} className={review?.status === 'completed' ? 'is-filled' : ''} /> })}</div>
+        <div className="wr-heatmap">{Array.from({ length: 53 }, (_, index) => { const start = weekStartFor(new Date(year, 0, 1)); const week = addDays(start, index * 7); const review = reviews.find((item) => item.weekStart === week); const score = review ? weeklyReviewScoreAverage(review) : null; return <i key={week} title={`${formatWeekRange(week)}${score ? ` · ${score.toFixed(1)} 分` : ''}`} style={{ '--level': score ? score / 5 : 0 } as React.CSSProperties} className={review?.status === 'completed' ? 'is-filled' : ''} /> })}</div>
       </section>
     </div>
   )

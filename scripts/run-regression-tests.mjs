@@ -9,6 +9,7 @@ import fs from 'node:fs/promises'
   'src/lib/analysisScope.test.ts',
   'src/data/weeklyReviews.test.ts',
   'src/data/weeklyReviewTaxonomy.test.ts',
+  'src/data/weeklyReviewTrend.test.ts',
   'src/lib/dashboardStats.test.ts',
   'src/lib/strategies.test.ts',
   'src/lib/reviewAnalytics.test.ts',
