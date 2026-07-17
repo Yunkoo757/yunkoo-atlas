@@ -176,6 +176,11 @@ try {
       label: 'src/views/ReviewCompletion.browser.test.tsx :: review output is required and strategy template is usable',
     },
     {
+      url: '/src/views/DetailShortcutNavigation.browser.test.html',
+      promiseKey: '__detailShortcutNavigationTest',
+      label: 'src/views/DetailShortcutNavigation.browser.test.tsx :: Q/E case navigation keeps detail editor stable',
+    },
+    {
       url: '/src/views/ReviewSession.browser.test.html',
       promiseKey: '__reviewSessionFlowTest',
       label: 'src/views/ReviewSession.browser.test.tsx :: direct review, mastery assessment, image gallery and detail restore',

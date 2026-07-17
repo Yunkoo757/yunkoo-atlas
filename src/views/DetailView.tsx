@@ -339,6 +339,11 @@ export function DetailView() {
   const activeNoteLoad = noteLoad.tradeId === trade.id
     ? noteLoad.state
     : { status: 'loading' as const }
+  const noteEditorContent = activeNoteLoad.status === 'loading'
+    ? ''
+    : activeNoteLoad.status === 'error'
+      ? activeNoteLoad.fallbackHtml
+      : editorHtml
   const reviewStrategy = strategies.find((strategy) => strategy.id === trade.strategyId)
   const reviewTemplateHtml = resolveReviewTemplateHtml(
     reviewStrategy?.reviewTemplateHtml,
@@ -648,53 +653,55 @@ export function DetailView() {
                 </div>
               </section>
             )}
-            <div className={'dv-document' + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}>
-              {activeNoteLoad.status === 'loading' ? (
-                <div className="dv-note-load is-loading" role="status" aria-live="polite">
-                  <span className="dv-note-load-indicator" aria-hidden />
-                  <span>复盘笔记载入中…</span>
-                </div>
-              ) : (
-                <>
-                  {activeNoteLoad.status === 'error' && (
-                    <div className="dv-note-load is-error" role="alert">
-                      <AlertCircle size={16} aria-hidden />
-                      <div>
-                        <strong>复盘笔记未完整载入</strong>
-                        <span>
-                          {activeNoteLoad.reason === 'prepare'
-                            ? '上一份笔记草稿尚未安全保存，当前内容已锁定；请重试载入。'
-                            : '图片附件读取失败，正文已安全保留；当前为只读模式。'}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={noteRetrying}
-                        onClick={() => {
-                          setNoteRetrying(true)
-                          setNoteLoadAttempt((value) => value + 1)
-                        }}
-                      >
-                        <RotateCcw size={14} aria-hidden />
-                        {noteRetrying ? '正在载入…' : '重新载入'}
-                      </button>
+            <div
+              className={'dv-document'
+                + (activeNoteLoad.status === 'loading' ? ' is-note-loading' : '')
+                + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}
+            >
+              <div className="dv-note-status">
+                {activeNoteLoad.status === 'loading' && (
+                  <div className="dv-note-load is-loading" role="status" aria-live="polite">
+                    <span className="dv-note-load-indicator" aria-hidden />
+                    <span>复盘笔记载入中…</span>
+                  </div>
+                )}
+                {activeNoteLoad.status === 'error' && (
+                  <div className="dv-note-load is-error" role="alert">
+                    <AlertCircle size={16} aria-hidden />
+                    <div>
+                      <strong>复盘笔记未完整载入</strong>
+                      <span>
+                        {activeNoteLoad.reason === 'prepare'
+                          ? '上一份笔记草稿尚未安全保存，当前内容已锁定；请重试载入。'
+                          : '图片附件读取失败，正文已安全保留；当前为只读模式。'}
+                      </span>
                     </div>
-                  )}
-                  <Editor
-                    key={`${trade.id}:note`}
-                    content={activeNoteLoad.status === 'error' ? activeNoteLoad.fallbackHtml : editorHtml}
-                    onChange={onEditorChange}
-                    ariaLabel={trade.tradeKind === 'case' ? '案例复盘笔记' : '交易复盘笔记'}
-                    noteDraftId={trade.id}
-                    readOnly={activeNoteLoad.status === 'error'}
-                  placeholder={
-                    trade.tradeKind === 'case'
-                      ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'
-                      : undefined
-                  }
-                  />
-                </>
-              )}
+                    <button
+                      type="button"
+                      disabled={noteRetrying}
+                      onClick={() => {
+                        setNoteRetrying(true)
+                        setNoteLoadAttempt((value) => value + 1)
+                      }}
+                    >
+                      <RotateCcw size={14} aria-hidden />
+                      {noteRetrying ? '正在载入…' : '重新载入'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <Editor
+                content={noteEditorContent}
+                onChange={onEditorChange}
+                ariaLabel={trade.tradeKind === 'case' ? '案例复盘笔记' : '交易复盘笔记'}
+                noteDraftId={trade.id}
+                readOnly={activeNoteLoad.status !== 'ready'}
+                placeholder={
+                  trade.tradeKind === 'case'
+                    ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'
+                    : undefined
+                }
+              />
             </div>
 
             <section className="dv-comments" aria-label="复盘追记">

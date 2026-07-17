@@ -286,6 +286,9 @@
   min-height: 220px;
   justify-content: center;
 }
+.dv-document.is-note-loading .editor {
+  display: none;
+}
 .dv-note-load-indicator {
   width: 14px;
   height: 14px;

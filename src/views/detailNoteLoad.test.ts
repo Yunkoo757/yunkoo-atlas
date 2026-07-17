@@ -111,9 +111,9 @@ export async function testDetailViewExposesLoadingRetryAndReadOnlyRecovery(): Pr
   assert(detailSource.includes('当前为只读模式'), 'failed note load should explain its safe read-only state')
   assert(detailSource.includes('readOnly'), 'failed note load should render the fallback as read-only')
   assert(
-    detailSource.includes("key={`${trade.id}:note`}") &&
-      !detailSource.includes('fallback:${noteLoadAttempt}'),
-    'retrying a failed note must reuse the TipTap instance instead of remounting it mid-transition',
+    !detailSource.includes("key={`${trade.id}:note`}") &&
+      detailSource.includes("readOnly={activeNoteLoad.status !== 'ready'}"),
+    'case navigation and note retry must reuse the TipTap instance instead of remounting it',
   )
   assert(detailSource.includes('前往回收站'), 'deleted detail should expose the recovery destination')
   assert(detailSource.includes('记录仍在安全保留期内'), 'deleted detail should not be presented as permanently lost')
