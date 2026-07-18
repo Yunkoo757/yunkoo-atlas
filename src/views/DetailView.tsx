@@ -485,6 +485,15 @@ export function DetailView() {
           <span className="dv-crumb dv-crumb-active">{trade.ref}</span>
         </div>
         <div className="dv-tb-right">
+          {reviewComplete && (
+            <span
+              className="dv-review-complete-meta"
+              title={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
+            >
+              <CheckCircle size={13} aria-hidden />
+              <span>已复盘</span>
+            </span>
+          )}
           <SaveStatusIndicator />
           <IconButton title="复制链接" onClick={copyLink}>
             <Link2 size={15} />
@@ -506,12 +515,16 @@ export function DetailView() {
               ...(trade.tradeKind === 'case'
                 ? []
                 : [{ value: 'review-case', label: '提炼为案例', icon: <BookOpen size={16} /> }]),
+              ...(reviewComplete
+                ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={16} /> }]
+                : []),
               { value: 'copy', label: '复制编号', icon: <Copy size={16} /> },
               { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={16} /> },
             ]}
             onSelect={(v) => {
               if (v === 'edit') openComposer(trade)
               else if (v === 'review-case') createReviewCaseFromTrade()
+              else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
               else if (v === 'copy') copyRef()
               else if (v === 'delete') onDelete()
             }}
@@ -545,18 +558,17 @@ export function DetailView() {
                 )}
               </section>
             )}
-            {(needsResult || needsReview || reviewComplete) && (
+            {(needsResult || needsReview) && (
               <section
                 className={
                   'dv-review-stage' +
                   (needsResult ? ' is-result-pending' : '') +
-                  (hasResultConflict ? ' is-result-conflict' : '') +
-                  (reviewComplete ? ' is-complete' : '')
+                  (hasResultConflict ? ' is-result-conflict' : '')
                 }
                 aria-label="交易闭环状态"
               >
                 <span className="dv-review-stage-icon">
-                  {reviewComplete ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                  <AlertCircle size={16} />
                 </span>
                 <div className="dv-review-stage-copy">
                   <strong>
@@ -564,17 +576,13 @@ export function DetailView() {
                       ? '交易结果存在冲突'
                       : needsResult
                         ? '交易结果待补齐'
-                        : reviewComplete
-                          ? '复盘已完成'
-                          : '交易待复盘'}
+                        : '交易待复盘'}
                   </strong>
                   <span aria-live="polite">
                     {hasResultConflict
                       ? '盈亏、R 倍数或结算状态方向不一致，请核对后重新确认。'
                       : needsResult
                         ? '补充盈亏或 R 倍数后，才会计入统计。'
-                      : reviewComplete
-                        ? '这笔交易已完成记录、结算与复盘闭环。'
                         : reviewIssue ?? '完成前请留下结论、勾选检查项或加入截图证据。'}
                   </span>
                 </div>
@@ -604,15 +612,7 @@ export function DetailView() {
                     >
                       {reviewSubmitting ? '正在保存…' : '完成复盘'}
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="is-secondary"
-                      onClick={() => updateTradeData(trade.id, { reviewStatus: 'unreviewed' })}
-                    >
-                      重新复盘
-                    </button>
-                  )}
+                  ) : null}
                 </div>
               </section>
             )}

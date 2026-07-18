@@ -60,6 +60,19 @@
 .dv-tb-right .menu-trigger {
   display: inline-flex;
 }
+.dv-review-complete-meta {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  padding: 0 4px;
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  white-space: nowrap;
+}
+.dv-review-complete-meta > svg {
+  color: var(--pos);
+}
 
 /* ===== 主体 ===== */
 .dv-body {
@@ -120,11 +133,6 @@
   border-color: color-mix(in srgb, var(--neg) 20%, var(--border-subtle));
 }
 
-.dv-review-stage.is-complete {
-  background: color-mix(in srgb, var(--pos) 4%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--pos) 14%, var(--border-subtle));
-}
-
 .dv-review-stage-icon {
   display: grid;
   place-items: center;
@@ -137,7 +145,6 @@
 
 .dv-review-stage.is-result-pending .dv-review-stage-icon { color: var(--warn); }
 .dv-review-stage.is-result-conflict .dv-review-stage-icon { color: var(--neg); background: var(--error-action-bg); }
-.dv-review-stage.is-complete .dv-review-stage-icon { color: var(--pos); background: var(--pos-bg); }
 
 .dv-review-stage-copy {
   display: flex;
@@ -966,19 +973,6 @@
   background: var(--bg-hover);
   color: var(--text-secondary);
 }
-.dv-template-btn {
-  margin-bottom: 12px;
-  padding: 6px 10px;
-  font-size: var(--fs-mini);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-}
-.dv-template-btn:hover {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
 .dv-strategy-manage {
   display: inline-block;
   margin: 5px 9px 0;
@@ -1020,6 +1014,9 @@
 }
 
 @media (max-width: 520px) {
+  .dv-review-complete-meta > span {
+    display: none;
+  }
   .dv-review-stage {
     grid-template-columns: 30px minmax(0, 1fr);
     align-items: start;

@@ -139,6 +139,18 @@ async function run(): Promise<void> {
       () => useStore.getState().trades[0]?.reviewStatus === 'reviewed',
       '写下复盘结论后仍无法完成复盘',
     )
+    assert(!document.querySelector('.dv-review-stage'), '已完成状态不应继续占据正文首屏')
+    assert(
+      document.querySelector('.dv-review-complete-meta')?.textContent?.trim() === '已复盘',
+      '已完成状态应收敛到顶部应用栏',
+    )
+    document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
+    await waitFor(() => Boolean(findButton('重新复盘')), '更多菜单缺少重新复盘入口')
+    findButton('重新复盘')?.click()
+    await waitFor(
+      () => useStore.getState().trades[0]?.reviewStatus === 'unreviewed',
+      '顶部菜单无法重新打开复盘',
+    )
 
     root.unmount()
     resetNoteDraftsForTests()
