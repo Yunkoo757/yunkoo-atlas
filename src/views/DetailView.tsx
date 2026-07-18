@@ -79,10 +79,6 @@ import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
 import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
-import {
-  hasMeaningfulReviewTemplate,
-  resolveReviewTemplateHtml,
-} from '@/lib/reviewTemplates'
 import { formatYmd } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -344,15 +340,7 @@ export function DetailView() {
     : activeNoteLoad.status === 'error'
       ? activeNoteLoad.fallbackHtml
       : editorHtml
-  const reviewStrategy = strategies.find((strategy) => strategy.id === trade.strategyId)
-  const reviewTemplateHtml = resolveReviewTemplateHtml(
-    reviewStrategy?.reviewTemplateHtml,
-    trade.status === 'missed',
-  )
-  const hasStrategyReviewTemplate = hasMeaningfulReviewTemplate(
-    reviewStrategy?.reviewTemplateHtml,
-  )
-  const reviewReadiness = evaluateReviewCompletion(editorHtml, reviewTemplateHtml)
+  const reviewReadiness = evaluateReviewCompletion(editorHtml)
 
   const commitTradeResultEdit = (edit: TradeResultEdit) => {
     const result = prepareTradeResultEdit(trade, edit)
@@ -442,7 +430,7 @@ export function DetailView() {
       }
 
       const latestNote = useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? ''
-      const latestReadiness = evaluateReviewCompletion(latestNote, reviewTemplateHtml)
+      const latestReadiness = evaluateReviewCompletion(latestNote)
       if (!latestReadiness.ready) {
         const message = latestReadiness.reason === 'empty'
           ? '笔记已变为空白，请补充复盘内容后重试'
@@ -457,23 +445,6 @@ export function DetailView() {
     } finally {
       setReviewSubmitting(false)
     }
-  }
-
-  const applyReviewTemplate = () => {
-    if (activeNoteLoad.status !== 'ready') {
-      toast('复盘笔记尚未载入，请稍后再试')
-      return
-    }
-    if (evaluateReviewCompletion(editorHtml).reason !== 'empty') {
-      toast('当前复盘已有内容，未覆盖原笔记')
-      return
-    }
-
-    onEditorChange(reviewTemplateHtml)
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>('.dv-document .ProseMirror')?.focus()
-    })
-    toast(hasStrategyReviewTemplate ? '已应用策略复盘模板' : '已应用复盘模板')
   }
 
   const updateCaseMastery = (masteryState: MasteryState) => {
@@ -621,26 +592,18 @@ export function DetailView() {
                       {hasResultConflict ? '修正结果' : '补齐结果'}
                     </button>
                   ) : needsReview ? (
-                    <>
-                      {activeNoteLoad.status === 'ready' &&
-                        evaluateReviewCompletion(editorHtml).reason === 'empty' && (
-                          <button type="button" onClick={applyReviewTemplate}>
-                            {hasStrategyReviewTemplate ? '使用策略模板' : '使用复盘模板'}
-                          </button>
-                        )}
-                      <button
-                        type="button"
-                        className={reviewReadiness.ready ? undefined : 'is-secondary'}
-                        disabled={
-                          activeNoteLoad.status !== 'ready' ||
-                          !reviewReadiness.ready ||
-                          reviewSubmitting
-                        }
-                        onClick={() => void completeReview()}
-                      >
-                        {reviewSubmitting ? '正在保存…' : '完成复盘'}
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className={reviewReadiness.ready ? undefined : 'is-secondary'}
+                      disabled={
+                        activeNoteLoad.status !== 'ready' ||
+                        !reviewReadiness.ready ||
+                        reviewSubmitting
+                      }
+                      onClick={() => void completeReview()}
+                    >
+                      {reviewSubmitting ? '正在保存…' : '完成复盘'}
+                    </button>
                   ) : (
                     <button
                       type="button"

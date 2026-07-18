@@ -38,7 +38,6 @@ export interface Strategy {
   name: string
   icon: StrategyIconId
   color: string
-  reviewTemplateHtml?: string
 }
 
 export const STRATEGY_ICON_OPTIONS: {

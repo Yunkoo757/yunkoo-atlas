@@ -8,10 +8,8 @@ import {
   type StrategyIconId,
   slugifyStrategyName,
 } from '@/data/strategies'
-import { DEFAULT_REVIEW_TEMPLATE_HTML } from '@/lib/reviewTemplates'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { Editor } from '@/editor/Editor'
 import './StrategyFormModal.css'
 
 export function StrategyFormModal({
@@ -30,7 +28,6 @@ export function StrategyFormModal({
   const [name, setName] = useState('')
   const [icon, setIcon] = useState<StrategyIconId>('target')
   const [color, setColor] = useState<string>(STRATEGY_COLOR_PRESETS[0])
-  const [reviewTemplateHtml, setReviewTemplateHtml] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -38,11 +35,6 @@ export function StrategyFormModal({
       setName(initial?.name ?? '')
       setIcon(initial?.icon ?? 'target')
       setColor(initial?.color ?? STRATEGY_COLOR_PRESETS[0])
-      setReviewTemplateHtml(
-        typeof initial?.reviewTemplateHtml === 'string'
-          ? initial.reviewTemplateHtml
-          : DEFAULT_REVIEW_TEMPLATE_HTML,
-      )
       // 状态初始化后再聚焦，避免 autoFocus 与 useEffect 设值竞争导致焦点丢失
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -70,7 +62,7 @@ export function StrategyFormModal({
 
   const save = () => {
     if (!trimmed || nameTaken) return
-    onSave({ name: trimmed, icon, color, reviewTemplateHtml: reviewTemplateHtml.trim() || undefined }, initial?.id)
+    onSave({ name: trimmed, icon, color }, initial?.id)
     onClose()
   }
 
@@ -167,19 +159,6 @@ export function StrategyFormModal({
             <div className="sfm-preview">
               <StrategyIcon icon={icon} color={color} size={18} />
               <span style={{ color }}>{trimmed || '预览'}</span>
-            </div>
-          </div>
-
-          <div className="sfm-field">
-            <span className="sfm-label">复盘结构</span>
-            <div className="sfm-editor">
-              <Editor
-                content={reviewTemplateHtml}
-                onChange={setReviewTemplateHtml}
-                allowImages={false}
-                ariaLabel="策略复盘结构"
-                placeholder="写下复盘提纲；输入“- ”建立清单，“> ”插入引用"
-              />
             </div>
           </div>
         </div>

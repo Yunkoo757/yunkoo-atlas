@@ -129,18 +129,21 @@ export function testStrategyMetricCoverageCallsOutPartialTotals(): void {
   )
 }
 
-export function testMalformedReviewTemplatesAreRemovedAtTheStoreBoundary(): void {
-  const malformed = {
+export function testLegacyReviewTemplatesAreRemovedAtTheStoreBoundary(): void {
+  const legacy = {
     id: strategyId,
     name: '突破',
     icon: 'target',
     color: '#5e6ad2',
-    reviewTemplateHtml: 42,
+    reviewTemplateHtml: '<p>旧版复盘模板</p>',
   } as unknown as Strategy
 
-  const [normalized] = ensureStrategies([malformed])
+  const [normalized] = ensureStrategies([legacy])
 
-  assert(normalized?.reviewTemplateHtml === undefined, '异常模板字段不得进入运行时 store')
+  assert(
+    (normalized as Strategy & { reviewTemplateHtml?: unknown })?.reviewTemplateHtml === undefined,
+    '已移除的模板字段不得进入运行时 store',
+  )
 }
 
 export function testExistingEmptyStrategyCollectionsStayEmpty(): void {

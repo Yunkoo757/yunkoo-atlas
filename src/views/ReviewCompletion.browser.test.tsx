@@ -50,7 +50,6 @@ const strategy: Strategy = {
   name: '复盘策略',
   icon: 'target',
   color: '#5e6ad2',
-  reviewTemplateHtml: '<h2>策略复盘</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false">按计划执行</li></ul>',
 }
 
 const trade: Trade = {
@@ -84,6 +83,13 @@ const raceTrade: Trade = {
   note: '<p>完整复盘结论</p>',
 }
 
+const filledTrade: Trade = {
+  ...trade,
+  id: 'review-filled-trade',
+  ref: 'TRD-REVIEW-FILLED',
+  note: '<p>这笔交易追价，下次等待回踩确认。</p>',
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -109,34 +115,29 @@ async function run(): Promise<void> {
       useStore.getState().trades[0]?.reviewStatus === 'unreviewed',
       '空白笔记不能直接完成复盘',
     )
+    assert(!findButton('使用策略模板'), '详情页不应继续提供策略模板入口')
+    assert(!findButton('使用复盘模板'), '详情页不应继续提供内置模板入口')
 
-    await waitFor(() => Boolean(findButton('使用策略模板')), '空白复盘应提供策略模板入口')
-    const applyTemplate = findButton('使用策略模板')
-    assert(applyTemplate, '空白复盘应提供策略模板入口')
-    applyTemplate.click()
-    await waitFor(
-      () => Boolean(document.querySelector('.ProseMirror')?.textContent?.includes('按计划执行')),
-      '策略模板没有进入复盘编辑器',
+    root.unmount()
+    resetNoteDraftsForTests()
+    useStore.setState({ trades: [filledTrade] })
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/trade/TRD-REVIEW-FILLED']}>
+        <Routes>
+          <Route path="/trade/:id" element={<DetailView />} />
+        </Routes>
+      </MemoryRouter>,
     )
 
-    findButton('完成复盘')?.click()
-    await waitForFrame()
-    assert(
-      useStore.getState().trades[0]?.reviewStatus === 'unreviewed',
-      '原样模板不能直接完成复盘',
-    )
-
-    const checklist = document.querySelector<HTMLInputElement>('.ProseMirror input[type="checkbox"]')
-    assert(checklist, '策略模板检查项没有渲染')
-    checklist.click()
     await waitFor(
-      () => document.querySelector('.ProseMirror li')?.getAttribute('data-checked') === 'true',
-      '复盘检查项没有保存为已完成',
+      () => findButton('完成复盘')?.disabled === false,
+      '已有复盘结论时完成操作仍不可用',
     )
     findButton('完成复盘')?.click()
     await waitFor(
       () => useStore.getState().trades[0]?.reviewStatus === 'reviewed',
-      '填写复盘产出后仍无法完成复盘',
+      '写下复盘结论后仍无法完成复盘',
     )
 
     root.unmount()

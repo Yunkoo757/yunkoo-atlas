@@ -173,7 +173,7 @@ try {
     {
       url: '/src/views/ReviewCompletion.browser.test.html',
       promiseKey: '__reviewCompletionFlowTest',
-      label: 'src/views/ReviewCompletion.browser.test.tsx :: review output is required and strategy template is usable',
+      label: 'src/views/ReviewCompletion.browser.test.tsx :: review output is required without template shortcuts',
     },
     {
       url: '/src/views/DetailShortcutNavigation.browser.test.html',

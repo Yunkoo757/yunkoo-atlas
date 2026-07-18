@@ -114,10 +114,10 @@ export function migrateTrades(
 export function ensureStrategies(raw: Strategy[] | undefined): Strategy[] {
   if (raw === undefined) return [...DEFAULT_STRATEGIES]
   return raw.map((strategy) => {
-    const template = (strategy as Strategy & { reviewTemplateHtml?: unknown }).reviewTemplateHtml
-    if (template === undefined || typeof template === 'string') return strategy
-    const normalized = { ...strategy }
-    delete (normalized as Strategy & { reviewTemplateHtml?: unknown }).reviewTemplateHtml
+    if (!Object.prototype.hasOwnProperty.call(strategy, 'reviewTemplateHtml')) return strategy
+    const { reviewTemplateHtml: _legacyTemplate, ...normalized } = strategy as Strategy & {
+      reviewTemplateHtml?: unknown
+    }
     return normalized
   })
 }
