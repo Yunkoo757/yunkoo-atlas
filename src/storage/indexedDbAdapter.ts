@@ -22,6 +22,31 @@ interface AssetRecord {
   blob: Blob
 }
 
+function normalizeLegacyBrowserSnapshot(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
+  const snapshot = value as Record<string, unknown>
+  if (!Array.isArray(snapshot.trades)) return value
+  return {
+    ...snapshot,
+    trades: snapshot.trades.map((trade) => {
+      if (typeof trade !== 'object' || trade === null || Array.isArray(trade)) return trade
+      const record = trade as Record<string, unknown>
+      return {
+        tags: [],
+        note: '',
+        exit: null,
+        pnl: null,
+        rMultiple: null,
+        closedAt: null,
+        ...record,
+        entry: typeof record.entry === 'number' && Number.isFinite(record.entry) ? record.entry : 0,
+        size: typeof record.size === 'number' && Number.isFinite(record.size) ? record.size : 0,
+        tradeKind: record.tradeKind === 'practice' ? 'paper' : record.tradeKind,
+      }
+    }),
+  }
+}
+
 function createMissingStores(db: IDBDatabase): void {
   if (!db.objectStoreNames.contains(STORE_SNAPSHOT)) {
     db.createObjectStore(STORE_SNAPSHOT)
@@ -143,8 +168,9 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
 
   async loadSnapshot(): Promise<PersistedSnapshot | null> {
     const db = this.requireDb()
-    const snapshot = (await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')) ?? null
-    if (!snapshot) return null
+    const stored = (await idbGet<unknown>(db, STORE_SNAPSHOT, 'main')) ?? null
+    if (!stored) return null
+    const snapshot = normalizeLegacyBrowserSnapshot(stored)
     assertValidPersistedSnapshot(snapshot, 'Stored browser snapshot')
     return snapshot
   }

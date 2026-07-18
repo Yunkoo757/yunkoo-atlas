@@ -22,7 +22,22 @@ async function seedIncompleteHigherVersionDatabase(): Promise<void> {
     const request = indexedDB.open(BROWSER_DB_NAME, 3)
     request.onupgradeneeded = () => {
       const db = request.result
-      db.createObjectStore('snapshot').put(snapshotWithNote('<p>缺表旧库</p>', '缺表旧库'), 'main')
+      const legacySnapshot = snapshotWithNote('<p>缺表旧库</p>', '缺表旧库')
+      const [{
+        tags: _tags,
+        note: _note,
+        exit: _exit,
+        pnl: _pnl,
+        rMultiple: _rMultiple,
+        closedAt: _closedAt,
+        entry: _entry,
+        size: _size,
+        ...legacyTrade
+      }] = legacySnapshot.trades
+      db.createObjectStore('snapshot').put({
+        ...legacySnapshot,
+        trades: [{ ...legacyTrade, entry: null, size: null }],
+      }, 'main')
     }
     request.onsuccess = () => {
       request.result.close()
@@ -75,7 +90,13 @@ async function run(): Promise<void> {
   const adapter = new IndexedDbStorageAdapter()
   await adapter.open()
   assert((await adapter.getManifest()).libraryId.length > 0, '旧版缺失的资料库元数据表应自动补齐')
-  assert((await adapter.loadSnapshot())?.profile?.displayName === '缺表旧库', '补齐存储表时不得覆盖旧交易快照')
+  const repairedSnapshot = await adapter.loadSnapshot()
+  assert(repairedSnapshot?.profile?.displayName === '缺表旧库', '补齐存储表时不得覆盖旧交易快照')
+  assert(repairedSnapshot?.trades[0]?.tags.length === 0, '旧交易缺少标签数组时应安全补为空数组')
+  assert(repairedSnapshot?.trades[0]?.note === '', '旧交易缺少笔记时应安全补为空文本')
+  assert(repairedSnapshot?.trades[0]?.closedAt === null, '旧交易缺少平仓日期时应安全补为空值')
+  assert(repairedSnapshot?.trades[0]?.entry === 0, '旧交易缺少入场价时应使用兼容占位值')
+  assert(repairedSnapshot?.trades[0]?.size === 0, '旧交易缺少仓位时应使用兼容占位值')
 
   const oldAssetId = await adapter.saveAsset(new Blob(['old-image'], { type: 'image/png' }), 'image/png')
   await adapter.saveSnapshot(
