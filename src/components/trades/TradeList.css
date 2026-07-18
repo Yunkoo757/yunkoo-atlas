@@ -427,6 +427,16 @@
   color: var(--text-tertiary);
 }
 
+.trade-row-pnl.is-missed {
+  color: var(--text-tertiary);
+  font-family: var(--font-sans);
+  font-size: var(--fs-mini);
+}
+
+.trade-row-r.is-opportunity {
+  color: var(--opportunity);
+}
+
 .trade-row-r.is-positive {
   color: var(--pos);
 }

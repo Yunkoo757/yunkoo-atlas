@@ -41,6 +41,7 @@ export const TradeRow = memo(function TradeRow({
   onContextMenu,
 }: TradeRowProps) {
   const showResult = trade.status !== 'planned' && trade.status !== 'open'
+  const isMissed = trade.status === 'missed'
   const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
   const symbolIconsFromStore = useStore((state) =>
@@ -156,10 +157,10 @@ export const TradeRow = memo(function TradeRow({
           {timeframe}
         </span>
       </span>
-      <span className={'trade-row-pnl' + (trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
-        {showResult ? fmtMoney(trade.pnl) : '—'}
+      <span className={'trade-row-pnl' + (isMissed ? ' is-missed' : trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
+        {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl)) : '—'}
       </span>
-      <span className={'trade-row-r' + (trade.rMultiple != null && trade.rMultiple > 0 ? ' is-positive' : trade.rMultiple != null && trade.rMultiple < 0 ? ' is-negative' : ' is-zero')}>
+      <span className={'trade-row-r' + (isMissed && trade.rMultiple != null ? ' is-opportunity' : trade.rMultiple != null && trade.rMultiple > 0 ? ' is-positive' : trade.rMultiple != null && trade.rMultiple < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? fmtR(trade.rMultiple) : '—'}
       </span>
       <span className="trade-row-date">{fmtDate(trade.openedAt)}</span>
