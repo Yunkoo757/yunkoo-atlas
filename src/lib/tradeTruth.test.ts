@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
 import {
+  isTradeResultAuthorityConsistent,
   normalizeTradeMetrics,
   resolveTradeTruth,
   summarizeTradeResults,
@@ -97,6 +98,21 @@ export function testLegacyResultsReceiveOneStableAuthorityDuringNormalization():
   assert(rOnly.resultSource === 'r', 'legacy R-only results should become R-authoritative')
   assert(importedPair.resultSource === 'imported', 'legacy paired metrics must remain traceable as imported')
   assert(price.resultSource === 'price', 'an explicit price authority must never be inferred away')
+}
+
+export function testLegacyImportedZeroPlaceholderRecomputesResultAuthority(): void {
+  const normalized = normalizeTradeMetrics({
+    ...baseTrade,
+    status: 'missed',
+    pnl: 0,
+    rMultiple: 12.62,
+    resultSource: 'imported',
+  })
+
+  assert(normalized.pnl === null, 'a missed trade placeholder cash result should become missing')
+  assert(normalized.rMultiple === 12.62, 'the real R result must be preserved')
+  assert(normalized.resultSource === 'r', 'normalization must recompute authority after removing a placeholder')
+  assert(isTradeResultAuthorityConsistent(normalized), 'the normalized trade must remain persistable')
 }
 
 export function testDeclaredAuthorityIgnoresNonAuthoritativeMetric(): void {

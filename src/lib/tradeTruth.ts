@@ -158,11 +158,18 @@ export function normalizeTradeMetrics(trade: Trade): Trade {
     if (rMultiple === 0) rMultiple = null
   }
 
+  const removedPlaceholder = pnl !== trade.pnl || rMultiple !== trade.rMultiple
+
   return {
     ...trade,
     pnl,
     rMultiple,
-    resultSource: resolveTradeResultSource({ ...trade, pnl, rMultiple }),
+    resultSource: resolveTradeResultSource({
+      ...trade,
+      pnl,
+      rMultiple,
+      resultSource: removedPlaceholder ? undefined : trade.resultSource,
+    }),
   }
 }
 
