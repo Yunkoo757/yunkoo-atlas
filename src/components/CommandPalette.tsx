@@ -20,12 +20,13 @@ import {
   Keyboard,
   BookOpen,
   RotateCcw,
+  Maximize2,
+  FileText,
 } from '@/icons/appIcons'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
-import { isAccountTrade } from '@/lib/tradeKind'
 import { collectLimitedCommandMatches } from '@/lib/commandPaletteSearch'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
@@ -102,10 +103,11 @@ function CommandPaletteDialog({
       getShortcutHintModel(actionId, shortcutBindings).hint ?? undefined
     const viewNav: Cmd[] = [
       { id: 'n-today', group: '导航', icon: <Calendar size={16} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
+      { id: 'n-quick-notes', group: '导航', icon: <FileText size={16} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
       { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '交易记录', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
-      { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={16} />, label: '周复盘', keywords: '每周 周总结 复盘', hint: '评估一周做法并制定下周行动', run: go('/weekly-review') },
-      { id: 'n-review-session', group: '导航', icon: <RotateCcw size={16} />, label: '随机复盘', keywords: '随机 抽卡 复盘', hint: '抽卡浏览交易与案例', run: go('/review-session') },
+      { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={16} />, label: '周复盘', keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go('/weekly-review') },
+      { id: 'n-review-session', group: '导航', icon: <RotateCcw size={16} />, label: '随机复盘', keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
       { id: 'n-active', group: '导航', icon: <Clock size={16} />, label: '进行中', hint: shortcutHint('nav.active'), run: go('/active') },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', hint: shortcutHint('nav.dashboard'), run: go('/dashboard') },
       { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', hint: shortcutHint('nav.favorites'), run: go('/favorites') },
@@ -135,6 +137,13 @@ function CommandPaletteDialog({
     const actions: Cmd[] = [
       { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { onClose(); openComposer(null, newTradeKindForPath(pathname)) } },
       { id: 'a-new-case', group: '操作', icon: <BookOpen size={16} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { onClose(); openComposer(null, 'case') } },
+      { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={16} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
+        onClose()
+        const bridge = window.journalBridge
+        if (bridge?.toggleFullscreen) void bridge.toggleFullscreen()
+        else if (document.fullscreenElement) void document.exitFullscreen()
+        else if (document.fullscreenEnabled) void document.documentElement.requestFullscreen()
+      } },
     ]
 
     const query = deferredQuery.trim()
@@ -152,7 +161,7 @@ function CommandPaletteDialog({
 
     const strategyCounts = new Map<string, number>()
     for (const trade of searchableTrades) {
-      if (!isAccountTrade(trade)) continue
+      if (trade.tradeKind !== 'live') continue
       strategyCounts.set(trade.strategyId, (strategyCounts.get(trade.strategyId) ?? 0) + 1)
     }
     const strategyMatches = collectLimitedCommandMatches(

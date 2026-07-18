@@ -37,7 +37,7 @@ export function StrategyHeader({
     return computeStrategyStats(
       filterTradesByFacets(scoped, facets),
       strategyId,
-      { tradeKind: 'all' },
+      { tradeKind: analysisScope ? 'all' : 'live' },
     )
   }, [
       trades,

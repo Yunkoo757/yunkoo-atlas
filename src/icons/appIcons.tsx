@@ -161,7 +161,5 @@ export {
   Italic,
   Strikethrough,
   Maximize2,
-  Eye,
-  EyeOff,
   // Code / Heading2 / ListChecks 已映射 Linear
 } from 'lucide-react'

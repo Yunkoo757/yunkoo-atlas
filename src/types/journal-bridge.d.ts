@@ -36,6 +36,7 @@ export interface JournalBridge {
   onBeforeClose(callback: () => void | Promise<void>): void
   onCloseSaveError(callback: (message: string) => void): () => void
   requestClose(): Promise<void>
+  toggleFullscreen(): Promise<boolean>
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>

@@ -5,7 +5,9 @@ import {
   noteDraftCountForTests,
   resetNoteDraftsForTests,
   setNoteDraft,
+  QUICK_NOTE_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
+import { createQuickNote } from '@/data/quickNotes'
 import { useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -109,5 +111,24 @@ export async function testSingleDraftFlushCannotDeleteNewInput(): Promise<void> 
   } finally {
     resetNoteDraftsForTests()
     useStore.setState({ trades: originalTrades })
+  }
+}
+
+export async function testQuickNoteDraftFlushesToIndependentNoteStore(): Promise<void> {
+  const originalNotes = useStore.getState().quickNotes
+  const note = createQuickNote(new Date('2026-07-18T08:00:00.000Z'))
+  const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${note.id}`
+  resetNoteDraftsForTests()
+  useStore.setState({ quickNotes: [note] })
+  try {
+    setNoteDraft(draftId, '<p>随手记录，不是一笔交易</p>')
+    assert(await flushNoteDraftToStore(draftId), '随记草稿必须能够稳定写入 store')
+    assert(
+      useStore.getState().quickNotes[0]?.contentHtml === '<p>随手记录，不是一笔交易</p>',
+      '随记草稿必须写入 quickNotes，而不是交易 note',
+    )
+  } finally {
+    resetNoteDraftsForTests()
+    useStore.setState({ quickNotes: originalNotes })
   }
 }

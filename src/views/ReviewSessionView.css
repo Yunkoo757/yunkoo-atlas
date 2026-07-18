@@ -64,7 +64,8 @@
 .review-session-progress,
 .review-session-assessed {
   color: var(--text-tertiary);
-  font-family: var(--font-monospace);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-xs);
 }
 
@@ -209,7 +210,8 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.review-session-options > label {
+.review-session-options > label,
+.review-session-case-scope {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -217,16 +219,11 @@
   font-size: var(--fs-sm);
 }
 
-.review-session-options select {
-  min-height: 32px;
-  padding: 0 30px 0 10px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
+.review-session-scope-select {
+  width: 164px;
 }
 
-.review-session-options select:disabled { opacity: 0.45; }
+.review-session-scope-select .ui-select-trigger { min-height: 32px; }
 .review-session-content-toggle { cursor: pointer; }
 
 .review-session-start-footer {
@@ -365,7 +362,8 @@
   border-radius: var(--radius-6);
   background: var(--bg-hover);
   color: var(--text-tertiary);
-  font-family: var(--font-monospace);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
@@ -620,14 +618,15 @@
   .review-session-finished button,
   .review-session-start-footer button,
   .review-session-content-toggle,
-  .review-session-options select { min-height: 44px; }
+  .review-session-scope-select .ui-select-trigger { min-height: 44px; }
 }
 
 @media (max-width: 680px) {
   .review-session-source-grid { grid-template-columns: 1fr; }
   .review-session-options,
   .review-session-start-footer { align-items: stretch; flex-direction: column; }
-  .review-session-options > label { justify-content: space-between; }
+  .review-session-options > label,
+  .review-session-case-scope { justify-content: space-between; }
   .review-session-assessed { display: none; }
   .review-session-stage { padding: 0; }
   .review-session-workspace { border: 0; border-radius: 0; }

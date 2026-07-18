@@ -212,6 +212,12 @@ if (!hasSingleInstanceLock) {
     ipcMain.handle('app:request-close', () => {
       mainWindow?.close()
     })
+    ipcMain.handle('app:toggle-fullscreen', () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return false
+      const next = !mainWindow.isFullScreen()
+      mainWindow.setFullScreen(next)
+      return next
+    })
 
     if (process.env.LINEAR_JOURNAL_QA === '1') {
       await runElectronQaAndExit()

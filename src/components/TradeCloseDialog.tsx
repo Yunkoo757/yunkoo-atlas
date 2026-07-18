@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { X } from '@/icons/appIcons'
+import { DatePicker } from '@/components/ui/DatePicker'
 import type { TradeStatus } from '@/data/trades'
 import { pnlToStatus } from '@/lib/tradeCalc'
 import {
@@ -243,10 +244,10 @@ export function TradeCloseDialog() {
                 <strong>0 · 无需填写</strong>
               </div>
             ) : null}
-            <label>
+            <div className="trade-close-date-field">
               <span>平仓日期</span>
-              <input type="date" value={closedAt} onChange={(event) => setClosedAt(event.target.value)} required />
-            </label>
+              <DatePicker value={closedAt} onValueChange={setClosedAt} ariaLabel="平仓日期" required />
+            </div>
           </div>
 
           <div className={`trade-close-summary${error ? ' is-error' : ''}`} role={error ? 'alert' : 'status'}>

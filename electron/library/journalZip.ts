@@ -450,6 +450,18 @@ function validateWebAssets(
       referencedIds.add(id)
     }
   }
+  for (const note of snapshot.quickNotes ?? []) {
+    for (const match of note.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
+      const id = match[1]
+      if (!isSafeAssetId(id)) {
+        throw new Error(`Invalid .journal.zip: quick note ${note.id} references an invalid asset`)
+      }
+      if (!declarations.has(id)) {
+        throw new Error(`Invalid .journal.zip: quick note ${note.id} references missing asset ${id}`)
+      }
+      referencedIds.add(id)
+    }
+  }
   for (const id of declarations.keys()) {
     if (!referencedIds.has(id)) {
       throw new Error(`Invalid .journal.zip: asset ${id} 未被任何交易正文引用`)
@@ -611,6 +623,13 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
       const pattern = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
       while ((match = pattern.exec(review.contentHtml)) !== null) {
+        if (match[1]) referencedAssetIds.add(match[1])
+      }
+    }
+    for (const note of snapshot.quickNotes ?? []) {
+      const pattern = /journal-asset:\/\/([^"'\s>]+)/g
+      let match: RegExpExecArray | null
+      while ((match = pattern.exec(note.contentHtml)) !== null) {
         if (match[1]) referencedAssetIds.add(match[1])
       }
     }

@@ -894,9 +894,13 @@
 .dv-datarow-edit {
   gap: 8px;
 }
-.dv-datarow-input {
+.dv-datarow-input,
+.dv-date-picker {
   flex: 1;
   max-width: 120px;
+}
+.dv-datarow-input,
+.dv-date-picker .ui-date-trigger {
   height: 25px;
   padding: 0 8px;
   background: var(--field-bg);
@@ -998,6 +1002,9 @@
     margin-block: 0;
   }
   .dv-datarow-input {
+    height: 44px;
+  }
+  .dv-date-picker .ui-date-trigger {
     height: 44px;
   }
   .dv-pitem-ghost {

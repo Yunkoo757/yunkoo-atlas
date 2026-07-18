@@ -205,7 +205,7 @@ export async function testElectronJournalImportRequiresExplicitReplacementConfir
 
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
-  const expected = ['/today-record', '/list', '/review-cases', '/weekly-review', '/review-session', '/dashboard']
+  const expected = ['/today-record', '/notes', '/list', '/review-cases', '/weekly-review', '/review-session', '/dashboard']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
     `一级导航应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
@@ -269,8 +269,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
     '默认工作区配置应包含四个系统目标并保持迁移顺序',
   )
   assert(
-    PRIMARY_NAV.map((item) => item.id).join(',') === 'today,trades,reviewCases,weeklyReview,reviewSession,dashboard',
-    '核心模块顺序必须保持今日、交易、案例、周复盘、随机复盘、仪表盘',
+    PRIMARY_NAV.map((item) => item.id).join(',') === 'today,quickNotes,trades,reviewCases,weeklyReview,reviewSession,dashboard',
+    '核心模块顺序必须保持今日、随记、交易、案例、周复盘、随机复盘、仪表盘',
   )
 
   const savedView = {
@@ -373,16 +373,21 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'global.commandPalette': 'w',
     'global.newTrade': 'n',
     'global.newCase': 'shift+n',
+    'global.newQuickNote': 'shift+alt+n',
     'global.undo': 'mod+z',
     'global.redo': 'mod+shift+z',
     'global.closeOverlay': 'escape',
+    'global.toggleFullscreen': 'f11',
     'nav.today': 'alt+t',
+    'nav.quickNotes': 'alt+n',
     'nav.active': 'alt+1',
     'nav.favorites': 'alt+2',
     'nav.missed': 'alt+3',
     'nav.sim': 'g',
     'nav.list': 'alt+w',
     'nav.reviewCases': 'alt+c',
+    'nav.weeklyReview': 'alt+4',
+    'nav.reviewSession': 'alt+6',
     'nav.board': 'alt+5',
     'nav.dashboard': 'i',
     'nav.strategies': 'o',
@@ -501,6 +506,14 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
     source.includes('await Promise.all([refreshBackups(), refreshHealth()])'),
     '创建、恢复或删除备份后应同步刷新恢复点列表和存储健康数据',
   )
+}
+
+export async function testStorageHealthWarningStaysInTheContentColumn(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/components/DataIOContent.css', 'utf8')
+  const rule = source.match(/\.health-note\s*\{[^}]*\}/)?.[0] ?? ''
+
+  assert(rule.includes('grid-column: 2'), '存储健康提示必须与数值共用内容列，不得挤入图标列')
 }
 
 export async function testTagSettingsExposeDistinctAccessibleControlNames(): Promise<void> {
@@ -840,7 +853,7 @@ export function testSidebarTargetCountsMatchWorkbenchFiltering(): void {
         { id: 'strategy', target: { kind: 'strategy', strategyId: strategy.id }, placement: 'pinned', order: 2 },
         sources,
       ),
-      filter: { type: 'strategy', strategyId: strategy.id } as const,
+      filter: { type: 'strategy', strategyId: strategy.id, tradeKind: 'live' } as const,
       search: '',
     },
     {
@@ -865,6 +878,7 @@ export function testSidebarTargetCountsMatchWorkbenchFiltering(): void {
     )
   }
   assert(countSidebarTarget(cases[1]!.target, context) === 1, '显式亏损筛选应覆盖 hideClosed')
+  assert(countSidebarTarget(cases[2]!.target, context) === 1, '侧栏策略数量必须只统计实盘记录')
 }
 
 export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): void {
@@ -1426,6 +1440,16 @@ export function testSymbolCatalogSyncsComposerAndSettings(): void {
 export function testNormalizeDisplayPersistsPrivacyModeSafely(): void {
   assert(normalizeDisplay({ privacyMode: true }).privacyMode, '直播模式必须随显示偏好持久化')
   assert(!normalizeDisplay({}).privacyMode, '旧资料库缺少直播模式字段时必须默认关闭')
+}
+
+export async function testPrivacyModeIsOnlyExposedInDisplaySettings(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [topbar, settings] = await Promise.all([
+    fs.readFile('src/components/Topbar.tsx', 'utf8'),
+    fs.readFile('src/views/settings/DisplaySettingsPanel.tsx', 'utf8'),
+  ])
+  assert(!topbar.includes('privacyMode') && !topbar.includes('直播模式'), '顶栏不得显示直播模式入口')
+  assert(settings.includes('label="直播模式"'), '显示设置必须保留直播模式开关')
 }
 
 export function testNormalizeTimeframePresetsAndAliases(): void {

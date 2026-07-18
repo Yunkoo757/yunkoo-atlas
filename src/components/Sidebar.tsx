@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
   Ban,
@@ -36,6 +36,7 @@ import {
 import { ICON_MD } from '@/icons/iconSize'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { getGreeting } from '@/lib/greeting'
+import { createQuickNote } from '@/data/quickNotes'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -136,6 +137,7 @@ export function useSidebarNavigationModel() {
 }
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+  const navigate = useNavigate()
   const [greeting, setGreeting] = useState(() => getGreeting())
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
@@ -153,6 +155,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   } | null>(null)
   const suppressWorkspaceClick = useRef(false)
   const openComposer = useStore((state) => state.openComposer)
+  const upsertQuickNote = useStore((state) => state.upsertQuickNote)
   const profile = useStore((state) => state.profile)
   const {
     path,
@@ -174,9 +177,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   )
 
   const inReviewCases = path.startsWith('/review-cases')
+  const inQuickNotes = path === '/notes' || path.startsWith('/notes/')
   const isSettingsActive = path.startsWith('/settings')
 
-  const createLabel = inReviewCases ? '新建案例记录' : '新建交易'
+  const createLabel = inQuickNotes ? '新建随记' : inReviewCases ? '新建案例记录' : '新建交易'
   const openWorkspaceEditor = (
     button: HTMLButtonElement,
     section: 'pinned' | 'overflow' = 'pinned',
@@ -396,13 +400,21 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             </button>
           </ShortcutTooltip>
           <ShortcutTooltip
-            actionId={inReviewCases ? 'global.newCase' : 'global.newTrade'}
+            actionId={inQuickNotes ? 'global.newQuickNote' : inReviewCases ? 'global.newCase' : 'global.newTrade'}
             label={createLabel}
           >
             <button
               type="button"
               className="sb-hbtn"
-              onClick={() => openComposer(null, inReviewCases ? 'case' : newTradeKindForPath(path))}
+              onClick={() => {
+                if (inQuickNotes) {
+                  const note = createQuickNote()
+                  upsertQuickNote(note)
+                  navigate(`/notes/${encodeURIComponent(note.id)}`)
+                  return
+                }
+                openComposer(null, inReviewCases ? 'case' : newTradeKindForPath(path))
+              }}
             >
               <Pencil size={ICON_MD} />
             </button>

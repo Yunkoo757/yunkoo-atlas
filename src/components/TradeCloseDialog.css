@@ -168,11 +168,26 @@
   gap: 12px;
 }
 
-.trade-close-fields label {
+.trade-close-fields label,
+.trade-close-date-field {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 5px;
+}
+
+.trade-close-date-field > span {
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+}
+
+.trade-close-date-field .ui-date-trigger {
+  height: 36px;
+  padding: 0 10px;
+  color: var(--text-body);
+  font-size: var(--type-row-size);
+  border-color: transparent;
 }
 
 .trade-close-price-exit {
@@ -289,7 +304,8 @@
 
 @media (max-width: 520px) {
   .trade-close-fields { grid-template-columns: 1fr; }
-  .trade-close-fields input { height: 44px; }
+  .trade-close-fields input,
+  .trade-close-date-field .ui-date-trigger { height: 44px; }
   .trade-close-footer { align-items: flex-end; }
   .trade-close-footer > span { max-width: 110px; }
   .trade-close-secondary,

@@ -14,6 +14,11 @@ import {
   normalizeReviewTemplates,
   type ReviewTemplate,
 } from '@/data/reviewTemplates'
+import {
+  mergeQuickNotes,
+  normalizeQuickNotes,
+  type QuickNote,
+} from '@/data/quickNotes'
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
 import {
   ensureStrategies,
@@ -78,12 +83,13 @@ import {
   isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
 
-export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 7: +weeklyReviews
+export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 8: +quickNotes
 
 export interface ExportPayload {
   version: number
   trades: (Trade & { strategy?: string })[]
   weeklyReviews?: WeeklyReview[]
+  quickNotes?: QuickNote[]
   strategies: Strategy[]
   starredIds: string[]
   subscribedIds: string[]
@@ -101,6 +107,7 @@ export interface ExportPayload {
 export interface PersistedSlice {
   trades: Trade[]
   weeklyReviews?: WeeklyReview[]
+  quickNotes?: QuickNote[]
   strategies: Strategy[]
   starredIds: string[]
   subscribedIds: string[]
@@ -126,6 +133,7 @@ interface ExportState extends PersistedSlice {
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
   weeklyReviews?: PersistedSnapshot['weeklyReviews']
+  quickNotes?: PersistedSnapshot['quickNotes']
   strategies: PersistedSnapshot['strategies']
   starredIds: string[]
   subscribedIds: string[]
@@ -148,6 +156,7 @@ export function buildPortableSnapshotFromState(
   return {
     trades: state.trades,
     weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
+    quickNotes: normalizeQuickNotes(state.quickNotes),
     strategies: state.strategies,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
@@ -280,6 +289,7 @@ export async function buildExportPayloadFromState(
     version: EXPORT_VERSION,
     trades: state.trades,
     weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
+    quickNotes: normalizeQuickNotes(state.quickNotes),
     strategies: state.strategies,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
@@ -329,11 +339,11 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates },
+    { trades, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -626,6 +636,7 @@ export function parseImportJson(text: string): ImportResult {
   const snapshotCandidate: unknown = {
     trades,
     weeklyReviews: raw.weeklyReviews ?? [],
+    quickNotes: raw.quickNotes ?? [],
     strategies: raw.strategies ?? [],
     starredIds: raw.starredIds ?? [],
     subscribedIds: raw.subscribedIds ?? [],
@@ -644,6 +655,7 @@ export function parseImportJson(text: string): ImportResult {
     assets = normalizeAndValidateImportAssets([
       ...snapshotCandidate.trades.map((trade) => trade.note),
       ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),
+      ...(snapshotCandidate.quickNotes ?? []).map((note) => note.contentHtml),
     ], raw.assets)
   } catch (error) {
     return {
@@ -658,6 +670,7 @@ export function parseImportJson(text: string): ImportResult {
       version: raw.version,
       trades: snapshotCandidate.trades,
       weeklyReviews: normalizeWeeklyReviews(snapshotCandidate.weeklyReviews),
+      quickNotes: normalizeQuickNotes(snapshotCandidate.quickNotes),
       strategies: snapshotCandidate.strategies,
       starredIds: snapshotCandidate.starredIds,
       subscribedIds: snapshotCandidate.subscribedIds,
@@ -705,6 +718,10 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
     ...(current.weeklyReviews ?? []),
     ...(payload.weeklyReviews ?? []),
   ])
+  const quickNotes = mergeQuickNotes(
+    current.quickNotes ?? [],
+    payload.quickNotes ?? [],
+  )
   const templatesById = new Map(
     normalizeReviewTemplates(current.reviewTemplates ?? []).map((template) => [template.id, template]),
   )
@@ -717,6 +734,7 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
     strategies,
     trades,
     weeklyReviews,
+    quickNotes,
     starredIds: [...new Set([...current.starredIds, ...payload.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...payload.subscribedIds])],
     pinnedStrategyIds: [
@@ -758,6 +776,7 @@ export function prepareImportPayloadForCommit(
   const sourceAssets = normalizeAndValidateImportAssets([
     ...payload.trades.map((trade) => trade.note),
     ...(payload.weeklyReviews ?? []).map((review) => review.contentHtml),
+    ...(payload.quickNotes ?? []).map((note) => note.contentHtml),
   ], payload.assets)
   const idMap = new Map<string, string>()
   const generatedIds = new Set<string>()
@@ -803,9 +822,13 @@ export function prepareImportPayloadForCommit(
     ...review,
     contentHtml: rewriteHtml(review.contentHtml),
   }))
+  const quickNotes = payload.quickNotes?.map((note) => ({
+    ...note,
+    contentHtml: rewriteHtml(note.contentHtml),
+  }))
 
   return {
-    payload: { ...payload, trades, weeklyReviews, assets },
+    payload: { ...payload, trades, weeklyReviews, quickNotes, assets },
     assets,
   }
 }
@@ -813,6 +836,7 @@ export function prepareImportPayloadForCommit(
 const IMPORT_PERSISTED_REFERENCE_KEYS = [
   'trades',
   'weeklyReviews',
+  'quickNotes',
   'strategies',
   'starredIds',
   'subscribedIds',
@@ -948,6 +972,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   useStore.setState({
     trades,
     weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
+    quickNotes: normalizeQuickNotes(snapshot.quickNotes),
     strategies: normalized.strategies,
     starredIds: snapshot.starredIds,
     subscribedIds: snapshot.subscribedIds,
@@ -974,6 +999,7 @@ export function resetEmptyLibraryIntoStore(): void {
   useStore.setState({
     trades: [],
     weeklyReviews: [],
+    quickNotes: [],
     strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
     selectedId: null,
     composerOpen: false,

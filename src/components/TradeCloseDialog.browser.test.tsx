@@ -76,6 +76,8 @@ async function run(): Promise<void> {
     const rInput = document.querySelector<HTMLInputElement>('input[aria-label="R 倍数"]')
     assert(pnlInput, '平仓时应同时显示盈亏金额输入框')
     assert(rInput, '平仓时应同时显示 R 倍数输入框')
+    assert(document.querySelector('.trade-close-date-field .ui-date-trigger'), '平仓日期应使用统一日期选择器')
+    assert(!document.querySelector('input[type="date"]'), '平仓弹窗不得打开系统原生日历')
     assert(!document.querySelector('input[aria-label="出场价"]'), '平仓不应再要求出场价')
     assert(!document.body.textContent?.includes('记录依据'), '平仓不应再显示价格记录方式')
     assert(!document.body.textContent?.includes('出场价格'), '平仓不应再提供出场价格模式')

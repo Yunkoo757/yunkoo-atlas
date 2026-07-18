@@ -258,6 +258,7 @@ function isStrictSearchSubset(targetSearch: string, currentSearch: string): bool
 function primaryIdForPath(pathname: string): PrimarySidebarNavId | undefined {
   const path = normalizeTargetPath(pathname)
   if (path === '/today-record') return 'today'
+  if (path === '/notes' || path.startsWith('/notes/')) return 'quickNotes'
   if (path.startsWith('/review-cases')) return 'reviewCases'
   if (path === '/weekly-review') return 'weeklyReview'
   if (path === '/dashboard') return 'dashboard'
@@ -340,7 +341,9 @@ function listTargetForPath(pathname: string, search = ''): ListFilter | undefine
     return {
       type: 'strategy',
       strategyId: decodeURIComponent(path.slice('/strategy/'.length)),
-      analysisScope: parsedScope.explicit ? parsedScope.scope : undefined,
+      ...(parsedScope.explicit
+        ? { analysisScope: parsedScope.scope }
+        : { tradeKind: 'live' as const }),
     }
   }
   if (path.startsWith('/period/')) {

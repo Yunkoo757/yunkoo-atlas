@@ -7,6 +7,8 @@ import { buildBindingOverwritePatch } from '@/shortcuts/engine'
 export interface LightboxState {
   images: string[]
   index: number
+  ownerId?: string
+  loading?: boolean
 }
 
 interface ShortcutState {
@@ -24,7 +26,8 @@ interface ShortcutState {
   resetBinding: (id: string) => void
   resetAllBindings: () => void
   setListContext: (ctx: ListNavigationContext | null) => void
-  openLightbox: (images: string[], index: number) => void
+  openLightbox: (images: string[], index: number, ownerId?: string) => void
+  syncLightboxForOwner: (ownerId: string, images: string[] | null) => void
   closeLightbox: () => void
   lightboxPrev: () => void
   lightboxNext: () => void
@@ -127,12 +130,40 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
       }
       return { listContext: ctx }
     }),
-  openLightbox: (images, index) =>
+  openLightbox: (images, index, ownerId) =>
     set({
       lightbox: {
         images,
         index: Math.max(0, Math.min(index, images.length - 1)),
+        ownerId,
+        loading: false,
       },
+    }),
+  syncLightboxForOwner: (ownerId, images) =>
+    set((state) => {
+      const lightbox = state.lightbox
+      if (!lightbox) return state
+      if (images === null) {
+        return {
+          lightbox: {
+            ...lightbox,
+            ownerId,
+            images: [],
+            loading: true,
+          },
+        }
+      }
+      if (lightbox.ownerId && lightbox.ownerId !== ownerId) return state
+      if (images.length === 0) return { lightbox: null }
+      return {
+        lightbox: {
+          ...lightbox,
+          ownerId,
+          images,
+          index: Math.max(0, Math.min(lightbox.index, images.length - 1)),
+          loading: false,
+        },
+      }
     }),
   closeLightbox: () => set({ lightbox: null }),
   lightboxPrev: () => {

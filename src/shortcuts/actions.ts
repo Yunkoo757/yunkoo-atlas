@@ -46,6 +46,21 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('global.closeOverlay'),
     allowWhenTyping: true,
   },
+  {
+    id: 'global.newQuickNote',
+    label: '新建随记',
+    category: '通用',
+    scope: 'global',
+    defaultBinding: getDefaultShortcutBinding('global.newQuickNote'),
+  },
+  {
+    id: 'global.toggleFullscreen',
+    label: '切换应用全屏',
+    category: '通用',
+    scope: 'global',
+    defaultBinding: getDefaultShortcutBinding('global.toggleFullscreen'),
+    allowWhenTyping: true,
+  },
 
   {
     id: 'nav.today',
@@ -95,6 +110,27 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.reviewCases'),
+  },
+  {
+    id: 'nav.quickNotes',
+    label: '随记',
+    category: '导航',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.quickNotes'),
+  },
+  {
+    id: 'nav.weeklyReview',
+    label: '周复盘',
+    category: '导航',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.weeklyReview'),
+  },
+  {
+    id: 'nav.reviewSession',
+    label: '随机复盘',
+    category: '导航',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.reviewSession'),
   },
   {
     id: 'nav.board',

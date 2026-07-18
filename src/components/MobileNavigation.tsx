@@ -9,6 +9,7 @@ import './MobileNavigation.css'
 
 const MOBILE_LABELS = {
   today: '今日',
+  quickNotes: '随记',
   trades: '交易',
   reviewCases: '案例',
   weeklyReview: '周复盘',
@@ -16,7 +17,8 @@ const MOBILE_LABELS = {
   dashboard: '仪表盘',
 } as const
 
-const MOBILE_PRIMARY_NAV = PRIMARY_NAV.filter((item) => item.id !== 'reviewSession' && item.id !== 'weeklyReview')
+const MOBILE_PRIMARY_NAV = PRIMARY_NAV.filter((item) => item.id !== 'reviewSession' && item.id !== 'weeklyReview' && item.id !== 'quickNotes')
+const QUICK_NOTES_NAV = PRIMARY_NAV.find((item) => item.id === 'quickNotes')
 const WEEKLY_REVIEW_NAV = PRIMARY_NAV.find((item) => item.id === 'weeklyReview')
 const REVIEW_SESSION_NAV = PRIMARY_NAV.find((item) => item.id === 'reviewSession')
 
@@ -202,7 +204,7 @@ export function MobileNavigation({
         <button
           ref={moreButtonRef}
           type="button"
-          className={`mobile-navigation-action${drawerOpen ? ' is-open' : ''}${selection.activePrimaryId === 'reviewSession' || selection.activePrimaryId === 'weeklyReview' ? ' is-active' : ''}`}
+          className={`mobile-navigation-action${drawerOpen ? ' is-open' : ''}${selection.activePrimaryId === 'reviewSession' || selection.activePrimaryId === 'weeklyReview' || selection.activePrimaryId === 'quickNotes' ? ' is-active' : ''}`}
           aria-label="更多"
           aria-expanded={drawerOpen}
           onClick={() => setDrawerOpen(true)}
@@ -241,6 +243,18 @@ export function MobileNavigation({
               })}
             </nav>
             <nav className="mobile-navigation-utilities" aria-label="辅助导航">
+              {QUICK_NOTES_NAV ? (
+                <NavLink
+                  to={primaryHref(QUICK_NOTES_NAV.id, QUICK_NOTES_NAV.to)}
+                  data-mobile-drawer-item
+                  className={selection.activePrimaryId === QUICK_NOTES_NAV.id ? 'is-active' : undefined}
+                  aria-current={selection.activePrimaryId === QUICK_NOTES_NAV.id ? 'page' : undefined}
+                  onClick={closeDrawer}
+                >
+                  <QUICK_NOTES_NAV.icon size={18} aria-hidden="true" />
+                  <span>{QUICK_NOTES_NAV.label}</span>
+                </NavLink>
+              ) : null}
               {WEEKLY_REVIEW_NAV ? (
                 <NavLink
                   to={primaryHref(WEEKLY_REVIEW_NAV.id, WEEKLY_REVIEW_NAV.to)}

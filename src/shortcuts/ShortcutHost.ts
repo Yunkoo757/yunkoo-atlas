@@ -24,6 +24,7 @@ import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxReset } from '@/lib/lightboxView'
 import { newTradeKindForPath } from '@/lib/tradeKind'
+import { createQuickNote } from '@/data/quickNotes'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -55,6 +56,11 @@ export function useShortcutHost({
       'global.newCase': () => {
         openComposer(null, 'case')
       },
+      'global.newQuickNote': () => {
+        const note = createQuickNote()
+        useStore.getState().upsertQuickNote(note)
+        navigate(`/notes/${encodeURIComponent(note.id)}`)
+      },
       'global.undo': () => {
         const s = useStore.getState()
         if (s.undoStack.length > 0) { s.undo(); toast('已撤销') }
@@ -69,8 +75,18 @@ export function useShortcutHost({
         else if (composerOpen) closeComposer()
         else if (closeTradeRequest) cancelTradeClose()
       },
+      'global.toggleFullscreen': () => {
+        const bridge = window.journalBridge
+        if (bridge?.toggleFullscreen) {
+          void bridge.toggleFullscreen()
+          return
+        }
+        if (document.fullscreenElement) void document.exitFullscreen()
+        else if (document.fullscreenEnabled) void document.documentElement.requestFullscreen()
+      },
 
       'nav.today': () => navigate('/today-record'),
+      'nav.quickNotes': () => navigate('/notes'),
       'nav.active': () => navigate('/active'),
       'nav.favorites': () => navigate('/favorites'),
       'nav.missed': () => navigate('/missed'),
@@ -82,6 +98,8 @@ export function useShortcutHost({
         const state = useStore.getState()
         navigate(resolveShortcutWorkspaceHref('case', state.display, state.strategies))
       },
+      'nav.weeklyReview': () => navigate('/weekly-review'),
+      'nav.reviewSession': () => navigate('/review-session'),
       'nav.board': () => {
         navigate('/board')
       },

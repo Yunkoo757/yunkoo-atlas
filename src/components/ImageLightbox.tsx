@@ -166,10 +166,10 @@ export function ImageLightbox() {
     [fitImage],
   )
 
-  if (!lightbox || lightbox.images.length === 0) return null
+  if (!lightbox || (!lightbox.loading && lightbox.images.length === 0)) return null
 
   const src = lightbox.images[lightbox.index]
-  const hasMany = lightbox.images.length > 1
+  const hasMany = !lightbox.loading && lightbox.images.length > 1
 
   return (
     <div className="img-lightbox-overlay" role="dialog" aria-modal="true" aria-label="图片预览">
@@ -183,16 +183,23 @@ export function ImageLightbox() {
         onClick={onViewportClick}
         onDoubleClick={onViewportDoubleClick}
       >
-        <div className="img-lightbox-canvas" style={{ transform: lightboxViewTransform(view) }}>
-          <img
-            src={src}
-            alt=""
-            className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}
-            draggable={false}
-            onLoad={onImageLoad}
-            style={imageLayout ? { width: imageLayout.width, height: imageLayout.height } : undefined}
-          />
-        </div>
+        {lightbox.loading ? (
+          <div className="img-lightbox-loading" role="status" aria-live="polite">
+            <span className="img-lightbox-loading-indicator" aria-hidden />
+            <span>正在载入当前案例图片…</span>
+          </div>
+        ) : (
+          <div className="img-lightbox-canvas" style={{ transform: lightboxViewTransform(view) }}>
+            <img
+              src={src}
+              alt=""
+              className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}
+              draggable={false}
+              onLoad={onImageLoad}
+              style={imageLayout ? { width: imageLayout.width, height: imageLayout.height } : undefined}
+            />
+          </div>
+        )}
       </div>
 
       <div className="img-lightbox-chrome">
@@ -228,7 +235,7 @@ export function ImageLightbox() {
             </button>
           </>
         )}
-        <div className="img-lightbox-hud-dock">
+        {!lightbox.loading && <div className="img-lightbox-hud-dock">
           <div className="img-lightbox-hud">
             <span className="img-lightbox-scale">{Math.round(view.scale * 100)}%</span>
             {hasMany && (
@@ -257,7 +264,7 @@ export function ImageLightbox() {
               </span>
             </button>
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   )

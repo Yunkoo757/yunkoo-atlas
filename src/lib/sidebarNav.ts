@@ -6,6 +6,7 @@ import {
   Calendar,
   Clock,
   CalendarDays,
+  FileText,
   FlaskConical,
   ListTodo,
   RotateCcw,
@@ -14,7 +15,7 @@ import {
 
 export type SidebarNavIcon = AppIcon
 
-export type PrimarySidebarNavId = 'today' | 'trades' | 'reviewCases' | 'weeklyReview' | 'reviewSession' | 'dashboard'
+export type PrimarySidebarNavId = 'today' | 'quickNotes' | 'trades' | 'reviewCases' | 'weeklyReview' | 'reviewSession' | 'dashboard'
 
 export interface PrimarySidebarNavItem {
   id: PrimarySidebarNavId
@@ -25,6 +26,7 @@ export interface PrimarySidebarNavItem {
 
 export const PRIMARY_NAV: PrimarySidebarNavItem[] = [
   { id: 'today', to: '/today-record', label: '今日工作台', icon: Calendar },
+  { id: 'quickNotes', to: '/notes', label: '随记', icon: FileText },
   { id: 'trades', to: '/list', label: '交易日志', icon: ListTodo },
   { id: 'reviewCases', to: '/review-cases', label: '案例记录', icon: BookOpen },
   { id: 'weeklyReview', to: '/weekly-review', label: '周复盘', icon: CalendarDays },

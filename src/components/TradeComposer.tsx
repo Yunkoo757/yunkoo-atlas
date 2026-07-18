@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { X, ImagePlus } from '@/icons/appIcons'
 import { Select } from '@/components/ui/Select'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { useStore } from '@/store/useStore'
 import {
@@ -428,15 +429,15 @@ export function TradeComposer() {
                   ]}
                 />
               </div>
-              <label className="composer-essential-field">
+              <div className="composer-essential-field">
                 <span className="composer-essential-label">交易日期</span>
-                <input
-                  type="date"
+                <DatePicker
                   value={openedAt}
-                  onChange={(event) => setOpenedAt(event.target.value)}
-                  aria-label="交易日期"
+                  onValueChange={setOpenedAt}
+                  ariaLabel="交易日期"
+                  required
                 />
-              </label>
+              </div>
             </div>
           </section>
 

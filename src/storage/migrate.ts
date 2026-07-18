@@ -60,7 +60,19 @@ async function externalizeAllNotes(
       note: await externalizeNoteImages(t.note, adapter),
     })),
   )
-  return { ...snapshot, trades }
+  const weeklyReviews = await Promise.all(
+    (snapshot.weeklyReviews ?? []).map(async (review) => ({
+      ...review,
+      contentHtml: await externalizeNoteImages(review.contentHtml, adapter),
+    })),
+  )
+  const quickNotes = await Promise.all(
+    (snapshot.quickNotes ?? []).map(async (note) => ({
+      ...note,
+      contentHtml: await externalizeNoteImages(note.contentHtml, adapter),
+    })),
+  )
+  return { ...snapshot, trades, weeklyReviews, quickNotes }
 }
 
 export async function migrateFromLocalStorageIfNeeded(

@@ -113,6 +113,9 @@ const WeeklyReviewView = lazy(() =>
 const StrategiesPanel = lazy(() =>
   import('./views/settings/StrategiesPanel').then((module) => ({ default: module.StrategiesPanel })),
 )
+const QuickNotesView = lazy(() =>
+  import('./views/QuickNotesView').then((module) => ({ default: module.QuickNotesView })),
+)
 const ShortcutsPanel = lazy(() =>
   import('./views/settings/ShortcutsPanel').then((module) => ({ default: module.ShortcutsPanel })),
 )
@@ -187,10 +190,13 @@ function StrategyPage() {
   const title = getStrategyName(strategies, strategyId)
   const parsedScope = parseAnalysisScope(search)
   const analysisScope = parsedScope.explicit ? parsedScope.scope : undefined
+  const filter = analysisScope
+    ? { type: 'strategy' as const, strategyId, analysisScope }
+    : { type: 'strategy' as const, strategyId, tradeKind: 'live' as const }
   return (
     <TradesPage
       title={title}
-      filter={{ type: 'strategy', strategyId, analysisScope }}
+      filter={filter}
       listPath={listPath}
       header={<StrategyHeader strategyId={strategyId} analysisScope={analysisScope} search={search} />}
     />
@@ -350,6 +356,8 @@ function Shell() {
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/today-record" element={<TodayRecordPage />} />
+          <Route path="/notes" element={<QuickNotesView />} />
+          <Route path="/notes/:id" element={<QuickNotesView />} />
           <Route path="/today-record/board" element={<Navigate to="/today-record" replace />} />
           <Route path="/sim" element={<SimPage />} />
           <Route path="/sim/board" element={<SimPage />} />

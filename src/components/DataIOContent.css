@@ -167,8 +167,11 @@
 }
 
 .health-note {
+  grid-column: 2;
+  min-width: 0;
   color: var(--text-faint);
   font-size: var(--type-caption-size);
+  line-height: 1.45;
 }
 
 .dio-group { min-width: 0; }

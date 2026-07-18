@@ -7,6 +7,7 @@ const drafts = new Map<string, string>()
 const MAX_DRAFT_FLUSH_PASSES = 8
 const activeTradeFlushes = new Map<string, Promise<boolean>>()
 export const WEEKLY_REVIEW_DRAFT_PREFIX = 'weekly-review-draft:'
+export const QUICK_NOTE_DRAFT_PREFIX = 'quick-note-draft:'
 
 function weeklyReviewIdFromDraftId(draftId: string): string | null {
   return draftId.startsWith(WEEKLY_REVIEW_DRAFT_PREFIX)
@@ -14,10 +15,20 @@ function weeklyReviewIdFromDraftId(draftId: string): string | null {
     : null
 }
 
+function quickNoteIdFromDraftId(draftId: string): string | null {
+  return draftId.startsWith(QUICK_NOTE_DRAFT_PREFIX)
+    ? draftId.slice(QUICK_NOTE_DRAFT_PREFIX.length)
+    : null
+}
+
 function storedHtmlForDraft(draftId: string): string {
   const weeklyReviewId = weeklyReviewIdFromDraftId(draftId)
   if (weeklyReviewId) {
     return useStore.getState().weeklyReviews.find((review) => review.id === weeklyReviewId)?.contentHtml ?? ''
+  }
+  const quickNoteId = quickNoteIdFromDraftId(draftId)
+  if (quickNoteId) {
+    return useStore.getState().quickNotes.find((note) => note.id === quickNoteId)?.contentHtml ?? ''
   }
   return useStore.getState().trades.find((trade) => trade.id === draftId)?.note ?? ''
 }
@@ -63,9 +74,17 @@ async function flushSingleNoteDraft(tradeId: string): Promise<boolean> {
           useStore.getState().updateWeeklyReview(weeklyReviewId, { contentHtml: normalized })
         }
       } else {
+        const quickNoteId = quickNoteIdFromDraftId(tradeId)
+        if (quickNoteId) {
+          const current = useStore.getState().quickNotes.find((note) => note.id === quickNoteId)
+          if (current && normalized !== current.contentHtml) {
+            useStore.getState().updateQuickNote(quickNoteId, { contentHtml: normalized })
+          }
+        } else {
         const current = useStore.getState().trades.find((trade) => trade.id === tradeId)
         if (current && normalized !== current.note) {
           useStore.getState().updateNote(tradeId, normalized)
+        }
         }
       }
       // 归一化期间若继续输入，则继续冲洗新值；只有当前值稳定后才能报告成功。

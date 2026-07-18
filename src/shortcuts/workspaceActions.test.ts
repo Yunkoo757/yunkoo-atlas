@@ -77,6 +77,9 @@ export function testNewCaseHasAnIndependentConfigurableShortcut(): void {
 export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
   const expected = new Map([
     ['nav.today', 'alt+t'],
+    ['nav.quickNotes', 'alt+n'],
+    ['nav.weeklyReview', 'alt+4'],
+    ['nav.reviewSession', 'alt+6'],
     ['view.board', 'b'],
     ['list.toggleFilters', 'f'],
   ])
@@ -85,6 +88,23 @@ export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
     assert(Boolean(action), `${id} 应出现在快捷键设置中`)
     assert(bindingKey(action!.defaultBinding) === binding, `${id} 应使用默认快捷键 ${binding}`)
   }
+}
+
+export function testQuickNotesHaveIndependentNavigationAndCreateShortcuts(): void {
+  assert(
+    bindingKey(getActionMeta('nav.quickNotes')!.defaultBinding) === 'alt+n',
+    '随记导航默认快捷键应为 Alt+N',
+  )
+  assert(
+    bindingKey(getActionMeta('global.newQuickNote')!.defaultBinding) === 'shift+alt+n',
+    '新建随记默认快捷键应为 Alt+Shift+N',
+  )
+}
+
+export function testFullscreenHasAConfigurableF11Default(): void {
+  const action = getActionMeta('global.toggleFullscreen')
+  assert(action?.label === '切换应用全屏', '应用全屏应出现在快捷键设置中')
+  assert(bindingKey(action!.defaultBinding) === 'f11', '应用全屏默认快捷键应为 F11')
 }
 
 export function testShortcutHintsReflectCustomAndDisabledBindings(): void {

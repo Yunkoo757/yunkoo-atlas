@@ -38,12 +38,12 @@ import './Editor.css'
 
 const editorBridge = {
   editor: null as TiptapEditor | null,
-  openLightbox: (src: string) => {
+  openLightbox: (src: string, ownerId?: string) => {
     editorBridge.editor?.commands.blur()
     const html = editorBridge.editor?.getHTML() ?? ''
     const images = collectImageSrcsFromHtml(html)
     const list = images.length > 0 ? images : [src]
-    useShortcutStore.getState().openLightbox(list, indexOfImageSrc(list, src))
+    useShortcutStore.getState().openLightbox(list, indexOfImageSrc(list, src), ownerId)
   },
 }
 
@@ -157,7 +157,7 @@ export function Editor({
           const src = target.getAttribute('src')
           if (!src) return false
           event.preventDefault()
-          editorBridge.openLightbox(src)
+          editorBridge.openLightbox(src, noteDraftIdRef.current)
           return true
         },
         click(view, event) {

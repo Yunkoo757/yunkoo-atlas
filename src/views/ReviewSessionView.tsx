@@ -17,6 +17,7 @@ import {
   type Trade,
 } from '@/data/trades'
 import { Editor } from '@/editor/Editor'
+import { Select } from '@/components/ui/Select'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import {
@@ -379,12 +380,17 @@ function ReviewSessionStart({
       </fieldset>
 
       <div className="review-session-options">
-        <label>
+        <div className="review-session-case-scope">
           <span>案例范围</span>
-          <select value={filters.caseScope} disabled={!filters.includeCases} onChange={(event) => patchFilters({ caseScope: event.target.value as ReviewCaseScope })}>
-            {CASE_SCOPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </label>
+          <Select
+            className="review-session-scope-select"
+            value={filters.caseScope}
+            disabled={!filters.includeCases}
+            ariaLabel="案例范围"
+            options={CASE_SCOPE_OPTIONS}
+            onValueChange={(value) => patchFilters({ caseScope: value as ReviewCaseScope })}
+          />
+        </div>
         <label className="review-session-content-toggle">
           <input type="checkbox" checked={filters.requireContent} onChange={(event) => patchFilters({ requireContent: event.target.checked })} />
           <Image size={17} aria-hidden />

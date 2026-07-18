@@ -5,6 +5,7 @@ import { useShortcutHost } from '@/shortcuts/ShortcutHost'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { DetailView } from '@/views/DetailView'
+import { ImageLightbox } from '@/components/ImageLightbox'
 
 declare global {
   interface Window {
@@ -54,17 +55,20 @@ function makeCase(index: number): Trade {
     resultSource: 'imported',
     openedAt: `2026-07-${10 + index}`,
     closedAt: `2026-07-${10 + index}`,
-    note: `<p>案例 ${index} 的复盘正文</p>`,
+    note: index === 1
+      ? `<p>案例 ${index} 的复盘正文</p>`
+      : `<p>案例 ${index} 的复盘正文</p><img src="https://atlas.test/case-${index}.png">`,
   }
 }
 
 function ShortcutDetailFixture() {
   useShortcutHost({ onToggleCmdk: () => {} })
-  return (
+  return <>
     <Routes>
       <Route path="/trade/:id" element={<DetailView />} />
     </Routes>
-  )
+    <ImageLightbox />
+  </>
 }
 
 function pressShortcut(key: 'q' | 'e'): void {
@@ -109,6 +113,38 @@ async function run(): Promise<void> {
       '初始案例正文未载入',
     )
 
+    const initialImage = document.querySelector<HTMLImageElement>('.ProseMirror img')
+    assert(initialImage, '案例正文缺少用于打开全屏的图片')
+    initialImage.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }))
+    await waitFor(
+      () => document.querySelector<HTMLImageElement>('.img-lightbox-img')?.src.includes('case-2.png') ?? false,
+      '初始案例图片未打开',
+    )
+    pressShortcut('e')
+    await waitFor(
+      () => document.body.textContent?.includes('CAS-3') ?? false,
+      '全屏图片打开时未切换到下一案例',
+    )
+    await waitFor(
+      () => document.querySelector<HTMLImageElement>('.img-lightbox-img')?.src.includes('case-3.png') ?? false,
+      '切换案例后全屏图片仍停留在旧案例',
+    )
+    pressShortcut('q')
+    await waitFor(
+      () => document.querySelector<HTMLImageElement>('.img-lightbox-img')?.src.includes('case-2.png') ?? false,
+      '返回上一案例后全屏图片未同步恢复',
+    )
+    pressShortcut('q')
+    await waitFor(
+      () => useShortcutStore.getState().lightbox === null,
+      '切换到无图案例时应退出全屏图片',
+    )
+    pressShortcut('e')
+    await waitFor(
+      () => document.body.textContent?.includes('CAS-2') ?? false,
+      '无图案例退出全屏后未能继续切换',
+    )
+
     const sequence: Array<['q' | 'e', string]> = [
       ['e', 'CAS-3'],
       ['q', 'CAS-2'],
@@ -145,6 +181,7 @@ async function run(): Promise<void> {
     useShortcutStore.setState({
       bindings: previousShortcuts.bindings,
       listContext: previousShortcuts.listContext,
+      lightbox: previousShortcuts.lightbox,
     })
   }
 }

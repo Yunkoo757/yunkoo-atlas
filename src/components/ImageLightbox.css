@@ -45,6 +45,30 @@
   opacity: 1;
 }
 
+.img-lightbox-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.img-lightbox-loading-indicator {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  animation: img-lightbox-spin 0.8s linear infinite;
+}
+
+@keyframes img-lightbox-spin {
+  to { transform: rotate(360deg); }
+}
+
 .img-lightbox-chrome {
   position: absolute;
   inset: 0;

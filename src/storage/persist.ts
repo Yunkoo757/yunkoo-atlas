@@ -46,6 +46,7 @@ export function pickPersisted(
   state: {
   trades: PersistedSnapshot['trades']
   weeklyReviews: NonNullable<PersistedSnapshot['weeklyReviews']>
+  quickNotes: NonNullable<PersistedSnapshot['quickNotes']>
   strategies: PersistedSnapshot['strategies']
   starredIds: string[]
   subscribedIds: string[]
@@ -65,6 +66,7 @@ export function pickPersisted(
   return {
     trades: state.trades,
     weeklyReviews: state.weeklyReviews,
+    quickNotes: state.quickNotes,
     strategies: state.strategies,
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,

@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,6 +22,7 @@ import { Editor } from '@/editor/Editor'
 import { Menu } from '@/components/Menu'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -82,6 +83,7 @@ import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
 import { formatYmd } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
+import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { loadDetailNote, type DetailNoteLoadResult } from '@/views/detailNoteLoad'
 import './DetailView.css'
 
@@ -99,6 +101,9 @@ export function DetailView() {
   const navigate = useNavigate()
   const location = useLocation()
   const listContext = useShortcutStore((s) => s.listContext)
+  const lightbox = useShortcutStore((s) => s.lightbox)
+  const syncLightboxForOwner = useShortcutStore((s) => s.syncLightboxForOwner)
+  const closeLightbox = useShortcutStore((s) => s.closeLightbox)
   const allTrades = useStore((s) => s.trades)
   const trades = useMemo(() => allTrades.filter((item) => !item.deletedAt), [allTrades])
   const trade = useMemo(
@@ -226,6 +231,41 @@ export function DetailView() {
       void flushNoteDraftToStore(trade.id)
     }
   }, [trade?.id, noteLoadAttempt])
+
+  useLayoutEffect(() => {
+    if (!trade || !lightbox) return
+    if (!lightbox.ownerId) {
+      syncLightboxForOwner(trade.id, lightbox.images)
+      return
+    }
+    if (lightbox.ownerId !== trade.id) syncLightboxForOwner(trade.id, null)
+  }, [trade?.id, lightbox?.ownerId, syncLightboxForOwner])
+
+  useEffect(() => {
+    if (!trade || !lightbox?.loading || lightbox.ownerId !== trade.id) return
+    if (noteLoad.tradeId !== trade.id || noteLoad.state.status === 'loading') return
+    if (noteLoad.state.status === 'error') {
+      closeLightbox()
+      toast(`${trade.ref} 的图片未能载入`)
+      return
+    }
+    const images = collectImageSrcsFromHtml(editorHtml)
+    if (images.length === 0) {
+      closeLightbox()
+      toast(`${trade.ref} 暂无图片`)
+      return
+    }
+    syncLightboxForOwner(trade.id, images)
+  }, [
+    trade?.id,
+    trade?.ref,
+    lightbox?.loading,
+    lightbox?.ownerId,
+    noteLoad,
+    editorHtml,
+    closeLightbox,
+    syncLightboxForOwner,
+  ])
 
   useEffect(() => {
     return () => {
@@ -1290,36 +1330,23 @@ function EditableDateRow({
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value.slice(0, 10))
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (editing) inputRef.current?.focus()
-  }, [editing])
-
-  const commit = () => {
-    setEditing(false)
-    const d = draft.slice(0, 10)
-    if (d && d !== value.slice(0, 10)) onSave(d)
-  }
-
   if (editing) {
     return (
       <div className="dv-datarow dv-datarow-edit">
         <span className="dv-datarow-label">{label}</span>
-        <input
-          ref={inputRef}
-          className="dv-datarow-input"
-          aria-label={label}
-          type="date"
+        <DatePicker
+          className="dv-date-picker"
+          ariaLabel={label}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commit()
-            if (e.key === 'Escape') {
-              e.stopPropagation()
-              setEditing(false)
-            }
+          autoFocus
+          autoOpen
+          onOpenChange={(open) => {
+            if (!open) setEditing(false)
+          }}
+          onValueChange={(next) => {
+            setDraft(next)
+            if (next && next !== value.slice(0, 10)) onSave(next)
+            setEditing(false)
           }}
         />
       </div>

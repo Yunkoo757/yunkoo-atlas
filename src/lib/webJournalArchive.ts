@@ -6,6 +6,7 @@ import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { normalizeSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
+import { normalizeQuickNotes } from '@/data/quickNotes'
 import { migrateShortcutBindings } from '@/store/shortcutStore'
 import { isSafeAssetId } from '@/storage/assetId'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -518,6 +519,7 @@ function buildNormalizedSnapshot(raw: RecordValue): PersistedSnapshot {
   const candidate: PersistedSnapshot = {
     trades: raw.trades as PersistedSnapshot['trades'],
     weeklyReviews: (raw.weeklyReviews ?? []) as NonNullable<PersistedSnapshot['weeklyReviews']>,
+    quickNotes: (raw.quickNotes ?? []) as NonNullable<PersistedSnapshot['quickNotes']>,
     strategies: raw.strategies as PersistedSnapshot['strategies'],
     starredIds: (raw.starredIds ?? []) as string[],
     subscribedIds: (raw.subscribedIds ?? []) as string[],
@@ -546,6 +548,7 @@ function buildNormalizedSnapshot(raw: RecordValue): PersistedSnapshot {
     ...candidate,
     trades,
     weeklyReviews: normalizeWeeklyReviews(candidate.weeklyReviews),
+    quickNotes: normalizeQuickNotes(candidate.quickNotes),
     strategies,
     display: normalizeDisplay(candidate.display),
     tagPresets: mergeTagPresets(candidate.tagPresets),
@@ -666,6 +669,18 @@ function validateNoteAssetReferences(
       }
       if (!declaredIds.has(id)) {
         throw archiveError('invalid-asset', `周复盘 ${review.weekStart} 引用了缺失的附件：${id}`)
+      }
+      referencedIds.add(id)
+    }
+  }
+  for (const note of snapshot.quickNotes ?? []) {
+    for (const match of note.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
+      const id = match[1]
+      if (!id || !isSafeAssetId(id)) {
+        throw archiveError('invalid-asset', `随记「${note.title}」引用了非法附件`)
+      }
+      if (!declaredIds.has(id)) {
+        throw archiveError('invalid-asset', `随记「${note.title}」引用了缺失的附件：${id}`)
       }
       referencedIds.add(id)
     }

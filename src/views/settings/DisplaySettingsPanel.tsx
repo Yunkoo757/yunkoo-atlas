@@ -106,7 +106,7 @@ export function DisplaySettingsPanel() {
           />
           <ToggleRow
             label="直播模式"
-            description="隐藏所有现金盈亏与权益金额，保留结果状态和 R 倍数"
+            description="直播或分享屏幕时隐藏所有现金盈亏与权益金额，保留结果状态和 R 倍数"
             checked={display.privacyMode}
             onChange={(v) => setDisplay({ privacyMode: v })}
           />

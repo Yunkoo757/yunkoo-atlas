@@ -1,0 +1,186 @@
+.ui-date-picker {
+  display: block;
+  min-width: 0;
+}
+
+.ui-date-trigger {
+  display: flex;
+  width: 100%;
+  height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 9px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  background: var(--field-bg);
+  color: var(--text-secondary);
+  font-size: var(--fs-mini);
+  text-align: left;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.ui-date-trigger:hover:not(:disabled) {
+  border-color: var(--field-border-hover);
+  background: var(--field-bg-hover);
+  color: var(--text-primary);
+}
+
+.ui-date-trigger[aria-expanded='true'],
+.ui-date-trigger:focus-visible {
+  outline: none;
+  border-color: var(--field-border-focus);
+  background: var(--field-bg-focus);
+  box-shadow: var(--field-focus-shadow);
+  color: var(--text-primary);
+}
+
+.ui-date-trigger:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.ui-date-trigger .is-placeholder,
+.ui-date-trigger > svg {
+  color: var(--text-tertiary);
+}
+
+.ui-date-popover {
+  position: fixed;
+  z-index: 1300;
+  width: 286px;
+  padding: 8px;
+  border: 0.8px solid var(--popover-border);
+  border-radius: var(--radius-8);
+  background: var(--popover-bg);
+  box-shadow: var(--popover-shadow-deep);
+  color: var(--text-secondary);
+  animation: uiDateIn 90ms var(--ease-out) both;
+}
+
+.ui-date-popover-top {
+  transform: translateY(-100%);
+  transform-origin: center bottom;
+}
+
+.ui-date-popover-bottom {
+  transform-origin: center top;
+}
+
+.ui-date-head {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3px 4px 7px;
+}
+
+.ui-date-head strong {
+  color: var(--text-primary);
+  font-size: var(--fs-xs);
+  font-weight: 620;
+}
+
+.ui-date-head > div {
+  display: flex;
+  gap: 2px;
+}
+
+.ui-date-head button,
+.ui-date-grid button {
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-4);
+}
+
+.ui-date-head button {
+  width: 28px;
+  height: 28px;
+  color: var(--text-tertiary);
+}
+
+.ui-date-head button:hover,
+.ui-date-grid button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ui-date-weekdays,
+.ui-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.ui-date-weekdays {
+  height: 28px;
+  align-items: center;
+  color: var(--text-quaternary);
+  font-size: var(--fs-micro);
+  text-align: center;
+}
+
+.ui-date-grid {
+  gap: 2px;
+}
+
+.ui-date-grid button {
+  height: 32px;
+  color: var(--text-secondary);
+  font-family: var(--font-monospace);
+  font-size: var(--fs-xs);
+}
+
+.ui-date-grid button.is-outside {
+  color: var(--text-quaternary);
+}
+
+.ui-date-grid button.is-today {
+  color: color-mix(in srgb, var(--accent) 72%, white);
+}
+
+.ui-date-grid button[aria-selected='true'] {
+  background: var(--accent);
+  color: white;
+  font-weight: 650;
+}
+
+.ui-date-footer {
+  display: flex;
+  min-height: 34px;
+  align-items: end;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 6px 4px 1px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ui-date-footer button {
+  min-height: 26px;
+  padding: 0 5px;
+  border-radius: var(--radius-4);
+  color: var(--text-tertiary);
+  font-size: var(--fs-micro);
+}
+
+.ui-date-footer button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ui-date-footer .ui-date-today {
+  margin-left: auto;
+  color: color-mix(in srgb, var(--accent) 72%, white);
+}
+
+@keyframes uiDateIn {
+  from { opacity: 0; scale: 0.985; }
+  to { opacity: 1; scale: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-date-popover { animation: none; }
+}

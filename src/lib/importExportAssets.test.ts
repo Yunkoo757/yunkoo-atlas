@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { createWeeklyReview } from '@/data/weeklyReviews'
+import { createQuickNote } from '@/data/quickNotes'
 import {
   buildExportPayloadFromState,
   buildPortableSnapshotFromState,
@@ -92,6 +93,40 @@ export async function testWeeklyReviewTextAndImagesRoundTripThroughJsonBackup():
   assert(
     prepared.payload.weeklyReviews?.[0]?.contentHtml.includes('journal-asset://weekly-asset-fresh'),
     '导入时周复盘截图引用也必须安全重编号',
+  )
+}
+
+export async function testQuickNoteTextAndImagesRoundTripWithoutEnteringTrades(): Promise<void> {
+  const note = {
+    ...createQuickNote(new Date('2026-07-18T08:00:00.000Z')),
+    title: '盘前灵感',
+    contentHtml: '<p>观察美元流动性</p><img src="journal-asset://quick-note-asset">',
+  }
+  const payload = await buildExportPayloadFromState(
+    {
+      trades: [],
+      quickNotes: [note],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+    },
+    async (id) => id === 'quick-note-asset'
+      ? { id, mime: 'image/png', data: 'cXVpY2s=' }
+      : null,
+  )
+  assert(payload.trades.length === 0, '随记不得被写入交易数组或交易统计')
+  assert(payload.quickNotes?.[0]?.title === '盘前灵感', '随记标题与正文必须进入备份')
+  assert(payload.assets?.[0]?.id === 'quick-note-asset', '随记截图必须进入附件闭包')
+
+  const parsed = parseImportJson(JSON.stringify(payload))
+  assert(parsed.ok, '包含随记的 JSON 备份必须能够重新导入')
+  if (!parsed.ok) return
+  const prepared = prepareImportPayloadForCommit(parsed.data, () => 'quick-note-asset-fresh')
+  assert(
+    prepared.payload.quickNotes?.[0]?.contentHtml.includes('journal-asset://quick-note-asset-fresh'),
+    '导入时随记截图引用必须安全重编号',
   )
 }
 

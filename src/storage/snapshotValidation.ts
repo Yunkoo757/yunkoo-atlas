@@ -321,6 +321,16 @@ function isWeeklyReview(value: unknown): boolean {
   return value.metricsSnapshot === null || isWeeklyReviewMetrics(value.metricsSnapshot)
 }
 
+function isQuickNote(value: unknown): boolean {
+  return isRecord(value) &&
+    typeof value.id === 'string' && Boolean(value.id.trim()) &&
+    typeof value.title === 'string' &&
+    typeof value.contentHtml === 'string' &&
+    typeof value.pinned === 'boolean' &&
+    typeof value.createdAt === 'string' &&
+    typeof value.updatedAt === 'string'
+}
+
 function isStrategy(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -352,6 +362,14 @@ export function assertValidPersistedSnapshot(
     for (const review of value.weeklyReviews) {
       if (weeks.has(review.weekStart)) throw new Error(`${label} contains duplicate weekly review weeks`)
       weeks.add(review.weekStart)
+    }
+  }
+  if (value.quickNotes !== undefined) {
+    if (!Array.isArray(value.quickNotes) || !value.quickNotes.every(isQuickNote)) {
+      throw new Error(`${label} contains an invalid quick note`)
+    }
+    if (hasDuplicateStringId(value.quickNotes)) {
+      throw new Error(`${label} contains duplicate quick note ids`)
     }
   }
   if (hasDuplicateStringId(value.strategies)) throw new Error(`${label} contains duplicate strategy ids`)

@@ -29,6 +29,7 @@ export interface JournalBridge {
   onBeforeClose(callback: () => void | Promise<void>): void
   onCloseSaveError(callback: (message: string) => void): () => void
   requestClose(): Promise<void>
+  toggleFullscreen(): Promise<boolean>
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>
@@ -108,6 +109,7 @@ const bridge: JournalBridge = {
     return () => ipcRenderer.removeListener('app:close-save-error', listener)
   },
   requestClose: () => ipcRenderer.invoke('app:request-close'),
+  toggleFullscreen: () => ipcRenderer.invoke('app:toggle-fullscreen'),
   getLibraryStatus: () => ipcRenderer.invoke('library:getStatus'),
   pickLibraryFolder: () => ipcRenderer.invoke('library:pickFolder'),
   createNewLibrary: (libPath) => ipcRenderer.invoke('library:createNew', libPath),

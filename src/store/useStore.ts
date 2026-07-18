@@ -54,6 +54,10 @@ import {
   createDefaultStrategies,
 } from '@/config/defaultProfile'
 import { reorderByKey } from '@/lib/reorder'
+import {
+  normalizeQuickNotes,
+  type QuickNote,
+} from '@/data/quickNotes'
 
 export type TradeUpsertSlice = {
   trades: Trade[]
@@ -192,6 +196,7 @@ export function applyTradeUpsertsToSlice(
 interface State {
   trades: Trade[]
   weeklyReviews: WeeklyReview[]
+  quickNotes: QuickNote[]
   strategies: Strategy[]
   selectedId: string | null
   composerOpen: boolean
@@ -321,11 +326,15 @@ interface State {
   importData: (payload: ExportPayload) => void
   upsertWeeklyReview: (review: WeeklyReview) => void
   updateWeeklyReview: (id: string, patch: Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>) => void
+  upsertQuickNote: (note: QuickNote) => void
+  updateQuickNote: (id: string, patch: Partial<Pick<QuickNote, 'title' | 'contentHtml' | 'pinned'>>) => void
+  removeQuickNote: (id: string) => void
 }
 
 export const useStore = create<State>()((set, get) => ({
       trades: [],
       weeklyReviews: [],
+      quickNotes: [],
       strategies: [],
       selectedId: null,
       composerOpen: false,
@@ -553,6 +562,23 @@ export const useStore = create<State>()((set, get) => ({
               : template,
           )),
         })),
+      upsertQuickNote: (note) =>
+        set((state) => ({
+          quickNotes: normalizeQuickNotes([
+            ...state.quickNotes.filter((item) => item.id !== note.id),
+            note,
+          ]),
+        })),
+      updateQuickNote: (id, patch) =>
+        set((state) => ({
+          quickNotes: normalizeQuickNotes(state.quickNotes.map((note) =>
+            note.id === id
+              ? { ...note, ...patch, updatedAt: new Date().toISOString() }
+              : note,
+          )),
+        })),
+      removeQuickNote: (id) =>
+        set((state) => ({ quickNotes: state.quickNotes.filter((note) => note.id !== id) })),
       removeReviewTemplate: (id) =>
         set((s) => ({ reviewTemplates: s.reviewTemplates.filter((template) => template.id !== id) })),
       reorderReviewTemplates: (sourceId, targetId) =>

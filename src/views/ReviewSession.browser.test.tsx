@@ -135,6 +135,8 @@ async function run(): Promise<void> {
       () => document.body.textContent?.includes('可随机复盘 1 条') === true,
       '随机复盘没有显示实时范围数量',
     )
+    assert(document.querySelector('.review-session-scope-select .ui-select-trigger'), '案例范围应使用统一选择框')
+    assert(!document.querySelector('.review-session-options select'), '随机复盘不得退回系统原生下拉框')
     findButton('随机开始')?.click()
     await waitFor(
       () => Boolean(document.querySelector('.review-session-workspace')),

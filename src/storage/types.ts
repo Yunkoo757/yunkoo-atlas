@@ -5,8 +5,9 @@ import type { ShortcutBinding } from '@/shortcuts/types'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import type { ReviewTemplate } from '@/data/reviewTemplates'
+import type { QuickNote } from '@/data/quickNotes'
 
-export const SCHEMA_VERSION = 7
+export const SCHEMA_VERSION = 8
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
 export interface LibraryManifest {
@@ -35,6 +36,8 @@ export interface PersistedSnapshot {
   trades: Trade[]
   /** v7：独立于交易记录的周复盘。旧资料库省略时按空数组加载。 */
   weeklyReviews?: WeeklyReview[]
+  /** v8：独立于交易体系的随记。不会参与交易统计或随机复盘。 */
+  quickNotes?: QuickNote[]
   strategies: Strategy[]
   starredIds: string[]
   subscribedIds: string[]

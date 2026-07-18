@@ -147,8 +147,14 @@
 
 .composer-essential-field input,
 .composer-essential-field .ui-select-trigger,
+.composer-essential-field .ui-date-trigger,
 .composer-side-control {
   height: 32px;
+}
+
+.composer-essential-field .ui-date-trigger {
+  color: var(--text-body);
+  font-size: var(--type-row-size);
 }
 
 .composer-essential-field input {
@@ -364,6 +370,7 @@
   .composer-input-quick .ui-select-trigger,
   .composer-essential-field input,
   .composer-essential-field .ui-select-trigger,
+  .composer-essential-field .ui-date-trigger,
   .composer-side-control {
     height: 46px;
     padding: 0;

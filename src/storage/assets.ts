@@ -216,9 +216,11 @@ export function collectAssetIdsFromNotes(trades: { note: string }[]): string[] {
 export function collectAssetIdsFromSnapshot(snapshot: {
   trades: { note: string }[]
   weeklyReviews?: { contentHtml: string }[]
+  quickNotes?: { contentHtml: string }[]
 }): string[] {
   return collectAssetIdsFromHtml([
     ...snapshot.trades.map((trade) => trade.note),
     ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
+    ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
   ])
 }

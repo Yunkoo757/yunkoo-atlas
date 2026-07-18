@@ -43,11 +43,6 @@ html[data-ui-settled='1'] .tb-seg {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
-.tb-privacy.is-on {
-  background: var(--bg-selected);
-  color: var(--text-primary);
-}
-
 @media (max-width: 640px) {
   .tb-right {
     gap: 2px;

@@ -19,6 +19,7 @@ import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
+import { normalizeQuickNotes } from '@/data/quickNotes'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
@@ -27,6 +28,7 @@ let bootstrapPromise: Promise<void> | null = null
 const PERSISTED_REFERENCE_KEYS = [
   'trades',
   'weeklyReviews',
+  'quickNotes',
   'strategies',
   'starredIds',
   'subscribedIds',
@@ -80,6 +82,7 @@ async function runBootstrapStorage(): Promise<void> {
     useStore.setState({
       trades,
       weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
+      quickNotes: normalizeQuickNotes(snapshot.quickNotes),
       strategies: normalized.strategies,
       starredIds: snapshot.starredIds,
       subscribedIds: snapshot.subscribedIds,
