@@ -209,6 +209,9 @@ if (!hasSingleInstanceLock) {
 
     registerLibraryIpc()
     registerWindowIpc()
+    ipcMain.handle('app:request-close', () => {
+      mainWindow?.close()
+    })
 
     if (process.env.LINEAR_JOURNAL_QA === '1') {
       await runElectronQaAndExit()

@@ -48,6 +48,56 @@ import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import { parseAnalysisScope } from './lib/analysisScope'
 import './App.css'
 
+const CLOSE_SAVE_RECEIPT_MS = 560
+
+type CloseSaveState =
+  | { phase: 'idle' }
+  | { phase: 'saving' }
+  | { phase: 'saved' }
+  | { phase: 'error'; message: string }
+
+function waitForCloseFeedback(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function CloseSaveReceipt({
+  state,
+  onDismiss,
+  onRetry,
+}: {
+  state: CloseSaveState
+  onDismiss: () => void
+  onRetry: () => void
+}) {
+  if (state.phase === 'idle') return null
+
+  const message = state.phase === 'saving'
+    ? '正在安全保存…'
+    : state.phase === 'saved'
+      ? '已安全保存'
+      : '保存未完成，已取消退出'
+
+  return (
+    <div
+      className={`app-close-save app-close-save--${state.phase}`}
+      role={state.phase === 'error' ? 'alert' : 'status'}
+      aria-live={state.phase === 'error' ? 'assertive' : 'polite'}
+    >
+      <span className="app-close-save-mark" aria-hidden />
+      <div className="app-close-save-copy">
+        <strong>{message}</strong>
+        {state.phase === 'error' && <span>{state.message}</span>}
+      </div>
+      {state.phase === 'error' && (
+        <div className="app-close-save-actions">
+          <button type="button" onClick={onDismiss}>继续使用</button>
+          <button type="button" className="is-primary" onClick={onRetry}>重试退出</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const Dashboard = lazy(() =>
   import('./views/Dashboard').then((module) => ({ default: module.Dashboard })),
 )
@@ -357,6 +407,7 @@ export function App() {
   const [needsWelcome, setNeedsWelcome] = useState(false)
   const [storageError, setStorageError] = useState<string | null>(null)
   const [retryingStorage, setRetryingStorage] = useState(false)
+  const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
 
   useEffect(() => {
     const init = async () => {
@@ -481,12 +532,27 @@ export function App() {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
           bridge.onBeforeClose(async () => {
-            if (!isStorageHydrated()) return
-            await flushPersistNow()
+            setCloseSaveState({ phase: 'saving' })
+            // 给状态至少一帧绘制时间，避免快速落盘时提示从未真正出现。
+            await waitForCloseFeedback(48)
+            try {
+              if (isStorageHydrated()) await flushPersistNow()
+              setCloseSaveState({ phase: 'saved' })
+              await waitForCloseFeedback(CLOSE_SAVE_RECEIPT_MS)
+            } catch (error) {
+              setCloseSaveState({
+                phase: 'error',
+                message: error instanceof Error ? error.message : '请检查磁盘空间后重试。',
+              })
+              throw error
+            }
           })
         }
         if (bridge?.onCloseSaveError) {
-          unsubscribeCloseError = bridge.onCloseSaveError((message: string) => toast(message))
+          unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
+            setCloseSaveState({ phase: 'error', message })
+            toast(message)
+          })
         }
       } catch { /* bridge not available */ }
 
@@ -551,9 +617,19 @@ export function App() {
 
   const Router = isElectron() ? HashRouter : BrowserRouter
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Shell />
-    </Router>
+    <>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Shell />
+      </Router>
+      <CloseSaveReceipt
+        state={closeSaveState}
+        onDismiss={() => setCloseSaveState({ phase: 'idle' })}
+        onRetry={() => {
+          const bridge = window.journalBridge
+          if (bridge?.requestClose) void bridge.requestClose()
+        }}
+      />
+    </>
   )
 }
 

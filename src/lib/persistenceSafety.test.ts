@@ -7,17 +7,23 @@ function assert(condition: unknown, message: string): void {
 }
 
 export async function testExplicitSaveFailuresPropagateAndCancelWindowClose(): Promise<void> {
-  const [persist, preload, main, updater] = await Promise.all([
+  const [persist, preload, main, updater, app] = await Promise.all([
     fs.readFile('src/storage/persist.ts', 'utf8'),
     fs.readFile('electron/preload.ts', 'utf8'),
     fs.readFile('electron/main.ts', 'utf8'),
     fs.readFile('electron/updater.ts', 'utf8'),
+    fs.readFile('src/App.tsx', 'utf8'),
   ])
   assert(persist.includes('throw e'), '显式写盘失败必须向调用方抛出')
   assert(!persist.includes('不回滚——尽力而为'), '关闭前草稿归一化失败不得被吞掉')
   assert(preload.includes("ok: false"), '预加载桥应把关闭前保存失败回传主进程')
   assert(main.includes("app:close-save-error"), '主进程应通知渲染层关闭已被取消')
   assert(main.includes('15_000'), '慢速图片写盘应获得充足等待时间')
+  assert(app.includes('正在安全保存…'), '退出时必须明确显示正在保存')
+  assert(app.includes('已安全保存'), '关闭窗口前必须给出保存成功回执')
+  assert(app.includes('保存未完成，已取消退出'), '保存失败时必须明确说明窗口不会关闭')
+  assert(app.includes('CLOSE_SAVE_RECEIPT_MS'), '成功回执必须保留可感知的展示时间')
+  assert(preload.includes('requestClose'), '保存失败后必须提供可重试的退出入口')
   assert(updater.includes("result?.ok === false"), '安装更新前也必须等待并检查保存结果')
   assert(!updater.includes('quitAndInstall(false, true), 500'), '更新安装不得在固定 500ms 后强制退出')
 }

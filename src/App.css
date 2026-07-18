@@ -75,3 +75,136 @@
   opacity: 0.55;
   cursor: default;
 }
+
+.app-close-save {
+  position: fixed;
+  z-index: 10000;
+  left: 50%;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-10);
+  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+  box-shadow: var(--shadow-high);
+  color: var(--text-primary);
+  transform: translateX(-50%);
+  backdrop-filter: blur(14px);
+  animation: app-close-save-in var(--motion-ui) var(--ease-out);
+}
+
+.app-close-save-mark {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 1.5px solid var(--text-quaternary);
+  border-radius: 50%;
+}
+
+.app-close-save--saving .app-close-save-mark {
+  border-color: var(--text-quaternary);
+  border-top-color: var(--text-primary);
+  animation: app-close-save-spin 0.7s linear infinite;
+}
+
+.app-close-save--saved .app-close-save-mark {
+  position: relative;
+  border-color: var(--success);
+  background: var(--success);
+}
+
+.app-close-save--saved .app-close-save-mark::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  width: 5px;
+  height: 3px;
+  border: solid var(--bg-app);
+  border-width: 0 0 1.5px 1.5px;
+  transform: rotate(-45deg);
+}
+
+.app-close-save--error {
+  max-width: min(560px, calc(100vw - 32px));
+  border-color: color-mix(in srgb, var(--danger) 38%, var(--border-default));
+}
+
+.app-close-save--error .app-close-save-mark {
+  position: relative;
+  border-color: var(--danger);
+}
+
+.app-close-save--error .app-close-save-mark::after {
+  content: '!';
+  position: absolute;
+  inset: 0;
+  color: var(--danger);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+}
+
+.app-close-save-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.app-close-save-copy strong {
+  font-weight: var(--font-weight-medium);
+}
+
+.app-close-save-copy span {
+  overflow: hidden;
+  max-width: 320px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-close-save-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.app-close-save-actions button {
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-mini);
+  cursor: pointer;
+}
+
+.app-close-save-actions button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.app-close-save-actions button.is-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+@keyframes app-close-save-in {
+  from { opacity: 0; transform: translate(-50%, 5px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes app-close-save-spin {
+  to { transform: rotate(360deg); }
+}

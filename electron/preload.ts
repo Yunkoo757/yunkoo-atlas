@@ -28,6 +28,7 @@ export interface JournalBridge {
   /** 注册主进程关闭前回调 */
   onBeforeClose(callback: () => void | Promise<void>): void
   onCloseSaveError(callback: (message: string) => void): () => void
+  requestClose(): Promise<void>
   // 库路径引导
   getLibraryStatus(): Promise<{ initialized: boolean; path: string }>
   pickLibraryFolder(): Promise<string | null>
@@ -106,6 +107,7 @@ const bridge: JournalBridge = {
     ipcRenderer.on('app:close-save-error', listener)
     return () => ipcRenderer.removeListener('app:close-save-error', listener)
   },
+  requestClose: () => ipcRenderer.invoke('app:request-close'),
   getLibraryStatus: () => ipcRenderer.invoke('library:getStatus'),
   pickLibraryFolder: () => ipcRenderer.invoke('library:pickFolder'),
   createNewLibrary: (libPath) => ipcRenderer.invoke('library:createNew', libPath),
