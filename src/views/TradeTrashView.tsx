@@ -26,6 +26,7 @@ import { CrumbsNav } from '@/components/ui/CrumbsNav'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import './TrashView.css'
 
@@ -78,6 +79,7 @@ export function TradeTrashView() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [purgeRequest, setPurgeRequest] = useState<PurgeRequest | null>(null)
+  const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
 
   const trashTrades = useMemo(() => {
     return allTrades.filter((t) => isTradeDeleted(t) && !isTradeExpired(t))
@@ -144,6 +146,34 @@ export function TradeTrashView() {
   const handleBatchPurge = () => {
     if (selected.size === 0) return
     setPurgeRequest({ kind: 'batch', ids: [...selected] })
+  }
+
+  const openContextMenu = (event: React.MouseEvent, trade: Trade) => {
+    event.preventDefault()
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      items: [
+        {
+          type: 'label',
+          text: `${trade.ref} · ${trade.tradeKind === 'case' ? '案例记录' : '交易记录'}`,
+        },
+        {
+          type: 'item',
+          icon: <RotateCcw size={14} />,
+          label: '恢复',
+          onClick: () => handleRestore(trade.id),
+        },
+        { type: 'divider' },
+        {
+          type: 'item',
+          icon: <Trash2 size={14} />,
+          label: '彻底删除',
+          danger: true,
+          onClick: () => requestPurge(trade),
+        },
+      ],
+    })
   }
 
   const handleSelectAll = () => {
@@ -264,6 +294,7 @@ export function TradeTrashView() {
                       <div
                         key={trade.id}
                         role="listitem"
+                        onContextMenu={(event) => openContextMenu(event, trade)}
                         className={
                           'trash-item' +
                           (isUrgent ? ' is-urgent' : '') +
@@ -351,6 +382,8 @@ export function TradeTrashView() {
           <span>彻底删除</span>
         </button>
       </BatchActionBar>
+
+      <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 
       {purgeRequest ? (
         <ModalShell
