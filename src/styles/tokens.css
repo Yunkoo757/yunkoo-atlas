@@ -48,7 +48,8 @@
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
   --font-display: var(--font-regular);
   --font-monospace: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
-    Menlo, Courier, monospace;
+    Menlo, Courier, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+    monospace;
   --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
     "Segoe UI", "Twemoji Mozilla", "Noto Color Emoji", "Android Emoji";
 
