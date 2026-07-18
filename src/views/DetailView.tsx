@@ -664,7 +664,6 @@ export function DetailView() {
                 reviewContextTools
                 reviewTemplates={reviewTemplates}
                 reviewContextPinned={reviewContextPinned}
-                onManageReviewTemplates={() => navigate('/settings/review-templates')}
                 placeholder={
                   trade.tradeKind === 'case'
                     ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'

@@ -66,7 +66,6 @@ export function Editor({
   reviewContextTools = false,
   reviewTemplates = [],
   reviewContextPinned = true,
-  onManageReviewTemplates,
 }: {
   content: string
   onChange: (html: string) => void
@@ -79,7 +78,6 @@ export function Editor({
   reviewContextTools?: boolean
   reviewTemplates?: ReviewTemplate[]
   reviewContextPinned?: boolean
-  onManageReviewTemplates?: () => void
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
@@ -332,13 +330,8 @@ export function Editor({
                 value: template.id,
                 label: template.name,
               })),
-              { value: '__manage__', label: reviewTemplates.length > 0 ? '管理起稿模板…' : '新建起稿模板…' },
             ]}
             onSelect={(value) => {
-              if (value === '__manage__') {
-                onManageReviewTemplates?.()
-                return
-              }
               const template = reviewTemplates.find((item) => item.id === value)
               if (template) insertReviewTemplate(template.content)
             }}

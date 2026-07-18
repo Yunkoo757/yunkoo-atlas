@@ -84,6 +84,16 @@ async function run(): Promise<void> {
   )
   const starterTools = host.querySelector<HTMLElement>('.editor-review-tools')
   assert(starterTools && getComputedStyle(starterTools).position !== 'absolute', '复盘起稿入口不得覆盖在截图内部')
+  host.querySelector<HTMLButtonElement>('button[aria-label="选择复盘起稿"]')?.click()
+  await waitFor(
+    () => Boolean(document.body.querySelector('.menu-pop')),
+    '点击复盘起稿后应显示模板菜单',
+  )
+  const starterOptions = Array.from(document.body.querySelectorAll('.menu-item-label'))
+    .map((item) => item.textContent?.trim())
+  assert(starterOptions.includes('测试模板'), '复盘起稿菜单应保留模板选择')
+  assert(!starterOptions.some((label) => label?.includes('管理起稿模板')), '复盘起稿菜单不得放置模板管理入口')
+  assert(!starterOptions.some((label) => label?.includes('新建起稿模板')), '复盘起稿菜单不得放置模板新建入口')
 
   const editable = host.querySelector<HTMLElement>('.ProseMirror')
   const tiptapEditor = (editable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor
