@@ -79,8 +79,8 @@
   color: var(--text-secondary);
   background: var(--popover-bg);
   border: 0.8px solid var(--popover-border);
-  border-radius: var(--radius-8);
-  box-shadow: var(--popover-shadow-deep);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
   animation: uiSelectIn 90ms var(--ease-out) both;
 }
 

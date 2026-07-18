@@ -1,7 +1,7 @@
 .trade-filter-panel {
   position: fixed;
   z-index: 80;
-  width: min(560px, calc(100vw - 16px));
+  width: min(420px, calc(100vw - 16px));
   color: var(--text-secondary);
   background: var(--popover-bg);
   border: 1px solid var(--popover-border);
@@ -66,8 +66,8 @@
 
 .trade-filter-columns {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid var(--border-subtle);
@@ -77,6 +77,11 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.trade-filter-columns .trade-filter-section + .trade-filter-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .trade-filter-field {

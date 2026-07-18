@@ -212,7 +212,7 @@
   width: 9ch;
   overflow: hidden;
   color: var(--text-strong);
-  font-size: var(--fs-sm);
+  font-size: 0.875rem;
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
@@ -296,13 +296,13 @@
   height: var(--chip-height-sm);
   padding: 0 7px;
   overflow: hidden;
-  color: color-mix(in srgb, var(--text-tertiary) 88%, var(--text-secondary));
+  color: var(--tag-quiet-text);
   font-size: var(--fs-micro);
   line-height: calc(var(--chip-height-sm) - 2px);
   text-overflow: ellipsis;
   white-space: nowrap;
   background: transparent;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--tag-quiet-border);
   border-radius: var(--radius-4);
 }
 
@@ -335,48 +335,34 @@
   border-radius: var(--radius-4);
 }
 
-.trade-row-session.is-london {
-  color: lch(72% 22 264);
-  background: lch(16% 4 264 / 0.24);
-  border-color: lch(28% 8 264 / 0.32);
-}
-
-.trade-row-session.is-asia {
-  color: lch(72% 24 160);
-  background: lch(16% 5 160 / 0.22);
-  border-color: lch(28% 8 160 / 0.3);
-}
-
-.trade-row-session.is-new-york {
-  color: lch(74% 25 70);
-  background: lch(16% 5 54 / 0.22);
-  border-color: lch(29% 9 60 / 0.3);
-}
-
+.trade-row-session.is-london,
+.trade-row-session.is-asia,
+.trade-row-session.is-new-york,
 .trade-row-session.is-outside,
 .trade-row-session.is-other {
-  color: var(--text-tertiary);
-  background: var(--bg-elevated);
-  border-color: var(--border-subtle);
+  color: var(--tag-session-text);
+  background: var(--tag-session-bg);
+  border-color: var(--tag-session-border);
 }
 
 .trade-row-tag.is-mistake {
   max-width: none;
-  color: color-mix(in srgb, var(--neg) 72%, var(--text-tertiary));
-  background: transparent;
-  border-color: color-mix(in srgb, var(--neg) 26%, var(--border-default));
+  color: var(--tag-error-text);
+  background: var(--tag-error-bg);
+  border-color: var(--tag-error-border);
 }
 
 .trade-row-more.is-mistake-more {
-  color: color-mix(in srgb, var(--neg) 64%, var(--text-tertiary));
-  background: transparent;
-  border-color: color-mix(in srgb, var(--neg) 22%, var(--border-default));
+  color: var(--tag-error-text);
+  background: var(--tag-error-bg);
+  border-color: var(--tag-error-border);
   border-style: solid;
 }
 
 .trade-row-tag.is-review {
-  color: var(--accent);
-  background: var(--accent-bg);
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-secondary));
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .trade-row-tag.is-review.is-ambiguous {

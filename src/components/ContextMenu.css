@@ -4,7 +4,7 @@
   min-width: 200px;
   background: var(--popover-bg);
   border: 0.8px solid var(--popover-border);
-  border-radius: var(--radius-8);
+  border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
   padding: 4px;
   animation: menu-in 0.12s var(--ease-out);

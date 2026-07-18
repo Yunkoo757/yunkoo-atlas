@@ -524,16 +524,26 @@ export function testPrimarySidebarOrderNormalizesAndReordersSafely(): void {
 
 export async function testDesktopShellDisablesAccidentalSelectionAndAnimatesModalExit(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [globalCss, sidebarSource, exitSource] = await Promise.all([
+  const [globalCss, sidebarSource, exitSource, menuSource, selectSource, filterSource] = await Promise.all([
     fs.readFile('src/styles/global.css', 'utf8'),
     fs.readFile('src/components/Sidebar.tsx', 'utf8'),
     fs.readFile('src/components/ui/useExitClone.ts', 'utf8'),
+    fs.readFile('src/components/Menu.tsx', 'utf8'),
+    fs.readFile('src/components/ui/Select.tsx', 'utf8'),
+    fs.readFile('src/components/trades/TradeFilters.tsx', 'utf8'),
   ])
   assert(/body\s*\{[\s\S]*?user-select:\s*none;/.test(globalCss), '应用外壳应禁用普通文本拖选')
   assert(globalCss.includes("[contenteditable='true']") && globalCss.includes('user-select: text'), '编辑区必须保留文字选择能力')
   assert(sidebarSource.includes('data-sidebar-primary-id'), '工作台主导航应支持原位拖拽排序')
   assert(!sidebarSource.includes('sb-workspace-drag-ghost'), '侧栏拖拽不得生成跟随鼠标的浮动窗口')
   assert(exitSource.includes('appendExitClone'), '条件卸载弹层应保留离场快照')
+  for (const [name, source] of [
+    ['菜单', menuSource],
+    ['选择框', selectSource],
+    ['筛选器', filterSource],
+  ] as const) {
+    assert(source.includes('useExitClone'), `${name}关闭时应衔接短促淡出，不得瞬间消失`)
+  }
 }
 
 export async function testStorageHealthWarningStaysInTheContentColumn(): Promise<void> {

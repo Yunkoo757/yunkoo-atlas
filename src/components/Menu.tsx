@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { Check } from '@/icons/appIcons'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './Menu.css'
 
 export interface MenuOption {
@@ -49,7 +50,8 @@ export function Menu({
   })
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLDivElement>(null)
-  const popRef = useRef<HTMLDivElement>(null)
+  const popRef = useRef<HTMLDivElement | null>(null)
+  const popExitRef = useExitClone<HTMLDivElement>(open)
   const isSelectionMenu = value !== undefined
 
   const updatePosition = () => {
@@ -122,6 +124,11 @@ export function Menu({
     minWidth: position.minWidth,
   }
 
+  const assignPopRef = (node: HTMLDivElement | null) => {
+    popRef.current = node
+    popExitRef(node)
+  }
+
   return (
     <div className="menu-root" ref={rootRef} data-menu-id={menuId}>
       <div
@@ -136,7 +143,7 @@ export function Menu({
           <div
             className={`menu-pop menu-placement-${position.placement}`}
             role="menu"
-            ref={popRef}
+            ref={assignPopRef}
             style={popStyle}
             data-menu-id={menuId}
           >

@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './ContextMenu.css'
 
 export type CtxItem =
@@ -20,6 +21,8 @@ export function ContextMenu({
   state: CtxState | null
   onClose: () => void
 }) {
+  const exitRef = useExitClone<HTMLDivElement>(Boolean(state))
+
   useEffect(() => {
     if (!state) return
     const close = () => onClose()
@@ -48,6 +51,7 @@ export function ContextMenu({
 
   return createPortal(
     <div
+      ref={exitRef}
       className="ctx"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitClone } from '@/components/ui/useExitClone'
 import { Check, SlidersHorizontal } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
@@ -17,8 +18,14 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
   const setDisplay = useStore((s) => s.setDisplay)
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
-  const popRef = useRef<HTMLDivElement>(null)
+  const popRef = useRef<HTMLDivElement | null>(null)
+  const popExitRef = useExitClone<HTMLDivElement>(open)
   const [pos, setPos] = useState({ top: 0, right: 0 })
+
+  const assignPopRef = (node: HTMLDivElement | null) => {
+    popRef.current = node
+    popExitRef(node)
+  }
 
   const showGrouping = view === 'list'
   const showEmptyGroups = view === 'board'
@@ -68,7 +75,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
           <div
             className="display-pop"
             role="menu"
-            ref={popRef}
+            ref={assignPopRef}
             style={{ top: pos.top, right: pos.right }}
           >
             <ToggleRow

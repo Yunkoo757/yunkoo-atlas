@@ -680,7 +680,7 @@
   min-width: 0;
   color: var(--text-primary);
   font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-normal);
 }
 .dv-prop-empty {
   color: var(--text-quaternary);
@@ -689,12 +689,12 @@
 .dv-prop-chip {
   display: inline-flex;
   align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-full);
-  font-size: var(--fs-micro);
-  font-weight: var(--font-weight-medium);
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-normal);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   line-height: 1;
@@ -702,59 +702,48 @@
 }
 .dv-prop-chip.is-neutral {
   color: var(--text-secondary);
-  background: var(--bg-elevated);
-  border-color: var(--border-subtle);
+  background: transparent;
 }
 .dv-prop-chip.is-category {
   color: var(--text-secondary);
-  background: var(--bg-elevated);
-  border-color: var(--border-subtle);
+  background: transparent;
 }
 .dv-prop-chip.is-category.is-mistake {
-  color: var(--neg);
-  background: var(--neg-bg);
-  border-color: color-mix(in srgb, var(--neg) 28%, transparent);
+  color: var(--tag-error-text);
+  background: transparent;
 }
 .dv-prop-chip.is-timeframe.is-minute {
-  color: lch(74% 28 195);
-  background: lch(16% 6 195 / 0.42);
-  border-color: lch(30% 10 195 / 0.42);
+  color: var(--text-secondary);
+  background: transparent;
 }
 .dv-prop-chip.is-timeframe.is-hour {
-  color: lch(74% 30 300);
-  background: lch(16% 7 300 / 0.42);
-  border-color: lch(30% 11 300 / 0.42);
+  color: var(--text-secondary);
+  background: transparent;
 }
 .dv-prop-chip.is-timeframe.is-day {
-  color: lch(76% 28 55);
-  background: lch(16% 6 55 / 0.42);
-  border-color: lch(30% 10 55 / 0.4);
+  color: var(--text-secondary);
+  background: transparent;
 }
 .dv-prop-chip.is-timeframe.is-other {
   color: var(--text-tertiary);
-  background: var(--bg-elevated);
-  border-color: var(--border-subtle);
+  background: transparent;
 }
 .dv-prop-chip.is-session.is-london {
-  color: lch(72% 22 264);
-  background: lch(16% 4 264 / 0.45);
-  border-color: lch(28% 8 264 / 0.42);
+  color: var(--tag-session-text);
+  background: transparent;
 }
 .dv-prop-chip.is-session.is-asia {
-  color: lch(72% 24 160);
-  background: lch(16% 5 160 / 0.42);
-  border-color: lch(28% 8 160 / 0.4);
+  color: var(--tag-session-text);
+  background: transparent;
 }
 .dv-prop-chip.is-session.is-new-york {
-  color: lch(74% 25 70);
-  background: lch(16% 5 54 / 0.42);
-  border-color: lch(29% 9 60 / 0.4);
+  color: var(--tag-session-text);
+  background: transparent;
 }
 .dv-prop-chip.is-session.is-outside,
 .dv-prop-chip.is-session.is-other {
   color: var(--text-tertiary);
-  background: var(--bg-elevated);
-  border-color: var(--border-subtle);
+  background: transparent;
 }
 
 .dv-case-row {

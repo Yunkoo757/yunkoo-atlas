@@ -12,6 +12,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from '@/icons/appIcons'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './Select.css'
 
 export type SelectOption = {
@@ -58,6 +59,7 @@ export const Select = forwardRef<
   const typeaheadRef = useRef('')
   const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [open, setOpen] = useState(false)
+  const menuExitRef = useExitClone<HTMLDivElement>(open)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [position, setPosition] = useState<SelectPosition>({
     left: 0,
@@ -77,6 +79,11 @@ export const Select = forwardRef<
       const mutableRef = forwardedRef as MutableRefObject<HTMLButtonElement | null>
       mutableRef.current = node
     }
+  }
+
+  const assignMenuRef = (node: HTMLDivElement | null) => {
+    menuRef.current = node
+    menuExitRef(node)
   }
 
   const findEnabled = (start: number, direction: 1 | -1) => {
@@ -245,7 +252,7 @@ export const Select = forwardRef<
 
       {open && createPortal(
         <div
-          ref={menuRef}
+          ref={assignMenuRef}
           id={id}
           role="listbox"
           aria-label={ariaLabel}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitClone } from '@/components/ui/useExitClone'
 import { RotateCcw, X } from '@/icons/appIcons'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
@@ -76,8 +77,13 @@ export function TradeFilters({
   const [panelPos, setPanelPos] = useState({ top: 0, left: 8, maxHeight: 480 })
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const panelExitRef = useExitClone<HTMLDivElement>(open)
   const panelId = 'trade-filter-panel'
+  const assignPanelRef = (node: HTMLDivElement | null) => {
+    panelRef.current = node
+    panelExitRef(node)
+  }
   const workspaceKind: WorkspaceKind = filter.tradeKind === 'case'
     ? 'case'
     : filter.tradeKind === 'paper'
@@ -265,7 +271,7 @@ export function TradeFilters({
       if (!rect) return
       const edge = 8
       const top = rect.bottom + 4
-      const width = Math.min(560, window.innerWidth - edge * 2)
+      const width = Math.min(420, window.innerWidth - edge * 2)
       setPanelPos({
         top,
         left: clampPopoverLeft(rect.right - width, width, window.innerWidth, edge),
@@ -320,7 +326,7 @@ export function TradeFilters({
           role="dialog"
           aria-modal="false"
           aria-label={filterDialogLabel}
-          ref={panelRef}
+          ref={assignPanelRef}
           style={{
             top: panelPos.top,
             left: panelPos.left,

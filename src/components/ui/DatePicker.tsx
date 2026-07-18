@@ -10,6 +10,7 @@ import {
   type MutableRefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { useExitClone } from '@/components/ui/useExitClone'
 import { Calendar, ChevronLeft, ChevronRight } from '@/icons/appIcons'
 import './DatePicker.css'
 
@@ -87,6 +88,7 @@ export const DatePicker = forwardRef<
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
+  const popoverExitRef = useExitClone<HTMLDivElement>(open)
   const [viewDate, setViewDate] = useState(() => parseYmd(value) ?? new Date())
   const [position, setPosition] = useState({ left: 0, top: 0, placement: 'bottom' as 'top' | 'bottom' })
   const days = useMemo(() => buildCalendarDays(viewDate), [viewDate])
@@ -119,6 +121,11 @@ export const DatePicker = forwardRef<
   const changeOpen = (next: boolean) => {
     setOpen(next)
     onOpenChange?.(next)
+  }
+
+  const assignPopoverRef = (node: HTMLDivElement | null) => {
+    popoverRef.current = node
+    popoverExitRef(node)
   }
 
   const openPicker = () => {
@@ -211,7 +218,7 @@ export const DatePicker = forwardRef<
 
       {open && createPortal(
         <div
-          ref={popoverRef}
+          ref={assignPopoverRef}
           id={id}
           role="dialog"
           aria-modal="false"
