@@ -11,7 +11,7 @@ declare global {
 
 const BROWSER_DB_NAME = 'linear-journal-v3'
 
-async function seedHigherVersionDatabase(): Promise<void> {
+async function seedIncompleteHigherVersionDatabase(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(BROWSER_DB_NAME)
     request.onsuccess = () => resolve()
@@ -22,9 +22,7 @@ async function seedHigherVersionDatabase(): Promise<void> {
     const request = indexedDB.open(BROWSER_DB_NAME, 3)
     request.onupgradeneeded = () => {
       const db = request.result
-      db.createObjectStore('snapshot')
-      db.createObjectStore('assets', { keyPath: 'id' })
-      db.createObjectStore('meta')
+      db.createObjectStore('snapshot').put(snapshotWithNote('<p>缺表旧库</p>', '缺表旧库'), 'main')
     }
     request.onsuccess = () => {
       request.result.close()
@@ -73,9 +71,11 @@ function snapshotWithNote(note: string, displayName: string): PersistedSnapshot 
 }
 
 async function run(): Promise<void> {
-  await seedHigherVersionDatabase()
+  await seedIncompleteHigherVersionDatabase()
   const adapter = new IndexedDbStorageAdapter()
   await adapter.open()
+  assert((await adapter.getManifest()).libraryId.length > 0, '旧版缺失的资料库元数据表应自动补齐')
+  assert((await adapter.loadSnapshot())?.profile?.displayName === '缺表旧库', '补齐存储表时不得覆盖旧交易快照')
 
   const oldAssetId = await adapter.saveAsset(new Blob(['old-image'], { type: 'image/png' }), 'image/png')
   await adapter.saveSnapshot(

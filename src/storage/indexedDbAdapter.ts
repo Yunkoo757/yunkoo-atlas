@@ -12,6 +12,7 @@ const STORE_SNAPSHOT = 'snapshot'
 const STORE_ASSETS = 'assets'
 const STORE_META = 'meta'
 const MAX_OBJECT_URL_CACHE = 128
+const REQUIRED_STORES = [STORE_SNAPSHOT, STORE_ASSETS, STORE_META] as const
 
 interface AssetRecord {
   id: string
@@ -21,22 +22,43 @@ interface AssetRecord {
   blob: Blob
 }
 
+function createMissingStores(db: IDBDatabase): void {
+  if (!db.objectStoreNames.contains(STORE_SNAPSHOT)) {
+    db.createObjectStore(STORE_SNAPSHOT)
+  }
+  if (!db.objectStoreNames.contains(STORE_ASSETS)) {
+    db.createObjectStore(STORE_ASSETS, { keyPath: 'id' })
+  }
+  if (!db.objectStoreNames.contains(STORE_META)) {
+    db.createObjectStore(STORE_META)
+  }
+}
+
+function finishOpen(db: IDBDatabase, resolve: (db: IDBDatabase) => void): void {
+  db.onversionchange = () => db.close()
+  resolve(db)
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME)
     req.onerror = () => reject(req.error ?? new Error('IndexedDB open failed'))
-    req.onsuccess = () => resolve(req.result)
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = () => createMissingStores(req.result)
+    req.onsuccess = () => {
       const db = req.result
-      if (!db.objectStoreNames.contains(STORE_SNAPSHOT)) {
-        db.createObjectStore(STORE_SNAPSHOT)
+      const hasEveryStore = REQUIRED_STORES.every((store) => db.objectStoreNames.contains(store))
+      if (hasEveryStore) {
+        finishOpen(db, resolve)
+        return
       }
-      if (!db.objectStoreNames.contains(STORE_ASSETS)) {
-        db.createObjectStore(STORE_ASSETS, { keyPath: 'id' })
-      }
-      if (!db.objectStoreNames.contains(STORE_META)) {
-        db.createObjectStore(STORE_META)
-      }
+
+      const repairVersion = db.version + 1
+      db.close()
+      const repair = indexedDB.open(DB_NAME, repairVersion)
+      repair.onerror = () => reject(repair.error ?? new Error('IndexedDB repair failed'))
+      repair.onblocked = () => reject(new DOMException('IndexedDB repair blocked by another tab', 'InvalidStateError'))
+      repair.onupgradeneeded = () => createMissingStores(repair.result)
+      repair.onsuccess = () => finishOpen(repair.result, resolve)
     }
   })
 }
