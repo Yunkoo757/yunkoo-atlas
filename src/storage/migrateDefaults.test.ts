@@ -8,6 +8,7 @@ import {
   createDefaultUserProfile,
 } from '@/config/defaultProfile'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import type { StorageAdapter } from '@/storage/adapter'
 import {
   migrateElectronLibraryIfNeeded,
@@ -85,6 +86,35 @@ export function testNewLibraryDefaultsAreNeutralAndReferenceSafe(): void {
     '新资料库只应保留少量通用错误标签',
   )
   assert(createDefaultUserProfile().displayName === '交易者', '用户资料工厂必须复用默认名称常量')
+}
+
+export async function testFreshBrowserLibraryIncludesDefaultSymbolCatalog(): Promise<void> {
+  const previousDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  if (previousDescriptor && !previousDescriptor.configurable) return
+  const localStorageStub: Storage = {
+    get length() { return 0 },
+    clear: () => {},
+    getItem: () => null,
+    key: () => null,
+    removeItem: () => {},
+    setItem: () => {},
+  }
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: localStorageStub,
+  })
+
+  const target = new MemoryAdapter(null)
+  try {
+    await migrateFromLocalStorageIfNeeded(target)
+    assert(
+      target.snapshot?.symbolCatalog?.join(',') === DEFAULT_SYMBOL_CATALOG.join(','),
+      '全新资料库必须带默认品种目录，避免新建交易没有可选品种',
+    )
+  } finally {
+    if (previousDescriptor) Object.defineProperty(globalThis, 'localStorage', previousDescriptor)
+    else delete (globalThis as { localStorage?: Storage }).localStorage
+  }
 }
 
 export function testProfileFallbacksUseTheNeutralDisplayNameConstant(): void {

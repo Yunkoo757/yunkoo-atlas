@@ -6,6 +6,7 @@ import {
   createDefaultTagPresets,
 } from '@/config/defaultProfile'
 import { DEFAULT_DISPLAY, normalizeDisplay } from '@/lib/tradeFilters'
+import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import {
   migrateTrades,
   normalizeTradeStrategyReferences,
@@ -92,6 +93,7 @@ export async function migrateFromLocalStorageIfNeeded(
       display: { ...DEFAULT_DISPLAY },
       tagPresets: createDefaultTagPresets(),
       mistakeTagPresets: createDefaultMistakeTagPresets(),
+      symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       profile: createDefaultUserProfile(),
     }
   }
@@ -132,6 +134,7 @@ export async function migrateElectronLibraryIfNeeded(
       display: { ...DEFAULT_DISPLAY },
       tagPresets: createDefaultTagPresets(),
       mistakeTagPresets: createDefaultMistakeTagPresets(),
+      symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       profile: createDefaultUserProfile(),
     }
   }

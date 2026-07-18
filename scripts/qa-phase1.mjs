@@ -112,15 +112,23 @@ try {
 
   // 9. 导出 JSON 含当前版本
   const exportPayload = await page.evaluate(async () => {
-    const { buildExportPayload } = await import('/src/lib/importExport.ts')
-    return buildExportPayload()
+    const { buildExportPayload, EXPORT_VERSION } = await import('/src/lib/importExport.ts')
+    return { payload: await buildExportPayload(), expectedVersion: EXPORT_VERSION }
   }).catch(() => null)
 
   if (exportPayload) {
-    record('导出 payload version=7', exportPayload.version === 7, `v${exportPayload.version}`)
-    record('导出含 assets 数组', Array.isArray(exportPayload.assets), `len=${exportPayload.assets?.length ?? 0}`)
+    record(
+      `导出 payload version=${exportPayload.expectedVersion}`,
+      exportPayload.payload.version === exportPayload.expectedVersion,
+      `v${exportPayload.payload.version}`,
+    )
+    record(
+      '导出含 assets 数组',
+      Array.isArray(exportPayload.payload.assets),
+      `len=${exportPayload.payload.assets?.length ?? 0}`,
+    )
   } else {
-    record('导出 payload version=7', false, 'evaluate 导入失败，跳过')
+    record('导出 payload 版本', false, 'evaluate 导入失败，跳过')
   }
 
   // 10. IndexedDB 存在
