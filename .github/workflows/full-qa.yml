@@ -52,4 +52,4 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Run complete release quality gate
-        run: pnpm qa:release
+        run: pnpm qa:full

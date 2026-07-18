@@ -248,12 +248,12 @@ try {
   await editor.click()
   await editor.fill('复盘证据：确认入场依据，并记录下一次执行改进。')
   await page.getByRole('button', { name: '完成复盘', exact: true }).click()
-  await page.getByText('复盘已完成', { exact: true }).waitFor({ state: 'visible' })
-  const reviewedStageText = await page.locator('.dv-review-stage').innerText()
+  await page.locator('.dv-review-complete-meta').waitFor({ state: 'visible' })
+  const reviewedStageText = await page.locator('.dv-review-complete-meta').innerText()
   const reviewedPropertiesText = await page.locator('.dv-props').innerText()
   record(
     'R 倍数平仓并补充证据后可完成复盘',
-    reviewedStageText.includes('复盘已完成') &&
+    reviewedStageText.includes('已复盘') &&
       /盈亏\s+—/.test(reviewedPropertiesText) &&
       /R 倍数\s+\+2\.0R/.test(reviewedPropertiesText),
     JSON.stringify({ reviewedTradeRef, reviewedStageText, reviewedPropertiesText }),

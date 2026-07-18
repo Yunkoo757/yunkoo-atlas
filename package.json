@@ -37,7 +37,8 @@
     "qa:dashboard-10k": "pnpm build && node scripts/qa-dashboard-10k.mjs",
     "qa:electron": "node scripts/qa-electron.mjs",
     "qa:ci": "node scripts/qa-ci.mjs",
-    "qa:release": "node scripts/qa-release.mjs"
+    "qa:release": "node scripts/qa-release.mjs",
+    "qa:full": "node scripts/qa-release.mjs --full"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.2.8",

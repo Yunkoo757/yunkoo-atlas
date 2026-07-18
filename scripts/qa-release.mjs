@@ -3,7 +3,7 @@ import { resolveCommand } from './release-command.mjs'
 
 const PORT = 5181
 const BASE = `http://127.0.0.1:${PORT}`
-const skipDashboard10k = process.argv.includes('--skip-dashboard-10k')
+const full = process.argv.includes('--full')
 
 function run(name, args, env = process.env) {
   const invocation = resolveCommand(name, args)
@@ -56,20 +56,19 @@ async function stopVite(child) {
   await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 1500))])
 }
 
-run('pnpm', ['test'])
-run('pnpm', ['qa:design'])
+run('pnpm', ['qa:ci'])
 run('pnpm', ['qa:sidebar'])
 
 const vite = startVite()
 try {
   await waitForVite(vite)
   const qaEnv = { ...process.env, QA_BASE_URL: BASE }
-  run('pnpm', ['qa'], qaEnv)
-  run('pnpm', ['qa:linear'], qaEnv)
+  run('pnpm', [full ? 'qa' : 'qa:core'], qaEnv)
+  if (full) run('pnpm', ['qa:linear'], qaEnv)
 } finally {
   await stopVite(vite)
 }
 
 run('pnpm', ['build:app'])
-if (!skipDashboard10k) run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
+if (full) run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
 run('pnpm', ['qa:electron'])
