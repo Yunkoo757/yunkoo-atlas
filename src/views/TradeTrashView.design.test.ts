@@ -26,3 +26,17 @@ export function testTrashSearchRemainsAvailableWhenNoRowsMatch() {
     throw new Error('Filtered empty state must render inside the persistent trash toolbar')
   }
 }
+
+export function testTrashContextMenuUsesTheSharedActionHierarchy() {
+  const source = readFileSync(path.resolve('src/views/TradeTrashView.tsx'), 'utf8')
+
+  if (!source.includes("text: '回收站操作'")) {
+    throw new Error('Trash context menu heading must describe its action group')
+  }
+  if (!source.includes("label: '恢复记录'")) {
+    throw new Error('Trash restore action must use the same explicit verb-object pattern')
+  }
+  if (source.includes("text: `${trade.ref} ·")) {
+    throw new Error('Trash context menu must not misuse an action heading as record metadata')
+  }
+}

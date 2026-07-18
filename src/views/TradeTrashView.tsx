@@ -156,18 +156,18 @@ export function TradeTrashView() {
       items: [
         {
           type: 'label',
-          text: `${trade.ref} · ${trade.tradeKind === 'case' ? '案例记录' : '交易记录'}`,
+          text: '回收站操作',
         },
         {
           type: 'item',
-          icon: <RotateCcw size={14} />,
-          label: '恢复',
+          icon: <RotateCcw size={15} />,
+          label: '恢复记录',
           onClick: () => handleRestore(trade.id),
         },
         { type: 'divider' },
         {
           type: 'item',
-          icon: <Trash2 size={14} />,
+          icon: <Trash2 size={15} />,
           label: '彻底删除',
           danger: true,
           onClick: () => requestPurge(trade),
