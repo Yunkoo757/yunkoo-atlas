@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { ImagePlus, RotateCcw, Shapes, Trash2 } from '@/icons/appIcons'
+import { GripVertical, ImagePlus, RotateCcw, Shapes, Trash2 } from '@/icons/appIcons'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { SymbolPresetSvg } from '@/components/SymbolPresetSvg'
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/lib/symbolIcons'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
+import { reorderByKey } from '@/lib/reorder'
 import './SymbolsPanel.css'
 
 export function SymbolsPanel() {
@@ -18,11 +19,14 @@ export function SymbolsPanel() {
   const symbolIcons = useStore((state) => state.symbolIcons)
   const addSymbolToCatalog = useStore((state) => state.addSymbolToCatalog)
   const removeSymbolFromCatalog = useStore((state) => state.removeSymbolFromCatalog)
+  const setSymbolCatalogOrder = useStore((state) => state.setSymbolCatalogOrder)
   const setSymbolIconPreset = useStore((state) => state.setSymbolIconPreset)
   const setSymbolIconCustom = useStore((state) => state.setSymbolIconCustom)
   const clearSymbolIcon = useStore((state) => state.clearSymbolIcon)
   const [selected, setSelected] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [draggedSymbol, setDraggedSymbol] = useState<string | null>(null)
+  const [dragOverSymbol, setDragOverSymbol] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const symbols = useMemo(
@@ -43,6 +47,18 @@ export function SymbolsPanel() {
     setSelected(key)
     setDraft('')
     toast(`已添加品种 ${key}`)
+  }
+
+  const moveSymbol = (source: string, target: string) => {
+    if (source === target) return
+    setSymbolCatalogOrder(reorderByKey(symbols, source, target, (symbol) => symbol))
+  }
+
+  const moveSymbolByKeyboard = (symbol: string, direction: -1 | 1) => {
+    const index = symbols.indexOf(symbol)
+    const target = symbols[index + direction]
+    if (!target) return
+    moveSymbol(symbol, target)
   }
 
   const removeSymbol = () => {
@@ -73,7 +89,7 @@ export function SymbolsPanel() {
       <div className="settings-page-head">
         <h1 className="settings-page-title">品种</h1>
         <p className="settings-page-desc">
-          这里维护的品种目录会与新建交易下拉同步，并为每个品种配置 Notion 风格小图标。
+          这里维护的品种目录会与新建交易下拉同步。拖动左侧品种可调整下拉顺序，并可为每个品种配置图标。
         </p>
       </div>
 
@@ -97,11 +113,61 @@ export function SymbolsPanel() {
             <p className="symbols-empty">还没有品种。先记一笔交易，或手动添加。</p>
           ) : (
             <ul className="symbols-list">
-              {symbols.map((symbol) => (
-                <li key={symbol}>
+              {symbols.map((symbol, index) => (
+                <li
+                  key={symbol}
+                  className={
+                    'symbols-item' +
+                    (active === symbol ? ' is-active' : '') +
+                    (draggedSymbol === symbol ? ' is-dragging' : '') +
+                    (dragOverSymbol === symbol && draggedSymbol !== symbol ? ' is-drag-over' : '')
+                  }
+                  onDragOver={(event) => {
+                    if (!draggedSymbol) return
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'move'
+                    setDragOverSymbol(symbol)
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    const source = draggedSymbol ?? event.dataTransfer.getData('text/plain')
+                    moveSymbol(source, symbol)
+                    setDraggedSymbol(null)
+                    setDragOverSymbol(null)
+                  }}
+                >
                   <button
                     type="button"
-                    className={'symbols-item' + (active === symbol ? ' is-active' : '')}
+                    className="symbols-drag-handle"
+                    draggable
+                    disabled={symbols.length < 2}
+                    aria-label={`拖动调整 ${symbol} 顺序；也可按 Alt 加上下方向键。第 ${index + 1} 项，共 ${symbols.length} 项`}
+                    onDragStart={(event) => {
+                      setDraggedSymbol(symbol)
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData('text/plain', symbol)
+                      const row = event.currentTarget.closest('li')
+                      if (row) event.dataTransfer.setDragImage(row, 12, 17)
+                    }}
+                    onDragEnd={() => {
+                      setDraggedSymbol(null)
+                      setDragOverSymbol(null)
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.altKey && event.key === 'ArrowUp') {
+                        event.preventDefault()
+                        moveSymbolByKeyboard(symbol, -1)
+                      } else if (event.altKey && event.key === 'ArrowDown') {
+                        event.preventDefault()
+                        moveSymbolByKeyboard(symbol, 1)
+                      }
+                    }}
+                  >
+                    <GripVertical size={14} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="symbols-item-select"
                     onClick={() => setSelected(symbol)}
                   >
                     <SymbolIcon symbol={symbol} overrides={symbolIcons} size={18} />

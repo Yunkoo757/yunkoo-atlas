@@ -46,20 +46,67 @@
 .symbols-item {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
   height: 34px;
-  padding: 0 8px;
   color: var(--text-secondary);
   font-size: var(--fs-sm);
-  text-align: left;
   border-radius: var(--radius-6);
+  transition: background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
 }
 
 .symbols-item:hover,
 .symbols-item.is-active {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.symbols-item.is-dragging {
+  opacity: 0.46;
+}
+
+.symbols-item.is-drag-over {
+  background: var(--accent-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.symbols-drag-handle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  align-self: stretch;
+  color: var(--text-quaternary);
+  cursor: grab;
+  border-radius: var(--radius-6);
+}
+
+.symbols-drag-handle:hover,
+.symbols-drag-handle:focus-visible {
+  color: var(--text-secondary);
+}
+
+.symbols-drag-handle:active {
+  cursor: grabbing;
+}
+
+.symbols-drag-handle:disabled {
+  color: var(--text-quaternary);
+  cursor: default;
+  opacity: 0.45;
+}
+
+.symbols-item-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0 8px 0 2px;
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
 }
 
 .symbols-empty {

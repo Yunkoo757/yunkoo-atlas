@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Plus, Trash2 } from '@/icons/appIcons'
+import { FileText, GripVertical, Plus, Trash2 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { toast } from '@/lib/toast'
@@ -10,9 +10,12 @@ export function ReviewTemplatesPanel() {
   const addTemplate = useStore((state) => state.addReviewTemplate)
   const updateTemplate = useStore((state) => state.updateReviewTemplate)
   const removeTemplate = useStore((state) => state.removeReviewTemplate)
+  const reorderTemplates = useStore((state) => state.reorderReviewTemplates)
   const reviewContextPinned = useStore((state) => state.display.reviewContextPinned ?? true)
   const setDisplay = useStore((state) => state.setDisplay)
   const [selectedId, setSelectedId] = useState<string | null>(templates[0]?.id ?? null)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   const selected = templates.find((template) => template.id === selectedId) ?? templates[0] ?? null
 
@@ -34,13 +37,20 @@ export function ReviewTemplatesPanel() {
     toast(`已删除起稿模板「${selected.name}」`)
   }
 
+  const moveTemplateByKeyboard = (id: string, direction: -1 | 1) => {
+    const index = templates.findIndex((template) => template.id === id)
+    const target = templates[index + direction]
+    if (!target) return
+    reorderTemplates(id, target.id)
+  }
+
   return (
     <div className="settings-page review-templates-panel">
       <div className="settings-page-head review-templates-head">
         <div>
           <h1 className="settings-page-title">复盘起稿</h1>
           <p className="settings-page-desc">
-            为不同交易场景保存多个开头框架。选择模板后会插入详情页顶部，并可继续自由修改。
+            为不同交易场景保存多个开头框架。拖动左侧模板可调整起稿菜单顺序，插入后仍可自由修改。
           </p>
         </div>
         <button type="button" className="dio-btn dio-btn-primary" onClick={handleAdd}>
@@ -79,16 +89,67 @@ export function ReviewTemplatesPanel() {
       {selected ? (
         <div className="review-templates-workspace">
           <nav className="review-template-list" aria-label="复盘起稿模板">
-            {templates.map((template) => (
-              <button
+            {templates.map((template, index) => (
+              <div
                 key={template.id}
-                type="button"
-                className={'review-template-list-item' + (template.id === selected.id ? ' is-active' : '')}
-                onClick={() => setSelectedId(template.id)}
+                className={
+                  'review-template-list-item' +
+                  (template.id === selected.id ? ' is-active' : '') +
+                  (draggedId === template.id ? ' is-dragging' : '') +
+                  (dragOverId === template.id && draggedId !== template.id ? ' is-drag-over' : '')
+                }
+                onDragOver={(event) => {
+                  if (!draggedId) return
+                  event.preventDefault()
+                  event.dataTransfer.dropEffect = 'move'
+                  setDragOverId(template.id)
+                }}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  const sourceId = draggedId ?? event.dataTransfer.getData('text/plain')
+                  reorderTemplates(sourceId, template.id)
+                  setDraggedId(null)
+                  setDragOverId(null)
+                }}
               >
-                <FileText size={14} aria-hidden />
-                <span>{template.name}</span>
-              </button>
+                <button
+                  type="button"
+                  className="review-template-drag-handle"
+                  draggable
+                  disabled={templates.length < 2}
+                  aria-label={`拖动调整「${template.name}」顺序；也可按 Alt 加上下方向键。第 ${index + 1} 项，共 ${templates.length} 项`}
+                  onDragStart={(event) => {
+                    setDraggedId(template.id)
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', template.id)
+                    const row = event.currentTarget.closest('.review-template-list-item')
+                    if (row) event.dataTransfer.setDragImage(row, 12, 17)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedId(null)
+                    setDragOverId(null)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.altKey && event.key === 'ArrowUp') {
+                      event.preventDefault()
+                      moveTemplateByKeyboard(template.id, -1)
+                    } else if (event.altKey && event.key === 'ArrowDown') {
+                      event.preventDefault()
+                      moveTemplateByKeyboard(template.id, 1)
+                    }
+                  }}
+                >
+                  <GripVertical size={14} aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="review-template-select"
+                  onClick={() => setSelectedId(template.id)}
+                >
+                  <FileText size={14} aria-hidden />
+                  <span>{template.name}</span>
+                </button>
+              </div>
             ))}
           </nav>
 

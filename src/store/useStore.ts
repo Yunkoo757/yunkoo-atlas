@@ -53,6 +53,7 @@ import {
   DEFAULT_USER_DISPLAY_NAME,
   createDefaultStrategies,
 } from '@/config/defaultProfile'
+import { reorderByKey } from '@/lib/reorder'
 
 export type TradeUpsertSlice = {
   trades: Trade[]
@@ -227,9 +228,11 @@ interface State {
   clearSymbolIcon: (symbol: string) => void
   addSymbolToCatalog: (symbol: string) => void
   removeSymbolFromCatalog: (symbol: string) => void
+  setSymbolCatalogOrder: (symbols: string[]) => void
   addReviewTemplate: () => string
   updateReviewTemplate: (id: string, patch: Partial<Pick<ReviewTemplate, 'name' | 'content'>>) => void
   removeReviewTemplate: (id: string) => void
+  reorderReviewTemplates: (sourceId: string, targetId: string) => void
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
@@ -527,6 +530,8 @@ export const useStore = create<State>()((set, get) => ({
           symbolCatalog: s.symbolCatalog.filter((item) => item !== key),
         }))
       },
+      setSymbolCatalogOrder: (symbols) =>
+        set({ symbolCatalog: normalizeSymbolCatalog(symbols) }),
       addReviewTemplate: () => {
         const template = createReviewTemplate()
         set((s) => ({ reviewTemplates: [...s.reviewTemplates, template] }))
@@ -550,6 +555,15 @@ export const useStore = create<State>()((set, get) => ({
         })),
       removeReviewTemplate: (id) =>
         set((s) => ({ reviewTemplates: s.reviewTemplates.filter((template) => template.id !== id) })),
+      reorderReviewTemplates: (sourceId, targetId) =>
+        set((s) => ({
+          reviewTemplates: reorderByKey(
+            s.reviewTemplates,
+            sourceId,
+            targetId,
+            (template) => template.id,
+          ),
+        })),
       setAvatar: (avatarId) =>
         set((s) => ({
           profile: { ...s.profile, avatarId, customAvatarDataUrl: null },

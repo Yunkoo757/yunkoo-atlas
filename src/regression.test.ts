@@ -2197,6 +2197,39 @@ export function testUpsertTradesNotifiesOnce(): void {
   }
 }
 
+export function testSettingsReorderPersistsSymbolAndReviewTemplateOrder(): void {
+  const previousCatalog = useStore.getState().symbolCatalog
+  const previousTemplates = useStore.getState().reviewTemplates
+  try {
+    useStore.setState({
+      symbolCatalog: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+      reviewTemplates: [
+        { id: 'template-a', name: '模板 A', content: '' },
+        { id: 'template-b', name: '模板 B', content: '' },
+        { id: 'template-c', name: '模板 C', content: '' },
+      ],
+    })
+
+    useStore.getState().setSymbolCatalogOrder(['SOLUSDT', 'BTCUSDT', 'ETHUSDT'])
+    useStore.getState().reorderReviewTemplates('template-c', 'template-a')
+
+    assert(
+      useStore.getState().symbolCatalog.join(',') === 'SOLUSDT,BTCUSDT,ETHUSDT',
+      '品种拖拽顺序必须写回目录并供交易下拉复用',
+    )
+    assert(
+      useStore.getState().reviewTemplates.map((template) => template.id).join(',') ===
+        'template-c,template-a,template-b',
+      '复盘模板拖拽顺序必须写回 store 并供起稿菜单复用',
+    )
+  } finally {
+    useStore.setState({
+      symbolCatalog: previousCatalog,
+      reviewTemplates: previousTemplates,
+    })
+  }
+}
+
 export function testWorkbenchCountMatchesVisibleTradesWithoutSorting(): void {
   const today = formatYmd(new Date())
   const trades: Trade[] = [

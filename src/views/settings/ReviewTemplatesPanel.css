@@ -92,24 +92,24 @@
 .review-template-list-item {
   display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
   height: 34px;
-  padding: 0 9px;
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--fs-sm);
-  text-align: left;
   border-radius: var(--radius-6);
+  transition: background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
 }
 
-.review-template-list-item span {
+.review-template-select span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.review-template-list-item svg {
+.review-template-select svg {
   flex: 0 0 auto;
   color: var(--text-quaternary);
 }
@@ -122,6 +122,53 @@
 .review-template-list-item.is-active {
   color: var(--text-primary);
   background: var(--bg-selected);
+}
+
+.review-template-list-item.is-dragging {
+  opacity: 0.46;
+}
+
+.review-template-list-item.is-drag-over {
+  background: var(--accent-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.review-template-drag-handle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  align-self: stretch;
+  color: var(--text-quaternary);
+  cursor: grab;
+  border-radius: var(--radius-6);
+}
+
+.review-template-drag-handle:hover,
+.review-template-drag-handle:focus-visible {
+  color: var(--text-secondary);
+}
+
+.review-template-drag-handle:active {
+  cursor: grabbing;
+}
+
+.review-template-drag-handle:disabled {
+  color: var(--text-quaternary);
+  cursor: default;
+  opacity: 0.45;
+}
+
+.review-template-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0 9px 0 2px;
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
 }
 
 .review-template-editor {
