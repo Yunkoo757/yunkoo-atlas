@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { flushPersistNow } from '@/storage/persist'
 import { useSaveStatus } from '@/store/saveStatus'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './SaveStatusIndicator.css'
 
 const LABELS = {
@@ -31,22 +32,24 @@ export function SaveStatusIndicator() {
     const reason = errorMessage ?? '无法写入本地资料库'
     return (
       <span className="save-status-recovery" role="status" aria-live="assertive">
-        <button
-          type="button"
-          className="save-status save-status--error save-status--action"
-          aria-label={`保存失败：${reason}。点击重试`}
-          title={`保存失败：${reason}`}
-          onClick={() => void flushPersistNow().catch(() => {})}
-        >
-          保存失败 · 重试
-        </button>
-        <Link
-          className="save-status-recovery-link"
-          to="/settings/data"
-          title="打开数据与备份设置"
-        >
-          数据与备份
-        </Link>
+        <Tooltip asChild content={`保存失败：${reason}`} label="保存失败，点击重试">
+          <button
+            type="button"
+            className="save-status save-status--error save-status--action"
+            aria-label={`保存失败：${reason}。点击重试`}
+            onClick={() => void flushPersistNow().catch(() => {})}
+          >
+            保存失败 · 重试
+          </button>
+        </Tooltip>
+        <Tooltip asChild content="打开数据与备份设置" label="打开数据与备份设置">
+          <Link
+            className="save-status-recovery-link"
+            to="/settings/data"
+          >
+            数据与备份
+          </Link>
+        </Tooltip>
       </span>
     )
   }

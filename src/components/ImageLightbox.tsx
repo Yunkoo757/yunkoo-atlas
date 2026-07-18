@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Maximize2, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
+import { Tooltip } from '@/components/ui/Tooltip'
 import {
   LIGHTBOX_VIEW_RESET,
   LIGHTBOX_ZOOM_STEP,
@@ -203,36 +204,51 @@ export function ImageLightbox() {
       </div>
 
       <div className="img-lightbox-chrome">
-        <button
-          ref={closeRef}
-          type="button"
-          className="img-lightbox-close"
-          onClick={closeLightbox}
-          aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
-          title={closeShortcut ? `关闭预览 · ${closeShortcut}` : '关闭预览'}
+        <Tooltip
+          asChild
+          content={closeShortcut ? `关闭预览 · ${closeShortcut}` : '关闭预览'}
+          label="关闭预览"
         >
-          <X size={18} />
-        </button>
+          <button
+            ref={closeRef}
+            type="button"
+            className="img-lightbox-close"
+            onClick={closeLightbox}
+            aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
+          >
+            <X size={18} />
+          </button>
+        </Tooltip>
         {hasMany && (
           <>
-            <button
-              type="button"
-              className="img-lightbox-nav img-lightbox-nav--prev"
-              onClick={lightboxPrev}
-              aria-label={previousShortcut ? `上一张（${previousShortcut}）` : '上一张'}
-              title={previousShortcut ? `上一张 · ${previousShortcut}` : '上一张'}
+            <Tooltip
+              asChild
+              content={previousShortcut ? `上一张 · ${previousShortcut}` : '上一张'}
+              label="上一张"
             >
-              <ChevronLeft size={22} />
-            </button>
-            <button
-              type="button"
-              className="img-lightbox-nav img-lightbox-nav--next"
-              onClick={lightboxNext}
-              aria-label={nextShortcut ? `下一张（${nextShortcut}）` : '下一张'}
-              title={nextShortcut ? `下一张 · ${nextShortcut}` : '下一张'}
+              <button
+                type="button"
+                className="img-lightbox-nav img-lightbox-nav--prev"
+                onClick={lightboxPrev}
+                aria-label={previousShortcut ? `上一张（${previousShortcut}）` : '上一张'}
+              >
+                <ChevronLeft size={22} />
+              </button>
+            </Tooltip>
+            <Tooltip
+              asChild
+              content={nextShortcut ? `下一张 · ${nextShortcut}` : '下一张'}
+              label="下一张"
             >
-              <ChevronRight size={22} />
-            </button>
+              <button
+                type="button"
+                className="img-lightbox-nav img-lightbox-nav--next"
+                onClick={lightboxNext}
+                aria-label={nextShortcut ? `下一张（${nextShortcut}）` : '下一张'}
+              >
+                <ChevronRight size={22} />
+              </button>
+            </Tooltip>
           </>
         )}
         {!lightbox.loading && <div className="img-lightbox-hud-dock">
@@ -243,26 +259,32 @@ export function ImageLightbox() {
                 {lightbox.index + 1} / {lightbox.images.length}
               </span>
             )}
-            <button
-              type="button"
-              className="img-lightbox-action"
-              onClick={fitImage}
-              aria-label={resetShortcut ? `适合窗口（${resetShortcut}）` : '适合窗口'}
-              title={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'}
+            <Tooltip
+              asChild
+              content={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'}
+              label="适合窗口"
             >
-              <Maximize2 size={14} aria-hidden />
-            </button>
-            <button
-              type="button"
-              className="img-lightbox-action"
-              onClick={showActualSize}
-              aria-label="原图像素 1:1"
-              title="源像素与屏幕物理像素 1:1"
-            >
-              <span className="img-lightbox-ratio" aria-hidden>
-                1:1
-              </span>
-            </button>
+              <button
+                type="button"
+                className="img-lightbox-action"
+                onClick={fitImage}
+                aria-label={resetShortcut ? `适合窗口（${resetShortcut}）` : '适合窗口'}
+              >
+                <Maximize2 size={14} aria-hidden />
+              </button>
+            </Tooltip>
+            <Tooltip asChild content="源像素与屏幕物理像素 1:1" label="原图像素 1:1">
+              <button
+                type="button"
+                className="img-lightbox-action"
+                onClick={showActualSize}
+                aria-label="原图像素 1:1"
+              >
+                <span className="img-lightbox-ratio" aria-hidden>
+                  1:1
+                </span>
+              </button>
+            </Tooltip>
           </div>
         </div>}
       </div>

@@ -119,6 +119,32 @@ export async function testConfirmationsUseTheSharedModalLanguage(): Promise<void
   )
 }
 
+export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [quickNotes, lightbox, saveStatus] = await Promise.all([
+    fs.readFile('src/views/QuickNotesView.tsx', 'utf8'),
+    fs.readFile('src/components/ImageLightbox.tsx', 'utf8'),
+    fs.readFile('src/components/SaveStatusIndicator.tsx', 'utf8'),
+  ])
+
+  assert(
+    [quickNotes, lightbox, saveStatus].every((source) => source.includes('Tooltip')),
+    '主要图标操作应复用统一 Tooltip，而不是浏览器原生提示',
+  )
+  assert(
+    !quickNotes.includes("title={selectedNote.pinned") &&
+      !quickNotes.includes('title="删除随记"') &&
+      !lightbox.includes('title={closeShortcut') &&
+      !lightbox.includes('title={previousShortcut') &&
+      !lightbox.includes('title={nextShortcut') &&
+      !lightbox.includes('title={resetShortcut') &&
+      !lightbox.includes('title="源像素与屏幕物理像素 1:1"') &&
+      !saveStatus.includes('title={`保存失败') &&
+      !saveStatus.includes('title="打开数据与备份设置"'),
+    '主要图标操作不得残留原生 title 提示',
+  )
+}
+
 export async function testTodayNavigationAndDateBoundaryRemainInsideTheWorkspace(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [today, visibleTrades, dashboard, strategyHeader] = await Promise.all([
