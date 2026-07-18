@@ -4,13 +4,13 @@ import { SymbolIcon } from '@/components/SymbolIcon'
 import { SymbolPresetSvg } from '@/components/SymbolPresetSvg'
 import {
   SYMBOL_ICON_PRESETS,
-  collectSymbolOptions,
   normalizeSymbol,
   resizeSymbolIconImage,
 } from '@/lib/symbolIcons'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { reorderByKey } from '@/lib/reorder'
+import { hideNativeDragPreview } from '@/lib/dragPreview'
 import './SymbolsPanel.css'
 
 export function SymbolsPanel() {
@@ -29,13 +29,9 @@ export function SymbolsPanel() {
   const [dragOverSymbol, setDragOverSymbol] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const symbols = useMemo(
-    () => collectSymbolOptions(symbolCatalog, trades.map((trade) => trade.symbol)),
-    [symbolCatalog, trades],
-  )
+  const symbols = useMemo(() => symbolCatalog, [symbolCatalog])
 
   const active = selected && symbols.includes(selected) ? selected : symbols[0] ?? null
-  const inCatalog = active ? symbolCatalog.includes(active) : false
   const usedInTrades = active
     ? trades.some((trade) => normalizeSymbol(trade.symbol) === active)
     : false
@@ -146,8 +142,7 @@ export function SymbolsPanel() {
                       setDraggedSymbol(symbol)
                       event.dataTransfer.effectAllowed = 'move'
                       event.dataTransfer.setData('text/plain', symbol)
-                      const row = event.currentTarget.closest('li')
-                      if (row) event.dataTransfer.setDragImage(row, 12, 17)
+                      hideNativeDragPreview(event.dataTransfer)
                     }}
                     onDragEnd={() => {
                       setDraggedSymbol(null)
@@ -187,9 +182,7 @@ export function SymbolsPanel() {
                 <div>
                   <div className="symbols-preview-name">{active}</div>
                   <div className="symbols-preview-hint">
-                    {inCatalog
-                      ? '已在新建交易目录中 · 选择预设或上传自定义图标'
-                      : '来自历史交易 · 选择预设或上传后会加入目录'}
+                    已在新建交易目录中 · 选择预设或上传自定义图标
                   </div>
                 </div>
               </div>
@@ -260,12 +253,10 @@ export function SymbolsPanel() {
                   <RotateCcw size={14} />
                   <span>恢复默认</span>
                 </button>
-                {inCatalog ? (
-                  <button type="button" className="symbols-btn" onClick={removeSymbol}>
-                    <Trash2 size={14} />
-                    <span>从目录移除</span>
-                  </button>
-                ) : null}
+                <button type="button" className="symbols-btn" onClick={removeSymbol}>
+                  <Trash2 size={14} />
+                  <span>删除品种</span>
+                </button>
               </div>
             </>
           ) : (

@@ -1,5 +1,6 @@
-export function fmtMoney(n: number | null | undefined): string {
+export function fmtMoney(n: number | null | undefined, masked = false): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
+  if (masked) return '****'
   const sign = n > 0 ? '+' : ''
   const hasFraction = !Number.isInteger(n)
   return (

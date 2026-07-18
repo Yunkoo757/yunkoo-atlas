@@ -25,6 +25,8 @@ export function SettingsLayout() {
             <NavLink
               key={to}
               to={to}
+              draggable={false}
+              onDragStart={(event) => event.preventDefault()}
               className={({ isActive }) => 'settings-nav-item' + (isActive ? ' is-active' : '')}
             >
               <Icon size={16} />

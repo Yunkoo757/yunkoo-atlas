@@ -80,7 +80,7 @@ import {
   getWorkbenchVisibleTrades,
 } from '@/lib/workbenchTrades'
 import { resolveTradeDetailReturn, tradeDetailNavState } from '@/lib/tradeRoute'
-import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
+import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
 import { bindingKey, chordFromEvent } from '@/shortcuts/chords'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
@@ -1416,9 +1416,16 @@ export function testSymbolCatalogSyncsComposerAndSettings(): void {
 
   const empty = normalizeSymbolCatalog([])
   assert(
-    empty.length === DEFAULT_SYMBOL_CATALOG.length,
-    '空目录应回退到默认品种，避免新建交易无选项',
+    empty.length === 0,
+    '用户显式清空品种目录后不得重新注入固定品种',
   )
+  assert(collectSymbolOptions([], []).length === 0, '空目录不得自行恢复默认品种')
+  assert(normalizeSymbolCatalog(undefined).length > 0, '缺失旧数据仍应获得初始默认目录')
+}
+
+export function testNormalizeDisplayPersistsPrivacyModeSafely(): void {
+  assert(normalizeDisplay({ privacyMode: true }).privacyMode, '直播模式必须随显示偏好持久化')
+  assert(!normalizeDisplay({}).privacyMode, '旧资料库缺少直播模式字段时必须默认关闭')
 }
 
 export function testNormalizeTimeframePresetsAndAliases(): void {
@@ -2228,6 +2235,24 @@ export function testSettingsReorderPersistsSymbolAndReviewTemplateOrder(): void 
       reviewTemplates: previousTemplates,
     })
   }
+}
+
+export async function testSettingsDragSortingAvoidsNativeFloatingPreviews(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [layout, symbols, templates] = await Promise.all([
+    fs.readFile('src/views/settings/SettingsLayout.tsx', 'utf8'),
+    fs.readFile('src/views/settings/SymbolsPanel.tsx', 'utf8'),
+    fs.readFile('src/views/settings/ReviewTemplatesPanel.tsx', 'utf8'),
+  ])
+  assert(
+    layout.includes('draggable={false}') && layout.includes('onDragStart={(event) => event.preventDefault()}'),
+    '设置导航链接必须拦截浏览器原生 file:// 拖拽预览',
+  )
+  assert(
+    symbols.includes('hideNativeDragPreview(event.dataTransfer)') &&
+      templates.includes('hideNativeDragPreview(event.dataTransfer)'),
+    '品种与复盘起稿排序不得显示原生浮动缩略图',
+  )
 }
 
 export function testWorkbenchCountMatchesVisibleTradesWithoutSorting(): void {

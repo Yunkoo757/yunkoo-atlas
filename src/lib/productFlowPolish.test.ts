@@ -192,7 +192,8 @@ export async function testResultConflictsAndReviewShortcutsHaveDedicatedRecovery
   )
   assert(
     review.includes('const rTone = metricTone(trade.rMultiple)') &&
-      review.includes('const pnlTone = metricTone(trade.pnl)'),
+      review.includes('const rawPnlTone = metricTone(trade.pnl)') &&
+      review.includes("const pnlTone = privacyMode ? 'zero' : rawPnlTone"),
     '冲突结果的 PnL 与 R 必须分别着色，不能互相覆盖语义',
   )
 }

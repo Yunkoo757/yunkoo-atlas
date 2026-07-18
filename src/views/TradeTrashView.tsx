@@ -72,6 +72,7 @@ export function TradeTrashView() {
   const navigate = useNavigate()
   const allTrades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
+  const privacyMode = useStore((s) => s.display.privacyMode)
   const restoreTrade = useStore((s) => s.restoreTrade)
   const restoreTrades = useStore((s) => s.restoreTrades)
   const purgeTrade = useStore((s) => s.purgeTrade)
@@ -287,7 +288,7 @@ export function TradeTrashView() {
                     const days = getTradeRemainingDays(trade)
                     const isUrgent = days <= 7
                     const isSelected = selected.has(trade.id)
-                    const pnlTone =
+                    const pnlTone = privacyMode ? '' :
                       trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ''
 
                     return (
@@ -325,7 +326,7 @@ export function TradeTrashView() {
                           </div>
                         </div>
 
-                        <span className={'trash-item-pnl' + pnlTone}>{fmtMoney(trade.pnl)}</span>
+                        <span className={'trash-item-pnl' + pnlTone}>{fmtMoney(trade.pnl, privacyMode)}</span>
                         <span className="trash-item-r">{fmtR(trade.rMultiple)}</span>
                         <span className="trash-item-date">{fmtDate(trade.deletedAt!)}</span>
                         <div

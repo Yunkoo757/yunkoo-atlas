@@ -129,6 +129,7 @@ export function testTransientUiStateDoesNotScheduleAFullSnapshotRewrite(): void 
       groupByStrategy: false,
       groupByDate: true,
       sortBy: 'date',
+      privacyMode: false,
       sidebarPins: [],
       sidebarWorkspaceItems: [],
     },

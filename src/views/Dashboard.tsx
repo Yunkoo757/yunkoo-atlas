@@ -55,6 +55,7 @@ export function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const allTrades = useStore((s) => s.trades)
   const strategyDefs = useStore((s) => s.strategies)
+  const privacyMode = useStore((s) => s.display.privacyMode)
   const openComposer = useStore((s) => s.openComposer)
   const [curveDataOpen, setCurveDataOpen] = useState(false)
   const localDateKey = useLocalDateKey()
@@ -138,9 +139,9 @@ export function Dashboard() {
         <div className="db-cards">
           <Card
             label="净盈亏"
-            value={stats.pnlCount === 0 ? '—' : fmtMoney(stats.totalPnl)}
+            value={stats.pnlCount === 0 ? '—' : fmtMoney(stats.totalPnl, privacyMode)}
             sub={`${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
-            accent={stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
+            accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
           />
           <Card
             label="胜率"
@@ -223,9 +224,9 @@ export function Dashboard() {
                   </defs>
                   <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis hide={privacyMode} tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    content={<CurveTooltip onOpen={openTrade} />}
+                    content={<CurveTooltip onOpen={openTrade} privacyMode={privacyMode} />}
                     cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}
                   />
                   <Area
@@ -271,8 +272,8 @@ export function Dashboard() {
                                 </Link>
                               </th>
                               <td>{point.date}</td>
-                              <td>{fmtMoney(point.pnl)}</td>
-                              <td>{fmtMoney(point.equity)}</td>
+                              <td>{fmtMoney(point.pnl, privacyMode)}</td>
+                              <td>{fmtMoney(point.equity, privacyMode)}</td>
                             </tr>
                           )
                         })}
@@ -318,14 +319,14 @@ export function Dashboard() {
                   <div
                     className="db-strat-pnl"
                     style={{
-                      color: s.pnlCount === 0
+                      color: privacyMode || s.pnlCount === 0
                         ? 'var(--text-tertiary)'
                         : s.pnl >= 0
                           ? 'var(--pos)'
                           : 'var(--neg)',
                     }}
                   >
-                    {s.pnlCount === 0 ? '—' : fmtMoney(s.pnl)}
+                    {s.pnlCount === 0 ? '—' : fmtMoney(s.pnl, privacyMode)}
                   </div>
                 </Link>
               ))
@@ -406,10 +407,12 @@ function CurveTooltip({
   active,
   payload,
   onOpen,
+  privacyMode,
 }: {
   active?: boolean
   payload?: Array<{ payload: DashboardCurvePoint }>
   onOpen: (tradeId: string) => void
+  privacyMode: boolean
 }) {
   if (!active || !payload?.[0]) return null
   const p = payload[0].payload
@@ -425,11 +428,11 @@ function CurveTooltip({
       <div className="db-chart-tip-symbol">{p.label}</div>
       <div className="db-chart-tip-row">
         <span>单笔</span>
-        <span style={{ color: p.pnl >= 0 ? 'var(--pos)' : 'var(--neg)' }}>{fmtMoney(p.pnl)}</span>
+        <span style={{ color: privacyMode ? 'var(--text-tertiary)' : p.pnl >= 0 ? 'var(--pos)' : 'var(--neg)' }}>{fmtMoney(p.pnl, privacyMode)}</span>
       </div>
       <div className="db-chart-tip-row">
         <span>累计</span>
-        <span>{fmtMoney(p.equity)}</span>
+        <span>{fmtMoney(p.equity, privacyMode)}</span>
       </div>
       <div className="db-chart-tip-hint">点击查看交易</div>
     </div>

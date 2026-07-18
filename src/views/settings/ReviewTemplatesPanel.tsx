@@ -3,6 +3,7 @@ import { FileText, GripVertical, Plus, Trash2 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { toast } from '@/lib/toast'
+import { hideNativeDragPreview } from '@/lib/dragPreview'
 import './ReviewTemplatesPanel.css'
 
 export function ReviewTemplatesPanel() {
@@ -122,8 +123,7 @@ export function ReviewTemplatesPanel() {
                     setDraggedId(template.id)
                     event.dataTransfer.effectAllowed = 'move'
                     event.dataTransfer.setData('text/plain', template.id)
-                    const row = event.currentTarget.closest('.review-template-list-item')
-                    if (row) event.dataTransfer.setDragImage(row, 12, 17)
+                    hideNativeDragPreview(event.dataTransfer)
                   }}
                   onDragEnd={() => {
                     setDraggedId(null)

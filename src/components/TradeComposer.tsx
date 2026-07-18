@@ -16,7 +16,7 @@ import {
   type TradeKind,
   type TradeSide,
 } from '@/data/trades'
-import { collectSymbolOptions, DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
+import { collectSymbolOptions } from '@/lib/symbolIcons'
 import {
   SESSION_PRESETS,
   getSessionSelectValue,
@@ -66,7 +66,7 @@ export function TradeComposer() {
     () => collectSymbolOptions(symbolCatalog, [], editing?.symbol ? [editing.symbol] : []),
     [symbolCatalog, editing?.symbol],
   )
-  const defaultSymbol = symbolOptions[0] ?? DEFAULT_SYMBOL_CATALOG[0]
+  const defaultSymbol = symbolOptions[0] ?? ''
 
   const [symbol, setSymbol] = useState(defaultSymbol)
   const [side, setSide] = useState<TradeSide>('long')

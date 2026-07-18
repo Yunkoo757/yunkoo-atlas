@@ -96,7 +96,7 @@ function createWindow() {
       : {}),
     minWidth: 960,
     minHeight: 640,
-    title: 'Yunkoo Atlas',
+    title: 'Trader Atlas',
     backgroundColor: WINDOW_BG,
     autoHideMenuBar: true,
     show: false,

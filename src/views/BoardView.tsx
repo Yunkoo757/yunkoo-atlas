@@ -173,6 +173,7 @@ export function BoardView({
                 isReviewCaseView={isReviewCaseView}
                 strategies={strategies}
                 symbolIcons={symbolIcons}
+                privacyMode={display.privacyMode}
                 dragId={dragId}
                 overCol={overCol}
                 overIdx={overIdx}
@@ -220,6 +221,7 @@ function BoardColumnBody({
   isReviewCaseView,
   strategies,
   symbolIcons,
+  privacyMode,
   dragId,
   overCol,
   overIdx,
@@ -234,6 +236,7 @@ function BoardColumnBody({
   isReviewCaseView: boolean
   strategies: Strategy[]
   symbolIcons: SymbolIconsMap
+  privacyMode: boolean
   dragId: string | null
   overCol: TradeStatus | null
   overIdx: number | null
@@ -375,14 +378,16 @@ function BoardColumnBody({
                   <span
                     style={{
                       color:
-                        t.pnl != null && t.pnl > 0
+                        privacyMode
+                          ? 'var(--text-tertiary)'
+                          : t.pnl != null && t.pnl > 0
                           ? 'var(--pos)'
                           : t.pnl != null && t.pnl < 0
                             ? 'var(--neg)'
                             : 'var(--text-tertiary)',
                     }}
                   >
-                    {t.status === 'planned' || t.status === 'open' ? '—' : fmtMoney(t.pnl)}
+                    {t.status === 'planned' || t.status === 'open' ? '—' : fmtMoney(t.pnl, privacyMode)}
                   </span>
                   {t.status !== 'planned' && t.status !== 'open' && (
                     <span className="bd-card-r">{fmtR(t.rMultiple)}</span>

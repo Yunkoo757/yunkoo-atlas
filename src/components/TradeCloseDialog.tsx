@@ -50,6 +50,7 @@ export function TradeCloseDialog() {
   )
   const cancelTradeClose = useStore((state) => state.cancelTradeClose)
   const completeTradeClose = useStore((state) => state.completeTradeClose)
+  const privacyMode = useStore((state) => state.display.privacyMode)
   const [outcome, setOutcome] = useState<CloseOutcome>('win')
   const [pnl, setPnl] = useState('')
   const [rMultiple, setRMultiple] = useState('')
@@ -129,7 +130,7 @@ export function TradeCloseDialog() {
       return '至少填写盈亏金额或 R 倍数中的一项；两项都会保存。'
     }
     const values = [
-      preview.patch.pnl == null ? null : fmtMoney(preview.patch.pnl),
+      preview.patch.pnl == null ? null : fmtMoney(preview.patch.pnl, privacyMode),
       preview.patch.rMultiple == null ? null : fmtR(preview.patch.rMultiple),
     ].filter(Boolean)
     return `将记录 ${values.join(' · ')}`
@@ -208,6 +209,8 @@ export function TradeCloseDialog() {
                 <span>盈亏金额 · 输入绝对值</span>
                 <input
                   aria-label="盈亏金额"
+                  type={privacyMode ? 'password' : 'text'}
+                  autoComplete="off"
                   inputMode="decimal"
                   value={pnl}
                   onChange={(event) => {

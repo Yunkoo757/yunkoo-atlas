@@ -184,8 +184,8 @@ test('应用构建同时检查渲染进程与 Electron 主进程类型', () => {
 
 test('安装包文件名不含空格，必须与 latest.yml 下载地址一致', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
-  assert.equal(pkg.build?.win?.artifactName, 'Yunkoo-Atlas-${version}-win-${arch}.${ext}')
-  assert.equal(pkg.build?.mac?.artifactName, 'Yunkoo-Atlas-${version}-mac-${arch}.${ext}')
+  assert.equal(pkg.build?.win?.artifactName, 'Trader-Atlas-${version}-win-${arch}.${ext}')
+  assert.equal(pkg.build?.mac?.artifactName, 'Trader-Atlas-${version}-mac-${arch}.${ext}')
 })
 
 test('发布流水线在 Windows 之后构建并上传 macOS 产物', () => {

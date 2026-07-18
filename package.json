@@ -2,8 +2,8 @@
   "name": "yunkoo-atlas",
   "private": true,
   "version": "1.2.17",
-  "description": "Yunkoo Atlas — trading journal with IndexedDB and Electron desktop support",
-  "author": "Yunkoo Atlas",
+  "description": "Trader Atlas — trading journal with IndexedDB and Electron desktop support",
+  "author": "Trader Atlas",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -91,7 +91,7 @@
   },
   "build": {
     "appId": "com.yunkoo-atlas.app",
-    "productName": "Yunkoo Atlas",
+    "productName": "Trader Atlas",
     "electronDist": "node_modules/electron/dist",
     "icon": "build/icon.ico",
     "directories": {
@@ -134,7 +134,7 @@
         }
       ],
       "category": "public.app-category.finance",
-      "artifactName": "Yunkoo-Atlas-${version}-mac-${arch}.${ext}"
+      "artifactName": "Trader-Atlas-${version}-mac-${arch}.${ext}"
     },
     "win": {
       "icon": "build/icon.ico",
@@ -146,7 +146,7 @@
           ]
         }
       ],
-      "artifactName": "Yunkoo-Atlas-${version}-win-${arch}.${ext}"
+      "artifactName": "Trader-Atlas-${version}-win-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

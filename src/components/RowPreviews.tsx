@@ -4,6 +4,7 @@ import { fmtMoney, fmtR, fmtDate } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import { STATUS_META, CONVICTION_META } from '@/data/trades'
 import { PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
+import { useStore } from '@/store/useStore'
 import './RowPreviews.css'
 
 /** 交易行悬浮预览 */
@@ -14,6 +15,7 @@ export function TradePreview({
   trade: Trade
   strategies: Strategy[]
 }) {
+  const privacyMode = useStore((state) => state.display.privacyMode)
   const statusMeta = STATUS_META[trade.status]
   const convictionMeta = CONVICTION_META[trade.conviction]
   const strategyName = getStrategyName(strategies, trade.strategyId)
@@ -46,7 +48,7 @@ export function TradePreview({
           </span>
           <span className="rp-meta-item">
             <span className="rp-meta-label">盈亏</span>
-            <span>{fmtMoney(trade.pnl)}</span>
+            <span>{fmtMoney(trade.pnl, privacyMode)}</span>
           </span>
           <span className="rp-meta-item">
             <span className="rp-meta-label">R</span>

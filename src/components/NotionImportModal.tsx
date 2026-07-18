@@ -25,6 +25,7 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { MAX_NOTION_IMPORT_ROWS } from '@/lib/notionImportLimits'
 import type { TradeKind } from '@/data/trades'
+import { fmtMoney } from '@/lib/format'
 import './NotionImportModal.css'
 
 interface Props {
@@ -67,6 +68,7 @@ export function getNotionCapacityErrorMessage(error: unknown): string | null {
 export function NotionImportModal({ open, onClose }: Props) {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
+  const privacyMode = useStore((s) => s.display.privacyMode)
   const [step, setStep] = useState<Step>('upload')
   const [result, setResult] = useState<NotionImportResult | null>(null)
   const [error, setError] = useState('')
@@ -562,6 +564,7 @@ export function NotionImportModal({ open, onClose }: Props) {
                         setForceImportRows((prev) => ({ ...prev, [p.rowIndex]: next }))
                       }
                       showForce={skipDuplicates}
+                      privacyMode={privacyMode}
                     />
                   ))}
                 </tbody>
@@ -642,12 +645,14 @@ function PreviewRow({
   forceImport,
   onToggleForce,
   showForce,
+  privacyMode,
 }: {
   preview: NotionTradePreview
   duplicate?: DuplicateMatch
   forceImport: boolean
   onToggleForce: (next: boolean) => void
   showForce: boolean
+  privacyMode: boolean
 }) {
   const t = preview.trade
   const hasError = preview.errors.length > 0
@@ -679,8 +684,8 @@ function PreviewRow({
           t.strategyId || '—'
         )}
       </td>
-      <td className={t.pnl != null && t.pnl > 0 ? 'nim-pnl-pos' : t.pnl != null && t.pnl < 0 ? 'nim-pnl-neg' : ''}>
-        {t.pnl != null ? `$${t.pnl.toFixed(2)}` : '—'}
+      <td className={privacyMode ? '' : t.pnl != null && t.pnl > 0 ? 'nim-pnl-pos' : t.pnl != null && t.pnl < 0 ? 'nim-pnl-neg' : ''}>
+        {fmtMoney(t.pnl, privacyMode)}
       </td>
       <td>{t.rMultiple != null ? t.rMultiple.toFixed(2) : '—'}</td>
       <td>{t.openedAt ?? '—'}</td>

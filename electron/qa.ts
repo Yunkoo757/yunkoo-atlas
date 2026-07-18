@@ -64,6 +64,7 @@ function seedSnapshot(): PersistedSnapshot {
       groupByStrategy: false,
       groupByDate: true,
       sortBy: 'date',
+      privacyMode: false,
       sidebarPins: [],
       sidebarWorkspaceItems: [],
     },

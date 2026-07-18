@@ -147,7 +147,7 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
   }
   const symbolKey = normalizeSymbol(normalized.symbol)
   const symbolCatalog =
-    symbolKey && !s.symbolCatalog.includes(symbolKey)
+    !previousTrade && symbolKey && !s.symbolCatalog.includes(symbolKey)
       ? normalizeSymbolCatalog([...s.symbolCatalog, symbolKey])
       : s.symbolCatalog
   if (!previousTrade) {

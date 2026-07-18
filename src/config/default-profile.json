@@ -1,11 +1,11 @@
 {
   "schema": "yunkoo-atlas-default-profile",
   "schemaVersion": 1,
-  "app": "Yunkoo Atlas",
+  "app": "Trader Atlas",
   "profile": {
     "name": "默认配置",
     "version": "1.0.0",
-    "description": "Yunkoo Atlas 新资料库的中性起始配置。"
+    "description": "Trader Atlas 新资料库的中性起始配置。"
   },
   "user": {
     "displayName": "交易者"

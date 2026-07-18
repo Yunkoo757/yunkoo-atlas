@@ -117,7 +117,7 @@ export function UpdatesSettingsPanel() {
         <div className="update-section-head">
           <div>
             <h2 id="update-version-title">当前版本</h2>
-            <p>Yunkoo Atlas {state.currentVersion}</p>
+            <p>Trader Atlas {state.currentVersion}</p>
           </div>
           <span className={'update-status' + statusTone}>{statusLabel(state)}</span>
         </div>

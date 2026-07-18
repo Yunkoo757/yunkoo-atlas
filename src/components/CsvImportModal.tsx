@@ -26,6 +26,7 @@ import { flushPersistNow, withPersistSuspended } from '@/storage/persist'
 import { Select } from '@/components/ui/Select'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { normalizeSymbol } from '@/lib/symbolIcons'
+import { fmtMoney } from '@/lib/format'
 import './CsvImportModal.css'
 
 interface Props {
@@ -38,6 +39,7 @@ export function CsvImportModal({ open, onClose }: Props) {
   const trades = useStore((s) => s.trades)
   const upsertTrades = useStore((s) => s.upsertTrades)
   const purgeTrades = useStore((s) => s.purgeTrades)
+  const privacyMode = useStore((s) => s.display.privacyMode)
 
   const [step, setStep] = useState<'upload' | 'map' | 'preview' | 'done'>('upload')
   const [csvResult, setCsvResult] = useState<ReturnType<typeof parseCsv> | null>(null)
@@ -488,7 +490,7 @@ export function CsvImportModal({ open, onClose }: Props) {
                         <td>{p.trade.side ?? ''}</td>
                         <td>{p.trade.entry ?? ''}</td>
                         <td>{p.trade.exit ?? ''}</td>
-                        <td>{p.trade.pnl ?? ''}</td>
+                        <td>{p.trade.pnl == null ? '' : fmtMoney(p.trade.pnl, privacyMode)}</td>
                         <td>{p.trade.openedAt ?? ''}</td>
                         <td className="csv-err-cell">
                           {p.errors.join('; ')}

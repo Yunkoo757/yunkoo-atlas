@@ -1,4 +1,4 @@
-# Yunkoo Atlas 版本发布与在线更新
+# Trader Atlas 版本发布与在线更新
 
 ## 当前支持范围
 
@@ -15,10 +15,10 @@
 
 ```bash
 # 若从 DMG 拖到了应用程序
-sudo xattr -cr "/Applications/Yunkoo Atlas.app"
+sudo xattr -cr "/Applications/Trader Atlas.app"
 
 # 或对刚下载的 ZIP 解压目录 / DMG 里的 .app
-xattr -cr "/path/to/Yunkoo Atlas.app"
+xattr -cr "/path/to/Trader Atlas.app"
 ```
 
 然后再次双击打开。若仍被拦：系统设置 → 隐私与安全性 → 仍会看到拦截记录，点「仍要打开」。
@@ -33,7 +33,7 @@ xattr -cr "/path/to/Yunkoo Atlas.app"
 2. Resource owner 选择 `Yunkoo757`。
 3. Repository access 选择 **Only select repositories**，只勾选 `yunkoo-atlas`。
 4. Repository permissions 仅设置 **Contents: Read-only**，不要授予写入权限。
-5. 生成令牌后，打开 Yunkoo Atlas → 设置 → 更新。
+5. 生成令牌后，打开 Trader Atlas → 设置 → 更新。
 6. 粘贴令牌并点击“安全保存”。令牌会通过 Electron `safeStorage` 加密保存在本机，不进入源码或交易库。
 
 如果令牌泄露，应立即在 GitHub 撤销并重新生成。
@@ -85,7 +85,7 @@ GitHub Actions 成功后，私有 Release 中应包含：
 - NSIS 安装包 `.exe`
 - `latest.yml`
 - NSIS blockmap
-- macOS `Yunkoo-Atlas-<version>-mac-<arch>.dmg` / `.zip`（arm64 + x64）
+- macOS `Trader-Atlas-<version>-mac-<arch>.dmg` / `.zip`（arm64 + x64）
 
 只有 NSIS 安装版消费 `latest.yml` 完成自动更新。
 

@@ -9,7 +9,7 @@ type DefaultSort = 'date' | 'pnl' | 'conviction'
 interface DefaultProfile {
   schema: 'yunkoo-atlas-default-profile'
   schemaVersion: 1
-  app: 'Yunkoo Atlas'
+  app: 'Trader Atlas'
   profile: {
     name: string
     version: string

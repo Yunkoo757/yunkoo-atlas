@@ -257,14 +257,14 @@ export function normalizeSymbolCatalog(value: unknown): string[] {
     seen.add(key)
     out.push(key)
   }
-  return out.length > 0 ? out : [...DEFAULT_SYMBOL_CATALOG]
+  return out
 }
 
 export function mergeSymbolCatalog(current: string[], imported: string[]): string[] {
   return normalizeSymbolCatalog([...current, ...imported])
 }
 
-/** 合并目录与交易中出现过的品种，供下拉与设置共用 */
+/** 合并目录与历史/当前品种；显式空目录保持为空。 */
 export function collectSymbolOptions(
   catalog: string[],
   tradeSymbols: Iterable<string> = [],

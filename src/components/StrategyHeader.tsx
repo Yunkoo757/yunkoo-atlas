@@ -23,6 +23,7 @@ export function StrategyHeader({
 }) {
   const strategy = useStore((s) => s.getStrategy(strategyId))
   const trades = useStore((s) => s.trades)
+  const privacyMode = useStore((s) => s.display.privacyMode)
   const localDateKey = useLocalDateKey()
   const facets = useMemo(() => {
     const parsed = parseTradeFacets(search)
@@ -92,14 +93,14 @@ export function StrategyHeader({
             className="sh-stat-value"
             style={{
               color:
-                stats.totalPnl == null
+                privacyMode || stats.totalPnl == null
                   ? 'var(--text-tertiary)'
                   : stats.totalPnl >= 0
                     ? 'var(--pos)'
                     : 'var(--neg)',
             }}
           >
-            {fmtMoney(stats.totalPnl)}
+            {fmtMoney(stats.totalPnl, privacyMode)}
           </span>
         </div>
         <div className="sh-stat" title={rCoverage ? `总 R 仅 ${rCoverage}` : undefined}>

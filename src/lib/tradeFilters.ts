@@ -41,6 +41,8 @@ export interface DisplayPrefs {
   groupByStrategy: boolean
   groupByDate: boolean
   sortBy: 'date' | 'pnl' | 'conviction'
+  /** 直播/演示时隐藏所有现金盈亏与权益金额。 */
+  privacyMode: boolean
   /** 交易详情中是否默认固定开头的盘面叙述。 */
   reviewContextPinned?: boolean
   /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
@@ -60,6 +62,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   groupByStrategy: DEFAULT_PROFILE_DISPLAY.groupMode === 'strategy',
   groupByDate: DEFAULT_PROFILE_DISPLAY.groupMode === 'date',
   sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
+  privacyMode: false,
   reviewContextPinned: true,
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
   sidebarWorkspaceItems: migrateSidebarPins(DEFAULT_SIDEBAR_PINS),
@@ -113,6 +116,8 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
     sortBy: SORT_BY.includes(d.sortBy as (typeof SORT_BY)[number])
       ? (d.sortBy as DisplayPrefs['sortBy'])
       : DEFAULT_DISPLAY.sortBy,
+    privacyMode:
+      typeof d.privacyMode === 'boolean' ? d.privacyMode : DEFAULT_DISPLAY.privacyMode,
     reviewContextPinned:
       typeof d.reviewContextPinned === 'boolean'
         ? d.reviewContextPinned

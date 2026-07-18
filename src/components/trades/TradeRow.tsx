@@ -42,6 +42,7 @@ export const TradeRow = memo(function TradeRow({
 }: TradeRowProps) {
   const showResult = trade.status !== 'planned' && trade.status !== 'open'
   const isMissed = trade.status === 'missed'
+  const privacyMode = useStore((state) => state.display.privacyMode)
   const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
   const symbolIconsFromStore = useStore((state) =>
@@ -157,8 +158,8 @@ export const TradeRow = memo(function TradeRow({
           {timeframe}
         </span>
       </span>
-      <span className={'trade-row-pnl' + (isMissed ? ' is-missed' : trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
-        {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl)) : '—'}
+      <span className={'trade-row-pnl' + (isMissed ? ' is-missed' : privacyMode ? ' is-zero' : trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
+        {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, privacyMode)) : '—'}
       </span>
       <span className={'trade-row-r' + (isMissed && trade.rMultiple != null ? ' is-opportunity' : trade.rMultiple != null && trade.rMultiple > 0 ? ' is-positive' : trade.rMultiple != null && trade.rMultiple < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? fmtR(trade.rMultiple) : '—'}

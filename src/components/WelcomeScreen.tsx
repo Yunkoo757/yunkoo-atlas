@@ -65,7 +65,7 @@ export function WelcomeScreen({ onReady }: Props) {
         <div className="welcome-icon">
           <HardDrive size={40} />
         </div>
-        <h1 className="welcome-title">欢迎使用 Yunkoo Atlas</h1>
+        <h1 className="welcome-title">欢迎使用 Trader Atlas</h1>
         <p className="welcome-desc">
           你的交易数据完全存储在本地。请选择或创建一个库目录来开始。
         </p>

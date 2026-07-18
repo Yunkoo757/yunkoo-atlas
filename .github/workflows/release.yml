@@ -68,7 +68,7 @@ jobs:
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
           $tag = "${{ github.ref_name }}"
-          $installer = Get-Item "release/Yunkoo-Atlas-$version-win-x64.exe"
+          $installer = Get-Item "release/Trader-Atlas-$version-win-x64.exe"
           $blockmap = Get-Item "$($installer.FullName).blockmap"
           $metadata = Get-Item "release/latest.yml"
           $files = @($installer, $blockmap, $metadata)
@@ -78,7 +78,7 @@ jobs:
           }
 
           $isPrerelease = $version.Contains('-')
-          $releaseTitle = if ($isPrerelease) { "Yunkoo Atlas $version (Preview)" } else { "Yunkoo Atlas $version" }
+          $releaseTitle = if ($isPrerelease) { "Trader Atlas $version (Preview)" } else { "Trader Atlas $version" }
           $releaseChannel = if ($isPrerelease) { '预览版：不会进入正式版自动更新通道' } else { '正式版' }
           $notes = @"
           ## 发布通道
@@ -180,10 +180,10 @@ jobs:
           version=$(node -p "require('./package.json').version")
           tag="${{ github.ref_name }}"
           files=(
-            release/Yunkoo-Atlas-"$version"-mac-arm64.dmg
-            release/Yunkoo-Atlas-"$version"-mac-arm64.zip
-            release/Yunkoo-Atlas-"$version"-mac-x64.dmg
-            release/Yunkoo-Atlas-"$version"-mac-x64.zip
+            release/Trader-Atlas-"$version"-mac-arm64.dmg
+            release/Trader-Atlas-"$version"-mac-arm64.zip
+            release/Trader-Atlas-"$version"-mac-x64.dmg
+            release/Trader-Atlas-"$version"-mac-x64.zip
           )
           for file in "${files[@]}"; do
             if [ ! -s "$file" ]; then

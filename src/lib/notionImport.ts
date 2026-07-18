@@ -1,5 +1,5 @@
 /**
- * Notion 导出 → Yunkoo Atlas Trade 转换器（完整版）
+ * Notion 导出 → Trader Atlas Trade 转换器（完整版）
  *
  * 支持两种输入：
  * A. CSV 文件（快速，无图片）

@@ -17,6 +17,7 @@ const display: DisplayPrefs = {
   groupByStrategy: false,
   groupByDate: true,
   sortBy: 'date',
+  privacyMode: false,
   sidebarPins: [],
   sidebarWorkspaceItems: [],
   workspaceMemory: {

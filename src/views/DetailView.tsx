@@ -131,6 +131,7 @@ export function DetailView() {
   const starredIds = useStore((s) => s.starredIds)
   const reviewTemplates = useStore((s) => s.reviewTemplates)
   const reviewContextPinned = useStore((s) => s.display.reviewContextPinned ?? true)
+  const privacyMode = useStore((s) => s.display.privacyMode)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
@@ -1022,17 +1023,20 @@ export function DetailView() {
               format={(v) =>
                 trade.status === 'planned' || trade.status === 'open'
                   ? '—'
-                  : fmtMoney(v as number)
+                  : fmtMoney(v as number, privacyMode)
               }
               inputType="number"
               nullable
               color={
-                trade.pnl != null && trade.pnl > 0
+                privacyMode
+                  ? undefined
+                  : trade.pnl != null && trade.pnl > 0
                   ? 'var(--pos)'
                   : trade.pnl != null && trade.pnl < 0
                     ? 'var(--neg)'
                     : undefined
               }
+              masked={privacyMode}
               onSave={(v) => commitTradeResultEdit({
                 kind: 'result',
                 source: 'pnl',
@@ -1196,6 +1200,7 @@ function EditableDataRow({
   step,
   nullable,
   color,
+  masked = false,
   onSave,
 }: {
   label: string
@@ -1205,6 +1210,7 @@ function EditableDataRow({
   step?: string
   nullable?: boolean
   color?: string
+  masked?: boolean
   onSave: (v: number | null) => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -1216,6 +1222,7 @@ function EditableDataRow({
   }, [editing])
 
   const startEdit = () => {
+    if (masked) return
     setDraft(value == null ? '' : String(value))
     setEditing(true)
   }
@@ -1257,7 +1264,13 @@ function EditableDataRow({
   }
 
   return (
-    <button className="dv-datarow dv-datarow-btn" onClick={startEdit} type="button">
+    <button
+      className="dv-datarow dv-datarow-btn"
+      onClick={startEdit}
+      type="button"
+      aria-disabled={masked}
+      title={masked ? '直播模式下已隐藏盈亏金额' : undefined}
+    >
       <span className="dv-datarow-label">{label}</span>
       <span className="dv-datarow-value" style={color ? { color } : undefined}>
         {format(value)}

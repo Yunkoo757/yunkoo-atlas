@@ -99,6 +99,7 @@ export function ReviewSessionView() {
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
   const starredIds = useStore((state) => state.starredIds)
+  const privacyMode = useStore((state) => state.display.privacyMode)
   const updateTradeData = useStore((state) => state.updateTradeData)
   const starred = useMemo(() => new Set(starredIds), [starredIds])
   const [filters, setFilters] = useState<ReviewSessionFilters>(DEFAULT_REVIEW_SESSION_FILTERS)
@@ -334,6 +335,7 @@ export function ReviewSessionView() {
           onAssess={assess}
           onSkip={advance}
           onOpenDetail={openDetail}
+          privacyMode={privacyMode}
         />
       )}
     </div>
@@ -415,6 +417,7 @@ function ReviewSessionItem({
   onAssess,
   onSkip,
   onOpenDetail,
+  privacyMode,
 }: {
   trade: Trade
   strategyName: string
@@ -422,9 +425,11 @@ function ReviewSessionItem({
   onAssess: (assessment: ReviewSessionAssessment) => void
   onSkip: () => void
   onOpenDetail: () => void
+  privacyMode: boolean
 }) {
   const rTone = metricTone(trade.rMultiple)
-  const pnlTone = metricTone(trade.pnl)
+  const rawPnlTone = metricTone(trade.pnl)
+  const pnlTone = privacyMode ? 'zero' : rawPnlTone
   return (
     <main className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
@@ -444,7 +449,7 @@ function ReviewSessionItem({
             <span>{trade.side === 'long' ? '做多' : '做空'}</span>
             <span>{fmtDate(trade.recordedAt ?? trade.openedAt)}</span>
             <span className={`is-${rTone}`}>{fmtR(trade.rMultiple)}</span>
-            {trade.pnl != null ? <span className={`is-${pnlTone}`}>{fmtMoney(trade.pnl)}</span> : null}
+            {trade.pnl != null ? <span className={`is-${pnlTone}`}>{fmtMoney(trade.pnl, privacyMode)}</span> : null}
             <button type="button" onClick={onOpenDetail}>打开详情</button>
           </div>
         </header>
