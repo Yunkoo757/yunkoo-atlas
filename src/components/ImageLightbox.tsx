@@ -204,21 +204,15 @@ export function ImageLightbox() {
       </div>
 
       <div className="img-lightbox-chrome">
-        <Tooltip
-          asChild
-          content={closeShortcut ? `关闭预览 · ${closeShortcut}` : '关闭预览'}
-          label="关闭预览"
+        <button
+          ref={closeRef}
+          type="button"
+          className="img-lightbox-close"
+          onClick={closeLightbox}
+          aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
         >
-          <button
-            ref={closeRef}
-            type="button"
-            className="img-lightbox-close"
-            onClick={closeLightbox}
-            aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
-          >
-            <X size={18} />
-          </button>
-        </Tooltip>
+          <X size={18} />
+        </button>
         {hasMany && (
           <>
             <Tooltip
