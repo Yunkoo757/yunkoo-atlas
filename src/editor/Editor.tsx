@@ -210,7 +210,7 @@ export function Editor({
     if ((reviewContextPinned && !contextActive && leadingText) || (!reviewContextPinned && contextActive)) {
       editor.commands.setContent(toggleReviewContextDocument(doc), true)
     }
-  }, [editor, readOnly, reviewContextPinned, reviewContextTools, content])
+  }, [editor, readOnly, reviewContextPinned, reviewContextTools])
 
   const reviewContextActive = editor
     ? hasReviewContextDocument(editor.getJSON())

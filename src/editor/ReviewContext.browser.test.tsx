@@ -70,6 +70,37 @@ async function run(): Promise<void> {
   assert(!host.querySelector('section[data-review-context]'), '取消固定后不得残留摘要容器')
   assert(host.querySelector('.ProseMirror')?.children[2]?.tagName === 'IMG', '取消固定不得改变图文顺序')
 
+  latestHtml = ''
+  const renderBlankEditor = (content: string) => {
+    root.render(
+      <Editor
+        content={content}
+        onChange={(html) => {
+          latestHtml = html
+          renderBlankEditor(html)
+        }}
+        reviewContextTools
+        reviewContextPinned
+      />,
+    )
+  }
+  renderBlankEditor('')
+  await waitFor(
+    () => Boolean(
+      (host.querySelector<HTMLElement>('.ProseMirror') as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor,
+    ),
+    '空白复盘编辑器未就绪',
+  )
+  const blankEditable = host.querySelector<HTMLElement>('.ProseMirror')
+  const blankEditor = (blankEditable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor
+  await waitForFrame()
+  blankEditor?.chain().focus('end').insertContent('Q').run()
+  await waitForFrame()
+  blankEditor?.commands.insertContent('A')
+  await waitForFrame()
+  assert(!host.querySelector('section[data-review-context]'), '空白复盘输入首字时不得立即重排为固定摘要')
+  assert(blankEditable?.textContent === 'QA', '连续输入不得因默认固定模式拆分首字符')
+
   root.render(
     <Editor
       content="<img src='https://example.invalid/image-first.png'>"
