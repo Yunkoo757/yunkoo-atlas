@@ -104,6 +104,7 @@ async function run(): Promise<void> {
     const missedRow = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
       .find((row) => row.textContent?.includes('错过 · 犹豫未进'))
     assert(missedRow && !missedRow.textContent?.includes('$'), '错过机会不得展示为真实盈亏')
+    assert(missedRow.querySelectorAll('button').length === 0, '错过机会不应显示不可用的交易角色按钮')
     assert(document.querySelectorAll('.wr-history button').length === 0, '首次复盘不应显示没有历史价值的周次栏')
     assert(document.body.textContent?.includes('首次周复盘'), '首次复盘缺少明确的首次使用提示')
     if (new URLSearchParams(location.search).has('visual')) {

@@ -107,18 +107,20 @@ function TradeEvidence({
           {result}
         </span>
       </Link>
-      <div className="wr-trade-roles" aria-label={`${trade.symbol} 复盘角色`}>
-        {roleButtons.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={review[key].includes(trade.id)}
-            onClick={() => onPatch({ [key]: toggleValue(review[key], trade.id) })}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {!isMissedTrade ? (
+        <div className="wr-trade-roles" aria-label={`${trade.symbol} 复盘角色`}>
+          {roleButtons.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={review[key].includes(trade.id)}
+              onClick={() => onPatch({ [key]: toggleValue(review[key], trade.id) })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </article>
   )
 }
