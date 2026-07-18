@@ -25,10 +25,14 @@ import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { CrumbsNav } from '@/components/ui/CrumbsNav'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import './TrashView.css'
 
 type TrashGroup = { label: string; items: Trade[]; priority: number }
+type PurgeRequest =
+  | { kind: 'single'; ids: string[]; ref: string }
+  | { kind: 'batch'; ids: string[] }
 
 function groupTrash(trades: Trade[]): TrashGroup[] {
   const groups = new Map<string, { items: Trade[]; priority: number }>()
@@ -73,6 +77,7 @@ export function TradeTrashView() {
   const purgeTrades = useStore((s) => s.purgeTrades)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+  const [purgeRequest, setPurgeRequest] = useState<PurgeRequest | null>(null)
 
   const trashTrades = useMemo(() => {
     return allTrades.filter((t) => isTradeDeleted(t) && !isTradeExpired(t))
@@ -107,17 +112,25 @@ export function TradeTrashView() {
     toast('已恢复交易')
   }
 
-  const handlePurge = (id: string) => {
-    const confirmed = window.confirm('彻底删除后无法恢复，确定继续？')
-    if (!confirmed) return
+  const requestPurge = (trade: Trade) => {
+    setPurgeRequest({ kind: 'single', ids: [trade.id], ref: trade.ref })
+  }
 
-    purgeTrade(id)
+  const confirmPurge = () => {
+    if (!purgeRequest) return
+    const count = purgeRequest.ids.length
+    if (purgeRequest.kind === 'single') {
+      purgeTrade(purgeRequest.ids[0])
+    } else {
+      purgeTrades(purgeRequest.ids)
+    }
     setSelected((prev) => {
       const next = new Set(prev)
-      next.delete(id)
+      for (const id of purgeRequest.ids) next.delete(id)
       return next
     })
-    toast('已彻底删除')
+    setPurgeRequest(null)
+    toast(count === 1 ? '已彻底删除' : `已彻底删除 ${count} 笔交易`)
   }
 
   const handleBatchRestore = () => {
@@ -130,13 +143,7 @@ export function TradeTrashView() {
 
   const handleBatchPurge = () => {
     if (selected.size === 0) return
-    const confirmed = window.confirm(`彻底删除 ${selected.size} 笔交易后无法恢复，确定继续？`)
-    if (!confirmed) return
-
-    const count = selected.size
-    purgeTrades([...selected])
-    setSelected(new Set())
-    toast(`已彻底删除 ${count} 笔交易`)
+    setPurgeRequest({ kind: 'batch', ids: [...selected] })
   }
 
   const handleSelectAll = () => {
@@ -314,7 +321,7 @@ export function TradeTrashView() {
                               type="button"
                               className="trash-btn-purge"
                               aria-label={`永久删除 ${trade.ref}`}
-                              onClick={() => handlePurge(trade.id)}
+                              onClick={() => requestPurge(trade)}
                             >
                               <Trash2 size={14} />
                             </button>
@@ -344,6 +351,36 @@ export function TradeTrashView() {
           <span>彻底删除</span>
         </button>
       </BatchActionBar>
+
+      {purgeRequest ? (
+        <ModalShell
+          size="compact"
+          title={purgeRequest.kind === 'single'
+            ? `彻底删除 ${purgeRequest.ref}？`
+            : `彻底删除 ${purgeRequest.ids.length} 笔交易？`}
+          description="此操作无法撤销，交易记录及其复盘内容会被永久移除。"
+          onClose={() => setPurgeRequest(null)}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered"
+                data-autofocus
+                onClick={() => setPurgeRequest(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-danger-solid"
+                onClick={confirmPurge}
+              >
+                彻底删除
+              </button>
+            </>
+          )}
+        />
+      ) : null}
     </div>
   )
 }

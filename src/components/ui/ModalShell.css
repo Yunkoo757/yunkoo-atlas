@@ -22,6 +22,10 @@
   animation: modalShellSlideIn 140ms var(--ease-out);
 }
 
+.modal-shell--compact {
+  width: min(440px, calc(100vw - 32px));
+}
+
 .modal-shell-header {
   display: flex;
   align-items: flex-start;

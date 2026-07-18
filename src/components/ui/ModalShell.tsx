@@ -20,13 +20,15 @@ export function ModalShell({
   children,
   footer,
   busy = false,
+  size = 'default',
   onClose,
 }: {
   title: string
   description?: string
-  children: ReactNode
+  children?: ReactNode
   footer?: ReactNode
   busy?: boolean
+  size?: 'default' | 'compact'
   onClose: () => void
 }) {
   const titleId = useId()
@@ -97,7 +99,7 @@ export function ModalShell({
     >
       <div
         ref={panelRef}
-        className="modal-shell"
+        className={`modal-shell${size === 'compact' ? ' modal-shell--compact' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -120,7 +122,7 @@ export function ModalShell({
             <X size={16} />
           </button>
         </header>
-        <div className="modal-shell-body">{children}</div>
+        {children ? <div className="modal-shell-body">{children}</div> : null}
         {footer ? <footer className="modal-shell-footer">{footer}</footer> : null}
       </div>
     </div>,
