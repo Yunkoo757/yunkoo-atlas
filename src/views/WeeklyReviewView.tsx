@@ -15,6 +15,7 @@ import {
   buildWeeklyReviewMetrics,
   buildWeeklyReviewTrend,
   createWeeklyReview,
+  missedTradesInWeek,
   summarizeWeeklyMistakeDimensions,
   tradesClosedInWeek,
   WEEKLY_MISTAKE_DIMENSIONS,
@@ -24,7 +25,7 @@ import {
   type WeeklyReview,
   type WeeklyCommitmentResult,
 } from '@/data/weeklyReviews'
-import type { Trade } from '@/data/trades'
+import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
@@ -88,6 +89,10 @@ function TradeEvidence({
   review: WeeklyReview
   onPatch: (patch: ReviewPatch) => void
 }) {
+  const isMissedTrade = trade.status === 'missed'
+  const result = isMissedTrade
+    ? `错过 · ${MISS_REASON_META[trade.missReason ?? 'other'].label}`
+    : typeof trade.pnl === 'number' ? fmtMoney(trade.pnl) : fmtR(trade.rMultiple)
   const roleButtons = [
     { key: 'highlightTradeIds' as const, label: '做得好' },
     { key: 'mistakeTradeIds' as const, label: '犯错' },
@@ -98,8 +103,8 @@ function TradeEvidence({
       <Link to={tradeDetailPath(trade)} className="wr-trade-main">
         <span className="wr-symbol">{trade.symbol}</span>
         <span>{trade.ref}</span>
-        <span className={`wr-result ${trade.status === 'loss' ? 'is-negative' : trade.status === 'win' ? 'is-positive' : ''}`}>
-          {typeof trade.pnl === 'number' ? fmtMoney(trade.pnl) : fmtR(trade.rMultiple)}
+        <span className={`wr-result ${isMissedTrade ? 'is-missed' : trade.status === 'loss' ? 'is-negative' : trade.status === 'win' ? 'is-positive' : ''}`}>
+          {result}
         </span>
       </Link>
       <div className="wr-trade-roles" aria-label={`${trade.symbol} 复盘角色`}>
@@ -136,7 +141,14 @@ export function WeeklyReviewView() {
     () => tradesClosedInWeek(trades, selectedWeek),
     [trades, selectedWeek],
   )
-  const liveMetrics = useMemo(() => buildWeeklyReviewMetrics(weekTrades), [weekTrades])
+  const weekMissedTrades = useMemo(
+    () => missedTradesInWeek(trades, selectedWeek),
+    [trades, selectedWeek],
+  )
+  const liveMetrics = useMemo(
+    () => buildWeeklyReviewMetrics(weekTrades, weekMissedTrades),
+    [weekTrades, weekMissedTrades],
+  )
   const metrics = review.status === 'completed' && review.metricsSnapshot
     ? review.metricsSnapshot
     : liveMetrics
@@ -260,7 +272,7 @@ export function WeeklyReviewView() {
             <div>
               <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
               <h1>{formatWeekRange(selectedWeek)}</h1>
-              <p>{selectedWeek === currentWeek ? '本周进行中 · ' : ''}仅统计实盘已平仓交易 · 按平仓日</p>
+              <p>{selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列</p>
             </div>
             <div className="wr-head-actions">
               <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">
@@ -292,6 +304,22 @@ export function WeeklyReviewView() {
                   <Metric label="总盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl) : '—'} tone={metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={`${metrics.pnlCount}/${metrics.tradeCount} 笔有 P&L`} />
                   <Metric label="平均 R" value={fmtR(metrics.averageR)} tone={(metrics.averageR ?? 0) > 0 ? 'positive' : (metrics.averageR ?? 0) < 0 ? 'negative' : undefined} hint={`${metrics.rCount}/${metrics.tradeCount} 笔有 R`} />
                 </div>
+                {metrics.missedCount > 0 ? (
+                  <div className="wr-missed-summary">
+                    <div>
+                      <span>执行缺口</span>
+                      <strong>错过机会 {metrics.missedCount}</strong>
+                      <small>单独复盘，不计入平仓、胜率、盈亏与平均 R</small>
+                    </div>
+                    <p>
+                      {Object.entries(metrics.missedReasonCounts)
+                        .sort((left, right) => right[1] - left[1])
+                        .map(([reason, count]) => (
+                          <span key={reason}>{MISS_REASON_META[reason as MissReason]?.label ?? '其他'}<b>×{count}</b></span>
+                        ))}
+                    </p>
+                  </div>
+                ) : null}
                 {metrics.conflictCount > 0 ? <p className="wr-data-warning">有 {metrics.conflictCount} 笔结果口径冲突，未进入绩效计算。</p> : null}
               </section>
 
@@ -348,11 +376,26 @@ export function WeeklyReviewView() {
 
               <section className="wr-section">
                 <div className="wr-section-head"><div><span>{previousReview ? '05' : '04'}</span><h2>关键交易证据</h2></div><small>标记角色后，可在年度复盘中回看</small></div>
-                {weekTrades.length ? (
-                  <div className="wr-trade-list">
-                    {weekTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
+                {weekTrades.length || weekMissedTrades.length ? (
+                  <div className="wr-evidence-groups">
+                    {weekTrades.length ? (
+                      <div className="wr-evidence-group">
+                        {weekMissedTrades.length ? <div className="wr-evidence-group-title">已执行并平仓</div> : null}
+                        <div className="wr-trade-list">
+                          {weekTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
+                        </div>
+                      </div>
+                    ) : null}
+                    {weekMissedTrades.length ? (
+                      <div className="wr-evidence-group">
+                        <div className="wr-evidence-group-title">错过机会 <small>仅作执行证据，不计入绩效</small></div>
+                        <div className="wr-trade-list">
+                          {weekMissedTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                ) : <div className="wr-empty">本周没有实盘已平仓交易。仍可记录无交易决策、观察与下周行动。</div>}
+                ) : <div className="wr-empty">本周没有实盘已平仓交易或错过机会。仍可记录无交易决策、观察与下周行动。</div>}
               </section>
 
               <section className="wr-section">

@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
+import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
@@ -29,6 +30,8 @@ export interface WeeklyReviewMetrics {
   rCount: number
   averageR: number | null
   mistakeTagCounts: Record<string, number>
+  missedCount: number
+  missedReasonCounts: Record<string, number>
 }
 
 export interface WeeklyReview {
@@ -104,19 +107,33 @@ export function createWeeklyReview(weekStart: string, now = new Date()): WeeklyR
 export function tradesClosedInWeek(trades: Trade[], weekStart: string): Trade[] {
   const weekEnd = weekEndFor(weekStart)
   return trades.filter((trade) => {
-    if (trade.deletedAt || trade.tradeKind !== 'live' || !trade.closedAt) return false
+    if (trade.deletedAt || trade.tradeKind !== 'live' || !isExecutedClosed(trade.status) || !trade.closedAt) return false
     const date = trade.closedAt.slice(0, 10)
     return date >= weekStart && date <= weekEnd
   })
 }
 
-export function buildWeeklyReviewMetrics(trades: Trade[]): WeeklyReviewMetrics {
+export function missedTradesInWeek(trades: Trade[], weekStart: string): Trade[] {
+  const weekEnd = weekEndFor(weekStart)
+  return trades.filter((trade) => {
+    if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status) || !trade.closedAt) return false
+    const date = trade.closedAt.slice(0, 10)
+    return date >= weekStart && date <= weekEnd
+  })
+}
+
+export function buildWeeklyReviewMetrics(trades: Trade[], missedTrades: Trade[] = []): WeeklyReviewMetrics {
   const summary = summarizeTradeResults(trades)
   const mistakeTagCounts: Record<string, number> = {}
+  const missedReasonCounts: Record<string, number> = {}
   for (const trade of trades) {
     for (const tag of trade.mistakeTags ?? []) {
       mistakeTagCounts[tag] = (mistakeTagCounts[tag] ?? 0) + 1
     }
+  }
+  for (const trade of missedTrades) {
+    const reason = trade.missReason ?? 'other'
+    missedReasonCounts[reason] = (missedReasonCounts[reason] ?? 0) + 1
   }
   return {
     tradeCount: trades.length,
@@ -132,6 +149,8 @@ export function buildWeeklyReviewMetrics(trades: Trade[]): WeeklyReviewMetrics {
     rCount: summary.rCount,
     averageR: summary.averageR,
     mistakeTagCounts,
+    missedCount: missedTrades.length,
+    missedReasonCounts,
   }
 }
 
@@ -166,8 +185,21 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
   if (!value) return []
   const byWeek = new Map<string, WeeklyReview>()
   for (const review of value) {
+    const normalized = review.metricsSnapshot && (
+      review.metricsSnapshot.missedCount === undefined ||
+      review.metricsSnapshot.missedReasonCounts === undefined
+    )
+      ? {
+          ...review,
+          metricsSnapshot: {
+            ...review.metricsSnapshot,
+            missedCount: review.metricsSnapshot.missedCount ?? 0,
+            missedReasonCounts: review.metricsSnapshot.missedReasonCounts ?? {},
+          },
+        }
+      : review
     const current = byWeek.get(review.weekStart)
-    if (!current || review.updatedAt >= current.updatedAt) byWeek.set(review.weekStart, review)
+    if (!current || normalized.updatedAt >= current.updatedAt) byWeek.set(normalized.weekStart, normalized)
   }
   return [...byWeek.values()].sort((left, right) => right.weekStart.localeCompare(left.weekStart))
 }

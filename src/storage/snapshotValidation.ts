@@ -262,8 +262,16 @@ function isWeeklyReviewMetrics(value: unknown): boolean {
     if (typeof value[field] !== 'number' || !Number.isFinite(value[field])) return false
   }
   if (!isNullableFiniteNumber(value.winRate) || !isNullableFiniteNumber(value.averageR)) return false
-  return isRecord(value.mistakeTagCounts) && Object.values(value.mistakeTagCounts).every(
+  if (!isRecord(value.mistakeTagCounts) || !Object.values(value.mistakeTagCounts).every(
     (count) => typeof count === 'number' && Number.isFinite(count),
+  )) return false
+  if (value.missedCount !== undefined && (
+    typeof value.missedCount !== 'number' || !Number.isFinite(value.missedCount)
+  )) return false
+  return value.missedReasonCounts === undefined || (
+    isRecord(value.missedReasonCounts) && Object.values(value.missedReasonCounts).every(
+      (count) => typeof count === 'number' && Number.isFinite(count),
+    )
   )
 }
 

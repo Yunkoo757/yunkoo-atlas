@@ -2,6 +2,7 @@ import {
   assertValidPersistedSnapshot,
   isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
+import { buildWeeklyReviewMetrics, createWeeklyReview } from '@/data/weeklyReviews'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -22,6 +23,39 @@ export function testSnapshotValidationAcceptsOpenTradesAndLegacyOptionalFields()
   assertValidPersistedSnapshot(valid)
   const legacy = { ...valid, trades: valid.trades.map(({ tradeKind: _tradeKind, mistakeTags: _mistakes, ...trade }) => trade) }
   assertValidPersistedSnapshot(legacy)
+}
+
+export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalformedExecutionGaps(): void {
+  const review = {
+    ...createWeeklyReview('2026-07-13'),
+    metricsSnapshot: buildWeeklyReviewMetrics([]),
+  }
+  const legacyMetrics: Record<string, unknown> = { ...review.metricsSnapshot }
+  delete legacyMetrics.missedCount
+  delete legacyMetrics.missedReasonCounts
+  assertValidPersistedSnapshot({
+    ...valid,
+    weeklyReviews: [{ ...review, metricsSnapshot: legacyMetrics }],
+  })
+
+  for (const metricsPatch of [
+    { missedCount: '1' },
+    { missedReasonCounts: { hesitation: '1' } },
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({
+        ...valid,
+        weeklyReviews: [{
+          ...review,
+          metricsSnapshot: { ...review.metricsSnapshot, ...metricsPatch },
+        }],
+      })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '损坏的执行缺口统计不得进入资料库快照')
+  }
 }
 
 export function testSnapshotValidationRejectsMalformedTradeAndSettingsData(): void {

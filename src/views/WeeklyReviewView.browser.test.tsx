@@ -45,7 +45,7 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
-function makeTrade(id: string, status: 'win' | 'loss', pnl: number): Trade {
+function makeTrade(id: string, status: 'win' | 'loss' | 'missed', pnl: number | null): Trade {
   const weekStart = weekStartFor()
   return {
     id,
@@ -56,7 +56,7 @@ function makeTrade(id: string, status: 'win' | 'loss', pnl: number): Trade {
     conviction: 'medium',
     strategyId: 'strategy',
     tags: [],
-    mistakeTags: status === 'loss' ? ['追价'] : [],
+    mistakeTags: status === 'loss' ? ['追价'] : status === 'missed' ? ['情绪化'] : [],
     reviewStatus: status === 'win' ? 'reviewed' : 'unreviewed',
     reviewCategory: status === 'loss' ? 'mistake' : 'normal',
     tradeKind: 'live',
@@ -65,7 +65,8 @@ function makeTrade(id: string, status: 'win' | 'loss', pnl: number): Trade {
     size: 1,
     pnl,
     rMultiple: null,
-    resultSource: 'pnl',
+    resultSource: status === 'missed' ? undefined : 'pnl',
+    missReason: status === 'missed' ? 'hesitation' : undefined,
     openedAt: `${weekStart}T08:00:00.000Z`,
     closedAt: `${weekStart}T09:00:00.000Z`,
     note: '',
@@ -82,7 +83,7 @@ async function run(): Promise<void> {
   window.addEventListener('error', capturePageError)
   try {
     useStore.setState({
-      trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50)],
+      trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50), makeTrade('three', 'missed', null)],
       weeklyReviews: [],
     })
     root.render(
@@ -96,6 +97,13 @@ async function run(): Promise<void> {
 
     await waitFor(() => document.body.textContent?.includes('+$100') ?? false, '自动周指标未按平仓交易计算')
     assert(document.body.textContent?.includes('50%'), '胜率指标未出现')
+    assert(document.body.textContent?.includes('错过机会 1'), '错过机会没有作为独立执行缺口显示')
+    assert(document.body.textContent?.includes('犹豫未进'), '执行缺口没有显示原因分布')
+    assert(document.body.textContent?.includes('不计入平仓、胜率、盈亏与平均 R'), '执行缺口缺少与绩效指标的边界说明')
+    assert(document.querySelectorAll('.wr-trade-row').length === 3, '关键证据应同时保留已执行交易与错过机会')
+    const missedRow = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
+      .find((row) => row.textContent?.includes('错过 · 犹豫未进'))
+    assert(missedRow && !missedRow.textContent?.includes('$'), '错过机会不得展示为真实盈亏')
     assert(document.querySelectorAll('.wr-history button').length === 0, '首次复盘不应显示没有历史价值的周次栏')
     assert(document.body.textContent?.includes('首次周复盘'), '首次复盘缺少明确的首次使用提示')
     if (new URLSearchParams(location.search).has('visual')) {
@@ -121,6 +129,9 @@ async function run(): Promise<void> {
     await waitFor(() => useStore.getState().weeklyReviews[0]?.status === 'completed', '周复盘未完成')
     const completed = useStore.getState().weeklyReviews[0]
     assert(completed?.metricsSnapshot?.totalPnl === 100, '完成时没有冻结周指标快照')
+    assert(completed?.metricsSnapshot?.tradeCount === 2, '错过机会被错误计入平仓交易数量')
+    assert(completed?.metricsSnapshot?.missedCount === 1, '完成时没有冻结执行缺口数量')
+    assert(completed?.metricsSnapshot?.mistakeTagCounts['情绪化'] === undefined, '错过机会标签污染了已执行交易错误统计')
 
     clickButton('重新打开')
     await waitFor(() => useStore.getState().weeklyReviews[0]?.status === 'draft', '完成的复盘无法重新打开')
