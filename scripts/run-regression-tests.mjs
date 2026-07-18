@@ -44,6 +44,7 @@ import fs from 'node:fs/promises'
   'src/views/WorkbenchEmptyState.design.test.ts',
   'src/views/WorkbenchPerformance.design.test.ts',
   'src/views/detailNoteLoad.test.ts',
+  'src/editor/reviewContext.test.ts',
   'src/lib/appUpdate.test.ts',
   'src/lib/windowBounds.test.ts',
   'src/lib/persistenceSafety.test.ts',
@@ -204,6 +205,11 @@ try {
       url: '/src/editor/EditorImagePersistence.browser.test.html',
       promiseKey: '__editorImagePersistenceTest',
       label: 'src/editor/EditorImagePersistence.browser.test.tsx :: slow image persistence survives editor unmount',
+    },
+    {
+      url: '/src/editor/ReviewContext.browser.test.html',
+      promiseKey: '__reviewContextInteractionTest',
+      label: 'src/editor/ReviewContext.browser.test.tsx :: pinned narrative and starter remain reversible',
     },
     {
       url: '/src/storage/assets.browser.test.html',

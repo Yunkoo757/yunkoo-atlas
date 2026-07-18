@@ -15,6 +15,12 @@ import {
 } from '@/lib/tradeFilters'
 import { type UserProfile } from '@/storage/types'
 import type { ExportPayload } from '@/lib/importExport'
+import {
+  createDefaultReviewTemplates,
+  createReviewTemplate,
+  normalizeReviewTemplates,
+  type ReviewTemplate,
+} from '@/data/reviewTemplates'
 import { mergeImportPayload } from '@/lib/importExport'
 import { appendActivity, createActivity } from '@/lib/activities'
 import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
@@ -211,6 +217,7 @@ interface State {
   savedTradeViews: SavedTradeView[]
   symbolIcons: SymbolIconsMap
   symbolCatalog: string[]
+  reviewTemplates: ReviewTemplate[]
   saveTradeView: (view: SavedTradeView) => void
   renameTradeView: (id: string, name: string) => void
   removeTradeView: (id: string) => void
@@ -220,6 +227,9 @@ interface State {
   clearSymbolIcon: (symbol: string) => void
   addSymbolToCatalog: (symbol: string) => void
   removeSymbolFromCatalog: (symbol: string) => void
+  addReviewTemplate: () => string
+  updateReviewTemplate: (id: string, patch: Partial<Pick<ReviewTemplate, 'name' | 'content'>>) => void
+  removeReviewTemplate: (id: string) => void
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
@@ -374,6 +384,7 @@ export const useStore = create<State>()((set, get) => ({
       savedTradeViews: [],
       symbolIcons: {},
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
+      reviewTemplates: createDefaultReviewTemplates(),
       upsertWeeklyReview: (review) =>
         set((state) => ({
           weeklyReviews: normalizeWeeklyReviews([
@@ -516,6 +527,29 @@ export const useStore = create<State>()((set, get) => ({
           symbolCatalog: s.symbolCatalog.filter((item) => item !== key),
         }))
       },
+      addReviewTemplate: () => {
+        const template = createReviewTemplate()
+        set((s) => ({ reviewTemplates: [...s.reviewTemplates, template] }))
+        return template.id
+      },
+      updateReviewTemplate: (id, patch) =>
+        set((s) => ({
+          reviewTemplates: normalizeReviewTemplates(s.reviewTemplates.map((template) =>
+            template.id === id
+              ? {
+                  ...template,
+                  ...patch,
+                  name: patch.name === undefined
+                    ? template.name
+                    : patch.name.trim()
+                      ? patch.name.slice(0, 40)
+                      : template.name,
+                }
+              : template,
+          )),
+        })),
+      removeReviewTemplate: (id) =>
+        set((s) => ({ reviewTemplates: s.reviewTemplates.filter((template) => template.id !== id) })),
       setAvatar: (avatarId) =>
         set((s) => ({
           profile: { ...s.profile, avatarId, customAvatarDataUrl: null },

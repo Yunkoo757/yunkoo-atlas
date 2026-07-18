@@ -15,6 +15,7 @@ import {
   Trash2,
 } from '@/icons/appIcons'
 import { UserAvatar } from '@/components/UserAvatar'
+import { StrategyIcon } from '@/components/StrategyIcon'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
 import {
@@ -285,6 +286,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
   const renderWorkspaceLink = (item: (typeof workspaceItems)[number]) => {
     const Icon = WORKSPACE_ICONS[item.icon]
+    const strategyTarget = item.item.target.kind === 'strategy' ? item.item.target : undefined
+    const strategy = strategyTarget
+      ? strategies.find((candidate) => candidate.id === strategyTarget.strategyId)
+      : undefined
     const active = selection.activeWorkspaceItemId === item.item.id
     const modified = selection.modifiedWorkspaceItemId === item.item.id
     const isDragging = workspaceDrag?.id === item.item.id
@@ -316,7 +321,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           suppressWorkspaceClick.current = false
         }}
       >
-        <Icon size={ICON_MD} />
+        {strategy ? (
+          <StrategyIcon
+            icon={strategy.icon}
+            color={strategy.color}
+            size={ICON_MD}
+            variant="nav"
+          />
+        ) : (
+          <Icon size={ICON_MD} />
+        )}
         <span className="sb-item-label">{item.label}</span>
         {modified ? (
           <span className="sb-modified-indicator">

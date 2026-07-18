@@ -306,6 +306,11 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')
   assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
   assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
+  assert(source.includes('<StrategyIcon'), '侧栏策略入口必须复用真实策略图标组件')
+  assert(
+    source.includes("item.item.target.kind === 'strategy'"),
+    '侧栏只能为策略入口读取策略自身的图标与颜色',
+  )
   assert(source.includes('onDragStart'), 'Sidebar 应拦截原生链接拖拽预览')
   assert(!source.includes('resolvePinnedSecondaryNav'), 'Sidebar 不得继续直接解析旧 sidebarPins')
 }
@@ -1605,6 +1610,30 @@ export function testNotionImportUsesSameValidPreviewListForTradesAndImages(): vo
   assert(result.trades.length === 2, 'invalid preview rows are not imported')
   assert(validPreviews[0]?.rowIndex === 1, 'first imported trade maps to first valid preview')
   assert(validPreviews[1]?.rowIndex === 2, 'second imported trade maps to second valid preview')
+}
+
+export function testNotionImportTargetsPaperAndCaseDomains(): void {
+  const existingTrades: Trade[] = [
+    { ...trade, id: 'existing-live', ref: 'TRD-7' },
+    { ...trade, id: 'existing-case', ref: 'CAS-3', tradeKind: 'case' },
+  ]
+  const paper = executeNotionImport([preview(1)], [strategy], existingTrades, {
+    tradeKind: 'paper',
+  }).trades[0]
+  assert(paper?.tradeKind === 'paper', 'Notion 必须能整批导入模拟回测')
+  assert(paper?.ref === 'TRD-8', '模拟回测应与账户交易共用连续 TRD 编号')
+  assert(paper?.caseType === undefined && paper?.masteryState === undefined, '模拟记录不得携带案例字段')
+
+  const casePreviews = [preview(2), preview(3)]
+  casePreviews[1]!.trade.reviewCategory = 'mistake'
+  const cases = executeNotionImport(casePreviews, [strategy], existingTrades, {
+    tradeKind: 'case',
+  }).trades
+  assert(cases.map((item) => item.ref).join(',') === 'CAS-4,CAS-5', '案例导入应使用独立连续 CAS 编号')
+  assert(cases.every((item) => item.tradeKind === 'case'), '案例导入不得混入账户交易域')
+  assert(cases[0]?.caseType === 'exemplar' && cases[1]?.caseType === 'mistake', '案例类型应根据复盘信息推断')
+  assert(cases.every((item) => item.masteryState === 'new' && Boolean(item.nextReviewAt)), '导入案例应进入首次复看流程')
+  assert(cases.every((item) => Boolean(item.recordedAt)), '导入案例应记录知识库收录时间')
 }
 
 export function testReviewCaseTradeKindIsPreservedAndExcludedFromAccountTrades(): void {

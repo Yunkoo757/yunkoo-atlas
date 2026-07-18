@@ -4,6 +4,7 @@ import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { ShortcutBinding } from '@/shortcuts/types'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 import type { WeeklyReview } from '@/data/weeklyReviews'
+import type { ReviewTemplate } from '@/data/reviewTemplates'
 
 export const SCHEMA_VERSION = 7
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
@@ -52,6 +53,8 @@ export interface PersistedSnapshot {
   symbolIcons?: import('@/lib/symbolIcons').SymbolIconsMap
   /** 品种目录：设置与新建交易共用 */
   symbolCatalog?: string[]
+  /** 交易详情中的复盘起稿模板。旧资料库省略时加载默认模板。 */
+  reviewTemplates?: ReviewTemplate[]
 }
 
 export interface ExportAssetRecord {

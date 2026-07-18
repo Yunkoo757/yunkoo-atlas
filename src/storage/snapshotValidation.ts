@@ -82,7 +82,7 @@ function isWorkspaceMemoryEntry(value: unknown): boolean {
 function isDisplayPrefs(value: unknown): boolean {
   if (value === undefined) return true
   if (!isRecord(value)) return false
-  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate']) {
+  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'reviewContextPinned']) {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') return false
   }
   if (value.sortBy !== undefined && !DISPLAY_SORTS.has(String(value.sortBy))) return false
@@ -99,6 +99,20 @@ function isDisplayPrefs(value: unknown): boolean {
     }
   }
   return true
+}
+
+function isReviewTemplates(value: unknown): boolean {
+  return value === undefined || (
+    Array.isArray(value) &&
+    value.length <= 30 &&
+    value.every((template) =>
+      isRecord(template) &&
+      typeof template.id === 'string' && Boolean(template.id.trim()) &&
+      typeof template.name === 'string' && Boolean(template.name.trim()) && template.name.length <= 40 &&
+      typeof template.content === 'string' && template.content.length <= 4000
+    ) &&
+    !hasDuplicateStringId(value)
+  )
 }
 
 export function isValidPersistedTrade(
@@ -342,6 +356,7 @@ export function assertValidPersistedSnapshot(
   }
   if (hasDuplicateStringId(value.strategies)) throw new Error(`${label} contains duplicate strategy ids`)
   if (!isDisplayPrefs(value.display)) throw new Error(`${label} contains invalid display settings`)
+  if (!isReviewTemplates(value.reviewTemplates)) throw new Error(`${label} contains invalid review templates`)
   if (!isShortcutOverrides(value.shortcuts)) throw new Error(`${label} contains invalid shortcuts`)
   if (!isUserProfile(value.profile)) throw new Error(`${label} contains an invalid profile`)
   if (!isSavedTradeViews(value.savedTradeViews)) throw new Error(`${label} contains invalid saved trade views`)

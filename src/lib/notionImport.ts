@@ -13,7 +13,7 @@
  * 5. 图片通过 ImageFile 接口传出，由调用方写入 storage
  */
 
-import type { Trade, TradeStatus, TradeSide, Conviction } from '@/data/trades'
+import type { CaseType, Trade, TradeKind, TradeStatus, TradeSide, Conviction } from '@/data/trades'
 import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import type { CsvParseResult } from '@/lib/csvImport'
@@ -964,6 +964,7 @@ const STRATEGY_ICONS: string[] = ['trending-up', 'target', 'zap', 'crosshair', '
 export interface NotionImportOptions {
   defaultIcon?: string
   defaultColor?: string
+  tradeKind?: TradeKind
 }
 
 export interface NotionImageGroup {
@@ -1011,6 +1012,7 @@ export function executeNotionImport(
 ): { trades: Trade[]; strategies: Strategy[] } {
   const validPreviews = getImportableNotionPreviews(previews)
   if (validPreviews.length === 0) return { trades: [], strategies: [] }
+  const tradeKind = opts.tradeKind ?? 'live'
 
   const newStrategyNames = [...new Set(
     validPreviews.map((p) => p.newStrategyName).filter(Boolean) as string[],
@@ -1032,18 +1034,21 @@ export function executeNotionImport(
     }
   })
 
+  const refPrefix = tradeKind === 'case' ? 'CAS' : 'TRD'
   let maxNum = 0
   for (const t of existingTrades) {
-    const n = parseInt(t.ref.replace('TRD-', ''), 10)
-    if (!isNaN(n) && n > maxNum) maxNum = n
+    const match = t.ref.match(new RegExp(`^${refPrefix}-(\\d+)$`))
+    if (match) maxNum = Math.max(maxNum, parseInt(match[1]!, 10))
   }
 
   const now = new Date().toISOString()
+  const nextReview = new Date(now)
+  nextReview.setDate(nextReview.getDate() + 3)
   const newTrades: Trade[] = []
 
   for (const preview of validPreviews) {
     maxNum++
-    const ref = `TRD-${maxNum}`
+    const ref = `${refPrefix}-${maxNum}`
     const id = `trade-${Date.now()}-${maxNum}`
 
     let strategyId = preview.trade.strategyId || ''
@@ -1055,6 +1060,15 @@ export function executeNotionImport(
 
     const tradeStatus = preview.trade.status ?? 'planned'
     const isTerminalStatus = tradeStatus === 'win' || tradeStatus === 'loss' || tradeStatus === 'breakeven'
+    const caseType: CaseType | undefined = tradeKind === 'case'
+      ? tradeStatus === 'missed'
+        ? 'missed'
+        : preview.trade.reviewCategory === 'ambiguous'
+          ? 'ambiguous'
+          : (preview.trade.mistakeTags?.length ?? 0) > 0 || preview.trade.reviewCategory === 'mistake'
+            ? 'mistake'
+            : 'exemplar'
+      : undefined
 
     const trade: Trade = {
       id,
@@ -1071,8 +1085,16 @@ export function executeNotionImport(
       tags: preview.trade.tags ?? [],
       mistakeTags: preview.trade.mistakeTags ?? [],
       reviewStatus: 'unreviewed',
-      reviewCategory: preview.trade.reviewCategory ?? 'normal',
-      tradeKind: 'live',
+      reviewCategory:
+        caseType === 'mistake'
+          ? 'mistake'
+          : caseType === 'ambiguous'
+            ? 'ambiguous'
+            : preview.trade.reviewCategory ?? 'normal',
+      tradeKind,
+      caseType,
+      masteryState: tradeKind === 'case' ? 'new' : undefined,
+      nextReviewAt: tradeKind === 'case' ? formatYmd(nextReview) : undefined,
       entry: preview.trade.entry ?? 0,
       exit: null,
       stopLoss: preview.trade.stopLoss ?? null,
@@ -1080,6 +1102,7 @@ export function executeNotionImport(
       pnl: preview.trade.pnl ?? 0,
       rMultiple: preview.trade.rMultiple ?? 0,
       openedAt: preview.trade.openedAt ?? now.slice(0, 10),
+      recordedAt: tradeKind === 'case' ? now : undefined,
       closedAt: isTerminalStatus ? preview.trade.openedAt ?? null : null,
       note: preview.noteHtml || '',
     }

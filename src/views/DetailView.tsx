@@ -129,6 +129,8 @@ export function DetailView() {
   const profile = useStore((s) => s.profile)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const starredIds = useStore((s) => s.starredIds)
+  const reviewTemplates = useStore((s) => s.reviewTemplates)
+  const reviewContextPinned = useStore((s) => s.display.reviewContextPinned ?? true)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
@@ -659,6 +661,10 @@ export function DetailView() {
                 ariaLabel={trade.tradeKind === 'case' ? '案例复盘笔记' : '交易复盘笔记'}
                 noteDraftId={trade.id}
                 readOnly={activeNoteLoad.status !== 'ready'}
+                reviewContextTools
+                reviewTemplates={reviewTemplates}
+                reviewContextPinned={reviewContextPinned}
+                onManageReviewTemplates={() => navigate('/settings/review-templates')}
                 placeholder={
                   trade.tradeKind === 'case'
                     ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'

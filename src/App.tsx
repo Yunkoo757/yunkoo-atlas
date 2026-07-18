@@ -38,6 +38,7 @@ import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
 import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
 import { SymbolsPanel } from './views/settings/SymbolsPanel'
 import { UpdatesSettingsPanel } from './views/settings/UpdatesSettingsPanel'
+import { ReviewTemplatesPanel } from './views/settings/ReviewTemplatesPanel'
 import { TradeTrashView } from './views/TradeTrashView'
 import { TodayWorkspace } from './views/TodayWorkspace'
 import { StrategyHeader } from './components/StrategyHeader'
@@ -310,6 +311,7 @@ function Shell() {
             <Route path="strategies" element={<StrategiesPanel />} />
             <Route path="tags" element={<TagPresetsPanel />} />
             <Route path="symbols" element={<SymbolsPanel />} />
+            <Route path="review-templates" element={<ReviewTemplatesPanel />} />
             <Route path="dispute-types" element={<Navigate to="/settings/tags" replace />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
             <Route path="data" element={<DataSettingsPanel />} />

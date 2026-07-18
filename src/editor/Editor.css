@@ -8,8 +8,76 @@
   outline: none;
   min-height: 120px;
 }
+
+.editor-shell {
+  position: relative;
+}
+
+.editor-review-tools {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 24px;
+  margin: -3px 0 6px;
+}
+
+.editor-review-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 5px;
+  color: var(--text-quaternary);
+  font-size: var(--fs-micro);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-4);
+}
+
+.editor-review-tools button:hover,
+.editor-review-tools button.is-active {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-hover) 62%, transparent);
+}
+
+.editor [data-review-context] {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  margin: 0 0 12px;
+  padding: 8px 0 10px;
+  color: var(--text-secondary);
+  font-size: 0.92em;
+  line-height: 1.5;
+  background: var(--bg-surface);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.editor [data-review-context]::before {
+  content: '盘面摘要';
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-quaternary);
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+.editor [data-review-context]:focus-within {
+  border-bottom-color: var(--border-default);
+}
+
+.editor [data-review-context] > * + * {
+  margin-top: 6px;
+}
 .editor .ProseMirror > * + * {
   margin-top: var(--editor-block-spacing);
+}
+.editor .ProseMirror > p + p {
+  margin-top: 6px;
 }
 .editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

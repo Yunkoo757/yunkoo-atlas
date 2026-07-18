@@ -11,6 +11,8 @@
 
 .strategy-icon--nav {
   background: none !important;
+  opacity: 0.68;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .strategy-label {

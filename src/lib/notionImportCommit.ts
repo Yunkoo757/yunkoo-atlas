@@ -1,5 +1,5 @@
 import type { Strategy } from '@/data/strategies'
-import type { Trade } from '@/data/trades'
+import type { Trade, TradeKind } from '@/data/trades'
 import {
   applyNotionImageAssetsToNote,
   executeNotionImport,
@@ -71,6 +71,7 @@ export interface CommittedNotionImport {
 interface CommitOptions {
   storage?: StorageAdapter
   createAssetId?: () => string
+  targetKind?: TradeKind
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -185,7 +186,12 @@ export async function commitNotionImportBatch(
     suspendPersist()
     suspended = true
     const revision = captureRevision()
-    const imported = executeNotionImport(previews, revision.state.strategies, revision.state.trades)
+    const imported = executeNotionImport(
+      previews,
+      revision.state.strategies,
+      revision.state.trades,
+      { tradeKind: options.targetKind },
+    )
     const importablePreviews = getImportableNotionPreviews(previews)
     const importedTrades = imported.trades.map((trade, index) => {
       const preview = importablePreviews[index]

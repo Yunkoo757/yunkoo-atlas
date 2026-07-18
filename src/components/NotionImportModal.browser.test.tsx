@@ -52,6 +52,15 @@ async function waitForFileInput(): Promise<HTMLInputElement> {
   throw new Error('Notion 导入应提供文件输入')
 }
 
+async function waitForBodyText(text: string): Promise<void> {
+  const deadline = performance.now() + 2000
+  while (performance.now() < deadline) {
+    if (document.body.textContent?.includes(text)) return
+    await waitForFrame()
+  }
+  throw new Error(`页面未出现预期文本：${text}；当前页面：${document.body.textContent?.trim()}`)
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -63,7 +72,7 @@ async function run(): Promise<void> {
   const originalGetAssetStats = storage.getAssetStats.bind(storage)
   const originalConsoleError = console.error
   const attemptedCommits: Array<{
-    tradeIds: string[]
+    trades: Array<{ id: string; ref: string; tradeKind: string }>
     strategyIds: string[]
     assets: { id: string; mime: string; data: string }[]
   }> = []
@@ -122,7 +131,11 @@ async function run(): Promise<void> {
   }
   storage.commitImport = async (snapshot, assets) => {
     attemptedCommits.push({
-      tradeIds: snapshot.trades.map((trade) => trade.id),
+      trades: snapshot.trades.map((trade) => ({
+        id: trade.id,
+        ref: trade.ref,
+        tradeKind: trade.tradeKind,
+      })),
       strategyIds: snapshot.strategies.map((strategy) => strategy.id),
       assets,
     })
@@ -160,9 +173,14 @@ async function run(): Promise<void> {
     Object.defineProperty(input, 'files', { configurable: true, value: files.files })
     input.dispatchEvent(new Event('change', { bubbles: true }))
 
+    const caseTarget = await waitForButton('案例记录')
+    assert(caseTarget.getAttribute('role') === 'radio', 'Notion 导入目标应使用可访问的单选语义')
+    caseTarget.click()
+    await new Promise((resolve) => window.setTimeout(resolve, 50))
     const importButton = await waitForEnabledButton('确认导入')
+    assert(importButton.textContent?.includes('到案例记录'), '确认按钮必须明确显示最终导入目标')
     importButton.click()
-    await new Promise((resolve) => window.setTimeout(resolve, 100))
+    await waitForBodyText(capacityError)
 
     assert(
       document.body.textContent?.includes(capacityError),
@@ -187,9 +205,14 @@ async function run(): Promise<void> {
     )
     const attempted = attemptedCommits[0]
     assert(
-      attempted?.tradeIds.some((id) => id !== 'existing-trade') &&
+      attempted?.trades.some((trade) => trade.id !== 'existing-trade') &&
         attempted.strategyIds.some((id) => id !== 'existing-strategy'),
       '原子提交候选必须同时包含本批交易与策略',
+    )
+    const importedCase = attempted?.trades.find((trade) => trade.id !== 'existing-trade')
+    assert(
+      importedCase?.tradeKind === 'case' && importedCase.ref === 'CAS-1',
+      '选择案例记录后，原子快照必须写入案例域并使用 CAS 编号',
     )
     assert(attempted?.assets.length === 10, '10 张图片必须作为同一个原子批次提交')
     attempted?.assets.forEach((asset, index) => {

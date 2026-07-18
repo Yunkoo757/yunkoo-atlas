@@ -28,7 +28,7 @@ export function StrategyIcon({
       }
       style={
         isNav
-          ? { width: size, height: size }
+          ? { width: size, height: size, color }
           : {
               width: size,
               height: size,

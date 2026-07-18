@@ -22,3 +22,19 @@ export function testReviewCompletionAcceptsScreenshotEvidence() {
 
   assert(result.ready === true, '复盘截图本身也应视为有效复盘证据')
 }
+
+export function testReviewCompletionRejectsAnUnfilledReviewStarter() {
+  const result = evaluateReviewCompletion(
+    '<section data-review-context="true"><p><strong>HTF 背景：</strong></p><p><strong>MTF 触发：</strong></p><p><strong>LTF 执行：</strong></p><p><strong>复盘结论：</strong></p></section>',
+  )
+
+  assert(result.ready === false, '只有起稿字段名时不能完成复盘')
+}
+
+export function testReviewCompletionAcceptsAFilledReviewStarter() {
+  const result = evaluateReviewCompletion(
+    '<section data-review-context="true"><p><strong>HTF 背景：</strong>4H 顺势</p></section>',
+  )
+
+  assert(result.ready === true, '起稿中补充真实内容后应允许完成复盘')
+}

@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getStorage } from '@/storage/bootstrap'
 import {
   Bold,
@@ -14,6 +14,7 @@ import {
   Heading2,
   List,
   ListChecks,
+  FileText,
   Quote,
 } from '@/icons/appIcons'
 import { ICON_TOOLBAR } from '@/icons/iconSize'
@@ -24,6 +25,15 @@ import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { appendAssetToNoteDraft } from '@/storage/noteDrafts'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
+import type { ReviewTemplate } from '@/data/reviewTemplates'
+import { Menu } from '@/components/Menu'
+import { Tooltip } from '@/components/ui/Tooltip'
+import {
+  ReviewContext,
+  hasLeadingReviewParagraphs,
+  hasReviewContextDocument,
+  toggleReviewContextDocument,
+} from './reviewContext'
 import './Editor.css'
 
 const editorBridge = {
@@ -53,6 +63,10 @@ export function Editor({
   noteDraftId,
   allowImages = true,
   ariaLabel,
+  reviewContextTools = false,
+  reviewTemplates = [],
+  reviewContextPinned = true,
+  onManageReviewTemplates,
 }: {
   content: string
   onChange: (html: string) => void
@@ -61,6 +75,11 @@ export function Editor({
   noteDraftId?: string
   allowImages?: boolean
   ariaLabel?: string
+  /** 交易详情：将开头盘面叙述固定在截图上方，并提供通用起稿骨架。 */
+  reviewContextTools?: boolean
+  reviewTemplates?: ReviewTemplate[]
+  reviewContextPinned?: boolean
+  onManageReviewTemplates?: () => void
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
@@ -68,6 +87,8 @@ export function Editor({
   const editorRef = useRef<TiptapEditor | null>(null)
   const noteDraftIdRef = useRef(noteDraftId)
   const allowImagesRef = useRef(allowImages)
+  const [hasReviewContext, setHasReviewContext] = useState(false)
+  const [hasLeadingReviewText, setHasLeadingReviewText] = useState(false)
   onChangeRef.current = onChange
   readOnlyRef.current = readOnly
   noteDraftIdRef.current = noteDraftId
@@ -78,6 +99,7 @@ export function Editor({
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
+      ReviewContext,
       Image.configure({ inline: false, allowBase64: false }).extend({
         addAttributes() {
           return {
@@ -93,7 +115,12 @@ export function Editor({
     ],
     content,
     editorProps: {
-      attributes: ariaLabel ? { 'aria-label': ariaLabel } : {},
+      attributes: {
+        spellcheck: 'false',
+        autocorrect: 'off',
+        autocapitalize: 'off',
+        ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
+      },
       handlePaste(_view, event) {
         if (!allowImagesRef.current) return false
         const items = event.clipboardData?.items
@@ -149,7 +176,15 @@ export function Editor({
       },
     },
     onUpdate: ({ editor }) => {
+      const doc = editor.getJSON()
+      setHasReviewContext(hasReviewContextDocument(doc))
+      setHasLeadingReviewText(hasLeadingReviewParagraphs(doc))
       if (!readOnlyRef.current) onChangeRef.current(editor.getHTML())
+    },
+    onCreate: ({ editor }) => {
+      const doc = editor.getJSON()
+      setHasReviewContext(hasReviewContextDocument(doc))
+      setHasLeadingReviewText(hasLeadingReviewParagraphs(doc))
     },
   })
 
@@ -162,14 +197,63 @@ export function Editor({
   }, [editor, lightboxOpen, readOnly])
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false)
+    if (!editor) return
+    if (content !== editor.getHTML()) editor.commands.setContent(content, false)
+    const doc = editor.getJSON()
+    setHasReviewContext(hasReviewContextDocument(doc))
+    setHasLeadingReviewText(hasLeadingReviewParagraphs(doc))
+  }, [content, editor])
+
+  useEffect(() => {
+    if (!editor || readOnly || !reviewContextTools) return
+    const doc = editor.getJSON()
+    const contextActive = hasReviewContextDocument(doc)
+    const leadingText = hasLeadingReviewParagraphs(doc)
+    if ((reviewContextPinned && !contextActive && leadingText) || (!reviewContextPinned && contextActive)) {
+      editor.commands.setContent(toggleReviewContextDocument(doc), true)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content])
+  }, [editor, readOnly, reviewContextPinned, reviewContextTools, content])
+
+  const reviewContextActive = editor
+    ? hasReviewContextDocument(editor.getJSON())
+    : hasReviewContext
+  const leadingReviewText = editor
+    ? hasLeadingReviewParagraphs(editor.getJSON())
+    : hasLeadingReviewText
+
+  const insertReviewTemplate = (templateContent: string) => {
+    if (!editor || readOnly) return
+    let next = toggleReviewContextDocument(editor.getJSON(), templateContent)
+    if (!reviewContextPinned) next = toggleReviewContextDocument(next)
+    editor.commands.setContent(next, true)
+    editor.commands.focus('end')
+  }
+
+  const showReviewStarter = reviewContextTools && !reviewContextActive && !leadingReviewText
+
+  const reviewButton = (
+    <Tooltip
+      content="从自定义模板开始本次复盘"
+      label="选择复盘起稿"
+      asChild
+    >
+      <button
+        type="button"
+        aria-label="选择复盘起稿"
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        <FileText size={13} aria-hidden />
+        复盘起稿
+      </button>
+    </Tooltip>
+  )
 
   return (
-    <>
+    <div
+      className={'editor-shell'
+        + (showReviewStarter ? ' has-review-tools' : '')
+        + (reviewContextActive ? ' has-review-context' : '')}
+    >
       {editor && (
         <BubbleMenu
           editor={editor}
@@ -238,13 +322,36 @@ export function Editor({
           </BtnGroup>
         </BubbleMenu>
       )}
+      {showReviewStarter && editor && !readOnly && (
+        <div className="editor-review-tools">
+          <Menu
+            align="right"
+            trigger={reviewButton}
+            options={[
+              ...reviewTemplates.map((template) => ({
+                value: template.id,
+                label: template.name,
+              })),
+              { value: '__manage__', label: reviewTemplates.length > 0 ? '管理起稿模板…' : '新建起稿模板…' },
+            ]}
+            onSelect={(value) => {
+              if (value === '__manage__') {
+                onManageReviewTemplates?.()
+                return
+              }
+              const template = reviewTemplates.find((item) => item.id === value)
+              if (template) insertReviewTemplate(template.content)
+            }}
+          />
+        </div>
+      )}
       <EditorContent
         editor={editor}
         className="editor"
         onErrorCapture={(event) => editor && setEditorImageLoadFailed(editor, event.target, true)}
         onLoadCapture={(event) => editor && setEditorImageLoadFailed(editor, event.target, false)}
       />
-    </>
+    </div>
   )
 }
 

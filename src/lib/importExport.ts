@@ -9,6 +9,11 @@ import {
   normalizeWeeklyReviews,
   type WeeklyReview,
 } from '@/data/weeklyReviews'
+import {
+  createDefaultReviewTemplates,
+  normalizeReviewTemplates,
+  type ReviewTemplate,
+} from '@/data/reviewTemplates'
 import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
 import {
   ensureStrategies,
@@ -89,6 +94,7 @@ export interface ExportPayload {
   savedTradeViews?: SavedTradeView[]
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
+  reviewTemplates?: ReviewTemplate[]
   assets?: ExportAssetRecord[]
 }
 
@@ -105,6 +111,7 @@ export interface PersistedSlice {
   savedTradeViews?: SavedTradeView[]
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
+  reviewTemplates?: ReviewTemplate[]
 }
 
 interface ExportState extends PersistedSlice {
@@ -113,6 +120,7 @@ interface ExportState extends PersistedSlice {
   savedTradeViews?: SavedTradeView[]
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
+  reviewTemplates?: ReviewTemplate[]
 }
 
 interface PortableSnapshotState {
@@ -129,6 +137,7 @@ interface PortableSnapshotState {
   savedTradeViews: PersistedSnapshot['savedTradeViews']
   symbolIcons: PersistedSnapshot['symbolIcons']
   symbolCatalog: PersistedSnapshot['symbolCatalog']
+  reviewTemplates?: PersistedSnapshot['reviewTemplates']
 }
 
 export function buildPortableSnapshotFromState(
@@ -150,6 +159,7 @@ export function buildPortableSnapshotFromState(
     savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
     symbolIcons: normalizeSymbolIcons(state.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
+    reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
     ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }
 }
@@ -280,6 +290,7 @@ export async function buildExportPayloadFromState(
     savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
     symbolIcons: normalizeSymbolIcons(state.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
+    reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
     assets,
   }
 }
@@ -318,11 +329,11 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog } =
+  const { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog },
+    { trades, weeklyReviews, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -625,6 +636,7 @@ export function parseImportJson(text: string): ImportResult {
     savedTradeViews: raw.savedTradeViews,
     symbolIcons: raw.symbolIcons,
     symbolCatalog: raw.symbolCatalog,
+    reviewTemplates: raw.reviewTemplates,
   }
   let assets: ExportAssetRecord[]
   try {
@@ -662,6 +674,7 @@ export function parseImportJson(text: string): ImportResult {
           ...snapshotCandidate.trades.map((trade) => trade.symbol),
         ],
       ),
+      reviewTemplates: normalizeReviewTemplates(snapshotCandidate.reviewTemplates),
     },
   }
 }
@@ -692,6 +705,14 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
     ...(current.weeklyReviews ?? []),
     ...(payload.weeklyReviews ?? []),
   ])
+  const templatesById = new Map(
+    normalizeReviewTemplates(current.reviewTemplates ?? []).map((template) => [template.id, template]),
+  )
+  for (const template of payload.reviewTemplates === undefined
+    ? []
+    : normalizeReviewTemplates(payload.reviewTemplates)) {
+    if (!templatesById.has(template.id)) templatesById.set(template.id, template)
+  }
   return {
     strategies,
     trades,
@@ -722,6 +743,7 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
       current.symbolCatalog ?? [],
       payload.symbolCatalog ?? [],
     ),
+    reviewTemplates: Array.from(templatesById.values()),
   }
 }
 
@@ -802,6 +824,7 @@ const IMPORT_PERSISTED_REFERENCE_KEYS = [
   'savedTradeViews',
   'symbolIcons',
   'symbolCatalog',
+  'reviewTemplates',
 ] as const
 
 interface PersistedStateRevision {
@@ -869,6 +892,7 @@ function buildImportSnapshot(
     savedTradeViews: merged.savedTradeViews ?? current.state.savedTradeViews,
     symbolIcons: merged.symbolIcons ?? current.state.symbolIcons,
     symbolCatalog: merged.symbolCatalog ?? current.state.symbolCatalog,
+    reviewTemplates: merged.reviewTemplates ?? current.state.reviewTemplates,
     profile: current.state.profile,
   }, current.shortcutBindings)
 }
@@ -939,6 +963,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
         ...trades.map((trade) => trade.symbol),
       ],
     ),
+    reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
   })
   useStore.getState().hydrateProfile(snapshot.profile ?? createDefaultUserProfile())
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
@@ -966,6 +991,7 @@ export function resetEmptyLibraryIntoStore(): void {
     savedTradeViews: [],
     symbolIcons: {},
     symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
+    reviewTemplates: createDefaultReviewTemplates(),
   })
   useStore.getState().hydrateProfile(createDefaultUserProfile())
   useShortcutStore.getState().hydrateBindings({})

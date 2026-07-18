@@ -24,6 +24,7 @@ import { toast } from '@/lib/toast'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { MAX_NOTION_IMPORT_ROWS } from '@/lib/notionImportLimits'
+import type { TradeKind } from '@/data/trades'
 import './NotionImportModal.css'
 
 interface Props {
@@ -38,6 +39,16 @@ export const MAX_NOTION_ZIP_FILE_BYTES = 160 * 1024 * 1024
 const MAX_DUPLICATE_IMAGE_SCAN_COUNT = 300
 const MAX_DUPLICATE_IMAGE_SCAN_BYTES = 128 * 1024 * 1024
 const PREVIEW_ROW_LIMIT = 100
+const IMPORT_TARGETS: Array<{
+  kind: TradeKind
+  label: string
+  hint: string
+  recordLabel: string
+}> = [
+  { kind: 'live', label: '交易日志', hint: '计入实盘统计', recordLabel: '笔交易' },
+  { kind: 'paper', label: '模拟回测', hint: '独立于实盘 KPI', recordLabel: '笔模拟记录' },
+  { kind: 'case', label: '案例记录', hint: '进入案例复看体系', recordLabel: '条案例' },
+]
 
 const NOTION_CAPACITY_ERRORS = new Set([
   '单张原图超过 32 MB，请移除该附件后重试；为保留画质，软件不会自动压缩原图',
@@ -69,8 +80,10 @@ export function NotionImportModal({ open, onClose }: Props) {
   const [dupScanState, setDupScanState] = useState<'idle' | 'scanning' | 'done'>('idle')
   const [duplicateScanNotice, setDuplicateScanNotice] = useState('')
   const [parsing, setParsing] = useState(false)
+  const [targetKind, setTargetKind] = useState<TradeKind>('live')
   const fileRef = useRef<HTMLInputElement>(null)
   const requestGenerationRef = useRef(0)
+  const duplicateScanGenerationRef = useRef(0)
   const activeParseGenerationRef = useRef<number | null>(null)
 
   const duplicateCount = useMemo(
@@ -80,6 +93,7 @@ export function NotionImportModal({ open, onClose }: Props) {
 
   const invalidatePendingRequest = () => {
     requestGenerationRef.current += 1
+    duplicateScanGenerationRef.current += 1
   }
 
   useEffect(() => {
@@ -94,6 +108,7 @@ export function NotionImportModal({ open, onClose }: Props) {
       setForceImportRows({})
       setDupScanState('idle')
       setDuplicateScanNotice('')
+      setTargetKind('live')
     }
   }, [open])
 
@@ -102,20 +117,27 @@ export function NotionImportModal({ open, onClose }: Props) {
   const detectDuplicates = async (
     previews: NotionTradePreview[],
     requestGeneration: number,
+    importTarget: TradeKind,
   ) => {
-    if (requestGenerationRef.current !== requestGeneration) return
+    const scanGeneration = duplicateScanGenerationRef.current + 1
+    duplicateScanGenerationRef.current = scanGeneration
+    const isCurrentScan = () =>
+      requestGenerationRef.current === requestGeneration &&
+      duplicateScanGenerationRef.current === scanGeneration
+    if (!isCurrentScan()) return
     setDupScanState('scanning')
     setDuplicateScanNotice('')
     setDuplicateByRow({})
     setForceImportRows({})
     try {
       const storage = getStorage()
+      const targetTrades = trades.filter((trade) => trade.tradeKind === importTarget)
       const candidateHasImages = previews.some((preview) => preview.images.length > 0)
       let includeImages = candidateHasImages
       if (candidateHasImages) {
-        const assetIds = collectAssetIdsFromNotes(trades)
+        const assetIds = collectAssetIdsFromNotes(targetTrades)
         const stats = await storage.getAssetStats(assetIds)
-        if (requestGenerationRef.current !== requestGeneration) return
+        if (!isCurrentScan()) return
         includeImages =
           stats.count <= MAX_DUPLICATE_IMAGE_SCAN_COUNT &&
           stats.totalBytes <= MAX_DUPLICATE_IMAGE_SCAN_BYTES
@@ -123,33 +145,33 @@ export function NotionImportModal({ open, onClose }: Props) {
           setDuplicateScanNotice('图库较大，本次只检查正文重复；截图仍会按原图完整导入')
         }
       }
-      const library = await buildLibraryContentIndex(trades, async (assetId) => {
+      const library = await buildLibraryContentIndex(targetTrades, async (assetId) => {
         const rec = await storage.getAssetForExport(assetId)
         return rec?.data ?? null
       }, {
         includeImages,
-        shouldContinue: () => requestGenerationRef.current === requestGeneration,
+        shouldContinue: isCurrentScan,
       })
       const duplicateIndex = createDuplicateLookupIndex(library)
       const next: Record<number, DuplicateMatch> = {}
       for (const preview of previews) {
-        if (requestGenerationRef.current !== requestGeneration) return
+        if (!isCurrentScan()) return
         if (preview.errors.length > 0) continue
         const hashes = includeImages
           ? await hashImageFiles(preview.images.map((img) => ({ data: img.data })))
           : []
-        if (requestGenerationRef.current !== requestGeneration) return
+        if (!isCurrentScan()) return
         const sig = buildContentSignature(preview.noteHtml || preview.trade.note || '', hashes)
         const match = findObviousDuplicateIndexed(sig, duplicateIndex)
         if (match) next[preview.rowIndex] = match
       }
-      if (requestGenerationRef.current !== requestGeneration) return
+      if (!isCurrentScan()) return
       setDuplicateByRow(next)
     } catch (err) {
-      if (requestGenerationRef.current !== requestGeneration) return
+      if (!isCurrentScan()) return
       console.error('[NotionImport] duplicate scan failed', err)
     } finally {
-      if (requestGenerationRef.current === requestGeneration) {
+      if (isCurrentScan()) {
         setDupScanState('done')
       }
     }
@@ -193,7 +215,7 @@ export function NotionImportModal({ open, onClose }: Props) {
         }
         setResult(r)
         setStep('preview')
-        void detectDuplicates(r.previews, requestGeneration)
+        void detectDuplicates(r.previews, requestGeneration, targetKind)
       } else {
         const text = await file.text()
         if (requestGenerationRef.current !== requestGeneration) return
@@ -208,7 +230,7 @@ export function NotionImportModal({ open, onClose }: Props) {
         }
         setResult(r)
         setStep('preview')
-        void detectDuplicates(r.previews, requestGeneration)
+        void detectDuplicates(r.previews, requestGeneration, targetKind)
       }
     } catch (err) {
       if (requestGenerationRef.current !== requestGeneration) return
@@ -275,7 +297,7 @@ export function NotionImportModal({ open, onClose }: Props) {
 
     let committed
     try {
-      committed = await commitNotionImportBatch(selectedPreviews)
+      committed = await commitNotionImportBatch(selectedPreviews, { targetKind })
     } catch (err) {
       console.error('[NotionImport] persist failed', err)
       setImportedImages(0)
@@ -297,7 +319,8 @@ export function NotionImportModal({ open, onClose }: Props) {
     const skipped = skipDuplicates
       ? Object.keys(duplicateByRow).filter((row) => !forceImportRows[Number(row)]).length
       : 0
-    const parts = [`${newTrades.length} 笔交易`]
+    const target = IMPORT_TARGETS.find((item) => item.kind === targetKind)!
+    const parts = [`${newTrades.length} ${target.recordLabel}`]
     if (skipped > 0) parts.push(`跳过 ${skipped} 笔重复`)
     if (newStrategies.length > 0) {
       parts.push(`${newStrategies.length} 个策略：${newStrategies.map((s) => s.name).join('、')}`)
@@ -325,7 +348,16 @@ export function NotionImportModal({ open, onClose }: Props) {
     setForceImportRows({})
     setDupScanState('idle')
     setDuplicateScanNotice('')
+    setTargetKind('live')
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const selectTarget = (nextTarget: TradeKind) => {
+    if (nextTarget === targetKind) return
+    setTargetKind(nextTarget)
+    if (result && step === 'preview') {
+      void detectDuplicates(result.previews, requestGenerationRef.current, nextTarget)
+    }
   }
 
   if (!open) return null
@@ -427,8 +459,26 @@ export function NotionImportModal({ open, onClose }: Props) {
               <FileText size={14} />
               <span className="nim-file-name">{fileName}</span>
             </div>
+            <div className="nim-import-target">
+              <span className="nim-import-target-label">导入到</span>
+              <div className="nim-import-target-options" role="radiogroup" aria-label="Notion 导入目标">
+                {IMPORT_TARGETS.map((target) => (
+                  <button
+                    key={target.kind}
+                    type="button"
+                    role="radio"
+                    aria-checked={targetKind === target.kind}
+                    className={targetKind === target.kind ? 'is-selected' : ''}
+                    onClick={() => selectTarget(target.kind)}
+                  >
+                    <strong>{target.label}</strong>
+                    <span>{target.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <p className="nim-preview-stats">
-              共 {result.totalRows} 笔交易：
+              共 {result.totalRows} 笔记录：
               <span className="nim-ok">{result.validRows} 笔可导入</span>
               {result.errorRows > 0 && (
                 <>
@@ -538,6 +588,7 @@ export function NotionImportModal({ open, onClose }: Props) {
                 {selectedPreviewCount > 0
                   ? ` ${selectedPreviewCount} 笔`
                   : ''}
+                {`到${IMPORT_TARGETS.find((target) => target.kind === targetKind)!.label}`}
                 {result.totalImages > 0 ? `（含截图）` : ''} <ArrowRight size={16} />
               </button>
             </div>
@@ -557,14 +608,18 @@ export function NotionImportModal({ open, onClose }: Props) {
         {step === 'done' && (
           <div className="nim-done-area">
             <CheckCircle size={40} className="nim-ok" />
-            <p>已导入 {imported} 笔交易</p>
+            <p>
+              已导入 {imported} {IMPORT_TARGETS.find((target) => target.kind === targetKind)!.recordLabel}
+            </p>
             {importedImages > 0 && (
               <p className="nim-done-images">
                 <Image size={15} /> {importedImages} 张截图已离线保存
               </p>
             )}
             <p className="nim-done-hint">
-              请在交易详情中补充仓位、止损与结果数据。
+              {targetKind === 'case'
+                ? '已进入案例记录，可继续补充分类与掌握状态。'
+                : '请在详情中补充仓位、止损与结果数据。'}
             </p>
             <div className="nim-actions">
               <button className="nim-btn nim-btn-primary" onClick={reset} type="button">

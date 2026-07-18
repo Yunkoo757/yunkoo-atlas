@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Review context interaction test</title>
+  </head>
+  <body>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/editor/ReviewContext.browser.test.tsx"></script>
+  </body>
+</html>

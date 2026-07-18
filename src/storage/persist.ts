@@ -57,6 +57,7 @@ export function pickPersisted(
   savedTradeViews: PersistedSnapshot['savedTradeViews']
   symbolIcons: PersistedSnapshot['symbolIcons']
   symbolCatalog: PersistedSnapshot['symbolCatalog']
+  reviewTemplates: NonNullable<PersistedSnapshot['reviewTemplates']>
 },
   shortcutBindings?: Record<string, ShortcutBinding | null>,
 ): PersistedSnapshot {
@@ -75,6 +76,7 @@ export function pickPersisted(
     savedTradeViews: state.savedTradeViews,
     symbolIcons: state.symbolIcons,
     symbolCatalog: state.symbolCatalog,
+    reviewTemplates: state.reviewTemplates,
     ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }
 }

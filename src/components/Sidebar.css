@@ -144,12 +144,18 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item:hover svg {
   color: var(--text-secondary);
 }
+.sb-item:hover .strategy-icon--nav {
+  opacity: 0.86;
+}
 .sb-item.is-active {
   background: var(--bg-selected);
   color: var(--text-primary);
 }
 .sb-item.is-active svg {
   color: color-mix(in srgb, var(--text-secondary) 88%, var(--text-primary));
+}
+.sb-item.is-active .strategy-icon--nav {
+  opacity: 1;
 }
 .sb-item.is-dragging {
   opacity: 0.42;

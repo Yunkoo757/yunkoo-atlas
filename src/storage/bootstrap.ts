@@ -18,6 +18,7 @@ import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
+import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
@@ -37,6 +38,7 @@ const PERSISTED_REFERENCE_KEYS = [
   'savedTradeViews',
   'symbolIcons',
   'symbolCatalog',
+  'reviewTemplates',
 ] as const satisfies readonly (keyof PersistedSnapshot)[]
 
 /**
@@ -93,6 +95,7 @@ async function runBootstrapStorage(): Promise<void> {
           ...trades.map((trade) => trade.symbol),
         ],
       ),
+      reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
     })
     useStore.getState().hydrateProfile(snapshot.profile)
     useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)

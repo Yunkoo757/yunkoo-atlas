@@ -167,6 +167,10 @@ async function run(): Promise<void> {
   document.body.append(firstContainer)
   const firstRoot = createRoot(firstContainer)
   const firstEditor = await pasteImage(firstRoot, firstContainer, slowSaveTrade.id, slowSaveTrade.note)
+  const editable = firstContainer.querySelector('.ProseMirror')
+  assert(editable?.getAttribute('spellcheck') === 'false', '复盘编辑器不得显示浏览器拼写错误波浪线')
+  assert(editable?.getAttribute('autocorrect') === 'off', '复盘编辑器不得自动改写交易术语')
+  assert(editable?.getAttribute('autocapitalize') === 'off', '复盘编辑器不得自动修改交易术语大小写')
   await saveStarted.promise
   assert(pendingStorageOperationCountForTests() === 1, '慢 saveAsset 必须仍计入 pending operation')
 
