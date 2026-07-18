@@ -50,6 +50,7 @@ import fs from 'node:fs/promises'
   'src/lib/windowBounds.test.ts',
   'src/lib/persistenceSafety.test.ts',
   'src/lib/productFlowPolish.test.ts',
+  'src/lib/focusFrameDesign.test.ts',
   'src/lib/workbenchEmptyState.test.ts',
   'src/storage/snapshotValidation.test.ts',
   'src/storage/migrateDefaults.test.ts',
@@ -161,6 +162,11 @@ try {
       url: '/src/components/ui/ModalShell.browser.test.html',
       promiseKey: '__modalShellBehaviorTest',
       label: 'src/components/ui/ModalShell.browser.test.tsx :: focus trap, busy escape and focus restoration',
+    },
+    {
+      url: '/src/components/ui/TooltipEdge.browser.test.html',
+      promiseKey: '__tooltipEdgeLayoutTest',
+      label: 'src/components/ui/TooltipEdge.browser.test.tsx :: edge tooltips keep a readable single-line width',
     },
     {
       url: '/src/components/CommandPalette.browser.test.html',

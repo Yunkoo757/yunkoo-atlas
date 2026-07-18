@@ -30,9 +30,10 @@
 
   /* —— 品牌 / 焦点 —— */
   --accent: #5e6ad2;
-  --focus-ring-color: #5e69d1;
-  --focus-ring-outline: 1px solid #5e69d1;
-  --focus-ring-width: 1px;
+  /* 键盘焦点继续由控件自身的背景、边框或阴影表达，不额外绘制彩色框。 */
+  --focus-ring-color: transparent;
+  --focus-ring-outline: none;
+  --focus-ring-width: 0;
   --ai-selection-bg: lch(61.399% 1.15 272 / 0.1);
 
   /* —— 弹出面板 popover（测量自真实 Linear 浮层）—— */
