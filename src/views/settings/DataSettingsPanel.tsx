@@ -19,6 +19,7 @@ import { collectAssetIdsFromSnapshot, getStorage } from '@/storage'
 import { type AssetStats } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, CheckCircle, AlertCircle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { ModalShell } from '@/components/ui/ModalShell'
 import {
   flushStorageBeforeCutover,
   lockStorageCutoverInteraction,
@@ -49,6 +50,10 @@ export function DataSettingsPanel() {
   const [backing, setBacking] = useState(false)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [verifying, setVerifying] = useState<string | null>(null)
+  const [confirmRequest, setConfirmRequest] = useState<{
+    kind: 'restore' | 'delete'
+    name: string
+  } | null>(null)
   const [health, setHealth] = useState<{
     tradeCount: number
     attachmentStats: AssetStats
@@ -135,7 +140,7 @@ export function DataSettingsPanel() {
 
   const handleRestore = async (name: string) => {
     if (!electron) return
-    if (!window.confirm(`确定恢复备份 ${name.slice(0, 34)}…？\n当前数据将被替换。`)) return
+    setConfirmRequest(null)
     setRestoring(name)
     const unlockInteraction = lockStorageCutoverInteraction()
     let suspended = false
@@ -215,7 +220,7 @@ export function DataSettingsPanel() {
 
   const handleDelete = async (name: string) => {
     if (!electron) return
-    if (!window.confirm(`删除备份 ${name.slice(0, 34)}…？`)) return
+    setConfirmRequest(null)
     try {
       const deleted = await getJournalBridge()!.deleteBackup(name)
       if (!deleted) {
@@ -379,7 +384,7 @@ export function DataSettingsPanel() {
                     </button>
                     <button
                       className="dio-btn"
-                      onClick={() => handleRestore(b.name)}
+                      onClick={() => setConfirmRequest({ kind: 'restore', name: b.name })}
                       disabled={verifying !== null || restoring !== null || b.verification?.status === 'invalid'}
                     >
                       <RotateCcw size={13} />
@@ -389,7 +394,7 @@ export function DataSettingsPanel() {
                       <button
                         className="dio-btn dio-btn-warn"
                         aria-label="删除此备份"
-                        onClick={() => handleDelete(b.name)}
+                        onClick={() => setConfirmRequest({ kind: 'delete', name: b.name })}
                         disabled={restoring !== null}
                       >
                         <Trash2 size={13} />
@@ -408,6 +413,41 @@ export function DataSettingsPanel() {
           )}
         </section>
       )}
+      {confirmRequest ? (
+        <ModalShell
+          title={confirmRequest.kind === 'restore' ? '恢复这个备份？' : '删除这个备份？'}
+          description={confirmRequest.kind === 'restore'
+            ? '当前资料库会被恢复点中的数据替换。'
+            : '删除后无法再使用这个恢复点。'}
+          size="compact"
+          busy={confirmRequest.kind === 'restore' && restoring !== null}
+          onClose={() => setConfirmRequest(null)}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered"
+                data-autofocus
+                onClick={() => setConfirmRequest(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className={`ui-btn ${confirmRequest.kind === 'delete' ? 'ui-btn-danger-solid' : 'ui-btn-primary'}`}
+                onClick={() => {
+                  const { kind, name } = confirmRequest
+                  void (kind === 'restore' ? handleRestore(name) : handleDelete(name))
+                }}
+              >
+                {confirmRequest.kind === 'restore' ? '恢复备份' : '删除备份'}
+              </button>
+            </>
+          )}
+        >
+          <p className="dio-section-muted"><code>{confirmRequest.name}</code></p>
+        </ModalShell>
+      ) : null}
     </div>
   )
 }

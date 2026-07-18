@@ -22,6 +22,7 @@ import { Editor } from '@/editor/Editor'
 import { Menu } from '@/components/Menu'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
@@ -1456,31 +1457,64 @@ function FeedItem({
   deletable?: boolean
   onDelete?: () => void
 }) {
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const handleContextMenu = (e: React.MouseEvent) => {
     if (!deletable || !onDelete) return
     e.preventDefault()
-    if (window.confirm('删除这条复盘追记？')) onDelete()
+    setDeleteOpen(true)
   }
 
   return (
-    <li
-      className={'dv-feed-item' + (deletable ? ' dv-feed-item-deletable' : '')}
-      onContextMenu={handleContextMenu}
-    >
-      <span className={'dv-feed-dot dv-feed-dot-' + kind} />
-      <span className="dv-feed-text">{children}</span>
-      {deletable && onDelete && (
-        <Tooltip content="删除追记" label="删除追记">
-          <button
-            type="button"
-            className="dv-feed-delete"
-            aria-label="删除追记"
-            onClick={onDelete}
-          >
-            <X size={13} />
-          </button>
-        </Tooltip>
-      )}
-    </li>
+    <>
+      <li
+        className={'dv-feed-item' + (deletable ? ' dv-feed-item-deletable' : '')}
+        onContextMenu={handleContextMenu}
+      >
+        <span className={'dv-feed-dot dv-feed-dot-' + kind} />
+        <span className="dv-feed-text">{children}</span>
+        {deletable && onDelete && (
+          <Tooltip content="删除追记" label="删除追记">
+            <button
+              type="button"
+              className="dv-feed-delete"
+              aria-label="删除追记"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <X size={13} />
+            </button>
+          </Tooltip>
+        )}
+      </li>
+      {deleteOpen && onDelete ? (
+        <ModalShell
+          title="删除这条复盘追记？"
+          description="删除后无法恢复。"
+          size="compact"
+          onClose={() => setDeleteOpen(false)}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered"
+                data-autofocus
+                onClick={() => setDeleteOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-danger-solid"
+                onClick={() => {
+                  setDeleteOpen(false)
+                  onDelete()
+                }}
+              >
+                删除追记
+              </button>
+            </>
+          )}
+        />
+      ) : null}
+    </>
   )
 }

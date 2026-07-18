@@ -72,6 +72,10 @@ export function DataIOContent({
   const [webArchive, setWebArchive] = useState<ParsedWebJournalArchive | null>(null)
   const [archiveRestoring, setArchiveRestoring] = useState(false)
   const [archiveBackingUp, setArchiveBackingUp] = useState(false)
+  const [pendingLibrarySwitch, setPendingLibrarySwitch] = useState<{
+    mode: 'open' | 'create'
+    picked: string
+  } | null>(null)
   const duplicateScanTradesRef = useRef<typeof trades | null>(null)
   const dataBusy = libraryBusy || dupScanning || dupCleaning
 
@@ -99,13 +103,21 @@ export function DataIOContent({
       const picked = await bridge.pickLibraryFolder()
       if (!picked) return
 
-      const confirmMsg =
-        mode === 'create'
-          ? `将先保存当前库，然后在以下目录创建新库并切换：\n\n${picked}\n\n继续？`
-          : `将先保存当前库，然后打开以下目录中的交易库：\n\n${picked}\n\n继续？`
-      if (!window.confirm(confirmMsg)) return
+      setPendingLibrarySwitch({ mode, picked })
+    } catch (err) {
+      toast(err instanceof Error ? `选择失败：${err.message}` : '选择失败')
+    } finally {
+      setLibraryBusy(false)
+    }
+  }
 
-      const result = await switchActiveLibrary(mode, picked)
+  const confirmLibrarySwitch = async () => {
+    const request = pendingLibrarySwitch
+    if (!request || libraryBusy) return
+    setPendingLibrarySwitch(null)
+    setLibraryBusy(true)
+    try {
+      const result = await switchActiveLibrary(request.mode, request.picked)
       if (result.canceled) return
       if (!result.ok) {
         toast(result.error ? `切换失败：${result.error}` : '切换失败')
@@ -113,7 +125,7 @@ export function DataIOContent({
       }
       setLibraryPath(result.path ?? null)
       setDupGroups(null)
-      toast(mode === 'create' ? '已切换到新库' : '已切换交易库')
+      toast(request.mode === 'create' ? '已切换到新库' : '已切换交易库')
       onLibraryChanged?.()
       onDone?.()
     } catch (err) {
@@ -580,6 +592,35 @@ export function DataIOContent({
       </p>
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
       <NotionImportModal open={notionOpen} onClose={() => setNotionOpen(false)} />
+      {pendingLibrarySwitch ? (
+        <ModalShell
+          title={pendingLibrarySwitch.mode === 'create' ? '创建并切换交易库？' : '切换交易库？'}
+          description="软件会先保存当前资料库，再切换到所选目录。"
+          size="compact"
+          onClose={() => setPendingLibrarySwitch(null)}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered"
+                data-autofocus
+                onClick={() => setPendingLibrarySwitch(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-primary"
+                onClick={confirmLibrarySwitch}
+              >
+                {pendingLibrarySwitch.mode === 'create' ? '创建并切换' : '确认切换'}
+              </button>
+            </>
+          )}
+        >
+          <p className="dio-desc"><code>{pendingLibrarySwitch.picked}</code></p>
+        </ModalShell>
+      ) : null}
       {webArchive && (
         <ModalShell
           title="恢复完整交易库"

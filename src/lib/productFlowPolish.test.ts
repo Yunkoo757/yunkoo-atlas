@@ -101,6 +101,24 @@ export async function testSmallInteractionCopyAndContrastContracts(): Promise<vo
   assert(inter >= 0 && cjk > inter && westernFallback > cjk, '字体栈应保留 Inter Variable 首位，并优先使用 CJK 系统回退')
 }
 
+export async function testConfirmationsUseTheSharedModalLanguage(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const sources = await Promise.all([
+    fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
+    fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8'),
+    fs.readFile('src/views/DetailView.tsx', 'utf8'),
+  ])
+
+  assert(
+    sources.every((source) => !source.includes('window.confirm')),
+    '资料库、备份和复盘追记确认不得退回系统原生弹窗',
+  )
+  assert(
+    sources.every((source) => source.includes('ModalShell')),
+    '资料库、备份和复盘追记确认应复用统一弹窗语汇',
+  )
+}
+
 export async function testTodayNavigationAndDateBoundaryRemainInsideTheWorkspace(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [today, visibleTrades, dashboard, strategyHeader] = await Promise.all([
