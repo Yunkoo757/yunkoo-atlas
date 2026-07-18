@@ -6,6 +6,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from '@/icons/appIcons'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './ModalShell.css'
 
 function focusableElements(root: HTMLElement): HTMLElement[] {
@@ -35,6 +36,7 @@ export function ModalShell({
   const descriptionId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
+  const exitRef = useExitClone<HTMLDivElement>()
 
   useEffect(() => {
     returnFocusRef.current = document.activeElement instanceof HTMLElement
@@ -91,6 +93,7 @@ export function ModalShell({
 
   return createPortal(
     <div
+      ref={exitRef}
       className="modal-shell-overlay"
       role="presentation"
       onMouseDown={(event) => {

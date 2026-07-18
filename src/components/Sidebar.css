@@ -185,26 +185,6 @@ html[data-ui-settled='1'] .sb-item {
 .sidebar.is-reordering .sb-item {
   cursor: grabbing;
 }
-.sb-workspace-drag-ghost {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 80;
-  pointer-events: none;
-  max-width: 200px;
-  padding: 6px 10px;
-  border-radius: var(--radius-6);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  box-shadow: 0 8px 24px lch(0 0 0 / 0.35);
-  color: var(--text-primary);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .sb-item-count {
   margin-left: auto;
   min-width: 2ch;

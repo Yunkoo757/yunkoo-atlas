@@ -27,6 +27,7 @@ import { Select } from '@/components/ui/Select'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { normalizeSymbol } from '@/lib/symbolIcons'
 import { fmtMoney } from '@/lib/format'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './CsvImportModal.css'
 
 interface Props {
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export function CsvImportModal({ open, onClose }: Props) {
+  const exitRef = useExitClone<HTMLDivElement>(open)
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
   const upsertTrades = useStore((s) => s.upsertTrades)
@@ -300,7 +302,7 @@ export function CsvImportModal({ open, onClose }: Props) {
   const pickFile = () => fileRef.current?.click()
 
   return (
-    <div className="csv-modal-overlay" onClick={requestClose}>
+    <div ref={exitRef} className="csv-modal-overlay" onClick={requestClose}>
       <div
         className={'csv-modal' + (step === 'upload' || step === 'done' ? '' : ' is-wide')}
         onClick={(e) => e.stopPropagation()}

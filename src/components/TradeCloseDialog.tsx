@@ -10,6 +10,7 @@ import {
 import { fmtMoney, fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './TradeCloseDialog.css'
 
 const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
@@ -57,6 +58,7 @@ export function TradeCloseDialog() {
   const [rMultiple, setRMultiple] = useState('')
   const [closedAt, setClosedAt] = useState(toLocalDate())
   const [error, setError] = useState('')
+  const exitRef = useExitClone<HTMLDivElement>(Boolean(request && trade))
 
   useEffect(() => {
     if (!request) return
@@ -139,6 +141,7 @@ export function TradeCloseDialog() {
 
   return (
     <div
+      ref={exitRef}
       className="trade-close-overlay"
       role="presentation"
       onMouseDown={(event) => {

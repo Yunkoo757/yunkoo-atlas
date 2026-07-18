@@ -62,6 +62,8 @@ import {
   PRIMARY_NAV,
   SECONDARY_NAV,
   DEFAULT_SIDEBAR_PINS,
+  normalizePrimarySidebarOrder,
+  reorderPrimarySidebarNav,
   resolvePinnedSecondaryNav,
 } from '@/lib/sidebarNav'
 import {
@@ -506,6 +508,32 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
     source.includes('await Promise.all([refreshBackups(), refreshHealth()])'),
     '创建、恢复或删除备份后应同步刷新恢复点列表和存储健康数据',
   )
+}
+
+export function testPrimarySidebarOrderNormalizesAndReordersSafely(): void {
+  assert(
+    normalizePrimarySidebarOrder(['dashboard', 'trades', 'dashboard', 'unknown'])
+      .join(',') === 'dashboard,trades,today,quickNotes,reviewCases,weeklyReview,reviewSession',
+    '主导航顺序应去重、忽略未知项并补齐新增模块',
+  )
+  assert(
+    reorderPrimarySidebarNav(DEFAULT_DISPLAY.sidebarPrimaryOrder, 'dashboard', 'today')[0] === 'dashboard',
+    '主导航拖拽应把来源项移动到目标位置',
+  )
+}
+
+export async function testDesktopShellDisablesAccidentalSelectionAndAnimatesModalExit(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [globalCss, sidebarSource, exitSource] = await Promise.all([
+    fs.readFile('src/styles/global.css', 'utf8'),
+    fs.readFile('src/components/Sidebar.tsx', 'utf8'),
+    fs.readFile('src/components/ui/useExitClone.ts', 'utf8'),
+  ])
+  assert(/body\s*\{[\s\S]*?user-select:\s*none;/.test(globalCss), '应用外壳应禁用普通文本拖选')
+  assert(globalCss.includes("[contenteditable='true']") && globalCss.includes('user-select: text'), '编辑区必须保留文字选择能力')
+  assert(sidebarSource.includes('data-sidebar-primary-id'), '工作台主导航应支持原位拖拽排序')
+  assert(!sidebarSource.includes('sb-workspace-drag-ghost'), '侧栏拖拽不得生成跟随鼠标的浮动窗口')
+  assert(exitSource.includes('appendExitClone'), '条件卸载弹层应保留离场快照')
 }
 
 export async function testStorageHealthWarningStaysInTheContentColumn(): Promise<void> {

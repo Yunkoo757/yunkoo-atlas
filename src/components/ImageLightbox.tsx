@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Maximize2, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { useExitClone } from '@/components/ui/useExitClone'
 import {
   LIGHTBOX_VIEW_RESET,
   LIGHTBOX_ZOOM_STEP,
@@ -38,6 +39,7 @@ export function ImageLightbox() {
   } | null>(null)
   const suppressClickRef = useRef(false)
   const [dragging, setDragging] = useState(false)
+  const exitRef = useExitClone<HTMLDivElement>(Boolean(lightbox))
 
   useEffect(() => {
     if (!lightbox) return
@@ -173,7 +175,7 @@ export function ImageLightbox() {
   const hasMany = !lightbox.loading && lightbox.images.length > 1
 
   return (
-    <div className="img-lightbox-overlay" role="dialog" aria-modal="true" aria-label="图片预览">
+    <div ref={exitRef} className="img-lightbox-overlay" role="dialog" aria-modal="true" aria-label="图片预览">
       <div
         ref={viewportRef}
         className={'img-lightbox-viewport' + (dragging ? ' is-dragging' : '')}

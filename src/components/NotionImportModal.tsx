@@ -26,6 +26,7 @@ import { SelectionBox } from '@/components/ui/SelectionBox'
 import { MAX_NOTION_IMPORT_ROWS } from '@/lib/notionImportLimits'
 import type { TradeKind } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './NotionImportModal.css'
 
 interface Props {
@@ -66,6 +67,7 @@ export function getNotionCapacityErrorMessage(error: unknown): string | null {
 }
 
 export function NotionImportModal({ open, onClose }: Props) {
+  const exitRef = useExitClone<HTMLDivElement>(open)
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
   const privacyMode = useStore((s) => s.display.privacyMode)
@@ -375,7 +377,7 @@ export function NotionImportModal({ open, onClose }: Props) {
   }
 
   return (
-    <div className="nim-overlay" onMouseDown={requestClose}>
+    <div ref={exitRef} className="nim-overlay" onMouseDown={requestClose}>
       <div
         className={'nim-modal' + (step === 'upload' || step === 'done' || step === 'importing' ? '' : ' is-wide')}
         onMouseDown={(e) => e.stopPropagation()}

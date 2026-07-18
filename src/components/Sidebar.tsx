@@ -17,7 +17,11 @@ import {
 import { UserAvatar } from '@/components/UserAvatar'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
-import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
+import {
+  reorderPrimarySidebarNav,
+  resolvePrimarySidebarNav,
+  type PrimarySidebarNavId,
+} from '@/lib/sidebarNav'
 import {
   countSidebarRoute,
   countSidebarTarget,
@@ -37,17 +41,15 @@ import { ICON_MD } from '@/icons/iconSize'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { getGreeting } from '@/lib/greeting'
 import { createQuickNote } from '@/data/quickNotes'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
 const WORKSPACE_DRAG_THRESHOLD_PX = 5
 
-type WorkspaceDragGhost = {
+type SidebarDragState = {
   id: string
-  label: string
   overId: string | null
-  x: number
-  y: number
 }
 
 function Count({ value }: { value?: number }) {
@@ -81,8 +83,10 @@ export function useSidebarNavigationModel() {
   const display = useStore((state) => state.display)
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
+  const sidebarPrimaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
   const replaceSidebarWorkspaceItems = useStore((state) => state.replaceSidebarWorkspaceItems)
+  const setDisplay = useStore((state) => state.setDisplay)
   const countContext = useMemo(() => ({ trades, starredIds, display }), [trades, starredIds, display])
 
   const workspaceItems = useMemo(
@@ -127,8 +131,10 @@ export function useSidebarNavigationModel() {
     trades,
     strategies,
     sidebarWorkspaceItems,
+    sidebarPrimaryOrder,
     savedTradeViews,
     replaceSidebarWorkspaceItems,
+    setDisplay,
     workspaceItems,
     selection,
     primaryCount,
@@ -141,12 +147,12 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const [greeting, setGreeting] = useState(() => getGreeting())
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
-  const [workspaceDrag, setWorkspaceDrag] = useState<WorkspaceDragGhost | null>(null)
+  const [workspaceDrag, setWorkspaceDrag] = useState<SidebarDragState | null>(null)
+  const [primaryDrag, setPrimaryDrag] = useState<SidebarDragState | null>(null)
   const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
   const workspaceDragSession = useRef<{
     id: string
     placement: 'pinned' | 'overflow'
-    label: string
     pointerId: number
     startX: number
     startY: number
@@ -154,6 +160,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     overId: string | null
   } | null>(null)
   const suppressWorkspaceClick = useRef(false)
+  const primaryDragSession = useRef<{
+    id: PrimarySidebarNavId
+    pointerId: number
+    startX: number
+    startY: number
+    active: boolean
+    overId: PrimarySidebarNavId | null
+  } | null>(null)
+  const suppressPrimaryClick = useRef(false)
+  const workspaceEditorExitRef = useExitClone<HTMLDivElement>(workspaceEditorOpen)
   const openComposer = useStore((state) => state.openComposer)
   const upsertQuickNote = useStore((state) => state.upsertQuickNote)
   const profile = useStore((state) => state.profile)
@@ -162,13 +178,19 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     trades,
     strategies,
     sidebarWorkspaceItems,
+    sidebarPrimaryOrder,
     savedTradeViews,
     replaceSidebarWorkspaceItems,
+    setDisplay,
     workspaceItems,
     selection,
     primaryCount,
     primaryHref,
   } = useSidebarNavigationModel()
+  const orderedPrimaryNav = useMemo(
+    () => resolvePrimarySidebarNav(sidebarPrimaryOrder),
+    [sidebarPrimaryOrder],
+  )
   const pinnedWorkspaceItems = workspaceItems
     .filter((item) => item.item.placement === 'pinned')
     .slice(0, 8)
@@ -252,7 +274,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     workspaceDragSession.current = {
       id: item.item.id,
       placement: item.item.placement,
-      label: item.label,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
@@ -286,10 +307,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     session.overId = overId
     setWorkspaceDrag({
       id: session.id,
-      label: session.label,
       overId,
-      x: event.clientX,
-      y: event.clientY,
     })
   }
 
@@ -310,6 +328,74 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     const session = workspaceDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
     finishWorkspaceDrag(false)
+  }
+
+  const finishPrimaryDrag = (commit: boolean) => {
+    const session = primaryDragSession.current
+    primaryDragSession.current = null
+    setPrimaryDrag(null)
+    if (!commit || !session?.active || !session.overId || session.overId === session.id) return
+    setDisplay({
+      sidebarPrimaryOrder: reorderPrimarySidebarNav(
+        sidebarPrimaryOrder,
+        session.id,
+        session.overId,
+      ),
+    })
+  }
+
+  const onPrimaryPointerDown = (
+    event: ReactPointerEvent<HTMLAnchorElement>,
+    id: PrimarySidebarNavId,
+  ) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    primaryDragSession.current = {
+      id,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      overId: null,
+    }
+  }
+
+  const onPrimaryPointerMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = primaryDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    if (!session.active) {
+      const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
+      if (distance < WORKSPACE_DRAG_THRESHOLD_PX) return
+      session.active = true
+      suppressPrimaryClick.current = true
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // 捕获失败时仍靠后续 pointer 事件收尾
+      }
+    }
+    const hit = document.elementFromPoint(event.clientX, event.clientY)
+    const row = hit?.closest<HTMLElement>('[data-sidebar-primary-id]')
+    const overId = row?.dataset.sidebarPrimaryId as PrimarySidebarNavId | undefined
+    session.overId = overId && overId !== session.id ? overId : null
+    setPrimaryDrag({ id: session.id, overId: session.overId })
+  }
+
+  const onPrimaryPointerUp = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = primaryDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    if (session.active) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        // ignore
+      }
+    }
+    finishPrimaryDrag(true)
+  }
+
+  const onPrimaryPointerCancel = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    if (primaryDragSession.current?.pointerId !== event.pointerId) return
+    finishPrimaryDrag(false)
   }
 
   const renderWorkspaceLink = (item: (typeof workspaceItems)[number]) => {
@@ -373,7 +459,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   return (
-    <aside className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')}>
+    <aside className={'sidebar' + (workspaceDrag || primaryDrag ? ' is-reordering' : '')}>
       <div className="sb-header">
         <NavLink
           to="/settings/profile"
@@ -424,15 +510,29 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作台</div>
-        {PRIMARY_NAV.map(({ id, to, label, icon: Icon }) => {
+        {orderedPrimaryNav.map(({ id, to, label, icon: Icon }) => {
+          const isDragging = primaryDrag?.id === id
+          const isDropTarget = primaryDrag?.overId === id
           const link = (
             <NavLink
               key={id}
               to={primaryHref(id, to)}
               draggable={false}
+              data-sidebar-primary-id={id}
               onDragStart={(event) => event.preventDefault()}
-              className={() => 'sb-item' + (selection.activePrimaryId === id ? ' is-active' : '')}
+              className={() => `sb-item${selection.activePrimaryId === id ? ' is-active' : ''}${
+                isDragging ? ' is-dragging' : ''
+              }${isDropTarget ? ' is-drop-target' : ''}`}
               aria-current={selection.activePrimaryId === id ? 'page' : undefined}
+              onPointerDown={(event) => onPrimaryPointerDown(event, id)}
+              onPointerMove={onPrimaryPointerMove}
+              onPointerUp={onPrimaryPointerUp}
+              onPointerCancel={onPrimaryPointerCancel}
+              onClick={(event) => {
+                if (!suppressPrimaryClick.current) return
+                event.preventDefault()
+                suppressPrimaryClick.current = false
+              }}
             >
               <Icon size={ICON_MD} />
               <span className="sb-item-label">{label}</span>
@@ -490,7 +590,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       </nav>
 
       {workspaceEditorOpen ? (
-        <div className="sb-workspace-editor-portal" role="presentation">
+        <div ref={workspaceEditorExitRef} className="sb-workspace-editor-portal" role="presentation">
           <button
             type="button"
             className="sb-workspace-editor-backdrop"
@@ -537,17 +637,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         </NavLink>
       </nav>
 
-      {workspaceDrag ? (
-        <div
-          className="sb-workspace-drag-ghost"
-          style={{
-            transform: `translate(${workspaceDrag.x + 12}px, ${workspaceDrag.y + 8}px)`,
-          }}
-          aria-hidden
-        >
-          {workspaceDrag.label}
-        </div>
-      ) : null}
     </aside>
   )
 }

@@ -5,6 +5,7 @@ import { PRIMARY_NAV } from '@/lib/sidebarNav'
 import { workspaceRouteHref } from '@/lib/workspaceViews'
 import { WORKSPACE_ICONS, useSidebarNavigationModel } from '@/components/Sidebar'
 import { SidebarWorkspaceEditor } from '@/components/sidebar/SidebarWorkspaceEditor'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './MobileNavigation.css'
 
 const MOBILE_LABELS = {
@@ -123,7 +124,9 @@ export function MobileNavigation({
   const [editorOpen, setEditorOpen] = useState(false)
   const moreButtonRef = useRef<HTMLButtonElement>(null)
   const drawerRef = useRef<HTMLElement>(null)
-  const editorModalRef = useRef<HTMLDivElement>(null)
+  const editorModalRef = useRef<HTMLDivElement | null>(null)
+  const drawerExitRef = useExitClone<HTMLDivElement>(drawerOpen)
+  const editorExitRef = useExitClone<HTMLDivElement>(editorOpen)
   const locationRef = useRef('')
   const restoreMoreFocusRef = useRef(false)
   const {
@@ -215,7 +218,7 @@ export function MobileNavigation({
       </nav>
 
       {drawerOpen ? (
-        <div className="mobile-navigation-overlay">
+        <div ref={drawerExitRef} className="mobile-navigation-overlay">
           <button className="mobile-navigation-backdrop" type="button" tabIndex={-1} aria-label="关闭更多" onClick={closeDrawer} />
           <section ref={drawerRef} className="mobile-navigation-drawer" role="dialog" aria-modal="true" aria-label="更多" tabIndex={-1}>
             <header>
@@ -330,7 +333,13 @@ export function MobileNavigation({
       ) : null}
 
       {editorOpen ? (
-        <div ref={editorModalRef} className="mobile-navigation-editor-host">
+        <div
+          ref={(node) => {
+            editorModalRef.current = node
+            editorExitRef(node)
+          }}
+          className="mobile-navigation-editor-host"
+        >
           <SidebarWorkspaceEditor
             variant="mobile-fullscreen"
             items={sidebarWorkspaceItems}

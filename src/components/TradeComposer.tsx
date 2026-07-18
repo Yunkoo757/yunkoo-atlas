@@ -31,6 +31,7 @@ import { assetUrl, getStorage } from '@/storage'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './TradeComposer.css'
 
 const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
@@ -79,6 +80,7 @@ export function TradeComposer() {
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const exitRef = useExitClone<HTMLDivElement>(open)
 
   const inputRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -309,7 +311,7 @@ export function TradeComposer() {
   if (!open) return null
 
   return createPortal(
-    <div className="composer-overlay" role="presentation" onMouseDown={requestClose}>
+    <div ref={exitRef} className="composer-overlay" role="presentation" onMouseDown={requestClose}>
       <div
         ref={dialogRef}
         className="composer-modal composer-quick"

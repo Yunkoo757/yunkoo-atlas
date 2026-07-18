@@ -30,6 +30,42 @@ body {
   font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
   /* 减少系统字体与 Inter 切换时的合成字形跳动 */
   font-synthesis: none;
+  user-select: none;
+}
+
+/* 应用外壳默认按桌面软件处理：拖动浏览界面不会产生浏览器蓝色选区。 */
+:where(input, textarea, [contenteditable='true'], .ProseMirror, [data-text-selectable='true']) {
+  user-select: text;
+}
+
+img,
+a {
+  -webkit-user-drag: none;
+}
+
+/* 条件渲染弹层的统一离场快照：比入场稍短，减少“窗口被抽走”的割裂感。 */
+.ui-exit-clone {
+  pointer-events: none !important;
+  animation: uiOverlayExit 120ms var(--ease-out) forwards !important;
+}
+
+.ui-exit-clone .ui-exit-dialog {
+  animation: uiDialogExit 110ms var(--ease-out) forwards !important;
+}
+
+@keyframes uiOverlayExit {
+  to { opacity: 0; }
+}
+
+@keyframes uiDialogExit {
+  to { opacity: 0; transform: translateY(3px) scale(0.992); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-exit-clone,
+  .ui-exit-clone .ui-exit-dialog {
+    animation: none !important;
+  }
 }
 
 ::selection {

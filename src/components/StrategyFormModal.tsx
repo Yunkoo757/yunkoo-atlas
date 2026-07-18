@@ -10,6 +10,7 @@ import {
 } from '@/data/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { useExitClone } from '@/components/ui/useExitClone'
 import './StrategyFormModal.css'
 
 export function StrategyFormModal({
@@ -29,6 +30,7 @@ export function StrategyFormModal({
   const [icon, setIcon] = useState<StrategyIconId>('target')
   const [color, setColor] = useState<string>(STRATEGY_COLOR_PRESETS[0])
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const exitRef = useExitClone<HTMLDivElement>(open)
 
   useEffect(() => {
     if (open) {
@@ -67,7 +69,7 @@ export function StrategyFormModal({
   }
 
   return createPortal(
-    <div className="sfm-overlay" role="presentation" onMouseDown={onClose}>
+    <div ref={exitRef} className="sfm-overlay" role="presentation" onMouseDown={onClose}>
       <div
         className="sfm"
         role="dialog"

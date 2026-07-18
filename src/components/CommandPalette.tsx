@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -79,6 +79,13 @@ function CommandPaletteDialog({
   returnFocusTo?: HTMLElement | null
 }) {
   const [q, setQ] = useState('')
+  const [closing, setClosing] = useState(false)
+  const closeTimerRef = useRef<number | null>(null)
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current !== null) return
+    setClosing(true)
+    closeTimerRef.current = window.setTimeout(onClose, 110)
+  }, [onClose])
   const deferredQuery = useDeferredValue(q)
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
@@ -94,10 +101,14 @@ function CommandPaletteDialog({
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const returnFocusFrameRef = useRef<number | null>(null)
 
+  useEffect(() => () => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+  }, [])
+
   const searchResult = useMemo(() => {
     const go = (to: string) => () => {
       navigate(to)
-      onClose()
+      requestClose()
     }
     const shortcutHint = (actionId: string) =>
       getShortcutHintModel(actionId, shortcutBindings).hint ?? undefined
@@ -131,14 +142,14 @@ function CommandPaletteDialog({
         icon: <HardDriveDownload size={16} />,
         label: '导入/导出数据',
         keywords: '备份 恢复 backup export import',
-        run: () => { onClose(); navigate('/settings/data') },
+        run: () => { requestClose(); navigate('/settings/data') },
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { onClose(); openComposer(null, newTradeKindForPath(pathname)) } },
-      { id: 'a-new-case', group: '操作', icon: <BookOpen size={16} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { onClose(); openComposer(null, 'case') } },
+      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, newTradeKindForPath(pathname)) } },
+      { id: 'a-new-case', group: '操作', icon: <BookOpen size={16} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } },
       { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={16} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
-        onClose()
+        requestClose()
         const bridge = window.journalBridge
         if (bridge?.toggleFullscreen) void bridge.toggleFullscreen()
         else if (document.fullscreenElement) void document.exitFullscreen()
@@ -247,7 +258,7 @@ function CommandPaletteDialog({
     total += tradeMatches.total
 
     return { commands, total }
-  }, [trades, strategies, display, shortcutBindings, pathname, navigate, onClose, openComposer, deferredQuery])
+  }, [trades, strategies, display, shortcutBindings, pathname, navigate, requestClose, openComposer, deferredQuery])
 
   const commands = searchResult.commands
   const hasMore = searchResult.total > commands.length
@@ -302,7 +313,7 @@ function CommandPaletteDialog({
       visibleCommands[active]?.run()
     } else if (e.key === 'Escape') {
       e.preventDefault()
-      onClose()
+      requestClose()
     }
   }
 
@@ -311,7 +322,7 @@ function CommandPaletteDialog({
   let flatIndex = -1
 
   return createPortal(
-    <div className="cmdk-overlay" role="presentation" onMouseDown={onClose}>
+    <div className={`cmdk-overlay${closing ? ' is-closing' : ''}`} role="presentation" onMouseDown={requestClose}>
       <div
         className="cmdk"
         role="dialog"
@@ -321,7 +332,7 @@ function CommandPaletteDialog({
         onKeyDown={(event) => {
           if (event.key === 'Escape' && !event.defaultPrevented) {
             event.stopPropagation()
-            onClose()
+            requestClose()
             return
           }
           if (event.key !== 'Tab') return

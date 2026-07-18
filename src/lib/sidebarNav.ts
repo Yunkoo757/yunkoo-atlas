@@ -34,6 +34,39 @@ export const PRIMARY_NAV: PrimarySidebarNavItem[] = [
   { id: 'dashboard', to: '/dashboard', label: '仪表盘', icon: BarChart3 },
 ]
 
+export const DEFAULT_PRIMARY_SIDEBAR_ORDER: PrimarySidebarNavId[] = PRIMARY_NAV.map(
+  (item) => item.id,
+)
+
+export function normalizePrimarySidebarOrder(input: unknown): PrimarySidebarNavId[] {
+  const valid = new Set<PrimarySidebarNavId>(DEFAULT_PRIMARY_SIDEBAR_ORDER)
+  const ordered = Array.isArray(input)
+    ? input.filter((id): id is PrimarySidebarNavId => typeof id === 'string' && valid.has(id as PrimarySidebarNavId))
+    : []
+  return [...new Set(ordered), ...DEFAULT_PRIMARY_SIDEBAR_ORDER.filter((id) => !ordered.includes(id))]
+}
+
+export function reorderPrimarySidebarNav(
+  order: unknown,
+  sourceId: PrimarySidebarNavId,
+  targetId: PrimarySidebarNavId,
+): PrimarySidebarNavId[] {
+  const next = normalizePrimarySidebarOrder(order)
+  const sourceIndex = next.indexOf(sourceId)
+  const targetIndex = next.indexOf(targetId)
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return next
+  next.splice(sourceIndex, 1)
+  next.splice(targetIndex, 0, sourceId)
+  return next
+}
+
+export function resolvePrimarySidebarNav(order: unknown): PrimarySidebarNavItem[] {
+  const byId = new Map(PRIMARY_NAV.map((item) => [item.id, item]))
+  return normalizePrimarySidebarOrder(order)
+    .map((id) => byId.get(id))
+    .filter((item): item is PrimarySidebarNavItem => Boolean(item))
+}
+
 export type SidebarNavId = 'active' | 'favorites' | 'missed' | 'paper'
 
 export interface SidebarNavItem {

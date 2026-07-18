@@ -3,7 +3,13 @@ import { DEFAULT_PROFILE_DISPLAY } from '@/config/defaultProfile'
 import type { CalendarPeriod } from '@/lib/periods'
 import type { AnalysisScope } from '@/lib/analysisScope'
 import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
-import { DEFAULT_SIDEBAR_PINS, type SidebarNavId } from '@/lib/sidebarNav'
+import {
+  DEFAULT_PRIMARY_SIDEBAR_ORDER,
+  DEFAULT_SIDEBAR_PINS,
+  normalizePrimarySidebarOrder,
+  type PrimarySidebarNavId,
+  type SidebarNavId,
+} from '@/lib/sidebarNav'
 import { normalizeSidebarPins } from '@/lib/tradeKind'
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import {
@@ -45,6 +51,8 @@ export interface DisplayPrefs {
   privacyMode: boolean
   /** 交易详情中是否默认固定开头的盘面叙述。 */
   reviewContextPinned?: boolean
+  /** 工作台主导航的自定义顺序。 */
+  sidebarPrimaryOrder?: PrimarySidebarNavId[]
   /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
   sidebarPins: SidebarNavId[]
   sidebarWorkspaceItems: SidebarWorkspaceItem[]
@@ -64,6 +72,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
   privacyMode: false,
   reviewContextPinned: true,
+  sidebarPrimaryOrder: [...DEFAULT_PRIMARY_SIDEBAR_ORDER],
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
   sidebarWorkspaceItems: migrateSidebarPins(DEFAULT_SIDEBAR_PINS),
 }
@@ -122,6 +131,7 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
       typeof d.reviewContextPinned === 'boolean'
         ? d.reviewContextPinned
         : DEFAULT_DISPLAY.reviewContextPinned,
+    sidebarPrimaryOrder: normalizePrimarySidebarOrder(d.sidebarPrimaryOrder),
     sidebarPins,
     sidebarWorkspaceItems,
     ...(workspaceMemory ? { workspaceMemory } : {}),

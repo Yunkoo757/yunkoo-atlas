@@ -22,6 +22,23 @@
   overflow: hidden;
   animation: cmdkIn 0.16s var(--ease-out);
 }
+
+.cmdk-overlay.is-closing {
+  pointer-events: none;
+  animation: cmdkFadeOut 110ms var(--ease-out) forwards;
+}
+
+.cmdk-overlay.is-closing .cmdk {
+  animation: cmdkOut 100ms var(--ease-out) forwards;
+}
+
+@keyframes cmdkFadeOut {
+  to { opacity: 0; }
+}
+
+@keyframes cmdkOut {
+  to { opacity: 0; transform: translateY(-4px) scale(0.992); }
+}
 @keyframes cmdkIn {
   from {
     opacity: 0;
