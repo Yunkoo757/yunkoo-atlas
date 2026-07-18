@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
@@ -35,6 +35,7 @@ import {
 } from '@/components/sidebar/SidebarWorkspaceEditor'
 import { ICON_MD } from '@/icons/iconSize'
 import { newTradeKindForPath } from '@/lib/tradeKind'
+import { getGreeting } from '@/lib/greeting'
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -135,6 +136,7 @@ export function useSidebarNavigationModel() {
 }
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+  const [greeting, setGreeting] = useState(() => getGreeting())
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
   const [workspaceDrag, setWorkspaceDrag] = useState<WorkspaceDragGhost | null>(null)
@@ -187,6 +189,28 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     setWorkspaceEditorOpen(false)
     requestAnimationFrame(() => workspaceEditorOpener.current?.focus())
   }
+
+  useEffect(() => {
+    let timer: number | null = null
+
+    const scheduleNextHour = () => {
+      const now = new Date()
+      const nextHour = new Date(now)
+      nextHour.setHours(now.getHours() + 1, 0, 1, 0)
+      timer = window.setTimeout(() => {
+        setGreeting(getGreeting())
+        scheduleNextHour()
+      }, Math.max(1_000, nextHour.getTime() - now.getTime()))
+    }
+
+    const refresh = () => setGreeting(getGreeting())
+    scheduleNextHour()
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      if (timer !== null) window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [])
 
   const finishWorkspaceDrag = (commit: boolean) => {
     const session = workspaceDragSession.current
@@ -350,11 +374,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         <NavLink
           to="/settings/profile"
           className="sb-ws"
+          aria-label={`${greeting}，${profile.displayName}；打开个人资料设置`}
           draggable={false}
           onDragStart={(event) => event.preventDefault()}
         >
           <UserAvatar className="sb-ws-avatar" />
-          <span className="sb-ws-name">{profile.displayName}</span>
+          <span className="sb-ws-identity">
+            <span className="sb-ws-greeting">{greeting}</span>
+            <span className="sb-ws-separator" aria-hidden="true">，</span>
+            <span className="sb-ws-name">{profile.displayName}</span>
+          </span>
         </NavLink>
         <div className="sb-header-actions">
           <ShortcutTooltip actionId="global.commandPalette" label="搜索">

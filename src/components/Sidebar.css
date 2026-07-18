@@ -53,13 +53,28 @@
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
-.sb-ws-name {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-primary);
+.sb-ws-identity {
+  display: flex;
+  align-items: baseline;
   flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
   text-align: left;
   white-space: nowrap;
+}
+.sb-ws-greeting {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+.sb-ws-separator {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.sb-ws-name {
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
 }
