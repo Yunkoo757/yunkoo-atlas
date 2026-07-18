@@ -17,7 +17,6 @@ import {
 import { UserAvatar } from '@/components/UserAvatar'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { PRIMARY_NAV, type PrimarySidebarNavId } from '@/lib/sidebarNav'
-import type { SidebarNavId } from '@/lib/sidebarNav'
 import {
   countSidebarRoute,
   countSidebarTarget,
@@ -39,20 +38,6 @@ import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
 const WORKSPACE_DRAG_THRESHOLD_PX = 5
-
-const PRIMARY_NAV_SHORTCUTS: Partial<Record<PrimarySidebarNavId, string>> = {
-  today: 'nav.today',
-  trades: 'nav.list',
-  reviewCases: 'nav.reviewCases',
-  dashboard: 'nav.dashboard',
-}
-
-const SYSTEM_NAV_SHORTCUTS: Record<SidebarNavId, string> = {
-  active: 'nav.active',
-  favorites: 'nav.favorites',
-  missed: 'nav.missed',
-  paper: 'nav.sim',
-}
 
 type WorkspaceDragGhost = {
   id: string
@@ -342,17 +327,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         <Count value={item.count} />
       </NavLink>
     )
-    return item.item.target.kind === 'system' ? (
-      <ShortcutTooltip
-        key={item.item.id}
-        actionId={SYSTEM_NAV_SHORTCUTS[item.item.target.id]}
-        label={item.label}
-      >
-        {link}
-      </ShortcutTooltip>
-    ) : (
-      link
-    )
+    return link
   }
 
   return (
@@ -409,12 +384,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               <Count value={primaryCount(id)} />
             </NavLink>
           )
-          const shortcutId = PRIMARY_NAV_SHORTCUTS[id]
-          return shortcutId ? (
-            <ShortcutTooltip key={id} actionId={shortcutId} label={label}>
-              {link}
-            </ShortcutTooltip>
-          ) : link
+          return link
         })}
       </nav>
 

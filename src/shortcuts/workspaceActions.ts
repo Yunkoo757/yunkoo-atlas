@@ -6,14 +6,13 @@ import {
   type WorkspaceKind,
 } from '@/lib/workspaceViews'
 
-/** 为快捷键提供结果稳定的工作区目标，并恢复该工作区上次使用的位置。 */
+/** 交易日志快捷键固定回到全部；案例记录仍恢复上次知识视图。 */
 export function resolveShortcutWorkspaceHref(
   kind: Extract<WorkspaceKind, 'trade' | 'case'>,
   display: DisplayPrefs,
   strategies: readonly Pick<Strategy, 'id'>[],
 ): string {
-  const memory = kind === 'trade'
-    ? display.workspaceMemory?.trade
-    : display.workspaceMemory?.case
+  if (kind === 'trade') return '/list'
+  const memory = display.workspaceMemory?.case
   return workspaceRouteHref(resolveWorkspaceNavTarget(kind, memory, strategies))
 }

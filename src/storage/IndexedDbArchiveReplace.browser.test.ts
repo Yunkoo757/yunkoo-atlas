@@ -9,6 +9,31 @@ declare global {
   }
 }
 
+const BROWSER_DB_NAME = 'linear-journal-v3'
+
+async function seedHigherVersionDatabase(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(BROWSER_DB_NAME)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+    request.onblocked = () => reject(new Error('测试数据库仍被占用'))
+  })
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(BROWSER_DB_NAME, 3)
+    request.onupgradeneeded = () => {
+      const db = request.result
+      db.createObjectStore('snapshot')
+      db.createObjectStore('assets', { keyPath: 'id' })
+      db.createObjectStore('meta')
+    }
+    request.onsuccess = () => {
+      request.result.close()
+      resolve()
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
@@ -48,6 +73,7 @@ function snapshotWithNote(note: string, displayName: string): PersistedSnapshot 
 }
 
 async function run(): Promise<void> {
+  await seedHigherVersionDatabase()
   const adapter = new IndexedDbStorageAdapter()
   await adapter.open()
 

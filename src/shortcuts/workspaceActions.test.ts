@@ -25,11 +25,10 @@ const display: DisplayPrefs = {
   },
 }
 
-export function testTradeAndCaseShortcutsOpenIndependentRememberedWorkspaces(): void {
+export function testTradeShortcutOpensAllWhileCaseShortcutRemembersWorkspace(): void {
   assert(
-    resolveShortcutWorkspaceHref('trade', display, []) ===
-      '/period/this-week?symbol=BTCUSDT',
-    '交易快捷键应恢复交易工作区上次使用的位置',
+    resolveShortcutWorkspaceHref('trade', display, []) === '/list',
+    '交易快捷键应始终回到交易日志全部视图',
   )
   assert(
     resolveShortcutWorkspaceHref('case', display, []) ===

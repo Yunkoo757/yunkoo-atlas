@@ -124,7 +124,11 @@ async function expectText(locator, expected) {
 }
 
 async function expectAttribute(locator, name, expected) {
-  const actual = await locator.getAttribute(name)
+  let actual = await locator.getAttribute(name)
+  for (let attempt = 0; actual !== expected && attempt < 100; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    actual = await locator.getAttribute(name)
+  }
   if (actual !== expected) throw new Error(`Expected ${name}=${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`)
 }
 
@@ -284,23 +288,29 @@ try {
 
   const tradeNav = page.locator('.sb-primary > a').nth(1)
   await tradeNav.hover()
-  const shortcutTooltip = page.locator('.shortcut-tooltip-content')
-  await shortcutTooltip.waitFor({ state: 'visible', timeout: 2000 })
+  await page.waitForTimeout(300)
   expectEqual(
-    (await shortcutTooltip.textContent())?.replace(/\s+/g, ''),
-    '交易日志Alt+W',
-    'Navigation hover must expose the current shortcut',
+    await page.locator('.shortcut-tooltip-content').count(),
+    0,
+    'Text navigation must not repeat itself in a shortcut tooltip',
   )
   await page.evaluate(async () => {
     const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
-    useShortcutStore.getState().setBinding('nav.list', { alt: true, key: 'x' })
+    useShortcutStore.getState().setBinding('nav.list', { key: 'a' })
+    useShortcutStore.getState().setBinding('nav.board', { key: 'd' })
   })
-  await page.waitForFunction(() =>
-    document.querySelector('.shortcut-tooltip-content')?.textContent?.includes('Alt+X'),
-  )
+  await page.goto(`${BASE}/favorites?symbol=BTCUSDT`, { waitUntil: 'domcontentloaded' })
+  await page.locator('.sb-primary > a').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page.keyboard.press('a')
+  await page.waitForURL((url) => url.pathname === '/list' && url.search === '')
+  await page.goto(`${BASE}/active/board?symbol=BTCUSDT`, { waitUntil: 'domcontentloaded' })
+  await page.locator('.sb-primary > a').first().waitFor({ state: 'visible', timeout: 10000 })
+  await page.keyboard.press('d')
+  await page.waitForURL((url) => url.pathname === '/board' && url.search === '')
   await page.evaluate(async () => {
     const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
     useShortcutStore.getState().resetBinding('nav.list')
+    useShortcutStore.getState().resetBinding('nav.board')
   })
 
   await page.evaluate(async () => {

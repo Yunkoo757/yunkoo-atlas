@@ -76,16 +76,14 @@ export function useShortcutHost({
       'nav.missed': () => navigate('/missed'),
       'nav.sim': () => navigate('/sim'),
       'nav.list': () => {
-        const state = useStore.getState()
-        navigate(resolveShortcutWorkspaceHref('trade', state.display, state.strategies))
+        navigate('/list')
       },
       'nav.reviewCases': () => {
         const state = useStore.getState()
         navigate(resolveShortcutWorkspaceHref('case', state.display, state.strategies))
       },
       'nav.board': () => {
-        const listPath = listPathFromPathname(pathname) ?? '/list'
-        navigate(routeWithSearch(boardPathFromListPath(listPath), search))
+        navigate('/board')
       },
       'nav.dashboard': () => navigate('/dashboard'),
       'nav.strategies': () => navigate('/settings/strategies'),

@@ -184,6 +184,13 @@ function LegacyRouteFallback() {
   return <RouteNotFound />
 }
 
+function storageBootstrapErrorMessage(error: unknown): string {
+  if (error instanceof DOMException && error.name === 'VersionError') {
+    return '本地数据版本不兼容，请刷新页面或更新应用后重试。'
+  }
+  return '本地交易库暂时无法打开，请重试。'
+}
+
 function Shell() {
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [cmdkReturnFocus, setCmdkReturnFocus] = useState<HTMLElement | null>(null)
@@ -371,7 +378,7 @@ export function App() {
 
     init().catch((e) => {
       console.error('Storage bootstrap failed', e)
-      setStorageError(e instanceof Error ? e.message : String(e))
+      setStorageError(storageBootstrapErrorMessage(e))
       setReady(false)
       document.documentElement.dataset.uiSettled = '1'
     })
@@ -391,7 +398,7 @@ export function App() {
       }
     } catch (e) {
       console.error('Storage bootstrap failed after welcome', e)
-      setStorageError(e instanceof Error ? e.message : String(e))
+      setStorageError(storageBootstrapErrorMessage(e))
       setReady(false)
       document.documentElement.dataset.uiSettled = '1'
       return
@@ -417,7 +424,7 @@ export function App() {
       })
     } catch (error) {
       console.error('Storage bootstrap retry failed', error)
-      setStorageError(error instanceof Error ? error.message : String(error))
+      setStorageError(storageBootstrapErrorMessage(error))
       document.documentElement.dataset.uiSettled = '1'
     } finally {
       setRetryingStorage(false)

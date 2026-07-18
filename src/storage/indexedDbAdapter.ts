@@ -7,7 +7,6 @@ import { collectAssetIdsFromSnapshot } from '@/storage/assets'
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
 const DB_NAME = 'linear-journal-v3'
-const DB_VERSION = 1
 
 const STORE_SNAPSHOT = 'snapshot'
 const STORE_ASSETS = 'assets'
@@ -24,7 +23,7 @@ interface AssetRecord {
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
+    const req = indexedDB.open(DB_NAME)
     req.onerror = () => reject(req.error ?? new Error('IndexedDB open failed'))
     req.onsuccess = () => resolve(req.result)
     req.onupgradeneeded = () => {
