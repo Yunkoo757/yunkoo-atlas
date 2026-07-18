@@ -99,6 +99,21 @@ async function run(): Promise<void> {
     assert(!document.querySelector('.wr-chart'), '只有一周数据时不应绘制折线图')
     assert(document.querySelector('.wr-year-summary')?.textContent?.includes('情绪化'), '年度最常见错误没有使用固定分类')
     assert(!document.querySelector('.wr-year-summary')?.textContent?.includes('FOMO'), '自定义标签污染了年度最常见错误')
+
+    const priorDate = new Date(`${weekStart}T12:00:00`)
+    priorDate.setDate(priorDate.getDate() - 7)
+    useStore.getState().upsertWeeklyReview({
+      ...createWeeklyReview(weekStartFor(priorDate)),
+      status: 'completed',
+      executionScore: 3,
+      riskScore: 3,
+      emotionScore: 3,
+      completedAt: priorDate.toISOString(),
+    })
+    await waitFor(
+      () => Boolean(document.querySelector('.wr-chart svg')),
+      '第二个完成周出现后应按需载入年度评分折线图',
+    )
   } finally {
     if (!new URLSearchParams(location.search).has('visual')) {
       root.unmount()

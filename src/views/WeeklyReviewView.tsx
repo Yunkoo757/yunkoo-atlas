@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Topbar } from '@/components/Topbar'
 import { Editor } from '@/editor/Editor'
 import {
@@ -39,6 +38,10 @@ import {
 } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
 import './WeeklyReviewView.css'
+
+const WeeklyReviewScoreChart = lazy(() =>
+  import('./WeeklyReviewScoreChart').then((module) => ({ default: module.WeeklyReviewScoreChart })),
+)
 
 const STRENGTH_TAGS = ['耐心等待', '计划内交易', '执行果断', '仓位克制', '及时止损', '复盘充分']
 const SCORE_FIELDS = [
@@ -482,7 +485,11 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><TrendingUp size={17} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
-        {data.length >= 2 ? <div className="wr-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={data}><XAxis dataKey="week" stroke="var(--text-quaternary)" fontSize={11} /><YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} stroke="var(--text-quaternary)" fontSize={11} width={24} /><Tooltip contentStyle={{ background: 'var(--popover-bg)', border: '1px solid var(--border-default)', borderRadius: 8 }} /><Line type="monotone" dataKey="score" name="平均评分" stroke="var(--accent)" strokeWidth={2} connectNulls dot={{ r: 3 }} /></LineChart></ResponsiveContainer></div> : data.length === 1 ? <div className="wr-trend-start"><div><span>趋势起点</span><strong>{data[0].score.toFixed(1)}</strong><small>/ 5</small></div><p>再完成 1 次周复盘后，这里会显示评分变化。</p></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}
+        {data.length >= 2 ? (
+          <Suspense fallback={<div className="wr-chart wr-chart-loading" aria-label="正在载入评分趋势" />}>
+            <WeeklyReviewScoreChart data={data} />
+          </Suspense>
+        ) : data.length === 1 ? <div className="wr-trend-start"><div><span>趋势起点</span><strong>{data[0].score.toFixed(1)}</strong><small>/ 5</small></div><p>再完成 1 次周复盘后，这里会显示评分变化。</p></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><span>52</span><h2>全年复盘节奏</h2></div><small>颜色越亮，做法评分越高</small></div>

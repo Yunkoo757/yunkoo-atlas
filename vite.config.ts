@@ -49,5 +49,6 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, 'src') },
   },
   base: isElectron ? './' : '/',
+  build: { manifest: true },
   server: { port: 5180, open: !isElectron },
 })

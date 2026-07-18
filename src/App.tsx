@@ -31,14 +31,6 @@ import { ICON_XL } from './icons/iconSize'
 import { ListView } from './views/ListView'
 import { BoardView } from './views/BoardView'
 import { SettingsLayout } from './views/settings/SettingsLayout'
-import { ShortcutsPanel } from './views/settings/ShortcutsPanel'
-import { DisplaySettingsPanel } from './views/settings/DisplaySettingsPanel'
-import { DataSettingsPanel } from './views/settings/DataSettingsPanel'
-import { ProfileSettingsPanel } from './views/settings/ProfileSettingsPanel'
-import { TagPresetsPanel } from './views/settings/TagPresetsPanel'
-import { SymbolsPanel } from './views/settings/SymbolsPanel'
-import { UpdatesSettingsPanel } from './views/settings/UpdatesSettingsPanel'
-import { ReviewTemplatesPanel } from './views/settings/ReviewTemplatesPanel'
 import { TradeTrashView } from './views/TradeTrashView'
 import { TodayWorkspace } from './views/TodayWorkspace'
 import { StrategyHeader } from './components/StrategyHeader'
@@ -70,6 +62,30 @@ const WeeklyReviewView = lazy(() =>
 )
 const StrategiesPanel = lazy(() =>
   import('./views/settings/StrategiesPanel').then((module) => ({ default: module.StrategiesPanel })),
+)
+const ShortcutsPanel = lazy(() =>
+  import('./views/settings/ShortcutsPanel').then((module) => ({ default: module.ShortcutsPanel })),
+)
+const DisplaySettingsPanel = lazy(() =>
+  import('./views/settings/DisplaySettingsPanel').then((module) => ({ default: module.DisplaySettingsPanel })),
+)
+const DataSettingsPanel = lazy(() =>
+  import('./views/settings/DataSettingsPanel').then((module) => ({ default: module.DataSettingsPanel })),
+)
+const ProfileSettingsPanel = lazy(() =>
+  import('./views/settings/ProfileSettingsPanel').then((module) => ({ default: module.ProfileSettingsPanel })),
+)
+const TagPresetsPanel = lazy(() =>
+  import('./views/settings/TagPresetsPanel').then((module) => ({ default: module.TagPresetsPanel })),
+)
+const SymbolsPanel = lazy(() =>
+  import('./views/settings/SymbolsPanel').then((module) => ({ default: module.SymbolsPanel })),
+)
+const UpdatesSettingsPanel = lazy(() =>
+  import('./views/settings/UpdatesSettingsPanel').then((module) => ({ default: module.UpdatesSettingsPanel })),
+)
+const ReviewTemplatesPanel = lazy(() =>
+  import('./views/settings/ReviewTemplatesPanel').then((module) => ({ default: module.ReviewTemplatesPanel })),
 )
 
 function TradesPage({
