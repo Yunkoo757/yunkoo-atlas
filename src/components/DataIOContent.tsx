@@ -476,7 +476,7 @@ export function DataIOContent({
             重复检测
           </h2>
           <p className="dio-group-desc">
-            按正文与截图内容识别明显抄重，不会把同日同品种多笔正常交易当成重复。
+            仅在同一记录类型内按正文与截图识别明显抄重；实盘、模拟与案例之间不会互相判重。
           </p>
         </div>
         <div className="dio-task-list">

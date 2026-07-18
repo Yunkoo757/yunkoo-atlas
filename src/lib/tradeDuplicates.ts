@@ -308,7 +308,10 @@ function preferKeepTrade(
 
 /** 在已签名的交易中找出明显重复组（组内保留较新的一条） */
 export function groupObviousDuplicates(
-  items: ReadonlyArray<{ trade: Pick<Trade, 'id' | 'ref' | 'recordedAt' | 'openedAt'>; sig: ContentSignature }>,
+  items: ReadonlyArray<{
+    trade: Pick<Trade, 'id' | 'ref' | 'recordedAt' | 'openedAt' | 'tradeKind'>
+    sig: ContentSignature
+  }>,
 ): DuplicateGroup[] {
   const parent = new Map<string, string>()
   const reasonByRoot = new Map<string, DuplicateReason>()
@@ -339,6 +342,8 @@ export function groupObviousDuplicates(
     for (let j = i + 1; j < items.length; j++) {
       const left = items[i]!
       const right = items[j]!
+      // 实盘、模拟和案例是三个独立记录域；内容复用是沉淀关系，不是重复数据。
+      if (left.trade.tradeKind !== right.trade.tradeKind) continue
       const reason = duplicateReason(left.sig, right.sig)
       if (reason) union(left.trade.id, right.trade.id, reason)
     }
@@ -346,7 +351,10 @@ export function groupObviousDuplicates(
 
   const buckets = new Map<
     string,
-    Array<{ trade: Pick<Trade, 'id' | 'ref' | 'recordedAt' | 'openedAt'>; sig: ContentSignature }>
+    Array<{
+      trade: Pick<Trade, 'id' | 'ref' | 'recordedAt' | 'openedAt' | 'tradeKind'>
+      sig: ContentSignature
+    }>
   >()
   for (const item of items) {
     const root = find(item.trade.id)

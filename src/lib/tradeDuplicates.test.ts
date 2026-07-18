@@ -78,21 +78,50 @@ export function testFindAndGroupDuplicates(): void {
 
   const groups = groupObviousDuplicates([
     {
-      trade: { id: 'old', ref: 'TRD-1', recordedAt: '2026-01-01', openedAt: '2026-01-01' },
+      trade: { id: 'old', ref: 'TRD-1', recordedAt: '2026-01-01', openedAt: '2026-01-01', tradeKind: 'live' },
       sig: buildContentSignature(html, []),
     },
     {
-      trade: { id: 'new', ref: 'TRD-2', recordedAt: '2026-06-01', openedAt: '2026-06-01' },
+      trade: { id: 'new', ref: 'TRD-2', recordedAt: '2026-06-01', openedAt: '2026-06-01', tradeKind: 'live' },
       sig: buildContentSignature(html, []),
     },
     {
-      trade: { id: 'uniq', ref: 'TRD-3', recordedAt: '2026-06-02', openedAt: '2026-06-02' },
+      trade: { id: 'uniq', ref: 'TRD-3', recordedAt: '2026-06-02', openedAt: '2026-06-02', tradeKind: 'live' },
       sig: buildContentSignature('<p>完全不同的足够长正文，用于证明不会被扫进重复组。</p>', []),
     },
   ])
   assert(groups.length === 1, '应只产出一组重复')
   assert(groups[0]?.keepId === 'new', '应保留较新的一条')
   assert(groups[0]?.memberIds.includes('old'), '旧记录应在组内')
+}
+
+export function testDuplicateGroupingNeverCrossesRecordDomains(): void {
+  const signature = buildContentSignature(
+    '<p>这是一段从交易日志沉淀到案例记录的完整复盘正文。</p>',
+    ['shared-image-a', 'shared-image-b'],
+  )
+  const sourceTrade = {
+    id: 'live-1',
+    ref: 'TRD-7',
+    recordedAt: '2026-07-17',
+    openedAt: '2026-07-17',
+    tradeKind: 'live' as const,
+  }
+  const derivedCase = {
+    id: 'case-1',
+    ref: 'CAS-3',
+    recordedAt: '2026-07-18',
+    openedAt: '2026-07-17',
+    tradeKind: 'case' as const,
+    sourceTradeId: sourceTrade.id,
+  }
+
+  const groups = groupObviousDuplicates([
+    { trade: sourceTrade, sig: signature },
+    { trade: derivedCase, sig: signature },
+  ])
+
+  assert(groups.length === 0, '交易日志沉淀出的案例不得与来源交易互判为重复')
 }
 
 export function testNoteHashCollisionNeverSkipsDistinctContent(): void {
