@@ -46,6 +46,13 @@ const SCORE_FIELDS = [
   { key: 'riskScore', label: '风险管理' },
   { key: 'emotionScore', label: '情绪稳定' },
 ] as const
+const SCORE_LEVELS = [
+  { value: 1, label: '明显偏离' },
+  { value: 2, label: '需要纠正' },
+  { value: 3, label: '基本做到' },
+  { value: 4, label: '执行良好' },
+  { value: 5, label: '稳定执行' },
+] as const
 const COMMITMENT_RESULTS: { value: WeeklyCommitmentResult; label: string }[] = [
   { value: 'done', label: '做到' },
   { value: 'partial', label: '部分做到' },
@@ -343,16 +350,33 @@ export function WeeklyReviewView() {
               <section className="wr-section">
                 <div className="wr-section-head"><div><span>{previousReview ? '03' : '02'}</span><h2>给做法打分</h2></div><small>评价执行，不评价盈亏</small></div>
                 <div className="wr-score-grid">
-                  {SCORE_FIELDS.map(({ key, label }) => (
-                    <div className="wr-score-row" key={key}>
-                      <label>{label}</label>
-                      <div role="radiogroup" aria-label={label}>
-                        {[1, 2, 3, 4, 5].map((score) => (
-                          <button key={score} type="button" role="radio" aria-checked={review[key] === score} onClick={() => commitPatch({ [key]: score })}>{score}</button>
-                        ))}
+                  {SCORE_FIELDS.map(({ key, label }) => {
+                    const selectedScore = review[key]
+                    const selectedLevel = SCORE_LEVELS.find((level) => level.value === selectedScore)
+                    const tone = selectedScore === null ? 'is-unset' : selectedScore <= 2 ? 'is-low' : selectedScore >= 4 ? 'is-high' : 'is-mid'
+                    return (
+                      <div className="wr-score-row" key={key}>
+                        <label>{label}</label>
+                        <div className="wr-score-control">
+                          <div className="wr-score-options" role="radiogroup" aria-label={label}>
+                            {SCORE_LEVELS.map(({ value, label: levelLabel }) => (
+                              <button
+                                key={value}
+                                type="button"
+                                role="radio"
+                                aria-checked={selectedScore === value}
+                                aria-label={`${value} 分，${levelLabel}`}
+                                onClick={() => commitPatch({ [key]: value })}
+                              >
+                                {value}
+                              </button>
+                            ))}
+                          </div>
+                          <span className={`wr-score-status ${tone}`}><b>{selectedScore ?? '—'}</b>{selectedLevel?.label ?? '尚未评分'}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </section>
 
