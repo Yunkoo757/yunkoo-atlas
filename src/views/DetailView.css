@@ -652,37 +652,46 @@
   display: block;
 }
 
-/* 属性行：标签左 / 值右 */
+/* 属性行：复用 Linear 属性表的 90px 标签列与 28px 行节奏 */
 .dv-prop-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 0;
   width: 100%;
-  min-height: 32px;
-  padding: 0 6px;
-  border-radius: var(--radius-6);
+  min-height: 28px;
+  padding: 0;
   text-align: left;
-  transition: background var(--dur-fast) var(--ease-out);
 }
 .dv-prop-row:hover {
-  background: var(--bg-hover);
+  background: transparent;
 }
 .dv-prop-label {
-  flex: 0 0 auto;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
-  font-weight: var(--font-weight-normal);
+  font-weight: 450;
+  line-height: normal;
 }
 .dv-prop-value {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  justify-self: start;
   gap: 6px;
+  height: 28px;
   min-width: 0;
+  padding: 3px 6px;
+  border-radius: var(--radius-full);
   color: var(--text-primary);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-normal);
+  line-height: normal;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.dv-prop-row:hover .dv-prop-value {
+  background: lch(13.456% 0.943 272);
 }
 .dv-prop-empty {
   color: var(--text-quaternary);
@@ -695,11 +704,11 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  font-size: var(--fs-sm);
+  font-size: inherit;
   font-weight: var(--font-weight-normal);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  line-height: 1;
+  letter-spacing: normal;
+  line-height: normal;
   white-space: nowrap;
 }
 .dv-prop-chip.is-neutral {
@@ -854,22 +863,32 @@
 
 /* 交易数据 label→value 行 */
 .dv-datarow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   align-self: stretch;
-  min-height: 27px;
-  padding: 0 5px;
+  min-height: 28px;
+  padding: 0;
 }
 .dv-datarow-label {
   font-size: var(--fs-mini);
+  font-weight: 450;
   color: var(--text-tertiary);
+  line-height: normal;
 }
 .dv-datarow-value {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 28px;
+  padding: 3px 6px;
+  border-radius: var(--radius-full);
   font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-normal);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  line-height: normal;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .dv-datarow-btn {
   width: 100%;
@@ -877,22 +896,25 @@
   border: none;
   cursor: pointer;
   border-radius: var(--radius-lg);
-  transition: background var(--dur-fast) var(--ease-out);
 }
 .dv-datarow-btn:hover {
-  background: var(--bg-hover);
+  background: transparent;
+}
+.dv-datarow-btn:hover .dv-datarow-value {
+  background: lch(13.456% 0.943 272);
 }
 .dv-datarow-edit {
-  gap: 8px;
+  gap: 0;
 }
 .dv-datarow-input,
 .dv-date-picker {
-  flex: 1;
-  max-width: 120px;
+  justify-self: start;
+  width: min(180px, 100%);
+  max-width: 100%;
 }
 .dv-datarow-input,
 .dv-date-picker .ui-date-trigger {
-  height: 25px;
+  height: 28px;
   padding: 0 8px;
   background: var(--field-bg);
   border: 1px solid var(--accent);
@@ -901,7 +923,7 @@
   font-family: var(--font-ui);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: left;
 }
 
 @media (max-width: 768px) {
