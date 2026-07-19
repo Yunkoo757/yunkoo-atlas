@@ -347,14 +347,17 @@
 .trade-row-more,
 .trade-row-session,
 .trade-row-timeframe {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   max-width: 18ch;
   min-width: 0;
   height: 24px;
   padding: 0 8px;
   overflow: hidden;
-  color: var(--tag-quiet-text);
-  font-size: var(--fs-mini);
+  color: var(--text-tertiary);
+  font-size: var(--fs-micro);
   line-height: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -397,22 +400,22 @@
 .trade-row-session.is-new-york,
 .trade-row-session.is-outside,
 .trade-row-session.is-other {
-  color: var(--tag-session-text);
-  background: var(--tag-session-bg);
-  border-color: var(--tag-session-border);
+  color: #9ca8bc;
+  background: rgb(82 98 125 / 12%);
+  border-color: var(--border-strong);
 }
 
 .trade-row-tag.is-mistake {
   max-width: none;
-  color: var(--tag-error-text);
-  background: var(--tag-error-bg);
-  border-color: var(--tag-error-border);
+  color: #e37c84;
+  background: var(--bg-surface);
+  border-color: rgb(227 124 132 / 40%);
 }
 
 .trade-row-more.is-mistake-more {
-  color: var(--tag-error-text);
-  background: var(--tag-error-bg);
-  border-color: var(--tag-error-border);
+  color: #e37c84;
+  background: var(--bg-surface);
+  border-color: rgb(227 124 132 / 40%);
   border-style: solid;
 }
 
