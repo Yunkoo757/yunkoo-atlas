@@ -80,8 +80,8 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
   ]) {
     if (!tokens.includes(contract)) throw new Error(`missing calibrated token: ${contract}`)
   }
-  if (!listRuntime.includes('const HEADER_HEIGHT = 38')) {
-    throw new Error('virtual group header estimate must include the 36px header and 2px separation')
+  if (!listRuntime.includes('const HEADER_HEIGHT = 36')) {
+    throw new Error('virtual group header estimate must match the 36px visual header')
   }
   if (list.includes('box-shadow: inset 2px 0 0 var(--accent)')) {
     throw new Error('selected rows must not retain the old blue leading rail')
@@ -92,8 +92,8 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
   if (!quickViews.includes('.quick-view-chip::after') || !quickViews.includes('box-shadow: var(--surface-control-shadow-active)')) {
     throw new Error('quick-view pills must render the calibrated border as a pseudo layer')
   }
-  if (!list.includes('inset: 0 8px') || !list.includes('padding: 0 10px')) {
-    throw new Error('trade rows must preserve the calibrated inset selection surface and content padding')
+  if (!list.includes('inset: 2px 8px') || !list.includes('padding: 0 10px')) {
+    throw new Error('trade rows must preserve symmetric 2px vertical breathing room and content padding')
   }
   if (!filterBar.includes('padding: 0 15px 0 8px')) {
     throw new Error('filter toolbar must share the calibrated 8px leading inset')
