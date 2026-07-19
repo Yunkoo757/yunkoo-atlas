@@ -53,8 +53,7 @@ export const TradeRow = memo(function TradeRow({
     symbolIconsProp === undefined ? state.symbolIcons : null,
   )
   const symbolIcons = symbolIconsProp ?? symbolIconsFromStore ?? {}
-  const regularTagLimit = trade.mistakeTags.length > 0 ? 1 : 2
-  const regularTags = getVisibleTradeTags(trade, regularTagLimit)
+  const regularTags = getVisibleTradeTags(trade, 0)
   const mistakeTags = {
     visible: trade.mistakeTags.slice(0, 2),
     hidden: trade.mistakeTags.slice(2),
@@ -63,9 +62,7 @@ export const TradeRow = memo(function TradeRow({
   const reviewLabel =
     trade.tradeKind === 'case' && trade.caseType
       ? CASE_TYPE_META[trade.caseType].label
-      : regularTags.visible.length === 0 &&
-          trade.mistakeTags.length === 0 &&
-          trade.reviewCategory !== 'normal'
+      : trade.reviewCategory !== 'normal'
         ? REVIEW_CATEGORY_META[trade.reviewCategory].label
         : null
 

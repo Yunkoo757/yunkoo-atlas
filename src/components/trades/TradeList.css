@@ -95,17 +95,39 @@
 .trade-list-group-header button {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
   margin-left: auto;
-  color: var(--text-tertiary);
-  border-radius: var(--radius-6);
+  padding: 0;
+  color: rgb(147 152 164);
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
   opacity: 1;
+  cursor: pointer;
+  transition:
+    color 100ms ease,
+    background-color 100ms ease;
 }
 
 .trade-list-group-header button:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
+  color: rgb(202 205 213);
+  background: rgb(255 255 255 / 7.5%);
+}
+
+.trade-list-group-header button:active {
+  background: rgb(255 255 255 / 11%);
+}
+
+.trade-list-group-header button:focus-visible {
+  color: rgb(202 205 213);
+  background: rgb(255 255 255 / 7.5%);
+}
+
+.trade-list-group-header button svg {
+  display: block;
+  overflow: visible;
 }
 
 .trade-row {
@@ -197,6 +219,10 @@
   width: 14px;
   height: 14px;
   justify-self: center;
+  transition:
+    opacity 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
 }
 
 .trade-row-star {
@@ -213,8 +239,17 @@
   opacity: 1;
 }
 
-.trade-row:hover .selection-box {
+.trade-row:hover .selection-box:not(.is-selected) {
   opacity: 1;
+  background: rgb(22 22 23);
+  border-color: rgb(85 85 87);
+}
+
+.trade-row:hover .selection-box:not(.is-selected):hover,
+.trade-row .selection-box:not(.is-selected):focus-visible {
+  opacity: 1;
+  background: rgb(22 22 23);
+  border-color: rgb(105 117 226);
 }
 
 .trade-row-status,

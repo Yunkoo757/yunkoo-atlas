@@ -18,14 +18,14 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  border-radius: 50%;
+  border-radius: 25%;
   background: transparent;
   line-height: 1;
   flex-shrink: 0;
   overflow: hidden;
 }
 
-/* UserAvatar 放在圆形容器内时，确保 img 拉伸覆盖 */
+/* UserAvatar 放在圆角方形容器内时，确保 img 拉伸覆盖 */
 .profile-preview-avatar img,
 .sb-ws-avatar img,
 .lv-avatar img,
@@ -33,7 +33,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 50%;
+  border-radius: 25%;
 }
 
 .profile-preview-name {
@@ -86,7 +86,7 @@
   display: block;
   width: 42px;
   height: 42px;
-  border-radius: 50%;
+  border-radius: 25%;
   overflow: hidden;
   box-shadow: 0 0 0 1px color-mix(in srgb, white 12%, transparent);
 }

@@ -7,7 +7,7 @@ type UserAvatarProps = {
 }
 
 /** 统一用户头像：自定义图片 > 矢量预置头像。 */
-export function UserAvatar({ className, shape = 'circle' }: UserAvatarProps) {
+export function UserAvatar({ className, shape = 'rounded-square' }: UserAvatarProps) {
   const profile = useStore((s) => s.profile)
   const avatar = resolveAvatar(profile)
 
@@ -17,7 +17,7 @@ export function UserAvatar({ className, shape = 'circle' }: UserAvatarProps) {
         className={className}
         src={avatar.src}
         alt={profile.displayName}
-        style={{ objectFit: 'cover', borderRadius: shape === 'rounded-square' ? '6px' : '50%' }}
+        style={{ objectFit: 'cover', borderRadius: shape === 'rounded-square' ? '25%' : '50%' }}
       />
     )
   }
@@ -31,7 +31,7 @@ export function UserAvatar({ className, shape = 'circle' }: UserAvatarProps) {
 
 export function PresetAvatarGraphic({
   presetId,
-  shape = 'circle',
+  shape = 'rounded-square',
 }: {
   presetId: string
   shape?: UserAvatarProps['shape']

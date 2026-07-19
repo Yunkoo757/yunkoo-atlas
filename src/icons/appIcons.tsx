@@ -21,7 +21,6 @@ import {
   LinearCircleIcon,
   LinearClockIcon,
   LinearCodeBlockIcon,
-  LinearCrossIcon,
   LinearCubeIcon,
   LinearCustomViewIcon,
   LinearDashboardIcon,
@@ -41,6 +40,7 @@ import {
   LinearNotifiedIcon,
   LinearPageIcon,
   LinearPinIcon,
+  LinearPlusIcon,
   LinearRefreshIcon,
   LinearResolvedIcon,
   LinearRocketIcon,
@@ -82,7 +82,7 @@ export const Pencil = LinearWriteIcon
 export const PenSquare = LinearWriteIcon
 export const Tag = LinearLabelIcon
 export const Bell = LinearNotifiedIcon
-export const Plus = LinearCrossIcon
+export const Plus = LinearPlusIcon
 export const RotateCcw = LinearRefreshIcon
 export const Calendar = LinearCalendarIcon
 export const CalendarDays = LinearCalendarIcon

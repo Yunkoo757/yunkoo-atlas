@@ -52,7 +52,7 @@
 .sb-ws-avatar {
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-8);
+  border-radius: 25%;
   background: transparent;
   border: 0;
   color: lch(8% 4 82);

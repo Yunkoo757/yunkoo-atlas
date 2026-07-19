@@ -565,7 +565,7 @@
 .dv-comment-avatar {
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-lg);
+  border-radius: 25%;
   background: var(--accent);
   color: var(--accent-text);
   display: grid;
