@@ -28,8 +28,7 @@ type FlatItem =
   | { kind: 'row'; key: string; trade: Trade }
 
 const ROW_HEIGHT = 44
-// 36px visible header + 2px calibrated separation before the first row.
-const HEADER_HEIGHT = 38
+const HEADER_HEIGHT = 36
 
 function flattenGroups(groups: TradeListGroup[]): FlatItem[] {
   const items: FlatItem[] = []

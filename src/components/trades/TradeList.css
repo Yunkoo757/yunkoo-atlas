@@ -37,7 +37,7 @@
   align-items: center;
   gap: 8px;
   height: var(--trade-group-height);
-  margin: 0 8px 2px;
+  margin: 0 8px;
   padding: 0 8px 0 0;
   color: var(--list-group-title);
   border-radius: var(--radius-8);
