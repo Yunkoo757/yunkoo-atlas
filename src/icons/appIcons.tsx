@@ -32,6 +32,7 @@ import {
   LinearFlagIcon,
   LinearFloppyDiskIcon,
   LinearFolderIcon,
+  LinearFavoriteIcon,
   LinearGearsIcon,
   LinearImageIcon,
   LinearLabelIcon,
@@ -74,6 +75,7 @@ export const Search = LinearSearchIcon
 export const Settings2 = LinearGearsIcon
 export const Trash2 = LinearTrashIcon
 export const Star = LinearStarredIcon
+export const Favorite = LinearFavoriteIcon
 export const Bookmark = LinearBookmarkIcon
 export const BookmarkPlus = LinearBookmarkIcon
 export const Pencil = LinearWriteIcon

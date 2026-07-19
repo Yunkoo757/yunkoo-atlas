@@ -7,6 +7,7 @@ import {
   ChevronUp,
   Link2,
   MoreHorizontal,
+  Favorite,
   Star,
   Copy,
   Pencil,
@@ -537,7 +538,7 @@ export function DetailView() {
         toast(starred ? '已取消收藏' : '已加入收藏')
       }}
     >
-      <Star size={15} fill={starred ? 'currentColor' : 'none'} />
+      {starred ? <Star size={16} /> : <Favorite size={16} />}
     </IconButton>
   )
 
@@ -552,6 +553,7 @@ export function DetailView() {
         ...(reviewComplete
           ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={16} /> }]
           : []),
+        { value: 'copy-link', label: '复制链接', icon: <Link2 size={16} /> },
         { value: 'copy', label: '复制编号', icon: <Copy size={16} /> },
         { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={16} /> },
       ]}
@@ -559,6 +561,7 @@ export function DetailView() {
         if (v === 'edit') openComposer(trade)
         else if (v === 'review-case') createReviewCaseFromTrade()
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
+        else if (v === 'copy-link') copyLink()
         else if (v === 'copy') copyRef()
         else if (v === 'delete') onDelete()
       }}
@@ -602,9 +605,6 @@ export function DetailView() {
             </span>
           )}
           <SaveStatusIndicator />
-          <IconButton title="复制链接" onClick={copyLink}>
-            <Link2 size={15} />
-          </IconButton>
           {detailNavigation && (
             <nav className="dv-detail-navigation" aria-label={`${detailUnit}导航`}>
               <span
