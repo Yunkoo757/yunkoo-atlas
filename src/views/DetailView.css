@@ -589,17 +589,17 @@
 .dv-props {
   width: auto;
   margin: 0;
-  padding: 8px 2px 12px 4px;
+  padding: 8px 4px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: var(--bg-surface);
   border: 0;
   border-radius: 0;
 }
 .dv-section {
   margin: 0;
-  padding: 12px;
+  padding: 10px 12px;
   background: var(--surface-group);
   border: 1px solid lch(11.99% 1.83 272);
   border-radius: var(--radius-10);
@@ -608,15 +608,15 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  width: calc(100% + 16px);
-  height: 28px;
-  margin: 0 -8px 8px;
-  padding: 0 8px 0 6px;
+  width: calc(100% + 12px);
+  height: 24px;
+  margin: 0 -6px 4px;
+  padding: 0 6px;
   border-radius: var(--radius-8);
   font-family: var(--font-ui);
-  font-size: 1rem;
+  font-size: var(--fs-sm);
   font-weight: var(--font-weight-normal);
-  line-height: 24px;
+  line-height: 20px;
   color: var(--text-tertiary);
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -637,7 +637,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 4px;
 }
 .dv-section-body > .menu-root,
 .dv-section-body > .hover-preview-anchor {
@@ -659,7 +659,7 @@
   align-items: center;
   gap: 0;
   width: 100%;
-  min-height: 28px;
+  min-height: 26px;
   padding: 0;
   text-align: left;
 }
@@ -678,9 +678,9 @@
   justify-content: flex-start;
   justify-self: start;
   gap: 6px;
-  height: 28px;
+  height: 26px;
   min-width: 0;
-  padding: 3px 6px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
   color: var(--text-primary);
   font-size: var(--fs-sm);
@@ -859,7 +859,7 @@
   grid-template-columns: 90px minmax(0, 1fr);
   align-items: center;
   align-self: stretch;
-  min-height: 28px;
+  min-height: 26px;
   padding: 0;
 }
 .dv-datarow-label {
@@ -872,8 +872,8 @@
   display: inline-flex;
   align-items: center;
   justify-self: start;
-  min-height: 28px;
-  padding: 3px 6px;
+  min-height: 26px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-normal);
@@ -964,7 +964,7 @@
 }
 
 .dv-props-foot {
-  padding: 12px;
+  padding: 10px 12px;
   background: var(--surface-group);
   border: 1px solid lch(11.99% 1.83 272);
   border-radius: var(--radius-10);
