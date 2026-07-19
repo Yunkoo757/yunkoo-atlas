@@ -17,7 +17,7 @@ export function UserAvatar({ className, shape = 'circle' }: UserAvatarProps) {
         className={className}
         src={avatar.src}
         alt={profile.displayName}
-        style={{ objectFit: 'cover', borderRadius: shape === 'rounded-square' ? '8px' : '50%' }}
+        style={{ objectFit: 'cover', borderRadius: shape === 'rounded-square' ? '6px' : '50%' }}
       />
     )
   }
@@ -40,8 +40,12 @@ export function PresetAvatarGraphic({
 
   return (
     <svg viewBox="0 0 80 80" role="img" aria-label={preset.label}>
-      <rect width="80" height="80" rx={shape === 'rounded-square' ? 32 : 40} fill={preset.background} />
-      <circle cx="40" cy="42" r="25" fill={preset.face} stroke={preset.ink} strokeWidth="3" />
+      <rect width="80" height="80" rx={shape === 'rounded-square' ? 20 : 40} fill={preset.background} />
+      {shape === 'rounded-square' ? (
+        <rect x="15" y="17" width="50" height="50" rx="16" fill={preset.face} stroke={preset.ink} strokeWidth="3" />
+      ) : (
+        <circle cx="40" cy="42" r="25" fill={preset.face} stroke={preset.ink} strokeWidth="3" />
+      )}
       <path
         d="M23 34c9-17 30-17 37-1"
         fill="none"
