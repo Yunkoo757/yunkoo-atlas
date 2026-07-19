@@ -97,7 +97,7 @@ const checks = [
   ],
   [
     'trade group counts match Linear numeric metrics',
-    /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-regular\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*450;[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*tabular-nums;/s.test(
+    /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*tabular-nums;/s.test(
       tradeListStyles,
     ),
   ],

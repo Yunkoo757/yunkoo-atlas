@@ -28,6 +28,7 @@
   flex: 0 0 auto;
   height: var(--toolbar-chip-height);
   color: var(--list-text-secondary);
+  font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: 500;
   border: 1px solid transparent;

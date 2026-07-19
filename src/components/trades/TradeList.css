@@ -71,6 +71,7 @@
 
 .trade-list-group-header strong {
   color: var(--list-group-title);
+  font-family: var(--font-ui);
   font-size: var(--fs-sm);
   font-weight: 500;
   line-height: normal;
@@ -83,9 +84,9 @@
 
 .trade-list-group-count {
   color: var(--text-tertiary);
-  font-family: var(--font-regular);
+  font-family: var(--font-ui);
   font-size: var(--fs-sm);
-  font-weight: 450;
+  font-weight: var(--font-weight-normal);
   font-feature-settings: normal;
   font-variant-numeric: tabular-nums;
   line-height: normal;
@@ -230,7 +231,7 @@
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
   font-size: var(--fs-sm);
-  font-weight: 450;
+  font-weight: var(--font-weight-normal);
   font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.26px;
@@ -267,6 +268,7 @@
   max-width: 9ch;
   overflow: hidden;
   color: var(--list-text-strong);
+  font-family: var(--font-ui);
   font-size: var(--fs-sm);
   font-weight: 500;
   line-height: 16px;
