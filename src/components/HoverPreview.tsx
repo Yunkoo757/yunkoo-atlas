@@ -25,25 +25,37 @@ export function HoverPreview({
 }) {
   const triggerRef = useRef<HTMLSpanElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const frameRef = useRef<number | null>(null)
   const suppressOpenUntilRef = useRef(0)
-  const [open, setOpen] = useState(false)
+  const [rendered, setRendered] = useState(false)
+  const [visible, setVisible] = useState(false)
   const [style, setStyle] = useState<CSSProperties>({})
   const [actualPlacement, setActualPlacement] = useState<Placement>(placement)
 
   const close = () => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = null
-    setOpen(false)
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    frameRef.current = null
+    setVisible(false)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => {
+      setRendered(false)
+      closeTimerRef.current = null
+    }, 80)
   }
 
   const scheduleOpen = () => {
     if (disabled) return
     if (Date.now() < suppressOpenUntilRef.current) return
     if (timerRef.current) clearTimeout(timerRef.current)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = null
     timerRef.current = setTimeout(() => {
       const rect = triggerRef.current?.getBoundingClientRect()
       if (!rect) return
-      const width = Math.min(340, Math.max(260, window.innerWidth - 24))
+      const width = Math.min(336, Math.max(260, window.innerWidth - 24))
       const left = Math.min(
         Math.max(12, rect.left + rect.width / 2 - width / 2),
         window.innerWidth - width - 12,
@@ -52,16 +64,19 @@ export function HoverPreview({
         placement === 'top' && rect.top < 150 ? 'bottom' : placement
       const top =
         nextPlacement === 'bottom'
-          ? rect.bottom + 10
-          : rect.top - 10
+          ? rect.bottom + 8
+          : rect.top - 8
       setActualPlacement(nextPlacement)
       setStyle({
         left,
         top,
         width,
-        transform: nextPlacement === 'top' ? 'translateY(-100%)' : undefined,
       })
-      setOpen(true)
+      setRendered(true)
+      frameRef.current = requestAnimationFrame(() => {
+        setVisible(true)
+        frameRef.current = null
+      })
     }, delay)
   }
 
@@ -71,7 +86,7 @@ export function HoverPreview({
   }
 
   useEffect(() => {
-    if (!open) return
+    if (!rendered) return
     const onScroll = () => close()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
@@ -84,10 +99,12 @@ export function HoverPreview({
       window.removeEventListener('resize', close)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [rendered])
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
   }, [])
 
   return (
@@ -103,10 +120,11 @@ export function HoverPreview({
       >
         {children}
       </span>
-      {open &&
+      {rendered &&
         createPortal(
           <div
             className={'hover-preview-pop hover-preview-' + actualPlacement}
+            data-state={visible ? 'open' : 'closed'}
             style={style}
             role="tooltip"
           >

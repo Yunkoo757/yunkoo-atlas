@@ -8,48 +8,42 @@
 
   position: fixed;
   z-index: 500;
-  padding: 14px 16px 12px;
-  border: 1px solid color-mix(in srgb, var(--border-default) 82%, transparent);
-  border-radius: var(--radius-xl);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--popover-bg) 96%, #fff 4%),
-      var(--popover-bg)
-    );
-  box-shadow:
-    0 20px 44px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  padding: 12px;
+  border: 1px solid var(--surface-control-border-active);
+  border-radius: var(--radius-8);
+  background: var(--popover-bg);
+  box-shadow: var(--shadow-high);
   color: var(--text-primary);
   font-family: var(--font-ui);
   pointer-events: none;
-  animation: hoverPreviewTopIn 110ms var(--ease-out) both;
+  opacity: 0;
+  transition:
+    opacity 80ms var(--ease-in-out),
+    transform 80ms var(--ease-in-out);
+}
+
+.hover-preview-top {
+  transform: translateY(calc(-100% + 4px)) scale(0.985);
+  transform-origin: center bottom;
 }
 
 .hover-preview-bottom {
-  animation-name: hoverPreviewBottomIn;
+  transform: translateY(-4px) scale(0.985);
+  transform-origin: center top;
 }
 
-@keyframes hoverPreviewTopIn {
-  from {
-    opacity: 0;
-    transform: translateY(calc(-100% + 4px)) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-100%) scale(1);
-  }
+.hover-preview-pop[data-state='open'] {
+  opacity: 1;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-out);
 }
 
-@keyframes hoverPreviewBottomIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.hover-preview-top[data-state='open'] {
+  transform: translateY(-100%) scale(1);
+}
+
+.hover-preview-bottom[data-state='open'] {
+  transform: translateY(0) scale(1);
 }
 
 .hp-head {
