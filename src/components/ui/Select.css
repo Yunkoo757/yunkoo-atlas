@@ -76,6 +76,9 @@
   z-index: 1200;
   padding: 4px;
   overflow-y: auto;
+  font-family: var(--font-ui);
+  font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
+  font-synthesis: none;
   color: var(--text-secondary);
   background: var(--popover-bg);
   border: 0.8px solid var(--popover-border);

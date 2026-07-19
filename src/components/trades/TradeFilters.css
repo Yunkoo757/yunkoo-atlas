@@ -2,6 +2,9 @@
   position: fixed;
   z-index: 80;
   width: min(420px, calc(100vw - 16px));
+  font-family: var(--font-ui);
+  font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
+  font-synthesis: none;
   color: var(--text-secondary);
   background: var(--popover-bg);
   border: 1px solid var(--popover-border);
