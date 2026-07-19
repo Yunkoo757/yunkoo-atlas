@@ -13,6 +13,7 @@ const crumbsStyles = read('src/components/ui/CrumbsNav.css')
 const toolbarStyles = read('src/components/ui/Toolbar.css')
 const tagPresetStyles = read('src/views/settings/TagPresetsPanel.css')
 const sidebarWorkspaceStyles = read('src/components/sidebar/SidebarWorkspace.css')
+const tradeListStyles = read('src/components/trades/TradeList.css')
 const app = read('src/App.tsx')
 const tradesPageStart = app.indexOf('function TradesPage(')
 const tradesPageEnd = app.indexOf('\nfunction StrategyPage()', tradesPageStart)
@@ -73,6 +74,18 @@ const checks = [
   [
     'sidebar workspace menu keeps a 24px pointer target',
     /\.sb-workspace-menu\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;/s.test(sidebarWorkspaceStyles),
+  ],
+  [
+    'trade chips use the calibrated Inter rasterization',
+    /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-regular\);[\s\S]*?font-size:\s*var\(--fs-micro\);[\s\S]*?font-feature-settings:\s*normal;/s.test(
+      tradeListStyles,
+    ),
+  ],
+  [
+    'trade group counts match Linear numeric metrics',
+    /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-regular\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*450;[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*tabular-nums;/s.test(
+      tradeListStyles,
+    ),
   ],
 ]
 

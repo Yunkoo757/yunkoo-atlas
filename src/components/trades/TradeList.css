@@ -82,10 +82,13 @@
 }
 
 .trade-list-group-count {
-  color: var(--text-quaternary);
-  font-size: var(--fs-mini);
-  font-weight: 400;
+  color: var(--text-tertiary);
+  font-family: var(--font-regular);
+  font-size: var(--fs-sm);
+  font-weight: 450;
+  font-feature-settings: normal;
   font-variant-numeric: tabular-nums;
+  line-height: normal;
 }
 
 .trade-list-group-header button {
@@ -357,7 +360,11 @@
   padding: 0 8px;
   overflow: hidden;
   color: var(--text-tertiary);
+  font-family: var(--font-regular);
   font-size: var(--fs-micro);
+  font-weight: 400;
+  font-feature-settings: normal;
+  font-variant-numeric: normal;
   line-height: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
