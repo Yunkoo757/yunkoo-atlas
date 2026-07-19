@@ -576,7 +576,7 @@ function buildTradeFromFrontmatter(
       tags: collectedTags,
       mistakeTags,
       reviewStatus: 'unreviewed',
-      reviewCategory: mistakeTags.length > 0 || status === 'missed' ? 'mistake' : 'normal',
+      reviewCategory: mistakeTags.length > 0 ? 'mistake' : 'normal',
     },
     newStrategyName,
     collectedTags,
