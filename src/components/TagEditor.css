@@ -182,12 +182,64 @@
 /* 详情侧栏：沿用同一套分区，去掉旧的 order / 限高滚动 */
 .dv-props .tag-editor {
   align-self: stretch;
-  padding: 2px 0 4px;
+  gap: 8px;
+  padding: 0;
 }
 
 .dv-props .tag-input-wrap {
   flex-basis: 100%;
   min-width: 100%;
+}
+
+.dv-props .tag-selected-row,
+.dv-props .tag-presets-row {
+  gap: 6px;
+}
+
+.dv-props .tag-presets-row {
+  padding-top: 10px;
+}
+
+.dv-props .tag-chip,
+.dv-props .tag-preset-chip,
+.dv-props .tag-add-btn {
+  height: 28px;
+  min-height: 28px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-normal);
+}
+
+.dv-props .tag-chip {
+  padding-inline: 8px 3px;
+  color: var(--text-secondary);
+  background: var(--surface-control);
+  border-color: var(--surface-control-border);
+}
+
+.dv-props .tag-preset-chip {
+  background: transparent;
+  border-color: var(--surface-control-border);
+}
+
+.dv-props .tag-preset-label {
+  padding-inline: 8px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+}
+
+.dv-props .tag-add-btn {
+  padding-inline: 7px 9px;
+  border-style: solid;
+  border-color: var(--surface-control-border);
+}
+
+.dv-props .tag-chip:hover,
+.dv-props .tag-preset-chip:hover,
+.dv-props .tag-add-btn:hover {
+  color: var(--text-primary);
+  background: lch(13.456% 0.943 272);
+  border-color: var(--border-default);
 }
 
 @media (max-width: 1024px) {
