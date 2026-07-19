@@ -81,14 +81,23 @@ export function Tooltip({
     const tooltip = tooltipRef.current
     const trigger = triggerRef.current
     if (!tooltip || !trigger) return
-    const tooltipWidth = tooltip.getBoundingClientRect().width
-    const triggerRect = trigger.getBoundingClientRect()
-    const edge = 8 + tooltipWidth / 2
-    const left = Math.min(
-      Math.max(edge, triggerRect.left + triggerRect.width / 2),
-      window.innerWidth - edge,
-    )
-    setPosition((current) => (Math.abs(current.left - left) < 0.5 ? current : { ...current, left }))
+    const reposition = () => {
+      const tooltipWidth = tooltip.getBoundingClientRect().width
+      const triggerRect = trigger.getBoundingClientRect()
+      const edge = 8 + tooltipWidth / 2
+      const left = Math.min(
+        Math.max(edge, triggerRect.left + triggerRect.width / 2),
+        window.innerWidth - edge,
+      )
+      setPosition((current) =>
+        Math.abs(current.left - left) < 0.5 ? current : { ...current, left },
+      )
+    }
+
+    reposition()
+    const resizeObserver = new ResizeObserver(reposition)
+    resizeObserver.observe(tooltip)
+    return () => resizeObserver.disconnect()
   }, [open, content])
 
   useEffect(() => {

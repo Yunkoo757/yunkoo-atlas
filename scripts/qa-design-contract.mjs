@@ -39,6 +39,13 @@ const checks = [
       sidebarComponent.includes('shape="rounded-square"'),
   ],
   ['control height', tokens.includes('--control-height: 28px')],
+  [
+    'portaled UI keeps the calibrated Linear font',
+    tokens.includes('--font-ui: var(--font-linear-ui)') &&
+      /\.hover-preview-pop\s*\{[^}]*--font-ui:\s*var\(--font-linear-ui\);[^}]*font-family:\s*var\(--font-ui\);/s.test(
+        read('src/components/HoverPreview.css'),
+      ),
+  ],
   ['trade row height', tokens.includes('--trade-row-height: 44px')],
   [
     'default trade route uses canonical list',

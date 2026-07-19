@@ -4,6 +4,8 @@
 }
 
 .hover-preview-pop {
+  --font-ui: var(--font-linear-ui);
+
   position: fixed;
   z-index: 500;
   padding: 14px 16px 12px;
@@ -19,6 +21,7 @@
     0 20px 44px rgba(0, 0, 0, 0.34),
     0 0 0 1px rgba(255, 255, 255, 0.02) inset;
   color: var(--text-primary);
+  font-family: var(--font-ui);
   pointer-events: none;
   animation: hoverPreviewTopIn 110ms var(--ease-out) both;
 }

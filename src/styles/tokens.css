@@ -246,7 +246,8 @@
   --border-color: var(--border-default);
 
   /* 字体别名 */
-  --font-ui: var(--font-regular);
+  /* UI 与挂载到 body 的 Portal 共用同一套 Linear 校准字体，避免弹层回退。 */
+  --font-ui: var(--font-linear-ui);
   --font-mono: var(--font-monospace);
 
   /* 间距阶梯（Linear 用 4px 基准） */
