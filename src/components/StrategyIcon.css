@@ -11,7 +11,8 @@
 
 .strategy-icon--nav {
   background: none !important;
-  opacity: 0.68;
+  color: inherit !important;
+  opacity: 1;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 

@@ -174,7 +174,7 @@ html[data-ui-settled='1'] .sb-item {
   color: var(--sb-text-strong);
 }
 .sb-item:hover .strategy-icon--nav {
-  opacity: 0.86;
+  opacity: 1;
 }
 .sb-item.is-active {
   background: var(--sb-selected-bg);
