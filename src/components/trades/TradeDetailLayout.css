@@ -30,7 +30,18 @@
 .trade-detail-layout .dv-props {
   min-width: 0;
   overflow-y: auto;
-  border-left: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border-left: 0;
+}
+
+@media (min-width: 1025px) {
+  .trade-detail-layout .dv-props {
+    direction: rtl;
+  }
+
+  .trade-detail-layout .dv-props > * {
+    direction: ltr;
+  }
 }
 
 @media (max-width: 1180px) {
