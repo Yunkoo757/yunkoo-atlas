@@ -165,7 +165,7 @@
 }
 
 .trade-row:hover::after {
-  background: color-mix(in lch, var(--surface-row-selected), transparent 32%);
+  background: rgb(22 22 23);
 }
 
 .trade-row.is-selected,
