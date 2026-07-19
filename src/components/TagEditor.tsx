@@ -8,6 +8,7 @@ export function TagEditor({
   onRemove,
   suggestions = [],
   presets = [],
+  showPresets = true,
 }: {
   tags: string[]
   onAdd: (tag: string) => void
@@ -16,6 +17,8 @@ export function TagEditor({
   suggestions?: string[]
   /** 预置标签 */
   presets?: string[]
+  /** 是否常驻展示未选择的预置标签；详情侧栏使用按需搜索以节省空间 */
+  showPresets?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
@@ -151,7 +154,7 @@ export function TagEditor({
         )}
       </div>
 
-      {availablePresets.length > 0 ? (
+      {showPresets && availablePresets.length > 0 ? (
         <div className="tag-presets-row" aria-label="可添加的预置标签">
           {availablePresets.map((p) => (
             <span key={p} className="tag-preset-chip" title={p}>

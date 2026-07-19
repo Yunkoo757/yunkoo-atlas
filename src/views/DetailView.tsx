@@ -1167,7 +1167,7 @@ export function DetailView() {
             />
           </Section>
 
-          <Section title="时间">
+          <Section title="时间" defaultOpen={false}>
             <EditableDateRow
               label="开仓"
               value={trade.openedAt}
@@ -1191,11 +1191,12 @@ export function DetailView() {
             )}
           </Section>
 
-          <Section title="标签">
+          <Section title="标签" defaultOpen={false}>
             <TagEditor
               tags={trade.tags}
               suggestions={tagPresets}
               presets={tagPresets}
+              showPresets={false}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
             />
@@ -1206,6 +1207,7 @@ export function DetailView() {
               tags={trade.mistakeTags}
               suggestions={mistakeTagPresets}
               presets={mistakeTagPresets}
+              showPresets={false}
               onAdd={(tag) =>
                 updateTradeData(trade.id, {
                   mistakeTags: trade.mistakeTags.includes(tag)
@@ -1221,7 +1223,7 @@ export function DetailView() {
             />
           </Section>
 
-          <Section title="策略">
+          <Section title="策略" defaultOpen={false}>
             <Menu
               value={trade.strategyId}
               onSelect={(v) => setStrategy(trade.id, v)}
@@ -1256,11 +1258,13 @@ export function DetailView() {
 function Section({
   title,
   children,
+  defaultOpen = true,
 }: {
   title: string
   children: React.ReactNode
+  defaultOpen?: boolean
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="dv-section">
       <button className="dv-section-head" onClick={() => setOpen((o) => !o)}>
