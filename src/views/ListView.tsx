@@ -120,7 +120,17 @@ export function ListView({
       return groupTradesByMonth(visible)
     }
 
-    return [{ key: 'all', items: sortTradesByOpenedAtDesc(visible) }]
+    const sorted = sortTradesByOpenedAtDesc(visible)
+    const pending = sorted.filter((trade) => trade.reviewStatus !== 'reviewed')
+    const completed = sorted.filter((trade) => trade.reviewStatus === 'reviewed')
+    return [
+      ...(pending.length > 0
+        ? [{ key: 'pending-review', label: '待复盘', tone: 'pending' as const, items: pending }]
+        : []),
+      ...(completed.length > 0
+        ? [{ key: 'completed-review', label: '已完成', tone: 'completed' as const, items: completed }]
+        : []),
+    ]
   }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, display.groupByDate, strategies])
 
   const focusedId =

@@ -5,9 +5,9 @@
   justify-content: space-between;
   min-width: 0;
   height: var(--header-h);
-  padding: 0 14px;
+  padding: 0 15px 0 18px;
   overflow: hidden;
-  background: var(--bg-surface);
+  background: transparent;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -36,16 +36,24 @@
   overflow: hidden;
   color: var(--text-primary);
   font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ui-toolbar-sep {
   flex-shrink: 0;
-  width: 1px;
-  height: 12px;
-  background: var(--border-default);
+  width: auto;
+  height: auto;
+  color: var(--text-quaternary);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: normal;
+  background: transparent;
+}
+
+.ui-toolbar-sep::before {
+  content: '/';
 }
 
 .ui-toolbar-context {

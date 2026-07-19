@@ -68,17 +68,20 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
   const list = read('src/components/trades/TradeList.css')
   const listRuntime = read('src/components/trades/TradeList.tsx')
   const quickViews = read('src/components/trades/QuickViewBar.css')
+  const sidebar = read('src/components/Sidebar.css')
+  const filterBar = read('src/components/ui/FilterBar.css')
 
   for (const contract of [
     '--trade-group-height: 36px',
     '--trade-row-height: 44px',
     '--toolbar-chip-height: 28px',
     '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
+    '--surface-group-completed: lch(8.25% 2.25 279 / 1)',
   ]) {
     if (!tokens.includes(contract)) throw new Error(`missing calibrated token: ${contract}`)
   }
-  if (!listRuntime.includes('const HEADER_HEIGHT = 36')) {
-    throw new Error('virtual group header estimate must match the 36px rendered header')
+  if (!listRuntime.includes('const HEADER_HEIGHT = 38')) {
+    throw new Error('virtual group header estimate must include the 36px header and 2px separation')
   }
   if (list.includes('box-shadow: inset 2px 0 0 var(--accent)')) {
     throw new Error('selected rows must not retain the old blue leading rail')
@@ -86,7 +89,19 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
   if (!list.includes('font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1')) {
     throw new Error('trade references must preserve the calibrated Inter OpenType features')
   }
-  if (!quickViews.includes('box-shadow: var(--surface-control-shadow-active)')) {
-    throw new Error('quick-view pills must use the calibrated active border layer')
+  if (!quickViews.includes('.quick-view-chip::after') || !quickViews.includes('box-shadow: var(--surface-control-shadow-active)')) {
+    throw new Error('quick-view pills must render the calibrated border as a pseudo layer')
+  }
+  if (!list.includes('inset: 0 8px') || !list.includes('padding: 0 10px')) {
+    throw new Error('trade rows must preserve the calibrated inset selection surface and content padding')
+  }
+  if (!filterBar.includes('padding: 0 15px 0 8px')) {
+    throw new Error('filter toolbar must share the calibrated 8px leading inset')
+  }
+  if (!quickViews.includes('border: 0')) {
+    throw new Error('quick-view strip must not offset calibrated tabs with a transparent parent border')
+  }
+  if (!sidebar.includes('height: 28px') || !sidebar.includes('border-radius: var(--radius-8)')) {
+    throw new Error('sidebar navigation must preserve the calibrated 28px / 8px geometry')
   }
 }

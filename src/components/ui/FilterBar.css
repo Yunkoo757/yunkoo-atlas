@@ -1,15 +1,14 @@
 .ui-filter-shell {
   position: relative;
   flex: 0 0 auto;
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 .ui-filter-bar {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--filter-bar-height);
-  padding: 7px 12px 8px;
+  gap: 6px;
+  height: var(--filter-bar-height);
+  padding: 0 15px 0 8px;
   overflow: visible;
 }
 

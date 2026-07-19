@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react'
 import { useVirtualizer, defaultRangeExtractor, type Range } from '@tanstack/react-virtual'
-import { CalendarDays, Plus } from '@/icons/appIcons'
+import { CalendarDays, ChevronRight, Plus } from '@/icons/appIcons'
+import { LinearEmptyCircleIcon, LinearResolvedIcon } from '@/icons/linear'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
@@ -12,15 +13,23 @@ import './TradeList.css'
 export type TradeListGroup = {
   key: string
   label?: string
+  tone?: 'pending' | 'completed' | 'neutral'
   items: Trade[]
 }
 
 type FlatItem =
-  | { kind: 'header'; key: string; label: string; count: number }
+  | {
+      kind: 'header'
+      key: string
+      label: string
+      count: number
+      tone: NonNullable<TradeListGroup['tone']>
+    }
   | { kind: 'row'; key: string; trade: Trade }
 
 const ROW_HEIGHT = 44
-const HEADER_HEIGHT = 36
+// 36px visible header + 2px calibrated separation before the first row.
+const HEADER_HEIGHT = 38
 
 function flattenGroups(groups: TradeListGroup[]): FlatItem[] {
   const items: FlatItem[] = []
@@ -31,6 +40,7 @@ function flattenGroups(groups: TradeListGroup[]): FlatItem[] {
         key: `h:${group.key}`,
         label: group.label,
         count: group.items.length,
+        tone: group.tone ?? 'neutral',
       })
     }
     for (const trade of group.items) {
@@ -150,9 +160,25 @@ export function TradeList({
             }}
           >
             {item.kind === 'header' ? (
-              <header className="trade-list-group-header">
-                <CalendarDays size={14} className="trade-list-group-icon" aria-hidden="true" />
-                <span>{item.label}</span>
+              <header
+                className={
+                  'trade-list-group-header' +
+                  (item.tone === 'completed' ? ' is-completed' : '')
+                }
+              >
+                <span className="trade-list-group-chevron" aria-hidden="true">
+                  <ChevronRight size={14} />
+                </span>
+                <span className="trade-list-group-status" aria-hidden="true">
+                  {item.tone === 'pending' ? (
+                    <LinearEmptyCircleIcon size={14} className="trade-list-group-icon" />
+                  ) : item.tone === 'completed' ? (
+                    <LinearResolvedIcon size={14} className="trade-list-group-icon" />
+                  ) : (
+                    <CalendarDays size={14} className="trade-list-group-icon" />
+                  )}
+                </span>
+                <strong>{item.label}</strong>
                 <span className="trade-list-group-count">{item.count}</span>
                 <button type="button" onClick={() => onCreate()} aria-label="在本组新建交易">
                   <Plus size={14} />

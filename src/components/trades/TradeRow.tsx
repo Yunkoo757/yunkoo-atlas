@@ -91,15 +91,15 @@ export const TradeRow = memo(function TradeRow({
       <span className="trade-row-ref">{trade.ref}</span>
       <span className="trade-row-symbol trade-row-primary">
         <span className="trade-row-symbol-main">
-          <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={16} />
+          <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={14} />
           <strong>{trade.symbol}</strong>
         </span>
         <SideTag side={trade.side} quiet />
+      </span>
+      <span className="trade-row-tags">
         <span className="trade-row-strategy">
           <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
         </span>
-      </span>
-      <span className="trade-row-tags">
         {session && (
           <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
             <span className={`trade-row-session is-${session.kind}`}>

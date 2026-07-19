@@ -15,12 +15,13 @@
   padding: 0;
   overflow: hidden;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-6);
+  border: 0;
+  border-radius: 0;
 }
 
 .quick-view-chip,
 .quick-view-overflow {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -32,10 +33,22 @@
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   background: var(--surface-control);
-  box-shadow: var(--surface-control-shadow);
   transition:
-    color var(--motion-fast) var(--ease-out),
-    background var(--motion-fast) var(--ease-out);
+    border 150ms,
+    background-color 150ms,
+    color 150ms,
+    opacity 150ms;
+}
+
+.quick-view-chip::after,
+.quick-view-overflow::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  border-radius: var(--radius-full);
+  box-shadow: var(--surface-control-shadow);
+  transition: box-shadow 150ms;
 }
 
 .quick-view-chip {
@@ -48,12 +61,16 @@
 .quick-view-overflow.is-active {
   color: var(--list-text-primary);
   background: var(--surface-control-active);
-  box-shadow: var(--surface-control-shadow-active);
 }
 
 .quick-view-chip.is-active {
   color: var(--list-text-strong);
   background: var(--surface-control-active);
+}
+
+.quick-view-chip.is-active::after,
+.quick-view-overflow:hover::after,
+.quick-view-overflow.is-active::after {
   box-shadow: var(--surface-control-shadow-active);
 }
 
