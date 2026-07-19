@@ -12,6 +12,8 @@ const buttonStyles = read('src/components/ui/Button.css')
 const crumbsStyles = read('src/components/ui/CrumbsNav.css')
 const toolbarStyles = read('src/components/ui/Toolbar.css')
 const tagPresetStyles = read('src/views/settings/TagPresetsPanel.css')
+const sidebarStyles = read('src/components/Sidebar.css')
+const sidebarComponent = read('src/components/Sidebar.tsx')
 const sidebarWorkspaceStyles = read('src/components/sidebar/SidebarWorkspace.css')
 const tradeListStyles = read('src/components/trades/TradeList.css')
 const tradeListComponent = read('src/components/trades/TradeList.tsx')
@@ -25,6 +27,17 @@ const tradesPage =
 
 const checks = [
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
+  [
+    'sidebar navigation matches measured Linear hierarchy',
+    sidebarStyles.includes('--sb-text: lch(60.307% 1 272)') &&
+      /\.sb-item\s*\{[^}]*height:\s*28px;[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*color:\s*var\(--sb-text\);/s.test(sidebarStyles) &&
+      /\.sb-section-label\s*\{[^}]*height:\s*28px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
+  ],
+  [
+    'sidebar avatar uses the Linear rounded-square shape',
+    /\.sb-ws-avatar\s*\{[^}]*width:\s*20px;[^}]*height:\s*20px;[^}]*border-radius:\s*var\(--radius-8\);/s.test(sidebarStyles) &&
+      sidebarComponent.includes('shape="rounded-square"'),
+  ],
   ['control height', tokens.includes('--control-height: 28px')],
   ['trade row height', tokens.includes('--trade-row-height: 44px')],
   [

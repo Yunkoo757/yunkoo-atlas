@@ -9,7 +9,7 @@
   height: 24px;
   margin-right: -4px;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--sb-text);
   font-size: var(--fs-sm);
   letter-spacing: 1px;
 }
@@ -28,8 +28,9 @@
   height: var(--control-height);
   padding: 0 8px;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--sb-text);
   font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
   text-align: left;
 }
 

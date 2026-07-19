@@ -468,7 +468,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           draggable={false}
           onDragStart={(event) => event.preventDefault()}
         >
-          <UserAvatar className="sb-ws-avatar" />
+          <UserAvatar className="sb-ws-avatar" shape="rounded-square" />
           <span className="sb-ws-identity">
             <span className="sb-ws-greeting">{greeting}</span>
             <span className="sb-ws-separator" aria-hidden="true">，</span>
