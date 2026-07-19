@@ -113,6 +113,28 @@ async function run(): Promise<void> {
       '初始案例正文未载入',
     )
 
+    const caseNavigation = document.querySelector<HTMLElement>('[aria-label="案例导航"]')
+    const previousCaseButton = document.querySelector<HTMLButtonElement>('[aria-label="上一个案例"]')
+    const nextCaseButton = document.querySelector<HTMLButtonElement>('[aria-label="下一个案例"]')
+    assert(caseNavigation?.textContent?.replace(/\s/g, '') === '2/3', '案例顶部栏应显示当前序号与总数')
+    assert(previousCaseButton && !previousCaseButton.disabled, '中间案例应可前往上一个案例')
+    assert(nextCaseButton && !nextCaseButton.disabled, '中间案例应可前往下一个案例')
+    nextCaseButton.click()
+    await waitFor(
+      () => document.body.textContent?.includes('CAS-3') ?? false,
+      '顶部栏未切换到下一个案例',
+    )
+    assert(
+      document.querySelector<HTMLElement>('[aria-label="案例导航"]')?.textContent?.replace(/\s/g, '') === '3/3',
+      '切换后案例序号未同步',
+    )
+    assert(document.querySelector<HTMLButtonElement>('[aria-label="下一个案例"]')?.disabled, '最后一个案例应禁用下一案例')
+    document.querySelector<HTMLButtonElement>('[aria-label="上一个案例"]')?.click()
+    await waitFor(
+      () => document.body.textContent?.includes('CAS-2') ?? false,
+      '顶部栏未返回上一个案例',
+    )
+
     const initialImage = document.querySelector<HTMLImageElement>('.ProseMirror img')
     assert(initialImage, '案例正文缺少用于打开全屏的图片')
     initialImage.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }))

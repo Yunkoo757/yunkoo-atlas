@@ -9,8 +9,7 @@ import {
 } from '@/store/shortcutStore'
 import { setShortcutHandlers, handleShortcutKeydown } from '@/shortcuts/engine'
 import {
-  fallbackAdjacentTradeId,
-  findAdjacentTradeId,
+  getDetailNavigation,
 } from '@/shortcuts/listNav'
 import {
   boardPathFromListPath,
@@ -126,20 +125,16 @@ export function useShortcutHost({
         const listContext = useShortcutStore.getState().listContext
         const param = pathname.replace(/^\/trade\//, '')
         const trade = findTradeByRouteParam(trades, param)
-        const id =
-          findAdjacentTradeId(listContext, trade?.id, 'prev') ??
-          fallbackAdjacentTradeId(trades, trade?.id, 'prev')
-        const next = trades.find((t) => t.id === id)
+        const navigation = getDetailNavigation(trades, listContext, trade)
+        const next = trades.find((t) => t.id === navigation?.prevId)
         if (next) navigate(tradeDetailPath(next), { state: locationState })
       },
       'trade.next': () => {
         const listContext = useShortcutStore.getState().listContext
         const param = pathname.replace(/^\/trade\//, '')
         const trade = findTradeByRouteParam(trades, param)
-        const id =
-          findAdjacentTradeId(listContext, trade?.id, 'next') ??
-          fallbackAdjacentTradeId(trades, trade?.id, 'next')
-        const next = trades.find((t) => t.id === id)
+        const navigation = getDetailNavigation(trades, listContext, trade)
+        const next = trades.find((t) => t.id === navigation?.nextId)
         if (next) navigate(tradeDetailPath(next), { state: locationState })
       },
       'trade.backToList': () => {

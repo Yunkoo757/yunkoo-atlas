@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Link2,
   MoreHorizontal,
   Star,
@@ -84,6 +85,7 @@ import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
 import { formatYmd } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
+import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { loadDetailNote, type DetailNoteLoadResult } from '@/views/detailNoteLoad'
 import './DetailView.css'
@@ -291,6 +293,16 @@ export function DetailView() {
   )
 
   const starred = trade ? starredIds.includes(trade.id) : false
+  const detailNavigation = useMemo(
+    () => getDetailNavigation(trades, listContext, trade),
+    [trades, listContext, trade],
+  )
+
+  const navigateDetail = useCallback((targetId: string | null) => {
+    if (!targetId) return
+    const target = trades.find((item) => item.id === targetId)
+    if (target) navigate(tradeDetailPath(target), { state: location.state })
+  }, [trades, navigate, location.state])
 
   useEffect(() => {
     setActivityOpen(false)
@@ -442,6 +454,11 @@ export function DetailView() {
   }
 
   const detailCrumb = trade.tradeKind === 'case' ? '案例记录' : '交易'
+  const detailUnit = trade.tradeKind === 'case'
+    ? '案例'
+    : trade.tradeKind === 'paper'
+      ? '模拟交易'
+      : '交易'
   const truth = resolveTradeTruth(trade)
   const needsResult =
     trade.tradeKind !== 'case' && truth.executionState === 'closed' && !truth.isResultComplete
@@ -511,6 +528,48 @@ export function DetailView() {
     })
   }
 
+  const favoriteButton = (
+    <IconButton
+      title={starred ? '取消收藏' : '收藏'}
+      active={starred}
+      onClick={() => {
+        toggleStar(trade.id)
+        toast(starred ? '已取消收藏' : '已加入收藏')
+      }}
+    >
+      <Star size={15} fill={starred ? 'currentColor' : 'none'} />
+    </IconButton>
+  )
+
+  const moreMenu = (
+    <Menu
+      align="right"
+      options={[
+        { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
+        ...(trade.tradeKind === 'case'
+          ? []
+          : [{ value: 'review-case', label: '提炼为案例', icon: <BookOpen size={16} /> }]),
+        ...(reviewComplete
+          ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={16} /> }]
+          : []),
+        { value: 'copy', label: '复制编号', icon: <Copy size={16} /> },
+        { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={16} /> },
+      ]}
+      onSelect={(v) => {
+        if (v === 'edit') openComposer(trade)
+        else if (v === 'review-case') createReviewCaseFromTrade()
+        else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
+        else if (v === 'copy') copyRef()
+        else if (v === 'delete') onDelete()
+      }}
+      trigger={
+        <IconButton title="更多">
+          <MoreHorizontal size={15} />
+        </IconButton>
+      }
+    />
+  )
+
   return (
     <TradeDetailLayout
       header={(
@@ -527,6 +586,10 @@ export function DetailView() {
           <span className="dv-crumb">{detailCrumb}</span>
           <ChevronRight size={13} className="dv-crumb-sep" />
           <span className="dv-crumb dv-crumb-active">{trade.ref}</span>
+          <div className="dv-detail-crumb-actions">
+            {favoriteButton}
+            {moreMenu}
+          </div>
         </div>
         <div className="dv-tb-right">
           {reviewComplete && (
@@ -542,42 +605,36 @@ export function DetailView() {
           <IconButton title="复制链接" onClick={copyLink}>
             <Link2 size={15} />
           </IconButton>
-          <IconButton
-            title={starred ? '取消收藏' : '收藏'}
-            active={starred}
-            onClick={() => {
-              toggleStar(trade.id)
-              toast(starred ? '已取消收藏' : '已加入收藏')
-            }}
-          >
-            <Star size={15} fill={starred ? 'currentColor' : 'none'} />
-          </IconButton>
-          <Menu
-            align="right"
-            options={[
-              { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
-              ...(trade.tradeKind === 'case'
-                ? []
-                : [{ value: 'review-case', label: '提炼为案例', icon: <BookOpen size={16} /> }]),
-              ...(reviewComplete
-                ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={16} /> }]
-                : []),
-              { value: 'copy', label: '复制编号', icon: <Copy size={16} /> },
-              { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={16} /> },
-            ]}
-            onSelect={(v) => {
-              if (v === 'edit') openComposer(trade)
-              else if (v === 'review-case') createReviewCaseFromTrade()
-              else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
-              else if (v === 'copy') copyRef()
-              else if (v === 'delete') onDelete()
-            }}
-            trigger={
-              <IconButton title="更多">
-                <MoreHorizontal size={15} />
-              </IconButton>
-            }
-          />
+          {detailNavigation && (
+            <nav className="dv-detail-navigation" aria-label={`${detailUnit}导航`}>
+              <span
+                className="dv-detail-position"
+                aria-label={`第 ${detailNavigation.index + 1} 个，共 ${detailNavigation.orderedIds.length} 个${detailUnit}`}
+              >
+                {detailNavigation.index + 1}
+                <span aria-hidden>/</span>
+                {detailNavigation.orderedIds.length}
+              </span>
+              <button
+                type="button"
+                className="dv-detail-nav-button"
+                aria-label={`下一个${detailUnit}`}
+                disabled={!detailNavigation.nextId}
+                onClick={() => navigateDetail(detailNavigation.nextId)}
+              >
+                <ChevronDown size={14} />
+              </button>
+              <button
+                type="button"
+                className="dv-detail-nav-button"
+                aria-label={`上一个${detailUnit}`}
+                disabled={!detailNavigation.prevId}
+                onClick={() => navigateDetail(detailNavigation.prevId)}
+              >
+                <ChevronUp size={14} />
+              </button>
+            </nav>
+          )}
         </div>
       </header>
       )}

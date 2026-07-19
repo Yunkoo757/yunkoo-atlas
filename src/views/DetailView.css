@@ -11,6 +11,9 @@
   min-width: 0;
   overflow: hidden;
 }
+.dv-topbar svg {
+  overflow: visible;
+}
 .dv-tb-left {
   display: flex;
   align-items: center;
@@ -42,6 +45,37 @@
 .dv-crumb-sep {
   color: var(--text-quaternary);
 }
+.dv-detail-crumb-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 3px;
+}
+.dv-detail-crumb-actions .icon-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-tertiary);
+  line-height: 0;
+}
+.dv-detail-crumb-actions .icon-btn:hover {
+  background: var(--bg-hover);
+  box-shadow: none;
+  color: var(--text-primary);
+}
+.dv-detail-crumb-actions .menu-root,
+.dv-detail-crumb-actions .menu-trigger {
+  display: inline-flex;
+}
+.dv-detail-crumb-actions svg,
+.dv-detail-navigation svg {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+}
 .dv-tb-right {
   display: flex;
   align-items: center;
@@ -59,6 +93,53 @@
 }
 .dv-tb-right .menu-trigger {
   display: inline-flex;
+}
+.dv-detail-navigation {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  flex: 0 0 auto;
+  margin-left: 4px;
+  border-left: 1px solid var(--border-subtle);
+}
+.dv-detail-position {
+  min-width: 48px;
+  padding: 0 8px 0 10px;
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+.dv-detail-position > span {
+  padding: 0 5px;
+  color: var(--text-quaternary);
+}
+.dv-detail-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-tertiary);
+  line-height: 0;
+  transition: background-color var(--motion-ui), color var(--motion-ui), opacity var(--motion-ui);
+}
+.dv-detail-nav-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.dv-detail-nav-button:active:not(:disabled) {
+  background: var(--bg-selected);
+}
+.dv-detail-nav-button:disabled {
+  color: var(--text-quaternary);
+  opacity: 0.38;
+  cursor: default;
 }
 .dv-review-complete-meta {
   display: inline-flex;

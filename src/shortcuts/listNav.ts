@@ -5,7 +5,15 @@ import {
   type DisplayPrefs,
 } from '@/lib/tradeFilters'
 import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
+import { sortReviewCasesByRecentActivity } from '@/lib/tradeView'
 import type { ListNavigationContext } from '@/shortcuts/types'
+
+export interface DetailNavigation {
+  orderedIds: string[]
+  index: number
+  prevId: string | null
+  nextId: string | null
+}
 
 /** 与工作台列表同一可见规则（含软删过滤、hideClosed 与 URL 筛选覆盖） */
 export function buildOrderedTradeIds(
@@ -51,6 +59,42 @@ export function findAdjacentTradeId(
   const nextIdx = direction === 'prev' ? idx - 1 : idx + 1
   if (nextIdx < 0 || nextIdx >= ctx.orderedIds.length) return null
   return ctx.orderedIds[nextIdx] ?? null
+}
+
+/** 顶栏按钮与快捷键共用同一详情顺序；案例直链按案例工作区的最近活动顺序兜底。 */
+export function getDetailNavigation(
+  trades: Trade[],
+  ctx: ListNavigationContext | null,
+  currentTrade: Trade | undefined,
+): DetailNavigation | null {
+  if (!currentTrade) return null
+
+  const activeById = new Map(
+    trades
+      .filter((trade) => !trade.deletedAt && trade.tradeKind === currentTrade.tradeKind)
+      .map((trade) => [trade.id, trade]),
+  )
+  const contextIds = ctx?.orderedIds.filter((id) => activeById.has(id)) ?? []
+  const orderedIds = contextIds.includes(currentTrade.id)
+    ? contextIds
+    : currentTrade.tradeKind === 'case'
+      ? sortReviewCasesByRecentActivity([...activeById.values()]).map((trade) => trade.id)
+      : buildOrderedTradeIds(
+          trades,
+          { type: 'all', tradeKind: currentTrade.tradeKind },
+          DEFAULT_DISPLAY,
+          [],
+          '',
+        )
+  const index = orderedIds.indexOf(currentTrade.id)
+  if (index < 0) return null
+
+  return {
+    orderedIds,
+    index,
+    prevId: orderedIds[index - 1] ?? null,
+    nextId: orderedIds[index + 1] ?? null,
+  }
 }
 
 /** 无列表上下文时，按全量 live 交易的工作台可见规则兜底 */
