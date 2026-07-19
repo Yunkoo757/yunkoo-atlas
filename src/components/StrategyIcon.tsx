@@ -66,7 +66,7 @@ export function StrategyLabel({
     )
   }
   return (
-    <span className="strategy-label" title={s.name}>
+    <span className="strategy-label">
       <StrategyIcon icon={s.icon} color={s.color} size={size} />
       <span>{s.name}</span>
     </span>
