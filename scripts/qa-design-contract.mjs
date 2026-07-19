@@ -14,6 +14,7 @@ const toolbarStyles = read('src/components/ui/Toolbar.css')
 const tagPresetStyles = read('src/views/settings/TagPresetsPanel.css')
 const sidebarWorkspaceStyles = read('src/components/sidebar/SidebarWorkspace.css')
 const tradeListStyles = read('src/components/trades/TradeList.css')
+const tradeListComponent = read('src/components/trades/TradeList.tsx')
 const app = read('src/App.tsx')
 const tradesPageStart = app.indexOf('function TradesPage(')
 const tradesPageEnd = app.indexOf('\nfunction StrategyPage()', tradesPageStart)
@@ -86,6 +87,11 @@ const checks = [
     /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-regular\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*450;[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*tabular-nums;/s.test(
       tradeListStyles,
     ),
+  ],
+  [
+    'virtual trade rows preserve native text rasterization',
+    tradeListComponent.includes("top: isSticky ? 0 : virtualRow.start") &&
+      !tradeListComponent.includes('translateY(${virtualRow.start}px)'),
   ],
 ]
 

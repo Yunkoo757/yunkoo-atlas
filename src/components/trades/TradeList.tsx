@@ -151,12 +151,11 @@ export function TradeList({
             }
             style={{
               position: isSticky ? 'sticky' : 'absolute',
-              top: isSticky ? 0 : 0,
+              top: isSticky ? 0 : virtualRow.start,
               left: 0,
               width: '100%',
               height: virtualRow.size,
               zIndex: isSticky ? 3 : item.kind === 'header' ? 2 : 1,
-              transform: isSticky ? undefined : `translateY(${virtualRow.start}px)`,
             }}
           >
             {item.kind === 'header' ? (
