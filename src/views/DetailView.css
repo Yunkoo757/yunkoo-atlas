@@ -615,15 +615,16 @@
   padding: 0 8px 0 6px;
   border-radius: var(--radius-8);
   font-family: var(--font-ui);
-  font-size: var(--fs-base);
+  font-size: 1rem;
   font-weight: var(--font-weight-normal);
-  color: var(--text-secondary);
+  line-height: 24px;
+  color: var(--text-tertiary);
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
 .dv-section-head:hover {
-  color: var(--text-primary);
+  color: var(--text-secondary);
   background: var(--bg-hover);
 }
 .dv-section-chev {
