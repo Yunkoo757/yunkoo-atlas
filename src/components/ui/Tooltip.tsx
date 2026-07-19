@@ -19,6 +19,8 @@ type TooltipPosition = {
   placement: 'top' | 'bottom'
 }
 
+const DEFAULT_TOOLTIP_DELAY_MS = 450
+
 function assignElementRef(ref: unknown, node: HTMLElement | null): void {
   if (typeof ref === 'function') {
     ref(node)
@@ -33,7 +35,7 @@ export function Tooltip({
   children,
   content,
   label,
-  delay = 160,
+  delay = DEFAULT_TOOLTIP_DELAY_MS,
   focusable = false,
   asChild = false,
 }: {
@@ -61,7 +63,7 @@ export function Tooltip({
     setOpen(false)
   }
 
-  const scheduleOpen = () => {
+  const scheduleOpen = (wait: number) => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       const rect = triggerRef.current?.getBoundingClientRect()
@@ -73,8 +75,11 @@ export function Tooltip({
         placement,
       })
       setOpen(true)
-    }, delay)
+    }, wait)
   }
+
+  const schedulePointerOpen = () => scheduleOpen(delay)
+  const openFromFocus = () => scheduleOpen(0)
 
   useLayoutEffect(() => {
     if (!open) return
@@ -138,9 +143,9 @@ export function Tooltip({
           triggerRef.current = node
           assignElementRef((child as ReactElement & { ref?: unknown }).ref, node)
         },
-        onMouseEnter: compose(child.props.onMouseEnter, scheduleOpen),
+        onMouseEnter: compose(child.props.onMouseEnter, schedulePointerOpen),
         onMouseLeave: compose(child.props.onMouseLeave, close),
-        onFocus: compose(child.props.onFocus, scheduleOpen),
+        onFocus: compose(child.props.onFocus, openFromFocus),
         onBlur: compose(child.props.onBlur, close),
         onMouseDown: compose(child.props.onMouseDown, close),
       } as Record<string, unknown>)
@@ -151,9 +156,9 @@ export function Tooltip({
           tabIndex={focusable ? 0 : undefined}
           aria-label={focusable ? label : undefined}
           aria-describedby={focusable && open ? id : undefined}
-          onMouseEnter={scheduleOpen}
+          onMouseEnter={schedulePointerOpen}
           onMouseLeave={close}
-          onFocus={scheduleOpen}
+          onFocus={openFromFocus}
           onBlur={close}
           onMouseDown={close}
         >

@@ -10,11 +10,13 @@ import './HoverPreview.css'
 
 type Placement = 'top' | 'bottom'
 
+const DEFAULT_PREVIEW_DELAY_MS = 500
+
 export function HoverPreview({
   children,
   content,
   placement = 'top',
-  delay = 180,
+  delay = DEFAULT_PREVIEW_DELAY_MS,
   disabled,
 }: {
   children: ReactNode
@@ -46,7 +48,7 @@ export function HoverPreview({
     }, 80)
   }
 
-  const scheduleOpen = () => {
+  const scheduleOpen = (wait: number) => {
     if (disabled) return
     if (Date.now() < suppressOpenUntilRef.current) return
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -77,8 +79,11 @@ export function HoverPreview({
         setVisible(true)
         frameRef.current = null
       })
-    }, delay)
+    }, wait)
   }
+
+  const schedulePointerOpen = () => scheduleOpen(delay)
+  const openFromFocus = () => scheduleOpen(0)
 
   const closeForPointerAction = () => {
     suppressOpenUntilRef.current = Date.now() + 500
@@ -112,10 +117,10 @@ export function HoverPreview({
       <span
         className="hover-preview-anchor"
         ref={triggerRef}
-        onMouseEnter={scheduleOpen}
+        onMouseEnter={schedulePointerOpen}
         onMouseLeave={close}
         onMouseDown={closeForPointerAction}
-        onFocus={scheduleOpen}
+        onFocus={openFromFocus}
         onBlur={close}
       >
         {children}
