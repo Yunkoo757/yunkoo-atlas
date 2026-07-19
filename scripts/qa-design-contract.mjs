@@ -35,7 +35,7 @@ const checks = [
   ],
   [
     'sidebar avatar uses the Linear rounded-square shape',
-    /\.sb-ws-avatar\s*\{[^}]*width:\s*20px;[^}]*height:\s*20px;[^}]*border-radius:\s*var\(--radius-8\);/s.test(sidebarStyles) &&
+    /\.sb-ws-avatar\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;[^}]*border-radius:\s*var\(--radius-8\);/s.test(sidebarStyles) &&
       sidebarComponent.includes('shape="rounded-square"'),
   ],
   ['control height', tokens.includes('--control-height: 28px')],
@@ -90,8 +90,8 @@ const checks = [
     /\.sb-workspace-menu\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;/s.test(sidebarWorkspaceStyles),
   ],
   [
-    'trade chips use the calibrated Inter rasterization',
-    /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-regular\);[\s\S]*?font-size:\s*var\(--fs-micro\);[\s\S]*?font-feature-settings:\s*normal;/s.test(
+    'trade chips match the quick-filter typography',
+    /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--fs-mini\);[\s\S]*?font-weight:\s*500;[\s\S]*?font-feature-settings:\s*normal;/s.test(
       tradeListStyles,
     ),
   ],

@@ -50,8 +50,8 @@
   background: var(--bg-hover);
 }
 .sb-ws-avatar {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--radius-8);
   background: transparent;
   border: 0;
