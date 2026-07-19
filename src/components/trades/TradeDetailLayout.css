@@ -25,6 +25,8 @@
 .trade-detail-layout .dv-main {
   min-width: 0;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: lch(35% 0.75 272) transparent;
 }
 
 .trade-detail-layout .dv-props {
@@ -32,16 +34,32 @@
   overflow-y: auto;
   background: var(--bg-surface);
   border-left: 0;
+  scrollbar-width: none;
 }
 
-@media (min-width: 1025px) {
-  .trade-detail-layout .dv-props {
-    direction: rtl;
-  }
+.trade-detail-layout .dv-main::-webkit-scrollbar {
+  width: 12px;
+}
 
-  .trade-detail-layout .dv-props > * {
-    direction: ltr;
-  }
+.trade-detail-layout .dv-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.trade-detail-layout .dv-main::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  background: lch(35% 0.75 272);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: var(--radius-full);
+}
+
+.trade-detail-layout .dv-main::-webkit-scrollbar-thumb:hover {
+  background: lch(43% 0.75 272);
+  background-clip: padding-box;
+}
+
+.trade-detail-layout .dv-props::-webkit-scrollbar {
+  display: none;
 }
 
 @media (max-width: 1180px) {

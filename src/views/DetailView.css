@@ -596,25 +596,6 @@
   background: var(--bg-surface);
   border: 0;
   border-radius: 0;
-  scrollbar-width: thin;
-  scrollbar-color: lch(35% 0.75 272) transparent;
-}
-.dv-props::-webkit-scrollbar {
-  width: 12px;
-}
-.dv-props::-webkit-scrollbar-track {
-  background: transparent;
-}
-.dv-props::-webkit-scrollbar-thumb {
-  min-height: 40px;
-  background: lch(35% 0.75 272);
-  background-clip: padding-box;
-  border: 3px solid transparent;
-  border-radius: var(--radius-full);
-}
-.dv-props::-webkit-scrollbar-thumb:hover {
-  background: lch(43% 0.75 272);
-  background-clip: padding-box;
 }
 .dv-section {
   margin: 0;
