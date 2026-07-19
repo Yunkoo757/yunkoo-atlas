@@ -304,18 +304,48 @@
 }
 
 .trade-row-strategy {
+  display: inline-flex;
+  align-items: center;
   min-width: max-content;
+  height: 24px;
   margin-right: 6px;
-  padding-left: 0;
+  padding: 0 8px;
   overflow: hidden;
-  border-left: 0;
+  color: var(--text-tertiary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-rounded);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.trade-row-strategy:hover {
+  color: var(--text-secondary);
+  background: var(--color-bg-quaternary);
+  border-color: color-mix(in lch, var(--border-strong) 72%, var(--text-quaternary));
+}
+
+.trade-row-strategy:active {
+  color: var(--text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.trade-row-strategy:focus-visible {
+  color: var(--text-secondary);
+  background: var(--color-bg-quaternary);
+  border-color: var(--text-quaternary);
 }
 
 .trade-row-strategy .strategy-label {
   width: auto;
-  color: color-mix(in srgb, var(--text-secondary) 54%, var(--text-tertiary));
+  color: inherit;
   font-size: var(--fs-mini);
-  font-weight: var(--font-weight-normal);
+  font-weight: 450;
+  line-height: normal;
 }
 
 .trade-row-strategy .strategy-icon {

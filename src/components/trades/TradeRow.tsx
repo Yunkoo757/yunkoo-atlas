@@ -97,9 +97,14 @@ export const TradeRow = memo(function TradeRow({
         <SideTag side={trade.side} quiet />
       </span>
       <span className="trade-row-tags">
-        <span className="trade-row-strategy">
+        <button
+          type="button"
+          className="trade-row-strategy"
+          aria-label={`打开 ${trade.ref} 交易详情`}
+          onClick={() => onOpen(trade)}
+        >
           <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
-        </span>
+        </button>
         {session && (
           <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
             <span className={`trade-row-session is-${session.kind}`}>
