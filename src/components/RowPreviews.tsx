@@ -2,10 +2,14 @@ import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { fmtMoney, fmtR, fmtDate } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
+import type { buildDashboardStats } from '@/lib/dashboardStats'
 import { STATUS_META, CONVICTION_META } from '@/data/trades'
 import { PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
+import { StrategyIcon } from '@/components/StrategyIcon'
 import { useStore } from '@/store/useStore'
 import './RowPreviews.css'
+
+export type StrategyPreviewStats = ReturnType<typeof buildDashboardStats>['strategies'][number]
 
 /** 交易行悬浮预览 */
 export function TradePreview({
@@ -72,6 +76,57 @@ export function TradePreview({
             <span className="rp-tag" key={t}>{t}</span>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+/** 策略胶囊悬浮统计：仅展示实盘中可信的已平结果。 */
+export function StrategyPreview({
+  strategyId,
+  strategies,
+  stats,
+}: {
+  strategyId: string
+  strategies: Strategy[]
+  stats: StrategyPreviewStats | null
+}) {
+  const privacyMode = useStore((state) => state.display.privacyMode)
+  const strategy = strategies.find((item) => item.id === strategyId)
+  const strategyName = strategy?.name ?? stats?.name ?? '未分类'
+
+  return (
+    <div className="sp-card">
+      <PreviewHeader
+        icon={strategy ? <StrategyIcon icon={strategy.icon} color={strategy.color} size={18} /> : undefined}
+        title={strategyName}
+      />
+      <div className="rp-divider" />
+      {!stats || stats.n === 0 ? (
+        <p className="sp-empty">
+          {stats?.closedCount ? `${stats.closedCount} 笔已平，暂无可信结果` : '暂无已完成的实盘交易'}
+        </p>
+      ) : (
+        <>
+          <div className="sp-outcomes">
+            <span className="is-positive">盈利 {stats.wins}</span>
+            <span className="is-negative">亏损 {stats.losses}</span>
+            {stats.breakevens > 0 && <span>保本 {stats.breakevens}</span>}
+            <strong>{stats.winRate === null ? '—' : `${stats.winRate.toFixed(0)}%`} 胜率</strong>
+          </div>
+          <div className="sp-metrics">
+            <span>
+              总盈亏
+              <strong className={stats.pnl > 0 ? 'is-positive' : stats.pnl < 0 ? 'is-negative' : ''}>
+                {stats.pnlCount ? fmtMoney(stats.pnl, privacyMode) : '—'}
+              </strong>
+            </span>
+            <span>
+              平均 R
+              <strong>{stats.rCount ? fmtR(stats.averageR) : '—'}</strong>
+            </span>
+          </div>
+        </>
       )}
     </div>
   )

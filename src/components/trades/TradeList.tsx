@@ -5,6 +5,7 @@ import { LinearEmptyCircleIcon, LinearResolvedIcon } from '@/icons/linear'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
+import { buildDashboardStats } from '@/lib/dashboardStats'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { TradeRow } from '@/components/trades/TradeRow'
 import { useStore } from '@/store/useStore'
@@ -77,7 +78,17 @@ export function TradeList({
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
+  const allTrades = useStore((state) => state.trades)
   const flatItems = useMemo(() => flattenGroups(groups), [groups])
+  const strategyStatsById = useMemo(
+    () => new Map(
+      buildDashboardStats(
+        allTrades.filter((trade) => !trade.deletedAt && trade.tradeKind === 'live'),
+        strategies,
+      ).strategies.map((stats) => [stats.id, stats]),
+    ),
+    [allTrades, strategies],
+  )
   const stickyIndexes = useMemo(
     () =>
       flatItems
@@ -186,6 +197,7 @@ export function TradeList({
               <TradeRow
                 trade={item.trade}
                 strategies={strategies}
+                strategyStats={strategyStatsById.get(item.trade.strategyId) ?? null}
                 symbolIcons={symbolIcons}
                 focused={item.trade.id === focusedId}
                 selected={selectedIds.has(item.trade.id)}

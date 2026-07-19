@@ -5,6 +5,8 @@ import { CASE_TYPE_META, REVIEW_CATEGORY_META, resolveTimeframe, type Trade } fr
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
+import { HoverPreview } from '@/components/HoverPreview'
+import { StrategyPreview, type StrategyPreviewStats } from '@/components/RowPreviews'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
@@ -15,6 +17,7 @@ import { useStore } from '@/store/useStore'
 export type TradeRowProps = {
   trade: Trade
   strategies: Strategy[]
+  strategyStats?: StrategyPreviewStats | null
   selected: boolean
   focused: boolean
   starred: boolean
@@ -30,6 +33,7 @@ export type TradeRowProps = {
 export const TradeRow = memo(function TradeRow({
   trade,
   strategies,
+  strategyStats = null,
   selected,
   focused,
   starred,
@@ -97,14 +101,24 @@ export const TradeRow = memo(function TradeRow({
         <SideTag side={trade.side} quiet />
       </span>
       <span className="trade-row-tags">
-        <button
-          type="button"
-          className="trade-row-strategy"
-          aria-label={`打开 ${trade.ref} 交易详情`}
-          onClick={() => onOpen(trade)}
+        <HoverPreview
+          content={
+            <StrategyPreview
+              strategyId={trade.strategyId}
+              strategies={strategies}
+              stats={strategyStats}
+            />
+          }
         >
-          <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
-        </button>
+          <button
+            type="button"
+            className="trade-row-strategy"
+            aria-label={`打开 ${trade.ref} 交易详情`}
+            onClick={() => onOpen(trade)}
+          >
+            <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
+          </button>
+        </HoverPreview>
         {session && (
           <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
             <span className={`trade-row-session is-${session.kind}`}>
