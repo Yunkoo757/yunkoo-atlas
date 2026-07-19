@@ -5,16 +5,19 @@
   width: 28px;
   height: 28px;
   padding: 0 2px;
-  border: 0.8px solid transparent;
+  border: 1px solid transparent;
   border-radius: 9999px;
-  color: var(--color-text-secondary);
+  color: var(--list-text-secondary);
   font-size: 12px;
   font-weight: 500;
-  transition: border 0.15s, background-color 0.15s, color 0.15s, opacity 0.15s;
+  background: var(--surface-control);
+  box-shadow: var(--surface-control-shadow);
+  transition: border-color var(--motion-ui), background-color var(--motion-ui), color var(--motion-ui), opacity var(--motion-ui), box-shadow var(--motion-ui);
 }
 .icon-btn:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
+  background-color: var(--surface-control-active);
+  color: var(--list-text-primary);
+  box-shadow: var(--surface-control-shadow-active);
 }
 .icon-btn:active {
   background-color: var(--bg-selected);

@@ -106,6 +106,9 @@
   --main-radius: 12px;
   --control-height: 28px;
   --trade-row-height: 44px;
+  --trade-group-height: 36px;
+  --filter-bar-height: 43px;
+  --toolbar-chip-height: 28px;
   --chip-height-sm: 20px;
   --chip-height-md: 24px;
 
@@ -128,6 +131,25 @@
   --bg-selected: lch(10.8% 2.4 272 / 1);
   --bg-active: var(--bg-selected);
   --bg-sidebar: var(--bg-sidebar-color);
+
+  /* Linear 校准表面：只描述层级，不承载交易业务语义 */
+  --surface-group: lch(7.67% 0.75 272 / 1);
+  --surface-row-selected: lch(10.691% 0.493 272 / 1);
+  --surface-control: lch(6.449% 0.493 272 / 1);
+  --surface-control-active: lch(12.234% 0.879 272 / 1);
+  --surface-control-border: lch(100% 0 0 / 0.045);
+  --surface-control-border-active: lch(100% 0 0 / 0.113);
+  --surface-control-shadow:
+    0 0 0 1px var(--surface-control-border),
+    0 4px 4px -1px lch(0 0 0 / 0.04),
+    0 1px 1px 0 lch(0 0 0 / 0.08);
+  --surface-control-shadow-active: 0 0 0 1px var(--surface-control-border-active);
+
+  /* 列表排版校准 */
+  --list-text-strong: lch(100% 0 272 / 1);
+  --list-text-primary: lch(90.35% 1.15 272 / 1);
+  --list-text-secondary: lch(61.399% 1.15 272 / 1);
+  --list-group-title: lch(90.668% 1.375 272 / 1);
 
   /* 表单控件表面 */
   --field-bg: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-surface));
@@ -311,6 +333,6 @@
 
   /* 布局 */
   --sidebar-w: var(--sidebar-width);
-  --header-h: 44px;
+  --header-h: 43.5714px;
   --frame-gap: var(--main-inset);
 }

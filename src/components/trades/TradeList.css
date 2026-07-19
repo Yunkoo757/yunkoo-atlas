@@ -36,15 +36,15 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  height: 30px;
-  padding: 0 14px;
-  color: var(--text-secondary);
-  font-size: var(--fs-mini);
-  font-weight: var(--font-weight-medium);
+  height: var(--trade-group-height);
+  padding: 0 16px;
+  color: var(--list-group-title);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   /* 实底遮罩：半透明 sticky 会导致下方行透出叠字 */
-  background-color: var(--bg-surface);
+  background-color: var(--surface-group);
   border-bottom: 1px solid var(--border-subtle);
-  box-shadow: 0 1px 0 var(--bg-surface);
+  box-shadow: 0 1px 0 var(--surface-group);
   overflow: hidden;
   isolation: isolate;
 }
@@ -55,8 +55,9 @@
 }
 
 .trade-list-group-count {
-  color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  color: var(--list-text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 
@@ -91,9 +92,9 @@
   align-items: center;
   column-gap: 14px;
   height: var(--trade-row-height);
-  padding: 0 14px;
-  color: var(--text-secondary);
-  font-size: var(--fs-mini);
+  padding: 0 16px;
+  color: var(--list-text-secondary);
+  font-size: var(--fs-sm);
   border-bottom: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: background var(--motion-fast) var(--ease-out);
@@ -125,8 +126,7 @@
 
 .trade-row.is-selected,
 .trade-row.is-focused {
-  background: var(--bg-selected);
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: var(--surface-row-selected);
 }
 
 .trade-row:has(.trade-row-open:focus-visible) {
@@ -175,10 +175,13 @@
 
 .trade-row-ref {
   overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: var(--fs-mini);
-  font-family: var(--font-mono);
+  color: var(--list-text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: 450;
+  font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.26px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -211,9 +214,9 @@
 .trade-row-symbol strong {
   width: 9ch;
   overflow: hidden;
-  color: var(--text-strong);
-  font-size: 0.875rem;
-  font-weight: var(--font-weight-medium);
+  color: var(--list-text-strong);
+  font-size: var(--fs-sm);
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -415,7 +418,7 @@
 
 .trade-row-pnl.is-missed {
   color: var(--text-tertiary);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   font-size: var(--fs-mini);
 }
 

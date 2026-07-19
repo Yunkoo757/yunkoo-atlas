@@ -20,7 +20,7 @@ type FlatItem =
   | { kind: 'row'; key: string; trade: Trade }
 
 const ROW_HEIGHT = 44
-const HEADER_HEIGHT = 30
+const HEADER_HEIGHT = 36
 
 function flattenGroups(groups: TradeListGroup[]): FlatItem[] {
   const items: FlatItem[] = []
