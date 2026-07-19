@@ -109,7 +109,7 @@
   display: grid;
   /* check | status | ref | identity(固定) | tags(flex) | tf | pnl | R | date | end */
   grid-template-columns:
-    var(--trade-select-column, 24px) 16px 48px 251px minmax(260px, 1fr)
+    var(--trade-select-column, 24px) 16px 48px minmax(251px, 0.85fr) minmax(260px, 1.6fr)
     62px 80px 72px 72px 24px;
   align-items: center;
   column-gap: 8px;
