@@ -353,6 +353,7 @@
 
 /* ===== 文档流 + 评论 + 活动记录 ===== */
 .dv-document {
+  position: relative;
   width: 100%;
   min-height: 220px;
 }
@@ -374,12 +375,19 @@
   font-size: var(--type-metadata-size);
 }
 .dv-note-load.is-loading {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  right: 8px;
   gap: 9px;
-  min-height: 220px;
-  justify-content: center;
-}
-.dv-document.is-note-loading .editor {
-  display: none;
+  min-height: 0;
+  padding: 4px 7px;
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  opacity: 0;
+  pointer-events: none;
+  animation: dv-note-load-reveal 160ms ease-out 180ms forwards;
 }
 .dv-note-load-indicator {
   width: 14px;
@@ -681,6 +689,11 @@
   background: var(--bg-surface);
   border: 0;
   border-radius: 0;
+}
+
+@keyframes dv-note-load-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .dv-section {
   margin: 0;

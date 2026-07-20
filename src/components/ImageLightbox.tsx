@@ -3,19 +3,25 @@ import { ChevronLeft, ChevronRight, Maximize2, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { useExitClone } from '@/components/ui/useExitClone'
 import {
   LIGHTBOX_VIEW_RESET,
   LIGHTBOX_ZOOM_STEP,
   calculateLightboxImageLayout,
+  calculateLightboxTransition,
   lightboxViewTransform,
   panLightboxView,
+  registerLightboxCloseHandler,
   registerLightboxResetHandler,
   type LightboxImageLayout,
+  type LightboxTransition,
   type LightboxView,
   zoomLightboxAtCursor,
 } from '@/lib/lightboxView'
 import './ImageLightbox.css'
+
+const LIGHTBOX_TRANSITION_MS = 210
+
+type LightboxPhase = 'pending' | 'open' | 'closing'
 
 export function ImageLightbox() {
   const lightbox = useShortcutStore((s) => s.lightbox)
@@ -28,8 +34,11 @@ export function ImageLightbox() {
   const resetShortcut = useShortcutHint('image.reset').hint
   const closeRef = useRef<HTMLButtonElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
+  const closeTimerRef = useRef<number | null>(null)
   const [view, setView] = useState<LightboxView>(LIGHTBOX_VIEW_RESET)
   const [imageLayout, setImageLayout] = useState<LightboxImageLayout | null>(null)
+  const [transition, setTransition] = useState<LightboxTransition | null>(null)
+  const [phase, setPhase] = useState<LightboxPhase>('pending')
   const dragRef = useRef<{
     pointerId: number
     startX: number
@@ -39,32 +48,42 @@ export function ImageLightbox() {
   } | null>(null)
   const suppressClickRef = useRef(false)
   const [dragging, setDragging] = useState(false)
-  const exitRef = useExitClone<HTMLDivElement>(Boolean(lightbox))
+
+  const requestClose = useCallback(() => {
+    if (!lightbox || phase === 'closing') return
+    if (imageLayout) setView({ scale: imageLayout.fitScale, tx: 0, ty: 0 })
+    setPhase('closing')
+    closeTimerRef.current = window.setTimeout(closeLightbox, LIGHTBOX_TRANSITION_MS)
+  }, [closeLightbox, imageLayout, lightbox, phase])
 
   useEffect(() => {
     if (!lightbox) return
     const active = document.activeElement
-    if (active instanceof HTMLElement) {
-      active.blur()
-    }
+    if (active instanceof HTMLElement) active.blur()
     document.body.classList.add('img-lightbox-open')
     const id = requestAnimationFrame(() => closeRef.current?.focus())
     return () => {
       cancelAnimationFrame(id)
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
       document.body.classList.remove('img-lightbox-open')
     }
   }, [lightbox])
 
-  // 切图时重置变换
+  useEffect(() => {
+    if (!lightbox) return
+    return registerLightboxCloseHandler(requestClose)
+  }, [lightbox, requestClose])
+
   useEffect(() => {
     setView(LIGHTBOX_VIEW_RESET)
     setImageLayout(null)
+    setTransition(null)
+    setPhase('pending')
     dragRef.current = null
     suppressClickRef.current = false
     setDragging(false)
   }, [lightbox?.index, lightbox?.images])
 
-  // wheel 需非 passive 才能 preventDefault，避免页面跟着滚
   useEffect(() => {
     const viewport = viewportRef.current
     if (!viewport || !lightbox) return
@@ -102,9 +121,21 @@ export function ImageLightbox() {
       viewportHeight: rect.height,
       devicePixelRatio: window.devicePixelRatio,
     })
+    const fitWidth = layout.width * layout.fitScale
+    const fitHeight = layout.height * layout.fitScale
+    const target = {
+      x: rect.left + (rect.width - fitWidth) / 2,
+      y: rect.top + (rect.height - fitHeight) / 2,
+      width: fitWidth,
+      height: fitHeight,
+    }
     setImageLayout(layout)
     setView({ scale: layout.fitScale, tx: 0, ty: 0 })
-  }, [])
+    setTransition(lightbox?.origin
+      ? calculateLightboxTransition(lightbox.origin, target, layout.fitScale)
+      : null)
+    requestAnimationFrame(() => requestAnimationFrame(() => setPhase('open')))
+  }, [lightbox?.origin])
 
   useEffect(() => {
     if (!lightbox) return
@@ -112,7 +143,7 @@ export function ImageLightbox() {
   }, [fitImage, lightbox])
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return
+    if (event.button !== 0 || phase !== 'open') return
     if ((event.target as HTMLElement).closest('.img-lightbox-chrome')) return
     dragRef.current = {
       pointerId: event.pointerId,
@@ -123,7 +154,7 @@ export function ImageLightbox() {
     }
     setDragging(true)
     event.currentTarget.setPointerCapture(event.pointerId)
-  }, [view])
+  }, [phase, view])
 
   const onPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
@@ -147,35 +178,39 @@ export function ImageLightbox() {
     }
   }, [])
 
-  const onViewportClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (suppressClickRef.current) {
-        suppressClickRef.current = false
-        return
-      }
-      // 点遮罩空白始终关闭；点在图片画布上不关
-      if (event.target !== event.currentTarget) return
-      closeLightbox()
-    },
-    [closeLightbox],
-  )
+  const onViewportClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    if (event.target === event.currentTarget) requestClose()
+  }, [requestClose])
 
-  const onViewportDoubleClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if ((event.target as HTMLElement).closest('.img-lightbox-chrome')) return
-      event.preventDefault()
-      fitImage()
-    },
-    [fitImage],
-  )
+  const onViewportDoubleClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('.img-lightbox-chrome')) return
+    event.preventDefault()
+    fitImage()
+  }, [fitImage])
 
   if (!lightbox || (!lightbox.loading && lightbox.images.length === 0)) return null
 
   const src = lightbox.images[lightbox.index]
   const hasMany = !lightbox.loading && lightbox.images.length > 1
+  const transitionStyle = transition ? {
+    '--img-lightbox-origin-x': `${transition.x}px`,
+    '--img-lightbox-origin-y': `${transition.y}px`,
+    '--img-lightbox-origin-scale-x': transition.scaleX,
+    '--img-lightbox-origin-scale-y': transition.scaleY,
+    '--img-lightbox-origin-radius': `${lightbox.origin?.borderRadius ?? 6}px`,
+  } as React.CSSProperties : undefined
 
   return (
-    <div ref={exitRef} className="img-lightbox-overlay" role="dialog" aria-modal="true" aria-label="图片预览">
+    <div
+      className={`img-lightbox-overlay is-${phase}${transition ? ' has-origin' : ' has-no-origin'}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="图片预览"
+    >
       <div
         ref={viewportRef}
         className={'img-lightbox-viewport' + (dragging ? ' is-dragging' : '')}
@@ -193,96 +228,59 @@ export function ImageLightbox() {
           </div>
         ) : (
           <div className="img-lightbox-canvas" style={{ transform: lightboxViewTransform(view) }}>
-            <img
-              src={src}
-              alt=""
-              className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}
-              draggable={false}
-              onLoad={onImageLoad}
-              style={imageLayout ? { width: imageLayout.width, height: imageLayout.height } : undefined}
-            />
+            <div className="img-lightbox-transition" style={transitionStyle}>
+              <img
+                src={src}
+                alt=""
+                className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}
+                draggable={false}
+                onLoad={onImageLoad}
+                style={imageLayout ? { width: imageLayout.width, height: imageLayout.height } : undefined}
+              />
+            </div>
           </div>
         )}
       </div>
 
       <div className="img-lightbox-chrome">
-        <button
-          ref={closeRef}
-          type="button"
-          className="img-lightbox-close"
-          onClick={closeLightbox}
-          aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
-        >
-          <X size={18} />
-        </button>
+        {!lightbox.loading && (
+          <div className="img-lightbox-toolbar">
+            <span className="img-lightbox-scale">{Math.round(view.scale * 100)}%</span>
+            {hasMany && <span className="img-lightbox-counter">{lightbox.index + 1} / {lightbox.images.length}</span>}
+            <Tooltip asChild content={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'} label="适合窗口">
+              <button type="button" className="img-lightbox-action" onClick={fitImage} aria-label="适合窗口">
+                <Maximize2 size={14} aria-hidden />
+              </button>
+            </Tooltip>
+            <button type="button" className="img-lightbox-action" onClick={showActualSize} aria-label="原图像素 1:1">
+              <span className="img-lightbox-ratio" aria-hidden>1:1</span>
+            </button>
+            <span className="img-lightbox-divider" aria-hidden />
+            <button
+              ref={closeRef}
+              type="button"
+              className="img-lightbox-close"
+              onClick={requestClose}
+              aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
         {hasMany && (
           <>
-            <Tooltip
-              asChild
-              content={previousShortcut ? `上一张 · ${previousShortcut}` : '上一张'}
-              label="上一张"
-            >
-              <button
-                type="button"
-                className="img-lightbox-nav img-lightbox-nav--prev"
-                onClick={lightboxPrev}
-                aria-label={previousShortcut ? `上一张（${previousShortcut}）` : '上一张'}
-              >
+            <Tooltip asChild content={previousShortcut ? `上一张 · ${previousShortcut}` : '上一张'} label="上一张">
+              <button type="button" className="img-lightbox-nav img-lightbox-nav--prev" onClick={lightboxPrev} aria-label="上一张">
                 <ChevronLeft size={22} />
               </button>
             </Tooltip>
-            <Tooltip
-              asChild
-              content={nextShortcut ? `下一张 · ${nextShortcut}` : '下一张'}
-              label="下一张"
-            >
-              <button
-                type="button"
-                className="img-lightbox-nav img-lightbox-nav--next"
-                onClick={lightboxNext}
-                aria-label={nextShortcut ? `下一张（${nextShortcut}）` : '下一张'}
-              >
+            <Tooltip asChild content={nextShortcut ? `下一张 · ${nextShortcut}` : '下一张'} label="下一张">
+              <button type="button" className="img-lightbox-nav img-lightbox-nav--next" onClick={lightboxNext} aria-label="下一张">
                 <ChevronRight size={22} />
               </button>
             </Tooltip>
           </>
         )}
-        {!lightbox.loading && <div className="img-lightbox-hud-dock">
-          <div className="img-lightbox-hud">
-            <span className="img-lightbox-scale">{Math.round(view.scale * 100)}%</span>
-            {hasMany && (
-              <span className="img-lightbox-counter">
-                {lightbox.index + 1} / {lightbox.images.length}
-              </span>
-            )}
-            <Tooltip
-              asChild
-              content={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'}
-              label="适合窗口"
-            >
-              <button
-                type="button"
-                className="img-lightbox-action"
-                onClick={fitImage}
-                aria-label={resetShortcut ? `适合窗口（${resetShortcut}）` : '适合窗口'}
-              >
-                <Maximize2 size={14} aria-hidden />
-              </button>
-            </Tooltip>
-            <Tooltip asChild content="源像素与屏幕物理像素 1:1" label="原图像素 1:1">
-              <button
-                type="button"
-                className="img-lightbox-action"
-                onClick={showActualSize}
-                aria-label="原图像素 1:1"
-              >
-                <span className="img-lightbox-ratio" aria-hidden>
-                  1:1
-                </span>
-              </button>
-            </Tooltip>
-          </div>
-        </div>}
       </div>
     </div>
   )

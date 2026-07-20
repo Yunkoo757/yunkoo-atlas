@@ -1,6 +1,7 @@
 import {
   LIGHTBOX_VIEW_RESET,
   calculateLightboxImageLayout,
+  calculateLightboxTransition,
   clampLightboxScale,
   lightboxViewTransform,
   panLightboxView,
@@ -72,4 +73,15 @@ export function testLightboxResetHandlerRegistry(): void {
   assert(calls === 1, '应调用重置 handler')
   unregister()
   assert(requestLightboxReset() === false, '注销后应返回 false')
+}
+
+export function testLightboxSharedElementTransition(): void {
+  const transition = calculateLightboxTransition(
+    { x: 100, y: 120, width: 300, height: 200, borderRadius: 6 },
+    { x: 250, y: 60, width: 600, height: 400 },
+    0.5,
+  )
+  assert(transition.x === -600, '源图片中心到目标中心的水平位移应换算到画布坐标')
+  assert(transition.y === -80, '源图片中心到目标中心的垂直位移应换算到画布坐标')
+  assert(transition.scaleX === 0.5 && transition.scaleY === 0.5, '源图片尺寸应映射为目标尺寸比例')
 }

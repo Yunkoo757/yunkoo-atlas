@@ -21,7 +21,7 @@ import { tradeDetailPath, resolveTradeDetailReturn, findTradeByRouteParam } from
 import { routeWithSearch } from '@/lib/tradeView'
 import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
 import { getActionMeta } from '@/shortcuts/actions'
-import { requestLightboxReset } from '@/lib/lightboxView'
+import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { createQuickNote } from '@/data/quickNotes'
 
@@ -69,7 +69,9 @@ export function useShortcutHost({
         if (s.redoStack.length > 0) { s.redo(); toast('已重做') }
       },
       'global.closeOverlay': () => {
-        if (lightbox) closeLightbox()
+        if (lightbox) {
+          if (!requestLightboxClose()) closeLightbox()
+        }
         else if (cmdkOpen) setCmdkOpen(false)
         else if (composerOpen) closeComposer()
         else if (closeTradeRequest) cancelTradeClose()
@@ -156,7 +158,9 @@ export function useShortcutHost({
 
       'image.prev': lightboxPrev,
       'image.next': lightboxNext,
-      'image.close': closeLightbox,
+      'image.close': () => {
+        if (!requestLightboxClose()) closeLightbox()
+      },
       'image.reset': () => {
         requestLightboxReset()
       },

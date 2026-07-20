@@ -207,7 +207,6 @@ export function DetailView() {
     noteResolvedRef.current = false   // 切换交易时重置，阻止旧 onUpdate 写入空内容
     if (!preserveReadOnlyFallback) {
       setNoteRetrying(false)
-      setEditorHtml('')
       setNoteLoad({ tradeId: trade.id, state: { status: 'loading' } })
     }
     let cancelled = false
@@ -392,9 +391,7 @@ export function DetailView() {
   const activeNoteLoad = noteLoad.tradeId === trade.id
     ? noteLoad.state
     : { status: 'loading' as const }
-  const noteEditorContent = activeNoteLoad.status === 'loading'
-    ? ''
-    : activeNoteLoad.status === 'error'
+  const noteEditorContent = activeNoteLoad.status === 'error'
       ? activeNoteLoad.fallbackHtml
       : editorHtml
   const reviewReadiness = evaluateReviewCompletion(editorHtml)

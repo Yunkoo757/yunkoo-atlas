@@ -16,6 +16,21 @@ export type LightboxImageLayout = {
   fitScale: number
 }
 
+export type LightboxOrigin = {
+  x: number
+  y: number
+  width: number
+  height: number
+  borderRadius: number
+}
+
+export type LightboxTransition = {
+  x: number
+  y: number
+  scaleX: number
+  scaleY: number
+}
+
 type LightboxImageLayoutInput = {
   naturalWidth: number
   naturalHeight: number
@@ -83,9 +98,25 @@ export function lightboxViewTransform(view: LightboxView): string {
   return `translate(-50%, -50%) translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`
 }
 
+export function calculateLightboxTransition(
+  origin: LightboxOrigin,
+  target: { x: number; y: number; width: number; height: number },
+  fitScale: number,
+): LightboxTransition {
+  const safeScale = fitScale > 0 ? fitScale : 1
+  return {
+    x: (origin.x + origin.width / 2 - (target.x + target.width / 2)) / safeScale,
+    y: (origin.y + origin.height / 2 - (target.y + target.height / 2)) / safeScale,
+    scaleX: origin.width / Math.max(1, target.width),
+    scaleY: origin.height / Math.max(1, target.height),
+  }
+}
+
 type LightboxResetHandler = () => void
+type LightboxCloseHandler = () => void
 
 let resetHandler: LightboxResetHandler | null = null
+let closeHandler: LightboxCloseHandler | null = null
 
 /** ImageLightbox 挂载时注册，供快捷键触发重置 */
 export function registerLightboxResetHandler(handler: LightboxResetHandler): () => void {
@@ -98,5 +129,18 @@ export function registerLightboxResetHandler(handler: LightboxResetHandler): () 
 export function requestLightboxReset(): boolean {
   if (!resetHandler) return false
   resetHandler()
+  return true
+}
+
+export function registerLightboxCloseHandler(handler: LightboxCloseHandler): () => void {
+  closeHandler = handler
+  return () => {
+    if (closeHandler === handler) closeHandler = null
+  }
+}
+
+export function requestLightboxClose(): boolean {
+  if (!closeHandler) return false
+  closeHandler()
   return true
 }
