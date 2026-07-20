@@ -429,11 +429,12 @@
   display: inline-flex;
   align-items: center;
   min-width: max-content;
-  height: 24px;
+  /* 28px：给 12px 字 + 图标留上下呼吸，避免 24px+边框在高 DPR 下像被裁扁 */
+  height: 28px;
   margin-right: 6px;
-  padding: 0 8px;
-  overflow: hidden;
-  color: var(--text-tertiary);
+  padding: 0 9px;
+  overflow: visible;
+  color: var(--list-text-secondary);
   background: var(--surface-control);
   border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-rounded);
@@ -448,21 +449,21 @@
 }
 
 .trade-row-strategy:hover {
-  color: var(--text-primary);
+  color: var(--list-text-primary);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
   box-shadow: none;
 }
 
 .trade-row-strategy:active {
-  color: var(--text-primary);
+  color: var(--list-text-primary);
   background: color-mix(in srgb, var(--surface-control-active) 88%, #fff 12%);
   border-color: var(--surface-control-border-active);
   box-shadow: none;
 }
 
 .trade-row-strategy:focus-visible {
-  color: var(--text-primary);
+  color: var(--list-text-primary);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
@@ -470,16 +471,18 @@
 
 .trade-row-strategy .strategy-label {
   width: auto;
+  max-width: 16ch;
+  gap: 5px;
   color: inherit;
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: 500;
-  line-height: normal;
+  line-height: 1;
 }
 
 .trade-row-strategy .strategy-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   border-radius: 0;
   background: transparent !important;
@@ -516,20 +519,21 @@
   flex: 0 0 auto;
   max-width: 18ch;
   min-width: 0;
-  height: 24px;
+  /* 略矮于策略芯片，拉开主次；仍比旧 24px 多一点呼吸 */
+  height: 26px;
   padding: 0 8px;
   overflow: hidden;
-  color: var(--text-tertiary);
+  color: var(--text-quaternary);
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: 500;
   font-feature-settings: normal;
   font-variant-numeric: normal;
-  line-height: normal;
+  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
 }
 
@@ -551,11 +555,11 @@
 .trade-row-session {
   flex: 0 0 auto;
   max-width: 9ch;
-  height: 24px;
+  height: 26px;
   padding: 0 8px;
   overflow: hidden;
   font-size: var(--fs-mini);
-  line-height: normal;
+  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
   border: 1px solid transparent;
@@ -575,13 +579,13 @@
 .trade-row-tag.is-mistake {
   max-width: none;
   color: #e37c84;
-  background: var(--bg-surface);
+  background: transparent;
   border-color: rgb(227 124 132 / 40%);
 }
 
 .trade-row-more.is-mistake-more {
   color: #e37c84;
-  background: var(--bg-surface);
+  background: transparent;
   border-color: rgb(227 124 132 / 40%);
   border-style: solid;
 }
