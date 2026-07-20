@@ -544,8 +544,6 @@ export function DetailView() {
 
   const moreMenu = (
     <Menu
-      align="right"
-      side="right"
       options={[
         { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
         ...(trade.tradeKind === 'case'
@@ -567,7 +565,7 @@ export function DetailView() {
         else if (v === 'delete') onDelete()
       }}
       trigger={
-        <IconButton title="更多">
+        <IconButton ariaLabel="更多">
           <MoreHorizontal size={15} />
         </IconButton>
       }
