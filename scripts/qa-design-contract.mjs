@@ -30,13 +30,16 @@ const checks = [
   [
     'sidebar navigation matches measured Linear hierarchy',
     sidebarStyles.includes('--sb-text: lch(60.307% 1 272)') &&
-      /\.sb-item\s*\{[^}]*height:\s*28px;[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*color:\s*var\(--sb-text\);/s.test(sidebarStyles) &&
-      /\.sb-section-label\s*\{[^}]*height:\s*28px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
+      /\.sb-item\s*\{[^}]*height:\s*30px;[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*color:\s*var\(--sb-text\);/s.test(sidebarStyles) &&
+      /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
   ],
   [
     'sidebar avatar uses the Linear rounded-square shape',
-    /\.sb-ws-avatar\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;[^}]*border-radius:\s*var\(--radius-8\);/s.test(sidebarStyles) &&
-      sidebarComponent.includes('shape="rounded-square"'),
+    /\.sb-ws-avatar\s*\{[^}]*width:\s*28px;[^}]*height:\s*28px;[^}]*border-radius:\s*var\(--radius-8\);/s.test(sidebarStyles) &&
+      sidebarComponent.includes('shape="rounded-square"') &&
+      sidebarComponent.includes("label: '设置'") &&
+      sidebarComponent.includes('navigate(\'/trade-trash\')') &&
+      !sidebarComponent.includes('sb-utility'),
   ],
   ['control height', tokens.includes('--control-height: 28px')],
   [
