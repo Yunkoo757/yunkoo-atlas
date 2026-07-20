@@ -244,7 +244,7 @@ try {
   await closeDialog.getByRole('textbox', { name: 'R 倍数', exact: true }).fill('2')
   await closeDialog.getByRole('button', { name: '保存并待复盘', exact: true }).click()
   await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
-  await page.getByText('交易待复盘', { exact: true }).waitFor({ state: 'visible' })
+  await page.locator('.dv-review-chip').waitFor({ state: 'visible' })
   await editor.click()
   await editor.fill('复盘证据：确认入场依据，并记录下一次执行改进。')
   await page.getByRole('button', { name: '完成复盘', exact: true }).click()

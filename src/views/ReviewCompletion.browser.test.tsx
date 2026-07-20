@@ -42,7 +42,10 @@ async function waitFor(condition: () => boolean, message: string): Promise<void>
 
 function findButton(label: string): HTMLButtonElement | undefined {
   return [...document.querySelectorAll<HTMLButtonElement>('button')]
-    .find((button) => button.textContent?.trim() === label)
+    .find((button) =>
+      button.textContent?.trim() === label ||
+      button.getAttribute('aria-label') === label,
+    )
 }
 
 const strategy: Strategy = {
@@ -140,6 +143,7 @@ async function run(): Promise<void> {
       '写下复盘结论后仍无法完成复盘',
     )
     assert(!document.querySelector('.dv-review-stage'), '已完成状态不应继续占据正文首屏')
+    assert(!document.querySelector('.dv-review-chip'), '已完成状态不应继续显示待复盘 chip')
     assert(
       document.querySelector('.dv-review-complete-meta')?.textContent?.trim() === '已复盘',
       '已完成状态应收敛到顶部应用栏',

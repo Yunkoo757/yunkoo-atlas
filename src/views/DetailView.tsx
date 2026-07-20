@@ -636,11 +636,38 @@ export function DetailView() {
       )}
       content={(
           <div className="dv-main-inner">
-            <h1 className="dv-title">
-              <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={22} />
-              {trade.symbol}
-              <SideTag side={trade.side} />
-            </h1>
+            <div className="dv-title-row">
+              <h1 className="dv-title">
+                <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={22} />
+                {trade.symbol}
+                <SideTag side={trade.side} />
+              </h1>
+              {needsReview && !needsResult && (
+                <button
+                  type="button"
+                  className={
+                    'dv-review-chip' +
+                    (reviewReadiness.ready ? '' : ' is-muted') +
+                    (reviewSubmitting ? ' is-busy' : '')
+                  }
+                  aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
+                  title={
+                    reviewSubmitting
+                      ? '正在保存…'
+                      : reviewIssue ?? (reviewReadiness.ready ? '完成复盘' : '完成前请留下结论、勾选检查项或加入截图证据')
+                  }
+                  disabled={
+                    activeNoteLoad.status !== 'ready' ||
+                    !reviewReadiness.ready ||
+                    reviewSubmitting
+                  }
+                  onClick={() => void completeReview()}
+                >
+                  <span className="dv-review-chip-dot" aria-hidden />
+                  {reviewSubmitting ? '正在保存…' : '待复盘'}
+                </button>
+              )}
+            </div>
             {trade.tradeKind === 'case' && trade.sourceTradeId && (
               <section className="dv-case-source" aria-label="案例来源">
                 <BookOpen size={15} aria-hidden />
@@ -655,11 +682,11 @@ export function DetailView() {
                 )}
               </section>
             )}
-            {(needsResult || needsReview) && (
+            {needsResult && (
               <section
                 className={
                   'dv-review-stage' +
-                  (needsResult ? ' is-result-pending' : '') +
+                  ' is-result-pending' +
                   (hasResultConflict ? ' is-result-conflict' : '')
                 }
                 aria-label="交易闭环状态"
@@ -669,47 +696,26 @@ export function DetailView() {
                 </span>
                 <div className="dv-review-stage-copy">
                   <strong>
-                    {hasResultConflict
-                      ? '交易结果存在冲突'
-                      : needsResult
-                        ? '交易结果待补齐'
-                        : '交易待复盘'}
+                    {hasResultConflict ? '交易结果存在冲突' : '交易结果待补齐'}
                   </strong>
                   <span aria-live="polite">
                     {hasResultConflict
                       ? '盈亏、R 倍数或结算状态方向不一致，请核对后重新确认。'
-                      : needsResult
-                        ? '补充盈亏或 R 倍数后，才会计入统计。'
-                        : reviewIssue ?? '完成前请留下结论、勾选检查项或加入截图证据。'}
+                      : '补充盈亏或 R 倍数后，才会计入统计。'}
                   </span>
                 </div>
                 <div className="dv-review-stage-actions">
-                  {needsResult ? (
-                    <button
-                      type="button"
-                      onClick={() => requestTradeClose(
-                        trade.id,
-                        trade.status === 'win' || trade.status === 'loss' || trade.status === 'breakeven'
-                          ? trade.status
-                          : undefined,
-                      )}
-                    >
-                      {hasResultConflict ? '修正结果' : '补齐结果'}
-                    </button>
-                  ) : needsReview ? (
-                    <button
-                      type="button"
-                      className={reviewReadiness.ready ? undefined : 'is-secondary'}
-                      disabled={
-                        activeNoteLoad.status !== 'ready' ||
-                        !reviewReadiness.ready ||
-                        reviewSubmitting
-                      }
-                      onClick={() => void completeReview()}
-                    >
-                      {reviewSubmitting ? '正在保存…' : '完成复盘'}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => requestTradeClose(
+                      trade.id,
+                      trade.status === 'win' || trade.status === 'loss' || trade.status === 'breakeven'
+                        ? trade.status
+                        : undefined,
+                    )}
+                  >
+                    {hasResultConflict ? '修正结果' : '补齐结果'}
+                  </button>
                 </div>
               </section>
             )}
@@ -761,8 +767,8 @@ export function DetailView() {
                 reviewContextPinned={reviewContextPinned}
                 placeholder={
                   trade.tradeKind === 'case'
-                    ? '写下这条案例记录的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图'
-                    : undefined
+                    ? '写下案例复盘思路…'
+                    : '写下复盘思路…'
                 }
               />
             </div>
@@ -795,7 +801,7 @@ export function DetailView() {
                     ref={commentRef}
                     className="dv-comment-input"
                     aria-label="新增复盘追记"
-                    placeholder="补充后续观察或新的理解…"
+                    placeholder="补充观察…"
                     value={comment}
                     onChange={(event) => {
                       setComment(event.target.value)
