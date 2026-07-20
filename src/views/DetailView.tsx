@@ -545,6 +545,7 @@ export function DetailView() {
   const moreMenu = (
     <Menu
       align="right"
+      side="right"
       options={[
         { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
         ...(trade.tradeKind === 'case'

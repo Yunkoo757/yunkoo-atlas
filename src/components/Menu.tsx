@@ -21,7 +21,7 @@ export interface MenuOption {
 type MenuPosition = {
   left: number
   top: number
-  placement: 'bottom' | 'top'
+  placement: 'bottom' | 'top' | 'right' | 'left'
   minWidth: number
 }
 
@@ -33,12 +33,14 @@ export function Menu({
   value,
   onSelect,
   align = 'left',
+  side = 'vertical',
 }: {
   trigger: ReactNode
   options: MenuOption[]
   value?: string
   onSelect: (value: string) => void
   align?: 'left' | 'right'
+  side?: 'vertical' | 'right'
 }) {
   const menuId = useId()
   const [open, setOpen] = useState(false)
@@ -62,6 +64,27 @@ export function Menu({
     const popRect = popRef.current?.getBoundingClientRect()
     const popHeight = popRect?.height ?? options.length * 30 + 10
     const popWidth = Math.max(popRect?.width ?? 180, 180)
+    if (side === 'right') {
+      const gap = 6
+      const roomRight = window.innerWidth - triggerRect.right - edge
+      const placement = roomRight >= popWidth + gap ? 'right' : 'left'
+      const left = placement === 'right'
+        ? triggerRect.right + gap
+        : triggerRect.left - popWidth - gap
+      const top = Math.min(
+        Math.max(edge, triggerRect.top),
+        Math.max(edge, window.innerHeight - popHeight - edge),
+      )
+
+      setPosition({
+        left: Math.min(Math.max(edge, left), window.innerWidth - popWidth - edge),
+        top,
+        placement,
+        minWidth: Math.max(180, triggerRect.width),
+      })
+      return
+    }
+
     const roomBelow = window.innerHeight - triggerRect.bottom - edge - 4
     const roomAbove = triggerRect.top - edge - 4
     const placement =
@@ -105,7 +128,7 @@ export function Menu({
     updatePosition()
     const frame = requestAnimationFrame(() => updatePosition())
     return () => cancelAnimationFrame(frame)
-  }, [open, align, options.length])
+  }, [open, align, options.length, side])
 
   useEffect(() => {
     if (!open) return
@@ -116,7 +139,7 @@ export function Menu({
       window.removeEventListener('resize', onViewportChange)
       window.removeEventListener('scroll', onViewportChange, true)
     }
-  }, [open, align, options.length])
+  }, [open, align, options.length, side])
 
   const popStyle: CSSProperties = {
     left: position.left,
