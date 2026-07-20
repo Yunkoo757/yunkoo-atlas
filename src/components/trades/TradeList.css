@@ -354,7 +354,7 @@
   background: var(--surface-control);
   border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-rounded);
-  box-shadow: var(--surface-control-shadow);
+  box-shadow: none;
   cursor: pointer;
   pointer-events: auto;
   transition:
@@ -368,7 +368,7 @@
   color: var(--text-primary);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
-  box-shadow: var(--surface-control-shadow-active);
+  box-shadow: none;
 }
 
 .trade-row-strategy:active {
@@ -382,7 +382,7 @@
   color: var(--text-primary);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
-  box-shadow: var(--surface-control-shadow-active);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .trade-row-strategy .strategy-label {
