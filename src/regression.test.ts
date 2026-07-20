@@ -99,6 +99,7 @@ import {
   getSessionSelectValue,
   getVisibleTradeTags,
   groupTradesByMonth,
+  monthGroupRecency,
   intersectSelectedTradeIds,
   normalizeSession,
   normalizePsychology,
@@ -1236,13 +1237,17 @@ export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
   const julyEarly = { ...trade, id: 'jul-1', openedAt: '2026-07-02T08:00:00.000Z' }
   const julyLate = { ...trade, id: 'jul-2', openedAt: '2026-07-18T08:00:00.000Z' }
   const june = { ...trade, id: 'jun-1', openedAt: '2026-06-30T08:00:00.000Z' }
-  const groups = groupTradesByMonth([june, julyEarly, julyLate])
+  const groups = groupTradesByMonth([june, julyEarly, julyLate], new Date('2026-07-20T12:00:00.000Z'))
 
   assert(
     JSON.stringify(groups.map((group) => group.key)) === JSON.stringify(['2026-07', '2026-06']),
     '交易月份应按最近月份倒序排列',
   )
   assert(groups[0].items[0].id === 'jul-2', '同月交易应按交易日期倒序排列')
+  assert(groups[0].recency === 'current', '当月分组应为 current')
+  assert(groups[1].recency === 'recent', '上月分组应为 recent')
+  assert(monthGroupRecency('2026-04', new Date('2026-07-20T12:00:00.000Z')) === 'archive', '三个月前应为 archive')
+  assert(monthGroupRecency('unknown') === 'archive', '未知日期视为 archive')
 
   const tags = getVisibleTradeTags({ ...trade, tags: ['A', 'B', 'C'] }, 2)
   assert(JSON.stringify(tags.visible) === JSON.stringify(['A', 'B']), '最多展示指定数量标签')

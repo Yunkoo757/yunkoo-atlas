@@ -29,8 +29,8 @@ function trade(id: string): Trade {
 
 export function testFlattenGroupsOmitsRowsWhenCollapsed(): void {
   const groups: TradeListGroup[] = [
-    { key: '2026-07', label: '2026年7月', items: [trade('a'), trade('b')] },
-    { key: '2026-06', label: '2026年6月', items: [trade('c')] },
+    { key: '2026-07', label: '2026年7月', recency: 'current', items: [trade('a'), trade('b')] },
+    { key: '2026-06', label: '2026年6月', recency: 'recent', items: [trade('c')] },
   ]
 
   const expanded = flattenGroups(groups)
@@ -42,6 +42,7 @@ export function testFlattenGroupsOmitsRowsWhenCollapsed(): void {
       item.kind === 'header' && item.groupKey === '2026-07',
   )
   assert.equal(julyHeader?.openProgress, 1)
+  assert.equal(julyHeader?.recency, 'current')
 
   const collapsed = flattenGroups(groups, new Map([['2026-07', 0]]))
   assert.equal(collapsed.length, 3)

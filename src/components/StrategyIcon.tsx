@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { StrategyIconId } from '@/data/strategies'
 import { getStrategyIcon } from '@/data/strategies'
 import { ICON_TILE, iconTileGlyphSize, softIconBackground } from '@/icons/iconSize'
@@ -21,6 +22,11 @@ export function StrategyIcon({
   const Icon = getStrategyIcon(icon)
   const isNav = variant === 'nav'
   const glyph = isNav ? size : iconTileGlyphSize(size)
+  const navStyle = {
+    width: size,
+    height: size,
+    '--sb-strategy-color': color,
+  } as CSSProperties
   return (
     <span
       className={
@@ -28,7 +34,7 @@ export function StrategyIcon({
       }
       style={
         isNav
-          ? { width: size, height: size, color }
+          ? navStyle
           : {
               width: size,
               height: size,

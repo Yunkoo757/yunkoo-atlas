@@ -9,9 +9,13 @@ import type {
 } from '@/data/trades'
 import { tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
 
+/** 日期分组生命力：对齐 Linear 状态栏底色逻辑（当下≈Started，近况≈Todo，更早≈Backlog） */
+export type GroupRecency = 'current' | 'recent' | 'archive'
+
 export type TradeMonthGroup = {
   key: string
   label: string
+  recency: GroupRecency
   items: Trade[]
 }
 
@@ -291,7 +295,22 @@ export function sortReviewCasesByRecentActivity(trades: Trade[]): Trade[] {
   )
 }
 
-export function groupTradesByMonth(trades: Trade[]): TradeMonthGroup[] {
+/** `YYYY-MM` → 相对「现在」的远近档；unknown 视为归档 */
+export function monthGroupRecency(key: string, now: Date = new Date()): GroupRecency {
+  if (key === 'unknown') return 'archive'
+  const [year, month] = key.split('-').map(Number)
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    return 'archive'
+  }
+  const monthIndex = year * 12 + (month - 1)
+  const nowIndex = now.getFullYear() * 12 + now.getMonth()
+  const delta = nowIndex - monthIndex
+  if (delta <= 0) return 'current'
+  if (delta <= 2) return 'recent'
+  return 'archive'
+}
+
+export function groupTradesByMonth(trades: Trade[], now: Date = new Date()): TradeMonthGroup[] {
   const groups = new Map<string, Trade[]>()
 
   for (const trade of trades) {
@@ -316,6 +335,7 @@ export function groupTradesByMonth(trades: Trade[]): TradeMonthGroup[] {
       return {
         key,
         label: key === 'unknown' ? '日期未知' : `${year}年${month}月`,
+        recency: monthGroupRecency(key, now),
         items: sortTradesByOpenedAtDesc(items),
       }
     })

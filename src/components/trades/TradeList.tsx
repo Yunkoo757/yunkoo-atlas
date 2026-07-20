@@ -16,6 +16,8 @@ export type TradeListGroup = {
   key: string
   label?: string
   tone?: 'pending' | 'completed' | 'neutral'
+  /** 日期分组生命力底色（Linear Started / Todo / Backlog 同构） */
+  recency?: 'current' | 'recent' | 'archive'
   /** 策略分组时传入，用于显示策略图标（对齐 Linear 项目分组） */
   strategyId?: string
   items: Trade[]
@@ -29,6 +31,7 @@ type FlatItem =
       label: string
       count: number
       tone: NonNullable<TradeListGroup['tone']>
+      recency?: TradeListGroup['recency']
       strategyId?: string
       /** 1=展开，0=折叠 */
       openProgress: number
@@ -62,6 +65,7 @@ export function flattenGroups(
         label: group.label,
         count: group.items.length,
         tone: group.tone ?? 'neutral',
+        recency: group.recency,
         strategyId: group.strategyId,
         openProgress,
       })
@@ -388,7 +392,9 @@ export function TradeList({
               <div
                 className={
                   'trade-list-group-header' +
+                  (item.tone === 'pending' ? ' is-pending' : '') +
                   (item.tone === 'completed' ? ' is-completed' : '') +
+                  (item.recency ? ` is-recency-${item.recency}` : '') +
                   (collapsed ? ' is-collapsed' : '')
                 }
               >
@@ -406,7 +412,7 @@ export function TradeList({
                   <span className="trade-list-group-chevron" aria-hidden="true">
                     <LinearChevronIcon
                       style={{
-                        transform: `rotate(${-90 * (1 - item.openProgress)}deg)`,
+                        transform: `rotate(${90 * item.openProgress}deg)`,
                       }}
                     />
                   </span>
@@ -426,7 +432,7 @@ export function TradeList({
                   onClick={() => onCreate()}
                   aria-label="在本组新建交易"
                 >
-                  <Plus size={14} />
+                  <Plus size={16} />
                 </button>
               </div>
             ) : (

@@ -26,8 +26,7 @@ export function testDisclosureChevronMatchesLinearListCaret(): void {
   const html = renderToStaticMarkup(<LinearChevronIcon />)
   assert(html.includes('viewBox="0 0 16 16"'), 'list caret uses 16×16 optical grid')
   assert(html.includes('width="16"') && html.includes('height="16"'), 'list caret defaults to 16px')
-  assert(html.includes('M1.915.557'), 'uses Linear rounded ChevronIcon path')
-  assert(html.includes('translate(3.05 5.35)'), 'centers native 9×5 caret in 16 grid')
+  assert(html.includes('M7.00194 10.6239'), 'uses Linear CollapseArrowIcon path')
 }
 
 export function testStaticIconIdsAreIsolatedPerInstance(): void {

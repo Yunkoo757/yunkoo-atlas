@@ -30,6 +30,9 @@
 }
 
 .trade-list-group-header {
+  --trade-group-chevron: var(--group-chevron-todo);
+  --trade-group-add: var(--group-add-todo);
+
   position: sticky;
   top: 0;
   z-index: 3;
@@ -38,7 +41,7 @@
   gap: 0;
   height: var(--trade-group-height);
   margin: 0 8px;
-  padding: 0 4px 0 0;
+  padding: 0 8px 0 0;
   color: var(--list-group-title);
   border-radius: var(--radius-8);
   background-color: var(--surface-group);
@@ -46,11 +49,33 @@
   isolation: isolate;
 }
 
-.trade-list-group-header.is-completed {
-  background-color: var(--surface-group-completed);
+.trade-list-group-header.is-pending {
+  --trade-group-chevron: var(--group-chevron-started);
+  --trade-group-add: var(--group-add-started);
 }
 
-/* Linear：整段表头可点折叠；右侧 + 独立为新建 */
+.trade-list-group-header.is-completed {
+  --trade-group-chevron: var(--group-chevron-done);
+  --trade-group-add: var(--group-add-done);
+}
+
+/* 日期分组：底色统一，三角/+ 按远近 tint（对标 Linear Started/Todo/Backlog） */
+.trade-list-group-header.is-recency-current {
+  --trade-group-chevron: var(--group-chevron-started);
+  --trade-group-add: var(--group-add-started);
+}
+
+.trade-list-group-header.is-recency-recent {
+  --trade-group-chevron: var(--group-chevron-todo);
+  --trade-group-add: var(--group-add-todo);
+}
+
+.trade-list-group-header.is-recency-archive {
+  --trade-group-chevron: var(--group-chevron-backlog);
+  --trade-group-add: var(--group-add-backlog);
+}
+
+/* Linear：分组条悬停不抬亮底色；生命力在右侧圆形 + */
 .trade-list-group-toggle {
   display: flex;
   align-items: center;
@@ -62,18 +87,15 @@
   padding: 0 4px 0 0;
   color: inherit;
   border: 0;
-  border-radius: var(--radius-8);
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
   text-align: left;
 }
 
-.trade-list-group-toggle:hover {
-  background: rgb(255 255 255 / 3.5%);
-}
-
+.trade-list-group-toggle:hover,
 .trade-list-group-toggle:focus-visible {
-  background: rgb(255 255 255 / 5.5%);
+  background: transparent;
 }
 
 .trade-list-group-chevron {
@@ -82,8 +104,8 @@
   flex: 0 0 28px;
   width: 28px;
   height: 100%;
-  /* Linear labelMuted：弱但有块面，不发灰虚 */
-  color: color-mix(in srgb, var(--text-secondary) 72%, transparent);
+  /* Linear CollapseArrow：暗底上带状态 hue 的实心三角 */
+  color: var(--trade-group-chevron);
 }
 
 .trade-list-group-chevron svg {
@@ -96,7 +118,7 @@
 }
 
 .trade-list-group-header.is-collapsed .trade-list-group-chevron {
-  color: color-mix(in srgb, var(--text-tertiary) 88%, transparent);
+  color: color-mix(in srgb, var(--trade-group-chevron) 72%, transparent);
 }
 
 .trade-list-virtual-item.is-row.is-collapsing {
@@ -148,39 +170,42 @@
 .trade-list-group-add {
   display: grid;
   place-items: center;
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
-  margin-left: 0;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  margin: 0;
   padding: 0;
-  color: rgb(147 152 164);
-  border: 0;
-  border-radius: var(--radius-8);
+  color: var(--trade-group-add);
+  border: 0.5px solid transparent;
+  border-radius: 9999px;
   background: transparent;
   opacity: 1;
   cursor: pointer;
   transition:
-    color 100ms ease,
-    background-color 100ms ease;
+    border 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
 }
 
-.trade-list-group-add:hover {
-  color: rgb(202 205 213);
-  background: rgb(255 255 255 / 7.5%);
+/* Linear 实测：圆底 lch(13.456% 0.943 272) 压在未抬亮的 surface-group 上才显得「亮起」 */
+.trade-list-group-add:hover,
+.trade-list-group-add:focus-visible {
+  color: lch(100% 0 272);
+  background-color: var(--group-add-hover-bg);
 }
 
 .trade-list-group-add:active {
-  background: rgb(255 255 255 / 11%);
-}
-
-.trade-list-group-add:focus-visible {
-  color: rgb(202 205 213);
-  background: rgb(255 255 255 / 7.5%);
+  color: lch(100% 0 272);
+  background-color: color-mix(in lch, var(--group-add-hover-bg) 88%, white 12%);
 }
 
 .trade-list-group-add svg {
   display: block;
   overflow: visible;
+  color: inherit;
+  stroke: currentColor;
 }
 
 .trade-row {
@@ -332,7 +357,7 @@
 
 .trade-row-symbol {
   display: flex;
-  column-gap: 0;
+  column-gap: 4px;
   align-items: center;
   overflow: hidden;
 }
@@ -345,17 +370,22 @@
   display: flex;
   column-gap: 6px;
   align-items: center;
+  flex: 0 0 auto;
+  /* 图标 + 间距 + 品种槽；7ch 覆盖 BTCUSDT 等，又不把 6 字品种推得太开 */
+  width: calc(14px + 6px + 7ch);
   min-width: 0;
 }
 
 .trade-row-symbol-main .symbol-icon {
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
 }
 
 .trade-row-symbol strong {
-  width: auto;
-  max-width: 9ch;
+  flex: 0 0 7ch;
+  width: 7ch;
+  max-width: 7ch;
   overflow: hidden;
   color: var(--list-text-strong);
   font-family: var(--font-ui);
@@ -375,7 +405,7 @@
   width: 18px;
   min-width: 18px;
   height: 18px;
-  margin-left: 2px;
+  margin-left: 0;
   padding: 0;
   box-sizing: border-box;
   font-size: var(--fs-mini);
@@ -689,7 +719,9 @@
   .trade-list-group-add {
     width: 44px;
     height: 44px;
+    min-width: 44px;
     flex-basis: 44px;
+    border-radius: 9999px;
     opacity: 1;
   }
   .trade-row {

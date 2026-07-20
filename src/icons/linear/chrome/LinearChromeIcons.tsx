@@ -14,12 +14,11 @@ const CHEVRON_RIGHT_BODY =
   '<path d="M5.46967 11.4697C5.17678 11.7626 5.17678 12.2374 5.46967 12.5303C5.76256 12.8232 6.23744 12.8232 6.53033 12.5303L10.5303 8.53033C10.8207 8.23999 10.8236 7.77014 10.5368 7.47624L6.63419 3.47624C6.34492 3.17976 5.87009 3.17391 5.57361 3.46318C5.27713 3.75244 5.27128 4.22728 5.56054 4.52376L8.94583 7.99351L5.46967 11.4697Z"/>'
 
 /**
- * 列表分组折叠三角。
- * 使用 Linear ChevronIcon 原路径（圆角厚实的实心 caret），
- * 放进 16×16 网格居中，避免裸 9×5 发虚、像字符。
+ * 列表分组折叠三角 —— Linear CollapseArrowIcon 原路径（16×16 实心三角，默认朝右）。
+ * 展开时由调用方 rotate(90deg) 朝下。
  */
-const DISCLOSURE_CHEVRON_PATH =
-  'M1.915.557a.667.667 0 0 0-.943.943l2.862 2.862a.942.942 0 0 0 1.333 0L8.028 1.5a.667.667 0 0 0-.943-.943L4.5 3.14 1.915.557Z'
+const COLLAPSE_ARROW_PATH =
+  'M7.00194 10.6239C6.66861 10.8183 6.25 10.5779 6.25 10.192V5.80802C6.25 5.42212 6.66861 5.18169 7.00194 5.37613L10.7596 7.56811C11.0904 7.76105 11.0904 8.23895 10.7596 8.43189L7.00194 10.6239Z'
 
 /** 菜单勾选：无圆环的填充勾，视觉重量对齐 Linear */
 const CHECK_BODY =
@@ -33,7 +32,7 @@ export function LinearCheckIcon(props: LinearStaticIconProps) {
   return <StaticLinearSvg {...props} body={CHECK_BODY} viewBox="0 0 16 16" />
 }
 
-/** 列表/分组折叠 caret：默认朝下；由调用方按 openProgress 旋转 */
+/** 列表/分组折叠 caret：默认朝右；由调用方按 openProgress 旋转至朝下 */
 export function LinearChevronIcon({
   title,
   color,
@@ -57,10 +56,7 @@ export function LinearChevronIcon({
       xmlns="http://www.w3.org/2000/svg"
     >
       {a11y.titleNode}
-      {/* 原 9×5 caret 居中到 16 网格，略放大以接近 Linear 列表光学重量 */}
-      <g transform="translate(3.05 5.35) scale(1.1)">
-        <path d={DISCLOSURE_CHEVRON_PATH} />
-      </g>
+      <path d={COLLAPSE_ARROW_PATH} />
     </svg>
   )
 }

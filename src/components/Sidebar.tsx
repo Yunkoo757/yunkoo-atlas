@@ -420,6 +420,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             isDragging ? ' is-dragging' : ''
           }${isDropTarget ? ' is-drop-target' : ''}`
         }
+        data-ws-icon={item.icon}
         aria-current={active ? 'page' : undefined}
         onDragStart={(event) => {
           // 禁止 Electron/浏览器把 NavLink 拖成 file:// 预览
@@ -523,6 +524,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               className={() => `sb-item${selection.activePrimaryId === id ? ' is-active' : ''}${
                 isDragging ? ' is-dragging' : ''
               }${isDropTarget ? ' is-drop-target' : ''}`}
+              data-primary-id={id}
               aria-current={selection.activePrimaryId === id ? 'page' : undefined}
               onPointerDown={(event) => onPrimaryPointerDown(event, id)}
               onPointerMove={onPrimaryPointerMove}

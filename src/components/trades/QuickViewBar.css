@@ -5,6 +5,7 @@
   min-width: 0;
   flex: 1 1 auto;
   gap: 6px;
+  overflow: visible;
 }
 
 .quick-view-primary {
@@ -13,7 +14,7 @@
   min-width: 0;
   gap: 6px;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -34,11 +35,15 @@
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   background: var(--surface-control);
+  /* 阴影画在元素自身（与 .ui-filter-trigger 同构），避免 ::after 落在 padding box
+     在非整数 DPR 下比填充矮一圈，上下描边像被裁切 */
+  box-shadow: var(--surface-control-shadow);
   transition:
     border 150ms,
     background-color 150ms,
     color 150ms,
-    opacity 150ms;
+    opacity 150ms,
+    box-shadow 150ms;
 }
 
 .quick-view-chip::after,
@@ -48,7 +53,9 @@
   content: '';
   pointer-events: none;
   border-radius: var(--radius-full);
+  /* 保留伪层契约；可见描边改由元素 box-shadow 承担，避免双线 */
   box-shadow: var(--surface-control-shadow);
+  opacity: 0;
   transition: box-shadow 150ms;
 }
 
@@ -62,11 +69,13 @@
 .quick-view-overflow.is-active {
   color: var(--list-text-primary);
   background: var(--surface-control-active);
+  box-shadow: var(--surface-control-shadow-active);
 }
 
 .quick-view-chip.is-active {
   color: var(--list-text-strong);
   background: var(--surface-control-active);
+  box-shadow: var(--surface-control-shadow-active);
 }
 
 .quick-view-chip.is-active::after,
@@ -76,9 +85,15 @@
 }
 
 .quick-view-saved {
+  /* 文本截断放在内部 label，避免 chip 自身 overflow 裁掉 ::after ring */
   max-width: 136px;
+}
+
+.quick-view-saved-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quick-view-overflow {
@@ -279,15 +294,6 @@
 
   .quick-view-overflow {
     width: 44px;
-  }
-
-  .quick-view-primary {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .quick-view-primary::-webkit-scrollbar {
-    display: none;
   }
 
   .quick-view-menu {

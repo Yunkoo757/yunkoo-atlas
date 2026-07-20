@@ -3,6 +3,21 @@
   --sb-text: lch(60.307% 1 272);
   --sb-text-strong: lch(90.077% 1 272);
   --sb-selected-bg: lch(10.82% 1.35 272);
+  /*
+   * 侧栏图标色：Linear 高彩度族；仅 .is-active 时使用。
+   */
+  --sb-nav-today: lch(80% 90 85);
+  --sb-nav-notes: lch(72% 48 175);
+  --sb-nav-trades: lch(66% 42 252);
+  --sb-nav-cases: lch(68% 52 310);
+  --sb-nav-weekly: lch(70% 44 200);
+  --sb-nav-review-session: lch(58% 55 288);
+  --sb-nav-dashboard: lch(68% 46 145);
+  --sb-ws-active: lch(78% 72 88);
+  --sb-ws-favorites: lch(80% 90 85);
+  --sb-ws-missed: lch(66% 80 48);
+  --sb-ws-paper: lch(62% 52 275);
+  --sb-ws-case: lch(68% 50 310);
 
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -11,7 +26,7 @@
   background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
-  padding: 16px 10.2857px 10px 12px;
+  padding: 18px 12px 12px 14px;
   gap: 0;
   user-select: none;
   overflow-y: auto;
@@ -27,7 +42,7 @@
   gap: 4px;
   height: 28px;
   min-height: 28px;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
   padding: 0;
 }
 .sb-ws {
@@ -118,8 +133,8 @@
 .sb-section {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 18px;
+  gap: 4px;
+  margin-top: 26px;
 }
 .sb-primary {
   margin-top: 0;
@@ -127,21 +142,21 @@
 .sb-section-label {
   display: flex;
   align-items: center;
-  height: 28px;
+  height: 24px;
   padding: 0 10px;
-  margin-bottom: 0;
+  margin-bottom: 4px;
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
-  letter-spacing: normal;
-  color: var(--sb-text);
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--sb-text) 72%, transparent);
 }
 
 .sb-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
-  height: 28px;
+  height: 30px;
   margin: 0;
   padding: 0 10px;
   border-radius: var(--radius-8);
@@ -170,7 +185,7 @@ html[data-ui-settled='1'] .sb-item {
   background: var(--bg-hover);
   color: var(--sb-text-strong);
 }
-.sb-item:hover svg {
+.sb-item:hover > svg {
   color: var(--sb-text-strong);
 }
 .sb-item:hover .strategy-icon--nav {
@@ -180,11 +195,64 @@ html[data-ui-settled='1'] .sb-item {
   background: var(--sb-selected-bg);
   color: var(--sb-text-strong);
 }
-.sb-item.is-active svg {
+.sb-item.is-active > svg {
   color: color-mix(in srgb, var(--text-secondary) 88%, var(--text-primary));
 }
 .sb-item.is-active .strategy-icon--nav {
   opacity: 1;
+}
+
+/* 工作台 / 我的空间：默认灰阶；仅当前选中项亮出色相 */
+.sb-item[data-primary-id='today'].is-active > svg {
+  color: var(--sb-nav-today);
+}
+.sb-item[data-primary-id='quickNotes'].is-active > svg {
+  color: var(--sb-nav-notes);
+}
+.sb-item[data-primary-id='trades'].is-active > svg {
+  color: var(--sb-nav-trades);
+}
+.sb-item[data-primary-id='reviewCases'].is-active > svg {
+  color: var(--sb-nav-cases);
+}
+.sb-item[data-primary-id='weeklyReview'].is-active > svg {
+  color: var(--sb-nav-weekly);
+}
+.sb-item[data-primary-id='reviewSession'].is-active > svg {
+  color: var(--sb-nav-review-session);
+}
+.sb-item[data-primary-id='dashboard'].is-active > svg {
+  color: var(--sb-nav-dashboard);
+}
+
+.sb-item[data-ws-icon='active'].is-active > svg {
+  color: var(--sb-ws-active);
+}
+.sb-item[data-ws-icon='favorites'].is-active > svg {
+  color: var(--sb-ws-favorites);
+}
+.sb-item[data-ws-icon='missed'].is-active > svg {
+  color: var(--sb-ws-missed);
+}
+.sb-item[data-ws-icon='paper'].is-active > svg {
+  color: var(--sb-ws-paper);
+}
+.sb-item[data-ws-icon='case-view'].is-active > svg {
+  color: var(--sb-ws-case);
+}
+
+/* 策略项：默认灰，选中才显策略色 */
+.sb-item .strategy-icon--nav {
+  color: var(--sb-text);
+}
+.sb-item .strategy-icon--nav svg {
+  color: inherit;
+}
+.sb-item.is-active .strategy-icon--nav {
+  color: var(--sb-strategy-color);
+}
+.sb-item.is-active .strategy-icon--nav svg {
+  color: inherit;
 }
 .sb-item.is-dragging {
   opacity: 0.42;
@@ -230,11 +298,11 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-context {
-  margin-top: 18px;
+  margin-top: 26px;
 }
 
 .sb-context .sb-section-label {
-  margin-bottom: 0;
+  margin-bottom: 4px;
 }
 
 .sb-context .sb-subitem::before {
@@ -262,8 +330,8 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-utility {
-  margin-top: 10px;
-  padding: 10px 2px 0;
+  margin-top: 14px;
+  padding: 14px 2px 0;
   border-top: 1px solid var(--border-subtle);
 }
 

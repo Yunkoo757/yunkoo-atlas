@@ -134,9 +134,19 @@
   --bg-active: var(--bg-selected);
   --bg-sidebar: var(--bg-sidebar-color);
 
-  /* Linear 校准表面：只描述层级，不承载交易业务语义 */
+  /* Linear 校准表面：分组条底色统一；生命力靠三角/状态图标 tint */
   --surface-group: lch(7.67% 0.75 272 / 1);
-  --surface-group-completed: lch(8.25% 2.25 279 / 1);
+  --surface-group-completed: lch(7.67% 0.75 272 / 1);
+  /* CollapseArrow / 分组 + 按状态着色（Linear 实测） */
+  --group-chevron-started: lch(18.47% 7 78);
+  --group-chevron-todo: lch(18.47% 7 272);
+  --group-chevron-backlog: lch(18.47% 7 270);
+  --group-chevron-done: lch(18.47% 7 283);
+  --group-add-started: lch(62.672% 7 78);
+  --group-add-todo: lch(62.672% 7 272);
+  --group-add-backlog: lch(62.672% 7 270);
+  --group-add-done: lch(62.672% 7 283);
+  --group-add-hover-bg: lch(13.456% 0.943 272);
   --surface-row-selected: lch(10.691% 0.493 272 / 1);
   --surface-control: lch(6.449% 0.493 272 / 1);
   --surface-control-active: lch(12.234% 0.879 272 / 1);

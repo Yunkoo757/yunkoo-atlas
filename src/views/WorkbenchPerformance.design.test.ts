@@ -76,9 +76,14 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
     '--trade-row-height: 44px',
     '--toolbar-chip-height: 28px',
     '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
-    '--surface-group-completed: lch(8.25% 2.25 279 / 1)',
+    '--surface-group: lch(7.67% 0.75 272 / 1)',
+    '--group-chevron-started: lch(18.47% 7 78)',
+    '--group-chevron-done: lch(18.47% 7 283)',
   ]) {
     if (!tokens.includes(contract)) throw new Error(`missing calibrated token: ${contract}`)
+  }
+  if (!list.includes('--trade-group-chevron')) {
+    throw new Error('group headers must tint CollapseArrow by status/recency, not repaint the bar')
   }
   if (!listRuntime.includes('const HEADER_HEIGHT = 36')) {
     throw new Error('virtual group header estimate must match the 36px visual header')
