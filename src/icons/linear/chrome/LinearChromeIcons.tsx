@@ -1,6 +1,8 @@
 import { StaticLinearSvg } from '../StaticLinearSvg'
 import type { LinearStaticIconProps } from '../types'
 
+import { resolveIconA11y } from '../iconA11y'
+
 /** Linear 归档 CloseIcon 路径（16×16） */
 const CLOSE_BODY =
   '<path d="M2.96967 2.96967C3.26256 2.67678 3.73744 2.67678 4.03033 2.96967L8 6.939L11.9697 2.96967C12.2626 2.67678 12.7374 2.67678 13.0303 2.96967C13.3232 3.26256 13.3232 3.73744 13.0303 4.03033L9.061 8L13.0303 11.9697C13.2966 12.2359 13.3208 12.6526 13.1029 12.9462L13.0303 13.0303C12.7374 13.3232 12.2626 13.3232 11.9697 13.0303L8 9.061L4.03033 13.0303C3.73744 13.3232 3.26256 13.3232 2.96967 13.0303C2.67678 12.7374 2.67678 12.2626 2.96967 11.9697L6.939 8L2.96967 4.03033C2.7034 3.76406 2.6792 3.3474 2.89705 3.05379L2.96967 2.96967Z"/>'
@@ -10,6 +12,14 @@ const CHEVRON_DOWN_BODY =
 
 const CHEVRON_RIGHT_BODY =
   '<path d="M5.46967 11.4697C5.17678 11.7626 5.17678 12.2374 5.46967 12.5303C5.76256 12.8232 6.23744 12.8232 6.53033 12.5303L10.5303 8.53033C10.8207 8.23999 10.8236 7.77014 10.5368 7.47624L6.63419 3.47624C6.34492 3.17976 5.87009 3.17391 5.57361 3.46318C5.27713 3.75244 5.27128 4.22728 5.56054 4.52376L8.94583 7.99351L5.46967 11.4697Z"/>'
+
+/**
+ * 列表分组折叠三角。
+ * 使用 Linear ChevronIcon 原路径（圆角厚实的实心 caret），
+ * 放进 16×16 网格居中，避免裸 9×5 发虚、像字符。
+ */
+const DISCLOSURE_CHEVRON_PATH =
+  'M1.915.557a.667.667 0 0 0-.943.943l2.862 2.862a.942.942 0 0 0 1.333 0L8.028 1.5a.667.667 0 0 0-.943-.943L4.5 3.14 1.915.557Z'
 
 /** 菜单勾选：无圆环的填充勾，视觉重量对齐 Linear */
 const CHECK_BODY =
@@ -21,6 +31,38 @@ export function LinearCloseIcon(props: LinearStaticIconProps) {
 
 export function LinearCheckIcon(props: LinearStaticIconProps) {
   return <StaticLinearSvg {...props} body={CHECK_BODY} viewBox="0 0 16 16" />
+}
+
+/** 列表/分组折叠 caret：默认朝下；由调用方按 openProgress 旋转 */
+export function LinearChevronIcon({
+  title,
+  color,
+  className,
+  style,
+  size = 16,
+  ...props
+}: LinearStaticIconProps) {
+  const a11y = resolveIconA11y(title)
+  const dim = typeof size === 'number' ? size : 16
+  return (
+    <svg
+      {...a11y.svgProps}
+      {...props}
+      width={dim}
+      height={dim}
+      viewBox="0 0 16 16"
+      fill={color ?? 'currentColor'}
+      className={className}
+      style={style}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {a11y.titleNode}
+      {/* 原 9×5 caret 居中到 16 网格，略放大以接近 Linear 列表光学重量 */}
+      <g transform="translate(3.05 5.35) scale(1.1)">
+        <path d={DISCLOSURE_CHEVRON_PATH} />
+      </g>
+    </svg>
+  )
 }
 
 export function LinearChevronDownIcon(props: LinearStaticIconProps) {

@@ -77,12 +77,12 @@
 }
 .sb-ws-greeting {
   flex-shrink: 0;
-  color: var(--sb-text);
+  color: var(--sb-text-strong);
   font-weight: 550;
 }
 .sb-ws-separator {
   flex-shrink: 0;
-  color: var(--sb-text);
+  color: var(--sb-text-strong);
 }
 .sb-ws-name {
   min-width: 0;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { GripVertical, Trash2 } from '@/icons/appIcons'
+import { ChevronLeft, GripVertical, Trash2 } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 import { DEFAULT_SIDEBAR_PINS } from '@/lib/sidebarNav'
@@ -66,7 +66,7 @@ export function SidebarWorkspaceEditor({
 
   useEffect(() => {
     titleRef.current?.focus()
-  }, [])
+  }, [pickerOpen])
 
   useEffect(() => {
     if (pickerOpen || initialSection !== 'overflow') return
@@ -77,11 +77,15 @@ export function SidebarWorkspaceEditor({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
+      if (pickerOpen) {
+        setPickerOpen(false)
+        return
+      }
       onCancel()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel])
+  }, [onCancel, pickerOpen])
 
   const removeItem = (item: SidebarWorkspaceItem, label: string) => {
     const index = draft.findIndex((candidate) => candidate.id === item.id)
@@ -272,13 +276,45 @@ export function SidebarWorkspaceEditor({
       }}
     >
       <header className="sb-workspace-editor-header">
-        <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
-          管理我的空间
-        </h2>
-        <span data-sidebar-capacity>
-          常驻 {pinnedCount} / 8
-          {overflowItems.length > 0 ? ` · 更多 ${overflowItems.length}` : ''}
-        </span>
+        {pickerOpen ? (
+          <div className="sb-workspace-editor-nav">
+            <button
+              type="button"
+              className="sb-editor-back"
+              aria-label="返回管理列表"
+              onClick={() => setPickerOpen(false)}
+            >
+              <ChevronLeft size={16} aria-hidden="true" />
+              <span>返回</span>
+            </button>
+            <div className="sb-workspace-editor-title-row">
+              <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
+                添加项目
+              </h2>
+              <span data-sidebar-capacity>
+                常驻 {pinnedCount} / 8
+                {overflowItems.length > 0 ? ` · 更多 ${overflowItems.length}` : ''}
+              </span>
+            </div>
+            <p className="sb-editor-help">点击项目即可添加或调整状态；完成后点下方「完成」，或点「返回」继续整理列表。</p>
+          </div>
+        ) : (
+          <div className="sb-workspace-editor-nav">
+            <div className="sb-workspace-editor-title-row">
+              <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
+                管理我的空间
+              </h2>
+              <span data-sidebar-capacity>
+                常驻 {pinnedCount} / 8
+                {overflowItems.length > 0 ? ` · 更多 ${overflowItems.length}` : ''}
+              </span>
+            </div>
+            <p className="sb-editor-help">
+              常驻最多 8 项直接出现在侧栏；超出项在「更多」，可随时改回。
+              {variant === 'mobile-fullscreen' ? ' 使用上移 / 下移排序。' : ' 组内可拖动或 Alt + ↑/↓ 排序。'}
+            </p>
+          </div>
+        )}
       </header>
       <span className="sb-screen-reader" aria-live="polite">
         {announcement}
@@ -288,14 +324,9 @@ export function SidebarWorkspaceEditor({
           items={draft}
           sources={sources}
           onChange={setDraft}
-          onBack={() => setPickerOpen(false)}
         />
       ) : (
         <>
-          <p className="sb-editor-help">
-            常驻最多 8 项会直接出现在侧栏；超出项在「更多」，可随时改回常驻或删除。
-            {variant === 'mobile-fullscreen' ? ' 使用上移 / 下移排序。' : ' 组内可拖动或 Alt + ↑/↓ 排序。'}
-          </p>
           <div className="sb-editor-list">
             <section className="sb-editor-group" aria-label="常驻侧栏">
               <header className="sb-editor-group-header">
@@ -305,7 +336,7 @@ export function SidebarWorkspaceEditor({
                 </span>
               </header>
               {pinnedItems.length === 0 ? (
-                <p className="sb-editor-empty">暂无常驻项。可从下方「更多」改回，或浏览添加。</p>
+                <p className="sb-editor-empty">暂无常驻项。可从下方「更多」改回，或添加项目。</p>
               ) : (
                 pinnedItems.map((item, index) => renderRow(item, index, pinnedItems, 'pinned'))
               )}
@@ -322,7 +353,7 @@ export function SidebarWorkspaceEditor({
               </header>
               {overflowItems.length === 0 ? (
                 <p className="sb-editor-empty">
-                  暂无。常驻满 8 项后再添加，会进入这里——不会丢，可在此改回常驻或删除。
+                  暂无。常驻满 8 项后再添加会进入这里，可改回常驻或删除。
                 </p>
               ) : (
                 overflowItems.map((item, index) => renderRow(item, index, overflowItems, 'overflow'))
@@ -343,7 +374,7 @@ export function SidebarWorkspaceEditor({
             </p>
           ) : null}
           <button type="button" className="sb-editor-browse" onClick={() => setPickerOpen(true)}>
-            浏览可添加项目
+            添加项目
           </button>
           <div className="sb-editor-defaults">
             {confirmDefaults ? (
@@ -369,20 +400,26 @@ export function SidebarWorkspaceEditor({
               </button>
             )}
           </div>
-          <footer className="sb-editor-actions">
-            <button type="button" onClick={onCancel}>
-              取消
-            </button>
-            <button
-              type="button"
-              className="is-primary"
-              onClick={() => onCommit(normalizeSidebarWorkspaceItems(draft))}
-            >
-              完成
-            </button>
-          </footer>
         </>
       )}
+      <footer className="sb-editor-actions">
+        {pickerOpen ? (
+          <button type="button" className="sb-editor-actions-secondary" onClick={() => setPickerOpen(false)}>
+            返回列表
+          </button>
+        ) : (
+          <button type="button" onClick={onCancel}>
+            取消
+          </button>
+        )}
+        <button
+          type="button"
+          className="is-primary"
+          onClick={() => onCommit(normalizeSidebarWorkspaceItems(draft))}
+        >
+          完成
+        </button>
+      </footer>
     </section>
   )
 }

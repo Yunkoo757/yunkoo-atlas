@@ -41,6 +41,8 @@ import fs from 'node:fs/promises'
   'src/shortcuts/workspaceActions.test.ts',
   'src/icons/linear/linear-icons.test.tsx',
   'src/components/Menu.design.test.ts',
+  'src/components/trades/TradeList.flatten.test.ts',
+  'src/components/trades/TradeList.design.test.ts',
   'src/views/TradeTrashView.design.test.ts',
   'src/views/WorkbenchEmptyState.design.test.ts',
   'src/views/WorkbenchPerformance.design.test.ts',

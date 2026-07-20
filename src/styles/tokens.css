@@ -232,8 +232,12 @@
   --star-color: #f2c94c;
   --follow-color: #5b9fd4;
 
-  /* 交易状态色（StatusIcon / 表格 chip 共用） */
+  /* 交易状态色（StatusIcon / 表格 chip 共用；形制对齐 Linear Issue Status） */
   --status-open: var(--star-color);
+  /* Done：Linear 默认完成态靛蓝，不用盈亏绿（盈亏绿留给金额列） */
+  --status-completed: var(--accent);
+  /* Canceled：Linear 取消态中性灰，不用亏损红（亏损红留给金额列） */
+  --status-canceled: var(--text-tertiary);
   /* 错过：低饱和暖石色，勿与亏损红或警告橙抢视线 */
   --status-missed: lch(58% 14 55);
   --status-urgent: var(--warn-action);

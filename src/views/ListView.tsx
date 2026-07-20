@@ -111,9 +111,10 @@ export function ListView({
         .map(([strategyId, items]) => ({
           key: `strategy-${strategyId}`,
           label: getStrategyName(strategies, strategyId),
+          strategyId,
           items,
         }))
-        .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+        .sort((left, right) => left.label!.localeCompare(right.label!, 'zh-CN'))
     }
 
     if (display.groupByDate) {

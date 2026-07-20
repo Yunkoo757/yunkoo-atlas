@@ -33,10 +33,9 @@ export type SidebarTargetPickerProps = {
   items: SidebarWorkspaceItem[]
   sources: SidebarTargetSources
   onChange: (items: SidebarWorkspaceItem[]) => void
-  onBack: () => void
 }
 
-export function SidebarTargetPicker({ items, sources, onChange, onBack }: SidebarTargetPickerProps) {
+export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetPickerProps) {
   const [query, setQuery] = useState('')
   const [capacityMessage, setCapacityMessage] = useState('')
   const pinnedCount = items.filter((item) => item.placement === 'pinned').length
@@ -73,7 +72,9 @@ export function SidebarTargetPicker({ items, sources, onChange, onBack }: Sideba
     setCapacityMessage('')
     if (!existing) {
       const placement = pinnedCount >= MAX_PINNED_SIDEBAR_ITEMS ? 'overflow' : 'pinned'
-      if (placement === 'overflow') setCapacityMessage('常驻已满，已放入「更多」——可返回列表改回常驻或删除')
+      if (placement === 'overflow') {
+        setCapacityMessage('常驻已满，已放入「更多」。可返回上一层改回常驻或删除。')
+      }
       onChange(reindex([
         ...items,
         { id: key, target: { ...catalogItem.target }, placement, order: items.length },
@@ -89,45 +90,53 @@ export function SidebarTargetPicker({ items, sources, onChange, onBack }: Sideba
 
   return (
     <div className="sb-target-picker">
-      <div className="sb-target-picker-heading">
-        <button type="button" onClick={onBack}>返回管理列表</button>
-        <h3>选择项目</h3>
-      </div>
-      <input
-        type="search"
-        aria-label="搜索可添加项目"
-        placeholder="搜索项目"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
+      <label className="sb-target-picker-search">
+        <span className="sb-screen-reader">搜索可添加项目</span>
+        <input
+          type="search"
+          placeholder="搜索项目…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </label>
       {capacityMessage ? <p className="sb-editor-message" role="status">{capacityMessage}</p> : null}
       <div className="sb-target-groups">
         {groups.map((group) => {
           const visibleItems = group.items.filter((item) =>
             !normalizedQuery || item.label.toLocaleLowerCase().includes(normalizedQuery),
           )
+          if (visibleItems.length === 0 && normalizedQuery) return null
           return (
-            <section key={group.label} className="sb-target-group">
+            <section key={group.label} className="sb-target-group" aria-label={group.label}>
               <h4>{group.label}</h4>
-              {visibleItems.map((catalogItem) => {
-                const current = byTarget.get(sidebarTargetKey(catalogItem.target))
-                const state = current?.placement === 'pinned'
-                  ? '常驻'
-                  : current?.placement === 'overflow'
-                    ? '更多'
-                    : '未添加'
-                return (
-                  <button
-                    type="button"
-                    key={sidebarTargetKey(catalogItem.target)}
-                    aria-label={`${catalogItem.label}：${state}`}
-                    onClick={() => toggleTarget(catalogItem)}
-                  >
-                    <span>{catalogItem.label}</span>
-                    <span>{state}</span>
-                  </button>
-                )
-              })}
+              {visibleItems.length === 0 ? (
+                <p className="sb-editor-empty">暂无可添加项</p>
+              ) : (
+                visibleItems.map((catalogItem) => {
+                  const current = byTarget.get(sidebarTargetKey(catalogItem.target))
+                  const state = current?.placement === 'pinned'
+                    ? '常驻'
+                    : current?.placement === 'overflow'
+                      ? '更多'
+                      : '未添加'
+                  const stateClass =
+                    state === '常驻' ? 'is-pinned' : state === '更多' ? 'is-overflow' : 'is-idle'
+                  const actionHint =
+                    state === '未添加' ? '点击添加' : state === '常驻' ? '点击改到更多' : '点击移除'
+                  return (
+                    <button
+                      type="button"
+                      key={sidebarTargetKey(catalogItem.target)}
+                      className={`sb-target-row ${stateClass}`}
+                      aria-label={`${catalogItem.label}：${state}，${actionHint}`}
+                      onClick={() => toggleTarget(catalogItem)}
+                    >
+                      <span className="sb-target-row-label">{catalogItem.label}</span>
+                      <span className={`sb-target-row-state ${stateClass}`}>{state}</span>
+                    </button>
+                  )
+                })
+              )}
             </section>
           )
         })}

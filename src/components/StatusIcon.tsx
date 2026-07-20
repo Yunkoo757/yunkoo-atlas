@@ -9,9 +9,9 @@ const STATUS_COLOR: Record<TradeStatus, string> = {
   planned: 'var(--text-tertiary)',
   open: 'var(--status-open)',
   missed: 'var(--status-missed)',
-  win: 'var(--pos)',
+  win: 'var(--status-completed)',
   breakeven: 'var(--text-secondary)',
-  loss: 'var(--neg)',
+  loss: 'var(--status-canceled)',
 }
 
 const STATUS_TO_LINEAR: Record<

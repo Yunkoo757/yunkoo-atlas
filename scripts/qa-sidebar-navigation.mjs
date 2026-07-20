@@ -341,7 +341,7 @@ try {
   await expectAttribute(editor, 'aria-labelledby', headingId)
   await expectFocused(editorHeading)
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 \d+ \/ 8/)
-  await expectVisible(page.getByRole('button', { name: '浏览可添加项目' }))
+  await expectVisible(page.getByRole('button', { name: '添加项目' }))
   await expectVisible(editor.getByRole('heading', { name: '常驻侧栏' }))
   await expectVisible(editor.getByRole('heading', { name: '更多' }))
 
@@ -388,8 +388,9 @@ try {
   })))
   expectEqual(afterUndo, beforeDelete, 'Undo must restore every label, placement, and position')
 
-  await editor.getByRole('button', { name: '浏览可添加项目' }).click()
-  await expectVisible(editor.getByRole('heading', { name: '选择项目' }))
+  await editor.getByRole('button', { name: '添加项目' }).click()
+  await expectVisible(editor.getByRole('heading', { name: '添加项目' }))
+  await expectVisible(editor.getByRole('button', { name: '返回管理列表' }))
   const search = editor.getByRole('searchbox', { name: '搜索可添加项目' })
   await search.focus()
   await page.evaluate(async () => {
