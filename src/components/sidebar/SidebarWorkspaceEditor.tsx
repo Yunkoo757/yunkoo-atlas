@@ -275,6 +275,10 @@ export function SidebarWorkspaceEditor({
         }
       }}
     >
+      {/* 对话框名称保持稳定；可视化标题可随「添加项目」切换，避免 QA/读屏找不到 dialog */}
+      <span id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} className="sb-screen-reader">
+        管理我的空间
+      </span>
       <header className="sb-workspace-editor-header">
         {pickerOpen ? (
           <div className="sb-workspace-editor-nav">
@@ -288,7 +292,7 @@ export function SidebarWorkspaceEditor({
               <span>返回</span>
             </button>
             <div className="sb-workspace-editor-title-row">
-              <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
+              <h2 ref={titleRef} tabIndex={-1}>
                 添加项目
               </h2>
               <span data-sidebar-capacity>
@@ -301,7 +305,7 @@ export function SidebarWorkspaceEditor({
         ) : (
           <div className="sb-workspace-editor-nav">
             <div className="sb-workspace-editor-title-row">
-              <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
+              <h2 ref={titleRef} tabIndex={-1}>
                 管理我的空间
               </h2>
               <span data-sidebar-capacity>
