@@ -48,8 +48,8 @@
 .dv-detail-crumb-actions {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
-  margin-left: 3px;
+  gap: 4px;
+  margin-left: 6px;
 }
 .dv-detail-crumb-actions .icon-btn {
   width: 24px;
@@ -65,6 +65,10 @@
   background: var(--bg-hover);
   box-shadow: none;
   color: var(--text-primary);
+}
+.dv-detail-crumb-actions .icon-btn.is-active,
+.dv-detail-crumb-actions .icon-btn.is-active:hover {
+  color: var(--star-color);
 }
 .dv-detail-crumb-actions .menu-root,
 .dv-detail-crumb-actions .menu-trigger {
