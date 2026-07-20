@@ -943,6 +943,7 @@
   align-self: stretch;
   min-height: 26px;
   padding: 0;
+  text-align: left;
 }
 .dv-datarow-label {
   font-size: var(--fs-mini);
