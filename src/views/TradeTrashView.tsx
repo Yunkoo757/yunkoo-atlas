@@ -198,7 +198,7 @@ export function TradeTrashView() {
   }
 
   const handleBack = () => {
-    navigate('/list')
+    navigate(-1)
   }
 
   useWorkbenchListKeyboard({
@@ -210,12 +210,9 @@ export function TradeTrashView() {
   return (
     <div className="trash-view">
       <CrumbsNav
-        backLabel="返回交易日志"
+        backLabel="返回"
         onBack={handleBack}
-        crumbs={[
-          { label: '交易日志' },
-          { label: '回收站', active: true },
-        ]}
+        crumbs={[{ label: '回收站', active: true }]}
         context={`${trashTrades.length} 笔 · 保留 30 天`}
       />
 
@@ -329,13 +326,16 @@ export function TradeTrashView() {
                         <span className={'trash-item-pnl' + pnlTone}>{fmtMoney(trade.pnl, privacyMode)}</span>
                         <span className="trash-item-r">{fmtR(trade.rMultiple)}</span>
                         <span className="trash-item-date">{fmtDate(trade.deletedAt!)}</span>
-                        <div
-                          className={'trash-item-days' + (isUrgent ? ' is-urgent' : '')}
-                          title={`${days} 天后自动清空`}
+                        <Tooltip
+                          asChild
+                          content={`${days} 天后自动清空`}
+                          label={`${days} 天后自动清空`}
                         >
-                          {isUrgent && <AlertTriangle size={11} />}
-                          <span>{days} 天</span>
-                        </div>
+                          <div className={'trash-item-days' + (isUrgent ? ' is-urgent' : '')}>
+                            {isUrgent && <AlertTriangle size={11} />}
+                            <span>{days} 天</span>
+                          </div>
+                        </Tooltip>
 
                         <div className="trash-item-actions">
                           <Tooltip content="恢复" label={`恢复 ${trade.ref}`}>

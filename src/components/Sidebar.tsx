@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
+  ChevronDown,
   Ban,
   BookOpen,
   Bookmark,
   Clock,
   FlaskConical,
-  Pencil,
+  Plus,
   Search,
   Settings2,
   Star,
@@ -17,6 +18,7 @@ import {
 import { UserAvatar } from '@/components/UserAvatar'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
+import { Menu } from '@/components/Menu'
 import {
   reorderPrimarySidebarNav,
   resolvePrimarySidebarNav,
@@ -39,7 +41,6 @@ import {
 } from '@/components/sidebar/SidebarWorkspaceEditor'
 import { ICON_MD } from '@/icons/iconSize'
 import { newTradeKindForPath } from '@/lib/tradeKind'
-import { getGreeting } from '@/lib/greeting'
 import { createQuickNote } from '@/data/quickNotes'
 import { useExitClone } from '@/components/ui/useExitClone'
 import './Sidebar.css'
@@ -144,7 +145,6 @@ export function useSidebarNavigationModel() {
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const navigate = useNavigate()
-  const [greeting, setGreeting] = useState(() => getGreeting())
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
   const [workspaceDrag, setWorkspaceDrag] = useState<SidebarDragState | null>(null)
@@ -200,7 +200,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
   const inReviewCases = path.startsWith('/review-cases')
   const inQuickNotes = path === '/notes' || path.startsWith('/notes/')
-  const isSettingsActive = path.startsWith('/settings')
+  const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
 
   const createLabel = inQuickNotes ? '新建随记' : inReviewCases ? '新建案例记录' : '新建交易'
   const openWorkspaceEditor = (
@@ -215,28 +215,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     setWorkspaceEditorOpen(false)
     requestAnimationFrame(() => workspaceEditorOpener.current?.focus())
   }
-
-  useEffect(() => {
-    let timer: number | null = null
-
-    const scheduleNextHour = () => {
-      const now = new Date()
-      const nextHour = new Date(now)
-      nextHour.setHours(now.getHours() + 1, 0, 1, 0)
-      timer = window.setTimeout(() => {
-        setGreeting(getGreeting())
-        scheduleNextHour()
-      }, Math.max(1_000, nextHour.getTime() - now.getTime()))
-    }
-
-    const refresh = () => setGreeting(getGreeting())
-    scheduleNextHour()
-    document.addEventListener('visibilitychange', refresh)
-    return () => {
-      if (timer !== null) window.clearTimeout(timer)
-      document.removeEventListener('visibilitychange', refresh)
-    }
-  }, [])
 
   const finishWorkspaceDrag = (commit: boolean) => {
     const session = workspaceDragSession.current
@@ -462,20 +440,36 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   return (
     <aside className={'sidebar' + (workspaceDrag || primaryDrag ? ' is-reordering' : '')}>
       <div className="sb-header">
-        <NavLink
-          to="/settings/profile"
-          className="sb-ws"
-          aria-label={`${greeting}，${profile.displayName}；打开个人资料设置`}
-          draggable={false}
-          onDragStart={(event) => event.preventDefault()}
-        >
-          <UserAvatar className="sb-ws-avatar" shape="rounded-square" />
-          <span className="sb-ws-identity">
-            <span className="sb-ws-greeting">{greeting}</span>
-            <span className="sb-ws-separator" aria-hidden="true">，</span>
-            <span className="sb-ws-name">{profile.displayName}</span>
-          </span>
-        </NavLink>
+        <Menu
+          align="left"
+          trigger={
+            <button
+              type="button"
+              className="sb-ws"
+              aria-label={`${profile.displayName}；账户菜单`}
+            >
+              <UserAvatar className="sb-ws-avatar" shape="rounded-square" />
+              <span className="sb-ws-name">{profile.displayName}</span>
+              <ChevronDown size={14} className="sb-ws-chevron" aria-hidden />
+            </button>
+          }
+          options={[
+            {
+              value: 'settings',
+              label: '设置',
+              icon: <Settings2 size={15} />,
+            },
+            {
+              value: 'trash',
+              label: trashCount > 0 ? `回收站 · ${trashCount}` : '回收站',
+              icon: <Trash2 size={15} />,
+            },
+          ]}
+          onSelect={(value) => {
+            if (value === 'settings') navigate('/settings')
+            if (value === 'trash') navigate('/trade-trash')
+          }}
+        />
         <div className="sb-header-actions">
           <ShortcutTooltip actionId="global.commandPalette" label="搜索">
             <button
@@ -502,8 +496,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
                 }
                 openComposer(null, inReviewCases ? 'case' : newTradeKindForPath(path))
               }}
+              aria-label={createLabel}
             >
-              <Pencil size={ICON_MD} />
+              <Plus size={ICON_MD} />
             </button>
           </ShortcutTooltip>
         </div>
@@ -612,32 +607,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           />
         </div>
       ) : null}
-
-      <div className="sb-spacer" />
-
-      <nav className="sb-section sb-utility" aria-label="辅助导航">
-        <NavLink
-          to="/trade-trash"
-          draggable={false}
-          onDragStart={(event) => event.preventDefault()}
-          className={() =>
-            'sb-item sb-trash' + (path === '/trade-trash' ? ' is-active' : '')
-          }
-        >
-          <Trash2 size={ICON_MD} />
-          <span className="sb-item-label">回收站</span>
-          <Count value={trades.filter((trade) => Boolean(trade.deletedAt)).length} />
-        </NavLink>
-        <NavLink
-          to="/settings"
-          draggable={false}
-          onDragStart={(event) => event.preventDefault()}
-          className={() => 'sb-item sb-settings' + (isSettingsActive ? ' is-active' : '')}
-        >
-          <Settings2 size={ICON_MD} />
-          <span className="sb-item-label">设置</span>
-        </NavLink>
-      </nav>
 
     </aside>
   )

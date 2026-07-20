@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { PanelRight, X } from '@/icons/appIcons'
+import { Tooltip } from '@/components/ui/Tooltip'
 import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({
@@ -102,17 +103,23 @@ export function TradeDetailLayout({
   return (
     <div className="trade-detail-layout" ref={layoutRef}>
       {header}
-      <button
-        type="button"
-        className="trade-detail-properties-toggle"
-        ref={toggleRef}
-        onClick={() => setPropertiesOpen((value) => !value)}
-        aria-controls={propertiesId}
-        aria-expanded={propertiesOpen}
-        aria-label={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
+      <Tooltip
+        asChild
+        content={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
+        label={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
       >
-        {propertiesOpen ? <X size={16} /> : <PanelRight size={16} />}
-      </button>
+        <button
+          type="button"
+          className="trade-detail-properties-toggle"
+          ref={toggleRef}
+          onClick={() => setPropertiesOpen((value) => !value)}
+          aria-controls={propertiesId}
+          aria-expanded={propertiesOpen}
+          aria-label={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
+        >
+          {propertiesOpen ? <X size={16} /> : <PanelRight size={16} />}
+        </button>
+      </Tooltip>
       <div className="dv-body">
         <main className="dv-main">{content}</main>
         {propertiesOpen && (
@@ -133,15 +140,17 @@ export function TradeDetailLayout({
           aria-modal={propertiesOpen ? 'true' : undefined}
           tabIndex={-1}
         >
-          <button
-            type="button"
-            className="trade-detail-properties-close"
-            ref={closeRef}
-            onClick={closeProperties}
-            aria-label="关闭交易属性"
-          >
-            <X size={16} />
-          </button>
+          <Tooltip asChild content="关闭交易属性" label="关闭交易属性">
+            <button
+              type="button"
+              className="trade-detail-properties-close"
+              ref={closeRef}
+              onClick={closeProperties}
+              aria-label="关闭交易属性"
+            >
+              <X size={16} />
+            </button>
+          </Tooltip>
           {properties}
         </aside>
       </div>

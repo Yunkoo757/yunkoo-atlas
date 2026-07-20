@@ -353,12 +353,16 @@ function BoardColumnBody({
                   <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
                 </div>
                 <div className="bd-case-tags">
-                  <span
-                    className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(resolveTimeframe(t.timeframe))}`}
-                    title={`波段级别 ${resolveTimeframe(t.timeframe)}`}
+                  <Tooltip
+                    content={`波段级别 ${resolveTimeframe(t.timeframe)}`}
+                    label={`波段级别 ${resolveTimeframe(t.timeframe)}`}
                   >
-                    {resolveTimeframe(t.timeframe)}
-                  </span>
+                    <span
+                      className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(resolveTimeframe(t.timeframe))}`}
+                    >
+                      {resolveTimeframe(t.timeframe)}
+                    </span>
+                  </Tooltip>
                   {isReviewCaseView &&
                     t.mistakeTags.slice(0, 2).map((tag) => (
                       <span className="bd-case-tag bd-case-tag-danger" key={tag}>

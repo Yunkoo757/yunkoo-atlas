@@ -9,6 +9,7 @@ import { buildDashboardStats } from '@/lib/dashboardStats'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { TradeRow } from '@/components/trades/TradeRow'
 import { StrategyIcon } from '@/components/StrategyIcon'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import './TradeList.css'
 
@@ -426,14 +427,16 @@ export function TradeList({
                   <strong>{item.label}</strong>
                   <span className="trade-list-group-count">{item.count}</span>
                 </button>
-                <button
-                  type="button"
-                  className="trade-list-group-add"
-                  onClick={() => onCreate()}
-                  aria-label="在本组新建交易"
-                >
-                  <Plus size={16} />
-                </button>
+                <Tooltip asChild content="在本组新建交易" label="在本组新建交易">
+                  <button
+                    type="button"
+                    className="trade-list-group-add"
+                    onClick={() => onCreate()}
+                    aria-label="在本组新建交易"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </Tooltip>
               </div>
             ) : (
               <TradeRow

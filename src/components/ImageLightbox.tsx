@@ -252,19 +252,27 @@ export function ImageLightbox() {
                 <Maximize2 size={14} aria-hidden />
               </button>
             </Tooltip>
-            <button type="button" className="img-lightbox-action" onClick={showActualSize} aria-label="原图像素 1:1">
-              <span className="img-lightbox-ratio" aria-hidden>1:1</span>
-            </button>
+            <Tooltip asChild content="源像素与屏幕物理像素 1:1" label="原图像素 1:1">
+              <button type="button" className="img-lightbox-action" onClick={showActualSize} aria-label="原图像素 1:1">
+                <span className="img-lightbox-ratio" aria-hidden>1:1</span>
+              </button>
+            </Tooltip>
             <span className="img-lightbox-divider" aria-hidden />
-            <button
-              ref={closeRef}
-              type="button"
-              className="img-lightbox-close"
-              onClick={requestClose}
-              aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
+            <Tooltip
+              asChild
+              content={closeShortcut ? `关闭预览 · ${closeShortcut}` : '关闭预览'}
+              label="关闭预览"
             >
-              <X size={16} />
-            </button>
+              <button
+                ref={closeRef}
+                type="button"
+                className="img-lightbox-close"
+                onClick={requestClose}
+                aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
+              >
+                <X size={16} />
+              </button>
+            </Tooltip>
           </div>
         )}
         {hasMany && (

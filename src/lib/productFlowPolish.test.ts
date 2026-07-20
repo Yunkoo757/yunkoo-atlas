@@ -121,14 +121,32 @@ export async function testConfirmationsUseTheSharedModalLanguage(): Promise<void
 
 export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [quickNotes, lightbox, saveStatus] = await Promise.all([
+  const [
+    quickNotes,
+    lightbox,
+    saveStatus,
+    tradeRow,
+    tradeList,
+    symbolIcon,
+    strategyHeader,
+    detailView,
+    displayMenu,
+  ] = await Promise.all([
     fs.readFile('src/views/QuickNotesView.tsx', 'utf8'),
     fs.readFile('src/components/ImageLightbox.tsx', 'utf8'),
     fs.readFile('src/components/SaveStatusIndicator.tsx', 'utf8'),
+    fs.readFile('src/components/trades/TradeRow.tsx', 'utf8'),
+    fs.readFile('src/components/trades/TradeList.tsx', 'utf8'),
+    fs.readFile('src/components/SymbolIcon.tsx', 'utf8'),
+    fs.readFile('src/components/StrategyHeader.tsx', 'utf8'),
+    fs.readFile('src/views/DetailView.tsx', 'utf8'),
+    fs.readFile('src/components/DisplayMenu.tsx', 'utf8'),
   ])
 
   assert(
-    [quickNotes, lightbox, saveStatus].every((source) => source.includes('Tooltip')),
+    [quickNotes, lightbox, saveStatus, tradeRow, tradeList, displayMenu].every((source) =>
+      source.includes('Tooltip'),
+    ),
     '主要图标操作应复用统一 Tooltip，而不是浏览器原生提示',
   )
   assert(
@@ -140,7 +158,16 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
       !lightbox.includes('title={resetShortcut') &&
       !lightbox.includes('title="源像素与屏幕物理像素 1:1"') &&
       !saveStatus.includes('title={`保存失败') &&
-      !saveStatus.includes('title="打开数据与备份设置"'),
+      !saveStatus.includes('title="打开数据与备份设置"') &&
+      !tradeRow.includes('title={`波段级别') &&
+      tradeList.includes('<Tooltip') &&
+      tradeList.includes('在本组新建交易') &&
+      !symbolIcon.includes('title={label}') &&
+      !strategyHeader.includes('title={pnlCoverage') &&
+      !strategyHeader.includes('title={rCoverage') &&
+      !detailView.includes('title={trade.reviewedAt') &&
+      !detailView.includes("title={masked ? '直播模式下") &&
+      !detailView.includes('title={\n                    reviewSubmitting'),
     '主要图标操作不得残留原生 title 提示',
   )
 }

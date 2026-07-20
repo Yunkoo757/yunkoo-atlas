@@ -172,9 +172,9 @@ export const TradeRow = memo(function TradeRow({
         )}
       </span>
       <span className="trade-row-timeframe-slot">
-        <span className="trade-row-timeframe" title={`波段级别 ${timeframe}`}>
-          {timeframe}
-        </span>
+        <Tooltip content={`波段级别 ${timeframe}`} label={`波段级别 ${timeframe}`}>
+          <span className="trade-row-timeframe">{timeframe}</span>
+        </Tooltip>
       </span>
       <span className={'trade-row-pnl' + (isMissed ? ' is-missed' : privacyMode ? ' is-zero' : trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, privacyMode)) : '—'}
@@ -184,17 +184,23 @@ export const TradeRow = memo(function TradeRow({
       </span>
       <span className="trade-row-date">{fmtDate(trade.openedAt)}</span>
       <span className="trade-row-end">
-        <button
-          type="button"
-          className={'trade-row-star' + (starred ? ' is-starred' : '')}
-          aria-label={starred ? '取消星标' : '星标交易'}
-          onClick={(event) => {
-            event.stopPropagation()
-            onToggleStar(trade)
-          }}
+        <Tooltip
+          asChild
+          content={starred ? '取消星标' : '星标交易'}
+          label={starred ? '取消星标' : '星标交易'}
         >
-          <Star size={13} fill={starred ? 'currentColor' : 'none'} />
-        </button>
+          <button
+            type="button"
+            className={'trade-row-star' + (starred ? ' is-starred' : '')}
+            aria-label={starred ? '取消星标' : '星标交易'}
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleStar(trade)
+            }}
+          >
+            <Star size={13} fill={starred ? 'currentColor' : 'none'} />
+          </button>
+        </Tooltip>
       </span>
     </div>
   )

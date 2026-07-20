@@ -9,14 +9,14 @@ const STATUS_COLOR: Record<TradeStatus, string> = {
   planned: 'var(--text-tertiary)',
   open: 'var(--status-open)',
   missed: 'var(--status-missed)',
-  win: 'var(--status-completed)',
+  win: 'var(--pos)',
   breakeven: 'var(--text-secondary)',
   loss: 'var(--status-canceled)',
 }
 
 const STATUS_TO_LINEAR: Record<
   Exclude<TradeStatus, 'missed'>,
-  { state: LinearIssueState; progress?: number; title?: string }
+  { state: LinearIssueState; progress?: number }
 > = {
   planned: { state: 'backlog' },
   open: { state: 'started', progress: 0.55 },
@@ -81,7 +81,6 @@ export function StatusIcon({
         progress={mapped.progress}
         size={size}
         color={STATUS_COLOR[status]}
-        title={mapped.title}
         animate={false}
       />
     )

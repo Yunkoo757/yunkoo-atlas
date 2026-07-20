@@ -16,7 +16,7 @@ type CrumbsNavProps = {
   linkState?: unknown
 }
 
-/** 详情 / 回收站共用：Chevron + 面包屑 */
+/** 详情 / 回收站共用：Chevron + 面包屑（回收站为独立页，不挂在交易日志下） */
 export function CrumbsNav({
   backLabel,
   crumbs,

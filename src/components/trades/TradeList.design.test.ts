@@ -22,8 +22,8 @@ export async function testTradeListGroupToggleMatchesLinearCollapseContract(): P
   assert(css.includes('will-change: transform'), '三角旋转应开启合成层以保证流畅')
   assert(css.includes('--trade-group-chevron'), '分组三角应按状态/远近 tint，而非整条换底色')
   assert(tokens.includes('--group-chevron-started:'), 'Started 三角色应对齐 Linear 实测 hue')
-  assert(tokens.includes('--status-completed: var(--accent);'), '完成态色应对齐 Linear Done 靛蓝')
+  assert(tokens.includes('--status-completed: var(--pos);'), '盈利完成态色应对齐盈亏绿')
   assert(tokens.includes('--status-canceled:'), '取消/亏损态色应对齐 Linear Canceled 中性灰')
-  assert(statusIcon.includes("win: 'var(--status-completed)'"), '盈利状态图标应使用 Completed 色而非盈亏绿')
+  assert(statusIcon.includes("win: 'var(--pos)'"), '盈利状态图标必须使用盈亏绿，不得用 Linear Done 靛蓝')
   assert(statusIcon.includes("loss: 'var(--status-canceled)'"), '亏损状态图标应使用 Canceled 色而非盈亏红')
 }

@@ -40,3 +40,17 @@ export function testTrashContextMenuUsesTheSharedActionHierarchy() {
     throw new Error('Trash context menu must not misuse an action heading as record metadata')
   }
 }
+
+export function testTrashIsAnIndependentTopLevelPage() {
+  const source = readFileSync(path.resolve('src/views/TradeTrashView.tsx'), 'utf8')
+
+  if (source.includes("{ label: '交易日志' }")) {
+    throw new Error('回收站不得再挂在「交易日志」面包屑下')
+  }
+  if (!source.includes("crumbs={[{ label: '回收站', active: true }]}")) {
+    throw new Error('回收站应作为独立页标题展示')
+  }
+  if (source.includes('backLabel="返回交易日志"')) {
+    throw new Error('回收站返回动作不得暗示隶属交易日志')
+  }
+}

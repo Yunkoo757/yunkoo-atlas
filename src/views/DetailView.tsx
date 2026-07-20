@@ -562,7 +562,7 @@ export function DetailView() {
         else if (v === 'delete') onDelete()
       }}
       trigger={
-        <IconButton ariaLabel="更多">
+        <IconButton ariaLabel="更多" title="更多">
           <MoreHorizontal size={15} />
         </IconButton>
       }
@@ -592,13 +592,16 @@ export function DetailView() {
         </div>
         <div className="dv-tb-right">
           {reviewComplete && (
-            <span
-              className="dv-review-complete-meta"
-              title={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
+            <Tooltip
+              asChild
+              content={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
+              label={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
             >
-              <CheckCircle size={13} aria-hidden />
-              <span>已复盘</span>
-            </span>
+              <span className="dv-review-complete-meta">
+                <CheckCircle size={13} aria-hidden />
+                <span>已复盘</span>
+              </span>
+            </Tooltip>
           )}
           <SaveStatusIndicator />
           {detailNavigation && (
@@ -611,24 +614,28 @@ export function DetailView() {
                 <span aria-hidden>/</span>
                 {detailNavigation.orderedIds.length}
               </span>
-              <button
-                type="button"
-                className="dv-detail-nav-button"
-                aria-label={`下一个${detailUnit}`}
-                disabled={!detailNavigation.nextId}
-                onClick={() => navigateDetail(detailNavigation.nextId)}
-              >
-                <ChevronDown size={14} />
-              </button>
-              <button
-                type="button"
-                className="dv-detail-nav-button"
-                aria-label={`上一个${detailUnit}`}
-                disabled={!detailNavigation.prevId}
-                onClick={() => navigateDetail(detailNavigation.prevId)}
-              >
-                <ChevronUp size={14} />
-              </button>
+              <Tooltip asChild content={`下一个${detailUnit}`} label={`下一个${detailUnit}`}>
+                <button
+                  type="button"
+                  className="dv-detail-nav-button"
+                  aria-label={`下一个${detailUnit}`}
+                  disabled={!detailNavigation.nextId}
+                  onClick={() => navigateDetail(detailNavigation.nextId)}
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </Tooltip>
+              <Tooltip asChild content={`上一个${detailUnit}`} label={`上一个${detailUnit}`}>
+                <button
+                  type="button"
+                  className="dv-detail-nav-button"
+                  aria-label={`上一个${detailUnit}`}
+                  disabled={!detailNavigation.prevId}
+                  onClick={() => navigateDetail(detailNavigation.prevId)}
+                >
+                  <ChevronUp size={14} />
+                </button>
+              </Tooltip>
             </nav>
           )}
         </div>
@@ -643,29 +650,34 @@ export function DetailView() {
                 <SideTag side={trade.side} />
               </h1>
               {needsReview && !needsResult && (
-                <button
-                  type="button"
-                  className={
-                    'dv-review-chip' +
-                    (reviewReadiness.ready ? '' : ' is-muted') +
-                    (reviewSubmitting ? ' is-busy' : '')
-                  }
-                  aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
-                  title={
+                <Tooltip
+                  asChild
+                  content={
                     reviewSubmitting
                       ? '正在保存…'
                       : reviewIssue ?? (reviewReadiness.ready ? '完成复盘' : '完成前请留下结论、勾选检查项或加入截图证据')
                   }
-                  disabled={
-                    activeNoteLoad.status !== 'ready' ||
-                    !reviewReadiness.ready ||
-                    reviewSubmitting
-                  }
-                  onClick={() => void completeReview()}
+                  label={reviewSubmitting ? '正在保存…' : '完成复盘'}
                 >
-                  <span className="dv-review-chip-dot" aria-hidden />
-                  {reviewSubmitting ? '正在保存…' : '待复盘'}
-                </button>
+                  <button
+                    type="button"
+                    className={
+                      'dv-review-chip' +
+                      (reviewReadiness.ready ? '' : ' is-muted') +
+                      (reviewSubmitting ? ' is-busy' : '')
+                    }
+                    aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
+                    disabled={
+                      activeNoteLoad.status !== 'ready' ||
+                      !reviewReadiness.ready ||
+                      reviewSubmitting
+                    }
+                    onClick={() => void completeReview()}
+                  >
+                    <span className="dv-review-chip-dot" aria-hidden />
+                    {reviewSubmitting ? '正在保存…' : '待复盘'}
+                  </button>
+                </Tooltip>
               )}
             </div>
             {trade.tradeKind === 'case' && trade.sourceTradeId && (
@@ -1367,13 +1379,25 @@ function EditableDataRow({
     )
   }
 
-  return (
+  return masked ? (
+    <Tooltip asChild content="直播模式下已隐藏盈亏金额" label="直播模式下已隐藏盈亏金额">
+      <button
+        className="dv-datarow dv-datarow-btn"
+        onClick={startEdit}
+        type="button"
+        aria-disabled
+      >
+        <span className="dv-datarow-label">{label}</span>
+        <span className="dv-datarow-value" style={color ? { color } : undefined}>
+          {format(value)}
+        </span>
+      </button>
+    </Tooltip>
+  ) : (
     <button
       className="dv-datarow dv-datarow-btn"
       onClick={startEdit}
       type="button"
-      aria-disabled={masked}
-      title={masked ? '直播模式下已隐藏盈亏金额' : undefined}
     >
       <span className="dv-datarow-label">{label}</span>
       <span className="dv-datarow-value" style={color ? { color } : undefined}>

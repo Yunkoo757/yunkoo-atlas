@@ -11,23 +11,22 @@ export function SymbolIcon({
   overrides,
   size = ICON_TILE,
   className = '',
-  title,
+  title: _title,
 }: {
   symbol: string
   overrides?: SymbolIconsMap | null
   size?: number
   className?: string
+  /** @deprecated 不再写入原生 title，避免系统默认气泡 */
   title?: string
 }) {
   const resolved = resolveSymbolIcon(symbol, overrides)
-  const label = title ?? resolved.label
 
   if (resolved.type === 'image') {
     return (
       <span
         className={'symbol-icon is-image' + (className ? ` ${className}` : '')}
         style={{ width: size, height: size }}
-        title={label}
         aria-hidden
       >
         <img src={resolved.src} alt="" draggable={false} />
@@ -45,7 +44,6 @@ export function SymbolIcon({
           background: resolved.background,
           color: resolved.color,
         }}
-        title={label}
         aria-hidden
       >
         <SymbolPresetSvg id={resolved.svgId} size={Math.max(10, Math.round(size * 0.75))} />
@@ -69,7 +67,6 @@ export function SymbolIcon({
         background: resolved.background,
         fontSize: Math.max(9, Math.round(size * glyphScale)),
       }}
-      title={label}
       aria-hidden
     >
       {resolved.glyph}

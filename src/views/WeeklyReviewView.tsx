@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { Editor } from '@/editor/Editor'
@@ -28,6 +28,7 @@ import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
@@ -495,7 +496,23 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><span>52</span><h2>全年复盘节奏</h2></div><small>颜色越亮，做法评分越高</small></div>
-        <div className="wr-heatmap">{Array.from({ length: 53 }, (_, index) => { const start = weekStartFor(new Date(year, 0, 1)); const week = addDays(start, index * 7); const review = reviews.find((item) => item.weekStart === week); const score = review ? weeklyReviewScoreAverage(review) : null; return <i key={week} title={`${formatWeekRange(week)}${score ? ` · ${score.toFixed(1)} 分` : ''}`} style={{ '--level': score ? score / 5 : 0 } as React.CSSProperties} className={review?.status === 'completed' ? 'is-filled' : ''} /> })}</div>
+        <div className="wr-heatmap">
+          {Array.from({ length: 53 }, (_, index) => {
+            const start = weekStartFor(new Date(year, 0, 1))
+            const week = addDays(start, index * 7)
+            const review = reviews.find((item) => item.weekStart === week)
+            const score = review ? weeklyReviewScoreAverage(review) : null
+            const tip = `${formatWeekRange(week)}${score ? ` · ${score.toFixed(1)} 分` : ''}`
+            return (
+              <Tooltip key={week} content={tip} label={tip}>
+                <i
+                  style={{ '--level': score ? score / 5 : 0 } as CSSProperties}
+                  className={review?.status === 'completed' ? 'is-filled' : ''}
+                />
+              </Tooltip>
+            )
+          })}
+        </div>
       </section>
     </div>
   )

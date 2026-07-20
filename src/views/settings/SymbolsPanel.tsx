@@ -206,7 +206,6 @@ export function SymbolsPanel() {
                       setSymbolIconPreset(active, preset.id)
                       toast(`已应用预设「${preset.label}」`)
                     }}
-                    title={preset.label}
                   >
                     <span
                       className="symbols-preset-swatch"

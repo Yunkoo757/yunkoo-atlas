@@ -100,7 +100,7 @@ export function TagEditor({
     <div className="tag-editor">
       <div className="tag-selected-row">
         {tags.map((t) => (
-          <span key={t} className="tag-chip" title={t}>
+          <span key={t} className="tag-chip">
             <span className="tag-chip-label">{t}</span>
             <button
               type="button"
@@ -157,7 +157,7 @@ export function TagEditor({
       {showPresets && availablePresets.length > 0 ? (
         <div className="tag-presets-row" aria-label="可添加的预置标签">
           {availablePresets.map((p) => (
-            <span key={p} className="tag-preset-chip" title={p}>
+            <span key={p} className="tag-preset-chip">
               <button
                 type="button"
                 className="tag-preset-label"
