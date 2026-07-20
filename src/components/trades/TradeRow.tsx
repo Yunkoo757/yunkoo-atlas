@@ -60,7 +60,9 @@ export const TradeRow = memo(function TradeRow({
     hiddenCount: Math.max(0, trade.mistakeTags.length - 2),
   }
   const reviewLabel =
-    trade.tradeKind === 'case' && trade.caseType
+    isMissed
+      ? null
+      : trade.tradeKind === 'case' && trade.caseType
       ? CASE_TYPE_META[trade.caseType].label
       : trade.reviewCategory !== 'normal'
         ? REVIEW_CATEGORY_META[trade.reviewCategory].label

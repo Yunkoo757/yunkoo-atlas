@@ -182,7 +182,7 @@
 /* 详情侧栏：沿用同一套分区，去掉旧的 order / 限高滚动 */
 .dv-props .tag-editor {
   align-self: stretch;
-  gap: 8px;
+  gap: 5px;
   padding: 0;
 }
 
@@ -203,10 +203,10 @@
 .dv-props .tag-chip,
 .dv-props .tag-preset-chip,
 .dv-props .tag-add-btn {
-  height: 28px;
-  min-height: 28px;
+  height: 24px;
+  min-height: 24px;
   font-family: var(--font-ui);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-mini);
   font-weight: var(--font-weight-normal);
 }
 

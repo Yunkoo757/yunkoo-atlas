@@ -3,12 +3,14 @@ import type { ListNavigationContext, ShortcutBinding } from '@/shortcuts/types'
 import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { isSequence } from '@/shortcuts/chords'
 import { buildBindingOverwritePatch } from '@/shortcuts/engine'
+import type { LightboxOrigin } from '@/lib/lightboxView'
 
 export interface LightboxState {
   images: string[]
   index: number
   ownerId?: string
   loading?: boolean
+  origin?: LightboxOrigin
 }
 
 interface ShortcutState {
@@ -26,7 +28,7 @@ interface ShortcutState {
   resetBinding: (id: string) => void
   resetAllBindings: () => void
   setListContext: (ctx: ListNavigationContext | null) => void
-  openLightbox: (images: string[], index: number, ownerId?: string) => void
+  openLightbox: (images: string[], index: number, ownerId?: string, origin?: LightboxOrigin) => void
   syncLightboxForOwner: (ownerId: string, images: string[] | null) => void
   closeLightbox: () => void
   lightboxPrev: () => void
@@ -130,13 +132,14 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
       }
       return { listContext: ctx }
     }),
-  openLightbox: (images, index, ownerId) =>
+  openLightbox: (images, index, ownerId, origin) =>
     set({
       lightbox: {
         images,
         index: Math.max(0, Math.min(index, images.length - 1)),
         ownerId,
         loading: false,
+        origin,
       },
     }),
   syncLightboxForOwner: (ownerId, images) =>
@@ -162,6 +165,7 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
           images,
           index: Math.max(0, Math.min(lightbox.index, images.length - 1)),
           loading: false,
+          origin: lightbox.ownerId === ownerId ? lightbox.origin : undefined,
         },
       }
     }),
@@ -173,6 +177,7 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
       lightbox: {
         ...lb,
         index: lb.index <= 0 ? lb.images.length - 1 : lb.index - 1,
+        origin: undefined,
       },
     })
   },
@@ -183,6 +188,7 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
       lightbox: {
         ...lb,
         index: lb.index >= lb.images.length - 1 ? 0 : lb.index + 1,
+        origin: undefined,
       },
     })
   },

@@ -111,7 +111,7 @@ function inferReviewCategory(
 ): ReviewCategory {
   if (trade.reviewStatus === 'focus') return 'focus'
   if (trade.reviewStatus === 'reviewed') return 'mastered'
-  if (trade.status === 'missed' || trade.mistakeTags.length > 0) return 'mistake'
+  if (trade.mistakeTags.length > 0) return 'mistake'
   return DEFAULT_REVIEW_CATEGORY
 }
 

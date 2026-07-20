@@ -77,7 +77,8 @@
 }
 
 .sp-card {
-  min-width: 292px;
+  width: 100%;
+  min-width: 0;
   font-family: var(--font-ui);
 }
 
@@ -85,37 +86,30 @@
   background: transparent !important;
 }
 
-.sp-outcomes,
-.sp-metrics {
+.sp-summary {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 14px;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
   line-height: 1.4;
   white-space: nowrap;
 }
 
-.sp-outcomes strong {
-  margin-left: auto;
-  color: var(--text-secondary);
-  font-weight: var(--font-weight-medium);
-}
-
-.sp-metrics {
-  justify-content: space-between;
-  margin-top: 9px;
-  padding-top: 9px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.sp-metrics span {
+.sp-outcomes {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 
-.sp-metrics strong {
+.sp-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sp-metric strong {
   color: var(--text-secondary);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;

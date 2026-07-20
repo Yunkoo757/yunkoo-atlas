@@ -516,7 +516,22 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
             <button
               type="button"
               key={`${image.src}-${index}`}
-              onClick={() => useShortcutStore.getState().openLightbox(imageSources, index)}
+              onClick={(event) => {
+                const imageElement = event.currentTarget.querySelector('img')
+                const rect = imageElement?.getBoundingClientRect()
+                useShortcutStore.getState().openLightbox(
+                  imageSources,
+                  index,
+                  undefined,
+                  rect ? {
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                    borderRadius: Number.parseFloat(getComputedStyle(imageElement!).borderRadius) || 0,
+                  } : undefined,
+                )
+              }}
               aria-label={`放大查看${image.alt}`}
             >
               <img src={image.src} alt={image.alt} />

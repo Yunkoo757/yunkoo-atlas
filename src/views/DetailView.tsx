@@ -207,7 +207,6 @@ export function DetailView() {
     noteResolvedRef.current = false   // 切换交易时重置，阻止旧 onUpdate 写入空内容
     if (!preserveReadOnlyFallback) {
       setNoteRetrying(false)
-      setEditorHtml('')
       setNoteLoad({ tradeId: trade.id, state: { status: 'loading' } })
     }
     let cancelled = false
@@ -392,9 +391,7 @@ export function DetailView() {
   const activeNoteLoad = noteLoad.tradeId === trade.id
     ? noteLoad.state
     : { status: 'loading' as const }
-  const noteEditorContent = activeNoteLoad.status === 'loading'
-    ? ''
-    : activeNoteLoad.status === 'error'
+  const noteEditorContent = activeNoteLoad.status === 'error'
       ? activeNoteLoad.fallbackHtml
       : editorHtml
   const reviewReadiness = evaluateReviewCompletion(editorHtml)
@@ -544,7 +541,6 @@ export function DetailView() {
 
   const moreMenu = (
     <Menu
-      align="right"
       options={[
         { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
         ...(trade.tradeKind === 'case'
@@ -566,7 +562,7 @@ export function DetailView() {
         else if (v === 'delete') onDelete()
       }}
       trigger={
-        <IconButton title="更多">
+        <IconButton ariaLabel="更多">
           <MoreHorizontal size={15} />
         </IconButton>
       }
@@ -1167,7 +1163,7 @@ export function DetailView() {
             />
           </Section>
 
-          <Section title="时间">
+          <Section title="时间" defaultOpen={false}>
             <EditableDateRow
               label="开仓"
               value={trade.openedAt}
@@ -1191,11 +1187,12 @@ export function DetailView() {
             )}
           </Section>
 
-          <Section title="标签">
+          <Section title="标签" defaultOpen={false}>
             <TagEditor
               tags={trade.tags}
               suggestions={tagPresets}
               presets={tagPresets}
+              showPresets={false}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
             />
@@ -1206,6 +1203,7 @@ export function DetailView() {
               tags={trade.mistakeTags}
               suggestions={mistakeTagPresets}
               presets={mistakeTagPresets}
+              showPresets={false}
               onAdd={(tag) =>
                 updateTradeData(trade.id, {
                   mistakeTags: trade.mistakeTags.includes(tag)
@@ -1221,7 +1219,7 @@ export function DetailView() {
             />
           </Section>
 
-          <Section title="策略">
+          <Section title="策略" defaultOpen={false}>
             <Menu
               value={trade.strategyId}
               onSelect={(v) => setStrategy(trade.id, v)}
@@ -1256,11 +1254,13 @@ export function DetailView() {
 function Section({
   title,
   children,
+  defaultOpen = true,
 }: {
   title: string
   children: React.ReactNode
+  defaultOpen?: boolean
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="dv-section">
       <button className="dv-section-head" onClick={() => setOpen((o) => !o)}>

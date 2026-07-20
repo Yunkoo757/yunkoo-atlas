@@ -107,26 +107,25 @@ export function StrategyPreview({
           {stats?.closedCount ? `${stats.closedCount} 笔已平，暂无可信结果` : '暂无已完成的实盘交易'}
         </p>
       ) : (
-        <>
-          <div className="sp-outcomes">
+        <div className="sp-summary">
+          <span className="sp-outcomes">
             <span className="is-positive">盈利 {stats.wins}</span>
             <span className="is-negative">亏损 {stats.losses}</span>
             {stats.breakevens > 0 && <span>保本 {stats.breakevens}</span>}
-            <strong>{stats.winRate === null ? '—' : `${stats.winRate.toFixed(0)}%`} 胜率</strong>
-          </div>
-          <div className="sp-metrics">
-            <span>
-              总盈亏
-              <strong className={stats.pnl > 0 ? 'is-positive' : stats.pnl < 0 ? 'is-negative' : ''}>
-                {stats.pnlCount ? fmtMoney(stats.pnl, privacyMode) : '—'}
-              </strong>
-            </span>
-            <span>
-              平均 R
-              <strong>{stats.rCount ? fmtR(stats.averageR) : '—'}</strong>
-            </span>
-          </div>
-        </>
+          </span>
+          <span className="sp-metric">
+            总盈亏
+            <strong className={stats.pnl > 0 ? 'is-positive' : stats.pnl < 0 ? 'is-negative' : ''}>
+              {stats.pnlCount ? fmtMoney(stats.pnl, privacyMode) : '—'}
+            </strong>
+          </span>
+          <span className="sp-metric">
+            <strong>{stats.winRate === null ? '—' : `${stats.winRate.toFixed(0)}%`}</strong> 胜率
+          </span>
+          <span className="sp-metric">
+            平均 R <strong>{stats.rCount ? fmtR(stats.averageR) : '—'}</strong>
+          </span>
+        </div>
       )}
     </div>
   )

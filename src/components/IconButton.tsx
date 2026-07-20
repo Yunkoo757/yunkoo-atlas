@@ -6,11 +6,13 @@ import './IconButton.css'
 export function IconButton({
   children,
   title,
+  ariaLabel,
   onClick,
   active,
 }: {
   children: ReactNode
   title?: string
+  ariaLabel?: string
   onClick?: () => void
   active?: boolean
 }) {
@@ -18,7 +20,7 @@ export function IconButton({
     <button
       className={'icon-btn' + (active ? ' is-active' : '')}
       type="button"
-      aria-label={title}
+      aria-label={ariaLabel ?? title}
       onClick={onClick}
     >
       {children}

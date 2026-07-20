@@ -18,7 +18,7 @@
 .trade-detail-layout .dv-body {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   min-height: 0;
 }
 
@@ -64,7 +64,7 @@
 
 @media (max-width: 1180px) {
   .trade-detail-layout .dv-body {
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: minmax(0, 1fr) 336px;
   }
 }
 
@@ -85,7 +85,7 @@
     right: 8px;
     bottom: 8px;
     z-index: 52;
-    width: min(400px, 92vw);
+    width: min(360px, 92vw);
     overflow-y: auto;
     background: var(--bg-surface);
     border-top: 0;
