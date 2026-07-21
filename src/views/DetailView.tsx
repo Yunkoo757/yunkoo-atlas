@@ -366,7 +366,12 @@ export function DetailView() {
       : activities.system.length - FEED_VISIBLE
 
   if (!trade) {
-    const recordLabel = deletedTrade?.tradeKind === 'case' ? '案例记录' : '交易'
+    const recordLabel =
+      deletedTrade?.tradeKind === 'case'
+        ? '案例记录'
+        : deletedTrade?.tradeKind === 'paper'
+          ? '模拟'
+          : '交易日志'
     return (
       <>
         <header className="dv-topbar">
@@ -485,7 +490,12 @@ export function DetailView() {
     navigate(tradeDetailPath(reviewCase), { state: location.state })
   }
 
-  const detailCrumb = trade.tradeKind === 'case' ? '案例记录' : '交易'
+  const detailCrumb =
+    trade.tradeKind === 'case'
+      ? '案例记录'
+      : trade.tradeKind === 'paper'
+        ? '模拟'
+        : '交易日志'
   const detailUnit = trade.tradeKind === 'case'
     ? '案例'
     : trade.tradeKind === 'paper'

@@ -29,10 +29,19 @@
   padding: 18px 12px 12px 14px;
   gap: 0;
   user-select: none;
-  overflow-y: auto;
+  /* 滚动下放到 .sb-scroll，避免裁掉顶栏 Create 按钮 ::after 外环/投影 */
+  overflow: hidden;
   font-family: var(--font-ui);
   font-size: 16px;
   line-height: normal;
+}
+
+.sb-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 /* 工作区头：左侧紧凑头像/名字/▾，右侧搜索/新建靠右 */
@@ -44,6 +53,7 @@
   min-height: 32px;
   margin-bottom: 18px;
   padding: 0;
+  overflow: visible;
 }
 .sb-header .menu-root {
   flex: 0 1 auto;
@@ -115,23 +125,86 @@
 .sb-header-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
   margin-left: auto;
+  overflow: visible;
 }
+
+/*
+ * Linear sidebar IconButton 几何（Search / Create 共用）：
+ * 28×28、radius 9999、padding 0 2px、min-width 28、图标 16、fill lch(60.307%)
+ */
 .sb-hbtn {
-  display: grid;
-  place-items: center;
+  position: relative;
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
   width: 28px;
+  min-width: 28px;
   height: 28px;
-  border-radius: var(--radius-6);
-  color: var(--text-tertiary);
-  transition: background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 9999px;
+  color: lch(60.307% 1 272 / 1);
+  background: transparent;
+  box-shadow: none;
+  vertical-align: top;
+  user-select: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: normal;
+  cursor: default;
+  transition:
+    border 0.15s,
+    background-color 0.15s,
+    color 0.15s,
+    opacity 0.15s,
+    box-shadow 0.15s;
 }
-.sb-hbtn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+.sb-hbtn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+.sb-hbtn:hover,
+.sb-hbtn:active {
+  color: lch(100% 0 272 / 1);
+  background: lch(10.691% 0.493 272 / 1);
+}
+
+/*
+ * Linear Create new issue：
+ * bg lch(10.691 0.493 272)
+ * overlay = 0 0 0 1px lch(100% 0 0 / 0.088) + 两层微投影
+ * 阴影画在元素自身（不用 ::after），避免 Electron 上伪元素外环发虚/发脏
+ */
+.sb-hbtn-create {
+  z-index: 1;
+  color: lch(60.307% 1 272 / 1);
+  background: lch(10.691% 0.493 272 / 1);
+  box-shadow:
+    0 0 0 1px lch(100% 0 0 / 0.088),
+    0 4px 4px -1px lch(0% 0 0 / 0.04),
+    0 1px 1px 0 lch(0% 0 0 / 0.08);
+}
+.sb-hbtn-create::after {
+  content: none;
+}
+.sb-hbtn-create:hover,
+.sb-hbtn-create:active {
+  color: lch(100% 0 272 / 1);
+  background: lch(15.32% 0.879 272 / 1);
+  box-shadow:
+    0 0 0 1px lch(100% 0 0 / 0.088),
+    0 4px 4px -1px lch(0% 0 0 / 0.04),
+    0 1px 1px 0 lch(0% 0 0 / 0.08);
 }
 
 .sb-section {

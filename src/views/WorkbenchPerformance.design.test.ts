@@ -124,4 +124,42 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
   if (!sidebar.includes('height: 28px') || !sidebar.includes('border-radius: var(--radius-8)')) {
     throw new Error('sidebar navigation must preserve the calibrated 28px / 8px geometry')
   }
+  if (
+    !sidebar.includes('.sb-hbtn-create') ||
+    !sidebar.includes('lch(10.691% 0.493 272 / 1)') ||
+    !sidebar.includes('0 0 0 1px lch(100% 0 0 / 0.088)') ||
+    !sidebar.includes('border-radius: 9999px')
+  ) {
+    throw new Error('sidebar create must match Linear Create new issue (1px / 0.088 overlay shadow)')
+  }
+  if (sidebar.includes('.sb-hbtn-create::after') && !sidebar.includes('content: none')) {
+    throw new Error('sidebar create overlay must paint on the button itself (Electron-safe), not ::after')
+  }
+  if (!sidebar.includes('.sb-scroll') || !sidebar.includes('overflow: hidden')) {
+    throw new Error('sidebar must scroll in .sb-scroll so header Create overlay is not clipped')
+  }
+  if (
+    !sidebar.includes('lch(60.307% 1 272 / 1)') ||
+    sidebar.includes('.sb-hbtn:hover {\n  background: var(--bg-hover)')
+  ) {
+    throw new Error('sidebar search must use Linear ghost IconButton colors (not --bg-hover)')
+  }
+  if (sidebar.includes('0 0 0 0.5px lch(100% 0 0 / 0.132)')) {
+    throw new Error('sidebar create must not use the stale 0.5px/0.132 overlay (Linear uses 1px/0.088)')
+  }
+  const sidebarRuntime = read('src/components/Sidebar.tsx')
+  if (!sidebarRuntime.includes('sb-hbtn-create') || !sidebarRuntime.includes('Compose')) {
+    throw new Error('sidebar create must use the elevated class and Linear Compose icon')
+  }
+  if (!sidebarRuntime.includes('sb-hbtn-search')) {
+    throw new Error('sidebar search must keep an explicit sb-hbtn-search class')
+  }
+  const composeIcon = read('src/icons/linear/static/LinearComposeIcon.tsx')
+  if (!composeIcon.includes('M7.25 1C7.66414') || !composeIcon.includes('13.4326 1.26953')) {
+    throw new Error('LinearComposeIcon must keep the Create new issue path extracted from linear.app')
+  }
+  const searchIcon = read('src/icons/linear/static/LinearSearchIcon.tsx')
+  if (!searchIcon.includes('M7 2C9.76142 2 12 4.23858') || !searchIcon.includes('11.0254 9.96484')) {
+    throw new Error('LinearSearchIcon must keep the Search workspace path extracted from linear.app')
+  }
 }

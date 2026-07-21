@@ -58,6 +58,7 @@ import {
   LinearTrashIcon,
   LinearUsersIcon,
   LinearViewFinderIcon,
+  LinearComposeIcon,
   LinearWriteIcon,
   LinearLinkIcon,
   LinearCheckIcon,
@@ -80,6 +81,8 @@ export const Bookmark = LinearBookmarkIcon
 export const BookmarkPlus = LinearBookmarkIcon
 export const Pencil = LinearWriteIcon
 export const PenSquare = LinearWriteIcon
+/** Linear 侧栏 Create new issue 同款 Compose 图标（实机路径） */
+export const Compose = LinearComposeIcon
 export const Tag = LinearLabelIcon
 export const Bell = LinearNotifiedIcon
 export const Plus = LinearPlusIcon

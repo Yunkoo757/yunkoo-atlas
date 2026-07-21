@@ -11,7 +11,7 @@ const STATUS_COLOR: Record<TradeStatus, string> = {
   missed: 'var(--status-missed)',
   win: 'var(--pos)',
   breakeven: 'var(--text-secondary)',
-  loss: 'var(--status-canceled)',
+  loss: 'var(--neg)',
 }
 
 const STATUS_TO_LINEAR: Record<

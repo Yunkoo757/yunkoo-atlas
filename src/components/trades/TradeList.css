@@ -106,6 +106,8 @@
   height: 100%;
   /* Linear CollapseArrow：暗底上带状态 hue 的实心三角 */
   color: var(--trade-group-chevron);
+  /* 离开悬停时淡回 tint（对齐 Linear --speed-highlightFadeOut） */
+  transition: color 0.15s ease-in-out;
 }
 
 .trade-list-group-chevron svg {
@@ -117,8 +119,21 @@
   will-change: transform;
 }
 
+/* Linear：button:hover CollapseArrow → fill lch(100 0 272)，高亮瞬间到位 */
+.trade-list-group-toggle:hover .trade-list-group-chevron,
+.trade-list-group-toggle:focus-visible .trade-list-group-chevron {
+  color: lch(100% 0 272 / 1);
+  transition-duration: 0s;
+}
+
 .trade-list-group-header.is-collapsed .trade-list-group-chevron {
   color: color-mix(in srgb, var(--trade-group-chevron) 72%, transparent);
+}
+
+.trade-list-group-header.is-collapsed .trade-list-group-toggle:hover .trade-list-group-chevron,
+.trade-list-group-header.is-collapsed .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
+  color: lch(100% 0 272 / 1);
+  transition-duration: 0s;
 }
 
 .trade-list-virtual-item.is-row.is-collapsing {

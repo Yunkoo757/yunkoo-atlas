@@ -46,6 +46,7 @@ export type TradeSessionMeta = {
 export const SESSION_PRESETS = [
   { value: 'London Open', label: '伦敦开盘', kind: 'london' },
   { value: 'London Close', label: '伦敦收盘', kind: 'london' },
+  { value: 'London', label: '伦敦盘', kind: 'london' },
   { value: 'Asia', label: '亚盘', kind: 'asia' },
   { value: 'New York Open', label: '纽约开盘', kind: 'new-york' },
   { value: 'New York Close', label: '纽约收盘', kind: 'new-york' },

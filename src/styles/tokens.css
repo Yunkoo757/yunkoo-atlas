@@ -267,7 +267,7 @@
   --status-open: var(--star-color);
   /* 盈利：用盈亏绿；交易语义优先于 Linear Done 靛蓝 */
   --status-completed: var(--pos);
-  /* Canceled：Linear 取消态中性灰，不用亏损红（亏损红留给金额列） */
+  /* Linear Canceled 中性灰（非交易亏损）；亏损图标见 StatusIcon → --neg */
   --status-canceled: var(--text-tertiary);
   /* 错过：低饱和暖石色，勿与亏损红或警告橙抢视线 */
   --status-missed: lch(58% 14 55);

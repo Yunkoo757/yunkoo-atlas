@@ -8,7 +8,7 @@ import {
   Bookmark,
   Clock,
   FlaskConical,
-  Plus,
+  Compose,
   Search,
   Settings2,
   Star,
@@ -488,7 +488,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <ShortcutTooltip actionId="global.commandPalette" label="搜索">
             <button
               type="button"
-              className="sb-hbtn"
+              className="sb-hbtn sb-hbtn-search"
               onClick={onOpenSearch}
             >
               <Search size={ICON_MD} />
@@ -500,7 +500,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           >
             <button
               type="button"
-              className="sb-hbtn"
+              className="sb-hbtn sb-hbtn-create"
               onClick={() => {
                 if (inQuickNotes) {
                   const note = createQuickNote()
@@ -512,12 +512,13 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               }}
               aria-label={createLabel}
             >
-              <Plus size={ICON_MD} />
+              <Compose size={ICON_MD} />
             </button>
           </ShortcutTooltip>
         </div>
       </div>
 
+      <div className="sb-scroll">
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作台</div>
         {orderedPrimaryNav.map(({ id, to, label, icon: Icon }) => {
@@ -610,6 +611,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <span>添加或管理</span>
         </button>
       </nav>
+      </div>
 
       {workspaceEditorOpen ? (
         <div ref={workspaceEditorExitRef} className="sb-workspace-editor-portal" role="presentation">
