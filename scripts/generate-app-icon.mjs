@@ -1,6 +1,9 @@
 /**
  * Generate Electron / favicon / NSIS installer assets from demos/icons/atlas-icon-e.svg
  * Usage: node scripts/generate-app-icon.mjs
+ *
+ * NSIS 侧栏/顶栏按逻辑尺寸的 3× 出图：高 DPI 下 StretchBlt 接近 1:1 或轻度缩小，
+ * 避免 164×314 被系统放大后发糊。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -15,10 +18,16 @@ const publicDir = path.join(root, 'public')
 
 const BRAND = {
   bg: '#12141a',
+  panel: '#161922',
   accent: '#5e6ad2',
   ink: '#e8eaf6',
   mute: '#9aa3b5',
 }
+
+/** NSIS MUI 逻辑尺寸；实际 BMP 按 SCALE 输出。 */
+const SIDEBAR_LOGIC = { w: 164, h: 314 }
+const HEADER_LOGIC = { w: 150, h: 57 }
+const NSIS_BMP_SCALE = 3
 
 /** Pack PNG buffers into a multi-size .ico (PNG-in-ICO, Vista+) */
 function pngsToIco(pngBuffers) {
@@ -94,57 +103,76 @@ function encodeBmp24(width, height, rgba) {
   return out
 }
 
-async function svgToBmp24(svg, width, height) {
-  const { data } = await sharp(Buffer.from(svg))
-    .resize(width, height, { fit: 'fill' })
+async function pngToBmp24(pngBuffer) {
+  const { data, info } = await sharp(pngBuffer)
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true })
-  return encodeBmp24(width, height, data)
+  return encodeBmp24(info.width, info.height, data)
 }
 
-/** 欢迎/完成页左侧图：164×314（NSIS MUI_WELCOMEFINISHPAGE_BITMAP） */
-function installerSidebarSvg() {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="164" height="314" viewBox="0 0 164 314">
+async function buildInstallerSidebar(iconPng) {
+  const w = SIDEBAR_LOGIC.w * NSIS_BMP_SCALE
+  const h = SIDEBAR_LOGIC.h * NSIS_BMP_SCALE
+  const mark = 96 * NSIS_BMP_SCALE
+  const markTop = 78 * NSIS_BMP_SCALE
+  const markLeft = Math.round((w - mark) / 2)
+
+  const markPng = await sharp(iconPng)
+    .resize(mark, mark, { kernel: sharp.kernel.lanczos3 })
+    .png()
+    .toBuffer()
+
+  const caption = Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
   <defs>
-    <linearGradient id="glow" x1="82" y1="40" x2="82" y2="220" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="${BRAND.accent}" stop-opacity="0.22"/>
+    <linearGradient id="glow" x1="${w / 2}" y1="${40 * NSIS_BMP_SCALE}" x2="${w / 2}" y2="${220 * NSIS_BMP_SCALE}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="${BRAND.accent}" stop-opacity="0.2"/>
       <stop offset="1" stop-color="${BRAND.bg}" stop-opacity="0"/>
     </linearGradient>
   </defs>
-  <rect width="164" height="314" fill="${BRAND.bg}"/>
-  <rect width="164" height="314" fill="url(#glow)"/>
-  <g transform="translate(34 78)">
-    <rect width="96" height="96" rx="22" fill="#161922"/>
-    <path d="M28.5 64.5 C28.5 34.5 67.5 30 67.5 30" fill="none" stroke="${BRAND.accent}" stroke-width="6" stroke-linecap="round"/>
-    <path d="M28.5 31.5 V70.5" stroke="${BRAND.ink}" stroke-width="6.8" stroke-linecap="round"/>
-    <path d="M28.5 51 H54" stroke="${BRAND.ink}" stroke-width="6" stroke-linecap="round"/>
-  </g>
-  <text x="82" y="212" text-anchor="middle" fill="${BRAND.ink}"
-    font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Trader Atlas</text>
-  <text x="82" y="234" text-anchor="middle" fill="${BRAND.mute}"
-    font-family="Segoe UI, Arial, sans-serif" font-size="10">交易工作台</text>
-  <rect x="62" y="258" width="40" height="2" rx="1" fill="${BRAND.accent}"/>
-</svg>`
+  <rect width="${w}" height="${h}" fill="${BRAND.bg}"/>
+  <rect width="${w}" height="${h}" fill="url(#glow)"/>
+  <text x="${w / 2}" y="${212 * NSIS_BMP_SCALE}" text-anchor="middle" fill="${BRAND.ink}"
+    font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="${15 * NSIS_BMP_SCALE}" font-weight="600">Trader Atlas</text>
+  <text x="${w / 2}" y="${234 * NSIS_BMP_SCALE}" text-anchor="middle" fill="${BRAND.mute}"
+    font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="${10 * NSIS_BMP_SCALE}">交易工作台</text>
+  <rect x="${62 * NSIS_BMP_SCALE}" y="${258 * NSIS_BMP_SCALE}" width="${40 * NSIS_BMP_SCALE}" height="${2 * NSIS_BMP_SCALE}" rx="${NSIS_BMP_SCALE}" fill="${BRAND.accent}"/>
+</svg>`)
+
+  const composed = await sharp(caption)
+    .composite([{ input: markPng, top: markTop, left: markLeft }])
+    .png()
+    .toBuffer()
+  return pngToBmp24(composed)
 }
 
-/** 内页顶栏：150×57（NSIS MUI_HEADERIMAGE） */
-function installerHeaderSvg() {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="150" height="57" viewBox="0 0 150 57">
-  <rect width="150" height="57" fill="${BRAND.bg}"/>
-  <g transform="translate(10 10.5)">
-    <rect width="36" height="36" rx="9" fill="#161922"/>
-    <path d="M10.7 24.2 C10.7 13 25.3 11.2 25.3 11.2" fill="none" stroke="${BRAND.accent}" stroke-width="2.4" stroke-linecap="round"/>
-    <path d="M10.7 11.7 V26.5" stroke="${BRAND.ink}" stroke-width="2.7" stroke-linecap="round"/>
-    <path d="M10.7 19 H20.2" stroke="${BRAND.ink}" stroke-width="2.4" stroke-linecap="round"/>
-  </g>
-  <text x="56" y="27" fill="${BRAND.ink}"
-    font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600">Trader Atlas</text>
-  <text x="56" y="43" fill="${BRAND.mute}"
-    font-family="Segoe UI, Arial, sans-serif" font-size="9">安装向导</text>
-</svg>`
+async function buildInstallerHeader(iconPng) {
+  const w = HEADER_LOGIC.w * NSIS_BMP_SCALE
+  const h = HEADER_LOGIC.h * NSIS_BMP_SCALE
+  const mark = 36 * NSIS_BMP_SCALE
+  const markTop = Math.round((h - mark) / 2)
+  const markLeft = 10 * NSIS_BMP_SCALE
+
+  const markPng = await sharp(iconPng)
+    .resize(mark, mark, { kernel: sharp.kernel.lanczos3 })
+    .png()
+    .toBuffer()
+
+  const caption = Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <rect width="${w}" height="${h}" fill="${BRAND.bg}"/>
+  <text x="${56 * NSIS_BMP_SCALE}" y="${27 * NSIS_BMP_SCALE}" fill="${BRAND.ink}"
+    font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="${13 * NSIS_BMP_SCALE}" font-weight="600">Trader Atlas</text>
+  <text x="${56 * NSIS_BMP_SCALE}" y="${43 * NSIS_BMP_SCALE}" fill="${BRAND.mute}"
+    font-family="Microsoft YaHei, Segoe UI, sans-serif" font-size="${9 * NSIS_BMP_SCALE}">安装向导</text>
+</svg>`)
+
+  const composed = await sharp(caption)
+    .composite([{ input: markPng, top: markTop, left: markLeft }])
+    .png()
+    .toBuffer()
+  return pngToBmp24(composed)
 }
 
 async function main() {
@@ -175,17 +203,22 @@ async function main() {
   }
   fs.writeFileSync(path.join(buildDir, 'icon.ico'), pngsToIco(icoPngs))
 
-  const sidebarBmp = await svgToBmp24(installerSidebarSvg(), 164, 314)
-  const headerBmp = await svgToBmp24(installerHeaderSvg(), 150, 57)
+  const sidebarBmp = await buildInstallerSidebar(png512)
+  const headerBmp = await buildInstallerHeader(png512)
   fs.writeFileSync(path.join(buildDir, 'installerSidebar.bmp'), sidebarBmp)
   fs.writeFileSync(path.join(buildDir, 'installerHeader.bmp'), headerBmp)
+
+  const sidebarW = SIDEBAR_LOGIC.w * NSIS_BMP_SCALE
+  const sidebarH = SIDEBAR_LOGIC.h * NSIS_BMP_SCALE
+  const headerW = HEADER_LOGIC.w * NSIS_BMP_SCALE
+  const headerH = HEADER_LOGIC.h * NSIS_BMP_SCALE
 
   console.log('Generated:')
   console.log('  build/icon.svg')
   console.log('  build/icon.png (512)')
   console.log('  build/icon.ico (16–256)')
-  console.log('  build/installerSidebar.bmp (164×314, 24-bit)')
-  console.log('  build/installerHeader.bmp (150×57, 24-bit)')
+  console.log(`  build/installerSidebar.bmp (${sidebarW}×${sidebarH}, 24-bit, ${NSIS_BMP_SCALE}× for HiDPI)`)
+  console.log(`  build/installerHeader.bmp (${headerW}×${headerH}, 24-bit, ${NSIS_BMP_SCALE}× for HiDPI)`)
   console.log('  public/favicon.svg')
   console.log('  public/favicon-32.png')
   console.log('  public/apple-touch-icon.png')

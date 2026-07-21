@@ -15,6 +15,21 @@ type ToastAction = {
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null
+/** 关闭保存回执等占用底部中心时，禁止再弹 toast，避免双条重叠。 */
+let bottomChromeLocked = false
+
+export function lockBottomChrome(): void {
+  bottomChromeLocked = true
+  useToast.getState().dismiss()
+}
+
+export function unlockBottomChrome(): void {
+  bottomChromeLocked = false
+}
+
+export function isBottomChromeLocked(): boolean {
+  return bottomChromeLocked
+}
 
 export const useToast = create<ToastState>((set, get) => ({
   id: 0,
@@ -22,6 +37,7 @@ export const useToast = create<ToastState>((set, get) => ({
   actionLabel: null,
   onAction: null,
   show: (message, action) => {
+    if (bottomChromeLocked) return
     if (timer) clearTimeout(timer)
     const actionLabel = action?.label ?? null
     const onAction = action?.onClick ?? null

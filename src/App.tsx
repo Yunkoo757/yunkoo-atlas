@@ -43,7 +43,7 @@ import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath, workbenchModeFromPathname } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
-import { useToast } from './lib/toast'
+import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import { parseAnalysisScope } from './lib/analysisScope'
 import './App.css'
@@ -422,6 +422,11 @@ export function App() {
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
 
   useEffect(() => {
+    if (closeSaveState.phase === 'idle') unlockBottomChrome()
+    else lockBottomChrome()
+  }, [closeSaveState.phase])
+
+  useEffect(() => {
     const init = async () => {
       // Electron: check if library needs initialization
       if (isElectron()) {
@@ -545,8 +550,7 @@ export function App() {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
           unsubscribeBeforeClose = bridge.onBeforeClose(async () => {
-            // 与底部 toast 共用同一落点，先清掉避免两套完成态叠在一起
-            useToast.getState().dismiss()
+            lockBottomChrome()
             setCloseSaveState({ phase: 'saving' })
             // 给状态至少一帧绘制时间，避免快速落盘时提示从未真正出现。
             await waitForCloseFeedback(48)
@@ -565,7 +569,7 @@ export function App() {
         }
         if (bridge?.onCloseSaveError) {
           unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
-            useToast.getState().dismiss()
+            lockBottomChrome()
             // 错误回执已覆盖底部通知，不再额外 toast，避免双条重叠
             setCloseSaveState({ phase: 'error', message })
           })

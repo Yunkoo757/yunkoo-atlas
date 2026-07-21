@@ -95,13 +95,28 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
     throw new Error('trade references must preserve the calibrated Inter OpenType features')
   }
   if (!quickViews.includes('.quick-view-chip::after') || !quickViews.includes('box-shadow: var(--surface-control-shadow-active)')) {
-    throw new Error('quick-view pills must render the calibrated border as a pseudo layer')
+    throw new Error('quick-view pills must retain the calibrated ::after contract layer')
+  }
+  if (!quickViews.includes('border: 1px solid var(--surface-control-border)')) {
+    throw new Error('quick-view pills must paint the 1px ring with inset border, not outward box-shadow')
+  }
+  if (quickViews.includes('box-shadow: var(--surface-control-shadow);')) {
+    throw new Error('quick-view pills must not use outward surface-control-shadow rings that clip under overflow')
   }
   if (!list.includes('inset: 2px 8px') || !list.includes('padding: 0 10px')) {
     throw new Error('trade rows must preserve symmetric 2px vertical breathing room and content padding')
   }
   if (!filterBar.includes('padding: 0 15px 0 8px')) {
     throw new Error('filter toolbar must share the calibrated 8px leading inset')
+  }
+  if (!filterBar.includes('border: 1px solid var(--surface-control-border)')) {
+    throw new Error('filter chips must paint the 1px ring with inset border, not outward box-shadow')
+  }
+  if (filterBar.includes('box-shadow: var(--surface-control-shadow)')) {
+    throw new Error('filter chips must not use outward surface-control-shadow rings that clip under overflow')
+  }
+  if (!filterBar.includes('padding-block:') || !filterBar.includes('overflow-x: auto')) {
+    throw new Error('active filter strip must keep horizontal scroll with vertical padding so rings are not clipped')
   }
   if (!quickViews.includes('border: 0')) {
     throw new Error('quick-view strip must not offset calibrated tabs with a transparent parent border')

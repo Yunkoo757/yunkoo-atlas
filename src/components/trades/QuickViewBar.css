@@ -32,18 +32,16 @@
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: 500;
-  border: 1px solid transparent;
+  /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
+  border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-full);
   background: var(--surface-control);
-  /* 阴影画在元素自身（与 .ui-filter-trigger 同构），避免 ::after 落在 padding box
-     在非整数 DPR 下比填充矮一圈，上下描边像被裁切 */
-  box-shadow: var(--surface-control-shadow);
+  box-shadow: none;
   transition:
-    border 150ms,
+    border-color 150ms,
     background-color 150ms,
     color 150ms,
-    opacity 150ms,
-    box-shadow 150ms;
+    opacity 150ms;
 }
 
 .quick-view-chip::after,
@@ -53,10 +51,9 @@
   content: '';
   pointer-events: none;
   border-radius: var(--radius-full);
-  /* 保留伪层契约；可见描边改由元素 box-shadow 承担，避免双线 */
-  box-shadow: var(--surface-control-shadow);
+  /* 保留伪层契约；可见描边由 border 承担，避免双线与裁切 */
+  box-shadow: var(--surface-control-shadow-active);
   opacity: 0;
-  transition: box-shadow 150ms;
 }
 
 .quick-view-chip {
@@ -69,19 +66,13 @@
 .quick-view-overflow.is-active {
   color: var(--list-text-primary);
   background: var(--surface-control-active);
-  box-shadow: var(--surface-control-shadow-active);
+  border-color: var(--surface-control-border-active);
 }
 
 .quick-view-chip.is-active {
   color: var(--list-text-strong);
   background: var(--surface-control-active);
-  box-shadow: var(--surface-control-shadow-active);
-}
-
-.quick-view-chip.is-active::after,
-.quick-view-overflow:hover::after,
-.quick-view-overflow.is-active::after {
-  box-shadow: var(--surface-control-shadow-active);
+  border-color: var(--surface-control-border-active);
 }
 
 .quick-view-saved {

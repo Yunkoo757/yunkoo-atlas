@@ -23,10 +23,11 @@
   font-size: var(--fs-mini);
   font-weight: 500;
   font-feature-settings: normal;
-  border: 1px solid transparent;
+  /* 描边必须画在盒子内侧：外扩 box-shadow 会被 overflow-x:auto 连带裁掉上下沿 */
+  border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-full);
   background: var(--surface-control);
-  box-shadow: var(--surface-control-shadow);
+  box-shadow: none;
   transition:
     color var(--motion-fast) var(--ease-out),
     background var(--motion-fast) var(--ease-out),
@@ -44,7 +45,7 @@
 .ui-filter-chip:hover {
   color: var(--list-text-strong);
   background: var(--surface-control-active);
-  box-shadow: var(--surface-control-shadow-active);
+  border-color: var(--surface-control-border-active);
 }
 
 .ui-active-filters {
@@ -53,7 +54,11 @@
   gap: 4px;
   min-width: 0;
   flex: 0 1 auto;
+  /* overflow-x 非 visible 时，overflow-y 会被算成 auto，上下描边/焦点环会被裁 */
   overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 6px;
+  margin-block: -6px;
   scrollbar-width: none;
 }
 

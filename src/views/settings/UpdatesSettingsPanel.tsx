@@ -100,7 +100,7 @@ export function UpdatesSettingsPanel() {
       toast(verification.error ?? '更新前备份验证失败，已取消安装')
       return
     }
-    toast('备份已验证，正在重启安装更新…')
+    // 安装会走关闭保存回执（正在安全保存 / 已安全保存），不再弹 toast，避免底部双条重叠
     await getJournalBridge()!.installUpdate()
   }
 

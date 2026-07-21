@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
-import { toast, useToast } from './toast'
+import {
+  isBottomChromeLocked,
+  lockBottomChrome,
+  toast,
+  unlockBottomChrome,
+  useToast,
+} from './toast'
 
 function resetToast() {
+  unlockBottomChrome()
   useToast.getState().dismiss()
   useToast.setState({ id: 0, message: null, actionLabel: null, onAction: null })
 }
@@ -31,5 +38,23 @@ export function testToastDismissClearsVisibleMessage(): void {
   toast('链接已复制')
   useToast.getState().dismiss()
   assert.equal(useToast.getState().message, null)
+  resetToast()
+}
+
+export function testBottomChromeLockSuppressesToastOverlap(): void {
+  resetToast()
+  toast('备份已验证，正在重启安装更新…')
+  assert.equal(useToast.getState().message, '备份已验证，正在重启安装更新…')
+
+  lockBottomChrome()
+  assert.equal(isBottomChromeLocked(), true)
+  assert.equal(useToast.getState().message, null, '锁定底部层必须清掉已有 toast')
+
+  toast('又一条通知')
+  assert.equal(useToast.getState().message, null, '锁定期间不得再弹出 toast')
+
+  unlockBottomChrome()
+  toast('可以显示了')
+  assert.equal(useToast.getState().message, '可以显示了')
   resetToast()
 }

@@ -23,10 +23,16 @@ export async function testExplicitSaveFailuresPropagateAndCancelWindowClose(): P
   assert(app.includes('已安全保存'), '关闭窗口前必须给出保存成功回执')
   assert(app.includes('保存未完成，已取消退出'), '保存失败时必须明确说明窗口不会关闭')
   assert(app.includes('CLOSE_SAVE_RECEIPT_MS'), '成功回执必须保留可感知的展示时间')
-  assert(app.includes('useToast.getState().dismiss()'), '关闭回执出现前必须清掉底部 toast，避免完成态叠层')
+  assert(app.includes('lockBottomChrome()'), '关闭回执出现时必须锁定底部通知层，避免与 toast 重叠')
   assert(
     !/onCloseSaveError\([\s\S]*toast\(/.test(app),
     '关闭保存失败回执不得再额外 toast，避免双条重叠',
+  )
+  assert(
+    !(await fs.readFile('src/views/settings/UpdatesSettingsPanel.tsx', 'utf8')).includes(
+      '备份已验证，正在重启安装更新',
+    ),
+    '安装更新不得再弹与关闭回执抢位的 toast',
   )
   assert(preload.includes('removeListener'), '关闭前回调必须可取消订阅，避免重复监听叠出多条回执')
   assert(preload.includes('requestClose'), '保存失败后必须提供可重试的退出入口')

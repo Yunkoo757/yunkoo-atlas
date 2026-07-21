@@ -41,7 +41,7 @@ xattr -cr "/path/to/Trader Atlas.app"
 ## Windows 高 DPI
 
 - NSIS 安装向导：`build/installer.nsh` 声明 `ManifestDPIAware` + `PerMonitorV2`，避免安装界面被系统位图拉伸发糊。
-- NSIS 品牌图：`pnpm icons:app` 生成 `build/installerSidebar.bmp` / `build/installerHeader.bmp`（Atlas 暗色）；向导默认简体中文。
+- NSIS 品牌图：`pnpm icons:app` 生成 `build/installerSidebar.bmp` / `build/installerHeader.bmp`（Atlas 暗色、3× 分辨率适配高 DPI）；向导默认简体中文。
 - 应用进程：Electron 主进程在 ready 前开启 `high-dpi-support`，按显示器原生缩放渲染。
 
 若旧安装包仍糊：先装新版本覆盖；也可在快捷方式属性 → 兼容性 →「更改高 DPI 设置」中确认未强制系统缩放。
