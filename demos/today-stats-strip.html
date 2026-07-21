@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>今日工作台 · 战绩条 Demo</title>
+  <style>
+    :root {
+      --font-ui: "Geist Sans", "Segoe UI", system-ui, sans-serif;
+      --bg-app: lch(1.82% 0 272);
+      --bg-surface: lch(4.2% 0.8 272);
+      --bg-elevated: lch(7.2% 1.2 272);
+      --bg-hover: lch(10% 1.6 272);
+      --border-subtle: lch(16% 1.2 272 / 0.9);
+      --text-primary: lch(93% 1 272);
+      --text-secondary: lch(78% 1.2 272);
+      --text-tertiary: lch(60% 1 272);
+      --text-quaternary: lch(48% 1 272);
+      --text-muted: var(--text-tertiary);
+      --text-faint: lch(42% 1 272);
+      --text-strong: var(--text-primary);
+      --accent: lch(62% 42 272);
+      --pos: lch(72% 45 152);
+      --neg: lch(58% 62 28);
+      --radius-8: 8px;
+      --fs-title: 20px;
+      --type-section-title-size: 13px;
+      --type-row-size: 13px;
+      --type-metadata-size: 12px;
+      --fs-mini: 11px;
+      --font-weight-medium: 500;
+      --font-weight-semibold: 600;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg-app);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .demo-chrome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+    }
+    .demo-chrome h1 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .demo-chrome p {
+      margin: 2px 0 0;
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+    .demo-toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .demo-toggles button {
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-secondary);
+      font: inherit;
+      cursor: pointer;
+    }
+    .demo-toggles button[aria-pressed="true"] {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+      border-color: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+    }
+
+    .topbar {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 14px 28px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .topbar strong { font-size: 14px; font-weight: 600; }
+    .topbar span { color: var(--text-tertiary); font-size: 12px; }
+
+    .today-workspace-inner {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 22px 28px 72px;
+    }
+
+    .today-focus {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 28px;
+      padding: 2px 0 19px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .today-focus-eyebrow {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text-tertiary);
+      font-size: var(--type-metadata-size);
+      font-weight: var(--font-weight-medium);
+    }
+    .today-focus h2 {
+      margin: 0;
+      font-size: clamp(21px, 1.6vw, 24px);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: -0.025em;
+      line-height: 1.25;
+    }
+    .today-focus p {
+      margin: 7px 0 0;
+      color: var(--text-muted);
+      font-size: var(--type-row-size);
+      line-height: 1.55;
+      max-width: 42em;
+    }
+    .empty-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* —— 今日战绩条（方案稿） —— */
+    .today-stats {
+      margin: 14px 0 0;
+      padding: 14px 16px 15px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-8);
+      background: color-mix(in srgb, var(--accent) 3%, var(--bg-elevated));
+    }
+    .today-stats.is-empty {
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+    .today-stats-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .today-stats.is-empty .today-stats-head {
+      align-items: center;
+      margin-bottom: 0;
+    }
+    .today-stats-title {
+      display: block;
+      color: var(--text-strong);
+      font-size: var(--type-section-title-size);
+      font-weight: var(--font-weight-semibold);
+    }
+    .today-stats-sub {
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-size: var(--type-metadata-size);
+    }
+    .today-stats-link {
+      flex-shrink: 0;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-secondary);
+      font: inherit;
+      font-size: var(--type-metadata-size);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+    }
+    .today-stats-link:hover {
+      color: var(--text-strong);
+      background: var(--bg-hover);
+    }
+    .today-stats-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .today-stats-metric {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .today-stats-metric span {
+      color: var(--text-muted);
+      font-size: var(--type-metadata-size);
+    }
+    .today-stats-metric strong {
+      color: var(--text-strong);
+      font-size: var(--fs-title);
+      font-weight: var(--font-weight-semibold);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .today-stats-metric strong.is-pos { color: var(--pos); }
+    .today-stats-metric strong.is-neg { color: var(--neg); }
+    .today-stats-metric small {
+      color: var(--text-faint);
+      font-size: var(--fs-mini);
+    }
+
+    .today-queue-overview {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin: 14px 0 27px;
+      overflow: hidden;
+      background: var(--border-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-8);
+    }
+    .today-queue-overview button {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 13px;
+      color: var(--text-muted);
+      font-size: var(--type-metadata-size);
+      font-family: inherit;
+      text-align: left;
+      background: var(--bg-surface);
+      border: 0;
+      cursor: pointer;
+    }
+    .today-queue-overview button.has-items { color: var(--text-secondary); }
+    .today-queue-overview strong {
+      color: var(--text-quaternary);
+      font-size: var(--fs-mini);
+      font-weight: var(--font-weight-medium);
+      font-variant-numeric: tabular-nums;
+    }
+    .today-queue-overview button.has-items strong { color: var(--text-primary); }
+
+    .fake-row {
+      display: grid;
+      grid-template-columns: 90px 56px 1fr 80px;
+      gap: 12px;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .fake-row:last-child { border-bottom: 0; }
+    .fake-list {
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .group-h {
+      margin: 0 0 8px;
+      padding: 0 2px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .group-h span { color: var(--text-quaternary); font-weight: 400; font-size: 11px; margin-left: 7px; }
+
+    .note {
+      margin-top: 28px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px dashed var(--border-subtle);
+      color: var(--text-tertiary);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 900px) {
+      .today-workspace-inner { padding-right: 18px; padding-left: 18px; }
+      .today-queue-overview { grid-template-columns: 1fr; }
+      .today-stats-metrics { grid-template-columns: 1fr; gap: 14px; }
+    }
+    @media (max-width: 700px) {
+      .today-workspace-inner { padding: 18px 10px 56px; }
+      .today-focus { align-items: flex-start; flex-direction: column; gap: 16px; }
+      .empty-btn { width: 100%; justify-content: center; min-height: 44px; }
+      .topbar { padding-left: 10px; padding-right: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-chrome">
+    <div>
+      <h1>今日工作台 · 战绩条 HTML Demo</h1>
+      <p>位置：行动焦点与待办概览之间 · 实盘 · 按平仓日 · 三指标</p>
+    </div>
+    <div class="demo-toggles" role="group" aria-label="预览状态">
+      <button type="button" id="btn-filled" aria-pressed="true">有平仓数据</button>
+      <button type="button" id="btn-empty" aria-pressed="false">尚无平仓</button>
+      <button type="button" id="btn-loss" aria-pressed="false">亏损日</button>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <strong>今日工作台</strong>
+    <span>7月21日 星期二</span>
+  </header>
+
+  <div class="today-workspace-inner">
+    <section class="today-focus" aria-labelledby="today-focus-title">
+      <div>
+        <span class="today-focus-eyebrow">行动队列</span>
+        <h2 id="today-focus-title">还有 2 项需要处理</h2>
+        <p>按执行、结果、复盘的顺序完成闭环；统计会自动保持可信。</p>
+      </div>
+      <button type="button" class="empty-btn">＋ 新建交易</button>
+    </section>
+
+    <!-- 新增：今日战绩 -->
+    <section class="today-stats" id="today-stats" aria-label="今日战绩">
+      <div class="today-stats-head">
+        <div>
+          <span class="today-stats-title">今日战绩</span>
+          <p class="today-stats-sub" id="stats-sub">实盘 · 按平仓日 · 基于 4 笔有金额</p>
+        </div>
+        <a class="today-stats-link" href="#">查看本周分析</a>
+      </div>
+      <div class="today-stats-metrics" id="stats-metrics">
+        <div class="today-stats-metric">
+          <span>今日平仓</span>
+          <strong id="m-count">5</strong>
+        </div>
+        <div class="today-stats-metric">
+          <span>胜率</span>
+          <strong id="m-wr">60%</strong>
+        </div>
+        <div class="today-stats-metric">
+          <span>净盈亏</span>
+          <strong id="m-pnl" class="is-pos">+$1,240</strong>
+          <small id="m-pnl-hint">含 1 笔待补金额未计入</small>
+        </div>
+      </div>
+    </section>
+
+    <nav class="today-queue-overview" aria-label="待处理事项概览">
+      <button type="button" class="has-items">
+        <span aria-hidden>⏱</span><span>进行中的交易</span><strong>1</strong>
+      </button>
+      <button type="button" class="has-items">
+        <span aria-hidden>!</span><span>待补交易结果</span><strong>1</strong>
+      </button>
+      <button type="button">
+        <span aria-hidden>☰</span><span>待完成复盘</span><strong>0</strong>
+      </button>
+    </nav>
+
+    <section>
+      <h3 class="group-h">进行中的交易<span>1</span></h3>
+      <div class="fake-list">
+        <div class="fake-row"><span>BTCUSDT</span><span>做多</span><span>持仓中 · 1H</span><span>—</span></div>
+      </div>
+    </section>
+
+    <p class="note">
+      Demo 说明：战绩条与下方行动队列<strong>解耦</strong>——队列管「今天要做什么」，战绩管「今日已平仓表现」。
+      口径固定为实盘 + 平仓日；侧栏「今日」列表若按开仓日计数，数字可能不一致，故副文案写明「按平仓日」。
+      首期不做平均 R / 策略分布。确认视觉后可按此结构落到 <code>TodayWorkspace</code>。
+    </p>
+  </div>
+
+  <script>
+    const stats = document.getElementById('today-stats')
+    const metrics = document.getElementById('stats-metrics')
+    const sub = document.getElementById('stats-sub')
+    const count = document.getElementById('m-count')
+    const wr = document.getElementById('m-wr')
+    const pnl = document.getElementById('m-pnl')
+    const hint = document.getElementById('m-pnl-hint')
+    const buttons = {
+      filled: document.getElementById('btn-filled'),
+      empty: document.getElementById('btn-empty'),
+      loss: document.getElementById('btn-loss'),
+    }
+
+    function setPressed(key) {
+      Object.entries(buttons).forEach(([k, el]) => el.setAttribute('aria-pressed', k === key ? 'true' : 'false'))
+    }
+
+    function showFilled() {
+      setPressed('filled')
+      stats.classList.remove('is-empty')
+      metrics.hidden = false
+      sub.textContent = '实盘 · 按平仓日 · 基于 4 笔有金额'
+      count.textContent = '5'
+      wr.textContent = '60%'
+      pnl.textContent = '+$1,240'
+      pnl.className = 'is-pos'
+      hint.hidden = false
+      hint.textContent = '含 1 笔待补金额未计入'
+    }
+
+    function showEmpty() {
+      setPressed('empty')
+      stats.classList.add('is-empty')
+      metrics.hidden = true
+      sub.textContent = '今日尚无已平仓 · 平仓后显示胜率与盈亏'
+      hint.hidden = true
+    }
+
+    function showLoss() {
+      setPressed('loss')
+      stats.classList.remove('is-empty')
+      metrics.hidden = false
+      sub.textContent = '实盘 · 按平仓日 · 基于 3 笔有金额'
+      count.textContent = '3'
+      wr.textContent = '33%'
+      pnl.textContent = '−$420'
+      pnl.className = 'is-neg'
+      hint.hidden = true
+    }
+
+    buttons.filled.addEventListener('click', showFilled)
+    buttons.empty.addEventListener('click', showEmpty)
+    buttons.loss.addEventListener('click', showLoss)
+  </script>
+</body>
+</html>

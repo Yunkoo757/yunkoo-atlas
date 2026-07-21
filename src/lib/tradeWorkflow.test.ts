@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { buildTodayClosedMetrics, getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { useStore } from '@/store/useStore'
 
 const base: Trade = {
@@ -181,4 +181,42 @@ export function testTodayWorkflowExcludesCasesPaperAndDeletedTrades(): void {
   assert(buckets.actionCount === 0, 'non-live and deleted records must not become today actions')
   assert(buckets.completedToday.length === 0, 'non-live and deleted records must remain hidden')
 }
+
+export function testTodayClosedMetricsUsesCloseDateLiveOnly(): void {
+  const today = '2026-07-21'
+  const winToday = {
+    ...base,
+    id: 'win-today',
+    status: 'win',
+    openedAt: '2026-07-20',
+    closedAt: today,
+    exit: 110,
+    pnl: 100,
+    rMultiple: 2,
+  } as Trade
+  const openToday = { ...base, id: 'open-today', status: 'open', openedAt: today } as Trade
+  const closedYesterday = {
+    ...winToday,
+    id: 'closed-yesterday',
+    closedAt: '2026-07-20',
+  } as Trade
+  const paperWin = { ...winToday, id: 'paper-win', tradeKind: 'paper' } as Trade
+  const missingPnl = {
+    ...winToday,
+    id: 'missing-pnl',
+    pnl: null,
+    rMultiple: null,
+  } as Trade
+
+  const metrics = buildTodayClosedMetrics(
+    [winToday, openToday, closedYesterday, paperWin, missingPnl],
+    today,
+  )
+
+  assert(metrics.closedCount === 2, 'today metrics count only live closed-on-today trades')
+  assert(metrics.winRate === 100, 'evaluated win rate ignores open and non-today closes')
+  assert(metrics.pnlCount === 1, 'unverified pnl must not inflate pnlCount')
+  assert(metrics.totalPnl === 100, 'total pnl sums verified amounts only')
+}
+
 

@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
-import { resolveTradeTruth } from '@/lib/tradeTruth'
+import { isExecutedClosed } from '@/lib/tradeStatus'
+import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
 
 export interface TodayWorkflowBuckets {
   active: Trade[]
@@ -9,6 +10,8 @@ export interface TodayWorkflowBuckets {
   actionCount: number
   historicalActionCount: number
 }
+
+export type TodayClosedMetrics = TradeResultSummary
 
 export function toLocalDateKey(value = new Date()): string {
   return [
@@ -43,6 +46,28 @@ function completedNewestFirst(left: Trade, right: Trade): number {
 
 function workflowDate(trade: Trade): string {
   return dateKeyFromStoredValue(trade.closedAt ?? trade.openedAt) ?? ''
+}
+
+/** 今日已平仓实盘（按平仓日；无 closedAt 时回退 openedAt），供战绩条统计。 */
+export function filterTodayClosedLiveTrades(
+  trades: readonly Trade[],
+  today: string,
+): Trade[] {
+  return trades.filter(
+    (trade) =>
+      trade.tradeKind === 'live' &&
+      !trade.deletedAt &&
+      isExecutedClosed(trade.status) &&
+      sameLocalDate(trade.closedAt ?? trade.openedAt, today),
+  )
+}
+
+/** 今日战绩：仅实盘 + 今日平仓日 + summarizeTradeResults。 */
+export function buildTodayClosedMetrics(
+  trades: readonly Trade[],
+  today: string,
+): TodayClosedMetrics {
+  return summarizeTradeResults(filterTodayClosedLiveTrades(trades, today))
 }
 
 /** 把交易库投影为互斥的今日行动队列，避免同一笔交易在多个区块重复出现。 */

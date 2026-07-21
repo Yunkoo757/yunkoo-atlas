@@ -1,17 +1,18 @@
 import { useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertCircle, BookOpen, CheckCircle, Clock, Plus } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { EmptyState } from '@/components/EmptyState'
 import { Topbar } from '@/components/Topbar'
 import { TradeRow } from '@/components/trades/TradeRow'
 import type { Trade } from '@/data/trades'
+import { fmtMoney } from '@/lib/format'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
-import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { buildTodayClosedMetrics, getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
@@ -59,11 +60,14 @@ export function TodayWorkspace() {
   const upsertTrade = useStore((state) => state.upsertTrade)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
+  const privacyMode = useStore((state) => state.display.privacyMode)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
   const today = useLocalDateKey()
   const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
+  const todayMetrics = useMemo(() => buildTodayClosedMetrics(trades, today), [trades, today])
+  const todayStatsEmpty = todayMetrics.closedCount === 0
   const starredIdSet = useMemo(() => new Set(starredIds), [starredIds])
   useTradeReturnAnchor()
 
@@ -139,6 +143,66 @@ export function TodayWorkspace() {
               <Plus size={15} />
               新建交易
             </button>
+          </section>
+
+          <section
+            className={'today-stats' + (todayStatsEmpty ? ' is-empty' : '')}
+            aria-label="今日战绩"
+          >
+            <div className="today-stats-head">
+              <div>
+                <span className="today-stats-title">今日战绩</span>
+                <p className="today-stats-sub">
+                  {todayStatsEmpty
+                    ? '今日尚无已平仓 · 平仓后显示胜率与盈亏'
+                    : `实盘 · 按平仓日${
+                        todayMetrics.pnlCount > 0
+                          ? ` · 基于 ${todayMetrics.pnlCount} 笔有金额`
+                          : ''
+                      }`}
+                </p>
+              </div>
+              <Link to="/dashboard?kind=live&range=this-week" className="today-stats-link">
+                查看本周分析
+              </Link>
+            </div>
+            {!todayStatsEmpty ? (
+              <div className="today-stats-metrics">
+                <div className="today-stats-metric">
+                  <span>今日平仓</span>
+                  <strong>{todayMetrics.closedCount}</strong>
+                </div>
+                <div className="today-stats-metric">
+                  <span>胜率</span>
+                  <strong>
+                    {todayMetrics.winRate == null
+                      ? '—'
+                      : `${todayMetrics.winRate.toFixed(0)}%`}
+                  </strong>
+                </div>
+                <div className="today-stats-metric">
+                  <span>净盈亏</span>
+                  <strong
+                    className={
+                      privacyMode || todayMetrics.pnlCount === 0 || todayMetrics.totalPnl === 0
+                        ? undefined
+                        : todayMetrics.totalPnl > 0
+                          ? 'is-pos'
+                          : 'is-neg'
+                    }
+                  >
+                    {todayMetrics.pnlCount === 0
+                      ? '—'
+                      : fmtMoney(todayMetrics.totalPnl, privacyMode)}
+                  </strong>
+                  {todayMetrics.closedCount > todayMetrics.pnlCount ? (
+                    <small>
+                      含 {todayMetrics.closedCount - todayMetrics.pnlCount} 笔待补金额未计入
+                    </small>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <nav className="today-queue-overview" aria-label="待处理事项概览">
