@@ -16,6 +16,7 @@
   height: var(--control-height);
   padding: 0 10px;
   border-radius: var(--radius-6);
+  font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);

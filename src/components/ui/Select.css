@@ -16,7 +16,9 @@
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
+  font-family: var(--font-ui);
   font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
   text-align: left;
   transition:
     color var(--dur-fast) var(--ease-out),

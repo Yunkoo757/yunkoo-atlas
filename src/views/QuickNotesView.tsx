@@ -16,7 +16,9 @@ import {
   QUICK_NOTE_DRAFT_PREFIX,
   setNoteDraft,
 } from '@/storage/noteDrafts'
-import { FileText, Pin, PinOff, Plus, Search, Trash2 } from '@/icons/appIcons'
+import { Pin, PinOff, Plus, Search, Trash2 } from '@/icons/appIcons'
+import { EmptyState } from '@/components/EmptyState'
+import { Toolbar } from '@/components/ui/Toolbar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { toast } from '@/lib/toast'
@@ -118,21 +120,21 @@ export function QuickNotesView() {
 
   return (
     <section className="quick-notes-page">
-      <header className="quick-notes-topbar">
-        <div>
-          <h1>随记</h1>
-          <p>记录想法、观察与截图，不参与交易统计</p>
-        </div>
-        <button type="button" className="quick-notes-new" onClick={createNote}>
-          <Plus size={16} />
-          新建随记
-        </button>
-      </header>
+      <Toolbar
+        title="随记"
+        context="记录想法、观察与截图，不参与交易统计"
+        actions={(
+          <button type="button" className="empty-btn" onClick={createNote}>
+            <Plus size={15} />
+            新建随记
+          </button>
+        )}
+      />
 
       <div className="quick-notes-workspace">
         <aside className="quick-notes-list-pane" aria-label="随记列表">
           <label className="quick-notes-search">
-            <Search size={16} aria-hidden="true" />
+            <Search size={14} aria-hidden="true" />
             <input
               type="search"
               value={query}
@@ -229,12 +231,17 @@ export function QuickNotesView() {
               </div>
             </>
           ) : (
-            <div className="quick-notes-empty">
-              <span><FileText size={24} /></span>
-              <h2>留下一条随记</h2>
-              <p>不用先决定它属于哪笔交易，先把想法和证据保存下来。</p>
-              <button type="button" onClick={createNote}><Plus size={16} />新建随记</button>
-            </div>
+            <EmptyState
+              className="quick-notes-empty"
+              title="留下一条随记"
+              hint="不用先决定它属于哪笔交易，先把想法和证据保存下来。"
+              action={(
+                <button type="button" className="empty-btn" onClick={createNote}>
+                  <Plus size={15} />
+                  新建随记
+                </button>
+              )}
+            />
           )}
         </main>
       </div>

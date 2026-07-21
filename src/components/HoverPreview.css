@@ -8,6 +8,7 @@
 
   position: fixed;
   z-index: 500;
+  box-sizing: border-box;
   padding: 12px;
   border: 1px solid var(--surface-control-border-active);
   border-radius: var(--radius-8);
@@ -15,6 +16,7 @@
   box-shadow: var(--shadow-high);
   color: var(--text-primary);
   font-family: var(--font-ui);
+  overflow: hidden;
   pointer-events: none;
   opacity: 0;
   transition:

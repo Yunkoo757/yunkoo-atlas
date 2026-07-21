@@ -21,6 +21,111 @@
   font-weight: var(--type-metadata-weight);
 }
 
+.db-week {
+  margin-bottom: 12px;
+  padding: 14px 18px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: color-mix(in srgb, var(--accent) 3%, var(--bg-elevated));
+}
+
+.db-week-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.db-week-title {
+  display: block;
+  color: var(--text-strong);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+
+.db-week-sub {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+}
+
+.db-week-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.db-week-link {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+  line-height: 26px;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.db-week-link:hover {
+  color: var(--text-strong);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.db-week-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.db-week-metric {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.db-week-metric span {
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+}
+
+.db-week-metric strong {
+  color: var(--text-strong);
+  font-size: 20px;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-week-metric small,
+.db-week-missed,
+.db-week-empty {
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+}
+
+.db-week-missed,
+.db-week-empty {
+  margin: 10px 0 0;
+}
+
+@media (max-width: 900px) {
+  .db-week-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .db-segmented {
   display: flex;
   background: var(--bg-elevated);
@@ -32,6 +137,7 @@
 .db-seg {
   padding: 4px 10px;
   border-radius: 4px;
+  font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   color: var(--text-muted);

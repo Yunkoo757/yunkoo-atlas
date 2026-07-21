@@ -53,13 +53,15 @@ export function StrategyHeader({
     ? `${analysisScope.kind === 'live' ? '实盘' : analysisScope.kind === 'paper' ? '模拟' : '全部类型'} · ${
         analysisScope.range === 'all'
           ? '全部时间'
-          : analysisScope.range === 'this-month'
-            ? '本月'
-            : analysisScope.range === '30d'
-              ? '近30天'
-              : analysisScope.range === '90d'
-                ? '近90天'
-                : '本年'
+          : analysisScope.range === 'this-week'
+            ? '本周'
+            : analysisScope.range === 'this-month'
+              ? '本月'
+              : analysisScope.range === '30d'
+                ? '近30天'
+                : analysisScope.range === '90d'
+                  ? '近90天'
+                  : '本年'
       } · 按平仓日`
     : null
   const pendingResultCount = Math.max(

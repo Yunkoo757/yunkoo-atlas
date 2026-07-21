@@ -117,6 +117,28 @@ export function testNinetyDayScopeUsesInclusiveCalendarWindow(): void {
   assert(result[0]?.id === 'ninety-boundary', '90-day analysis must include its first calendar day')
 }
 
+export function testThisWeekScopeUsesMondayThroughToday(): void {
+  // 2026-07-16 周四 → 本周起点 2026-07-13（周一）
+  const trades: Trade[] = [
+    { ...closedLiveTrade, id: 'week-monday', closedAt: '2026-07-13' },
+    { ...closedLiveTrade, id: 'week-today', closedAt: '2026-07-16' },
+    { ...closedLiveTrade, id: 'previous-sunday', closedAt: '2026-07-12' },
+    { ...closedLiveTrade, id: 'future-friday', closedAt: '2026-07-17' },
+  ]
+
+  const result = filterTradesByAnalysisScope(
+    trades,
+    { kind: 'live', range: 'this-week' },
+    new Date(2026, 6, 16, 12),
+  )
+
+  assert(result.length === 2, 'this-week analysis must run from Monday through today')
+  assert(
+    result.map((trade) => trade.id).join(',') === 'week-monday,week-today',
+    'this-week analysis must include Monday and today, exclude last week and future days',
+  )
+}
+
 export function testThisMonthScopeStopsAtToday(): void {
   const trades: Trade[] = [
     { ...closedLiveTrade, id: 'month-start', closedAt: '2026-07-01' },

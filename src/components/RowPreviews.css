@@ -87,29 +87,32 @@
 }
 
 .sp-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
   line-height: 1.4;
-  white-space: nowrap;
 }
 
 .sp-outcomes {
+  grid-column: 1 / -1;
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: 7px 10px;
 }
 
 .sp-metric {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .sp-metric strong {
+  min-width: 0;
   color: var(--text-secondary);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;

@@ -34,6 +34,7 @@ html[data-ui-settled='1'] .tb-seg {
   gap: 6px;
   padding: 4px 8px;
   border-radius: var(--radius-6);
+  font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);

@@ -1,10 +1,10 @@
 import type { Trade } from '@/data/trades'
-import { formatYmd, isDateInRange } from '@/lib/periods'
+import { formatYmd, getPeriodBounds, isDateInRange } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 
 export type AnalysisKind = 'live' | 'paper' | 'all'
-export type AnalysisRange = 'all' | 'this-month' | '30d' | '90d' | 'ytd'
+export type AnalysisRange = 'all' | 'this-week' | 'this-month' | '30d' | '90d' | 'ytd'
 
 export interface AnalysisScope {
   kind: AnalysisKind
@@ -22,7 +22,7 @@ export const DEFAULT_ANALYSIS_SCOPE: AnalysisScope = {
 }
 
 const ANALYSIS_KINDS: AnalysisKind[] = ['live', 'paper', 'all']
-const ANALYSIS_RANGES: AnalysisRange[] = ['all', 'this-month', '30d', '90d', 'ytd']
+const ANALYSIS_RANGES: AnalysisRange[] = ['all', 'this-week', 'this-month', '30d', '90d', 'ytd']
 
 export function parseAnalysisScope(
   input: string | URLSearchParams,
@@ -58,18 +58,30 @@ export function filterTradesByAnalysisScope(
   if (scope.range === 'all') return scoped
 
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  let start: Date
-  if (scope.range === 'this-month') {
-    start = new Date(end.getFullYear(), end.getMonth(), 1)
+  const today = formatYmd(end)
+  let bounds: { start: string; end: string }
+
+  if (scope.range === 'this-week') {
+    // 与本月一致：周一起点到今天（不含未来周日）
+    bounds = { start: getPeriodBounds('this-week', now).start, end: today }
+  } else if (scope.range === 'this-month') {
+    bounds = {
+      start: formatYmd(new Date(end.getFullYear(), end.getMonth(), 1)),
+      end: today,
+    }
   } else if (scope.range === 'ytd') {
-    start = new Date(end.getFullYear(), 0, 1)
+    bounds = {
+      start: formatYmd(new Date(end.getFullYear(), 0, 1)),
+      end: today,
+    }
   } else {
     const dayCount = scope.range === '30d' ? 30 : scope.range === '90d' ? 90 : null
     if (dayCount === null) return scoped
-    start = new Date(end)
+    const start = new Date(end)
     start.setDate(start.getDate() - (dayCount - 1))
+    bounds = { start: formatYmd(start), end: today }
   }
-  const bounds = { start: formatYmd(start), end: formatYmd(end) }
+
   return scoped.filter((trade) => isDateInRange(trade.closedAt ?? trade.openedAt, bounds))
 }
 

@@ -8,7 +8,10 @@ const editorStyles = read('src/editor/Editor.css')
 const strategyModalStyles = read('src/components/StrategyFormModal.css')
 const statusIconStyles = read('src/icons/linear/status/linearStatusIcons.css')
 const statusIconComponent = read('src/components/StatusIcon.tsx')
+const filterBarStyles = read('src/components/ui/FilterBar.css')
 const buttonStyles = read('src/components/ui/Button.css')
+const quickViewStyles = read('src/components/trades/QuickViewBar.css')
+const topbarStyles = read('src/components/Topbar.css')
 const crumbsStyles = read('src/components/ui/CrumbsNav.css')
 const toolbarStyles = read('src/components/ui/Toolbar.css')
 const tagPresetStyles = read('src/views/settings/TagPresetsPanel.css')
@@ -104,6 +107,21 @@ const checks = [
     /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--fs-mini\);[\s\S]*?font-weight:\s*500;[\s\S]*?font-feature-settings:\s*normal;/s.test(
       tradeListStyles,
     ),
+  ],
+  [
+    'filter chips match the quick-view typography',
+    /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-mini\);[^}]*font-weight:\s*500;/s.test(
+      filterBarStyles,
+    ) &&
+      /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-mini\);[^}]*font-weight:\s*500;/s.test(
+        quickViewStyles,
+      ) &&
+      /\.tb-btn\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-mini\);[^}]*font-weight:\s*var\(--font-weight-medium\);/s.test(
+        topbarStyles,
+      ) &&
+      /\.ui-btn,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--fs-mini\);[\s\S]*?font-weight:\s*var\(--font-weight-medium\);/s.test(
+        buttonStyles,
+      ),
   ],
   [
     'trade group counts match Linear numeric metrics',

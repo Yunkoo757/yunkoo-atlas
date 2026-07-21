@@ -8,7 +8,8 @@
   border: 1px solid transparent;
   border-radius: 9999px;
   color: var(--list-text-secondary);
-  font-size: 12px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
   font-weight: 500;
   background: var(--surface-control);
   box-shadow: var(--surface-control-shadow);

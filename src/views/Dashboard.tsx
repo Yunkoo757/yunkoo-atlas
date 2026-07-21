@@ -34,10 +34,19 @@ import {
   describeDashboardResultHealth,
   type DashboardCurvePoint,
 } from '@/lib/dashboardStats'
+import {
+  buildWeeklyReviewMetrics,
+  missedTradesInWeek,
+  weekEndFor,
+  weekStartFor,
+} from '@/data/weeklyReviews'
+import { MISS_REASON_META, type MissReason } from '@/data/trades'
+import { parseLocalDate } from '@/lib/periods'
 import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
   { value: 'all', label: '全部' },
+  { value: 'this-week', label: '本周' },
   { value: 'this-month', label: '本月' },
   { value: '30d', label: '近30天' },
   { value: '90d', label: '近90天' },
@@ -84,6 +93,17 @@ export function Dashboard() {
   )
 
   const stats = useMemo(() => buildDashboardStats(trades, strategyDefs), [trades, strategyDefs])
+  const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
+  const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
+  const weekMetrics = useMemo(() => {
+    const weekTrades = filterTradesByAnalysisScope(
+      allTrades,
+      { kind: scope.kind, range: 'this-week' },
+      new Date(`${localDateKey}T12:00:00`),
+    )
+    const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(allTrades, weekStart)
+    return buildWeeklyReviewMetrics(weekTrades, missed)
+  }, [allTrades, localDateKey, scope.kind, weekStart])
   const rangeLabel = RANGE_OPTS.find((o) => o.value === scope.range)?.label ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '全部类型'
   const hasClosedTrades = stats.closedCount > 0
@@ -92,6 +112,11 @@ export function Dashboard() {
   )
     ? '/sim'
     : '/active'
+  const focusingThisWeek = scope.range === 'this-week'
+  const missedReasonSummary = Object.entries(weekMetrics.missedReasonCounts)
+    .sort((left, right) => right[1] - left[1])
+    .map(([reason, count]) => `${MISS_REASON_META[reason as MissReason]?.label ?? '其他'} ×${count}`)
+    .join(' · ')
 
   const updateScope = (patch: Partial<typeof scope>) => {
     setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
@@ -135,6 +160,82 @@ export function Dashboard() {
             ))}
           </div>
         </div>
+
+        <section className="db-week" aria-label="本周交易分析">
+          <div className="db-week-head">
+            <div>
+              <span className="db-week-title">本周交易分析</span>
+              <div className="db-week-sub">
+                {weekRangeLabel} · {kindLabel} · 按平仓日
+                {weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}
+              </div>
+            </div>
+            <div className="db-week-actions">
+              {!focusingThisWeek ? (
+                <button type="button" className="db-week-link" onClick={() => updateScope({ range: 'this-week' })}>
+                  聚焦本周
+                </button>
+              ) : null}
+              {scope.kind !== 'paper' ? (
+                <Link to="/weekly-review" className="db-week-link">
+                  打开周复盘
+                </Link>
+              ) : null}
+            </div>
+          </div>
+          <div className="db-week-metrics">
+            <div className="db-week-metric">
+              <span>平仓</span>
+              <strong>{weekMetrics.tradeCount}</strong>
+              <small>{weekMetrics.reviewedCount} 笔已复盘</small>
+            </div>
+            <div className="db-week-metric">
+              <span>胜率</span>
+              <strong>{weekMetrics.winRate == null ? '—' : `${weekMetrics.winRate.toFixed(0)}%`}</strong>
+              <small>
+                {weekMetrics.winCount} 赢 · {weekMetrics.lossCount} 亏 · {weekMetrics.breakevenCount} 平
+              </small>
+            </div>
+            <div className="db-week-metric">
+              <span>净盈亏</span>
+              <strong
+                style={{
+                  color: privacyMode || weekMetrics.pnlCount === 0 || weekMetrics.totalPnl === 0
+                    ? undefined
+                    : weekMetrics.totalPnl > 0
+                      ? 'var(--pos)'
+                      : 'var(--neg)',
+                }}
+              >
+                {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, privacyMode)}
+              </strong>
+              <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small>
+            </div>
+            <div className="db-week-metric">
+              <span>平均 R</span>
+              <strong
+                style={{
+                  color: weekMetrics.averageR == null || weekMetrics.averageR === 0
+                    ? undefined
+                    : weekMetrics.averageR > 0
+                      ? 'var(--pos)'
+                      : 'var(--neg)',
+                }}
+              >
+                {weekMetrics.averageR == null
+                  ? '—'
+                  : `${weekMetrics.averageR > 0 ? '+' : ''}${weekMetrics.averageR.toFixed(2)}`}
+              </strong>
+              <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small>
+            </div>
+          </div>
+          {weekMetrics.missedCount > 0 && missedReasonSummary ? (
+            <p className="db-week-missed">执行缺口：{missedReasonSummary}</p>
+          ) : null}
+          {weekMetrics.tradeCount === 0 && weekMetrics.missedCount === 0 ? (
+            <p className="db-week-empty">本周尚无已平仓交易。平仓后这里会汇总胜率、盈亏与平均 R。</p>
+          ) : null}
+        </section>
 
         <div className="db-cards">
           <Card
@@ -468,4 +569,13 @@ function Card({
       {sub && <span className="db-card-sub">{sub}</span>}
     </div>
   )
+}
+
+function formatDashboardWeekRange(weekStart: string): string {
+  const end = weekEndFor(weekStart)
+  const left = parseLocalDate(weekStart)
+  const right = parseLocalDate(end)
+  return left.getMonth() === right.getMonth()
+    ? `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getDate()}日`
+    : `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getMonth() + 1}月${right.getDate()}日`
 }
