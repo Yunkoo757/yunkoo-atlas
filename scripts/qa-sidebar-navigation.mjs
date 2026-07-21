@@ -659,7 +659,7 @@ try {
   const mobileActions = mobileNavigation.locator('a, button')
   expectEqual(
     await mobileActions.evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label') ?? element.textContent?.trim() ?? '')),
-    ['今日', '交易', '案例', '仪表盘', '更多'],
+    ['今日', '交易日志', '案例', '仪表盘', '更多'],
     'Mobile navigation must expose exactly five named actions',
   )
   expectEqual(
@@ -757,7 +757,7 @@ try {
   await expectFocused(moreButton)
   await expectMobileCurrentCount(page, 1)
 
-  const coreLabels = ['今日', '交易', '案例', '仪表盘']
+  const coreLabels = ['今日', '交易日志', '案例', '仪表盘']
   for (const label of coreLabels) {
     await moreButton.click()
     await page.locator(`.mobile-navigation > a[aria-label="${label}"]`).click({ force: true })
