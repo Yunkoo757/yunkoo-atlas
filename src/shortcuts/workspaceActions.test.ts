@@ -18,6 +18,7 @@ const display: DisplayPrefs = {
   groupByDate: true,
   sortBy: 'date',
   privacyMode: false,
+  tradingDayStartHour: 6,
   sidebarPins: [],
   sidebarWorkspaceItems: [],
   workspaceMemory: {

@@ -33,7 +33,7 @@ export type WindowFrameState = {
 export interface JournalBridge {
   isElectron: true
   /** 主窗口关闭前完成草稿与快照落盘。 */
-  onBeforeClose(callback: () => void | Promise<void>): void
+  onBeforeClose(callback: () => void | Promise<void>): () => void
   onCloseSaveError(callback: (message: string) => void): () => void
   requestClose(): Promise<void>
   toggleFullscreen(): Promise<boolean>

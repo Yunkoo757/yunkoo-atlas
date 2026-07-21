@@ -29,11 +29,15 @@ export function testUpdateLifecycleExposesStableUserFacingState() {
   assert(available.phase === 'available', '发现新版本后应进入 available')
   assert(available.availableVersion === '1.0.1', '应暴露可用版本号')
 
-  const downloading = reduceUpdateState(available, {
+  const started = reduceUpdateState(available, { type: 'download-started' })
+  assert(started.phase === 'downloading', '点击下载后应立刻进入 downloading')
+  assert(started.progress === 0, '下载开始进度应为 0，避免按钮无反馈卡住')
+
+  const downloading = reduceUpdateState(started, {
     type: 'progress',
     percent: 112.4,
   })
-  assert(downloading.phase === 'downloading', '收到进度后应进入 downloading')
+  assert(downloading.phase === 'downloading', '收到进度后应保持 downloading')
   assert(downloading.progress === 100, '下载进度必须限制在 100%')
 
   const downloaded = reduceUpdateState(downloading, {
@@ -75,8 +79,10 @@ export function testUpdaterReschedulesAfterCredentialChangesAndHandlesDownloadEr
   assert(source.includes('autoCheckDelayTimer'), '延迟检查必须可取消，避免重复计时器')
   assert(
     source.includes("await autoUpdater.downloadUpdate()") &&
-      source.includes("message: redactUpdateError"),
-    '更新下载失败必须转为可见的错误状态而不是未处理 Promise',
+      source.includes("message: redactUpdateError") &&
+      source.includes("type: 'download-started'") &&
+      source.includes('downloadInFlight'),
+    '更新下载必须立刻进入 downloading，并防止重复触发导致卡住',
   )
 }
 

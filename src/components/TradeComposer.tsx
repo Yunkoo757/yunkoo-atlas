@@ -26,7 +26,7 @@ import {
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
 import { prepareExistingComposerTrade } from '@/lib/tradeComposerSave'
-import { formatYmd } from '@/lib/periods'
+import { formatYmd, getTradingDayKey } from '@/lib/periods'
 import { assetUrl, getStorage } from '@/storage'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
@@ -65,18 +65,22 @@ export function TradeComposer() {
   const symbolIcons = useStore((s) => s.symbolIcons)
   const upsert = useStore((s) => s.upsertTrade)
   const close = useStore((s) => s.closeComposer)
+  const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
 
   const symbolOptions = useMemo(
     () => collectSymbolOptions(symbolCatalog, [], editing?.symbol ? [editing.symbol] : []),
     [symbolCatalog, editing?.symbol],
   )
   const defaultSymbol = symbolOptions[0] ?? ''
+  const defaultTradingDay = () => getTradingDayKey(new Date(), tradingDayStartHour)
 
   const [symbol, setSymbol] = useState(defaultSymbol)
   const [side, setSide] = useState<TradeSide>('long')
   const [timeframe, setTimeframe] = useState<string>(DEFAULT_TIMEFRAME)
   const [session, setSession] = useState('')
-  const [openedAt, setOpenedAt] = useState(() => formatYmd(new Date()))
+  const [openedAt, setOpenedAt] = useState(() =>
+    getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour),
+  )
   const [strategyId, setStrategyId] = useState('')
   const [caseType, setCaseType] = useState<CaseType>('exemplar')
   const [images, setImages] = useState<UploadedImage[]>([])
@@ -109,7 +113,7 @@ export function TradeComposer() {
     setSide(editing?.side ?? 'long')
     setTimeframe(resolveTimeframe(editing?.timeframe))
     setSession(editing ? getSessionSelectValue(editing) : '')
-    setOpenedAt(editing?.openedAt.slice(0, 10) ?? formatYmd(new Date()))
+    setOpenedAt(editing?.openedAt.slice(0, 10) ?? defaultTradingDay())
     setStrategyId(editing?.strategyId ?? strategies[0]?.id ?? '')
     setCaseType(
       editing?.caseType ??
@@ -121,7 +125,7 @@ export function TradeComposer() {
               ? 'ambiguous'
               : 'exemplar'),
     )
-  }, [open, editing, strategies, defaultSymbol])
+  }, [open, editing, strategies, defaultSymbol, tradingDayStartHour])
 
   // 重置状态
   useEffect(() => {
@@ -131,13 +135,13 @@ export function TradeComposer() {
       setSide('long')
       setTimeframe(DEFAULT_TIMEFRAME)
       setSession('')
-      setOpenedAt(formatYmd(new Date()))
+      setOpenedAt(defaultTradingDay())
       setStrategyId('')
       setCaseType('exemplar')
       setImages([])
       setIsDragging(false)
     }
-  }, [open, defaultSymbol])
+  }, [open, defaultSymbol, tradingDayStartHour])
 
   // 处理粘贴图片
   useEffect(() => {

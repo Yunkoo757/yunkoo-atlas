@@ -213,3 +213,20 @@ test('NSIS 安装包声明高 DPI，避免安装向导发糊', () => {
   assert.match(nsh, /ManifestDPIAwareness\s+PerMonitorV2/)
   assert.equal(pkg.build?.nsis?.include, 'build/installer.nsh')
 })
+
+test('NSIS 安装向导使用 Atlas 品牌图与简体中文', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+  const iconScript = readFileSync('scripts/generate-app-icon.mjs', 'utf8')
+  const nsis = pkg.build?.nsis ?? {}
+
+  assert.equal(nsis.language, '2052')
+  assert.deepEqual(nsis.installerLanguages, ['zh_CN'])
+  assert.equal(nsis.installerIcon, 'build/icon.ico')
+  assert.equal(nsis.uninstallerIcon, 'build/icon.ico')
+  assert.equal(nsis.installerHeader, 'build/installerHeader.bmp')
+  assert.equal(nsis.installerSidebar, 'build/installerSidebar.bmp')
+  assert.equal(nsis.uninstallerSidebar, 'build/installerSidebar.bmp')
+  assert.match(iconScript, /installerSidebar\.bmp/)
+  assert.match(iconScript, /installerHeader\.bmp/)
+  assert.match(iconScript, /encodeBmp24/)
+})

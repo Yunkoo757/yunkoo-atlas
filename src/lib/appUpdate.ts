@@ -21,6 +21,7 @@ export type AppUpdateEvent =
   | { type: 'checking' }
   | { type: 'available'; version: string }
   | { type: 'not-available' }
+  | { type: 'download-started' }
   | { type: 'progress'; percent: number }
   | { type: 'downloaded'; version: string }
   | { type: 'error'; message: string }
@@ -65,6 +66,13 @@ export function reduceUpdateState(
         phase: 'up-to-date',
         availableVersion: null,
         progress: null,
+        message: null,
+      }
+    case 'download-started':
+      return {
+        ...state,
+        phase: 'downloading',
+        progress: state.phase === 'downloading' ? state.progress ?? 0 : 0,
         message: null,
       }
     case 'progress':

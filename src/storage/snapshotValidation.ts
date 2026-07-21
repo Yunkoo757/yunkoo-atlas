@@ -86,6 +86,17 @@ function isDisplayPrefs(value: unknown): boolean {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') return false
   }
   if (value.sortBy !== undefined && !DISPLAY_SORTS.has(String(value.sortBy))) return false
+  if (
+    value.tradingDayStartHour !== undefined &&
+    !(
+      typeof value.tradingDayStartHour === 'number' &&
+      Number.isInteger(value.tradingDayStartHour) &&
+      value.tradingDayStartHour >= 0 &&
+      value.tradingDayStartHour <= 23
+    )
+  ) {
+    return false
+  }
   if (value.sidebarPins !== undefined && !isStringArray(value.sidebarPins)) return false
   if (value.sidebarWorkspaceItems !== undefined && (
     !Array.isArray(value.sidebarWorkspaceItems) ||

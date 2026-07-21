@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 interface ToastState {
+  id: number
   message: string | null
   actionLabel: string | null
   onAction: (() => void) | null
@@ -15,16 +16,26 @@ type ToastAction = {
 
 let timer: ReturnType<typeof setTimeout> | null = null
 
-export const useToast = create<ToastState>((set) => ({
+export const useToast = create<ToastState>((set, get) => ({
+  id: 0,
   message: null,
   actionLabel: null,
   onAction: null,
   show: (message, action) => {
     if (timer) clearTimeout(timer)
+    const actionLabel = action?.label ?? null
+    const onAction = action?.onClick ?? null
+    const current = get()
+    // 相同文案仅刷新计时，避免无意义 remount 造成叠影闪烁。
+    const sameVisible =
+      current.message === message &&
+      current.actionLabel === actionLabel &&
+      current.message !== null
     set({
+      id: sameVisible ? current.id : current.id + 1,
       message,
-      actionLabel: action?.label ?? null,
-      onAction: action?.onClick ?? null,
+      actionLabel,
+      onAction,
     })
     timer = setTimeout(
       () => set({ message: null, actionLabel: null, onAction: null }),

@@ -38,7 +38,7 @@ import {
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
-import { formatYmd } from '@/lib/periods'
+import { getTradingDayKey } from '@/lib/periods'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
   normalizeWeeklyReviews,
@@ -629,7 +629,7 @@ export const useStore = create<State>()((set, get) => ({
                 ...t,
                 status,
                 closedAt: closed
-                  ? t.closedAt ?? formatYmd(new Date())
+                  ? t.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour)
                   : null,
                 missReason: status === 'missed' ? t.missReason : undefined,
               }
@@ -649,7 +649,7 @@ export const useStore = create<State>()((set, get) => ({
             ...previous,
             ...patch,
             status,
-            closedAt: patch.closedAt ?? previous.closedAt ?? formatYmd(new Date()),
+            closedAt: patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
           }
           const reconciled = reopenReviewAfterResultChange(previous, updated)
           const withActivity = previous.status === status

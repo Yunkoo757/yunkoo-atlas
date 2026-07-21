@@ -137,9 +137,17 @@ export function UpdatesSettingsPanel() {
 
         <div className="update-actions">
           {state.phase === 'available' ? (
-            <button className="dio-btn dio-btn-primary" onClick={() => void getJournalBridge()?.downloadUpdate()}>
+            <button
+              className="dio-btn dio-btn-primary"
+              onClick={() => void getJournalBridge()?.downloadUpdate()}
+            >
               <Download size={14} />
               下载更新
+            </button>
+          ) : state.phase === 'downloading' ? (
+            <button className="dio-btn dio-btn-primary" disabled aria-busy="true">
+              <LinearGridLoaderIcon variant="scope" size={ICON_SM} aria-hidden />
+              下载中… {state.progress != null ? `${state.progress}%` : ''}
             </button>
           ) : state.phase === 'downloaded' ? (
             <button className="dio-btn dio-btn-primary" onClick={() => void installUpdate()}>

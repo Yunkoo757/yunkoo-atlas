@@ -79,20 +79,28 @@
 .app-close-save {
   position: fixed;
   z-index: 10000;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 24px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.app-close-save-panel {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 42px;
+  max-width: min(560px, calc(100vw - 32px));
   padding: 8px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-10);
   background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
   box-shadow: var(--shadow-high);
   color: var(--text-primary);
-  transform: translateX(-50%);
   backdrop-filter: blur(14px);
+  pointer-events: auto;
   animation: app-close-save-in var(--motion-ui) var(--ease-out);
 }
 
@@ -128,8 +136,7 @@
   transform: rotate(-45deg);
 }
 
-.app-close-save--error {
-  max-width: min(560px, calc(100vw - 32px));
+.app-close-save--error .app-close-save-panel {
   border-color: color-mix(in srgb, var(--danger) 38%, var(--border-default));
 }
 
@@ -201,8 +208,8 @@
 }
 
 @keyframes app-close-save-in {
-  from { opacity: 0; transform: translate(-50%, 5px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes app-close-save-spin {

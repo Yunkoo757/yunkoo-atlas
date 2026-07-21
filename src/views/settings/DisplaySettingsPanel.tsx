@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
+import { TRADING_DAY_START_HOUR_OPTIONS } from '@/lib/periods'
 import {
   WINDOW_SIZE_PRESETS,
   type WindowSizePresetId,
@@ -16,6 +17,12 @@ const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string; description: st
   { value: 'pnl', label: '盈亏表现', description: '按盈亏金额，从高到低' },
   { value: 'conviction', label: '交易信心', description: '按信心度，从高到低' },
 ]
+
+const TRADING_DAY_OPTS = TRADING_DAY_START_HOUR_OPTIONS.map((option) => ({
+  value: option.value,
+  label: option.label,
+  description: option.description,
+}))
 
 type GroupMode = 'date' | 'strategy' | 'none'
 
@@ -113,6 +120,14 @@ export function DisplaySettingsPanel() {
         </section>
 
         <ChoiceSection
+          title="交易日开始于"
+          hint="凌晨开平仓仍算前一交易日。影响今日工作台、今日筛选与新建默认日期；仪表盘「本周」等仍按日历周。"
+          options={TRADING_DAY_OPTS}
+          value={display.tradingDayStartHour}
+          onChange={(value) => setDisplay({ tradingDayStartHour: value })}
+        />
+
+        <ChoiceSection
           title="分组方式"
           hint="决定交易日志的第一层结构。"
           options={GROUP_OPTS}
@@ -201,7 +216,7 @@ function ToggleRow({
   )
 }
 
-function ChoiceSection<T extends string>({
+function ChoiceSection<T extends string | number>({
   title,
   hint,
   options,

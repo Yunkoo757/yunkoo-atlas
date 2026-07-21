@@ -25,6 +25,59 @@ export const PERIOD_LABELS: Record<CalendarPeriod, string> = {
 
 export const WEEK_STARTS_ON = 1 // 周一
 
+/** 交易日从本地几点开始（0=日历午夜；默认 6 点，凌晨单仍算前一日）。 */
+export const DEFAULT_TRADING_DAY_START_HOUR = 6
+
+export const TRADING_DAY_START_HOUR_OPTIONS: ReadonlyArray<{
+  value: number
+  label: string
+  description: string
+}> = [
+  { value: 0, label: '0:00（日历日）', description: '午夜准时换日' },
+  { value: 4, label: '4:00', description: '偏早换日' },
+  { value: 5, label: '5:00', description: '清晨换日' },
+  { value: 6, label: '6:00（推荐）', description: '覆盖大半凌晨收尾' },
+  { value: 7, label: '7:00', description: '上午换日' },
+  { value: 8, label: '8:00', description: '开盘前换日' },
+  { value: 9, label: '9:00', description: '偏晚换日' },
+]
+
+export function normalizeTradingDayStartHour(value: unknown): number {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23) {
+    return value
+  }
+  return DEFAULT_TRADING_DAY_START_HOUR
+}
+
+/**
+ * 当前「交易日」YYYY-MM-DD。
+ * 本地时刻若尚未到达 startHour，仍归属前一个日历日。
+ */
+export function getTradingDayKey(
+  now = new Date(),
+  startHour = DEFAULT_TRADING_DAY_START_HOUR,
+): string {
+  const hour = normalizeTradingDayStartHour(startHour)
+  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (now.getHours() < hour) {
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return formatYmd(cursor)
+}
+
+/** 距离下一次交易日切换的毫秒数（用于页面自动换日）。 */
+export function msUntilNextTradingDayBoundary(
+  now = new Date(),
+  startHour = DEFAULT_TRADING_DAY_START_HOUR,
+): number {
+  const hour = normalizeTradingDayStartHour(startHour)
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0, 25)
+  if (next.getTime() <= now.getTime()) {
+    next.setDate(next.getDate() + 1)
+  }
+  return Math.max(1_000, next.getTime() - now.getTime())
+}
+
 export interface DateBounds {
   start: string // YYYY-MM-DD inclusive
   end: string // YYYY-MM-DD inclusive
@@ -78,12 +131,15 @@ export function getPeriodBounds(
   period: CalendarPeriod,
   now = new Date(),
   weekStartsOn = WEEK_STARTS_ON,
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): DateBounds {
   const today = startOfDay(now)
 
   switch (period) {
-    case 'today':
-      return { start: formatYmd(today), end: formatYmd(today) }
+    case 'today': {
+      const key = getTradingDayKey(now, tradingDayStartHour)
+      return { start: key, end: key }
+    }
     case 'this-week': {
       const s = startOfWeek(today, weekStartsOn)
       const e = endOfWeek(today, weekStartsOn)
@@ -123,8 +179,9 @@ export function tradeInPeriod(
   period: CalendarPeriod,
   field: 'openedAt' | 'closedAt' = 'openedAt',
   now = new Date(),
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): boolean {
-  const bounds = getPeriodBounds(period, now)
+  const bounds = getPeriodBounds(period, now, WEEK_STARTS_ON, tradingDayStartHour)
   const raw =
     field === 'closedAt'
       ? trade.closedAt ?? trade.openedAt
@@ -132,11 +189,15 @@ export function tradeInPeriod(
   return isDateInRange(raw, bounds)
 }
 
-export function formatPeriodSubtitle(period: CalendarPeriod, now = new Date()): string {
-  const bounds = getPeriodBounds(period, now)
+export function formatPeriodSubtitle(
+  period: CalendarPeriod,
+  now = new Date(),
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+): string {
+  const bounds = getPeriodBounds(period, now, WEEK_STARTS_ON, tradingDayStartHour)
   // 今日筛选页标题已包含「今日」，副标题不再重复范围名称
   if (period === 'today') {
-    return `${bounds.start} · 按开仓日`
+    return `${bounds.start} · 按开仓日 · 交易日`
   }
   return `${PERIOD_LABELS[period]} · ${bounds.start} – ${bounds.end} · 按开仓日`
 }

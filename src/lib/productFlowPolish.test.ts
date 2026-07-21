@@ -187,18 +187,18 @@ export async function testTodayNavigationAndDateBoundaryRemainInsideTheWorkspace
 
   assert(!today.includes('href={`#today-'), 'HashRouter 页面不得用 URL hash 承载页内滚动')
   assert(today.includes('scrollIntoView'), 'Today 概览应在当前工作区内滚动到目标队列')
-  assert(today.includes('useLocalDateKey()'), 'Today 工作台应在本地午夜后自动换日')
+  assert(today.includes('useLocalDateKey()'), 'Today 工作台应在交易日边界后自动换日')
   assert(
     visibleTrades.includes('useLocalDateKey()') && visibleTrades.includes('localDateKey,'),
-    '今日筛选的 memo 必须随本地日期边界重新计算',
+    '工作台列表的今日筛选必须随交易日边界重新计算',
   )
   assert(
     dashboard.includes('useLocalDateKey()') && dashboard.includes('localDateKey,'),
-    '仪表盘日期范围必须在本地午夜后重新计算',
+    '仪表盘日期范围必须在交易日边界后重新计算',
   )
   assert(
     strategyHeader.includes('useLocalDateKey()') && strategyHeader.includes('localDateKey,'),
-    '策略分析头部必须与列表在本地午夜后同步换日',
+    '策略分析头部必须与列表在交易日边界后同步换日',
   )
 }
 
@@ -275,12 +275,13 @@ export async function testResultConflictsAndReviewShortcutsHaveDedicatedRecovery
 
 export async function testMobileSafeCopyDashboardAndSavedViewsRemainOperable(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [tradeListCss, batchCss, dashboard, quickView, toastSource, emptyState] = await Promise.all([
+  const [tradeListCss, batchCss, dashboard, quickView, toastSource, toastCss, emptyState] = await Promise.all([
     fs.readFile('src/components/trades/TradeList.css', 'utf8'),
     fs.readFile('src/components/ui/BatchActionBar.css', 'utf8'),
     fs.readFile('src/views/Dashboard.tsx', 'utf8'),
     fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8'),
     fs.readFile('src/lib/toast.ts', 'utf8'),
+    fs.readFile('src/components/Toast.css', 'utf8'),
     fs.readFile('src/components/EmptyState.tsx', 'utf8'),
   ])
 
@@ -310,6 +311,13 @@ export async function testMobileSafeCopyDashboardAndSavedViewsRemainOperable(): 
       quickView.includes('saveTradeView(view)') &&
       toastSource.includes('actionLabel'),
     '删除保存视图必须提供可操作的撤销反馈',
+  )
+  assert(
+    toastCss.includes('.toast-host') &&
+      toastCss.includes('.toast-panel') &&
+      toastCss.includes('@keyframes toastIn') &&
+      !/\.toast-host\s*\{[^}]*transform:/s.test(toastCss),
+    'toast 定位层不得再用 transform，避免入场动画叠影',
   )
   assert(
     emptyState.includes('<h2 className="empty-title">') && emptyState.includes('aria-live="polite"'),

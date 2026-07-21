@@ -24,6 +24,8 @@ import fs from 'node:fs/promises'
   'src/lib/tradeComposerSave.test.ts',
   'src/lib/csvImport.test.ts',
   'src/lib/format.test.ts',
+  'src/lib/periods.test.ts',
+  'src/lib/toast.test.ts',
   'src/lib/tradeTransition.test.ts',
   'src/lib/tradeWorkflow.test.ts',
   'src/lib/importExportAssets.test.ts',

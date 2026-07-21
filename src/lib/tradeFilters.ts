@@ -1,6 +1,7 @@
 import type { TradeKind } from '@/data/trades'
 import { DEFAULT_PROFILE_DISPLAY } from '@/config/defaultProfile'
 import type { CalendarPeriod } from '@/lib/periods'
+import { DEFAULT_TRADING_DAY_START_HOUR, normalizeTradingDayStartHour } from '@/lib/periods'
 import type { AnalysisScope } from '@/lib/analysisScope'
 import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 import {
@@ -49,6 +50,11 @@ export interface DisplayPrefs {
   sortBy: 'date' | 'pnl' | 'conviction'
   /** 直播/演示时隐藏所有现金盈亏与权益金额。 */
   privacyMode: boolean
+  /**
+   * 交易日从本地几点开始（0–23）。
+   * 未到该时刻仍算前一交易日；影响今日工作台、今日筛选与新建默认日期。
+   */
+  tradingDayStartHour: number
   /** 交易详情中是否默认固定开头的盘面叙述。 */
   reviewContextPinned?: boolean
   /** 工作台主导航的自定义顺序。 */
@@ -71,6 +77,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   groupByDate: DEFAULT_PROFILE_DISPLAY.groupMode === 'date',
   sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
   privacyMode: false,
+  tradingDayStartHour: DEFAULT_TRADING_DAY_START_HOUR,
   reviewContextPinned: true,
   sidebarPrimaryOrder: [...DEFAULT_PRIMARY_SIDEBAR_ORDER],
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
@@ -127,6 +134,7 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
       : DEFAULT_DISPLAY.sortBy,
     privacyMode:
       typeof d.privacyMode === 'boolean' ? d.privacyMode : DEFAULT_DISPLAY.privacyMode,
+    tradingDayStartHour: normalizeTradingDayStartHour(d.tradingDayStartHour),
     reviewContextPinned:
       typeof d.reviewContextPinned === 'boolean'
         ? d.reviewContextPinned

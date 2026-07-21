@@ -65,6 +65,7 @@ function seedSnapshot(): PersistedSnapshot {
       groupByDate: true,
       sortBy: 'date',
       privacyMode: false,
+      tradingDayStartHour: 6,
       sidebarPins: [],
       sidebarWorkspaceItems: [],
     },

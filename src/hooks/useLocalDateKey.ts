@@ -1,35 +1,46 @@
 import { useEffect, useState } from 'react'
-import { toLocalDateKey } from '@/lib/tradeWorkflow'
+import {
+  getTradingDayKey,
+  msUntilNextTradingDayBoundary,
+  DEFAULT_TRADING_DAY_START_HOUR,
+} from '@/lib/periods'
+import { useStore } from '@/store/useStore'
 
-/** 保持长时间打开的页面在本地午夜后自动切换到新的一天。 */
+/** 当前交易日 YYYY-MM-DD；在交易日边界到达后自动刷新。 */
 export function useLocalDateKey(): string {
-  const [dateKey, setDateKey] = useState(() => toLocalDateKey())
+  const tradingDayStartHour = useStore(
+    (state) => state.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR,
+  )
+  const [dateKey, setDateKey] = useState(() =>
+    getTradingDayKey(new Date(), tradingDayStartHour),
+  )
 
   useEffect(() => {
     let timer: number | null = null
 
-    const scheduleNextDay = () => {
+    const scheduleNextBoundary = () => {
       if (timer != null) window.clearTimeout(timer)
       const now = new Date()
-      const nextDay = new Date(now)
-      nextDay.setHours(24, 0, 0, 25)
-      timer = window.setTimeout(refresh, Math.max(1_000, nextDay.getTime() - now.getTime()))
+      timer = window.setTimeout(
+        refresh,
+        msUntilNextTradingDayBoundary(now, tradingDayStartHour),
+      )
     }
     const refresh = () => {
-      setDateKey(toLocalDateKey())
-      scheduleNextDay()
+      setDateKey(getTradingDayKey(new Date(), tradingDayStartHour))
+      scheduleNextBoundary()
     }
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') refresh()
     }
 
-    scheduleNextDay()
+    refresh()
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       if (timer != null) window.clearTimeout(timer)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, [tradingDayStartHour])
 
   return dateKey
 }

@@ -22,6 +22,7 @@ let state: AppUpdateState
 let autoCheckTimer: ReturnType<typeof setInterval> | null = null
 let autoCheckDelayTimer: ReturnType<typeof setTimeout> | null = null
 let registered = false
+let downloadInFlight = false
 
 function initialState(): AppUpdateState {
   return {
@@ -186,7 +187,11 @@ export function registerAppUpdater(): void {
   })
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:download', async () => {
+    if (state.phase === 'downloading' || downloadInFlight) return state
     if (state.phase !== 'available') return state
+    downloadInFlight = true
+    // 立刻进入 downloading，避免等首个 progress 事件前按钮像卡住且可重复点击。
+    transition({ type: 'download-started' })
     try {
       await autoUpdater.downloadUpdate()
     } catch (error) {
@@ -194,6 +199,8 @@ export function registerAppUpdater(): void {
         type: 'error',
         message: redactUpdateError(error instanceof Error ? error.message : String(error)),
       })
+    } finally {
+      downloadInFlight = false
     }
     return state
   })

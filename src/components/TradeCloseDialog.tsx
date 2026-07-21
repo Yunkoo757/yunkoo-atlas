@@ -10,6 +10,7 @@ import {
 import { fmtMoney, fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
+import { getTradingDayKey } from '@/lib/periods'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { Button } from '@/components/ui/Button'
@@ -21,11 +22,8 @@ const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
   { value: 'loss', label: '亏损' },
 ]
 
-function toLocalDate(value = new Date()): string {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+function toTradingDay(value = new Date(), startHour?: number): string {
+  return getTradingDayKey(value, startHour)
 }
 
 function parseOptionalNumber(value: string): number | null {
@@ -55,10 +53,13 @@ export function TradeCloseDialog() {
   const cancelTradeClose = useStore((state) => state.cancelTradeClose)
   const completeTradeClose = useStore((state) => state.completeTradeClose)
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const [outcome, setOutcome] = useState<CloseOutcome>('win')
   const [pnl, setPnl] = useState('')
   const [rMultiple, setRMultiple] = useState('')
-  const [closedAt, setClosedAt] = useState(toLocalDate())
+  const [closedAt, setClosedAt] = useState(() =>
+    toTradingDay(new Date(), useStore.getState().display.tradingDayStartHour),
+  )
   const [error, setError] = useState('')
   const exitRef = useExitClone<HTMLDivElement>(Boolean(request && trade))
 
@@ -83,9 +84,9 @@ export function TradeCloseDialog() {
     setOutcome(nextOutcome)
     setPnl(trade.pnl == null ? '' : String(Math.abs(trade.pnl)))
     setRMultiple(trade.rMultiple == null ? '' : String(Math.abs(trade.rMultiple)))
-    setClosedAt(trade.closedAt ?? toLocalDate())
+    setClosedAt(trade.closedAt ?? toTradingDay(new Date(), tradingDayStartHour))
     setError('')
-  }, [trade?.id, request?.targetStatus])
+  }, [trade?.id, request?.targetStatus, tradingDayStartHour])
 
   useEffect(() => {
     if (!request) return

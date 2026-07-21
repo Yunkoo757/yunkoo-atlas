@@ -33,7 +33,8 @@ import {
   type ResolvedSidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
-import { getTodayWorkflowBuckets, toLocalDateKey } from '@/lib/tradeWorkflow'
+import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { getTradingDayKey } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import {
   SIDEBAR_WORKSPACE_EDITOR_ID,
@@ -119,7 +120,10 @@ export function useSidebarNavigationModel() {
   const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
   const counts = {
-    today: getTodayWorkflowBuckets(trades, toLocalDateKey()).actionCount,
+    today: getTodayWorkflowBuckets(
+      trades,
+      getTradingDayKey(new Date(), display.tradingDayStartHour),
+    ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
   }

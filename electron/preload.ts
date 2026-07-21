@@ -25,8 +25,8 @@ export interface BackupVerificationResult {
 
 export interface JournalBridge {
   isElectron: true
-  /** 注册主进程关闭前回调 */
-  onBeforeClose(callback: () => void | Promise<void>): void
+  /** 注册主进程关闭前回调；返回取消订阅函数 */
+  onBeforeClose(callback: () => void | Promise<void>): () => void
   onCloseSaveError(callback: (message: string) => void): () => void
   requestClose(): Promise<void>
   toggleFullscreen(): Promise<boolean>
@@ -91,7 +91,7 @@ export interface JournalBridge {
 const bridge: JournalBridge = {
   isElectron: true,
   onBeforeClose: (callback) => {
-    ipcRenderer.on('app:before-close', async () => {
+    const listener = async () => {
       try {
         await callback()
         ipcRenderer.send('app:before-close-complete', { ok: true })
@@ -101,7 +101,9 @@ const bridge: JournalBridge = {
           error: error instanceof Error ? error.message : String(error),
         })
       }
-    })
+    }
+    ipcRenderer.on('app:before-close', listener)
+    return () => ipcRenderer.removeListener('app:before-close', listener)
   },
   onCloseSaveError: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message)

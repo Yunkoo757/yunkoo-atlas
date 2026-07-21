@@ -9,7 +9,7 @@ import type {
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
-import { CALENDAR_PERIODS, tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
+import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
 import { matchesReviewCaseScope } from '@/lib/reviewCaseScope'
 import {
@@ -109,15 +109,19 @@ export function filterTrades(
   trades: Trade[],
   filter: ListFilter,
   starredIds: string[],
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): Trade[] {
   const starred = new Set(starredIds)
-  return trades.filter((trade) => matchesListFilter(trade, filter, starred))
+  return trades.filter((trade) =>
+    matchesListFilter(trade, filter, starred, tradingDayStartHour),
+  )
 }
 
 function matchesListFilter(
   trade: Trade,
   filter: ListFilter,
   starredIds: ReadonlySet<string>,
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): boolean {
   switch (filter.type) {
     case 'active':
@@ -133,7 +137,9 @@ function matchesListFilter(
       if (!isMissed(trade.status)) return false
       break
     case 'period':
-      if (filter.period && !tradeInPeriod(trade, filter.period)) return false
+      if (filter.period && !tradeInPeriod(trade, filter.period, 'openedAt', new Date(), tradingDayStartHour)) {
+        return false
+      }
       break
     default:
       break
@@ -191,7 +197,14 @@ export function deriveWorkbenchVisibleTrades(
     ? { ...parsedFacets, tradeKind: undefined }
     : parsedFacets
   const trades = options.trades.filter((trade) => !trade.deletedAt)
-  const routeFiltered = filterTrades(trades, options.filter, options.starredIds)
+  const tradingDayStartHour =
+    options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
+  const routeFiltered = filterTrades(
+    trades,
+    options.filter,
+    options.starredIds,
+    tradingDayStartHour,
+  )
   const analysisFiltered = options.filter.analysisScope
     ? filterTradesByAnalysisScope(routeFiltered, options.filter.analysisScope)
     : routeFiltered
@@ -202,7 +215,7 @@ export function deriveWorkbenchVisibleTrades(
   const preferred = applyDisplayPrefs(analysisFiltered, prefs, options.filter)
   return {
     trades,
-    visible: filterTradesByFacets(preferred, facets),
+    visible: filterTradesByFacets(preferred, facets, tradingDayStartHour),
   }
 }
 
@@ -223,6 +236,8 @@ export function countWorkbenchVisibleTrades(options: {
   )
     ? { ...parsedFacets, tradeKind: undefined }
     : parsedFacets
+  const tradingDayStartHour =
+    options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
   const starred = new Set(options.starredIds)
   const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'
   const hideClosed = options.display.hideClosed && !skipHideClosed && !options.filter.analysisScope && !(
@@ -234,9 +249,9 @@ export function countWorkbenchVisibleTrades(options: {
   let count = 0
   for (const trade of sourceTrades) {
     if (trade.deletedAt) continue
-    if (!matchesListFilter(trade, options.filter, starred)) continue
+    if (!matchesListFilter(trade, options.filter, starred, tradingDayStartHour)) continue
     if (hideClosed && isHiddenWhenClosedFilter(trade.status)) continue
-    if (!matchesTradeFacets(trade, facets)) continue
+    if (!matchesTradeFacets(trade, facets, tradingDayStartHour)) continue
     count += 1
   }
   return count

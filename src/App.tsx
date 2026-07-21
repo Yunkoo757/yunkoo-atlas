@@ -43,7 +43,7 @@ import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath, workbenchModeFromPathname } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
-import { toast } from './lib/toast'
+import { useToast } from './lib/toast'
 import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import { parseAnalysisScope } from './lib/analysisScope'
 import './App.css'
@@ -83,17 +83,19 @@ function CloseSaveReceipt({
       role={state.phase === 'error' ? 'alert' : 'status'}
       aria-live={state.phase === 'error' ? 'assertive' : 'polite'}
     >
-      <span className="app-close-save-mark" aria-hidden />
-      <div className="app-close-save-copy">
-        <strong>{message}</strong>
-        {state.phase === 'error' && <span>{state.message}</span>}
-      </div>
-      {state.phase === 'error' && (
-        <div className="app-close-save-actions">
-          <button type="button" onClick={onDismiss}>继续使用</button>
-          <button type="button" className="is-primary" onClick={onRetry}>重试退出</button>
+      <div className="app-close-save-panel">
+        <span className="app-close-save-mark" aria-hidden />
+        <div className="app-close-save-copy">
+          <strong>{message}</strong>
+          {state.phase === 'error' && <span>{state.message}</span>}
         </div>
-      )}
+        {state.phase === 'error' && (
+          <div className="app-close-save-actions">
+            <button type="button" onClick={onDismiss}>继续使用</button>
+            <button type="button" className="is-primary" onClick={onRetry}>重试退出</button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -537,11 +539,14 @@ export function App() {
 
     // Electron 主进程关闭前触发 flush
     if (isElectron()) {
+      let unsubscribeBeforeClose: (() => void) | undefined
       let unsubscribeCloseError: (() => void) | undefined
       try {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
-          bridge.onBeforeClose(async () => {
+          unsubscribeBeforeClose = bridge.onBeforeClose(async () => {
+            // 与底部 toast 共用同一落点，先清掉避免两套完成态叠在一起
+            useToast.getState().dismiss()
             setCloseSaveState({ phase: 'saving' })
             // 给状态至少一帧绘制时间，避免快速落盘时提示从未真正出现。
             await waitForCloseFeedback(48)
@@ -560,8 +565,9 @@ export function App() {
         }
         if (bridge?.onCloseSaveError) {
           unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
+            useToast.getState().dismiss()
+            // 错误回执已覆盖底部通知，不再额外 toast，避免双条重叠
             setCloseSaveState({ phase: 'error', message })
-            toast(message)
           })
         }
       } catch { /* bridge not available */ }
@@ -570,6 +576,7 @@ export function App() {
         setPreFlushCallback(null)
         window.removeEventListener('beforeunload', onBeforeUnload)
         document.removeEventListener('visibilitychange', onVisibilityChange)
+        unsubscribeBeforeClose?.()
         unsubscribeCloseError?.()
       }
     }

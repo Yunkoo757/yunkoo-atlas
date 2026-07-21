@@ -1,12 +1,21 @@
+/* 定位层与动画层拆开：不要在同一节点上既用 transform 居中又播入场动画，
+   否则 Windows / Electron 合成层容易留下错位残影，看起来像两个 toast 重叠。 */
 .toast-host {
   position: fixed;
   bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   z-index: 9999;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.toast-panel {
   display: flex;
   align-items: center;
   gap: 12px;
+  max-width: calc(100vw - 24px);
   padding: 8px 10px 8px 14px;
   border-radius: var(--radius-8);
   background: var(--popover-bg);
@@ -18,7 +27,7 @@
   pointer-events: auto;
 }
 
-.toast-host button {
+.toast-panel button {
   min-height: 30px;
   padding: 0 8px;
   color: var(--accent);
@@ -27,17 +36,16 @@
   border-radius: var(--radius-6);
 }
 
-.toast-host button:hover {
+.toast-panel button:hover {
   background: var(--bg-hover);
 }
 
 @media (max-width: 899px), (pointer: coarse) {
   .toast-host {
     bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
-    max-width: calc(100vw - 24px);
   }
 
-  .toast-host button {
+  .toast-panel button {
     min-width: 44px;
     min-height: 44px;
   }
@@ -46,10 +54,16 @@
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(8px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-panel {
+    animation: none;
   }
 }
