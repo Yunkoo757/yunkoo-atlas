@@ -543,6 +543,7 @@ export function TradeComposer() {
             <Button
               variant="primary"
               size="lg"
+              className="composer-btn-primary"
               onClick={handleQuickCreate}
               disabled={!symbol.trim() || submitting}
             >
