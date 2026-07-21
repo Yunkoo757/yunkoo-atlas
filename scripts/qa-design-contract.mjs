@@ -32,8 +32,8 @@ const checks = [
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
   [
     'sidebar navigation matches measured Linear hierarchy',
-    sidebarStyles.includes('--sb-text: lch(60.307% 1 272)') &&
-      /\.sb-item\s*\{[^}]*height:\s*30px;[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*color:\s*var\(--sb-text\);/s.test(sidebarStyles) &&
+    sidebarStyles.includes('--sb-text: var(--text-tertiary)') &&
+      /\.sb-item\s*\{[^}]*height:\s*var\(--control-height\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*color:\s*var\(--sb-text\);/s.test(sidebarStyles) &&
       /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
   ],
   [
