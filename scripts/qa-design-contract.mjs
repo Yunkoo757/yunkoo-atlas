@@ -45,6 +45,7 @@ const checks = [
       !sidebarComponent.includes('sb-utility'),
   ],
   ['control height', tokens.includes('--control-height: 28px')],
+  ['field height md', tokens.includes('--field-height-md: 32px')],
   [
     'portaled UI keeps the calibrated Linear font',
     tokens.includes('--font-ui: var(--font-linear-ui)') &&

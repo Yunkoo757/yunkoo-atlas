@@ -254,8 +254,8 @@ export function QuickNotesView() {
           onClose={() => setDeleteOpen(false)}
           footer={(
             <>
-              <button type="button" onClick={() => setDeleteOpen(false)}>取消</button>
-              <button type="button" className="is-danger" data-autofocus onClick={confirmDelete}>删除随记</button>
+              <button type="button" className="ui-btn ui-btn-bordered" onClick={() => setDeleteOpen(false)}>取消</button>
+              <button type="button" className="ui-btn ui-btn-danger-solid" data-autofocus onClick={confirmDelete}>删除随记</button>
             </>
           )}
         />

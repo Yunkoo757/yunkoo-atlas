@@ -149,7 +149,7 @@
 .composer-essential-field .ui-select-trigger,
 .composer-essential-field .ui-date-trigger,
 .composer-side-control {
-  height: 32px;
+  height: var(--field-height-md);
 }
 
 .composer-essential-field .ui-date-trigger {
@@ -301,9 +301,10 @@
 
 .composer-btn-secondary,
 .composer-btn-primary {
-  height: 32px;
-  padding: 0 12px;
-  font-size: var(--type-metadata-size);
+  height: var(--control-height);
+  padding: 0 10px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
   border-radius: var(--radius-6);
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);

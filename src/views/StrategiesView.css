@@ -122,55 +122,16 @@
   pointer-events: none;
 }
 
-.st-del-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 210;
-  background: var(--overlay-bg);
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-
-.st-del {
-  width: min(400px, 100%);
-  padding: 20px;
-  background: var(--popover-bg);
-  border: 0.8px solid var(--popover-border);
-  border-radius: var(--popover-radius);
-  box-shadow: var(--popover-shadow);
-}
-
-.st-del h3 {
-  margin: 0 0 10px;
-  font-size: var(--fs-base);
-  color: var(--text-primary);
-}
-
-.st-del p {
-  margin: 0 0 12px;
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
 .st-del-select {
   width: 100%;
-  margin-bottom: 4px;
+  margin-top: 12px;
 }
 
 .st-del-select .ui-select-trigger {
-  height: 36px;
+  height: var(--control-height);
   padding: 0 10px;
-  border-radius: var(--radius-8);
-  font-size: var(--fs-sm);
-}
-
-.st-del-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-mini);
 }
 
 .st-foot {
@@ -188,7 +149,6 @@
 
   .st-add,
   .st-act,
-  .st-del-btn,
   .st-io {
     min-height: 44px;
   }

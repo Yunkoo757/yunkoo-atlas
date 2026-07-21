@@ -158,10 +158,11 @@
 }
 
 .sfm-btn {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
-  font-size: var(--fs-sm);
+  height: var(--control-height);
+  padding: 0 10px;
+  border-radius: var(--radius-6);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
 }
 .sfm-btn-ghost {

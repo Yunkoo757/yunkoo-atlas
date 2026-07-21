@@ -107,6 +107,7 @@
   --main-inset: 8px;
   --main-radius: 12px;
   --control-height: 28px;
+  --field-height-md: 32px;
   --trade-row-height: 44px;
   --trade-group-height: 36px;
   --filter-bar-height: 43px;
@@ -157,6 +158,8 @@
     0 4px 4px -1px lch(0 0 0 / 0.04),
     0 1px 1px 0 lch(0 0 0 / 0.08);
   --surface-control-shadow-active: 0 0 0 1px var(--surface-control-border-active);
+  /* Tooltip / 浮层内抬升面（如快捷键 kbd） */
+  --surface-raised: color-mix(in srgb, var(--popover-bg) 72%, white 14%);
 
   /* 列表排版校准 */
   --list-text-strong: lch(100% 0 272 / 1);
@@ -200,6 +203,7 @@
   /* 业务语义色（交易盈亏，非 Linear 原生，自定义但沿用其调性） */
   --pos: lch(72% 45 152);   /* 盈利绿 */
   --neg: lch(58% 62 28);    /* 亏损红 */
+  --neg-strong: color-mix(in srgb, var(--neg) 88%, white 12%);
   --warn: lch(80% 70 85);   /* 警告黄 */
   --pending: lch(68% 40 252); /* 待处理蓝 */
   --opportunity: #8290c9; /* 错过机会的复盘结果，不计入实盘绩效 */

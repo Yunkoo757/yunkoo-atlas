@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>设计争议项 · 对照 Demo</title>
+  <style>
+    :root {
+      --bg-app: lch(1.82% 0 272);
+      --bg-surface: lch(4.52% 0.3 272);
+      --bg-elevated: lch(9.02% 2.1 272);
+      --bg-hover: lch(11.27% 3 272);
+      --border-subtle: lch(8.84% 1.38 272);
+      --border-default: lch(13.16% 1.38 272);
+      --border-strong: lch(15.32% 1.38 272);
+      --text-primary: lch(96% 0.6 272);
+      --text-secondary: lch(82% 1.1 272);
+      --text-muted: lch(61.399% 1.15 272);
+      --text-faint: lch(36.308% 1.15 272);
+      --accent: #5e6ad2;
+      --accent-hover: color-mix(in srgb, #5e6ad2 86%, white 14%);
+      --accent-text: #fff;
+      --popover-bg: lch(9.92% 0.75 272);
+      --popover-border: lch(16.5% 1.7 272);
+      --overlay-bg: lch(0 0 0 / 0.45);
+      --control-height: 28px;
+      --radius-6: 6px;
+      --radius-8: 8px;
+      --radius-14: 14px;
+      --font-ui: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --fs-mini: 12px;
+      --fs-sm: 13px;
+      --fs-base: 15px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-ui);
+      font-size: var(--fs-sm);
+      color: var(--text-primary);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
+        var(--bg-app);
+    }
+
+    .page {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 120px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      margin: 0 0 22px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      max-width: 62ch;
+    }
+
+    .sticky-bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      margin: 0 0 28px;
+      padding: 12px 14px;
+      background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-8);
+      backdrop-filter: blur(12px);
+    }
+    .sticky-bar strong { font-weight: 600; }
+    .picks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: var(--fs-mini);
+    }
+    .picks code {
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      font-family: inherit;
+    }
+    .picks code.is-set { color: var(--text-primary); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default)); }
+
+    section.decision {
+      margin-bottom: 28px;
+      padding: 18px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+    }
+    .decision-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .decision-head h2 {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .decision-head p {
+      margin: 0;
+      color: var(--text-muted);
+      line-height: 1.5;
+      max-width: 56ch;
+    }
+    .badge {
+      flex: 0 0 auto;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border: 1px solid var(--border-default);
+      background: var(--bg-elevated);
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 820px) {
+      .compare { grid-template-columns: 1fr; }
+    }
+
+    .option {
+      position: relative;
+      display: block;
+      padding: 0;
+      border: 1px solid var(--border-default);
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+    .option:hover { border-color: var(--border-strong); }
+    .option:has(input:checked) {
+      border-color: color-mix(in srgb, var(--accent) 70%, var(--border-default));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+    .option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .option-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: color-mix(in srgb, var(--bg-surface) 55%, var(--bg-elevated));
+    }
+    .option-meta .label {
+      font-size: var(--fs-mini);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .option-meta .hint {
+      font-size: 11px;
+      color: var(--text-faint);
+    }
+    .option-stage {
+      min-height: 160px;
+      padding: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* —— shared controls —— */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: var(--control-height);
+      padding: 0 10px;
+      border-radius: var(--radius-6);
+      font-family: inherit;
+      font-size: var(--fs-mini);
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: default;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-text);
+    }
+    .btn-today {
+      height: 34px;
+      padding: 0 12px;
+      background: var(--accent);
+      color: var(--accent-text);
+      border: 0;
+      border-radius: var(--radius-6);
+      font-size: var(--fs-mini);
+      font-weight: 500;
+    }
+    .btn-wr {
+      min-height: 34px;
+      padding: 0 14px;
+      border: 1px solid var(--accent);
+      border-radius: 7px;
+      background: var(--accent);
+      color: white;
+      font-size: var(--fs-sm);
+      font-weight: 500;
+    }
+    .btn-csv-old {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--accent);
+      color: white;
+      border: none;
+    }
+
+    .today-card, .wr-card {
+      width: 100%;
+      max-width: 360px;
+      padding: 16px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--bg-surface) 70%, transparent);
+    }
+    .today-card h3, .wr-card h3 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+    .today-card p, .wr-card p {
+      margin: 0 0 14px;
+      color: var(--text-muted);
+      font-size: var(--fs-mini);
+      line-height: 1.5;
+    }
+    .today-row, .wr-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border-default);
+      color: var(--text-muted);
+      font-size: 11px;
+      background: transparent;
+    }
+
+    /* lightbox stages */
+    .lb-stage {
+      width: 100%;
+      height: 180px;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .lb-old { background: lch(4.52 0.3 272); }
+    .lb-new { background: var(--bg-surface); }
+    .lb-toolbar {
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 12px;
+    }
+    .lb-old .lb-toolbar { color: lch(67 1.5 272); background: lch(10 1 272 / 0.42); }
+    .lb-new .lb-toolbar {
+      color: var(--text-muted);
+      background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .lb-tools { display: flex; gap: 6px; }
+    .lb-tool {
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      border: 0;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+    }
+    .lb-old .lb-tool { color: lch(62 1.5 272); background: lch(14 1 272); }
+    .lb-new .lb-tool { color: var(--text-secondary); background: var(--bg-hover); }
+    .lb-photo {
+      width: 58%;
+      height: 88px;
+      border-radius: 4px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 35%, #334) 0%, #1a1c22 100%);
+      box-shadow: 0 8px 24px lch(0 0 0 / 0.35);
+    }
+
+    /* modal shells */
+    .modal-frame {
+      width: 100%;
+      max-width: 340px;
+      border: 1px solid var(--popover-border);
+      background: var(--popover-bg);
+      overflow: hidden;
+      box-shadow: 0 8px 28px lch(0 0 0 / 0.35);
+    }
+    .modal-old { border-radius: 12px; }
+    .modal-new { border-radius: var(--radius-14); }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 14px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .modal-head strong { font-size: 14px; }
+    .modal-head span { display: block; margin-top: 4px; color: var(--text-muted); font-size: 12px; }
+    .modal-body { padding: 14px; color: var(--text-muted); font-size: 12px; line-height: 1.55; }
+    .modal-foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    .ghost {
+      height: var(--control-height);
+      padding: 0 10px;
+      border-radius: var(--radius-6);
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: var(--fs-mini);
+      font-weight: 500;
+    }
+    .ghost-old {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    /* fields */
+    .field-demo {
+      width: 100%;
+      max-width: 280px;
+      display: grid;
+      gap: 10px;
+    }
+    .field-demo label {
+      display: grid;
+      gap: 5px;
+      color: var(--text-muted);
+      font-size: var(--fs-mini);
+    }
+    .field-demo input, .field-demo select {
+      width: 100%;
+      padding: 0 10px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-6);
+      background: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-surface));
+      color: var(--text-primary);
+      font: inherit;
+      font-size: var(--fs-mini);
+    }
+    .h28 { height: 28px; }
+    .h32 { height: 32px; }
+    .h36 { height: 36px; }
+
+    .note {
+      margin-top: 10px;
+      color: var(--text-faint);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .footer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .copy-btn {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-default);
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-size: var(--fs-mini);
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .copy-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+    #copy-out {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px dashed var(--border-default);
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      min-height: 48px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>设计争议项 · 对照 Demo</h1>
+    <p class="lede">
+      每一项左右并排：点选你更倾向的方案。底部会汇总选择，可直接复制回复给我。
+      视觉尽量贴近 Atlas 暗色 token；这是拍板用样机，不是最终实现。
+    </p>
+
+    <div class="sticky-bar">
+      <strong>当前选择</strong>
+      <div class="picks" id="picks">
+        <code data-k="1">1 · —</code>
+        <code data-k="2">2 · —</code>
+        <code data-k="3">3 · —</code>
+        <code data-k="4">4 · —</code>
+        <code data-k="5">5 · —</code>
+      </div>
+    </div>
+
+    <!-- 1 Today CTA -->
+    <section class="decision" data-q="1">
+      <div class="decision-head">
+        <div>
+          <h2>1. 今日工作台 · 「新建交易」按钮</h2>
+          <p>焦点区主 CTA：保持略大的着陆页按钮，还是与工作台 empty-btn（28px）对齐？</p>
+        </div>
+        <span class="badge">今日 / Document-ish</span>
+      </div>
+      <div class="compare">
+        <label class="option">
+          <input type="radio" name="q1" value="A" />
+          <div class="option-meta">
+            <span class="label">A · 对齐 empty-btn（28）</span>
+            <span class="hint">与列表空态一致</span>
+          </div>
+          <div class="option-stage">
+            <div class="today-card">
+              <div class="today-row">
+                <div>
+                  <h3>今日焦点</h3>
+                  <p>7月21日 · 还有 2 笔待处理</p>
+                </div>
+                <button type="button" class="btn btn-primary">+ 新建交易</button>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:6px">
+                <span class="chip">筛选</span>
+                <span class="chip">本周</span>
+              </div>
+            </div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="q1" value="B" />
+          <div class="option-meta">
+            <span class="label">B · 保留 today-create（34）</span>
+            <span class="hint">焦点区略强调</span>
+          </div>
+          <div class="option-stage">
+            <div class="today-card">
+              <div class="today-row">
+                <div>
+                  <h3>今日焦点</h3>
+                  <p>7月21日 · 还有 2 笔待处理</p>
+                </div>
+                <button type="button" class="btn-today">+ 新建交易</button>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:6px">
+                <span class="chip">筛选</span>
+                <span class="chip">本周</span>
+              </div>
+            </div>
+          </div>
+        </label>
+      </div>
+      <p class="note">旁边 chip 是 22px 高 / 11–12px 字。A 与工具带更齐；B 更像着陆页主按钮。</p>
+    </section>
+
+    <!-- 2 Lightbox -->
+    <section class="decision" data-q="2">
+      <div class="decision-head">
+        <div>
+          <h2>2. 图片灯箱 · 颜色来源</h2>
+          <p>Theater 表面：工具钮尺寸都保留 30px。只比「硬编码 lch」vs「语义 token」。</p>
+        </div>
+        <span class="badge">灯箱 / Theater</span>
+      </div>
+      <div class="compare">
+        <label class="option">
+          <input type="radio" name="q2" value="A" />
+          <div class="option-meta">
+            <span class="label">A · 语义 token</span>
+            <span class="hint">主题安全，尺寸不动</span>
+          </div>
+          <div class="option-stage">
+            <div class="lb-stage lb-new">
+              <div class="lb-toolbar">
+                <span>BTCUSDT · 截图</span>
+                <div class="lb-tools">
+                  <span class="lb-tool">−</span>
+                  <span class="lb-tool">1:1</span>
+                  <span class="lb-tool">+</span>
+                </div>
+              </div>
+              <div class="lb-photo"></div>
+            </div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="q2" value="B" />
+          <div class="option-meta">
+            <span class="label">B · 现状硬编码 lch</span>
+            <span class="hint">本轮不动</span>
+          </div>
+          <div class="option-stage">
+            <div class="lb-stage lb-old">
+              <div class="lb-toolbar">
+                <span>BTCUSDT · 截图</span>
+                <div class="lb-tools">
+                  <span class="lb-tool">−</span>
+                  <span class="lb-tool">1:1</span>
+                  <span class="lb-tool">+</span>
+                </div>
+              </div>
+              <div class="lb-photo"></div>
+            </div>
+          </div>
+        </label>
+      </div>
+      <p class="note">差别主要在工具栏对比度与是否跟全局表面联动。沉浸感两者接近。</p>
+    </section>
+
+    <!-- 3 Weekly footer -->
+    <section class="decision" data-q="3">
+      <div class="decision-head">
+        <div>
+          <h2>3. 周复盘 · 「完成本周复盘」按钮</h2>
+          <p>文档页 footer CTA：对齐 ui-btn-primary，还是保留略大的文档按钮？</p>
+        </div>
+        <span class="badge">周复盘 / Document</span>
+      </div>
+      <div class="compare">
+        <label class="option">
+          <input type="radio" name="q3" value="A" />
+          <div class="option-meta">
+            <span class="label">A · ui-btn-primary（28 / 12px）</span>
+            <span class="hint">与全局主钮一致</span>
+          </div>
+          <div class="option-stage">
+            <div class="wr-card">
+              <h3>完成闭环</h3>
+              <p>完成后会冻结本周事实，并带入下周验证。</p>
+              <div class="wr-row">
+                <span class="chip">本周进行中</span>
+                <button type="button" class="btn btn-primary">完成本周复盘</button>
+              </div>
+            </div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="q3" value="B" />
+          <div class="option-meta">
+            <span class="label">B · 现状 footer（34 / 13px）</span>
+            <span class="hint">文档页略强调</span>
+          </div>
+          <div class="option-stage">
+            <div class="wr-card">
+              <h3>完成闭环</h3>
+              <p>完成后会冻结本周事实，并带入下周验证。</p>
+              <div class="wr-row">
+                <span class="chip">本周进行中</span>
+                <button type="button" class="btn-wr">完成本周复盘</button>
+              </div>
+            </div>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <!-- 4 Import shell -->
+    <section class="decision" data-q="4">
+      <div class="decision-head">
+        <div>
+          <h2>4. 导入弹窗 · 壳层策略</h2>
+          <p>按钮字阶已对齐。是否继续把整壳迁到 ModalShell 视觉规范？</p>
+        </div>
+        <span class="badge">导入 / Form wizard</span>
+      </div>
+      <div class="compare">
+        <label class="option">
+          <input type="radio" name="q4" value="A" />
+          <div class="option-meta">
+            <span class="label">A · 只改按钮（当前进展）</span>
+            <span class="hint">壳保持向导自定义</span>
+          </div>
+          <div class="option-stage">
+            <div class="modal-frame modal-old">
+              <div class="modal-head">
+                <div>
+                  <strong>CSV 导入</strong>
+                  <span>支持中英文表头，自动匹配字段</span>
+                </div>
+                <span style="color:var(--text-faint)">✕</span>
+              </div>
+              <div class="modal-body">上传 · 映射 · 预览 · 写入，多步向导布局保持不变。</div>
+              <div class="modal-foot">
+                <button type="button" class="ghost">返回</button>
+                <button type="button" class="btn btn-primary">开始导入</button>
+              </div>
+            </div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="q4" value="B" />
+          <div class="option-meta">
+            <span class="label">B · 迁 ModalShell 视觉</span>
+            <span class="hint">圆角 14 · 标准头脚节奏</span>
+          </div>
+          <div class="option-stage">
+            <div class="modal-frame modal-new">
+              <div class="modal-head">
+                <div>
+                  <strong style="font-size:15px">CSV 导入</strong>
+                  <span>支持中英文表头，自动匹配字段</span>
+                </div>
+                <span style="width:28px;height:28px;display:grid;place-items:center;border-radius:6px;background:var(--bg-hover);color:var(--text-muted)">✕</span>
+              </div>
+              <div class="modal-body">同一向导内容，套用 ModalShell 的圆角、标题字阶与页脚间距。</div>
+              <div class="modal-foot">
+                <button type="button" class="ghost">返回</button>
+                <button type="button" class="btn btn-primary">开始导入</button>
+              </div>
+            </div>
+          </div>
+        </label>
+      </div>
+      <p class="note">B 主要是圆角/标题/关闭钮规格；多步内容仍可自定义。工程量高于 A。</p>
+    </section>
+
+    <!-- 5 Field height -->
+    <section class="decision" data-q="5">
+      <div class="decision-head">
+        <div>
+          <h2>5. 表单字段高度 token</h2>
+          <p>Composer / 设置输入常用 32–36。是否正式抽出 `--field-height-md`？</p>
+        </div>
+        <span class="badge">表单 / Form</span>
+      </div>
+      <div class="compare" style="grid-template-columns: 1fr 1fr 1fr">
+        <label class="option">
+          <input type="radio" name="q5" value="A" />
+          <div class="option-meta">
+            <span class="label">A · 抽 32 token</span>
+            <span class="hint">field-height-md</span>
+          </div>
+          <div class="option-stage">
+            <div class="field-demo">
+              <label>品种<input class="h32" value="BTCUSDT" /></label>
+              <label>方向
+                <select class="h32"><option>多</option><option>空</option></select>
+              </label>
+              <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+                <button type="button" class="ghost">取消</button>
+                <button type="button" class="btn btn-primary">创建</button>
+              </div>
+            </div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="q5" value="B" />
+          <div class="option-meta">
+            <span class="label">B · 暂不抽 token</span>
+            <span class="hint">维持现状散落</span>
+          </div>
+          <div class="option-stage">
+            <div class="field-demo">
+              <label>品种<input class="h36" value="BTCUSDT" /></label>
+              <label>方向
+                <select class="h32"><option>多</option><option>空</option></select>
+              </label>
+              <p class="note" style="margin:0">32/36 混用，看起来略不齐。</p>
+            </div>
+          </div>
+        </label>
+        <label class="option">
+          <input type="radio" name="q5" value="C" />
+          <div class="option-meta">
+            <span class="label">C · 全压到 28</span>
+            <span class="hint">与 control-height 同一</span>
+          </div>
+          <div class="option-stage">
+            <div class="field-demo">
+              <label>品种<input class="h28" value="BTCUSDT" /></label>
+              <label>方向
+                <select class="h28"><option>多</option><option>空</option></select>
+              </label>
+              <p class="note" style="margin:0">最紧，录入密度像工具栏。</p>
+            </div>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <section class="decision">
+      <div class="decision-head">
+        <div>
+          <h2>汇总回复</h2>
+          <p>选完后点复制，粘贴回对话即可。</p>
+        </div>
+      </div>
+      <div id="copy-out">尚未选择完整。请点选上方 1–5 项。</div>
+      <div class="footer-actions">
+        <button type="button" class="copy-btn" id="copy">复制选择结果</button>
+        <button type="button" class="copy-btn" id="preset">一键填入建议默认（1A 2A 3A 4A 5A）</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const labels = {
+      1: { A: '今日 CTA → empty-btn 28', B: '今日 CTA → 保留 34' },
+      2: { A: '灯箱色 → 语义 token', B: '灯箱色 → 本轮不动' },
+      3: { A: '周复盘 footer → ui-btn', B: '周复盘 footer → 保留 34' },
+      4: { A: '导入 → 只改按钮', B: '导入 → 迁 ModalShell 视觉' },
+      5: { A: '字段 → 抽 field-height-md 32', B: '字段 → 暂不抽 token', C: '字段 → 全压 28' },
+    }
+
+    function readChoices() {
+      const out = {}
+      for (let i = 1; i <= 5; i++) {
+        const el = document.querySelector(`input[name="q${i}"]:checked`)
+        out[i] = el ? el.value : null
+      }
+      return out
+    }
+
+    function render() {
+      const c = readChoices()
+      document.querySelectorAll('#picks code').forEach((node) => {
+        const k = node.getAttribute('data-k')
+        const v = c[k]
+        node.textContent = v ? `${k}${v}` : `${k} · —`
+        node.classList.toggle('is-set', Boolean(v))
+      })
+      const lines = []
+      for (let i = 1; i <= 5; i++) {
+        if (!c[i]) {
+          document.getElementById('copy-out').textContent = '尚未选择完整。请点选上方 1–5 项。'
+          return
+        }
+        lines.push(`${i}${c[i]} · ${labels[i][c[i]]}`)
+      }
+      document.getElementById('copy-out').textContent =
+        '设计争议拍板：\n' + lines.join('\n') + '\n请按此继续。'
+    }
+
+    document.querySelectorAll('input[type="radio"]').forEach((el) => {
+      el.addEventListener('change', render)
+    })
+
+    document.getElementById('preset').addEventListener('click', () => {
+      ;['A', 'A', 'A', 'A', 'A'].forEach((v, idx) => {
+        const el = document.querySelector(`input[name="q${idx + 1}"][value="${v}"]`)
+        if (el) el.checked = true
+      })
+      render()
+    })
+
+    document.getElementById('copy').addEventListener('click', async () => {
+      render()
+      const text = document.getElementById('copy-out').textContent
+      try {
+        await navigator.clipboard.writeText(text)
+        document.getElementById('copy').textContent = '已复制'
+        setTimeout(() => { document.getElementById('copy').textContent = '复制选择结果' }, 1200)
+      } catch {
+        alert(text)
+      }
+    })
+
+    render()
+  </script>
+</body>
+</html>

@@ -45,23 +45,6 @@
   line-height: 1.55;
 }
 
-.today-create {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 6px;
-  height: 34px;
-  padding: 0 12px;
-  color: var(--accent-text);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
-  background: var(--accent);
-  border: 0;
-  border-radius: var(--radius-6);
-}
-
-.today-create:hover { background: var(--accent-hover); }
-
 .today-queue-overview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -177,6 +160,6 @@
 @media (max-width: 700px) {
   .today-workspace-inner { padding: 18px 10px 56px; }
   .today-focus { align-items: flex-start; flex-direction: column; gap: 16px; }
-  .today-create { width: 100%; height: 44px; justify-content: center; }
+  .today-focus .empty-btn { width: 100%; min-height: 44px; justify-content: center; }
 }
 

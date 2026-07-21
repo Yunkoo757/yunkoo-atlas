@@ -2,14 +2,14 @@
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: lch(4.52 0.3 272);
+  background: var(--bg-surface);
   pointer-events: auto;
   transition: background 210ms var(--ease-out-expo);
 }
 
 .img-lightbox-overlay.is-pending,
 .img-lightbox-overlay.is-closing {
-  background: lch(4.52 0.3 272 / 0);
+  background: transparent;
 }
 
 .img-lightbox-viewport {
@@ -113,8 +113,9 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  color: lch(67 1.5 272);
-  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
   font-variant-numeric: tabular-nums;
 }
 
@@ -125,7 +126,7 @@
   width: 1px;
   height: 16px;
   margin: 0 4px;
-  background: lch(25 1 272);
+  background: var(--border-strong);
 }
 
 .img-lightbox-action,
@@ -134,19 +135,19 @@
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 6px;
-  color: lch(62 1.5 272);
+  border-radius: var(--radius-6);
+  color: var(--text-muted);
   transition: color 120ms var(--ease-out), background 120ms var(--ease-out);
 }
 
 .img-lightbox-action:hover,
 .img-lightbox-close:hover {
-  color: lch(92 1 272);
-  background: lch(14 1 272);
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .img-lightbox-ratio {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: var(--font-weight-medium);
   letter-spacing: -0.02em;
   line-height: 1;
@@ -160,16 +161,19 @@
   place-items: center;
   width: 36px;
   height: 54px;
-  border-radius: 7px;
-  color: lch(62 1.5 272);
-  background: lch(10 1 272 / 0.42);
+  border-radius: var(--radius-6);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
   opacity: 0;
   transition: opacity 140ms var(--ease-out), color 120ms var(--ease-out), background 120ms var(--ease-out);
 }
 
 .img-lightbox-overlay:hover .img-lightbox-nav,
 .img-lightbox-nav:focus-visible { opacity: 1; }
-.img-lightbox-nav:hover { color: lch(94 1 272); background: lch(16 1 272 / 0.86); }
+.img-lightbox-nav:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-hover) 88%, transparent);
+}
 .img-lightbox-nav--prev { left: 12px; }
 .img-lightbox-nav--next { right: 12px; }
 

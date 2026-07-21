@@ -31,9 +31,11 @@
 .tag-input {
   flex: 1;
   max-width: 260px;
-  height: 32px;
+  height: var(--field-height-md);
   padding: 0 10px;
-  font-size: var(--fs-sm);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   background: var(--field-bg);

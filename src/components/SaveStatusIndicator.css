@@ -43,7 +43,7 @@
 
 .save-status--action:hover,
 .save-status--action:focus-visible {
-  color: var(--neg-strong, var(--neg));
+  color: var(--neg-strong);
 }
 
 .save-status-recovery-link {

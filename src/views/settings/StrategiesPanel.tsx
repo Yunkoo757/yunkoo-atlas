@@ -14,6 +14,7 @@ import { toast } from '@/lib/toast'
 import type { Strategy } from '@/data/strategies'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Select } from '@/components/ui/Select'
+import { ModalShell } from '@/components/ui/ModalShell'
 import '@/views/StrategiesView.css'
 
 export function StrategiesPanel() {
@@ -175,52 +176,57 @@ export function StrategiesPanel() {
         onSave={onSave}
       />
 
-      {deleteTarget && (
-        <div
-          className="st-del-overlay"
-          role="presentation"
-          onMouseDown={() => setDeleteTarget(null)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setDeleteTarget(null)
+      {deleteTarget ? (
+        <ModalShell
+          title={`删除策略「${deleteTarget.name}」？`}
+          size="compact"
+          onClose={() => {
+            setDeleteTarget(null)
+            setReassignId('')
           }}
-        >
-          <div
-            className="st-del"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="strategy-delete-title"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h3 id="strategy-delete-title">删除策略「{deleteTarget.name}」？</h3>
-            {deleteCount > 0 ? (
-              <>
-                <p>
-                  该策略下有 <b>{deleteCount}</b> 笔交易，删除前需迁移到其他策略。
-                </p>
-                <Select
-                  className="st-del-select"
-                  value={reassignId}
-                  onValueChange={setReassignId}
-                  ariaLabel="迁移到策略"
-                  options={strategies
-                    .filter((s) => s.id !== deleteTarget.id)
-                    .map((strategy) => ({ value: strategy.id, label: strategy.name }))}
-                />
-              </>
-            ) : (
-              <p>此策略下没有交易，可直接删除。</p>
-            )}
-            <div className="st-del-foot">
-              <button type="button" className="st-del-btn" onClick={() => setDeleteTarget(null)} autoFocus>
+          footer={(
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered"
+                onClick={() => {
+                  setDeleteTarget(null)
+                  setReassignId('')
+                }}
+              >
                 取消
               </button>
-              <button type="button" className="st-del-btn st-del-danger" onClick={confirmDelete}>
+              <button
+                type="button"
+                className="ui-btn ui-btn-danger-solid"
+                data-autofocus
+                onClick={confirmDelete}
+              >
                 删除
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        >
+          {deleteCount > 0 ? (
+            <>
+              <p>
+                该策略下有 <b>{deleteCount}</b> 笔交易，删除前需迁移到其他策略。
+              </p>
+              <Select
+                className="st-del-select"
+                value={reassignId}
+                onValueChange={setReassignId}
+                ariaLabel="迁移到策略"
+                options={strategies
+                  .filter((s) => s.id !== deleteTarget.id)
+                  .map((strategy) => ({ value: strategy.id, label: strategy.name }))}
+              />
+            </>
+          ) : (
+            <p>此策略下没有交易，可直接删除。</p>
+          )}
+        </ModalShell>
+      ) : null}
     </>
   )
 }

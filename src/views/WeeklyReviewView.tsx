@@ -453,8 +453,8 @@ export function WeeklyReviewView() {
               <div className="wr-footer-action">
                 <div><strong>{review.status === 'completed' ? '这周已经形成闭环' : '完成后会冻结本周事实，并带入下周验证'}</strong><span>复盘不是总结，而是下一周行为的输入。</span></div>
                 {review.status === 'completed'
-                  ? <button type="button" className="is-secondary" onClick={reopenReview}><RotateCcw size={16} /> 重新打开</button>
-                  : <button type="button" onClick={() => void completeReview()}><Check size={16} /> 完成本周复盘</button>}
+                  ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={15} /> 重新打开</button>
+                  : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={15} /> 完成本周复盘</button>}
               </div>
             </div>
           )}

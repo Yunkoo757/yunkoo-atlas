@@ -372,12 +372,12 @@ export function DetailView() {
               <Link
                 to={detailReturn}
                 state={tradeReturnLocationState(from?.anchorTradeId)}
-                className="dv-empty-action"
+                className="ui-btn ui-btn-bordered"
               >
                 返回{deletedTrade?.tradeKind === 'case' ? '案例记录' : '交易日志'}
               </Link>
               {deletedTrade && (
-                <Link to="/trade-trash" className="dv-empty-action is-primary">
+                <Link to="/trade-trash" className="empty-btn">
                   前往回收站
                 </Link>
               )}

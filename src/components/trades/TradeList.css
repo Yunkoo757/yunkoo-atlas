@@ -265,7 +265,7 @@
 }
 
 .trade-row:hover::after {
-  background: rgb(22 22 23);
+  background: var(--bg-hover);
 }
 
 .trade-row.is-selected,
@@ -319,15 +319,15 @@
 
 .trade-row:hover .selection-box:not(.is-selected) {
   opacity: 1;
-  background: rgb(22 22 23);
-  border-color: rgb(85 85 87);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
 }
 
 .trade-row:hover .selection-box:not(.is-selected):hover,
 .trade-row .selection-box:not(.is-selected):focus-visible {
   opacity: 1;
-  background: rgb(22 22 23);
-  border-color: rgb(105 117 226);
+  background: var(--bg-hover);
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
 }
 
 .trade-row-status,
@@ -461,7 +461,7 @@
 
 .trade-row-strategy:active {
   color: var(--list-text-primary);
-  background: color-mix(in srgb, var(--surface-control-active) 88%, #fff 12%);
+  background: color-mix(in srgb, var(--surface-control-active) 88%, white 12%);
   border-color: var(--surface-control-border-active);
   box-shadow: none;
 }
@@ -578,22 +578,22 @@
 .trade-row-session.is-new-york,
 .trade-row-session.is-outside,
 .trade-row-session.is-other {
-  color: #9ca8bc;
-  background: rgb(82 98 125 / 12%);
-  border-color: var(--border-strong);
+  color: var(--tag-session-text);
+  background: var(--tag-session-bg);
+  border-color: var(--tag-session-border);
 }
 
 .trade-row-tag.is-mistake {
   max-width: none;
-  color: #e37c84;
-  background: rgb(227 124 132 / 8%);
-  border-color: rgb(227 124 132 / 36%);
+  color: var(--tag-error-text);
+  background: var(--tag-error-bg);
+  border-color: var(--tag-error-border);
 }
 
 .trade-row-more.is-mistake-more {
-  color: #e37c84;
-  background: rgb(227 124 132 / 8%);
-  border-color: rgb(227 124 132 / 36%);
+  color: var(--tag-error-text);
+  background: var(--tag-error-bg);
+  border-color: var(--tag-error-border);
   border-style: solid;
 }
 
