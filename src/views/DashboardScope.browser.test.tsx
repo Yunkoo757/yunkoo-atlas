@@ -87,7 +87,7 @@ async function run(): Promise<void> {
   try {
     useStore.setState({ trades: [paperTrade], strategies: [strategy] })
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=30d']}>
+      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=this-week']}>
         <Routes>
           <Route
             path="/dashboard"
@@ -102,20 +102,20 @@ async function run(): Promise<void> {
     const selectedKind = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
       .find((button) => button.textContent?.trim() === '模拟')
     const selectedRange = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
-      .find((button) => button.textContent?.trim() === '近30天')
+      .find((button) => button.textContent?.trim() === '本周')
     assert(selectedKind?.getAttribute('aria-pressed') === 'true', '仪表盘必须从 URL 恢复交易类型')
     assert(selectedRange?.getAttribute('aria-pressed') === 'true', '仪表盘必须从 URL 恢复时间范围')
     assert(document.body.textContent?.includes('+$250'), '仪表盘必须使用 URL 范围内的模拟交易')
 
     const link = document.querySelector<HTMLAnchorElement>('a.db-strat')
     assert(
-      link?.getAttribute('href') === '/strategy/paper-strategy?kind=paper&range=30d',
+      link?.getAttribute('href') === '/strategy/paper-strategy?kind=paper&range=this-week',
       '策略下钻链接必须保留仪表盘范围',
     )
     link.click()
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
-        '/strategy/paper-strategy?kind=paper&range=30d',
+        '/strategy/paper-strategy?kind=paper&range=this-week',
       '进入策略页后分析范围丢失',
     )
 
@@ -123,7 +123,7 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [openPaperTrade] })
     root = createRoot(rootElement)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=30d']}>
+      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=this-week']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
           <Route path="/sim" element={<LocationProbe />} />

@@ -37,42 +37,52 @@ async function settleFrames(count = 3): Promise<void> {
   for (let index = 0; index < count; index += 1) await waitForFrame()
 }
 
-async function waitForButton(host: HTMLElement, text: string): Promise<HTMLButtonElement> {
+function liveModalRoot(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('.modal-shell-overlay:not(.ui-exit-clone)')
+}
+
+async function waitForButton(text: string): Promise<HTMLButtonElement> {
   const deadline = performance.now() + 1500
   while (performance.now() < deadline) {
-    const button = [...host.querySelectorAll<HTMLButtonElement>('button')]
-      .find((item) => item.textContent?.includes(text))
+    const root = liveModalRoot()
+    const button = root
+      ? [...root.querySelectorAll<HTMLButtonElement>('button')]
+        .find((item) => item.textContent?.includes(text))
+      : undefined
     if (button) return button
     await waitForFrame()
   }
   throw new Error(`未找到按钮：${text}`)
 }
 
-async function waitForEnabledButton(host: HTMLElement, text: string): Promise<HTMLButtonElement> {
+async function waitForEnabledButton(text: string): Promise<HTMLButtonElement> {
   const deadline = performance.now() + 1500
   while (performance.now() < deadline) {
-    const button = [...host.querySelectorAll<HTMLButtonElement>('button')]
-      .find((item) => item.textContent?.includes(text) && !item.disabled)
+    const root = liveModalRoot()
+    const button = root
+      ? [...root.querySelectorAll<HTMLButtonElement>('button')]
+        .find((item) => item.textContent?.includes(text) && !item.disabled)
+      : undefined
     if (button) return button
     await waitForFrame()
   }
   throw new Error(`未找到可用按钮：${text}`)
 }
 
-async function waitForFileInput(host: HTMLElement): Promise<HTMLInputElement> {
+async function waitForFileInput(): Promise<HTMLInputElement> {
   const deadline = performance.now() + 1500
   while (performance.now() < deadline) {
-    const input = host.querySelector<HTMLInputElement>('input[type="file"]')
+    const input = liveModalRoot()?.querySelector<HTMLInputElement>('input[type="file"]')
     if (input) return input
     await waitForFrame()
   }
   throw new Error('导入弹窗应提供文件输入')
 }
 
-async function waitForText(host: HTMLElement, text: string): Promise<void> {
+async function waitForText(text: string): Promise<void> {
   const deadline = performance.now() + 1500
   while (performance.now() < deadline) {
-    if (host.textContent?.includes(text)) return
+    if (liveModalRoot()?.textContent?.includes(text)) return
     await waitForFrame()
   }
   throw new Error(`未找到文本：${text}`)
@@ -168,39 +178,39 @@ async function testCsvRace(host: HTMLElement): Promise<void> {
 
   try {
     root.render(<CsvImportModal open onClose={() => { closeCalls += 1 }} />)
-    const input = await waitForFileInput(host)
+    const input = await waitForFileInput()
     const oldParse = deferred<string>()
     dispatchFile(input, delayedTextFile('old.csv', oldParse.promise))
     dispatchFile(input, new File([
       'new_symbol,side,status,strategy,entry,size,openedAt\nNEWUSDT,long,open,测试策略,100,1,2026-07-14',
     ], 'new.csv', { type: 'text/csv' }))
 
-    await waitForText(host, 'new_symbol')
+    await waitForText('new_symbol')
     oldParse.resolve(
       'old_symbol,side,status,strategy,entry,size,openedAt\nOLDUSDT,long,open,测试策略,100,1,2026-07-14',
     )
     await settleFrames()
-    assert(host.textContent?.includes('new_symbol'), 'CSV 较慢旧文件不得覆盖较新的字段映射')
-    assert(!host.textContent?.includes('old_symbol'), 'CSV 旧解析结果必须被丢弃')
+    assert(document.body.textContent?.includes('new_symbol'), 'CSV 较慢旧文件不得覆盖较新的字段映射')
+    assert(!document.body.textContent?.includes('old_symbol'), 'CSV 旧解析结果必须被丢弃')
 
-    const previewButton = await waitForButton(host, '预览导入')
+    const previewButton = await waitForButton('预览导入')
     previewButton.click()
-    const confirmButton = await waitForButton(host, '确认导入')
+    const confirmButton = await waitForButton('确认导入')
     assert(!confirmButton.disabled, 'CSV 正文索引完成后应开放确认导入')
     assert(assetLoaderCalls === 0, 'CSV 正文判重不得读取库内附件')
 
-    const backButton = await waitForButton(host, '返回调整映射')
+    const backButton = await waitForButton('返回调整映射')
     backButton.click()
     await settleFrames()
-    assert(host.textContent?.includes('new_symbol'), 'CSV 返回后应恢复当前文件的字段映射')
-    assert(!host.textContent?.includes('确认导入'), 'CSV 返回后不得保留预览步骤')
+    assert(document.body.textContent?.includes('new_symbol'), 'CSV 返回后应恢复当前文件的字段映射')
+    assert(!document.body.textContent?.includes('确认导入'), 'CSV 返回后不得保留预览步骤')
 
-    const reselectButton = await waitForButton(host, '重新选择文件')
+    const reselectButton = await waitForButton('重新选择文件')
     reselectButton.click()
-    const nextInput = await waitForFileInput(host)
+    const nextInput = await waitForFileInput()
     const closedParse = deferred<string>()
     dispatchFile(nextInput, delayedTextFile('closed.csv', closedParse.promise))
-    host.querySelector<HTMLElement>('.modal-shell-overlay')?.dispatchEvent(
+    liveModalRoot()?.dispatchEvent(
       new MouseEvent('mousedown', { bubbles: true }),
     )
     closedParse.resolve(
@@ -208,7 +218,7 @@ async function testCsvRace(host: HTMLElement): Promise<void> {
     )
     await settleFrames()
     assert(closeCalls === 1, 'CSV 关闭操作应正常上报')
-    assert(!host.textContent?.includes('closed_symbol'), 'CSV 关闭后未完成的解析不得再更新界面')
+    assert(!document.body.textContent?.includes('closed_symbol'), 'CSV 关闭后未完成的解析不得再更新界面')
   } finally {
     storage.getAssetForExport = originalGetAsset
     root.unmount()
@@ -235,7 +245,7 @@ async function testNotionRace(host: HTMLElement): Promise<void> {
 
   try {
     root.render(<NotionImportModal open onClose={() => { closeCalls += 1 }} />)
-    const input = await waitForFileInput(host)
+    const input = await waitForFileInput()
 
     let oversizedZipReads = 0
     const oversizedZip = withReportedSize(
@@ -250,7 +260,7 @@ async function testNotionRace(host: HTMLElement): Promise<void> {
       },
     })
     dispatchFile(input, oversizedZip)
-    await waitForText(host, 'Notion ZIP 文件超过 160 MB，请拆分后导入')
+    await waitForText('Notion ZIP 文件超过 160 MB，请拆分后导入')
     assert(oversizedZipReads === 0, '超限 ZIP 必须在调用 arrayBuffer 前拒绝')
 
     let oversizedCsvReads = 0
@@ -266,7 +276,7 @@ async function testNotionRace(host: HTMLElement): Promise<void> {
       },
     })
     dispatchFile(input, oversizedCsv)
-    await waitForText(host, 'Notion CSV 文件超过 32 MB，请拆分后导入')
+    await waitForText('Notion CSV 文件超过 32 MB，请拆分后导入')
     assert(oversizedCsvReads === 0, '超限 CSV 必须在调用 text 前拒绝')
 
     const imageCapacityError =
@@ -276,14 +286,14 @@ async function testNotionRace(host: HTMLElement): Promise<void> {
       input,
       delayedTextFile('capacity.csv', Promise.reject(new Error(imageCapacityError))),
     )
-    await waitForText(host, imageCapacityError)
+    await waitForText(imageCapacityError)
     const parserZip = new File([], 'capacity.zip', { type: 'application/zip' })
     Object.defineProperty(parserZip, 'arrayBuffer', {
       configurable: true,
       value: async () => { throw new Error(expandedCapacityError) },
     })
     dispatchFile(input, parserZip)
-    await waitForText(host, expandedCapacityError)
+    await waitForText(expandedCapacityError)
     assert(
       getNotionCapacityErrorMessage(new Error(
         '本次原图总量超过 96 MB，请分批导入；为保留画质，软件不会自动压缩原图',
@@ -298,7 +308,7 @@ async function testNotionRace(host: HTMLElement): Promise<void> {
     const slowParse = deferred<string>()
     let secondParseReads = 0
     dispatchFile(input, delayedTextFile('slow.csv', slowParse.promise))
-    await waitForText(host, '正在解析…')
+    await waitForText('正在解析…')
     assert(input.disabled, '解析期间必须禁用文件输入')
     const ignoredFile = new File([], 'ignored.csv', { type: 'text/csv' })
     Object.defineProperty(ignoredFile, 'text', {
@@ -311,47 +321,47 @@ async function testNotionRace(host: HTMLElement): Promise<void> {
     dispatchFile(input, ignoredFile)
     await settleFrames()
     assert(secondParseReads === 0, '已有解析运行时不得启动第二次文件读取')
-    host.querySelector<HTMLElement>('.modal-shell-overlay')?.dispatchEvent(
+    liveModalRoot()?.dispatchEvent(
       new MouseEvent('mousedown', { bubbles: true }),
     )
     slowParse.resolve(notionCsv('CLOSED'))
-    await waitForEnabledButton(host, '选择文件')
+    await waitForEnabledButton('选择文件')
     await settleFrames()
     assert(closeCalls === 1, 'Notion 关闭操作应正常上报')
-    assert(!host.textContent?.includes('CLOSED'), 'Notion 关闭后未完成的解析不得再更新界面')
+    assert(!document.body.textContent?.includes('CLOSED'), 'Notion 关闭后未完成的解析不得再更新界面')
 
-    const noImageInput = await waitForFileInput(host)
+    const noImageInput = await waitForFileInput()
     dispatchFile(
       noImageInput,
       new File([notionCsv('CSVNOIMAGE')], 'no-image.csv', { type: 'text/csv' }),
     )
-    await waitForText(host, 'CSVNOIMAGE')
-    await waitForEnabledButton(host, '确认导入')
+    await waitForText('CSVNOIMAGE')
+    await waitForEnabledButton('确认导入')
     assert(assetLoaderCalls === 0, '无图 Notion CSV 判重不得读取库内附件')
-    ;(await waitForButton(host, '重新选择文件')).click()
+    ;(await waitForButton('重新选择文件')).click()
 
-    const noImageZipInput = await waitForFileInput(host)
+    const noImageZipInput = await waitForFileInput()
     dispatchFile(noImageZipInput, await notionZip('ZIPNOIMAGE', false))
-    await waitForText(host, 'ZIPNOIMAGE')
-    await waitForEnabledButton(host, '确认导入')
+    await waitForText('ZIPNOIMAGE')
+    await waitForEnabledButton('确认导入')
     assert(assetLoaderCalls === 0, '无图 Notion ZIP 判重不得读取库内附件')
-    ;(await waitForButton(host, '重新选择文件')).click()
+    ;(await waitForButton('重新选择文件')).click()
 
     const scan = deferred<{ id: string; mime: string; data: string } | null>()
     storage.getAssetForExport = async () => {
       assetLoaderCalls += 1
       return scan.promise
     }
-    const imageZipInput = await waitForFileInput(host)
+    const imageZipInput = await waitForFileInput()
     dispatchFile(imageZipInput, await notionZip('ZIPWITHIMAGE', true))
-    await waitForText(host, 'ZIPWITHIMAGE')
-    const confirmButton = await waitForButton(host, '确认导入')
+    await waitForText('ZIPWITHIMAGE')
+    const confirmButton = await waitForButton('确认导入')
     assert(confirmButton.disabled, '含图 Notion 重复扫描完成前必须禁用确认导入')
     assert(Number(assetLoaderCalls) === 1, '含图 Notion 判重仍应读取库内附件')
-    ;(await waitForButton(host, '重新选择文件')).click()
+    ;(await waitForButton('重新选择文件')).click()
     scan.resolve({ id: 'slow-asset', mime: 'image/png', data: 'AA==' })
     await settleFrames()
-    assert(host.textContent?.includes('拖放或选择文件'), '重选后旧图片扫描不得恢复预览')
+    assert(document.body.textContent?.includes('拖放或选择文件'), '重选后旧图片扫描不得恢复预览')
   } finally {
     storage.getAssetForExport = originalGetAsset
     storage.getAssetStats = originalGetAssetStats

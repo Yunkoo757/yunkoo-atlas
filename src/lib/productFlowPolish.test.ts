@@ -144,14 +144,18 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
   ])
 
   assert(
-    [quickNotes, lightbox, saveStatus, tradeRow, tradeList, displayMenu].every((source) =>
-      source.includes('Tooltip'),
-    ),
+    [lightbox, saveStatus, tradeRow, tradeList].every((source) => source.includes('Tooltip')),
     '主要图标操作应复用统一 Tooltip，而不是浏览器原生提示',
   )
   assert(
-    !quickNotes.includes("title={selectedNote.pinned") &&
+    !quickNotes.includes('Tooltip') &&
+      !quickNotes.includes("title={selectedNote.pinned") &&
       !quickNotes.includes('title="删除随记"') &&
+      quickNotes.includes('aria-label={selectedNote.pinned') &&
+      quickNotes.includes('aria-label="删除随记"') &&
+      !displayMenu.includes('Tooltip') &&
+      !displayMenu.includes('title=') &&
+      displayMenu.includes('aria-label="显示选项"') &&
       !lightbox.includes('title={closeShortcut') &&
       !lightbox.includes('title={previousShortcut') &&
       !lightbox.includes('title={nextShortcut') &&
@@ -168,7 +172,7 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
       !detailView.includes('title={trade.reviewedAt') &&
       !detailView.includes("title={masked ? '直播模式下") &&
       !detailView.includes('title={\n                    reviewSubmitting'),
-    '主要图标操作不得残留原生 title 提示',
+    '主要图标操作不得残留原生 title 提示；有可见文字的控件可不包 Tooltip',
   )
 }
 

@@ -379,7 +379,7 @@ export function testCrossTypeFacetsShareOneProductionPipelineAndExposeUnsupporte
     '固定类型工作区必须从 URL 移除陈旧记录类型条件',
   )
   assert(
-    filters.includes('未支持条件：${key}=${value}') &&
+    filters.includes('未支持的筛选条件，可移除') &&
       filters.includes("item.key.startsWith('unsupported:')"),
     '未知保存条件必须可见且可清除，不能静默改变列表语义',
   )

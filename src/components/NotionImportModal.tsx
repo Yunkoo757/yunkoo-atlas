@@ -422,7 +422,7 @@ export function NotionImportModal({ open, onClose }: Props) {
     <ModalShell
       title="从 Notion 导入"
       description={step === 'upload' ? '请先导出 Markdown & CSV，再选择文件' : undefined}
-      busy={step === 'importing' || parsing}
+      busy={step === 'importing'}
       size={step === 'upload' || step === 'done' || step === 'importing' ? 'compact' : 'wide'}
       onClose={requestClose}
       footer={footer}
