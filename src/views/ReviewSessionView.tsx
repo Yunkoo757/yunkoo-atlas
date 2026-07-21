@@ -17,6 +17,9 @@ import {
   type Trade,
 } from '@/data/trades'
 import { Editor } from '@/editor/Editor'
+import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
+import { Kbd } from '@/components/ui/Kbd'
 import { Select } from '@/components/ui/Select'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
@@ -37,6 +40,7 @@ import {
 } from '@/lib/reviewSession'
 import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
+import { toast } from '@/lib/toast'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -112,8 +116,10 @@ export function ReviewSessionView() {
   const latestTradesRef = useRef(trades)
   const latestStarredRef = useRef(starred)
   const focusAfterTransitionRef = useRef(false)
+  const sessionRef = useRef(session)
   latestTradesRef.current = trades
   latestStarredRef.current = starred
+  sessionRef.current = session
 
   const pool = useMemo(
     () => buildReviewSessionPool(trades, filters, starred),
@@ -194,16 +200,53 @@ export function ReviewSessionView() {
     } : value)
   }, [])
 
+  const rewind = useCallback(() => {
+    const value = sessionRef.current
+    if (!value || value.cursor <= 0) return
+    const prevCursor = value.cursor - 1
+    const prevId = value.ids[prevCursor]
+    if (!prevId) return
+    const prevTrade = value.assessmentPrev?.[prevId]
+    const hadAssessment = value.assessments[prevId] != null
+    if (hadAssessment && prevTrade) {
+      useStore.setState((state) => {
+        const top = state.undoStack[state.undoStack.length - 1]
+        const dropTop = Boolean(top?.length === 1 && top[0]?.id === prevId)
+        return {
+          trades: state.trades.map((trade) => (trade.id === prevId ? prevTrade : trade)),
+          undoStack: dropTop ? state.undoStack.slice(0, -1) : state.undoStack,
+        }
+      })
+    }
+    const assessments = { ...value.assessments }
+    const assessmentPrev = { ...(value.assessmentPrev ?? {}) }
+    delete assessments[prevId]
+    delete assessmentPrev[prevId]
+    focusAfterTransitionRef.current = true
+    setSession({
+      ...value,
+      cursor: prevCursor,
+      assessments,
+      assessmentPrev,
+    })
+  }, [])
+
   const assess = useCallback((assessment: ReviewSessionAssessment) => {
     if (!current) return
+    const previous = current
     updateTradeData(current.id, buildReviewAssessmentPatch(current, assessment))
     focusAfterTransitionRef.current = true
     setSession((value) => value ? {
       ...value,
       cursor: Math.min(value.cursor + 1, value.ids.length),
       assessments: { ...value.assessments, [current.id]: assessment },
+      assessmentPrev: { ...(value.assessmentPrev ?? {}), [current.id]: previous },
     } : value)
-  }, [current, updateTradeData])
+    toast('已记录评估', {
+      label: '撤销',
+      onClick: () => rewind(),
+    })
+  }, [current, rewind, updateTradeData])
 
   useEffect(() => {
     if (!focusAfterTransitionRef.current) return
@@ -229,18 +272,19 @@ export function ReviewSessionView() {
       if (
         shortcutState.lightbox ||
         shortcutState.cmdkOpen ||
-        shortcutState.dataIOOpen ||
+        shortcutState.modalOverlayCount > 0 ||
         appState.composerOpen ||
         appState.closeTradeRequest
       ) return
       event.preventDefault()
       event.stopImmediatePropagation()
       if (action === 'skip') advance()
+      else if (action === 'back') rewind()
       else assess(action)
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [advance, assess, current, roundEnded, session])
+  }, [advance, assess, current, rewind, roundEnded, session])
 
   const start = () => {
     const ids = shuffleReviewSessionIds(pool.map((trade) => trade.id))
@@ -297,10 +341,10 @@ export function ReviewSessionView() {
   return (
     <div className="review-session-view">
       <header className="review-session-topbar">
-        <button type="button" className="review-session-back" onClick={() => navigate('/today-record')}>
+        <Button type="button" variant="ghost" className="review-session-back" onClick={() => navigate('/today-record')}>
           <ChevronLeft size={16} aria-hidden />
           <span>退出复盘</span>
-        </button>
+        </Button>
         <div className="review-session-heading">
           <RotateCcw size={16} aria-hidden />
           <strong>随机复盘</strong>
@@ -311,7 +355,7 @@ export function ReviewSessionView() {
             <span className="review-session-progress" aria-live="polite">
               {session.cursor + 1} / {session.ids.length}
             </span>
-            <button type="button" onClick={() => clearActiveSession(session.filters)}>结束本轮</button>
+            <Button type="button" variant="bordered" onClick={() => clearActiveSession(session.filters)}>结束本轮</Button>
           </div>
         ) : <span />}
       </header>
@@ -335,6 +379,7 @@ export function ReviewSessionView() {
           note={resolvedNote.tradeId === current.id ? resolvedNote : EMPTY_NOTE_STATE}
           onAssess={assess}
           onSkip={advance}
+          onBack={session.cursor > 0 ? rewind : undefined}
           onOpenDetail={openDetail}
           privacyMode={privacyMode}
         />
@@ -403,10 +448,10 @@ function ReviewSessionStart({
           <strong>{noSources ? '请选择至少一个来源' : `可随机复盘 ${poolSize} 条`}</strong>
           <span>{poolSize === 0 && !noSources ? '当前条件没有可复盘记录，请放宽筛选。' : '进入后直接显示完整内容，不再翻面。'}</span>
         </div>
-        <button type="button" className="review-session-primary" disabled={noSources || poolSize === 0} onClick={onStart}>
+        <Button type="button" variant="primary" size="lg" disabled={noSources || poolSize === 0} onClick={onStart}>
           随机开始
           <ChevronRight size={16} aria-hidden />
-        </button>
+        </Button>
       </div>
     </main>
   )
@@ -422,6 +467,7 @@ function ReviewSessionItem({
   note,
   onAssess,
   onSkip,
+  onBack,
   onOpenDetail,
   privacyMode,
 }: {
@@ -430,6 +476,7 @@ function ReviewSessionItem({
   note: ResolvedNoteState
   onAssess: (assessment: ReviewSessionAssessment) => void
   onSkip: () => void
+  onBack?: () => void
   onOpenDetail: () => void
   privacyMode: boolean
 }) {
@@ -442,8 +489,10 @@ function ReviewSessionItem({
         <header className="review-session-item-header">
           <div className="review-session-item-identity">
             <div className="review-session-item-badges">
-              <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
-              {trade.reviewCategory !== 'normal' ? <span>{REVIEW_CATEGORY_META[trade.reviewCategory].label}</span> : null}
+              <Chip size="sm" variant="soft">{TRADE_KIND_META[trade.tradeKind].label}</Chip>
+              {trade.reviewCategory !== 'normal' ? (
+                <Chip size="sm" variant="outline">{REVIEW_CATEGORY_META[trade.reviewCategory].label}</Chip>
+              ) : null}
             </div>
             <div>
               <span className="review-session-card-ref">{trade.ref}</span>
@@ -456,7 +505,7 @@ function ReviewSessionItem({
             <span>{fmtDate(trade.recordedAt ?? trade.openedAt)}</span>
             <span className={`is-${rTone}`}>{fmtR(trade.rMultiple)}</span>
             {trade.pnl != null ? <span className={`is-${pnlTone}`}>{fmtMoney(trade.pnl, privacyMode)}</span> : null}
-            <button type="button" onClick={onOpenDetail}>打开详情</button>
+            <Button type="button" variant="bordered" onClick={onOpenDetail}>打开详情</Button>
           </div>
         </header>
 
@@ -472,10 +521,15 @@ function ReviewSessionItem({
               <button key={option.value} type="button" className={`is-${option.value}`} onClick={() => onAssess(option.value)}>
                 <span>{option.label}</span>
                 <small>{option.hint}</small>
-                <kbd>{option.key}</kbd>
+                <Kbd>{option.key}</Kbd>
               </button>
             ))}
-            <button type="button" className="review-session-skip" onClick={onSkip}>跳过 <kbd>N</kbd></button>
+            <button type="button" className="review-session-skip" onClick={onSkip}>跳过 <Kbd>N</Kbd></button>
+            {onBack ? (
+              <button type="button" className="review-session-skip" onClick={onBack}>
+                上一条 <Kbd>P</Kbd>
+              </button>
+            ) : null}
           </div>
         </footer>
       </article>
@@ -578,8 +632,8 @@ function ReviewSessionFinished({
         <span><strong>{counts.skipped}</strong><small>跳过</small></span>
       </div>
       <div className="review-session-finished-actions">
-        <button type="button" className="review-session-primary" onClick={onReshuffle}><RotateCcw size={16} aria-hidden />再随机一轮</button>
-        <button type="button" onClick={onAdjust}><SlidersHorizontal size={16} aria-hidden />调整范围</button>
+        <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={16} aria-hidden />再随机一轮</Button>
+        <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={16} aria-hidden />调整范围</Button>
       </div>
     </main>
   )

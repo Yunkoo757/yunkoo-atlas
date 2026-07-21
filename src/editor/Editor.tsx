@@ -381,7 +381,7 @@ function BBtn({
 // 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
 async function insertImageFile(editor: TiptapEditor, file: File, noteDraftId?: string) {
   if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
-    toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
+    toast('单张原图超过 32 MB，无法加入交易库；请缩小图片后重试')
     return
   }
   let savedAssetId: string | null = null

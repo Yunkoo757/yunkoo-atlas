@@ -24,7 +24,7 @@
   height: 80px;
   display: grid;
   place-items: center;
-  border-radius: 20px;
+  border-radius: var(--radius-16);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
@@ -32,8 +32,8 @@
 
 .welcome-title {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
   color: var(--text-primary);
   letter-spacing: -0.01em;
 }
@@ -93,11 +93,12 @@
   justify-content: center;
   gap: 8px;
   flex: 1;
-  height: 44px;
+  height: var(--modal-cta-height);
   padding: 0 16px;
   border-radius: var(--radius-8);
-  font-size: var(--fs-base);
-  font-weight: 500;
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
@@ -115,7 +116,7 @@
 }
 
 .welcome-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
 }
 
 .welcome-btn-secondary {
@@ -126,7 +127,7 @@
 
 .welcome-btn-secondary:hover:not(:disabled) {
   background: var(--bg-hover);
-  border-color: var(--accent);
+  border-color: var(--border-strong);
 }
 
 .welcome-error {

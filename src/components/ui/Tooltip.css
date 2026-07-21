@@ -45,6 +45,11 @@
   transform-origin: center top;
 }
 
+.ui-tooltip-right {
+  transform: translateY(-50%);
+  transform-origin: left center;
+}
+
 @keyframes uiTooltipIn {
   from {
     opacity: 0;

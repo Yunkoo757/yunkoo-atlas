@@ -11,7 +11,7 @@ import './MobileNavigation.css'
 const MOBILE_LABELS = {
   today: '今日',
   quickNotes: '随记',
-  trades: '交易',
+  trades: '交易日志',
   reviewCases: '案例',
   weeklyReview: '周复盘',
   reviewSession: '复盘',

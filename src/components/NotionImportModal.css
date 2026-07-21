@@ -1,81 +1,13 @@
-/* NotionImportModal — Compact Linear，与 CSV 导入壳一致 */
-.nim-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 150;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--overlay-bg);
-  padding: 24px;
-}
-
-.nim-modal {
-  width: 420px;
-  max-width: 100%;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--popover-bg);
-  border: 1px solid var(--popover-border);
-  border-radius: 12px;
-  box-shadow: var(--popover-shadow);
-  overflow: hidden;
-}
-
-.nim-modal.is-wide {
-  width: min(560px, 100%);
-}
-
-.nim-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 14px 0;
-}
-
-.nim-header h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.nim-desc {
-  margin: 4px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-quaternary);
-}
-
-.nim-close {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  color: var(--text-quaternary);
-  flex-shrink: 0;
-  transition: background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-}
-.nim-close:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
 /* ---- Upload step ---- */
 .nim-upload-area {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 14px 14px;
 }
 
 .nim-drop {
   border: 1px dashed color-mix(in srgb, var(--border-default) 80%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   background: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
   padding: 18px 14px;
   text-align: center;
@@ -94,7 +26,7 @@
   width: 28px;
   height: 28px;
   margin: 0 auto 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   display: grid;
@@ -104,14 +36,14 @@
 
 .nim-drop-title {
   margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--text-primary);
 }
 
 .nim-drop-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-mini);
   color: var(--text-quaternary);
 }
 
@@ -127,7 +59,7 @@
   gap: 10px;
   min-height: 30px;
   padding: 5px 8px;
-  border-radius: 7px;
+  border-radius: var(--radius-8);
 }
 
 .nim-format.is-rec {
@@ -138,7 +70,7 @@
   width: 32px;
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--text-tertiary);
 }
 
@@ -146,7 +78,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: var(--fs-mini);
   color: var(--text-tertiary);
 }
 
@@ -162,31 +94,15 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--pos) 14%, transparent);
   color: var(--pos);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 600;
-}
-
-.nim-upload-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.nim-file-status {
-  font-size: 12px;
-  color: var(--text-quaternary);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .nim-upload-tip {
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid var(--border-subtle);
-  font-size: 12px;
+  font-size: var(--fs-mini);
   line-height: 1.5;
   color: var(--text-quaternary);
 }
@@ -204,7 +120,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px 14px 14px;
   overflow: hidden;
 }
 
@@ -218,7 +133,7 @@
 .nim-file-name {
   font-weight: 500;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-mini);
 }
 
 .nim-import-target {
@@ -273,7 +188,7 @@
 
 .nim-import-target-options strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -282,7 +197,7 @@
 .nim-import-target-options span {
   overflow: hidden;
   color: var(--text-quaternary);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -434,9 +349,10 @@
   font-weight: 500;
 }
 
-.nim-done-images {
-  font-size: var(--fs-sm) !important;
-  font-weight: 400 !important;
+.nim-done-area .nim-done-images {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-normal);
   color: var(--accent);
   display: flex;
   align-items: center;
@@ -452,7 +368,7 @@
   white-space: normal;
 }
 
-/* ---- Done step ---- */
+/* ---- Done / Importing step ---- */
 .nim-done-area {
   display: flex;
   flex-direction: column;
@@ -461,15 +377,16 @@
   padding: 40px 14px;
 }
 
-.nim-done-area p {
+.nim-done-area > p {
   margin: 0;
   font-size: var(--fs-lg);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
-.nim-done-hint {
-  font-size: var(--fs-sm) !important;
-  font-weight: 400 !important;
+.nim-done-area .nim-done-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-normal);
   color: var(--text-tertiary);
 }
 
@@ -491,56 +408,12 @@
   font-size: var(--fs-sm);
 }
 
-.nim-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 8px;
-}
-
-.nim-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: var(--control-height);
-  padding: 0 10px;
-  border-radius: var(--radius-6);
-  font-family: var(--font-ui);
+.modal-shell-footer .nim-file-status {
+  margin-right: auto;
+  color: var(--text-tertiary);
   font-size: var(--fs-mini);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
-}
-
-.nim-btn:disabled {
-  color: var(--text-quaternary);
-  cursor: not-allowed;
-  opacity: 0.64;
-}
-
-.nim-btn-primary {
-  background: var(--accent);
-  color: var(--accent-text);
-  border: 1px solid transparent;
-}
-
-.nim-btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  color: var(--accent-text);
-}
-
-.nim-btn-ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-}
-
-.nim-btn-ghost:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }

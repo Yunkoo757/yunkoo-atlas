@@ -6,10 +6,11 @@
 .ui-date-trigger {
   display: flex;
   width: 100%;
+  min-width: 0;
   height: 30px;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   padding: 0 9px;
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
@@ -22,6 +23,18 @@
     background var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.ui-date-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-date-trigger > svg {
+  flex-shrink: 0;
 }
 
 .ui-date-trigger:hover:not(:disabled) {
@@ -144,8 +157,8 @@
 
 .ui-date-grid button[aria-selected='true'] {
   background: var(--accent);
-  color: white;
-  font-weight: 650;
+  color: var(--accent-text);
+  font-weight: var(--font-weight-semibold);
 }
 
 .ui-date-footer {

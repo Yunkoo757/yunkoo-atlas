@@ -119,45 +119,20 @@ export const TradeRow = memo(function TradeRow({
           </button>
         </HoverPreview>
         {session && (
-          <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
+          session.raw !== session.label ? (
+            <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
+              <span className={`trade-row-session is-${session.kind}`}>
+                {session.label}
+              </span>
+            </Tooltip>
+          ) : (
             <span className={`trade-row-session is-${session.kind}`}>
               {session.label}
             </span>
-          </Tooltip>
-        )}
-        {regularTags.visible.map((tag) => (
-          <Tooltip content={tag} label={`标签：${tag}`} key={tag}>
-            <span className="trade-row-tag">{tag}</span>
-          </Tooltip>
-        ))}
-        {reviewLabel && (
-          <Tooltip
-            content={reviewLabel}
-            label={`${trade.tradeKind === 'case' ? '案例类型' : '复盘分类'}：${reviewLabel}`}
-          >
-            <span
-              className={
-                'trade-row-tag is-review' +
-                ((trade.caseType ?? trade.reviewCategory) === 'ambiguous' ? ' is-ambiguous' : '')
-              }
-            >
-              {reviewLabel}
-            </span>
-          </Tooltip>
-        )}
-        {regularTags.hiddenCount > 0 && (
-          <Tooltip
-            content={regularTags.hidden.join(' · ')}
-            label={`其余标签：${regularTags.hidden.join('、')}`}
-            focusable
-          >
-            <span className="trade-row-more">+{regularTags.hiddenCount}</span>
-          </Tooltip>
+          )
         )}
         {mistakeTags.visible.map((tag) => (
-          <Tooltip content={tag} label={`错误标签：${tag}`} key={tag}>
-            <span className="trade-row-tag is-mistake">{tag}</span>
-          </Tooltip>
+          <span className="trade-row-tag is-mistake" key={tag}>{tag}</span>
         ))}
         {mistakeTags.hiddenCount > 0 && (
           <Tooltip
@@ -170,11 +145,31 @@ export const TradeRow = memo(function TradeRow({
             </span>
           </Tooltip>
         )}
+        {regularTags.visible.map((tag) => (
+          <span className="trade-row-tag" key={tag}>{tag}</span>
+        ))}
+        {reviewLabel && (
+          <span
+            className={
+              'trade-row-tag is-review' +
+              ((trade.caseType ?? trade.reviewCategory) === 'ambiguous' ? ' is-ambiguous' : '')
+            }
+          >
+            {reviewLabel}
+          </span>
+        )}
+        {regularTags.hiddenCount > 0 && (
+          <Tooltip
+            content={regularTags.hidden.join(' · ')}
+            label={`其余标签：${regularTags.hidden.join('、')}`}
+            focusable
+          >
+            <span className="trade-row-more">+{regularTags.hiddenCount}</span>
+          </Tooltip>
+        )}
       </span>
       <span className="trade-row-timeframe-slot">
-        <Tooltip content={`波段级别 ${timeframe}`} label={`波段级别 ${timeframe}`}>
-          <span className="trade-row-timeframe">{timeframe}</span>
-        </Tooltip>
+        <span className="trade-row-timeframe">{timeframe}</span>
       </span>
       <span className={'trade-row-pnl' + (isMissed ? ' is-missed' : privacyMode ? ' is-zero' : trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
         {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, privacyMode)) : '—'}

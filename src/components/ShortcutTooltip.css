@@ -5,6 +5,10 @@
   white-space: nowrap;
 }
 
+.shortcut-tooltip-content.is-shortcut-only {
+  gap: 0;
+}
+
 .shortcut-tooltip-content kbd {
   min-width: 20px;
   padding: 1px 5px;

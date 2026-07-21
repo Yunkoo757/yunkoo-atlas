@@ -228,7 +228,7 @@ export function TradeFilters({
     if (KNOWN_TRADE_VIEW_PARAMS.has(key)) continue
     activeFilters.push({
       key: `unsupported:${key}:${value}`,
-      label: `未支持条件：${key}=${value}`,
+      label: `未支持的筛选条件，可移除`,
       onRemove: () => setParam(key, ''),
     })
   }

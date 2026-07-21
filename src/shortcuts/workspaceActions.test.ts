@@ -41,9 +41,9 @@ export function testTradeShortcutOpensAllWhileCaseShortcutRemembersWorkspace(): 
 export function testTradeAndCaseShortcutsHaveSeparateConfigurableBindings(): void {
   const trade = getActionMeta('nav.list')
   const reviewCases = getActionMeta('nav.reviewCases')
-  assert(trade?.label === '交易记录', '交易工作区动作应使用稳定名称')
+  assert(trade?.label === '交易日志', '交易工作区动作应使用稳定名称')
   assert(reviewCases?.label === '案例记录', '案例工作区应有独立动作')
-  assert(bindingKey(trade!.defaultBinding) === 'alt+w', '交易记录默认快捷键应为 Alt+W')
+  assert(bindingKey(trade!.defaultBinding) === 'alt+w', '交易日志默认快捷键应为 Alt+W')
   assert(bindingKey(reviewCases!.defaultBinding) === 'alt+c', '案例记录默认快捷键应为 Alt+C')
   assert(!getActionMeta('global.switchModule'), '不应继续暴露结果不稳定的模块切换动作')
 }

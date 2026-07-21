@@ -1,23 +1,23 @@
 .sidebar {
   --font-ui: var(--font-linear-ui);
-  --sb-text: lch(60.307% 1 272);
-  --sb-text-strong: lch(90.077% 1 272);
-  --sb-selected-bg: lch(10.82% 1.35 272);
+  --sb-text: var(--text-tertiary);
+  --sb-text-strong: var(--text-primary);
+  --sb-selected-bg: var(--bg-selected);
   /*
-   * 侧栏图标色：Linear 高彩度族；仅 .is-active 时使用。
+   * 侧栏图标色：映射全局 --nav-icon-*；仅 .is-active 时使用。
    */
-  --sb-nav-today: lch(80% 90 85);
-  --sb-nav-notes: lch(72% 48 175);
-  --sb-nav-trades: lch(66% 42 252);
-  --sb-nav-cases: lch(68% 52 310);
-  --sb-nav-weekly: lch(70% 44 200);
-  --sb-nav-review-session: lch(58% 55 288);
-  --sb-nav-dashboard: lch(68% 46 145);
-  --sb-ws-active: lch(78% 72 88);
-  --sb-ws-favorites: lch(80% 90 85);
-  --sb-ws-missed: lch(66% 80 48);
-  --sb-ws-paper: lch(62% 52 275);
-  --sb-ws-case: lch(68% 50 310);
+  --sb-nav-today: var(--nav-icon-today);
+  --sb-nav-notes: var(--nav-icon-notes);
+  --sb-nav-trades: var(--nav-icon-trades);
+  --sb-nav-cases: var(--nav-icon-cases);
+  --sb-nav-weekly: var(--nav-icon-weekly);
+  --sb-nav-review-session: var(--nav-icon-review-session);
+  --sb-nav-dashboard: var(--nav-icon-dashboard);
+  --sb-ws-active: var(--nav-icon-ws-active);
+  --sb-ws-favorites: var(--nav-icon-ws-favorites);
+  --sb-ws-missed: var(--nav-icon-ws-missed);
+  --sb-ws-paper: var(--nav-icon-ws-paper);
+  --sb-ws-case: var(--nav-icon-ws-case);
 
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -95,8 +95,8 @@
   min-width: 0;
   flex: 0 1 auto;
   color: var(--sb-text-strong);
-  font-size: 14px;
-  font-weight: 550;
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
   letter-spacing: -0.1px;
   line-height: 1.2;
   text-align: left;
@@ -160,7 +160,7 @@
   align-items: center;
   gap: 9px;
   width: 100%;
-  height: 30px;
+  height: var(--control-height);
   margin: 0;
   padding: 0 10px;
   border-radius: var(--radius-8);
@@ -276,7 +276,7 @@ html[data-ui-settled='1'] .sb-item {
   min-width: 2ch;
   color: var(--sb-text);
   font-size: var(--fs-sm);
-  font-weight: 450;
+  font-weight: var(--font-weight-normal);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }

@@ -192,9 +192,9 @@ export function DataSettingsPanel() {
     try {
       const result = await getJournalBridge()!.verifyBackup(name)
       await refreshBackups()
-      toast(result.status === 'verified' ? '恢复点验证通过' : result.error ?? '恢复点验证失败')
+      toast(result.status === 'verified' ? '备份验证通过' : result.error ?? '备份验证失败')
     } catch {
-      toast('恢复点验证失败')
+      toast('备份验证失败')
     } finally {
       setVerifying(null)
     }
@@ -210,9 +210,9 @@ export function DataSettingsPanel() {
         if (result.status !== 'verified') invalidCount++
       }
       await refreshBackups()
-      toast(invalidCount === 0 ? '全部恢复点验证通过' : `${invalidCount} 个恢复点需要处理`)
+      toast(invalidCount === 0 ? '全部备份验证通过' : `${invalidCount} 份备份验证未通过，建议重新备份`)
     } catch {
-      toast('恢复点验证未完成')
+      toast('备份验证未完成')
     } finally {
       setVerifying(null)
     }
@@ -272,7 +272,7 @@ export function DataSettingsPanel() {
               {health.attachmentStats.totalBytes > WARN_ATTACH_SIZE && (
                 <span className="health-note">
                   {electron
-                    ? '附件较多，建议创建并验证恢复点'
+                    ? '附件较多，建议创建并验证备份'
                     : '已接近浏览器完整备份 128 MB 上限，建议清理原图或分库'}
                 </span>
               )}
@@ -311,7 +311,7 @@ export function DataSettingsPanel() {
           <div className="settings-page-head">
             <h2 className="settings-section-title">自动备份</h2>
             <p className="settings-section-desc">
-              每 15 分钟自动创建恢复点，并在退出前再保存一次。包含设置与原始附件，附件会去重；最多保留 7 份，总容量不超过 500 MB。
+              每 15 分钟自动创建备份，并在退出前再保存一次。包含设置与原始附件，附件会去重；最多保留 7 份，总容量不超过 500 MB。
             </p>
           </div>
 
@@ -363,7 +363,7 @@ export function DataSettingsPanel() {
                   )}
                   {b.verification?.status === 'invalid' && (
                     <Tooltip
-                      content={b.verification.error ?? '恢复点验证失败'}
+                      content={b.verification.error ?? '备份验证失败'}
                       label={`验证失败：${b.verification.error ?? '未知原因'}`}
                     >
                       <span className="backup-verification is-invalid">
@@ -408,7 +408,7 @@ export function DataSettingsPanel() {
 
           {backups.length > 0 && (
             <p className="dio-section-muted" style={{ marginTop: 8 }}>
-              备份文件位于库目录的 <code>backups/</code> 下。
+              备份文件位于交易库目录的 <code>backups/</code> 下。
             </p>
           )}
         </section>
@@ -417,13 +417,23 @@ export function DataSettingsPanel() {
         <ModalShell
           title={confirmRequest.kind === 'restore' ? '恢复这个备份？' : '删除这个备份？'}
           description={confirmRequest.kind === 'restore'
-            ? '当前资料库会被恢复点中的数据替换。'
-            : '删除后无法再使用这个恢复点。'}
+            ? '当前交易库会被备份中的数据替换。建议先立即备份一次。'
+            : '删除后无法再使用这份备份。'}
           size="compact"
           busy={confirmRequest.kind === 'restore' && restoring !== null}
           onClose={() => setConfirmRequest(null)}
           footer={(
             <>
+              {confirmRequest.kind === 'restore' ? (
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-bordered"
+                  disabled={backing || restoring !== null}
+                  onClick={() => void handleCreateBackup()}
+                >
+                  {backing ? '备份并验证中…' : '恢复前先立即备份'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="ui-btn ui-btn-bordered"
@@ -435,6 +445,7 @@ export function DataSettingsPanel() {
               <button
                 type="button"
                 className={`ui-btn ${confirmRequest.kind === 'delete' ? 'ui-btn-danger-solid' : 'ui-btn-primary'}`}
+                disabled={backing || (confirmRequest.kind === 'restore' && restoring !== null)}
                 onClick={() => {
                   const { kind, name } = confirmRequest
                   void (kind === 'restore' ? handleRestore(name) : handleDelete(name))

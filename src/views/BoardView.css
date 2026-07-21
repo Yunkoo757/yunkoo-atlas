@@ -111,7 +111,7 @@
 .bd-drop-indicator {
   height: 3px;
   margin: 2px 0;
-  border-radius: 2px;
+  border-radius: var(--radius-4);
   background: var(--accent);
   animation: dropPulse 0.8s ease-in-out infinite;
 }
@@ -148,26 +148,26 @@
 }
 
 .bd-card-timeframe.is-minute {
-  color: lch(74% 28 195);
-  background: lch(16% 6 195 / 0.42);
-  border-color: lch(30% 10 195 / 0.42);
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-subtle);
 }
 
 .bd-card-timeframe.is-hour {
-  color: lch(74% 30 300);
-  background: lch(16% 7 300 / 0.42);
-  border-color: lch(30% 11 300 / 0.42);
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-subtle);
 }
 
 .bd-card-timeframe.is-day {
-  color: lch(76% 28 55);
-  background: lch(16% 6 55 / 0.42);
-  border-color: lch(30% 10 55 / 0.4);
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-subtle);
 }
 
 .bd-card-timeframe.is-other {
   color: var(--text-tertiary);
-  background: color-mix(in srgb, var(--bg-elevated) 62%, transparent);
+  background: transparent;
   border-color: var(--border-subtle);
 }
 .bd-card-strategy {

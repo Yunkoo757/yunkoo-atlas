@@ -1,0 +1,37 @@
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: var(--radius-6);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ui-chip-sm {
+  height: var(--chip-height-sm);
+  font-size: var(--fs-micro);
+  padding: 0 6px;
+}
+
+.ui-chip-md {
+  height: var(--chip-height-md);
+}
+
+.ui-chip-default {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.ui-chip-soft {
+  background: color-mix(in srgb, var(--bg-hover) 72%, transparent);
+  border: 1px solid transparent;
+}
+
+.ui-chip-outline {
+  background: transparent;
+  border: 1px solid var(--border-default);
+}

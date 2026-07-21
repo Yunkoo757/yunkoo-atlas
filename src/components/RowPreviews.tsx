@@ -114,7 +114,7 @@ export function StrategyPreview({
             {stats.breakevens > 0 && <span>保本 {stats.breakevens}</span>}
           </span>
           <span className="sp-metric">
-            总盈亏
+            净盈亏
             <strong className={stats.pnl > 0 ? 'is-positive' : stats.pnl < 0 ? 'is-negative' : ''}>
               {stats.pnlCount ? fmtMoney(stats.pnl, privacyMode) : '—'}
             </strong>

@@ -44,9 +44,9 @@ async function run(): Promise<void> {
     assert(tooltipTrigger && previewTrigger, '浮层触发器没有渲染')
 
     tooltipTrigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
-    await wait(300)
+    await wait(400)
     assert(!document.querySelector('.ui-tooltip'), '短暂掠过不应立即打开 Tooltip')
-    await wait(190)
+    await wait(300)
     assert(document.querySelector('.ui-tooltip'), '稳定停留后 Tooltip 应打开')
     tooltipTrigger.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }))
     await wait(32)

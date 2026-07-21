@@ -7,6 +7,8 @@ import '@fontsource/jetbrains-mono/latin-500.css'
 import './styles/tokens.css'
 import './styles/global.css'
 import './components/ui/Button.css'
+import './components/ui/Chip.css'
+import './components/ui/Kbd.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

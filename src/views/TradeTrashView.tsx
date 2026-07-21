@@ -47,13 +47,13 @@ function groupTrash(trades: Trade[]): TrashGroup[] {
       label = '即将过期'
       priority = 0
     } else if (days <= 14) {
-      label = '本周删除'
+      label = '两周内删除'
       priority = 1
     } else if (days <= 21) {
-      label = '本月删除'
+      label = '三周内删除'
       priority = 2
     } else {
-      label = '更早'
+      label = '更久后删除'
       priority = 3
     }
 
@@ -348,11 +348,11 @@ export function TradeTrashView() {
                               <RotateCcw size={14} />
                             </button>
                           </Tooltip>
-                          <Tooltip content="永久删除" label={`永久删除 ${trade.ref}`}>
+                          <Tooltip content="彻底删除" label={`彻底删除 ${trade.ref}`}>
                             <button
                               type="button"
                               className="trash-btn-purge"
-                              aria-label={`永久删除 ${trade.ref}`}
+                              aria-label={`彻底删除 ${trade.ref}`}
                               onClick={() => requestPurge(trade)}
                             >
                               <Trash2 size={14} />
@@ -392,7 +392,7 @@ export function TradeTrashView() {
           title={purgeRequest.kind === 'single'
             ? `彻底删除 ${purgeRequest.ref}？`
             : `彻底删除 ${purgeRequest.ids.length} 笔交易？`}
-          description="此操作无法撤销，交易记录及其复盘内容会被永久移除。"
+          description="删除后无法恢复，交易及其复盘内容会被永久移除。"
           onClose={() => setPurgeRequest(null)}
           footer={(
             <>

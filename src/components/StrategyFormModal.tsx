@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useState, useRef } from 'react'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { X } from '@/icons/appIcons'
 import {
   STRATEGY_COLOR_PRESETS,
@@ -48,9 +49,13 @@ export function StrategyFormModal({
 
   useEffect(() => {
     if (!open) return
+    useShortcutStore.getState().acquireModalOverlay()
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      useShortcutStore.getState().releaseModalOverlay()
+    }
   }, [open, onClose])
 
   if (!open) return null
@@ -166,11 +171,12 @@ export function StrategyFormModal({
         </div>
 
         <div className="sfm-foot">
-          <button className="sfm-btn sfm-btn-ghost" onClick={onClose}>
+          <button type="button" className="ui-btn ui-btn-bordered ui-btn-lg" onClick={onClose}>
             取消
           </button>
           <button
-            className="sfm-btn sfm-btn-primary"
+            type="button"
+            className="ui-btn ui-btn-primary ui-btn-lg"
             disabled={!trimmed || !!nameTaken}
             onClick={save}
           >

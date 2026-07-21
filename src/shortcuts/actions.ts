@@ -11,6 +11,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('global.commandPalette'),
   },
   {
+    id: 'global.commandPaletteMod',
+    label: '命令面板（Ctrl+K）',
+    category: '通用',
+    scope: 'global',
+    defaultBinding: getDefaultShortcutBinding('global.commandPaletteMod'),
+  },
+  {
     id: 'global.newTrade',
     label: '新建交易',
     category: '通用',
@@ -99,7 +106,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'nav.list',
-    label: '交易记录',
+    label: '交易日志',
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.list'),

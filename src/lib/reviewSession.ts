@@ -18,6 +18,8 @@ export type ReviewSessionSnapshot = {
   cursor: number
   filters: ReviewSessionFilters
   assessments: Partial<Record<string, ReviewSessionAssessment>>
+  /** 评估前的交易快照，供会话内「上一条」还原 */
+  assessmentPrev?: Partial<Record<string, Trade>>
 }
 
 export type ReviewSessionAssessment = 'unfamiliar' | 'recheck' | 'mastered'
@@ -63,7 +65,7 @@ export function buildReviewAssessmentPatch(
 }
 
 export type ReviewSessionStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-export type ReviewSessionKeyAction = ReviewSessionAssessment | 'skip'
+export type ReviewSessionKeyAction = ReviewSessionAssessment | 'skip' | 'back'
 
 const REVIEW_SESSION_SCOPES: ReviewCaseScope[] = [
   'all',
@@ -171,6 +173,7 @@ export function reviewSessionKeyAction(event: KeyboardEvent): ReviewSessionKeyAc
   if (key === '2') return 'recheck'
   if (key === '3') return 'mastered'
   if (key === 'n' || key === 'arrowright') return 'skip'
+  if (key === 'p' || key === 'arrowleft') return 'back'
   return null
 }
 

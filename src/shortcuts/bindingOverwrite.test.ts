@@ -45,3 +45,15 @@ export function testBindingOverwriteCanStealDefaultChord(): void {
   )
   assert(result.patch['image.close'] === null, '默认 Esc 的关闭预览应被清空')
 }
+
+export function testBindingConflictsIgnoreDifferentScopes(): void {
+  const shared = { key: 'q' }
+  const conflicts = findBindingConflicts('list.focusNext', shared, {
+    'trade.prev': shared,
+    'list.focusNext': shared,
+  })
+  assert(
+    !conflicts.some((item) => item.id === 'trade.prev'),
+    '详情与列表分属不同作用域时，复用 q 不得互相覆盖',
+  )
+}

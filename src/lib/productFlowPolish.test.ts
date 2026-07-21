@@ -161,7 +161,7 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
       !saveStatus.includes('title="打开数据与备份设置"') &&
       !tradeRow.includes('title={`波段级别') &&
       tradeList.includes('<Tooltip') &&
-      tradeList.includes('在本组新建交易') &&
+      tradeList.includes('在本组新建') &&
       !symbolIcon.includes('title={label}') &&
       !strategyHeader.includes('title={pnlCoverage') &&
       !strategyHeader.includes('title={rCoverage') &&
@@ -213,12 +213,12 @@ export async function testRestoresAndMobileControlsPreserveSafeInteractionState(
 
   const electronRestore = dataIO.slice(dataIO.indexOf('const onImportZip'))
   assert(
-    electronRestore.indexOf('setDupGroups(null)') < electronRestore.indexOf("toast('交易库已导入')"),
+    electronRestore.indexOf('setDupGroups(null)') < electronRestore.indexOf("toast('交易库已恢复')"),
     'Electron 整库恢复后必须在展示成功状态前清除旧重复扫描结果',
   )
   assert(electronRestore.includes('onLibraryChanged?.()'), 'Electron 整库恢复后必须刷新资料库派生状态')
   assert(
-    dataIO.includes("'笔记原图保存在浏览器 IndexedDB 的同一资料库中。'") &&
+    dataIO.includes("'笔记原图保存在浏览器 IndexedDB 的同一交易库中。'") &&
       dataIO.includes('随机复盘的当前轮次只保留在此标签页'),
     'Web 保存边界不得继续显示 Electron 文件夹语义，并应说明会话不进入归档',
   )
@@ -331,7 +331,7 @@ export async function testBackupPreviewDuplicateScanAndImageLimitsStayTruthful()
   )
   assert(
     dataIO.includes('duplicateScanTradesRef.current !== useStore.getState().trades') &&
-      dataIO.includes('资料库已变化，请重新扫描重复项'),
+      dataIO.includes('交易库已变化，请重新扫描重复项'),
     '重复扫描结果必须在资料库变化后失效，不能清理陈旧记录集合',
   )
   assert(

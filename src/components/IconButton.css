@@ -1,4 +1,5 @@
 .icon-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -28,4 +29,16 @@
 }
 .icon-btn.is-active:hover {
   color: var(--star-color);
+}
+
+/* 移动/粗指针：用伪元素扩热区到 44px，保持 28px 视觉尺寸 */
+@media (max-width: 899px), (pointer: coarse) {
+  .icon-btn::before {
+    content: '';
+    position: absolute;
+    inset: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
 }

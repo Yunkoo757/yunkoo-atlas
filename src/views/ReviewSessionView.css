@@ -20,25 +20,6 @@
   background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
 }
 
-.review-session-topbar button,
-.review-session-item-header button,
-.review-session-finished button {
-  min-height: 32px;
-  padding: 0 11px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  color: var(--text-secondary);
-  font-size: var(--fs-sm);
-}
-
-.review-session-topbar button:hover,
-.review-session-item-header button:hover,
-.review-session-finished button:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
 .review-session-back,
 .review-session-heading,
 .review-session-topbar-end {
@@ -49,7 +30,6 @@
 
 .review-session-back {
   width: max-content;
-  border-color: transparent !important;
 }
 
 .review-session-heading {
@@ -109,17 +89,16 @@
 .review-session-eyebrow {
   display: block;
   margin-bottom: 9px;
-  color: color-mix(in srgb, var(--accent) 75%, white);
-  font-size: var(--fs-micro);
-  font-weight: 650;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
 }
 
 .review-session-intro h1,
 .review-session-finished h1 {
   margin: 0;
-  font-size: clamp(24px, 4vw, 34px);
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
   line-height: 1.18;
   letter-spacing: -0.03em;
 }
@@ -244,30 +223,6 @@
 .review-session-start-footer strong { font-size: var(--fs-sm); }
 .review-session-start-footer span { color: var(--text-tertiary); font-size: var(--fs-xs); }
 
-.review-session-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border-color: color-mix(in srgb, var(--accent) 65%, var(--border-default)) !important;
-  background: var(--accent) !important;
-  color: white !important;
-  font-weight: 600;
-}
-
-.review-session-primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 88%, white) !important;
-}
-
-.review-session-primary:disabled { cursor: not-allowed; opacity: 0.4; }
-
-.review-session-start-footer .review-session-primary {
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid;
-  border-radius: var(--control-border-radius);
-}
-
 .review-session-stage {
   display: flex;
   min-height: 0;
@@ -292,7 +247,7 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border-default);
-  border-radius: 14px;
+  border-radius: var(--radius-14);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-low);
 }
@@ -319,16 +274,6 @@
 .review-session-item-identity > div:last-child { min-width: 0; gap: 9px; }
 .review-session-item-badges { gap: 5px; }
 
-.review-session-item-badges span {
-  padding: 4px 7px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-rounded);
-  background: var(--bg-hover);
-  color: var(--text-tertiary);
-  font-size: var(--fs-micro);
-  white-space: nowrap;
-}
-
 .review-session-card-ref {
   color: var(--text-quaternary);
   font-family: var(--font-monospace);
@@ -338,7 +283,7 @@
 
 .review-session-item-header h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--fs-title);
   letter-spacing: -0.025em;
 }
 
@@ -404,7 +349,7 @@
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   background:
     linear-gradient(45deg, color-mix(in srgb, var(--bg-hover) 75%, transparent) 25%, transparent 25%) 0 0 / 18px 18px,
     linear-gradient(-45deg, color-mix(in srgb, var(--bg-hover) 75%, transparent) 25%, transparent 25%) 0 9px / 18px 18px,
@@ -436,10 +381,10 @@
   right: 8px;
   bottom: 8px;
   padding: 3px 7px;
-  border: 1px solid color-mix(in srgb, white 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-text) 12%, transparent);
   border-radius: var(--radius-rounded);
-  background: color-mix(in srgb, black 68%, transparent);
-  color: white;
+  background: var(--overlay-dark);
+  color: var(--accent-text);
   font-family: var(--font-monospace);
   font-size: var(--fs-micro);
 }
@@ -501,13 +446,13 @@
 .review-session-assessment-actions button {
   display: grid;
   min-width: 126px;
-  min-height: 49px;
+  min-height: var(--modal-cta-height);
   grid-template-columns: 1fr auto;
   align-content: center;
   gap: 2px 9px;
   padding: 7px 9px 7px 11px;
   border: 1px solid var(--border-default);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   color: var(--text-primary);
   text-align: left;
 }
@@ -520,16 +465,10 @@
 .review-session-assessment-actions button > span { font-size: var(--fs-xs); font-weight: 600; }
 .review-session-assessment-actions button > small { color: var(--text-tertiary); font-size: var(--fs-micro); }
 
-.review-session-assessment-actions kbd {
+.review-session-assessment-actions .ui-kbd {
   grid-row: 1 / span 2;
   grid-column: 2;
   align-self: center;
-  padding: 2px 5px;
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  color: var(--text-tertiary);
-  font-family: var(--font-monospace);
-  font-size: var(--fs-micro);
 }
 
 .review-session-assessment-actions .review-session-skip {
@@ -548,7 +487,7 @@
   flex-direction: column;
   padding: 42px;
   border: 1px solid var(--border-default);
-  border-radius: 16px;
+  border-radius: var(--radius-16);
   background: var(--bg-elevated);
   text-align: center;
 }
@@ -579,23 +518,17 @@
   gap: 3px;
   padding: 12px 6px;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-8);
   background: var(--bg-hover);
 }
 
-.review-session-result-grid strong { font-family: var(--font-monospace); font-size: 20px; }
+.review-session-result-grid strong { font-family: var(--font-monospace); font-size: var(--fs-h); }
 .review-session-result-grid small { color: var(--text-tertiary); font-size: var(--fs-micro); }
 
 .review-session-finished-actions {
   display: flex;
   gap: 9px;
   margin-top: 24px;
-}
-
-.review-session-finished button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
 }
 
 @media (max-width: 1020px) {
@@ -611,12 +544,12 @@
   .review-session-heading { display: none; }
   .review-session-start { width: min(680px, calc(100% - 28px)); margin: 0 auto; padding: 30px 0; }
   .review-session-stage { padding: 10px; }
-  .review-session-workspace { border-radius: 10px; }
+  .review-session-workspace { border-radius: var(--radius-14); }
   .review-session-content.has-split-content { grid-template-columns: 1fr; }
-  .review-session-topbar button,
-  .review-session-item-header button,
-  .review-session-finished button,
-  .review-session-start-footer button,
+  .review-session-topbar .ui-btn,
+  .review-session-item-header .ui-btn,
+  .review-session-finished-actions .ui-btn,
+  .review-session-start-footer .ui-btn,
   .review-session-content-toggle,
   .review-session-scope-select .ui-select-trigger { min-height: 44px; }
 }
@@ -643,10 +576,10 @@
   .review-session-assessment-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .review-session-assessment-actions button { min-width: 0; min-height: 46px; padding: 6px; }
   .review-session-assessment-actions button > small,
-  .review-session-assessment-actions button kbd { display: none; }
+  .review-session-assessment-actions .ui-kbd { display: none; }
   .review-session-assessment-actions .review-session-skip { grid-column: 1 / -1; min-height: 34px; justify-content: center; }
   .review-session-result-grid { grid-template-columns: repeat(2, 1fr); }
   .review-session-finished { padding: 30px 20px; }
   .review-session-finished-actions { width: 100%; flex-direction: column; }
-  .review-session-finished button { justify-content: center; }
+  .review-session-finished-actions .ui-btn { justify-content: center; }
 }

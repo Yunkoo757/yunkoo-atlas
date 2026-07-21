@@ -10,7 +10,9 @@ import {
 import { fmtMoney, fmtR } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { useExitClone } from '@/components/ui/useExitClone'
+import { Button } from '@/components/ui/Button'
 import './TradeCloseDialog.css'
 
 const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
@@ -87,11 +89,15 @@ export function TradeCloseDialog() {
 
   useEffect(() => {
     if (!request) return
+    useShortcutStore.getState().acquireModalOverlay()
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') cancelTradeClose()
     }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      useShortcutStore.getState().releaseModalOverlay()
+    }
   }, [request, cancelTradeClose])
 
   const previewResult = useMemo(() => {
@@ -121,7 +127,13 @@ export function TradeCloseDialog() {
       return
     }
     completeTradeClose(trade.id, result.status, result.patch)
-    toast(`${trade.ref} 已平仓，已加入待复盘`)
+    toast(`${trade.ref} 已平仓，已加入待复盘`, {
+      label: '撤销',
+      onClick: () => {
+        useStore.getState().undo()
+        toast('已撤销平仓')
+      },
+    })
   }
 
   const preview = previewResult?.ok ? previewResult : null
@@ -261,8 +273,8 @@ export function TradeCloseDialog() {
         <footer className="trade-close-footer">
           <span>保存后进入「待复盘」</span>
           <div>
-            <button type="button" className="trade-close-secondary" onClick={cancelTradeClose}>取消</button>
-            <button type="submit" className="trade-close-primary">保存并待复盘</button>
+            <Button type="button" variant="bordered" size="lg" onClick={cancelTradeClose}>取消</Button>
+            <Button type="submit" variant="primary" size="lg">保存并待复盘</Button>
           </div>
         </footer>
       </form>

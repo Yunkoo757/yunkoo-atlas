@@ -15,7 +15,7 @@ interface SaveStatusState {
 function getSaveErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message.trim()
   if (typeof error === 'string' && error.trim()) return error.trim()
-  return '无法写入本地资料库'
+  return '无法写入本地交易库'
 }
 
 export const useSaveStatus = create<SaveStatusState>((set) => ({

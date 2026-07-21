@@ -32,7 +32,7 @@ export function resolveWorkbenchEmptyState(options: {
     return {
       kind: 'library',
       title: '还没有任何记录',
-      hint: `新建${recordLabel}、导入备份，或先配置策略，开始建立你的复盘资料库。`,
+      hint: `新建${recordLabel}、导入备份，或先配置策略，开始建立你的复盘交易库。`,
       action: 'create',
       actionLabel: `新建${recordLabel}`,
     }

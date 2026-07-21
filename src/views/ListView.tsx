@@ -172,8 +172,15 @@ export function ListView({
 
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
+    const count = actionableIds.size
     removeTrades([...actionableIds])
-    toast(`已将 ${actionableIds.size} 笔交易移至回收站，30天后自动清空`)
+    toast(`已将 ${count} 笔交易移至回收站，30 天后自动清空`, {
+      label: '撤销',
+      onClick: () => {
+        useStore.getState().undo()
+        toast('已恢复删除的交易')
+      },
+    })
     setSelectedIds(new Set())
   }
 
@@ -257,7 +264,7 @@ export function ListView({
             ref: getNextReviewCaseRef(trades),
           })
           upsertTrade(reviewCase)
-          toast('已提炼为可复看案例')
+          toast('已提炼为案例')
           openTrade(reviewCase)
         },
         toggleStar,
@@ -312,6 +319,7 @@ export function ListView({
             onToggleStar={(trade) => toggleStar(trade.id)}
             onContextMenu={openContextMenu}
             onCreate={openComposer}
+            recordLabel={filter.tradeKind === 'case' ? '案例记录' : '交易'}
           />
         )}
       </div>

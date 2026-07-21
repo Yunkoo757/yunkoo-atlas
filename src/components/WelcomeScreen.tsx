@@ -91,7 +91,7 @@ export function WelcomeScreen({ onReady }: Props) {
               type="button"
             >
               <Plus size={18} />
-              <span>在此创建新库</span>
+              <span>在此创建新交易库</span>
             </button>
             <button
               className="welcome-btn welcome-btn-secondary"
@@ -100,7 +100,7 @@ export function WelcomeScreen({ onReady }: Props) {
               type="button"
             >
               <FolderOpen size={18} />
-              <span>打开已有库</span>
+              <span>打开已有交易库</span>
             </button>
           </div>
         )}
@@ -108,7 +108,7 @@ export function WelcomeScreen({ onReady }: Props) {
         {error && <p className="welcome-error">{error}</p>}
 
         <p className="welcome-hint">
-          库目录中会存储交易数据 (journal.db) 和附件文件。
+          交易库目录中会存储交易数据（journal.db）和附件文件。
           <br />
           建议选择本机磁盘中稳定的专用位置，并定期创建完整备份。
         </p>

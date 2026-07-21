@@ -1,5 +1,5 @@
 import type { ShortcutBinding, ShortcutScope } from '@/shortcuts/types'
-import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
+import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import {
   bindingKey,
   chordFromEvent,
@@ -61,11 +61,12 @@ function armSequenceTimer(): void {
 
 function getActiveScopes(pathname?: string): Set<ShortcutScope> {
   const scopes = new Set<ShortcutScope>(['global', 'navigation'])
-  const { lightbox, cmdkOpen, dataIOOpen } = useShortcutStore.getState()
+  const { lightbox, cmdkOpen, modalOverlayCount } = useShortcutStore.getState()
   const { composerOpen, closeTradeRequest } = useStore.getState()
+  const modalOpen = modalOverlayCount > 0
 
   if (lightbox) scopes.add('lightbox')
-  if (cmdkOpen || dataIOOpen || composerOpen || closeTradeRequest) scopes.add('overlay')
+  if (cmdkOpen || modalOpen || composerOpen || closeTradeRequest) scopes.add('overlay')
 
   if (typeof window !== 'undefined') {
     const p = pathname ?? window.location.pathname
@@ -113,8 +114,9 @@ function findSequenceMatch(buffer: string[], pathname?: string): string | null {
 }
 
 function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
-  const { bindings, lightbox, cmdkOpen, dataIOOpen } = useShortcutStore.getState()
+  const { bindings, lightbox, cmdkOpen, modalOverlayCount } = useShortcutStore.getState()
   const { composerOpen, closeTradeRequest } = useStore.getState()
+  const modalOpen = modalOverlayCount > 0
   const typing = isTypingTarget(e.target)
   const scopes = getActiveScopes(pathname)
 
@@ -128,7 +130,7 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
     if (typing && !meta.allowWhenTyping) continue
 
     if (meta.id === 'global.closeOverlay') {
-      if (!lightbox && !cmdkOpen && !dataIOOpen && !composerOpen && !closeTradeRequest) continue
+      if (!lightbox && !cmdkOpen && !modalOpen && !composerOpen && !closeTradeRequest) continue
     }
 
     if (meta.scope === 'lightbox' && !lightbox) continue
@@ -171,7 +173,8 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
 
   const typing = isTypingTarget(e.target)
   const { composerOpen, closeTradeRequest } = useStore.getState()
-  const { dataIOOpen, lightbox } = useShortcutStore.getState()
+  const { modalOverlayCount, lightbox } = useShortcutStore.getState()
+  const modalOpen = modalOverlayCount > 0
 
   if (typing && !lightbox) {
     clearSequence()
@@ -195,7 +198,8 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
     return false
   }
 
-  if ((composerOpen || closeTradeRequest) && !lightbox) {
+  // ModalShell / 新建 / 平仓弹层打开时屏蔽全局单键；Esc 由各弹层自行处理。
+  if ((composerOpen || closeTradeRequest || modalOpen) && !lightbox) {
     clearSequence()
     return false
   }
@@ -249,9 +253,12 @@ export function findBindingConflicts(
   bindings: Record<string, ShortcutBinding | null>,
 ): Array<{ id: string; label: string; sequenceFixed?: boolean }> {
   const key = bindingKey(binding)
+  const targetScope = getActionMeta(actionId)?.scope
   const conflicts: Array<{ id: string; label: string; sequenceFixed?: boolean }> = []
   for (const action of SHORTCUT_ACTIONS) {
     if (action.id === actionId) continue
+    // 不同作用域可合法复用同一按键（如详情 q 与列表 q）
+    if (targetScope && action.scope !== targetScope) continue
     const other = resolveBinding(action.id, bindings)
     if (!other) continue
     if (bindingKey(other) === key) {

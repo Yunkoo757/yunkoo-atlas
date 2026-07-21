@@ -76,7 +76,9 @@ export function FilterBar({
           ) : null}
         </div>
         {shortcutActionId ? (
-          <ShortcutTooltip actionId={shortcutActionId} label={label}>{trigger}</ShortcutTooltip>
+          <ShortcutTooltip actionId={shortcutActionId} label={label} mode="shortcut">
+            {trigger}
+          </ShortcutTooltip>
         ) : trigger}
       </div>
       {open && children}

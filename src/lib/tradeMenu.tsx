@@ -3,6 +3,8 @@ import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import type { CtxItem } from '@/components/ContextMenu'
+import { toast } from '@/lib/toast'
+import { useStore } from '@/store/useStore'
 
 export function buildTradeCtxItems(
   trade: Trade,
@@ -50,7 +52,7 @@ export function buildTradeCtxItems(
     {
       type: 'item',
       icon: <Star size={15} fill={starred ? 'currentColor' : 'none'} />,
-      label: starred ? '取消收藏' : '加入收藏',
+      label: starred ? '取消星标' : '加入星标',
       onClick: () => a.toggleStar?.(trade.id),
     },
     {
@@ -73,9 +75,19 @@ export function buildTradeCtxItems(
     {
       type: 'item',
       icon: <Trash2 size={15} />,
-      label: '删除交易',
+      label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易',
       danger: true,
-      onClick: () => a.removeTrade(trade.id),
+      onClick: () => {
+        const deletedId = trade.id
+        a.removeTrade(deletedId)
+        toast('已移至回收站，30 天后自动清空', {
+          label: '撤销',
+          onClick: () => {
+            useStore.getState().restoreTrade(deletedId)
+            toast('已从回收站恢复')
+          },
+        })
+      },
     },
   )
 

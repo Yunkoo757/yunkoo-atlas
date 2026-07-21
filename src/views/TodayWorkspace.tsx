@@ -12,7 +12,7 @@ import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
-import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import './TodayWorkspace.css'
@@ -65,6 +65,7 @@ export function TodayWorkspace() {
   const today = useLocalDateKey()
   const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
   const starredIdSet = useMemo(() => new Set(starredIds), [starredIds])
+  useTradeReturnAnchor()
 
   const openTrade = (trade: Trade) => {
     const from = {
@@ -96,7 +97,7 @@ export function TodayWorkspace() {
             ref: getNextReviewCaseRef(trades),
           })
           upsertTrade(reviewCase)
-          toast('已提炼为可复看案例')
+          toast('已提炼为案例')
           openTrade(reviewCase)
         },
         toggleStar,

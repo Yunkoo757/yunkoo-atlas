@@ -20,7 +20,6 @@ import { Pin, PinOff, Plus, Search, Trash2 } from '@/icons/appIcons'
 import { EmptyState } from '@/components/EmptyState'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { ModalShell } from '@/components/ui/ModalShell'
-import { Tooltip } from '@/components/ui/Tooltip'
 import { toast } from '@/lib/toast'
 import './QuickNotesView.css'
 
@@ -188,29 +187,21 @@ export function QuickNotesView() {
                   }}
                 />
                 <div className="quick-notes-editor-actions">
-                  <Tooltip
-                    asChild
-                    content={selectedNote.pinned ? '取消置顶' : '置顶随记'}
-                    label={selectedNote.pinned ? '取消置顶' : '置顶随记'}
+                  <button
+                    type="button"
+                    aria-label={selectedNote.pinned ? '取消置顶' : '置顶随记'}
+                    onClick={() => updateNote(selectedNote.id, { pinned: !selectedNote.pinned })}
                   >
-                    <button
-                      type="button"
-                      aria-label={selectedNote.pinned ? '取消置顶' : '置顶随记'}
-                      onClick={() => updateNote(selectedNote.id, { pinned: !selectedNote.pinned })}
-                    >
-                      {selectedNote.pinned ? <PinOff size={16} /> : <Pin size={16} />}
-                    </button>
-                  </Tooltip>
-                  <Tooltip asChild content="删除随记" label="删除随记">
-                    <button
-                      type="button"
-                      className="is-danger"
-                      aria-label="删除随记"
-                      onClick={() => setDeleteOpen(true)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </Tooltip>
+                    {selectedNote.pinned ? <PinOff size={16} /> : <Pin size={16} />}
+                  </button>
+                  <button
+                    type="button"
+                    className="is-danger"
+                    aria-label="删除随记"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </header>
               <div className="quick-notes-editor-meta">

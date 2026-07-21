@@ -150,13 +150,13 @@ function TagSection({
       ) : (
         <div className="tag-list">
           {presets.map((t) => (
-            <span className="tag-chip" key={t}>
+            <span className="settings-tag-chip" key={t}>
               <Tag size={12} />
               {t}
               <Tooltip content="删除" label={`删除「${t}」`}>
                 <button
                   type="button"
-                  className="tag-chip-remove"
+                  className="settings-tag-chip-remove"
                   aria-label={`删除「${t}」`}
                   onClick={() => onRemove(t)}
                 >

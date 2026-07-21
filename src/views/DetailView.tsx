@@ -24,6 +24,7 @@ import { Editor } from '@/editor/Editor'
 import { Menu } from '@/components/Menu'
 import { IconButton } from '@/components/IconButton'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
@@ -51,6 +52,7 @@ import {
   type MasteryState,
   type ActivityEvent,
   type ActivityKind,
+  type Trade,
 } from '@/data/trades'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
@@ -100,6 +102,30 @@ const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule
 const CASE_TYPE_OPTS: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
 const MASTERY_OPTS: MasteryState[] = ['new', 'recheck', 'mastered']
 
+function isPendingReviewTrade(trade: Trade): boolean {
+  if (trade.deletedAt || trade.tradeKind === 'case' || trade.reviewStatus === 'reviewed') return false
+  const truth = resolveTradeTruth(trade)
+  return (
+    truth.executionState === 'missed' ||
+    (truth.executionState === 'closed' && truth.isResultComplete)
+  )
+}
+
+function findNextPendingReviewId(
+  fromId: string,
+  orderedIds: string[],
+  trades: Trade[],
+): string | null {
+  const byId = new Map(trades.map((item) => [item.id, item]))
+  const start = orderedIds.indexOf(fromId)
+  if (start < 0) return null
+  for (let index = start + 1; index < orderedIds.length; index += 1) {
+    const candidate = byId.get(orderedIds[index]!)
+    if (candidate && isPendingReviewTrade(candidate)) return candidate.id
+  }
+  return null
+}
+
 export function DetailView() {
   const { id: routeParam } = useParams()
   const navigate = useNavigate()
@@ -134,6 +160,7 @@ export function DetailView() {
   const toggleStar = useStore((s) => s.toggleStar)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
+  const restoreTrade = useStore((s) => s.restoreTrade)
   const upsertTrade = useStore((s) => s.upsertTrade)
   const profile = useStore((s) => s.profile)
   const symbolIcons = useStore((s) => s.symbolIcons)
@@ -410,7 +437,7 @@ export function DetailView() {
       await navigator.clipboard.writeText(window.location.href)
       toast('链接已复制')
     } catch {
-      toast('复制失败')
+      toast('复制失败，请重试')
     }
   }
 
@@ -419,7 +446,7 @@ export function DetailView() {
       await navigator.clipboard.writeText(trade.ref)
       toast(`已复制 ${trade.ref}`)
     } catch {
-      toast('复制失败')
+      toast('复制失败，请重试')
     }
   }
 
@@ -435,8 +462,15 @@ export function DetailView() {
   }
 
   const onDelete = () => {
-    removeTrade(trade.id)
-    toast('已移至回收站，30天后自动清空')
+    const deletedId = trade.id
+    removeTrade(deletedId)
+    toast('已移至回收站，30 天后自动清空', {
+      label: '撤销',
+      onClick: () => {
+        restoreTrade(deletedId)
+        toast('已从回收站恢复')
+      },
+    })
     navigate(detailReturn, { state: tradeReturnLocationState(from?.anchorTradeId) })
   }
 
@@ -447,7 +481,7 @@ export function DetailView() {
       ref: getNextReviewCaseRef(trades),
     })
     upsertTrade(reviewCase)
-    toast('已提炼为可复看案例')
+    toast('已提炼为案例')
     navigate(tradeDetailPath(reviewCase), { state: location.state })
   }
 
@@ -500,7 +534,19 @@ export function DetailView() {
       }
 
       updateTradeData(trade.id, { reviewStatus: 'reviewed' })
-      toast(`${trade.ref} 复盘已完成`)
+      const nextPendingId = findNextPendingReviewId(
+        trade.id,
+        detailNavigation?.orderedIds ?? useShortcutStore.getState().listContext?.orderedIds ?? [],
+        useStore.getState().trades,
+      )
+      if (nextPendingId) {
+        toast(`${trade.ref} 复盘已完成`, {
+          label: '下一条待复盘',
+          onClick: () => navigateDetail(nextPendingId),
+        })
+      } else {
+        toast(`${trade.ref} 复盘已完成`)
+      }
     } finally {
       setReviewSubmitting(false)
     }
@@ -528,11 +574,11 @@ export function DetailView() {
 
   const favoriteButton = (
     <IconButton
-      title={starred ? '取消收藏' : '收藏'}
+      title={starred ? '取消星标' : '星标'}
       active={starred}
       onClick={() => {
         toggleStar(trade.id)
-        toast(starred ? '已取消收藏' : '已加入收藏')
+        toast(starred ? '已取消星标' : '已加入星标')
       }}
     >
       {starred ? <Star size={16} /> : <Favorite size={16} />}
@@ -614,28 +660,26 @@ export function DetailView() {
                 <span aria-hidden>/</span>
                 {detailNavigation.orderedIds.length}
               </span>
-              <Tooltip asChild content={`下一个${detailUnit}`} label={`下一个${detailUnit}`}>
+              <ShortcutTooltip actionId="trade.next" label={`下一个${detailUnit}`}>
                 <button
                   type="button"
                   className="dv-detail-nav-button"
-                  aria-label={`下一个${detailUnit}`}
                   disabled={!detailNavigation.nextId}
                   onClick={() => navigateDetail(detailNavigation.nextId)}
                 >
                   <ChevronDown size={14} />
                 </button>
-              </Tooltip>
-              <Tooltip asChild content={`上一个${detailUnit}`} label={`上一个${detailUnit}`}>
+              </ShortcutTooltip>
+              <ShortcutTooltip actionId="trade.prev" label={`上一个${detailUnit}`}>
                 <button
                   type="button"
                   className="dv-detail-nav-button"
-                  aria-label={`上一个${detailUnit}`}
                   disabled={!detailNavigation.prevId}
                   onClick={() => navigateDetail(detailNavigation.prevId)}
                 >
                   <ChevronUp size={14} />
                 </button>
-              </Tooltip>
+              </ShortcutTooltip>
             </nav>
           )}
         </div>
@@ -675,7 +719,7 @@ export function DetailView() {
                     onClick={() => void completeReview()}
                   >
                     <span className="dv-review-chip-dot" aria-hidden />
-                    {reviewSubmitting ? '正在保存…' : '待复盘'}
+                    {reviewSubmitting ? '正在保存…' : '完成复盘'}
                   </button>
                 </Tooltip>
               )}

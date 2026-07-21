@@ -188,8 +188,9 @@ export const DatePicker = forwardRef<
     top: position.top,
   }
   const formattedValue = parseYmd(value)
+  // 紧凑触发器（如 Composer 三列）放不下「2026年7月21日」会把「日」挤换行；用 ISO 日期单行展示。
   const displayValue = formattedValue
-    ? `${formattedValue.getFullYear()}年${formattedValue.getMonth() + 1}月${formattedValue.getDate()}日`
+    ? value
     : '选择日期'
 
   return (

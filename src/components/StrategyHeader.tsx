@@ -89,10 +89,10 @@ export function StrategyHeader({
           </span>
         </div>
         {pnlCoverage ? (
-          <Tooltip asChild content={`总盈亏仅 ${pnlCoverage}`} label={`总盈亏仅 ${pnlCoverage}`}>
+          <Tooltip asChild content={`净盈亏仅 ${pnlCoverage}`} label={`净盈亏仅 ${pnlCoverage}`}>
             <div className="sh-stat">
               <span className="sh-stat-label">
-                总盈亏 · {stats.pnlCount}/{stats.closedCount}
+                净盈亏 · {stats.pnlCount}/{stats.closedCount}
               </span>
               <span
                 className="sh-stat-value"
@@ -111,7 +111,7 @@ export function StrategyHeader({
           </Tooltip>
         ) : (
           <div className="sh-stat">
-            <span className="sh-stat-label">总盈亏</span>
+            <span className="sh-stat-label">净盈亏</span>
             <span
               className="sh-stat-value"
               style={{

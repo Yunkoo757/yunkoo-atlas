@@ -56,7 +56,7 @@
 }
 
 .review-pin-options button {
-  height: 28px;
+  height: var(--control-height);
   padding: 0 10px;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
@@ -93,7 +93,7 @@
   display: flex;
   align-items: center;
   width: 100%;
-  height: 34px;
+  height: var(--field-height-md);
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--fs-sm);
@@ -188,8 +188,8 @@
 .review-template-delete {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--control-height);
+  height: var(--control-height);
   color: var(--text-quaternary);
   border-radius: var(--radius-6);
 }
@@ -210,7 +210,7 @@
 }
 
 .review-template-name {
-  height: 34px;
+  height: var(--field-height-md);
   padding: 0 10px;
   font: inherit;
   font-size: var(--fs-sm);

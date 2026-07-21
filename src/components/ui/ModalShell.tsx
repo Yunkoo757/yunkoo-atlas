@@ -7,6 +7,7 @@ import {
 import { createPortal } from 'react-dom'
 import { X } from '@/icons/appIcons'
 import { useExitClone } from '@/components/ui/useExitClone'
+import { useShortcutStore } from '@/store/shortcutStore'
 import './ModalShell.css'
 
 function focusableElements(root: HTMLElement): HTMLElement[] {
@@ -29,7 +30,7 @@ export function ModalShell({
   children?: ReactNode
   footer?: ReactNode
   busy?: boolean
-  size?: 'default' | 'compact'
+  size?: 'default' | 'compact' | 'wide'
   onClose: () => void
 }) {
   const titleId = useId()
@@ -39,6 +40,7 @@ export function ModalShell({
   const exitRef = useExitClone<HTMLDivElement>()
 
   useEffect(() => {
+    useShortcutStore.getState().acquireModalOverlay()
     returnFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null
@@ -53,6 +55,7 @@ export function ModalShell({
     return () => {
       cancelAnimationFrame(frame)
       document.body.style.overflow = previousOverflow
+      useShortcutStore.getState().releaseModalOverlay()
       const target = returnFocusRef.current
       requestAnimationFrame(() => {
         if (target?.isConnected) target.focus()
@@ -102,7 +105,11 @@ export function ModalShell({
     >
       <div
         ref={panelRef}
-        className={`modal-shell${size === 'compact' ? ' modal-shell--compact' : ''}`}
+        className={[
+          'modal-shell',
+          size === 'compact' ? 'modal-shell--compact' : '',
+          size === 'wide' ? 'modal-shell--wide' : '',
+        ].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

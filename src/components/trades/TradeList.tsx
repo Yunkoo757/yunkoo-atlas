@@ -143,6 +143,7 @@ export function TradeList({
   onToggleStar,
   onContextMenu,
   onCreate,
+  recordLabel = '交易',
 }: {
   groups: TradeListGroup[]
   strategies: Strategy[]
@@ -156,6 +157,8 @@ export function TradeList({
   onToggleStar: (trade: Trade) => void
   onContextMenu: (event: React.MouseEvent, trade: Trade) => void
   onCreate: () => void
+  /** 分组新建按钮文案：交易 / 案例记录 */
+  recordLabel?: string
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
@@ -427,12 +430,12 @@ export function TradeList({
                   <strong>{item.label}</strong>
                   <span className="trade-list-group-count">{item.count}</span>
                 </button>
-                <Tooltip asChild content="在本组新建交易" label="在本组新建交易">
+                <Tooltip asChild content={`在本组新建${recordLabel}`} label={`在本组新建${recordLabel}`}>
                   <button
                     type="button"
                     className="trade-list-group-add"
                     onClick={() => onCreate()}
-                    aria-label="在本组新建交易"
+                    aria-label={`在本组新建${recordLabel}`}
                   >
                     <Plus size={16} />
                   </button>

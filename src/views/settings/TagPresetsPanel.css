@@ -93,7 +93,7 @@
   gap: 6px;
 }
 
-.tag-chip {
+.settings-tag-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -105,7 +105,7 @@
   color: var(--text-secondary);
 }
 
-.tag-chip-remove {
+.settings-tag-chip-remove {
   display: inline-grid;
   place-items: center;
   width: 16px;
@@ -116,7 +116,7 @@
   color: var(--text-quaternary);
   cursor: pointer;
 }
-.tag-chip-remove:hover {
+.settings-tag-chip-remove:hover {
   background: var(--bg-hover);
   color: var(--neg);
 }
@@ -142,12 +142,12 @@
     margin-bottom: 0;
   }
 
-  .tag-chip {
+  .settings-tag-chip {
     min-height: 44px;
     padding: 0 0 0 10px;
   }
 
-  .tag-chip-remove {
+  .settings-tag-chip-remove {
     width: 44px;
     height: 44px;
   }

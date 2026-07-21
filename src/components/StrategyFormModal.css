@@ -12,8 +12,8 @@
   width: min(440px, 100%);
   background: var(--popover-bg);
   border: 0.8px solid var(--popover-border);
-  border-radius: var(--popover-radius);
-  box-shadow: var(--popover-shadow);
+  border-radius: var(--modal-border-radius);
+  box-shadow: var(--popover-shadow-deep);
   animation: fadeIn 0.16s var(--ease-out) both;
 }
 
@@ -36,9 +36,9 @@
 .sfm-close {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-full);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-6);
   color: var(--text-tertiary);
 }
 .sfm-close:hover {
@@ -157,31 +157,6 @@
   border-top: 1px solid var(--border-subtle);
 }
 
-.sfm-btn {
-  height: var(--control-height);
-  padding: 0 10px;
-  border-radius: var(--radius-6);
-  font-family: var(--font-ui);
-  font-size: var(--fs-mini);
-  font-weight: var(--font-weight-medium);
-}
-.sfm-btn-ghost {
-  color: var(--text-secondary);
-}
-.sfm-btn-ghost:hover {
-  background: var(--bg-hover);
-}
-.sfm-btn-primary {
-  background: var(--accent);
-  color: var(--accent-text);
-}
-.sfm-btn-primary:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.sfm-btn-primary:not(:disabled):hover {
-  background: var(--accent-hover);
-}
 
 @media (max-width: 520px) {
   .sfm-overlay {

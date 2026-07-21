@@ -830,7 +830,7 @@
 .dv-prop-label {
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
-  font-weight: 450;
+  font-weight: var(--font-weight-medium);
   line-height: normal;
 }
 .dv-prop-value {
@@ -1026,7 +1026,7 @@
 }
 .dv-datarow-label {
   font-size: var(--fs-mini);
-  font-weight: 450;
+  font-weight: var(--font-weight-medium);
   color: var(--text-tertiary);
   line-height: normal;
 }

@@ -37,6 +37,16 @@
   margin-bottom: 12px;
 }
 
+.db-week.is-empty {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.db-week.is-empty .db-week-head {
+  align-items: center;
+  margin-bottom: 0;
+}
+
 .db-week-title {
   display: block;
   color: var(--text-strong);
@@ -100,7 +110,7 @@
 
 .db-week-metric strong {
   color: var(--text-strong);
-  font-size: 20px;
+  font-size: var(--fs-title);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
@@ -109,14 +119,12 @@
 }
 
 .db-week-metric small,
-.db-week-missed,
-.db-week-empty {
+.db-week-missed {
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
 }
 
-.db-week-missed,
-.db-week-empty {
+.db-week-missed {
   margin: 10px 0 0;
 }
 
@@ -136,7 +144,7 @@
 
 .db-seg {
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-4);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
@@ -152,8 +160,8 @@
 }
 
 .db-seg.is-on {
-  background: var(--bg-hover);
-  color: var(--text-strong);
+  background: var(--bg-selected);
+  color: var(--text-primary);
 }
 
 .db-cards {
@@ -192,7 +200,7 @@
   font-size: var(--type-metadata-size);
 }
 .db-card-value {
-  font-size: 22px;
+  font-size: var(--fs-h);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -201,7 +209,7 @@
   text-overflow: ellipsis;
 }
 .db-card:first-child .db-card-value {
-  font-size: 26px;
+  font-size: var(--font-size-title2);
 }
 .db-card-sub {
   color: var(--text-muted);
@@ -273,12 +281,14 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: var(--radius-8);
+  height: var(--control-height);
+  padding: 0 10px;
+  border-radius: var(--radius-6);
   background: var(--accent);
+  border: 1px solid transparent;
   color: var(--accent-text);
-  font-size: var(--fs-sm);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
   transition: background var(--dur-fast) var(--ease-out);
 }
@@ -373,6 +383,9 @@
 .db-chart .recharts-tooltip-wrapper {
   outline: none;
   z-index: 4;
+}
+.db-chart text {
+  font-family: var(--font-ui);
 }
 .db-chart .recharts-rectangle.recharts-tooltip-cursor {
   stroke: none;

@@ -125,7 +125,7 @@ export function DataIOContent({
       }
       setLibraryPath(result.path ?? null)
       setDupGroups(null)
-      toast(request.mode === 'create' ? '已切换到新库' : '已切换交易库')
+      toast(request.mode === 'create' ? '已切换到新交易库' : '已切换交易库')
       onLibraryChanged?.()
       onDone?.()
     } catch (err) {
@@ -166,15 +166,15 @@ export function DataIOContent({
       const result = await importJournalArchive()
       if (result.ok) {
         setDupGroups(null)
-        toast('交易库已导入')
+        toast('交易库已恢复')
         onLibraryChanged?.()
         onDone?.()
       } else if (!result.canceled) {
-        toast(result.error ? `导入失败：${result.error}` : '导入失败')
+        toast(result.error ? `恢复失败：${result.error}` : '恢复失败')
       }
       // 注：用户取消文件对话框时不显示 toast，这是预期行为
     } catch (err) {
-      toast(err instanceof Error ? `导入失败：${err.message}` : '导入失败')
+      toast(err instanceof Error ? `恢复失败：${err.message}` : '恢复失败')
     } finally {
       setLibraryBusy(false)
     }
@@ -220,7 +220,7 @@ export function DataIOContent({
     setArchiveBackingUp(true)
     try {
       await downloadWebJournalZip()
-      toast('当前交易库恢复点已下载')
+      toast('当前交易库备份已下载')
     } catch (error) {
       toast(error instanceof Error ? error.message : '当前交易库导出失败，请重试')
     } finally {
@@ -275,7 +275,7 @@ export function DataIOContent({
       )
       if (useStore.getState().trades !== scannedTrades) {
         duplicateScanTradesRef.current = null
-        toast('资料库已变化，请重新扫描重复项')
+        toast('交易库已变化，请重新扫描重复项')
         return
       }
       setDupGroups(groups)
@@ -293,7 +293,7 @@ export function DataIOContent({
     if (duplicateScanTradesRef.current !== useStore.getState().trades) {
       duplicateScanTradesRef.current = null
       setDupGroups(null)
-      toast('资料库已变化，请重新扫描重复项')
+      toast('交易库已变化，请重新扫描重复项')
       return
     }
     setDupCleaning(true)
@@ -318,11 +318,11 @@ export function DataIOContent({
     <div className="dio-content">
       {electron && (
         <section className="dio-section dio-section-muted">
-          <h2 className="dio-section-title">本地库</h2>
+          <h2 className="dio-section-title">本地交易库</h2>
           {libraryPath ? (
             <p className="dio-desc dio-mono">{libraryPath}</p>
           ) : (
-            <p className="dio-desc">正在读取库路径…</p>
+            <p className="dio-desc">正在读取交易库路径…</p>
           )}
           <p className="dio-desc">
             数据保存在本机磁盘的 journal.db、manifest.json 与 attachments/ 文件夹中。
@@ -336,7 +336,7 @@ export function DataIOContent({
               onClick={() => void onSwitchLibrary('open')}
             >
               <FolderOpen size={15} />
-              <span>{libraryBusy ? '切换中…' : '打开其他库…'}</span>
+              <span>{libraryBusy ? '切换中…' : '打开其他交易库…'}</span>
             </button>
             <button
               type="button"
@@ -345,7 +345,7 @@ export function DataIOContent({
               onClick={() => void onSwitchLibrary('create')}
             >
               <Plus size={15} />
-              <span>在此新建库…</span>
+              <span>在此新建交易库…</span>
             </button>
           </div>
         </section>
@@ -354,18 +354,18 @@ export function DataIOContent({
       <section className="dio-group" aria-labelledby="dio-boundary-title">
         <div className="dio-group-head">
           <h2 id="dio-boundary-title" className="dio-group-title">保存边界</h2>
-          <p className="dio-group-desc">区分自动保存、恢复点和仅保留在此电脑的配置。</p>
+          <p className="dio-group-desc">区分自动保存、备份和仅保留在此电脑的配置。</p>
         </div>
         <div className="dio-task-list">
           <div className="dio-task">
             <Database size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
-              <div className="dio-task-title">自动保存到当前资料库</div>
+              <div className="dio-task-title">自动保存到当前交易库</div>
               <div className="dio-task-meta">
                 交易与案例、策略、标签、快捷键、显示偏好、个人资料和保存视图；
                 {electron
-                  ? '笔记原图保存在资料库的 attachments/ 文件夹。'
-                  : '笔记原图保存在浏览器 IndexedDB 的同一资料库中。'}
+                  ? '笔记原图保存在交易库的 attachments/ 文件夹。'
+                  : '笔记原图保存在浏览器 IndexedDB 的同一交易库中。'}
               </div>
             </div>
           </div>
@@ -373,9 +373,9 @@ export function DataIOContent({
             <div className="dio-task">
               <Shield size={18} className="dio-task-icon" />
               <div className="dio-task-copy">
-                <div className="dio-task-title">自动恢复点</div>
+                <div className="dio-task-title">自动备份</div>
                 <div className="dio-task-meta">
-                  每 15 分钟及退出前保存数据库、资料库清单和原始附件；相同附件只保留一份。
+                  每 15 分钟及退出前保存数据库、交易库清单和原始附件；相同附件只保留一份。
                 </div>
               </div>
             </div>
@@ -386,8 +386,8 @@ export function DataIOContent({
               <div className="dio-task-title">{electron ? '仅保留在这台电脑' : '仅保留在当前浏览器'}</div>
               <div className="dio-task-meta">
                 {electron
-                  ? 'GitHub 更新令牌、窗口位置、当前资料库路径与随机复盘轮次不会写入资料库或导出文件。'
-                  : '随机复盘的当前轮次只保留在此标签页，不会写入资料库或导出文件。'}
+                  ? 'GitHub 更新令牌、窗口位置、当前交易库路径与随机复盘轮次不会写入交易库或导出文件。'
+                  : '随机复盘的当前轮次只保留在此标签页，不会写入交易库或导出文件。'}
               </div>
             </div>
           </div>
@@ -453,7 +453,7 @@ export function DataIOContent({
             <Upload size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">Yunkoo JSON</div>
-              <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
+              <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前交易库</div>
             </div>
             <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => fileRef.current?.click()}>
               <span>选择文件</span>
@@ -495,7 +495,7 @@ export function DataIOContent({
           <div className="dio-task">
             <Search size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
-              <div className="dio-task-title">扫描库内重复</div>
+              <div className="dio-task-title">扫描交易库内重复</div>
               <div className="dio-task-meta">对照笔记正文与截图指纹</div>
             </div>
             <button
@@ -566,7 +566,7 @@ export function DataIOContent({
             <div className="dio-task-title">恢复完整交易库</div>
             <div className="dio-task-meta">
               {electron
-                ? '替换当前桌面资料库与附件，操作前请先备份'
+                ? '替换当前桌面交易库与附件，操作前请先备份'
                 : '校验浏览器完整备份后，精确替换当前数据、设置与附件'}
             </div>
           </div>
@@ -576,7 +576,7 @@ export function DataIOContent({
             disabled={dataBusy}
             onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
           >
-            <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
+            <span>{libraryBusy ? '交易库处理中…' : '选择 .journal.zip'}</span>
           </button>
         </div>
       </section>
@@ -586,8 +586,8 @@ export function DataIOContent({
         <span>
           仅导入可信文件。
           {electron
-            ? '完整备份会替换当前库，JSON 只合并数据。'
-            : '完整备份恢复会替换当前库，JSON 导入只合并数据。'}
+            ? '完整备份会替换当前交易库，JSON 只合并数据。'
+            : '完整备份恢复会替换当前交易库，JSON 导入只合并数据。'}
         </span>
       </p>
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
@@ -595,7 +595,7 @@ export function DataIOContent({
       {pendingLibrarySwitch ? (
         <ModalShell
           title={pendingLibrarySwitch.mode === 'create' ? '创建并切换交易库？' : '切换交易库？'}
-          description="软件会先保存当前资料库，再切换到所选目录。"
+          description="软件会先保存当前交易库，再切换到所选目录。"
           size="compact"
           onClose={() => setPendingLibrarySwitch(null)}
           footer={(
@@ -624,7 +624,7 @@ export function DataIOContent({
       {webArchive && (
         <ModalShell
           title="恢复完整交易库"
-          description="归档已通过格式与附件校验。确认后将精确替换当前浏览器资料库。"
+          description="归档已通过格式与附件校验。确认后将精确替换当前浏览器交易库。"
           busy={archiveRestoring}
           onClose={() => setWebArchive(null)}
           footer={(
@@ -635,7 +635,7 @@ export function DataIOContent({
                 disabled={archiveRestoring || archiveBackingUp}
                 onClick={onDownloadRestorePoint}
               >
-                {archiveBackingUp ? '正在导出…' : '先下载当前库'}
+                {archiveBackingUp ? '正在导出…' : '先下载当前交易库'}
               </button>
               <button
                 type="button"
@@ -652,7 +652,7 @@ export function DataIOContent({
                 disabled={archiveRestoring || archiveBackingUp}
                 onClick={onRestoreWebArchive}
               >
-                {archiveRestoring ? '正在替换…' : '替换当前资料库'}
+                {archiveRestoring ? '正在替换…' : '替换当前交易库'}
               </button>
             </>
           )}

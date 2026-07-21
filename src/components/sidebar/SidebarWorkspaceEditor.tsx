@@ -300,7 +300,7 @@ export function SidebarWorkspaceEditor({
                 {overflowItems.length > 0 ? ` · 更多 ${overflowItems.length}` : ''}
               </span>
             </div>
-            <p className="sb-editor-help">点击项目即可添加或调整状态；完成后点下方「完成」，或点「返回」继续整理列表。</p>
+            <p className="sb-editor-help">点击项目添加或移动位置；完成后点「完成」。</p>
           </div>
         ) : (
           <div className="sb-workspace-editor-nav">
@@ -315,7 +315,7 @@ export function SidebarWorkspaceEditor({
             </div>
             <p className="sb-editor-help">
               常驻最多 8 项直接出现在侧栏；超出项在「更多」，可随时改回。
-              {variant === 'mobile-fullscreen' ? ' 使用上移 / 下移排序。' : ' 组内可拖动或 Alt + ↑/↓ 排序。'}
+              {variant === 'mobile-fullscreen' ? ' 使用上移/下移排序。' : ' 组内可拖动或 Alt + ↑/↓ 排序。'}
             </p>
           </div>
         )}

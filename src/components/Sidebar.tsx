@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
@@ -43,6 +43,16 @@ import { ICON_MD } from '@/icons/iconSize'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { createQuickNote } from '@/data/quickNotes'
 import { useExitClone } from '@/components/ui/useExitClone'
+
+const PRIMARY_NAV_SHORTCUT: Partial<Record<PrimarySidebarNavId, string>> = {
+  today: 'nav.today',
+  quickNotes: 'nav.quickNotes',
+  trades: 'nav.list',
+  reviewCases: 'nav.reviewCases',
+  weeklyReview: 'nav.weeklyReview',
+  reviewSession: 'nav.reviewSession',
+  dashboard: 'nav.dashboard',
+}
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -509,9 +519,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         {orderedPrimaryNav.map(({ id, to, label, icon: Icon }) => {
           const isDragging = primaryDrag?.id === id
           const isDropTarget = primaryDrag?.overId === id
+          const shortcutActionId = PRIMARY_NAV_SHORTCUT[id]
           const link = (
             <NavLink
-              key={id}
               to={primaryHref(id, to)}
               draggable={false}
               data-sidebar-primary-id={id}
@@ -536,7 +546,18 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               <Count value={primaryCount(id)} />
             </NavLink>
           )
-          return link
+          if (!shortcutActionId) return <Fragment key={id}>{link}</Fragment>
+          return (
+            <ShortcutTooltip
+              key={id}
+              actionId={shortcutActionId}
+              label={label}
+              mode="shortcut"
+              side="right"
+            >
+              {link}
+            </ShortcutTooltip>
+          )
         })}
       </nav>
 

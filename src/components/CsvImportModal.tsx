@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo, useRef, type DragEvent } from 'react'
-import { Upload, X, ArrowRight, AlertCircle, CheckCircle } from '@/icons/appIcons'
+import { Upload, ArrowRight, AlertCircle, CheckCircle } from '@/icons/appIcons'
+import { ModalShell } from '@/components/ui/ModalShell'
+import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
 import {
   parseCsv,
@@ -27,7 +29,6 @@ import { Select } from '@/components/ui/Select'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { normalizeSymbol } from '@/lib/symbolIcons'
 import { fmtMoney } from '@/lib/format'
-import { useExitClone } from '@/components/ui/useExitClone'
 import './CsvImportModal.css'
 
 interface Props {
@@ -36,7 +37,6 @@ interface Props {
 }
 
 export function CsvImportModal({ open, onClose }: Props) {
-  const exitRef = useExitClone<HTMLDivElement>(open)
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
   const upsertTrades = useStore((s) => s.upsertTrades)
@@ -301,24 +301,70 @@ export function CsvImportModal({ open, onClose }: Props) {
 
   const pickFile = () => fileRef.current?.click()
 
-  return (
-    <div ref={exitRef} className="csv-modal-overlay" onClick={requestClose}>
-      <div
-        className={'csv-modal' + (step === 'upload' || step === 'done' ? '' : ' is-wide')}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="csv-modal-header">
-          <div>
-            <h2>导入 CSV</h2>
-            {step === 'upload' && (
-              <p className="csv-modal-desc">支持中英文表头，自动匹配字段</p>
-            )}
-          </div>
-          <button className="csv-modal-close" onClick={requestClose} disabled={importing} type="button" aria-label="关闭">
-            <X size={16} />
-          </button>
-        </div>
+  const footer =
+    step === 'upload' ? (
+      <>
+        <span className="csv-file-status">{fileName || '未选择文件'}</span>
+        <Button variant="primary" size="lg" onClick={pickFile}>
+          选择文件
+        </Button>
+      </>
+    ) : step === 'map' ? (
+      <>
+        <Button variant="bordered" size="lg" onClick={reset}>
+          重新选择文件
+        </Button>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={handlePreview}
+          disabled={Object.keys(mapping).length === 0}
+        >
+          预览导入 <ArrowRight size={16} />
+        </Button>
+      </>
+    ) : step === 'preview' ? (
+      <>
+        <Button variant="bordered" size="lg" onClick={returnToMapping} disabled={importing}>
+          返回调整映射
+        </Button>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={handleImport}
+          disabled={
+            importing ||
+            duplicateScanState !== 'done' ||
+            previews.filter(shouldImportPreview).length === 0
+          }
+        >
+          {importing
+            ? '正在导入…'
+            : duplicateScanState === 'scanning'
+              ? '正在检测重复…'
+              : '确认导入'}
+        </Button>
+      </>
+    ) : (
+      <>
+        <Button variant="bordered" size="lg" onClick={requestClose}>
+          关闭
+        </Button>
+        <Button variant="primary" size="lg" onClick={reset}>
+          导入其他文件
+        </Button>
+      </>
+    )
 
+  return (
+    <ModalShell
+      title="导入 CSV"
+      description={step === 'upload' ? '支持中英文表头，自动匹配字段' : undefined}
+      busy={importing}
+      size={step === 'upload' || step === 'done' ? 'compact' : 'wide'}
+      onClose={requestClose}
+      footer={footer}
+    >
         {/* Step 1: Upload */}
         {step === 'upload' && (
           <div className="csv-upload-area">
@@ -346,12 +392,6 @@ export function CsvImportModal({ open, onClose }: Props) {
               </div>
               <p className="csv-drop-title">拖放或选择文件</p>
               <p className="csv-drop-hint">.csv · .tsv · .txt</p>
-            </div>
-            <div className="csv-upload-foot">
-              <span className="csv-file-status">{fileName || '未选择文件'}</span>
-              <button className="csv-btn csv-btn-primary" type="button" onClick={pickFile}>
-                选择文件
-              </button>
             </div>
             <p className="csv-upload-tip">如 symbol / side / entry</p>
             <input
@@ -409,19 +449,6 @@ export function CsvImportModal({ open, onClose }: Props) {
               </table>
             </div>
             {error && <p className="csv-error">{error}</p>}
-            <div className="csv-actions">
-              <button className="csv-btn csv-btn-ghost" onClick={reset} type="button">
-                重新选择文件
-              </button>
-              <button
-                className="csv-btn csv-btn-primary"
-                onClick={handlePreview}
-                disabled={Object.keys(mapping).length === 0}
-                type="button"
-              >
-                预览导入 <ArrowRight size={16} />
-              </button>
-            </div>
           </div>
         )}
 
@@ -448,7 +475,7 @@ export function CsvImportModal({ open, onClose }: Props) {
                   label="跳过明显重复正文"
                   onToggle={() => setSkipDuplicates((value) => !value)}
                 />
-                <span>跳过明显重复正文，默认开启</span>
+                <span>跳过库内已有的明显重复正文</span>
               </label>
             )}
             <div className="csv-preview-table-wrap">
@@ -530,27 +557,6 @@ export function CsvImportModal({ open, onClose }: Props) {
             {duplicateScanState === 'scanning' && (
               <p className="csv-preview-summary" role="status">正在检测重复记录…</p>
             )}
-            <div className="csv-actions">
-              <button className="csv-btn csv-btn-ghost" onClick={returnToMapping} disabled={importing} type="button">
-                返回调整映射
-              </button>
-              <button
-                className="csv-btn csv-btn-primary"
-                onClick={handleImport}
-                disabled={
-                  importing ||
-                  duplicateScanState !== 'done' ||
-                  previews.filter(shouldImportPreview).length === 0
-                }
-                type="button"
-              >
-                {importing
-                  ? '正在导入…'
-                  : duplicateScanState === 'scanning'
-                    ? '正在检测重复…'
-                    : '确认导入'}
-              </button>
-            </div>
           </div>
         )}
 
@@ -558,18 +564,9 @@ export function CsvImportModal({ open, onClose }: Props) {
         {step === 'done' && (
           <div className="csv-done-area">
             <CheckCircle size={40} className="csv-ok" />
-            <p>导入完成！</p>
-            <div className="csv-actions">
-              <button className="csv-btn csv-btn-primary" onClick={reset} type="button">
-                导入其他文件
-              </button>
-              <button className="csv-btn csv-btn-ghost" onClick={requestClose} type="button">
-                关闭
-              </button>
-            </div>
+            <p>导入完成</p>
           </div>
         )}
-      </div>
-    </div>
+    </ModalShell>
   )
 }

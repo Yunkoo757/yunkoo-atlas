@@ -18,7 +18,8 @@ interface ShortcutState {
   listContext: ListNavigationContext | null
   lightbox: LightboxState | null
   cmdkOpen: boolean
-  dataIOOpen: boolean
+  /** ModalShell 等确认弹层打开深度；>0 时屏蔽全局单键 */
+  modalOverlayCount: number
   setBinding: (id: string, binding: ShortcutBinding | null) => void
   /** 写入绑定；若与其他动作冲突则清空对方（固定序列除外） */
   assignBinding: (
@@ -34,8 +35,15 @@ interface ShortcutState {
   lightboxPrev: () => void
   lightboxNext: () => void
   setCmdkOpen: (open: boolean) => void
-  setDataIOOpen: (open: boolean) => void
+  acquireModalOverlay: () => void
+  releaseModalOverlay: () => void
   hydrateBindings: (bindings: Record<string, ShortcutBinding | null> | undefined) => void
+}
+
+export function isModalOverlayOpen(
+  state: Pick<ShortcutState, 'modalOverlayCount'> = useShortcutStore.getState(),
+): boolean {
+  return state.modalOverlayCount > 0
 }
 
 export function resolveBinding(
@@ -88,7 +96,7 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
   listContext: null,
   lightbox: null,
   cmdkOpen: false,
-  dataIOOpen: false,
+  modalOverlayCount: 0,
   setBinding: (id, binding) =>
     set((s) => ({
       bindings: { ...s.bindings, [id]: binding },
@@ -193,7 +201,10 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
     })
   },
   setCmdkOpen: (open) => set({ cmdkOpen: open }),
-  setDataIOOpen: (open) => set({ dataIOOpen: open }),
+  acquireModalOverlay: () =>
+    set((s) => ({ modalOverlayCount: s.modalOverlayCount + 1 })),
+  releaseModalOverlay: () =>
+    set((s) => ({ modalOverlayCount: Math.max(0, s.modalOverlayCount - 1) })),
   hydrateBindings: (bindings) =>
     set({ bindings: migrateShortcutBindings(bindings) }),
 }))

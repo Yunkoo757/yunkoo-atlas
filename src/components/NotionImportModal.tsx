@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react'
-import { Upload, X, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
+import { Upload, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
 import { LinearGridLoaderIcon } from '@/icons/linear'
 import { ICON_HERO } from '@/icons/iconSize'
+import { ModalShell } from '@/components/ui/ModalShell'
+import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
 import {
   parseNotionCsv,
@@ -26,7 +28,6 @@ import { SelectionBox } from '@/components/ui/SelectionBox'
 import { MAX_NOTION_IMPORT_ROWS } from '@/lib/notionImportLimits'
 import type { TradeKind } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
-import { useExitClone } from '@/components/ui/useExitClone'
 import './NotionImportModal.css'
 
 interface Props {
@@ -48,7 +49,7 @@ const IMPORT_TARGETS: Array<{
   recordLabel: string
 }> = [
   { kind: 'live', label: '交易日志', hint: '计入实盘统计', recordLabel: '笔交易' },
-  { kind: 'paper', label: '模拟回测', hint: '独立于实盘 KPI', recordLabel: '笔模拟记录' },
+  { kind: 'paper', label: '模拟回测', hint: '独立于实盘统计', recordLabel: '笔模拟记录' },
   { kind: 'case', label: '案例记录', hint: '进入案例复看体系', recordLabel: '条案例' },
 ]
 
@@ -67,7 +68,6 @@ export function getNotionCapacityErrorMessage(error: unknown): string | null {
 }
 
 export function NotionImportModal({ open, onClose }: Props) {
-  const exitRef = useExitClone<HTMLDivElement>(open)
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
   const privacyMode = useStore((s) => s.display.privacyMode)
@@ -376,268 +376,263 @@ export function NotionImportModal({ open, onClose }: Props) {
     if (!parsing) fileRef.current?.click()
   }
 
+  const targetLabel = IMPORT_TARGETS.find((target) => target.kind === targetKind)!.label
+
+  const footer =
+    step === 'upload' ? (
+      <>
+        <span className="nim-file-status">{fileName || '未选择文件'}</span>
+        <Button variant="primary" size="lg" onClick={pickFile} disabled={parsing}>
+          {parsing ? '正在解析…' : '选择文件'}
+        </Button>
+      </>
+    ) : step === 'preview' && result ? (
+      <>
+        <Button variant="bordered" size="lg" onClick={reset}>
+          重新选择文件
+        </Button>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={handleImport}
+          disabled={
+            dupScanState !== 'done' ||
+            result.validRows === 0 ||
+            selectedPreviewCount === 0
+          }
+        >
+          确认导入
+          {selectedPreviewCount > 0 ? ` ${selectedPreviewCount} 笔` : ''}
+          {`到${targetLabel}`}
+          {result.totalImages > 0 ? '（含截图）' : ''} <ArrowRight size={16} />
+        </Button>
+      </>
+    ) : step === 'done' ? (
+      <>
+        <Button variant="bordered" size="lg" onClick={requestClose}>
+          关闭
+        </Button>
+        <Button variant="primary" size="lg" onClick={reset}>
+          导入更多
+        </Button>
+      </>
+    ) : undefined
+
   return (
-    <div ref={exitRef} className="nim-overlay" onMouseDown={requestClose}>
-      <div
-        className={'nim-modal' + (step === 'upload' || step === 'done' || step === 'importing' ? '' : ' is-wide')}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="nim-header">
-          <div>
-            <h2>从 Notion 导入</h2>
-            {step === 'upload' && (
-              <p className="nim-desc">请先导出 Markdown & CSV，再选择文件</p>
-            )}
-          </div>
-          <button className="nim-close" onClick={requestClose} disabled={step === 'importing'} type="button" aria-label="关闭">
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Step 1: Upload */}
-        {step === 'upload' && (
-          <div className="nim-upload-area">
-            <div
-              className={'nim-drop' + (dragging ? ' is-drag' : '')}
-              onDragOver={(event) => {
+    <ModalShell
+      title="从 Notion 导入"
+      description={step === 'upload' ? '请先导出 Markdown & CSV，再选择文件' : undefined}
+      busy={step === 'importing' || parsing}
+      size={step === 'upload' || step === 'done' || step === 'importing' ? 'compact' : 'wide'}
+      onClose={requestClose}
+      footer={footer}
+    >
+      {/* Step 1: Upload */}
+      {step === 'upload' && (
+        <div className="nim-upload-area">
+          <div
+            className={'nim-drop' + (dragging ? ' is-drag' : '')}
+            onDragOver={(event) => {
+              event.preventDefault()
+              if (parsing) return
+              setDragging(true)
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            onClick={pickFile}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
-                if (parsing) return
-                setDragging(true)
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              onClick={pickFile}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  pickFile()
-                }
-              }}
-              role="button"
-              tabIndex={parsing ? -1 : 0}
-              aria-disabled={parsing}
-              aria-busy={parsing}
-              aria-label="拖放或选择 Notion 导出文件"
-            >
-              <div className="nim-drop-icon">
-                <Upload size={16} />
-              </div>
-              <p className="nim-drop-title">拖放或选择文件</p>
-              <p className="nim-drop-hint">.zip · .csv</p>
+                pickFile()
+              }
+            }}
+            role="button"
+            tabIndex={parsing ? -1 : 0}
+            aria-disabled={parsing}
+            aria-busy={parsing}
+            aria-label="拖放或选择 Notion 导出文件"
+          >
+            <div className="nim-drop-icon">
+              <Upload size={16} />
             </div>
-            <div className="nim-formats">
-              <div className="nim-format is-rec">
-                <span className="nim-format-code">.zip</span>
-                <span className="nim-format-name">
-                  含截图 <span className="nim-format-pill">推荐</span>
+            <p className="nim-drop-title">拖放或选择文件</p>
+            <p className="nim-drop-hint">.zip · .csv</p>
+          </div>
+          <div className="nim-formats">
+            <div className="nim-format is-rec">
+              <span className="nim-format-code">.zip</span>
+              <span className="nim-format-name">
+                含截图 <span className="nim-format-pill">推荐</span>
+              </span>
+            </div>
+            <div className="nim-format">
+              <span className="nim-format-code">.csv</span>
+              <span className="nim-format-name">仅数据</span>
+            </div>
+          </div>
+          <p className="nim-upload-tip">导出时勾选「包含子页面」</p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".zip,.csv"
+            onChange={handleFile}
+            disabled={parsing}
+            className="nim-file-input-hidden"
+          />
+          {error && <p className="nim-error">{error}</p>}
+        </div>
+      )}
+
+      {/* Step 2: Preview */}
+      {step === 'preview' && result && (
+        <div className="nim-preview-area">
+          <div className="nim-preview-summary">
+            <FileText size={14} />
+            <span className="nim-file-name">{fileName}</span>
+          </div>
+          <div className="nim-import-target">
+            <span className="nim-import-target-label">导入到</span>
+            <div className="nim-import-target-options" role="radiogroup" aria-label="Notion 导入目标">
+              {IMPORT_TARGETS.map((target) => (
+                <button
+                  key={target.kind}
+                  type="button"
+                  role="radio"
+                  aria-checked={targetKind === target.kind}
+                  className={targetKind === target.kind ? 'is-selected' : ''}
+                  onClick={() => selectTarget(target.kind)}
+                >
+                  <strong>{target.label}</strong>
+                  <span>{target.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="nim-preview-stats">
+            共 {result.totalRows} 笔记录：
+            <span className="nim-ok">{result.validRows} 笔可导入</span>
+            {result.errorRows > 0 && (
+              <>
+                {' · '}
+                <span className="nim-bad">{result.errorRows} 笔有误</span>
+              </>
+            )}
+            {duplicateCount > 0 && (
+              <>
+                {' · '}
+                <span className="nim-dup-count">{duplicateCount} 笔疑似重复</span>
+              </>
+            )}
+            {result.totalImages > 0 && (
+              <>
+                {' · '}
+                <span className="nim-img-count">
+                  <Image size={13} /> {result.totalImages} 张截图
                 </span>
-              </div>
-              <div className="nim-format">
-                <span className="nim-format-code">.csv</span>
-                <span className="nim-format-name">仅数据</span>
-              </div>
-            </div>
-            <div className="nim-upload-foot">
-              <span className="nim-file-status">{fileName || '未选择文件'}</span>
-              <button className="nim-btn nim-btn-primary" type="button" onClick={pickFile} disabled={parsing}>
-                {parsing ? '正在解析…' : '选择文件'}
-              </button>
-            </div>
-            <p className="nim-upload-tip">导出时勾选「包含子页面」</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".zip,.csv"
-              onChange={handleFile}
-              disabled={parsing}
-              className="nim-file-input-hidden"
-            />
-            {error && <p className="nim-error">{error}</p>}
-          </div>
-        )}
+              </>
+            )}
+            {result.newStrategies.length > 0 && (
+              <>
+                {' · '}
+                <span className="nim-new-strat">
+                  {result.newStrategies.length} 个新策略：{result.newStrategies.join('、')}
+                </span>
+              </>
+            )}
+          </p>
 
-        {/* Step 2: Preview */}
-        {step === 'preview' && result && (
-          <div className="nim-preview-area">
-            <div className="nim-preview-summary">
-              <FileText size={14} />
-              <span className="nim-file-name">{fileName}</span>
-            </div>
-            <div className="nim-import-target">
-              <span className="nim-import-target-label">导入到</span>
-              <div className="nim-import-target-options" role="radiogroup" aria-label="Notion 导入目标">
-                {IMPORT_TARGETS.map((target) => (
-                  <button
-                    key={target.kind}
-                    type="button"
-                    role="radio"
-                    aria-checked={targetKind === target.kind}
-                    className={targetKind === target.kind ? 'is-selected' : ''}
-                    onClick={() => selectTarget(target.kind)}
-                  >
-                    <strong>{target.label}</strong>
-                    <span>{target.hint}</span>
-                  </button>
+          {dupScanState === 'scanning' && (
+            <p className="nim-dup-scan">正在对照库内正文与截图检测重复…</p>
+          )}
+          {duplicateScanNotice && (
+            <p className="nim-dup-scan" role="status">{duplicateScanNotice}</p>
+          )}
+          {result.previews.length > PREVIEW_ROW_LIMIT && (
+            <p className="nim-dup-scan" role="status">
+              仅展示前 {PREVIEW_ROW_LIMIT} 笔，确认后仍会导入全部 {selectedPreviewCount} 笔可导入记录
+            </p>
+          )}
+          {dupScanState === 'done' && duplicateCount > 0 && (
+            <label className="nim-dup-toggle">
+              <SelectionBox
+                checked={skipDuplicates}
+                alwaysVisible
+                label="跳过明显重复"
+                onToggle={() => setSkipDuplicates((value) => !value)}
+              />
+              <span>跳过库内已有的明显重复（正文/截图相同）</span>
+            </label>
+          )}
+
+          <div className="nim-preview-table-wrap">
+            <table className="nim-preview-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>状态</th>
+                  <th>标的</th>
+                  <th>方向</th>
+                  <th>交易状态</th>
+                  <th>策略</th>
+                  <th>PnL</th>
+                  <th>R</th>
+                  <th>日期</th>
+                  <th>截图</th>
+                  <th>标签</th>
+                  <th>问题</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visiblePreviews.map((p) => (
+                  <PreviewRow
+                    key={p.rowIndex}
+                    preview={p}
+                    duplicate={duplicateByRow[p.rowIndex]}
+                    forceImport={Boolean(forceImportRows[p.rowIndex])}
+                    onToggleForce={(next) =>
+                      setForceImportRows((prev) => ({ ...prev, [p.rowIndex]: next }))
+                    }
+                    showForce={skipDuplicates}
+                    privacyMode={privacyMode}
+                  />
                 ))}
-              </div>
-            </div>
-            <p className="nim-preview-stats">
-              共 {result.totalRows} 笔记录：
-              <span className="nim-ok">{result.validRows} 笔可导入</span>
-              {result.errorRows > 0 && (
-                <>
-                  {' · '}
-                  <span className="nim-bad">{result.errorRows} 笔有误</span>
-                </>
-              )}
-              {duplicateCount > 0 && (
-                <>
-                  {' · '}
-                  <span className="nim-dup-count">{duplicateCount} 笔疑似重复</span>
-                </>
-              )}
-              {result.totalImages > 0 && (
-                <>
-                  {' · '}
-                  <span className="nim-img-count">
-                    <Image size={13} /> {result.totalImages} 张截图
-                  </span>
-                </>
-              )}
-              {result.newStrategies.length > 0 && (
-                <>
-                  {' · '}
-                  <span className="nim-new-strat">
-                    {result.newStrategies.length} 个新策略：{result.newStrategies.join('、')}
-                  </span>
-                </>
-              )}
-            </p>
-
-            {dupScanState === 'scanning' && (
-              <p className="nim-dup-scan">正在对照库内正文与截图检测重复…</p>
-            )}
-            {duplicateScanNotice && (
-              <p className="nim-dup-scan" role="status">{duplicateScanNotice}</p>
-            )}
-            {result.previews.length > PREVIEW_ROW_LIMIT && (
-              <p className="nim-dup-scan" role="status">
-                仅展示前 {PREVIEW_ROW_LIMIT} 笔，确认后仍会导入全部 {selectedPreviewCount} 笔可导入记录
-              </p>
-            )}
-            {dupScanState === 'done' && duplicateCount > 0 && (
-              <label className="nim-dup-toggle">
-                <SelectionBox
-                  checked={skipDuplicates}
-                  alwaysVisible
-                  label="跳过明显重复"
-                  onToggle={() => setSkipDuplicates((value) => !value)}
-                />
-                <span>跳过明显重复（正文/截图相同），默认开启</span>
-              </label>
-            )}
-
-            <div className="nim-preview-table-wrap">
-              <table className="nim-preview-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>状态</th>
-                    <th>标的</th>
-                    <th>方向</th>
-                    <th>交易状态</th>
-                    <th>策略</th>
-                    <th>PnL</th>
-                    <th>R</th>
-                    <th>日期</th>
-                    <th>截图</th>
-                    <th>标签</th>
-                    <th>问题</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visiblePreviews.map((p) => (
-                    <PreviewRow
-                      key={p.rowIndex}
-                      preview={p}
-                      duplicate={duplicateByRow[p.rowIndex]}
-                      forceImport={Boolean(forceImportRows[p.rowIndex])}
-                      onToggleForce={(next) =>
-                        setForceImportRows((prev) => ({ ...prev, [p.rowIndex]: next }))
-                      }
-                      showForce={skipDuplicates}
-                      privacyMode={privacyMode}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {error && <p className="nim-error">{error}</p>}
-
-            <div className="nim-actions">
-              <button className="nim-btn nim-btn-ghost" onClick={reset} type="button">
-                重新选择文件
-              </button>
-              <button
-                className="nim-btn nim-btn-primary"
-                onClick={handleImport}
-                disabled={
-                  dupScanState !== 'done' ||
-                  result.validRows === 0 ||
-                  selectedPreviewCount === 0
-                }
-                type="button"
-              >
-                确认导入
-                {selectedPreviewCount > 0
-                  ? ` ${selectedPreviewCount} 笔`
-                  : ''}
-                {`到${IMPORT_TARGETS.find((target) => target.kind === targetKind)!.label}`}
-                {result.totalImages > 0 ? `（含截图）` : ''} <ArrowRight size={16} />
-              </button>
-            </div>
+              </tbody>
+            </table>
           </div>
-        )}
 
-        {/* Step 2.5: Importing */}
-        {step === 'importing' && (
-          <div className="nim-done-area">
-            <LinearGridLoaderIcon variant="hourglass" size={ICON_HERO} aria-hidden />
-            <p>正在导入…</p>
-            <p className="nim-done-hint">截图正在离线保存到本地库，请稍候。</p>
-          </div>
-        )}
+          {error && <p className="nim-error">{error}</p>}
+        </div>
+      )}
 
-        {/* Step 3: Done */}
-        {step === 'done' && (
-          <div className="nim-done-area">
-            <CheckCircle size={40} className="nim-ok" />
-            <p>
-              已导入 {imported} {IMPORT_TARGETS.find((target) => target.kind === targetKind)!.recordLabel}
+      {/* Step 2.5: Importing */}
+      {step === 'importing' && (
+        <div className="nim-done-area">
+          <LinearGridLoaderIcon variant="hourglass" size={ICON_HERO} aria-hidden />
+          <p>正在导入…</p>
+          <p className="nim-done-hint">截图正在离线保存到本地库，请稍候。</p>
+        </div>
+      )}
+
+      {/* Step 3: Done */}
+      {step === 'done' && (
+        <div className="nim-done-area">
+          <CheckCircle size={40} className="nim-ok" />
+          <p>
+            已导入 {imported} {IMPORT_TARGETS.find((target) => target.kind === targetKind)!.recordLabel}
+          </p>
+          {importedImages > 0 && (
+            <p className="nim-done-images">
+              <Image size={15} /> {importedImages} 张截图已离线保存
             </p>
-            {importedImages > 0 && (
-              <p className="nim-done-images">
-                <Image size={15} /> {importedImages} 张截图已离线保存
-              </p>
-            )}
-            <p className="nim-done-hint">
-              {targetKind === 'case'
-                ? '已进入案例记录，可继续补充分类与掌握状态。'
-                : '请在详情中补充仓位、止损与结果数据。'}
-            </p>
-            <div className="nim-actions">
-              <button className="nim-btn nim-btn-primary" onClick={reset} type="button">
-                导入更多
-              </button>
-              <button className="nim-btn nim-btn-ghost" onClick={requestClose} type="button">
-                关闭
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+          )}
+          <p className="nim-done-hint">
+            {targetKind === 'case'
+              ? '已进入案例记录，可继续补充分类与掌握状态。'
+              : '请在详情中补充仓位、止损与结果数据。'}
+          </p>
+        </div>
+      )}
+    </ModalShell>
   )
 }
 

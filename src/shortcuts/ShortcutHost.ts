@@ -49,6 +49,7 @@ export function useShortcutHost({
   useEffect(() => {
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
+      'global.commandPaletteMod': onToggleCmdk,
       'global.newTrade': () => {
         openComposer(null, newTradeKindForPath(pathname))
       },

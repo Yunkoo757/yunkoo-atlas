@@ -13,13 +13,16 @@ import {
 import { createPortal } from 'react-dom'
 import './Tooltip.css'
 
+export type TooltipSide = 'auto' | 'top' | 'bottom' | 'right'
+
 type TooltipPosition = {
   left: number
   top: number
-  placement: 'top' | 'bottom'
+  placement: 'top' | 'bottom' | 'right'
 }
 
-const DEFAULT_TOOLTIP_DELAY_MS = 450
+/** 默认加长，避免侧栏/列表快速扫过时「立刻弹出」干扰视觉。 */
+const DEFAULT_TOOLTIP_DELAY_MS = 650
 
 function assignElementRef(ref: unknown, node: HTMLElement | null): void {
   if (typeof ref === 'function') {
@@ -31,11 +34,38 @@ function assignElementRef(ref: unknown, node: HTMLElement | null): void {
   }
 }
 
+function resolvePlacement(
+  side: TooltipSide,
+  rect: DOMRect,
+): TooltipPosition['placement'] {
+  if (side === 'top' || side === 'bottom' || side === 'right') return side
+  return rect.top > 48 ? 'top' : 'bottom'
+}
+
+function positionFromRect(
+  rect: DOMRect,
+  placement: TooltipPosition['placement'],
+): TooltipPosition {
+  if (placement === 'right') {
+    return {
+      left: rect.right + 8,
+      top: rect.top + rect.height / 2,
+      placement,
+    }
+  }
+  return {
+    left: rect.left + rect.width / 2,
+    top: placement === 'top' ? rect.top - 6 : rect.bottom + 6,
+    placement,
+  }
+}
+
 export function Tooltip({
   children,
   content,
   label,
   delay = DEFAULT_TOOLTIP_DELAY_MS,
+  side = 'auto',
   focusable = false,
   asChild = false,
 }: {
@@ -43,6 +73,7 @@ export function Tooltip({
   content: ReactNode
   label: string
   delay?: number
+  side?: TooltipSide
   focusable?: boolean
   asChild?: boolean
 }) {
@@ -68,12 +99,8 @@ export function Tooltip({
     timerRef.current = setTimeout(() => {
       const rect = triggerRef.current?.getBoundingClientRect()
       if (!rect) return
-      const placement = rect.top > 48 ? 'top' : 'bottom'
-      setPosition({
-        left: rect.left + rect.width / 2,
-        top: placement === 'top' ? rect.top - 6 : rect.bottom + 6,
-        placement,
-      })
+      const placement = resolvePlacement(side, rect)
+      setPosition(positionFromRect(rect, placement))
       setOpen(true)
     }, wait)
   }
@@ -87,9 +114,22 @@ export function Tooltip({
     const trigger = triggerRef.current
     if (!tooltip || !trigger) return
     const reposition = () => {
-      const tooltipWidth = tooltip.getBoundingClientRect().width
       const triggerRect = trigger.getBoundingClientRect()
-      const edge = 8 + tooltipWidth / 2
+      const tooltipRect = tooltip.getBoundingClientRect()
+      if (position.placement === 'right') {
+        const top = Math.min(
+          Math.max(8 + tooltipRect.height / 2, triggerRect.top + triggerRect.height / 2),
+          window.innerHeight - 8 - tooltipRect.height / 2,
+        )
+        const left = Math.min(triggerRect.right + 8, window.innerWidth - tooltipRect.width - 8)
+        setPosition((current) =>
+          Math.abs(current.left - left) < 0.5 && Math.abs(current.top - top) < 0.5
+            ? current
+            : { ...current, left, top },
+        )
+        return
+      }
+      const edge = 8 + tooltipRect.width / 2
       const left = Math.min(
         Math.max(edge, triggerRect.left + triggerRect.width / 2),
         window.innerWidth - edge,
@@ -103,7 +143,7 @@ export function Tooltip({
     const resizeObserver = new ResizeObserver(reposition)
     resizeObserver.observe(tooltip)
     return () => resizeObserver.disconnect()
-  }, [open, content])
+  }, [open, content, position.placement])
 
   useEffect(() => {
     if (!open) return

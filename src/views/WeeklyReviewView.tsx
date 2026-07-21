@@ -259,7 +259,7 @@ export function WeeklyReviewView() {
 
   return (
     <>
-      <Topbar title="周复盘" subtitle="把一周的证据沉淀成下一周可验证的行动" showDisplay={false} />
+      <Topbar title="周复盘" subtitle="把本周复盘转成下周可验证的一件事" showDisplay={false} />
       <div className={`wr-shell${hasReviewHistory ? '' : ' is-first-review'}`}>
         {hasReviewHistory ? (
           <aside className="wr-history" aria-label="周复盘历史">
@@ -316,8 +316,8 @@ export function WeeklyReviewView() {
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
                   <Metric label="胜率" value={metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} hint={`${metrics.winCount} 赢 · ${metrics.lossCount} 亏 · ${metrics.breakevenCount} 平`} />
-                  <Metric label="总盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl, privacyMode) : '—'} tone={privacyMode ? undefined : metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={`${metrics.pnlCount}/${metrics.tradeCount} 笔有 P&L`} />
-                  <Metric label="平均 R" value={fmtR(metrics.averageR)} tone={(metrics.averageR ?? 0) > 0 ? 'positive' : (metrics.averageR ?? 0) < 0 ? 'negative' : undefined} hint={`${metrics.rCount}/${metrics.tradeCount} 笔有 R`} />
+                  <Metric label="净盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl, privacyMode) : '—'} tone={privacyMode ? undefined : metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={`${metrics.pnlCount}/${metrics.tradeCount} 笔含盈亏`} />
+                  <Metric label="平均 R" value={fmtR(metrics.averageR)} tone={(metrics.averageR ?? 0) > 0 ? 'positive' : (metrics.averageR ?? 0) < 0 ? 'negative' : undefined} hint={`${metrics.rCount}/${metrics.tradeCount} 笔含 R`} />
                 </div>
                 {metrics.missedCount > 0 ? (
                   <div className="wr-missed-summary">
@@ -451,7 +451,7 @@ export function WeeklyReviewView() {
               </section>
 
               <div className="wr-footer-action">
-                <div><strong>{review.status === 'completed' ? '这周已经形成闭环' : '完成后会冻结本周事实，并带入下周验证'}</strong><span>复盘不是总结，而是下一周行为的输入。</span></div>
+                <div><strong>{review.status === 'completed' ? '这周已经形成闭环' : '完成后会冻结本周事实，并带入下周验证'}</strong></div>
                 {review.status === 'completed'
                   ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={15} /> 重新打开</button>
                   : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={15} /> 完成本周复盘</button>}

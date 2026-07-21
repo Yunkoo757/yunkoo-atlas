@@ -107,6 +107,7 @@
   --main-inset: 8px;
   --main-radius: 12px;
   --control-height: 28px;
+  --modal-cta-height: 36px;
   --field-height-md: 32px;
   --trade-row-height: 44px;
   --trade-group-height: 36px;
@@ -134,6 +135,8 @@
   --bg-selected: lch(10.8% 2.4 272 / 1);
   --bg-active: var(--bg-selected);
   --bg-sidebar: var(--bg-sidebar-color);
+  /* 内嵌浅底（评分格、证据标签等 inset 面） */
+  --bg-inset: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg-surface));
 
   /* Linear 校准表面：分组条底色统一；生命力靠三角/状态图标 tint */
   --surface-group: lch(7.67% 0.75 272 / 1);
@@ -199,6 +202,20 @@
   /* 品牌 */
   --accent-hover: color-mix(in srgb, var(--accent) 88%, white 12%);
   --accent-text: #ffffff;
+
+  /* 侧栏导航/工作区图标高彩（仅选中态） */
+  --nav-icon-today: lch(80% 90 85);
+  --nav-icon-notes: lch(72% 48 175);
+  --nav-icon-trades: lch(66% 42 252);
+  --nav-icon-cases: lch(68% 52 310);
+  --nav-icon-weekly: lch(70% 44 200);
+  --nav-icon-review-session: lch(58% 55 288);
+  --nav-icon-dashboard: lch(68% 46 145);
+  --nav-icon-ws-active: lch(78% 72 88);
+  --nav-icon-ws-favorites: lch(80% 90 85);
+  --nav-icon-ws-missed: lch(66% 80 48);
+  --nav-icon-ws-paper: lch(62% 52 275);
+  --nav-icon-ws-case: lch(68% 50 310);
 
   /* 业务语义色（交易盈亏，非 Linear 原生，自定义但沿用其调性） */
   --pos: lch(72% 45 152);   /* 盈利绿 */

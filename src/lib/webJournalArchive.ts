@@ -717,13 +717,13 @@ function parseVersion(raw: RecordValue): { exportVersion: number; schemaVersion:
     return { exportVersion, schemaVersion: null }
   }
   if (!Number.isInteger(raw.schemaVersion) || Number(raw.schemaVersion) < 1) {
-    throw archiveError('incompatible-version', 'data.json 中的资料库版本无效')
+    throw archiveError('incompatible-version', 'data.json 中的交易库版本无效')
   }
   const schemaVersion = Number(raw.schemaVersion)
   if (schemaVersion > SCHEMA_VERSION) {
     throw archiveError(
       'incompatible-version',
-      `该资料库来自更新版本（v${schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
+      `该交易库来自更新版本（v${schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
     )
   }
   return { exportVersion, schemaVersion }

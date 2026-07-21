@@ -197,7 +197,7 @@ export function BoardView({
                           ref: getNextReviewCaseRef(trades),
                         })
                         upsertTrade(reviewCase)
-                        toast('已提炼为可复看案例')
+                        toast('已提炼为案例')
                         onOpen(reviewCase.id)
                       },
                       toggleStar,
@@ -353,16 +353,11 @@ function BoardColumnBody({
                   <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
                 </div>
                 <div className="bd-case-tags">
-                  <Tooltip
-                    content={`波段级别 ${resolveTimeframe(t.timeframe)}`}
-                    label={`波段级别 ${resolveTimeframe(t.timeframe)}`}
+                  <span
+                    className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(resolveTimeframe(t.timeframe))}`}
                   >
-                    <span
-                      className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(resolveTimeframe(t.timeframe))}`}
-                    >
-                      {resolveTimeframe(t.timeframe)}
-                    </span>
-                  </Tooltip>
+                    {resolveTimeframe(t.timeframe)}
+                  </span>
                   {isReviewCaseView &&
                     t.mistakeTags.slice(0, 2).map((tag) => (
                       <span className="bd-case-tag bd-case-tag-danger" key={tag}>

@@ -374,6 +374,7 @@ export function testEmptyLibraryUsesApprovedDefaultProfile(): void {
 export function testApprovedShortcutDefaultsMatchProfile(): void {
   const expected: Record<string, string> = {
     'global.commandPalette': 'w',
+    'global.commandPaletteMod': 'mod+k',
     'global.newTrade': 'n',
     'global.newCase': 'shift+n',
     'global.newQuickNote': 'shift+alt+n',

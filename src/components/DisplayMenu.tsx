@@ -5,7 +5,6 @@ import { Check, SlidersHorizontal } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { WorkbenchView } from '@/components/Topbar'
-import { Tooltip } from '@/components/ui/Tooltip'
 import './DisplayMenu.css'
 
 const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string }[] = [
@@ -61,19 +60,17 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
 
   return (
     <div className="display-menu-root" ref={rootRef}>
-      <Tooltip asChild content="显示选项" label="显示选项">
-        <button
-          type="button"
-          className={'tb-btn' + (open ? ' is-open' : '')}
-          aria-expanded={open}
-          aria-haspopup="menu"
-          aria-label="显示选项"
-          onClick={() => setOpen((o) => !o)}
-        >
-          <SlidersHorizontal size={14} />
-          <span>显示</span>
-        </button>
-      </Tooltip>
+      <button
+        type="button"
+        className={'tb-btn' + (open ? ' is-open' : '')}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="显示选项"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <SlidersHorizontal size={14} />
+        <span>显示</span>
+      </button>
       {open &&
         createPortal(
           <div

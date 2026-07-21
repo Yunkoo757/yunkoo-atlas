@@ -23,12 +23,16 @@ import {
   Maximize2,
   FileText,
 } from '@/icons/appIcons'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { findTradeByRouteParam, tradeDetailPath } from '@/lib/tradeRoute'
 import { sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { collectLimitedCommandMatches } from '@/lib/commandPaletteSearch'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
+import { STATUS_META, type TradeStatus } from '@/data/trades'
+import { STATUS_ORDER } from '@/lib/tradeStatus'
+import { transitionTradeStatus } from '@/lib/tradeTransition'
+import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getShortcutHintModel } from '@/shortcuts/hints'
@@ -94,7 +98,17 @@ function CommandPaletteDialog({
   const strategies = useStore((s) => s.strategies)
   const display = useStore((s) => s.display)
   const openComposer = useStore((s) => s.openComposer)
+  const toggleStar = useStore((s) => s.toggleStar)
+  const isStarred = useStore((s) => s.isStarred)
+  const setStatus = useStore((s) => s.setStatus)
+  const requestTradeClose = useStore((s) => s.requestTradeClose)
   const shortcutBindings = useShortcutStore((s) => s.bindings)
+  const routeParam = pathname.startsWith('/trade/')
+    ? decodeURIComponent(pathname.slice('/trade/'.length))
+    : null
+  const activeTrade = routeParam
+    ? findTradeByRouteParam(trades.filter((trade) => !trade.deletedAt), routeParam)
+    : undefined
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
@@ -115,7 +129,7 @@ function CommandPaletteDialog({
     const viewNav: Cmd[] = [
       { id: 'n-today', group: '导航', icon: <Calendar size={16} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
       { id: 'n-quick-notes', group: '导航', icon: <FileText size={16} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
-      { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '交易记录', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
+      { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '交易日志', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
       { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={16} />, label: '周复盘', keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go('/weekly-review') },
       { id: 'n-review-session', group: '导航', icon: <RotateCcw size={16} />, label: '随机复盘', keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
@@ -157,13 +171,48 @@ function CommandPaletteDialog({
       } },
     ]
 
+    const contextActions: Cmd[] = []
+    if (activeTrade) {
+      const starred = isStarred(activeTrade.id)
+      contextActions.push({
+        id: 'a-toggle-star',
+        group: '当前记录',
+        icon: <Star size={16} />,
+        label: starred ? '取消星标' : '加入星标',
+        keywords: '收藏 星标 star',
+        run: () => {
+          toggleStar(activeTrade.id)
+          requestClose()
+          toast(starred ? '已取消星标' : '已加入星标')
+        },
+      })
+      for (const status of STATUS_ORDER) {
+        if (status === activeTrade.status) continue
+        contextActions.push({
+          id: `a-status-${status}`,
+          group: '当前记录',
+          icon: <StatusIcon status={status} size={16} />,
+          label: `改为${STATUS_META[status].label}`,
+          keywords: `状态 ${STATUS_META[status].label}`,
+          run: () => {
+            transitionTradeStatus(activeTrade, status as TradeStatus, {
+              setStatus,
+              requestTradeClose,
+              toast,
+            })
+            requestClose()
+          },
+        })
+      }
+    }
+
     const query = deferredQuery.trim()
     if (!query) {
-      const commands = [...actions, ...viewNav, ...settingsNav]
+      const commands = [...contextActions, ...actions, ...viewNav, ...settingsNav]
       return { commands, total: commands.length }
     }
 
-    const fixedCommands = [...viewNav, ...periodNav, ...settingsNav, ...actions]
+    const fixedCommands = [...contextActions, ...viewNav, ...periodNav, ...settingsNav, ...actions]
       .filter((command) => matchesSearchQuery(query, command.label, command.hint, command.keywords))
     const commands = fixedCommands.slice(0, MAX_SEARCH_RESULTS)
     let total = fixedCommands.length
@@ -258,7 +307,22 @@ function CommandPaletteDialog({
     total += tradeMatches.total
 
     return { commands, total }
-  }, [trades, strategies, display, shortcutBindings, pathname, navigate, requestClose, openComposer, deferredQuery])
+  }, [
+    activeTrade,
+    deferredQuery,
+    display,
+    isStarred,
+    navigate,
+    openComposer,
+    pathname,
+    requestClose,
+    requestTradeClose,
+    setStatus,
+    shortcutBindings,
+    strategies,
+    toggleStar,
+    trades,
+  ])
 
   const commands = searchResult.commands
   const hasMore = searchResult.total > commands.length

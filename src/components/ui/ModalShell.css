@@ -26,6 +26,17 @@
   width: min(440px, calc(100vw - 32px));
 }
 
+.modal-shell--wide {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.modal-shell-footer .ui-btn-lg,
+.modal-shell-footer .ui-btn-primary,
+.modal-shell-footer .ui-btn-bordered,
+.modal-shell-footer .ui-btn-ghost {
+  height: var(--modal-cta-height);
+}
+
 .modal-shell-header {
   display: flex;
   align-items: flex-start;

@@ -29,7 +29,7 @@ export function SaveStatusIndicator() {
   }, [status])
 
   if (status === 'error') {
-    const reason = errorMessage ?? '无法写入本地资料库'
+    const reason = errorMessage ?? '无法写入本地交易库'
     return (
       <span className="save-status-recovery" role="status" aria-live="assertive">
         <Tooltip asChild content={`保存失败：${reason}`} label="保存失败，点击重试">

@@ -48,10 +48,18 @@ const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'this-week', label: '本周' },
   { value: 'this-month', label: '本月' },
-  { value: '30d', label: '近30天' },
-  { value: '90d', label: '近90天' },
   { value: 'ytd', label: '本年' },
 ]
+
+/** 含深链兼容的滚动窗文案；工具栏只展示 RANGE_OPTS */
+const RANGE_LABELS: Record<AnalysisRange, string> = {
+  all: '全部',
+  'this-week': '本周',
+  'this-month': '本月',
+  '30d': '近30天',
+  '90d': '近90天',
+  ytd: '本年',
+}
 
 const KIND_OPTS: { value: AnalysisKind; label: string }[] = [
   { value: 'live', label: '实盘' },
@@ -104,7 +112,7 @@ export function Dashboard() {
     const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(allTrades, weekStart)
     return buildWeeklyReviewMetrics(weekTrades, missed)
   }, [allTrades, localDateKey, scope.kind, weekStart])
-  const rangeLabel = RANGE_OPTS.find((o) => o.value === scope.range)?.label ?? '全部'
+  const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '全部类型'
   const hasClosedTrades = stats.closedCount > 0
   const activeTradesPath = scope.kind === 'paper' || (
@@ -112,7 +120,7 @@ export function Dashboard() {
   )
     ? '/sim'
     : '/active'
-  const focusingThisWeek = scope.range === 'this-week'
+  const weekCardEmpty = weekMetrics.tradeCount === 0 && weekMetrics.missedCount === 0
   const missedReasonSummary = Object.entries(weekMetrics.missedReasonCounts)
     .sort((left, right) => right[1] - left[1])
     .map(([reason, count]) => `${MISS_REASON_META[reason as MissReason]?.label ?? '其他'} ×${count}`)
@@ -129,7 +137,7 @@ export function Dashboard() {
 
   return (
     <>
-      <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD · 默认实盘" showDisplay={false} />
+      <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD" showDisplay={false} />
       <div className="db-scroll">
         <div className="db-toolbar">
           <span className="db-toolbar-label">分析范围</span>
@@ -161,104 +169,99 @@ export function Dashboard() {
           </div>
         </div>
 
-        <section className="db-week" aria-label="本周交易分析">
+        <section className={'db-week' + (weekCardEmpty ? ' is-empty' : '')} aria-label="本周交易分析">
           <div className="db-week-head">
             <div>
               <span className="db-week-title">本周交易分析</span>
               <div className="db-week-sub">
-                {weekRangeLabel} · {kindLabel} · 按平仓日
-                {weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}
+                {weekCardEmpty
+                  ? '本周尚无已平仓交易 · 平仓后汇总胜率、盈亏与平均 R'
+                  : `${weekRangeLabel} · ${kindLabel} · 按平仓日${weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}`}
               </div>
             </div>
-            <div className="db-week-actions">
-              {!focusingThisWeek ? (
-                <button type="button" className="db-week-link" onClick={() => updateScope({ range: 'this-week' })}>
-                  聚焦本周
-                </button>
-              ) : null}
-              {scope.kind !== 'paper' ? (
+            {scope.kind !== 'paper' ? (
+              <div className="db-week-actions">
                 <Link to="/weekly-review" className="db-week-link">
                   打开周复盘
                 </Link>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
-          <div className="db-week-metrics">
-            <div className="db-week-metric">
-              <span>平仓</span>
-              <strong>{weekMetrics.tradeCount}</strong>
-              <small>{weekMetrics.reviewedCount} 笔已复盘</small>
+          {!weekCardEmpty ? (
+            <div className="db-week-metrics">
+              <div className="db-week-metric">
+                <span>平仓</span>
+                <strong>{weekMetrics.tradeCount}</strong>
+                <small>{weekMetrics.reviewedCount} 笔已复盘</small>
+              </div>
+              <div className="db-week-metric">
+                <span>胜率</span>
+                <strong>{weekMetrics.winRate == null ? '—' : `${weekMetrics.winRate.toFixed(0)}%`}</strong>
+                <small>
+                  {weekMetrics.winCount} 赢 · {weekMetrics.lossCount} 亏 · {weekMetrics.breakevenCount} 平
+                </small>
+              </div>
+              <div className="db-week-metric">
+                <span>净盈亏</span>
+                <strong
+                  style={{
+                    color: privacyMode || weekMetrics.pnlCount === 0 || weekMetrics.totalPnl === 0
+                      ? undefined
+                      : weekMetrics.totalPnl > 0
+                        ? 'var(--pos)'
+                        : 'var(--neg)',
+                  }}
+                >
+                  {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, privacyMode)}
+                </strong>
+                <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small>
+              </div>
+              <div className="db-week-metric">
+                <span>平均 R</span>
+                <strong
+                  style={{
+                    color: weekMetrics.averageR == null || weekMetrics.averageR === 0
+                      ? undefined
+                      : weekMetrics.averageR > 0
+                        ? 'var(--pos)'
+                        : 'var(--neg)',
+                  }}
+                >
+                  {weekMetrics.averageR == null
+                    ? '—'
+                    : `${weekMetrics.averageR > 0 ? '+' : ''}${weekMetrics.averageR.toFixed(2)}`}
+                </strong>
+                <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small>
+              </div>
             </div>
-            <div className="db-week-metric">
-              <span>胜率</span>
-              <strong>{weekMetrics.winRate == null ? '—' : `${weekMetrics.winRate.toFixed(0)}%`}</strong>
-              <small>
-                {weekMetrics.winCount} 赢 · {weekMetrics.lossCount} 亏 · {weekMetrics.breakevenCount} 平
-              </small>
-            </div>
-            <div className="db-week-metric">
-              <span>净盈亏</span>
-              <strong
-                style={{
-                  color: privacyMode || weekMetrics.pnlCount === 0 || weekMetrics.totalPnl === 0
-                    ? undefined
-                    : weekMetrics.totalPnl > 0
-                      ? 'var(--pos)'
-                      : 'var(--neg)',
-                }}
-              >
-                {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, privacyMode)}
-              </strong>
-              <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small>
-            </div>
-            <div className="db-week-metric">
-              <span>平均 R</span>
-              <strong
-                style={{
-                  color: weekMetrics.averageR == null || weekMetrics.averageR === 0
-                    ? undefined
-                    : weekMetrics.averageR > 0
-                      ? 'var(--pos)'
-                      : 'var(--neg)',
-                }}
-              >
-                {weekMetrics.averageR == null
-                  ? '—'
-                  : `${weekMetrics.averageR > 0 ? '+' : ''}${weekMetrics.averageR.toFixed(2)}`}
-              </strong>
-              <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small>
-            </div>
-          </div>
+          ) : null}
           {weekMetrics.missedCount > 0 && missedReasonSummary ? (
             <p className="db-week-missed">执行缺口：{missedReasonSummary}</p>
           ) : null}
-          {weekMetrics.tradeCount === 0 && weekMetrics.missedCount === 0 ? (
-            <p className="db-week-empty">本周尚无已平仓交易。平仓后这里会汇总胜率、盈亏与平均 R。</p>
-          ) : null}
         </section>
 
-        <div className="db-cards">
+        <div className="db-cards" aria-label={`当前范围指标 · ${kindLabel} · ${rangeLabel}`}>
           <Card
             label="净盈亏"
             value={stats.pnlCount === 0 ? '—' : fmtMoney(stats.totalPnl, privacyMode)}
-            sub={`${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
+            sub={`当前范围 · ${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
             accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
           />
           <Card
             label="胜率"
             value={stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
-            sub={`${stats.evaluatedCount}/${stats.closedCount} 笔结果有效`}
+            sub={`当前范围 · ${stats.evaluatedCount}/${stats.closedCount} 笔结果有效`}
           />
           <Card
             label="平均 R"
             value={stats.averageR == null ? '—' : `${stats.averageR > 0 ? '+' : ''}${stats.averageR.toFixed(2)}`}
-            sub={`${stats.rCount}/${stats.closedCount} 笔含 R`}
+            sub={`当前范围 · ${stats.rCount}/${stats.closedCount} 笔含 R`}
             accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
           />
           <Card
             label="盈利笔数"
             value={stats.evaluatedCount === 0 ? '—' : String(stats.winCount)}
-            sub={`共 ${stats.evaluatedCount} 笔有效结果`}
+            sub={`当前范围 · 共 ${stats.evaluatedCount} 笔有效结果`}
             muted
           />
         </div>
@@ -306,7 +309,7 @@ export function Dashboard() {
               </div>
             </div>
             {stats.curve.length > 0 && (
-              <span className="db-panel-hint">悬停查看走势，或使用下方数据表打开交易</span>
+              <span className="db-panel-hint">悬停查看，点数据表打开交易</span>
             )}
           </div>
           <div className="db-chart">

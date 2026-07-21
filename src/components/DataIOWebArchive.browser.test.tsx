@@ -138,7 +138,7 @@ async function run(): Promise<void> {
     assert(document.body.textContent?.includes('1'), '影响预览必须展示记录和附件数量')
 
     const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '替换当前资料库')
+      .find((button) => button.textContent?.trim() === '替换当前交易库')
     assert(confirm, '缺少明确的整库替换确认操作')
     confirm.click()
 

@@ -36,6 +36,7 @@ import fs from 'node:fs/promises'
   'src/lib/tradeDuplicates.test.ts',
   'src/lib/lightboxView.test.ts',
   'src/shortcuts/bindingOverwrite.test.ts',
+  'src/shortcuts/modalOverlay.test.ts',
   'src/shortcuts/listActions.test.ts',
   'src/shortcuts/workspaceActions.test.ts',
   'src/icons/linear/linear-icons.test.tsx',

@@ -66,7 +66,7 @@ function Harness() {
             </>
           )}
         >
-          <p>恢复会替换当前资料库。</p>
+          <p>恢复会替换当前交易库。</p>
         </ModalShell>
       ) : null}
     </>

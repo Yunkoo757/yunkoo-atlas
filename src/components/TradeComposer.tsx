@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { X, ImagePlus } from '@/icons/appIcons'
+import { Plus, X } from '@/icons/appIcons'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -32,6 +32,8 @@ import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
 import { useExitClone } from '@/components/ui/useExitClone'
+import { Button } from '@/components/ui/Button'
+import { useShortcutStore } from '@/store/shortcutStore'
 import './TradeComposer.css'
 
 const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
@@ -82,7 +84,6 @@ export function TradeComposer() {
   const [submitting, setSubmitting] = useState(false)
   const exitRef = useExitClone<HTMLDivElement>(open)
 
-  const inputRef = useRef<HTMLButtonElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -91,17 +92,16 @@ export function TradeComposer() {
   const activeKind = editing?.tradeKind ?? requestedKind ?? defaultKind
   const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
 
-  // 自动聚焦
-  useEffect(() => {
-    if (open && inputRef.current) {
-      inputRef.current.focus()
-    }
-  }, [open])
-
   useEffect(() => {
     if (submitting) dialogRef.current?.setAttribute('inert', '')
     else dialogRef.current?.removeAttribute('inert')
   }, [submitting])
+
+  useEffect(() => {
+    if (!open) return
+    useShortcutStore.getState().acquireModalOverlay()
+    return () => useShortcutStore.getState().releaseModalOverlay()
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -167,7 +167,7 @@ export function TradeComposer() {
   const addImage = async (file: File) => {
     if (submittingRef.current) return
     if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
-      toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
+      toast('单张原图超过 32 MB，无法加入交易库；请缩小图片后重试')
       return
     }
     const id = crypto.randomUUID()
@@ -228,7 +228,7 @@ export function TradeComposer() {
   const handleQuickCreate = () => {
     if (submittingRef.current) return
     if (!symbol.trim()) {
-      alert('请输入交易品种')
+      toast('请先选择交易品种')
       return
     }
     submittingRef.current = true
@@ -287,7 +287,7 @@ export function TradeComposer() {
           } satisfies Trade
 
       if (!trade) {
-        alert(`该${recordLabel}已不存在，未保存本次修改`)
+        toast(`该${recordLabel}已不存在，未保存本次修改`)
         close()
         return
       }
@@ -350,21 +350,20 @@ export function TradeComposer() {
           <h3 id="trade-composer-title">
             {editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}
           </h3>
-          <button className="composer-close" onClick={close} aria-label="关闭">
+          <button type="button" className="composer-close" onClick={requestClose} aria-label="关闭" disabled={submitting}>
             <X size={18} />
           </button>
         </div>
 
         <div className="composer-body-quick">
-          <section className="composer-identity" aria-label={`${recordLabel}身份`}>
+          <section className="composer-hero" aria-label={`${recordLabel}身份`}>
             <div className="composer-field-quick">
-              <label>{recordLabel}品种</label>
+              <label>品种</label>
               <Select
-                ref={inputRef}
                 value={symbol}
                 onValueChange={setSymbol}
                 ariaLabel={`${recordLabel}品种`}
-                className="composer-input-quick"
+                className="composer-input-quick composer-input-symbol"
                 options={symbolOptions.map((preset) => ({
                   value: preset,
                   label:
@@ -373,7 +372,7 @@ export function TradeComposer() {
                     !symbolCatalog.includes(preset)
                       ? `${preset}（历史）`
                       : preset,
-                  icon: <SymbolIcon symbol={preset} overrides={symbolIcons} size={14} />,
+                  icon: <SymbolIcon symbol={preset} overrides={symbolIcons} size={22} />,
                 }))}
               />
             </div>
@@ -400,106 +399,80 @@ export function TradeComposer() {
             </div>
           </section>
 
-          <section className="composer-attributes-section" aria-labelledby="composer-parameters-title">
-            <h4 id="composer-parameters-title">交易参数</h4>
-            <div className="composer-trade-essentials composer-parameter-grid">
+          <div className="composer-parameter-grid">
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">波段级别</span>
+              <Select
+                value={timeframe || DEFAULT_TIMEFRAME}
+                onValueChange={setTimeframe}
+                ariaLabel="参与波段级别"
+                options={TIMEFRAME_PRESETS.map((preset) => ({
+                  value: preset,
+                  label: preset,
+                }))}
+              />
+            </div>
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">交易时段</span>
+              <Select
+                value={session}
+                onValueChange={setSession}
+                ariaLabel="交易时段"
+                placeholder="未设置"
+                options={[
+                  { value: '', label: '未设置' },
+                  ...SESSION_PRESETS.map((preset) => ({
+                    value: preset.value,
+                    label: preset.label,
+                  })),
+                ]}
+              />
+            </div>
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">交易日期</span>
+              <DatePicker
+                value={openedAt}
+                onValueChange={setOpenedAt}
+                ariaLabel="交易日期"
+                required
+              />
+            </div>
+          </div>
+
+          <div className={`composer-archive-row${activeKind === 'case' ? ' is-case' : ''}`}>
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">策略</span>
+              <Select
+                value={strategyId}
+                onValueChange={setStrategyId}
+                ariaLabel="交易策略"
+                options={
+                  strategies.length === 0
+                    ? [{ value: '', label: '未设置' }]
+                    : strategies.map((strategy) => ({
+                        value: strategy.id,
+                        label: strategy.name,
+                      }))
+                }
+              />
+            </div>
+            {activeKind === 'case' && (
               <div className="composer-essential-field">
-                <span className="composer-essential-label">波段级别</span>
+                <span className="composer-essential-label">案例类型</span>
                 <Select
-                  value={timeframe || DEFAULT_TIMEFRAME}
-                  onValueChange={setTimeframe}
-                  ariaLabel="参与波段级别"
-                  options={TIMEFRAME_PRESETS.map((preset) => ({
-                    value: preset,
-                    label: preset,
+                  value={caseType}
+                  onValueChange={(value) => setCaseType(value as CaseType)}
+                  ariaLabel="案例类型"
+                  options={CASE_TYPES.map((value) => ({
+                    value,
+                    label: CASE_TYPE_META[value].label,
                   }))}
                 />
               </div>
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">交易时段</span>
-                <Select
-                  value={session}
-                  onValueChange={setSession}
-                  ariaLabel="交易时段"
-                  placeholder="未设置"
-                  options={[
-                    { value: '', label: '未设置' },
-                    ...SESSION_PRESETS.map((preset) => ({
-                      value: preset.value,
-                      label: preset.label,
-                    })),
-                  ]}
-                />
-              </div>
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">交易日期</span>
-                <DatePicker
-                  value={openedAt}
-                  onValueChange={setOpenedAt}
-                  ariaLabel="交易日期"
-                  required
-                />
-              </div>
-            </div>
-          </section>
+            )}
+          </div>
 
-          <section className="composer-attributes-section" aria-labelledby="composer-archive-title">
-            <h4 id="composer-archive-title">归档信息</h4>
-            <div className={`composer-trade-essentials${activeKind === 'case' ? ' composer-archive-grid' : ''}`}>
-              <div className="composer-essential-field composer-essential-strategy">
-                <span className="composer-essential-label">策略</span>
-                <Select
-                  value={strategyId}
-                  onValueChange={setStrategyId}
-                  ariaLabel="交易策略"
-                  options={
-                    strategies.length === 0
-                      ? [{ value: '', label: '未设置' }]
-                      : strategies.map((strategy) => ({
-                          value: strategy.id,
-                          label: strategy.name,
-                        }))
-                  }
-                />
-              </div>
-              {activeKind === 'case' && (
-                <div className="composer-essential-field">
-                  <span className="composer-essential-label">案例类型</span>
-                  <Select
-                    value={caseType}
-                    onValueChange={(value) => setCaseType(value as CaseType)}
-                    ariaLabel="案例类型"
-                    options={CASE_TYPES.map((value) => ({
-                      value,
-                      label: CASE_TYPE_META[value].label,
-                    }))}
-                  />
-                </div>
-              )}
-            </div>
-          </section>
-
-          {images.length > 0 && (
-            <div className="composer-images-preview composer-images-preview-body">
-              {images.map((img) => (
-                <div key={img.id} className="composer-image-thumb">
-                  <img src={img.preview} alt="预览" />
-                  <button
-                    type="button"
-                    className="composer-image-remove"
-                    onClick={() => removeImage(img.id)}
-                    aria-label="删除图片"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="composer-footer-quick">
-          <div className="composer-attachments">
+          <div className="composer-media">
             <input
               ref={fileInputRef}
               type="file"
@@ -513,7 +486,7 @@ export function TradeComposer() {
             />
             <div
               ref={dropZoneRef}
-              className={`composer-drop-zone ${isDragging ? 'is-dragging' : ''}`}
+              className={`composer-drop-zone${isDragging ? ' is-dragging' : ''}`}
               role="button"
               tabIndex={0}
               onClick={() => fileInputRef.current?.click()}
@@ -526,23 +499,55 @@ export function TradeComposer() {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              aria-label="添加截图"
+              aria-label="拖入或粘贴图表截图"
             >
-              <ImagePlus size={14} />
-              <span>{images.length > 0 ? `${images.length} 张截图` : '添加截图'}</span>
+              <span className="composer-drop-zone-icon" aria-hidden>
+                <Plus size={20} />
+              </span>
+              <span>
+                {images.length > 0
+                  ? `已添加 ${images.length} 张，继续拖入或粘贴`
+                  : '拖入或粘贴图表截图'}
+              </span>
             </div>
+            {images.length > 0 && (
+              <div className="composer-images-preview">
+                {images.map((img) => (
+                  <div key={img.id} className="composer-image-thumb">
+                    <img src={img.preview} alt="预览" />
+                    <button
+                      type="button"
+                      className="composer-image-remove"
+                      onClick={() => removeImage(img.id)}
+                      aria-label="删除图片"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+        </div>
+
+        <div className="composer-footer-quick">
+          {!editing && (
+            <span className="composer-footer-hint">
+              状态默认「计划中」，价格与仓位可稍后在详情补充
+            </span>
+          )}
           <div className="composer-footer-actions">
-            <button className="composer-btn-secondary" onClick={requestClose} disabled={submitting}>
+            <Button variant="bordered" size="lg" onClick={requestClose} disabled={submitting}>
               取消
-            </button>
-            <button
-              className="composer-btn-primary"
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
               onClick={handleQuickCreate}
               disabled={!symbol.trim() || submitting}
             >
               {submitting ? '保存中…' : editing ? '保存' : `创建${recordLabel}`}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

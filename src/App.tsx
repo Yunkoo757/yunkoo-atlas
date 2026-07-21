@@ -205,12 +205,14 @@ function StrategyPage() {
 
 function PeriodPage() {
   const { slug } = useParams()
-  const period = slug && isValidPeriodSlug(slug) ? slug : 'today'
-  const listPath = `/period/${period}`
+  if (!slug || !isValidPeriodSlug(slug)) {
+    return <Navigate to="/period/today" replace />
+  }
+  const listPath = `/period/${slug}`
   return (
     <TradesPage
       title="交易日志"
-      filter={{ type: 'period', period, tradeKind: 'live' }}
+      filter={{ type: 'period', period: slug, tradeKind: 'live' }}
       listPath={listPath}
     />
   )
@@ -600,7 +602,7 @@ export function App() {
                   setReady(true)
                 }}
               >
-                选择其他资料库
+                选择其他交易库
               </button>
             )}
           </div>

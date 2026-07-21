@@ -117,7 +117,7 @@ async function run(): Promise<void> {
   useShortcutStore.setState({
     lightbox: null,
     cmdkOpen: false,
-    dataIOOpen: false,
+    modalOverlayCount: 0,
   })
 
   const root = createRoot(rootElement)
@@ -226,7 +226,7 @@ async function run(): Promise<void> {
     useShortcutStore.setState({
       lightbox: previousShortcuts.lightbox,
       cmdkOpen: previousShortcuts.cmdkOpen,
-      dataIOOpen: previousShortcuts.dataIOOpen,
+      modalOverlayCount: previousShortcuts.modalOverlayCount,
     })
   }
 }

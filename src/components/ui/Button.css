@@ -1,6 +1,6 @@
 /* 全局按钮语汇：ghost | bordered | primary | danger
  * primary 仅用于弹窗确认 / 极少数主路径 CTA
- * 兼容旧类名 dio-btn / symbols-btn / empty-btn / st-* */
+ * 兼容旧类名 dio-btn / symbols-btn / empty-btn / st-* / csv-btn / nim-btn / batch-action-btn */
 
 .ui-btn,
 .dio-btn,
@@ -8,7 +8,11 @@
 .st-io,
 .st-add,
 .st-del-btn,
-.empty-btn {
+.empty-btn,
+.csv-btn,
+.nim-btn,
+.sfm-btn,
+.batch-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -26,23 +30,31 @@
     border-color var(--dur-fast) var(--ease-out);
 }
 
+.ui-btn-lg {
+  height: var(--modal-cta-height);
+}
+
 .ui-btn:disabled,
 .dio-btn:disabled,
 .symbols-btn:disabled,
 .st-add:disabled,
-.empty-btn:disabled {
+.empty-btn:disabled,
+.csv-btn:disabled,
+.nim-btn:disabled {
   color: var(--text-quaternary);
   cursor: not-allowed;
   opacity: 0.64;
 }
 
 .ui-btn-ghost,
-.st-del-btn {
+.st-del-btn,
+.batch-action-btn {
   background: transparent;
   border: 1px solid transparent;
 }
 .ui-btn-ghost:hover:not(:disabled),
-.st-del-btn:hover:not(:disabled) {
+.st-del-btn:hover:not(:disabled),
+.batch-action-btn:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
@@ -50,14 +62,18 @@
 .ui-btn-bordered,
 .dio-btn,
 .symbols-btn,
-.st-io {
+.st-io,
+.csv-btn-ghost,
+.nim-btn-ghost {
   background: transparent;
   border: 1px solid var(--border-default);
 }
 .ui-btn-bordered:hover:not(:disabled),
 .dio-btn:hover:not(:disabled),
 .symbols-btn:hover:not(:disabled),
-.st-io:hover:not(:disabled) {
+.st-io:hover:not(:disabled),
+.csv-btn-ghost:hover:not(:disabled),
+.nim-btn-ghost:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
@@ -66,7 +82,9 @@
 .dio-btn-primary,
 .symbols-btn-primary,
 .st-add,
-.empty-btn {
+.empty-btn,
+.csv-btn-primary,
+.nim-btn-primary {
   background: var(--accent);
   border: 1px solid transparent;
   color: var(--accent-text);
@@ -75,7 +93,9 @@
 .dio-btn-primary:hover:not(:disabled),
 .symbols-btn-primary:hover:not(:disabled),
 .st-add:hover:not(:disabled),
-.empty-btn:hover:not(:disabled) {
+.empty-btn:hover:not(:disabled),
+.csv-btn-primary:hover:not(:disabled),
+.nim-btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   color: var(--accent-text);
 }
@@ -84,7 +104,9 @@
 .dio-btn-primary:disabled,
 .symbols-btn-primary:disabled,
 .st-add:disabled,
-.empty-btn:disabled {
+.empty-btn:disabled,
+.csv-btn-primary:disabled,
+.nim-btn-primary:disabled {
   color: var(--text-quaternary);
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface));
   border-color: var(--border-subtle);
@@ -92,13 +114,15 @@
 }
 
 .ui-btn-danger,
-.dio-btn-warn {
+.dio-btn-warn,
+.batch-action-btn-danger {
   background: transparent;
   border: 1px solid transparent;
   color: var(--neg);
 }
 .ui-btn-danger:hover:not(:disabled),
-.dio-btn-warn:hover:not(:disabled) {
+.dio-btn-warn:hover:not(:disabled),
+.batch-action-btn-danger:hover:not(:disabled) {
   background: var(--error-action-bg);
   color: var(--neg);
 }
@@ -121,7 +145,10 @@
   .st-io,
   .st-add,
   .st-del-btn,
-  .empty-btn {
+  .empty-btn,
+  .csv-btn,
+  .nim-btn,
+  .batch-action-btn {
     min-height: 44px;
   }
 }

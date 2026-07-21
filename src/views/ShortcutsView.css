@@ -52,13 +52,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
+  height: var(--control-height);
   padding: 0 9px;
   border: 1px solid transparent;
   border-radius: var(--radius-6);
   color: var(--text-tertiary);
   background: transparent;
-  font-size: var(--fs-xs);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
   transition:
     color var(--dur-fast) var(--ease-out),
     background var(--dur-fast) var(--ease-out),
@@ -176,18 +178,18 @@ button.shortcuts-capture[aria-pressed='true'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 21px;
-  height: 21px;
-  padding: 0 6px;
-  border: 1px solid var(--border-default);
+  min-width: 20px;
+  height: auto;
+  padding: 1px 5px;
+  border: 0.8px solid var(--border-strong);
   border-radius: var(--radius-4);
-  color: var(--text-secondary);
-  background: var(--bg-elevated);
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text-primary) 7%, transparent);
-  font-family: var(--font-mono);
-  font-size: var(--fs-mini);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border-strong) 70%, transparent);
+  font-family: var(--font-monospace);
+  font-size: var(--fs-micro);
   font-weight: var(--font-weight-medium);
-  line-height: 1;
+  line-height: 1.4;
 }
 
 .shortcuts-sequence-arrow {

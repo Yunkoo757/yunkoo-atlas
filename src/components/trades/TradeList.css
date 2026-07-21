@@ -429,15 +429,24 @@
   color: color-mix(in srgb, var(--neg) 68%, var(--text-tertiary));
 }
 
+.trade-row-tags > .hover-preview-anchor {
+  flex: 0 1 auto;
+  min-width: 3.5ch;
+  max-width: 14ch;
+}
+
 .trade-row-strategy {
   display: inline-flex;
   align-items: center;
-  min-width: max-content;
+  flex: 0 1 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   /* 28px：给 12px 字 + 图标留上下呼吸，避免 24px+边框在高 DPR 下像被裁扁 */
   height: 28px;
   margin-right: 6px;
   padding: 0 9px;
-  overflow: visible;
+  overflow: hidden;
   color: var(--list-text-secondary);
   background: var(--surface-control);
   border: 1px solid var(--surface-control-border);
@@ -475,13 +484,17 @@
 
 .trade-row-strategy .strategy-label {
   width: auto;
-  max-width: 16ch;
+  min-width: 0;
+  max-width: 100%;
   gap: 5px;
+  overflow: hidden;
   color: inherit;
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: 500;
   line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trade-row-strategy .strategy-icon {
@@ -503,6 +516,8 @@
   gap: 5px;
   overflow: hidden;
   line-height: normal;
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
 }
 
 .trade-row-timeframe-slot {
@@ -584,6 +599,7 @@
 }
 
 .trade-row-tag.is-mistake {
+  flex: 0 0 auto;
   max-width: none;
   color: var(--tag-error-text);
   background: var(--tag-error-bg);
@@ -591,6 +607,7 @@
 }
 
 .trade-row-more.is-mistake-more {
+  flex: 0 0 auto;
   color: var(--tag-error-text);
   background: var(--tag-error-bg);
   border-color: var(--tag-error-border);

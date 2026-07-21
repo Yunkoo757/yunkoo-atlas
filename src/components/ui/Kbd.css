@@ -1,0 +1,15 @@
+.ui-kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 5px;
+  color: var(--text-primary);
+  font-family: var(--font-monospace);
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
+  text-align: center;
+  background: var(--surface-raised);
+  border: 0.8px solid var(--border-strong);
+  border-radius: var(--radius-4);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border-strong) 70%, transparent);
+}

@@ -180,7 +180,7 @@ export function UpdatesSettingsPanel() {
             type="password"
             value={token}
             disabled={!electron}
-            placeholder="粘贴 Fine-grained GitHub Token"
+            placeholder="粘贴 Fine-grained GitHub 令牌"
             aria-label="GitHub 更新令牌"
             autoComplete="off"
             onChange={(event) => setToken(event.target.value)}
@@ -201,7 +201,7 @@ export function UpdatesSettingsPanel() {
 
         <p className="update-help">
           使用只授权 <code>Yunkoo757/yunkoo-atlas</code>、权限为
-          <code> Contents: Read-only</code> 的 Fine-grained Token。不要使用账号密码或写入权限令牌。
+          <code> Contents: Read-only</code> 的 Fine-grained 令牌。不要使用账号密码或写入权限令牌。
         </p>
       </section>
 

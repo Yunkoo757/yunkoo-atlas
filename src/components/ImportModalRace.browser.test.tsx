@@ -200,7 +200,9 @@ async function testCsvRace(host: HTMLElement): Promise<void> {
     const nextInput = await waitForFileInput(host)
     const closedParse = deferred<string>()
     dispatchFile(nextInput, delayedTextFile('closed.csv', closedParse.promise))
-    host.querySelector<HTMLElement>('.csv-modal-overlay')?.click()
+    host.querySelector<HTMLElement>('.modal-shell-overlay')?.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true }),
+    )
     closedParse.resolve(
       'closed_symbol,side,status,strategy,entry,size,openedAt\nCLOSEUSDT,long,open,测试策略,100,1,2026-07-14',
     )
@@ -309,7 +311,7 @@ async function testNotionRace(host: HTMLElement): Promise<void> {
     dispatchFile(input, ignoredFile)
     await settleFrames()
     assert(secondParseReads === 0, '已有解析运行时不得启动第二次文件读取')
-    host.querySelector<HTMLElement>('.nim-overlay')?.dispatchEvent(
+    host.querySelector<HTMLElement>('.modal-shell-overlay')?.dispatchEvent(
       new MouseEvent('mousedown', { bubbles: true }),
     )
     slowParse.resolve(notionCsv('CLOSED'))
