@@ -1,6 +1,7 @@
 import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
+import { assertCompatibleManifest } from '@/storage/manifestCompatibility'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import { collectAssetIdsFromSnapshot } from '@/storage/assets'
 
@@ -151,7 +152,9 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
         createdAt: new Date().toISOString(),
       }
       await idbPut(this.db, STORE_META, 'manifest', created)
+      return
     }
+    assertCompatibleManifest(manifest)
   }
 
   private requireDb(): IDBDatabase {

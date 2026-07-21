@@ -2,8 +2,12 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
-import type { PersistedSnapshot } from '../../src/storage/types'
-import { areSameLibrary, openValidatedLibraryCandidate } from './libraryActivation'
+import { SCHEMA_VERSION, type PersistedSnapshot } from '../../src/storage/types'
+import {
+  areSameLibrary,
+  assertCompatibleManifest,
+  openValidatedLibraryCandidate,
+} from './libraryActivation'
 import { LibraryStorage } from './storage'
 
 function assert(condition: unknown, message: string): void {
@@ -104,6 +108,56 @@ export async function testWindowsJunctionAliasIsRecognizedAsTheActiveLibrary(): 
     source.release()
     fs.rmSync(parent, { recursive: true, force: true })
   }
+}
+
+export async function testDefaultLibraryOpenRejectsFutureSchema(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-future-default-open-'))
+  const writer = new LibraryStorage(root)
+  try {
+    await writer.open()
+    writer.saveSnapshot(snapshot())
+    writer.release()
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({ schemaVersion: SCHEMA_VERSION + 1, libraryId: 'future-default' }),
+      'utf8',
+    )
+
+    const candidate = new LibraryStorage(root)
+    let rejected = false
+    try {
+      await candidate.open()
+      assertCompatibleManifest(candidate.readManifest())
+    } catch {
+      rejected = true
+    } finally {
+      candidate.release()
+    }
+    assert(rejected, '默认开库路径必须拒绝未来 schema，不得进入可写会话')
+  } finally {
+    writer.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export function testEnsureStorageRejectsFutureSchemaBeforeActivation(): void {
+  const source = fs.readFileSync(path.resolve('electron/library/ipc.ts'), 'utf8')
+  const ensureStart = source.indexOf('async function ensureStorage(')
+  const ensureEnd = source.indexOf('function withStorage', ensureStart)
+  const body = source.slice(ensureStart, ensureEnd)
+  assert(ensureStart >= 0 && ensureEnd > ensureStart, 'ensureStorage 实现必须存在')
+  assert(
+    body.includes('assertCompatibleManifest(candidate.readManifest())'),
+    '默认 storage:open 路径必须复用未来 schema 拒写',
+  )
+  assert(
+    body.indexOf('await candidate.open()') < body.indexOf('assertCompatibleManifest'),
+    '必须先 open 再校验清单，且校验失败不得激活 storage',
+  )
+  assert(
+    body.indexOf('assertCompatibleManifest') < body.indexOf('storage = candidate'),
+    '未来 schema 校验通过前不得把候选库赋给全局 storage',
+  )
 }
 
 export function testIpcDoesNotPersistOrActivateCandidateBeforeValidation(): void {

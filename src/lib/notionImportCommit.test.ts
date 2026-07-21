@@ -1,4 +1,7 @@
 import type { Strategy } from '@/data/strategies'
+import { createQuickNote } from '@/data/quickNotes'
+import { createReviewTemplate } from '@/data/reviewTemplates'
+import { createWeeklyReview } from '@/data/weeklyReviews'
 import type { NotionTradePreview } from '@/lib/notionImport'
 import {
   commitNotionImportBatch,
@@ -6,8 +9,14 @@ import {
   MAX_NOTION_IMPORT_IMAGE_BYTES,
   prepareNotionAssetsForCommit,
 } from '@/lib/notionImportCommit'
+import { getStorage } from '@/storage'
 import type { StorageAdapter } from '@/storage/adapter'
-import { disablePersistWrites, getPersistSuspendDepth } from '@/storage/persist'
+import {
+  disablePersistWrites,
+  enablePersistWrites,
+  getPersistSuspendDepth,
+} from '@/storage/persist'
+import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import type {
   ExportAssetRecord,
   LibraryManifest,
@@ -68,11 +77,20 @@ function snapshot(label: string): PersistedSnapshot {
   }
 }
 
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void
+  const promise = new Promise<void>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
+
 class AtomicMemoryAdapter implements StorageAdapter {
   committedSnapshot: PersistedSnapshot
   committedAssets: ExportAssetRecord[] = []
   commitCalls = 0
   failCommit = false
+  onCommitWait: (() => Promise<void>) | null = null
 
   constructor(initial: PersistedSnapshot) {
     this.committedSnapshot = initial
@@ -93,6 +111,7 @@ class AtomicMemoryAdapter implements StorageAdapter {
   async importAssets(): Promise<void> { throw new Error('原子导入不得分离写附件') }
   async commitImport(value: PersistedSnapshot, assets: ExportAssetRecord[]): Promise<void> {
     this.commitCalls += 1
+    if (this.onCommitWait) await this.onCommitWait()
     if (this.failCommit) throw new Error('simulated atomic commit failure')
     this.committedSnapshot = value
     this.committedAssets = assets
@@ -236,4 +255,96 @@ export async function testNotionSuccessPublishesOnlyTheAtomicallyCommittedBatch(
   )
   assert(result.imageCount === 10 && result.importedTrades.length === 1, '成功结果计数必须准确')
   assert(getPersistSuspendDepth() === 0, '成功提交后必须恢复自动保存')
+}
+
+export function testNotionImportRevisionKeysMatchSharedPersistedKeys(): void {
+  assert(
+    PERSISTED_STATE_REFERENCE_KEYS.includes('quickNotes')
+      && PERSISTED_STATE_REFERENCE_KEYS.includes('weeklyReviews')
+      && PERSISTED_STATE_REFERENCE_KEYS.includes('reviewTemplates'),
+    'Notion revision 必须覆盖随记、周复盘与复盘模板，避免并发编辑被误判为同版本',
+  )
+}
+
+export async function testNotionImportPreservesConcurrentQuickNotesWeeklyReviewsAndTemplates(): Promise<void> {
+  const commitStarted = deferred()
+  const allowCommit = deferred()
+  const adapter = new AtomicMemoryAdapter(snapshot('旧快照'))
+  adapter.onCommitWait = async () => {
+    commitStarted.resolve()
+    await allowCommit.promise
+  }
+
+  const concurrentNote = { ...createQuickNote(new Date('2026-07-14T12:00:00.000Z')), title: '提交期间随记' }
+  const concurrentReview = {
+    ...createWeeklyReview('2026-07-13', new Date('2026-07-14T12:00:00.000Z')),
+    contentHtml: '<p>提交期间周复盘</p>',
+  }
+  const concurrentTemplate = createReviewTemplate('提交期间模板')
+  concurrentTemplate.content = '并发模板正文'
+
+  seedStore()
+  useStore.setState({
+    quickNotes: [],
+    weeklyReviews: [],
+    reviewTemplates: [],
+  })
+
+  const storage = getStorage()
+  const originalSaveSnapshot = storage.saveSnapshot.bind(storage)
+  const trailingSaves: PersistedSnapshot[] = []
+  storage.saveSnapshot = async (value) => {
+    trailingSaves.push(value)
+    adapter.committedSnapshot = value
+  }
+
+  enablePersistWrites()
+  try {
+    const importing = commitNotionImportBatch([previewWithImages(1)], {
+      storage: adapter,
+      createAssetId: (() => {
+        let index = 0
+        return () => `asset-${++index}`
+      })(),
+    })
+
+    await commitStarted.promise
+    useStore.setState({
+      quickNotes: [concurrentNote],
+      weeklyReviews: [concurrentReview],
+      reviewTemplates: [concurrentTemplate],
+    })
+    allowCommit.resolve()
+    const result = await importing
+
+    const finalState = useStore.getState()
+    assert(finalState.trades.length === 1, '导入交易必须进入 store')
+    assert(finalState.quickNotes[0]?.title === '提交期间随记', '等待 commitImport 期间新增的随记不得丢失')
+    assert(
+      finalState.weeklyReviews[0]?.contentHtml === '<p>提交期间周复盘</p>',
+      '等待 commitImport 期间新增的周复盘不得丢失',
+    )
+    assert(
+      finalState.reviewTemplates[0]?.name === '提交期间模板',
+      '等待 commitImport 期间新增的复盘模板不得丢失',
+    )
+    assert(result.trailingSaveFailed === false, '并发字段变化后追写不得失败')
+    assert(trailingSaves.length >= 1, '检测到并发编辑后必须追写落盘，不得 discardPending')
+
+    const disk = adapter.committedSnapshot
+    assert(disk.quickNotes?.[0]?.title === '提交期间随记', '磁盘快照必须与内存随记一致')
+    assert(
+      disk.weeklyReviews?.[0]?.contentHtml === '<p>提交期间周复盘</p>',
+      '磁盘快照必须与内存周复盘一致',
+    )
+    assert(
+      disk.reviewTemplates?.[0]?.name === '提交期间模板',
+      '磁盘快照必须与内存复盘模板一致',
+    )
+    assert(disk.trades.length === 1, '追写后的磁盘快照仍须保留导入交易')
+    assert(getPersistSuspendDepth() === 0, '并发路径结束后必须恢复自动保存')
+  } finally {
+    disablePersistWrites()
+    storage.saveSnapshot = originalSaveSnapshot
+  }
 }

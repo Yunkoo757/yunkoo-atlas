@@ -20,28 +20,11 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 import { normalizeQuickNotes } from '@/data/quickNotes'
+import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 
 let storage: StorageAdapter | null = null
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
-
-const PERSISTED_REFERENCE_KEYS = [
-  'trades',
-  'weeklyReviews',
-  'quickNotes',
-  'strategies',
-  'starredIds',
-  'subscribedIds',
-  'pinnedStrategyIds',
-  'display',
-  'tagPresets',
-  'mistakeTagPresets',
-  'profile',
-  'savedTradeViews',
-  'symbolIcons',
-  'symbolCatalog',
-  'reviewTemplates',
-] as const satisfies readonly (keyof PersistedSnapshot)[]
 
 /**
  * Zustand 内的持久化字段均采用不可变更新；引用未变化代表无需重写全量快照。
@@ -51,7 +34,7 @@ export function haveSamePersistedReferences(
   previous: PersistedSnapshot,
   next: PersistedSnapshot,
 ): boolean {
-  return PERSISTED_REFERENCE_KEYS.every((key) => previous[key] === next[key])
+  return PERSISTED_STATE_REFERENCE_KEYS.every((key) => previous[key] === next[key])
 }
 
 export function getStorage(): StorageAdapter {

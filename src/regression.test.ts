@@ -2042,16 +2042,37 @@ export function testNotionCsvFallbackMatchesImagesByNotionIdNotFolderOrder(): vo
   assert(attached[1]?.images[0]?.name === 'eur.png', 'EUR gets images with ID 2')
 }
 
+async function buildSyntheticNotionTradeZip(): Promise<ArrayBuffer> {
+  const JSZip = (await import('jszip')).default
+  const zip = new JSZip()
+  const trades = [
+    { symbol: 'BTCUSDT', image: 'btc.png' },
+    { symbol: 'EURUSD', image: 'eur.png' },
+    { symbol: 'XAUUSD', image: 'xau.png' },
+  ] as const
+  for (const [index, item] of trades.entries()) {
+    zip.file(item.image, new Uint8Array([0, index, 255 - index, 17, 31]))
+    zip.file(`trade-${index + 1}.md`, [
+      '# Trade #',
+      `Date: 2026/07/${14 + index}`,
+      `Symbol: ${item.symbol}`,
+      'Position: Buy',
+      'Status: Closed by T/P',
+      'Net PnL: US$20.00',
+      '',
+      `![截图](${item.image})`,
+    ].join('\n'))
+  }
+  return zip.generateAsync({ type: 'arraybuffer' })
+}
+
 export async function testSampleNotionZipKeepsImagesAttachedToTrades(): Promise<void> {
-  const fs = await import('node:fs/promises')
-  const zip = await fs.readFile('Notion/ExportBlock-53a72011-14a6-46a0-8a93-5b5cdc4301a7-Part-1.zip')
-  const result = await parseNotionZip(zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength), [
-    strategy,
-  ])
+  const zip = await buildSyntheticNotionTradeZip()
+  const result = await parseNotionZip(zip, [strategy])
   const withImages = result.previews.filter((p) => p.imageCount > 0)
 
-  assert(result.previews.length >= 3, 'sample Notion zip produces trade previews')
-  assert(withImages.length >= 3, 'sample Notion zip keeps images attached to trades')
+  assert(result.previews.length >= 3, 'synthetic Notion zip produces trade previews')
+  assert(withImages.length >= 3, 'synthetic Notion zip keeps images attached to trades')
   assert(
     withImages.every((p) => p.trade.symbol),
     'image-bearing previews still have symbols',
@@ -2059,9 +2080,8 @@ export async function testSampleNotionZipKeepsImagesAttachedToTrades(): Promise<
 }
 
 export async function testNotionZipUnwrapsNestedExportBlockWrapper(): Promise<void> {
-  const fs = await import('node:fs/promises')
   const JSZip = (await import('jszip')).default
-  const inner = await fs.readFile('Notion/ExportBlock-53a72011-14a6-46a0-8a93-5b5cdc4301a7-Part-1.zip')
+  const inner = await buildSyntheticNotionTradeZip()
   const outer = new JSZip()
   outer.file(
     'af09a22c-f4e3-451f-b5fe-eb0c5e2c41b0_ExportBlock-bee829d0-769d-410f-8e6b-b036b53a8567-Part-1.zip',

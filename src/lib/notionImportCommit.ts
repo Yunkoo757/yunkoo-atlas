@@ -31,21 +31,7 @@ import {
   MAX_NOTION_IMAGE_BYTES,
   MAX_NOTION_IMPORT_IMAGE_BYTES,
 } from '@/lib/notionImportLimits'
-
-const PERSISTED_STATE_KEYS = [
-  'trades',
-  'strategies',
-  'starredIds',
-  'subscribedIds',
-  'pinnedStrategyIds',
-  'display',
-  'tagPresets',
-  'mistakeTagPresets',
-  'profile',
-  'savedTradeViews',
-  'symbolIcons',
-  'symbolCatalog',
-] as const
+import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 
 interface PersistedRevision {
   state: ReturnType<typeof useStore.getState>
@@ -127,7 +113,7 @@ function captureRevision(): PersistedRevision {
     state,
     bindings,
     references: [
-      ...PERSISTED_STATE_KEYS.map((key) => state[key]),
+      ...PERSISTED_STATE_REFERENCE_KEYS.map((key) => state[key]),
       bindings,
     ],
   }

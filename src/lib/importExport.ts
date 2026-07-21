@@ -67,6 +67,7 @@ import {
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
+import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import {
   MAX_WEB_JOURNAL_ARCHIVE_BYTES,
   MAX_WEB_JOURNAL_ENTRY_BYTES,
@@ -833,24 +834,6 @@ export function prepareImportPayloadForCommit(
   }
 }
 
-const IMPORT_PERSISTED_REFERENCE_KEYS = [
-  'trades',
-  'weeklyReviews',
-  'quickNotes',
-  'strategies',
-  'starredIds',
-  'subscribedIds',
-  'pinnedStrategyIds',
-  'display',
-  'tagPresets',
-  'mistakeTagPresets',
-  'profile',
-  'savedTradeViews',
-  'symbolIcons',
-  'symbolCatalog',
-  'reviewTemplates',
-] as const
-
 interface PersistedStateRevision {
   state: ReturnType<typeof useStore.getState>
   shortcutBindings: ReturnType<typeof useShortcutStore.getState>['bindings']
@@ -864,7 +847,7 @@ function capturePersistedStateRevision(): PersistedStateRevision {
     state,
     shortcutBindings,
     references: [
-      ...IMPORT_PERSISTED_REFERENCE_KEYS.map((key) => state[key]),
+      ...PERSISTED_STATE_REFERENCE_KEYS.map((key) => state[key]),
       shortcutBindings,
     ],
   }
@@ -1098,7 +1081,7 @@ export async function switchActiveLibrary(
         ok: false,
         error: safeToFlush
           ? message
-          : `${message}；资料库状态已变化，为保护数据已暂停自动保存，请重新启动应用`,
+          : `${message}；交易库状态已变化，为保护数据已暂停自动保存，请重新启动应用`,
       }
     }
 
@@ -1130,7 +1113,7 @@ export async function switchActiveLibrary(
       ok: false,
       error: safeToFlush
         ? (err instanceof Error ? err.message : '切换库时发生错误')
-        : '新资料库载入失败；为保护数据已暂停自动保存，请重新启动应用',
+        : '新交易库载入失败；为保护数据已暂停自动保存，请重新启动应用',
     }
   } finally {
     if (!candidateActivated) {
@@ -1142,7 +1125,7 @@ export async function switchActiveLibrary(
     } else {
       discardPendingAndResumePersist()
       disablePersistWrites()
-      useSaveStatus.getState().setError('新资料库载入失败，自动保存已暂停')
+      useSaveStatus.getState().setError('新交易库载入失败，自动保存已暂停')
       try {
         window.location?.reload()
       } catch {

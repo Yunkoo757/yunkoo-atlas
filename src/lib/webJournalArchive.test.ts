@@ -305,7 +305,7 @@ export async function testRejectsFutureExportAndSchemaVersions(): Promise<void> 
   )
   await expectArchiveError(
     () => parseWebJournalArchive(futureSchema),
-    '资料库来自更新版本',
+    '交易库来自更新版本',
     'incompatible-version',
   )
 }

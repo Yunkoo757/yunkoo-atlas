@@ -17,6 +17,7 @@ import { assertSafeAssetId } from '../../src/storage/assetId'
 import { LibraryOperationGate } from './sessionGate'
 import {
   areSameLibrary,
+  assertCompatibleManifest,
   isSameLibraryPath,
   openValidatedLibraryCandidate,
 } from './libraryActivation'
@@ -51,6 +52,7 @@ async function ensureStorage(): Promise<LibraryStorage> {
       const candidate = new LibraryStorage()
       try {
         await candidate.open()
+        assertCompatibleManifest(candidate.readManifest())
         storage = candidate
         return candidate
       } catch (error) {

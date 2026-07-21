@@ -54,3 +54,11 @@ playwright/.cache/
 # local data rescue copies (never commit)
 .rescue*/
 .rescue-*/
+
+# real user exports / private fixtures (never commit)
+/Notion/
+ExportBlock-*.zip
+*.journal.zip
+*.atlas-backup*
+/real-data/
+/private-fixtures/
