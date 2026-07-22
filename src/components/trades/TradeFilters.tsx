@@ -69,6 +69,7 @@ export function TradeFilters({
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
+  const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const symbolIcons = useStore((state) => state.symbolIcons)
   const tagPresets = useStore((state) => state.tagPresets)
@@ -217,6 +218,7 @@ export function TradeFilters({
     workspaceKind,
     location.pathname,
     location.search,
+    sidebarWorkspaceItems,
   )
   const baselineParams = new URLSearchParams(activeWorkspaceView?.search ?? '')
   for (const [key, label] of facetLabels) {

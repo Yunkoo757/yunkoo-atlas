@@ -265,6 +265,9 @@ function storageBootstrapErrorMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === 'VersionError') {
     return '本地数据版本不兼容，请刷新页面或更新应用后重试。'
   }
+  if (error instanceof Error && /invalid display|sidebar|snapshot/i.test(error.message)) {
+    return '本地显示配置无法识别（可能来自旧版侧栏项），请重试；若仍失败请从备份恢复。'
+  }
   return '本地交易库暂时无法打开，请重试。'
 }
 
@@ -339,22 +342,42 @@ function Shell() {
           <Route path="/my-trades/board" element={<Navigate to="/board" replace />} />
           <Route
             path="/favorites"
-            element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
+            element={
+              <TradesPage
+                title="交易日志"
+                filter={{ type: 'starred', tradeKind: 'live' }}
+                listPath="/favorites"
+              />
+            }
           />
           <Route
             path="/favorites/board"
-            element={<TradesPage title="交易日志" filter={{ type: 'starred' }} listPath="/favorites" />}
+            element={
+              <TradesPage
+                title="交易日志"
+                filter={{ type: 'starred', tradeKind: 'live' }}
+                listPath="/favorites"
+              />
+            }
           />
           <Route
             path="/missed"
             element={
-              <TradesPage title="交易日志" filter={{ type: 'missed' }} listPath="/missed" />
+              <TradesPage
+                title="交易日志"
+                filter={{ type: 'missed', tradeKind: 'live' }}
+                listPath="/missed"
+              />
             }
           />
           <Route
             path="/missed/board"
             element={
-              <TradesPage title="交易日志" filter={{ type: 'missed' }} listPath="/missed" />
+              <TradesPage
+                title="交易日志"
+                filter={{ type: 'missed', tradeKind: 'live' }}
+                listPath="/missed"
+              />
             }
           />
           <Route path="/period/:slug" element={<PeriodPage />} />

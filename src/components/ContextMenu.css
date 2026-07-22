@@ -44,6 +44,10 @@
   color: var(--text-quaternary);
   flex-shrink: 0;
 }
+.ctx-item-check {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
 .ctx-item.is-danger {
   color: var(--neg);
 }

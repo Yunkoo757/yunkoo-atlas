@@ -136,6 +136,28 @@ export function testSnapshotValidationRejectsMalformedDisplaySettings(): void {
   }
 }
 
+export function testSnapshotValidationAcceptsLegacyQuickViewSidebarPins(): void {
+  assertValidPersistedSnapshot({
+    ...valid,
+    display: {
+      sidebarWorkspaceItems: [
+        {
+          id: 'quick-view:paper:missed',
+          target: { kind: 'quick-view', workspace: 'paper', view: 'missed' },
+          placement: 'pinned',
+          order: 0,
+        },
+        {
+          id: 'system:missed',
+          target: { kind: 'system', id: 'missed', workspaces: ['trade', 'case'] },
+          placement: 'pinned',
+          order: 1,
+        },
+      ],
+    },
+  })
+}
+
 export function testSnapshotValidationChecksResultAuthorityAndInitialRisk(): void {
   assertValidPersistedSnapshot({
     ...valid,

@@ -1,10 +1,22 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { Check } from '@/icons/appIcons'
 import { useExitClone } from '@/components/ui/useExitClone'
 import './ContextMenu.css'
 
 export type CtxItem =
-  | { type: 'item'; icon?: ReactNode; label: string; hint?: string; danger?: boolean; onClick: () => void }
+  | {
+      type: 'item'
+      icon?: ReactNode
+      label: string
+      hint?: string
+      danger?: boolean
+      /** 多选勾选态；展示右侧 Check */
+      checked?: boolean
+      /** 点击后不关闭菜单（用于连续勾选） */
+      keepOpen?: boolean
+      onClick: () => void
+    }
   | { type: 'divider' }
   | { type: 'label'; text: string }
 
@@ -69,14 +81,17 @@ export function ContextMenu({
           <button
             key={i}
             className={'ctx-item' + (it.danger ? ' is-danger' : '')}
+            role={it.checked !== undefined ? 'menuitemcheckbox' : 'menuitem'}
+            aria-checked={it.checked}
             onClick={() => {
               it.onClick()
-              onClose()
+              if (!it.keepOpen) onClose()
             }}
           >
             {it.icon && <span className="ctx-item-icon">{it.icon}</span>}
             <span className="ctx-item-label">{it.label}</span>
             {it.hint && <span className="ctx-item-hint">{it.hint}</span>}
+            {it.checked ? <Check size={14} className="ctx-item-check" aria-hidden="true" /> : null}
           </button>
         )
       })}

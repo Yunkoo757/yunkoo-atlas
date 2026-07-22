@@ -254,9 +254,39 @@ html[data-ui-settled='1'] .sb-item {
 }
 .sb-item-label {
   min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.sb-workspace-capability-menu {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 2px;
+  border-radius: var(--radius-6);
+  color: var(--text-quaternary);
+}
+@media (hover: hover) and (pointer: fine) {
+  .sb-workspace-capability-menu {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sb-item:hover .sb-workspace-capability-menu,
+  .sb-item:focus-within .sb-workspace-capability-menu,
+  .sb-item.is-capability-menu-open .sb-workspace-capability-menu {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.sb-workspace-capability-menu:hover,
+.sb-workspace-capability-menu:focus-visible {
+  background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
+  color: var(--text-secondary);
+  outline: none;
 }
 .sb-item:hover {
   background: var(--bg-hover);

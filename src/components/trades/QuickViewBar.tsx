@@ -10,6 +10,7 @@ import {
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
 import {
+  filterViewsBySidebarCapabilities,
   getActiveWorkspaceView,
   getWorkspacePrimaryViews,
   isSavedViewInWorkspace,
@@ -79,6 +80,7 @@ const PAPER_MORE_GROUPS: ViewGroup[] = [
     items: [
       { id: 'paper-win', label: '盈利', pathname: '/sim', search: '?status=win' },
       { id: 'paper-breakeven', label: '保本', pathname: '/sim', search: '?status=breakeven' },
+      { id: 'paper-missed', label: '错过机会', pathname: '/sim', search: '?status=missed' },
     ],
   },
   {
@@ -99,6 +101,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const [searchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
   const strategies = useStore((state) => state.strategies)
+  const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const saveTradeView = useStore((state) => state.saveTradeView)
   const renameTradeView = useStore((state) => state.renameTradeView)
   const removeTradeView = useStore((state) => state.removeTradeView)
@@ -111,12 +114,18 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const overflowAnchorRef = useRef<HTMLDivElement>(null)
   const overflowButtonRef = useRef<HTMLButtonElement>(null)
-  const primaryViews = getWorkspacePrimaryViews(kind)
-  const moreGroups = kind === 'trade'
+  const primaryViews = getWorkspacePrimaryViews(kind, sidebarWorkspaceItems)
+  const moreGroups = (kind === 'trade'
     ? TRADE_MORE_GROUPS
     : kind === 'paper'
       ? PAPER_MORE_GROUPS
       : []
+  )
+    .map((group) => ({
+      ...group,
+      items: filterViewsBySidebarCapabilities(kind, group.items, sidebarWorkspaceItems),
+    }))
+    .filter((group) => group.items.length > 0)
   const workspaceLabel = kind === 'case'
     ? '案例视图'
     : kind === 'paper'
@@ -129,7 +138,12 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   )?.id
   const activePrimaryViewId = activeSavedViewId
     ? undefined
-    : getActiveWorkspaceView(kind, location.pathname, location.search)?.id
+    : getActiveWorkspaceView(
+      kind,
+      location.pathname,
+      location.search,
+      sidebarWorkspaceItems,
+    )?.id
   const hasActiveQuickView = Boolean(activeSavedViewId || activePrimaryViewId)
 
   useEffect(() => {

@@ -9,6 +9,7 @@ import {
   Clock,
   FlaskConical,
   Compose,
+  MoreHorizontal,
   Search,
   Settings2,
   Star,
@@ -19,22 +20,35 @@ import { UserAvatar } from '@/components/UserAvatar'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { Menu } from '@/components/Menu'
+import { ContextMenu, type CtxItem, type CtxState } from '@/components/ContextMenu'
 import {
   reorderPrimarySidebarNav,
   resolvePrimarySidebarNav,
   type PrimarySidebarNavId,
 } from '@/lib/sidebarNav'
 import {
+  SIDEBAR_CAPABILITY_WORKSPACES,
+  SIDEBAR_QUICK_WORKSPACE_LABELS,
   countSidebarRoute,
   countSidebarTarget,
+  isCapabilityEnabledForWorkspace,
+  isSidebarCapabilityId,
   reorderSidebarWorkspaceItem,
+  resolveCapabilityRoute,
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
+  setCapabilityWorkspaceEnabled,
+  systemCapabilityWorkspaces,
+  workspaceKindFromPath,
   type ResolvedSidebarWorkspaceItem,
+  type SidebarCapabilityId,
+  type SidebarQuickWorkspace,
+  type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { getTradingDayKey } from '@/lib/periods'
+import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import {
   SIDEBAR_WORKSPACE_EDITOR_ID,
@@ -75,6 +89,43 @@ function Count({ value }: { value?: number }) {
   )
 }
 
+function buildCapabilityVisibilityItems(
+  capabilityId: SidebarCapabilityId,
+  label: string,
+  items: SidebarWorkspaceItem[],
+  onToggle: (
+    capabilityId: SidebarCapabilityId,
+    workspace: SidebarQuickWorkspace,
+    enabled: boolean,
+    label: string,
+  ) => void,
+): CtxItem[] {
+  const existing = items.find(
+    (item) => item.target.kind === 'system' && item.target.id === capabilityId,
+  )
+  const enabled = new Set(
+    existing && existing.target.kind === 'system'
+      ? systemCapabilityWorkspaces(existing.target)
+      : [],
+  )
+  return [
+    { type: 'label', text: '可见工作区' },
+    ...SIDEBAR_CAPABILITY_WORKSPACES[capabilityId].flatMap((workspace) => {
+      if (!resolveCapabilityRoute(capabilityId, workspace)) return []
+      const checked = enabled.has(workspace)
+      return [
+        {
+          type: 'item' as const,
+          label: SIDEBAR_QUICK_WORKSPACE_LABELS[workspace],
+          checked,
+          keepOpen: true,
+          onClick: () => onToggle(capabilityId, workspace, !checked, label),
+        },
+      ]
+    }),
+  ]
+}
+
 export const WORKSPACE_ICONS: Record<
   ResolvedSidebarWorkspaceItem['icon'],
   AppIcon
@@ -103,13 +154,28 @@ export function useSidebarNavigationModel() {
 
   const workspaceItems = useMemo(
     () => sidebarWorkspaceItems
-      .map((item) => resolveSidebarWorkspaceItem(item, { savedViews: savedTradeViews, strategies }))
+      .map((item) => resolveSidebarWorkspaceItem(
+        item,
+        { savedViews: savedTradeViews, strategies },
+        path,
+      ))
       .filter((item) => !item.invalid)
+      .filter((item) => {
+        const target = item.item.target
+        if (target.kind === 'system' && isSidebarCapabilityId(target.id)) {
+          return isCapabilityEnabledForWorkspace(
+            [item.item],
+            target.id,
+            workspaceKindFromPath(path),
+          )
+        }
+        return true
+      })
       .map((item) => ({
         ...item,
         count: countSidebarTarget(item, countContext),
       })),
-    [countContext, savedTradeViews, sidebarWorkspaceItems, strategies],
+    [countContext, path, savedTradeViews, sidebarWorkspaceItems, strategies],
   )
   const selection = useMemo(
     () => resolveSidebarSelection({ pathname: path, search, items: workspaceItems }),
@@ -163,6 +229,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
   const [workspaceDrag, setWorkspaceDrag] = useState<SidebarDragState | null>(null)
   const [primaryDrag, setPrimaryDrag] = useState<SidebarDragState | null>(null)
+  const [capabilityMenu, setCapabilityMenu] = useState<(CtxState & { itemId: string }) | null>(null)
   const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
   const workspaceDragSession = useRef<{
     id: string
@@ -400,17 +467,71 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     const modified = selection.modifiedWorkspaceItemId === item.item.id
     const isDragging = workspaceDrag?.id === item.item.id
     const isDropTarget = workspaceDrag?.overId === item.item.id
-    const link = (
+    const capabilityId =
+      item.item.target.kind === 'system' && isSidebarCapabilityId(item.item.target.id)
+        ? item.item.target.id
+        : null
+    const capabilityMenuOpen = capabilityMenu?.itemId === item.item.id
+
+    const toggleCapabilityWorkspace = (
+      id: SidebarCapabilityId,
+      workspace: SidebarQuickWorkspace,
+      enabled: boolean,
+      label: string,
+    ) => {
+      const previous = useStore.getState().display.sidebarWorkspaceItems
+      const next = setCapabilityWorkspaceEnabled(previous, id, workspace, enabled)
+      replaceSidebarWorkspaceItems(next)
+      const stillPresent = next.some(
+        (candidate) => candidate.target.kind === 'system' && candidate.target.id === id,
+      )
+      if (!stillPresent) {
+        setCapabilityMenu(null)
+        toast(`已从侧栏移除「${label}」`, {
+          label: '撤销',
+          onClick: () => replaceSidebarWorkspaceItems(previous),
+        })
+        return
+      }
+      setCapabilityMenu((current) =>
+        current
+          ? {
+              ...current,
+              items: buildCapabilityVisibilityItems(id, label, next, toggleCapabilityWorkspace),
+            }
+          : null,
+      )
+    }
+
+    const openCapabilityMenu = (x: number, y: number) => {
+      if (!capabilityId) return
+      setCapabilityMenu({
+        itemId: item.item.id,
+        x,
+        y,
+        items: buildCapabilityVisibilityItems(
+          capabilityId,
+          item.label,
+          useStore.getState().display.sidebarWorkspaceItems,
+          toggleCapabilityWorkspace,
+        ),
+      })
+    }
+
+    return (
       <NavLink
         key={item.item.id}
         to={workspaceRouteHref(item)}
         draggable={false}
         data-sidebar-workspace-id={item.item.id}
         data-sidebar-workspace-placement={item.item.placement}
+        data-sidebar-capability={capabilityId ?? undefined}
         className={() =>
           `sb-item${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}${
             isDragging ? ' is-dragging' : ''
-          }${isDropTarget ? ' is-drop-target' : ''}`
+          }${isDropTarget ? ' is-drop-target' : ''}${
+            capabilityMenuOpen ? ' is-capability-menu-open' : ''
+          }`
         }
         data-ws-icon={item.icon}
         aria-current={active ? 'page' : undefined}
@@ -422,6 +543,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         onPointerMove={onWorkspacePointerMove}
         onPointerUp={onWorkspacePointerUp}
         onPointerCancel={onWorkspacePointerCancel}
+        onContextMenu={(event) => {
+          if (!capabilityId) return
+          event.preventDefault()
+          openCapabilityMenu(event.clientX, event.clientY)
+        }}
         onClick={(event) => {
           if (!suppressWorkspaceClick.current) return
           event.preventDefault()
@@ -445,10 +571,30 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <span className="sb-screen-reader">当前条件已修改</span>
           </span>
         ) : null}
+        {capabilityId ? (
+          <button
+            type="button"
+            className="sb-workspace-capability-menu"
+            aria-label={`${item.label}可见工作区`}
+            aria-haspopup="menu"
+            aria-expanded={capabilityMenuOpen}
+            onPointerDown={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              const rect = event.currentTarget.getBoundingClientRect()
+              openCapabilityMenu(rect.left, rect.bottom + 4)
+            }}
+          >
+            <MoreHorizontal size={14} aria-hidden="true" />
+          </button>
+        ) : null}
         <Count value={item.count} />
       </NavLink>
     )
-    return link
   }
 
   return (
@@ -634,6 +780,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           />
         </div>
       ) : null}
+
+      <ContextMenu
+        state={capabilityMenu}
+        onClose={() => setCapabilityMenu(null)}
+      />
 
     </aside>
   )

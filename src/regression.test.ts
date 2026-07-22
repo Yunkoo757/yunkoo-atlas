@@ -67,12 +67,19 @@ import {
   resolvePinnedSecondaryNav,
 } from '@/lib/sidebarNav'
 import {
+  capabilityNavRoutes,
   countSidebarRoute,
   countSidebarTarget,
+  isCapabilityEnabledForWorkspace,
   normalizeSidebarWorkspaceItems,
   reorderSidebarWorkspaceItem,
+  resolveCapabilityNavRoute,
+  resolveCapabilityRoute,
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
+  setCapabilityWorkspaceEnabled,
+  sidebarTargetKey,
+  systemCapabilityWorkspaces,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import {
@@ -245,19 +252,121 @@ export function testReorderSidebarWorkspaceItemKeepsPlacementGroups(): void {
     { id: 'c', target: { kind: 'system', id: 'missed' }, placement: 'pinned', order: 2 },
     { id: 'd', target: { kind: 'system', id: 'paper' }, placement: 'overflow', order: 3 },
   ])
-  const moved = reorderSidebarWorkspaceItem(items, 'a', 'c')
   assert(
-    moved.filter((item) => item.placement === 'pinned').map((item) => item.id).join(',') === 'b,c,a',
+    items.map((item) => item.id).join(',') === 'system:active,system:favorites,system:missed,system:paper',
+    '规范化后 id 应与目标 key 对齐',
+  )
+  const moved = reorderSidebarWorkspaceItem(items, 'system:active', 'system:missed')
+  assert(
+    moved.filter((item) => item.placement === 'pinned').map((item) => item.id).join(',') ===
+      'system:favorites,system:missed,system:active',
     '常驻组内应能把第一项拖到第三项位置',
   )
   assert(
-    moved.find((item) => item.id === 'd')?.placement === 'overflow',
+    moved.find((item) => item.id === 'system:paper')?.placement === 'overflow',
     '重排常驻时不得改动更多组',
   )
   assert(
-    reorderSidebarWorkspaceItem(items, 'a', 'd') === items,
+    reorderSidebarWorkspaceItem(items, 'system:active', 'system:paper') === items,
     '跨 placement 拖放应被拒绝',
   )
+}
+
+export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
+  const merged = normalizeSidebarWorkspaceItems([
+    {
+      id: 'system:missed',
+      target: { kind: 'system', id: 'missed', workspaces: ['trade'] },
+      placement: 'pinned',
+      order: 0,
+    },
+    {
+      id: 'legacy-paper-missed',
+      target: { kind: 'quick-view', workspace: 'paper', view: 'missed' },
+      placement: 'pinned',
+      order: 1,
+    },
+    {
+      id: 'legacy-case-missed',
+      target: { kind: 'quick-view', workspace: 'case', view: 'missed' },
+      placement: 'overflow',
+      order: 2,
+    },
+  ])
+
+  assert(merged.length === 1, '错过的机会侧栏必须只保留一项')
+  assert(merged[0]?.target.kind === 'system' && merged[0].target.id === 'missed', '应归一为 system:missed')
+  assert(
+    merged[0]?.target.kind === 'system' &&
+      systemCapabilityWorkspaces(merged[0].target).join(',') === 'trade,paper,case',
+    '可见工作区应合并到同一项上',
+  )
+
+  const tradeRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/list')
+  const paperRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/sim')
+  const caseRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/review-cases')
+  assert(tradeRoute.pathname === '/missed', '在交易日志时应进入实盘错过')
+  assert(paperRoute.pathname === '/sim' && paperRoute.search === '?status=missed', '在模拟时应进入模拟错过')
+  assert(
+    caseRoute.pathname === '/review-cases' && caseRoute.search === '?caseType=missed',
+    '在案例记录时应进入案例错过',
+  )
+  assert(resolveCapabilityRoute('active', 'case') === null, '案例不得配置进行中能力')
+  assert(
+    capabilityNavRoutes('missed', ['trade', 'paper']).length === 2,
+    '可见范围决定能力可跳转的工作区路由数',
+  )
+
+  const resolved = resolveSidebarWorkspaceItem(
+    merged[0]!,
+    { savedViews: [], strategies: [] },
+    '/sim',
+  )
+  assert(resolved.label === '错过的机会', '侧栏仍显示单一短名')
+  assert(resolved.pathname === '/sim' && resolved.search === '?status=missed', '链接随当前工作区解析')
+  assert(sidebarTargetKey(merged[0]!.target) === 'system:missed', '能力项 key 保持唯一')
+
+  const tradeOnly = setCapabilityWorkspaceEnabled(
+    [{ id: 'system:missed', target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] }, placement: 'pinned', order: 0 }],
+    'missed',
+    'paper',
+    false,
+  )
+  assert(
+    tradeOnly[0]?.target.kind === 'system' &&
+      systemCapabilityWorkspaces(tradeOnly[0].target).join(',') === 'trade,case',
+    '取消勾选应收窄可见工作区且不拆成多项',
+  )
+  assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'paper') === false, '取消后模拟域不得生效')
+  assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'trade') === true, '交易日志域应仍生效')
+  assert(
+    setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'trade', false).length === 1 &&
+      setCapabilityWorkspaceEnabled(
+        setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'trade', false),
+        'missed',
+        'case',
+        false,
+      ).length === 0,
+    '可见工作区全部取消后应移除该能力项',
+  )
+}
+
+export async function testSidebarTargetPickerConfiguresVisibilityNotDuplicatePins(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/components/sidebar/SidebarTargetPicker.tsx', 'utf8')
+  const editor = await fs.readFile('src/components/sidebar/SidebarWorkspaceEditor.tsx', 'utf8')
+  const sidebar = await fs.readFile('src/components/Sidebar.tsx', 'utf8')
+  assert(source.includes('可见工作区（侧栏只显示一项）'), '添加项目应说明侧栏只显示一项')
+  assert(source.includes('toggleCapabilityWorkspace'), '应通过勾选配置同一能力的可见工作区')
+  assert(source.includes('setCapabilityWorkspaceEnabled'), '添加项目应复用统一的可见范围写入')
+  assert(source.includes("id: 'missed'"), '错过的机会应作为单一能力出现')
+  assert(!source.includes('canonicalQuickViewTarget'), '不得再按工作区拆成多个钉选目标')
+  assert(!editor.includes('sb-editor-capability-scopes'), '管理页不得再放可见工作区行内勾选')
+  assert(!editor.includes('setCapabilityWorkspaceEnabled'), '管理页不得写入能力可见范围')
+  assert(sidebar.includes('buildCapabilityVisibilityItems'), '侧栏能力项应就地提供可见工作区菜单')
+  assert(sidebar.includes('sb-workspace-capability-menu'), '侧栏能力项应有悬停 ⋯ 入口')
+  assert(sidebar.includes('onContextMenu'), '侧栏能力项应支持右键配置可见工作区')
+  assert(sidebar.includes('setCapabilityWorkspaceEnabled'), '侧栏菜单应写入同一能力项')
 }
 
 export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContract(): Promise<void> {
@@ -307,6 +416,9 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('state.display.sidebarWorkspaceItems'), 'Sidebar 应读取统一工作区配置')
   assert(source.includes('resolveSidebarWorkspaceItem'), 'Sidebar 应通过统一解析器准备日常项')
   assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')
+  assert(source.includes('isCapabilityEnabledForWorkspace'), 'Sidebar 应按当前工作区隐藏未开启的能力项')
+  assert(source.includes('workspaceKindFromPath'), 'Sidebar 应按当前路径判断能力可见工作区')
+  assert(source.includes('buildCapabilityVisibilityItems'), 'Sidebar 应在能力项就地配置可见工作区')
   assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
   assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
   assert(source.includes('<StrategyIcon'), '侧栏策略入口必须复用真实策略图标组件')
@@ -680,11 +792,25 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
   const items = merged.display.sidebarWorkspaceItems
 
   assert(items.length === 9, '重复目标应在导入边界去重且不丢失失效引用')
-  assert(items.map((item) => item.id).join(',') === rawItems.slice(0, 9).map((item) => item.id).join(','), '导入应保留目标顺序')
+  assert(
+    items.map((item) => item.id).join(',') ===
+      [
+        'system:active',
+        'saved-view:saved-valid',
+        `strategy:${strategy.id}`,
+        'case-view:focus',
+        'system:paper',
+        'saved-view:deleted-view',
+        'strategy:deleted-strategy',
+        'case-view:reviewed',
+        'case-view:mistakes',
+      ].join(','),
+    '导入应按目标 key 规范化 id 并保留顺序',
+  )
   assert(items.filter((item) => item.placement === 'pinned').length === 8, '导入后最多保留 8 个 pinned')
   assert(items[8]?.placement === 'overflow', '第 9 个 pinned 应规范化为 overflow')
-  assert(items.some((item) => item.id === 'missing-view'), '导入不得删除失效保存视图引用')
-  assert(items.some((item) => item.id === 'missing-strategy'), '导入不得删除失效策略引用')
+  assert(items.some((item) => item.id === 'saved-view:deleted-view'), '导入不得删除失效保存视图引用')
+  assert(items.some((item) => item.id === 'strategy:deleted-strategy'), '导入不得删除失效策略引用')
   const paper = resolveSidebarWorkspaceItem(items[4]!, { savedViews: [], strategies: [] })
   assert(paper.pathname === '/sim', '旧 paper 别名最终应解析到 /sim')
 }
@@ -712,7 +838,11 @@ export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
     display: { ...DEFAULT_DISPLAY, sidebarWorkspaceItems: corruptedItems },
   })
 
-  assert(merged.display.sidebarWorkspaceItems.length === 1, 'mergeImportPayload 应统一去重损坏的工作区项目')
+  assert(merged.display.sidebarWorkspaceItems.length === 2, 'mergeImportPayload 应按目标去重损坏的工作区项目')
+  assert(
+    merged.display.sidebarWorkspaceItems.map((item) => item.id).join(',') === 'system:active,system:favorites',
+    '同 id 不同目标应规范化为各自的目标 key',
+  )
   assert(merged.display.sidebarWorkspaceItems[0]?.order === 0, 'mergeImportPayload 应统一重写损坏的 order')
 }
 
@@ -737,15 +867,21 @@ export function testNormalizeSidebarWorkspaceItemsDeduplicatesAndLimitsPinnedIte
 }
 
 export function testNormalizeSidebarWorkspaceItemsKeepsFirstDuplicateId(): void {
-  const items = normalizeSidebarWorkspaceItems([
+  const sameTarget = normalizeSidebarWorkspaceItems([
+    { id: 'duplicate', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 0 },
+    { id: 'other', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 1 },
+  ])
+  assert(sameTarget.length === 1, '相同目标只能保留一项')
+  assert(sameTarget[0]?.id === 'system:active', '规范化后 id 应对齐目标 key')
+
+  const sameRawId = normalizeSidebarWorkspaceItems([
     { id: 'duplicate', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 0 },
     { id: 'duplicate', target: { kind: 'system', id: 'favorites' }, placement: 'pinned', order: 1 },
   ])
-
-  assert(items.length === 1, '相同 id 的损坏导入项只能保留一个')
+  assert(sameRawId.length === 2, '相同原始 id 但目标不同时应保留为两项')
   assert(
-    items[0]?.target.kind === 'system' && items[0].target.id === 'active',
-    '相同 id 的损坏导入项应保留排序更早的项目',
+    sameRawId.map((item) => item.id).join(',') === 'system:active,system:favorites',
+    '损坏的同 id 项应按目标拆成规范化 key',
   )
 }
 
@@ -1742,7 +1878,7 @@ export function testDefaultSmartTradeFiltersExcludeReviewCases(): void {
 
   const starred = filterTrades(
     [trade, paperTrade, reviewCase],
-    { type: 'starred' },
+    { type: 'starred', tradeKind: 'live' },
     [trade.id, paperTrade.id, reviewCase.id],
   )
   const casesOnly = filterTrades(
@@ -1752,9 +1888,147 @@ export function testDefaultSmartTradeFiltersExcludeReviewCases(): void {
   )
 
   assert(starred.some((t) => t.id === trade.id), 'starred keeps live trades')
-  assert(starred.some((t) => t.id === paperTrade.id), 'starred keeps paper trades')
+  assert(!starred.some((t) => t.id === paperTrade.id), '交易日志星标不得混入模拟')
   assert(!starred.some((t) => t.id === reviewCase.id), 'starred excludes review cases')
   assert(casesOnly.length === 1 && casesOnly[0]?.id === reviewCase.id, 'case view only shows cases')
+}
+
+export function testMissedWorkspaceStaysInsideLiveTradingJournal(): void {
+  const liveMissed: Trade = { ...trade, id: 'live-missed', status: 'missed', tradeKind: 'live' }
+  const paperMissed: Trade = {
+    ...trade,
+    id: 'paper-missed',
+    status: 'missed',
+    tradeKind: 'paper',
+  }
+  const caseMissed: Trade = {
+    ...trade,
+    id: 'case-missed',
+    status: 'missed',
+    tradeKind: 'case',
+    caseType: 'missed',
+  }
+  const liveWin: Trade = { ...trade, id: 'live-win', status: 'win', tradeKind: 'live' }
+
+  const missed = filterTrades(
+    [liveMissed, paperMissed, caseMissed, liveWin],
+    { type: 'missed', tradeKind: 'live' },
+    [],
+  )
+  const sidebarMissed = getWorkbenchVisibleTrades({
+    trades: [liveMissed, paperMissed, caseMissed, liveWin],
+    filter: { type: 'missed', tradeKind: 'live' },
+    starredIds: [],
+    display: DEFAULT_DISPLAY,
+    search: '',
+  })
+  const paperMissedOnly = getWorkbenchVisibleTrades({
+    trades: [liveMissed, paperMissed, caseMissed, liveWin],
+    filter: { type: 'all', tradeKind: 'paper' },
+    starredIds: [],
+    display: DEFAULT_DISPLAY,
+    search: '?status=missed',
+  })
+  const caseMissedOnly = getWorkbenchVisibleTrades({
+    trades: [liveMissed, paperMissed, caseMissed, liveWin],
+    filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' },
+    starredIds: [],
+    display: DEFAULT_DISPLAY,
+    search: '?caseType=missed',
+  })
+
+  assert(
+    missed.length === 1 && missed[0]?.id === liveMissed.id,
+    '错过的机会必须只含实盘错过，排除案例与模拟',
+  )
+  assert(
+    sidebarMissed.length === 1 && sidebarMissed[0]?.id === liveMissed.id,
+    '侧栏错过计数必须与交易日志实盘域一致',
+  )
+  assert(
+    !missed.some((item) => item.tradeKind === 'case'),
+    '交易日志错过视图不得混入案例记录',
+  )
+  assert(
+    paperMissedOnly.length === 1 && paperMissedOnly[0]?.id === paperMissed.id,
+    '模拟错过机会必须留在模拟工作区',
+  )
+  assert(
+    caseMissedOnly.length === 1 && caseMissedOnly[0]?.id === caseMissed.id,
+    '案例错过机会必须留在案例记录工作区',
+  )
+}
+
+export function testRecordDomainsKeepSeparateMissedEntrypoints(): void {
+  const tradeViews = getWorkspacePrimaryViews('trade')
+  const paperViews = getWorkspacePrimaryViews('paper')
+  const caseViews = getWorkspacePrimaryViews('case')
+
+  assert(
+    tradeViews.every((view) => view.pathname !== '/sim' && !view.pathname.startsWith('/review-cases')),
+    '交易日志快捷视图不得指向模拟或案例',
+  )
+  assert(
+    paperViews.some((view) => view.id === 'missed' && view.search === '?status=missed'),
+    '模拟工作区应有独立的错过机会入口',
+  )
+  assert(
+    caseViews.some((view) => view.id === 'missed' && view.search === '?caseType=missed'),
+    '案例记录应有独立的错过机会入口',
+  )
+  assert(
+    !caseViews.some((view) => view.pathname === '/missed'),
+    '案例错过不得复用交易日志 /missed 路由',
+  )
+  assert(
+    !paperViews.some((view) => view.pathname === '/missed'),
+    '模拟错过不得复用交易日志 /missed 路由',
+  )
+
+  const tradeOnlyMissed = normalizeSidebarWorkspaceItems([
+    {
+      id: 'system:missed',
+      target: { kind: 'system', id: 'missed', workspaces: ['trade'] },
+      placement: 'pinned',
+      order: 0,
+    },
+    {
+      id: 'system:active',
+      target: { kind: 'system', id: 'active', workspaces: ['trade', 'paper'] },
+      placement: 'pinned',
+      order: 1,
+    },
+  ])
+  assert(
+    !getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '未对模拟开启错过能力时，模拟主视图不得出现错过机会',
+  )
+  assert(
+    !getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '未对案例开启错过能力时，案例主视图不得出现错过机会',
+  )
+  assert(
+    getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'open'),
+    '进行中仍对模拟开启时应保留模拟进行中视图',
+  )
+  assert(
+    getWorkspacePrimaryViews('paper', [
+      {
+        id: 'system:missed',
+        target: { kind: 'system', id: 'missed', workspaces: ['paper'] },
+        placement: 'pinned',
+        order: 0,
+      },
+    ]).some((view) => view.id === 'missed'),
+    '对模拟开启错过能力后应出现错过机会主视图',
+  )
+}
+
+export async function testQuickViewBarHonorsCapabilityVisibility(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8')
+  assert(source.includes('filterViewsBySidebarCapabilities'), '快捷视图应按能力可见范围过滤')
+  assert(source.includes('sidebarWorkspaceItems'), '快捷视图应读取侧栏工作区配置')
 }
 
 export function testHideClosedDisplayPrefDoesNotHideReviewCases(): void {

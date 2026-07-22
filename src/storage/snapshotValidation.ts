@@ -56,10 +56,32 @@ function isActivityEvent(value: unknown): boolean {
 
 function isSidebarTarget(value: unknown): boolean {
   if (!isRecord(value)) return false
-  if (value.kind === 'system') return SIDEBAR_SYSTEM_IDS.has(String(value.id))
+  if (value.kind === 'system') {
+    if (!SIDEBAR_SYSTEM_IDS.has(String(value.id))) return false
+    if (value.workspaces === undefined) return true
+    if (!Array.isArray(value.workspaces)) return false
+    const id = String(value.id)
+    const allowed =
+      id === 'missed' ? new Set(['trade', 'paper', 'case'])
+        : id === 'active' ? new Set(['trade', 'paper'])
+          : null
+    if (!allowed) return value.workspaces.length === 0
+    return value.workspaces.every(
+      (workspace) => typeof workspace === 'string' && allowed.has(workspace),
+    )
+  }
   if (value.kind === 'saved-view') return typeof value.viewId === 'string' && Boolean(value.viewId.trim())
   if (value.kind === 'strategy') return typeof value.strategyId === 'string' && Boolean(value.strategyId.trim())
   if (value.kind === 'case-view') return CASE_VIEW_SCOPES.has(String(value.scope))
+  // 兼容短暂写入过的 quick-view 钉选：允许读入，随后由 normalizeSidebarWorkspaceItems 合并
+  if (value.kind === 'quick-view') {
+    const workspace = String(value.workspace)
+    const view = String(value.view)
+    if (!(workspace === 'trade' || workspace === 'paper' || workspace === 'case')) return false
+    if (!(view === 'missed' || view === 'active')) return false
+    if (workspace === 'case' && view === 'active') return false
+    return true
+  }
   return false
 }
 

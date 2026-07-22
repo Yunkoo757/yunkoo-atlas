@@ -2,6 +2,12 @@ import { canonicalizeTradeViewSearch, normalizeSavedViewPath } from '@/lib/saved
 import type { Strategy } from '@/data/strategies'
 import { isValidPeriodSlug } from '@/lib/periods'
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
+import {
+  isCapabilityEnabledForWorkspace,
+  type SidebarCapabilityId,
+  type SidebarQuickWorkspace,
+  type SidebarWorkspaceItem,
+} from '@/lib/sidebarWorkspace'
 
 export type WorkspaceKind = 'today' | 'trade' | 'paper' | 'case'
 export type RememberableWorkspaceKind = Exclude<WorkspaceKind, 'paper'>
@@ -43,19 +49,54 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'all', label: '全部', pathname: '/sim' },
     { id: 'planned', label: '待执行', pathname: '/sim', search: '?status=planned' },
     { id: 'open', label: '进行中', pathname: '/sim', search: '?status=open' },
+    { id: 'missed', label: '错过机会', pathname: '/sim', search: '?status=missed' },
     { id: 'loss', label: '亏损复盘', pathname: '/sim', search: '?status=loss' },
   ],
   case: [
     { id: 'all', label: '全部', pathname: '/review-cases' },
     { id: 'focus', label: '重点', pathname: '/review-cases/focus' },
     { id: 'mistakes', label: '错题', pathname: '/review-cases/mistakes' },
+    { id: 'missed', label: '错过机会', pathname: '/review-cases', search: '?caseType=missed' },
     { id: 'unreviewed', label: '待复看', pathname: '/review-cases/unreviewed' },
     { id: 'reviewed', label: '已掌握', pathname: '/review-cases/reviewed' },
   ],
 }
 
-export function getWorkspacePrimaryViews(kind: WorkspaceKind): readonly WorkspaceViewTarget[] {
-  return PRIMARY_VIEWS[kind]
+function quickWorkspaceForKind(kind: WorkspaceKind): SidebarQuickWorkspace | null {
+  if (kind === 'trade') return 'trade'
+  if (kind === 'paper') return 'paper'
+  if (kind === 'case') return 'case'
+  return null
+}
+
+/** 快捷视图 id 与侧栏跨工作区能力的对应关系 */
+export function capabilityForWorkspaceViewId(viewId: string): SidebarCapabilityId | null {
+  if (viewId === 'missed' || viewId.endsWith('-missed')) return 'missed'
+  if (viewId === 'active' || viewId === 'open') return 'active'
+  return null
+}
+
+/** 按侧栏能力的可见工作区过滤快捷视图；未传侧栏配置时保持全量（便于契约测试） */
+export function filterViewsBySidebarCapabilities(
+  kind: WorkspaceKind,
+  views: readonly WorkspaceViewTarget[],
+  sidebarItems?: readonly SidebarWorkspaceItem[],
+): WorkspaceViewTarget[] {
+  if (!sidebarItems) return [...views]
+  const workspace = quickWorkspaceForKind(kind)
+  if (!workspace) return [...views]
+  return views.filter((view) => {
+    const capability = capabilityForWorkspaceViewId(view.id)
+    if (!capability) return true
+    return isCapabilityEnabledForWorkspace(sidebarItems, capability, workspace)
+  })
+}
+
+export function getWorkspacePrimaryViews(
+  kind: WorkspaceKind,
+  sidebarItems?: readonly SidebarWorkspaceItem[],
+): readonly WorkspaceViewTarget[] {
+  return filterViewsBySidebarCapabilities(kind, PRIMARY_VIEWS[kind], sidebarItems)
 }
 
 export function matchesWorkspaceView(
@@ -81,8 +122,9 @@ export function getActiveWorkspaceView(
   kind: WorkspaceKind,
   pathname: string,
   search: string,
+  sidebarItems?: readonly SidebarWorkspaceItem[],
 ): WorkspaceViewTarget | undefined {
-  return [...PRIMARY_VIEWS[kind]]
+  return [...getWorkspacePrimaryViews(kind, sidebarItems)]
     .filter((target) => matchesWorkspaceView(target, pathname, search))
     .sort((left, right) => {
       const leftSpecificity = new URLSearchParams(left.search ?? '').size

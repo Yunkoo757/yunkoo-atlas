@@ -450,9 +450,89 @@
   outline: none;
 }
 
+.sb-target-row-text {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .sb-target-row-label {
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-target-row-domain {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-capability-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px 8px;
+}
+
+.sb-capability-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.sb-capability-title {
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.sb-capability-hint {
+  margin: 0;
+  padding: 0 4px 2px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.sb-capability-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sb-capability-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-6);
+  cursor: pointer;
+}
+
+.sb-capability-option:hover,
+.sb-capability-option.is-checked {
+  background: var(--bg-hover);
+}
+
+.sb-capability-option input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.sb-capability-option-label {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

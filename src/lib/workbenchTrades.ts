@@ -145,7 +145,17 @@ function matchesListFilter(
       break
   }
 
-  if (filter.tradeKind ? trade.tradeKind !== filter.tradeKind : !isAccountTrade(trade)) return false
+  // 三域隔离：交易日志系统视图未显式声明时默认实盘；案例 / 模拟必须自带 tradeKind。
+  const scopedKind =
+    filter.tradeKind ??
+    (filter.type === 'starred' || filter.type === 'missed' || filter.type === 'active'
+      ? 'live'
+      : undefined)
+  if (scopedKind) {
+    if (trade.tradeKind !== scopedKind) return false
+  } else if (!isAccountTrade(trade)) {
+    return false
+  }
 
   if (filter.tradeKind === 'case') {
     return matchesReviewCaseScope(trade, filter.reviewCaseScope, starredIds)
