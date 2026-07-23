@@ -11,7 +11,10 @@ import {
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { SCHEMA_VERSION } from '@/storage/types'
 import { assertCompatibleManifest } from '@/storage/manifestCompatibility'
-import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
+import {
+  assertValidPersistedSnapshot,
+  isValidPersistedTrade,
+} from '@/storage/snapshotValidation'
 import { collectAssetIdsFromSnapshot } from '@/storage/assets'
 import { isSafeAssetId } from '@/storage/assetId'
 import { buildAssetInventory } from '@/storage/assetInventory'
@@ -38,6 +41,7 @@ const STORE_ASSETS = 'assets'
 const STORE_META = 'meta'
 const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
 const MAX_OBJECT_URL_CACHE = 128
+const SNAPSHOT_VALIDATION_BATCH_SIZE = 1_000
 const REQUIRED_STORES = [STORE_SNAPSHOT, STORE_ASSETS, STORE_META] as const
 
 type AssetRecord = IndexedDbAssetRecord
@@ -52,11 +56,30 @@ function yieldMainThread(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+async function assertValidPersistedSnapshotCooperatively(
+  snapshot: PersistedSnapshot,
+  label: string,
+): Promise<void> {
+  const trades = (snapshot as unknown as { trades?: unknown }).trades
+  if (!Array.isArray(trades)) throw new Error(`${label} is missing trades or strategies`)
+
+  const tradeIds = new Set<string>()
+  for (let index = 0; index < trades.length; index += 1) {
+    if (index % SNAPSHOT_VALIDATION_BATCH_SIZE === 0) await yieldMainThread()
+    const trade = trades[index]
+    if (!isValidPersistedTrade(trade)) throw new Error(`${label} contains an invalid trade`)
+    if (tradeIds.has(trade.id)) throw new Error(`${label} contains duplicate trade ids`)
+    tradeIds.add(trade.id)
+  }
+
+  assertValidPersistedSnapshot({ ...snapshot, trades: [] }, label)
+}
+
 async function prepareIndexedDbMutation(
   input: RevisionedLibraryMutation,
 ): Promise<PreparedIndexedDbMutation> {
   await yieldMainThread()
-  assertValidPersistedSnapshot(input.snapshot, 'Revisioned browser snapshot')
+  await assertValidPersistedSnapshotCooperatively(input.snapshot, 'Revisioned browser snapshot')
   if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) {
     throw new Error('expectedRevision must be a non-negative safe integer')
   }

@@ -19,6 +19,8 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
     /async function prepareIndexedDbMutation\([\s\S]*?\n}\n\nexport \{ StorageRevisionConflictError/,
   )?.[0] ?? ''
   assert.match(prepareMutation, /\{\s*await yieldMainThread\(\)/)
+  assert.match(prepareMutation, /assertValidPersistedSnapshotCooperatively/)
+  assert.match(adapter, /index % SNAPSHOT_VALIDATION_BATCH_SIZE === 0[\s\S]*?await yieldMainThread\(\)/)
   const saveSnapshot = adapter.match(
     /async saveSnapshot\(snapshot: PersistedSnapshot\): Promise<void> \{[\s\S]*?\n  }/,
   )?.[0] ?? ''
