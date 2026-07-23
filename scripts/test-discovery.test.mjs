@@ -12,7 +12,9 @@ import {
 } from './test-discovery.mjs'
 
 async function withFixture(run) {
-  const root = await fs.mkdtemp(path.join(process.cwd(), '.tmp-test-discovery-'))
+  const fixtureParent = path.join(process.cwd(), 'test-results')
+  await fs.mkdir(fixtureParent, { recursive: true })
+  const root = await fs.mkdtemp(path.join(fixtureParent, '.tmp-test-discovery-'))
   try {
     await run(root)
   } finally {
