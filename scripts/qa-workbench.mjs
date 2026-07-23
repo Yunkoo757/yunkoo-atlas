@@ -204,17 +204,44 @@ try {
   const reviewedTradeRef = decodeURIComponent(new URL(page.url()).pathname.split('/').pop() ?? '')
   const liveActivityText = await readSystemActivity()
   const liveProperties = await page.locator('.dv-props').innerText()
-  const createdTrade = await page.evaluate(async (tradeRef) => {
-    const { useStore } = await import('/src/store/useStore.ts')
-    const trade = useStore.getState().trades.find((candidate) => candidate.ref === tradeRef)
-    return trade
-      ? {
-          openedAt: trade.openedAt,
-          side: trade.side,
-          tradeKind: trade.tradeKind,
-          strategyId: trade.strategyId,
+  await page.waitForFunction(async (tradeRef) => {
+    return new Promise((resolve) => {
+      const open = indexedDB.open('linear-journal-v3')
+      open.onerror = () => resolve(false)
+      open.onsuccess = () => {
+        const database = open.result
+        const request = database.transaction('snapshot', 'readonly').objectStore('snapshot').get('main')
+        request.onerror = () => { database.close(); resolve(false) }
+        request.onsuccess = () => {
+          const found = request.result?.trades?.some((candidate) => candidate.ref === tradeRef) === true
+          database.close()
+          resolve(found)
         }
-      : null
+      }
+    })
+  }, reviewedTradeRef, { timeout: 10_000 })
+  const createdTrade = await page.evaluate(async (tradeRef) => {
+    return new Promise((resolve) => {
+      const open = indexedDB.open('linear-journal-v3')
+      open.onerror = () => resolve(null)
+      open.onsuccess = () => {
+        const database = open.result
+        const request = database.transaction('snapshot', 'readonly').objectStore('snapshot').get('main')
+        request.onerror = () => { database.close(); resolve(null) }
+        request.onsuccess = () => {
+          const trade = request.result?.trades?.find((candidate) => candidate.ref === tradeRef)
+          database.close()
+          resolve(trade
+            ? {
+                openedAt: trade.openedAt,
+                side: trade.side,
+                tradeKind: trade.tradeKind,
+                strategyId: trade.strategyId,
+              }
+            : null)
+        }
+      }
+    })
   }, reviewedTradeRef)
   record(
     '今日记录快速创建实盘交易',
