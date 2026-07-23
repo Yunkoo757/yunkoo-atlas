@@ -632,7 +632,24 @@ try {
   await restoredEditor.getByRole('button', { name: '确认恢复默认' }).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 4 \/ 8/)
   await restoredEditor.getByRole('button', { name: '完成' }).click()
-  await page.waitForTimeout(250)
+  await page.waitForFunction(async () => {
+    return new Promise((resolve) => {
+      const open = indexedDB.open('linear-journal-v3')
+      open.onerror = () => resolve(false)
+      open.onsuccess = () => {
+        const database = open.result
+        const request = database.transaction('snapshot', 'readonly').objectStore('snapshot').get('main')
+        request.onerror = () => { database.close(); resolve(false) }
+        request.onsuccess = () => {
+          const ids = request.result?.display?.sidebarWorkspaceItems?.map((item) => item.id)
+          database.close()
+          resolve(JSON.stringify(ids) === JSON.stringify([
+            'system:active', 'system:favorites', 'system:missed', 'system:paper',
+          ]))
+        }
+      }
+    })
+  }, undefined, { timeout: 10_000 })
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   const defaultLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
