@@ -50,6 +50,7 @@ interface PreparedIndexedDbMutation {
   referencedIds: Set<string>
   putIds: Set<string>
   records: AssetRecord[]
+  storedSnapshot: Blob
 }
 
 function yieldMainThread(): Promise<void> {
@@ -104,6 +105,36 @@ async function collectAssetIdsFromSnapshotCooperatively(
   return assetIds
 }
 
+async function serializeSnapshotToBlobCooperatively(
+  snapshot: PersistedSnapshot,
+): Promise<Blob> {
+  const { trades, ...snapshotWithoutTrades } = snapshot
+  const parts: Blob[] = [new Blob(['{"trades":['])]
+  for (let start = 0; start < trades.length; start += SNAPSHOT_VALIDATION_BATCH_SIZE) {
+    await yieldMainThread()
+    const end = Math.min(start + SNAPSHOT_VALIDATION_BATCH_SIZE, trades.length)
+    const batch: string[] = []
+    for (let index = start; index < end; index += 1) batch.push(JSON.stringify(trades[index]))
+    parts.push(new Blob([start > 0 ? ',' : '', batch.join(',')]))
+  }
+  const remainder = JSON.stringify(snapshotWithoutTrades)
+  parts.push(new Blob([remainder === '{}' ? ']}' : `],${remainder.slice(1)}`]))
+  return new Blob(parts, { type: 'application/json' })
+}
+
+async function decodeStoredSnapshot(
+  storedSnapshot: unknown,
+  manifest: LibraryManifest,
+): Promise<PersistedSnapshot> {
+  const rawSnapshot = storedSnapshot instanceof Blob
+    ? JSON.parse(await storedSnapshot.text()) as unknown
+    : storedSnapshot
+  return decodeCanonicalSnapshot(rawSnapshot, {
+    version: manifest.schemaVersion,
+    label: 'Stored browser snapshot',
+  })
+}
+
 async function prepareIndexedDbMutation(
   input: RevisionedLibraryMutation,
 ): Promise<PreparedIndexedDbMutation> {
@@ -149,7 +180,8 @@ async function prepareIndexedDbMutation(
     }
   }
   await yieldMainThread()
-  return { referencedIds, putIds, records }
+  const storedSnapshot = await serializeSnapshotToBlobCooperatively(input.snapshot)
+  return { referencedIds, putIds, records, storedSnapshot }
 }
 
 export { StorageRevisionConflictError } from '@/storage/adapter'
@@ -316,16 +348,13 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       const revisionRequest = tx.objectStore(STORE_META).get(SNAPSHOT_REVISION_KEY)
       const manifestRequest = tx.objectStore(STORE_META).get('manifest')
       let failure: unknown = null
-      tx.oncomplete = () => {
+      tx.oncomplete = async () => {
         try {
           const manifest = manifestRequest.result as LibraryManifest
           assertCompatibleManifest(manifest)
           const snapshot = snapshotRequest.result === undefined
             ? null
-            : decodeCanonicalSnapshot(snapshotRequest.result, {
-                version: manifest.schemaVersion,
-                label: 'Stored browser snapshot',
-              })
+            : await decodeStoredSnapshot(snapshotRequest.result, manifest)
           resolve({
             revision: normalizeSnapshotRevision(revisionRequest.result),
             snapshot,
@@ -435,7 +464,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         if (stopped) return
         try {
           queueIndexedDbSnapshotAssetWrites(snapshotStore, assetStore, {
-            snapshot: input.snapshot,
+            snapshot: prepared.storedSnapshot,
             assetMode: input.assetMode ?? 'merge',
             assetPuts,
             assetDeletes: input.assetDeletes,

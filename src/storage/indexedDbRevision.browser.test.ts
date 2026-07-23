@@ -286,7 +286,10 @@ async function run(): Promise<void> {
   }
   assert(corruptCommitRejected, '非法 revision 元数据不得按 0 绕过 CAS')
   assert(await readRawValue('meta', 'snapshotRevision') === 'corrupt-revision', '拒绝后必须保留损坏元数据供诊断')
-  const rawSnapshot = await readRawValue('snapshot', 'main') as PersistedSnapshot
+  const rawSnapshotValue = await readRawValue('snapshot', 'main')
+  const rawSnapshot = rawSnapshotValue instanceof Blob
+    ? JSON.parse(await rawSnapshotValue.text()) as PersistedSnapshot
+    : rawSnapshotValue as PersistedSnapshot
   assert(rawSnapshot.profile?.displayName === 'legacy', '非法 revision 拒绝后不得覆盖旧快照')
   await mutateRawRevision('one')
 
