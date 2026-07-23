@@ -1,49 +1,49 @@
 {
   "version": 1,
   "approvedBy": "Yunkoo老师",
-  "approvedAt": "2026-07-23T13:33:30.000Z",
-  "gitCommit": "c56f4d0a1431b03f4ed789e3ea9845cfcfc96e9f",
-  "gitTree": "2a3b2858d0639993e2304d6730e86112192f5b9a",
+  "approvedAt": "2026-07-23T13:54:00.000Z",
+  "gitCommit": "a15feaa821132171b500e6ef29159dcaacc6a993",
+  "gitTree": "5e2e48f64afaea314749877698300057a5302ce4",
   "workingTreeDirty": false,
-  "sourceFingerprint": "9a11a8870bd49c3a885c924cc72864939ce6bd23567d21f34d3d3bf1ab84b0dd",
-  "sourceIdentity": "git-tree:2a3b2858d0639993e2304d6730e86112192f5b9a",
-  "basis": "per-metric maximum of two same-source 5+30 formal attempts with calibrated 10K/20K Long Task observation",
+  "sourceFingerprint": "ad385693244de5fe0b7a98a1ba1b13cab52af0bc3c809c9edaab1abe05b8d933",
+  "sourceIdentity": "git-tree:5e2e48f64afaea314749877698300057a5302ce4",
+  "basis": "per-metric maximum of two same-source 5+30 formal attempts after calibrated observer evidence; reapproved for low-millisecond stale-conflict variance while preserving the 250 ms hard SLO",
   "evidence": [
     {
       "attempt": 1,
       "persistence": {
-        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-1/persistence-release.json",
-        "sha256": "e960800b6c1132558e88182e098a44d20b34c330ef107abcc91f1b4c390becb0"
+        "path": "scripts/persistence-baseline-evidence/a15feaa/attempt-1/persistence-release.json",
+        "sha256": "ba71ad29ecc816672fef7c87c41d2b15dadb7add53b4827417f2975c6ff45994"
       },
       "webZip": {
-        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-1/web-zip-release.json",
-        "sha256": "ae21cf0b79b84386a2833fc622e2cb4a56b206a87c729144552d677920b08625"
+        "path": "scripts/persistence-baseline-evidence/a15feaa/attempt-1/web-zip-release.json",
+        "sha256": "9856360284c1540cadb99cd6767940f9c002a4809293d57a51927b68a8e434b8"
       }
     },
     {
       "attempt": 2,
       "persistence": {
-        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-2/persistence-release.json",
-        "sha256": "d728543bdca3dde5665db54f1550a89f1a8e92dd6475ef2481ad6a7e0e0f2989"
+        "path": "scripts/persistence-baseline-evidence/a15feaa/attempt-2/persistence-release.json",
+        "sha256": "63d6b7bb1a850a03b168422fa01e5c35ed0ce050931243db7203a9ff31b96826"
       },
       "webZip": {
-        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-2/web-zip-release.json",
-        "sha256": "d37b6ba9a2ce80a6baa53ecfda6c608b0da4fc183a3e1131c276c0a9bba0580a"
+        "path": "scripts/persistence-baseline-evidence/a15feaa/attempt-2/web-zip-release.json",
+        "sha256": "a80a285a16f563fb91782d82d5e69825467da61b52f0a65ec3443b23a7d069d3"
       }
     }
   ],
   "metrics": {
-    "web10kSaveP95Ms": 158.5,
-    "web20kSaveP95Ms": 305.5,
-    "web10kDirtyConfirmedP95Ms": 588.2999999970198,
-    "web20kDirtyConfirmedP95Ms": 743,
-    "web10kStaleConflictP95Ms": 13.200000002980232,
-    "web20kStaleConflictP95Ms": 17,
-    "electron10kSaveP95Ms": 613.6039999999921,
-    "electron20kSaveP95Ms": 1107.5810000000056,
-    "quitCoordinatorP95Ms": 1626.7145000000019,
+    "web10kSaveP95Ms": 146.1000000089407,
+    "web20kSaveP95Ms": 297.5,
+    "web10kDirtyConfirmedP95Ms": 582.5999999940395,
+    "web20kDirtyConfirmedP95Ms": 750.4000000059605,
+    "web10kStaleConflictP95Ms": 18.5,
+    "web20kStaleConflictP95Ms": 15.5,
+    "electron10kSaveP95Ms": 589.9724999999744,
+    "electron20kSaveP95Ms": 1074.2771000000066,
+    "quitCoordinatorP95Ms": 1580.0933000000077,
     "web10kMaxLongTaskMs": 0,
     "web20kMaxLongTaskMs": 0,
-    "webZipPeakJsHeapBytes": 437418281
+    "webZipPeakJsHeapBytes": 437402061
   }
 }

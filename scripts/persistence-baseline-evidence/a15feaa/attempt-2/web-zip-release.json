@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "mode": "release",
+  "generatedAt": "2026-07-23T13:53:12.831Z",
+  "gitCommit": "a15feaa821132171b500e6ef29159dcaacc6a993",
+  "gitTree": "5e2e48f64afaea314749877698300057a5302ce4",
+  "workingTreeDirty": false,
+  "sourceFingerprint": "ad385693244de5fe0b7a98a1ba1b13cab52af0bc3c809c9edaab1abe05b8d933",
+  "sourceIdentity": "git-tree:5e2e48f64afaea314749877698300057a5302ce4",
+  "declaredExpandedBytes": 267386880,
+  "limitBytes": 536870912,
+  "pageCrashed": false,
+  "compressedBytes": 1168724,
+  "expandedBytes": 267388924,
+  "peakJsHeapBytes": 437398969,
+  "baselineJsHeapBytes": 4251049,
+  "revision": 1,
+  "assetCount": 8,
+  "status": "pass",
+  "failures": []
+}
