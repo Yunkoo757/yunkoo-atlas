@@ -137,6 +137,40 @@ export function testReviewSessionCaseScopeUsesSharedStarredFocusRule(): void {
     '重点 scope 应与案例页一致地包含星标案例')
 }
 
+export function testReviewSessionMistakesScopeExcludesMissedCases(): void {
+  const cases: Trade[] = [
+    {
+      ...baseTrade,
+      id: 'mistake-case',
+      ref: 'CAS-1',
+      tradeKind: 'case',
+      caseType: 'mistake',
+      reviewCategory: 'mistake',
+      mistakeTags: ['追单'],
+    },
+    {
+      ...baseTrade,
+      id: 'missed-with-tags',
+      ref: 'CAS-2',
+      tradeKind: 'case',
+      status: 'missed',
+      caseType: 'missed',
+      reviewCategory: 'mistake',
+      mistakeTags: ['情绪化交易'],
+      pnl: null,
+      rMultiple: 2,
+    },
+  ]
+  const pool = buildReviewSessionPool(cases, {
+    ...DEFAULT_REVIEW_SESSION_FILTERS,
+    includeAccountTrades: false,
+    caseScope: 'mistakes',
+  }, new Set())
+
+  assert(pool.map((trade) => trade.id).join(',') === 'mistake-case',
+    '随机复盘错题 scope 不得抽到带错误标签的错过机会')
+}
+
 export function testReviewSessionShufflePreservesUniqueMembershipAndInput(): void {
   const input = ['a', 'b', 'c', 'd']
   const shuffled = shuffleReviewSessionIds(input, () => 0)

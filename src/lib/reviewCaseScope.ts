@@ -18,6 +18,8 @@ export function matchesReviewCaseScope(
     )
   }
   if (scope === 'mistakes') {
+    // 错过机会与错题互斥：未成交案例即使带错误标签也不进错题视图。
+    if (trade.caseType === 'missed' || trade.status === 'missed') return false
     return (
       trade.caseType === 'mistake' ||
       trade.reviewCategory === 'mistake' ||

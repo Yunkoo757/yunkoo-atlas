@@ -1130,12 +1130,16 @@ export function executeNotionImport(
       tags: preview.trade.tags ?? [],
       mistakeTags: preview.trade.mistakeTags ?? [],
       reviewStatus: 'unreviewed',
+      // 错过机会可保留 mistakeTags（为何错过），但不得把 reviewCategory 写成 mistake，
+      // 否则会与错题 scope 的 OR 判定交叉污染。
       reviewCategory:
         caseType === 'mistake'
           ? 'mistake'
           : caseType === 'ambiguous'
             ? 'ambiguous'
-            : preview.trade.reviewCategory ?? 'normal',
+            : caseType === 'missed'
+              ? 'normal'
+              : preview.trade.reviewCategory ?? 'normal',
       tradeKind,
       caseType,
       masteryState: tradeKind === 'case' ? 'new' : undefined,

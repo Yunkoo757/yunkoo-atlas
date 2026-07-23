@@ -640,7 +640,8 @@
   width: 22px;
   height: 22px;
   border-radius: 25%;
-  background: var(--accent);
+  background: transparent;
+  border: 0;
   color: var(--accent-text);
   display: grid;
   place-items: center;
@@ -648,6 +649,8 @@
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
   margin-top: 6px;
+  overflow: hidden;
+  line-height: 1;
 }
 .dv-comment-box {
   position: relative;

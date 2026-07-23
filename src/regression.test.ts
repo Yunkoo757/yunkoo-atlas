@@ -1846,6 +1846,23 @@ export function testNotionImportTargetsPaperAndCaseDomains(): void {
   assert(cases[0]?.caseType === 'exemplar' && cases[1]?.caseType === 'mistake', '案例类型应根据复盘信息推断')
   assert(cases.every((item) => item.masteryState === 'new' && Boolean(item.nextReviewAt)), '导入案例应进入首次复看流程')
   assert(cases.every((item) => Boolean(item.recordedAt)), '导入案例应记录知识库收录时间')
+
+  const missedPreview = preview(4)
+  missedPreview.trade.status = 'missed'
+  missedPreview.trade.mistakeTags = ['情绪化交易']
+  missedPreview.trade.reviewCategory = 'mistake'
+  const missedCase = executeNotionImport([missedPreview], [strategy], existingTrades, {
+    tradeKind: 'case',
+  }).trades[0]
+  assert(missedCase?.caseType === 'missed', '未成交案例导入必须推断为错过机会')
+  assert(
+    missedCase?.reviewCategory === 'normal',
+    '错过机会不得因错误标签把 reviewCategory 写成 mistake',
+  )
+  assert(
+    missedCase?.mistakeTags.includes('情绪化交易'),
+    '错过机会仍应保留错误标签作为「为何错过」的证据',
+  )
 }
 
 export function testReviewCaseTradeKindIsPreservedAndExcludedFromAccountTrades(): void {
@@ -2179,6 +2196,15 @@ export function testReviewCaseScopesFilterCaseRecords(): void {
     reviewCategory: 'normal',
     status: 'missed',
   }
+  const missedWithMistakeEvidence: Trade = {
+    ...trade,
+    id: 'missed-with-tags',
+    tradeKind: 'case',
+    caseType: 'missed',
+    status: 'missed',
+    reviewCategory: 'mistake',
+    mistakeTags: ['情绪化交易', '缺乏耐心'],
+  }
   const reviewedCase: Trade = {
     ...trade,
     id: 'reviewed-case',
@@ -2200,10 +2226,17 @@ export function testReviewCaseScopesFilterCaseRecords(): void {
     [],
   )
   const mistakes = filterTrades(
-    [focusCase, mistakeCase, ambiguousCase, missedCase, reviewedCase],
+    [focusCase, mistakeCase, ambiguousCase, missedCase, missedWithMistakeEvidence, reviewedCase],
     { type: 'all', tradeKind: 'case', reviewCaseScope: 'mistakes' },
     [],
   )
+  const missedFacet = getWorkbenchVisibleTrades({
+    trades: [mistakeCase, missedCase, missedWithMistakeEvidence],
+    filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' },
+    starredIds: [],
+    display: DEFAULT_DISPLAY,
+    search: '?caseType=missed',
+  })
   const reviewed = filterTrades(
     [focusCase, mistakeCase, reviewedCase],
     { type: 'all', tradeKind: 'case', reviewCaseScope: 'reviewed' },
@@ -2223,7 +2256,13 @@ export function testReviewCaseScopesFilterCaseRecords(): void {
   assert(focus.length === 1 && focus[0]?.id === focusCase.id, 'focus scope only keeps focus cases')
   assert(
     mistakes.length === 1 && mistakes[0]?.id === mistakeCase.id,
-    'mistakes scope must exclude ambiguous and missed cases without mistake evidence',
+    'mistakes scope must exclude ambiguous and all missed cases, including those with mistake tags',
+  )
+  assert(
+    missedFacet.length === 2 &&
+      missedFacet.some((item) => item.id === missedCase.id) &&
+      missedFacet.some((item) => item.id === missedWithMistakeEvidence.id),
+    'caseType=missed facet must still list missed cases that carry mistake tags',
   )
   assert(reviewed.length === 1 && reviewed[0]?.id === reviewedCase.id, 'reviewed scope only keeps reviewed cases')
   assert(
@@ -2290,6 +2329,19 @@ export function testBuildReviewCaseFromTradeCopiesReviewFieldsWithoutMutatingSou
   assert(!copy.deletedAt, 'copy is not deleted')
   assert(source.tradeKind === 'live', 'source trade kind is unchanged')
   assert(source.deletedAt === '2026-06-01T00:00:00.000Z', 'source deletion metadata is unchanged')
+
+  const missedSource: Trade = {
+    ...trade,
+    id: 'missed-source',
+    ref: 'TRD-10',
+    status: 'missed',
+    mistakeTags: ['犹豫未进'],
+    reviewCategory: 'mistake',
+  }
+  const missedCopy = buildReviewCaseFromTrade(missedSource, { id: 'missed-case', ref: 'CAS-9' })
+  assert(missedCopy.caseType === 'missed', '未成交来源必须提炼为错过机会案例')
+  assert(missedCopy.reviewCategory === 'normal', '错过机会案例不得继承 mistake 分类')
+  assert(missedCopy.mistakeTags.includes('犹豫未进'), '错过机会案例仍保留错误标签')
 }
 
 export function testGetNextReviewCaseRefUsesExistingCaseRefsOnly(): void {
