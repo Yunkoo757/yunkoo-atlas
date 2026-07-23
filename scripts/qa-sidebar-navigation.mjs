@@ -634,10 +634,13 @@ try {
   await restoredEditor.getByRole('button', { name: '确认恢复默认' }).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 4 \/ 8/)
   await restoredEditor.getByRole('button', { name: '完成' }).click()
-  await page.evaluate(async () => {
-    const { flushPersistNow } = await import('/src/storage/persist.ts')
-    await flushPersistNow()
-  })
+  await page.waitForFunction(async () => {
+    const [{ useSaveStatus }, { hasPendingChanges }] = await Promise.all([
+      import('/src/store/saveStatus.ts'),
+      import('/src/storage/persist.ts'),
+    ])
+    return useSaveStatus.getState().status === 'saved' && !hasPendingChanges()
+  }, undefined, { timeout: 10_000 })
   await page.waitForFunction(async () => {
     return new Promise((resolve) => {
       const open = indexedDB.open('linear-journal-v3')
@@ -667,11 +670,16 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   const expectedDefaultLabels = ['进行中', '星标交易', '错过的机会', '模拟回测']
-  await page.waitForFunction((expectedLabels) => {
-    const labels = [...document.querySelectorAll('.sb-workspace > a .sb-item-label')]
-      .map((element) => element.textContent?.trim() ?? '')
-    return JSON.stringify(labels) === JSON.stringify(expectedLabels)
-  }, expectedDefaultLabels, { timeout: 10_000 })
+  try {
+    await page.waitForFunction((expectedLabels) => {
+      const labels = [...document.querySelectorAll('.sb-workspace > a .sb-item-label')]
+        .map((element) => element.textContent?.trim() ?? '')
+      return JSON.stringify(labels) === JSON.stringify(expectedLabels)
+    }, expectedDefaultLabels, { timeout: 10_000 })
+  } catch (error) {
+    const actualLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
+    throw new Error(`Restore default reload did not converge: ${JSON.stringify(actualLabels)}`, { cause: error })
+  }
   const defaultLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
   expectEqual(defaultLabels, expectedDefaultLabels, 'Restore default must persist exact default names and order')
 

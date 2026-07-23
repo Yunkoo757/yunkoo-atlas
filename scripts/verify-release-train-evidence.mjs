@@ -4,6 +4,7 @@ import path from 'node:path'
 import { readGitProvenance } from './git-provenance.mjs'
 import {
   assetLifecyclePassed,
+  blobBridgeCoveragePassed,
   electronSafetyPassed,
   forcedKillPassed,
   fullQaPassed,
@@ -86,6 +87,24 @@ function check(name, matchingReports, predicate = (value) => value.status === 'p
   return result
 }
 
+function externalCheck(name, matchingReports, predicate) {
+  const reasons = []
+  const report = matchingReports.length === 1 ? matchingReports[0] : null
+  if (matchingReports.length === 0) reasons.push('missing report')
+  else if (matchingReports.length > 1) reasons.push(`ambiguous reports: ${matchingReports.length}`)
+  if (report?.parseError) reasons.push(`invalid JSON: ${report.parseError}`)
+  else if (report && !predicate(report.value)) reasons.push('reported status is not pass')
+  if (requireComplete && provenance.workingTreeDirty) reasons.push('current release working tree is dirty')
+  const result = {
+    name,
+    pass: reasons.length === 0,
+    file: report ? path.relative(root, report.file).replaceAll('\\', '/') : null,
+    reasons,
+  }
+  checks.push(result)
+  return result
+}
+
 const qa = check(
   'full-qa',
   findReports(reports, (_value, name) => name === 'qa-release-full.json'),
@@ -151,6 +170,11 @@ const generationDecision = check(
   findReports(reports, (_value, name) => name === 'generation-decision.json'),
   generationDecisionPassed,
 )
+const blobBridgeCoverage = externalCheck(
+  'blob-bridge-coverage',
+  findReports(reports, (_value, name) => name === 'blob-bridge-coverage.json'),
+  blobBridgeCoveragePassed,
+)
 
 const trainDefinitions = [
   {
@@ -162,7 +186,7 @@ const trainDefinitions = [
   },
   {
     id: 'release-1',
-    checks: [qa, jsonCompatibility, performance, drills],
+    checks: [qa, jsonCompatibility, performance, drills, blobBridgeCoverage],
     stop: 'blind put、stale overwrite、冲突恢复失败或正式持久化 SLO 失败即停止 Web 发布',
     rollback: 'Web Locks/通知层可关闭；revision/CAS 不得与 blind writer 混用',
     userRecovery: '导出冲突标签页副本，加载最新版，再由用户决定是否导入副本',
@@ -215,6 +239,10 @@ const gates = {
   generation: {
     status: [generationWindows, generationMac, generationDecision].every((item) => item.pass) ? 'pass' : 'hold',
     evidence: [generationWindows.name, generationMac.name, generationDecision.name],
+  },
+  blobBridgeCoverage: {
+    status: blobBridgeCoverage.pass ? 'pass' : 'hold',
+    evidence: [blobBridgeCoverage.name],
   },
 }
 const report = {

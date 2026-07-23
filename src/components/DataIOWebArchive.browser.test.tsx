@@ -16,6 +16,11 @@ import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
 import { MAX_JSON_FILE_BYTES } from '@/lib/importLimits'
 import { useToast } from '@/lib/toast'
+import { downloadExport, downloadWebJournalZip } from '@/lib/importExport'
+import {
+  clearWebOperationLogsForTests,
+  getWebOperationLogs,
+} from '@/storage/webOperationLogger'
 
 declare global {
   interface Window {
@@ -91,6 +96,72 @@ async function desktopArchiveFile(): Promise<File> {
   return new File([blob], 'desktop-exact.journal.zip', { type: 'application/zip' })
 }
 
+async function verifyExportOperationLogging(
+  adapter: ReturnType<typeof getIndexedDbAdapter>,
+): Promise<void> {
+  const originalClick = HTMLAnchorElement.prototype.click
+  const originalConsoleError = console.error
+  const expectedPersistFailures: string[] = []
+  HTMLAnchorElement.prototype.click = () => {}
+  console.error = (...args: unknown[]) => {
+    const message = args.map(String).join(' ')
+    if (message.includes('Persist failed Error: forced') && message.includes('export flush failure')) {
+      expectedPersistFailures.push(message)
+      return
+    }
+    originalConsoleError(...args)
+  }
+  try {
+    for (const [name, exporter] of [
+      ['JSON', downloadExport],
+      ['ZIP', downloadWebJournalZip],
+    ] as const) {
+      const revisionBefore = await adapter.getSnapshotRevision()
+      useStore.setState((state) => ({
+        display: { ...state.display, privacyMode: !state.display.privacyMode },
+      }))
+      clearWebOperationLogsForTests()
+      await exporter()
+      const successLogs = getWebOperationLogs().filter((record) => record.event.startsWith('archive:'))
+      assert(
+        successLogs.map((record) => record.event).join(',') === 'archive:start,archive:success',
+        `${name} export 必须只记录 start→success`,
+      )
+      assert(successLogs[0]?.revisionBefore === revisionBefore, `${name} export 必须记录 flush 前 revision`)
+      assert(successLogs[1]?.revisionAfter === revisionBefore + 1, `${name} export 必须记录 flush 后 revision`)
+
+      useStore.setState((state) => ({
+        display: { ...state.display, privacyMode: !state.display.privacyMode },
+      }))
+      const originalSaveSnapshot = adapter.saveSnapshot.bind(adapter)
+      adapter.saveSnapshot = async () => {
+        throw new Error(`forced ${name} export flush failure`)
+      }
+      clearWebOperationLogsForTests()
+      let rejected = false
+      try {
+        await exporter()
+      } catch {
+        rejected = true
+      } finally {
+        adapter.saveSnapshot = originalSaveSnapshot
+      }
+      assert(rejected, `${name} export 必须传播 flush 失败`)
+      const failureLogs = getWebOperationLogs().filter((record) => record.event.startsWith('archive:'))
+      assert(
+        failureLogs.map((record) => record.event).join(',') === 'archive:start,archive:failure',
+        `${name} export flush 失败必须只记录 start→failure`,
+      )
+      assert(!failureLogs.some((record) => record.status === 'success'), `${name} export 失败不得误报 success`)
+      await flushPersistNow()
+    }
+    assert(expectedPersistFailures.length === 2, 'JSON/ZIP fault injection 必须各触发一次真实 persist failure')
+  } finally {
+    HTMLAnchorElement.prototype.click = originalClick
+    console.error = originalConsoleError
+  }
+}
+
 async function run(): Promise<void> {
   await bootstrapStorage()
   const adapter = getIndexedDbAdapter()
@@ -111,6 +182,7 @@ async function run(): Promise<void> {
   })
   useStore.getState().hydrateProfile({ avatarId: null, displayName: '旧资料' })
   await flushPersistNow()
+  await verifyExportOperationLogging(adapter)
 
   const restoredAssetId = 'restored-archive-asset'
   const restoredSnapshot: PersistedSnapshot = {

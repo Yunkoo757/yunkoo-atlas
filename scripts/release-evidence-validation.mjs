@@ -27,7 +27,22 @@ export const EXPECTED_FINAL_CHECK_NAMES = [
   'generation-windows',
   'generation-macos',
   'generation-decision',
+  'blob-bridge-coverage',
 ]
+
+export function blobBridgeCoveragePassed(value) {
+  const startedAt = Date.parse(value?.coverageStartedAt)
+  const endedAt = Date.parse(value?.coverageEndedAt)
+  return value?.version === 1 && value.status === 'pass' &&
+    /^[0-9a-f]{40}$/i.test(value.bridgeCommit ?? '') &&
+    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value.bridgeVersion ?? '') &&
+    /^[0-9a-f]{64}$/i.test(value.deployedArtifactSha256 ?? '') &&
+    value.writerMode === 'object-only' &&
+    Array.isArray(value.readerModes) && value.readerModes.join(',') === 'object,blob' &&
+    Number.isFinite(startedAt) && Number.isFinite(endedAt) && endedAt > startedAt &&
+    typeof value.operator === 'string' && value.operator.trim().length > 0 &&
+    value.oldTabsRefreshedOrClosed === true
+}
 
 export function fullQaPassed(value) {
   const expectedCommands = [
@@ -71,7 +86,7 @@ export function finalQualityManifestPassed(value, provenance) {
     value.gitCommit === provenance.gitCommit && value.gitTree === provenance.gitTree &&
     value.sourceFingerprint === provenance.sourceFingerprint && value.sourceIdentity === provenance.sourceIdentity &&
     value.workingTreeDirty === false && provenance.workingTreeDirty === false &&
-    ['normal', 'compatibility', 'performance', 'dualPlatform', 'generation']
+    ['normal', 'compatibility', 'performance', 'dualPlatform', 'generation', 'blobBridgeCoverage']
       .every((gate) => value.gates?.[gate]?.status === 'pass') &&
     Array.isArray(value.checks) && value.checks.length === EXPECTED_FINAL_CHECK_NAMES.length &&
     value.checks.every((check, index) => check.name === EXPECTED_FINAL_CHECK_NAMES[index] && check.pass === true) &&
