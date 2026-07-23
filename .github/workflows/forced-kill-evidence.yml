@@ -1,4 +1,4 @@
-name: Electron Forced Kill Evidence
+name: Electron Platform Evidence
 
 on:
   workflow_dispatch:
@@ -8,7 +8,10 @@ on:
       - 'electron/forcedKillQa.ts'
       - 'electron/library/storage.ts'
       - 'electron/library/atomicFile.ts'
+      - 'electron/library/assetGc.test.ts'
+      - 'electron/library/assetInventory.test.ts'
       - 'scripts/run-forced-kill-evidence.mjs'
+      - 'scripts/run-asset-lifecycle-platform.mjs'
       - 'scripts/fixtures/forced-kill-evidence.test.mjs'
       - '.github/workflows/forced-kill-evidence.yml'
 
@@ -16,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  forced-kill:
+  platform-evidence:
     strategy:
       fail-fast: false
       matrix:
@@ -50,11 +53,23 @@ jobs:
       - name: Run forced-kill process evidence
         run: pnpm test:forced-kill:electron
 
+      - name: Run asset lifecycle evidence
+        run: pnpm test:asset-lifecycle:electron
+
       - name: Upload raw process evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: forced-kill-${{ runner.os }}
           path: test-results/forced-kill/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload raw asset lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-lifecycle-${{ runner.os }}
+          path: test-results/platform-evidence/*.json
           if-no-files-found: error
           retention-days: 30
