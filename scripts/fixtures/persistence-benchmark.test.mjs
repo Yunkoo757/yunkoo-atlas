@@ -15,6 +15,14 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   const adapter = readFileSync('src/storage/indexedDbAdapter.ts', 'utf8')
   assert.match(adapter, /preflightRevision = await this\.getSnapshotRevision\(\)/)
   assert.match(adapter, /return await this\.runLibraryMutation\(input\)/)
+  const prepareMutation = adapter.match(
+    /async function prepareIndexedDbMutation\([\s\S]*?\n}\n\nexport \{ StorageRevisionConflictError/,
+  )?.[0] ?? ''
+  assert.match(prepareMutation, /\{\s*await yieldMainThread\(\)/)
+  const saveSnapshot = adapter.match(
+    /async saveSnapshot\(snapshot: PersistedSnapshot\): Promise<void> \{[\s\S]*?\n  }/,
+  )?.[0] ?? ''
+  assert.doesNotMatch(saveSnapshot, /assertValidPersistedSnapshot/)
   assert.match(browser, /useStore\.getState\(\)\.updateTradeData/)
   assert.match(browser, /mutation < 25/)
   assert.match(browser, /25 次连续编辑必须合并为一次 durable revision/)

@@ -55,6 +55,7 @@ function yieldMainThread(): Promise<void> {
 async function prepareIndexedDbMutation(
   input: RevisionedLibraryMutation,
 ): Promise<PreparedIndexedDbMutation> {
+  await yieldMainThread()
   assertValidPersistedSnapshot(input.snapshot, 'Revisioned browser snapshot')
   if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) {
     throw new Error('expectedRevision must be a non-negative safe integer')
@@ -472,7 +473,6 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
-    assertValidPersistedSnapshot(snapshot, 'Browser snapshot')
     const referencedIds = new Set(collectAssetIdsFromSnapshot(snapshot))
     await this.commitAtCurrentRevision(() => ({
       snapshot,
