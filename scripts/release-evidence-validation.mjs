@@ -32,9 +32,9 @@ export const EXPECTED_FINAL_CHECK_NAMES = [
 ]
 
 export const APPROVED_BLOB_BRIDGE = Object.freeze({
-  commit: 'a861ecdb32f4a0ad81f2195a85ebcd6a8b466628',
+  commit: '9d7f8e85c13e045ea28af32682bd2694aca527cd',
   version: '1.2.25',
-  artifactSha256: '9c454f364b980cb75445228a447b4391e8855e5307834b7e1952bf31e21a3bc0',
+  artifactSha256: '3d9699d90b36adc0c37a1c46602525d8ab13f89a40a40feb42f744280c5ebdf3',
   minimumCoverageMs: 24 * 60 * 60 * 1_000,
 })
 
