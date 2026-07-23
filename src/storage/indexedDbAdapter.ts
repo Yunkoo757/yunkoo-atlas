@@ -54,6 +54,10 @@ interface PreparedIndexedDbMutation {
 }
 
 function yieldMainThread(): Promise<void> {
+  const scheduler = (globalThis as typeof globalThis & {
+    scheduler?: { yield?: () => Promise<void> }
+  }).scheduler
+  if (scheduler?.yield) return scheduler.yield()
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
@@ -554,10 +558,14 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
-    const referencedIds = await collectAssetIdsFromSnapshotCooperatively(snapshot)
+    let assetPuts: AssetRecord[] = []
+    if (this.preparedAssets.size > 0) {
+      const referencedIds = await collectAssetIdsFromSnapshotCooperatively(snapshot)
+      assetPuts = [...this.preparedAssets.values()].filter((asset) => referencedIds.has(asset.id))
+    }
     await this.commitAtCurrentRevision(() => ({
       snapshot,
-      assetPuts: [...this.preparedAssets.values()].filter((asset) => referencedIds.has(asset.id)),
+      assetPuts,
       reason: 'autosave',
     }))
   }

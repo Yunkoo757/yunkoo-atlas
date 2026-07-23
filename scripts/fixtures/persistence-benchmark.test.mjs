@@ -24,12 +24,14 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.match(prepareMutation, /collectAssetIdsFromSnapshotCooperatively/)
   assert.match(prepareMutation, /serializeSnapshotToBlobCooperatively/)
   assert.match(adapter, /index % SNAPSHOT_VALIDATION_BATCH_SIZE === 0[\s\S]*?await yieldMainThread\(\)/)
+  assert.match(adapter, /scheduler\?\.yield[\s\S]*?setTimeout/)
   assert.match(adapter, /storedSnapshot instanceof Blob[\s\S]*?storedSnapshot\.text\(\)/)
   const saveSnapshot = adapter.match(
     /async saveSnapshot\(snapshot: PersistedSnapshot\): Promise<void> \{[\s\S]*?\n  }/,
   )?.[0] ?? ''
   assert.doesNotMatch(saveSnapshot, /assertValidPersistedSnapshot/)
   assert.match(saveSnapshot, /await collectAssetIdsFromSnapshotCooperatively/)
+  assert.match(saveSnapshot, /this\.preparedAssets\.size > 0/)
   assert.match(browser, /useStore\.getState\(\)\.updateTradeData/)
   const updateTradeData = store.match(/updateTradeData: \(id, patch\) =>[\s\S]*?\n      transitionTradeKind:/)?.[0] ?? ''
   assert.match(updateTradeData, /trades\.findIndex/)
