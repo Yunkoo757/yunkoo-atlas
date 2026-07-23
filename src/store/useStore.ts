@@ -747,7 +747,8 @@ export const useStore = create<State>()((set, get) => ({
       updateTradeData: (id, patch) =>
         set((s) => {
           if ('tradeKind' in patch) return s
-          const previous = s.trades.find((t) => t.id === id)
+          const tradeIndex = s.trades.findIndex((trade) => trade.id === id)
+          const previous = s.trades[tradeIndex]
           if (!previous) return s
           const reviewPatch = patch.reviewStatus === undefined
             ? {}
@@ -765,10 +766,12 @@ export const useStore = create<State>()((set, get) => ({
           })
           const action = createStoreUndoAction('更新交易字段', [previous], [updated])
           if (!action) return s
+          const trades = s.trades.slice()
+          trades[tradeIndex] = updated
           return {
             undoStack: appendBoundedHistory(s.undoStack, action),
             redoStack: [],
-            trades: s.trades.map((trade) => (trade.id === id ? updated : trade)),
+            trades,
           }
         }),
       transitionTradeKind: (id, target) => {

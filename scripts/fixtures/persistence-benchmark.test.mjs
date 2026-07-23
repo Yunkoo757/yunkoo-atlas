@@ -7,6 +7,7 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   const browser = readFileSync('src/benchmarks/persistenceBenchmark.browser.ts', 'utf8')
   const electron = readFileSync('electron/library/persistenceBenchmark.ts', 'utf8')
   const webZip = readFileSync('scripts/benchmark-web-zip.mjs', 'utf8')
+  const store = readFileSync('src/store/useStore.ts', 'utf8').replace(/\r\n/g, '\n')
 
   assert.match(browser, /new IndexedDbStorageAdapter/)
   assert.match(browser, /adapter\.saveSnapshot/)
@@ -28,6 +29,9 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.doesNotMatch(saveSnapshot, /assertValidPersistedSnapshot/)
   assert.match(saveSnapshot, /await collectAssetIdsFromSnapshotCooperatively/)
   assert.match(browser, /useStore\.getState\(\)\.updateTradeData/)
+  const updateTradeData = store.match(/updateTradeData: \(id, patch\) =>[\s\S]*?\n      transitionTradeKind:/)?.[0] ?? ''
+  assert.match(updateTradeData, /trades\.findIndex/)
+  assert.doesNotMatch(updateTradeData, /trades\.map/)
   assert.match(browser, /mutation < 25/)
   assert.match(browser, /25 次连续编辑必须合并为一次 durable revision/)
   assert.match(browser, /const durations = await observeLongTasks[\s\S]*?updateTradeData/)
