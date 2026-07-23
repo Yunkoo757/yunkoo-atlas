@@ -24,3 +24,22 @@ export function testAtomicWriteReplacesTheCompleteFileAndCleansTemporaryData(): 
     fs.rmSync(root, { recursive: true, force: true })
   }
 }
+
+export function testAtomicFileHookRunsAfterDurableTempAndBeforeReplace(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-atomic-hook-'))
+  const target = path.join(root, 'journal.db')
+  fs.writeFileSync(target, 'confirmed', 'utf8')
+  try {
+    let observedTemporaryPath = ''
+    writeFileAtomicallySync(target, Buffer.from('pending'), undefined, (temporaryPath) => {
+      observedTemporaryPath = temporaryPath
+      if (!fs.existsSync(temporaryPath)) throw new Error('原子临时文件尚不存在')
+      if (fs.readFileSync(temporaryPath, 'utf8') !== 'pending') throw new Error('原子临时文件内容未写完')
+      if (fs.readFileSync(target, 'utf8') !== 'confirmed') throw new Error('beforeReplace 前目标文件已被替换')
+    })
+    if (!observedTemporaryPath) throw new Error('beforeReplace 钩子未执行')
+    if (fs.readFileSync(target, 'utf8') !== 'pending') throw new Error('钩子返回后未完成原子替换')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}

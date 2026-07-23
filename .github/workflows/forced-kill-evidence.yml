@@ -8,6 +8,7 @@ on:
       - 'electron/forcedKillQa.ts'
       - 'electron/library/storage.ts'
       - 'electron/library/atomicFile.ts'
+      - 'electron/library/atomicFile.test.ts'
       - 'electron/library/assetGc.test.ts'
       - 'electron/library/assetInventory.test.ts'
       - 'scripts/run-forced-kill-evidence.mjs'

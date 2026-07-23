@@ -136,6 +136,7 @@ export class LibraryStorage {
   private paths: ReturnType<typeof ensureLibraryDirs>
   private readonly allowCreate: boolean
   private readonly writeImportDatabase: typeof writeFileAtomicallySync
+  private readonly beforeAtomicReplace?: (temporaryPath: string) => void
   private assetPurgePreviews = new Map<string, {
     snapshotJson: string
     candidateIds: string[]
@@ -148,11 +149,13 @@ export class LibraryStorage {
       ensureDirectories?: boolean
       allowCreate?: boolean
       writeImportDatabase?: typeof writeFileAtomicallySync
+      beforeAtomicReplace?: (temporaryPath: string) => void
     } = {},
   ) {
     const resolved = path.resolve(libraryPath)
     this.allowCreate = options.allowCreate !== false
     this.writeImportDatabase = options.writeImportDatabase ?? writeFileAtomicallySync
+    this.beforeAtomicReplace = options.beforeAtomicReplace
     this.paths = options.ensureDirectories === false
       ? getLibraryPaths(resolved)
       : ensureLibraryDirs(resolved)
@@ -272,7 +275,7 @@ export class LibraryStorage {
   private persistDb(): void {
     if (!this.db) return
     const data = this.db.export()
-    writeFileAtomicallySync(this.paths.dbFile, Buffer.from(data))
+    writeFileAtomicallySync(this.paths.dbFile, Buffer.from(data), undefined, this.beforeAtomicReplace)
   }
 
   readManifest(): LibraryManifest {

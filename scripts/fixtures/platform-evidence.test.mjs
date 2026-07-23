@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
 
-import { parseDiskutilFileSystem } from '../file-system-type.mjs'
+import { parseDfDevice, parseDiskutilFileSystem } from '../file-system-type.mjs'
 
 test('附件生命周期平台门运行真实 Electron 测试并输出可追溯报告', () => {
   const runner = fs.readFileSync('scripts/run-asset-lifecycle-platform.mjs', 'utf8')
@@ -25,4 +25,9 @@ test('macOS 文件系统类型从 diskutil plist 读取并拒绝路径字符', (
     <plist><dict><key>FilesystemName</key><string>/</string></dict></plist>
   `), /无法识别安全的文件系统类型/)
   assert.throws(() => parseDiskutilFileSystem('<plist><dict></dict></plist>'), /缺少/)
+  assert.equal(parseDfDevice(`
+Filesystem 512-blocks Used Available Capacity Mounted on
+/dev/disk3s5 1000 100 900 10% /System/Volumes/Data
+  `), '/dev/disk3s5')
+  assert.throws(() => parseDfDevice('Filesystem Mounted on\n/  /'), /不安全的设备名/)
 })

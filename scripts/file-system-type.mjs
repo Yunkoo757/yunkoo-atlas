@@ -17,6 +17,16 @@ export function parseDiskutilFileSystem(plist) {
   throw new Error('diskutil plist 缺少 FilesystemName/FilesystemType')
 }
 
+export function parseDfDevice(output) {
+  const lines = output.trim().split(/\r?\n/).filter(Boolean)
+  if (lines.length < 2) throw new Error('df 输出缺少文件系统记录')
+  const device = lines.at(-1).trim().split(/\s+/)[0]
+  if (!/^\/dev\/[A-Za-z0-9._-]+$/.test(device)) {
+    throw new Error(`df 返回了不安全的设备名：${JSON.stringify(device)}`)
+  }
+  return device
+}
+
 export function detectFileSystem(directory, platform = process.platform) {
   if (platform === 'win32') {
     const driveLetter = path.parse(path.resolve(directory)).root.slice(0, 1)
@@ -27,7 +37,8 @@ export function detectFileSystem(directory, platform = process.platform) {
     ))
   }
   if (platform === 'darwin') {
-    const plist = execFileSync('diskutil', ['info', '-plist', directory], { encoding: 'utf8' })
+    const device = parseDfDevice(execFileSync('df', ['-P', directory], { encoding: 'utf8' }))
+    const plist = execFileSync('diskutil', ['info', '-plist', device], { encoding: 'utf8' })
     return parseDiskutilFileSystem(plist)
   }
   return normalizeFileSystemLabel(

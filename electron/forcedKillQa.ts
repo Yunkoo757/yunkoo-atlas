@@ -30,6 +30,11 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
   const storage = new LibraryStorage(libraryRoot, {
     ensureDirectories: mode === 'seed',
     allowCreate: mode === 'seed',
+    beforeAtomicReplace: mode === 'crash-save'
+      ? () => {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 30_000)
+        }
+      : undefined,
   })
   await storage.open()
 

@@ -20,6 +20,7 @@ export function writeFileAtomicallySync(
   filePath: string,
   data: string | NodeJS.ArrayBufferView,
   encoding?: BufferEncoding,
+  beforeReplace?: (temporaryPath: string) => void,
 ): boolean {
   const directory = path.dirname(filePath)
   fs.mkdirSync(directory, { recursive: true })
@@ -39,6 +40,7 @@ export function writeFileAtomicallySync(
     fs.fsyncSync(descriptor)
     fs.closeSync(descriptor)
     descriptor = null
+    beforeReplace?.(temporaryPath)
     fs.renameSync(temporaryPath, filePath)
     return fsyncDirectorySync(directory)
   } finally {
