@@ -12,7 +12,7 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.match(browser, /adapter\.saveSnapshot/)
   assert.match(browser, /loadSnapshotEnvelope/)
   assert.match(browser, /StorageRevisionConflictError/)
-  const adapter = readFileSync('src/storage/indexedDbAdapter.ts', 'utf8')
+  const adapter = readFileSync('src/storage/indexedDbAdapter.ts', 'utf8').replace(/\r\n/g, '\n')
   assert.match(adapter, /preflightRevision = await this\.getSnapshotRevision\(\)/)
   assert.match(adapter, /return await this\.runLibraryMutation\(input\)/)
   const prepareMutation = adapter.match(
