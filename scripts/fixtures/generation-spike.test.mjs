@@ -96,4 +96,6 @@ test('Spike 原始报告携带跨平台稳定的源码身份', () => {
   const runner = fs.readFileSync('scripts/spikes/electron-generation/run-generation-spike.mjs', 'utf8')
   assert.match(runner, /gitTree: provenance\.gitTree/)
   assert.match(runner, /sourceIdentity: provenance\.sourceIdentity/)
+  assert.match(runner, /import \{ detectFileSystem \} from '\.\.\/\.\.\/file-system-type\.mjs'/)
+  assert.doesNotMatch(runner, /function detectFileSystem/)
 })

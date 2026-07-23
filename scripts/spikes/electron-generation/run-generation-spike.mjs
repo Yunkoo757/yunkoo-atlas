@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -13,28 +12,13 @@ import {
   initializePrototype,
   recoverGeneration,
 } from './generation-prototype.mjs'
+import { detectFileSystem } from '../../file-system-type.mjs'
 import { readGitProvenance } from '../../git-provenance.mjs'
 
 const root = process.cwd()
 const outputIndex = process.argv.indexOf('--output')
 const explicitOutput = outputIndex >= 0 ? process.argv[outputIndex + 1] : null
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-generation-spike-'))
-
-function detectFileSystem(directory) {
-  if (process.platform === 'win32') {
-    const driveLetter = path.parse(path.resolve(directory)).root.slice(0, 1)
-    const output = execFileSync(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', `(Get-Volume -DriveLetter '${driveLetter}').FileSystem`],
-      { encoding: 'utf8' },
-    ).trim()
-    return output || 'unknown'
-  }
-  if (process.platform === 'darwin') {
-    return execFileSync('stat', ['-f', '%T', directory], { encoding: 'utf8' }).trim().toUpperCase()
-  }
-  return execFileSync('stat', ['-f', '-c', '%T', directory], { encoding: 'utf8' }).trim()
-}
 
 function runFault(name, options = {}) {
   const scenarioRoot = createScenarioRoot(workspace, name.replaceAll(':', '-'))
