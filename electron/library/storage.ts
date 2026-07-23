@@ -11,11 +11,13 @@ import type {
 } from '../../src/storage/adapter'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { ensureLibraryDirs, findAttachmentFile, getLibraryPath, getLibraryPaths } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
 import { buildAssetInventory } from '../../src/storage/assetInventory'
+import { OperationalError } from '../../src/lib/operationalError'
 
 const SNAPSHOT_KEY = 'snapshot'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
@@ -320,8 +322,10 @@ export class LibraryStorage {
     const value = this.readSnapshotJson()
     if (value === null) return null
     const snapshot: unknown = JSON.parse(value)
-    assertValidPersistedSnapshot(snapshot, 'Stored library snapshot')
-    return snapshot
+    return decodeCanonicalSnapshot(snapshot, {
+      version: this.readManifest().schemaVersion,
+      label: 'Stored library snapshot',
+    })
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {
@@ -627,17 +631,17 @@ export class LibraryStorage {
       prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
       prepared.totalBytes !== preview.totalBytes
     ) {
-      throw new Error('附件清理预览无效或已使用，请重新扫描')
+      throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
     }
     if (this.readSnapshotJson() !== prepared.snapshotJson) {
-      throw new Error('资料库在预览后已变化，请重新扫描附件')
+      throw new OperationalError('asset-gc-stale-revision', '资料库在预览后已变化，请重新扫描附件')
     }
     const currentSnapshot = this.loadSnapshot()!
     const liveIds = new Set(
       buildAssetInventory(currentSnapshot, []).referenced.map((item) => item.id),
     )
     if (prepared.candidateIds.some((id) => liveIds.has(id))) {
-      throw new Error('清理候选已重新被笔记引用，请重新扫描')
+      throw new OperationalError('asset-reference-missing', '清理候选已重新被笔记引用，请重新扫描')
     }
 
     const attachmentsStat = fs.lstatSync(this.paths.attachments)

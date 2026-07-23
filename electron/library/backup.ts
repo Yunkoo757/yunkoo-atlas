@@ -5,6 +5,7 @@ import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs, getLibraryPaths } from './paths'
 import { writeFileAtomicallySync } from './atomicFile'
 import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
+import { safeConsoleError } from '../diagnosticSanitizer'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
 const DEFAULT_MAX_BACKUPS = 7
@@ -222,7 +223,7 @@ export function createBackup(
     if (dest) lastBackupAt = now
     return dest
   } catch (err) {
-    console.error('[backup] create failed', err)
+    safeConsoleError('backup-create-failed', err)
     return null
   }
 }
@@ -560,7 +561,7 @@ export function rotateBackups(
       pruneBackupAssetVault(backupsDir)
     }
   } catch (err) {
-    console.error('[backup] rotate failed', err)
+    safeConsoleError('backup-rotate-failed', err)
   }
 }
 
@@ -608,7 +609,7 @@ export function restoreBackup(fileName: string): boolean {
   try {
     return restoreBackupAtPath(getLibraryPath(), path.basename(fileName))
   } catch (err) {
-    console.error('[backup] restore failed', err)
+    safeConsoleError('backup-restore-failed', err)
     return false
   }
 }

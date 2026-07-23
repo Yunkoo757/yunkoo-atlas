@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { readGitProvenance } from './git-provenance.mjs'
+import { generationRawPassed } from './release-evidence-validation.mjs'
 
 const root = process.cwd()
 const evidenceIndex = process.argv.indexOf('--evidence-root')
@@ -40,6 +41,11 @@ function verifyPlatform(name, report) {
     return null
   }
   const value = report.value
+  const expectedPlatform = name === 'Windows NTFS' ? 'win32' : 'darwin'
+  const expectedFileSystem = name === 'Windows NTFS' ? 'NTFS' : 'APFS'
+  if (!generationRawPassed(value, expectedPlatform, expectedFileSystem)) {
+    failures.push(`${name} raw report contract invalid`)
+  }
   if (value.gitCommit !== provenance.gitCommit) failures.push(`${name} git commit mismatch`)
   if (value.gitTree !== provenance.gitTree) failures.push(`${name} git tree mismatch`)
   if (value.sourceIdentity !== provenance.sourceIdentity) failures.push(`${name} source identity mismatch`)

@@ -57,12 +57,13 @@ export async function testExitFailureStopsBeforeReleaseAndReportsAbort(): Promis
       },
       commitExit: async () => { calls.push('release', 'finalize') },
       cancelPreparation: () => {},
-      reportError: (message) => calls.push(`error:${message}`),
+      reportError: (failure) => calls.push(`error:${failure.code}:${failure.message}`),
     })
     const result = await coordinator.request('quit')
     assert(!result.ok, `${failureAt} 失败必须取消退出`)
     assert(!calls.includes('release') && !calls.includes('finalize'), '失败时不得 release 或报告退出成功')
-    assert(calls.some((entry) => entry.startsWith('error:')), '失败原因必须反馈给 renderer')
+    const expectedCode = failureAt === 'flush' ? 'quit-flush-failed' : 'quit-backup-failed'
+    assert(calls.some((entry) => entry.startsWith(`error:${expectedCode}:`)), '失败必须携带稳定阶段 code')
   }
 }
 
@@ -102,7 +103,7 @@ export async function testHardTimeoutCancelsInsteadOfContinuingExit(): Promise<v
     createVerifiedBackup: async () => { calls.push('backup') },
     commitExit: async () => { calls.push('release', 'finalize') },
     cancelPreparation: () => {},
-    reportError: (message) => calls.push(message),
+    reportError: (failure) => calls.push(`${failure.code}:${failure.message}`),
   })
   const result = await coordinator.request('close')
   assert(!result.ok && result.error.includes('超时'), '硬超时必须返回明确的 aborted 结果')
@@ -123,7 +124,7 @@ export async function testAbsoluteDeadlineBlocksCommitAfterSynchronousOverrun():
     },
     commitExit: async () => { calls.push('commit') },
     cancelPreparation: () => { calls.push('cancel') },
-    reportError: (message) => calls.push(message),
+    reportError: (failure) => calls.push(`${failure.code}:${failure.message}`),
   })
 
   const result = await coordinator.request('quit')

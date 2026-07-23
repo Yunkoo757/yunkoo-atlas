@@ -314,7 +314,7 @@ export async function testRejectsDesktopJournalArchiveWithSpecificMessage(): Pro
   await expectArchiveError(
     () => parseWebJournalArchive(input),
     '桌面版完整交易库归档',
-    'desktop-format',
+    'desktop-format-not-supported-on-web',
   )
 }
 

@@ -78,14 +78,14 @@ pnpm dev:electron
 | `pnpm build:app` | Electron 构建 + 复制 `sql-wasm.wasm` |
 | `pnpm preview` | 预览 Web 构建结果 |
 | `pnpm qa` | Web 自动化 QA；默认连接 5181，若复用 `pnpm dev`，先设置 `$env:QA_BASE_URL='http://localhost:5180'` |
-| `pnpm qa:release` | 自启服务并执行测试、构建、设计、Electron 与 10k 性能的完整发布门禁 |
+| `pnpm qa:release` | 自启服务并执行测试、构建、设计与 Electron 数据链路的轻量发布门禁；不包含 10k 性能门 |
 | `pnpm qa:core` | Web QA 核心用例 |
 | `pnpm qa:image` | Web QA 图片用例 |
 | `pnpm qa:workbench` | 核心工作区流程 QA |
 | `pnpm qa:design` | 设计令牌与布局契约检查 |
 | `pnpm qa:linear` | Linear 重构页面与响应式检查 |
 | `pnpm qa:electron` | Electron headless QA（需先 `build:app`） |
-| `pnpm qa:full` | Release 0 要求的完整 Web/Electron 发布 QA |
+| `pnpm qa:full` | Release 0 要求的完整 Web/Electron 发布 QA，包含 10k Dashboard 功能与性能门 |
 | `pnpm benchmark:persistence:release` | 正式 10K/20K 持久化、退出与 Web ZIP heap 门；缺少批准基线时保持阻断 |
 | `pnpm test:forced-kill:electron` | 强杀真实 Electron 主进程并验证只恢复最后确认数据（需先 `build:app`） |
 | `pnpm spike:generation` | 仅运行隔离 Generation 决策 Spike；不会进入生产 bundle |

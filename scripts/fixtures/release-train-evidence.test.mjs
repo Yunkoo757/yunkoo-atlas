@@ -1,18 +1,24 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import test from 'node:test'
 
 import {
   assetLifecyclePassed,
+  electronSafetyPassed,
   EXPECTED_FINAL_CHECK_NAMES,
   finalQualityManifestPassed,
   forcedKillPassed,
   fullQaPassed,
+  generationDecisionPassed,
+  generationRawPassed,
+  jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
 } from '../release-evidence-validation.mjs'
 import { PERSISTENCE_BASELINE_METRICS } from '../persistence-baseline.mjs'
+import { CUTOVER_FAULT_POINTS, MiB } from '../spikes/electron-generation/generation-prototype.mjs'
 
 test('发布证据聚合器对四个 Train 执行同源码身份、干净工作树与双平台门', () => {
   const source = fs.readFileSync('scripts/verify-release-train-evidence.mjs', 'utf8')
@@ -33,15 +39,24 @@ test('发布证据聚合器对四个 Train 执行同源码身份、干净工作�
   assert.match(source, /forcedKillPassed\(value, 'darwin', 'APFS'\)/)
   assert.match(source, /assetLifecyclePassed\(value, 'win32', 'NTFS'\)/)
   assert.match(source, /assetLifecyclePassed\(value, 'darwin', 'APFS'\)/)
+  assert.match(source, /electronSafetyPassed\(value, 'win32', 'NTFS'\)/)
+  assert.match(source, /electronSafetyPassed\(value, 'darwin', 'APFS'\)/)
+  assert.match(source, /generationRawPassed\(value, 'win32', 'NTFS'\)/)
+  assert.match(source, /generationRawPassed\(value, 'darwin', 'APFS'\)/)
   assert.match(source, /forced-kill-windows/)
   assert.match(source, /forced-kill-macos/)
   assert.match(source, /asset-lifecycle-windows/)
   assert.match(source, /asset-lifecycle-macos/)
+  assert.match(source, /electron-safety-windows/)
+  assert.match(source, /electron-safety-macos/)
+  assert.match(source, /generation-decision/)
   assert.match(source, /requireComplete && report\.status !== 'pass'/)
   assert.match(source, /final-quality-manifest\.json/)
   assert.match(source, /normal:/)
   assert.match(source, /performance:/)
   assert.match(source, /dualPlatform:/)
+  assert.match(source, /compatibility:/)
+  assert.match(source, /generation:/)
   assert.match(source, /releaseCandidate:/)
   assert.match(source, /releaseCandidate: requireComplete &&/)
   assert.match(workflow, /path: test-results\/collected-evidence/)
@@ -143,8 +158,10 @@ test('最终质量清单必须由 publish 针对当前干净源码再次授权',
     ...provenance,
     gates: {
       normal: { status: 'pass' },
+      compatibility: { status: 'pass' },
       performance: { status: 'pass' },
       dualPlatform: { status: 'pass' },
+      generation: { status: 'pass' },
     },
     checks,
     trains: ['release-0', 'release-1', 'release-2', 'release-3'].map((id) => ({ id, status: 'pass' })),
@@ -215,4 +232,106 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
   }
   assert.equal(assetLifecyclePassed(asset, 'darwin', 'APFS'), true)
   assert.equal(assetLifecyclePassed({ ...asset, entries: [] }, 'darwin', 'APFS'), false)
+
+  const safety = {
+    version: 1, status: 'pass', exitCode: 0, platform: 'darwin', fileSystem: 'APFS',
+    scenarios: [
+      {
+        id: 'E-PATH-PERM',
+        testId: 'electron/platformSafety.test.ts#testPlatformPathFileFailsClosedWithoutCreatingDefaultLibrary',
+        pass: true,
+      },
+      {
+        id: 'E-QUIT-BACKUP-FAIL',
+        testId: 'electron/platformSafety.test.ts#testPlatformBackupVerificationFailureKeepsStorageAndRestorePointUsable',
+        pass: true,
+      },
+    ],
+  }
+  assert.equal(electronSafetyPassed(safety, 'darwin', 'APFS'), true)
+  assert.equal(electronSafetyPassed({ ...safety, scenarios: safety.scenarios.slice(0, 1) }, 'darwin', 'APFS'), false)
+  assert.equal(electronSafetyPassed({
+    ...safety,
+    scenarios: [{ ...safety.scenarios[0], testId: 'fake#test' }, safety.scenarios[1]],
+  }, 'darwin', 'APFS'), false)
+
+  const compatibility = {
+    version: 1,
+    hardLimitsEnabled: true,
+    generatorCommit: 'a'.repeat(40),
+    gitCommit: 'a'.repeat(40),
+    workingTreeDirty: false,
+    generatorScriptSha256: createHash('sha256')
+      .update(fs.readFileSync('scripts/measure-json-import-compatibility.mjs'))
+      .digest('hex'),
+    seed: 20_260_715,
+    limits: {
+      fileBytes: 64 * MiB,
+      singleAttachmentDecodedBytes: 32 * MiB,
+      totalAttachmentDecodedBytes: 48 * MiB,
+      entities: 50_000,
+    },
+    approval: { status: 'approved', approvedBy: 'Yunkoo', approvedAt: '2026-07-22', basis: 'approved fixture' },
+    corpus: ['dense-1k', 'dense-10k', 'dense-20k', 'shared-self-reference', 'max-declared-attachment']
+      .map((name, index) => ({
+        name,
+        compatible: true,
+        importOk: true,
+        importCode: null,
+        bytes: 1_000 + index,
+        sha256: String(index + 1).repeat(64),
+        entities: [1_000, 10_000, 20_000, 1_000, 1_000][index],
+        attachmentDecodedBytes: index === 3 ? [24] : index === 4 ? [32 * MiB] : [],
+      })),
+  }
+  assert.equal(jsonCompatibilityPassed(compatibility), true)
+  assert.equal(jsonCompatibilityPassed({ ...compatibility, workingTreeDirty: true }), false)
+  assert.equal(jsonCompatibilityPassed({ ...compatibility, generatorScriptSha256: 'b'.repeat(64) }), false)
+  assert.equal(jsonCompatibilityPassed({ ...compatibility, corpus: compatibility.corpus.slice(0, 1) }), false)
+
+  const expectedFaults = [
+    ...CUTOVER_FAULT_POINTS,
+    'disk-full-initial', 'disk-full-switch', 'target-occupied', 'cross-volume-exdev',
+  ]
+  const generation = {
+    version: 1,
+    platform: 'darwin', fileSystem: 'APFS', decision: 'NO_GO_ON_THIS_PLATFORM', workingTreeDirty: false,
+    recoverySloMs: 5_000,
+    faultMatrix: expectedFaults.map((name) => ({
+      name, expectedFailure: true, observedFailure: true, neverMixed: true, pass: true, recoveryMs: 1,
+    })),
+    recoveryCases: [
+      ['marker-missing', 'old'],
+      ['marker-corrupt', 'old'],
+      ['incomplete-generation', 'old'],
+      ['incomplete-old-generation', 'new'],
+    ].map(([name, recovered]) => ({ name, recovered, pass: true, recoveryMs: 1 })),
+    disk: {
+      formula: 'requiredFree = expandedTemp + rollbackCopy + max(512 MiB, operationBytes * 10%)',
+      expandedTemp: 20, rollbackCopy: 10, operationBytes: 20,
+      safetyReserve: 512 * MiB, requiredFree: 30 + 512 * MiB,
+      predictedAdditionalPeakBytes: 30, peakErrorRatio: 0.01, peakTargetPass: true,
+    },
+    durability: { fileFsyncExercised: true, directoryFsyncSupported: false },
+    reasons: ['directory fsync durability barrier unavailable'],
+    isolation: 'scripts/spikes/electron-generation only; no production import',
+  }
+  assert.equal(generationRawPassed(generation, 'darwin', 'APFS'), true)
+  assert.equal(generationRawPassed({ ...generation, faultMatrix: [{ pass: false, recoveryMs: 1 }] }, 'darwin', 'APFS'), false)
+  assert.equal(generationRawPassed({
+    ...generation,
+    decision: 'GO_ELIGIBLE_ON_THIS_PLATFORM',
+    durability: { fileFsyncExercised: true, directoryFsyncSupported: true },
+    reasons: [],
+  }, 'darwin', 'APFS'), true)
+  const decision = {
+    version: 1, status: 'pass', decision: 'NO_GO', workingTreeDirty: false, failures: [],
+    platforms: {
+      windows: { decision: 'NO_GO_ON_THIS_PLATFORM' },
+      macos: { decision: 'GO_ELIGIBLE_ON_THIS_PLATFORM' },
+    },
+    adr: 'docs/architecture/decisions/ADR-0001-electron-generation-layout.md',
+  }
+  assert.equal(generationDecisionPassed(decision), true)
+  assert.equal(generationDecisionPassed({ ...decision, platforms: { windows: decision.platforms.windows, macos: null } }), false)
 })

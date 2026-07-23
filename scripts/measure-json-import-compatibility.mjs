@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'vite'
+import { readGitProvenance } from './git-provenance.mjs'
 import { createAnalyticsSnapshot, ANALYTICS_FIXTURE_SEED } from './fixtures/analytics-trades.mjs'
 import {
   MAX_JSON_FILE_BYTES,
@@ -138,10 +140,7 @@ try {
 }
 
 const workspaceRoot = path.resolve(process.cwd())
-const harnessDir = path.resolve(workspaceRoot, `.tmp-json-compat-${process.pid}`)
-if (path.dirname(harnessDir) !== workspaceRoot) {
-  throw new Error('refusing to create compatibility harness outside the workspace')
-}
+const harnessDir = await fs.mkdtemp(path.join(os.tmpdir(), 'atlas-json-compat-'))
 try {
   await build({
     configFile: path.resolve('vite.config.ts'),
@@ -158,8 +157,17 @@ try {
   if (typeof exercise !== 'function') throw new Error('production JSON compatibility harness is missing')
 
   const report = {
+    version: 1,
     generatedAt: new Date().toISOString(),
     generatorCommit,
+    ...await readGitProvenance(workspaceRoot),
+    generatorScriptSha256: sha256(await fs.readFile(new URL(import.meta.url))),
+    approval: {
+      status: 'approved',
+      approvedBy: 'Yunkoo',
+      approvedAt: '2026-07-22',
+      basis: 'Spec v2 推荐方案及后续推荐项已由项目负责人统一批准',
+    },
     seed: ANALYTICS_FIXTURE_SEED,
     runtime: { node: process.version, platform: process.platform, arch: process.arch },
     limits,
@@ -172,7 +180,13 @@ try {
     ],
   }
   report.hardLimitsEnabled = report.corpus.every((item) => item.compatible)
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+  const outputIndex = process.argv.indexOf('--output')
+  const outputPath = path.resolve(outputIndex >= 0
+    ? process.argv[outputIndex + 1]
+    : path.join('test-results', 'json-compatibility', 'json-compatibility.json'))
+  await fs.mkdir(path.dirname(outputPath), { recursive: true })
+  await fs.writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
+  process.stdout.write(`${JSON.stringify({ outputPath, ...report }, null, 2)}\n`)
   if (!report.hardLimitsEnabled) process.exitCode = 1
 } finally {
   await fs.rm(harnessDir, { recursive: true, force: true })

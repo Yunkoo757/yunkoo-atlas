@@ -1,6 +1,8 @@
 import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { switchActiveLibrary } from '@/lib/importExport'
+import { useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -33,7 +35,6 @@ export async function testFailedLibrarySwitchNeverWritesOldStoreToChangedPath():
 
   enablePersistWrites()
   try {
-    const { switchActiveLibrary } = await import('@/lib/importExport')
     const result = await switchActiveLibrary('open', 'D:\\broken-library')
     assert(!result.ok, '损坏候选库必须返回失败')
     assert(savedPaths.includes('D:\\old-library'), '切库前应先保存旧库')
@@ -83,10 +84,6 @@ export async function testSuccessfulLibrarySwitchUsesSnapshotReturnedByAtomicIpc
 
   enablePersistWrites()
   try {
-    const [{ switchActiveLibrary }, { useStore }] = await Promise.all([
-      import('@/lib/importExport'),
-      import('@/store/useStore'),
-    ])
     const result = await switchActiveLibrary('open', 'D:\\new-library')
     assert(result.ok, '已验证候选库应成功切换')
     assert(separateLoadCount === 0, 'renderer 必须直接使用原子切库 IPC 返回的已验证快照')
@@ -172,10 +169,6 @@ export async function testDelayedLibraryPreparationFlushesLateTradeToOldLibraryB
 
   enablePersistWrites()
   try {
-    const [{ switchActiveLibrary }, { useStore }] = await Promise.all([
-      import('@/lib/importExport'),
-      import('@/store/useStore'),
-    ])
     useStore.setState({ trades: [oldTrade] })
     const switching = switchActiveLibrary('open', 'D:\\new-library')
     await Promise.race([

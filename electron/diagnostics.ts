@@ -1,19 +1,10 @@
 import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
+import { sanitizeDiagnosticDetail } from './diagnosticSanitizer'
 
 const MAX_LOG_BYTES = 2 * 1024 * 1024
 let logFile: string | null = null
-
-function formatDetail(detail: unknown): string {
-  if (detail instanceof Error) return detail.stack ?? detail.message
-  if (typeof detail === 'string') return detail
-  try {
-    return JSON.stringify(detail)
-  } catch {
-    return String(detail)
-  }
-}
 
 export function logDiagnostic(
   level: 'info' | 'warn' | 'error',
@@ -21,7 +12,7 @@ export function logDiagnostic(
   detail?: unknown,
 ): void {
   if (!logFile) return
-  const suffix = detail === undefined ? '' : ` ${formatDetail(detail)}`
+  const suffix = detail === undefined ? '' : ` ${JSON.stringify(sanitizeDiagnosticDetail(detail))}`
   try {
     fs.appendFileSync(logFile, `${new Date().toISOString()} ${level.toUpperCase()} ${event}${suffix}\n`, 'utf8')
   } catch {

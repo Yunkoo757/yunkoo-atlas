@@ -15,6 +15,7 @@
     "test:runner-contract": "node --test scripts/test-discovery.test.mjs",
     "test:analytics-baseline": "node --test scripts/fixtures/*.test.mjs",
     "test:asset-lifecycle:electron": "node scripts/run-asset-lifecycle-platform.mjs",
+    "test:electron-safety:platform": "node scripts/run-electron-safety-platform.mjs",
     "test:forced-kill:electron": "node scripts/run-forced-kill-evidence.mjs",
     "icons:generate": "node scripts/linear-icons/generate.mjs",
     "icons:app": "node scripts/generate-app-icon.mjs",

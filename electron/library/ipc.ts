@@ -10,6 +10,7 @@ import {
 import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
+import { safeConsoleError } from '../diagnosticSanitizer'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath } from './journalZip'
 import { saveLibraryConfig, ensureLibraryDirs } from './paths'
@@ -304,7 +305,7 @@ function activateLibraryCandidate(
   try {
     previous?.release()
   } catch (error) {
-    console.error('[library] failed to release previous storage after cutover', error)
+    safeConsoleError('library-release-after-cutover-failed', error)
   }
   return { ok: true, snapshot }
 }
@@ -671,7 +672,7 @@ export function registerLibraryIpc(): void {
         return emptySnapshot
       })
     } catch (error) {
-      console.error('[backup:restore] restore failed', error)
+      safeConsoleError('backup-restore-failed', error)
       return false
     }
   })
@@ -733,12 +734,12 @@ export function registerLibraryIpc(): void {
         try {
           await importJournalZipToPath(libraryPath, selectedArchive)
         } catch (err) {
-          console.error('[journal:importZip] import failed', err)
+          safeConsoleError('journal-import-failed', err)
           const message = toErrorMessage(err)
           try {
             await reopenStorageWithAutoBackup()
           } catch (reopenErr) {
-            console.error('[journal:importZip] reopen failed after import error', reopenErr)
+            safeConsoleError('journal-reopen-after-import-failed', reopenErr)
             return {
               ok: false as const,
               error: `${message}; failed to reopen current library: ${toErrorMessage(reopenErr)}`,

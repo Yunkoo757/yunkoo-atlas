@@ -11,6 +11,7 @@ import {
 export async function runBrowserRegressionTests(root, options = {}) {
   let failed = 0
   const passedEntries = []
+  const passedTests = []
   const server = await createServer({
     root,
     configFile: options.configFile ?? false,
@@ -48,6 +49,7 @@ export async function runBrowserRegressionTests(root, options = {}) {
         }
         console.log(`PASS ${browserTest.label}`)
         passedEntries.push(browserTest.label)
+        passedTests.push(`${browserTest.label}#${browserTest.promiseKey}`)
       } catch (error) {
         failed += 1
         console.error(`FAIL ${browserTest.label}`)
@@ -66,7 +68,7 @@ export async function runBrowserRegressionTests(root, options = {}) {
     await browser?.close()
     await server.close()
   }
-  return { failed, passedEntries }
+  return { failed, passedEntries, passedTests }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
+import { safeConsoleError } from './diagnosticSanitizer'
 import {
   normalizeWindowState,
   DEFAULT_WINDOW_BOUNDS,
@@ -78,7 +79,7 @@ export function trackWindowState(win: BrowserWindow): void {
     try {
       writeWindowState(captureWindowState(win))
     } catch (error) {
-      console.error('[electron] failed to save window state', error)
+      safeConsoleError('window-state-save-failed', error)
     }
   }
 

@@ -55,6 +55,9 @@ jobs:
       - name: Run executable Release Train drills
         run: pnpm verify:release-train-drills
 
+      - name: Run approved JSON compatibility corpus
+        run: pnpm measure:json-compatibility
+
       - name: Upload persistence benchmark evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -68,6 +71,7 @@ jobs:
             test-results/quality-execution.json
             test-results/quality-contract.json
             test-results/release-trains/release-train-drills.json
+            test-results/json-compatibility/json-compatibility.json
           if-no-files-found: error
           retention-days: 30
 
@@ -100,6 +104,25 @@ jobs:
           pattern: asset-lifecycle-*
           path: test-results/collected-evidence
           merge-multiple: true
+
+      - name: Download Electron safety evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: electron-safety-*
+          path: test-results/collected-evidence
+          merge-multiple: true
+
+      - name: Download Generation raw evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: generation-spike-*
+          path: test-results/collected-evidence
+          merge-multiple: true
+
+      - name: Verify cross-platform Generation decision
+        run: |
+          node scripts/verify-generation-decision.mjs --evidence-root test-results/collected-evidence --require-complete
+          cp test-results/generation-spike/generation-decision.json test-results/collected-evidence/generation-decision.json
 
       - name: Verify all release trains
         run: node scripts/verify-release-train-evidence.mjs --evidence-root test-results/collected-evidence --require-complete
@@ -150,6 +173,12 @@ jobs:
       - name: Verify asset lifecycle on Windows
         run: pnpm test:asset-lifecycle:electron
 
+      - name: Verify Electron safety on Windows
+        run: pnpm test:electron-safety:platform
+
+      - name: Run isolated Generation matrix on Windows
+        run: pnpm spike:generation
+
       - name: Upload Windows forced-kill evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -164,7 +193,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: asset-lifecycle-Windows
-          path: test-results/platform-evidence/*.json
+          path: test-results/platform-evidence/asset-lifecycle-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Windows Electron safety evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-safety-Windows
+          path: test-results/platform-evidence/electron-safety-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Windows Generation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generation-spike-Windows
+          path: test-results/generation-spike/generation-spike-windows-*.json
           if-no-files-found: error
           retention-days: 30
 
@@ -250,6 +297,12 @@ jobs:
       - name: Verify forced-kill recovery on macOS
         run: pnpm test:forced-kill:electron
 
+      - name: Verify Electron safety on macOS
+        run: pnpm test:electron-safety:platform
+
+      - name: Run isolated Generation matrix on macOS
+        run: pnpm spike:generation
+
       - name: Upload macOS forced-kill evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -264,7 +317,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: asset-lifecycle-macOS
-          path: test-results/platform-evidence/*.json
+          path: test-results/platform-evidence/asset-lifecycle-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload macOS Electron safety evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-safety-macOS
+          path: test-results/platform-evidence/electron-safety-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload macOS Generation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generation-spike-macOS
+          path: test-results/generation-spike/generation-spike-macos-*.json
           if-no-files-found: error
           retention-days: 30
 
@@ -310,6 +381,7 @@ jobs:
   publish:
     needs: [build-windows, build-macos, verify-release-evidence]
     runs-on: ubuntu-latest
+    environment: production-release
     timeout-minutes: 15
     permissions:
       contents: write

@@ -7,28 +7,13 @@ import {
   type PersistenceDiagnostics,
 } from '@/storage/persistenceController'
 import { getStorage } from '@/storage/provider'
+import type { CanonicalSnapshot } from '@/storage/snapshotCodec'
 import type { PersistedSnapshot } from '@/storage/types'
 
 export function pickPersisted(
-  state: {
-    trades: PersistedSnapshot['trades']
-    weeklyReviews: NonNullable<PersistedSnapshot['weeklyReviews']>
-    quickNotes: NonNullable<PersistedSnapshot['quickNotes']>
-    strategies: PersistedSnapshot['strategies']
-    starredIds: string[]
-    subscribedIds: string[]
-    pinnedStrategyIds: string[]
-    display: PersistedSnapshot['display']
-    tagPresets: string[]
-    mistakeTagPresets: string[]
-    profile: PersistedSnapshot['profile']
-    savedTradeViews: PersistedSnapshot['savedTradeViews']
-    symbolIcons: PersistedSnapshot['symbolIcons']
-    symbolCatalog: PersistedSnapshot['symbolCatalog']
-    reviewTemplates: NonNullable<PersistedSnapshot['reviewTemplates']>
-  },
+  state: Omit<CanonicalSnapshot, 'shortcuts'>,
   shortcutBindings?: Record<string, ShortcutBinding | null>,
-): PersistedSnapshot {
+): CanonicalSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
   return {
     trades: state.trades,
@@ -39,6 +24,7 @@ export function pickPersisted(
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
     display: state.display,
+    shortcuts,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
     profile: state.profile,
@@ -46,7 +32,6 @@ export function pickPersisted(
     symbolIcons: state.symbolIcons,
     symbolCatalog: state.symbolCatalog,
     reviewTemplates: state.reviewTemplates,
-    ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
   }
 }
 

@@ -4,6 +4,7 @@ import { assertCompatibleManifest } from '../../src/storage/manifestCompatibilit
 import type { LibraryManifest } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
 import { getConfigPath, getDefaultLibraryPath, getLibraryPaths } from './paths'
+import { OperationalError } from '../../src/lib/operationalError'
 
 export type LibraryLocationState =
   | { kind: 'unset' }
@@ -225,5 +226,10 @@ export async function getLibraryLocationState(): Promise<LibraryLocationState> {
 }
 
 export function libraryLocationError(state: Exclude<LibraryLocationState, { kind: 'ready' | 'unset' }>): Error {
-  return new Error(`${state.reason}（${state.configuredPath}）`)
+  return new OperationalError(
+    state.kind === 'unavailable'
+      ? 'library-location-unavailable'
+      : 'library-location-invalid',
+    `${state.reason}（${state.configuredPath}）`,
+  )
 }

@@ -42,7 +42,7 @@ async function main() {
 
   const scenarioIds = new Set()
   for (const scenario of scenarios) {
-    const isQualityExecutionScenario = scenario.mode !== 'manual' && scenario.mode !== 'release-gate'
+    const isQualityExecutionScenario = scenario.mode !== 'manual'
     let scenarioVerified = isQualityExecutionScenario && execution?.status === 'pass'
     if (!scenario || typeof scenario.id !== 'string' || !/^[A-Z0-9][A-Z0-9*/-]+$/.test(scenario.id)) {
       failures.push(`非法场景 ID：${JSON.stringify(scenario?.id)}`)
@@ -53,6 +53,16 @@ async function main() {
     if (!Array.isArray(scenario.evidence) || scenario.evidence.length === 0) {
       failures.push(`场景缺少证据：${scenario.id}`)
       continue
+    }
+    if (isQualityExecutionScenario && (typeof scenario.testId !== 'string' || !scenario.testId.includes('#'))) {
+      failures.push(`自动场景缺少具体测试 ID：${scenario.id}`)
+      scenarioVerified = false
+    } else if (isQualityExecutionScenario) {
+      const testFile = normalized(scenario.testId.slice(0, scenario.testId.indexOf('#')))
+      if (!scenario.evidence.map(normalized).includes(testFile)) {
+        failures.push(`场景测试 ID 不属于其证据文件：${scenario.id} → ${scenario.testId}`)
+        scenarioVerified = false
+      }
     }
     for (const evidence of scenario.evidence) {
       const absolute = path.join(root, evidence)
@@ -83,6 +93,14 @@ async function main() {
           failures.push(`场景证据未以当前内容执行并通过：${scenario.id} → ${evidence}`)
           scenarioVerified = false
         }
+      }
+    }
+    if (requireExecution && execution && isQualityExecutionScenario && typeof scenario.testId === 'string') {
+      const testFile = normalized(scenario.testId.slice(0, scenario.testId.indexOf('#')))
+      const actualHash = await hashFile(root, testFile)
+      if (execution.executedTests?.[scenario.testId] !== actualHash) {
+        failures.push(`场景的具体测试未以当前内容执行并通过：${scenario.id} → ${scenario.testId}`)
+        scenarioVerified = false
       }
     }
     if (scenarioVerified) verifiedScenarioIds.add(scenario.id)
@@ -157,7 +175,7 @@ try {
 
 const executedScenarioIds = requireExecution ? [...verifiedScenarioIds] : []
 const report = {
-  version: 2,
+  version: 3,
   generatedAt: new Date().toISOString(),
   gitCommit: provenance.gitCommit,
   gitTree: provenance.gitTree,

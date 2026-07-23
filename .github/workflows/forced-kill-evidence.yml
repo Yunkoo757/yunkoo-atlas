@@ -11,8 +11,10 @@ on:
       - 'electron/library/atomicFile.test.ts'
       - 'electron/library/assetGc.test.ts'
       - 'electron/library/assetInventory.test.ts'
+      - 'electron/platformSafety.test.ts'
       - 'scripts/run-forced-kill-evidence.mjs'
       - 'scripts/run-asset-lifecycle-platform.mjs'
+      - 'scripts/run-electron-safety-platform.mjs'
       - 'scripts/file-system-type.mjs'
       - 'scripts/fixtures/forced-kill-evidence.test.mjs'
       - '.github/workflows/forced-kill-evidence.yml'
@@ -58,6 +60,9 @@ jobs:
       - name: Run asset lifecycle evidence
         run: pnpm test:asset-lifecycle:electron
 
+      - name: Run Electron safety evidence
+        run: pnpm test:electron-safety:platform
+
       - name: Upload raw process evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,11 +72,20 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Upload raw Electron safety evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-safety-${{ runner.os }}
+          path: test-results/platform-evidence/electron-safety-*.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload raw asset lifecycle evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: asset-lifecycle-${{ runner.os }}
-          path: test-results/platform-evidence/*.json
+          path: test-results/platform-evidence/asset-lifecycle-*.json
           if-no-files-found: error
           retention-days: 30

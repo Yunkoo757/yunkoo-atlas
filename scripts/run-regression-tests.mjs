@@ -23,9 +23,10 @@ const entries = requestedEntries.length > 0 ? requestedEntries : discoveredEntri
 
 let failed = 0
 const passedEntries = []
+const passedTests = []
 for (const entry of entries) {
   let entryFailed = false
-  const outDir = path.resolve(`.tmp-${path.basename(entry).replace(/\W/g, '-')}`)
+  const outDir = path.resolve(`.tmp-${entry.replace(/\W/g, '-')}`)
   try {
     await fs.rm(outDir, { recursive: true, force: true })
     await build({
@@ -43,7 +44,9 @@ for (const entry of entries) {
       },
     })
 
-    const mod = await import(pathToFileURL(path.join(outDir, 'runner.mjs')).href)
+    const moduleUrl = pathToFileURL(path.join(outDir, 'runner.mjs'))
+    moduleUrl.searchParams.set('entry', entry)
+    const mod = await import(moduleUrl.href)
     const tests = Object.entries(mod).filter(
       ([name, value]) => name.startsWith('test') && typeof value === 'function',
     )
@@ -55,6 +58,7 @@ for (const entry of entries) {
       try {
         await test()
         console.log(`PASS ${entry} :: ${name}`)
+        passedTests.push(`${entry}#${name}`)
       } catch (error) {
         failed += 1
         entryFailed = true
@@ -74,7 +78,7 @@ for (const entry of entries) {
 }
 
 const browserResult = unitOnly
-  ? { failed: 0, passedEntries: [] }
+  ? { failed: 0, passedEntries: [], passedTests: [] }
   : await runBrowserRegressionTests(root, { configFile: path.resolve('vite.config.ts') })
 failed += browserResult.failed
 
@@ -86,5 +90,9 @@ if (failed > 0) {
     const previous = JSON.parse(await fs.readFile(executionReportPath(root), 'utf8'))
     previousFiles = Object.keys(previous.executedFiles ?? {})
   } catch {}
-  await writeExecutionReport(root, [...previousFiles, ...passedEntries, ...browserResult.passedEntries])
+  await writeExecutionReport(
+    root,
+    [...previousFiles, ...passedEntries, ...browserResult.passedEntries],
+    [...passedTests, ...browserResult.passedTests],
+  )
 }

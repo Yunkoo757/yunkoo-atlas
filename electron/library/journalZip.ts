@@ -11,9 +11,9 @@ import { ensureLibraryDirs } from './paths'
 import { writeFileAtomicallySync } from './atomicFile'
 import {
   SCHEMA_VERSION,
+  type LibraryManifest,
   type PersistedSnapshot,
 } from '../../src/storage/types'
-import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { isSafeAssetId } from '../../src/storage/assetId'
 import {
@@ -528,7 +528,7 @@ function readWebSnapshot(dataFile: string, assetsDir: string): {
   return { snapshot, assets: validateWebAssets(raw.assets, snapshot, assetsDir) }
 }
 
-function validateManifest(manifestFile: string): void {
+function validateManifest(manifestFile: string): LibraryManifest {
   let manifest: unknown
   try {
     manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'))
@@ -552,6 +552,7 @@ function validateManifest(manifestFile: string): void {
       `该桌面归档来自更新版本（v${fields.schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
     )
   }
+  return fields as unknown as LibraryManifest
 }
 
 export interface LibraryDatabaseInspection {
@@ -563,7 +564,7 @@ export interface LibraryDatabaseInspection {
 
 export async function validateLibraryDatabaseFile(
   dbFile: string,
-  options: { allowEmptySnapshot?: boolean } = {},
+  options: { allowEmptySnapshot?: boolean; schemaVersion?: number } = {},
 ): Promise<LibraryDatabaseInspection> {
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   let db: InstanceType<typeof SQL.Database> | null = null
@@ -584,8 +585,10 @@ export async function validateLibraryDatabaseFile(
       if (!options.allowEmptySnapshot) throw new Error('database snapshot is missing')
     } else {
       const parsed: unknown = JSON.parse(String(snapshotText))
-      assertValidPersistedSnapshot(parsed, 'database snapshot')
-      snapshot = parsed
+      snapshot = decodeCanonicalSnapshot(parsed, {
+        version: options.schemaVersion ?? SCHEMA_VERSION,
+        label: 'database snapshot',
+      })
     }
 
     const referencedAssetIds = new Set<string>()
@@ -662,8 +665,11 @@ export async function validateDesktopLibrary(
   paths: ReturnType<typeof ensureLibraryDirs>,
   options: { allowEmptySnapshot?: boolean } = {},
 ): Promise<LibraryDatabaseInspection> {
-  validateManifest(paths.manifestFile)
-  const inspection = await validateLibraryDatabaseFile(paths.dbFile, options)
+  const manifest = validateManifest(paths.manifestFile)
+  const inspection = await validateLibraryDatabaseFile(paths.dbFile, {
+    ...options,
+    schemaVersion: manifest.schemaVersion,
+  })
   const expectedAssets = new Map(inspection.assets.map((asset) => [asset.fileName, asset]))
   const actualFileNames: string[] = []
 

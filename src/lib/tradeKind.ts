@@ -41,6 +41,7 @@ export type TradeKindTransitionResult =
   | { ok: true; changed: boolean; trade: Trade }
   | {
       ok: false
+      code: 'trade-kind-transition-forbidden'
       changed: false
       trade: Trade
       reason: 'case-transition-forbidden' | 'non-planned-transition-forbidden'
@@ -52,10 +53,22 @@ export function transitionTradeKind(
 ): TradeKindTransitionResult {
   if (trade.tradeKind === target) return { ok: true, changed: false, trade }
   if (trade.tradeKind === 'case' || target === 'case') {
-    return { ok: false, changed: false, trade, reason: 'case-transition-forbidden' }
+    return {
+      ok: false,
+      code: 'trade-kind-transition-forbidden',
+      changed: false,
+      trade,
+      reason: 'case-transition-forbidden',
+    }
   }
   if (trade.status !== 'planned') {
-    return { ok: false, changed: false, trade, reason: 'non-planned-transition-forbidden' }
+    return {
+      ok: false,
+      code: 'trade-kind-transition-forbidden',
+      changed: false,
+      trade,
+      reason: 'non-planned-transition-forbidden',
+    }
   }
   return { ok: true, changed: true, trade: { ...trade, tradeKind: target } }
 }

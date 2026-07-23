@@ -24,6 +24,7 @@ export type ApplyUndoResult =
   | { ok: true; trades: Trade[] }
   | {
       ok: false
+      code: 'undo-conflict'
       trades: readonly Trade[]
       reason: 'missing-trade' | 'field-conflict'
       tradeId: string
@@ -122,12 +123,13 @@ export function applyUndoAction(
   for (const patch of action.trades) {
     const current = currentById.get(patch.id)
     if (!current) {
-      return { ok: false, trades: currentTrades, reason: 'missing-trade', tradeId: patch.id }
+      return { ok: false, code: 'undo-conflict', trades: currentTrades, reason: 'missing-trade', tradeId: patch.id }
     }
     for (const field of patch.fields) {
       if (!undoValuesEqual(current[field.key], field[expectedSide])) {
         return {
           ok: false,
+          code: 'undo-conflict',
           trades: currentTrades,
           reason: 'field-conflict',
           tradeId: patch.id,

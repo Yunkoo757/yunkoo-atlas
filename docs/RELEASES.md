@@ -16,7 +16,11 @@
 | Release 2 | Electron 路径、退出协调、Undo、TradeKind、日期锚点 | 路径错误回落默认库、退出步骤重复/漏执行、Undo/Kind 矩阵失败 | 停止桌面发布；保留 fail-closed 路径；从已验证备份恢复 |
 | Release 3 | 输入预算、Notion/Composer、当前库附件 GC | 新孤儿、共享附件误删、backup vault 变化或 dry-run revision 过期仍执行 | 打开 GC kill switch；Electron 从应用 `.trash` 恢复，Web 从用户预先归档恢复 |
 
-各列车必须把停止、回滚和用户恢复演练写入 `docs/superpowers/reports/`；只有对应证据和平台门全部通过才可推进下一列车。
+各列车必须把停止、回滚和用户恢复演练写入本地 `test-results/`，并由 GitHub Actions 上传为不可变的运行工件；只有同一源码身份的对应证据和平台门全部通过才可推进下一列车。
+
+GitHub 发布保护固定为：`main` 与 `v*` tag 使用 active repository ruleset 禁止删除和 non-fast-forward；唯一 `publish` job 绑定 `production-release` protected environment。每次最终发布审查必须通过 GitHub API 复核规则仍为 active，并保留审查时间、ruleset ID 与 environment 名称；工作流源码中的环境声明不能代替服务端配置。
+
+2026-07-23 服务端配置证据：branch ruleset [`protect-main-integrity`](https://github.com/Yunkoo757/yunkoo-atlas/rules/19605209)（ID `19605209`）、tag ruleset [`protect-release-tags`](https://github.com/Yunkoo757/yunkoo-atlas/rules/19605211)（ID `19605211`）均为 `active`；environment `production-release`（ID `18612599348`）启用 protected-branches deployment policy。最终审查仍须读取 API，而不能只信此记录。
 
 ### Web 多标签页一致性升级提示
 
@@ -32,7 +36,7 @@ Release 0 不提前引入该协议：旧库缺少 revision 时只按兼容值 `0
 
 ### Generation 决策
 
-Generation 目录布局当前为 **No-Go**：隔离 Spike 不进入生产 bundle，也不允许部分上线。Windows NTFS 虽通过 mixed-generation、磁盘不足、目标占用和 `EXDEV` 故障矩阵，但当前 Node/Electron 无法提供真实目录 `fsync` durability barrier。详见 `docs/architecture/decisions/ADR-0001-electron-generation-layout.md`。
+Generation 目录布局当前为 **No-Go**：隔离 Spike 不进入生产 bundle，也不允许部分上线。发布门要求同一干净源码的 Windows NTFS 与 macOS APFS 原始故障矩阵及聚合决策同时存在；当前 Node/Electron 无法提供真实目录 `fsync` durability barrier，因此即使矩阵通过也保持 No-Go。详见 `docs/architecture/decisions/ADR-0001-electron-generation-layout.md`。
 
 ### macOS 提示「已损坏，无法打开」
 

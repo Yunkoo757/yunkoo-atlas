@@ -30,7 +30,7 @@ export type WebJournalArchiveErrorCode =
   | 'too-many-entries'
   | 'entry-too-large'
   | 'expanded-too-large'
-  | 'desktop-format'
+  | 'desktop-format-not-supported-on-web'
   | 'unsafe-path'
   | 'unsupported-entry'
   | 'incompatible-version'
@@ -812,7 +812,7 @@ export async function parseWebJournalArchive(
 
   if (pathSet.has('manifest.json') || pathSet.has('journal.db')) {
     throw archiveError(
-      'desktop-format',
+      'desktop-format-not-supported-on-web',
       '这是桌面版完整交易库归档；浏览器当前仅支持恢复由浏览器导出的 data.json + assets 归档',
     )
   }

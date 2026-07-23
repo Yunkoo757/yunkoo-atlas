@@ -15,6 +15,7 @@ import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import { collectAssetIdsFromSnapshot } from '@/storage/assets'
 import { isSafeAssetId } from '@/storage/assetId'
 import { buildAssetInventory } from '@/storage/assetInventory'
+import { OperationalError } from '@/lib/operationalError'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import {
   assertWebWriteAllowed,
@@ -25,6 +26,7 @@ import {
   queueIndexedDbSnapshotAssetWrites,
   type IndexedDbAssetRecord,
 } from '@/storage/indexedDbSnapshotAssetWrites'
+import { queueIndexedDbLegacySnapshotUpgrade } from '@/storage/indexedDbLegacyMigration'
 
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
@@ -97,15 +99,6 @@ function idbGet<T>(db: IDBDatabase, store: string, key: string): Promise<T | und
   })
 }
 
-function idbPut(db: IDBDatabase, store: string, key: string, value: unknown): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite')
-    tx.objectStore(store).put(value, key)
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-  })
-}
-
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -165,12 +158,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     this.db = await openDb(this.databaseName)
     const manifest = await idbGet<LibraryManifest>(this.db, STORE_META, 'manifest')
     if (!manifest) {
-      const created: LibraryManifest = {
-        schemaVersion: SCHEMA_VERSION,
-        libraryId: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-      }
-      await idbPut(this.db, STORE_META, 'manifest', created)
+      await initializeMissingManifest(this.db)
       return
     }
     assertCompatibleManifest(manifest)
@@ -207,25 +195,45 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
   async loadSnapshotEnvelope(): Promise<SnapshotEnvelope> {
     const db = this.requireDb()
-    const stored = await new Promise<{ revision: unknown; snapshot: unknown }>((resolve, reject) => {
-      const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readonly')
+    const stored = await new Promise<{ revision: unknown; snapshot: PersistedSnapshot | null }>((resolve, reject) => {
+      const tx = db.transaction([STORE_SNAPSHOT, STORE_ASSETS, STORE_META], 'readwrite')
       const snapshotRequest = tx.objectStore(STORE_SNAPSHOT).get('main')
       const revisionRequest = tx.objectStore(STORE_META).get(SNAPSHOT_REVISION_KEY)
-      tx.oncomplete = () => resolve({
-        revision: revisionRequest.result,
-        snapshot: snapshotRequest.result,
-      })
+      const manifestRequest = tx.objectStore(STORE_META).get('manifest')
+      let decodedSnapshot: PersistedSnapshot | null = null
+      let failure: unknown = null
+      manifestRequest.onsuccess = () => {
+        try {
+          const manifest = manifestRequest.result as LibraryManifest
+          assertCompatibleManifest(manifest)
+          decodedSnapshot = snapshotRequest.result === undefined
+            ? null
+            : decodeCanonicalSnapshot(snapshotRequest.result, {
+                version: manifest.schemaVersion,
+                label: 'Stored browser snapshot',
+              })
+          if (manifest.schemaVersion < SCHEMA_VERSION) {
+            if (decodedSnapshot) {
+              queueIndexedDbLegacySnapshotUpgrade(
+                tx.objectStore(STORE_SNAPSHOT),
+                tx.objectStore(STORE_ASSETS),
+                decodedSnapshot,
+              )
+            }
+            tx.objectStore(STORE_META).put({ ...manifest, schemaVersion: SCHEMA_VERSION }, 'manifest')
+          }
+        } catch (error) {
+          failure = error
+          tx.abort()
+        }
+      }
+      tx.oncomplete = () => resolve({ revision: revisionRequest.result, snapshot: decodedSnapshot })
       tx.onerror = () => reject(tx.error ?? new Error('IndexedDB snapshot envelope read failed'))
-      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB snapshot envelope read aborted'))
+      tx.onabort = () => reject(failure ?? tx.error ?? new Error('IndexedDB snapshot envelope read aborted'))
     })
     const envelope = {
       revision: normalizeSnapshotRevision(stored.revision),
-      snapshot: stored.snapshot === undefined
-        ? null
-        : decodeCanonicalSnapshot(stored.snapshot, {
-            version: 1,
-            label: 'Stored browser snapshot',
-          }),
+      snapshot: stored.snapshot,
     }
     this.currentRevision = Math.max(this.currentRevision ?? 0, envelope.revision)
     return envelope
@@ -373,7 +381,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
             request.onsuccess = () => {
               const record = request.result as AssetRecord | undefined
               if (!record?.blob || record.blob.size !== record.byteSize) {
-                abort(new Error(`Snapshot references missing asset: ${id}`))
+                abort(new OperationalError(
+                  'asset-reference-missing',
+                  `Snapshot references missing asset: ${id}`,
+                ))
                 return
               }
               remaining -= 1
@@ -563,7 +574,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
       prepared.totalBytes !== preview.totalBytes
     ) {
-      throw new Error('附件清理预览无效或已使用，请重新扫描')
+      throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
     }
     const assets: ExportAssetRecord[] = []
     const recoveryIds = [...new Set([
@@ -572,7 +583,9 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     ])]
     for (const id of recoveryIds) {
       const asset = await this.getAssetForExport(id)
-      if (!asset) throw new Error(`恢复归档缺少被引用附件：${id}`)
+      if (!asset) {
+        throw new OperationalError('asset-reference-missing', `恢复归档缺少被引用附件：${id}`)
+      }
       assets.push(asset)
     }
     const authorization = crypto.randomUUID()
@@ -608,10 +621,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
       prepared.totalBytes !== preview.totalBytes
     ) {
-      throw new Error('附件清理预览无效或已使用，请重新扫描')
+      throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
     }
     if (prepared.candidateIds.some((id) => this.preparedAssets.has(id))) {
-      throw new Error('清理候选在预览后出现新的待提交附件，请重新扫描')
+      throw new OperationalError('asset-gc-stale-revision', '清理候选在预览后出现新的待提交附件，请重新扫描')
     }
     if (prepared.candidateIds.some((id) => this.purgingAssetIds.has(id))) {
       throw new Error('相同附件已有清理操作正在进行')
@@ -726,6 +739,25 @@ function idbGetAll<T>(db: IDBDatabase, store: string): Promise<T[]> {
     const req = tx.objectStore(store).getAll()
     req.onsuccess = () => resolve(req.result as T[])
     req.onerror = () => reject(req.error)
+  })
+}
+
+function initializeMissingManifest(db: IDBDatabase): Promise<LibraryManifest> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readwrite')
+    const snapshotRequest = tx.objectStore(STORE_SNAPSHOT).get('main')
+    let created: LibraryManifest | null = null
+    snapshotRequest.onsuccess = () => {
+      created = {
+        schemaVersion: snapshotRequest.result === undefined ? SCHEMA_VERSION : 1,
+        libraryId: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      }
+      tx.objectStore(STORE_META).put(created, 'manifest')
+    }
+    tx.oncomplete = () => resolve(created!)
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB manifest initialization failed'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB manifest initialization aborted'))
   })
 }
 

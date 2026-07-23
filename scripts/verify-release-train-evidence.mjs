@@ -4,8 +4,12 @@ import path from 'node:path'
 import { readGitProvenance } from './git-provenance.mjs'
 import {
   assetLifecyclePassed,
+  electronSafetyPassed,
   forcedKillPassed,
   fullQaPassed,
+  generationDecisionPassed,
+  generationRawPassed,
+  jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
 } from './release-evidence-validation.mjs'
@@ -87,6 +91,11 @@ const qa = check(
   findReports(reports, (_value, name) => name === 'qa-release-full.json'),
   fullQaPassed,
 )
+const jsonCompatibility = check(
+  'json-compatibility',
+  findReports(reports, (_value, name) => name === 'json-compatibility.json'),
+  jsonCompatibilityPassed,
+)
 const performance = check(
   'persistence-release-gate',
   findReports(reports, (_value, name) => name === 'persistence-release-gate.json'),
@@ -107,6 +116,16 @@ const forcedMac = check(
   findReports(reports, (_value, name) => /^forced-kill-macos-.*\.json$/i.test(name)),
   (value) => forcedKillPassed(value, 'darwin', 'APFS'),
 )
+const electronSafetyWindows = check(
+  'electron-safety-windows',
+  findReports(reports, (_value, name) => /^electron-safety-windows-.*\.json$/i.test(name)),
+  (value) => electronSafetyPassed(value, 'win32', 'NTFS'),
+)
+const electronSafetyMac = check(
+  'electron-safety-macos',
+  findReports(reports, (_value, name) => /^electron-safety-macos-.*\.json$/i.test(name)),
+  (value) => electronSafetyPassed(value, 'darwin', 'APFS'),
+)
 const assetWindows = check(
   'asset-lifecycle-windows',
   findReports(reports, (_value, name) => /^asset-lifecycle-windows-.*\.json$/i.test(name)),
@@ -116,6 +135,21 @@ const assetMac = check(
   'asset-lifecycle-macos',
   findReports(reports, (_value, name) => /^asset-lifecycle-macos-.*\.json$/i.test(name)),
   (value) => assetLifecyclePassed(value, 'darwin', 'APFS'),
+)
+const generationWindows = check(
+  'generation-windows',
+  findReports(reports, (_value, name) => /^generation-spike-windows-.*\.json$/i.test(name)),
+  (value) => generationRawPassed(value, 'win32', 'NTFS'),
+)
+const generationMac = check(
+  'generation-macos',
+  findReports(reports, (_value, name) => /^generation-spike-macos-.*\.json$/i.test(name)),
+  (value) => generationRawPassed(value, 'darwin', 'APFS'),
+)
+const generationDecision = check(
+  'generation-decision',
+  findReports(reports, (_value, name) => name === 'generation-decision.json'),
+  generationDecisionPassed,
 )
 
 const trainDefinitions = [
@@ -128,14 +162,14 @@ const trainDefinitions = [
   },
   {
     id: 'release-1',
-    checks: [qa, performance, drills],
+    checks: [qa, jsonCompatibility, performance, drills],
     stop: 'blind put、stale overwrite、冲突恢复失败或正式持久化 SLO 失败即停止 Web 发布',
     rollback: 'Web Locks/通知层可关闭；revision/CAS 不得与 blind writer 混用',
     userRecovery: '导出冲突标签页副本，加载最新版，再由用户决定是否导入副本',
   },
   {
     id: 'release-2',
-    checks: [qa, drills, forcedWindows, forcedMac],
+    checks: [qa, drills, forcedWindows, forcedMac, electronSafetyWindows, electronSafetyMac],
     stop: '路径 fail-open、退出步骤重复/遗漏或任一平台强杀恢复失败即停止桌面发布',
     rollback: '保留路径 fail-closed，回滚协调层；不回滚已确认数据文件',
     userRecovery: '重启核对最后确认数据；异常时从已验证备份恢复，不承诺内存编辑',
@@ -162,13 +196,25 @@ const gates = {
     status: qa.pass && drills.pass ? 'pass' : 'hold',
     evidence: [qa.name, drills.name],
   },
+  compatibility: {
+    status: jsonCompatibility.pass ? 'pass' : 'hold',
+    evidence: [jsonCompatibility.name],
+  },
   performance: {
     status: performance.pass ? 'pass' : 'hold',
     evidence: [performance.name],
   },
   dualPlatform: {
-    status: [forcedWindows, forcedMac, assetWindows, assetMac].every((item) => item.pass) ? 'pass' : 'hold',
-    evidence: [forcedWindows.name, forcedMac.name, assetWindows.name, assetMac.name],
+    status: [forcedWindows, forcedMac, electronSafetyWindows, electronSafetyMac, assetWindows, assetMac]
+      .every((item) => item.pass) ? 'pass' : 'hold',
+    evidence: [
+      forcedWindows.name, forcedMac.name, electronSafetyWindows.name, electronSafetyMac.name,
+      assetWindows.name, assetMac.name,
+    ],
+  },
+  generation: {
+    status: [generationWindows, generationMac, generationDecision].every((item) => item.pass) ? 'pass' : 'hold',
+    evidence: [generationWindows.name, generationMac.name, generationDecision.name],
   },
 }
 const report = {

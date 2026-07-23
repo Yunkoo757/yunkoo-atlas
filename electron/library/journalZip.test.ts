@@ -197,7 +197,7 @@ export async function testDesktopArchiveRejectsUnexpectedAttachment(): Promise<v
   }
 }
 
-export async function testDesktopArchiveRejectsMissingRuntimeIdCollections(): Promise<void> {
+export async function testDesktopArchiveNormalizesMissingHistoricalRuntimeIdCollections(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-missing-runtime-'))
   const storage = new LibraryStorage(root)
   try {
@@ -219,13 +219,17 @@ export async function testDesktopArchiveRejectsMissingRuntimeIdCollections(): Pr
       db.close()
     }
 
-    let error = ''
+    await validateDesktopLibrary(paths)
+    const reopened = new LibraryStorage(root)
+    await reopened.open()
     try {
-      await validateDesktopLibrary(paths)
-    } catch (caught) {
-      error = caught instanceof Error ? caught.message : String(caught)
+      assert(
+        JSON.stringify(reopened.loadSnapshot()?.subscribedIds) === '[]',
+        '历史 v8 缺省运行时 ID 集合必须只由中央 codec 补齐',
+      )
+    } finally {
+      reopened.release()
     }
-    assert(error.includes('subscribedIds must be a string array'), '桌面归档必须在替换资料库前拒绝缺失运行时 ID 集合')
   } finally {
     storage.release()
     fs.rmSync(root, { recursive: true, force: true })
@@ -579,6 +583,35 @@ export async function testElectronWebImportUsesCanonicalDefaultsForMissingHistor
   }
 }
 
+export async function testElectronExactImportDecodesHistoricalDatabaseWithManifestVersion(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-exact-historical-codec-'))
+  const sourceRoot = path.join(root, 'source')
+  const targetRoot = path.join(root, 'target')
+  const archive = path.join(root, 'historical.journal.zip')
+  let source: LibraryStorage | null = null
+  let target: LibraryStorage | null = null
+  try {
+    source = new LibraryStorage(sourceRoot)
+    await source.open()
+    source.saveSnapshot(emptySnapshot())
+    source.writeManifest({ ...source.readManifest(), schemaVersion: 1 })
+    await exportJournalZip(source, archive)
+
+    await importJournalZipToPath(targetRoot, archive)
+    target = new LibraryStorage(targetRoot)
+    await target.open()
+    const restored = target.loadSnapshot()
+    assert(restored !== null, '历史 exact archive 必须可由 manifest 版本驱动中央 codec 读取')
+    for (const field of PERSISTED_SNAPSHOT_FIELDS) {
+      assert(restored[field] !== undefined, `Electron PATH-D 历史字段 ${field} 必须规范化为 canonical`)
+    }
+  } finally {
+    source?.release()
+    target?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 function libraryChecksum(root: string): string {
   const hash = createHash('sha256')
   const visit = (dir: string): void => {
@@ -683,8 +716,9 @@ export async function testPathDElectronExactArchiveRoundTripsFullSnapshotAndAtta
       webReject = error
     }
     assert(
-      webReject instanceof WebJournalArchiveError && webReject.code === 'desktop-format',
-      '真实 PATH-D writer 产物交给 Web reader 时必须返回 desktop-format',
+      webReject instanceof WebJournalArchiveError
+        && webReject.code === 'desktop-format-not-supported-on-web',
+      '真实 PATH-D writer 产物交给 Web reader 时必须返回稳定的不支持错误码',
     )
     source.release()
     await importJournalZipToPath(targetRoot, archive)

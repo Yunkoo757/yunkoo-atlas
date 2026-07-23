@@ -3,6 +3,7 @@ import { normalizeQuickNotes } from '@/data/quickNoteCodec'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
+import { OperationalError } from '@/lib/operationalError'
 import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import { normalizeSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
@@ -28,7 +29,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function assertSupportedVersion(version: number): void {
   if (!Number.isInteger(version) || version < 1 || version > SCHEMA_VERSION) {
-    throw new Error(`Unsupported snapshot version: ${version}`)
+    throw new OperationalError(
+      'unsupported-future-version',
+      `Unsupported snapshot version: ${version}`,
+    )
+  }
+}
+
+function assertSnapshotContract(
+  snapshot: PersistedSnapshot,
+  label: string,
+): void {
+  try {
+    assertValidPersistedSnapshot(snapshot, label)
+  } catch (error) {
+    throw new OperationalError(
+      'snapshot-contract-invalid',
+      error instanceof Error ? error.message : `${label} contract is invalid`,
+      error,
+    )
   }
 }
 
@@ -81,7 +100,12 @@ export function decodeCanonicalSnapshot(
   options: SnapshotDecodeOptions,
 ): CanonicalSnapshot {
   assertSupportedVersion(options.version)
-  if (!isRecord(value)) throw new Error(`${options.label ?? 'snapshot'} must be an object`)
+  if (!isRecord(value)) {
+    throw new OperationalError(
+      'snapshot-contract-invalid',
+      `${options.label ?? 'snapshot'} must be an object`,
+    )
+  }
 
   const raw = migrateVersionedSnapshot(value, options.version)
   const strategiesWereMissing = raw.strategies === undefined
@@ -103,7 +127,7 @@ export function decodeCanonicalSnapshot(
     symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
     reviewTemplates: raw.reviewTemplates as PersistedSnapshot['reviewTemplates'],
   }
-  assertValidPersistedSnapshot(candidate, options.label ?? 'snapshot')
+  assertSnapshotContract(candidate, options.label ?? 'snapshot')
 
   const normalizedRelations = normalizeTradeStrategyReferences(
     candidate.trades,
@@ -133,6 +157,6 @@ export function decodeCanonicalSnapshot(
     symbolCatalog: normalizeSymbolCatalog(symbolCatalogSource),
     reviewTemplates: normalizeReviewTemplates(candidate.reviewTemplates),
   }
-  assertValidPersistedSnapshot(normalized, options.label ?? 'snapshot')
+  assertSnapshotContract(normalized, options.label ?? 'snapshot')
   return normalized
 }

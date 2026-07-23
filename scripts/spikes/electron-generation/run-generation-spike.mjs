@@ -18,7 +18,7 @@ import { readGitProvenance } from '../../git-provenance.mjs'
 const root = process.cwd()
 const outputIndex = process.argv.indexOf('--output')
 const explicitOutput = outputIndex >= 0 ? process.argv[outputIndex + 1] : null
-const workspace = fs.mkdtempSync(path.join(root, '.tmp-generation-spike-'))
+const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-generation-spike-'))
 
 function detectFileSystem(directory) {
   if (process.platform === 'win32') {

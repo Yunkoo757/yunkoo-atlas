@@ -17,7 +17,13 @@ import {
 } from './updater'
 import { loadWindowState, registerWindowIpc, trackWindowState } from './windowState'
 import { initializeDiagnostics, logDiagnostic } from './diagnostics'
-import { QuitCoordinator, RendererFlushTracker, type QuitIntent } from './quitCoordinator'
+import { safeConsoleError } from './diagnosticSanitizer'
+import {
+  QuitCoordinator,
+  RendererFlushTracker,
+  type QuitIntent,
+  type QuitOperationalFailure,
+} from './quitCoordinator'
 import { runElectronForcedKillMode } from './forcedKillQa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -123,10 +129,10 @@ function requestRendererFlush(requestId: string, signal: AbortSignal): Promise<v
   })
 }
 
-function reportExitError(message: string): void {
-  logDiagnostic('error', 'graceful-exit-cancelled', message)
+function reportExitError(failure: QuitOperationalFailure): void {
+  logDiagnostic('error', 'graceful-exit-cancelled', failure)
   for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send('app:close-save-error', message)
+    if (!window.isDestroyed()) window.webContents.send('app:close-save-error', failure.message)
   }
 }
 
@@ -215,7 +221,7 @@ function createWindow() {
   })
 
   mainWindow.webContents.on('did-fail-load', (_event, code, desc, url) => {
-    console.error(`[electron] did-fail-load ${code} ${desc} ${url}`)
+    safeConsoleError('did-fail-load', { code, description: desc, url })
     logDiagnostic('error', 'did-fail-load', { code, description: desc })
   })
 
@@ -227,7 +233,7 @@ function createWindow() {
     void mainWindow.loadURL(devUrl)
   } else {
     void mainWindow.loadFile(indexHtml).catch((err) => {
-      console.error('[electron] loadFile failed', indexHtml, err)
+      safeConsoleError('load-file-failed', { path: indexHtml, error: err })
       logDiagnostic('error', 'load-file-failed', err)
     })
   }

@@ -12,6 +12,7 @@ import {
   suspendPersist,
 } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
+import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -48,6 +49,23 @@ function snapshotWithName(displayName: string): PersistedSnapshot {
     profile: { ...state.profile, displayName },
   }))
   return pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
+}
+
+export function testPickPersistedAlwaysWritesEveryCanonicalField(): void {
+  const state = useStore.getState()
+  const empty = pickPersisted(state, {})
+  assert(
+    JSON.stringify(Object.keys(empty).sort()) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
+    'autosave writer 的字段集合必须始终与 16 字段注册表完全一致',
+  )
+  assert(Object.prototype.hasOwnProperty.call(empty, 'shortcuts'), '空快捷键也必须显式写出 shortcuts')
+  assert(JSON.stringify(empty.shortcuts) === '{}', '空快捷键必须序列化为空对象')
+
+  const custom = pickPersisted(state, {
+    'nav.list': { key: 'j', mod: true },
+  })
+  const binding = custom.shortcuts['nav.list']
+  assert(!Array.isArray(binding) && binding?.key === 'j', '自定义快捷键覆盖必须保留')
 }
 
 export async function testExplicitFlushPersistsChangesScheduledDuringAnActiveSave(): Promise<void> {

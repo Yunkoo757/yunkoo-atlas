@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { applyImport } from '@/lib/importExport'
 import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
@@ -93,7 +94,6 @@ export async function testJsonImportPreservesEditsMadeWhileCommitIsPending(): Pr
 
   enablePersistWrites()
   try {
-    const { applyImport } = await import('@/lib/importExport')
     const importing = applyImport({
       version: 6,
       trades: [imported],
@@ -119,7 +119,10 @@ export async function testJsonImportPreservesEditsMadeWhileCommitIsPending(): Pr
     await importing
 
     const finalState = useStore.getState()
-    assert(finalState.trades.some((item) => item.id === imported.id), '导入交易必须保留')
+    assert(
+      finalState.trades.some((item) => item.id === imported.id),
+      `导入交易必须保留；实际交易=${finalState.trades.map((item) => item.id).join(',')}；提交次数=${commitCount}`,
+    )
     assert(finalState.trades.some((item) => item.id === localDuringImport.id), '等待提交期间新增的交易不得被旧快照覆盖')
     assert(finalState.tagPresets.includes('导入标签'), '导入标签必须保留')
     assert(finalState.tagPresets.includes('等待期间新增'), '等待提交期间新增的标签不得丢失')
@@ -179,7 +182,6 @@ export async function testJsonImportAbortsWhenTheSameTradeIsEditedDuringCommit()
 
   enablePersistWrites()
   try {
-    const { applyImport } = await import('@/lib/importExport')
     const importing = applyImport({
       version: 6,
       trades: [imported],
@@ -203,7 +205,10 @@ export async function testJsonImportAbortsWhenTheSameTradeIsEditedDuringCommit()
     }
 
     const finalTrade = useStore.getState().trades.find((item) => item.id === original.id)
-    assert(errorMessage.includes('本地编辑'), '同 ID 记录发生并发修改时必须明确告知导入已取消')
+    assert(
+      errorMessage.includes('本地编辑'),
+      `同 ID 记录发生并发修改时必须明确告知导入已取消；实际错误=${errorMessage || '<empty>'}`,
+    )
     assert(finalTrade?.symbol === 'XAUUSD', '导入提交等待期间的同 ID 本地编辑不得被覆盖')
     assert(finalTrade?.note === '<p>等待期间本地编辑</p>', '本地笔记必须完整保留')
     assert(commitCount === 2, '同 ID 冲突后必须用补偿提交恢复本地快照并清理本批附件')

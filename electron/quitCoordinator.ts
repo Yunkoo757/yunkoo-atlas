@@ -4,6 +4,19 @@ export type QuitResult =
   | { ok: true; intent: QuitIntent }
   | { ok: false; error: string }
 
+export type QuitFailureStage = 'renderer-flush' | 'verified-backup' | 'commit-exit'
+export type QuitFailureCode =
+  | 'quit-flush-failed'
+  | 'quit-backup-failed'
+
+export interface QuitOperationalFailure {
+  operationId: string
+  stage: QuitFailureStage
+  code: QuitFailureCode
+  durationMs: number
+  message: string
+}
+
 export interface QuitCoordinatorDependencies {
   timeoutMs: number
   now?(): number
@@ -12,7 +25,7 @@ export interface QuitCoordinatorDependencies {
   createVerifiedBackup(signal: AbortSignal): Promise<void>
   commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number): Promise<void>
   cancelPreparation(): Promise<void> | void
-  reportError(message: string): void
+  reportError(failure: QuitOperationalFailure): void
 }
 
 export async function releaseThenFinalizeWithRollback(
@@ -65,6 +78,8 @@ export class QuitCoordinator {
     const controller = new AbortController()
     const now = this.dependencies.now ?? Date.now
     const deadlineAt = now() + this.dependencies.timeoutMs
+    const startedAt = now()
+    let stage: QuitFailureStage = 'renderer-flush'
     const assertWithinDeadline = () => {
       try {
         assertExitWithinDeadline(controller.signal, deadlineAt, now)
@@ -84,8 +99,10 @@ export class QuitCoordinator {
     const run = async (): Promise<QuitResult> => {
       await this.dependencies.requestRendererFlush(requestId, controller.signal)
       assertWithinDeadline()
+      stage = 'verified-backup'
       await this.dependencies.createVerifiedBackup(controller.signal)
       assertWithinDeadline()
+      stage = 'commit-exit'
       let committedIntent: QuitIntent | null = null
       const resolveIntent = () => {
         committedIntent = this.requestedIntent
@@ -100,7 +117,16 @@ export class QuitCoordinator {
       controller.abort()
       const message = messageOf(error)
       return Promise.resolve(this.dependencies.cancelPreparation()).then(() => {
-        this.dependencies.reportError(message)
+        const code: QuitFailureCode = stage === 'renderer-flush'
+          ? 'quit-flush-failed'
+          : 'quit-backup-failed'
+        this.dependencies.reportError({
+          operationId: requestId,
+          stage,
+          code,
+          durationMs: Math.max(0, now() - startedAt),
+          message,
+        })
         return { ok: false as const, error: message }
       })
     }).then((result) => {

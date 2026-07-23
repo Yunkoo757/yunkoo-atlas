@@ -4,7 +4,8 @@ import {
   StorageRevisionConflictError,
 } from '@/storage/indexedDbAdapter'
 import type { RevisionedLibraryMutation } from '@/storage/adapter'
-import type { PersistedSnapshot } from '@/storage/types'
+import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
+import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
 
 declare global {
   interface Window {
@@ -56,6 +57,33 @@ async function seedLegacySnapshotWithoutRevision(): Promise<void> {
       db.createObjectStore('snapshot').put(snapshot('legacy'), 'main')
       db.createObjectStore('assets', { keyPath: 'id' })
       db.createObjectStore('meta')
+    }
+    request.onsuccess = () => {
+      request.result.close()
+      resolve()
+    }
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function seedCurrentCorruptSnapshot(): Promise<void> {
+  await deleteDatabase()
+  const corrupt = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
+  const trades = corrupt.trades as Array<Record<string, unknown>>
+  trades[0] = { ...trades[0], entry: null }
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1)
+    request.onupgradeneeded = () => {
+      const db = request.result
+      db.createObjectStore('snapshot').put(corrupt, 'main')
+      db.createObjectStore('assets', { keyPath: 'id' })
+      const meta = db.createObjectStore('meta')
+      meta.put({
+        schemaVersion: SCHEMA_VERSION,
+        libraryId: 'current-corrupt-library',
+        createdAt: '2026-07-23T00:00:00.000Z',
+      }, 'manifest')
+      meta.put(7, 'snapshotRevision')
     }
     request.onsuccess = () => {
       request.result.close()
@@ -175,6 +203,21 @@ async function expectConflict(
 }
 
 async function run(): Promise<void> {
+  await seedCurrentCorruptSnapshot()
+  const corrupt = new IndexedDbStorageAdapter()
+  await corrupt.open()
+  let currentCorruptionRejected = false
+  try {
+    await corrupt.loadSnapshotEnvelope()
+  } catch {
+    currentCorruptionRejected = true
+  }
+  corrupt.close()
+  assert(currentCorruptionRejected, '当前 v8 中显式错误字段不得按历史 v1 缺省迁移')
+  const corruptRaw = await readRawValue('snapshot', 'main') as { trades: Array<{ entry: unknown }> }
+  assert(corruptRaw.trades[0].entry === null, '拒绝当前 v8 损坏时原始快照必须零变化')
+  assert(await readRawValue('meta', 'snapshotRevision') === 7, '拒绝当前 v8 损坏时 revision 必须零变化')
+
   await seedLegacySnapshotWithoutRevision()
   const first = new IndexedDbStorageAdapter()
   const second = new IndexedDbStorageAdapter()
@@ -184,6 +227,7 @@ async function run(): Promise<void> {
   const legacy = await first.loadSnapshotEnvelope()
   assert(legacy.revision === 0, '旧库缺少 revision key 时必须兼容读取为 0')
   assert(legacy.snapshot?.profile?.displayName === 'legacy', 'revision 初始化不得重置旧快照')
+  assert((await first.getManifest()).schemaVersion === SCHEMA_VERSION, '旧库成功迁移后必须原子记录当前 schema')
 
   await mutateRawRevision('corrupt')
   let corruptLoadRejected = false

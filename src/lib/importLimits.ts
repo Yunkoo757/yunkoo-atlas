@@ -28,6 +28,7 @@ export function getJsonImportErrorMessage(code: JsonImportErrorCode): string {
 
 export class JsonImportBudgetError extends Error {
   readonly code: JsonImportErrorCode
+  readonly category = 'import-budget-exceeded' as const
   readonly cause?: unknown
 
   constructor(code: JsonImportErrorCode, cause?: unknown) {

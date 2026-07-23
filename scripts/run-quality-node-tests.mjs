@@ -26,4 +26,11 @@ if (result.status !== 0) process.exit(result.status ?? 1)
 if (/^\s*ok\b.*#\s+(?:SKIP|TODO)\b/im.test(result.stdout ?? '')) {
   throw new Error('关键 Node 场景包含 skip/todo，拒绝生成 PASS 执行报告')
 }
-await writeExecutionReport(root, files)
+const tests = []
+for (const file of files) {
+  const source = await fs.readFile(path.join(root, file), 'utf8')
+  for (const match of source.matchAll(/\btest\(\s*['"`]([^'"`]+)['"`]/g)) {
+    tests.push(`${file}#${match[1]}`)
+  }
+}
+await writeExecutionReport(root, files, tests)
