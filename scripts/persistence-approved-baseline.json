@@ -1,24 +1,49 @@
 {
   "version": 1,
   "approvedBy": "Yunkoo老师",
-  "approvedAt": "2026-07-23T12:30:11.954Z",
-  "gitCommit": "8b822b2aa190353e51c3aa99d7243e87fa995e82",
-  "gitTree": "c198d20044470c29f99156e351de1428bdaff892",
+  "approvedAt": "2026-07-23T13:33:30.000Z",
+  "gitCommit": "c56f4d0a1431b03f4ed789e3ea9845cfcfc96e9f",
+  "gitTree": "2a3b2858d0639993e2304d6730e86112192f5b9a",
   "workingTreeDirty": false,
-  "sourceFingerprint": "ea712674d8e2e425933b49802d3275f0e48af23564124dd02d837583f02fbac2",
-  "sourceIdentity": "git-tree:c198d20044470c29f99156e351de1428bdaff892",
-  "basis": "per-metric maximum of two same-source formal attempts after chunked Blob persistence removed 10K/20K main-thread long tasks",
+  "sourceFingerprint": "9a11a8870bd49c3a885c924cc72864939ce6bd23567d21f34d3d3bf1ab84b0dd",
+  "sourceIdentity": "git-tree:2a3b2858d0639993e2304d6730e86112192f5b9a",
+  "basis": "per-metric maximum of two same-source 5+30 formal attempts with calibrated 10K/20K Long Task observation",
+  "evidence": [
+    {
+      "attempt": 1,
+      "persistence": {
+        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-1/persistence-release.json",
+        "sha256": "e960800b6c1132558e88182e098a44d20b34c330ef107abcc91f1b4c390becb0"
+      },
+      "webZip": {
+        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-1/web-zip-release.json",
+        "sha256": "ae21cf0b79b84386a2833fc622e2cb4a56b206a87c729144552d677920b08625"
+      }
+    },
+    {
+      "attempt": 2,
+      "persistence": {
+        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-2/persistence-release.json",
+        "sha256": "d728543bdca3dde5665db54f1550a89f1a8e92dd6475ef2481ad6a7e0e0f2989"
+      },
+      "webZip": {
+        "path": "scripts/persistence-baseline-evidence/c56f4d0/attempt-2/web-zip-release.json",
+        "sha256": "d37b6ba9a2ce80a6baa53ecfda6c608b0da4fc183a3e1131c276c0a9bba0580a"
+      }
+    }
+  ],
   "metrics": {
-    "web10kSaveP95Ms": 123.30000001192093,
-    "web20kSaveP95Ms": 264.09999999403954,
-    "web10kDirtyConfirmedP95Ms": 545.0999999940395,
-    "web20kDirtyConfirmedP95Ms": 666,
-    "web10kStaleConflictP95Ms": 12.200000002980232,
-    "web20kStaleConflictP95Ms": 10.099999994039536,
-    "electron10kSaveP95Ms": 589.1033999999927,
-    "electron20kSaveP95Ms": 1119.4277000000002,
-    "quitCoordinatorP95Ms": 1605.8009999999776,
+    "web10kSaveP95Ms": 158.5,
+    "web20kSaveP95Ms": 305.5,
+    "web10kDirtyConfirmedP95Ms": 588.2999999970198,
+    "web20kDirtyConfirmedP95Ms": 743,
+    "web10kStaleConflictP95Ms": 13.200000002980232,
+    "web20kStaleConflictP95Ms": 17,
+    "electron10kSaveP95Ms": 613.6039999999921,
+    "electron20kSaveP95Ms": 1107.5810000000056,
+    "quitCoordinatorP95Ms": 1626.7145000000019,
     "web10kMaxLongTaskMs": 0,
-    "webZipPeakJsHeapBytes": 437402770
+    "web20kMaxLongTaskMs": 0,
+    "webZipPeakJsHeapBytes": 437418281
   }
 }
