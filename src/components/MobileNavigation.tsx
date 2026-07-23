@@ -236,7 +236,7 @@ export function MobileNavigation({
                     data-mobile-workspace-item
                     data-mobile-drawer-item
                     className={active ? 'is-active' : undefined}
-                    aria-current={active ? 'page' : undefined}
+                    aria-current={active ? 'page' : 'false'}
                     onClick={closeDrawer}
                   >
                     <Icon size={18} aria-hidden="true" />

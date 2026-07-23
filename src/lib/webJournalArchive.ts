@@ -1,15 +1,6 @@
 import JSZip from 'jszip'
-import { normalizeTradeStrategyReferences } from '@/lib/strategies'
-import { normalizeTrades } from '@/lib/tradeKind'
-import { normalizeDisplay } from '@/lib/tradeFilters'
-import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
-import { normalizeSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIcons'
-import { mergeTagPresets } from '@/lib/tags'
-import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
-import { normalizeQuickNotes } from '@/data/quickNotes'
-import { migrateShortcutBindings } from '@/store/shortcutStore'
 import { isSafeAssetId } from '@/storage/assetId'
-import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
+import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import {
   SCHEMA_VERSION,
   type ExportAssetRecord,
@@ -61,6 +52,8 @@ export interface WebJournalArchivePreview {
   schemaVersion: number | null
   tradeCount: number
   weeklyReviewCount: number
+  quickNoteCount: number
+  reviewTemplateCount: number
   strategyCount: number
   assetCount: number
   assetBytes: number
@@ -81,6 +74,7 @@ export interface WebJournalArchivePreview {
 export interface ParsedWebJournalArchive {
   snapshot: PersistedSnapshot
   assets: ExportAssetRecord[]
+  recoveryOrphanAssetIds?: string[]
   preview: WebJournalArchivePreview
 }
 
@@ -507,7 +501,7 @@ function validateSnapshotRelations(snapshot: PersistedSnapshot): void {
   }
 }
 
-function buildNormalizedSnapshot(raw: RecordValue): PersistedSnapshot {
+function buildNormalizedSnapshot(raw: RecordValue, version: number): PersistedSnapshot {
   if (raw.display !== undefined && !isRecord(raw.display)) {
     throw archiveError('invalid-snapshot', '归档中的显示设置格式无效')
   }
@@ -516,53 +510,17 @@ function buildNormalizedSnapshot(raw: RecordValue): PersistedSnapshot {
   validateSavedTradeViews(raw.savedTradeViews)
   validateSymbolData(raw.symbolIcons, raw.symbolCatalog)
 
-  const candidate: PersistedSnapshot = {
-    trades: raw.trades as PersistedSnapshot['trades'],
-    weeklyReviews: (raw.weeklyReviews ?? []) as NonNullable<PersistedSnapshot['weeklyReviews']>,
-    quickNotes: (raw.quickNotes ?? []) as NonNullable<PersistedSnapshot['quickNotes']>,
-    strategies: raw.strategies as PersistedSnapshot['strategies'],
-    starredIds: (raw.starredIds ?? []) as string[],
-    subscribedIds: (raw.subscribedIds ?? []) as string[],
-    pinnedStrategyIds: (raw.pinnedStrategyIds ?? []) as string[],
-    display: raw.display as unknown as PersistedSnapshot['display'],
-    tagPresets: (raw.tagPresets ?? []) as string[],
-    mistakeTagPresets: (raw.mistakeTagPresets ?? []) as string[],
-    profile: raw.profile as PersistedSnapshot['profile'],
-    shortcuts: raw.shortcuts as PersistedSnapshot['shortcuts'],
-    savedTradeViews: raw.savedTradeViews as PersistedSnapshot['savedTradeViews'],
-    symbolIcons: raw.symbolIcons as PersistedSnapshot['symbolIcons'],
-    symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
-  }
-
+  let normalized: PersistedSnapshot
   try {
-    assertValidPersistedSnapshot(candidate, 'Web journal snapshot')
+    normalized = decodeCanonicalSnapshot(raw, {
+      version,
+      label: 'Web journal snapshot',
+    })
   } catch {
     throw archiveError('invalid-snapshot', '归档中的交易或策略数据格式无效')
   }
-  const normalized = normalizeTradeStrategyReferences(candidate.trades, candidate.strategies)
-  const strategies = normalized.strategies
-  const trades = normalizeTrades(normalized.trades)
-  validateSnapshotRelations({ ...candidate, strategies, trades })
-  const symbolIcons = normalizeSymbolIcons(candidate.symbolIcons)
-  return {
-    ...candidate,
-    trades,
-    weeklyReviews: normalizeWeeklyReviews(candidate.weeklyReviews),
-    quickNotes: normalizeQuickNotes(candidate.quickNotes),
-    strategies,
-    display: normalizeDisplay(candidate.display),
-    tagPresets: mergeTagPresets(candidate.tagPresets),
-    mistakeTagPresets: mergeTagPresets(candidate.mistakeTagPresets),
-    shortcuts: migrateShortcutBindings(candidate.shortcuts),
-    savedTradeViews: normalizeSavedTradeViews(candidate.savedTradeViews),
-    symbolIcons,
-    symbolCatalog: normalizeSymbolCatalog(
-      candidate.symbolCatalog ?? [
-        ...Object.keys(symbolIcons),
-        ...trades.map((trade) => trade.symbol),
-      ],
-    ),
-  }
+  validateSnapshotRelations(normalized)
+  return normalized
 }
 
 function parseDeclaredAssets(value: unknown): DeclaredAsset[] {
@@ -643,6 +601,7 @@ function parseAssetFiles(
 function validateNoteAssetReferences(
   snapshot: PersistedSnapshot,
   declaredIds: ReadonlySet<string>,
+  allowedUnreferencedIds: ReadonlySet<string> = new Set(),
 ): void {
   const referencedIds = new Set<string>()
   for (const trade of snapshot.trades) {
@@ -686,9 +645,12 @@ function validateNoteAssetReferences(
     }
   }
   for (const id of declaredIds) {
-    if (!referencedIds.has(id)) {
+    if (!referencedIds.has(id) && !allowedUnreferencedIds.has(id)) {
       throw archiveError('invalid-asset', `附件 ${id} 已声明但未被任何正文引用`)
     }
+  }
+  for (const id of allowedUnreferencedIds) {
+    if (!declaredIds.has(id)) throw archiveError('invalid-asset', `恢复附件 ${id} 缺少声明或文件`)
   }
 }
 
@@ -869,11 +831,25 @@ export async function parseWebJournalArchive(
   }
   const raw = dataJson.raw
   const { exportVersion, schemaVersion } = parseVersion(raw)
-  const snapshot = buildNormalizedSnapshot(raw)
+  const snapshot = buildNormalizedSnapshot(raw, schemaVersion ?? exportVersion)
   const declarations = parseDeclaredAssets(raw.assets)
+  if (raw.recoveryOrphanAssetIds !== undefined && !Array.isArray(raw.recoveryOrphanAssetIds)) {
+    throw archiveError('invalid-asset', '恢复附件 ID 清单必须是数组')
+  }
+  const recoveryOrphanAssetIds = Array.isArray(raw.recoveryOrphanAssetIds)
+    ? raw.recoveryOrphanAssetIds.map((id) => {
+        if (typeof id !== 'string' || !isSafeAssetId(id)) {
+          throw archiveError('invalid-asset', '恢复附件 ID 无效')
+        }
+        return id
+      })
+    : []
+  if (new Set(recoveryOrphanAssetIds).size !== recoveryOrphanAssetIds.length) {
+    throw archiveError('invalid-asset', '恢复附件 ID 重复')
+  }
   const assetFiles = parseAssetFiles(entries, declarations)
   const declaredIds = new Set(declarations.map((asset) => asset.id))
-  validateNoteAssetReferences(snapshot, declaredIds)
+  validateNoteAssetReferences(snapshot, declaredIds, new Set(recoveryOrphanAssetIds))
 
   const assets: ExportAssetRecord[] = []
   let expandedBytes = dataJson.byteLength
@@ -916,11 +892,14 @@ export async function parseWebJournalArchive(
   return {
     snapshot,
     assets,
+    recoveryOrphanAssetIds,
     preview: {
       exportVersion,
       schemaVersion,
       tradeCount: snapshot.trades.length,
       weeklyReviewCount: snapshot.weeklyReviews?.length ?? 0,
+      quickNoteCount: snapshot.quickNotes?.length ?? 0,
+      reviewTemplateCount: snapshot.reviewTemplates?.length ?? 0,
       strategyCount: snapshot.strategies.length,
       assetCount: assets.length,
       assetBytes,

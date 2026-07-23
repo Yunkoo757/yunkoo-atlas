@@ -1,65 +1,32 @@
-import type { PersistedSnapshot } from '@/storage/types'
-import { getStorage } from '@/storage/index'
-import { useSaveStatus } from '@/store/saveStatus'
-import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import type { ShortcutBinding } from '@/shortcuts/types'
-
-/** 全量快照写盘：过短易在笔记连改时 thrash；过长影响「已保存」体感。 */
-const SAVE_DEBOUNCE_MS = 400
-const MAX_STABLE_PREFLUSH_WRITES = 8
-
-let preFlushCallback: (() => Promise<void>) | null = null
-
-export function setPreFlushCallback(cb: (() => Promise<void>) | null): void {
-  preFlushCallback = cb
-}
-
-let timer: ReturnType<typeof setTimeout> | null = null
-let pending: PersistedSnapshot | null = null
-let flushing: Promise<void> | null = null
-let explicitFlushing: Promise<void> | null = null
-/** >0 时只记 pending，不启 debounce 写盘（批量导入等） */
-let suspendDepth = 0
-/**
- * bootstrap 完成前禁止写盘。否则 visibilitychange / beforeunload
- * 会把默认空 store（含空头像）盖掉 journal.db。
- */
-let persistWritesEnabled = false
-
-/** 仅由 bootstrapStorage 在 hydrate 成功后打开。 */
-export function enablePersistWrites(): void {
-  persistWritesEnabled = true
-}
-
-/** 切库 / 测试重置时关闭，避免未 hydrate 的空快照落盘。 */
-export function disablePersistWrites(): void {
-  persistWritesEnabled = false
-  if (timer) {
-    clearTimeout(timer)
-    timer = null
-  }
-  pending = null
-}
+import { useSaveStatus } from '@/store/saveStatus'
+import { useStore } from '@/store/useStore'
+import {
+  PersistenceController,
+  type PersistenceDiagnostics,
+} from '@/storage/persistenceController'
+import { getStorage } from '@/storage/provider'
+import type { PersistedSnapshot } from '@/storage/types'
 
 export function pickPersisted(
   state: {
-  trades: PersistedSnapshot['trades']
-  weeklyReviews: NonNullable<PersistedSnapshot['weeklyReviews']>
-  quickNotes: NonNullable<PersistedSnapshot['quickNotes']>
-  strategies: PersistedSnapshot['strategies']
-  starredIds: string[]
-  subscribedIds: string[]
-  pinnedStrategyIds: string[]
-  display: PersistedSnapshot['display']
-  tagPresets: string[]
-  mistakeTagPresets: string[]
-  profile: PersistedSnapshot['profile']
-  savedTradeViews: PersistedSnapshot['savedTradeViews']
-  symbolIcons: PersistedSnapshot['symbolIcons']
-  symbolCatalog: PersistedSnapshot['symbolCatalog']
-  reviewTemplates: NonNullable<PersistedSnapshot['reviewTemplates']>
-},
+    trades: PersistedSnapshot['trades']
+    weeklyReviews: NonNullable<PersistedSnapshot['weeklyReviews']>
+    quickNotes: NonNullable<PersistedSnapshot['quickNotes']>
+    strategies: PersistedSnapshot['strategies']
+    starredIds: string[]
+    subscribedIds: string[]
+    pinnedStrategyIds: string[]
+    display: PersistedSnapshot['display']
+    tagPresets: string[]
+    mistakeTagPresets: string[]
+    profile: PersistedSnapshot['profile']
+    savedTradeViews: PersistedSnapshot['savedTradeViews']
+    symbolIcons: PersistedSnapshot['symbolIcons']
+    symbolCatalog: PersistedSnapshot['symbolCatalog']
+    reviewTemplates: NonNullable<PersistedSnapshot['reviewTemplates']>
+  },
   shortcutBindings?: Record<string, ShortcutBinding | null>,
 ): PersistedSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
@@ -83,103 +50,74 @@ export function pickPersisted(
   }
 }
 
-async function flush(): Promise<void> {
-  while (pending) {
-    const snapshot = pending
-    pending = null
-    useSaveStatus.getState().setSaving()
+const controller = new PersistenceController({
+  async saveSnapshot(snapshot) {
     try {
       await getStorage().saveSnapshot(snapshot)
-    } catch (e) {
-      console.error('Persist failed', e)
-      useSaveStatus.getState().setError(e)
-      // 若写盘期间已有更新快照到达，保留更新的完整快照；否则重试本次快照。
-      pending ??= snapshot
-      throw e
+    } catch (error) {
+      console.error('Persist failed', error)
+      throw error
     }
-  }
-  // flush 期间 schedulePersist 可能创建了 debounce timer；最新快照已由上面的循环追写，
-  // 此时清除尾随 timer，避免 400ms 后空跑并错误改写保存状态。
-  if (timer) {
-    clearTimeout(timer)
-    timer = null
-  }
-  useSaveStatus.getState().setSaved()
+  },
+  captureSnapshot() {
+    const state = useStore.getState()
+    const shortcutBindings = useShortcutStore.getState().bindings
+    return {
+      snapshot: pickPersisted(state, shortcutBindings),
+      stateReference: state,
+      shortcutReference: shortcutBindings,
+    }
+  },
+  status: {
+    getStatus: () => useSaveStatus.getState().status,
+    setDirty: () => useSaveStatus.getState().setDirty(),
+    setSaving: () => useSaveStatus.getState().setSaving(),
+    setSaved: () => useSaveStatus.getState().setSaved(),
+    setError: (error) => useSaveStatus.getState().setError(error),
+    reset: () => useSaveStatus.getState().reset(),
+  },
+  clock: {
+    setTimeout: (callback, milliseconds) => globalThis.setTimeout(callback, milliseconds),
+    clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+  },
+})
+
+export function setPreFlushCallback(callback: (() => Promise<void>) | null): void {
+  controller.setPreFlushCallback(callback)
 }
 
-function startPendingFlush(): Promise<void> {
-  if (flushing) return flushing
-  if (timer) {
-    clearTimeout(timer)
-    timer = null
-  }
-  const operation = flush().finally(() => {
-    if (flushing === operation) flushing = null
-  })
-  flushing = operation
-  return operation
+export function enablePersistWrites(): void {
+  controller.enableWrites()
 }
 
-/** 是否有未持久化的变更（用于 beforeunload 避免无条件弹窗） */
+export function disablePersistWrites(): void {
+  controller.disableWrites()
+}
+
 export function hasPendingChanges(): boolean {
-  const status = useSaveStatus.getState().status
-  return !!pending || status === 'dirty' || status === 'saving' || status === 'error'
+  return controller.hasPendingChanges()
 }
 
 export function schedulePersist(snapshot: PersistedSnapshot): void {
-  if (!persistWritesEnabled) return
-  pending = snapshot
-  useSaveStatus.getState().setDirty()
-  if (suspendDepth > 0) return
-  if (timer) clearTimeout(timer)
-  timer = setTimeout(() => {
-    timer = null
-    void startPendingFlush()
-      .catch(() => {
-        // 自动保存失败会保留 pending，并由保存状态提示；显式 flush 仍会抛错。
-      })
-  }, SAVE_DEBOUNCE_MS)
+  controller.schedule(snapshot)
 }
 
-/** 暂停自动 debounce 写盘；可嵌套。仍会标记 dirty / 更新 pending。 */
 export function suspendPersist(): void {
-  suspendDepth++
-  if (timer) {
-    clearTimeout(timer)
-    timer = null
-  }
+  controller.suspend()
 }
 
-/** 结束暂停；默认立刻 flush 一次。 */
 export function resumePersist(options?: { flushNow?: boolean }): void {
-  suspendDepth = Math.max(0, suspendDepth - 1)
-  if (suspendDepth > 0) return
-  if (options?.flushNow === false) {
-    if (pending) schedulePersist(pending)
-    return
-  }
-  void flushPersistNow().catch(() => {})
+  controller.resume(options)
 }
 
-/** 路径已切换但新库 hydrate 失败时，丢弃旧库待写并释放一层暂停。 */
 export function discardPendingAndResumePersist(): void {
-  suspendDepth = Math.max(0, suspendDepth - 1)
-  if (timer) {
-    clearTimeout(timer)
-    timer = null
-  }
-  pending = null
-  useSaveStatus.getState().reset()
+  controller.discardPendingAndResume()
 }
 
-/** 结束暂停并等待最终快照真正写盘，供切库、导入和恢复使用。 */
 export async function resumePersistAndFlush(): Promise<void> {
-  suspendDepth = Math.max(0, suspendDepth - 1)
-  if (suspendDepth > 0) return
-  await flushPersistNow()
+  await controller.resumeAndFlush()
 }
 
-/** 批量变更期间挂起 persist，结束后单次 flush。 */
 export async function withPersistSuspended<T>(fn: () => T | Promise<T>): Promise<T> {
   suspendPersist()
   try {
@@ -189,69 +127,18 @@ export async function withPersistSuspended<T>(fn: () => T | Promise<T>): Promise
   }
 }
 
-/** 测试用：当前挂起深度 */
 export function getPersistSuspendDepth(): number {
-  return suspendDepth
+  return controller.getSuspendDepth()
+}
+
+export function getPersistenceDiagnostics(): PersistenceDiagnostics {
+  return controller.getDiagnostics()
+}
+
+export function resetPersistenceDiagnostics(): void {
+  controller.resetDiagnostics()
 }
 
 export async function flushPersistNow(): Promise<void> {
-  if (!persistWritesEnabled) return
-  const previous = explicitFlushing
-  const operation = (previous ? previous.catch(() => {}) : Promise.resolve()).then(async () => {
-    if (timer) {
-      clearTimeout(timer)
-      timer = null
-    }
-    if (flushing) await flushing
-
-    if (!preFlushCallback) {
-      pending = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
-      await startPendingFlush()
-      return
-    }
-
-    // 笔记草稿不经过 schedulePersist。每次写盘结束后再次执行 pre-flush，
-    // 直到回调不再改变 store，才能确认 active save 期间没有新草稿遗漏。
-    let writes = 0
-    while (true) {
-      if (writes > 0) useSaveStatus.getState().setSaving()
-      const stateBefore = useStore.getState()
-      const shortcutsBefore = useShortcutStore.getState().bindings
-      try {
-        await preFlushCallback()
-      } catch (error) {
-        pending = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
-        useSaveStatus.getState().setError(error)
-        throw error
-      }
-      const stateAfter = useStore.getState()
-      const shortcutsAfter = useShortcutStore.getState().bindings
-      const stable = stateAfter === stateBefore && shortcutsAfter === shortcutsBefore
-
-      if (writes > 0 && stable) {
-        useSaveStatus.getState().setSaved()
-        return
-      }
-      if (writes >= MAX_STABLE_PREFLUSH_WRITES) {
-        pending = pickPersisted(stateAfter, shortcutsAfter)
-        const error = new Error('保存过程中内容持续变化，请稍后重试')
-        useSaveStatus.getState().setError(error)
-        throw error
-      }
-
-      pending = pickPersisted(stateAfter, shortcutsAfter)
-      await startPendingFlush()
-      writes += 1
-    }
-  })
-  explicitFlushing = operation
-  void operation.then(
-    () => {
-      if (explicitFlushing === operation) explicitFlushing = null
-    },
-    () => {
-      if (explicitFlushing === operation) explicitFlushing = null
-    },
-  )
-  return operation
+  await controller.flushNow()
 }

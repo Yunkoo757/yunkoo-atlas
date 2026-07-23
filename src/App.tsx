@@ -25,6 +25,7 @@ import { TradeComposer } from './components/TradeComposer'
 import { TradeCloseDialog } from './components/TradeCloseDialog'
 import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
+import { WebStorageGuard } from './components/WebStorageGuard'
 import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
 import { LinearGridLoaderIcon } from './icons/linear'
 import { ICON_XL } from './icons/iconSize'
@@ -456,13 +457,23 @@ export function App() {
         try {
           const bridge = (window as any).journalBridge
           const status = await bridge.getLibraryStatus()
-          if (!status.initialized) {
+          if (status.kind === 'unset') {
             setNeedsWelcome(true)
             setReady(true) // show UI (welcome screen) but don't bootstrap yet
             return
           }
+          if (status.kind !== 'ready') {
+            setStorageError(`${status.reason}（${status.configuredPath}）`)
+            setReady(false)
+            document.documentElement.dataset.uiSettled = '1'
+            return
+          }
         } catch (e) {
           console.error('Library status check failed', e)
+          setStorageError(storageBootstrapErrorMessage(e))
+          setReady(false)
+          document.documentElement.dataset.uiSettled = '1'
+          return
         }
       }
       // Normal bootstrap
@@ -673,6 +684,7 @@ export function App() {
           if (bridge?.requestClose) void bridge.requestClose()
         }}
       />
+      {!isElectron() ? <WebStorageGuard /> : null}
     </>
   )
 }

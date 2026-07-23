@@ -43,6 +43,7 @@ import {
 } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
+import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { SCHEMA_VERSION } from '@/storage/types'
 import {
   mergeSavedTradeViews,
@@ -67,6 +68,8 @@ import {
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
+import { applyNoteDraftsToSnapshot } from '@/storage/noteDrafts'
+import { RECOVERY_MISSING_DRAFT_ASSET_PREFIX } from '@/storage/assets'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import {
   MAX_WEB_JOURNAL_ARCHIVE_BYTES,
@@ -81,50 +84,30 @@ import {
 import { clearReviewSessionStorage } from '@/lib/reviewSession'
 import {
   assertValidPersistedSnapshot,
-  isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
+import {
+  JsonAttachmentBudget,
+  JsonImportBudgetError,
+  assertJsonEntityBudget,
+  assertJsonFileByteBudget,
+  estimatePrettyJsonUtf8Bytes,
+  getJsonImportErrorMessage,
+  utf8ByteLength,
+  type JsonImportErrorCode,
+} from '@/lib/importLimits'
 
 export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 8: +quickNotes
+import type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
+import { mergeImportPayload } from '@/lib/importMerge'
 
-export interface ExportPayload {
-  version: number
-  trades: (Trade & { strategy?: string })[]
-  weeklyReviews?: WeeklyReview[]
-  quickNotes?: QuickNote[]
-  strategies: Strategy[]
-  starredIds: string[]
-  subscribedIds: string[]
-  pinnedStrategyIds: string[]
-  display: DisplayPrefs
-  tagPresets?: string[]
-  mistakeTagPresets?: string[]
-  savedTradeViews?: SavedTradeView[]
-  symbolIcons?: SymbolIconsMap
-  symbolCatalog?: string[]
-  reviewTemplates?: ReviewTemplate[]
-  assets?: ExportAssetRecord[]
-}
-
-export interface PersistedSlice {
-  trades: Trade[]
-  weeklyReviews?: WeeklyReview[]
-  quickNotes?: QuickNote[]
-  strategies: Strategy[]
-  starredIds: string[]
-  subscribedIds: string[]
-  pinnedStrategyIds: string[]
-  display: DisplayPrefs
-  tagPresets?: string[]
-  mistakeTagPresets?: string[]
-  savedTradeViews?: SavedTradeView[]
-  symbolIcons?: SymbolIconsMap
-  symbolCatalog?: string[]
-  reviewTemplates?: ReviewTemplate[]
-}
+export type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
+export { mergeImportPayload } from '@/lib/importMerge'
 
 interface ExportState extends PersistedSlice {
+  shortcuts?: PersistedSnapshot['shortcuts']
   tagPresets?: string[]
   mistakeTagPresets?: string[]
+  profile?: PersistedSnapshot['profile']
   savedTradeViews?: SavedTradeView[]
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
@@ -163,20 +146,24 @@ export function buildPortableSnapshotFromState(
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
     display: state.display,
-    tagPresets: state.tagPresets,
-    mistakeTagPresets: state.mistakeTagPresets,
-    profile: state.profile,
+    tagPresets: state.tagPresets ?? [],
+    mistakeTagPresets: state.mistakeTagPresets ?? [],
+    profile: state.profile ?? createDefaultUserProfile(),
     savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
     symbolIcons: normalizeSymbolIcons(state.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
     reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
-    ...(Object.keys(shortcuts).length > 0 ? { shortcuts } : {}),
+    shortcuts,
   }
 }
 
 export type ImportResult =
   | { ok: true; data: ExportPayload }
-  | { ok: false; error: string }
+  | { ok: false; code: JsonImportErrorCode; error: string }
+
+function importFailure(code: JsonImportErrorCode): ImportResult {
+  return { ok: false, code, error: getJsonImportErrorMessage(code) }
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -186,26 +173,11 @@ function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === 'string')
 }
 
-function normalizeLegacyImportTrade(
-  value: unknown,
-): (Trade & { strategy?: string }) | null {
-  if (!isRecord(value)) return null
-  const strategyId = typeof value.strategyId === 'string'
-    ? value.strategyId
-    : value.strategy
-  const tradeKind = value.tradeKind === 'practice' ? 'paper' : value.tradeKind
-  const candidate = { ...value, strategyId, tradeKind }
-  return isValidPersistedTrade(candidate)
-    ? candidate as Trade & { strategy?: string }
-    : null
-}
-
 function parseDisplay(v: unknown): DisplayPrefs {
   if (!isRecord(v)) return { ...DEFAULT_DISPLAY }
   return normalizeDisplay(v as Partial<DisplayPrefs>)
 }
 
-const STRICT_BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 const IMPORT_DATA_IMAGE_SRC_RE = /<img\b[^>]*\ssrc=["'](data:[^"']*)["'][^>]*>/gi
 const IMPORT_DATA_IMAGE_RE = /<img([^>]*)\ssrc=["']data:([^;,"']+);base64,([^"']+)["']([^>]*)>/gi
@@ -214,20 +186,47 @@ function isStrictBase64(value: unknown): value is string {
   if (
     typeof value !== 'string' ||
     value.length === 0 ||
-    value.length % 4 !== 0 ||
-    !STRICT_BASE64_RE.test(value)
+    value.length % 4 !== 0
   ) return false
 
-  if (value.endsWith('==')) {
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0
+  const contentLength = value.length - padding
+  for (let index = 0; index < contentLength; index += 1) {
+    const code = value.charCodeAt(index)
+    const valid =
+      (code >= 65 && code <= 90) ||
+      (code >= 97 && code <= 122) ||
+      (code >= 48 && code <= 57) ||
+      code === 43 ||
+      code === 47
+    if (!valid) return false
+  }
+  for (let index = contentLength; index < value.length; index += 1) {
+    if (value.charCodeAt(index) !== 61) return false
+  }
+
+  if (padding === 2) {
     return BASE64_ALPHABET.indexOf(value[value.length - 3] ?? '') % 16 === 0
   }
-  if (value.endsWith('=')) {
+  if (padding === 1) {
     return BASE64_ALPHABET.indexOf(value[value.length - 2] ?? '') % 4 === 0
   }
   return true
 }
 
-function assertValidInlineImportImages(htmlEntries: readonly string[]): void {
+function assertBase64WithinBudget(value: unknown, budget: JsonAttachmentBudget): asserts value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length % 4 !== 0) {
+    throw new JsonImportBudgetError('json-invalid-base64')
+  }
+  const padding: 0 | 1 | 2 = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0
+  budget.add(value.length, padding)
+  if (!isStrictBase64(value)) throw new JsonImportBudgetError('json-invalid-base64')
+}
+
+function assertValidInlineImportImages(
+  htmlEntries: readonly string[],
+  budget: JsonAttachmentBudget,
+): void {
   for (const html of htmlEntries) {
     IMPORT_DATA_IMAGE_SRC_RE.lastIndex = 0
     let match: RegExpExecArray | null
@@ -237,9 +236,7 @@ function assertValidInlineImportImages(htmlEntries: readonly string[]): void {
       if (!parsed || !mime) {
         throw new Error('正文中的内嵌附件不是受支持的图片')
       }
-      if (!isStrictBase64(parsed[2])) {
-        throw new Error('交易笔记中的内嵌图片内容已损坏')
-      }
+      assertBase64WithinBudget(parsed[2], budget)
     }
   }
 }
@@ -254,6 +251,7 @@ function normalizeAndValidateImportAssets(
 
   const normalized: ExportAssetRecord[] = []
   const assetIds = new Set<string>()
+  const attachmentBudget = new JsonAttachmentBudget()
   for (const v of value ?? []) {
     if (!isRecord(v) || !isSafeAssetId(v.id)) {
       throw new Error('assets 中存在非法附件 ID')
@@ -263,7 +261,7 @@ function normalizeAndValidateImportAssets(
     }
     const mime = normalizeWebJournalImageMime(v.mime)
     if (!mime) throw new Error(`附件 ${v.id} 不是受支持的图片`)
-    if (!isStrictBase64(v.data)) throw new Error(`附件 ${v.id} 的内容已损坏`)
+    assertBase64WithinBudget(v.data, attachmentBudget)
     assetIds.add(v.id)
     normalized.push({ id: v.id, mime, data: v.data })
   }
@@ -276,7 +274,7 @@ function normalizeAndValidateImportAssets(
   for (const id of assetIds) {
     if (!referencedIds.has(id)) throw new Error(`附件 ${id} 未被任何正文引用`)
   }
-  assertValidInlineImportImages(htmlEntries)
+  assertValidInlineImportImages(htmlEntries, attachmentBudget)
   return normalized
 }
 
@@ -296,8 +294,10 @@ export async function buildExportPayloadFromState(
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
     display: state.display,
-    tagPresets: state.tagPresets,
-    mistakeTagPresets: state.mistakeTagPresets,
+    shortcuts: state.shortcuts ?? {},
+    tagPresets: state.tagPresets ?? [],
+    mistakeTagPresets: state.mistakeTagPresets ?? [],
+    profile: state.profile ?? createDefaultUserProfile(),
     savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
     symbolIcons: normalizeSymbolIcons(state.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
@@ -340,11 +340,28 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    { trades, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates },
+    {
+      trades,
+      weeklyReviews,
+      quickNotes,
+      strategies,
+      starredIds,
+      subscribedIds,
+      pinnedStrategyIds,
+      display,
+      shortcuts: bindingsForPersist(useShortcutStore.getState().bindings),
+      tagPresets,
+      mistakeTagPresets,
+      profile,
+      savedTradeViews,
+      symbolIcons,
+      symbolCatalog,
+      reviewTemplates,
+    },
     (id) => storage.getAssetForExport(id),
   )
 }
@@ -352,7 +369,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
 export async function downloadExport(): Promise<void> {
   await flushPersistNow()
   const payload = await buildExportPayload()
-  const json = JSON.stringify(payload, null, 2)
+  const json = serializeJsonExportPayload(payload)
   const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -363,6 +380,32 @@ export async function downloadExport(): Promise<void> {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+export function serializeJsonExportPayload(payload: unknown): string {
+  if (!isRecord(payload)) throw new JsonImportBudgetError('json-contract-invalid')
+  if (typeof payload.version !== 'number' || payload.version < 1 || payload.version > EXPORT_VERSION) {
+    throw new JsonImportBudgetError('json-contract-invalid')
+  }
+  try {
+    assertJsonEntityBudget(payload)
+    const snapshot = decodeCanonicalSnapshot(payload, { version: payload.version, label: 'JSON export' })
+    normalizeAndValidateImportAssets([
+      ...snapshot.trades.map((trade) => trade.note),
+      ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
+      ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
+    ], payload.assets)
+  } catch (error) {
+    if (error instanceof JsonImportBudgetError) throw error
+    throw new JsonImportBudgetError('json-contract-invalid', error)
+  }
+  return serializeJsonDocumentWithinFileBudget(payload)
+}
+
+function serializeJsonDocumentWithinFileBudget(payload: unknown): string {
+  assertJsonFileByteBudget(estimatePrettyJsonUtf8Bytes(payload))
+  const json = JSON.stringify(payload, null, 2)
+  return json
 }
 
 /**
@@ -403,8 +446,14 @@ export async function downloadWebJournalZip(): Promise<void> {
 export function buildWebJournalArchiveBlob(
   snapshot: PersistedSnapshot,
   assets: readonly ExportAssetRecord[],
+  options: { recoveryOrphanAssetIds?: readonly string[] } = {},
 ): Blob {
   const referencedIds = new Set(collectAssetIdsFromSnapshot(snapshot))
+  const recoveryOrphanAssetIds = [...new Set(options.recoveryOrphanAssetIds ?? [])]
+  for (const id of recoveryOrphanAssetIds) {
+    if (!isSafeAssetId(id)) throw new Error(`无法创建 Web 归档：恢复附件 ID ${id} 无效。`)
+  }
+  const allowedIds = new Set([...referencedIds, ...recoveryOrphanAssetIds])
   const assetById = new Map<string, ExportAssetRecord>()
   const normalizedAssets: Array<ExportAssetRecord & { extension: string }> = []
 
@@ -420,7 +469,7 @@ export function buildWebJournalArchiveBlob(
     if (!mime || !extension) {
       throw new Error(`无法创建 Web 归档：附件 ${asset.id} 不是受支持的图片。`)
     }
-    if (!referencedIds.has(asset.id)) {
+    if (!allowedIds.has(asset.id)) {
       throw new Error(`无法创建 Web 归档：附件 ${asset.id} 未被任何笔记引用。`)
     }
     const normalized = { ...asset, mime, extension }
@@ -434,6 +483,12 @@ export function buildWebJournalArchiveBlob(
     }
   }
 
+  for (const id of recoveryOrphanAssetIds) {
+    if (!assetById.has(id)) {
+      throw new Error(`无法创建 Web 归档：恢复附件 ${id} 缺少声明或字节。`)
+    }
+  }
+
   if (normalizedAssets.length + 1 > MAX_WEB_JOURNAL_ENTRY_COUNT) {
     throw new Error(`无法创建 Web 归档：条目超过 ${MAX_WEB_JOURNAL_ENTRY_COUNT} 个。`)
   }
@@ -444,6 +499,7 @@ export function buildWebJournalArchiveBlob(
     version: EXPORT_VERSION,
     schemaVersion: SCHEMA_VERSION,
     assets: normalizedAssets.map(({ id, mime }) => ({ id, mime })),
+    ...(recoveryOrphanAssetIds.length > 0 ? { recoveryOrphanAssetIds } : {}),
   }
   const metaJson = new TextEncoder().encode(JSON.stringify(meta, null, 2))
   if (metaJson.byteLength > MAX_WEB_JOURNAL_ENTRY_BYTES) {
@@ -584,186 +640,185 @@ function crc32(data: Uint8Array): number {
 }
 
 export function parseImportJson(text: string): ImportResult {
+  try {
+    assertJsonFileByteBudget(utf8ByteLength(text))
+  } catch (error) {
+    if (error instanceof JsonImportBudgetError) return importFailure(error.code)
+    return importFailure('json-file-too-large')
+  }
   let raw: unknown
   try {
     raw = JSON.parse(text)
   } catch {
-    return { ok: false, error: '无法解析 JSON 文件' }
+    return importFailure('json-contract-invalid')
   }
 
   if (!isRecord(raw)) {
-    return { ok: false, error: '备份文件格式无效' }
+    return importFailure('json-contract-invalid')
+  }
+
+  try {
+    assertJsonEntityBudget(raw)
+  } catch (error) {
+    if (error instanceof JsonImportBudgetError) return importFailure(error.code)
+    return importFailure('json-contract-invalid')
   }
 
   if (typeof raw.version !== 'number' || raw.version < 1 || raw.version > EXPORT_VERSION) {
-    return { ok: false, error: `不支持的备份版本（当前支持 1–${EXPORT_VERSION}）` }
+    return importFailure('json-contract-invalid')
   }
 
-  if (!Array.isArray(raw.trades)) {
-    return { ok: false, error: '缺少 trades 数组' }
-  }
-
-  const trades = raw.trades.map(normalizeLegacyImportTrade)
-  if (trades.some((trade) => trade === null)) {
-    return { ok: false, error: 'trades 数据格式不正确' }
+  if (raw.trades !== undefined && !Array.isArray(raw.trades)) {
+    return importFailure('json-contract-invalid')
   }
 
   if (raw.strategies !== undefined && !Array.isArray(raw.strategies)) {
-    return { ok: false, error: 'strategies 必须是数组' }
+    return importFailure('json-contract-invalid')
   }
 
   if (raw.starredIds !== undefined && !isStringArray(raw.starredIds)) {
-    return { ok: false, error: 'starredIds 必须是字符串数组' }
+    return importFailure('json-contract-invalid')
   }
 
   if (raw.subscribedIds !== undefined && !isStringArray(raw.subscribedIds)) {
-    return { ok: false, error: 'subscribedIds 必须是字符串数组' }
+    return importFailure('json-contract-invalid')
   }
 
   if (raw.pinnedStrategyIds !== undefined && !isStringArray(raw.pinnedStrategyIds)) {
-    return { ok: false, error: 'pinnedStrategyIds 必须是字符串数组' }
+    return importFailure('json-contract-invalid')
+  }
+
+  if (raw.display !== undefined && !isRecord(raw.display)) {
+    return importFailure('json-contract-invalid')
   }
 
   // 旧备份中的 cases / disputeTypes 字段忽略（判例库已移除）
 
   if (raw.tagPresets !== undefined && !isStringArray(raw.tagPresets)) {
-    return { ok: false, error: 'tagPresets 必须是字符串数组' }
+    return importFailure('json-contract-invalid')
   }
 
   if (raw.mistakeTagPresets !== undefined && !isStringArray(raw.mistakeTagPresets)) {
-    return { ok: false, error: 'mistakeTagPresets 必须是字符串数组' }
+    return importFailure('json-contract-invalid')
   }
 
-  const snapshotCandidate: unknown = {
-    trades,
-    weeklyReviews: raw.weeklyReviews ?? [],
-    quickNotes: raw.quickNotes ?? [],
-    strategies: raw.strategies ?? [],
-    starredIds: raw.starredIds ?? [],
-    subscribedIds: raw.subscribedIds ?? [],
-    pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
-    display: parseDisplay(raw.display),
-    tagPresets: raw.tagPresets,
-    mistakeTagPresets: raw.mistakeTagPresets,
-    savedTradeViews: raw.savedTradeViews,
-    symbolIcons: raw.symbolIcons,
-    symbolCatalog: raw.symbolCatalog,
-    reviewTemplates: raw.reviewTemplates,
-  }
+  let snapshotCandidate: PersistedSnapshot
   let assets: ExportAssetRecord[]
   try {
-    assertValidPersistedSnapshot(snapshotCandidate, 'JSON backup')
+    snapshotCandidate = decodeCanonicalSnapshot(
+      raw,
+      { version: raw.version, label: 'JSON backup' },
+    )
     assets = normalizeAndValidateImportAssets([
       ...snapshotCandidate.trades.map((trade) => trade.note),
       ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),
       ...(snapshotCandidate.quickNotes ?? []).map((note) => note.contentHtml),
     ], raw.assets)
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : '备份内容结构损坏',
-    }
+    if (error instanceof JsonImportBudgetError) return importFailure(error.code)
+    return importFailure('json-contract-invalid')
   }
 
   return {
     ok: true,
     data: {
       version: raw.version,
-      trades: snapshotCandidate.trades,
-      weeklyReviews: normalizeWeeklyReviews(snapshotCandidate.weeklyReviews),
-      quickNotes: normalizeQuickNotes(snapshotCandidate.quickNotes),
-      strategies: snapshotCandidate.strategies,
-      starredIds: snapshotCandidate.starredIds,
-      subscribedIds: snapshotCandidate.subscribedIds,
-      pinnedStrategyIds: snapshotCandidate.pinnedStrategyIds,
-      display: snapshotCandidate.display,
+      ...snapshotCandidate,
       assets: raw.assets === undefined ? undefined : assets,
-      tagPresets: snapshotCandidate.tagPresets ?? [],
-      mistakeTagPresets: snapshotCandidate.mistakeTagPresets ?? [],
-      savedTradeViews: normalizeSavedTradeViews(snapshotCandidate.savedTradeViews),
-      symbolIcons: normalizeSymbolIcons(snapshotCandidate.symbolIcons),
-      symbolCatalog: normalizeSymbolCatalog(
-        snapshotCandidate.symbolCatalog ?? [
-          ...Object.keys(normalizeSymbolIcons(snapshotCandidate.symbolIcons)),
-          ...snapshotCandidate.trades.map((trade) => trade.symbol),
-        ],
-      ),
-      reviewTemplates: normalizeReviewTemplates(snapshotCandidate.reviewTemplates),
     },
   }
 }
 
-function mergeStrategies(current: Strategy[], imported: Strategy[]): Strategy[] {
-  const map = new Map(current.map((s) => [s.id, s]))
-  for (const s of imported) {
-    map.set(s.id, s)
-  }
-  return Array.from(map.values())
+export interface WebConflictRecoveryResult {
+  missingAssetIds: string[]
+  filename: string
 }
 
-export function mergeImportPayload(current: PersistedSlice, payload: ExportPayload): PersistedSlice {
-  const combinedStrategies = mergeStrategies(
-    current.strategies,
-    ensureStrategies(payload.strategies),
-  )
-  const { strategies, trades: migrated } = normalizeTradeStrategyReferences(
-    payload.trades,
-    combinedStrategies,
-  )
-  const tradeMap = new Map(current.trades.map((t) => [t.id, t]))
-  for (const t of migrated) {
-    tradeMap.set(t.id, t)
+export async function buildWebConflictRecoveryPayload(
+  snapshot: PersistedSnapshot,
+  getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
+): Promise<{
+  payload: PersistedSnapshot & {
+    version: number
+    schemaVersion: number
+    assets: ExportAssetRecord[]
+    recovery: {
+      kind: 'web-conflict-local-copy'
+      complete: boolean
+      missingAssetIds: string[]
+      exportedAt: string
+      warning: string
+    }
   }
-  const trades = normalizeTrades(Array.from(tradeMap.values()))
-  const weeklyReviews = normalizeWeeklyReviews([
-    ...(current.weeklyReviews ?? []),
-    ...(payload.weeklyReviews ?? []),
-  ])
-  const quickNotes = mergeQuickNotes(
-    current.quickNotes ?? [],
-    payload.quickNotes ?? [],
-  )
-  const templatesById = new Map(
-    normalizeReviewTemplates(current.reviewTemplates ?? []).map((template) => [template.id, template]),
-  )
-  for (const template of payload.reviewTemplates === undefined
-    ? []
-    : normalizeReviewTemplates(payload.reviewTemplates)) {
-    if (!templatesById.has(template.id)) templatesById.set(template.id, template)
+  missingAssetIds: string[]
+}> {
+  const assets: ExportAssetRecord[] = []
+  const missingAssetIds: string[] = []
+  for (const id of new Set(collectAssetIdsFromSnapshot(snapshot))) {
+    if (id.startsWith(RECOVERY_MISSING_DRAFT_ASSET_PREFIX)) {
+      missingAssetIds.push(id)
+      continue
+    }
+    const asset = await getAssetForExport(id)
+    if (asset) assets.push(asset)
+    else missingAssetIds.push(id)
   }
+  const complete = missingAssetIds.length === 0
   return {
-    strategies,
-    trades,
-    weeklyReviews,
-    quickNotes,
-    starredIds: [...new Set([...current.starredIds, ...payload.starredIds])],
-    subscribedIds: [...new Set([...current.subscribedIds, ...payload.subscribedIds])],
-    pinnedStrategyIds: [
-      ...new Set([...current.pinnedStrategyIds, ...payload.pinnedStrategyIds]),
-    ],
-    display: normalizeDisplay({ ...current.display, ...payload.display }),
-    tagPresets: mergeTagPresets(
-      current.tagPresets ?? [],
-      payload.tagPresets ?? [],
-    ),
-    mistakeTagPresets: mergeTagPresets(
-      current.mistakeTagPresets ?? [],
-      payload.mistakeTagPresets ?? [],
-    ),
-    savedTradeViews: mergeSavedTradeViews(
-      current.savedTradeViews ?? [],
-      payload.savedTradeViews ?? [],
-    ),
-    symbolIcons: mergeSymbolIcons(
-      current.symbolIcons ?? {},
-      payload.symbolIcons ?? {},
-    ),
-    symbolCatalog: mergeSymbolCatalog(
-      current.symbolCatalog ?? [],
-      payload.symbolCatalog ?? [],
-    ),
-    reviewTemplates: Array.from(templatesById.values()),
+    missingAssetIds,
+    payload: {
+      ...snapshot,
+      version: EXPORT_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+      assets,
+      recovery: {
+        kind: 'web-conflict-local-copy',
+        complete,
+        missingAssetIds,
+        exportedAt: new Date().toISOString(),
+        warning: complete
+          ? '这是 CAS 冲突时导出的本标签页副本，请人工确认后再恢复。'
+          : '此副本缺少所列附件，不能视为完整备份。',
+      },
+    },
   }
+}
+
+/**
+ * CAS 冲突后的本标签页抢救导出不触发 flush，也不要求当前标签页仍有写权限。
+ * 它同时读取已提交附件和本标签页尚未提交的 prepared 附件；若存在缺失引用，
+ * 文件名与 recovery 元数据都会明确标记 incomplete，绝不冒充完整可恢复备份。
+ */
+export async function downloadWebConflictRecoveryCopy(): Promise<WebConflictRecoveryResult> {
+  try {
+    await waitForPendingStorageOperations()
+  } catch {
+    // 冲突抢救仍应继续：失败的图片任务会留下 blob 草稿，随后被明确标记为缺失。
+  }
+  const snapshot = applyNoteDraftsToSnapshot(
+    buildPortableSnapshotFromState(
+      useStore.getState(),
+      useShortcutStore.getState().bindings,
+    ),
+  )
+  const storage = getStorage()
+  const { payload, missingAssetIds } = await buildWebConflictRecoveryPayload(
+    snapshot,
+    (id) => storage.getAssetForExport(id),
+  )
+  const complete = missingAssetIds.length === 0
+  const suffix = complete ? 'recovery' : 'recovery-incomplete'
+  const filename = `linear-journal-${suffix}-${new Date().toISOString().slice(0, 10)}.json`
+  const blob = new Blob([serializeJsonDocumentWithinFileBudget(payload)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+  return { missingAssetIds, filename }
 }
 
 /**
@@ -972,6 +1027,8 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
       ],
     ),
     reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
+    undoStack: [],
+    redoStack: [],
   })
   useStore.getState().hydrateProfile(snapshot.profile ?? createDefaultUserProfile())
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
@@ -1210,7 +1267,11 @@ export async function restoreWebJournalArchive(
     suspendPersist()
     suspended = true
 
-    await getIndexedDbAdapter().replaceArchive(archive.snapshot, archive.assets)
+    await getIndexedDbAdapter().replaceArchive(
+      archive.snapshot,
+      archive.assets,
+      archive.recoveryOrphanAssetIds ?? [],
+    )
     // 从这里到内存快照完成切换前，不能让旧内存重新写回已经替换的新库。
     safeToFlush = false
     const manifest = await getIndexedDbAdapter().getManifest()

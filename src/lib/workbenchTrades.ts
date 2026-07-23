@@ -9,7 +9,7 @@ import type {
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
-import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
+import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
 import { matchesReviewCaseScope } from '@/lib/reviewCaseScope'
 import {
@@ -110,10 +110,11 @@ export function filterTrades(
   filter: ListFilter,
   starredIds: string[],
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+  businessDateAnchor?: BusinessDateAnchor,
 ): Trade[] {
   const starred = new Set(starredIds)
   return trades.filter((trade) =>
-    matchesListFilter(trade, filter, starred, tradingDayStartHour),
+    matchesListFilter(trade, filter, starred, tradingDayStartHour, businessDateAnchor),
   )
 }
 
@@ -122,6 +123,7 @@ function matchesListFilter(
   filter: ListFilter,
   starredIds: ReadonlySet<string>,
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+  businessDateAnchor?: BusinessDateAnchor,
 ): boolean {
   switch (filter.type) {
     case 'active':
@@ -137,7 +139,13 @@ function matchesListFilter(
       if (!isMissed(trade.status)) return false
       break
     case 'period':
-      if (filter.period && !tradeInPeriod(trade, filter.period, 'openedAt', new Date(), tradingDayStartHour)) {
+      if (filter.period && !tradeInPeriod(
+        trade,
+        filter.period,
+        'openedAt',
+        businessDateAnchor ?? new Date(),
+        tradingDayStartHour,
+      )) {
         return false
       }
       break
@@ -195,6 +203,7 @@ type WorkbenchTradeDerivationOptions = {
   starredIds: string[]
   display: DisplayPrefs
   search: string | URLSearchParams
+  businessDateAnchor?: BusinessDateAnchor
 }
 
 export function deriveWorkbenchVisibleTrades(
@@ -214,9 +223,15 @@ export function deriveWorkbenchVisibleTrades(
     options.filter,
     options.starredIds,
     tradingDayStartHour,
+    options.businessDateAnchor,
   )
   const analysisFiltered = options.filter.analysisScope
-    ? filterTradesByAnalysisScope(routeFiltered, options.filter.analysisScope)
+    ? filterTradesByAnalysisScope(
+        routeFiltered,
+        options.filter.analysisScope,
+        options.businessDateAnchor ?? new Date(),
+        tradingDayStartHour,
+      )
     : routeFiltered
   // 用户显式筛选已平仓状态时，不能再被「隐藏已平仓」吃掉。
   const prefs = options.filter.analysisScope || (facets.status && isHiddenWhenClosedFilter(facets.status))
@@ -225,7 +240,12 @@ export function deriveWorkbenchVisibleTrades(
   const preferred = applyDisplayPrefs(analysisFiltered, prefs, options.filter)
   return {
     trades,
-    visible: filterTradesByFacets(preferred, facets, tradingDayStartHour),
+    visible: filterTradesByFacets(
+      preferred,
+      facets,
+      tradingDayStartHour,
+      options.businessDateAnchor,
+    ),
   }
 }
 
@@ -239,6 +259,7 @@ export function countWorkbenchVisibleTrades(options: {
   starredIds: string[]
   display: DisplayPrefs
   search: string | URLSearchParams
+  businessDateAnchor?: BusinessDateAnchor
 }): number {
   const parsedFacets = parseTradeFacets(options.search)
   const facets = options.filter.tradeKind || (
@@ -254,14 +275,30 @@ export function countWorkbenchVisibleTrades(options: {
     facets.status && isHiddenWhenClosedFilter(facets.status)
   )
   const sourceTrades = options.filter.analysisScope
-    ? filterTradesByAnalysisScope(options.trades, options.filter.analysisScope)
+    ? filterTradesByAnalysisScope(
+        options.trades,
+        options.filter.analysisScope,
+        options.businessDateAnchor ?? new Date(),
+        tradingDayStartHour,
+      )
     : options.trades
   let count = 0
   for (const trade of sourceTrades) {
     if (trade.deletedAt) continue
-    if (!matchesListFilter(trade, options.filter, starred, tradingDayStartHour)) continue
+    if (!matchesListFilter(
+      trade,
+      options.filter,
+      starred,
+      tradingDayStartHour,
+      options.businessDateAnchor,
+    )) continue
     if (hideClosed && isHiddenWhenClosedFilter(trade.status)) continue
-    if (!matchesTradeFacets(trade, facets, tradingDayStartHour)) continue
+    if (!matchesTradeFacets(
+      trade,
+      facets,
+      tradingDayStartHour,
+      options.businessDateAnchor,
+    )) continue
     count += 1
   }
   return count

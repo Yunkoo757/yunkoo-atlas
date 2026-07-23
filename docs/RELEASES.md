@@ -7,6 +7,33 @@
 - macOS：CI 产出 arm64 + x64 的 DMG / ZIP（**未签名、未公证**，供手动安装）；接入 Apple 开发者证书与公证后再启用正式应用内更新。
 - 更新源：私有 GitHub 仓库 `Yunkoo757/yunkoo-atlas` 的 Releases。
 
+## Spec v2 发布列车
+
+| 列车 | 范围 | 发布前停止条件 | 回滚与用户恢复 |
+|---|---|---|---|
+| Release 0 | v8 四路径止血、QA discovery、双平台聚合发布 | 任一字段/附件合同失败、`qa:full` 失败或任一平台构建失败 | 停止 publish；回滚 reader/writer，保留合同测试；用户使用发布前完整归档 |
+| Release 1 | codec/foundation、Web revision/CAS、冲突恢复 | 任一写入口 blind put、stale writer 覆盖或恢复导出不可用 | 停止 Web 发布；可关闭 Web Locks/通知层，但 CAS 必须整体保留；用户导出本标签页副本后加载最新版 |
+| Release 2 | Electron 路径、退出协调、Undo、TradeKind、日期锚点 | 路径错误回落默认库、退出步骤重复/漏执行、Undo/Kind 矩阵失败 | 停止桌面发布；保留 fail-closed 路径；从已验证备份恢复 |
+| Release 3 | 输入预算、Notion/Composer、当前库附件 GC | 新孤儿、共享附件误删、backup vault 变化或 dry-run revision 过期仍执行 | 打开 GC kill switch；Electron 从应用 `.trash` 恢复，Web 从用户预先归档恢复 |
+
+各列车必须把停止、回滚和用户恢复演练写入 `docs/superpowers/reports/`；只有对应证据和平台门全部通过才可推进下一列车。
+
+### Web 多标签页一致性升级提示
+
+从 Release 1 起，Web 资料库写入使用 revision/CAS，并在支持时用 Web Locks 限制为单一编辑标签页。升级发布前请关闭或刷新所有仍运行旧版本脚本的标签页，再开始编辑；旧脚本不认识 revision，无法纳入新协议的并发保护范围。
+
+本版本保证的是：所有已加载 Release 1 或更新版本的标签页，即使浏览器不支持 Web Locks 或 BroadcastChannel，也由 CAS 阻止 stale 快照覆盖。它不宣称能够约束发布前已打开且始终未刷新的旧版本标签页。
+
+Release 0 不提前引入该协议：旧库缺少 revision 时只按兼容值 `0` 观察，成功/失败前后均保持 `0`；真实 revision/CAS 从 Release 1 生效。
+
+### 强制退出保证
+
+正常退出会先完成统一 flush、已验证备份和 storage release。操作系统强杀、断电或进程崩溃只保证**最后一次已确认落盘的数据**；仍在内存或正在写入原子临时文件的编辑可能丢失，发布说明不得作更强承诺。双平台发布门会启动生产构建的真实 Electron 主进程，在观察到原子临时文件后强杀该主进程，并由新的 Electron 主进程重新打开资料库、核对最后确认数据。
+
+### Generation 决策
+
+Generation 目录布局当前为 **No-Go**：隔离 Spike 不进入生产 bundle，也不允许部分上线。Windows NTFS 虽通过 mixed-generation、磁盘不足、目标占用和 `EXDEV` 故障矩阵，但当前 Node/Electron 无法提供真实目录 `fsync` durability barrier。详见 `docs/architecture/decisions/ADR-0001-electron-generation-layout.md`。
+
 ### macOS 提示「已损坏，无法打开」
 
 这是 Gatekeeper 对未公证下载的常见拦截，**不是安装包坏了**。从 GitHub 下载的 `.app` 会带 `com.apple.quarantine` 隔离标记，未公证时系统常直接显示「损坏」。
@@ -79,7 +106,7 @@ pnpm release:minor
 5. 运行 Electron 库路径 QA（SQLite / 附件 / journal.zip）。
 6. 更新 `package.json` 版本并创建发布提交和 Git 标签。
 7. 推送 `main` 和版本标签。
-8. 标签触发 `.github/workflows/release.yml`（Windows 跑完整测试与 QA 并创建 Release；macOS 随后上传 DMG/ZIP）。
+8. 标签触发 `.github/workflows/release.yml`；Windows 与 macOS 分别构建并校验工件，唯一 publish job 聚合全部平台资产后才公开 Release。
 
 GitHub Actions 成功后，私有 Release 中应包含：
 

@@ -653,7 +653,7 @@ function PreviewRow({
 }) {
   const t = preview.trade
   const hasError = preview.errors.length > 0
-  const hasWarning = preview.warnings.length > 0 || Boolean(duplicate)
+  const hasWarning = preview.warnings.length > 0 || (preview.imageIssues?.length ?? 0) > 0 || Boolean(duplicate)
 
   return (
     <tr
@@ -687,9 +687,10 @@ function PreviewRow({
       <td>{t.rMultiple != null ? t.rMultiple.toFixed(2) : '—'}</td>
       <td>{t.openedAt ?? '—'}</td>
       <td>
-        {preview.imageCount > 0 ? (
+        {preview.imageCount > 0 || (preview.imageIssues?.length ?? 0) > 0 ? (
           <span className="nim-img-badge">
             <Image size={11} /> {preview.imageCount}
+            {(preview.imageIssues?.length ?? 0) > 0 ? ` / 缺失 ${preview.imageIssues!.length}` : ''}
           </span>
         ) : (
           '—'
@@ -712,6 +713,14 @@ function PreviewRow({
       <td className="nim-err-cell">
         {preview.errors.join('; ')}
         {hasWarning && !hasError && !duplicate ? preview.warnings.join('; ') : ''}
+        {(preview.imageIssues?.length ?? 0) > 0 && (
+          <span>
+            {preview.errors.length > 0 || preview.warnings.length > 0 ? '; ' : ''}
+            {preview.imageIssues!.map((issue) =>
+              `图片 ${issue.slotId + 1}（${issue.ref}）：${issue.error}`,
+            ).join('; ')}
+          </span>
+        )}
         {duplicate && (
           <span className="nim-dup-msg">
             与 {duplicate.tradeRef} {duplicateReasonLabel(duplicate.reason)}

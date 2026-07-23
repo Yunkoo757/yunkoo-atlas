@@ -14,8 +14,14 @@ import {
 declare global {
   interface Window {
     __importModalRaceTest?: Promise<void>
+    __linearBrowserAllowedErrors?: string[]
   }
 }
+
+window.__linearBrowserAllowedErrors = [
+  '[NotionImport] parse error Error: 单张原图超过 32 MB',
+  '[NotionImport] parse error Error: Notion 导出解压后超过 160 MB',
+]
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)

@@ -1,9 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
-import { app } from 'electron'
 import type { LibraryStorage } from './storage'
-import { getLibraryPath, ensureLibraryDirs } from './paths'
+import { getLibraryPath, ensureLibraryDirs, getLibraryPaths } from './paths'
 import { writeFileAtomicallySync } from './atomicFile'
 import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
 
@@ -23,6 +22,8 @@ interface BackupMeta {
   /** 原文件名与内容寻址仓库文件的映射。 */
   attachmentEntries?: { fileName: string; vaultName: string }[]
   verification?: BackupVerificationResult
+  /** 仅退出协调器可写：源库尚未产生 snapshot，且交易、策略、附件计数均为零。 */
+  emptyLibrary?: true
 }
 
 export interface BackupVerificationResult {
@@ -32,10 +33,10 @@ export interface BackupVerificationResult {
   strategyCount?: number
   attachmentCount?: number
   error?: string
+  emptyLibrary?: boolean
 }
 
 let intervalTimer: ReturnType<typeof setInterval> | null = null
-let quitHandler: (() => void) | null = null
 let lastBackupAt = 0
 let storageRef: LibraryStorage | null = null
 
@@ -135,6 +136,7 @@ function fileSize(pathname: string): number {
 }
 
 function backupTotalSize(backupsDir: string): number {
+  if (!fs.existsSync(backupsDir)) return 0
   let total = 0
   for (const name of fs.readdirSync(backupsDir)) {
     const pathname = path.join(backupsDir, name)
@@ -157,6 +159,7 @@ export function createBackupAtPath(
   storage: Pick<LibraryStorage, 'getCounts'>,
   libraryPath: string,
   now: number = Date.now(),
+  options: { emptyLibrary?: boolean } = {},
 ): string | null {
   const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
   if (!fs.existsSync(dbFile)) return null
@@ -182,6 +185,12 @@ export function createBackupAtPath(
     }))
 
     const counts = storage.getCounts()
+    if (
+      options.emptyLibrary &&
+      (counts.tradeCount !== 0 || counts.strategyCount !== 0 || counts.assetCount !== 0 || attachmentEntries.length !== 0)
+    ) {
+      throw new Error('只有零交易、零策略、零附件的资料库才能标记为空库恢复点')
+    }
     const meta: BackupMeta = {
       tradeCount: counts.tradeCount,
       strategyCount: counts.strategyCount,
@@ -192,6 +201,7 @@ export function createBackupAtPath(
         ? { manifestSha256: sha256File(backupManifestPath(dest)) }
         : {}),
       attachmentEntries,
+      ...(options.emptyLibrary ? { emptyLibrary: true as const } : {}),
     }
     writeFileAtomicallySync(dest + '.meta.json', JSON.stringify(meta), 'utf8')
     return dest
@@ -202,10 +212,13 @@ export function createBackupAtPath(
   }
 }
 
-export function createBackup(storage: LibraryStorage): string | null {
+export function createBackup(
+  storage: LibraryStorage,
+  options: { emptyLibrary?: boolean } = {},
+): string | null {
   try {
     const now = Date.now()
-    const dest = createBackupAtPath(storage, storage.getLibraryPath(), now)
+    const dest = createBackupAtPath(storage, storage.getLibraryPath(), now, options)
     if (dest) lastBackupAt = now
     return dest
   } catch (err) {
@@ -215,15 +228,45 @@ export function createBackup(storage: LibraryStorage): string | null {
 }
 
 export function getBackupStatsAtPath(libraryPath: string): { count: number; totalSize: number } {
-  const { backups } = ensureLibraryDirs(libraryPath)
+  const { backups } = getLibraryPaths(libraryPath)
   return {
     count: backupDbFiles(backups).length,
     totalSize: backupTotalSize(backups),
   }
 }
 
+export function listBackupsAtPath(libraryPath: string): ReturnType<typeof listBackups> {
+  const { backups } = getLibraryPaths(libraryPath)
+  if (!fs.existsSync(backups)) return []
+
+  return fs
+    .readdirSync(backups)
+    .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
+    .map((f) => {
+      const fp = path.join(backups, f)
+      const stat = fs.statSync(fp)
+      const info: ReturnType<typeof listBackups>[number] = {
+        name: f,
+        timestamp: parseTimestampFromName(f) || stat.mtimeMs,
+        size: stat.size,
+      }
+      const metaPath = fp + '.meta.json'
+      try {
+        if (fs.existsSync(metaPath)) {
+          const meta: BackupMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'))
+          info.tradeCount = meta.tradeCount
+          info.strategyCount = meta.strategyCount
+          info.attachmentCount = meta.attachmentCount
+          info.verification = meta.verification
+        }
+      } catch { /* 元数据读取失败不影响列表 */ }
+      return info
+    })
+    .sort((a, b) => b.timestamp - a.timestamp)
+}
+
 export function deleteBackupAtPath(libraryPath: string, fileName: string): boolean {
-  const { backups } = ensureLibraryDirs(libraryPath)
+  const { backups } = getLibraryPaths(libraryPath)
   const fp = path.join(backups, path.basename(fileName))
   if (!fs.existsSync(fp)) return false
   deleteBackupFiles(fp)
@@ -251,7 +294,7 @@ export async function verifyBackupAtPath(
   libraryPath: string,
   fileName: string,
 ): Promise<BackupVerificationResult> {
-  const { backups } = ensureLibraryDirs(libraryPath)
+  const { backups } = getLibraryPaths(libraryPath)
   const dbPath = path.join(backups, path.basename(fileName))
   const checkedAt = Date.now()
   if (!fs.existsSync(dbPath)) {
@@ -262,7 +305,16 @@ export async function verifyBackupAtPath(
   const verificationRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-verify-'))
   try {
     try {
-      inspection = await validateLibraryDatabaseFile(dbPath)
+      const declaredMeta = readBackupMeta(dbPath)
+      const declaredEmptyLibrary = declaredMeta?.emptyLibrary === true &&
+        declaredMeta.tradeCount === 0 &&
+        declaredMeta.strategyCount === 0 &&
+        declaredMeta.attachmentCount === 0 &&
+        (declaredMeta.attachmentEntries?.length ?? 0) === 0 &&
+        (declaredMeta.attachmentFiles?.length ?? 0) === 0
+      inspection = await validateLibraryDatabaseFile(dbPath, {
+        allowEmptySnapshot: declaredEmptyLibrary,
+      })
     } catch {
       throw new Error('数据库或快照结构无法读取')
     }
@@ -326,7 +378,15 @@ export async function verifyBackupAtPath(
       if (fileSize(source) !== asset.byteSize) throw new Error(`附件大小不一致：${asset.fileName}`)
     }
 
-    const stagedInspection = await validateDesktopLibrary(staged)
+    const declaredEmptyLibrary = meta?.emptyLibrary === true &&
+      meta.tradeCount === 0 &&
+      meta.strategyCount === 0 &&
+      meta.attachmentCount === 0 &&
+      (meta.attachmentEntries?.length ?? 0) === 0 &&
+      (meta.attachmentFiles?.length ?? 0) === 0
+    const stagedInspection = await validateDesktopLibrary(staged, {
+      allowEmptySnapshot: declaredEmptyLibrary,
+    })
     if (
       stagedInspection.tradeCount !== inspection.tradeCount ||
       stagedInspection.strategyCount !== inspection.strategyCount ||
@@ -341,6 +401,7 @@ export async function verifyBackupAtPath(
       tradeCount: stagedInspection.tradeCount,
       strategyCount: stagedInspection.strategyCount,
       attachmentCount: stagedInspection.assets.length,
+      ...(declaredEmptyLibrary ? { emptyLibrary: true } : {}),
     }
     persistBackupVerification(dbPath, result, inspection)
     return result
@@ -509,34 +570,7 @@ export function getBackupStats(): { count: number; totalSize: number } {
 }
 
 export function listBackups(): { name: string; timestamp: number; size: number; tradeCount?: number; strategyCount?: number; attachmentCount?: number; verification?: BackupVerificationResult }[] {
-  const { backups } = ensureLibraryDirs(getLibraryPath())
-  if (!fs.existsSync(backups)) return []
-
-  return fs
-    .readdirSync(backups)
-    .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
-    .map((f) => {
-      const fp = path.join(backups, f)
-      const stat = fs.statSync(fp)
-      const info: ReturnType<typeof listBackups>[number] = {
-        name: f,
-        timestamp: parseTimestampFromName(f) || stat.mtimeMs,
-        size: stat.size,
-      }
-      // 读取元数据（如果存在）
-      const metaPath = fp + '.meta.json'
-      try {
-        if (fs.existsSync(metaPath)) {
-          const meta: BackupMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'))
-          info.tradeCount = meta.tradeCount
-          info.strategyCount = meta.strategyCount
-          info.attachmentCount = meta.attachmentCount
-          info.verification = meta.verification
-        }
-      } catch { /* 元数据读取失败不影响列表 */ }
-      return info
-    })
-    .sort((a, b) => b.timestamp - a.timestamp)
+  return listBackupsAtPath(getLibraryPath())
 }
 
 export function startAutoBackup(
@@ -560,31 +594,12 @@ export function startAutoBackup(
     }
   }, intervalMs)
 
-  // 退出前备份
-  quitHandler = () => {
-    if (storageRef) {
-      // 正常关窗时渲染进程会先落盘并创建恢复点；这里只处理强制退出等兜底路径。
-      if (Date.now() - lastBackupAt > 5000) {
-        const result = createBackup(storageRef)
-        if (result) {
-          const { backups } = ensureLibraryDirs(storageRef.getLibraryPath())
-          rotateBackups(backups, maxBackups)
-        }
-      }
-      storageRef.release()
-    }
-  }
-  app.on('before-quit', quitHandler)
 }
 
 export function stopAutoBackup(): void {
   if (intervalTimer) {
     clearInterval(intervalTimer)
     intervalTimer = null
-  }
-  if (quitHandler) {
-    app.off('before-quit', quitHandler)
-    quitHandler = null
   }
   storageRef = null
 }

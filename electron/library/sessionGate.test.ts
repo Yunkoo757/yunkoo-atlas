@@ -51,3 +51,33 @@ export async function testOnlyOneExclusiveLibraryTransitionCanRun(): Promise<voi
   await first
   assert(rejected, 'a second switch, restore or import must fail instead of silently queueing')
 }
+
+export async function testCancelledExclusiveWaitReleasesGateWithoutRunningOperation(): Promise<void> {
+  const gate = new LibraryOperationGate()
+  const hold = deferred()
+  const activeWrite = gate.run(() => hold.promise)
+  const controller = new AbortController()
+  let exclusiveRan = false
+  const exclusive = gate.runExclusive(() => {
+    exclusiveRan = true
+  }, controller.signal)
+
+  controller.abort()
+  let cancelled = false
+  try {
+    await exclusive
+  } catch (error) {
+    cancelled = error instanceof Error && error.name === 'AbortError'
+  }
+
+  let nextWriteRan = false
+  await gate.run(async () => {
+    nextWriteRan = true
+  })
+  hold.resolve()
+  await activeWrite
+
+  assert(cancelled, 'an aborted exclusive wait must reject with AbortError')
+  assert(!exclusiveRan, 'an aborted exclusive operation must never run')
+  assert(nextWriteRan, 'aborting an exclusive wait must release the gate for future writes')
+}

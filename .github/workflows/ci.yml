@@ -51,3 +51,15 @@ jobs:
 
       - name: Run fast quality gate
         run: pnpm qa:ci
+
+      - name: Run real persistence smoke gate
+        run: pnpm benchmark:persistence
+
+      - name: Upload persistence smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistence-benchmark-smoke
+          path: test-results/persistence-benchmark/persistence-smoke.json
+          if-no-files-found: error
+          retention-days: 14

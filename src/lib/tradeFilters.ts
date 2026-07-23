@@ -10,7 +10,7 @@ import {
   normalizePrimarySidebarOrder,
   type PrimarySidebarNavId,
   type SidebarNavId,
-} from '@/lib/sidebarNav'
+} from '@/lib/sidebarNavContract'
 import { normalizeSidebarPins } from '@/lib/tradeKind'
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import {

@@ -53,3 +53,31 @@ jobs:
 
       - name: Run complete release quality gate
         run: pnpm qa:full
+
+      - name: Run forced-kill process gate
+        run: pnpm test:forced-kill:electron
+
+      - name: Upload forced-kill evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forced-kill-full-qa
+          path: test-results/forced-kill/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Run real persistence SLO gate
+        run: pnpm benchmark:persistence:release
+
+      - name: Upload persistence benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistence-benchmark-release
+          path: |
+            test-results/persistence-benchmark/persistence-release.json
+            test-results/persistence-benchmark/web-zip-release.json
+            test-results/persistence-benchmark/persistence-release-gate.json
+            test-results/qa-release-full.json
+          if-no-files-found: error
+          retention-days: 30

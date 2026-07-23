@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IndexedDB revision CAS browser test</title>
+  </head>
+  <body>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/storage/indexedDbRevision.browser.test.ts"></script>
+  </body>
+</html>
+<!-- Quality-Scenario: W-REV-INIT -->
+<!-- Quality-Scenario: W-TX-ABORT-* -->

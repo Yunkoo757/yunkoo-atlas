@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { TradeCloseDialog } from '@/components/TradeCloseDialog'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
+import { useToast } from '@/lib/toast'
 
 declare global {
   interface Window {
@@ -94,8 +95,22 @@ async function run(): Promise<void> {
     assert(closed?.pnl === 500, '盈亏金额必须保存')
     assert(closed?.rMultiple === 2, 'R 倍数必须与金额同时保存')
     assert(closed?.exit === trade.exit, '平仓不得覆盖历史出场价兼容数据')
+
+    const closeActionId = useStore.getState().undoStack.at(-1)?.actionId
+    const oldToastAction = useToast.getState().onAction
+    assert(closeActionId && oldToastAction, '平仓 Toast 必须捕获本次 actionId')
+    useStore.getState().updateTradeData(trade.id, { openedAt: '2026-07-16' })
+    const laterActionId = useStore.getState().undoStack.at(-1)?.actionId
+    assert(laterActionId && laterActionId !== closeActionId, '后续字段编辑必须形成独立动作')
+
+    oldToastAction()
+    const restored = useStore.getState().trades[0]
+    assert(restored?.status === 'open' && restored.pnl === null && restored.rMultiple === null, '旧 Toast 必须只撤销自己的平仓动作')
+    assert(restored.openedAt === '2026-07-16', '旧 Toast 不得覆盖动作后的非 touched 字段')
+    assert(useStore.getState().undoStack.some((action) => action.actionId === laterActionId), '旧 Toast 不得误撤新的栈顶动作')
   } finally {
     root.unmount()
+    useToast.getState().dismiss()
     useStore.setState({
       trades: previous.trades,
       closeTradeRequest: previous.closeTradeRequest,

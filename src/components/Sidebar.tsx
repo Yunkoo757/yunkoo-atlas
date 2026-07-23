@@ -47,7 +47,7 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
-import { getTradingDayKey } from '@/lib/periods'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import {
@@ -150,7 +150,11 @@ export function useSidebarNavigationModel() {
   const savedTradeViews = useStore((state) => state.savedTradeViews)
   const replaceSidebarWorkspaceItems = useStore((state) => state.replaceSidebarWorkspaceItems)
   const setDisplay = useStore((state) => state.setDisplay)
-  const countContext = useMemo(() => ({ trades, starredIds, display }), [trades, starredIds, display])
+  const businessDateAnchor = useBusinessDateAnchor()
+  const countContext = useMemo(
+    () => ({ trades, starredIds, display, businessDateAnchor }),
+    [trades, starredIds, display, businessDateAnchor],
+  )
 
   const workspaceItems = useMemo(
     () => sidebarWorkspaceItems
@@ -188,7 +192,7 @@ export function useSidebarNavigationModel() {
   const counts = {
     today: getTodayWorkflowBuckets(
       trades,
-      getTradingDayKey(new Date(), display.tradingDayStartHour),
+      businessDateAnchor.currentTradingDayKey,
     ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
@@ -534,7 +538,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }`
         }
         data-ws-icon={item.icon}
-        aria-current={active ? 'page' : undefined}
+        aria-current={active ? 'page' : 'false'}
         onDragStart={(event) => {
           // 禁止 Electron/浏览器把 NavLink 拖成 file:// 预览
           event.preventDefault()

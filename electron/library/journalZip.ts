@@ -14,13 +14,13 @@ import {
   type PersistedSnapshot,
 } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { isSafeAssetId } from '../../src/storage/assetId'
 import {
   WEB_JOURNAL_EXPORT_VERSION,
   normalizeWebJournalImageMime,
   webJournalExtensionsForMime,
 } from '../../src/lib/webJournalArchiveContract'
-import { createDefaultStrategies } from '../../src/config/defaultProfile'
 
 export async function exportJournalZip(
   storage: LibraryStorage,
@@ -521,40 +521,10 @@ function readWebSnapshot(dataFile: string, assetsDir: string): {
   }
   const raw = parsed as Partial<PersistedSnapshot> & Record<string, unknown>
   validateWebArchiveVersions(raw)
-  if (!Array.isArray(raw.trades) || !Array.isArray(raw.strategies)) {
-    throw new Error('Invalid .journal.zip: data.json is missing trades or strategies')
-  }
-  const candidate = {
-      trades: raw.trades,
-      strategies: raw.strategies,
-      starredIds: raw.starredIds ?? [],
-      subscribedIds: raw.subscribedIds ?? [],
-      pinnedStrategyIds: raw.pinnedStrategyIds ?? [],
-      display: raw.display,
-      tagPresets: raw.tagPresets ?? [],
-      mistakeTagPresets: raw.mistakeTagPresets ?? [],
-      shortcuts: raw.shortcuts,
-      profile: raw.profile,
-      savedTradeViews: raw.savedTradeViews ?? [],
-      symbolIcons: raw.symbolIcons ?? {},
-      symbolCatalog: raw.symbolCatalog ?? [],
-    } as PersistedSnapshot
-  assertValidPersistedSnapshot(candidate, 'Invalid .journal.zip: data.json snapshot')
-  const strategies = candidate.trades.length > 0 && candidate.strategies.length === 0
-    ? createDefaultStrategies()
-    : candidate.strategies
-  const strategyIds = new Set(strategies.map((strategy) => strategy.id))
-  const fallbackStrategyId = strategies[0]?.id
-  const snapshot: PersistedSnapshot = {
-    ...candidate,
-    strategies,
-    trades: candidate.trades.map((trade) =>
-      strategyIds.has(trade.strategyId) || !fallbackStrategyId
-        ? trade
-        : { ...trade, strategyId: fallbackStrategyId },
-    ),
-  }
-  assertValidPersistedSnapshot(snapshot, 'Invalid .journal.zip: normalized snapshot')
+  const snapshot = decodeCanonicalSnapshot(raw, {
+    version: Number(raw.schemaVersion ?? raw.version),
+    label: 'Invalid .journal.zip: data.json snapshot',
+  })
   return { snapshot, assets: validateWebAssets(raw.assets, snapshot, assetsDir) }
 }
 
@@ -591,7 +561,10 @@ export interface LibraryDatabaseInspection {
   referencedAssetIds: string[]
 }
 
-export async function validateLibraryDatabaseFile(dbFile: string): Promise<LibraryDatabaseInspection> {
+export async function validateLibraryDatabaseFile(
+  dbFile: string,
+  options: { allowEmptySnapshot?: boolean } = {},
+): Promise<LibraryDatabaseInspection> {
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   let db: InstanceType<typeof SQL.Database> | null = null
   try {
@@ -606,12 +579,17 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
 
     const snapshotRows = db.exec("SELECT value FROM meta WHERE key = 'snapshot'")
     const snapshotText = snapshotRows[0]?.values[0]?.[0]
-    if (snapshotText == null) throw new Error('database snapshot is missing')
-    const snapshot: unknown = JSON.parse(String(snapshotText))
-    assertValidPersistedSnapshot(snapshot, 'database snapshot')
+    let snapshot: PersistedSnapshot | null = null
+    if (snapshotText == null) {
+      if (!options.allowEmptySnapshot) throw new Error('database snapshot is missing')
+    } else {
+      const parsed: unknown = JSON.parse(String(snapshotText))
+      assertValidPersistedSnapshot(parsed, 'database snapshot')
+      snapshot = parsed
+    }
 
     const referencedAssetIds = new Set<string>()
-    for (const trade of snapshot.trades) {
+    for (const trade of snapshot?.trades ?? []) {
       const note = typeof trade.note === 'string' ? trade.note : ''
       const pattern = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
@@ -619,14 +597,14 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
         if (match[1]) referencedAssetIds.add(match[1])
       }
     }
-    for (const review of snapshot.weeklyReviews ?? []) {
+    for (const review of snapshot?.weeklyReviews ?? []) {
       const pattern = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
       while ((match = pattern.exec(review.contentHtml)) !== null) {
         if (match[1]) referencedAssetIds.add(match[1])
       }
     }
-    for (const note of snapshot.quickNotes ?? []) {
+    for (const note of snapshot?.quickNotes ?? []) {
       const pattern = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
       while ((match = pattern.exec(note.contentHtml)) !== null) {
@@ -643,6 +621,9 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
     }))
     const assetIds = new Set<string>()
     const assetFileNames = new Set<string>()
+    if (!snapshot && assets.length > 0) {
+      throw new Error('empty database contains orphaned assets')
+    }
     for (const asset of assets) {
       const { fileName } = asset
       if (!fileName || path.basename(fileName) !== fileName) {
@@ -663,8 +644,8 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
       }
     }
     return {
-      tradeCount: snapshot.trades.length,
-      strategyCount: snapshot.strategies.length,
+      tradeCount: snapshot?.trades.length ?? 0,
+      strategyCount: snapshot?.strategies.length ?? 0,
       assets,
       referencedAssetIds: [...referencedAssetIds],
     }
@@ -679,9 +660,10 @@ export async function validateLibraryDatabaseFile(dbFile: string): Promise<Libra
 
 export async function validateDesktopLibrary(
   paths: ReturnType<typeof ensureLibraryDirs>,
+  options: { allowEmptySnapshot?: boolean } = {},
 ): Promise<LibraryDatabaseInspection> {
   validateManifest(paths.manifestFile)
-  const inspection = await validateLibraryDatabaseFile(paths.dbFile)
+  const inspection = await validateLibraryDatabaseFile(paths.dbFile, options)
   const expectedAssets = new Map(inspection.assets.map((asset) => [asset.fileName, asset]))
   const actualFileNames: string[] = []
 
@@ -728,6 +710,7 @@ function writeImportProgress(message: string): void {
 async function importWebJournalZip(
   paths: ReturnType<typeof ensureLibraryDirs>,
   tempDir: string,
+  copyAsset: (source: string, destination: string, index: number) => void,
 ): Promise<void> {
   const dataSrc = path.join(tempDir, 'data.json')
   const assetsSrc = path.join(tempDir, 'assets')
@@ -755,9 +738,9 @@ async function importWebJournalZip(
 
   clearDirectory(paths.attachments)
   const createdAt = new Date().toISOString()
-  for (const asset of assets) {
+  for (const [index, asset] of assets.entries()) {
     const dest = path.join(paths.attachments, asset.fileName)
-    fs.copyFileSync(asset.sourcePath, dest)
+    copyAsset(asset.sourcePath, dest, index)
     db.run(
       `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
        VALUES (?, ?, ?, ?, ?)`,
@@ -834,6 +817,9 @@ function restoreCurrentLibrary(paths: ReturnType<typeof ensureLibraryDirs>, back
 export async function importJournalZipToPath(
   libraryRoot: string,
   zipFile: string,
+  options: {
+    copyWebAsset?: (source: string, destination: string, index: number) => void
+  } = {},
 ): Promise<void> {
   const paths = ensureLibraryDirs(libraryRoot)
   const tempDir = path.join(libraryRoot, `.import-${Date.now()}`)
@@ -861,7 +847,11 @@ export async function importJournalZipToPath(
       fs.copyFileSync(dbSrc, preparedPaths.dbFile)
       copyAttachmentFiles(attachmentsSrc, preparedPaths.attachments)
     } else if (fs.existsSync(dataSrc)) {
-      await importWebJournalZip(preparedPaths, extractedRoot)
+      await importWebJournalZip(
+        preparedPaths,
+        extractedRoot,
+        options.copyWebAsset ?? ((source, destination) => fs.copyFileSync(source, destination)),
+      )
     } else {
       throw new Error('Invalid .journal.zip: missing manifest.json/journal.db or data.json')
     }

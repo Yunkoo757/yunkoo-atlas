@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "approvedBy": "Yunkoo老师",
+  "approvedAt": "2026-07-23T04:32:19.8443949Z",
+  "gitCommit": "f024be5d3ef7aa7314baa14b11d5ac8e09ea2659",
+  "workingTreeDirty": true,
+  "sourceFingerprint": "44eed5128371024def6c418d3358895396b8de46a374908294db2e2c39532e1a",
+  "basis": "per-metric maximum of two same-source formal attempts",
+  "metrics": {
+    "web10kSaveP95Ms": 63.599999994039536,
+    "web20kSaveP95Ms": 160.79999999701977,
+    "web10kDirtyConfirmedP95Ms": 510.29999999701977,
+    "web20kDirtyConfirmedP95Ms": 570.5999999940395,
+    "web10kStaleConflictP95Ms": 14.400000005960464,
+    "web20kStaleConflictP95Ms": 25.700000002980232,
+    "electron10kSaveP95Ms": 448.5151000000187,
+    "electron20kSaveP95Ms": 854.2110000000102,
+    "quitCoordinatorP95Ms": 1091.4388000000035,
+    "web10kMaxLongTaskMs": 0,
+    "webZipPeakJsHeapBytes": 437312462
+  }
+}

@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
-import { useLocalDateKey } from '@/hooks/useLocalDateKey'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { fmtMoney } from '@/lib/format'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { isAccountTrade } from '@/lib/tradeKind'
@@ -75,10 +75,11 @@ export function Dashboard() {
   const privacyMode = useStore((s) => s.display.privacyMode)
   const openComposer = useStore((s) => s.openComposer)
   const [curveDataOpen, setCurveDataOpen] = useState(false)
-  const localDateKey = useLocalDateKey()
+  const businessDateAnchor = useBusinessDateAnchor()
+  const localDateKey = businessDateAnchor.currentTradingDayKey
   const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
   const trades = useMemo(
-    () => filterTradesByAnalysisScope(allTrades, scope),
+    () => filterTradesByAnalysisScope(allTrades, scope, businessDateAnchor),
     [
       allTrades,
       scope.kind,
@@ -107,11 +108,11 @@ export function Dashboard() {
     const weekTrades = filterTradesByAnalysisScope(
       allTrades,
       { kind: scope.kind, range: 'this-week' },
-      new Date(`${localDateKey}T12:00:00`),
+      businessDateAnchor,
     )
     const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(allTrades, weekStart)
     return buildWeeklyReviewMetrics(weekTrades, missed)
-  }, [allTrades, localDateKey, scope.kind, weekStart])
+  }, [allTrades, businessDateAnchor, localDateKey, scope.kind, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '全部类型'
   const hasClosedTrades = stats.closedCount > 0

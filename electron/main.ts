@@ -2,11 +2,23 @@ import { app, BrowserWindow, shell, nativeTheme, Menu, ipcMain } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { registerLibraryIpc } from './library/ipc'
+import { randomUUID } from 'node:crypto'
+import {
+  cancelStorageExitPreparation,
+  commitStorageExit,
+  createVerifiedExitBackup,
+  registerLibraryIpc,
+} from './library/ipc'
 import { runElectronQaAndExit } from './qa'
-import { registerAppUpdater, scheduleAutomaticUpdateChecks } from './updater'
+import {
+  performDownloadedUpdateInstall,
+  registerAppUpdater,
+  scheduleAutomaticUpdateChecks,
+} from './updater'
 import { loadWindowState, registerWindowIpc, trackWindowState } from './windowState'
 import { initializeDiagnostics, logDiagnostic } from './diagnostics'
+import { QuitCoordinator, RendererFlushTracker, type QuitIntent } from './quitCoordinator'
+import { runElectronForcedKillMode } from './forcedKillQa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -47,8 +59,10 @@ function getWindowIconPath(): string | undefined {
 }
 
 let mainWindow: BrowserWindow | null = null
+let gracefulExitAuthorized = false
+const forcedKillMode = process.env.LINEAR_JOURNAL_FORCED_KILL_MODE
 const hasSingleInstanceLock =
-  process.env.LINEAR_JOURNAL_QA === '1' || app.requestSingleInstanceLock()
+  process.env.LINEAR_JOURNAL_QA === '1' || forcedKillMode || app.requestSingleInstanceLock()
 
 function focusMainWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -72,6 +86,74 @@ function openExternalUrl(rawUrl: string): void {
   }
   void shell.openExternal(rawUrl)
 }
+
+function requestRendererFlush(requestId: string, signal: AbortSignal): Promise<void> {
+  const windows = BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed())
+  if (windows.length === 0) return Promise.resolve()
+  const tracker = new RendererFlushTracker(requestId, windows.map((window) => window.webContents.id))
+
+  return new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      ipcMain.removeListener('app:before-close-complete', onComplete)
+      signal.removeEventListener('abort', onAbort)
+    }
+    const onAbort = () => {
+      cleanup()
+      reject(new Error('退出协调等待超时，已取消退出'))
+    }
+    const onComplete = (
+      event: Electron.IpcMainEvent,
+      result?: { requestId?: string; webContentsId?: number; ok?: boolean; error?: string },
+    ) => {
+      if (!result || result.webContentsId !== event.sender.id) return
+      const status = tracker.acknowledge(result.requestId ?? '', event.sender.id, result.ok !== false)
+      if (status === 'ignored' || status === 'pending') return
+      cleanup()
+      if (status === 'failed') reject(new Error(result.error ?? 'renderer 保存失败'))
+      else resolve()
+    }
+    ipcMain.on('app:before-close-complete', onComplete)
+    signal.addEventListener('abort', onAbort, { once: true })
+    for (const window of windows) {
+      window.webContents.send('app:before-close', {
+        requestId,
+        webContentsId: window.webContents.id,
+      })
+    }
+  })
+}
+
+function reportExitError(message: string): void {
+  logDiagnostic('error', 'graceful-exit-cancelled', message)
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send('app:close-save-error', message)
+  }
+}
+
+const quitCoordinator = new QuitCoordinator({
+  timeoutMs: 15_000,
+  createRequestId: randomUUID,
+  requestRendererFlush,
+  createVerifiedBackup: createVerifiedExitBackup,
+  cancelPreparation: cancelStorageExitPreparation,
+  reportError: reportExitError,
+  commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
+    return commitStorageExit(signal, deadlineAt, () => {
+      const intent = resolveIntent()
+      gracefulExitAuthorized = true
+      try {
+        if (intent === 'quit-and-install') performDownloadedUpdateInstall()
+        else if (intent === 'quit') app.quit()
+        else {
+          for (const window of BrowserWindow.getAllWindows()) window.close()
+        }
+      } catch (error) {
+        gracefulExitAuthorized = false
+        throw error
+      }
+    })
+  },
+})
 
 function isTrustedAppNavigation(rawUrl: string, devUrl: string | undefined, indexHtml: string): boolean {
   try {
@@ -152,45 +234,13 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null
+    if (process.platform === 'darwin') gracefulExitAuthorized = false
   })
 
-  // 等待渲染进程把编辑器草稿和最新快照写盘，再允许窗口关闭。
-  let closeReady = false
-  let closeWaiting = false
   mainWindow.on('close', (event) => {
-    if (closeReady || !mainWindow) return
+    if (gracefulExitAuthorized || !mainWindow) return
     event.preventDefault()
-    if (closeWaiting) return
-    closeWaiting = true
-    const closingWindow = mainWindow
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const cancelClose = (message: string, detail?: unknown) => {
-      if (timer) clearTimeout(timer)
-      ipcMain.removeListener('app:before-close-complete', finishClose)
-      closeWaiting = false
-      logDiagnostic('error', 'close-save-cancelled', detail ?? message)
-      if (!closingWindow.isDestroyed()) {
-        closingWindow.webContents.send('app:close-save-error', message)
-      }
-    }
-    const finishClose = (
-      _event: Electron.IpcMainEvent,
-      result?: { ok?: boolean; error?: string },
-    ) => {
-      if (result?.ok === false) {
-        cancelClose('保存失败，已取消关闭。请检查磁盘空间后重试。', result.error)
-        return
-      }
-      if (timer) clearTimeout(timer)
-      ipcMain.removeListener('app:before-close-complete', finishClose)
-      closeReady = true
-      if (!closingWindow.isDestroyed()) closingWindow.close()
-    }
-    ipcMain.once('app:before-close-complete', finishClose)
-    timer = setTimeout(() => {
-      cancelClose('保存等待超时，已取消关闭。请稍后重试。')
-    }, 15_000)
-    closingWindow.webContents.send('app:before-close')
+    void quitCoordinator.request('close')
   })
 }
 
@@ -207,11 +257,28 @@ if (!hasSingleInstanceLock) {
       app.setAppUserModelId('com.yunkoo-atlas.app')
     }
 
+    if (forcedKillMode) {
+      try {
+        const libraryRoot = process.env.LINEAR_JOURNAL_LIBRARY
+        if (!libraryRoot) throw new Error('LINEAR_JOURNAL_LIBRARY is required for forced-kill evidence')
+        await runElectronForcedKillMode(forcedKillMode, libraryRoot)
+        app.exit(0)
+      } catch (error) {
+        process.send?.({
+          type: 'error',
+          runtime: 'electron-main',
+          electronVersion: process.versions.electron,
+          processId: process.pid,
+          message: error instanceof Error ? error.stack : String(error),
+        })
+        app.exit(1)
+      }
+      return
+    }
+
     registerLibraryIpc()
     registerWindowIpc()
-    ipcMain.handle('app:request-close', () => {
-      mainWindow?.close()
-    })
+    ipcMain.handle('app:request-close', () => quitCoordinator.request('close'))
     ipcMain.handle('app:toggle-fullscreen', () => {
       if (!mainWindow || mainWindow.isDestroyed()) return false
       const next = !mainWindow.isFullScreen()
@@ -224,7 +291,7 @@ if (!hasSingleInstanceLock) {
       return
     }
 
-    registerAppUpdater()
+    registerAppUpdater((intent) => quitCoordinator.request(intent))
     createWindow()
     scheduleAutomaticUpdateChecks()
 
@@ -239,5 +306,14 @@ app.on('child-process-gone', (_event, details) => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin') {
+    if (gracefulExitAuthorized) app.quit()
+    else void quitCoordinator.request('quit')
+  }
+})
+
+app.on('before-quit', (event) => {
+  if (gracefulExitAuthorized || !hasSingleInstanceLock) return
+  event.preventDefault()
+  void quitCoordinator.request('quit')
 })

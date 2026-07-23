@@ -3,6 +3,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolveCommand } from './release-command.mjs'
 
+function workflowJob(workflow, name) {
+  const headings = [...workflow.matchAll(/^  ([a-z0-9-]+):\s*$/gm)]
+  const index = headings.findIndex((heading) => heading[1] === name)
+  assert.notEqual(index, -1, `发布工作流缺少 ${name} job`)
+  const start = headings[index].index
+  const end = headings[index + 1]?.index ?? workflow.length
+  return workflow.slice(start, end)
+}
+
 test('Windows 通过当前 Node 执行 pnpm CLI，避免 spawnSync pnpm.cmd EINVAL', () => {
   const invocation = resolveCommand('pnpm', ['test'], {
     platform: 'win32',
@@ -83,31 +92,85 @@ test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包',
   )
 })
 
-test('发布资产由 GitHub CLI 串行上传并校验', () => {
+test('发布流水线先通过唯一质量门禁，再并行构建两个平台', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
-  assert.match(workflow, /electron-builder --win nsis --x64 --publish never/)
-  assert.match(workflow, /\$releaseArgs = @\('release', 'create'/)
-  assert.match(workflow, /& gh @releaseArgs/)
-  assert.match(workflow, /latest\.yml/)
-  assert.doesNotMatch(workflow, /--publish always/)
+  const quality = workflowJob(workflow, 'quality')
+  const windows = workflowJob(workflow, 'build-windows')
+  const macos = workflowJob(workflow, 'build-macos')
+
+  assert.match(workflow, /permissions:\s*\r?\n\s+contents:\s*read/)
+  assert.match(quality, /pnpm qa:full/)
+  assert.match(windows, /needs:\s*quality/)
+  assert.match(macos, /needs:\s*quality/)
+  assert.match(macos, /pnpm qa:electron/)
+  assert(macos.indexOf('pnpm build:app') < macos.indexOf('pnpm qa:electron'))
+  assert.match(macos, /pnpm test:asset-lifecycle:electron/)
+  assert.match(windows, /pnpm test:forced-kill:electron/)
+  assert.match(macos, /pnpm test:forced-kill:electron/)
+  assert.match(windows, /pnpm test:asset-lifecycle:electron/)
+  assert.match(windows, /forced-kill-Windows/)
+  assert.match(macos, /forced-kill-macOS/)
+  assert.match(windows, /asset-lifecycle-Windows/)
+  assert.match(macos, /asset-lifecycle-macOS/)
+  assert.doesNotMatch(macos, /needs:\s*build-windows/)
+  assert.match(windows, /electron-builder --win nsis --x64 --publish never/)
+  assert.match(macos, /electron-builder --mac dmg zip --x64 --arm64 --publish never/)
 })
 
 test('预览版本创建 GitHub Prerelease，正式客户端继续忽略预发布更新', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+  const publish = workflowJob(workflow, 'publish')
   const updater = readFileSync('electron/updater.ts', 'utf8')
 
-  assert.match(workflow, /\$isPrerelease = \$version\.Contains\('-'\)/)
-  assert.match(workflow, /if \(\$isPrerelease\) \{ \$releaseArgs \+= @\('--prerelease', '--latest=false'\) \}/)
-  assert.match(workflow, /isPrerelease,assets/)
+  assert.match(publish, /is_prerelease=false/)
+  assert.match(publish, /channel_args=\(--prerelease --latest=false\)/)
+  assert.match(publish, /isDraft,isPrerelease,assets/)
+  assert.match(publish, /release-artifacts\.mjs plan/)
+  assert.match(publish, /merge-base --is-ancestor/)
   assert.match(updater, /autoUpdater\.allowPrerelease = false/)
 })
 
-test('重复执行发布工作流时更新并覆盖既有 Release 资产', () => {
+test('构建 job 只上传流水线工件，唯一 publish job 才拥有写权限', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+  const windows = workflowJob(workflow, 'build-windows')
+  const macos = workflowJob(workflow, 'build-macos')
+  const publish = workflowJob(workflow, 'publish')
 
-  assert.match(workflow, /\$releaseExists = \$LASTEXITCODE -eq 0/)
-  assert.match(workflow, /'release', 'edit'/)
-  assert.match(workflow, /release upload \$tag @assetPaths --clobber/)
+  assert.match(windows, /actions\/upload-artifact@v4/)
+  assert.match(macos, /actions\/upload-artifact@v4/)
+  assert.doesNotMatch(windows, /gh release/)
+  assert.doesNotMatch(macos, /gh release/)
+  assert.match(publish, /needs:\s*\[build-windows, build-macos, verify-release-evidence\]/)
+  assert.match(publish, /permissions:\s*\r?\n\s+contents:\s*write/)
+  assert.match(publish, /actions\/download-artifact@v4/)
+  assert.match(publish, /gh release create[^\n]*--draft/)
+  assert.match(publish, /gh release edit[^\n]*--draft=false/)
+  assert(
+    publish.indexOf('Upload release checksum provenance') < publish.indexOf('gh release edit "$tag" --draft=false'),
+    'checksum provenance 必须先成功保存，最后一步才允许将 draft 转公开',
+  )
+  assert.doesNotMatch(publish, /--clobber/)
+})
+
+test('单点发布校验七个非空资产，并以哈希保证同标签重试不可覆写', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+  const publish = workflowJob(workflow, 'publish')
+
+  for (const asset of [
+    'win-x64.exe',
+    'win-x64.exe.blockmap',
+    'latest.yml',
+    'mac-arm64.dmg',
+    'mac-arm64.zip',
+    'mac-x64.dmg',
+    'mac-x64.zip',
+  ]) {
+    assert.match(publish, new RegExp(asset.replaceAll('.', '\\.')))
+  }
+  assert.match(publish, /sha256sum/)
+  assert.match(publish, /Existing release asset differs/)
+  assert.match(publish, /already public with identical assets/)
+  assert.match(publish, /isDraft,isPrerelease,assets/)
 })
 
 test('本地发布运行轻量门禁，CI 打包复验构建与 Electron 数据链路', () => {
@@ -118,7 +181,17 @@ test('本地发布运行轻量门禁，CI 打包复验构建与 Electron 数据�
 
   assert.match(release, /qa:release/)
   assert.match(workflow, /pnpm build:app/)
-  assert.match(workflow, /pnpm qa:electron/)
+  assert.match(workflow, /pnpm qa:full/)
+  assert.match(workflow, /pnpm benchmark:persistence:release/)
+  assert.match(workflow, /persistence-release\.json/)
+  assert.match(workflow, /verify-release-evidence:/)
+  assert.match(workflow, /path: test-results\/collected-evidence/)
+  assert.match(workflow, /verify-release-train-evidence\.mjs --evidence-root test-results\/collected-evidence --require-complete/)
+  assert.match(workflow, /pnpm verify:release-train-drills/)
+  assert.match(workflow, /test-results\/release-trains\/release-train-drills\.json/)
+  assert.match(workflow, /test-results\/release-trains\/final-quality-manifest\.json/)
+  assert.match(workflow, /name:\s*train-recovery-evidence/)
+  assert.doesNotMatch(workflow, /name:\s*release-train-evidence/)
   assert.equal(pkg.scripts['qa:release'], 'node scripts/qa-release.mjs')
   assert.equal(pkg.scripts['qa:full'], 'node scripts/qa-release.mjs --full')
   assert.match(qualityGate, /process\.argv\.includes\('--full'\)/)
@@ -129,6 +202,8 @@ test('本地发布运行轻量门禁，CI 打包复验构建与 Electron 数据�
   assert.match(qualityGate, /if \(full\) run\('pnpm', \['qa:linear'\]/)
   assert.match(qualityGate, /qa-dashboard-10k\.mjs/)
   assert.match(qualityGate, /waitForVite/)
+  assert.match(qualityGate, /qa-release-full\.json/)
+  assert.match(qualityGate, /sourceFingerprint/)
 })
 
 test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动工作流', () => {
@@ -141,6 +216,8 @@ test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动�
   assert.match(workflow, /push:/)
   assert.match(workflow, /pull_request:/)
   assert.match(workflow, /pnpm qa:ci/)
+  assert.match(workflow, /pnpm benchmark:persistence/)
+  assert.match(workflow, /persistence-smoke\.json/)
   assert.doesNotMatch(workflow, /pnpm qa:release/)
   assert.doesNotMatch(workflow, /performance:/)
   assert.doesNotMatch(workflow, /qa-dashboard-10k/)
@@ -155,6 +232,10 @@ test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动�
   assert.match(fullQaWorkflow, /workflow_dispatch:/)
   assert.match(fullQaWorkflow, /schedule:/)
   assert.match(fullQaWorkflow, /pnpm qa:full/)
+  assert.match(fullQaWorkflow, /pnpm benchmark:persistence:release/)
+  assert.match(fullQaWorkflow, /persistence-release\.json/)
+  assert.match(fullQaWorkflow, /pnpm test:forced-kill:electron/)
+  assert.match(fullQaWorkflow, /forced-kill-full-qa/)
   assert.match(fullQaWorkflow, /QA_PERFORMANCE_PROFILE:\s*hosted-windows/)
   assert.match(qualityGate, /process\.argv\.includes\('--full'\)/)
   assert.match(qualityGate, /if \(full\) run\(process\.execPath/)
@@ -188,22 +269,21 @@ test('安装包文件名不含空格，必须与 latest.yml 下载地址一致',
   assert.equal(pkg.build?.mac?.artifactName, 'Trader-Atlas-${version}-mac-${arch}.${ext}')
 })
 
-test('发布流水线在 Windows 之后构建并上传 macOS 产物', () => {
+test('macOS 构建产出四个工件，但不直接修改 GitHub Release', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
-  assert.match(workflow, /build-macos:/)
-  assert.match(workflow, /needs:\s*build-windows/)
-  assert.match(workflow, /runs-on:\s*macos-latest/)
-  assert.match(workflow, /electron-builder --mac dmg zip --x64 --arm64 --publish never/)
+  const macos = workflowJob(workflow, 'build-macos')
+  assert.match(macos, /runs-on:\s*macos-latest/)
   for (const asset of [
     'mac-arm64.dmg',
     'mac-arm64.zip',
     'mac-x64.dmg',
     'mac-x64.zip',
   ]) {
-    assert.match(workflow, new RegExp(asset.replace('.', '\\.')))
+    assert.match(macos, new RegExp(asset.replace('.', '\\.')))
   }
-  assert.match(workflow, /gh release upload/)
-  assert.match(workflow, /CSC_IDENTITY_AUTO_DISCOVERY/)
+  assert.match(macos, /actions\/upload-artifact@v4/)
+  assert.doesNotMatch(macos, /gh release/)
+  assert.match(macos, /CSC_IDENTITY_AUTO_DISCOVERY/)
 })
 
 test('NSIS 安装包声明高 DPI，避免安装向导发糊', () => {
@@ -231,3 +311,5 @@ test('NSIS 安装向导使用 Atlas 品牌图与简体中文', () => {
   assert.match(iconScript, /encodeBmp24/)
   assert.match(iconScript, /NSIS_BMP_SCALE = 3/, '安装器位图须按 3× 输出，避免高 DPI 拉伸发糊')
 })
+// Quality-Scenario: R-WIN-FAIL
+// Quality-Scenario: R-MAC-FAIL

@@ -5,9 +5,14 @@ import {
   normalizeSavedViewPath,
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
-import { PRIMARY_NAV, SECONDARY_NAV, type PrimarySidebarNavId, type SidebarNavId } from '@/lib/sidebarNav'
+import {
+  PRIMARY_NAV_ITEMS,
+  SECONDARY_NAV_ITEMS,
+  type PrimarySidebarNavId,
+  type SidebarNavId,
+} from '@/lib/sidebarNavContract'
 import type { DisplayPrefs, ListFilter, ReviewCaseScope } from '@/lib/tradeFilters'
-import { isValidPeriodSlug } from '@/lib/periods'
+import { isValidPeriodSlug, type BusinessDateAnchor } from '@/lib/periods'
 import { parseAnalysisScope } from '@/lib/analysisScope'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 
@@ -70,6 +75,7 @@ export type SidebarCountContext = {
   trades: Trade[]
   starredIds: string[]
   display: DisplayPrefs
+  businessDateAnchor?: BusinessDateAnchor
 }
 
 export const MAX_PINNED_SIDEBAR_ITEMS = 8
@@ -410,7 +416,7 @@ export function resolveSidebarWorkspaceItem(
   const target = item.target
   const key = sidebarTargetKey(target)
   if (target.kind === 'system') {
-    const nav = SECONDARY_NAV.find((candidate) => candidate.id === target.id)!
+    const nav = SECONDARY_NAV_ITEMS.find((candidate) => candidate.id === target.id)!
     if (isSidebarCapabilityId(target.id)) {
       const route = resolveCapabilityNavRoute(
         target.id,
@@ -512,7 +518,7 @@ function primaryIdForPath(pathname: string): PrimarySidebarNavId | undefined {
   ) {
     return 'trades'
   }
-  return PRIMARY_NAV.find((item) => normalizeTargetPath(item.to) === path)?.id
+  return PRIMARY_NAV_ITEMS.find((item) => normalizeTargetPath(item.to) === path)?.id
 }
 
 function routesMatch(

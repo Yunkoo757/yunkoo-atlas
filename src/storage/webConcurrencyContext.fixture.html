@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8" /><title>Web concurrency context fixture</title></head>
+  <body>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/storage/webConcurrencyContext.fixture.ts"></script>
+  </body>
+</html>

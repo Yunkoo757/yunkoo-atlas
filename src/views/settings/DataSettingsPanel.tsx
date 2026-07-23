@@ -15,8 +15,9 @@ import {
   suspendPersist,
 } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
-import { collectAssetIdsFromSnapshot, getStorage } from '@/storage'
-import { type AssetStats } from '@/lib/storageHealth'
+import { getStorage } from '@/storage'
+import type { AssetPurgePreview } from '@/storage/adapter'
+import { checkStorageHealth, type StorageHealth } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, CheckCircle, AlertCircle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
@@ -27,6 +28,9 @@ import {
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { clearReviewSessionStorage } from '@/lib/reviewSession'
 import { useSaveStatus } from '@/store/saveStatus'
+import { buildWebJournalArchiveBlob } from '@/lib/importExport'
+
+const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT === 'true'
 
 function fmtBackupTime(ts: number): string {
   const d = new Date(ts)
@@ -44,7 +48,9 @@ function fmtBackupSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-export function DataSettingsPanel() {
+export function DataSettingsPanel({
+  assetPurgeCommitEnabled = ASSET_PURGE_COMMIT_ENABLED,
+}: { assetPurgeCommitEnabled?: boolean } = {}) {
   const electron = isElectron()
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backing, setBacking] = useState(false)
@@ -55,44 +61,42 @@ export function DataSettingsPanel() {
     name: string
   } | null>(null)
   const [health, setHealth] = useState<{
-    tradeCount: number
-    attachmentStats: AssetStats
+    storage: StorageHealth
     backupCount: number
     backupTotalSize: number
   } | null>(null)
+  const [healthError, setHealthError] = useState<string | null>(null)
+  const [purgePreview, setPurgePreview] = useState<AssetPurgePreview | null>(null)
+  const [purgeBusy, setPurgeBusy] = useState(false)
+  const [purgeArchiveReady, setPurgeArchiveReady] = useState(false)
+  const [purgeAuthorization, setPurgeAuthorization] = useState<string | null>(null)
+  const [purgeConfirmed, setPurgeConfirmed] = useState(false)
   const trades = useStore((s) => s.trades)
   const weeklyReviews = useStore((s) => s.weeklyReviews)
+  const quickNotes = useStore((s) => s.quickNotes)
 
   const refreshHealth = useCallback(async () => {
-    const assetIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews })
-    const storage = getStorage()
-    let attachmentStats = { count: 0, totalBytes: 0, missingCount: 0 }
     try {
-      attachmentStats = await storage.getAssetStats(assetIds)
-    } catch { /* 附件统计失败不影响备份管理 */ }
-    let backupCount = 0
-    let backupTotalSize = 0
-    if (electron) {
-      try {
-        const bridge = getJournalBridge()
-        if (bridge) {
-          const bs = await bridge.getBackupStats()
-          backupCount = bs.count
-          backupTotalSize = bs.totalSize
-        }
-      } catch { /* 忽略 */ }
+      const storage = await checkStorageHealth()
+      let backupCount = 0
+      let backupTotalSize = 0
+      if (electron) {
+        try {
+          const bridge = getJournalBridge()
+          if (bridge) {
+            const bs = await bridge.getBackupStats()
+            backupCount = bs.count
+            backupTotalSize = bs.totalSize
+          }
+        } catch { /* 备份统计失败不应伪装成附件清单失败。 */ }
+      }
+      setHealth({ storage, backupCount, backupTotalSize })
+      setHealthError(null)
+    } catch (error) {
+      setHealth(null)
+      setHealthError(error instanceof Error ? error.message : String(error))
     }
-
-    setHealth({
-      tradeCount: trades.length,
-      attachmentStats: {
-        ...attachmentStats,
-        formattedSize: fmtBackupSize(attachmentStats.totalBytes),
-      },
-      backupCount,
-      backupTotalSize,
-    })
-  }, [trades, weeklyReviews, electron])
+  }, [trades, weeklyReviews, quickNotes, electron])
 
   useEffect(() => {
     refreshHealth()
@@ -234,6 +238,100 @@ export function DataSettingsPanel() {
     }
   }
 
+  const discardPurge = (preview = purgePreview) => {
+    if (preview) void getStorage().cancelAssetPurge?.(preview.operationId)
+    setPurgePreview(null)
+    setPurgeArchiveReady(false)
+    setPurgeAuthorization(null)
+    setPurgeConfirmed(false)
+  }
+
+  const handlePreviewAssetPurge = async () => {
+    setPurgeBusy(true)
+    try {
+      await flushPersistNow()
+      const preview = await getStorage().previewAssetPurge?.()
+      if (!preview) throw new Error('当前存储后端不支持附件清理预览')
+      if (preview.candidateIds.length === 0) {
+        toast('当前库没有可永久清理的孤立附件')
+        await refreshHealth()
+        return
+      }
+      setPurgeArchiveReady(false)
+      setPurgeAuthorization(null)
+      setPurgeConfirmed(false)
+      setPurgePreview(preview)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '附件清理预览失败')
+    } finally {
+      setPurgeBusy(false)
+    }
+  }
+
+  const handleCreatePurgeRecoveryArchive = async () => {
+    if (!purgePreview) return
+    setPurgeBusy(true)
+    let refreshedPreview: AssetPurgePreview | null = null
+    try {
+      await flushPersistNow()
+      refreshedPreview = await getStorage().previewAssetPurge?.() ?? null
+      if (!refreshedPreview) throw new Error('恢复归档已导出，但无法重新生成附件清理预览')
+      const recovery = await getStorage().prepareAssetPurgeRecovery?.(refreshedPreview)
+      if (!recovery) throw new Error('当前存储后端无法生成清理恢复归档')
+      if (recovery.webArchive) {
+        const blob = buildWebJournalArchiveBlob(
+          recovery.webArchive.snapshot,
+          recovery.webArchive.assets,
+          { recoveryOrphanAssetIds: recovery.webArchive.recoveryOrphanAssetIds },
+        )
+        const url = URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = `linear-journal-before-cleanup-${new Date().toISOString().slice(0, 10)}.journal.zip`
+        document.body.appendChild(anchor)
+        anchor.click()
+        anchor.remove()
+        URL.revokeObjectURL(url)
+      }
+      if (purgePreview.operationId !== refreshedPreview.operationId) {
+        await getStorage().cancelAssetPurge?.(purgePreview.operationId)
+      }
+      setPurgePreview(refreshedPreview)
+      setPurgeAuthorization(recovery.authorization)
+      setPurgeArchiveReady(true)
+      toast('当前交易库恢复归档已导出')
+    } catch (error) {
+      if (refreshedPreview && refreshedPreview.operationId !== purgePreview.operationId) {
+        await getStorage().cancelAssetPurge?.(refreshedPreview.operationId)
+      }
+      discardPurge()
+      toast(error instanceof Error ? error.message : '恢复归档导出失败')
+    } finally {
+      setPurgeBusy(false)
+    }
+  }
+
+  const handleCommitAssetPurge = async () => {
+    if (!purgePreview || !purgeAuthorization || !purgeArchiveReady || !purgeConfirmed || !assetPurgeCommitEnabled) return
+    setPurgeBusy(true)
+    try {
+      const commit = getStorage().commitAssetPurge
+      if (!commit) throw new Error('当前存储后端不支持永久清理')
+      const result = await commit.call(getStorage(), purgePreview, purgeAuthorization)
+      setPurgePreview(null)
+      setPurgeArchiveReady(false)
+      setPurgeAuthorization(null)
+      setPurgeConfirmed(false)
+      await refreshHealth()
+      toast(`已从当前库永久清理 ${result.deletedIds.length} 个孤立附件；历史备份未改变`)
+    } catch (error) {
+      discardPurge()
+      toast(`${error instanceof Error ? error.message : '永久清理失败'}；请重新预览并重新导出恢复归档`)
+    } finally {
+      setPurgeBusy(false)
+    }
+  }
+
   return (
     <div className="settings-page data-settings">
       <div className="settings-page-head">
@@ -256,30 +354,55 @@ export function DataSettingsPanel() {
           </p>
         </div>
 
+        {healthError && (
+          <div className="health-card health-warn" role="alert">
+            <AlertCircle size={18} />
+            <span className="health-label">附件清单读取失败</span>
+            <span className="health-note">{healthError}</span>
+          </div>
+        )}
+
         {health && (
           <div className="health-grid">
             <div className="health-card">
               <Database size={18} />
               <span className="health-label">交易数</span>
-              <span className="health-value">{health.tradeCount}</span>
+              <span className="health-value">{health.storage.tradeCount}</span>
             </div>
-            <div className={'health-card' + (health.attachmentStats.totalBytes > WARN_ATTACH_SIZE || health.attachmentStats.missingCount > 0 ? ' health-warn' : '')}>
+            <div className={'health-card' + (
+              health.storage.attachmentStats.totalBytes > WARN_ATTACH_SIZE ||
+              health.storage.attachmentStats.missingCount > 0 ||
+              health.storage.inventory.orphan.length > 0 ||
+              health.storage.inventory.foreign.length > 0 ||
+              health.storage.inventory.temp.length > 0
+                ? ' health-warn'
+                : ''
+            )}>
               <Image size={18} />
               <span className="health-label">笔记图片</span>
               <span className="health-value">
-                {health.attachmentStats.count} 张 · {health.attachmentStats.formattedSize}
+                {health.storage.attachmentStats.count} 张 · {health.storage.attachmentStats.formattedSize}
               </span>
-              {health.attachmentStats.totalBytes > WARN_ATTACH_SIZE && (
+              {health.storage.attachmentStats.totalBytes > WARN_ATTACH_SIZE && (
                 <span className="health-note">
                   {electron
                     ? '附件较多，建议创建并验证备份'
                     : '已接近浏览器完整备份 128 MB 上限，建议清理原图或分库'}
                 </span>
               )}
-              {health.attachmentStats.missingCount > 0 && (
+              {health.storage.attachmentStats.missingCount > 0 && (
                 <span className="health-note">
-                  {health.attachmentStats.missingCount} 张附件缺失或损坏
+                  {health.storage.attachmentStats.missingCount} 张附件缺失或损坏
                 </span>
+              )}
+              {health.storage.inventory.orphan.length > 0 && (
+                <span className="health-note">{health.storage.inventory.orphan.length} 张当前库孤立附件</span>
+              )}
+              {health.storage.inventory.foreign.length > 0 && (
+                <span className="health-note">{health.storage.inventory.foreign.length} 个未知或非法附件项</span>
+              )}
+              {health.storage.inventory.temp.length > 0 && (
+                <span className="health-note">{health.storage.inventory.temp.length} 个未完成临时附件</span>
               )}
             </div>
             {electron && (
@@ -304,6 +427,22 @@ export function DataSettingsPanel() {
         >
           刷新检查
         </button>
+        {health && health.storage.inventory.orphan.length > 0 ? (
+          <div style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              className="dio-btn dio-btn-warn"
+              disabled={purgeBusy}
+              onClick={() => void handlePreviewAssetPurge()}
+            >
+              <Trash2 size={14} />
+              <span>{purgeBusy ? '扫描中…' : '预览永久清理'}</span>
+            </button>
+            <p className="dio-section-muted" style={{ marginTop: 8 }}>
+              只检查当前活动库；历史备份不会被扫描或修改。默认仅 dry-run，不会删除文件。
+            </p>
+          </div>
+        ) : null}
       </section>
 
       {electron && (
@@ -457,6 +596,70 @@ export function DataSettingsPanel() {
           )}
         >
           <p className="dio-section-muted"><code>{confirmRequest.name}</code></p>
+        </ModalShell>
+      ) : null}
+      {purgePreview ? (
+        <ModalShell
+          title="永久清理当前库孤立附件"
+          description="这是 dry-run 结果。候选只来自当前活动库，历史备份不会被扫描或修改。"
+          size="compact"
+          busy={purgeBusy}
+          onClose={() => {
+            if (purgeBusy) return
+            discardPurge()
+          }}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered"
+                disabled={purgeBusy}
+                onClick={() => void handleCreatePurgeRecoveryArchive()}
+              >
+                {purgeArchiveReady ? '恢复归档已导出' : '先导出恢复归档'}
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered"
+                data-autofocus
+                disabled={purgeBusy}
+                onClick={() => discardPurge()}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-danger-solid"
+                disabled={purgeBusy || !purgeArchiveReady || !purgeConfirmed || !assetPurgeCommitEnabled}
+                onClick={() => void handleCommitAssetPurge()}
+              >
+                永久删除候选附件
+              </button>
+            </>
+          )}
+        >
+          <div className="dio-restore-warning" role="alert">
+            <AlertCircle size={17} />
+            <span>
+              将永久删除 {purgePreview.candidateIds.length} 个附件（{fmtBackupSize(purgePreview.totalBytes)}）。
+              成功后只能从刚导出的恢复归档找回。
+            </span>
+          </div>
+          <p className="dio-section-muted">
+            预览 revision：{purgePreview.revision}。预览后若数据变化，提交会被拒绝并要求重新扫描。
+          </p>
+          {!assetPurgeCommitEnabled ? (
+            <p className="dio-section-muted">当前发布阶段仅开放 dry-run；实际删除开关将在独立观察期通过后启用。</p>
+          ) : null}
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12 }}>
+            <input
+              type="checkbox"
+              checked={purgeConfirmed}
+              disabled={!purgeArchiveReady || purgeBusy || !assetPurgeCommitEnabled}
+              onChange={(event) => setPurgeConfirmed(event.target.checked)}
+            />
+            <span>我已保存恢复归档，并确认只永久删除本次 dry-run 列出的当前库孤立附件。</span>
+          </label>
         </ModalShell>
       ) : null}
     </div>

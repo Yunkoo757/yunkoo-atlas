@@ -63,11 +63,11 @@ export function useShortcutHost({
       },
       'global.undo': () => {
         const s = useStore.getState()
-        if (s.undoStack.length > 0) { s.undo(); toast('已撤销') }
+        if (s.undoStack.length > 0 && s.undo()) toast('已撤销')
       },
       'global.redo': () => {
         const s = useStore.getState()
-        if (s.redoStack.length > 0) { s.redo(); toast('已重做') }
+        if (s.redoStack.length > 0 && s.redo()) toast('已重做')
       },
       'global.closeOverlay': () => {
         if (lightbox) {

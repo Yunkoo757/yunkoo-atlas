@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "scenarioId": "E-FORCED-KILL",
+  "generatedAt": "2026-07-22T20:03:29.005Z",
+  "platform": "win32",
+  "release": "10.0.26200",
+  "architecture": "x64",
+  "fileSystem": "NTFS",
+  "gitCommit": "f024be5d3ef7aa7314baa14b11d5ac8e09ea2659",
+  "workingTreeDirty": true,
+  "sourceFingerprint": "da383ecb35efb7f9ef336c02e7abdd6f16170a72dcc2c320600a76f8bf44a6bc",
+  "process": {
+    "childPid": 33400,
+    "exitCode": null,
+    "signal": "SIGKILL",
+    "saveStartingObserved": true,
+    "atomicTempFileObserved": ".journal.db.33400.738e58d8-6dce-49dd-8b7d-fffd1134cf69.tmp",
+    "killRequestedAt": "2026-07-22T20:03:27.843Z",
+    "saveCompletedAcknowledged": false
+  },
+  "recovery": {
+    "expected": "confirmed-revision-1",
+    "observed": "confirmed-revision-1",
+    "noteLength": 108,
+    "lastConfirmedRecovered": true,
+    "unconfirmedMemoryEditPromised": false,
+    "unconfirmedPendingRevisionAbsent": true
+  },
+  "status": "pass"
+}

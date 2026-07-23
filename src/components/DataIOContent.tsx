@@ -42,6 +42,7 @@ import { useStore } from '@/store/useStore'
 import { CsvImportModal } from './CsvImportModal'
 import { NotionImportModal } from './NotionImportModal'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { readJsonImportFile } from '@/lib/importLimits'
 import './DataIOContent.css'
 
 function formatArchiveBytes(bytes: number): string {
@@ -235,7 +236,7 @@ export function DataIOContent({
 
     setLibraryBusy(true)
     try {
-      const text = await file.text()
+      const text = await readJsonImportFile(file)
       const result = parseImportJson(text)
       if (!result.ok) {
         toast(result.error)
@@ -664,6 +665,8 @@ export function DataIOContent({
           <dl className="dio-restore-grid">
             <div><dt>交易与案例</dt><dd>{webArchive.preview.tradeCount}</dd></div>
             <div><dt>周复盘</dt><dd>{webArchive.preview.weeklyReviewCount}</dd></div>
+            <div><dt>随记</dt><dd>{webArchive.preview.quickNoteCount}</dd></div>
+            <div><dt>复盘模板</dt><dd>{webArchive.preview.reviewTemplateCount}</dd></div>
             <div><dt>策略</dt><dd>{webArchive.preview.strategyCount}</dd></div>
             <div><dt>原始附件</dt><dd>{webArchive.preview.assetCount}</dd></div>
             <div><dt>附件大小</dt><dd>{formatArchiveBytes(webArchive.preview.assetBytes)}</dd></div>

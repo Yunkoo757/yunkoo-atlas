@@ -12,10 +12,24 @@ import {
   RotateCcw,
   Star,
 } from '@/icons/appIcons'
+import {
+  DEFAULT_PRIMARY_SIDEBAR_ORDER,
+  DEFAULT_SIDEBAR_PINS,
+  PRIMARY_NAV_ITEMS,
+  SECONDARY_NAV_ITEMS,
+  normalizePrimarySidebarOrder,
+  type PrimarySidebarNavId,
+  type SidebarNavId,
+} from '@/lib/sidebarNavContract'
+
+export {
+  DEFAULT_PRIMARY_SIDEBAR_ORDER,
+  DEFAULT_SIDEBAR_PINS,
+  normalizePrimarySidebarOrder,
+} from '@/lib/sidebarNavContract'
+export type { PrimarySidebarNavId, SidebarNavId } from '@/lib/sidebarNavContract'
 
 export type SidebarNavIcon = AppIcon
-
-export type PrimarySidebarNavId = 'today' | 'quickNotes' | 'trades' | 'reviewCases' | 'weeklyReview' | 'reviewSession' | 'dashboard'
 
 export interface PrimarySidebarNavItem {
   id: PrimarySidebarNavId
@@ -24,27 +38,20 @@ export interface PrimarySidebarNavItem {
   icon: SidebarNavIcon
 }
 
-export const PRIMARY_NAV: PrimarySidebarNavItem[] = [
-  { id: 'today', to: '/today-record', label: '今日工作台', icon: Calendar },
-  { id: 'quickNotes', to: '/notes', label: '随记', icon: FileText },
-  { id: 'trades', to: '/list', label: '交易日志', icon: ListTodo },
-  { id: 'reviewCases', to: '/review-cases', label: '案例记录', icon: BookOpen },
-  { id: 'weeklyReview', to: '/weekly-review', label: '周复盘', icon: CalendarDays },
-  { id: 'reviewSession', to: '/review-session', label: '随机复盘', icon: RotateCcw },
-  { id: 'dashboard', to: '/dashboard', label: '仪表盘', icon: BarChart3 },
-]
-
-export const DEFAULT_PRIMARY_SIDEBAR_ORDER: PrimarySidebarNavId[] = PRIMARY_NAV.map(
-  (item) => item.id,
-)
-
-export function normalizePrimarySidebarOrder(input: unknown): PrimarySidebarNavId[] {
-  const valid = new Set<PrimarySidebarNavId>(DEFAULT_PRIMARY_SIDEBAR_ORDER)
-  const ordered = Array.isArray(input)
-    ? input.filter((id): id is PrimarySidebarNavId => typeof id === 'string' && valid.has(id as PrimarySidebarNavId))
-    : []
-  return [...new Set(ordered), ...DEFAULT_PRIMARY_SIDEBAR_ORDER.filter((id) => !ordered.includes(id))]
+const PRIMARY_NAV_ICONS: Record<PrimarySidebarNavId, SidebarNavIcon> = {
+  today: Calendar,
+  quickNotes: FileText,
+  trades: ListTodo,
+  reviewCases: BookOpen,
+  weeklyReview: CalendarDays,
+  reviewSession: RotateCcw,
+  dashboard: BarChart3,
 }
+
+export const PRIMARY_NAV: PrimarySidebarNavItem[] = PRIMARY_NAV_ITEMS.map((item) => ({
+  ...item,
+  icon: PRIMARY_NAV_ICONS[item.id],
+}))
 
 export function reorderPrimarySidebarNav(
   order: unknown,
@@ -67,8 +74,6 @@ export function resolvePrimarySidebarNav(order: unknown): PrimarySidebarNavItem[
     .filter((item): item is PrimarySidebarNavItem => Boolean(item))
 }
 
-export type SidebarNavId = 'active' | 'favorites' | 'missed' | 'paper'
-
 export interface SidebarNavItem {
   id: SidebarNavId
   to: string
@@ -76,20 +81,17 @@ export interface SidebarNavItem {
   icon: SidebarNavIcon
 }
 
-export const SECONDARY_NAV: SidebarNavItem[] = [
-  { id: 'active', to: '/active', label: '进行中', icon: Clock },
-  { id: 'favorites', to: '/favorites', label: '星标交易', icon: Star },
-  { id: 'missed', to: '/missed', label: '错过的机会', icon: Ban },
-  { id: 'paper', to: '/sim', label: '模拟回测', icon: FlaskConical },
-]
+const SECONDARY_NAV_ICONS: Record<SidebarNavId, SidebarNavIcon> = {
+  active: Clock,
+  favorites: Star,
+  missed: Ban,
+  paper: FlaskConical,
+}
 
-/** 默认固定在侧栏的快捷入口 */
-export const DEFAULT_SIDEBAR_PINS: SidebarNavId[] = [
-  'active',
-  'favorites',
-  'missed',
-  'paper',
-]
+export const SECONDARY_NAV: SidebarNavItem[] = SECONDARY_NAV_ITEMS.map((item) => ({
+  ...item,
+  icon: SECONDARY_NAV_ICONS[item.id],
+}))
 
 /** 按 sidebarPins 顺序解析快捷导航；空数组 → 空列表（侧栏不渲染「快捷」区） */
 export function resolvePinnedSecondaryNav(

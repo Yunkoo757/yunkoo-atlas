@@ -1,5 +1,12 @@
 import type { Trade } from '@/data/trades'
-import { formatYmd, getPeriodBounds, isDateInRange } from '@/lib/periods'
+import {
+  createBusinessDateAnchor,
+  formatYmd,
+  getPeriodBounds,
+  isDateInRange,
+  parseLocalDate,
+  type BusinessDateAnchor,
+} from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 
@@ -47,7 +54,8 @@ export function parseAnalysisScope(
 export function filterTradesByAnalysisScope(
   trades: readonly Trade[],
   scope: AnalysisScope,
-  now = new Date(),
+  now: Date | BusinessDateAnchor = new Date(),
+  tradingDayStartHour?: number,
 ): Trade[] {
   const scoped = trades.filter((trade) =>
     !trade.deletedAt &&
@@ -57,13 +65,16 @@ export function filterTradesByAnalysisScope(
   )
   if (scope.range === 'all') return scoped
 
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const today = formatYmd(end)
+  const anchor = now instanceof Date
+    ? createBusinessDateAnchor(now, tradingDayStartHour)
+    : now
+  const end = parseLocalDate(anchor.currentTradingDayKey)
+  const today = anchor.currentTradingDayKey
   let bounds: { start: string; end: string }
 
   if (scope.range === 'this-week') {
     // 与本月一致：周一起点到今天（不含未来周日）
-    bounds = { start: getPeriodBounds('this-week', now).start, end: today }
+    bounds = { start: getPeriodBounds('this-week', anchor).start, end: today }
   } else if (scope.range === 'this-month') {
     bounds = {
       start: formatYmd(new Date(end.getFullYear(), end.getMonth(), 1)),

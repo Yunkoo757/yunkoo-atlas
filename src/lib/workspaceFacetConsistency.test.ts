@@ -384,7 +384,7 @@ export function testCrossTypeFacetsShareOneProductionPipelineAndExposeUnsupporte
     '未知保存条件必须可见且可清除，不能静默改变列表语义',
   )
   assert(
-    strategyHeader.includes('filterTradesByFacets(scoped, facets)'),
+    strategyHeader.includes('filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor)'),
     '策略头部统计必须与当前列表 facets 使用同一记录集合',
   )
 }

@@ -1,5 +1,6 @@
 import {
   DEFAULT_TRADING_DAY_START_HOUR,
+  createBusinessDateAnchor,
   getPeriodBounds,
   getTradingDayKey,
   msUntilNextTradingDayBoundary,
@@ -34,6 +35,25 @@ export function testTodayPeriodBoundsFollowTradingDay(): void {
   assert(bounds.start === '2026-07-21' && bounds.end === '2026-07-21', '今日周期应按交易日')
 }
 
+export function testAllCalendarPeriodBoundsUseTheSameBusinessDateAnchor(): void {
+  const beforeBoundary = createBusinessDateAnchor(new Date(2026, 7, 3, 3, 59, 59, 999), 4)
+  assert(beforeBoundary.currentTradingDayKey === '2026-08-02', '边界前 1ms 必须仍锚定前一交易日')
+  assert(getPeriodBounds('this-week', beforeBoundary).start === '2026-07-27', '本周必须按锚点日期计算')
+  assert(getPeriodBounds('this-month', beforeBoundary).start === '2026-08-01', '本月必须按锚点日期计算')
+
+  const atBoundary = createBusinessDateAnchor(new Date(2026, 7, 3, 4, 0, 0, 0), 4)
+  assert(atBoundary.currentTradingDayKey === '2026-08-03', '边界时刻必须进入新交易日')
+  assert(getPeriodBounds('this-week', atBoundary).start === '2026-08-03', '跨周时本周必须同步切换')
+}
+
+export function testBusinessDateAnchorHandlesMonthAndYearBoundaries(): void {
+  const newYearBeforeBoundary = createBusinessDateAnchor(new Date(2027, 0, 1, 3, 59, 59, 999), 4)
+  assert(newYearBeforeBoundary.currentTradingDayKey === '2026-12-31', '元旦换日前仍属于上一交易年')
+  assert(getPeriodBounds('this-month', newYearBeforeBoundary).start === '2026-12-01', '本月必须保持上一交易月')
+  const newYearAtBoundary = createBusinessDateAnchor(new Date(2027, 0, 1, 4, 0, 0, 0), 4)
+  assert(getPeriodBounds('this-month', newYearAtBoundary).start === '2027-01-01', '换日后本月必须进入一月')
+}
+
 export function testNormalizeTradingDayStartHour(): void {
   assert(normalizeTradingDayStartHour(undefined) === DEFAULT_TRADING_DAY_START_HOUR, '缺省回落默认')
   assert(normalizeTradingDayStartHour(8) === 8, '合法整数保留')
@@ -52,3 +72,4 @@ export function testMsUntilNextTradingDayBoundary(): void {
   const expectedNext = new Date(2026, 6, 23, 6, 0, 0, 25).getTime() - after.getTime()
   assert(Math.abs(waitNext - expectedNext) < 5, '过切日后应排程到次日')
 }
+// Quality-Scenario: B-CALENDAR

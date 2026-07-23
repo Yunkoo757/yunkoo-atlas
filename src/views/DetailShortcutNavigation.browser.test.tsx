@@ -57,7 +57,7 @@ function makeCase(index: number): Trade {
     closedAt: `2026-07-${10 + index}`,
     note: index === 1
       ? `<p>案例 ${index} 的复盘正文</p>`
-      : `<p>案例 ${index} 的复盘正文</p><img src="https://atlas.test/case-${index}.png">`,
+      : `<p>案例 ${index} 的复盘正文</p><img src="/src/views/fixtures/browser-test-image.svg?case-${index}.png">`,
   }
 }
 

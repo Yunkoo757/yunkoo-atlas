@@ -1,5 +1,5 @@
 import type { Strategy } from '@/data/strategies'
-import { DEFAULT_STRATEGIES } from '@/data/strategies'
+import { createDefaultStrategies } from '@/config/defaultProfile'
 import type { Trade, TradeKind } from '@/data/trades'
 import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
@@ -112,7 +112,7 @@ export function migrateTrades(
 }
 
 export function ensureStrategies(raw: Strategy[] | undefined): Strategy[] {
-  if (raw === undefined) return [...DEFAULT_STRATEGIES]
+  if (raw === undefined) return createDefaultStrategies()
   return raw.map((strategy) => {
     if (!Object.prototype.hasOwnProperty.call(strategy, 'reviewTemplateHtml')) return strategy
     const { reviewTemplateHtml: _legacyTemplate, ...normalized } = strategy as Strategy & {
@@ -132,7 +132,7 @@ export function normalizeTradeStrategyReferences(
 ): { trades: Trade[]; strategies: Strategy[] } {
   let strategies = ensureStrategies(rawStrategies)
   if (trades.length > 0 && strategies.length === 0) {
-    strategies = DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy }))
+    strategies = createDefaultStrategies()
   }
   return {
     strategies,

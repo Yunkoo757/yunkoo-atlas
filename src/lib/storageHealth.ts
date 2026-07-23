@@ -1,5 +1,6 @@
 import { useStore } from '@/store/useStore'
-import { collectAssetIdsFromSnapshot, getStorage } from '@/storage'
+import { getStorage } from '@/storage'
+import { buildAssetInventory, type AssetInventory } from '@/storage/assetInventory'
 
 export interface AssetStats {
   count: number
@@ -19,134 +20,52 @@ export interface StorageHealth {
   strategyCount: number
   attachmentCount: number
   attachmentStats: AssetStats
-  /** 孤立附件（不在任何笔记中引用的资产 ID 列表） */
   orphanedAttachments: string[]
-  /** 预估的总存储占用（格式化） */
+  inventory: AssetInventory
   estimatedTotal: string
 }
 
-/** 收集所有已知的资产 ID（notes 中引用 + 存储中实际存在） */
-async function collectStoredAssetIds(): Promise<Set<string>> {
+async function readCurrentAssetInventory(): Promise<AssetInventory> {
   const storage = getStorage()
-  // 从所有笔记中收集引用的资产 ID
-  const { trades, weeklyReviews, quickNotes } = useStore.getState()
-  const referencedIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews, quickNotes })
-
-  // 对于 IndexedDB/Electron，尝试获取实际存储的资产列表
-  const storedIds = new Set(referencedIds)
-  try {
-    const snapshot = await storage.loadSnapshot()
-    if (!snapshot) return storedIds
-  } catch {
-    // 忽略
+  if (!storage.listAssetRecords) {
+    throw new Error('当前存储适配器不支持附件物理清单')
   }
-  return storedIds
+  const { trades, weeklyReviews, quickNotes } = useStore.getState()
+  const records = await storage.listAssetRecords()
+  return buildAssetInventory({ trades, weeklyReviews, quickNotes }, records)
 }
 
-/** 检测孤立附件：存储中有但不在任何笔记中引用的资产 */
+/** 只返回健康且没有被三个富文本域引用的已提交附件。 */
 export async function detectOrphanedAttachments(): Promise<string[]> {
-  const { trades, weeklyReviews, quickNotes } = useStore.getState()
-  const referencedIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews, quickNotes })
-
-  // 尝试从存储中获取所有已知资产
-  // Electron: 扫描 attachments/ 目录
-  // Web: IndexedDB 中可能有额外记录
-  const orphaned: string[] = []
-
-  try {
-    // 通过 bridge 或直接获取所有存储的资产 ID
-    const allIds = await getAllKnownAssetIds()
-    for (const id of allIds) {
-      if (!referencedIds.includes(id)) {
-        orphaned.push(id)
-      }
-    }
-  } catch {
-    // 无法获取时返回空
-  }
-
-  return orphaned
+  return (await readCurrentAssetInventory()).orphan.map((record) => record.id)
 }
 
-/** 获取所有已知资产 ID */
-async function getAllKnownAssetIds(): Promise<Set<string>> {
-  const ids = new Set<string>()
-  try {
-    const storage = getStorage()
-    const snapshot = await storage.loadSnapshot()
-    if (!snapshot) return ids
-
-    // 从 trades 的 note HTML 中提取引用
-    for (const t of snapshot.trades) {
-      const note = typeof t.note === 'string' ? t.note : ''
-      const matches = note.matchAll(/(?:journal-asset:\/\/|attachment:)\/?([^\s"'<)]+)/g)
-      for (const m of matches) {
-        if (m[1]) ids.add(m[1].replace(/\/$/, ''))
-      }
-    }
-    for (const review of snapshot.weeklyReviews ?? []) {
-      const matches = review.contentHtml.matchAll(/(?:journal-asset:\/\/|attachment:)\/?([^\s"'<)]+)/g)
-      for (const match of matches) {
-        if (match[1]) ids.add(match[1].replace(/\/$/, ''))
-      }
-    }
-    for (const note of snapshot.quickNotes ?? []) {
-      const matches = note.contentHtml.matchAll(/(?:journal-asset:\/\/|attachment:)\/?([^\s"'<)]+)/g)
-      for (const match of matches) {
-        if (match[1]) ids.add(match[1].replace(/\/$/, ''))
-      }
-    }
-  } catch {
-    // 忽略
-  }
-  return ids
-}
-
-/** 完整存储健康检查 */
 export async function checkStorageHealth(): Promise<StorageHealth> {
-  const { trades, weeklyReviews, quickNotes, strategies } = useStore.getState()
-  const orphaned = await detectOrphanedAttachments()
-
-  // 收集实际资产
-  const storage = getStorage()
-  const assetIds = collectAssetIdsFromSnapshot({ trades, weeklyReviews, quickNotes })
-  const measured = await storage.getAssetStats(assetIds)
+  const { trades, strategies } = useStore.getState()
+  const inventory = await readCurrentAssetInventory()
+  const totalBytes = inventory.healthy.reduce(
+    (sum, item) => sum + (item.record?.actualBytes ?? 0),
+    0,
+  )
   const attachmentStats = {
-    ...measured,
-    formattedSize: formatBytes(measured.totalBytes),
+    count: inventory.healthy.length,
+    totalBytes,
+    missingCount: inventory.missing.length,
+    formattedSize: formatBytes(totalBytes),
   }
-  const estimatedTotal = attachmentStats.formattedSize
 
   return {
     tradeCount: trades.length,
     strategyCount: strategies.length,
-    attachmentCount: assetIds.length,
+    attachmentCount: inventory.referenced.length,
     attachmentStats,
-    orphanedAttachments: orphaned,
-    estimatedTotal,
+    orphanedAttachments: inventory.orphan.map((record) => record.id),
+    inventory,
+    estimatedTotal: attachmentStats.formattedSize,
   }
 }
 
-/** 清理孤立附件（Electron: 删除文件; Web: 从 IndexedDB 删除） */
-export async function cleanOrphanedAttachments(ids: string[]): Promise<number> {
-  let cleaned = 0
-  // 注意：当前存储接口没有直接的 deleteAsset 方法
-  // 对 IndexedDB，需要通过特定方式删除
-  // 对 Electron，删除 attachments/ 下文件
-  try {
-    const bridge = (window as any).journalBridge
-    if (bridge?.deleteAsset) {
-      for (const id of ids) {
-        try {
-          await bridge.deleteAsset(id)
-          cleaned++
-        } catch {
-          // 跳过删除失败的
-        }
-      }
-    }
-  } catch {
-    // 忽略
-  }
-  return cleaned
+/** AST1 仅负责盘点；清理必须经后续带 revision/CAS 的 purge 流程。 */
+export async function cleanOrphanedAttachments(_ids: string[]): Promise<number> {
+  throw new Error('附件清理尚未启用，请使用带预览与 revision 校验的安全清理流程')
 }

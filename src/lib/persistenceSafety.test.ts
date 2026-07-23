@@ -7,11 +7,12 @@ function assert(condition: unknown, message: string): void {
 }
 
 export async function testExplicitSaveFailuresPropagateAndCancelWindowClose(): Promise<void> {
-  const [persist, preload, main, updater, app] = await Promise.all([
+  const [persist, preload, main, updater, coordinator, app] = await Promise.all([
     fs.readFile('src/storage/persist.ts', 'utf8'),
     fs.readFile('electron/preload.ts', 'utf8'),
     fs.readFile('electron/main.ts', 'utf8'),
     fs.readFile('electron/updater.ts', 'utf8'),
+    fs.readFile('electron/quitCoordinator.ts', 'utf8'),
     fs.readFile('src/App.tsx', 'utf8'),
   ])
   assert(persist.includes('throw e'), '显式写盘失败必须向调用方抛出')
@@ -36,7 +37,11 @@ export async function testExplicitSaveFailuresPropagateAndCancelWindowClose(): P
   )
   assert(preload.includes('removeListener'), '关闭前回调必须可取消订阅，避免重复监听叠出多条回执')
   assert(preload.includes('requestClose'), '保存失败后必须提供可重试的退出入口')
-  assert(updater.includes("result?.ok === false"), '安装更新前也必须等待并检查保存结果')
+  assert(
+    updater.includes("await requestExit('quit-and-install')") &&
+      coordinator.includes('requestRendererFlush'),
+    '安装更新前也必须通过统一协调器等待并检查保存结果',
+  )
   assert(!updater.includes('quitAndInstall(false, true), 500'), '更新安装不得在固定 500ms 后强制退出')
 }
 
@@ -56,7 +61,10 @@ export async function testAttachmentPreviewCachesAreBoundedAndInvalidatedOnImpor
   for (const [name, source] of [['IndexedDB', indexedDb], ['Electron', electron]] as const) {
     assert(source.includes('MAX_OBJECT_URL_CACHE = 128'), `${name} 图片预览缓存必须有上限`)
     assert(source.includes('URL.revokeObjectURL'), `${name} 淘汰预览时必须释放 Blob URL`)
-    assert(source.includes('this.objectUrlCache.delete(asset.id)'), `${name} 导入同 ID 图片时必须失效旧缓存`)
+    assert(
+      /this\.objectUrlCache\.delete\((?:asset|record)\.id\)/.test(source),
+      `${name} 导入同 ID 图片时必须失效旧缓存`,
+    )
   }
   assert(
     importExport.includes('getElectronAdapter().clearObjectUrlCache()'),
@@ -69,9 +77,13 @@ export async function testStorageHealthOnlyReportsMeasuredAttachmentData(): Prom
   assert(!panel.includes('orphanedCount: 0'), '存储健康不得把未执行的孤立附件扫描报告为零')
   assert(!panel.includes('const stats: AssetStats'), '存储健康不得保留未使用的伪统计结果')
   assert(
-    panel.includes('attachmentStats = await storage.getAssetStats(assetIds)'),
-    '图片数量与容量必须直接读取附件元数据',
+    panel.includes('const storage = await checkStorageHealth()'),
+    '存储健康必须使用真实物理清单与引用分类',
   )
+  assert(panel.includes('role="alert"'), '附件清单失败必须显示可见错误，不能回落到全零')
+  assert(panel.includes('inventory.orphan.length'), '设置页必须展示当前库孤立附件')
+  assert(panel.includes('inventory.foreign.length'), '设置页必须展示未知或非法附件项')
+  assert(panel.includes('inventory.temp.length'), '设置页必须展示未完成临时附件')
   assert(!panel.includes('getAssetForExport(id)'), '存储健康统计不得读取图片正文或生成 Base64')
 }
 
@@ -107,11 +119,14 @@ export async function testUserDataStorageHasNoCloudSyncSurfaceOrRuntime(): Promi
 
 export async function testBackupRestoreValidatesDatabaseBeforeMutatingCurrentLibrary(): Promise<void> {
   const ipc = await fs.readFile('electron/library/ipc.ts', 'utf8')
-  const validation = ipc.indexOf('const verification = await verifyBackup(fileName)')
+  const restoreHandler = ipc.indexOf("ipcMain.handle('backup:restore'")
+  const storageValidation = ipc.indexOf('const current = await ensureStorage()', restoreHandler)
+  const validation = ipc.indexOf('const verification = await verifyBackupAtPath(libraryPath, fileName)', storageValidation)
   const rejection = ipc.indexOf("if (verification.status !== 'verified') return false", validation)
-  const safetyBackup = ipc.indexOf('const current = await ensureStorage()', validation)
+  const safetyBackup = ipc.indexOf('if (!createBackup(current)) return false', rejection)
+  assert(storageValidation >= 0 && storageValidation < validation, '恢复前必须先取得通过位置状态机验证的活动库')
   assert(validation >= 0 && rejection > validation, '恢复点必须先通过完整恢复演练')
-  assert(safetyBackup > rejection, '校验失败时不得创建备份、关闭或替换当前资料库')
+  assert(safetyBackup > rejection, '校验失败时不得创建安全备份、关闭或替换当前资料库')
   assert(
     !ipc.includes('void verifyBackup(path.basename(result)).catch'),
     '退出前创建恢复点不得启动同步附件校验并阻塞主进程',

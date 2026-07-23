@@ -25,9 +25,8 @@ import {
 } from '@/lib/tradeView'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
-import { prepareExistingComposerTrade } from '@/lib/tradeComposerSave'
+import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
 import { formatYmd, getTradingDayKey } from '@/lib/periods'
-import { assetUrl, getStorage } from '@/storage'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
@@ -59,11 +58,9 @@ export function TradeComposer() {
   const open = useStore((s) => s.composerOpen)
   const editing = useStore((s) => s.composerTrade)
   const requestedKind = useStore((s) => s.composerKind)
-  const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const symbolCatalog = useStore((s) => s.symbolCatalog)
   const symbolIcons = useStore((s) => s.symbolIcons)
-  const upsert = useStore((s) => s.upsertTrade)
   const close = useStore((s) => s.closeComposer)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
 
@@ -212,23 +209,6 @@ export function TradeComposer() {
     }
   }
 
-  // 快速创建
-  const saveImagesForNote = async (): Promise<string> => {
-    if (images.length === 0) return ''
-
-    const storage = getStorage()
-    const imgTags: string[] = []
-    for (const img of images) {
-      const assetId = await storage.saveAsset(img.file, img.file.type || 'image/png')
-      imgTags.push(`<img src="${assetUrl(assetId)}" />`)
-    }
-
-    const intro = editing
-      ? ''
-      : `<p>已上传 ${images.length} 张截图，请在下方补充详细信息。</p>`
-    return [intro, imgTags.join('\n')].filter(Boolean).join('\n')
-  }
-
   const handleQuickCreate = () => {
     if (submittingRef.current) return
     if (!symbol.trim()) {
@@ -254,16 +234,31 @@ export function TradeComposer() {
         openedAt,
         ...(kind === 'case' ? { caseType, reviewCategory: legacyReviewCategory } : {}),
       }
-      const trade = editing
-        ? await prepareExistingComposerTrade({
-            id: editing.id,
-            fields,
-            saveImages: saveImagesForNote,
-            getLatest: (id) => useStore.getState().trades.find((item) => item.id === id),
-          })
-        : {
-            id: crypto.randomUUID(),
-            ref: getNextRef(trades, kind),
+      const newTradeId = crypto.randomUUID()
+      const recordedAt = new Date().toISOString()
+      const result = await commitComposerTradeBatch({
+        targetTradeId: editing?.id ?? newTradeId,
+        images: images.map((image) => ({
+          file: image.file,
+          mime: image.file.type || 'image/png',
+        })),
+        buildTrade: (state, imageHtml) => {
+          const intro = editing || images.length === 0
+            ? ''
+            : `<p>已上传 ${images.length} 张截图，请在下方补充详细信息。</p>`
+          const appendedNote = [intro, imageHtml].filter(Boolean).join('\n')
+          if (editing) {
+            const latest = state.trades.find((item) => item.id === editing.id)
+            if (!latest) return null
+            return {
+              ...latest,
+              ...fields,
+              note: [latest.note, appendedNote].filter(Boolean).join('\n'),
+            }
+          }
+          return {
+            id: newTradeId,
+            ref: getNextRef(state.trades, kind),
             status: 'planned',
             conviction: 'medium',
             tradeKind: kind,
@@ -284,11 +279,14 @@ export function TradeComposer() {
             size: 0,
             pnl: null,
             rMultiple: null,
-            recordedAt: new Date().toISOString(),
+            recordedAt,
             closedAt: null,
-            note: await saveImagesForNote(),
+            note: appendedNote,
             ...fields,
           } satisfies Trade
+        },
+      })
+      const trade = result.trade
 
       if (!trade) {
         toast(`该${recordLabel}已不存在，未保存本次修改`)
@@ -296,12 +294,14 @@ export function TradeComposer() {
         return
       }
 
-      upsert(trade)
       close()
 
       // 自动跳转详情页
       navigate(tradeDetailPath(trade))
-    })().finally(() => {
+    })().catch((error) => {
+      console.error('[TradeComposer] quick create failed', error)
+      toast('保存失败，交易和本次截图均未写入；请重试')
+    }).finally(() => {
       submittingRef.current = false
       setSubmitting(false)
     })

@@ -1,4 +1,10 @@
-import type { AssetStorageStats, StorageAdapter } from '@/storage/adapter'
+import type {
+  AssetPurgePreview,
+  AssetPurgeResult,
+  AssetStorageStats,
+  PhysicalAssetRecord,
+  StorageAdapter,
+} from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { getJournalBridge } from '@/storage/runtime'
 
@@ -66,6 +72,34 @@ export class ElectronStorageAdapter implements StorageAdapter {
 
   async getAssetStats(ids: string[]): Promise<AssetStorageStats> {
     return getJournalBridge()!.getAssetStats(ids)
+  }
+
+  async listAssetRecords(): Promise<PhysicalAssetRecord[]> {
+    return getJournalBridge()!.listAssetRecords()
+  }
+
+  async previewAssetPurge(): Promise<AssetPurgePreview> {
+    return getJournalBridge()!.previewAssetPurge()
+  }
+
+  async prepareAssetPurgeRecovery(preview: AssetPurgePreview) {
+    const result = await getJournalBridge()!.prepareAssetPurgeRecovery(preview)
+    if (!result) throw new Error('恢复归档导出已取消')
+    return result
+  }
+
+  async cancelAssetPurge(operationId: string): Promise<void> {
+    await getJournalBridge()!.cancelAssetPurge(operationId)
+  }
+
+  async commitAssetPurge(preview: AssetPurgePreview, authorization: string): Promise<AssetPurgeResult> {
+    const result = await getJournalBridge()!.commitAssetPurge(preview, authorization)
+    for (const id of result.deletedIds) {
+      const cached = this.objectUrlCache.get(id)
+      if (cached) URL.revokeObjectURL(cached)
+      this.objectUrlCache.delete(id)
+    }
+    return result
   }
 
   async importAssets(assets: ExportAssetRecord[]): Promise<void> {

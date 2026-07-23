@@ -160,3 +160,36 @@ export async function testCompensatingImportRemovesOnlyUnreferencedBatchAssets()
     fs.rmSync(root, { recursive: true, force: true })
   }
 }
+
+export async function testImportKeepsAttachmentsWhenDirectoryFsyncFailsAfterDatabaseRename(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-import-post-rename-'))
+  const storage = new LibraryStorage(root, {
+    writeImportDatabase(filePath, data) {
+      fs.writeFileSync(filePath, data)
+      throw new Error('injected directory fsync failure after rename')
+    },
+  })
+  try {
+    await storage.open()
+    storage.saveSnapshot(snapshot('old'))
+    await storage.commitImport(snapshotWithAsset('new', 'fresh-asset'), [{
+      id: 'fresh-asset',
+      mime: 'image/png',
+      buffer: Buffer.from('durable-image'),
+    }])
+    storage.close()
+
+    const reopened = new LibraryStorage(root)
+    await reopened.open()
+    assert(reopened.loadSnapshot()?.tagPresets?.[0] === 'new', 'rename 后的新数据库必须被视为已提交')
+    assert(
+      Buffer.from(reopened.getAssetBytes('fresh-asset')?.bytes ?? []).equals(Buffer.from('durable-image')),
+      'rename 后 fsync 报错不得删除新数据库引用的附件',
+    )
+    reopened.close()
+  } finally {
+    storage.close()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+// Quality-Scenario: H0-C-ASSET-N

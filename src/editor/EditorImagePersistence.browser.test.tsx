@@ -14,6 +14,11 @@ import {
 } from '@/storage/pendingOperations'
 import { Editor } from './Editor'
 
+;(window as Window & { __linearBrowserAllowedErrors?: string[] }).__linearBrowserAllowedErrors = [
+  'Image persistence finished after editor was destroyed Error: getAssetObjectUrl rejected',
+  'Image persistence finished after editor was destroyed Error: getAssetObjectUrl returned null',
+]
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }

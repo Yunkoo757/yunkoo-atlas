@@ -1,4 +1,5 @@
 import type { StorageAdapter } from '@/storage/adapter'
+import { isSafeAssetId } from '@/storage/assetId'
 
 export const ASSET_URL_PREFIX = 'journal-asset://'
 
@@ -167,7 +168,7 @@ export async function normalizeNoteForStorage(
 
     if (src.startsWith('blob:')) {
       if (existingId) {
-        // insertImageFile 已存入 IndexedDB，直接用现有 ID 建立 journal-asset:// 引用
+        // insertImageFile 已准备该附件；它会与最终引用快照在同一 mutation 中提交。
         img.setAttribute('src', assetUrl(existingId))
         img.removeAttribute('data-asset-id')
         changed = true
@@ -223,4 +224,26 @@ export function collectAssetIdsFromSnapshot(snapshot: {
     ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
     ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
   ])
+}
+
+export const RECOVERY_MISSING_DRAFT_ASSET_PREFIX = 'recovery-missing-draft-image-'
+
+/**
+ * 冲突导出不能调用会写存储的 normalizeNoteForStorage；这里仅把 Editor 已绑定
+ * data-asset-id 的 blob 预览纯转换为持久引用。无永久 ID 的 blob 明确变成缺失引用。
+ */
+export function normalizePreparedAssetReferencesForRecovery(html: string): string {
+  if (!html.includes('<img') || !html.includes('blob:')) return html
+  let missingIndex = 0
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const src = tag.match(/\bsrc\s*=\s*(["'])(.*?)\1/i)
+    if (!src?.[2]?.startsWith('blob:')) return tag
+    const assetId = tag.match(/\bdata-asset-id\s*=\s*(["'])(.*?)\1/i)?.[2]
+    const replacementId = assetId && isSafeAssetId(assetId)
+      ? assetId
+      : `${RECOVERY_MISSING_DRAFT_ASSET_PREFIX}${missingIndex++}`
+    return tag
+      .replace(src[0], `src=${src[1]}${assetUrl(replacementId)}${src[1]}`)
+      .replace(/\sdata-asset-id\s*=\s*(["']).*?\1/i, '')
+  })
 }

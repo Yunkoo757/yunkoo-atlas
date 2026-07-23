@@ -1,0 +1,26 @@
+{
+  "status": "obsolete",
+  "obsoleteReason": "The benchmark definition changed after approval: pending burst and regular-edit SLO sampling were separated.",
+  "supersededByCandidateFingerprint": "a537eb39b5319a47b05deb0113c9f33cb2a55a5996317f50608084573ed95eeb",
+  "approval": {
+    "version": 1,
+    "approvedBy": "Yunkoo老师",
+    "approvedAt": "2026-07-23T03:31:21.2300467Z",
+    "gitCommit": "f024be5d3ef7aa7314baa14b11d5ac8e09ea2659",
+    "workingTreeDirty": true,
+    "sourceFingerprint": "3bb586778838eea50e1e7a4d882fe7d69312199bf7a15ac092bf1c34d178afa9",
+    "metrics": {
+      "web10kSaveP95Ms": 83.79999999701977,
+      "web20kSaveP95Ms": 131.20000000298023,
+      "web10kDirtyConfirmedP95Ms": 509,
+      "web20kDirtyConfirmedP95Ms": 565.9000000059605,
+      "web10kStaleConflictP95Ms": 19.19999999552965,
+      "web20kStaleConflictP95Ms": 33.20000000298023,
+      "electron10kSaveP95Ms": 600.8252999999968,
+      "electron20kSaveP95Ms": 861.0776000000187,
+      "quitCoordinatorP95Ms": 1096.7350999999908,
+      "web10kMaxLongTaskMs": 0,
+      "webZipPeakJsHeapBytes": 437308647
+    }
+  }
+}

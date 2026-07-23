@@ -254,7 +254,8 @@ export function parseNotionMd(text: string): {
     // 正文：图片引用既入 images 列表，也保留在正文里以维持图文顺序
     const imgMatch = line.match(/^!\[.*\]\((.+)\)$/)
     if (imgMatch) {
-      images.push(decodeURIComponent(imgMatch[1]!))
+      // 保留原始引用；每个槽位在 matchImages 中独立解码并记录错误。
+      images.push(imgMatch[1]!)
       bodyLines.push(line)
       continue
     }
@@ -382,12 +383,16 @@ export function notionBodyMarkdownToHtml(markdown: string): string {
 }
 
 /** 把正文中的 Notion 图片占位替换为已落盘的 journal-asset 地址；无占位时回退为末尾追加 */
-export function applyNotionImageAssetsToNote(noteHtml: string, assetIds: string[]): string {
-  if (assetIds.length === 0) return noteHtml
+export function applyNotionImageAssetsToNote(
+  noteHtml: string,
+  assetIds: readonly (string | undefined)[],
+): string {
+  const availableAssetIds = assetIds.filter((id): id is string => typeof id === 'string')
 
   const hasPlaceholders = /data-notion-img="\d+"/.test(noteHtml)
   if (!hasPlaceholders) {
-    const imgTags = assetIds.map((aid) => `<img src="journal-asset://${aid}" />`).join('\n')
+    if (availableAssetIds.length === 0) return noteHtml
+    const imgTags = availableAssetIds.map((aid) => `<img src="journal-asset://${aid}" />`).join('\n')
     return noteHtml ? `${noteHtml}\n${imgTags}` : imgTags
   }
 
@@ -405,7 +410,7 @@ export function applyNotionImageAssetsToNote(noteHtml: string, assetIds: string[
 
   const leftovers = assetIds
     .map((assetId, index) => (used.has(index) ? '' : `<img src="journal-asset://${assetId}" />`))
-    .filter(Boolean)
+    .filter((tag, index) => Boolean(assetIds[index]) && Boolean(tag))
   if (leftovers.length === 0) return replaced
   return replaced ? `${replaced}\n${leftovers.join('\n')}` : leftovers.join('\n')
 }
@@ -415,6 +420,8 @@ export function applyNotionImageAssetsToNote(noteHtml: string, assetIds: string[
 // ============================================================
 
 export interface ImageFile {
+  /** Markdown 正文中的原始图片槽位；失败项不得令后续图片前移。 */
+  slotId: number
   /** zip 内路径，如 "Trade # 38d1-f42e/image.png" */
   zipPath: string
   /** 文件名 */
@@ -425,6 +432,12 @@ export interface ImageFile {
   mime: string
   /** 文件大小 (bytes) */
   size: number
+}
+
+export interface NotionImageIssue {
+  slotId: number
+  ref: string
+  error: string
 }
 
 export interface NotionTradePreview {
@@ -440,6 +453,7 @@ export interface NotionTradePreview {
   images: ImageFile[]
   /** 图片数量（用于预览） */
   imageCount: number
+  imageIssues?: NotionImageIssue[]
   errors: string[]
   warnings: string[]
   rowIndex: number
@@ -629,11 +643,14 @@ export async function parseNotionZip(
     throw new Error('Notion 导入记录超过 20000 笔，请拆分后导入')
   }
 
-  const imageReadCache = new Map<string, Promise<ImageFile | null>>()
+  const imageReadCache = new Map<string, Promise<Omit<ImageFile, 'slotId'> | null>>()
   let parsedImageBytes = 0
 
   // ---- 辅助：读取图片二进制 ----
-  async function readImage(entry: JSZip.JSZipObject, zipPath: string): Promise<ImageFile | null> {
+  async function readImage(
+    entry: JSZip.JSZipObject,
+    zipPath: string,
+  ): Promise<Omit<ImageFile, 'slotId'> | null> {
     const cached = imageReadCache.get(zipPath)
     if (cached) return cached
     const loading = (async () => {
@@ -663,11 +680,21 @@ export async function parseNotionZip(
   }
 
   // ---- 辅助：给定 md 文件目录 + 图片相对路径列表，匹配图片 ----
-  async function matchImages(mdDir: string, refs: string[]): Promise<ImageFile[]> {
-    const result: ImageFile[] = []
-    for (const ref of refs) {
+  async function matchImages(
+    mdDir: string,
+    refs: string[],
+  ): Promise<{ images: ImageFile[]; issues: NotionImageIssue[] }> {
+    const images: ImageFile[] = []
+    const issues: NotionImageIssue[] = []
+    for (const [slotId, ref] of refs.entries()) {
       assertNotionParseContinues(options)
-      const decoded = decodeURIComponent(ref)
+      let decoded: string
+      try {
+        decoded = decodeURIComponent(ref)
+      } catch {
+        issues.push({ slotId, ref, error: '图片路径编码损坏' })
+        continue
+      }
       // 候选路径
       const candidates = [
         ref,
@@ -680,7 +707,9 @@ export async function parseNotionZip(
         const entry = imageIndex.get(c)
         if (entry) {
           const img = await readImage(entry, c)
-          if (img) { result.push(img); found = true }
+          if (img) images.push({ ...img, slotId })
+          else issues.push({ slotId, ref, error: '图片读取失败' })
+          found = true
           break
         }
       }
@@ -692,13 +721,16 @@ export async function parseNotionZip(
           const fname = (path.split('/').pop() ?? '').toLowerCase()
           if (fname === targetName && path.includes(mdDir.split('/').slice(-3, -1).join('/'))) {
             const img = await readImage(entry, path)
-            if (img) { result.push(img); found = true }
+            if (img) images.push({ ...img, slotId })
+            else issues.push({ slotId, ref, error: '图片读取失败' })
+            found = true
             break
           }
         }
       }
+      if (!found) issues.push({ slotId, ref, error: '图片文件缺失' })
     }
-    return result
+    return { images, issues }
   }
 
   async function collectMdImageGroups(): Promise<NotionImageGroup[]> {
@@ -714,7 +746,8 @@ export async function parseNotionZip(
       const matched = await matchImages(mdDir, mdImageRefs)
       groups.push({
         sourceId,
-        images: matched,
+        images: matched.images,
+        imageIssues: matched.issues,
         noteHtml: notionBodyMarkdownToHtml(bodyMarkdown),
       })
     }
@@ -749,9 +782,14 @@ export async function parseNotionZip(
 
     const mdDir = md.path.substring(0, md.path.lastIndexOf('/') + 1)
     const matched = await matchImages(mdDir, mdImageRefs)
-    console.log('[NotionImport] .md trade #' + mdTradeCount + ': ' + sym + ' | imgs ' + mdImageRefs.length + '→' + matched.length)
+    console.log('[NotionImport] .md trade #' + mdTradeCount + ': ' + sym + ' | imgs ' + mdImageRefs.length + '→' + matched.images.length)
 
-    previews.push({ ...preview, images: matched, imageCount: matched.length })
+    previews.push({
+      ...preview,
+      images: matched.images,
+      imageCount: matched.images.length,
+      imageIssues: matched.issues,
+    })
   }
 
   // ================================================================
@@ -798,10 +836,14 @@ export async function parseNotionZip(
   // ================================================================
   if (previews.length === 0 && imageIndex.size > 0) {
     const allImgs: ImageFile[] = []
+    const imageIssues: NotionImageIssue[] = []
+    let slotId = 0
     for (const [path, entry] of imageIndex.entries()) {
       assertNotionParseContinues(options)
       const img = await readImage(entry, path)
-      if (img) allImgs.push(img)
+      if (img) allImgs.push({ ...img, slotId })
+      else imageIssues.push({ slotId, ref: path, error: '图片读取失败' })
+      slotId += 1
     }
     previews.push({
       trade: {
@@ -814,6 +856,7 @@ export async function parseNotionZip(
       collectedTags: [], mistakeTags: [],
       noteHtml: '<p><em>📸 Notion 截图（' + allImgs.length + ' 张）</em></p>',
       images: allImgs, imageCount: allImgs.length,
+      imageIssues,
       errors: [], warnings: ['无 CSV/.md 交易数据，请手动补全'],
       rowIndex: 0,
     })
@@ -970,6 +1013,7 @@ export interface NotionImportOptions {
 export interface NotionImageGroup {
   sourceId?: string
   images: ImageFile[]
+  imageIssues?: NotionImageIssue[]
   /** 对应 .md 正文转成的 HTML（不含图片） */
   noteHtml?: string
 }
@@ -994,6 +1038,7 @@ export function attachImagesToPreviewsBySourceId(
       noteHtml: preview.noteHtml || group.noteHtml || '',
       images,
       imageCount: images.length,
+      imageIssues: group.imageIssues ?? [],
     }
   })
 }

@@ -1,278 +1,90 @@
-import { build, createServer } from 'vite'
-import { chromium } from 'playwright'
-import { pathToFileURL } from 'node:url'
-import path from 'node:path'
 import fs from 'node:fs/promises'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { build } from 'vite'
 
-  const entries = [
-  'src/regression.test.ts',
-  'src/lib/analysisScope.test.ts',
-  'src/data/weeklyReviews.test.ts',
-  'src/data/weeklyReviewTaxonomy.test.ts',
-  'src/data/weeklyReviewTrend.test.ts',
-  'src/lib/dashboardStats.test.ts',
-  'src/lib/strategies.test.ts',
-  'src/lib/reviewAnalytics.test.ts',
-  'src/lib/reviewSession.test.ts',
-  'src/lib/reviewCompletion.test.ts',
-  'src/lib/tradeTruth.test.ts',
-  'src/lib/tradeCalc.test.ts',
-  'src/lib/tradeClose.test.ts',
-  'src/lib/tradeCloseStore.test.ts',
-  'src/lib/tradeCopy.test.ts',
-  'src/lib/tradeResult.test.ts',
-  'src/lib/tradeComposerSave.test.ts',
-  'src/lib/csvImport.test.ts',
-  'src/lib/format.test.ts',
-  'src/lib/periods.test.ts',
-  'src/lib/toast.test.ts',
-  'src/lib/tradeTransition.test.ts',
-  'src/lib/tradeWorkflow.test.ts',
-  'src/lib/importExportAssets.test.ts',
-  'src/lib/webJournalArchive.test.ts',
-  'src/lib/workspaceFacetConsistency.test.ts',
-  'src/lib/importConcurrency.test.ts',
-  'src/lib/notionImportCommit.test.ts',
-  'src/lib/notionImportLimits.test.ts',
-  'src/lib/librarySwitchRace.test.ts',
-  'src/lib/tradeDuplicates.test.ts',
-  'src/lib/lightboxView.test.ts',
-  'src/shortcuts/bindingOverwrite.test.ts',
-  'src/shortcuts/modalOverlay.test.ts',
-  'src/shortcuts/listActions.test.ts',
-  'src/shortcuts/workspaceActions.test.ts',
-  'src/icons/linear/linear-icons.test.tsx',
-  'src/components/Menu.design.test.ts',
-  'src/components/trades/TradeList.flatten.test.ts',
-  'src/components/trades/TradeList.design.test.ts',
-  'src/views/TradeTrashView.design.test.ts',
-  'src/views/WorkbenchEmptyState.design.test.ts',
-  'src/views/WorkbenchPerformance.design.test.ts',
-  'src/views/detailNoteLoad.test.ts',
-  'src/editor/reviewContext.test.ts',
-  'src/lib/appUpdate.test.ts',
-  'src/lib/windowBounds.test.ts',
-  'src/lib/persistenceSafety.test.ts',
-  'src/lib/productFlowPolish.test.ts',
-  'src/lib/focusFrameDesign.test.ts',
-  'src/lib/workbenchEmptyState.test.ts',
-  'src/storage/snapshotValidation.test.ts',
-  'src/storage/manifestCompatibility.test.ts',
-  'src/storage/migrateDefaults.test.ts',
-  'src/storage/persist.test.ts',
-  'src/storage/noteDrafts.test.ts',
-  'src/storage/pendingOperations.test.ts',
-  'src/storage/assetId.test.ts',
-  'electron/library/images.test.ts',
-  'electron/library/atomicFile.test.ts',
-  'electron/library/sessionGate.test.ts',
-  'electron/library/libraryActivation.test.ts',
-  'electron/library/importCommit.test.ts',
-  'electron/library/backup.test.ts',
-  'electron/library/journalZip.test.ts',
-]
+import {
+  discoverUnitTestEntries,
+} from './test-discovery.mjs'
+import { runBrowserRegressionTests } from './run-browser-tests.mjs'
+import { executionReportPath, writeExecutionReport } from './quality-execution.mjs'
+
+const root = process.cwd()
+const discoveredEntries = await discoverUnitTestEntries(root, {
+  // 该文件依赖真实 DOM，通过 assets.browser.test.html 执行。
+  excluded: ['src/storage/assets.test.ts'],
+})
+const unitOnly = process.argv.includes('--unit-only')
+const requestedEntries = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
+for (const entry of requestedEntries) {
+  if (!discoveredEntries.includes(entry)) throw new Error(`requested unit test is not discoverable: ${entry}`)
+}
+const entries = requestedEntries.length > 0 ? requestedEntries : discoveredEntries
 
 let failed = 0
+const passedEntries = []
 for (const entry of entries) {
+  let entryFailed = false
   const outDir = path.resolve(`.tmp-${path.basename(entry).replace(/\W/g, '-')}`)
-  await fs.rm(outDir, { recursive: true, force: true })
-
-  await build({
-    configFile: path.resolve('vite.config.ts'),
-    logLevel: 'error',
-    build: {
-      ssr: path.resolve(entry),
-      outDir,
-      emptyOutDir: true,
-      rolldownOptions: {
-        output: {
-          entryFileNames: 'runner.mjs',
+  try {
+    await fs.rm(outDir, { recursive: true, force: true })
+    await build({
+      configFile: path.resolve('vite.config.ts'),
+      logLevel: 'error',
+      build: {
+        ssr: path.resolve(entry),
+        outDir,
+        emptyOutDir: true,
+        rolldownOptions: {
+          output: {
+            entryFileNames: 'runner.mjs',
+          },
         },
       },
-    },
-  })
-
-  const mod = await import(pathToFileURL(path.join(outDir, 'runner.mjs')).href)
-  const tests = Object.entries(mod).filter(
-    ([name, value]) => name.startsWith('test') && typeof value === 'function',
-  )
-
-  if (tests.length === 0) {
-    failed += 1
-    console.error(`FAIL ${entry} :: no exported tests found`)
-  }
-
-  for (const [name, test] of tests) {
-    try {
-      await test()
-      console.log(`PASS ${entry} :: ${name}`)
-    } catch (err) {
-      failed += 1
-      console.error(`FAIL ${entry} :: ${name}`)
-      console.error(err)
-    }
-  }
-
-  await fs.rm(outDir, { recursive: true, force: true })
-}
-
-const server = await createServer({
-  configFile: path.resolve('vite.config.ts'),
-  logLevel: 'error',
-  server: { host: '127.0.0.1', port: 0, open: false },
-})
-let browser
-try {
-  await server.listen()
-  const baseUrl = server.resolvedUrls?.local[0]
-  if (!baseUrl) throw new Error('Vite test server did not expose a local URL')
-  browser = await chromium.launch({ headless: true })
-  const browserTests = [
-    {
-      url: '/src/components/ImportModalRace.browser.test.html',
-      promiseKey: '__importModalRaceTest',
-      label: 'src/components/ImportModalRace.browser.test.tsx :: latest file and duplicate scan generation wins',
-    },
-    {
-      url: '/src/components/NotionImportModal.browser.test.html',
-      promiseKey: '__notionImportPersistenceTest',
-      label: 'src/components/NotionImportModal.browser.test.tsx :: persistence rollback feedback',
-    },
-    {
-      url: '/src/components/CsvImportModal.browser.test.html',
-      promiseKey: '__csvImportPersistenceTest',
-      label: 'src/components/CsvImportModal.browser.test.tsx :: persistence failure feedback',
-    },
-    {
-      url: '/src/components/TradeCloseDialog.browser.test.html',
-      promiseKey: '__tradeCloseDualMetricsTest',
-      label: 'src/components/TradeCloseDialog.browser.test.tsx :: cash and R remain visible and persist together',
-    },
-    {
-      url: '/src/components/SaveStatusIndicator.browser.test.html',
-      promiseKey: '__saveStatusRecoveryTest',
-      label: 'src/components/SaveStatusIndicator.browser.test.tsx :: save failure exposes reason retry and recovery',
-    },
-    {
-      url: '/src/components/RouteState.browser.test.html',
-      promiseKey: '__routeStateTest',
-      label: 'src/components/RouteState.browser.test.tsx :: route recovery and delayed loading',
-    },
-    {
-      url: '/src/components/DataIOWebArchive.browser.test.html',
-      promiseKey: '__dataIOWebArchiveRestoreTest',
-      label: 'src/components/DataIOWebArchive.browser.test.tsx :: validated web archive replaces snapshot and assets',
-    },
-    {
-      url: '/src/components/ui/ModalShell.browser.test.html',
-      promiseKey: '__modalShellBehaviorTest',
-      label: 'src/components/ui/ModalShell.browser.test.tsx :: focus trap, busy escape and focus restoration',
-    },
-    {
-      url: '/src/components/ui/TooltipEdge.browser.test.html',
-      promiseKey: '__tooltipEdgeLayoutTest',
-      label: 'src/components/ui/TooltipEdge.browser.test.tsx :: edge tooltips keep a readable single-line width',
-    },
-    {
-      url: '/src/components/CommandPalette.browser.test.html',
-      promiseKey: '__commandPaletteAccessibilityTest',
-      label: 'src/components/CommandPalette.browser.test.tsx :: combobox semantics, keyboard selection and focus restoration',
-    },
-    {
-      url: '/src/views/DashboardScope.browser.test.html',
-      promiseKey: '__dashboardAnalysisScopeTest',
-      label: 'src/views/DashboardScope.browser.test.tsx :: dashboard analysis scope survives drill-down',
-    },
-    {
-      url: '/src/views/ReviewCompletion.browser.test.html',
-      promiseKey: '__reviewCompletionFlowTest',
-      label: 'src/views/ReviewCompletion.browser.test.tsx :: review output is required without template shortcuts',
-    },
-    {
-      url: '/src/views/DetailShortcutNavigation.browser.test.html',
-      promiseKey: '__detailShortcutNavigationTest',
-      label: 'src/views/DetailShortcutNavigation.browser.test.tsx :: Q/E case navigation keeps detail editor stable',
-    },
-    {
-      url: '/src/views/ReviewSession.browser.test.html',
-      promiseKey: '__reviewSessionFlowTest',
-      label: 'src/views/ReviewSession.browser.test.tsx :: direct review, mastery assessment, image gallery and detail restore',
-    },
-    {
-      url: '/src/views/WeeklyReviewView.browser.test.html',
-      promiseKey: '__weeklyReviewFlowTest',
-      label: 'src/views/WeeklyReviewView.browser.test.tsx :: facts, assessment, commitment and yearly trend',
-    },
-    {
-      url: '/src/views/WeeklyReviewPresentation.browser.test.html',
-      promiseKey: '__weeklyReviewPresentationTest',
-      label: 'src/views/WeeklyReviewPresentation.browser.test.tsx :: fixed taxonomy and single-point trend presentation',
-    },
-    {
-      url: '/src/editor/imageLoadFailure.browser.test.html',
-      promiseKey: '__editorImageLoadFailureTest',
-      label: 'src/editor/imageLoadFailure.browser.test.ts :: testEditorImageLoadFailureUsesNonDocumentDecorations',
-    },
-    {
-      url: '/src/editor/EditorImagePersistence.browser.test.html',
-      promiseKey: '__editorImagePersistenceTest',
-      label: 'src/editor/EditorImagePersistence.browser.test.tsx :: slow image persistence survives editor unmount',
-    },
-    {
-      url: '/src/editor/ReviewContext.browser.test.html',
-      promiseKey: '__reviewContextInteractionTest',
-      label: 'src/editor/ReviewContext.browser.test.tsx :: pinned narrative and starter remain reversible',
-    },
-    {
-      url: '/src/storage/assets.browser.test.html',
-      promiseKey: '__storageAssetsTest',
-      label: 'src/storage/assets.test.ts :: browser asset failure handling',
-    },
-    {
-      url: '/src/storage/IndexedDbArchiveReplace.browser.test.html',
-      promiseKey: '__indexedDbArchiveReplaceTest',
-      label: 'src/storage/IndexedDbArchiveReplace.browser.test.ts :: archive replacement is atomic and clears old assets',
-    },
-    {
-      url: '/src/storage/noteDrafts.browser.test.html',
-      promiseKey: '__noteDraftOrderingTest',
-      label: 'src/storage/noteDrafts.browser.test.ts :: latest draft wins slow image normalization',
-    },
-    {
-      url: '/src/storage/cutover.browser.test.html',
-      promiseKey: '__storageCutoverTest',
-      label: 'src/storage/cutover.browser.test.ts :: cutover blocks shortcuts and portals',
-    },
-  ]
-  const page = await browser.newPage()
-  for (const browserTest of browserTests) {
-    const diagnostics = []
-    page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`))
-    page.on('console', (message) => {
-      if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`)
     })
-    try {
-      await page.goto(new URL(browserTest.url, baseUrl).href)
-      await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: 5000 })
-      await page.evaluate((key) => window[key], browserTest.promiseKey)
-      console.log(`PASS ${browserTest.label}`)
-    } catch (err) {
-      failed += 1
-      console.error(`FAIL ${browserTest.label}`)
-      console.error(err)
-      console.error(`URL ${page.url()}`)
-      if (diagnostics.length) console.error(diagnostics.join('\n'))
+
+    const mod = await import(pathToFileURL(path.join(outDir, 'runner.mjs')).href)
+    const tests = Object.entries(mod).filter(
+      ([name, value]) => name.startsWith('test') && typeof value === 'function',
+    )
+    if (tests.length === 0) {
+      throw new Error('no exported tests found')
     }
+
+    for (const [name, test] of tests) {
+      try {
+        await test()
+        console.log(`PASS ${entry} :: ${name}`)
+      } catch (error) {
+        failed += 1
+        entryFailed = true
+        console.error(`FAIL ${entry} :: ${name}`)
+        console.error(error)
+      }
+    }
+  } catch (error) {
+    failed += 1
+    entryFailed = true
+    console.error(`FAIL ${entry} :: test module could not run`)
+    console.error(error)
+  } finally {
+    await fs.rm(outDir, { recursive: true, force: true })
   }
-} catch (err) {
-  failed += 1
-  console.error('FAIL browser regression harness')
-  console.error(err)
-} finally {
-  await browser?.close()
-  await server.close()
+  if (!entryFailed) passedEntries.push(entry)
 }
+
+const browserResult = unitOnly
+  ? { failed: 0, passedEntries: [] }
+  : await runBrowserRegressionTests(root, { configFile: path.resolve('vite.config.ts') })
+failed += browserResult.failed
 
 if (failed > 0) {
   process.exitCode = 1
+} else if (requestedEntries.length === 0) {
+  let previousFiles = []
+  try {
+    const previous = JSON.parse(await fs.readFile(executionReportPath(root), 'utf8'))
+    previousFiles = Object.keys(previous.executedFiles ?? {})
+  } catch {}
+  await writeExecutionReport(root, [...previousFiles, ...passedEntries, ...browserResult.passedEntries])
 }

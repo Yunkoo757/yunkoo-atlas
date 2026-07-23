@@ -14,23 +14,23 @@ function requireAppPath(name: 'userData' | 'documents'): string {
   return electronApp.getPath(name)
 }
 
-function getConfigPath(): string {
+export function getConfigPath(): string {
   return path.join(requireAppPath('userData'), CONFIG_FILE)
 }
 
 export interface LibraryConfig {
   libraryPath: string
+  libraryId?: string
 }
 
 export function readLibraryConfig(): LibraryConfig | null {
-  try {
-    const raw = fs.readFileSync(getConfigPath(), 'utf-8')
-    const cfg = JSON.parse(raw) as LibraryConfig
-    if (cfg.libraryPath && fs.existsSync(cfg.libraryPath)) return cfg
-    return null
-  } catch {
-    return null
+  const configPath = getConfigPath()
+  if (!fs.existsSync(configPath)) return null
+  const cfg: unknown = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  if (typeof cfg !== 'object' || cfg === null || typeof (cfg as LibraryConfig).libraryPath !== 'string') {
+    throw new Error('资料库配置格式无效')
   }
+  return cfg as LibraryConfig
 }
 
 export function saveLibraryConfig(cfg: LibraryConfig): void {
@@ -44,10 +44,26 @@ export function getDefaultLibraryPath(): string {
 
 export function getLibraryPath(): string {
   const custom = process.env.LINEAR_JOURNAL_LIBRARY
-  if (process.env.LINEAR_JOURNAL_QA === '1' && custom) return path.resolve(custom)
   const saved = readLibraryConfig()
   if (saved) return saved.libraryPath
   return custom ? path.resolve(custom) : getDefaultLibraryPath()
+}
+
+export function getLibraryPaths(libraryPath: string): {
+  root: string
+  attachments: string
+  backups: string
+  dbFile: string
+  manifestFile: string
+} {
+  const root = path.resolve(libraryPath)
+  return {
+    root,
+    attachments: path.join(root, 'attachments'),
+    backups: path.join(root, 'backups'),
+    dbFile: path.join(root, 'journal.db'),
+    manifestFile: path.join(root, 'manifest.json'),
+  }
 }
 
 export function ensureLibraryDirs(libraryPath: string): {
@@ -57,17 +73,11 @@ export function ensureLibraryDirs(libraryPath: string): {
   dbFile: string
   manifestFile: string
 } {
-  const attachments = path.join(libraryPath, 'attachments')
-  const backups = path.join(libraryPath, 'backups')
+  const paths = getLibraryPaths(libraryPath)
+  const { attachments, backups } = paths
   fs.mkdirSync(attachments, { recursive: true })
   fs.mkdirSync(backups, { recursive: true })
-  return {
-    root: libraryPath,
-    attachments,
-    backups,
-    dbFile: path.join(libraryPath, 'journal.db'),
-    manifestFile: path.join(libraryPath, 'manifest.json'),
-  }
+  return paths
 }
 
 export function attachmentPath(attachmentsDir: string, id: string, ext: string): string {

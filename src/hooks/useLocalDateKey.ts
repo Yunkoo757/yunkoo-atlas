@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import {
-  getTradingDayKey,
+  createBusinessDateAnchor,
   msUntilNextTradingDayBoundary,
   DEFAULT_TRADING_DAY_START_HOUR,
+  type BusinessDateAnchor,
 } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 
-/** 当前交易日 YYYY-MM-DD；在交易日边界到达后自动刷新。 */
-export function useLocalDateKey(): string {
+/** 当前业务日期锚点；在交易日边界到达后自动刷新。 */
+export function useBusinessDateAnchor(): BusinessDateAnchor {
   const tradingDayStartHour = useStore(
     (state) => state.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR,
   )
-  const [dateKey, setDateKey] = useState(() =>
-    getTradingDayKey(new Date(), tradingDayStartHour),
+  const [anchor, setAnchor] = useState(() =>
+    createBusinessDateAnchor(new Date(), tradingDayStartHour),
   )
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export function useLocalDateKey(): string {
       )
     }
     const refresh = () => {
-      setDateKey(getTradingDayKey(new Date(), tradingDayStartHour))
+      setAnchor(createBusinessDateAnchor(new Date(), tradingDayStartHour))
       scheduleNextBoundary()
     }
     const handleVisibilityChange = () => {
@@ -42,5 +43,10 @@ export function useLocalDateKey(): string {
     }
   }, [tradingDayStartHour])
 
-  return dateKey
+  return anchor
+}
+
+/** 当前交易日 YYYY-MM-DD；在交易日边界到达后自动刷新。 */
+export function useLocalDateKey(): string {
+  return useBusinessDateAnchor().currentTradingDayKey
 }

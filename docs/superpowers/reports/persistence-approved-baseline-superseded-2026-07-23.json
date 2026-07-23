@@ -1,0 +1,25 @@
+{
+  "status": "superseded",
+  "supersededReason": "The approved single-run baseline was too sensitive to sub-20 ms IndexedDB conflict timing; it was replaced by the user-approved per-metric maximum of two same-source formal attempts after the production stale-conflict preflight was finalized.",
+  "approval": {
+    "version": 1,
+    "approvedBy": "Yunkoo老师",
+    "approvedAt": "2026-07-23T03:58:23.9128691Z",
+    "gitCommit": "f024be5d3ef7aa7314baa14b11d5ac8e09ea2659",
+    "workingTreeDirty": true,
+    "sourceFingerprint": "a537eb39b5319a47b05deb0113c9f33cb2a55a5996317f50608084573ed95eeb",
+    "metrics": {
+      "web10kSaveP95Ms": 69.20000000298023,
+      "web20kSaveP95Ms": 147.40000000596046,
+      "web10kDirtyConfirmedP95Ms": 506.5,
+      "web20kDirtyConfirmedP95Ms": 582.2000000029802,
+      "web10kStaleConflictP95Ms": 11.700000002980232,
+      "web20kStaleConflictP95Ms": 32.70000000298023,
+      "electron10kSaveP95Ms": 494.65320000000065,
+      "electron20kSaveP95Ms": 887.8301999999676,
+      "quitCoordinatorP95Ms": 1248.0701000000117,
+      "web10kMaxLongTaskMs": 0,
+      "webZipPeakJsHeapBytes": 437308839
+    }
+  }
+}

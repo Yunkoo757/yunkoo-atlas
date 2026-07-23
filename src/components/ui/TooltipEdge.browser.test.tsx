@@ -47,7 +47,12 @@ async function run(): Promise<void> {
     const trigger = document.getElementById('edge-tooltip-trigger') as HTMLButtonElement
     trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
     await waitFor(() => Boolean(document.querySelector('[role="tooltip"]')), 'Tooltip 没有打开')
-    await waitForFrame()
+    await waitFor(() => {
+      const candidate = document.querySelector<HTMLElement>('[role="tooltip"]')
+      if (!candidate) return false
+      const bounds = candidate.getBoundingClientRect()
+      return bounds.left >= 7 && bounds.right <= window.innerWidth - 7
+    }, 'Tooltip 重新定位后仍未完整进入视口')
 
     const tooltip = document.querySelector<HTMLElement>('[role="tooltip"]')
     assert(tooltip, 'Tooltip 节点不存在')

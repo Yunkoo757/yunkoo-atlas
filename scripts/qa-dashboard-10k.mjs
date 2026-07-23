@@ -108,9 +108,9 @@ async function waitForDashboard(page) {
   )
 }
 
-async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureChecksum) {
+async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureChecksum, assetIds) {
   await page.evaluate(
-    async ({ json, checksum }) => {
+    async ({ json, checksum, referencedAssetIds }) => {
       const snapshot = JSON.parse(json)
       const db = await new Promise((resolveDb, reject) => {
         const request = indexedDB.open('linear-journal-v3', 1)
@@ -126,11 +126,21 @@ async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureCheck
         request.onerror = () => reject(request.error)
       })
       await new Promise((resolveWrite, reject) => {
-        const tx = db.transaction(['snapshot', 'meta'], 'readwrite')
+        const tx = db.transaction(['snapshot', 'meta', 'assets'], 'readwrite')
         tx.objectStore('snapshot').put(snapshot, 'main')
+        for (const id of referencedAssetIds) {
+          const blob = new Blob([new Uint8Array([0])], { type: 'image/png' })
+          tx.objectStore('assets').put({
+            id,
+            mime: 'image/png',
+            byteSize: blob.size,
+            createdAt: '2026-07-15T00:00:00.000Z',
+            blob,
+          })
+        }
         tx.objectStore('meta').put(
           {
-            schemaVersion: 6,
+            schemaVersion: 8,
             libraryId: 'analytics-10k-isolated',
             createdAt: '2026-07-15T00:00:00.000Z',
             platform: 'web',
@@ -144,7 +154,7 @@ async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureCheck
       })
       db.close()
     },
-    { json: snapshotJson, checksum: fixtureChecksum },
+    { json: snapshotJson, checksum: fixtureChecksum, referencedAssetIds: assetIds },
   )
 }
 
@@ -279,6 +289,9 @@ export async function runDashboard10kQa({
     noteProfile: '2kb',
   })
   const snapshotJson = JSON.stringify(snapshot)
+  const assetIds = [...new Set(snapshot.trades.flatMap((trade) => (
+    [...trade.note.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)].map((match) => match[1])
+  )))]
   const expectedChecksum = checksumFixture(snapshot.trades)
   const expectedClosedCount = selectCurrentDashboardTrades(snapshot.trades, {
     kind: 'live',
@@ -313,6 +326,9 @@ export async function runDashboard10kQa({
       viewport: { width: 1_440, height: 900 },
       deviceScaleFactor: 1,
     })
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
+    })
     page = await context.newPage()
     page.on('pageerror', (error) => errors.page.push(error.message))
     page.on('console', (message) => {
@@ -329,7 +345,7 @@ export async function runDashboard10kQa({
       timeout: 30_000,
     })
     const memoryBefore = await browserHeapMetrics(session)
-    await writeSnapshotToIsolatedIndexedDb(page, snapshotJson, expectedChecksum)
+    await writeSnapshotToIsolatedIndexedDb(page, snapshotJson, expectedChecksum, assetIds)
     const coldStartedAt = performance.now()
     await page.goto(new URL('/dashboard', baseUrl).href, {
       waitUntil: 'domcontentloaded',
@@ -340,10 +356,10 @@ export async function runDashboard10kQa({
 
     const warmHydrate = await measureRepeated(() => measureReload(page), { warmups, runs })
     const dashboardEntry = await measureRepeated(() => measureDashboardEntry(page), { warmups, runs })
-    let nextRange = '近90天'
+    let nextRange = '本月'
     const rangeSwitch = await measureRepeated(async () => {
       const elapsed = await measureRangeSwitch(page, nextRange)
-      nextRange = nextRange === '近90天' ? '全部' : '近90天'
+      nextRange = nextRange === '本月' ? '全部' : '本月'
       return elapsed
     }, { warmups, runs })
     if (nextRange === '全部') await measureRangeSwitch(page, '全部')
@@ -410,6 +426,7 @@ export async function runDashboard10kQa({
         noteProfile: '2kb',
         bytes: Buffer.byteLength(snapshotJson, 'utf8'),
         checksum: expectedChecksum,
+        assetCount: assetIds.length,
         coverage: inspectAnalyticsFixture(snapshot.trades),
       },
       observation,

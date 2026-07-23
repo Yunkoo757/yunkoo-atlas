@@ -1,0 +1,77 @@
+name: Electron Generation Spike
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/spikes/electron-generation/**'
+      - 'scripts/fixtures/generation-spike.test.mjs'
+      - '.github/workflows/generation-spike.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fault-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run isolated generation fault matrix
+        run: pnpm spike:generation
+
+      - name: Upload raw filesystem evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generation-spike-${{ runner.os }}
+          path: test-results/generation-spike/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+  decision:
+    needs: fault-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download raw filesystem evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: generation-spike-*
+          path: test-results/collected-generation-evidence
+          merge-multiple: true
+
+      - name: Verify cross-platform No-Go decision
+        run: node scripts/verify-generation-decision.mjs --evidence-root test-results/collected-generation-evidence --require-complete
+
+      - name: Upload Generation decision evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generation-decision-evidence
+          path: test-results/generation-spike/generation-decision.json
+          if-no-files-found: error
+          retention-days: 30

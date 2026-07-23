@@ -41,7 +41,7 @@ interface PersistedRevision {
 
 export interface PreparedNotionAssets {
   assets: ExportAssetRecord[]
-  assetIdsByRow: ReadonlyMap<number, readonly string[]>
+  assetIdsByRow: ReadonlyMap<number, readonly (string | undefined)[]>
 }
 
 export { MAX_NOTION_IMAGE_BYTES, MAX_NOTION_IMPORT_IMAGE_BYTES }
@@ -82,18 +82,21 @@ export function prepareNotionAssetsForCommit(
   assertNotionImageByteLimits(imageBytes)
 
   const assets: ExportAssetRecord[] = []
-  const assetIdsByRow = new Map<number, readonly string[]>()
+  const assetIdsByRow = new Map<number, readonly (string | undefined)[]>()
   const allocatedIds = new Set<string>()
 
   for (const preview of importablePreviews) {
-    const ids: string[] = []
+    const ids: Array<string | undefined> = []
     for (const image of preview.images) {
       const id = createAssetId()
       if (!isSafeAssetId(id) || allocatedIds.has(id)) {
         throw new Error('无法为 Notion 图片生成唯一且安全的附件 ID')
       }
       allocatedIds.add(id)
-      ids.push(id)
+      if (!Number.isInteger(image.slotId) || image.slotId < 0 || ids[image.slotId] !== undefined) {
+        throw new Error('Notion 图片槽位无效或重复')
+      }
+      ids[image.slotId] = id
       assets.push({
         id,
         mime: image.mime,

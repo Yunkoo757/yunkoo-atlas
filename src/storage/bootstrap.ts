@@ -1,6 +1,5 @@
-import type { StorageAdapter } from '@/storage/adapter'
-import { getElectronAdapter } from '@/storage/electronAdapter'
-import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
+import { getStorage } from '@/storage/provider'
+export { getStorage } from '@/storage/provider'
 import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,
@@ -21,8 +20,11 @@ import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 import { normalizeQuickNotes } from '@/data/quickNotes'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
+import {
+  getWebWriteGuardState,
+  initializeWebWriterOwnership,
+} from '@/storage/webWriteGuard'
 
-let storage: StorageAdapter | null = null
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
 
@@ -37,13 +39,6 @@ export function haveSamePersistedReferences(
   return PERSISTED_STATE_REFERENCE_KEYS.every((key) => previous[key] === next[key])
 }
 
-export function getStorage(): StorageAdapter {
-  if (!storage) {
-    storage = isElectron() ? getElectronAdapter() : getIndexedDbAdapter()
-  }
-  return storage
-}
-
 export function isStorageHydrated(): boolean {
   return hydrated
 }
@@ -52,9 +47,14 @@ async function runBootstrapStorage(): Promise<void> {
   const adapter = getStorage()
   await adapter.open()
 
+  if (!isElectron()) {
+    const manifest = await adapter.getManifest()
+    await initializeWebWriterOwnership(manifest.libraryId)
+  }
+
   if (isElectron()) {
     await migrateElectronLibraryIfNeeded(adapter)
-  } else {
+  } else if (getWebWriteGuardState().phase === 'editable') {
     await migrateFromLocalStorageIfNeeded(adapter)
   }
 

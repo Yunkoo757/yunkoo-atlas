@@ -83,6 +83,34 @@ export interface DateBounds {
   end: string // YYYY-MM-DD inclusive
 }
 
+export interface BusinessDateAnchor {
+  now: Date
+  tradingDayStartHour: number
+  currentTradingDayKey: string
+}
+
+export function createBusinessDateAnchor(
+  now = new Date(),
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+): BusinessDateAnchor {
+  const normalizedHour = normalizeTradingDayStartHour(tradingDayStartHour)
+  const stableNow = new Date(now)
+  return {
+    now: stableNow,
+    tradingDayStartHour: normalizedHour,
+    currentTradingDayKey: getTradingDayKey(stableNow, normalizedHour),
+  }
+}
+
+function resolveBusinessDateAnchor(
+  value: Date | BusinessDateAnchor,
+  tradingDayStartHour: number,
+): BusinessDateAnchor {
+  return value instanceof Date
+    ? createBusinessDateAnchor(value, tradingDayStartHour)
+    : value
+}
+
 /** 解析 YYYY-MM-DD 为本地日历日（避免 UTC 偏移） */
 export function parseLocalDate(iso: string): Date {
   if (!iso || iso.length < 10) return new Date()
@@ -129,15 +157,16 @@ function endOfMonth(d: Date): Date {
 
 export function getPeriodBounds(
   period: CalendarPeriod,
-  now = new Date(),
+  now: Date | BusinessDateAnchor = new Date(),
   weekStartsOn = WEEK_STARTS_ON,
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): DateBounds {
-  const today = startOfDay(now)
+  const anchor = resolveBusinessDateAnchor(now, tradingDayStartHour)
+  const today = parseLocalDate(anchor.currentTradingDayKey)
 
   switch (period) {
     case 'today': {
-      const key = getTradingDayKey(now, tradingDayStartHour)
+      const key = anchor.currentTradingDayKey
       return { start: key, end: key }
     }
     case 'this-week': {
@@ -178,7 +207,7 @@ export function tradeInPeriod(
   trade: Trade,
   period: CalendarPeriod,
   field: 'openedAt' | 'closedAt' = 'openedAt',
-  now = new Date(),
+  now: Date | BusinessDateAnchor = new Date(),
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): boolean {
   const bounds = getPeriodBounds(period, now, WEEK_STARTS_ON, tradingDayStartHour)
@@ -191,7 +220,7 @@ export function tradeInPeriod(
 
 export function formatPeriodSubtitle(
   period: CalendarPeriod,
-  now = new Date(),
+  now: Date | BusinessDateAnchor = new Date(),
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): string {
   const bounds = getPeriodBounds(period, now, WEEK_STARTS_ON, tradingDayStartHour)

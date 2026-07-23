@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web storage conflict guard browser test</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/components/WebStorageConflict.browser.test.tsx"></script>
+  </body>
+</html>
+<!-- Quality-Scenario: W-LOCK-LOSS -->
+<!-- Quality-Scenario: W-RECOVERY-EXPORT -->

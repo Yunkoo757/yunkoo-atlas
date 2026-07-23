@@ -10,6 +10,7 @@ import {
   restoreBackupAtPath,
   verifyBackupAtPath,
 } from './backup'
+import { validateLibraryDatabaseFile } from './journalZip'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -17,7 +18,12 @@ function assert(condition: unknown, message: string): void {
 
 async function createVerifiableBackup(
   root: string,
-  options: { referencedAssetId?: string; includeAsset?: boolean } = {},
+  options: {
+    referencedAssetId?: string
+    includeAsset?: boolean
+    omitSnapshot?: boolean
+    emptyLibraryBackup?: boolean
+  } = {},
 ): Promise<string> {
   const includeAsset = options.includeAsset ?? true
   const attachments = path.join(root, 'attachments')
@@ -56,17 +62,19 @@ async function createVerifiableBackup(
           note: `<p><img src="journal-asset://${options.referencedAssetId}"></p>`,
         }]
       : []
-    db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
-      'snapshot',
-      JSON.stringify({
-        trades,
-        strategies: [],
-        starredIds: [],
-        subscribedIds: [],
-        pinnedStrategyIds: [],
-        display: {},
-      }),
-    ])
+    if (!options.omitSnapshot) {
+      db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
+        'snapshot',
+        JSON.stringify({
+          trades,
+          strategies: [],
+          starredIds: [],
+          subscribedIds: [],
+          pinnedStrategyIds: [],
+          display: {},
+        }),
+      ])
+    }
     if (includeAsset) {
       db.run('INSERT INTO assets VALUES (?, ?, ?, ?, ?)', [
         'asset-1',
@@ -93,11 +101,45 @@ async function createVerifiableBackup(
       },
       root,
       Date.UTC(2026, 6, 14, 8, 0, 0),
+      { emptyLibrary: options.emptyLibraryBackup },
     )
     if (!backup) throw new Error('测试恢复点创建失败')
     return backup
   } finally {
     db.close()
+  }
+}
+
+export async function testExitBackupCanExplicitlyVerifyARecoverableEmptyLibrary(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-empty-'))
+  try {
+    const backup = await createVerifiableBackup(root, {
+      includeAsset: false,
+      omitSnapshot: true,
+      emptyLibraryBackup: true,
+    })
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'verified' && result.emptyLibrary === true, '普通产品入口必须能重验带标记的空库恢复点')
+    assert(result.tradeCount === 0 && result.attachmentCount === 0, '空库恢复点必须证明计数均为零')
+    assert(restoreBackupAtPath(root, path.basename(backup)), '普通恢复入口必须接受已验证的空库恢复点')
+    const restored = await validateLibraryDatabaseFile(path.join(root, 'journal.db'), {
+      allowEmptySnapshot: true,
+    })
+    assert(restored.tradeCount === 0 && restored.assets.length === 0, '空库恢复后必须仍是可打开的零数据资料库')
+    assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testUnmarkedMissingSnapshotBackupRemainsInvalid(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-unmarked-empty-'))
+  try {
+    const backup = await createVerifiableBackup(root, { includeAsset: false, omitSnapshot: true })
+    const result = await verifyBackupAtPath(root, path.basename(backup))
+    assert(result.status === 'invalid', '缺少显式空库标记时不得放宽 snapshot 验证')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
   }
 }
 
@@ -427,3 +469,4 @@ export function testBackupKeepsHistoricalBytesWhenAnAttachmentNameIsReused(): vo
     fs.rmSync(root, { recursive: true, force: true })
   }
 }
+// Quality-Scenario: E-QUIT-BACKUP-FAIL

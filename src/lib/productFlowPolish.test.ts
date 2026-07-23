@@ -189,15 +189,15 @@ export async function testTodayNavigationAndDateBoundaryRemainInsideTheWorkspace
   assert(today.includes('scrollIntoView'), 'Today 概览应在当前工作区内滚动到目标队列')
   assert(today.includes('useLocalDateKey()'), 'Today 工作台应在交易日边界后自动换日')
   assert(
-    visibleTrades.includes('useLocalDateKey()') && visibleTrades.includes('localDateKey,'),
+    visibleTrades.includes('useBusinessDateAnchor()') && visibleTrades.includes('localDateKey,'),
     '工作台列表的今日筛选必须随交易日边界重新计算',
   )
   assert(
-    dashboard.includes('useLocalDateKey()') && dashboard.includes('localDateKey,'),
+    dashboard.includes('useBusinessDateAnchor()') && dashboard.includes('localDateKey,'),
     '仪表盘日期范围必须在交易日边界后重新计算',
   )
   assert(
-    strategyHeader.includes('useLocalDateKey()') && strategyHeader.includes('localDateKey,'),
+    strategyHeader.includes('useBusinessDateAnchor()') && strategyHeader.includes('localDateKey,'),
     '策略分析头部必须与列表在交易日边界后同步换日',
   )
 }

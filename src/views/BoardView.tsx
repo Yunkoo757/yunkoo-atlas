@@ -80,7 +80,7 @@ export function BoardView({
 
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { trades, visible, workspaceCount } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
 
   const cols = useMemo(() => {
     const map = new Map<TradeStatus, Trade[]>()
@@ -94,7 +94,7 @@ export function BoardView({
     )
   }, [visible, display.showEmptyGroups])
 
-  const subtitle = getTradesPageSubtitle(filter)
+  const subtitle = getTradesPageSubtitle(filter, businessDateAnchor)
   const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例记录' : '交易'
   const emptyState = resolveWorkbenchEmptyState({
@@ -110,6 +110,7 @@ export function BoardView({
       filter,
       starredIds: useStore.getState().starredIds,
       search: location.search,
+      businessDateAnchor,
     })) {
       setDisplay({ hideClosed: false })
     }

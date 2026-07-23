@@ -1,5 +1,16 @@
-export type { StorageAdapter } from '@/storage/adapter'
-export { getStorage, bootstrapStorage, isStorageHydrated } from '@/storage/bootstrap'
+export type {
+  AssetPurgePreview,
+  AssetPurgeRecovery,
+  AssetPurgeResult,
+  PreparedAssetPut,
+  RevisionedLibraryMutation,
+  RevisionedStorageAdapter,
+  SnapshotEnvelope,
+  StorageAdapter,
+} from '@/storage/adapter'
+export { StorageRevisionConflictError } from '@/storage/adapter'
+export { bootstrapStorage, isStorageHydrated } from '@/storage/bootstrap'
+export { getStorage } from '@/storage/provider'
 export { isElectron, getJournalBridge } from '@/storage/runtime'
 export { getElectronAdapter } from '@/storage/electronAdapter'
 export {

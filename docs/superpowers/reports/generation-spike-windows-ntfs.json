@@ -1,0 +1,296 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-22T20:13:57.306Z",
+  "platform": "win32",
+  "release": "10.0.26200",
+  "architecture": "x64",
+  "fileSystem": "NTFS",
+  "gitCommit": "f024be5d3ef7aa7314baa14b11d5ac8e09ea2659",
+  "workingTreeDirty": true,
+  "sourceFingerprint": "fd0455560c94fff22e227d6683e5c195106355af53f4d76c00b289e932a21729",
+  "isolation": "scripts/spikes/electron-generation only; no production import",
+  "recoverySloMs": 5000,
+  "faultMatrix": [
+    {
+      "name": "precheck:initial",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.7427000000000135,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "mkdir:generation",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.6866000000001122,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "write:manifest",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.6077999999999975,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "fsync:manifest",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.6860000000000355,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "mkdir:attachments",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.822300000000041,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "write:database",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.613700000000108,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "fsync:database",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.5738000000001193,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "write:attachment",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.699200000000019,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "fsync:attachment",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.7784999999998945,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "write:complete-marker",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.65300000000002,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "fsync:complete-marker",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.6796999999999116,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "dir-fsync:generation",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.9526999999998225,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "precheck:switch",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.7558999999998832,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "write:pointer-temp",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.8215000000000146,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "fsync:pointer-temp",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.6402000000000498,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "rename:pointer",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.953599999999824,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "dir-fsync:root",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_INJECTED",
+      "recovered": "new",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.7825000000000273,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "disk-full-initial",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_DISK_FULL",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.8693000000000666,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "disk-full-switch",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "GENERATION_DISK_FULL",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.5599999999999454,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "target-occupied",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "EEXIST",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.704300000000103,
+      "neverMixed": true,
+      "pass": true
+    },
+    {
+      "name": "cross-volume-exdev",
+      "expectedFailure": true,
+      "observedFailure": true,
+      "code": "EXDEV",
+      "recovered": "old",
+      "recoverySource": "current-marker",
+      "recoveryMs": 1.8670999999999367,
+      "neverMixed": true,
+      "pass": true
+    }
+  ],
+  "recoveryCases": [
+    {
+      "name": "marker-missing",
+      "recovered": "old",
+      "recoveryMs": 2.8290000000001783,
+      "pass": true
+    },
+    {
+      "name": "marker-corrupt",
+      "recovered": "old",
+      "recoveryMs": 2.6126999999999043,
+      "pass": true
+    },
+    {
+      "name": "incomplete-generation",
+      "recovered": "old",
+      "recoveryMs": 3.0194000000001324,
+      "pass": true
+    },
+    {
+      "name": "incomplete-old-generation",
+      "recovered": "new",
+      "recoveryMs": 2.6282000000001062,
+      "pass": true
+    }
+  ],
+  "disk": {
+    "formula": "requiredFree = expandedTemp + rollbackCopy + max(512 MiB, operationBytes * 10%)",
+    "expandedTemp": 20971596,
+    "rollbackCopy": 0,
+    "operationBytes": 20971596,
+    "safetyReserve": 536870912,
+    "requiredFree": 557842508,
+    "initialFreeBytes": 76916240384,
+    "minimumFreeBytes": 76895260672,
+    "measuredAdditionalPeakBytes": 20979712,
+    "predictedAdditionalPeakBytes": 20971596,
+    "peakErrorRatio": 0.00038699963512552884,
+    "measuredTreePeakBytes": 37749990,
+    "peakTargetBytes": 573780787.2,
+    "peakTargetPass": true
+  },
+  "durability": {
+    "fileFsyncExercised": true,
+    "directoryFsyncSupported": false
+  },
+  "decision": "NO_GO_ON_THIS_PLATFORM",
+  "reasons": [
+    "directory fsync durability barrier unavailable"
+  ]
+}

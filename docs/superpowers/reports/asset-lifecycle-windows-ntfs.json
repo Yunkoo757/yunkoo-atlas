@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-22T20:03:31.034Z",
+  "platform": "win32",
+  "release": "10.0.26200",
+  "architecture": "x64",
+  "fileSystem": "NTFS",
+  "gitCommit": "f024be5d3ef7aa7314baa14b11d5ac8e09ea2659",
+  "workingTreeDirty": true,
+  "sourceFingerprint": "da383ecb35efb7f9ef336c02e7abdd6f16170a72dcc2c320600a76f8bf44a6bc",
+  "entries": [
+    "electron/library/assetGc.test.ts",
+    "electron/library/assetInventory.test.ts"
+  ],
+  "exitCode": 0,
+  "status": "pass"
+}

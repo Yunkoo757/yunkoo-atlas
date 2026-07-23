@@ -104,7 +104,7 @@ function isWorkspaceMemoryEntry(value: unknown): boolean {
 function isDisplayPrefs(value: unknown): boolean {
   if (value === undefined) return true
   if (!isRecord(value)) return false
-  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'reviewContextPinned']) {
+  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'privacyMode', 'reviewContextPinned']) {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') return false
   }
   if (value.sortBy !== undefined && !DISPLAY_SORTS.has(String(value.sortBy))) return false
@@ -120,6 +120,7 @@ function isDisplayPrefs(value: unknown): boolean {
     return false
   }
   if (value.sidebarPins !== undefined && !isStringArray(value.sidebarPins)) return false
+  if (value.sidebarPrimaryOrder !== undefined && !isStringArray(value.sidebarPrimaryOrder)) return false
   if (value.sidebarWorkspaceItems !== undefined && (
     !Array.isArray(value.sidebarWorkspaceItems) ||
     !value.sidebarWorkspaceItems.every(isSidebarWorkspaceItem)
@@ -271,7 +272,7 @@ function isSavedTradeViews(value: unknown): boolean {
 }
 
 function isSymbolIconOverride(value: unknown): boolean {
-  if (!isRecord(value) || typeof value.updatedAt !== 'string') return false
+  if (!isRecord(value) || typeof value.updatedAt !== 'string' || !value.updatedAt.trim()) return false
   for (const field of ['presetId', 'customDataUrl']) {
     if (
       value[field] !== undefined &&

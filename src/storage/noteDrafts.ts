@@ -1,11 +1,17 @@
 import { getStorage } from '@/storage/bootstrap'
-import { assetUrl, normalizeNoteForStorage } from '@/storage/assets'
+import {
+  assetUrl,
+  normalizeNoteForStorage,
+  normalizePreparedAssetReferencesForRecovery,
+} from '@/storage/assets'
 import { useStore } from '@/store/useStore'
+import type { PersistedSnapshot } from '@/storage/types'
 
 /** TipTap 本地草稿：键入先落这里，idle / flush 再写入 trades 快照。 */
 const drafts = new Map<string, string>()
 const MAX_DRAFT_FLUSH_PASSES = 8
 const activeTradeFlushes = new Map<string, Promise<boolean>>()
+let draftGeneration = 0
 export const WEEKLY_REVIEW_DRAFT_PREFIX = 'weekly-review-draft:'
 export const QUICK_NOTE_DRAFT_PREFIX = 'quick-note-draft:'
 
@@ -62,11 +68,13 @@ export async function flushNoteDraftsToStore(): Promise<boolean> {
 }
 
 async function flushSingleNoteDraft(tradeId: string): Promise<boolean> {
+  const generation = draftGeneration
   for (let pass = 0; pass < MAX_DRAFT_FLUSH_PASSES; pass++) {
     const html = drafts.get(tradeId)
     if (html === undefined) return true
     try {
       const normalized = await normalizeNoteForStorage(html, getStorage())
+      if (generation !== draftGeneration) return true
       const weeklyReviewId = weeklyReviewIdFromDraftId(tradeId)
       if (weeklyReviewId) {
         const current = useStore.getState().weeklyReviews.find((review) => review.id === weeklyReviewId)
@@ -97,6 +105,38 @@ async function flushSingleNoteDraft(tradeId: string): Promise<boolean> {
   return !drafts.has(tradeId)
 }
 
+/** 将尚未 preflush 的编辑器草稿覆盖进快照副本，仅用于冲突恢复导出。 */
+export function applyNoteDraftsToSnapshot(snapshot: PersistedSnapshot): PersistedSnapshot {
+  if (drafts.size === 0) return snapshot
+  return {
+    ...snapshot,
+    trades: snapshot.trades.map((trade) => {
+      const note = drafts.get(trade.id)
+      return note === undefined
+        ? trade
+        : { ...trade, note: normalizePreparedAssetReferencesForRecovery(note) }
+    }),
+    weeklyReviews: snapshot.weeklyReviews?.map((review) => {
+      const contentHtml = drafts.get(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`)
+      return contentHtml === undefined
+        ? review
+        : { ...review, contentHtml: normalizePreparedAssetReferencesForRecovery(contentHtml) }
+    }),
+    quickNotes: snapshot.quickNotes?.map((note) => {
+      const contentHtml = drafts.get(`${QUICK_NOTE_DRAFT_PREFIX}${note.id}`)
+      return contentHtml === undefined
+        ? note
+        : { ...note, contentHtml: normalizePreparedAssetReferencesForRecovery(contentHtml) }
+    }),
+  }
+}
+
+/** 加载资料库最新版前使全部草稿及在途异步归一化失效，防止旧内容延迟写回。 */
+export function discardAllNoteDrafts(): void {
+  draftGeneration += 1
+  drafts.clear()
+}
+
 /** 同一交易的异步图片归一化必须串行，避免较慢的旧草稿反向覆盖新草稿。 */
 export function flushNoteDraftToStore(tradeId: string): Promise<boolean> {
   const active = activeTradeFlushes.get(tradeId)
@@ -123,7 +163,7 @@ export function appendAssetToNoteDraft(tradeId: string, assetId: string): Promis
 
 /** 测试用 */
 export function resetNoteDraftsForTests(): void {
-  drafts.clear()
+  discardAllNoteDrafts()
 }
 
 export function noteDraftCountForTests(): number {

@@ -1,9 +1,15 @@
 import { spawn, spawnSync } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { resolveCommand } from './release-command.mjs'
+import { readGitProvenance } from './git-provenance.mjs'
 
 const PORT = 5181
 const BASE = `http://127.0.0.1:${PORT}`
 const full = process.argv.includes('--full')
+const reportPath = path.join(process.cwd(), 'test-results', full ? 'qa-release-full.json' : 'qa-release-smoke.json')
+
+await fs.rm(reportPath, { force: true })
 
 function run(name, args, env = process.env) {
   const invocation = resolveCommand(name, args)
@@ -72,3 +78,20 @@ try {
 run('pnpm', ['build:app'])
 if (full) run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
 run('pnpm', ['qa:electron'])
+
+const provenance = await readGitProvenance(process.cwd())
+await fs.mkdir(path.dirname(reportPath), { recursive: true })
+await fs.writeFile(reportPath, `${JSON.stringify({
+  version: 1,
+  generatedAt: new Date().toISOString(),
+  mode: full ? 'full' : 'smoke',
+  status: 'pass',
+  gitCommit: provenance.gitCommit,
+  gitTree: provenance.gitTree,
+  workingTreeDirty: provenance.workingTreeDirty,
+  sourceFingerprint: provenance.sourceFingerprint,
+  sourceIdentity: provenance.sourceIdentity,
+  commands: full
+    ? ['qa:ci', 'qa:sidebar', 'qa', 'qa:linear', 'build:app', 'qa:dashboard-10k', 'qa:electron']
+    : ['qa:ci', 'qa:sidebar', 'qa:core', 'build:app', 'qa:electron'],
+}, null, 2)}\n`, 'utf8')

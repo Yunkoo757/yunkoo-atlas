@@ -127,12 +127,15 @@ export function TradeCloseDialog() {
       setError(result.error)
       return
     }
+    const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
     completeTradeClose(trade.id, result.status, result.patch)
+    const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
+    const actionId = latestActionId !== previousActionId ? latestActionId : undefined
     toast(`${trade.ref} 已平仓，已加入待复盘`, {
       label: '撤销',
       onClick: () => {
-        useStore.getState().undo()
-        toast('已撤销平仓')
+        if (actionId && useStore.getState().undo(actionId)) toast('已撤销平仓')
+        else toast('目标交易之后已变化，无法安全撤销')
       },
     })
   }

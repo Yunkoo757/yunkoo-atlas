@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useStore } from '@/store/useStore'
-import { useLocalDateKey } from '@/hooks/useLocalDateKey'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { computeStrategyStats, formatStrategyMetricCoverage } from '@/lib/strategies'
 import { fmtMoney, fmtR } from '@/lib/format'
 import {
@@ -25,7 +25,9 @@ export function StrategyHeader({
   const strategy = useStore((s) => s.getStrategy(strategyId))
   const trades = useStore((s) => s.trades)
   const privacyMode = useStore((s) => s.display.privacyMode)
-  const localDateKey = useLocalDateKey()
+  const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
+  const businessDateAnchor = useBusinessDateAnchor()
+  const localDateKey = businessDateAnchor.currentTradingDayKey
   const facets = useMemo(() => {
     const parsed = parseTradeFacets(search)
     return analysisScope?.kind && analysisScope.kind !== 'all'
@@ -34,9 +36,11 @@ export function StrategyHeader({
   }, [analysisScope?.kind, search])
 
   const stats = useMemo(() => {
-    const scoped = analysisScope ? filterTradesByAnalysisScope(trades, analysisScope) : trades
+    const scoped = analysisScope
+      ? filterTradesByAnalysisScope(trades, analysisScope, businessDateAnchor)
+      : trades
     return computeStrategyStats(
-      filterTradesByFacets(scoped, facets),
+      filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor),
       strategyId,
       { tradeKind: analysisScope ? 'all' : 'live' },
     )
@@ -47,6 +51,8 @@ export function StrategyHeader({
       analysisScope?.range,
       facets,
       localDateKey,
+      businessDateAnchor,
+      tradingDayStartHour,
     ])
 
   const scopeLabel = analysisScope

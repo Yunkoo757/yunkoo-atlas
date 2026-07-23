@@ -206,47 +206,67 @@ export function ReviewSessionView() {
     const prevCursor = value.cursor - 1
     const prevId = value.ids[prevCursor]
     if (!prevId) return
-    const prevTrade = value.assessmentPrev?.[prevId]
     const hadAssessment = value.assessments[prevId] != null
-    if (hadAssessment && prevTrade) {
-      useStore.setState((state) => {
-        const top = state.undoStack[state.undoStack.length - 1]
-        const dropTop = Boolean(top?.length === 1 && top[0]?.id === prevId)
-        return {
-          trades: state.trades.map((trade) => (trade.id === prevId ? prevTrade : trade)),
-          undoStack: dropTop ? state.undoStack.slice(0, -1) : state.undoStack,
-        }
-      })
+    const hasUndoReference = Object.prototype.hasOwnProperty.call(
+      value.assessmentActionIds ?? {},
+      prevId,
+    )
+    const actionId = value.assessmentActionIds?.[prevId]
+    if (
+      hadAssessment &&
+      (!hasUndoReference || (typeof actionId === 'string' && !useStore.getState().undo(actionId)))
+    ) {
+      toast('该评估之后目标字段已变化，无法安全撤销')
+      return
     }
     const assessments = { ...value.assessments }
-    const assessmentPrev = { ...(value.assessmentPrev ?? {}) }
+    const assessmentActionIds = { ...(value.assessmentActionIds ?? {}) }
     delete assessments[prevId]
-    delete assessmentPrev[prevId]
+    delete assessmentActionIds[prevId]
     focusAfterTransitionRef.current = true
     setSession({
       ...value,
       cursor: prevCursor,
       assessments,
-      assessmentPrev,
+      assessmentActionIds,
     })
   }, [])
 
   const assess = useCallback((assessment: ReviewSessionAssessment) => {
     if (!current) return
-    const previous = current
+    const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
     updateTradeData(current.id, buildReviewAssessmentPatch(current, assessment))
+    const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
+    const actionId = latestActionId !== previousActionId ? latestActionId : null
     focusAfterTransitionRef.current = true
     setSession((value) => value ? {
       ...value,
       cursor: Math.min(value.cursor + 1, value.ids.length),
       assessments: { ...value.assessments, [current.id]: assessment },
-      assessmentPrev: { ...(value.assessmentPrev ?? {}), [current.id]: previous },
+      assessmentActionIds: { ...(value.assessmentActionIds ?? {}), [current.id]: actionId },
     } : value)
-    toast('已记录评估', {
-      label: '撤销',
-      onClick: () => rewind(),
-    })
-  }, [current, rewind, updateTradeData])
+    if (actionId) {
+      toast('已记录评估', {
+        label: '撤销',
+        onClick: () => {
+          if (!useStore.getState().undo(actionId)) {
+            toast('该评估之后目标字段已变化，无法安全撤销')
+            return
+          }
+          setSession((value) => {
+            if (!value) return value
+            const assessments = { ...value.assessments }
+            const assessmentActionIds = { ...(value.assessmentActionIds ?? {}) }
+            delete assessments[current.id]
+            delete assessmentActionIds[current.id]
+            return { ...value, assessments, assessmentActionIds }
+          })
+        },
+      })
+    } else {
+      toast('已记录评估')
+    }
+  }, [current, updateTradeData])
 
   useEffect(() => {
     if (!focusAfterTransitionRef.current) return
@@ -369,7 +389,12 @@ export function ReviewSessionView() {
       {!session ? (
         <ReviewSessionStart filters={filters} poolSize={pool.length} onChange={setFilters} onStart={start} />
       ) : roundEnded ? (
-        <ReviewSessionFinished session={session} onReshuffle={reshuffle} onAdjust={() => clearActiveSession(session.filters)} />
+        <ReviewSessionFinished
+          session={session}
+          onBack={rewind}
+          onReshuffle={reshuffle}
+          onAdjust={() => clearActiveSession(session.filters)}
+        />
       ) : !current ? (
         <div className="review-session-loading" role="status">正在跳过已删除的记录…</div>
       ) : (
@@ -605,10 +630,12 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
 
 function ReviewSessionFinished({
   session,
+  onBack,
   onReshuffle,
   onAdjust,
 }: {
   session: ReviewSessionSnapshot
+  onBack: () => void
   onReshuffle: () => void
   onAdjust: () => void
 }) {
@@ -632,6 +659,7 @@ function ReviewSessionFinished({
         <span><strong>{counts.skipped}</strong><small>跳过</small></span>
       </div>
       <div className="review-session-finished-actions">
+        <Button type="button" variant="bordered" onClick={onBack}><ChevronLeft size={16} aria-hidden />上一条</Button>
         <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={16} aria-hidden />再随机一轮</Button>
         <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={16} aria-hidden />调整范围</Button>
       </div>

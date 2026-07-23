@@ -22,6 +22,7 @@ export function ModalShell({
   children,
   footer,
   busy = false,
+  dismissible = true,
   size = 'default',
   onClose,
 }: {
@@ -30,6 +31,7 @@ export function ModalShell({
   children?: ReactNode
   footer?: ReactNode
   busy?: boolean
+  dismissible?: boolean
   size?: 'default' | 'compact' | 'wide'
   onClose: () => void
 }) {
@@ -70,7 +72,7 @@ export function ModalShell({
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
-        if (!busy) onClose()
+        if (!busy && dismissible) onClose()
         return
       }
       if (event.key !== 'Tab') return
@@ -92,7 +94,7 @@ export function ModalShell({
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [busy, onClose])
+  }, [busy, dismissible, onClose])
 
   return createPortal(
     <div
@@ -100,7 +102,7 @@ export function ModalShell({
       className="modal-shell-overlay"
       role="presentation"
       onMouseDown={(event) => {
-        if (!busy && event.target === event.currentTarget) onClose()
+        if (!busy && dismissible && event.target === event.currentTarget) onClose()
       }}
     >
       <div
@@ -122,15 +124,17 @@ export function ModalShell({
             <h2 id={titleId}>{title}</h2>
             {description ? <p id={descriptionId}>{description}</p> : null}
           </div>
-          <button
-            type="button"
-            className="modal-shell-close"
-            aria-label="关闭"
-            disabled={busy}
-            onClick={onClose}
-          >
-            <X size={16} />
-          </button>
+          {dismissible ? (
+            <button
+              type="button"
+              className="modal-shell-close"
+              aria-label="关闭"
+              disabled={busy}
+              onClick={onClose}
+            >
+              <X size={16} />
+            </button>
+          ) : null}
         </header>
         {children ? <div className="modal-shell-body">{children}</div> : null}
         {footer ? <footer className="modal-shell-footer">{footer}</footer> : null}

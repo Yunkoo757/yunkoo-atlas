@@ -4,7 +4,7 @@ import path from 'node:path'
 import { LibraryStorage } from './library/storage'
 import { processImageBuffer } from './library/images'
 import { exportJournalZip, importJournalZipToPath } from './library/journalZip'
-import { createBackup, restoreBackup, rotateBackups } from './library/backup'
+import { createBackup, restoreBackupAtPath, rotateBackups } from './library/backup'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '../src/storage/types'
 import { ZipArchive } from 'archiver'
 
@@ -138,7 +138,9 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     checks.push({ name, pass, detail: detail || undefined })
   }
 
-  const storage = new LibraryStorage()
+  const qaLibraryPath = process.env.LINEAR_JOURNAL_LIBRARY
+  if (!qaLibraryPath) throw new Error('LINEAR_JOURNAL_LIBRARY is required for Electron QA')
+  const storage = new LibraryStorage(qaLibraryPath)
   try {
     await storage.open()
     record('storage.open', true)
@@ -240,7 +242,7 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     storage.saveSnapshot(snapshotWithRef('TRD-CURRENT'))
     const backupName = backupPath ? path.basename(backupPath) : ''
     record('backup.create', !!backupName, backupName)
-    record('backup.restore returns true', backupName ? restoreBackup(backupName) : false)
+    record('backup.restore returns true', backupName ? restoreBackupAtPath(paths.root, backupName) : false)
     storage.close()
     await storage.open()
     const restoredSnapshot = storage.loadSnapshot()

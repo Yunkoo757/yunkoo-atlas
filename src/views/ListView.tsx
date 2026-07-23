@@ -72,7 +72,7 @@ export function ListView({
 
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { trades, visible, workspaceCount } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = (trade: Trade) => {
     const from = {
@@ -173,12 +173,15 @@ export function ListView({
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
     const count = actionableIds.size
+    const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
     removeTrades([...actionableIds])
+    const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
+    const actionId = latestActionId !== previousActionId ? latestActionId : undefined
     toast(`已将 ${count} 笔交易移至回收站，30 天后自动清空`, {
       label: '撤销',
       onClick: () => {
-        useStore.getState().undo()
-        toast('已恢复删除的交易')
+        if (actionId && useStore.getState().undo(actionId)) toast('已恢复删除的交易')
+        else toast('目标交易之后已变化，无法安全撤销')
       },
     })
     setSelectedIds(new Set())
@@ -286,6 +289,7 @@ export function ListView({
       filter,
       starredIds,
       search: location.search,
+      businessDateAnchor,
     })) {
       setDisplay({ hideClosed: false })
     }
@@ -294,7 +298,7 @@ export function ListView({
 
   return (
     <>
-      <Topbar title={title} subtitle={getTradesPageSubtitle(filter)} view={view} onView={onView} />
+      <Topbar title={title} subtitle={getTradesPageSubtitle(filter, businessDateAnchor)} view={view} onView={onView} />
       {header}
       {emptyState?.kind !== 'library' ? (
         <TradeFilters filter={filter} trades={trades} strategies={strategies} />

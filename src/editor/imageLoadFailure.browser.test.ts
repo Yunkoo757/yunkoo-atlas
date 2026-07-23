@@ -25,8 +25,8 @@ testWindow.__editorImageLoadFailureTest = (async () => {
   let updateCount = 0
   const editor = new Editor({
     element,
-    extensions: [StarterKit, Image, ImageLoadFailure],
-    content: '<p>正文前</p><img src="https://example.invalid/broken.png" alt="原始说明"><p>正文后</p>',
+    extensions: [StarterKit, Image.configure({ allowBase64: true }), ImageLoadFailure],
+    content: '<p>正文前</p><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="原始说明"><p>正文后</p>',
     onUpdate: () => {
       updateCount += 1
     },

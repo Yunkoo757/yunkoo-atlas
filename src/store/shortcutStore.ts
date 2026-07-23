@@ -2,8 +2,11 @@ import { create } from 'zustand'
 import type { ListNavigationContext, ShortcutBinding } from '@/shortcuts/types'
 import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { isSequence } from '@/shortcuts/chords'
-import { buildBindingOverwritePatch } from '@/shortcuts/engine'
+import { buildBindingOverwritePatch, resolveBinding } from '@/shortcuts/bindingRules'
+import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import type { LightboxOrigin } from '@/lib/lightboxView'
+
+export { migrateShortcutBindings } from '@/shortcuts/migrate'
 
 export interface LightboxState {
   images: string[]
@@ -46,15 +49,7 @@ export function isModalOverlayOpen(
   return state.modalOverlayCount > 0
 }
 
-export function resolveBinding(
-  id: string,
-  bindings: Record<string, ShortcutBinding | null>,
-): ShortcutBinding | null {
-  if (id in bindings) {
-    return bindings[id]
-  }
-  return getActionMeta(id)?.defaultBinding ?? null
-}
+export { resolveBinding } from '@/shortcuts/bindingRules'
 
 export function bindingsForPersist(
   bindings: Record<string, ShortcutBinding | null>,
@@ -76,19 +71,6 @@ export function bindingsForPersist(
     if (!same) out[action.id] = b
   }
   return out
-}
-
-export function migrateShortcutBindings(
-  bindings: Record<string, ShortcutBinding | null> | undefined,
-): Record<string, ShortcutBinding | null> {
-  if (!bindings) return {}
-  const next = { ...bindings }
-  if ('global.switchModule' in next && !('nav.list' in next)) {
-    next['nav.list'] = next['global.switchModule'] ?? null
-  }
-  delete next['global.switchModule']
-  delete next['view.table']
-  return next
 }
 
 export const useShortcutStore = create<ShortcutState>()((set, get) => ({

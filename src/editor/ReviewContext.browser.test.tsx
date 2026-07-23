@@ -33,7 +33,7 @@ async function run(): Promise<void> {
 
   root.render(
     <Editor
-      content="<p>4H 顺势，等待回调极端 POI。</p><p>15m 出现结构确认。</p><img src='https://example.invalid/chart.png'>"
+      content="<p>4H 顺势，等待回调极端 POI。</p><p>15m 出现结构确认。</p><img src='/src/views/fixtures/browser-test-image.svg?chart.png'>"
       onChange={(html) => { latestHtml = html }}
       reviewContextTools
       reviewContextPinned
@@ -103,7 +103,7 @@ async function run(): Promise<void> {
 
   root.render(
     <Editor
-      content="<img src='https://example.invalid/image-first.png'>"
+      content="<img src='/src/views/fixtures/browser-test-image.svg?image-first.png'>"
       onChange={() => {}}
       reviewContextTools
       reviewTemplates={[{ id: 'test-template', name: '测试模板', content: '背景：' }]}

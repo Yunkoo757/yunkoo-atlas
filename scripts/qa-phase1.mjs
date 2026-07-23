@@ -21,6 +21,9 @@ mkdirSync(OUT, { recursive: true })
 
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1400, height: 900 } })
+await context.addInitScript(() => {
+  Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
+})
 const page = await context.newPage()
 
 const errors = []

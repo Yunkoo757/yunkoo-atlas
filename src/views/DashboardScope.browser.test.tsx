@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
-import { formatYmd } from '@/lib/periods'
+import { getTradingDayKey } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 
@@ -60,8 +60,8 @@ const paperTrade: Trade = {
   pnl: 250,
   rMultiple: 2,
   resultSource: 'imported',
-  openedAt: formatYmd(new Date()),
-  closedAt: formatYmd(new Date()),
+  openedAt: getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour),
+  closedAt: getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour),
   note: '',
 }
 

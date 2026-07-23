@@ -7,6 +7,12 @@ export class LibraryBusyError extends Error {
   }
 }
 
+function abortError(): Error {
+  const error = new Error('操作已取消')
+  error.name = 'AbortError'
+  return error
+}
+
 /**
  * 普通存储操作可并行；切库、恢复和整库导入必须独占。
  * 独占开始后拒绝新的普通操作，避免旧快照排队后写入新库。
@@ -31,13 +37,22 @@ export class LibraryOperationGate {
     }
   }
 
-  async runExclusive<T>(operation: () => T | Promise<T>): Promise<T> {
+  async runExclusive<T>(operation: () => T | Promise<T>, signal?: AbortSignal): Promise<T> {
     if (this.exclusive) throw new LibraryBusyError()
+    if (signal?.aborted) throw abortError()
     this.exclusive = true
     try {
       if (this.active > 0) {
-        await new Promise<void>((resolve) => this.drainWaiters.push(resolve))
+        await new Promise<void>((resolve, reject) => {
+          const onAbort = () => reject(abortError())
+          signal?.addEventListener('abort', onAbort, { once: true })
+          this.drainWaiters.push(() => {
+            signal?.removeEventListener('abort', onAbort)
+            resolve()
+          })
+        })
       }
+      if (signal?.aborted) throw abortError()
       return await operation()
     } finally {
       this.exclusive = false

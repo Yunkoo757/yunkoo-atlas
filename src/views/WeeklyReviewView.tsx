@@ -38,6 +38,7 @@ import {
   WEEKLY_REVIEW_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import './WeeklyReviewView.css'
 
 const WeeklyReviewScoreChart = lazy(() =>
@@ -143,12 +144,20 @@ export function WeeklyReviewView() {
   const reviews = useStore((state) => state.weeklyReviews)
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
-  const currentWeek = weekStartFor()
+  const businessDateAnchor = useBusinessDateAnchor()
+  const currentWeek = weekStartFor(parseLocalDate(businessDateAnchor.currentTradingDayKey))
   const [selectedWeek, setSelectedWeek] = useState(currentWeek)
+  const previousCurrentWeekRef = useRef(currentWeek)
   const [tab, setTab] = useState<'review' | 'year'>('review')
   const [editorHtml, setEditorHtml] = useState('')
   const editorReadyRef = useRef(false)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const previousCurrentWeek = previousCurrentWeekRef.current
+    setSelectedWeek((selected) => selected === previousCurrentWeek ? currentWeek : selected)
+    previousCurrentWeekRef.current = currentWeek
+  }, [currentWeek])
 
   const storedReview = reviews.find((item) => item.weekStart === selectedWeek)
   const review = storedReview ?? createWeeklyReview(selectedWeek)

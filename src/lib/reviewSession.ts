@@ -18,7 +18,11 @@ export type ReviewSessionSnapshot = {
   cursor: number
   filters: ReviewSessionFilters
   assessments: Partial<Record<string, ReviewSessionAssessment>>
+  /** 当前应用会话内精确定位评估动作；重启后历史栈清空，ID 只用于安全拒绝。 */
+  /** string 表示可精确撤销的动作；null 表示本次评估成功但最终字段无变化。 */
+  assessmentActionIds?: Partial<Record<string, string | null>>
   /** 评估前的交易快照，供会话内「上一条」还原 */
+  /** @deprecated 旧会话兼容读取；不得再用于整条 Trade 覆盖。 */
   assessmentPrev?: Partial<Record<string, Trade>>
 }
 

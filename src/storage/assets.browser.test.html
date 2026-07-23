@@ -11,6 +11,10 @@
         testMissingAssetRendersDiagnosticPlaceholder,
       } from './assets.test.ts'
 
+      window.__linearBrowserAllowedErrors = [
+        'Fetch API cannot load blob:http://127.0.0.1:5177/missing-blob',
+      ]
+
       window.__storageAssetsTest = (async () => {
         await testMissingAssetRendersDiagnosticPlaceholder()
         await testInvalidBlobImageIsNotPersistedAsBlobUrl()

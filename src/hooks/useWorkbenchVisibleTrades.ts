@@ -9,7 +9,7 @@ import {
 } from '@/lib/workbenchTrades'
 import type { TradeFacetFilters } from '@/lib/tradeView'
 import { useStore } from '@/store/useStore'
-import { useLocalDateKey } from '@/hooks/useLocalDateKey'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 
 /** 三视图共用：路由过滤 + 显示偏好 + URL 分面筛选 */
 export function useWorkbenchVisibleTrades(filter: ListFilter): {
@@ -17,12 +17,14 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   visible: Trade[]
   facets: TradeFacetFilters
   workspaceCount: number
+  businessDateAnchor: ReturnType<typeof useBusinessDateAnchor>
 } {
   const storedTrades = useStore((state) => state.trades)
   const display = useStore((state) => state.display)
   const starredIds = useStore((state) => state.starredIds)
   const [searchParams] = useSearchParams()
-  const localDateKey = useLocalDateKey()
+  const businessDateAnchor = useBusinessDateAnchor()
+  const localDateKey = businessDateAnchor.currentTradingDayKey
 
   const facets = useMemo<TradeFacetFilters>(() => parseTradeFacets(searchParams), [searchParams])
 
@@ -32,6 +34,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     starredIds,
     display,
     search: searchParams,
+    businessDateAnchor,
   }), [
     storedTrades,
     filter.type,
@@ -58,5 +61,5 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     [trades, filter.tradeKind],
   )
 
-  return { trades, visible, facets, workspaceCount }
+  return { trades, visible, facets, workspaceCount, businessDateAnchor }
 }

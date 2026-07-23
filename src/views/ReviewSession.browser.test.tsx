@@ -205,6 +205,23 @@ async function run(): Promise<void> {
 
     findButton('再随机一轮')?.click()
     await waitFor(() => Boolean(document.querySelector('.review-session-workspace')), '无法再次随机开始')
+    const beforeNoOpAssessment = JSON.stringify(useStore.getState().trades[0])
+    const undoCountBeforeNoOp = useStore.getState().undoStack.length
+    const repeatedAssessmentAccepted = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
+      key: '2',
+      bubbles: true,
+      cancelable: true,
+    }))
+    assert(!repeatedAssessmentAccepted, '重复评估仍应被随机复盘消费')
+    await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 1, '无字段变化的重复评估仍必须推进队列')
+    assert(useStore.getState().undoStack.length === undoCountBeforeNoOp, '无字段变化的评估不得伪造 UndoAction')
+
+    const backFromFinished = findButton('上一条')
+    assert(backFromFinished, '完成页必须允许返回上一条 no-op 评估')
+    backFromFinished.click()
+    await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 0, 'no-op 评估返回时没有恢复队列位置')
+    assert(JSON.stringify(useStore.getState().trades[0]) === beforeNoOpAssessment, '返回 no-op 评估不得改写 Trade')
+
     const skipAccepted = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
       key: 'n',
       bubbles: true,
@@ -220,6 +237,8 @@ async function run(): Promise<void> {
       trades: previous.trades,
       strategies: previous.strategies,
       starredIds: previous.starredIds,
+      undoStack: previous.undoStack,
+      redoStack: previous.redoStack,
       composerOpen: previous.composerOpen,
       closeTradeRequest: previous.closeTradeRequest,
     })

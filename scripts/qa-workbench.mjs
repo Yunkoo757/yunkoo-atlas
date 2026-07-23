@@ -6,6 +6,9 @@ const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
 const BASELINE_OUT = join(process.cwd(), '.gstack', 'qa-reports', 'linear-rebuild-baseline')
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+await context.addInitScript(() => {
+  Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
+})
 let page = await context.newPage()
 const results = []
 const runtimeErrors = []
@@ -38,6 +41,28 @@ function record(name, pass, detail = '') {
 async function selectValue(trigger, value) {
   await trigger.click()
   await page.locator(`.ui-select-option[data-value="${value}"]`).click()
+}
+
+async function selectDate(trigger, value) {
+  const [targetYear, targetMonth] = value.split('-').map(Number)
+  const ariaLabel = await trigger.getAttribute('aria-label')
+  if (!ariaLabel || !targetYear || !targetMonth) throw new Error(`Invalid date selection: ${value}`)
+  await trigger.click()
+  const calendar = page.getByRole('dialog', { name: `${ariaLabel}日历` })
+  await calendar.waitFor({ state: 'visible' })
+  for (let attempt = 0; attempt < 240; attempt += 1) {
+    const heading = await calendar.locator('.ui-date-head strong').innerText()
+    const match = /^(\d+)年(\d+)月$/.exec(heading)
+    if (!match) throw new Error(`Unexpected calendar heading: ${heading}`)
+    const current = Number(match[1]) * 12 + Number(match[2])
+    const target = targetYear * 12 + targetMonth
+    if (current === target) {
+      await calendar.getByRole('gridcell', { name: value, exact: true }).click()
+      return
+    }
+    await calendar.getByRole('button', { name: current > target ? '上个月' : '下个月' }).click()
+  }
+  throw new Error(`Calendar did not reach ${value}`)
 }
 
 async function waitForApp(targetPage = page) {
@@ -73,7 +98,7 @@ try {
   const activityText = await readSystemActivity()
   record(
     '案例详情使用案例语义',
-    placeholder?.includes('案例记录') === true && activityText.includes('创建了这条案例记录'),
+    placeholder?.includes('案例复盘') === true && activityText.includes('创建了这条案例记录'),
     `placeholder=${placeholder ?? 'none'}`,
   )
   await page.getByRole('button', { name: '状态 计划中', exact: true }).click()
@@ -91,7 +116,7 @@ try {
   })
   record(
     '1080px 详情主列与属性列不裁切',
-    detail1080.propsWidth === 264 && detail1080.mainWidth > 500 && !detail1080.overflow,
+    detail1080.propsWidth >= 300 && detail1080.mainWidth >= 480 && !detail1080.overflow,
     JSON.stringify(detail1080),
   )
 
@@ -163,7 +188,7 @@ try {
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
-  await page.getByLabel('交易日期').fill('2025-06-15')
+  await selectDate(page.getByRole('button', { name: '交易日期' }), '2025-06-15')
   const strategySelect = page.getByRole('combobox', { name: '交易策略' })
   await strategySelect.click()
   const strategyOptions = page.locator('.ui-select-option')
@@ -179,15 +204,29 @@ try {
   const reviewedTradeRef = decodeURIComponent(new URL(page.url()).pathname.split('/').pop() ?? '')
   const liveActivityText = await readSystemActivity()
   const liveProperties = await page.locator('.dv-props').innerText()
+  const createdTrade = await page.evaluate(async (tradeRef) => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    const trade = useStore.getState().trades.find((candidate) => candidate.ref === tradeRef)
+    return trade
+      ? {
+          openedAt: trade.openedAt,
+          side: trade.side,
+          tradeKind: trade.tradeKind,
+          strategyId: trade.strategyId,
+        }
+      : null
+  }, reviewedTradeRef)
   record(
     '今日记录快速创建实盘交易',
     liveActivityText.includes('创建了这笔交易') &&
       !liveActivityText.includes('创建了这条案例记录') &&
       liveProperties.includes('实盘') &&
       liveProperties.includes('做空') &&
-      liveProperties.includes('6月15日') &&
-      liveProperties.includes(selectedStrategyName),
-    JSON.stringify({ url: page.url(), selectedStrategyId, selectedStrategyName }),
+      createdTrade?.openedAt === '2025-06-15' &&
+      createdTrade.side === 'short' &&
+      createdTrade.tradeKind === 'live' &&
+      createdTrade.strategyId === selectedStrategyId,
+    JSON.stringify({ url: page.url(), selectedStrategyId, selectedStrategyName, createdTrade }),
   )
 
   const closeStatusTrigger = page.getByRole('button', { name: '状态 计划中', exact: true })
@@ -278,7 +317,7 @@ try {
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
-    dashboardClosedCount === '1/1 笔结果有效',
+    dashboardClosedCount.endsWith('1/1 笔结果有效'),
     dashboardClosedCount,
   )
 

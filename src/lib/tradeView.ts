@@ -7,7 +7,7 @@ import type {
   TradeSide,
   TradeStatus,
 } from '@/data/trades'
-import { DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type CalendarPeriod } from '@/lib/periods'
+import { DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 
 /** 日期分组生命力：对齐 Linear 状态栏底色逻辑（当下≈Started，近况≈Todo，更早≈Backlog） */
 export type GroupRecency = 'current' | 'recent' | 'archive'
@@ -356,6 +356,7 @@ export function matchesTradeFacets(
   trade: Trade,
   facets: TradeFacetFilters,
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+  businessDateAnchor?: BusinessDateAnchor,
 ): boolean {
   if (facets.tradeKind && trade.tradeKind !== facets.tradeKind) return false
   if (facets.symbol && trade.symbol !== facets.symbol) return false
@@ -369,7 +370,13 @@ export function matchesTradeFacets(
   if (facets.session && getTradeSessionMeta(trade)?.kind !== facets.session) return false
   if (
     facets.period &&
-    !tradeInPeriod(trade, facets.period, 'openedAt', new Date(), tradingDayStartHour)
+    !tradeInPeriod(
+      trade,
+      facets.period,
+      'openedAt',
+      businessDateAnchor ?? new Date(),
+      tradingDayStartHour,
+    )
   ) {
     return false
   }
@@ -381,8 +388,14 @@ export function filterTradesByFacets(
   trades: Trade[],
   facets: TradeFacetFilters,
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+  businessDateAnchor?: BusinessDateAnchor,
 ): Trade[] {
-  return trades.filter((trade) => matchesTradeFacets(trade, facets, tradingDayStartHour))
+  return trades.filter((trade) => matchesTradeFacets(
+    trade,
+    facets,
+    tradingDayStartHour,
+    businessDateAnchor,
+  ))
 }
 
 export function intersectSelectedTradeIds(selectedIds: Set<string>, visibleTrades: Trade[]) {

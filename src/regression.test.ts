@@ -1754,6 +1754,7 @@ function preview(rowIndex: number, errors: string[] = [], sourceId?: string): No
 
 function image(name: string): ImageFile {
   return {
+    slotId: 0,
     zipPath: name,
     name,
     data: new Uint8Array(),
@@ -2711,7 +2712,7 @@ export function testBatchTradeLifecycleCommitsOnceAndUndoesAsOneAction(): void {
     )
     assert(!state.trades.find((item) => item.id === untouched.id)?.deletedAt, '未选记录不得被删除')
     assert(
-      state.undoStack.length === 1 && state.undoStack[0]?.length === 2,
+      state.undoStack.length === 1 && state.undoStack[0]?.trades.length === 2,
       '整批删除必须形成一条包含全部记录的撤销操作',
     )
 

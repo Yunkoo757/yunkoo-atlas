@@ -1,7 +1,7 @@
 # Trader Atlas — 环境迁移与依赖说明
 
 > 用于在新电脑上克隆、安装依赖并正常运行本项目。  
-> 最后更新：2026-07-16
+> 最后更新：2026-07-23
 
 ---
 
@@ -37,7 +37,8 @@
 ### 2.3 操作系统
 
 - **Windows 10/11**：主要开发与测试环境
-- **macOS / Linux**：Web 版通常可跑；Electron 桌面版未在本文环境逐项验证
+- **macOS**：CI 构建桌面产物；涉及文件系统语义的 Electron safety、强杀和 Spike 必须以 macOS runner 的原始报告为准
+- **Linux**：Web 版通常可跑；不在本轮 Electron 桌面发布承诺内
 
 ---
 
@@ -84,6 +85,10 @@ pnpm dev:electron
 | `pnpm qa:design` | 设计令牌与布局契约检查 |
 | `pnpm qa:linear` | Linear 重构页面与响应式检查 |
 | `pnpm qa:electron` | Electron headless QA（需先 `build:app`） |
+| `pnpm qa:full` | Release 0 要求的完整 Web/Electron 发布 QA |
+| `pnpm benchmark:persistence:release` | 正式 10K/20K 持久化、退出与 Web ZIP heap 门；缺少批准基线时保持阻断 |
+| `pnpm test:forced-kill:electron` | 强杀真实 Electron 主进程并验证只恢复最后确认数据（需先 `build:app`） |
+| `pnpm spike:generation` | 仅运行隔离 Generation 决策 Spike；不会进入生产 bundle |
 
 ---
 
@@ -170,7 +175,7 @@ pnpm dev:electron
 默认路径：
 
 ```
-%USERPROFILE%\Documents\Linear Journal\
+%USERPROFILE%\Documents\Yunkoo Atlas\
 ├── manifest.json
 ├── journal.db
 ├── attachments\
@@ -217,7 +222,7 @@ pnpm dev:electron
 
 **Electron 桌面版** — 数据在本地文件夹：
 
-1. 复制整个 `Documents\Linear Journal` 目录到新电脑相同位置，或
+1. 复制整个 `Documents\Yunkoo Atlas` 目录到新电脑相同位置，或
 2. 使用应用内导出 `.journal.zip` / JSON，在新电脑导入
 
 浏览器归档与 Electron 本地库归档不是同一种格式。当前支持将 Web 端导出的 `data.json + assets` 完整归档导入 Electron；Electron 的 `manifest.json + journal.db` 完整归档仍不能在 Web 端恢复。浏览器遇到桌面格式时会明确拒绝，不会尝试写入。
@@ -226,10 +231,20 @@ pnpm dev:electron
 
 ### 8.3 数据格式兼容边界
 
-- 当前持久化 schema 为 **v6**，本轮没有升级到 v7。
-- 新版本会继续规范化和读取现有 v6 快照；未来版本归档会在写盘前被拒绝并说明版本不兼容。
+- 当前持久化 schema 与 Web 归档版本均为 **v8**；本轮修复 v8 writer/reader 合同，不创建 v9。
+- 16 个活跃字段由中央注册表与 codec 统一规范化；`cases`、`disputeTypes` 仅兼容读取，不会再次写出。
+- Release 0 对旧 IndexedDB 中尚不存在的 revision 只观察为兼容值 `0`；成功或失败前后都保持 `0`，不在止血阶段创建 revision 或承诺 CAS。
+- Release 1 起，第一次成功 v2 提交在同一 IndexedDB 事务中推进 `0 → 1`，之后所有 snapshot/asset 写入口使用 revision/CAS。升级时必须关闭或刷新仍运行旧脚本的标签页。
+- 新版本继续规范化读取 v1–v8 历史快照；未来版本归档会在写盘前被拒绝并说明版本不兼容。
 - `subscribedIds` 等历史字段继续保留读取兼容，但不代表当前界面已经提供对应功能。
 - 随机复盘会话只写入当前标签页的 `sessionStorage`，不进入资料库快照或备份。
+
+### 8.4 强制退出与恢复边界
+
+- 正常退出会统一执行 renderer flush、已验证备份和 storage release；任一步失败都会取消退出。
+- 操作系统强杀、断电或进程崩溃只保证重启后恢复**最后一次已确认落盘的数据**，不承诺保存仍在内存或尚未完成原子替换的编辑。
+- 遇到强制退出后，先重新打开资料库并核对最近交易；若最后确认数据本身异常，再从“设置 → 数据与备份”选择已验证恢复点。
+- 不要手工删除 `.trash`、临时文件或备份目录；先保留现场并导出当前可读归档。
 
 ---
 
@@ -307,3 +322,4 @@ Electron：sql.js + 本地文件（electron/library/）
 - [ ] `pnpm dev` 后 `http://localhost:5180` 可打开
 - [ ] （如需旧数据）Web 已通过完整 `.journal.zip` 恢复，或已复制 Electron 库目录
 - [ ] （可选）`pnpm dev:electron` 桌面版可启动
+- [ ] 已理解强杀只保证最后确认数据，重要迁移前已保存恢复归档

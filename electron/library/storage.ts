@@ -4,14 +4,28 @@ import electronRuntime from 'electron'
 import initSqlJs, { type Database } from 'sql.js'
 import { randomUUID } from 'node:crypto'
 import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types'
+import type {
+  AssetPurgePreview,
+  AssetPurgeResult,
+  PhysicalAssetRecord,
+} from '../../src/storage/adapter'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
-import { ensureLibraryDirs, findAttachmentFile, getLibraryPath } from './paths'
+import { ensureLibraryDirs, findAttachmentFile, getLibraryPath, getLibraryPaths } from './paths'
 import { isImageMime, processImageBuffer } from './images'
-import { writeFileAtomicallySync } from './atomicFile'
-import { assertSafeAssetId } from '../../src/storage/assetId'
+import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
+import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
+import { buildAssetInventory } from '../../src/storage/assetInventory'
 
 const SNAPSHOT_KEY = 'snapshot'
+const ASSET_TRASH_MANIFEST = 'manifest.json'
+const ASSET_TRASH_CLEANUP = 'cleanup.json'
+
+interface AssetTrashManifest {
+  version: 1
+  operationId: string
+  files: Array<{ id: string; fileName: string }>
+}
 
 export interface AssetBytes {
   id: string
@@ -44,6 +58,52 @@ function fileSizeIfPresent(filePath: string): number {
   }
 }
 
+function readAssetFileName(db: Database, id: string): string | null {
+  const stmt = db.prepare('SELECT file_name FROM assets WHERE id = ?')
+  try {
+    stmt.bind([id])
+    return stmt.step() ? String(stmt.getAsObject().file_name) : null
+  } finally {
+    stmt.free()
+  }
+}
+
+function assertRegularFile(filePath: string, label: string): fs.Stats {
+  const stat = fs.lstatSync(filePath)
+  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`${label} 必须是普通文件`)
+  return stat
+}
+
+function readAssetTrashJournal(filePath: string, operationId: string): AssetTrashManifest {
+  assertRegularFile(filePath, '附件恢复清单')
+  const manifest = JSON.parse(fs.readFileSync(filePath, 'utf8')) as AssetTrashManifest
+  if (
+    manifest.version !== 1 ||
+    manifest.operationId !== operationId ||
+    !Array.isArray(manifest.files)
+  ) {
+    throw new Error('附件恢复清单无效，已停止打开资料库')
+  }
+  const seenIds = new Set<string>()
+  const seenNames = new Set<string>([ASSET_TRASH_MANIFEST, ASSET_TRASH_CLEANUP])
+  for (const file of manifest.files) {
+    if (
+      !file ||
+      !isSafeAssetId(file.id) ||
+      typeof file.fileName !== 'string' ||
+      path.basename(file.fileName) !== file.fileName ||
+      !file.fileName.startsWith(`${file.id}.`) ||
+      seenIds.has(file.id) ||
+      seenNames.has(file.fileName)
+    ) {
+      throw new Error('附件恢复清单包含非法或重复路径')
+    }
+    seenIds.add(file.id)
+    seenNames.add(file.fileName)
+  }
+  return manifest
+}
+
 async function getSql() {
   if (!sqlPromise) {
     sqlPromise = initSqlJs({
@@ -74,9 +134,28 @@ async function getSql() {
 export class LibraryStorage {
   private db: Database | null = null
   private paths: ReturnType<typeof ensureLibraryDirs>
+  private readonly allowCreate: boolean
+  private readonly writeImportDatabase: typeof writeFileAtomicallySync
+  private assetPurgePreviews = new Map<string, {
+    snapshotJson: string
+    candidateIds: string[]
+    totalBytes: number
+  }>()
 
-  constructor(libraryPath = getLibraryPath()) {
-    this.paths = ensureLibraryDirs(path.resolve(libraryPath))
+  constructor(
+    libraryPath = getLibraryPath(),
+    options: {
+      ensureDirectories?: boolean
+      allowCreate?: boolean
+      writeImportDatabase?: typeof writeFileAtomicallySync
+    } = {},
+  ) {
+    const resolved = path.resolve(libraryPath)
+    this.allowCreate = options.allowCreate !== false
+    this.writeImportDatabase = options.writeImportDatabase ?? writeFileAtomicallySync
+    this.paths = options.ensureDirectories === false
+      ? getLibraryPaths(resolved)
+      : ensureLibraryDirs(resolved)
   }
 
   getLibraryPath(): string {
@@ -89,8 +168,15 @@ export class LibraryStorage {
 
   async open(): Promise<void> {
     if (this.db) return
+    if (!this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
+      throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
+    }
     const SQL = await getSql()
     const created = !fs.existsSync(this.paths.dbFile)
+
+    if (created && !this.allowCreate) {
+      throw new Error('journal.db 不存在，已阻止创建空交易库')
+    }
 
     // journal.db 缺失但目录已有 manifest：禁止静默建空库，以免覆盖现有记录。
     if (created && fs.existsSync(this.paths.manifestFile)) {
@@ -108,6 +194,29 @@ export class LibraryStorage {
       this.db = new SQL.Database(file)
     }
 
+    if (!this.allowCreate) {
+      const tables = this.db.exec(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('meta', 'assets')",
+      )
+      const names = new Set((tables[0]?.values ?? []).map((row) => String(row[0])))
+      if (!names.has('meta') || !names.has('assets')) {
+        throw new Error('journal.db 缺少必需的数据表，已阻止按空交易库打开')
+      }
+      const requiredColumns: Record<string, string[]> = {
+        meta: ['key', 'value'],
+        assets: ['id', 'mime', 'file_name', 'byte_size', 'created_at'],
+      }
+      for (const [table, required] of Object.entries(requiredColumns)) {
+        const columns = new Set(
+          (this.db.exec(`PRAGMA table_info(${table})`)[0]?.values ?? [])
+            .map((row) => String(row[1])),
+        )
+        if (required.some((column) => !columns.has(column))) {
+          throw new Error(`journal.db 的 ${table} 表结构不完整，已阻止按空交易库打开`)
+        }
+      }
+    }
+
     this.db.run(`
       CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
@@ -122,7 +231,7 @@ export class LibraryStorage {
       );
     `)
 
-    if (created || !fs.existsSync(this.paths.manifestFile)) {
+    if (this.allowCreate && (created || !fs.existsSync(this.paths.manifestFile))) {
       this.writeManifest({
         schemaVersion: SCHEMA_VERSION,
         libraryId: randomUUID(),
@@ -135,6 +244,7 @@ export class LibraryStorage {
     if (created) {
       this.persistDb()
     }
+    this.recoverAssetTrash()
   }
 
   close(): void {
@@ -142,6 +252,7 @@ export class LibraryStorage {
       this.db.close()
       this.db = null
     }
+    this.assetPurgePreviews.clear()
   }
 
   /** Close db without a final export; mutations already persist at write time. */
@@ -150,6 +261,7 @@ export class LibraryStorage {
       this.db.close()
       this.db = null
     }
+    this.assetPurgePreviews.clear()
   }
 
   private requireDb(): Database {
@@ -165,6 +277,9 @@ export class LibraryStorage {
 
   readManifest(): LibraryManifest {
     if (!fs.existsSync(this.paths.manifestFile)) {
+      if (!this.allowCreate) {
+        throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
+      }
       const manifest: LibraryManifest = {
         schemaVersion: SCHEMA_VERSION,
         libraryId: randomUUID(),
@@ -185,7 +300,7 @@ export class LibraryStorage {
     )
   }
 
-  loadSnapshot(): PersistedSnapshot | null {
+  private readSnapshotJson(): string | null {
     const db = this.requireDb()
     const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
     stmt.bind([SNAPSHOT_KEY])
@@ -195,6 +310,12 @@ export class LibraryStorage {
     }
     const value = String(stmt.getAsObject().value)
     stmt.free()
+    return value
+  }
+
+  loadSnapshot(): PersistedSnapshot | null {
+    const value = this.readSnapshotJson()
+    if (value === null) return null
     const snapshot: unknown = JSON.parse(value)
     assertValidPersistedSnapshot(snapshot, 'Stored library snapshot')
     return snapshot
@@ -325,6 +446,317 @@ export class LibraryStorage {
     return { count, totalBytes, missingCount }
   }
 
+  listAssetRecords(): PhysicalAssetRecord[] {
+    const db = this.requireDb()
+    const records: PhysicalAssetRecord[] = []
+    const representedFiles = new Set<string>()
+    const result = db.exec('SELECT id, mime, file_name, byte_size FROM assets')
+    for (const row of result[0]?.values ?? []) {
+      const id = String(row[0])
+      const mime = String(row[1])
+      const fileName = String(row[2])
+      const declaredBytes = Number(row[3])
+      representedFiles.add(fileName)
+
+      let state: PhysicalAssetRecord['state'] = 'missing'
+      let actualBytes: number | undefined
+      const legalName = path.basename(fileName) === fileName && fileName.startsWith(`${id}.`)
+      if (!isSafeAssetId(id) || !legalName) {
+        state = 'foreign'
+      } else {
+        try {
+          const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
+          const stat = fs.lstatSync(filePath)
+          if (stat.isSymbolicLink() || !stat.isFile()) {
+            state = 'foreign'
+          } else {
+            actualBytes = stat.size
+            state = Number.isSafeInteger(declaredBytes) && declaredBytes >= 0 && stat.size === declaredBytes
+              ? 'healthy'
+              : 'size-mismatch'
+          }
+        } catch {
+          state = 'missing'
+        }
+      }
+      records.push({ id, mime, declaredBytes, actualBytes, state, source: 'committed' })
+    }
+
+    for (const entry of fs.readdirSync(this.paths.attachments, { withFileTypes: true })) {
+      if (representedFiles.has(entry.name)) continue
+      const filePath = path.join(this.paths.attachments, entry.name)
+      let actualBytes: number | undefined
+      if (entry.isFile()) actualBytes = fs.lstatSync(filePath).size
+      const isTemp = /(?:^\.|\.)(?:tmp|temp|stage|staged)(?:\.|$)/i.test(entry.name)
+      records.push({
+        id: entry.name,
+        actualBytes,
+        state: isTemp ? 'temp' : 'foreign',
+        source: 'filesystem',
+      })
+    }
+    return records
+  }
+
+  private recoverAssetTrash(): void {
+    const trashRoot = path.join(this.paths.root, '.trash')
+    if (!fs.existsSync(trashRoot)) return
+    const trashStat = fs.lstatSync(trashRoot)
+    if (trashStat.isSymbolicLink() || !trashStat.isDirectory()) {
+      throw new Error('附件恢复目录 .trash 必须是当前库内的普通目录')
+    }
+    const attachmentsStat = fs.lstatSync(this.paths.attachments)
+    if (attachmentsStat.isSymbolicLink() || !attachmentsStat.isDirectory()) {
+      throw new Error('附件恢复前发现 attachments 不是普通目录')
+    }
+
+    const db = this.requireDb()
+    for (const operation of fs.readdirSync(trashRoot, { withFileTypes: true })) {
+      if (operation.isSymbolicLink() || !operation.isDirectory() || !isSafeAssetId(operation.name)) {
+        throw new Error('附件恢复目录包含非法操作项，已停止打开资料库')
+      }
+      const operationDir = path.join(trashRoot, operation.name)
+      const manifestPath = path.join(operationDir, ASSET_TRASH_MANIFEST)
+      const cleanupPath = path.join(operationDir, ASSET_TRASH_CLEANUP)
+      const initialNames = fs.readdirSync(operationDir)
+      if (initialNames.length === 0) {
+        fs.rmdirSync(operationDir)
+        fsyncDirectorySync(trashRoot)
+        continue
+      }
+      const hasManifest = fs.existsSync(manifestPath)
+      const hasCleanup = fs.existsSync(cleanupPath)
+      if (!hasManifest && !hasCleanup) throw new Error('附件恢复操作缺少可验证清单')
+      const primary = hasManifest
+        ? readAssetTrashJournal(manifestPath, operation.name)
+        : readAssetTrashJournal(cleanupPath, operation.name)
+      if (hasManifest && hasCleanup) {
+        const cleanup = readAssetTrashJournal(cleanupPath, operation.name)
+        if (JSON.stringify(primary) !== JSON.stringify(cleanup)) {
+          throw new Error('附件恢复双清单内容不一致，已停止打开资料库')
+        }
+      }
+      const manifest = primary
+      const expectedNames = new Set([ASSET_TRASH_MANIFEST, ASSET_TRASH_CLEANUP])
+      for (const file of manifest.files) {
+        expectedNames.add(file.fileName)
+      }
+      const actualNames = fs.readdirSync(operationDir)
+      if (
+        !actualNames.includes(ASSET_TRASH_MANIFEST) && !actualNames.includes(ASSET_TRASH_CLEANUP) ||
+        actualNames.some((name) => !expectedNames.has(name))
+      ) {
+        throw new Error('附件恢复目录内容与清单不一致')
+      }
+
+      for (const file of manifest.files) {
+        const stagedPath = path.join(operationDir, file.fileName)
+        const targetPath = resolveAttachmentWritePath(this.paths.attachments, file.fileName)
+        const rowFileName = readAssetFileName(db, file.id)
+        if (rowFileName !== null) {
+          if (rowFileName !== file.fileName) throw new Error('附件恢复清单与数据库路径不一致')
+          if (fs.existsSync(targetPath)) {
+            assertRegularFile(targetPath, '活动附件')
+            if (fs.existsSync(stagedPath)) {
+              assertRegularFile(stagedPath, '待恢复附件副本')
+              fs.rmSync(stagedPath)
+              fsyncDirectorySync(operationDir)
+            }
+          } else if (fs.existsSync(stagedPath)) {
+            assertRegularFile(stagedPath, '待恢复附件')
+            fs.renameSync(stagedPath, targetPath)
+            fsyncDirectorySync(this.paths.attachments)
+            fsyncDirectorySync(operationDir)
+          } else {
+            throw new Error('附件恢复所需的活动文件与 trash 副本均不存在')
+          }
+        } else {
+          if (fs.existsSync(targetPath)) {
+            assertRegularFile(targetPath, '待完成清理的活动附件')
+            fs.rmSync(targetPath)
+            fsyncDirectorySync(this.paths.attachments)
+          }
+          if (fs.existsSync(stagedPath)) {
+            assertRegularFile(stagedPath, '待完成清理附件')
+            fs.rmSync(stagedPath)
+            fsyncDirectorySync(operationDir)
+          }
+        }
+      }
+      if (!fs.existsSync(cleanupPath)) {
+        writeFileAtomicallySync(cleanupPath, JSON.stringify(manifest, null, 2), 'utf8')
+      }
+      if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath)
+      fsyncDirectorySync(operationDir)
+      fs.rmSync(cleanupPath)
+      fsyncDirectorySync(operationDir)
+      // cleanup journal 消失时目录必为空；此后中断可由上方空目录分支收敛。
+      fs.rmdirSync(operationDir)
+      fsyncDirectorySync(trashRoot)
+    }
+    if (fs.readdirSync(trashRoot).length === 0) {
+      fs.rmdirSync(trashRoot)
+      fsyncDirectorySync(this.paths.root)
+    }
+  }
+
+  previewAssetPurge(): AssetPurgePreview {
+    const snapshotJson = this.readSnapshotJson()
+    if (snapshotJson === null) throw new Error('当前资料库尚无可校验的持久化快照')
+    const snapshot = this.loadSnapshot()!
+    const inventory = buildAssetInventory(snapshot, this.listAssetRecords())
+    const candidateIds = inventory.orphan.map((record) => record.id).sort()
+    const totalBytes = inventory.orphan.reduce(
+      (sum, record) => sum + (record.actualBytes ?? 0),
+      0,
+    )
+    const operationId = randomUUID()
+    this.assetPurgePreviews.set(operationId, { snapshotJson, candidateIds, totalBytes })
+    return { operationId, revision: 0, candidateIds: [...candidateIds], totalBytes }
+  }
+
+  async commitAssetPurge(preview: AssetPurgePreview): Promise<AssetPurgeResult> {
+    const prepared = this.assetPurgePreviews.get(preview.operationId)
+    this.assetPurgePreviews.delete(preview.operationId)
+    if (
+      !prepared ||
+      preview.revision !== 0 ||
+      prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
+      prepared.totalBytes !== preview.totalBytes
+    ) {
+      throw new Error('附件清理预览无效或已使用，请重新扫描')
+    }
+    if (this.readSnapshotJson() !== prepared.snapshotJson) {
+      throw new Error('资料库在预览后已变化，请重新扫描附件')
+    }
+    const currentSnapshot = this.loadSnapshot()!
+    const liveIds = new Set(
+      buildAssetInventory(currentSnapshot, []).referenced.map((item) => item.id),
+    )
+    if (prepared.candidateIds.some((id) => liveIds.has(id))) {
+      throw new Error('清理候选已重新被笔记引用，请重新扫描')
+    }
+
+    const attachmentsStat = fs.lstatSync(this.paths.attachments)
+    if (attachmentsStat.isSymbolicLink() || !attachmentsStat.isDirectory()) {
+      throw new Error('attachments 路径不是当前库内的普通目录')
+    }
+
+    const currentDb = this.requireDb()
+    const files = prepared.candidateIds.map((id) => {
+      const fileName = readAssetFileName(currentDb, id)
+      if (!fileName || path.basename(fileName) !== fileName || !fileName.startsWith(`${id}.`)) {
+        throw new Error(`清理候选缺少安全数据库路径：${id}`)
+      }
+      const source = resolveAttachmentWritePath(this.paths.attachments, fileName)
+      const stat = assertRegularFile(source, `清理候选 ${id}`)
+      return { id, fileName, bytes: stat.size, source }
+    })
+    if (files.reduce((sum, file) => sum + file.bytes, 0) !== prepared.totalBytes) {
+      throw new Error('清理候选尺寸在预览后发生变化，请重新扫描')
+    }
+
+    const trashRoot = path.join(this.paths.root, '.trash')
+    if (fs.existsSync(trashRoot)) {
+      const stat = fs.lstatSync(trashRoot)
+      if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('.trash 路径不安全')
+    } else {
+      fs.mkdirSync(trashRoot)
+      fsyncDirectorySync(this.paths.root)
+    }
+    const operationDir = path.join(trashRoot, preview.operationId)
+    fs.mkdirSync(operationDir)
+    fsyncDirectorySync(trashRoot)
+    const manifest: AssetTrashManifest = {
+      version: 1,
+      operationId: preview.operationId,
+      files: files.map(({ id, fileName }) => ({ id, fileName })),
+    }
+    writeFileAtomicallySync(
+      path.join(operationDir, ASSET_TRASH_MANIFEST),
+      JSON.stringify(manifest, null, 2),
+      'utf8',
+    )
+
+    const staged: typeof files = []
+    let cleanupDeferred = process.platform === 'win32'
+    let nextDb: Database | null = null
+    try {
+      for (const file of files) {
+        const target = path.join(operationDir, file.fileName)
+        fs.copyFileSync(file.source, target, fs.constants.COPYFILE_EXCL)
+        const descriptor = fs.openSync(target, 'r+')
+        try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
+        staged.push(file)
+      }
+      fsyncDirectorySync(operationDir)
+      const SQL = await getSql()
+      nextDb = new SQL.Database(currentDb.export())
+      nextDb.run('BEGIN TRANSACTION')
+      for (const id of prepared.candidateIds) {
+        nextDb.run('DELETE FROM assets WHERE id = ?', [id])
+        if (nextDb.getRowsModified() !== 1) throw new Error(`清理候选数据库行已变化：${id}`)
+      }
+      nextDb.run('COMMIT')
+      const nextDbBytes = Buffer.from(nextDb.export())
+      try {
+        writeFileAtomicallySync(this.paths.dbFile, nextDbBytes)
+      } catch (error) {
+        // 目录屏障发生在原子替换之后；此时抛错不代表磁盘仍是旧库。
+        // 若目标文件已经完整等于新库，则必须按已提交处理，避免把附件搬回
+        // 一个已删除对应 assets 行的数据库。trash 会保留给启动恢复收尾。
+        let replaced = false
+        try { replaced = fs.readFileSync(this.paths.dbFile).equals(nextDbBytes) } catch { /* 未替换 */ }
+        if (!replaced) throw error
+        cleanupDeferred = true
+      }
+      this.db = nextDb
+      nextDb = null
+      try { currentDb.close() } catch { /* 新数据库已经耐久落盘。 */ }
+    } catch (error) {
+      try { nextDb?.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+      try { nextDb?.close() } catch { /* ignore */ }
+      // DB 前失败时活动原件从未移动。保留完整 manifest + staged 副本，
+      // 由启动恢复按旧 DB 行安全清理，避免递归删除中断留下无 journal 文件。
+      throw error
+    }
+
+    if (!cleanupDeferred) {
+      try {
+        writeFileAtomicallySync(
+          path.join(operationDir, ASSET_TRASH_CLEANUP),
+          JSON.stringify(manifest, null, 2),
+          'utf8',
+        )
+        for (const file of staged) fs.rmSync(file.source)
+        fsyncDirectorySync(this.paths.attachments)
+        for (const file of staged) {
+          const stagedPath = path.join(operationDir, file.fileName)
+          if (fs.existsSync(stagedPath)) fs.rmSync(stagedPath)
+        }
+        fsyncDirectorySync(operationDir)
+        const manifestPath = path.join(operationDir, ASSET_TRASH_MANIFEST)
+        if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath)
+        fsyncDirectorySync(operationDir)
+        fs.rmSync(path.join(operationDir, ASSET_TRASH_CLEANUP))
+        fsyncDirectorySync(operationDir)
+        fs.rmdirSync(operationDir)
+        fsyncDirectorySync(trashRoot)
+      } catch { /* 启动恢复会完成已提交清理。 */ }
+    }
+    try {
+      if (fs.existsSync(trashRoot) && fs.readdirSync(trashRoot).length === 0) {
+        fs.rmdirSync(trashRoot)
+        fsyncDirectorySync(this.paths.root)
+      }
+    } catch { /* 保留空目录不影响正确性。 */ }
+    return { revision: 0, deletedIds: [...prepared.candidateIds] }
+  }
+
+  cancelAssetPurge(operationId: string): void {
+    this.assetPurgePreviews.delete(operationId)
+  }
+
   importAsset(id: string, mime: string, buffer: Buffer): void {
     const db = this.requireDb()
     assertSafeAssetId(id)
@@ -434,7 +866,14 @@ export class LibraryStorage {
         fs.renameSync(staged.temp, staged.target)
         committedFiles.push(staged.target)
       }
-      writeFileAtomicallySync(this.paths.dbFile, Buffer.from(nextDb.export()))
+      const nextDbBytes = Buffer.from(nextDb.export())
+      try {
+        this.writeImportDatabase(this.paths.dbFile, nextDbBytes)
+      } catch (error) {
+        const targetWasReplaced = fs.existsSync(this.paths.dbFile) && fs.readFileSync(this.paths.dbFile).equals(nextDbBytes)
+        if (!targetWasReplaced) throw error
+        // rename 已提交、仅后续目录 durability barrier 报错时，不得删除新 DB 正在引用的附件。
+      }
       currentDb.close()
       this.db = nextDb
       adopted = true

@@ -145,6 +145,7 @@ export function DetailView() {
     return record?.deletedAt ? record : undefined
   }, [allTrades, routeParam])
   const updateTradeData = useStore((s) => s.updateTradeData)
+  const transitionTradeKind = useStore((s) => s.transitionTradeKind)
   const completeTradeClose = useStore((s) => s.completeTradeClose)
   const setStatus = useStore((s) => s.setStatus)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
@@ -1095,7 +1096,7 @@ export function DetailView() {
             />
             <Menu
               value={trade.tradeKind}
-              onSelect={(v) => updateTradeData(trade.id, { tradeKind: v as TradeKind })}
+              onSelect={(v) => transitionTradeKind(trade.id, v as TradeKind)}
               options={KIND_OPTS.map((k) => ({
                 value: k,
                 label: TRADE_KIND_META[k].label,

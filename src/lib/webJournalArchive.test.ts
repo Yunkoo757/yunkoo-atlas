@@ -1,5 +1,13 @@
 import JSZip from 'jszip'
+import { createQuickNote } from '@/data/quickNotes'
+import { createWeeklyReview } from '@/data/weeklyReviews'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
+import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
+import {
+  createFullPersistedSnapshotFixture,
+  FULL_SNAPSHOT_ASSET_IDS,
+  canonicalContractJson,
+} from '@/storage/fixtures/fullPersistedSnapshot'
 import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import {
   MAX_WEB_JOURNAL_ENTRY_BYTES,
@@ -92,6 +100,22 @@ function makePayload(overrides: Record<string, unknown> = {}): Record<string, un
       },
     },
     symbolCatalog: ['BTCUSDT', 'ETHUSDT'],
+    weeklyReviews: [{
+      ...createWeeklyReview('2026-07-13', new Date('2026-07-18T08:00:00.000Z')),
+      contentHtml: '<p>周复盘哨兵</p>',
+      commitmentText: '等待确认',
+    }],
+    quickNotes: [{
+      ...createQuickNote(new Date('2026-07-18T08:00:00.000Z')),
+      id: 'quick-note-contract',
+      title: '随记哨兵',
+      contentHtml: '<p>随记正文哨兵</p>',
+    }],
+    reviewTemplates: [{
+      id: 'review-template-contract',
+      name: '模板哨兵',
+      content: 'HTF 哨兵',
+    }],
     assets: [],
     ...overrides,
   }
@@ -176,35 +200,39 @@ async function expectArchiveError(
 }
 
 export async function testParsesCurrentWebArchiveAndPreservesCompleteSnapshot(): Promise<void> {
-  const payload = makePayload()
-  const trade = (payload.trades as Array<Record<string, unknown>>)[0]!
-  trade.note = '<p>复盘截图</p><img src="journal-asset://asset-one">'
-  payload.assets = [{ id: 'asset-one', mime: 'image/png' }]
-  const input = await buildZip(payload, {
-    'assets/asset-one.png': new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
-  })
+  const expected = createFullPersistedSnapshotFixture()
+  const assets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({
+    id,
+    mime: 'image/png',
+    data: btoa(`contract-image-${index}`),
+  }))
+  const parsed = await parseWebJournalArchive(buildWebJournalArchiveBlob(expected, assets))
 
-  const parsed = await parseWebJournalArchive(new Blob([input]))
-
-  assert(parsed.preview.exportVersion === WEB_JOURNAL_EXPORT_VERSION, '应兼容无 schemaVersion 的当前 Web 导出')
-  assert(parsed.preview.schemaVersion === null, '缺少 schemaVersion 时应在预览中明确为 null')
+  assert(parsed.preview.exportVersion === WEB_JOURNAL_EXPORT_VERSION, '应读取当前 Web 导出版本')
+  assert(parsed.preview.schemaVersion === SCHEMA_VERSION, 'writer 必须显式携带 schemaVersion')
   assert(parsed.preview.tradeCount === 1, '预览应包含记录数量')
+  assert(parsed.preview.weeklyReviewCount === 1, '预览应包含周复盘数量')
+  assert(parsed.preview.quickNoteCount === 1, '预览应包含随记数量')
+  assert(parsed.preview.reviewTemplateCount === 1, '预览应包含复盘模板数量')
   assert(parsed.preview.strategyCount === 1, '预览应包含策略数量')
-  assert(parsed.preview.assetCount === 1, '预览应包含附件数量')
-  assert(parsed.preview.assetBytes === 8, '预览应包含附件原始字节数')
+  assert(parsed.preview.assetCount === 4, '预览应对共享附件去重并包含四个物理附件')
   assert(parsed.preview.shortcutCount === 1, '预览应包含快捷键数量')
   assert(parsed.preview.savedViewCount === 1, '预览应包含已保存视图数量')
   assert(parsed.preview.symbolIconCount === 1, '预览应包含品种图标数量')
   assert(parsed.preview.symbolCatalogCount === 2, '预览应包含品种目录数量')
-  assert(parsed.preview.profileDisplayName === '测试用户', '预览应保留个人资料名称')
-  assert(parsed.snapshot.profile?.displayName === '测试用户', '应保留 profile')
-  assert(parsed.snapshot.shortcuts?.['nav.dashboard'] !== undefined, '应保留 shortcuts')
-  assert(parsed.snapshot.savedTradeViews?.[0]?.id === 'view-1', '应保留 savedTradeViews')
-  assert(parsed.snapshot.symbolIcons?.BTCUSDT?.presetId === 'btc', '应保留 symbolIcons')
-  assert(parsed.snapshot.symbolCatalog?.includes('ETHUSDT'), '应保留 symbolCatalog')
-  assert(parsed.snapshot.display.groupByDate, '应规范化并保留 display')
-  assert(parsed.snapshot.tagPresets?.[0] === '突破', '标签应安全去空并规范化')
-  assert(parsed.assets[0]?.data === 'iVBORw0KGgo=', '附件应无损转换为 base64')
+  assert(parsed.preview.profileDisplayName === '合同用户', '预览应保留个人资料名称')
+  for (const field of PERSISTED_SNAPSHOT_FIELDS) {
+    assert(
+      canonicalContractJson(parsed.snapshot[field]) === canonicalContractJson(expected[field]),
+      `PATH-B Web writer → reader 字段 ${field} 必须逐字段保真`,
+    )
+  }
+  for (const asset of assets) {
+    assert(
+      parsed.assets.some((actual) => actual.id === asset.id && actual.data === asset.data),
+      `PATH-B 附件 ${asset.id} 必须逐字节保真`,
+    )
+  }
 }
 
 export async function testCurrentWriterRoundTripsEverySafeImageMime(): Promise<void> {
@@ -341,6 +369,53 @@ export async function testRejectsDeclaredAssetThatNoTradeReferences(): Promise<v
   )
 }
 
+export async function testRecoveryArchiveRequiresEveryWhitelistedAssetByte(): Promise<void> {
+  const snapshot = createFullPersistedSnapshotFixture()
+  const assets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({
+    id,
+    mime: 'image/png',
+    data: btoa(`contract-image-${index}`),
+  }))
+
+  let error: unknown
+  try {
+    buildWebJournalArchiveBlob(snapshot, assets, {
+      recoveryOrphanAssetIds: ['missing-recovery-asset'],
+    })
+  } catch (caught) {
+    error = caught
+  }
+
+  assert(error instanceof Error, '恢复归档不得声明一个没有对应字节的孤儿附件')
+  assert(error.message.includes('缺少声明或字节'), `实际错误：${error.message}`)
+}
+
+export async function testRejectsMalformedRecoveryAssetWhitelist(): Promise<void> {
+  await expectArchiveError(
+    async () => parseWebJournalArchive(await buildZip(makePayload({
+      recoveryOrphanAssetIds: 'orphan-image',
+    }))),
+    '必须是数组',
+    'invalid-asset',
+  )
+
+  await expectArchiveError(
+    async () => parseWebJournalArchive(await buildZip(makePayload({
+      recoveryOrphanAssetIds: ['orphan-image', 'orphan-image'],
+    }))),
+    'ID 重复',
+    'invalid-asset',
+  )
+
+  await expectArchiveError(
+    async () => parseWebJournalArchive(await buildZip(makePayload({
+      recoveryOrphanAssetIds: ['orphan-image'],
+    }))),
+    '缺少声明或文件',
+    'invalid-asset',
+  )
+}
+
 export async function testParsesArchiveWithoutImagesOrAssetsDirectory(): Promise<void> {
   const input = await buildZip(makePayload())
   const parsed = await parseWebJournalArchive(input)
@@ -442,3 +517,5 @@ export async function testParserDoesNotAccessIndexedDb(): Promise<void> {
     else delete (globalThis as { indexedDB?: IDBFactory }).indexedDB
   }
 }
+// Quality-Scenario: H0-B-16
+// Quality-Scenario: H0-D-WEB-REJECT

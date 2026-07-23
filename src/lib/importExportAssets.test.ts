@@ -3,14 +3,26 @@ import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { createWeeklyReview } from '@/data/weeklyReviews'
 import { createQuickNote } from '@/data/quickNotes'
+import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
+import {
+  createFullPersistedSnapshotFixture,
+  FULL_SNAPSHOT_ASSET_IDS,
+  canonicalContractJson,
+} from '@/storage/fixtures/fullPersistedSnapshot'
 import {
   buildExportPayloadFromState,
+  buildWebConflictRecoveryPayload,
   buildPortableSnapshotFromState,
   loadReferencedAssetsForExport,
   mergeImportPayload,
   parseImportJson,
   prepareImportPayloadForCommit,
 } from '@/lib/importExport'
+import {
+  applyNoteDraftsToSnapshot,
+  resetNoteDraftsForTests,
+  setNoteDraft,
+} from '@/storage/noteDrafts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -94,6 +106,80 @@ export async function testWeeklyReviewTextAndImagesRoundTripThroughJsonBackup():
     prepared.payload.weeklyReviews?.[0]?.contentHtml.includes('journal-asset://weekly-asset-fresh'),
     '导入时周复盘截图引用也必须安全重编号',
   )
+}
+
+export async function testConflictRecoveryCombinesAvailableAssetsAndListsEveryMissingReference(): Promise<void> {
+  const secondTrade = {
+    ...trade,
+    id: 't-img-2',
+    ref: 'TRD-IMG-2',
+    note: '<p><img src="journal-asset://prepared"><img src="journal-asset://missing"></p>',
+  }
+  const { payload, missingAssetIds } = await buildWebConflictRecoveryPayload(
+    {
+      trades: [trade, secondTrade],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+    },
+    async (id) => id === 'missing' ? null : { id, mime: 'image/png', data: `bytes-${id}` },
+  )
+
+  assert(payload.assets.map((asset) => asset.id).sort().join(',') === 'asset-1,prepared', '抢救副本必须合并已提交与本地 prepared 附件')
+  assert(missingAssetIds.join(',') === 'missing', '缺失引用必须逐项列出')
+  assert(payload.recovery.complete === false, '存在缺失附件时不得宣称副本完整')
+  assert(payload.recovery.warning.includes('不能视为完整备份'), '不完整副本必须携带明确警告')
+}
+
+export async function testConflictRecoveryExportsRealEditorPreparedImageReference(): Promise<void> {
+  resetNoteDraftsForTests()
+  try {
+    setNoteDraft(
+      trade.id,
+      '<p>未保存图片<img src="blob:http://localhost/editor-preview" data-asset-id="prepared-editor"></p>',
+    )
+    const snapshot = applyNoteDraftsToSnapshot({
+      trades: [trade],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+    })
+    const { payload } = await buildWebConflictRecoveryPayload(
+      snapshot,
+      async (id) => id === 'prepared-editor'
+        ? { id, mime: 'image/png', data: 'cHJlcGFyZWQ=' }
+        : null,
+    )
+    assert(payload.trades[0]?.note.includes('journal-asset://prepared-editor'), '真实 Editor blob 引用必须转为持久附件引用')
+    assert(payload.assets[0]?.id === 'prepared-editor', '仅由草稿引用的 prepared asset 必须进入恢复副本')
+    assert(payload.recovery.complete, 'prepared asset 可读取时恢复副本才可标记完整')
+  } finally {
+    resetNoteDraftsForTests()
+  }
+}
+
+export async function testConflictRecoveryMarksBlobWithoutPermanentAssetIdIncomplete(): Promise<void> {
+  resetNoteDraftsForTests()
+  try {
+    setNoteDraft(trade.id, '<p><img src="blob:http://localhost/not-yet-prepared"></p>')
+    const snapshot = applyNoteDraftsToSnapshot({
+      trades: [trade],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+    })
+    const { payload, missingAssetIds } = await buildWebConflictRecoveryPayload(snapshot, async () => null)
+    assert(!payload.recovery.complete, '没有永久附件 ID 的 blob 草稿不得宣称恢复完整')
+    assert(missingAssetIds[0]?.startsWith('recovery-missing-draft-image-'), '未准备图片必须明确列入缺失引用')
+  } finally {
+    resetNoteDraftsForTests()
+  }
 }
 
 export async function testQuickNoteTextAndImagesRoundTripWithoutEnteringTrades(): Promise<void> {
@@ -230,6 +316,140 @@ export function testPortableSnapshotIncludesWorkflowSettingsAndShortcutOverrides
   assert(snapshot.mistakeTagPresets?.[0] === '追单', '完整迁移快照应包含错误标签库')
   assert(snapshot.shortcuts?.['nav.list'] != null, '完整迁移快照应包含快捷键覆盖值')
   assert(snapshot.symbolCatalog?.[0] === 'NVDA', '完整迁移快照应包含品种目录')
+}
+
+export async function testJsonBackupRoundTripsProfileAndShortcutOverrides(): Promise<void> {
+  const payload = await buildExportPayloadFromState(
+    {
+      trades: [{ ...trade, note: '' }],
+      strategies: [strategy],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: DEFAULT_DISPLAY,
+      profile: { avatarId: 'monogram-1', displayName: 'Yunkoo' },
+      shortcuts: { 'nav.list': { alt: true, key: 'x' } },
+    },
+    async () => null,
+  )
+
+  assert(
+    Object.prototype.hasOwnProperty.call(payload, 'profile'),
+    '当前 JSON writer 必须显式写出 profile 字段',
+  )
+  assert(
+    Object.prototype.hasOwnProperty.call(payload, 'shortcuts'),
+    '当前 JSON writer 必须显式写出 shortcuts 字段',
+  )
+  const missingFields = PERSISTED_SNAPSHOT_FIELDS.filter(
+    (field) => !Object.prototype.hasOwnProperty.call(payload, field),
+  )
+  assert(missingFields.length === 0, `当前 JSON writer 漏写字段：${missingFields.join(', ')}`)
+
+  const parsed = parseImportJson(JSON.stringify(payload))
+  assert(parsed.ok, '当前 JSON 备份必须能够重新导入')
+  if (!parsed.ok) return
+  assert(parsed.data.profile?.displayName === 'Yunkoo', 'JSON 往返必须保留 profile')
+  assert(
+    JSON.stringify(parsed.data.shortcuts?.['nav.list']) === JSON.stringify({ alt: true, key: 'x' }),
+    'JSON 往返必须保留快捷键覆盖',
+  )
+}
+
+export async function testPathAFullSnapshotRoundTripsEveryRegisteredField(): Promise<void> {
+  const expected = createFullPersistedSnapshotFixture()
+  const assetIds = new Set(Object.values(FULL_SNAPSHOT_ASSET_IDS))
+  const payload = await buildExportPayloadFromState(expected, async (id) => assetIds.has(id)
+    ? { id, mime: 'image/png', data: 'aW1hZ2U=' }
+    : null)
+
+  assert(
+    JSON.stringify(Object.keys(payload).filter((key) => key !== 'version' && key !== 'assets').sort()) ===
+      JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
+    'PATH-A writer 的快照字段集合必须与中央注册表完全相等',
+  )
+
+  const parsed = parseImportJson(JSON.stringify(payload))
+  assert(parsed.ok, 'PATH-A 全量哨兵 fixture 必须可由 JSON codec 重新读取')
+  if (!parsed.ok) return
+  for (const field of PERSISTED_SNAPSHOT_FIELDS) {
+    assert(
+      canonicalContractJson(parsed.data[field]) === canonicalContractJson(expected[field]),
+      `PATH-A 字段 ${field} 必须逐字段保真`,
+    )
+  }
+}
+
+export async function testPathAHistoricalMissingFieldMatrixIsExplicit(): Promise<void> {
+  const expected = createFullPersistedSnapshotFixture()
+  expected.trades[0]!.note = '<p>交易哨兵</p>'
+  expected.weeklyReviews![0]!.contentHtml = '<p>周复盘哨兵</p>'
+  expected.quickNotes![0]!.contentHtml = '<p>随记正文哨兵</p>'
+  const payload = await buildExportPayloadFromState(expected, async () => null)
+
+  for (const field of PERSISTED_SNAPSHOT_FIELDS) {
+    const candidate = { ...payload, version: 1 } as Record<string, unknown>
+    delete candidate[field]
+    const parsed = parseImportJson(JSON.stringify(candidate))
+    assert(parsed.ok, `历史输入缺少 ${field} 时必须由中央规范化层补齐`)
+    if (parsed.ok) {
+      assert(field in parsed.data, `规范化后的 CanonicalSnapshot 必须显式拥有 ${field}`)
+    }
+  }
+}
+
+export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState(): Promise<void> {
+  const fixture = createFullPersistedSnapshotFixture()
+  const sparse = {
+    ...fixture,
+    shortcuts: undefined,
+    tagPresets: undefined,
+    mistakeTagPresets: undefined,
+    profile: undefined,
+  }
+  const payload = await buildExportPayloadFromState(
+    sparse,
+    async (id) => ({ id, mime: 'image/png', data: 'aW1hZ2U=' }),
+  )
+  const serialized = JSON.parse(JSON.stringify(payload)) as Record<string, unknown>
+  const actualFields = Object.keys(serialized)
+    .filter((key) => key !== 'version' && key !== 'assets')
+    .sort()
+  assert(
+    JSON.stringify(actualFields) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
+    'PATH-A writer 经过 JSON.stringify 后仍必须显式拥有全部 16 字段',
+  )
+  assert(JSON.stringify(serialized.shortcuts) === '{}', '空快捷键覆盖必须序列化为空对象')
+  assert(JSON.stringify(serialized.tagPresets) === '[]', '缺失标签预设必须序列化为空数组')
+  assert(JSON.stringify(serialized.mistakeTagPresets) === '[]', '缺失错误标签预设必须序列化为空数组')
+  assert(typeof (serialized.profile as { displayName?: unknown }).displayName === 'string', '缺失 profile 必须序列化为默认身份')
+
+  const portableSerialized = JSON.parse(JSON.stringify(
+    buildPortableSnapshotFromState(
+      sparse as unknown as Parameters<typeof buildPortableSnapshotFromState>[0],
+      {},
+    ),
+  )) as Record<string, unknown>
+  assert(
+    JSON.stringify(Object.keys(portableSerialized).sort()) ===
+      JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
+    'Web ZIP portable writer 序列化后也必须显式拥有全部 16 字段',
+  )
+}
+
+export async function testPathAWrongTypeMatrixRejectsEveryRegisteredField(): Promise<void> {
+  const expected = createFullPersistedSnapshotFixture()
+  const payload = await buildExportPayloadFromState(expected, async (id) => ({
+    id,
+    mime: 'image/png',
+    data: 'aW1hZ2U=',
+  }))
+
+  for (const field of PERSISTED_SNAPSHOT_FIELDS) {
+    const candidate = { ...payload, [field]: '__invalid_type__' }
+    const parsed = parseImportJson(JSON.stringify(candidate))
+    assert(!parsed.ok, `字段 ${field} 存在但类型错误时必须拒绝，不能静默使用默认值`)
+  }
 }
 
 export function testJsonImportAcceptsOpenTradesWithoutResults(): void {
@@ -479,3 +699,4 @@ export function testJsonImportRejectsDuplicateGeneratedAssetIds(): void {
   }
   assert(rejected, '重编号器生成重复附件 ID 时必须中止整个导入')
 }
+// Quality-Scenario: H0-A-16

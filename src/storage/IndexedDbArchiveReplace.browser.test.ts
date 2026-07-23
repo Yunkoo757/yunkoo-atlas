@@ -2,6 +2,12 @@ import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
 import type { PersistedSnapshot } from '@/storage/types'
+import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
+import {
+  createFullPersistedSnapshotFixture,
+  FULL_SNAPSHOT_ASSET_IDS,
+  canonicalContractJson,
+} from '@/storage/fixtures/fullPersistedSnapshot'
 
 declare global {
   interface Window {
@@ -89,6 +95,7 @@ async function run(): Promise<void> {
   await seedIncompleteHigherVersionDatabase()
   const adapter = new IndexedDbStorageAdapter()
   await adapter.open()
+  assert(await adapter.getSnapshotRevision() === 0, 'Release 0 旧库缺少 revision 时必须兼容读取为 0')
   assert((await adapter.getManifest()).libraryId.length > 0, '旧版缺失的资料库元数据表应自动补齐')
   const repairedSnapshot = await adapter.loadSnapshot()
   assert(repairedSnapshot?.profile?.displayName === '缺表旧库', '补齐存储表时不得覆盖旧交易快照')
@@ -175,6 +182,66 @@ async function run(): Promise<void> {
   assert(
     (await adapter.getAssetForExport(failingAssetId)) === null,
     '抛错附件不得留在资料库',
+  )
+
+  const contractSnapshot = createFullPersistedSnapshotFixture()
+  const contractAssets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({
+    id,
+    mime: 'image/png',
+    data: btoa(`indexed-db-contract-${index}`),
+  }))
+  await adapter.replaceArchive(contractSnapshot, contractAssets)
+  assert(
+    await adapter.getSnapshotRevision() === 3,
+    'WEB2 PATH-B 必须在同一 mutation 中将 revision 从 2 推进到 3',
+  )
+  const contractLoaded = await adapter.loadSnapshot()
+  assert(contractLoaded, 'PATH-B replace 后必须存在快照')
+  for (const field of PERSISTED_SNAPSHOT_FIELDS) {
+    assert(
+      canonicalContractJson(contractLoaded[field]) === canonicalContractJson(contractSnapshot[field]),
+      `PATH-B IndexedDB replace 字段 ${field} 必须逐字段保真`,
+    )
+  }
+  for (const asset of contractAssets) {
+    const restored = await adapter.getAssetForExport(asset.id)
+    assert(restored?.data === asset.data, `PATH-B IndexedDB 附件 ${asset.id} 必须逐字节保真`)
+  }
+
+  const contractRevisionBeforeFailure = canonicalContractJson({
+    revision: await adapter.getSnapshotRevision(),
+    snapshot: contractLoaded,
+    assets: await Promise.all(contractAssets.map((asset) => adapter.getAssetForExport(asset.id))),
+  })
+  const originalPutForContractFailure = IDBObjectStore.prototype.put
+  IDBObjectStore.prototype.put = function patchedContractPut(value: unknown, key?: IDBValidKey) {
+    if (typeof value === 'object' && value !== null && 'id' in value && value.id === failingAssetId) {
+      throw new DOMException('forced contract transaction failure', 'DataError')
+    }
+    return key === undefined
+      ? originalPutForContractFailure.call(this, value)
+      : originalPutForContractFailure.call(this, value, key)
+  }
+  rejected = false
+  try {
+    await adapter.replaceArchive(snapshotWithNote('<p>失败候选</p>', '失败候选'), [
+      { id: transientAssetId, mime: 'image/png', data: btoa('transient') },
+      { id: failingAssetId, mime: 'image/png', data: btoa('failure') },
+    ])
+  } catch {
+    rejected = true
+  } finally {
+    IDBObjectStore.prototype.put = originalPutForContractFailure
+  }
+  assert(rejected, 'PATH-B Nth 附件请求失败必须中止同一 CAS 事务')
+  const contractRevisionAfterFailure = canonicalContractJson({
+    revision: await adapter.getSnapshotRevision(),
+    snapshot: await adapter.loadSnapshot(),
+    assets: await Promise.all(contractAssets.map((asset) => adapter.getAssetForExport(asset.id))),
+  })
+  assert(
+    contractRevisionAfterFailure === contractRevisionBeforeFailure,
+    'PATH-B 失败后快照、全部附件与可观察 revision 指纹必须零变化',
   )
 }
 

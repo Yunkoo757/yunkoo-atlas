@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8"><title>IndexedDB asset GC test</title></head>
+  <body>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/storage/IndexedDbAssetGc.browser.test.ts"></script>
+  </body>
+</html>
+<!-- Quality-Scenario: W-GC-STALE -->
+<!-- Quality-Scenario: A-WEB-DELETE-N -->
+<!-- Quality-Scenario: A-WEB-RECOVERY -->

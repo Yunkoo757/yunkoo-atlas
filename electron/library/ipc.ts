@@ -9,10 +9,26 @@ import {
 } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import os from 'node:os'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath } from './journalZip'
-import { getLibraryPath, saveLibraryConfig, ensureLibraryDirs } from './paths'
-import { createBackup, listBackups, restoreBackup, deleteBackup, startAutoBackup, stopAutoBackup, getBackupStats, rotateBackups, verifyBackup } from './backup'
+import { saveLibraryConfig, ensureLibraryDirs } from './paths'
+import {
+  getLibraryLocationState,
+  getValidatedLibraryLocation,
+  libraryLocationError,
+} from './libraryLocation'
+import {
+  createBackup,
+  deleteBackupAtPath,
+  getBackupStatsAtPath,
+  listBackupsAtPath,
+  restoreBackupAtPath,
+  rotateBackups,
+  startAutoBackup,
+  stopAutoBackup,
+  verifyBackupAtPath,
+} from './backup'
 import { assertSafeAssetId } from '../../src/storage/assetId'
 import { LibraryOperationGate } from './sessionGate'
 import {
@@ -22,10 +38,14 @@ import {
   openValidatedLibraryCandidate,
 } from './libraryActivation'
 import { randomUUID } from 'node:crypto'
+import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
+import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
 let autoBackupStarted = false
+const assetPurgeAuthorizations = new Map<string, { token: string; signature: string; createdAt: number }>()
+let exitPreparedStorage: LibraryStorage | null = null
 const operationGate = new LibraryOperationGate()
 
 type LibrarySwitchMode = 'create' | 'open'
@@ -46,13 +66,28 @@ let preparingLibrarySwitch = false
 let activatingLibrarySwitch = false
 
 async function ensureStorage(): Promise<LibraryStorage> {
+  if (exitPreparedStorage) throw new Error('应用正在安全退出，交易库已停止接受新操作')
   if (storage) return storage
   if (!openingStorage) {
     openingStorage = (async () => {
-      const candidate = new LibraryStorage()
+      const location = await getValidatedLibraryLocation()
+      if (location.kind === 'unset') {
+        throw new Error('尚未配置交易库，请先选择或创建交易库目录')
+      }
+      if (location.kind !== 'ready') throw libraryLocationError(location)
+      const candidate = new LibraryStorage(location.resolvedPath, {
+        ensureDirectories: false,
+        allowCreate: false,
+      })
       try {
         await candidate.open()
-        assertCompatibleManifest(candidate.readManifest())
+        const manifest = candidate.readManifest()
+        assertCompatibleManifest(manifest)
+        if (manifest.libraryId !== location.verifiedLibraryId) {
+          throw new Error('资料库身份在打开期间发生变化，已阻止进入工作区')
+        }
+        candidate.loadSnapshot()
+        ensureLibraryDirs(location.resolvedPath)
         storage = candidate
         return candidate
       } catch (error) {
@@ -64,6 +99,68 @@ async function ensureStorage(): Promise<LibraryStorage> {
     })
   }
   return openingStorage
+}
+
+export async function createVerifiedExitBackup(signal?: AbortSignal): Promise<void> {
+  await operationGate.runExclusive(async () => {
+    if (signal?.aborted) throw new Error('退出协调等待超时，已取消退出')
+    const current = storage ?? (openingStorage ? await openingStorage : null)
+    if (!current) return
+    exitPreparedStorage = current
+    try {
+      const allowEmptySnapshot = current.loadSnapshot() === null
+      const backupPath = createBackup(current, { emptyLibrary: allowEmptySnapshot })
+      if (!backupPath) throw new Error('无法创建退出前恢复点')
+      const verification = await verifyBackupAtPath(
+        current.getLibraryPath(),
+        path.basename(backupPath),
+      )
+      if (verification.status !== 'verified') {
+        throw new Error(verification.error ?? '退出前恢复点验证失败')
+      }
+    } catch (error) {
+      exitPreparedStorage = null
+      throw error
+    }
+  }, signal)
+}
+
+export async function commitStorageExit(
+  signal: AbortSignal,
+  deadlineAt: number,
+  finalize: () => void,
+): Promise<void> {
+  await operationGate.runExclusive(async () => {
+    assertExitWithinDeadline(signal, deadlineAt)
+    const current = exitPreparedStorage
+    if (!current) {
+      finalize()
+      return
+    }
+    const restartAutoBackup = autoBackupStarted
+    await releaseThenFinalizeWithRollback(
+      () => {
+        stopAutoBackup()
+        autoBackupStarted = false
+        if (storage === current) storage = null
+        exitPreparedStorage = null
+        current.release()
+      },
+      finalize,
+      async () => {
+        await current.open()
+        storage = current
+        if (restartAutoBackup) {
+          startAutoBackup(current)
+          autoBackupStarted = true
+        }
+      },
+    )
+  }, signal)
+}
+
+export function cancelStorageExitPreparation(): void {
+  exitPreparedStorage = null
 }
 
 function withStorage<T>(operation: (lib: LibraryStorage) => T | Promise<T>): Promise<T> {
@@ -81,9 +178,22 @@ function toErrorMessage(err: unknown): string {
 }
 
 async function reopenStorageWithAutoBackup(): Promise<LibraryStorage> {
-  const reopened = new LibraryStorage()
+  const location = await getValidatedLibraryLocation()
+  if (location.kind === 'unset') throw new Error('尚未配置交易库')
+  if (location.kind !== 'ready') throw libraryLocationError(location)
+  const reopened = new LibraryStorage(location.resolvedPath, {
+    ensureDirectories: false,
+    allowCreate: false,
+  })
   try {
     await reopened.open()
+    const manifest = reopened.readManifest()
+    assertCompatibleManifest(manifest)
+    if (manifest.libraryId !== location.verifiedLibraryId) {
+      throw new Error('资料库身份在重新打开期间发生变化，已阻止继续写入')
+    }
+    reopened.loadSnapshot()
+    ensureLibraryDirs(location.resolvedPath)
     startAutoBackup(reopened)
   } catch (error) {
     reopened.release()
@@ -119,7 +229,10 @@ async function openLibrarySwitchCandidate(
 }> {
   const resolvedPath = resolveLibrarySwitchPath(libPath, mode)
 
-  const candidate = new LibraryStorage(resolvedPath)
+  const candidate = new LibraryStorage(resolvedPath, {
+    ensureDirectories: mode === 'create',
+    allowCreate: mode === 'create',
+  })
   try {
     const snapshot = await openValidatedLibraryCandidate(candidate)
     return { candidate, resolvedPath, snapshot }
@@ -154,6 +267,8 @@ function activateLibraryCandidate(
   }
 
   try {
+    // 打开已有库时，只有完整校验通过后才补齐运行期目录。
+    ensureLibraryDirs(resolvedPath)
     // 先确认候选库的备份目录可用；此时旧库仍保持打开，可完整回滚。
     startAutoBackup(candidate)
     autoBackupStarted = true
@@ -169,7 +284,10 @@ function activateLibraryCandidate(
   }
 
   try {
-    saveLibraryConfig({ libraryPath: resolvedPath })
+    saveLibraryConfig({
+      libraryPath: resolvedPath,
+      libraryId: candidate.readManifest().libraryId,
+    })
   } catch (error) {
     const rollbackError = restorePreviousBackup()
     candidate.release()
@@ -330,12 +448,7 @@ function cancelPreparedLibrarySwitch(token: string, event: IpcMainInvokeEvent): 
 export function registerLibraryIpc(): void {
   // ---- 库路径引导 ----
   ipcMain.handle('library:getStatus', async () => {
-    const libPath = getLibraryPath()
-    const manifestFile = path.join(libPath, 'manifest.json')
-    const initialized = (() => {
-      try { return fs.existsSync(manifestFile) } catch { return false }
-    })()
-    return { initialized, path: libPath }
+    return getLibraryLocationState()
   })
 
   ipcMain.handle('library:pickFolder', async () => {
@@ -413,6 +526,64 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('storage:getAssetStats', async (_e, ids: string[]) => withStorage((lib) => lib.getAssetStats(ids)))
 
+  ipcMain.handle('storage:listAssetRecords', async () => withStorage((lib) => lib.listAssetRecords()))
+
+  ipcMain.handle('storage:previewAssetPurge', async () => withStorage((lib) => lib.previewAssetPurge()))
+
+  ipcMain.handle('storage:prepareAssetPurgeRecovery', async (_e, preview) => operationGate.runExclusive(async () => {
+    const win = BrowserWindow.getFocusedWindow()
+    const date = new Date().toISOString().slice(0, 10)
+    const options = {
+      title: '导出永久清理恢复归档',
+      defaultPath: path.join(app.getPath('documents'), `linear-journal-before-cleanup-${date}.journal.zip`),
+      filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
+    }
+    const result = win
+      ? await dialog.showSaveDialog(win, options)
+      : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return null
+    const lib = await ensureStorage()
+    await exportJournalZip(lib, result.filePath!)
+    const verificationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-purge-recovery-'))
+    try {
+      await importJournalZipToPath(verificationRoot, result.filePath!)
+    } finally {
+      fs.rmSync(verificationRoot, { recursive: true, force: true })
+    }
+    const token = randomUUID()
+    assetPurgeAuthorizations.set(preview.operationId, {
+      token,
+      signature: JSON.stringify(preview),
+      createdAt: Date.now(),
+    })
+    return { authorization: token, path: result.filePath }
+  }))
+
+  ipcMain.handle('storage:commitAssetPurge', async (_e, payload) => operationGate.runExclusive(async () => {
+    if (process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT !== 'true') {
+      throw new Error('当前发布阶段仅开放附件清理 dry-run，永久删除已在主进程边界关闭')
+    }
+    const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
+    assetPurgeAuthorizations.delete(payload.preview.operationId)
+    if (
+      !prepared ||
+      !payload.authorization ||
+      prepared.token !== payload.authorization ||
+      prepared.signature !== JSON.stringify(payload.preview) ||
+      Date.now() - prepared.createdAt > 15 * 60_000
+    ) {
+      throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
+    }
+    const lib = await ensureStorage()
+    return lib.commitAssetPurge(payload.preview)
+  }))
+
+  ipcMain.handle('storage:cancelAssetPurge', async (_e, operationId: string) => withStorage((lib) => {
+    assetPurgeAuthorizations.delete(operationId)
+    lib.cancelAssetPurge(operationId)
+    return true
+  }))
+
   ipcMain.handle('storage:importAssets', async (_e, assets: { id: string; mime: string; data: string }[]) => withStorage((lib) => {
     for (const a of assets) {
       assertSafeAssetId(a.id)
@@ -465,17 +636,21 @@ export function registerLibraryIpc(): void {
     return result
   }))
 
-  ipcMain.handle('backup:list', async () => operationGate.run(() => listBackups()))
+  ipcMain.handle('backup:list', async () => withStorage((lib) => {
+    return listBackupsAtPath(lib.getLibraryPath())
+  }))
 
-  ipcMain.handle('backup:verify', async (_e, fileName: string) => operationGate.run(() => verifyBackup(fileName)))
+  ipcMain.handle('backup:verify', async (_e, fileName: string) => withStorage((lib) => {
+    return verifyBackupAtPath(lib.getLibraryPath(), fileName)
+  }))
 
   ipcMain.handle('backup:restore', async (_e, fileName: string) => {
     try {
       return await operationGate.runExclusive(async () => {
-        const verification = await verifyBackup(fileName)
-        if (verification.status !== 'verified') return false
         const current = await ensureStorage()
         const libraryPath = current.getLibraryPath()
+        const verification = await verifyBackupAtPath(libraryPath, fileName)
+        if (verification.status !== 'verified') return false
         // 在覆盖资料库前创建一个包含原图的完整恢复点。
         if (!createBackup(current)) return false
         stopAutoBackup()
@@ -483,11 +658,17 @@ export function registerLibraryIpc(): void {
         current.close()
         storage = null
 
-        const ok = restoreBackup(fileName)
+        const ok = restoreBackupAtPath(libraryPath, fileName)
         // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
         const reopened = await reopenStorageWithAutoBackup()
         rotateBackups(ensureLibraryDirs(libraryPath).backups)
-        return ok ? reopened.loadSnapshot() : false
+        if (!ok) return false
+        const restoredSnapshot = reopened.loadSnapshot()
+        if (restoredSnapshot) return restoredSnapshot
+        if (!verification.emptyLibrary) return false
+        const emptySnapshot = createEmptyPersistedSnapshot()
+        reopened.saveSnapshot(emptySnapshot)
+        return emptySnapshot
       })
     } catch (error) {
       console.error('[backup:restore] restore failed', error)
@@ -496,10 +677,12 @@ export function registerLibraryIpc(): void {
   })
 
   ipcMain.handle('backup:delete', async (_e, fileName: string) => {
-    return operationGate.run(() => deleteBackup(fileName))
+    return withStorage((lib) => deleteBackupAtPath(lib.getLibraryPath(), fileName))
   })
 
-  ipcMain.handle('backup:stats', async () => operationGate.run(() => getBackupStats()))
+  ipcMain.handle('backup:stats', async () => withStorage((lib) => {
+    return getBackupStatsAtPath(lib.getLibraryPath())
+  }))
 
   // 启动自动备份（15 分钟 + 退出前）
   ipcMain.handle('backup:startAuto', async () => withStorage((lib) => {

@@ -1,6 +1,8 @@
 import {
   flushNoteDraftToStore,
   flushNoteDraftsToStore,
+  applyNoteDraftsToSnapshot,
+  discardAllNoteDrafts,
   getNoteDraft,
   noteDraftCountForTests,
   resetNoteDraftsForTests,
@@ -9,6 +11,7 @@ import {
 } from '@/storage/noteDrafts'
 import { createQuickNote } from '@/data/quickNotes'
 import { useStore } from '@/store/useStore'
+import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -107,6 +110,48 @@ export async function testSingleDraftFlushCannotDeleteNewInput(): Promise<void> 
     assert(
       useStore.getState().trades.find((trade) => trade.id === tradeId)?.note === '<p>B</p>',
       '单条 flush 必须把期间输入的最新值写入 store',
+    )
+  } finally {
+    resetNoteDraftsForTests()
+    useStore.setState({ trades: originalTrades })
+  }
+}
+
+export async function testConflictRecoverySnapshotIncludesDraftAndDiscardInvalidatesInflightFlush(): Promise<void> {
+  const originalTrades = useStore.getState().trades
+  const tradeId = 'note-draft-conflict-recovery'
+  const trade = {
+    ...createFullPersistedSnapshotFixture().trades[0],
+    id: tradeId,
+    ref: 'TRD-DRAFT-RECOVERY',
+    note: '<p>已提交</p>',
+  }
+  useStore.setState({ trades: [trade] })
+  resetNoteDraftsForTests()
+
+  try {
+    const draft = '<p>尚未保存<img src="blob:http://localhost/preview" data-asset-id="prepared-draft"></p>'
+    setNoteDraft(tradeId, draft)
+    const recovery = applyNoteDraftsToSnapshot({
+      trades: [trade],
+      strategies: useStore.getState().strategies,
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: useStore.getState().display,
+    })
+    assert(
+      recovery.trades[0]?.note.includes('src="journal-asset://prepared-draft"') &&
+        !recovery.trades[0]?.note.includes('blob:'),
+      '冲突恢复快照必须把真实 Editor blob+data-asset-id 草稿转为可恢复引用',
+    )
+
+    const inflight = flushNoteDraftToStore(tradeId)
+    discardAllNoteDrafts()
+    await inflight
+    assert(
+      useStore.getState().trades[0]?.note === '<p>已提交</p>',
+      '加载最新版使草稿失效后，在途 flush 不得延迟写回旧内容',
     )
   } finally {
     resetNoteDraftsForTests()

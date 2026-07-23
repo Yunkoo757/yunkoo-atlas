@@ -147,7 +147,8 @@ export function testEnsureStorageRejectsFutureSchemaBeforeActivation(): void {
   const body = source.slice(ensureStart, ensureEnd)
   assert(ensureStart >= 0 && ensureEnd > ensureStart, 'ensureStorage 实现必须存在')
   assert(
-    body.includes('assertCompatibleManifest(candidate.readManifest())'),
+    body.includes('const manifest = candidate.readManifest()') &&
+      body.includes('assertCompatibleManifest(manifest)'),
     '默认 storage:open 路径必须复用未来 schema 拒写',
   )
   assert(
@@ -158,6 +159,10 @@ export function testEnsureStorageRejectsFutureSchemaBeforeActivation(): void {
     body.indexOf('assertCompatibleManifest') < body.indexOf('storage = candidate'),
     '未来 schema 校验通过前不得把候选库赋给全局 storage',
   )
+  assert(
+    body.indexOf('manifest.libraryId !== location.verifiedLibraryId') < body.indexOf('storage = candidate'),
+    '位置验证与正式打开之间必须再次核对资料库 identity',
+  )
 }
 
 export function testIpcDoesNotPersistOrActivateCandidateBeforeValidation(): void {
@@ -166,7 +171,7 @@ export function testIpcDoesNotPersistOrActivateCandidateBeforeValidation(): void
   const validation = source.indexOf('await openValidatedLibraryCandidate(candidate)', candidateStart)
   const activationHelper = source.indexOf('function activateLibraryCandidate(')
   const activationIdentityCheck = source.indexOf('areSameLibrary(storage, candidate)', activationHelper)
-  const saveConfig = source.indexOf('saveLibraryConfig({ libraryPath: resolvedPath })', activationHelper)
+  const saveConfig = source.indexOf('saveLibraryConfig({', activationHelper)
   const activate = source.indexOf('storage = candidate', activationHelper)
   const prepareStart = source.indexOf('async function prepareActiveLibrarySwitch(')
   const activatePreparedStart = source.indexOf('async function activatePreparedLibrarySwitch(')

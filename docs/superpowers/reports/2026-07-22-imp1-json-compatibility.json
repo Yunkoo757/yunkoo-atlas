@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-07-22T16:26:43.808Z",
+  "generatorCommit": "f024be5d3ef7aa7314baa14b11d5ac8e09ea2659",
+  "seed": 20260715,
+  "runtime": { "node": "v24.14.0", "platform": "win32", "arch": "x64" },
+  "limits": {
+    "fileBytes": 67108864,
+    "singleAttachmentDecodedBytes": 33554432,
+    "totalAttachmentDecodedBytes": 50331648,
+    "entities": 50000
+  },
+  "corpus": [
+    { "name": "dense-1k", "bytes": 2718242, "sha256": "407976bcd94acf49da727b6c369fe0bc2486242bd335232056d26910d195d66a", "entities": 1035, "attachmentDecodedBytes": [], "importOk": true, "importCode": null, "compatible": true },
+    { "name": "dense-10k", "bytes": 27167960, "sha256": "fc1034431a63a9e9869f01bbb981b011b9d386b65353090fde05036f5aa27cd1", "entities": 10128, "attachmentDecodedBytes": [], "importOk": true, "importCode": null, "compatible": true },
+    { "name": "dense-20k", "bytes": 54350558, "sha256": "2d6e1e19122c1342747bb9ec1d629df12670347796fa17b81b903ceb6868a43d", "entities": 20231, "attachmentDecodedBytes": [], "importOk": true, "importCode": null, "compatible": true },
+    { "name": "shared-self-reference", "bytes": 713629, "sha256": "11da27062f3afe334070338716ce4e1677085775030af95b2372a41f95287b6b", "entities": 1037, "attachmentDecodedBytes": [24], "importOk": true, "importCode": null, "compatible": true },
+    { "name": "max-declared-attachment", "bytes": 45451842, "sha256": "b75c9980af0ca464192d31ad59fe3a48602626fe8beea41a23a7f293d119cb1e", "entities": 1035, "attachmentDecodedBytes": [33554432], "importOk": true, "importCode": null, "compatible": true }
+  ],
+  "hardLimitsEnabled": true
+}

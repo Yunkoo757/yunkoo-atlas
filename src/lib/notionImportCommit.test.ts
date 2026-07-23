@@ -48,6 +48,7 @@ function previewWithImages(count: number): NotionTradePreview {
       (_, index) => `<img data-notion-img="${index}" alt="截图 ${index + 1}" />`,
     ).join('\n'),
     images: Array.from({ length: count }, (_, index) => ({
+      slotId: index,
       zipPath: `trade/image-${index}.png`,
       name: `image-${index}.png`,
       data: new Uint8Array([0, index, 255 - index, 17, 31]),

@@ -13,6 +13,9 @@ const VIEWPORTS = [
 
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: VIEWPORTS[0] })
+await context.addInitScript(() => {
+  Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
+})
 let page = await context.newPage()
 const results = []
 const runtimeErrors = []
@@ -51,6 +54,23 @@ async function selectValue(trigger, value) {
   await page.locator(`.ui-select-option[data-value="${value}"]`).click()
 }
 
+async function assertPersistedDetail(expectedSymbol) {
+  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
+  const persistedPath = new URL(page.url()).pathname
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await waitForApp()
+  if (new URL(page.url()).pathname !== persistedPath) {
+    throw new Error(`重载后记录路由改变：${persistedPath} → ${new URL(page.url()).pathname}`)
+  }
+  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
+  const title = page.locator('.dv-title')
+  await title.waitFor({ state: 'visible', timeout: 10000 })
+  const titleText = (await title.innerText()).trim()
+  if (!titleText.includes(expectedSymbol)) {
+    throw new Error(`重载后的详情标题未包含 ${expectedSymbol}：${titleText}`)
+  }
+}
+
 async function seedData() {
   await open('/today-record')
   await page.locator('body').press('n')
@@ -58,11 +78,8 @@ async function seedData() {
   await page.getByRole('button', { name: '做空' }).click()
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/)
-  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByText('已保存', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await assertPersistedDetail('XAUUSD')
   const tradeDetailPath = new URL(page.url()).pathname
-  await open(tradeDetailPath)
-  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
 
   await open('/review-cases')
   await page.locator('body').press('Shift+N')
@@ -70,8 +87,7 @@ async function seedData() {
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/CAS-/)
-  await page.locator('.trade-detail-layout').waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByText('已保存', { exact: true }).waitFor({ state: 'visible', timeout: 10000 })
+  await assertPersistedDetail('BTCUSDT')
 
   return tradeDetailPath
 }

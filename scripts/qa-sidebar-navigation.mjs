@@ -62,6 +62,15 @@ async function stopVite(vite) {
   await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 100))])
   if (vite.child.exitCode === null) vite.child.kill()
   await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 1000))])
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try {
+      await fetch(BASE)
+    } catch {
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(`Vite stopped but port ${PORT} remained occupied`)
 }
 
 async function verifyExistingViteConflict() {
@@ -200,7 +209,10 @@ async function expectNoHorizontalOverflow(page, locator) {
 }
 
 async function expectMobileCurrentCount(page, expected) {
-  const current = page.locator('.mobile-navigation [aria-current="page"], .mobile-navigation-drawer [aria-current="page"]')
+  const current = page.locator([
+    '.mobile-navigation [aria-current="page"]',
+    '.mobile-navigation-overlay:not(.ui-exit-clone) .mobile-navigation-drawer [aria-current="page"]',
+  ].join(', '))
   const actual = await current.count()
   if (actual !== expected) {
     const labels = await current.evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label') ?? element.textContent?.trim()))
@@ -260,6 +272,12 @@ try {
   await waitForVite(vite)
   browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  // 本脚本用 page.goto 反复创建新文档来检查深链接，不是在验证多标签所有权。
+  // 显式走受 WEB4 独立覆盖的“无 Web Locks、CAS 保正确性”路径，避免旧文档
+  // pagehide 释放锁与新文档 ifAvailable 探测之间的瞬时竞态污染侧栏断言。
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
+  })
   const browserProblems = []
   page.on('pageerror', (error) => browserProblems.push(`pageerror: ${error.message}`))
   page.on('console', (message) => {
@@ -396,28 +414,28 @@ try {
     useStore.getState().setDisplayName('QA 父级重渲染')
   })
   await expectFocused(search)
-  for (const group of ['系统快捷', '我的视图', '策略', '案例视图']) {
+  for (const group of ['工作区能力', '交易日志', '模拟回测', '案例记录', '策略']) {
     await expectVisible(editor.getByRole('heading', { name: group }))
   }
   const group = (name) => editor.locator('.sb-target-group').filter({ hasText: name })
-  await expectVisible(group('系统快捷').getByRole('button', { name: /^进行中：/ }))
-  await expectVisible(group('我的视图').getByRole('button', { name: /^QA 保存视图：/ }))
+  await expectVisible(group('工作区能力').getByRole('group', { name: '进行中可见工作区' }))
+  await expectVisible(group('交易日志').getByRole('button', { name: /^QA 保存视图（交易日志）：/ }))
   const strategyButton = (name) => editor.getByRole('button', {
-    name: new RegExp(`^${escapeRegExp(name)}：`),
+    name: new RegExp(`^${escapeRegExp(name)}（交易日志 · 策略）：`),
   })
   await expectVisible(group('策略').getByRole('button', {
-    name: new RegExp(`^${escapeRegExp(primaryStrategy)}：`),
+    name: new RegExp(`^${escapeRegExp(primaryStrategy)}（交易日志 · 策略）：`),
   }))
-  await expectVisible(group('案例视图').getByRole('button', { name: /^重点：/ }))
+  await expectVisible(group('案例记录').getByRole('button', { name: /^重点（案例记录）：/ }))
 
   const primaryStrategyButton = strategyButton(primaryStrategy)
-  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：未添加，点击添加`)
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}（交易日志 · 策略）：未添加，点击添加`)
   await primaryStrategyButton.click()
-  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：常驻，点击改到更多`)
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}（交易日志 · 策略）：常驻，点击改到更多`)
   await primaryStrategyButton.click()
-  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：更多，点击移除`)
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}（交易日志 · 策略）：更多，点击移除`)
   await primaryStrategyButton.click()
-  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}：未添加，点击添加`)
+  await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}（交易日志 · 策略）：未添加，点击添加`)
 
   await search.fill(primaryStrategy)
   await expectVisible(strategyButton(primaryStrategy))
@@ -425,9 +443,9 @@ try {
   await expectCount(editor.getByText('已删除的保存视图'), 0)
   await search.fill('')
 
-  await editor.getByRole('button', { name: /^QA 保存视图：/ }).click()
+  await editor.getByRole('button', { name: /^QA 保存视图（交易日志）：/ }).click()
   await strategyButton(primaryStrategy).click()
-  await editor.getByRole('button', { name: /^重点：/ }).click()
+  await editor.getByRole('button', { name: /^重点（案例记录）：/ }).click()
   await strategyButton(secondaryStrategy).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 8 \/ 8/)
   await strategyButton(overflowStrategy).click()

@@ -1,0 +1,60 @@
+name: Electron Forced Kill Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'electron/main.ts'
+      - 'electron/forcedKillQa.ts'
+      - 'electron/library/storage.ts'
+      - 'electron/library/atomicFile.ts'
+      - 'scripts/run-forced-kill-evidence.mjs'
+      - 'scripts/fixtures/forced-kill-evidence.test.mjs'
+      - '.github/workflows/forced-kill-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  forced-kill:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Electron runtime
+        run: pnpm exec install-electron
+
+      - name: Build production Electron application
+        run: pnpm build:app
+
+      - name: Run forced-kill process evidence
+        run: pnpm test:forced-kill:electron
+
+      - name: Upload raw process evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forced-kill-${{ runner.os }}
+          path: test-results/forced-kill/*.json
+          if-no-files-found: error
+          retention-days: 30

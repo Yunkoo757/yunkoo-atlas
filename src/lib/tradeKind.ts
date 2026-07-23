@@ -1,4 +1,4 @@
-import type { SidebarNavId } from '@/lib/sidebarNav'
+import type { SidebarNavId } from '@/lib/sidebarNavContract'
 import type { Trade, TradeKind } from '@/data/trades'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 import { promoteTradeNotionMeta, promoteTradeSession } from '@/lib/tradeView'
@@ -35,6 +35,29 @@ export function isReviewCaseTrade(trade: Trade): boolean {
 
 export function isAccountTrade(trade: Trade): boolean {
   return trade.tradeKind === 'live' || trade.tradeKind === 'paper'
+}
+
+export type TradeKindTransitionResult =
+  | { ok: true; changed: boolean; trade: Trade }
+  | {
+      ok: false
+      changed: false
+      trade: Trade
+      reason: 'case-transition-forbidden' | 'non-planned-transition-forbidden'
+    }
+
+export function transitionTradeKind(
+  trade: Trade,
+  target: TradeKind,
+): TradeKindTransitionResult {
+  if (trade.tradeKind === target) return { ok: true, changed: false, trade }
+  if (trade.tradeKind === 'case' || target === 'case') {
+    return { ok: false, changed: false, trade, reason: 'case-transition-forbidden' }
+  }
+  if (trade.status !== 'planned') {
+    return { ok: false, changed: false, trade, reason: 'non-planned-transition-forbidden' }
+  }
+  return { ok: true, changed: true, trade: { ...trade, tradeKind: target } }
 }
 
 export function normalizeTrades(trades: Trade[]): Trade[] {

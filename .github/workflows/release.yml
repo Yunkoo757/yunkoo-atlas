@@ -6,14 +6,117 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  quality:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Electron runtime
+        run: pnpm exec install-electron
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Build Web application
+        run: pnpm build
+
+      - name: Run release quality gate
+        run: pnpm qa:full
+
+      - name: Run real persistence SLO gate
+        run: pnpm benchmark:persistence:release
+
+      - name: Run executable Release Train drills
+        run: pnpm verify:release-train-drills
+
+      - name: Upload persistence benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistence-benchmark-release
+          path: |
+            test-results/persistence-benchmark/persistence-release.json
+            test-results/persistence-benchmark/web-zip-release.json
+            test-results/persistence-benchmark/persistence-release-gate.json
+            test-results/qa-release-full.json
+            test-results/quality-execution.json
+            test-results/quality-contract.json
+            test-results/release-trains/release-train-drills.json
+          if-no-files-found: error
+          retention-days: 30
+
+  verify-release-evidence:
+    needs: [quality, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+
+      - name: Download quality evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: persistence-benchmark-release
+          path: test-results/collected-evidence
+
+      - name: Download forced-kill evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: forced-kill-*
+          path: test-results/collected-evidence
+          merge-multiple: true
+
+      - name: Download asset lifecycle evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: asset-lifecycle-*
+          path: test-results/collected-evidence
+          merge-multiple: true
+
+      - name: Verify all release trains
+        run: node scripts/verify-release-train-evidence.mjs --evidence-root test-results/collected-evidence --require-complete
+
+      - name: Upload train recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-recovery-evidence
+          path: |
+            test-results/release-trains/release-train-evidence.json
+            test-results/release-trains/final-quality-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
   build-windows:
+    needs: quality
     runs-on: windows-latest
     timeout-minutes: 45
 
@@ -38,8 +141,32 @@ jobs:
       - name: Install Electron runtime
         run: pnpm exec install-electron
 
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install chromium
+      - name: Build application
+        run: pnpm build:app
+
+      - name: Verify forced-kill recovery on Windows
+        run: pnpm test:forced-kill:electron
+
+      - name: Verify asset lifecycle on Windows
+        run: pnpm test:asset-lifecycle:electron
+
+      - name: Upload Windows forced-kill evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forced-kill-Windows
+          path: test-results/forced-kill/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Windows asset lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-lifecycle-Windows
+          path: test-results/platform-evidence/*.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Generate app icon assets
         run: pnpm icons:app
@@ -52,92 +179,47 @@ jobs:
             throw "Tag ${{ github.ref_name }} does not match package version v$version"
           }
 
-      - name: Build application
-        run: pnpm build:app
-
-      - name: Run Electron library QA
-        run: pnpm qa:electron
-
       - name: Build Windows installer
         run: pnpm exec electron-builder --win nsis --x64 --publish never
 
-      - name: Publish private GitHub Release (Windows assets)
+      - name: Validate Windows assets
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
-          $tag = "${{ github.ref_name }}"
-          $installer = Get-Item "release/Trader-Atlas-$version-win-x64.exe"
-          $blockmap = Get-Item "$($installer.FullName).blockmap"
-          $metadata = Get-Item "release/latest.yml"
-          $files = @($installer, $blockmap, $metadata)
-
+          $files = @(
+            "release/Trader-Atlas-$version-win-x64.exe",
+            "release/Trader-Atlas-$version-win-x64.exe.blockmap",
+            "release/latest.yml"
+          )
           foreach ($file in $files) {
-            if ($file.Length -le 0) { throw "Release asset is empty: $($file.Name)" }
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing release asset: $file" }
+            if ((Get-Item -LiteralPath $file).Length -le 0) { throw "Empty release asset: $file" }
           }
 
-          $isPrerelease = $version.Contains('-')
-          $releaseTitle = if ($isPrerelease) { "Trader Atlas $version (Preview)" } else { "Trader Atlas $version" }
-          $releaseChannel = if ($isPrerelease) { '预览版：不会进入正式版自动更新通道' } else { '正式版' }
-          $notes = @"
-          ## 发布通道
-          - $releaseChannel
-
-          ## Windows
-          - NSIS 安装包（支持应用内更新）
-
-          ## macOS
-          - DMG / ZIP（arm64 + x64）由同工作流随后上传
-          - 当前为未公证构建，需右键打开或在隐私与安全性中允许
-          - 应用内自动更新仍仅支持 Windows NSIS
-          "@
-          $releaseArgs = @('release', 'create', $tag, '--verify-tag', '--title', $releaseTitle)
-          if ($isPrerelease) { $releaseArgs += @('--prerelease', '--latest=false') }
-          $releaseArgs += @('--notes', $notes, $installer.FullName, $blockmap.FullName, $metadata.FullName)
-          $assetPaths = @($files | ForEach-Object FullName)
-
-          gh release view $tag --json id *> $null
-          $releaseExists = $LASTEXITCODE -eq 0
-          if ($releaseExists) {
-            $editArgs = @('release', 'edit', $tag, '--title', $releaseTitle, '--notes', $notes)
-            if ($isPrerelease) {
-              $editArgs += @('--prerelease', '--latest=false')
-            } else {
-              $editArgs += '--prerelease=false'
-            }
-            & gh @editArgs
-            if ($LASTEXITCODE -ne 0) { throw "Failed to update release $tag" }
-            gh release upload $tag @assetPaths --clobber
-            if ($LASTEXITCODE -ne 0) { throw "Failed to upload release assets for $tag" }
-          } else {
-            & gh @releaseArgs
-            if ($LASTEXITCODE -ne 0) { throw "Failed to create release $tag" }
-          }
-
-          $release = gh release view $tag --json isDraft,isPrerelease,assets | ConvertFrom-Json
-          if ($release.isDraft) { throw "Release $tag is still a draft" }
-          if ([bool]$release.isPrerelease -ne $isPrerelease) {
-            throw "Release prerelease state does not match version $version"
-          }
-          $assetNames = @($release.assets | ForEach-Object name)
-          foreach ($file in $files) {
-            if ($assetNames -notcontains $file.Name) {
-              throw "Release asset missing: $($file.Name)"
-            }
-          }
+      - name: Upload Windows build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: |
+            release/Trader-Atlas-*-win-x64.exe
+            release/Trader-Atlas-*-win-x64.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 7
 
   build-macos:
-    needs: build-windows
+    needs: quality
     runs-on: macos-latest
     timeout-minutes: 75
     env:
-      # 未配置 Apple 开发者证书时跳过签名，产出可手动安装的 DMG/ZIP
+      # 未配置 Apple 开发者证书时跳过签名，产出可手动安装的 DMG/ZIP。
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -156,6 +238,36 @@ jobs:
       - name: Install Electron runtime
         run: pnpm exec install-electron
 
+      - name: Build application
+        run: pnpm build:app
+
+      - name: Verify Electron data path on macOS
+        run: pnpm qa:electron
+
+      - name: Verify asset lifecycle on macOS
+        run: pnpm test:asset-lifecycle:electron
+
+      - name: Verify forced-kill recovery on macOS
+        run: pnpm test:forced-kill:electron
+
+      - name: Upload macOS forced-kill evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forced-kill-macOS
+          path: test-results/forced-kill/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload macOS asset lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-lifecycle-macOS
+          path: test-results/platform-evidence/*.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Generate app icon assets
         run: pnpm icons:app
 
@@ -167,18 +279,12 @@ jobs:
             exit 1
           fi
 
-      - name: Build application
-        run: pnpm build:app
-
       - name: Build macOS DMG and ZIP
         run: pnpm exec electron-builder --mac dmg zip --x64 --arm64 --publish never
 
-      - name: Upload macOS assets to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate macOS assets
         run: |
           version=$(node -p "require('./package.json').version")
-          tag="${{ github.ref_name }}"
           files=(
             release/Trader-Atlas-"$version"-mac-arm64.dmg
             release/Trader-Atlas-"$version"-mac-arm64.zip
@@ -186,18 +292,182 @@ jobs:
             release/Trader-Atlas-"$version"-mac-x64.zip
           )
           for file in "${files[@]}"; do
-            if [ ! -s "$file" ]; then
-              echo "Required macOS release asset is missing or empty: $file"
-              ls -la release || true
-              exit 1
-            fi
+            test -s "$file" || { echo "Missing or empty release asset: $file"; exit 1; }
           done
-          gh release upload "$tag" "${files[@]}" --clobber
-          asset_names=$(gh release view "$tag" --json assets --jq '.assets[].name')
+
+      - name: Upload macOS build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            release/Trader-Atlas-*-mac-arm64.dmg
+            release/Trader-Atlas-*-mac-arm64.zip
+            release/Trader-Atlas-*-mac-x64.dmg
+            release/Trader-Atlas-*-mac-x64.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [build-windows, build-macos, verify-release-evidence]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download final quality manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: train-recovery-evidence
+          path: test-results/final-quality-evidence
+
+      - name: Verify final quality manifest authorizes this checkout
+        run: node scripts/verify-final-quality-manifest.mjs test-results/final-quality-evidence/final-quality-manifest.json
+
+      - name: Download verified build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish complete GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          tag="${{ github.ref_name }}"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$tag^{commit}" origin/main || {
+            echo "Tag commit must be an ancestor of origin/main"
+            exit 1
+          }
+          files=(
+            "release-artifacts/Trader-Atlas-$version-win-x64.exe"
+            "release-artifacts/Trader-Atlas-$version-win-x64.exe.blockmap"
+            "release-artifacts/latest.yml"
+            "release-artifacts/Trader-Atlas-$version-mac-arm64.dmg"
+            "release-artifacts/Trader-Atlas-$version-mac-arm64.zip"
+            "release-artifacts/Trader-Atlas-$version-mac-x64.dmg"
+            "release-artifacts/Trader-Atlas-$version-mac-x64.zip"
+          )
+          expected_names=()
+          for file in "${files[@]}"; do
+            test -s "$file" || { echo "Missing or empty release asset: $file"; exit 1; }
+            expected_names+=("$(basename "$file")")
+          done
+          node scripts/release-artifacts.mjs manifest release-artifacts "$version" release-manifest.json
+          sha256sum "${files[@]}" > release-artifacts/SHA256SUMS.txt
+
+          is_prerelease=false
+          release_title="Trader Atlas $version"
+          channel_args=(--latest)
+          if [[ "$version" == *-* ]]; then
+            is_prerelease=true
+            release_title="Trader Atlas $version (Preview)"
+            channel_args=(--prerelease --latest=false)
+          fi
+
+          release_is_draft=true
+          mkdir -p existing-assets
+          if release_json=$(gh release view "$tag" --json isDraft,isPrerelease,assets 2>/dev/null); then
+            jq '{exists: true} + .' <<<"$release_json" > release-state.json
+            release_is_draft=$(jq -r '.isDraft' <<<"$release_json")
+            existing_prerelease=$(jq -r '.isPrerelease' <<<"$release_json")
+            test "$existing_prerelease" = "$is_prerelease" || {
+              echo "Existing release channel differs from package version"
+              exit 1
+            }
+
+            if [[ $(jq '.assets | length' <<<"$release_json") -gt 0 ]]; then
+              gh release download "$tag" --dir existing-assets
+            fi
+            while IFS= read -r existing_name; do
+              found=false
+              for expected_name in "${expected_names[@]}"; do
+                [[ "$existing_name" == "$expected_name" ]] && found=true
+              done
+              $found || { echo "Unexpected existing release asset: $existing_name"; exit 1; }
+            done < <(jq -r '.assets[].name' <<<"$release_json")
+
+            for file in "${files[@]}"; do
+              base=$(basename "$file")
+              if [[ -e "existing-assets/$base" ]]; then
+                local_hash=$(sha256sum "$file" | cut -d' ' -f1)
+                remote_hash=$(sha256sum "existing-assets/$base" | cut -d' ' -f1)
+                [[ "$local_hash" == "$remote_hash" ]] || {
+                  echo "Existing release asset differs: $base"
+                  exit 1
+                }
+              elif [[ "$release_is_draft" != true ]]; then
+                echo "Public release is missing required asset: $base"
+                exit 1
+              fi
+            done
+
+            if [[ "$release_is_draft" != true ]]; then
+              echo "Release $tag is already public; executable plan will verify no-op state"
+            fi
+          else
+            echo '{"exists":false}' > release-state.json
+          fi
+
+          node scripts/release-artifacts.mjs plan \
+            release-manifest.json release-state.json existing-assets "$is_prerelease" > release-plan.json
+          release_action=$(jq -r '.action' release-plan.json)
+          if [[ "$release_action" == noop ]]; then
+            echo "Release $tag already public with identical assets"
+            exit 0
+          fi
+          if [[ "$release_action" == create-draft ]]; then
+            gh release create "$tag" --verify-tag --draft --title "$release_title" "${channel_args[@]}" --generate-notes
+          fi
+
           for file in "${files[@]}"; do
             base=$(basename "$file")
-            echo "$asset_names" | grep -Fxq "$base" || {
-              echo "Release asset missing after upload: $base"
+            [[ -e "existing-assets/$base" ]] || gh release upload "$tag" "$file"
+          done
+
+          release_json=$(gh release view "$tag" --json isDraft,isPrerelease,assets)
+          [[ $(jq -r '.isDraft' <<<"$release_json") == true ]] || {
+            echo "Release became public before verification"
+            exit 1
+          }
+          [[ $(jq '.assets | length' <<<"$release_json") -eq ${#files[@]} ]] || {
+            echo "Release asset count is not exactly ${#files[@]}"
+            exit 1
+          }
+          for expected_name in "${expected_names[@]}"; do
+            jq -e --arg name "$expected_name" '.assets | any(.name == $name)' <<<"$release_json" >/dev/null || {
+              echo "Release asset missing after upload: $expected_name"
               exit 1
             }
           done
+
+      - name: Upload release checksum provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-checksums-${{ github.ref_name }}
+          path: |
+            release-manifest.json
+            release-artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Make verified release public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          if [[ $(gh release view "$tag" --json isDraft --jq '.isDraft') == true ]]; then
+            gh release edit "$tag" --draft=false
+          else
+            echo "Release $tag is already public; no-op"
+          fi

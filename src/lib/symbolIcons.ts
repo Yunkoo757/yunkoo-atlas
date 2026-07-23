@@ -1,27 +1,25 @@
+import {
+  DEFAULT_SYMBOL_CATALOG,
+  mergeSymbolCatalog,
+  mergeSymbolIcons,
+  normalizeSymbol,
+  normalizeSymbolCatalog,
+  normalizeSymbolIcons,
+  type SymbolIconOverride,
+  type SymbolIconsMap,
+} from '@/lib/symbolIconCodec'
+
+export {
+  DEFAULT_SYMBOL_CATALOG,
+  mergeSymbolCatalog,
+  mergeSymbolIcons,
+  normalizeSymbol,
+  normalizeSymbolCatalog,
+  normalizeSymbolIcons,
+} from '@/lib/symbolIconCodec'
+export type { SymbolIconOverride, SymbolIconsMap } from '@/lib/symbolIconCodec'
+
 export type SymbolMarketKind = 'crypto' | 'forex' | 'metal' | 'index' | 'other'
-
-/** 新建交易 / 设置页共用的默认品种目录 */
-export const DEFAULT_SYMBOL_CATALOG = [
-  'XAUUSD',
-  'EURUSD',
-  'GBPUSD',
-  'BTCUSDT',
-  'ETHUSDT',
-  'SOLUSDT',
-  'BNBUSDT',
-] as const
-
-
-export type SymbolIconOverride = {
-  /** 选用内置预设；与 customDataUrl 互斥，自定义图优先 */
-  presetId?: string | null
-  /** 用户上传的图标（data URL），后续可迁到资产库 */
-  customDataUrl?: string | null
-  updatedAt: string
-}
-
-/** key = normalizeSymbol(symbol) */
-export type SymbolIconsMap = Record<string, SymbolIconOverride>
 
 export type SymbolPresetSvgId = 'gold-bar' | 'silver-bar'
 
@@ -110,14 +108,6 @@ const PALETTE = [
   { color: '#FDBA74', background: 'color-mix(in srgb, #F97316 20%, transparent)' },
   { color: '#FDA4AF', background: 'color-mix(in srgb, #F43F5E 20%, transparent)' },
 ]
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-export function normalizeSymbol(symbol: string): string {
-  return symbol.trim().toUpperCase().replace(/[\s/_-]+/g, '')
-}
 
 export function detectSymbolMarket(symbol: string): SymbolMarketKind {
   const key = normalizeSymbol(symbol)
@@ -210,58 +200,6 @@ export function resolveSymbolIcon(
   const presetId = override?.presetId || defaultPresetId(symbol)
   const preset = getSymbolIconPreset(presetId) ?? getSymbolIconPreset('generic')!
   return glyphFromPresetOrFallback(symbol, preset)
-}
-
-export function normalizeSymbolIcons(value: unknown): SymbolIconsMap {
-  if (!isRecord(value)) return {}
-  const out: SymbolIconsMap = {}
-  for (const [rawKey, rawEntry] of Object.entries(value)) {
-    const key = normalizeSymbol(rawKey)
-    if (!key || !isRecord(rawEntry)) continue
-    const presetId =
-      typeof rawEntry.presetId === 'string' && rawEntry.presetId.trim()
-        ? rawEntry.presetId.trim()
-        : null
-    const customDataUrl =
-      typeof rawEntry.customDataUrl === 'string' && rawEntry.customDataUrl.startsWith('data:')
-        ? rawEntry.customDataUrl
-        : null
-    if (!presetId && !customDataUrl) continue
-    out[key] = {
-      presetId,
-      customDataUrl,
-      updatedAt:
-        typeof rawEntry.updatedAt === 'string' && rawEntry.updatedAt
-          ? rawEntry.updatedAt
-          : new Date().toISOString(),
-    }
-  }
-  return out
-}
-
-export function mergeSymbolIcons(
-  current: SymbolIconsMap,
-  imported: SymbolIconsMap,
-): SymbolIconsMap {
-  return normalizeSymbolIcons({ ...current, ...imported })
-}
-
-export function normalizeSymbolCatalog(value: unknown): string[] {
-  const source = Array.isArray(value) ? value : [...DEFAULT_SYMBOL_CATALOG]
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const item of source) {
-    if (typeof item !== 'string') continue
-    const key = normalizeSymbol(item)
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    out.push(key)
-  }
-  return out
-}
-
-export function mergeSymbolCatalog(current: string[], imported: string[]): string[] {
-  return normalizeSymbolCatalog([...current, ...imported])
 }
 
 /** 合并目录与历史/当前品种；显式空目录保持为空。 */

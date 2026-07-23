@@ -3,6 +3,7 @@ import type { ListFilter } from '@/lib/tradeFilters'
 import { isHiddenWhenClosedFilter } from '@/lib/tradeStatus'
 import { matchesTradeFacets } from '@/lib/tradeView'
 import { filterTrades, parseTradeFacets } from '@/lib/workbenchTrades'
+import type { BusinessDateAnchor } from '@/lib/periods'
 import {
   pathWithWorkbenchMode,
   workbenchModeFromPathname,
@@ -72,6 +73,7 @@ export function shouldResetWorkbenchHideClosed(options: {
   filter: ListFilter
   starredIds: string[]
   search: string | URLSearchParams
+  businessDateAnchor?: BusinessDateAnchor
 }): boolean {
   if (!options.hideClosed) return false
   if (options.filter.type === 'missed' || options.filter.tradeKind === 'case') return false
@@ -79,7 +81,19 @@ export function shouldResetWorkbenchHideClosed(options: {
   const facets = parseTradeFacets(options.search)
   if (facets.status && isHiddenWhenClosedFilter(facets.status)) return false
 
-  return filterTrades(options.trades, options.filter, options.starredIds).some(
-    (trade) => isHiddenWhenClosedFilter(trade.status) && matchesTradeFacets(trade, facets),
+  const tradingDayStartHour = options.businessDateAnchor?.tradingDayStartHour
+  return filterTrades(
+    options.trades,
+    options.filter,
+    options.starredIds,
+    tradingDayStartHour,
+    options.businessDateAnchor,
+  ).some(
+    (trade) => isHiddenWhenClosedFilter(trade.status) && matchesTradeFacets(
+      trade,
+      facets,
+      tradingDayStartHour,
+      options.businessDateAnchor,
+    ),
   )
 }

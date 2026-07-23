@@ -5,6 +5,7 @@ import {
   strategyAnalysisHref,
   writeAnalysisScope,
 } from '@/lib/analysisScope'
+import { createBusinessDateAnchor } from '@/lib/periods'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -183,3 +184,45 @@ export function testWriteAnalysisScopePreservesUnrelatedQueryState(): void {
   assert(params.get('kind') === 'paper', 'writing analysis scope must replace the selected kind')
   assert(params.get('range') === 'this-month', 'writing analysis scope must persist the selected range')
 }
+
+export function testAnalysisRangesUseTheSharedBusinessDateAnchorWithoutMutatingTrades(): void {
+  const original = {
+    ...closedLiveTrade,
+    id: 'anchor-boundary',
+    openedAt: '2026-08-02',
+    closedAt: '2026-08-02',
+    recordedAt: '2026-08-03T03:30:00.000Z',
+  }
+  const before = JSON.stringify(original)
+  const anchor = createBusinessDateAnchor(new Date(2026, 7, 3, 3, 59, 59, 999), 4)
+  for (const range of ['this-week', 'this-month', '30d', '90d', 'ytd'] as const) {
+    const result = filterTradesByAnalysisScope([original], { kind: 'live', range }, anchor)
+    assert(result.length === 1, `${range} 必须使用共同锚点 2026-08-02`)
+  }
+  assert(JSON.stringify(original) === before, '相对范围计算不得改写 openedAt/closedAt/recordedAt')
+}
+
+export function testEveryRelativeRangeUsesBothSidesOfTheFourAmBoundary(): void {
+  const before = createBusinessDateAnchor(new Date(2027, 0, 1, 3, 59, 59, 999), 4)
+  const after = createBusinessDateAnchor(new Date(2027, 0, 1, 4, 0, 0, 0), 4)
+  const priorYear = { ...closedLiveTrade, id: 'prior-year', closedAt: '2026-12-31' }
+  const newYear = { ...closedLiveTrade, id: 'new-year', closedAt: '2027-01-01' }
+  for (const range of ['this-week', 'this-month', '30d', '90d', 'ytd'] as const) {
+    const beforeIds = filterTradesByAnalysisScope(
+      [priorYear, newYear],
+      { kind: 'live', range },
+      before,
+    ).map((trade) => trade.id)
+    const afterIds = filterTradesByAnalysisScope(
+      [priorYear, newYear],
+      { kind: 'live', range },
+      after,
+    ).map((trade) => trade.id)
+    assert(beforeIds.includes('prior-year') && !beforeIds.includes('new-year'), `${range} 在 04:00 前必须截止上一交易日`)
+    assert(afterIds.includes('new-year'), `${range} 在 04:00 时必须包含新交易日`)
+    if (range === 'this-month' || range === 'ytd') {
+      assert(!afterIds.includes('prior-year'), `${range} 跨年后不得保留上一年度日期`)
+    }
+  }
+}
+// Quality-Scenario: B-CALENDAR
