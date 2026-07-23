@@ -100,6 +100,16 @@ async function expectVisible(locator) {
   await locator.waitFor({ state: 'visible', timeout: 5000 })
 }
 
+async function waitForAutoSave(page) {
+  await page.waitForFunction(async () => {
+    const [{ useSaveStatus }, { hasPendingChanges }] = await Promise.all([
+      import('/src/store/saveStatus.ts'),
+      import('/src/storage/persist.ts'),
+    ])
+    return useSaveStatus.getState().status === 'saved' && !hasPendingChanges()
+  }, undefined, { timeout: 10_000 })
+}
+
 /** 虚拟列表下目标行可能未挂载，先滚动再断言可见 */
 async function ensureTradeRowVisible(page, tradeId) {
   const locator = page.locator(`[data-trade-id="${tradeId}"]`)
@@ -616,7 +626,7 @@ try {
   await invalidRow.getByRole('button', { name: /^删除 / }).click()
   await expectCount(invalidRow, 0)
   await editor.getByRole('button', { name: '完成' }).click()
-  await page.waitForTimeout(250)
+  await waitForAutoSave(page)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   await page.getByRole('button', { name: '管理我的空间', exact: true }).click()
@@ -634,13 +644,7 @@ try {
   await restoredEditor.getByRole('button', { name: '确认恢复默认' }).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 4 \/ 8/)
   await restoredEditor.getByRole('button', { name: '完成' }).click()
-  await page.waitForFunction(async () => {
-    const [{ useSaveStatus }, { hasPendingChanges }] = await Promise.all([
-      import('/src/store/saveStatus.ts'),
-      import('/src/storage/persist.ts'),
-    ])
-    return useSaveStatus.getState().status === 'saved' && !hasPendingChanges()
-  }, undefined, { timeout: 10_000 })
+  await waitForAutoSave(page)
   await page.waitForFunction(async () => {
     return new Promise((resolve) => {
       const open = indexedDB.open('linear-journal-v3')
