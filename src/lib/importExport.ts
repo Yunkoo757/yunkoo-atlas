@@ -369,14 +369,15 @@ export async function buildExportPayload(): Promise<ExportPayload> {
 
 export async function downloadExport(): Promise<void> {
   const storage = getStorage()
-  await flushPersistNow()
-  const revision = (await storage.getSnapshotRevision?.()) ?? 0
+  const revisionBefore = (await storage.getSnapshotRevision?.()) ?? 0
   const operation = beginWebOperation('archive', {
     stage: 'export-json',
-    revisionBefore: revision,
+    revisionBefore,
     platform: isElectron() ? 'electron-renderer' : 'web',
   })
   try {
+    await flushPersistNow()
+    const revisionAfter = (await storage.getSnapshotRevision?.()) ?? revisionBefore
     const payload = await buildExportPayload()
     const json = serializeJsonExportPayload(payload)
     const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
@@ -389,7 +390,7 @@ export async function downloadExport(): Promise<void> {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
-    operation.success({ stage: 'downloaded', revisionAfter: revision })
+    operation.success({ stage: 'downloaded', revisionAfter })
   } catch (error) {
     operation.failure(error, { stage: 'export-json' })
     throw error
@@ -429,14 +430,15 @@ function serializeJsonDocumentWithinFileBudget(payload: unknown): string {
  */
 export async function downloadWebJournalZip(): Promise<void> {
   const storage = getStorage()
-  await flushPersistNow()
-  const revision = (await storage.getSnapshotRevision?.()) ?? 0
+  const revisionBefore = (await storage.getSnapshotRevision?.()) ?? 0
   const operation = beginWebOperation('archive', {
     stage: 'export-zip',
-    revisionBefore: revision,
+    revisionBefore,
     platform: isElectron() ? 'electron-renderer' : 'web',
   })
   try {
+    await flushPersistNow()
+    const revisionAfter = (await storage.getSnapshotRevision?.()) ?? revisionBefore
     const state = useStore.getState()
     const portableSnapshot = buildPortableSnapshotFromState(
       state,
@@ -458,7 +460,7 @@ export async function downloadWebJournalZip(): Promise<void> {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
-    operation.success({ stage: 'downloaded', revisionAfter: revision })
+    operation.success({ stage: 'downloaded', revisionAfter })
   } catch (error) {
     operation.failure(error, { stage: 'export-zip' })
     throw error
