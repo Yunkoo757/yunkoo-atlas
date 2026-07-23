@@ -640,12 +640,20 @@ try {
         const database = open.result
         const request = database.transaction('snapshot', 'readonly').objectStore('snapshot').get('main')
         request.onerror = () => { database.close(); resolve(false) }
-        request.onsuccess = () => {
-          const ids = request.result?.display?.sidebarWorkspaceItems?.map((item) => item.id)
-          database.close()
-          resolve(JSON.stringify(ids) === JSON.stringify([
-            'system:active', 'system:favorites', 'system:missed', 'system:paper',
-          ]))
+        request.onsuccess = async () => {
+          try {
+            const snapshot = request.result instanceof Blob
+              ? JSON.parse(await request.result.text())
+              : request.result
+            const ids = snapshot?.display?.sidebarWorkspaceItems?.map((item) => item.id)
+            resolve(JSON.stringify(ids) === JSON.stringify([
+              'system:active', 'system:favorites', 'system:missed', 'system:paper',
+            ]))
+          } catch {
+            resolve(false)
+          } finally {
+            database.close()
+          }
         }
       }
     })

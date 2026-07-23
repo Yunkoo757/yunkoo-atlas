@@ -212,10 +212,17 @@ try {
         const database = open.result
         const request = database.transaction('snapshot', 'readonly').objectStore('snapshot').get('main')
         request.onerror = () => { database.close(); resolve(false) }
-        request.onsuccess = () => {
-          const found = request.result?.trades?.some((candidate) => candidate.ref === tradeRef) === true
-          database.close()
-          resolve(found)
+        request.onsuccess = async () => {
+          try {
+            const snapshot = request.result instanceof Blob
+              ? JSON.parse(await request.result.text())
+              : request.result
+            resolve(snapshot?.trades?.some((candidate) => candidate.ref === tradeRef) === true)
+          } catch {
+            resolve(false)
+          } finally {
+            database.close()
+          }
         }
       }
     })
@@ -228,17 +235,25 @@ try {
         const database = open.result
         const request = database.transaction('snapshot', 'readonly').objectStore('snapshot').get('main')
         request.onerror = () => { database.close(); resolve(null) }
-        request.onsuccess = () => {
-          const trade = request.result?.trades?.find((candidate) => candidate.ref === tradeRef)
-          database.close()
-          resolve(trade
-            ? {
-                openedAt: trade.openedAt,
-                side: trade.side,
-                tradeKind: trade.tradeKind,
-                strategyId: trade.strategyId,
-              }
-            : null)
+        request.onsuccess = async () => {
+          try {
+            const snapshot = request.result instanceof Blob
+              ? JSON.parse(await request.result.text())
+              : request.result
+            const trade = snapshot?.trades?.find((candidate) => candidate.ref === tradeRef)
+            resolve(trade
+              ? {
+                  openedAt: trade.openedAt,
+                  side: trade.side,
+                  tradeKind: trade.tradeKind,
+                  strategyId: trade.strategyId,
+                }
+              : null)
+          } catch {
+            resolve(null)
+          } finally {
+            database.close()
+          }
         }
       }
     })
