@@ -61,8 +61,8 @@ export const RELEASE_TRAIN_DRILLS = [
   },
 ]
 
-export function evaluateReleaseTrainDrills(executedScenarioIds) {
-  const executed = new Set(executedScenarioIds)
+export function evaluateReleaseTrainDrills(executedContractScenarioIds) {
+  const executed = new Set(executedContractScenarioIds)
   return RELEASE_TRAIN_DRILLS.map((definition) => {
     const phases = Object.fromEntries(['stop', 'rollback', 'userRecovery'].map((phase) => {
       const expected = definition[phase].scenarioIds

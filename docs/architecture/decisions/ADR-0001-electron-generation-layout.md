@@ -3,7 +3,7 @@
 - 状态：No-Go
 - 日期：2026-07-23
 - 适用范围：Spec v2 `GEN-SPIKE`
-- 决策者：工程验证；待发布负责人复核
+- 决策者：工程验证；发布负责人已复核
 
 ## 背景
 
@@ -11,7 +11,15 @@ Spec v2 要求用隔离 Spike 验证 generation 目录、完整性 marker 和原
 
 ## 证据
 
-Windows NTFS 原始报告位于 `docs/superpowers/reports/generation-spike-windows-ntfs.json`：
+授权证据由 `.github/workflows/generation-spike.yml` 在最终发布候选提交上生成：
+
+- `generation-spike-Windows`：Windows NTFS 原始报告；
+- `generation-spike-macOS`：macOS APFS 原始报告；
+- `generation-decision-evidence`：只在两份同 commit、同 tree、干净工作树的原始报告均通过严格校验后生成。
+
+`scripts/verify-generation-decision.mjs --require-complete` 负责聚合平台结论，`scripts/verify-release-train-evidence.mjs --require-complete` 再把两份原始报告和聚合决策绑定到最终 13 项质量清单。GitHub Actions run 与 artifact 是当前候选的权威原始证据；run 标识随候选提交变化，不固化到 ADR。`docs/superpowers/reports/generation-spike-windows-ntfs.json` 是早期 dirty 工作树上的历史探索报告，仅保留背景，不参与发布授权。
+
+当前已复核的双平台证据表明：
 
 - 17 个逐操作注入点，以及磁盘不足（两次预检）、pointer 目标占用、跨卷 `EXDEV`，均在重启恢复后只选择完整旧代或完整新代；
 - pointer 缺失、pointer 损坏、新代不完整和旧代不完整均没有产生 mixed generation；
@@ -19,9 +27,9 @@ Windows NTFS 原始报告位于 `docs/superpowers/reports/generation-spike-windo
 - `requiredFree = expandedTemp + rollbackCopy + max(512 MiB, operationBytes × 10%)` 已在第一次 mutation 前和 pointer 切换前检查；
 - 非稀疏 20 MiB 操作的预测新增峰值为 20,971,596 bytes，NTFS 卷剩余空间实测增量峰值为 20,979,712 bytes，误差约 0.039%；
 - 目录树峰值 37,749,990 bytes，低于 `activeLibrary × 2.2 + 512 MiB` 的 573,780,787.2 bytes 上限；
-- 文件 `fsync` 可执行，但当前 Node/Electron 运行时在 Windows 无法提供真实目录 `fsync` durability barrier。
-
-macOS APFS 矩阵由 `.github/workflows/generation-spike.yml` 运行并上传原始 artifact。该证据仍是关闭 Spec v2 §17.3 的必要材料，但无法消除已经确认的 Windows 阻断。
+- Windows 文件 `fsync` 可执行，但当前 Node/Electron 运行时无法提供真实目录 `fsync` durability barrier，因此平台结论为 `NO_GO_ON_THIS_PLATFORM`；
+- macOS APFS 完成相同故障矩阵并支持目录 `fsync`，平台结论为 `GO_ELIGIBLE_ON_THIS_PLATFORM`；
+- 聚合器按 fail-closed 规则输出全局 `NO_GO`，Spec v2 §17.3 的双平台决策证据已闭环，但 macOS 通过不能消除 Windows 阻断。
 
 ## 决策
 

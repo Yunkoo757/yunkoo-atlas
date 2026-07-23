@@ -32,7 +32,7 @@ try {
   failures.push(`quality execution or scenario registry missing or invalid: ${error.message}`)
 }
 
-const trains = evaluateReleaseTrainDrills(qualityContract?.executedScenarioIds ?? [])
+const trains = evaluateReleaseTrainDrills(qualityContract?.executedContractScenarioIds ?? [])
 const requiredScenarioIds = new Set(trains.flatMap((train) => (
   Object.values(train.phases).flatMap((phase) => phase.scenarioIds)
 )))

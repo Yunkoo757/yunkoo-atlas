@@ -173,9 +173,9 @@ try {
   failures.push(`治理门内部错误：${error?.stack ?? error}`)
 }
 
-const executedScenarioIds = requireExecution ? [...verifiedScenarioIds] : []
+const executedContractScenarioIds = requireExecution ? [...verifiedScenarioIds] : []
 const report = {
-  version: 3,
+  version: 4,
   generatedAt: new Date().toISOString(),
   gitCommit: provenance.gitCommit,
   gitTree: provenance.gitTree,
@@ -185,9 +185,9 @@ const report = {
   executionRequired: requireExecution,
   scenarioCount: scenarios.length,
   automaticScenarioCount: scenarios.filter((scenario) => scenario.mode !== 'manual').length,
-  executedScenarioIds,
+  executedContractScenarioIds,
   manualScenarioIds: scenarios.filter((scenario) => scenario.mode === 'manual').map((scenario) => scenario.id),
-  pendingReleaseGateScenarioIds: scenarios.filter((scenario) => scenario.mode === 'release-gate').map((scenario) => scenario.id),
+  declaredReleaseGateScenarioIds: scenarios.filter((scenario) => scenario.mode === 'release-gate').map((scenario) => scenario.id),
   pureModules,
   utf8FileCount: files.length,
   status: failures.length === 0 ? 'pass' : 'fail',
