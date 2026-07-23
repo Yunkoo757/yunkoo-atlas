@@ -860,7 +860,7 @@ MAX_JSON_TOTAL_ENTITIES = 50,000
 
 1. 先运行 IMP1 的兼容测量，覆盖 1K/10K/20K、自引用附件和最大声明附件 corpus。
 2. 若当前版本能成功生成的 JSON 会超过 64 MiB，writer 必须在生成前拒绝，并引导使用 `.journal.zip`。
-3. importer 在 `file.text()` 前检查 `File.size`。
+3. importer 在 `file.arrayBuffer()` 前检查 `File.size`，并用 `TextDecoder('utf-8', { fatal: true })` 解码；非法 UTF-8 必须以 `json-contract-invalid` fail-closed，不能静默替换为 U+FFFD。
 4. base64 在 `atob`/`Buffer.from` 前按编码长度和 padding 计算解码上界。
 5. 所有预算、类型、关系、附件完整性验证通过后才进入 Store/adapter mutation。
 6. 同一版本“成功导出的文件必须能重新导入”；不能通过让 writer 继续成功导出超限 JSON 来破坏对称性。
@@ -1067,6 +1067,7 @@ publish contract
 
 - H0/FND：只增加 reader 兼容与 writer 完整性，没有数据 migration；旧 v8 reader会忽略它认识范围外的可选字段。
 - WEB：revision 是 meta 附加记录；回滚版本会忽略它。回滚期间必须要求关闭所有现存标签页，避免新旧协议并发。
+- WEB Blob 编码切换必须采用两阶段发布：先发布兼容桥 `codex/blob-compat-bridge@bb7ec33ace2c3074f97284a670e81e45ea7882b2`，其 reader 同时接受 object/Blob、writer 仍只写 object；桥版本成为后续 Blob writer 唯一允许的回滚目标。Blob writer 在桥版本完成一个受控覆盖窗口、操作者确认旧标签页已刷新/关闭前保持 HOLD。禁止长期双写完整 object+Blob，以免重新引入大对象 structured clone 长任务。
 - DESK：配置文件不得在失败时删除或覆盖；回滚前保留用户原路径文本。
 - UNDO/DATE/KIND：不改 schema，无数据回滚步骤。
 - AST：dry-run 和用户归档是启用前置。成功物理删除不能靠代码回滚；只能从用户确认前生成的恢复归档恢复。
@@ -1144,6 +1145,7 @@ publish contract
 | R10 | macOS 未签名产物被误解为自动更新能力 | 中/中 | Release 文案与 metadata 明确限制 | 不生成不可信 updater 承诺 |
 | R11 | 自动发现误导入 browser/Node 不兼容测试 | 中/中 | 明确 pattern/排除和 discovery 自测 | runner 回滚，不回手工漏测模式 |
 | R12 | 过度架构整改拖慢止血 | 中/高 | Release 0 与 FND 分开；H0 可独立回滚发布 | H0 优先，其他包不得阻塞 |
+| R13 | Blob writer 让旧 v8 reader 静默加载空库 | 中/高 | 先发 object writer + object/Blob reader 兼容桥；Blob writer 只允许回滚到桥版本 | 覆盖窗口未确认则 Blob writer Release HOLD |
 
 ## 17. 最终 Definition of Done
 

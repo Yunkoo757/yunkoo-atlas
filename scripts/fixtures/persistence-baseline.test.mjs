@@ -40,11 +40,33 @@ test('基线指标集合和数值严格 fail-closed', () => {
 
 test('批准基线严格校验版本、批准信息与完整指标', () => {
   const metrics = Object.fromEntries(PERSISTENCE_BASELINE_METRICS.map((metric) => [metric, 100]))
-  const valid = { version: 1, approvedBy: 'Yunkoo', approvedAt: '2026-07-23T00:00:00.000Z', metrics }
+  const evidenceItem = {
+    path: 'scripts/persistence-baseline-evidence/example/report.json',
+    sha256: 'b'.repeat(64),
+  }
+  const valid = {
+    version: 1,
+    approvedBy: 'Yunkoo',
+    approvedAt: '2026-07-23T00:00:00.000Z',
+    gitCommit: 'a'.repeat(40),
+    gitTree: 'c'.repeat(40),
+    workingTreeDirty: false,
+    sourceFingerprint: 'd'.repeat(64),
+    sourceIdentity: `git-tree:${'c'.repeat(40)}`,
+    basis: 'two raw runs',
+    evidence: [1, 2].map((attempt) => ({
+      attempt,
+      persistence: { ...evidenceItem },
+      webZip: { ...evidenceItem },
+    })),
+    metrics,
+  }
   assert.equal(validateApprovedPersistenceBaseline(valid), valid)
   assert.throws(() => validateApprovedPersistenceBaseline({ ...valid, version: 2 }), /版本必须严格为 1/)
   assert.throws(() => validateApprovedPersistenceBaseline({ ...valid, approvedBy: '' }), /缺少批准人/)
   assert.throws(() => validateApprovedPersistenceBaseline({ ...valid, approvedAt: 'invalid' }), /有效批准时间/)
+  assert.throws(() => validateApprovedPersistenceBaseline({ ...valid, workingTreeDirty: true }), /干净工作树/)
+  assert.throws(() => validateApprovedPersistenceBaseline({ ...valid, evidence: valid.evidence.slice(0, 1) }), /两次原始运行/)
 })
 
 test('Git 来源在干净工作树使用 tree，在脏工作树使用内容指纹', async () => {

@@ -54,7 +54,10 @@ function jsonWithOneAttachment(decodedBytes: number): string {
 export async function testJsonFileBudgetChecksLimitMinusOneLimitAndLimitPlusOneBeforeRead(): Promise<void> {
   for (const size of [MAX_JSON_FILE_BYTES - 1, MAX_JSON_FILE_BYTES]) {
     let reads = 0
-    const text = await readJsonImportFile({ size, text: async () => { reads += 1; return '{}' } })
+    const text = await readJsonImportFile({
+      size,
+      arrayBuffer: async () => { reads += 1; return new TextEncoder().encode('{}').buffer },
+    })
     assert(text === '{}' && reads === 1, `允许的 ${size} bytes 文件必须读取一次`)
   }
 
@@ -63,15 +66,33 @@ export async function testJsonFileBudgetChecksLimitMinusOneLimitAndLimitPlusOneB
   try {
     await readJsonImportFile({
       size: MAX_JSON_FILE_BYTES + 1,
-      text: async () => { reads += 1; return '{}' },
+      arrayBuffer: async () => { reads += 1; return new TextEncoder().encode('{}').buffer },
     })
   } catch (error) {
     code = error instanceof JsonImportBudgetError ? error.code : ''
   }
   assert(code === 'json-file-too-large', 'limit+1 必须返回稳定文件超限 code')
-  assert(reads === 0, '文件超限时不得调用 file.text()')
+  assert(reads === 0, '文件超限时不得调用 file.arrayBuffer()')
   assertJsonFileByteBudget(MAX_JSON_FILE_BYTES)
   assert(errorCode(() => assertJsonFileByteBudget(MAX_JSON_FILE_BYTES + 1)) === 'json-file-too-large', '纯文件预算门也必须拒绝 limit+1')
+}
+
+export async function testJsonFileRejectsInvalidUtf8AndAcceptsUtf8Bom(): Promise<void> {
+  const invalid = new Uint8Array([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xff, 0x22, 0x7d])
+  let code = ''
+  try {
+    await readJsonImportFile({ size: invalid.byteLength, arrayBuffer: async () => invalid.buffer })
+  } catch (error) {
+    code = error instanceof JsonImportBudgetError ? error.code : ''
+  }
+  assert(code === 'json-contract-invalid', '非法 UTF-8 必须 fail-closed，不能替换为 U+FFFD')
+
+  const bomJson = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('{"ok":true}')])
+  const decoded = await readJsonImportFile({
+    size: bomJson.byteLength,
+    arrayBuffer: async () => bomJson.buffer,
+  })
+  assert(decoded === '{"ok":true}', '合法 UTF-8 BOM 必须被 decoder 正确处理')
 }
 
 export function testJsonEntityBudgetCountsEveryTopLevelCollectionAtBoundaries(): void {

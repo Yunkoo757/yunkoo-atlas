@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import {
   findRelativeRegressions,
+  validateRawPersistenceAttempt,
   validateApprovedPersistenceBaseline,
   validatePersistenceMetrics,
 } from './persistence-baseline.mjs'
@@ -44,6 +45,10 @@ export function persistenceReleaseGatePassed(value) {
     if (!Array.isArray(value.attempts) || value.attempts.length < 1 || value.attempts.length > 2) return false
     const attemptRegressions = value.attempts.map((attempt, index) => {
       validatePersistenceMetrics(attempt.metrics, `attempts[${index}].metrics`)
+      const raw = validateRawPersistenceAttempt(attempt.raw, value)
+      for (const [metric, measured] of Object.entries(raw.metrics)) {
+        if (attempt.metrics[metric] !== measured) throw new Error(`attempts[${index}].${metric} raw mismatch`)
+      }
       if (attempt.number === index + 1 &&
         attempt.gitCommit === value.gitCommit &&
         attempt.gitTree === value.gitTree &&

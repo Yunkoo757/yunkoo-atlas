@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 
 import {
   collectPersistenceMetrics,
   findRelativeRegressions,
-  validateApprovedPersistenceBaseline,
   validatePersistenceMetrics,
+  verifyApprovedPersistenceBaseline,
 } from './persistence-baseline.mjs'
 
 const root = process.cwd()
@@ -24,12 +25,18 @@ function run(command, args) {
 async function runAttempt(number) {
   run('scripts/benchmark-persistence.mjs', ['--release'])
   run('scripts/benchmark-web-zip.mjs', ['--release'])
-  const persistence = JSON.parse(await fs.readFile(path.join(reportDirectory, 'persistence-release.json'), 'utf8'))
-  const webZip = JSON.parse(await fs.readFile(path.join(reportDirectory, 'web-zip-release.json'), 'utf8'))
+  const persistenceJson = await fs.readFile(path.join(reportDirectory, 'persistence-release.json'), 'utf8')
+  const webZipJson = await fs.readFile(path.join(reportDirectory, 'web-zip-release.json'), 'utf8')
+  const persistence = JSON.parse(persistenceJson)
+  const webZip = JSON.parse(webZipJson)
   if (persistence.gitCommit !== webZip.gitCommit) throw new Error('性能报告不是同一 git SHA')
   if (persistence.sourceIdentity !== webZip.sourceIdentity) {
     throw new Error('性能报告不是同一源码身份')
   }
+  const attemptDirectory = path.join(reportDirectory, `attempt-${number}`)
+  await fs.mkdir(attemptDirectory, { recursive: true })
+  await fs.writeFile(path.join(attemptDirectory, 'persistence-release.json'), persistenceJson, 'utf8')
+  await fs.writeFile(path.join(attemptDirectory, 'web-zip-release.json'), webZipJson, 'utf8')
   return {
     number,
     gitCommit: persistence.gitCommit,
@@ -37,6 +44,16 @@ async function runAttempt(number) {
     workingTreeDirty: persistence.workingTreeDirty,
     sourceFingerprint: persistence.sourceFingerprint,
     sourceIdentity: persistence.sourceIdentity,
+    raw: {
+      persistence: {
+        sha256: createHash('sha256').update(persistenceJson).digest('hex'),
+        json: persistenceJson,
+      },
+      webZip: {
+        sha256: createHash('sha256').update(webZipJson).digest('hex'),
+        json: webZipJson,
+      },
+    },
     metrics: validatePersistenceMetrics(
       collectPersistenceMetrics(persistence, webZip),
       `attempt ${number} metrics`,
@@ -64,7 +81,7 @@ try {
   await fs.writeFile(path.join(reportDirectory, 'persistence-baseline-candidate.json'), `${JSON.stringify(candidate, null, 2)}\n`, 'utf8')
   throw new Error('缺少经用户批准的 scripts/persistence-approved-baseline.json；已生成候选基线，发布保持阻断')
 }
-validateApprovedPersistenceBaseline(baseline)
+await verifyApprovedPersistenceBaseline(baseline, root)
 
 const attempts = [first]
 let regressions = findRelativeRegressions(baseline.metrics, first.metrics)

@@ -837,9 +837,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
+    const revisionBefore = await this.getSnapshotRevision()
     const operation = beginWebOperation('import', {
       stage: 'validate',
-      revisionBefore: this.currentRevision ?? 0,
+      revisionBefore,
     })
     try {
       assertValidPersistedSnapshot(snapshot, 'Imported browser snapshot')
@@ -881,9 +882,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     recoveryOrphanAssetIds: readonly string[] = [],
   ): Promise<void> {
+    const revisionBefore = await this.getSnapshotRevision()
     const operation = beginWebOperation('archive', {
       stage: 'validate-restore',
-      revisionBefore: this.currentRevision ?? 0,
+      revisionBefore,
     })
     try {
       assertValidPersistedSnapshot(snapshot, 'Restored browser snapshot')

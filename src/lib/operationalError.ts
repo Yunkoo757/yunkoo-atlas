@@ -7,6 +7,7 @@ export const OPERATIONAL_ERROR_CODES = [
   'library-location-invalid',
   'quit-flush-failed',
   'quit-backup-failed',
+  'quit-commit-failed',
   'import-budget-exceeded',
   'asset-reference-missing',
   'asset-gc-stale-revision',

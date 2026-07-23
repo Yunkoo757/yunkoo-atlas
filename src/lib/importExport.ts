@@ -369,6 +369,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
 
 export async function downloadExport(): Promise<void> {
   const storage = getStorage()
+  await flushPersistNow()
   const revision = (await storage.getSnapshotRevision?.()) ?? 0
   const operation = beginWebOperation('archive', {
     stage: 'export-json',
@@ -376,7 +377,6 @@ export async function downloadExport(): Promise<void> {
     platform: isElectron() ? 'electron-renderer' : 'web',
   })
   try {
-    await flushPersistNow()
     const payload = await buildExportPayload()
     const json = serializeJsonExportPayload(payload)
     const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
@@ -429,6 +429,7 @@ function serializeJsonDocumentWithinFileBudget(payload: unknown): string {
  */
 export async function downloadWebJournalZip(): Promise<void> {
   const storage = getStorage()
+  await flushPersistNow()
   const revision = (await storage.getSnapshotRevision?.()) ?? 0
   const operation = beginWebOperation('archive', {
     stage: 'export-zip',
@@ -436,7 +437,6 @@ export async function downloadWebJournalZip(): Promise<void> {
     platform: isElectron() ? 'electron-renderer' : 'web',
   })
   try {
-    await flushPersistNow()
     const state = useStore.getState()
     const portableSnapshot = buildPortableSnapshotFromState(
       state,

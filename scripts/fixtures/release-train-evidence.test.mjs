@@ -92,6 +92,68 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
   }), true)
 
   const metrics = Object.fromEntries(PERSISTENCE_BASELINE_METRICS.map((metric) => [metric, 1]))
+  const samples = new Array(30).fill(1)
+  const webResult = (label) => ({
+    label,
+    saveSamplesMs: samples,
+    dirtyConfirmedSamplesMs: samples,
+    staleConflictSamplesMs: samples,
+    longTaskSamplesMs: [1],
+    longTaskObserverSupported: true,
+    longTaskCalibrationObserved: true,
+  })
+  const electronResult = (label) => ({
+    label,
+    saveSamplesMs: samples,
+    ...(label === '10k' ? { quitSamplesMs: samples } : {}),
+  })
+  const rawPersistenceJson = `${JSON.stringify({
+    version: 1,
+    mode: 'release',
+    generatedAt: '2026-07-22T00:00:00.000Z',
+    gitCommit: 'a'.repeat(40),
+    gitTree: 'b'.repeat(40),
+    workingTreeDirty: false,
+    sourceFingerprint: 'c'.repeat(64),
+    sourceIdentity: `git-tree:${'b'.repeat(40)}`,
+    sampleConfig: { warmups: 5, samples: 30 },
+    environment: { os: 'win32', cpu: 'test', chromium: '1', electron: '1', sqlJs: '1' },
+    generator: { datasets: [
+      { label: '10k', sha256: 'd'.repeat(64) },
+      { label: '20k', sha256: 'e'.repeat(64) },
+    ] },
+    web: [webResult('10k'), webResult('20k')],
+    electron: [electronResult('10k'), electronResult('20k')],
+    summaries: {
+      web10kSaveP95Ms: 1, web20kSaveP95Ms: 1,
+      web10kDirtyConfirmedP95Ms: 1, web20kDirtyConfirmedP95Ms: 1,
+      web10kStaleConflictP95Ms: 1, web20kStaleConflictP95Ms: 1,
+      electron10kSaveP95Ms: 1, electron20kSaveP95Ms: 1,
+      quitCoordinatorP95Ms: 1, web10kMaxLongTaskMs: 1, web20kMaxLongTaskMs: 1,
+    },
+    status: 'pass',
+  }, null, 2)}\n`
+  const rawWebZipJson = `${JSON.stringify({
+    version: 1,
+    mode: 'release',
+    generatedAt: '2026-07-22T00:01:00.000Z',
+    gitCommit: 'a'.repeat(40),
+    gitTree: 'b'.repeat(40),
+    workingTreeDirty: false,
+    sourceFingerprint: 'c'.repeat(64),
+    sourceIdentity: `git-tree:${'b'.repeat(40)}`,
+    peakJsHeapBytes: 1,
+    status: 'pass',
+  }, null, 2)}\n`
+  const raw = {
+    persistence: { json: rawPersistenceJson, sha256: createHash('sha256').update(rawPersistenceJson).digest('hex') },
+    webZip: { json: rawWebZipJson, sha256: createHash('sha256').update(rawWebZipJson).digest('hex') },
+  }
+  const baselineEvidence = [1, 2].map((attempt) => ({
+    attempt,
+    persistence: { path: `scripts/persistence-baseline-evidence/test/${attempt}/persistence.json`, sha256: 'f'.repeat(64) },
+    webZip: { path: `scripts/persistence-baseline-evidence/test/${attempt}/web-zip.json`, sha256: 'f'.repeat(64) },
+  }))
   const valid = {
     version: 1,
     status: 'pass',
@@ -104,6 +166,13 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
       version: 1,
       approvedBy: 'Yunkoo老师',
       approvedAt: '2026-07-23T00:00:00.000Z',
+      gitCommit: 'a'.repeat(40),
+      gitTree: 'b'.repeat(40),
+      workingTreeDirty: false,
+      sourceFingerprint: 'c'.repeat(64),
+      sourceIdentity: `git-tree:${'b'.repeat(40)}`,
+      basis: 'two raw formal attempts',
+      evidence: baselineEvidence,
       metrics,
     },
     attempts: [{
@@ -113,6 +182,7 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
       workingTreeDirty: false,
       sourceFingerprint: 'c'.repeat(64),
       sourceIdentity: `git-tree:${'b'.repeat(40)}`,
+      raw,
       metrics,
     }],
     regressions: [],
@@ -135,7 +205,7 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
       { ...valid.attempts[0], metrics: regressedMetrics },
       { ...valid.attempts[0], number: 2 },
     ],
-  }), true)
+  }), false)
   assert.equal(persistenceReleaseGatePassed({
     ...valid,
     attempts: [valid.attempts[0], { ...valid.attempts[0], number: 2 }],

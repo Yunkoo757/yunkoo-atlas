@@ -46,10 +46,15 @@ export function assertJsonFileByteBudget(byteLength: number): void {
 }
 
 export async function readJsonImportFile(
-  file: Pick<File, 'size' | 'text'>,
+  file: Pick<File, 'size' | 'arrayBuffer'>,
 ): Promise<string> {
   assertJsonFileByteBudget(file.size)
-  return file.text()
+  try {
+    const bytes = await file.arrayBuffer()
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch (error) {
+    throw new JsonImportBudgetError('json-contract-invalid', error)
+  }
 }
 
 export function utf8ByteLength(value: string): number {

@@ -210,6 +210,11 @@ checkGate('Web dirty→confirmed 20K p95', p95(web20k.dirtyConfirmedSamplesMs), 
 checkGate('Web stale conflict 10K p95', p95(web10k.staleConflictSamplesMs), limits.webStaleConflictP95Ms, failures)
 checkGate('Web stale conflict 20K p95', p95(web20k.staleConflictSamplesMs), limits.webStaleConflictP95Ms, failures)
 checkGate('Web UI main-thread block 10K', Math.max(0, ...web10k.longTaskSamplesMs), limits.webMainThreadBlockMs, failures)
+checkGate('Web UI main-thread block 20K', Math.max(0, ...web20k.longTaskSamplesMs), limits.webMainThreadBlockMs, failures)
+if (!web10k.longTaskObserverSupported || !web10k.longTaskCalibrationObserved ||
+    !web20k.longTaskObserverSupported || !web20k.longTaskCalibrationObserved) {
+  failures.push('Long Task observer 未通过 10K/20K 自校准')
+}
 checkGate('Electron 10K save p95', p95(electron10k.saveSamplesMs), limits.electron10kSaveP95Ms, failures)
 checkGate('Electron 20K save p95', p95(electron20k.saveSamplesMs), limits.electron20kSaveP95Ms, failures)
 if (web10k.maxPendingSnapshotCount > 1 || web20k.maxPendingSnapshotCount > 1) {

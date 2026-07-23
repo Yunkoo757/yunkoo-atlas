@@ -44,6 +44,10 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.match(browser, /dirtyConfirmedSamplesMs/)
   assert.match(browser, /staleConflictSamplesMs/)
   assert.match(browser, /longTaskSamplesMs/)
+  assert.match(browser, /longTaskObserverSupported/)
+  assert.match(browser, /longTaskCalibrationObserved/)
+  assert.match(browser, /await waitForTransactionTurn\(\)[\s\S]*await operation\(\)/)
+  assert.match(browser, /performance\.now\(\) \+ 80/)
   assert.match(browser, /getPersistenceDiagnostics\(\)\.maxPendingSnapshotCount/)
   assert.match(browser, /resetPersistenceDiagnostics\(\)/)
   assert.match(browser, /disablePersistWrites\(\)[\s\S]*?uiAdapter\.close\(\)[\s\S]*?staleConflictSamplesMs/)
@@ -77,7 +81,8 @@ test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', 
   assert.match(runner, /web20kSaveP95Ms: 1_000/)
   assert.match(runner, /webMainThreadBlockMs: 50/)
   assert.match(runner, /Web UI main-thread block 10K/)
-  assert.doesNotMatch(runner, /Web UI main-thread block 20K/)
+  assert.match(runner, /Web UI main-thread block 20K/)
+  assert.match(runner, /Long Task observer 未通过 10K\/20K 自校准/)
   assert.match(runner, /electron10kSaveP95Ms: 1_500/)
   assert.match(runner, /electron20kSaveP95Ms: 2_500/)
   assert.match(runner, /quitCoordinatorP95Ms: 3_000/)
@@ -96,6 +101,8 @@ test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', 
     'dirtyConfirmedSamplesMs',
     'staleConflictSamplesMs',
     'longTaskSamplesMs',
+    'longTaskObserverSupported',
+    'longTaskCalibrationObserved',
     'chromium',
     'electron',
     'sqlJs',
@@ -110,7 +117,9 @@ test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', 
   assert.match(releaseGate, /second\.sourceIdentity !== first\.sourceIdentity/)
   assert.match(releaseGate, /sourceIdentity: first\.sourceIdentity/)
   assert.match(releaseGate, /persistence-approved-baseline\.json/)
-  assert.match(releaseGate, /validateApprovedPersistenceBaseline\(baseline\)/)
+  assert.match(releaseGate, /verifyApprovedPersistenceBaseline\(baseline, root\)/)
+  assert.match(releaseGate, /attemptDirectory/)
+  assert.match(releaseGate, /createHash\('sha256'\)\.update\(persistenceJson\)/)
   const ci = readFileSync('.github/workflows/ci.yml', 'utf8')
   assert.match(ci, /pnpm benchmark:persistence/)
   assert.match(ci, /persistence-smoke\.json/)

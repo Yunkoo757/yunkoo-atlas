@@ -33,6 +33,8 @@ interface BenchmarkResult {
   dirtyConfirmedSamplesMs: number[]
   staleConflictSamplesMs: number[]
   longTaskSamplesMs: number[]
+  longTaskObserverSupported: boolean
+  longTaskCalibrationObserved: boolean
   finalRevision: number
   checksum: string
   fixtureChecksum: string
@@ -89,11 +91,28 @@ async function observeLongTasks(operation: () => Promise<void>): Promise<number[
       })
     : null
   observer?.observe({ entryTypes: ['longtask'] })
+  await waitForTransactionTurn()
   await operation()
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
   for (const entry of observer?.takeRecords() ?? []) durations.push(entry.duration)
   observer?.disconnect()
   return durations
+}
+
+async function calibrateLongTaskObserver(): Promise<{
+  supported: boolean
+  observed: boolean
+}> {
+  const supported = typeof PerformanceObserver !== 'undefined' &&
+    PerformanceObserver.supportedEntryTypes.includes('longtask')
+  if (!supported) return { supported: false, observed: false }
+  const durations = await observeLongTasks(async () => {
+    const deadline = performance.now() + 80
+    while (performance.now() < deadline) {
+      // Intentional calibration: prove this browser reports a known >50 ms task.
+    }
+  })
+  return { supported: true, observed: durations.some((duration) => duration >= 50) }
 }
 
 function waitForSavedUi(container: HTMLElement): Promise<void> {
@@ -160,6 +179,10 @@ window.runWebPersistenceBenchmark = async (input) => {
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     const dirtyConfirmedSamplesMs: number[] = []
     const longTaskSamplesMs: number[] = []
+    const longTaskCalibration = await calibrateLongTaskObserver()
+    if (!longTaskCalibration.supported || !longTaskCalibration.observed) {
+      throw new Error('Long Task observer 自校准失败，性能门禁必须 fail-closed')
+    }
     let maxPendingSnapshotCount = 0
     let uiRevision = (await uiAdapter.loadSnapshotEnvelope()).revision
 
@@ -274,6 +297,8 @@ window.runWebPersistenceBenchmark = async (input) => {
       dirtyConfirmedSamplesMs,
       staleConflictSamplesMs,
       longTaskSamplesMs,
+      longTaskObserverSupported: longTaskCalibration.supported,
+      longTaskCalibrationObserved: longTaskCalibration.observed,
       finalRevision: winner.revision,
       checksum: durableHash,
       fixtureChecksum: input.expectedHash,

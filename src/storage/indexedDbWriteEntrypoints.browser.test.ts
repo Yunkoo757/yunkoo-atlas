@@ -91,6 +91,8 @@ async function run(): Promise<void> {
   assert(observed.revision === 4, 'commitImport 必须通过单一 mutation 推进 revision')
   const successfulImportLogs = getWebOperationLogs().filter((record) => record.event.startsWith('import:'))
   assert(successfulImportLogs.map((record) => record.event).join(',') === 'import:start,import:success', 'Web import 成功必须只记录 start→success')
+  assert(successfulImportLogs.every((record) => record.revisionBefore === 3), 'Web import 必须记录真实提交前 revision')
+  assert(successfulImportLogs.at(-1)?.revisionAfter === 4, 'Web import 成功必须记录真实提交后 revision')
   assert(await observer.getAssetForExport(importedId), 'commitImport 必须原子提交附件')
 
   const restoredId = 'atomic-restore-asset'
@@ -142,6 +144,8 @@ async function run(): Promise<void> {
   assert(conflict instanceof StorageRevisionConflictError, 'stale import 必须暴露 typed conflict')
   const failedImportLogs = getWebOperationLogs().filter((record) => record.event.startsWith('import:'))
   assert(failedImportLogs.map((record) => record.event).join(',') === 'import:start,import:failure', 'Web import 冲突必须只记录 start→failure')
+  assert(failedImportLogs.every((record) => record.revisionBefore === 7), 'Web import 冲突必须记录数据库真实 revision')
+  assert(failedImportLogs.at(-1)?.revisionAfter === 7, 'Web import 冲突不得伪造 revision 推进')
   assert(!JSON.stringify(failedImportLogs).includes('success'), 'Web import 冲突不得误报 success')
   observed = await writer.loadSnapshotEnvelope()
   assert(observed.revision === 7, 'stale import 不得推进 revision')
