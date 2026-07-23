@@ -13,6 +13,7 @@ function assert(condition: unknown, message: string): void {
 
 export async function testConcurrentExitRequestsShareOneCycleAndPromoteInstall(): Promise<void> {
   const calls = { flush: 0, backup: 0, release: 0, finalize: 0 }
+  const lifecycle: string[] = []
   let finishFlush: (() => void) | undefined
   const coordinator = new QuitCoordinator({
     timeoutMs: 1_000,
@@ -29,6 +30,8 @@ export async function testConcurrentExitRequestsShareOneCycleAndPromoteInstall()
       assert(intent === 'quit-and-install', '并发更新安装必须提升最终退出意图')
     },
     cancelPreparation: () => {},
+    reportStart: (event) => lifecycle.push(`start:${event.operationId}:${event.stage}`),
+    reportSuccess: (event) => lifecycle.push(`success:${event.operationId}:${event.stage}`),
     reportError: () => {},
   })
 
@@ -39,6 +42,10 @@ export async function testConcurrentExitRequestsShareOneCycleAndPromoteInstall()
   const result = await close
   assert(result.ok, '完整退出周期应成功')
   assert(Object.values(calls).every((count) => count === 1), 'flush/backup/release/finalize 必须各执行一次')
+  assert(
+    lifecycle.join('|') === 'start:request-1:renderer-flush|success:request-1:commit-exit',
+    '并发退出请求必须共享一组 start/success 日志标识',
+  )
 }
 
 export async function testExitFailureStopsBeforeReleaseAndReportsAbort(): Promise<void> {
@@ -57,11 +64,15 @@ export async function testExitFailureStopsBeforeReleaseAndReportsAbort(): Promis
       },
       commitExit: async () => { calls.push('release', 'finalize') },
       cancelPreparation: () => {},
+      reportStart: (event) => calls.push(`start:${event.operationId}:${event.stage}`),
+      reportSuccess: () => calls.push('success'),
       reportError: (failure) => calls.push(`error:${failure.code}:${failure.message}`),
     })
     const result = await coordinator.request('quit')
     assert(!result.ok, `${failureAt} 失败必须取消退出`)
     assert(!calls.includes('release') && !calls.includes('finalize'), '失败时不得 release 或报告退出成功')
+    assert(!calls.includes('success'), '失败退出不得写入 success 终态')
+    assert(calls.filter((entry) => entry.startsWith('start:')).length === 1, '失败退出必须恰好记录一次 start')
     const expectedCode = failureAt === 'flush' ? 'quit-flush-failed' : 'quit-backup-failed'
     assert(calls.some((entry) => entry.startsWith(`error:${expectedCode}:`)), '失败必须携带稳定阶段 code')
   }

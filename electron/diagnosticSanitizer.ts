@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 
 const SAFE_KEYS = new Set([
-  'operationId', 'stage', 'code', 'revision', 'durationMs', 'status',
+  'operationId', 'actionId', 'requestId', 'stage', 'code', 'revision',
+  'revisionBefore', 'revisionAfter', 'durationMs', 'status',
   'version', 'platform', 'packaged', 'exitCode', 'signal',
 ])
 

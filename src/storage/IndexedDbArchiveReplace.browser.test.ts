@@ -192,8 +192,8 @@ async function run(): Promise<void> {
   }))
   await adapter.replaceArchive(contractSnapshot, contractAssets)
   assert(
-    await adapter.getSnapshotRevision() === 3,
-    'WEB2 PATH-B 必须在同一 mutation 中将 revision 从 2 推进到 3',
+    await adapter.getSnapshotRevision() === 4,
+    'WEB2 PATH-B 必须在同一 mutation 中将 revision 从 3 推进到 4',
   )
   const contractLoaded = await adapter.loadSnapshot()
   assert(contractLoaded, 'PATH-B replace 后必须存在快照')

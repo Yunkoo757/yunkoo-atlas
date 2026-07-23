@@ -41,6 +41,7 @@ import {
 import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
+import { beginOperation } from '../operationLogger'
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
@@ -543,41 +544,68 @@ export function registerLibraryIpc(): void {
       ? await dialog.showSaveDialog(win, options)
       : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return null
-    const lib = await ensureStorage()
-    await exportJournalZip(lib, result.filePath!)
-    const verificationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-purge-recovery-'))
-    try {
-      await importJournalZipToPath(verificationRoot, result.filePath!)
-    } finally {
-      fs.rmSync(verificationRoot, { recursive: true, force: true })
-    }
-    const token = randomUUID()
-    assetPurgeAuthorizations.set(preview.operationId, {
-      token,
-      signature: JSON.stringify(preview),
-      createdAt: Date.now(),
+    const operation = beginOperation('archive', {
+      operationId: preview.operationId,
+      actionId: preview.operationId,
+      stage: 'export-recovery',
+      revisionBefore: preview.revision,
     })
-    return { authorization: token, path: result.filePath }
+    try {
+      const lib = await ensureStorage()
+      await exportJournalZip(lib, result.filePath!)
+      const verificationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-purge-recovery-'))
+      try {
+        await importJournalZipToPath(verificationRoot, result.filePath!)
+      } finally {
+        fs.rmSync(verificationRoot, { recursive: true, force: true })
+      }
+      const token = randomUUID()
+      assetPurgeAuthorizations.set(preview.operationId, {
+        token,
+        signature: JSON.stringify(preview),
+        createdAt: Date.now(),
+      })
+      operation.success({ stage: 'verified', revisionAfter: preview.revision })
+      return { authorization: token, path: result.filePath }
+    } catch (error) {
+      operation.failure(error, { stage: 'export-recovery' })
+      throw error
+    }
   }))
 
-  ipcMain.handle('storage:commitAssetPurge', async (_e, payload) => operationGate.runExclusive(async () => {
-    if (process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT !== 'true') {
-      throw new Error('当前发布阶段仅开放附件清理 dry-run，永久删除已在主进程边界关闭')
+  ipcMain.handle('storage:commitAssetPurge', async (_e, payload) => {
+    const operation = beginOperation('gc', {
+      operationId: payload.preview.operationId,
+      actionId: payload.preview.operationId,
+      stage: 'authorize',
+      revisionBefore: payload.preview.revision,
+    })
+    try {
+      const result = await operationGate.runExclusive(async () => {
+        if (process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT !== 'true') {
+          throw new Error('当前发布阶段仅开放附件清理 dry-run，永久删除已在主进程边界关闭')
+        }
+        const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
+        assetPurgeAuthorizations.delete(payload.preview.operationId)
+        if (
+          !prepared ||
+          !payload.authorization ||
+          prepared.token !== payload.authorization ||
+          prepared.signature !== JSON.stringify(payload.preview) ||
+          Date.now() - prepared.createdAt > 15 * 60_000
+        ) {
+          throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
+        }
+        const lib = await ensureStorage()
+        return lib.commitAssetPurge(payload.preview)
+      })
+      operation.success({ stage: 'committed', revisionAfter: result.revision })
+      return result
+    } catch (error) {
+      operation.failure(error, { stage: 'commit' })
+      throw error
     }
-    const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
-    assetPurgeAuthorizations.delete(payload.preview.operationId)
-    if (
-      !prepared ||
-      !payload.authorization ||
-      prepared.token !== payload.authorization ||
-      prepared.signature !== JSON.stringify(payload.preview) ||
-      Date.now() - prepared.createdAt > 15 * 60_000
-    ) {
-      throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
-    }
-    const lib = await ensureStorage()
-    return lib.commitAssetPurge(payload.preview)
-  }))
+  })
 
   ipcMain.handle('storage:cancelAssetPurge', async (_e, operationId: string) => withStorage((lib) => {
     assetPurgeAuthorizations.delete(operationId)
@@ -598,19 +626,29 @@ export function registerLibraryIpc(): void {
     snapshot: Parameters<LibraryStorage['saveSnapshot']>[0]
     assets: { id: string; mime: string; data: string }[]
     options?: { pruneUnreferenced?: boolean }
-  }) => operationGate.runExclusive(async () => {
-    const lib = await ensureStorage()
-    const assets = payload.assets.map((asset) => {
-      assertSafeAssetId(asset.id)
-      return {
-        id: asset.id,
-        mime: asset.mime,
-        buffer: Buffer.from(asset.data, 'base64'),
-      }
-    })
-    await lib.commitImport(payload.snapshot, assets, payload.options)
-    return true
-  }))
+  }) => {
+    const operation = beginOperation('import', { stage: 'validate', revisionBefore: 0 })
+    try {
+      const committed = await operationGate.runExclusive(async () => {
+        const lib = await ensureStorage()
+        const assets = payload.assets.map((asset) => {
+          assertSafeAssetId(asset.id)
+          return {
+            id: asset.id,
+            mime: asset.mime,
+            buffer: Buffer.from(asset.data, 'base64'),
+          }
+        })
+        await lib.commitImport(payload.snapshot, assets, payload.options)
+        return true
+      })
+      operation.success({ stage: 'committed', revisionAfter: 0 })
+      return committed
+    } catch (error) {
+      operation.failure(error, { stage: 'commit' })
+      throw error
+    }
+  })
 
   ipcMain.handle('journal:exportZip', async () => {
     const win = BrowserWindow.getFocusedWindow()
@@ -624,8 +662,15 @@ export function registerLibraryIpc(): void {
       ? await dialog.showSaveDialog(win, options)
       : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return { ok: false as const }
-    await withStorage((lib) => exportJournalZip(lib, result.filePath!))
-    return { ok: true as const, path: result.filePath }
+    const operation = beginOperation('archive', { stage: 'export', revisionBefore: 0 })
+    try {
+      await withStorage((lib) => exportJournalZip(lib, result.filePath!))
+      operation.success({ stage: 'committed', revisionAfter: 0 })
+      return { ok: true as const, path: result.filePath }
+    } catch (error) {
+      operation.failure(error, { stage: 'export' })
+      throw error
+    }
   })
 
   // ---- 备份 ----
@@ -723,6 +768,7 @@ export function registerLibraryIpc(): void {
       return { ok: false as const, canceled: true as const }
     }
 
+    const operation = beginOperation('import', { stage: 'replace', revisionBefore: 0 })
     try {
       return await operationGate.runExclusive(async () => {
         const current = await ensureStorage()
@@ -734,7 +780,7 @@ export function registerLibraryIpc(): void {
         try {
           await importJournalZipToPath(libraryPath, selectedArchive)
         } catch (err) {
-          safeConsoleError('journal-import-failed', err)
+          operation.failure(err, { stage: 'replace' })
           const message = toErrorMessage(err)
           try {
             await reopenStorageWithAutoBackup()
@@ -749,9 +795,12 @@ export function registerLibraryIpc(): void {
         }
 
         const reopened = await reopenStorageWithAutoBackup()
-        return { ok: true as const, snapshot: reopened.loadSnapshot() }
+        const snapshot = reopened.loadSnapshot()
+        operation.success({ stage: 'committed', revisionAfter: 0 })
+        return { ok: true as const, snapshot }
       })
     } catch (err) {
+      operation.failure(err, { stage: 'replace' })
       return { ok: false as const, error: toErrorMessage(err) }
     }
   })

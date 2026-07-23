@@ -93,7 +93,7 @@ async function seedCurrentCorruptSnapshot(): Promise<void> {
   })
 }
 
-async function mutateRawRevision(operation: 'delete' | 'corrupt'): Promise<void> {
+async function mutateRawRevision(operation: 'delete' | 'corrupt' | 'one'): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME)
     request.onsuccess = () => {
@@ -101,7 +101,7 @@ async function mutateRawRevision(operation: 'delete' | 'corrupt'): Promise<void>
       const tx = db.transaction('meta', 'readwrite')
       const store = tx.objectStore('meta')
       if (operation === 'delete') store.delete('snapshotRevision')
-      else store.put('corrupt-revision', 'snapshotRevision')
+      else store.put(operation === 'one' ? 1 : 'corrupt-revision', 'snapshotRevision')
       tx.oncomplete = () => {
         db.close()
         resolve()
@@ -220,12 +220,36 @@ async function run(): Promise<void> {
 
   await seedLegacySnapshotWithoutRevision()
   const first = new IndexedDbStorageAdapter()
-  const second = new IndexedDbStorageAdapter()
   await first.open()
+
+  const legacyRawBefore = JSON.stringify(await readRawValue('snapshot', 'main'))
+  const originalMigrationPut = IDBObjectStore.prototype.put
+  IDBObjectStore.prototype.put = function failMigrationSnapshotPut(value: unknown, key?: IDBValidKey) {
+    if (this.name === 'snapshot' && key === 'main') {
+      throw new DOMException('forced migration snapshot failure', 'DataError')
+    }
+    return key === undefined
+      ? originalMigrationPut.call(this, value)
+      : originalMigrationPut.call(this, value, key)
+  }
+  let migrationRejected = false
+  try {
+    await first.loadSnapshotEnvelope()
+  } catch {
+    migrationRejected = true
+  } finally {
+    IDBObjectStore.prototype.put = originalMigrationPut
+  }
+  assert(migrationRejected, 'legacy migration 故障必须拒绝整个 revisioned mutation')
+  assert(JSON.stringify(await readRawValue('snapshot', 'main')) === legacyRawBefore, '迁移失败后 snapshot 必须零变化')
+  assert((await first.getManifest()).schemaVersion === 1, '迁移失败后 manifest 必须回滚')
+  assert(await readRawValue('meta', 'snapshotRevision') === undefined, '迁移失败后 revision 必须保持缺失')
+
+  const second = new IndexedDbStorageAdapter()
   await second.open()
 
   const legacy = await first.loadSnapshotEnvelope()
-  assert(legacy.revision === 0, '旧库缺少 revision key 时必须兼容读取为 0')
+  assert(legacy.revision === 1, 'Release 1 legacy migration 必须在同一事务推进 0→1')
   assert(legacy.snapshot?.profile?.displayName === 'legacy', 'revision 初始化不得重置旧快照')
   assert((await first.getManifest()).schemaVersion === SCHEMA_VERSION, '旧库成功迁移后必须原子记录当前 schema')
 
@@ -240,7 +264,7 @@ async function run(): Promise<void> {
   let corruptCommitRejected = false
   try {
     await first.commitLibraryMutation({
-      expectedRevision: 0,
+      expectedRevision: 1,
       snapshot: snapshot('must-not-overwrite-corrupt-revision'),
       reason: 'autosave',
     })
@@ -251,10 +275,10 @@ async function run(): Promise<void> {
   assert(await readRawValue('meta', 'snapshotRevision') === 'corrupt-revision', '拒绝后必须保留损坏元数据供诊断')
   const rawSnapshot = await readRawValue('snapshot', 'main') as PersistedSnapshot
   assert(rawSnapshot.profile?.displayName === 'legacy', '非法 revision 拒绝后不得覆盖旧快照')
-  await mutateRawRevision('delete')
+  await mutateRawRevision('one')
 
   const firstCommit = await first.commitLibraryMutation({
-    expectedRevision: 0,
+    expectedRevision: 1,
     snapshot: snapshot('winner', 'winner-asset'),
     assetPuts: [{
       id: 'winner-asset',
@@ -263,10 +287,10 @@ async function run(): Promise<void> {
     }],
     reason: 'autosave',
   })
-  assert(firstCommit.revision === 1, '第一次成功 CAS 必须在同一事务推进 0→1')
+  assert(firstCommit.revision === 2, '迁移后的第一次 autosave 必须推进 1→2')
 
   await expectConflict(second.commitLibraryMutation({
-    expectedRevision: 0,
+    expectedRevision: 1,
     snapshot: snapshot('stale', 'stale-asset'),
     assetPuts: [{
       id: 'stale-asset',
@@ -274,9 +298,9 @@ async function run(): Promise<void> {
       blob: new Blob(['stale'], { type: 'image/png' }),
     }],
     reason: 'autosave',
-  }), 0, 1)
+  }), 1, 2)
   const afterConflict = await second.loadSnapshotEnvelope()
-  assert(afterConflict.revision === 1, 'stale transaction 不得改变 revision')
+  assert(afterConflict.revision === 2, 'stale transaction 不得改变 revision')
   assert(afterConflict.snapshot?.profile?.displayName === 'winner', 'stale transaction 不得覆盖赢家快照')
   assert(await second.getAssetForExport('winner-asset'), 'stale transaction 不得删除赢家附件')
   assert((await second.getAssetForExport('stale-asset')) === null, 'stale transaction 不得写入候选附件')
@@ -291,7 +315,7 @@ async function run(): Promise<void> {
   let rejected = false
   try {
     await first.commitLibraryMutation({
-      expectedRevision: 1,
+      expectedRevision: 2,
       snapshot: snapshot('must-rollback', 'rollback-asset'),
       assetPuts: [{
         id: 'rollback-asset',
@@ -307,28 +331,28 @@ async function run(): Promise<void> {
   }
   assert(rejected, 'revision 写入故障必须拒绝整个 mutation')
   const afterAbort = await first.loadSnapshotEnvelope()
-  assert(afterAbort.revision === 1, 'revision 写入失败后 revision 必须回滚')
+  assert(afterAbort.revision === 2, 'revision 写入失败后 revision 必须回滚')
   assert(afterAbort.snapshot?.profile?.displayName === 'winner', 'revision 写入失败后 snapshot 必须回滚')
   assert((await first.getAssetForExport('rollback-asset')) === null, 'revision 写入失败后 asset put 必须回滚')
 
   const queuedWinner = first.commitLibraryMutation({
-    expectedRevision: 1,
+    expectedRevision: 2,
     snapshot: snapshot('queued-winner'),
     reason: 'autosave',
   })
   const queuedStale = first.commitLibraryMutation({
-    expectedRevision: 1,
+    expectedRevision: 2,
     snapshot: snapshot('queued-stale'),
     reason: 'autosave',
   })
-  assert((await queuedWinner).revision === 2, '同标签页首个排队 mutation 应成功推进 revision')
-  await expectConflict(queuedStale, 1, 2)
+  assert((await queuedWinner).revision === 3, '同标签页首个排队 mutation 应成功推进 revision')
+  await expectConflict(queuedStale, 2, 3)
   const finalEnvelope = await first.loadSnapshotEnvelope()
-  assert(finalEnvelope.revision === 2, '同标签页过期排队 mutation 不得推进 revision')
+  assert(finalEnvelope.revision === 3, '同标签页过期排队 mutation 不得推进 revision')
   assert(finalEnvelope.snapshot?.profile?.displayName === 'queued-winner', '同标签页提交必须串行且不得盲重试')
 
   const replacement = await first.commitLibraryMutation({
-    expectedRevision: 2,
+    expectedRevision: 3,
     snapshot: snapshot('replacement', 'replacement-asset'),
     assetPuts: [{
       id: 'replacement-asset',
@@ -338,14 +362,14 @@ async function run(): Promise<void> {
     assetMode: 'replace',
     reason: 'restore',
   })
-  assert(replacement.revision === 3, 'replace mutation 必须与 snapshot、assets 一起推进 revision')
+  assert(replacement.revision === 4, 'replace mutation 必须与 snapshot、assets 一起推进 revision')
   assert((await first.getAssetForExport('winner-asset')) === null, 'replace mutation 必须清除旧附件')
   assert(await first.getAssetForExport('replacement-asset'), 'replace mutation 必须写入候选附件')
 
   rejected = false
   try {
     await first.commitLibraryMutation({
-      expectedRevision: 3,
+      expectedRevision: 4,
       snapshot: snapshot('invalid-delete', 'replacement-asset'),
       assetDeletes: ['replacement-asset'],
       reason: 'purge',
@@ -355,7 +379,7 @@ async function run(): Promise<void> {
   }
   assert(rejected, 'mutation 不得删除候选快照仍引用的附件')
   const afterInvalidDelete = await first.loadSnapshotEnvelope()
-  assert(afterInvalidDelete.revision === 3, '引用关系校验失败不得推进 revision')
+  assert(afterInvalidDelete.revision === 4, '引用关系校验失败不得推进 revision')
   assert(afterInvalidDelete.snapshot?.profile?.displayName === 'replacement', '引用关系校验失败不得改写 snapshot')
   assert(await first.getAssetForExport('replacement-asset'), '引用关系校验失败不得删除附件')
 
@@ -365,12 +389,12 @@ async function run(): Promise<void> {
   )
   const observedAssets = ['replacement-asset', 'fault-asset', orphanAssetId]
   await expectInjectedAbortWithoutChanges(first, 'snapshot-put', {
-    expectedRevision: 3,
+    expectedRevision: 4,
     snapshot: snapshot('snapshot-put-failure', 'replacement-asset'),
     reason: 'autosave',
   }, observedAssets)
   await expectInjectedAbortWithoutChanges(first, 'asset-put', {
-    expectedRevision: 3,
+    expectedRevision: 4,
     snapshot: snapshot('asset-put-failure', 'fault-asset'),
     assetPuts: [{
       id: 'fault-asset',
@@ -380,7 +404,7 @@ async function run(): Promise<void> {
     reason: 'attachment',
   }, observedAssets)
   await expectInjectedAbortWithoutChanges(first, 'asset-clear', {
-    expectedRevision: 3,
+    expectedRevision: 4,
     snapshot: snapshot('asset-clear-failure', 'fault-asset'),
     assetPuts: [{
       id: 'fault-asset',
@@ -391,7 +415,7 @@ async function run(): Promise<void> {
     reason: 'restore',
   }, observedAssets)
   await expectInjectedAbortWithoutChanges(first, 'asset-delete', {
-    expectedRevision: 3,
+    expectedRevision: 4,
     snapshot: snapshot('asset-delete-failure', 'replacement-asset'),
     assetDeletes: [orphanAssetId],
     reason: 'purge',

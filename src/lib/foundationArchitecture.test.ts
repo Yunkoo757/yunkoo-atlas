@@ -69,18 +69,14 @@ export function testElectronBridgeContractHasOneInterfaceSource(): void {
 export function testIndexedDbHasNoBlindSnapshotWriteOutsideTheCasPrimitive(): void {
   const adapter = source('src/storage/indexedDbAdapter.ts')
   const sharedWrites = source('src/storage/indexedDbSnapshotAssetWrites.ts')
-  const legacyUpgrade = source('src/storage/indexedDbLegacyMigration.ts')
   const snapshotWrites = sharedWrites.match(/snapshotStore\.put\(input\.snapshot, 'main'\)/g) ?? []
   assert(snapshotWrites.length === 1, 'IndexedDB snapshot 只能在单一共享写入原语中排队一次')
   assert(
     (adapter.match(/queueIndexedDbSnapshotAssetWrites\(/g) ?? []).length === 1,
     'revisioned mutation 必须且只能调用一次共享 snapshot/asset 写入原语',
   )
-  assert(
-    (legacyUpgrade.match(/queueIndexedDbSnapshotAssetWrites\(/g) ?? []).length === 1 &&
-      (adapter.match(/queueIndexedDbLegacySnapshotUpgrade\(/g) ?? []).length === 1,
-    '历史 schema 升级必须通过唯一、显式隔离的迁移写入原语',
-  )
+  assert(adapter.includes("reason: 'migration'"), '历史 schema 升级必须进入 revisioned mutation')
+  assert(!adapter.includes('queueIndexedDbLegacySnapshotUpgrade'), '不得保留 migration blind-write 入口')
   for (const forbidden of ['snapshotRevision', 'expectedRevision', 'metaStore']) {
     assert(!sharedWrites.includes(forbidden), `共享 snapshot/asset 写入原语不得携带 ${forbidden}`)
   }

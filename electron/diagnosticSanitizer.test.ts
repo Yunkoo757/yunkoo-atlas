@@ -10,9 +10,13 @@ export function testDiagnosticSanitizerKeepsOperationalFieldsAndRemovesPrivatePa
   const privateAsset = 'journal-asset://private-attachment-id'
   const sanitized = sanitizeDiagnosticDetail({
     operationId: 'operation-1',
+    actionId: 'action-1',
+    requestId: 'request-1',
     stage: 'verified-backup',
     code: 'quit-backup-failed',
     revision: 9,
+    revisionBefore: 8,
+    revisionAfter: 9,
     durationMs: 123,
     message: privateBody,
     path: privatePath,
@@ -21,9 +25,11 @@ export function testDiagnosticSanitizerKeepsOperationalFieldsAndRemovesPrivatePa
   })
   const text = JSON.stringify(sanitized)
   assert(sanitized.operationId === 'operation-1', '必须保留 operationId')
+  assert(sanitized.actionId === 'action-1' && sanitized.requestId === 'request-1', '必须保留 actionId/requestId')
   assert(sanitized.stage === 'verified-backup', '必须保留失败 stage')
   assert(sanitized.code === 'quit-backup-failed', '必须保留稳定 code')
   assert(sanitized.revision === 9 && sanitized.durationMs === 123, '必须保留 revision/duration')
+  assert(sanitized.revisionBefore === 8 && sanitized.revisionAfter === 9, '必须保留 revision 前后值')
   for (const secret of [privatePath, privateBody, privateAsset]) {
     assert(!text.includes(secret), '诊断日志不得包含路径、正文或附件 ID')
   }

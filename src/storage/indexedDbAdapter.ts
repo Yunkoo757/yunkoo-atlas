@@ -26,7 +26,7 @@ import {
   queueIndexedDbSnapshotAssetWrites,
   type IndexedDbAssetRecord,
 } from '@/storage/indexedDbSnapshotAssetWrites'
-import { queueIndexedDbLegacySnapshotUpgrade } from '@/storage/indexedDbLegacyMigration'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
@@ -195,46 +195,63 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
   async loadSnapshotEnvelope(): Promise<SnapshotEnvelope> {
     const db = this.requireDb()
-    const stored = await new Promise<{ revision: unknown; snapshot: PersistedSnapshot | null }>((resolve, reject) => {
-      const tx = db.transaction([STORE_SNAPSHOT, STORE_ASSETS, STORE_META], 'readwrite')
+    const readStored = () => new Promise<{
+      revision: number
+      snapshot: PersistedSnapshot | null
+      manifest: LibraryManifest
+    }>((resolve, reject) => {
+      const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readonly')
       const snapshotRequest = tx.objectStore(STORE_SNAPSHOT).get('main')
       const revisionRequest = tx.objectStore(STORE_META).get(SNAPSHOT_REVISION_KEY)
       const manifestRequest = tx.objectStore(STORE_META).get('manifest')
-      let decodedSnapshot: PersistedSnapshot | null = null
       let failure: unknown = null
-      manifestRequest.onsuccess = () => {
+      tx.oncomplete = () => {
         try {
           const manifest = manifestRequest.result as LibraryManifest
           assertCompatibleManifest(manifest)
-          decodedSnapshot = snapshotRequest.result === undefined
+          const snapshot = snapshotRequest.result === undefined
             ? null
             : decodeCanonicalSnapshot(snapshotRequest.result, {
                 version: manifest.schemaVersion,
                 label: 'Stored browser snapshot',
               })
-          if (manifest.schemaVersion < SCHEMA_VERSION) {
-            if (decodedSnapshot) {
-              queueIndexedDbLegacySnapshotUpgrade(
-                tx.objectStore(STORE_SNAPSHOT),
-                tx.objectStore(STORE_ASSETS),
-                decodedSnapshot,
-              )
-            }
-            tx.objectStore(STORE_META).put({ ...manifest, schemaVersion: SCHEMA_VERSION }, 'manifest')
-          }
+          resolve({
+            revision: normalizeSnapshotRevision(revisionRequest.result),
+            snapshot,
+            manifest,
+          })
         } catch (error) {
           failure = error
-          tx.abort()
+          reject(error)
         }
       }
-      tx.oncomplete = () => resolve({ revision: revisionRequest.result, snapshot: decodedSnapshot })
       tx.onerror = () => reject(tx.error ?? new Error('IndexedDB snapshot envelope read failed'))
       tx.onabort = () => reject(failure ?? tx.error ?? new Error('IndexedDB snapshot envelope read aborted'))
     })
-    const envelope = {
-      revision: normalizeSnapshotRevision(stored.revision),
-      snapshot: stored.snapshot,
+
+    let stored = await readStored()
+    if (stored.manifest.schemaVersion < SCHEMA_VERSION) {
+      const migrationSnapshot = stored.snapshot ?? createEmptyPersistedSnapshot()
+      try {
+        const migration = await this.enqueueLibraryMutation(() => ({
+          expectedRevision: stored.revision,
+          snapshot: migrationSnapshot,
+          reason: 'migration',
+        }), false)
+        stored = {
+          ...stored,
+          revision: migration.revision,
+          snapshot: migrationSnapshot,
+          manifest: { ...stored.manifest, schemaVersion: SCHEMA_VERSION },
+        }
+      } catch (error) {
+        if (!(error instanceof StorageRevisionConflictError)) throw error
+        const latest = await readStored()
+        if (latest.manifest.schemaVersion < SCHEMA_VERSION) throw error
+        stored = latest
+      }
     }
+    const envelope = { revision: stored.revision, snapshot: stored.snapshot }
     this.currentRevision = Math.max(this.currentRevision ?? 0, envelope.revision)
     return envelope
   }
@@ -245,9 +262,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
   private enqueueLibraryMutation(
     createInput: () => RevisionedLibraryMutation | Promise<RevisionedLibraryMutation>,
+    enforceWriteGuard = true,
   ): Promise<{ revision: number }> {
     const operation = this.mutationTail.then(async () => {
-      assertWebWriteAllowed()
+      if (enforceWriteGuard) assertWebWriteAllowed()
       try {
         const input = await createInput()
         const preflightRevision = await this.getSnapshotRevision()
@@ -283,6 +301,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       const snapshotStore = tx.objectStore(STORE_SNAPSHOT)
       const assetStore = tx.objectStore(STORE_ASSETS)
       const metaStore = tx.objectStore(STORE_META)
+      const manifestRequest = metaStore.get('manifest')
       const revisionRequest = metaStore.get(SNAPSHOT_REVISION_KEY)
       let failure: unknown = null
       let nextRevision = input.expectedRevision
@@ -308,6 +327,11 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
             assetPuts,
             assetDeletes: input.assetDeletes,
           })
+          const manifest = manifestRequest.result as LibraryManifest
+          assertCompatibleManifest(manifest)
+          if (manifest.schemaVersion < SCHEMA_VERSION) {
+            metaStore.put({ ...manifest, schemaVersion: SCHEMA_VERSION }, 'manifest')
+          }
           metaStore.put(nextRevision, SNAPSHOT_REVISION_KEY)
         } catch (error) {
           abort(error)

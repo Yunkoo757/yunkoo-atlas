@@ -18,11 +18,13 @@ import {
 import { loadWindowState, registerWindowIpc, trackWindowState } from './windowState'
 import { initializeDiagnostics, logDiagnostic } from './diagnostics'
 import { safeConsoleError } from './diagnosticSanitizer'
+import { beginOperation, type OperationLogHandle } from './operationLogger'
 import {
   QuitCoordinator,
   RendererFlushTracker,
   type QuitIntent,
   type QuitOperationalFailure,
+  type QuitOperationalLifecycle,
 } from './quitCoordinator'
 import { runElectronForcedKillMode } from './forcedKillQa'
 
@@ -129,8 +131,28 @@ function requestRendererFlush(requestId: string, signal: AbortSignal): Promise<v
   })
 }
 
+const quitOperationLogs = new Map<string, OperationLogHandle>()
+
+function reportExitStart(event: QuitOperationalLifecycle): void {
+  quitOperationLogs.set(event.operationId, beginOperation('quit', {
+    operationId: event.operationId,
+    requestId: event.operationId,
+    stage: event.stage,
+    revisionBefore: 0,
+  }))
+}
+
+function reportExitSuccess(event: QuitOperationalLifecycle): void {
+  quitOperationLogs.get(event.operationId)?.success({ stage: event.stage, revisionAfter: 0 })
+  quitOperationLogs.delete(event.operationId)
+}
+
 function reportExitError(failure: QuitOperationalFailure): void {
-  logDiagnostic('error', 'graceful-exit-cancelled', failure)
+  quitOperationLogs.get(failure.operationId)?.failure(failure, {
+    stage: failure.stage,
+    code: failure.code,
+  })
+  quitOperationLogs.delete(failure.operationId)
   for (const window of BrowserWindow.getAllWindows()) {
     if (!window.isDestroyed()) window.webContents.send('app:close-save-error', failure.message)
   }
@@ -142,6 +164,8 @@ const quitCoordinator = new QuitCoordinator({
   requestRendererFlush,
   createVerifiedBackup: createVerifiedExitBackup,
   cancelPreparation: cancelStorageExitPreparation,
+  reportStart: reportExitStart,
+  reportSuccess: reportExitSuccess,
   reportError: reportExitError,
   commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
     return commitStorageExit(signal, deadlineAt, () => {

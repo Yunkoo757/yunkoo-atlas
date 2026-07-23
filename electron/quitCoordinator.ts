@@ -17,6 +17,12 @@ export interface QuitOperationalFailure {
   message: string
 }
 
+export interface QuitOperationalLifecycle {
+  operationId: string
+  stage: QuitFailureStage
+  durationMs: number
+}
+
 export interface QuitCoordinatorDependencies {
   timeoutMs: number
   now?(): number
@@ -25,6 +31,8 @@ export interface QuitCoordinatorDependencies {
   createVerifiedBackup(signal: AbortSignal): Promise<void>
   commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number): Promise<void>
   cancelPreparation(): Promise<void> | void
+  reportStart?(event: QuitOperationalLifecycle): void
+  reportSuccess?(event: QuitOperationalLifecycle): void
   reportError(failure: QuitOperationalFailure): void
 }
 
@@ -80,6 +88,7 @@ export class QuitCoordinator {
     const deadlineAt = now() + this.dependencies.timeoutMs
     const startedAt = now()
     let stage: QuitFailureStage = 'renderer-flush'
+    this.dependencies.reportStart?.({ operationId: requestId, stage, durationMs: 0 })
     const assertWithinDeadline = () => {
       try {
         assertExitWithinDeadline(controller.signal, deadlineAt, now)
@@ -109,6 +118,11 @@ export class QuitCoordinator {
         return committedIntent
       }
       await this.dependencies.commitExit(resolveIntent, controller.signal, deadlineAt)
+      this.dependencies.reportSuccess?.({
+        operationId: requestId,
+        stage,
+        durationMs: Math.max(0, now() - startedAt),
+      })
       controller.abort()
       return { ok: true, intent: committedIntent ?? this.requestedIntent }
     }
