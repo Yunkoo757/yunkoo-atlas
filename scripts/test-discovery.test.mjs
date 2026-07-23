@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { spawnSync } from 'node:child_process'
@@ -13,7 +12,7 @@ import {
 } from './test-discovery.mjs'
 
 async function withFixture(run) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'atlas-test-discovery-'))
+  const root = await fs.mkdtemp(path.join(process.cwd(), '.tmp-test-discovery-'))
   try {
     await run(root)
   } finally {
