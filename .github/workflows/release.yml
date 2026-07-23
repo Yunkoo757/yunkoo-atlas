@@ -72,6 +72,7 @@ jobs:
             test-results/quality-contract.json
             test-results/release-trains/release-train-drills.json
             test-results/json-compatibility/json-compatibility.json
+            docs/superpowers/release/blob-bridge-coverage.json
           if-no-files-found: error
           retention-days: 30
 

@@ -27,19 +27,42 @@ export const EXPECTED_FINAL_CHECK_NAMES = [
   'generation-windows',
   'generation-macos',
   'generation-decision',
+  'blob-bridge-contract',
   'blob-bridge-coverage',
 ]
+
+export const APPROVED_BLOB_BRIDGE = Object.freeze({
+  commit: 'a861ecdb32f4a0ad81f2195a85ebcd6a8b466628',
+  version: '1.2.25',
+  artifactSha256: '9c454f364b980cb75445228a447b4391e8855e5307834b7e1952bf31e21a3bc0',
+  minimumCoverageMs: 24 * 60 * 60 * 1_000,
+})
+
+export function detectBlobReleaseMode(indexedDbSource) {
+  const dualReader = indexedDbSource.includes('storedSnapshot instanceof Blob')
+  const objectWriter = indexedDbSource.includes('storedSnapshot: input.snapshot')
+  const blobWriter = indexedDbSource.includes('serializeSnapshotToBlobCooperatively(input.snapshot)')
+  if (dualReader && objectWriter && !blobWriter) return 'bridge'
+  if (dualReader && blobWriter && !objectWriter) return 'blob-writer'
+  return 'invalid'
+}
+
+export function blobBridgeContractPassed(value) {
+  return value?.releaseMode === 'bridge' &&
+    value.version === APPROVED_BLOB_BRIDGE.version
+}
 
 export function blobBridgeCoveragePassed(value) {
   const startedAt = Date.parse(value?.coverageStartedAt)
   const endedAt = Date.parse(value?.coverageEndedAt)
   return value?.version === 1 && value.status === 'pass' &&
-    /^[0-9a-f]{40}$/i.test(value.bridgeCommit ?? '') &&
-    /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value.bridgeVersion ?? '') &&
-    /^[0-9a-f]{64}$/i.test(value.deployedArtifactSha256 ?? '') &&
+    value.bridgeCommit === APPROVED_BLOB_BRIDGE.commit &&
+    value.bridgeVersion === APPROVED_BLOB_BRIDGE.version &&
+    value.deployedArtifactSha256?.toLowerCase() === APPROVED_BLOB_BRIDGE.artifactSha256 &&
     value.writerMode === 'object-only' &&
     Array.isArray(value.readerModes) && value.readerModes.join(',') === 'object,blob' &&
-    Number.isFinite(startedAt) && Number.isFinite(endedAt) && endedAt > startedAt &&
+    Number.isFinite(startedAt) && Number.isFinite(endedAt) &&
+    endedAt - startedAt >= APPROVED_BLOB_BRIDGE.minimumCoverageMs &&
     typeof value.operator === 'string' && value.operator.trim().length > 0 &&
     value.oldTabsRefreshedOrClosed === true
 }
@@ -82,6 +105,11 @@ export function persistenceReleaseGatePassed(value) {
 }
 
 export function finalQualityManifestPassed(value, provenance) {
+  const modeCheck = value?.releaseMode === 'bridge'
+    ? value.checks?.find((check) => check.name === 'blob-bridge-contract')?.pass === true
+    : value?.releaseMode === 'blob-writer'
+      ? value.checks?.find((check) => check.name === 'blob-bridge-coverage')?.pass === true
+      : false
   return value?.version === 1 && value.status === 'pass' && value.releaseCandidate === true &&
     value.gitCommit === provenance.gitCommit && value.gitTree === provenance.gitTree &&
     value.sourceFingerprint === provenance.sourceFingerprint && value.sourceIdentity === provenance.sourceIdentity &&
@@ -89,7 +117,8 @@ export function finalQualityManifestPassed(value, provenance) {
     ['normal', 'compatibility', 'performance', 'dualPlatform', 'generation', 'blobBridgeCoverage']
       .every((gate) => value.gates?.[gate]?.status === 'pass') &&
     Array.isArray(value.checks) && value.checks.length === EXPECTED_FINAL_CHECK_NAMES.length &&
-    value.checks.every((check, index) => check.name === EXPECTED_FINAL_CHECK_NAMES[index] && check.pass === true) &&
+    value.checks.every((check, index) => check.name === EXPECTED_FINAL_CHECK_NAMES[index]) &&
+    value.checks.slice(0, -2).every((check) => check.pass === true) && modeCheck &&
     Array.isArray(value.trains) && value.trains.length === EXPECTED_DRILL_TRAIN_IDS.length &&
     value.trains.every((train, index) => train.id === EXPECTED_DRILL_TRAIN_IDS[index] && train.status === 'pass')
 }

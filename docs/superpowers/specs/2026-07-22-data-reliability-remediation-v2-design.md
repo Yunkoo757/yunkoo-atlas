@@ -1067,7 +1067,7 @@ publish contract
 
 - H0/FND：只增加 reader 兼容与 writer 完整性，没有数据 migration；旧 v8 reader会忽略它认识范围外的可选字段。
 - WEB：revision 是 meta 附加记录；回滚版本会忽略它。回滚期间必须要求关闭所有现存标签页，避免新旧协议并发。
-- WEB Blob 编码切换必须采用两阶段发布：先发布兼容桥 `codex/blob-compat-bridge@bb7ec33ace2c3074f97284a670e81e45ea7882b2`，其 reader 同时接受 object/Blob、writer 仍只写 object；桥版本成为后续 Blob writer 唯一允许的回滚目标。Blob writer 在桥版本完成一个受控覆盖窗口、操作者确认旧标签页已刷新/关闭前保持 HOLD。禁止长期双写完整 object+Blob，以免重新引入大对象 structured clone 长任务。
+- WEB Blob 编码切换必须采用两阶段发布：先发布兼容桥 `codex/blob-compat-bridge-v1.2.25@a861ecdb32f4a0ad81f2195a85ebcd6a8b466628`，其 reader 同时接受 object/Blob、writer 仍只写 object；桥版本成为后续 Blob writer 唯一允许的回滚目标。Blob writer 在桥版本完成至少 24 小时受控覆盖窗口、操作者确认旧标签页已刷新/关闭前保持 HOLD；覆盖证据必须绑定桥 commit、版本与批准制品 SHA-256。禁止长期双写完整 object+Blob，以免重新引入大对象 structured clone 长任务。
 - DESK：配置文件不得在失败时删除或覆盖；回滚前保留用户原路径文本。
 - UNDO/DATE/KIND：不改 schema，无数据回滚步骤。
 - AST：dry-run 和用户归档是启用前置。成功物理删除不能靠代码回滚；只能从用户确认前生成的恢复归档恢复。

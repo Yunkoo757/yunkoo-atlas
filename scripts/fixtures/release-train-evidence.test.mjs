@@ -5,8 +5,11 @@ import fs from 'node:fs'
 import test from 'node:test'
 
 import {
+  APPROVED_BLOB_BRIDGE,
   assetLifecyclePassed,
+  blobBridgeContractPassed,
   blobBridgeCoveragePassed,
+  detectBlobReleaseMode,
   electronSafetyPassed,
   EXPECTED_FINAL_CHECK_NAMES,
   finalQualityManifestPassed,
@@ -59,11 +62,13 @@ test('发布证据聚合器对四个 Train 执行同源码身份、干净工作�
   assert.match(source, /compatibility:/)
   assert.match(source, /generation:/)
   assert.match(source, /blobBridgeCoverage:/)
+  assert.match(source, /releaseMode === 'bridge'/)
   assert.match(source, /releaseCandidate:/)
   assert.match(source, /releaseCandidate: requireComplete &&/)
   assert.match(workflow, /path: test-results\/collected-evidence/)
   assert.match(workflow, /--evidence-root test-results\/collected-evidence --require-complete/)
   assert.match(workflow, /test-results\/release-trains\/final-quality-manifest\.json/)
+  assert.match(workflow, /docs\/superpowers\/release\/blob-bridge-coverage\.json/)
   assert.match(workflow, /name: train-recovery-evidence/)
   assert.match(workflow, /path: test-results\/final-quality-evidence/)
   assert.match(workflow, /verify-final-quality-manifest\.mjs test-results\/final-quality-evidence\/final-quality-manifest\.json/)
@@ -225,6 +230,7 @@ test('最终质量清单必须由 publish 针对当前干净源码再次授权',
   const checks = EXPECTED_FINAL_CHECK_NAMES.map((name) => ({ name, pass: true }))
   const manifest = {
     version: 1,
+    releaseMode: 'blob-writer',
     status: 'pass',
     releaseCandidate: true,
     ...provenance,
@@ -254,9 +260,9 @@ test('Blob writer 发布必须有桥覆盖窗口与旧标签页确认', () => {
   const evidence = {
     version: 1,
     status: 'pass',
-    bridgeCommit: 'a'.repeat(40),
-    bridgeVersion: '1.2.25',
-    deployedArtifactSha256: 'b'.repeat(64),
+    bridgeCommit: APPROVED_BLOB_BRIDGE.commit,
+    bridgeVersion: APPROVED_BLOB_BRIDGE.version,
+    deployedArtifactSha256: APPROVED_BLOB_BRIDGE.artifactSha256,
     writerMode: 'object-only',
     readerModes: ['object', 'blob'],
     coverageStartedAt: '2026-07-23T00:00:00.000Z',
@@ -268,6 +274,14 @@ test('Blob writer 发布必须有桥覆盖窗口与旧标签页确认', () => {
   assert.equal(blobBridgeCoveragePassed({ ...evidence, oldTabsRefreshedOrClosed: false }), false)
   assert.equal(blobBridgeCoveragePassed({ ...evidence, writerMode: 'blob' }), false)
   assert.equal(blobBridgeCoveragePassed({ ...evidence, coverageEndedAt: evidence.coverageStartedAt }), false)
+  assert.equal(blobBridgeCoveragePassed({ ...evidence, bridgeCommit: 'a'.repeat(40) }), false)
+  assert.equal(blobBridgeCoveragePassed({ ...evidence, deployedArtifactSha256: 'b'.repeat(64) }), false)
+  assert.equal(blobBridgeContractPassed({
+    releaseMode: 'bridge',
+    version: APPROVED_BLOB_BRIDGE.version,
+  }), true)
+  assert.equal(detectBlobReleaseMode('storedSnapshot instanceof Blob\nstoredSnapshot: input.snapshot'), 'bridge')
+  assert.equal(detectBlobReleaseMode('storedSnapshot instanceof Blob\nserializeSnapshotToBlobCooperatively(input.snapshot)'), 'blob-writer')
 })
 
 test('损坏、重复或不完整的演练与平台报告必须 fail-closed', () => {

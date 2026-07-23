@@ -1,10 +1,14 @@
 import fs from 'node:fs/promises'
+import fsSync from 'node:fs'
 import path from 'node:path'
 
 import { readGitProvenance } from './git-provenance.mjs'
 import {
   assetLifecyclePassed,
+  APPROVED_BLOB_BRIDGE,
+  blobBridgeContractPassed,
   blobBridgeCoveragePassed,
+  detectBlobReleaseMode,
   electronSafetyPassed,
   forcedKillPassed,
   fullQaPassed,
@@ -61,6 +65,9 @@ function findReports(reports, predicate) {
 
 const reports = await loadReports()
 const provenance = await readGitProvenance(root)
+const packageVersion = JSON.parse(fsSync.readFileSync(path.join(root, 'package.json'), 'utf8')).version
+const indexedDbSource = fsSync.readFileSync(path.join(root, 'src', 'storage', 'indexedDbAdapter.ts'), 'utf8')
+const releaseMode = detectBlobReleaseMode(indexedDbSource)
 const checks = []
 
 function check(name, matchingReports, predicate = (value) => value.status === 'pass') {
@@ -101,6 +108,12 @@ function externalCheck(name, matchingReports, predicate) {
     file: report ? path.relative(root, report.file).replaceAll('\\', '/') : null,
     reasons,
   }
+  checks.push(result)
+  return result
+}
+
+function internalCheck(name, pass, reasons = []) {
+  const result = { name, pass, file: null, reasons: pass ? [] : reasons }
   checks.push(result)
   return result
 }
@@ -170,6 +183,13 @@ const generationDecision = check(
   findReports(reports, (_value, name) => name === 'generation-decision.json'),
   generationDecisionPassed,
 )
+const blobBridgeContract = internalCheck(
+  'blob-bridge-contract',
+  blobBridgeContractPassed({ releaseMode, gitCommit: provenance.gitCommit, version: packageVersion }),
+  releaseMode === 'bridge'
+    ? ['bridge version does not match the approved compatibility contract']
+    : ['not an object-only compatibility bridge release'],
+)
 const blobBridgeCoverage = externalCheck(
   'blob-bridge-coverage',
   findReports(reports, (_value, name) => name === 'blob-bridge-coverage.json'),
@@ -186,7 +206,7 @@ const trainDefinitions = [
   },
   {
     id: 'release-1',
-    checks: [qa, jsonCompatibility, performance, drills, blobBridgeCoverage],
+    checks: [qa, jsonCompatibility, performance, drills, releaseMode === 'bridge' ? blobBridgeContract : blobBridgeCoverage],
     stop: 'blind put、stale overwrite、冲突恢复失败或正式持久化 SLO 失败即停止 Web 发布',
     rollback: 'Web Locks/通知层可关闭；revision/CAS 不得与 blind writer 混用',
     userRecovery: '导出冲突标签页副本，加载最新版，再由用户决定是否导入副本',
@@ -241,12 +261,14 @@ const gates = {
     evidence: [generationWindows.name, generationMac.name, generationDecision.name],
   },
   blobBridgeCoverage: {
-    status: blobBridgeCoverage.pass ? 'pass' : 'hold',
-    evidence: [blobBridgeCoverage.name],
+    status: (releaseMode === 'bridge' ? blobBridgeContract.pass : blobBridgeCoverage.pass) ? 'pass' : 'hold',
+    evidence: [releaseMode === 'bridge' ? blobBridgeContract.name : blobBridgeCoverage.name],
   },
 }
 const report = {
   version: 1,
+  releaseMode,
+  approvedBlobBridge: APPROVED_BLOB_BRIDGE,
   generatedAt: new Date().toISOString(),
   gitCommit: provenance.gitCommit,
   gitTree: provenance.gitTree,
