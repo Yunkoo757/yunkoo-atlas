@@ -20,11 +20,13 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   )?.[0] ?? ''
   assert.match(prepareMutation, /\{\s*await yieldMainThread\(\)/)
   assert.match(prepareMutation, /assertValidPersistedSnapshotCooperatively/)
+  assert.match(prepareMutation, /collectAssetIdsFromSnapshotCooperatively/)
   assert.match(adapter, /index % SNAPSHOT_VALIDATION_BATCH_SIZE === 0[\s\S]*?await yieldMainThread\(\)/)
   const saveSnapshot = adapter.match(
     /async saveSnapshot\(snapshot: PersistedSnapshot\): Promise<void> \{[\s\S]*?\n  }/,
   )?.[0] ?? ''
   assert.doesNotMatch(saveSnapshot, /assertValidPersistedSnapshot/)
+  assert.match(saveSnapshot, /await collectAssetIdsFromSnapshotCooperatively/)
   assert.match(browser, /useStore\.getState\(\)\.updateTradeData/)
   assert.match(browser, /mutation < 25/)
   assert.match(browser, /25 次连续编辑必须合并为一次 durable revision/)

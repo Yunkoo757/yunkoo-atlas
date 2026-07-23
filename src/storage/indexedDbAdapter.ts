@@ -15,7 +15,7 @@ import {
   assertValidPersistedSnapshot,
   isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
-import { collectAssetIdsFromSnapshot } from '@/storage/assets'
+import { collectAssetIdsFromHtml, collectAssetIdsFromSnapshot } from '@/storage/assets'
 import { isSafeAssetId } from '@/storage/assetId'
 import { buildAssetInventory } from '@/storage/assetInventory'
 import { OperationalError } from '@/lib/operationalError'
@@ -75,6 +75,35 @@ async function assertValidPersistedSnapshotCooperatively(
   assertValidPersistedSnapshot({ ...snapshot, trades: [] }, label)
 }
 
+async function collectAssetIdsFromSnapshotCooperatively(
+  snapshot: PersistedSnapshot,
+): Promise<Set<string>> {
+  const assetIds = new Set<string>()
+  const collectEntries = async (
+    length: number,
+    getHtml: (index: number) => string,
+  ): Promise<void> => {
+    for (let start = 0; start < length; start += SNAPSHOT_VALIDATION_BATCH_SIZE) {
+      await yieldMainThread()
+      const end = Math.min(start + SNAPSHOT_VALIDATION_BATCH_SIZE, length)
+      const htmlEntries: string[] = []
+      for (let index = start; index < end; index += 1) htmlEntries.push(getHtml(index))
+      for (const id of collectAssetIdsFromHtml(htmlEntries)) assetIds.add(id)
+    }
+  }
+
+  await collectEntries(snapshot.trades.length, (index) => snapshot.trades[index].note)
+  await collectEntries(
+    snapshot.weeklyReviews?.length ?? 0,
+    (index) => snapshot.weeklyReviews?.[index].contentHtml ?? '',
+  )
+  await collectEntries(
+    snapshot.quickNotes?.length ?? 0,
+    (index) => snapshot.quickNotes?.[index].contentHtml ?? '',
+  )
+  return assetIds
+}
+
 async function prepareIndexedDbMutation(
   input: RevisionedLibraryMutation,
 ): Promise<PreparedIndexedDbMutation> {
@@ -85,7 +114,7 @@ async function prepareIndexedDbMutation(
   }
 
   await yieldMainThread()
-  const referencedIds = new Set(collectAssetIdsFromSnapshot(input.snapshot))
+  const referencedIds = await collectAssetIdsFromSnapshotCooperatively(input.snapshot)
   const allowedUnreferencedIds = new Set(input.allowedUnreferencedAssetPuts ?? [])
   const puts = input.assetPuts ?? []
   const deletes = input.assetDeletes ?? []
@@ -496,7 +525,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
-    const referencedIds = new Set(collectAssetIdsFromSnapshot(snapshot))
+    const referencedIds = await collectAssetIdsFromSnapshotCooperatively(snapshot)
     await this.commitAtCurrentRevision(() => ({
       snapshot,
       assetPuts: [...this.preparedAssets.values()].filter((asset) => referencedIds.has(asset.id)),
