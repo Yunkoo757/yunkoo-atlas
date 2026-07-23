@@ -1,10 +1,11 @@
-import { execFileSync, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 import { readGitProvenance } from './git-provenance.mjs'
+import { detectFileSystem } from './file-system-type.mjs'
 
 const require = createRequire(import.meta.url)
 const electronExecutable = require('electron')
@@ -12,21 +13,6 @@ const root = process.cwd()
 const outputIndex = process.argv.indexOf('--output')
 const explicitOutput = outputIndex >= 0 ? process.argv[outputIndex + 1] : null
 const libraryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-forced-kill-library-'))
-
-function detectFileSystem(directory) {
-  if (process.platform === 'win32') {
-    const driveLetter = path.parse(path.resolve(directory)).root.slice(0, 1)
-    return execFileSync(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', `(Get-Volume -DriveLetter '${driveLetter}').FileSystem`],
-      { encoding: 'utf8' },
-    ).trim()
-  }
-  if (process.platform === 'darwin') {
-    return execFileSync('stat', ['-f', '%T', directory], { encoding: 'utf8' }).trim().toUpperCase()
-  }
-  return execFileSync('stat', ['-f', '-c', '%T', directory], { encoding: 'utf8' }).trim()
-}
 
 function runElectronMain(mode, onSpawn) {
   return new Promise((resolve, reject) => {

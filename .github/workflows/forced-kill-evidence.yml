@@ -12,6 +12,7 @@ on:
       - 'electron/library/assetInventory.test.ts'
       - 'scripts/run-forced-kill-evidence.mjs'
       - 'scripts/run-asset-lifecycle-platform.mjs'
+      - 'scripts/file-system-type.mjs'
       - 'scripts/fixtures/forced-kill-evidence.test.mjs'
       - '.github/workflows/forced-kill-evidence.yml'
 
