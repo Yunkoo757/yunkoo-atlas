@@ -3,7 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
-import type { ExportAssetRecord, PersistedSnapshot } from '../../src/storage/types'
+import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
+import { SCHEMA_VERSION, type ExportAssetRecord, type PersistedSnapshot } from '../../src/storage/types'
 import { QuitCoordinator, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import {
   createBackupAtPath,
@@ -37,9 +38,13 @@ export async function runElectronPersistenceBenchmark(
 }> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `atlas-persistence-${input.label}-`))
   let storage = new LibraryStorage(root)
+  const durableHash = checksum(decodeCanonicalSnapshot(input.snapshot, {
+    version: SCHEMA_VERSION,
+    label: `${input.label} Electron persistence benchmark fixture`,
+  }))
   const assertReloadedState = () => {
     const loaded = storage.loadSnapshot()
-    if (checksum(loaded) !== input.expectedHash) throw new Error('退出 release 后 snapshot checksum 不一致')
+    if (checksum(loaded) !== durableHash) throw new Error('退出 release 后 snapshot checksum 不一致')
     for (const expected of input.assets) {
       const actual = storage.getAssetBytes(expected.id)
       if (!actual || !Buffer.from(actual.bytes).equals(Buffer.from(expected.data, 'base64'))) {
@@ -65,7 +70,7 @@ export async function runElectronPersistenceBenchmark(
       storage = new LibraryStorage(root, { ensureDirectories: false, allowCreate: false })
       await storage.open()
       const loaded = storage.loadSnapshot()
-      if (checksum(loaded) !== input.expectedHash) {
+      if (checksum(loaded) !== durableHash) {
         throw new Error(`${input.label} Electron durable reload checksum 不一致`)
       }
       for (const expected of input.assets) {
