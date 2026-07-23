@@ -145,6 +145,7 @@ try {
   await build({
     configFile: path.resolve('vite.config.ts'),
     logLevel: 'silent',
+    ssr: { noExternal: true },
     build: {
       ssr: path.resolve('scripts/jsonCompatibilityHarness.ts'),
       outDir: harnessDir,
