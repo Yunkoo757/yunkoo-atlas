@@ -21,8 +21,13 @@ import { ReviewSessionView } from '@/views/ReviewSessionView'
 declare global {
   interface Window {
     __reviewSessionFlowTest?: Promise<void>
+    __linearBrowserAllowedErrors?: string[]
   }
 }
+
+window.__linearBrowserAllowedErrors = [
+  'Persist failed OperationalError: Snapshot references missing asset: missing-review-chart',
+]
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
