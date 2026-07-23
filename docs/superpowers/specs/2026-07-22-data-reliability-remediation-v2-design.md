@@ -1102,6 +1102,7 @@ publish contract
 | `library-location-invalid` | 查看原因，选择已验证资料库 |
 | `quit-flush-failed` | 留在应用内重试，不退出 |
 | `quit-backup-failed` | 检查磁盘/权限后重试 |
+| `quit-commit-failed` | 保持应用可用，检查 storage release/最终退出阶段后重试 |
 | `import-budget-exceeded` | 使用 ZIP、缩小输入或桌面转换路径 |
 | `asset-reference-missing` | 停止删除/恢复，进入健康检查 |
 | `asset-gc-stale-revision` | 重新扫描并确认 |

@@ -6,6 +6,7 @@ import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersi
 import type { PersistedSnapshot } from '@/storage/types'
 import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import { parseWebJournalArchive } from '@/lib/webJournalArchive'
+import { clearWebOperationLogsForTests, getWebOperationLogs } from '@/storage/webOperationLogger'
 
 declare global {
   interface Window {
@@ -155,6 +156,7 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
     }
     const failedPreview = await storage.previewAssetPurge()
     const failedRecovery = await storage.prepareAssetPurgeRecovery(failedPreview)
+    clearWebOperationLogsForTests()
     const originalDelete = IDBObjectStore.prototype.delete
     let deleteCount = 0
     IDBObjectStore.prototype.delete = function failSecondDelete(key: IDBValidKey | IDBKeyRange) {
@@ -169,6 +171,9 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
     }
     assert(rejected, '第 N 个 delete 故障必须拒绝整个 purge')
     assert(await fingerprint(storage) === before, 'delete 故障后两个附件、快照与 revision 必须全部回滚')
+    const failedGcLogs = getWebOperationLogs().filter((record) => record.event.startsWith('gc:'))
+    assert(failedGcLogs.map((record) => record.event).join(',') === 'gc:start,gc:failure', 'GC 故障必须只记录 start→failure')
+    assert(!JSON.stringify(failedGcLogs).includes('success'), 'GC 故障不得误报 success')
 
     const revoked: string[] = []
     let successfulRecovery: Awaited<ReturnType<typeof storage.prepareAssetPurgeRecovery>> | null = null
@@ -177,6 +182,7 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
     try {
       const preview = await storage.previewAssetPurge()
       const recovery = await storage.prepareAssetPurgeRecovery(preview)
+      clearWebOperationLogsForTests()
       successfulRecovery = recovery
       assert(
         recovery.webArchive?.recoveryOrphanAssetIds.join(',') === 'orphan-a,orphan-b',
@@ -196,6 +202,9 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
       assert(importRejected, 'purge 运行期间同 ID prepared import 必须 fail-closed')
       const result = await purge
       assert(result.revision === preview.revision + 1, '成功清理必须在同一事务推进 revision')
+      const successfulGcLogs = getWebOperationLogs().filter((record) => record.event.startsWith('gc:'))
+      assert(successfulGcLogs.map((record) => record.event).join(',') === 'gc:start,gc:success', 'GC 成功必须只记录 start→success')
+      assert(successfulGcLogs[1].revisionAfter === result.revision, 'GC 仅在提交后记录新 revision')
       assert(result.deletedIds.join(',') === 'orphan-a,orphan-b', '成功结果必须精确返回预览候选')
     } finally {
       URL.revokeObjectURL = originalRevoke

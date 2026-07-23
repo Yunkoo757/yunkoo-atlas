@@ -8,6 +8,7 @@ export type QuitFailureStage = 'renderer-flush' | 'verified-backup' | 'commit-ex
 export type QuitFailureCode =
   | 'quit-flush-failed'
   | 'quit-backup-failed'
+  | 'quit-commit-failed'
 
 export interface QuitOperationalFailure {
   operationId: string
@@ -133,7 +134,9 @@ export class QuitCoordinator {
       return Promise.resolve(this.dependencies.cancelPreparation()).then(() => {
         const code: QuitFailureCode = stage === 'renderer-flush'
           ? 'quit-flush-failed'
-          : 'quit-backup-failed'
+          : stage === 'verified-backup'
+            ? 'quit-backup-failed'
+            : 'quit-commit-failed'
         this.dependencies.reportError({
           operationId: requestId,
           stage,

@@ -16,7 +16,12 @@ export async function runBrowserRegressionTests(root, options = {}) {
     root,
     configFile: options.configFile ?? false,
     logLevel: 'error',
-    server: { host: '127.0.0.1', port: 0, open: false },
+    server: {
+      host: '127.0.0.1',
+      port: 0,
+      open: false,
+      fs: { allow: [root] },
+    },
   })
   let browser
   try {

@@ -44,6 +44,7 @@ export interface StorageAdapter {
   getManifest(): Promise<LibraryManifest>
 
   loadSnapshot(): Promise<PersistedSnapshot | null>
+  getSnapshotRevision?(): Promise<number>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<void>
 
   saveAsset(blob: Blob, mime: string): Promise<string>

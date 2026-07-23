@@ -4,6 +4,7 @@ import {
   StorageRevisionConflictError,
 } from '@/storage/indexedDbAdapter'
 import type { PersistedSnapshot } from '@/storage/types'
+import { clearWebOperationLogsForTests, getWebOperationLogs } from '@/storage/webOperationLogger'
 
 declare global {
   interface Window {
@@ -80,6 +81,7 @@ async function run(): Promise<void> {
   assert(await observer.getAssetForExport(migratedId), 'migration CAS 成功后附件必须持久化')
 
   const importedId = 'atomic-import-asset'
+  clearWebOperationLogsForTests()
   await writer.commitImport(snapshot('import', [importedId]), [{
     id: importedId,
     mime: 'image/png',
@@ -87,6 +89,8 @@ async function run(): Promise<void> {
   }])
   observed = await observer.loadSnapshotEnvelope()
   assert(observed.revision === 4, 'commitImport 必须通过单一 mutation 推进 revision')
+  const successfulImportLogs = getWebOperationLogs().filter((record) => record.event.startsWith('import:'))
+  assert(successfulImportLogs.map((record) => record.event).join(',') === 'import:start,import:success', 'Web import 成功必须只记录 start→success')
   assert(await observer.getAssetForExport(importedId), 'commitImport 必须原子提交附件')
 
   const restoredId = 'atomic-restore-asset'
@@ -125,6 +129,7 @@ async function run(): Promise<void> {
   await writer.saveSnapshot(snapshot('import-race-winner', [restoredId]))
   const staleImportId = 'stale-import-asset'
   conflict = undefined
+  clearWebOperationLogsForTests()
   try {
     await staleImport.commitImport(snapshot('stale-import', [staleImportId]), [{
       id: staleImportId,
@@ -135,6 +140,9 @@ async function run(): Promise<void> {
     conflict = error
   }
   assert(conflict instanceof StorageRevisionConflictError, 'stale import 必须暴露 typed conflict')
+  const failedImportLogs = getWebOperationLogs().filter((record) => record.event.startsWith('import:'))
+  assert(failedImportLogs.map((record) => record.event).join(',') === 'import:start,import:failure', 'Web import 冲突必须只记录 start→failure')
+  assert(!JSON.stringify(failedImportLogs).includes('success'), 'Web import 冲突不得误报 success')
   observed = await writer.loadSnapshotEnvelope()
   assert(observed.revision === 7, 'stale import 不得推进 revision')
   assert(observed.snapshot?.profile?.displayName === 'import-race-winner', 'stale import 不得覆盖赢家快照')

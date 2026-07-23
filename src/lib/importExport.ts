@@ -43,6 +43,7 @@ import {
 } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
+import { beginWebOperation } from '@/storage/webOperationLogger'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { SCHEMA_VERSION } from '@/storage/types'
 import {
@@ -367,19 +368,32 @@ export async function buildExportPayload(): Promise<ExportPayload> {
 }
 
 export async function downloadExport(): Promise<void> {
-  await flushPersistNow()
-  const payload = await buildExportPayload()
-  const json = serializeJsonExportPayload(payload)
-  const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  const date = new Date().toISOString().slice(0, 10)
-  a.href = url
-  a.download = `linear-journal-backup-${date}.json`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  const storage = getStorage()
+  const revision = (await storage.getSnapshotRevision?.()) ?? 0
+  const operation = beginWebOperation('archive', {
+    stage: 'export-json',
+    revisionBefore: revision,
+    platform: isElectron() ? 'electron-renderer' : 'web',
+  })
+  try {
+    await flushPersistNow()
+    const payload = await buildExportPayload()
+    const json = serializeJsonExportPayload(payload)
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const date = new Date().toISOString().slice(0, 10)
+    a.href = url
+    a.download = `linear-journal-backup-${date}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    operation.success({ stage: 'downloaded', revisionAfter: revision })
+  } catch (error) {
+    operation.failure(error, { stage: 'export-json' })
+    throw error
+  }
 }
 
 export function serializeJsonExportPayload(payload: unknown): string {
@@ -414,29 +428,41 @@ function serializeJsonDocumentWithinFileBudget(payload: unknown): string {
  * 图片按原始格式存储，无 base64 膨胀，适合大量图片场景。
  */
 export async function downloadWebJournalZip(): Promise<void> {
-  await flushPersistNow()
-  const state = useStore.getState()
-  const portableSnapshot = buildPortableSnapshotFromState(
-    state,
-    useShortcutStore.getState().bindings,
-  )
   const storage = getStorage()
-  const assetIds = new Set(collectAssetIdsFromSnapshot(portableSnapshot))
-  const assets = await loadReferencedAssetsForExport(
-    assetIds,
-    (id) => storage.getAssetForExport(id),
-  )
+  const revision = (await storage.getSnapshotRevision?.()) ?? 0
+  const operation = beginWebOperation('archive', {
+    stage: 'export-zip',
+    revisionBefore: revision,
+    platform: isElectron() ? 'electron-renderer' : 'web',
+  })
+  try {
+    await flushPersistNow()
+    const state = useStore.getState()
+    const portableSnapshot = buildPortableSnapshotFromState(
+      state,
+      useShortcutStore.getState().bindings,
+    )
+    const assetIds = new Set(collectAssetIdsFromSnapshot(portableSnapshot))
+    const assets = await loadReferencedAssetsForExport(
+      assetIds,
+      (id) => storage.getAssetForExport(id),
+    )
 
-  const zipBlob = buildWebJournalArchiveBlob(portableSnapshot, assets)
-  const url = URL.createObjectURL(zipBlob)
-  const a = document.createElement('a')
-  const date = new Date().toISOString().slice(0, 10)
-  a.href = url
-  a.download = `linear-journal-${date}.journal.zip`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+    const zipBlob = buildWebJournalArchiveBlob(portableSnapshot, assets)
+    const url = URL.createObjectURL(zipBlob)
+    const a = document.createElement('a')
+    const date = new Date().toISOString().slice(0, 10)
+    a.href = url
+    a.download = `linear-journal-${date}.journal.zip`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+    operation.success({ stage: 'downloaded', revisionAfter: revision })
+  } catch (error) {
+    operation.failure(error, { stage: 'export-zip' })
+    throw error
+  }
 }
 
 /**

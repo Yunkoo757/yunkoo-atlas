@@ -6,6 +6,11 @@ import {
 import type { RevisionedLibraryMutation } from '@/storage/adapter'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
+import {
+  getWebWriteGuardState,
+  initializeWebWriterOwnership,
+  resetWebWriteGuardForTests,
+} from '@/storage/webWriteGuard'
 
 declare global {
   interface Window {
@@ -247,9 +252,17 @@ async function run(): Promise<void> {
 
   const second = new IndexedDbStorageAdapter()
   await second.open()
+  resetWebWriteGuardForTests()
+  await initializeWebWriterOwnership('migration-race', { lockManager: null, broadcastFactory: null })
 
-  const legacy = await first.loadSnapshotEnvelope()
+  const [legacy, concurrentLegacy] = await Promise.all([
+    first.loadSnapshotEnvelope(),
+    second.loadSnapshotEnvelope(),
+  ])
   assert(legacy.revision === 1, 'Release 1 legacy migration 必须在同一事务推进 0→1')
+  assert(concurrentLegacy.revision === 1, '并发 legacy migration 的输家必须重读已提交的 revision 1')
+  assert(getWebWriteGuardState().phase !== 'conflict', '内部可恢复 migration 冲突不得冻结 Web 写入 guard')
+  resetWebWriteGuardForTests()
   assert(legacy.snapshot?.profile?.displayName === 'legacy', 'revision 初始化不得重置旧快照')
   assert((await first.getManifest()).schemaVersion === SCHEMA_VERSION, '旧库成功迁移后必须原子记录当前 schema')
 

@@ -78,6 +78,25 @@ export async function testExitFailureStopsBeforeReleaseAndReportsAbort(): Promis
   }
 }
 
+export async function testCommitExitFailureUsesCommitCodeAndNeverReportsSuccess(): Promise<void> {
+  const calls: string[] = []
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 1_000,
+    createRequestId: () => 'request-commit-failure',
+    requestRendererFlush: async () => {},
+    createVerifiedBackup: async () => {},
+    commitExit: async () => { throw new Error('commit failed') },
+    cancelPreparation: () => { calls.push('cancel') },
+    reportStart: () => { calls.push('start') },
+    reportSuccess: () => { calls.push('success') },
+    reportError: (failure) => calls.push(`failure:${failure.code}:${failure.stage}`),
+  })
+
+  const result = await coordinator.request('quit')
+  assert(!result.ok, 'commit-exit 失败必须取消退出')
+  assert(calls.join('|') === 'start|cancel|failure:quit-commit-failed:commit-exit', 'commit-exit 必须使用准确 code 且不得误报 success')
+}
+
 export async function testIntentCanPromoteAfterCommitPreparationHasStarted(): Promise<void> {
   let commitStarted: (() => void) | undefined
   let finishPreparation: (() => void) | undefined

@@ -8,6 +8,7 @@ import {
   FULL_SNAPSHOT_ASSET_IDS,
   canonicalContractJson,
 } from '@/storage/fixtures/fullPersistedSnapshot'
+import { clearWebOperationLogsForTests, getWebOperationLogs } from '@/storage/webOperationLogger'
 
 declare global {
   interface Window {
@@ -190,7 +191,10 @@ async function run(): Promise<void> {
     mime: 'image/png',
     data: btoa(`indexed-db-contract-${index}`),
   }))
+  clearWebOperationLogsForTests()
   await adapter.replaceArchive(contractSnapshot, contractAssets)
+  const successfulArchiveLogs = getWebOperationLogs().filter((record) => record.event.startsWith('archive:'))
+  assert(successfulArchiveLogs.map((record) => record.event).join(',') === 'archive:start,archive:success', 'Web archive 成功必须只记录 start→success')
   assert(
     await adapter.getSnapshotRevision() === 4,
     'WEB2 PATH-B 必须在同一 mutation 中将 revision 从 3 推进到 4',
@@ -223,6 +227,7 @@ async function run(): Promise<void> {
       : originalPutForContractFailure.call(this, value, key)
   }
   rejected = false
+  clearWebOperationLogsForTests()
   try {
     await adapter.replaceArchive(snapshotWithNote('<p>失败候选</p>', '失败候选'), [
       { id: transientAssetId, mime: 'image/png', data: btoa('transient') },
@@ -234,6 +239,9 @@ async function run(): Promise<void> {
     IDBObjectStore.prototype.put = originalPutForContractFailure
   }
   assert(rejected, 'PATH-B Nth 附件请求失败必须中止同一 CAS 事务')
+  const failedArchiveLogs = getWebOperationLogs().filter((record) => record.event.startsWith('archive:'))
+  assert(failedArchiveLogs.map((record) => record.event).join(',') === 'archive:start,archive:failure', 'Web archive 故障必须只记录 start→failure')
+  assert(!JSON.stringify(failedArchiveLogs).includes('success'), 'Web archive 故障不得误报 success')
   const contractRevisionAfterFailure = canonicalContractJson({
     revision: await adapter.getSnapshotRevision(),
     snapshot: await adapter.loadSnapshot(),

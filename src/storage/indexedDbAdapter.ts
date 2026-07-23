@@ -27,6 +27,7 @@ import {
   type IndexedDbAssetRecord,
 } from '@/storage/indexedDbSnapshotAssetWrites'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
+import { beginWebOperation } from '@/storage/webOperationLogger'
 
 // This browser storage name is intentionally kept for backward compatibility.
 // Export payload/schema versions are tracked separately by SCHEMA_VERSION.
@@ -237,7 +238,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
           expectedRevision: stored.revision,
           snapshot: migrationSnapshot,
           reason: 'migration',
-        }), false)
+        }), false, false)
         stored = {
           ...stored,
           revision: migration.revision,
@@ -263,6 +264,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private enqueueLibraryMutation(
     createInput: () => RevisionedLibraryMutation | Promise<RevisionedLibraryMutation>,
     enforceWriteGuard = true,
+    reportConflicts = true,
   ): Promise<{ revision: number }> {
     const operation = this.mutationTail.then(async () => {
       if (enforceWriteGuard) assertWebWriteAllowed()
@@ -274,7 +276,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         }
         return await this.runLibraryMutation(input)
       } catch (error) {
-        if (error instanceof StorageRevisionConflictError) reportWebRevisionConflict(error)
+        if (reportConflicts && error instanceof StorageRevisionConflictError) reportWebRevisionConflict(error)
         throw error
       }
     })
@@ -591,79 +593,103 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async prepareAssetPurgeRecovery(preview: AssetPurgePreview) {
-    const prepared = this.assetPurgePreviews.get(preview.operationId)
-    if (
-      !prepared ||
-      prepared.revision !== preview.revision ||
-      prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
-      prepared.totalBytes !== preview.totalBytes
-    ) {
-      throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
-    }
-    const assets: ExportAssetRecord[] = []
-    const recoveryIds = [...new Set([
-      ...collectAssetIdsFromSnapshot(prepared.snapshot),
-      ...prepared.candidateIds,
-    ])]
-    for (const id of recoveryIds) {
-      const asset = await this.getAssetForExport(id)
-      if (!asset) {
-        throw new OperationalError('asset-reference-missing', `恢复归档缺少被引用附件：${id}`)
+    const operation = beginWebOperation('archive', {
+      operationId: preview.operationId,
+      actionId: preview.operationId,
+      stage: 'export-recovery',
+      revisionBefore: preview.revision,
+    })
+    try {
+      const prepared = this.assetPurgePreviews.get(preview.operationId)
+      if (
+        !prepared ||
+        prepared.revision !== preview.revision ||
+        prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
+        prepared.totalBytes !== preview.totalBytes
+      ) {
+        throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
       }
-      assets.push(asset)
-    }
-    const authorization = crypto.randomUUID()
-    this.assetPurgeAuthorizations.set(preview.operationId, { token: authorization, createdAt: Date.now() })
-    return {
-      authorization,
-      webArchive: {
-        snapshot: prepared.snapshot,
-        assets,
-        recoveryOrphanAssetIds: [...prepared.candidateIds],
-      },
+      const assets: ExportAssetRecord[] = []
+      const recoveryIds = [...new Set([
+        ...collectAssetIdsFromSnapshot(prepared.snapshot),
+        ...prepared.candidateIds,
+      ])]
+      for (const id of recoveryIds) {
+        const asset = await this.getAssetForExport(id)
+        if (!asset) {
+          throw new OperationalError('asset-reference-missing', `恢复归档缺少被引用附件：${id}`)
+        }
+        assets.push(asset)
+      }
+      const authorization = crypto.randomUUID()
+      this.assetPurgeAuthorizations.set(preview.operationId, { token: authorization, createdAt: Date.now() })
+      operation.success({ stage: 'verified', revisionAfter: preview.revision })
+      return {
+        authorization,
+        webArchive: {
+          snapshot: prepared.snapshot,
+          assets,
+          recoveryOrphanAssetIds: [...prepared.candidateIds],
+        },
+      }
+    } catch (error) {
+      operation.failure(error, { stage: 'export-recovery' })
+      throw error
     }
   }
 
   async commitAssetPurge(preview: AssetPurgePreview, authorization: string): Promise<AssetPurgeResult> {
-    if (!this.assetPurgeCommitEnabled) {
-      throw new Error('当前发布阶段仅开放附件清理 dry-run，永久删除已在存储边界关闭')
-    }
-    const expectedAuthorization = this.assetPurgeAuthorizations.get(preview.operationId)
-    this.assetPurgeAuthorizations.delete(preview.operationId)
-    if (
-      !authorization ||
-      authorization !== expectedAuthorization?.token ||
-      Date.now() - (expectedAuthorization?.createdAt ?? 0) > 15 * 60_000
-    ) {
-      throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
-    }
-    const prepared = this.assetPurgePreviews.get(preview.operationId)
-    this.assetPurgePreviews.delete(preview.operationId)
-    if (
-      !prepared ||
-      prepared.revision !== preview.revision ||
-      prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
-      prepared.totalBytes !== preview.totalBytes
-    ) {
-      throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
-    }
-    if (prepared.candidateIds.some((id) => this.preparedAssets.has(id))) {
-      throw new OperationalError('asset-gc-stale-revision', '清理候选在预览后出现新的待提交附件，请重新扫描')
-    }
-    if (prepared.candidateIds.some((id) => this.purgingAssetIds.has(id))) {
-      throw new Error('相同附件已有清理操作正在进行')
-    }
-    for (const id of prepared.candidateIds) this.purgingAssetIds.add(id)
+    const operation = beginWebOperation('gc', {
+      operationId: preview.operationId,
+      actionId: preview.operationId,
+      stage: 'authorize',
+      revisionBefore: preview.revision,
+    })
     try {
-      const result = await this.commitLibraryMutation({
-        expectedRevision: prepared.revision,
-        snapshot: prepared.snapshot,
-        assetDeletes: prepared.candidateIds,
-        reason: 'purge',
-      })
-      return { revision: result.revision, deletedIds: [...prepared.candidateIds] }
-    } finally {
-      for (const id of prepared.candidateIds) this.purgingAssetIds.delete(id)
+      if (!this.assetPurgeCommitEnabled) {
+        throw new Error('当前发布阶段仅开放附件清理 dry-run，永久删除已在存储边界关闭')
+      }
+      const expectedAuthorization = this.assetPurgeAuthorizations.get(preview.operationId)
+      this.assetPurgeAuthorizations.delete(preview.operationId)
+      if (
+        !authorization ||
+        authorization !== expectedAuthorization?.token ||
+        Date.now() - (expectedAuthorization?.createdAt ?? 0) > 15 * 60_000
+      ) {
+        throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
+      }
+      const prepared = this.assetPurgePreviews.get(preview.operationId)
+      this.assetPurgePreviews.delete(preview.operationId)
+      if (
+        !prepared ||
+        prepared.revision !== preview.revision ||
+        prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
+        prepared.totalBytes !== preview.totalBytes
+      ) {
+        throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
+      }
+      if (prepared.candidateIds.some((id) => this.preparedAssets.has(id))) {
+        throw new OperationalError('asset-gc-stale-revision', '清理候选在预览后出现新的待提交附件，请重新扫描')
+      }
+      if (prepared.candidateIds.some((id) => this.purgingAssetIds.has(id))) {
+        throw new Error('相同附件已有清理操作正在进行')
+      }
+      for (const id of prepared.candidateIds) this.purgingAssetIds.add(id)
+      try {
+        const result = await this.commitLibraryMutation({
+          expectedRevision: prepared.revision,
+          snapshot: prepared.snapshot,
+          assetDeletes: prepared.candidateIds,
+          reason: 'purge',
+        })
+        operation.success({ stage: 'committed', revisionAfter: result.revision })
+        return { revision: result.revision, deletedIds: [...prepared.candidateIds] }
+      } finally {
+        for (const id of prepared.candidateIds) this.purgingAssetIds.delete(id)
+      }
+    } catch (error) {
+      operation.failure(error, { stage: 'commit' })
+      throw error
     }
   }
 
@@ -700,28 +726,38 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
-    assertValidPersistedSnapshot(snapshot, 'Imported browser snapshot')
-    const referencedAssetIds = new Set(collectAssetIdsFromSnapshot(snapshot))
-    const records: AssetRecord[] = assets.filter(
-      (asset) => !options?.pruneUnreferenced || referencedAssetIds.has(asset.id),
-    ).map((asset) => {
-      const blob = base64ToBlob(asset.data, asset.mime)
-      return {
-        id: asset.id,
-        mime: asset.mime,
-        byteSize: blob.size,
-        createdAt: new Date().toISOString(),
-        blob,
-      }
+    const operation = beginWebOperation('import', {
+      stage: 'validate',
+      revisionBefore: this.currentRevision ?? 0,
     })
-    await this.commitAtCurrentRevision(() => ({
-      snapshot,
-      assetPuts: records,
-      assetDeletes: options?.pruneUnreferenced
-        ? assets.filter((asset) => !referencedAssetIds.has(asset.id)).map((asset) => asset.id)
-        : undefined,
-      reason: 'import',
-    }))
+    try {
+      assertValidPersistedSnapshot(snapshot, 'Imported browser snapshot')
+      const referencedAssetIds = new Set(collectAssetIdsFromSnapshot(snapshot))
+      const records: AssetRecord[] = assets.filter(
+        (asset) => !options?.pruneUnreferenced || referencedAssetIds.has(asset.id),
+      ).map((asset) => {
+        const blob = base64ToBlob(asset.data, asset.mime)
+        return {
+          id: asset.id,
+          mime: asset.mime,
+          byteSize: blob.size,
+          createdAt: new Date().toISOString(),
+          blob,
+        }
+      })
+      const result = await this.commitAtCurrentRevision(() => ({
+        snapshot,
+        assetPuts: records,
+        assetDeletes: options?.pruneUnreferenced
+          ? assets.filter((asset) => !referencedAssetIds.has(asset.id)).map((asset) => asset.id)
+          : undefined,
+        reason: 'import',
+      }))
+      operation.success({ stage: 'committed', revisionAfter: result.revision })
+    } catch (error) {
+      operation.failure(error, { stage: 'commit' })
+      throw error
+    }
   }
 
   /**
@@ -734,26 +770,36 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     recoveryOrphanAssetIds: readonly string[] = [],
   ): Promise<void> {
-    assertValidPersistedSnapshot(snapshot, 'Restored browser snapshot')
-    const now = new Date().toISOString()
-    const records = assets.map((asset) => {
-      const blob = base64ToBlob(asset.data, asset.mime)
-      return {
-        id: asset.id,
-        mime: asset.mime,
-        byteSize: blob.size,
-        createdAt: now,
-        blob,
-      } satisfies AssetRecord
+    const operation = beginWebOperation('archive', {
+      stage: 'validate-restore',
+      revisionBefore: this.currentRevision ?? 0,
     })
+    try {
+      assertValidPersistedSnapshot(snapshot, 'Restored browser snapshot')
+      const now = new Date().toISOString()
+      const records = assets.map((asset) => {
+        const blob = base64ToBlob(asset.data, asset.mime)
+        return {
+          id: asset.id,
+          mime: asset.mime,
+          byteSize: blob.size,
+          createdAt: now,
+          blob,
+        } satisfies AssetRecord
+      })
 
-    await this.commitAtCurrentRevision(() => ({
-      snapshot,
-      assetPuts: records,
-      assetMode: 'replace',
-      allowedUnreferencedAssetPuts: recoveryOrphanAssetIds,
-      reason: 'restore',
-    }))
+      const result = await this.commitAtCurrentRevision(() => ({
+        snapshot,
+        assetPuts: records,
+        assetMode: 'replace',
+        allowedUnreferencedAssetPuts: recoveryOrphanAssetIds,
+        reason: 'restore',
+      }))
+      operation.success({ stage: 'committed', revisionAfter: result.revision })
+    } catch (error) {
+      operation.failure(error, { stage: 'commit' })
+      throw error
+    }
   }
 }
 
