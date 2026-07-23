@@ -42,6 +42,63 @@ const REQUIRED_STORES = [STORE_SNAPSHOT, STORE_ASSETS, STORE_META] as const
 
 type AssetRecord = IndexedDbAssetRecord
 
+interface PreparedIndexedDbMutation {
+  referencedIds: Set<string>
+  putIds: Set<string>
+  records: AssetRecord[]
+}
+
+function yieldMainThread(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+async function prepareIndexedDbMutation(
+  input: RevisionedLibraryMutation,
+): Promise<PreparedIndexedDbMutation> {
+  assertValidPersistedSnapshot(input.snapshot, 'Revisioned browser snapshot')
+  if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) {
+    throw new Error('expectedRevision must be a non-negative safe integer')
+  }
+
+  await yieldMainThread()
+  const referencedIds = new Set(collectAssetIdsFromSnapshot(input.snapshot))
+  const allowedUnreferencedIds = new Set(input.allowedUnreferencedAssetPuts ?? [])
+  const puts = input.assetPuts ?? []
+  const deletes = input.assetDeletes ?? []
+  const putIds = new Set<string>()
+  const deleteIds = new Set<string>()
+  const records = puts.map((put) => {
+    if (!put.id || !put.mime || !(put.blob instanceof Blob)) {
+      throw new Error('Invalid prepared asset put')
+    }
+    if (putIds.has(put.id)) throw new Error(`Duplicate asset put: ${put.id}`)
+    if (!referencedIds.has(put.id) && !allowedUnreferencedIds.has(put.id)) {
+      throw new Error(`Unreferenced asset put: ${put.id}`)
+    }
+    putIds.add(put.id)
+    return {
+      id: put.id,
+      mime: put.mime,
+      byteSize: put.blob.size,
+      createdAt: new Date().toISOString(),
+      blob: put.blob,
+    } satisfies AssetRecord
+  })
+  for (const id of deletes) {
+    if (!id || deleteIds.has(id)) throw new Error(`Invalid duplicate asset delete: ${id}`)
+    if (putIds.has(id)) throw new Error(`Asset cannot be put and deleted: ${id}`)
+    if (referencedIds.has(id)) throw new Error(`Referenced asset cannot be deleted: ${id}`)
+    deleteIds.add(id)
+  }
+  if (input.assetMode === 'replace') {
+    for (const id of referencedIds) {
+      if (!putIds.has(id)) throw new Error(`Replacement snapshot is missing asset: ${id}`)
+    }
+  }
+  await yieldMainThread()
+  return { referencedIds, putIds, records }
+}
+
 export { StorageRevisionConflictError } from '@/storage/adapter'
 
 function normalizeSnapshotRevision(value: unknown): number {
@@ -296,7 +353,8 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     })
   }
 
-  private runLibraryMutation(input: RevisionedLibraryMutation): Promise<{ revision: number }> {
+  private async runLibraryMutation(input: RevisionedLibraryMutation): Promise<{ revision: number }> {
+    const prepared = await prepareIndexedDbMutation(input)
     const db = this.requireDb()
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_SNAPSHOT, STORE_ASSETS, STORE_META], 'readwrite')
@@ -354,51 +412,15 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         }
 
         try {
-          assertValidPersistedSnapshot(input.snapshot, 'Revisioned browser snapshot')
-          if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) {
-            throw new Error('expectedRevision must be a non-negative safe integer')
-          }
           nextRevision = actualRevision + 1
-          const referencedIds = new Set(collectAssetIdsFromSnapshot(input.snapshot))
-          const allowedUnreferencedIds = new Set(input.allowedUnreferencedAssetPuts ?? [])
-          const puts = input.assetPuts ?? []
-          const deletes = input.assetDeletes ?? []
-          const putIds = new Set<string>()
-          const deleteIds = new Set<string>()
-          const records = puts.map((put) => {
-            if (!put.id || !put.mime || !(put.blob instanceof Blob)) {
-              throw new Error('Invalid prepared asset put')
-            }
-            if (putIds.has(put.id)) throw new Error(`Duplicate asset put: ${put.id}`)
-            if (!referencedIds.has(put.id) && !allowedUnreferencedIds.has(put.id)) {
-              throw new Error(`Unreferenced asset put: ${put.id}`)
-            }
-            putIds.add(put.id)
-            return {
-              id: put.id,
-              mime: put.mime,
-              byteSize: put.blob.size,
-              createdAt: new Date().toISOString(),
-              blob: put.blob,
-            } satisfies AssetRecord
-          })
-          for (const id of deletes) {
-            if (!id || deleteIds.has(id)) throw new Error(`Invalid duplicate asset delete: ${id}`)
-            if (putIds.has(id)) throw new Error(`Asset cannot be put and deleted: ${id}`)
-            if (referencedIds.has(id)) throw new Error(`Referenced asset cannot be deleted: ${id}`)
-            deleteIds.add(id)
-          }
           if (input.assetMode === 'replace') {
-            for (const id of referencedIds) {
-              if (!putIds.has(id)) throw new Error(`Replacement snapshot is missing asset: ${id}`)
-            }
-            applyMutation(records)
+            applyMutation(prepared.records)
             return
           }
 
-          const existingIds = [...referencedIds].filter((id) => !putIds.has(id))
+          const existingIds = [...prepared.referencedIds].filter((id) => !prepared.putIds.has(id))
           if (existingIds.length === 0) {
-            applyMutation(records)
+            applyMutation(prepared.records)
             return
           }
           let remaining = existingIds.length
@@ -414,7 +436,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
                 return
               }
               remaining -= 1
-              if (remaining === 0) applyMutation(records)
+              if (remaining === 0) applyMutation(prepared.records)
             }
             request.onerror = () => abort(request.error ?? new Error(`Asset lookup failed: ${id}`))
           }

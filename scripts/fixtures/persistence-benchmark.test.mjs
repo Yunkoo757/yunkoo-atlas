@@ -50,6 +50,7 @@ test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', 
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 
   assert.match(runner, /warmups: 5, samples: 30/)
+  assert.match(runner, /warmups: 5, samples: 3/)
   assert.match(runner, /createDataset\(10_000\)/)
   assert.match(runner, /createDataset\(20_000\)/)
   assert.match(runner, /web10kSaveP95Ms: 500/)

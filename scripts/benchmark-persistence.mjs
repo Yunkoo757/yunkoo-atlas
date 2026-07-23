@@ -16,7 +16,7 @@ const root = process.cwd()
 const mode = process.argv.includes('--release') ? 'release' : 'smoke'
 const sampleConfig = mode === 'release'
   ? { warmups: 5, samples: 30 }
-  : { warmups: 1, samples: 3 }
+  : { warmups: 5, samples: 3 }
 const limits = {
   web10kSaveP95Ms: 500,
   web20kSaveP95Ms: 1_000,
