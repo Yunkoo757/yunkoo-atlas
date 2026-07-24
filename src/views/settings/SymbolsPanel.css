@@ -8,10 +8,10 @@
 .symbols-list-panel,
 .symbols-editor {
   min-width: 0;
-  padding: 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+  padding: 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .symbols-add-row {
@@ -186,7 +186,7 @@
   width: 20px;
   height: 20px;
   border-radius: var(--radius-4);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: var(--font-weight-semibold);
 }
 

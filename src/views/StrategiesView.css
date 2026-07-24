@@ -36,10 +36,11 @@
   align-items: center;
   gap: 12px;
   min-height: 52px;
-  padding: 8px 12px;
-  border-radius: var(--radius-10);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
   transition: background var(--dur-fast) var(--ease-out);
 }
 .st-row:hover {
@@ -99,8 +100,8 @@
 .st-act {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: var(--control-height);
+  height: var(--control-height);
   border-radius: var(--radius-6);
   color: var(--text-tertiary);
 }

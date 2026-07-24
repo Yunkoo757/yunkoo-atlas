@@ -1,14 +1,14 @@
 .dio-content {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--sp-7);
 }
 
 .dio-section-title {
   margin: 0 0 6px;
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+  color: var(--text-strong);
 }
 
 .dio-desc {
@@ -162,7 +162,7 @@
 
 .health-value {
   font-size: var(--fs-base);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   color: var(--text-primary);
 }
 
@@ -178,9 +178,9 @@
 .dio-group-head { margin-bottom: 10px; }
 .dio-group-title {
   margin: 0 0 3px;
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+  color: var(--text-strong);
 }
 .dio-group-desc {
   margin: 0;
@@ -244,7 +244,7 @@
   display: inline-block;
   margin-right: 6px;
   color: var(--warn);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .dio-actions {
@@ -309,6 +309,28 @@
   margin-top: 12px;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
+}
+
+/* ---- Data settings section helpers ---- */
+.data-actions-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+.data-actions-row--top {
+  margin-top: var(--sp-3);
+}
+
+.data-section-muted {
+  margin-top: var(--sp-2);
+}
+
+.data-purge-confirm {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  margin-top: var(--sp-3);
 }
 
 @media (max-width: 480px) {

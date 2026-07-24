@@ -346,7 +346,7 @@ export function DataSettingsPanel({
       />
 
       {/* 存储健康面板 */}
-      <section className="settings-page-section" style={{ marginTop: 32 }}>
+      <section className="settings-page-section">
         <div className="settings-page-head">
           <h2 className="settings-section-title">存储健康</h2>
           <p className="settings-section-desc">
@@ -421,14 +421,13 @@ export function DataSettingsPanel({
         )}
 
         <button
-          className="dio-btn"
+          className="dio-btn data-actions-row--top"
           onClick={refreshHealth}
-          style={{ marginTop: 12 }}
         >
           刷新检查
         </button>
         {health && health.storage.inventory.orphan.length > 0 ? (
-          <div style={{ marginTop: 12 }}>
+          <div className="data-actions-row--top">
             <button
               type="button"
               className="dio-btn dio-btn-warn"
@@ -436,17 +435,19 @@ export function DataSettingsPanel({
               onClick={() => void handlePreviewAssetPurge()}
             >
               <Trash2 size={14} />
-              <span>{purgeBusy ? '扫描中…' : '预览永久清理'}</span>
+              <span>{purgeBusy ? '扫描中…' : '预览可清理的孤立附件'}</span>
             </button>
-            <p className="dio-section-muted" style={{ marginTop: 8 }}>
-              只检查当前活动库；历史备份不会被扫描或修改。默认仅 dry-run，不会删除文件。
+            <p className="dio-section-muted data-section-muted">
+              {assetPurgeCommitEnabled
+                ? '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。删除前须先导出恢复归档。'
+                : '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。当前正式版仅提供预览与导出恢复归档，不在本机永久删除。'}
             </p>
           </div>
         ) : null}
       </section>
 
       {electron && (
-        <section className="settings-page-section" style={{ marginTop: 32 }}>
+        <section className="settings-page-section">
           <div className="settings-page-head">
             <h2 className="settings-section-title">自动备份</h2>
             <p className="settings-section-desc">
@@ -454,7 +455,7 @@ export function DataSettingsPanel({
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <div className="data-actions-row">
             <button
               className="dio-btn dio-btn-primary"
               onClick={handleCreateBackup}
@@ -546,7 +547,7 @@ export function DataSettingsPanel({
           )}
 
           {backups.length > 0 && (
-            <p className="dio-section-muted" style={{ marginTop: 8 }}>
+            <p className="dio-section-muted data-section-muted">
               备份文件位于交易库目录的 <code>backups/</code> 下。
             </p>
           )}
@@ -600,8 +601,12 @@ export function DataSettingsPanel({
       ) : null}
       {purgePreview ? (
         <ModalShell
-          title="永久清理当前库孤立附件"
-          description="这是 dry-run 结果。候选只来自当前活动库，历史备份不会被扫描或修改。"
+          title={assetPurgeCommitEnabled ? '永久清理当前库孤立附件' : '预览可清理的孤立附件'}
+          description={
+            assetPurgeCommitEnabled
+              ? '候选只来自当前活动库中的零引用附件；历史备份不会被扫描或修改。'
+              : '这是清理预览。候选只来自当前活动库中的零引用附件；历史备份不会被扫描或修改。'
+          }
           size="compact"
           busy={purgeBusy}
           onClose={() => {
@@ -612,54 +617,63 @@ export function DataSettingsPanel({
             <>
               <button
                 type="button"
-                className="ui-btn ui-btn-bordered"
+                className={assetPurgeCommitEnabled ? 'ui-btn ui-btn-bordered' : 'ui-btn ui-btn-primary'}
                 disabled={purgeBusy}
                 onClick={() => void handleCreatePurgeRecoveryArchive()}
               >
-                {purgeArchiveReady ? '恢复归档已导出' : '先导出恢复归档'}
+                {purgeArchiveReady
+                  ? '恢复归档已导出'
+                  : assetPurgeCommitEnabled
+                    ? '先导出恢复归档'
+                    : '导出恢复归档'}
               </button>
               <button
                 type="button"
                 className="ui-btn ui-btn-bordered"
-                data-autofocus
+                data-autofocus={assetPurgeCommitEnabled ? true : undefined}
                 disabled={purgeBusy}
                 onClick={() => discardPurge()}
               >
-                取消
+                {assetPurgeCommitEnabled ? '取消' : '关闭'}
               </button>
-              <button
-                type="button"
-                className="ui-btn ui-btn-danger-solid"
-                disabled={purgeBusy || !purgeArchiveReady || !purgeConfirmed || !assetPurgeCommitEnabled}
-                onClick={() => void handleCommitAssetPurge()}
-              >
-                永久删除候选附件
-              </button>
+              {assetPurgeCommitEnabled ? (
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-danger-solid"
+                  disabled={purgeBusy || !purgeArchiveReady || !purgeConfirmed}
+                  onClick={() => void handleCommitAssetPurge()}
+                >
+                  永久删除候选附件
+                </button>
+              ) : null}
             </>
           )}
         >
           <div className="dio-restore-warning" role="alert">
             <AlertCircle size={17} />
             <span>
-              将永久删除 {purgePreview.candidateIds.length} 个附件（{fmtBackupSize(purgePreview.totalBytes)}）。
-              成功后只能从刚导出的恢复归档找回。
+              {assetPurgeCommitEnabled
+                ? `将永久删除 ${purgePreview.candidateIds.length} 个当前库零引用附件（${fmtBackupSize(purgePreview.totalBytes)}）。成功后只能从刚导出的恢复归档找回；自动备份或你另存的副本可能仍包含这些内容。`
+                : `预览发现 ${purgePreview.candidateIds.length} 个当前库零引用附件（${fmtBackupSize(purgePreview.totalBytes)}）。正式版暂未开放本机永久删除；可导出恢复归档备用。`}
             </span>
           </div>
           <p className="dio-section-muted">
-            预览 revision：{purgePreview.revision}。预览后若数据变化，提交会被拒绝并要求重新扫描。
+            预览 revision：{purgePreview.revision}。
+            {assetPurgeCommitEnabled
+              ? '预览后若数据变化，提交会被拒绝并要求重新扫描。'
+              : '重新扫描可刷新候选列表。'}
           </p>
-          {!assetPurgeCommitEnabled ? (
-            <p className="dio-section-muted">当前发布阶段仅开放 dry-run；实际删除开关将在独立观察期通过后启用。</p>
+          {assetPurgeCommitEnabled ? (
+            <label className="data-purge-confirm">
+              <input
+                type="checkbox"
+                checked={purgeConfirmed}
+                disabled={!purgeArchiveReady || purgeBusy}
+                onChange={(event) => setPurgeConfirmed(event.target.checked)}
+              />
+              <span>我已保存恢复归档，并确认只永久删除本次预览列出的当前库零引用附件。</span>
+            </label>
           ) : null}
-          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12 }}>
-            <input
-              type="checkbox"
-              checked={purgeConfirmed}
-              disabled={!purgeArchiveReady || purgeBusy || !assetPurgeCommitEnabled}
-              onChange={(event) => setPurgeConfirmed(event.target.checked)}
-            />
-            <span>我已保存恢复归档，并确认只永久删除本次 dry-run 列出的当前库孤立附件。</span>
-          </label>
         </ModalShell>
       ) : null}
     </div>

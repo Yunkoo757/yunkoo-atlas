@@ -43,7 +43,7 @@
 }
 
 .profile-section {
-  margin-bottom: 28px;
+  margin-bottom: var(--sp-7);
 }
 
 .profile-section-title {
@@ -148,7 +148,7 @@
   max-width: 280px;
   height: var(--field-height-md);
   padding: 0 12px;
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   background: var(--field-bg);

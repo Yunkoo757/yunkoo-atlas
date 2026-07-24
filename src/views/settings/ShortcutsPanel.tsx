@@ -119,7 +119,7 @@ export function ShortcutsPanel() {
       </div>
       {categories.map(([category, actions]) => (
         <section key={category} className="shortcuts-section">
-          <h2 className="shortcuts-section-title">{category}</h2>
+          <h2 className="shortcuts-group-label">{category}</h2>
           <div className="shortcuts-table">
             {actions.map((action) => {
               const binding = resolveBinding(action.id, bindings)

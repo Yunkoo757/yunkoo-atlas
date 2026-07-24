@@ -4,6 +4,8 @@ import electron from 'vite-plugin-electron/simple'
 import path from 'node:path'
 
 const isElectron = process.env.ELECTRON === '1'
+/** Release 3 kill switch：仅当构建时显式注入 true 才烘焙进主进程。 */
+const assetPurgeCommitFlag = process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT === 'true' ? 'true' : ''
 
 export default defineConfig({
   plugins: [
@@ -15,6 +17,9 @@ export default defineConfig({
           vite: {
             resolve: {
               alias: { '@': path.resolve(__dirname, 'src') },
+            },
+            define: {
+              'process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT': JSON.stringify(assetPurgeCommitFlag),
             },
             build: {
               rolldownOptions: {

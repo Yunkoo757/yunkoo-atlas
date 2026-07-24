@@ -31,7 +31,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 32px;
+  height: var(--field-height-md);
   padding: 0 10px;
   border-radius: var(--radius-6);
   font-size: var(--fs-sm);
@@ -104,6 +104,10 @@
 
 .settings-page-section > .settings-page-head {
   margin-bottom: 12px;
+}
+
+.settings-page-section + .settings-page-section {
+  margin-top: var(--sp-8);
 }
 
 @media (max-width: 768px) {

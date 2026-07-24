@@ -395,6 +395,13 @@ export class LibraryStorage {
   }
 
   /** 返回交易数 / 策略数 / 附件数，供备份元数据使用 */
+  /** 备份与校验只认数据库已声明附件，忽略磁盘上尚未收尾的孤儿文件。 */
+  listCommittedAttachmentFileNames(): string[] {
+    const db = this.requireDb()
+    const result = db.exec('SELECT file_name FROM assets ORDER BY file_name')
+    return (result[0]?.values ?? []).map((row) => String(row[0]))
+  }
+
   getCounts(): { tradeCount: number; strategyCount: number; assetCount: number } {
     const snapshot = this.loadSnapshot()
     const db = this.requireDb()
@@ -686,7 +693,9 @@ export class LibraryStorage {
     )
 
     const staged: typeof files = []
-    let cleanupDeferred = process.platform === 'win32'
+    // 仅当 DB 已原子落盘但本轮物理收尾无法完成时才延迟；不再因 Windows 一律跳过，
+    // 否则同一会话内备份会把仍留在 attachments/ 的孤儿文件打进去并验证失败。
+    let cleanupDeferred = false
     let nextDb: Database | null = null
     try {
       for (const file of files) {
@@ -749,7 +758,14 @@ export class LibraryStorage {
         fsyncDirectorySync(operationDir)
         fs.rmdirSync(operationDir)
         fsyncDirectorySync(trashRoot)
-      } catch { /* 启动恢复会完成已提交清理。 */ }
+      } catch {
+        cleanupDeferred = true /* 启动恢复会完成已提交清理。 */
+      }
+    }
+    if (cleanupDeferred) {
+      try {
+        this.recoverAssetTrash()
+      } catch { /* 保留 trash；下次打开资料库再收敛。 */ }
     }
     try {
       if (fs.existsSync(trashRoot) && fs.readdirSync(trashRoot).length === 0) {

@@ -14,18 +14,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 28px;
+  margin-bottom: var(--sp-7);
 }
 
 .shortcuts-panel-head .settings-page-title {
   margin-bottom: 0;
-}
-
-.shortcuts-inner {
-  flex: 1;
-  overflow: auto;
-  max-width: 880px;
-  padding: 20px 32px 48px;
 }
 
 .shortcuts-toolbar {
@@ -77,7 +70,8 @@
   margin-bottom: 26px;
 }
 
-.shortcuts-section-title {
+/* 分组标签——非内容区域标题，故意弱于 .settings-section-title */
+.shortcuts-group-label {
   margin: 0 8px 8px;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
@@ -243,8 +237,8 @@ button.shortcuts-capture[aria-pressed='true'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--control-height);
+  height: var(--control-height);
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-6);

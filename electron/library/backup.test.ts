@@ -98,6 +98,7 @@ async function createVerifiableBackup(
           strategyCount: 0,
           assetCount: includeAsset ? 1 : 0,
         }),
+        listCommittedAttachmentFileNames: () => (includeAsset ? ['asset-1.bin'] : []),
       },
       root,
       Date.UTC(2026, 6, 14, 8, 0, 0),
@@ -249,7 +250,10 @@ export function testDefaultBackupRotationKeepsSevenLatestRestorePoints(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-default-limit-'))
   try {
     fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
-    const counts = { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }) }
+    const counts = {
+      getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
+      listCommittedAttachmentFileNames: () => [] as string[],
+    }
     for (let hour = 0; hour < 8; hour += 1) {
       createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, hour, 0, 0))
     }
@@ -271,7 +275,10 @@ export function testBackupsCreatedInTheSameMillisecondRemainIndependent(): void 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-collision-'))
   try {
     fs.writeFileSync(path.join(root, 'journal.db'), 'first-snapshot')
-    const counts = { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }) }
+    const counts = {
+      getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
+      listCommittedAttachmentFileNames: () => [] as string[],
+    }
     const now = Date.UTC(2026, 6, 13, 8, 0, 0)
     const first = createBackupAtPath(counts, root, now)
     fs.writeFileSync(path.join(root, 'journal.db'), 'second-snapshot')
@@ -293,7 +300,11 @@ export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): vo
     fs.mkdirSync(attachments, { recursive: true })
     fs.writeFileSync(path.join(root, 'journal.db'), 'v1')
     fs.writeFileSync(path.join(attachments, 'old.png'), 'old-image')
-    const counts = { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }) }
+    const counts = {
+      getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+      listCommittedAttachmentFileNames: () =>
+        fs.existsSync(path.join(attachments, 'new.png')) ? ['new.png'] : ['old.png'],
+    }
     createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 9, 0, 0))
 
     fs.rmSync(path.join(attachments, 'old.png'))
@@ -324,7 +335,10 @@ export function testBackupRotationNeverDeletesTheOnlyLatestRestorePoint(): void 
     fs.writeFileSync(path.join(root, 'journal.db'), 'latest-snapshot')
     fs.writeFileSync(path.join(attachments, 'large.png'), Buffer.alloc(128, 1))
     createBackupAtPath(
-      { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }) },
+      {
+        getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        listCommittedAttachmentFileNames: () => ['large.png'],
+      },
       root,
       Date.UTC(2026, 6, 13, 10, 0, 0),
     )
@@ -348,7 +362,10 @@ export function testRestoreWithMissingAttachmentLeavesCurrentLibraryUntouched():
     fs.writeFileSync(path.join(root, 'journal.db'), 'backup-db')
     fs.writeFileSync(path.join(attachments, 'chart.png'), 'backup-image')
     const backup = createBackupAtPath(
-      { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }) },
+      {
+        getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        listCommittedAttachmentFileNames: () => ['chart.png'],
+      },
       root,
       Date.UTC(2026, 6, 13, 10, 0, 0),
     )!
@@ -385,7 +402,10 @@ export function testBackupAccountingAndDeletionIncludeDeduplicatedAttachments():
     fs.writeFileSync(path.join(root, 'journal.db'), Buffer.alloc(12, 1))
     fs.writeFileSync(path.join(attachments, 'large.png'), Buffer.alloc(40, 2))
     const backup = createBackupAtPath(
-      { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }) },
+      {
+        getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        listCommittedAttachmentFileNames: () => ['large.png'],
+      },
       root,
       Date.UTC(2026, 6, 13, 9, 0, 0),
     )!
@@ -415,7 +435,10 @@ export function testBackupRestoreProtectsDatabaseManifestAndOriginalAttachments(
     fs.writeFileSync(path.join(attachments, 'chart.png'), Buffer.from([0, 1, 2, 3, 255]))
 
     const backup = createBackupAtPath(
-      { getCounts: () => ({ tradeCount: 1, strategyCount: 2, assetCount: 1 }) },
+      {
+        getCounts: () => ({ tradeCount: 1, strategyCount: 2, assetCount: 1 }),
+        listCommittedAttachmentFileNames: () => ['chart.png'],
+      },
       root,
       Date.UTC(2026, 6, 13, 8, 30, 0),
     )
@@ -448,7 +471,10 @@ export function testBackupKeepsHistoricalBytesWhenAnAttachmentNameIsReused(): vo
     fs.mkdirSync(attachments, { recursive: true })
     fs.writeFileSync(path.join(root, 'journal.db'), 'v1')
     fs.writeFileSync(path.join(attachments, 'shared.png'), Buffer.from('first-image'))
-    const counts = { getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }) }
+    const counts = {
+      getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+      listCommittedAttachmentFileNames: () => ['shared.png'],
+    }
     const first = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
 
     fs.writeFileSync(path.join(root, 'journal.db'), 'v2')

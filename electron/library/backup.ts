@@ -90,11 +90,22 @@ function backupManifestPath(dbBackupPath: string): string {
   return dbBackupPath + '.manifest.json'
 }
 
-function listAttachmentFiles(attachmentsDir: string): string[] {
-  if (!fs.existsSync(attachmentsDir)) return []
-  return fs.readdirSync(attachmentsDir)
-    .filter((name) => fs.statSync(path.join(attachmentsDir, name)).isFile())
-    .sort()
+function listDeclaredAttachmentFiles(
+  attachmentsDir: string,
+  declaredFileNames: readonly string[],
+): string[] {
+  const files: string[] = []
+  for (const fileName of [...declaredFileNames].sort()) {
+    if (!fileName || path.basename(fileName) !== fileName) {
+      throw new Error(`备份附件路径不安全：${fileName}`)
+    }
+    const fullPath = path.join(attachmentsDir, fileName)
+    if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
+      throw new Error(`备份缺少数据库声明的附件：${fileName}`)
+    }
+    files.push(fileName)
+  }
+  return files
 }
 
 function storeBackupAttachment(source: string, vault: string): string {
@@ -157,7 +168,7 @@ function deleteBackupFiles(dbPath: string): void {
 }
 
 export function createBackupAtPath(
-  storage: Pick<LibraryStorage, 'getCounts'>,
+  storage: Pick<LibraryStorage, 'getCounts' | 'listCommittedAttachmentFileNames'>,
   libraryPath: string,
   now: number = Date.now(),
   options: { emptyLibrary?: boolean } = {},
@@ -177,7 +188,11 @@ export function createBackupAtPath(
       fs.copyFileSync(manifestFile, backupManifestPath(dest))
     }
 
-    const attachmentFiles = listAttachmentFiles(attachments)
+    // 只打包 assets 表声明的文件；Windows 延迟 GC 残留的孤儿不得进入恢复点。
+    const attachmentFiles = listDeclaredAttachmentFiles(
+      attachments,
+      storage.listCommittedAttachmentFileNames(),
+    )
     const vault = backupAssetVault(backups)
     fs.mkdirSync(vault, { recursive: true })
     const attachmentEntries = attachmentFiles.map((fileName) => ({
@@ -191,6 +206,9 @@ export function createBackupAtPath(
       (counts.tradeCount !== 0 || counts.strategyCount !== 0 || counts.assetCount !== 0 || attachmentEntries.length !== 0)
     ) {
       throw new Error('只有零交易、零策略、零附件的资料库才能标记为空库恢复点')
+    }
+    if (counts.assetCount !== attachmentEntries.length) {
+      throw new Error('备份附件清单与数据库附件计数不一致')
     }
     const meta: BackupMeta = {
       tradeCount: counts.tradeCount,

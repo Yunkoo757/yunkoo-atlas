@@ -15,6 +15,12 @@ const topbarStyles = read('src/components/Topbar.css')
 const crumbsStyles = read('src/components/ui/CrumbsNav.css')
 const toolbarStyles = read('src/components/ui/Toolbar.css')
 const tagPresetStyles = read('src/views/settings/TagPresetsPanel.css')
+const settingsLayoutStyles = read('src/views/settings/SettingsLayout.css')
+const settingsDataPanel = read('src/views/settings/DataSettingsPanel.tsx')
+const updatesPanelStyles = read('src/views/settings/UpdatesSettingsPanel.css')
+const dioContentStyles = read('src/components/DataIOContent.css')
+const symbolsPanelStyles = read('src/views/settings/SymbolsPanel.css')
+const reviewTemplatesStyles = read('src/views/settings/ReviewTemplatesPanel.css')
 const sidebarStyles = read('src/components/Sidebar.css')
 const sidebarComponent = read('src/components/Sidebar.tsx')
 const sidebarWorkspaceStyles = read('src/components/sidebar/SidebarWorkspace.css')
@@ -135,7 +141,63 @@ const checks = [
     tradeListComponent.includes("top: isSticky ? 0 : virtualRow.start") &&
       !tradeListComponent.includes('translateY(${virtualRow.start}px)'),
   ],
-]
+
+  // ── settings 页设计 token 契约（2026-07-24 审计修复后新增）──
+  [
+    'settings section title uses type-section-title tokens',
+    /\.settings-section-title\s*\{[^}]*font-size:\s*var\(--type-section-title-size\);[^}]*font-weight:\s*var\(--type-section-title-weight\);/s.test(
+      settingsLayoutStyles,
+    ),
+  ],
+  [
+    'dio section title also uses type-section-title tokens',
+    /\.dio-section-title\s*\{[^}]*font-size:\s*var\(--type-section-title-size\);[^}]*font-weight:\s*var\(--type-section-title-weight\);/s.test(
+      dioContentStyles,
+    ),
+  ],
+  [
+    'dio group title also uses type-section-title tokens',
+    /\.dio-group-title\s*\{[^}]*font-size:\s*var\(--type-section-title-size\);[^}]*font-weight:\s*var\(--type-section-title-weight\);/s.test(
+      dioContentStyles,
+    ),
+  ],
+  [
+    'updates section h2 uses type-section-title tokens',
+    /\.update-section-head h2\s*\{[^}]*font-size:\s*var\(--type-section-title-size\);[^}]*font-weight:\s*var\(--type-section-title-weight\);/s.test(
+      updatesPanelStyles,
+    ),
+  ],
+  [
+    'review pin setting h2 uses type-section-title tokens',
+    /\.review-pin-setting h2\s*\{[^}]*font-size:\s*var\(--type-section-title-size\);[^}]*font-weight:\s*var\(--type-section-title-weight\);/s.test(
+      reviewTemplatesStyles,
+    ),
+  ],
+  [
+    'settings nav item height uses field-height-md',
+    /\.settings-nav-item\s*\{[^}]*height:\s*var\(--field-height-md\);/s.test(settingsLayoutStyles),
+  ],
+  [
+    'DataSettingsPanel has no inline style props',
+    !settingsDataPanel.includes('style={{'),
+  ],
+  [
+    'Symbols preset swatch uses fs-micro (not bare 10px)',
+    !symbolsPanelStyles.includes('font-size: 10px') &&
+      /\.symbols-preset-swatch\s*\{[^}]*font-size:\s*var\(--fs-micro\);/s.test(symbolsPanelStyles),
+  ],
+  [
+    'Tag chip remove uses radius-full (not bare 50%)',
+    !tagPresetStyles.includes('border-radius: 50%') &&
+      /\.settings-tag-chip-remove\s*\{[^}]*border-radius:\s*var\(--radius-full\);/s.test(tagPresetStyles),
+  ],
+  [
+    'settings CSS uses --sp-* spacing tokens',
+    /var\(--sp-/s.test(settingsLayoutStyles) ||
+      /var\(--sp-/s.test(dioContentStyles) ||
+      /var\(--sp-/s.test(updatesPanelStyles),
+  ],
+];
 
 const failed = checks.filter(([, ok]) => !ok)
 

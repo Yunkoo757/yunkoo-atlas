@@ -160,10 +160,8 @@ export async function testElectronAssetGcIsRecoverableAndNeverTouchesBackups(): 
     assert(storage.getAssetBytes('orphan-a') === null && storage.getAssetBytes('orphan-b') === null, '成功后数据库行与活动文件必须消失')
     assert(storage.getAssetBytes('shared-live'), '三个富文本域共享附件必须保留')
     assert(storage.previewAssetPurge().candidateIds.length === 0, '成功后再次扫描 orphan 必须为零')
-    if (process.platform === 'win32') {
-      assert(fs.existsSync(path.join(root, '.trash', preview.operationId)), 'Windows 无目录 fsync 时必须保留恢复日志到下次启动')
-      assert(fs.existsSync(path.join(paths.attachments, 'orphan-a.png')), 'Windows 延迟收尾前必须保留活动附件原件')
-    }
+    assert(!fs.existsSync(path.join(root, '.trash')), '提交后必须完成物理收尾，不得留下待重启的 trash')
+    assert(!fs.existsSync(path.join(paths.attachments, 'orphan-a.png')), '提交后活动孤儿附件必须删除')
 
     const crashDir = writeTrashOperation(root, 'crash-after-db', [
       { id: 'orphan-a', fileName: 'orphan-a.png', body: 'orphan-a' },

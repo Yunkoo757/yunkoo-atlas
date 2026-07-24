@@ -29,6 +29,8 @@
     "dist": "pnpm build:app && electron-builder",
     "dist:mac": "pnpm build:app && electron-builder --mac",
     "dist:win": "pnpm build:app && electron-builder --win",
+    "dist:win:purge-commit": "cross-env ATLAS_ENABLE_ASSET_PURGE_COMMIT=true VITE_ENABLE_ASSET_PURGE_COMMIT=true pnpm dist:win",
+    "dist:mac:purge-commit": "cross-env ATLAS_ENABLE_ASSET_PURGE_COMMIT=true VITE_ENABLE_ASSET_PURGE_COMMIT=true pnpm dist:mac",
     "release:patch": "node scripts/release.mjs patch",
     "release:minor": "node scripts/release.mjs minor",
     "release:major": "node scripts/release.mjs major",

@@ -1,7 +1,7 @@
 .update-settings {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--sp-7);
 }
 
 .update-settings > .settings-page-head {
@@ -22,9 +22,9 @@
 
 .update-section-head h2 {
   margin: 0 0 4px;
-  color: var(--text-primary);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  color: var(--text-strong);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .update-section-head p,
