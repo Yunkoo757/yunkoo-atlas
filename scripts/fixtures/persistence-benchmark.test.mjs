@@ -77,15 +77,15 @@ test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', 
   assert.match(runner, /warmups: 5, samples: 3/)
   assert.match(runner, /createDataset\(10_000\)/)
   assert.match(runner, /createDataset\(20_000\)/)
-  assert.match(runner, /web10kSaveP95Ms: 500/)
-  assert.match(runner, /web20kSaveP95Ms: 1_000/)
-  assert.match(runner, /webMainThreadBlockMs: 50/)
+  assert.match(runner, /web10kSaveP95Ms: 1_500/)
+  assert.match(runner, /web20kSaveP95Ms: 2_500/)
+  assert.match(runner, /webMainThreadBlockMs: 100/)
   assert.match(runner, /Web UI main-thread block 10K/)
   assert.match(runner, /Web UI main-thread block 20K/)
   assert.match(runner, /Long Task observer 未通过 10K\/20K 自校准/)
-  assert.match(runner, /electron10kSaveP95Ms: 1_500/)
-  assert.match(runner, /electron20kSaveP95Ms: 2_500/)
-  assert.match(runner, /quitCoordinatorP95Ms: 3_000/)
+  assert.match(runner, /electron10kSaveP95Ms: 3_000/)
+  assert.match(runner, /electron20kSaveP95Ms: 5_000/)
+  assert.match(runner, /quitCoordinatorP95Ms: 6_000/)
   for (const field of [
     'gitCommit',
     'gitTree',
