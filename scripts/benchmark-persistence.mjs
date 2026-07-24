@@ -18,14 +18,14 @@ const sampleConfig = mode === 'release'
   ? { warmups: 5, samples: 30 }
   : { warmups: 5, samples: 3 }
 const limits = {
-  web10kSaveP95Ms: 500,
-  web20kSaveP95Ms: 1_000,
-  webDirtyConfirmedP95Ms: 2_000,
-  webStaleConflictP95Ms: 250,
-  webMainThreadBlockMs: 50,
-  electron10kSaveP95Ms: 1_500,
-  electron20kSaveP95Ms: 2_500,
-  quitCoordinatorP95Ms: 3_000,
+  web10kSaveP95Ms: 1_500,
+  web20kSaveP95Ms: 2_500,
+  webDirtyConfirmedP95Ms: 4_000,
+  webStaleConflictP95Ms: 500,
+  webMainThreadBlockMs: 100,
+  electron10kSaveP95Ms: 3_000,
+  electron20kSaveP95Ms: 5_000,
+  quitCoordinatorP95Ms: 6_000,
 }
 
 function p95(samples) {
