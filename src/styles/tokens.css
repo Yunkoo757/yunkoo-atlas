@@ -314,14 +314,12 @@
   --radius-6: var(--editor-block-radius);
   --radius-8: var(--control-border-radius);
   --radius-10: var(--settings-list-view-item-radius);
-  --radius-12: var(--panel-border-radius);
   --radius-14: 14px;
-  --radius-16: var(--modal-border-radius);
   --radius-sm: var(--radius-6);
   --radius-md: var(--radius-8);
   --radius-lg: var(--radius-10);
-  --radius-xl: var(--radius-12);
-  --radius-2xl: var(--radius-16);
+  --radius-xl: var(--radius-10);
+  --radius-2xl: var(--radius-14);
   --radius-full: var(--radius-rounded);
 
   /* 字号别名 */

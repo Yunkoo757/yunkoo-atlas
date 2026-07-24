@@ -135,7 +135,7 @@
 }
 .ui-btn-danger-solid:hover:not(:disabled),
 .st-del-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--neg) 88%, white 12%);
+  background: color-mix(in srgb, var(--neg) 88%, var(--accent-text) 12%);
 }
 
 @media (max-width: 640px) {

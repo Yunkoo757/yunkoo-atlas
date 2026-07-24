@@ -24,7 +24,7 @@
   height: 80px;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-16);
+  border-radius: var(--radius-14);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);

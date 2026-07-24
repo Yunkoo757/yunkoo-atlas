@@ -21,6 +21,11 @@ const updatesPanelStyles = read('src/views/settings/UpdatesSettingsPanel.css')
 const dioContentStyles = read('src/components/DataIOContent.css')
 const symbolsPanelStyles = read('src/views/settings/SymbolsPanel.css')
 const reviewTemplatesStyles = read('src/views/settings/ReviewTemplatesPanel.css')
+const shortcutsViewCss = read('src/views/ShortcutsView.css')
+const strategiesViewCss = read('src/views/StrategiesView.css')
+const buttonCss = read('src/components/ui/Button.css')
+const displayMenuCss = read('src/components/DisplayMenu.css')
+const profileSettingsCss = read('src/views/settings/ProfileSettingsPanel.css')
 const sidebarStyles = read('src/components/Sidebar.css')
 const sidebarComponent = read('src/components/Sidebar.tsx')
 const sidebarWorkspaceStyles = read('src/components/sidebar/SidebarWorkspace.css')
@@ -196,6 +201,50 @@ const checks = [
     /var\(--sp-/s.test(settingsLayoutStyles) ||
       /var\(--sp-/s.test(dioContentStyles) ||
       /var\(--sp-/s.test(updatesPanelStyles),
+  ],
+
+  // ── settings 深度 QA 契约（2026-07-24 第二轮修复后新增）──
+  [
+    'ShortcutsView.css has no dead .shortcuts-view class',
+    !shortcutsViewCss.includes('.shortcuts-view {'),
+  ],
+  [
+    'ShortcutsView.css has no dead .shortcuts-toolbar class',
+    !shortcutsViewCss.includes('.shortcuts-toolbar {'),
+  ],
+  [
+    'ShortcutsView.css has no dead .shortcuts-back class',
+    !shortcutsViewCss.includes('.shortcuts-back {'),
+  ],
+  [
+    'StrategiesView.css has no dead .st-title class',
+    !strategiesViewCss.includes('.st-title {'),
+  ],
+  [
+    'StrategiesView.css has no dead .st-foot class',
+    !strategiesViewCss.includes('.st-foot {'),
+  ],
+  [
+    'no --radius-12 or --radius-16 naming mismatch anywhere in src',
+    !read('src/styles/tokens.css').includes('--radius-12') &&
+      !read('src/styles/tokens.css').includes('--radius-16'),
+  ],
+  [
+    'Button.css has no hardcoded white in color-mix',
+    !buttonCss.includes('white 12%'),
+  ],
+  [
+    'ProfileSettingsPanel.css has no hardcoded white in color-mix',
+    !profileSettingsCss.includes('white 12%'),
+  ],
+  [
+    'DisplayMenu.css animation uses token duration (not bare 0.12s)',
+    !displayMenuCss.includes('0.12s') && /var\(--motion-ui\)/.test(displayMenuCss),
+  ],
+  [
+    'ShortcutsView.css animation uses var(--ease-in-out) token',
+    shortcutsViewCss.includes('var(--ease-in-out)') &&
+      !shortcutsViewCss.replace('var(--ease-in-out)', '').includes('ease-in-out'),
   ],
 ];
 
