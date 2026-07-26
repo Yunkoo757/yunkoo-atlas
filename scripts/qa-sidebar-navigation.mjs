@@ -864,8 +864,6 @@ try {
   await moreButton.click()
   await expectVisible(drawer)
   await expectAttribute(moreButton, 'aria-expanded', 'true')
-  const searchButtonHandle = await drawer.getByRole('button', { name: '搜索', exact: true }).elementHandle()
-  if (!searchButtonHandle) throw new Error('More drawer search button was unavailable after opening')
   await moreButton.evaluate((element) => {
     const target = element
     target.dataset.qaFocusCount = '0'
@@ -873,7 +871,14 @@ try {
       target.dataset.qaFocusCount = String(Number(target.dataset.qaFocusCount ?? '0') + 1)
     }, { once: true })
   })
-  await searchButtonHandle.evaluate((button) => button.click())
+  const openedSearch = await page.evaluate(() => {
+    const search = [...document.querySelectorAll('[data-mobile-drawer-item]')]
+      .find((element) => element.textContent?.trim() === '搜索')
+    if (!(search instanceof HTMLButtonElement)) return false
+    search.click()
+    return true
+  })
+  if (!openedSearch) throw new Error('More drawer search button was unavailable after opening')
   await expectCount(drawer, 0)
   const commandPaletteInput = page.locator('.cmdk-input')
   await expectVisible(commandPaletteInput)
