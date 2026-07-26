@@ -11,7 +11,7 @@ const trackedPaths = execFileSync('git', ['ls-files'], { encoding: 'utf8' })
 const compatibilityFiles = new Set([
   'scripts/vendor-neutral-contract.test.mjs',
   'src/storage/legacyIdentity.ts',
-  'src/storage/legacyIdentity.test.ts',
+  'src/storage/legacyIdentity.browser.test.ts',
 ])
 
 const binaryExtensions = /\.(?:bmp|db|gif|ico|jpe?g|png|svg|webp|zip)$/i

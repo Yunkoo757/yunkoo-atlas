@@ -113,7 +113,7 @@ async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureCheck
     async ({ json, checksum, referencedAssetIds }) => {
       const snapshot = JSON.parse(json)
       const db = await new Promise((resolveDb, reject) => {
-        const request = indexedDB.open('linear-journal-v3', 1)
+        const request = indexedDB.open('trader-atlas-v3', 1)
         request.onupgradeneeded = () => {
           const nextDb = request.result
           if (!nextDb.objectStoreNames.contains('snapshot')) nextDb.createObjectStore('snapshot')
@@ -161,7 +161,7 @@ async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureCheck
 async function readFixtureChecksum(page) {
   return page.evaluate(async () => {
     const db = await new Promise((resolveDb, reject) => {
-      const request = indexedDB.open('linear-journal-v3', 1)
+      const request = indexedDB.open('trader-atlas-v3', 1)
       request.onsuccess = () => resolveDb(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -178,7 +178,7 @@ async function readFixtureChecksum(page) {
 async function deleteIsolatedDatabase(page) {
   await page.evaluate(async () => {
     await new Promise((resolveDelete) => {
-      const request = indexedDB.deleteDatabase('linear-journal-v3')
+      const request = indexedDB.deleteDatabase('trader-atlas-v3')
       request.onsuccess = resolveDelete
       request.onerror = resolveDelete
       request.onblocked = resolveDelete
@@ -225,7 +225,7 @@ async function measureRangeSwitch(page, rangeName) {
 async function measureSnapshotSave(page) {
   return page.evaluate(async () => {
     const db = await new Promise((resolveDb, reject) => {
-      const request = indexedDB.open('linear-journal-v3', 1)
+      const request = indexedDB.open('trader-atlas-v3', 1)
       request.onsuccess = () => resolveDb(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -417,7 +417,7 @@ export async function runDashboard10kQa({
       },
       isolation: {
         browserContext: 'ephemeral',
-        database: 'linear-journal-v3 inside ephemeral context',
+        database: 'trader-atlas-v3 inside ephemeral context',
         realLibraryAccessed: false,
         cleanupAttempted: true,
       },

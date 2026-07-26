@@ -31,10 +31,8 @@ import {
 } from '@/storage/indexedDbSnapshotAssetWrites'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import { beginWebOperation } from '@/storage/webOperationLogger'
-
-// This browser storage name is intentionally kept for backward compatibility.
-// Export payload/schema versions are tracked separately by SCHEMA_VERSION.
-const DB_NAME = 'linear-journal-v3'
+import { migrateLegacyBrowserIdentity } from '@/storage/legacyIdentity'
+import { BROWSER_DATABASE_NAME } from '@/storage/storageIdentity'
 
 const STORE_SNAPSHOT = 'snapshot'
 const STORE_ASSETS = 'assets'
@@ -283,7 +281,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private assetPurgeAuthorizations = new Map<string, { token: string; createdAt: number }>()
 
   constructor(
-    private readonly databaseName = DB_NAME,
+    private readonly databaseName = BROWSER_DATABASE_NAME,
     options: { assetPurgeCommitEnabled?: boolean } = {},
   ) {
     this.assetPurgeCommitEnabled = options.assetPurgeCommitEnabled
@@ -302,6 +300,9 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async open(): Promise<void> {
+    if (this.databaseName === BROWSER_DATABASE_NAME) {
+      await migrateLegacyBrowserIdentity(indexedDB)
+    }
     this.db = await openDb(this.databaseName)
     const manifest = await idbGet<LibraryManifest>(this.db, STORE_META, 'manifest')
     if (!manifest) {

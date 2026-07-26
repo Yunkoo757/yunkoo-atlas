@@ -44,8 +44,8 @@ export async function runBrowserRegressionTests(root, options = {}) {
         await page.evaluate((key) => window[key], browserTest.promiseKey)
         await settleBrowserDiagnostics(page)
         const allowedMessages = await page.evaluate(
-          () => Array.isArray(window.__linearBrowserAllowedErrors)
-            ? window.__linearBrowserAllowedErrors
+          () => Array.isArray(window.__atlasBrowserAllowedErrors)
+            ? window.__atlasBrowserAllowedErrors
             : [],
         )
         const unexpected = unexpectedBrowserDiagnostics(diagnostics, allowedMessages)

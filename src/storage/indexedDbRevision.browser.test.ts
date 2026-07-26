@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-const DB_NAME = 'linear-journal-v3'
+const DB_NAME = 'trader-atlas-v3'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)

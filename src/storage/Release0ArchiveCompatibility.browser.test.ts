@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-const DATABASE_NAME = 'linear-release-0-archive-contract'
+const DATABASE_NAME = 'trader-atlas-release-0-archive-contract'
 const REVISION_KEY = 'snapshotRevision'
 
 function assert(condition: unknown, message: string): asserts condition {

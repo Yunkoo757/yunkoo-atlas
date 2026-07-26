@@ -8,7 +8,6 @@ import type { ReviewTemplate } from '@/data/reviewTemplates'
 import type { QuickNote } from '@/data/quickNotes'
 
 export const SCHEMA_VERSION = 8
-export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
 export interface LibraryManifest {
   schemaVersion: number

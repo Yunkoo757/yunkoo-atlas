@@ -14,11 +14,11 @@ import {
 declare global {
   interface Window {
     __importModalRaceTest?: Promise<void>
-    __linearBrowserAllowedErrors?: string[]
+    __atlasBrowserAllowedErrors?: string[]
   }
 }
 
-window.__linearBrowserAllowedErrors = [
+window.__atlasBrowserAllowedErrors = [
   '[NotionImport] parse error Error: 单张原图超过 32 MB',
   '[NotionImport] parse error Error: Notion 导出解压后超过 160 MB',
 ]

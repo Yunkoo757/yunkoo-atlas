@@ -1,4 +1,5 @@
 import { StorageRevisionConflictError } from '@/storage/adapter'
+import { webChannelName } from '@/storage/storageIdentity'
 
 export interface WebLockLike {
   name: string
@@ -94,7 +95,7 @@ function configureBroadcast(
   factory: ((name: string) => BroadcastChannelLike) | null,
 ): void {
   channel?.close()
-  channel = factory?.(`linear-journal:${libraryId}:events`) ?? null
+  channel = factory?.(webChannelName(libraryId, 'events')) ?? null
   if (!channel) return
   channel.onmessage = (event) => {
     const message = event.data
@@ -135,7 +136,7 @@ export async function initializeWebWriterOwnership(
 
   await new Promise<void>((resolve) => {
     void lockManager!.request(
-      `linear-journal:${libraryId}:writer`,
+      webChannelName(libraryId, 'writer'),
       { mode: 'exclusive', ifAvailable: true },
       async (lock) => {
         if (!lock) {
@@ -161,7 +162,7 @@ export function requestWebWriterOwnership(): Promise<void> {
   setState({ phase: 'requesting', lockSupported: true, libraryId, remoteRevision: state.remoteRevision })
   ownershipRequest = new Promise<void>((resolve, reject) => {
     void lockManager!.request(
-      `linear-journal:${libraryId}:writer`,
+      webChannelName(libraryId, 'writer'),
       { mode: 'exclusive' },
       async (lock) => {
         if (!lock) throw new Error('Web Lock request completed without a lock')

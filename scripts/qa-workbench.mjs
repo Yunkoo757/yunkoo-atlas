@@ -206,7 +206,7 @@ try {
   const liveProperties = await page.locator('.dv-props').innerText()
   await page.waitForFunction(async (tradeRef) => {
     return new Promise((resolve) => {
-      const open = indexedDB.open('linear-journal-v3')
+      const open = indexedDB.open('trader-atlas-v3')
       open.onerror = () => resolve(false)
       open.onsuccess = () => {
         const database = open.result
@@ -229,7 +229,7 @@ try {
   }, reviewedTradeRef, { timeout: 10_000 })
   const createdTrade = await page.evaluate(async (tradeRef) => {
     return new Promise((resolve) => {
-      const open = indexedDB.open('linear-journal-v3')
+      const open = indexedDB.open('trader-atlas-v3')
       open.onerror = () => resolve(null)
       open.onsuccess = () => {
         const database = open.result

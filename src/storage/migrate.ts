@@ -15,7 +15,7 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { externalizeNoteImages, collectAssetIdsFromSnapshot } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
-import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/types'
+import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 
 interface ZustandPersistEnvelope {

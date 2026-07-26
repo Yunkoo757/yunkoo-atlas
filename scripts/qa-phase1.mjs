@@ -137,14 +137,14 @@ try {
   // 10. IndexedDB 存在
   const idbOk = await page.evaluate(async () => {
     const dbs = await indexedDB.databases?.()
-    if (dbs) return dbs.some((d) => d.name === 'linear-journal-v3')
+    if (dbs) return dbs.some((d) => d.name === 'trader-atlas-v3')
     return new Promise((resolve) => {
-      const req = indexedDB.open('linear-journal-v3')
+      const req = indexedDB.open('trader-atlas-v3')
       req.onsuccess = () => { req.result.close(); resolve(true) }
       req.onerror = () => resolve(false)
     })
   })
-  record('IndexedDB linear-journal-v3 存在', idbOk)
+  record('IndexedDB trader-atlas-v3 存在', idbOk)
 
   // 11. 控制台无致命错误
   record('无页面级 JS 错误', errors.length === 0, errors.join('; ') || '干净')

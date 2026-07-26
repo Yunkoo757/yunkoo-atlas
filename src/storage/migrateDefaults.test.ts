@@ -14,7 +14,7 @@ import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,
 } from '@/storage/migrate'
-import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/types'
+import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
 import type {
   ExportAssetRecord,
   LibraryManifest,

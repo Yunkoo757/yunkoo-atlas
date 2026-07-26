@@ -16,7 +16,7 @@ declare global {
   }
 }
 
-const BROWSER_DB_NAME = 'linear-journal-v3'
+const BROWSER_DB_NAME = 'trader-atlas-v3'
 
 async function seedIncompleteHigherVersionDatabase(): Promise<void> {
   await new Promise<void>((resolve, reject) => {

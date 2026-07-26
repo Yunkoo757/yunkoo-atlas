@@ -68,7 +68,7 @@ async function createContext(id: string, databaseName: string): Promise<{
 }
 
 async function run(): Promise<void> {
-  const databaseName = `linear-journal-web4-${crypto.randomUUID()}`
+  const databaseName = `trader-atlas-web4-${crypto.randomUUID()}`
   await deleteDatabase(databaseName)
   const first = await createContext('first', databaseName)
   const second = await createContext('second', databaseName)
