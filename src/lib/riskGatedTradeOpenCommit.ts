@@ -55,20 +55,18 @@ export type RiskGatedTradeOpenCommitResult =
   | { kind: 'cancelled'; reason: 'target-missing' | 'target-no-longer-eligible' }
   | { kind: 'needs-reconfirmation' }
 
-export class RiskGatePublishAfterCommitError<
-  State extends RiskGateCommitState = RiskGateCommitState,
-> extends Error {
+export class RiskGatePublishAfterCommitError extends Error {
   readonly code = 'risk-gate-publish-after-commit'
   readonly durablyCommitted = true
   readonly requiresStorageReload = true
 
   constructor(
-    readonly committedState: State,
     readonly committedSnapshot: PersistedSnapshot,
     readonly cause: unknown,
   ) {
     super('风险开仓已写入存储，但内存状态发布失败；必须从 storage 重新载入')
     this.name = 'RiskGatePublishAfterCommitError'
+    Object.freeze(this)
   }
 }
 
@@ -88,6 +86,50 @@ function canonicalJson(value: unknown): string {
     )
   }
   return JSON.stringify(canonicalize(value))
+}
+
+function clonePlainData<T>(value: T): T {
+  if (
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) return value
+  if (typeof value !== 'object') throw new Error('持久化候选只能包含 plain data')
+  if (Array.isArray(value)) return value.map((item) => clonePlainData(item)) as T
+  if (!isRecord(value)) throw new Error('持久化候选只能包含 plain data')
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new Error('持久化候选只能包含 plain data')
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nested]) => [key, clonePlainData(nested)]),
+  ) as T
+}
+
+function freezePlainData<T>(value: T): T {
+  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value
+  for (const nested of Object.values(value)) freezePlainData(nested)
+  Object.freeze(value)
+  return value
+}
+
+function durableSnapshot(candidate: PersistedSnapshot): PersistedSnapshot {
+  return freezePlainData(clonePlainData(candidate))
+}
+
+function publishStateFromDurable<State extends RiskGateCommitState>(
+  candidate: State,
+  durable: PersistedSnapshot,
+): State {
+  return {
+    ...candidate,
+    trades: clonePlainData(durable.trades),
+    riskPolicyVersions: clonePlainData(durable.riskPolicyVersions),
+    monthlyRiskLimits: clonePlainData(durable.monthlyRiskLimits),
+    riskOverrideEvents: clonePlainData(durable.riskOverrideEvents),
+  }
 }
 
 function sameCanonicalSnapshot(
@@ -230,6 +272,8 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
       reason,
       input,
     )
+    const committedSnapshot = durableSnapshot(candidate.snapshot)
+    const publishState = publishStateFromDurable(candidate.state, committedSnapshot)
     const storage = input.storage ?? getStorage()
     if (isRevisionedStorageAdapter(storage)) {
       const envelope = await storage.loadSnapshotEnvelope()
@@ -239,7 +283,7 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
       try {
         await storage.commitLibraryMutation({
           expectedRevision: envelope.revision,
-          snapshot: candidate.snapshot,
+          snapshot: committedSnapshot,
           reason: 'risk-gate',
         })
       } catch (error) {
@@ -249,15 +293,14 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
         throw error
       }
     } else {
-      await storage.commitImport(candidate.snapshot, [])
+      await storage.commitImport(committedSnapshot, [])
     }
     durablyCommitted = true
     try {
-      input.publish(candidate.state)
+      input.publish(publishState)
     } catch (error) {
       throw new RiskGatePublishAfterCommitError(
-        candidate.state,
-        candidate.snapshot,
+        committedSnapshot,
         error,
       )
     }

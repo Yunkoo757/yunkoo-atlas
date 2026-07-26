@@ -174,6 +174,49 @@ export function testUnknownRequiresConfirmationAndExistingPendingWins(): void {
   assert(second.request.tradeId === 'target', '必须保留首个 pending 的目标')
 }
 
+export function testPendingOutcomesAreIndependentFrozenDisplayEvidence(): void {
+  const state = {
+    ...triggeredState('planned'),
+    trades: [
+      trade('target', 'planned'),
+      { ...trade('unknown-loss', 'loss'), closedAt: null, closedTradingDayKey: undefined },
+    ],
+  }
+  const candidate = requestTradeOpenCandidate(state, 'target')
+  assert(candidate.kind === 'confirmation-required', 'unknown fixture 必须产生 pending')
+  const request = candidate.request
+  const originalFingerprint = request.fingerprint
+  const dayReasons = request.outcomes.day.unknownReasons
+  const weekReasons = request.outcomes.week.unknownReasons
+  const monthReasons = request.outcomes.month.unknownReasons
+  assert(dayReasons !== weekReasons && weekReasons !== monthReasons && dayReasons !== monthReasons, '三周期 reasons 必须各自复制')
+  assert(request.unknownReasons !== dayReasons, '顶层 reasons 必须与 period 去别名')
+
+  let periodMutationRejected = false
+  let reasonsMutationRejected = false
+  let topReasonsMutationRejected = false
+  try {
+    request.outcomes.day.netBudgetR = 777
+  } catch {
+    periodMutationRejected = true
+  }
+  try {
+    dayReasons.push('result-conflict')
+  } catch {
+    reasonsMutationRejected = true
+  }
+  try {
+    request.unknownReasons.push('missing-policy')
+  } catch {
+    topReasonsMutationRejected = true
+  }
+
+  assert(periodMutationRejected && reasonsMutationRejected && topReasonsMutationRejected, 'pending 展示证据必须运行时不可变')
+  assert(!weekReasons.includes('result-conflict') && !monthReasons.includes('result-conflict'), '单周期 mutation 不得污染其他周期')
+  assert(request.fingerprint === originalFingerprint, 'pending 展示内容不得与已记录 fingerprint 漂移')
+  assert(validatePendingFingerprint(request, state).kind === 'valid', '未被篡改的 pending 必须继续通过重算')
+}
+
 export function testConfiguredStateWithoutMonthlyLimitFailsClosed(): void {
   const state = {
     ...triggeredState('planned'),

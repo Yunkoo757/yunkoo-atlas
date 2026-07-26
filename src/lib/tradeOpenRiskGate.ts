@@ -213,6 +213,21 @@ function riskResultRefs(trades: readonly Trade[]): readonly unknown[] {
     }))
 }
 
+function cloneRiskOutcome(outcome: RiskPeriodOutcomeSnapshot): RiskPeriodOutcomeSnapshot {
+  return { ...outcome, unknownReasons: [...outcome.unknownReasons] }
+}
+
+function freezePendingRequest(request: PendingTradeOpenRequest): PendingTradeOpenRequest {
+  for (const outcome of Object.values(request.outcomes)) {
+    Object.freeze(outcome.unknownReasons)
+    Object.freeze(outcome)
+  }
+  Object.freeze(request.outcomes)
+  Object.freeze(request.unknownReasons)
+  Object.freeze(request)
+  return request
+}
+
 function createPendingRequest(
   state: TradeOpenRiskGateState,
   trade: Trade,
@@ -227,7 +242,11 @@ function createPendingRequest(
     monthlyLimits: state.monthlyRiskLimits,
     currentTradingDayKey: state.currentTradingDayKey,
   })
-  const outcomes = { day: resolved.day, week: resolved.week, month: resolved.month }
+  const outcomes = {
+    day: cloneRiskOutcome(resolved.day),
+    week: cloneRiskOutcome(resolved.week),
+    month: cloneRiskOutcome(resolved.month),
+  }
   const decisionType: RiskDecisionType | null = resolved.gateCoverage === 'unknown' || (
     policy !== null && monthlyLimit === null
   )
@@ -244,7 +263,7 @@ function createPendingRequest(
     outcomes,
     resultRefs: riskResultRefs(state.trades),
   })
-  return {
+  return freezePendingRequest({
     tradeId: trade.id,
     decisionType,
     currentTradingDayKey: state.currentTradingDayKey,
@@ -253,7 +272,7 @@ function createPendingRequest(
     outcomes,
     unknownReasons: [...resolved.unknownReasons],
     fingerprint,
-  }
+  })
 }
 
 function openedState<State extends TradeOpenRiskGateState>(

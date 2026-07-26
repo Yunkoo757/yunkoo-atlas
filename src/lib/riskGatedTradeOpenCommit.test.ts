@@ -124,11 +124,10 @@ export async function testPublishFailureAfterDurableCommitRequiresReloadAndDisca
 
   try {
     assert(error instanceof RiskGatePublishAfterCommitError, 'durable commit 后 publish 失败必须使用专用错误')
-    const commitError = error as RiskGatePublishAfterCommitError<PersistedSnapshot>
+    const commitError = error as RiskGatePublishAfterCommitError
     assert(commitError.durablyCommitted && commitError.requiresStorageReload, '错误必须明确要求从 storage reload')
     assert(commitError.cause instanceof Error && commitError.cause.message === 'store publish failed', '错误必须保留 publish cause')
     assert(commitError.committedSnapshot === persisted, '错误必须携带已 durable commit 的完整 snapshot')
-    assert(commitError.committedState.trades.find((trade) => trade.id === 'target')?.status === 'open', '错误必须携带候选 state')
     assert(persisted.riskOverrideEvents.at(-1)?.id === 'override-after-publish-failure', '磁盘必须保留完整 event')
     assert(!hasPendingChanges(), 'durable commit 后必须 discard publish 触发的旧 autosave pending')
     assert(getPersistenceDiagnostics().pendingSnapshotCount === 0, '不得留下可覆盖新磁盘的旧快照')
@@ -137,6 +136,96 @@ export async function testPublishFailureAfterDurableCommitRequiresReloadAndDisca
   } finally {
     disablePersistWrites()
   }
+}
+
+export async function testPublishMutationCannotChangeFrozenDurableRecoverySnapshot(): Promise<void> {
+  const original = baseline()
+  const originalPolicyCount = original.riskPolicyVersions.length
+  let persisted: PersistedSnapshot | null = null
+  let error: unknown
+  try {
+    await commitRiskGatedTradeOpen({
+      request: pending(original),
+      reason: 'durable 恢复快照测试',
+      storage: electronAdapter(async (snapshot) => { persisted = snapshot }),
+      captureLatestState: () => ({
+        state: original,
+        snapshot: original,
+        currentTradingDayKey: '2026-07-27',
+      }),
+      publish: (state) => {
+        const target = state.trades.find((trade) => trade.id === 'target')!
+        target.status = 'missed'
+        target.activities!.push({
+          id: 'publish-only-activity',
+          kind: 'status',
+          status: 'missed',
+          timestamp: '2026-07-27T11:00:00.000Z',
+        })
+        state.riskPolicyVersions.push({
+          ...state.riskPolicyVersions[0]!,
+          id: 'publish-only-policy',
+        })
+        const event = state.riskOverrideEvents.at(-1)!
+        event.reason = 'publish 篡改原因'
+        event.outcomesAtDecision.day.netBudgetR = 999
+        event.outcomesAtDecision.day.unknownReasons.push('missing-policy')
+        throw new Error('publish mutated then failed')
+      },
+      now: () => '2026-07-27T10:00:00.000Z',
+      createActivityId: () => 'activity-open-durable-recovery',
+      createEventId: () => 'override-durable-recovery',
+    })
+  } catch (reason) {
+    error = reason
+  }
+
+  assert(error instanceof RiskGatePublishAfterCommitError, 'publish 失败必须返回 durable recovery error')
+  assert(error.cause instanceof Error && error.cause.message === 'publish mutated then failed', '必须保留真实 publish failure')
+  assert(!('committedState' in error), '恢复合同不得暴露无法可靠冻结的 committedState')
+  const adapterSnapshot = persisted as PersistedSnapshot | null
+  assert(error.committedSnapshot === adapterSnapshot, 'error snapshot 必须就是 adapter 实际提交对象')
+  const durable = error.committedSnapshot
+  const durableTarget = durable.trades.find((trade) => trade.id === 'target')!
+  const durableEvent = durable.riskOverrideEvents.at(-1)!
+  assert(durableTarget.status === 'open', 'publish 修改 status 不得污染 durable snapshot')
+  assert(durableTarget.activities?.at(-1)?.id === 'activity-open-durable-recovery', 'publish activity 不得污染 durable snapshot')
+  assert(durable.riskPolicyVersions.length === originalPolicyCount, 'publish policy array 不得污染 durable snapshot')
+  assert(durableEvent.reason === 'durable 恢复快照测试', 'publish event 不得污染 durable snapshot')
+  assert(durableEvent.outcomesAtDecision.day.netBudgetR !== 999, 'publish outcome 不得污染 durable snapshot')
+  assert(durableEvent.outcomesAtDecision.day.unknownReasons.length === 0, 'publish reasons 不得污染 durable snapshot')
+  assert(original.riskPolicyVersions.length === originalPolicyCount, 'publish state 不得复用 baseline policy array')
+
+  let snapshotMutationRejected = false
+  let snapshotObjectMutationRejected = false
+  let errorMutationRejected = false
+  let flagsMutationRejected = false
+  try {
+    durable.trades.push(durableTarget)
+  } catch {
+    snapshotMutationRejected = true
+  }
+  try {
+    durableTarget.status = 'loss'
+  } catch {
+    snapshotObjectMutationRejected = true
+  }
+  try {
+    ;(error as unknown as { code: string }).code = 'tampered'
+  } catch {
+    errorMutationRejected = true
+  }
+  try {
+    ;(error as unknown as { requiresStorageReload: boolean }).requiresStorageReload = false
+  } catch {
+    flagsMutationRejected = true
+  }
+  assert(snapshotMutationRejected && Object.isFrozen(durable.trades), 'durable snapshot 数组必须运行时不可变')
+  assert(snapshotObjectMutationRejected && Object.isFrozen(durableTarget), 'durable snapshot 对象必须运行时不可变')
+  assert(errorMutationRejected && error.code === 'risk-gate-publish-after-commit', 'error code/flags 必须运行时不可写')
+  assert(flagsMutationRejected && error.durablyCommitted && error.requiresStorageReload, 'error 恢复 flags 不得变化')
+  assert(getPersistSuspendDepth() === 0, 'publish 失败后必须恢复 autosave')
+  assert(!isStorageCutoverInteractionLocked(), 'publish 失败后必须释放 cutover lock')
 }
 
 export async function testWebPublishFailureAlsoReportsDurableCandidate(): Promise<void> {
@@ -180,9 +269,9 @@ export async function testCommittedOverrideAuditIsDetachedAndImmutable(): Promis
   const request = pending(original)
   const originalDayNet = request.outcomes.day.netBudgetR
   let persisted: PersistedSnapshot | null = null
-  let stateEventWasImmutable = false
-  let periodWasImmutable = false
-  let reasonsWereImmutable = false
+  let stateEventMutationApplied = false
+  let periodMutationApplied = false
+  let reasonsMutationApplied = false
   await commitRiskGatedTradeOpen({
     request,
     reason: '冻结审计测试',
@@ -194,26 +283,12 @@ export async function testCommittedOverrideAuditIsDetachedAndImmutable(): Promis
     }),
     publish: (state) => {
       const event = state.riskOverrideEvents.at(-1)!
-      request.outcomes.day.netBudgetR = 999
-      request.outcomes.day.unknownReasons.push('missing-policy')
-      request.outcomes.week.unknownReasons.push('result-conflict')
-      request.outcomes.month.unknownReasons.push('missing-loss-pnl')
-      request.unknownReasons.push('future-loss-close-date')
-      try {
-        event.reason = '篡改候选 event'
-      } catch {
-        stateEventWasImmutable = true
-      }
-      try {
-        event.outcomesAtDecision.day.netBudgetR = 123
-      } catch {
-        periodWasImmutable = true
-      }
-      try {
-        event.outcomesAtDecision.day.unknownReasons.push('invalid-close-date')
-      } catch {
-        reasonsWereImmutable = true
-      }
+      event.reason = '篡改候选 event'
+      stateEventMutationApplied = event.reason === '篡改候选 event'
+      event.outcomesAtDecision.day.netBudgetR = 123
+      periodMutationApplied = event.outcomesAtDecision.day.netBudgetR === 123
+      event.outcomesAtDecision.day.unknownReasons.push('invalid-close-date')
+      reasonsMutationApplied = event.outcomesAtDecision.day.unknownReasons.length === 1
       state.riskOverrideEvents.push(event)
     },
     now: () => '2026-07-27T10:00:00.000Z',
@@ -224,9 +299,9 @@ export async function testCommittedOverrideAuditIsDetachedAndImmutable(): Promis
   assert(persisted !== null, 'adapter 必须收到候选 snapshot')
   const persistedSnapshot = persisted as PersistedSnapshot
   const event = persistedSnapshot.riskOverrideEvents.at(-1)!
-  assert(stateEventWasImmutable, '候选 state 与 snapshot 共享的 event 必须深层不可变')
-  assert(periodWasImmutable, '每个 period 审计对象必须不可变')
-  assert(reasonsWereImmutable, '每个 period 的 unknownReasons 必须不可变')
+  assert(stateEventMutationApplied, 'publish state event 应是独立可用副本')
+  assert(periodMutationApplied, 'publish state period 应与 durable snapshot 去别名')
+  assert(reasonsMutationApplied, 'publish state reasons 应与 durable snapshot 去别名')
   assert(persistedSnapshot.riskOverrideEvents.length === 1, '候选 state 的 event 数组修改不得污染持久 snapshot')
   assert(event.reason === '冻结审计测试', '候选 event 原地修改不得改变持久审计原因')
   assert(event.outcomesAtDecision.day.netBudgetR === originalDayNet, 'pending period 修改不得改变 event')
