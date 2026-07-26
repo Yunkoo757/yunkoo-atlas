@@ -39,6 +39,11 @@ export interface ExportPayload {
   assets?: ExportAssetRecord[]
 }
 
+/** 随机重编号附件前保留的、已经通过结构校验的交易身份来源。 */
+export interface ImportIdentityPayload {
+  trades: ExportPayload['trades']
+}
+
 export interface PersistedSlice {
   trades: Trade[]
   weeklyRiskPreparations?: WeeklyRiskPreparation[]

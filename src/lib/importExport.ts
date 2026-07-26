@@ -1045,8 +1045,10 @@ function findConcurrentImmutableRiskConflict(
 function buildImportSnapshot(
   current: PersistedStateRevision,
   payload: ExportPayload,
+  payloadDigest: string,
+  identityPayload: ExportPayload,
 ): PersistedSnapshot {
-  const merged = mergeImportPayload(current.state, payload)
+  const merged = mergeImportPayload(current.state, payload, payloadDigest, identityPayload)
   return buildPortableSnapshotFromState({
     ...current.state,
     ...merged,
@@ -1060,8 +1062,15 @@ function buildImportSnapshot(
   }, current.shortcutBindings)
 }
 
+async function sha256CanonicalImportPayload(payload: ExportPayload): Promise<string> {
+  const bytes = new TextEncoder().encode(canonicalImportValue(payload))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+}
+
 export async function applyImport(payload: ExportPayload): Promise<{ summary: string }> {
   const storage = getStorage()
+  const payloadDigest = await sha256CanonicalImportPayload(payload)
   const prepared = prepareImportPayloadForCommit(payload)
   const unlockInteraction = lockStorageCutoverInteraction()
   let suspended = false
@@ -1076,8 +1085,8 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
         revision.state,
         prepared.payload,
       )
-      const snapshot = buildImportSnapshot(revision, prepared.payload)
-      await storage.commitImport(snapshot, prepared.assets)
+      const snapshot = buildImportSnapshot(revision, prepared.payload, payloadDigest, payload)
+      await storage.commitImport(snapshot, prepared.assets, { pruneUnreferenced: true })
 
       const latest = capturePersistedStateRevision()
       if (hasSamePersistedStateRevision(revision, latest)) {

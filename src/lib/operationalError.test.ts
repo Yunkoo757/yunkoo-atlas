@@ -18,6 +18,7 @@ export function testRecoveryErrorCodesHaveProductionCallSites(): void {
     fs.readFileSync('src/lib/tradeUndo.ts', 'utf8'),
     fs.readFileSync('src/lib/tradeKind.ts', 'utf8'),
     fs.readFileSync('src/lib/importMerge.ts', 'utf8'),
+    fs.readFileSync('src/lib/riskImportMerge.ts', 'utf8'),
     fs.readFileSync('electron/quitCoordinator.ts', 'utf8'),
   ].join('\n')
   for (const code of [
