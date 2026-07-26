@@ -38,6 +38,8 @@ export function useShortcutHost({
   const composerOpen = useStore((s) => s.composerOpen)
   const closeTradeRequest = useStore((s) => s.closeTradeRequest)
   const cancelTradeClose = useStore((s) => s.cancelTradeClose)
+  const pendingTradeOpenRequest = useStore((s) => s.pendingTradeOpenRequest)
+  const cancelTradeOpen = useStore((s) => s.cancelTradeOpen)
 
   const lightbox = useShortcutStore((s) => s.lightbox)
   const cmdkOpen = useShortcutStore((s) => s.cmdkOpen)
@@ -76,6 +78,7 @@ export function useShortcutHost({
         else if (cmdkOpen) setCmdkOpen(false)
         else if (composerOpen) closeComposer()
         else if (closeTradeRequest) cancelTradeClose()
+        else if (pendingTradeOpenRequest) cancelTradeOpen()
       },
       'global.toggleFullscreen': () => {
         const bridge = window.journalBridge
@@ -175,11 +178,13 @@ export function useShortcutHost({
     cmdkOpen,
     composerOpen,
     closeTradeRequest,
+    pendingTradeOpenRequest,
     navigate,
     onToggleCmdk,
     openComposer,
     closeComposer,
     cancelTradeClose,
+    cancelTradeOpen,
     closeLightbox,
     lightboxPrev,
     lightboxNext,

@@ -23,6 +23,7 @@ import { AppFrame } from './components/ui/AppFrame'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
 import { TradeCloseDialog } from './components/TradeCloseDialog'
+import { TradeOpenRiskDialog } from './components/TradeOpenRiskDialog'
 import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
 import { WebStorageGuard } from './components/WebStorageGuard'
@@ -432,6 +433,7 @@ function Shell() {
       />
       <TradeComposer />
       <TradeCloseDialog />
+      <TradeOpenRiskDialog />
       <ImageLightbox />
       <ToastHost />
     </>

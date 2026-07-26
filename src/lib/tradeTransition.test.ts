@@ -32,13 +32,28 @@ function assert(condition: unknown, message: string): void {
 
 function trackedActions() {
   let status: TradeStatus | null = null
+  let openRequest: string | null = null
   let closeRequest: { tradeId: string; targetStatus?: 'win' | 'loss' | 'breakeven' } | null = null
   const actions: TradeTransitionActions = {
     setStatus: (_id, nextStatus) => { status = nextStatus },
+    requestTradeOpen: (tradeId) => { openRequest = tradeId },
     requestTradeClose: (tradeId, targetStatus) => { closeRequest = { tradeId, targetStatus } },
     toast: () => {},
   }
-  return { actions, getStatus: () => status, getCloseRequest: () => closeRequest }
+  return {
+    actions,
+    getStatus: () => status,
+    getOpenRequest: () => openRequest,
+    getCloseRequest: () => closeRequest,
+  }
+}
+
+export function testOpenTransitionAlwaysUsesRiskGateRequest(): void {
+  const tracker = trackedActions()
+  transitionTradeStatus({ ...baseTrade, status: 'missed' }, 'open', tracker.actions)
+
+  assert(tracker.getOpenRequest() === baseTrade.id, 'open 必须统一调用 requestTradeOpen')
+  assert(tracker.getStatus() === null, 'open 不得退回公开 setStatus')
 }
 
 export function testCaseOutcomeChangesWithoutOpeningTradeCloseDialog(): void {

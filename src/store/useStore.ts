@@ -78,6 +78,19 @@ import {
   type ConfirmWeeklyRiskPreparationInput,
   type RiskPolicyState,
 } from '@/lib/riskPolicy'
+import {
+  requestTradeOpenCandidate,
+  requiresFirstOpenGate,
+  type PendingTradeOpenRequest,
+  type TradeOpenRequestResult,
+} from '@/lib/tradeOpenRiskGate'
+import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
+
+export interface StorePendingTradeOpenRequest extends PendingTradeOpenRequest {
+  returnFocus: HTMLElement | null
+}
+
+export type SetTradeStatusResult = TradeOpenRequestResult | 'updated' | 'unchanged'
 
 function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boolean {
   return left.capitalBase === right.capitalBase &&
@@ -286,6 +299,7 @@ interface State {
     targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
     returnFocus?: HTMLElement | null
   } | null
+  pendingTradeOpenRequest: StorePendingTradeOpenRequest | null
   undoStack: UndoAction[]
   redoStack: UndoAction[]
   undo: (actionId?: string) => boolean
@@ -324,7 +338,11 @@ interface State {
     input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
   ) => void
   ensureRiskPeriodRecords: (tradingDay: string) => void
-  setStatus: (id: string, status: TradeStatus) => void
+  setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
+  requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
+  cancelTradeOpen: () => void
+  confirmTradeOpen: (reason: string) => Promise<RiskGatedTradeOpenCommitResult>
+  rehydrateRiskGateFromStorage: () => Promise<void>
   completeTradeClose: (
     id: string,
     status: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>,
@@ -427,6 +445,7 @@ export const useStore = create<State>()((set, get) => ({
       composerTrade: null,
       composerKind: null,
       closeTradeRequest: null,
+      pendingTradeOpenRequest: null,
       undoStack: [],
       redoStack: [],
       undo: (actionId) => {
@@ -751,7 +770,14 @@ export const useStore = create<State>()((set, get) => ({
           monthlyRiskLimits: s.monthlyRiskLimits,
           riskOverrideEvents: s.riskOverrideEvents,
         }, tradingDay)),
-      setStatus: (id, status) =>
+      setStatus: (id, status) => {
+        const current = get().trades.find((trade) => trade.id === id)
+        if (!current) return 'not-found'
+        if (current.status === status) return 'unchanged'
+        if (status === 'open' && requiresFirstOpenGate(current)) {
+          return 'requires-risk-gate'
+        }
+        let updatedStatus = false
         set((s) => {
           const previous = s.trades.find((t) => t.id === id)
           if (!previous || previous.status === status) return s
@@ -776,12 +802,98 @@ export const useStore = create<State>()((set, get) => ({
           })
           const action = createStoreUndoAction('更新交易状态', [previous], [updated])
           if (!action) return s
+          updatedStatus = true
           return {
             undoStack: appendBoundedHistory(s.undoStack, action),
             redoStack: [],
             trades: s.trades.map((trade) => (trade.id === id ? updated : trade)),
           }
-        }),
+        })
+        return updatedStatus ? 'updated' : 'unchanged'
+      },
+      requestTradeOpen: (id, returnFocus) => {
+        let result: TradeOpenRequestResult = 'not-found'
+        set((s) => {
+          const candidate = requestTradeOpenCandidate({
+            ...s,
+            currentTradingDayKey: getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+          }, id, { existingPending: s.pendingTradeOpenRequest })
+          if (candidate.kind === 'not-found') return s
+          if (candidate.kind === 'pending-exists') {
+            result = 'pending-confirmation'
+            return s
+          }
+          if (candidate.kind === 'confirmation-required') {
+            const active = typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null
+            result = 'pending-confirmation'
+            return {
+              pendingTradeOpenRequest: {
+                ...candidate.request,
+                returnFocus: returnFocus ?? active,
+              },
+            }
+          }
+          result = 'opened'
+          if (candidate.state === s) return s
+          return { trades: candidate.state.trades }
+        })
+        return result
+      },
+      cancelTradeOpen: () => set({ pendingTradeOpenRequest: null }),
+      confirmTradeOpen: async (rawReason) => {
+        const reason = rawReason.trim()
+        if (reason.length < 1 || reason.length > 500) {
+          throw new Error('继续开仓原因必须为 1–500 字')
+        }
+        const request = get().pendingTradeOpenRequest
+        if (!request) return { kind: 'cancelled', reason: 'target-missing' }
+        const [commitModule, persistModule, shortcutModule] = await Promise.all([
+          import('@/lib/riskGatedTradeOpenCommit'),
+          import('@/storage/persist'),
+          import('@/store/shortcutStore'),
+        ])
+        const result = await commitModule.commitRiskGatedTradeOpen({
+          request,
+          reason,
+          captureLatestState: () => {
+            const state = get()
+            return {
+              state,
+              snapshot: persistModule.pickPersisted(
+                state,
+                shortcutModule.useShortcutStore.getState().bindings,
+              ),
+              currentTradingDayKey: getTradingDayKey(
+                new Date(),
+                state.display.tradingDayStartHour,
+              ),
+            }
+          },
+          publish: (state) => set({ ...state, pendingTradeOpenRequest: null }),
+        })
+        if (result.kind === 'cancelled') {
+          set({ pendingTradeOpenRequest: null })
+        } else if (result.kind === 'needs-reconfirmation') {
+          set({ pendingTradeOpenRequest: null })
+          get().requestTradeOpen(request.tradeId, request.returnFocus)
+        }
+        return result
+      },
+      rehydrateRiskGateFromStorage: async () => {
+        const { getStorage } = await import('@/storage/provider')
+        const snapshot = await getStorage().loadSnapshot()
+        if (!snapshot) throw new Error('存储中没有可恢复的风险开仓快照')
+        set({
+          trades: snapshot.trades,
+          weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
+          riskPolicyVersions: snapshot.riskPolicyVersions,
+          monthlyRiskLimits: snapshot.monthlyRiskLimits,
+          riskOverrideEvents: snapshot.riskOverrideEvents,
+          pendingTradeOpenRequest: null,
+        })
+      },
       completeTradeClose: (id, status, patch) =>
         set((s) => {
           const previous = s.trades.find((trade) => trade.id === id)

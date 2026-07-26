@@ -1,0 +1,208 @@
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { CheckCircle, Shield } from '@/icons/appIcons'
+import type { RiskPolicyDraft } from '@/data/riskManagement'
+import { weekStartFor } from '@/data/weeklyReviews'
+import { fmtMoney, fmtR } from '@/lib/format'
+import { activeRiskPolicy } from '@/lib/riskPolicy'
+import { parseLocalDate } from '@/lib/periods'
+import { useLocalDateKey } from '@/hooks/useLocalDateKey'
+import { useStore } from '@/store/useStore'
+import { Button } from '@/components/ui/Button'
+import './WeeklyRiskPreparationCard.css'
+
+function fmtLimitR(value: number): string {
+  return fmtR(Math.abs(value)).replace(/^\+/, '')
+}
+
+const DEFAULT_DRAFT: RiskPolicyDraft = {
+  capitalBase: null,
+  riskPercent: 1,
+  riskAmount: null,
+  dailyLossLimitR: 2,
+  weeklyLossLimitR: 5,
+  monthlyLossLimitRDefault: 10,
+  disciplineText: '触线后停止开仓，先复核执行偏差。',
+}
+
+function draftFromPolicy(
+  policy: ReturnType<typeof activeRiskPolicy>,
+): RiskPolicyDraft {
+  if (!policy) return { ...DEFAULT_DRAFT }
+  return {
+    capitalBase: policy.capitalBase,
+    riskPercent: policy.riskPercent,
+    riskAmount: policy.riskAmount,
+    dailyLossLimitR: policy.dailyLossLimitR,
+    weeklyLossLimitR: policy.weeklyLossLimitR,
+    monthlyLossLimitRDefault: policy.monthlyLossLimitRDefault,
+    disciplineText: policy.disciplineText,
+  }
+}
+
+function withCalculatedRiskAmount(draft: RiskPolicyDraft): RiskPolicyDraft {
+  const amount = draft.capitalBase == null
+    ? null
+    : Math.round(draft.capitalBase * draft.riskPercent) / 100
+  return { ...draft, riskAmount: amount }
+}
+
+export function WeeklyRiskPreparationCard({
+  currentTradingDayKey,
+}: {
+  currentTradingDayKey?: string
+}) {
+  const liveTradingDay = useLocalDateKey()
+  const tradingDay = currentTradingDayKey ?? liveTradingDay
+  const weekStart = weekStartFor(parseLocalDate(tradingDay))
+  const preparations = useStore((state) => state.weeklyRiskPreparations)
+  const policies = useStore((state) => state.riskPolicyVersions)
+  const privacyMode = useStore((state) => state.display.privacyMode)
+  const saveDraft = useStore((state) => state.saveWeeklyRiskDraft)
+  const confirmPreparation = useStore((state) => state.confirmWeeklyRiskPreparation)
+  const preparation = preparations.find((item) => item.weekStart === weekStart)
+  const policy = useMemo(
+    () => activeRiskPolicy(policies, tradingDay),
+    [policies, tradingDay],
+  )
+  const reviewed = Boolean(preparation?.reviewedAt && preparation.confirmedPolicyVersionId)
+  const sourceDraft = preparation?.draft ?? draftFromPolicy(policy)
+  const [draft, setDraft] = useState<RiskPolicyDraft>(() => sourceDraft)
+  const [editingReviewed, setEditingReviewed] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setDraft(sourceDraft)
+    if (!reviewed) setEditingReviewed(false)
+  }, [preparation?.updatedAt, policy?.id, weekStart, reviewed])
+
+  const updateDraft = (patch: Partial<RiskPolicyDraft>) => {
+    const next = withCalculatedRiskAmount({ ...draft, ...patch })
+    setDraft(next)
+    setError('')
+    saveDraft(weekStart, next, new Date().toISOString())
+  }
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    try {
+      const now = new Date().toISOString()
+      confirmPreparation({
+        currentTradingDayKey: tradingDay,
+        weekStart,
+        draft: withCalculatedRiskAmount(draft),
+        confirmedAt: now,
+        policyVersionId: `risk-policy:${weekStart}:${crypto.randomUUID()}`,
+      })
+      setEditingReviewed(false)
+      setError('')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '本周风险规则无法确认')
+    }
+  }
+
+  if (reviewed && !editingReviewed) {
+    return (
+      <section
+        className="risk-preparation-card is-reviewed"
+        data-risk-preparation
+        data-reviewed="true"
+        aria-labelledby="risk-preparation-title"
+      >
+        <div className="risk-preparation-summary-icon" aria-hidden><CheckCircle size={16} /></div>
+        <div className="risk-preparation-summary-copy">
+          <h2 id="risk-preparation-title">本周风险规则已复核</h2>
+          <p>
+            日 {fmtLimitR(sourceDraft.dailyLossLimitR)} · 周 {fmtLimitR(sourceDraft.weeklyLossLimitR)} ·
+            月 {fmtLimitR(sourceDraft.monthlyLossLimitRDefault)}
+          </p>
+        </div>
+        <Button variant="bordered" size="sm" onClick={() => setEditingReviewed(true)}>
+          修改规则
+        </Button>
+      </section>
+    )
+  }
+
+  return (
+    <section
+      className="risk-preparation-card"
+      data-risk-preparation
+      data-reviewed={reviewed ? 'true' : 'false'}
+      aria-labelledby="risk-preparation-title"
+    >
+      <header className="risk-preparation-header">
+        <span className="risk-preparation-icon" aria-hidden><Shield size={17} /></span>
+        <div>
+          <span className="risk-preparation-eyebrow">本周准备</span>
+          <h2 id="risk-preparation-title">{reviewed ? '修改本周风险规则' : '先复核本周风险规则'}</h2>
+          <p>{reviewed ? '修改后的版本按下一有效交易日起生效。' : '复核前此卡会持续显示；上一版有效规则仍然生效。'}</p>
+        </div>
+      </header>
+
+      <form className="risk-preparation-form" onSubmit={submit}>
+        <div className="risk-preparation-fields">
+          <label>
+            <span>资金基准</span>
+            <input
+              type={privacyMode ? 'password' : 'number'}
+              min="0.01"
+              step="0.01"
+              value={draft.capitalBase ?? ''}
+              onChange={(event) => updateDraft({ capitalBase: event.target.value ? Number(event.target.value) : null })}
+              required
+            />
+          </label>
+          <label>
+            <span>每 R 风险</span>
+            <span className="risk-preparation-inline-input">
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={draft.riskPercent}
+                onChange={(event) => updateDraft({ riskPercent: Number(event.target.value) })}
+                required
+              />
+              <small>%</small>
+            </span>
+          </label>
+          {(['dailyLossLimitR', 'weeklyLossLimitR', 'monthlyLossLimitRDefault'] as const).map((key, index) => (
+            <label key={key}>
+              <span>{['日止损线', '周止损线', '月止损线'][index]}</span>
+              <span className="risk-preparation-inline-input">
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={draft[key]}
+                  onChange={(event) => updateDraft({ [key]: Number(event.target.value) })}
+                  required
+                />
+                <small>R</small>
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="risk-preparation-discipline-row">
+          <label>
+            <span>本周纪律</span>
+            <input
+              value={draft.disciplineText}
+              maxLength={500}
+              onChange={(event) => updateDraft({ disciplineText: event.target.value })}
+              placeholder="例如：触线后停止开仓，先复核执行偏差。"
+            />
+          </label>
+          <div className="risk-preparation-actions">
+            <span className="risk-preparation-risk-amount">
+              1R = {privacyMode ? '****' : fmtMoney(withCalculatedRiskAmount(draft).riskAmount)}
+            </span>
+            {reviewed ? <Button variant="ghost" onClick={() => setEditingReviewed(false)}>取消修改</Button> : null}
+            <Button type="submit" variant="primary">确认本周规则</Button>
+          </div>
+        </div>
+        {error ? <p className="risk-preparation-error" role="alert">{error}</p> : null}
+      </form>
+    </section>
+  )
+}

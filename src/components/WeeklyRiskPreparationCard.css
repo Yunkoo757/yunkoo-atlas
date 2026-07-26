@@ -1,0 +1,157 @@
+.risk-preparation-card {
+  margin-top: 14px;
+  padding: 15px 16px;
+  color: var(--text-body);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+}
+
+.risk-preparation-header,
+.risk-preparation-card.is-reviewed {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.risk-preparation-icon,
+.risk-preparation-summary-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--warn-action);
+  background: var(--warn-action-bg);
+  border: 1px solid var(--warn-action-border);
+  border-radius: var(--radius-6);
+}
+
+.risk-preparation-summary-icon {
+  color: var(--pos);
+  background: var(--pos-bg);
+  border-color: color-mix(in srgb, var(--pos) 28%, transparent);
+}
+
+.risk-preparation-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--warn-action);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.risk-preparation-card h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.risk-preparation-header p,
+.risk-preparation-summary-copy p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  line-height: 1.45;
+}
+
+.risk-preparation-form { margin-top: 14px; }
+
+.risk-preparation-fields {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.risk-preparation-form label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.risk-preparation-form input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--type-body-size);
+  font-variant-numeric: tabular-nums;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  outline: none;
+}
+
+.risk-preparation-form input:focus-visible {
+  border-color: var(--field-border-focus);
+  box-shadow: var(--field-focus-shadow);
+}
+
+.risk-preparation-inline-input { position: relative; }
+.risk-preparation-inline-input input { padding-right: 27px; }
+.risk-preparation-inline-input small {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  color: var(--text-quaternary);
+  font-size: var(--type-caption-size);
+  transform: translateY(-50%);
+}
+
+.risk-preparation-discipline-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin-top: 11px;
+}
+
+.risk-preparation-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk-preparation-risk-amount {
+  margin-right: 3px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.risk-preparation-error {
+  margin: 9px 0 0;
+  color: var(--neg);
+  font-size: var(--type-metadata-size);
+}
+
+.risk-preparation-card.is-reviewed {
+  align-items: center;
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.risk-preparation-summary-copy { min-width: 0; flex: 1; }
+
+@media (max-width: 900px) {
+  .risk-preparation-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .risk-preparation-discipline-row { grid-template-columns: 1fr; }
+  .risk-preparation-actions { justify-content: flex-end; }
+}
+
+@media (max-width: 560px) {
+  .risk-preparation-fields { grid-template-columns: 1fr; }
+  .risk-preparation-actions { align-items: stretch; flex-direction: column; }
+  .risk-preparation-actions .ui-btn { min-height: 44px; }
+  .risk-preparation-risk-amount { margin-bottom: 3px; }
+  .risk-preparation-card.is-reviewed { align-items: flex-start; flex-wrap: wrap; }
+  .risk-preparation-card.is-reviewed .ui-btn { margin-left: 38px; }
+}

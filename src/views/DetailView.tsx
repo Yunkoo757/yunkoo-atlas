@@ -149,6 +149,7 @@ export function DetailView() {
   const completeTradeClose = useStore((s) => s.completeTradeClose)
   const setStatus = useStore((s) => s.setStatus)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
+  const requestTradeOpen = useStore((s) => s.requestTradeOpen)
   const setConviction = useStore((s) => s.setConviction)
   const setStrategy = useStore((s) => s.setStrategy)
   const strategies = useStore((s) => s.strategies)
@@ -936,6 +937,7 @@ export function DetailView() {
               onSelect={(v) =>
                 transitionTradeStatus(trade, v as TradeStatus, {
                   setStatus,
+                  requestTradeOpen,
                   requestTradeClose,
                   toast,
                 })

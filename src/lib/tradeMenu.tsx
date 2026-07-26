@@ -10,6 +10,7 @@ export function buildTradeCtxItems(
   trade: Trade,
   a: {
     setStatus: (id: string, s: TradeStatus) => void
+    requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => void
     changeStatus?: (status: TradeStatus) => void
     openComposer: (t?: Trade | null) => void
     removeTrade: (id: string) => void
@@ -21,6 +22,7 @@ export function buildTradeCtxItems(
   const starred = a.isStarred?.(trade.id)
   const applyStatus = (s: TradeStatus) => {
     if (a.changeStatus) a.changeStatus(s)
+    else if (s === 'open') a.requestTradeOpen(trade.id)
     else a.setStatus(trade.id, s)
   }
   const items: CtxItem[] = [

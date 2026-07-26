@@ -4,6 +4,7 @@ import { pnlToStatus } from '@/lib/tradeCalc'
 
 export type TradeTransitionActions = {
   setStatus: (id: string, status: TradeStatus) => void
+  requestTradeOpen: (tradeId: string, returnFocus?: HTMLElement | null) => void
   requestTradeClose: (
     tradeId: string,
     targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>,
@@ -18,7 +19,7 @@ export function toggleTradeDone(trade: Trade, actions: TradeTransitionActions): 
     return
   }
   if (isRowDone(trade.status)) {
-    actions.setStatus(trade.id, 'open')
+    actions.requestTradeOpen(trade.id)
     return
   }
   actions.requestTradeClose(trade.id)
@@ -32,12 +33,12 @@ export function transitionTradeStatus(
 ): void {
   if (trade.status === nextStatus) return
 
-  if (trade.tradeKind === 'case') {
-    actions.setStatus(trade.id, nextStatus)
+  if (nextStatus === 'open') {
+    actions.requestTradeOpen(trade.id)
     return
   }
 
-  if (nextStatus === 'open' || nextStatus === 'planned') {
+  if (trade.tradeKind === 'case' || nextStatus === 'planned') {
     actions.setStatus(trade.id, nextStatus)
     return
   }
