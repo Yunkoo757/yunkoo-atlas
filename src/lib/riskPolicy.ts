@@ -7,6 +7,7 @@ import type {
 } from '@/data/riskManagement'
 import { toMoneyCents } from '@/lib/riskBudget'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
+import { weekStartFor } from '@/data/weeklyReviews'
 
 export interface RiskPolicyState {
   weeklyRiskPreparations: WeeklyRiskPreparation[]
@@ -34,6 +35,32 @@ function nextTradingDay(day: string): string {
   const date = parseLocalDate(day)
   date.setDate(date.getDate() + 1)
   return formatYmd(date)
+}
+
+function requireCanonicalDay(value: string, label: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || formatYmd(parseLocalDate(value)) !== value) {
+    throw new Error(`${label}必须是 canonical YYYY-MM-DD`)
+  }
+  return value
+}
+
+function requireIsoTimestamp(value: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value)
+  if (!match || !Number.isFinite(new Date(value).getTime())) {
+    throw new Error('confirmedAt 必须是合法 ISO 时间')
+  }
+  requireCanonicalDay(match[1]!, 'confirmedAt 日期')
+  return value
+}
+
+function validateConfirmationInput(input: ConfirmWeeklyRiskPreparationInput): void {
+  const currentTradingDayKey = requireCanonicalDay(input.currentTradingDayKey, 'currentTradingDayKey')
+  const weekStart = requireCanonicalDay(input.weekStart, 'weekStart')
+  if (weekStartFor(parseLocalDate(currentTradingDayKey)) !== weekStart) {
+    throw new Error('weekStart 必须是当前业务日所属周的周一')
+  }
+  requireIsoTimestamp(input.confirmedAt)
+  if (!input.policyVersionId.trim()) throw new Error('policyVersionId 不能为空')
 }
 
 function positiveFinite(value: number | null, label: string): number {
@@ -77,6 +104,7 @@ export function confirmWeeklyRiskPreparation(
   state: RiskPolicyState,
   input: ConfirmWeeklyRiskPreparationInput,
 ): RiskPolicyState {
+  validateConfirmationInput(input)
   if (state.riskPolicyVersions.some((policy) => policy.id === input.policyVersionId)) {
     throw new Error('policyVersionId 已存在')
   }
@@ -135,6 +163,7 @@ export function ensureRiskPeriodRecords(
   state: RiskPolicyState,
   tradingDay: string,
 ): RiskPolicyState {
+  requireCanonicalDay(tradingDay, 'tradingDay')
   const monthKey = tradingDay.slice(0, 7)
   if (state.monthlyRiskLimits.some((item) => item.monthKey === monthKey)) return state
   const policy = activeRiskPolicy(state.riskPolicyVersions, tradingDay)

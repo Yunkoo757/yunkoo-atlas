@@ -79,6 +79,16 @@ import {
   type RiskPolicyState,
 } from '@/lib/riskPolicy'
 
+function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boolean {
+  return left.capitalBase === right.capitalBase &&
+    left.riskPercent === right.riskPercent &&
+    left.riskAmount === right.riskAmount &&
+    left.dailyLossLimitR === right.dailyLossLimitR &&
+    left.weeklyLossLimitR === right.weeklyLossLimitR &&
+    left.monthlyLossLimitRDefault === right.monthlyLossLimitRDefault &&
+    left.disciplineText === right.disciplineText
+}
+
 export type TradeUpsertSlice = {
   trades: Trade[]
   strategies: Strategy[]
@@ -690,12 +700,15 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           const id = `weekly-risk-preparation:${weekStart}`
           const existing = s.weeklyRiskPreparations.find((item) => item.id === id)
+          const contentChanged = existing ? !sameRiskPolicyDraft(existing.draft, draft) : false
           const preparation: WeeklyRiskPreparation = {
             id,
             weekStart,
-            draft,
-            reviewedAt: existing?.reviewedAt ?? null,
-            confirmedPolicyVersionId: existing?.confirmedPolicyVersionId ?? null,
+            draft: { ...draft },
+            reviewedAt: contentChanged ? null : existing?.reviewedAt ?? null,
+            confirmedPolicyVersionId: contentChanged
+              ? null
+              : existing?.confirmedPolicyVersionId ?? null,
             createdAt: existing?.createdAt ?? updatedAt,
             updatedAt,
           }
@@ -707,6 +720,7 @@ export const useStore = create<State>()((set, get) => ({
         }),
       confirmWeeklyRiskPreparation: (input) =>
         set((s) => {
+          const isFirstPolicy = s.riskPolicyVersions.length === 0
           const riskState: RiskPolicyState = {
             weeklyRiskPreparations: s.weeklyRiskPreparations,
             riskPolicyVersions: s.riskPolicyVersions,
@@ -717,14 +731,19 @@ export const useStore = create<State>()((set, get) => ({
             trade.tradeKind === 'live' &&
             !trade.deletedAt &&
             isExecutedClosed(trade.status) &&
-            trade.closedTradingDayKey === input.currentTradingDayKey,
+            (trade.closedTradingDayKey ?? closedTradingDayKeyFromClosedAt(
+              trade.closedAt,
+              s.display.tradingDayStartHour,
+            )) === input.currentTradingDayKey,
           )
           const confirmed = confirmRiskPolicyState(riskState, {
             ...input,
             hasClosedLiveTradeOnDay,
           })
           const newPolicy = confirmed.riskPolicyVersions.at(-1)!
-          return ensureRiskPolicyPeriodRecords(confirmed, newPolicy.effectiveTradingDay)
+          return isFirstPolicy
+            ? ensureRiskPolicyPeriodRecords(confirmed, newPolicy.effectiveTradingDay)
+            : confirmed
         }),
       ensureRiskPeriodRecords: (tradingDay) =>
         set((s) => ensureRiskPolicyPeriodRecords({
