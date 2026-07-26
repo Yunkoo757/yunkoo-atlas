@@ -200,7 +200,7 @@ test('本地发布运行轻量门禁，CI 打包复验构建与 Electron 数据�
   assert.match(qualityGate, /\['qa:sidebar'\]/)
   assert.match(qualityGate, /\['qa:electron'\]/)
   assert.match(qualityGate, /full \? 'qa' : 'qa:core'/)
-  assert.match(qualityGate, /if \(full\) run\('pnpm', \['qa:linear'\]/)
+  assert.doesNotMatch(qualityGate, /qa:linear/)
   assert.match(qualityGate, /qa-dashboard-10k\.mjs/)
   assert.match(qualityGate, /waitForVite/)
   assert.match(qualityGate, /qa-release-full\.json/)

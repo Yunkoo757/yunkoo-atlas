@@ -27,7 +27,7 @@ import { ToastHost } from './components/Toast'
 import { ImageLightbox } from './components/ImageLightbox'
 import { WebStorageGuard } from './components/WebStorageGuard'
 import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
-import { LinearGridLoaderIcon } from './icons/linear'
+import { LoadingIndicator } from './icons/LoadingIndicator'
 import { ICON_XL } from './icons/iconSize'
 import { ListView } from './views/ListView'
 import { BoardView } from './views/BoardView'
@@ -664,7 +664,7 @@ export function App() {
   if (!ready) {
     return (
       <div className="app-loading" role="status" aria-live="polite">
-        <LinearGridLoaderIcon variant="scope" size={ICON_XL} aria-hidden />
+        <LoadingIndicator size={ICON_XL} aria-hidden />
         <span>加载本地库…</span>
       </div>
     )

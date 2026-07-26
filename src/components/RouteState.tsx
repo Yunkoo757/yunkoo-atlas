@@ -1,11 +1,7 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import {
-  LinearExclamationMarkIcon,
-  LinearGridLoaderIcon,
-  LinearHomeIcon,
-  LinearRefreshIcon,
-} from '@/icons/linear'
+import { AlertCircle, Home, RotateCcw } from '@/icons/appIcons'
+import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ICON_LG, ICON_XL } from '@/icons/iconSize'
 import './RouteState.css'
 
@@ -63,18 +59,18 @@ function RouteFailure({
   return (
     <section className="app-route-state app-route-error" role="alert" aria-live="assertive">
       <div className="app-route-state-icon" aria-hidden>
-        <LinearExclamationMarkIcon size={ICON_LG} />
+        <AlertCircle size={ICON_LG} />
       </div>
       <span className="app-route-state-code">页面异常</span>
       <h1>页面暂时无法显示</h1>
       <p>交易数据仍保留在本地。你可以返回交易日志，或重新加载后再试。</p>
       <div className="app-route-state-actions">
         <Link className="ui-btn ui-btn-primary" to="/list" onClick={onReturn}>
-          <LinearHomeIcon size={ICON_LG} aria-hidden />
+          <Home size={ICON_LG} aria-hidden />
           返回交易日志
         </Link>
         <button className="ui-btn ui-btn-bordered" type="button" onClick={onRetry}>
-          <LinearRefreshIcon size={ICON_LG} aria-hidden />
+          <RotateCcw size={ICON_LG} aria-hidden />
           重新加载
         </button>
       </div>
@@ -92,7 +88,7 @@ export function RouteNotFound() {
       <p>地址可能已失效，或者页面已经移动。</p>
       <div className="app-route-state-actions">
         <Link className="ui-btn ui-btn-primary" to="/list">
-          <LinearHomeIcon size={ICON_LG} aria-hidden />
+          <Home size={ICON_LG} aria-hidden />
           返回交易日志
         </Link>
         <button className="ui-btn ui-btn-bordered" type="button" onClick={() => navigate(-1)}>
@@ -116,7 +112,7 @@ export function DelayedRouteFallback({ delayMs = 180 }: { delayMs?: number }) {
 
   return (
     <div className="app-route-loading" role="status" aria-live="polite">
-      <LinearGridLoaderIcon variant="scope" size={ICON_XL} aria-hidden />
+      <LoadingIndicator size={ICON_XL} aria-hidden />
       <span>加载页面…</span>
     </div>
   )

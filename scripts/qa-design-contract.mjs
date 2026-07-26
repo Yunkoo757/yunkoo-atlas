@@ -6,7 +6,7 @@ const globalStyles = read('src/styles/global.css')
 const emptyStateStyles = read('src/components/EmptyState.css')
 const editorStyles = read('src/editor/Editor.css')
 const strategyModalStyles = read('src/components/StrategyFormModal.css')
-const statusIconStyles = read('src/icons/linear/status/linearStatusIcons.css')
+const statusIconStyles = read('src/components/StatusIcon.css')
 const statusIconComponent = read('src/components/StatusIcon.tsx')
 const filterBarStyles = read('src/components/ui/FilterBar.css')
 const buttonStyles = read('src/components/ui/Button.css')
@@ -89,7 +89,7 @@ const checks = [
   ],
   [
     'trade status animation has a single owner',
-    statusIconComponent.includes('animate={false}'),
+    !statusIconComponent.includes('animate={true}'),
   ],
   [
     'reduced motion globally suppresses non-essential animation',
@@ -257,5 +257,5 @@ for (const [name, ok] of checks) {
 if (failed.length > 0) {
   process.exitCode = 1
 } else {
-  console.log('PASS: Linear design contract')
+  console.log('PASS: Trader Atlas design contract')
 }

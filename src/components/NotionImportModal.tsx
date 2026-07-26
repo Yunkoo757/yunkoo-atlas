@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react'
 import { Upload, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
-import { LinearGridLoaderIcon } from '@/icons/linear'
+import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ICON_HERO } from '@/icons/iconSize'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
@@ -607,7 +607,7 @@ export function NotionImportModal({ open, onClose }: Props) {
       {/* Step 2.5: Importing */}
       {step === 'importing' && (
         <div className="nim-done-area">
-          <LinearGridLoaderIcon variant="hourglass" size={ICON_HERO} aria-hidden />
+          <LoadingIndicator size={ICON_HERO} aria-hidden />
           <p>正在导入…</p>
           <p className="nim-done-hint">截图正在离线保存到本地库，请稍候。</p>
         </div>

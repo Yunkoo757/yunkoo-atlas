@@ -83,7 +83,6 @@ pnpm dev:electron
 | `pnpm qa:image` | Web QA 图片用例 |
 | `pnpm qa:workbench` | 核心工作区流程 QA |
 | `pnpm qa:design` | 设计令牌与布局契约检查 |
-| `pnpm qa:linear` | Linear 重构页面与响应式检查 |
 | `pnpm qa:electron` | Electron headless QA（需先 `build:app`） |
 | `pnpm qa:full` | Release 0 要求的完整 Web/Electron 发布 QA，包含 10k Dashboard 功能与性能门 |
 | `pnpm benchmark:persistence:release` | 正式 10K/20K 持久化、退出与 Web ZIP heap 门；缺少批准基线时保持阻断 |

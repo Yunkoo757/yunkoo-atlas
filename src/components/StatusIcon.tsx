@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { TradeStatus, Conviction } from '@/data/trades'
-import { LinearIssueStatusIcon } from '@/icons/linear'
-import type { LinearIssueState } from '@/icons/linear'
+import { StatusIndicator, type StatusIndicatorState } from '@/icons/StatusIndicator'
 import { ICON_SM } from '@/icons/iconSize'
 import './StatusIcon.css'
 
@@ -14,9 +13,9 @@ const STATUS_COLOR: Record<TradeStatus, string> = {
   loss: 'var(--neg)',
 }
 
-const STATUS_TO_LINEAR: Record<
+const STATUS_PRESENTATION: Record<
   Exclude<TradeStatus, 'missed'>,
-  { state: LinearIssueState; progress?: number }
+  { state: StatusIndicatorState; progress?: number }
 > = {
   planned: { state: 'backlog' },
   open: { state: 'started', progress: 0.55 },
@@ -56,7 +55,7 @@ export function StatusIcon({
 }: {
   status: TradeStatus
   size?: number
-  /** 状态切换时播放 Linear 式 pop；列表首次挂载不播，避免刷屏 */
+  /** 状态切换时播放轻量 pop；列表首次挂载不播，避免刷屏 */
   animate?: boolean
 }) {
   const seen = useRef(false)
@@ -71,17 +70,16 @@ export function StatusIcon({
     setMotionTick((tick) => tick + 1)
   }, [status, animate])
 
-  const mapped = status === 'missed' ? null : STATUS_TO_LINEAR[status]
+  const mapped = status === 'missed' ? null : STATUS_PRESENTATION[status]
   const glyph =
     status === 'missed' || !mapped ? (
       <MissedStatusIcon size={size} color={STATUS_COLOR.missed} />
     ) : (
-      <LinearIssueStatusIcon
+      <StatusIndicator
         state={mapped.state}
         progress={mapped.progress}
         size={size}
         color={STATUS_COLOR[status]}
-        animate={false}
       />
     )
 
