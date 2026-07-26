@@ -26,8 +26,9 @@ export interface ConfirmWeeklyRiskPreparationInput {
 }
 
 function comparePolicyPrecedence(left: RiskPolicyVersion, right: RiskPolicyVersion): number {
+  const confirmedDifference = Date.parse(left.confirmedAt) - Date.parse(right.confirmedAt)
   return left.effectiveTradingDay.localeCompare(right.effectiveTradingDay) ||
-    left.confirmedAt.localeCompare(right.confirmedAt) ||
+    confirmedDifference ||
     left.id.localeCompare(right.id)
 }
 
@@ -95,7 +96,7 @@ export function activeRiskPolicy(
   tradingDay: string,
 ): RiskPolicyVersion | null {
   return policies
-    .filter((item) => item.effectiveTradingDay <= tradingDay)
+    .filter((item) => item.effectiveTradingDay <= tradingDay && Number.isFinite(Date.parse(item.confirmedAt)))
     .sort(comparePolicyPrecedence)
     .at(-1) ?? null
 }

@@ -102,6 +102,36 @@ export function testActivePolicyUsesStablePrecedence(): void {
   assert(policies.map((policy) => policy.id).join(',') === originalOrder, 'active policy 纯读取不得改变输入顺序')
 }
 
+export function testActivePolicyComparesConfirmedAtByInstant(): void {
+  const base = stateWithPolicy().riskPolicyVersions[0]!
+  const policies: RiskPolicyVersion[] = [
+    { ...base, id: 'offset', confirmedAt: '2026-07-27T10:00:00+08:00' },
+    { ...base, id: 'zulu', confirmedAt: '2026-07-27T03:00:00Z' },
+  ]
+  const originalOrder = policies.map((policy) => policy.id).join(',')
+
+  assert(activeRiskPolicy(policies, '2026-07-27')?.id === 'zulu', '真实较晚的确认瞬时必须胜出')
+  assert(policies.map((policy) => policy.id).join(',') === originalOrder, 'offset 排序不得改变输入数组')
+}
+
+export function testActivePolicyUsesIdWhenConfirmedInstantsMatch(): void {
+  const base = stateWithPolicy().riskPolicyVersions[0]!
+  const policies: RiskPolicyVersion[] = [
+    { ...base, id: 'policy-a', confirmedAt: '2026-07-27T11:00:00+08:00' },
+    { ...base, id: 'policy-b', confirmedAt: '2026-07-27T03:00:00Z' },
+  ]
+  assert(activeRiskPolicy(policies, '2026-07-27')?.id === 'policy-b', '同一瞬时必须按 id 决胜')
+}
+
+export function testActivePolicyIgnoresInvalidConfirmedAt(): void {
+  const base = stateWithPolicy().riskPolicyVersions[0]!
+  const policies: RiskPolicyVersion[] = [
+    { ...base, id: 'valid-policy' },
+    { ...base, id: 'invalid-policy', confirmedAt: 'invalid' },
+  ]
+  assert(activeRiskPolicy(policies, '2026-07-27')?.id === 'valid-policy', '非法确认时间的 policy 不得成为 active')
+}
+
 export function testMonthlyLimitMaterializesOnce(): void {
   const once = ensureRiskPeriodRecords(stateWithPolicy(), '2026-07-27')
   const changedPolicy = confirmWeeklyRiskPreparation(once, confirmation('2026-07-28', {
