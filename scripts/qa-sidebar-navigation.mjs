@@ -745,7 +745,7 @@ try {
 
   const moreButton = page.locator('.mobile-navigation > button[aria-label="更多"]')
   await moreButton.click()
-  const drawer = page.getByRole('dialog', { name: '更多' })
+  const drawer = page.locator('.mobile-navigation-overlay:not(.ui-exit-clone)').getByRole('dialog', { name: '更多' })
   await expectVisible(drawer)
   await expectAttribute(drawer, 'aria-modal', 'true')
   await expectAttribute(moreButton, 'aria-expanded', 'true')

@@ -160,5 +160,13 @@ test('browser runner explicitly allows its isolated fixture root', async () => {
   const source = await fs.readFile(path.resolve('scripts/run-browser-tests.mjs'), 'utf8')
   assert.match(source, /fs:\s*\{\s*allow:\s*\[root\]\s*\}/)
 })
+
+test('sidebar QA targets the live mobile drawer instead of its exit clone', async () => {
+  const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
+  assert.match(
+    source,
+    /const drawer = page\.locator\('\.mobile-navigation-overlay:not\(\.ui-exit-clone\)'\)\.getByRole\('dialog', \{ name: '更多' \}\)/,
+  )
+})
 // Quality-Scenario: Q-DISCOVERY
 // Quality-Scenario: Q-PAGEERROR
