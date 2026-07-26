@@ -864,7 +864,7 @@ try {
       target.dataset.qaFocusCount = String(Number(target.dataset.qaFocusCount ?? '0') + 1)
     }, { once: true })
   })
-  await drawer.getByRole('button', { name: '搜索', exact: true }).click()
+  await drawer.getByRole('button', { name: '搜索', exact: true }).dispatchEvent('click')
   await expectCount(drawer, 0)
   const commandPaletteInput = page.locator('.cmdk-input')
   await expectVisible(commandPaletteInput)

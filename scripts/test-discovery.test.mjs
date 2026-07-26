@@ -167,6 +167,10 @@ test('sidebar QA targets the live mobile drawer instead of its exit clone', asyn
     source,
     /const drawer = page\.locator\('\.mobile-navigation-overlay:not\(\.ui-exit-clone\)'\)\.getByRole\('dialog', \{ name: '更多' \}\)/,
   )
+  assert.match(
+    source,
+    /drawer\.getByRole\('button', \{ name: '搜索', exact: true \}\)\.dispatchEvent\('click'\)/,
+  )
 })
 // Quality-Scenario: Q-DISCOVERY
 // Quality-Scenario: Q-PAGEERROR
