@@ -8,7 +8,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "typecheck": "tsc -b --pretty false && tsc -p tsconfig.electron.json --pretty false",
-    "test": "pnpm test:identity && node scripts/run-quality-node-tests.mjs && node scripts/run-regression-tests.mjs && node scripts/check-governance.mjs --require-execution",
+    "test": "pnpm test:identity && node scripts/run-quality-node-tests.mjs && node scripts/run-regression-tests.mjs && pnpm qa:risk-management-mobile && node scripts/check-governance.mjs --require-execution",
     "test:identity": "node --test scripts/vendor-neutral-contract.test.mjs",
     "check:governance": "node scripts/check-governance.mjs",
     "test:release": "node --test scripts/release-command.test.mjs scripts/release-artifacts.test.mjs",
@@ -38,6 +38,7 @@
     "qa:workbench": "node scripts/qa-workbench.mjs",
     "qa:design": "node scripts/qa-design-contract.mjs",
     "qa:sidebar": "node scripts/qa-sidebar-navigation.mjs",
+    "qa:risk-management-mobile": "node scripts/qa-risk-management-mobile.mjs",
     "benchmark:analytics": "pnpm build && node scripts/benchmark-analytics.mjs",
     "benchmark:persistence": "node scripts/benchmark-persistence.mjs",
     "benchmark:persistence:release": "node scripts/run-persistence-release-gate.mjs",

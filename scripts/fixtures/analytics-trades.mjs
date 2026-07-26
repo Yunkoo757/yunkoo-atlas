@@ -57,6 +57,7 @@ export function createAnalyticsTrades({
     const rMultiple = Math.round((random() * 5 - 1.8) * 100) / 100
     const status = rMultiple > 0 ? 'win' : rMultiple < 0 ? 'loss' : 'breakeven'
     const openedAt = isoAt(index % 720, -(index % 6))
+    const closedAt = isoAt(index % 720, 0)
     return {
       id: `fixture-${seed}-${String(index + 1).padStart(5, '0')}`,
       ref: `FXT-${String(index + 1).padStart(5, '0')}`,
@@ -79,7 +80,8 @@ export function createAnalyticsTrades({
       rMultiple,
       resultSource: 'imported',
       openedAt,
-      closedAt: isoAt(index % 720, 0),
+      closedAt,
+      closedTradingDayKey: closedAt.slice(0, 10),
       note: createFixtureNote(index, noteProfile),
     }
   })
@@ -95,6 +97,7 @@ export function createAnalyticsTrades({
     rMultiple: null,
     resultSource: undefined,
     closedAt: null,
+    closedTradingDayKey: undefined,
   })
   patch(4, { deletedAt: isoAt(1) })
   patch(5, {
@@ -138,6 +141,10 @@ export function createAnalyticsSnapshot(options = {}) {
     savedTradeViews: [],
     symbolIcons: {},
     symbolCatalog: [...new Set(trades.map((trade) => trade.symbol))],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
   }
 }
 

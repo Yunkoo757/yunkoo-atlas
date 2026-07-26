@@ -305,6 +305,20 @@ export function testStatusChangeReopensACompletedReview(): void {
     reviewStatus: 'reviewed',
     reviewedAt: '2026-07-14T08:00:00.000Z',
     closedAt: '2026-07-14',
+    activities: [
+      {
+        id: 'activity-close-store-open',
+        kind: 'status',
+        status: 'open',
+        timestamp: '2026-07-01T00:00:00.000Z',
+      },
+      {
+        id: 'activity-close-store-win',
+        kind: 'status',
+        status: 'win',
+        timestamp: '2026-07-14T00:00:00.000Z',
+      },
+    ],
   }
   try {
     useStore.setState({ trades: [reviewedTrade] })

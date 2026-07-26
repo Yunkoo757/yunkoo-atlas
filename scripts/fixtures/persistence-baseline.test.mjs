@@ -4,10 +4,18 @@ import test from 'node:test'
 import {
   PERSISTENCE_BASELINE_METRICS,
   findRelativeRegressions,
+  sha256EvidenceText,
   validateApprovedPersistenceBaseline,
   validatePersistenceMetrics,
 } from '../persistence-baseline.mjs'
 import { readGitProvenance, selectSourceIdentity } from '../git-provenance.mjs'
+
+test('基线证据哈希只规范化跨平台 CRLF，不忽略内容变化', () => {
+  const lf = '{\n  "status": "pass"\n}\n'
+  const crlf = lf.replace(/\n/g, '\r\n')
+  assert.equal(sha256EvidenceText(crlf), sha256EvidenceText(lf))
+  assert.notEqual(sha256EvidenceText(crlf.replace('pass', 'fail')), sha256EvidenceText(lf))
+})
 
 test('批准基线只在超过 20% 时判定退化', () => {
   const baseline = Object.fromEntries(PERSISTENCE_BASELINE_METRICS.map((metric) => [metric, 100]))
