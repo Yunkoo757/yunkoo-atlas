@@ -92,19 +92,32 @@ try {
   try {
     const dialog = dialogFixture.page.locator('[data-trade-open-risk-dialog]')
     await dialog.waitFor({ timeout: 15_000 })
+    await dialogFixture.page.evaluate(() => Promise.all(
+      document.getAnimations().map((animation) => animation.finished),
+    ))
     await assertViewport(dialogFixture.page)
     const layout = await dialogFixture.page.evaluate(() => {
       const form = document.querySelector('[data-trade-open-risk-dialog]')
       const periods = document.querySelector('.trade-open-risk-periods')
       const policy = document.querySelector('.trade-open-risk-policy')
       const shell = form?.closest('[role="dialog"]')
-      if (!form || !periods || !policy || !shell) return null
+      const footer = shell?.querySelector('.modal-shell-footer')
+      const mainAction = [...(footer?.querySelectorAll('button') ?? [])]
+        .find((button) => button.textContent?.trim() === '确认继续开仓')
+      if (!form || !periods || !policy || !shell || !footer || !mainAction) return null
       const shellRect = shell.getBoundingClientRect()
+      const footerRect = footer.getBoundingClientRect()
+      const actionRect = mainAction.getBoundingClientRect()
       return {
         periodsColumns: getComputedStyle(periods).gridTemplateColumns.split(' ').length,
         policyColumns: getComputedStyle(policy).gridTemplateColumns.split(' ').length,
         shellOverflow: shell.scrollWidth > shell.clientWidth,
         shellWithinViewport: shellRect.left >= 0 && shellRect.right <= window.innerWidth,
+        shellTop: shellRect.top,
+        shellBottomGap: Math.abs(window.innerHeight - shellRect.bottom),
+        footerFullyVisible: footerRect.top >= 0 && footerRect.bottom <= window.innerHeight,
+        actionFullyVisible: actionRect.top >= 0 && actionRect.bottom <= window.innerHeight,
+        actionHeight: actionRect.height,
       }
     })
     assert.ok(layout, '真实风控 fixture 缺少 Gate 移动布局节点')
@@ -112,6 +125,11 @@ try {
     assert.equal(layout.policyColumns, 1, 'Gate 规则摘要在 420px 必须为单列')
     assert.equal(layout.shellOverflow, false, 'Gate 不得横向溢出')
     assert.equal(layout.shellWithinViewport, true, 'Gate 必须完整位于 viewport 内')
+    assert.ok(layout.shellTop >= 0, 'Gate 底部抽屉顶部不得越出 viewport')
+    assert.ok(layout.shellBottomGap <= 1, 'Gate 必须贴合 viewport 底部')
+    assert.equal(layout.footerFullyVisible, true, 'Gate footer 必须完整可见')
+    assert.equal(layout.actionFullyVisible, true, 'Gate 主动作必须完整可见')
+    assert.ok(layout.actionHeight >= 44, 'Gate 主动作触控高度不得小于 44px')
     assert.deepEqual(dialogFixture.diagnostics, [], 'Gate 移动 QA 不得产生浏览器错误')
   } finally {
     await dialogFixture.page.close()

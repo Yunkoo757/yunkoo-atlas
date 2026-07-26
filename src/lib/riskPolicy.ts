@@ -6,6 +6,7 @@ import type {
   WeeklyRiskPreparation,
 } from '@/data/riskManagement'
 import { toMoneyCents } from '@/lib/riskBudget'
+import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
@@ -24,13 +25,6 @@ export interface ConfirmWeeklyRiskPreparationInput {
   draft: RiskPolicyDraft
   confirmedAt: string
   policyVersionId: string
-}
-
-function comparePolicyPrecedence(left: RiskPolicyVersion, right: RiskPolicyVersion): number {
-  const confirmedDifference = Date.parse(left.confirmedAt) - Date.parse(right.confirmedAt)
-  return left.effectiveTradingDay.localeCompare(right.effectiveTradingDay) ||
-    confirmedDifference ||
-    left.id.localeCompare(right.id)
 }
 
 function nextTradingDay(day: string): string {
@@ -90,15 +84,7 @@ function canonicalDraft(draft: RiskPolicyDraft): Omit<RiskPolicyVersion, 'id' | 
   }
 }
 
-export function activeRiskPolicy(
-  policies: readonly RiskPolicyVersion[],
-  tradingDay: string,
-): RiskPolicyVersion | null {
-  return policies
-    .filter((item) => item.effectiveTradingDay <= tradingDay && Number.isFinite(Date.parse(item.confirmedAt)))
-    .sort(comparePolicyPrecedence)
-    .at(-1) ?? null
-}
+export { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 
 export function confirmWeeklyRiskPreparation(
   state: RiskPolicyState,

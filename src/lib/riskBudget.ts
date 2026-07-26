@@ -6,6 +6,7 @@ import type {
   RiskUnknownReason,
 } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
+import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import {
@@ -111,16 +112,6 @@ export function closedTradingDayKey(trade: Trade, tradingDayStartHour = 0): stri
   return closedTradingDayKeyFromClosedAt(trade.closedAt, tradingDayStartHour)
 }
 
-function activePolicy(policies: RiskPolicyVersion[], day: string): RiskPolicyVersion | null {
-  const matches = policies.filter((policy) => policy.effectiveTradingDay <= day)
-  if (matches.length === 0) return null
-  return matches.sort((left, right) =>
-    right.effectiveTradingDay.localeCompare(left.effectiveTradingDay) ||
-    right.confirmedAt.localeCompare(left.confirmedAt) ||
-    right.id.localeCompare(left.id),
-  )[0] ?? null
-}
-
 export function resolveTrustedBudgetPnl(trade: Trade): number | null {
   const source = resolveTradeResultSource(trade)
   const truth = resolveTradeTruth(trade)
@@ -182,7 +173,7 @@ function makeSnapshot(
 }
 
 function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRiskOutcomes {
-  const currentPolicy = activePolicy(input.policies, input.currentTradingDayKey)
+  const currentPolicy = activeRiskPolicy(input.policies, input.currentTradingDayKey)
   const currentWeekStart = weekStart(input.currentTradingDayKey)
   const currentMonth = input.currentTradingDayKey.slice(0, 7)
   const monthlyLimit = input.monthlyLimits.find((limit) => limit.monthKey === currentMonth)
@@ -219,7 +210,7 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
 
     let budgetR: number | null = null
     if (trustedPnl !== null && date && reasons.length === 0) {
-      const policy = activePolicy(input.policies, date)
+      const policy = activeRiskPolicy(input.policies, date)
       if (!policy || !Number.isFinite(policy.riskAmount) || toMoneyCents(policy.riskAmount) <= 0) {
         if (trustedPnl < 0) reasons.push('missing-policy')
         else partial = true

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AlertCircle, Shield } from '@/icons/appIcons'
 import type { RiskPeriodScope, RiskUnknownReason } from '@/data/riskManagement'
 import { fmtMoney, fmtR } from '@/lib/format'
@@ -82,6 +82,7 @@ export function TradeOpenRiskDialog() {
   const confirmTradeOpen = useStore((state) => state.confirmTradeOpen)
   const rehydrateRiskGateFromStorage = useStore((state) => state.rehydrateRiskGateFromStorage)
   const errorId = useId()
+  const reloadButtonRef = useRef<HTMLButtonElement>(null)
   const [reason, setReason] = useState('')
   const [commitState, setCommitState] = useState<CommitState>('idle')
   const [error, setError] = useState('')
@@ -99,6 +100,12 @@ export function TradeOpenRiskDialog() {
       requestAnimationFrame(() => requestAnimationFrame(() => focusFallback(requestAtOpen)))
     }
   }, [request?.tradeId])
+
+  useEffect(() => {
+    if (commitState !== 'reload-required') return
+    const frame = requestAnimationFrame(() => reloadButtonRef.current?.focus())
+    return () => cancelAnimationFrame(frame)
+  }, [commitState])
 
   const unknownReasonText = useMemo(() => request
     ? request.unknownReasons.map((item) => UNKNOWN_REASON_COPY[item]).join('、')
@@ -187,6 +194,7 @@ export function TradeOpenRiskDialog() {
       footer={(
         reloadRequired ? (
           <Button
+            ref={reloadButtonRef}
             variant="primary"
             size="lg"
             onClick={retryStorageReload}

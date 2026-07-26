@@ -116,6 +116,35 @@ export function testRiskChangeRequiresFreshConfirmation(): void {
   )
 }
 
+export function testOffsetConfirmedPolicyKeepsPendingAndOutcomeAligned(): void {
+  const laterInstant = {
+    ...policy,
+    id: 'policy-later-instant',
+    riskAmount: 1_000,
+    dailyLossLimitR: 1,
+    confirmedAt: '2026-07-01T23:30:00.000-02:00',
+  }
+  const earlierInstant = {
+    ...policy,
+    id: 'policy-earlier-instant',
+    riskAmount: 2_000,
+    dailyLossLimitR: 9,
+    confirmedAt: '2026-07-02T00:30:00.000Z',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    riskPolicyVersions: [laterInstant, earlierInstant],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: laterInstant.id }],
+  }
+
+  const candidate = requestTradeOpenCandidate(state, 'target')
+
+  assert(candidate.kind === 'confirmation-required', '较晚真实瞬时的 1R policy 必须形成触线确认')
+  assert(candidate.request.policyVersionId === laterInstant.id, 'pending 必须绑定真实瞬时较晚的 policy')
+  assert(candidate.request.outcomes.day.netBudgetR === -2, 'outcome 必须使用同一 policy 的 1R 金额')
+  assert(candidate.request.outcomes.day.limitR === 1, 'outcome 限额必须来自 pending 绑定的 policy')
+}
+
 export function testRiskBecomingBelowStillInvalidatesOldConfirmation(): void {
   const state = triggeredState('planned')
   const candidate = requestTradeOpenCandidate(state, 'target')

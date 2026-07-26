@@ -175,3 +175,57 @@ export function testCompletionMetricsAndRiskUseTheSameFrozenTradingDay(): void {
   assert(legacyCompleted.riskSnapshot?.weeklyOutcome.netBudgetR === -1, '旧交易风险结果必须使用同一交易日起始小时')
   assert(state.trades[0]?.closedTradingDayKey === undefined, '生成快照不得突变旧交易业务日字段')
 }
+
+export function testHistoricalDailyOutcomesOnlyIncludeFactsKnownByThatDay(): void {
+  const state = stateAtRevision(7)
+  state.trades = [
+    {
+      ...trade(7),
+      id: 'monday-loss',
+      pnl: -1_000,
+      closedAt: '2026-07-20T09:00:00.000Z',
+      closedTradingDayKey: '2026-07-20',
+    },
+    {
+      ...trade(7),
+      id: 'tuesday-loss',
+      pnl: -2_000,
+      closedAt: '2026-07-21T09:00:00.000Z',
+      closedTradingDayKey: '2026-07-21',
+    },
+  ]
+
+  const completed = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-21T23:00:00.000+08:00'),
+  ).review
+  const [monday, tuesday] = completed.riskSnapshot?.dailyOutcomes ?? []
+
+  assert(monday?.date === '2026-07-20' && monday.netBudgetR === -1, '周一只应包含周一已发生亏损')
+  assert(monday.coverage === 'complete', '周二正常交易不得把周一历史结果标为 unknown')
+  assert(tuesday?.date === '2026-07-21' && tuesday.netBudgetR === -2, '周二应包含周二当日亏损')
+  assert(tuesday.coverage === 'complete', '完成日前正常亏损必须保持完整覆盖')
+}
+
+export function testLossAfterReviewCompletionRemainsUnknown(): void {
+  const state = stateAtRevision(7)
+  state.trades = [{
+    ...trade(7),
+    id: 'future-loss',
+    closedAt: '2026-07-22T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-22',
+  }]
+
+  const completed = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-21T23:00:00.000+08:00'),
+  ).review
+
+  assert(completed.riskSnapshot?.dailyOutcomes[0]?.coverage === 'unknown', '完成业务日之后的亏损仍必须 unknown')
+  assert(
+    completed.riskSnapshot?.dailyOutcomes[0]?.unknownReasons.includes('future-loss-close-date') ?? false,
+    '非法 future loss 必须保留具体原因',
+  )
+}

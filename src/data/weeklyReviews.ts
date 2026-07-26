@@ -204,7 +204,10 @@ function buildWeeklyRiskReviewSnapshot(
   })).values()]
   const dailyOutcomes = reviewDays.map((date) => ({
     ...resolveRiskOutcomes({
-      trades: riskTrades,
+      trades: riskTrades.filter((trade) => {
+        const closedDay = closedTradingDayKey(trade, state.display.tradingDayStartHour)
+        return closedDay === null || closedDay <= date || closedDay > completionTradingDay
+      }),
       policies: state.riskPolicyVersions,
       monthlyLimits: state.monthlyRiskLimits,
       currentTradingDayKey: date,

@@ -200,6 +200,12 @@ async function run(): Promise<void> {
     useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
     await waitFor(() => budget.textContent?.includes('1R = ****') ?? false, '隐私模式没有隐藏 1R 金额')
     assert(!budget.textContent?.includes('$1,000'), '隐私模式不得泄露 1R 金额')
+    const capitalInput = [...preparation.querySelectorAll('label')]
+      .find((label) => label.textContent?.includes('资金基准'))
+      ?.querySelector<HTMLInputElement>('input')
+    const privateRiskAmountInput = preparation.querySelector<HTMLInputElement>('[aria-label="1R 金额"]')
+    assert(capitalInput?.type === 'password', '隐私模式必须遮蔽准备卡资金基准')
+    assert(privateRiskAmountInput?.type === 'password', '隐私模式必须遮蔽准备卡 1R 金额')
     useStore.setState((state) => ({ display: { ...state.display, privacyMode: false } }))
 
     const partialWin = {
@@ -295,6 +301,12 @@ async function run(): Promise<void> {
     temporaryOpener.focus()
     temporaryOpener.click()
     await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), 'unknown 开仓没有打开全局确认框')
+    const gatePolicy = document.querySelector<HTMLElement>('.trade-open-risk-policy')
+    assert(gatePolicy, 'Gate 缺少有效规则摘要')
+    useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
+    await waitFor(() => gatePolicy.textContent?.includes('****') ?? false, '隐私模式没有隐藏 Gate 1R 金额')
+    assert(!gatePolicy.textContent?.includes('$1,250'), '隐私模式不得泄露 Gate 1R 金额')
+    useStore.setState((state) => ({ display: { ...state.display, privacyMode: false } }))
     if (new URLSearchParams(location.search).get('visual') === 'dialog') {
       await new Promise<void>(() => {})
     }
@@ -401,6 +413,10 @@ async function run(): Promise<void> {
     click('确认继续开仓')
     await waitFor(() => document.body.textContent?.includes('工作台恢复失败') ?? false, 'reload 失败没有进入 reload-required')
     assert(durableReason.value === '持久化成功后恢复工作台', 'reload-required 必须保留原因')
+    await waitFor(
+      () => document.activeElement?.textContent?.trim() === '重新载入已提交快照',
+      'reload-required 必须显式聚焦唯一恢复动作',
+    )
     assert(![...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === '取消开仓'), 'reload-required 不得保留取消动作')
     assert(![...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === '重试确认'), 'reload-required 不得再次提交确认')
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))

@@ -86,6 +86,11 @@ export function ModalShell({
         panel.focus()
         return
       }
+      if (!panel.contains(document.activeElement)) {
+        event.preventDefault()
+        ;(event.shiftKey ? last : first).focus()
+        return
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault()
         last.focus()
