@@ -42,7 +42,9 @@ import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
+  completeWeeklyReviewCandidate,
   normalizeWeeklyReviews,
+  reopenCompletedReview,
   type WeeklyReview,
 } from '@/data/weeklyReviews'
 import { normalizeInitialStopLoss, prepareTradeResultEdit } from '@/lib/tradeResult'
@@ -437,6 +439,8 @@ interface State {
   importData: (payload: ExportPayload) => void
   upsertWeeklyReview: (review: WeeklyReview) => void
   updateWeeklyReview: (id: string, patch: Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>) => void
+  completeWeeklyReview: (id: string) => void
+  reopenWeeklyReview: (id: string) => void
   upsertQuickNote: (note: QuickNote) => void
   updateQuickNote: (id: string, patch: Partial<Pick<QuickNote, 'title' | 'contentHtml' | 'pinned'>>) => void
   removeQuickNote: (id: string) => void
@@ -521,6 +525,16 @@ export const useStore = create<State>()((set, get) => ({
             review.id === id
               ? { ...review, ...patch, updatedAt: new Date().toISOString() }
               : review,
+          )),
+        })),
+      completeWeeklyReview: (id) =>
+        set((state) => ({
+          weeklyReviews: completeWeeklyReviewCandidate(state, id).weeklyReviews,
+        })),
+      reopenWeeklyReview: (id) =>
+        set((state) => ({
+          weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((review) =>
+            review.id === id ? reopenCompletedReview(review) : review,
           )),
         })),
       saveTradeView: (view) =>

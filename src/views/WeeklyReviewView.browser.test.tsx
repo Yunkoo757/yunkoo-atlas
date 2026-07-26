@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
+import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
@@ -73,6 +74,40 @@ function makeTrade(id: string, status: 'win' | 'loss' | 'missed', pnl: number | 
   }
 }
 
+function riskOutcome(netBudgetR: number, limitR: number): RiskPeriodOutcomeSnapshot {
+  const consumedR = Math.max(0, -netBudgetR)
+  return {
+    netBudgetR,
+    limitR,
+    consumedR,
+    remainingR: Math.max(0, limitR - consumedR),
+    progress: consumedR / limitR,
+    coverage: 'complete',
+    triggered: consumedR >= limitR,
+    includedTradeCount: 2,
+    excludedTradeCount: 0,
+    unknownReasons: [],
+  }
+}
+
+function riskEvent(): RiskOverrideEvent {
+  const outcome = riskOutcome(-1, 2)
+  return {
+    id: 'override-1',
+    tradeId: 'two',
+    tradeIdentityAtDecision: { ref: 'TRD-two', symbol: 'ETHUSDT', tradeKind: 'live' },
+    linkState: 'unresolved',
+    decisionType: 'triggered',
+    tradingDayKeyAtDecision: weekStartFor(),
+    policyVersionId: 'policy-browser',
+    createdAt: `${weekStartFor()}T10:00:00.000Z`,
+    reason: '触线后只执行预设止损',
+    fingerprint: 'browser-fixture',
+    outcomesAtDecision: { day: outcome, week: outcome, month: outcome },
+    unknownReasons: [],
+  }
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -85,6 +120,27 @@ async function run(): Promise<void> {
     useStore.setState({
       trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50), makeTrade('three', 'missed', null)],
       weeklyReviews: [],
+      riskPolicyVersions: [{
+        id: 'policy-browser',
+        sourceWeekStart: weekStartFor(),
+        effectiveTradingDay: weekStartFor(),
+        capitalBase: 10_000,
+        riskPercent: 1,
+        riskAmount: 100,
+        dailyLossLimitR: 2,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '浏览器冻结规则',
+        confirmedAt: `${weekStartFor()}T07:00:00.000Z`,
+      }],
+      monthlyRiskLimits: [{
+        id: `monthly-risk-limit:${weekStartFor().slice(0, 7)}`,
+        monthKey: weekStartFor().slice(0, 7),
+        limitR: 10,
+        sourcePolicyVersionId: 'policy-browser',
+        lockedAt: `${weekStartFor()}T07:00:00.000Z`,
+      }],
+      riskOverrideEvents: [riskEvent()],
     })
     root.render(
       <MemoryRouter initialEntries={['/weekly-review']}>
@@ -133,10 +189,21 @@ async function run(): Promise<void> {
     assert(completed?.metricsSnapshot?.tradeCount === 2, '错过机会被错误计入平仓交易数量')
     assert(completed?.metricsSnapshot?.missedCount === 1, '完成时没有冻结执行缺口数量')
     assert(completed?.metricsSnapshot?.mistakeTagCounts['情绪化'] === undefined, '错过机会标签污染了已执行交易错误统计')
+    assert(completed.completedAt === completed.riskSnapshot?.frozenAt, '完成与风险冻结必须使用同一时间戳')
+    assert(document.body.textContent?.includes('浏览器冻结规则'), '已完成复盘没有展示冻结规则')
+    assert(document.body.textContent?.includes('完成时月度'), '已完成复盘没有展示冻结月度结果')
+    assert(document.body.textContent?.includes('触线后只执行预设止损'), '已完成复盘没有展示确认原因')
+    assert(document.body.textContent?.includes('TRD-two · ETHUSDT · 关联未解析'), '未解析事件没有展示冻结身份与关联状态')
+
+    useStore.setState({ trades: [], riskPolicyVersions: [], riskOverrideEvents: [] })
+    await waitFor(() => document.body.textContent?.includes('触线后只执行预设止损') ?? false, '删除关联交易后冻结事件消失')
+    assert(document.body.textContent?.includes('浏览器冻结规则'), '完成后读取了实时规则而不是快照')
+    assert(document.body.textContent?.includes('+$100'), '完成后读取了实时绩效而不是快照')
 
     clickButton('重新打开')
     await waitFor(() => useStore.getState().weeklyReviews[0]?.status === 'draft', '完成的复盘无法重新打开')
     assert(useStore.getState().weeklyReviews[0]?.metricsSnapshot === null, '重开后应恢复实时指标')
+    assert(useStore.getState().weeklyReviews[0]?.riskSnapshot === undefined, '重开后应清除风险快照')
 
     const priorDate = new Date(`${weekStartFor()}T12:00:00`)
     priorDate.setDate(priorDate.getDate() - 7)
@@ -158,7 +225,13 @@ async function run(): Promise<void> {
   } finally {
     window.removeEventListener('error', capturePageError)
     root.unmount()
-    useStore.setState({ trades: previous.trades, weeklyReviews: previous.weeklyReviews })
+    useStore.setState({
+      trades: previous.trades,
+      weeklyReviews: previous.weeklyReviews,
+      riskPolicyVersions: previous.riskPolicyVersions,
+      monthlyRiskLimits: previous.monthlyRiskLimits,
+      riskOverrideEvents: previous.riskOverrideEvents,
+    })
   }
 }
 
