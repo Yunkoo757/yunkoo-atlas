@@ -358,6 +358,34 @@ export function testSnapshotValidationRejectsMalformedRiskEntities(): void {
   for (const patch of [
     { weeklyRiskPreparations: [{ ...full.weeklyRiskPreparations[0], weekStart: '2026-02-30' }] },
     { riskPolicyVersions: [{ ...full.riskPolicyVersions[0], riskAmount: 99 }] },
+    { riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      capitalBase: 100.004,
+      riskPercent: 1,
+      riskAmount: 1,
+    }] },
+    { riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      capitalBase: 10000,
+      riskPercent: 1,
+      riskAmount: 99.999,
+    }] },
+    { weeklyRiskPreparations: [{
+      ...full.weeklyRiskPreparations[0],
+      createdAt: '2026-07-26T07:00:00',
+    }] },
+    { riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      confirmedAt: '2026-07-26',
+    }] },
+    { monthlyRiskLimits: [{
+      ...full.monthlyRiskLimits[0],
+      lockedAt: '2026-07-26T08:00:00',
+    }] },
+    { riskOverrideEvents: [{
+      ...full.riskOverrideEvents[0],
+      createdAt: '2026-07-26T08:00:00',
+    }] },
     { monthlyRiskLimits: [{ ...full.monthlyRiskLimits[0], limitR: Number.POSITIVE_INFINITY }] },
     { riskOverrideEvents: [{
       ...full.riskOverrideEvents[0],
@@ -372,6 +400,14 @@ export function testSnapshotValidationRejectsMalformedRiskEntities(): void {
     }
     assert(rejected, '损坏的风险实体不得进入资料库快照')
   }
+
+  assertValidPersistedSnapshot({
+    ...full,
+    riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      confirmedAt: '2026-07-26T16:00:00+08:00',
+    }],
+  })
 }
 
 export function testSnapshotValidationCoversWorkflowMetadataStructures(): void {

@@ -10,6 +10,7 @@ import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import type { ActivePersistedSnapshotKey } from '@/storage/persistedKeys'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -123,12 +124,7 @@ function backfillClosedTradingDayKeys(
   tradingDayStartHour: unknown,
 ): unknown {
   if (!Array.isArray(value)) return value
-  const startHour = typeof tradingDayStartHour === 'number' &&
-    Number.isInteger(tradingDayStartHour) &&
-    tradingDayStartHour >= 0 &&
-    tradingDayStartHour <= 23
-    ? tradingDayStartHour
-    : 0
+  const startHour = normalizeTradingDayStartHour(tradingDayStartHour)
   return value.map((trade) => {
     if (
       !isRecord(trade) ||

@@ -210,6 +210,35 @@ export function testV8OnlyBackfillsClosedLiveTrades(): void {
   assert(decoded.trades[0]?.closedTradingDayKey === undefined, '非终态交易不得生成平仓业务日事实')
 }
 
+export function testV8BackfillUsesDefaultTradingDayBoundaryWhenDisplayOmitsIt(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const { tradingDayStartHour: _startHour, ...displayWithoutBoundary } = fixture.display
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: fixture.trades.map((trade) => ({
+      ...trade,
+      closedAt: '2026-07-27T05:30:00+08:00',
+      closedTradingDayKey: undefined,
+    })),
+    display: displayWithoutBoundary,
+  }, { version: 8 })
+  assert(decoded.trades[0]?.closedTradingDayKey === '2026-07-26', '缺省边界必须使用产品默认 6 点')
+}
+
+export function testV8BackfillLeavesInvalidDatesAndTerminalPaperTradesWithoutKeys(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const [trade] = fixture.trades
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: [
+      { ...trade, id: 'invalid-date', closedAt: '2026-02-30', closedTradingDayKey: undefined },
+      { ...trade, id: 'paper-trade', tradeKind: 'paper', closedTradingDayKey: undefined },
+    ],
+  }, { version: 8 })
+  assert(decoded.trades[0]?.closedTradingDayKey === undefined, '非法 closedAt 必须保持缺失 key')
+  assert(decoded.trades[1]?.closedTradingDayKey === undefined, '终态 paper 交易不得回填 live 风险事实')
+}
+
 export function testSnapshotCodecAppliesOnlyTheKnownVersionSpecificTradeMigrations(): void {
   const [currentTrade] = createFullPersistedSnapshotFixture().trades
   const { strategyId: _strategyId, tradeKind: _tradeKind, ...legacyTrade } = currentTrade

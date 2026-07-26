@@ -5,18 +5,17 @@ import {
   createDefaultMistakeTagPresets,
   createDefaultTagPresets,
 } from '@/config/defaultProfile'
-import { DEFAULT_DISPLAY, normalizeDisplay } from '@/lib/tradeFilters'
+import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import {
   migrateTrades,
-  normalizeTradeStrategyReferences,
 } from '@/lib/strategies'
-import { normalizeTrades } from '@/lib/tradeKind'
 import { externalizeNoteImages, collectAssetIdsFromSnapshot } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
+import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 
 interface ZustandPersistEnvelope {
   state?: {
@@ -36,20 +35,17 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
     const parsed = JSON.parse(raw) as ZustandPersistEnvelope
     const s = parsed.state
     if (!s) return null
-    const normalized = normalizeTradeStrategyReferences(s.trades ?? [], s.strategies)
-    const trades = normalizeTrades(normalized.trades)
-    return {
-      trades,
-      weeklyRiskPreparations: [],
-      riskPolicyVersions: [],
-      monthlyRiskLimits: [],
-      riskOverrideEvents: [],
-      strategies: normalized.strategies,
-      starredIds: s.starredIds ?? [],
-      subscribedIds: s.subscribedIds ?? [],
-      pinnedStrategyIds: s.pinnedStrategyIds ?? [],
-      display: normalizeDisplay(s.display),
-    }
+    return decodeCanonicalSnapshot(
+      {
+        trades: s.trades ?? [],
+        strategies: s.strategies,
+        starredIds: s.starredIds ?? [],
+        subscribedIds: s.subscribedIds ?? [],
+        pinnedStrategyIds: s.pinnedStrategyIds ?? [],
+        display: s.display,
+      },
+      { version: 8, label: 'legacy localStorage snapshot' },
+    )
   } catch {
     return null
   }

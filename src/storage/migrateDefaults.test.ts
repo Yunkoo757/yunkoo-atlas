@@ -287,6 +287,70 @@ export async function testLegacyLocalStorageWithTradesAndEmptyStrategiesRepairsR
   }
 }
 
+export async function testLegacyLocalStorageTerminalLiveTradeUsesCanonicalV8Migration(): Promise<void> {
+  const previousDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  if (previousDescriptor && !previousDescriptor.configurable) return
+  const values = new Map<string, string>()
+  const localStorageStub: Storage = {
+    get length() { return values.size },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => { values.delete(key) },
+    setItem: (key, value) => { values.set(key, String(value)) },
+  }
+  const terminalTrade: Trade = {
+    id: 'legacy-terminal-live',
+    ref: 'TRD-LEGACY-CLOSED',
+    symbol: 'BTCUSDT',
+    side: 'long',
+    status: 'loss',
+    conviction: 'medium',
+    strategyId: 'strategy-1',
+    tradeKind: 'live',
+    tags: [],
+    mistakeTags: [],
+    reviewStatus: 'unreviewed',
+    reviewCategory: 'normal',
+    entry: 100,
+    exit: null,
+    size: 1,
+    pnl: -100,
+    rMultiple: null,
+    resultSource: 'pnl',
+    openedAt: '2026-07-26T08:00:00+08:00',
+    closedAt: '2026-07-27T05:30:00+08:00',
+    note: '',
+  }
+  localStorageStub.setItem(LEGACY_LOCAL_STORAGE_KEY, JSON.stringify({
+    state: {
+      trades: [terminalTrade],
+      strategies: [{ id: 'strategy-1', name: '旧策略', icon: 'target', color: '#5e6ad2' }],
+      starredIds: [],
+      subscribedIds: [],
+      pinnedStrategyIds: [],
+      display: { ...DEFAULT_DISPLAY, tradingDayStartHour: 6 },
+    },
+  }))
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: localStorageStub,
+  })
+
+  const target = new MemoryAdapter(null)
+  try {
+    await migrateFromLocalStorageIfNeeded(target)
+    assert(
+      target.snapshot?.trades[0]?.closedTradingDayKey === '2026-07-26',
+      'legacy localStorage 必须经 v8 中央 codec 固化终态 live 业务日',
+    )
+    assert(target.snapshot?.riskPolicyVersions.length === 0, '中央迁移必须补齐 v9 风险数组')
+  } finally {
+    if (previousDescriptor) Object.defineProperty(globalThis, 'localStorage', previousDescriptor)
+    else delete (globalThis as { localStorage?: Storage }).localStorage
+  }
+}
+
 export async function testDashboardDisclosesTheSingleUsdReportCurrency(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/Dashboard.tsx', 'utf8')

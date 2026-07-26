@@ -6,6 +6,7 @@ import type {
   WeeklyRiskPreparation,
 } from '@/data/riskManagement'
 import { toMoneyCents } from '@/lib/riskBudget'
+import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 
@@ -46,11 +47,9 @@ function requireCanonicalDay(value: string, label: string): string {
 }
 
 function requireIsoTimestamp(value: string): string {
-  const match = /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value)
-  if (!match || !Number.isFinite(new Date(value).getTime())) {
+  if (!isCanonicalIsoInstant(value)) {
     throw new Error('confirmedAt 必须是合法 ISO 时间')
   }
-  requireCanonicalDay(match[1]!, 'confirmedAt 日期')
   return value
 }
 

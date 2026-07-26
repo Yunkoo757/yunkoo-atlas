@@ -1,4 +1,5 @@
 import type { PersistedSnapshot } from '@/storage/types'
+import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
 
@@ -53,7 +54,7 @@ function isCanonicalMonth(value: unknown): value is string {
 }
 
 function isTimestamp(value: unknown): value is string {
-  return typeof value === 'string' && Boolean(value.trim()) && Number.isFinite(Date.parse(value))
+  return isCanonicalIsoInstant(value)
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -447,7 +448,10 @@ function hasCanonicalRiskAmount(value: Record<string, unknown>): boolean {
     if (!isPositiveFiniteNumber(value.riskAmount)) return false
     const capitalCents = toMoneyCents(value.capitalBase)
     const expectedCents = toMoneyCents((capitalCents / 100) * value.riskPercent / 100)
-    return capitalCents > 0 && expectedCents > 0 && toMoneyCents(value.riskAmount) === expectedCents
+    return capitalCents > 0 &&
+      value.capitalBase === capitalCents / 100 &&
+      expectedCents > 0 &&
+      value.riskAmount === expectedCents / 100
   } catch {
     return false
   }
