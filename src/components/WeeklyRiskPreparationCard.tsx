@@ -85,6 +85,9 @@ export function WeeklyRiskPreparationCard({
     [policies, tradingDay],
   )
   const reviewed = Boolean(preparation?.reviewedAt && preparation.confirmedPolicyVersionId)
+  const confirmedPolicy = preparation?.confirmedPolicyVersionId
+    ? policies.find((item) => item.id === preparation.confirmedPolicyVersionId)
+    : null
   const sourceDraft = preparation?.draft ?? draftFromPolicy(policy)
   const [draft, setDraft] = useState<RiskPolicyDraft>(() => sourceDraft)
   const [editingReviewed, setEditingReviewed] = useState(false)
@@ -137,6 +140,9 @@ export function WeeklyRiskPreparationCard({
             日 {fmtLimitR(sourceDraft.dailyLossLimitR)} · 周 {fmtLimitR(sourceDraft.weeklyLossLimitR)} ·
             未来月默认 {fmtLimitR(sourceDraft.monthlyLossLimitRDefault)}
           </p>
+          {confirmedPolicy && confirmedPolicy.effectiveTradingDay > tradingDay ? (
+            <p>本周规则将于 {confirmedPolicy.effectiveTradingDay} 起生效</p>
+          ) : null}
           <p>
             {currentMonthLimit
               ? `当前月 ${currentMonthKey} 已锁定 ${fmtLimitR(currentMonthLimit.limitR)}`

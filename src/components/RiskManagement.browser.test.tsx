@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { MonthlyRiskLimit, RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { TradeOpenRiskDialog } from '@/components/TradeOpenRiskDialog'
-import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { TodayWorkspace } from '@/views/TodayWorkspace'
@@ -55,6 +55,11 @@ function setText(element: HTMLInputElement | HTMLTextAreaElement, value: string)
 }
 
 const day = getTradingDayKey(new Date(), 0)
+const nextTradingDay = (() => {
+  const date = parseLocalDate(day)
+  date.setDate(date.getDate() + 1)
+  return formatYmd(date)
+})()
 const weekStart = weekStartFor(parseLocalDate(day))
 const monthKey = day.slice(0, 7)
 const confirmedAt = new Date().toISOString()
@@ -199,6 +204,18 @@ async function run(): Promise<void> {
     assert(!meter.textContent?.includes('剩余'), 'unknown 不得显示安全剩余额度')
     assert(budget.textContent?.includes('无法确认当前是否触线'), 'unknown 必须给出明确行动说明')
 
+    useStore.setState({
+      riskPolicyVersions: [{ ...policy, effectiveTradingDay: nextTradingDay }],
+      monthlyRiskLimits: [],
+    })
+    await waitFor(
+      () => budget.textContent?.includes(`已确认规则将于 ${nextTradingDay} 起生效`) ?? false,
+      '待生效规则不应被误报为尚未配置有效规则',
+    )
+    assert(!budget.textContent?.includes('尚未配置有效规则'), '待生效规则不得显示为完全未配置')
+    useStore.setState({ riskPolicyVersions: [policy], monthlyRiskLimits: [monthlyLimit] })
+    await waitFor(() => !(budget.textContent?.includes('已确认规则将于') ?? false), '恢复有效规则 fixture 失败')
+
     useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
     await waitFor(() => budget.textContent?.includes('1R = ****') ?? false, '隐私模式没有隐藏 1R 金额')
     assert(!budget.textContent?.includes('$1,000'), '隐私模式不得泄露 1R 金额')
@@ -298,6 +315,10 @@ async function run(): Promise<void> {
     assert(useStore.getState().monthlyRiskLimits[0]?.limitR === 10, '修改未来月默认值不得覆盖当前月锁定值')
     await waitFor(() => reviewedCard.textContent?.includes('未来月默认 12.0R') ?? false, '确认后摘要应展示新的未来月默认值')
     assert(reviewedCard.textContent?.includes('当前月') && reviewedCard.textContent?.includes('已锁定 10.0R'), '折叠摘要必须另示当前月锁定值')
+    assert(
+      reviewedCard.textContent?.includes(`将于 ${revisedPolicy.effectiveTradingDay} 起生效`),
+      '已复核但待生效的规则必须展示生效日期',
+    )
 
     const temporaryOpener = document.getElementById('temporary-risk-opener') as HTMLButtonElement
     temporaryOpener.focus()

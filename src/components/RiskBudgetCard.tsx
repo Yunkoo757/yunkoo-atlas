@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { AlertCircle, Gauge } from '@/icons/appIcons'
-import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope } from '@/data/riskManagement'
+import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope, RiskPolicyVersion } from '@/data/riskManagement'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
@@ -38,6 +38,20 @@ function actionCopy(outcome: RiskPeriodOutcomeSnapshot): string {
   if (outcome.progress >= 0.9) return '接近止损预算，下一笔开仓前先复核风险。'
   if (outcome.coverage === 'partial') return '按已确认结果保守计算，仍有盈利或日期未计入。'
   return '预算仍在纪律范围内。'
+}
+
+function nextScheduledPolicy(
+  policies: readonly RiskPolicyVersion[],
+  tradingDay: string,
+): RiskPolicyVersion | null {
+  return policies
+    .filter((item) => item.effectiveTradingDay > tradingDay && Number.isFinite(Date.parse(item.confirmedAt)))
+    .sort((left, right) =>
+      left.effectiveTradingDay.localeCompare(right.effectiveTradingDay) ||
+      Date.parse(left.confirmedAt) - Date.parse(right.confirmedAt) ||
+      left.id.localeCompare(right.id),
+    )
+    .at(0) ?? null
 }
 
 function RiskMeter({
@@ -104,6 +118,10 @@ export function RiskBudgetCard({
     currentTradingDayKey: tradingDay,
   }), [trades, policies, monthlyLimits, tradingDay])
   const policy = useMemo(() => activeRiskPolicy(policies, tradingDay), [policies, tradingDay])
+  const scheduledPolicy = useMemo(
+    () => nextScheduledPolicy(policies, tradingDay),
+    [policies, tradingDay],
+  )
 
   return (
     <section className="risk-budget-card" data-risk-budget aria-labelledby="risk-budget-title">
@@ -115,7 +133,9 @@ export function RiskBudgetCard({
           <p>
             {policy
               ? `1R = ${privacyMode ? '****' : fmtMoney(policy.riskAmount)} · ${policy.riskPercent}% 资金风险`
-              : '尚未配置有效规则；先完成本周风险准备。'}
+              : scheduledPolicy
+                ? `已确认规则将于 ${scheduledPolicy.effectiveTradingDay} 起生效；当前交易日不追溯计入。`
+                : '尚未配置有效规则；先完成本周风险准备。'}
           </p>
         </div>
       </header>
@@ -131,7 +151,9 @@ export function RiskBudgetCard({
       </div>
       <footer className="risk-budget-discipline">
         <AlertCircle size={14} aria-hidden />
-        <span>{policy?.disciplineText || '先确认资金基准、每 R 风险与三周期止损线。'}</span>
+        <span>{policy?.disciplineText || (scheduledPolicy
+          ? `规则将在 ${scheduledPolicy.effectiveTradingDay} 起用于风险统计。`
+          : '先确认资金基准、每 R 风险与三周期止损线。')}</span>
       </footer>
     </section>
   )
