@@ -1,4 +1,9 @@
-import type { RiskOverrideEvent, RiskPolicyVersion, MonthlyRiskLimit } from '@/data/riskManagement'
+import type {
+  MonthlyRiskLimit,
+  RiskOverrideEvent,
+  RiskPeriodOutcomeSnapshot,
+  RiskPolicyVersion,
+} from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import {
@@ -50,6 +55,23 @@ export type RiskGatedTradeOpenCommitResult =
   | { kind: 'cancelled'; reason: 'target-missing' | 'target-no-longer-eligible' }
   | { kind: 'needs-reconfirmation' }
 
+export class RiskGatePublishAfterCommitError<
+  State extends RiskGateCommitState = RiskGateCommitState,
+> extends Error {
+  readonly code = 'risk-gate-publish-after-commit'
+  readonly durablyCommitted = true
+  readonly requiresStorageReload = true
+
+  constructor(
+    readonly committedState: State,
+    readonly committedSnapshot: PersistedSnapshot,
+    readonly cause: unknown,
+  ) {
+    super('风险开仓已写入存储，但内存状态发布失败；必须从 storage 重新载入')
+    this.name = 'RiskGatePublishAfterCommitError'
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -87,6 +109,22 @@ function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSna
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
     riskOverrideEvents: snapshot.riskOverrideEvents,
   })
+}
+
+function cloneRiskOutcome(outcome: RiskPeriodOutcomeSnapshot): RiskPeriodOutcomeSnapshot {
+  return { ...outcome, unknownReasons: [...outcome.unknownReasons] }
+}
+
+function freezeRiskOverrideEvent(event: RiskOverrideEvent): RiskOverrideEvent {
+  Object.freeze(event.tradeIdentityAtDecision)
+  for (const outcome of Object.values(event.outcomesAtDecision)) {
+    Object.freeze(outcome.unknownReasons)
+    Object.freeze(outcome)
+  }
+  Object.freeze(event.outcomesAtDecision)
+  Object.freeze(event.unknownReasons)
+  Object.freeze(event)
+  return event
 }
 
 function buildOpenedSnapshot<State extends RiskGateCommitState>(
@@ -129,7 +167,7 @@ function buildOpenedSnapshot<State extends RiskGateCommitState>(
       timestamp,
     }],
   }
-  const event: RiskOverrideEvent = {
+  const event = freezeRiskOverrideEvent({
     id: eventId,
     tradeId: trade.id,
     tradeIdentityAtDecision: {
@@ -144,14 +182,19 @@ function buildOpenedSnapshot<State extends RiskGateCommitState>(
     createdAt: timestamp,
     reason,
     fingerprint: request.fingerprint,
-    outcomesAtDecision: request.outcomes,
+    outcomesAtDecision: {
+      day: cloneRiskOutcome(request.outcomes.day),
+      week: cloneRiskOutcome(request.outcomes.week),
+      month: cloneRiskOutcome(request.outcomes.month),
+    },
     unknownReasons: [...request.unknownReasons],
-  }
+  })
   const trades = baseline.state.trades.map((item) => item.id === trade.id ? opened : item)
-  const riskOverrideEvents = [...baseline.state.riskOverrideEvents, event]
+  const stateRiskOverrideEvents = [...baseline.state.riskOverrideEvents, event]
+  const snapshotRiskOverrideEvents = [...baseline.snapshot.riskOverrideEvents, event]
   return {
-    state: { ...baseline.state, trades, riskOverrideEvents },
-    snapshot: { ...baseline.snapshot, trades, riskOverrideEvents },
+    state: { ...baseline.state, trades, riskOverrideEvents: stateRiskOverrideEvents },
+    snapshot: { ...baseline.snapshot, trades, riskOverrideEvents: snapshotRiskOverrideEvents },
   }
 }
 
@@ -162,7 +205,7 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
   if (!reason) throw new Error('风险覆盖原因不能为空')
   const unlockInteraction = lockStorageCutoverInteraction()
   let suspended = false
-  let committed = false
+  let durablyCommitted = false
   try {
     await flushStorageBeforeCutover()
     suspendPersist()
@@ -208,12 +251,20 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
     } else {
       await storage.commitImport(candidate.snapshot, [])
     }
-    input.publish(candidate.state)
-    committed = true
+    durablyCommitted = true
+    try {
+      input.publish(candidate.state)
+    } catch (error) {
+      throw new RiskGatePublishAfterCommitError(
+        candidate.state,
+        candidate.snapshot,
+        error,
+      )
+    }
     return { kind: 'committed' }
   } finally {
     if (suspended) {
-      if (committed) discardPendingAndResumePersist()
+      if (durablyCommitted) discardPendingAndResumePersist()
       else resumePersist()
     }
     unlockInteraction()

@@ -6,11 +6,21 @@ import type {
 import { StorageRevisionConflictError } from '@/storage/adapter'
 import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
-import { getPersistSuspendDepth } from '@/storage/persist'
+import {
+  disablePersistWrites,
+  enablePersistWrites,
+  getPersistenceDiagnostics,
+  getPersistSuspendDepth,
+  hasPendingChanges,
+  schedulePersist,
+} from '@/storage/persist'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import type { PersistedSnapshot } from '@/storage/types'
 import { requestTradeOpenCandidate } from '@/lib/tradeOpenRiskGate'
-import { commitRiskGatedTradeOpen } from '@/lib/riskGatedTradeOpenCommit'
+import {
+  commitRiskGatedTradeOpen,
+  RiskGatePublishAfterCommitError,
+} from '@/lib/riskGatedTradeOpenCommit'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -80,6 +90,153 @@ function electronAdapter(commit: (snapshot: PersistedSnapshot) => Promise<void>)
   return {
     commitImport: (snapshot: PersistedSnapshot) => commit(snapshot),
   } as unknown as StorageAdapter
+}
+
+export async function testPublishFailureAfterDurableCommitRequiresReloadAndDiscardsAutosave(): Promise<void> {
+  const original = baseline()
+  let persisted = original
+  let error: unknown
+  try {
+    await commitRiskGatedTradeOpen({
+      request: pending(original),
+      reason: 'publish 失败测试',
+      storage: electronAdapter(async (snapshot) => { persisted = snapshot }),
+      captureLatestState: () => ({
+        state: original,
+        snapshot: original,
+        currentTradingDayKey: '2026-07-27',
+      }),
+      publish: () => {
+        enablePersistWrites()
+        schedulePersist(original)
+        throw new Error('store publish failed')
+      },
+      now: () => '2026-07-27T10:00:00.000Z',
+      createActivityId: () => 'activity-open-after-publish-failure',
+      createEventId: () => 'override-after-publish-failure',
+    })
+  } catch (reason) {
+    error = reason
+  }
+
+  await Promise.resolve()
+  await Promise.resolve()
+
+  try {
+    assert(error instanceof RiskGatePublishAfterCommitError, 'durable commit 后 publish 失败必须使用专用错误')
+    const commitError = error as RiskGatePublishAfterCommitError<PersistedSnapshot>
+    assert(commitError.durablyCommitted && commitError.requiresStorageReload, '错误必须明确要求从 storage reload')
+    assert(commitError.cause instanceof Error && commitError.cause.message === 'store publish failed', '错误必须保留 publish cause')
+    assert(commitError.committedSnapshot === persisted, '错误必须携带已 durable commit 的完整 snapshot')
+    assert(commitError.committedState.trades.find((trade) => trade.id === 'target')?.status === 'open', '错误必须携带候选 state')
+    assert(persisted.riskOverrideEvents.at(-1)?.id === 'override-after-publish-failure', '磁盘必须保留完整 event')
+    assert(!hasPendingChanges(), 'durable commit 后必须 discard publish 触发的旧 autosave pending')
+    assert(getPersistenceDiagnostics().pendingSnapshotCount === 0, '不得留下可覆盖新磁盘的旧快照')
+    assert(getPersistSuspendDepth() === 0, 'publish 失败后必须恢复 autosave suspend depth')
+    assert(!isStorageCutoverInteractionLocked(), 'publish 失败后必须释放交互锁')
+  } finally {
+    disablePersistWrites()
+  }
+}
+
+export async function testWebPublishFailureAlsoReportsDurableCandidate(): Promise<void> {
+  const original = baseline()
+  let persisted: PersistedSnapshot | null = null
+  const storage = {
+    loadSnapshotEnvelope: async () => ({ revision: 31, snapshot: original }),
+    commitLibraryMutation: async (input: RevisionedLibraryMutation) => {
+      persisted = input.snapshot
+      return { revision: 32 }
+    },
+    commitImport: async () => { throw new Error('Web 不得调用 commitImport') },
+  } as unknown as RevisionedStorageAdapter
+  let error: unknown
+  try {
+    await commitRiskGatedTradeOpen({
+      request: pending(original),
+      reason: 'Web publish 失败测试',
+      storage,
+      captureLatestState: () => ({
+        state: original,
+        snapshot: original,
+        currentTradingDayKey: '2026-07-27',
+      }),
+      publish: () => { throw new Error('Web store publish failed') },
+    })
+  } catch (reason) {
+    error = reason
+  }
+
+  assert(error instanceof RiskGatePublishAfterCommitError, 'Web durable commit 后也必须返回专用恢复错误')
+  assert(error.committedSnapshot === persisted, 'Web 恢复错误必须携带 CAS 已提交候选')
+  const webPersisted = persisted as PersistedSnapshot | null
+  assert(webPersisted?.trades.find((trade) => trade.id === 'target')?.status === 'open', 'Web 磁盘候选必须完整 open')
+  assert(getPersistSuspendDepth() === 0, 'Web publish 失败后必须恢复 autosave')
+  assert(!isStorageCutoverInteractionLocked(), 'Web publish 失败后必须释放交互锁')
+}
+
+export async function testCommittedOverrideAuditIsDetachedAndImmutable(): Promise<void> {
+  const original = baseline()
+  const request = pending(original)
+  const originalDayNet = request.outcomes.day.netBudgetR
+  let persisted: PersistedSnapshot | null = null
+  let stateEventWasImmutable = false
+  let periodWasImmutable = false
+  let reasonsWereImmutable = false
+  await commitRiskGatedTradeOpen({
+    request,
+    reason: '冻结审计测试',
+    storage: electronAdapter(async (snapshot) => { persisted = snapshot }),
+    captureLatestState: () => ({
+      state: original,
+      snapshot: original,
+      currentTradingDayKey: '2026-07-27',
+    }),
+    publish: (state) => {
+      const event = state.riskOverrideEvents.at(-1)!
+      request.outcomes.day.netBudgetR = 999
+      request.outcomes.day.unknownReasons.push('missing-policy')
+      request.outcomes.week.unknownReasons.push('result-conflict')
+      request.outcomes.month.unknownReasons.push('missing-loss-pnl')
+      request.unknownReasons.push('future-loss-close-date')
+      try {
+        event.reason = '篡改候选 event'
+      } catch {
+        stateEventWasImmutable = true
+      }
+      try {
+        event.outcomesAtDecision.day.netBudgetR = 123
+      } catch {
+        periodWasImmutable = true
+      }
+      try {
+        event.outcomesAtDecision.day.unknownReasons.push('invalid-close-date')
+      } catch {
+        reasonsWereImmutable = true
+      }
+      state.riskOverrideEvents.push(event)
+    },
+    now: () => '2026-07-27T10:00:00.000Z',
+    createActivityId: () => 'activity-open-frozen-audit',
+    createEventId: () => 'override-frozen-audit',
+  })
+
+  assert(persisted !== null, 'adapter 必须收到候选 snapshot')
+  const persistedSnapshot = persisted as PersistedSnapshot
+  const event = persistedSnapshot.riskOverrideEvents.at(-1)!
+  assert(stateEventWasImmutable, '候选 state 与 snapshot 共享的 event 必须深层不可变')
+  assert(periodWasImmutable, '每个 period 审计对象必须不可变')
+  assert(reasonsWereImmutable, '每个 period 的 unknownReasons 必须不可变')
+  assert(persistedSnapshot.riskOverrideEvents.length === 1, '候选 state 的 event 数组修改不得污染持久 snapshot')
+  assert(event.reason === '冻结审计测试', '候选 event 原地修改不得改变持久审计原因')
+  assert(event.outcomesAtDecision.day.netBudgetR === originalDayNet, 'pending period 修改不得改变 event')
+  assert(event.outcomesAtDecision.day.unknownReasons.length === 0, 'day unknownReasons 必须去别名')
+  assert(event.outcomesAtDecision.week.unknownReasons.length === 0, 'week unknownReasons 必须单独去别名')
+  assert(event.outcomesAtDecision.month.unknownReasons.length === 0, 'month unknownReasons 必须单独去别名')
+  assert(event.unknownReasons.length === 0, '顶层 unknownReasons 必须去别名')
+  assert(event.outcomesAtDecision.day !== request.outcomes.day, 'event day 必须复制 pending day')
+  assert(event.outcomesAtDecision.week !== request.outcomes.week, 'event week 必须复制 pending week')
+  assert(event.outcomesAtDecision.month !== request.outcomes.month, 'event month 必须复制 pending month')
 }
 
 export async function testElectronPublishesOnlyAfterAtomicSnapshotCommit(): Promise<void> {
