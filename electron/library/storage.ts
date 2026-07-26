@@ -18,6 +18,13 @@ import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
 import { buildAssetInventory } from '../../src/storage/assetInventory'
 import { OperationalError } from '../../src/lib/operationalError'
+import {
+  assertOpenedPairVersion,
+  migrateOpenedLibraryV8ToV9,
+  recoverInterruptedSchemaMigrationFiles,
+  removeMigrationRecovery,
+  restoreVerifiedV8Pair,
+} from './schemaMigration'
 
 const SNAPSHOT_KEY = 'snapshot'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
@@ -173,6 +180,7 @@ export class LibraryStorage {
 
   async open(): Promise<void> {
     if (this.db) return
+    const schemaRecovery = recoverInterruptedSchemaMigrationFiles(this.paths)
     if (!this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
       throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
     }
@@ -197,6 +205,21 @@ export class LibraryStorage {
     } else {
       const file = fs.readFileSync(this.paths.dbFile)
       this.db = new SQL.Database(file)
+    }
+
+    if (schemaRecovery.kind === 'pending-v9-validation') {
+      try {
+        assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION, {
+          requireSnapshot: true,
+        })
+        removeMigrationRecovery(this.paths, schemaRecovery.marker)
+      } catch {
+        this.db.close()
+        restoreVerifiedV8Pair(this.paths, schemaRecovery.marker)
+        this.db = new SQL.Database(fs.readFileSync(this.paths.dbFile))
+        assertOpenedPairVersion(this.db, this.readManifest(), 8, { requireSnapshot: true })
+        removeMigrationRecovery(this.paths, schemaRecovery.marker)
+      }
     }
 
     if (!this.allowCreate) {
@@ -245,9 +268,29 @@ export class LibraryStorage {
       })
     }
 
+    if (created) {
+      this.db.run(
+        `INSERT INTO meta (key, value) VALUES ('schemaVersion', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [String(SCHEMA_VERSION)],
+      )
+    }
+
     // 仅新建库时落盘，避免每次打开都无意义地重写磁盘文件。
     if (created) {
       this.persistDb()
+    }
+
+    const manifest = this.readManifest()
+    if (manifest.schemaVersion === 8) {
+      migrateOpenedLibraryV8ToV9({ db: this.db, paths: this.paths, manifest })
+      this.db.close()
+      this.db = new SQL.Database(fs.readFileSync(this.paths.dbFile))
+    }
+    // v1-v7 exact archives retain their manifest-driven compatibility decoder.
+    // The recoverable file-pair protocol is intentionally scoped to v8 -> v9.
+    if (this.readManifest().schemaVersion >= 8) {
+      assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION)
     }
     this.recoverAssetTrash()
   }
