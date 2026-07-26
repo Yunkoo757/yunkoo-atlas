@@ -3,9 +3,12 @@ import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { applyImport } from '@/lib/importExport'
 import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
-import type { PersistedSnapshot } from '@/storage/types'
+import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
-import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
+import {
+  canonicalContractJson,
+  createFullPersistedSnapshotFixture,
+} from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -284,6 +287,209 @@ export async function testImmutableRiskConflictRejectsBeforeCommitWithoutPartial
     assert(commitCount === 0, '冲突必须在 commitImport 与附件提交前拒绝')
     assert(useStore.getState().trades === originalTrades, '冲突导入不得写入任何交易状态')
     assert(useStore.getState().riskOverrideEvents === originalOverrides, '冲突导入不得写入 override 状态')
+  } finally {
+    disablePersistWrites()
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+interface ConcurrentImmutableRiskScenario {
+  label: string
+  mutate: (current: PersistedSnapshot) => string | number
+  readSnapshot: (snapshot: PersistedSnapshot) => string | number | undefined
+  readStore: () => string | number | undefined
+}
+
+async function runConcurrentImmutableRiskScenario(
+  scenario: ConcurrentImmutableRiskScenario,
+): Promise<void> {
+  const commitStarted = deferred()
+  const allowCommit = deferred()
+  const committedSnapshots: PersistedSnapshot[] = []
+  const commitOptions: Array<{ pruneUnreferenced?: boolean } | undefined> = []
+  const persistedImportedAssetIds = new Set<string>()
+  let commitCount = 0
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      journalBridge: {
+        isElectron: true,
+        commitImport: async (
+          snapshot: PersistedSnapshot,
+          assets: ExportAssetRecord[],
+          options?: { pruneUnreferenced?: boolean },
+        ) => {
+          commitCount += 1
+          committedSnapshots.push(snapshot)
+          commitOptions.push(options)
+          const snapshotJson = JSON.stringify(snapshot)
+          for (const asset of assets) {
+            if (!options?.pruneUnreferenced || snapshotJson.includes(`journal-asset://${asset.id}`)) {
+              persistedImportedAssetIds.add(asset.id)
+            } else {
+              persistedImportedAssetIds.delete(asset.id)
+            }
+          }
+          if (commitCount === 1) {
+            commitStarted.resolve()
+            await allowCommit.promise
+          }
+          return true
+        },
+        saveSnapshot: async () => true,
+      },
+    },
+  })
+
+  const current = createFullPersistedSnapshotFixture()
+  useStore.setState({ ...current })
+  const imported = createFullPersistedSnapshotFixture()
+
+  enablePersistWrites()
+  try {
+    const importing = applyImport({
+      version: 9,
+      ...imported,
+      trades: imported.trades.map((item) => ({
+        ...item,
+        note: '<img src="data:image/png;base64,aW5saW5l">',
+      })),
+      weeklyReviews: [],
+      quickNotes: [],
+      assets: [],
+    })
+
+    await commitStarted.promise
+    const expected = scenario.mutate(current)
+    const concurrentTag = `并发字段-${scenario.label}`
+    useStore.setState((state) => ({ tagPresets: [...state.tagPresets, concurrentTag] }))
+    allowCommit.resolve()
+
+    let code: unknown
+    try {
+      await importing
+    } catch (error) {
+      code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
+    }
+
+    const compensated = committedSnapshots.at(-1)
+    assert(code === 'import-immutable-entity-conflict', `${scenario.label} 并发冲突必须传播稳定错误码`)
+    assert(commitCount === 2, `${scenario.label} 并发冲突必须执行一次补偿提交`)
+    assert(commitOptions.at(-1)?.pruneUnreferenced === true, `${scenario.label} 补偿必须清理未引用附件`)
+    assert(persistedImportedAssetIds.size === 0, `${scenario.label} 首次提交的导入附件必须被清理`)
+    assert(compensated && scenario.readSnapshot(compensated) === expected, `${scenario.label} 补偿必须持久化最新本地实体`)
+    assert(scenario.readStore() === expected, `${scenario.label} Store 不得发布旧导入候选`)
+    assert(compensated?.tagPresets?.includes(concurrentTag), `${scenario.label} 补偿必须包含其他并发持久字段`)
+    assert(
+      useStore.getState().trades[0]?.note === current.trades[0]?.note,
+      `${scenario.label} Store 不得发布包含暂存附件的旧交易`,
+    )
+    for (const field of [
+      'weeklyRiskPreparations',
+      'riskPolicyVersions',
+      'monthlyRiskLimits',
+      'riskOverrideEvents',
+    ] as const) {
+      assert(
+        canonicalContractJson(compensated?.[field]) === canonicalContractJson(useStore.getState()[field]),
+        `${scenario.label} 补偿快照必须包含最新 ${field}`,
+      )
+    }
+  } finally {
+    disablePersistWrites()
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testConcurrentImmutableRiskChangesCompensateBeforeRejectingImport(): Promise<void> {
+  await runConcurrentImmutableRiskScenario({
+    label: 'policy',
+    mutate: (current) => {
+      const disciplineText = '并发本地 policy'
+      useStore.setState({
+        riskPolicyVersions: [{ ...current.riskPolicyVersions[0]!, disciplineText }],
+      })
+      return disciplineText
+    },
+    readSnapshot: (snapshot) => snapshot.riskPolicyVersions[0]?.disciplineText,
+    readStore: () => useStore.getState().riskPolicyVersions[0]?.disciplineText,
+  })
+  await runConcurrentImmutableRiskScenario({
+    label: 'monthly-limit',
+    mutate: (current) => {
+      const limitR = 8.5
+      useStore.setState({
+        monthlyRiskLimits: [{ ...current.monthlyRiskLimits[0]!, limitR }],
+      })
+      return limitR
+    },
+    readSnapshot: (snapshot) => snapshot.monthlyRiskLimits[0]?.limitR,
+    readStore: () => useStore.getState().monthlyRiskLimits[0]?.limitR,
+  })
+  await runConcurrentImmutableRiskScenario({
+    label: 'override-event',
+    mutate: (current) => {
+      const reason = '并发本地覆盖原因'
+      useStore.setState({
+        riskOverrideEvents: [{ ...current.riskOverrideEvents[0]!, reason }],
+      })
+      return reason
+    },
+    readSnapshot: (snapshot) => snapshot.riskOverrideEvents[0]?.reason,
+    readStore: () => useStore.getState().riskOverrideEvents[0]?.reason,
+  })
+}
+
+export async function testSameValueImmutableRiskReplacementRetriesWithoutConflict(): Promise<void> {
+  const commitStarted = deferred()
+  const allowCommit = deferred()
+  let commitCount = 0
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      journalBridge: {
+        isElectron: true,
+        commitImport: async () => {
+          commitCount += 1
+          if (commitCount === 1) {
+            commitStarted.resolve()
+            await allowCommit.promise
+          }
+          return true
+        },
+        saveSnapshot: async () => true,
+      },
+    },
+  })
+
+  const current = createFullPersistedSnapshotFixture()
+  useStore.setState({ ...current })
+  const imported = createFullPersistedSnapshotFixture()
+
+  enablePersistWrites()
+  try {
+    const importing = applyImport({
+      version: 9,
+      ...imported,
+      trades: imported.trades.map((item) => ({ ...item, note: '' })),
+      weeklyReviews: [],
+      quickNotes: [],
+      assets: [],
+    })
+    await commitStarted.promise
+    useStore.setState({
+      riskPolicyVersions: [{ ...current.riskPolicyVersions[0]! }],
+    })
+    allowCommit.resolve()
+    await importing
+
+    assert(commitCount === 2, '同值并发替换应安全重试一次')
+    assert(
+      useStore.getState().riskPolicyVersions[0]?.disciplineText ===
+        current.riskPolicyVersions[0]?.disciplineText,
+      '同值并发替换不得误报不可变冲突',
+    )
   } finally {
     disablePersistWrites()
     Reflect.deleteProperty(globalThis, 'window')

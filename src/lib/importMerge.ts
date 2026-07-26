@@ -25,7 +25,7 @@ function mergeByIdPreservingLocal<T extends { id: string }>(current: T[], import
   return [...byId.values()]
 }
 
-function canonicalJson(value: unknown): string {
+export function canonicalImportValue(value: unknown): string {
   return JSON.stringify(value, (_key, nested) => {
     if (!nested || typeof nested !== 'object' || Array.isArray(nested)) return nested
     return Object.fromEntries(
@@ -47,7 +47,7 @@ function mergeImmutableById<T extends { id: string }>(
       byId.set(item.id, item)
       continue
     }
-    if (canonicalJson(local) !== canonicalJson(item)) {
+    if (canonicalImportValue(local) !== canonicalImportValue(item)) {
       throw new OperationalError(
         'import-immutable-entity-conflict',
         `导入冲突：${label} ${item.id} 与当前资料库中的同 ID 记录内容不同。`,

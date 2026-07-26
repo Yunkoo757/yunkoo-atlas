@@ -96,10 +96,11 @@ import {
   utf8ByteLength,
   type JsonImportErrorCode,
 } from '@/lib/importLimits'
+import { OperationalError } from '@/lib/operationalError'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
-import { mergeImportPayload } from '@/lib/importMerge'
+import { canonicalImportValue, mergeImportPayload } from '@/lib/importMerge'
 
 export type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
 export { mergeImportPayload } from '@/lib/importMerge'
@@ -985,6 +986,62 @@ function hasConcurrentImportedTradeConflict(
   return false
 }
 
+const IMMUTABLE_RISK_IMPORT_FIELDS = [
+  ['riskPolicyVersions', '风险策略版本'],
+  ['monthlyRiskLimits', '月度风险限额'],
+  ['riskOverrideEvents', '风险覆盖事件'],
+] as const
+
+type ImmutableRiskImportField = (typeof IMMUTABLE_RISK_IMPORT_FIELDS)[number][0]
+type ImmutableRiskImportBaseline = Map<
+  ImmutableRiskImportField,
+  Map<string, string | null>
+>
+
+function captureImmutableRiskImportBaseline(
+  current: PersistedSlice,
+  payload: ExportPayload,
+): ImmutableRiskImportBaseline {
+  const baseline: ImmutableRiskImportBaseline = new Map()
+  for (const [field] of IMMUTABLE_RISK_IMPORT_FIELDS) {
+    const currentById = new Map(
+      ((current[field] ?? []) as Array<{ id: string }>).map((item) => [item.id, item]),
+    )
+    baseline.set(field, new Map(
+      (payload[field] as Array<{ id: string }>).map((item) => {
+        const local = currentById.get(item.id)
+        return [item.id, local ? canonicalImportValue(local) : null]
+      }),
+    ))
+  }
+  return baseline
+}
+
+function findConcurrentImmutableRiskConflict(
+  baseline: ImmutableRiskImportBaseline,
+  latest: PersistedSlice,
+  payload: ExportPayload,
+): { id: string; label: string } | null {
+  for (const [field, label] of IMMUTABLE_RISK_IMPORT_FIELDS) {
+    const latestById = new Map(
+      ((latest[field] ?? []) as Array<{ id: string }>).map((item) => [item.id, item]),
+    )
+    const importedById = new Map(
+      (payload[field] as Array<{ id: string }>).map((item) => [item.id, item]),
+    )
+    for (const [id, initialValue] of baseline.get(field) ?? []) {
+      const latestEntity = latestById.get(id)
+      const importedEntity = importedById.get(id)
+      const latestValue = latestEntity ? canonicalImportValue(latestEntity) : null
+      const importedValue = importedEntity ? canonicalImportValue(importedEntity) : null
+      if (latestValue !== initialValue && latestValue !== importedValue) {
+        return { id, label }
+      }
+    }
+  }
+  return null
+}
+
 function buildImportSnapshot(
   current: PersistedStateRevision,
   payload: ExportPayload,
@@ -1015,6 +1072,10 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     let revision = capturePersistedStateRevision()
     const importedTradeBaseline = captureImportedTradeBaseline(revision, prepared.payload)
     while (true) {
+      const immutableRiskBaseline = captureImmutableRiskImportBaseline(
+        revision.state,
+        prepared.payload,
+      )
       const snapshot = buildImportSnapshot(revision, prepared.payload)
       await storage.commitImport(snapshot, prepared.assets)
 
@@ -1024,7 +1085,13 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
         applySnapshotToStore(snapshot)
         break
       }
-      if (hasConcurrentImportedTradeConflict(importedTradeBaseline, latest)) {
+      const tradeConflict = hasConcurrentImportedTradeConflict(importedTradeBaseline, latest)
+      const immutableRiskConflict = findConcurrentImmutableRiskConflict(
+        immutableRiskBaseline,
+        latest.state,
+        prepared.payload,
+      )
+      if (tradeConflict || immutableRiskConflict) {
         // 正常界面在整段提交期间已被冻结；这里是防御性补偿，确保异常后台修改时
         // 磁盘也恢复到最新本地状态，并由 commitImport 清理本批未引用附件。
         const localSnapshot = buildPortableSnapshotFromState(
@@ -1032,6 +1099,12 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
           latest.shortcutBindings,
         )
         await storage.commitImport(localSnapshot, prepared.assets, { pruneUnreferenced: true })
+        if (immutableRiskConflict && !tradeConflict) {
+          throw new OperationalError(
+            'import-immutable-entity-conflict',
+            `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
+          )
+        }
         throw new Error(
           '导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。',
         )
