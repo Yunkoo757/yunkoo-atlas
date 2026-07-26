@@ -172,4 +172,6 @@ export function testCompletionMetricsAndRiskUseTheSameFrozenTradingDay(): void {
     new Date('2026-07-27T05:59:00+08:00'),
   ).review
   assert(legacyCompleted.metricsSnapshot?.tradeCount === 1, '旧交易必须按完成时的交易日起始小时回退归周')
+  assert(legacyCompleted.riskSnapshot?.weeklyOutcome.netBudgetR === -1, '旧交易风险结果必须使用同一交易日起始小时')
+  assert(state.trades[0]?.closedTradingDayKey === undefined, '生成快照不得突变旧交易业务日字段')
 }

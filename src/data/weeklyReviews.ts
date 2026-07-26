@@ -193,13 +193,18 @@ function buildWeeklyRiskReviewSnapshot(
   const completionTradingDay = getTradingDayKey(new Date(frozenAt), state.display.tradingDayStartHour)
   const outcomeEnd = completionTradingDay < review.weekEnd ? completionTradingDay : review.weekEnd
   const reviewDays = daysThrough(review.weekStart, outcomeEnd)
+  const riskTrades = state.trades.map((trade) => {
+    if (trade.closedTradingDayKey !== undefined) return trade
+    const dayKey = closedTradingDayKey(trade, state.display.tradingDayStartHour)
+    return dayKey ? { ...trade, closedTradingDayKey: dayKey } : trade
+  })
   const policyVersions = [...new Map(reviewDays.flatMap((date) => {
     const policy = activeRiskPolicy(state.riskPolicyVersions, date)
     return policy ? [[policy.id, policy] as const] : []
   })).values()]
   const dailyOutcomes = reviewDays.map((date) => ({
     ...resolveRiskOutcomes({
-      trades: state.trades,
+      trades: riskTrades,
       policies: state.riskPolicyVersions,
       monthlyLimits: state.monthlyRiskLimits,
       currentTradingDayKey: date,
@@ -207,13 +212,13 @@ function buildWeeklyRiskReviewSnapshot(
     date,
   }))
   const weeklyOutcome = resolveRiskOutcomes({
-    trades: state.trades,
+    trades: riskTrades,
     policies: state.riskPolicyVersions,
     monthlyLimits: state.monthlyRiskLimits,
     currentTradingDayKey: outcomeEnd,
   }).week
   const monthlyOutcomeAtCompletion = resolveRiskOutcomes({
-    trades: state.trades,
+    trades: riskTrades,
     policies: state.riskPolicyVersions,
     monthlyLimits: state.monthlyRiskLimits,
     currentTradingDayKey: completionTradingDay,
