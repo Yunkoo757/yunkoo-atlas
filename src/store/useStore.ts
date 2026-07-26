@@ -740,9 +740,8 @@ export const useStore = create<State>()((set, get) => ({
             ...input,
             hasClosedLiveTradeOnDay,
           })
-          const newPolicy = confirmed.riskPolicyVersions.at(-1)!
           return isFirstPolicy
-            ? ensureRiskPolicyPeriodRecords(confirmed, newPolicy.effectiveTradingDay)
+            ? ensureRiskPolicyPeriodRecords(confirmed, input.currentTradingDayKey)
             : confirmed
         }),
       ensureRiskPeriodRecords: (tradingDay) =>

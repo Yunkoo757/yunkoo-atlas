@@ -219,7 +219,29 @@ export function testStoreConfirmationUsesFrozenClosedTradingDayKey(): void {
 
   const state = useStore.getState()
   assert(state.riskPolicyVersions[0]?.effectiveTradingDay === '2026-07-28', 'Store 必须按固化业务日识别当日平仓')
-  assert(state.monthlyRiskLimits[0]?.sourcePolicyVersionId === 'store-policy-1', '首个有效 policy 应显式物化当月限额')
+  assert(state.monthlyRiskLimits.length === 0, '次日才生效的首版不得提前物化月限额')
+}
+
+export function testStoreFirstSameDayPolicyMaterializesCurrentMonth(): void {
+  useStore.setState({
+    trades: [],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
+  })
+  useStore.getState().confirmWeeklyRiskPreparation({
+    currentTradingDayKey: '2026-07-27',
+    weekStart: '2026-07-27',
+    draft: draft(),
+    confirmedAt: '2026-07-27T08:00:00.000Z',
+    policyVersionId: 'same-day-policy',
+  })
+
+  assert(
+    useStore.getState().monthlyRiskLimits[0]?.sourcePolicyVersionId === 'same-day-policy',
+    '当天生效的全局首个 policy 必须自动物化当前月',
+  )
 }
 
 export function testStoreSavesWeeklyDraftWithoutCreatingPolicy(): void {
@@ -272,6 +294,41 @@ export function testLaterConfirmationDoesNotPrematurelyLockNextMonth(): void {
   assert(august?.limitR === 30, '跨月显式 ensure 必须使用最终 active policy')
   assert(august?.sourcePolicyVersionId === 'policy-3', '月限额必须记录最终 active policy 来源')
   assert(august?.lockedAt === '2026-07-31T09:00:00.000Z', 'lockedAt 必须来自最终 active policy')
+}
+
+export function testFirstFuturePolicyWaitsForFinalVersionBeforeNewMonthLock(): void {
+  useStore.setState({
+    trades: [{ ...closedLiveTrade('2026-07-31'), closedAt: '2026-07-31' }],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
+  })
+
+  useStore.getState().confirmWeeklyRiskPreparation({
+    currentTradingDayKey: '2026-07-31',
+    weekStart: '2026-07-27',
+    draft: { ...draft(), monthlyLossLimitRDefault: 20 },
+    confirmedAt: '2026-07-31T08:00:00.000Z',
+    policyVersionId: 'first-august-policy',
+  })
+  assert(
+    !useStore.getState().monthlyRiskLimits.some((limit) => limit.monthKey === '2026-08'),
+    '8 月才生效的全局首版不得在 7 月提前锁定 8 月',
+  )
+
+  useStore.getState().confirmWeeklyRiskPreparation({
+    currentTradingDayKey: '2026-07-31',
+    weekStart: '2026-07-27',
+    draft: { ...draft(), monthlyLossLimitRDefault: 30 },
+    confirmedAt: '2026-07-31T09:00:00.000Z',
+    policyVersionId: 'final-august-policy',
+  })
+  useStore.getState().ensureRiskPeriodRecords('2026-08-01')
+
+  const august = useStore.getState().monthlyRiskLimits.find((limit) => limit.monthKey === '2026-08')
+  assert(august?.sourcePolicyVersionId === 'final-august-policy', '跨月锁定必须绑定最终 active policy')
+  assert(august?.limitR === 30, '跨月锁定必须使用最终版本的月限额')
 }
 
 export function testConfirmationRejectsInvalidTemporalIdentityInputs(): void {
