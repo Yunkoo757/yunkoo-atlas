@@ -146,7 +146,7 @@ function buildStorePatch(
     symbolCatalog: state.symbolCatalog,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
-  }, importedTrades)
+  }, importedTrades, state.display.tradingDayStartHour)
 }
 
 function buildSnapshot(

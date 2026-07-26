@@ -105,7 +105,7 @@ function buildTradePatch(state: ReturnType<typeof useStore.getState>, trade: Tra
     symbolCatalog: state.symbolCatalog,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
-  }, [trade])
+  }, [trade], state.display.tradingDayStartHour)
 }
 
 /**

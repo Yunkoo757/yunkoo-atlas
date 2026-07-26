@@ -38,7 +38,7 @@ import {
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
-import { getTradingDayKey } from '@/lib/periods'
+import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
@@ -149,7 +149,32 @@ function createStoreUndoAction(
   })
 }
 
-function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
+function freezeUpsertedClosedTradingDay(
+  previous: Trade | undefined,
+  trade: Trade,
+  tradingDayStartHour: number,
+): Trade {
+  if (trade.tradeKind !== 'live' || !isExecutedClosed(trade.status)) return trade
+  const shouldCalculate =
+    !previous ||
+    !isExecutedClosed(previous.status) ||
+    previous.closedTradingDayKey === undefined ||
+    previous.closedAt !== trade.closedAt
+  if (!shouldCalculate) {
+    return { ...trade, closedTradingDayKey: previous.closedTradingDayKey }
+  }
+  return {
+    ...trade,
+    closedTradingDayKey:
+      closedTradingDayKeyFromClosedAt(trade.closedAt, tradingDayStartHour) ?? undefined,
+  }
+}
+
+function upsertTradeIntoSlice(
+  s: TradeUpsertSlice,
+  trade: Trade,
+  tradingDayStartHour: number,
+): TradeUpsertSlice {
   const previousTrade = s.trades.find((t) => t.id === trade.id)
   if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return s
   const strategies = s.strategies.length > 0 ? s.strategies : createDefaultStrategies()
@@ -167,6 +192,7 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
       }),
     ),
   )))
+  normalized = freezeUpsertedClosedTradingDay(previousTrade, normalized, tradingDayStartHour)
   if (previousTrade) {
     normalized = reopenReviewAfterResultChange(
       previousTrade,
@@ -209,10 +235,11 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
 export function applyTradeUpsertsToSlice(
   initial: TradeUpsertSlice,
   trades: Trade[],
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): TradeUpsertSlice {
   let slice = initial
   for (const trade of trades) {
-    slice = upsertTradeIntoSlice(slice, trade)
+    slice = upsertTradeIntoSlice(slice, trade, tradingDayStartHour)
   }
   return slice
 }
@@ -644,8 +671,8 @@ export const useStore = create<State>()((set, get) => ({
             closedAt: closed
               ? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour)
               : null,
-            closedTradingDayKey: closed
-              ? closedTradingDayKeyFromClosedAt(
+            closedTradingDayKey: isExecutedClosed(status)
+              ? previous.closedTradingDayKey ?? closedTradingDayKeyFromClosedAt(
                   previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
                   s.display.tradingDayStartHour,
                 ) ?? undefined
@@ -673,10 +700,13 @@ export const useStore = create<State>()((set, get) => ({
             ...patch,
             status,
             closedAt: patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
-            closedTradingDayKey: closedTradingDayKeyFromClosedAt(
-              patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
-              s.display.tradingDayStartHour,
-            ) ?? undefined,
+            closedTradingDayKey:
+              Object.prototype.hasOwnProperty.call(patch, 'closedAt') || previous.closedTradingDayKey === undefined
+                ? closedTradingDayKeyFromClosedAt(
+                    patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+                    s.display.tradingDayStartHour,
+                  ) ?? undefined
+                : previous.closedTradingDayKey,
           }
           const reconciled = reopenReviewAfterResultChange(previous, updated)
           const withActivity = previous.status === status
@@ -929,7 +959,7 @@ export const useStore = create<State>()((set, get) => ({
                 : s.trades,
           }
         }),
-      upsertTrade: (trade) => set((s) => upsertTradeIntoSlice(s, trade)),
+      upsertTrade: (trade) => set((s) => upsertTradeIntoSlice(s, trade, s.display.tradingDayStartHour)),
       upsertTrades: (trades) =>
         set((s) => {
           if (trades.length === 0) return s
@@ -939,7 +969,7 @@ export const useStore = create<State>()((set, get) => ({
             symbolCatalog: s.symbolCatalog,
             tagPresets: s.tagPresets,
             mistakeTagPresets: s.mistakeTagPresets,
-          }, trades)
+          }, trades, s.display.tradingDayStartHour)
         }),
       removeTrade: (id) => get().removeTrades([id]),
       removeTrades: (ids) =>

@@ -82,6 +82,18 @@ export function testMoneyRoundsHalfAwayFromZero(): void {
   assert(quantizeR(-1.9999999999999998) === -2, '浮点边界应规范化为精确触线值')
 }
 
+export function testQuantizeRRejectsInvalidPrecision(): void {
+  for (const digits of [-1, 1.5, 16, Number.POSITIVE_INFINITY]) {
+    let error = ''
+    try {
+      quantizeR(1, digits)
+    } catch (reason) {
+      error = reason instanceof Error ? reason.message : String(reason)
+    }
+    assert(error.includes('精度'), `非法精度 ${digits} 必须明确抛错`)
+  }
+}
+
 export function testConflictingResultIsUnknownAndNeverCreditsBudget(): void {
   const input = fixture({ pnls: [1_000] })
   input.trades[0] = { ...input.trades[0]!, rMultiple: -1, resultSource: 'imported' }
@@ -105,6 +117,41 @@ export function testFutureProfitIsPartialAndDoesNotCreditCurrentBudget(): void {
 
   assert(result.gateCoverage === 'partial', '未来盈利只应降低覆盖状态')
   assert(result.day.netBudgetR === 0, '未来盈利不得提前返还额度')
+}
+
+export function testFutureLossIsUnknownAndDoesNotEnterCurrentBudget(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.trades[0] = {
+    ...input.trades[0]!,
+    closedAt: '2026-07-28',
+    closedTradingDayKey: '2026-07-28',
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.gateCoverage === 'unknown', '未来亏损必须降级为 unknown')
+  assert(result.day.netBudgetR === 0, '未来亏损不得进入当前预算')
+  assert(result.unknownReasons.includes('future-loss-close-date'), '必须保留未来亏损日期原因')
+}
+
+export function testExactLossLimitIsTriggeredAfterCanonicalQuantization(): void {
+  const result = resolveRiskOutcomes(fixture({ pnls: [-1_999.9999999998] }))
+
+  assert(result.day.netBudgetR === -2, '金额与 R 必须先规范化到精确触线值')
+  assert(result.day.triggered, '净预算精确等于日限额时必须触线')
+}
+
+export function testRiskAggregationIsStableAcrossInputOrder(): void {
+  const input = fixture({ pnls: [100, 200, -300] })
+  const reversed = { ...input, trades: [...input.trades].reverse() }
+
+  const forwardResult = resolveRiskOutcomes(input)
+  const reverseResult = resolveRiskOutcomes(reversed)
+
+  assert(
+    JSON.stringify(forwardResult) === JSON.stringify(reverseResult),
+    '聚合必须按稳定 trade ID 排序，不得受输入遍历顺序影响',
+  )
 }
 
 export function testInvalidPersistedBusinessDayIsNotRecomputedFromCloseDate(): void {
