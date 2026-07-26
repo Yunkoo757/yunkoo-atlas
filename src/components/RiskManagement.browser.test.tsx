@@ -194,6 +194,8 @@ async function run(): Promise<void> {
     const meter = document.querySelector<HTMLElement>('[role="progressbar"]')
     assert(meter?.getAttribute('aria-label') === '今日止损预算', '进度必须有可访问名称')
     assert(meter.textContent?.includes('已用'), '进度必须同时提供文字数值')
+    assert(budget.textContent?.includes('净风险占用 0.0R'), '预算卡必须用中文说明净风险占用')
+    assert(!budget.textContent?.includes('净 budget'), '预算卡不得遗留中英混用的净 budget 表述')
     assert(!meter.textContent?.includes('剩余'), 'unknown 不得显示安全剩余额度')
     assert(budget.textContent?.includes('无法确认当前是否触线'), 'unknown 必须给出明确行动说明')
 

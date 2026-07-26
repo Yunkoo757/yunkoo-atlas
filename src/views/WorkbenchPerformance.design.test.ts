@@ -15,6 +15,15 @@ export function testSourceContractsNormalizeWindowsLineEndings(): void {
   }
 }
 
+export function testSidebarHeaderActionIconsRemainOutlineIcons(): void {
+  const sidebar = read('src/components/Sidebar.css')
+  const headerIconRule = sidebar.match(/\.sb-hbtn svg \{([\s\S]*?)\n\}/)?.[1] ?? ''
+
+  if (!headerIconRule.includes('fill: none')) {
+    throw new Error('sidebar header action icons must remain outlined instead of being force-filled')
+  }
+}
+
 export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
   const source = read('src/hooks/useWorkbenchVisibleTrades.ts')
 

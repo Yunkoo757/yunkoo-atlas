@@ -62,7 +62,7 @@ function RiskMeter({
     >
       <div className="risk-budget-meter-head">
         <strong>{label}</strong>
-        <span>净 budget {fmtR(outcome.netBudgetR)}</span>
+        <span>净风险占用 {fmtR(outcome.netBudgetR)}</span>
         <em>{COVERAGE_LABEL[outcome.coverage]}</em>
       </div>
       <div className="risk-budget-track" aria-hidden>
