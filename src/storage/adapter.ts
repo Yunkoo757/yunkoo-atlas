@@ -82,12 +82,20 @@ export interface RevisionedLibraryMutation {
   assetDeletes?: readonly string[]
   assetMode?: 'merge' | 'replace'
   allowedUnreferencedAssetPuts?: readonly string[]
-  reason: 'autosave' | 'import' | 'restore' | 'migration' | 'purge' | 'attachment'
+  reason: 'autosave' | 'import' | 'restore' | 'migration' | 'purge' | 'attachment' | 'risk-gate'
 }
 
 export interface RevisionedStorageAdapter extends StorageAdapter {
   loadSnapshotEnvelope(): Promise<SnapshotEnvelope>
   commitLibraryMutation(input: RevisionedLibraryMutation): Promise<{ revision: number }>
+}
+
+export function isRevisionedStorageAdapter(
+  storage: StorageAdapter,
+): storage is RevisionedStorageAdapter {
+  const candidate = storage as Partial<RevisionedStorageAdapter>
+  return typeof candidate.loadSnapshotEnvelope === 'function' &&
+    typeof candidate.commitLibraryMutation === 'function'
 }
 
 export class StorageRevisionConflictError extends Error {
