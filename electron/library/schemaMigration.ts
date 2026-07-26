@@ -118,7 +118,10 @@ function fsyncFile(filePath: string): void {
   }
 }
 
-function copyRecoveryPair(paths: LibraryPaths): SchemaMigrationMarker {
+function copyRecoveryPair(
+  paths: LibraryPaths,
+  DatabaseClass: DatabaseConstructor,
+): SchemaMigrationMarker {
   assertRegularFile(paths.dbFile, 'journal.db')
   const manifest = readManifestFile(paths)
   if (manifest.schemaVersion !== 8) throw new Error('只有 v8 Electron library 可以准备 v9 迁移')
@@ -149,6 +152,15 @@ function copyRecoveryPair(paths: LibraryPaths): SchemaMigrationMarker {
     marker.manifestSha256 !== checksum(paths.manifestFile)
   ) {
     throw new Error('Schema v8 恢复副本校验失败')
+  }
+  const reopened = new DatabaseClass(fs.readFileSync(recoveryDatabase))
+  try {
+    const recoveryManifestValue = JSON.parse(
+      fs.readFileSync(recoveryManifest, 'utf8'),
+    ) as LibraryManifest
+    assertOpenedPairVersion(reopened, recoveryManifestValue, 8, { requireSnapshot: true })
+  } finally {
+    reopened.close()
   }
   return marker
 }
@@ -211,10 +223,29 @@ export function removeMigrationRecovery(
 ): void {
   const filePath = markerPath(paths)
   assertDirectLibraryChild(paths, filePath, SCHEMA_MIGRATION_MARKER_FILE)
+  removeCandidateDatabase(paths)
+  if (process.env.ATLAS_TEST_SCHEMA_MIGRATION_CLEANUP_FAILURE_BOUNDARY === 'after-candidate-delete') {
+    throw new Error('injected cleanup failure: after-candidate-delete')
+  }
+  removeRecoveryDirectory(paths)
+  if (process.env.ATLAS_TEST_SCHEMA_MIGRATION_CLEANUP_FAILURE_BOUNDARY === 'before-marker-delete') {
+    throw new Error('injected cleanup failure: before-marker-delete')
+  }
   fs.rmSync(filePath, { force: true })
   fsyncDirectorySync(paths.root)
-  removeRecoveryDirectory(paths)
-  removeCandidateDatabase(paths)
+}
+
+function activeFilesAreTheVerifiedV8Pair(
+  paths: LibraryPaths,
+  marker: SchemaMigrationMarker,
+): boolean {
+  try {
+    return readManifestFile(paths).schemaVersion === 8 &&
+      checksum(paths.dbFile) === marker.databaseSha256 &&
+      checksum(paths.manifestFile) === marker.manifestSha256
+  } catch {
+    return false
+  }
 }
 
 export function recoverInterruptedSchemaMigrationFiles(paths: LibraryPaths): RecoveryResult {
@@ -229,6 +260,11 @@ export function recoverInterruptedSchemaMigrationFiles(paths: LibraryPaths): Rec
     } catch {
       // 正式 v9 pair 不能在 SQL 初始化前证明完整，任何清单异常都确定性恢复 v8。
     }
+  }
+
+  if (activeFilesAreTheVerifiedV8Pair(paths, marker)) {
+    removeMigrationRecovery(paths, marker)
+    return { kind: 'restored-v8' }
   }
 
   restoreVerifiedV8Pair(paths, marker)
@@ -382,8 +418,9 @@ export function migrateOpenedLibraryV8ToV9(input: {
   const DatabaseClass = databaseConstructor(input.db)
   let marker: SchemaMigrationMarker | null = null
   let candidate: Database | null = null
+  let v9PairVerified = false
   try {
-    marker = copyRecoveryPair(input.paths)
+    marker = copyRecoveryPair(input.paths, DatabaseClass)
     writeMigrationMarker(input.paths, marker)
 
     const rawSnapshot = readSnapshot(input.db)
@@ -416,6 +453,7 @@ export function migrateOpenedLibraryV8ToV9(input: {
 
     injectCrash('before-database-replace')
     pauseForForcedKillEvidence('before-database-replace')
+    input.db.close()
     writeFileAtomicallySync(input.paths.dbFile, candidateBytes)
     marker = { ...marker, phase: 'database-replaced' }
     writeMigrationMarker(input.paths, marker)
@@ -440,10 +478,11 @@ export function migrateOpenedLibraryV8ToV9(input: {
       SCHEMA_VERSION,
     )
     verified.close()
+    v9PairVerified = true
     removeMigrationRecovery(input.paths, marker)
   } catch (error) {
     if (isInjectedCrash(error)) throw error
-    if (marker !== null) {
+    if (marker !== null && !v9PairVerified) {
       restoreVerifiedV8Pair(input.paths, marker)
       const restored = openAndValidateDatabase(
         DatabaseClass,
