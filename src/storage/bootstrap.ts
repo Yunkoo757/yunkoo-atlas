@@ -64,6 +64,10 @@ async function runBootstrapStorage(): Promise<void> {
     const trades = normalizeTrades(normalized.trades)
     useStore.setState({
       trades,
+      weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
+      riskPolicyVersions: snapshot.riskPolicyVersions,
+      monthlyRiskLimits: snapshot.monthlyRiskLimits,
+      riskOverrideEvents: snapshot.riskOverrideEvents,
       weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
       quickNotes: normalizeQuickNotes(snapshot.quickNotes),
       strategies: normalized.strategies,

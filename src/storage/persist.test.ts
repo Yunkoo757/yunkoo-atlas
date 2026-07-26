@@ -56,7 +56,7 @@ export function testPickPersistedAlwaysWritesEveryCanonicalField(): void {
   const empty = pickPersisted(state, {})
   assert(
     JSON.stringify(Object.keys(empty).sort()) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'autosave writer 的字段集合必须始终与 16 字段注册表完全一致',
+    'autosave writer 的字段集合必须始终与 20 字段注册表完全一致',
   )
   assert(Object.prototype.hasOwnProperty.call(empty, 'shortcuts'), '空快捷键也必须显式写出 shortcuts')
   assert(JSON.stringify(empty.shortcuts) === '{}', '空快捷键必须序列化为空对象')

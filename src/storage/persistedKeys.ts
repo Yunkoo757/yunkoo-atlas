@@ -9,6 +9,10 @@ export type ActivePersistedSnapshotKey = Exclude<keyof PersistedSnapshot, Deprec
  */
 export const PERSISTED_SNAPSHOT_FIELDS = [
   'trades',
+  'weeklyRiskPreparations',
+  'riskPolicyVersions',
+  'monthlyRiskLimits',
+  'riskOverrideEvents',
   'weeklyReviews',
   'quickNotes',
   'strategies',

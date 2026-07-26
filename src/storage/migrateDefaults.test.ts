@@ -26,6 +26,7 @@ import {
   clearSessionUiAfterLibrarySwitch,
 } from '@/lib/importExport'
 import { useShortcutStore } from '@/store/shortcutStore'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -36,6 +37,7 @@ function snapshotWithEmptyTrades(
   displayName: string,
 ): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies,
     starredIds: [],

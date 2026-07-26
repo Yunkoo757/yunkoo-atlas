@@ -26,6 +26,10 @@ function assert(condition: unknown, message: string): asserts condition {
 function makePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     version: WEB_JOURNAL_EXPORT_VERSION,
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     trades: [
       {
         id: 'trade-1',

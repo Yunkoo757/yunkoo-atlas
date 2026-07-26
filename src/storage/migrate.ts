@@ -40,6 +40,10 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
     const trades = normalizeTrades(normalized.trades)
     return {
       trades,
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       strategies: normalized.strategies,
       starredIds: s.starredIds ?? [],
       subscribedIds: s.subscribedIds ?? [],
@@ -86,6 +90,10 @@ export async function migrateFromLocalStorageIfNeeded(
   if (!snapshot) {
     snapshot = {
       trades: migrateTrades(SEED_TRADES, DEFAULT_STRATEGIES),
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       strategies: [...DEFAULT_STRATEGIES],
       starredIds: [],
       subscribedIds: [],
@@ -127,6 +135,10 @@ export async function migrateElectronLibraryIfNeeded(
   if (!snapshot) {
     snapshot = {
       trades: migrateTrades(SEED_TRADES, DEFAULT_STRATEGIES),
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       strategies: [...DEFAULT_STRATEGIES],
       starredIds: [],
       subscribedIds: [],

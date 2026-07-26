@@ -24,6 +24,7 @@ import type {
 } from '@/storage/types'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { useStore } from '@/store/useStore'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -64,6 +65,7 @@ function previewWithImages(count: number): NotionTradePreview {
 
 function snapshot(label: string): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [{
       id: 'strategy-1',

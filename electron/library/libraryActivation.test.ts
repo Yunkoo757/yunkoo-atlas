@@ -9,6 +9,7 @@ import {
   openValidatedLibraryCandidate,
 } from './libraryActivation'
 import { LibraryStorage } from './storage'
+import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -16,6 +17,7 @@ function assert(condition: unknown, message: string): void {
 
 function snapshot(): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],

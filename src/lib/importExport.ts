@@ -97,7 +97,7 @@ import {
   type JsonImportErrorCode,
 } from '@/lib/importLimits'
 
-export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 8: +quickNotes
+export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
 import { mergeImportPayload } from '@/lib/importMerge'
 
@@ -117,6 +117,10 @@ interface ExportState extends PersistedSlice {
 
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
+  weeklyRiskPreparations?: PersistedSnapshot['weeklyRiskPreparations']
+  riskPolicyVersions?: PersistedSnapshot['riskPolicyVersions']
+  monthlyRiskLimits?: PersistedSnapshot['monthlyRiskLimits']
+  riskOverrideEvents?: PersistedSnapshot['riskOverrideEvents']
   weeklyReviews?: PersistedSnapshot['weeklyReviews']
   quickNotes?: PersistedSnapshot['quickNotes']
   strategies: PersistedSnapshot['strategies']
@@ -140,6 +144,10 @@ export function buildPortableSnapshotFromState(
   const shortcuts = bindingsForPersist(shortcutBindings)
   return {
     trades: state.trades,
+    weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
+    riskPolicyVersions: state.riskPolicyVersions ?? [],
+    monthlyRiskLimits: state.monthlyRiskLimits ?? [],
+    riskOverrideEvents: state.riskOverrideEvents ?? [],
     weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
     quickNotes: normalizeQuickNotes(state.quickNotes),
     strategies: state.strategies,
@@ -288,6 +296,10 @@ export async function buildExportPayloadFromState(
   return {
     version: EXPORT_VERSION,
     trades: state.trades,
+    weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
+    riskPolicyVersions: state.riskPolicyVersions ?? [],
+    monthlyRiskLimits: state.monthlyRiskLimits ?? [],
+    riskOverrideEvents: state.riskOverrideEvents ?? [],
     weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
     quickNotes: normalizeQuickNotes(state.quickNotes),
     strategies: state.strategies,
@@ -341,12 +353,16 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
     {
       trades,
+      weeklyRiskPreparations,
+      riskPolicyVersions,
+      monthlyRiskLimits,
+      riskOverrideEvents,
       weeklyReviews,
       quickNotes,
       strategies,
@@ -524,7 +540,7 @@ export function buildWebJournalArchiveBlob(
   // 元数据不含 base64，只保留附件声明；二进制写入 assets/。
   const meta = {
     ...snapshot,
-    version: EXPORT_VERSION,
+    version: WEB_JOURNAL_EXPORT_VERSION,
     schemaVersion: SCHEMA_VERSION,
     assets: normalizedAssets.map(({ id, mime }) => ({ id, mime })),
     ...(recoveryOrphanAssetIds.length > 0 ? { recoveryOrphanAssetIds } : {}),
@@ -1037,6 +1053,10 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   const trades = normalizeTrades(normalized.trades)
   useStore.setState({
     trades,
+    weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
+    riskPolicyVersions: snapshot.riskPolicyVersions,
+    monthlyRiskLimits: snapshot.monthlyRiskLimits,
+    riskOverrideEvents: snapshot.riskOverrideEvents,
     weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
     quickNotes: normalizeQuickNotes(snapshot.quickNotes),
     strategies: normalized.strategies,
@@ -1066,6 +1086,10 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 export function resetEmptyLibraryIntoStore(): void {
   useStore.setState({
     trades: [],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     weeklyReviews: [],
     quickNotes: [],
     strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),

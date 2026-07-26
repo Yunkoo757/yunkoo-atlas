@@ -830,6 +830,10 @@ export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
     display: DEFAULT_DISPLAY,
   }, {
     version: 6,
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     trades: [],
     strategies: [],
     starredIds: [],
@@ -1783,6 +1787,10 @@ export function testMergeImportPayloadKeepsOnlyExplicitPresetData(): void {
     },
     {
       version: 5,
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       trades: [importedTrade],
       strategies: [strategy],
       starredIds: [],

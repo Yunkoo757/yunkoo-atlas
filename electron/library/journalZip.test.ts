@@ -27,6 +27,7 @@ import {
   validateDesktopLibrary,
 } from './journalZip'
 import { LibraryStorage } from './storage'
+import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -34,6 +35,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function emptySnapshot(): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],

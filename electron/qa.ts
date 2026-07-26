@@ -7,6 +7,8 @@ import { exportJournalZip, importJournalZipToPath } from './library/journalZip'
 import { createBackup, restoreBackupAtPath, rotateBackups } from './library/backup'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '../src/storage/types'
 import { ZipArchive } from 'archiver'
+import { createEmptyPersistedSnapshot } from '../src/storage/emptySnapshot'
+import { WEB_JOURNAL_EXPORT_VERSION } from '../src/lib/webJournalArchiveContract'
 
 export interface QaCheck {
   name: string
@@ -23,6 +25,7 @@ function pngBuf(): Buffer {
 
 function seedSnapshot(): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [
       {
         id: 'qa-trade-1',
@@ -44,6 +47,7 @@ function seedSnapshot(): PersistedSnapshot {
         rMultiple: 1,
         openedAt: '2026-01-01T00:00:00.000Z',
         closedAt: '2026-01-02T00:00:00.000Z',
+        closedTradingDayKey: '2026-01-02',
         note: '<p>QA seed</p>',
       },
     ],
@@ -96,13 +100,9 @@ async function writeWebJournalZip(destinationFile: string, snapshot = seedSnapsh
     archive.pipe(output)
     archive.append(
       JSON.stringify({
-        version: SCHEMA_VERSION,
-        trades: snapshot.trades,
-        strategies: snapshot.strategies,
-        starredIds: snapshot.starredIds,
-        subscribedIds: snapshot.subscribedIds,
-        pinnedStrategyIds: snapshot.pinnedStrategyIds,
-        display: snapshot.display,
+        ...snapshot,
+        version: WEB_JOURNAL_EXPORT_VERSION,
+        schemaVersion: SCHEMA_VERSION,
         assets: [],
       }),
       { name: 'data.json' },

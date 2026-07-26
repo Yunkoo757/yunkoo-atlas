@@ -17,6 +17,10 @@ export function pickPersisted(
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
   return {
     trades: state.trades,
+    weeklyRiskPreparations: state.weeklyRiskPreparations,
+    riskPolicyVersions: state.riskPolicyVersions,
+    monthlyRiskLimits: state.monthlyRiskLimits,
+    riskOverrideEvents: state.riskOverrideEvents,
     weeklyReviews: state.weeklyReviews,
     quickNotes: state.quickNotes,
     strategies: state.strategies,

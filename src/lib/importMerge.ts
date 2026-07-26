@@ -16,6 +16,14 @@ function mergeStrategies(current: Strategy[], imported: Strategy[]): Strategy[] 
   return Array.from(map.values())
 }
 
+function mergeImmutableById<T extends { id: string }>(current: T[], imported: T[]): T[] {
+  const byId = new Map(current.map((item) => [item.id, item]))
+  for (const item of imported) {
+    if (!byId.has(item.id)) byId.set(item.id, item)
+  }
+  return [...byId.values()]
+}
+
 export function mergeImportPayload(current: PersistedSlice, payload: ExportPayload): PersistedSlice {
   const combinedStrategies = mergeStrategies(current.strategies, ensureStrategies(payload.strategies))
   const { strategies, trades: migrated } = normalizeTradeStrategyReferences(
@@ -45,6 +53,19 @@ export function mergeImportPayload(current: PersistedSlice, payload: ExportPaylo
   return {
     strategies,
     trades: normalizeTrades(Array.from(tradeMap.values())),
+    weeklyRiskPreparations: mergeImmutableById(
+      current.weeklyRiskPreparations ?? [],
+      payload.weeklyRiskPreparations ?? [],
+    ).map((preparation) => {
+      const local = current.weeklyRiskPreparations?.find((item) => item.id === preparation.id)
+      const imported = payload.weeklyRiskPreparations?.find((item) => item.id === preparation.id)
+      if (!local) return imported ?? preparation
+      if (!imported) return local
+      return Date.parse(imported.updatedAt) > Date.parse(local.updatedAt) ? imported : local
+    }),
+    riskPolicyVersions: mergeImmutableById(current.riskPolicyVersions ?? [], payload.riskPolicyVersions ?? []),
+    monthlyRiskLimits: mergeImmutableById(current.monthlyRiskLimits ?? [], payload.monthlyRiskLimits ?? []),
+    riskOverrideEvents: mergeImmutableById(current.riskOverrideEvents ?? [], payload.riskOverrideEvents ?? []),
     weeklyReviews: normalizeWeeklyReviews([
       ...(current.weeklyReviews ?? []),
       ...(payload.weeklyReviews ?? []),

@@ -4,6 +4,7 @@ import path from 'node:path'
 import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
+import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -11,6 +12,7 @@ function assert(condition: unknown, message: string): void {
 
 function snapshot(label: string): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],

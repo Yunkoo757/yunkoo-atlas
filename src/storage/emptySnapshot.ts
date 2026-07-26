@@ -4,6 +4,10 @@ import type { PersistedSnapshot } from '@/storage/types'
 export function createEmptyPersistedSnapshot(): PersistedSnapshot {
   return {
     trades: [],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     strategies: [],
     starredIds: [],
     subscribedIds: [],

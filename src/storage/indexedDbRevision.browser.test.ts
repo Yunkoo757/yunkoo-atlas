@@ -6,6 +6,7 @@ import {
 import type { RevisionedLibraryMutation } from '@/storage/adapter'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import {
   getWebWriteGuardState,
   initializeWebWriterOwnership,
@@ -26,6 +27,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function snapshot(displayName: string, assetId?: string): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     quickNotes: assetId ? [{
       id: `note-${displayName}`,

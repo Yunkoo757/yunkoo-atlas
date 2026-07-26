@@ -97,6 +97,10 @@ export async function testJsonImportPreservesEditsMadeWhileCommitIsPending(): Pr
     const importing = applyImport({
       version: 6,
       trades: [imported],
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       strategies: [strategy],
       starredIds: [],
       subscribedIds: [],
@@ -185,6 +189,10 @@ export async function testJsonImportAbortsWhenTheSameTradeIsEditedDuringCommit()
     const importing = applyImport({
       version: 6,
       trades: [imported],
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       strategies: [strategy],
       starredIds: [],
       subscribedIds: [],

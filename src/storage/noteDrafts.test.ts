@@ -12,6 +12,7 @@ import {
 import { createQuickNote } from '@/data/quickNotes'
 import { useStore } from '@/store/useStore'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -133,6 +134,7 @@ export async function testConflictRecoverySnapshotIncludesDraftAndDiscardInvalid
     const draft = '<p>尚未保存<img src="blob:http://localhost/preview" data-asset-id="prepared-draft"></p>'
     setNoteDraft(tradeId, draft)
     const recovery = applyNoteDraftsToSnapshot({
+      ...createEmptyPersistedSnapshot(),
       trades: [trade],
       strategies: useStore.getState().strategies,
       starredIds: [],

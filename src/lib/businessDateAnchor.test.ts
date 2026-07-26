@@ -30,7 +30,7 @@ export function testCalendarRangesAndBoundaryDelayUseLocalCalendarArithmetic(): 
 }
 
 export function testDateUnificationDoesNotChangePersistenceSchema(): void {
-  assert(SCHEMA_VERSION === 8, 'DATE 包不得修改持久化 schema')
+  assert(SCHEMA_VERSION === 9, '风险管理持久化包必须升级到 schema v9')
 }
 
 export function testBusinessDateBoundaryDelayAcrossNewYorkDstTransitions(): void {

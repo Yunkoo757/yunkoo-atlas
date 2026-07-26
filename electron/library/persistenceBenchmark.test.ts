@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { runElectronPersistenceBenchmark } from './persistenceBenchmark'
+import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
 function checksum(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
@@ -9,6 +10,7 @@ function checksum(value: unknown): string {
 
 export async function testElectronPersistenceBenchmarkComparesCanonicalDurableSnapshot(): Promise<void> {
   const snapshot: PersistedSnapshot = {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],

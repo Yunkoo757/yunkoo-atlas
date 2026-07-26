@@ -11,6 +11,7 @@ import {
   verifyBackupAtPath,
 } from './backup'
 import { validateLibraryDatabaseFile } from './journalZip'
+import { SCHEMA_VERSION } from '../../src/storage/types'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -67,6 +68,10 @@ async function createVerifiableBackup(
         'snapshot',
         JSON.stringify({
           trades,
+          weeklyRiskPreparations: [],
+          riskPolicyVersions: [],
+          monthlyRiskLimits: [],
+          riskOverrideEvents: [],
           strategies: [],
           starredIds: [],
           subscribedIds: [],
@@ -87,7 +92,7 @@ async function createVerifiableBackup(
     fs.writeFileSync(path.join(root, 'journal.db'), Buffer.from(db.export()))
     fs.writeFileSync(
       path.join(root, 'manifest.json'),
-      JSON.stringify({ schemaVersion: 6, libraryId: 'backup-test-library' }),
+      JSON.stringify({ schemaVersion: SCHEMA_VERSION, libraryId: 'backup-test-library' }),
       'utf8',
     )
 
