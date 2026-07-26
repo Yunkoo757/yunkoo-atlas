@@ -304,9 +304,8 @@ Electron：sql.js + 本地文件（electron/library/）
 ## 11. 相关文档
 
 - 编码与协作规范：`AGENTS.md`
-- 当前视觉依据：`docs/linear-frontend-design-system-analysis.md`
-- 当前前端规格：`docs/superpowers/specs/2026-07-10-linear-frontend-rebuild-design.md`
-- 后续功能规格：`docs/superpowers/specs/2026-07-11-review-notebooks-record-clipboard-design.md`
+- 当前样式实现：`src/styles/tokens.css`、`src/styles/global.css`
+- 数据可靠性规格：`docs/superpowers/specs/2026-07-22-data-reliability-remediation-v2-design.md`
 
 ---
 
