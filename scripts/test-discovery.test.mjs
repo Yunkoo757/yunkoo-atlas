@@ -172,5 +172,11 @@ test('sidebar QA targets the live mobile drawer instead of its exit clone', asyn
     /drawer\.getByRole\('button', \{ name: '搜索', exact: true \}\)\.dispatchEvent\('click'\)/,
   )
 })
+
+test('sidebar QA verifies restored defaults in a fresh document', async () => {
+  const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
+  assert.match(source, /const restoredPage = await browser\.newPage\(\{ viewport: \{ width: 1440, height: 900 \} \}\)/)
+  assert.match(source, /await restoredPage\.goto\(`\$\{BASE\}\/list`, \{ waitUntil: 'domcontentloaded' \}\)/)
+})
 // Quality-Scenario: Q-DISCOVERY
 // Quality-Scenario: Q-PAGEERROR
