@@ -65,6 +65,19 @@ import {
   type UndoAction,
 } from '@/lib/tradeUndo'
 import { transitionTradeKind as applyTradeKindTransition } from '@/lib/tradeKind'
+import type {
+  MonthlyRiskLimit,
+  RiskOverrideEvent,
+  RiskPolicyDraft,
+  RiskPolicyVersion,
+  WeeklyRiskPreparation,
+} from '@/data/riskManagement'
+import {
+  confirmWeeklyRiskPreparation as confirmRiskPolicyState,
+  ensureRiskPeriodRecords as ensureRiskPolicyPeriodRecords,
+  type ConfirmWeeklyRiskPreparationInput,
+  type RiskPolicyState,
+} from '@/lib/riskPolicy'
 
 export type TradeUpsertSlice = {
   trades: Trade[]
@@ -247,6 +260,10 @@ export function applyTradeUpsertsToSlice(
 interface State {
   trades: Trade[]
   weeklyReviews: WeeklyReview[]
+  weeklyRiskPreparations: WeeklyRiskPreparation[]
+  riskPolicyVersions: RiskPolicyVersion[]
+  monthlyRiskLimits: MonthlyRiskLimit[]
+  riskOverrideEvents: RiskOverrideEvent[]
   quickNotes: QuickNote[]
   strategies: Strategy[]
   selectedId: string | null
@@ -292,6 +309,11 @@ interface State {
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
   hydrateProfile: (profile?: UserProfile) => void
+  saveWeeklyRiskDraft: (weekStart: string, draft: RiskPolicyDraft, updatedAt: string) => void
+  confirmWeeklyRiskPreparation: (
+    input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
+  ) => void
+  ensureRiskPeriodRecords: (tradingDay: string) => void
   setStatus: (id: string, status: TradeStatus) => void
   completeTradeClose: (
     id: string,
@@ -384,6 +406,10 @@ interface State {
 export const useStore = create<State>()((set, get) => ({
       trades: [],
       weeklyReviews: [],
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       quickNotes: [],
       strategies: [],
       selectedId: null,
@@ -660,6 +686,53 @@ export const useStore = create<State>()((set, get) => ({
               }
             : s.profile,
         })),
+      saveWeeklyRiskDraft: (weekStart, draft, updatedAt) =>
+        set((s) => {
+          const id = `weekly-risk-preparation:${weekStart}`
+          const existing = s.weeklyRiskPreparations.find((item) => item.id === id)
+          const preparation: WeeklyRiskPreparation = {
+            id,
+            weekStart,
+            draft,
+            reviewedAt: existing?.reviewedAt ?? null,
+            confirmedPolicyVersionId: existing?.confirmedPolicyVersionId ?? null,
+            createdAt: existing?.createdAt ?? updatedAt,
+            updatedAt,
+          }
+          return {
+            weeklyRiskPreparations: existing
+              ? s.weeklyRiskPreparations.map((item) => item.id === id ? preparation : item)
+              : [...s.weeklyRiskPreparations, preparation],
+          }
+        }),
+      confirmWeeklyRiskPreparation: (input) =>
+        set((s) => {
+          const riskState: RiskPolicyState = {
+            weeklyRiskPreparations: s.weeklyRiskPreparations,
+            riskPolicyVersions: s.riskPolicyVersions,
+            monthlyRiskLimits: s.monthlyRiskLimits,
+            riskOverrideEvents: s.riskOverrideEvents,
+          }
+          const hasClosedLiveTradeOnDay = s.trades.some((trade) =>
+            trade.tradeKind === 'live' &&
+            !trade.deletedAt &&
+            isExecutedClosed(trade.status) &&
+            trade.closedTradingDayKey === input.currentTradingDayKey,
+          )
+          const confirmed = confirmRiskPolicyState(riskState, {
+            ...input,
+            hasClosedLiveTradeOnDay,
+          })
+          const newPolicy = confirmed.riskPolicyVersions.at(-1)!
+          return ensureRiskPolicyPeriodRecords(confirmed, newPolicy.effectiveTradingDay)
+        }),
+      ensureRiskPeriodRecords: (tradingDay) =>
+        set((s) => ensureRiskPolicyPeriodRecords({
+          weeklyRiskPreparations: s.weeklyRiskPreparations,
+          riskPolicyVersions: s.riskPolicyVersions,
+          monthlyRiskLimits: s.monthlyRiskLimits,
+          riskOverrideEvents: s.riskOverrideEvents,
+        }, tradingDay)),
       setStatus: (id, status) =>
         set((s) => {
           const previous = s.trades.find((t) => t.id === id)
