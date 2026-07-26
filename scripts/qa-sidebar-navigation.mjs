@@ -671,21 +671,26 @@ try {
       }
     })
   }, undefined, { timeout: 10_000 })
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+  const restoredPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  await restoredPage.addInitScript(() => {
+    Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
+  })
+  await restoredPage.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
+  await restoredPage.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   const expectedDefaultLabels = ['进行中', '星标交易', '错过的机会', '模拟回测']
   try {
-    await page.waitForFunction((expectedLabels) => {
+    await restoredPage.waitForFunction((expectedLabels) => {
       const labels = [...document.querySelectorAll('.sb-workspace > a .sb-item-label')]
         .map((element) => element.textContent?.trim() ?? '')
       return JSON.stringify(labels) === JSON.stringify(expectedLabels)
     }, expectedDefaultLabels, { timeout: 10_000 })
   } catch (error) {
-    const actualLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
+    const actualLabels = await restoredPage.locator('.sb-workspace > a .sb-item-label').allTextContents()
     throw new Error(`Restore default reload did not converge: ${JSON.stringify(actualLabels)}`, { cause: error })
   }
-  const defaultLabels = await page.locator('.sb-workspace > a .sb-item-label').allTextContents()
+  const defaultLabels = await restoredPage.locator('.sb-workspace > a .sb-item-label').allTextContents()
   expectEqual(defaultLabels, expectedDefaultLabels, 'Restore default must persist exact default names and order')
+  await restoredPage.close()
 
   for (const width of [1920, 1440, 900]) {
     await page.setViewportSize({ width, height: 844 })
