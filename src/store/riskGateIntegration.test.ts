@@ -205,3 +205,24 @@ export function testNamedNonInteractiveImportCanRestoreOpenTrades(): void {
     restore(previous)
   }
 }
+
+export function testDeletedPublicUpsertCannotDeferFirstOpenUntilRestore(): void {
+  const previous = useStore.getState()
+  try {
+    const deletedAt = `${today}T03:00:00.000Z`
+    const deletedPlanned = { ...trade('deleted-upsert-target', 'planned'), deletedAt }
+    setGateFixture([deletedPlanned])
+
+    const result = useStore.getState().upsertTrade({ ...deletedPlanned, status: 'open' })
+    assert(result === 'requires-risk-gate', '已删除 live 的公开 upsert open 仍必须 fail-closed')
+    useStore.getState().restoreTrade(deletedPlanned.id)
+    assert(useStore.getState().trades[0]?.status === 'planned', 'restore 不得显露此前绕过 Gate 写入的 open')
+
+    const newDeletedOpen = { ...trade('new-deleted-open', 'planned'), status: 'open' as const, deletedAt }
+    const batchResult = useStore.getState().upsertTrades([newDeletedOpen])
+    assert(batchResult === 'requires-risk-gate', '新建 deleted live open 也不得通过公开批量入口')
+    assert(!useStore.getState().trades.some((item) => item.id === newDeletedOpen.id), '被拒绝的新建 deleted open 不得写入 Store')
+  } finally {
+    restore(previous)
+  }
+}

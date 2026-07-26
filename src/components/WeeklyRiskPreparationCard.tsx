@@ -77,6 +77,7 @@ export function WeeklyRiskPreparationCard({
   const policies = useStore((state) => state.riskPolicyVersions)
   const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const saveDraft = useStore((state) => state.saveWeeklyRiskDraft)
   const confirmPreparation = useStore((state) => state.confirmWeeklyRiskPreparation)
   const preparation = preparations.find((item) => item.weekStart === weekStart)
   const policy = useMemo(
@@ -100,6 +101,7 @@ export function WeeklyRiskPreparationCard({
     const next = withCalculatedRiskAmount({ ...draft, ...patch })
     setDraft(next)
     setError('')
+    if (!reviewed) saveDraft(weekStart, next, new Date().toISOString())
   }
 
   const submit = (event: FormEvent) => {
@@ -133,7 +135,12 @@ export function WeeklyRiskPreparationCard({
           <h2 id="risk-preparation-title">本周风险规则已复核</h2>
           <p>
             日 {fmtLimitR(sourceDraft.dailyLossLimitR)} · 周 {fmtLimitR(sourceDraft.weeklyLossLimitR)} ·
-            月 {fmtLimitR(sourceDraft.monthlyLossLimitRDefault)}
+            未来月默认 {fmtLimitR(sourceDraft.monthlyLossLimitRDefault)}
+          </p>
+          <p>
+            {currentMonthLimit
+              ? `当前月 ${currentMonthKey} 已锁定 ${fmtLimitR(currentMonthLimit.limitR)}`
+              : `当前月 ${currentMonthKey} 尚未建立锁定值`}
           </p>
         </div>
         <Button variant="bordered" size="sm" onClick={() => setEditingReviewed(true)}>
@@ -203,7 +210,11 @@ export function WeeklyRiskPreparationCard({
             </label>
           ))}
           <label>
-            <span>{nextMonthKey(tradingDay)} 起月止损默认</span>
+            <span>
+              {currentMonthLimit
+                ? `${nextMonthKey(tradingDay)} 起未来月止损默认`
+                : '当前月止损上限（首次确认后锁定）'}
+            </span>
             <span className="risk-preparation-inline-input">
               <input
                 type="number"
@@ -220,8 +231,8 @@ export function WeeklyRiskPreparationCard({
         <div className="risk-preparation-month-lock">
           {currentMonthLimit
             ? `当前月 ${currentMonthKey} 已锁定：${fmtLimitR(currentMonthLimit.limitR)}`
-            : `当前月 ${currentMonthKey} 尚待建立锁定值`}
-          ；修改仅影响尚未锁定的未来月份。
+            : `首次确认将以 ${fmtLimitR(draft.monthlyLossLimitRDefault)} 建立并锁定当前月 ${currentMonthKey} 上限`}
+          {currentMonthLimit ? '；修改仅影响尚未锁定的未来月份。' : '。'}
         </div>
         <div className="risk-preparation-discipline-row">
           <label>
@@ -244,8 +255,10 @@ export function WeeklyRiskPreparationCard({
                   step="0.01"
                   value={draft.riskAmount ?? ''}
                   onChange={(event) => {
-                    setDraft(withRiskAmount(draft, event.target.value ? Number(event.target.value) : null))
+                    const next = withRiskAmount(draft, event.target.value ? Number(event.target.value) : null)
+                    setDraft(next)
                     setError('')
+                    if (!reviewed) saveDraft(weekStart, next, new Date().toISOString())
                   }}
                   required
                 />

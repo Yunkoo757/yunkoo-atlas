@@ -268,10 +268,12 @@ function upsertTradeIntoSlice(
 }
 
 function upsertWouldBypassFirstOpenGate(existing: Trade | undefined, incoming: Trade): boolean {
-  if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.deletedAt || incoming.status !== 'open') {
+  if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.status !== 'open') {
     return false
   }
-  return existing ? requiresFirstOpenGate(existing) : true
+  return existing
+    ? requiresFirstOpenGate({ ...existing, deletedAt: undefined })
+    : true
 }
 
 /** 纯计算批量写入结果，供需要先落盘、再发布到 store 的原子导入流程复用。 */

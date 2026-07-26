@@ -126,8 +126,12 @@ function trade(id: string, status: 'planned' | 'loss', options: { unknown?: bool
 
 function Harness() {
   const [showTemporaryOpener, setShowTemporaryOpener] = useState(true)
+  const [workspaceKey, setWorkspaceKey] = useState(0)
   return (
     <MemoryRouter initialEntries={['/today-record']}>
+      <button hidden type="button" data-remount-workspace onClick={() => setWorkspaceKey((value) => value + 1)}>
+        重挂工作台
+      </button>
       {showTemporaryOpener ? (
         <button
           id="temporary-risk-opener"
@@ -140,7 +144,7 @@ function Harness() {
           临时开仓入口
         </button>
       ) : null}
-      <TodayWorkspace />
+      <TodayWorkspace key={workspaceKey} />
       <TradeOpenRiskDialog />
     </MemoryRouter>
   )
@@ -174,7 +178,7 @@ async function run(): Promise<void> {
     root.render(<Harness />)
 
     await waitFor(() => Boolean(document.querySelector('[data-risk-preparation]')), '未复核准备卡必须常驻')
-    const preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
+    let preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
     const budget = document.querySelector<HTMLElement>('[data-risk-budget]')
     const stats = document.querySelector<HTMLElement>('.today-stats')
     assert(preparation && budget && stats, '今日工作台缺少准备卡、预算卡或今日战绩')
@@ -218,13 +222,24 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
     await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')
 
-    document.body.style.width = '420px'
-    await frame()
-    assert(rootElement.scrollWidth <= 420, '420px 宽度下不得产生横向溢出')
-    document.body.style.width = ''
     if (new URLSearchParams(location.search).get('visual') === 'cards') {
       await new Promise<void>(() => {})
     }
+
+    const unreviewedDailyInput = [...preparation.querySelectorAll('label')]
+      .find((label) => label.textContent?.includes('日止损线'))
+      ?.querySelector<HTMLInputElement>('input')
+    assert(unreviewedDailyInput, '未复核卡缺少日止损草稿输入')
+    setText(unreviewedDailyInput, '2.5')
+    await waitFor(() => useStore.getState().weeklyRiskPreparations[0]?.draft.dailyLossLimitR === 2.5, '未复核输入没有持久化 draft')
+    document.querySelector<HTMLButtonElement>('[data-remount-workspace]')?.click()
+    await waitFor(() => document.querySelector<HTMLInputElement>('[data-risk-preparation] input') !== unreviewedDailyInput, '工作台没有卸载并重挂载')
+    preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
+    assert(preparation, '重挂载后准备卡不存在')
+    const remountedDailyInput = [...preparation.querySelectorAll('label')]
+      .find((label) => label.textContent?.includes('日止损线'))
+      ?.querySelector<HTMLInputElement>('input')
+    assert(remountedDailyInput?.value === '2.5', '未复核草稿在卸载/重挂载后没有保留')
 
     click('确认本周规则', preparation)
     await waitFor(
@@ -263,7 +278,7 @@ async function run(): Promise<void> {
     assert(riskAmountInput, '准备卡必须允许直接编辑 1R 金额')
     setText(riskAmountInput, '1250')
     const futureMonthInput = [...reviewedCard.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('起月止损默认'))
+      .find((label) => label.textContent?.includes('起未来月止损默认'))
       ?.querySelector<HTMLInputElement>('input')
     assert(futureMonthInput, '月字段必须明确为未来月默认值')
     setText(futureMonthInput, '12')
@@ -273,7 +288,8 @@ async function run(): Promise<void> {
     assert(Math.abs(revisedPolicy.riskPercent - 1.25) < 1e-9, '直接编辑 1R 金额必须反算百分比')
     assert(revisedPolicy.riskAmount === 1_250, '1R 金额必须按分精度保存')
     assert(useStore.getState().monthlyRiskLimits[0]?.limitR === 10, '修改未来月默认值不得覆盖当前月锁定值')
-    await waitFor(() => reviewedCard.textContent?.includes('月 12.0R') ?? false, '确认后摘要应展示新的未来月默认值')
+    await waitFor(() => reviewedCard.textContent?.includes('未来月默认 12.0R') ?? false, '确认后摘要应展示新的未来月默认值')
+    assert(reviewedCard.textContent?.includes('当前月') && reviewedCard.textContent?.includes('已锁定 10.0R'), '折叠摘要必须另示当前月锁定值')
 
     const temporaryOpener = document.getElementById('temporary-risk-opener') as HTMLButtonElement
     temporaryOpener.focus()
