@@ -9,6 +9,7 @@ export const OPERATIONAL_ERROR_CODES = [
   'quit-backup-failed',
   'quit-commit-failed',
   'import-budget-exceeded',
+  'import-immutable-entity-conflict',
   'asset-reference-missing',
   'asset-gc-stale-revision',
   'undo-conflict',

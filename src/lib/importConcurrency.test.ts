@@ -5,6 +5,7 @@ import { applyImport } from '@/lib/importExport'
 import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
+import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -230,6 +231,59 @@ export async function testJsonImportAbortsWhenTheSameTradeIsEditedDuringCommit()
       finalSaved?.trades.find((item) => item.id === original.id)?.symbol === 'XAUUSD',
       '取消导入后必须把保留的本地编辑重新落盘',
     )
+  } finally {
+    disablePersistWrites()
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testImmutableRiskConflictRejectsBeforeCommitWithoutPartialStateOrAssets(): Promise<void> {
+  let commitCount = 0
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      journalBridge: {
+        isElectron: true,
+        commitImport: async () => {
+          commitCount += 1
+          return true
+        },
+        saveSnapshot: async () => true,
+      },
+    },
+  })
+
+  const current = createFullPersistedSnapshotFixture()
+  useStore.setState({ ...current })
+  const imported = createFullPersistedSnapshotFixture()
+  const localOverride = current.riskOverrideEvents[0]!
+  const originalTrades = useStore.getState().trades
+  const originalOverrides = useStore.getState().riskOverrideEvents
+
+  enablePersistWrites()
+  try {
+    let code: unknown
+    try {
+      await applyImport({
+        version: 9,
+        ...imported,
+        trades: imported.trades.map((item) => ({
+          ...item,
+          note: '<img src="data:image/png;base64,aW5saW5l">',
+        })),
+        weeklyReviews: [],
+        quickNotes: [],
+        riskOverrideEvents: [{ ...localOverride, reason: '冲突的导入原因' }],
+        assets: [],
+      })
+    } catch (error) {
+      code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
+    }
+
+    assert(code === 'import-immutable-entity-conflict', '真实 applyImport 必须传播不可变实体冲突码')
+    assert(commitCount === 0, '冲突必须在 commitImport 与附件提交前拒绝')
+    assert(useStore.getState().trades === originalTrades, '冲突导入不得写入任何交易状态')
+    assert(useStore.getState().riskOverrideEvents === originalOverrides, '冲突导入不得写入 override 状态')
   } finally {
     disablePersistWrites()
     Reflect.deleteProperty(globalThis, 'window')

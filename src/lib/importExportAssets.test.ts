@@ -29,6 +29,22 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+function reorderedKeys<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).reverse()) as T
+}
+
+function captureImmutableImportConflict(run: () => unknown): { code: unknown; message: string } {
+  try {
+    run()
+  } catch (error) {
+    return {
+      code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      message: error instanceof Error ? error.message : String(error),
+    }
+  }
+  throw new Error('同 ID 不可变实体内容不同时必须拒绝导入')
+}
+
 const trade: Trade = {
   id: 't-img',
   ref: 'TRD-IMG',
@@ -518,7 +534,7 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
   )
 }
 
-export function testJsonMergeUsesUpdatedDraftAndPreservesImmutableRiskEntities(): void {
+export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(): void {
   const current = createFullPersistedSnapshotFixture()
   const imported = createFullPersistedSnapshotFixture()
   const currentPreparation = current.weeklyRiskPreparations[0]!
@@ -531,7 +547,7 @@ export function testJsonMergeUsesUpdatedDraftAndPreservesImmutableRiskEntities()
       draft: { ...currentPreparation.draft, disciplineText: '导入的较新草稿' },
       updatedAt: '2026-07-12T04:30:00.000-04:00',
     }],
-    riskPolicyVersions: [{ ...currentPolicy, disciplineText: '不得覆盖的同 ID policy' }],
+    riskPolicyVersions: [currentPolicy],
     monthlyRiskLimits: [
       ...imported.monthlyRiskLimits,
       {
@@ -550,9 +566,75 @@ export function testJsonMergeUsesUpdatedDraftAndPreservesImmutableRiskEntities()
   )
   assert(
     merged.riskPolicyVersions?.[0] === currentPolicy,
-    '同 ID 不可变 policy 必须保留本地实体而非被导入覆盖',
+    '完全相同的同 ID policy 必须去重并保留本地实体',
   )
   assert(merged.monthlyRiskLimits?.length === 2, '新 ID 的不可变月限额必须追加')
+}
+
+export function testRiskPolicyVersionSameIdAndCanonicalContentDeduplicates(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskPolicyVersions = [reorderedKeys(imported.riskPolicyVersions[0]!)]
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  assert(merged.riskPolicyVersions?.length === 1, '相同 policy 不得重复追加')
+  assert(merged.riskPolicyVersions?.[0] === current.riskPolicyVersions[0], '相同 policy 应保留本地引用')
+}
+
+export function testRiskPolicyVersionSameIdWithDifferentContentRejectsImport(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskPolicyVersions = [{
+    ...imported.riskPolicyVersions[0]!,
+    disciplineText: '冲突的纪律内容',
+  }]
+  const conflict = captureImmutableImportConflict(
+    () => mergeImportPayload(current, { version: 9, ...imported }),
+  )
+  assert(conflict.code === 'import-immutable-entity-conflict', 'policy 冲突必须暴露稳定错误码')
+  assert(conflict.message.includes(current.riskPolicyVersions[0]!.id), 'policy 冲突消息必须包含实体 ID')
+}
+
+export function testMonthlyRiskLimitSameIdAndCanonicalContentDeduplicates(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.monthlyRiskLimits = [reorderedKeys(imported.monthlyRiskLimits[0]!)]
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  assert(merged.monthlyRiskLimits?.length === 1, '相同月限额不得重复追加')
+  assert(merged.monthlyRiskLimits?.[0] === current.monthlyRiskLimits[0], '相同月限额应保留本地引用')
+}
+
+export function testMonthlyRiskLimitSameIdWithDifferentContentRejectsImport(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.monthlyRiskLimits = [{ ...imported.monthlyRiskLimits[0]!, limitR: 8.5 }]
+  const conflict = captureImmutableImportConflict(
+    () => mergeImportPayload(current, { version: 9, ...imported }),
+  )
+  assert(conflict.code === 'import-immutable-entity-conflict', '月限额冲突必须暴露稳定错误码')
+  assert(conflict.message.includes(current.monthlyRiskLimits[0]!.id), '月限额冲突消息必须包含实体 ID')
+}
+
+export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskOverrideEvents = [reorderedKeys(imported.riskOverrideEvents[0]!)]
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  assert(merged.riskOverrideEvents?.length === 1, '相同 override event 不得重复追加')
+  assert(merged.riskOverrideEvents?.[0] === current.riskOverrideEvents[0], '相同 override event 应保留本地引用')
+}
+
+export function testRiskOverrideEventSameIdWithDifferentContentRejectsImport(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskOverrideEvents = [{
+    ...imported.riskOverrideEvents[0]!,
+    reason: '冲突的覆盖原因',
+  }]
+  const conflict = captureImmutableImportConflict(
+    () => mergeImportPayload(current, { version: 9, ...imported }),
+  )
+  assert(conflict.code === 'import-immutable-entity-conflict', 'override event 冲突必须暴露稳定错误码')
+  assert(conflict.message.includes(current.riskOverrideEvents[0]!.id), 'override event 冲突消息必须包含实体 ID')
 }
 
 export function testJsonImportRejectsAttachmentPathTraversalIds(): void {
