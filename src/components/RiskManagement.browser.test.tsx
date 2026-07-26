@@ -192,6 +192,36 @@ async function run(): Promise<void> {
     assert(meter.textContent?.includes('已用'), '进度必须同时提供文字数值')
     assert(!meter.textContent?.includes('剩余'), 'unknown 不得显示安全剩余额度')
     assert(budget.textContent?.includes('无法确认当前是否触线'), 'unknown 必须给出明确行动说明')
+
+    useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
+    await waitFor(() => budget.textContent?.includes('1R = ****') ?? false, '隐私模式没有隐藏 1R 金额')
+    assert(!budget.textContent?.includes('$1,000'), '隐私模式不得泄露 1R 金额')
+    useStore.setState((state) => ({ display: { ...state.display, privacyMode: false } }))
+
+    const partialWin = {
+      ...trade('partial-win', 'loss'),
+      status: 'win' as const,
+      pnl: 1_000,
+      resultSource: 'pnl' as const,
+      closedAt: null,
+      closedTradingDayKey: undefined,
+      activities: [{
+        id: 'activity-partial-win',
+        kind: 'status' as const,
+        status: 'win' as const,
+        timestamp: `${day}T01:00:00.000Z`,
+      }],
+    }
+    useStore.setState({ trades: [trade('target', 'planned'), partialWin] })
+    await waitFor(() => budget.textContent?.includes('部分覆盖') ?? false, 'partial 风险覆盖没有真实展示')
+    assert(budget.textContent?.includes('按已确认结果保守计算'), 'partial 必须显示保守计算提示')
+    useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
+    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')
+
+    document.body.style.width = '420px'
+    await frame()
+    assert(rootElement.scrollWidth <= 420, '420px 宽度下不得产生横向溢出')
+    document.body.style.width = ''
     if (new URLSearchParams(location.search).get('visual') === 'cards') {
       await new Promise<void>(() => {})
     }
@@ -202,6 +232,48 @@ async function run(): Promise<void> {
       '确认后准备卡没有折叠为摘要',
     )
     assert(!document.querySelector('[data-risk-preparation] input'), '确认后不应继续展开编辑字段')
+    const reviewedCard = document.querySelector<HTMLElement>('[data-risk-preparation]')
+    assert(reviewedCard, '确认后准备卡不存在')
+
+    const reviewedPreparation = useStore.getState().weeklyRiskPreparations[0]!
+    const reviewedPolicyCount = useStore.getState().riskPolicyVersions.length
+    click('修改规则', reviewedCard)
+    await waitFor(() => Boolean(reviewedCard.querySelector('input')), '修改规则没有展开本地草稿')
+    const dailyLimitInput = [...reviewedCard.querySelectorAll('label')]
+      .find((label) => label.textContent?.includes('日止损线'))
+      ?.querySelector<HTMLInputElement>('input')
+    assert(dailyLimitInput, '已复核卡缺少日止损草稿输入')
+    setText(dailyLimitInput, '3')
+    await frame()
+    assert(
+      useStore.getState().weeklyRiskPreparations[0]?.reviewedAt === reviewedPreparation.reviewedAt,
+      '本地修改不得提前清除 reviewedAt',
+    )
+    assert(
+      useStore.getState().weeklyRiskPreparations[0]?.draft.dailyLossLimitR === reviewedPreparation.draft.dailyLossLimitR,
+      '本地修改不得提前写入 Store draft',
+    )
+    click('取消修改', reviewedCard)
+    await waitFor(() => !reviewedCard.querySelector('input'), '取消修改没有回到已复核摘要')
+    assert(useStore.getState().riskPolicyVersions.length === reviewedPolicyCount, '取消修改不得生成规则版本')
+
+    click('修改规则', reviewedCard)
+    await waitFor(() => Boolean(reviewedCard.querySelector('[aria-label="1R 金额"]')), '再次修改没有展开本地草稿')
+    const riskAmountInput = reviewedCard.querySelector<HTMLInputElement>('[aria-label="1R 金额"]')
+    assert(riskAmountInput, '准备卡必须允许直接编辑 1R 金额')
+    setText(riskAmountInput, '1250')
+    const futureMonthInput = [...reviewedCard.querySelectorAll('label')]
+      .find((label) => label.textContent?.includes('起月止损默认'))
+      ?.querySelector<HTMLInputElement>('input')
+    assert(futureMonthInput, '月字段必须明确为未来月默认值')
+    setText(futureMonthInput, '12')
+    click('确认本周规则', reviewedCard)
+    await waitFor(() => useStore.getState().riskPolicyVersions.length === reviewedPolicyCount + 1, '确认修改没有保存新规则版本')
+    const revisedPolicy = useStore.getState().riskPolicyVersions.at(-1)!
+    assert(Math.abs(revisedPolicy.riskPercent - 1.25) < 1e-9, '直接编辑 1R 金额必须反算百分比')
+    assert(revisedPolicy.riskAmount === 1_250, '1R 金额必须按分精度保存')
+    assert(useStore.getState().monthlyRiskLimits[0]?.limitR === 10, '修改未来月默认值不得覆盖当前月锁定值')
+    await waitFor(() => reviewedCard.textContent?.includes('月 12.0R') ?? false, '确认后摘要应展示新的未来月默认值')
 
     const temporaryOpener = document.getElementById('temporary-risk-opener') as HTMLButtonElement
     temporaryOpener.focus()
@@ -216,6 +288,9 @@ async function run(): Promise<void> {
 
     click('确认继续开仓')
     await waitFor(() => Boolean(document.querySelector('[role="alert"]')), '空原因没有显示校验错误')
+    const validationAlert = document.querySelector<HTMLElement>('[role="alert"]')
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')
+    assert(validationAlert?.id && dialog?.getAttribute('aria-describedby')?.includes(validationAlert.id), '错误必须通过 aria-describedby 关联到 dialog')
     assert(useStore.getState().trades[0]?.status === 'planned', '校验失败不得开仓')
     setText(reason, 'x'.repeat(501))
     click('确认继续开仓')
@@ -236,10 +311,20 @@ async function run(): Promise<void> {
     setText(retryReason, '复核后接受本次偏离')
     await frame()
     let attempts = 0
+    let releaseFirstAttempt: (() => void) | undefined
     useStore.setState({
       confirmTradeOpen: async () => {
         attempts += 1
-        if (attempts === 1) throw new Error('模拟存储失败')
+        if (attempts === 1) {
+          await new Promise<void>((resolve) => { releaseFirstAttempt = resolve })
+          useStore.setState((state) => ({
+            pendingTradeOpenRequest: state.pendingTradeOpenRequest
+              ? { ...state.pendingTradeOpenRequest, fingerprint: `${state.pendingTradeOpenRequest.fingerprint}:changed` }
+              : null,
+          }))
+          return { kind: 'needs-reconfirmation' as const }
+        }
+        if (attempts === 2) throw new Error('模拟存储失败')
         useStore.setState((state) => ({
           trades: state.trades.map((item) => item.id === 'target' ? { ...item, status: 'open' as const } : item),
           pendingTradeOpenRequest: null,
@@ -249,15 +334,24 @@ async function run(): Promise<void> {
     })
     await frame()
     click('确认继续开仓')
+    await waitFor(() => document.querySelector('[role="dialog"]')?.getAttribute('aria-busy') === 'true', '提交没有进入 busy 状态')
+    click('正在写入…')
+    await frame()
+    assert(attempts === 1, '提交期间必须阻止重复确认')
+    assert(document.querySelector('[role="dialog"]')?.getAttribute('aria-busy') === 'true', '提交期间 dialog 必须 aria-busy=true')
+    releaseFirstAttempt?.()
+    await waitFor(() => document.body.textContent?.includes('风险数据已变化') ?? false, 'fingerprint 变化没有要求再次确认')
+    assert(retryReason.value === '复核后接受本次偏离', '再次确认必须保留原原因')
+    click('重试确认')
     await waitFor(() => document.body.textContent?.includes('模拟存储失败') ?? false, '提交失败没有显示原因')
     assert(retryReason.value === '复核后接受本次偏离', '提交失败后没有保留用户原因')
     click('重试确认')
     await waitFor(() => !document.querySelector('[data-trade-open-risk-dialog]'), '失败后无法重试成功')
-    assert(attempts === 2, '重试没有复用同一提交动作')
+    assert(Number(attempts) === 3, '重试没有复用同一提交动作')
 
     const durableTarget = trade('target-durable', 'planned')
     useStore.setState((state) => ({
-      trades: [durableTarget, trade('durable-unknown-loss', 'loss', { unknown: true })],
+      trades: [durableTarget, trade('durable-triggered-loss', 'loss')],
       pendingTradeOpenRequest: null,
       riskOverrideEvents: [],
       undoStack: [],
@@ -266,6 +360,7 @@ async function run(): Promise<void> {
     }))
     useStore.getState().requestTradeOpen(durableTarget.id)
     await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), 'durable 恢复场景没有打开确认框')
+    assert(document.body.textContent?.includes('止损预算已触线'), 'triggered 分支没有真实展示触线文案')
     let recovered = 0
     useStore.setState({
       confirmTradeOpen: async () => {
@@ -273,6 +368,7 @@ async function run(): Promise<void> {
       },
       rehydrateRiskGateFromStorage: async () => {
         recovered += 1
+        if (recovered === 1) throw new Error('模拟 reload 失败')
         useStore.setState((state) => ({
           trades: state.trades.map((item) => item.id === durableTarget.id
             ? { ...item, status: 'open' as const }
@@ -287,8 +383,17 @@ async function run(): Promise<void> {
     setText(durableReason, '持久化成功后恢复工作台')
     await frame()
     click('确认继续开仓')
-    await waitFor(() => !document.querySelector('[data-trade-open-risk-dialog]'), 'durable 成功后 publish 失败没有关闭或恢复')
-    assert(recovered === 1, 'publish-after-commit 必须从 storage 重新 hydrate')
+    await waitFor(() => document.body.textContent?.includes('工作台恢复失败') ?? false, 'reload 失败没有进入 reload-required')
+    assert(durableReason.value === '持久化成功后恢复工作台', 'reload-required 必须保留原因')
+    assert(![...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === '取消开仓'), 'reload-required 不得保留取消动作')
+    assert(![...document.querySelectorAll('button')].some((button) => button.textContent?.trim() === '重试确认'), 'reload-required 不得再次提交确认')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    document.querySelector<HTMLElement>('.modal-shell-overlay')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    await frame()
+    assert(document.querySelector('[data-trade-open-risk-dialog]'), 'reload-required 不得由 Esc 或 overlay 关闭')
+    click('重新载入已提交快照')
+    await waitFor(() => !document.querySelector('[data-trade-open-risk-dialog]'), '重试 storage reload 成功后没有关闭')
+    assert(recovered === 2, 'reload-required 唯一主动作必须重试 storage reload')
     assert(useStore.getState().trades[0]?.status === 'open', 'rehydrate 后必须采用 durable open 状态')
   } finally {
     root.unmount()

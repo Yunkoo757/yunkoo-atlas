@@ -113,6 +113,12 @@
   margin-top: 11px;
 }
 
+.risk-preparation-month-lock {
+  margin-top: 8px;
+  color: var(--text-quaternary);
+  font-size: var(--type-caption-size);
+}
+
 .risk-preparation-actions {
   display: flex;
   align-items: center;
@@ -125,6 +131,13 @@
   font-family: var(--font-mono);
   font-size: var(--type-caption-size);
   font-variant-numeric: tabular-nums;
+}
+
+.risk-preparation-risk-amount label {
+  display: grid;
+  grid-template-columns: auto 112px;
+  align-items: center;
+  gap: 7px;
 }
 
 .risk-preparation-error {

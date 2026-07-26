@@ -267,6 +267,13 @@ function upsertTradeIntoSlice(
   }
 }
 
+function upsertWouldBypassFirstOpenGate(existing: Trade | undefined, incoming: Trade): boolean {
+  if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.deletedAt || incoming.status !== 'open') {
+    return false
+  }
+  return existing ? requiresFirstOpenGate(existing) : true
+}
+
 /** 纯计算批量写入结果，供需要先落盘、再发布到 store 的原子导入流程复用。 */
 export function applyTradeUpsertsToSlice(
   initial: TradeUpsertSlice,
@@ -401,9 +408,11 @@ interface State {
   addStrategy: (strategy: Strategy) => void
   updateStrategy: (id: string, patch: Partial<Omit<Strategy, 'id'>>) => void
   removeStrategy: (id: string, reassignToId?: string) => void
-  upsertTrade: (trade: Trade) => void
+  upsertTrade: (trade: Trade) => SetTradeStatusResult
   /** 单次 setState 批量 upsert，避免 N 次订阅/persist 风暴 */
-  upsertTrades: (trades: Trade[]) => void
+  upsertTrades: (trades: Trade[]) => SetTradeStatusResult
+  /** CSV／历史资料导入专用；调用方必须是明确的非交互恢复流程。 */
+  upsertTradesFromNonInteractiveImport: (trades: Trade[]) => void
   removeTrade: (id: string) => void
   removeTrades: (ids: string[]) => void
   restoreTrade: (id: string) => void
@@ -1162,8 +1171,29 @@ export const useStore = create<State>()((set, get) => ({
                 : s.trades,
           }
         }),
-      upsertTrade: (trade) => set((s) => upsertTradeIntoSlice(s, trade, s.display.tradingDayStartHour)),
-      upsertTrades: (trades) =>
+      upsertTrade: (trade) => {
+        const existing = get().trades.find((item) => item.id === trade.id)
+        if (upsertWouldBypassFirstOpenGate(existing, trade)) return 'requires-risk-gate'
+        set((s) => upsertTradeIntoSlice(s, trade, s.display.tradingDayStartHour))
+        return 'updated'
+      },
+      upsertTrades: (trades) => {
+        const currentTrades = get().trades
+        if (trades.some((trade) => upsertWouldBypassFirstOpenGate(
+          currentTrades.find((item) => item.id === trade.id),
+          trade,
+        ))) return 'requires-risk-gate'
+        if (trades.length === 0) return 'unchanged'
+        set((s) => applyTradeUpsertsToSlice({
+            trades: s.trades,
+            strategies: s.strategies,
+            symbolCatalog: s.symbolCatalog,
+            tagPresets: s.tagPresets,
+            mistakeTagPresets: s.mistakeTagPresets,
+          }, trades, s.display.tradingDayStartHour))
+        return 'updated'
+      },
+      upsertTradesFromNonInteractiveImport: (trades) =>
         set((s) => {
           if (trades.length === 0) return s
           return applyTradeUpsertsToSlice({

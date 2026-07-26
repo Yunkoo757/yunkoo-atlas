@@ -39,7 +39,7 @@ interface Props {
 export function CsvImportModal({ open, onClose }: Props) {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
-  const upsertTrades = useStore((s) => s.upsertTrades)
+  const upsertTradesFromNonInteractiveImport = useStore((s) => s.upsertTradesFromNonInteractiveImport)
   const purgeTrades = useStore((s) => s.purgeTrades)
   const privacyMode = useStore((s) => s.display.privacyMode)
 
@@ -230,7 +230,7 @@ export function CsvImportModal({ open, onClose }: Props) {
     setError('')
     try {
       await withPersistSuspended(() => {
-        upsertTrades(batch)
+        upsertTradesFromNonInteractiveImport(batch)
       })
     } catch (err) {
       console.error('[CsvImport] persist failed', err)

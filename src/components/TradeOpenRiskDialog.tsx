@@ -23,7 +23,7 @@ const UNKNOWN_REASON_COPY: Record<RiskUnknownReason, string> = {
   'future-loss-close-date': '亏损平仓日期晚于当前交易日',
 }
 
-type CommitState = 'idle' | 'committing' | 'error'
+type CommitState = 'idle' | 'committing' | 'error' | 'reload-required'
 
 function fmtBudgetR(value: number): string {
   return fmtR(Math.abs(value)).replace(/^\+/, '')
@@ -90,7 +90,7 @@ export function TradeOpenRiskDialog() {
     setReason('')
     setCommitState('idle')
     setError('')
-  }, [request?.fingerprint])
+  }, [request?.tradeId])
 
   useEffect(() => {
     if (!request) return
@@ -141,7 +141,7 @@ export function TradeOpenRiskDialog() {
           await rehydrateRiskGateFromStorage()
           return
         } catch (reloadError) {
-          setCommitState('error')
+          setCommitState('reload-required')
           setError(
             `开仓已写入存储，但工作台恢复失败。请立即重新载入资料库，勿继续编辑。${
               reloadError instanceof Error ? ` ${reloadError.message}` : ''
@@ -155,6 +155,22 @@ export function TradeOpenRiskDialog() {
     }
   }
 
+  const retryStorageReload = async () => {
+    setCommitState('committing')
+    try {
+      await rehydrateRiskGateFromStorage()
+    } catch (reloadError) {
+      setCommitState('reload-required')
+      setError(
+        `工作台仍无法从已提交快照恢复，请重试载入，成功前勿继续编辑。${
+          reloadError instanceof Error ? ` ${reloadError.message}` : ''
+        }`,
+      )
+    }
+  }
+
+  const reloadRequired = commitState === 'reload-required'
+
   const triggeredPeriods = PERIODS
     .filter(({ scope }) => request.outcomes[scope].triggered)
     .map(({ label }) => label)
@@ -164,29 +180,39 @@ export function TradeOpenRiskDialog() {
       title={request.decisionType === 'unknown' ? '当前风险无法确认' : '止损预算已触线'}
       description={`${trade.ref} · ${trade.symbol} · 继续进入持仓前需要逐笔确认`}
       busy={commitState === 'committing'}
-      dismissible={commitState !== 'committing'}
+      dismissible={commitState !== 'committing' && !reloadRequired}
       describedById={error ? errorId : undefined}
       onClose={close}
       size="default"
       footer={(
-        <>
-          <Button variant="bordered" size="lg" disabled={commitState === 'committing'} onClick={close}>
-            取消开仓
-          </Button>
+        reloadRequired ? (
           <Button
-            type="submit"
-            form="trade-open-risk-form"
             variant="primary"
             size="lg"
-            disabled={commitState === 'committing'}
+            onClick={retryStorageReload}
           >
-            {commitState === 'committing'
-              ? '正在写入…'
-              : commitState === 'error' && reason.trim()
-                ? '重试确认'
-                : '确认继续开仓'}
+            重新载入已提交快照
           </Button>
-        </>
+        ) : (
+          <>
+            <Button variant="bordered" size="lg" disabled={commitState === 'committing'} onClick={close}>
+              取消开仓
+            </Button>
+            <Button
+              type="submit"
+              form="trade-open-risk-form"
+              variant="primary"
+              size="lg"
+              disabled={commitState === 'committing'}
+            >
+              {commitState === 'committing'
+                ? '正在写入…'
+                : commitState === 'error' && reason.trim()
+                  ? '重试确认'
+                  : '确认继续开仓'}
+            </Button>
+          </>
+        )
       )}
     >
       <form
@@ -245,7 +271,7 @@ export function TradeOpenRiskDialog() {
             value={reason}
             maxLength={500}
             rows={4}
-            disabled={commitState === 'committing'}
+            disabled={commitState === 'committing' || reloadRequired}
             onChange={(event) => {
               setReason(event.target.value)
               if (commitState === 'error') {

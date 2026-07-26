@@ -3,6 +3,7 @@ import { CheckCircle, Shield } from '@/icons/appIcons'
 import type { RiskPolicyDraft } from '@/data/riskManagement'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { fmtMoney, fmtR } from '@/lib/format'
+import { toMoneyCents } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
 import { parseLocalDate } from '@/lib/periods'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
@@ -42,8 +43,26 @@ function draftFromPolicy(
 function withCalculatedRiskAmount(draft: RiskPolicyDraft): RiskPolicyDraft {
   const amount = draft.capitalBase == null
     ? null
-    : Math.round(draft.capitalBase * draft.riskPercent) / 100
+    : toMoneyCents(draft.capitalBase * draft.riskPercent / 100) / 100
   return { ...draft, riskAmount: amount }
+}
+
+function withRiskAmount(draft: RiskPolicyDraft, riskAmount: number | null): RiskPolicyDraft {
+  if (draft.capitalBase == null || riskAmount == null || draft.capitalBase <= 0) {
+    return { ...draft, riskAmount }
+  }
+  const canonicalAmount = toMoneyCents(riskAmount) / 100
+  return {
+    ...draft,
+    riskAmount: canonicalAmount,
+    riskPercent: canonicalAmount / draft.capitalBase * 100,
+  }
+}
+
+function nextMonthKey(tradingDay: string): string {
+  const date = parseLocalDate(`${tradingDay.slice(0, 7)}-01`)
+  date.setMonth(date.getMonth() + 1)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
 export function WeeklyRiskPreparationCard({
@@ -56,8 +75,8 @@ export function WeeklyRiskPreparationCard({
   const weekStart = weekStartFor(parseLocalDate(tradingDay))
   const preparations = useStore((state) => state.weeklyRiskPreparations)
   const policies = useStore((state) => state.riskPolicyVersions)
+  const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
   const privacyMode = useStore((state) => state.display.privacyMode)
-  const saveDraft = useStore((state) => state.saveWeeklyRiskDraft)
   const confirmPreparation = useStore((state) => state.confirmWeeklyRiskPreparation)
   const preparation = preparations.find((item) => item.weekStart === weekStart)
   const policy = useMemo(
@@ -69,6 +88,8 @@ export function WeeklyRiskPreparationCard({
   const [draft, setDraft] = useState<RiskPolicyDraft>(() => sourceDraft)
   const [editingReviewed, setEditingReviewed] = useState(false)
   const [error, setError] = useState('')
+  const currentMonthKey = tradingDay.slice(0, 7)
+  const currentMonthLimit = monthlyLimits.find((item) => item.monthKey === currentMonthKey)
 
   useEffect(() => {
     setDraft(sourceDraft)
@@ -79,7 +100,6 @@ export function WeeklyRiskPreparationCard({
     const next = withCalculatedRiskAmount({ ...draft, ...patch })
     setDraft(next)
     setError('')
-    saveDraft(weekStart, next, new Date().toISOString())
   }
 
   const submit = (event: FormEvent) => {
@@ -166,9 +186,9 @@ export function WeeklyRiskPreparationCard({
               <small>%</small>
             </span>
           </label>
-          {(['dailyLossLimitR', 'weeklyLossLimitR', 'monthlyLossLimitRDefault'] as const).map((key, index) => (
+          {(['dailyLossLimitR', 'weeklyLossLimitR'] as const).map((key, index) => (
             <label key={key}>
-              <span>{['日止损线', '周止损线', '月止损线'][index]}</span>
+              <span>{['日止损线', '周止损线'][index]}</span>
               <span className="risk-preparation-inline-input">
                 <input
                   type="number"
@@ -182,6 +202,26 @@ export function WeeklyRiskPreparationCard({
               </span>
             </label>
           ))}
+          <label>
+            <span>{nextMonthKey(tradingDay)} 起月止损默认</span>
+            <span className="risk-preparation-inline-input">
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={draft.monthlyLossLimitRDefault}
+                onChange={(event) => updateDraft({ monthlyLossLimitRDefault: Number(event.target.value) })}
+                required
+              />
+              <small>R</small>
+            </span>
+          </label>
+        </div>
+        <div className="risk-preparation-month-lock">
+          {currentMonthLimit
+            ? `当前月 ${currentMonthKey} 已锁定：${fmtLimitR(currentMonthLimit.limitR)}`
+            : `当前月 ${currentMonthKey} 尚待建立锁定值`}
+          ；修改仅影响尚未锁定的未来月份。
         </div>
         <div className="risk-preparation-discipline-row">
           <label>
@@ -195,9 +235,34 @@ export function WeeklyRiskPreparationCard({
           </label>
           <div className="risk-preparation-actions">
             <span className="risk-preparation-risk-amount">
-              1R = {privacyMode ? '****' : fmtMoney(withCalculatedRiskAmount(draft).riskAmount)}
+              <label>
+                <span>1R 金额</span>
+                <input
+                  aria-label="1R 金额"
+                  type={privacyMode ? 'password' : 'number'}
+                  min="0.01"
+                  step="0.01"
+                  value={draft.riskAmount ?? ''}
+                  onChange={(event) => {
+                    setDraft(withRiskAmount(draft, event.target.value ? Number(event.target.value) : null))
+                    setError('')
+                  }}
+                  required
+                />
+              </label>
             </span>
-            {reviewed ? <Button variant="ghost" onClick={() => setEditingReviewed(false)}>取消修改</Button> : null}
+            {reviewed ? (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setDraft(sourceDraft)
+                  setEditingReviewed(false)
+                  setError('')
+                }}
+              >
+                取消修改
+              </Button>
+            ) : null}
             <Button type="submit" variant="primary">确认本周规则</Button>
           </div>
         </div>

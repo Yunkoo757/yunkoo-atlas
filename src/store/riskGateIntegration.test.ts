@@ -172,3 +172,36 @@ export function testExplicitCorrectionPreservesTrustedOpenAuditFact(): void {
     restore(previous)
   }
 }
+
+export function testPublicUpsertsFailClosedForFirstLiveOpen(): void {
+  const previous = useStore.getState()
+  try {
+    const planned = trade('upsert-target', 'planned')
+    setGateFixture([planned])
+
+    const singleResult = useStore.getState().upsertTrade({ ...planned, status: 'open' })
+    assert(singleResult === 'requires-risk-gate', 'upsertTrade 首次 live open 必须 fail-closed')
+    assert(useStore.getState().trades[0]?.status === 'planned', 'upsertTrade 不得提前写 open')
+
+    const batchResult = useStore.getState().upsertTrades([{ ...planned, status: 'open' }])
+    assert(batchResult === 'requires-risk-gate', 'upsertTrades 首次 live open 必须 fail-closed')
+    assert(useStore.getState().trades[0]?.status === 'planned', 'upsertTrades 不得提前写 open')
+  } finally {
+    restore(previous)
+  }
+}
+
+export function testNamedNonInteractiveImportCanRestoreOpenTrades(): void {
+  const previous = useStore.getState()
+  try {
+    setGateFixture([])
+    const imported = { ...trade('imported-open', 'planned'), status: 'open' as const }
+
+    useStore.getState().upsertTradesFromNonInteractiveImport([imported])
+
+    assert(useStore.getState().trades[0]?.status === 'open', '命名导入入口应保真恢复 open')
+    assert(useStore.getState().pendingTradeOpenRequest === null, '历史导入不得误触交互 Gate')
+  } finally {
+    restore(previous)
+  }
+}
