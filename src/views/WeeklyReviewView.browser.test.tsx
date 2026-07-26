@@ -3,6 +3,7 @@ import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
+import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -13,6 +14,8 @@ declare global {
     __weeklyReviewFlowTest?: Promise<void>
   }
 }
+
+const activeWeekStart = weekStartFor(parseLocalDate(getTradingDayKey()))
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -47,7 +50,7 @@ function setInputValue(input: HTMLInputElement, value: string): void {
 }
 
 function makeTrade(id: string, status: 'win' | 'loss' | 'missed', pnl: number | null): Trade {
-  const weekStart = weekStartFor()
+  const weekStart = activeWeekStart
   return {
     id,
     ref: `TRD-${id}`,
@@ -98,9 +101,9 @@ function riskEvent(): RiskOverrideEvent {
     tradeIdentityAtDecision: { ref: 'TRD-two', symbol: 'ETHUSDT', tradeKind: 'live' },
     linkState: 'unresolved',
     decisionType: 'triggered',
-    tradingDayKeyAtDecision: weekStartFor(),
+    tradingDayKeyAtDecision: activeWeekStart,
     policyVersionId: 'policy-browser',
-    createdAt: `${weekStartFor()}T10:00:00.000Z`,
+    createdAt: `${activeWeekStart}T10:00:00.000Z`,
     reason: '触线后只执行预设止损',
     fingerprint: 'browser-fixture',
     outcomesAtDecision: { day: outcome, week: outcome, month: outcome },
@@ -138,8 +141,8 @@ async function run(): Promise<void> {
       weeklyReviews: [],
       riskPolicyVersions: [{
         id: 'policy-browser',
-        sourceWeekStart: weekStartFor(),
-        effectiveTradingDay: weekStartFor(),
+        sourceWeekStart: activeWeekStart,
+        effectiveTradingDay: activeWeekStart,
         capitalBase: 10_000,
         riskPercent: 1,
         riskAmount: 100,
@@ -147,14 +150,14 @@ async function run(): Promise<void> {
         weeklyLossLimitR: 5,
         monthlyLossLimitRDefault: 10,
         disciplineText: '浏览器冻结规则',
-        confirmedAt: `${weekStartFor()}T07:00:00.000Z`,
+        confirmedAt: `${activeWeekStart}T07:00:00.000Z`,
       }],
       monthlyRiskLimits: [{
-        id: `monthly-risk-limit:${weekStartFor().slice(0, 7)}`,
-        monthKey: weekStartFor().slice(0, 7),
+        id: `monthly-risk-limit:${activeWeekStart.slice(0, 7)}`,
+        monthKey: activeWeekStart.slice(0, 7),
         limitR: 10,
         sourcePolicyVersionId: 'policy-browser',
-        lockedAt: `${weekStartFor()}T07:00:00.000Z`,
+        lockedAt: `${activeWeekStart}T07:00:00.000Z`,
       }],
       riskOverrideEvents: [riskEvent(), resolvedRiskEvent()],
     })
@@ -236,7 +239,7 @@ async function run(): Promise<void> {
     assert(useStore.getState().weeklyReviews[0]?.metricsSnapshot === null, '重开后应恢复实时指标')
     assert(useStore.getState().weeklyReviews[0]?.riskSnapshot === undefined, '重开后应清除风险快照')
 
-    const priorDate = new Date(`${weekStartFor()}T12:00:00`)
+    const priorDate = new Date(`${activeWeekStart}T12:00:00`)
     priorDate.setDate(priorDate.getDate() - 7)
     const priorReview = {
       ...createWeeklyReview(weekStartFor(priorDate)),

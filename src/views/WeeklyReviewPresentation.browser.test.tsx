@@ -6,6 +6,7 @@ import {
   createWeeklyReview,
   weekStartFor,
 } from '@/data/weeklyReviews'
+import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -16,6 +17,8 @@ declare global {
     __weeklyReviewPresentationTest?: Promise<void>
   }
 }
+
+const activeWeekStart = weekStartFor(parseLocalDate(getTradingDayKey()))
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -66,7 +69,7 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const root = createRoot(rootElement)
   try {
-    const weekStart = weekStartFor()
+    const weekStart = activeWeekStart
     const trade = makeTrade(weekStart)
     const review = {
       ...createWeeklyReview(weekStart),

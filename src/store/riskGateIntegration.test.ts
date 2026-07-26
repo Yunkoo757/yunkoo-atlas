@@ -1,12 +1,14 @@
 import type { MonthlyRiskLimit, RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade, TradeStatus } from '@/data/trades'
+import { getTradingDayKey } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-const today = '2026-07-26'
+const today = getTradingDayKey(new Date(), 0)
+const monthKey = today.slice(0, 7)
 
 const policy: RiskPolicyVersion = {
   id: 'policy-task-6',
@@ -23,8 +25,8 @@ const policy: RiskPolicyVersion = {
 }
 
 const monthlyLimit: MonthlyRiskLimit = {
-  id: 'monthly-risk-limit:2026-07',
-  monthKey: '2026-07',
+  id: `monthly-risk-limit:${monthKey}`,
+  monthKey,
   limitR: 10,
   sourcePolicyVersionId: policy.id,
   lockedAt: policy.confirmedAt,
