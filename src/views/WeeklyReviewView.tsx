@@ -68,12 +68,19 @@ const COMMITMENT_RESULTS: { value: WeeklyCommitmentResult; label: string }[] = [
 
 type ReviewPatch = Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>
 
+const RISK_COVERAGE_META: Record<RiskPeriodOutcomeSnapshot['coverage'], { label: string; hint: string }> = {
+  complete: { label: '完整', hint: '' },
+  partial: { label: '部分覆盖', hint: '按保守数值展示' },
+  unknown: { label: '无法确认', hint: '数据不完整，不能判断是否安全' },
+}
+
 function RiskOutcome({ label, outcome }: { label: string; outcome: RiskPeriodOutcomeSnapshot }) {
+  const coverage = RISK_COVERAGE_META[outcome.coverage]
   return (
     <div className="wr-metric">
       <span>{label}</span>
       <strong>{fmtR(outcome.netBudgetR)}</strong>
-      <small>{outcome.coverage} · 上限 {fmtR(outcome.limitR)}</small>
+      <small>{coverage.label} · 上限 {fmtR(outcome.limitR)}{coverage.hint ? ` · ${coverage.hint}` : ''}</small>
     </div>
   )
 }
@@ -183,6 +190,7 @@ function TradeEvidence({
 export function WeeklyReviewView() {
   const trades = useStore((state) => state.trades)
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const reviews = useStore((state) => state.weeklyReviews)
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
@@ -206,12 +214,12 @@ export function WeeklyReviewView() {
   const storedReview = reviews.find((item) => item.weekStart === selectedWeek)
   const review = storedReview ?? createWeeklyReview(selectedWeek)
   const weekTrades = useMemo(
-    () => tradesClosedInWeek(trades, selectedWeek),
-    [trades, selectedWeek],
+    () => tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour),
+    [trades, selectedWeek, tradingDayStartHour],
   )
   const weekMissedTrades = useMemo(
-    () => missedTradesInWeek(trades, selectedWeek),
-    [trades, selectedWeek],
+    () => missedTradesInWeek(trades, selectedWeek, tradingDayStartHour),
+    [trades, selectedWeek, tradingDayStartHour],
   )
   const liveMetrics = useMemo(
     () => buildWeeklyReviewMetrics(weekTrades, weekMissedTrades),

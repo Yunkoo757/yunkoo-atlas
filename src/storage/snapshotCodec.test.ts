@@ -142,6 +142,26 @@ export function testSnapshotCodecRejectsWrongTypesAndFutureVersionsBeforeNormali
   )
 }
 
+function fullSnapshotWithWeeklyRiskReview() {
+  const fixture = createFullPersistedSnapshotFixture()
+  const event = fixture.riskOverrideEvents[0]!
+  const review = fixture.weeklyReviews![0]!
+  return {
+    ...fixture,
+    weeklyReviews: [{
+      ...review,
+      riskSnapshot: {
+        policyVersions: fixture.riskPolicyVersions,
+        dailyOutcomes: [{ ...event.outcomesAtDecision.day, date: '2026-07-17' }],
+        weeklyOutcome: event.outcomesAtDecision.week,
+        monthlyOutcomeAtCompletion: event.outcomesAtDecision.month,
+        overrideEvents: fixture.riskOverrideEvents,
+        frozenAt: review.completedAt!,
+      },
+    }],
+  }
+}
+
 export function testV9RequiresEveryRiskField(): void {
   const full = createFullPersistedSnapshotFixture()
   for (const field of [
@@ -166,6 +186,30 @@ export function testV8BackfillsRiskFields(): void {
   assert(decoded.riskPolicyVersions.length === 0, 'v8 应补空 policy 数组')
   assert(decoded.monthlyRiskLimits.length === 0, 'v8 应补空 monthly limit 数组')
   assert(decoded.riskOverrideEvents.length === 0, 'v8 应补空 override event 数组')
+}
+
+export function testWeeklyRiskReviewSnapshotSurvivesCodecAndJsonAndRejectsMalformedV9(): void {
+  const fixture = fullSnapshotWithWeeklyRiskReview()
+  const assets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({
+    id,
+    mime: 'image/png',
+    data: Buffer.from([index, 71, 72, 73]).toString('base64'),
+  }))
+  const decoded = decodeCanonicalSnapshot(fixture, { version: SCHEMA_VERSION })
+  assert(decoded.weeklyReviews[0]?.riskSnapshot?.overrideEvents[0]?.reason === '合同覆盖原因', 'codec 重载必须保留冻结事件')
+
+  const json = parseImportJson(JSON.stringify({ version: SCHEMA_VERSION, ...fixture, assets }))
+  assert(json.ok, 'JSON reader 必须接受合法周复盘风险快照')
+  assert(json.data.weeklyReviews?.[0]?.riskSnapshot?.frozenAt === fixture.weeklyReviews[0]!.completedAt, 'JSON 重载必须保留冻结时间')
+
+  const malformed = structuredClone(fixture)
+  malformed.weeklyReviews[0]!.riskSnapshot!.weeklyOutcome.coverage = 'safe' as 'complete'
+  assertThrows(
+    () => decodeCanonicalSnapshot(malformed, { version: SCHEMA_VERSION }),
+    '原生 v9 codec 必须拒绝损坏的周复盘风险快照',
+  )
+  const malformedJson = parseImportJson(JSON.stringify({ version: SCHEMA_VERSION, ...malformed, assets }))
+  assert(!malformedJson.ok, 'JSON reader 必须拒绝损坏的周复盘风险快照')
 }
 
 export function testV8BackfillsClosedTradingDayKeyFromSnapshotDisplay(): void {

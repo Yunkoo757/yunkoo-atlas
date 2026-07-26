@@ -104,11 +104,11 @@ function validDayKey(value: string | undefined): value is string {
   return formatYmd(parseLocalDate(value)) === value
 }
 
-function closedTradingDayKey(trade: Trade): string | null {
+export function closedTradingDayKey(trade: Trade, tradingDayStartHour = 0): string | null {
   if (trade.closedTradingDayKey !== undefined) {
     return validDayKey(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
   }
-  return closedTradingDayKeyFromClosedAt(trade.closedAt, 0)
+  return closedTradingDayKeyFromClosedAt(trade.closedAt, tradingDayStartHour)
 }
 
 function activePolicy(policies: RiskPolicyVersion[], day: string): RiskPolicyVersion | null {

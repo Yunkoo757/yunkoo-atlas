@@ -3,6 +3,7 @@ import {
   isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
 import { buildWeeklyReviewMetrics, createWeeklyReview } from '@/data/weeklyReviews'
+import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -253,6 +254,54 @@ export function testSnapshotValidationRejectsDuplicateEntityIds(): void {
       rejected = true
     }
     assert(rejected, '重复的交易或策略 ID 不得进入资料库')
+  }
+}
+
+function snapshotWithWeeklyRiskReview() {
+  const fixture = createFullPersistedSnapshotFixture()
+  const event = fixture.riskOverrideEvents[0]!
+  const review = fixture.weeklyReviews![0]!
+  return {
+    ...fixture,
+    weeklyReviews: [{
+      ...review,
+      riskSnapshot: {
+        policyVersions: fixture.riskPolicyVersions,
+        dailyOutcomes: [{ ...event.outcomesAtDecision.day, date: '2026-07-17' }],
+        weeklyOutcome: event.outcomesAtDecision.week,
+        monthlyOutcomeAtCompletion: event.outcomesAtDecision.month,
+        overrideEvents: fixture.riskOverrideEvents,
+        frozenAt: review.completedAt!,
+      },
+    }],
+  }
+}
+
+export function testSnapshotValidationStrictlyValidatesWeeklyRiskReviewSnapshots(): void {
+  const complete = snapshotWithWeeklyRiskReview()
+  assertValidPersistedSnapshot(complete)
+  const legacy = structuredClone(complete)
+  delete (legacy.weeklyReviews[0]! as { riskSnapshot?: unknown }).riskSnapshot
+  assertValidPersistedSnapshot(legacy)
+
+  const corruptions: Array<(candidate: ReturnType<typeof snapshotWithWeeklyRiskReview>) => void> = [
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.policyVersions[0]!.riskAmount = -1 },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.dailyOutcomes[0]!.date = '2026-02-30' },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.weeklyOutcome.coverage = 'safe' as 'complete' },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.monthlyOutcomeAtCompletion.progress = 2 },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.overrideEvents[0]!.reason = '' },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.frozenAt = 'not-a-timestamp' },
+  ]
+  for (const corrupt of corruptions) {
+    const candidate = structuredClone(complete)
+    corrupt(candidate)
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot(candidate)
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '损坏的周复盘风险快照必须被中央验证器拒绝')
   }
 }
 

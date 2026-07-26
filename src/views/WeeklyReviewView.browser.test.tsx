@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
@@ -108,6 +108,22 @@ function riskEvent(): RiskOverrideEvent {
   }
 }
 
+function resolvedRiskEvent(): RiskOverrideEvent {
+  return {
+    ...riskEvent(),
+    id: 'override-resolved',
+    tradeId: 'one',
+    tradeIdentityAtDecision: { ref: 'TRD-one', symbol: 'BTCUSDT', tradeKind: 'live' },
+    linkState: 'resolved',
+    reason: '盈利后仍按计划执行',
+  }
+}
+
+function StoreRenderSentinel() {
+  const trades = useStore((state) => state.trades)
+  return <output data-testid="store-render-sentinel">{trades.length}:{trades.filter((trade) => trade.deletedAt).length}</output>
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -140,13 +156,13 @@ async function run(): Promise<void> {
         sourcePolicyVersionId: 'policy-browser',
         lockedAt: `${weekStartFor()}T07:00:00.000Z`,
       }],
-      riskOverrideEvents: [riskEvent()],
+      riskOverrideEvents: [riskEvent(), resolvedRiskEvent()],
     })
     root.render(
       <MemoryRouter initialEntries={['/weekly-review']}>
         <Routes>
-          <Route path="/weekly-review" element={<WeeklyReviewView />} />
-          <Route path="/trade/:id" element={<div>交易详情</div>} />
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><StoreRenderSentinel /></>} />
+          <Route path="/trade/:id" element={<div>交易详情 <Link to="/weekly-review">返回复盘</Link></div>} />
         </Routes>
       </MemoryRouter>,
     )
@@ -192,13 +208,28 @@ async function run(): Promise<void> {
     assert(completed.completedAt === completed.riskSnapshot?.frozenAt, '完成与风险冻结必须使用同一时间戳')
     assert(document.body.textContent?.includes('浏览器冻结规则'), '已完成复盘没有展示冻结规则')
     assert(document.body.textContent?.includes('完成时月度'), '已完成复盘没有展示冻结月度结果')
+    assert(document.body.textContent?.includes('完整 · 上限'), 'coverage 没有使用中文文案')
     assert(document.body.textContent?.includes('触线后只执行预设止损'), '已完成复盘没有展示确认原因')
     assert(document.body.textContent?.includes('TRD-two · ETHUSDT · 关联未解析'), '未解析事件没有展示冻结身份与关联状态')
+    const resolvedLink = [...document.querySelectorAll<HTMLAnchorElement>('a')]
+      .find((link) => link.textContent === '查看交易' && link.getAttribute('href') === '/trade/TRD-one')
+    assert(resolvedLink, 'resolved 冻结事件没有生成真实交易详情路由')
 
-    useStore.setState({ trades: [], riskPolicyVersions: [], riskOverrideEvents: [] })
+    useStore.getState().removeTrade('two')
+    await waitFor(() => document.querySelector('[data-testid="store-render-sentinel"]')?.textContent === '3:1', '生产软删除后 Store 未确定重渲染')
+    useStore.getState().purgeTrade('two')
+    await waitFor(() => document.querySelector('[data-testid="store-render-sentinel"]')?.textContent === '2:0', '生产彻底删除后 Store 未确定重渲染')
+    useStore.setState({ riskPolicyVersions: [], riskOverrideEvents: [] })
     await waitFor(() => document.body.textContent?.includes('触线后只执行预设止损') ?? false, '删除关联交易后冻结事件消失')
     assert(document.body.textContent?.includes('浏览器冻结规则'), '完成后读取了实时规则而不是快照')
     assert(document.body.textContent?.includes('+$100'), '完成后读取了实时绩效而不是快照')
+
+    resolvedLink.click()
+    await waitFor(() => document.body.textContent?.includes('交易详情') ?? false, 'resolved 冻结事件链接未进入交易详情路由')
+    const returnLink = [...document.querySelectorAll<HTMLAnchorElement>('a')].find((link) => link.textContent === '返回复盘')
+    assert(returnLink, '交易详情缺少返回复盘入口')
+    returnLink.click()
+    await waitFor(() => document.body.textContent?.includes('这周已经形成闭环') ?? false, '从冻结交易详情返回后没有恢复复盘')
 
     clickButton('重新打开')
     await waitFor(() => useStore.getState().weeklyReviews[0]?.status === 'draft', '完成的复盘无法重新打开')

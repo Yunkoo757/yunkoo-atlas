@@ -73,6 +73,7 @@ export function Dashboard() {
   const allTrades = useStore((s) => s.trades)
   const strategyDefs = useStore((s) => s.strategies)
   const privacyMode = useStore((s) => s.display.privacyMode)
+  const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const openComposer = useStore((s) => s.openComposer)
   const [curveDataOpen, setCurveDataOpen] = useState(false)
   const businessDateAnchor = useBusinessDateAnchor()
@@ -110,9 +111,9 @@ export function Dashboard() {
       { kind: scope.kind, range: 'this-week' },
       businessDateAnchor,
     )
-    const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(allTrades, weekStart)
+    const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(allTrades, weekStart, tradingDayStartHour)
     return buildWeeklyReviewMetrics(weekTrades, missed)
-  }, [allTrades, businessDateAnchor, localDateKey, scope.kind, weekStart])
+  }, [allTrades, businessDateAnchor, localDateKey, scope.kind, tradingDayStartHour, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '全部类型'
   const hasClosedTrades = stats.closedCount > 0

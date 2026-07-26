@@ -8,7 +8,7 @@ import type {
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
-import { resolveRiskOutcomes } from '@/lib/riskBudget'
+import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
@@ -127,20 +127,22 @@ export function createWeeklyReview(weekStart: string, now = new Date()): WeeklyR
   }
 }
 
-export function tradesClosedInWeek(trades: Trade[], weekStart: string): Trade[] {
+export function tradesClosedInWeek(trades: Trade[], weekStart: string, tradingDayStartHour = 0): Trade[] {
   const weekEnd = weekEndFor(weekStart)
   return trades.filter((trade) => {
-    if (trade.deletedAt || trade.tradeKind !== 'live' || !isExecutedClosed(trade.status) || !trade.closedAt) return false
-    const date = trade.closedAt.slice(0, 10)
+    if (trade.deletedAt || trade.tradeKind !== 'live' || !isExecutedClosed(trade.status)) return false
+    const date = closedTradingDayKey(trade, tradingDayStartHour)
+    if (!date) return false
     return date >= weekStart && date <= weekEnd
   })
 }
 
-export function missedTradesInWeek(trades: Trade[], weekStart: string): Trade[] {
+export function missedTradesInWeek(trades: Trade[], weekStart: string, tradingDayStartHour = 0): Trade[] {
   const weekEnd = weekEndFor(weekStart)
   return trades.filter((trade) => {
-    if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status) || !trade.closedAt) return false
-    const date = trade.closedAt.slice(0, 10)
+    if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status)) return false
+    const date = closedTradingDayKey(trade, tradingDayStartHour)
+    if (!date) return false
     return date >= weekStart && date <= weekEnd
   })
 }
@@ -241,8 +243,8 @@ export function completeWeeklyReviewCandidate(
     ...existing,
     status: 'completed',
     metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(
-      tradesClosedInWeek(state.trades, existing.weekStart),
-      missedTradesInWeek(state.trades, existing.weekStart),
+      tradesClosedInWeek(state.trades, existing.weekStart, state.display.tradingDayStartHour),
+      missedTradesInWeek(state.trades, existing.weekStart, state.display.tradingDayStartHour),
     )),
     riskSnapshot: buildWeeklyRiskReviewSnapshot(state, existing, completedAt),
     completedAt,

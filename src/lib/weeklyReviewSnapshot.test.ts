@@ -148,3 +148,28 @@ export function testCompletedSnapshotSurvivesNormalizationReload(): void {
   assert(reloaded?.riskSnapshot?.policyVersions[0]?.id === 'policy-7', '重载后必须保留冻结规则')
   assert(reloaded?.riskSnapshot?.overrideEvents[0]?.reason === '版本 7 的继续交易原因', '重载后必须保留冻结事件')
 }
+
+export function testCompletionMetricsAndRiskUseTheSameFrozenTradingDay(): void {
+  const state = stateAtRevision(7)
+  state.display.tradingDayStartHour = 6
+  state.trades[0] = {
+    ...state.trades[0]!,
+    closedAt: '2026-07-27T05:59:00+08:00',
+    closedTradingDayKey: '2026-07-26',
+  }
+  const completed = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-27T05:59:00+08:00'),
+  ).review
+  assert(completed.metricsSnapshot?.tradeCount === 1, '绩效必须按固化业务日归入周日')
+  assert(completed.riskSnapshot?.weeklyOutcome.netBudgetR === -1, '风险周结果必须使用同一固化业务日')
+
+  delete state.trades[0]!.closedTradingDayKey
+  const legacyCompleted = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-27T05:59:00+08:00'),
+  ).review
+  assert(legacyCompleted.metricsSnapshot?.tradeCount === 1, '旧交易必须按完成时的交易日起始小时回退归周')
+}

@@ -395,7 +395,12 @@ function isWeeklyReview(value: unknown): boolean {
     !WEEKLY_COMMITMENT_RESULTS.has(String(value.previousCommitmentResult))
   ) return false
   if (value.completedAt !== null && typeof value.completedAt !== 'string') return false
-  return value.metricsSnapshot === null || isWeeklyReviewMetrics(value.metricsSnapshot)
+  if (value.metricsSnapshot !== null && !isWeeklyReviewMetrics(value.metricsSnapshot)) return false
+  const riskSnapshot = value.riskSnapshot
+  return riskSnapshot === undefined || (
+    isWeeklyRiskReviewSnapshot(riskSnapshot) &&
+    value.completedAt === riskSnapshot.frozenAt
+  )
 }
 
 function isQuickNote(value: unknown): boolean {
@@ -524,6 +529,30 @@ function isRiskOverrideEvent(value: unknown): boolean {
     isRiskPeriodOutcomeSnapshot(outcomes.week) &&
     isRiskPeriodOutcomeSnapshot(outcomes.month) &&
     isRiskUnknownReasons(value.unknownReasons)
+}
+
+function isWeeklyRiskReviewSnapshot(value: unknown): value is Record<string, unknown> & { frozenAt: string } {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.policyVersions) ||
+    !Array.isArray(value.dailyOutcomes) ||
+    !Array.isArray(value.overrideEvents)
+  ) return false
+  if (
+    !value.policyVersions.every(isRiskPolicyVersion) ||
+    hasDuplicateStringId(value.policyVersions) ||
+    !value.overrideEvents.every(isRiskOverrideEvent) ||
+    hasDuplicateStringId(value.overrideEvents)
+  ) return false
+  const dates = new Set<string>()
+  for (const outcome of value.dailyOutcomes) {
+    if (!isRecord(outcome) || !isCanonicalDate(outcome.date) || !isRiskPeriodOutcomeSnapshot(outcome)) return false
+    if (dates.has(outcome.date)) return false
+    dates.add(outcome.date)
+  }
+  return isRiskPeriodOutcomeSnapshot(value.weeklyOutcome) &&
+    isRiskPeriodOutcomeSnapshot(value.monthlyOutcomeAtCompletion) &&
+    isTimestamp(value.frozenAt)
 }
 
 function assertValidRiskEntities(value: Record<string, unknown>, label: string): void {
