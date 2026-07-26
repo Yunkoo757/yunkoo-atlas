@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import { haveSamePersistedReferences } from '@/storage/bootstrap'
 import type { PersistedSnapshot } from '@/storage/types'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -145,6 +146,7 @@ export async function testRouteLazyChunksAreNotForcedIntoInitialManualChunks(): 
 
 export function testTransientUiStateDoesNotScheduleAFullSnapshotRewrite(): void {
   const base: PersistedSnapshot = {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],

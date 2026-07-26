@@ -46,8 +46,8 @@
 
 ```powershell
 # 1. 克隆（或拷贝整个项目目录，见第 8 节）
-git clone <你的仓库地址> Linear
-cd Linear
+git clone <你的仓库地址> Trader-Atlas
+cd Trader-Atlas
 
 # 2. 安装依赖（必须用 pnpm）
 pnpm install
@@ -83,7 +83,6 @@ pnpm dev:electron
 | `pnpm qa:image` | Web QA 图片用例 |
 | `pnpm qa:workbench` | 核心工作区流程 QA |
 | `pnpm qa:design` | 设计令牌与布局契约检查 |
-| `pnpm qa:linear` | Linear 重构页面与响应式检查 |
 | `pnpm qa:electron` | Electron headless QA（需先 `build:app`） |
 | `pnpm qa:full` | Release 0 要求的完整 Web/Electron 发布 QA，包含 10k Dashboard 功能与性能门 |
 | `pnpm benchmark:persistence:release` | 正式 10K/20K 持久化、退出与 Web ZIP heap 门；缺少批准基线时保持阻断 |
@@ -165,8 +164,8 @@ pnpm dev:electron
 | 变量 | 用途 |
 |------|------|
 | `ELECTRON=1` | 以 Electron 模式启动 Vite |
-| `LINEAR_JOURNAL_LIBRARY` | 覆盖桌面版数据库目录 |
-| `LINEAR_JOURNAL_QA=1` | Electron QA 模式（跑完退出） |
+| `TRADER_ATLAS_LIBRARY` | 覆盖桌面版数据库目录 |
+| `TRADER_ATLAS_QA=1` | Electron QA 模式（跑完退出） |
 | `QA_BASE_URL` | Web QA 目标地址（默认常为 `http://localhost:5181`，注意与 dev 端口 5180 区分） |
 | `VITE_DEV_SERVER_URL` | Electron dev 加载的 Vite 地址 |
 
@@ -182,7 +181,7 @@ pnpm dev:electron
 └── backups\
 ```
 
-可通过环境变量 `LINEAR_JOURNAL_LIBRARY` 指向其他目录。
+可通过环境变量 `TRADER_ATLAS_LIBRARY` 指向其他目录。
 
 ---
 
@@ -227,7 +226,7 @@ pnpm dev:electron
 
 浏览器归档与 Electron 本地库归档不是同一种格式。当前支持将 Web 端导出的 `data.json + assets` 完整归档导入 Electron；Electron 的 `manifest.json + journal.db` 完整归档仍不能在 Web 端恢复。浏览器遇到桌面格式时会明确拒绝，不会尝试写入。
 
-**旧版 localStorage**：若曾用极早版本，首次启动会自动从 key `linear-journal` 迁入 IndexedDB。
+**旧版浏览器数据**：若曾用极早版本，首次启动会从兼容存储迁入当前 IndexedDB；旧数据会保留，不会在迁移时删除。
 
 ### 8.3 数据格式兼容边界
 
@@ -304,9 +303,8 @@ Electron：sql.js + 本地文件（electron/library/）
 ## 11. 相关文档
 
 - 编码与协作规范：`AGENTS.md`
-- 当前视觉依据：`docs/linear-frontend-design-system-analysis.md`
-- 当前前端规格：`docs/superpowers/specs/2026-07-10-linear-frontend-rebuild-design.md`
-- 后续功能规格：`docs/superpowers/specs/2026-07-11-review-notebooks-record-clipboard-design.md`
+- 当前样式实现：`src/styles/tokens.css`、`src/styles/global.css`
+- 数据可靠性规格：`docs/superpowers/specs/2026-07-22-data-reliability-remediation-v2-design.md`
 
 ---
 

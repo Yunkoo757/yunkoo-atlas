@@ -13,6 +13,7 @@ import {
   createFullPersistedSnapshotFixture,
   canonicalContractJson,
 } from '@/storage/fixtures/fullPersistedSnapshot'
+import { SCHEMA_VERSION } from '@/storage/types'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -28,6 +29,16 @@ function assertThrows(run: () => unknown, message: string): void {
   assert(threw, message)
 }
 
+function assertThrowsMatching(run: () => unknown, pattern: RegExp, message: string): void {
+  try {
+    run()
+  } catch (error) {
+    if (pattern.test(error instanceof Error ? error.message : String(error))) return
+    throw new Error(`${message}：收到非预期错误 ${String(error)}`)
+  }
+  throw new Error(`${message}：函数没有抛错`)
+}
+
 function minimalHistoricalSnapshot(): Record<string, unknown> {
   return {
     trades: [],
@@ -40,7 +51,7 @@ export function testSnapshotCodecNormalizesVersionsOneThroughEightToAllContractF
     const canonical = decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version })
     assert(
       canonicalContractJson(Object.keys(canonical).sort()) === canonicalContractJson([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-      `v${version} 必须规范化为完整 16 字段 CanonicalSnapshot`,
+      `v${version} 必须规范化为完整 20 字段 CanonicalSnapshot`,
     )
     for (const field of PERSISTED_SNAPSHOT_FIELDS) {
       assert(canonical[field] !== undefined, `v${version} 字段 ${field} 不得为 undefined`)
@@ -50,8 +61,8 @@ export function testSnapshotCodecNormalizesVersionsOneThroughEightToAllContractF
 
 export function testSnapshotCodecIsIdempotentAndPreservesTheFullGoldenFixture(): void {
   const expected = createFullPersistedSnapshotFixture()
-  const once = decodeCanonicalSnapshot(expected, { version: 8 })
-  const twice = decodeCanonicalSnapshot(once, { version: 8 })
+  const once = decodeCanonicalSnapshot(expected, { version: SCHEMA_VERSION })
+  const twice = decodeCanonicalSnapshot(once, { version: SCHEMA_VERSION })
   for (const field of PERSISTED_SNAPSHOT_FIELDS) {
     assert(
       canonicalContractJson(once[field]) === canonicalContractJson(twice[field]),
@@ -96,7 +107,7 @@ export function testSnapshotCodecRejectsWrongTypesAndFutureVersionsBeforeNormali
     '存在但类型错误的字段不得由默认值掩盖',
   )
   assertThrows(
-    () => decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version: 9 }),
+    () => decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version: SCHEMA_VERSION + 1 }),
     '未来版本必须在进入业务策略前拒绝',
   )
   for (const field of [
@@ -131,6 +142,147 @@ export function testSnapshotCodecRejectsWrongTypesAndFutureVersionsBeforeNormali
   )
 }
 
+function fullSnapshotWithWeeklyRiskReview() {
+  const fixture = createFullPersistedSnapshotFixture()
+  const event = fixture.riskOverrideEvents[0]!
+  const review = fixture.weeklyReviews![0]!
+  return {
+    ...fixture,
+    weeklyReviews: [{
+      ...review,
+      riskSnapshot: {
+        policyVersions: fixture.riskPolicyVersions,
+        dailyOutcomes: [{ ...event.outcomesAtDecision.day, date: '2026-07-17' }],
+        weeklyOutcome: event.outcomesAtDecision.week,
+        monthlyOutcomeAtCompletion: event.outcomesAtDecision.month,
+        overrideEvents: fixture.riskOverrideEvents,
+        frozenAt: review.completedAt!,
+      },
+    }],
+  }
+}
+
+export function testV9RequiresEveryRiskField(): void {
+  const full = createFullPersistedSnapshotFixture()
+  for (const field of [
+    'weeklyRiskPreparations',
+    'riskPolicyVersions',
+    'monthlyRiskLimits',
+    'riskOverrideEvents',
+  ] as const) {
+    const candidate = { ...full } as Record<string, unknown>
+    delete candidate[field]
+    assertThrowsMatching(
+      () => decodeCanonicalSnapshot(candidate, { version: SCHEMA_VERSION }),
+      new RegExp(`缺少必需字段.*${field}`),
+      `当前 Schema 缺少 ${field} 必须因该字段拒绝`,
+    )
+  }
+}
+
+export function testV8BackfillsRiskFields(): void {
+  const decoded = decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version: 8 })
+  assert(decoded.weeklyRiskPreparations.length === 0, 'v8 应补空 preparation 数组')
+  assert(decoded.riskPolicyVersions.length === 0, 'v8 应补空 policy 数组')
+  assert(decoded.monthlyRiskLimits.length === 0, 'v8 应补空 monthly limit 数组')
+  assert(decoded.riskOverrideEvents.length === 0, 'v8 应补空 override event 数组')
+}
+
+export function testWeeklyRiskReviewSnapshotSurvivesCodecAndJsonAndRejectsMalformedV9(): void {
+  const fixture = fullSnapshotWithWeeklyRiskReview()
+  const assets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({
+    id,
+    mime: 'image/png',
+    data: Buffer.from([index, 71, 72, 73]).toString('base64'),
+  }))
+  const decoded = decodeCanonicalSnapshot(fixture, { version: SCHEMA_VERSION })
+  assert(decoded.weeklyReviews[0]?.riskSnapshot?.overrideEvents[0]?.reason === '合同覆盖原因', 'codec 重载必须保留冻结事件')
+
+  const json = parseImportJson(JSON.stringify({ version: SCHEMA_VERSION, ...fixture, assets }))
+  assert(json.ok, 'JSON reader 必须接受合法周复盘风险快照')
+  assert(json.data.weeklyReviews?.[0]?.riskSnapshot?.frozenAt === fixture.weeklyReviews[0]!.completedAt, 'JSON 重载必须保留冻结时间')
+
+  const malformed = structuredClone(fixture)
+  malformed.weeklyReviews[0]!.riskSnapshot!.weeklyOutcome.coverage = 'safe' as 'complete'
+  assertThrows(
+    () => decodeCanonicalSnapshot(malformed, { version: SCHEMA_VERSION }),
+    '原生 v9 codec 必须拒绝损坏的周复盘风险快照',
+  )
+  const malformedJson = parseImportJson(JSON.stringify({ version: SCHEMA_VERSION, ...malformed, assets }))
+  assert(!malformedJson.ok, 'JSON reader 必须拒绝损坏的周复盘风险快照')
+}
+
+export function testV8BackfillsClosedTradingDayKeyFromSnapshotDisplay(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: fixture.trades.map((trade) => ({
+      ...trade,
+      closedAt: '2026-07-27T05:59:00+08:00',
+      closedTradingDayKey: undefined,
+    })),
+    display: { ...fixture.display, tradingDayStartHour: 6 },
+  }, { version: 8 })
+  assert(decoded.trades[0]?.closedTradingDayKey === '2026-07-26', '时间戳必须按 v8 快照自身边界固化')
+}
+
+export function testV8BackfillsClosedTradingDayKeyWithoutShiftingDateStrings(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: fixture.trades.map((trade) => ({
+      ...trade,
+      closedAt: '2026-07-27',
+      closedTradingDayKey: undefined,
+    })),
+    display: { ...fixture.display, tradingDayStartHour: 6 },
+  }, { version: 8 })
+  assert(decoded.trades[0]?.closedTradingDayKey === '2026-07-27', '日期字符串不得二次换日')
+}
+
+export function testV8OnlyBackfillsClosedLiveTrades(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: fixture.trades.map((trade) => ({
+      ...trade,
+      status: 'planned',
+      closedAt: '2026-07-27',
+      closedTradingDayKey: undefined,
+    })),
+  }, { version: 8 })
+  assert(decoded.trades[0]?.closedTradingDayKey === undefined, '非终态交易不得生成平仓业务日事实')
+}
+
+export function testV8BackfillUsesDefaultTradingDayBoundaryWhenDisplayOmitsIt(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const { tradingDayStartHour: _startHour, ...displayWithoutBoundary } = fixture.display
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: fixture.trades.map((trade) => ({
+      ...trade,
+      closedAt: '2026-07-27T05:30:00+08:00',
+      closedTradingDayKey: undefined,
+    })),
+    display: displayWithoutBoundary,
+  }, { version: 8 })
+  assert(decoded.trades[0]?.closedTradingDayKey === '2026-07-26', '缺省边界必须使用产品默认 6 点')
+}
+
+export function testV8BackfillLeavesInvalidDatesAndTerminalPaperTradesWithoutKeys(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const [trade] = fixture.trades
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: [
+      { ...trade, id: 'invalid-date', closedAt: '2026-02-30', closedTradingDayKey: undefined },
+      { ...trade, id: 'paper-trade', tradeKind: 'paper', closedTradingDayKey: undefined },
+    ],
+  }, { version: 8 })
+  assert(decoded.trades[0]?.closedTradingDayKey === undefined, '非法 closedAt 必须保持缺失 key')
+  assert(decoded.trades[1]?.closedTradingDayKey === undefined, '终态 paper 交易不得回填 live 风险事实')
+}
+
 export function testSnapshotCodecAppliesOnlyTheKnownVersionSpecificTradeMigrations(): void {
   const [currentTrade] = createFullPersistedSnapshotFixture().trades
   const { strategyId: _strategyId, tradeKind: _tradeKind, ...legacyTrade } = currentTrade
@@ -163,14 +315,14 @@ export function testSnapshotCodecIgnoresDeprecatedFieldsWithoutWritingThemBack()
 
 export async function testJsonAndWebReadersMatchTheCanonicalCodecGolden(): Promise<void> {
   const fixture = createFullPersistedSnapshotFixture()
-  const expected = decodeCanonicalSnapshot(fixture, { version: 8 })
+  const expected = decodeCanonicalSnapshot(fixture, { version: SCHEMA_VERSION })
   const assets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({
     id,
     mime: 'image/png',
     data: Buffer.from([index, 71, 72, 73]).toString('base64'),
   }))
 
-  const json = parseImportJson(JSON.stringify({ version: 8, ...fixture, assets }))
+  const json = parseImportJson(JSON.stringify({ version: SCHEMA_VERSION, ...fixture, assets }))
   assert(json.ok, 'JSON reader 必须接受 FND1 golden fixture')
   const web = await parseWebJournalArchive(buildWebJournalArchiveBlob(fixture, assets))
   for (const field of PERSISTED_SNAPSHOT_FIELDS) {

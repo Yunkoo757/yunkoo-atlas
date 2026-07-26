@@ -68,17 +68,26 @@ test('10k 快照可作为隔离存储的完整输入', () => {
   assert.ok(Array.isArray(snapshot.starredIds))
   assert.ok(Array.isArray(snapshot.subscribedIds))
   assert.ok(Array.isArray(snapshot.pinnedStrategyIds))
+  assert.ok(Array.isArray(snapshot.weeklyRiskPreparations))
+  assert.ok(Array.isArray(snapshot.riskPolicyVersions))
+  assert.ok(Array.isArray(snapshot.monthlyRiskLimits))
+  assert.ok(Array.isArray(snapshot.riskOverrideEvents))
   assert.equal(typeof snapshot.display, 'object')
   assert.equal(typeof snapshot.profile.displayName, 'string')
+  assert.ok(snapshot.trades.every((trade) => (
+    trade.tradeKind !== 'live' ||
+    !['win', 'loss', 'breakeven'].includes(trade.status) ||
+    trade.closedTradingDayKey === trade.closedAt.slice(0, 10)
+  )), '可持久化的实盘终态 fixture 必须冻结平仓交易日')
 })
 
 test('基准 fixture 校验和被冻结，避免无意改写性能样本', () => {
   assert.equal(
     checksumFixture(createAnalyticsTrades({ count: 1_000, seed: ANALYTICS_FIXTURE_SEED })),
-    'f1b088de56fdcfa7bd52be20abbfc7c81d6460b0fb365b60e0b0eb9a7a42aa7f',
+    'd28423578ac9cb4a507f17e3b2c12d0a0eab7f0e08be3c14d902557335e1bcf4',
   )
   assert.equal(
     checksumFixture(createAnalyticsTrades({ count: 10_000, seed: ANALYTICS_FIXTURE_SEED })),
-    '6a5298725967e53921e3076a27f8f2891428f5c1f1cde6850a0c77df834812b7',
+    'b39ae9d28b816636ea5c6b1250fadd31416e8a36f21b47f108395a302b84d109',
   )
 })

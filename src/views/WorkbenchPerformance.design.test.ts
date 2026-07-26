@@ -15,6 +15,15 @@ export function testSourceContractsNormalizeWindowsLineEndings(): void {
   }
 }
 
+export function testSidebarHeaderActionIconsRemainOutlineIcons(): void {
+  const sidebar = read('src/components/Sidebar.css')
+  const headerIconRule = sidebar.match(/\.sb-hbtn svg \{([\s\S]*?)\n\}/)?.[1] ?? ''
+
+  if (!headerIconRule.includes('fill: none')) {
+    throw new Error('sidebar header action icons must remain outlined instead of being force-filled')
+  }
+}
+
 export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
   const source = read('src/hooks/useWorkbenchVisibleTrades.ts')
 
@@ -45,7 +54,7 @@ export function testTodayWorkspaceUsesConstantTimeStarredLookup(): void {
     throw new Error('today workspace must build one starred ID set per starred collection')
   }
   if (source.includes('starred={starredIds.includes(trade.id)}')) {
-    throw new Error('today rows must not linearly scan starred IDs')
+    throw new Error('today rows must not scan starred IDs one by one')
   }
 }
 
@@ -63,7 +72,7 @@ export function testRemovedTableViewHasNoRuntimeSurface(): void {
   }
 }
 
-export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void {
+export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   const tokens = read('src/styles/tokens.css')
   const list = read('src/components/trades/TradeList.css')
   const listRuntime = read('src/components/trades/TradeList.tsx')
@@ -130,7 +139,7 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
     !sidebar.includes('0 0 0 1px lch(100% 0 0 / 0.088)') ||
     !sidebar.includes('border-radius: 9999px')
   ) {
-    throw new Error('sidebar create must match Linear Create new issue (1px / 0.088 overlay shadow)')
+    throw new Error('sidebar create must preserve the 1px / 0.088 overlay shadow')
   }
   if (sidebar.includes('.sb-hbtn-create::after') && !sidebar.includes('content: none')) {
     throw new Error('sidebar create overlay must paint on the button itself (Electron-safe), not ::after')
@@ -142,24 +151,20 @@ export function testLinearCalibratedListGeometryAndSurfacesStayCanonical(): void
     !sidebar.includes('lch(60.307% 1 272 / 1)') ||
     sidebar.includes('.sb-hbtn:hover {\n  background: var(--bg-hover)')
   ) {
-    throw new Error('sidebar search must use Linear ghost IconButton colors (not --bg-hover)')
+    throw new Error('sidebar search must use the dedicated ghost IconButton colors')
   }
   if (sidebar.includes('0 0 0 0.5px lch(100% 0 0 / 0.132)')) {
-    throw new Error('sidebar create must not use the stale 0.5px/0.132 overlay (Linear uses 1px/0.088)')
+    throw new Error('sidebar create must not use the stale 0.5px/0.132 overlay')
   }
   const sidebarRuntime = read('src/components/Sidebar.tsx')
   if (!sidebarRuntime.includes('sb-hbtn-create') || !sidebarRuntime.includes('Compose')) {
-    throw new Error('sidebar create must use the elevated class and Linear Compose icon')
+    throw new Error('sidebar create must use the elevated class and Compose icon')
   }
   if (!sidebarRuntime.includes('sb-hbtn-search')) {
     throw new Error('sidebar search must keep an explicit sb-hbtn-search class')
   }
-  const composeIcon = read('src/icons/linear/static/LinearComposeIcon.tsx')
-  if (!composeIcon.includes('M7.25 1C7.66414') || !composeIcon.includes('13.4326 1.26953')) {
-    throw new Error('LinearComposeIcon must keep the Create new issue path extracted from linear.app')
-  }
-  const searchIcon = read('src/icons/linear/static/LinearSearchIcon.tsx')
-  if (!searchIcon.includes('M7 2C9.76142 2 12 4.23858') || !searchIcon.includes('11.0254 9.96484')) {
-    throw new Error('LinearSearchIcon must keep the Search workspace path extracted from linear.app')
+  const appIcons = read('src/icons/appIcons.tsx')
+  if (!appIcons.includes('SquarePen as Compose') || !appIcons.includes('Search,')) {
+    throw new Error('sidebar action icons must come from the application icon facade')
   }
 }

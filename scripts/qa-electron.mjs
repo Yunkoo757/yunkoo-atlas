@@ -1,5 +1,5 @@
 /**
- * 桌面版 QA — 主进程 headless 模式（LINEAR_JOURNAL_QA=1）
+ * 桌面版 QA — 主进程 headless 模式（TRADER_ATLAS_QA=1）
  * 覆盖：SQLite 库、manifest、无损附件、journal.zip 导出
  * UI 流（笔记编辑/粘贴图片）见文末手动清单。
  */
@@ -20,7 +20,7 @@ const require = createRequire(import.meta.url)
 const electronExe = require('electron')
 const ROOT = process.cwd()
 const OUT = join(ROOT, 'qa-screenshots-electron')
-const LIB = join(tmpdir(), `linear-journal-qa-${Date.now()}`)
+const LIB = join(tmpdir(), `trader-atlas-qa-${Date.now()}`)
 const RESULT = join(LIB, 'qa-result.json')
 
 const results = []
@@ -46,9 +46,9 @@ function runElectronQa() {
       cwd: ROOT,
       env: {
         ...process.env,
-        LINEAR_JOURNAL_LIBRARY: LIB,
-        LINEAR_JOURNAL_QA: '1',
-        LINEAR_JOURNAL_QA_RESULT: RESULT,
+        TRADER_ATLAS_LIBRARY: LIB,
+        TRADER_ATLAS_QA: '1',
+        TRADER_ATLAS_QA_RESULT: RESULT,
         VITE_DEV_SERVER_URL: '',
       },
       stdio: ['ignore', 'pipe', 'pipe'],

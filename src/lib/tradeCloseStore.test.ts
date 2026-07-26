@@ -305,6 +305,20 @@ export function testStatusChangeReopensACompletedReview(): void {
     reviewStatus: 'reviewed',
     reviewedAt: '2026-07-14T08:00:00.000Z',
     closedAt: '2026-07-14',
+    activities: [
+      {
+        id: 'activity-close-store-open',
+        kind: 'status',
+        status: 'open',
+        timestamp: '2026-07-01T00:00:00.000Z',
+      },
+      {
+        id: 'activity-close-store-win',
+        kind: 'status',
+        status: 'win',
+        timestamp: '2026-07-14T00:00:00.000Z',
+      },
+    ],
   }
   try {
     useStore.setState({ trades: [reviewedTrade] })
@@ -351,5 +365,96 @@ export function testCompleteTradeCloseReopensACompletedReviewWhenResultChanges()
       undoStack: previous.undoStack,
       redoStack: previous.redoStack,
     })
+  }
+}
+
+export function testCompleteTradeCloseWithoutDatePatchPreservesFrozenTradingDay(): void {
+  const previous = useStore.getState()
+  const frozenTrade: Trade = {
+    ...openTrade,
+    status: 'win',
+    pnl: 500,
+    resultSource: 'pnl',
+    closedAt: '2026-07-14T05:00:00+08:00',
+    closedTradingDayKey: '2026-07-13',
+  }
+  try {
+    useStore.setState({
+      trades: [frozenTrade],
+      display: { ...previous.display, tradingDayStartHour: 4 },
+      undoStack: [],
+      redoStack: [],
+    })
+
+    useStore.getState().completeTradeClose(frozenTrade.id, 'win', {
+      pnl: 600,
+      rMultiple: null,
+      resultSource: 'pnl',
+    })
+
+    const updated = useStore.getState().trades[0]!
+    assert(updated.pnl === 600, '普通结果编辑仍应保存')
+    assert(
+      updated.closedTradingDayKey === '2026-07-13',
+      '未显式修改 closedAt 时不得按当前交易日起始小时重算历史业务日',
+    )
+  } finally {
+    useStore.setState({
+      trades: previous.trades,
+      display: previous.display,
+      undoStack: previous.undoStack,
+      redoStack: previous.redoStack,
+    })
+  }
+}
+
+export function testNonDateTradeEditPreservesFrozenTradingDay(): void {
+  const previous = useStore.getState()
+  const frozenTrade: Trade = {
+    ...openTrade,
+    status: 'loss',
+    pnl: -500,
+    resultSource: 'pnl',
+    closedAt: '2026-07-14T05:00:00+08:00',
+    closedTradingDayKey: '2026-07-13',
+  }
+  try {
+    useStore.setState({
+      trades: [frozenTrade],
+      display: { ...previous.display, tradingDayStartHour: 4 },
+    })
+
+    useStore.getState().updateTradeData(frozenTrade.id, { timeframe: '1H' })
+
+    const updated = useStore.getState().trades[0]!
+    assert(updated.timeframe === '1H', '非日期字段编辑仍应保存')
+    assert(updated.closedTradingDayKey === '2026-07-13', '非日期字段编辑不得重算业务日')
+  } finally {
+    useStore.setState({ trades: previous.trades, display: previous.display })
+  }
+}
+
+export function testExistingLiveTradeUpsertFreezesDayWhenEnteringClosedStatus(): void {
+  const previous = useStore.getState()
+  try {
+    useStore.setState({
+      trades: [openTrade],
+      display: { ...previous.display, tradingDayStartHour: 6 },
+    })
+
+    useStore.getState().upsertTrade({
+      ...openTrade,
+      status: 'loss',
+      pnl: -500,
+      resultSource: 'pnl',
+      closedAt: '2026-07-14T05:00:00+08:00',
+    })
+
+    assert(
+      useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-13',
+      '已有实盘通过 upsert 首次进入已平仓状态时必须固化业务日',
+    )
+  } finally {
+    useStore.setState({ trades: previous.trades, display: previous.display })
   }
 }

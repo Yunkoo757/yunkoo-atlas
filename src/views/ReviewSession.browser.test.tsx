@@ -21,11 +21,11 @@ import { ReviewSessionView } from '@/views/ReviewSessionView'
 declare global {
   interface Window {
     __reviewSessionFlowTest?: Promise<void>
-    __linearBrowserAllowedErrors?: string[]
+    __atlasBrowserAllowedErrors?: string[]
   }
 }
 
-window.__linearBrowserAllowedErrors = [
+window.__atlasBrowserAllowedErrors = [
   'Persist failed OperationalError: Snapshot references missing asset: missing-review-chart',
 ]
 

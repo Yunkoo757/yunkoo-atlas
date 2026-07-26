@@ -13,6 +13,7 @@ import { flushPersistNow } from '@/storage/persist'
 import { bootstrapStorage } from '@/storage'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import { useStore } from '@/store/useStore'
 import { MAX_JSON_FILE_BYTES } from '@/lib/importLimits'
 import { useToast } from '@/lib/toast'
@@ -186,6 +187,7 @@ async function run(): Promise<void> {
 
   const restoredAssetId = 'restored-archive-asset'
   const restoredSnapshot: PersistedSnapshot = {
+    ...createEmptyPersistedSnapshot(),
     trades: [trade('restored', `<p>恢复内容</p><img src="journal-asset://${restoredAssetId}">`)],
     strategies: [{ id: 'strategy-1', name: '恢复策略', icon: 'target', color: '#5e6ad2' }],
     starredIds: ['restored'],

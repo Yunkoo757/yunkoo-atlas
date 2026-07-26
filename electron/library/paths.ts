@@ -43,7 +43,7 @@ export function getDefaultLibraryPath(): string {
 }
 
 export function getLibraryPath(): string {
-  const custom = process.env.LINEAR_JOURNAL_LIBRARY
+  const custom = process.env.TRADER_ATLAS_LIBRARY
   const saved = readLibraryConfig()
   if (saved) return saved.libraryPath
   return custom ? path.resolve(custom) : getDefaultLibraryPath()

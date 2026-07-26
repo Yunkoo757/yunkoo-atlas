@@ -96,10 +96,12 @@ import {
   utf8ByteLength,
   type JsonImportErrorCode,
 } from '@/lib/importLimits'
+import { OperationalError } from '@/lib/operationalError'
 
-export const EXPORT_VERSION = WEB_JOURNAL_EXPORT_VERSION // 8: +quickNotes
-import type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
-import { mergeImportPayload } from '@/lib/importMerge'
+export const EXPORT_VERSION = SCHEMA_VERSION
+import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
+import { canonicalImportValue, mergeImportPayload } from '@/lib/importMerge'
+import { isSameTradeIdentity, stableImportedTradeId } from '@/lib/riskImportMerge'
 
 export type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
 export { mergeImportPayload } from '@/lib/importMerge'
@@ -117,6 +119,10 @@ interface ExportState extends PersistedSlice {
 
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
+  weeklyRiskPreparations?: PersistedSnapshot['weeklyRiskPreparations']
+  riskPolicyVersions?: PersistedSnapshot['riskPolicyVersions']
+  monthlyRiskLimits?: PersistedSnapshot['monthlyRiskLimits']
+  riskOverrideEvents?: PersistedSnapshot['riskOverrideEvents']
   weeklyReviews?: PersistedSnapshot['weeklyReviews']
   quickNotes?: PersistedSnapshot['quickNotes']
   strategies: PersistedSnapshot['strategies']
@@ -140,6 +146,10 @@ export function buildPortableSnapshotFromState(
   const shortcuts = bindingsForPersist(shortcutBindings)
   return {
     trades: state.trades,
+    weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
+    riskPolicyVersions: state.riskPolicyVersions ?? [],
+    monthlyRiskLimits: state.monthlyRiskLimits ?? [],
+    riskOverrideEvents: state.riskOverrideEvents ?? [],
     weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
     quickNotes: normalizeQuickNotes(state.quickNotes),
     strategies: state.strategies,
@@ -288,6 +298,10 @@ export async function buildExportPayloadFromState(
   return {
     version: EXPORT_VERSION,
     trades: state.trades,
+    weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
+    riskPolicyVersions: state.riskPolicyVersions ?? [],
+    monthlyRiskLimits: state.monthlyRiskLimits ?? [],
+    riskOverrideEvents: state.riskOverrideEvents ?? [],
     weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
     quickNotes: normalizeQuickNotes(state.quickNotes),
     strategies: state.strategies,
@@ -341,12 +355,16 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
     {
       trades,
+      weeklyRiskPreparations,
+      riskPolicyVersions,
+      monthlyRiskLimits,
+      riskOverrideEvents,
       weeklyReviews,
       quickNotes,
       strategies,
@@ -385,7 +403,7 @@ export async function downloadExport(): Promise<void> {
     const a = document.createElement('a')
     const date = new Date().toISOString().slice(0, 10)
     a.href = url
-    a.download = `linear-journal-backup-${date}.json`
+    a.download = `trader-atlas-backup-${date}.json`
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -455,7 +473,7 @@ export async function downloadWebJournalZip(): Promise<void> {
     const a = document.createElement('a')
     const date = new Date().toISOString().slice(0, 10)
     a.href = url
-    a.download = `linear-journal-${date}.journal.zip`
+    a.download = `trader-atlas-${date}.journal.zip`
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -524,7 +542,7 @@ export function buildWebJournalArchiveBlob(
   // 元数据不含 base64，只保留附件声明；二进制写入 assets/。
   const meta = {
     ...snapshot,
-    version: EXPORT_VERSION,
+    version: WEB_JOURNAL_EXPORT_VERSION,
     schemaVersion: SCHEMA_VERSION,
     assets: normalizedAssets.map(({ id, mime }) => ({ id, mime })),
     ...(recoveryOrphanAssetIds.length > 0 ? { recoveryOrphanAssetIds } : {}),
@@ -836,7 +854,7 @@ export async function downloadWebConflictRecoveryCopy(): Promise<WebConflictReco
   )
   const complete = missingAssetIds.length === 0
   const suffix = complete ? 'recovery' : 'recovery-incomplete'
-  const filename = `linear-journal-${suffix}-${new Date().toISOString().slice(0, 10)}.json`
+  const filename = `trader-atlas-${suffix}-${new Date().toISOString().slice(0, 10)}.json`
   const blob = new Blob([serializeJsonDocumentWithinFileBudget(payload)], { type: 'application/json;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
@@ -943,37 +961,112 @@ function hasSamePersistedStateRevision(
   return previous.references.every((value, index) => value === next.references[index])
 }
 
+interface ImportedTradeBaseline {
+  values: Map<string, string | null>
+  stableIds: Set<string>
+}
+
 function captureImportedTradeBaseline(
   revision: PersistedStateRevision,
   payload: ExportPayload,
-): Map<string, string | null> {
+  payloadDigest: string,
+  identityPayload: ImportIdentityPayload,
+): ImportedTradeBaseline {
   const currentById = new Map(revision.state.trades.map((trade) => [trade.id, trade]))
-  return new Map(
-    payload.trades.map((trade) => {
-      const current = currentById.get(trade.id)
-      return [trade.id, current ? JSON.stringify(current) : null]
-    }),
-  )
+  const identityById = new Map(identityPayload.trades.map((trade) => [trade.id, trade]))
+  const stableIds = new Set(payload.trades.flatMap((trade) => {
+    const current = currentById.get(trade.id)
+    const identityTrade = identityById.get(trade.id) ?? trade
+    return current && !isSameTradeIdentity(current, identityTrade)
+      ? [stableImportedTradeId(payloadDigest, trade.id)]
+      : []
+  }))
+  const ids = new Set([...payload.trades.map((trade) => trade.id), ...stableIds])
+  return {
+    values: new Map([...ids].map((id) => {
+      const current = currentById.get(id)
+      return [id, current ? JSON.stringify(current) : null]
+    })),
+    stableIds,
+  }
 }
 
-function hasConcurrentImportedTradeConflict(
-  baseline: Map<string, string | null>,
+function findConcurrentImportedTradeConflict(
+  baseline: ImportedTradeBaseline,
   latest: PersistedStateRevision,
-): boolean {
+): { id: string; stableId: boolean } | null {
   const latestById = new Map(latest.state.trades.map((trade) => [trade.id, trade]))
-  for (const [id, initialValue] of baseline) {
+  for (const [id, initialValue] of baseline.values) {
     const current = latestById.get(id)
     const currentValue = current ? JSON.stringify(current) : null
-    if (currentValue !== initialValue) return true
+    if (currentValue !== initialValue) return { id, stableId: baseline.stableIds.has(id) }
   }
-  return false
+  return null
+}
+
+const IMMUTABLE_RISK_IMPORT_FIELDS = [
+  ['riskPolicyVersions', '风险策略版本'],
+  ['monthlyRiskLimits', '月度风险限额'],
+  ['riskOverrideEvents', '风险覆盖事件'],
+] as const
+
+type ImmutableRiskImportField = (typeof IMMUTABLE_RISK_IMPORT_FIELDS)[number][0]
+type ImmutableRiskImportBaseline = Map<
+  ImmutableRiskImportField,
+  Map<string, string | null>
+>
+
+function captureImmutableRiskImportBaseline(
+  current: PersistedSlice,
+  payload: ExportPayload,
+): ImmutableRiskImportBaseline {
+  const baseline: ImmutableRiskImportBaseline = new Map()
+  for (const [field] of IMMUTABLE_RISK_IMPORT_FIELDS) {
+    const currentById = new Map(
+      ((current[field] ?? []) as Array<{ id: string }>).map((item) => [item.id, item]),
+    )
+    baseline.set(field, new Map(
+      (payload[field] as Array<{ id: string }>).map((item) => {
+        const local = currentById.get(item.id)
+        return [item.id, local ? canonicalImportValue(local) : null]
+      }),
+    ))
+  }
+  return baseline
+}
+
+function findConcurrentImmutableRiskConflict(
+  baseline: ImmutableRiskImportBaseline,
+  latest: PersistedSlice,
+  payload: ExportPayload,
+): { id: string; label: string } | null {
+  for (const [field, label] of IMMUTABLE_RISK_IMPORT_FIELDS) {
+    const latestById = new Map(
+      ((latest[field] ?? []) as Array<{ id: string }>).map((item) => [item.id, item]),
+    )
+    const importedById = new Map(
+      (payload[field] as Array<{ id: string }>).map((item) => [item.id, item]),
+    )
+    for (const [id, initialValue] of baseline.get(field) ?? []) {
+      const latestEntity = latestById.get(id)
+      const importedEntity = importedById.get(id)
+      const latestValue = latestEntity ? canonicalImportValue(latestEntity) : null
+      const importedValue = importedEntity ? canonicalImportValue(importedEntity) : null
+      if (latestValue !== initialValue && latestValue !== importedValue) {
+        return { id, label }
+      }
+    }
+  }
+  return null
 }
 
 function buildImportSnapshot(
   current: PersistedStateRevision,
   payload: ExportPayload,
+  payloadDigest: string,
+  identityPayload: ExportPayload,
 ): PersistedSnapshot {
-  const merged = mergeImportPayload(current.state, payload)
+  const merged = mergeImportPayload(current.state, payload, payloadDigest, identityPayload)
   return buildPortableSnapshotFromState({
     ...current.state,
     ...merged,
@@ -987,8 +1080,15 @@ function buildImportSnapshot(
   }, current.shortcutBindings)
 }
 
+async function sha256CanonicalImportPayload(payload: ExportPayload): Promise<string> {
+  const bytes = new TextEncoder().encode(canonicalImportValue(payload))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+}
+
 export async function applyImport(payload: ExportPayload): Promise<{ summary: string }> {
   const storage = getStorage()
+  const payloadDigest = await sha256CanonicalImportPayload(payload)
   const prepared = prepareImportPayloadForCommit(payload)
   const unlockInteraction = lockStorageCutoverInteraction()
   let suspended = false
@@ -997,10 +1097,19 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     suspendPersist()
     suspended = true
     let revision = capturePersistedStateRevision()
-    const importedTradeBaseline = captureImportedTradeBaseline(revision, prepared.payload)
+    const importedTradeBaseline = captureImportedTradeBaseline(
+      revision,
+      prepared.payload,
+      payloadDigest,
+      payload,
+    )
     while (true) {
-      const snapshot = buildImportSnapshot(revision, prepared.payload)
-      await storage.commitImport(snapshot, prepared.assets)
+      const immutableRiskBaseline = captureImmutableRiskImportBaseline(
+        revision.state,
+        prepared.payload,
+      )
+      const snapshot = buildImportSnapshot(revision, prepared.payload, payloadDigest, payload)
+      await storage.commitImport(snapshot, prepared.assets, { pruneUnreferenced: true })
 
       const latest = capturePersistedStateRevision()
       if (hasSamePersistedStateRevision(revision, latest)) {
@@ -1008,7 +1117,13 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
         applySnapshotToStore(snapshot)
         break
       }
-      if (hasConcurrentImportedTradeConflict(importedTradeBaseline, latest)) {
+      const tradeConflict = findConcurrentImportedTradeConflict(importedTradeBaseline, latest)
+      const immutableRiskConflict = findConcurrentImmutableRiskConflict(
+        immutableRiskBaseline,
+        latest.state,
+        prepared.payload,
+      )
+      if (tradeConflict || immutableRiskConflict) {
         // 正常界面在整段提交期间已被冻结；这里是防御性补偿，确保异常后台修改时
         // 磁盘也恢复到最新本地状态，并由 commitImport 清理本批未引用附件。
         const localSnapshot = buildPortableSnapshotFromState(
@@ -1016,6 +1131,17 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
           latest.shortcutBindings,
         )
         await storage.commitImport(localSnapshot, prepared.assets, { pruneUnreferenced: true })
+        if (immutableRiskConflict && !tradeConflict) {
+          throw new OperationalError(
+            'import-immutable-entity-conflict',
+            `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
+          )
+        }
+        if (tradeConflict?.stableId) {
+          throw new Error(
+            `导入已取消：稳定导入交易 ID ${tradeConflict.id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`,
+          )
+        }
         throw new Error(
           '导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。',
         )
@@ -1037,6 +1163,10 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   const trades = normalizeTrades(normalized.trades)
   useStore.setState({
     trades,
+    weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
+    riskPolicyVersions: snapshot.riskPolicyVersions,
+    monthlyRiskLimits: snapshot.monthlyRiskLimits,
+    riskOverrideEvents: snapshot.riskOverrideEvents,
     weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
     quickNotes: normalizeQuickNotes(snapshot.quickNotes),
     strategies: normalized.strategies,
@@ -1066,6 +1196,10 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 export function resetEmptyLibraryIntoStore(): void {
   useStore.setState({
     trades: [],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     weeklyReviews: [],
     quickNotes: [],
     strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),

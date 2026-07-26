@@ -119,6 +119,10 @@ export function testSameIdImportCannotChangeTradeKindButNewIdKeepsItsKind(): voi
     display: DEFAULT_DISPLAY,
   }, {
     version: 8,
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     trades: [importedConflict, importedCase],
     strategies: [strategy],
     starredIds: [],

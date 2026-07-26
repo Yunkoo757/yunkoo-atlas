@@ -10,7 +10,7 @@ test('E-FORCED-KILL 使用真实 Electron 主进程、原子临时文件观察�
   assert.match(runner, /createRequire\(import\.meta\.url\)/)
   assert.match(runner, /spawn\(electronExecutable, \['\.'\]/)
   assert.match(runner, /delete env\.ELECTRON_RUN_AS_NODE/)
-  assert.match(runner, /LINEAR_JOURNAL_FORCED_KILL_MODE: mode/)
+  assert.match(runner, /TRADER_ATLAS_FORCED_KILL_MODE: mode/)
   assert.match(runner, /detectFileSystem/)
   assert.match(runner, /fs\.mkdtempSync\(path\.join\(os\.tmpdir\(\), 'atlas-forced-kill-library-'\)\)/)
   assert.match(runner, /fs\.watch\(libraryRoot/)

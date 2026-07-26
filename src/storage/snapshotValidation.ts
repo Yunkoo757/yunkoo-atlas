@@ -1,5 +1,7 @@
 import type { PersistedSnapshot } from '@/storage/types'
+import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
+import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -17,6 +19,16 @@ const SIDEBAR_SYSTEM_IDS = new Set(['active', 'favorites', 'missed', 'paper'])
 const CASE_VIEW_SCOPES = new Set(['focus', 'mistakes', 'unreviewed', 'reviewed'])
 const WEEKLY_REVIEW_STATUSES = new Set(['draft', 'completed'])
 const WEEKLY_COMMITMENT_RESULTS = new Set(['done', 'partial', 'missed', 'not-applicable'])
+const TERMINAL_TRADE_STATUSES = new Set(['win', 'loss', 'breakeven'])
+const RISK_COVERAGES = new Set(['complete', 'partial', 'unknown'])
+const RISK_UNKNOWN_REASONS = new Set([
+  'missing-loss-pnl',
+  'result-conflict',
+  'missing-policy',
+  'missing-close-date',
+  'invalid-close-date',
+  'future-loss-close-date',
+])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -28,6 +40,29 @@ function isStringArray(value: unknown): value is string[] {
 
 function isNullableFiniteNumber(value: unknown): boolean {
   return value === null || (typeof value === 'number' && Number.isFinite(value))
+}
+
+function isCanonicalDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+function isCanonicalMonth(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value) &&
+    isCanonicalDate(`${value}-01`)
+}
+
+function isTimestamp(value: unknown): value is string {
+  return isCanonicalIsoInstant(value)
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && Boolean(value.trim())
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
 function isTradeComment(value: unknown): boolean {
@@ -201,6 +236,14 @@ export function isValidPersistedTrade(
   if (value.resultSource !== undefined && !RESULT_SOURCES.has(String(value.resultSource))) return false
   if (!isTradeResultAuthorityConsistent(value)) return false
   if (value.closedAt !== null && typeof value.closedAt !== 'string') return false
+  if (value.closedTradingDayKey !== undefined && !isCanonicalDate(value.closedTradingDayKey)) return false
+  if (
+    value.tradeKind === 'live' &&
+    TERMINAL_TRADE_STATUSES.has(String(value.status)) &&
+    typeof value.closedAt === 'string' &&
+    closedTradingDayKeyFromClosedAt(value.closedAt, 0) !== null &&
+    !isCanonicalDate(value.closedTradingDayKey)
+  ) return false
   if (value.reviewedAt !== undefined && value.reviewedAt !== null && typeof value.reviewedAt !== 'string') return false
   if (value.comments !== undefined && (
     !Array.isArray(value.comments) || !value.comments.every(isTradeComment)
@@ -352,7 +395,12 @@ function isWeeklyReview(value: unknown): boolean {
     !WEEKLY_COMMITMENT_RESULTS.has(String(value.previousCommitmentResult))
   ) return false
   if (value.completedAt !== null && typeof value.completedAt !== 'string') return false
-  return value.metricsSnapshot === null || isWeeklyReviewMetrics(value.metricsSnapshot)
+  if (value.metricsSnapshot !== null && !isWeeklyReviewMetrics(value.metricsSnapshot)) return false
+  const riskSnapshot = value.riskSnapshot
+  return riskSnapshot === undefined || (
+    isWeeklyRiskReviewSnapshot(riskSnapshot) &&
+    value.completedAt === riskSnapshot.frozenAt
+  )
 }
 
 function isQuickNote(value: unknown): boolean {
@@ -375,6 +423,163 @@ function isStrategy(value: unknown): boolean {
   )
 }
 
+function isRiskPolicyDraft(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (value.capitalBase !== null && !isPositiveFiniteNumber(value.capitalBase)) return false
+  if (value.riskAmount !== null && !isPositiveFiniteNumber(value.riskAmount)) return false
+  return isPositiveFiniteNumber(value.riskPercent) &&
+    isPositiveFiniteNumber(value.dailyLossLimitR) &&
+    isPositiveFiniteNumber(value.weeklyLossLimitR) &&
+    isPositiveFiniteNumber(value.monthlyLossLimitRDefault) &&
+    typeof value.disciplineText === 'string'
+}
+
+function isWeeklyRiskPreparation(value: unknown): boolean {
+  return isRecord(value) &&
+    isCanonicalDate(value.weekStart) &&
+    value.id === `weekly-risk-preparation:${value.weekStart}` &&
+    isRiskPolicyDraft(value.draft) &&
+    (value.reviewedAt === null || isTimestamp(value.reviewedAt)) &&
+    (value.confirmedPolicyVersionId === null || isNonEmptyString(value.confirmedPolicyVersionId)) &&
+    isTimestamp(value.createdAt) &&
+    isTimestamp(value.updatedAt)
+}
+
+function hasCanonicalRiskAmount(value: Record<string, unknown>): boolean {
+  try {
+    if (!isPositiveFiniteNumber(value.capitalBase) || !isPositiveFiniteNumber(value.riskPercent)) {
+      return false
+    }
+    if (!isPositiveFiniteNumber(value.riskAmount)) return false
+    const capitalCents = toMoneyCents(value.capitalBase)
+    const expectedCents = toMoneyCents((capitalCents / 100) * value.riskPercent / 100)
+    return capitalCents > 0 &&
+      value.capitalBase === capitalCents / 100 &&
+      expectedCents > 0 &&
+      value.riskAmount === expectedCents / 100
+  } catch {
+    return false
+  }
+}
+
+function isRiskPolicyVersion(value: unknown): boolean {
+  return isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    isCanonicalDate(value.sourceWeekStart) &&
+    isCanonicalDate(value.effectiveTradingDay) &&
+    hasCanonicalRiskAmount(value) &&
+    isPositiveFiniteNumber(value.dailyLossLimitR) &&
+    isPositiveFiniteNumber(value.weeklyLossLimitR) &&
+    isPositiveFiniteNumber(value.monthlyLossLimitRDefault) &&
+    typeof value.disciplineText === 'string' &&
+    isTimestamp(value.confirmedAt)
+}
+
+function isMonthlyRiskLimit(value: unknown): boolean {
+  return isRecord(value) &&
+    isCanonicalMonth(value.monthKey) &&
+    value.id === `monthly-risk-limit:${value.monthKey}` &&
+    isPositiveFiniteNumber(value.limitR) &&
+    isNonEmptyString(value.sourcePolicyVersionId) &&
+    isTimestamp(value.lockedAt)
+}
+
+function isRiskUnknownReasons(value: unknown): boolean {
+  return Array.isArray(value) && value.every(
+    (reason) => typeof reason === 'string' && RISK_UNKNOWN_REASONS.has(reason),
+  )
+}
+
+function isRiskPeriodOutcomeSnapshot(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  for (const field of ['netBudgetR', 'limitR', 'consumedR', 'remainingR', 'progress']) {
+    if (typeof value[field] !== 'number' || !Number.isFinite(value[field])) return false
+  }
+  return Number(value.limitR) >= 0 &&
+    Number(value.consumedR) >= 0 &&
+    Number(value.remainingR) >= 0 &&
+    Number(value.progress) >= 0 &&
+    Number(value.progress) <= 1 &&
+    RISK_COVERAGES.has(String(value.coverage)) &&
+    typeof value.triggered === 'boolean' &&
+    Number.isInteger(value.includedTradeCount) && Number(value.includedTradeCount) >= 0 &&
+    Number.isInteger(value.excludedTradeCount) && Number(value.excludedTradeCount) >= 0 &&
+    isRiskUnknownReasons(value.unknownReasons)
+}
+
+function isRiskOverrideEvent(value: unknown): boolean {
+  if (!isRecord(value) || !isRecord(value.tradeIdentityAtDecision) || !isRecord(value.outcomesAtDecision)) {
+    return false
+  }
+  const identity = value.tradeIdentityAtDecision
+  const outcomes = value.outcomesAtDecision
+  return isNonEmptyString(value.id) &&
+    isNonEmptyString(value.tradeId) &&
+    isNonEmptyString(identity.ref) &&
+    isNonEmptyString(identity.symbol) &&
+    identity.tradeKind === 'live' &&
+    (value.linkState === 'resolved' || value.linkState === 'unresolved') &&
+    (value.decisionType === 'triggered' || value.decisionType === 'unknown') &&
+    isCanonicalDate(value.tradingDayKeyAtDecision) &&
+    (value.policyVersionId === null || isNonEmptyString(value.policyVersionId)) &&
+    isTimestamp(value.createdAt) &&
+    isNonEmptyString(value.reason) &&
+    isNonEmptyString(value.fingerprint) &&
+    isRiskPeriodOutcomeSnapshot(outcomes.day) &&
+    isRiskPeriodOutcomeSnapshot(outcomes.week) &&
+    isRiskPeriodOutcomeSnapshot(outcomes.month) &&
+    isRiskUnknownReasons(value.unknownReasons)
+}
+
+function isWeeklyRiskReviewSnapshot(value: unknown): value is Record<string, unknown> & { frozenAt: string } {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.policyVersions) ||
+    !Array.isArray(value.dailyOutcomes) ||
+    !Array.isArray(value.overrideEvents)
+  ) return false
+  if (
+    !value.policyVersions.every(isRiskPolicyVersion) ||
+    hasDuplicateStringId(value.policyVersions) ||
+    !value.overrideEvents.every(isRiskOverrideEvent) ||
+    hasDuplicateStringId(value.overrideEvents)
+  ) return false
+  const dates = new Set<string>()
+  for (const outcome of value.dailyOutcomes) {
+    if (!isRecord(outcome) || !isCanonicalDate(outcome.date) || !isRiskPeriodOutcomeSnapshot(outcome)) return false
+    if (dates.has(outcome.date)) return false
+    dates.add(outcome.date)
+  }
+  return isRiskPeriodOutcomeSnapshot(value.weeklyOutcome) &&
+    isRiskPeriodOutcomeSnapshot(value.monthlyOutcomeAtCompletion) &&
+    isTimestamp(value.frozenAt)
+}
+
+function assertValidRiskEntities(value: Record<string, unknown>, label: string): void {
+  const contracts = [
+    ['weeklyRiskPreparations', isWeeklyRiskPreparation],
+    ['riskPolicyVersions', isRiskPolicyVersion],
+    ['monthlyRiskLimits', isMonthlyRiskLimit],
+    ['riskOverrideEvents', isRiskOverrideEvent],
+  ] as const
+  for (const [field, validate] of contracts) {
+    const entities = value[field]
+    if (!Array.isArray(entities)) throw new Error(`${label}.${field} must be an array`)
+    if (!entities.every(validate)) throw new Error(`${label} contains an invalid ${field} entity`)
+    if (hasDuplicateStringId(entities)) throw new Error(`${label} contains duplicate ${field} ids`)
+  }
+  const preparationWeeks = new Set<string>()
+  for (const item of value.weeklyRiskPreparations as Array<{ weekStart: string }>) {
+    if (preparationWeeks.has(item.weekStart)) throw new Error(`${label} contains duplicate risk preparation weeks`)
+    preparationWeeks.add(item.weekStart)
+  }
+  const limitMonths = new Set<string>()
+  for (const item of value.monthlyRiskLimits as Array<{ monthKey: string }>) {
+    if (limitMonths.has(item.monthKey)) throw new Error(`${label} contains duplicate monthly risk limit months`)
+    limitMonths.add(item.monthKey)
+  }
+}
+
 export function assertValidPersistedSnapshot(
   value: unknown,
   label = 'snapshot',
@@ -385,6 +590,7 @@ export function assertValidPersistedSnapshot(
   if (!value.trades.every(isValidPersistedTrade)) throw new Error(`${label} contains an invalid trade`)
   if (!value.strategies.every(isStrategy)) throw new Error(`${label} contains an invalid strategy`)
   if (hasDuplicateStringId(value.trades)) throw new Error(`${label} contains duplicate trade ids`)
+  assertValidRiskEntities(value, label)
   if (value.weeklyReviews !== undefined) {
     if (!Array.isArray(value.weeklyReviews) || !value.weeklyReviews.every(isWeeklyReview)) {
       throw new Error(`${label} contains an invalid weekly review`)

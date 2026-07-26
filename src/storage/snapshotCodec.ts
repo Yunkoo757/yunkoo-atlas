@@ -9,6 +9,8 @@ import { normalizeSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIconCo
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import type { ActivePersistedSnapshotKey } from '@/storage/persistedKeys'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -91,8 +93,59 @@ function migrateVersionedSnapshot(
   }
 }
 
+const V9_RISK_FIELDS = [
+  'weeklyRiskPreparations',
+  'riskPolicyVersions',
+  'monthlyRiskLimits',
+  'riskOverrideEvents',
+] as const
+
+function requireArray(raw: Record<string, unknown>, field: (typeof V9_RISK_FIELDS)[number]): void {
+  if (!Object.prototype.hasOwnProperty.call(raw, field)) {
+    throw new Error(`缺少必需字段 ${field}`)
+  }
+  if (!Array.isArray(raw[field])) throw new Error(`必需字段 ${field} 必须是数组`)
+}
+
+function decodeVersionedArray(
+  raw: Record<string, unknown>,
+  field: (typeof V9_RISK_FIELDS)[number],
+  version: number,
+): unknown[] {
+  if (version >= 9) requireArray(raw, field)
+  const value = raw[field]
+  if (value === undefined && version <= 8) return []
+  if (!Array.isArray(value)) throw new Error(`${field} 必须是数组`)
+  return value
+}
+
+function backfillClosedTradingDayKeys(
+  value: unknown,
+  tradingDayStartHour: unknown,
+): unknown {
+  if (!Array.isArray(value)) return value
+  const startHour = normalizeTradingDayStartHour(tradingDayStartHour)
+  return value.map((trade) => {
+    if (
+      !isRecord(trade) ||
+      trade.closedTradingDayKey !== undefined ||
+      (trade.tradeKind !== undefined && trade.tradeKind !== 'live') ||
+      !(
+        trade.status === 'win' ||
+        trade.status === 'loss' ||
+        trade.status === 'breakeven'
+      )
+    ) return trade
+    const closedAt = trade.closedAt === null || typeof trade.closedAt === 'string'
+      ? trade.closedAt
+      : null
+    const closedTradingDayKey = closedTradingDayKeyFromClosedAt(closedAt, startHour)
+    return closedTradingDayKey === null ? trade : { ...trade, closedTradingDayKey }
+  })
+}
+
 /**
- * 纯快照 codec：只处理 v1–v8 原始字段到完整 CanonicalSnapshot 的迁移、校验与规范化。
+ * 纯快照 codec：处理 legacy v1–v8 迁移与严格 v9 快照的校验、规范化。
  * format envelope、merge/replace 策略以及任何持久化提交均由调用方负责。
  */
 export function decodeCanonicalSnapshot(
@@ -109,8 +162,16 @@ export function decodeCanonicalSnapshot(
 
   const raw = migrateVersionedSnapshot(value, options.version)
   const strategiesWereMissing = raw.strategies === undefined
+  const display = raw.display as Record<string, unknown> | undefined
+  const versionedTrades = options.version <= 8
+    ? backfillClosedTradingDayKeys(raw.trades, display?.tradingDayStartHour)
+    : raw.trades
   const candidate: PersistedSnapshot = {
-    trades: (raw.trades === undefined ? [] : raw.trades) as PersistedSnapshot['trades'],
+    trades: (versionedTrades === undefined ? [] : versionedTrades) as PersistedSnapshot['trades'],
+    weeklyRiskPreparations: decodeVersionedArray(raw, 'weeklyRiskPreparations', options.version) as PersistedSnapshot['weeklyRiskPreparations'],
+    riskPolicyVersions: decodeVersionedArray(raw, 'riskPolicyVersions', options.version) as PersistedSnapshot['riskPolicyVersions'],
+    monthlyRiskLimits: decodeVersionedArray(raw, 'monthlyRiskLimits', options.version) as PersistedSnapshot['monthlyRiskLimits'],
+    riskOverrideEvents: decodeVersionedArray(raw, 'riskOverrideEvents', options.version) as PersistedSnapshot['riskOverrideEvents'],
     weeklyReviews: (raw.weeklyReviews === undefined ? [] : raw.weeklyReviews) as PersistedSnapshot['weeklyReviews'],
     quickNotes: (raw.quickNotes === undefined ? [] : raw.quickNotes) as PersistedSnapshot['quickNotes'],
     strategies: (raw.strategies === undefined ? [] : raw.strategies) as PersistedSnapshot['strategies'],
@@ -141,6 +202,22 @@ export function decodeCanonicalSnapshot(
 
   const normalized: CanonicalSnapshot = {
     trades,
+    weeklyRiskPreparations: candidate.weeklyRiskPreparations.map((item) => ({
+      ...item,
+      draft: { ...item.draft },
+    })),
+    riskPolicyVersions: candidate.riskPolicyVersions.map((item) => ({ ...item })),
+    monthlyRiskLimits: candidate.monthlyRiskLimits.map((item) => ({ ...item })),
+    riskOverrideEvents: candidate.riskOverrideEvents.map((item) => ({
+      ...item,
+      tradeIdentityAtDecision: { ...item.tradeIdentityAtDecision },
+      outcomesAtDecision: {
+        day: { ...item.outcomesAtDecision.day, unknownReasons: [...item.outcomesAtDecision.day.unknownReasons] },
+        week: { ...item.outcomesAtDecision.week, unknownReasons: [...item.outcomesAtDecision.week.unknownReasons] },
+        month: { ...item.outcomesAtDecision.month, unknownReasons: [...item.outcomesAtDecision.month.unknownReasons] },
+      },
+      unknownReasons: [...item.unknownReasons],
+    })),
     weeklyReviews: normalizeWeeklyReviews(candidate.weeklyReviews),
     quickNotes: normalizeQuickNotes(candidate.quickNotes),
     strategies: normalizedRelations.strategies,

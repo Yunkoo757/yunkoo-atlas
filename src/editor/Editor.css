@@ -181,7 +181,7 @@
   padding: 0;
 }
 
-/* 任务清单 —— Linear 风格复选框 */
+/* 任务清单复选框 */
 .editor ul[data-type='taskList'] {
   list-style: none;
   padding-left: 4px;

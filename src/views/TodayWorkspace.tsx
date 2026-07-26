@@ -16,6 +16,8 @@ import { buildTodayClosedMetrics, getTodayWorkflowBuckets } from '@/lib/tradeWor
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
+import { WeeklyRiskPreparationCard } from '@/components/WeeklyRiskPreparationCard'
+import { RiskBudgetCard } from '@/components/RiskBudgetCard'
 import './TodayWorkspace.css'
 
 function dateLabel(date: string): string {
@@ -56,6 +58,7 @@ export function TodayWorkspace() {
   const openComposer = useStore((state) => state.openComposer)
   const setStatus = useStore((state) => state.setStatus)
   const requestTradeClose = useStore((state) => state.requestTradeClose)
+  const requestTradeOpen = useStore((state) => state.requestTradeOpen)
   const removeTrade = useStore((state) => state.removeTrade)
   const upsertTrade = useStore((state) => state.upsertTrade)
   const toggleStar = useStore((state) => state.toggleStar)
@@ -88,8 +91,10 @@ export function TodayWorkspace() {
       y: event.clientY,
       items: buildTradeCtxItems(trade, {
         setStatus,
+        requestTradeOpen,
         changeStatus: (status) => transitionTradeStatus(trade, status, {
           setStatus,
+          requestTradeOpen,
           requestTradeClose,
           toast,
         }),
@@ -144,6 +149,9 @@ export function TodayWorkspace() {
               新建交易
             </button>
           </section>
+
+          <WeeklyRiskPreparationCard currentTradingDayKey={today} />
+          <RiskBudgetCard currentTradingDayKey={today} />
 
           <section
             className={'today-stats' + (todayStatsEmpty ? ' is-empty' : '')}

@@ -708,7 +708,7 @@ export async function validateDesktopLibrary(
 }
 
 function writeImportProgress(message: string): void {
-  const progressPath = process.env.LINEAR_JOURNAL_QA_PROGRESS
+  const progressPath = process.env.TRADER_ATLAS_QA_PROGRESS
   if (!progressPath) return
   fs.appendFileSync(progressPath, `${new Date().toISOString()} ${message}\n`, 'utf8')
 }

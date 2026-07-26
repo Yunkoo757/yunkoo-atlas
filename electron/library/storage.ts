@@ -18,10 +18,18 @@ import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
 import { buildAssetInventory } from '../../src/storage/assetInventory'
 import { OperationalError } from '../../src/lib/operationalError'
+import {
+  assertOpenedPairVersion,
+  migrateOpenedLibraryV8ToV9,
+  recoverInterruptedSchemaMigrationFiles,
+  removeMigrationRecovery,
+  restoreVerifiedV8Pair,
+} from './schemaMigration'
 
 const SNAPSHOT_KEY = 'snapshot'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
 const ASSET_TRASH_CLEANUP = 'cleanup.json'
+type SqlDatabaseConstructor = new (data?: ArrayLike<number> | null) => Database
 
 interface AssetTrashManifest {
   version: 1
@@ -139,6 +147,11 @@ export class LibraryStorage {
   private readonly allowCreate: boolean
   private readonly writeImportDatabase: typeof writeFileAtomicallySync
   private readonly beforeAtomicReplace?: (temporaryPath: string) => void
+  private readonly readDatabaseFile: (filePath: string) => Buffer
+  private readonly createDatabase: (
+    DatabaseClass: SqlDatabaseConstructor,
+    data?: ArrayLike<number> | null,
+  ) => Database
   private assetPurgePreviews = new Map<string, {
     snapshotJson: string
     candidateIds: string[]
@@ -152,12 +165,21 @@ export class LibraryStorage {
       allowCreate?: boolean
       writeImportDatabase?: typeof writeFileAtomicallySync
       beforeAtomicReplace?: (temporaryPath: string) => void
+      readDatabaseFile?: (filePath: string) => Buffer
+      createDatabase?: (
+        DatabaseClass: SqlDatabaseConstructor,
+        data?: ArrayLike<number> | null,
+      ) => Database
     } = {},
   ) {
     const resolved = path.resolve(libraryPath)
     this.allowCreate = options.allowCreate !== false
     this.writeImportDatabase = options.writeImportDatabase ?? writeFileAtomicallySync
     this.beforeAtomicReplace = options.beforeAtomicReplace
+    this.readDatabaseFile = options.readDatabaseFile ?? ((filePath) => fs.readFileSync(filePath))
+    this.createDatabase = options.createDatabase ?? (
+      (DatabaseClass, data) => new DatabaseClass(data)
+    )
     this.paths = options.ensureDirectories === false
       ? getLibraryPaths(resolved)
       : ensureLibraryDirs(resolved)
@@ -173,99 +195,112 @@ export class LibraryStorage {
 
   async open(): Promise<void> {
     if (this.db) return
-    if (!this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
-      throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
-    }
-    const SQL = await getSql()
-    const created = !fs.existsSync(this.paths.dbFile)
-
-    if (created && !this.allowCreate) {
-      throw new Error('journal.db 不存在，已阻止创建空交易库')
-    }
-
-    // journal.db 缺失但目录已有 manifest：禁止静默建空库，以免覆盖现有记录。
-    if (created && fs.existsSync(this.paths.manifestFile)) {
-      throw new Error(
-        'journal.db 缺失，但本目录已有资料库清单（manifest.json）。' +
-          '请从设置 → 数据 → 备份中恢复，或重新选择正确的资料库目录。' +
-          '已阻止写入空库，以免覆盖现有记录。',
-      )
-    }
-
-    if (created) {
-      this.db = new SQL.Database()
-    } else {
-      const file = fs.readFileSync(this.paths.dbFile)
-      this.db = new SQL.Database(file)
-    }
-
-    if (!this.allowCreate) {
-      const tables = this.db.exec(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('meta', 'assets')",
-      )
-      const names = new Set((tables[0]?.values ?? []).map((row) => String(row[0])))
-      if (!names.has('meta') || !names.has('assets')) {
-        throw new Error('journal.db 缺少必需的数据表，已阻止按空交易库打开')
+    try {
+      const schemaRecovery = recoverInterruptedSchemaMigrationFiles(this.paths)
+      if (!this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
+        throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
       }
-      const requiredColumns: Record<string, string[]> = {
-        meta: ['key', 'value'],
-        assets: ['id', 'mime', 'file_name', 'byte_size', 'created_at'],
-      }
-      for (const [table, required] of Object.entries(requiredColumns)) {
-        const columns = new Set(
-          (this.db.exec(`PRAGMA table_info(${table})`)[0]?.values ?? [])
-            .map((row) => String(row[1])),
-        )
-        if (required.some((column) => !columns.has(column))) {
-          throw new Error(`journal.db 的 ${table} 表结构不完整，已阻止按空交易库打开`)
+      const SQL = await getSql()
+      let created = false
+
+      if (schemaRecovery.kind === 'pending-v9-validation') {
+        try {
+          if (!fs.existsSync(this.paths.dbFile)) throw new Error('正式 v9 journal.db 不存在')
+          this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
+          assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION, {
+            requireSnapshot: true,
+          })
+        } catch {
+          this.closeDatabaseBestEffort()
+          restoreVerifiedV8Pair(this.paths, schemaRecovery.marker)
+          this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
+          assertOpenedPairVersion(this.db, this.readManifest(), 8, { requireSnapshot: true })
         }
+        removeMigrationRecovery(this.paths, schemaRecovery.marker)
+        created = false
+      } else {
+        created = !fs.existsSync(this.paths.dbFile)
+        if (created && !this.allowCreate) {
+          throw new Error('journal.db 不存在，已阻止创建空交易库')
+        }
+        if (created && fs.existsSync(this.paths.manifestFile)) {
+          throw new Error(
+            'journal.db 缺失，但本目录已有资料库清单（manifest.json）。' +
+              '请从设置 → 数据 → 备份中恢复，或重新选择正确的资料库目录。' +
+              '已阻止写入空库，以免覆盖现有记录。',
+          )
+        }
+        this.db = created
+          ? this.createDatabase(SQL.Database)
+          : this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
       }
-    }
 
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS assets (
-        id TEXT PRIMARY KEY,
-        mime TEXT NOT NULL,
-        file_name TEXT NOT NULL,
-        byte_size INTEGER NOT NULL,
-        created_at TEXT NOT NULL
-      );
-    `)
+      if (created) {
+        this.db.run(`
+          CREATE TABLE meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          );
+          CREATE TABLE assets (
+            id TEXT PRIMARY KEY,
+            mime TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            byte_size INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+          );
+        `)
+        if (this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
+          this.writeManifest({
+            schemaVersion: SCHEMA_VERSION,
+            libraryId: randomUUID(),
+            createdAt: new Date().toISOString(),
+            platform: 'electron',
+          })
+        }
+        this.db.run(
+          `INSERT INTO meta (key, value) VALUES ('schemaVersion', ?)`,
+          [String(SCHEMA_VERSION)],
+        )
+        this.persistDb()
+      }
 
-    if (this.allowCreate && (created || !fs.existsSync(this.paths.manifestFile))) {
-      this.writeManifest({
-        schemaVersion: SCHEMA_VERSION,
-        libraryId: randomUUID(),
-        createdAt: new Date().toISOString(),
-        platform: 'electron',
-      })
+      const manifest = this.readManifest()
+      if (manifest.schemaVersion === 8) {
+        migrateOpenedLibraryV8ToV9({ db: this.db, paths: this.paths, manifest })
+        this.closeDatabaseBestEffort()
+        this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
+      }
+      // v1-v7 exact archives retain their manifest-driven compatibility decoder.
+      // The recoverable file-pair protocol is intentionally scoped to v8 -> v9.
+      if (this.readManifest().schemaVersion >= 8) {
+        assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION)
+      }
+      this.recoverAssetTrash()
+    } catch (error) {
+      this.closeDatabaseBestEffort()
+      throw error
     }
+  }
 
-    // 仅新建库时落盘，避免每次打开都无意义地重写磁盘文件。
-    if (created) {
-      this.persistDb()
+  private closeDatabaseBestEffort(): void {
+    const database = this.db
+    this.db = null
+    if (!database) return
+    try {
+      database.close()
+    } catch {
+      // 初始化/迁移失败时必须优先清除实例状态，close 错误不能阻止后续重试。
     }
-    this.recoverAssetTrash()
   }
 
   close(): void {
-    if (this.db) {
-      this.db.close()
-      this.db = null
-    }
+    this.closeDatabaseBestEffort()
     this.assetPurgePreviews.clear()
   }
 
   /** Close db without a final export; mutations already persist at write time. */
   release(): void {
-    if (this.db) {
-      this.db.close()
-      this.db = null
-    }
+    this.closeDatabaseBestEffort()
     this.assetPurgePreviews.clear()
   }
 

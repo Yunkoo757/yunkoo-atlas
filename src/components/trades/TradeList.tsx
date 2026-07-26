@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useVirtualizer, defaultRangeExtractor, type Range } from '@tanstack/react-virtual'
 import { CalendarDays, Plus } from '@/icons/appIcons'
-import { LinearChevronIcon, LinearIssueStatusIcon } from '@/icons/linear'
+import { DisclosureChevron, StatusIndicator } from '@/icons/StatusIndicator'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
@@ -17,9 +17,9 @@ export type TradeListGroup = {
   key: string
   label?: string
   tone?: 'pending' | 'completed' | 'neutral'
-  /** 日期分组生命力底色（Linear Started / Todo / Backlog 同构） */
+  /** 日期分组生命力底色：当前、近期、归档。 */
   recency?: 'current' | 'recent' | 'archive'
-  /** 策略分组时传入，用于显示策略图标（对齐 Linear 项目分组） */
+  /** 策略分组时传入，用于显示策略图标。 */
   strategyId?: string
   items: Trade[]
 }
@@ -41,7 +41,7 @@ type FlatItem =
 
 const ROW_HEIGHT = 44
 const HEADER_HEIGHT = 36
-/** Linear 布局尺寸变化：~ease-out-quart */
+/** 分组尺寸变化：~ease-out-quart */
 const COLLAPSE_MS = 260
 const EASE_OUT_QUART = (t: number) => 1 - (1 - t) ** 4
 
@@ -110,7 +110,7 @@ function GroupLeadingIcon({
   }
   if (tone === 'pending') {
     return (
-      <LinearIssueStatusIcon
+      <StatusIndicator
         state="todo"
         size={14}
         color="var(--text-tertiary)"
@@ -120,7 +120,7 @@ function GroupLeadingIcon({
   }
   if (tone === 'completed') {
     return (
-      <LinearIssueStatusIcon
+      <StatusIndicator
         state="completed"
         size={14}
         color="var(--status-completed)"
@@ -414,7 +414,7 @@ export function TradeList({
                   onClick={() => toggleGroup(item.groupKey)}
                 >
                   <span className="trade-list-group-chevron" aria-hidden="true">
-                    <LinearChevronIcon
+                    <DisclosureChevron
                       style={{
                         transform: `rotate(${90 * item.openProgress}deg)`,
                       }}

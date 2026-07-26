@@ -1,5 +1,5 @@
 /**
- * Generate Electron / favicon / NSIS installer assets from demos/icons/atlas-icon-e.svg
+ * Generate Electron / favicon / NSIS installer assets from build/icon.svg
  * Usage: node scripts/generate-app-icon.mjs
  *
  * NSIS 侧栏/顶栏按逻辑尺寸的 3× 出图：高 DPI 下 StretchBlt 接近 1:1 或轻度缩小，
@@ -12,7 +12,7 @@ import sharp from 'sharp'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
-const svgPath = path.join(root, 'demos/icons/atlas-icon-e.svg')
+const svgPath = path.join(root, 'build/icon.svg')
 const buildDir = path.join(root, 'build')
 const publicDir = path.join(root, 'public')
 
@@ -181,9 +181,6 @@ async function main() {
   fs.mkdirSync(publicDir, { recursive: true })
 
   const svg = fs.readFileSync(svgPath)
-  // Canonical source copy in build/
-  fs.copyFileSync(svgPath, path.join(buildDir, 'icon.svg'))
-
   const master = sharp(svg, { density: 384 })
   const png512 = await master.clone().resize(512, 512).png().toBuffer()
   fs.writeFileSync(path.join(buildDir, 'icon.png'), png512)

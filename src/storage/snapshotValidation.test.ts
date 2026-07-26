@@ -3,6 +3,7 @@ import {
   isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
 import { buildWeeklyReviewMetrics, createWeeklyReview } from '@/data/weeklyReviews'
+import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -17,6 +18,7 @@ const valid = {
   }],
   strategies: [{ id: 'strategy-1', name: '趋势', icon: 'trending-up', color: '#5e6ad2' }],
   starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
+  weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
 }
 
 export function testSnapshotValidationAcceptsOpenTradesAndLegacyOptionalFields(): void {
@@ -253,6 +255,208 @@ export function testSnapshotValidationRejectsDuplicateEntityIds(): void {
     }
     assert(rejected, '重复的交易或策略 ID 不得进入资料库')
   }
+}
+
+function snapshotWithWeeklyRiskReview() {
+  const fixture = createFullPersistedSnapshotFixture()
+  const event = fixture.riskOverrideEvents[0]!
+  const review = fixture.weeklyReviews![0]!
+  return {
+    ...fixture,
+    weeklyReviews: [{
+      ...review,
+      riskSnapshot: {
+        policyVersions: fixture.riskPolicyVersions,
+        dailyOutcomes: [{ ...event.outcomesAtDecision.day, date: '2026-07-17' }],
+        weeklyOutcome: event.outcomesAtDecision.week,
+        monthlyOutcomeAtCompletion: event.outcomesAtDecision.month,
+        overrideEvents: fixture.riskOverrideEvents,
+        frozenAt: review.completedAt!,
+      },
+    }],
+  }
+}
+
+export function testSnapshotValidationStrictlyValidatesWeeklyRiskReviewSnapshots(): void {
+  const complete = snapshotWithWeeklyRiskReview()
+  assertValidPersistedSnapshot(complete)
+  const legacy = structuredClone(complete)
+  delete (legacy.weeklyReviews[0]! as { riskSnapshot?: unknown }).riskSnapshot
+  assertValidPersistedSnapshot(legacy)
+
+  const corruptions: Array<(candidate: ReturnType<typeof snapshotWithWeeklyRiskReview>) => void> = [
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.policyVersions[0]!.riskAmount = -1 },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.dailyOutcomes[0]!.date = '2026-02-30' },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.weeklyOutcome.coverage = 'safe' as 'complete' },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.monthlyOutcomeAtCompletion.progress = 2 },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.overrideEvents[0]!.reason = '' },
+    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.frozenAt = 'not-a-timestamp' },
+  ]
+  for (const corrupt of corruptions) {
+    const candidate = structuredClone(complete)
+    corrupt(candidate)
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot(candidate)
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '损坏的周复盘风险快照必须被中央验证器拒绝')
+  }
+}
+
+export function testSnapshotValidationEnforcesClosedTradingDayKeyContract(): void {
+  const closedLiveTrade = {
+    ...valid.trades[0],
+    status: 'loss',
+    closedAt: '2026-07-27',
+    pnl: -10,
+    resultSource: 'pnl',
+  }
+  assertValidPersistedSnapshot({
+    ...valid,
+    trades: [{ ...closedLiveTrade, closedTradingDayKey: '2026-07-27' }],
+  })
+  assertValidPersistedSnapshot({
+    ...valid,
+    trades: [{ ...closedLiveTrade, closedAt: 'invalid-date', closedTradingDayKey: undefined }],
+  })
+
+  for (const trade of [
+    closedLiveTrade,
+    { ...closedLiveTrade, closedTradingDayKey: '2026-02-30' },
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({ ...valid, trades: [trade] })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '合法 closedAt 的终态实盘交易必须携带合法 closedTradingDayKey')
+  }
+}
+
+export function testSnapshotValidationRejectsMalformedRiskEntities(): void {
+  const full = {
+    ...valid,
+    weeklyRiskPreparations: [{
+      id: 'weekly-risk-preparation:2026-07-27',
+      weekStart: '2026-07-27',
+      draft: {
+        capitalBase: 10000,
+        riskPercent: 1,
+        riskAmount: 100,
+        dailyLossLimitR: 2,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '只做计划内交易',
+      },
+      reviewedAt: '2026-07-26T08:00:00.000Z',
+      confirmedPolicyVersionId: 'risk-policy:1',
+      createdAt: '2026-07-26T07:00:00.000Z',
+      updatedAt: '2026-07-26T08:00:00.000Z',
+    }],
+    riskPolicyVersions: [{
+      id: 'risk-policy:1',
+      sourceWeekStart: '2026-07-27',
+      effectiveTradingDay: '2026-07-27',
+      capitalBase: 10000,
+      riskPercent: 1,
+      riskAmount: 100,
+      dailyLossLimitR: 2,
+      weeklyLossLimitR: 5,
+      monthlyLossLimitRDefault: 10,
+      disciplineText: '只做计划内交易',
+      confirmedAt: '2026-07-26T08:00:00.000Z',
+    }],
+    monthlyRiskLimits: [{
+      id: 'monthly-risk-limit:2026-07',
+      monthKey: '2026-07',
+      limitR: 10,
+      sourcePolicyVersionId: 'risk-policy:1',
+      lockedAt: '2026-07-26T08:00:00.000Z',
+    }],
+    riskOverrideEvents: [{
+      id: 'risk-override:1',
+      tradeId: 'trade-1',
+      tradeIdentityAtDecision: { ref: 'TRD-1', symbol: 'BTCUSDT', tradeKind: 'live' },
+      linkState: 'resolved',
+      decisionType: 'triggered',
+      tradingDayKeyAtDecision: '2026-07-27',
+      policyVersionId: 'risk-policy:1',
+      createdAt: '2026-07-26T08:00:00.000Z',
+      reason: '接受风险',
+      fingerprint: 'fingerprint-1',
+      outcomesAtDecision: Object.fromEntries(['day', 'week', 'month'].map((scope) => [scope, {
+        netBudgetR: -2,
+        limitR: 2,
+        consumedR: 2,
+        remainingR: 0,
+        progress: 1,
+        coverage: 'complete',
+        triggered: true,
+        includedTradeCount: 1,
+        excludedTradeCount: 0,
+        unknownReasons: [],
+      }])),
+      unknownReasons: [],
+    }],
+  }
+  assertValidPersistedSnapshot(full)
+
+  for (const patch of [
+    { weeklyRiskPreparations: [{ ...full.weeklyRiskPreparations[0], weekStart: '2026-02-30' }] },
+    { riskPolicyVersions: [{ ...full.riskPolicyVersions[0], riskAmount: 99 }] },
+    { riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      capitalBase: 100.004,
+      riskPercent: 1,
+      riskAmount: 1,
+    }] },
+    { riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      capitalBase: 10000,
+      riskPercent: 1,
+      riskAmount: 99.999,
+    }] },
+    { weeklyRiskPreparations: [{
+      ...full.weeklyRiskPreparations[0],
+      createdAt: '2026-07-26T07:00:00',
+    }] },
+    { riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      confirmedAt: '2026-07-26',
+    }] },
+    { monthlyRiskLimits: [{
+      ...full.monthlyRiskLimits[0],
+      lockedAt: '2026-07-26T08:00:00',
+    }] },
+    { riskOverrideEvents: [{
+      ...full.riskOverrideEvents[0],
+      createdAt: '2026-07-26T08:00:00',
+    }] },
+    { monthlyRiskLimits: [{ ...full.monthlyRiskLimits[0], limitR: Number.POSITIVE_INFINITY }] },
+    { riskOverrideEvents: [{
+      ...full.riskOverrideEvents[0],
+      tradeIdentityAtDecision: { ref: 'TRD-1', symbol: 'BTCUSDT', tradeKind: 'paper' },
+    }] },
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({ ...full, ...patch })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '损坏的风险实体不得进入资料库快照')
+  }
+
+  assertValidPersistedSnapshot({
+    ...full,
+    riskPolicyVersions: [{
+      ...full.riskPolicyVersions[0],
+      confirmedAt: '2026-07-26T16:00:00+08:00',
+    }],
+  })
 }
 
 export function testSnapshotValidationCoversWorkflowMetadataStructures(): void {

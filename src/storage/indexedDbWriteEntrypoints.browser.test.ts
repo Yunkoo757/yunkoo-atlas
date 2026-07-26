@@ -5,6 +5,7 @@ import {
 } from '@/storage/indexedDbAdapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import { clearWebOperationLogsForTests, getWebOperationLogs } from '@/storage/webOperationLogger'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 declare global {
   interface Window {
@@ -12,7 +13,7 @@ declare global {
   }
 }
 
-const DB_NAME = 'linear-journal-v3'
+const DB_NAME = 'trader-atlas-v3'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -20,6 +21,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function snapshot(name: string, assetIds: readonly string[] = []): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     quickNotes: assetIds.length > 0 ? [{
       id: `note-${name}`,

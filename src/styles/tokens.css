@@ -1,7 +1,7 @@
 /* ============================================================
    tokens.css — Atlas 交易工作台设计令牌
-   以中性微靛暗色层级承载高密度交易信息；Linear 仅作为空间秩序参考，
-   组件统一消费下方语义别名，避免页面直接绑定某个参考产品的颜色值。
+   以中性微靛暗色层级承载高密度交易信息，
+   组件统一消费下方语义别名，避免页面直接绑定具体颜色值。
    ============================================================ */
 
 :root {
@@ -36,7 +36,7 @@
   --focus-ring-width: 0;
   --ai-selection-bg: lch(61.399% 1.15 272 / 0.1);
 
-  /* —— 弹出面板 popover（测量自真实 Linear 浮层）—— */
+  /* —— 弹出面板 popover —— */
   --popover-bg: lch(9.92% 0.75 272);
   --popover-border: lch(16.5% 1.7 272);
   --popover-radius: 10px;
@@ -47,7 +47,7 @@
   --font-regular: "Inter Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
     "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-  --font-linear-ui: "Inter Linear Calibration", "Inter Variable", "SF Pro Display", -apple-system,
+  --font-ui-base: "Inter Atlas UI", "Inter Variable", "SF Pro Display", -apple-system,
     BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
   --font-display: var(--font-regular);
   --font-monospace: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
@@ -85,14 +85,14 @@
   --modal-border-radius: 14px;
   --radius-rounded: 9999px;
 
-  /* —— 过渡速度（Linear 标准）—— */
+  /* —— 过渡速度 —— */
   --speed-quickTransition: 0.1s;
   --speed-regularTransition: 0.25s;
   --speed-slowTransition: 0.35s;
   --speed-highlightFadeIn: 0s;
   --speed-highlightFadeOut: 0.15s;
 
-  /* —— 缓动曲线（Linear 全套）—— */
+  /* —— 缓动曲线 —— */
   --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --ease-out-cubic: cubic-bezier(0.215, 0.61, 0.355, 1);
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
@@ -138,10 +138,10 @@
   /* 内嵌浅底（评分格、证据标签等 inset 面） */
   --bg-inset: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg-surface));
 
-  /* Linear 校准表面：分组条底色统一；生命力靠三角/状态图标 tint */
+  /* 分组条底色统一；生命力靠三角/状态图标 tint */
   --surface-group: lch(7.67% 0.75 272 / 1);
   --surface-group-completed: lch(7.67% 0.75 272 / 1);
-  /* CollapseArrow / 分组 + 按状态着色（Linear 实测） */
+  /* CollapseArrow / 分组 + 按状态着色 */
   --group-chevron-started: lch(18.47% 7 78);
   --group-chevron-todo: lch(18.47% 7 272);
   --group-chevron-backlog: lch(18.47% 7 270);
@@ -217,7 +217,7 @@
   --nav-icon-ws-paper: lch(62% 52 275);
   --nav-icon-ws-case: lch(68% 50 310);
 
-  /* 业务语义色（交易盈亏，非 Linear 原生，自定义但沿用其调性） */
+  /* 业务语义色（交易盈亏） */
   --pos: lch(72% 45 152);   /* 盈利绿 */
   --neg: lch(58% 62 28);    /* 亏损红 */
   --neg-strong: color-mix(in srgb, var(--neg) 88%, white 12%);
@@ -263,11 +263,11 @@
   --star-color: #f2c94c;
   --follow-color: #5b9fd4;
 
-  /* 交易状态色（StatusIcon / 表格 chip 共用；形制对齐 Linear Issue Status） */
+  /* 交易状态色（StatusIcon / 表格 chip 共用） */
   --status-open: var(--star-color);
-  /* 盈利：用盈亏绿；交易语义优先于 Linear Done 靛蓝 */
+  /* 盈利：使用盈亏绿 */
   --status-completed: var(--pos);
-  /* Linear Canceled 中性灰（非交易亏损）；亏损图标见 StatusIcon → --neg */
+  /* 取消状态使用中性灰（非交易亏损）；亏损图标见 StatusIcon → --neg */
   --status-canceled: var(--text-tertiary);
   /* 错过：低饱和暖石色，勿与亏损红或警告橙抢视线 */
   --status-missed: lch(58% 14 55);
@@ -281,11 +281,11 @@
   --border-color: var(--border-default);
 
   /* 字体别名 */
-  /* UI 与挂载到 body 的 Portal 共用同一套 Linear 校准字体，避免弹层回退。 */
-  --font-ui: var(--font-linear-ui);
+  /* UI 与挂载到 body 的 Portal 共用同一套字体，避免弹层回退。 */
+  --font-ui: var(--font-ui-base);
   --font-mono: var(--font-monospace);
 
-  /* 间距阶梯（Linear 用 4px 基准） */
+  /* 间距阶梯（4px 基准） */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -349,7 +349,7 @@
   --type-metadata-weight: var(--font-weight-medium);
   --type-caption-size: var(--font-size-micro);
 
-  /* 阴影（Linear 风格，多层叠加柔光） */
+  /* 阴影（多层叠加柔光） */
   --shadow-low: 0 1px 1px #0000001f;
   --shadow-med: 0 3px 8px #0000001f, 0 2px 5px #0000001f, 0 1px 1px #0000001f;
   --shadow-md: var(--shadow-med); /* 别名，保持向后兼容 */

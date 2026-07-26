@@ -56,6 +56,7 @@ export function ListView({
   const openComposer = useStore((state) => state.openComposer)
   const setStatus = useStore((state) => state.setStatus)
   const requestTradeClose = useStore((state) => state.requestTradeClose)
+  const requestTradeOpen = useStore((state) => state.requestTradeOpen)
   const removeTrade = useStore((state) => state.removeTrade)
   const removeTrades = useStore((state) => state.removeTrades)
   const upsertTrade = useStore((state) => state.upsertTrade)
@@ -257,8 +258,9 @@ export function ListView({
       y: event.clientY,
       items: buildTradeCtxItems(trade, {
         setStatus,
+        requestTradeOpen,
         changeStatus: (status) =>
-          transitionTradeStatus(trade, status, { requestTradeClose, setStatus, toast }),
+          transitionTradeStatus(trade, status, { requestTradeClose, requestTradeOpen, setStatus, toast }),
         openComposer,
         removeTrade,
         createReviewCase: (source) => {

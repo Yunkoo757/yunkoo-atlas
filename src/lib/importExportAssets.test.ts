@@ -23,9 +23,26 @@ import {
   resetNoteDraftsForTests,
   setNoteDraft,
 } from '@/storage/noteDrafts'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+function reorderedKeys<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).reverse()) as T
+}
+
+function captureImmutableImportConflict(run: () => unknown): { code: unknown; message: string } {
+  try {
+    run()
+  } catch (error) {
+    return {
+      code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      message: error instanceof Error ? error.message : String(error),
+    }
+  }
+  throw new Error('同 ID 不可变实体内容不同时必须拒绝导入')
 }
 
 const trade: Trade = {
@@ -48,6 +65,7 @@ const trade: Trade = {
   rMultiple: 1,
   openedAt: '2026-06-01',
   closedAt: '2026-06-02',
+  closedTradingDayKey: '2026-06-02',
   note: '<p><img src="journal-asset://asset-1"></p>',
 }
 
@@ -117,6 +135,7 @@ export async function testConflictRecoveryCombinesAvailableAssetsAndListsEveryMi
   }
   const { payload, missingAssetIds } = await buildWebConflictRecoveryPayload(
     {
+      ...createEmptyPersistedSnapshot(),
       trades: [trade, secondTrade],
       strategies: [strategy],
       starredIds: [],
@@ -141,6 +160,7 @@ export async function testConflictRecoveryExportsRealEditorPreparedImageReferenc
       '<p>未保存图片<img src="blob:http://localhost/editor-preview" data-asset-id="prepared-editor"></p>',
     )
     const snapshot = applyNoteDraftsToSnapshot({
+      ...createEmptyPersistedSnapshot(),
       trades: [trade],
       strategies: [strategy],
       starredIds: [],
@@ -167,6 +187,7 @@ export async function testConflictRecoveryMarksBlobWithoutPermanentAssetIdIncomp
   try {
     setNoteDraft(trade.id, '<p><img src="blob:http://localhost/not-yet-prepared"></p>')
     const snapshot = applyNoteDraftsToSnapshot({
+      ...createEmptyPersistedSnapshot(),
       trades: [trade],
       strategies: [strategy],
       starredIds: [],
@@ -417,7 +438,7 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
     .sort()
   assert(
     JSON.stringify(actualFields) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'PATH-A writer 经过 JSON.stringify 后仍必须显式拥有全部 16 字段',
+    'PATH-A writer 经过 JSON.stringify 后仍必须显式拥有全部 20 字段',
   )
   assert(JSON.stringify(serialized.shortcuts) === '{}', '空快捷键覆盖必须序列化为空对象')
   assert(JSON.stringify(serialized.tagPresets) === '[]', '缺失标签预设必须序列化为空数组')
@@ -433,7 +454,7 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
   assert(
     JSON.stringify(Object.keys(portableSerialized).sort()) ===
       JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'Web ZIP portable writer 序列化后也必须显式拥有全部 16 字段',
+    'Web ZIP portable writer 序列化后也必须显式拥有全部 20 字段',
   )
 }
 
@@ -513,6 +534,109 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
   )
 }
 
+export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  const currentPreparation = current.weeklyRiskPreparations[0]!
+  const currentPolicy = current.riskPolicyVersions[0]!
+  const merged = mergeImportPayload(current, {
+    version: 9,
+    ...imported,
+    weeklyRiskPreparations: [{
+      ...currentPreparation,
+      draft: { ...currentPreparation.draft, disciplineText: '导入的较新草稿' },
+      updatedAt: '2026-07-12T04:30:00.000-04:00',
+    }],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [
+      ...imported.monthlyRiskLimits,
+      {
+        id: 'monthly-risk-limit:2026-08',
+        monthKey: '2026-08',
+        limitR: 8,
+        sourcePolicyVersionId: currentPolicy.id,
+        lockedAt: '2026-08-01T00:00:00.000Z',
+      },
+    ],
+  })
+
+  assert(
+    merged.weeklyRiskPreparations?.[0]?.draft.disciplineText === '导入的较新草稿',
+    '同周 preparation 必须选择 updatedAt 较新的草稿',
+  )
+  assert(
+    merged.riskPolicyVersions?.[0] === currentPolicy,
+    '完全相同的同 ID policy 必须去重并保留本地实体',
+  )
+  assert(merged.monthlyRiskLimits?.length === 2, '新 ID 的不可变月限额必须追加')
+}
+
+export function testRiskPolicyVersionSameIdAndCanonicalContentDeduplicates(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskPolicyVersions = [reorderedKeys(imported.riskPolicyVersions[0]!)]
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  assert(merged.riskPolicyVersions?.length === 1, '相同 policy 不得重复追加')
+  assert(merged.riskPolicyVersions?.[0] === current.riskPolicyVersions[0], '相同 policy 应保留本地引用')
+}
+
+export function testRiskPolicyVersionSameIdWithDifferentContentRejectsImport(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskPolicyVersions = [{
+    ...imported.riskPolicyVersions[0]!,
+    disciplineText: '冲突的纪律内容',
+  }]
+  const conflict = captureImmutableImportConflict(
+    () => mergeImportPayload(current, { version: 9, ...imported }),
+  )
+  assert(conflict.code === 'import-immutable-entity-conflict', 'policy 冲突必须暴露稳定错误码')
+  assert(conflict.message.includes(current.riskPolicyVersions[0]!.id), 'policy 冲突消息必须包含实体 ID')
+}
+
+export function testMonthlyRiskLimitSameIdAndCanonicalContentDeduplicates(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.monthlyRiskLimits = [reorderedKeys(imported.monthlyRiskLimits[0]!)]
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  assert(merged.monthlyRiskLimits?.length === 1, '相同月限额不得重复追加')
+  assert(merged.monthlyRiskLimits?.[0] === current.monthlyRiskLimits[0], '相同月限额应保留本地引用')
+}
+
+export function testMonthlyRiskLimitSameIdWithDifferentContentRejectsImport(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.monthlyRiskLimits = [{ ...imported.monthlyRiskLimits[0]!, limitR: 8.5 }]
+  const conflict = captureImmutableImportConflict(
+    () => mergeImportPayload(current, { version: 9, ...imported }),
+  )
+  assert(conflict.code === 'import-immutable-entity-conflict', '月限额冲突必须暴露稳定错误码')
+  assert(conflict.message.includes(current.monthlyRiskLimits[0]!.id), '月限额冲突消息必须包含实体 ID')
+}
+
+export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskOverrideEvents = [reorderedKeys(imported.riskOverrideEvents[0]!)]
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  assert(merged.riskOverrideEvents?.length === 1, '相同 override event 不得重复追加')
+  assert(merged.riskOverrideEvents?.[0] === current.riskOverrideEvents[0], '相同 override event 应保留本地引用')
+}
+
+export function testRiskOverrideEventSameIdWithDifferentContentRejectsImport(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  imported.riskOverrideEvents = [{
+    ...imported.riskOverrideEvents[0]!,
+    reason: '冲突的覆盖原因',
+  }]
+  const conflict = captureImmutableImportConflict(
+    () => mergeImportPayload(current, { version: 9, ...imported }),
+  )
+  assert(conflict.code === 'import-immutable-entity-conflict', 'override event 冲突必须暴露稳定错误码')
+  assert(conflict.message.includes(current.riskOverrideEvents[0]!.id), 'override event 冲突消息必须包含实体 ID')
+}
+
 export function testJsonImportRejectsAttachmentPathTraversalIds(): void {
   const parsed = parseImportJson(JSON.stringify({
     version: 6,
@@ -532,6 +656,10 @@ export function testJsonImportPreparesFreshAssetIdsBeforeAtomicCommit(): void {
   const ids = ['fresh-exported', 'fresh-inline']
   const prepared = prepareImportPayloadForCommit({
     version: 3,
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     trades: [{
       ...trade,
       note: '<p><img src="journal-asset://asset-1"><img src="data:image/png;base64,aW5saW5l"></p>',
@@ -556,6 +684,10 @@ export function testJsonImportRejectsNotesWhoseReferencedAttachmentIsMissing(): 
   try {
     prepareImportPayloadForCommit({
       version: 6,
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       trades: [{ ...trade, note: '<p><img src="journal-asset://missing-asset"></p>' }],
       strategies: [strategy],
       starredIds: [],
@@ -632,11 +764,11 @@ export function testJsonImportValidatesImageMimeBase64AndReferenceClosure(): voi
     version: 6,
     trades: [{ ...plainTrade, note: '<img src="journal-asset://asset-1">' }],
     strategies: [strategy],
-    assets: [{ id: 'asset-1', mime: 'IMAGE/X-LINEAR-CAPTURE', data: 'aW1hZ2U=' }],
+    assets: [{ id: 'asset-1', mime: 'IMAGE/X-ATLAS-CAPTURE', data: 'aW1hZ2U=' }],
   }))
   assert(valid.ok, '合法 image/* MIME 与规范 Base64 应可导入')
   if (valid.ok) {
-    assert(valid.data.assets?.[0]?.mime === 'image/x-linear-capture', '附件 MIME 应规范化')
+    assert(valid.data.assets?.[0]?.mime === 'image/x-atlas-capture', '附件 MIME 应规范化')
   }
 
   for (const payload of [
@@ -683,6 +815,10 @@ export function testJsonImportRejectsDuplicateGeneratedAssetIds(): void {
   try {
     prepareImportPayloadForCommit({
       version: 6,
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       trades: [{
         ...trade,
         note: '<img src="journal-asset://asset-1"><img src="data:image/png;base64,aW1hZ2U=">',

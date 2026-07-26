@@ -1,4 +1,4 @@
-// 交易日志数据模型 —— 借用 Linear "issue" 的结构思路，但语义换成交易复盘。
+// 交易日志数据模型。
 
 export type TradeStatus =
   | 'planned' // 计划中（像 Backlog）
@@ -100,6 +100,8 @@ export interface Trade {
   openedAt: string // ISO date
   recordedAt?: string // 记录收录时间；案例排序不受来源交易日期影响
   closedAt: string | null
+  /** 平仓时固化的业务日，避免后来修改交易日起始小时改写历史事实。 */
+  closedTradingDayKey?: string
   missReason?: MissReason
   note: string // 富文本（TipTap JSON 序列化后的 HTML，简化为 HTML 字符串）
   comments?: TradeComment[]

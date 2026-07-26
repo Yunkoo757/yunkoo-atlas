@@ -9,6 +9,7 @@ import {
   canonicalContractJson,
 } from '@/storage/fixtures/fullPersistedSnapshot'
 import { clearWebOperationLogsForTests, getWebOperationLogs } from '@/storage/webOperationLogger'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 declare global {
   interface Window {
@@ -16,7 +17,7 @@ declare global {
   }
 }
 
-const BROWSER_DB_NAME = 'linear-journal-v3'
+const BROWSER_DB_NAME = 'trader-atlas-v3'
 
 async function seedIncompleteHigherVersionDatabase(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -82,6 +83,7 @@ function snapshotWithNote(note: string, displayName: string): PersistedSnapshot 
     note,
   }
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [trade],
     strategies: [{ id: 'strategy-1', name: '测试策略', icon: 'target', color: '#5e6ad2' }],
     starredIds: [],

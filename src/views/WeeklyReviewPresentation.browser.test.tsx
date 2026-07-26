@@ -6,6 +6,7 @@ import {
   createWeeklyReview,
   weekStartFor,
 } from '@/data/weeklyReviews'
+import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -16,6 +17,8 @@ declare global {
     __weeklyReviewPresentationTest?: Promise<void>
   }
 }
+
+const activeWeekStart = weekStartFor(parseLocalDate(getTradingDayKey()))
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -66,7 +69,7 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const root = createRoot(rootElement)
   try {
-    const weekStart = weekStartFor()
+    const weekStart = activeWeekStart
     const trade = makeTrade(weekStart)
     const review = {
       ...createWeeklyReview(weekStart),
@@ -78,7 +81,11 @@ async function run(): Promise<void> {
       metricsSnapshot: buildWeeklyReviewMetrics([trade]),
       completedAt: new Date().toISOString(),
     }
-    useStore.setState({ trades: [trade], weeklyReviews: [review] })
+    useStore.setState({
+      trades: [trade],
+      weeklyReviews: [review],
+      display: { ...previous.display, privacyMode: true },
+    })
     root.render(
       <MemoryRouter initialEntries={['/weekly-review']}>
         <Routes><Route path="/weekly-review" element={<WeeklyReviewView />} /></Routes>
@@ -88,6 +95,10 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('本周交易标签') ?? false, '自定义交易标签证据区未显示')
     assert(![...document.querySelectorAll<HTMLButtonElement>('.wr-tag-group button')].some((button) => button.textContent?.startsWith('FOMO')), '自定义交易标签不应成为统计选项')
     assert(document.querySelector('.wr-evidence-tags')?.textContent?.includes('FOMO×1'), '自定义标签及次数没有作为证据显示')
+    const frozenPnl = [...document.querySelectorAll<HTMLElement>('.wr-metric')]
+      .find((metric) => metric.textContent?.includes('净盈亏'))
+    assert(frozenPnl?.textContent?.includes('****'), '隐私模式必须遮蔽周复盘冻结净盈亏')
+    assert(!frozenPnl?.textContent?.includes('$100'), '隐私模式不得泄露周复盘冻结净盈亏')
 
     if (new URLSearchParams(location.search).get('visual') === 'review') await new Promise<void>(() => {})
 
@@ -117,7 +128,11 @@ async function run(): Promise<void> {
   } finally {
     if (!new URLSearchParams(location.search).has('visual')) {
       root.unmount()
-      useStore.setState({ trades: previous.trades, weeklyReviews: previous.weeklyReviews })
+      useStore.setState({
+        trades: previous.trades,
+        weeklyReviews: previous.weeklyReviews,
+        display: previous.display,
+      })
     }
   }
 }

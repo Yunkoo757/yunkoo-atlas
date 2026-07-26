@@ -65,6 +65,7 @@ export function BoardView({
   const display = useStore((s) => s.display)
   const setDisplay = useStore((s) => s.setDisplay)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
+  const requestTradeOpen = useStore((s) => s.requestTradeOpen)
   const setStatus = useStore((s) => s.setStatus)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
@@ -117,7 +118,7 @@ export function BoardView({
     navigate(getWorkbenchResetPath(location.pathname, filter.tradeKind), { replace: true })
   }
 
-  const transition = { requestTradeClose, setStatus, toast }
+  const transition = { requestTradeClose, requestTradeOpen, setStatus, toast }
 
   const onDropToColumn = (status: TradeStatus) => {
     if (!dragId) return
@@ -189,6 +190,7 @@ export function BoardView({
                     y: e.clientY,
                     items: buildTradeCtxItems(trade, {
                       setStatus,
+                      requestTradeOpen,
                       changeStatus: (s) => transitionTradeStatus(trade, s, transition),
                       openComposer,
                       removeTrade,

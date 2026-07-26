@@ -1,7 +1,15 @@
 import type { Trade } from '@/data/trades'
-import { formatYmd, parseLocalDate } from '@/lib/periods'
+import type {
+  MonthlyRiskLimit,
+  RiskOverrideEvent,
+  RiskPolicyVersion,
+  WeeklyRiskReviewSnapshot,
+} from '@/data/riskManagement'
+import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
+import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
+import { activeRiskPolicy } from '@/lib/riskPolicy'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
@@ -52,9 +60,24 @@ export interface WeeklyReview {
   commitmentCriteria: string
   previousCommitmentResult: WeeklyCommitmentResult | null
   metricsSnapshot: WeeklyReviewMetrics | null
+  riskSnapshot?: WeeklyRiskReviewSnapshot
   createdAt: string
   updatedAt: string
   completedAt: string | null
+}
+
+export interface CompleteWeeklyReviewState {
+  trades: Trade[]
+  weeklyReviews: WeeklyReview[]
+  riskPolicyVersions: RiskPolicyVersion[]
+  monthlyRiskLimits: MonthlyRiskLimit[]
+  riskOverrideEvents: RiskOverrideEvent[]
+  display: { tradingDayStartHour: number }
+}
+
+export interface CompleteWeeklyReviewCandidate {
+  review: WeeklyReview
+  weeklyReviews: WeeklyReview[]
 }
 
 export interface WeeklyReviewTrendPoint {
@@ -104,20 +127,22 @@ export function createWeeklyReview(weekStart: string, now = new Date()): WeeklyR
   }
 }
 
-export function tradesClosedInWeek(trades: Trade[], weekStart: string): Trade[] {
+export function tradesClosedInWeek(trades: Trade[], weekStart: string, tradingDayStartHour = 0): Trade[] {
   const weekEnd = weekEndFor(weekStart)
   return trades.filter((trade) => {
-    if (trade.deletedAt || trade.tradeKind !== 'live' || !isExecutedClosed(trade.status) || !trade.closedAt) return false
-    const date = trade.closedAt.slice(0, 10)
+    if (trade.deletedAt || trade.tradeKind !== 'live' || !isExecutedClosed(trade.status)) return false
+    const date = closedTradingDayKey(trade, tradingDayStartHour)
+    if (!date) return false
     return date >= weekStart && date <= weekEnd
   })
 }
 
-export function missedTradesInWeek(trades: Trade[], weekStart: string): Trade[] {
+export function missedTradesInWeek(trades: Trade[], weekStart: string, tradingDayStartHour = 0): Trade[] {
   const weekEnd = weekEndFor(weekStart)
   return trades.filter((trade) => {
-    if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status) || !trade.closedAt) return false
-    const date = trade.closedAt.slice(0, 10)
+    if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status)) return false
+    const date = closedTradingDayKey(trade, tradingDayStartHour)
+    if (!date) return false
     return date >= weekStart && date <= weekEnd
   })
 }
@@ -151,6 +176,102 @@ export function buildWeeklyReviewMetrics(trades: Trade[], missedTrades: Trade[] 
     mistakeTagCounts,
     missedCount: missedTrades.length,
     missedReasonCounts,
+  }
+}
+
+function daysThrough(start: string, end: string): string[] {
+  const days: string[] = []
+  for (let day = start; day <= end; day = formatYmd(addDays(parseLocalDate(day), 1))) days.push(day)
+  return days
+}
+
+function buildWeeklyRiskReviewSnapshot(
+  state: CompleteWeeklyReviewState,
+  review: WeeklyReview,
+  frozenAt: string,
+): WeeklyRiskReviewSnapshot {
+  const completionTradingDay = getTradingDayKey(new Date(frozenAt), state.display.tradingDayStartHour)
+  const outcomeEnd = completionTradingDay < review.weekEnd ? completionTradingDay : review.weekEnd
+  const reviewDays = daysThrough(review.weekStart, outcomeEnd)
+  const riskTrades = state.trades.map((trade) => {
+    if (trade.closedTradingDayKey !== undefined) return trade
+    const dayKey = closedTradingDayKey(trade, state.display.tradingDayStartHour)
+    return dayKey ? { ...trade, closedTradingDayKey: dayKey } : trade
+  })
+  const policyVersions = [...new Map(reviewDays.flatMap((date) => {
+    const policy = activeRiskPolicy(state.riskPolicyVersions, date)
+    return policy ? [[policy.id, policy] as const] : []
+  })).values()]
+  const dailyOutcomes = reviewDays.map((date) => ({
+    ...resolveRiskOutcomes({
+      trades: riskTrades.filter((trade) => {
+        const closedDay = closedTradingDayKey(trade, state.display.tradingDayStartHour)
+        return closedDay === null || closedDay <= date || closedDay > completionTradingDay
+      }),
+      policies: state.riskPolicyVersions,
+      monthlyLimits: state.monthlyRiskLimits,
+      currentTradingDayKey: date,
+    }).day,
+    date,
+  }))
+  const weeklyOutcome = resolveRiskOutcomes({
+    trades: riskTrades,
+    policies: state.riskPolicyVersions,
+    monthlyLimits: state.monthlyRiskLimits,
+    currentTradingDayKey: outcomeEnd,
+  }).week
+  const monthlyOutcomeAtCompletion = resolveRiskOutcomes({
+    trades: riskTrades,
+    policies: state.riskPolicyVersions,
+    monthlyLimits: state.monthlyRiskLimits,
+    currentTradingDayKey: completionTradingDay,
+  }).month
+  const overrideEvents = state.riskOverrideEvents.filter((event) =>
+    event.tradingDayKeyAtDecision >= review.weekStart && event.tradingDayKeyAtDecision <= review.weekEnd,
+  )
+  return structuredClone({
+    policyVersions,
+    dailyOutcomes,
+    weeklyOutcome,
+    monthlyOutcomeAtCompletion,
+    overrideEvents,
+    frozenAt,
+  })
+}
+
+export function completeWeeklyReviewCandidate(
+  state: CompleteWeeklyReviewState,
+  reviewId: string,
+  now = new Date(),
+): CompleteWeeklyReviewCandidate {
+  const existing = state.weeklyReviews.find((review) => review.id === reviewId)
+  if (!existing) throw new Error(`找不到周复盘：${reviewId}`)
+  const completedAt = now.toISOString()
+  const review: WeeklyReview = {
+    ...existing,
+    status: 'completed',
+    metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(
+      tradesClosedInWeek(state.trades, existing.weekStart, state.display.tradingDayStartHour),
+      missedTradesInWeek(state.trades, existing.weekStart, state.display.tradingDayStartHour),
+    )),
+    riskSnapshot: buildWeeklyRiskReviewSnapshot(state, existing, completedAt),
+    completedAt,
+    updatedAt: completedAt,
+  }
+  return {
+    review,
+    weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((item) => item.id === reviewId ? review : item)),
+  }
+}
+
+export function reopenCompletedReview(review: WeeklyReview, now = new Date()): WeeklyReview {
+  return {
+    ...review,
+    status: 'draft',
+    metricsSnapshot: null,
+    riskSnapshot: undefined,
+    completedAt: null,
+    updatedAt: now.toISOString(),
   }
 }
 

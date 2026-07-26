@@ -14,7 +14,7 @@ import {
 } from '@/storage/pendingOperations'
 import { Editor } from './Editor'
 
-;(window as Window & { __linearBrowserAllowedErrors?: string[] }).__linearBrowserAllowedErrors = [
+;(window as Window & { __atlasBrowserAllowedErrors?: string[] }).__atlasBrowserAllowedErrors = [
   'Image persistence finished after editor was destroyed Error: getAssetObjectUrl rejected',
   'Image persistence finished after editor was destroyed Error: getAssetObjectUrl returned null',
 ]

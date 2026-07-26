@@ -209,7 +209,7 @@ async function validateExistingLibrary(libraryPath: string): Promise<{ libraryId
 export function getValidatedLibraryLocation(): Promise<ValidatedLibraryLocation> {
   return resolveLibraryLocation({
     configPath: getConfigPath(),
-    environmentPath: process.env.LINEAR_JOURNAL_LIBRARY,
+    environmentPath: process.env.TRADER_ATLAS_LIBRARY,
     defaultPath: getDefaultLibraryPath(),
     readTextFile: (filePath) => fs.readFileSync(filePath, 'utf8'),
     inspectPath,

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './IconButton.css'
 
-// Linear 校准顶栏图标按钮：28×28、完全圆角、微描边层与 150ms 过渡。
+// 顶栏图标按钮：28×28、完全圆角、微描边层与 150ms 过渡。
 export function IconButton({
   children,
   title,

@@ -90,6 +90,13 @@ function CommandPaletteDialog({
     setClosing(true)
     closeTimerRef.current = window.setTimeout(onClose, 110)
   }, [onClose])
+  const closeImmediately = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    onClose()
+  }, [onClose])
   const deferredQuery = useDeferredValue(q)
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
@@ -102,6 +109,7 @@ function CommandPaletteDialog({
   const isStarred = useStore((s) => s.isStarred)
   const setStatus = useStore((s) => s.setStatus)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
+  const requestTradeOpen = useStore((s) => s.requestTradeOpen)
   const shortcutBindings = useShortcutStore((s) => s.bindings)
   const routeParam = pathname.startsWith('/trade/')
     ? decodeURIComponent(pathname.slice('/trade/'.length))
@@ -195,8 +203,15 @@ function CommandPaletteDialog({
           label: `改为${STATUS_META[status].label}`,
           keywords: `状态 ${STATUS_META[status].label}`,
           run: () => {
+            if (status === 'open') {
+              const transientOpener = inputRef.current
+              closeImmediately()
+              requestAnimationFrame(() => requestTradeOpen(activeTrade.id, transientOpener))
+              return
+            }
             transitionTradeStatus(activeTrade, status as TradeStatus, {
               setStatus,
+              requestTradeOpen,
               requestTradeClose,
               toast,
             })
@@ -309,6 +324,7 @@ function CommandPaletteDialog({
     return { commands, total }
   }, [
     activeTrade,
+    closeImmediately,
     deferredQuery,
     display,
     isStarred,
@@ -317,6 +333,7 @@ function CommandPaletteDialog({
     pathname,
     requestClose,
     requestTradeClose,
+    requestTradeOpen,
     setStatus,
     shortcutBindings,
     strategies,

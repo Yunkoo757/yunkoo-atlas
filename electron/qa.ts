@@ -7,6 +7,8 @@ import { exportJournalZip, importJournalZipToPath } from './library/journalZip'
 import { createBackup, restoreBackupAtPath, rotateBackups } from './library/backup'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '../src/storage/types'
 import { ZipArchive } from 'archiver'
+import { createEmptyPersistedSnapshot } from '../src/storage/emptySnapshot'
+import { WEB_JOURNAL_EXPORT_VERSION } from '../src/lib/webJournalArchiveContract'
 
 export interface QaCheck {
   name: string
@@ -23,6 +25,7 @@ function pngBuf(): Buffer {
 
 function seedSnapshot(): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [
       {
         id: 'qa-trade-1',
@@ -44,6 +47,7 @@ function seedSnapshot(): PersistedSnapshot {
         rMultiple: 1,
         openedAt: '2026-01-01T00:00:00.000Z',
         closedAt: '2026-01-02T00:00:00.000Z',
+        closedTradingDayKey: '2026-01-02',
         note: '<p>QA seed</p>',
       },
     ],
@@ -81,7 +85,7 @@ function snapshotWithRef(ref: string) {
 }
 
 function writeProgress(message: string): void {
-  const progressPath = process.env.LINEAR_JOURNAL_QA_PROGRESS
+  const progressPath = process.env.TRADER_ATLAS_QA_PROGRESS
   if (!progressPath) return
   fs.appendFileSync(progressPath, `${new Date().toISOString()} ${message}\n`, 'utf8')
 }
@@ -96,13 +100,9 @@ async function writeWebJournalZip(destinationFile: string, snapshot = seedSnapsh
     archive.pipe(output)
     archive.append(
       JSON.stringify({
-        version: SCHEMA_VERSION,
-        trades: snapshot.trades,
-        strategies: snapshot.strategies,
-        starredIds: snapshot.starredIds,
-        subscribedIds: snapshot.subscribedIds,
-        pinnedStrategyIds: snapshot.pinnedStrategyIds,
-        display: snapshot.display,
+        ...snapshot,
+        version: WEB_JOURNAL_EXPORT_VERSION,
+        schemaVersion: SCHEMA_VERSION,
         assets: [],
       }),
       { name: 'data.json' },
@@ -138,8 +138,8 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     checks.push({ name, pass, detail: detail || undefined })
   }
 
-  const qaLibraryPath = process.env.LINEAR_JOURNAL_LIBRARY
-  if (!qaLibraryPath) throw new Error('LINEAR_JOURNAL_LIBRARY is required for Electron QA')
+  const qaLibraryPath = process.env.TRADER_ATLAS_LIBRARY
+  if (!qaLibraryPath) throw new Error('TRADER_ATLAS_LIBRARY is required for Electron QA')
   const storage = new LibraryStorage(qaLibraryPath)
   try {
     await storage.open()
@@ -265,7 +265,7 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     )
     fs.rmSync(webZipPath, { force: true })
 
-    const providedZipPath = process.env.LINEAR_JOURNAL_QA_IMPORT_ZIP
+    const providedZipPath = process.env.TRADER_ATLAS_QA_IMPORT_ZIP
     if (providedZipPath) {
       writeProgress(`provided import: release storage ${providedZipPath}`)
       storage.release()
@@ -338,12 +338,12 @@ export async function runElectronQa(): Promise<QaCheck[]> {
 
 export async function runElectronQaAndExit(): Promise<void> {
   const checks = await runElectronQa()
-  const resultPath = process.env.LINEAR_JOURNAL_QA_RESULT
+  const resultPath = process.env.TRADER_ATLAS_QA_RESULT
   const payload = {
     checks,
     passed: checks.filter((c) => c.pass).length,
     total: checks.length,
-    libraryPath: process.env.LINEAR_JOURNAL_LIBRARY ?? '',
+    libraryPath: process.env.TRADER_ATLAS_LIBRARY ?? '',
   }
   if (resultPath) {
     fs.mkdirSync(path.dirname(resultPath), { recursive: true })

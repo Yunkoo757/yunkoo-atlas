@@ -3,7 +3,9 @@ import JSZip from 'jszip'
 import { parseWebJournalArchive } from '@/lib/webJournalArchive'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
-import type { PersistedSnapshot } from '@/storage/types'
+import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
+import { WEB_JOURNAL_EXPORT_VERSION } from '@/lib/webJournalArchiveContract'
 
 interface WebZipBenchmarkInput {
   assetSizes: number[]
@@ -37,6 +39,7 @@ window.prepareWebZipBenchmark = async ({ assetSizes }) => {
   const ids = assetSizes.map((_, index) => `heap-asset-${index + 1}`)
   const note = ids.map((id) => `<img src="journal-asset://${id}">`).join('')
   const snapshot: PersistedSnapshot = {
+    ...createEmptyPersistedSnapshot(),
     trades: [{
       id: 'heap-trade', ref: 'TRD-HEAP', symbol: 'BTCUSDT', side: 'long', status: 'open',
       conviction: 'medium', strategyId: 'heap-strategy', tradeKind: 'live', tags: [], mistakeTags: [],
@@ -49,8 +52,8 @@ window.prepareWebZipBenchmark = async ({ assetSizes }) => {
   }
   let zip: JSZip | null = new JSZip()
   zip.file('data.json', JSON.stringify({
-    version: 8,
-    schemaVersion: 8,
+    version: WEB_JOURNAL_EXPORT_VERSION,
+    schemaVersion: SCHEMA_VERSION,
     ...snapshot,
     assets: ids.map((id) => ({ id, mime: 'image/png' })),
   }))

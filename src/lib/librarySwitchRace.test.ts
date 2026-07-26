@@ -3,6 +3,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { switchActiveLibrary } from '@/lib/importExport'
 import { useStore } from '@/store/useStore'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -52,6 +53,7 @@ export async function testSuccessfulLibrarySwitchUsesSnapshotReturnedByAtomicIpc
   let activePath = 'D:\\old-library'
   let separateLoadCount = 0
   const returnedSnapshot: PersistedSnapshot = {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],
@@ -129,6 +131,7 @@ export async function testDelayedLibraryPreparationFlushesLateTradeToOldLibraryB
   }
   const lateTrade = { ...oldTrade, id: 'late-trade', ref: 'TRD-LATE', symbol: 'XAUUSD' }
   const newSnapshot: PersistedSnapshot = {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],

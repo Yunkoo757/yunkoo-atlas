@@ -26,6 +26,10 @@ function assert(condition: unknown, message: string): asserts condition {
 function makePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     version: WEB_JOURNAL_EXPORT_VERSION,
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
     trades: [
       {
         id: 'trade-1',
@@ -242,13 +246,13 @@ export async function testCurrentWriterRoundTripsEverySafeImageMime(): Promise<v
   const { version: _version, assets: _assets, ...snapshotFields } = payload
   const archive = buildWebJournalArchiveBlob(
     snapshotFields as unknown as PersistedSnapshot,
-    [{ id: 'asset-vendor', mime: 'image/x-linear-capture', data: 'AAECAw==' }],
+    [{ id: 'asset-vendor', mime: 'image/x-atlas-capture', data: 'AAECAw==' }],
   )
 
   const parsed = await parseWebJournalArchive(archive)
 
   assert(parsed.snapshot.trades[0]?.note.includes('asset-vendor'), 'writer/parser round-trip 应保留附件引用')
-  assert(parsed.assets[0]?.mime === 'image/x-linear-capture', '安全的 image/* MIME 应可完整恢复')
+  assert(parsed.assets[0]?.mime === 'image/x-atlas-capture', '安全的 image/* MIME 应可完整恢复')
   assert(parsed.assets[0]?.data === 'AAECAw==', 'writer/parser round-trip 应无损保留附件字节')
 }
 

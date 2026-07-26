@@ -90,8 +90,8 @@ export function validateApprovedPersistenceBaseline(baseline) {
   return baseline
 }
 
-function sha256(value) {
-  return createHash('sha256').update(value).digest('hex')
+export function sha256EvidenceText(value) {
+  return createHash('sha256').update(value.replace(/\r\n/g, '\n')).digest('hex')
 }
 
 function p95(samples) {
@@ -108,7 +108,7 @@ function assertEqual(actual, expected, label) {
 
 export function validateRawPersistenceAttempt(raw, expected = null) {
   const parse = (entry, label) => {
-    if (typeof entry?.json !== 'string' || sha256(entry.json) !== entry.sha256) {
+    if (typeof entry?.json !== 'string' || sha256EvidenceText(entry.json) !== entry.sha256) {
       throw new Error(`${label} 原始报告 SHA-256 不匹配`)
     }
     return JSON.parse(entry.json)

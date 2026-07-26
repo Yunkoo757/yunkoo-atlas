@@ -70,7 +70,6 @@ try {
   await waitForVite(vite)
   const qaEnv = { ...process.env, QA_BASE_URL: BASE }
   run('pnpm', [full ? 'qa' : 'qa:core'], qaEnv)
-  if (full) run('pnpm', ['qa:linear'], qaEnv)
 } finally {
   await stopVite(vite)
 }
@@ -92,6 +91,6 @@ await fs.writeFile(reportPath, `${JSON.stringify({
   sourceFingerprint: provenance.sourceFingerprint,
   sourceIdentity: provenance.sourceIdentity,
   commands: full
-    ? ['qa:ci', 'qa:sidebar', 'qa', 'qa:linear', 'build:app', 'qa:dashboard-10k', 'qa:electron']
+    ? ['qa:ci', 'qa:sidebar', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron']
     : ['qa:ci', 'qa:sidebar', 'qa:core', 'build:app', 'qa:electron'],
 }, null, 2)}\n`, 'utf8')

@@ -54,7 +54,7 @@ export async function testWebWriteGuardWaitsForExclusiveOwnershipBeforeEditing()
   assert(getWebWriteGuardState().phase === 'requesting', '请求所有权期间仍不可编辑')
   const grant = waitingCallback as ((lock: WebLockLike | null) => Promise<void> | void) | null
   assert(grant !== null, '请求所有权必须等待锁管理器授予')
-  void grant({ name: 'linear-journal:library-b:writer' })
+  void grant({ name: 'trader-atlas:library-b:writer' })
   await request
   assert(getWebWriteGuardState().phase === 'editable', '仅在独占锁授予后恢复编辑')
 

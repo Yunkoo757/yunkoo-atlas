@@ -7,8 +7,11 @@ import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './Route
 declare global {
   interface Window {
     __routeStateTest?: Promise<void>
+    __atlasBrowserAllowedErrors?: string[]
   }
 }
+
+window.__atlasBrowserAllowedErrors = ['route render failed']
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)

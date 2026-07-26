@@ -1,4 +1,4 @@
-# Linear 数据可靠性整改 Spec v2
+# Trader Atlas 数据可靠性整改 Spec v2
 
 > 日期：2026-07-22
 > 状态：已批准，实施中
@@ -157,7 +157,7 @@
 ### 4.2 明确非目标
 
 - 不把 `SCHEMA_VERSION` 或 `WEB_JOURNAL_EXPORT_VERSION` 升为 9。
-- 不改 IndexedDB 名称 `linear-journal-v3`，不做生产数据库布局迁移。
+- 当时不改 IndexedDB 名称；该决定现已由 ADR-0002 的身份迁移方案取代。
 - 不支持 Electron 精确归档导入 Web；Web 必须继续明确拒绝。
 - 不实现 Generation 生产布局；只做独立 Spike 和 ADR。
 - 不修改、扫描或删除历史自动备份中的用户内容。
@@ -337,7 +337,7 @@ Release 0 的 revision 仅是兼容观察值：若旧库中尚不存在 revision
 ```text
 SCHEMA_VERSION = 8
 WEB_JOURNAL_EXPORT_VERSION = 8
-IndexedDB name = linear-journal-v3
+IndexedDB name = 当前产品存储标识
 ```
 
 不增加新的 archive 合同标记，不迁移生产数据库布局。原因是本轮修复的是既有 v8 合同的漏字段实现，新字段已经属于当前 `PersistedSnapshot`。
@@ -416,7 +416,7 @@ interface RevisionedStorageAdapter extends StorageAdapter {
 
 支持 Web Locks 时：
 
-- 锁名包含 `libraryId`，例如 `linear-journal:<libraryId>:writer`；
+- 锁名包含 `libraryId`，例如 `trader-atlas:<libraryId>:writer`；
 - 获得独占锁的标签页可编辑；其他标签页进入只读；
 - 用户可以请求编辑权，只有当前持有者释放后才切换；
 - 锁丢失或页面进入不可恢复状态时立刻冻结新的编辑提交；

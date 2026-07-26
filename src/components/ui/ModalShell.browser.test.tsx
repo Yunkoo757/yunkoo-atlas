@@ -103,6 +103,13 @@ async function run(): Promise<void> {
     pressKey('Tab', true)
     assert(document.activeElement === lastAction, 'Shift+Tab 必须从首项循环到末项')
 
+    opener.focus()
+    pressKey('Tab')
+    assert(document.activeElement === closeButton, '焦点逸出 panel 后 Tab 必须拉回首项')
+    opener.focus()
+    pressKey('Tab', true)
+    assert(document.activeElement === lastAction, '焦点逸出 panel 后 Shift+Tab 必须拉回末项')
+
     lastAction.click()
     await waitFor(
       () => document.querySelector('[role="dialog"]')?.getAttribute('aria-busy') === 'true',

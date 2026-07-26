@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, LockKeyhole, RotateCcw, Shield } from '@/icons/appIcons'
-import { LinearGridLoaderIcon, LinearGridProgressIcon } from '@/icons/linear'
+import { LoadingIndicator } from '@/icons/LoadingIndicator'
+import { ProgressIndicator } from '@/icons/ProgressIndicator'
 import { ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { AppUpdateState } from '@/lib/appUpdate'
@@ -124,7 +125,7 @@ export function UpdatesSettingsPanel() {
 
         {state.phase === 'downloading' && (
           <div className="update-progress-row">
-            <LinearGridProgressIcon
+            <ProgressIndicator
               progress={(state.progress ?? 0) / 100}
               size={ICON_SM}
               aria-hidden
@@ -146,7 +147,7 @@ export function UpdatesSettingsPanel() {
             </button>
           ) : state.phase === 'downloading' ? (
             <button className="dio-btn dio-btn-primary" disabled aria-busy="true">
-              <LinearGridLoaderIcon variant="scope" size={ICON_SM} aria-hidden />
+              <LoadingIndicator size={ICON_SM} aria-hidden />
               下载中… {state.progress != null ? `${state.progress}%` : ''}
             </button>
           ) : state.phase === 'downloaded' ? (
@@ -161,7 +162,7 @@ export function UpdatesSettingsPanel() {
               onClick={() => void getJournalBridge()?.checkForUpdates()}
             >
               {state.phase === 'checking' ? (
-                <LinearGridLoaderIcon variant="scope" size={ICON_SM} aria-hidden />
+                <LoadingIndicator size={ICON_SM} aria-hidden />
               ) : (
                 <RotateCcw size={14} />
               )}

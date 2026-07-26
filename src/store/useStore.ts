@@ -38,10 +38,13 @@ import {
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
-import { getTradingDayKey } from '@/lib/periods'
+import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
+  completeWeeklyReviewCandidate,
   normalizeWeeklyReviews,
+  reopenCompletedReview,
   type WeeklyReview,
 } from '@/data/weeklyReviews'
 import { normalizeInitialStopLoss, prepareTradeResultEdit } from '@/lib/tradeResult'
@@ -64,6 +67,42 @@ import {
   type UndoAction,
 } from '@/lib/tradeUndo'
 import { transitionTradeKind as applyTradeKindTransition } from '@/lib/tradeKind'
+import type {
+  MonthlyRiskLimit,
+  RiskOverrideEvent,
+  RiskPolicyDraft,
+  RiskPolicyVersion,
+  WeeklyRiskPreparation,
+} from '@/data/riskManagement'
+import {
+  confirmWeeklyRiskPreparation as confirmRiskPolicyState,
+  ensureRiskPeriodRecords as ensureRiskPolicyPeriodRecords,
+  type ConfirmWeeklyRiskPreparationInput,
+  type RiskPolicyState,
+} from '@/lib/riskPolicy'
+import {
+  requestTradeOpenCandidate,
+  requiresFirstOpenGate,
+  type PendingTradeOpenRequest,
+  type TradeOpenRequestResult,
+} from '@/lib/tradeOpenRiskGate'
+import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
+
+export interface StorePendingTradeOpenRequest extends PendingTradeOpenRequest {
+  returnFocus: HTMLElement | null
+}
+
+export type SetTradeStatusResult = TradeOpenRequestResult | 'updated' | 'unchanged'
+
+function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boolean {
+  return left.capitalBase === right.capitalBase &&
+    left.riskPercent === right.riskPercent &&
+    left.riskAmount === right.riskAmount &&
+    left.dailyLossLimitR === right.dailyLossLimitR &&
+    left.weeklyLossLimitR === right.weeklyLossLimitR &&
+    left.monthlyLossLimitRDefault === right.monthlyLossLimitRDefault &&
+    left.disciplineText === right.disciplineText
+}
 
 export type TradeUpsertSlice = {
   trades: Trade[]
@@ -148,7 +187,32 @@ function createStoreUndoAction(
   })
 }
 
-function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSlice {
+function freezeUpsertedClosedTradingDay(
+  previous: Trade | undefined,
+  trade: Trade,
+  tradingDayStartHour: number,
+): Trade {
+  if (trade.tradeKind !== 'live' || !isExecutedClosed(trade.status)) return trade
+  const shouldCalculate =
+    !previous ||
+    !isExecutedClosed(previous.status) ||
+    previous.closedTradingDayKey === undefined ||
+    previous.closedAt !== trade.closedAt
+  if (!shouldCalculate) {
+    return { ...trade, closedTradingDayKey: previous.closedTradingDayKey }
+  }
+  return {
+    ...trade,
+    closedTradingDayKey:
+      closedTradingDayKeyFromClosedAt(trade.closedAt, tradingDayStartHour) ?? undefined,
+  }
+}
+
+function upsertTradeIntoSlice(
+  s: TradeUpsertSlice,
+  trade: Trade,
+  tradingDayStartHour: number,
+): TradeUpsertSlice {
   const previousTrade = s.trades.find((t) => t.id === trade.id)
   if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return s
   const strategies = s.strategies.length > 0 ? s.strategies : createDefaultStrategies()
@@ -166,6 +230,7 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
       }),
     ),
   )))
+  normalized = freezeUpsertedClosedTradingDay(previousTrade, normalized, tradingDayStartHour)
   if (previousTrade) {
     normalized = reopenReviewAfterResultChange(
       previousTrade,
@@ -204,14 +269,24 @@ function upsertTradeIntoSlice(s: TradeUpsertSlice, trade: Trade): TradeUpsertSli
   }
 }
 
+function upsertWouldBypassFirstOpenGate(existing: Trade | undefined, incoming: Trade): boolean {
+  if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.status !== 'open') {
+    return false
+  }
+  return existing
+    ? requiresFirstOpenGate({ ...existing, deletedAt: undefined })
+    : true
+}
+
 /** 纯计算批量写入结果，供需要先落盘、再发布到 store 的原子导入流程复用。 */
 export function applyTradeUpsertsToSlice(
   initial: TradeUpsertSlice,
   trades: Trade[],
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): TradeUpsertSlice {
   let slice = initial
   for (const trade of trades) {
-    slice = upsertTradeIntoSlice(slice, trade)
+    slice = upsertTradeIntoSlice(slice, trade, tradingDayStartHour)
   }
   return slice
 }
@@ -219,6 +294,10 @@ export function applyTradeUpsertsToSlice(
 interface State {
   trades: Trade[]
   weeklyReviews: WeeklyReview[]
+  weeklyRiskPreparations: WeeklyRiskPreparation[]
+  riskPolicyVersions: RiskPolicyVersion[]
+  monthlyRiskLimits: MonthlyRiskLimit[]
+  riskOverrideEvents: RiskOverrideEvent[]
   quickNotes: QuickNote[]
   strategies: Strategy[]
   selectedId: string | null
@@ -231,6 +310,7 @@ interface State {
     targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
     returnFocus?: HTMLElement | null
   } | null
+  pendingTradeOpenRequest: StorePendingTradeOpenRequest | null
   undoStack: UndoAction[]
   redoStack: UndoAction[]
   undo: (actionId?: string) => boolean
@@ -264,7 +344,16 @@ interface State {
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
   hydrateProfile: (profile?: UserProfile) => void
-  setStatus: (id: string, status: TradeStatus) => void
+  saveWeeklyRiskDraft: (weekStart: string, draft: RiskPolicyDraft, updatedAt: string) => void
+  confirmWeeklyRiskPreparation: (
+    input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
+  ) => void
+  ensureRiskPeriodRecords: (tradingDay: string) => void
+  setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
+  requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
+  cancelTradeOpen: () => void
+  confirmTradeOpen: (reason: string) => Promise<RiskGatedTradeOpenCommitResult>
+  rehydrateRiskGateFromStorage: () => Promise<void>
   completeTradeClose: (
     id: string,
     status: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>,
@@ -323,9 +412,11 @@ interface State {
   addStrategy: (strategy: Strategy) => void
   updateStrategy: (id: string, patch: Partial<Omit<Strategy, 'id'>>) => void
   removeStrategy: (id: string, reassignToId?: string) => void
-  upsertTrade: (trade: Trade) => void
+  upsertTrade: (trade: Trade) => SetTradeStatusResult
   /** 单次 setState 批量 upsert，避免 N 次订阅/persist 风暴 */
-  upsertTrades: (trades: Trade[]) => void
+  upsertTrades: (trades: Trade[]) => SetTradeStatusResult
+  /** CSV／历史资料导入专用；调用方必须是明确的非交互恢复流程。 */
+  upsertTradesFromNonInteractiveImport: (trades: Trade[]) => void
   removeTrade: (id: string) => void
   removeTrades: (ids: string[]) => void
   restoreTrade: (id: string) => void
@@ -348,6 +439,8 @@ interface State {
   importData: (payload: ExportPayload) => void
   upsertWeeklyReview: (review: WeeklyReview) => void
   updateWeeklyReview: (id: string, patch: Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>) => void
+  completeWeeklyReview: (id: string) => void
+  reopenWeeklyReview: (id: string) => void
   upsertQuickNote: (note: QuickNote) => void
   updateQuickNote: (id: string, patch: Partial<Pick<QuickNote, 'title' | 'contentHtml' | 'pinned'>>) => void
   removeQuickNote: (id: string) => void
@@ -356,6 +449,10 @@ interface State {
 export const useStore = create<State>()((set, get) => ({
       trades: [],
       weeklyReviews: [],
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
       quickNotes: [],
       strategies: [],
       selectedId: null,
@@ -363,6 +460,7 @@ export const useStore = create<State>()((set, get) => ({
       composerTrade: null,
       composerKind: null,
       closeTradeRequest: null,
+      pendingTradeOpenRequest: null,
       undoStack: [],
       redoStack: [],
       undo: (actionId) => {
@@ -427,6 +525,16 @@ export const useStore = create<State>()((set, get) => ({
             review.id === id
               ? { ...review, ...patch, updatedAt: new Date().toISOString() }
               : review,
+          )),
+        })),
+      completeWeeklyReview: (id) =>
+        set((state) => ({
+          weeklyReviews: completeWeeklyReviewCandidate(state, id).weeklyReviews,
+        })),
+      reopenWeeklyReview: (id) =>
+        set((state) => ({
+          weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((review) =>
+            review.id === id ? reopenCompletedReview(review) : review,
           )),
         })),
       saveTradeView: (view) =>
@@ -632,7 +740,69 @@ export const useStore = create<State>()((set, get) => ({
               }
             : s.profile,
         })),
-      setStatus: (id, status) =>
+      saveWeeklyRiskDraft: (weekStart, draft, updatedAt) =>
+        set((s) => {
+          const id = `weekly-risk-preparation:${weekStart}`
+          const existing = s.weeklyRiskPreparations.find((item) => item.id === id)
+          const contentChanged = existing ? !sameRiskPolicyDraft(existing.draft, draft) : false
+          const preparation: WeeklyRiskPreparation = {
+            id,
+            weekStart,
+            draft: { ...draft },
+            reviewedAt: contentChanged ? null : existing?.reviewedAt ?? null,
+            confirmedPolicyVersionId: contentChanged
+              ? null
+              : existing?.confirmedPolicyVersionId ?? null,
+            createdAt: existing?.createdAt ?? updatedAt,
+            updatedAt,
+          }
+          return {
+            weeklyRiskPreparations: existing
+              ? s.weeklyRiskPreparations.map((item) => item.id === id ? preparation : item)
+              : [...s.weeklyRiskPreparations, preparation],
+          }
+        }),
+      confirmWeeklyRiskPreparation: (input) =>
+        set((s) => {
+          const isFirstPolicy = s.riskPolicyVersions.length === 0
+          const riskState: RiskPolicyState = {
+            weeklyRiskPreparations: s.weeklyRiskPreparations,
+            riskPolicyVersions: s.riskPolicyVersions,
+            monthlyRiskLimits: s.monthlyRiskLimits,
+            riskOverrideEvents: s.riskOverrideEvents,
+          }
+          const hasClosedLiveTradeOnDay = s.trades.some((trade) =>
+            trade.tradeKind === 'live' &&
+            !trade.deletedAt &&
+            isExecutedClosed(trade.status) &&
+            (trade.closedTradingDayKey ?? closedTradingDayKeyFromClosedAt(
+              trade.closedAt,
+              s.display.tradingDayStartHour,
+            )) === input.currentTradingDayKey,
+          )
+          const confirmed = confirmRiskPolicyState(riskState, {
+            ...input,
+            hasClosedLiveTradeOnDay,
+          })
+          return isFirstPolicy
+            ? ensureRiskPolicyPeriodRecords(confirmed, input.currentTradingDayKey)
+            : confirmed
+        }),
+      ensureRiskPeriodRecords: (tradingDay) =>
+        set((s) => ensureRiskPolicyPeriodRecords({
+          weeklyRiskPreparations: s.weeklyRiskPreparations,
+          riskPolicyVersions: s.riskPolicyVersions,
+          monthlyRiskLimits: s.monthlyRiskLimits,
+          riskOverrideEvents: s.riskOverrideEvents,
+        }, tradingDay)),
+      setStatus: (id, status) => {
+        const current = get().trades.find((trade) => trade.id === id)
+        if (!current) return 'not-found'
+        if (current.status === status) return 'unchanged'
+        if (status === 'open' && requiresFirstOpenGate(current)) {
+          return 'requires-risk-gate'
+        }
+        let updatedStatus = false
         set((s) => {
           const previous = s.trades.find((t) => t.id === id)
           if (!previous || previous.status === status) return s
@@ -643,6 +813,12 @@ export const useStore = create<State>()((set, get) => ({
             closedAt: closed
               ? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour)
               : null,
+            closedTradingDayKey: isExecutedClosed(status)
+              ? previous.closedTradingDayKey ?? closedTradingDayKeyFromClosedAt(
+                  previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+                  s.display.tradingDayStartHour,
+                ) ?? undefined
+              : undefined,
             missReason: status === 'missed' ? previous.missReason : undefined,
           }), {
             kind: 'status',
@@ -651,12 +827,98 @@ export const useStore = create<State>()((set, get) => ({
           })
           const action = createStoreUndoAction('更新交易状态', [previous], [updated])
           if (!action) return s
+          updatedStatus = true
           return {
             undoStack: appendBoundedHistory(s.undoStack, action),
             redoStack: [],
             trades: s.trades.map((trade) => (trade.id === id ? updated : trade)),
           }
-        }),
+        })
+        return updatedStatus ? 'updated' : 'unchanged'
+      },
+      requestTradeOpen: (id, returnFocus) => {
+        let result: TradeOpenRequestResult = 'not-found'
+        set((s) => {
+          const candidate = requestTradeOpenCandidate({
+            ...s,
+            currentTradingDayKey: getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+          }, id, { existingPending: s.pendingTradeOpenRequest })
+          if (candidate.kind === 'not-found') return s
+          if (candidate.kind === 'pending-exists') {
+            result = 'pending-confirmation'
+            return s
+          }
+          if (candidate.kind === 'confirmation-required') {
+            const active = typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null
+            result = 'pending-confirmation'
+            return {
+              pendingTradeOpenRequest: {
+                ...candidate.request,
+                returnFocus: returnFocus ?? active,
+              },
+            }
+          }
+          result = 'opened'
+          if (candidate.state === s) return s
+          return { trades: candidate.state.trades }
+        })
+        return result
+      },
+      cancelTradeOpen: () => set({ pendingTradeOpenRequest: null }),
+      confirmTradeOpen: async (rawReason) => {
+        const reason = rawReason.trim()
+        if (reason.length < 1 || reason.length > 500) {
+          throw new Error('继续开仓原因必须为 1–500 字')
+        }
+        const request = get().pendingTradeOpenRequest
+        if (!request) return { kind: 'cancelled', reason: 'target-missing' }
+        const [commitModule, persistModule, shortcutModule] = await Promise.all([
+          import('@/lib/riskGatedTradeOpenCommit'),
+          import('@/storage/persist'),
+          import('@/store/shortcutStore'),
+        ])
+        const result = await commitModule.commitRiskGatedTradeOpen({
+          request,
+          reason,
+          captureLatestState: () => {
+            const state = get()
+            return {
+              state,
+              snapshot: persistModule.pickPersisted(
+                state,
+                shortcutModule.useShortcutStore.getState().bindings,
+              ),
+              currentTradingDayKey: getTradingDayKey(
+                new Date(),
+                state.display.tradingDayStartHour,
+              ),
+            }
+          },
+          publish: (state) => set({ ...state, pendingTradeOpenRequest: null }),
+        })
+        if (result.kind === 'cancelled') {
+          set({ pendingTradeOpenRequest: null })
+        } else if (result.kind === 'needs-reconfirmation') {
+          set({ pendingTradeOpenRequest: null })
+          get().requestTradeOpen(request.tradeId, request.returnFocus)
+        }
+        return result
+      },
+      rehydrateRiskGateFromStorage: async () => {
+        const { getStorage } = await import('@/storage/provider')
+        const snapshot = await getStorage().loadSnapshot()
+        if (!snapshot) throw new Error('存储中没有可恢复的风险开仓快照')
+        set({
+          trades: snapshot.trades,
+          weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
+          riskPolicyVersions: snapshot.riskPolicyVersions,
+          monthlyRiskLimits: snapshot.monthlyRiskLimits,
+          riskOverrideEvents: snapshot.riskOverrideEvents,
+          pendingTradeOpenRequest: null,
+        })
+      },
       completeTradeClose: (id, status, patch) =>
         set((s) => {
           const previous = s.trades.find((trade) => trade.id === id)
@@ -666,6 +928,13 @@ export const useStore = create<State>()((set, get) => ({
             ...patch,
             status,
             closedAt: patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+            closedTradingDayKey:
+              Object.prototype.hasOwnProperty.call(patch, 'closedAt') || previous.closedTradingDayKey === undefined
+                ? closedTradingDayKeyFromClosedAt(
+                    patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+                    s.display.tradingDayStartHour,
+                  ) ?? undefined
+                : previous.closedTradingDayKey,
           }
           const reconciled = reopenReviewAfterResultChange(previous, updated)
           const withActivity = previous.status === status
@@ -763,6 +1032,14 @@ export const useStore = create<State>()((set, get) => ({
             ...previous,
             ...patch,
             ...reviewPatch,
+            ...('closedAt' in patch
+              ? {
+                  closedTradingDayKey: closedTradingDayKeyFromClosedAt(
+                    patch.closedAt ?? null,
+                    s.display.tradingDayStartHour,
+                  ) ?? undefined,
+                }
+              : {}),
           })
           const action = createStoreUndoAction('更新交易字段', [previous], [updated])
           if (!action) return s
@@ -910,8 +1187,29 @@ export const useStore = create<State>()((set, get) => ({
                 : s.trades,
           }
         }),
-      upsertTrade: (trade) => set((s) => upsertTradeIntoSlice(s, trade)),
-      upsertTrades: (trades) =>
+      upsertTrade: (trade) => {
+        const existing = get().trades.find((item) => item.id === trade.id)
+        if (upsertWouldBypassFirstOpenGate(existing, trade)) return 'requires-risk-gate'
+        set((s) => upsertTradeIntoSlice(s, trade, s.display.tradingDayStartHour))
+        return 'updated'
+      },
+      upsertTrades: (trades) => {
+        const currentTrades = get().trades
+        if (trades.some((trade) => upsertWouldBypassFirstOpenGate(
+          currentTrades.find((item) => item.id === trade.id),
+          trade,
+        ))) return 'requires-risk-gate'
+        if (trades.length === 0) return 'unchanged'
+        set((s) => applyTradeUpsertsToSlice({
+            trades: s.trades,
+            strategies: s.strategies,
+            symbolCatalog: s.symbolCatalog,
+            tagPresets: s.tagPresets,
+            mistakeTagPresets: s.mistakeTagPresets,
+          }, trades, s.display.tradingDayStartHour))
+        return 'updated'
+      },
+      upsertTradesFromNonInteractiveImport: (trades) =>
         set((s) => {
           if (trades.length === 0) return s
           return applyTradeUpsertsToSlice({
@@ -920,7 +1218,7 @@ export const useStore = create<State>()((set, get) => ({
             symbolCatalog: s.symbolCatalog,
             tagPresets: s.tagPresets,
             mistakeTagPresets: s.mistakeTagPresets,
-          }, trades)
+          }, trades, s.display.tradingDayStartHour)
         }),
       removeTrade: (id) => get().removeTrades([id]),
       removeTrades: (ids) =>

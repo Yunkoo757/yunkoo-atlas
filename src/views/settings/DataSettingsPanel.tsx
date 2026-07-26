@@ -287,7 +287,7 @@ export function DataSettingsPanel({
         const url = URL.createObjectURL(blob)
         const anchor = document.createElement('a')
         anchor.href = url
-        anchor.download = `linear-journal-before-cleanup-${new Date().toISOString().slice(0, 10)}.journal.zip`
+        anchor.download = `trader-atlas-before-cleanup-${new Date().toISOString().slice(0, 10)}.journal.zip`
         document.body.appendChild(anchor)
         anchor.click()
         anchor.remove()

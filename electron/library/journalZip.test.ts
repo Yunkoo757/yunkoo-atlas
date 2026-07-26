@@ -27,6 +27,7 @@ import {
   validateDesktopLibrary,
 } from './journalZip'
 import { LibraryStorage } from './storage'
+import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -34,6 +35,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function emptySnapshot(): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [],
     starredIds: [],
@@ -501,7 +503,7 @@ export async function testElectronWebImportKeepsValidDeclaredAssetBytes(): Promi
         version: WEB_JOURNAL_EXPORT_VERSION,
         schemaVersion: SCHEMA_VERSION,
         ...snapshotWithAsset('asset-vendor'),
-        assets: [{ id: 'asset-vendor', mime: 'image/x-linear-capture' }],
+        assets: [{ id: 'asset-vendor', mime: 'image/x-atlas-capture' }],
       },
       { 'assets/asset-vendor.bin': assetBytes },
     )
@@ -510,7 +512,7 @@ export async function testElectronWebImportKeepsValidDeclaredAssetBytes(): Promi
     storage = new LibraryStorage(root)
     await storage.open()
     const restored = storage.getAssetBytes('asset-vendor')
-    assert(restored?.mime === 'image/x-linear-capture', '有效 image/* MIME 必须原样保留')
+    assert(restored?.mime === 'image/x-atlas-capture', '有效 image/* MIME 必须原样保留')
     assert(
       Buffer.from(restored?.bytes ?? []).equals(Buffer.from(assetBytes)),
       '有效声明附件的原始字节必须无损导入',

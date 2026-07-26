@@ -95,7 +95,7 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
     version: 1,
     status: 'pass',
     mode: 'full',
-    commands: ['qa:ci', 'qa:sidebar', 'qa', 'qa:linear', 'build:app', 'qa:dashboard-10k', 'qa:electron'],
+    commands: ['qa:ci', 'qa:sidebar', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron'],
   }), true)
 
   const metrics = Object.fromEntries(PERSISTENCE_BASELINE_METRICS.map((metric) => [metric, 1]))

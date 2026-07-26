@@ -647,7 +647,7 @@ try {
   await waitForAutoSave(page)
   await page.waitForFunction(async () => {
     return new Promise((resolve) => {
-      const open = indexedDB.open('linear-journal-v3')
+      const open = indexedDB.open('trader-atlas-v3')
       open.onerror = () => resolve(false)
       open.onsuccess = () => {
         const database = open.result

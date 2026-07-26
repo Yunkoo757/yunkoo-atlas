@@ -6,9 +6,14 @@ import type { SavedTradeView } from '@/lib/savedTradeViews'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import type { ReviewTemplate } from '@/data/reviewTemplates'
 import type { QuickNote } from '@/data/quickNotes'
+import type {
+  MonthlyRiskLimit,
+  RiskOverrideEvent,
+  RiskPolicyVersion,
+  WeeklyRiskPreparation,
+} from '@/data/riskManagement'
 
-export const SCHEMA_VERSION = 8
-export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
+export const SCHEMA_VERSION = 9
 
 export interface LibraryManifest {
   schemaVersion: number
@@ -34,6 +39,10 @@ export interface UserProfile {
 
 export interface PersistedSnapshot {
   trades: Trade[]
+  weeklyRiskPreparations: WeeklyRiskPreparation[]
+  riskPolicyVersions: RiskPolicyVersion[]
+  monthlyRiskLimits: MonthlyRiskLimit[]
+  riskOverrideEvents: RiskOverrideEvent[]
   /** v7：独立于交易记录的周复盘。旧资料库省略时按空数组加载。 */
   weeklyReviews?: WeeklyReview[]
   /** v8：独立于交易体系的随记。不会参与交易统计或随机复盘。 */

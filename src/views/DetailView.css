@@ -816,7 +816,7 @@
   display: block;
 }
 
-/* 属性行：复用 Linear 属性表的 90px 标签列与 28px 行节奏 */
+/* 属性行：90px 标签列与 28px 行节奏 */
 .dv-prop-row {
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
@@ -983,7 +983,7 @@
   white-space: nowrap;
 }
 
-/* 图标+值 药丸（贴合内容宽，对齐 Linear 真实计算值）*/
+/* 图标+值药丸（贴合内容宽）*/
 .dv-pitem {
   display: inline-flex;
   align-items: center;

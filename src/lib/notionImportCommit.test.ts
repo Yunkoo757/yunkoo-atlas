@@ -24,6 +24,7 @@ import type {
 } from '@/storage/types'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { useStore } from '@/store/useStore'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -64,6 +65,7 @@ function previewWithImages(count: number): NotionTradePreview {
 
 function snapshot(label: string): PersistedSnapshot {
   return {
+    ...createEmptyPersistedSnapshot(),
     trades: [],
     strategies: [{
       id: 'strategy-1',
@@ -256,6 +258,32 @@ export async function testNotionSuccessPublishesOnlyTheAtomicallyCommittedBatch(
   )
   assert(result.imageCount === 10 && result.importedTrades.length === 1, '成功结果计数必须准确')
   assert(getPersistSuspendDepth() === 0, '成功提交后必须恢复自动保存')
+}
+
+export async function testNotionTerminalTimestampImportFreezesTradingDayAtCommitBoundary(): Promise<void> {
+  disablePersistWrites()
+  const previous = useStore.getState()
+  const adapter = new AtomicMemoryAdapter(snapshot('旧快照'))
+  const terminal = previewWithImages(0)
+  terminal.trade.openedAt = '2026-07-14T05:00:00+08:00'
+
+  try {
+    seedStore()
+    useStore.setState({ display: { ...DEFAULT_DISPLAY, tradingDayStartHour: 6 } })
+
+    await commitNotionImportBatch([terminal], { storage: adapter })
+
+    assert(
+      adapter.committedSnapshot.trades[0]?.closedTradingDayKey === '2026-07-13',
+      'Notion 终态时间戳必须在原子提交快照前按当前交易日边界固化',
+    )
+    assert(
+      useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-13',
+      '导入发布到 store 的交易必须复用同一已固化业务日',
+    )
+  } finally {
+    useStore.setState({ trades: previous.trades, strategies: previous.strategies, display: previous.display })
+  }
 }
 
 export function testNotionImportRevisionKeysMatchSharedPersistedKeys(): void {

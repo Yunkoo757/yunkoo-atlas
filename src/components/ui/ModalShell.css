@@ -10,6 +10,8 @@
 }
 
 .modal-shell {
+  display: flex;
+  flex-direction: column;
   width: min(560px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 32px));
   overflow: hidden;
@@ -88,6 +90,7 @@
 }
 
 .modal-shell-body {
+  min-height: 0;
   max-height: calc(100vh - 190px);
   padding: 18px 20px;
   overflow: auto;

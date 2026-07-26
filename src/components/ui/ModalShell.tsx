@@ -24,6 +24,7 @@ export function ModalShell({
   busy = false,
   dismissible = true,
   size = 'default',
+  describedById,
   onClose,
 }: {
   title: string
@@ -33,6 +34,7 @@ export function ModalShell({
   busy?: boolean
   dismissible?: boolean
   size?: 'default' | 'compact' | 'wide'
+  describedById?: string
   onClose: () => void
 }) {
   const titleId = useId()
@@ -84,6 +86,11 @@ export function ModalShell({
         panel.focus()
         return
       }
+      if (!panel.contains(document.activeElement)) {
+        event.preventDefault()
+        ;(event.shiftKey ? last : first).focus()
+        return
+      }
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault()
         last.focus()
@@ -115,7 +122,10 @@ export function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
+        aria-describedby={[
+          description ? descriptionId : null,
+          describedById ?? null,
+        ].filter(Boolean).join(' ') || undefined}
         aria-busy={busy || undefined}
         tabIndex={-1}
       >
