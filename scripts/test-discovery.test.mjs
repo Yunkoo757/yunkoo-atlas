@@ -169,11 +169,12 @@ test('sidebar QA targets the live mobile drawer instead of its exit clone', asyn
   )
   assert.match(
     source,
-    /drawer\.getByRole\('button', \{ name: '搜索', exact: true \}\)\.dispatchEvent\('click'\)/,
+    /const searchButtonHandle = await drawer\.getByRole\('button', \{ name: '搜索', exact: true \}\)\.elementHandle\(\)/,
   )
+  assert.match(source, /await searchButtonHandle\.evaluate\(\(button\) => button\.click\(\)\)/)
   assert.match(
     source,
-    /await moreButton\.click\(\)\s+await expectVisible\(drawer\)\s+await expectAttribute\(moreButton, 'aria-expanded', 'true'\)\s+await moreButton\.evaluate/,
+    /await moreButton\.click\(\)\s+await expectVisible\(drawer\)\s+await expectAttribute\(moreButton, 'aria-expanded', 'true'\)[\s\S]*await moreButton\.evaluate/,
   )
 })
 
