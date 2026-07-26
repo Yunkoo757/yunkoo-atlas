@@ -138,7 +138,7 @@ export function testNoteHashCollisionNeverSkipsDistinctContent(): void {
   )
 }
 
-export function testIndexedDuplicateLookupMatchesLinearSemantics(): void {
+export function testIndexedDuplicateLookupMatchesReferenceSemantics(): void {
   const sharedNote = '<p>这是一段足够长的复盘正文，用于验证索引查找仍保持原始命中顺序。</p>'
   const mediumNote = '<p>单图需要正文联合匹配</p>'
   const library = [
@@ -168,10 +168,10 @@ export function testIndexedDuplicateLookupMatchesLinearSemantics(): void {
   const index = createDuplicateLookupIndex(library)
 
   candidates.forEach((candidate, candidateIndex) => {
-    const linear = findObviousDuplicate(candidate, library)
+    const scanned = findObviousDuplicate(candidate, library)
     const indexed = findObviousDuplicateIndexed(candidate, index)
     assert(
-      JSON.stringify(indexed) === JSON.stringify(linear),
+      JSON.stringify(indexed) === JSON.stringify(scanned),
       `索引查找必须保持线性判定语义与首个命中顺序（候选 ${candidateIndex + 1}）`,
     )
   })

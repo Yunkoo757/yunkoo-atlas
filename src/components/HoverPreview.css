@@ -4,7 +4,7 @@
 }
 
 .hover-preview-pop {
-  --font-ui: var(--font-linear-ui);
+  --font-ui: var(--font-ui-base);
 
   position: fixed;
   z-index: 500;

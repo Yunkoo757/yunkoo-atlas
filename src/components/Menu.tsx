@@ -25,7 +25,7 @@ type MenuPosition = {
   minWidth: number
 }
 
-// Linear 风格下拉：点击 trigger 弹出，含选中勾、hover 高亮、点击外部关闭、Esc 关闭。
+// 下拉菜单：点击 trigger 弹出，含选中勾、hover 高亮、点击外部关闭、Esc 关闭。
 // 弹出层经 portal 挂到 body，避免被顶栏等 overflow 容器裁切。
 export function Menu({
   trigger,

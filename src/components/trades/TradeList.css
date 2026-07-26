@@ -59,7 +59,7 @@
   --trade-group-add: var(--group-add-done);
 }
 
-/* 日期分组：底色统一，三角/+ 按远近 tint（对标 Linear Started/Todo/Backlog） */
+/* 日期分组：底色统一，三角/+ 按远近 tint */
 .trade-list-group-header.is-recency-current {
   --trade-group-chevron: var(--group-chevron-started);
   --trade-group-add: var(--group-add-started);
@@ -75,7 +75,7 @@
   --trade-group-add: var(--group-add-backlog);
 }
 
-/* Linear：分组条悬停不抬亮底色；生命力在右侧圆形 + */
+/* 分组条悬停不抬亮底色；生命力在右侧圆形 + */
 .trade-list-group-toggle {
   display: flex;
   align-items: center;
@@ -104,9 +104,9 @@
   flex: 0 0 28px;
   width: 28px;
   height: 100%;
-  /* Linear CollapseArrow：暗底上带状态 hue 的实心三角 */
+  /* CollapseArrow：暗底上带状态 hue 的实心三角 */
   color: var(--trade-group-chevron);
-  /* 离开悬停时淡回 tint（对齐 Linear --speed-highlightFadeOut） */
+  /* 离开悬停时淡回 tint */
   transition: color 0.15s ease-in-out;
 }
 
@@ -119,7 +119,7 @@
   will-change: transform;
 }
 
-/* Linear：button:hover CollapseArrow → fill lch(100 0 272)，高亮瞬间到位 */
+/* button:hover CollapseArrow → fill lch(100 0 272)，高亮瞬间到位 */
 .trade-list-group-toggle:hover .trade-list-group-chevron,
 .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
   color: lch(100% 0 272 / 1);
@@ -204,7 +204,7 @@
     opacity 0.15s ease;
 }
 
-/* Linear 实测：圆底 lch(13.456% 0.943 272) 压在未抬亮的 surface-group 上才显得「亮起」 */
+/* 圆底 lch(13.456% 0.943 272) 压在未抬亮的 surface-group 上才显得「亮起」 */
 .trade-list-group-add:hover,
 .trade-list-group-add:focus-visible {
   color: lch(100% 0 272);

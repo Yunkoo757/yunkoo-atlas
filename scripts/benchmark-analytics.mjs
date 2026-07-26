@@ -394,7 +394,7 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
         includes: [
           'result summary',
           'sampled equity curve',
-          'linear strategy groups',
+          'sequential strategy groups',
           'exclusive R distribution',
         ],
       },

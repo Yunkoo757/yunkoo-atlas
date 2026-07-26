@@ -81,7 +81,7 @@ function snapshotWithRef(ref: string) {
 }
 
 function writeProgress(message: string): void {
-  const progressPath = process.env.LINEAR_JOURNAL_QA_PROGRESS
+  const progressPath = process.env.TRADER_ATLAS_QA_PROGRESS
   if (!progressPath) return
   fs.appendFileSync(progressPath, `${new Date().toISOString()} ${message}\n`, 'utf8')
 }
@@ -138,8 +138,8 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     checks.push({ name, pass, detail: detail || undefined })
   }
 
-  const qaLibraryPath = process.env.LINEAR_JOURNAL_LIBRARY
-  if (!qaLibraryPath) throw new Error('LINEAR_JOURNAL_LIBRARY is required for Electron QA')
+  const qaLibraryPath = process.env.TRADER_ATLAS_LIBRARY
+  if (!qaLibraryPath) throw new Error('TRADER_ATLAS_LIBRARY is required for Electron QA')
   const storage = new LibraryStorage(qaLibraryPath)
   try {
     await storage.open()
@@ -265,7 +265,7 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     )
     fs.rmSync(webZipPath, { force: true })
 
-    const providedZipPath = process.env.LINEAR_JOURNAL_QA_IMPORT_ZIP
+    const providedZipPath = process.env.TRADER_ATLAS_QA_IMPORT_ZIP
     if (providedZipPath) {
       writeProgress(`provided import: release storage ${providedZipPath}`)
       storage.release()
@@ -338,12 +338,12 @@ export async function runElectronQa(): Promise<QaCheck[]> {
 
 export async function runElectronQaAndExit(): Promise<void> {
   const checks = await runElectronQa()
-  const resultPath = process.env.LINEAR_JOURNAL_QA_RESULT
+  const resultPath = process.env.TRADER_ATLAS_QA_RESULT
   const payload = {
     checks,
     passed: checks.filter((c) => c.pass).length,
     total: checks.length,
-    libraryPath: process.env.LINEAR_JOURNAL_LIBRARY ?? '',
+    libraryPath: process.env.TRADER_ATLAS_LIBRARY ?? '',
   }
   if (resultPath) {
     fs.mkdirSync(path.dirname(resultPath), { recursive: true })

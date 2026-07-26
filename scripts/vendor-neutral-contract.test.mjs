@@ -15,7 +15,8 @@ const compatibilityFiles = new Set([
 ])
 
 const binaryExtensions = /\.(?:bmp|db|gif|ico|jpe?g|png|svg|webp|zip)$/i
-const vendorText = /linear-journal|linear\.app|Linear[A-Z]|icons[\\/]linear|linear-icon|font-linear/i
+const vendorText = /linear-journal|linear\.app|icons[\\/]linear|linear-icon|font-linear/i
+const vendorIdentifier = /Linear[A-Z]/
 
 test('project-owned paths are vendor neutral', () => {
   assert.deepEqual(
@@ -28,7 +29,8 @@ test('active project text is vendor neutral', () => {
   const violations = []
   for (const filePath of trackedPaths) {
     if (compatibilityFiles.has(filePath) || binaryExtensions.test(filePath)) continue
-    if (vendorText.test(readFileSync(filePath, 'utf8'))) violations.push(filePath)
+    const source = readFileSync(filePath, 'utf8')
+    if (vendorText.test(source) || vendorIdentifier.test(source)) violations.push(filePath)
   }
   assert.deepEqual(violations, [])
 })

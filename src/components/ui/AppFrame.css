@@ -15,7 +15,7 @@
 }
 
 .ui-main-frame {
-  --font-ui: var(--font-linear-ui);
+  --font-ui: var(--font-ui-base);
 
   display: flex;
   flex: 1;

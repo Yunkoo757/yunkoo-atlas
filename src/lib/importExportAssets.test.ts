@@ -632,11 +632,11 @@ export function testJsonImportValidatesImageMimeBase64AndReferenceClosure(): voi
     version: 6,
     trades: [{ ...plainTrade, note: '<img src="journal-asset://asset-1">' }],
     strategies: [strategy],
-    assets: [{ id: 'asset-1', mime: 'IMAGE/X-LINEAR-CAPTURE', data: 'aW1hZ2U=' }],
+    assets: [{ id: 'asset-1', mime: 'IMAGE/X-ATLAS-CAPTURE', data: 'aW1hZ2U=' }],
   }))
   assert(valid.ok, '合法 image/* MIME 与规范 Base64 应可导入')
   if (valid.ok) {
-    assert(valid.data.assets?.[0]?.mime === 'image/x-linear-capture', '附件 MIME 应规范化')
+    assert(valid.data.assets?.[0]?.mime === 'image/x-atlas-capture', '附件 MIME 应规范化')
   }
 
   for (const payload of [

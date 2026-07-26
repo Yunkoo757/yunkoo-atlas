@@ -385,7 +385,7 @@ export async function downloadExport(): Promise<void> {
     const a = document.createElement('a')
     const date = new Date().toISOString().slice(0, 10)
     a.href = url
-    a.download = `linear-journal-backup-${date}.json`
+    a.download = `trader-atlas-backup-${date}.json`
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -455,7 +455,7 @@ export async function downloadWebJournalZip(): Promise<void> {
     const a = document.createElement('a')
     const date = new Date().toISOString().slice(0, 10)
     a.href = url
-    a.download = `linear-journal-${date}.journal.zip`
+    a.download = `trader-atlas-${date}.journal.zip`
     document.body.appendChild(a)
     a.click()
     a.remove()
@@ -836,7 +836,7 @@ export async function downloadWebConflictRecoveryCopy(): Promise<WebConflictReco
   )
   const complete = missingAssetIds.length === 0
   const suffix = complete ? 'recovery' : 'recovery-incomplete'
-  const filename = `linear-journal-${suffix}-${new Date().toISOString().slice(0, 10)}.json`
+  const filename = `trader-atlas-${suffix}-${new Date().toISOString().slice(0, 10)}.json`
   const blob = new Blob([serializeJsonDocumentWithinFileBudget(payload)], { type: 'application/json;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')

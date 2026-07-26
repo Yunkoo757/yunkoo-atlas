@@ -1,5 +1,5 @@
 .sidebar {
-  --font-ui: var(--font-linear-ui);
+  --font-ui: var(--font-ui-base);
   --sb-text: var(--text-tertiary);
   --sb-text-strong: var(--text-primary);
   --sb-selected-bg: var(--bg-selected);
@@ -132,7 +132,7 @@
 }
 
 /*
- * Linear sidebar IconButton 几何（Search / Create 共用）：
+ * Sidebar IconButton 几何（Search / Create 共用）：
  * 28×28、radius 9999、padding 0 2px、min-width 28、图标 16、fill lch(60.307%)
  */
 .sb-hbtn {
@@ -180,7 +180,7 @@
 }
 
 /*
- * Linear Create new issue：
+ * 新建按钮：
  * bg lch(10.691 0.493 272)
  * overlay = 0 0 0 1px lch(100% 0 0 / 0.088) + 两层微投影
  * 阴影画在元素自身（不用 ::after），避免 Electron 上伪元素外环发虚/发脏

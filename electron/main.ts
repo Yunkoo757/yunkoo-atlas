@@ -68,9 +68,9 @@ function getWindowIconPath(): string | undefined {
 
 let mainWindow: BrowserWindow | null = null
 let gracefulExitAuthorized = false
-const forcedKillMode = process.env.LINEAR_JOURNAL_FORCED_KILL_MODE
+const forcedKillMode = process.env.TRADER_ATLAS_FORCED_KILL_MODE
 const hasSingleInstanceLock =
-  process.env.LINEAR_JOURNAL_QA === '1' || forcedKillMode || app.requestSingleInstanceLock()
+  process.env.TRADER_ATLAS_QA === '1' || forcedKillMode || app.requestSingleInstanceLock()
 
 function focusMainWindow(): void {
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -289,8 +289,8 @@ if (!hasSingleInstanceLock) {
 
     if (forcedKillMode) {
       try {
-        const libraryRoot = process.env.LINEAR_JOURNAL_LIBRARY
-        if (!libraryRoot) throw new Error('LINEAR_JOURNAL_LIBRARY is required for forced-kill evidence')
+        const libraryRoot = process.env.TRADER_ATLAS_LIBRARY
+        if (!libraryRoot) throw new Error('TRADER_ATLAS_LIBRARY is required for forced-kill evidence')
         await runElectronForcedKillMode(forcedKillMode, libraryRoot)
         app.exit(0)
       } catch (error) {
@@ -316,7 +316,7 @@ if (!hasSingleInstanceLock) {
       return next
     })
 
-    if (process.env.LINEAR_JOURNAL_QA === '1') {
+    if (process.env.TRADER_ATLAS_QA === '1') {
       await runElectronQaAndExit()
       return
     }

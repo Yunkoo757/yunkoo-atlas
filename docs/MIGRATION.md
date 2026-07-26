@@ -46,8 +46,8 @@
 
 ```powershell
 # 1. 克隆（或拷贝整个项目目录，见第 8 节）
-git clone <你的仓库地址> Linear
-cd Linear
+git clone <你的仓库地址> Trader-Atlas
+cd Trader-Atlas
 
 # 2. 安装依赖（必须用 pnpm）
 pnpm install
@@ -164,8 +164,8 @@ pnpm dev:electron
 | 变量 | 用途 |
 |------|------|
 | `ELECTRON=1` | 以 Electron 模式启动 Vite |
-| `LINEAR_JOURNAL_LIBRARY` | 覆盖桌面版数据库目录 |
-| `LINEAR_JOURNAL_QA=1` | Electron QA 模式（跑完退出） |
+| `TRADER_ATLAS_LIBRARY` | 覆盖桌面版数据库目录 |
+| `TRADER_ATLAS_QA=1` | Electron QA 模式（跑完退出） |
 | `QA_BASE_URL` | Web QA 目标地址（默认常为 `http://localhost:5181`，注意与 dev 端口 5180 区分） |
 | `VITE_DEV_SERVER_URL` | Electron dev 加载的 Vite 地址 |
 
@@ -181,7 +181,7 @@ pnpm dev:electron
 └── backups\
 ```
 
-可通过环境变量 `LINEAR_JOURNAL_LIBRARY` 指向其他目录。
+可通过环境变量 `TRADER_ATLAS_LIBRARY` 指向其他目录。
 
 ---
 
@@ -226,7 +226,7 @@ pnpm dev:electron
 
 浏览器归档与 Electron 本地库归档不是同一种格式。当前支持将 Web 端导出的 `data.json + assets` 完整归档导入 Electron；Electron 的 `manifest.json + journal.db` 完整归档仍不能在 Web 端恢复。浏览器遇到桌面格式时会明确拒绝，不会尝试写入。
 
-**旧版 localStorage**：若曾用极早版本，首次启动会自动从 key `linear-journal` 迁入 IndexedDB。
+**旧版浏览器数据**：若曾用极早版本，首次启动会从兼容存储迁入当前 IndexedDB；旧数据会保留，不会在迁移时删除。
 
 ### 8.3 数据格式兼容边界
 

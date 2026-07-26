@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import './EmptyState.css'
 
-// Linear 风格空状态：原创线条插画 + 标题 + 提示 + 可选动作。
+// 空状态：原创线条插画 + 标题 + 提示 + 可选动作。
 export function EmptyState({
   title,
   hint,

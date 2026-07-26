@@ -537,7 +537,7 @@ export function registerLibraryIpc(): void {
     const date = new Date().toISOString().slice(0, 10)
     const options = {
       title: '导出永久清理恢复归档',
-      defaultPath: path.join(app.getPath('documents'), `linear-journal-before-cleanup-${date}.journal.zip`),
+      defaultPath: path.join(app.getPath('documents'), `trader-atlas-before-cleanup-${date}.journal.zip`),
       filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
     }
     const result = win
@@ -655,7 +655,7 @@ export function registerLibraryIpc(): void {
     const date = new Date().toISOString().slice(0, 10)
     const options = {
       title: '导出交易库',
-      defaultPath: path.join(app.getPath('documents'), `linear-journal-${date}.journal.zip`),
+      defaultPath: path.join(app.getPath('documents'), `trader-atlas-${date}.journal.zip`),
       filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
     }
     const result = win

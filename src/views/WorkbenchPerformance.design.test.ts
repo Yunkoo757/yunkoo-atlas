@@ -45,7 +45,7 @@ export function testTodayWorkspaceUsesConstantTimeStarredLookup(): void {
     throw new Error('today workspace must build one starred ID set per starred collection')
   }
   if (source.includes('starred={starredIds.includes(trade.id)}')) {
-    throw new Error('today rows must not linearly scan starred IDs')
+    throw new Error('today rows must not scan starred IDs one by one')
   }
 }
 

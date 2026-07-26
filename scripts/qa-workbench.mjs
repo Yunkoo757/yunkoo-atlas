@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
-const BASELINE_OUT = join(process.cwd(), '.gstack', 'qa-reports', 'linear-rebuild-baseline')
+const BASELINE_OUT = join(process.cwd(), '.gstack', 'qa-reports', 'trader-atlas-baseline')
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
 await context.addInitScript(() => {

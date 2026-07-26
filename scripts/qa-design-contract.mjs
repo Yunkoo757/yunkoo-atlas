@@ -42,13 +42,13 @@ const tradesPage =
 const checks = [
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
   [
-    'sidebar navigation matches measured Linear hierarchy',
+    'sidebar navigation keeps the measured hierarchy',
     sidebarStyles.includes('--sb-text: var(--text-tertiary)') &&
       /\.sb-item\s*\{[^}]*height:\s*var\(--control-height\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*color:\s*var\(--sb-text\);/s.test(sidebarStyles) &&
       /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
   ],
   [
-    'sidebar avatar uses the Linear rounded-square shape',
+    'sidebar avatar uses the rounded-square shape',
     /\.sb-ws-avatar\s*\{[^}]*width:\s*28px;[^}]*height:\s*28px;[^}]*border-radius:\s*var\(--radius-8\);/s.test(sidebarStyles) &&
       sidebarComponent.includes('shape="rounded-square"') &&
       sidebarComponent.includes("label: '设置'") &&
@@ -58,9 +58,9 @@ const checks = [
   ['control height', tokens.includes('--control-height: 28px')],
   ['field height md', tokens.includes('--field-height-md: 32px')],
   [
-    'portaled UI keeps the calibrated Linear font',
-    tokens.includes('--font-ui: var(--font-linear-ui)') &&
-      /\.hover-preview-pop\s*\{[^}]*--font-ui:\s*var\(--font-linear-ui\);[^}]*font-family:\s*var\(--font-ui\);/s.test(
+    'portaled UI keeps the calibrated application font',
+    tokens.includes('--font-ui: var(--font-ui-base)') &&
+      /\.hover-preview-pop\s*\{[^}]*--font-ui:\s*var\(--font-ui-base\);[^}]*font-family:\s*var\(--font-ui\);/s.test(
         read('src/components/HoverPreview.css'),
       ),
   ],
@@ -136,7 +136,7 @@ const checks = [
       ),
   ],
   [
-    'trade group counts match Linear numeric metrics',
+    'trade group counts keep canonical numeric metrics',
     /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*tabular-nums;/s.test(
       tradeListStyles,
     ),

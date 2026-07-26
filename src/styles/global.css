@@ -1,5 +1,5 @@
 @font-face {
-  font-family: "Inter Linear Calibration";
+  font-family: "Inter Atlas UI";
   src: url('/fonts/inter-variable.woff2') format('woff2');
   font-style: normal;
   font-weight: 100 900;
@@ -80,7 +80,7 @@ a {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* Linear 风格细滚动条 */
+/* 紧凑型细滚动条 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

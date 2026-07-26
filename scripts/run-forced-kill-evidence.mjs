@@ -18,8 +18,8 @@ function runElectronMain(mode, onSpawn) {
   return new Promise((resolve, reject) => {
     const env = {
       ...process.env,
-      LINEAR_JOURNAL_FORCED_KILL_MODE: mode,
-      LINEAR_JOURNAL_LIBRARY: libraryRoot,
+      TRADER_ATLAS_FORCED_KILL_MODE: mode,
+      TRADER_ATLAS_LIBRARY: libraryRoot,
       VITE_DEV_SERVER_URL: '',
     }
     delete env.ELECTRON_RUN_AS_NODE

@@ -10,7 +10,6 @@
   { "id": "H0-D-WEB-REJECT", "testId": "src/lib/webJournalArchive.test.ts#testRejectsDesktopJournalArchiveWithSpecificMessage", "evidence": ["src/lib/webJournalArchive.test.ts"] },
 
   { "id": "W-REV-INIT", "testId": "src/storage/indexedDbRevision.browser.test.html#__indexedDbRevisionTest", "evidence": ["src/storage/indexedDbRevision.browser.test.html"] },
-  { "id": "W-IDENTITY-MIGRATION", "testId": "src/storage/legacyIdentity.browser.test.html#__legacyIdentityMigrationTest", "evidence": ["src/storage/legacyIdentity.browser.test.html"] },
   { "id": "W-SAVE-STALE", "testId": "src/storage/webConcurrency.browser.test.html#__webConcurrencyTwoContextTest", "evidence": ["src/storage/webConcurrency.browser.test.html"] },
   { "id": "W-IMPORT-STALE", "testId": "src/storage/indexedDbWriteEntrypoints.browser.test.html#__indexedDbWriteEntrypointsTest", "evidence": ["src/storage/indexedDbWriteEntrypoints.browser.test.html"] },
   { "id": "W-RESTORE-STALE", "testId": "src/storage/indexedDbWriteEntrypoints.browser.test.html#__indexedDbWriteEntrypointsTest", "evidence": ["src/storage/indexedDbWriteEntrypoints.browser.test.html"] },

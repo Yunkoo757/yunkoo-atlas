@@ -9,7 +9,7 @@ import type {
 } from '@/data/trades'
 import { DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 
-/** 日期分组生命力：对齐 Linear 状态栏底色逻辑（当下≈Started，近况≈Todo，更早≈Backlog） */
+/** 日期分组生命力：当下最醒目，近况次之，更早记录保持低对比度。 */
 export type GroupRecency = 'current' | 'recent' | 'archive'
 
 export type TradeMonthGroup = {

@@ -1,4 +1,4 @@
-// 交易日志数据模型 —— 借用 Linear "issue" 的结构思路，但语义换成交易复盘。
+// 交易日志数据模型。
 
 export type TradeStatus =
   | 'planned' // 计划中（像 Backlog）
