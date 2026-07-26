@@ -540,11 +540,18 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
 
   const current = createFullPersistedSnapshotFixture()
   const localTrade = trade('shared-import-id', 'EURUSD')
+  const localReferencedTrade = trade('local-reference-target', 'GBPUSD')
   const importedTrade = {
     ...trade('shared-import-id', 'BTCUSDT'),
     ref: 'IMPORTED-REF',
     note: '<img src="journal-asset://source-asset">',
     activities: [{ id: 'import-create', kind: 'create' as const, timestamp: '2026-07-14T09:00:00.000Z' }],
+  }
+  const importedCase = {
+    ...trade('imported-reference-case', 'GBPUSD'),
+    tradeKind: 'case' as const,
+    sourceTradeId: localReferencedTrade.id,
+    activities: [{ id: 'imported-case-create', kind: 'create' as const, timestamp: '2026-07-14T09:00:00.000Z' }],
   }
   const importedEvent = {
     ...current.riskOverrideEvents[0]!,
@@ -563,6 +570,8 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
     weekEnd: '2026-07-26',
     contentHtml: '',
     highlightTradeIds: [importedTrade.id],
+    mistakeTradeIds: [localReferencedTrade.id],
+    followUpTradeIds: [localReferencedTrade.id],
     riskSnapshot: {
       ...current.weeklyReviews![0]!.riskSnapshot!,
       overrideEvents: [importedEvent],
@@ -570,7 +579,7 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
   }
   useStore.setState({
     ...current,
-    trades: [localTrade],
+    trades: [localTrade, localReferencedTrade],
     weeklyRiskPreparations: [],
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
@@ -580,13 +589,15 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
   const payload = {
     version: 9,
     ...current,
-    trades: [importedTrade],
+    trades: [importedTrade, importedCase],
     weeklyRiskPreparations: [],
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [importedEvent],
     weeklyReviews: [importedReview],
     quickNotes: [],
+    starredIds: [localReferencedTrade.id],
+    subscribedIds: [localReferencedTrade.id],
     assets: [{ id: 'source-asset', mime: 'image/png', data: 'aW1hZ2U=' }],
   }
 
@@ -607,14 +618,122 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
     assert(persistedAssets.size === onceAssetCount, '同一原始 payload 重复导入不得留下重复附件')
     assert(twice.riskOverrideEvents[0]?.tradeId === importedId, '顶层 override 引用必须稳定指向导入交易')
     assert(
+      twice.trades.find((item) => item.id === importedCase.id)?.sourceTradeId === localReferencedTrade.id,
+      '真实片段导入必须保留指向既有本地交易的案例来源',
+    )
+    assert(
       twice.weeklyReviews[0]?.riskSnapshot?.overrideEvents[0]?.tradeId === importedId,
       '冻结 override 引用必须稳定指向导入交易',
     )
+    assert(twice.weeklyReviews[0]?.mistakeTradeIds[0] === localReferencedTrade.id, '真实片段导入必须保留周复盘本地交易引用')
+    assert(twice.starredIds.includes(localReferencedTrade.id), '真实片段导入必须保留收藏中的本地交易引用')
+    assert(twice.subscribedIds.includes(localReferencedTrade.id), '真实片段导入必须保留订阅中的本地交易引用')
     assert(
       twice.riskOverrideEvents.every((event) => event.linkState === 'resolved'),
       '重复导入不得产生 unresolved 引用',
     )
     assert(committedSnapshots.length === 2, '无并发时每次真实导入只应提交一次')
+  } finally {
+    disablePersistWrites()
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testConcurrentStableImportedIdPreemptionCompensatesAndRejects(): Promise<void> {
+  const committedSnapshots: PersistedSnapshot[] = []
+  const persistedAssets = new Set<string>()
+  let commitCount = 0
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      journalBridge: {
+        isElectron: true,
+        commitImport: async (
+          snapshot: PersistedSnapshot,
+          assets: ExportAssetRecord[],
+          options?: { pruneUnreferenced?: boolean },
+        ) => {
+          commitCount += 1
+          committedSnapshots.push(snapshot)
+          const snapshotJson = JSON.stringify(snapshot)
+          for (const asset of assets) {
+            if (!options?.pruneUnreferenced || snapshotJson.includes(`journal-asset://${asset.id}`)) {
+              persistedAssets.add(asset.id)
+            } else {
+              persistedAssets.delete(asset.id)
+            }
+          }
+          if (commitCount === 1) {
+            const mappedId = snapshot.trades.find((item) => item.ref === 'CONCURRENT-IMPORTED')?.id
+            if (!mappedId) throw new Error('首次候选必须包含稳定映射后的导入交易')
+            useStore.setState((state) => ({
+              trades: [
+                ...state.trades,
+                { ...trade(mappedId, 'XAUUSD'), ref: 'CONCURRENT-OCCUPANT' },
+              ],
+            }))
+          }
+          return true
+        },
+        saveSnapshot: async () => true,
+      },
+    },
+  })
+
+  const current = createFullPersistedSnapshotFixture()
+  const localTrade = trade('concurrent-shared-id', 'EURUSD')
+  const importedTrade = {
+    ...trade('concurrent-shared-id', 'BTCUSDT'),
+    ref: 'CONCURRENT-IMPORTED',
+    note: '<img src="journal-asset://concurrent-source-asset">',
+    activities: [{ id: 'concurrent-create', kind: 'create' as const, timestamp: '2026-07-14T09:00:00.000Z' }],
+  }
+  const importedEvent = {
+    ...current.riskOverrideEvents[0]!,
+    id: 'concurrent-preemption-event',
+    tradeId: importedTrade.id,
+    tradeIdentityAtDecision: {
+      ref: importedTrade.ref,
+      symbol: importedTrade.symbol,
+      tradeKind: 'live' as const,
+    },
+  }
+  useStore.setState({
+    ...current,
+    trades: [localTrade],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
+    weeklyReviews: [],
+  })
+
+  enablePersistWrites()
+  try {
+    let errorMessage = ''
+    try {
+      await applyImport({
+        version: 9,
+        ...current,
+        trades: [importedTrade],
+        weeklyRiskPreparations: [],
+        riskPolicyVersions: [],
+        monthlyRiskLimits: [],
+        riskOverrideEvents: [importedEvent],
+        weeklyReviews: [],
+        quickNotes: [],
+        assets: [{ id: 'concurrent-source-asset', mime: 'image/png', data: 'aW1hZ2U=' }],
+      })
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : String(error)
+    }
+
+    assert(errorMessage.includes('稳定导入交易 ID'), '并发预占稳定映射 ID 时必须明确拒绝导入')
+    assert(commitCount === 2, '并发预占必须用第二次补偿提交撤销首次导入候选')
+    assert(persistedAssets.size === 0, '补偿提交必须清理首次候选写入的附件')
+    assert(useStore.getState().trades.some((item) => item.ref === 'CONCURRENT-OCCUPANT'), '并发本地交易必须保留')
+    assert(useStore.getState().riskOverrideEvents.length === 0, '被拒绝导入的 event 不得发布到 Store')
+    assert(committedSnapshots.at(-1)?.riskOverrideEvents.length === 0, '补偿快照不得保留错链 event')
   } finally {
     disablePersistWrites()
     Reflect.deleteProperty(globalThis, 'window')

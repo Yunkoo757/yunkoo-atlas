@@ -131,7 +131,7 @@ function rewriteTradeReferences(
   const rewrittenTrades = imported.trades.map((trade) => {
     const sourceTradeId = trade.sourceTradeId === undefined
       ? undefined
-      : idMap.get(trade.sourceTradeId)
+      : idMap.get(trade.sourceTradeId) ?? trade.sourceTradeId
     return {
       ...trade,
       id: idMap.get(trade.id) ?? trade.id,
@@ -139,10 +139,7 @@ function rewriteTradeReferences(
     }
   })
   const tradesById = new Map([...currentTrades, ...rewrittenTrades].map((trade) => [trade.id, trade]))
-  const rewriteIds = (ids: string[]): string[] => ids.flatMap((id) => {
-    const mapped = idMap.get(id)
-    return mapped ? [mapped] : []
-  })
+  const rewriteIds = (ids: string[]): string[] => ids.map((id) => idMap.get(id) ?? id)
   const rewriteEvents = (events: RiskOverrideEvent[]): RiskOverrideEvent[] =>
     events.map((event) => rewriteEvent(event, idMap, tradesById))
   return {
@@ -175,11 +172,19 @@ export function mergeRiskImport(
   for (const trade of imported.trades) {
     const local = currentById.get(trade.id)
     const identityTrade = identityById.get(trade.id) ?? trade
+    const mappedId = local && !isSameTradeIdentity(local, identityTrade)
+      ? stableImportedTradeId(payloadDigest, trade.id)
+      : trade.id
+    const mappedOccupant = mappedId === trade.id ? undefined : currentById.get(mappedId)
+    if (
+      mappedOccupant &&
+      !isSameTradeIdentity(mappedOccupant, { ...identityTrade, id: mappedId })
+    ) {
+      throw new Error(`导入冲突：稳定导入交易 ID ${mappedId} 已被其他交易占用。`)
+    }
     idMap.set(
       trade.id,
-      !local || isSameTradeIdentity(local, identityTrade)
-        ? trade.id
-        : stableImportedTradeId(payloadDigest, trade.id),
+      mappedId,
     )
   }
 

@@ -21,7 +21,7 @@ export function canonicalImportValue(value: unknown): string {
     if (!nested || typeof nested !== 'object' || Array.isArray(nested)) return nested
     return Object.fromEntries(
       Object.entries(nested as Record<string, unknown>).sort(([left], [right]) =>
-        left.localeCompare(right)),
+        left < right ? -1 : left > right ? 1 : 0),
     )
   })
 }

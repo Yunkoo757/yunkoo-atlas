@@ -1,4 +1,5 @@
 import type { Trade } from '@/data/trades'
+import { canonicalImportValue } from '@/lib/importMerge'
 import type { PersistedSlice } from '@/lib/importTypes'
 import { mergeRiskImport, stableImportedTradeId } from '@/lib/riskImportMerge'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
@@ -115,6 +116,57 @@ export function testRepeatedImportUsesStableRemap(): void {
   assert(twice.riskOverrideEvents?.length === once.riskOverrideEvents?.length, '重复导入不得重复 override event')
 }
 
+export function testStableMappedIdOccupiedByDifferentTradeRejectsImport(): void {
+  const digest = 'sha256-preoccupied'
+  const current = localFixture()
+  current.trades.push(identifiedTrade(
+    stableImportedTradeId(digest, 'trade-1'),
+    'UNRELATED-STABLE-ID-OCCUPANT',
+    'XAUUSD',
+    'create-unrelated-occupant',
+  ))
+
+  let errorMessage = ''
+  try {
+    mergeRiskImport(current, importedCollisionFixture(), digest)
+  } catch (error) {
+    errorMessage = error instanceof Error ? error.message : String(error)
+  }
+
+  assert(errorMessage.includes('稳定导入交易 ID'), '稳定映射 ID 被不同交易占用时必须明确拒绝整次导入')
+}
+
+export function testReferencesToExistingLocalTradeSurvivePartialImport(): void {
+  const current = localFixture()
+  const localTarget = identifiedTrade('existing-local-target', 'LOCAL-TARGET', 'GBPUSD', 'create-target')
+  current.trades.push(localTarget)
+  const imported = importedCollisionFixture()
+  imported.trades = [{
+    ...identifiedTrade('imported-case', 'IMPORTED-CASE', 'GBPUSD', 'create-imported-case'),
+    tradeKind: 'case',
+    sourceTradeId: localTarget.id,
+  }]
+  imported.riskOverrideEvents = []
+  imported.weeklyReviews = imported.weeklyReviews?.map((review) => ({
+    ...review,
+    highlightTradeIds: [localTarget.id],
+    mistakeTradeIds: [localTarget.id],
+    followUpTradeIds: [localTarget.id],
+    riskSnapshot: undefined,
+  }))
+  imported.starredIds = [localTarget.id]
+  imported.subscribedIds = [localTarget.id]
+
+  const merged = mergeRiskImport(current, imported, 'sha256-partial-import')
+  const review = merged.weeklyReviews?.find((item) => item.id === 'weekly-review:2026-07-20')
+  assert(merged.trades.find((trade) => trade.id === 'imported-case')?.sourceTradeId === localTarget.id, '片段导入的案例来源本地引用必须保留')
+  assert(review?.highlightTradeIds[0] === localTarget.id, '片段导入的高亮本地引用必须保留')
+  assert(review?.mistakeTradeIds[0] === localTarget.id, '片段导入的错误本地引用必须保留')
+  assert(review?.followUpTradeIds[0] === localTarget.id, '片段导入的跟进本地引用必须保留')
+  assert(merged.starredIds.includes(localTarget.id), '片段导入的收藏本地引用必须保留')
+  assert(merged.subscribedIds.includes(localTarget.id), '片段导入的订阅本地引用必须保留')
+}
+
 export function testMissingCreateEvidenceRequiresCanonicalEquality(): void {
   const local = localFixture()
   const withoutEvidence = { ...local.trades[0]!, activities: undefined }
@@ -162,4 +214,13 @@ export function testUnresolvedEventKeepsIdentitySummaryWithoutWrongLink(): void 
 
 export function testFixtureDefaultsRemainValid(): void {
   assert(DEFAULT_DISPLAY.tradingDayStartHour >= 0, '测试 fixture 必须使用有效显示设置')
+}
+
+export function testCanonicalImportValueUsesLocaleIndependentCodePointOrder(): void {
+  const canonical = canonicalImportValue({ 中: 3, a: 2, A: 1 })
+  assert(canonical === '{"A":1,"a":2,"中":3}', '导入摘要必须按 code point 排序大小写与非 ASCII 键')
+  assert(
+    canonical === canonicalImportValue({ A: 1, 中: 3, a: 2 }),
+    '相同 payload 的摘要输入不得受对象插入顺序影响',
+  )
 }

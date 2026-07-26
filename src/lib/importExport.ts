@@ -99,8 +99,9 @@ import {
 import { OperationalError } from '@/lib/operationalError'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
-import type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
+import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { canonicalImportValue, mergeImportPayload } from '@/lib/importMerge'
+import { isSameTradeIdentity, stableImportedTradeId } from '@/lib/riskImportMerge'
 
 export type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
 export { mergeImportPayload } from '@/lib/importMerge'
@@ -960,30 +961,47 @@ function hasSamePersistedStateRevision(
   return previous.references.every((value, index) => value === next.references[index])
 }
 
+interface ImportedTradeBaseline {
+  values: Map<string, string | null>
+  stableIds: Set<string>
+}
+
 function captureImportedTradeBaseline(
   revision: PersistedStateRevision,
   payload: ExportPayload,
-): Map<string, string | null> {
+  payloadDigest: string,
+  identityPayload: ImportIdentityPayload,
+): ImportedTradeBaseline {
   const currentById = new Map(revision.state.trades.map((trade) => [trade.id, trade]))
-  return new Map(
-    payload.trades.map((trade) => {
-      const current = currentById.get(trade.id)
-      return [trade.id, current ? JSON.stringify(current) : null]
-    }),
-  )
+  const identityById = new Map(identityPayload.trades.map((trade) => [trade.id, trade]))
+  const stableIds = new Set(payload.trades.flatMap((trade) => {
+    const current = currentById.get(trade.id)
+    const identityTrade = identityById.get(trade.id) ?? trade
+    return current && !isSameTradeIdentity(current, identityTrade)
+      ? [stableImportedTradeId(payloadDigest, trade.id)]
+      : []
+  }))
+  const ids = new Set([...payload.trades.map((trade) => trade.id), ...stableIds])
+  return {
+    values: new Map([...ids].map((id) => {
+      const current = currentById.get(id)
+      return [id, current ? JSON.stringify(current) : null]
+    })),
+    stableIds,
+  }
 }
 
-function hasConcurrentImportedTradeConflict(
-  baseline: Map<string, string | null>,
+function findConcurrentImportedTradeConflict(
+  baseline: ImportedTradeBaseline,
   latest: PersistedStateRevision,
-): boolean {
+): { id: string; stableId: boolean } | null {
   const latestById = new Map(latest.state.trades.map((trade) => [trade.id, trade]))
-  for (const [id, initialValue] of baseline) {
+  for (const [id, initialValue] of baseline.values) {
     const current = latestById.get(id)
     const currentValue = current ? JSON.stringify(current) : null
-    if (currentValue !== initialValue) return true
+    if (currentValue !== initialValue) return { id, stableId: baseline.stableIds.has(id) }
   }
-  return false
+  return null
 }
 
 const IMMUTABLE_RISK_IMPORT_FIELDS = [
@@ -1079,7 +1097,12 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     suspendPersist()
     suspended = true
     let revision = capturePersistedStateRevision()
-    const importedTradeBaseline = captureImportedTradeBaseline(revision, prepared.payload)
+    const importedTradeBaseline = captureImportedTradeBaseline(
+      revision,
+      prepared.payload,
+      payloadDigest,
+      payload,
+    )
     while (true) {
       const immutableRiskBaseline = captureImmutableRiskImportBaseline(
         revision.state,
@@ -1094,7 +1117,7 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
         applySnapshotToStore(snapshot)
         break
       }
-      const tradeConflict = hasConcurrentImportedTradeConflict(importedTradeBaseline, latest)
+      const tradeConflict = findConcurrentImportedTradeConflict(importedTradeBaseline, latest)
       const immutableRiskConflict = findConcurrentImmutableRiskConflict(
         immutableRiskBaseline,
         latest.state,
@@ -1112,6 +1135,11 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
           throw new OperationalError(
             'import-immutable-entity-conflict',
             `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
+          )
+        }
+        if (tradeConflict?.stableId) {
+          throw new Error(
+            `导入已取消：稳定导入交易 ID ${tradeConflict.id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`,
           )
         }
         throw new Error(
