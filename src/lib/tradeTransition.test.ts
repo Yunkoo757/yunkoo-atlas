@@ -1,4 +1,5 @@
 import type { Trade, TradeStatus } from '@/data/trades'
+import { getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { transitionTradeStatus, type TradeTransitionActions } from '@/lib/tradeTransition'
 
@@ -81,16 +82,19 @@ export function testClosedTradingDayKeyPreservesDatesAndAppliesBoundaryOnlyToTim
     '纯日期必须直接保留，不得受交易日起始小时影响',
   )
   assert(
-    closedTradingDayKeyFromClosedAt('2026-07-27T05:59:00+08:00', 6) === '2026-07-26',
-    '日界线前的带时区时间戳必须归入前一交易日',
+    closedTradingDayKeyFromClosedAt('2026-07-27T05:59:00+08:00', 6) ===
+      getTradingDayKey(new Date('2026-07-27T05:59:00+08:00'), 6),
+    '带时区时间戳必须按设备本地时区与交易日边界归属',
   )
   assert(
-    closedTradingDayKeyFromClosedAt('2026-07-27T06:00:00+08:00', 6) === '2026-07-27',
-    '日界线后的带时区时间戳必须归入当日',
+    closedTradingDayKeyFromClosedAt('2026-07-27T06:00:00+08:00', 6) ===
+      getTradingDayKey(new Date('2026-07-27T06:00:00+08:00'), 6),
+    '带时区时间戳必须使用与交易日一致的设备本地时区',
   )
   assert(
-    closedTradingDayKeyFromClosedAt('2026-07-27T02:00:00-05:00', 6) === '2026-07-27',
-    '负时区时间戳必须先按本地时刻解析，再应用交易日边界',
+    closedTradingDayKeyFromClosedAt('2026-07-27T02:00:00-05:00', 6) ===
+      getTradingDayKey(new Date('2026-07-27T02:00:00-05:00'), 6),
+    '负时区时间戳也必须按设备本地时区归属',
   )
   assert(closedTradingDayKeyFromClosedAt('2026-02-30', 6) === null, '非法日期必须拒绝')
 }
