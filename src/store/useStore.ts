@@ -39,6 +39,7 @@ import {
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
 import { getTradingDayKey } from '@/lib/periods'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
   normalizeWeeklyReviews,
@@ -643,6 +644,12 @@ export const useStore = create<State>()((set, get) => ({
             closedAt: closed
               ? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour)
               : null,
+            closedTradingDayKey: closed
+              ? closedTradingDayKeyFromClosedAt(
+                  previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+                  s.display.tradingDayStartHour,
+                ) ?? undefined
+              : undefined,
             missReason: status === 'missed' ? previous.missReason : undefined,
           }), {
             kind: 'status',
@@ -666,6 +673,10 @@ export const useStore = create<State>()((set, get) => ({
             ...patch,
             status,
             closedAt: patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+            closedTradingDayKey: closedTradingDayKeyFromClosedAt(
+              patch.closedAt ?? previous.closedAt ?? getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+              s.display.tradingDayStartHour,
+            ) ?? undefined,
           }
           const reconciled = reopenReviewAfterResultChange(previous, updated)
           const withActivity = previous.status === status
@@ -763,6 +774,14 @@ export const useStore = create<State>()((set, get) => ({
             ...previous,
             ...patch,
             ...reviewPatch,
+            ...('closedAt' in patch
+              ? {
+                  closedTradingDayKey: closedTradingDayKeyFromClosedAt(
+                    patch.closedAt ?? null,
+                    s.display.tradingDayStartHour,
+                  ) ?? undefined,
+                }
+              : {}),
           })
           const action = createStoreUndoAction('更新交易字段', [previous], [updated])
           if (!action) return s
