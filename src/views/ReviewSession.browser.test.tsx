@@ -79,6 +79,7 @@ const trade: Trade = {
   resultSource: 'imported',
   openedAt: '2026-07-15',
   closedAt: '2026-07-16',
+  closedTradingDayKey: '2026-07-16',
   note: '<p>复盘结论：等待回踩确认。</p><img alt="结构图" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%235e6ad2%22/%3E%3C/svg%3E"><img src="journal-asset://missing-review-chart">',
 }
 
