@@ -87,7 +87,11 @@ async function run(): Promise<void> {
   window.addEventListener('error', capturePageError)
 
   try {
-    useStore.setState({ trades: cases })
+    useStore.setState({
+      trades: cases,
+      tagPresets: ['计划内'],
+      mistakeTagPresets: ['周末交易'],
+    })
     useShortcutStore.setState({
       bindings: {
         ...previousShortcuts.bindings,
@@ -111,6 +115,18 @@ async function run(): Promise<void> {
     await waitFor(
       () => document.querySelector('.ProseMirror')?.textContent?.includes('案例 2') ?? false,
       '初始案例正文未载入',
+    )
+    const tagsSection = [...document.querySelectorAll<HTMLButtonElement>('.dv-section-head')]
+      .find((button) => button.textContent?.trim() === '标签')
+    assert(tagsSection, '详情页缺少标签分区')
+    tagsSection.click()
+    await waitFor(
+      () => document.querySelector('[aria-label="添加标签「计划内」"]') !== null,
+      '详情页必须展示未选择的普通预置标签',
+    )
+    assert(
+      document.querySelector('[aria-label="添加标签「周末交易」"]'),
+      '详情页必须展示未选择的错误预置标签',
     )
 
     const caseNavigation = document.querySelector<HTMLElement>('[aria-label="案例导航"]')
@@ -199,6 +215,8 @@ async function run(): Promise<void> {
     useStore.setState({
       trades: previousStore.trades,
       strategies: previousStore.strategies,
+      tagPresets: previousStore.tagPresets,
+      mistakeTagPresets: previousStore.mistakeTagPresets,
     })
     useShortcutStore.setState({
       bindings: previousShortcuts.bindings,

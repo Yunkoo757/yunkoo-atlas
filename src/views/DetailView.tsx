@@ -1267,7 +1267,6 @@ export function DetailView() {
               tags={trade.tags}
               suggestions={tagPresets}
               presets={tagPresets}
-              showPresets={false}
               onAdd={(tag) => addTag(trade.id, tag)}
               onRemove={(tag) => removeTag(trade.id, tag)}
             />
@@ -1278,7 +1277,6 @@ export function DetailView() {
               tags={trade.mistakeTags}
               suggestions={mistakeTagPresets}
               presets={mistakeTagPresets}
-              showPresets={false}
               onAdd={(tag) =>
                 updateTradeData(trade.id, {
                   mistakeTags: trade.mistakeTags.includes(tag)
