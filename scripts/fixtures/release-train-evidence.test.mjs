@@ -164,6 +164,8 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
   const valid = {
     version: 1,
     status: 'pass',
+    benchmarkProfile: 'local',
+    relativeBaselineComparable: true,
     gitCommit: 'a'.repeat(40),
     gitTree: 'b'.repeat(40),
     workingTreeDirty: false,
@@ -195,6 +197,24 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
     regressions: [],
   }
   assert.equal(persistenceReleaseGatePassed(valid), true)
+  const hostedBaselineMetrics = Object.fromEntries(
+    PERSISTENCE_BASELINE_METRICS.map((metric) => [metric, metrics[metric] / 2]),
+  )
+  const hostedValid = {
+    ...valid,
+    benchmarkProfile: 'hosted-windows',
+    relativeBaselineComparable: false,
+    relativeBaselineReason: 'hosted runner hardware is not comparable to the approved local baseline',
+    approvedBaseline: { ...valid.approvedBaseline, metrics: hostedBaselineMetrics },
+  }
+  assert.equal(persistenceReleaseGatePassed(hostedValid), true)
+  assert.equal(persistenceReleaseGatePassed({ ...hostedValid, benchmarkProfile: 'hosted-linux' }), false)
+  assert.equal(persistenceReleaseGatePassed({ ...hostedValid, benchmarkProfile: 'local' }), false)
+  assert.equal(persistenceReleaseGatePassed({ ...hostedValid, relativeBaselineComparable: true }), false)
+  assert.equal(persistenceReleaseGatePassed({
+    ...hostedValid,
+    attempts: [hostedValid.attempts[0], { ...hostedValid.attempts[0], number: 2 }],
+  }), false)
   assert.equal(persistenceReleaseGatePassed({ ...valid, attempts: [] }), false)
   assert.equal(persistenceReleaseGatePassed({ ...valid, approvedBaseline: {} }), false)
   assert.equal(persistenceReleaseGatePassed({

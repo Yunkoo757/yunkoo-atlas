@@ -13,6 +13,15 @@ import {
 const root = process.cwd()
 const reportDirectory = path.join(root, 'test-results', 'persistence-benchmark')
 const approvedBaselinePath = path.join(root, 'scripts', 'persistence-approved-baseline.json')
+const benchmarkProfile = process.env.QA_PERFORMANCE_PROFILE ?? 'local'
+if (!['local', 'hosted-windows'].includes(benchmarkProfile)) {
+  throw new Error(`不支持的性能基线配置：${benchmarkProfile}`)
+}
+const hostedRunner = benchmarkProfile === 'hosted-windows'
+const relativeBaselineComparable = !hostedRunner
+const relativeBaselineReason = relativeBaselineComparable
+  ? null
+  : 'hosted runner hardware is not comparable to the approved local baseline'
 
 function run(command, args) {
   const result = spawnSync(process.execPath, [command, ...args], { cwd: root, encoding: 'utf8' })
@@ -84,7 +93,9 @@ try {
 await verifyApprovedPersistenceBaseline(baseline, root)
 
 const attempts = [first]
-let regressions = findRelativeRegressions(baseline.metrics, first.metrics)
+let regressions = relativeBaselineComparable
+  ? findRelativeRegressions(baseline.metrics, first.metrics)
+  : []
 if (regressions.length > 0) {
   const second = await runAttempt(2)
   if (second.gitCommit !== first.gitCommit) throw new Error('性能重跑期间 git SHA 变化')
@@ -100,6 +111,9 @@ const report = {
   workingTreeDirty: first.workingTreeDirty,
   sourceFingerprint: first.sourceFingerprint,
   sourceIdentity: first.sourceIdentity,
+  benchmarkProfile,
+  relativeBaselineComparable,
+  relativeBaselineReason,
   approvedBaseline: baseline,
   attempts,
   status: regressions.length === 0 ? 'pass' : 'fail',

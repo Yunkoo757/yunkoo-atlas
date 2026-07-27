@@ -79,6 +79,11 @@ export function fullQaPassed(value) {
 export function persistenceReleaseGatePassed(value) {
   try {
     if (value?.version !== 1 || value.status !== 'pass' || !Array.isArray(value.regressions) || value.regressions.length !== 0) return false
+    const localComparable = value.benchmarkProfile === 'local' && value.relativeBaselineComparable === true
+    const hostedNonComparable = value.benchmarkProfile === 'hosted-windows' &&
+      value.relativeBaselineComparable === false &&
+      value.relativeBaselineReason === 'hosted runner hardware is not comparable to the approved local baseline'
+    if (!localComparable && !hostedNonComparable) return false
     validateApprovedPersistenceBaseline(value.approvedBaseline)
     if (!Array.isArray(value.attempts) || value.attempts.length < 1 || value.attempts.length > 2) return false
     const attemptRegressions = value.attempts.map((attempt, index) => {
@@ -93,10 +98,13 @@ export function persistenceReleaseGatePassed(value) {
         attempt.sourceFingerprint === value.sourceFingerprint &&
         attempt.sourceIdentity === value.sourceIdentity &&
         attempt.workingTreeDirty === false) {
-        return findRelativeRegressions(value.approvedBaseline.metrics, attempt.metrics)
+        return localComparable
+          ? findRelativeRegressions(value.approvedBaseline.metrics, attempt.metrics)
+          : []
       }
       throw new Error(`attempts[${index}] provenance mismatch`)
     })
+    if (hostedNonComparable) return attemptRegressions.length === 1
     if (attemptRegressions.at(-1).length !== 0) return false
     return attemptRegressions.length === 1 || attemptRegressions[0].length > 0
   } catch {
