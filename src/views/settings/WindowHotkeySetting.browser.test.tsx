@@ -110,6 +110,29 @@ async function run(): Promise<void> {
     root.unmount()
     root = null
 
+    let rejectInitialLoad = true
+    Object.defineProperty(window, 'journalBridge', {
+      configurable: true,
+      value: {
+        isElectron: true,
+        getWindowHotkey: async () => {
+          if (rejectInitialLoad) throw new Error('IPC unavailable')
+          return { binding: { key: 'f2' }, registered: true }
+        },
+        setWindowHotkey: async () => { throw new Error('unused') },
+        resetWindowHotkey: async () => { throw new Error('unused') },
+      } as unknown as Window['journalBridge'],
+    })
+    useToast.getState().dismiss()
+    root = await renderPanel(rootElement)
+    await eventually(() => screenText().includes('读取失败'), '首次 IPC reject 不得永久停在 loading')
+    assert(useToast.getState().message === '系统快捷键状态读取失败，请重试', '首次 IPC reject 必须 toast')
+    rejectInitialLoad = false
+    clickButton('重试读取')
+    await eventually(() => screenText().includes('已注册'), '读取失败后必须允许重试成功')
+    root.unmount()
+    root = null
+
     const calls: string[] = []
     let state: WindowHotkeyState = {
       binding: { key: 'f2' },
@@ -198,7 +221,7 @@ async function run(): Promise<void> {
     )
 
     pendingGet.resolve(state)
-    await eventually(() => screenText().includes('当前未注册'), '未注册系统热键状态未显示')
+    await eventually(() => screenText().includes('快捷键当前不可用'), '未注册系统热键错误状态未显示')
     assert(screenText().includes('系统级，会在其他软件中生效'), '必须解释全局影响')
     assert(document.querySelector('[role="status"]'), '注册结果必须使用可访问状态语义')
     await eventually(

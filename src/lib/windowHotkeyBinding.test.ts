@@ -1,11 +1,19 @@
 import {
   DEFAULT_WINDOW_HOTKEY,
   normalizeWindowHotkeyBinding,
+  isWindowHotkeyModifierAllowed,
   toElectronAccelerator,
 } from '@/lib/windowHotkeyBinding'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+export function testWindowHotkeyUsesOnlyThePlatformPrimaryModifier(): void {
+  assert(isWindowHotkeyModifierAllowed({ ctrlKey: true, metaKey: false }, 'win32'), 'Windows 必须接受 Ctrl')
+  assert(!isWindowHotkeyModifierAllowed({ ctrlKey: false, metaKey: true }, 'win32'), 'Windows 必须拒绝 Meta')
+  assert(isWindowHotkeyModifierAllowed({ ctrlKey: false, metaKey: true }, 'darwin'), 'macOS 必须接受 Command')
+  assert(!isWindowHotkeyModifierAllowed({ ctrlKey: true, metaKey: false }, 'darwin'), 'macOS 必须拒绝 Ctrl')
 }
 
 export function testWindowHotkeyAcceptsFunctionKeysAndModifiedKeys(): void {

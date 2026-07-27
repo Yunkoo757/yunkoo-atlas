@@ -257,7 +257,7 @@ export function testElectronTrayFactoryUsesInjectedMenuAndTrayBoundaries(): void
   tray.refreshMenu(true)
   const showItem = menuItems.find((item) => item.label === '显示 Trader Atlas')
   const hideItem = menuItems.find((item) => item.label === '隐藏 Trader Atlas')
-  const quitItem = menuItems.find((item) => item.label === '退出 Trader Atlas')
+  const quitItem = menuItems.find((item) => item.label === '彻底退出 Trader Atlas')
   assert(showItem?.enabled === false && hideItem?.enabled === true, '菜单状态必须反映当前窗口可见性')
   showItem?.click?.()
   hideItem?.click?.()
@@ -358,4 +358,34 @@ export function testDisposeRemovesCloseListenerAndDestroysTray(): void {
 
   assert(callsAfterDispose === 'tray:create|tray:dispose', '释放必须销毁托盘')
   assert(fixture.calls.join('|') === callsAfterDispose, '释放后窗口关闭不得再触发控制器副作用')
+}
+
+export function testRuntimeTrayRefreshFailureRestoresWindowAndDisablesHiding(): void {
+  const calls: string[] = []
+  let refreshCount = 0
+  let visible = true
+  const window: PresenceWindow = {
+    isVisible: () => visible, isFocused: () => true, isMinimized: () => false,
+    isDestroyed: () => false, restore: () => {},
+    show: () => { visible = true; calls.push('window:show') },
+    focus: () => { calls.push('window:focus') },
+    hide: () => { visible = false; calls.push('window:hide') },
+    on: () => {}, removeListener: () => {},
+  }
+  const controller = new WindowPresenceController({
+    ensureWindow: () => window, getWindow: () => window,
+    createTray: () => ({
+      refreshMenu: () => { refreshCount += 1; if (refreshCount === 2) throw new Error('refresh failed') },
+      dispose: () => { calls.push('tray:dispose') },
+    }),
+    requestQuit: async () => ({ ok: true }), isExitAuthorized: () => false,
+    showDock: () => { calls.push('dock:show') }, hideDock: () => { calls.push('dock:hide') },
+    reportError: (code) => { calls.push(`error:${code}`) },
+  })
+  assert(controller.initialize(), '首次托盘初始化应成功')
+  controller.hide()
+  assert(!calls.includes('window:hide'), '菜单刷新失败时不得把窗口留在隐藏状态')
+  assert(calls.includes('tray:dispose') && calls.includes('window:show'), '失败必须销毁托盘并恢复窗口')
+  controller.hide()
+  assert(!calls.includes('dock:hide'), '托盘失效后必须禁用隐藏')
 }

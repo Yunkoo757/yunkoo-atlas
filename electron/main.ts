@@ -95,7 +95,11 @@ function getWindowIconPath(): string | undefined {
 }
 
 function getTrayImage(): Electron.NativeImage {
-  const iconPath = getWindowIconPath()
+  const iconPath = process.platform === 'darwin'
+    ? (app.isPackaged
+        ? path.join(process.resourcesPath, 'trayTemplate.svg')
+        : path.join(process.cwd(), 'build', 'trayTemplate.svg'))
+    : getWindowIconPath()
   if (!iconPath) throw new Error('找不到托盘图标')
   const image = nativeImage.createFromPath(iconPath)
   if (image.isEmpty()) throw new Error('托盘图标为空')
@@ -136,6 +140,16 @@ function unavailableWindowHotkeyResult(): WindowHotkeyUpdateResult {
     message: '快捷键服务尚未就绪',
     state: unavailableWindowHotkeyState(),
   }
+}
+
+async function disposeLifecycleServices(): Promise<void> {
+  if (lifecycleServicesDisposed) return
+  lifecycleServicesDisposed = true
+  windowPresence?.dispose()
+  windowPresence = null
+  const hotkey = windowHotkey
+  windowHotkey = null
+  if (hotkey) await hotkey.dispose()
 }
 
 function isAllowedExternalUrl(rawUrl: string): boolean {
@@ -231,7 +245,8 @@ const quitCoordinator = new QuitCoordinator({
   reportStart: reportExitStart,
   reportSuccess: reportExitSuccess,
   reportError: reportExitError,
-  commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
+  async commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
+    await disposeLifecycleServices()
     return commitStorageExit(signal, deadlineAt, () => {
       const intent = resolveIntent()
       gracefulExitAuthorized = true
@@ -318,6 +333,14 @@ function createWindow(): BrowserWindow {
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     logDiagnostic('error', 'render-process-gone', details)
   })
+
+  if (process.platform === 'win32') {
+    mainWindow.on('query-session-end', (event) => {
+      if (gracefulExitAuthorized) return
+      event.preventDefault()
+      void quitCoordinator.request('quit')
+    })
+  }
 
   if (devUrl) {
     void mainWindow.loadURL(devUrl)
@@ -478,8 +501,7 @@ app.on('will-quit', () => {
   lifecycleServicesDisposed = true
   windowPresence?.dispose()
   windowPresence = null
-  void windowHotkey?.dispose().catch((error) => {
-    logDiagnostic('error', 'window-hotkey-dispose-failed', error)
-  })
+  // 异步释放在 QuitCoordinator 提交退出前等待；异常路径仅做同步兜底。
+  globalShortcut.unregisterAll()
   windowHotkey = null
 })

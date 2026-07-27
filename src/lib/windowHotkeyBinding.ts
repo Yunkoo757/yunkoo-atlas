@@ -27,6 +27,13 @@ const ALLOWED_FIELDS = new Set(['mod', 'alt', 'shift', 'key'])
 const FUNCTION_KEY = /^f(?:[1-9]|10)$/
 const MODIFIED_KEY = /^(?:[a-z]|[0-9]|f(?:[1-9]|10))$/
 
+export function isWindowHotkeyModifierAllowed(
+  input: { ctrlKey: boolean; metaKey: boolean },
+  platform: 'darwin' | 'win32',
+): boolean {
+  return platform === 'darwin' ? !input.ctrlKey : !input.metaKey
+}
+
 export function normalizeWindowHotkeyBinding(value: unknown): KeyChord | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const record = value as Record<string, unknown>

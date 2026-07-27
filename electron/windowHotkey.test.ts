@@ -455,3 +455,21 @@ export async function testWindowHotkeyResetAndDisposeUseCurrentRegistration(): P
   )
   assert(!service.getState().registered, '释放后必须公开未注册状态')
 }
+
+export async function testInvalidConfigResetRepairsFileAndClearsError(): Promise<void> {
+  await withTemporaryConfig(async (configPath) => {
+    await writeFile(configPath, '{broken', 'utf8')
+    const storage = new FileWindowHotkeyStorage(configPath)
+    const service = new WindowHotkeyService({
+      registrar: { register: () => true, unregister: () => {} },
+      storage,
+      onToggle() {},
+    })
+    const initial = await service.initialize()
+    assert(initial.errorCode === 'invalid-config', '损坏配置必须先暴露错误')
+    const reset = await service.reset()
+    assert(reset.ok && reset.state.errorCode === undefined, '重置 F2 必须修复配置并清除错误')
+    const reloaded = await storage.load()
+    assert(reloaded.kind === 'valid' && reloaded.binding.key === 'f2', '重置必须原子写回可重载的 F2 配置')
+  })
+}

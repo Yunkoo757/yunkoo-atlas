@@ -199,22 +199,17 @@ export function testIntentPriorityIsStable(): void {
   assert(intents.length === 3, '退出意图合同必须保持三种明确终态')
 }
 
-export function testDarwinDevelopmentTrayIconUsesPngWithoutDependingOnIco(): void {
+export function testDarwinTrayUsesPackagedTransparentTemplateAsset(): void {
   const main = fs.readFileSync(path.resolve('electron/main.ts'), 'utf8')
-  const resolverStart = main.indexOf('function getDevelopmentIconCandidates')
-  const resolverEnd = main.indexOf('function getWindowIconPath')
-  const resolver = main.slice(resolverStart, resolverEnd)
-  assert(resolverStart >= 0 && resolverEnd > resolverStart, '主进程必须明确建模开发图标候选')
-  const darwinStart = resolver.indexOf("if (process.platform === 'darwin')")
-  const otherPlatformsStart = resolver.indexOf('\n  return [', darwinStart)
-  const darwinCandidates = resolver.slice(darwinStart, otherPlatformsStart)
+  const pkg = fs.readFileSync(path.resolve('package.json'), 'utf8')
+  const template = fs.readFileSync(path.resolve('build/trayTemplate.svg'), 'utf8')
+  const template2x = fs.readFileSync(path.resolve('build/trayTemplate@2x.svg'), 'utf8')
   assert(
-    darwinStart >= 0 &&
-      otherPlatformsStart > darwinStart &&
-      darwinCandidates.includes("'build', 'icon.png'") &&
-      darwinCandidates.includes("'public', 'icon.png'") &&
-      !darwinCandidates.includes('icon.ico'),
-    'Darwin 开发托盘图标必须优先使用 PNG 且不依赖 ICO 解码',
+    main.includes("'trayTemplate.svg'") && main.includes('setTemplateImage(true)') &&
+      pkg.includes('build/trayTemplate@2x.svg') &&
+      template.includes('width="18"') && template2x.includes('width="36"') &&
+      !template.includes('<rect') && !template2x.includes('<rect'),
+    'Darwin 托盘必须使用打包的 18px/@2x 透明单色 template 资产',
   )
 }
 
@@ -298,7 +293,7 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
     main.includes("app.on('will-quit'") &&
       main.includes('if (lifecycleServicesDisposed) return') &&
       main.includes('windowPresence?.dispose()') &&
-      main.includes('windowHotkey?.dispose()'),
+      main.includes('await hotkey.dispose()'),
     '应用退出时必须幂等释放窗口常驻与热键服务',
   )
   const reportExitError = main.slice(
@@ -319,6 +314,14 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
   assert(
     secondInstance.includes('windowPresence?.show()') && activate.includes('windowPresence?.show()'),
     '第二实例和应用激活必须统一通过常驻控制器显示窗口',
+  )
+  assert(main.includes("mainWindow.on('query-session-end'"), 'Windows 会话结束必须被拦截')
+  const commitExit = main.slice(main.indexOf('commitExit('), main.indexOf('function isTrustedAppNavigation'))
+  assert(commitExit.includes('await disposeLifecycleServices()'), '授权退出前必须等待热键服务释放')
+  const willQuit = main.slice(main.indexOf("app.on('will-quit'"))
+  assert(
+    !willQuit.includes('void windowHotkey?.dispose()') && willQuit.includes('globalShortcut.unregisterAll()'),
+    'will-quit 只能执行同步热键释放兜底',
   )
 }
 // Quality-Scenario: E-QUIT-MULTI

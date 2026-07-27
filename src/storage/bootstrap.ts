@@ -47,6 +47,15 @@ async function runBootstrapStorage(): Promise<void> {
   const adapter = getStorage()
   await adapter.open()
 
+  if (isElectron()) {
+    try {
+      const state = await window.journalBridge?.getWindowHotkey()
+      useShortcutStore.getState().setWindowHotkeyBinding(state?.binding ?? null)
+    } catch {
+      useShortcutStore.getState().setWindowHotkeyBinding(null)
+    }
+  }
+
   if (!isElectron()) {
     const manifest = await adapter.getManifest()
     await initializeWebWriterOwnership(manifest.libraryId)
@@ -59,6 +68,7 @@ async function runBootstrapStorage(): Promise<void> {
   }
 
   const snapshot = await adapter.loadSnapshot()
+  let reconciledWindowHotkeyConflict = false
   if (snapshot) {
     const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
     const trades = normalizeTrades(normalized.trades)
@@ -88,7 +98,8 @@ async function runBootstrapStorage(): Promise<void> {
       reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
     })
     useStore.getState().hydrateProfile(snapshot.profile)
-    useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
+    reconciledWindowHotkeyConflict =
+      useShortcutStore.getState().hydrateBindings(snapshot.shortcuts).length > 0
   }
 
   hydrated = true
@@ -111,6 +122,7 @@ async function runBootstrapStorage(): Promise<void> {
     lastPersisted = pickPersisted(useStore.getState(), state.bindings)
     schedulePersist(lastPersisted)
   })
+  if (reconciledWindowHotkeyConflict) schedulePersist(lastPersisted)
 }
 
 export function bootstrapStorage(): Promise<void> {

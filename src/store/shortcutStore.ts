@@ -24,6 +24,7 @@ interface ShortcutState {
   cmdkOpen: boolean
   /** ModalShell 等确认弹层打开深度；>0 时屏蔽全局单键 */
   modalOverlayCount: number
+  windowHotkeyBinding: KeyChord | null
   setBinding: (id: string, binding: ShortcutBinding | null) => void
   /** 写入绑定；若与其他动作冲突则清空对方（固定序列除外） */
   assignBinding: (
@@ -34,6 +35,7 @@ interface ShortcutState {
   resetAllBindings: () => void
   disableConflictsWithWindowHotkey: (binding: KeyChord) => string[]
   resetAllBindingsForWindowHotkey: (binding: KeyChord) => string[]
+  setWindowHotkeyBinding: (binding: KeyChord | null) => void
   setListContext: (ctx: ListNavigationContext | null) => void
   openLightbox: (images: string[], index: number, ownerId?: string, origin?: LightboxOrigin) => void
   syncLightboxForOwner: (ownerId: string, images: string[] | null) => void
@@ -43,7 +45,7 @@ interface ShortcutState {
   setCmdkOpen: (open: boolean) => void
   acquireModalOverlay: () => void
   releaseModalOverlay: () => void
-  hydrateBindings: (bindings: Record<string, ShortcutBinding | null> | undefined) => void
+  hydrateBindings: (bindings: Record<string, ShortcutBinding | null> | undefined) => string[]
 }
 
 export function isModalOverlayOpen(
@@ -82,6 +84,7 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
   lightbox: null,
   cmdkOpen: false,
   modalOverlayCount: 0,
+  windowHotkeyBinding: null,
   setBinding: (id, binding) =>
     set((s) => ({
       bindings: { ...s.bindings, [id]: binding },
@@ -113,6 +116,7 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
     set({ bindings: result.bindings })
     return result.clearedLabels
   },
+  setWindowHotkeyBinding: (binding) => set({ windowHotkeyBinding: binding }),
   setListContext: (ctx) =>
     set((s) => {
       if (ctx === null) {
@@ -200,6 +204,15 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
     set((s) => ({ modalOverlayCount: s.modalOverlayCount + 1 })),
   releaseModalOverlay: () =>
     set((s) => ({ modalOverlayCount: Math.max(0, s.modalOverlayCount - 1) })),
-  hydrateBindings: (bindings) =>
-    set({ bindings: migrateShortcutBindings(bindings) }),
+  hydrateBindings: (bindings) => {
+    const migrated = migrateShortcutBindings(bindings)
+    const active = get().windowHotkeyBinding
+    if (!active) {
+      set({ bindings: migrated })
+      return []
+    }
+    const result = disableWindowHotkeyConflicts(active, migrated)
+    set({ bindings: result.bindings })
+    return result.clearedLabels
+  },
 }))

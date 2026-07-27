@@ -163,7 +163,17 @@ export class WindowHotkeyService {
     const candidate = normalizeWindowHotkeyBinding(input)
     if (!candidate) return this.failure('invalid-binding', '不支持这个系统级快捷键')
     const nextAccelerator = toElectronAccelerator(candidate)
+    if (nextAccelerator === this.currentAccelerator && !this.startupError) {
+      return { ok: true, state: this.getState() }
+    }
     if (nextAccelerator === this.currentAccelerator) {
+      try {
+        await this.storage.save(candidate)
+      } catch {
+        return this.failure('persistence-failed', '快捷键配置保存失败')
+      }
+      this.binding = candidate
+      this.startupError = undefined
       return { ok: true, state: this.getState() }
     }
     if (!this.registrar.register(nextAccelerator, this.onToggle)) {

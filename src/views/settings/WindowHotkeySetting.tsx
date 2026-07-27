@@ -3,6 +3,7 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import {
   DEFAULT_WINDOW_HOTKEY,
   normalizeWindowHotkeyBinding,
+  isWindowHotkeyModifierAllowed,
   type WindowHotkeyState,
 } from '@/lib/windowHotkeyBinding'
 import { toast } from '@/lib/toast'
@@ -29,21 +30,35 @@ export function WindowHotkeySetting({
   const [recording, setRecording] = useState(false)
   const [busy, setBusy] = useState(false)
   const [pending, setPending] = useState<PendingConflict | null>(null)
+  const [loadError, setLoadError] = useState(false)
 
-  const publishState = useCallback((nextState: WindowHotkeyState) => {
+  const publishState = useCallback((nextState: WindowHotkeyState, reconcile = false) => {
     setState(nextState)
+    const shortcuts = useShortcutStore.getState()
+    shortcuts.setWindowHotkeyBinding(nextState.binding)
+    if (reconcile) {
+      shortcuts.disableConflictsWithWindowHotkey(nextState.binding)
+    }
     onStateChange(nextState)
   }, [onStateChange])
 
-  useEffect(() => {
+  const loadState = useCallback(async (): Promise<void> => {
     const bridge = window.journalBridge
     if (!bridge) return
-    let active = true
-    void bridge.getWindowHotkey().then((nextState) => {
-      if (active) publishState(nextState)
-    })
-    return () => { active = false }
+    setLoadError(false)
+    try {
+      publishState(await bridge.getWindowHotkey(), true)
+    } catch {
+      setLoadError(true)
+      toast('系统快捷键状态读取失败，请重试')
+    }
   }, [publishState])
+
+  useEffect(() => {
+    let active = true
+    void loadState().catch(() => { if (active) setLoadError(true) })
+    return () => { active = false }
+  }, [loadState])
 
   const commitCandidate = useCallback(async (candidate: KeyChord): Promise<void> => {
     const bridge = window.journalBridge
@@ -120,6 +135,11 @@ export function WindowHotkeySetting({
         return
       }
       if (event.repeat) return
+      const platform = /Mac/i.test(navigator.platform) ? 'darwin' : 'win32'
+      if (!isWindowHotkeyModifierAllowed(event, platform)) {
+        toast(platform === 'darwin' ? 'macOS 系统快捷键请使用 Command' : 'Windows 系统快捷键请使用 Ctrl')
+        return
+      }
       const candidate = normalizeWindowHotkeyBinding(chordFromEvent(event))
       if (!candidate) {
         toast('不支持这个系统级快捷键')
@@ -150,9 +170,22 @@ export function WindowHotkeySetting({
           aria-live="polite"
         >
           <span className="window-hotkey-status-dot" aria-hidden="true" />
-          {state ? (state.registered ? '已注册' : '当前未注册') : '正在读取'}
+          {loadError
+            ? '读取失败'
+            : state
+              ? state.errorCode === 'invalid-config'
+                ? '配置无效，已回退 F2'
+                : state.errorCode === 'registration-unavailable'
+                  ? '快捷键当前不可用'
+                  : state.registered ? '已注册' : '当前未注册'
+              : '正在读取'}
         </span>
       </div>
+      {loadError ? (
+        <button type="button" className="ui-btn ui-btn-bordered" onClick={() => { void loadState() }}>
+          重试读取
+        </button>
+      ) : null}
       <div className="window-hotkey-row">
         <span className="window-hotkey-label">系统快捷键</span>
         <div className="window-hotkey-controls">

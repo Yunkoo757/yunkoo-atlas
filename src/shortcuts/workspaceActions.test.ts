@@ -170,3 +170,20 @@ export function testResetDefaultsKeepsSystemConflictDisabled(): void {
     useShortcutStore.setState({ bindings: previousBindings })
   }
 }
+
+export function testHydrationDisablesActiveSystemHotkeyConflict(): void {
+  const previous = useShortcutStore.getState().bindings
+  try {
+    useShortcutStore.getState().setWindowHotkeyBinding({ mod: true, key: 'k' })
+    const cleared = useShortcutStore.getState().hydrateBindings({})
+    assert(cleared.includes('命令面板（Ctrl+K）'), '水合必须协调全部 scope 的系统热键冲突')
+    assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '系统热键必须优先并产生 null 覆盖')
+    useShortcutStore.getState().hydrateBindings({ 'global.commandPaletteMod': { mod: true, key: 'k' } })
+    assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '切库后的再次水合必须重新协调冲突')
+    useShortcutStore.getState().hydrateBindings({})
+    assert(bindingsForPersist(useShortcutStore.getState().bindings)['global.commandPaletteMod'] === null, '导入/水合协调结果必须进入普通持久化快照')
+  } finally {
+    useShortcutStore.getState().setWindowHotkeyBinding(null)
+    useShortcutStore.setState({ bindings: previous })
+  }
+}

@@ -68,7 +68,7 @@ export function createElectronTrayFactory(
           },
           { type: 'separator' },
           {
-            label: '退出 Trader Atlas',
+            label: '彻底退出 Trader Atlas',
             click: actions.quit,
           },
         ]))
@@ -123,8 +123,7 @@ export class WindowPresenceController {
         quit: () => { void this.requestQuitAndRecover() },
       })
       this.tray = createdTray
-      this.refreshTrayMenu()
-      return true
+      return this.refreshTrayMenu(undefined, false)
     } catch (error) {
       this.tray = null
       try {
@@ -169,9 +168,9 @@ export class WindowPresenceController {
     if (this.disposed) return
     const window = this.dependencies.getWindow()
     if (!this.tray || !window || window.isDestroyed()) return
+    if (!this.refreshTrayMenu(false)) return
     window.hide()
     this.dependencies.hideDock()
-    this.refreshTrayMenu()
   }
 
   dispose(): void {
@@ -183,9 +182,29 @@ export class WindowPresenceController {
     this.tray = null
   }
 
-  private refreshTrayMenu(): void {
+  private refreshTrayMenu(windowVisible?: boolean, recoverWindow = true): boolean {
     const window = this.dependencies.getWindow()
-    this.tray?.refreshMenu(Boolean(window && !window.isDestroyed() && window.isVisible()))
+    try {
+      this.tray?.refreshMenu(windowVisible ?? Boolean(window && !window.isDestroyed() && window.isVisible()))
+      return true
+    } catch (error) {
+      const tray = this.tray
+      this.tray = null
+      try { tray?.dispose() } catch (disposeError) {
+        this.dependencies.reportError('tray-dispose-failed', disposeError)
+      }
+      this.dependencies.reportError(recoverWindow ? 'tray-refresh-failed' : 'tray-create-failed', error)
+      if (!recoverWindow) return false
+      try {
+        const recover = this.dependencies.ensureWindow()
+        this.dependencies.showDock()
+        recover.show()
+        recover.focus()
+      } catch (showError) {
+        this.dependencies.reportError('tray-recovery-show-failed', showError)
+      }
+      return false
+    }
   }
 
   private async requestQuitAndRecover(): Promise<void> {

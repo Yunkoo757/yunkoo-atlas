@@ -720,18 +720,18 @@ git commit -m "feat: add system window hotkey settings"
 
 ---
 
-### Task 7: Governance, full verification, and platform handoff
+### Task 7: Governance, full verification, and platform handoff（CHANGED）
 
 **Files:**
-- Modify: `scripts/quality-scenarios.json`
+- CHANGED: 不修改 `scripts/quality-scenarios.json`。该文件严格对应 Spec v2 §13 的既有注册表；新增热键与托盘测试由聚焦测试、全量测试及构建报告提供证据，避免把未纳入该规范的场景污染旧注册表。
 
 **Interfaces:**
 - Consumes: all prior tasks.
 - Produces: complete quality evidence and a clean implementation branch ready for live Windows/macOS smoke testing.
 
-- [ ] **Step 1: Register stable scenario evidence**
+- [x] **Step 1: Preserve the governed registry and record separate evidence（CHANGED）**
 
-Add these scenario IDs with exact test IDs that exist after Tasks 2 and 3:
+不新增以下旧计划中的场景 ID；实际证据记录在 `.superpowers/sdd/task-7-report.md`，并由聚焦测试命令覆盖对应测试文件：
 
 ```json
 { "id": "E-WINDOW-HOTKEY-ROLLBACK", "testId": "electron/windowHotkey.test.ts#testWindowHotkeyPersistenceFailureRollsBackCandidate", "evidence": ["electron/windowHotkey.test.ts"] },
@@ -746,7 +746,7 @@ Run:
 
 ```powershell
 node scripts/run-regression-tests.mjs --unit-only src/lib/windowHotkeyBinding.test.ts electron/windowHotkey.test.ts electron/windowPresence.test.ts src/shortcuts/windowHotkeyConflicts.test.ts electron/quitCoordinator.test.ts src/shortcuts/workspaceActions.test.ts
-node scripts/run-browser-tests.mjs
+node scripts/run-browser-tests.mjs . vite.config.ts
 ```
 
 Expected: every named test PASS and no page error.
@@ -786,12 +786,9 @@ Verify in the packaged app:
 
 Record the pass/fail result in the final handoff; do not fabricate macOS execution on Windows.
 
-- [ ] **Step 6: Commit governance evidence changes**
+- [x] **Step 6: Keep governance evidence outside the old registry（CHANGED）**
 
-```powershell
-git add scripts/quality-scenarios.json
-git commit -m "test: govern tray and window hotkey recovery"
-```
+不产生 `scripts/quality-scenarios.json` 变更或独立空提交；任务报告、实际测试输出和构建产物作为本功能的证据。
 
 - [ ] **Step 7: Final status check**
 
