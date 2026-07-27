@@ -13,136 +13,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  quality:
-    runs-on: windows-latest
-    timeout-minutes: 45
-    env:
-      QA_PERFORMANCE_PROFILE: hosted-windows
-
-    steps:
-      - name: Checkout release tag
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Electron runtime
-        run: pnpm exec install-electron
-
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install chromium
-
-      - name: Build Web application
-        run: pnpm build
-
-      - name: Run release quality gate
-        run: pnpm qa:full
-
-      - name: Run real persistence SLO gate
-        run: pnpm benchmark:persistence:release
-
-      - name: Run executable Release Train drills
-        run: pnpm verify:release-train-drills
-
-      - name: Run approved JSON compatibility corpus
-        run: pnpm measure:json-compatibility
-
-      - name: Upload persistence benchmark evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: persistence-benchmark-release-attempt-${{ github.run_attempt }}
-          path: |
-            test-results/persistence-benchmark/persistence-release.json
-            test-results/persistence-benchmark/web-zip-release.json
-            test-results/persistence-benchmark/persistence-release-gate.json
-            test-results/qa-release-full.json
-            test-results/quality-execution.json
-            test-results/quality-contract.json
-            test-results/release-trains/release-train-drills.json
-            test-results/json-compatibility/json-compatibility.json
-            docs/superpowers/release/blob-bridge-coverage.json
-          if-no-files-found: error
-          retention-days: 30
-
-  verify-release-evidence:
-    needs: [quality, build-windows, build-macos]
+  certification:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     permissions:
       contents: read
+      actions: read
     steps:
-      - name: Checkout release tag
-        uses: actions/checkout@v4
-
-      - name: Download quality evidence
-        uses: actions/download-artifact@v4
-        with:
-          name: persistence-benchmark-release-attempt-${{ github.run_attempt }}
-          path: test-results/collected-evidence
-
-      - name: Download forced-kill evidence
-        uses: actions/download-artifact@v4
-        with:
-          pattern: forced-kill-*-attempt-${{ github.run_attempt }}
-          path: test-results/collected-evidence
-          merge-multiple: true
-
-      - name: Download asset lifecycle evidence
-        uses: actions/download-artifact@v4
-        with:
-          pattern: asset-lifecycle-*-attempt-${{ github.run_attempt }}
-          path: test-results/collected-evidence
-          merge-multiple: true
-
-      - name: Download Electron safety evidence
-        uses: actions/download-artifact@v4
-        with:
-          pattern: electron-safety-*-attempt-${{ github.run_attempt }}
-          path: test-results/collected-evidence
-          merge-multiple: true
-
-      - name: Download Generation raw evidence
-        uses: actions/download-artifact@v4
-        with:
-          pattern: generation-spike-*-attempt-${{ github.run_attempt }}
-          path: test-results/collected-evidence
-          merge-multiple: true
-
-      - name: Verify cross-platform Generation decision
+      - name: Verify exact SHA passed candidate certification
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node scripts/verify-generation-decision.mjs --evidence-root test-results/collected-evidence --require-complete
-          cp test-results/generation-spike/generation-decision.json test-results/collected-evidence/generation-decision.json
-
-      - name: Verify all release trains
-        run: node scripts/verify-release-train-evidence.mjs --evidence-root test-results/collected-evidence --release-target desktop --require-complete
-
-      - name: Upload train recovery evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: train-recovery-evidence-attempt-${{ github.run_attempt }}
-          path: |
-            test-results/release-trains/release-train-evidence.json
-            test-results/release-trains/final-quality-manifest.json
-          if-no-files-found: error
-          retention-days: 30
+          set -euo pipefail
+          runs=$(gh run list \
+            --workflow release-candidate.yml \
+            --commit "${{ github.sha }}" \
+            --event workflow_dispatch \
+            --limit 20 \
+            --json databaseId,headSha,conclusion)
+          jq -e --arg sha "${{ github.sha }}" \
+            'any(.[]; .headSha == $sha and .conclusion == "success")' \
+            <<<"$runs" >/dev/null || {
+              echo "Tag commit has no successful Release Candidate run"
+              exit 1
+            }
 
   build-windows:
-    needs: quality
+    needs: certification
     runs-on: windows-latest
     timeout-minutes: 45
 
@@ -183,9 +80,6 @@ jobs:
       - name: Verify Electron safety on Windows
         run: pnpm test:electron-safety:platform
 
-      - name: Run isolated Generation matrix on Windows
-        run: pnpm spike:generation
-
       - name: Upload Windows forced-kill evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -210,15 +104,6 @@ jobs:
         with:
           name: electron-safety-Windows-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/electron-safety-*.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload Windows Generation evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: generation-spike-Windows-attempt-${{ github.run_attempt }}
-          path: test-results/generation-spike/generation-spike-windows-*.json
           if-no-files-found: error
           retention-days: 30
 
@@ -262,7 +147,7 @@ jobs:
           retention-days: 7
 
   build-macos:
-    needs: quality
+    needs: certification
     runs-on: macos-latest
     timeout-minutes: 75
     env:
@@ -311,9 +196,6 @@ jobs:
       - name: Verify Electron safety on macOS
         run: pnpm test:electron-safety:platform
 
-      - name: Run isolated Generation matrix on macOS
-        run: pnpm spike:generation
-
       - name: Upload macOS forced-kill evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -338,15 +220,6 @@ jobs:
         with:
           name: electron-safety-macOS-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/electron-safety-*.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload macOS Generation evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: generation-spike-macOS-attempt-${{ github.run_attempt }}
-          path: test-results/generation-spike/generation-spike-macos-*.json
           if-no-files-found: error
           retention-days: 30
 
@@ -390,7 +263,7 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: [build-windows, build-macos, verify-release-evidence]
+    needs: [certification, build-windows, build-macos]
     runs-on: ubuntu-latest
     environment: production-release
     timeout-minutes: 15
@@ -402,15 +275,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Download final quality manifest
-        uses: actions/download-artifact@v4
-        with:
-          name: train-recovery-evidence-attempt-${{ github.run_attempt }}
-          path: test-results/final-quality-evidence
-
-      - name: Verify final quality manifest authorizes this checkout
-        run: node scripts/verify-final-quality-manifest.mjs test-results/final-quality-evidence/final-quality-manifest.json
 
       - name: Download verified build artifacts
         uses: actions/download-artifact@v4

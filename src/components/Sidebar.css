@@ -292,6 +292,10 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item:hover .is-nav {
   opacity: 1;
 }
+.sb-item:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .sb-item.is-active {
   background: var(--sb-selected-bg);
   color: var(--sb-text-strong);

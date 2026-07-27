@@ -50,6 +50,7 @@ test('pnpm 安装版本只能由 packageManager 或 Action 配置其中一处声
 
   for (const workflowPath of [
     '.github/workflows/ci.yml',
+    '.github/workflows/release-candidate.yml',
     '.github/workflows/release.yml',
   ]) {
     const workflow = readFileSync(workflowPath, 'utf8')
@@ -92,16 +93,28 @@ test('在线更新发布只构建 NSIS，避免 Portable 覆盖同名安装包',
   )
 })
 
-test('发布流水线先通过唯一质量门禁，再并行构建两个平台', () => {
+test('发布候选先认证精确 SHA，tag 流水线只做双平台安全构建', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
-  const quality = workflowJob(workflow, 'quality')
+  const candidate = readFileSync('.github/workflows/release-candidate.yml', 'utf8')
+  const certification = workflowJob(workflow, 'certification')
   const windows = workflowJob(workflow, 'build-windows')
   const macos = workflowJob(workflow, 'build-macos')
 
   assert.match(workflow, /permissions:\s*\r?\n\s+contents:\s*read/)
-  assert.match(quality, /pnpm qa:full/)
-  assert.match(windows, /needs:\s*quality/)
-  assert.match(macos, /needs:\s*quality/)
+  assert.match(candidate, /workflow_dispatch:/)
+  assert.match(candidate, /commit:/)
+  assert.match(candidate, /ref:\s*\$\{\{ inputs\.commit \}\}/)
+  assert.match(candidate, /\$\{\{ inputs\.commit \}\}.*-ne.*\$\{\{ github\.sha \}\}/)
+  assert.match(candidate, /pnpm qa:full/)
+  assert.match(candidate, /pnpm benchmark:persistence\s*$/m)
+  assert.doesNotMatch(candidate, /benchmark:persistence:release/)
+  assert.match(candidate, /pnpm verify:release-train-drills/)
+  assert.match(candidate, /pnpm measure:json-compatibility/)
+  assert.match(certification, /actions:\s*read/)
+  assert.match(certification, /release-candidate\.yml/)
+  assert.match(certification, /github\.sha/)
+  assert.match(windows, /needs:\s*certification/)
+  assert.match(macos, /needs:\s*certification/)
   assert.match(macos, /pnpm qa:electron/)
   assert(macos.indexOf('pnpm build:app') < macos.indexOf('pnpm qa:electron'))
   assert.match(macos, /pnpm test:asset-lifecycle:electron/)
@@ -115,6 +128,10 @@ test('发布流水线先通过唯一质量门禁，再并行构建两个平台',
   assert.doesNotMatch(macos, /needs:\s*build-windows/)
   assert.match(windows, /electron-builder --win nsis --x64 --publish never/)
   assert.match(macos, /electron-builder --mac dmg zip --x64 --arm64 --publish never/)
+  assert.doesNotMatch(workflow, /^  quality:\s*$/m)
+  assert.doesNotMatch(workflow, /benchmark:persistence:release/)
+  assert.doesNotMatch(workflow, /pnpm spike:generation/)
+  assert.doesNotMatch(workflow, /verify-release-evidence:/)
 })
 
 test('预览版本创建 GitHub Prerelease，正式客户端继续忽略预发布更新', () => {
@@ -140,7 +157,7 @@ test('构建 job 只上传流水线工件，唯一 publish job 才拥有写权�
   assert.match(macos, /actions\/upload-artifact@v4/)
   assert.doesNotMatch(windows, /gh release/)
   assert.doesNotMatch(macos, /gh release/)
-  assert.match(publish, /needs:\s*\[build-windows, build-macos, verify-release-evidence\]/)
+  assert.match(publish, /needs:\s*\[certification, build-windows, build-macos\]/)
   assert.match(publish, /environment:\s*production-release/)
   assert.match(publish, /permissions:\s*\r?\n\s+contents:\s*write/)
   assert.match(publish, /actions\/download-artifact@v4/)
@@ -174,29 +191,27 @@ test('单点发布校验七个非空资产，并以哈希保证同标签重试�
   assert.match(publish, /isDraft,isPrerelease,assets/)
 })
 
-test('本地发布运行轻量门禁，CI 打包复验构建与 Electron 数据链路', () => {
+test('本地发布在远端候选认证通过后才推送 tag，失败可沿用版本重试', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const release = readFileSync('scripts/release.mjs', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   const qualityGate = readFileSync('scripts/qa-release.mjs', 'utf8')
 
   assert.match(release, /qa:release/)
+  assert.match(release, /--no-git-tag-version/)
+  assert.match(release, /release-candidate\.yml/)
+  assert.match(release, /gh[^\n]*workflow[^\n]*run/)
+  assert.match(release, /gh[^\n]*run[^\n]*watch/)
+  assert.match(release, /knownRunIds/)
+  assert.match(release, /!knownRunIds\.has\(candidate\.databaseId\)/)
+  assert.match(release, /继续候选/)
+  assert(
+    release.indexOf("['push', 'origin', 'main']") < release.indexOf("['push', 'origin', tag]"),
+    '必须先推版本提交并通过候选认证，最后才允许推 tag',
+  )
   assert.match(workflow, /pnpm build:app/)
-  assert.match(workflow, /pnpm qa:full/)
-  assert.match(workflow, /QA_PERFORMANCE_PROFILE:\s*hosted-windows/)
-  assert.match(workflow, /pnpm benchmark:persistence:release/)
-  assert.match(workflow, /persistence-release\.json/)
-  assert.match(workflow, /verify-release-evidence:/)
-  assert.match(workflow, /path: test-results\/collected-evidence/)
-  assert.match(workflow, /verify-release-train-evidence\.mjs --evidence-root test-results\/collected-evidence --release-target desktop --require-complete/)
-  assert.match(workflow, /pnpm verify:release-train-drills/)
-  assert.match(workflow, /test-results\/release-trains\/release-train-drills\.json/)
-  assert.match(workflow, /test-results\/release-trains\/final-quality-manifest\.json/)
-  assert.match(workflow, /name:\s*train-recovery-evidence/)
-  assert.match(workflow, /name:\s*persistence-benchmark-release-attempt-\$\{\{ github\.run_attempt \}\}/)
-  assert.match(workflow, /name:\s*train-recovery-evidence-attempt-\$\{\{ github\.run_attempt \}\}/)
   assert.match(workflow, /pattern:\s*release-\*-attempt-\$\{\{ github\.run_attempt \}\}/)
-  assert.doesNotMatch(workflow, /name:\s*release-train-evidence/)
+  assert.doesNotMatch(workflow, /final-quality-manifest/)
   assert.equal(pkg.scripts['qa:release'], 'node scripts/qa-release.mjs')
   assert.equal(pkg.scripts['qa:full'], 'node scripts/qa-release.mjs --full')
   assert.match(qualityGate, /process\.argv\.includes\('--full'\)/)

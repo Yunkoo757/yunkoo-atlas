@@ -24,7 +24,7 @@ import {
 import { PERSISTENCE_BASELINE_METRICS } from '../persistence-baseline.mjs'
 import { CUTOVER_FAULT_POINTS, MiB } from '../spikes/electron-generation/generation-prototype.mjs'
 
-test('发布证据聚合器对四个 Train 执行同源码身份、干净工作树与双平台门', () => {
+test('旧发布证据聚合器保持可独立复验，但不再耦合 tag 发布关键路径', () => {
   const source = fs.readFileSync('scripts/verify-release-train-evidence.mjs', 'utf8')
   const validation = fs.readFileSync('scripts/release-evidence-validation.mjs', 'utf8')
   const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8')
@@ -68,20 +68,8 @@ test('发布证据聚合器对四个 Train 执行同源码身份、干净工作�
   assert.match(source, /isElectron\(\) \? getElectronAdapter\(\) : getIndexedDbAdapter\(\)/)
   assert.match(source, /releaseCandidate:/)
   assert.match(source, /releaseCandidate: requireComplete &&/)
-  assert.match(workflow, /path: test-results\/collected-evidence/)
-  assert.match(workflow, /--evidence-root test-results\/collected-evidence --release-target desktop --require-complete/)
-  assert.match(workflow, /test-results\/release-trains\/final-quality-manifest\.json/)
-  assert.match(workflow, /docs\/superpowers\/release\/blob-bridge-coverage\.json/)
-  assert.match(workflow, /name: train-recovery-evidence/)
-  assert.match(workflow, /name: train-recovery-evidence-attempt-\$\{\{ github\.run_attempt \}\}/)
-  assert.match(workflow, /pattern: forced-kill-\*-attempt-\$\{\{ github\.run_attempt \}\}/)
-  assert.match(workflow, /path: test-results\/final-quality-evidence/)
-  assert.match(workflow, /verify-final-quality-manifest\.mjs test-results\/final-quality-evidence\/final-quality-manifest\.json/)
-  assert.ok(
-    workflow.indexOf('Verify final quality manifest authorizes this checkout') <
-      workflow.indexOf('Download verified build artifacts'),
-    'publish 必须在下载未忽略的构建工件前验证 clean provenance',
-  )
+  assert.doesNotMatch(workflow, /verify-release-train-evidence\.mjs/)
+  assert.doesNotMatch(workflow, /final-quality-manifest\.json/)
   assert.doesNotThrow(() => execFileSync('git', [
     'check-ignore',
     '-q',

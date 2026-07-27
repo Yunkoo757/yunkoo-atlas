@@ -59,7 +59,7 @@
   { "id": "Q-DISCOVERY", "testId": "scripts/test-discovery.test.mjs#unit discovery includes new tests without a runner allowlist", "evidence": ["scripts/test-discovery.test.mjs"] },
   { "id": "Q-PAGEERROR", "testId": "scripts/test-discovery.test.mjs#real browser runner exits nonzero when a page errors after its promise resolves", "evidence": ["scripts/test-discovery.test.mjs"] },
   { "id": "P-10K/20K", "mode": "release-gate", "testId": "scripts/fixtures/persistence-benchmark.test.mjs#release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段", "evidence": ["scripts/fixtures/persistence-benchmark.test.mjs"] },
-  { "id": "R-WIN-FAIL", "testId": "scripts/release-command.test.mjs#发布流水线先通过唯一质量门禁，再并行构建两个平台", "evidence": ["scripts/release-command.test.mjs"] },
+  { "id": "R-WIN-FAIL", "testId": "scripts/release-command.test.mjs#发布候选先认证精确 SHA，tag 流水线只做双平台安全构建", "evidence": ["scripts/release-command.test.mjs"] },
   { "id": "R-MAC-FAIL", "testId": "scripts/release-command.test.mjs#macOS 构建产出四个工件，但不直接修改 GitHub Release", "evidence": ["scripts/release-command.test.mjs"] },
   { "id": "R-MISSING-ASSET", "testId": "scripts/release-artifacts.test.mjs#local manifest rejects missing, empty, and extra artifacts", "evidence": ["scripts/release-artifacts.test.mjs"] },
   { "id": "R-RERUN-HASH", "testId": "scripts/release-artifacts.test.mjs#release plan covers create, draft resume, public noop, and failure branches", "evidence": ["scripts/release-artifacts.test.mjs"] },

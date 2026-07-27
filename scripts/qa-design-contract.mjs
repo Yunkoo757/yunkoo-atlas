@@ -48,6 +48,10 @@ const checks = [
       /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
   ],
   [
+    'sidebar navigation suppresses the shortcut focus highlight',
+    /\.sb-item:focus-visible\s*\{[^}]*outline:\s*none;[^}]*box-shadow:\s*none;/s.test(sidebarStyles),
+  ],
+  [
     'sidebar avatar uses the rounded-square shape',
     /\.sb-ws-avatar\s*\{[^}]*width:\s*28px;[^}]*height:\s*28px;[^}]*border-radius:\s*var\(--radius-8\);/s.test(sidebarStyles) &&
       sidebarComponent.includes('shape="rounded-square"') &&
