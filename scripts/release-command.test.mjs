@@ -183,6 +183,7 @@ test('本地发布运行轻量门禁，CI 打包复验构建与 Electron 数据�
   assert.match(release, /qa:release/)
   assert.match(workflow, /pnpm build:app/)
   assert.match(workflow, /pnpm qa:full/)
+  assert.match(workflow, /QA_PERFORMANCE_PROFILE:\s*hosted-windows/)
   assert.match(workflow, /pnpm benchmark:persistence:release/)
   assert.match(workflow, /persistence-release\.json/)
   assert.match(workflow, /verify-release-evidence:/)
