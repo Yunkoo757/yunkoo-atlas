@@ -257,6 +257,124 @@ export async function testWindowHotkeyConcurrentUpdatesAreSerialized(): Promise<
   })
 }
 
+export async function testWindowHotkeyDisposeDuringUpdatePreventsCandidateRevival(): Promise<void> {
+  let releaseSave!: () => void
+  const saveGate = new Promise<void>((resolve) => {
+    releaseSave = resolve
+  })
+  let markSaveStarted!: () => void
+  const saveStarted = new Promise<void>((resolve) => {
+    markSaveStarted = resolve
+  })
+  const calls: string[] = []
+  const registered = new Set<string>()
+  const service = new WindowHotkeyService({
+    registrar: {
+      register(accelerator) {
+        calls.push(`register:${accelerator}`)
+        registered.add(accelerator)
+        return true
+      },
+      unregister(accelerator) {
+        calls.push(`unregister:${accelerator}`)
+        registered.delete(accelerator)
+      },
+    },
+    storage: {
+      async load() {
+        return { kind: 'valid', binding: { key: 'f2' } }
+      },
+      async save(binding) {
+        calls.push(`save:${toElectronAccelerator(binding)}`)
+        markSaveStarted()
+        await saveGate
+      },
+    },
+    onToggle() {},
+  })
+  await service.initialize()
+
+  const update = service.update({ alt: true, key: 'x' })
+  await saveStarted
+  const disposal = service.dispose()
+  releaseSave()
+  const [updateResult] = await Promise.all([update, disposal])
+
+  assert(!updateResult.ok, '释放期间尚未提交的更新必须失败')
+  assert(
+    calls.join('|') ===
+      'register:F2|register:Alt+X|save:Alt+X|unregister:Alt+X|unregister:F2',
+    '释放必须回滚候选键并注销原有键',
+  )
+  assert(registered.size === 0, '释放完成后不得保留任何注册')
+  assert(!service.getState().registered, '释放完成后状态必须保持未注册')
+}
+
+export async function testWindowHotkeyDisposeDuringInitializePreventsRegistration(): Promise<void> {
+  let releaseLoad!: () => void
+  const loadGate = new Promise<void>((resolve) => {
+    releaseLoad = resolve
+  })
+  let markLoadStarted!: () => void
+  const loadStarted = new Promise<void>((resolve) => {
+    markLoadStarted = resolve
+  })
+  const calls: string[] = []
+  const service = new WindowHotkeyService({
+    registrar: {
+      register(accelerator) {
+        calls.push(`register:${accelerator}`)
+        return true
+      },
+      unregister(accelerator) {
+        calls.push(`unregister:${accelerator}`)
+      },
+    },
+    storage: {
+      async load() {
+        markLoadStarted()
+        await loadGate
+        return { kind: 'valid', binding: { key: 'f2' } }
+      },
+      async save() {},
+    },
+    onToggle() {},
+  })
+
+  const initialization = service.initialize()
+  await loadStarted
+  const disposal = service.dispose()
+  releaseLoad()
+  const [initializedState] = await Promise.all([initialization, disposal])
+
+  assert(!initializedState.registered, '释放期间完成的初始化不得重新注册')
+  assert(calls.length === 0, '释放期间完成的初始化不得触碰注册器')
+  assert(!service.getState().registered, '初始化结束后必须保持释放状态')
+}
+
+export async function testWindowHotkeyDisposedServiceRejectsFutureOperations(): Promise<void> {
+  const calls: string[] = []
+  const service = createServiceFixture({ calls })
+  await service.initialize()
+  await service.dispose()
+  const callsAfterDispose = calls.join('|')
+
+  const updateResult = await service.update({ shift: true, key: 'g' })
+  const resetResult = await service.reset()
+  const initializedState = await service.initialize()
+
+  assert(
+    !updateResult.ok && updateResult.errorCode === 'registration-unavailable',
+    '释放后的更新必须明确失败',
+  )
+  assert(
+    !resetResult.ok && resetResult.errorCode === 'registration-unavailable',
+    '释放后的重置必须明确失败',
+  )
+  assert(!initializedState.registered, '释放后的初始化不得重新激活服务')
+  assert(calls.join('|') === callsAfterDispose, '释放后的公开操作不得再访问存储或注册器')
+}
+
 export async function testWindowHotkeyResetAndDisposeUseCurrentRegistration(): Promise<void> {
   const calls: string[] = []
   const service = createServiceFixture({
@@ -266,7 +384,7 @@ export async function testWindowHotkeyResetAndDisposeUseCurrentRegistration(): P
   await service.initialize()
   const resetResult = await service.reset()
   assert(resetResult.ok, '重置必须恢复默认热键')
-  service.dispose()
+  await service.dispose()
   assert(
     calls.join('|') ===
       'register:Alt+X|register:F2|save:F2|unregister:Alt+X|unregister:F2',

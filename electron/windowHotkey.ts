@@ -96,6 +96,8 @@ export class FileWindowHotkeyStorage implements WindowHotkeyStorage {
 export class WindowHotkeyService {
   private binding: KeyChord = { ...DEFAULT_WINDOW_HOTKEY }
   private currentAccelerator: string | null = null
+  private disposed = false
+  private disposal: Promise<void> | null = null
   private operationQueue: Promise<void> = Promise.resolve()
   private registered = false
   private startupError: WindowHotkeyState['errorCode']
@@ -121,11 +123,14 @@ export class WindowHotkeyService {
   }
 
   initialize(): Promise<WindowHotkeyState> {
+    if (this.disposed) return Promise.resolve(this.getState())
     return this.serialize(() => this.initializeTransaction())
   }
 
   private async initializeTransaction(): Promise<WindowHotkeyState> {
+    if (this.disposed) return this.getState()
     const loaded = await this.storage.load()
+    if (this.disposed) return this.getState()
     this.binding = loaded.kind === 'valid' ? loaded.binding : { ...DEFAULT_WINDOW_HOTKEY }
     const accelerator = toElectronAccelerator(this.binding)
     if (!this.registrar.register(accelerator, this.onToggle)) {
@@ -144,16 +149,18 @@ export class WindowHotkeyService {
   getState(): WindowHotkeyState {
     return {
       binding: { ...this.binding },
-      registered: this.registered,
+      registered: this.registered && !this.disposed,
       errorCode: this.startupError,
     }
   }
 
   update(input: unknown): Promise<WindowHotkeyUpdateResult> {
+    if (this.disposed) return Promise.resolve(this.disposedFailure())
     return this.serialize(() => this.updateTransaction(input))
   }
 
   private async updateTransaction(input: unknown): Promise<WindowHotkeyUpdateResult> {
+    if (this.disposed) return this.disposedFailure()
     const candidate = normalizeWindowHotkeyBinding(input)
     if (!candidate) return this.failure('invalid-binding', '不支持这个系统级快捷键')
     const nextAccelerator = toElectronAccelerator(candidate)
@@ -167,7 +174,12 @@ export class WindowHotkeyService {
       await this.storage.save(candidate)
     } catch {
       this.registrar.unregister(nextAccelerator)
+      if (this.disposed) return this.disposedFailure()
       return this.failure('persistence-failed', '快捷键配置保存失败')
+    }
+    if (this.disposed) {
+      this.registrar.unregister(nextAccelerator)
+      return this.disposedFailure()
     }
     const previous = this.currentAccelerator
     this.binding = candidate
@@ -182,10 +194,15 @@ export class WindowHotkeyService {
     return this.update(DEFAULT_WINDOW_HOTKEY)
   }
 
-  dispose(): void {
-    if (this.currentAccelerator) this.registrar.unregister(this.currentAccelerator)
-    this.currentAccelerator = null
-    this.registered = false
+  dispose(): Promise<void> {
+    if (this.disposal) return this.disposal
+    this.disposed = true
+    this.disposal = this.serialize(async () => {
+      if (this.currentAccelerator) this.registrar.unregister(this.currentAccelerator)
+      this.currentAccelerator = null
+      this.registered = false
+    })
+    return this.disposal
   }
 
   private failure(
@@ -193,6 +210,10 @@ export class WindowHotkeyService {
     message: string,
   ): WindowHotkeyUpdateResult {
     return { ok: false, errorCode, message, state: this.getState() }
+  }
+
+  private disposedFailure(): WindowHotkeyUpdateResult {
+    return this.failure('registration-unavailable', '快捷键服务已释放')
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
