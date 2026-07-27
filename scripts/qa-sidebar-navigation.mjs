@@ -310,7 +310,7 @@ try {
   )
   expectEqual(
     await page.locator('.sb-workspace > a .sb-item-label').allTextContents(),
-    ['进行中', '星标交易', '错过的机会', '模拟回测'],
+    ['进行中', '星标交易', '错过的机会', '模拟盘'],
     'Default workspace must expose the four system items',
   )
 
@@ -424,7 +424,7 @@ try {
     useStore.getState().setDisplayName('QA 父级重渲染')
   })
   await expectFocused(search)
-  for (const group of ['工作区能力', '交易日志', '模拟回测', '案例记录', '策略']) {
+  for (const group of ['工作区能力', '交易日志', '模拟盘', '案例记录', '策略']) {
     await expectVisible(editor.getByRole('heading', { name: group }))
   }
   const group = (name) => editor.locator('.sb-target-group').filter({ hasText: name })
@@ -683,7 +683,7 @@ try {
   })
   await restoredPage.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
   await restoredPage.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-  const expectedDefaultLabels = ['进行中', '星标交易', '错过的机会', '模拟回测']
+  const expectedDefaultLabels = ['进行中', '星标交易', '错过的机会', '模拟盘']
   try {
     await restoredPage.waitForFunction((expectedLabels) => {
       const labels = [...document.querySelectorAll('.sb-workspace > a .sb-item-label')]
@@ -783,10 +783,10 @@ try {
   await expectVisible(drawer)
   expectEqual(
     await drawer.locator('[data-mobile-workspace-item]').allTextContents(),
-    ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图'],
+    ['进行中', '星标交易', '错过的机会', '模拟盘', 'QA 保存视图'],
     'More drawer must contain every valid pinned and overflow item in order',
   )
-  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟回测', 'QA 保存视图', '随记', '周复盘', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
+  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟盘', 'QA 保存视图', '随记', '周复盘', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
   expectEqual(
     await drawer.locator('[data-mobile-drawer-item]').allTextContents(),
     expectedDrawerItems,
