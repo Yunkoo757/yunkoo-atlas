@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import type { ListNavigationContext, ShortcutBinding } from '@/shortcuts/types'
+import type { KeyChord, ListNavigationContext, ShortcutBinding } from '@/shortcuts/types'
 import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { isSequence } from '@/shortcuts/chords'
 import { buildBindingOverwritePatch, resolveBinding } from '@/shortcuts/bindingRules'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
+import { disableWindowHotkeyConflicts } from '@/shortcuts/windowHotkeyConflicts'
 import type { LightboxOrigin } from '@/lib/lightboxView'
 
 export { migrateShortcutBindings } from '@/shortcuts/migrate'
@@ -31,6 +32,8 @@ interface ShortcutState {
   ) => { ok: true; clearedLabels: string[] } | { ok: false; error: string }
   resetBinding: (id: string) => void
   resetAllBindings: () => void
+  disableConflictsWithWindowHotkey: (binding: KeyChord) => string[]
+  resetAllBindingsForWindowHotkey: (binding: KeyChord) => string[]
   setListContext: (ctx: ListNavigationContext | null) => void
   openLightbox: (images: string[], index: number, ownerId?: string, origin?: LightboxOrigin) => void
   syncLightboxForOwner: (ownerId: string, images: string[] | null) => void
@@ -100,6 +103,16 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
       return { bindings: next }
     }),
   resetAllBindings: () => set({ bindings: {} }),
+  disableConflictsWithWindowHotkey: (binding) => {
+    const result = disableWindowHotkeyConflicts(binding, get().bindings)
+    set({ bindings: result.bindings })
+    return result.clearedLabels
+  },
+  resetAllBindingsForWindowHotkey: (binding) => {
+    const result = disableWindowHotkeyConflicts(binding, {})
+    set({ bindings: result.bindings })
+    return result.clearedLabels
+  },
   setListContext: (ctx) =>
     set((s) => {
       if (ctx === null) {

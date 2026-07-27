@@ -3,7 +3,7 @@ import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
 import { getActionMeta } from '@/shortcuts/actions'
 import { bindingKey } from '@/shortcuts/chords'
 import { useStore } from '@/store/useStore'
-import { useShortcutStore } from '@/store/shortcutStore'
+import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import { getShortcutHintModel } from '@/shortcuts/hints'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 
@@ -133,5 +133,40 @@ export function testLegacyModuleShortcutMigratesToTradeWorkspace(): void {
     assert(!('global.switchModule' in migrated), '迁移后不应继续保存废弃动作')
   } finally {
     useShortcutStore.getState().hydrateBindings(previousBindings)
+  }
+}
+
+export function testWindowHotkeyDisablesConflictingOrdinaryShortcut(): void {
+  const previousBindings = useShortcutStore.getState().bindings
+  try {
+    useShortcutStore.setState({ bindings: {} })
+    const clearedLabels = useShortcutStore.getState().disableConflictsWithWindowHotkey({
+      mod: true,
+      key: 'k',
+    })
+    const bindings = useShortcutStore.getState().bindings
+
+    assert(bindings['global.commandPaletteMod'] === null, '系统键应禁用冲突的普通快捷键')
+    assert(clearedLabels.includes('命令面板（Ctrl+K）'), '应返回被禁用动作的名称')
+    assert(
+      !('app.toggleWindow' in bindingsForPersist(bindings)),
+      '系统窗口热键不得写入普通快捷键资料库',
+    )
+  } finally {
+    useShortcutStore.setState({ bindings: previousBindings })
+  }
+}
+
+export function testResetDefaultsKeepsSystemConflictDisabled(): void {
+  const previousBindings = useShortcutStore.getState().bindings
+  try {
+    useShortcutStore.setState({ bindings: { 'list.toggleFilters': { alt: true, key: 'f' } } })
+    const clearedLabels = useShortcutStore.getState().resetAllBindingsForWindowHotkey({ key: 'f' })
+    const bindings = useShortcutStore.getState().bindings
+
+    assert(bindings['list.toggleFilters'] === null, '恢复默认不能抢占系统热键')
+    assert(clearedLabels.includes('打开或关闭筛选器'), '恢复时应报告被保留禁用的动作')
+  } finally {
+    useShortcutStore.setState({ bindings: previousBindings })
   }
 }
