@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Copy, Trash2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
@@ -6,7 +6,7 @@ import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { TradeFilters } from '@/components/trades/TradeFilters'
 import { TradeList, type TradeListGroup } from '@/components/trades/TradeList'
 import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
-import type { Trade } from '@/data/trades'
+import { isReviewCompleted, type Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
@@ -75,7 +75,7 @@ export function ListView({
   useTradeReturnAnchor()
   const { trades, visible, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
 
-  const openTrade = (trade: Trade) => {
+  const openTrade = useCallback((trade: Trade) => {
     const from = {
       pathname: location.pathname,
       search: location.search,
@@ -85,7 +85,7 @@ export function ListView({
     navigate(tradeDetailPath(trade), {
       state: tradeDetailNavState(from),
     })
-  }
+  }, [location.pathname, location.search, navigate])
 
   const groups = useMemo<TradeListGroup[]>(() => {
     if (filter.tradeKind === 'case') {
@@ -123,8 +123,8 @@ export function ListView({
     }
 
     const sorted = sortTradesByOpenedAtDesc(visible)
-    const pending = sorted.filter((trade) => trade.reviewStatus !== 'reviewed')
-    const completed = sorted.filter((trade) => trade.reviewStatus === 'reviewed')
+    const pending = sorted.filter((trade) => !isReviewCompleted(trade.reviewStatus))
+    const completed = sorted.filter((trade) => isReviewCompleted(trade.reviewStatus))
     return [
       ...(pending.length > 0
         ? [{ key: 'pending-review', label: '待复盘', tone: 'pending' as const, items: pending }]
@@ -162,14 +162,18 @@ export function ListView({
     })
   }, [visibleIdsKey])
 
-  const toggleSelection = (trade: Trade) => {
+  const toggleSelection = useCallback((trade: Trade) => {
     setSelectedIds((current) => {
       const next = new Set(current)
       if (next.has(trade.id)) next.delete(trade.id)
       else next.add(trade.id)
       return next
     })
-  }
+  }, [])
+
+  const toggleRowStar = useCallback((trade: Trade) => {
+    toggleStar(trade.id)
+  }, [toggleStar])
 
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
@@ -251,7 +255,7 @@ export function ListView({
       ? `复制 ${copyCaseCount} 个案例`
       : `创建 ${copyAccountCount} 笔新计划`
 
-  const openContextMenu = (event: React.MouseEvent, trade: Trade) => {
+  const openContextMenu = useCallback((event: React.MouseEvent, trade: Trade) => {
     event.preventDefault()
     setContextMenu({
       x: event.clientX,
@@ -276,7 +280,18 @@ export function ListView({
         isStarred,
       }),
     })
-  }
+  }, [
+    isStarred,
+    openComposer,
+    openTrade,
+    removeTrade,
+    requestTradeClose,
+    requestTradeOpen,
+    setStatus,
+    toggleStar,
+    trades,
+    upsertTrade,
+  ])
 
   const emptyState = resolveWorkbenchEmptyState({
     totalCount: trades.length,
@@ -322,7 +337,8 @@ export function ListView({
             scrollParentRef={listScrollRef}
             onOpen={openTrade}
             onSelect={toggleSelection}
-            onToggleStar={(trade) => toggleStar(trade.id)}
+            onClearSelection={() => setSelectedIds(new Set())}
+            onToggleStar={toggleRowStar}
             onContextMenu={openContextMenu}
             onCreate={openComposer}
             recordLabel={filter.tradeKind === 'case' ? '案例记录' : '交易'}
@@ -331,11 +347,11 @@ export function ListView({
       </div>
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       <BatchActionBar count={selectedIds.size}>
-        <button type="button" className="batch-action-btn" onClick={requestBatchCopy}>
+        <button type="button" className="batch-bar-action-btn" onClick={requestBatchCopy}>
           <Copy size={14} />
           <span>{copyActionLabel}</span>
         </button>
-        <button type="button" className="batch-action-btn batch-action-btn-danger" onClick={batchDelete}>
+        <button type="button" className="batch-bar-action-btn batch-bar-action-btn-danger" onClick={batchDelete}>
           <Trash2 size={14} />
           <span>删除</span>
         </button>

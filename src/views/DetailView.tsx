@@ -42,6 +42,7 @@ import {
   MISS_REASON_META,
   TIMEFRAME_PRESETS,
   getTimeframeTone,
+  isReviewCompleted,
   resolveTimeframe,
   type TradeStatus,
   type Conviction,
@@ -90,7 +91,11 @@ import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
-import { loadDetailNote, type DetailNoteLoadResult } from '@/views/detailNoteLoad'
+import {
+  loadDetailNote,
+  removeMissingAssetReferences,
+  type DetailNoteLoadResult,
+} from '@/views/detailNoteLoad'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
@@ -103,7 +108,7 @@ const CASE_TYPE_OPTS: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed'
 const MASTERY_OPTS: MasteryState[] = ['new', 'recheck', 'mastered']
 
 function isPendingReviewTrade(trade: Trade): boolean {
-  if (trade.deletedAt || trade.tradeKind === 'case' || trade.reviewStatus === 'reviewed') return false
+  if (trade.deletedAt || trade.tradeKind === 'case' || isReviewCompleted(trade.reviewStatus)) return false
   const truth = resolveTradeTruth(trade)
   return (
     truth.executionState === 'missed' ||
@@ -145,6 +150,7 @@ export function DetailView() {
     return record?.deletedAt ? record : undefined
   }, [allTrades, routeParam])
   const updateTradeData = useStore((s) => s.updateTradeData)
+  const updateNote = useStore((s) => s.updateNote)
   const transitionTradeKind = useStore((s) => s.transitionTradeKind)
   const completeTradeClose = useStore((s) => s.completeTradeClose)
   const setStatus = useStore((s) => s.setStatus)
@@ -501,7 +507,7 @@ export function DetailView() {
   const detailUnit = trade.tradeKind === 'case'
     ? '案例'
     : trade.tradeKind === 'paper'
-      ? '模拟交易'
+      ? '模拟盘记录'
       : '交易'
   const truth = resolveTradeTruth(trade)
   const needsResult =
@@ -509,12 +515,12 @@ export function DetailView() {
   const hasResultConflict = needsResult && truth.hasConflict
   const needsReview =
     trade.tradeKind !== 'case' &&
-    trade.reviewStatus !== 'reviewed' &&
+    !isReviewCompleted(trade.reviewStatus) &&
     (truth.executionState === 'missed' ||
       (truth.executionState === 'closed' && truth.isResultComplete))
   const reviewComplete =
     trade.tradeKind !== 'case' &&
-    trade.reviewStatus === 'reviewed' &&
+    isReviewCompleted(trade.reviewStatus) &&
     (truth.executionState === 'missed' || truth.executionState === 'closed')
   const sourceTrade = trade.sourceTradeId
     ? trades.find((item) => item.id === trade.sourceTradeId)
@@ -802,7 +808,7 @@ export function DetailView() {
                 {activeNoteLoad.status === 'error' && (
                   <div className="dv-note-load is-error" role="alert">
                     <AlertCircle size={16} aria-hidden />
-                    <div>
+                    <div className="dv-note-load-copy">
                       <strong>复盘笔记未完整载入</strong>
                       <span>
                         {activeNoteLoad.reason === 'prepare'
@@ -810,17 +816,37 @@ export function DetailView() {
                           : '图片附件读取失败，正文已安全保留；当前为只读模式。'}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      disabled={noteRetrying}
-                      onClick={() => {
-                        setNoteRetrying(true)
-                        setNoteLoadAttempt((value) => value + 1)
-                      }}
-                    >
-                      <RotateCcw size={14} aria-hidden />
-                      {noteRetrying ? '正在载入…' : '重新载入'}
-                    </button>
+                    <div className="dv-note-load-actions">
+                      {activeNoteLoad.reason === 'incomplete' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const repaired = removeMissingAssetReferences(trade.note, activeNoteLoad.fallbackHtml)
+                            if (repaired.removedCount === 0) {
+                              toast('没有找到可移除的缺失图片引用')
+                              return
+                            }
+                            updateNote(trade.id, repaired.html)
+                            setNoteRetrying(true)
+                            setNoteLoadAttempt((value) => value + 1)
+                            toast(`已移除 ${repaired.removedCount} 个缺失图片引用`)
+                          }}
+                        >
+                          移除缺失图片并继续编辑
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={noteRetrying}
+                        onClick={() => {
+                          setNoteRetrying(true)
+                          setNoteLoadAttempt((value) => value + 1)
+                        }}
+                      >
+                        <RotateCcw size={14} aria-hidden />
+                        {noteRetrying ? '正在载入…' : '重新载入'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

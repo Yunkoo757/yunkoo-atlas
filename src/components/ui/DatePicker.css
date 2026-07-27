@@ -7,10 +7,10 @@
   display: flex;
   width: 100%;
   min-width: 0;
-  height: 30px;
+  height: var(--field-height-md);
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--sp-2);
   padding: 0 9px;
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
@@ -64,9 +64,9 @@
 
 .ui-date-popover {
   position: fixed;
-  z-index: 1300;
+  z-index: var(--z-popover);
   width: 286px;
-  padding: 8px;
+  padding: var(--sp-2);
   border: 0.8px solid var(--popover-border);
   border-radius: var(--radius-8);
   background: var(--popover-bg);
@@ -89,7 +89,7 @@
   height: 34px;
   align-items: center;
   justify-content: space-between;
-  padding: 0 3px 4px 7px;
+  padding: 0 3px var(--sp-1) 7px;
 }
 
 .ui-date-head strong {
@@ -143,7 +143,7 @@
 .ui-date-grid button {
   height: 32px;
   color: var(--text-secondary);
-  font-family: var(--font-monospace);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
 }
 
@@ -167,7 +167,7 @@
   align-items: end;
   justify-content: space-between;
   margin-top: 6px;
-  padding: 6px 4px 1px;
+  padding: 6px var(--sp-1) 1px;
   border-top: 1px solid var(--border-subtle);
 }
 

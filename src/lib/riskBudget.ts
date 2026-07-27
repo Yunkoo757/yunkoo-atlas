@@ -126,6 +126,20 @@ export function resolveTrustedBudgetPnl(trade: Trade): number | null {
   return null
 }
 
+export function resolveTrustedBudgetR(trade: Trade): number | null {
+  const source = resolveTradeResultSource(trade)
+  const truth = resolveTradeTruth(trade)
+  if (
+    source === 'r' &&
+    typeof trade.rMultiple === 'number' &&
+    Number.isFinite(trade.rMultiple) &&
+    truth.isResultComplete &&
+    !truth.hasConflict &&
+    isTradeResultAuthorityConsistent(trade)
+  ) return quantizeR(trade.rMultiple)
+  return null
+}
+
 function weekStart(day: string): string {
   const date = parseLocalDate(day)
   const distance = (date.getDay() + 6) % 7
@@ -192,8 +206,13 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
     }
 
     const trustedPnl = resolveTrustedBudgetPnl(trade)
-    const knownLoss = trustedPnl !== null ? trustedPnl < 0 : truth.outcome === 'loss' || trade.status === 'loss'
-    if (trustedPnl === null && reasons.length === 0) {
+    const trustedR = resolveTrustedBudgetR(trade)
+    const knownLoss = trustedR !== null
+      ? trustedR < 0
+      : trustedPnl !== null
+        ? trustedPnl < 0
+        : truth.outcome === 'loss' || trade.status === 'loss'
+    if (trustedPnl === null && trustedR === null && reasons.length === 0) {
       if (knownLoss) reasons.push('missing-loss-pnl')
       else partial = true
     }
@@ -209,7 +228,9 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
     }
 
     let budgetR: number | null = null
-    if (trustedPnl !== null && date && reasons.length === 0) {
+    if (trustedR !== null && date && reasons.length === 0) {
+      budgetR = trustedR
+    } else if (trustedPnl !== null && date && reasons.length === 0) {
       const policy = activeRiskPolicy(input.policies, date)
       if (!policy || !Number.isFinite(policy.riskAmount) || toMoneyCents(policy.riskAmount) <= 0) {
         if (trustedPnl < 0) reasons.push('missing-policy')
@@ -222,18 +243,29 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
     results.push({ date, budgetR, unknownReasons: stableReasons(reasons), partial })
   }
 
-  const unknownReasons = stableReasons(results.flatMap((result) => result.unknownReasons))
-  const coverage = periodCoverage(results)
   const isCurrentDay = (result: CandidateResult) => result.date === input.currentTradingDayKey
   const isCurrentWeek = (result: CandidateResult) => result.date !== null && weekStart(result.date) === currentWeekStart
   const isCurrentMonth = (result: CandidateResult) => result.date?.slice(0, 7) === currentMonth
-  const includedFor = (matches: (result: CandidateResult) => boolean) =>
-    results.filter((result) => matches(result) && result.budgetR !== null)
+  const resultsFor = (matches: (result: CandidateResult) => boolean) => results.filter((result) =>
+    matches(result) || (result.date === null && (result.partial || result.unknownReasons.length > 0)),
+  )
+  const snapshotFor = (periodResults: CandidateResult[], limit: number) => makeSnapshot(
+    periodResults,
+    periodResults.filter((result) => result.budgetR !== null),
+    limit,
+    stableReasons(periodResults.flatMap((result) => result.unknownReasons)),
+  )
 
-  const day = makeSnapshot(results, includedFor(isCurrentDay), limitR(currentPolicy?.dailyLossLimitR), unknownReasons)
-  const week = makeSnapshot(results, includedFor(isCurrentWeek), limitR(currentPolicy?.weeklyLossLimitR), unknownReasons)
-  const month = makeSnapshot(results, includedFor(isCurrentMonth), limitR(monthlyLimit?.limitR), unknownReasons)
-  return { day, week, month, gateCoverage: coverage, unknownReasons }
+  const day = snapshotFor(resultsFor(isCurrentDay), limitR(currentPolicy?.dailyLossLimitR))
+  const week = snapshotFor(resultsFor(isCurrentWeek), limitR(currentPolicy?.weeklyLossLimitR))
+  const month = snapshotFor(resultsFor(isCurrentMonth), limitR(monthlyLimit?.limitR))
+  return {
+    day,
+    week,
+    month,
+    gateCoverage: month.coverage,
+    unknownReasons: month.unknownReasons,
+  }
 }
 
 export function resolveRiskOutcomes(input: ResolveRiskOutcomesInput): ResolvedRiskOutcomes {

@@ -29,13 +29,13 @@ export function SaveStatusIndicator() {
   }, [status])
 
   if (status === 'error') {
-    const reason = errorMessage ?? '无法写入本地交易库'
+    const reason = errorMessage ?? '无法写入本地资料库'
     return (
       <span className="save-status-recovery" role="status" aria-live="assertive">
         <Tooltip asChild content={`保存失败：${reason}`} label="保存失败，点击重试">
           <button
             type="button"
-            className="save-status save-status--error save-status--action"
+            className="save-status is-error is-action"
             aria-label={`保存失败：${reason}。点击重试`}
             onClick={() => void flushPersistNow().catch(() => {})}
           >
@@ -56,7 +56,7 @@ export function SaveStatusIndicator() {
 
   return (
     <span
-      className={`save-status save-status--${status}`}
+      className={`save-status is-${status}`}
       aria-live="polite"
       aria-hidden={!label}
     >

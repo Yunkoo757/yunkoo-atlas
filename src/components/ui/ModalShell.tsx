@@ -116,8 +116,8 @@ export function ModalShell({
         ref={panelRef}
         className={[
           'modal-shell',
-          size === 'compact' ? 'modal-shell--compact' : '',
-          size === 'wide' ? 'modal-shell--wide' : '',
+          size === 'compact' ? 'is-compact' : '',
+          size === 'wide' ? 'is-wide' : '',
         ].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"

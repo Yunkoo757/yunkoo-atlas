@@ -331,7 +331,14 @@ function BoardColumnBody({
                   setOverIdx(e.clientY < mid ? i : i + 1)
                 }}
                 onClick={() => onOpen(t.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  event.preventDefault()
+                  onOpen(t.id)
+                }}
                 onContextMenu={(e) => onContextMenu(e, t)}
+                role="button"
+                tabIndex={0}
               >
                 <div className="bd-card-top">
                   <span className="bd-card-ref">{t.ref}</span>

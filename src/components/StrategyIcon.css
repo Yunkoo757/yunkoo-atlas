@@ -9,7 +9,7 @@
   background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
 }
 
-.strategy-icon--nav {
+.strategy-icon.is-nav {
   background: none !important;
   opacity: 1;
   transition: opacity var(--dur-fast) var(--ease-out);

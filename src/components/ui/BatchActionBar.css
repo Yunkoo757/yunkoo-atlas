@@ -2,7 +2,7 @@
   position: fixed;
   bottom: 24px;
   left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
-  z-index: 60;
+  z-index: var(--z-batch-action);
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -15,13 +15,13 @@
 }
 
 .batch-action-count {
-  margin-right: 4px;
+  margin-right: var(--sp-1);
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
   font-variant-numeric: tabular-nums;
 }
 
-.batch-action-btn {
+.batch-bar-action-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -34,16 +34,16 @@
   border-radius: var(--radius-6);
 }
 
-.batch-action-btn:hover {
+.batch-bar-action-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
 
-.batch-action-btn-danger {
+.batch-bar-action-btn-danger {
   color: var(--neg);
 }
 
-.batch-action-btn-danger:hover {
+.batch-bar-action-btn-danger:hover {
   color: var(--neg);
   background: var(--error-action-bg);
 }
@@ -57,12 +57,12 @@
   }
 
   .batch-action-count,
-  .batch-action-btn {
+  .batch-bar-action-btn {
     flex: 0 0 auto;
     white-space: nowrap;
   }
 
-  .batch-action-btn {
+  .batch-bar-action-btn {
     min-width: 44px;
     min-height: 44px;
   }

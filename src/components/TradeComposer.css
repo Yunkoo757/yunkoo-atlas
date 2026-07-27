@@ -1,10 +1,10 @@
 .composer-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-modal);
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: var(--modal-overlay-padding);
   background: var(--overlay-bg);
   animation: composerFadeIn 120ms var(--ease-out);
 }
@@ -28,7 +28,7 @@
   align-items: center;
   justify-content: space-between;
   height: 52px;
-  padding: 0 14px 0 20px;
+  padding: var(--modal-header-padding);
   border-bottom: 0.8px solid var(--border-subtle);
 }
 
@@ -61,7 +61,7 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 22px 22px 8px;
+  padding: 22px 22px var(--sp-2);
   overflow: auto;
 }
 
@@ -112,7 +112,7 @@
 
 .composer-input-symbol .ui-select-trigger {
   height: 52px;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   color: var(--text-strong);
   font-size: var(--fs-lg);
   font-weight: var(--font-weight-semibold);
@@ -128,19 +128,19 @@
 
 .composer-essential-field .ui-date-trigger {
   gap: 6px;
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
 }
 
 .composer-parameter-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .composer-archive-row {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .composer-archive-row.is-case {
@@ -196,10 +196,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--sp-1);
   width: 100%;
   min-height: 76px;
-  padding: 14px 12px;
+  padding: 14px var(--sp-3);
   color: var(--text-tertiary);
   font-size: var(--type-row-size);
   background: color-mix(in srgb, var(--bg-elevated) 30%, transparent);
@@ -240,7 +240,7 @@
 .composer-images-preview {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
   min-width: 0;
 }
 
@@ -308,11 +308,11 @@
 .composer-btn-secondary,
 .composer-btn-primary {
   height: var(--modal-cta-height);
-  padding: 0 14px;
+  padding: 0 var(--modal-cta-padding-inline);
   font-family: var(--font-ui);
-  font-size: var(--type-row-size);
+  font-size: var(--modal-cta-font-size);
   font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-8);
+  border-radius: var(--modal-cta-radius);
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
@@ -359,11 +359,11 @@
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 480px) {
   .composer-header {
     height: 56px;
     padding-right: 6px;
-    padding-left: 16px;
+    padding-left: var(--sp-4);
   }
 
   .composer-close {
@@ -372,7 +372,7 @@
   }
 
   .composer-body-quick {
-    padding: 16px 16px 8px;
+    padding: var(--sp-4) var(--sp-4) var(--sp-2);
   }
 
   .composer-hero {
@@ -400,7 +400,7 @@
   .composer-footer-quick {
     flex-wrap: wrap;
     align-items: stretch;
-    padding: 12px 16px;
+    padding: var(--sp-3) var(--sp-4);
   }
 
   .composer-footer-hint {
@@ -420,7 +420,7 @@
   }
 }
 
-@media (max-width: 400px) {
+@media (max-width: 480px) {
   .composer-parameter-grid,
   .composer-archive-row.is-case {
     grid-template-columns: 1fr;
@@ -431,5 +431,13 @@
   .composer-overlay,
   .composer-modal {
     animation: none;
+  }
+}
+
+@media (max-width: 899px), (pointer: coarse) {
+  .composer-image-remove {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    opacity: 1;
   }
 }

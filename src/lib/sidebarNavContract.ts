@@ -15,7 +15,7 @@ export const SECONDARY_NAV_ITEMS = [
   { id: 'active', to: '/active', label: '进行中' },
   { id: 'favorites', to: '/favorites', label: '星标交易' },
   { id: 'missed', to: '/missed', label: '错过的机会' },
-  { id: 'paper', to: '/sim', label: '模拟回测' },
+  { id: 'paper', to: '/sim', label: '模拟盘' },
 ] as const satisfies readonly { id: SidebarNavId; to: string; label: string }[]
 
 export const DEFAULT_PRIMARY_SIDEBAR_ORDER: PrimarySidebarNavId[] = PRIMARY_NAV_ITEMS.map(

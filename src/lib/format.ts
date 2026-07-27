@@ -1,11 +1,12 @@
 export function fmtMoney(n: number | null | undefined, masked = false): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
   if (masked) return '****'
-  const sign = n > 0 ? '+' : ''
+  const displayValue = Math.abs(n) < 0.005 ? 0 : n
+  const sign = displayValue > 0 ? '+' : ''
   const hasFraction = !Number.isInteger(n)
   return (
     sign +
-    n.toLocaleString('en-US', {
+    displayValue.toLocaleString('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: hasFraction ? 2 : 0,
@@ -28,6 +29,17 @@ export function fmtPrice(n: number): string {
 
 export function fmtDate(iso: string): string {
   if (!iso) return '--'
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly
+    const candidate = new Date(Number(year), Number(month) - 1, Number(day))
+    if (
+      candidate.getFullYear() !== Number(year) ||
+      candidate.getMonth() !== Number(month) - 1 ||
+      candidate.getDate() !== Number(day)
+    ) return '--'
+    return `${Number(month)}月${Number(day)}日`
+  }
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '--'
   return `${d.getMonth() + 1}月${d.getDate()}日`

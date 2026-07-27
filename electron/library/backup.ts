@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs, getLibraryPaths } from './paths'
-import { writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
 import { safeConsoleError } from '../diagnosticSanitizer'
 
@@ -40,6 +40,76 @@ export interface BackupVerificationResult {
 let intervalTimer: ReturnType<typeof setInterval> | null = null
 let lastBackupAt = 0
 let storageRef: LibraryStorage | null = null
+const BACKUP_RESTORE_MARKER = '.backup-restore.json'
+const BACKUP_RESTORE_RECOVERY_PREFIX = '.backup-restore-recovery-'
+
+interface BackupRestoreMarker {
+  version: 1
+  recoveryDir: string
+  hadDatabase: boolean
+  hadManifest: boolean
+}
+
+function backupRestoreMarkerPath(libraryRoot: string): string {
+  return path.join(libraryRoot, BACKUP_RESTORE_MARKER)
+}
+
+function copyRestoreAttachments(source: string, destination: string): void {
+  fs.mkdirSync(destination, { recursive: true })
+  for (const name of fs.existsSync(source) ? fs.readdirSync(source) : []) {
+    const sourceFile = path.join(source, name)
+    const stat = fs.lstatSync(sourceFile)
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      throw new Error(`附件目录包含无法安全恢复的项目：${name}`)
+    }
+    fs.copyFileSync(sourceFile, path.join(destination, name))
+  }
+}
+
+function cleanupBackupRestoreRecoveryDirs(libraryRoot: string): void {
+  for (const name of fs.readdirSync(libraryRoot)) {
+    if (name.startsWith(BACKUP_RESTORE_RECOVERY_PREFIX)) {
+      fs.rmSync(path.join(libraryRoot, name), { recursive: true, force: true })
+    }
+  }
+}
+
+export function recoverInterruptedBackupRestore(paths: ReturnType<typeof getLibraryPaths>): void {
+  const markerPath = backupRestoreMarkerPath(paths.root)
+  if (!fs.existsSync(markerPath)) {
+    cleanupBackupRestoreRecoveryDirs(paths.root)
+    return
+  }
+
+  const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as Partial<BackupRestoreMarker>
+  if (
+    marker.version !== 1 ||
+    typeof marker.recoveryDir !== 'string' ||
+    path.basename(marker.recoveryDir) !== marker.recoveryDir ||
+    !marker.recoveryDir.startsWith(BACKUP_RESTORE_RECOVERY_PREFIX) ||
+    typeof marker.hadDatabase !== 'boolean' ||
+    typeof marker.hadManifest !== 'boolean'
+  ) {
+    throw new Error('备份恢复标记损坏，已停止打开资料库以保护原数据')
+  }
+
+  const recoveryRoot = path.join(paths.root, marker.recoveryDir)
+  if (!fs.existsSync(recoveryRoot)) {
+    throw new Error('备份恢复安全副本缺失，已停止打开资料库以保护原数据')
+  }
+  const recoveryDb = path.join(recoveryRoot, 'journal.db')
+  const recoveryManifest = path.join(recoveryRoot, 'manifest.json')
+  const recoveryAttachments = path.join(recoveryRoot, 'attachments')
+
+  if (marker.hadDatabase) writeFileAtomicallySync(paths.dbFile, fs.readFileSync(recoveryDb))
+  else fs.rmSync(paths.dbFile, { force: true })
+  if (marker.hadManifest) writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(recoveryManifest))
+  else fs.rmSync(paths.manifestFile, { force: true })
+  fs.rmSync(paths.attachments, { recursive: true, force: true })
+  copyRestoreAttachments(recoveryAttachments, paths.attachments)
+  fs.rmSync(markerPath, { force: true })
+  fsyncDirectorySync(paths.root)
+}
 
 function backupFileName(timestamp: number): string {
   const iso = new Date(timestamp).toISOString().replace(/[:T.]/g, '-')
@@ -129,8 +199,9 @@ function pruneBackupAssetVault(backupsDir: string): void {
   const referenced = new Set<string>()
   for (const name of backupDbFiles(backupsDir)) {
     const meta = readBackupMeta(path.join(backupsDir, name))
-    for (const attachment of meta?.attachmentFiles ?? []) referenced.add(attachment)
-    for (const attachment of meta?.attachmentEntries ?? []) referenced.add(attachment.vaultName)
+    if (!meta) return
+    for (const attachment of meta.attachmentFiles ?? []) referenced.add(attachment)
+    for (const attachment of meta.attachmentEntries ?? []) referenced.add(attachment.vaultName)
   }
   const vault = backupAssetVault(backupsDir)
   if (!fs.existsSync(vault)) return
@@ -478,35 +549,38 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
     }
   }
 
-  const originalDb = fs.existsSync(dbFile) ? fs.readFileSync(dbFile) : null
-  const originalManifest = fs.existsSync(manifestFile) ? fs.readFileSync(manifestFile) : null
   const savedManifest = backupManifestPath(src)
-  let previousAttachments: string | null = null
+  const recoveryDir = `${BACKUP_RESTORE_RECOVERY_PREFIX}${randomUUID()}`
+  const recoveryRoot = path.join(libraryPath, recoveryDir)
+  const markerPath = backupRestoreMarkerPath(libraryPath)
+  fs.mkdirSync(recoveryRoot, { recursive: true })
+  const marker: BackupRestoreMarker = {
+    version: 1,
+    recoveryDir,
+    hadDatabase: fs.existsSync(dbFile),
+    hadManifest: fs.existsSync(manifestFile),
+  }
+  if (marker.hadDatabase) fs.copyFileSync(dbFile, path.join(recoveryRoot, 'journal.db'))
+  if (marker.hadManifest) fs.copyFileSync(manifestFile, path.join(recoveryRoot, 'manifest.json'))
+  copyRestoreAttachments(attachments, path.join(recoveryRoot, 'attachments'))
+  writeFileAtomicallySync(markerPath, JSON.stringify(marker, null, 2), 'utf8')
+
   try {
     if (stagedAttachments) {
-      previousAttachments = path.join(libraryPath, `.attachments-previous-${Date.now()}`)
-      fs.renameSync(attachments, previousAttachments)
+      fs.rmSync(attachments, { recursive: true, force: true })
       fs.renameSync(stagedAttachments, attachments)
+      stagedAttachments = null
     }
 
     writeFileAtomicallySync(dbFile, fs.readFileSync(src))
     if (fs.existsSync(savedManifest)) {
       writeFileAtomicallySync(manifestFile, fs.readFileSync(savedManifest))
     }
-    if (previousAttachments) {
-      fs.rmSync(previousAttachments, { recursive: true, force: true })
-      previousAttachments = null
-    }
+    fs.rmSync(markerPath, { force: true })
+    fsyncDirectorySync(libraryPath)
     return true
   } catch (error) {
-    if (originalDb) writeFileAtomicallySync(dbFile, originalDb)
-    else fs.rmSync(dbFile, { force: true })
-    if (originalManifest) writeFileAtomicallySync(manifestFile, originalManifest)
-    else fs.rmSync(manifestFile, { force: true })
-    if (previousAttachments && fs.existsSync(previousAttachments)) {
-      fs.rmSync(attachments, { recursive: true, force: true })
-      fs.renameSync(previousAttachments, attachments)
-    }
+    recoverInterruptedBackupRestore(getLibraryPaths(libraryPath))
     if (stagedAttachments) {
       fs.rmSync(stagedAttachments, { recursive: true, force: true })
     }
@@ -526,11 +600,13 @@ export function rotateBackups(
       .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
       .map((f) => {
         const fp = path.join(backupsDir, f)
+        const meta = readBackupMeta(fp)
         return {
           name: f,
           path: fp,
           timestamp: parseTimestampFromName(f) || 0,
           tradeCount: readBackupTradeCount(fp),
+          verified: meta?.verification?.status === 'verified',
         }
       })
       .sort((a, b) => b.timestamp - a.timestamp) // 最新在前
@@ -539,13 +615,16 @@ export function rotateBackups(
     const keep = new Set<string>()
     const newestPath = files[0]?.path
     if (newestPath) keep.add(newestPath)
+    const verified = files
+      .filter((file) => file.path !== newestPath && file.verified)
+      .sort((a, b) => b.timestamp - a.timestamp)
     const nonEmpty = files
-      .filter((f) => f.tradeCount > 0)
+      .filter((file) => file.path !== newestPath && !file.verified && file.tradeCount > 0)
       .sort((a, b) => b.timestamp - a.timestamp)
     const emptyOrUnknown = files
-      .filter((f) => f.tradeCount <= 0)
+      .filter((file) => file.path !== newestPath && !file.verified && file.tradeCount <= 0)
       .sort((a, b) => b.timestamp - a.timestamp)
-    for (const file of [...nonEmpty, ...emptyOrUnknown]) {
+    for (const file of [...verified, ...nonEmpty, ...emptyOrUnknown]) {
       if (keep.size >= Math.max(1, maxCount)) break
       keep.add(file.path)
     }
@@ -568,6 +647,7 @@ export function rotateBackups(
           keep.has(file.path) && file.path !== newestPath && fs.existsSync(file.path),
       )
       .sort((left, right) => {
+        if (left.verified !== right.verified) return left.verified ? 1 : -1
         const leftEmpty = left.tradeCount <= 0
         const rightEmpty = right.tradeCount <= 0
         if (leftEmpty !== rightEmpty) return leftEmpty ? -1 : 1
@@ -596,6 +676,7 @@ export function startAutoBackup(
   storage: LibraryStorage,
   intervalMs: number = DEFAULT_INTERVAL_MS,
   maxBackups: number = DEFAULT_MAX_BACKUPS,
+  onBackupFailure?: () => void,
 ): void {
   stopAutoBackup()
   storageRef = storage
@@ -610,6 +691,8 @@ export function startAutoBackup(
     if (result) {
       const { backups } = ensureLibraryDirs(storageRef.getLibraryPath())
       rotateBackups(backups, maxBackups)
+    } else {
+      onBackupFailure?.()
     }
   }, intervalMs)
 

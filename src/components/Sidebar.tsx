@@ -602,7 +602,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   return (
-    <aside className={'sidebar' + (workspaceDrag || primaryDrag ? ' is-reordering' : '')}>
+    <nav className={'sidebar' + (workspaceDrag || primaryDrag ? ' is-reordering' : '')} aria-label="主导航">
       <div className="sb-header">
         <Menu
           align="left"
@@ -790,6 +790,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         onClose={() => setCapabilityMenu(null)}
       />
 
-    </aside>
+    </nav>
   )
 }

@@ -484,7 +484,7 @@ export function CsvImportModal({ open, onClose }: Props) {
                   <tr>
                     <th>#</th>
                     <th>状态</th>
-                    <th>标的</th>
+                    <th>品种</th>
                     <th>方向</th>
                     <th>入场</th>
                     <th>出场</th>

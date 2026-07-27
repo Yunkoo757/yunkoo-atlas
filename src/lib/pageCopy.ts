@@ -14,7 +14,7 @@ export function getTradesPageSubtitle(
     return formatPeriodSubtitle(filter.period, businessDateAnchor ?? new Date())
   }
   if (filter.type === 'all' && filter.tradeKind === 'live') return '实盘交易'
-  if (filter.tradeKind === 'paper') return '模拟回测 · 不计入实盘 KPI'
+  if (filter.tradeKind === 'paper') return '模拟盘 · 不计入实盘 KPI'
   if (filter.tradeKind === 'case') return '独立复盘 · 不计入仪表盘统计'
   return undefined
 }

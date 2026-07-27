@@ -1,6 +1,7 @@
 import {
   DEFAULT_TRADING_DAY_START_HOUR,
   createBusinessDateAnchor,
+  classifyDateBucket,
   getPeriodBounds,
   getTradingDayKey,
   msUntilNextTradingDayBoundary,
@@ -71,5 +72,11 @@ export function testMsUntilNextTradingDayBoundary(): void {
   const waitNext = msUntilNextTradingDayBoundary(after, 6)
   const expectedNext = new Date(2026, 6, 23, 6, 0, 0, 25).getTime() - after.getTime()
   assert(Math.abs(waitNext - expectedNext) < 5, '过切日后应排程到次日')
+}
+
+export function testFutureDateNeverFallsIntoThisWeekBucket(): void {
+  const bucket = classifyDateBucket('2027-01-01', new Date(2026, 6, 27, 12))
+  assert(bucket !== 'this-week', '未来日期不得因为缺少本周上界而被归入本周')
+  assert(typeof bucket === 'object' && bucket.year === 2027 && bucket.month === 1, '未来日期应保持自身年月')
 }
 // Quality-Scenario: B-CALENDAR

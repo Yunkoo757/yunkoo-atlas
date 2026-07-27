@@ -25,8 +25,8 @@
 
 .quick-notes-search {
   height: var(--control-height);
-  margin: 10px 12px;
-  padding: 0 8px;
+  margin: 10px var(--sp-3);
+  padding: 0 var(--sp-2);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -55,12 +55,12 @@
 .quick-notes-list {
   min-height: 0;
   overflow: auto;
-  padding: 0 6px 12px;
+  padding: 0 6px var(--sp-3);
 }
 
 .quick-notes-list-item {
   width: 100%;
-  padding: 8px 10px;
+  padding: var(--sp-2) 10px;
   display: block;
   border: 0;
   border-radius: var(--radius-6);
@@ -107,7 +107,7 @@
 }
 
 .quick-notes-list-summary {
-  margin-top: 4px;
+  margin-top: var(--sp-1);
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -117,7 +117,7 @@
 }
 
 .quick-notes-list-empty {
-  padding: 20px 12px;
+  padding: var(--sp-5) var(--sp-3);
   text-align: center;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
@@ -132,10 +132,10 @@
 }
 
 .quick-notes-editor-header {
-  padding: 16px clamp(20px, 4vw, 56px) 4px;
+  padding: var(--sp-4) clamp(var(--sp-5), 4vw, 56px) var(--sp-1);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .quick-notes-editor-header > input {
@@ -180,7 +180,7 @@
 }
 
 .quick-notes-editor-meta {
-  padding: 0 clamp(20px, 4vw, 56px) 12px;
+  padding: 0 clamp(var(--sp-5), 4vw, 56px) var(--sp-3);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-faint);
   font-size: var(--type-caption-size);
@@ -190,7 +190,7 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 16px clamp(20px, 4vw, 56px) 48px;
+  padding: var(--sp-4) clamp(var(--sp-5), 4vw, 56px) 48px;
 }
 
 .quick-notes-editor-body .editor {
@@ -202,17 +202,17 @@
   min-height: 0;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .quick-notes-workspace {
     grid-template-columns: 112px minmax(0, 1fr);
   }
 
   .quick-notes-search {
-    margin-inline: 8px;
+    margin-inline: var(--sp-2);
   }
 
   .quick-notes-list-item {
-    padding: 8px;
+    padding: var(--sp-2);
   }
 
   .quick-notes-list-title time,
@@ -221,7 +221,7 @@
   }
 
   .quick-notes-editor-header {
-    padding-inline: 16px;
+    padding-inline: var(--sp-4);
   }
 
   .quick-notes-editor-header > input {
@@ -230,6 +230,6 @@
 
   .quick-notes-editor-meta,
   .quick-notes-editor-body {
-    padding-inline: 16px;
+    padding-inline: var(--sp-4);
   }
 }

@@ -167,7 +167,7 @@ export function QuickNotesView() {
           </div>
         </aside>
 
-        <main className="quick-notes-editor-pane">
+        <section className="quick-notes-editor-pane" aria-label="随记编辑区">
           {selectedNote ? (
             <>
               <header className="quick-notes-editor-header">
@@ -234,7 +234,7 @@ export function QuickNotesView() {
               )}
             />
           )}
-        </main>
+        </section>
       </div>
 
       {deleteOpen && selectedNote ? (

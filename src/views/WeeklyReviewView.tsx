@@ -342,24 +342,26 @@ export function WeeklyReviewView() {
           </aside>
         ) : null}
 
-        <main className="wr-main">
+        <section className="wr-main" aria-label="周复盘内容">
           <header className="wr-page-head">
-            <div>
-              <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
-              <h1>{formatWeekRange(selectedWeek)}</h1>
-              <p>{selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列</p>
-            </div>
-            <div className="wr-head-actions">
-              <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">
-                <button type="button" role="tab" aria-selected={tab === 'review'} onClick={() => setTab('review')}>本周复盘</button>
-                <button type="button" role="tab" aria-selected={tab === 'year'} onClick={() => setTab('year')}>年度趋势</button>
+            <div className="wr-page-head-inner">
+              <div>
+                <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
+                <h1>{formatWeekRange(selectedWeek)}</h1>
+                <p>{selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列</p>
               </div>
-              {hasReviewHistory ? (
-                <>
-                  <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && changeWeek(olderWeek)}><ChevronLeft size={16} /></button>
-                  <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && changeWeek(newerWeek)}><ChevronRight size={16} /></button>
-                </>
-              ) : null}
+              <div className="wr-head-actions">
+                <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">
+                  <button type="button" role="tab" aria-selected={tab === 'review'} onClick={() => setTab('review')}>本周复盘</button>
+                  <button type="button" role="tab" aria-selected={tab === 'year'} onClick={() => setTab('year')}>年度趋势</button>
+                </div>
+                {hasReviewHistory ? (
+                  <>
+                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && changeWeek(olderWeek)}><ChevronLeft size={16} /></button>
+                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && changeWeek(newerWeek)}><ChevronRight size={16} /></button>
+                  </>
+                ) : null}
+              </div>
             </div>
           </header>
 
@@ -452,8 +454,9 @@ export function WeeklyReviewView() {
 
               <section className="wr-section">
                 <div className="wr-section-head"><div><span>{previousReview ? '04' : '03'}</span><h2>模式识别</h2></div><small>用于跨周统计，而不是替代你的判断</small></div>
-                <TagGroup title="做得好的" options={STRENGTH_TAGS} selected={review.strengthTags} onChange={(strengthTags) => commitPatch({ strengthTags })} />
+                <TagGroup tone="strength" title="做得好的" options={STRENGTH_TAGS} selected={review.strengthTags} onChange={(strengthTags) => commitPatch({ strengthTags })} />
                 <TagGroup
+                  tone="correction"
                   title="需要纠正的"
                   options={[...WEEKLY_MISTAKE_DIMENSIONS]}
                   selected={review.mistakeTags}
@@ -522,7 +525,7 @@ export function WeeklyReviewView() {
               </div>
             </div>
           )}
-        </main>
+        </section>
       </div>
     </>
   )
@@ -532,9 +535,9 @@ function Metric({ label, value, hint, tone }: { label: string; value: string; hi
   return <div className="wr-metric"><span>{label}</span><strong className={tone ? `is-${tone}` : ''}>{value}</strong><small>{hint}</small></div>
 }
 
-function TagGroup({ title, options, selected, onChange, counts }: { title: string; options: string[]; selected: string[]; onChange: (values: string[]) => void; counts?: Record<string, number> }) {
+function TagGroup({ tone, title, options, selected, onChange, counts }: { tone: 'strength' | 'correction'; title: string; options: string[]; selected: string[]; onChange: (values: string[]) => void; counts?: Record<string, number> }) {
   return (
-    <div className="wr-tag-group"><label>{title}</label><div>{options.map((option) => <button key={option} type="button" aria-pressed={selected.includes(option)} onClick={() => onChange(toggleValue(selected, option))}>{option}{counts?.[option] ? ` · ${counts[option]}` : ''}</button>)}</div></div>
+    <div className={`wr-tag-group is-${tone}`}><label>{title}</label><div>{options.map((option) => <button key={option} type="button" aria-pressed={selected.includes(option)} onClick={() => onChange(toggleValue(selected, option))}>{option}{counts?.[option] ? ` · ${counts[option]}` : ''}</button>)}</div></div>
   )
 }
 
@@ -553,7 +556,16 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       <section className="wr-section">
         <div className="wr-section-head"><div><TrendingUp size={17} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
         {data.length >= 2 ? (
-          <Suspense fallback={<div className="wr-chart wr-chart-loading" aria-label="正在载入评分趋势" />}>
+          <Suspense fallback={(
+            <div className="wr-chart wr-chart-loading" role="status" aria-live="polite">
+              <span className="wr-chart-loading-label">正在载入评分趋势…</span>
+              <div className="wr-chart-skeleton-grid" aria-hidden="true">
+                <svg className="wr-chart-skeleton-line" viewBox="0 0 100 40" preserveAspectRatio="none">
+                  <polyline points="0,31 18,25 34,28 51,16 68,20 84,9 100,13" />
+                </svg>
+              </div>
+            </div>
+          )}>
             <WeeklyReviewScoreChart data={data} />
           </Suspense>
         ) : data.length === 1 ? <div className="wr-trend-start"><div><span>趋势起点</span><strong>{data[0].score.toFixed(1)}</strong><small>/ 5</small></div><p>再完成 1 次周复盘后，这里会显示评分变化。</p></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}

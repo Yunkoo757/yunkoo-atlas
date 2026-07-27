@@ -185,6 +185,21 @@ export function testWriteAnalysisScopePreservesUnrelatedQueryState(): void {
   assert(params.get('range') === 'this-month', 'writing analysis scope must persist the selected range')
 }
 
+export function testAnalysisScopeUsesFrozenClosedTradingDayKey(): void {
+  const result = filterTradesByAnalysisScope(
+    [{
+      ...closedLiveTrade,
+      id: 'trading-day-boundary',
+      closedAt: '2026-07-12',
+      closedTradingDayKey: '2026-07-13',
+    }],
+    { kind: 'live', range: 'this-week' },
+    new Date(2026, 6, 13, 12),
+  )
+
+  assert(result[0]?.id === 'trading-day-boundary', '分析范围必须优先使用已冻结的平仓交易日')
+}
+
 export function testAnalysisRangesUseTheSharedBusinessDateAnchorWithoutMutatingTrades(): void {
   const original = {
     ...closedLiveTrade,

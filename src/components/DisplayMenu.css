@@ -15,7 +15,7 @@
   border: 0.8px solid var(--popover-border);
   border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
-  z-index: 80;
+  z-index: var(--z-floating);
   animation: fadeIn var(--motion-ui) var(--ease-out) both;
 }
 
@@ -25,8 +25,8 @@
   justify-content: space-between;
   width: 100%;
   min-height: 32px;
-  padding: 0 8px;
-  border-radius: var(--radius-6);
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-4);
   font-size: var(--fs-sm);
   color: var(--text-secondary);
   transition: background var(--dur-fast) var(--ease-out);
@@ -67,12 +67,12 @@
 
 .display-divider {
   height: 1px;
-  margin: 4px 6px;
+  margin: var(--sp-1) 6px;
   background: var(--border-subtle);
 }
 
 .display-label {
-  padding: 4px 8px 2px;
+  padding: var(--sp-1) var(--sp-2) 2px;
   font-size: var(--fs-micro);
   color: var(--text-quaternary);
   text-transform: uppercase;
@@ -85,7 +85,7 @@
   justify-content: space-between;
   width: 100%;
   min-height: 32px;
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
   border-radius: var(--radius-6);
   font-size: var(--fs-sm);
   color: var(--text-secondary);

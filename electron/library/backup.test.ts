@@ -6,10 +6,12 @@ import {
   createBackupAtPath,
   deleteBackupAtPath,
   getBackupStatsAtPath,
+  recoverInterruptedBackupRestore,
   rotateBackups,
   restoreBackupAtPath,
   verifyBackupAtPath,
 } from './backup'
+import { getLibraryPaths } from './paths'
 import { validateLibraryDatabaseFile } from './journalZip'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 
@@ -332,6 +334,69 @@ export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): vo
   }
 }
 
+export function testBackupRotationPrefersAUserVerifiedRestorePoint(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verified-retention-'))
+  try {
+    fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
+    const counts = {
+      getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
+      listCommittedAttachmentFileNames: () => [] as string[],
+    }
+    const verified = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
+    const middle = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 9, 0, 0))!
+    const newest = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 10, 0, 0))!
+    const meta = JSON.parse(fs.readFileSync(verified + '.meta.json', 'utf8'))
+    meta.verification = { status: 'verified', checkedAt: Date.UTC(2026, 6, 13, 8, 5, 0) }
+    fs.writeFileSync(verified + '.meta.json', JSON.stringify(meta), 'utf8')
+
+    rotateBackups(path.join(root, 'backups'), 2)
+
+    assert(fs.existsSync(newest), '轮换必须保留最新恢复点')
+    assert(fs.existsSync(verified), '剩余名额必须优先保留已经验证的恢复点')
+    assert(!fs.existsSync(middle), '未验证的中间恢复点不得挤掉已验证恢复点')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export function testCorruptBackupMetadataPreventsAssetVaultPruning(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-corrupt-meta-prune-'))
+  try {
+    const attachments = path.join(root, 'attachments')
+    fs.mkdirSync(attachments, { recursive: true })
+    fs.writeFileSync(path.join(root, 'journal.db'), 'v1')
+    fs.writeFileSync(path.join(attachments, 'old.png'), 'old-image')
+    const first = createBackupAtPath(
+      {
+        getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        listCommittedAttachmentFileNames: () => ['old.png'],
+      },
+      root,
+      Date.UTC(2026, 6, 13, 9, 0, 0),
+    )!
+
+    fs.rmSync(path.join(attachments, 'old.png'))
+    fs.writeFileSync(path.join(attachments, 'current.png'), 'current-image')
+    fs.writeFileSync(path.join(root, 'journal.db'), 'v2')
+    const current = createBackupAtPath(
+      {
+        getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        listCommittedAttachmentFileNames: () => ['current.png'],
+      },
+      root,
+      Date.UTC(2026, 6, 13, 10, 0, 0),
+    )!
+
+    fs.writeFileSync(current + '.meta.json', '{broken', 'utf8')
+    assert(deleteBackupAtPath(root, path.basename(first)), '删除旧恢复点应成功')
+
+    const vaultFiles = fs.readdirSync(path.join(root, 'backups', 'assets'))
+    assert(vaultFiles.length === 2, '任一现存元数据损坏时必须放弃整轮附件剪枝')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export function testBackupRotationNeverDeletesTheOnlyLatestRestorePoint(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-capacity-floor-'))
   try {
@@ -464,6 +529,38 @@ export function testBackupRestoreProtectsDatabaseManifestAndOriginalAttachments(
       fs.readFileSync(path.join(attachments, 'chart.png')).equals(Buffer.from([0, 1, 2, 3, 255])),
       '应逐字节恢复原始附件',
     )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export function testInterruptedBackupRestoreReturnsToTheCompletePreviousLibrary(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-interrupted-'))
+  try {
+    const recoveryDir = '.backup-restore-recovery-test'
+    const recoveryRoot = path.join(root, recoveryDir)
+    fs.mkdirSync(path.join(recoveryRoot, 'attachments'), { recursive: true })
+    fs.mkdirSync(path.join(root, 'attachments'), { recursive: true })
+    fs.writeFileSync(path.join(recoveryRoot, 'journal.db'), 'old-db')
+    fs.writeFileSync(path.join(recoveryRoot, 'manifest.json'), 'old-manifest')
+    fs.writeFileSync(path.join(recoveryRoot, 'attachments', 'old.png'), 'old-image')
+    fs.writeFileSync(path.join(root, 'journal.db'), 'new-db')
+    fs.writeFileSync(path.join(root, 'manifest.json'), 'new-manifest')
+    fs.writeFileSync(path.join(root, 'attachments', 'new.png'), 'new-image')
+    fs.writeFileSync(path.join(root, '.backup-restore.json'), JSON.stringify({
+      version: 1,
+      recoveryDir,
+      hadDatabase: true,
+      hadManifest: true,
+    }), 'utf8')
+
+    recoverInterruptedBackupRestore(getLibraryPaths(root))
+
+    assert(fs.readFileSync(path.join(root, 'journal.db'), 'utf8') === 'old-db', '中断恢复必须还原旧数据库')
+    assert(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8') === 'old-manifest', '中断恢复必须还原旧清单')
+    assert(fs.readFileSync(path.join(root, 'attachments', 'old.png'), 'utf8') === 'old-image', '中断恢复必须还原旧附件')
+    assert(!fs.existsSync(path.join(root, 'attachments', 'new.png')), '中断恢复不得混入新附件')
+    assert(!fs.existsSync(path.join(root, '.backup-restore.json')), '恢复完成后必须清除活动标记')
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }

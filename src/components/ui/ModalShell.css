@@ -1,10 +1,10 @@
 .modal-shell-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: var(--z-modal);
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: var(--modal-overlay-padding);
   background: var(--overlay-bg);
   animation: modalShellFadeIn 120ms var(--ease-out);
 }
@@ -24,11 +24,11 @@
   animation: modalShellSlideIn 140ms var(--ease-out);
 }
 
-.modal-shell--compact {
+.modal-shell.is-compact {
   width: min(440px, calc(100vw - 32px));
 }
 
-.modal-shell--wide {
+.modal-shell.is-wide {
   width: min(720px, calc(100vw - 32px));
 }
 
@@ -43,8 +43,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 18px 15px 20px;
+  gap: var(--sp-4);
+  padding: var(--modal-header-padding);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -92,7 +92,7 @@
 .modal-shell-body {
   min-height: 0;
   max-height: calc(100vh - 190px);
-  padding: 18px 20px;
+  padding: var(--modal-body-padding);
   overflow: auto;
 }
 
@@ -100,9 +100,9 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
   min-height: 58px;
-  padding: 10px 18px 10px 20px;
+  padding: var(--modal-footer-padding);
   border-top: 1px solid var(--border-subtle);
 }
 

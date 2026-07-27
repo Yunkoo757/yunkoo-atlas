@@ -43,6 +43,7 @@ import { CsvImportModal } from './CsvImportModal'
 import { NotionImportModal } from './NotionImportModal'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { readJsonImportFile } from '@/lib/importLimits'
+import { userFacingErrorMessage } from '@/lib/userFacingError'
 import './DataIOContent.css'
 
 function formatArchiveBytes(bytes: number): string {
@@ -106,7 +107,7 @@ export function DataIOContent({
 
       setPendingLibrarySwitch({ mode, picked })
     } catch (err) {
-      toast(err instanceof Error ? `选择失败：${err.message}` : '选择失败')
+      toast(userFacingErrorMessage(err, '选择资料库目录失败，请重试'))
     } finally {
       setLibraryBusy(false)
     }
@@ -121,16 +122,16 @@ export function DataIOContent({
       const result = await switchActiveLibrary(request.mode, request.picked)
       if (result.canceled) return
       if (!result.ok) {
-        toast(result.error ? `切换失败：${result.error}` : '切换失败')
+        toast(userFacingErrorMessage(result.error, '切换资料库失败，请重试'))
         return
       }
       setLibraryPath(result.path ?? null)
       setDupGroups(null)
-      toast(request.mode === 'create' ? '已切换到新交易库' : '已切换交易库')
+      toast(request.mode === 'create' ? '已切换到新资料库' : '已切换资料库')
       onLibraryChanged?.()
       onDone?.()
     } catch (err) {
-      toast(err instanceof Error ? `切换失败：${err.message}` : '切换失败')
+      toast(userFacingErrorMessage(err, '切换资料库失败，请重试'))
     } finally {
       setLibraryBusy(false)
     }
@@ -141,7 +142,7 @@ export function DataIOContent({
       await downloadExport()
       toast('JSON 数据副本已下载')
     } catch (error) {
-      toast(error instanceof Error ? error.message : '导出失败')
+      toast(userFacingErrorMessage(error, '导出失败，请重试'))
     }
   }
 
@@ -149,14 +150,14 @@ export function DataIOContent({
     try {
       if (electron) {
         const result = await exportJournalArchive()
-        if (result.ok) toast('交易库已导出')
+        if (result.ok) toast('资料库已导出')
         else toast('已取消导出')
       } else {
         await downloadWebJournalZip()
-        toast('交易库已导出 (.journal.zip)')
+        toast('资料库已导出 (.journal.zip)')
       }
     } catch (error) {
-      toast(error instanceof Error ? error.message : '导出失败')
+      toast(userFacingErrorMessage(error, '导出失败，请重试'))
     }
   }
 
@@ -167,15 +168,15 @@ export function DataIOContent({
       const result = await importJournalArchive()
       if (result.ok) {
         setDupGroups(null)
-        toast('交易库已恢复')
+        toast('资料库已恢复')
         onLibraryChanged?.()
         onDone?.()
       } else if (!result.canceled) {
-        toast(result.error ? `恢复失败：${result.error}` : '恢复失败')
+        toast(userFacingErrorMessage(result.error, '恢复资料库失败，请重试'))
       }
       // 注：用户取消文件对话框时不显示 toast，这是预期行为
     } catch (err) {
-      toast(err instanceof Error ? `恢复失败：${err.message}` : '恢复失败')
+      toast(userFacingErrorMessage(err, '恢复资料库失败，请重试'))
     } finally {
       setLibraryBusy(false)
     }
@@ -191,7 +192,7 @@ export function DataIOContent({
     try {
       setWebArchive(await parseWebJournalArchive(file))
     } catch (error) {
-      toast(error instanceof Error ? error.message : '无法读取完整备份')
+      toast(userFacingErrorMessage(error, '无法读取完整备份'))
     } finally {
       setLibraryBusy(false)
     }
@@ -209,7 +210,7 @@ export function DataIOContent({
       onLibraryChanged?.()
       onDone?.()
     } catch (error) {
-      toast(error instanceof Error ? `恢复失败：${error.message}` : '恢复失败')
+      toast(userFacingErrorMessage(error, '恢复资料库失败，请重试'))
     } finally {
       setArchiveRestoring(false)
       setLibraryBusy(false)
@@ -221,9 +222,9 @@ export function DataIOContent({
     setArchiveBackingUp(true)
     try {
       await downloadWebJournalZip()
-      toast('当前交易库备份已下载')
+      toast('当前资料库备份已下载')
     } catch (error) {
-      toast(error instanceof Error ? error.message : '当前交易库导出失败，请重试')
+      toast(userFacingErrorMessage(error, '当前资料库导出失败，请重试'))
     } finally {
       setArchiveBackingUp(false)
     }
@@ -239,7 +240,7 @@ export function DataIOContent({
       const text = await readJsonImportFile(file)
       const result = parseImportJson(text)
       if (!result.ok) {
-        toast(result.error)
+        toast(userFacingErrorMessage(result.error, '导入文件内容无法识别'))
         return
       }
       const imported = await applyImport(result.data)
@@ -247,7 +248,7 @@ export function DataIOContent({
       toast(imported.summary)
       onDone?.()
     } catch (error) {
-      toast(error instanceof Error ? error.message : '读取文件失败')
+      toast(userFacingErrorMessage(error, '读取文件失败'))
     } finally {
       setLibraryBusy(false)
     }
@@ -319,11 +320,11 @@ export function DataIOContent({
     <div className="dio-content">
       {electron && (
         <section className="dio-section dio-section-muted">
-          <h2 className="dio-section-title">本地交易库</h2>
+          <h2 className="dio-section-title">本地资料库</h2>
           {libraryPath ? (
             <p className="dio-desc dio-mono">{libraryPath}</p>
           ) : (
-            <p className="dio-desc">正在读取交易库路径…</p>
+            <p className="dio-desc">正在读取资料库路径…</p>
           )}
           <p className="dio-desc">
             数据保存在本机磁盘的 journal.db、manifest.json 与 attachments/ 文件夹中。
@@ -337,7 +338,7 @@ export function DataIOContent({
               onClick={() => void onSwitchLibrary('open')}
             >
               <FolderOpen size={15} />
-              <span>{libraryBusy ? '切换中…' : '打开其他交易库…'}</span>
+              <span>{libraryBusy ? '切换中…' : '打开其他资料库…'}</span>
             </button>
             <button
               type="button"
@@ -346,7 +347,7 @@ export function DataIOContent({
               onClick={() => void onSwitchLibrary('create')}
             >
               <Plus size={15} />
-              <span>在此新建交易库…</span>
+              <span>在此新建资料库…</span>
             </button>
           </div>
         </section>
@@ -361,12 +362,12 @@ export function DataIOContent({
           <div className="dio-task">
             <Database size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
-              <div className="dio-task-title">自动保存到当前交易库</div>
+              <div className="dio-task-title">自动保存到当前资料库</div>
               <div className="dio-task-meta">
                 交易与案例、策略、标签、快捷键、显示偏好、个人资料和保存视图；
                 {electron
-                  ? '笔记原图保存在交易库的 attachments/ 文件夹。'
-                  : '笔记原图保存在浏览器 IndexedDB 的同一交易库中。'}
+                  ? '笔记原图保存在资料库的 attachments/ 文件夹。'
+                  : '笔记原图保存在浏览器 IndexedDB 的同一资料库中。'}
               </div>
             </div>
           </div>
@@ -376,7 +377,7 @@ export function DataIOContent({
               <div className="dio-task-copy">
                 <div className="dio-task-title">自动备份</div>
                 <div className="dio-task-meta">
-                  每 15 分钟及退出前保存数据库、交易库清单和原始附件；相同附件只保留一份。
+                  每 15 分钟及退出前保存数据文件、资料库清单和原始附件；相同附件只保留一份。
                 </div>
               </div>
             </div>
@@ -387,8 +388,8 @@ export function DataIOContent({
               <div className="dio-task-title">{electron ? '仅保留在这台电脑' : '仅保留在当前浏览器'}</div>
               <div className="dio-task-meta">
                 {electron
-                  ? 'GitHub 更新令牌、窗口位置、当前交易库路径与随机复盘轮次不会写入交易库或导出文件。'
-                  : '随机复盘的当前轮次只保留在此标签页，不会写入交易库或导出文件。'}
+                  ? 'GitHub 更新令牌、窗口位置、当前资料库路径与随机复盘轮次不会写入资料库或导出文件。'
+                  : '随机复盘的当前轮次只保留在此标签页，不会写入资料库或导出文件。'}
               </div>
             </div>
           </div>
@@ -454,7 +455,7 @@ export function DataIOContent({
             <Upload size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">Yunkoo JSON</div>
-              <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前交易库</div>
+              <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
             </div>
             <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => fileRef.current?.click()}>
               <span>选择文件</span>
@@ -496,7 +497,7 @@ export function DataIOContent({
           <div className="dio-task">
             <Search size={18} className="dio-task-icon" />
             <div className="dio-task-copy">
-              <div className="dio-task-title">扫描交易库内重复</div>
+              <div className="dio-task-title">扫描资料库内重复</div>
               <div className="dio-task-meta">对照笔记正文与截图指纹</div>
             </div>
             <button
@@ -564,10 +565,10 @@ export function DataIOContent({
         <div className="dio-task">
           <Archive size={18} className="dio-task-icon" />
           <div className="dio-task-copy">
-            <div className="dio-task-title">恢复完整交易库</div>
+            <div className="dio-task-title">恢复完整资料库</div>
             <div className="dio-task-meta">
               {electron
-                ? '替换当前桌面交易库与附件，操作前请先备份'
+                ? '替换当前桌面资料库与附件，操作前请先备份'
                 : '校验浏览器完整备份后，精确替换当前数据、设置与附件'}
             </div>
           </div>
@@ -577,7 +578,7 @@ export function DataIOContent({
             disabled={dataBusy}
             onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
           >
-            <span>{libraryBusy ? '交易库处理中…' : '选择 .journal.zip'}</span>
+            <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
           </button>
         </div>
       </section>
@@ -587,16 +588,16 @@ export function DataIOContent({
         <span>
           仅导入可信文件。
           {electron
-            ? '完整备份会替换当前交易库，JSON 只合并数据。'
-            : '完整备份恢复会替换当前交易库，JSON 导入只合并数据。'}
+            ? '完整备份会替换当前资料库，JSON 只合并数据。'
+            : '完整备份恢复会替换当前资料库，JSON 导入只合并数据。'}
         </span>
       </p>
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
       <NotionImportModal open={notionOpen} onClose={() => setNotionOpen(false)} />
       {pendingLibrarySwitch ? (
         <ModalShell
-          title={pendingLibrarySwitch.mode === 'create' ? '创建并切换交易库？' : '切换交易库？'}
-          description="软件会先保存当前交易库，再切换到所选目录。"
+          title={pendingLibrarySwitch.mode === 'create' ? '创建并切换资料库？' : '切换资料库？'}
+          description="软件会先保存当前资料库，再切换到所选目录。"
           size="compact"
           onClose={() => setPendingLibrarySwitch(null)}
           footer={(
@@ -624,8 +625,8 @@ export function DataIOContent({
       ) : null}
       {webArchive && (
         <ModalShell
-          title="恢复完整交易库"
-          description="归档已通过格式与附件校验。确认后将精确替换当前浏览器交易库。"
+          title="恢复完整资料库"
+          description="归档已通过格式与附件校验。确认后将精确替换当前浏览器资料库。"
           busy={archiveRestoring}
           onClose={() => setWebArchive(null)}
           footer={(
@@ -636,7 +637,7 @@ export function DataIOContent({
                 disabled={archiveRestoring || archiveBackingUp}
                 onClick={onDownloadRestorePoint}
               >
-                {archiveBackingUp ? '正在导出…' : '先下载当前交易库'}
+                {archiveBackingUp ? '正在导出…' : '先下载当前资料库'}
               </button>
               <button
                 type="button"
@@ -653,7 +654,7 @@ export function DataIOContent({
                 disabled={archiveRestoring || archiveBackingUp}
                 onClick={onRestoreWebArchive}
               >
-                {archiveRestoring ? '正在替换…' : '替换当前交易库'}
+                {archiveRestoring ? '正在替换…' : '替换当前资料库'}
               </button>
             </>
           )}

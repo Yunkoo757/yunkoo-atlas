@@ -88,6 +88,7 @@ export function TradeComposer() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const submittingRef = useRef(false)
   const defaultKind = defaultTradeKindForPath(location.pathname)
   const activeKind = editing?.tradeKind ?? requestedKind ?? defaultKind
@@ -100,8 +101,21 @@ export function TradeComposer() {
 
   useEffect(() => {
     if (!open) return
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
     useShortcutStore.getState().acquireModalOverlay()
-    return () => useShortcutStore.getState().releaseModalOverlay()
+    const focusFrame = requestAnimationFrame(() => {
+      const initialFocus = dialogRef.current?.querySelector<HTMLElement>(
+        '.composer-body-quick button:not(:disabled), .composer-body-quick input:not(:disabled)',
+      )
+      initialFocus?.focus()
+    })
+    return () => {
+      cancelAnimationFrame(focusFrame)
+      useShortcutStore.getState().releaseModalOverlay()
+      previousFocusRef.current?.focus()
+    }
   }, [open])
 
   useEffect(() => {
@@ -168,7 +182,7 @@ export function TradeComposer() {
   const addImage = async (file: File) => {
     if (submittingRef.current) return
     if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
-      toast('单张原图超过 32 MB，无法加入交易库；请缩小图片后重试')
+      toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
       return
     }
     const id = crypto.randomUUID()

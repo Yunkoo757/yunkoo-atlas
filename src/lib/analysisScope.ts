@@ -93,7 +93,10 @@ export function filterTradesByAnalysisScope(
     bounds = { start: formatYmd(start), end: today }
   }
 
-  return scoped.filter((trade) => isDateInRange(trade.closedAt ?? trade.openedAt, bounds))
+  return scoped.filter((trade) => isDateInRange(
+    trade.closedTradingDayKey ?? trade.closedAt ?? trade.openedAt,
+    bounds,
+  ))
 }
 
 export function writeAnalysisScope(

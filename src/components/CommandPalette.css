@@ -1,7 +1,7 @@
 .cmdk-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -25,11 +25,11 @@
 
 .cmdk-overlay.is-closing {
   pointer-events: none;
-  animation: cmdkFadeOut 110ms var(--ease-out) forwards;
+  animation: cmdkFadeOut 110ms var(--ease-in) forwards;
 }
 
 .cmdk-overlay.is-closing .cmdk {
-  animation: cmdkOut 100ms var(--ease-out) forwards;
+  animation: cmdkOut 100ms var(--ease-in) forwards;
 }
 
 @keyframes cmdkFadeOut {
@@ -126,19 +126,19 @@
   color: var(--text-muted);
   font-size: var(--type-caption-size);
   font-weight: var(--type-metadata-weight);
-  padding: 8px 8px 4px;
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: var(--z-content);
   background: var(--popover-bg);
 }
 .cmdk-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   width: 100%;
   height: 38px;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   border-radius: var(--radius-8);
   color: var(--text-body);
   font-size: var(--type-row-size);
@@ -175,7 +175,7 @@
   flex-shrink: 0;
 }
 .cmdk-empty {
-  padding: 32px;
+  padding: var(--sp-8);
   text-align: center;
   color: var(--text-muted);
   font-size: var(--type-body-size);
@@ -184,7 +184,7 @@
 .cmdk-result-note {
   position: sticky;
   bottom: 0;
-  padding: 8px 10px 6px;
+  padding: var(--sp-2) 10px 6px;
   border-top: 1px solid var(--border-subtle);
   background: var(--popover-bg);
   color: var(--text-muted);

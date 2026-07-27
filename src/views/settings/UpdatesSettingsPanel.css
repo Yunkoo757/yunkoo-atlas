@@ -16,12 +16,12 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  padding: 16px 0 14px;
+  gap: var(--sp-6);
+  padding: var(--sp-4) 0 14px;
 }
 
 .update-section-head h2 {
-  margin: 0 0 4px;
+  margin: 0 0 var(--sp-1);
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
@@ -70,8 +70,8 @@
 .update-token-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 16px;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-4);
 }
 
 .update-token-row input {
@@ -118,14 +118,16 @@
 
 .update-progress span {
   display: block;
+  width: 100%;
   height: 100%;
+  transform-origin: left center;
   border-radius: inherit;
   background: var(--accent);
-  transition: width var(--dur-base) var(--ease-out);
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
 .update-help {
-  padding: 0 0 16px;
+  padding: 0 0 var(--sp-4);
 }
 
 .update-help code {
@@ -135,7 +137,7 @@
 .update-security-note {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--sp-2);
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
   line-height: 1.5;
@@ -146,7 +148,7 @@
   margin-top: 1px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .update-section-head,
   .update-token-row {
     align-items: stretch;

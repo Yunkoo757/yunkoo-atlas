@@ -140,6 +140,7 @@ export function TradeList({
   scrollParentRef,
   onOpen,
   onSelect,
+  onClearSelection,
   onToggleStar,
   onContextMenu,
   onCreate,
@@ -154,6 +155,7 @@ export function TradeList({
   scrollParentRef?: RefObject<HTMLElement | null>
   onOpen: (trade: Trade) => void
   onSelect: (trade: Trade) => void
+  onClearSelection: () => void
   onToggleStar: (trade: Trade) => void
   onContextMenu: (event: React.MouseEvent, trade: Trade) => void
   onCreate: () => void
@@ -161,6 +163,7 @@ export function TradeList({
   recordLabel?: string
 }) {
   const listRef = useRef<HTMLDivElement>(null)
+  const [selectionMode, setSelectionMode] = useState(false)
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
   const allTrades = useStore((state) => state.trades)
   /** 分组展开进度 0..1；缺省视为 1 */
@@ -358,8 +361,24 @@ export function TradeList({
   const virtualItems = virtualizer.getVirtualItems()
 
   return (
-    <div
-      className="trade-list trade-list-virtual"
+    <>
+      <button
+        type="button"
+        className={'trade-list-mobile-select-toggle' + (selectionMode || selectedIds.size > 0 ? ' is-active' : '')}
+        aria-pressed={selectionMode || selectedIds.size > 0}
+        onClick={() => {
+          if (selectionMode || selectedIds.size > 0) {
+            setSelectionMode(false)
+            onClearSelection()
+          } else {
+            setSelectionMode(true)
+          }
+        }}
+      >
+        {selectionMode || selectedIds.size > 0 ? '完成选择' : '选择'}
+      </button>
+      <div
+      className={'trade-list trade-list-virtual' + (selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : '')}
       role="list"
       ref={listRef}
       style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
@@ -459,6 +478,7 @@ export function TradeList({
           </div>
         )
       })}
-    </div>
+      </div>
+    </>
   )
 }

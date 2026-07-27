@@ -14,7 +14,7 @@
 
 .ui-tooltip {
   position: fixed;
-  z-index: 650;
+  z-index: var(--z-tooltip);
   width: max-content;
   max-width: min(280px, calc(100vw - 16px));
   padding: 5px 7px;

@@ -242,14 +242,14 @@ async function run(): Promise<void> {
     input.dispatchEvent(new Event('change', { bubbles: true }))
 
     await waitFor(
-      () => document.querySelector('[role="dialog"]')?.textContent?.includes('恢复完整交易库') === true,
+      () => document.querySelector('[role="dialog"]')?.textContent?.includes('恢复完整资料库') === true,
       '归档校验成功后必须显示影响预览',
     )
     assert(document.body.textContent?.includes('恢复资料'), '影响预览必须展示归档资料身份')
     assert(document.body.textContent?.includes('1'), '影响预览必须展示记录和附件数量')
 
     const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '替换当前交易库')
+      .find((button) => button.textContent?.trim() === '替换当前资料库')
     assert(confirm, '缺少明确的整库替换确认操作')
     confirm.click()
 

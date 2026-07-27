@@ -31,7 +31,7 @@ export type TradeField =
   | 'session' | 'timeframe'
 
 const TRADE_FIELDS: { key: TradeField; label: string; required: boolean; type: string }[] = [
-  { key: 'symbol', label: '标的', required: true, type: 'string' },
+  { key: 'symbol', label: '品种', required: true, type: 'string' },
   { key: 'side', label: '方向', required: true, type: 'side' },
   { key: 'status', label: '状态', required: true, type: 'status' },
   { key: 'conviction', label: '信心度', required: false, type: 'conviction' },
@@ -280,7 +280,7 @@ export function mapRowToTrade(
     switch (field) {
       case 'symbol':
         trade.symbol = raw.trim()
-        if (!trade.symbol && info?.required) errors.push(`标的为空`)
+        if (!trade.symbol && info?.required) errors.push('品种为空')
         break
       case 'side': {
         const s = parseSide(raw)

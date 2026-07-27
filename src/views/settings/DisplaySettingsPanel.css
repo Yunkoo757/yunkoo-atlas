@@ -7,11 +7,11 @@
 }
 
 .display-settings-card + .display-settings-card {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
 }
 
 .display-settings-hint {
-  padding: 0 10px 8px;
+  padding: 0 10px var(--sp-2);
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
   line-height: 1.45;
@@ -23,7 +23,7 @@
 }
 
 .display-section-head {
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-2);
 }
 .display-section-head h2 {
   margin: 0 0 3px;
@@ -45,7 +45,7 @@
   justify-content: space-between;
   width: 100%;
   min-height: 52px;
-  padding: 8px 10px;
+  padding: var(--sp-2) 10px;
   border-radius: var(--radius-6);
   color: var(--text-secondary);
   text-align: left;

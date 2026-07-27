@@ -5,7 +5,7 @@
   bottom: 24px;
   left: 0;
   right: 0;
-  z-index: 9999;
+  z-index: var(--z-toast);
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -14,9 +14,9 @@
 .toast-panel {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   max-width: calc(100vw - 24px);
-  padding: 8px 10px 8px 14px;
+  padding: var(--sp-2) 10px var(--sp-2) 14px;
   border-radius: var(--radius-8);
   background: var(--popover-bg);
   border: 0.8px solid var(--popover-border);
@@ -29,7 +29,7 @@
 
 .toast-panel button {
   min-height: 30px;
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
   color: var(--accent);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);

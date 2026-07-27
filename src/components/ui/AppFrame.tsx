@@ -10,8 +10,9 @@ type AppFrameProps = {
 export function AppFrame({ sidebar, mobileNavigation, children }: AppFrameProps) {
   return (
     <div className="ui-app-frame">
+      <a className="skip-link" href="#main-content">跳到主内容</a>
       <div className="ui-desktop-sidebar">{sidebar}</div>
-      <main className="ui-main-frame">{children}</main>
+      <main id="main-content" className="ui-main-frame" tabIndex={-1}>{children}</main>
       <div className="ui-mobile-navigation">{mobileNavigation}</div>
     </div>
   )

@@ -30,7 +30,7 @@ export function StrategyIcon({
   return (
     <span
       className={
-        'strategy-icon' + (isNav ? ' strategy-icon--nav' : '') + (className ? ` ${className}` : '')
+        'strategy-icon' + (isNav ? ' is-nav' : '') + (className ? ` ${className}` : '')
       }
       style={
         isNav

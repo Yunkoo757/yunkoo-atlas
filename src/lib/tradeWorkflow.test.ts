@@ -129,6 +129,24 @@ export function testHistoricalTradeCompletedReviewTodayAppearsInCompletedQueue()
   )
 }
 
+export function testFocusReviewIsCompletedInsteadOfReturningToPendingQueue(): void {
+  const focused = {
+    ...base,
+    id: 'focused-review',
+    status: 'win',
+    exit: 110,
+    pnl: 10,
+    closedAt: '2026-07-12',
+    reviewStatus: 'focus',
+    reviewedAt: '2026-07-13T08:00:00.000Z',
+  } as Trade
+
+  const buckets = getTodayWorkflowBuckets([focused], '2026-07-13')
+
+  assert(buckets.reviewPending.length === 0, '重点关注表示已完成复盘，不得再次进入待复盘队列')
+  assert(buckets.completedToday[0]?.id === focused.id, '当天标记重点关注的记录应进入今日完成历史')
+}
+
 export function testReviewCompletionRecordsAndClearsItsOwnTimestamp(): void {
   const original = useStore.getState()
   const trade = {
@@ -151,6 +169,36 @@ export function testReviewCompletionRecordsAndClearsItsOwnTimestamp(): void {
       useStore.getState().trades[0]?.reviewedAt === null,
       'reopening a review should clear the old completion time',
     )
+  } finally {
+    useStore.setState({
+      trades: original.trades,
+      undoStack: original.undoStack,
+      redoStack: original.redoStack,
+    })
+  }
+}
+
+export function testFocusReviewUsesTheSameCompletionTimestampAndReopenRules(): void {
+  const original = useStore.getState()
+  const trade = {
+    ...base,
+    id: 'focus-review-timestamp',
+    status: 'win',
+    exit: 110,
+    pnl: 10,
+    closedAt: '2026-07-12',
+  } as Trade
+  useStore.setState({ trades: [trade], undoStack: [], redoStack: [] })
+
+  try {
+    useStore.getState().updateTradeData(trade.id, { reviewStatus: 'focus' })
+    const focused = useStore.getState().trades[0]!
+    assert(Boolean(focused.reviewedAt), '重点关注也是一次已完成复盘，必须记录完成时间')
+
+    useStore.getState().updateTradeData(trade.id, { pnl: 20 })
+    const reopened = useStore.getState().trades[0]!
+    assert(reopened.reviewStatus === 'unreviewed', '修改重点关注交易的结果后必须重新进入待复盘')
+    assert(reopened.reviewedAt === null, '重新进入待复盘时必须清除旧完成时间')
   } finally {
     useStore.setState({
       trades: original.trades,

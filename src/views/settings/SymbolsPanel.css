@@ -1,7 +1,7 @@
 .symbols-layout {
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  gap: 20px;
+  gap: var(--sp-5);
   align-items: start;
 }
 
@@ -16,8 +16,8 @@
 
 .symbols-add-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
 }
 
 .symbols-input {
@@ -33,7 +33,6 @@
   outline: none;
 }
 
-.symbols-input:focus,
 .symbols-input:focus-visible {
   background: var(--field-bg-focus);
   border-color: var(--field-border-focus);
@@ -108,18 +107,18 @@
 .symbols-item-select {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   flex: 1;
   align-self: stretch;
   min-width: 0;
-  padding: 0 8px 0 2px;
+  padding: 0 var(--sp-2) 0 2px;
   color: inherit;
   font-size: inherit;
   text-align: left;
 }
 
 .symbols-empty {
-  margin: 12px 0 0;
+  margin: var(--sp-3) 0 0;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
 }
@@ -127,7 +126,7 @@
 .symbols-preview {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   margin-bottom: 18px;
 }
 
@@ -155,16 +154,16 @@
 .symbols-preset-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
 }
 
 .symbols-preset {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   min-height: 36px;
-  padding: 6px 8px;
+  padding: 6px var(--sp-2);
   color: var(--text-secondary);
   font-size: var(--fs-mini);
   text-align: left;
@@ -193,10 +192,10 @@
 .symbols-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .symbols-layout {
     grid-template-columns: 1fr;
   }

@@ -50,6 +50,14 @@ const assetPurgeAuthorizations = new Map<string, { token: string; signature: str
 let exitPreparedStorage: LibraryStorage | null = null
 const operationGate = new LibraryOperationGate()
 
+function startLibraryAutoBackup(target: LibraryStorage): void {
+  startAutoBackup(target, undefined, undefined, () => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send('backup:auto-failed')
+    }
+  })
+}
+
 type LibrarySwitchMode = 'create' | 'open'
 
 interface PreparedLibrarySwitch {
@@ -153,7 +161,7 @@ export async function commitStorageExit(
         await current.open()
         storage = current
         if (restartAutoBackup) {
-          startAutoBackup(current)
+          startLibraryAutoBackup(current)
           autoBackupStarted = true
         }
       },
@@ -196,7 +204,7 @@ async function reopenStorageWithAutoBackup(): Promise<LibraryStorage> {
     }
     reopened.loadSnapshot()
     ensureLibraryDirs(location.resolvedPath)
-    startAutoBackup(reopened)
+    startLibraryAutoBackup(reopened)
   } catch (error) {
     reopened.release()
     throw error
@@ -260,7 +268,7 @@ function activateLibraryCandidate(
     autoBackupStarted = false
     if (!previous) return null
     try {
-      startAutoBackup(previous)
+      startLibraryAutoBackup(previous)
       autoBackupStarted = true
       return null
     } catch (error) {
@@ -272,7 +280,7 @@ function activateLibraryCandidate(
     // 打开已有库时，只有完整校验通过后才补齐运行期目录。
     ensureLibraryDirs(resolvedPath)
     // 先确认候选库的备份目录可用；此时旧库仍保持打开，可完整回滚。
-    startAutoBackup(candidate)
+    startLibraryAutoBackup(candidate)
     autoBackupStarted = true
   } catch (error) {
     const rollbackError = restorePreviousBackup()
@@ -501,7 +509,7 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('storage:open', async () => withStorage(async (lib) => {
     // 首次打开时启动自动备份（幂等防护）
     if (!autoBackupStarted) {
-      startAutoBackup(lib)
+      startLibraryAutoBackup(lib)
       autoBackupStarted = true
     }
     return true
@@ -732,7 +740,7 @@ export function registerLibraryIpc(): void {
 
   // 启动自动备份（15 分钟 + 退出前）
   ipcMain.handle('backup:startAuto', async () => withStorage((lib) => {
-    startAutoBackup(lib)
+    startLibraryAutoBackup(lib)
     return true
   }))
 

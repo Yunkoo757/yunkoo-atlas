@@ -100,7 +100,7 @@ async function run(): Promise<void> {
 
     await waitFor(() => Boolean(document.querySelector('a.db-strat')), '策略分析链接未出现')
     const selectedKind = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
-      .find((button) => button.textContent?.trim() === '模拟')
+      .find((button) => button.textContent?.trim() === '模拟盘')
     const selectedRange = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
       .find((button) => button.textContent?.trim() === '本周')
     assert(selectedKind?.getAttribute('aria-pressed') === 'true', '仪表盘必须从 URL 恢复交易类型')

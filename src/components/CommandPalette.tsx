@@ -145,7 +145,7 @@ function CommandPaletteDialog({
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', hint: shortcutHint('nav.dashboard'), run: go('/dashboard') },
       { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', hint: shortcutHint('nav.favorites'), run: go('/favorites') },
       { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', hint: shortcutHint('nav.missed'), run: go('/missed') },
-      { id: 'n-sim', group: '导航', icon: <FlaskConical size={16} />, label: '模拟回测', hint: shortcutHint('nav.sim'), run: go('/sim') },
+      { id: 'n-sim', group: '导航', icon: <FlaskConical size={16} />, label: '模拟盘', hint: shortcutHint('nav.sim'), run: go('/sim') },
     ]
     const periodNav: Cmd[] = CALENDAR_PERIODS.map((slug) => ({
       id: 'n-period-' + slug,
@@ -259,7 +259,7 @@ function CommandPaletteDialog({
 
     const tagWorkspaces = [
       { kind: 'live', path: '/list', group: '交易标签', unit: '笔交易' },
-      { kind: 'paper', path: '/sim', group: '模拟标签', unit: '笔模拟交易' },
+      { kind: 'paper', path: '/sim', group: '模拟盘标签', unit: '笔模拟盘记录' },
       { kind: 'case', path: '/review-cases', group: '案例标签', unit: '个案例' },
     ] as const
     const tagCandidates: TagCommandCandidate[] = []

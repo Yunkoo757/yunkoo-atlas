@@ -1,4 +1,4 @@
-import { fmtMoney, fmtPrice, fmtR } from '@/lib/format'
+import { fmtDate, fmtMoney, fmtPrice, fmtR } from '@/lib/format'
 import { calcR } from '@/lib/tradeCalc'
 
 function assert(condition: unknown, message: string): void {
@@ -18,4 +18,22 @@ export function testPrivacyModeMasksOnlyRealMoneyValues(): void {
   assert(fmtMoney(-88.38, true) === '****', '直播模式不得通过正负号泄露亏损金额')
   assert(fmtMoney(null, true) === '—', '没有填写的金额必须继续显示为空，而不是伪装成已隐藏数据')
   assert(fmtR(5.37) === '+5.37R', '直播模式只隐藏现金金额，不应改变 R 倍数')
+}
+
+export function testDateOnlyValuesDoNotShiftAcrossTimezones(): void {
+  const previousTimezone = process.env.TZ
+  try {
+    process.env.TZ = 'America/New_York'
+    assert(fmtDate('2026-07-27') === '7月27日', '日期型字符串不得因负时区显示为前一天')
+    assert(fmtDate('2026-01-01') === '1月1日', '日期型字符串不得跨年偏移')
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ
+    else process.env.TZ = previousTimezone
+  }
+}
+
+export function testRoundedZeroMoneyHasNoProfitSign(): void {
+  assert(fmtMoney(0.1 + 0.2 - 0.3) === '$0.00', '舍入为零的金额不得显示正号')
+  assert(fmtMoney(0.004) === '$0.00', '不足半分的正值不得显示为盈利')
+  assert(fmtMoney(-0.004) === '$0.00', '不足半分的负值不得显示为亏损负零')
 }

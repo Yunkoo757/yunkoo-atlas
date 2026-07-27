@@ -36,7 +36,7 @@
 
 .ui-filter-trigger {
   gap: 6px;
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
   margin-left: auto;
 }
 
@@ -51,7 +51,7 @@
 .ui-active-filters {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   min-width: 0;
   flex: 0 1 auto;
   /* overflow-x 非 visible 时，overflow-y 会被算成 auto，上下描边/焦点环会被裁 */
@@ -72,7 +72,7 @@
 }
 
 .ui-filter-chip {
-  gap: 4px;
+  gap: var(--sp-1);
   padding: 0 7px;
   white-space: nowrap;
 }

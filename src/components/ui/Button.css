@@ -32,6 +32,24 @@
 
 .ui-btn-lg {
   height: var(--modal-cta-height);
+  padding-inline: var(--modal-cta-padding-inline);
+  border-radius: var(--modal-cta-radius);
+  font-size: var(--modal-cta-font-size);
+}
+
+.ui-btn:active:not(:disabled),
+.dio-btn:active:not(:disabled),
+.symbols-btn:active:not(:disabled),
+.st-io:active:not(:disabled),
+.st-add:active:not(:disabled),
+.st-del-btn:active:not(:disabled),
+.empty-btn:active:not(:disabled),
+.csv-btn:active:not(:disabled),
+.nim-btn:active:not(:disabled),
+.sfm-btn:active:not(:disabled),
+.batch-action-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.94);
 }
 
 .ui-btn:disabled,

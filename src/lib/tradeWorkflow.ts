@@ -1,4 +1,4 @@
-import type { Trade } from '@/data/trades'
+import { isReviewCompleted, type Trade } from '@/data/trades'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
 
@@ -96,7 +96,7 @@ export function getTodayWorkflowBuckets(
     if (
       (truth.executionState === 'missed' ||
         (truth.executionState === 'closed' && truth.isResultComplete)) &&
-      trade.reviewStatus !== 'reviewed'
+      !isReviewCompleted(trade.reviewStatus)
     ) {
       reviewPending.push(trade)
       continue

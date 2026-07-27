@@ -238,7 +238,7 @@ export function testLegacySecondarySidebarMetadataSupportsWorkspaceMigration(): 
     '旧快捷入口只用于迁移，不得混入时间和策略路由',
   )
   const paper = SECONDARY_NAV.find((item) => item.id === 'paper')
-  assert(paper?.label === '模拟回测', 'paper 项侧栏文案应为「模拟回测」')
+  assert(paper?.label === '模拟盘', 'paper 项侧栏文案应为「模拟盘」')
   assert(
     JSON.stringify(DEFAULT_SIDEBAR_PINS) === JSON.stringify(['active', 'favorites', 'missed', 'paper']),
     '默认 sidebarPins 应保留四项系统入口用于历史配置迁移',

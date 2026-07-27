@@ -26,13 +26,13 @@
   background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
-  padding: 18px 12px 12px 14px;
+  padding: 18px var(--sp-3) var(--sp-3) 14px;
   gap: 0;
   user-select: none;
   /* 滚动下放到 .sb-scroll，避免裁掉顶栏 Create 按钮 ::after 外环/投影 */
   overflow: hidden;
   font-family: var(--font-ui);
-  font-size: 16px;
+  font-size: var(--type-ui-base-size);
   line-height: normal;
 }
 
@@ -48,7 +48,7 @@
 .sb-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   height: 32px;
   min-height: 32px;
   margin-bottom: 18px;
@@ -73,7 +73,7 @@
   max-width: 100%;
   min-width: 0;
   height: 32px;
-  padding: 0 4px 0 2px;
+  padding: 0 var(--sp-1) 0 2px;
   border-radius: var(--radius-10);
   transition: background var(--dur-fast) var(--ease-out);
 }
@@ -125,7 +125,7 @@
 .sb-header-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   flex-shrink: 0;
   margin-left: auto;
   overflow: visible;
@@ -149,7 +149,7 @@
   margin: 0;
   padding: 0 2px;
   border: 0;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   color: lch(60.307% 1 272 / 1);
   background: transparent;
   box-shadow: none;
@@ -186,13 +186,10 @@
  * 阴影画在元素自身（不用 ::after），避免 Electron 上伪元素外环发虚/发脏
  */
 .sb-hbtn-create {
-  z-index: 1;
+  z-index: var(--z-content);
   color: lch(60.307% 1 272 / 1);
   background: lch(10.691% 0.493 272 / 1);
-  box-shadow:
-    0 0 0 1px lch(100% 0 0 / 0.088),
-    0 4px 4px -1px lch(0% 0 0 / 0.04),
-    0 1px 1px 0 lch(0% 0 0 / 0.08);
+  box-shadow: var(--sidebar-create-shadow);
 }
 .sb-hbtn-create::after {
   content: none;
@@ -201,16 +198,13 @@
 .sb-hbtn-create:active {
   color: lch(100% 0 272 / 1);
   background: lch(15.32% 0.879 272 / 1);
-  box-shadow:
-    0 0 0 1px lch(100% 0 0 / 0.088),
-    0 4px 4px -1px lch(0% 0 0 / 0.04),
-    0 1px 1px 0 lch(0% 0 0 / 0.08);
+  box-shadow: var(--sidebar-create-shadow);
 }
 
 .sb-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
   margin-top: 26px;
 }
 .sb-primary {
@@ -221,7 +215,7 @@
   align-items: center;
   height: 24px;
   padding: 0 10px;
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-1);
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.02em;
@@ -295,7 +289,7 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item:hover > svg {
   color: var(--sb-text-strong);
 }
-.sb-item:hover .strategy-icon--nav {
+.sb-item:hover .is-nav {
   opacity: 1;
 }
 .sb-item.is-active {
@@ -305,7 +299,7 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item.is-active > svg {
   color: color-mix(in srgb, var(--text-secondary) 88%, var(--text-primary));
 }
-.sb-item.is-active .strategy-icon--nav {
+.sb-item.is-active .is-nav {
   opacity: 1;
 }
 
@@ -349,16 +343,16 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 /* 策略项：默认灰，选中才显策略色 */
-.sb-item .strategy-icon--nav {
+.sb-item .is-nav {
   color: var(--sb-text);
 }
-.sb-item .strategy-icon--nav svg {
+.sb-item .is-nav svg {
   color: inherit;
 }
-.sb-item.is-active .strategy-icon--nav {
+.sb-item.is-active .is-nav {
   color: var(--sb-strategy-color);
 }
-.sb-item.is-active .strategy-icon--nav svg {
+.sb-item.is-active .is-nav svg {
   color: inherit;
 }
 .sb-item.is-dragging {
@@ -394,7 +388,7 @@ html[data-ui-settled='1'] .sb-item {
 
 .sb-subitem {
   position: relative;
-  padding-left: 32px;
+  padding-left: var(--sp-8);
   color: var(--text-tertiary);
   font-weight: var(--font-weight-normal);
 }
@@ -404,7 +398,7 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-context .sb-section-label {
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-1);
 }
 
 .sb-context .sb-subitem::before {
@@ -434,5 +428,14 @@ html[data-ui-settled='1'] .sb-item {
 @media (max-width: 899px) {
   .sidebar {
     display: none;
+  }
+}
+
+@media (max-width: 899px), (pointer: coarse) {
+  .sb-workspace-capability-menu {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    opacity: 1;
+    pointer-events: auto;
   }
 }

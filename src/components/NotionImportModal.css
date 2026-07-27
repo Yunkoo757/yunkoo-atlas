@@ -25,7 +25,7 @@
 .nim-drop-icon {
   width: 28px;
   height: 28px;
-  margin: 0 auto 8px;
+  margin: 0 auto var(--sp-2);
   border-radius: var(--radius-8);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -35,7 +35,7 @@
 }
 
 .nim-drop-title {
-  margin: 0 0 4px;
+  margin: 0 0 var(--sp-1);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-primary);
@@ -58,7 +58,7 @@
   align-items: center;
   gap: 10px;
   min-height: 30px;
-  padding: 5px 8px;
+  padding: 5px var(--sp-2);
   border-radius: var(--radius-8);
 }
 
@@ -91,7 +91,7 @@
   align-items: center;
   height: 18px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--pos) 14%, transparent);
   color: var(--pos);
   font-size: var(--fs-micro);
@@ -119,14 +119,14 @@
 .nim-preview-area {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
   overflow: hidden;
 }
 
 .nim-preview-summary {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   color: var(--text-secondary);
 }
 
@@ -140,7 +140,7 @@
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .nim-import-target-label {
@@ -152,7 +152,7 @@
 .nim-import-target-options {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--sp-1);
   padding: 3px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
@@ -162,7 +162,7 @@
 .nim-import-target-options button {
   min-width: 0;
   min-height: 46px;
-  padding: 6px 8px;
+  padding: 6px var(--sp-2);
   border: 1px solid transparent;
   border-radius: var(--radius-6);
   display: grid;
@@ -270,7 +270,7 @@
 .nim-dup-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .nim-dup-msg {
@@ -293,7 +293,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: flex;
-  gap: 4px;
+  gap: var(--sp-1);
   flex-wrap: wrap;
 }
 
@@ -373,7 +373,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   padding: 40px 14px;
 }
 
@@ -401,7 +401,7 @@
 
 .nim-error {
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--radius-6);
   background: var(--error-action-border);
   color: var(--neg);

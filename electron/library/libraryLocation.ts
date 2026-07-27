@@ -39,8 +39,9 @@ type SelectedLocation = {
   expectedLibraryId?: string
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function userFacingReason(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+  return /[\u3400-\u9fff]/.test(message) ? message : fallback
 }
 
 function isUnavailableError(error: unknown): boolean {
@@ -57,8 +58,8 @@ function parseConfig(
   let value: unknown
   try {
     value = JSON.parse(raw)
-  } catch (error) {
-    return { kind: 'invalid', configuredPath: configPath, reason: `资料库配置 JSON 已损坏：${errorMessage(error)}` }
+  } catch {
+    return { kind: 'invalid', configuredPath: configPath, reason: '资料库配置 JSON 已损坏，请重新选择资料库' }
   }
   if (typeof value !== 'object' || value === null) {
     return { kind: 'invalid', configuredPath: configPath, reason: '资料库配置格式无效' }
@@ -85,11 +86,11 @@ export async function resolveLibraryLocation(
   let configKind: 'missing' | 'file' | 'directory'
   try {
     configKind = dependencies.inspectPath(dependencies.configPath)
-  } catch (error) {
+  } catch {
     return {
       kind: 'unavailable',
       configuredPath: dependencies.configPath,
-      reason: `无法读取资料库配置：${errorMessage(error)}`,
+      reason: '无法读取资料库配置，请检查文件权限',
     }
   }
 
@@ -105,7 +106,7 @@ export async function resolveLibraryLocation(
       return {
         kind: isUnavailableError(error) ? 'unavailable' : 'invalid',
         configuredPath: dependencies.configPath,
-        reason: `无法读取资料库配置：${errorMessage(error)}`,
+        reason: userFacingReason(error, '无法读取资料库配置，请检查文件权限'),
       }
     }
   } else if (dependencies.environmentPath?.trim()) {
@@ -126,7 +127,11 @@ export async function resolveLibraryLocation(
   try {
     targetKind = dependencies.inspectPath(selected.resolvedPath)
   } catch (error) {
-    return { kind: 'unavailable', configuredPath: selected.configuredPath, reason: errorMessage(error) }
+    return {
+      kind: 'unavailable',
+      configuredPath: selected.configuredPath,
+      reason: userFacingReason(error, '无法访问资料库目录，请检查位置与权限'),
+    }
   }
   if (targetKind === 'missing') {
     return selected.source === 'default'
@@ -139,7 +144,11 @@ export async function resolveLibraryLocation(
   try {
     dependencies.assertReadableWritable(selected.resolvedPath)
   } catch (error) {
-    return { kind: 'unavailable', configuredPath: selected.configuredPath, reason: `资料库目录不可读写：${errorMessage(error)}` }
+    return {
+      kind: 'unavailable',
+      configuredPath: selected.configuredPath,
+      reason: userFacingReason(error, '资料库目录不可读写，请检查磁盘与文件夹权限'),
+    }
   }
 
   let manifest: { libraryId: string }
@@ -149,7 +158,7 @@ export async function resolveLibraryLocation(
     return {
       kind: isUnavailableError(error) ? 'unavailable' : 'needs-recovery',
       configuredPath: selected.configuredPath,
-      reason: errorMessage(error),
+      reason: userFacingReason(error, '资料库内容无法读取，请从备份恢复或选择其他资料库'),
     }
   }
   if (selected.expectedLibraryId && selected.expectedLibraryId !== manifest.libraryId) {

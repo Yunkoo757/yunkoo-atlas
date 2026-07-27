@@ -27,7 +27,7 @@ export function resolveWorkbenchEmptyState(options: {
   const recordLabel = options.recordKind === 'case'
     ? '案例记录'
     : options.recordKind === 'paper'
-      ? '模拟交易'
+      ? '模拟盘记录'
       : '交易'
   if (options.totalCount === 0) {
     return {
@@ -42,8 +42,8 @@ export function resolveWorkbenchEmptyState(options: {
   if (options.workspaceCount === 0) {
     return {
       kind: 'workspace',
-      title: `还没有${recordLabel}`,
-      hint: `新建第一条${recordLabel}，开始积累复盘样本。`,
+      title: `当前工作区暂无${recordLabel}`,
+      hint: `资料库中已有其他类型的记录；你可以新建${recordLabel}，开始积累这一类复盘样本。`,
       action: 'create',
       actionLabel: `新建${recordLabel}`,
     }

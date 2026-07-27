@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import {
+  isReviewCompleted,
   type Trade,
   type TradeStatus,
   type Conviction,
@@ -125,7 +126,7 @@ function sameResultSemanticValue(left: unknown, right: unknown): boolean {
 }
 
 function reopenReviewAfterResultChange(previous: Trade, next: Trade): Trade {
-  if (previous.reviewStatus !== 'reviewed') return next
+  if (!isReviewCompleted(previous.reviewStatus)) return next
   const previousInitialRisk = previous.initialStopLoss ?? previous.stopLoss ?? null
   const nextInitialRisk = next.initialStopLoss ?? next.stopLoss ?? null
   const changed =
@@ -1021,9 +1022,9 @@ export const useStore = create<State>()((set, get) => ({
           if (!previous) return s
           const reviewPatch = patch.reviewStatus === undefined
             ? {}
-            : patch.reviewStatus === 'reviewed'
+            : isReviewCompleted(patch.reviewStatus)
               ? {
-                  reviewedAt: previous.reviewStatus === 'reviewed'
+                  reviewedAt: isReviewCompleted(previous.reviewStatus)
                     ? previous.reviewedAt ?? new Date().toISOString()
                     : new Date().toISOString(),
                 }

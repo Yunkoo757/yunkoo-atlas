@@ -1,4 +1,4 @@
-import type { Trade } from '@/data/trades'
+import { isReviewCompleted, type Trade } from '@/data/trades'
 import type {
   MonthlyRiskLimit,
   RiskOverrideEvent,
@@ -162,7 +162,7 @@ export function buildWeeklyReviewMetrics(trades: Trade[], missedTrades: Trade[] 
   }
   return {
     tradeCount: trades.length,
-    reviewedCount: trades.filter((trade) => trade.reviewStatus === 'reviewed').length,
+    reviewedCount: trades.filter((trade) => isReviewCompleted(trade.reviewStatus)).length,
     evaluatedCount: summary.evaluatedCount,
     winCount: summary.winCount,
     lossCount: summary.lossCount,
@@ -320,7 +320,7 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
         }
       : review
     const current = byWeek.get(review.weekStart)
-    if (!current || normalized.updatedAt >= current.updatedAt) byWeek.set(normalized.weekStart, normalized)
+    if (!current || normalized.updatedAt > current.updatedAt) byWeek.set(normalized.weekStart, normalized)
   }
   return [...byWeek.values()].sort((left, right) => right.weekStart.localeCompare(left.weekStart))
 }

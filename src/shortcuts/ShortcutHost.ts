@@ -32,7 +32,6 @@ export function useShortcutHost({
 }) {
   const navigate = useNavigate()
   const { pathname, search, state: locationState } = useLocation()
-  const trades = useStore((s) => s.trades)
   const openComposer = useStore((s) => s.openComposer)
   const closeComposer = useStore((s) => s.closeComposer)
   const composerOpen = useStore((s) => s.composerOpen)
@@ -128,6 +127,7 @@ export function useShortcutHost({
       },
 
       'trade.prev': () => {
+        const trades = useStore.getState().trades
         const listContext = useShortcutStore.getState().listContext
         const param = pathname.replace(/^\/trade\//, '')
         const trade = findTradeByRouteParam(trades, param)
@@ -136,6 +136,7 @@ export function useShortcutHost({
         if (next) navigate(tradeDetailPath(next), { state: locationState })
       },
       'trade.next': () => {
+        const trades = useStore.getState().trades
         const listContext = useShortcutStore.getState().listContext
         const param = pathname.replace(/^\/trade\//, '')
         const trade = findTradeByRouteParam(trades, param)
@@ -144,6 +145,7 @@ export function useShortcutHost({
         if (next) navigate(tradeDetailPath(next), { state: locationState })
       },
       'trade.backToList': () => {
+        const trades = useStore.getState().trades
         const listContext = useShortcutStore.getState().listContext
         const param = pathname.replace(/^\/trade\//, '')
         const trade = findTradeByRouteParam(trades, param)
@@ -173,7 +175,6 @@ export function useShortcutHost({
     pathname,
     search,
     locationState,
-    trades,
     lightbox,
     cmdkOpen,
     composerOpen,

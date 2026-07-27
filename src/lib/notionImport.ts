@@ -186,9 +186,13 @@ function parseNotionMoney(raw: string): number | null {
   return isNaN(n) ? null : n
 }
 
-function parseNotionDate(raw: string): string | null {
+export function parseNotionDate(raw: string): string | null {
   const v = raw.trim()
   if (!v) return null
+  const isoMatch = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/)
+  if (isoMatch) {
+    return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`
+  }
   const slashMatch = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
   if (slashMatch) {
     return `${slashMatch[1]}-${String(slashMatch[2]).padStart(2, '0')}-${String(slashMatch[3]).padStart(2, '0')}`
@@ -484,7 +488,7 @@ function buildTradeFromFrontmatter(
 
   // Symbol
   const symbol = stripNotionUrl(fm['symbol'] ?? '').toUpperCase()
-  if (!symbol) errors.push('标的行为空')
+  if (!symbol) errors.push('品种行为空')
 
   // Date
   const dateStr = stripNotionUrl(fm['date'] ?? '')

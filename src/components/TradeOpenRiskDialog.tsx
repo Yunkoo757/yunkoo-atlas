@@ -265,7 +265,7 @@ export function TradeOpenRiskDialog() {
             <strong>{policy ? `${policy.effectiveTradingDay} 起生效` : '当前无有效规则'}</strong>
           </div>
           <div>
-            <span>每 R 风险</span>
+            <span>1R 金额</span>
             <strong>{policy ? (privacyMode ? '****' : fmtMoney(policy.riskAmount)) : '—'}</strong>
           </div>
           <p>{policy?.disciplineText || '先补齐风险规则与缺失数据，再决定是否继续开仓。'}</p>

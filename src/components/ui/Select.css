@@ -7,11 +7,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--sp-2);
   width: 100%;
   min-width: 0;
-  height: 30px;
-  padding: 0 8px 0 9px;
+  height: var(--field-height-md);
+  padding: 0 var(--sp-2) 0 9px;
   color: var(--text-secondary);
   background: var(--field-bg);
   border: 1px solid var(--field-border);
@@ -75,8 +75,8 @@
 
 .ui-select-menu {
   position: fixed;
-  z-index: 1200;
-  padding: 4px;
+  z-index: var(--z-popover);
+  padding: var(--sp-1);
   overflow-y: auto;
   font-family: var(--font-ui);
   font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
@@ -102,10 +102,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--sp-2);
   width: 100%;
-  height: 30px;
-  padding: 0 8px;
+  height: var(--field-height-md);
+  padding: 0 var(--sp-2);
   border-radius: var(--radius-4);
   color: var(--text-secondary);
   font-size: var(--fs-mini);
@@ -145,16 +145,27 @@
   background: var(--bg-hover);
 }
 
+.ui-select-option:active:not(:disabled) {
+  background: var(--bg-selected);
+  transform: translateY(1px);
+}
+
 .ui-select-option[aria-selected='true'] {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--accent) 11%, var(--bg-hover));
 }
 
 .ui-select-option:disabled {
-  cursor: default;
+  cursor: not-allowed;
   color: var(--text-quaternary);
   background: transparent;
   opacity: 0.55;
+}
+
+@media (max-width: 899px), (pointer: coarse) {
+  .ui-select-option {
+    min-height: 44px;
+  }
 }
 
 @keyframes uiSelectIn {

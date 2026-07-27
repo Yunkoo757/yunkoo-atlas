@@ -12,29 +12,47 @@
   --color-bg-primary: lch(4.52% 0.3 272);
   --color-bg-secondary: lch(9.02% 2.1 272 / 1);
   --color-bg-tertiary: lch(11.27% 3 272 / 1);
-  --color-bg-quaternary: lch(7.22% 0.75 272 / 1);
-  --bg-base-color: var(--color-bg-primary);
   --bg-sidebar-color: var(--bg-color);
 
   /* —— 文字 —— */
   --color-text-primary: lch(96% 0.6 272 / 1);
   --color-text-secondary: lch(82% 1.1 272 / 1);
   --color-text-tertiary: lch(61.399% 1.15 272 / 1);
-  --color-text-quaternary: lch(36.308% 1.15 272 / 1);
+  --color-text-quaternary: lch(55% 1.15 272 / 1);
+  --color-text-disabled: lch(36.308% 1.15 272 / 1);
 
   /* —— 边框 —— */
   --color-border-primary: lch(8.84% 1.38 272 / 1);
   --color-border-secondary: lch(13.16% 1.38 272 / 1);
   --color-border-tertiary: lch(15.32% 1.38 272 / 1);
-  --bg-border-color: lch(13.16% 1.38 272 / 1);
 
   /* —— 品牌 / 焦点 —— */
   --accent: #5e6ad2;
-  /* 键盘焦点继续由控件自身的背景、边框或阴影表达，不额外绘制彩色框。 */
-  --focus-ring-color: transparent;
-  --focus-ring-outline: none;
-  --focus-ring-width: 0;
-  --ai-selection-bg: lch(61.399% 1.15 272 / 0.1);
+  /* 仅在键盘 focus-visible 时显示，确保深色界面中的当前位置可辨认。 */
+  --focus-ring-color: color-mix(in srgb, var(--accent) 78%, white);
+  --focus-ring-width: 2px;
+  --focus-ring-outline: var(--focus-ring-width) solid var(--focus-ring-color);
+
+  /* —— 全局浮层层级 —— */
+  --z-local-base: 0;
+  --z-content: 1;
+  --z-content-raised: 2;
+  --z-content-overlay: 4;
+  --z-sticky: 10;
+  --z-navigation-low: 20;
+  --z-navigation: 40;
+  --z-navigation-raised: 42;
+  --z-navigation-overlay: 50;
+  --z-navigation-panel: 52;
+  --z-navigation-action: 54;
+  --z-batch-action: 60;
+  --z-floating: 80;
+  --z-context: 900;
+  --z-modal: 1100;
+  --z-popover: 1200;
+  --z-tooltip: 1400;
+  --z-toast: 1500;
+  --z-critical: 1600;
 
   /* —— 弹出面板 popover —— */
   --popover-bg: lch(9.92% 0.75 272);
@@ -44,34 +62,25 @@
     0 1px 1px lch(0 0 0 / 0.125);
 
   /* —— 字体栈（对齐 Notion Web：Inter 主导拉丁；CJK 回退系统黑体）—— */
-  --font-regular: "Inter Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-    "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-  --font-ui-base: "Inter Atlas UI", "Inter Variable", "SF Pro Display", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
-  --font-display: var(--font-regular);
-  --font-monospace: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
+  --font-ui-base: "Inter Atlas UI", "Inter Variable", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
     Menlo, Courier, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
     monospace;
-  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Segoe UI", "Twemoji Mozilla", "Noto Color Emoji", "Android Emoji";
 
   /* —— 字号阶梯（真实值）—— */
-  --font-size-title1: 2.25rem;
   --font-size-title2: 1.5rem;
   --font-size-title3: 1.25rem;
   --font-size-large: 1.125rem;
-  --font-size-largePlus: 1.125rem;
   --font-size-regular: 0.9375rem;     /* 15px —— UI 主字号 */
-  --font-size-regularPlus: 0.9375rem;
   --font-size-small: 0.8125rem;       /* 13px */
-  --font-size-smallPlus: 0.8125rem;
   --font-size-mini: 0.75rem;          /* 12px */
-  --font-size-miniPlus: 0.75rem;
   --font-size-micro: 0.6875rem;       /* 11px */
+  --type-ui-base-size: 1rem;
+  --line-height-body: 1.5;
 
   /* —— 字重（对齐 Notion：常规 400）—— */
-  --font-weight-light: 300;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -80,27 +89,18 @@
   /* —— 圆角 —— */
   --control-border-radius: 8px;
   --editor-block-radius: 6px;
-  --settings-list-view-item-radius: 10px;
-  --panel-border-radius: 10px;
   --modal-border-radius: 14px;
   --radius-rounded: 9999px;
-
-  /* —— 过渡速度 —— */
-  --speed-quickTransition: 0.1s;
-  --speed-regularTransition: 0.25s;
-  --speed-slowTransition: 0.35s;
-  --speed-highlightFadeIn: 0s;
-  --speed-highlightFadeOut: 0.15s;
+  --modal-overlay-padding: 16px;
+  --modal-header-padding: 18px 20px 15px;
+  --modal-body-padding: 18px 20px;
+  --modal-footer-padding: 10px 20px;
+  --touch-target: 44px;
 
   /* —— 缓动曲线 —— */
-  --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --ease-out-cubic: cubic-bezier(0.215, 0.61, 0.355, 1);
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
-  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
-  --ease-out-circ: cubic-bezier(0.075, 0.82, 0.165, 1);
   --ease-in-out-cubic: cubic-bezier(0.645, 0.045, 0.355, 1);
-  --ease-in-out-quart: cubic-bezier(0.77, 0, 0.175, 1);
 
   /* —— 布局尺寸 —— */
   --sidebar-width: 244px;
@@ -108,7 +108,11 @@
   --main-radius: 12px;
   --control-height: 28px;
   --modal-cta-height: 36px;
+  --modal-cta-padding-inline: 14px;
+  --modal-cta-radius: 8px;
+  --modal-cta-font-size: var(--type-row-size);
   --field-height-md: 32px;
+  --field-padding-inline: 10px;
   --trade-row-height: 44px;
   --trade-group-height: 36px;
   --filter-bar-height: 43px;
@@ -123,7 +127,6 @@
   --editor-letter-spacing: -0.00666667em;
   --editor-block-spacing: 1rem;
   --editor-list-inset: 1.5rem;
-  --editor-safe-area: 16px;
 
   /* ========== ② 语义别名（供组件使用） ========== */
 
@@ -133,19 +136,17 @@
   --bg-elevated: var(--color-bg-secondary);
   --bg-hover: var(--color-bg-tertiary);
   --bg-selected: lch(10.8% 2.4 272 / 1);
-  --bg-active: var(--bg-selected);
   --bg-sidebar: var(--bg-sidebar-color);
   /* 内嵌浅底（评分格、证据标签等 inset 面） */
   --bg-inset: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg-surface));
 
   /* 分组条底色统一；生命力靠三角/状态图标 tint */
   --surface-group: lch(7.67% 0.75 272 / 1);
-  --surface-group-completed: lch(7.67% 0.75 272 / 1);
   /* CollapseArrow / 分组 + 按状态着色 */
-  --group-chevron-started: lch(18.47% 7 78);
-  --group-chevron-todo: lch(18.47% 7 272);
-  --group-chevron-backlog: lch(18.47% 7 270);
-  --group-chevron-done: lch(18.47% 7 283);
+  --group-chevron-started: lch(50% 7 78);
+  --group-chevron-todo: lch(50% 7 272);
+  --group-chevron-backlog: lch(50% 7 270);
+  --group-chevron-done: lch(50% 7 283);
   --group-add-started: lch(62.672% 7 78);
   --group-add-todo: lch(62.672% 7 272);
   --group-add-backlog: lch(62.672% 7 270);
@@ -161,11 +162,12 @@
     0 4px 4px -1px lch(0 0 0 / 0.04),
     0 1px 1px 0 lch(0 0 0 / 0.08);
   --surface-control-shadow-active: 0 0 0 1px var(--surface-control-border-active);
+  --sidebar-create-shadow: 0 0 0 1px lch(100% 0 0 / 0.088);
   /* Tooltip / 浮层内抬升面（如快捷键 kbd） */
   --surface-raised: color-mix(in srgb, var(--popover-bg) 72%, white 14%);
 
   /* 列表排版校准 */
-  --list-text-strong: lch(100% 0 272 / 1);
+  --list-text-strong: lch(90.35% 1.15 272 / 1);
   --list-text-primary: lch(90.35% 1.15 272 / 1);
   --list-text-secondary: lch(61.399% 1.15 272 / 1);
   --list-group-title: lch(90.668% 1.375 272 / 1);
@@ -197,11 +199,11 @@
   --text-body: var(--color-text-secondary);
   --text-muted: var(--color-text-tertiary);
   --text-faint: color-mix(in srgb, var(--color-text-tertiary) 72%, var(--color-text-quaternary));
-  --text-disabled: var(--color-text-quaternary);
+  --text-disabled: var(--color-text-disabled);
 
   /* 品牌 */
   --accent-hover: color-mix(in srgb, var(--accent) 88%, white 12%);
-  --accent-text: #ffffff;
+  --accent-text: lch(96% 0.6 272 / 1);
 
   /* 侧栏导航/工作区图标高彩（仅选中态） */
   --nav-icon-today: lch(80% 90 85);
@@ -219,15 +221,13 @@
 
   /* 业务语义色（交易盈亏） */
   --pos: lch(72% 45 152);   /* 盈利绿 */
-  --neg: lch(58% 62 28);    /* 亏损红 */
+  --neg: lch(66% 58 28);    /* 亏损红，与盈利绿保持接近的视觉权重 */
   --neg-strong: color-mix(in srgb, var(--neg) 88%, white 12%);
   --warn: lch(80% 70 85);   /* 警告黄 */
   --pending: lch(68% 40 252); /* 待处理蓝 */
   --opportunity: #8290c9; /* 错过机会的复盘结果，不计入实盘绩效 */
 
   /* 信息标签层级：错误最强、时段次要、普通标签最弱 */
-  --tag-quiet-text: color-mix(in srgb, var(--text-tertiary) 82%, var(--text-quaternary));
-  --tag-quiet-border: color-mix(in srgb, var(--border-default) 58%, transparent);
   --tag-session-text: lch(70% 15 264);
   --tag-session-bg: lch(16% 4 264 / 0.2);
   --tag-session-border: lch(28% 7 264 / 0.26);
@@ -238,8 +238,6 @@
   /* 业务语义色背景（12%透明度，用于标签/徽章背景） */
   --pos-bg: color-mix(in srgb, var(--pos) 12%, transparent);
   --neg-bg: color-mix(in srgb, var(--neg) 12%, transparent);
-  --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
-  --pending-bg: color-mix(in srgb, var(--pending) 12%, transparent);
   --faint-bg: color-mix(in srgb, #fff 4%, transparent); /* 极淡背景，用于模糊标签 */
 
   /* 警告状态色（用于危险操作、错误提示等） */
@@ -253,7 +251,6 @@
   /* 语义别名 — 消除分散的 var(--xxx, fallback) 写法 */
   --success: var(--pos);
   --danger: var(--neg);
-  --color-danger: var(--neg);
 
   /* 叠层遮罩 */
   --overlay-bg: lch(0 0 0 / 0.45);
@@ -261,14 +258,12 @@
 
   /* 星标金；置顶关注另用雾蓝，避免与星标同色抢视线 */
   --star-color: #f2c94c;
-  --follow-color: #5b9fd4;
 
   /* 交易状态色（StatusIcon / 表格 chip 共用） */
   --status-open: var(--star-color);
   /* 盈利：使用盈亏绿 */
   --status-completed: var(--pos);
   /* 取消状态使用中性灰（非交易亏损）；亏损图标见 StatusIcon → --neg */
-  --status-canceled: var(--text-tertiary);
   /* 错过：低饱和暖石色，勿与亏损红或警告橙抢视线 */
   --status-missed: lch(58% 14 55);
   --status-urgent: var(--warn-action);
@@ -278,12 +273,9 @@
   --accent-color: var(--accent);
 
   /* 边框别名 */
-  --border-color: var(--border-default);
 
-  /* 字体别名 */
   /* UI 与挂载到 body 的 Portal 共用同一套字体，避免弹层回退。 */
   --font-ui: var(--font-ui-base);
-  --font-mono: var(--font-monospace);
 
   /* 间距阶梯（4px 基准） */
   --sp-1: 4px;
@@ -296,13 +288,7 @@
   --sp-8: 32px;
 
   /* 图标尺寸（方案 A：统一光学网格） */
-  --icon-xs: 12px;
-  --icon-sm: 14px;
   --icon-md: 16px;
-  --icon-lg: 18px;
-  --icon-xl: 20px;
-  --icon-2xl: 22px;
-  --icon-hero: 40px;
 
   /* 内容标 tile（A1：品种/策略同级软色 chip） */
   --icon-tile: var(--icon-md);
@@ -311,15 +297,13 @@
 
   /* 圆角别名 */
   --radius-4: 4px;
+  --radius-5: 5px;
   --radius-6: var(--editor-block-radius);
   --radius-8: var(--control-border-radius);
-  --radius-10: var(--settings-list-view-item-radius);
+  --radius-10: 10px;
   --radius-14: 14px;
-  --radius-sm: var(--radius-6);
-  --radius-md: var(--radius-8);
   --radius-lg: var(--radius-10);
   --radius-xl: var(--radius-10);
-  --radius-2xl: var(--radius-14);
   --radius-full: var(--radius-rounded);
 
   /* 字号别名 */
@@ -344,7 +328,6 @@
   --type-row-size: var(--font-size-small);
   --type-row-weight: var(--font-weight-medium);
   --type-body-size: var(--font-size-small);
-  --type-body-weight: var(--font-weight-normal);
   --type-metadata-size: var(--font-size-mini);
   --type-metadata-weight: var(--font-weight-medium);
   --type-caption-size: var(--font-size-micro);
@@ -360,17 +343,16 @@
 
   /* 缓动别名 */
   --ease-out: var(--ease-out-quart);
+  --ease-in: cubic-bezier(0.55, 0.085, 0.68, 0.53);
   --ease-in-out: var(--ease-in-out-cubic);
-  --dur-fast: var(--speed-quickTransition);
+  --dur-fast: var(--motion-fast);
   --dur-base: var(--motion-ui);
-  --dur-slow: var(--speed-regularTransition);
+  --dur-slow: var(--motion-panel);
   --motion-fast: 100ms;
   --motion-ui: 150ms;
   --motion-panel: 250ms;
-  --motion-page: 350ms;
 
   /* 布局 */
   --sidebar-w: var(--sidebar-width);
   --header-h: 43.5714px;
-  --frame-gap: var(--main-inset);
 }

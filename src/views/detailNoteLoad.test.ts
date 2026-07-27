@@ -57,6 +57,27 @@ export async function testMissingAttachmentResolutionKeepsPlaceholderReadOnly():
   )
 }
 
+export async function testMissingAttachmentRepairRemovesOnlyConfirmedMissingImages(): Promise<void> {
+  const module = await import('@/views/detailNoteLoad') as Record<string, unknown>
+  const repair = module.removeMissingAssetReferences as ((source: string, fallback: string) => {
+    html: string
+    removedCount: number
+  }) | undefined
+  if (typeof repair !== 'function') {
+    throw new Error('missing attachment recovery must expose an explicit repair operation')
+  }
+
+  const result = repair(
+    '<p>正文</p><img src="journal-asset://healthy"><img alt="丢失" src="journal-asset://missing-1">',
+    '<p>正文</p><img src="blob:healthy"><span data-missing-asset-id="missing-1">图片附件缺失</span>',
+  )
+
+  assert(result.removedCount === 1, 'repair must report exactly how many missing references were removed')
+  assert(result.html.includes('journal-asset://healthy'), 'repair must preserve healthy attachment references')
+  assert(!result.html.includes('journal-asset://missing-1'), 'repair must remove the confirmed missing reference')
+  assert(result.html.includes('正文'), 'repair must preserve written content')
+}
+
 export async function testSuccessfulPrepareCanProvideTheLatestFlushedNote(): Promise<void> {
   let resolvedHtml = ''
   const result = await loadDetailNote(
@@ -109,6 +130,7 @@ export async function testDetailViewExposesLoadingRetryAndReadOnlyRecovery(): Pr
   assert(detailSource.includes('复盘笔记载入中'), 'detail view should explain note loading instead of looking empty')
   assert(detailSource.includes('重新载入'), 'detail view should expose an explicit retry action')
   assert(detailSource.includes('当前为只读模式'), 'failed note load should explain its safe read-only state')
+  assert(detailSource.includes('移除缺失图片并继续编辑'), 'missing attachment state should expose an explicit repair action')
   assert(detailSource.includes('readOnly'), 'failed note load should render the fallback as read-only')
   assert(
     !detailSource.includes("key={`${trade.id}:note`}") &&

@@ -305,6 +305,9 @@ export function classifyDateBucket(
   const yesterday = addDays(today, -1)
   if (ymd === formatYmd(yesterday)) return 'yesterday'
 
+  // 未来计划不能因为只有本周下界而伪装成本周历史。
+  if (d > today) return { year: d.getFullYear(), month: d.getMonth() + 1 }
+
   // 本周（排除今日和昨日）
   const thisWeekStart = startOfWeek(today, weekStartsOn)
   if (d >= thisWeekStart) return 'this-week'

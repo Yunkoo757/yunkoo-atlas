@@ -1,8 +1,8 @@
 .board-scroll {
   flex: 1;
   display: flex;
-  gap: 8px;
-  padding: 8px 10px 14px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 10px 14px;
   overflow-x: auto;
 }
 .bd-col {
@@ -25,7 +25,7 @@
 .bd-col-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   min-height: 36px;
   padding: 6px 9px;
   border-bottom: 1px solid var(--border-subtle);
@@ -96,7 +96,6 @@
     transform var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
-  animation: cardIn 0.3s var(--ease-out) both;
 }
 .bd-card:hover {
   border-color: var(--border-default);
@@ -113,11 +112,6 @@
   margin: 2px 0;
   border-radius: var(--radius-4);
   background: var(--accent);
-  animation: dropPulse 0.8s ease-in-out infinite;
-}
-@keyframes dropPulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
 }
 .bd-card-top {
   display: flex;
@@ -190,7 +184,7 @@
 
 .board-scroll-case {
   gap: 10px;
-  padding: 10px 12px 16px;
+  padding: 10px var(--sp-3) var(--sp-4);
   background: color-mix(in srgb, var(--bg-app) 18%, var(--bg-surface));
 }
 
@@ -212,12 +206,12 @@
 
 .board-scroll-case .bd-col-body {
   gap: 6px;
-  padding: 0 7px 8px;
+  padding: 0 7px var(--sp-2);
 }
 
 .bd-card-case {
   gap: 5px;
-  padding: 8px;
+  padding: var(--sp-2);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--bg-elevated) 58%, transparent);
   box-shadow: none;
@@ -241,7 +235,7 @@
   font-size: var(--fs-mini);
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .bd-col-header {
     min-height: 44px;
     padding-block: 0;
@@ -299,7 +293,7 @@
 .bd-case-tags {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   min-width: 0;
   overflow: hidden;
 }

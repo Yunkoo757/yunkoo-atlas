@@ -34,6 +34,7 @@ function tone(outcome: RiskPeriodOutcomeSnapshot): string {
 
 function actionCopy(outcome: RiskPeriodOutcomeSnapshot): string {
   if (outcome.coverage === 'unknown') return '无法确认当前是否触线，请先补齐亏损金额或平仓日期。'
+  if (outcome.limitR <= 0) return '尚未设置止损上限；请先完成本周风险准备。'
   if (outcome.triggered) return '已触及止损预算；继续开仓前必须逐笔说明原因。'
   if (outcome.progress >= 0.9) return '接近止损预算，下一笔开仓前先复核风险。'
   if (outcome.coverage === 'partial') return '按已确认结果保守计算，仍有盈利或日期未计入。'
@@ -72,7 +73,7 @@ function RiskMeter({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percentage}
-      aria-valuetext={`${COVERAGE_LABEL[outcome.coverage]}，已用 ${fmtBudgetR(outcome.consumedR)}，限额 ${fmtBudgetR(outcome.limitR)}`}
+      aria-valuetext={`${COVERAGE_LABEL[outcome.coverage]}，已用 ${fmtBudgetR(outcome.consumedR)}，${outcome.limitR > 0 ? `限额 ${fmtBudgetR(outcome.limitR)}` : '止损上限未设置'}`}
     >
       <div className="risk-budget-meter-head">
         <strong>{label}</strong>
@@ -86,8 +87,8 @@ function RiskMeter({
       </div>
       <div className="risk-budget-meter-facts">
         <span>已用 {fmtBudgetR(outcome.consumedR)}</span>
-        <span>限额 {fmtBudgetR(outcome.limitR)}</span>
-        {outcome.coverage !== 'unknown' ? <span>剩余 {fmtBudgetR(outcome.remainingR)}</span> : null}
+        <span>{outcome.limitR > 0 ? `限额 ${fmtBudgetR(outcome.limitR)}` : '上限 未设置'}</span>
+        {outcome.coverage !== 'unknown' && outcome.limitR > 0 ? <span>剩余 {fmtBudgetR(outcome.remainingR)}</span> : null}
         <span>计入 {outcome.includedTradeCount} 笔</span>
         {outcome.excludedTradeCount > 0 ? <span>未计入 {outcome.excludedTradeCount} 笔</span> : null}
       </div>

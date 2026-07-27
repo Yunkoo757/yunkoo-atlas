@@ -3,10 +3,10 @@
   flex: 0 0 var(--header-h);
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
   min-width: 0;
   height: var(--header-h);
-  padding: 0 12px 0 8px;
+  padding: 0 var(--sp-3) 0 var(--sp-2);
   overflow: hidden;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
@@ -71,7 +71,7 @@
   flex-shrink: 0;
   width: 1px;
   height: 12px;
-  margin: 0 4px;
+  margin: 0 var(--sp-1);
   background: var(--border-default);
 }
 
@@ -83,7 +83,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .crumbs-context {
     display: none;
   }

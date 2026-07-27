@@ -21,6 +21,25 @@ export function safeNoteFallback(html: string): string {
   )
 }
 
+export function removeMissingAssetReferences(
+  sourceHtml: string,
+  fallbackHtml: string,
+): { html: string; removedCount: number } {
+  const missingIds = new Set(
+    [...fallbackHtml.matchAll(/data-missing-asset-id=["']([^"']+)["']/gi)]
+      .map((match) => match[1])
+      .filter((id): id is string => Boolean(id)),
+  )
+  let removedCount = 0
+  const html = sourceHtml.replace(/<img\b[^>]*>/gi, (tag) => {
+    const source = /\bsrc=["']journal-asset:\/\/([^"']+)["']/i.exec(tag)?.[1]
+    if (!source || !missingIds.has(source)) return tag
+    removedCount += 1
+    return ''
+  })
+  return { html, removedCount }
+}
+
 /** 将解析异常收敛为显式状态，避免详情页产生未处理的 Promise rejection。 */
 export async function loadDetailNote(
   html: string,

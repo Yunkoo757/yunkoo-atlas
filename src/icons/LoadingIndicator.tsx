@@ -24,7 +24,7 @@ export function LoadingIndicator({
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <path d="M21 12a9 9 0 1 1-6.22-8.56">
+      <path className="loading-indicator-motion" d="M21 12a9 9 0 1 1-6.22-8.56">
         <animateTransform
           attributeName="transform"
           type="rotate"
@@ -34,6 +34,11 @@ export function LoadingIndicator({
           repeatCount="indefinite"
         />
       </path>
+      <g className="loading-indicator-static" aria-hidden="true">
+        <circle cx="7" cy="12" r="1.25" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none" />
+        <circle cx="17" cy="12" r="1.25" fill="currentColor" stroke="none" />
+      </g>
     </svg>
   )
 }

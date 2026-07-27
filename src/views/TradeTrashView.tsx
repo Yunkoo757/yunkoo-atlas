@@ -370,13 +370,13 @@ export function TradeTrashView() {
       </div>
 
       <BatchActionBar count={selected.size}>
-        <button type="button" className="batch-action-btn" onClick={handleBatchRestore}>
+        <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
           <RotateCcw size={14} />
           <span>恢复</span>
         </button>
         <button
           type="button"
-          className="batch-action-btn batch-action-btn-danger"
+          className="batch-bar-action-btn batch-bar-action-btn-danger"
           onClick={handleBatchPurge}
         >
           <Trash2 size={14} />

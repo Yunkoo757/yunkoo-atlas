@@ -45,7 +45,7 @@ export type ResolvedSidebarWorkspaceItem = {
 
 export const SIDEBAR_QUICK_WORKSPACE_LABELS: Record<SidebarQuickWorkspace, string> = {
   trade: '交易日志',
-  paper: '模拟回测',
+  paper: '模拟盘',
   case: '案例记录',
 }
 

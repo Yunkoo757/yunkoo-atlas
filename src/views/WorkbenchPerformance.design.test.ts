@@ -86,8 +86,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     '--toolbar-chip-height: 28px',
     '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
     '--surface-group: lch(7.67% 0.75 272 / 1)',
-    '--group-chevron-started: lch(18.47% 7 78)',
-    '--group-chevron-done: lch(18.47% 7 283)',
+    '--group-chevron-started: lch(50% 7 78)',
+    '--group-chevron-done: lch(50% 7 283)',
   ]) {
     if (!tokens.includes(contract)) throw new Error(`missing calibrated token: ${contract}`)
   }
@@ -136,8 +136,9 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (
     !sidebar.includes('.sb-hbtn-create') ||
     !sidebar.includes('lch(10.691% 0.493 272 / 1)') ||
-    !sidebar.includes('0 0 0 1px lch(100% 0 0 / 0.088)') ||
-    !sidebar.includes('border-radius: 9999px')
+    !tokens.includes('--sidebar-create-shadow: 0 0 0 1px lch(100% 0 0 / 0.088)') ||
+    !sidebar.includes('box-shadow: var(--sidebar-create-shadow)') ||
+    !sidebar.includes('border-radius: var(--radius-full)')
   ) {
     throw new Error('sidebar create must preserve the 1px / 0.088 overlay shadow')
   }

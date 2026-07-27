@@ -195,6 +195,8 @@ async function run(): Promise<void> {
       budget.compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING,
       '预算卡必须位于今日战绩之前',
     )
+    assert(preparation.textContent?.includes('单笔风险比例'), '百分比字段必须明确表示单笔风险比例')
+    assert(!preparation.textContent?.includes('每 R 风险'), '百分比字段不得与 1R 金额共用同一标签')
 
     const meter = document.querySelector<HTMLElement>('[role="progressbar"]')
     assert(meter?.getAttribute('aria-label') === '今日止损预算', '进度必须有可访问名称')
@@ -215,6 +217,21 @@ async function run(): Promise<void> {
     assert(!budget.textContent?.includes('尚未配置有效规则'), '待生效规则不得显示为完全未配置')
     useStore.setState({ riskPolicyVersions: [policy], monthlyRiskLimits: [monthlyLimit] })
     await waitFor(() => !(budget.textContent?.includes('已确认规则将于') ?? false), '恢复有效规则 fixture 失败')
+
+    useStore.setState({
+      trades: [trade('target', 'planned')],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+    })
+    await waitFor(() => budget.textContent?.includes('尚未配置有效规则') ?? false, '未配置规则状态没有展示')
+    assert(!budget.textContent?.includes('预算仍在纪律范围内'), '未配置止损线不得给出安全结论')
+    assert(budget.textContent?.includes('尚未设置止损上限'), '未配置止损线必须明确提示上限缺失')
+    useStore.setState({
+      trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })],
+      riskPolicyVersions: [policy],
+      monthlyRiskLimits: [monthlyLimit],
+    })
+    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复有效规则 fixture 失败')
 
     useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
     await waitFor(() => budget.textContent?.includes('1R = ****') ?? false, '隐私模式没有隐藏 1R 金额')
@@ -326,6 +343,8 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), 'unknown 开仓没有打开全局确认框')
     const gatePolicy = document.querySelector<HTMLElement>('.trade-open-risk-policy')
     assert(gatePolicy, 'Gate 缺少有效规则摘要')
+    assert(gatePolicy.textContent?.includes('1R 金额'), '货币字段必须明确标为 1R 金额')
+    assert(!gatePolicy.textContent?.includes('每 R 风险'), '货币字段不得继续使用量纲含混的标签')
     useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
     await waitFor(() => gatePolicy.textContent?.includes('****') ?? false, '隐私模式没有隐藏 Gate 1R 金额')
     assert(!gatePolicy.textContent?.includes('$1,250'), '隐私模式不得泄露 Gate 1R 金额')

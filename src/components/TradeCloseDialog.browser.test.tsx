@@ -83,11 +83,14 @@ async function run(): Promise<void> {
     assert(!document.body.textContent?.includes('记录依据'), '平仓不应再显示价格记录方式')
     assert(!document.body.textContent?.includes('出场价格'), '平仓不应再提供出场价格模式')
 
-    enterValue(pnlInput, '500')
-    enterValue(rInput, '2')
     const submit = [...document.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent?.trim() === '保存并待复盘')
     assert(submit, '缺少保存平仓按钮')
+    assert(submit.disabled, '缺少盈亏金额和 R 倍数时主按钮必须禁用')
+
+    enterValue(pnlInput, '500')
+    enterValue(rInput, '2')
+    await waitFor(() => !submit.disabled, '填写有效结果后主按钮没有启用')
     submit.click()
 
     await waitFor(() => useStore.getState().closeTradeRequest === null, '平仓结果没有提交')

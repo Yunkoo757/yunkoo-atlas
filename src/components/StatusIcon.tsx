@@ -89,7 +89,7 @@ export function StatusIcon({
     <span
       key={`${status}-${motionTick}`}
       className={
-        motionTick > 0 ? 'status-icon status-icon--animate' : 'status-icon'
+        motionTick > 0 ? 'status-icon is-animate' : 'status-icon'
       }
     >
       {glyph}

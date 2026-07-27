@@ -49,6 +49,7 @@ export interface JournalBridge {
   isElectron: true
   onBeforeClose(callback: () => void | Promise<void>): () => void
   onCloseSaveError(callback: (message: string) => void): () => void
+  onAutoBackupFailure(callback: () => void): () => void
   requestClose(): Promise<void>
   toggleFullscreen(): Promise<boolean>
   getLibraryStatus(): Promise<LibraryLocationState>

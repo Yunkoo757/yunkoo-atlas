@@ -33,6 +33,7 @@ export function ImageLightbox() {
   const nextShortcut = useShortcutHint('image.next').hint
   const resetShortcut = useShortcutHint('image.reset').hint
   const closeRef = useRef<HTMLButtonElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const closeTimerRef = useRef<number | null>(null)
   const [view, setView] = useState<LightboxView>(LIGHTBOX_VIEW_RESET)
@@ -59,6 +60,7 @@ export function ImageLightbox() {
   useEffect(() => {
     if (!lightbox) return
     const active = document.activeElement
+    previousFocusRef.current = active instanceof HTMLElement ? active : null
     if (active instanceof HTMLElement) active.blur()
     document.body.classList.add('img-lightbox-open')
     const id = requestAnimationFrame(() => closeRef.current?.focus())
@@ -66,6 +68,7 @@ export function ImageLightbox() {
       cancelAnimationFrame(id)
       if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
       document.body.classList.remove('img-lightbox-open')
+      previousFocusRef.current?.focus()
     }
   }, [lightbox])
 
@@ -210,6 +213,22 @@ export function ImageLightbox() {
       role="dialog"
       aria-modal="true"
       aria-label="图片预览"
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab') return
+        const focusable = Array.from(
+          event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+        ).filter((element) => element.offsetParent !== null)
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (!first || !last) return
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }}
     >
       <div
         ref={viewportRef}
@@ -278,12 +297,12 @@ export function ImageLightbox() {
         {hasMany && (
           <>
             <Tooltip asChild content={previousShortcut ? `上一张 · ${previousShortcut}` : '上一张'} label="上一张">
-              <button type="button" className="img-lightbox-nav img-lightbox-nav--prev" onClick={lightboxPrev} aria-label="上一张">
+              <button type="button" className="img-lightbox-nav is-prev" onClick={lightboxPrev} aria-label="上一张">
                 <ChevronLeft size={22} />
               </button>
             </Tooltip>
             <Tooltip asChild content={nextShortcut ? `下一张 · ${nextShortcut}` : '下一张'} label="下一张">
-              <button type="button" className="img-lightbox-nav img-lightbox-nav--next" onClick={lightboxNext} aria-label="下一张">
+              <button type="button" className="img-lightbox-nav is-next" onClick={lightboxNext} aria-label="下一张">
                 <ChevronRight size={22} />
               </button>
             </Tooltip>

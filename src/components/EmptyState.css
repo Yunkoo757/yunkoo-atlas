@@ -39,11 +39,11 @@
   max-width: 280px;
 }
 .empty-action {
-  margin-top: 12px;
+  margin-top: var(--sp-3);
 }
 
 @media (max-width: 640px) {
   .empty {
-    padding: 24px 16px;
+    padding: var(--sp-6) var(--sp-4);
   }
 }

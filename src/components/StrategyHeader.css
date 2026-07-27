@@ -2,10 +2,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--sp-4);
   min-height: 36px;
   margin: 0;
-  padding: 6px 16px;
+  padding: 6px var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-surface);
 }

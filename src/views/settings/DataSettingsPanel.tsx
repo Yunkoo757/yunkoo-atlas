@@ -29,8 +29,13 @@ import { getElectronAdapter } from '@/storage/electronAdapter'
 import { clearReviewSessionStorage } from '@/lib/reviewSession'
 import { useSaveStatus } from '@/store/saveStatus'
 import { buildWebJournalArchiveBlob } from '@/lib/importExport'
+import { userFacingErrorMessage } from '@/lib/userFacingError'
 
 const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT === 'true'
+
+function reportDataSettingsFailure(operation: string, error: unknown): void {
+  console.warn(`[DataSettings] ${operation}`, error)
+}
 
 function fmtBackupTime(ts: number): string {
   const d = new Date(ts)
@@ -88,13 +93,16 @@ export function DataSettingsPanel({
             backupCount = bs.count
             backupTotalSize = bs.totalSize
           }
-        } catch { /* 备份统计失败不应伪装成附件清单失败。 */ }
+        } catch (error) {
+          reportDataSettingsFailure('读取备份统计失败', error)
+        }
       }
       setHealth({ storage, backupCount, backupTotalSize })
       setHealthError(null)
     } catch (error) {
       setHealth(null)
-      setHealthError(error instanceof Error ? error.message : String(error))
+      reportDataSettingsFailure('读取存储健康失败', error)
+      setHealthError(userFacingErrorMessage(error, '暂时无法读取存储健康信息'))
     }
   }, [trades, weeklyReviews, quickNotes, electron])
 
@@ -110,7 +118,9 @@ export function DataSettingsPanel({
     try {
       const list = await getJournalBridge()!.listBackups()
       setBackups(list)
-    } catch { /* ignore */ }
+    } catch (error) {
+      reportDataSettingsFailure('刷新备份列表失败', error)
+    }
   }
 
   useEffect(() => {
@@ -135,7 +145,8 @@ export function DataSettingsPanel({
       } else {
         toast('备份失败')
       }
-    } catch {
+    } catch (error) {
+      reportDataSettingsFailure('创建备份失败', error)
       toast('备份失败')
     } finally {
       setBacking(false)
@@ -168,7 +179,8 @@ export function DataSettingsPanel({
       } else {
         toast('恢复失败')
       }
-    } catch {
+    } catch (error) {
+      reportDataSettingsFailure('恢复备份失败', error)
       toast('恢复失败')
     } finally {
       if (suspended) {
@@ -197,7 +209,8 @@ export function DataSettingsPanel({
       const result = await getJournalBridge()!.verifyBackup(name)
       await refreshBackups()
       toast(result.status === 'verified' ? '备份验证通过' : result.error ?? '备份验证失败')
-    } catch {
+    } catch (error) {
+      reportDataSettingsFailure('验证备份失败', error)
       toast('备份验证失败')
     } finally {
       setVerifying(null)
@@ -215,7 +228,8 @@ export function DataSettingsPanel({
       }
       await refreshBackups()
       toast(invalidCount === 0 ? '全部备份验证通过' : `${invalidCount} 份备份验证未通过，建议重新备份`)
-    } catch {
+    } catch (error) {
+      reportDataSettingsFailure('批量验证备份失败', error)
       toast('备份验证未完成')
     } finally {
       setVerifying(null)
@@ -233,7 +247,8 @@ export function DataSettingsPanel({
       }
       await Promise.all([refreshBackups(), refreshHealth()])
       toast('备份已删除')
-    } catch {
+    } catch (error) {
+      reportDataSettingsFailure('删除备份失败', error)
       toast('删除失败')
     }
   }
@@ -253,6 +268,7 @@ export function DataSettingsPanel({
       const preview = await getStorage().previewAssetPurge?.()
       if (!preview) throw new Error('当前存储后端不支持附件清理预览')
       if (preview.candidateIds.length === 0) {
+        await getStorage().cancelAssetPurge?.(preview.operationId)
         toast('当前库没有可永久清理的孤立附件')
         await refreshHealth()
         return
@@ -262,7 +278,8 @@ export function DataSettingsPanel({
       setPurgeConfirmed(false)
       setPurgePreview(preview)
     } catch (error) {
-      toast(error instanceof Error ? error.message : '附件清理预览失败')
+      reportDataSettingsFailure('预览附件清理失败', error)
+      toast(userFacingErrorMessage(error, '附件清理预览失败'))
     } finally {
       setPurgeBusy(false)
     }
@@ -299,13 +316,14 @@ export function DataSettingsPanel({
       setPurgePreview(refreshedPreview)
       setPurgeAuthorization(recovery.authorization)
       setPurgeArchiveReady(true)
-      toast('当前交易库恢复归档已导出')
+      toast('当前资料库恢复归档已导出')
     } catch (error) {
+      reportDataSettingsFailure('导出清理恢复归档失败', error)
       if (refreshedPreview && refreshedPreview.operationId !== purgePreview.operationId) {
         await getStorage().cancelAssetPurge?.(refreshedPreview.operationId)
       }
       discardPurge()
-      toast(error instanceof Error ? error.message : '恢复归档导出失败')
+      toast(userFacingErrorMessage(error, '恢复归档导出失败'))
     } finally {
       setPurgeBusy(false)
     }
@@ -325,8 +343,9 @@ export function DataSettingsPanel({
       await refreshHealth()
       toast(`已从当前库永久清理 ${result.deletedIds.length} 个孤立附件；历史备份未改变`)
     } catch (error) {
+      reportDataSettingsFailure('永久清理附件失败', error)
       discardPurge()
-      toast(`${error instanceof Error ? error.message : '永久清理失败'}；请重新预览并重新导出恢复归档`)
+      toast(`${userFacingErrorMessage(error, '永久清理失败')}；请重新预览并重新导出恢复归档`)
     } finally {
       setPurgeBusy(false)
     }
@@ -336,7 +355,7 @@ export function DataSettingsPanel({
     <div className="settings-page data-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">数据</h1>
-        <p className="settings-page-desc">导入、导出与备份本地交易库。</p>
+        <p className="settings-page-desc">导入、导出与备份本地资料库。</p>
       </div>
       <DataIOContent
         onLibraryChanged={() => {
@@ -421,13 +440,13 @@ export function DataSettingsPanel({
         )}
 
         <button
-          className="dio-btn data-actions-row--top"
+          className="dio-btn data-actions-row is-top"
           onClick={refreshHealth}
         >
           刷新检查
         </button>
         {health && health.storage.inventory.orphan.length > 0 ? (
-          <div className="data-actions-row--top">
+          <div className="data-actions-row is-top">
             <button
               type="button"
               className="dio-btn dio-btn-warn"
@@ -548,7 +567,7 @@ export function DataSettingsPanel({
 
           {backups.length > 0 && (
             <p className="dio-section-muted data-section-muted">
-              备份文件位于交易库目录的 <code>backups/</code> 下。
+              备份文件位于资料库目录的 <code>backups/</code> 下。
             </p>
           )}
         </section>
@@ -557,7 +576,7 @@ export function DataSettingsPanel({
         <ModalShell
           title={confirmRequest.kind === 'restore' ? '恢复这个备份？' : '删除这个备份？'}
           description={confirmRequest.kind === 'restore'
-            ? '当前交易库会被备份中的数据替换。建议先立即备份一次。'
+            ? '当前资料库会被备份中的数据替换。建议先立即备份一次。'
             : '删除后无法再使用这份备份。'}
           size="compact"
           busy={confirmRequest.kind === 'restore' && restoring !== null}

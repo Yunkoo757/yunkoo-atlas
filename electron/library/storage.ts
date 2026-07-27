@@ -25,6 +25,7 @@ import {
   removeMigrationRecovery,
   restoreVerifiedV8Pair,
 } from './schemaMigration'
+import { recoverInterruptedBackupRestore } from './backup'
 
 const SNAPSHOT_KEY = 'snapshot'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
@@ -196,6 +197,7 @@ export class LibraryStorage {
   async open(): Promise<void> {
     if (this.db) return
     try {
+      recoverInterruptedBackupRestore(this.paths)
       const schemaRecovery = recoverInterruptedSchemaMigrationFiles(this.paths)
       if (!this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
         throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
@@ -395,7 +397,7 @@ export class LibraryStorage {
     const fileName = `${id}.${ext}`
     assertSafeAssetId(id)
     const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
-    fs.writeFileSync(filePath, outBuffer)
+    writeFileAtomicallySync(filePath, outBuffer)
 
     db.run(
       `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
@@ -828,7 +830,7 @@ export class LibraryStorage {
           : 'bin'
     const fileName = `${id}.${ext}`
     const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
-    fs.writeFileSync(filePath, buffer)
+    writeFileAtomicallySync(filePath, buffer)
     db.run(
       `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
        VALUES (?, ?, ?, ?, ?)

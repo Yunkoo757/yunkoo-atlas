@@ -270,6 +270,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private preparedAssets = new Map<string, AssetRecord>()
   private mutationTail: Promise<void> = Promise.resolve()
   private currentRevision: number | null = null
+  private referencedAssetIdsAtRevision: { revision: number; ids: Set<string> } | null = null
   private assetPurgePreviews = new Map<string, {
     revision: number
     snapshot: PersistedSnapshot
@@ -328,6 +329,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     this.clearObjectUrlCache()
     this.preparedAssets.clear()
     this.currentRevision = null
+    this.referencedAssetIdsAtRevision = null
     this.assetPurgePreviews.clear()
     this.assetPurgeAuthorizations.clear()
     this.purgingAssetIds.clear()
@@ -375,6 +377,12 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     })
 
     let stored = await readStored()
+    this.referencedAssetIdsAtRevision = {
+      revision: stored.revision,
+      ids: stored.snapshot
+        ? await collectAssetIdsFromSnapshotCooperatively(stored.snapshot)
+        : new Set<string>(),
+    }
     if (stored.manifest.schemaVersion < SCHEMA_VERSION) {
       const migrationSnapshot = stored.snapshot ?? createEmptyPersistedSnapshot()
       try {
@@ -394,6 +402,12 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         const latest = await readStored()
         if (latest.manifest.schemaVersion < SCHEMA_VERSION) throw error
         stored = latest
+        this.referencedAssetIdsAtRevision = {
+          revision: latest.revision,
+          ids: latest.snapshot
+            ? await collectAssetIdsFromSnapshotCooperatively(latest.snapshot)
+            : new Set<string>(),
+        }
       }
     }
     const envelope = { revision: stored.revision, snapshot: stored.snapshot }
@@ -418,7 +432,16 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         if (preflightRevision !== input.expectedRevision) {
           throw new StorageRevisionConflictError(input.expectedRevision, preflightRevision)
         }
-        return await this.runLibraryMutation(input)
+        if (this.referencedAssetIdsAtRevision?.revision !== input.expectedRevision) {
+          const envelope = await this.loadSnapshotEnvelope()
+          if (envelope.revision !== input.expectedRevision) {
+            throw new StorageRevisionConflictError(input.expectedRevision, envelope.revision)
+          }
+        }
+        return await this.runLibraryMutation(
+          input,
+          this.referencedAssetIdsAtRevision?.ids ?? new Set<string>(),
+        )
       } catch (error) {
         if (reportConflicts && error instanceof StorageRevisionConflictError) reportWebRevisionConflict(error)
         throw error
@@ -440,7 +463,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     })
   }
 
-  private async runLibraryMutation(input: RevisionedLibraryMutation): Promise<{ revision: number }> {
+  private async runLibraryMutation(
+    input: RevisionedLibraryMutation,
+    previouslyReferencedIds: ReadonlySet<string>,
+  ): Promise<{ revision: number }> {
     const prepared = await prepareIndexedDbMutation(input)
     const db = this.requireDb()
     return new Promise((resolve, reject) => {
@@ -516,6 +542,11 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
             request.onsuccess = () => {
               const record = request.result as AssetRecord | undefined
               if (!record?.blob || record.blob.size !== record.byteSize) {
+                if (previouslyReferencedIds.has(id)) {
+                  remaining -= 1
+                  if (remaining === 0) applyMutation(prepared.records)
+                  return
+                }
                 abort(new OperationalError(
                   'asset-reference-missing',
                   `Snapshot references missing asset: ${id}`,
@@ -537,6 +568,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       tx.oncomplete = () => {
         stopped = true
         this.currentRevision = nextRevision
+        this.referencedAssetIdsAtRevision = {
+          revision: nextRevision,
+          ids: new Set(prepared.referencedIds),
+        }
         for (const put of input.assetPuts ?? []) {
           if (this.preparedAssets.get(put.id)?.blob === put.blob) this.preparedAssets.delete(put.id)
         }

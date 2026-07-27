@@ -27,9 +27,9 @@ body,
 
 body {
   font-family: var(--font-ui);
-  font-size: var(--fs-base);
+  font-size: var(--type-ui-base-size);
   font-weight: var(--font-weight-normal);
-  line-height: 1.5;
+  line-height: var(--line-height-body);
   color: var(--text-primary);
   background: var(--bg-app);
   -webkit-font-smoothing: antialiased;
@@ -54,11 +54,11 @@ a {
 /* 条件渲染弹层的统一离场快照：比入场稍短，减少“窗口被抽走”的割裂感。 */
 .ui-exit-clone {
   pointer-events: none !important;
-  animation: uiOverlayExit 120ms var(--ease-out) forwards !important;
+  animation: uiOverlayExit 120ms var(--ease-in) forwards !important;
 }
 
 .ui-exit-clone .ui-exit-dialog {
-  animation: uiDialogExit 110ms var(--ease-out) forwards !important;
+  animation: uiDialogExit 110ms var(--ease-in) forwards !important;
 }
 
 @keyframes uiOverlayExit {
@@ -69,7 +69,19 @@ a {
   to { opacity: 0; transform: translateY(3px) scale(0.992); }
 }
 
+.loading-indicator-static {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .loading-indicator-motion {
+    display: none;
+  }
+
+  .loading-indicator-static {
+    display: block;
+  }
+
   .ui-exit-clone,
   .ui-exit-clone .ui-exit-dialog {
     animation: none !important;
@@ -140,6 +152,21 @@ button {
   input[type='datetime-local'],
   input[type='email'],
   input[type='password'],
+  input[type='url']
+) {
+  height: var(--field-height-md);
+  padding-inline: var(--field-padding-inline);
+}
+
+:where(
+  input:not([type]),
+  input[type='text'],
+  input[type='search'],
+  input[type='number'],
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='email'],
+  input[type='password'],
   input[type='url'],
   textarea
 ):hover:not(:disabled):not([readonly]) {
@@ -171,7 +198,7 @@ button {
 }
 
 :where(input, textarea):disabled {
-  cursor: default;
+  cursor: not-allowed;
   color: var(--text-quaternary);
   background: var(--field-bg-disabled);
   opacity: 0.7;
@@ -253,37 +280,6 @@ a.lv-row:visited .lv-title {
     opacity: 1;
   }
 }
-@keyframes rowIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes cardIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateX(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

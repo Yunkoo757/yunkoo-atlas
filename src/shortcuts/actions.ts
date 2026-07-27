@@ -99,7 +99,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'nav.sim',
-    label: '模拟回测',
+    label: '模拟盘',
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.sim'),

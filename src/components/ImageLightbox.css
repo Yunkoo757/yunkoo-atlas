@@ -1,7 +1,7 @@
 .img-lightbox-overlay {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: var(--z-modal);
   background: var(--bg-surface);
   pointer-events: auto;
   transition: background 210ms var(--ease-out-expo);
@@ -96,7 +96,7 @@
 .img-lightbox-chrome {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: var(--z-content);
   pointer-events: none;
   opacity: 1;
   transition: opacity 120ms var(--ease-out);
@@ -125,7 +125,7 @@
 .img-lightbox-divider {
   width: 1px;
   height: 16px;
-  margin: 0 4px;
+  margin: 0 var(--sp-1);
   background: var(--border-strong);
 }
 
@@ -174,12 +174,26 @@
   color: var(--text-primary);
   background: color-mix(in srgb, var(--bg-hover) 88%, transparent);
 }
-.img-lightbox-nav--prev { left: 12px; }
-.img-lightbox-nav--next { right: 12px; }
+.img-lightbox-nav.is-prev { left: 12px; }
+.img-lightbox-nav.is-next { right: 12px; }
 
 @media (prefers-reduced-motion: reduce) {
+  .img-lightbox-loading-indicator {
+    animation: none;
+    border-color: var(--text-secondary);
+    border-style: dotted;
+  }
+
   .img-lightbox-overlay,
   .img-lightbox-transition,
   .img-lightbox-chrome,
   .img-lightbox-nav { transition: none; }
+}
+
+@media (max-width: 899px), (pointer: coarse) {
+  .img-lightbox-action,
+  .img-lightbox-close {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
 }

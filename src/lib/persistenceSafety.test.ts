@@ -98,6 +98,46 @@ export async function testLibraryLocationConfigUsesAtomicPersistence(): Promise<
   assert(!paths.includes('fs.writeFileSync(getConfigPath()'), '资料库路径配置不得存在中断后半写文件风险')
 }
 
+export async function testDesktopAttachmentWritesUseTheAtomicFileBoundary(): Promise<void> {
+  const source = await fs.readFile('electron/library/storage.ts', 'utf8')
+  const saveAsset = source.match(/async saveAssetAsync\([\s\S]*?\n  }/)?.[0] ?? ''
+  const importAsset = source.match(/importAsset\([\s\S]*?\n  }/)?.[0] ?? ''
+
+  assert(saveAsset.includes('writeFileAtomicallySync(filePath, outBuffer)'), '桌面新增附件必须先持久化临时文件再替换正式文件')
+  assert(importAsset.includes('writeFileAtomicallySync(filePath, buffer)'), '桌面导入附件必须先持久化临时文件再替换正式文件')
+  assert(!saveAsset.includes('fs.writeFileSync(filePath'), '新增附件不得直接半写正式文件')
+  assert(!importAsset.includes('fs.writeFileSync(filePath'), '导入附件不得直接半写正式文件')
+}
+
+export async function testAutomaticBackupFailuresReachTheVisibleWorkspace(): Promise<void> {
+  const [backup, ipc, preload, bridge, app] = await Promise.all([
+    fs.readFile('electron/library/backup.ts', 'utf8'),
+    fs.readFile('electron/library/ipc.ts', 'utf8'),
+    fs.readFile('electron/preload.ts', 'utf8'),
+    fs.readFile('src/types/journalBridge.ts', 'utf8'),
+    fs.readFile('src/App.tsx', 'utf8'),
+  ])
+
+  assert(backup.includes('onBackupFailure?.()'), '自动备份失败必须触发主进程通知回调')
+  assert(ipc.includes("webContents.send('backup:auto-failed')"), '自动备份失败必须广播到仍存活的工作台')
+  assert(preload.includes("ipcRenderer.on('backup:auto-failed'"), '预加载桥必须安全转发自动备份失败事件')
+  assert(bridge.includes('onAutoBackupFailure(callback:'), '类型桥必须声明自动备份失败订阅')
+  assert(app.includes('bridge.onAutoBackupFailure'), '工作台必须订阅自动备份失败')
+  assert(app.includes("toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份')"), '工作台必须给出可操作的中文提示')
+}
+
+export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Promise<void> {
+  const [backup, storage] = await Promise.all([
+    fs.readFile('electron/library/backup.ts', 'utf8'),
+    fs.readFile('electron/library/storage.ts', 'utf8'),
+  ])
+
+  assert(backup.includes('BACKUP_RESTORE_MARKER'), '恢复流程必须使用固定可发现的恢复标记')
+  assert(backup.includes('recoverInterruptedBackupRestore'), '恢复模块必须提供启动时收敛中断状态的入口')
+  assert(backup.includes('writeFileAtomicallySync(markerPath'), '替换当前资料库前必须先耐久写入恢复标记')
+  assert(storage.includes('recoverInterruptedBackupRestore(this.paths)'), '资料库打开前必须消费中断恢复标记')
+}
+
 export async function testUserDataStorageHasNoCloudSyncSurfaceOrRuntime(): Promise<void> {
   const [dataSettings, welcome, app, storage, ipc, qa, settingsLayout] = await Promise.all([
     fs.readFile('src/components/DataIOContent.tsx', 'utf8'),

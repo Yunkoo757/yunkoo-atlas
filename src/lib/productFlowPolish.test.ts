@@ -217,12 +217,12 @@ export async function testRestoresAndMobileControlsPreserveSafeInteractionState(
 
   const electronRestore = dataIO.slice(dataIO.indexOf('const onImportZip'))
   assert(
-    electronRestore.indexOf('setDupGroups(null)') < electronRestore.indexOf("toast('交易库已恢复')"),
+    electronRestore.indexOf('setDupGroups(null)') < electronRestore.indexOf("toast('资料库已恢复')"),
     'Electron 整库恢复后必须在展示成功状态前清除旧重复扫描结果',
   )
   assert(electronRestore.includes('onLibraryChanged?.()'), 'Electron 整库恢复后必须刷新资料库派生状态')
   assert(
-    dataIO.includes("'笔记原图保存在浏览器 IndexedDB 的同一交易库中。'") &&
+    dataIO.includes("'笔记原图保存在浏览器 IndexedDB 的同一资料库中。'") &&
       dataIO.includes('随机复盘的当前轮次只保留在此标签页'),
     'Web 保存边界不得继续显示 Electron 文件夹语义，并应说明会话不进入归档',
   )

@@ -1,6 +1,6 @@
 .risk-budget-card {
   margin-top: 10px;
-  padding: 15px 16px 13px;
+  padding: 15px var(--sp-4) 13px;
   color: var(--text-body);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -22,7 +22,7 @@
   color: var(--accent);
   background: var(--accent-bg);
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  border-radius: var(--radius-6);
+  border-radius: 0;
 }
 
 .risk-budget-eyebrow {
@@ -41,7 +41,7 @@
 }
 
 .risk-budget-header p {
-  margin: 4px 0 0;
+  margin: var(--sp-1) 0 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
 }
@@ -55,10 +55,10 @@
 
 .risk-budget-meter {
   min-width: 0;
-  padding: 11px 12px 10px;
+  padding: 11px var(--sp-3) 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-6);
+  border-radius: 0;
 }
 
 .risk-budget-meter:focus-visible {
@@ -95,7 +95,7 @@
 .risk-budget-track {
   position: relative;
   height: 7px;
-  margin: 10px 0 8px;
+  margin: 10px 0 var(--sp-2);
   overflow: hidden;
   background: var(--bg-inset);
   border-radius: var(--radius-rounded);
@@ -166,6 +166,6 @@
 }
 .risk-budget-discipline svg { flex: 0 0 auto; margin-top: 1px; color: var(--text-tertiary); }
 
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .risk-budget-meters { grid-template-columns: 1fr; }
 }

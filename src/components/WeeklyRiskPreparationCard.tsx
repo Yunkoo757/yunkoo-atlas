@@ -186,7 +186,7 @@ export function WeeklyRiskPreparationCard({
             />
           </label>
           <label>
-            <span>每 R 风险</span>
+            <span>单笔风险比例</span>
             <span className="risk-preparation-inline-input">
               <input
                 type="number"

@@ -102,7 +102,7 @@ function TagSection({
       <div className="tag-add-row">
         <input
           type="text"
-          className="tag-input"
+          className="tag-preset-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}

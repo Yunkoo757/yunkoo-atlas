@@ -7,9 +7,9 @@
   --font-ui: var(--font-ui-base);
 
   position: fixed;
-  z-index: 500;
+  z-index: var(--z-context);
   box-sizing: border-box;
-  padding: 12px;
+  padding: var(--sp-3);
   border: 1px solid var(--surface-control-border-active);
   border-radius: var(--radius-8);
   background: var(--popover-bg);
@@ -98,7 +98,7 @@
 
 .hp-divider {
   height: 1px;
-  margin: 12px 0 10px;
+  margin: var(--sp-3) 0 10px;
   background: var(--border-subtle);
 }
 
@@ -106,7 +106,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
   color: var(--text-tertiary);
   font-size: var(--fs-sm);
   line-height: 1.4;

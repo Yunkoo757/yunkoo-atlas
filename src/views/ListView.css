@@ -23,8 +23,8 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
 }
 
 .copy-preview-heading strong {
@@ -46,7 +46,7 @@
 .copy-preview-list > div {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .copy-preview-list dt {

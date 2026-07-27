@@ -63,8 +63,8 @@ const RANGE_LABELS: Record<AnalysisRange, string> = {
 
 const KIND_OPTS: { value: AnalysisKind; label: string }[] = [
   { value: 'live', label: '实盘' },
-  { value: 'paper', label: '模拟' },
-  { value: 'all', label: '全部类型' },
+  { value: 'paper', label: '模拟盘' },
+  { value: 'all', label: '实盘 + 模拟盘' },
 ]
 
 export function Dashboard() {
@@ -115,7 +115,7 @@ export function Dashboard() {
     return buildWeeklyReviewMetrics(weekTrades, missed)
   }, [allTrades, businessDateAnchor, localDateKey, scope.kind, tradingDayStartHour, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
-  const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '全部类型'
+  const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
   const hasClosedTrades = stats.closedCount > 0
   const activeTradesPath = scope.kind === 'paper' || (
     scope.kind === 'all' && !activeTrades.some((trade) => trade.tradeKind === 'live')
@@ -177,7 +177,9 @@ export function Dashboard() {
               <span className="db-week-title">本周交易分析</span>
               <div className="db-week-sub">
                 {weekCardEmpty
-                  ? '本周尚无已平仓交易 · 平仓后汇总胜率、盈亏与平均 R'
+                  ? hasClosedTrades
+                    ? '本周暂无已平仓交易 · 下方继续显示当前筛选范围的历史统计'
+                    : '本周尚无已平仓交易 · 平仓后汇总胜率、盈亏与平均 R'
                   : `${weekRangeLabel} · ${kindLabel} · 按平仓日${weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}`}
               </div>
             </div>
@@ -416,7 +418,8 @@ export function Dashboard() {
                       <div
                         className="db-strat-fill"
                         style={{
-                          width: `${(Math.abs(s.pnl) / stats.maxAbs) * 100}%`,
+                          transform: `scaleX(${Math.abs(s.pnl) / stats.maxAbs})`,
+                          transformOrigin: 'left center',
                           background: s.pnl >= 0 ? 'var(--pos)' : 'var(--neg)',
                         }}
                       />
@@ -461,7 +464,7 @@ export function Dashboard() {
                       if (!active || !payload?.length) return null
                       const d = payload[0].payload as { label: string; n: number }
                       return (
-                        <div className="db-chart-tip db-chart-tip--compact">
+                        <div className="db-chart-tip is-compact">
                           <div className="db-chart-tip-ref">R 倍数区间</div>
                           <div className="db-chart-tip-symbol">{d.label}</div>
                           <div className="db-chart-tip-row">

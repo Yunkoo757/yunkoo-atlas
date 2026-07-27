@@ -428,7 +428,7 @@ function ReviewSessionStart({
   const noSources = !filters.includeCases && !filters.includeAccountTrades
 
   return (
-    <main className="review-session-start" data-review-session-start-focus tabIndex={-1}>
+    <section className="review-session-start" data-review-session-start-focus tabIndex={-1}>
       <div className="review-session-intro">
         <span className="review-session-eyebrow">完全随机 · 直接阅读</span>
         <h1>随机打开一组过去的交易</h1>
@@ -445,7 +445,7 @@ function ReviewSessionStart({
         <label className={filters.includeAccountTrades ? 'is-selected' : undefined}>
           <input type="checkbox" checked={filters.includeAccountTrades} onChange={(event) => patchFilters({ includeAccountTrades: event.target.checked })} />
           <ListTodo size={19} aria-hidden />
-          <span><strong>账户交易</strong><small>实盘与模拟交易日志</small></span>
+          <span><strong>账户交易</strong><small>实盘与模拟盘记录</small></span>
         </label>
       </fieldset>
 
@@ -478,7 +478,7 @@ function ReviewSessionStart({
           <ChevronRight size={16} aria-hidden />
         </Button>
       </div>
-    </main>
+    </section>
   )
 }
 
@@ -509,7 +509,7 @@ function ReviewSessionItem({
   const rawPnlTone = metricTone(trade.pnl)
   const pnlTone = privacyMode ? 'zero' : rawPnlTone
   return (
-    <main className="review-session-stage" data-review-session-focus tabIndex={-1}>
+    <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
         <header className="review-session-item-header">
           <div className="review-session-item-identity">
@@ -558,7 +558,7 @@ function ReviewSessionItem({
           </div>
         </footer>
       </article>
-    </main>
+    </section>
   )
 }
 
@@ -647,7 +647,7 @@ function ReviewSessionFinished({
     skipped: session.ids.length - results.length,
   }
   return (
-    <main className="review-session-finished" data-review-session-finished-focus tabIndex={-1} role="status" aria-live="polite" aria-atomic="true">
+    <section className="review-session-finished" data-review-session-finished-focus tabIndex={-1} role="status" aria-live="polite" aria-atomic="true">
       <span className="review-session-finished-icon"><CheckCircle size={26} aria-hidden /></span>
       <span className="review-session-eyebrow">本轮完成</span>
       <h1>已复盘 {session.ids.length} 条交易</h1>
@@ -663,6 +663,6 @@ function ReviewSessionFinished({
         <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={16} aria-hidden />再随机一轮</Button>
         <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={16} aria-hidden />调整范围</Button>
       </div>
-    </main>
+    </section>
   )
 }

@@ -1,8 +1,8 @@
 .tag-editor {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 2px 4px;
+  gap: var(--sp-2);
+  padding: 2px var(--sp-1);
   align-items: stretch;
 }
 
@@ -15,7 +15,7 @@
 }
 
 .tag-presets-row {
-  padding-top: 8px;
+  padding-top: var(--sp-2);
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -41,7 +41,7 @@
 .tag-preset-label {
   min-width: 0;
   max-width: 16ch;
-  padding: 0 8px;
+  padding: 0 var(--sp-2);
   overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--fs-micro);
@@ -60,7 +60,7 @@
   max-width: 100%;
   min-height: 24px;
   gap: 2px;
-  padding: 0 3px 0 8px;
+  padding: 0 3px 0 var(--sp-2);
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-default));
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -104,9 +104,9 @@
 .tag-add-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   height: 26px;
-  padding: 0 8px 0 6px;
+  padding: 0 var(--sp-2) 0 6px;
   border: 1px dashed var(--border-default);
   border-radius: var(--radius-full);
   color: var(--text-tertiary);
@@ -121,7 +121,7 @@
 
 .tag-input {
   width: 100%;
-  height: 28px;
+  height: var(--field-height-md);
   padding: 0 10px;
   border-radius: var(--radius-6);
   border: 1px solid var(--field-border);
@@ -147,9 +147,9 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 10;
+  z-index: var(--z-sticky);
   margin: 0;
-  padding: 4px;
+  padding: var(--sp-1);
   list-style: none;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
@@ -211,7 +211,7 @@
 }
 
 .dv-props .tag-chip {
-  padding-inline: 8px 3px;
+  padding-inline: var(--sp-2) 3px;
   color: var(--text-secondary);
   background: var(--surface-control);
   border-color: var(--surface-control-border);
@@ -223,7 +223,7 @@
 }
 
 .dv-props .tag-preset-label {
-  padding-inline: 8px;
+  padding-inline: var(--sp-2);
   color: var(--text-tertiary);
   font-size: var(--fs-sm);
 }
@@ -251,7 +251,7 @@
 
   .tag-preset-label {
     max-width: 22ch;
-    padding-inline: 12px;
+    padding-inline: var(--sp-3);
   }
 
   .tag-chip-label {

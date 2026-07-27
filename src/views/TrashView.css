@@ -26,7 +26,7 @@
   align-items: center;
   width: 220px;
   height: 30px;
-  padding-left: 8px;
+  padding-left: var(--sp-2);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   background: var(--field-bg);
@@ -111,7 +111,7 @@
   opacity: 1;
 }
 .trash-search-count {
-  margin-left: 4px;
+  margin-left: var(--sp-1);
   font-size: var(--fs-mini);
   color: var(--text-quaternary);
   font-variant-numeric: tabular-nums;
@@ -124,7 +124,7 @@
 .trash-group-header {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: var(--z-content-overlay);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -154,7 +154,7 @@
   grid-template-columns:
     18px 16px 58px minmax(180px, 1.4fr)
     84px 56px 64px 76px 52px;
-  column-gap: 12px;
+  column-gap: var(--sp-3);
   align-items: center;
   height: var(--trade-row-height, 36px);
   padding: 0 14px;
@@ -197,7 +197,7 @@
 .trash-item-meta {
   display: grid;
   grid-template-columns: max-content 22px minmax(0, 1fr);
-  column-gap: 8px;
+  column-gap: var(--sp-2);
   align-items: center;
   min-width: 0;
 }
@@ -245,10 +245,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--sp-1);
   height: 20px;
   padding: 0 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border-default);
   font-size: 11px;
   color: var(--text-tertiary);
@@ -294,7 +294,7 @@
   color: var(--neg);
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1024px) {
   .trash-item {
     grid-template-columns:
       18px 16px 52px minmax(140px, 1.2fr)
@@ -303,13 +303,13 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .trash-content {
     padding: 0 0 96px;
   }
   .trash-selection-bar {
     min-height: 52px;
-    padding: 0 12px;
+    padding: 0 var(--sp-3);
   }
   .trash-search {
     flex: 1;
@@ -317,10 +317,10 @@
     height: 44px;
   }
   .trash-group {
-    margin-top: 8px;
+    margin-top: var(--sp-2);
   }
   .trash-group-header {
-    padding: 0 12px;
+    padding: 0 var(--sp-3);
   }
   .trash-item {
     grid-template-columns: 32px 20px minmax(0, 1fr) auto;
@@ -328,11 +328,11 @@
       'check status trade expiry'
       'check ref pnl actions'
       'check date r actions';
-    row-gap: 4px;
-    column-gap: 8px;
+    row-gap: var(--sp-1);
+    column-gap: var(--sp-2);
     min-height: 82px;
     height: auto;
-    padding: 10px 12px;
+    padding: 10px var(--sp-3);
   }
   .trash-item > .selection-box {
     grid-area: check;

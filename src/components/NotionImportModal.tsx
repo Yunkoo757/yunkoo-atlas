@@ -49,7 +49,7 @@ const IMPORT_TARGETS: Array<{
   recordLabel: string
 }> = [
   { kind: 'live', label: '交易日志', hint: '计入实盘统计', recordLabel: '笔交易' },
-  { kind: 'paper', label: '模拟回测', hint: '独立于实盘统计', recordLabel: '笔模拟记录' },
+  { kind: 'paper', label: '模拟盘', hint: '独立于实盘统计', recordLabel: '笔模拟盘记录' },
   { kind: 'case', label: '案例记录', hint: '进入案例复看体系', recordLabel: '条案例' },
 ]
 
@@ -570,7 +570,7 @@ export function NotionImportModal({ open, onClose }: Props) {
                 <tr>
                   <th>#</th>
                   <th>状态</th>
-                  <th>标的</th>
+                  <th>品种</th>
                   <th>方向</th>
                   <th>交易状态</th>
                   <th>策略</th>

@@ -3,7 +3,7 @@
   min-width: 20px;
   padding: 1px 5px;
   color: var(--text-primary);
-  font-family: var(--font-monospace);
+  font-family: var(--font-mono);
   font-size: var(--fs-micro);
   font-weight: var(--font-weight-medium);
   line-height: 1.4;

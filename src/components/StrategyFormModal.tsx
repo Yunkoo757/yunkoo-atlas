@@ -31,6 +31,7 @@ export function StrategyFormModal({
   const [icon, setIcon] = useState<StrategyIconId>('target')
   const [color, setColor] = useState<string>(STRATEGY_COLOR_PRESETS[0])
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const exitRef = useExitClone<HTMLDivElement>(open)
 
   useEffect(() => {
@@ -49,12 +50,16 @@ export function StrategyFormModal({
 
   useEffect(() => {
     if (!open) return
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
     useShortcutStore.getState().acquireModalOverlay()
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('keydown', onKey)
       useShortcutStore.getState().releaseModalOverlay()
+      previousFocusRef.current?.focus()
     }
   }, [open, onClose])
 

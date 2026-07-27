@@ -121,7 +121,7 @@ export function TradeDetailLayout({
         </button>
       </Tooltip>
       <div className="dv-body">
-        <main className="dv-main">{content}</main>
+        <section className="dv-main" aria-label="交易详情">{content}</section>
         {propertiesOpen && (
           <button
             type="button"

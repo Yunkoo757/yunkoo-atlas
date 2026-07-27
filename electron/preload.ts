@@ -37,6 +37,11 @@ const bridge: JournalBridge = {
     ipcRenderer.on('app:close-save-error', listener)
     return () => ipcRenderer.removeListener('app:close-save-error', listener)
   },
+  onAutoBackupFailure: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('backup:auto-failed', listener)
+    return () => ipcRenderer.removeListener('backup:auto-failed', listener)
+  },
   requestClose: () => ipcRenderer.invoke('app:request-close'),
   toggleFullscreen: () => ipcRenderer.invoke('app:toggle-fullscreen'),
   getLibraryStatus: () => ipcRenderer.invoke('library:getStatus'),

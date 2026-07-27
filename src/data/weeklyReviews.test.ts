@@ -74,13 +74,14 @@ export function testWeeklyReviewSeparatesMissedOpportunitiesByMarkedWeek(): void
 export function testWeeklyReviewMetricsPreserveCoverageAndMistakeEvidence(): void {
   const metrics = buildWeeklyReviewMetrics([
     trade({ id: 'win', reviewStatus: 'reviewed', mistakeTags: ['追价'] }),
+    trade({ id: 'focus', reviewStatus: 'focus' }),
     trade({ id: 'loss', status: 'loss', pnl: -50, mistakeTags: ['追价', '过早入场'] }),
   ], [
     trade({ id: 'missed-hesitation', status: 'missed', missReason: 'hesitation', mistakeTags: ['情绪化'], pnl: null, resultSource: undefined }),
     trade({ id: 'missed-alert', status: 'missed', missReason: 'no_alert', pnl: null, resultSource: undefined }),
   ])
-  assert(metrics.tradeCount === 2 && metrics.reviewedCount === 1, '周指标应保留交易与已复盘覆盖率')
-  assert(metrics.winRate === 50 && metrics.totalPnl === 50, '周指标必须复用可信结果口径')
+  assert(metrics.tradeCount === 3 && metrics.reviewedCount === 2, '重点关注也已完成过复盘，应计入周复盘覆盖率')
+  assert(Math.round(metrics.winRate ?? 0) === 67 && metrics.totalPnl === 150, '周指标必须复用可信结果口径')
   assert(metrics.mistakeTagCounts['追价'] === 2, '周指标应累计交易中的错误证据')
   assert(metrics.mistakeTagCounts['情绪化'] === undefined, '错过机会的标签不得污染已执行交易错误统计')
   assert(metrics.missedCount === 2, '错过机会应作为独立执行缺口统计')
@@ -92,6 +93,15 @@ export function testWeeklyReviewNormalizationKeepsTheLatestRecordForOneWeek(): v
   const newer = { ...older, id: 'newer', commitmentText: '等待确认', updatedAt: '2026-07-18T00:00:00.000Z' }
   const result = normalizeWeeklyReviews([older, newer])
   assert(result.length === 1 && result[0]?.id === 'newer', '同一周只能保留更新时间最新的一篇复盘')
+}
+
+export function testWeeklyReviewNormalizationKeepsFirstRecordWhenTimestampsTie(): void {
+  const local = createWeeklyReview('2026-07-13', new Date('2026-07-13T00:00:00.000Z'))
+  const imported = { ...local, id: 'imported', commitmentText: '导入内容' }
+
+  const result = normalizeWeeklyReviews([local, imported])
+
+  assert(result.length === 1 && result[0]?.id === local.id, '更新时间相同时必须保留先传入的本地复盘')
 }
 
 export function testWeeklyReviewNormalizationBackfillsLegacyMissedMetrics(): void {

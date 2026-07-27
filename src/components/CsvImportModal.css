@@ -25,7 +25,7 @@
 .csv-drop-icon {
   width: 28px;
   height: 28px;
-  margin: 0 auto 8px;
+  margin: 0 auto var(--sp-2);
   border-radius: var(--radius-8);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -35,7 +35,7 @@
 }
 
 .csv-drop-title {
-  margin: 0 0 4px;
+  margin: 0 0 var(--sp-1);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-primary);
@@ -68,7 +68,7 @@
 .csv-map-area {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
   overflow: hidden;
 }
 
@@ -93,7 +93,7 @@
 
 .csv-map-table th,
 .csv-map-table td {
-  padding: 8px 12px;
+  padding: var(--sp-2) var(--sp-3);
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -144,8 +144,8 @@
 .csv-preview-area {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px 14px 14px;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 14px 14px;
   overflow: hidden;
 }
 
@@ -205,7 +205,7 @@
 .csv-dup-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   margin: 0;
   font-size: var(--fs-sm);
   color: var(--text-tertiary);
@@ -234,7 +234,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: var(--sp-4);
   padding: 40px 14px;
 }
 
@@ -255,7 +255,7 @@
 
 .csv-error {
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--radius-6);
   background: var(--error-action-border);
   color: var(--neg);

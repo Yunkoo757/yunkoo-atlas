@@ -68,7 +68,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
       .filter((view) => isSavedViewInWorkspace(view, 'paper'))
       .map((view) => ({
         label: view.name,
-        domain: '模拟回测',
+        domain: '模拟盘',
         target: { kind: 'saved-view' as const, viewId: view.id },
       }))
     const caseSavedViews = sources.savedViews
@@ -110,11 +110,11 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
       },
       {
         kind: 'simple',
-        label: '模拟回测',
+        label: '模拟盘',
         items: [
           {
             label: SECONDARY_NAV.find((item) => item.id === 'paper')!.label,
-            domain: '模拟回测',
+            domain: '模拟盘',
             target: { kind: 'system', id: 'paper' },
           },
           ...paperViews,

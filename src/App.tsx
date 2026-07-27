@@ -25,6 +25,7 @@ import { TradeComposer } from './components/TradeComposer'
 import { TradeCloseDialog } from './components/TradeCloseDialog'
 import { TradeOpenRiskDialog } from './components/TradeOpenRiskDialog'
 import { ToastHost } from './components/Toast'
+import { toast } from './lib/toast'
 import { ImageLightbox } from './components/ImageLightbox'
 import { WebStorageGuard } from './components/WebStorageGuard'
 import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
@@ -81,7 +82,7 @@ function CloseSaveReceipt({
 
   return (
     <div
-      className={`app-close-save app-close-save--${state.phase}`}
+      className={`app-close-save is-${state.phase}`}
       role={state.phase === 'error' ? 'alert' : 'status'}
       aria-live={state.phase === 'error' ? 'assertive' : 'polite'}
     >
@@ -270,7 +271,7 @@ function storageBootstrapErrorMessage(error: unknown): string {
   if (error instanceof Error && /invalid display|sidebar|snapshot/i.test(error.message)) {
     return '本地显示配置无法识别（可能来自旧版侧栏项），请重试；若仍失败请从备份恢复。'
   }
-  return '本地交易库暂时无法打开，请重试。'
+  return '本地资料库暂时无法打开，请重试。'
 }
 
 function Shell() {
@@ -582,6 +583,7 @@ export function App() {
     if (isElectron()) {
       let unsubscribeBeforeClose: (() => void) | undefined
       let unsubscribeCloseError: (() => void) | undefined
+      let unsubscribeAutoBackupFailure: (() => void) | undefined
       try {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
@@ -603,6 +605,11 @@ export function App() {
             }
           })
         }
+        if (bridge?.onAutoBackupFailure) {
+          unsubscribeAutoBackupFailure = bridge.onAutoBackupFailure(() => {
+            toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份')
+          })
+        }
         if (bridge?.onCloseSaveError) {
           unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
             lockBottomChrome()
@@ -618,6 +625,7 @@ export function App() {
         document.removeEventListener('visibilitychange', onVisibilityChange)
         unsubscribeBeforeClose?.()
         unsubscribeCloseError?.()
+        unsubscribeAutoBackupFailure?.()
       }
     }
 
@@ -632,7 +640,7 @@ export function App() {
     return (
       <div className="app-storage-error" role="alert" aria-live="assertive">
         <div className="app-storage-error-card">
-          <span className="app-storage-error-eyebrow">本地交易库未打开</span>
+          <span className="app-storage-error-eyebrow">本地资料库未打开</span>
           <h1>已停止进入工作区，避免覆盖现有数据</h1>
           <p>{storageError}</p>
           <div className="app-storage-error-actions">
@@ -649,7 +657,7 @@ export function App() {
                   setReady(true)
                 }}
               >
-                选择其他交易库
+                选择其他资料库
               </button>
             )}
           </div>
@@ -667,7 +675,7 @@ export function App() {
     return (
       <div className="app-loading" role="status" aria-live="polite">
         <LoadingIndicator size={ICON_XL} aria-hidden />
-        <span>加载本地库…</span>
+        <span>加载资料库…</span>
       </div>
     )
   }

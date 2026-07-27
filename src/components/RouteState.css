@@ -43,7 +43,7 @@
 }
 
 .app-route-state h1 {
-  margin: 8px 0 0;
+  margin: var(--sp-2) 0 0;
   font-size: var(--fs-title);
   font-weight: var(--font-weight-semibold);
   line-height: 1.35;
@@ -51,7 +51,7 @@
 
 .app-route-state p {
   max-width: 420px;
-  margin: 8px 0 0;
+  margin: var(--sp-2) 0 0;
   color: var(--text-tertiary);
   font-size: var(--fs-sm);
   line-height: 1.6;
@@ -59,8 +59,8 @@
 
 .app-route-state-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 20px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
 }
 
 .app-route-error-detail {
@@ -74,7 +74,7 @@
 
 @media (max-width: 640px) {
   .app-route-state {
-    padding: 28px 20px;
+    padding: var(--sp-7) var(--sp-5);
   }
 
   .app-route-state-actions {

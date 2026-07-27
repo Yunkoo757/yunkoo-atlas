@@ -278,7 +278,7 @@ export function TradeCloseDialog() {
           <span>保存后进入「待复盘」</span>
           <div>
             <Button type="button" variant="bordered" size="lg" onClick={cancelTradeClose}>取消</Button>
-            <Button type="submit" variant="primary" size="lg">保存并待复盘</Button>
+            <Button type="submit" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
           </div>
         </footer>
       </form>

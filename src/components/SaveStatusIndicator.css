@@ -12,42 +12,42 @@
   font-variant-numeric: tabular-nums;
 }
 
-.save-status--dirty {
+.save-status.is-dirty {
   color: var(--text-secondary);
 }
 
-.save-status--saving {
+.save-status.is-saving {
   color: var(--text-secondary);
 }
 
-.save-status--saved {
+.save-status.is-saved {
   color: var(--text-tertiary);
 }
 
-.save-status--error {
+.save-status.is-error {
   color: var(--neg);
 }
 
 .save-status-recovery {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   white-space: nowrap;
 }
 
-.save-status--action {
+.save-status.is-action {
   border: 0;
   background: transparent;
   cursor: pointer;
 }
 
-.save-status--action:hover,
-.save-status--action:focus-visible {
+.save-status.is-action:hover,
+.save-status.is-action:focus-visible {
   color: var(--neg-strong);
 }
 
 .save-status-recovery-link {
-  padding: 2px 4px;
+  padding: 2px var(--sp-1);
   color: var(--text-secondary);
   font-size: var(--fs-mini);
   text-decoration: none;
@@ -60,25 +60,25 @@
   text-underline-offset: 3px;
 }
 
-.save-status--idle {
+.save-status.is-idle {
   visibility: hidden;
 }
 
 @media (max-width: 640px) {
-  .save-status--idle {
+  .save-status.is-idle {
     width: 0;
     min-width: 0;
     padding: 0;
   }
 
-  .save-status--saved {
+  .save-status.is-saved {
     width: 24px;
     min-width: 24px;
     padding: 0;
     font-size: 0;
   }
 
-  .save-status--saved::before {
+  .save-status.is-saved::before {
     content: '✓';
     font-size: var(--fs-mini);
   }

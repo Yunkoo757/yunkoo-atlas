@@ -1,10 +1,10 @@
 .profile-preview {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 0;
-  margin-top: 8px;
-  margin-bottom: 24px;
+  gap: var(--sp-3);
+  padding: var(--sp-4) 0;
+  margin-top: var(--sp-2);
+  margin-bottom: var(--sp-6);
   background: transparent;
   border: 0;
   border-top: 1px solid var(--border-subtle);
@@ -51,7 +51,7 @@
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
   letter-spacing: 0;
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 
 .profile-avatar-grid {
@@ -64,8 +64,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 7px 4px 6px;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-1) 6px;
   border: 0;
   border-radius: var(--radius-8);
   background: transparent;
@@ -139,7 +139,7 @@
 
 .profile-name-row {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   align-items: center;
 }
 
@@ -147,7 +147,7 @@
   flex: 1;
   max-width: 280px;
   height: var(--field-height-md);
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   font-size: var(--fs-sm);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
@@ -156,7 +156,7 @@
   outline: none;
 }
 
-.profile-name-input:focus {
+.profile-name-input:focus-visible {
   background: var(--field-bg-focus);
   border-color: var(--field-border-focus);
   box-shadow: var(--field-focus-shadow);
@@ -171,12 +171,12 @@
 
 .profile-upload-row {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   align-items: center;
 }
 
 .profile-custom-hint {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
 }
@@ -190,7 +190,7 @@
   }
 }
 
-@media (min-width: 481px) and (max-width: 900px) {
+@media (min-width: 481px) and (max-width: 899px) {
   .profile-avatar-grid {
     grid-template-columns: repeat(4, 62px);
   }

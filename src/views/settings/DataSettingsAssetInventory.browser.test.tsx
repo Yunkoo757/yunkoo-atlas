@@ -171,7 +171,7 @@ async function run(): Promise<void> {
     assert(refresh, '缺少刷新检查按钮')
     refresh.click()
     await waitFor(
-      () => container.querySelector('[role="alert"]')?.textContent?.includes('inventory unavailable') === true,
+      () => container.querySelector('[role="alert"]')?.textContent?.includes('暂时无法读取存储健康信息') === true,
       'inventory 失败必须进入可见错误状态',
     )
     assert(!container.textContent?.includes('0 张 · 0 B'), 'inventory 失败不得伪装成全零健康结果')

@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--sp-3);
   min-height: 100vh;
   width: 100%;
   background: var(--bg-app);
@@ -15,14 +15,14 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 32px;
+  padding: var(--sp-8);
   background: var(--bg-app);
   color: var(--text-primary);
 }
 
 .app-storage-error-card {
   width: min(520px, 100%);
-  padding: 28px;
+  padding: var(--sp-7);
   border: 1px solid var(--border-default);
   border-radius: 12px;
   background: var(--bg-surface);
@@ -36,7 +36,7 @@
 }
 
 .app-storage-error-card h1 {
-  margin: 8px 0 10px;
+  margin: var(--sp-2) 0 10px;
   font-size: var(--fs-title);
   line-height: 1.35;
 }
@@ -50,7 +50,7 @@
 
 .app-storage-error-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   margin: 22px 0 14px;
 }
 
@@ -60,7 +60,7 @@
   border: 1px solid color-mix(in srgb, var(--accent) 68%, var(--border-default));
   border-radius: 6px;
   background: var(--accent);
-  color: white;
+  color: var(--accent-text);
   font: inherit;
   cursor: pointer;
 }
@@ -78,7 +78,7 @@
 
 .app-close-save {
   position: fixed;
-  z-index: 10000;
+  z-index: var(--z-critical);
   left: 0;
   right: 0;
   bottom: 24px;
@@ -93,7 +93,7 @@
   gap: 10px;
   min-height: 42px;
   max-width: min(560px, calc(100vw - 32px));
-  padding: 8px 12px;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-10);
   background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
@@ -112,19 +112,19 @@
   border-radius: 50%;
 }
 
-.app-close-save--saving .app-close-save-mark {
+.app-close-save.is-saving .app-close-save-mark {
   border-color: var(--text-quaternary);
   border-top-color: var(--text-primary);
   animation: app-close-save-spin 0.7s linear infinite;
 }
 
-.app-close-save--saved .app-close-save-mark {
+.app-close-save.is-saved .app-close-save-mark {
   position: relative;
   border-color: var(--success);
   background: var(--success);
 }
 
-.app-close-save--saved .app-close-save-mark::after {
+.app-close-save.is-saved .app-close-save-mark::after {
   content: '';
   position: absolute;
   left: 3px;
@@ -136,21 +136,21 @@
   transform: rotate(-45deg);
 }
 
-.app-close-save--error .app-close-save-panel {
+.app-close-save.is-error .app-close-save-panel {
   border-color: color-mix(in srgb, var(--danger) 38%, var(--border-default));
 }
 
-.app-close-save--error .app-close-save-mark {
+.app-close-save.is-error .app-close-save-mark {
   position: relative;
   border-color: var(--danger);
 }
 
-.app-close-save--error .app-close-save-mark::after {
+.app-close-save.is-error .app-close-save-mark::after {
   content: '!';
   position: absolute;
   inset: 0;
   color: var(--danger);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   line-height: 12px;
   text-align: center;
@@ -181,8 +181,8 @@
 .app-close-save-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 8px;
+  gap: var(--sp-1);
+  margin-left: var(--sp-2);
 }
 
 .app-close-save-actions button {

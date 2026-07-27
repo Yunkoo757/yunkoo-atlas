@@ -26,6 +26,10 @@ export type Conviction = 'low' | 'medium' | 'high' | 'urgent' // 信心度，沿
 
 export type ReviewStatus = 'unreviewed' | 'reviewed' | 'focus'
 
+export function isReviewCompleted(status: ReviewStatus): boolean {
+  return status === 'reviewed' || status === 'focus'
+}
+
 export type ReviewCategory = 'normal' | 'mistake' | 'focus' | 'ambiguous' | 'recheck' | 'mastered'
 
 export type CaseType = 'exemplar' | 'mistake' | 'ambiguous' | 'missed'

@@ -1,8 +1,8 @@
 .ui-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2);
   border-radius: var(--radius-6);
   font-family: var(--font-ui);
   font-size: var(--fs-mini);

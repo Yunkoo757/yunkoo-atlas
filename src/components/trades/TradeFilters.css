@@ -1,6 +1,6 @@
 .trade-filter-panel {
   position: fixed;
-  z-index: 80;
+  z-index: var(--z-floating);
   width: min(420px, calc(100vw - 16px));
   font-family: var(--font-ui);
   font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
@@ -19,7 +19,7 @@
   align-items: center;
   justify-content: space-between;
   height: 40px;
-  padding: 0 8px 0 12px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -51,11 +51,11 @@
 }
 
 .trade-filter-body {
-  padding: 12px;
+  padding: var(--sp-3);
 }
 
 .trade-filter-section h3 {
-  margin: 0 0 8px;
+  margin: 0 0 var(--sp-2);
   color: var(--text-tertiary);
   font-size: var(--fs-micro);
   font-weight: var(--font-weight-medium);
@@ -64,7 +64,7 @@
 .trade-filter-scope-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .trade-filter-columns {
@@ -72,35 +72,35 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   margin-top: 14px;
-  padding-top: 12px;
+  padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
 
 .trade-filter-condition-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .trade-filter-columns .trade-filter-section + .trade-filter-section {
-  padding-top: 12px;
+  padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
 
 .trade-filter-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
   min-width: 0;
   color: var(--text-tertiary);
   font-size: var(--fs-micro);
 }
 
 .trade-filter-field .ui-select-trigger {
-  height: 30px;
+  height: var(--field-height-md);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .trade-filter-scope-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -130,7 +130,7 @@
 
   .trade-filter-head {
     height: 52px;
-    padding-right: 4px;
+    padding-right: var(--sp-1);
   }
 
   .trade-filter-head-actions button {

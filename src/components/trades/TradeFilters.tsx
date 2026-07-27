@@ -99,12 +99,12 @@ export function TradeFilters({
   const filterLabel = isCaseWorkspace
     ? '筛选案例'
     : isPaperWorkspace
-      ? '筛选模拟交易'
+      ? '筛选模拟盘记录'
       : '筛选交易'
   const filterDialogLabel = isCaseWorkspace
     ? '案例筛选'
     : isPaperWorkspace
-      ? '模拟交易筛选'
+      ? '模拟盘筛选'
       : '交易筛选'
   const symbols = useMemo(
     () => collectSymbolOptions(symbolCatalog, trades.map((trade) => trade.symbol)),

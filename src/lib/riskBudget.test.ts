@@ -191,3 +191,40 @@ export function testMonthlyBudgetUsesPolicyAtEachTradeCloseDate(): void {
 
   assert(result.month.netBudgetR === -2, '月度预算必须按每笔平仓日对应的 policy 换算')
 }
+
+export function testRAuthoredLossCountsDirectlyWithoutCashPnl(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.trades[0] = {
+    ...input.trades[0]!,
+    pnl: null,
+    rMultiple: -1,
+    resultSource: 'r',
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.gateCoverage === 'complete', '可信 R 结果不得让开仓闸门永久降级')
+  assert(result.day.netBudgetR === -1, 'R 权威亏损应直接计入已实现风险预算')
+  assert(result.day.includedTradeCount === 1, 'R 权威亏损应计入当前周期笔数')
+}
+
+export function testHistoricalDirtyResultDoesNotPoisonCurrentRiskCoverage(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.trades.push({
+    ...input.trades[0]!,
+    id: 'historical-dirty-loss',
+    pnl: null,
+    rMultiple: null,
+    resultSource: undefined,
+    closedAt: '2026-06-15',
+    closedTradingDayKey: '2026-06-15',
+  })
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.gateCoverage === 'complete', '当前月覆盖率不得被其他月份的历史脏结果污染')
+  assert(result.day.coverage === 'complete', '今日覆盖率只应检查今日相关结果')
+  assert(result.week.coverage === 'complete', '本周覆盖率只应检查本周相关结果')
+  assert(result.month.coverage === 'complete', '本月覆盖率只应检查本月相关结果')
+  assert(!result.unknownReasons.includes('missing-loss-pnl'), '当前闸门原因不得混入其他月份问题')
+}

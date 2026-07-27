@@ -218,16 +218,16 @@ export function Editor({
     const contextActive = hasReviewContextDocument(doc)
     const leadingText = hasLeadingReviewParagraphs(doc)
     if ((reviewContextPinned && !contextActive && leadingText) || (!reviewContextPinned && contextActive)) {
-      editor.commands.setContent(toggleReviewContextDocument(doc), true)
+      const next = toggleReviewContextDocument(doc)
+      setHasReviewContext(hasReviewContextDocument(next))
+      setHasLeadingReviewText(hasLeadingReviewParagraphs(next))
+      const frame = requestAnimationFrame(() => editor.commands.setContent(next, true))
+      return () => cancelAnimationFrame(frame)
     }
   }, [editor, readOnly, reviewContextPinned, reviewContextTools])
 
-  const reviewContextActive = editor
-    ? hasReviewContextDocument(editor.getJSON())
-    : hasReviewContext
-  const leadingReviewText = editor
-    ? hasLeadingReviewParagraphs(editor.getJSON())
-    : hasLeadingReviewText
+  const reviewContextActive = hasReviewContext
+  const leadingReviewText = hasLeadingReviewText
 
   const insertReviewTemplate = (templateContent: string) => {
     if (!editor || readOnly) return
@@ -381,7 +381,7 @@ function BBtn({
 // 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
 async function insertImageFile(editor: TiptapEditor, file: File, noteDraftId?: string) {
   if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
-    toast('单张原图超过 32 MB，无法加入交易库；请缩小图片后重试')
+    toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
     return
   }
   let savedAssetId: string | null = null
