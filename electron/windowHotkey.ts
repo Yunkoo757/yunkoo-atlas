@@ -11,6 +11,12 @@ import type { KeyChord } from '@/shortcuts/types'
 
 type WindowHotkeyConfig = { version: 1; binding: KeyChord }
 
+type WindowHotkeyFileSystem = {
+  rename(source: string, destination: string): Promise<void>
+}
+
+const DEFAULT_FILE_SYSTEM: WindowHotkeyFileSystem = { rename }
+
 export interface WindowHotkeyRegistrar {
   register(accelerator: string, callback: () => void): boolean
   unregister(accelerator: string): void
@@ -41,7 +47,10 @@ function isFileSystemError(error: unknown, code: string): boolean {
 }
 
 export class FileWindowHotkeyStorage implements WindowHotkeyStorage {
-  constructor(private readonly configPath: string) {}
+  constructor(
+    private readonly configPath: string,
+    private readonly fileSystem: WindowHotkeyFileSystem = DEFAULT_FILE_SYSTEM,
+  ) {}
 
   async load(): ReturnType<WindowHotkeyStorage['load']> {
     let contents: string
@@ -69,7 +78,7 @@ export class FileWindowHotkeyStorage implements WindowHotkeyStorage {
       await file.sync()
       await file.close()
       file = null
-      await rename(temporaryPath, this.configPath)
+      await this.fileSystem.rename(temporaryPath, this.configPath)
     } finally {
       try {
         if (file) await file.close()
@@ -87,6 +96,7 @@ export class FileWindowHotkeyStorage implements WindowHotkeyStorage {
 export class WindowHotkeyService {
   private binding: KeyChord = { ...DEFAULT_WINDOW_HOTKEY }
   private currentAccelerator: string | null = null
+  private operationQueue: Promise<void> = Promise.resolve()
   private registered = false
   private startupError: WindowHotkeyState['errorCode']
 
@@ -110,7 +120,11 @@ export class WindowHotkeyService {
     return this.dependencies.onToggle
   }
 
-  async initialize(): Promise<WindowHotkeyState> {
+  initialize(): Promise<WindowHotkeyState> {
+    return this.serialize(() => this.initializeTransaction())
+  }
+
+  private async initializeTransaction(): Promise<WindowHotkeyState> {
     const loaded = await this.storage.load()
     this.binding = loaded.kind === 'valid' ? loaded.binding : { ...DEFAULT_WINDOW_HOTKEY }
     const accelerator = toElectronAccelerator(this.binding)
@@ -135,7 +149,11 @@ export class WindowHotkeyService {
     }
   }
 
-  async update(input: unknown): Promise<WindowHotkeyUpdateResult> {
+  update(input: unknown): Promise<WindowHotkeyUpdateResult> {
+    return this.serialize(() => this.updateTransaction(input))
+  }
+
+  private async updateTransaction(input: unknown): Promise<WindowHotkeyUpdateResult> {
     const candidate = normalizeWindowHotkeyBinding(input)
     if (!candidate) return this.failure('invalid-binding', '不支持这个系统级快捷键')
     const nextAccelerator = toElectronAccelerator(candidate)
@@ -175,5 +193,14 @@ export class WindowHotkeyService {
     message: string,
   ): WindowHotkeyUpdateResult {
     return { ok: false, errorCode, message, state: this.getState() }
+  }
+
+  private serialize<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.operationQueue.then(operation)
+    this.operationQueue = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
   }
 }

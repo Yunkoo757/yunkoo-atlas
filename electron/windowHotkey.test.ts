@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -114,6 +114,32 @@ export async function testFileWindowHotkeyStorageSavesVersionedConfigAtomically(
   })
 }
 
+export async function testFileWindowHotkeyStorageKeepsOldConfigWhenRenameFails(): Promise<void> {
+  await withTemporaryConfig(async (configPath, directory) => {
+    const original = '{"version":1,"binding":{"key":"f2"}}'
+    await writeFile(configPath, original, 'utf8')
+    const storage = new FileWindowHotkeyStorage(configPath, {
+      async rename() {
+        throw new Error('rename failed')
+      },
+    })
+
+    let failed = false
+    try {
+      await storage.save({ mod: true, key: 'k' })
+    } catch {
+      failed = true
+    }
+
+    assert(failed, 'rename 失败必须向调用方报告保存失败')
+    assert((await readFile(configPath, 'utf8')) === original, 'rename 前失败不得破坏旧配置')
+    assert(
+      !(await readdir(directory)).some((name) => name.includes('.tmp-')),
+      'rename 前失败后必须清理临时文件',
+    )
+  })
+}
+
 export async function testWindowHotkeyInitializeDistinguishesConfigurationStates(): Promise<void> {
   const missingCalls: string[] = []
   const missingService = createServiceFixture({
@@ -160,6 +186,75 @@ export async function testWindowHotkeyUpdateCommitsBeforeUnregisteringOldBinding
     '必须先注册和保存候选键，再注销旧键',
   )
   assert(service.getState().binding.key === 'g', '成功更新后必须公开新绑定')
+}
+
+export async function testWindowHotkeyConcurrentUpdatesAreSerialized(): Promise<void> {
+  await withTemporaryConfig(async (configPath) => {
+    await writeFile(configPath, '{"version":1,"binding":{"key":"f2"}}', 'utf8')
+    let releaseFirstRename!: () => void
+    const firstRenameGate = new Promise<void>((resolve) => {
+      releaseFirstRename = resolve
+    })
+    let markFirstRenameStarted!: () => void
+    const firstRenameStarted = new Promise<void>((resolve) => {
+      markFirstRenameStarted = resolve
+    })
+    let renameCount = 0
+    const storage = new FileWindowHotkeyStorage(configPath, {
+      async rename(source, destination) {
+        renameCount += 1
+        if (renameCount === 1) {
+          markFirstRenameStarted()
+          await firstRenameGate
+        }
+        await rename(source, destination)
+      },
+    })
+    const calls: string[] = []
+    const registered = new Set<string>()
+    const service = new WindowHotkeyService({
+      registrar: {
+        register(accelerator) {
+          calls.push(`register:${accelerator}`)
+          registered.add(accelerator)
+          return true
+        },
+        unregister(accelerator) {
+          calls.push(`unregister:${accelerator}`)
+          registered.delete(accelerator)
+        },
+      },
+      storage,
+      onToggle() {},
+    })
+    await service.initialize()
+
+    const firstUpdate = service.update({ alt: true, key: 'x' })
+    await firstRenameStarted
+    const secondUpdate = service.update({ shift: true, key: 'g' })
+    await Promise.resolve()
+    const secondStartedBeforeFirstCompleted = calls.includes('register:Shift+G')
+    releaseFirstRename()
+    const [firstResult, secondResult] = await Promise.all([firstUpdate, secondUpdate])
+
+    assert(!secondStartedBeforeFirstCompleted, '第二次更新必须等待第一次事务完成后再注册')
+    assert(firstResult.ok && secondResult.ok, '串行更新必须各自完成')
+    assert(service.getState().binding.key === 'g', '最终内存绑定必须是第二次更新')
+    assert(
+      registered.size === 1 && registered.has('Shift+G'),
+      '最终只能保留第二次更新的注册',
+    )
+    const persisted = await storage.load()
+    assert(
+      persisted.kind === 'valid' && persisted.binding.key === 'g',
+      '最终文件绑定必须与内存和注册一致',
+    )
+    assert(
+      calls.join('|') ===
+        'register:F2|register:Alt+X|unregister:F2|register:Shift+G|unregister:Alt+X',
+      '第二次更新只能在第一次完成提交后开始',
+    )
+  })
 }
 
 export async function testWindowHotkeyResetAndDisposeUseCurrentRegistration(): Promise<void> {
