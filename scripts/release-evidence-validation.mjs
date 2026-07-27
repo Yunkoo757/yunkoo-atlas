@@ -193,7 +193,7 @@ export function jsonCompatibilityPassed(value) {
   const limits = value?.limits
   const corpus = value?.corpus
   const sizes = corpus?.map((item) => item.entities)
-  return value?.version === 1 && value.hardLimitsEnabled === true &&
+  return value?.version === 1 && value.status === 'pass' && value.hardLimitsEnabled === true &&
     value.generatorCommit === value.gitCommit && value.workingTreeDirty === false &&
     value.generatorScriptSha256 === JSON_COMPATIBILITY_SCRIPT_SHA256 &&
     value.seed === 20_260_715 &&

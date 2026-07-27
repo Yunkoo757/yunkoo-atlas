@@ -181,6 +181,7 @@ try {
     ],
   }
   report.hardLimitsEnabled = report.corpus.every((item) => item.compatible)
+  report.status = report.hardLimitsEnabled ? 'pass' : 'fail'
   const outputIndex = process.argv.indexOf('--output')
   const outputPath = path.resolve(outputIndex >= 0
     ? process.argv[outputIndex + 1]

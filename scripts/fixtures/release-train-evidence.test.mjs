@@ -384,6 +384,7 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
 
   const compatibility = {
     version: 1,
+    status: 'pass',
     hardLimitsEnabled: true,
     generatorCommit: 'a'.repeat(40),
     gitCommit: 'a'.repeat(40),
@@ -412,6 +413,7 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
       })),
   }
   assert.equal(jsonCompatibilityPassed(compatibility), true)
+  assert.equal(jsonCompatibilityPassed({ ...compatibility, status: undefined }), false)
   assert.equal(jsonCompatibilityPassed({ ...compatibility, workingTreeDirty: true }), false)
   assert.equal(jsonCompatibilityPassed({ ...compatibility, generatorScriptSha256: 'b'.repeat(64) }), false)
   assert.equal(jsonCompatibilityPassed({ ...compatibility, corpus: compatibility.corpus.slice(0, 1) }), false)
