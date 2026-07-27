@@ -213,5 +213,11 @@ test('image QA dispatches an image ClipboardEvent without the system clipboard',
   assert.doesNotMatch(source, /navigator\.clipboard\.write/)
   assert.doesNotMatch(source, /navigator, 'locks'/)
 })
+
+test('workbench QA follows enabled modal controls and the current dashboard scope label', async () => {
+  const source = await fs.readFile(path.resolve('scripts/qa-workbench.mjs'), 'utf8')
+  assert.match(source, /const closeDialogLastFocusable = closeDialog\.locator\('button:not\(:disabled\):visible, input:not\(:disabled\):visible'\)\.last\(\)/)
+  assert.match(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.click\(\)/)
+})
 // Quality-Scenario: Q-DISCOVERY
 // Quality-Scenario: Q-PAGEERROR

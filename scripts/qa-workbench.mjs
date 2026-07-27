@@ -277,13 +277,13 @@ try {
   const closeDialog = page.getByRole('dialog', { name: '完成平仓' })
   await closeDialog.waitFor({ state: 'visible', timeout: 10000 })
   const closeDialogDismiss = closeDialog.getByRole('button', { name: '关闭', exact: true })
-  const closeDialogSubmit = closeDialog.getByRole('button', { name: '保存并待复盘', exact: true })
+  const closeDialogLastFocusable = closeDialog.locator('button:not(:disabled):visible, input:not(:disabled):visible').last()
   const initialFocusInside = await closeDialog.evaluate((element) =>
     element.contains(document.activeElement),
   )
   await closeDialogDismiss.focus()
   await page.keyboard.press('Shift+Tab')
-  const wrapsBackward = await closeDialogSubmit.evaluate(
+  const wrapsBackward = await closeDialogLastFocusable.evaluate(
     (element) => element === document.activeElement,
   )
   await page.keyboard.press('Tab')
@@ -355,7 +355,7 @@ try {
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.getByRole('button', { name: '全部类型' }).click()
+  await page.getByRole('button', { name: '实盘 + 模拟盘' }).click()
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
