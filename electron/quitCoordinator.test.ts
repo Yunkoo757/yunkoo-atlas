@@ -217,8 +217,9 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
   )
   assert(exitBackupImplementation.includes('}, signal)'), '退出备份等待独占锁时必须响应同一 AbortSignal')
   assert(
-    libraryIpc.includes('if (!verification.emptyLibrary) return false') &&
-      libraryIpc.includes('reopened.saveSnapshot(emptySnapshot)'),
+    libraryIpc.includes('if (!verification.emptyLibrary)') &&
+      libraryIpc.includes('reopened.saveSnapshot(emptySnapshot)') &&
+      libraryIpc.includes('snapshot: emptySnapshot'),
     '空库恢复点必须经普通验证后规范化为 renderer 可用的空快照',
   )
   assert(preload.includes('requestId') && preload.includes('webContentsId'), 'renderer ACK 必须回传请求与窗口身份')

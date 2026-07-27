@@ -192,7 +192,7 @@ export function testMonthlyBudgetUsesPolicyAtEachTradeCloseDate(): void {
   assert(result.month.netBudgetR === -2, '月度预算必须按每笔平仓日对应的 policy 换算')
 }
 
-export function testRAuthoredLossCountsDirectlyWithoutCashPnl(): void {
+export function testRAuthoredLossWithoutCashPnlKeepsAccountBudgetUnknown(): void {
   const input = fixture({ pnls: [-1_000] })
   input.trades[0] = {
     ...input.trades[0]!,
@@ -203,9 +203,10 @@ export function testRAuthoredLossCountsDirectlyWithoutCashPnl(): void {
 
   const result = resolveRiskOutcomes(input)
 
-  assert(result.gateCoverage === 'complete', '可信 R 结果不得让开仓闸门永久降级')
-  assert(result.day.netBudgetR === -1, 'R 权威亏损应直接计入已实现风险预算')
-  assert(result.day.includedTradeCount === 1, 'R 权威亏损应计入当前周期笔数')
+  assert(result.gateCoverage === 'unknown', '缺少现金 PnL 的亏损不得伪造账户预算覆盖率')
+  assert(result.day.netBudgetR === 0, '交易 R 不得直接计入账户预算 R')
+  assert(result.day.includedTradeCount === 0, '缺少现金 PnL 的交易不得进入账户预算数值聚合')
+  assert(result.unknownReasons.includes('missing-loss-pnl'), '必须明确标记缺少亏损 PnL')
 }
 
 export function testHistoricalDirtyResultDoesNotPoisonCurrentRiskCoverage(): void {

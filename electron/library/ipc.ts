@@ -214,6 +214,15 @@ async function reopenStorageWithAutoBackup(): Promise<LibraryStorage> {
   return reopened
 }
 
+async function reopenAfterRestoreFailure(): Promise<LibraryStorage> {
+  try {
+    return await reopenStorageWithAutoBackup()
+  } catch (firstError) {
+    safeConsoleError('backup-reopen-first-attempt-failed', firstError)
+    return reopenStorageWithAutoBackup()
+  }
+}
+
 function resolveLibrarySwitchPath(libPath: string, mode: LibrarySwitchMode): string {
   if (!libPath.trim()) throw new Error('请选择有效的交易库目录')
   const resolvedPath = path.resolve(libPath)
@@ -672,7 +681,9 @@ export function registerLibraryIpc(): void {
     if (result.canceled || !result.filePath) return { ok: false as const }
     const operation = beginOperation('archive', { stage: 'export', revisionBefore: 0 })
     try {
-      await withStorage((lib) => exportJournalZip(lib, result.filePath!))
+      await operationGate.runExclusive(async () => {
+        await exportJournalZip(await ensureStorage(), result.filePath!)
+      })
       operation.success({ stage: 'committed', revisionAfter: 0 })
       return { ok: true as const, path: result.filePath }
     } catch (error) {
@@ -699,34 +710,52 @@ export function registerLibraryIpc(): void {
   }))
 
   ipcMain.handle('backup:restore', async (_e, fileName: string) => {
+    let replacementCommitted = false
     try {
       return await operationGate.runExclusive(async () => {
         const current = await ensureStorage()
         const libraryPath = current.getLibraryPath()
         const verification = await verifyBackupAtPath(libraryPath, fileName)
-        if (verification.status !== 'verified') return false
+        if (verification.status !== 'verified') {
+          return { ok: false as const, committed: false, error: verification.error }
+        }
         // 在覆盖资料库前创建一个包含原图的完整恢复点。
-        if (!createBackup(current)) return false
+        if (!createBackup(current)) {
+          return { ok: false as const, committed: false, error: '无法创建恢复前安全备份' }
+        }
         stopAutoBackup()
         autoBackupStarted = false
         current.close()
         storage = null
 
         const ok = restoreBackupAtPath(libraryPath, fileName)
+        replacementCommitted = ok
         // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
-        const reopened = await reopenStorageWithAutoBackup()
+        const reopened = await reopenAfterRestoreFailure()
         rotateBackups(ensureLibraryDirs(libraryPath).backups)
-        if (!ok) return false
+        if (!ok) return { ok: false as const, committed: false, error: '恢复操作未提交' }
         const restoredSnapshot = reopened.loadSnapshot()
-        if (restoredSnapshot) return restoredSnapshot
-        if (!verification.emptyLibrary) return false
+        if (restoredSnapshot) return { ok: true as const, committed: true as const, snapshot: restoredSnapshot }
+        if (!verification.emptyLibrary) {
+          return { ok: false as const, committed: true, error: '恢复后的快照无法读取' }
+        }
         const emptySnapshot = createEmptyPersistedSnapshot()
         reopened.saveSnapshot(emptySnapshot)
-        return emptySnapshot
+        return { ok: true as const, committed: true as const, snapshot: emptySnapshot }
       })
     } catch (error) {
       safeConsoleError('backup-restore-failed', error)
-      return false
+      const cutoverMayHaveStarted = replacementCommitted || storage === null
+      try {
+        if (!storage) await reopenAfterRestoreFailure()
+      } catch (reopenError) {
+        safeConsoleError('backup-reopen-after-restore-failed', reopenError)
+      }
+      return {
+        ok: false as const,
+        committed: cutoverMayHaveStarted,
+        error: toErrorMessage(error),
+      }
     }
   })
 
@@ -755,7 +784,7 @@ export function registerLibraryIpc(): void {
       ? await dialog.showOpenDialog(win, options)
       : await dialog.showOpenDialog(options)
     if (result.canceled || !result.filePaths[0]) {
-      return { ok: false as const, canceled: true as const }
+      return { ok: false as const, committed: false, canceled: true as const }
     }
 
     const selectedArchive = result.filePaths[0]
@@ -773,10 +802,11 @@ export function registerLibraryIpc(): void {
       ? await dialog.showMessageBox(win, confirmationOptions)
       : await dialog.showMessageBox(confirmationOptions)
     if (confirmation.response !== 1) {
-      return { ok: false as const, canceled: true as const }
+      return { ok: false as const, committed: false, canceled: true as const }
     }
 
     const operation = beginOperation('import', { stage: 'replace', revisionBefore: 0 })
+    let importCommitted = false
     try {
       return await operationGate.runExclusive(async () => {
         const current = await ensureStorage()
@@ -796,20 +826,26 @@ export function registerLibraryIpc(): void {
             safeConsoleError('journal-reopen-after-import-failed', reopenErr)
             return {
               ok: false as const,
+              committed: true,
               error: `${message}; failed to reopen current library: ${toErrorMessage(reopenErr)}`,
             }
           }
-          return { ok: false as const, error: message }
+          return { ok: false as const, committed: false, error: message }
         }
 
+        importCommitted = true
         const reopened = await reopenStorageWithAutoBackup()
         const snapshot = reopened.loadSnapshot()
         operation.success({ stage: 'committed', revisionAfter: 0 })
-        return { ok: true as const, snapshot }
+        return { ok: true as const, committed: true as const, snapshot }
       })
     } catch (err) {
       operation.failure(err, { stage: 'replace' })
-      return { ok: false as const, error: toErrorMessage(err) }
+      return {
+        ok: false as const,
+        committed: importCommitted || storage === null,
+        error: toErrorMessage(err),
+      }
     }
   })
 }

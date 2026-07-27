@@ -48,13 +48,26 @@ interface BackupRestoreMarker {
   recoveryDir: string
   hadDatabase: boolean
   hadManifest: boolean
+  databaseSha256?: string
+  manifestSha256?: string
+  attachmentEntries?: Array<{ fileName: string; sha256: string }>
 }
 
 function backupRestoreMarkerPath(libraryRoot: string): string {
   return path.join(libraryRoot, BACKUP_RESTORE_MARKER)
 }
 
-function copyRestoreAttachments(source: string, destination: string): void {
+function fsyncFileSync(filePath: string): void {
+  const descriptor = fs.openSync(filePath, 'r+')
+  try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
+}
+
+function copyRestoreAttachments(
+  source: string,
+  destination: string,
+  durable = false,
+): Array<{ fileName: string; sha256: string }> {
+  const entries: Array<{ fileName: string; sha256: string }> = []
   fs.mkdirSync(destination, { recursive: true })
   for (const name of fs.existsSync(source) ? fs.readdirSync(source) : []) {
     const sourceFile = path.join(source, name)
@@ -62,8 +75,13 @@ function copyRestoreAttachments(source: string, destination: string): void {
     if (stat.isSymbolicLink() || !stat.isFile()) {
       throw new Error(`附件目录包含无法安全恢复的项目：${name}`)
     }
-    fs.copyFileSync(sourceFile, path.join(destination, name))
+    const destinationFile = path.join(destination, name)
+    fs.copyFileSync(sourceFile, destinationFile)
+    if (durable) fsyncFileSync(destinationFile)
+    entries.push({ fileName: name, sha256: sha256File(destinationFile) })
   }
+  if (durable) fsyncDirectorySync(destination)
+  return entries
 }
 
 function cleanupBackupRestoreRecoveryDirs(libraryRoot: string): void {
@@ -74,12 +92,48 @@ function cleanupBackupRestoreRecoveryDirs(libraryRoot: string): void {
   }
 }
 
+export function cleanupCompletedBackupRestoreRecovery(libraryRoot: string): void {
+  if (!fs.existsSync(backupRestoreMarkerPath(libraryRoot))) {
+    try {
+      cleanupBackupRestoreRecoveryDirs(libraryRoot)
+    } catch {
+      /* 已完成恢复的遗留目录不影响活动库，下次打开时重试。 */
+    }
+  }
+}
+
+function validateBackupRestoreRecovery(marker: BackupRestoreMarker, recoveryRoot: string): void {
+  const recoveryDb = path.join(recoveryRoot, 'journal.db')
+  const recoveryManifest = path.join(recoveryRoot, 'manifest.json')
+  const recoveryAttachments = path.join(recoveryRoot, 'attachments')
+  if (marker.hadDatabase && !fs.existsSync(recoveryDb)) throw new Error('备份恢复数据库副本缺失')
+  if (marker.hadManifest && !fs.existsSync(recoveryManifest)) throw new Error('备份恢复清单副本缺失')
+  if (marker.hadDatabase && (!marker.databaseSha256 || sha256File(recoveryDb) !== marker.databaseSha256)) {
+    throw new Error('备份恢复数据库 checksum 无效，已停止覆盖当前资料库')
+  }
+  if (marker.hadManifest && (!marker.manifestSha256 || sha256File(recoveryManifest) !== marker.manifestSha256)) {
+    throw new Error('备份恢复清单 checksum 无效，已停止覆盖当前资料库')
+  }
+  if (!marker.attachmentEntries) throw new Error('备份恢复附件 checksum 清单缺失')
+  const expected = new Map(marker.attachmentEntries.map((entry) => [entry.fileName, entry.sha256]))
+  if (expected.size !== marker.attachmentEntries.length) throw new Error('备份恢复附件 checksum 清单无效')
+  const actual = fs.existsSync(recoveryAttachments) ? fs.readdirSync(recoveryAttachments) : []
+  if (actual.length !== expected.size) throw new Error('备份恢复附件 checksum 清单不完整')
+  for (const name of actual) {
+    const filePath = path.join(recoveryAttachments, name)
+    const stat = fs.lstatSync(filePath)
+    if (path.basename(name) !== name || !stat.isFile() || stat.isSymbolicLink() || !expected.has(name)) {
+      throw new Error('备份恢复附件 checksum 清单无效')
+    }
+    if (sha256File(filePath) !== expected.get(name)) {
+      throw new Error(`备份恢复附件 checksum 无效：${name}`)
+    }
+  }
+}
+
 export function recoverInterruptedBackupRestore(paths: ReturnType<typeof getLibraryPaths>): void {
   const markerPath = backupRestoreMarkerPath(paths.root)
-  if (!fs.existsSync(markerPath)) {
-    cleanupBackupRestoreRecoveryDirs(paths.root)
-    return
-  }
+  if (!fs.existsSync(markerPath)) return
 
   const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as Partial<BackupRestoreMarker>
   if (
@@ -100,13 +154,15 @@ export function recoverInterruptedBackupRestore(paths: ReturnType<typeof getLibr
   const recoveryDb = path.join(recoveryRoot, 'journal.db')
   const recoveryManifest = path.join(recoveryRoot, 'manifest.json')
   const recoveryAttachments = path.join(recoveryRoot, 'attachments')
+  validateBackupRestoreRecovery(marker as BackupRestoreMarker, recoveryRoot)
 
   if (marker.hadDatabase) writeFileAtomicallySync(paths.dbFile, fs.readFileSync(recoveryDb))
   else fs.rmSync(paths.dbFile, { force: true })
   if (marker.hadManifest) writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(recoveryManifest))
   else fs.rmSync(paths.manifestFile, { force: true })
   fs.rmSync(paths.attachments, { recursive: true, force: true })
-  copyRestoreAttachments(recoveryAttachments, paths.attachments)
+  copyRestoreAttachments(recoveryAttachments, paths.attachments, true)
+  fsyncDirectorySync(paths.root)
   fs.rmSync(markerPath, { force: true })
   fsyncDirectorySync(paths.root)
 }
@@ -541,8 +597,15 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
         const vaultName = path.basename(entry.vaultName)
         const source = path.join(vault, vaultName)
         if (!fs.existsSync(source)) throw new Error(`Backup attachment is missing: ${fileName}`)
-        fs.copyFileSync(source, path.join(stagedAttachments, fileName))
+        const contentAddressed = /^[a-f0-9]{64}$/i.test(vaultName)
+        if (contentAddressed && sha256File(source) !== vaultName) {
+          throw new Error(`Backup attachment checksum is invalid: ${fileName}`)
+        }
+        const destination = path.join(stagedAttachments, fileName)
+        fs.copyFileSync(source, destination)
+        fsyncFileSync(destination)
       }
+      fsyncDirectorySync(stagedAttachments)
     } catch (error) {
       fs.rmSync(stagedAttachments, { recursive: true, force: true })
       throw error
@@ -560,9 +623,24 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
     hadDatabase: fs.existsSync(dbFile),
     hadManifest: fs.existsSync(manifestFile),
   }
-  if (marker.hadDatabase) fs.copyFileSync(dbFile, path.join(recoveryRoot, 'journal.db'))
-  if (marker.hadManifest) fs.copyFileSync(manifestFile, path.join(recoveryRoot, 'manifest.json'))
-  copyRestoreAttachments(attachments, path.join(recoveryRoot, 'attachments'))
+  const recoveryDb = path.join(recoveryRoot, 'journal.db')
+  const recoveryManifest = path.join(recoveryRoot, 'manifest.json')
+  if (marker.hadDatabase) {
+    fs.copyFileSync(dbFile, recoveryDb)
+    fsyncFileSync(recoveryDb)
+    marker.databaseSha256 = sha256File(recoveryDb)
+  }
+  if (marker.hadManifest) {
+    fs.copyFileSync(manifestFile, recoveryManifest)
+    fsyncFileSync(recoveryManifest)
+    marker.manifestSha256 = sha256File(recoveryManifest)
+  }
+  marker.attachmentEntries = copyRestoreAttachments(
+    attachments,
+    path.join(recoveryRoot, 'attachments'),
+    true,
+  )
+  fsyncDirectorySync(recoveryRoot)
   writeFileAtomicallySync(markerPath, JSON.stringify(marker, null, 2), 'utf8')
 
   try {
@@ -576,6 +654,15 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
     if (fs.existsSync(savedManifest)) {
       writeFileAtomicallySync(manifestFile, fs.readFileSync(savedManifest))
     }
+    for (const entry of attachmentEntries ?? []) {
+      const fileName = path.basename(entry.fileName)
+      const vaultName = path.basename(entry.vaultName)
+      if (/^[a-f0-9]{64}$/i.test(vaultName) && sha256File(path.join(attachments, fileName)) !== vaultName) {
+        throw new Error(`Restored attachment checksum is invalid: ${fileName}`)
+      }
+    }
+    fsyncDirectorySync(attachments)
+    fsyncDirectorySync(libraryPath)
     fs.rmSync(markerPath, { force: true })
     fsyncDirectorySync(libraryPath)
     return true
@@ -615,16 +702,19 @@ export function rotateBackups(
     const keep = new Set<string>()
     const newestPath = files[0]?.path
     if (newestPath) keep.add(newestPath)
-    const verified = files
-      .filter((file) => file.path !== newestPath && file.verified)
+    const verifiedNonEmpty = files
+      .filter((file) => file.path !== newestPath && file.verified && file.tradeCount > 0)
       .sort((a, b) => b.timestamp - a.timestamp)
     const nonEmpty = files
       .filter((file) => file.path !== newestPath && !file.verified && file.tradeCount > 0)
       .sort((a, b) => b.timestamp - a.timestamp)
+    const verifiedEmptyOrUnknown = files
+      .filter((file) => file.path !== newestPath && file.verified && file.tradeCount <= 0)
+      .sort((a, b) => b.timestamp - a.timestamp)
     const emptyOrUnknown = files
       .filter((file) => file.path !== newestPath && !file.verified && file.tradeCount <= 0)
       .sort((a, b) => b.timestamp - a.timestamp)
-    for (const file of [...verified, ...nonEmpty, ...emptyOrUnknown]) {
+    for (const file of [...verifiedNonEmpty, ...nonEmpty, ...verifiedEmptyOrUnknown, ...emptyOrUnknown]) {
       if (keep.size >= Math.max(1, maxCount)) break
       keep.add(file.path)
     }
@@ -647,10 +737,10 @@ export function rotateBackups(
           keep.has(file.path) && file.path !== newestPath && fs.existsSync(file.path),
       )
       .sort((left, right) => {
-        if (left.verified !== right.verified) return left.verified ? 1 : -1
         const leftEmpty = left.tradeCount <= 0
         const rightEmpty = right.tradeCount <= 0
         if (leftEmpty !== rightEmpty) return leftEmpty ? -1 : 1
+        if (left.verified !== right.verified) return left.verified ? 1 : -1
         return left.timestamp - right.timestamp
       })
     for (const file of capacityCandidates) {

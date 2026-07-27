@@ -164,20 +164,22 @@ export function DataSettingsPanel({
       await flushStorageBeforeCutover()
       suspendPersist()
       suspended = true
+      safeToFlush = false
       const result = await getJournalBridge()!.restoreBackup(name)
-      if (result && typeof result === 'object') {
+      safeToFlush = !result.committed
+      if (result.ok) {
         // bridge 已替换磁盘内容；内存切换完成前禁止旧快照重新写回。
         safeToFlush = false
         getElectronAdapter().clearObjectUrlCache()
         const manifest = await getStorage().getManifest()
         clearReviewSessionStorage(manifest.libraryId)
-        applySnapshotToStore(result)
+        applySnapshotToStore(result.snapshot)
         clearSessionUiAfterLibrarySwitch()
         safeToFlush = true
         toast('备份已恢复')
         await Promise.all([refreshBackups(), refreshHealth()])
       } else {
-        toast('恢复失败')
+        toast(result.error ?? '恢复失败')
       }
     } catch (error) {
       reportDataSettingsFailure('恢复备份失败', error)

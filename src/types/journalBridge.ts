@@ -24,6 +24,10 @@ export interface BackupVerificationResult {
   emptyLibrary?: boolean
 }
 
+export type BackupRestoreResult =
+  | { ok: true; committed: true; snapshot: PersistedSnapshot }
+  | { ok: false; committed: boolean; error?: string }
+
 export type WindowFrameState = {
   x?: number
   y?: number
@@ -88,13 +92,13 @@ export interface JournalBridge {
   ): Promise<boolean>
   exportJournalZip(): Promise<{ ok: true; path: string } | { ok: false }>
   importJournalZip(): Promise<
-    | { ok: true; snapshot: PersistedSnapshot | null }
-    | { ok: false; canceled?: boolean; error?: string }
+    | { ok: true; committed: true; snapshot: PersistedSnapshot | null }
+    | { ok: false; committed: boolean; canceled?: boolean; error?: string }
   >
   createBackup(): Promise<string | null>
   listBackups(): Promise<BackupInfo[]>
   verifyBackup(fileName: string): Promise<BackupVerificationResult>
-  restoreBackup(fileName: string): Promise<PersistedSnapshot | null>
+  restoreBackup(fileName: string): Promise<BackupRestoreResult>
   deleteBackup(fileName: string): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
   getWindowState(): Promise<WindowFrameState | null>

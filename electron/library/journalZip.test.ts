@@ -759,6 +759,290 @@ export async function testPathDElectronExactArchiveRoundTripsFullSnapshotAndAtta
   }
 }
 
+export async function testWebArchiveImportPreservesAnExistingLibraryIdentity(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-web-identity-'))
+  const libraryRoot = path.join(root, 'library')
+  const archive = path.join(root, 'web.journal.zip')
+  const storage = new LibraryStorage(libraryRoot)
+  let reopened: LibraryStorage | null = null
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    const originalLibraryId = storage.readManifest().libraryId
+    storage.release()
+    await writeWebArchive(archive, {
+      version: WEB_JOURNAL_EXPORT_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+      ...emptySnapshot(),
+      assets: [],
+    })
+
+    await importJournalZipToPath(libraryRoot, archive)
+    reopened = new LibraryStorage(libraryRoot)
+    await reopened.open()
+
+    assert(
+      reopened.readManifest().libraryId === originalLibraryId,
+      'Web 归档替换已有资料库时必须保留配置所绑定的 libraryId',
+    )
+  } finally {
+    storage.release()
+    reopened?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testInterruptedJournalImportRestoresThePreviousLibraryOnOpen(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-import-recovery-'))
+  const libraryRoot = path.join(root, 'library')
+  const storage = new LibraryStorage(libraryRoot)
+  let reopened: LibraryStorage | null = null
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    const paths = storage.getPaths()
+    storage.release()
+
+    const databaseBefore = fs.readFileSync(paths.dbFile)
+    const manifestBefore = fs.readFileSync(paths.manifestFile)
+    const recoveryDirName = '.pre-import-interrupted-test'
+    const recoveryDir = path.join(libraryRoot, recoveryDirName)
+    fs.mkdirSync(path.join(recoveryDir, 'attachments'), { recursive: true })
+    fs.copyFileSync(paths.dbFile, path.join(recoveryDir, 'journal.db'))
+    fs.copyFileSync(paths.manifestFile, path.join(recoveryDir, 'manifest.json'))
+    fs.writeFileSync(path.join(libraryRoot, '.journal-import.json'), JSON.stringify({
+      version: 1,
+      recoveryDir: recoveryDirName,
+      hadDatabase: true,
+      hadManifest: true,
+      databaseSha256: createHash('sha256').update(databaseBefore).digest('hex'),
+      manifestSha256: createHash('sha256').update(manifestBefore).digest('hex'),
+      attachmentEntries: [],
+    }))
+    fs.writeFileSync(paths.dbFile, 'interrupted replacement')
+
+    reopened = new LibraryStorage(libraryRoot)
+    await reopened.open()
+    assert(fs.readFileSync(paths.dbFile).equals(databaseBefore), '启动恢复必须还原导入前数据库')
+    assert(fs.readFileSync(paths.manifestFile).equals(manifestBefore), '启动恢复必须还原导入前 manifest')
+    assert(!fs.existsSync(path.join(libraryRoot, '.journal-import.json')), '恢复成功后必须清除导入标记')
+    assert(!fs.existsSync(recoveryDir), '恢复成功后必须清除导入恢复副本')
+  } finally {
+    storage.release()
+    reopened?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testDesktopArchiveImportPreservesAnExistingLibraryIdentity(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-desktop-identity-'))
+  const sourceRoot = path.join(root, 'source')
+  const targetRoot = path.join(root, 'target')
+  const archive = path.join(root, 'desktop.journal.zip')
+  const source = new LibraryStorage(sourceRoot)
+  const target = new LibraryStorage(targetRoot)
+  let reopened: LibraryStorage | null = null
+  try {
+    await source.open()
+    source.saveSnapshot(emptySnapshot())
+    await target.open()
+    target.saveSnapshot(emptySnapshot())
+    const targetLibraryId = target.readManifest().libraryId
+    await exportJournalZip(source, archive)
+    source.release()
+    target.release()
+
+    await importJournalZipToPath(targetRoot, archive)
+    reopened = new LibraryStorage(targetRoot)
+    await reopened.open()
+    assert(
+      reopened.readManifest().libraryId === targetLibraryId,
+      '桌面归档替换已有资料库时必须保留配置所绑定的 libraryId',
+    )
+  } finally {
+    source.release()
+    target.release()
+    reopened?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testCorruptJournalImportRecoveryFailsClosedBeforeLibraryMutation(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-import-corrupt-recovery-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    const paths = storage.getPaths()
+    storage.release()
+    const databaseBefore = fs.readFileSync(paths.dbFile)
+    const manifestBefore = fs.readFileSync(paths.manifestFile)
+    const recoveryDirName = '.pre-import-corrupt-test'
+    const recoveryDir = path.join(root, recoveryDirName)
+    fs.mkdirSync(path.join(recoveryDir, 'attachments'), { recursive: true })
+    fs.copyFileSync(paths.dbFile, path.join(recoveryDir, 'journal.db'))
+    fs.copyFileSync(paths.manifestFile, path.join(recoveryDir, 'manifest.json'))
+    fs.writeFileSync(path.join(root, '.journal-import.json'), JSON.stringify({
+      version: 1,
+      recoveryDir: recoveryDirName,
+      hadDatabase: true,
+      hadManifest: true,
+      databaseSha256: '0'.repeat(64),
+      manifestSha256: createHash('sha256').update(manifestBefore).digest('hex'),
+      attachmentEntries: [],
+    }))
+
+    const candidate = new LibraryStorage(root)
+    let rejected = false
+    try {
+      await candidate.open()
+    } catch {
+      rejected = true
+    } finally {
+      candidate.release()
+    }
+    assert(rejected, '损坏的导入恢复副本必须阻止资料库打开')
+    assert(fs.readFileSync(paths.dbFile).equals(databaseBefore), '拒绝损坏恢复副本前不得修改数据库')
+    assert(fs.readFileSync(paths.manifestFile).equals(manifestBefore), '拒绝损坏恢复副本前不得修改 manifest')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testDesktopExportOmitsUncommittedAttachmentFiles(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-orphan-'))
+  const sourceRoot = path.join(root, 'source')
+  const targetRoot = path.join(root, 'target')
+  const archive = path.join(root, 'clean.journal.zip')
+  const source = new LibraryStorage(sourceRoot)
+  let target: LibraryStorage | null = null
+  try {
+    await source.open()
+    source.saveSnapshot(emptySnapshot())
+    fs.writeFileSync(path.join(source.getPaths().attachments, 'orphan.tmp'), 'uncommitted', 'utf8')
+
+    await exportJournalZip(source, archive)
+    await importJournalZipToPath(targetRoot, archive)
+    target = new LibraryStorage(targetRoot)
+    await target.open()
+
+    assert(target.loadSnapshot() !== null, '含磁盘孤儿的活动库仍必须导出可恢复归档')
+    assert(
+      !fs.existsSync(path.join(target.getPaths().attachments, 'orphan.tmp')),
+      '数据库未声明的附件不得进入桌面归档',
+    )
+  } finally {
+    source.release()
+    target?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testFailedDesktopExportPreservesExistingDestination(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-atomic-'))
+  const libraryRoot = path.join(root, 'library')
+  const destination = path.join(root, 'existing.journal.zip')
+  const storage = new LibraryStorage(libraryRoot)
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    fs.writeFileSync(destination, 'previous-valid-archive', 'utf8')
+    fs.rmSync(storage.getPaths().manifestFile)
+
+    let rejected = false
+    try {
+      await exportJournalZip(storage, destination)
+    } catch {
+      rejected = true
+    }
+
+    assert(rejected, '源资料库不完整时导出必须失败')
+    assert(
+      fs.readFileSync(destination, 'utf8') === 'previous-valid-archive',
+      '导出失败不得截断用户已有归档',
+    )
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testDesktopExportAtomicallyReplacesAnExistingArchive(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-replace-'))
+  const destination = path.join(root, 'existing.journal.zip')
+  const targetRoot = path.join(root, 'target')
+  const storage = new LibraryStorage(path.join(root, 'source'))
+  let target: LibraryStorage | null = null
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    fs.writeFileSync(destination, 'old archive bytes', 'utf8')
+
+    await exportJournalZip(storage, destination)
+    await importJournalZipToPath(targetRoot, destination)
+    target = new LibraryStorage(targetRoot)
+    await target.open()
+    assert(target.loadSnapshot() !== null, '成功导出必须原子替换已有归档且保持可恢复')
+  } finally {
+    storage.release()
+    target?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testDesktopExportRenameFailureCleansTemporaryArchive(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-rename-failure-'))
+  const destination = path.join(root, 'existing.journal.zip')
+  const sentinel = path.join(destination, 'keep.txt')
+  const storage = new LibraryStorage(path.join(root, 'source'))
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    fs.mkdirSync(destination)
+    fs.writeFileSync(sentinel, 'keep', 'utf8')
+
+    let rejected = false
+    try {
+      await exportJournalZip(storage, destination)
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '目标无法替换时导出必须失败')
+    assert(fs.readFileSync(sentinel, 'utf8') === 'keep', '替换失败不得破坏原目标')
+    assert(
+      !fs.readdirSync(root).some((name) => name.startsWith('.existing.journal.zip.') && name.endsWith('.tmp')),
+      '替换失败后不得遗留临时归档',
+    )
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testDesktopExportRejectsTargetsInsideTheActiveLibrary(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-self-overwrite-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    const paths = storage.getPaths()
+    const databaseBefore = fs.readFileSync(paths.dbFile)
+
+    let rejected = false
+    try {
+      await exportJournalZip(storage, paths.dbFile)
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '导出不得把活动资料库文件选作目标')
+    assert(fs.readFileSync(paths.dbFile).equals(databaseBefore), '拒绝自覆盖时数据库必须逐字节不变')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testPathCThirdAttachmentWriteFailureLeavesCurrentLibraryByteIdentical(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-web-write-failure-'))
   const libraryRoot = path.join(root, 'library')

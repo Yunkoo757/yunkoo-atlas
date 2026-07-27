@@ -189,17 +189,31 @@ function parseNotionMoney(raw: string): number | null {
 export function parseNotionDate(raw: string): string | null {
   const v = raw.trim()
   if (!v) return null
+  const normalizedCalendarDate = (year: string, month: string, day: string): string | null => {
+    const y = Number(year)
+    const m = Number(month)
+    const d = Number(day)
+    const parsed = new Date(0)
+    parsed.setUTCHours(0, 0, 0, 0)
+    parsed.setUTCFullYear(y, m - 1, d)
+    if (
+      parsed.getUTCFullYear() !== y ||
+      parsed.getUTCMonth() !== m - 1 ||
+      parsed.getUTCDate() !== d
+    ) return null
+    return `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  }
   const isoMatch = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/)
   if (isoMatch) {
-    return `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`
+    return normalizedCalendarDate(isoMatch[1], isoMatch[2], isoMatch[3])
   }
-  const slashMatch = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
+  const slashMatch = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:$|[T\s])/)
   if (slashMatch) {
-    return `${slashMatch[1]}-${String(slashMatch[2]).padStart(2, '0')}-${String(slashMatch[3]).padStart(2, '0')}`
+    return normalizedCalendarDate(slashMatch[1], slashMatch[2], slashMatch[3])
   }
-  const cnMatch = v.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/)
+  const cnMatch = v.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日(?:$|[T\s])/)
   if (cnMatch) {
-    return `${cnMatch[1]}-${String(cnMatch[2]).padStart(2, '0')}-${String(cnMatch[3]).padStart(2, '0')}`
+    return normalizedCalendarDate(cnMatch[1], cnMatch[2], cnMatch[3])
   }
   const d = new Date(v)
   if (!isNaN(d.getTime())) return formatYmd(d)

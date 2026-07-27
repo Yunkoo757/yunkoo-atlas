@@ -14,6 +14,7 @@ import {
 import { getLibraryPaths } from './paths'
 import { validateLibraryDatabaseFile } from './journalZip'
 import { SCHEMA_VERSION } from '../../src/storage/types'
+import { createHash } from 'node:crypto'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -135,6 +136,35 @@ export async function testExitBackupCanExplicitlyVerifyARecoverableEmptyLibrary(
     })
     assert(restored.tradeCount === 0 && restored.assets.length === 0, '空库恢复后必须仍是可打开的零数据资料库')
     assertVerificationWorkspaceRemoved(root)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testLegacyAttachmentFileBackupRemainsRestorable(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-legacy-attachments-'))
+  try {
+    const backup = await createVerifiableBackup(root)
+    const metaPath = `${backup}.meta.json`
+    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
+      attachmentEntries: Array<{ fileName: string; vaultName: string }>
+      attachmentFiles?: string[]
+    }
+    const vault = path.join(root, 'backups', 'assets')
+    const hashedVaultFile = path.join(vault, meta.attachmentEntries[0].vaultName)
+    fs.copyFileSync(hashedVaultFile, path.join(vault, 'asset-1.bin'))
+    meta.attachmentFiles = ['asset-1.bin']
+    delete (meta as Partial<typeof meta>).attachmentEntries
+    fs.writeFileSync(metaPath, JSON.stringify(meta), 'utf8')
+
+    const verification = await verifyBackupAtPath(root, path.basename(backup))
+    assert(verification.status === 'verified', '旧版附件文件名恢复点必须仍可验证')
+    fs.writeFileSync(path.join(root, 'attachments', 'asset-1.bin'), 'changed', 'utf8')
+    assert(restoreBackupAtPath(root, path.basename(backup)), '旧版附件文件名恢复点必须仍可恢复')
+    assert(
+      fs.readFileSync(path.join(root, 'attachments', 'asset-1.bin'), 'utf8') === 'original-asset',
+      '旧版恢复点必须恢复原始附件字节',
+    )
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
@@ -359,6 +389,35 @@ export function testBackupRotationPrefersAUserVerifiedRestorePoint(): void {
   }
 }
 
+export function testBackupRotationKeepsANonEmptyRestorePointAheadOfVerifiedEmptyPoints(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-non-empty-retention-'))
+  try {
+    fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
+    let tradeCount = 1
+    const counts = {
+      getCounts: () => ({ tradeCount, strategyCount: 0, assetCount: 0 }),
+      listCommittedAttachmentFileNames: () => [] as string[],
+    }
+    const nonEmpty = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
+    tradeCount = 0
+    const verifiedEmpty = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 9, 0, 0))!
+    const newestEmpty = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 10, 0, 0))!
+    for (const backup of [verifiedEmpty, newestEmpty]) {
+      const meta = JSON.parse(fs.readFileSync(backup + '.meta.json', 'utf8'))
+      meta.verification = { status: 'verified', checkedAt: Date.UTC(2026, 6, 13, 10, 5, 0) }
+      fs.writeFileSync(backup + '.meta.json', JSON.stringify(meta), 'utf8')
+    }
+
+    rotateBackups(path.join(root, 'backups'), 2)
+
+    assert(fs.existsSync(newestEmpty), '轮换仍应保留最新恢复点')
+    assert(fs.existsSync(nonEmpty), '空库恢复点不得挤掉最后一个非空恢复点')
+    assert(!fs.existsSync(verifiedEmpty), '名额不足时应先淘汰较旧空库恢复点')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export function testCorruptBackupMetadataPreventsAssetVaultPruning(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-corrupt-meta-prune-'))
   try {
@@ -547,11 +606,18 @@ export function testInterruptedBackupRestoreReturnsToTheCompletePreviousLibrary(
     fs.writeFileSync(path.join(root, 'journal.db'), 'new-db')
     fs.writeFileSync(path.join(root, 'manifest.json'), 'new-manifest')
     fs.writeFileSync(path.join(root, 'attachments', 'new.png'), 'new-image')
+    const sha256 = (filePath: string) => createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
     fs.writeFileSync(path.join(root, '.backup-restore.json'), JSON.stringify({
       version: 1,
       recoveryDir,
       hadDatabase: true,
       hadManifest: true,
+      databaseSha256: sha256(path.join(recoveryRoot, 'journal.db')),
+      manifestSha256: sha256(path.join(recoveryRoot, 'manifest.json')),
+      attachmentEntries: [{
+        fileName: 'old.png',
+        sha256: sha256(path.join(recoveryRoot, 'attachments', 'old.png')),
+      }],
     }), 'utf8')
 
     recoverInterruptedBackupRestore(getLibraryPaths(root))
@@ -561,6 +627,44 @@ export function testInterruptedBackupRestoreReturnsToTheCompletePreviousLibrary(
     assert(fs.readFileSync(path.join(root, 'attachments', 'old.png'), 'utf8') === 'old-image', '中断恢复必须还原旧附件')
     assert(!fs.existsSync(path.join(root, 'attachments', 'new.png')), '中断恢复不得混入新附件')
     assert(!fs.existsSync(path.join(root, '.backup-restore.json')), '恢复完成后必须清除活动标记')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export function testInterruptedBackupRestoreRejectsCorruptRecoveryBeforeTouchingCurrentLibrary(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-corrupt-recovery-'))
+  try {
+    const recoveryDir = '.backup-restore-recovery-corrupt'
+    const recoveryRoot = path.join(root, recoveryDir)
+    fs.mkdirSync(path.join(recoveryRoot, 'attachments'), { recursive: true })
+    fs.mkdirSync(path.join(root, 'attachments'), { recursive: true })
+    fs.writeFileSync(path.join(recoveryRoot, 'journal.db'), 'truncated-old-db')
+    fs.writeFileSync(path.join(recoveryRoot, 'manifest.json'), 'old-manifest')
+    fs.writeFileSync(path.join(root, 'journal.db'), 'current-db')
+    fs.writeFileSync(path.join(root, 'manifest.json'), 'current-manifest')
+    fs.writeFileSync(path.join(root, 'attachments', 'current.png'), 'current-image')
+    fs.writeFileSync(path.join(root, '.backup-restore.json'), JSON.stringify({
+      version: 1,
+      recoveryDir,
+      hadDatabase: true,
+      hadManifest: true,
+      databaseSha256: createHash('sha256').update('complete-old-db').digest('hex'),
+      manifestSha256: createHash('sha256').update('old-manifest').digest('hex'),
+      attachmentEntries: [],
+    }), 'utf8')
+
+    let error = ''
+    try {
+      recoverInterruptedBackupRestore(getLibraryPaths(root))
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : String(caught)
+    }
+
+    assert(error.includes('checksum'), '损坏的恢复副本必须在改写活动库前被拒绝')
+    assert(fs.readFileSync(path.join(root, 'journal.db'), 'utf8') === 'current-db', '拒绝损坏副本后当前数据库不得变化')
+    assert(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8') === 'current-manifest', '拒绝损坏副本后当前清单不得变化')
+    assert(fs.readFileSync(path.join(root, 'attachments', 'current.png'), 'utf8') === 'current-image', '拒绝损坏副本后当前附件不得变化')
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }

@@ -126,20 +126,6 @@ export function resolveTrustedBudgetPnl(trade: Trade): number | null {
   return null
 }
 
-export function resolveTrustedBudgetR(trade: Trade): number | null {
-  const source = resolveTradeResultSource(trade)
-  const truth = resolveTradeTruth(trade)
-  if (
-    source === 'r' &&
-    typeof trade.rMultiple === 'number' &&
-    Number.isFinite(trade.rMultiple) &&
-    truth.isResultComplete &&
-    !truth.hasConflict &&
-    isTradeResultAuthorityConsistent(trade)
-  ) return quantizeR(trade.rMultiple)
-  return null
-}
-
 function weekStart(day: string): string {
   const date = parseLocalDate(day)
   const distance = (date.getDay() + 6) % 7
@@ -206,13 +192,10 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
     }
 
     const trustedPnl = resolveTrustedBudgetPnl(trade)
-    const trustedR = resolveTrustedBudgetR(trade)
-    const knownLoss = trustedR !== null
-      ? trustedR < 0
-      : trustedPnl !== null
-        ? trustedPnl < 0
-        : truth.outcome === 'loss' || trade.status === 'loss'
-    if (trustedPnl === null && trustedR === null && reasons.length === 0) {
+    const knownLoss = trustedPnl !== null
+      ? trustedPnl < 0
+      : truth.outcome === 'loss' || trade.status === 'loss'
+    if (trustedPnl === null && reasons.length === 0) {
       if (knownLoss) reasons.push('missing-loss-pnl')
       else partial = true
     }
@@ -228,9 +211,7 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
     }
 
     let budgetR: number | null = null
-    if (trustedR !== null && date && reasons.length === 0) {
-      budgetR = trustedR
-    } else if (trustedPnl !== null && date && reasons.length === 0) {
+    if (trustedPnl !== null && date && reasons.length === 0) {
       const policy = activeRiskPolicy(input.policies, date)
       if (!policy || !Number.isFinite(policy.riskAmount) || toMoneyCents(policy.riskAmount) <= 0) {
         if (trustedPnl < 0) reasons.push('missing-policy')

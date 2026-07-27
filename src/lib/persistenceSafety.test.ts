@@ -138,6 +138,52 @@ export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Prom
   assert(storage.includes('recoverInterruptedBackupRestore(this.paths)'), '资料库打开前必须消费中断恢复标记')
 }
 
+export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Promise<void> {
+  const [journalZip, storage, ipc, importExport] = await Promise.all([
+    fs.readFile('electron/library/journalZip.ts', 'utf8'),
+    fs.readFile('electron/library/storage.ts', 'utf8'),
+    fs.readFile('electron/library/ipc.ts', 'utf8'),
+    fs.readFile('src/lib/importExport.ts', 'utf8'),
+  ])
+
+  assert(journalZip.includes('JOURNAL_IMPORT_MARKER'), '整库导入必须使用固定可发现的恢复标记')
+  assert(journalZip.includes('recoverInterruptedJournalImport'), '整库导入必须提供启动恢复入口')
+  assert(journalZip.includes('writeFileAtomicallySync(markerPath'), '改写活动库前必须先发布导入恢复标记')
+  assert(storage.includes('recoverInterruptedJournalImport(this.paths)'), '资料库打开前必须消费中断导入标记')
+  assert(ipc.includes('importCommitted'), '整库导入 IPC 必须区分磁盘替换是否已提交')
+  const importCall = importExport.indexOf('await getJournalBridge()!.importJournalZip()')
+  const failClosedBeforeImport = importExport.lastIndexOf('safeToFlush = false', importCall)
+  assert(
+    failClosedBeforeImport >= 0 && failClosedBeforeImport < importCall,
+    '整库导入 IPC 返回前状态未知，renderer 必须预先禁止旧快照回写',
+  )
+  const exportHandler = ipc.slice(
+    ipc.indexOf("ipcMain.handle('journal:exportZip'"),
+    ipc.indexOf('// ---- 备份 ----'),
+  )
+  assert(exportHandler.includes('operationGate.runExclusive'), '整库导出必须与并发保存互斥')
+}
+
+export async function testBackupRestoreResultDistinguishesCommittedCutoverFailures(): Promise<void> {
+  const [ipc, bridge, panel] = await Promise.all([
+    fs.readFile('electron/library/ipc.ts', 'utf8'),
+    fs.readFile('src/types/journalBridge.ts', 'utf8'),
+    fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8'),
+  ])
+
+  assert(bridge.includes('BackupRestoreResult'), '恢复桥必须返回带提交状态的判别联合类型')
+  assert(ipc.includes('replacementCommitted'), '主进程必须记录磁盘替换是否已经提交')
+  assert(ipc.includes('cutoverMayHaveStarted'), '提交状态不明的异常必须按可能已替换处理')
+  assert(ipc.includes('reopenAfterRestoreFailure'), '失败路径必须重新打开资料库并恢复自动备份')
+  assert(panel.includes('safeToFlush = !result.committed'), 'renderer 必须在磁盘已替换时禁止旧快照回写')
+  const restoreCall = panel.indexOf('await getJournalBridge()!.restoreBackup(name)')
+  const failClosedBeforeRestore = panel.lastIndexOf('safeToFlush = false', restoreCall)
+  assert(
+    failClosedBeforeRestore >= 0 && failClosedBeforeRestore < restoreCall,
+    'IPC 返回前状态未知，renderer 必须预先禁止旧快照回写',
+  )
+}
+
 export async function testUserDataStorageHasNoCloudSyncSurfaceOrRuntime(): Promise<void> {
   const [dataSettings, welcome, app, storage, ipc, qa, settingsLayout] = await Promise.all([
     fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
@@ -163,8 +209,8 @@ export async function testBackupRestoreValidatesDatabaseBeforeMutatingCurrentLib
   const restoreHandler = ipc.indexOf("ipcMain.handle('backup:restore'")
   const storageValidation = ipc.indexOf('const current = await ensureStorage()', restoreHandler)
   const validation = ipc.indexOf('const verification = await verifyBackupAtPath(libraryPath, fileName)', storageValidation)
-  const rejection = ipc.indexOf("if (verification.status !== 'verified') return false", validation)
-  const safetyBackup = ipc.indexOf('if (!createBackup(current)) return false', rejection)
+  const rejection = ipc.indexOf("if (verification.status !== 'verified')", validation)
+  const safetyBackup = ipc.indexOf('if (!createBackup(current))', rejection)
   assert(storageValidation >= 0 && storageValidation < validation, '恢复前必须先取得通过位置状态机验证的活动库')
   assert(validation >= 0 && rejection > validation, '恢复点必须先通过完整恢复演练')
   assert(safetyBackup > rejection, '校验失败时不得创建安全备份、关闭或替换当前资料库')

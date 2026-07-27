@@ -25,7 +25,11 @@ import {
   removeMigrationRecovery,
   restoreVerifiedV8Pair,
 } from './schemaMigration'
-import { recoverInterruptedBackupRestore } from './backup'
+import {
+  cleanupCompletedBackupRestoreRecovery,
+  recoverInterruptedBackupRestore,
+} from './backup'
+import { recoverInterruptedJournalImport } from './journalZip'
 
 const SNAPSHOT_KEY = 'snapshot'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
@@ -197,6 +201,7 @@ export class LibraryStorage {
   async open(): Promise<void> {
     if (this.db) return
     try {
+      recoverInterruptedJournalImport(this.paths)
       recoverInterruptedBackupRestore(this.paths)
       const schemaRecovery = recoverInterruptedSchemaMigrationFiles(this.paths)
       if (!this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
@@ -278,6 +283,7 @@ export class LibraryStorage {
         assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION)
       }
       this.recoverAssetTrash()
+      cleanupCompletedBackupRestoreRecovery(this.paths.root)
     } catch (error) {
       this.closeDatabaseBestEffort()
       throw error
@@ -437,6 +443,15 @@ export class LibraryStorage {
     const db = this.requireDb()
     const result = db.exec('SELECT file_name FROM assets ORDER BY file_name')
     return (result[0]?.values ?? []).map((row) => String(row[0]))
+  }
+
+  listCommittedAttachmentFiles(): Array<{ fileName: string; byteSize: number }> {
+    const db = this.requireDb()
+    const result = db.exec('SELECT file_name, byte_size FROM assets ORDER BY file_name')
+    return (result[0]?.values ?? []).map((row) => ({
+      fileName: String(row[0]),
+      byteSize: Number(row[1]),
+    }))
   }
 
   getCounts(): { tradeCount: number; strategyCount: number; assetCount: number } {

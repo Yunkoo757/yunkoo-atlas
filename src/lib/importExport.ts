@@ -1375,13 +1375,14 @@ export async function importJournalArchive(): Promise<{
     await flushStorageBeforeCutover()
     suspendPersist()
     suspended = true
+    safeToFlush = false
     const result = await getJournalBridge()!.importJournalZip()
+    safeToFlush = !result.committed
     if (!result.ok) {
       console.error('[importJournalArchive] result not ok', result.error)
       return { ok: false, canceled: result.canceled, error: result.error }
     }
     // ok 表示 bridge 已完成磁盘替换；即使返回快照异常也不得再写回旧内存。
-    safeToFlush = false
     if (!result.snapshot) {
       console.error('[importJournalArchive] snapshot is null after import')
       return { ok: false, error: 'Imported archive did not contain a readable snapshot' }
