@@ -183,6 +183,12 @@ test('sidebar QA verifies restored defaults in a fresh document', async () => {
   assert.match(source, /await restoredPage\.goto\(`\$\{BASE\}\/list`, \{ waitUntil: 'domcontentloaded' \}\)/)
 })
 
+test('sidebar QA verifies removed views in a fresh document', async () => {
+  const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
+  assert.match(source, /const removedViewPage = await browser\.newPage\(\{ viewport: \{ width: 1440, height: 900 \} \}\)/)
+  assert.match(source, /await removedViewPage\.goto\(`\$\{BASE\}\/list`, \{ waitUntil: 'domcontentloaded' \}\)/)
+})
+
 test('image QA dispatches an image ClipboardEvent without the system clipboard', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-phase1-image.mjs'), 'utf8')
   assert.match(source, /const transfer = new DataTransfer\(\)/)
