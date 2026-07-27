@@ -64,7 +64,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: persistence-benchmark-release
+          name: persistence-benchmark-release-attempt-${{ github.run_attempt }}
           path: |
             test-results/persistence-benchmark/persistence-release.json
             test-results/persistence-benchmark/web-zip-release.json
@@ -91,34 +91,34 @@ jobs:
       - name: Download quality evidence
         uses: actions/download-artifact@v4
         with:
-          name: persistence-benchmark-release
+          name: persistence-benchmark-release-attempt-${{ github.run_attempt }}
           path: test-results/collected-evidence
 
       - name: Download forced-kill evidence
         uses: actions/download-artifact@v4
         with:
-          pattern: forced-kill-*
+          pattern: forced-kill-*-attempt-${{ github.run_attempt }}
           path: test-results/collected-evidence
           merge-multiple: true
 
       - name: Download asset lifecycle evidence
         uses: actions/download-artifact@v4
         with:
-          pattern: asset-lifecycle-*
+          pattern: asset-lifecycle-*-attempt-${{ github.run_attempt }}
           path: test-results/collected-evidence
           merge-multiple: true
 
       - name: Download Electron safety evidence
         uses: actions/download-artifact@v4
         with:
-          pattern: electron-safety-*
+          pattern: electron-safety-*-attempt-${{ github.run_attempt }}
           path: test-results/collected-evidence
           merge-multiple: true
 
       - name: Download Generation raw evidence
         uses: actions/download-artifact@v4
         with:
-          pattern: generation-spike-*
+          pattern: generation-spike-*-attempt-${{ github.run_attempt }}
           path: test-results/collected-evidence
           merge-multiple: true
 
@@ -134,7 +134,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: train-recovery-evidence
+          name: train-recovery-evidence-attempt-${{ github.run_attempt }}
           path: |
             test-results/release-trains/release-train-evidence.json
             test-results/release-trains/final-quality-manifest.json
@@ -190,7 +190,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: forced-kill-Windows
+          name: forced-kill-Windows-attempt-${{ github.run_attempt }}
           path: test-results/forced-kill/*.json
           if-no-files-found: error
           retention-days: 30
@@ -199,7 +199,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: asset-lifecycle-Windows
+          name: asset-lifecycle-Windows-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/asset-lifecycle-*.json
           if-no-files-found: error
           retention-days: 30
@@ -208,7 +208,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: electron-safety-Windows
+          name: electron-safety-Windows-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/electron-safety-*.json
           if-no-files-found: error
           retention-days: 30
@@ -217,7 +217,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: generation-spike-Windows
+          name: generation-spike-Windows-attempt-${{ github.run_attempt }}
           path: test-results/generation-spike/generation-spike-windows-*.json
           if-no-files-found: error
           retention-days: 30
@@ -253,7 +253,7 @@ jobs:
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-windows
+          name: release-windows-attempt-${{ github.run_attempt }}
           path: |
             release/Trader-Atlas-*-win-x64.exe
             release/Trader-Atlas-*-win-x64.exe.blockmap
@@ -318,7 +318,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: forced-kill-macOS
+          name: forced-kill-macOS-attempt-${{ github.run_attempt }}
           path: test-results/forced-kill/*.json
           if-no-files-found: error
           retention-days: 30
@@ -327,7 +327,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: asset-lifecycle-macOS
+          name: asset-lifecycle-macOS-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/asset-lifecycle-*.json
           if-no-files-found: error
           retention-days: 30
@@ -336,7 +336,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: electron-safety-macOS
+          name: electron-safety-macOS-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/electron-safety-*.json
           if-no-files-found: error
           retention-days: 30
@@ -345,7 +345,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: generation-spike-macOS
+          name: generation-spike-macOS-attempt-${{ github.run_attempt }}
           path: test-results/generation-spike/generation-spike-macos-*.json
           if-no-files-found: error
           retention-days: 30
@@ -380,7 +380,7 @@ jobs:
       - name: Upload macOS build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-macos
+          name: release-macos-attempt-${{ github.run_attempt }}
           path: |
             release/Trader-Atlas-*-mac-arm64.dmg
             release/Trader-Atlas-*-mac-arm64.zip
@@ -406,7 +406,7 @@ jobs:
       - name: Download final quality manifest
         uses: actions/download-artifact@v4
         with:
-          name: train-recovery-evidence
+          name: train-recovery-evidence-attempt-${{ github.run_attempt }}
           path: test-results/final-quality-evidence
 
       - name: Verify final quality manifest authorizes this checkout
@@ -415,7 +415,7 @@ jobs:
       - name: Download verified build artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: release-*
+          pattern: release-*-attempt-${{ github.run_attempt }}
           path: release-artifacts
           merge-multiple: true
 

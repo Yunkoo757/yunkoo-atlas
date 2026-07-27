@@ -73,6 +73,8 @@ test('发布证据聚合器对四个 Train 执行同源码身份、干净工作�
   assert.match(workflow, /test-results\/release-trains\/final-quality-manifest\.json/)
   assert.match(workflow, /docs\/superpowers\/release\/blob-bridge-coverage\.json/)
   assert.match(workflow, /name: train-recovery-evidence/)
+  assert.match(workflow, /name: train-recovery-evidence-attempt-\$\{\{ github\.run_attempt \}\}/)
+  assert.match(workflow, /pattern: forced-kill-\*-attempt-\$\{\{ github\.run_attempt \}\}/)
   assert.match(workflow, /path: test-results\/final-quality-evidence/)
   assert.match(workflow, /verify-final-quality-manifest\.mjs test-results\/final-quality-evidence\/final-quality-manifest\.json/)
   assert.ok(
