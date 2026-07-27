@@ -183,6 +183,7 @@ test('sidebar QA targets the live mobile drawer instead of its exit clone', asyn
     source,
     /await moreButton\.click\(\)\s+await expectVisible\(drawer\)\s+await expectAttribute\(moreButton, 'aria-expanded', 'true'\)[\s\S]*await moreButton\.evaluate/,
   )
+  assert.match(source, /await page\.locator\('\.mobile-navigation > a\[aria-label="今日"\]'\)\.click\(\)\s+await expectCount\(drawer, 0\)\s+await expectCount\(page\.locator\('\.mobile-navigation-overlay'\), 0\)\s+await moreButton\.click\(\)/)
   assert.match(source, /await drawer\.getByRole\('button', \{ name: '搜索', exact: true \}\)\.click\(\)/)
 })
 

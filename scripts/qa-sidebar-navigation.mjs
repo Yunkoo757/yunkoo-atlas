@@ -867,6 +867,7 @@ try {
 
   await page.locator('.mobile-navigation > a[aria-label="今日"]').click()
   await expectCount(drawer, 0)
+  await expectCount(page.locator('.mobile-navigation-overlay'), 0)
   await moreButton.click()
   await expectVisible(drawer)
   await expectAttribute(moreButton, 'aria-expanded', 'true')
