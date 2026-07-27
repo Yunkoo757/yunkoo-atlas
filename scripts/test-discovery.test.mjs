@@ -167,6 +167,12 @@ test('browser runner retries only the transient Windows socket exhaustion error'
   assert.match(source, /attempt < 2/)
 })
 
+test('sidebar QA retries once in a fresh process', async () => {
+  const source = await fs.readFile(path.resolve('scripts/run-qa-sidebar.mjs'), 'utf8')
+  assert.match(source, /attempt < 2/)
+  assert.match(source, /spawnSync\(process\.execPath, \['scripts\/qa-sidebar-navigation\.mjs'\]/)
+})
+
 test('sidebar QA targets the live mobile drawer instead of its exit clone', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
   assert.match(

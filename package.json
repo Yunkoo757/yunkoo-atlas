@@ -1,7 +1,7 @@
 {
   "name": "yunkoo-atlas",
   "private": true,
-  "version": "1.2.44",
+  "version": "1.2.45",
   "description": "Trader Atlas — trading journal with IndexedDB and Electron desktop support",
   "author": "Trader Atlas",
   "type": "module",
@@ -37,7 +37,7 @@
     "qa:image": "node scripts/qa-phase1-image.mjs",
     "qa:workbench": "node scripts/qa-workbench.mjs",
     "qa:design": "node scripts/qa-design-contract.mjs",
-    "qa:sidebar": "node scripts/qa-sidebar-navigation.mjs",
+    "qa:sidebar": "node scripts/run-qa-sidebar.mjs",
     "qa:risk-management-mobile": "node scripts/qa-risk-management-mobile.mjs",
     "benchmark:analytics": "pnpm build && node scripts/benchmark-analytics.mjs",
     "benchmark:persistence": "node scripts/benchmark-persistence.mjs",
