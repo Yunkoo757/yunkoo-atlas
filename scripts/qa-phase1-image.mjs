@@ -25,6 +25,11 @@ async function createTrade(symbol) {
   return page.url()
 }
 
+async function waitForDurableSave() {
+  await page.locator('.save-status.is-dirty, .save-status.is-saving').waitFor({ state: 'visible' })
+  await page.locator('.save-status.is-saved').waitFor({ state: 'visible', timeout: 15000 })
+}
+
 async function pasteAndReadImage() {
   const editor = page.locator(EDITABLE_EDITOR)
   await editor.waitFor()
@@ -50,6 +55,7 @@ async function pasteAndReadImage() {
   const imgBefore = await page.locator('.editor img').count()
   const assetIdBefore = await page.locator('.editor img').first().getAttribute('data-asset-id')
   const srcBefore = await page.locator('.editor img').first().getAttribute('src')
+  await waitForDurableSave()
   await page.reload({ waitUntil: 'networkidle' })
   await editor.waitFor()
   const imgAfter = await page.locator('.editor img').count()
@@ -95,7 +101,7 @@ async function pasteGeneratedImage(width, height) {
   }, { width, height })
   if (handled) throw new Error('生成图片粘贴事件未被编辑器接管')
   await page.locator('.editor img').nth(1).waitFor()
-  await page.waitForTimeout(1200)
+  await waitForDurableSave()
 }
 
 await createTrade('BTCUSDT')

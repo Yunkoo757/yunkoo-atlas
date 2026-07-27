@@ -214,6 +214,8 @@ test('image QA supplies deterministic image clipboard items without the system c
   assert.match(source, /files: \[file\]/)
   assert.match(source, /types: \['Files'\]/)
   assert.match(source, /getData: \(\) => ''/)
+  assert.match(source, /\.save-status\.is-dirty, \.save-status\.is-saving/)
+  assert.match(source, /\.save-status\.is-saved/)
   assert.doesNotMatch(source, /new DataTransfer\(/)
   assert.doesNotMatch(source, /navigator\.clipboard\.write/)
   assert.doesNotMatch(source, /navigator, 'locks'/)
