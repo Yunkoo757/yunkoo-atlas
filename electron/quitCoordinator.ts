@@ -39,12 +39,12 @@ export interface QuitCoordinatorDependencies {
 
 export async function releaseThenFinalizeWithRollback(
   release: () => void,
-  finalize: () => void,
+  finalize: () => Promise<void> | void,
   rollback: () => Promise<void>,
 ): Promise<void> {
   release()
   try {
-    finalize()
+    await finalize()
   } catch (error) {
     await rollback()
     throw error

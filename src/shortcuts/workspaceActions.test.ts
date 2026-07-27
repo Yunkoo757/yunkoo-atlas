@@ -174,7 +174,7 @@ export function testResetDefaultsKeepsSystemConflictDisabled(): void {
 export function testHydrationDisablesActiveSystemHotkeyConflict(): void {
   const previous = useShortcutStore.getState().bindings
   try {
-    useShortcutStore.getState().setWindowHotkeyBinding({ mod: true, key: 'k' })
+    useShortcutStore.getState().setWindowHotkeyState({ binding: { mod: true, key: 'k' }, registered: true })
     const cleared = useShortcutStore.getState().hydrateBindings({})
     assert(cleared.includes('命令面板（Ctrl+K）'), '水合必须协调全部 scope 的系统热键冲突')
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '系统热键必须优先并产生 null 覆盖')
@@ -183,7 +183,20 @@ export function testHydrationDisablesActiveSystemHotkeyConflict(): void {
     useShortcutStore.getState().hydrateBindings({})
     assert(bindingsForPersist(useShortcutStore.getState().bindings)['global.commandPaletteMod'] === null, '导入/水合协调结果必须进入普通持久化快照')
   } finally {
-    useShortcutStore.getState().setWindowHotkeyBinding(null)
+    useShortcutStore.getState().setWindowHotkeyState(null)
+    useShortcutStore.setState({ bindings: previous })
+  }
+}
+
+export function testUnregisteredWindowHotkeyDoesNotDisableHydratedBindings(): void {
+  const previous = useShortcutStore.getState().bindings
+  try {
+    useShortcutStore.getState().setWindowHotkeyState({ binding: { mod: true, key: 'k' }, registered: false })
+    const cleared = useShortcutStore.getState().hydrateBindings({})
+    assert(cleared.length === 0, '未注册系统热键不得参与冲突协调')
+    assert(!('global.commandPaletteMod' in useShortcutStore.getState().bindings), '未注册系统热键不得写入 null 覆盖')
+  } finally {
+    useShortcutStore.getState().setWindowHotkeyState(null)
     useShortcutStore.setState({ bindings: previous })
   }
 }

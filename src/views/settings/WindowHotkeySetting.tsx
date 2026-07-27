@@ -35,8 +35,8 @@ export function WindowHotkeySetting({
   const publishState = useCallback((nextState: WindowHotkeyState, reconcile = false) => {
     setState(nextState)
     const shortcuts = useShortcutStore.getState()
-    shortcuts.setWindowHotkeyBinding(nextState.binding)
-    if (reconcile) {
+    shortcuts.setWindowHotkeyState(nextState)
+    if (reconcile && nextState.registered) {
       shortcuts.disableConflictsWithWindowHotkey(nextState.binding)
     }
     onStateChange(nextState)

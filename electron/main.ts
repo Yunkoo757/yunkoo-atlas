@@ -97,8 +97,8 @@ function getWindowIconPath(): string | undefined {
 function getTrayImage(): Electron.NativeImage {
   const iconPath = process.platform === 'darwin'
     ? (app.isPackaged
-        ? path.join(process.resourcesPath, 'trayTemplate.svg')
-        : path.join(process.cwd(), 'build', 'trayTemplate.svg'))
+        ? path.join(process.resourcesPath, 'trayTemplate.png')
+        : path.join(process.cwd(), 'build', 'trayTemplate.png'))
     : getWindowIconPath()
   if (!iconPath) throw new Error('找不到托盘图标')
   const image = nativeImage.createFromPath(iconPath)
@@ -144,12 +144,54 @@ function unavailableWindowHotkeyResult(): WindowHotkeyUpdateResult {
 
 async function disposeLifecycleServices(): Promise<void> {
   if (lifecycleServicesDisposed) return
-  lifecycleServicesDisposed = true
-  windowPresence?.dispose()
-  windowPresence = null
   const hotkey = windowHotkey
-  windowHotkey = null
   if (hotkey) await hotkey.dispose()
+  windowPresence?.dispose()
+  windowHotkey = null
+  windowPresence = null
+  lifecycleServicesDisposed = true
+}
+
+async function initializeLifecycleServices(): Promise<void> {
+  lifecycleServicesDisposed = false
+  windowPresence = new WindowPresenceController({
+    ensureWindow: ensureMainWindow,
+    getWindow: () => mainWindow,
+    createTray: createElectronTrayFactory({
+      createTray: () => {
+        const tray = new Tray(getTrayImage())
+        tray.setToolTip('Trader Atlas')
+        return {
+          on: (event, listener) => { if (process.platform === 'win32') tray.on(event, listener) },
+          setContextMenu: (menu) => tray.setContextMenu(menu as Electron.Menu),
+          destroy: () => tray.destroy(),
+        }
+      },
+      buildMenu: (items) => Menu.buildFromTemplate([...items]),
+    }),
+    requestQuit: () => quitCoordinator.request('quit'),
+    isExitAuthorized: () => gracefulExitAuthorized,
+    showDock: () => { void app.dock?.show() },
+    hideDock: () => { app.dock?.hide() },
+    reportError: (code, error) => logDiagnostic('error', code, error),
+  })
+  windowPresence.initialize()
+  if (mainWindow && !mainWindow.isDestroyed()) windowPresence.attachWindow(mainWindow)
+  windowHotkey = new WindowHotkeyService({
+    registrar: globalShortcut,
+    storage: new FileWindowHotkeyStorage(path.join(app.getPath('userData'), 'window-hotkey.json')),
+    onToggle: () => windowPresence?.toggle(),
+  })
+  try {
+    await windowHotkey.initialize()
+  } catch (error) {
+    logDiagnostic('error', 'window-hotkey-initialize-failed', error)
+    const failedWindowHotkey = windowHotkey
+    windowHotkey = null
+    try { await failedWindowHotkey.dispose() } catch (disposeError) {
+      logDiagnostic('error', 'window-hotkey-dispose-failed', disposeError)
+    }
+  }
 }
 
 function isAllowedExternalUrl(rawUrl: string): boolean {
@@ -245,19 +287,23 @@ const quitCoordinator = new QuitCoordinator({
   reportStart: reportExitStart,
   reportSuccess: reportExitSuccess,
   reportError: reportExitError,
-  async commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
-    await disposeLifecycleServices()
-    return commitStorageExit(signal, deadlineAt, () => {
+  commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
+    return commitStorageExit(signal, deadlineAt, async () => {
       const intent = resolveIntent()
+      if (intent === 'close' && process.platform === 'darwin') {
+        gracefulExitAuthorized = true
+        for (const window of BrowserWindow.getAllWindows()) window.close()
+        return
+      }
+      await disposeLifecycleServices()
       gracefulExitAuthorized = true
       try {
         if (intent === 'quit-and-install') performDownloadedUpdateInstall()
         else if (intent === 'quit') app.quit()
-        else {
-          for (const window of BrowserWindow.getAllWindows()) window.close()
-        }
+        else for (const window of BrowserWindow.getAllWindows()) window.close()
       } catch (error) {
         gracefulExitAuthorized = false
+        await initializeLifecycleServices()
         throw error
       }
     })
@@ -407,49 +453,7 @@ if (!hasSingleInstanceLock) {
     }
 
     registerAppUpdater((intent) => quitCoordinator.request(intent))
-    windowPresence = new WindowPresenceController({
-      ensureWindow: ensureMainWindow,
-      getWindow: () => mainWindow,
-      createTray: createElectronTrayFactory({
-        createTray: () => {
-          const tray = new Tray(getTrayImage())
-          tray.setToolTip('Trader Atlas')
-          return {
-            on: (event, listener) => {
-              if (process.platform === 'win32') tray.on(event, listener)
-            },
-            setContextMenu: (menu) => tray.setContextMenu(menu as Electron.Menu),
-            destroy: () => tray.destroy(),
-          }
-        },
-        buildMenu: (items) => Menu.buildFromTemplate([...items]),
-      }),
-      requestQuit: () => quitCoordinator.request('quit'),
-      isExitAuthorized: () => gracefulExitAuthorized,
-      showDock: () => { void app.dock?.show() },
-      hideDock: () => { app.dock?.hide() },
-      reportError: (code, error) => logDiagnostic('error', code, error),
-    })
-    windowPresence.initialize()
-    windowHotkey = new WindowHotkeyService({
-      registrar: globalShortcut,
-      storage: new FileWindowHotkeyStorage(
-        path.join(app.getPath('userData'), 'window-hotkey.json'),
-      ),
-      onToggle: () => windowPresence?.toggle(),
-    })
-    try {
-      await windowHotkey.initialize()
-    } catch (error) {
-      logDiagnostic('error', 'window-hotkey-initialize-failed', error)
-      const failedWindowHotkey = windowHotkey
-      windowHotkey = null
-      try {
-        await failedWindowHotkey.dispose()
-      } catch (disposeError) {
-        logDiagnostic('error', 'window-hotkey-dispose-failed', disposeError)
-      }
-    }
+    await initializeLifecycleServices()
     ipcMain.handle('window-hotkey:get', () => {
       return windowHotkey?.getState() ?? unavailableWindowHotkeyState()
     })

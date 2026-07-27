@@ -233,14 +233,16 @@ async function run(): Promise<void> {
     useToast.getState().dismiss()
     await recordOrdinaryChord('新建交易', { key: 'F2' })
     await eventually(
-      () => useToast.getState().message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
-      '系统键加载完成后普通录制保护未生效',
+      () => useToast.getState().message === '快捷键已更新',
+      '未注册系统热键不得阻止普通录制',
     )
-    assert(!('global.newTrade' in useShortcutStore.getState().bindings), '普通录制不得抢占已加载的 F2 系统键')
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    assert(
+      chordKey(useShortcutStore.getState().bindings['global.newTrade'] as KeyChord) === 'f2',
+      '未注册系统热键不得清空普通 F2 绑定',
+    )
     await eventually(
       () => !document.querySelector('.shortcuts-capture[aria-pressed="true"]'),
-      'F2 冲突后普通快捷键录制状态未退出',
+      '普通快捷键录制成功后状态未退出',
     )
     useShortcutStore.setState({ bindings: {} })
 

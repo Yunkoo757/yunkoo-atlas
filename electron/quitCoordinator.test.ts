@@ -6,6 +6,7 @@ import {
 } from './quitCoordinator'
 import fs from 'node:fs'
 import path from 'node:path'
+import sharp from 'sharp'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -169,7 +170,7 @@ export async function testThrowingFinalizerRollsReleasedStorageBack(): Promise<v
   try {
     await releaseThenFinalizeWithRollback(
       () => { order.push('release') },
-      () => { throw new Error('quit-and-install failed') },
+      async () => { await Promise.resolve(); throw new Error('quit-and-install failed') },
       async () => { order.push('rollback') },
     )
   } catch {
@@ -199,16 +200,32 @@ export function testIntentPriorityIsStable(): void {
   assert(intents.length === 3, '退出意图合同必须保持三种明确终态')
 }
 
-export function testDarwinTrayUsesPackagedTransparentTemplateAsset(): void {
+export async function testAsyncFinalizerIsAwaitedBeforeCommitSucceeds(): Promise<void> {
+  const order: string[] = []
+  await releaseThenFinalizeWithRollback(
+    () => { order.push('release') },
+    async () => { await Promise.resolve(); order.push('finalize') },
+    async () => { order.push('rollback') },
+  )
+  assert(order.join(',') === 'release,finalize', '提交必须等待异步 finalizer 完成')
+}
+
+export async function testDarwinTrayUsesPackagedTransparentTemplateAsset(): Promise<void> {
   const main = fs.readFileSync(path.resolve('electron/main.ts'), 'utf8')
   const pkg = fs.readFileSync(path.resolve('package.json'), 'utf8')
-  const template = fs.readFileSync(path.resolve('build/trayTemplate.svg'), 'utf8')
-  const template2x = fs.readFileSync(path.resolve('build/trayTemplate@2x.svg'), 'utf8')
+  const paths = ['build/trayTemplate.png', 'build/trayTemplate@2x.png']
+  const expectedSizes = [18, 36]
+  for (let index = 0; index < paths.length; index += 1) {
+    const bytes = fs.readFileSync(path.resolve(paths[index]))
+    assert(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), '托盘资源必须具有 PNG signature')
+    const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    assert(info.width === expectedSizes[index] && info.height === expectedSizes[index], '托盘 PNG 尺寸必须为 18px/@2x')
+    const alpha = data.filter((_value, offset) => offset % 4 === 3)
+    assert(alpha.some((value) => value === 0) && alpha.some((value) => value > 0), '托盘 PNG 必须同时包含透明背景和非空图形')
+  }
   assert(
-    main.includes("'trayTemplate.svg'") && main.includes('setTemplateImage(true)') &&
-      pkg.includes('build/trayTemplate@2x.svg') &&
-      template.includes('width="18"') && template2x.includes('width="36"') &&
-      !template.includes('<rect') && !template2x.includes('<rect'),
+    main.includes("'trayTemplate.png'") && main.includes('setTemplateImage(true)') &&
+      pkg.includes('build/trayTemplate@2x.png'),
     'Darwin 托盘必须使用打包的 18px/@2x 透明单色 template 资产',
   )
 }
@@ -317,7 +334,14 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
   )
   assert(main.includes("mainWindow.on('query-session-end'"), 'Windows 会话结束必须被拦截')
   const commitExit = main.slice(main.indexOf('commitExit('), main.indexOf('function isTrustedAppNavigation'))
-  assert(commitExit.includes('await disposeLifecycleServices()'), '授权退出前必须等待热键服务释放')
+  const storageCommitIndex = commitExit.indexOf('commitStorageExit(')
+  const disposeIndex = commitExit.indexOf('await disposeLifecycleServices()', storageCommitIndex)
+  assert(storageCommitIndex >= 0 && disposeIndex > storageCommitIndex, '生命周期释放只能发生在存储提交 finalizer 内')
+  assert(commitExit.includes('await initializeLifecycleServices()'), '最终退出调用失败必须恢复托盘与热键入口')
+  assert(
+    main.includes('windowPresence.attachWindow(mainWindow)'),
+    '恢复生命周期服务时必须重新接管仍存在的窗口关闭行为',
+  )
   const willQuit = main.slice(main.indexOf("app.on('will-quit'"))
   assert(
     !willQuit.includes('void windowHotkey?.dispose()') && willQuit.includes('globalShortcut.unregisterAll()'),

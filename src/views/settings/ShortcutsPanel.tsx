@@ -61,7 +61,7 @@ export function ShortcutsPanel() {
       const chord = chordFromEvent(e)
       if (!chord.key) return
 
-      if (windowHotkeyState && chordsEqual(chord, windowHotkeyState.binding)) {
+      if (windowHotkeyState?.registered && chordsEqual(chord, windowHotkeyState.binding)) {
         toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键')
         return
       }
@@ -101,7 +101,7 @@ export function ShortcutsPanel() {
           title={windowHotkeyLoading ? WINDOW_HOTKEY_LOADING_COPY : undefined}
           disabled={windowHotkeyLoading}
           onClick={() => {
-            if (!windowHotkeyState) {
+            if (!windowHotkeyState?.registered) {
               resetAllBindings()
               toast('已恢复全部默认快捷键')
               return
@@ -192,7 +192,7 @@ export function ShortcutsPanel() {
                             onClick={() => {
                               setRecordingId(null)
                               if (
-                                windowHotkeyState &&
+                                windowHotkeyState?.registered &&
                                 !isSequence(action.defaultBinding) &&
                                 chordsEqual(action.defaultBinding, windowHotkeyState.binding)
                               ) {

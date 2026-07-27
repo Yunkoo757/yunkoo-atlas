@@ -50,9 +50,9 @@ async function runBootstrapStorage(): Promise<void> {
   if (isElectron()) {
     try {
       const state = await window.journalBridge?.getWindowHotkey()
-      useShortcutStore.getState().setWindowHotkeyBinding(state?.binding ?? null)
+      useShortcutStore.getState().setWindowHotkeyState(state ?? null)
     } catch {
-      useShortcutStore.getState().setWindowHotkeyBinding(null)
+      useShortcutStore.getState().setWindowHotkeyState(null)
     }
   }
 

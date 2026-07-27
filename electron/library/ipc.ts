@@ -138,13 +138,13 @@ export async function createVerifiedExitBackup(signal?: AbortSignal): Promise<vo
 export async function commitStorageExit(
   signal: AbortSignal,
   deadlineAt: number,
-  finalize: () => void,
+  finalize: () => Promise<void> | void,
 ): Promise<void> {
   await operationGate.runExclusive(async () => {
     assertExitWithinDeadline(signal, deadlineAt)
     const current = exitPreparedStorage
     if (!current) {
-      finalize()
+      await finalize()
       return
     }
     const restartAutoBackup = autoBackupStarted

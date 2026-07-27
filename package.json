@@ -126,12 +126,12 @@
     ],
     "extraResources": [
       {
-        "from": "build/trayTemplate.svg",
-        "to": "trayTemplate.svg"
+        "from": "build/trayTemplate.png",
+        "to": "trayTemplate.png"
       },
       {
-        "from": "build/trayTemplate@2x.svg",
-        "to": "trayTemplate@2x.svg"
+        "from": "build/trayTemplate@2x.png",
+        "to": "trayTemplate@2x.png"
       },
       {
         "from": "node_modules/sql.js/dist/sql-wasm.wasm",
