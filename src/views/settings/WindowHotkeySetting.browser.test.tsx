@@ -67,9 +67,20 @@ type DeferredUpdate = {
   resolve: (result: WindowHotkeyUpdateResult) => void
 }
 
+type DeferredState = {
+  promise: Promise<WindowHotkeyState>
+  resolve: (state: WindowHotkeyState) => void
+}
+
 function deferredUpdate(): DeferredUpdate {
   let resolve!: DeferredUpdate['resolve']
   const promise = new Promise<WindowHotkeyUpdateResult>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+function deferredState(): DeferredState {
+  let resolve!: DeferredState['resolve']
+  const promise = new Promise<WindowHotkeyState>((done) => { resolve = done })
   return { promise, resolve }
 }
 
@@ -92,16 +103,25 @@ async function run(): Promise<void> {
     useShortcutStore.setState({ bindings: {} })
     root = await renderPanel(rootElement)
     assert(!document.querySelector('[data-window-hotkey-setting]'), 'Web 设置页不应显示系统热键')
+    const webResetAll = document.querySelector<HTMLButtonElement>('.shortcuts-reset-all')
+    const webCapture = document.querySelector<HTMLButtonElement>('.shortcuts-table button.shortcuts-capture')
+    assert(webResetAll && !webResetAll.disabled, 'Web 恢复全部默认不应等待 Electron 系统键')
+    assert(webCapture && !webCapture.disabled, 'Web 普通快捷键录制不应被 Electron loading 锁定')
     root.unmount()
     root = null
 
     const calls: string[] = []
-    let state: WindowHotkeyState = { binding: { key: 'f2' }, registered: true }
+    let state: WindowHotkeyState = {
+      binding: { key: 'f2' },
+      registered: false,
+      errorCode: 'registration-unavailable',
+    }
+    const pendingGet = deferredState()
     let nextSet: 'success' | 'failure' | DeferredUpdate = 'success'
     let nextReset: 'success' | 'failure' | DeferredUpdate = 'success'
     const hotkeyBridge = {
       isElectron: true as const,
-      getWindowHotkey: async () => state,
+      getWindowHotkey: () => pendingGet.promise,
       setWindowHotkey: async (binding: KeyChord): Promise<WindowHotkeyUpdateResult> => {
         calls.push(`ipc:set:${chordKey(binding)}`)
         if (typeof nextSet !== 'string') return nextSet.promise
@@ -136,12 +156,70 @@ async function run(): Promise<void> {
       value: hotkeyBridge as Window['journalBridge'],
     })
 
-    useShortcutStore.setState({ bindings: {} })
+    useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
     root = await renderPanel(rootElement)
     await eventually(() => Boolean(document.querySelector('[data-window-hotkey-setting]')), 'Electron 设置页应显示系统热键')
-    await eventually(() => screenText().includes('已注册'), '系统热键注册状态未显示')
+    const loadingStatus = document.querySelector('[role="status"]')
+    const loadingResetAll = document.querySelector<HTMLButtonElement>('.shortcuts-reset-all')
+    const loadingCaptures = [...document.querySelectorAll<HTMLButtonElement>(
+      '.shortcuts-table button.shortcuts-capture',
+    )]
+    const loadingRestores = [...document.querySelectorAll<HTMLButtonElement>(
+      '.shortcuts-table button.shortcuts-action[aria-label^="恢复"]',
+    )]
+    assert(loadingStatus?.textContent?.includes('正在读取'), '系统键加载期间必须显示可访问状态')
+    assert(loadingResetAll?.disabled, '系统键加载期间恢复全部默认必须禁用')
+    assert(loadingResetAll.title.includes('正在读取系统快捷键'), '恢复全部默认必须解释禁用原因')
+    assert(loadingCaptures.length > 0, '测试夹具缺少普通快捷键录制入口')
+    assert(loadingCaptures.every((button) => button.disabled), '系统键加载期间普通录制入口必须禁用')
+    assert(
+      loadingCaptures.every((button) => button.getAttribute('aria-label')?.includes('正在读取系统快捷键')),
+      '普通录制入口必须用 aria-label 解释禁用原因',
+    )
+    assert(loadingRestores.length > 0, '测试夹具缺少单项恢复入口')
+    assert(loadingRestores.every((button) => button.disabled), '系统键加载期间单项恢复必须禁用')
+    assert(
+      loadingRestores.every((button) => button.title.includes('正在读取系统快捷键')),
+      '单项恢复必须用 title 解释禁用原因',
+    )
+    const loadingBindings = JSON.stringify(useShortcutStore.getState().bindings)
+    loadingResetAll.click()
+    loadingCaptures[0].click()
+    loadingRestores[0].click()
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      ctrlKey: true,
+      key: 'k',
+      bubbles: true,
+      cancelable: true,
+    }))
+    assert(
+      JSON.stringify(useShortcutStore.getState().bindings) === loadingBindings,
+      '系统键加载期间尝试操作不得修改普通 bindings',
+    )
+
+    pendingGet.resolve(state)
+    await eventually(() => screenText().includes('当前未注册'), '未注册系统热键状态未显示')
     assert(screenText().includes('系统级，会在其他软件中生效'), '必须解释全局影响')
     assert(document.querySelector('[role="status"]'), '注册结果必须使用可访问状态语义')
+    await eventually(
+      () => !loadingResetAll.disabled &&
+        loadingCaptures.every((button) => !button.disabled) &&
+        loadingRestores.every((button) => !button.disabled),
+      '系统键状态加载完成后普通绑定入口未解锁',
+    )
+    useToast.getState().dismiss()
+    await recordOrdinaryChord('新建交易', { key: 'F2' })
+    await eventually(
+      () => useToast.getState().message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
+      '系统键加载完成后普通录制保护未生效',
+    )
+    assert(!('global.newTrade' in useShortcutStore.getState().bindings), '普通录制不得抢占已加载的 F2 系统键')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await eventually(
+      () => !document.querySelector('.shortcuts-capture[aria-pressed="true"]'),
+      'F2 冲突后普通快捷键录制状态未退出',
+    )
+    useShortcutStore.setState({ bindings: {} })
 
     const pendingSuccess = deferredUpdate()
     nextSet = pendingSuccess

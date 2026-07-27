@@ -12,6 +12,8 @@ import { ShortcutKeycaps } from '@/views/settings/ShortcutKeycaps'
 import { WindowHotkeySetting } from '@/views/settings/WindowHotkeySetting'
 import '@/views/ShortcutsView.css'
 
+const WINDOW_HOTKEY_LOADING_COPY = '正在读取系统快捷键，请稍候'
+
 export function ShortcutsPanel() {
   const bindings = useShortcutStore((s) => s.bindings)
   const assignBinding = useShortcutStore((s) => s.assignBinding)
@@ -24,6 +26,7 @@ export function ShortcutsPanel() {
   const [recordingId, setRecordingId] = useState<string | null>(null)
   const [windowHotkeyState, setWindowHotkeyState] = useState<WindowHotkeyState | null>(null)
   const isElectron = window.journalBridge?.isElectron === true
+  const windowHotkeyLoading = isElectron && windowHotkeyState === null
 
   const categories = useMemo(() => {
     const map = new Map<string, typeof SHORTCUT_ACTIONS>()
@@ -92,7 +95,11 @@ export function ShortcutsPanel() {
         <button
           type="button"
           className="shortcuts-reset-all"
-          disabled={isElectron && !windowHotkeyState}
+          aria-label={windowHotkeyLoading
+            ? `恢复全部默认，${WINDOW_HOTKEY_LOADING_COPY}`
+            : undefined}
+          title={windowHotkeyLoading ? WINDOW_HOTKEY_LOADING_COPY : undefined}
+          disabled={windowHotkeyLoading}
           onClick={() => {
             if (!windowHotkeyState) {
               resetAllBindings()
@@ -146,11 +153,15 @@ export function ShortcutsPanel() {
                         type="button"
                         className="shortcuts-capture"
                         aria-label={
-                          isRecording
+                          windowHotkeyLoading
+                            ? `${action.label}，${WINDOW_HOTKEY_LOADING_COPY}`
+                            : isRecording
                             ? `${action.label}，等待输入新快捷键`
                             : `${action.label}，当前快捷键 ${bindingLabel}，点击修改`
                         }
                         aria-pressed={isRecording}
+                        title={windowHotkeyLoading ? WINDOW_HOTKEY_LOADING_COPY : undefined}
+                        disabled={windowHotkeyLoading}
                         onClick={() => setRecordingId(isRecording ? null : action.id)}
                         onBlur={() => {
                           if (isRecording) setRecordingId(null)
@@ -173,7 +184,11 @@ export function ShortcutsPanel() {
                           <button
                             type="button"
                             className="shortcuts-action"
-                            aria-label={`恢复${action.label}的默认快捷键`}
+                            aria-label={windowHotkeyLoading
+                              ? `恢复${action.label}的默认快捷键，${WINDOW_HOTKEY_LOADING_COPY}`
+                              : `恢复${action.label}的默认快捷键`}
+                            title={windowHotkeyLoading ? WINDOW_HOTKEY_LOADING_COPY : undefined}
+                            disabled={windowHotkeyLoading}
                             onClick={() => {
                               setRecordingId(null)
                               if (
