@@ -271,6 +271,82 @@ export function testElectronTrayFactoryUsesInjectedMenuAndTrayBoundaries(): void
   )
 }
 
+export function testFailedInitialTrayMenuIsDisposedBeforeCleanRetry(): void {
+  for (const failureAt of ['buildMenu', 'setContextMenu'] as const) {
+    const calls: string[] = []
+    const activeTrays = new Set<number>()
+    let nextTrayId = 0
+    let failFirstRefresh = true
+    const window: PresenceWindow = {
+      isVisible: () => true,
+      isFocused: () => true,
+      isMinimized: () => false,
+      isDestroyed: () => false,
+      restore: () => {},
+      show: () => {},
+      focus: () => {},
+      hide: () => { calls.push('window:hide') },
+      on: () => {},
+      removeListener: () => {},
+    }
+    const createTray = createElectronTrayFactory({
+      createTray: () => {
+        const trayId = ++nextTrayId
+        activeTrays.add(trayId)
+        calls.push(`tray:create:${trayId}`)
+        return {
+          on: () => {},
+          setContextMenu: () => {
+            if (failureAt === 'setContextMenu' && failFirstRefresh) {
+              failFirstRefresh = false
+              throw new Error('menu set failed')
+            }
+          },
+          destroy: () => {
+            calls.push(`tray:destroy:${trayId}`)
+            activeTrays.delete(trayId)
+          },
+        }
+      },
+      buildMenu: () => {
+        if (failureAt === 'buildMenu' && failFirstRefresh) {
+          failFirstRefresh = false
+          throw new Error('menu build failed')
+        }
+        return {}
+      },
+    })
+    const controller = new WindowPresenceController({
+      ensureWindow: () => window,
+      getWindow: () => window,
+      createTray,
+      requestQuit: async () => ({ ok: true }),
+      isExitAuthorized: () => false,
+      showDock: () => {},
+      hideDock: () => {},
+      reportError: (code) => { calls.push(`error:${code}`) },
+    })
+
+    assert(!controller.initialize(), `${failureAt} 失败必须让首次初始化失败`)
+    assert(
+      calls.join('|') === 'tray:create:1|tray:destroy:1|error:tray-create-failed',
+      `${failureAt} 失败必须精确释放刚创建的托盘并报告一次`,
+    )
+    assert(activeTrays.size === 0, `${failureAt} 失败后不得遗留活动托盘`)
+
+    controller.hide()
+    assert(!calls.includes('window:hide'), `${failureAt} 失败后控制器不得再隐藏窗口`)
+    assert(controller.initialize(), `${failureAt} 失败后必须能够干净重试`)
+    assert(activeTrays.size === 1, `${failureAt} 重试后只能留下一个活动托盘`)
+    assert(
+      calls.filter((call) => call === 'tray:destroy:1').length === 1,
+      `${failureAt} 失败的托盘必须只释放一次`,
+    )
+
+    controller.dispose()
+  }
+}
+
 export function testDisposeRemovesCloseListenerAndDestroysTray(): void {
   const fixture = createPresenceFixture()
   fixture.controller.initialize()

@@ -114,18 +114,25 @@ export class WindowPresenceController {
   initialize(): boolean {
     if (this.disposed) return false
     if (this.tray) return true
+    let createdTray: PresenceTray | null = null
     try {
-      this.tray = this.dependencies.createTray({
+      createdTray = this.dependencies.createTray({
         toggle: () => this.toggle(),
         show: () => this.show(),
         hide: () => this.hide(),
         quit: () => { void this.requestQuitAndRecover() },
       })
+      this.tray = createdTray
       this.refreshTrayMenu()
       return true
     } catch (error) {
-      this.dependencies.reportError('tray-create-failed', error)
       this.tray = null
+      try {
+        createdTray?.dispose()
+      } catch (disposeError) {
+        this.dependencies.reportError('tray-dispose-failed', disposeError)
+      }
+      this.dependencies.reportError('tray-create-failed', error)
       return false
     }
   }
