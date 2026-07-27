@@ -877,14 +877,7 @@ try {
       target.dataset.qaFocusCount = String(Number(target.dataset.qaFocusCount ?? '0') + 1)
     }, { once: true })
   })
-  const openedSearch = await page.evaluate(() => {
-    const search = [...document.querySelectorAll('[data-mobile-drawer-item]')]
-      .find((element) => element.textContent?.trim() === '搜索')
-    if (!(search instanceof HTMLButtonElement)) return false
-    search.click()
-    return true
-  })
-  if (!openedSearch) throw new Error('More drawer search button was unavailable after opening')
+  await drawer.getByRole('button', { name: '搜索', exact: true }).click()
   await expectCount(drawer, 0)
   const commandPaletteInput = page.locator('.cmdk-input')
   await expectVisible(commandPaletteInput)
