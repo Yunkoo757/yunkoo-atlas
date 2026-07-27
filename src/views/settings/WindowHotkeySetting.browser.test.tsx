@@ -98,6 +98,7 @@ async function run(): Promise<void> {
     const calls: string[] = []
     let state: WindowHotkeyState = { binding: { key: 'f2' }, registered: true }
     let nextSet: 'success' | 'failure' | DeferredUpdate = 'success'
+    let nextReset: 'success' | 'failure' | DeferredUpdate = 'success'
     const hotkeyBridge = {
       isElectron: true as const,
       getWindowHotkey: async () => state,
@@ -117,6 +118,15 @@ async function run(): Promise<void> {
       },
       resetWindowHotkey: async (): Promise<WindowHotkeyUpdateResult> => {
         calls.push('ipc:reset')
+        if (typeof nextReset !== 'string') return nextReset.promise
+        if (nextReset === 'failure') {
+          return {
+            ok: false,
+            errorCode: 'registration-unavailable',
+            message: '默认系统快捷键当前无法注册',
+            state,
+          }
+        }
         state = { binding: { key: 'f2' }, registered: true }
         return { ok: true, state }
       },
@@ -199,6 +209,99 @@ async function run(): Promise<void> {
     await eventually(() => useToast.getState().message === '该按键当前无法注册', 'IPC 失败原因未显示')
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, 'IPC 失败绝不能清空普通绑定')
     assert(screenText().includes('已注册'), 'IPC 失败后应显示桥接层返回的当前状态')
+
+    await eventually(() => !document.querySelector('[role="dialog"]'), '系统键设置失败后确认弹层未关闭')
+    useShortcutStore.setState({ bindings: { 'global.newTrade': { key: 'f2' } } })
+    useToast.getState().dismiss()
+    nextReset = 'success'
+    const resetCallsBeforeCancel = calls.filter((call) => call === 'ipc:reset').length
+    clickButton('恢复默认')
+    await eventually(
+      () => document.querySelector('[role="dialog"]')?.textContent?.includes('新建交易') === true,
+      '系统恢复默认应先列出 F2 冲突动作',
+    )
+    assert(
+      calls.filter((call) => call === 'ipc:reset').length === resetCallsBeforeCancel,
+      '确认 F2 冲突前不得调用 reset IPC',
+    )
+    assert(
+      chordKey(useShortcutStore.getState().bindings['global.newTrade'] as KeyChord) === 'f2',
+      '确认 F2 冲突前不得清空普通绑定',
+    )
+    clickButton('取消')
+    await eventually(() => !document.querySelector('[role="dialog"]'), '取消系统恢复默认后弹层未关闭')
+    assert(
+      calls.filter((call) => call === 'ipc:reset').length === resetCallsBeforeCancel,
+      '取消系统恢复默认不得调用 reset IPC',
+    )
+    assert(
+      chordKey(useShortcutStore.getState().bindings['global.newTrade'] as KeyChord) === 'f2',
+      '取消系统恢复默认不得修改普通绑定',
+    )
+
+    const pendingReset = deferredUpdate()
+    nextReset = pendingReset
+    clickButton('恢复默认')
+    await eventually(() => Boolean(document.querySelector('[role="dialog"]')), '确认系统恢复默认时未重新打开弹层')
+    clickButton('确认覆盖')
+    await eventually(
+      () => calls.filter((call) => call === 'ipc:reset').length === resetCallsBeforeCancel + 1,
+      '确认系统恢复默认后应先调用 reset IPC',
+    )
+    assert(
+      chordKey(useShortcutStore.getState().bindings['global.newTrade'] as KeyChord) === 'f2',
+      'reset IPC 成功前不得清空 F2 冲突',
+    )
+    state = { binding: { key: 'f2' }, registered: true }
+    pendingReset.resolve({ ok: true, state })
+    await eventually(
+      () => useShortcutStore.getState().bindings['global.newTrade'] === null,
+      'reset IPC 成功后才清空 F2 冲突',
+    )
+
+    await eventually(() => !document.querySelector('[role="dialog"]'), '系统恢复默认成功后弹层未关闭')
+    useShortcutStore.setState({ bindings: { 'global.newTrade': { key: 'f2' } } })
+    useToast.getState().dismiss()
+    nextReset = 'failure'
+    clickButton('恢复默认')
+    await eventually(() => Boolean(document.querySelector('[role="dialog"]')), '系统恢复默认失败场景未打开确认弹层')
+    clickButton('确认覆盖')
+    await eventually(
+      () => useToast.getState().message === '默认系统快捷键当前无法注册',
+      '系统恢复默认失败原因未显示',
+    )
+    assert(
+      chordKey(useShortcutStore.getState().bindings['global.newTrade'] as KeyChord) === 'f2',
+      'reset IPC 失败绝不能清空 F2 冲突',
+    )
+
+    await eventually(() => !document.querySelector('[role="dialog"]'), '系统恢复默认失败后弹层未关闭')
+    useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
+    useToast.getState().dismiss()
+    nextSet = 'success'
+    await recordSystemChord({ ctrlKey: true, key: 'k' })
+    await eventually(
+      () => document.querySelector('[data-window-hotkey-capture]')
+        ?.getAttribute('aria-label')?.includes('Ctrl+K') === true,
+      '单项恢复场景未把系统快捷键切换为 Ctrl+K',
+    )
+    assert(
+      useShortcutStore.getState().bindings['global.commandPaletteMod'] === null,
+      '单项恢复前普通 Ctrl+K 动作必须保持显式禁用',
+    )
+    const restoreCommandPalette = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="恢复命令面板（Ctrl+K）的默认快捷键"]',
+    )
+    assert(restoreCommandPalette, '缺少命令面板 Ctrl+K 的单项恢复按钮')
+    restoreCommandPalette.click()
+    await eventually(
+      () => useToast.getState().message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
+      '单项恢复撞系统键时必须给出拒绝原因',
+    )
+    assert(
+      useShortcutStore.getState().bindings['global.commandPaletteMod'] === null,
+      '单项恢复不得删除系统键冲突的 null 覆盖',
+    )
   } finally {
     root?.unmount()
     useShortcutStore.setState({ bindings: originalBindings })

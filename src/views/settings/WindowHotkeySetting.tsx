@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { ModalShell } from '@/components/ui/ModalShell'
 import {
+  DEFAULT_WINDOW_HOTKEY,
   normalizeWindowHotkeyBinding,
   type WindowHotkeyState,
 } from '@/lib/windowHotkeyBinding'
@@ -15,6 +16,7 @@ import { ShortcutKeycaps } from '@/views/settings/ShortcutKeycaps'
 type PendingConflict = {
   candidate: KeyChord
   conflicts: Array<{ id: string; label: string }>
+  operation: 'set' | 'reset'
 }
 
 export function WindowHotkeySetting({
@@ -68,7 +70,7 @@ export function WindowHotkeySetting({
       useShortcutStore.getState().bindings,
     )
     if (conflicts.length > 0) {
-      setPending({ candidate, conflicts })
+      setPending({ candidate, conflicts, operation: 'set' })
       return
     }
     await commitCandidate(candidate)
@@ -86,13 +88,26 @@ export function WindowHotkeySetting({
         return
       }
       const labels = useShortcutStore.getState()
-        .disableConflictsWithWindowHotkey(result.state.binding)
+        .disableConflictsWithWindowHotkey(DEFAULT_WINDOW_HOTKEY)
       if (labels.length > 0) toast(`已恢复默认，并覆盖「${labels.join('、')}」`)
       else toast('已恢复系统快捷键默认值')
     } finally {
       setBusy(false)
     }
   }, [publishState])
+
+  const applyResetCandidate = useCallback(async (): Promise<void> => {
+    const candidate = { ...DEFAULT_WINDOW_HOTKEY }
+    const conflicts = findWindowHotkeyConflicts(
+      candidate,
+      useShortcutStore.getState().bindings,
+    )
+    if (conflicts.length > 0) {
+      setPending({ candidate, conflicts, operation: 'reset' })
+      return
+    }
+    await resetCandidate()
+  }, [resetCandidate])
 
   useEffect(() => {
     if (!recording || busy) return
@@ -170,7 +185,7 @@ export function WindowHotkeySetting({
             disabled={busy || !state}
             onClick={() => {
               setRecording(false)
-              void resetCandidate()
+              void applyResetCandidate()
             }}
           >
             恢复默认
@@ -200,8 +215,10 @@ export function WindowHotkeySetting({
                 className="ui-btn ui-btn-primary"
                 disabled={busy}
                 onClick={() => {
-                  const candidate = pending.candidate
-                  void commitCandidate(candidate).finally(() => setPending(null))
+                  const operation = pending.operation === 'reset'
+                    ? resetCandidate()
+                    : commitCandidate(pending.candidate)
+                  void operation.finally(() => setPending(null))
                 }}
               >
                 确认覆盖

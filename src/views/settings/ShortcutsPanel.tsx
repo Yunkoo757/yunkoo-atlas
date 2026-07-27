@@ -176,6 +176,15 @@ export function ShortcutsPanel() {
                             aria-label={`恢复${action.label}的默认快捷键`}
                             onClick={() => {
                               setRecordingId(null)
+                              if (
+                                windowHotkeyState &&
+                                !isSequence(action.defaultBinding) &&
+                                chordsEqual(action.defaultBinding, windowHotkeyState.binding)
+                              ) {
+                                setBinding(action.id, null)
+                                toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键')
+                                return
+                              }
                               resetBinding(action.id)
                               toast('已恢复默认')
                             }}
