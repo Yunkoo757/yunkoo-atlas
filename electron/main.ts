@@ -30,6 +30,7 @@ import { initializeDiagnostics, logDiagnostic } from './diagnostics'
 import { safeConsoleError } from './diagnosticSanitizer'
 import { beginOperation, type OperationLogHandle } from './operationLogger'
 import {
+  assertExitWithinDeadline,
   QuitCoordinator,
   RendererFlushTracker,
   type QuitIntent,
@@ -145,11 +146,22 @@ function unavailableWindowHotkeyResult(): WindowHotkeyUpdateResult {
 async function disposeLifecycleServices(): Promise<void> {
   if (lifecycleServicesDisposed) return
   const hotkey = windowHotkey
-  if (hotkey) await hotkey.dispose()
-  windowPresence?.dispose()
+  const presence = windowPresence
+  let failure: unknown
+  try {
+    if (hotkey) await hotkey.dispose()
+  } catch (error) {
+    failure = error
+  }
+  try {
+    presence?.dispose()
+  } catch (error) {
+    failure ??= error
+  }
   windowHotkey = null
   windowPresence = null
   lifecycleServicesDisposed = true
+  if (failure) throw failure
 }
 
 async function initializeLifecycleServices(): Promise<void> {
@@ -192,6 +204,49 @@ async function initializeLifecycleServices(): Promise<void> {
       logDiagnostic('error', 'window-hotkey-dispose-failed', disposeError)
     }
   }
+}
+
+function waitForElectronTerminal(
+  intent: QuitIntent,
+  signal: AbortSignal,
+  deadlineAt: number,
+  trigger: () => void,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const windows = intent === 'close'
+      ? BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed())
+      : []
+    let remainingWindows = windows.length
+    const timeoutMs = Math.max(0, deadlineAt - Date.now())
+    const cleanup = () => {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', onAbort)
+      app.removeListener('will-quit', onWillQuit)
+      for (const window of windows) window.removeListener('closed', onClosed)
+    }
+    const succeed = () => { cleanup(); resolve() }
+    const fail = () => { cleanup(); reject(new Error('退出协调等待超时，已取消退出')) }
+    const onAbort = () => fail()
+    const onWillQuit = () => succeed()
+    const onClosed = () => {
+      remainingWindows -= 1
+      if (remainingWindows === 0) succeed()
+    }
+    const timer = setTimeout(fail, timeoutMs)
+    signal.addEventListener('abort', onAbort, { once: true })
+    if (intent === 'close') {
+      for (const window of windows) window.once('closed', onClosed)
+    } else {
+      app.once('will-quit', onWillQuit)
+    }
+    try {
+      trigger()
+      if (intent === 'close' && remainingWindows === 0) succeed()
+    } catch (error) {
+      cleanup()
+      reject(error)
+    }
+  })
 }
 
 function isAllowedExternalUrl(rawUrl: string): boolean {
@@ -291,16 +346,27 @@ const quitCoordinator = new QuitCoordinator({
     return commitStorageExit(signal, deadlineAt, async () => {
       const intent = resolveIntent()
       if (intent === 'close' && process.platform === 'darwin') {
-        gracefulExitAuthorized = true
-        for (const window of BrowserWindow.getAllWindows()) window.close()
+        try {
+          assertExitWithinDeadline(signal, deadlineAt)
+          gracefulExitAuthorized = true
+          await waitForElectronTerminal(intent, signal, deadlineAt, () => {
+            for (const window of BrowserWindow.getAllWindows()) window.close()
+          })
+        } catch (error) {
+          gracefulExitAuthorized = false
+          throw error
+        }
         return
       }
-      await disposeLifecycleServices()
-      gracefulExitAuthorized = true
       try {
-        if (intent === 'quit-and-install') performDownloadedUpdateInstall()
-        else if (intent === 'quit') app.quit()
-        else for (const window of BrowserWindow.getAllWindows()) window.close()
+        await disposeLifecycleServices()
+        assertExitWithinDeadline(signal, deadlineAt)
+        gracefulExitAuthorized = true
+        await waitForElectronTerminal(intent, signal, deadlineAt, () => {
+          if (intent === 'quit-and-install') performDownloadedUpdateInstall()
+          else if (intent === 'quit') app.quit()
+          else for (const window of BrowserWindow.getAllWindows()) window.close()
+        })
       } catch (error) {
         gracefulExitAuthorized = false
         await initializeLifecycleServices()
@@ -378,6 +444,10 @@ function createWindow(): BrowserWindow {
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     logDiagnostic('error', 'render-process-gone', details)
+  })
+
+  mainWindow.webContents.on('will-prevent-unload', (event) => {
+    if (gracefulExitAuthorized) event.preventDefault()
   })
 
   if (process.platform === 'win32') {

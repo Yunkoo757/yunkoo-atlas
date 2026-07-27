@@ -454,6 +454,16 @@ export function App() {
   }, [closeSaveState.phase])
 
   useEffect(() => {
+    if (closeSaveState.phase !== 'saving' && closeSaveState.phase !== 'saved') return
+    const blockNewInput = (event: KeyboardEvent) => {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    window.addEventListener('keydown', blockNewInput, true)
+    return () => window.removeEventListener('keydown', blockNewInput, true)
+  }, [closeSaveState.phase])
+
+  useEffect(() => {
     const init = async () => {
       // Electron: check if library needs initialization
       if (isElectron()) {

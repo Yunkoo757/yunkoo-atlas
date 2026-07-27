@@ -200,6 +200,27 @@ export function testIntentPriorityIsStable(): void {
   assert(intents.length === 3, '退出意图合同必须保持三种明确终态')
 }
 
+export async function testCommitTimeoutWaitsForRollbackAndNeverFinalizesLate(): Promise<void> {
+  const calls: string[] = []
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 10,
+    createRequestId: () => 'request-slow-commit',
+    requestRendererFlush: async () => {},
+    createVerifiedBackup: async () => {},
+    commitExit: async (_resolveIntent, signal) => {
+      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }))
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      calls.push('rollback')
+      throw new Error('退出协调等待超时，已取消退出')
+    },
+    cancelPreparation: () => { calls.push('cancel') },
+    reportError: () => { calls.push('error') },
+  })
+  const result = await coordinator.request('quit')
+  assert(!result.ok, '提交超时必须失败')
+  assert(calls.join(',') === 'rollback,cancel,error', '必须等待提交回滚完成后才能取消准备并报告错误')
+}
+
 export async function testAsyncFinalizerIsAwaitedBeforeCommitSucceeds(): Promise<void> {
   const order: string[] = []
   await releaseThenFinalizeWithRollback(
@@ -341,6 +362,16 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
   assert(
     main.includes('windowPresence.attachWindow(mainWindow)'),
     '恢复生命周期服务时必须重新接管仍存在的窗口关闭行为',
+  )
+  assert(
+    commitExit.includes('await waitForElectronTerminal(') &&
+      main.includes("app.once('will-quit'") && main.includes("window.once('closed'"),
+    '退出提交必须等待 Electron 的真实 will-quit/closed 终态',
+  )
+  assert(
+    main.includes("webContents.on('will-prevent-unload'") &&
+      main.includes('if (gracefulExitAuthorized) event.preventDefault()'),
+    '前置保存完成后必须明确允许受信任的卸载继续',
   )
   const willQuit = main.slice(main.indexOf("app.on('will-quit'"))
   assert(

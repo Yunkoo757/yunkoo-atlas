@@ -119,6 +119,7 @@ export class QuitCoordinator {
         return committedIntent
       }
       await this.dependencies.commitExit(resolveIntent, controller.signal, deadlineAt)
+      assertWithinDeadline()
       this.dependencies.reportSuccess?.({
         operationId: requestId,
         stage,
@@ -128,24 +129,25 @@ export class QuitCoordinator {
       return { ok: true, intent: committedIntent ?? this.requestedIntent }
     }
 
-    const active = Promise.race([run(), timeout]).catch((error) => {
+    const runPromise = run()
+    const active = Promise.race([runPromise, timeout]).catch(async (error) => {
       controller.abort()
+      if (stage === 'commit-exit') await runPromise.catch(() => undefined)
       const message = messageOf(error)
-      return Promise.resolve(this.dependencies.cancelPreparation()).then(() => {
-        const code: QuitFailureCode = stage === 'renderer-flush'
-          ? 'quit-flush-failed'
-          : stage === 'verified-backup'
-            ? 'quit-backup-failed'
-            : 'quit-commit-failed'
-        this.dependencies.reportError({
-          operationId: requestId,
-          stage,
-          code,
-          durationMs: Math.max(0, now() - startedAt),
-          message,
-        })
-        return { ok: false as const, error: message }
+      await this.dependencies.cancelPreparation()
+      const code: QuitFailureCode = stage === 'renderer-flush'
+        ? 'quit-flush-failed'
+        : stage === 'verified-backup'
+          ? 'quit-backup-failed'
+          : 'quit-commit-failed'
+      this.dependencies.reportError({
+        operationId: requestId,
+        stage,
+        code,
+        durationMs: Math.max(0, now() - startedAt),
+        message,
       })
+      return { ok: false as const, error: message }
     }).then((result) => {
       this.active = null
       this.requestedIntent = 'close'
