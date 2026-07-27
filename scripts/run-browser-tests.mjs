@@ -32,37 +32,43 @@ export async function runBrowserRegressionTests(root, options = {}) {
     browser = await chromium.launch({ headless: true })
 
     for (const browserTest of browserTests) {
-      const page = await browser.newPage()
-      const diagnostics = []
-      page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`))
-      page.on('console', (message) => {
-        if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`)
-      })
-      try {
-        await page.goto(new URL(browserTest.url, baseUrl).href)
-        await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: 5000 })
-        await page.evaluate((key) => window[key], browserTest.promiseKey)
-        await settleBrowserDiagnostics(page)
-        const allowedMessages = await page.evaluate(
-          () => Array.isArray(window.__atlasBrowserAllowedErrors)
-            ? window.__atlasBrowserAllowedErrors
-            : [],
-        )
-        const unexpected = unexpectedBrowserDiagnostics(diagnostics, allowedMessages)
-        if (unexpected.length > 0) {
-          throw new Error(`unexpected browser diagnostics:\n${unexpected.join('\n')}`)
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const page = await browser.newPage()
+        const diagnostics = []
+        page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`))
+        page.on('console', (message) => {
+          if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`)
+        })
+        try {
+          await page.goto(new URL(browserTest.url, baseUrl).href)
+          await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: 5000 })
+          await page.evaluate((key) => window[key], browserTest.promiseKey)
+          await settleBrowserDiagnostics(page)
+          const allowedMessages = await page.evaluate(
+            () => Array.isArray(window.__atlasBrowserAllowedErrors)
+              ? window.__atlasBrowserAllowedErrors
+              : [],
+          )
+          const unexpected = unexpectedBrowserDiagnostics(diagnostics, allowedMessages)
+          if (unexpected.length > 0) {
+            throw new Error(`unexpected browser diagnostics:\n${unexpected.join('\n')}`)
+          }
+          console.log(`PASS ${browserTest.label}`)
+          passedEntries.push(browserTest.label)
+          passedTests.push(`${browserTest.label}#${browserTest.promiseKey}`)
+          break
+        } catch (error) {
+          const retry = attempt === 0 && diagnostics.some((message) => message.includes('net::ERR_NO_BUFFER_SPACE'))
+          if (!retry) {
+            failed += 1
+            console.error(`FAIL ${browserTest.label}`)
+            console.error(error)
+            console.error(`URL ${page.url()}`)
+            if (diagnostics.length > 0) console.error(diagnostics.join('\n'))
+          }
+        } finally {
+          await page.close()
         }
-        console.log(`PASS ${browserTest.label}`)
-        passedEntries.push(browserTest.label)
-        passedTests.push(`${browserTest.label}#${browserTest.promiseKey}`)
-      } catch (error) {
-        failed += 1
-        console.error(`FAIL ${browserTest.label}`)
-        console.error(error)
-        console.error(`URL ${page.url()}`)
-        if (diagnostics.length > 0) console.error(diagnostics.join('\n'))
-      } finally {
-        await page.close()
       }
     }
   } catch (error) {
