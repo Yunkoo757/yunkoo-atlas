@@ -46,7 +46,7 @@ import {
 } from '@/lib/windowHotkeyBinding'
 import { FileWindowHotkeyStorage, WindowHotkeyService } from './windowHotkey'
 import { createElectronTrayFactory, WindowPresenceController } from './windowPresence'
-import { disposeOwnedLifecycle } from './lifecycleDisposal'
+import { disposeOwnedLifecycle, LifecycleDisposalError } from './lifecycleDisposal'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -148,14 +148,22 @@ async function disposeLifecycleServices(): Promise<void> {
   if (lifecycleServicesDisposed) return
   const hotkey = windowHotkey
   const presence = windowPresence
-  await disposeOwnedLifecycle({
-    disposePresence: () => presence?.dispose(),
-    disposeHotkey: () => hotkey?.dispose() ?? Promise.resolve(),
-    recoverPresence: () => {
-      windowPresence = null
-      initializeWindowPresence()
-    },
-  })
+  try {
+    await disposeOwnedLifecycle({
+      disposePresence: () => presence?.dispose(),
+      disposeHotkey: () => hotkey?.dispose() ?? Promise.resolve(),
+      recoverPresence: () => {
+        windowPresence = null
+        initializeWindowPresence()
+      },
+    })
+  } catch (error) {
+    if (error instanceof LifecycleDisposalError) {
+      if (!error.ownership.presence) windowPresence = null
+      if (!error.ownership.hotkey) windowHotkey = null
+    }
+    throw error
+  }
   windowHotkey = null
   windowPresence = null
   lifecycleServicesDisposed = true

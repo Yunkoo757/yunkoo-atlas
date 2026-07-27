@@ -74,11 +74,15 @@ function messageOf(error: unknown): string {
 export class QuitCoordinator {
   private active: Promise<QuitResult> | null = null
   private settling: Promise<void> | null = null
+  private recoveryBlocked: string | null = null
   private requestedIntent: QuitIntent = 'close'
 
   constructor(private readonly dependencies: QuitCoordinatorDependencies) {}
 
   request(intent: QuitIntent): Promise<QuitResult> {
+    if (this.recoveryBlocked) {
+      return Promise.resolve({ ok: false, error: this.recoveryBlocked })
+    }
     if (this.settling) {
       return Promise.resolve({ ok: false, error: '上一轮退出仍在安全回滚，请稍后重试' })
     }
@@ -151,7 +155,13 @@ export class QuitCoordinator {
         this.settling = barrier
       }
       const message = messageOf(error)
-      try { await this.dependencies.cancelPreparation() } catch { /* best-effort cleanup */ }
+      let recoveryError: string | null = null
+      try {
+        await this.dependencies.cancelPreparation()
+      } catch (cancelError) {
+        recoveryError = `退出恢复失败，当前操作已阻塞：${messageOf(cancelError)}`
+        this.recoveryBlocked = recoveryError
+      }
       const code: QuitFailureCode = stage === 'renderer-flush'
         ? 'quit-flush-failed'
         : stage === 'verified-backup'
@@ -166,7 +176,7 @@ export class QuitCoordinator {
           message,
         })
       } catch { /* reporting must not poison the next request */ }
-      return { ok: false as const, error: message }
+      return { ok: false as const, error: recoveryError ?? message }
     }).finally(() => {
       this.active = null
       this.requestedIntent = 'close'

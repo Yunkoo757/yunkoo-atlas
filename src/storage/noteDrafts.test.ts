@@ -37,6 +37,29 @@ export async function testPendingNoteDraftStateClearsOnlyAfterSuccessfulFlush():
   }
 }
 
+export async function testFailedNormalizationKeepsDraftForSuccessfulRetry(): Promise<void> {
+  const originalNotes = useStore.getState().quickNotes
+  const OriginalDOMParser = globalThis.DOMParser
+  const note = createQuickNote(new Date('2026-07-28T09:00:00.000Z'))
+  const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${note.id}`
+  resetNoteDraftsForTests()
+  useStore.setState({ quickNotes: [note] })
+  try {
+    setNoteDraft(draftId, '<p>重试附件</p><img src="journal-asset://existing">')
+    globalThis.DOMParser = class { parseFromString(): never { throw new Error('normalize failed') } } as typeof DOMParser
+    assert(!(await flushNoteDraftToStore(draftId)), '首次归一化失败必须报告未完成')
+    assert(hasPendingNoteDrafts() && getNoteDraft(draftId) !== undefined, '首次失败后必须保留 pending 草稿')
+    globalThis.DOMParser = OriginalDOMParser
+    setNoteDraft(draftId, '<p>重试附件已恢复</p>')
+    assert(await flushNoteDraftToStore(draftId), '恢复后后续重试必须成功')
+    assert(!hasPendingNoteDrafts(), '重试成功后才可清除 pending 草稿')
+  } finally {
+    globalThis.DOMParser = OriginalDOMParser
+    resetNoteDraftsForTests()
+    useStore.setState({ quickNotes: originalNotes })
+  }
+}
+
 export async function testOlderDraftFlushCannotDeleteNewInput(): Promise<void> {
   const originalTrades = useStore.getState().trades
   const tradeId = 'note-draft-compare-test'

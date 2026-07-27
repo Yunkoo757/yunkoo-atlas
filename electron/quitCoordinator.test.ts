@@ -208,12 +208,46 @@ export async function testThrowingFailureHooksCannotPoisonNextRequest(): Promise
     createRequestId: () => `hook-${++nextId}`,
     requestRendererFlush: async (requestId) => { requestIds.push(requestId); throw new Error('flush failed') },
     createVerifiedBackup: async () => {}, commitExit: async () => {},
-    cancelPreparation: () => { throw new Error('cancel report failed') },
+    cancelPreparation: () => {},
     reportError: () => { throw new Error('error report failed') },
   })
   assert(!(await coordinator.request('close')).ok, '钩子抛错不得改变退出失败结果')
   assert(!(await coordinator.request('close')).ok, '钩子抛错后必须允许下一请求')
   assert(requestIds.join(',') === 'hook-1,hook-2', 'active 与 requestId 必须在 finally 中清理')
+}
+
+export async function testCancelFailureBlocksAllLaterExitTransactions(): Promise<void> {
+  let starts = 0
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 100,
+    createRequestId: () => `blocked-${++starts}`,
+    requestRendererFlush: async () => { throw new Error('flush failed') },
+    createVerifiedBackup: async () => {}, commitExit: async () => {},
+    cancelPreparation: () => { throw new Error('rollback failed') },
+    reportError: () => {},
+  })
+  const first = await coordinator.request('close')
+  const second = await coordinator.request('quit-and-install')
+  if (first.ok) throw new Error('恢复失败必须返回退出失败结果')
+  assert(first.error.includes('恢复失败'), '恢复失败必须返回明确的不可安全重试错误')
+  if (second.ok) throw new Error('恢复阻塞期间后续请求必须立即失败')
+  assert(second.error === first.error, '恢复阻塞期间后续请求必须立即返回同一阻塞原因')
+  assert(starts === 1, '恢复失败后不得启动新的退出事务')
+}
+
+export async function testThrowingStartAndSuccessHooksDoNotPoisonCleanup(): Promise<void> {
+  let nextId = 0
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 100,
+    createRequestId: () => `success-hook-${++nextId}`,
+    requestRendererFlush: async () => {}, createVerifiedBackup: async () => {},
+    commitExit: async () => {}, cancelPreparation: () => {}, reportError: () => {},
+    reportStart: () => { throw new Error('start report failed') },
+    reportSuccess: () => { throw new Error('success report failed') },
+  })
+  assert((await coordinator.request('close')).ok, 'start/success 报告异常不得改变成功结果')
+  assert((await coordinator.request('quit')).ok, 'start/success 报告异常后必须允许新事务')
+  assert(nextId === 2, '成功路径 active 必须正常清理')
 }
 
 export async function testCommitTimeoutWaitsForRollbackAndNeverFinalizesLate(): Promise<void> {
@@ -248,6 +282,7 @@ export async function testNeverSettlingCommitBlocksOverlapUntilCooperativeSettle
     requestRendererFlush: async () => {}, createVerifiedBackup: async () => {},
     commitExit: async (_resolveIntent, signal) => {
       starts += 1
+      if (starts === 2) return
       await new Promise<void>((resolve) => { settle = resolve })
       assert(signal.aborted, '迟到提交必须观察到 abort guard')
       throw new Error('aborted')
@@ -261,10 +296,9 @@ export async function testNeverSettlingCommitBlocksOverlapUntilCooperativeSettle
   settle()
   await new Promise((resolve) => setTimeout(resolve, 0))
   const retry = coordinator.request('quit')
-  await new Promise((resolve) => setTimeout(resolve, 0))
+  const retryResult = await retry
   assert(starts === 2, '协作 settle 后必须允许重试启动')
-  settle()
-  await retry
+  assert(retryResult.ok && retryResult.intent === 'quit', 'settle 后重试必须成功并保留本轮 intent')
 }
 
 export async function testSettlingRejectionCannotPromoteOldOrNextCycleIntent(): Promise<void> {
@@ -276,6 +310,7 @@ export async function testSettlingRejectionCannotPromoteOldOrNextCycleIntent(): 
     requestRendererFlush: async () => {}, createVerifiedBackup: async () => {},
     commitExit: async (resolveIntent, signal) => {
       committed.push(resolveIntent())
+      if (committed.length === 2) return
       await new Promise<void>((resolve) => { settle = resolve })
       if (signal.aborted) throw new Error('aborted')
     },
@@ -287,10 +322,9 @@ export async function testSettlingRejectionCannotPromoteOldOrNextCycleIntent(): 
   settle()
   await new Promise((resolve) => setTimeout(resolve, 0))
   const retry = coordinator.request('close')
-  await new Promise((resolve) => setTimeout(resolve, 0))
+  const retryResult = await retry
   assert(committed.join(',') === 'close,close', '新周期必须显式从本轮 close 初始化')
-  settle()
-  await retry
+  assert(retryResult.ok && retryResult.intent === 'close', '新周期必须成功并返回本轮 close intent')
 }
 
 export async function testAsyncFinalizerIsAwaitedBeforeCommitSucceeds(): Promise<void> {
