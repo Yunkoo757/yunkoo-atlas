@@ -63,10 +63,13 @@ test('发布证据聚合器对四个 Train 执行同源码身份、干净工作�
   assert.match(source, /generation:/)
   assert.match(source, /blobBridgeCoverage:/)
   assert.match(source, /releaseMode === 'bridge'/)
+  assert.match(source, /--release-target/)
+  assert.match(source, /desktop-storage-isolation/)
+  assert.match(source, /isElectron\(\) \? getElectronAdapter\(\) : getIndexedDbAdapter\(\)/)
   assert.match(source, /releaseCandidate:/)
   assert.match(source, /releaseCandidate: requireComplete &&/)
   assert.match(workflow, /path: test-results\/collected-evidence/)
-  assert.match(workflow, /--evidence-root test-results\/collected-evidence --require-complete/)
+  assert.match(workflow, /--evidence-root test-results\/collected-evidence --release-target desktop --require-complete/)
   assert.match(workflow, /test-results\/release-trains\/final-quality-manifest\.json/)
   assert.match(workflow, /docs\/superpowers\/release\/blob-bridge-coverage\.json/)
   assert.match(workflow, /name: train-recovery-evidence/)
@@ -250,6 +253,7 @@ test('最终质量清单必须由 publish 针对当前干净源码再次授权',
   const checks = EXPECTED_FINAL_CHECK_NAMES.map((name) => ({ name, pass: true }))
   const manifest = {
     version: 1,
+    releaseTarget: 'web',
     releaseMode: 'blob-writer',
     status: 'pass',
     releaseCandidate: true,
@@ -266,6 +270,29 @@ test('最终质量清单必须由 publish 针对当前干净源码再次授权',
     trains: ['release-0', 'release-1', 'release-2', 'release-3'].map((id) => ({ id, status: 'pass' })),
   }
   assert.equal(finalQualityManifestPassed(manifest, provenance), true)
+  const desktopChecks = checks.map((check) => (
+    ['blob-bridge-contract', 'blob-bridge-coverage'].includes(check.name)
+      ? { ...check, pass: false }
+      : check
+  ))
+  const desktopManifest = {
+    ...manifest,
+    releaseTarget: 'desktop',
+    gates: { ...manifest.gates, blobBridgeCoverage: { status: 'not-applicable' } },
+    checks: desktopChecks,
+  }
+  assert.equal(finalQualityManifestPassed(desktopManifest, provenance), true)
+  assert.equal(finalQualityManifestPassed({
+    ...desktopManifest,
+    gates: { ...desktopManifest.gates, blobBridgeCoverage: { status: 'hold' } },
+  }, provenance), false)
+  assert.equal(finalQualityManifestPassed({
+    ...desktopManifest,
+    checks: desktopChecks.map((check) => check.name === 'desktop-storage-isolation'
+      ? { ...check, pass: false }
+      : check),
+  }, provenance), false)
+  assert.equal(finalQualityManifestPassed({ ...desktopManifest, releaseTarget: 'unknown' }, provenance), false)
   assert.equal(finalQualityManifestPassed({ ...manifest, releaseCandidate: false }, provenance), false)
   assert.equal(finalQualityManifestPassed({ ...manifest, gitTree: 'd'.repeat(40) }, provenance), false)
   assert.equal(finalQualityManifestPassed({ ...manifest, checks: checks.map((check, index) => index === 3 ? { ...check, pass: false } : check) }, provenance), false)

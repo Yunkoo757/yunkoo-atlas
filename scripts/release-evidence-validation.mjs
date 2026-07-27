@@ -27,6 +27,7 @@ export const EXPECTED_FINAL_CHECK_NAMES = [
   'generation-windows',
   'generation-macos',
   'generation-decision',
+  'desktop-storage-isolation',
   'blob-bridge-contract',
   'blob-bridge-coverage',
 ]
@@ -113,20 +114,27 @@ export function persistenceReleaseGatePassed(value) {
 }
 
 export function finalQualityManifestPassed(value, provenance) {
-  const modeCheck = value?.releaseMode === 'bridge'
+  const webModeCheck = value?.releaseMode === 'bridge'
     ? value.checks?.find((check) => check.name === 'blob-bridge-contract')?.pass === true
     : value?.releaseMode === 'blob-writer'
       ? value.checks?.find((check) => check.name === 'blob-bridge-coverage')?.pass === true
+      : false
+  const desktopScopeCheck = value?.checks
+    ?.find((check) => check.name === 'desktop-storage-isolation')?.pass === true
+  const targetCheck = value?.releaseTarget === 'web'
+    ? value.gates?.blobBridgeCoverage?.status === 'pass' && webModeCheck
+    : value?.releaseTarget === 'desktop'
+      ? value.gates?.blobBridgeCoverage?.status === 'not-applicable' && desktopScopeCheck
       : false
   return value?.version === 1 && value.status === 'pass' && value.releaseCandidate === true &&
     value.gitCommit === provenance.gitCommit && value.gitTree === provenance.gitTree &&
     value.sourceFingerprint === provenance.sourceFingerprint && value.sourceIdentity === provenance.sourceIdentity &&
     value.workingTreeDirty === false && provenance.workingTreeDirty === false &&
-    ['normal', 'compatibility', 'performance', 'dualPlatform', 'generation', 'blobBridgeCoverage']
+    ['normal', 'compatibility', 'performance', 'dualPlatform', 'generation']
       .every((gate) => value.gates?.[gate]?.status === 'pass') &&
     Array.isArray(value.checks) && value.checks.length === EXPECTED_FINAL_CHECK_NAMES.length &&
     value.checks.every((check, index) => check.name === EXPECTED_FINAL_CHECK_NAMES[index]) &&
-    value.checks.slice(0, -2).every((check) => check.pass === true) && modeCheck &&
+    value.checks.slice(0, -2).every((check) => check.pass === true) && targetCheck &&
     Array.isArray(value.trains) && value.trains.length === EXPECTED_DRILL_TRAIN_IDS.length &&
     value.trains.every((train, index) => train.id === EXPECTED_DRILL_TRAIN_IDS[index] && train.status === 'pass')
 }

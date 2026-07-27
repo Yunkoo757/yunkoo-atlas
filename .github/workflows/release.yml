@@ -128,7 +128,7 @@ jobs:
           cp test-results/generation-spike/generation-decision.json test-results/collected-evidence/generation-decision.json
 
       - name: Verify all release trains
-        run: node scripts/verify-release-train-evidence.mjs --evidence-root test-results/collected-evidence --require-complete
+        run: node scripts/verify-release-train-evidence.mjs --evidence-root test-results/collected-evidence --release-target desktop --require-complete
 
       - name: Upload train recovery evidence
         if: always()

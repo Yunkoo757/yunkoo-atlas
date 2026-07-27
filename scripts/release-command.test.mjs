@@ -188,7 +188,7 @@ test('本地发布运行轻量门禁，CI 打包复验构建与 Electron 数据�
   assert.match(workflow, /persistence-release\.json/)
   assert.match(workflow, /verify-release-evidence:/)
   assert.match(workflow, /path: test-results\/collected-evidence/)
-  assert.match(workflow, /verify-release-train-evidence\.mjs --evidence-root test-results\/collected-evidence --require-complete/)
+  assert.match(workflow, /verify-release-train-evidence\.mjs --evidence-root test-results\/collected-evidence --release-target desktop --require-complete/)
   assert.match(workflow, /pnpm verify:release-train-drills/)
   assert.match(workflow, /test-results\/release-trains\/release-train-drills\.json/)
   assert.match(workflow, /test-results\/release-trains\/final-quality-manifest\.json/)

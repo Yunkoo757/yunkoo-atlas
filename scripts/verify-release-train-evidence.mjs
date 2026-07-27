@@ -22,6 +22,9 @@ import {
 const root = process.cwd()
 const evidenceIndex = process.argv.indexOf('--evidence-root')
 const evidenceRoot = path.resolve(evidenceIndex >= 0 ? process.argv[evidenceIndex + 1] : root)
+const releaseTargetIndex = process.argv.indexOf('--release-target')
+const releaseTarget = releaseTargetIndex >= 0 ? process.argv[releaseTargetIndex + 1] : 'web'
+if (!['web', 'desktop'].includes(releaseTarget)) throw new Error(`unsupported release target: ${releaseTarget}`)
 const requireComplete = process.argv.includes('--require-complete')
 
 async function collectJson(directory, depth = 0) {
@@ -67,6 +70,7 @@ const reports = await loadReports()
 const provenance = await readGitProvenance(root)
 const packageVersion = JSON.parse(fsSync.readFileSync(path.join(root, 'package.json'), 'utf8')).version
 const indexedDbSource = fsSync.readFileSync(path.join(root, 'src', 'storage', 'indexedDbAdapter.ts'), 'utf8')
+const storageProviderSource = fsSync.readFileSync(path.join(root, 'src', 'storage', 'provider.ts'), 'utf8')
 const releaseMode = detectBlobReleaseMode(indexedDbSource)
 const checks = []
 
@@ -183,6 +187,11 @@ const generationDecision = check(
   findReports(reports, (_value, name) => name === 'generation-decision.json'),
   generationDecisionPassed,
 )
+const desktopStorageIsolation = internalCheck(
+  'desktop-storage-isolation',
+  storageProviderSource.includes('isElectron() ? getElectronAdapter() : getIndexedDbAdapter()'),
+  ['Electron release does not select the dedicated Electron storage adapter'],
+)
 const blobBridgeContract = internalCheck(
   'blob-bridge-contract',
   blobBridgeContractPassed({ releaseMode, gitCommit: provenance.gitCommit, version: packageVersion }),
@@ -206,14 +215,16 @@ const trainDefinitions = [
   },
   {
     id: 'release-1',
-    checks: [qa, jsonCompatibility, performance, drills, releaseMode === 'bridge' ? blobBridgeContract : blobBridgeCoverage],
+    checks: releaseTarget === 'desktop'
+      ? [qa, jsonCompatibility, performance, drills]
+      : [qa, jsonCompatibility, performance, drills, releaseMode === 'bridge' ? blobBridgeContract : blobBridgeCoverage],
     stop: 'blind put、stale overwrite、冲突恢复失败或正式持久化 SLO 失败即停止 Web 发布',
     rollback: 'Web Locks/通知层可关闭；revision/CAS 不得与 blind writer 混用',
     userRecovery: '导出冲突标签页副本，加载最新版，再由用户决定是否导入副本',
   },
   {
     id: 'release-2',
-    checks: [qa, drills, forcedWindows, forcedMac, electronSafetyWindows, electronSafetyMac],
+    checks: [qa, drills, desktopStorageIsolation, forcedWindows, forcedMac, electronSafetyWindows, electronSafetyMac],
     stop: '路径 fail-open、退出步骤重复/遗漏或任一平台强杀恢复失败即停止桌面发布',
     rollback: '保留路径 fail-closed，回滚协调层；不回滚已确认数据文件',
     userRecovery: '重启核对最后确认数据；异常时从已验证备份恢复，不承诺内存编辑',
@@ -261,12 +272,20 @@ const gates = {
     evidence: [generationWindows.name, generationMac.name, generationDecision.name],
   },
   blobBridgeCoverage: {
-    status: (releaseMode === 'bridge' ? blobBridgeContract.pass : blobBridgeCoverage.pass) ? 'pass' : 'hold',
-    evidence: [releaseMode === 'bridge' ? blobBridgeContract.name : blobBridgeCoverage.name],
+    status: releaseTarget === 'desktop'
+      ? 'not-applicable'
+      : (releaseMode === 'bridge' ? blobBridgeContract.pass : blobBridgeCoverage.pass) ? 'pass' : 'hold',
+    evidence: releaseTarget === 'desktop'
+      ? [desktopStorageIsolation.name]
+      : [releaseMode === 'bridge' ? blobBridgeContract.name : blobBridgeCoverage.name],
   },
 }
+const requiredGatesPassed = Object.entries(gates).every(([name, gate]) => (
+  gate.status === 'pass' || (releaseTarget === 'desktop' && name === 'blobBridgeCoverage' && gate.status === 'not-applicable')
+))
 const report = {
   version: 1,
+  releaseTarget,
   releaseMode,
   approvedBlobBridge: APPROVED_BLOB_BRIDGE,
   generatedAt: new Date().toISOString(),
@@ -278,8 +297,8 @@ const report = {
   checks,
   gates,
   trains,
-  releaseCandidate: requireComplete && Object.values(gates).every((gate) => gate.status === 'pass'),
-  status: requireComplete && Object.values(gates).every((gate) => gate.status === 'pass') &&
+  releaseCandidate: requireComplete && requiredGatesPassed,
+  status: requireComplete && requiredGatesPassed &&
     trains.every((train) => train.status === 'pass') ? 'pass' : 'hold',
 }
 const outputDirectory = path.join(root, 'test-results', 'release-trains')
