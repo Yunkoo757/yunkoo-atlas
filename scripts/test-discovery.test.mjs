@@ -210,6 +210,7 @@ test('image QA dispatches an image ClipboardEvent without the system clipboard',
   assert.match(source, /const transfer = new DataTransfer\(\)/)
   assert.match(source, /new ClipboardEvent\('paste', \{[\s\S]*clipboardData: transfer/)
   assert.doesNotMatch(source, /navigator\.clipboard\.write/)
+  assert.doesNotMatch(source, /navigator, 'locks'/)
 })
 // Quality-Scenario: Q-DISCOVERY
 // Quality-Scenario: Q-PAGEERROR
