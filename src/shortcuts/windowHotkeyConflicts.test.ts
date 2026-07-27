@@ -17,6 +17,18 @@ export function testSystemHotkeyConflictsAcrossAllShortcutScopes(): void {
   )
 }
 
+export function testWindowHotkeyFindsAndDisablesEveryCrossScopeConflict(): void {
+  const bindings = { 'global.newTrade': { key: 'n' } }
+  const conflicts = findWindowHotkeyConflicts({ key: 'w' }, bindings)
+  const result = disableWindowHotkeyConflicts({ key: 'w' }, bindings)
+
+  assert(conflicts.some((item) => item.id === 'global.commandPalette'), '应检出 global 作用域冲突')
+  assert(conflicts.some((item) => item.id === 'image.prev'), '应检出 lightbox 作用域冲突')
+  assert(result.bindings['global.commandPalette'] === null, '应禁用 global 作用域冲突')
+  assert(result.bindings['image.prev'] === null, '应禁用 lightbox 作用域冲突')
+  assert(bindingKey(result.bindings['global.newTrade']!) === 'n', '无冲突的普通键必须保持不变')
+}
+
 export function testDisablingWindowHotkeyConflictsKeepsOtherBindings(): void {
   const result = disableWindowHotkeyConflicts(
     { key: 'f' },
