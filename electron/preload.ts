@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppUpdateState } from '../src/lib/appUpdate'
 import type { JournalBridge } from '../src/types/journalBridge'
+import { AsyncGeneration } from '../src/lib/asyncGeneration'
+
+const closeFlushGeneration = new AsyncGeneration()
 
 export type {
   BackupInfo,
@@ -18,10 +21,13 @@ const bridge: JournalBridge = {
       request?: { requestId?: string; webContentsId?: number },
     ) => {
       if (!request?.requestId || typeof request.webContentsId !== 'number') return
+      const generation = closeFlushGeneration.begin()
       try {
         await callback()
+        if (!closeFlushGeneration.isCurrent(generation)) return
         ipcRenderer.send('app:before-close-complete', { ...request, ok: true })
       } catch (error) {
+        if (!closeFlushGeneration.isCurrent(generation)) return
         ipcRenderer.send('app:before-close-complete', {
           ...request,
           ok: false,
@@ -33,7 +39,10 @@ const bridge: JournalBridge = {
     return () => ipcRenderer.removeListener('app:before-close', listener)
   },
   onCloseSaveError: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message)
+    const listener = (_event: Electron.IpcRendererEvent, message: string) => {
+      closeFlushGeneration.invalidate()
+      callback(message)
+    }
     ipcRenderer.on('app:close-save-error', listener)
     return () => ipcRenderer.removeListener('app:close-save-error', listener)
   },

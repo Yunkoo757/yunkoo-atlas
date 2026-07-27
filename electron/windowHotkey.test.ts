@@ -456,6 +456,27 @@ export async function testWindowHotkeyResetAndDisposeUseCurrentRegistration(): P
   assert(!service.getState().registered, '释放后必须公开未注册状态')
 }
 
+export async function testFailedHotkeyDisposeRetainsServiceOwnershipForRetry(): Promise<void> {
+  let unregisterAttempts = 0
+  const service = new WindowHotkeyService({
+    registrar: {
+      register: () => true,
+      unregister: () => {
+        unregisterAttempts += 1
+        if (unregisterAttempts === 1) throw new Error('unregister failed')
+      },
+    },
+    storage: { load: async () => ({ kind: 'valid', binding: { key: 'f2' } }), save: async () => {} },
+    onToggle() {},
+  })
+  await service.initialize()
+  let failed = false
+  try { await service.dispose() } catch { failed = true }
+  assert(failed && service.getState().registered, '注销失败必须保留原注册所有权与可用状态')
+  await service.dispose()
+  assert(!service.getState().registered && unregisterAttempts === 2, '保留所有权后必须可安全重试释放')
+}
+
 export async function testInvalidConfigResetRepairsFileAndClearsError(): Promise<void> {
   await withTemporaryConfig(async (configPath) => {
     await writeFile(configPath, '{broken', 'utf8')

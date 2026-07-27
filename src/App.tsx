@@ -8,7 +8,7 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom'
-import { Suspense, lazy, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
@@ -26,6 +26,7 @@ import { TradeCloseDialog } from './components/TradeCloseDialog'
 import { TradeOpenRiskDialog } from './components/TradeOpenRiskDialog'
 import { ToastHost } from './components/Toast'
 import { toast } from './lib/toast'
+import { AsyncGeneration } from './lib/asyncGeneration'
 import { ImageLightbox } from './components/ImageLightbox'
 import { WebStorageGuard } from './components/WebStorageGuard'
 import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
@@ -447,20 +448,11 @@ export function App() {
   const [storageError, setStorageError] = useState<string | null>(null)
   const [retryingStorage, setRetryingStorage] = useState(false)
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
+  const closeSaveGeneration = useRef(new AsyncGeneration())
 
   useEffect(() => {
     if (closeSaveState.phase === 'idle') unlockBottomChrome()
     else lockBottomChrome()
-  }, [closeSaveState.phase])
-
-  useEffect(() => {
-    if (closeSaveState.phase !== 'saving' && closeSaveState.phase !== 'saved') return
-    const blockNewInput = (event: KeyboardEvent) => {
-      event.preventDefault()
-      event.stopImmediatePropagation()
-    }
-    window.addEventListener('keydown', blockNewInput, true)
-    return () => window.removeEventListener('keydown', blockNewInput, true)
   }, [closeSaveState.phase])
 
   useEffect(() => {
@@ -598,15 +590,19 @@ export function App() {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
           unsubscribeBeforeClose = bridge.onBeforeClose(async () => {
+            const generation = closeSaveGeneration.current.begin()
             lockBottomChrome()
             setCloseSaveState({ phase: 'saving' })
             // 给状态至少一帧绘制时间，避免快速落盘时提示从未真正出现。
             await waitForCloseFeedback(48)
             try {
               if (isStorageHydrated()) await flushPersistNow()
+              if (!closeSaveGeneration.current.isCurrent(generation)) return
               setCloseSaveState({ phase: 'saved' })
               await waitForCloseFeedback(CLOSE_SAVE_RECEIPT_MS)
+              if (!closeSaveGeneration.current.isCurrent(generation)) return
             } catch (error) {
+              if (!closeSaveGeneration.current.isCurrent(generation)) return
               setCloseSaveState({
                 phase: 'error',
                 message: error instanceof Error ? error.message : '请检查磁盘空间后重试。',
@@ -622,6 +618,7 @@ export function App() {
         }
         if (bridge?.onCloseSaveError) {
           unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
+            closeSaveGeneration.current.invalidate()
             lockBottomChrome()
             // 错误回执已覆盖底部通知，不再额外 toast，避免双条重叠
             setCloseSaveState({ phase: 'error', message })

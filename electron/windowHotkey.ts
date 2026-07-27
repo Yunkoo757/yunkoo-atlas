@@ -201,10 +201,15 @@ export class WindowHotkeyService {
   dispose(): Promise<void> {
     if (this.disposal) return this.disposal
     this.disposeRequested = true
-    this.disposal = this.serialize(async () => {
+    const disposal = this.serialize(async () => {
       if (this.currentAccelerator) this.registrar.unregister(this.currentAccelerator)
       this.currentAccelerator = null
       this.registered = false
+    })
+    this.disposal = disposal.catch((error) => {
+      this.disposeRequested = false
+      this.disposal = null
+      throw error
     })
     return this.disposal
   }

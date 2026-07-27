@@ -147,21 +147,11 @@ async function disposeLifecycleServices(): Promise<void> {
   if (lifecycleServicesDisposed) return
   const hotkey = windowHotkey
   const presence = windowPresence
-  let failure: unknown
-  try {
-    if (hotkey) await hotkey.dispose()
-  } catch (error) {
-    failure = error
-  }
-  try {
-    presence?.dispose()
-  } catch (error) {
-    failure ??= error
-  }
+  if (hotkey) await hotkey.dispose()
+  presence?.dispose()
   windowHotkey = null
   windowPresence = null
   lifecycleServicesDisposed = true
-  if (failure) throw failure
 }
 
 async function initializeLifecycleServices(): Promise<void> {
@@ -369,7 +359,7 @@ const quitCoordinator = new QuitCoordinator({
         })
       } catch (error) {
         gracefulExitAuthorized = false
-        await initializeLifecycleServices()
+        if (lifecycleServicesDisposed) await initializeLifecycleServices()
         throw error
       }
     })
@@ -444,10 +434,6 @@ function createWindow(): BrowserWindow {
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     logDiagnostic('error', 'render-process-gone', details)
-  })
-
-  mainWindow.webContents.on('will-prevent-unload', (event) => {
-    if (gracefulExitAuthorized) event.preventDefault()
   })
 
   if (process.platform === 'win32') {

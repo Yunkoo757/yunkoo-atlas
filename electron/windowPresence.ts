@@ -175,10 +175,10 @@ export class WindowPresenceController {
 
   dispose(): void {
     if (this.disposed) return
+    this.tray?.dispose()
     this.disposed = true
     this.attachedWindow?.removeListener('close', this.closeListener)
     this.attachedWindow = null
-    this.tray?.dispose()
     this.tray = null
   }
 

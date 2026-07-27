@@ -87,16 +87,6 @@
   pointer-events: none;
 }
 
-.app-close-save.is-saving,
-.app-close-save.is-saved {
-  inset: 0;
-  bottom: 0;
-  align-items: flex-end;
-  padding-bottom: var(--sp-6);
-  background: transparent;
-  pointer-events: auto;
-}
-
 .app-close-save-panel {
   display: flex;
   align-items: center;

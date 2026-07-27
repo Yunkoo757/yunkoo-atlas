@@ -360,6 +360,30 @@ export function testDisposeRemovesCloseListenerAndDestroysTray(): void {
   assert(fixture.calls.join('|') === callsAfterDispose, '释放后窗口关闭不得再触发控制器副作用')
 }
 
+export function testFailedTrayDisposeRetainsControllerOwnership(): void {
+  let disposeAttempts = 0
+  let hides = 0
+  const fixture = createPresenceFixture()
+  const controller = new WindowPresenceController({
+    ensureWindow: () => fixture.window, getWindow: () => fixture.window,
+    createTray: () => ({ refreshMenu: () => {}, dispose: () => {
+      disposeAttempts += 1
+      if (disposeAttempts === 1) throw new Error('destroy failed')
+    } }),
+    requestQuit: async () => ({ ok: true }), isExitAuthorized: () => false,
+    showDock: () => {}, hideDock: () => {}, reportError: () => {},
+  })
+  controller.initialize()
+  const originalHide = fixture.window.hide
+  fixture.window.hide = () => { hides += 1; originalHide() }
+  let failed = false
+  try { controller.dispose() } catch { failed = true }
+  assert(failed, 'tray destroy 失败必须向退出事务报告')
+  controller.hide()
+  assert(hides === 1, 'dispose 失败后 controller 必须仍拥有并使用原 tray，不得进入 disposed')
+  controller.dispose()
+}
+
 export function testRuntimeTrayRefreshFailureRestoresWindowAndDisablesHiding(): void {
   const calls: string[] = []
   let refreshCount = 0

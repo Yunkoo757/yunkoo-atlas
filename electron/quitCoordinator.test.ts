@@ -218,7 +218,37 @@ export async function testCommitTimeoutWaitsForRollbackAndNeverFinalizesLate(): 
   })
   const result = await coordinator.request('quit')
   assert(!result.ok, '提交超时必须失败')
-  assert(calls.join(',') === 'rollback,cancel,error', '必须等待提交回滚完成后才能取消准备并报告错误')
+  assert(calls.join(',') === 'cancel,error', '超时必须有界返回取消与错误')
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  assert(calls.join(',') === 'cancel,error,rollback', '迟到提交只能协作回滚，不得重复报告')
+}
+
+export async function testNeverSettlingCommitBlocksOverlapUntilCooperativeSettlement(): Promise<void> {
+  let starts = 0
+  let settle!: () => void
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 10,
+    createRequestId: () => `request-${starts + 1}`,
+    requestRendererFlush: async () => {}, createVerifiedBackup: async () => {},
+    commitExit: async (_resolveIntent, signal) => {
+      starts += 1
+      await new Promise<void>((resolve) => { settle = resolve })
+      assert(signal.aborted, '迟到提交必须观察到 abort guard')
+      throw new Error('aborted')
+    },
+    cancelPreparation: () => {}, reportError: () => {},
+  })
+  const first = await coordinator.request('quit')
+  assert(!first.ok && starts === 1, 'never-settle 提交必须有界失败')
+  const blocked = await coordinator.request('quit')
+  assert(!blocked.ok && starts === 1, '旧提交 settling 时第二事务不得启动')
+  settle()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const retry = coordinator.request('quit')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert(starts === 2, '协作 settle 后必须允许重试启动')
+  settle()
+  await retry
 }
 
 export async function testAsyncFinalizerIsAwaitedBeforeCommitSucceeds(): Promise<void> {
@@ -368,10 +398,14 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
       main.includes("app.once('will-quit'") && main.includes("window.once('closed'"),
     '退出提交必须等待 Electron 的真实 will-quit/closed 终态',
   )
+  assert(!main.includes("webContents.on('will-prevent-unload'"), '不得强制绕过 renderer 的迟到变更卸载保护')
   assert(
-    main.includes("webContents.on('will-prevent-unload'") &&
-      main.includes('if (gracefulExitAuthorized) event.preventDefault()'),
-    '前置保存完成后必须明确允许受信任的卸载继续',
+    main.includes('if (lifecycleServicesDisposed) await initializeLifecycleServices()'),
+    '部分释放失败时不得盲目创建第二套 tray/hotkey',
+  )
+  assert(
+    preload.includes('closeFlushGeneration') && preload.includes('closeFlushGeneration.isCurrent(generation)'),
+    'renderer flush 必须以代次令牌丢弃迟到 ACK',
   )
   const willQuit = main.slice(main.indexOf("app.on('will-quit'"))
   assert(

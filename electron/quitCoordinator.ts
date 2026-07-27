@@ -73,6 +73,7 @@ function messageOf(error: unknown): string {
 
 export class QuitCoordinator {
   private active: Promise<QuitResult> | null = null
+  private settling: Promise<void> | null = null
   private requestedIntent: QuitIntent = 'close'
 
   constructor(private readonly dependencies: QuitCoordinatorDependencies) {}
@@ -82,6 +83,9 @@ export class QuitCoordinator {
       this.requestedIntent = intent
     }
     if (this.active) return this.active
+    if (this.settling) {
+      return Promise.resolve({ ok: false, error: '上一轮退出仍在安全回滚，请稍后重试' })
+    }
 
     const requestId = this.dependencies.createRequestId()
     const controller = new AbortController()
@@ -132,7 +136,15 @@ export class QuitCoordinator {
     const runPromise = run()
     const active = Promise.race([runPromise, timeout]).catch(async (error) => {
       controller.abort()
-      if (stage === 'commit-exit') await runPromise.catch(() => undefined)
+      if (stage === 'commit-exit') {
+        const barrier = runPromise.then(
+          () => undefined,
+          () => undefined,
+        ).finally(() => {
+          if (this.settling === barrier) this.settling = null
+        })
+        this.settling = barrier
+      }
       const message = messageOf(error)
       await this.dependencies.cancelPreparation()
       const code: QuitFailureCode = stage === 'renderer-flush'
