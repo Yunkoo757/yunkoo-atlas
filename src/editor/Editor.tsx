@@ -4,7 +4,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getStorage } from '@/storage/bootstrap'
 import {
   Bold,
@@ -204,7 +204,7 @@ export function Editor({
     syncEditorLightboxEditable(editor, lightboxOpen, readOnly)
   }, [editor, lightboxOpen, readOnly])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!editor) return
     if (content !== editor.getHTML()) editor.commands.setContent(content, false)
     const doc = editor.getJSON()
