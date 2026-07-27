@@ -173,6 +173,12 @@ test('sidebar QA retries once in a fresh process', async () => {
   assert.match(source, /spawnSync\(process\.execPath, \['scripts\/qa-sidebar-navigation\.mjs'\]/)
 })
 
+test('image QA retries once in a fresh process', async () => {
+  const source = await fs.readFile(path.resolve('scripts/run-qa-image.mjs'), 'utf8')
+  assert.match(source, /attempt < 2/)
+  assert.match(source, /spawnSync\(process\.execPath, \['scripts\/qa-phase1-image\.mjs'\]/)
+})
+
 test('sidebar QA targets the live mobile drawer instead of its exit clone', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
   assert.match(
