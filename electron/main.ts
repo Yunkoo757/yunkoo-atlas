@@ -70,17 +70,27 @@ function getIndexHtmlPath(): string {
   return path.join(app.getAppPath(), 'dist', 'index.html')
 }
 
+function getDevelopmentIconCandidates(): string[] {
+  if (process.platform === 'darwin') {
+    return [
+      path.join(process.cwd(), 'build', 'icon.png'),
+      path.join(process.cwd(), 'public', 'icon.png'),
+    ]
+  }
+  return [
+    path.join(process.cwd(), 'build', 'icon.ico'),
+    path.join(process.cwd(), 'build', 'icon.png'),
+    path.join(process.cwd(), 'public', 'icon.png'),
+  ]
+}
+
 function getWindowIconPath(): string | undefined {
   const candidates = app.isPackaged
     ? [
         path.join(app.getAppPath(), 'dist', 'icon.png'),
         path.join(process.resourcesPath, 'icon.png'),
       ]
-    : [
-        path.join(process.cwd(), 'build', 'icon.ico'),
-        path.join(process.cwd(), 'build', 'icon.png'),
-        path.join(process.cwd(), 'public', 'icon.png'),
-      ]
+    : getDevelopmentIconCandidates()
   return candidates.find((candidate) => fs.existsSync(candidate))
 }
 
@@ -405,7 +415,18 @@ if (!hasSingleInstanceLock) {
       ),
       onToggle: () => windowPresence?.toggle(),
     })
-    await windowHotkey.initialize()
+    try {
+      await windowHotkey.initialize()
+    } catch (error) {
+      logDiagnostic('error', 'window-hotkey-initialize-failed', error)
+      const failedWindowHotkey = windowHotkey
+      windowHotkey = null
+      try {
+        await failedWindowHotkey.dispose()
+      } catch (disposeError) {
+        logDiagnostic('error', 'window-hotkey-dispose-failed', disposeError)
+      }
+    }
     ipcMain.handle('window-hotkey:get', () => {
       return windowHotkey?.getState() ?? unavailableWindowHotkeyState()
     })

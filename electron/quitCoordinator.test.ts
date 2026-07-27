@@ -199,6 +199,60 @@ export function testIntentPriorityIsStable(): void {
   assert(intents.length === 3, '退出意图合同必须保持三种明确终态')
 }
 
+export function testDarwinDevelopmentTrayIconUsesPngWithoutDependingOnIco(): void {
+  const main = fs.readFileSync(path.resolve('electron/main.ts'), 'utf8')
+  const resolverStart = main.indexOf('function getDevelopmentIconCandidates')
+  const resolverEnd = main.indexOf('function getWindowIconPath')
+  const resolver = main.slice(resolverStart, resolverEnd)
+  assert(resolverStart >= 0 && resolverEnd > resolverStart, '主进程必须明确建模开发图标候选')
+  const darwinStart = resolver.indexOf("if (process.platform === 'darwin')")
+  const otherPlatformsStart = resolver.indexOf('\n  return [', darwinStart)
+  const darwinCandidates = resolver.slice(darwinStart, otherPlatformsStart)
+  assert(
+    darwinStart >= 0 &&
+      otherPlatformsStart > darwinStart &&
+      darwinCandidates.includes("'build', 'icon.png'") &&
+      darwinCandidates.includes("'public', 'icon.png'") &&
+      !darwinCandidates.includes('icon.ico'),
+    'Darwin 开发托盘图标必须优先使用 PNG 且不依赖 ICO 解码',
+  )
+}
+
+export function testHotkeyInitializationFailureKeepsMainInfrastructureAvailable(): void {
+  const main = fs.readFileSync(path.resolve('electron/main.ts'), 'utf8')
+  const readyStart = main.indexOf('windowHotkey = new WindowHotkeyService')
+  const readyEnd = main.indexOf("app.on('activate'", readyStart)
+  const ready = main.slice(readyStart, readyEnd)
+  const initializeIndex = ready.indexOf('await windowHotkey.initialize()')
+  const failureDiagnosticIndex = ready.indexOf("'window-hotkey-initialize-failed'")
+  const disableServiceIndex = ready.indexOf('windowHotkey = null', failureDiagnosticIndex)
+  const getHandlerIndex = ready.indexOf("ipcMain.handle('window-hotkey:get'")
+  const setHandlerIndex = ready.indexOf("ipcMain.handle('window-hotkey:set'")
+  const resetHandlerIndex = ready.indexOf("ipcMain.handle('window-hotkey:reset'")
+  const createWindowIndex = ready.indexOf('createWindow()', resetHandlerIndex)
+  const scheduleUpdatesIndex = ready.indexOf('scheduleAutomaticUpdateChecks()', createWindowIndex)
+  assert(
+    initializeIndex >= 0 &&
+      failureDiagnosticIndex > initializeIndex &&
+      disableServiceIndex > failureDiagnosticIndex,
+    '热键初始化异常必须被诊断并禁用失败服务',
+  )
+  assert(
+    getHandlerIndex > disableServiceIndex &&
+      setHandlerIndex > getHandlerIndex &&
+      resetHandlerIndex > setHandlerIndex &&
+      createWindowIndex > resetHandlerIndex &&
+      scheduleUpdatesIndex > createWindowIndex,
+    '热键初始化失败后仍必须注册全部 IPC、创建窗口并调度更新',
+  )
+  assert(
+    ready.includes('windowHotkey?.getState() ?? unavailableWindowHotkeyState()') &&
+      ready.includes('if (!service) return unavailableWindowHotkeyResult()') &&
+      ready.includes('windowHotkey?.reset() ?? unavailableWindowHotkeyResult()'),
+    '禁用热键服务后所有 IPC 必须返回 fail-closed 结果',
+  )
+}
+
 export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
   const main = fs.readFileSync(path.resolve('electron/main.ts'), 'utf8')
   const updater = fs.readFileSync(path.resolve('electron/updater.ts'), 'utf8')
