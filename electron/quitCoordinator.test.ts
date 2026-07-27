@@ -200,6 +200,22 @@ export function testIntentPriorityIsStable(): void {
   assert(intents.length === 3, '退出意图合同必须保持三种明确终态')
 }
 
+export async function testThrowingFailureHooksCannotPoisonNextRequest(): Promise<void> {
+  const requestIds: string[] = []
+  let nextId = 0
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 100,
+    createRequestId: () => `hook-${++nextId}`,
+    requestRendererFlush: async (requestId) => { requestIds.push(requestId); throw new Error('flush failed') },
+    createVerifiedBackup: async () => {}, commitExit: async () => {},
+    cancelPreparation: () => { throw new Error('cancel report failed') },
+    reportError: () => { throw new Error('error report failed') },
+  })
+  assert(!(await coordinator.request('close')).ok, '钩子抛错不得改变退出失败结果')
+  assert(!(await coordinator.request('close')).ok, '钩子抛错后必须允许下一请求')
+  assert(requestIds.join(',') === 'hook-1,hook-2', 'active 与 requestId 必须在 finally 中清理')
+}
+
 export async function testCommitTimeoutWaitsForRollbackAndNeverFinalizesLate(): Promise<void> {
   const calls: string[] = []
   const coordinator = new QuitCoordinator({
@@ -247,6 +263,32 @@ export async function testNeverSettlingCommitBlocksOverlapUntilCooperativeSettle
   const retry = coordinator.request('quit')
   await new Promise((resolve) => setTimeout(resolve, 0))
   assert(starts === 2, '协作 settle 后必须允许重试启动')
+  settle()
+  await retry
+}
+
+export async function testSettlingRejectionCannotPromoteOldOrNextCycleIntent(): Promise<void> {
+  const committed: QuitIntent[] = []
+  let settle!: () => void
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 10,
+    createRequestId: () => `intent-${committed.length}`,
+    requestRendererFlush: async () => {}, createVerifiedBackup: async () => {},
+    commitExit: async (resolveIntent, signal) => {
+      committed.push(resolveIntent())
+      await new Promise<void>((resolve) => { settle = resolve })
+      if (signal.aborted) throw new Error('aborted')
+    },
+    cancelPreparation: () => {}, reportError: () => {},
+  })
+  await coordinator.request('close')
+  const rejected = await coordinator.request('quit-and-install')
+  assert(!rejected.ok && committed.join(',') === 'close', 'settling 拒绝不得提升旧周期 intent')
+  settle()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const retry = coordinator.request('close')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert(committed.join(',') === 'close,close', '新周期必须显式从本轮 close 初始化')
   settle()
   await retry
 }
@@ -358,10 +400,10 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
     '托盘必须使用 Electron 原生 Tray、Menu 与安全加载的图标',
   )
   assert(
-    main.includes("app.on('will-quit'") &&
+      main.includes("app.on('will-quit'") &&
       main.includes('if (lifecycleServicesDisposed) return') &&
       main.includes('windowPresence?.dispose()') &&
-      main.includes('await hotkey.dispose()'),
+      main.includes('await disposeOwnedLifecycle('),
     '应用退出时必须幂等释放窗口常驻与热键服务',
   )
   const reportExitError = main.slice(

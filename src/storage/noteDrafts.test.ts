@@ -4,6 +4,7 @@ import {
   applyNoteDraftsToSnapshot,
   discardAllNoteDrafts,
   getNoteDraft,
+  hasPendingNoteDrafts,
   noteDraftCountForTests,
   resetNoteDraftsForTests,
   setNoteDraft,
@@ -16,6 +17,24 @@ import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
+}
+
+export async function testPendingNoteDraftStateClearsOnlyAfterSuccessfulFlush(): Promise<void> {
+  const originalNotes = useStore.getState().quickNotes
+  const note = createQuickNote(new Date('2026-07-28T08:00:00.000Z'))
+  const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${note.id}`
+  resetNoteDraftsForTests()
+  useStore.setState({ quickNotes: [note] })
+  try {
+    assert(!hasPendingNoteDrafts(), '无草稿时不得误报 pending')
+    setNoteDraft(draftId, '<p>待冲洗</p>')
+    assert(hasPendingNoteDrafts(), '草稿 set 后必须立即标记 pending')
+    assert(await flushNoteDraftsToStore(), '合法草稿必须成功冲洗')
+    assert(!hasPendingNoteDrafts(), '成功冲洗并写入 store 后必须清除 pending')
+  } finally {
+    resetNoteDraftsForTests()
+    useStore.setState({ quickNotes: originalNotes })
+  }
 }
 
 export async function testOlderDraftFlushCannotDeleteNewInput(): Promise<void> {

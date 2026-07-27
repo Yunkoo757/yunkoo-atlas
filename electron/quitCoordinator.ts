@@ -79,13 +79,14 @@ export class QuitCoordinator {
   constructor(private readonly dependencies: QuitCoordinatorDependencies) {}
 
   request(intent: QuitIntent): Promise<QuitResult> {
+    if (this.settling) {
+      return Promise.resolve({ ok: false, error: '上一轮退出仍在安全回滚，请稍后重试' })
+    }
+    if (!this.active) this.requestedIntent = intent
     if (INTENT_PRIORITY[intent] > INTENT_PRIORITY[this.requestedIntent]) {
       this.requestedIntent = intent
     }
     if (this.active) return this.active
-    if (this.settling) {
-      return Promise.resolve({ ok: false, error: '上一轮退出仍在安全回滚，请稍后重试' })
-    }
 
     const requestId = this.dependencies.createRequestId()
     const controller = new AbortController()
@@ -93,7 +94,9 @@ export class QuitCoordinator {
     const deadlineAt = now() + this.dependencies.timeoutMs
     const startedAt = now()
     let stage: QuitFailureStage = 'renderer-flush'
-    this.dependencies.reportStart?.({ operationId: requestId, stage, durationMs: 0 })
+    try {
+      this.dependencies.reportStart?.({ operationId: requestId, stage, durationMs: 0 })
+    } catch { /* reporting must not break exit safety */ }
     const assertWithinDeadline = () => {
       try {
         assertExitWithinDeadline(controller.signal, deadlineAt, now)
@@ -124,11 +127,13 @@ export class QuitCoordinator {
       }
       await this.dependencies.commitExit(resolveIntent, controller.signal, deadlineAt)
       assertWithinDeadline()
-      this.dependencies.reportSuccess?.({
-        operationId: requestId,
-        stage,
-        durationMs: Math.max(0, now() - startedAt),
-      })
+      try {
+        this.dependencies.reportSuccess?.({
+          operationId: requestId,
+          stage,
+          durationMs: Math.max(0, now() - startedAt),
+        })
+      } catch { /* reporting must not change the committed terminal */ }
       controller.abort()
       return { ok: true, intent: committedIntent ?? this.requestedIntent }
     }
@@ -146,24 +151,25 @@ export class QuitCoordinator {
         this.settling = barrier
       }
       const message = messageOf(error)
-      await this.dependencies.cancelPreparation()
+      try { await this.dependencies.cancelPreparation() } catch { /* best-effort cleanup */ }
       const code: QuitFailureCode = stage === 'renderer-flush'
         ? 'quit-flush-failed'
         : stage === 'verified-backup'
           ? 'quit-backup-failed'
           : 'quit-commit-failed'
-      this.dependencies.reportError({
-        operationId: requestId,
-        stage,
-        code,
-        durationMs: Math.max(0, now() - startedAt),
-        message,
-      })
+      try {
+        this.dependencies.reportError({
+          operationId: requestId,
+          stage,
+          code,
+          durationMs: Math.max(0, now() - startedAt),
+          message,
+        })
+      } catch { /* reporting must not poison the next request */ }
       return { ok: false as const, error: message }
-    }).then((result) => {
+    }).finally(() => {
       this.active = null
       this.requestedIntent = 'close'
-      return result
     })
     this.active = active
     return active

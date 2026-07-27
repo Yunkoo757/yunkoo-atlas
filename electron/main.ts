@@ -46,6 +46,7 @@ import {
 } from '@/lib/windowHotkeyBinding'
 import { FileWindowHotkeyStorage, WindowHotkeyService } from './windowHotkey'
 import { createElectronTrayFactory, WindowPresenceController } from './windowPresence'
+import { disposeOwnedLifecycle } from './lifecycleDisposal'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -147,15 +148,20 @@ async function disposeLifecycleServices(): Promise<void> {
   if (lifecycleServicesDisposed) return
   const hotkey = windowHotkey
   const presence = windowPresence
-  if (hotkey) await hotkey.dispose()
-  presence?.dispose()
+  await disposeOwnedLifecycle({
+    disposePresence: () => presence?.dispose(),
+    disposeHotkey: () => hotkey?.dispose() ?? Promise.resolve(),
+    recoverPresence: () => {
+      windowPresence = null
+      initializeWindowPresence()
+    },
+  })
   windowHotkey = null
   windowPresence = null
   lifecycleServicesDisposed = true
 }
 
-async function initializeLifecycleServices(): Promise<void> {
-  lifecycleServicesDisposed = false
+function initializeWindowPresence(): void {
   windowPresence = new WindowPresenceController({
     ensureWindow: ensureMainWindow,
     getWindow: () => mainWindow,
@@ -179,6 +185,9 @@ async function initializeLifecycleServices(): Promise<void> {
   })
   windowPresence.initialize()
   if (mainWindow && !mainWindow.isDestroyed()) windowPresence.attachWindow(mainWindow)
+}
+
+async function initializeWindowHotkey(): Promise<void> {
   windowHotkey = new WindowHotkeyService({
     registrar: globalShortcut,
     storage: new FileWindowHotkeyStorage(path.join(app.getPath('userData'), 'window-hotkey.json')),
@@ -194,6 +203,12 @@ async function initializeLifecycleServices(): Promise<void> {
       logDiagnostic('error', 'window-hotkey-dispose-failed', disposeError)
     }
   }
+}
+
+async function initializeLifecycleServices(): Promise<void> {
+  lifecycleServicesDisposed = false
+  initializeWindowPresence()
+  await initializeWindowHotkey()
 }
 
 function waitForElectronTerminal(
@@ -319,7 +334,12 @@ function reportExitError(failure: QuitOperationalFailure): void {
   })
   quitOperationLogs.delete(failure.operationId)
   for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send('app:close-save-error', failure.message)
+    if (window.isDestroyed()) continue
+    try {
+      window.webContents.send('app:close-save-error', failure.message)
+    } catch (error) {
+      logDiagnostic('error', 'exit-error-receipt-failed', error)
+    }
   }
 }
 

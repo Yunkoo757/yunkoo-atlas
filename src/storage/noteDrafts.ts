@@ -51,6 +51,10 @@ export function hasNoteDraft(tradeId: string): boolean {
   return drafts.has(tradeId)
 }
 
+export function hasPendingNoteDrafts(): boolean {
+  return drafts.size > 0
+}
+
 export function getNoteDraft(tradeId: string): string | undefined {
   return drafts.get(tradeId)
 }

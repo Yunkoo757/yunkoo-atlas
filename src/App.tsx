@@ -13,8 +13,9 @@ import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
 import { flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
-import { flushNoteDraftsToStore } from './storage/noteDrafts'
+import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
 import { isStorageHydrated } from './storage'
+import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
@@ -567,7 +568,7 @@ export function App() {
       flushPersistNow().catch(() => {})
     }
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasPendingChanges()) {
+      if (shouldPreventAppUnload(hasPendingChanges(), hasPendingNoteDrafts())) {
         e.preventDefault()
         e.returnValue = ''
       }
