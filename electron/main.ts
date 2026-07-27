@@ -46,7 +46,12 @@ import {
 } from '@/lib/windowHotkeyBinding'
 import { FileWindowHotkeyStorage, WindowHotkeyService } from './windowHotkey'
 import { createElectronTrayFactory, WindowPresenceController } from './windowPresence'
-import { disposeOwnedLifecycle, LifecycleDisposalError } from './lifecycleDisposal'
+import {
+  disposeOwnedLifecycle,
+  initializeOwnedResource,
+  LifecycleDisposalError,
+  ResourceInitializationError,
+} from './lifecycleDisposal'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -170,29 +175,42 @@ async function disposeLifecycleServices(): Promise<void> {
 }
 
 function initializeWindowPresence(): void {
-  windowPresence = new WindowPresenceController({
-    ensureWindow: ensureMainWindow,
-    getWindow: () => mainWindow,
-    createTray: createElectronTrayFactory({
-      createTray: () => {
-        const tray = new Tray(getTrayImage())
-        tray.setToolTip('Trader Atlas')
-        return {
-          on: (event, listener) => { if (process.platform === 'win32') tray.on(event, listener) },
-          setContextMenu: (menu) => tray.setContextMenu(menu as Electron.Menu),
-          destroy: () => tray.destroy(),
-        }
+  try {
+    const candidate = initializeOwnedResource({
+      create: () => new WindowPresenceController({
+        ensureWindow: ensureMainWindow,
+        getWindow: () => mainWindow,
+        createTray: createElectronTrayFactory({
+          createTray: () => {
+            const tray = new Tray(getTrayImage())
+            tray.setToolTip('Trader Atlas')
+            return {
+              on: (event, listener) => { if (process.platform === 'win32') tray.on(event, listener) },
+              setContextMenu: (menu) => tray.setContextMenu(menu as Electron.Menu),
+              destroy: () => tray.destroy(),
+            }
+          },
+          buildMenu: (items) => Menu.buildFromTemplate([...items]),
+        }),
+        requestQuit: () => quitCoordinator.request('quit'),
+        isExitAuthorized: () => gracefulExitAuthorized,
+        showDock: () => { void app.dock?.show() },
+        hideDock: () => { app.dock?.hide() },
+        reportError: (code, error) => logDiagnostic('error', code, error),
+      }),
+      initialize: (presence) => {
+        presence.initialize()
+        if (mainWindow && !mainWindow.isDestroyed()) presence.attachWindow(mainWindow)
       },
-      buildMenu: (items) => Menu.buildFromTemplate([...items]),
-    }),
-    requestQuit: () => quitCoordinator.request('quit'),
-    isExitAuthorized: () => gracefulExitAuthorized,
-    showDock: () => { void app.dock?.show() },
-    hideDock: () => { app.dock?.hide() },
-    reportError: (code, error) => logDiagnostic('error', code, error),
-  })
-  windowPresence.initialize()
-  if (mainWindow && !mainWindow.isDestroyed()) windowPresence.attachWindow(mainWindow)
+      dispose: (presence) => presence.dispose(),
+    })
+    windowPresence = candidate
+  } catch (error) {
+    if (error instanceof ResourceInitializationError && error.resource) {
+      windowPresence = error.resource
+    }
+    throw error
+  }
 }
 
 async function initializeWindowHotkey(): Promise<void> {

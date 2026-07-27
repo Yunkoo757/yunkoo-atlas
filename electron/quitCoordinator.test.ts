@@ -466,7 +466,7 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
   assert(storageCommitIndex >= 0 && disposeIndex > storageCommitIndex, '生命周期释放只能发生在存储提交 finalizer 内')
   assert(commitExit.includes('await initializeLifecycleServices()'), '最终退出调用失败必须恢复托盘与热键入口')
   assert(
-    main.includes('windowPresence.attachWindow(mainWindow)'),
+    main.includes('presence.attachWindow(mainWindow)'),
     '恢复生命周期服务时必须重新接管仍存在的窗口关闭行为',
   )
   assert(
