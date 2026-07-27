@@ -223,6 +223,49 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
     '空库恢复点必须经普通验证后规范化为 renderer 可用的空快照',
   )
   assert(preload.includes('requestId') && preload.includes('webContentsId'), 'renderer ACK 必须回传请求与窗口身份')
+  assert(main.includes('new WindowPresenceController'), '主进程必须组装窗口常驻控制器')
+  assert(main.includes('new WindowHotkeyService'), '主进程必须组装系统热键服务')
+  assert(main.includes("ipcMain.handle('window-hotkey:set'"), '热键更新必须经过主进程 IPC')
+  assert(!main.includes("quitCoordinator.request('close')\n  })\n}"), '窗口 close 不得无条件退出')
+  assert(preload.includes("ipcRenderer.invoke('window-hotkey:set'"), 'preload 必须只暴露窄 IPC')
+  assert(
+    main.includes("ipcMain.handle('window-hotkey:get'") &&
+      main.includes("ipcMain.handle('window-hotkey:reset'"),
+    '主进程必须提供完整的热键状态、更新与重置 IPC',
+  )
+  assert(main.includes('normalizeWindowHotkeyBinding(input)'), '主进程必须把 IPC 输入作为 unknown 再次校验')
+  assert(
+    main.includes('new Tray(getTrayImage())') &&
+      main.includes('Menu.buildFromTemplate') &&
+      main.includes('nativeImage.createFromPath'),
+    '托盘必须使用 Electron 原生 Tray、Menu 与安全加载的图标',
+  )
+  assert(
+    main.includes("app.on('will-quit'") &&
+      main.includes('if (lifecycleServicesDisposed) return') &&
+      main.includes('windowPresence?.dispose()') &&
+      main.includes('windowHotkey?.dispose()'),
+    '应用退出时必须幂等释放窗口常驻与热键服务',
+  )
+  const reportExitError = main.slice(
+    main.indexOf('function reportExitError'),
+    main.indexOf('const quitCoordinator'),
+  )
+  const recoveryShowIndex = reportExitError.indexOf('windowPresence?.show()')
+  const errorReceiptIndex = reportExitError.indexOf("window.webContents.send('app:close-save-error'")
+  assert(
+    recoveryShowIndex >= 0 && errorReceiptIndex >= 0 && recoveryShowIndex < errorReceiptIndex,
+    '退出失败必须先恢复窗口，再发送错误回执',
+  )
+  const secondInstance = main.slice(
+    main.indexOf("app.on('second-instance'"),
+    main.indexOf('app.whenReady()'),
+  )
+  const activate = main.slice(main.indexOf("app.on('activate'"))
+  assert(
+    secondInstance.includes('windowPresence?.show()') && activate.includes('windowPresence?.show()'),
+    '第二实例和应用激活必须统一通过常驻控制器显示窗口',
+  )
 }
 // Quality-Scenario: E-QUIT-MULTI
 // Quality-Scenario: E-QUIT-STALE-ACK

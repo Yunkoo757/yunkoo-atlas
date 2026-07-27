@@ -1,4 +1,6 @@
 import type { AppUpdateState } from '@/lib/appUpdate'
+import type { WindowHotkeyState, WindowHotkeyUpdateResult } from '@/lib/windowHotkeyBinding'
+import type { KeyChord } from '@/shortcuts/types'
 import type { WindowSizePresetId } from '@/lib/windowBounds'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import type { PhysicalAssetRecord } from '@/storage/adapter'
@@ -56,6 +58,9 @@ export interface JournalBridge {
   onAutoBackupFailure(callback: () => void): () => void
   requestClose(): Promise<void>
   toggleFullscreen(): Promise<boolean>
+  getWindowHotkey(): Promise<WindowHotkeyState>
+  setWindowHotkey(binding: KeyChord): Promise<WindowHotkeyUpdateResult>
+  resetWindowHotkey(): Promise<WindowHotkeyUpdateResult>
   getLibraryStatus(): Promise<LibraryLocationState>
   pickLibraryFolder(): Promise<string | null>
   createNewLibrary(libPath: string): Promise<

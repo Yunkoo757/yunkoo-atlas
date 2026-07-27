@@ -1,4 +1,14 @@
-import { app, BrowserWindow, shell, nativeTheme, Menu, ipcMain } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  ipcMain,
+  Menu,
+  nativeImage,
+  nativeTheme,
+  shell,
+  Tray,
+} from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -27,6 +37,14 @@ import {
   type QuitOperationalLifecycle,
 } from './quitCoordinator'
 import { runElectronForcedKillMode } from './forcedKillQa'
+import {
+  DEFAULT_WINDOW_HOTKEY,
+  normalizeWindowHotkeyBinding,
+  type WindowHotkeyState,
+  type WindowHotkeyUpdateResult,
+} from '@/lib/windowHotkeyBinding'
+import { FileWindowHotkeyStorage, WindowHotkeyService } from './windowHotkey'
+import { createElectronTrayFactory, WindowPresenceController } from './windowPresence'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -66,17 +84,48 @@ function getWindowIconPath(): string | undefined {
   return candidates.find((candidate) => fs.existsSync(candidate))
 }
 
+function getTrayImage(): Electron.NativeImage {
+  const iconPath = getWindowIconPath()
+  if (!iconPath) throw new Error('找不到托盘图标')
+  const image = nativeImage.createFromPath(iconPath)
+  if (image.isEmpty()) throw new Error('托盘图标为空')
+  const size = process.platform === 'darwin' ? 18 : 16
+  const trayImage = image.resize({ width: size, height: size, quality: 'best' })
+  if (trayImage.isEmpty()) throw new Error('托盘图标缩放失败')
+  if (process.platform === 'darwin') trayImage.setTemplateImage(true)
+  return trayImage
+}
+
 let mainWindow: BrowserWindow | null = null
+let windowPresence: WindowPresenceController | null = null
+let windowHotkey: WindowHotkeyService | null = null
+let lifecycleServicesDisposed = false
 let gracefulExitAuthorized = false
 const forcedKillMode = process.env.TRADER_ATLAS_FORCED_KILL_MODE
 const hasSingleInstanceLock =
   process.env.TRADER_ATLAS_QA === '1' || forcedKillMode || app.requestSingleInstanceLock()
 
-function focusMainWindow(): void {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  if (!mainWindow.isVisible()) mainWindow.show()
-  mainWindow.focus()
+function ensureMainWindow(): BrowserWindow {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+  if (!mainWindow) throw new Error('主窗口创建失败')
+  return mainWindow
+}
+
+function unavailableWindowHotkeyState(): WindowHotkeyState {
+  return {
+    binding: { ...DEFAULT_WINDOW_HOTKEY },
+    registered: false,
+    errorCode: 'registration-unavailable',
+  }
+}
+
+function unavailableWindowHotkeyResult(): WindowHotkeyUpdateResult {
+  return {
+    ok: false,
+    errorCode: 'registration-unavailable',
+    message: '快捷键服务尚未就绪',
+    state: unavailableWindowHotkeyState(),
+  }
 }
 
 function isAllowedExternalUrl(rawUrl: string): boolean {
@@ -148,6 +197,11 @@ function reportExitSuccess(event: QuitOperationalLifecycle): void {
 }
 
 function reportExitError(failure: QuitOperationalFailure): void {
+  try {
+    windowPresence?.show()
+  } catch (error) {
+    logDiagnostic('error', 'exit-recovery-show-failed', error)
+  }
   quitOperationLogs.get(failure.operationId)?.failure(failure, {
     stage: failure.stage,
     code: failure.code,
@@ -195,7 +249,7 @@ function isTrustedAppNavigation(rawUrl: string, devUrl: string | undefined, inde
   }
 }
 
-function createWindow() {
+function createWindow(): BrowserWindow {
   const icon = getWindowIconPath()
   const windowState = loadWindowState()
   const devUrl = process.env.VITE_DEV_SERVER_URL
@@ -225,8 +279,10 @@ function createWindow() {
     mainWindow.maximize()
   }
   trackWindowState(mainWindow)
+  windowPresence?.attachWindow(mainWindow)
   mainWindow.once('ready-to-show', () => {
-    mainWindow?.show()
+    if (windowPresence) windowPresence.show()
+    else mainWindow?.show()
   })
 
   if (process.platform === 'win32') {
@@ -267,18 +323,14 @@ function createWindow() {
     if (process.platform === 'darwin') gracefulExitAuthorized = false
   })
 
-  mainWindow.on('close', (event) => {
-    if (gracefulExitAuthorized || !mainWindow) return
-    event.preventDefault()
-    void quitCoordinator.request('close')
-  })
+  return mainWindow
 }
 
 if (!hasSingleInstanceLock) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    focusMainWindow()
+    windowPresence?.show()
   })
 
   app.whenReady().then(async () => {
@@ -322,11 +374,63 @@ if (!hasSingleInstanceLock) {
     }
 
     registerAppUpdater((intent) => quitCoordinator.request(intent))
+    windowPresence = new WindowPresenceController({
+      ensureWindow: ensureMainWindow,
+      getWindow: () => mainWindow,
+      createTray: createElectronTrayFactory({
+        createTray: () => {
+          const tray = new Tray(getTrayImage())
+          tray.setToolTip('Trader Atlas')
+          return {
+            on: (event, listener) => {
+              if (process.platform === 'win32') tray.on(event, listener)
+            },
+            setContextMenu: (menu) => tray.setContextMenu(menu as Electron.Menu),
+            destroy: () => tray.destroy(),
+          }
+        },
+        buildMenu: (items) => Menu.buildFromTemplate([...items]),
+      }),
+      requestQuit: () => quitCoordinator.request('quit'),
+      isExitAuthorized: () => gracefulExitAuthorized,
+      showDock: () => { void app.dock?.show() },
+      hideDock: () => { app.dock?.hide() },
+      reportError: (code, error) => logDiagnostic('error', code, error),
+    })
+    windowPresence.initialize()
+    windowHotkey = new WindowHotkeyService({
+      registrar: globalShortcut,
+      storage: new FileWindowHotkeyStorage(
+        path.join(app.getPath('userData'), 'window-hotkey.json'),
+      ),
+      onToggle: () => windowPresence?.toggle(),
+    })
+    await windowHotkey.initialize()
+    ipcMain.handle('window-hotkey:get', () => {
+      return windowHotkey?.getState() ?? unavailableWindowHotkeyState()
+    })
+    ipcMain.handle('window-hotkey:set', (_event, input: unknown) => {
+      const service = windowHotkey
+      if (!service) return unavailableWindowHotkeyResult()
+      const binding = normalizeWindowHotkeyBinding(input)
+      if (!binding) {
+        return {
+          ok: false,
+          errorCode: 'invalid-binding',
+          message: '不支持这个系统级快捷键',
+          state: service.getState(),
+        } satisfies WindowHotkeyUpdateResult
+      }
+      return service.update(binding)
+    })
+    ipcMain.handle('window-hotkey:reset', () => {
+      return windowHotkey?.reset() ?? unavailableWindowHotkeyResult()
+    })
     createWindow()
     scheduleAutomaticUpdateChecks()
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+      windowPresence?.show()
     })
   })
 }
@@ -346,4 +450,15 @@ app.on('before-quit', (event) => {
   if (gracefulExitAuthorized || !hasSingleInstanceLock) return
   event.preventDefault()
   void quitCoordinator.request('quit')
+})
+
+app.on('will-quit', () => {
+  if (lifecycleServicesDisposed) return
+  lifecycleServicesDisposed = true
+  windowPresence?.dispose()
+  windowPresence = null
+  void windowHotkey?.dispose().catch((error) => {
+    logDiagnostic('error', 'window-hotkey-dispose-failed', error)
+  })
+  windowHotkey = null
 })
