@@ -207,6 +207,7 @@ test('sidebar QA verifies removed views in a fresh document', async () => {
 
 test('image QA dispatches an image ClipboardEvent without the system clipboard', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-phase1-image.mjs'), 'utf8')
+  assert.match(source, /\.ProseMirror\[contenteditable="true"\]/)
   assert.match(source, /const transfer = new DataTransfer\(\)/)
   assert.match(source, /new ClipboardEvent\('paste', \{[\s\S]*clipboardData: transfer/)
   assert.doesNotMatch(source, /navigator\.clipboard\.write/)

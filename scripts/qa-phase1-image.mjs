@@ -2,6 +2,7 @@
 import { chromium } from 'playwright'
 
 const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
+const EDITABLE_EDITOR = '.editor .ProseMirror[contenteditable="true"]'
 const pngB64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
@@ -25,7 +26,7 @@ async function createTrade(symbol) {
 }
 
 async function pasteAndReadImage() {
-  const editor = page.locator('.editor .ProseMirror')
+  const editor = page.locator(EDITABLE_EDITOR)
   await editor.waitFor()
   await editor.click()
   const handled = await editor.evaluate((target, b64) => {
@@ -63,7 +64,8 @@ async function pasteAndReadImage() {
 }
 
 async function pasteGeneratedImage(width, height) {
-  const editor = page.locator('.editor .ProseMirror')
+  const editor = page.locator(EDITABLE_EDITOR)
+  await editor.waitFor()
   await editor.click()
   const handled = await editor.evaluate(async (target, { width, height }) => {
     const canvas = document.createElement('canvas')
@@ -102,7 +104,7 @@ const lightboxWorks = lightboxCounter.trim() === '2 / 2'
 await createTrade('ETHUSDT')
 const secondTrade = await pasteAndReadImage()
 await page.goto(firstTrade.href, { waitUntil: 'networkidle' })
-await page.locator('.editor .ProseMirror').waitFor()
+await page.locator(EDITABLE_EDITOR).waitFor()
 const reopenedFirst = {
   tradeId: new URL(page.url()).pathname.split('/').pop(),
   assetId: await page.locator('.editor img').first().getAttribute('data-asset-id'),
