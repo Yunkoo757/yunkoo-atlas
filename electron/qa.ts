@@ -203,7 +203,10 @@ export async function runElectronQa(): Promise<QaCheck[]> {
       `${assetStats.count} / ${assetStats.totalBytes} bytes / ${assetStats.missingCount} missing`,
     )
 
-    const zipPath = path.join(paths.root, '_qa-export.journal.zip')
+    const zipPath = path.join(
+      path.dirname(paths.root),
+      `_qa-export-${path.basename(paths.root)}.journal.zip`,
+    )
     storage.saveSnapshot(snapshotWithRef('TRD-DESKTOPZIP'))
     await exportJournalZip(storage, zipPath)
     record('journal.zip 导出', fs.existsSync(zipPath), `${fs.statSync(zipPath).size} bytes`)
