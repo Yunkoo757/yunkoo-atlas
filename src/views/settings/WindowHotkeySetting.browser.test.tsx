@@ -1,0 +1,214 @@
+import { createRoot, type Root } from 'react-dom/client'
+import { chordKey } from '@/shortcuts/chords'
+import type { KeyChord } from '@/shortcuts/types'
+import type { WindowHotkeyState, WindowHotkeyUpdateResult } from '@/lib/windowHotkeyBinding'
+import { useShortcutStore } from '@/store/shortcutStore'
+import { useToast } from '@/lib/toast'
+import { ShortcutsPanel } from '@/views/settings/ShortcutsPanel'
+
+declare global {
+  interface Window {
+    __windowHotkeySettingTest?: Promise<void>
+  }
+}
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(message)
+}
+
+function screenText(): string {
+  return document.body.textContent ?? ''
+}
+
+async function eventually(condition: () => boolean, message: string): Promise<void> {
+  const deadline = performance.now() + 5_000
+  while (performance.now() < deadline) {
+    if (condition()) return
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+  }
+  throw new Error(message)
+}
+
+function clickButton(label: string): void {
+  const button = [...document.body.querySelectorAll('button')]
+    .find((item) => item.textContent?.trim() === label)
+  assert(button, `找不到按钮：${label}`)
+  button.click()
+}
+
+async function recordSystemChord(init: KeyboardEventInit): Promise<void> {
+  const button = document.querySelector<HTMLButtonElement>('[data-window-hotkey-capture]')
+  assert(button, '缺少系统快捷键录制按钮')
+  await eventually(() => !button.disabled, '系统快捷键录制按钮仍处于忙碌状态')
+  button.click()
+  await eventually(() => button.getAttribute('aria-pressed') === 'true', '系统快捷键未进入录制状态')
+  window.dispatchEvent(new KeyboardEvent('keydown', {
+    ...init,
+    bubbles: true,
+    cancelable: true,
+  }))
+}
+
+async function recordOrdinaryChord(actionLabel: string, init: KeyboardEventInit): Promise<void> {
+  const button = [...document.querySelectorAll<HTMLButtonElement>('.shortcuts-capture')]
+    .find((item) => item.getAttribute('aria-label')?.startsWith(`${actionLabel}，`))
+  assert(button, `找不到普通快捷键录制按钮：${actionLabel}`)
+  button.click()
+  await eventually(() => button.getAttribute('aria-pressed') === 'true', '普通快捷键未进入录制状态')
+  window.dispatchEvent(new KeyboardEvent('keydown', {
+    ...init,
+    bubbles: true,
+    cancelable: true,
+  }))
+}
+
+type DeferredUpdate = {
+  promise: Promise<WindowHotkeyUpdateResult>
+  resolve: (result: WindowHotkeyUpdateResult) => void
+}
+
+function deferredUpdate(): DeferredUpdate {
+  let resolve!: DeferredUpdate['resolve']
+  const promise = new Promise<WindowHotkeyUpdateResult>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+async function renderPanel(rootElement: HTMLElement): Promise<Root> {
+  const root = createRoot(rootElement)
+  root.render(<ShortcutsPanel />)
+  await eventually(() => screenText().includes('键盘快捷键'), '快捷键设置页未渲染')
+  return root
+}
+
+async function run(): Promise<void> {
+  const rootElement = document.getElementById('root')
+  assert(rootElement, '缺少测试挂载节点')
+  const originalBridge = window.journalBridge
+  const originalBindings = useShortcutStore.getState().bindings
+  let root: Root | null = null
+
+  try {
+    Reflect.deleteProperty(window, 'journalBridge')
+    useShortcutStore.setState({ bindings: {} })
+    root = await renderPanel(rootElement)
+    assert(!document.querySelector('[data-window-hotkey-setting]'), 'Web 设置页不应显示系统热键')
+    root.unmount()
+    root = null
+
+    const calls: string[] = []
+    let state: WindowHotkeyState = { binding: { key: 'f2' }, registered: true }
+    let nextSet: 'success' | 'failure' | DeferredUpdate = 'success'
+    const hotkeyBridge = {
+      isElectron: true as const,
+      getWindowHotkey: async () => state,
+      setWindowHotkey: async (binding: KeyChord): Promise<WindowHotkeyUpdateResult> => {
+        calls.push(`ipc:set:${chordKey(binding)}`)
+        if (typeof nextSet !== 'string') return nextSet.promise
+        if (nextSet === 'failure') {
+          return {
+            ok: false,
+            errorCode: 'registration-unavailable',
+            message: '该按键当前无法注册',
+            state,
+          }
+        }
+        state = { binding, registered: true }
+        return { ok: true, state }
+      },
+      resetWindowHotkey: async (): Promise<WindowHotkeyUpdateResult> => {
+        calls.push('ipc:reset')
+        state = { binding: { key: 'f2' }, registered: true }
+        return { ok: true, state }
+      },
+    }
+    Object.defineProperty(window, 'journalBridge', {
+      configurable: true,
+      value: hotkeyBridge as Window['journalBridge'],
+    })
+
+    useShortcutStore.setState({ bindings: {} })
+    root = await renderPanel(rootElement)
+    await eventually(() => Boolean(document.querySelector('[data-window-hotkey-setting]')), 'Electron 设置页应显示系统热键')
+    await eventually(() => screenText().includes('已注册'), '系统热键注册状态未显示')
+    assert(screenText().includes('系统级，会在其他软件中生效'), '必须解释全局影响')
+    assert(document.querySelector('[role="status"]'), '注册结果必须使用可访问状态语义')
+
+    const pendingSuccess = deferredUpdate()
+    nextSet = pendingSuccess
+    await recordSystemChord({ ctrlKey: true, key: 'k' })
+    await eventually(
+      () => document.querySelector('[role="dialog"]')?.textContent?.includes('命令面板（Ctrl+K）') === true,
+      '确认弹层应列出冲突动作',
+    )
+    assert(calls.length === 0, '确认冲突前不得调用 IPC')
+    assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, '确认冲突前不得清空普通绑定')
+    clickButton('确认覆盖')
+    await eventually(() => calls[0] === 'ipc:set:mod+k', '确认后应先调用系统热键 IPC')
+    assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, 'IPC 成功前不得清空冲突')
+    state = { binding: { mod: true, key: 'k' }, registered: true }
+    pendingSuccess.resolve({ ok: true, state })
+    await eventually(
+      () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === null,
+      'IPC 成功后才清空冲突',
+    )
+
+    useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
+    useToast.getState().dismiss()
+    await recordOrdinaryChord('命令面板（Ctrl+K）', { ctrlKey: true, key: 'k' })
+    await eventually(
+      () => useToast.getState().message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
+      '普通录制撞系统键时必须给出拒绝原因',
+    )
+    assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '普通录制撞系统键时不得修改状态')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await eventually(
+      () => !document.querySelector('.shortcuts-capture[aria-pressed="true"]'),
+      '普通快捷键录制状态未退出',
+    )
+
+    useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { alt: true, key: 'x' } } })
+    useToast.getState().dismiss()
+    clickButton('恢复全部默认')
+    await eventually(
+      () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === null,
+      '恢复默认必须保留系统热键冲突为禁用',
+    )
+    assert(useToast.getState().message?.includes('系统快捷键占用'), '恢复默认必须报告因系统热键占用而保留禁用')
+
+    useShortcutStore.setState({ bindings: {} })
+    const callCountBeforeCancel = calls.length
+    nextSet = 'success'
+    await recordSystemChord({ ctrlKey: true, key: 'k' })
+    await eventually(() => screenText().includes('覆盖现有快捷键？'), '取消场景未打开确认弹层')
+    clickButton('取消')
+    await eventually(() => !screenText().includes('覆盖现有快捷键？'), '取消后确认弹层未关闭')
+    assert(calls.length === callCountBeforeCancel, '取消覆盖不得调用 IPC')
+    assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, '取消覆盖不得清空普通绑定')
+
+    clickButton('恢复默认')
+    await eventually(() => calls.at(-1) === 'ipc:reset', '系统快捷键恢复默认未调用 IPC')
+    useShortcutStore.setState({ bindings: {} })
+    useToast.getState().dismiss()
+    nextSet = 'failure'
+    await recordSystemChord({ ctrlKey: true, key: 'k' })
+    await eventually(
+      () => document.querySelector('[role="dialog"]')?.textContent?.includes('命令面板（Ctrl+K）') === true,
+      '失败场景未识别普通快捷键冲突',
+    )
+    clickButton('确认覆盖')
+    await eventually(() => useToast.getState().message === '该按键当前无法注册', 'IPC 失败原因未显示')
+    assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, 'IPC 失败绝不能清空普通绑定')
+    assert(screenText().includes('已注册'), 'IPC 失败后应显示桥接层返回的当前状态')
+  } finally {
+    root?.unmount()
+    useShortcutStore.setState({ bindings: originalBindings })
+    useToast.getState().dismiss()
+    if (originalBridge) {
+      Object.defineProperty(window, 'journalBridge', { configurable: true, value: originalBridge })
+    } else {
+      Reflect.deleteProperty(window, 'journalBridge')
+    }
+  }
+}
+
+window.__windowHotkeySettingTest = run()

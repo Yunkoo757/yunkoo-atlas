@@ -39,6 +39,111 @@
   background: var(--bg-hover);
 }
 
+.shortcuts-reset-all:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.window-hotkey-setting {
+  margin-bottom: var(--sp-8);
+  padding: var(--sp-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: color-mix(in srgb, var(--surface-raised) 52%, transparent);
+}
+
+.window-hotkey-heading,
+.window-hotkey-row,
+.window-hotkey-controls,
+.window-hotkey-conflict-summary {
+  display: flex;
+  align-items: center;
+}
+
+.window-hotkey-heading,
+.window-hotkey-row,
+.window-hotkey-conflict-summary {
+  justify-content: space-between;
+}
+
+.window-hotkey-heading {
+  align-items: flex-start;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.window-hotkey-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+  min-height: var(--control-height);
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+}
+
+.window-hotkey-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--text-quaternary);
+}
+
+.window-hotkey-status.is-registered .window-hotkey-status-dot {
+  background: var(--success);
+}
+
+.window-hotkey-row {
+  gap: var(--sp-5);
+  min-height: 44px;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.window-hotkey-label {
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+
+.window-hotkey-controls {
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.window-hotkey-capture {
+  border-color: var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.window-hotkey-reset {
+  flex: 0 0 auto;
+}
+
+.window-hotkey-conflict-summary {
+  gap: var(--sp-4);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.window-hotkey-conflict-key {
+  color: var(--text-primary);
+}
+
+.window-hotkey-conflict-list {
+  margin: var(--sp-4) 0 0;
+  padding-left: var(--sp-5);
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+
+.window-hotkey-conflict-note {
+  margin: var(--sp-4) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
 .shortcuts-section {
   margin-bottom: 26px;
 }
@@ -274,6 +379,17 @@ button.shortcuts-capture[aria-pressed='true'] {
 
   .shortcuts-panel-head {
     align-items: flex-start;
+  }
+
+  .window-hotkey-heading,
+  .window-hotkey-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .window-hotkey-controls {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .shortcuts-row {

@@ -1,41 +1,16 @@
-import { Fragment, useMemo, useState, useEffect, useCallback } from 'react'
-import { ArrowRight, Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
+import { useMemo, useState, useEffect, useCallback } from 'react'
+import { Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
+import type { WindowHotkeyState } from '@/lib/windowHotkeyBinding'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { formatBinding } from '@/shortcuts/format'
-import { chordFromEvent, chordKey, isSequence, parseChordKey } from '@/shortcuts/chords'
-import type { KeyChord, ShortcutBinding } from '@/shortcuts/types'
+import { chordFromEvent, chordKey, chordsEqual, isSequence, parseChordKey } from '@/shortcuts/chords'
+import type { KeyChord } from '@/shortcuts/types'
 import { resolveBinding, useShortcutStore } from '@/store/shortcutStore'
 import { toast } from '@/lib/toast'
+import { ShortcutKeycaps } from '@/views/settings/ShortcutKeycaps'
+import { WindowHotkeySetting } from '@/views/settings/WindowHotkeySetting'
 import '@/views/ShortcutsView.css'
-
-function splitChordLabel(chord: KeyChord): string[] {
-  const formatted = formatBinding(chord)
-  if (formatted.includes('+')) return formatted.split('+')
-  return formatted.match(/[⌘⌥⇧]|[^⌘⌥⇧]+/g) ?? [formatted]
-}
-
-function ShortcutKeycaps({ binding }: { binding: ShortcutBinding | null }) {
-  if (!binding) return <span className="shortcuts-unassigned">未设置</span>
-
-  const chords = isSequence(binding) ? binding : [binding]
-  return (
-    <span className="shortcuts-keycap-list" aria-hidden="true">
-      {chords.map((chord, chordIndex) => (
-        <Fragment key={chordKey(chord)}>
-          {chordIndex > 0 && <ArrowRight className="shortcuts-sequence-arrow" size={12} />}
-          <span className="shortcuts-chord">
-            {splitChordLabel(chord).map((label) => (
-              <kbd key={label} className="shortcuts-keycap">
-                {label}
-              </kbd>
-            ))}
-          </span>
-        </Fragment>
-      ))}
-    </span>
-  )
-}
 
 export function ShortcutsPanel() {
   const bindings = useShortcutStore((s) => s.bindings)
@@ -43,7 +18,12 @@ export function ShortcutsPanel() {
   const setBinding = useShortcutStore((s) => s.setBinding)
   const resetBinding = useShortcutStore((s) => s.resetBinding)
   const resetAllBindings = useShortcutStore((s) => s.resetAllBindings)
+  const resetAllBindingsForWindowHotkey = useShortcutStore(
+    (s) => s.resetAllBindingsForWindowHotkey,
+  )
   const [recordingId, setRecordingId] = useState<string | null>(null)
+  const [windowHotkeyState, setWindowHotkeyState] = useState<WindowHotkeyState | null>(null)
+  const isElectron = window.journalBridge?.isElectron === true
 
   const categories = useMemo(() => {
     const map = new Map<string, typeof SHORTCUT_ACTIONS>()
@@ -78,8 +58,12 @@ export function ShortcutsPanel() {
       const chord = chordFromEvent(e)
       if (!chord.key) return
 
-      const binding: ShortcutBinding = chord
-      const result = assignBinding(recordingId, binding)
+      if (windowHotkeyState && chordsEqual(chord, windowHotkeyState.binding)) {
+        toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键')
+        return
+      }
+
+      const result = assignBinding(recordingId, chord)
       if (!result.ok) {
         toast(result.error)
         return
@@ -92,7 +76,7 @@ export function ShortcutsPanel() {
         toast('快捷键已更新')
       }
     },
-    [recordingId, assignBinding, setBinding],
+    [recordingId, assignBinding, setBinding, windowHotkeyState],
   )
 
   useEffect(() => {
@@ -108,15 +92,26 @@ export function ShortcutsPanel() {
         <button
           type="button"
           className="shortcuts-reset-all"
+          disabled={isElectron && !windowHotkeyState}
           onClick={() => {
-            resetAllBindings()
-            toast('已恢复全部默认快捷键')
+            if (!windowHotkeyState) {
+              resetAllBindings()
+              toast('已恢复全部默认快捷键')
+              return
+            }
+            const labels = resetAllBindingsForWindowHotkey(windowHotkeyState.binding)
+            if (labels.length > 0) {
+              toast(`已恢复全部默认；因系统快捷键占用，保留禁用「${labels.join('、')}」`)
+            } else {
+              toast('已恢复全部默认快捷键')
+            }
           }}
         >
           <RotateCcw size={14} />
           恢复全部默认
         </button>
       </div>
+      {isElectron ? <WindowHotkeySetting onStateChange={setWindowHotkeyState} /> : null}
       {categories.map(([category, actions]) => (
         <section key={category} className="shortcuts-section">
           <h2 className="shortcuts-group-label">{category}</h2>
