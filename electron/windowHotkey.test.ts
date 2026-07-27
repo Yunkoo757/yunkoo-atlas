@@ -257,60 +257,66 @@ export async function testWindowHotkeyConcurrentUpdatesAreSerialized(): Promise<
   })
 }
 
-export async function testWindowHotkeyDisposeDuringUpdatePreventsCandidateRevival(): Promise<void> {
-  let releaseSave!: () => void
-  const saveGate = new Promise<void>((resolve) => {
-    releaseSave = resolve
-  })
-  let markSaveStarted!: () => void
-  const saveStarted = new Promise<void>((resolve) => {
-    markSaveStarted = resolve
-  })
-  const calls: string[] = []
-  const registered = new Set<string>()
-  const service = new WindowHotkeyService({
-    registrar: {
-      register(accelerator) {
-        calls.push(`register:${accelerator}`)
-        registered.add(accelerator)
-        return true
+export async function testWindowHotkeyDisposeDuringUpdateCommitsBeforeUnregistering(): Promise<void> {
+  await withTemporaryConfig(async (configPath) => {
+    await writeFile(configPath, '{"version":1,"binding":{"key":"f2"}}', 'utf8')
+    let releaseRename!: () => void
+    const renameGate = new Promise<void>((resolve) => {
+      releaseRename = resolve
+    })
+    let markRenameStarted!: () => void
+    const renameStarted = new Promise<void>((resolve) => {
+      markRenameStarted = resolve
+    })
+    const storage = new FileWindowHotkeyStorage(configPath, {
+      async rename(source, destination) {
+        markRenameStarted()
+        await renameGate
+        await rename(source, destination)
       },
-      unregister(accelerator) {
-        calls.push(`unregister:${accelerator}`)
-        registered.delete(accelerator)
+    })
+    const calls: string[] = []
+    const registered = new Set<string>()
+    const service = new WindowHotkeyService({
+      registrar: {
+        register(accelerator) {
+          calls.push(`register:${accelerator}`)
+          registered.add(accelerator)
+          return true
+        },
+        unregister(accelerator) {
+          calls.push(`unregister:${accelerator}`)
+          registered.delete(accelerator)
+        },
       },
-    },
-    storage: {
-      async load() {
-        return { kind: 'valid', binding: { key: 'f2' } }
-      },
-      async save(binding) {
-        calls.push(`save:${toElectronAccelerator(binding)}`)
-        markSaveStarted()
-        await saveGate
-      },
-    },
-    onToggle() {},
-  })
-  await service.initialize()
+      storage,
+      onToggle() {},
+    })
+    await service.initialize()
 
-  const update = service.update({ alt: true, key: 'x' })
-  await saveStarted
-  const disposal = service.dispose()
-  releaseSave()
-  const [updateResult] = await Promise.all([update, disposal])
+    const update = service.update({ alt: true, key: 'x' })
+    await renameStarted
+    const disposal = service.dispose()
+    releaseRename()
+    const [updateResult] = await Promise.all([update, disposal])
 
-  assert(!updateResult.ok, '释放期间尚未提交的更新必须失败')
-  assert(
-    calls.join('|') ===
-      'register:F2|register:Alt+X|save:Alt+X|unregister:Alt+X|unregister:F2',
-    '释放必须回滚候选键并注销原有键',
-  )
-  assert(registered.size === 0, '释放完成后不得保留任何注册')
-  assert(!service.getState().registered, '释放完成后状态必须保持未注册')
+    assert(updateResult.ok, '已经开始且保存成功的更新必须正常提交')
+    assert(service.getState().binding.key === 'x', '内存必须保留成功提交的新绑定')
+    assert(
+      calls.join('|') === 'register:F2|register:Alt+X|unregister:F2|unregister:Alt+X',
+      '更新必须先完成切换，随后由释放注销最终注册',
+    )
+    assert(registered.size === 0, '释放完成后不得保留任何注册')
+    assert(!service.getState().registered, '释放完成后状态必须保持未注册')
+    const persisted = await storage.load()
+    assert(
+      persisted.kind === 'valid' && persisted.binding.key === 'x',
+      '下次加载必须得到已经成功提交的新绑定',
+    )
+  })
 }
 
-export async function testWindowHotkeyDisposeDuringInitializePreventsRegistration(): Promise<void> {
+export async function testWindowHotkeyDisposeDuringInitializeCompletesBeforeUnregistering(): Promise<void> {
   let releaseLoad!: () => void
   const loadGate = new Promise<void>((resolve) => {
     releaseLoad = resolve
@@ -347,9 +353,66 @@ export async function testWindowHotkeyDisposeDuringInitializePreventsRegistratio
   releaseLoad()
   const [initializedState] = await Promise.all([initialization, disposal])
 
-  assert(!initializedState.registered, '释放期间完成的初始化不得重新注册')
-  assert(calls.length === 0, '释放期间完成的初始化不得触碰注册器')
+  assert(initializedState.registered, '已经开始的初始化必须正常完成')
+  assert(
+    calls.join('|') === 'register:F2|unregister:F2',
+    '初始化必须先完成注册，随后由释放统一注销',
+  )
   assert(!service.getState().registered, '初始化结束后必须保持释放状态')
+}
+
+export async function testWindowHotkeyDisposeDuringFailedSaveKeepsOldConfig(): Promise<void> {
+  await withTemporaryConfig(async (configPath) => {
+    await writeFile(configPath, '{"version":1,"binding":{"key":"f2"}}', 'utf8')
+    let releaseRename!: () => void
+    const renameGate = new Promise<void>((resolve) => {
+      releaseRename = resolve
+    })
+    let markRenameStarted!: () => void
+    const renameStarted = new Promise<void>((resolve) => {
+      markRenameStarted = resolve
+    })
+    const storage = new FileWindowHotkeyStorage(configPath, {
+      async rename() {
+        markRenameStarted()
+        await renameGate
+        throw new Error('rename failed')
+      },
+    })
+    const registered = new Set<string>()
+    const service = new WindowHotkeyService({
+      registrar: {
+        register(accelerator) {
+          registered.add(accelerator)
+          return true
+        },
+        unregister(accelerator) {
+          registered.delete(accelerator)
+        },
+      },
+      storage,
+      onToggle() {},
+    })
+    await service.initialize()
+
+    const update = service.update({ alt: true, key: 'x' })
+    await renameStarted
+    const disposal = service.dispose()
+    releaseRename()
+    const [updateResult] = await Promise.all([update, disposal])
+
+    assert(
+      !updateResult.ok && updateResult.errorCode === 'persistence-failed',
+      '保存本身失败时必须保持原有失败语义',
+    )
+    assert(service.getState().binding.key === 'f2', '失败更新不得修改内存绑定')
+    assert(registered.size === 0, '失败更新完成释放后不得保留注册')
+    const persisted = await storage.load()
+    assert(
+      persisted.kind === 'valid' && persisted.binding.key === 'f2',
+      '保存失败后旧磁盘绑定必须保持不变',
+    )
+  })
 }
 
 export async function testWindowHotkeyDisposedServiceRejectsFutureOperations(): Promise<void> {
