@@ -134,6 +134,23 @@ test('发布候选先认证精确 SHA，tag 流水线只做双平台安全构建
   assert.doesNotMatch(workflow, /verify-release-evidence:/)
 })
 
+test('候选认证旁路必须显式开启且留下审计记录，默认保持关闭', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
+  const certification = workflowJob(workflow, 'certification')
+
+  assert.match(
+    certification,
+    /if:\s*vars\.RELEASE_CANDIDATE_GATE_BYPASS != 'true'/,
+    '未显式开启仓库变量时必须执行候选认证',
+  )
+  assert.match(
+    certification,
+    /if:\s*vars\.RELEASE_CANDIDATE_GATE_BYPASS == 'true'/,
+    '显式旁路必须有独立审计步骤',
+  )
+  assert.match(certification, /::warning::.*candidate certification bypassed/i)
+})
+
 test('预览版本创建 GitHub Prerelease，正式客户端继续忽略预发布更新', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const publish = workflowJob(workflow, 'publish')

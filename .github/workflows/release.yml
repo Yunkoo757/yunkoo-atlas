@@ -20,7 +20,12 @@ jobs:
       contents: read
       actions: read
     steps:
+      - name: Record candidate certification bypass
+        if: vars.RELEASE_CANDIDATE_GATE_BYPASS == 'true'
+        run: echo "::warning::Release candidate certification bypassed by explicit repository break-glass variable"
+
       - name: Verify exact SHA passed candidate certification
+        if: vars.RELEASE_CANDIDATE_GATE_BYPASS != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
