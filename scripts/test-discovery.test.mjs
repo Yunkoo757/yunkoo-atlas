@@ -205,13 +205,17 @@ test('sidebar QA verifies removed views in a fresh document', async () => {
   assert.match(source, /await removedViewPage\.goto\(`\$\{BASE\}\/list`, \{ waitUntil: 'domcontentloaded' \}\)/)
 })
 
-test('image QA uses Chromium clipboard permissions and a real paste shortcut', async () => {
+test('image QA supplies deterministic image clipboard items without the system clipboard', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-phase1-image.mjs'), 'utf8')
   assert.match(source, /\.ProseMirror\[contenteditable="true"\]/)
-  assert.match(source, /permissions: \['clipboard-read', 'clipboard-write'\]/)
-  assert.match(source, /navigator\.clipboard\.write\(\[new ClipboardItem\(/)
-  assert.match(source, /editor\.press\('ControlOrMeta\+V'\)/)
-  assert.doesNotMatch(source, /new ClipboardEvent\('paste'/)
+  assert.match(source, /new ClipboardEvent\('paste', \{ bubbles: true, cancelable: true \}\)/)
+  assert.match(source, /Object\.defineProperty\(event, 'clipboardData'/)
+  assert.match(source, /items: \[\{ type: 'image\/png', getAsFile: \(\) => file \}\]/)
+  assert.match(source, /files: \[file\]/)
+  assert.match(source, /types: \['Files'\]/)
+  assert.match(source, /getData: \(\) => ''/)
+  assert.doesNotMatch(source, /new DataTransfer\(/)
+  assert.doesNotMatch(source, /navigator\.clipboard\.write/)
   assert.doesNotMatch(source, /navigator, 'locks'/)
 })
 

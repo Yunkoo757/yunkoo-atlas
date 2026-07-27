@@ -9,7 +9,6 @@ const pngB64 =
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({
   viewport: { width: 1400, height: 900 },
-  permissions: ['clipboard-read', 'clipboard-write'],
 })
 const page = await context.newPage()
 async function selectValue(trigger, value) {
@@ -30,14 +29,23 @@ async function pasteAndReadImage() {
   const editor = page.locator(EDITABLE_EDITOR)
   await editor.waitFor()
   await editor.click()
-  await page.evaluate(async (b64) => {
+  const handled = await editor.evaluate((target, b64) => {
     const bin = atob(b64)
     const bytes = new Uint8Array(bin.length)
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-    const blob = new Blob([bytes], { type: 'image/png' })
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    const file = new File([bytes], 'chart.png', { type: 'image/png' })
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        items: [{ type: 'image/png', getAsFile: () => file }],
+        files: [file],
+        types: ['Files'],
+        getData: () => '',
+      },
+    })
+    return target.dispatchEvent(event)
   }, pngB64)
-  await editor.press('ControlOrMeta+V')
+  if (handled) throw new Error('图片粘贴事件未被编辑器接管')
   await page.locator('.editor img').first().waitFor()
   const imgBefore = await page.locator('.editor img').count()
   const assetIdBefore = await page.locator('.editor img').first().getAttribute('data-asset-id')
@@ -63,7 +71,7 @@ async function pasteGeneratedImage(width, height) {
   const editor = page.locator(EDITABLE_EDITOR)
   await editor.waitFor()
   await editor.click()
-  await page.evaluate(async ({ width, height }) => {
+  const handled = await editor.evaluate(async (target, { width, height }) => {
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
@@ -73,9 +81,19 @@ async function pasteGeneratedImage(width, height) {
     context.fillStyle = '#5e6ad2'
     context.fillRect(0, 0, width / 2, height)
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    const file = new File([blob], 'chart.png', { type: 'image/png' })
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        items: [{ type: 'image/png', getAsFile: () => file }],
+        files: [file],
+        types: ['Files'],
+        getData: () => '',
+      },
+    })
+    return target.dispatchEvent(event)
   }, { width, height })
-  await editor.press('ControlOrMeta+V')
+  if (handled) throw new Error('生成图片粘贴事件未被编辑器接管')
   await page.locator('.editor img').nth(1).waitFor()
   await page.waitForTimeout(1200)
 }
