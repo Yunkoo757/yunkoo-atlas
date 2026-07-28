@@ -25,7 +25,14 @@ export function isValidLiveCycleDayKey(value: unknown): value is string {
 export function openedTradingDayKey(trade: Pick<Trade, 'openedAt'>, tradingDayStartHour: number): string | null {
   if (isValidLiveCycleDayKey(trade.openedAt)) return trade.openedAt
   const timestamp = new Date(trade.openedAt)
-  return Number.isNaN(timestamp.getTime()) ? null : getTradingDayKey(timestamp, tradingDayStartHour)
+  if (Number.isNaN(timestamp.getTime())) return null
+
+  const offsetDateTime = /^(\d{4}-\d{2}-\d{2})T(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/.exec(trade.openedAt)
+  if (offsetDateTime && isValidLiveCycleDayKey(offsetDateTime[1])) {
+    return getTradingDayKey(new Date(`${offsetDateTime[1]}T${offsetDateTime[2]}:00`), tradingDayStartHour)
+  }
+
+  return getTradingDayKey(timestamp, tradingDayStartHour)
 }
 
 export function classifyLiveCycleTrade(
