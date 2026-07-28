@@ -462,7 +462,7 @@ export function DataSettingsPanel({
               <Trash2 size={14} />
               <span>{purgeBusy ? '扫描中…' : '预览可清理的孤立附件'}</span>
             </button>
-            <p className="dio-section-muted data-section-muted">
+            <p className="data-support-note">
               {assetPurgeCommitEnabled
                 ? '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。删除前须先导出恢复归档。'
                 : '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。当前正式版仅提供预览与导出恢复归档，不在本机永久删除。'}
@@ -572,7 +572,7 @@ export function DataSettingsPanel({
           )}
 
           {backups.length > 0 && (
-            <p className="dio-section-muted data-section-muted">
+            <p className="data-path-note">
               备份文件位于资料库目录的 <code>backups/</code> 下。
             </p>
           )}
