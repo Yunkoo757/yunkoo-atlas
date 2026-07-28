@@ -236,7 +236,6 @@ export function WeeklyReviewView() {
   const metrics = review.status === 'completed' && review.metricsSnapshot
     ? review.metricsSnapshot
     : liveMetrics
-  const usesLegacyEvidenceFallback = review.status === 'completed' && !review.evidenceSnapshot
   const evidenceTrades = review.status === 'completed'
     ? review.evidenceSnapshot?.trades ?? tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour)
     : weekTrades

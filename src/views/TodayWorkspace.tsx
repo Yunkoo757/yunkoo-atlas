@@ -71,7 +71,6 @@ export function TodayWorkspace() {
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
   const privacyMode = useStore((state) => state.display.privacyMode)
-  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
