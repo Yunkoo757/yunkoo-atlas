@@ -39,7 +39,7 @@
 }
 
 .risk-budget-compact-status { color: var(--pos); }
-.risk-budget-compact-details { color: var(--accent); }
+.risk-budget-compact-details { color: color-mix(in srgb, var(--accent) 84%, white 16%); }
 
 .risk-budget-card.is-compact details[open] .risk-budget-compact-summary {
   border-bottom: 1px solid var(--border-subtle);
