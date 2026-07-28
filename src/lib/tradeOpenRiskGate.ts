@@ -43,6 +43,7 @@ export interface RiskGateFingerprintInput {
   trade: Trade
   currentTradingDayKey: string
   liveStatsStartTradingDayKey: string | null
+  tradingDayStartHour: number
   policy: RiskPolicyVersion | null
   monthlyLimit: MonthlyRiskLimit | null
   outcomes: Record<RiskPeriodScope, RiskPeriodOutcomeSnapshot>
@@ -184,6 +185,7 @@ export function buildRiskGateFingerprint(input: RiskGateFingerprintInput): strin
     target: selectTargetIdentity(input.trade),
     tradingDay: input.currentTradingDayKey,
     liveStatsStartTradingDayKey: input.liveStatsStartTradingDayKey,
+    tradingDayStartHour: input.tradingDayStartHour,
     policyVersionId: input.policy?.id ?? null,
     monthlyLimitId: input.monthlyLimit?.id ?? null,
     outcomes: input.outcomes,
@@ -284,6 +286,7 @@ function createPendingRequest(
     trade,
     currentTradingDayKey: state.currentTradingDayKey,
     liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
+    tradingDayStartHour: state.tradingDayStartHour,
     policy,
     monthlyLimit,
     outcomes,

@@ -412,3 +412,20 @@ export function testChangingLiveCycleStartInvalidatesPendingConfirmation(): void
 
   assert(validation.kind === 'needs-reconfirmation', '周期起点变化必须使既有确认失效')
 }
+
+export function testChangingTradingDayStartHourInvalidatesPendingConfirmation(): void {
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned')],
+    monthlyRiskLimits: [],
+  }
+  const candidate = requestTradeOpenCandidate(state, 'target')
+  assert(candidate.kind === 'confirmation-required', 'fixture 必须因缺少月限额产生 pending')
+
+  const validation = validatePendingFingerprint(candidate.request, {
+    ...state,
+    tradingDayStartHour: 1,
+  })
+
+  assert(validation.kind === 'needs-reconfirmation', '交易日起始小时变化必须使既有确认失效')
+}
