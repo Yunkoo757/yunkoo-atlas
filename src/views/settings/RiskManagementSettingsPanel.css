@@ -16,6 +16,32 @@
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
 }
-@media (max-width: 768px) {
+
+.risk-management-settings .risk-preparation-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+.risk-management-settings .risk-preparation-form input {
+  height: var(--field-height-md);
+}
+
+.risk-management-settings .risk-preparation-discipline-row {
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+
+.risk-management-settings .risk-preparation-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 899px) {
+  .risk-management-settings .risk-preparation-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .risk-management-settings .risk-preparation-card.is-reviewed { min-height: 56px; }
+}
+
+@media (max-width: 640px) {
+  .risk-management-settings .risk-preparation-fields { grid-template-columns: 1fr; }
 }
