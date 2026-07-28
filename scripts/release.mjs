@@ -3,17 +3,23 @@ import { spawnSync } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import { resolveCommand } from './release-command.mjs'
 
-const level = process.argv[2]
+const args = process.argv.slice(2)
+const skipGates = args.includes('--skip-gates')
+const level = args.find((a) => !a.startsWith('--'))
 const allowedLevels = new Set(['patch', 'minor', 'major'])
 
-if (level === '--help' || level === '-h') {
-  console.log('用法: node scripts/release.mjs <patch|minor|major>')
+if (level === '--help' || level === '-h' || args.includes('--help') || args.includes('-h')) {
+  console.log('用法: node scripts/release.mjs <patch|minor|major> [--skip-gates]')
   process.exit(0)
 }
 
 if (!allowedLevels.has(level)) {
   console.error('版本类型必须是 patch、minor 或 major。')
   process.exit(1)
+}
+
+if (skipGates) {
+  console.log('⚠ 已跳过发布门禁（qa:release + candidate certify）')
 }
 
 function run(name, args, options = {}) {
@@ -116,7 +122,11 @@ if (local !== remote) {
   process.exit(1)
 }
 
-run('pnpm', ['qa:release'])
+if (skipGates) {
+  console.log('跳过 qa:release ...')
+} else {
+  run('pnpm', ['qa:release'])
+}
 
 let pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 let tag = `v${pkg.version}`
@@ -139,7 +149,11 @@ if (pendingRelease) {
 }
 
 const candidateCommit = run('git', ['rev-parse', 'HEAD'], { capture: true })
-await certify(candidateCommit)
+if (skipGates) {
+  console.log('跳过候选认证 ...')
+} else {
+  await certify(candidateCommit)
+}
 
 const taggedCommit = localTagCommit(tag)
 if (taggedCommit && taggedCommit !== candidateCommit) {
