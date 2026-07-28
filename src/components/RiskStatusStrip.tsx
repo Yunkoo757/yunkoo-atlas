@@ -53,18 +53,23 @@ function RiskPeriod({
   label,
   ariaLabel,
   outcome,
+  unreviewed,
 }: {
   label: string
   ariaLabel: string
   outcome: RiskPeriodOutcomeSnapshot
+  unreviewed: boolean
 }) {
   const presentation = presentRiskOutcome(outcome)
+  const display = unreviewed
+    ? { kind: 'unreviewed', label: '待复核', detail: '本周规则未确认' }
+    : { ...presentation, detail: detailCopy(outcome) }
   const percentage = Math.round(Math.min(1, Math.max(0, outcome.progress)) * 100)
   return (
-    <div className={`risk-status-period is-${presentation.kind}`} data-risk-period data-risk-state={presentation.kind}>
+    <div className={`risk-status-period is-${display.kind}`} data-risk-period data-risk-state={display.kind}>
       <div className="risk-status-period-head">
         <span>{label}</span>
-        <strong>{presentation.label}</strong>
+        <strong>{display.label}</strong>
       </div>
       <div
         className="risk-status-track"
@@ -78,7 +83,7 @@ function RiskPeriod({
       </div>
       <div className="risk-status-values">
         <span><strong>{formatBudgetR(outcome.consumedR)}</strong> / {outcome.limitR > 0 ? formatBudgetR(outcome.limitR) : '—'}</span>
-        <span>{detailCopy(outcome)}</span>
+        <span>{display.detail}</span>
       </div>
     </div>
   )
@@ -130,7 +135,15 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
     <section className="risk-status-strip" data-risk-status aria-labelledby="risk-status-title">
       <header className="risk-status-head"><h2 id="risk-status-title">风险状态</h2></header>
       <div className="risk-status-periods">
-        {rows.map((row) => <RiskPeriod key={row.scope} label={row.displayLabel} ariaLabel={row.ariaLabel} outcome={row.outcome} />)}
+        {rows.map((row) => (
+          <RiskPeriod
+            key={row.scope}
+            label={row.displayLabel}
+            ariaLabel={row.ariaLabel}
+            outcome={row.outcome}
+            unreviewed={row.scope === 'week' && !reviewed}
+          />
+        ))}
       </div>
       <footer className="risk-status-summary">
         <span>{summary}</span>

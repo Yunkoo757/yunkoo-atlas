@@ -12,8 +12,28 @@ export function testRiskStatusStripUsesProjectTokensAndNoConfigurationCopy(): vo
     if (source.includes(forbidden)) throw new Error(`risk strip must stay read-only: ${forbidden}`)
   }
   if (/#[0-9a-f]{3,8}\b/i.test(css)) throw new Error('risk strip must not hard-code colors')
+  for (const forbidden of ['font-family: Inter', 'linear-gradient', 'radial-gradient', 'box-shadow: 0 0']) {
+    if (css.includes(forbidden)) throw new Error(`risk strip must follow the existing design system: ${forbidden}`)
+  }
+  if (/\.risk-status-period\.is-normal[^}]*background:/s.test(css)) {
+    throw new Error('normal periods must not add a colored surface')
+  }
   for (const token of ['var(--border-subtle)', 'var(--pos)', 'var(--warn-action)', 'var(--neg)']) {
     if (!css.includes(token)) throw new Error(`risk strip must use ${token}`)
+  }
+
+  const recoveryLinks = source.match(/<Link to="\/settings\/risk">前往风险管理<\/Link>/g) ?? []
+  if (recoveryLinks.length !== 1) {
+    throw new Error('attention and unreviewed states must expose one recovery link to /settings/risk')
+  }
+  if (!source.includes('!reviewed') || !source.includes("row.presentation.kind === 'unknown'")) {
+    throw new Error('unreviewed and attention states must retain the risk-management recovery path')
+  }
+  if (!source.includes("label: '待复核'") || !source.includes("detail: '本周规则未确认'")) {
+    throw new Error('unreviewed weeks must present the weekly attention state instead of normal')
+  }
+  if (!css.includes('.risk-status-period.is-unreviewed')) {
+    throw new Error('unreviewed weeks must reuse the risk strip attention visual')
   }
 }
 

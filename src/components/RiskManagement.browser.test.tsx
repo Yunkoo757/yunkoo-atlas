@@ -190,6 +190,17 @@ async function run(): Promise<void> {
       status.querySelector<HTMLAnchorElement>('a[href="/settings/risk"]')?.textContent?.trim() === '前往风险管理',
       '未复核状态必须提供唯一设置恢复动作',
     )
+    const initialPeriods = [...status.querySelectorAll<HTMLElement>('[data-risk-period]')]
+    const initialPeriod = (label: string) => initialPeriods.find((period) =>
+      period.querySelector('.risk-status-period-head span')?.textContent?.trim() === label)
+    const initialDay = initialPeriod('今日')
+    const initialWeek = initialPeriod('本周')
+    const initialMonth = initialPeriod('本月')
+    assert(initialDay?.dataset.riskState === 'normal', '未复核不得伪造今日真实风险结果')
+    assert(initialMonth?.dataset.riskState === 'normal', '未复核不得伪造本月真实风险结果')
+    assert(initialWeek?.dataset.riskState === 'unreviewed', '未复核时仅本周必须显示待复核状态')
+    assert(initialWeek.textContent?.includes('待复核'), '未复核本周必须使用待复核标签')
+    assert(initialWeek.textContent?.includes('本周规则未确认'), '未复核本周必须说明规则未确认')
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
     assert(status.querySelectorAll('[data-risk-period]').length === 3, '风险状态必须始终展示日周月')
     assert(!status.querySelector('details'), '风险状态不得折叠')

@@ -11,6 +11,11 @@ function rule(source: string, selector: string): string {
 
 export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
   const today = read('src/views/TodayWorkspace.css')
+  const workspace = read('src/views/TodayWorkspace.tsx')
+
+  if (!workspace.includes('<RiskStatusStrip')) {
+    throw new Error('today workspace must retain the compact risk status strip')
+  }
 
   if (!rule(today, '\\.today-queue-tabs button').includes('min-height: 32px')) {
     throw new Error('today queue tabs must keep the 32px regular-control contract')

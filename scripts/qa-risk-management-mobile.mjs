@@ -58,36 +58,46 @@ try {
   assert.ok(baseUrl, 'Vite test server did not expose a local URL')
   browser = await chromium.launch({ headless: true })
 
-  const cardsFixture = await openFixture(
+  const settingsFixture = await openFixture(
     browser,
     baseUrl,
     '/src/views/settings/RiskManagementSettings.browser.test.html',
     'cards',
   )
   try {
-    await cardsFixture.page.locator('[data-risk-preparation]').waitFor()
-    await assertViewport(cardsFixture.page)
-    const cards = await cardsFixture.page.evaluate(() => {
+    await settingsFixture.page.locator('[data-risk-preparation]').waitFor()
+    await assertViewport(settingsFixture.page)
+    const layout = await settingsFixture.page.evaluate(() => {
       const preparation = document.querySelector('[data-risk-preparation]')
       const fields = document.querySelector('.risk-preparation-fields')
       const actions = document.querySelector('.risk-preparation-actions')
       if (!preparation || !fields || !actions) return null
       const preparationRect = preparation.getBoundingClientRect()
+      const actionButtons = [...actions.querySelectorAll('button')]
+      const privacyInputs = [...preparation.querySelectorAll('input')]
       return {
         preparationOverflow: preparation.scrollWidth > preparation.clientWidth,
         fieldsColumns: getComputedStyle(fields).gridTemplateColumns.split(' ').length,
         actionsDirection: getComputedStyle(actions).flexDirection,
         preparationWithinViewport: preparationRect.left >= 0 && preparationRect.right <= window.innerWidth,
+        actionsReachable: actionButtons.length > 0 && actionButtons.every((button) => {
+          button.scrollIntoView({ block: 'nearest' })
+          const rect = button.getBoundingClientRect()
+          return rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0 && rect.bottom <= window.innerHeight + 1
+        }),
+        privacyInputsOverflow: privacyInputs.some((input) => input.scrollWidth > input.clientWidth),
       }
     })
-    assert.ok(cards, '风险管理设置页缺少准备卡移动布局节点')
-    assert.equal(cards.preparationOverflow, false, '准备卡不得横向溢出')
-    assert.equal(cards.fieldsColumns, 1, '准备字段在 420px 必须为单列')
-    assert.equal(cards.actionsDirection, 'column', '准备动作在 420px 必须纵向排列')
-    assert.equal(cards.preparationWithinViewport, true, '准备卡必须完整位于 viewport 内')
-    assert.deepEqual(cardsFixture.diagnostics, [], '准备卡移动 QA 不得产生浏览器错误')
+    assert.ok(layout, '风险管理设置页缺少准备卡移动布局节点')
+    assert.equal(layout.preparationOverflow, false, '准备卡不得横向溢出')
+    assert.equal(layout.fieldsColumns, 1, '准备字段在 420px 必须为单列')
+    assert.equal(layout.actionsDirection, 'column', '准备动作在 420px 必须纵向排列')
+    assert.equal(layout.preparationWithinViewport, true, '准备卡必须完整位于 viewport 内')
+    assert.equal(layout.actionsReachable, true, '准备动作必须完整可达')
+    assert.equal(layout.privacyInputsOverflow, false, '隐私输入不得横向溢出')
+    assert.deepEqual(settingsFixture.diagnostics, [], '准备卡移动 QA 不得产生浏览器错误')
   } finally {
-    await cardsFixture.page.close()
+    await settingsFixture.page.close()
   }
 
   const dialogFixture = await openFixture(browser, baseUrl, '/src/components/RiskManagement.browser.test.html', 'dialog')
@@ -98,6 +108,25 @@ try {
       document.getAnimations().map((animation) => animation.finished),
     ))
     await assertViewport(dialogFixture.page)
+    const statusLayout = await dialogFixture.page.evaluate(() => {
+      const status = document.querySelector('[data-risk-status]')
+      const periods = document.querySelector('.risk-status-periods')
+      const recovery = status?.querySelector('a[href="/settings/risk"]')
+      if (!status || !periods) return null
+      const statusRect = status.getBoundingClientRect()
+      const recoveryRect = recovery?.getBoundingClientRect()
+      return {
+        periodColumns: getComputedStyle(periods).gridTemplateColumns.split(' ').length,
+        statusOverflow: status.scrollWidth > status.clientWidth,
+        statusWithinViewport: statusRect.left >= 0 && statusRect.right <= window.innerWidth,
+        recoveryHeight: recoveryRect?.height ?? null,
+      }
+    })
+    assert.ok(statusLayout, '今日工作台缺少风险状态移动布局节点')
+    assert.equal(statusLayout.periodColumns, 1, '风险状态在 420px 必须为单列')
+    assert.equal(statusLayout.statusOverflow, false, '风险状态不得横向溢出')
+    assert.equal(statusLayout.statusWithinViewport, true, '风险状态必须完整位于 viewport 内')
+    if (statusLayout.recoveryHeight != null) assert.ok(statusLayout.recoveryHeight >= 44, '风险恢复动作不得小于 44px')
     const layout = await dialogFixture.page.evaluate(() => {
       const form = document.querySelector('[data-trade-open-risk-dialog]')
       const periods = document.querySelector('.trade-open-risk-periods')

@@ -32,11 +32,13 @@
 .risk-status-period.is-near .risk-status-period-head strong,
 .risk-status-period.is-partial .risk-status-period-head strong,
 .risk-status-period.is-unknown .risk-status-period-head strong,
-.risk-status-period.is-unconfigured .risk-status-period-head strong { color: var(--warn-action); }
+.risk-status-period.is-unconfigured .risk-status-period-head strong,
+.risk-status-period.is-unreviewed .risk-status-period-head strong { color: var(--warn-action); }
 .risk-status-period.is-near .risk-status-track > span,
 .risk-status-period.is-partial .risk-status-track > span,
 .risk-status-period.is-unknown .risk-status-track > span,
-.risk-status-period.is-unconfigured .risk-status-track > span { background: var(--warn-action); }
+.risk-status-period.is-unconfigured .risk-status-track > span,
+.risk-status-period.is-unreviewed .risk-status-track > span { background: var(--warn-action); }
 .risk-status-period.is-triggered { background: color-mix(in srgb, var(--neg) 4%, transparent); }
 .risk-status-period.is-triggered .risk-status-period-head strong { color: var(--neg); }
 .risk-status-period.is-triggered .risk-status-track > span { background: var(--neg); }
