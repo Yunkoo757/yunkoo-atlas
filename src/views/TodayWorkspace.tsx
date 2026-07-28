@@ -12,6 +12,7 @@ import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { buildTodayClosedMetrics, getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
@@ -75,13 +76,19 @@ export function TodayWorkspace() {
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
   const location = useLocation()
   const today = useLocalDateKey()
-  const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
-  const todayMetrics = useMemo(() => buildTodayClosedMetrics(trades, today), [trades, today])
+  const currentCycleTrades = useMemo(
+    () => filterTradesForLiveCycle(trades, 'current', liveStatsStartTradingDayKey, tradingDayStartHour),
+    [trades, liveStatsStartTradingDayKey, tradingDayStartHour],
+  )
+  const buckets = useMemo(() => getTodayWorkflowBuckets(currentCycleTrades, today), [currentCycleTrades, today])
+  const todayMetrics = useMemo(() => buildTodayClosedMetrics(currentCycleTrades, today), [currentCycleTrades, today])
   const riskReviewed = useMemo(() => weeklyRiskPreparations.some(
     (preparation) => preparation.weekStart === weekStartFor(parseLocalDate(today))
       && Boolean(preparation.reviewedAt && preparation.confirmedPolicyVersionId),

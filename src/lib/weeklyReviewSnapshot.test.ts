@@ -4,6 +4,7 @@ import {
   createWeeklyReview,
   normalizeWeeklyReviews,
   reopenCompletedReview,
+  type CompleteWeeklyReviewState,
 } from '@/data/weeklyReviews'
 import type {
   MonthlyRiskLimit,
@@ -97,7 +98,7 @@ function monthlyLimit(revision: number): MonthlyRiskLimit {
   }
 }
 
-function stateAtRevision(revision: number) {
+function stateAtRevision(revision: number): CompleteWeeklyReviewState {
   const review = {
     ...createWeeklyReview('2026-07-20', new Date('2026-07-20T00:00:00.000Z')),
     id: 'review-1',
@@ -108,6 +109,7 @@ function stateAtRevision(revision: number) {
     riskPolicyVersions: [policy(revision)],
     monthlyRiskLimits: [monthlyLimit(revision)],
     riskOverrideEvents: [overrideEvent(revision)],
+    liveStatsStartTradingDayKey: null,
     display: { tradingDayStartHour: 0 },
   }
 }
@@ -228,4 +230,31 @@ export function testLossAfterReviewCompletionRemainsUnknown(): void {
     completed.riskSnapshot?.dailyOutcomes[0]?.unknownReasons.includes('future-loss-close-date') ?? false,
     '非法 future loss 必须保留具体原因',
   )
+}
+
+export function testWeeklyReviewSnapshotUsesCurrentLiveCycle(): void {
+  const state = stateAtRevision(7)
+  state.liveStatsStartTradingDayKey = '2026-07-21'
+  state.trades = [
+    { ...trade(7), id: 'old', openedAt: '2026-07-20T08:00:00.000Z' },
+    { ...trade(7), id: 'new', openedAt: '2026-07-21T08:00:00.000Z' },
+  ]
+
+  const completed = completeWeeklyReviewCandidate(state, 'review-1').review
+
+  assert(completed.metricsSnapshot?.tradeCount === 1, '周复盘冻结不得纳入规则前实盘')
+  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照必须与周事实使用同一当前周期')
+}
+
+export function testCompletedWeeklyReviewCannotBeRewritten(): void {
+  const state = stateAtRevision(7)
+  const completed = completeWeeklyReviewCandidate(state, 'review-1').review
+  const rewritten = completeWeeklyReviewCandidate({
+    ...state,
+    trades: [{ ...trade(7), pnl: -9_000 }],
+    weeklyReviews: [completed],
+  }, 'review-1').review
+
+  assert(rewritten.metricsSnapshot?.totalPnl === -1_000, '已冻结周复盘不得被后续交易数据改写')
+  assert(rewritten.completedAt === completed.completedAt, '已冻结周复盘必须保留原冻结时间')
 }

@@ -1130,6 +1130,41 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
   }
 }
 
+export function testLiveWorkbenchAndSidebarCountsUseCurrentCycle(): void {
+  const trades: Trade[] = [
+    { ...trade, id: 'old-live', status: 'open', openedAt: '2026-07-20' },
+    { ...trade, id: 'new-live', status: 'open', openedAt: '2026-07-27' },
+    { ...trade, id: 'paper', tradeKind: 'paper', status: 'open', openedAt: '2026-07-20' },
+    { ...trade, id: 'case', tradeKind: 'case', openedAt: '2026-07-20' },
+  ]
+  const context = {
+    trades,
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    liveStatsStartTradingDayKey: '2026-07-27',
+  }
+  const live = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'all', tradeKind: 'live' },
+    search: '',
+  })
+  const paper = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'all', tradeKind: 'paper' },
+    search: '',
+  })
+  const cases = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' },
+    search: '',
+  })
+
+  assert(live.map((item) => item.id).join() === 'new-live', '交易日志实盘范围必须只显示当前周期')
+  assert(countSidebarRoute('/list', '', context) === 1, '侧栏交易日志计数必须只显示当前周期实盘')
+  assert(paper.map((item) => item.id).join() === 'paper', '模拟盘计数不得受实盘周期影响')
+  assert(cases.map((item) => item.id).join() === 'case', '案例计数不得受实盘周期影响')
+}
+
 export function testTradeFiltersReexportTheWorkbenchRuleSourceWithoutBehaviorDrift(): void {
   assert(filterTrades === filterWorkbenchTrades, '路由筛选必须从 workbenchTrades 共享唯一实现')
   assert(

@@ -42,6 +42,7 @@ import {
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason } from '@/data/trades'
 import { parseLocalDate } from '@/lib/periods'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
@@ -74,28 +75,42 @@ export function Dashboard() {
   const strategyDefs = useStore((s) => s.strategies)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
+  const liveStatsStartTradingDayKey = useStore((s) => s.liveStatsStartTradingDayKey)
   const openComposer = useStore((s) => s.openComposer)
   const [curveDataOpen, setCurveDataOpen] = useState(false)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
   const trades = useMemo(
-    () => filterTradesByAnalysisScope(allTrades, scope, businessDateAnchor),
+    () => filterTradesByAnalysisScope(
+      allTrades,
+      scope,
+      businessDateAnchor,
+      tradingDayStartHour,
+      liveStatsStartTradingDayKey,
+    ),
     [
       allTrades,
       scope.kind,
       scope.range,
       localDateKey,
+      tradingDayStartHour,
+      liveStatsStartTradingDayKey,
     ],
   )
   const activeTrades = useMemo(
-    () => allTrades.filter((trade) =>
+    () => filterTradesForLiveCycle(
+      allTrades,
+      'current',
+      liveStatsStartTradingDayKey,
+      tradingDayStartHour,
+    ).filter((trade) =>
       !trade.deletedAt &&
       isAccountTrade(trade) &&
       isActive(trade.status) &&
       (scope.kind === 'all' || trade.tradeKind === scope.kind),
     ),
-    [allTrades, scope.kind],
+    [allTrades, scope.kind, liveStatsStartTradingDayKey, tradingDayStartHour],
   )
   const tradeById = useMemo(
     () => new Map(allTrades.filter((trade) => !trade.deletedAt).map((trade) => [trade.id, trade])),
@@ -110,10 +125,19 @@ export function Dashboard() {
       allTrades,
       { kind: scope.kind, range: 'this-week' },
       businessDateAnchor,
+      tradingDayStartHour,
+      liveStatsStartTradingDayKey,
     )
-    const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(allTrades, weekStart, tradingDayStartHour)
+    const missed = scope.kind === 'paper'
+      ? []
+      : missedTradesInWeek(
+        allTrades,
+        weekStart,
+        tradingDayStartHour,
+        liveStatsStartTradingDayKey,
+      )
     return buildWeeklyReviewMetrics(weekTrades, missed)
-  }, [allTrades, businessDateAnchor, localDateKey, scope.kind, tradingDayStartHour, weekStart])
+  }, [allTrades, businessDateAnchor, localDateKey, scope.kind, tradingDayStartHour, liveStatsStartTradingDayKey, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
   const hasClosedTrades = stats.closedCount > 0

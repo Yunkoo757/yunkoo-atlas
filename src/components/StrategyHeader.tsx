@@ -9,6 +9,7 @@ import {
 } from '@/lib/analysisScope'
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
 
@@ -26,6 +27,7 @@ export function StrategyHeader({
   const trades = useStore((s) => s.trades)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
+  const liveStatsStartTradingDayKey = useStore((s) => s.liveStatsStartTradingDayKey)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const facets = useMemo(() => {
@@ -36,9 +38,21 @@ export function StrategyHeader({
   }, [analysisScope?.kind, search])
 
   const stats = useMemo(() => {
+    const currentCycleTrades = filterTradesForLiveCycle(
+      trades,
+      'current',
+      liveStatsStartTradingDayKey,
+      tradingDayStartHour,
+    )
     const scoped = analysisScope
-      ? filterTradesByAnalysisScope(trades, analysisScope, businessDateAnchor)
-      : trades
+      ? filterTradesByAnalysisScope(
+        currentCycleTrades,
+        analysisScope,
+        businessDateAnchor,
+        tradingDayStartHour,
+        liveStatsStartTradingDayKey,
+      )
+      : currentCycleTrades
     return computeStrategyStats(
       filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor),
       strategyId,
@@ -53,6 +67,7 @@ export function StrategyHeader({
       localDateKey,
       businessDateAnchor,
       tradingDayStartHour,
+      liveStatsStartTradingDayKey,
     ])
 
   const scopeLabel = analysisScope

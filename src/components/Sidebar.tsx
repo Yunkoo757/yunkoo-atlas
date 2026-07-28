@@ -47,6 +47,7 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
@@ -144,6 +145,7 @@ export function useSidebarNavigationModel() {
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const sidebarPrimaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
@@ -152,8 +154,8 @@ export function useSidebarNavigationModel() {
   const setDisplay = useStore((state) => state.setDisplay)
   const businessDateAnchor = useBusinessDateAnchor()
   const countContext = useMemo(
-    () => ({ trades, starredIds, display, businessDateAnchor }),
-    [trades, starredIds, display, businessDateAnchor],
+    () => ({ trades, starredIds, display, businessDateAnchor, liveStatsStartTradingDayKey }),
+    [trades, starredIds, display, businessDateAnchor, liveStatsStartTradingDayKey],
   )
 
   const workspaceItems = useMemo(
@@ -191,7 +193,12 @@ export function useSidebarNavigationModel() {
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
   const counts = {
     today: getTodayWorkflowBuckets(
-      trades,
+      filterTradesForLiveCycle(
+        trades,
+        'current',
+        liveStatsStartTradingDayKey,
+        display.tradingDayStartHour,
+      ),
       businessDateAnchor.currentTradingDayKey,
     ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),

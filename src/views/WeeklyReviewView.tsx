@@ -191,6 +191,7 @@ export function WeeklyReviewView() {
   const trades = useStore((state) => state.trades)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const reviews = useStore((state) => state.weeklyReviews)
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
@@ -214,12 +215,22 @@ export function WeeklyReviewView() {
   const storedReview = reviews.find((item) => item.weekStart === selectedWeek)
   const review = storedReview ?? createWeeklyReview(selectedWeek)
   const weekTrades = useMemo(
-    () => tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour),
-    [trades, selectedWeek, tradingDayStartHour],
+    () => tradesClosedInWeek(
+      trades,
+      selectedWeek,
+      tradingDayStartHour,
+      liveStatsStartTradingDayKey,
+    ),
+    [trades, selectedWeek, tradingDayStartHour, liveStatsStartTradingDayKey],
   )
   const weekMissedTrades = useMemo(
-    () => missedTradesInWeek(trades, selectedWeek, tradingDayStartHour),
-    [trades, selectedWeek, tradingDayStartHour],
+    () => missedTradesInWeek(
+      trades,
+      selectedWeek,
+      tradingDayStartHour,
+      liveStatsStartTradingDayKey,
+    ),
+    [trades, selectedWeek, tradingDayStartHour, liveStatsStartTradingDayKey],
   )
   const liveMetrics = useMemo(
     () => buildWeeklyReviewMetrics(weekTrades, weekMissedTrades),
@@ -348,7 +359,12 @@ export function WeeklyReviewView() {
               <div>
                 <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
                 <h1>{formatWeekRange(selectedWeek)}</h1>
-                <p>{selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列</p>
+                <p>
+                  {selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列
+                  {liveStatsStartTradingDayKey && selectedWeek < liveStatsStartTradingDayKey && weekEndFor(selectedWeek) >= liveStatsStartTradingDayKey
+                    ? ` · 当前周期自 ${liveStatsStartTradingDayKey} 开始`
+                    : null}
+                </p>
               </div>
               <div className="wr-head-actions">
                 <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">

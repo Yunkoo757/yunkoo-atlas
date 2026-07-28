@@ -11,6 +11,7 @@ import { TradeRow } from '@/components/trades/TradeRow'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import './TradeList.css'
 
 export type TradeListGroup = {
@@ -166,6 +167,8 @@ export function TradeList({
   const [selectionMode, setSelectionMode] = useState(false)
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
   const allTrades = useStore((state) => state.trades)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   /** 分组展开进度 0..1；缺省视为 1 */
   const [openProgressByGroup, setOpenProgressByGroup] = useState<Map<string, number>>(
     () => new Map(),
@@ -260,11 +263,16 @@ export function TradeList({
   const strategyStatsById = useMemo(
     () => new Map(
       buildDashboardStats(
-        allTrades.filter((trade) => !trade.deletedAt && trade.tradeKind === 'live'),
+        filterTradesForLiveCycle(
+          allTrades,
+          'current',
+          liveStatsStartTradingDayKey,
+          tradingDayStartHour,
+        ).filter((trade) => !trade.deletedAt && trade.tradeKind === 'live'),
         strategies,
       ).strategies.map((stats) => [stats.id, stats]),
     ),
-    [allTrades, strategies],
+    [allTrades, strategies, liveStatsStartTradingDayKey, tradingDayStartHour],
   )
   const stickyIndexes = useMemo(
     () =>

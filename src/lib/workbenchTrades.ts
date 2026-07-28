@@ -8,6 +8,7 @@ import type {
 } from '@/data/trades'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
@@ -204,6 +205,7 @@ type WorkbenchTradeDerivationOptions = {
   display: DisplayPrefs
   search: string | URLSearchParams
   businessDateAnchor?: BusinessDateAnchor
+  liveStatsStartTradingDayKey?: string | null
 }
 
 export function deriveWorkbenchVisibleTrades(
@@ -215,9 +217,14 @@ export function deriveWorkbenchVisibleTrades(
   )
     ? { ...parsedFacets, tradeKind: undefined }
     : parsedFacets
-  const trades = options.trades.filter((trade) => !trade.deletedAt)
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
+  const trades = filterTradesForLiveCycle(
+    options.trades,
+    'current',
+    options.liveStatsStartTradingDayKey ?? null,
+    tradingDayStartHour,
+  ).filter((trade) => !trade.deletedAt)
   const routeFiltered = filterTrades(
     trades,
     options.filter,
@@ -231,6 +238,7 @@ export function deriveWorkbenchVisibleTrades(
         options.filter.analysisScope,
         options.businessDateAnchor ?? new Date(),
         tradingDayStartHour,
+        options.liveStatsStartTradingDayKey ?? null,
       )
     : routeFiltered
   // 用户显式筛选已平仓状态时，不能再被「隐藏已平仓」吃掉。
@@ -260,6 +268,7 @@ export function countWorkbenchVisibleTrades(options: {
   display: DisplayPrefs
   search: string | URLSearchParams
   businessDateAnchor?: BusinessDateAnchor
+  liveStatsStartTradingDayKey?: string | null
 }): number {
   const parsedFacets = parseTradeFacets(options.search)
   const facets = options.filter.tradeKind || (
@@ -269,6 +278,12 @@ export function countWorkbenchVisibleTrades(options: {
     : parsedFacets
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
+  const cycleScopedTrades = filterTradesForLiveCycle(
+    options.trades,
+    'current',
+    options.liveStatsStartTradingDayKey ?? null,
+    tradingDayStartHour,
+  )
   const starred = new Set(options.starredIds)
   const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'
   const hideClosed = options.display.hideClosed && !skipHideClosed && !options.filter.analysisScope && !(
@@ -276,12 +291,13 @@ export function countWorkbenchVisibleTrades(options: {
   )
   const sourceTrades = options.filter.analysisScope
     ? filterTradesByAnalysisScope(
-        options.trades,
+      cycleScopedTrades,
         options.filter.analysisScope,
         options.businessDateAnchor ?? new Date(),
         tradingDayStartHour,
+        options.liveStatsStartTradingDayKey ?? null,
       )
-    : options.trades
+    : cycleScopedTrades
   let count = 0
   for (const trade of sourceTrades) {
     if (trade.deletedAt) continue

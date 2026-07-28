@@ -15,11 +15,14 @@ import type { Strategy } from '@/data/strategies'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Select } from '@/components/ui/Select'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import '@/views/StrategiesView.css'
 
 export function StrategiesPanel() {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
+  const liveStatsStartTradingDayKey = useStore((s) => s.liveStatsStartTradingDayKey)
+  const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const addStrategy = useStore((s) => s.addStrategy)
   const updateStrategy = useStore((s) => s.updateStrategy)
   const removeStrategy = useStore((s) => s.removeStrategy)
@@ -30,12 +33,21 @@ export function StrategiesPanel() {
   const [deleteCount, setDeleteCount] = useState(0)
   const [reassignId, setReassignId] = useState('')
 
+  const currentCycleTrades = useMemo(
+    () => filterTradesForLiveCycle(
+      trades,
+      'current',
+      liveStatsStartTradingDayKey,
+      tradingDayStartHour,
+    ),
+    [trades, liveStatsStartTradingDayKey, tradingDayStartHour],
+  )
   const rows = useMemo(
     () =>
       [...strategies]
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
         .map((s) => {
-          const stats = computeStrategyStats(trades, s.id, { tradeKind: 'live' })
+          const stats = computeStrategyStats(currentCycleTrades, s.id, { tradeKind: 'live' })
           return {
             ...s,
             count: stats.tradeCount,
@@ -49,7 +61,7 @@ export function StrategiesPanel() {
             stats,
           }
         }),
-    [strategies, trades],
+    [strategies, trades, currentCycleTrades],
   )
 
   const existingNames = strategies.map((s) => s.name)
