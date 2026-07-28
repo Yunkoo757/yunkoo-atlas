@@ -302,6 +302,26 @@ async function run(): Promise<void> {
     const queueTabs = reviewedActionQueue.querySelectorAll<HTMLButtonElement>('[role="tab"]')
     assert(queueTabs.length === 4, '行动队列必须有全部、进行中、待结果、待复盘四个 tab')
     assert([...queueTabs].filter((tab) => tab.getAttribute('aria-selected') === 'true').length === 1, '行动队列必须只有一个已选 tab')
+    const reviewPendingTab = [...queueTabs].find((tab) => tab.textContent?.includes('待复盘'))
+    assert(reviewPendingTab, '行动队列缺少待复盘 tab')
+    reviewPendingTab.click()
+    await frame()
+    const queuePanel = reviewedActionQueue.querySelector<HTMLElement>('[role="tabpanel"]')
+    assert(queuePanel?.textContent?.includes('当前筛选下没有待处理事项'), '零计数筛选必须在 tabpanel 内显示紧凑空态')
+
+    const allTab = queueTabs[0]!
+    const activeTab = queueTabs[1]!
+    allTab.focus()
+    allTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    await frame()
+    assert(document.activeElement === activeTab, 'ArrowRight 必须将焦点移动到下一个 tab')
+    assert(activeTab.getAttribute('aria-selected') === 'true', 'ArrowRight 必须选中下一个 tab')
+    assert(
+      Boolean(activeTab.id)
+        && activeTab.getAttribute('aria-controls') === queuePanel?.id
+        && queuePanel?.getAttribute('aria-labelledby') === activeTab.id,
+      'tab 与 tabpanel 必须通过 aria-controls 和 aria-labelledby 关联',
+    )
 
     const reviewedPreparation = useStore.getState().weeklyRiskPreparations[0]!
     const reviewedPolicyCount = useStore.getState().riskPolicyVersions.length

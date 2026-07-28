@@ -91,6 +91,7 @@ export function TodayWorkspace() {
       : WORKFLOW_GROUPS.filter((group) => group.key === queueFilter),
     [queueFilter],
   )
+  const visibleActionCount = queueFilter === 'all' ? buckets.actionCount : buckets[queueFilter].length
   const starredIdSet = useMemo(() => new Set(starredIds), [starredIds])
   // 队列 tab 只更新筛选状态，不再用 scrollIntoView 跳转到模糊的分组目标。
   useTradeReturnAnchor()
@@ -136,6 +137,24 @@ export function TodayWorkspace() {
     })
   }
 
+  const selectQueueFilter = (filter: QueueFilter) => {
+    setQueueFilter(filter)
+  }
+
+  const handleQueueTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex + QUEUE_TABS.length - 1) % QUEUE_TABS.length
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % QUEUE_TABS.length
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = QUEUE_TABS.length - 1
+    if (nextIndex == null) return
+
+    event.preventDefault()
+    const nextFilter = QUEUE_TABS[nextIndex]!.key
+    selectQueueFilter(nextFilter)
+    document.getElementById(`today-queue-tab-${nextFilter}`)?.focus()
+  }
+
   return (
     <>
       <Topbar title="今日工作台" subtitle={`${dateLabel(today)} · 交易日`} showDisplay={false} />
@@ -173,16 +192,20 @@ export function TodayWorkspace() {
 
           <section className="today-action-queue" data-today-action-queue aria-label="行动队列">
             <div className="today-queue-tabs" role="tablist" aria-label="行动队列筛选">
-              {QUEUE_TABS.map(({ key, label }) => {
+              {QUEUE_TABS.map(({ key, label }, index) => {
                 const count = key === 'all' ? buckets.actionCount : buckets[key].length
                 return (
                   <button
                     key={key}
+                    id={`today-queue-tab-${key}`}
                     type="button"
                     role="tab"
                     aria-selected={queueFilter === key}
+                    aria-controls="today-queue-panel"
+                    tabIndex={queueFilter === key ? 0 : -1}
                     className={queueFilter === key ? 'is-selected' : undefined}
-                    onClick={() => setQueueFilter(key)}
+                    onClick={() => selectQueueFilter(key)}
+                    onKeyDown={(event) => handleQueueTabKeyDown(event, index)}
                   >
                     {label}<strong>{count}</strong>
                   </button>
@@ -190,45 +213,47 @@ export function TodayWorkspace() {
               })}
             </div>
 
-            {buckets.actionCount === 0 ? (
-              <div className="today-queue-empty">今天没有待处理事项</div>
-            ) : (
-            <div className="today-workflow-groups">
-              {visibleWorkflowGroups.map(({ key, title, description, icon: Icon }) => {
-                const items = buckets[key]
-                if (items.length === 0) return null
-                return (
-                  <section className="today-workflow-group" key={key}>
-                    <header>
-                      <span className="today-group-icon"><Icon size={15} /></span>
-                      <div>
-                        <h2>{title}</h2>
-                        <p>{description}</p>
-                      </div>
-                    </header>
-                    <div className="today-workflow-list">
-                      {items.map((trade) => (
-                        <TradeRow
-                          key={trade.id}
-                          trade={trade}
-                          strategies={strategies}
-                          symbolIcons={symbolIcons}
-                          focused={false}
-                          selected={false}
-                          selectable={false}
-                          starred={starredIdSet.has(trade.id)}
-                          onOpen={openTrade}
-                          onSelect={() => {}}
-                          onToggleStar={(item) => toggleStar(item.id)}
-                          onContextMenu={openContextMenu}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )
-              })}
+            <div id="today-queue-panel" role="tabpanel" aria-labelledby={`today-queue-tab-${queueFilter}`}>
+              {visibleActionCount === 0 ? (
+                <div className="today-queue-empty">当前筛选下没有待处理事项</div>
+              ) : (
+                <div className="today-workflow-groups">
+                  {visibleWorkflowGroups.map(({ key, title, description, icon: Icon }) => {
+                    const items = buckets[key]
+                    if (items.length === 0) return null
+                    return (
+                      <section className="today-workflow-group" key={key}>
+                        <header>
+                          <span className="today-group-icon"><Icon size={15} /></span>
+                          <div>
+                            <h2>{title}</h2>
+                            <p>{description}</p>
+                          </div>
+                        </header>
+                        <div className="today-workflow-list">
+                          {items.map((trade) => (
+                            <TradeRow
+                              key={trade.id}
+                              trade={trade}
+                              strategies={strategies}
+                              symbolIcons={symbolIcons}
+                              focused={false}
+                              selected={false}
+                              selectable={false}
+                              starred={starredIdSet.has(trade.id)}
+                              onOpen={openTrade}
+                              onSelect={() => {}}
+                              onToggleStar={(item) => toggleStar(item.id)}
+                              onContextMenu={openContextMenu}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-            )}
           </section>
 
           {riskReviewed ? <WeeklyRiskPreparationCard currentTradingDayKey={today} /> : null}
