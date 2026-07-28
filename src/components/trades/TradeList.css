@@ -641,6 +641,12 @@
   border-color: color-mix(in srgb, var(--warn) 15%, var(--border-subtle));
 }
 
+.trade-row-tag.is-pre-cycle {
+  color: var(--text-tertiary);
+  background: var(--bg-inset);
+  border-color: var(--border-subtle);
+}
+
 .trade-row-more {
   color: var(--text-quaternary);
   background: transparent;

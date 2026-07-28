@@ -9,7 +9,7 @@ import {
 } from '@/lib/analysisScope'
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
-import { filterTradesForLiveCycle } from '@/lib/liveCycle'
+import { filterTradesForLiveCycle, parseLiveCycleScope } from '@/lib/liveCycle'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
 
@@ -40,7 +40,7 @@ export function StrategyHeader({
   const stats = useMemo(() => {
     const currentCycleTrades = filterTradesForLiveCycle(
       trades,
-      'current',
+      analysisScope?.kind === 'paper' ? 'all' : parseLiveCycleScope(search),
       liveStatsStartTradingDayKey,
       tradingDayStartHour,
     )
@@ -50,7 +50,7 @@ export function StrategyHeader({
         analysisScope,
         businessDateAnchor,
         tradingDayStartHour,
-        liveStatsStartTradingDayKey,
+        null,
       )
       : currentCycleTrades
     return computeStrategyStats(
@@ -63,6 +63,7 @@ export function StrategyHeader({
       strategyId,
       analysisScope?.kind,
       analysisScope?.range,
+      search,
       facets,
       localDateKey,
       businessDateAnchor,

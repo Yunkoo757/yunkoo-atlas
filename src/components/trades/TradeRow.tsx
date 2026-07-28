@@ -13,6 +13,7 @@ import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
+import { classifyLiveCycleTrade } from '@/lib/liveCycle'
 
 export type TradeRowProps = {
   trade: Trade
@@ -47,6 +48,13 @@ export const TradeRow = memo(function TradeRow({
   const showResult = trade.status !== 'planned' && trade.status !== 'open'
   const isMissed = trade.status === 'missed'
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const isPreCycle = classifyLiveCycleTrade(
+    trade,
+    liveStatsStartTradingDayKey,
+    tradingDayStartHour,
+  ) === 'pre-cycle'
   const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
   const symbolIconsFromStore = useStore((state) =>
@@ -158,6 +166,7 @@ export const TradeRow = memo(function TradeRow({
             {reviewLabel}
           </span>
         )}
+        {isPreCycle ? <span className="trade-row-tag is-pre-cycle">规则前</span> : null}
         {regularTags.hiddenCount > 0 && (
           <Tooltip
             content={regularTags.hidden.join(' · ')}

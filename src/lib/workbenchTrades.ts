@@ -8,7 +8,7 @@ import type {
 } from '@/data/trades'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
-import { filterTradesForLiveCycle } from '@/lib/liveCycle'
+import { filterTradesForLiveCycle, parseLiveCycleScope } from '@/lib/liveCycle'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
@@ -219,35 +219,38 @@ export function deriveWorkbenchVisibleTrades(
     : parsedFacets
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
-  const trades = filterTradesForLiveCycle(
-    options.trades,
-    'current',
-    options.liveStatsStartTradingDayKey ?? null,
-    tradingDayStartHour,
-  ).filter((trade) => !trade.deletedAt)
   const routeFiltered = filterTrades(
-    trades,
+    options.trades.filter((trade) => !trade.deletedAt),
     options.filter,
     options.starredIds,
     tradingDayStartHour,
     options.businessDateAnchor,
   )
+  const liveCycleScope = options.filter.tradeKind === 'paper' || options.filter.tradeKind === 'case'
+    ? 'all'
+    : parseLiveCycleScope(options.search)
+  const cycleFiltered = filterTradesForLiveCycle(
+    routeFiltered,
+    liveCycleScope,
+    options.liveStatsStartTradingDayKey ?? null,
+    tradingDayStartHour,
+  )
   const analysisFiltered = options.filter.analysisScope
     ? filterTradesByAnalysisScope(
-        routeFiltered,
+        cycleFiltered,
         options.filter.analysisScope,
         options.businessDateAnchor ?? new Date(),
         tradingDayStartHour,
-        options.liveStatsStartTradingDayKey ?? null,
+        null,
       )
-    : routeFiltered
+    : cycleFiltered
   // 用户显式筛选已平仓状态时，不能再被「隐藏已平仓」吃掉。
   const prefs = options.filter.analysisScope || (facets.status && isHiddenWhenClosedFilter(facets.status))
     ? { ...options.display, hideClosed: false }
     : options.display
   const preferred = applyDisplayPrefs(analysisFiltered, prefs, options.filter)
   return {
-    trades,
+    trades: cycleFiltered,
     visible: filterTradesByFacets(
       preferred,
       facets,
@@ -278,13 +281,24 @@ export function countWorkbenchVisibleTrades(options: {
     : parsedFacets
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
+  const liveCycleScope = options.filter.tradeKind === 'paper' || options.filter.tradeKind === 'case'
+    ? 'all'
+    : parseLiveCycleScope(options.search)
+  const routeFiltered = options.trades.filter((trade) =>
+    !trade.deletedAt && matchesListFilter(
+      trade,
+      options.filter,
+      new Set(options.starredIds),
+      tradingDayStartHour,
+      options.businessDateAnchor,
+    ),
+  )
   const cycleScopedTrades = filterTradesForLiveCycle(
-    options.trades,
-    'current',
+    routeFiltered,
+    liveCycleScope,
     options.liveStatsStartTradingDayKey ?? null,
     tradingDayStartHour,
   )
-  const starred = new Set(options.starredIds)
   const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'
   const hideClosed = options.display.hideClosed && !skipHideClosed && !options.filter.analysisScope && !(
     facets.status && isHiddenWhenClosedFilter(facets.status)
@@ -295,19 +309,11 @@ export function countWorkbenchVisibleTrades(options: {
         options.filter.analysisScope,
         options.businessDateAnchor ?? new Date(),
         tradingDayStartHour,
-        options.liveStatsStartTradingDayKey ?? null,
+      null,
       )
     : cycleScopedTrades
   let count = 0
   for (const trade of sourceTrades) {
-    if (trade.deletedAt) continue
-    if (!matchesListFilter(
-      trade,
-      options.filter,
-      starred,
-      tradingDayStartHour,
-      options.businessDateAnchor,
-    )) continue
     if (hideClosed && isHiddenWhenClosedFilter(trade.status)) continue
     if (!matchesTradeFacets(
       trade,

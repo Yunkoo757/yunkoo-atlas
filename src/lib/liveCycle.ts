@@ -11,6 +11,12 @@ export interface LiveCyclePreview {
   unresolved: Trade[]
 }
 
+export function parseLiveCycleScope(input: string | URLSearchParams): LiveCycleScope {
+  const params = typeof input === 'string' ? new URLSearchParams(input) : input
+  const value = params.get('liveCycle')
+  return value === 'pre-cycle' || value === 'all' ? value : 'current'
+}
+
 export function isValidLiveCycleDayKey(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
     formatYmd(parseLocalDate(value)) === value

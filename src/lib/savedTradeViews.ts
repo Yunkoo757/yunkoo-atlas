@@ -56,6 +56,11 @@ const TRADE_KIND_LABELS: Record<string, string> = {
   paper: '模拟',
 }
 
+const LIVE_CYCLE_LABELS: Record<string, string> = {
+  'pre-cycle': '规则前',
+  all: '全部实盘',
+}
+
 const ENUM_FACET_VALUES: Record<string, readonly string[]> = {
   tradeKind: Object.keys(TRADE_KIND_LABELS),
   side: ['long', 'short'],
@@ -65,6 +70,7 @@ const ENUM_FACET_VALUES: Record<string, readonly string[]> = {
   masteryState: Object.keys(MASTERY_LABELS),
   session: Object.keys(SESSION_LABELS),
   period: CALENDAR_PERIODS,
+  liveCycle: Object.keys(LIVE_CYCLE_LABELS),
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -216,6 +222,7 @@ export function suggestSavedViewName(
   const caseType = canonical.get('caseType')
   const masteryState = canonical.get('masteryState')
   const tradeKind = canonical.get('tradeKind')
+  const liveCycle = canonical.get('liveCycle')
   if (period) {
     labels.push(PERIOD_LABELS[period as keyof typeof PERIOD_LABELS] ?? period)
   }
@@ -225,6 +232,7 @@ export function suggestSavedViewName(
   if (caseType) labels.push(CASE_TYPE_LABELS[caseType] ?? caseType)
   if (masteryState) labels.push(MASTERY_LABELS[masteryState] ?? masteryState)
   if (tradeKind) labels.push(TRADE_KIND_LABELS[tradeKind] ?? tradeKind)
+  if (liveCycle) labels.push(LIVE_CYCLE_LABELS[liveCycle] ?? liveCycle)
   if (session) labels.push(SESSION_LABELS[session] ?? session)
   for (const key of ['symbol', 'side', 'tag', 'mistakeTag']) {
     const value = canonical.get(key)

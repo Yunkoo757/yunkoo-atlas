@@ -4,6 +4,7 @@ import {
   buildLiveCyclePreview,
   classifyLiveCycleTrade,
   filterTradesForLiveCycle,
+  parseLiveCycleScope,
   suggestLiveCycleStartTradingDayKey,
 } from '@/lib/liveCycle'
 
@@ -48,4 +49,11 @@ export function testLiveCycleSuggestsEarliestEffectivePolicy(): void {
     { id: 'first', effectiveTradingDay: '2026-07-27' },
   ] as RiskPolicyVersion[]
   assert(suggestLiveCycleStartTradingDayKey(policies) === '2026-07-27', '必须建议最早有效规则日')
+}
+
+export function testLiveCycleScopeParsingIsStable(): void {
+  assert(parseLiveCycleScope('') === 'current', '缺省必须是当前周期')
+  assert(parseLiveCycleScope('?liveCycle=pre-cycle') === 'pre-cycle', '必须识别规则前范围')
+  assert(parseLiveCycleScope('?liveCycle=all') === 'all', '必须识别全部实盘范围')
+  assert(parseLiveCycleScope('?liveCycle=broken') === 'current', '非法值必须回退当前周期')
 }
