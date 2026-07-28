@@ -89,7 +89,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-6);
   color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
+  font-size: var(--type-row-size);
   text-decoration: none;
 }
 

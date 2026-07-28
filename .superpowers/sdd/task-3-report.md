@@ -20,7 +20,14 @@
 
 ## 提交 SHA
 
-`HEAD`（本提交；实际 SHA 见任务交付）。
+- 首次提交：`aacc9b6143bbdc4e341a3d521c57a9f14704e9ca`。
+- 复核修复：`HEAD`（`fix: complete today visual contracts`；实际 SHA 见任务交付）。
+
+## Review fixes
+
+- 统计链接作为可点击操作，字号从 12px 提升为 13px（`var(--type-row-size)`），并添加 selector 级静态契约。
+- 移动主操作契约改为仅检查 `@media (max-width: 768px)` 内 `.today-focus .empty-btn` 的显式 44px 最小高度。
+- 红阶段：新增统计链接字号契约失败，确认修复目标正确；绿阶段：4 条 TodayWorkspace 设计契约全部通过。
 
 ## 自检
 

@@ -21,6 +21,9 @@ export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
   if (!rule(today, '\\.today-queue-tabs button').includes('font-size: 13px')) {
     throw new Error('today queue controls must keep 13px core text')
   }
+  if (!rule(today, '\\.today-stats-link').includes('font-size: var(--type-row-size)')) {
+    throw new Error('today stats link must keep 13px actionable text')
+  }
   if (today.includes('var(--type-caption-size)')) {
     throw new Error('today workspace core styles must not consume the 11px caption token')
   }
@@ -32,11 +35,12 @@ export function testTodayWorkspaceKeepsMobileQueueAndPrimaryActionSafe(): void {
   const mobileStart = today.indexOf('@media (max-width: 768px)')
   const tablet = tabletStart === -1 || mobileStart === -1 ? '' : today.slice(tabletStart, mobileStart)
   const mobile = mobileStart === -1 ? '' : today.slice(mobileStart)
+  const mobilePrimaryAction = rule(mobile, '\\.today-focus \\.empty-btn')
 
   if (!tablet.includes('.today-queue-tabs') || !tablet.includes('overflow-x: auto')) {
     throw new Error('today queue tabs must scroll horizontally below 899px instead of compressing into three columns')
   }
-  if (!mobile.includes('min-height: 44px')) {
+  if (!mobilePrimaryAction.includes('min-height: 44px')) {
     throw new Error('today primary action must reach 44px on mobile')
   }
   if (!mobile.includes('overflow-x: hidden')) {
