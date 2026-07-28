@@ -131,6 +131,7 @@ try {
         periodColumns: getComputedStyle(periods).gridTemplateColumns.split(' ').length,
         statusOverflow: status.scrollWidth > status.clientWidth,
         statusWithinViewport: statusRect.left >= 0 && statusRect.right <= window.innerWidth,
+        recoveryExists: Boolean(recovery),
         recoveryHeight: recoveryRect?.height ?? null,
       }
     })
@@ -138,7 +139,8 @@ try {
     assert.equal(statusLayout.periodColumns, 1, '风险状态在 420px 必须为单列')
     assert.equal(statusLayout.statusOverflow, false, '风险状态不得横向溢出')
     assert.equal(statusLayout.statusWithinViewport, true, '风险状态必须完整位于 viewport 内')
-    if (statusLayout.recoveryHeight != null) assert.ok(statusLayout.recoveryHeight >= 44, '风险恢复动作不得小于 44px')
+    assert.equal(statusLayout.recoveryExists, true, '未知风险状态必须提供恢复链接')
+    assert.ok(statusLayout.recoveryHeight >= 44, '风险恢复动作不得小于 44px')
     const layout = await dialogFixture.page.evaluate(() => {
       const form = document.querySelector('[data-trade-open-risk-dialog]')
       const periods = document.querySelector('.trade-open-risk-periods')

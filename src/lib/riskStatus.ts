@@ -10,7 +10,7 @@ export type RiskStatusKind =
 
 export interface RiskStatusPresentation {
   kind: RiskStatusKind
-  label: '正常' | '接近限额' | '已超限' | '待确认' | '无法判断' | '未配置'
+  label: '正常' | '接近限额' | '已超限' | '待确认' | '待复核' | '无法判断' | '未配置'
 }
 
 export interface RiskStatusRow {

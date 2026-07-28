@@ -7,7 +7,7 @@ import { fmtR } from '@/lib/format'
 import { parseLocalDate } from '@/lib/periods'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
-import { presentRiskOutcome, summarizeRiskStatus } from '@/lib/riskStatus'
+import { presentRiskOutcome, summarizeRiskStatus, type RiskStatusPresentation } from '@/lib/riskStatus'
 import { useStore } from '@/store/useStore'
 import './RiskStatusStrip.css'
 
@@ -44,7 +44,8 @@ function detailCopy(outcome: RiskPeriodOutcomeSnapshot): string {
   if (status.kind === 'unknown') return '需要补齐风险数据'
   if (status.kind === 'partial') return '数据未完整覆盖'
   if (status.kind === 'triggered') {
-    return `超出 ${formatBudgetR(Math.max(0, outcome.consumedR - outcome.limitR))}`
+    const excessR = outcome.consumedR - outcome.limitR
+    return excessR > 0 ? `超出 ${formatBudgetR(excessR)}` : '已触及限额'
   }
   return `剩余 ${formatBudgetR(outcome.remainingR)}`
 }
@@ -53,16 +54,15 @@ function RiskPeriod({
   label,
   ariaLabel,
   outcome,
-  unreviewed,
+  presentation,
 }: {
   label: string
   ariaLabel: string
   outcome: RiskPeriodOutcomeSnapshot
-  unreviewed: boolean
+  presentation: RiskStatusPresentation
 }) {
-  const presentation = presentRiskOutcome(outcome)
-  const display = unreviewed
-    ? { kind: 'unreviewed', label: '待复核', detail: '本周规则未确认' }
+  const display = presentation.label === '待复核'
+    ? { ...presentation, detail: '本周规则未确认' }
     : { ...presentation, detail: detailCopy(outcome) }
   const percentage = Math.round(Math.min(1, Math.max(0, outcome.progress)) * 100)
   return (
@@ -114,22 +114,25 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
   const reviewed = preparations.some((item) =>
     item.weekStart === currentWeek && Boolean(item.reviewedAt && item.confirmedPolicyVersionId))
   const policy = activeRiskPolicy(policies, tradingDay)
-  const rows = PERIODS.map((period) => ({
-    ...period,
-    displayLabel: scopedPeriodLabel(period.scope, period.label, liveStatsStartTradingDayKey, tradingDay),
-    outcome: outcomes[period.scope],
-    presentation: presentRiskOutcome(outcomes[period.scope]),
-  }))
+  const rows = PERIODS.map((period) => {
+    const presentation: RiskStatusPresentation = period.scope === 'week' && !reviewed
+      ? { kind: 'partial', label: '待复核' }
+      : presentRiskOutcome(outcomes[period.scope])
+    return {
+      ...period,
+      displayLabel: scopedPeriodLabel(period.scope, period.label, liveStatsStartTradingDayKey, tradingDay),
+      outcome: outcomes[period.scope],
+      presentation,
+    }
+  })
   const needsRecovery = !policy || !reviewed || rows.some((row) =>
     row.presentation.kind === 'unknown' ||
     row.presentation.kind === 'partial' ||
     row.presentation.kind === 'unconfigured')
-  const summary = !reviewed
-    ? '本周风险规则尚未确认。'
-    : summarizeRiskStatus(rows.map((row) => ({
-        periodLabel: row.label,
-        presentation: row.presentation,
-      })))
+  const summary = summarizeRiskStatus(rows.map((row) => ({
+    periodLabel: row.label,
+    presentation: row.presentation,
+  })))
 
   return (
     <section className="risk-status-strip" data-risk-status aria-labelledby="risk-status-title">
@@ -141,7 +144,7 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
             label={row.displayLabel}
             ariaLabel={row.ariaLabel}
             outcome={row.outcome}
-            unreviewed={row.scope === 'week' && !reviewed}
+            presentation={row.presentation}
           />
         ))}
       </div>

@@ -185,7 +185,6 @@ async function run(): Promise<void> {
     assert(!document.body.textContent?.includes('修改规则'), '工作台不得提供规则编辑动作')
     assert(!document.body.textContent?.includes('确认本周规则'), '工作台不得提供每周确认动作')
     assert(document.querySelector('.today-focus .empty-btn'), '工作台主动作不得因未复核而消失')
-    assert(status.textContent?.includes('本周风险规则尚未确认'), '风险轨道必须说明未复核状态')
     assert(
       status.querySelector<HTMLAnchorElement>('a[href="/settings/risk"]')?.textContent?.trim() === '前往风险管理',
       '未复核状态必须提供唯一设置恢复动作',
@@ -199,7 +198,7 @@ async function run(): Promise<void> {
     const initialMonth = initialPeriod('本月')
     assert(initialDay?.dataset.riskState === 'normal', '未复核不得伪造今日真实风险结果')
     assert(initialMonth?.dataset.riskState === 'normal', '未复核不得伪造本月真实风险结果')
-    assert(initialWeek?.dataset.riskState === 'unreviewed', '未复核时仅本周必须显示待复核状态')
+    assert(initialWeek?.dataset.riskState === 'partial', '未复核时本周必须使用 partial 警告语义')
     assert(initialWeek.textContent?.includes('待复核'), '未复核本周必须使用待复核标签')
     assert(initialWeek.textContent?.includes('本周规则未确认'), '未复核本周必须说明规则未确认')
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
@@ -208,6 +207,22 @@ async function run(): Promise<void> {
     assert(!status.textContent?.includes('1R ='), '工作台不得展示 1R 配置说明')
     assert(!status.textContent?.includes('计入'), '工作台不得展示风险统计审计明细')
 
+    useStore.setState({ trades: [trade('target', 'planned'), trade('unreviewed-triggered', 'loss')] })
+    await waitFor(
+      () => ['今日已超限', '本周数据待确认', '本月仍在限额内'].every((copy) => status.textContent?.includes(copy)),
+      '未复核周不得覆盖今日超限摘要',
+    )
+    assert(initialDay.textContent?.includes('已触及限额'), '刚好触及日限额必须显示已触及限额')
+    assert(!initialDay.textContent?.includes('超出 0'), '刚好触及日限额不得显示超出 0R')
+
+    useStore.setState({ trades: [trade('target', 'planned'), trade('unreviewed-unknown', 'loss', { unknown: true })] })
+    await waitFor(
+      () => ['今日无法判断', '本周数据待确认', '本月无法判断'].every((copy) => status.textContent?.includes(copy)),
+      '未复核周不得覆盖日/月未知摘要',
+    )
+
+    useStore.setState({ trades: [trade('target', 'planned')] })
+
     useStore.setState({
       weeklyRiskPreparations: [{
         ...useStore.getState().weeklyRiskPreparations[0]!,
@@ -215,7 +230,7 @@ async function run(): Promise<void> {
         confirmedPolicyVersionId: policy.id,
       }],
     })
-    await waitFor(() => !(status.textContent?.includes('本周风险规则尚未确认') ?? true), '已复核状态没有生效')
+    await waitFor(() => initialWeek.dataset.riskState === 'normal', '已复核状态没有生效')
 
     const cases = [
       {
@@ -275,7 +290,7 @@ async function run(): Promise<void> {
       }],
     })
     await waitFor(
-      () => status.textContent?.includes('本周风险规则尚未确认') ?? false,
+      () => initialWeek.dataset.riskState === 'partial' && (initialWeek.textContent?.includes('待复核') ?? false),
       '半完整持久化准备状态必须保持未复核',
     )
     useStore.setState({
@@ -289,7 +304,7 @@ async function run(): Promise<void> {
       }],
     })
     await waitFor(
-      () => !(status.textContent?.includes('本周风险规则尚未确认') ?? true),
+      () => initialWeek.dataset.riskState === 'normal',
       '恢复已复核准备状态失败',
     )
     const reviewedActionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
