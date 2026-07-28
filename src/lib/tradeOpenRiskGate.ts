@@ -265,7 +265,8 @@ function createPendingRequest(
     week: cloneRiskOutcome(resolved.week),
     month: cloneRiskOutcome(resolved.month),
   }
-  const historicalMonthlyPolicyGapOnly = policy !== null &&
+  const historicalMonthlyPolicyGapOnly = state.liveStatsStartTradingDayKey === null &&
+    policy !== null &&
     monthlyLimit !== null &&
     outcomes.day.coverage === 'complete' &&
     outcomes.week.coverage === 'complete' &&

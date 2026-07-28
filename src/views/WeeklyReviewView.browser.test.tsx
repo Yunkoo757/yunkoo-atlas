@@ -276,6 +276,29 @@ async function run(): Promise<void> {
 
     clickButton('年度趋势')
     await waitFor(() => document.body.textContent?.includes('做法评分趋势') ?? false, '年度趋势页不可达')
+
+    clickButton('本周复盘')
+    const legacyCycleStart = new Date(`${activeWeekStart}T12:00:00`)
+    legacyCycleStart.setDate(legacyCycleStart.getDate() + 1)
+    const legacyCompletedReview = { ...completed, evidenceSnapshot: undefined }
+    useStore.setState({
+      trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50), makeTrade('three', 'missed', null)],
+      weeklyReviews: [legacyCompletedReview],
+      liveStatsStartTradingDayKey: getTradingDayKey(legacyCycleStart),
+    })
+    await waitFor(
+      () => document.body.textContent?.includes('完成时快照') ?? false,
+      '旧 completed 复盘未进入冻结展示态',
+    )
+    assert(
+      document.querySelectorAll('.wr-trade-row').length === 3,
+      '旧 completed 无 evidenceSnapshot 时必须回退展示未经当前周期过滤的当周历史证据',
+    )
+    assert(
+      !document.body.textContent?.includes('当前周期自'),
+      '旧 completed 无 evidenceSnapshot 时不得显示后来设置的当前周期标签',
+    )
+    assert(legacyCompletedReview.metricsSnapshot?.totalPnl === 100, '旧 completed 的冻结 metrics 不得重算')
   } finally {
     window.removeEventListener('error', capturePageError)
     root.unmount()

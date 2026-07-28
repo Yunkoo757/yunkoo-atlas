@@ -89,6 +89,25 @@ async function run(): Promise<void> {
       '预览未显示规则前数量',
     )
     assert(document.body.textContent?.includes('当前周期 1 笔'), '预览必须显示当前周期数量')
+    const dateTrigger = document.querySelector<HTMLButtonElement>('[aria-label="实盘统计起点"]')
+    assert(dateTrigger, '预览缺少统计起点选择器')
+    dateTrigger.click()
+    await waitFor(() => Boolean(document.querySelector('[role="gridcell"][aria-label="2026-07-20"]')), '统计起点日历未打开')
+    document.querySelector<HTMLButtonElement>('[role="gridcell"][aria-label="2026-07-20"]')?.click()
+    await waitFor(
+      () => document.body.textContent?.includes('所选起点当日没有生效的风险规则') ?? false,
+      '草稿起点与现有规则无覆盖关系时缺少非阻断警告',
+    )
+    const confirmWithCoverageWarning = [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === '确认建立新周期')
+    assert(confirmWithCoverageWarning && !confirmWithCoverageWarning.disabled, '规则覆盖警告必须保持非阻断')
+    dateTrigger.click()
+    await waitFor(() => Boolean(document.querySelector('[role="gridcell"][aria-label="2026-07-27"]')), '统计起点日历未再次打开')
+    document.querySelector<HTMLButtonElement>('[role="gridcell"][aria-label="2026-07-27"]')?.click()
+    await waitFor(
+      () => !(document.body.textContent?.includes('所选起点当日没有生效的风险规则') ?? false),
+      '恢复有覆盖的起点后警告未消失',
+    )
     click('确认建立新周期')
     await waitFor(
       () => useStore.getState().liveStatsStartTradingDayKey === '2026-07-27',

@@ -4,11 +4,13 @@ import {
   buildLiveCyclePreview,
   classifyLiveCycleTrade,
   filterTradesForLiveCycle,
+  openedTradingDayKey,
   parseLiveCycleScope,
   suggestLiveCycleStartTradingDayKey,
 } from '@/lib/liveCycle'
 import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { getTradingDayKey } from '@/lib/periods'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -26,8 +28,36 @@ function trade(id: string, openedAt: string, tradeKind: Trade['tradeKind'] = 'li
 
 export function testLiveCycleIncludesBoundaryAndUsesTradingDayStartHour(): void {
   assert(classifyLiveCycleTrade(trade('boundary', '2026-07-27'), '2026-07-27', 6) === 'current', '起点日必须进入当前周期')
-  assert(classifyLiveCycleTrade(trade('before-hour', '2026-07-27T05:30:00+08:00'), '2026-07-27', 6) === 'pre-cycle', '交易日起点前的时间戳必须归入前一交易日')
-  assert(classifyLiveCycleTrade(trade('after-hour', '2026-07-27T06:30:00+08:00'), '2026-07-27', 6) === 'current', '交易日起点后的时间戳必须进入当前周期')
+  assert(classifyLiveCycleTrade(trade('before-hour', '2026-07-27T05:30:00'), '2026-07-27', 6) === 'pre-cycle', '无 offset 时间必须保持本地墙钟语义')
+  assert(classifyLiveCycleTrade(trade('after-hour', '2026-07-27T06:30:00'), '2026-07-27', 6) === 'current', '无 offset 时间必须按交易日起始小时换日')
+}
+
+export function testLiveCycleOffsetTimestampsUseTheirRealInstant(): void {
+  const startHour = 6
+  const offsetTimestamps = [
+    '2026-07-27T01:00:00.000Z',
+    '2026-07-27T05:30:00+08:00',
+    '2026-07-27T23:30:00-04:00',
+  ]
+  for (const openedAt of offsetTimestamps) {
+    assert(
+      openedTradingDayKey(trade(openedAt, openedAt), startHour) === getTradingDayKey(new Date(openedAt), startHour),
+      `${openedAt} 必须按真实 instant 换算交易日`,
+    )
+  }
+
+  const sameInstantWithZ = '2026-07-27T08:00:00.000Z'
+  const sameInstantWithNegativeOffset = '2026-07-27T04:00:00.000-04:00'
+  assert(
+    openedTradingDayKey(trade('same-z', sameInstantWithZ), startHour) ===
+      openedTradingDayKey(trade('same-negative', sameInstantWithNegativeOffset), startHour),
+    '同一 instant 的 Z 与负 offset 表示必须得到同一交易日',
+  )
+
+  const localBeforeBoundary = new Date(2026, 6, 27, startHour - 1, 59).toISOString()
+  const localAfterBoundary = new Date(2026, 6, 27, startHour, 1).toISOString()
+  assert(openedTradingDayKey(trade('z-before-boundary', localBeforeBoundary), startHour) === '2026-07-26', 'Z 时间在本地交易日边界前必须归前一日')
+  assert(openedTradingDayKey(trade('z-after-boundary', localAfterBoundary), startHour) === '2026-07-27', 'Z 时间在本地交易日边界后必须归当日')
 }
 
 export function testLiveCyclePreviewDoesNotHideUnresolvedOrRewritePaper(): void {

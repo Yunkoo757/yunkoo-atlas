@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AlertCircle } from '@/icons/appIcons'
 import {
   buildLiveCyclePreview,
@@ -6,6 +7,7 @@ import {
   suggestLiveCycleStartTradingDayKey,
 } from '@/lib/liveCycle'
 import { toast } from '@/lib/toast'
+import { activeRiskPolicy } from '@/lib/riskPolicy'
 import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -39,6 +41,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
       : { current: [], preCycle: [], unresolved: [] },
     [draft, trades, tradingDayStartHour],
   )
+  const draftLacksRiskPolicyCoverage = isValidLiveCycleDayKey(draft) && activeRiskPolicy(policies, draft) === null
   const promptEligible = currentStart === null && suggested !== null &&
     (preview.preCycle.length > 0 || preview.unresolved.length > 0)
   if (variant === 'prompt' && !promptEligible && !forcePrompt) return null
@@ -72,15 +75,23 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
     await commitStart(draft, `当前实盘周期已从 ${draft} 开始`)
   }
 
-  const trigger = variant === 'prompt' ? (
+  const trigger = variant === 'prompt' ? currentStart === null ? (
     <section className="live-cycle-prompt" data-live-cycle-prompt>
       <div>
         <strong>实盘统计尚未截断</strong>
         <p>{suggested
           ? `当前风险规则从 ${suggested} 起生效；建立统计起点可避免规则前记录混入本周期。`
-          : '风险统计覆盖未知；可先核对并调整实盘统计起点。'}</p>
+          : '风险统计覆盖未知；可先核对实盘统计起点。'}</p>
       </div>
-      <button type="button" className="ui-btn ui-btn-bordered" onClick={openPreview}>调整实盘统计起点</button>
+      <button type="button" className="ui-btn ui-btn-bordered" onClick={openPreview}>建立实盘统计起点</button>
+    </section>
+  ) : (
+    <section className="live-cycle-prompt" data-live-cycle-risk-repair>
+      <div>
+        <strong>当前周期风险覆盖未知</strong>
+        <p>统计起点已设置为 {currentStart}；请补齐周期内的风险规则、亏损金额或平仓日期。</p>
+      </div>
+      <Link className="ui-btn ui-btn-bordered" to="/settings/data">检查风险与数据</Link>
     </section>
   ) : (
     <section className="live-cycle-settings" data-live-cycle-settings>
@@ -145,6 +156,9 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
             </div>
             {preview.unresolved.length > 0 ? (
               <p className="live-cycle-warning" role="alert"><AlertCircle size={16} />存在无法判断开仓日期的实盘记录，修正后才能保存。</p>
+            ) : null}
+            {draftLacksRiskPolicyCoverage ? (
+              <p className="live-cycle-warning" role="status"><AlertCircle size={16} />所选起点当日没有生效的风险规则；周期内缺少规则覆盖的交易仍会显示为覆盖未知。此提示不阻止保存。</p>
             ) : null}
             <div className="live-cycle-preview-list">
               {[...preview.preCycle, ...preview.current, ...preview.unresolved].map((trade) => (

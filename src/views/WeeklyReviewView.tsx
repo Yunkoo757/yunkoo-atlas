@@ -239,11 +239,12 @@ export function WeeklyReviewView() {
   const metrics = review.status === 'completed' && review.metricsSnapshot
     ? review.metricsSnapshot
     : liveMetrics
+  const usesLegacyEvidenceFallback = review.status === 'completed' && !review.evidenceSnapshot
   const evidenceTrades = review.status === 'completed'
-    ? review.evidenceSnapshot?.trades ?? []
+    ? review.evidenceSnapshot?.trades ?? tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour, null)
     : weekTrades
   const evidenceMissedTrades = review.status === 'completed'
-    ? review.evidenceSnapshot?.missedTrades ?? []
+    ? review.evidenceSnapshot?.missedTrades ?? missedTradesInWeek(trades, selectedWeek, tradingDayStartHour, null)
     : weekMissedTrades
   const customMistakeEvidence = Object.entries(metrics.mistakeTagCounts)
     .filter(([tag]) => !WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number]))
@@ -367,7 +368,7 @@ export function WeeklyReviewView() {
                 <h1>{formatWeekRange(selectedWeek)}</h1>
                 <p>
                   {selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列
-                  {liveStatsStartTradingDayKey && selectedWeek < liveStatsStartTradingDayKey && weekEndFor(selectedWeek) >= liveStatsStartTradingDayKey
+                  {!usesLegacyEvidenceFallback && liveStatsStartTradingDayKey && selectedWeek < liveStatsStartTradingDayKey && weekEndFor(selectedWeek) >= liveStatsStartTradingDayKey
                     ? ` · 当前周期自 ${liveStatsStartTradingDayKey} 开始`
                     : null}
                 </p>

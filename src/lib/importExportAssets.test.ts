@@ -48,6 +48,20 @@ export function testMergeImportKeepsCurrentLibraryLiveCycleStart(): void {
   )
 }
 
+export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
+  const current = createFullPersistedSnapshotFixture()
+  current.display = { ...current.display, tradingDayStartHour: 6 }
+  const imported = createFullPersistedSnapshotFixture()
+  imported.display = { ...imported.display, tradingDayStartHour: 0 }
+
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+
+  assert(
+    merged.display.tradingDayStartHour === 6,
+    '普通合并导入不得改变当前资料库的交易日起始小时',
+  )
+}
+
 function captureImmutableImportConflict(run: () => unknown): { code: unknown; message: string } {
   try {
     run()

@@ -351,10 +351,29 @@ async function run(): Promise<void> {
     assert(!meter.textContent?.includes('剩余'), 'unknown 不得显示安全剩余额度')
     assert(budget.textContent?.includes('无法确认当前是否触线'), 'unknown 必须给出明确行动说明')
     assert(
-      [...budget.querySelectorAll<HTMLButtonElement>('button')]
-        .some((button) => button.textContent?.trim() === '调整实盘统计起点'),
-      '覆盖未知时必须无条件提供实盘统计起点 CTA',
+      !budget.textContent?.includes('实盘统计尚未截断'),
+      '周期已设置时 unknown 不得继续声称实盘统计尚未截断',
     )
+    assert(budget.textContent?.includes('当前周期风险覆盖未知'), '周期已设置时 unknown 必须引导修复规则或数据')
+    assert(
+      budget.querySelector<HTMLAnchorElement>('a[href="/settings/data"]')?.textContent?.trim() === '检查风险与数据',
+      '周期已设置时 unknown 必须保留可达的风险与数据修复入口',
+    )
+    assert(
+      ![...budget.querySelectorAll<HTMLButtonElement>('button')]
+        .some((button) => button.textContent?.trim() === '调整实盘统计起点'),
+      '周期已设置时 unknown 不得诱导移动统计起点',
+    )
+
+    useStore.setState({ liveStatsStartTradingDayKey: null })
+    await waitFor(() => budget.textContent?.includes('实盘统计尚未截断') ?? false, '未设置周期时缺少建立周期强提示')
+    assert(
+      [...budget.querySelectorAll<HTMLButtonElement>('button')]
+        .some((button) => button.textContent?.trim() === '建立实盘统计起点'),
+      '未设置周期的 unknown 状态必须保留建立周期入口',
+    )
+    useStore.setState({ liveStatsStartTradingDayKey: day })
+    await waitFor(() => budget.textContent?.includes('当前周期风险覆盖未知') ?? false, '恢复已设置周期 unknown fixture 失败')
 
     useStore.setState({
       riskPolicyVersions: [{ ...policy, effectiveTradingDay: nextTradingDay }],
