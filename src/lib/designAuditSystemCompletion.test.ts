@@ -119,11 +119,11 @@ export async function testNestedRadiiFollowTheOuterRadiusMinusGapRule(): Promise
   const [menuCss, displayCss, riskCss] = await Promise.all([
     fs.readFile('src/components/Menu.css', 'utf8'),
     fs.readFile('src/components/DisplayMenu.css', 'utf8'),
-    fs.readFile('src/components/RiskBudgetCard.css', 'utf8'),
+    fs.readFile('src/components/RiskStatusStrip.css', 'utf8'),
   ])
   assert(/\.menu-item\s*\{[\s\S]*?border-radius:\s*var\(--radius-5\)/.test(menuCss), '5px 内间隙的菜单项应使用 5px 内圆角')
   assert(/\.display-toggle\s*\{[\s\S]*?border-radius:\s*var\(--radius-4\)/.test(displayCss), '6px 内间隙的显示菜单项应使用 4px 内圆角')
-  assert(/\.risk-budget-meter\s*\{[\s\S]*?border-radius:\s*0/.test(riskCss), '大内间隙下的嵌套风险卡片不应继续使用圆角')
+  assert(!/\.risk-status-period\s*\{[^}]*border-radius:/.test(riskCss), '大内间隙下的嵌套风险状态区段不应继续使用圆角')
 }
 
 export async function testCustomModalsConsumeTheSharedSurfaceMetrics(): Promise<void> {

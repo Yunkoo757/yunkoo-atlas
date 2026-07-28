@@ -51,7 +51,6 @@ export function testTodayWorkspaceKeepsMobileQueueAndPrimaryActionSafe(): void {
 export function testTodayWorkspaceUsesAccessibleAccentAndSidebarLabelColors(): void {
   const sidebar = read('src/components/Sidebar.css')
   const tokens = read('src/styles/tokens.css')
-  const riskBudget = read('src/components/RiskBudgetCard.css')
   const weeklyReview = read('src/views/WeeklyReviewView.css')
   const sidebarLabel = rule(sidebar, '\\.sb-section-label')
 
@@ -73,9 +72,6 @@ export function testTodayWorkspaceUsesAccessibleAccentAndSidebarLabelColors(): v
   if (!tokens.includes('--accent-readable: color-mix(in srgb, var(--accent) 84%, white 16%)')) {
     throw new Error('small accent text must have a dedicated AA-readable token')
   }
-  if (!rule(riskBudget, '\\.risk-budget-compact-details').includes('color: var(--accent-readable)')) {
-    throw new Error('compact risk details must use the readable accent text token')
-  }
   if (!weeklyReview.includes('.wr-trade-main:hover .wr-symbol { color: var(--accent-readable); }')) {
     throw new Error('weekly review hover text must use the readable accent text token')
   }
@@ -91,12 +87,8 @@ export function testTodayWorkspaceKeepsCompletedSectionSeparated(): void {
 
 export function testTodayWorkspaceUsesDividersInsteadOfNestedDefaultSurfaces(): void {
   const today = read('src/views/TodayWorkspace.css')
-  const riskBudget = read('src/components/RiskBudgetCard.css')
 
   if (!rule(today, '\\.today-workflow-list').includes('border-top: 1px solid var(--border-subtle)')) {
     throw new Error('today action rows must stay organized by divider lines')
-  }
-  if (!rule(riskBudget, '\\.risk-budget-meter').includes('background: transparent')) {
-    throw new Error('normal risk meters must not create three nested default surfaces')
   }
 }

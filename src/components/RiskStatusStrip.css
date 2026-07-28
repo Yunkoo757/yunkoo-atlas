@@ -1,0 +1,62 @@
+.risk-status-strip {
+  margin-top: 14px;
+  color: var(--text-body);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+}
+.risk-status-head {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.risk-status-head h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+}
+.risk-status-periods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.risk-status-period { min-width: 0; padding: 11px var(--sp-3) 10px; background: transparent; }
+.risk-status-period + .risk-status-period { border-left: 1px solid var(--border-subtle); }
+.risk-status-period-head,
+.risk-status-values { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.risk-status-period-head span { color: var(--text-secondary); font-size: var(--type-row-size); font-weight: var(--font-weight-semibold); }
+.risk-status-period-head strong { color: var(--text-tertiary); font-size: var(--type-row-size); }
+.risk-status-track { height: 3px; margin: 9px 0 7px; overflow: hidden; background: var(--bg-inset); border-radius: var(--radius-rounded); }
+.risk-status-track > span { display: block; height: 100%; background: var(--pos); }
+.risk-status-values { color: var(--text-muted); font-size: var(--type-metadata-size); font-variant-numeric: tabular-nums; }
+.risk-status-values strong { color: var(--text-primary); font-family: var(--font-mono); }
+.risk-status-period.is-near .risk-status-period-head strong,
+.risk-status-period.is-partial .risk-status-period-head strong,
+.risk-status-period.is-unknown .risk-status-period-head strong,
+.risk-status-period.is-unconfigured .risk-status-period-head strong { color: var(--warn-action); }
+.risk-status-period.is-near .risk-status-track > span,
+.risk-status-period.is-partial .risk-status-track > span,
+.risk-status-period.is-unknown .risk-status-track > span,
+.risk-status-period.is-unconfigured .risk-status-track > span { background: var(--warn-action); }
+.risk-status-period.is-triggered { background: color-mix(in srgb, var(--neg) 4%, transparent); }
+.risk-status-period.is-triggered .risk-status-period-head strong { color: var(--neg); }
+.risk-status-period.is-triggered .risk-status-track > span { background: var(--neg); }
+.risk-status-summary {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  border-top: 1px solid var(--border-subtle);
+}
+.risk-status-summary a { color: var(--accent-readable); }
+@media (max-width: 899px) {
+  .risk-status-periods { grid-template-columns: 1fr; }
+  .risk-status-period + .risk-status-period { border-top: 1px solid var(--border-subtle); border-left: 0; }
+}
+@media (max-width: 768px) {
+  .risk-status-summary { min-height: 44px; align-items: flex-start; flex-direction: column; justify-content: center; padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+  .risk-status-summary a { display: inline-flex; min-height: 44px; align-items: center; }
+}

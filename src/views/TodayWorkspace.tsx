@@ -19,7 +19,7 @@ import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTrad
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import { WeeklyRiskPreparationCard } from '@/components/WeeklyRiskPreparationCard'
-import { RiskBudgetCard } from '@/components/RiskBudgetCard'
+import { RiskStatusStrip } from '@/components/RiskStatusStrip'
 import './TodayWorkspace.css'
 
 function dateLabel(date: string): string {
@@ -265,7 +265,7 @@ export function TodayWorkspace() {
           </section>
 
           {riskReviewed ? <WeeklyRiskPreparationCard currentTradingDayKey={today} /> : null}
-          <RiskBudgetCard currentTradingDayKey={today} compactWhenNormal />
+          <RiskStatusStrip currentTradingDayKey={today} />
 
           {todayMetrics.closedCount > 0 ? (
             <section className="today-stats" aria-label="今日战绩">

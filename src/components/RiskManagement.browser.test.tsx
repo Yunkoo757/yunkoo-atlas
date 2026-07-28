@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { MonthlyRiskLimit, RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { TradeOpenRiskDialog } from '@/components/TradeOpenRiskDialog'
-import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { TodayWorkspace } from '@/views/TodayWorkspace'
@@ -55,16 +55,6 @@ function setText(element: HTMLInputElement | HTMLTextAreaElement, value: string)
 }
 
 const day = getTradingDayKey(new Date(), 0)
-const nextTradingDay = (() => {
-  const date = parseLocalDate(day)
-  date.setDate(date.getDate() + 1)
-  return formatYmd(date)
-})()
-const previousTradingDay = (() => {
-  const date = parseLocalDate(day)
-  date.setDate(date.getDate() - 1)
-  return formatYmd(date)
-})()
 const weekStart = weekStartFor(parseLocalDate(day))
 const monthKey = day.slice(0, 7)
 const confirmedAt = new Date().toISOString()
@@ -190,19 +180,78 @@ async function run(): Promise<void> {
 
     await waitFor(() => Boolean(document.querySelector('[data-risk-preparation]')), '未复核准备卡必须常驻')
     let preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
-    const budget = document.querySelector<HTMLElement>('[data-risk-budget]')
+    const status = document.querySelector<HTMLElement>('[data-risk-status]')
     const actionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
-    assert(preparation && budget && actionQueue, '今日工作台缺少准备卡、预算卡或行动队列')
+    assert(preparation && status && actionQueue, '今日工作台缺少准备卡、风险状态或行动队列')
     assert(
       preparation.compareDocumentPosition(actionQueue) & Node.DOCUMENT_POSITION_FOLLOWING,
       '未复核时准备卡必须位于行动队列之前',
     )
     assert(!document.querySelector('.today-focus .empty-btn'), '未复核时不得显示新建交易')
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
-    assert(budget.getAttribute('data-risk-display') === 'compact', '正常风险预算必须折叠显示')
-    const compactDetails = budget.querySelector('details')
-    assert(compactDetails && !compactDetails.open, '正常风险预算必须提供默认关闭的详情')
-    assert(compactDetails.querySelector('summary')?.textContent?.includes('今日剩余 2.0R'), '折叠摘要必须展示今日剩余风险')
+    assert(status.querySelectorAll('[data-risk-period]').length === 3, '风险状态必须始终展示日周月')
+    assert(!status.querySelector('details'), '风险状态不得折叠')
+    assert(!status.textContent?.includes('1R ='), '工作台不得展示 1R 配置说明')
+    assert(!status.textContent?.includes('计入'), '工作台不得展示风险统计审计明细')
+
+    useStore.setState({
+      weeklyRiskPreparations: [{
+        ...useStore.getState().weeklyRiskPreparations[0]!,
+        reviewedAt: confirmedAt,
+        confirmedPolicyVersionId: policy.id,
+      }],
+    })
+    await waitFor(() => !(status.textContent?.includes('本周风险规则尚未确认') ?? true), '已复核状态没有生效')
+
+    const cases = [
+      {
+        name: '正常',
+        trades: [trade('target', 'planned')],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expected: ['正常', '日、周、月均在风险限额内。'],
+      },
+      {
+        name: '临界',
+        trades: [{ ...trade('near', 'loss'), pnl: -1_800 }],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expected: ['接近限额', '今日接近限额'],
+      },
+      {
+        name: '超限',
+        trades: [trade('triggered', 'loss')],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expected: ['已超限', '今日已超限'],
+      },
+      {
+        name: '未知',
+        trades: [trade('unknown-loss', 'loss', { unknown: true })],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expected: ['无法判断', '今日无法判断'],
+      },
+      {
+        name: '未配置',
+        trades: [],
+        policies: [],
+        limits: [],
+        expected: ['未配置', '今日未配置'],
+      },
+    ] as const
+
+    for (const fixture of cases) {
+      useStore.setState({
+        trades: fixture.trades.slice(),
+        riskPolicyVersions: fixture.policies.slice(),
+        monthlyRiskLimits: fixture.limits.slice(),
+      })
+      await waitFor(
+        () => fixture.expected.every((copy) => status.textContent?.includes(copy)),
+        `${fixture.name} 风险状态没有更新`,
+      )
+    }
 
     useStore.setState({
       weeklyRiskPreparations: [{
@@ -234,204 +283,16 @@ async function run(): Promise<void> {
       '恢复未复核准备状态失败',
     )
 
-    const partialCoverageTrade: Trade = {
-      ...trade('partial-coverage', 'loss'),
-      status: 'win',
-      pnl: 1_000,
-      resultSource: 'pnl',
-      closedAt: null,
-      closedTradingDayKey: undefined,
-      activities: [{
-        id: 'activity-partial-coverage',
-        kind: 'status',
-        status: 'win',
-        timestamp: `${day}T01:00:00.000Z`,
-      }],
-    }
-    const disclosureCases = [
-      {
-        name: '59% 完整覆盖',
-        trades: [{ ...trade('loss-59', 'loss'), pnl: -1_180 }],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expectedDisplay: 'compact',
-        ready: () => budget.getAttribute('data-risk-display') === 'compact'
-          && budget.querySelector('[aria-label="今日止损预算"]')?.getAttribute('aria-valuenow') === '59',
-      },
-      {
-        name: '60% 关注阈值',
-        trades: [{ ...trade('loss-60', 'loss'), pnl: -1_200 }],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expectedDisplay: 'attention',
-        ready: () => budget.querySelector('[aria-label="今日止损预算"]')?.getAttribute('aria-valuenow') === '60',
-      },
-      {
-        name: '部分覆盖',
-        trades: [partialCoverageTrade],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expectedDisplay: 'attention',
-        ready: () => budget.textContent?.includes('部分覆盖') ?? false,
-      },
-      {
-        name: '无有效规则',
-        trades: [],
-        policies: [],
-        limits: [],
-        expectedDisplay: 'attention',
-        ready: () => budget.textContent?.includes('尚未配置有效规则') ?? false,
-      },
-      {
-        name: '已触线',
-        trades: [trade('triggered', 'loss')],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expectedDisplay: 'attention',
-        ready: () => Boolean(budget.querySelector('.risk-budget-meter.is-triggered')),
-      },
-    ] as const
-
-    for (const fixture of disclosureCases) {
-      useStore.setState({
-        trades: fixture.trades.slice(),
-        riskPolicyVersions: fixture.policies.slice(),
-        monthlyRiskLimits: fixture.limits.slice(),
-      })
-      await waitFor(fixture.ready, `${fixture.name} 风险披露状态没有更新`)
-      assert(
-        budget.getAttribute('data-risk-display') === fixture.expectedDisplay,
-        `${fixture.name} 的风险披露层级不正确`,
-      )
-      const details = budget.querySelector('details')
-      if (fixture.expectedDisplay === 'compact') {
-        assert(details && !details.open, `${fixture.name} 必须提供默认关闭的详情`)
-      } else {
-        assert(!details, `${fixture.name} 不得折叠风险详情`)
-        assert(budget.querySelectorAll('[role="progressbar"]').length === 3, `${fixture.name} 必须直接展示三个预算进度`)
-      }
-    }
-
-    useStore.setState({
-      trades: [
-        trade('target', 'planned'),
-        {
-          ...trade('pre-cycle-unknown-loss', 'loss', { unknown: true }),
-          openedAt: `${previousTradingDay}T01:00:00.000Z`,
-        },
-      ],
-      riskPolicyVersions: [policy],
-      monthlyRiskLimits: [monthlyLimit],
-      liveStatsStartTradingDayKey: day,
-    })
-    await waitFor(() => !(budget.textContent?.includes('覆盖未知') ?? false), '起点前亏损仍污染预算卡覆盖状态')
-    assert(!budget.textContent?.includes('未计入 1 笔'), '起点前亏损不得显示为当前周期未计入')
-
-    useStore.setState({
-      trades: [
-        trade('target', 'planned'),
-        trade('current-cycle-unknown-loss', 'loss', { unknown: true }),
-      ],
-    })
-    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '起点日未知亏损必须恢复 fail-closed')
-
-    useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
-    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')
-    assert(budget.getAttribute('data-risk-display') === 'attention', '覆盖未知时风险预算必须完整显示')
-    assert(!budget.querySelector('details'), '风险提示状态不得折叠详情')
-    assert(budget.querySelectorAll('[role="progressbar"]').length === 3, '风险提示状态必须直接展示三个预算进度')
-    assert(preparation.textContent?.includes('单笔风险比例'), '百分比字段必须明确表示单笔风险比例')
-    assert(!preparation.textContent?.includes('每 R 风险'), '百分比字段不得与 1R 金额共用同一标签')
-
-    const meter = document.querySelector<HTMLElement>('[role="progressbar"]')
-    assert(meter?.getAttribute('aria-label') === '今日止损预算', '进度必须有可访问名称')
-    assert(meter.textContent?.includes('已用'), '进度必须同时提供文字数值')
-    assert(budget.textContent?.includes('净风险占用 0.0R'), '预算卡必须用中文说明净风险占用')
-    assert(!budget.textContent?.includes('净 budget'), '预算卡不得遗留中英混用的净 budget 表述')
-    assert(!meter.textContent?.includes('剩余'), 'unknown 不得显示安全剩余额度')
-    assert(budget.textContent?.includes('无法确认当前是否触线'), 'unknown 必须给出明确行动说明')
-    assert(
-      !budget.textContent?.includes('实盘统计尚未截断'),
-      '周期已设置时 unknown 不得继续声称实盘统计尚未截断',
-    )
-    assert(budget.textContent?.includes('当前周期风险覆盖未知'), '周期已设置时 unknown 必须引导修复规则或数据')
-    assert(
-      budget.querySelector<HTMLAnchorElement>('a[href="/settings/data"]')?.textContent?.trim() === '检查风险与数据',
-      '周期已设置时 unknown 必须保留可达的风险与数据修复入口',
-    )
-    assert(
-      ![...budget.querySelectorAll<HTMLButtonElement>('button')]
-        .some((button) => button.textContent?.trim() === '调整实盘统计起点'),
-      '周期已设置时 unknown 不得诱导移动统计起点',
-    )
-
-    useStore.setState({ liveStatsStartTradingDayKey: null })
-    await waitFor(() => budget.textContent?.includes('实盘统计尚未截断') ?? false, '未设置周期时缺少建立周期强提示')
-    assert(
-      [...budget.querySelectorAll<HTMLButtonElement>('button')]
-        .some((button) => button.textContent?.trim() === '建立实盘统计起点'),
-      '未设置周期的 unknown 状态必须保留建立周期入口',
-    )
-    useStore.setState({ liveStatsStartTradingDayKey: day })
-    await waitFor(() => budget.textContent?.includes('当前周期风险覆盖未知') ?? false, '恢复已设置周期 unknown fixture 失败')
-
-    useStore.setState({
-      riskPolicyVersions: [{ ...policy, effectiveTradingDay: nextTradingDay }],
-      monthlyRiskLimits: [],
-    })
-    await waitFor(
-      () => budget.textContent?.includes(`已确认规则将于 ${nextTradingDay} 起生效`) ?? false,
-      '待生效规则不应被误报为尚未配置有效规则',
-    )
-    assert(!budget.textContent?.includes('尚未配置有效规则'), '待生效规则不得显示为完全未配置')
-    useStore.setState({ riskPolicyVersions: [policy], monthlyRiskLimits: [monthlyLimit] })
-    await waitFor(() => !(budget.textContent?.includes('已确认规则将于') ?? false), '恢复有效规则 fixture 失败')
-
     useStore.setState({
       trades: [trade('target', 'planned')],
-      riskPolicyVersions: [],
-      monthlyRiskLimits: [],
-    })
-    await waitFor(() => budget.textContent?.includes('尚未配置有效规则') ?? false, '未配置规则状态没有展示')
-    assert(!budget.textContent?.includes('预算仍在纪律范围内'), '未配置止损线不得给出安全结论')
-    assert(budget.textContent?.includes('尚未设置止损上限'), '未配置止损线必须明确提示上限缺失')
-    useStore.setState({
-      trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })],
       riskPolicyVersions: [policy],
       monthlyRiskLimits: [monthlyLimit],
-    })
-    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复有效规则 fixture 失败')
-
-    useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
-    await waitFor(() => budget.textContent?.includes('1R = ****') ?? false, '隐私模式没有隐藏 1R 金额')
-    assert(!budget.textContent?.includes('$1,000'), '隐私模式不得泄露 1R 金额')
-    const capitalInput = [...preparation.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('资金基准'))
-      ?.querySelector<HTMLInputElement>('input')
-    const privateRiskAmountInput = preparation.querySelector<HTMLInputElement>('[aria-label="1R 金额"]')
-    assert(capitalInput?.type === 'password', '隐私模式必须遮蔽准备卡资金基准')
-    assert(privateRiskAmountInput?.type === 'password', '隐私模式必须遮蔽准备卡 1R 金额')
-    useStore.setState((state) => ({ display: { ...state.display, privacyMode: false } }))
-
-    const partialWin = {
-      ...trade('partial-win', 'loss'),
-      status: 'win' as const,
-      pnl: 1_000,
-      resultSource: 'pnl' as const,
-      closedAt: null,
-      closedTradingDayKey: undefined,
-      activities: [{
-        id: 'activity-partial-win',
-        kind: 'status' as const,
-        status: 'win' as const,
-        timestamp: `${day}T01:00:00.000Z`,
+      weeklyRiskPreparations: [{
+        ...useStore.getState().weeklyRiskPreparations[0]!,
+        reviewedAt: null,
+        confirmedPolicyVersionId: null,
       }],
-    }
-    useStore.setState({ trades: [trade('target', 'planned'), partialWin] })
-    await waitFor(() => budget.textContent?.includes('部分覆盖') ?? false, 'partial 风险覆盖没有真实展示')
-    assert(budget.textContent?.includes('按已确认结果保守计算'), 'partial 必须显示保守计算提示')
-    useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
-    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')
+    })
 
     if (new URLSearchParams(location.search).get('visual') === 'cards') {
       await new Promise<void>(() => {})
