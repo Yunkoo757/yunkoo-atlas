@@ -172,7 +172,7 @@ export function RiskBudgetCard({
     <section
       className={`risk-budget-card${compact ? ' is-compact' : ''}`}
       data-risk-budget
-      data-risk-display={compact ? 'compact' : 'attention'}
+      data-risk-display={compact ? 'normal' : 'attention'}
       aria-labelledby="risk-budget-title"
     >
       {compact ? (

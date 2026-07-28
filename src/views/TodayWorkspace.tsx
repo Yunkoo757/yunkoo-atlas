@@ -83,7 +83,8 @@ export function TodayWorkspace() {
   const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
   const todayMetrics = useMemo(() => buildTodayClosedMetrics(trades, today), [trades, today])
   const riskReviewed = useMemo(() => weeklyRiskPreparations.some(
-    (preparation) => preparation.weekStart === weekStartFor(parseLocalDate(today)) && preparation.reviewedAt !== null,
+    (preparation) => preparation.weekStart === weekStartFor(parseLocalDate(today))
+      && Boolean(preparation.reviewedAt && preparation.confirmedPolicyVersionId),
   ), [today, weeklyRiskPreparations])
   const visibleWorkflowGroups = useMemo(
     () => queueFilter === 'all'
@@ -307,7 +308,7 @@ export function TodayWorkspace() {
           ) : null}
 
           {buckets.completedToday.length > 0 ? (
-            <section className="today-workflow-group is-completed">
+            <section className="today-workflow-group today-completed is-completed">
               <header>
                 <span className="today-group-icon"><CheckCircle size={15} /></span>
                 <div>

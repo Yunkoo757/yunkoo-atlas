@@ -244,6 +244,7 @@
 }
 
 .today-workflow-group.is-completed { opacity: 0.78; }
+.today-completed { margin-top: var(--sp-5); }
 
 @media (max-width: 899px) {
   .today-workspace-inner { padding-right: 18px; padding-left: 18px; }

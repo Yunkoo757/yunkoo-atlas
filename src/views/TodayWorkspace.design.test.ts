@@ -52,6 +52,7 @@ export function testTodayWorkspaceUsesAccessibleAccentAndSidebarLabelColors(): v
   const sidebar = read('src/components/Sidebar.css')
   const tokens = read('src/styles/tokens.css')
   const riskBudget = read('src/components/RiskBudgetCard.css')
+  const weeklyReview = read('src/views/WeeklyReviewView.css')
   const sidebarLabel = rule(sidebar, '\\.sb-section-label')
 
   if (!sidebarLabel.includes('color: var(--sb-text)')) {
@@ -69,8 +70,22 @@ export function testTodayWorkspaceUsesAccessibleAccentAndSidebarLabelColors(): v
   if (!tokens.includes('--accent-hover: color-mix(in srgb, var(--accent) 90%, black 10%)')) {
     throw new Error('accent hover must darken the original accent instead of mixing with white')
   }
-  if (!rule(riskBudget, '\\.risk-budget-compact-details').includes('color-mix(in srgb, var(--accent) 84%, white 16%)')) {
-    throw new Error('compact risk details must lighten the accent enough for small-text contrast')
+  if (!tokens.includes('--accent-readable: color-mix(in srgb, var(--accent) 84%, white 16%)')) {
+    throw new Error('small accent text must have a dedicated AA-readable token')
+  }
+  if (!rule(riskBudget, '\\.risk-budget-compact-details').includes('color: var(--accent-readable)')) {
+    throw new Error('compact risk details must use the readable accent text token')
+  }
+  if (!weeklyReview.includes('.wr-trade-main:hover .wr-symbol { color: var(--accent-readable); }')) {
+    throw new Error('weekly review hover text must use the readable accent text token')
+  }
+}
+
+export function testTodayWorkspaceKeepsCompletedSectionSeparated(): void {
+  const today = read('src/views/TodayWorkspace.css')
+
+  if (!rule(today, '\\.today-completed').includes('margin-top:')) {
+    throw new Error('today completed section must keep explicit top spacing')
   }
 }
 

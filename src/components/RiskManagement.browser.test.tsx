@@ -193,10 +193,118 @@ async function run(): Promise<void> {
     )
     assert(!document.querySelector('.today-focus .empty-btn'), '未复核时不得显示新建交易')
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
-    assert(budget.getAttribute('data-risk-display') === 'compact', '正常风险预算必须折叠显示')
+    assert(budget.getAttribute('data-risk-display') === 'normal', '正常风险预算必须折叠显示')
     const compactDetails = budget.querySelector('details')
     assert(compactDetails && !compactDetails.open, '正常风险预算必须提供默认关闭的详情')
     assert(compactDetails.querySelector('summary')?.textContent?.includes('今日剩余 2.0R'), '折叠摘要必须展示今日剩余风险')
+
+    useStore.setState({
+      weeklyRiskPreparations: [{
+        ...useStore.getState().weeklyRiskPreparations[0]!,
+        reviewedAt: confirmedAt,
+        confirmedPolicyVersionId: null,
+      }],
+    })
+    await waitFor(
+      () => document.querySelector('[data-risk-preparation]')?.getAttribute('data-reviewed') === 'false',
+      '半完整持久化准备状态必须保持未复核',
+    )
+    preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
+    const partialPreparationQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
+    assert(preparation && partialPreparationQueue, '半完整持久化状态缺少准备卡或行动队列')
+    assert(!document.querySelector('.today-focus .empty-btn'), '缺少已确认规则版本时不得显示新建交易')
+    assert(
+      preparation.compareDocumentPosition(partialPreparationQueue) & Node.DOCUMENT_POSITION_FOLLOWING,
+      '缺少已确认规则版本时准备卡必须位于行动队列之前',
+    )
+    useStore.setState({
+      weeklyRiskPreparations: [{
+        ...useStore.getState().weeklyRiskPreparations[0]!,
+        reviewedAt: null,
+      }],
+    })
+    await waitFor(
+      () => document.querySelector('[data-risk-preparation]')?.getAttribute('data-reviewed') === 'false',
+      '恢复未复核准备状态失败',
+    )
+
+    const partialCoverageTrade: Trade = {
+      ...trade('partial-coverage', 'loss'),
+      status: 'win',
+      pnl: 1_000,
+      resultSource: 'pnl',
+      closedAt: null,
+      closedTradingDayKey: undefined,
+      activities: [{
+        id: 'activity-partial-coverage',
+        kind: 'status',
+        status: 'win',
+        timestamp: `${day}T01:00:00.000Z`,
+      }],
+    }
+    const disclosureCases = [
+      {
+        name: '59% 完整覆盖',
+        trades: [{ ...trade('loss-59', 'loss'), pnl: -1_180 }],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expectedDisplay: 'normal',
+        ready: () => budget.getAttribute('data-risk-display') === 'normal'
+          && budget.querySelector('[aria-label="今日止损预算"]')?.getAttribute('aria-valuenow') === '59',
+      },
+      {
+        name: '60% 关注阈值',
+        trades: [{ ...trade('loss-60', 'loss'), pnl: -1_200 }],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expectedDisplay: 'attention',
+        ready: () => budget.querySelector('[aria-label="今日止损预算"]')?.getAttribute('aria-valuenow') === '60',
+      },
+      {
+        name: '部分覆盖',
+        trades: [partialCoverageTrade],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expectedDisplay: 'attention',
+        ready: () => budget.textContent?.includes('部分覆盖') ?? false,
+      },
+      {
+        name: '无有效规则',
+        trades: [],
+        policies: [],
+        limits: [],
+        expectedDisplay: 'attention',
+        ready: () => budget.textContent?.includes('尚未配置有效规则') ?? false,
+      },
+      {
+        name: '已触线',
+        trades: [trade('triggered', 'loss')],
+        policies: [policy],
+        limits: [monthlyLimit],
+        expectedDisplay: 'attention',
+        ready: () => Boolean(budget.querySelector('.risk-budget-meter.is-triggered')),
+      },
+    ] as const
+
+    for (const fixture of disclosureCases) {
+      useStore.setState({
+        trades: fixture.trades.slice(),
+        riskPolicyVersions: fixture.policies.slice(),
+        monthlyRiskLimits: fixture.limits.slice(),
+      })
+      await waitFor(fixture.ready, `${fixture.name} 风险披露状态没有更新`)
+      assert(
+        budget.getAttribute('data-risk-display') === fixture.expectedDisplay,
+        `${fixture.name} 的风险披露层级不正确`,
+      )
+      const details = budget.querySelector('details')
+      if (fixture.expectedDisplay === 'normal') {
+        assert(details && !details.open, `${fixture.name} 必须提供默认关闭的详情`)
+      } else {
+        assert(!details, `${fixture.name} 不得折叠风险详情`)
+        assert(budget.querySelectorAll('[role="progressbar"]').length === 3, `${fixture.name} 必须直接展示三个预算进度`)
+      }
+    }
 
     useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
     await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')
@@ -323,6 +431,19 @@ async function run(): Promise<void> {
       '确认后行动队列必须位于已复核规则卡之前',
     )
     assert(document.querySelector('.today-focus .empty-btn')?.textContent?.includes('新建交易'), '确认后必须恢复新建交易主操作')
+    const completedTrade: Trade = {
+      ...trade('completed-today', 'loss'),
+      reviewStatus: 'reviewed',
+      reviewedAt: `${day}T03:00:00.000Z`,
+    }
+    useStore.setState({ trades: [trade('target', 'planned'), completedTrade] })
+    await waitFor(() => Boolean(document.querySelector('.today-completed')), '今日已完成区块没有渲染')
+    const completedSection = document.querySelector<HTMLElement>('.today-completed')
+    assert(completedSection, '今日已完成区块没有渲染')
+    assert(completedSection.textContent?.includes('今日已完成'), '已完成交易必须进入今日已完成区块')
+    assert(parseFloat(getComputedStyle(completedSection).marginTop) > 0, '今日已完成区块必须与前一区块保持明确间距')
+    useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
+    await waitFor(() => !document.querySelector('.today-completed'), '恢复行动队列 fixture 失败')
     const queueTabs = reviewedActionQueue.querySelectorAll<HTMLButtonElement>('[role="tab"]')
     assert(queueTabs.length === 4, '行动队列必须有全部、进行中、待结果、待复盘四个 tab')
     assert([...queueTabs].filter((tab) => tab.getAttribute('aria-selected') === 'true').length === 1, '行动队列必须只有一个已选 tab')

@@ -203,6 +203,7 @@
 
   /* 品牌 */
   --accent-hover: color-mix(in srgb, var(--accent) 90%, black 10%);
+  --accent-readable: color-mix(in srgb, var(--accent) 84%, white 16%);
   --accent-text: #fff;
 
   /* 侧栏导航/工作区图标高彩（仅选中态） */
