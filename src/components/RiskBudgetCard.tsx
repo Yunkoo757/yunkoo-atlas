@@ -154,6 +154,7 @@ export function RiskBudgetCard({
       || outcome.triggered
       || outcome.progress >= 0.6
   })
+  const hasUnknownCoverage = ROWS.some(({ scope }) => outcomes[scope].coverage === 'unknown')
   const compact = compactWhenNormal && !needsAttention
   const details = (
     <>
@@ -187,7 +188,11 @@ export function RiskBudgetCard({
           ? `规则将在 ${scheduledPolicy.effectiveTradingDay} 起用于风险统计。`
           : '先确认资金基准、每 R 风险与三周期止损线。')}</span>
       </footer>
-      <LiveCycleSettings variant="prompt" currentTradingDayKey={tradingDay} />
+      <LiveCycleSettings
+        variant="prompt"
+        currentTradingDayKey={tradingDay}
+        forcePrompt={hasUnknownCoverage}
+      />
     </>
   )
 

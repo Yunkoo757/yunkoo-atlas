@@ -2,6 +2,9 @@ import { createRoot } from 'react-dom/client'
 import type { RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { LiveCycleSettings } from '@/components/LiveCycleSettings'
+import { useToast } from '@/lib/toast'
+import { disablePersistWrites, enablePersistWrites } from '@/storage/persist'
+import { getStorage } from '@/storage/provider'
 import { useStore } from '@/store/useStore'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
@@ -9,8 +12,11 @@ import '@/styles/global.css'
 declare global {
   interface Window {
     __liveCycleSettingsBrowserTest?: Promise<void>
+    __atlasBrowserAllowedErrors?: string[]
   }
 }
+
+window.__atlasBrowserAllowedErrors = ['Persist failed Error: test persistence failure']
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -37,7 +43,7 @@ function click(label: string, scope: ParentNode = document): void {
 }
 
 const oldLiveTrade: Trade = {
-  id: 'live-before-cycle', ref: 'TRD-OLD-LIVE', symbol: 'BTCUSDT', side: 'long', status: 'loss',
+  id: 'live-before-cycle', ref: 'TRD-OLD-LIVE-REFERENCE-WITH-A-LONG-IDENTIFIER-20260726', symbol: 'BTCUSDT-PERPETUAL-LONG-SYMBOL', side: 'long', status: 'loss',
   conviction: 'medium', strategyId: 'strategy-1', tradeKind: 'live', tags: [], mistakeTags: [],
   reviewStatus: 'unreviewed', reviewCategory: 'normal', entry: 100, exit: 98, size: 1,
   pnl: -200, rMultiple: -1, resultSource: 'pnl', openedAt: '2026-07-26', closedAt: '2026-07-26', note: '',
@@ -46,7 +52,7 @@ const oldLiveTrade: Trade = {
 const currentLiveTrade: Trade = {
   ...oldLiveTrade,
   id: 'live-current-cycle',
-  ref: 'TRD-CURRENT-LIVE',
+  ref: 'TRD-CURRENT-LIVE-REFERENCE-WITH-A-LONG-IDENTIFIER-20260727',
   openedAt: '2026-07-27',
   closedAt: '2026-07-27',
 }
@@ -93,6 +99,7 @@ async function run(): Promise<void> {
       '保存完成后预览未关闭',
     )
     assert(useStore.getState().trades.every((trade) => trade.tradeKind === 'live'), '设置不得改写交易类型')
+    assert(document.body.textContent?.includes('调整实盘统计起点'), '已有起点时必须显示调整动作')
     click('清除统计起点')
     await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('button')]
@@ -104,6 +111,33 @@ async function run(): Promise<void> {
       () => useStore.getState().liveStatsStartTradingDayKey === null,
       '清除必须恢复全历史口径',
     )
+    await waitFor(
+      () => [...document.querySelectorAll<HTMLButtonElement>('button')]
+        .some((button) => button.textContent?.trim() === '建立实盘统计起点' && !button.disabled),
+      '清除完成后建立动作仍不可用',
+    )
+
+    const storage = getStorage()
+    const originalSaveSnapshot = storage.saveSnapshot.bind(storage)
+    let saveAttempts = 0
+    enablePersistWrites()
+    storage.saveSnapshot = async () => {
+      saveAttempts += 1
+      throw new Error('test persistence failure')
+    }
+    try {
+      click('建立实盘统计起点')
+      await waitFor(() => Boolean(document.querySelector('[data-live-cycle-dialog]')), '失败场景预览未打开')
+      click('确认建立新周期')
+      await waitFor(() => saveAttempts >= 2, '失败后必须尝试持久化回滚')
+      assert(useStore.getState().liveStatsStartTradingDayKey === null, '保存失败必须恢复旧统计起点')
+      assert(useToast.getState().message === '统计起点保存失败，原设置已保留', '保存失败必须明确提示且不得虚报成功')
+      assert(!useToast.getState().message?.includes('当前实盘周期已从'), '保存失败不得出现成功提示')
+    } finally {
+      storage.saveSnapshot = originalSaveSnapshot
+      disablePersistWrites()
+      useToast.getState().dismiss()
+    }
   } finally {
     root.unmount()
     useStore.setState({

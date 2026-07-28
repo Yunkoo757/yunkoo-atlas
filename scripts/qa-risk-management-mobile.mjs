@@ -157,7 +157,9 @@ try {
       const footer = shell?.querySelector('.modal-shell-footer')
       const action = [...(footer?.querySelectorAll('button') ?? [])]
         .find((button) => button.textContent?.trim() === '确认建立新周期')
-      if (!content || !counts || !shell || !footer || !action) return null
+      const previewRow = document.querySelector('.live-cycle-preview-list > div')
+      const longFields = previewRow ? [...previewRow.querySelectorAll('code, span, time')] : []
+      if (!content || !counts || !shell || !footer || !action || !previewRow || longFields.length !== 3) return null
       const shellRect = shell.getBoundingClientRect()
       const footerRect = footer.getBoundingClientRect()
       const actionRect = action.getBoundingClientRect()
@@ -168,6 +170,14 @@ try {
         footerFullyVisible: footerRect.top >= 0 && footerRect.bottom <= window.innerHeight,
         actionFullyVisible: actionRect.top >= 0 && actionRect.bottom <= window.innerHeight,
         actionHeight: actionRect.height,
+        previewRowOverflow: previewRow.scrollWidth > previewRow.clientWidth,
+        longTextSafe: longFields.every((field) => {
+          const style = getComputedStyle(field)
+          const rect = field.getBoundingClientRect()
+          const rowRect = previewRow.getBoundingClientRect()
+          return style.overflow === 'hidden' && style.textOverflow === 'ellipsis' &&
+            rect.left >= rowRect.left && rect.right <= rowRect.right
+        }),
       }
     })
     assert.ok(layout, '实盘新周期 fixture 缺少预览弹窗节点')
@@ -177,6 +187,8 @@ try {
     assert.equal(layout.footerFullyVisible, true, '新周期预览 footer 必须完整可见')
     assert.equal(layout.actionFullyVisible, true, '新周期预览主动作必须完整可见')
     assert.ok(layout.actionHeight >= 44, '新周期预览主动作触控高度不得小于 44px')
+    assert.equal(layout.previewRowOverflow, false, '长 ref/symbol 不得撑开新周期预览行')
+    assert.equal(layout.longTextSafe, true, '长 ref/symbol 必须在自身单元格内截断')
     assert.deepEqual(liveCycleFixture.diagnostics, [], '新周期预览移动 QA 不得产生浏览器错误')
   } finally {
     await liveCycleFixture.page.close()

@@ -350,6 +350,11 @@ async function run(): Promise<void> {
     assert(!budget.textContent?.includes('净 budget'), '预算卡不得遗留中英混用的净 budget 表述')
     assert(!meter.textContent?.includes('剩余'), 'unknown 不得显示安全剩余额度')
     assert(budget.textContent?.includes('无法确认当前是否触线'), 'unknown 必须给出明确行动说明')
+    assert(
+      [...budget.querySelectorAll<HTMLButtonElement>('button')]
+        .some((button) => button.textContent?.trim() === '调整实盘统计起点'),
+      '覆盖未知时必须无条件提供实盘统计起点 CTA',
+    )
 
     useStore.setState({
       riskPolicyVersions: [{ ...policy, effectiveTradingDay: nextTradingDay }],

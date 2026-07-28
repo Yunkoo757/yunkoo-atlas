@@ -15,13 +15,14 @@ import './LiveCycleSettings.css'
 type LiveCycleSettingsProps = {
   variant: 'prompt' | 'settings'
   currentTradingDayKey: string
+  forcePrompt?: boolean
 }
 
 function resetDraft(current: string | null, suggested: string | null, fallback: string): string {
   return current ?? suggested ?? fallback
 }
 
-export function LiveCycleSettings({ variant, currentTradingDayKey }: LiveCycleSettingsProps) {
+export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt = false }: LiveCycleSettingsProps) {
   const trades = useStore((state) => state.trades)
   const policies = useStore((state) => state.riskPolicyVersions)
   const currentStart = useStore((state) => state.liveStatsStartTradingDayKey)
@@ -40,7 +41,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey }: LiveCycleSe
   )
   const promptEligible = currentStart === null && suggested !== null &&
     (preview.preCycle.length > 0 || preview.unresolved.length > 0)
-  if (variant === 'prompt' && !promptEligible) return null
+  if (variant === 'prompt' && !promptEligible && !forcePrompt) return null
 
   const openPreview = () => {
     setDraft(resetDraft(currentStart, suggested, currentTradingDayKey))
@@ -75,9 +76,11 @@ export function LiveCycleSettings({ variant, currentTradingDayKey }: LiveCycleSe
     <section className="live-cycle-prompt" data-live-cycle-prompt>
       <div>
         <strong>实盘统计尚未截断</strong>
-        <p>当前风险规则从 {suggested} 起生效；建立统计起点可避免规则前记录混入本周期。</p>
+        <p>{suggested
+          ? `当前风险规则从 ${suggested} 起生效；建立统计起点可避免规则前记录混入本周期。`
+          : '风险统计覆盖未知；可先核对并调整实盘统计起点。'}</p>
       </div>
-      <button type="button" className="ui-btn ui-btn-bordered" onClick={openPreview}>建立实盘统计起点</button>
+      <button type="button" className="ui-btn ui-btn-bordered" onClick={openPreview}>调整实盘统计起点</button>
     </section>
   ) : (
     <section className="live-cycle-settings" data-live-cycle-settings>
@@ -87,7 +90,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey }: LiveCycleSe
       </div>
       <div className="live-cycle-settings-actions">
         <button type="button" className="ui-btn ui-btn-primary" onClick={openPreview}>
-          {currentStart ? '修改统计起点' : '建立实盘统计起点'}
+          {currentStart ? '调整实盘统计起点' : '建立实盘统计起点'}
         </button>
         {currentStart ? (
           <button type="button" className="ui-btn ui-btn-bordered" onClick={() => setConfirmClear(true)}>清除统计起点</button>
@@ -108,7 +111,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey }: LiveCycleSe
       {trigger}
       {open ? (
         <ModalShell
-          title="建立实盘统计起点"
+          title={currentStart ? '调整实盘统计起点' : '建立实盘统计起点'}
           description="保存前先核对将被纳入当前周期的实盘记录；不会修改任何历史交易。"
           size="compact"
           busy={busy}
