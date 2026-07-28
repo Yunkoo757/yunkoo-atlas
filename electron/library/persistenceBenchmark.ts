@@ -120,8 +120,6 @@ export async function runElectronPersistenceBenchmark(
               released = true
             }
             if (!released) throw new Error('QuitCoordinator 未释放 LibraryStorage')
-            await storage.open()
-            assertReloadedState()
           },
           cancelPreparation: () => {},
           reportError: () => {},
@@ -130,6 +128,8 @@ export async function runElectronPersistenceBenchmark(
         const result = await coordinator.request('quit')
         const elapsed = performance.now() - startedAt
         if (!result.ok) throw new Error(result.error)
+        await storage.open()
+        assertReloadedState()
         if (backupName) deleteBackupAtPath(root, backupName)
         if (index >= input.warmups) quitSamplesMs.push(elapsed)
       }

@@ -66,6 +66,11 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.match(electron, /verifyBackupAtPath/)
   assert.match(electron, /releaseThenFinalizeWithRollback/)
   assert.match(electron, /storage\.release\(\)/)
+  assert.match(
+    electron,
+    /const elapsed = performance\.now\(\) - startedAt[\s\S]*?if \(!result\.ok\)[\s\S]*?await storage\.open\(\)[\s\S]*?assertReloadedState\(\)/,
+    '退出耗时必须在重开资料库校验前结束，但仍需执行 durable reload 校验',
+  )
   assert.doesNotMatch(runner, /JSON\.parse\(JSON\.stringify/)
   assert.match(webZip, /runWebZipBenchmark/)
   assert.match(webZip, /512 \* MiB/)
