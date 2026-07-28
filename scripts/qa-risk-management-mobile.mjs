@@ -73,18 +73,12 @@ try {
       const actions = document.querySelector('.risk-preparation-actions')
       if (!preparation || !fields || !actions) return null
       const preparationRect = preparation.getBoundingClientRect()
-      const actionButtons = [...actions.querySelectorAll('button')]
       const privacyInputs = [...preparation.querySelectorAll('input')]
       return {
         preparationOverflow: preparation.scrollWidth > preparation.clientWidth,
         fieldsColumns: getComputedStyle(fields).gridTemplateColumns.split(' ').length,
         actionsDirection: getComputedStyle(actions).flexDirection,
         preparationWithinViewport: preparationRect.left >= 0 && preparationRect.right <= window.innerWidth,
-        actionsReachable: actionButtons.length > 0 && actionButtons.every((button) => {
-          button.scrollIntoView({ block: 'nearest' })
-          const rect = button.getBoundingClientRect()
-          return rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0 && rect.bottom <= window.innerHeight + 1
-        }),
         privacyInputsOverflow: privacyInputs.some((input) => input.scrollWidth > input.clientWidth),
       }
     })
@@ -93,7 +87,25 @@ try {
     assert.equal(layout.fieldsColumns, 1, '准备字段在 420px 必须为单列')
     assert.equal(layout.actionsDirection, 'column', '准备动作在 420px 必须纵向排列')
     assert.equal(layout.preparationWithinViewport, true, '准备卡必须完整位于 viewport 内')
-    assert.equal(layout.actionsReachable, true, '准备动作必须完整可达')
+    const actionButtons = settingsFixture.page.locator('.risk-preparation-actions button')
+    const actionCount = await actionButtons.count()
+    assert.ok(actionCount > 0, '准备动作必须存在')
+    for (let index = 0; index < actionCount; index += 1) {
+      const action = actionButtons.nth(index)
+      await action.scrollIntoViewIfNeeded()
+      assert.equal(await action.isVisible(), true, '准备动作必须滚动后可见')
+      assert.equal(await action.isEnabled(), true, '准备动作必须可用')
+      const target = await action.evaluate((button) => {
+        const rect = button.getBoundingClientRect()
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+        return {
+          withinViewport: rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0 && rect.bottom <= window.innerHeight + 1,
+          hitsButton: hit === button || Boolean(hit && button.contains(hit)),
+        }
+      })
+      assert.equal(target.withinViewport, true, '准备动作必须完整进入 viewport')
+      assert.equal(target.hitsButton, true, '准备动作中心命中必须落在按钮自身或后代')
+    }
     assert.equal(layout.privacyInputsOverflow, false, '隐私输入不得横向溢出')
     assert.deepEqual(settingsFixture.diagnostics, [], '准备卡移动 QA 不得产生浏览器错误')
   } finally {

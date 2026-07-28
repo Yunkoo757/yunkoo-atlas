@@ -22,7 +22,7 @@ export function testRiskStatusStripUsesProjectTokensAndNoConfigurationCopy(): vo
     if (!css.includes(token)) throw new Error(`risk strip must use ${token}`)
   }
 
-  const recoveryLinks = source.match(/<Link to="\/settings\/risk">前往风险管理<\/Link>/g) ?? []
+  const recoveryLinks = source.match(/<Link\b[^>]*\bto="\/settings\/risk"/g) ?? []
   if (recoveryLinks.length !== 1) {
     throw new Error('attention and unreviewed states must expose one recovery link to /settings/risk')
   }

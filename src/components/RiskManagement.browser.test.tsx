@@ -190,6 +190,7 @@ async function run(): Promise<void> {
       status.querySelector<HTMLAnchorElement>('a[href="/settings/risk"]')?.textContent?.trim() === '前往风险管理',
       '未复核状态必须提供唯一设置恢复动作',
     )
+    assert(status.querySelectorAll('a[href="/settings/risk"]').length === 1, '未复核状态必须只有一个设置恢复链接')
     const initialPeriods = [...status.querySelectorAll<HTMLElement>('[data-risk-period]')]
     const initialPeriod = (label: string) => initialPeriods.find((period) =>
       period.querySelector('.risk-status-period-head span')?.textContent?.trim() === label)
