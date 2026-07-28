@@ -83,6 +83,9 @@ test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', 
 
   assert.match(runner, /warmups: 5, samples: 30/)
   assert.match(runner, /warmups: 5, samples: 3/)
+  assert.match(runner, /mode === 'release' \? p95\(samples\) : median\(samples\)/)
+  assert.match(runner, /gateStatistic/)
+  assert.match(runner, /gateSummaries/)
   assert.match(runner, /createDataset\(10_000\)/)
   assert.match(runner, /createDataset\(20_000\)/)
   assert.match(runner, /web10kSaveP95Ms: 1_500/)

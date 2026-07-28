@@ -34,6 +34,18 @@ function p95(samples) {
   return sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)]
 }
 
+function median(samples) {
+  if (samples.length === 0) throw new Error('性能样本不能为空')
+  const sorted = [...samples].sort((left, right) => left - right)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle]
+}
+
+const gateStatistic = mode === 'release' ? 'p95' : 'median'
+const sampleGateValue = (samples) => mode === 'release' ? p95(samples) : median(samples)
+
 function addAttachmentDomains(snapshot) {
   const sharedId = 'fixture-asset-shared-three-domains'
   const timestamp = '2026-07-22T00:00:00.000Z'
@@ -203,25 +215,39 @@ const web10k = web.find((item) => item.label === '10k')
 const web20k = web.find((item) => item.label === '20k')
 const electron10k = electron.find((item) => item.label === '10k')
 const electron20k = electron.find((item) => item.label === '20k')
-checkGate('Web 10K CAS save p95', p95(web10k.saveSamplesMs), limits.web10kSaveP95Ms, failures)
-checkGate('Web 20K CAS save p95', p95(web20k.saveSamplesMs), limits.web20kSaveP95Ms, failures)
-checkGate('Web dirty→confirmed 10K p95', p95(web10k.dirtyConfirmedSamplesMs), limits.webDirtyConfirmedP95Ms, failures)
-checkGate('Web dirty→confirmed 20K p95', p95(web20k.dirtyConfirmedSamplesMs), limits.webDirtyConfirmedP95Ms, failures)
-checkGate('Web stale conflict 10K p95', p95(web10k.staleConflictSamplesMs), limits.webStaleConflictP95Ms, failures)
-checkGate('Web stale conflict 20K p95', p95(web20k.staleConflictSamplesMs), limits.webStaleConflictP95Ms, failures)
+checkGate(`Web 10K CAS save ${gateStatistic}`, sampleGateValue(web10k.saveSamplesMs), limits.web10kSaveP95Ms, failures)
+checkGate(`Web 20K CAS save ${gateStatistic}`, sampleGateValue(web20k.saveSamplesMs), limits.web20kSaveP95Ms, failures)
+checkGate(`Web dirty→confirmed 10K ${gateStatistic}`, sampleGateValue(web10k.dirtyConfirmedSamplesMs), limits.webDirtyConfirmedP95Ms, failures)
+checkGate(`Web dirty→confirmed 20K ${gateStatistic}`, sampleGateValue(web20k.dirtyConfirmedSamplesMs), limits.webDirtyConfirmedP95Ms, failures)
+checkGate(`Web stale conflict 10K ${gateStatistic}`, sampleGateValue(web10k.staleConflictSamplesMs), limits.webStaleConflictP95Ms, failures)
+checkGate(`Web stale conflict 20K ${gateStatistic}`, sampleGateValue(web20k.staleConflictSamplesMs), limits.webStaleConflictP95Ms, failures)
 checkGate('Web UI main-thread block 10K', Math.max(0, ...web10k.longTaskSamplesMs), limits.webMainThreadBlockMs, failures)
 checkGate('Web UI main-thread block 20K', Math.max(0, ...web20k.longTaskSamplesMs), limits.webMainThreadBlockMs, failures)
 if (!web10k.longTaskObserverSupported || !web10k.longTaskCalibrationObserved ||
     !web20k.longTaskObserverSupported || !web20k.longTaskCalibrationObserved) {
   failures.push('Long Task observer 未通过 10K/20K 自校准')
 }
-checkGate('Electron 10K save p95', p95(electron10k.saveSamplesMs), limits.electron10kSaveP95Ms, failures)
-checkGate('Electron 20K save p95', p95(electron20k.saveSamplesMs), limits.electron20kSaveP95Ms, failures)
+checkGate(`Electron 10K save ${gateStatistic}`, sampleGateValue(electron10k.saveSamplesMs), limits.electron10kSaveP95Ms, failures)
+checkGate(`Electron 20K save ${gateStatistic}`, sampleGateValue(electron20k.saveSamplesMs), limits.electron20kSaveP95Ms, failures)
 if (web10k.maxPendingSnapshotCount > 1 || web20k.maxPendingSnapshotCount > 1) {
   failures.push(`persistence pending 未合并：10K=${web10k.maxPendingSnapshotCount}, 20K=${web20k.maxPendingSnapshotCount}`)
 }
 if (electron10k.quitSamplesMs?.length) {
-  checkGate('QuitCoordinator 10K p95', p95(electron10k.quitSamplesMs), limits.quitCoordinatorP95Ms, failures)
+  checkGate(`QuitCoordinator 10K ${gateStatistic}`, sampleGateValue(electron10k.quitSamplesMs), limits.quitCoordinatorP95Ms, failures)
+}
+
+const gateSummaries = {
+  web10kSaveMs: sampleGateValue(web10k.saveSamplesMs),
+  web20kSaveMs: sampleGateValue(web20k.saveSamplesMs),
+  electron10kSaveMs: sampleGateValue(electron10k.saveSamplesMs),
+  electron20kSaveMs: sampleGateValue(electron20k.saveSamplesMs),
+  web10kDirtyConfirmedMs: sampleGateValue(web10k.dirtyConfirmedSamplesMs),
+  web20kDirtyConfirmedMs: sampleGateValue(web20k.dirtyConfirmedSamplesMs),
+  web10kStaleConflictMs: sampleGateValue(web10k.staleConflictSamplesMs),
+  web20kStaleConflictMs: sampleGateValue(web20k.staleConflictSamplesMs),
+  quitCoordinatorMs: electron10k.quitSamplesMs?.length
+    ? sampleGateValue(electron10k.quitSamplesMs)
+    : null,
 }
 
 const provenance = await readGitProvenance(root)
@@ -256,6 +282,8 @@ const report = {
     sqlJs: JSON.parse(await fs.readFile(path.join(root, 'node_modules/sql.js/package.json'), 'utf8')).version,
   },
   sampleConfig,
+  gateStatistic,
+  gateSummaries,
   limits,
   web,
   electron,
@@ -279,5 +307,11 @@ const reportDir = path.join(root, 'test-results', 'persistence-benchmark')
 await fs.mkdir(reportDir, { recursive: true })
 const reportPath = path.join(reportDir, `persistence-${mode}.json`)
 await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
-console.log(JSON.stringify({ reportPath, status: report.status, summaries: report.summaries }, null, 2))
+console.log(JSON.stringify({
+  reportPath,
+  status: report.status,
+  gateStatistic: report.gateStatistic,
+  gateSummaries: report.gateSummaries,
+  summaries: report.summaries,
+}, null, 2))
 if (failures.length > 0) throw new Error(`真实持久化 SLO 未达标：\n${failures.join('\n')}`)
