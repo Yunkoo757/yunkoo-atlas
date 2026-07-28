@@ -4,11 +4,12 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  margin-top: var(--sp-4);
-  padding: var(--sp-4);
+  margin-top: var(--sp-8);
+  padding: var(--sp-4) 0;
   color: var(--text-body);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: transparent;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .live-cycle-settings-copy h2 { margin: 0; color: var(--text-primary); font-size: var(--type-section-title-size); }

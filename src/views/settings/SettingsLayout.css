@@ -110,6 +110,10 @@
   margin-top: var(--sp-8);
 }
 
+.settings-page > :not(.settings-page-head) + .settings-page-section {
+  margin-top: var(--sp-8);
+}
+
 @media (max-width: 768px) {
   .settings-body {
     flex-direction: column;
