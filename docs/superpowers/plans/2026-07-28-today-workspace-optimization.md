@@ -66,7 +66,7 @@ assert(tabs.filter((tab) => tab.getAttribute('aria-selected') === 'true').length
 
 - [ ] **Step 2: 运行浏览器契约确认失败**
 
-Run: `node scripts/run-browser-tests.mjs . vite.config.ts`  
+Run: `node scripts/run-browser-tests.mjs . vite.config.ts`
 Expected: FAIL，缺少 `data-today-action-queue` 或未复核状态仍显示“新建交易”。
 
 - [ ] **Step 3: 实现状态感知的工作台顺序**
@@ -109,9 +109,9 @@ const visibleWorkflowGroups = WORKFLOW_GROUPS.filter(({ key }) =>
 
 - [ ] **Step 5: 运行覆盖测试**
 
-Run: `node scripts/run-browser-tests.mjs . vite.config.ts`  
-Expected: PASS。  
-Run: `node scripts/run-regression-tests.mjs`  
+Run: `node scripts/run-browser-tests.mjs . vite.config.ts`
+Expected: PASS。
+Run: `node scripts/run-regression-tests.mjs`
 Expected: PASS。
 
 - [ ] **Step 6: 提交**
@@ -152,7 +152,7 @@ assert(budget.textContent?.includes('今日剩余 2.0R'), '风险护栏必须直
 
 - [ ] **Step 2: 运行浏览器契约确认失败**
 
-Run: `node scripts/run-browser-tests.mjs . vite.config.ts`  
+Run: `node scripts/run-browser-tests.mjs . vite.config.ts`
 Expected: FAIL，组件尚无 `compactWhenNormal` 与 `data-risk-display`。
 
 - [ ] **Step 3: 实现自动呈现模式**
@@ -191,11 +191,11 @@ const compact = Boolean(compactWhenNormal && !needsAttention)
 
 - [ ] **Step 6: 运行覆盖测试**
 
-Run: `node scripts/run-browser-tests.mjs . vite.config.ts`  
-Expected: PASS。  
-Run: `pnpm qa:risk-management-mobile`  
-Expected: PASS。  
-Run: `node scripts/run-regression-tests.mjs`  
+Run: `node scripts/run-browser-tests.mjs . vite.config.ts`
+Expected: PASS。
+Run: `pnpm qa:risk-management-mobile`
+Expected: PASS。
+Run: `node scripts/run-regression-tests.mjs`
 Expected: PASS。
 
 - [ ] **Step 7: 提交**
@@ -237,7 +237,7 @@ assert(buttonCss.includes('var(--accent-hover)'), '主按钮悬停必须继续�
 
 - [ ] **Step 2: 运行设计契约确认失败**
 
-Run: `node scripts/run-regression-tests.mjs`  
+Run: `node scripts/run-regression-tests.mjs`
 Expected: FAIL，当前主操作仍为 28px、caption 仍为 11px、accent text 不是纯白。
 
 - [ ] **Step 3: 调整今日工作台排版与交互尺寸**
@@ -266,11 +266,11 @@ Expected: FAIL，当前主操作仍为 28px、caption 仍为 11px、accent text 
 
 - [ ] **Step 6: 运行验证**
 
-Run: `node scripts/run-regression-tests.mjs`  
-Expected: PASS。  
-Run: `pnpm qa:risk-management-mobile`  
-Expected: PASS。  
-Run: `pnpm build`  
+Run: `node scripts/run-regression-tests.mjs`
+Expected: PASS。
+Run: `pnpm qa:risk-management-mobile`
+Expected: PASS。
+Run: `pnpm build`
 Expected: PASS。
 
 - [ ] **Step 7: 提交**
