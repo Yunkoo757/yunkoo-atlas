@@ -136,12 +136,12 @@ export function WeeklyRiskPreparationCard({
         <div className="risk-preparation-summary-icon" aria-hidden><CheckCircle size={16} /></div>
         <div className="risk-preparation-summary-copy">
           <h2 id="risk-preparation-title">本周风险规则已复核</h2>
-          <p>
+          <p className="risk-preparation-summary-limits">
             日 {fmtLimitR(sourceDraft.dailyLossLimitR)} · 周 {fmtLimitR(sourceDraft.weeklyLossLimitR)} ·
             本月 {fmtLimitR(currentMonthLimit?.limitR ?? sourceDraft.monthlyLossLimitRDefault)}
           </p>
           {confirmedPolicy && confirmedPolicy.effectiveTradingDay > tradingDay ? (
-            <p>本周规则将于 {confirmedPolicy.effectiveTradingDay} 起生效</p>
+            <p className="risk-preparation-summary-future">本周规则将于 {confirmedPolicy.effectiveTradingDay} 起生效</p>
           ) : null}
         </div>
         <Button variant="bordered" size="sm" onClick={() => setEditingReviewed(true)}>

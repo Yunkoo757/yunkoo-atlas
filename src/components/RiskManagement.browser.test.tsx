@@ -299,12 +299,22 @@ async function run(): Promise<void> {
     assert(!document.querySelector('[data-risk-preparation] input'), '确认后不应继续展开编辑字段')
     const reviewedCard = document.querySelector<HTMLElement>('[data-risk-preparation]')
     assert(reviewedCard, '确认后准备卡不存在')
+    assert(reviewedCard.getBoundingClientRect().height <= 58, '已复核规则摘要高度必须不超过 58px')
+    assert(
+      [...reviewedCard.querySelectorAll<HTMLButtonElement>('button')]
+        .some((button) => button.textContent?.trim() === '修改规则' && button.getBoundingClientRect().height >= 32),
+      '已复核规则的修改按钮高度不得低于 32px',
+    )
     const reviewedSummaryLines = [...reviewedCard.querySelectorAll('.risk-preparation-summary-copy p')]
       .filter((line) => line.textContent?.trim().startsWith('日 '))
     assert(reviewedSummaryLines.length === 1, '已复核规则摘要只能保留一行日、周、本月数值')
     assert(
       reviewedSummaryLines[0]?.textContent?.trim() === '日 2.5R · 周 5.0R · 本月 10.0R',
       '已复核规则摘要必须展示日、周、本月三项止损线',
+    )
+    assert(
+      reviewedCard.querySelector('.risk-preparation-summary-future'),
+      '未来生效规则必须使用独立摘要段落以完整显示',
     )
     const reviewedActionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
     assert(reviewedActionQueue, '确认后行动队列不存在')
