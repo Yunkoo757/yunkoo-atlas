@@ -72,6 +72,34 @@ export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalfor
   }
 }
 
+export function testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots(): void {
+  const review = {
+    ...createWeeklyReview('2026-07-13'),
+    evidenceSnapshot: {
+      trades: [{ ...valid.trades[0] }],
+      missedTrades: [{ ...valid.trades[0] }],
+    },
+  }
+  assertValidPersistedSnapshot({ ...valid, weeklyReviews: [review] })
+
+  for (const evidenceSnapshot of [
+    [],
+    { trades: [], missedTrades: {} },
+    { trades: [{ ...valid.trades[0], entry: '100' }], missedTrades: [] },
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({
+        ...valid,
+        weeklyReviews: [{ ...review, evidenceSnapshot }],
+      })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '损坏的周复盘证据快照不得进入资料库')
+  }
+}
+
 export function testSnapshotValidationRejectsMalformedTradeAndSettingsData(): void {
   let rejectedTrade = false
   try {

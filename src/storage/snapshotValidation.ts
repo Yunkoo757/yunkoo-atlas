@@ -367,6 +367,12 @@ function isWeeklyReviewMetrics(value: unknown): boolean {
   )
 }
 
+function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
+  return isRecord(value) &&
+    Array.isArray(value.trades) && value.trades.every(isValidPersistedTrade) &&
+    Array.isArray(value.missedTrades) && value.missedTrades.every(isValidPersistedTrade)
+}
+
 function isWeeklyReview(value: unknown): boolean {
   if (!isRecord(value)) return false
   if (
@@ -397,6 +403,7 @@ function isWeeklyReview(value: unknown): boolean {
   ) return false
   if (value.completedAt !== null && typeof value.completedAt !== 'string') return false
   if (value.metricsSnapshot !== null && !isWeeklyReviewMetrics(value.metricsSnapshot)) return false
+  if (value.evidenceSnapshot !== undefined && !isWeeklyReviewEvidenceSnapshot(value.evidenceSnapshot)) return false
   const riskSnapshot = value.riskSnapshot
   return riskSnapshot === undefined || (
     isWeeklyRiskReviewSnapshot(riskSnapshot) &&

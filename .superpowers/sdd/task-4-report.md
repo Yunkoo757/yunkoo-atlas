@@ -134,3 +134,40 @@ PASS src/data/weeklyReviews.test.ts :: testWeeklyReviewExcludesPreCycleOpenTrade
 PASS src/lib/weeklyReviewSnapshot.test.ts :: testCompletedWeeklyReviewCannotBeRewritten
 PASS src/regression.test.ts :: testLiveWorkbenchAndSidebarCountsUseCurrentCycle
 ```
+
+## 二次复审修复：证据快照导入校验
+
+`evidenceSnapshot` 是 v9 内的可选、向后兼容字段；不增加 Schema 版本，也不迁移存量数据。为避免损坏导入在周复盘 UI 的 `.length` / `.map` 处崩溃，快照校验现在要求：字段若存在，必须是对象，且 `trades`、`missedTrades` 都是由既有 `isValidPersistedTrade()` 校验通过的数组。
+
+### 本次 RED
+
+```powershell
+node scripts/run-regression-tests.mjs --unit-only src/storage/snapshotValidation.test.ts
+```
+
+关键原始输出（退出码 `1`）：
+
+```text
+FAIL src/storage/snapshotValidation.test.ts :: testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots
+Error: 损坏的周复盘证据快照不得进入资料库
+```
+
+用例覆盖字段为数组、内部数组不是数组、以及交易条目非法三种最小边界，并先确认带有效证据快照的周复盘可被接受。
+
+### 本次 GREEN
+
+```powershell
+node scripts/run-regression-tests.mjs --unit-only src/storage/snapshotValidation.test.ts src/data/weeklyReviews.test.ts src/lib/weeklyReviewSnapshot.test.ts
+node scripts/run-browser-tests.mjs . vite.config.ts
+pnpm typecheck
+git diff --check
+```
+
+关键原始输出（全部退出码 `0`）：
+
+```text
+PASS src/storage/snapshotValidation.test.ts :: testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots
+PASS src/data/weeklyReviews.test.ts :: testWeeklyReviewExcludesPreCycleOpenTrades
+PASS src/lib/weeklyReviewSnapshot.test.ts :: testCompletedWeeklyReviewCannotBeRewritten
+PASS src/views/WeeklyReviewView.browser.test.html
+```
