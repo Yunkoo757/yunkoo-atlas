@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertCircle, BookOpen, CheckCircle, Clock, Plus } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
-import { EmptyState } from '@/components/EmptyState'
 import { Topbar } from '@/components/Topbar'
 import { TradeRow } from '@/components/trades/TradeRow'
 import type { Trade } from '@/data/trades'
@@ -13,6 +12,8 @@ import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { buildTodayClosedMetrics, getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { parseLocalDate } from '@/lib/periods'
+import { weekStartFor } from '@/data/weeklyReviews'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
@@ -50,8 +51,18 @@ const WORKFLOW_GROUPS = [
   },
 ] as const
 
+type QueueFilter = 'all' | 'active' | 'resultPending' | 'reviewPending'
+
+const QUEUE_TABS: ReadonlyArray<{ key: QueueFilter; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'active', label: '进行中' },
+  { key: 'resultPending', label: '待结果' },
+  { key: 'reviewPending', label: '待复盘' },
+]
+
 export function TodayWorkspace() {
   const trades = useStore((state) => state.trades)
+  const weeklyRiskPreparations = useStore((state) => state.weeklyRiskPreparations)
   const strategies = useStore((state) => state.strategies)
   const symbolIcons = useStore((state) => state.symbolIcons)
   const starredIds = useStore((state) => state.starredIds)
@@ -65,13 +76,23 @@ export function TodayWorkspace() {
   const isStarred = useStore((state) => state.isStarred)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
   const location = useLocation()
   const today = useLocalDateKey()
   const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
   const todayMetrics = useMemo(() => buildTodayClosedMetrics(trades, today), [trades, today])
-  const todayStatsEmpty = todayMetrics.closedCount === 0
+  const riskReviewed = useMemo(() => weeklyRiskPreparations.some(
+    (preparation) => preparation.weekStart === weekStartFor(parseLocalDate(today)) && preparation.reviewedAt !== null,
+  ), [today, weeklyRiskPreparations])
+  const visibleWorkflowGroups = useMemo(
+    () => queueFilter === 'all'
+      ? WORKFLOW_GROUPS
+      : WORKFLOW_GROUPS.filter((group) => group.key === queueFilter),
+    [queueFilter],
+  )
   const starredIdSet = useMemo(() => new Set(starredIds), [starredIds])
+  // 队列 tab 只更新筛选状态，不再用 scrollIntoView 跳转到模糊的分组目标。
   useTradeReturnAnchor()
 
   const openTrade = (trade: Trade) => {
@@ -115,14 +136,6 @@ export function TodayWorkspace() {
     })
   }
 
-  const hasAnything = buckets.actionCount > 0 || buckets.completedToday.length > 0
-  const scrollToGroup = (key: string) => {
-    document.getElementById(`today-${key}`)?.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-      block: 'start',
-    })
-  }
-
   return (
     <>
       <Topbar title="今日工作台" subtitle={`${dateLabel(today)} · 交易日`} showDisplay={false} />
@@ -132,118 +145,64 @@ export function TodayWorkspace() {
             <div>
               <span className="today-focus-eyebrow">行动队列</span>
               <h1 id="today-focus-title">
-                {buckets.actionCount > 0
+                {!riskReviewed
+                  ? '先完成本周风险准备'
+                  : buckets.actionCount > 0
                   ? `还有 ${buckets.actionCount} 项需要处理`
                   : '今日交易已完成闭环'}
               </h1>
               <p>
-                {buckets.actionCount > 0
+                {!riskReviewed
+                  ? '确认本周规则后，再开始今天安排。'
+                  : buckets.actionCount > 0
                   ? buckets.historicalActionCount > 0
                     ? `其中 ${buckets.historicalActionCount} 项来自此前遗留；先补齐结果，再完成复盘。`
                     : '按执行、结果、复盘的顺序完成闭环；统计会自动保持可信。'
                   : '没有遗留的平仓结果或复盘任务，可以开始记录新机会。'}
               </p>
             </div>
-            <button type="button" className="empty-btn" onClick={() => openComposer()}>
-              <Plus size={15} />
-              新建交易
-            </button>
-          </section>
-
-          <WeeklyRiskPreparationCard currentTradingDayKey={today} />
-          <RiskBudgetCard currentTradingDayKey={today} />
-
-          <section
-            className={'today-stats' + (todayStatsEmpty ? ' is-empty' : '')}
-            aria-label="今日战绩"
-          >
-            <div className="today-stats-head">
-              <div>
-                <span className="today-stats-title">今日战绩</span>
-                <p className="today-stats-sub">
-                  {todayStatsEmpty
-                    ? '今日尚无已平仓 · 平仓后显示胜率与盈亏'
-                    : `实盘 · 按平仓日${
-                        todayMetrics.pnlCount > 0
-                          ? ` · 基于 ${todayMetrics.pnlCount} 笔有金额`
-                          : ''
-                      }`}
-                </p>
-              </div>
-              <Link to="/dashboard?kind=live&range=this-week" className="today-stats-link">
-                查看本周分析
-              </Link>
-            </div>
-            {!todayStatsEmpty ? (
-              <div className="today-stats-metrics">
-                <div className="today-stats-metric">
-                  <span>今日平仓</span>
-                  <strong>{todayMetrics.closedCount}</strong>
-                </div>
-                <div className="today-stats-metric">
-                  <span>胜率</span>
-                  <strong>
-                    {todayMetrics.winRate == null
-                      ? '—'
-                      : `${todayMetrics.winRate.toFixed(0)}%`}
-                  </strong>
-                </div>
-                <div className="today-stats-metric">
-                  <span>净盈亏</span>
-                  <strong
-                    className={
-                      privacyMode || todayMetrics.pnlCount === 0 || todayMetrics.totalPnl === 0
-                        ? undefined
-                        : todayMetrics.totalPnl > 0
-                          ? 'is-pos'
-                          : 'is-neg'
-                    }
-                  >
-                    {todayMetrics.pnlCount === 0
-                      ? '—'
-                      : fmtMoney(todayMetrics.totalPnl, privacyMode)}
-                  </strong>
-                  {todayMetrics.closedCount > todayMetrics.pnlCount ? (
-                    <small>
-                      含 {todayMetrics.closedCount - todayMetrics.pnlCount} 笔待补金额未计入
-                    </small>
-                  ) : null}
-                </div>
-              </div>
+            {riskReviewed ? (
+              <button type="button" className="empty-btn" onClick={() => openComposer()}>
+                <Plus size={15} />
+                新建交易
+              </button>
             ) : null}
           </section>
 
-          <nav className="today-queue-overview" aria-label="待处理事项概览">
-            {WORKFLOW_GROUPS.map(({ key, title, icon: Icon }) => (
-              <button
-                key={key}
-                type="button"
-                className={buckets[key].length ? 'has-items' : ''}
-                onClick={() => scrollToGroup(key)}
-              >
-                <Icon size={15} aria-hidden />
-                <span>{title}</span>
-                <strong>{buckets[key].length}</strong>
-              </button>
-            ))}
-          </nav>
+          {!riskReviewed ? <WeeklyRiskPreparationCard currentTradingDayKey={today} /> : null}
 
-          {!hasAnything ? (
-            <EmptyState
-              title="今天没有待处理事项"
-              hint="新的交易、待补结果和待复盘内容会集中出现在这里。"
-            />
-          ) : (
+          <section className="today-action-queue" data-today-action-queue aria-label="行动队列">
+            <div className="today-queue-tabs" role="tablist" aria-label="行动队列筛选">
+              {QUEUE_TABS.map(({ key, label }) => {
+                const count = key === 'all' ? buckets.actionCount : buckets[key].length
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={queueFilter === key}
+                    className={queueFilter === key ? 'is-selected' : undefined}
+                    onClick={() => setQueueFilter(key)}
+                  >
+                    {label}<strong>{count}</strong>
+                  </button>
+                )
+              })}
+            </div>
+
+            {buckets.actionCount === 0 ? (
+              <div className="today-queue-empty">今天没有待处理事项</div>
+            ) : (
             <div className="today-workflow-groups">
-              {WORKFLOW_GROUPS.map(({ key, title, description, icon: Icon }) => {
+              {visibleWorkflowGroups.map(({ key, title, description, icon: Icon }) => {
                 const items = buckets[key]
                 if (items.length === 0) return null
                 return (
-                  <section id={`today-${key}`} className="today-workflow-group" key={key}>
+                  <section className="today-workflow-group" key={key}>
                     <header>
                       <span className="today-group-icon"><Icon size={15} /></span>
                       <div>
-                        <h2>{title}<span>{items.length}</span></h2>
+                        <h2>{title}</h2>
                         <p>{description}</p>
                       </div>
                     </header>
@@ -268,38 +227,89 @@ export function TodayWorkspace() {
                   </section>
                 )
               })}
-
-              {buckets.completedToday.length > 0 && (
-                <section id="today-completed" className="today-workflow-group is-completed">
-                  <header>
-                    <span className="today-group-icon"><CheckCircle size={15} /></span>
-                    <div>
-                      <h2>今日已完成<span>{buckets.completedToday.length}</span></h2>
-                      <p>今天已完成结果与复盘，不再需要处理的记录。</p>
-                    </div>
-                  </header>
-                  <div className="today-workflow-list">
-                    {buckets.completedToday.map((trade) => (
-                      <TradeRow
-                        key={trade.id}
-                        trade={trade}
-                        strategies={strategies}
-                        symbolIcons={symbolIcons}
-                        focused={false}
-                        selected={false}
-                        selectable={false}
-                        starred={starredIdSet.has(trade.id)}
-                        onOpen={openTrade}
-                        onSelect={() => {}}
-                        onToggleStar={(item) => toggleStar(item.id)}
-                        onContextMenu={openContextMenu}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
             </div>
-          )}
+            )}
+          </section>
+
+          {riskReviewed ? <WeeklyRiskPreparationCard currentTradingDayKey={today} /> : null}
+          <RiskBudgetCard currentTradingDayKey={today} compactWhenNormal />
+
+          {todayMetrics.closedCount > 0 ? (
+            <section className="today-stats" aria-label="今日战绩">
+              <div className="today-stats-head">
+                <div>
+                  <span className="today-stats-title">今日战绩</span>
+                  <p className="today-stats-sub">
+                    {`实盘 · 按平仓日${
+                      todayMetrics.pnlCount > 0 ? ` · 基于 ${todayMetrics.pnlCount} 笔有金额` : ''
+                    }`}
+                  </p>
+                </div>
+                <Link to="/dashboard?kind=live&range=this-week" className="today-stats-link">
+                  查看本周分析
+                </Link>
+              </div>
+              <div className="today-stats-metrics">
+                <div className="today-stats-metric">
+                  <span>今日平仓</span>
+                  <strong>{todayMetrics.closedCount}</strong>
+                </div>
+                <div className="today-stats-metric">
+                  <span>胜率</span>
+                  <strong>
+                    {todayMetrics.winRate == null ? '—' : `${todayMetrics.winRate.toFixed(0)}%`}
+                  </strong>
+                </div>
+                <div className="today-stats-metric">
+                  <span>净盈亏</span>
+                  <strong
+                    className={
+                      privacyMode || todayMetrics.pnlCount === 0 || todayMetrics.totalPnl === 0
+                        ? undefined
+                        : todayMetrics.totalPnl > 0
+                          ? 'is-pos'
+                          : 'is-neg'
+                    }
+                  >
+                    {todayMetrics.pnlCount === 0 ? '—' : fmtMoney(todayMetrics.totalPnl, privacyMode)}
+                  </strong>
+                  {todayMetrics.closedCount > todayMetrics.pnlCount ? (
+                    <small>含 {todayMetrics.closedCount - todayMetrics.pnlCount} 笔待补金额未计入</small>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {buckets.completedToday.length > 0 ? (
+            <section className="today-workflow-group is-completed">
+              <header>
+                <span className="today-group-icon"><CheckCircle size={15} /></span>
+                <div>
+                  <h2>今日已完成</h2>
+                  <p>今天已完成结果与复盘，不再需要处理的记录。</p>
+                </div>
+              </header>
+              <div className="today-workflow-list">
+                {buckets.completedToday.map((trade) => (
+                  <TradeRow
+                    key={trade.id}
+                    trade={trade}
+                    strategies={strategies}
+                    symbolIcons={symbolIcons}
+                    focused={false}
+                    selected={false}
+                    selectable={false}
+                    starred={starredIdSet.has(trade.id)}
+                    onOpen={openTrade}
+                    onSelect={() => {}}
+                    onToggleStar={(item) => toggleStar(item.id)}
+                    onContextMenu={openContextMenu}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />

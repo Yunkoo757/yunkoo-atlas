@@ -162,7 +162,7 @@ async function run(): Promise<void> {
   const root = createRoot(rootElement)
   try {
     useStore.setState((state) => ({
-      trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })],
+      trades: [trade('target', 'planned')],
       weeklyRiskPreparations: [{
         id: `weekly-risk-preparation:${weekStart}`,
         weekStart,
@@ -185,16 +185,17 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(document.querySelector('[data-risk-preparation]')), '未复核准备卡必须常驻')
     let preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
     const budget = document.querySelector<HTMLElement>('[data-risk-budget]')
-    const stats = document.querySelector<HTMLElement>('.today-stats')
-    assert(preparation && budget && stats, '今日工作台缺少准备卡、预算卡或今日战绩')
+    const actionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
+    assert(preparation && budget && actionQueue, '今日工作台缺少准备卡、预算卡或行动队列')
     assert(
-      preparation.compareDocumentPosition(budget) & Node.DOCUMENT_POSITION_FOLLOWING,
-      '准备卡必须位于预算卡之前',
+      preparation.compareDocumentPosition(actionQueue) & Node.DOCUMENT_POSITION_FOLLOWING,
+      '未复核时准备卡必须位于行动队列之前',
     )
-    assert(
-      budget.compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING,
-      '预算卡必须位于今日战绩之前',
-    )
+    assert(!document.querySelector('.today-focus .empty-btn'), '未复核时不得显示新建交易')
+    assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
+
+    useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
+    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')
     assert(preparation.textContent?.includes('单笔风险比例'), '百分比字段必须明确表示单笔风险比例')
     assert(!preparation.textContent?.includes('每 R 风险'), '百分比字段不得与 1R 金额共用同一标签')
 
@@ -291,6 +292,16 @@ async function run(): Promise<void> {
     assert(!document.querySelector('[data-risk-preparation] input'), '确认后不应继续展开编辑字段')
     const reviewedCard = document.querySelector<HTMLElement>('[data-risk-preparation]')
     assert(reviewedCard, '确认后准备卡不存在')
+    const reviewedActionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
+    assert(reviewedActionQueue, '确认后行动队列不存在')
+    assert(
+      reviewedActionQueue.compareDocumentPosition(reviewedCard) & Node.DOCUMENT_POSITION_FOLLOWING,
+      '确认后行动队列必须位于已复核规则卡之前',
+    )
+    assert(document.querySelector('.today-focus .empty-btn')?.textContent?.includes('新建交易'), '确认后必须恢复新建交易主操作')
+    const queueTabs = reviewedActionQueue.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+    assert(queueTabs.length === 4, '行动队列必须有全部、进行中、待结果、待复盘四个 tab')
+    assert([...queueTabs].filter((tab) => tab.getAttribute('aria-selected') === 'true').length === 1, '行动队列必须只有一个已选 tab')
 
     const reviewedPreparation = useStore.getState().weeklyRiskPreparations[0]!
     const reviewedPolicyCount = useStore.getState().riskPolicyVersions.length
