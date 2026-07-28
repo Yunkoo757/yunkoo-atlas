@@ -7,7 +7,6 @@ import {
   ChevronUp,
   Link2,
   MoreHorizontal,
-  Favorite,
   Star,
   Copy,
   Pencil,
@@ -599,7 +598,7 @@ export function DetailView() {
         toast(starred ? '已取消星标' : '已加入星标')
       }}
     >
-      {starred ? <Star size={16} /> : <Favorite size={16} />}
+      <Star size={16} fill={starred ? 'currentColor' : 'none'} />
     </IconButton>
   )
 

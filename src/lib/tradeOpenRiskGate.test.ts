@@ -182,6 +182,57 @@ export function testBelowAndUnconfiguredCleanOpenWithoutOverride(): void {
   )
 }
 
+export function testHistoricalMonthlyPolicyGapDoesNotBlockCurrentOpen(): void {
+  const currentPolicy = {
+    ...policy,
+    id: 'policy-current-week',
+    effectiveTradingDay: '2026-07-27',
+    confirmedAt: '2026-07-27T00:00:00.000Z',
+  }
+  const historicalLoss = {
+    ...trade('historical-loss', 'loss', -1_000),
+    openedAt: '2026-07-01T08:00:00.000Z',
+    closedAt: '2026-07-01T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-01',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned'), historicalLoss],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: currentPolicy.id }],
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'opened' && result.decision === 'below', '仅有月内历史规则缺口时不得反复阻断当前开仓')
+}
+
+export function testCurrentWeekPolicyGapStillRequiresConfirmation(): void {
+  const currentPolicy = {
+    ...policy,
+    id: 'policy-midweek',
+    effectiveTradingDay: '2026-07-28',
+    confirmedAt: '2026-07-27T12:00:00.000Z',
+  }
+  const weeklyLoss = {
+    ...trade('weekly-loss', 'loss', -1_000),
+    closedAt: '2026-07-27T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-27',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned'), weeklyLoss],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: currentPolicy.id }],
+    currentTradingDayKey: '2026-07-29',
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '本周亏损缺少适用规则时仍必须确认')
+  assert(result.request.decisionType === 'unknown', '本周规则缺口必须保持 unknown 判定')
+}
+
 export function testUnknownRequiresConfirmationAndExistingPendingWins(): void {
   const unknownState = {
     ...triggeredState('planned'),

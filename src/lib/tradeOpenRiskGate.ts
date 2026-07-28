@@ -247,7 +247,16 @@ function createPendingRequest(
     week: cloneRiskOutcome(resolved.week),
     month: cloneRiskOutcome(resolved.month),
   }
-  const decisionType: RiskDecisionType | null = resolved.gateCoverage === 'unknown' || (
+  const historicalMonthlyPolicyGapOnly = policy !== null &&
+    monthlyLimit !== null &&
+    outcomes.day.coverage === 'complete' &&
+    outcomes.week.coverage === 'complete' &&
+    outcomes.month.coverage === 'unknown' &&
+    resolved.unknownReasons.length > 0 &&
+    resolved.unknownReasons.every((reason) => reason === 'missing-policy')
+  const decisionType: RiskDecisionType | null = (
+    resolved.gateCoverage === 'unknown' && !historicalMonthlyPolicyGapOnly
+  ) || (
     policy !== null && monthlyLimit === null
   )
     ? 'unknown'

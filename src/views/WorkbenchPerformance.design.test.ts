@@ -24,6 +24,17 @@ export function testSidebarHeaderActionIconsRemainOutlineIcons(): void {
   }
 }
 
+export function testDetailStarActionUsesOneStarMetaphor(): void {
+  const detail = read('src/views/DetailView.tsx')
+
+  if (detail.includes('Favorite')) {
+    throw new Error('detail star action must not switch to a heart icon when inactive')
+  }
+  if (!detail.includes("<Star size={16} fill={starred ? 'currentColor' : 'none'} />")) {
+    throw new Error('detail star action must use one outlined/filled star icon')
+  }
+}
+
 export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
   const source = read('src/hooks/useWorkbenchVisibleTrades.ts')
 
