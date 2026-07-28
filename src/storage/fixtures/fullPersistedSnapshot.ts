@@ -33,7 +33,7 @@ function assetImage(id: string): string {
 }
 
 /**
- * 唯一全量合同 fixture。20 个活跃字段都使用非默认哨兵值，
+ * 唯一全量合同 fixture。21 个活跃字段都使用非默认哨兵值，
  * 并覆盖三个内容域的独立附件以及跨内容域共享附件。
  */
 export function createFullPersistedSnapshotFixture(
@@ -168,6 +168,7 @@ export function createFullPersistedSnapshotFixture(
       },
       unknownReasons: [],
     }],
+    liveStatsStartTradingDayKey: '2026-07-13',
     weeklyReviews: [{
       ...weeklyReview,
       status: 'completed',

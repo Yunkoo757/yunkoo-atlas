@@ -58,6 +58,7 @@ export function mergeImportPayload(
   return {
     strategies,
     trades: normalizeTrades(riskMerged.trades),
+    liveStatsStartTradingDayKey: current.liveStatsStartTradingDayKey ?? null,
     weeklyRiskPreparations: riskMerged.weeklyRiskPreparations,
     riskPolicyVersions: riskMerged.riskPolicyVersions,
     monthlyRiskLimits: riskMerged.monthlyRiskLimits,

@@ -2,6 +2,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
+import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -619,6 +620,13 @@ export function assertValidPersistedSnapshot(
   if (!isUserProfile(value.profile)) throw new Error(`${label} contains an invalid profile`)
   if (!isSavedTradeViews(value.savedTradeViews)) throw new Error(`${label} contains invalid saved trade views`)
   if (!isSymbolIcons(value.symbolIcons)) throw new Error(`${label} contains invalid symbol icons`)
+  if (
+    value.liveStatsStartTradingDayKey !== undefined &&
+    value.liveStatsStartTradingDayKey !== null &&
+    !isValidLiveCycleDayKey(value.liveStatsStartTradingDayKey)
+  ) {
+    throw new Error(`${label}.liveStatsStartTradingDayKey must be a valid trading day or null`)
+  }
   if (value.symbolCatalog !== undefined && !isStringArray(value.symbolCatalog)) {
     throw new Error(`${label}.symbolCatalog must be a string array`)
   }

@@ -43,6 +43,8 @@ export interface PersistedSnapshot {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
+  /** 实盘统计周期起点；null 或缺失表示未启用。 */
+  liveStatsStartTradingDayKey?: string | null
   /** v7：独立于交易记录的周复盘。旧资料库省略时按空数组加载。 */
   weeklyReviews?: WeeklyReview[]
   /** v8：独立于交易体系的随记。不会参与交易统计或随机复盘。 */

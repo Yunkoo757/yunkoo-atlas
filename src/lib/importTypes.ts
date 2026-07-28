@@ -16,6 +16,7 @@ import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 
 export interface ExportPayload {
   version: number
+  liveStatsStartTradingDayKey?: string | null
   trades: (Trade & { strategy?: string })[]
   weeklyRiskPreparations: WeeklyRiskPreparation[]
   riskPolicyVersions: RiskPolicyVersion[]
@@ -46,6 +47,7 @@ export interface ImportIdentityPayload {
 
 export interface PersistedSlice {
   trades: Trade[]
+  liveStatsStartTradingDayKey?: string | null
   weeklyRiskPreparations?: WeeklyRiskPreparation[]
   riskPolicyVersions?: RiskPolicyVersion[]
   monthlyRiskLimits?: MonthlyRiskLimit[]

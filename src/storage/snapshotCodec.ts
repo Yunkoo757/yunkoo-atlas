@@ -11,6 +11,7 @@ import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
+import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import type { ActivePersistedSnapshotKey } from '@/storage/persistedKeys'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -119,6 +120,13 @@ function decodeVersionedArray(
   return value
 }
 
+function decodeLiveCycleStart(raw: Record<string, unknown>): string | null {
+  const value = raw.liveStatsStartTradingDayKey
+  if (value === undefined || value === null) return null
+  if (isValidLiveCycleDayKey(value)) return value
+  throw new Error('liveStatsStartTradingDayKey 必须是有效交易日或 null')
+}
+
 function backfillClosedTradingDayKeys(
   value: unknown,
   tradingDayStartHour: unknown,
@@ -172,6 +180,7 @@ export function decodeCanonicalSnapshot(
     riskPolicyVersions: decodeVersionedArray(raw, 'riskPolicyVersions', options.version) as PersistedSnapshot['riskPolicyVersions'],
     monthlyRiskLimits: decodeVersionedArray(raw, 'monthlyRiskLimits', options.version) as PersistedSnapshot['monthlyRiskLimits'],
     riskOverrideEvents: decodeVersionedArray(raw, 'riskOverrideEvents', options.version) as PersistedSnapshot['riskOverrideEvents'],
+    liveStatsStartTradingDayKey: decodeLiveCycleStart(raw),
     weeklyReviews: (raw.weeklyReviews === undefined ? [] : raw.weeklyReviews) as PersistedSnapshot['weeklyReviews'],
     quickNotes: (raw.quickNotes === undefined ? [] : raw.quickNotes) as PersistedSnapshot['quickNotes'],
     strategies: (raw.strategies === undefined ? [] : raw.strategies) as PersistedSnapshot['strategies'],
@@ -218,6 +227,7 @@ export function decodeCanonicalSnapshot(
       },
       unknownReasons: [...item.unknownReasons],
     })),
+    liveStatsStartTradingDayKey: candidate.liveStatsStartTradingDayKey ?? null,
     weeklyReviews: normalizeWeeklyReviews(candidate.weeklyReviews),
     quickNotes: normalizeQuickNotes(candidate.quickNotes),
     strategies: normalizedRelations.strategies,
