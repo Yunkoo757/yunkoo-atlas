@@ -120,6 +120,9 @@ const WeeklyReviewView = lazy(() =>
 const StrategiesPanel = lazy(() =>
   import('./views/settings/StrategiesPanel').then((module) => ({ default: module.StrategiesPanel })),
 )
+const RiskManagementSettingsPanel = lazy(() =>
+  import('./views/settings/RiskManagementSettingsPanel').then((module) => ({ default: module.RiskManagementSettingsPanel })),
+)
 const QuickNotesView = lazy(() =>
   import('./views/QuickNotesView').then((module) => ({ default: module.QuickNotesView })),
 )
@@ -415,6 +418,7 @@ function Shell() {
             <Route path="profile" element={<ProfileSettingsPanel />} />
             <Route path="shortcuts" element={<ShortcutsPanel />} />
             <Route path="strategies" element={<StrategiesPanel />} />
+            <Route path="risk" element={<RiskManagementSettingsPanel />} />
             <Route path="tags" element={<TagPresetsPanel />} />
             <Route path="symbols" element={<SymbolsPanel />} />
             <Route path="review-templates" element={<ReviewTemplatesPanel />} />

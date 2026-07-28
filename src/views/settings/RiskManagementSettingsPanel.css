@@ -1,0 +1,21 @@
+.risk-management-settings { max-width: 820px; }
+.risk-management-settings .risk-preparation-card {
+  margin-top: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.risk-management-settings .risk-preparation-card:not(.is-reviewed) {
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.risk-management-settings .risk-preparation-card.is-reviewed {
+  min-height: 52px;
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+@media (max-width: 768px) {
+  .risk-management-settings .risk-preparation-card.is-reviewed { min-height: 56px; }
+}
