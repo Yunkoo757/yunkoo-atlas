@@ -97,7 +97,9 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
     <section className="live-cycle-settings" data-live-cycle-settings>
       <div className="live-cycle-settings-copy">
         <h2>实盘统计周期</h2>
-        <p>{currentStart ? `当前从 ${currentStart} 起统计实盘记录。` : '未设置起点，默认统计全部实盘记录。'}</p>
+        <p>{currentStart
+          ? `风险、工作台与绩效从 ${currentStart} 起统计；交易日志保留全部实盘历史。`
+          : '未设置起点，风险、工作台与绩效会覆盖全部实盘历史。'}</p>
       </div>
       <div className="live-cycle-settings-actions">
         <button type="button" className="ui-btn ui-btn-primary" onClick={openPreview}>
@@ -109,7 +111,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
       </div>
       {confirmClear ? (
         <div className="live-cycle-clear-confirm" role="status">
-          <span>清除后将恢复全部实盘统计。</span>
+          <span>清除后风险、工作台与绩效将恢复全部实盘口径；规则前缺失数据可能重新显示为无法判断。</span>
           <button type="button" className="ui-btn ui-btn-bordered" disabled={busy} onClick={() => setConfirmClear(false)}>取消</button>
           <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={() => void commitStart(null, '已恢复全部实盘统计')}>确认清除</button>
         </div>
@@ -123,7 +125,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
       {open ? (
         <ModalShell
           title={currentStart ? '调整实盘统计起点' : '建立实盘统计起点'}
-          description="保存前先核对将被纳入当前周期的实盘记录；不会修改任何历史交易。"
+          description="保存前先核对将被纳入当前周期的实盘记录；不会修改或隐藏交易日志。"
           size="compact"
           busy={busy}
           onClose={() => {

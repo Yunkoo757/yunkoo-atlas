@@ -226,11 +226,14 @@ export function deriveWorkbenchVisibleTrades(
     tradingDayStartHour,
     options.businessDateAnchor,
   )
+  const requestedLiveCycleScope = new URLSearchParams(options.search).get('liveCycle')
   const liveCycleScope = options.filter.tradeKind === 'paper' ||
     options.filter.tradeKind === 'case' ||
     options.filter.analysisScope?.kind === 'paper'
     ? 'all'
-    : parseLiveCycleScope(options.search)
+    : requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
+      ? parseLiveCycleScope(options.search)
+      : 'all'
   const cycleFiltered = filterTradesForLiveCycle(
     routeFiltered,
     liveCycleScope,
@@ -283,11 +286,14 @@ export function countWorkbenchVisibleTrades(options: {
     : parsedFacets
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
+  const requestedLiveCycleScope = new URLSearchParams(options.search).get('liveCycle')
   const liveCycleScope = options.filter.tradeKind === 'paper' ||
     options.filter.tradeKind === 'case' ||
     options.filter.analysisScope?.kind === 'paper'
     ? 'all'
-    : parseLiveCycleScope(options.search)
+    : requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
+      ? parseLiveCycleScope(options.search)
+      : 'all'
   const routeFiltered = options.trades.filter((trade) =>
     !trade.deletedAt && matchesListFilter(
       trade,

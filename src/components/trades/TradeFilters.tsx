@@ -164,8 +164,8 @@ export function TradeFilters({
       'liveCycle',
       searchParams.get('liveCycle') === 'pre-cycle'
         ? '规则前'
-        : searchParams.get('liveCycle') === 'all'
-          ? '全部实盘'
+        : searchParams.get('liveCycle') === 'current'
+          ? '当前周期'
           : '',
     ],
     [
@@ -403,9 +403,9 @@ export function TradeFilters({
                     value={searchParams.get('liveCycle') ?? ''}
                     onChange={(value) => setParam('liveCycle', value)}
                     options={[
-                      ['', '当前周期'],
+                      ['', '全部实盘'],
+                      ['current', '当前周期'],
                       ['pre-cycle', '规则前'],
-                      ['all', '全部实盘'],
                     ]}
                   />
                 ) : null}

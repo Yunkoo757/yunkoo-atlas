@@ -125,6 +125,11 @@ async function run(): Promise<void> {
         .some((button) => button.textContent?.trim() === '确认清除'),
       '清除确认未出现',
     )
+    const settings = document.querySelector<HTMLElement>('[data-live-cycle-settings]')
+    const settingsCopy = settings?.querySelector<HTMLElement>('.live-cycle-settings-copy')
+    assert(settings && settingsCopy, '清除确认状态缺少设置布局')
+    assert(settings.scrollWidth <= settings.clientWidth, '清除确认状态不得撑出设置分区')
+    assert(settingsCopy.getBoundingClientRect().width >= 220, '清除确认状态不得把标题压成逐字换行')
     click('确认清除')
     await waitFor(
       () => useStore.getState().liveStatsStartTradingDayKey === null,

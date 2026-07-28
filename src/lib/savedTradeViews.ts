@@ -57,8 +57,8 @@ const TRADE_KIND_LABELS: Record<string, string> = {
 }
 
 const LIVE_CYCLE_LABELS: Record<string, string> = {
+  current: '当前周期',
   'pre-cycle': '规则前',
-  all: '全部实盘',
 }
 
 const ENUM_FACET_VALUES: Record<string, readonly string[]> = {

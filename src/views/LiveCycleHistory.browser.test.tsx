@@ -52,6 +52,7 @@ function HistoryProbe() {
   const navigate = useNavigate()
   return (
     <>
+      <button type="button" onClick={() => navigate('?liveCycle=current')}>当前周期范围</button>
       <button type="button" onClick={() => navigate('?liveCycle=pre-cycle')}>规则前范围</button>
       <button type="button" onClick={() => navigate('?liveCycle=all')}>全部范围</button>
       <div data-visible-refs={visible.map((trade) => trade.ref).join(',')}>
@@ -98,8 +99,14 @@ async function run(): Promise<void> {
     root.render(<MemoryRouter><HistoryProbe /></MemoryRouter>)
 
     await waitFor(
+      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE,TRD-OLD-LIVE',
+      '交易日志缺省范围必须保留全部实盘历史',
+    )
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent === '当前周期范围')?.click()
+    await waitFor(
       () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE',
-      '缺省范围必须只显示当前周期交易',
+      '显式当前周期范围必须只显示周期内交易',
     )
     ;[...document.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent === '规则前范围')?.click()
