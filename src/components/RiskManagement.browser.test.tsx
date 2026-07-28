@@ -193,7 +193,7 @@ async function run(): Promise<void> {
     )
     assert(!document.querySelector('.today-focus .empty-btn'), '未复核时不得显示新建交易')
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
-    assert(budget.getAttribute('data-risk-display') === 'normal', '正常风险预算必须折叠显示')
+    assert(budget.getAttribute('data-risk-display') === 'compact', '正常风险预算必须折叠显示')
     const compactDetails = budget.querySelector('details')
     assert(compactDetails && !compactDetails.open, '正常风险预算必须提供默认关闭的详情')
     assert(compactDetails.querySelector('summary')?.textContent?.includes('今日剩余 2.0R'), '折叠摘要必须展示今日剩余风险')
@@ -248,8 +248,8 @@ async function run(): Promise<void> {
         trades: [{ ...trade('loss-59', 'loss'), pnl: -1_180 }],
         policies: [policy],
         limits: [monthlyLimit],
-        expectedDisplay: 'normal',
-        ready: () => budget.getAttribute('data-risk-display') === 'normal'
+        expectedDisplay: 'compact',
+        ready: () => budget.getAttribute('data-risk-display') === 'compact'
           && budget.querySelector('[aria-label="今日止损预算"]')?.getAttribute('aria-valuenow') === '59',
       },
       {
@@ -298,7 +298,7 @@ async function run(): Promise<void> {
         `${fixture.name} 的风险披露层级不正确`,
       )
       const details = budget.querySelector('details')
-      if (fixture.expectedDisplay === 'normal') {
+      if (fixture.expectedDisplay === 'compact') {
         assert(details && !details.open, `${fixture.name} 必须提供默认关闭的详情`)
       } else {
         assert(!details, `${fixture.name} 不得折叠风险详情`)
