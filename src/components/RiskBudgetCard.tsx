@@ -99,8 +99,10 @@ function RiskMeter({
 
 export function RiskBudgetCard({
   currentTradingDayKey,
+  compactWhenNormal = false,
 }: {
   currentTradingDayKey?: string
+  compactWhenNormal?: boolean
 }) {
   const liveTradingDay = useLocalDateKey()
   const tradingDay = currentTradingDayKey ?? liveTradingDay
@@ -123,9 +125,16 @@ export function RiskBudgetCard({
     () => nextScheduledPolicy(policies, tradingDay),
     [policies, tradingDay],
   )
-
-  return (
-    <section className="risk-budget-card" data-risk-budget aria-labelledby="risk-budget-title">
+  const needsAttention = !policy || ROWS.some(({ scope }) => {
+    const outcome = outcomes[scope]
+    return outcome.coverage !== 'complete'
+      || outcome.limitR <= 0
+      || outcome.triggered
+      || outcome.progress >= 0.6
+  })
+  const compact = compactWhenNormal && !needsAttention
+  const details = (
+    <>
       <header className="risk-budget-header">
         <span className="risk-budget-icon" aria-hidden><Gauge size={17} /></span>
         <div>
@@ -156,6 +165,29 @@ export function RiskBudgetCard({
           ? `规则将在 ${scheduledPolicy.effectiveTradingDay} 起用于风险统计。`
           : '先确认资金基准、每 R 风险与三周期止损线。')}</span>
       </footer>
+    </>
+  )
+
+  return (
+    <section
+      className={`risk-budget-card${compact ? ' is-compact' : ''}`}
+      data-risk-budget
+      data-risk-display={compact ? 'compact' : 'attention'}
+      aria-labelledby="risk-budget-title"
+    >
+      {compact ? (
+        <details>
+          <summary className="risk-budget-compact-summary">
+            <span className="risk-budget-compact-title">风险护栏</span>
+            <span className="risk-budget-compact-status">当前状态 正常</span>
+            <span>今日剩余 <strong>{fmtBudgetR(outcomes.day.remainingR)}</strong></span>
+            <span>本周剩余 <strong>{fmtBudgetR(outcomes.week.remainingR)}</strong></span>
+            <span>本月剩余 <strong>{fmtBudgetR(outcomes.month.remainingR)}</strong></span>
+            <span className="risk-budget-compact-details">查看详情</span>
+          </summary>
+          <div className="risk-budget-compact-content">{details}</div>
+        </details>
+      ) : details}
     </section>
   )
 }

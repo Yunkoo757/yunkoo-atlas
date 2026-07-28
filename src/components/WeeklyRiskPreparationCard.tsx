@@ -138,16 +138,11 @@ export function WeeklyRiskPreparationCard({
           <h2 id="risk-preparation-title">本周风险规则已复核</h2>
           <p>
             日 {fmtLimitR(sourceDraft.dailyLossLimitR)} · 周 {fmtLimitR(sourceDraft.weeklyLossLimitR)} ·
-            未来月默认 {fmtLimitR(sourceDraft.monthlyLossLimitRDefault)}
+            本月 {fmtLimitR(currentMonthLimit?.limitR ?? sourceDraft.monthlyLossLimitRDefault)}
           </p>
           {confirmedPolicy && confirmedPolicy.effectiveTradingDay > tradingDay ? (
             <p>本周规则将于 {confirmedPolicy.effectiveTradingDay} 起生效</p>
           ) : null}
-          <p>
-            {currentMonthLimit
-              ? `当前月 ${currentMonthKey} 已锁定 ${fmtLimitR(currentMonthLimit.limitR)}`
-              : `当前月 ${currentMonthKey} 尚未建立锁定值`}
-          </p>
         </div>
         <Button variant="bordered" size="sm" onClick={() => setEditingReviewed(true)}>
           修改规则

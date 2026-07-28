@@ -193,9 +193,16 @@ async function run(): Promise<void> {
     )
     assert(!document.querySelector('.today-focus .empty-btn'), '未复核时不得显示新建交易')
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
+    assert(budget.getAttribute('data-risk-display') === 'compact', '正常风险预算必须折叠显示')
+    const compactDetails = budget.querySelector('details')
+    assert(compactDetails && !compactDetails.open, '正常风险预算必须提供默认关闭的详情')
+    assert(compactDetails.querySelector('summary')?.textContent?.includes('今日剩余 2.0R'), '折叠摘要必须展示今日剩余风险')
 
     useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
     await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')
+    assert(budget.getAttribute('data-risk-display') === 'attention', '覆盖未知时风险预算必须完整显示')
+    assert(!budget.querySelector('details'), '风险提示状态不得折叠详情')
+    assert(budget.querySelectorAll('[role="progressbar"]').length === 3, '风险提示状态必须直接展示三个预算进度')
     assert(preparation.textContent?.includes('单笔风险比例'), '百分比字段必须明确表示单笔风险比例')
     assert(!preparation.textContent?.includes('每 R 风险'), '百分比字段不得与 1R 金额共用同一标签')
 
@@ -292,6 +299,13 @@ async function run(): Promise<void> {
     assert(!document.querySelector('[data-risk-preparation] input'), '确认后不应继续展开编辑字段')
     const reviewedCard = document.querySelector<HTMLElement>('[data-risk-preparation]')
     assert(reviewedCard, '确认后准备卡不存在')
+    const reviewedSummaryLines = [...reviewedCard.querySelectorAll('.risk-preparation-summary-copy p')]
+      .filter((line) => line.textContent?.trim().startsWith('日 '))
+    assert(reviewedSummaryLines.length === 1, '已复核规则摘要只能保留一行日、周、本月数值')
+    assert(
+      reviewedSummaryLines[0]?.textContent?.trim() === '日 2.5R · 周 5.0R · 本月 10.0R',
+      '已复核规则摘要必须展示日、周、本月三项止损线',
+    )
     const reviewedActionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
     assert(reviewedActionQueue, '确认后行动队列不存在')
     assert(
@@ -361,8 +375,8 @@ async function run(): Promise<void> {
     assert(Math.abs(revisedPolicy.riskPercent - 1.25) < 1e-9, '直接编辑 1R 金额必须反算百分比')
     assert(revisedPolicy.riskAmount === 1_250, '1R 金额必须按分精度保存')
     assert(useStore.getState().monthlyRiskLimits[0]?.limitR === 10, '修改未来月默认值不得覆盖当前月锁定值')
-    await waitFor(() => reviewedCard.textContent?.includes('未来月默认 12.0R') ?? false, '确认后摘要应展示新的未来月默认值')
-    assert(reviewedCard.textContent?.includes('当前月') && reviewedCard.textContent?.includes('已锁定 10.0R'), '折叠摘要必须另示当前月锁定值')
+    assert(!reviewedCard.textContent?.includes('未来月默认'), '已复核摘要不得显示未来月默认值')
+    assert(reviewedCard.textContent?.includes('日 2.5R · 周 5.0R · 本月 10.0R'), '折叠摘要必须展示当前月风险上限')
     assert(
       reviewedCard.textContent?.includes(`将于 ${revisedPolicy.effectiveTradingDay} 起生效`),
       '已复核但待生效的规则必须展示生效日期',

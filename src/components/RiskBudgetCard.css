@@ -7,6 +7,46 @@
   border-radius: var(--radius-8);
 }
 
+.risk-budget-card.is-compact {
+  padding: 5px var(--sp-3);
+}
+
+.risk-budget-card.is-compact details { min-width: 0; }
+
+.risk-budget-compact-summary {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.risk-budget-compact-summary::-webkit-details-marker { display: none; }
+
+.risk-budget-compact-summary span { flex: 0 0 auto; }
+
+.risk-budget-compact-summary strong,
+.risk-budget-compact-title {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.risk-budget-compact-status { color: var(--pos); }
+.risk-budget-compact-details { color: var(--accent); }
+
+.risk-budget-card.is-compact details[open] .risk-budget-compact-summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.risk-budget-compact-content { padding-top: 10px; }
+
 .risk-budget-header {
   display: flex;
   align-items: flex-start;

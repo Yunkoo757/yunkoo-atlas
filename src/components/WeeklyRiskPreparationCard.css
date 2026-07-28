@@ -56,6 +56,12 @@
   line-height: 1.45;
 }
 
+.risk-preparation-card.is-reviewed .risk-preparation-summary-copy p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .risk-preparation-form { margin-top: 14px; }
 
 .risk-preparation-fields {
