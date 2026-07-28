@@ -62,6 +62,10 @@ async function run(): Promise<void> {
     }
     if (!panel.textContent?.includes('确认本周规则')) throw new Error('设置页缺少每周确认动作')
 
+    if (new URLSearchParams(location.search).get('visual') === 'cards') {
+      await new Promise<void>(() => {})
+    }
+
     const capital = [...panel.querySelectorAll('label')]
       .find((label) => label.textContent?.includes('资金基准'))
       ?.querySelector<HTMLInputElement>('input')

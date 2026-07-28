@@ -126,12 +126,8 @@ function trade(id: string, status: 'planned' | 'loss', options: { unknown?: bool
 
 function Harness() {
   const [showTemporaryOpener, setShowTemporaryOpener] = useState(true)
-  const [workspaceKey, setWorkspaceKey] = useState(0)
   return (
     <MemoryRouter initialEntries={['/today-record']}>
-      <button hidden type="button" data-remount-workspace onClick={() => setWorkspaceKey((value) => value + 1)}>
-        重挂工作台
-      </button>
       {showTemporaryOpener ? (
         <button
           id="temporary-risk-opener"
@@ -144,7 +140,7 @@ function Harness() {
           临时开仓入口
         </button>
       ) : null}
-      <TodayWorkspace key={workspaceKey} />
+      <TodayWorkspace />
       <TradeOpenRiskDialog />
     </MemoryRouter>
   )
@@ -178,16 +174,22 @@ async function run(): Promise<void> {
     }))
     root.render(<Harness />)
 
-    await waitFor(() => Boolean(document.querySelector('[data-risk-preparation]')), '未复核准备卡必须常驻')
-    let preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
+    await waitFor(
+      () => Boolean(document.querySelector('[data-risk-status]') && document.querySelector('[data-today-action-queue]')),
+      '今日工作台没有完成渲染',
+    )
     const status = document.querySelector<HTMLElement>('[data-risk-status]')
     const actionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
-    assert(preparation && status && actionQueue, '今日工作台缺少准备卡、风险状态或行动队列')
+    assert(actionQueue && status, '今日工作台缺少风险状态或行动队列')
+    assert(!document.querySelector('[data-risk-preparation]'), '工作台不得渲染风险配置表单')
+    assert(!document.body.textContent?.includes('修改规则'), '工作台不得提供规则编辑动作')
+    assert(!document.body.textContent?.includes('确认本周规则'), '工作台不得提供每周确认动作')
+    assert(document.querySelector('.today-focus .empty-btn'), '工作台主动作不得因未复核而消失')
+    assert(status.textContent?.includes('本周风险规则尚未确认'), '风险轨道必须说明未复核状态')
     assert(
-      preparation.compareDocumentPosition(actionQueue) & Node.DOCUMENT_POSITION_FOLLOWING,
-      '未复核时准备卡必须位于行动队列之前',
+      status.querySelector<HTMLAnchorElement>('a[href="/settings/risk"]')?.textContent?.trim() === '前往风险管理',
+      '未复核状态必须提供唯一设置恢复动作',
     )
-    assert(!document.querySelector('.today-focus .empty-btn'), '未复核时不得显示新建交易')
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
     assert(status.querySelectorAll('[data-risk-period]').length === 3, '风险状态必须始终展示日周月')
     assert(!status.querySelector('details'), '风险状态不得折叠')
@@ -261,90 +263,25 @@ async function run(): Promise<void> {
       }],
     })
     await waitFor(
-      () => document.querySelector('[data-risk-preparation]')?.getAttribute('data-reviewed') === 'false',
+      () => status.textContent?.includes('本周风险规则尚未确认') ?? false,
       '半完整持久化准备状态必须保持未复核',
     )
-    preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
-    const partialPreparationQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
-    assert(preparation && partialPreparationQueue, '半完整持久化状态缺少准备卡或行动队列')
-    assert(!document.querySelector('.today-focus .empty-btn'), '缺少已确认规则版本时不得显示新建交易')
-    assert(
-      preparation.compareDocumentPosition(partialPreparationQueue) & Node.DOCUMENT_POSITION_FOLLOWING,
-      '缺少已确认规则版本时准备卡必须位于行动队列之前',
-    )
-    useStore.setState({
-      weeklyRiskPreparations: [{
-        ...useStore.getState().weeklyRiskPreparations[0]!,
-        reviewedAt: null,
-      }],
-    })
-    await waitFor(
-      () => document.querySelector('[data-risk-preparation]')?.getAttribute('data-reviewed') === 'false',
-      '恢复未复核准备状态失败',
-    )
-
     useStore.setState({
       trades: [trade('target', 'planned')],
       riskPolicyVersions: [policy],
       monthlyRiskLimits: [monthlyLimit],
       weeklyRiskPreparations: [{
         ...useStore.getState().weeklyRiskPreparations[0]!,
-        reviewedAt: null,
-        confirmedPolicyVersionId: null,
+        reviewedAt: confirmedAt,
+        confirmedPolicyVersionId: policy.id,
       }],
     })
-
-    if (new URLSearchParams(location.search).get('visual') === 'cards') {
-      await new Promise<void>(() => {})
-    }
-
-    const unreviewedDailyInput = [...preparation.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('日止损线'))
-      ?.querySelector<HTMLInputElement>('input')
-    assert(unreviewedDailyInput, '未复核卡缺少日止损草稿输入')
-    setText(unreviewedDailyInput, '2.5')
-    await waitFor(() => useStore.getState().weeklyRiskPreparations[0]?.draft.dailyLossLimitR === 2.5, '未复核输入没有持久化 draft')
-    document.querySelector<HTMLButtonElement>('[data-remount-workspace]')?.click()
-    await waitFor(() => document.querySelector<HTMLInputElement>('[data-risk-preparation] input') !== unreviewedDailyInput, '工作台没有卸载并重挂载')
-    preparation = document.querySelector<HTMLElement>('[data-risk-preparation]')
-    assert(preparation, '重挂载后准备卡不存在')
-    const remountedDailyInput = [...preparation.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('日止损线'))
-      ?.querySelector<HTMLInputElement>('input')
-    assert(remountedDailyInput?.value === '2.5', '未复核草稿在卸载/重挂载后没有保留')
-
-    click('确认本周规则', preparation)
     await waitFor(
-      () => document.querySelector('[data-risk-preparation]')?.getAttribute('data-reviewed') === 'true',
-      '确认后准备卡没有折叠为摘要',
-    )
-    assert(!document.querySelector('[data-risk-preparation] input'), '确认后不应继续展开编辑字段')
-    const reviewedCard = document.querySelector<HTMLElement>('[data-risk-preparation]')
-    assert(reviewedCard, '确认后准备卡不存在')
-    assert(reviewedCard.getBoundingClientRect().height <= 58, '已复核规则摘要高度必须不超过 58px')
-    assert(
-      [...reviewedCard.querySelectorAll<HTMLButtonElement>('button')]
-        .some((button) => button.textContent?.trim() === '修改规则' && button.getBoundingClientRect().height >= 32),
-      '已复核规则的修改按钮高度不得低于 32px',
-    )
-    const reviewedSummaryLines = [...reviewedCard.querySelectorAll('.risk-preparation-summary-copy p')]
-      .filter((line) => line.textContent?.trim().startsWith('日 '))
-    assert(reviewedSummaryLines.length === 1, '已复核规则摘要只能保留一行日、周、本月数值')
-    assert(
-      reviewedSummaryLines[0]?.textContent?.trim() === '日 2.5R · 周 5.0R · 本月 10.0R',
-      '已复核规则摘要必须展示日、周、本月三项止损线',
-    )
-    assert(
-      reviewedCard.querySelector('.risk-preparation-summary-future'),
-      '未来生效规则必须使用独立摘要段落以完整显示',
+      () => !(status.textContent?.includes('本周风险规则尚未确认') ?? true),
+      '恢复已复核准备状态失败',
     )
     const reviewedActionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
-    assert(reviewedActionQueue, '确认后行动队列不存在')
-    assert(
-      reviewedActionQueue.compareDocumentPosition(reviewedCard) & Node.DOCUMENT_POSITION_FOLLOWING,
-      '确认后行动队列必须位于已复核规则卡之前',
-    )
-    assert(document.querySelector('.today-focus .empty-btn')?.textContent?.includes('新建交易'), '确认后必须恢复新建交易主操作')
+    assert(reviewedActionQueue, '已复核时行动队列不存在')
     const completedTrade: Trade = {
       ...trade('completed-today', 'loss'),
       reviewStatus: 'reviewed',
@@ -380,51 +317,6 @@ async function run(): Promise<void> {
         && activeTab.getAttribute('aria-controls') === queuePanel?.id
         && queuePanel?.getAttribute('aria-labelledby') === activeTab.id,
       'tab 与 tabpanel 必须通过 aria-controls 和 aria-labelledby 关联',
-    )
-
-    const reviewedPreparation = useStore.getState().weeklyRiskPreparations[0]!
-    const reviewedPolicyCount = useStore.getState().riskPolicyVersions.length
-    click('修改规则', reviewedCard)
-    await waitFor(() => Boolean(reviewedCard.querySelector('input')), '修改规则没有展开本地草稿')
-    const dailyLimitInput = [...reviewedCard.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('日止损线'))
-      ?.querySelector<HTMLInputElement>('input')
-    assert(dailyLimitInput, '已复核卡缺少日止损草稿输入')
-    setText(dailyLimitInput, '3')
-    await frame()
-    assert(
-      useStore.getState().weeklyRiskPreparations[0]?.reviewedAt === reviewedPreparation.reviewedAt,
-      '本地修改不得提前清除 reviewedAt',
-    )
-    assert(
-      useStore.getState().weeklyRiskPreparations[0]?.draft.dailyLossLimitR === reviewedPreparation.draft.dailyLossLimitR,
-      '本地修改不得提前写入 Store draft',
-    )
-    click('取消修改', reviewedCard)
-    await waitFor(() => !reviewedCard.querySelector('input'), '取消修改没有回到已复核摘要')
-    assert(useStore.getState().riskPolicyVersions.length === reviewedPolicyCount, '取消修改不得生成规则版本')
-
-    click('修改规则', reviewedCard)
-    await waitFor(() => Boolean(reviewedCard.querySelector('[aria-label="1R 金额"]')), '再次修改没有展开本地草稿')
-    const riskAmountInput = reviewedCard.querySelector<HTMLInputElement>('[aria-label="1R 金额"]')
-    assert(riskAmountInput, '准备卡必须允许直接编辑 1R 金额')
-    setText(riskAmountInput, '1250')
-    const futureMonthInput = [...reviewedCard.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('起未来月止损默认'))
-      ?.querySelector<HTMLInputElement>('input')
-    assert(futureMonthInput, '月字段必须明确为未来月默认值')
-    setText(futureMonthInput, '12')
-    click('确认本周规则', reviewedCard)
-    await waitFor(() => useStore.getState().riskPolicyVersions.length === reviewedPolicyCount + 1, '确认修改没有保存新规则版本')
-    const revisedPolicy = useStore.getState().riskPolicyVersions.at(-1)!
-    assert(Math.abs(revisedPolicy.riskPercent - 1.25) < 1e-9, '直接编辑 1R 金额必须反算百分比')
-    assert(revisedPolicy.riskAmount === 1_250, '1R 金额必须按分精度保存')
-    assert(useStore.getState().monthlyRiskLimits[0]?.limitR === 10, '修改未来月默认值不得覆盖当前月锁定值')
-    assert(!reviewedCard.textContent?.includes('未来月默认'), '已复核摘要不得显示未来月默认值')
-    assert(reviewedCard.textContent?.includes('日 2.5R · 周 5.0R · 本月 10.0R'), '折叠摘要必须展示当前月风险上限')
-    assert(
-      reviewedCard.textContent?.includes(`将于 ${revisedPolicy.effectiveTradingDay} 起生效`),
-      '已复核但待生效的规则必须展示生效日期',
     )
 
     const temporaryOpener = document.getElementById('temporary-risk-opener') as HTMLButtonElement

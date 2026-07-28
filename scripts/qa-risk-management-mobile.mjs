@@ -38,10 +38,10 @@ async function assertViewport(page) {
   assert.equal(viewport.bodyOverflow, false, 'body 不得横向溢出')
 }
 
-async function openFixture(browser, baseUrl, visual) {
+async function openFixture(browser, baseUrl, pathname, visual) {
   const page = await browser.newPage({ viewport: VIEWPORT })
   const diagnostics = watchDiagnostics(page)
-  await page.goto(new URL(`/src/components/RiskManagement.browser.test.html?visual=${visual}`, baseUrl).href)
+  await page.goto(new URL(`${pathname}?visual=${visual}`, baseUrl).href)
   return { page, diagnostics }
 }
 
@@ -58,44 +58,39 @@ try {
   assert.ok(baseUrl, 'Vite test server did not expose a local URL')
   browser = await chromium.launch({ headless: true })
 
-  const cardsFixture = await openFixture(browser, baseUrl, 'cards')
+  const cardsFixture = await openFixture(
+    browser,
+    baseUrl,
+    '/src/views/settings/RiskManagementSettings.browser.test.html',
+    'cards',
+  )
   try {
     await cardsFixture.page.locator('[data-risk-preparation]').waitFor()
-    await cardsFixture.page.locator('[data-risk-budget]').waitFor()
     await assertViewport(cardsFixture.page)
     const cards = await cardsFixture.page.evaluate(() => {
       const preparation = document.querySelector('[data-risk-preparation]')
-      const budget = document.querySelector('[data-risk-budget]')
       const fields = document.querySelector('.risk-preparation-fields')
       const actions = document.querySelector('.risk-preparation-actions')
-      const meters = document.querySelector('.risk-budget-meters')
-      if (!preparation || !budget || !fields || !actions || !meters) return null
+      if (!preparation || !fields || !actions) return null
       const preparationRect = preparation.getBoundingClientRect()
-      const budgetRect = budget.getBoundingClientRect()
       return {
         preparationOverflow: preparation.scrollWidth > preparation.clientWidth,
-        budgetOverflow: budget.scrollWidth > budget.clientWidth,
         fieldsColumns: getComputedStyle(fields).gridTemplateColumns.split(' ').length,
         actionsDirection: getComputedStyle(actions).flexDirection,
-        meterColumns: getComputedStyle(meters).gridTemplateColumns.split(' ').length,
         preparationWithinViewport: preparationRect.left >= 0 && preparationRect.right <= window.innerWidth,
-        budgetWithinViewport: budgetRect.left >= 0 && budgetRect.right <= window.innerWidth,
       }
     })
-    assert.ok(cards, '真实风控 fixture 缺少准备卡移动布局节点')
+    assert.ok(cards, '风险管理设置页缺少准备卡移动布局节点')
     assert.equal(cards.preparationOverflow, false, '准备卡不得横向溢出')
-    assert.equal(cards.budgetOverflow, false, '预算卡不得横向溢出')
     assert.equal(cards.fieldsColumns, 1, '准备字段在 420px 必须为单列')
     assert.equal(cards.actionsDirection, 'column', '准备动作在 420px 必须纵向排列')
-    assert.equal(cards.meterColumns, 1, '日周月预算在 420px 必须为单列')
     assert.equal(cards.preparationWithinViewport, true, '准备卡必须完整位于 viewport 内')
-    assert.equal(cards.budgetWithinViewport, true, '预算卡必须完整位于 viewport 内')
     assert.deepEqual(cardsFixture.diagnostics, [], '准备卡移动 QA 不得产生浏览器错误')
   } finally {
     await cardsFixture.page.close()
   }
 
-  const dialogFixture = await openFixture(browser, baseUrl, 'dialog')
+  const dialogFixture = await openFixture(browser, baseUrl, '/src/components/RiskManagement.browser.test.html', 'dialog')
   try {
     const dialog = dialogFixture.page.locator('[data-trade-open-risk-dialog]')
     await dialog.waitFor({ timeout: 15_000 })
