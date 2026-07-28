@@ -4,8 +4,11 @@ import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope, RiskPolicyVersion } fr
 import { fmtMoney, fmtR } from '@/lib/format'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
+import { parseLocalDate } from '@/lib/periods'
+import { weekStartFor } from '@/data/weeklyReviews'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
+import { LiveCycleSettings } from '@/components/LiveCycleSettings'
 import './RiskBudgetCard.css'
 
 const ROWS: Array<{ scope: RiskPeriodScope; label: string; ariaLabel: string }> = [
@@ -22,6 +25,21 @@ const COVERAGE_LABEL = {
 
 function fmtBudgetR(value: number): string {
   return fmtR(Math.abs(value)).replace(/^\+/, '')
+}
+
+function scopedRiskLabel(
+  scope: RiskPeriodScope,
+  label: string,
+  start: string | null,
+  current: string,
+): string {
+  if (!start || start > current) return label
+  const periodStart = scope === 'day'
+    ? current
+    : scope === 'week'
+      ? weekStartFor(parseLocalDate(current))
+      : `${current.slice(0, 7)}-01`
+  return start > periodStart ? `${label} · 自${Number(start.slice(5, 7))}月${Number(start.slice(8, 10))}日起` : label
 }
 
 function tone(outcome: RiskPeriodOutcomeSnapshot): string {
@@ -157,7 +175,7 @@ export function RiskBudgetCard({
         {ROWS.map((row) => (
           <RiskMeter
             key={row.scope}
-            label={row.label}
+            label={scopedRiskLabel(row.scope, row.label, liveStatsStartTradingDayKey, tradingDay)}
             ariaLabel={row.ariaLabel}
             outcome={outcomes[row.scope]}
           />
@@ -169,6 +187,7 @@ export function RiskBudgetCard({
           ? `规则将在 ${scheduledPolicy.effectiveTradingDay} 起用于风险统计。`
           : '先确认资金基准、每 R 风险与三周期止损线。')}</span>
       </footer>
+      <LiveCycleSettings variant="prompt" currentTradingDayKey={tradingDay} />
     </>
   )
 

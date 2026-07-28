@@ -45,6 +45,13 @@ async function openFixture(browser, baseUrl, visual) {
   return { page, diagnostics }
 }
 
+async function openLiveCycleFixture(browser, baseUrl) {
+  const page = await browser.newPage({ viewport: VIEWPORT })
+  const diagnostics = watchDiagnostics(page)
+  await page.goto(new URL('/src/components/LiveCycleSettings.browser.test.html?visual=dialog', baseUrl).href)
+  return { page, diagnostics }
+}
+
 try {
   await server.listen()
   const baseUrl = server.resolvedUrls?.local[0]
@@ -135,7 +142,47 @@ try {
     await dialogFixture.page.close()
   }
 
-  console.log('PASS: risk management mobile QA at 420×844')
+  const liveCycleFixture = await openLiveCycleFixture(browser, baseUrl)
+  try {
+    const dialog = liveCycleFixture.page.locator('[data-live-cycle-dialog]')
+    await dialog.waitFor({ timeout: 15_000 })
+    await liveCycleFixture.page.evaluate(() => Promise.all(
+      document.getAnimations().map((animation) => animation.finished),
+    ))
+    await assertViewport(liveCycleFixture.page)
+    const layout = await liveCycleFixture.page.evaluate(() => {
+      const content = document.querySelector('[data-live-cycle-dialog]')
+      const counts = document.querySelector('.live-cycle-counts')
+      const shell = content?.closest('[role="dialog"]')
+      const footer = shell?.querySelector('.modal-shell-footer')
+      const action = [...(footer?.querySelectorAll('button') ?? [])]
+        .find((button) => button.textContent?.trim() === '确认建立新周期')
+      if (!content || !counts || !shell || !footer || !action) return null
+      const shellRect = shell.getBoundingClientRect()
+      const footerRect = footer.getBoundingClientRect()
+      const actionRect = action.getBoundingClientRect()
+      return {
+        countsColumns: getComputedStyle(counts).gridTemplateColumns.split(' ').length,
+        shellOverflow: shell.scrollWidth > shell.clientWidth,
+        shellWithinViewport: shellRect.left >= 0 && shellRect.right <= window.innerWidth,
+        footerFullyVisible: footerRect.top >= 0 && footerRect.bottom <= window.innerHeight,
+        actionFullyVisible: actionRect.top >= 0 && actionRect.bottom <= window.innerHeight,
+        actionHeight: actionRect.height,
+      }
+    })
+    assert.ok(layout, '实盘新周期 fixture 缺少预览弹窗节点')
+    assert.equal(layout.countsColumns, 1, '新周期预览数量卡在 420px 必须为单列')
+    assert.equal(layout.shellOverflow, false, '新周期预览不得横向溢出')
+    assert.equal(layout.shellWithinViewport, true, '新周期预览必须完整位于 viewport 内')
+    assert.equal(layout.footerFullyVisible, true, '新周期预览 footer 必须完整可见')
+    assert.equal(layout.actionFullyVisible, true, '新周期预览主动作必须完整可见')
+    assert.ok(layout.actionHeight >= 44, '新周期预览主动作触控高度不得小于 44px')
+    assert.deepEqual(liveCycleFixture.diagnostics, [], '新周期预览移动 QA 不得产生浏览器错误')
+  } finally {
+    await liveCycleFixture.page.close()
+  }
+
+  console.log('PASS: risk management and live cycle mobile QA at 420×844')
 } finally {
   await browser?.close()
   await server.close()

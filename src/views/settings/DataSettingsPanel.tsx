@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { DataIOContent } from '@/components/DataIOContent'
+import { LiveCycleSettings } from '@/components/LiveCycleSettings'
+import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
@@ -56,6 +58,7 @@ function fmtBackupSize(bytes: number): string {
 export function DataSettingsPanel({
   assetPurgeCommitEnabled = ASSET_PURGE_COMMIT_ENABLED,
 }: { assetPurgeCommitEnabled?: boolean } = {}) {
+  const currentTradingDayKey = useLocalDateKey()
   const electron = isElectron()
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backing, setBacking] = useState(false)
@@ -365,6 +368,7 @@ export function DataSettingsPanel({
           void refreshHealth()
         }}
       />
+      <LiveCycleSettings variant="settings" currentTradingDayKey={currentTradingDayKey} />
 
       {/* 存储健康面板 */}
       <section className="settings-page-section">
