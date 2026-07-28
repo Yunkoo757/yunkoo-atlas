@@ -4,7 +4,7 @@
 > 状态：已确认，待实施
 > 基线：`codex/fix-star-and-risk-gate@573f04d`
 > 范围：实盘统计起点、规则前历史、风险预算、今日工作台、策略统计、周复盘与交易历史筛选
-> 预计数据版本：`PersistedSnapshot` Schema v10
+> 数据版本：`PersistedSnapshot` Schema v9（向后兼容可选字段）
 
 ## 1. 结论
 
@@ -174,12 +174,12 @@ selectCurrentLiveCycleTrades(trades, liveStatsStartTradingDayKey, tradingDayStar
 
 ## 7. 数据模型与持久化
 
-`PersistedSnapshot` 升级至 Schema v10，新增资料库级字段：
+`PersistedSnapshot` 在现有 Schema v9 内新增向后兼容的资料库级可选字段：
 
 ```ts
 interface PersistedSnapshot {
   // existing fields...
-  liveStatsStartTradingDayKey: string | null
+  liveStatsStartTradingDayKey?: string | null
 }
 ```
 
@@ -191,11 +191,14 @@ setLiveStatsStartTradingDayKey(value: string | null): void
 
 规则：
 
-- 原生 v10 快照必须包含该字段，并严格校验为 `null` 或有效 `YYYY-MM-DD`；
-- v9 → v10 迁移补 `null`，保持升级前行为不变；
+- 缺少字段与显式 `null` 都规范化为 `null`，保持升级前行为不变；
+- 字段存在时必须严格校验为 `null` 或有效 `YYYY-MM-DD`；
+- 该字段“缺失即未启用”，属于可安全默认的附加设置，因此不触发 Electron 文件级 Schema 迁移；
 - Electron 快照、Web 归档、JSON 导入导出、空资料库、测试 fixture、资料库切换和恢复必须完整携带该字段；
 - 不把领域设置塞入 `DisplayPrefs`，也不写入单笔交易；
 - 设置保存继续走现有持久化提交与并发保护，不新增旁路存储。
+
+完整恢复或资料库切换采用目标资料库自己的统计起点。普通“合并导入”只合并交易与内容，保留当前资料库的统计起点；不得让外部文件在无确认的情况下改变当前统计口径。
 
 设置变更是单字段原子提交。由于没有交易批量更新，撤销只需把字段恢复为先前值；无需创建 16 条伪活动或维护跨交易撤销栈。
 
@@ -218,7 +221,7 @@ setLiveStatsStartTradingDayKey(value: string | null): void
 | 开仓日期无法解析 | 阻止确认并列出记录 |
 | 设置保存失败 | 保持旧值和旧统计，不展示成功反馈 |
 | 清除起点 | 恢复全历史口径，不修改交易 |
-| 导入旧 v9 资料库 | 自动迁移为 `null`，不擅自建立周期 |
+| 导入未包含该字段的 v9 资料库 | 规范化为 `null`，不擅自建立周期 |
 
 ## 10. 验收标准
 
@@ -237,13 +240,13 @@ setLiveStatsStartTradingDayKey(value: string | null): void
 - 风险预算测试证明规则前亏损不参与当前周期，边界日亏损正常参与。
 - Gate 测试证明旧缺口不拦截，但当前周期未知风险仍拦截。
 - 工作台、策略统计、交易历史和周复盘口径一致性测试通过。
-- v9 → v10 迁移、严格 v10 解码、导入导出、资料库切换和恢复测试通过。
+- v9 缺省兼容、非法值拒绝、导入导出、资料库切换和恢复测试通过。
 - 设置、修改、清除起点的持久化测试通过。
 - `pnpm test`、`pnpm build` 和 Windows 桌面端打包验证通过。
 
 ## 11. 实施顺序
 
-1. 增加 Schema v10 字段、迁移和所有持久化通道。
+1. 在 Schema v9 内增加向后兼容字段、规范化与所有持久化通道。
 2. 实现唯一的周期归属领域函数与测试。
 3. 将风险预算和 Gate 接入当前周期选择器。
 4. 将工作台、策略指标与新周复盘接入同一选择器。
