@@ -853,6 +853,8 @@ export const useStore = create<State>()((set, get) => ({
           const candidate = requestTradeOpenCandidate({
             ...s,
             currentTradingDayKey: getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+            liveStatsStartTradingDayKey: s.liveStatsStartTradingDayKey,
+            tradingDayStartHour: s.display.tradingDayStartHour,
           }, id, { existingPending: s.pendingTradeOpenRequest })
           if (candidate.kind === 'not-found') return s
           if (candidate.kind === 'pending-exists') {

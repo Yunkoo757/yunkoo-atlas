@@ -109,6 +109,8 @@ export function RiskBudgetCard({
   const trades = useStore((state) => state.trades)
   const policies = useStore((state) => state.riskPolicyVersions)
   const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const ensureRiskPeriodRecords = useStore((state) => state.ensureRiskPeriodRecords)
   useEffect(() => {
@@ -119,7 +121,9 @@ export function RiskBudgetCard({
     policies,
     monthlyLimits,
     currentTradingDayKey: tradingDay,
-  }), [trades, policies, monthlyLimits, tradingDay])
+    liveStatsStartTradingDayKey,
+    tradingDayStartHour,
+  }), [trades, policies, monthlyLimits, tradingDay, liveStatsStartTradingDayKey, tradingDayStartHour])
   const policy = useMemo(() => activeRiskPolicy(policies, tradingDay), [policies, tradingDay])
   const scheduledPolicy = useMemo(
     () => nextScheduledPolicy(policies, tradingDay),

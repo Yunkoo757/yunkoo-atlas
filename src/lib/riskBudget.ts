@@ -7,6 +7,7 @@ import type {
 } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import {
@@ -83,6 +84,8 @@ export interface ResolveRiskOutcomesInput {
   policies: RiskPolicyVersion[]
   monthlyLimits: MonthlyRiskLimit[]
   currentTradingDayKey: string
+  liveStatsStartTradingDayKey?: string | null
+  tradingDayStartHour?: number
 }
 
 export interface ResolvedRiskOutcomes {
@@ -178,8 +181,14 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
   const currentMonth = input.currentTradingDayKey.slice(0, 7)
   const monthlyLimit = input.monthlyLimits.find((limit) => limit.monthKey === currentMonth)
   const results: CandidateResult[] = []
+  const currentCycleTrades = filterTradesForLiveCycle(
+    input.trades,
+    'current',
+    input.liveStatsStartTradingDayKey ?? null,
+    input.tradingDayStartHour ?? 0,
+  )
 
-  for (const trade of input.trades
+  for (const trade of currentCycleTrades
     .filter((candidate) => candidate.tradeKind === 'live' && !candidate.deletedAt && isExecutedClosed(candidate.status))
     .sort((left, right) => left.id.localeCompare(right.id))) {
     const truth = resolveTradeTruth(trade)

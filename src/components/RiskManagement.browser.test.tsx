@@ -60,6 +60,11 @@ const nextTradingDay = (() => {
   date.setDate(date.getDate() + 1)
   return formatYmd(date)
 })()
+const previousTradingDay = (() => {
+  const date = parseLocalDate(day)
+  date.setDate(date.getDate() - 1)
+  return formatYmd(date)
+})()
 const weekStart = weekStartFor(parseLocalDate(day))
 const monthKey = day.slice(0, 7)
 const confirmedAt = new Date().toISOString()
@@ -175,6 +180,7 @@ async function run(): Promise<void> {
       riskPolicyVersions: [policy],
       monthlyRiskLimits: [monthlyLimit],
       riskOverrideEvents: [],
+      liveStatsStartTradingDayKey: null,
       pendingTradeOpenRequest: null,
       undoStack: [],
       redoStack: [],
@@ -305,6 +311,29 @@ async function run(): Promise<void> {
         assert(budget.querySelectorAll('[role="progressbar"]').length === 3, `${fixture.name} 必须直接展示三个预算进度`)
       }
     }
+
+    useStore.setState({
+      trades: [
+        trade('target', 'planned'),
+        {
+          ...trade('pre-cycle-unknown-loss', 'loss', { unknown: true }),
+          openedAt: `${previousTradingDay}T01:00:00.000Z`,
+        },
+      ],
+      riskPolicyVersions: [policy],
+      monthlyRiskLimits: [monthlyLimit],
+      liveStatsStartTradingDayKey: day,
+    })
+    await waitFor(() => !(budget.textContent?.includes('覆盖未知') ?? false), '起点前亏损仍污染预算卡覆盖状态')
+    assert(!budget.textContent?.includes('未计入 1 笔'), '起点前亏损不得显示为当前周期未计入')
+
+    useStore.setState({
+      trades: [
+        trade('target', 'planned'),
+        trade('current-cycle-unknown-loss', 'loss', { unknown: true }),
+      ],
+    })
+    await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '起点日未知亏损必须恢复 fail-closed')
 
     useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
     await waitFor(() => budget.textContent?.includes('覆盖未知') ?? false, '恢复 unknown fixture 失败')

@@ -33,6 +33,8 @@ export interface RiskGateCommitState {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
+  liveStatsStartTradingDayKey: string | null
+  display: { tradingDayStartHour: number }
 }
 
 export interface CommitRiskGatedTradeOpenInput<State extends RiskGateCommitState> {
@@ -145,11 +147,15 @@ function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSna
     riskPolicyVersions: state.riskPolicyVersions,
     monthlyRiskLimits: state.monthlyRiskLimits,
     riskOverrideEvents: state.riskOverrideEvents,
+    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
+    tradingDayStartHour: state.display.tradingDayStartHour,
   }) === canonicalJson({
     trades: snapshot.trades,
     riskPolicyVersions: snapshot.riskPolicyVersions,
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
     riskOverrideEvents: snapshot.riskOverrideEvents,
+    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
+    tradingDayStartHour: snapshot.display.tradingDayStartHour,
   })
 }
 
@@ -261,6 +267,8 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
       riskPolicyVersions: baseline.state.riskPolicyVersions,
       monthlyRiskLimits: baseline.state.monthlyRiskLimits,
       currentTradingDayKey: baseline.currentTradingDayKey,
+      liveStatsStartTradingDayKey: baseline.state.liveStatsStartTradingDayKey,
+      tradingDayStartHour: baseline.state.display.tradingDayStartHour,
     }
     const validation = validatePendingFingerprint(input.request, gateState)
     if (validation.kind === 'cancelled') return validation

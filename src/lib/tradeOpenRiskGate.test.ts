@@ -74,6 +74,8 @@ function triggeredState(source: 'planned' | 'missed' | 'loss'): TradeOpenRiskGat
     riskPolicyVersions: [policy],
     monthlyRiskLimits: [monthlyLimit],
     currentTradingDayKey: '2026-07-27',
+    liveStatsStartTradingDayKey: null,
+    tradingDayStartHour: 0,
   }
 }
 
@@ -357,4 +359,56 @@ export function testDomainOpenCandidateNeverCreatesUndoRedoEntries(): void {
   assert(opened.kind === 'opened', 'below fixture 必须直接生成 open 候选')
   assert(opened.state.undoStack === state.undoStack, '首次 open 领域命令不得追加 Undo')
   assert(opened.state.redoStack === state.redoStack, '首次 open 领域命令不得创建可绕过 Gate 的 Redo')
+}
+
+export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClosed(): void {
+  const state = {
+    ...triggeredState('planned'),
+    trades: [
+      trade('target', 'planned'),
+      {
+        ...trade('old-loss', 'loss', -2_000),
+        openedAt: '2026-07-26',
+        closedAt: '2026-07-27T09:00:00.000Z',
+        closedTradingDayKey: '2026-07-27',
+      },
+    ],
+    liveStatsStartTradingDayKey: '2026-07-27',
+    tradingDayStartHour: 0,
+  }
+
+  const below = requestTradeOpenCandidate(state, 'target')
+  assert(below.kind === 'opened' && below.decision === 'below', '起点前开仓的旧亏损不得触发当前 Gate')
+
+  const boundaryUnknown = requestTradeOpenCandidate({
+    ...state,
+    trades: state.trades.map((item) => item.id === 'old-loss' ? {
+      ...item,
+      openedAt: '2026-07-27',
+      pnl: null,
+      resultSource: 'r' as const,
+      rMultiple: -1,
+    } : item),
+  }, 'target')
+  assert(
+    boundaryUnknown.kind === 'confirmation-required' && boundaryUnknown.request.decisionType === 'unknown',
+    '起点日开仓的未知亏损必须继续 fail-closed',
+  )
+}
+
+export function testChangingLiveCycleStartInvalidatesPendingConfirmation(): void {
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned')],
+    monthlyRiskLimits: [],
+  }
+  const candidate = requestTradeOpenCandidate(state, 'target')
+  assert(candidate.kind === 'confirmation-required', 'fixture 必须因缺少月限额产生 pending')
+
+  const validation = validatePendingFingerprint(candidate.request, {
+    ...state,
+    liveStatsStartTradingDayKey: '2026-07-27',
+  })
+
+  assert(validation.kind === 'needs-reconfirmation', '周期起点变化必须使既有确认失效')
 }

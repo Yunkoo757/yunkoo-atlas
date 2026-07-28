@@ -20,13 +20,14 @@ import { requestTradeOpenCandidate } from '@/lib/tradeOpenRiskGate'
 import {
   commitRiskGatedTradeOpen,
   RiskGatePublishAfterCommitError,
+  type RiskGateCommitState,
 } from '@/lib/riskGatedTradeOpenCommit'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-function baseline(): PersistedSnapshot {
+function baseline(): PersistedSnapshot & RiskGateCommitState {
   const snapshot = createFullPersistedSnapshotFixture()
   const loss = {
     ...snapshot.trades[0]!,
@@ -72,6 +73,7 @@ function baseline(): PersistedSnapshot {
       weeklyLossLimitR: 4.5,
     })),
     riskOverrideEvents: [],
+    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
   }
 }
 
@@ -81,6 +83,8 @@ function pending(snapshot: PersistedSnapshot) {
     riskPolicyVersions: snapshot.riskPolicyVersions,
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
     currentTradingDayKey: '2026-07-27',
+    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
+    tradingDayStartHour: snapshot.display.tradingDayStartHour,
   }, 'target')
   assert(result.kind === 'confirmation-required', 'fixture 必须触发 Gate')
   return result.request
@@ -92,9 +96,34 @@ function electronAdapter(commit: (snapshot: PersistedSnapshot) => Promise<void>)
   } as unknown as StorageAdapter
 }
 
+export async function testCycleSettingsSnapshotMismatchRequiresReconfirmation(): Promise<void> {
+  const original = baseline()
+  const state = {
+    ...original,
+    liveStatsStartTradingDayKey: null,
+    display: { ...original.display, tradingDayStartHour: original.display.tradingDayStartHour },
+  }
+  let writes = 0
+
+  const result = await commitRiskGatedTradeOpen({
+    request: pending(original),
+    reason: '周期设置快照不一致',
+    storage: electronAdapter(async () => { writes += 1 }),
+    captureLatestState: () => ({
+      state,
+      snapshot: original,
+      currentTradingDayKey: '2026-07-27',
+    }),
+    publish: () => undefined,
+  })
+
+  assert(result.kind === 'needs-reconfirmation', '周期设置与持久化快照不一致时必须重新确认')
+  assert(writes === 0, '快照不一致时不得写盘')
+}
+
 export async function testPublishFailureAfterDurableCommitRequiresReloadAndDiscardsAutosave(): Promise<void> {
   const original = baseline()
-  let persisted = original
+  let persisted: PersistedSnapshot = original
   let error: unknown
   try {
     await commitRiskGatedTradeOpen({
@@ -316,7 +345,7 @@ export async function testCommittedOverrideAuditIsDetachedAndImmutable(): Promis
 
 export async function testElectronPublishesOnlyAfterAtomicSnapshotCommit(): Promise<void> {
   const original = baseline()
-  let persisted = original
+  let persisted: PersistedSnapshot = original
   let published: PersistedSnapshot | null = null
   const result = await commitRiskGatedTradeOpen({
     request: pending(original),

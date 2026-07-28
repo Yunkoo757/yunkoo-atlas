@@ -229,3 +229,31 @@ export function testHistoricalDirtyResultDoesNotPoisonCurrentRiskCoverage(): voi
   assert(result.month.coverage === 'complete', '本月覆盖率只应检查本月相关结果')
   assert(!result.unknownReasons.includes('missing-loss-pnl'), '当前闸门原因不得混入其他月份问题')
 }
+
+export function testRiskBudgetExcludesPreCycleTradeByOpenDay(): void {
+  const input = fixture({ pnls: [-1_000, -1_000] })
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.tradingDayStartHour = 0
+  input.trades[0] = {
+    ...input.trades[0]!,
+    openedAt: '2026-07-26',
+    closedAt: '2026-07-27',
+    closedTradingDayKey: '2026-07-27',
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.month.coverage === 'complete', '规则前交易不得制造当前周期未知覆盖')
+  assert(result.month.netBudgetR === -1, '只应计入边界日开仓的当前周期交易')
+  assert(result.month.includedTradeCount === 1, '规则前交易不得显示为当前周期未计入')
+}
+
+export function testRiskBudgetKeepsCurrentCycleUnknownFailClosed(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.trades[0] = { ...input.trades[0]!, pnl: null, resultSource: 'r', rMultiple: -1 }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.gateCoverage === 'unknown', '当前周期缺失现金亏损必须继续 unknown')
+}

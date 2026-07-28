@@ -8,6 +8,7 @@ import type {
 } from '@/data/riskManagement'
 import type { ActivityEvent, Trade, TradeStatus } from '@/data/trades'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
 
@@ -34,11 +35,14 @@ export interface TradeOpenRiskGateState {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   currentTradingDayKey: string
+  liveStatsStartTradingDayKey: string | null
+  tradingDayStartHour: number
 }
 
 export interface RiskGateFingerprintInput {
   trade: Trade
   currentTradingDayKey: string
+  liveStatsStartTradingDayKey: string | null
   policy: RiskPolicyVersion | null
   monthlyLimit: MonthlyRiskLimit | null
   outcomes: Record<RiskPeriodScope, RiskPeriodOutcomeSnapshot>
@@ -179,6 +183,7 @@ export function buildRiskGateFingerprint(input: RiskGateFingerprintInput): strin
   return stableHash(canonicalJson({
     target: selectTargetIdentity(input.trade),
     tradingDay: input.currentTradingDayKey,
+    liveStatsStartTradingDayKey: input.liveStatsStartTradingDayKey,
     policyVersionId: input.policy?.id ?? null,
     monthlyLimitId: input.monthlyLimit?.id ?? null,
     outcomes: input.outcomes,
@@ -186,8 +191,17 @@ export function buildRiskGateFingerprint(input: RiskGateFingerprintInput): strin
   }))
 }
 
-function riskResultRefs(trades: readonly Trade[]): readonly unknown[] {
-  return trades
+function riskResultRefs(
+  trades: readonly Trade[],
+  liveStatsStartTradingDayKey: string | null,
+  tradingDayStartHour: number,
+): readonly unknown[] {
+  return filterTradesForLiveCycle(
+    trades,
+    'current',
+    liveStatsStartTradingDayKey,
+    tradingDayStartHour,
+  )
     .filter((trade) =>
       trade.tradeKind === 'live' &&
       !trade.deletedAt &&
@@ -241,6 +255,8 @@ function createPendingRequest(
     policies: state.riskPolicyVersions,
     monthlyLimits: state.monthlyRiskLimits,
     currentTradingDayKey: state.currentTradingDayKey,
+    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
+    tradingDayStartHour: state.tradingDayStartHour,
   })
   const outcomes = {
     day: cloneRiskOutcome(resolved.day),
@@ -267,10 +283,15 @@ function createPendingRequest(
   const fingerprint = buildRiskGateFingerprint({
     trade,
     currentTradingDayKey: state.currentTradingDayKey,
+    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
     policy,
     monthlyLimit,
     outcomes,
-    resultRefs: riskResultRefs(state.trades),
+    resultRefs: riskResultRefs(
+      state.trades,
+      state.liveStatsStartTradingDayKey,
+      state.tradingDayStartHour,
+    ),
   })
   return freezePendingRequest({
     tradeId: trade.id,
