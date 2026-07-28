@@ -91,3 +91,46 @@ PASS src/views/DashboardScope.browser.test.html
 - unresolved 实盘沿用中央过滤器的当前范围保守保留；规则前实盘按开仓交易日排除。
 - 已冻结周复盘的渲染继续读取快照；完成接口也拒绝改写已完成记录。
 - 交易数据本身未被写入、迁移或重分类。浏览器回归中项目已有的预期错误日志被测试框架允许，所有浏览器用例通过。
+
+## 审查修复：冻结关键交易证据
+
+审查指出已完成周复盘的“关键交易证据”仍从实时 `weekTrades` / `weekMissedTrades` 渲染，周期起点变更、删除或补录交易会使证据列表与已冻结指标不一致。
+
+- 在 `WeeklyReview` 增加可选 `evidenceSnapshot`，完成复盘时同一批当前周期事实深拷贝进快照，重开时清除。
+- 已完成复盘只读取 `evidenceSnapshot`；旧完成记录没有该字段时显示空证据而不回退实时交易，避免以变化中的数据伪造冻结历史。
+- 此字段为可选扩展，现有快照验证接受未知向后兼容字段，不需要数据迁移。
+
+### 本次 RED
+
+命令（完整浏览器回归）：
+
+```powershell
+node scripts/run-browser-tests.mjs . vite.config.ts
+```
+
+关键原始输出（退出码 `1`）：
+
+```text
+FAIL src/views/WeeklyReviewView.browser.test.html
+Error: 调整统计周期后冻结证据内容必须保持完成时快照
+```
+
+此前报告的 RED 均只保留了关键输出摘录；原始失败的命令、用例与错误文本仍如上文 TDD 记录所载，无法补录已结束进程的完整 stdout。
+
+### 本次 GREEN / 当前可审计复跑
+
+```powershell
+node scripts/run-regression-tests.mjs --unit-only src/lib/analysisScope.test.ts src/data/weeklyReviews.test.ts src/lib/weeklyReviewSnapshot.test.ts src/regression.test.ts
+node scripts/run-browser-tests.mjs . vite.config.ts
+pnpm typecheck
+git diff --check
+```
+
+关键输出（全部退出码 `0`）：
+
+```text
+PASS src/views/WeeklyReviewView.browser.test.html
+PASS src/data/weeklyReviews.test.ts :: testWeeklyReviewExcludesPreCycleOpenTrades
+PASS src/lib/weeklyReviewSnapshot.test.ts :: testCompletedWeeklyReviewCannotBeRewritten
+PASS src/regression.test.ts :: testLiveWorkbenchAndSidebarCountsUseCurrentCycle
+```

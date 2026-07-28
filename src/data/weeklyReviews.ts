@@ -43,6 +43,11 @@ export interface WeeklyReviewMetrics {
   missedReasonCounts: Record<string, number>
 }
 
+export interface WeeklyReviewEvidenceSnapshot {
+  trades: Trade[]
+  missedTrades: Trade[]
+}
+
 export interface WeeklyReview {
   id: string
   weekStart: string
@@ -61,6 +66,7 @@ export interface WeeklyReview {
   commitmentCriteria: string
   previousCommitmentResult: WeeklyCommitmentResult | null
   metricsSnapshot: WeeklyReviewMetrics | null
+  evidenceSnapshot?: WeeklyReviewEvidenceSnapshot
   riskSnapshot?: WeeklyRiskReviewSnapshot
   createdAt: string
   updatedAt: string
@@ -284,23 +290,23 @@ export function completeWeeklyReviewCandidate(
     }
   }
   const completedAt = now.toISOString()
+  const trades = tradesClosedInWeek(
+    state.trades,
+    existing.weekStart,
+    state.display.tradingDayStartHour,
+    state.liveStatsStartTradingDayKey,
+  )
+  const missedTrades = missedTradesInWeek(
+    state.trades,
+    existing.weekStart,
+    state.display.tradingDayStartHour,
+    state.liveStatsStartTradingDayKey,
+  )
   const review: WeeklyReview = {
     ...existing,
     status: 'completed',
-    metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(
-      tradesClosedInWeek(
-        state.trades,
-        existing.weekStart,
-        state.display.tradingDayStartHour,
-        state.liveStatsStartTradingDayKey,
-      ),
-      missedTradesInWeek(
-        state.trades,
-        existing.weekStart,
-        state.display.tradingDayStartHour,
-        state.liveStatsStartTradingDayKey,
-      ),
-    )),
+    metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(trades, missedTrades)),
+    evidenceSnapshot: structuredClone({ trades, missedTrades }),
     riskSnapshot: buildWeeklyRiskReviewSnapshot(state, existing, completedAt),
     completedAt,
     updatedAt: completedAt,
@@ -316,6 +322,7 @@ export function reopenCompletedReview(review: WeeklyReview, now = new Date()): W
     ...review,
     status: 'draft',
     metricsSnapshot: null,
+    evidenceSnapshot: undefined,
     riskSnapshot: undefined,
     completedAt: null,
     updatedAt: now.toISOString(),
