@@ -70,6 +70,7 @@ export function TradeFilters({
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const symbolIcons = useStore((state) => state.symbolIcons)
@@ -94,7 +95,8 @@ export function TradeFilters({
   const isCaseWorkspace = workspaceKind === 'case'
   const isPaperWorkspace = workspaceKind === 'paper'
   const usesQueryScope = isCaseWorkspace || isPaperWorkspace
-  const allowsLiveCycleScope = !isCaseWorkspace && !isPaperWorkspace && filter.analysisScope?.kind !== 'paper'
+  const allowsLiveCycleScope = Boolean(liveStatsStartTradingDayKey) &&
+    !isCaseWorkspace && !isPaperWorkspace && filter.analysisScope?.kind !== 'paper'
   const allowsTradeKindFacet = !filter.tradeKind && (
     !filter.analysisScope || filter.analysisScope.kind === 'all'
   )
@@ -132,9 +134,10 @@ export function TradeFilters({
     const current = searchParams.toString()
     const canonical = canonicalizeTradeViewSearch(searchParams)
     if (!allowsTradeKindFacet) canonical.delete('tradeKind')
-    if (!allowsLiveCycleScope) canonical.delete('liveCycle')
+    if (!liveStatsStartTradingDayKey) canonical.delete('liveCycle')
+    else if (!allowsLiveCycleScope) canonical.delete('liveCycle')
     if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
-  }, [allowsLiveCycleScope, allowsTradeKindFacet, searchParams, setSearchParams])
+  }, [allowsLiveCycleScope, allowsTradeKindFacet, liveStatsStartTradingDayKey, searchParams, setSearchParams])
 
   const activeFilters: ActiveFilter[] = []
   const quickPeriod = ['/period/this-week', '/period/this-month'].includes(

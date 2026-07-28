@@ -7,6 +7,8 @@ import {
   parseLiveCycleScope,
   suggestLiveCycleStartTradingDayKey,
 } from '@/lib/liveCycle'
+import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
+import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -56,4 +58,29 @@ export function testLiveCycleScopeParsingIsStable(): void {
   assert(parseLiveCycleScope('?liveCycle=pre-cycle') === 'pre-cycle', '必须识别规则前范围')
   assert(parseLiveCycleScope('?liveCycle=all') === 'all', '必须识别全部实盘范围')
   assert(parseLiveCycleScope('?liveCycle=broken') === 'current', '非法值必须回退当前周期')
+}
+
+export function testPreCycleScopeWithoutStartKeepsDefaultHistoryVisible(): void {
+  const trades = [trade('old', '2026-07-26'), trade('new', '2026-07-27')]
+  assert(
+    filterTradesForLiveCycle(trades, 'pre-cycle', null, 0).map((item) => item.id).join() === 'old,new',
+    '未启用周期时规则前范围必须回退默认历史，不能过滤为空',
+  )
+}
+
+export function testPaperAnalysisIgnoresLiveCycleUrl(): void {
+  const paper = trade('paper', '2026-07-26', 'paper')
+  const visible = getWorkbenchVisibleTrades({
+    trades: [trade('old-live', '2026-07-26'), paper],
+    filter: {
+      type: 'strategy',
+      strategyId: 'strategy-1',
+      analysisScope: { kind: 'paper', range: 'all' },
+    },
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false, tradingDayStartHour: 0 },
+    search: '?liveCycle=pre-cycle',
+    liveStatsStartTradingDayKey: '2026-07-27',
+  })
+  assert(visible.map((item) => item.id).join() === 'paper', '纯模拟分析不得受实盘周期 URL 影响')
 }

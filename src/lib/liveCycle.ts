@@ -46,11 +46,14 @@ export function filterTradesForLiveCycle(
   startTradingDayKey: string | null,
   tradingDayStartHour: number,
 ): Trade[] {
-  if (scope === 'all') return [...trades]
+  const normalizedScope = startTradingDayKey === null && scope === 'pre-cycle'
+    ? 'current'
+    : scope
+  if (normalizedScope === 'all') return [...trades]
   return trades.filter((trade) => {
     const classification = classifyLiveCycleTrade(trade, startTradingDayKey, tradingDayStartHour)
-    if (classification === 'not-live') return scope !== 'pre-cycle'
-    if (scope === 'pre-cycle') return classification === 'pre-cycle'
+    if (classification === 'not-live') return normalizedScope !== 'pre-cycle'
+    if (normalizedScope === 'pre-cycle') return classification === 'pre-cycle'
     return classification === 'current' || classification === 'unresolved'
   })
 }

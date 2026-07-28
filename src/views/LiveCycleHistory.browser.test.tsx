@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { TradeRow } from '@/components/trades/TradeRow'
+import { TradeFilters } from '@/components/trades/TradeFilters'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { useStore } from '@/store/useStore'
 import '@/styles/tokens.css'
@@ -72,6 +73,17 @@ function HistoryProbe() {
   )
 }
 
+function NoCycleProbe() {
+  const filter = { type: 'all', tradeKind: 'live' } as const
+  const { trades, visible } = useWorkbenchVisibleTrades(filter)
+  return (
+    <>
+      <TradeFilters filter={filter} trades={trades} strategies={[]} />
+      <div data-no-cycle-probe data-visible-refs={visible.map((trade) => trade.ref).join(',')} />
+    </>
+  )
+}
+
 async function run(): Promise<void> {
   const element = document.getElementById('root')
   assert(element, '缺少测试挂载节点')
@@ -102,6 +114,34 @@ async function run(): Promise<void> {
       () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE,TRD-OLD-LIVE',
       '全部范围必须显示两笔实盘',
     )
+
+    useStore.setState((state) => ({
+      liveStatsStartTradingDayKey: null,
+      display: { ...state.display, hideClosed: false, tradingDayStartHour: 0 },
+    }))
+    root.render(
+      <MemoryRouter key="without-cycle" initialEntries={['/?liveCycle=pre-cycle']}>
+        <NoCycleProbe />
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => Boolean(document.querySelector('[data-no-cycle-probe]')),
+      '未启用周期测试未完成渲染',
+    )
+    await waitFor(
+      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE,TRD-OLD-LIVE',
+      '未启用周期时规则前 URL 必须保留默认历史',
+    )
+    await waitFor(
+      () => Boolean(document.querySelector<HTMLButtonElement>('.ui-filter-trigger')),
+      '筛选按钮未出现',
+    )
+    document.querySelector<HTMLButtonElement>('.ui-filter-trigger')?.click()
+    await waitFor(
+      () => Boolean(document.querySelector('[role="dialog"][aria-label="交易筛选"]')),
+      '筛选面板未打开',
+    )
+    assert(!document.querySelector('[aria-label="实盘周期"]'), '未启用周期时不得提供规则前筛选项')
   } finally {
     root.unmount()
     useStore.setState({
