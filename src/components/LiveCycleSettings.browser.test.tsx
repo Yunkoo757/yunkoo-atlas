@@ -80,16 +80,16 @@ async function run(): Promise<void> {
 
     await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('button')]
-        .some((button) => button.textContent?.trim() === '建立实盘统计起点'),
+        .some((button) => button.textContent?.trim() === '建立风险核算起点'),
       '建立按钮未出现',
     )
-    click('建立实盘统计起点')
+    click('建立风险核算起点')
     await waitFor(
       () => document.body.textContent?.includes('规则前实盘 1 笔') ?? false,
       '预览未显示规则前数量',
     )
-    assert(document.body.textContent?.includes('当前周期 1 笔'), '预览必须显示当前周期数量')
-    const dateTrigger = document.querySelector<HTMLButtonElement>('[aria-label="实盘统计起点"]')
+    assert(document.body.textContent?.includes('起点后实盘 1 笔'), '预览必须显示起点后数量')
+    const dateTrigger = document.querySelector<HTMLButtonElement>('[aria-label="风险核算起点"]')
     assert(dateTrigger, '预览缺少统计起点选择器')
     dateTrigger.click()
     await waitFor(() => Boolean(document.querySelector('[role="gridcell"][aria-label="2026-07-20"]')), '统计起点日历未打开')
@@ -99,7 +99,7 @@ async function run(): Promise<void> {
       '草稿起点与现有规则无覆盖关系时缺少非阻断警告',
     )
     const confirmWithCoverageWarning = [...document.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '确认建立新周期')
+      .find((button) => button.textContent?.trim() === '确认设置起点')
     assert(confirmWithCoverageWarning && !confirmWithCoverageWarning.disabled, '规则覆盖警告必须保持非阻断')
     dateTrigger.click()
     await waitFor(() => Boolean(document.querySelector('[role="gridcell"][aria-label="2026-07-27"]')), '统计起点日历未再次打开')
@@ -108,7 +108,7 @@ async function run(): Promise<void> {
       () => !(document.body.textContent?.includes('所选起点当日没有生效的风险规则') ?? false),
       '恢复有覆盖的起点后警告未消失',
     )
-    click('确认建立新周期')
+    click('确认设置起点')
     await waitFor(
       () => useStore.getState().liveStatsStartTradingDayKey === '2026-07-27',
       '起点未保存',
@@ -118,8 +118,8 @@ async function run(): Promise<void> {
       '保存完成后预览未关闭',
     )
     assert(useStore.getState().trades.every((trade) => trade.tradeKind === 'live'), '设置不得改写交易类型')
-    assert(document.body.textContent?.includes('调整实盘统计起点'), '已有起点时必须显示调整动作')
-    click('清除统计起点')
+    assert(document.body.textContent?.includes('调整风险核算起点'), '已有起点时必须显示调整动作')
+    click('清除风险核算起点')
     await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('button')]
         .some((button) => button.textContent?.trim() === '确认清除'),
@@ -137,7 +137,7 @@ async function run(): Promise<void> {
     )
     await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('button')]
-        .some((button) => button.textContent?.trim() === '建立实盘统计起点' && !button.disabled),
+        .some((button) => button.textContent?.trim() === '建立风险核算起点' && !button.disabled),
       '清除完成后建立动作仍不可用',
     )
 
@@ -150,13 +150,13 @@ async function run(): Promise<void> {
       throw new Error('test persistence failure')
     }
     try {
-      click('建立实盘统计起点')
+      click('建立风险核算起点')
       await waitFor(() => Boolean(document.querySelector('[data-live-cycle-dialog]')), '失败场景预览未打开')
-      click('确认建立新周期')
+      click('确认设置起点')
       await waitFor(() => saveAttempts >= 2, '失败后必须尝试持久化回滚')
       assert(useStore.getState().liveStatsStartTradingDayKey === null, '保存失败必须恢复旧统计起点')
-      assert(useToast.getState().message === '统计起点保存失败，原设置已保留', '保存失败必须明确提示且不得虚报成功')
-      assert(!useToast.getState().message?.includes('当前实盘周期已从'), '保存失败不得出现成功提示')
+      assert(useToast.getState().message === '风险核算起点保存失败，原设置已保留', '保存失败必须明确提示且不得虚报成功')
+      assert(!useToast.getState().message?.includes('风险核算将从'), '保存失败不得出现成功提示')
     } finally {
       storage.saveSnapshot = originalSaveSnapshot
       disablePersistWrites()

@@ -10,7 +10,6 @@ import {
 } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
-import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 
 export type AnalysisKind = 'live' | 'paper' | 'all'
 export type AnalysisRange = 'all' | 'this-week' | 'this-month' | '30d' | '90d' | 'ytd'
@@ -58,15 +57,8 @@ export function filterTradesByAnalysisScope(
   scope: AnalysisScope,
   now: Date | BusinessDateAnchor = new Date(),
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
-  liveStatsStartTradingDayKey: string | null = null,
 ): Trade[] {
-  const cycleScoped = filterTradesForLiveCycle(
-    trades,
-    'current',
-    liveStatsStartTradingDayKey,
-    tradingDayStartHour,
-  )
-  const scoped = cycleScoped.filter((trade) =>
+  const scoped = trades.filter((trade) =>
     !trade.deletedAt &&
     isAccountTrade(trade) &&
     isExecutedClosed(trade.status) &&

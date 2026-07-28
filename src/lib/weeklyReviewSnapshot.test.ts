@@ -232,7 +232,7 @@ export function testLossAfterReviewCompletionRemainsUnknown(): void {
   )
 }
 
-export function testWeeklyReviewSnapshotUsesCurrentLiveCycle(): void {
+export function testWeeklyReviewSeparatesPerformanceEvidenceFromRiskCycle(): void {
   const state = stateAtRevision(7)
   state.liveStatsStartTradingDayKey = '2026-07-21'
   state.trades = [
@@ -242,8 +242,8 @@ export function testWeeklyReviewSnapshotUsesCurrentLiveCycle(): void {
 
   const completed = completeWeeklyReviewCandidate(state, 'review-1').review
 
-  assert(completed.metricsSnapshot?.tradeCount === 1, '周复盘冻结不得纳入规则前实盘')
-  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照必须与周事实使用同一当前周期')
+  assert(completed.metricsSnapshot?.tradeCount === 2, '风险核算起点不得截断周复盘事实与绩效')
+  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照仍必须只核算起点后的交易')
 }
 
 export function testCompletedWeeklyReviewCannotBeRewritten(): void {

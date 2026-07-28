@@ -175,9 +175,8 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
 
-    await waitFor(() => Boolean(document.querySelector('a.db-strat')), '当前周期策略统计未出现')
-    assert(document.body.textContent?.includes('+$250'), '默认实盘统计必须保留当前周期交易')
-    assert(!document.body.textContent?.includes('+$500'), '默认实盘统计不得纳入规则前实盘')
+    await waitFor(() => Boolean(document.querySelector('a.db-strat')), '全历史策略统计未出现')
+    assert(document.body.textContent?.includes('+$750'), '风险核算起点不得截断默认实盘与策略统计')
   } finally {
     root.unmount()
     useStore.setState({

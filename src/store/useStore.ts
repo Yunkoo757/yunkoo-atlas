@@ -802,7 +802,7 @@ export const useStore = create<State>()((set, get) => ({
         }, tradingDay)),
       setLiveStatsStartTradingDayKey: (value) => {
         if (value !== null && !isValidLiveCycleDayKey(value)) {
-          throw new Error('实盘统计起点必须是有效交易日')
+          throw new Error('风险核算起点必须是有效交易日')
         }
         set({ liveStatsStartTradingDayKey: value, pendingTradeOpenRequest: null })
       },

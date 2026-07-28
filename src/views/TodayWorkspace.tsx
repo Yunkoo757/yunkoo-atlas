@@ -12,7 +12,6 @@ import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { buildTodayClosedMetrics, getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
-import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
@@ -73,18 +72,13 @@ export function TodayWorkspace() {
   const isStarred = useStore((state) => state.isStarred)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
-  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
   const location = useLocation()
   const today = useLocalDateKey()
-  const currentCycleTrades = useMemo(
-    () => filterTradesForLiveCycle(trades, 'current', liveStatsStartTradingDayKey, tradingDayStartHour),
-    [trades, liveStatsStartTradingDayKey, tradingDayStartHour],
-  )
-  const buckets = useMemo(() => getTodayWorkflowBuckets(currentCycleTrades, today), [currentCycleTrades, today])
-  const todayMetrics = useMemo(() => buildTodayClosedMetrics(currentCycleTrades, today), [currentCycleTrades, today])
+  const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
+  const todayMetrics = useMemo(() => buildTodayClosedMetrics(trades, today), [trades, today])
   const visibleWorkflowGroups = useMemo(
     () => queueFilter === 'all'
       ? WORKFLOW_GROUPS

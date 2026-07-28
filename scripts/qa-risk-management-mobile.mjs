@@ -194,7 +194,7 @@ try {
       const shell = content?.closest('[role="dialog"]')
       const footer = shell?.querySelector('.modal-shell-footer')
       const action = [...(footer?.querySelectorAll('button') ?? [])]
-        .find((button) => button.textContent?.trim() === '确认建立新周期')
+        .find((button) => button.textContent?.trim() === '确认设置起点')
       const previewRow = document.querySelector('.live-cycle-preview-list > div')
       const longFields = previewRow ? [...previewRow.querySelectorAll('code, span, time')] : []
       if (!content || !counts || !shell || !footer || !action || !previewRow || longFields.length !== 3) return null
@@ -218,21 +218,21 @@ try {
         }),
       }
     })
-    assert.ok(layout, '实盘新周期 fixture 缺少预览弹窗节点')
-    assert.equal(layout.countsColumns, 1, '新周期预览数量卡在 420px 必须为单列')
-    assert.equal(layout.shellOverflow, false, '新周期预览不得横向溢出')
-    assert.equal(layout.shellWithinViewport, true, '新周期预览必须完整位于 viewport 内')
-    assert.equal(layout.footerFullyVisible, true, '新周期预览 footer 必须完整可见')
-    assert.equal(layout.actionFullyVisible, true, '新周期预览主动作必须完整可见')
-    assert.ok(layout.actionHeight >= 44, '新周期预览主动作触控高度不得小于 44px')
-    assert.equal(layout.previewRowOverflow, false, '长 ref/symbol 不得撑开新周期预览行')
+    assert.ok(layout, '风险核算起点 fixture 缺少预览弹窗节点')
+    assert.equal(layout.countsColumns, 1, '风险核算预览数量卡在 420px 必须为单列')
+    assert.equal(layout.shellOverflow, false, '风险核算预览不得横向溢出')
+    assert.equal(layout.shellWithinViewport, true, '风险核算预览必须完整位于 viewport 内')
+    assert.equal(layout.footerFullyVisible, true, '风险核算预览 footer 必须完整可见')
+    assert.equal(layout.actionFullyVisible, true, '风险核算预览主动作必须完整可见')
+    assert.ok(layout.actionHeight >= 44, '风险核算预览主动作触控高度不得小于 44px')
+    assert.equal(layout.previewRowOverflow, false, '长 ref/symbol 不得撑开风险核算预览行')
     assert.equal(layout.longTextSafe, true, '长 ref/symbol 必须在自身单元格内截断')
-    assert.deepEqual(liveCycleFixture.diagnostics, [], '新周期预览移动 QA 不得产生浏览器错误')
+    assert.deepEqual(liveCycleFixture.diagnostics, [], '风险核算预览移动 QA 不得产生浏览器错误')
   } finally {
     await liveCycleFixture.page.close()
   }
 
-  console.log('PASS: risk management and live cycle mobile QA at 420×844')
+  console.log('PASS: risk management and risk accounting start mobile QA at 420×844')
 } finally {
   await browser?.close()
   await server.close()

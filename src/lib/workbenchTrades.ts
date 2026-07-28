@@ -246,7 +246,6 @@ export function deriveWorkbenchVisibleTrades(
         options.filter.analysisScope,
         options.businessDateAnchor ?? new Date(),
         tradingDayStartHour,
-        null,
       )
     : cycleFiltered
   // 用户显式筛选已平仓状态时，不能再被「隐藏已平仓」吃掉。
@@ -319,7 +318,6 @@ export function countWorkbenchVisibleTrades(options: {
         options.filter.analysisScope,
         options.businessDateAnchor ?? new Date(),
         tradingDayStartHour,
-      null,
       )
     : cycleScopedTrades
   let count = 0

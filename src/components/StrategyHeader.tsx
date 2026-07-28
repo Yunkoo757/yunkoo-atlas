@@ -38,21 +38,24 @@ export function StrategyHeader({
   }, [analysisScope?.kind, search])
 
   const stats = useMemo(() => {
-    const currentCycleTrades = filterTradesForLiveCycle(
+    const requestedLiveCycleScope = new URLSearchParams(search).get('liveCycle')
+    const liveCycleScope = requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
+      ? parseLiveCycleScope(search)
+      : 'all'
+    const cycleScopedTrades = filterTradesForLiveCycle(
       trades,
-      analysisScope?.kind === 'paper' ? 'all' : parseLiveCycleScope(search),
+      analysisScope?.kind === 'paper' ? 'all' : liveCycleScope,
       liveStatsStartTradingDayKey,
       tradingDayStartHour,
     )
     const scoped = analysisScope
       ? filterTradesByAnalysisScope(
-        currentCycleTrades,
+        cycleScopedTrades,
         analysisScope,
         businessDateAnchor,
         tradingDayStartHour,
-        null,
       )
-      : currentCycleTrades
+      : cycleScopedTrades
     return computeStrategyStats(
       filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor),
       strategyId,

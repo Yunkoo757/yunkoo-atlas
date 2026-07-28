@@ -47,7 +47,6 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
-import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
@@ -193,12 +192,7 @@ export function useSidebarNavigationModel() {
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
   const counts = {
     today: getTodayWorkflowBuckets(
-      filterTradesForLiveCycle(
-        trades,
-        'current',
-        liveStatsStartTradingDayKey,
-        display.tradingDayStartHour,
-      ),
+      trades,
       businessDateAnchor.currentTradingDayKey,
     ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),

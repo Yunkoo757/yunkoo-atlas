@@ -191,7 +191,6 @@ export function WeeklyReviewView() {
   const trades = useStore((state) => state.trades)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
-  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const reviews = useStore((state) => state.weeklyReviews)
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
@@ -219,18 +218,16 @@ export function WeeklyReviewView() {
       trades,
       selectedWeek,
       tradingDayStartHour,
-      liveStatsStartTradingDayKey,
     ),
-    [trades, selectedWeek, tradingDayStartHour, liveStatsStartTradingDayKey],
+    [trades, selectedWeek, tradingDayStartHour],
   )
   const weekMissedTrades = useMemo(
     () => missedTradesInWeek(
       trades,
       selectedWeek,
       tradingDayStartHour,
-      liveStatsStartTradingDayKey,
     ),
-    [trades, selectedWeek, tradingDayStartHour, liveStatsStartTradingDayKey],
+    [trades, selectedWeek, tradingDayStartHour],
   )
   const liveMetrics = useMemo(
     () => buildWeeklyReviewMetrics(weekTrades, weekMissedTrades),
@@ -241,10 +238,10 @@ export function WeeklyReviewView() {
     : liveMetrics
   const usesLegacyEvidenceFallback = review.status === 'completed' && !review.evidenceSnapshot
   const evidenceTrades = review.status === 'completed'
-    ? review.evidenceSnapshot?.trades ?? tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour, null)
+    ? review.evidenceSnapshot?.trades ?? tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour)
     : weekTrades
   const evidenceMissedTrades = review.status === 'completed'
-    ? review.evidenceSnapshot?.missedTrades ?? missedTradesInWeek(trades, selectedWeek, tradingDayStartHour, null)
+    ? review.evidenceSnapshot?.missedTrades ?? missedTradesInWeek(trades, selectedWeek, tradingDayStartHour)
     : weekMissedTrades
   const customMistakeEvidence = Object.entries(metrics.mistakeTagCounts)
     .filter(([tag]) => !WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number]))
@@ -368,9 +365,6 @@ export function WeeklyReviewView() {
                 <h1>{formatWeekRange(selectedWeek)}</h1>
                 <p>
                   {selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列
-                  {!usesLegacyEvidenceFallback && liveStatsStartTradingDayKey && selectedWeek < liveStatsStartTradingDayKey && weekEndFor(selectedWeek) >= liveStatsStartTradingDayKey
-                    ? ` · 当前周期自 ${liveStatsStartTradingDayKey} 开始`
-                    : null}
                 </p>
               </div>
               <div className="wr-head-actions">

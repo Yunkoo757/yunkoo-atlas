@@ -64,7 +64,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
     } catch {
       saveStart(previous)
       await flushPersistNow().catch(() => undefined)
-      toast('统计起点保存失败，原设置已保留')
+      toast('风险核算起点保存失败，原设置已保留')
     } finally {
       setBusy(false)
     }
@@ -72,48 +72,48 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
 
   const confirm = async () => {
     if (!isValidLiveCycleDayKey(draft) || draft > currentTradingDayKey || preview.unresolved.length > 0) return
-    await commitStart(draft, `当前实盘周期已从 ${draft} 开始`)
+    await commitStart(draft, `风险核算将从 ${draft} 开始`)
   }
 
   const trigger = variant === 'prompt' ? currentStart === null ? (
     <section className="live-cycle-prompt" data-live-cycle-prompt>
       <div>
-        <strong>实盘统计尚未截断</strong>
+        <strong>风险核算起点尚未设置</strong>
         <p>{suggested
-          ? `当前风险规则从 ${suggested} 起生效；建立统计起点可避免规则前记录混入本周期。`
-          : '风险统计覆盖未知；可先核对实盘统计起点。'}</p>
+          ? `当前风险规则从 ${suggested} 起生效；建立核算起点可避免此前记录造成覆盖未知。`
+          : '风险统计覆盖未知；可先核对风险核算起点。'}</p>
       </div>
-      <button type="button" className="ui-btn ui-btn-bordered" onClick={openPreview}>建立实盘统计起点</button>
+      <button type="button" className="ui-btn ui-btn-bordered" onClick={openPreview}>建立风险核算起点</button>
     </section>
   ) : (
     <section className="live-cycle-prompt" data-live-cycle-risk-repair>
       <div>
-        <strong>当前周期风险覆盖未知</strong>
-        <p>统计起点已设置为 {currentStart}；请补齐周期内的风险规则、亏损金额或平仓日期。</p>
+        <strong>起点后风险覆盖未知</strong>
+        <p>风险核算起点为 {currentStart}；请补齐起点后的风险规则、亏损金额或平仓日期。</p>
       </div>
       <Link className="ui-btn ui-btn-bordered" to="/settings/data">检查风险与数据</Link>
     </section>
   ) : (
     <section className="live-cycle-settings" data-live-cycle-settings>
       <div className="live-cycle-settings-copy">
-        <h2>实盘统计周期</h2>
+        <h2>风险核算范围</h2>
         <p>{currentStart
-          ? `风险、工作台与绩效从 ${currentStart} 起统计；交易日志保留全部实盘历史。`
-          : '未设置起点，风险、工作台与绩效会覆盖全部实盘历史。'}</p>
+          ? `风险额度与开仓门禁从 ${currentStart} 起核算；交易日志、策略与绩效统计仍保留全部历史。`
+          : '未设置起点，风险核算会检查全部实盘历史。'}</p>
       </div>
       <div className="live-cycle-settings-actions">
         <button type="button" className="ui-btn ui-btn-primary" onClick={openPreview}>
-          {currentStart ? '调整实盘统计起点' : '建立实盘统计起点'}
+          {currentStart ? '调整风险核算起点' : '建立风险核算起点'}
         </button>
         {currentStart ? (
-          <button type="button" className="ui-btn ui-btn-bordered" onClick={() => setConfirmClear(true)}>清除统计起点</button>
+          <button type="button" className="ui-btn ui-btn-bordered" onClick={() => setConfirmClear(true)}>清除风险核算起点</button>
         ) : null}
       </div>
       {confirmClear ? (
         <div className="live-cycle-clear-confirm" role="status">
-          <span>清除后风险、工作台与绩效将恢复全部实盘口径；规则前缺失数据可能重新显示为无法判断。</span>
+          <span>清除后风险核算将检查全部实盘历史；旧记录缺失风险数据时可能重新显示为无法判断。</span>
           <button type="button" className="ui-btn ui-btn-bordered" disabled={busy} onClick={() => setConfirmClear(false)}>取消</button>
-          <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={() => void commitStart(null, '已恢复全部实盘统计')}>确认清除</button>
+          <button type="button" className="ui-btn ui-btn-primary" disabled={busy} onClick={() => void commitStart(null, '已恢复全历史风险核算')}>确认清除</button>
         </div>
       ) : null}
     </section>
@@ -124,8 +124,8 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
       {trigger}
       {open ? (
         <ModalShell
-          title={currentStart ? '调整实盘统计起点' : '建立实盘统计起点'}
-          description="保存前先核对将被纳入当前周期的实盘记录；不会修改或隐藏交易日志。"
+          title={currentStart ? '调整风险核算起点' : '建立风险核算起点'}
+          description="保存前先核对风险核算范围；不会修改交易记录，也不会改变策略与绩效统计。"
           size="compact"
           busy={busy}
           onClose={() => {
@@ -140,20 +140,20 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
                 disabled={busy || !isValidLiveCycleDayKey(draft) || draft > currentTradingDayKey || preview.unresolved.length > 0}
                 onClick={() => void confirm()}
               >
-                确认建立新周期
+                确认设置起点
               </button>
             </>
           )}
         >
           <div className="live-cycle-dialog" data-live-cycle-dialog>
             <label className="live-cycle-date-field">
-              <span>统计起点</span>
-              <DatePicker value={draft} onValueChange={setDraft} ariaLabel="实盘统计起点" disabled={busy} />
+              <span>风险核算起点</span>
+              <DatePicker value={draft} onValueChange={setDraft} ariaLabel="风险核算起点" disabled={busy} />
               <small>不得晚于当前交易日 {currentTradingDayKey}</small>
             </label>
             <div className="live-cycle-counts" aria-label="周期影响预览">
-              <div><strong>规则前实盘 {preview.preCycle.length} 笔</strong><span>将不计入新周期</span></div>
-              <div><strong>当前周期 {preview.current.length} 笔</strong><span>将继续计入</span></div>
+              <div><strong>规则前实盘 {preview.preCycle.length} 笔</strong><span>不计入风险核算</span></div>
+              <div><strong>起点后实盘 {preview.current.length} 笔</strong><span>计入风险核算</span></div>
               <div><strong>无法判断 {preview.unresolved.length} 笔</strong><span>需先修正开仓日期</span></div>
             </div>
             {preview.unresolved.length > 0 ? (

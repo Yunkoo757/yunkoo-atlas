@@ -10,7 +10,6 @@ import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
 import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
-import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
@@ -139,16 +138,9 @@ export function tradesClosedInWeek(
   trades: Trade[],
   weekStart: string,
   tradingDayStartHour = 0,
-  liveStatsStartTradingDayKey: string | null = null,
 ): Trade[] {
-  const current = filterTradesForLiveCycle(
-    trades,
-    'current',
-    liveStatsStartTradingDayKey,
-    tradingDayStartHour,
-  )
   const weekEnd = weekEndFor(weekStart)
-  return current.filter((trade) => {
+  return trades.filter((trade) => {
     if (trade.deletedAt || trade.tradeKind !== 'live' || !isExecutedClosed(trade.status)) return false
     const date = closedTradingDayKey(trade, tradingDayStartHour)
     if (!date) return false
@@ -160,16 +152,9 @@ export function missedTradesInWeek(
   trades: Trade[],
   weekStart: string,
   tradingDayStartHour = 0,
-  liveStatsStartTradingDayKey: string | null = null,
 ): Trade[] {
-  const current = filterTradesForLiveCycle(
-    trades,
-    'current',
-    liveStatsStartTradingDayKey,
-    tradingDayStartHour,
-  )
   const weekEnd = weekEndFor(weekStart)
-  return current.filter((trade) => {
+  return trades.filter((trade) => {
     if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status)) return false
     const date = closedTradingDayKey(trade, tradingDayStartHour)
     if (!date) return false
@@ -294,13 +279,11 @@ export function completeWeeklyReviewCandidate(
     state.trades,
     existing.weekStart,
     state.display.tradingDayStartHour,
-    state.liveStatsStartTradingDayKey,
   )
   const missedTrades = missedTradesInWeek(
     state.trades,
     existing.weekStart,
     state.display.tradingDayStartHour,
-    state.liveStatsStartTradingDayKey,
   )
   const review: WeeklyReview = {
     ...existing,
