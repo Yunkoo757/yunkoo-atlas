@@ -61,17 +61,20 @@
 .backup-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .backup-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: var(--sp-2) 10px;
-  border-radius: var(--radius-8);
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
   transition: background var(--dur-fast) var(--ease-out);
 }
+.backup-row:last-child { border-bottom: 0; }
 .backup-row:hover {
   background: var(--bg-hover);
 }
@@ -117,6 +120,7 @@
 
 .backup-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: var(--sp-1);
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
@@ -124,6 +128,10 @@
 .backup-row:hover .backup-actions,
 .backup-row:focus-within .backup-actions {
   opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .backup-actions { opacity: 1; }
 }
 
 /* ---- 存储健康面板 ---- */
@@ -363,4 +371,11 @@
   .health-card:last-child { border-bottom: 0; }
   .dio-restore-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .data-actions-row { align-items: stretch; flex-direction: column; }
+  .backup-row { align-items: flex-start; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
+  .backup-time { flex: 1; }
+  .backup-meta { order: 4; flex-basis: calc(100% - 22px); margin-left: 22px; }
+  .backup-size { margin-left: auto; }
+  .backup-verification { order: 3; margin-left: 22px; }
+  .backup-actions { order: 5; width: 100%; margin-left: 22px; }
+  .backup-actions .dio-btn { min-height: 44px; }
 }
