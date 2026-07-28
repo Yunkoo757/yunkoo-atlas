@@ -607,28 +607,43 @@ try {
   await recyclePage({ width: 1440, height: 900 })
 
   const reviewCaseRoutes = [
-    { path: '/review-cases', tab: '全部' },
-    { path: '/review-cases/focus', tab: '重点' },
-    { path: '/review-cases/mistakes', tab: '错题' },
-    { path: '/review-cases/unreviewed', tab: '待复看' },
-    { path: '/review-cases/reviewed', tab: '已掌握' },
+    { path: '/review-cases', search: '', tab: '全部' },
+    { path: '/review-cases/focus', search: '', tab: '重点' },
+    { path: '/review-cases/mistakes', search: '', tab: '错题' },
+    { path: '/review-cases', search: '?caseType=missed', tab: '错过机会' },
+    { path: '/review-cases/unreviewed', search: '', tab: '待复看' },
+    { path: '/review-cases/reviewed', search: '', tab: '已掌握' },
   ]
+  await page.goto(`${BASE}/review-cases`, { waitUntil: 'domcontentloaded' })
+  await waitForApp()
+  await page.locator('.list-scroll').waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByText('案例记录', { exact: true }).first().waitFor({ state: 'visible' })
   for (const route of reviewCaseRoutes) {
-    await page.goto(`${BASE}${route.path}`, { waitUntil: 'domcontentloaded' })
-    await waitForApp()
-    await page.locator('.list-scroll').waitFor({ state: 'visible', timeout: 10000 })
-    await page.getByText('案例记录', { exact: true }).first().waitFor({ state: 'visible' })
     const activeTab = page.getByRole('tab', { name: route.tab, exact: true })
-    await activeTab.waitFor({ state: 'visible' })
+    await activeTab.waitFor({ state: 'visible', timeout: 10000 })
     if ((await activeTab.getAttribute('aria-selected')) !== 'true') {
-      throw new Error(`案例视图未正确选中：${route.path}`)
+      await activeTab.click()
+      await page.waitForURL((url) => url.pathname === route.path && url.search === route.search, { timeout: 10000 })
+    }
+    try {
+      await page.waitForFunction((label) => (
+        [...document.querySelectorAll('[role="tab"]')].some((tab) => (
+          tab.textContent?.trim() === label && tab.getAttribute('aria-selected') === 'true'
+        ))
+      ), route.tab, { timeout: 10000 })
+    } catch {
+      const tabState = await page.getByRole('tab').evaluateAll((tabs) => tabs.map((tab) => ({
+        label: tab.textContent?.trim(),
+        selected: tab.getAttribute('aria-selected'),
+      })))
+      throw new Error(`案例视图未正确选中：${page.url()} ${JSON.stringify(tabState)}`)
     }
   }
   const caseTabLabels = await page.getByRole('tab').allTextContents()
   const caseTabsIsolated =
-    ['全部', '重点', '错题', '待复看', '已掌握'].every((label) => caseTabLabels.includes(label)) &&
+    ['全部', '重点', '错题', '错过机会', '待复看', '已掌握'].every((label) => caseTabLabels.includes(label)) &&
     !['本周', '本月', '亏损'].some((label) => caseTabLabels.includes(label))
-  record('五个案例分类使用统一顶部视图且不混入交易入口', caseTabsIsolated, caseTabLabels.join(', '))
+  record('六个案例分类使用统一顶部视图且不混入交易入口', caseTabsIsolated, caseTabLabels.join(', '))
 
   await page.getByRole('button', { name: '筛选案例' }).click()
   await page.getByRole('dialog', { name: '案例筛选' }).waitFor({ state: 'visible' })
@@ -646,7 +661,7 @@ try {
   const tradeTabLabels = await page.getByRole('tab').allTextContents()
   const tradeTabsIsolated =
     ['全部', '本周', '本月', '亏损'].every((label) => tradeTabLabels.includes(label)) &&
-    !['重点', '错题', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
+    !['重点', '错题', '错过机会', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
   record('交易日志顶部视图不混入案例分类', tradeTabsIsolated, tradeTabLabels.join(', '))
 
   await page.goto(`${BASE}/list?symbol=ETHUSDT&side=long`, { waitUntil: 'domcontentloaded' })

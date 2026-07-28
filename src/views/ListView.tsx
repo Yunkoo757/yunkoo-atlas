@@ -73,7 +73,7 @@ export function ListView({
 
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { trades, visible, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = useCallback((trade: Trade) => {
     const from = {
@@ -294,7 +294,7 @@ export function ListView({
   ])
 
   const emptyState = resolveWorkbenchEmptyState({
-    totalCount: trades.length,
+    totalCount,
     workspaceCount,
     visibleCount: visible.length,
     recordKind: filter.tradeKind,

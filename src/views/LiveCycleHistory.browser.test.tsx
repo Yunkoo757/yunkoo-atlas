@@ -47,6 +47,15 @@ const currentLiveTrade: Trade = {
   closedAt: '2026-07-27',
 }
 
+const mistakeCase: Trade = {
+  ...oldLiveTrade,
+  id: 'case-mistake',
+  ref: 'CASE-MISTAKE',
+  tradeKind: 'case',
+  caseType: 'mistake',
+  reviewCategory: 'mistake',
+}
+
 function HistoryProbe() {
   const { visible } = useWorkbenchVisibleTrades({ type: 'all', tradeKind: 'live' })
   const navigate = useNavigate()
@@ -82,6 +91,22 @@ function NoCycleProbe() {
       <TradeFilters filter={filter} trades={trades} strategies={[]} />
       <div data-no-cycle-probe data-visible-refs={visible.map((trade) => trade.ref).join(',')} />
     </>
+  )
+}
+
+function EmptyCaseScopeProbe() {
+  const { totalCount, workspaceCount, visible } = useWorkbenchVisibleTrades({
+    type: 'all',
+    tradeKind: 'case',
+    reviewCaseScope: 'focus',
+  })
+  return (
+    <div
+      data-empty-case-scope
+      data-total-count={totalCount}
+      data-workspace-count={workspaceCount}
+      data-visible-count={visible.length}
+    />
   )
 }
 
@@ -149,6 +174,21 @@ async function run(): Promise<void> {
       '筛选面板未打开',
     )
     assert(!document.querySelector('[aria-label="实盘周期"]'), '未启用周期时不得提供规则前筛选项')
+
+    useStore.setState({ trades: [mistakeCase] })
+    root.render(
+      <MemoryRouter key="empty-case-scope">
+        <EmptyCaseScopeProbe />
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => Boolean(document.querySelector('[data-empty-case-scope]')),
+      '空案例分类计数测试未完成渲染',
+    )
+    const emptyCaseScope = document.querySelector('[data-empty-case-scope]')
+    assert(emptyCaseScope?.getAttribute('data-total-count') === '1', '资料库总数不得受当前案例分类影响')
+    assert(emptyCaseScope?.getAttribute('data-workspace-count') === '1', '案例工作区总数不得受当前分类影响')
+    assert(emptyCaseScope?.getAttribute('data-visible-count') === '0', '重点分类应保持为空以覆盖回归场景')
   } finally {
     root.unmount()
     useStore.setState({

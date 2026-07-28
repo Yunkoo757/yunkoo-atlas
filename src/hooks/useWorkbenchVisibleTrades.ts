@@ -16,6 +16,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   trades: Trade[]
   visible: Trade[]
   facets: TradeFacetFilters
+  totalCount: number
   workspaceCount: number
   businessDateAnchor: ReturnType<typeof useBusinessDateAnchor>
 } {
@@ -54,15 +55,18 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   ])
   const { trades, visible } = derived
 
-  const workspaceCount = useMemo(
-    () => trades.reduce(
-      (count, trade) => count + Number(
-        filter.tradeKind ? trade.tradeKind === filter.tradeKind : isAccountTrade(trade),
-      ),
-      0,
-    ),
-    [trades, filter.tradeKind],
-  )
+  const { totalCount, workspaceCount } = useMemo(() => {
+    let total = 0
+    let workspace = 0
+    for (const trade of storedTrades) {
+      if (trade.deletedAt) continue
+      total += 1
+      if (filter.tradeKind ? trade.tradeKind === filter.tradeKind : isAccountTrade(trade)) {
+        workspace += 1
+      }
+    }
+    return { totalCount: total, workspaceCount: workspace }
+  }, [storedTrades, filter.tradeKind])
 
-  return { trades, visible, facets, workspaceCount, businessDateAnchor }
+  return { trades, visible, facets, totalCount, workspaceCount, businessDateAnchor }
 }
