@@ -33,6 +33,35 @@ function reorderedKeys<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).reverse()) as T
 }
 
+export function testMergeImportKeepsCurrentLibraryLiveCycleStart(): void {
+  const current = createFullPersistedSnapshotFixture()
+  current.liveStatsStartTradingDayKey = '2026-07-27'
+  const imported = {
+    ...createFullPersistedSnapshotFixture(),
+    liveStatsStartTradingDayKey: '2026-06-01',
+    version: 9,
+  }
+  const merged = mergeImportPayload(current, imported)
+  assert(
+    merged.liveStatsStartTradingDayKey === '2026-07-27',
+    '普通合并导入不得改变当前资料库统计起点',
+  )
+}
+
+export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
+  const current = createFullPersistedSnapshotFixture()
+  current.display = { ...current.display, tradingDayStartHour: 6 }
+  const imported = createFullPersistedSnapshotFixture()
+  imported.display = { ...imported.display, tradingDayStartHour: 0 }
+
+  const merged = mergeImportPayload(current, { version: 9, ...imported })
+
+  assert(
+    merged.display.tradingDayStartHour === 6,
+    '普通合并导入不得改变当前资料库的交易日起始小时',
+  )
+}
+
 function captureImmutableImportConflict(run: () => unknown): { code: unknown; message: string } {
   try {
     run()
@@ -438,7 +467,7 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
     .sort()
   assert(
     JSON.stringify(actualFields) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'PATH-A writer 经过 JSON.stringify 后仍必须显式拥有全部 20 字段',
+    'PATH-A writer 经过 JSON.stringify 后仍必须显式拥有全部 21 字段',
   )
   assert(JSON.stringify(serialized.shortcuts) === '{}', '空快捷键覆盖必须序列化为空对象')
   assert(JSON.stringify(serialized.tagPresets) === '[]', '缺失标签预设必须序列化为空数组')
@@ -454,7 +483,7 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
   assert(
     JSON.stringify(Object.keys(portableSerialized).sort()) ===
       JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'Web ZIP portable writer 序列化后也必须显式拥有全部 20 字段',
+    'Web ZIP portable writer 序列化后也必须显式拥有全部 21 字段',
   )
 }
 

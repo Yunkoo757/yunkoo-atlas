@@ -76,6 +76,24 @@ function importedCollisionFixture(): PersistedSlice {
       highlightTradeIds: [imported.id],
       mistakeTradeIds: [imported.id],
       followUpTradeIds: [imported.id],
+      evidenceSnapshot: {
+        trades: [{
+          id: imported.id,
+          ref: imported.ref,
+          symbol: imported.symbol,
+          status: imported.status,
+          pnl: imported.pnl,
+          rMultiple: imported.rMultiple,
+        }],
+        missedTrades: [{
+          id: imported.id,
+          ref: imported.ref,
+          symbol: imported.symbol,
+          status: imported.status,
+          pnl: imported.pnl,
+          rMultiple: imported.rMultiple,
+        }],
+      },
       riskSnapshot: {
         ...fixture.weeklyReviews![0]!.riskSnapshot!,
         overrideEvents: [event],
@@ -100,6 +118,8 @@ export function testSameKindDifferentIdentityRemapsEveryReference(): void {
   assert(review?.highlightTradeIds[0] === importedTrade?.id, '高亮交易列表必须重映射')
   assert(review?.mistakeTradeIds[0] === importedTrade?.id, '错误交易列表必须重映射')
   assert(review?.followUpTradeIds[0] === importedTrade?.id, '跟进交易列表必须重映射')
+  assert(review?.evidenceSnapshot?.trades[0]?.id === importedTrade?.id, '冻结交易证据必须重映射')
+  assert(review?.evidenceSnapshot?.missedTrades[0]?.id === importedTrade?.id, '冻结错过机会证据必须重映射')
   assert(merged.starredIds[0] === importedTrade?.id, '收藏交易 ID 必须重映射')
   assert(merged.subscribedIds[0] === importedTrade?.id, '订阅交易 ID 必须重映射')
   assert(merged.trades.find((trade) => trade.id === 'case-1')?.sourceTradeId === importedTrade?.id, '案例来源必须重映射')

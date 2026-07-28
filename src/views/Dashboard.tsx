@@ -80,12 +80,18 @@ export function Dashboard() {
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
   const trades = useMemo(
-    () => filterTradesByAnalysisScope(allTrades, scope, businessDateAnchor),
+    () => filterTradesByAnalysisScope(
+      allTrades,
+      scope,
+      businessDateAnchor,
+      tradingDayStartHour,
+    ),
     [
       allTrades,
       scope.kind,
       scope.range,
       localDateKey,
+      tradingDayStartHour,
     ],
   )
   const activeTrades = useMemo(
@@ -110,8 +116,15 @@ export function Dashboard() {
       allTrades,
       { kind: scope.kind, range: 'this-week' },
       businessDateAnchor,
+      tradingDayStartHour,
     )
-    const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(allTrades, weekStart, tradingDayStartHour)
+    const missed = scope.kind === 'paper'
+      ? []
+      : missedTradesInWeek(
+        allTrades,
+        weekStart,
+        tradingDayStartHour,
+      )
     return buildWeeklyReviewMetrics(weekTrades, missed)
   }, [allTrades, businessDateAnchor, localDateKey, scope.kind, tradingDayStartHour, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'

@@ -7,6 +7,7 @@ import type {
 } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
+import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import {
@@ -24,6 +25,7 @@ const UNKNOWN_REASON_ORDER: RiskUnknownReason[] = [
   'missing-close-date',
   'invalid-close-date',
   'future-loss-close-date',
+  'invalid-live-cycle-start',
 ]
 
 function precisionFactor(digits: number): number {
@@ -83,6 +85,8 @@ export interface ResolveRiskOutcomesInput {
   policies: RiskPolicyVersion[]
   monthlyLimits: MonthlyRiskLimit[]
   currentTradingDayKey: string
+  liveStatsStartTradingDayKey?: string | null
+  tradingDayStartHour?: number
 }
 
 export interface ResolvedRiskOutcomes {
@@ -177,15 +181,43 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
   const currentWeekStart = weekStart(input.currentTradingDayKey)
   const currentMonth = input.currentTradingDayKey.slice(0, 7)
   const monthlyLimit = input.monthlyLimits.find((limit) => limit.monthKey === currentMonth)
+  if (
+    input.liveStatsStartTradingDayKey &&
+    input.liveStatsStartTradingDayKey > input.currentTradingDayKey
+  ) {
+    const reason: RiskUnknownReason = 'invalid-live-cycle-start'
+    const invalidResult: CandidateResult = {
+      date: null,
+      budgetR: null,
+      unknownReasons: [reason],
+      partial: false,
+    }
+    const invalidSnapshot = (limit: number) => makeSnapshot(
+      [invalidResult],
+      [],
+      limit,
+      [reason],
+    )
+    const day = invalidSnapshot(limitR(currentPolicy?.dailyLossLimitR))
+    const week = invalidSnapshot(limitR(currentPolicy?.weeklyLossLimitR))
+    const month = invalidSnapshot(limitR(monthlyLimit?.limitR))
+    return { day, week, month, gateCoverage: 'unknown', unknownReasons: [reason] }
+  }
   const results: CandidateResult[] = []
+  const currentCycleTrades = filterTradesForLiveCycle(
+    input.trades,
+    'current',
+    input.liveStatsStartTradingDayKey ?? null,
+    input.tradingDayStartHour ?? 0,
+  )
 
-  for (const trade of input.trades
+  for (const trade of currentCycleTrades
     .filter((candidate) => candidate.tradeKind === 'live' && !candidate.deletedAt && isExecutedClosed(candidate.status))
     .sort((left, right) => left.id.localeCompare(right.id))) {
     const truth = resolveTradeTruth(trade)
     const reasons: RiskUnknownReason[] = []
     let partial = false
-    let date = closedTradingDayKey(trade)
+    let date = closedTradingDayKey(trade, input.tradingDayStartHour ?? 0)
 
     if (truth.hasConflict || !isTradeResultAuthorityConsistent(trade)) {
       reasons.push('result-conflict')

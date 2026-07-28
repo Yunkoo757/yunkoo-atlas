@@ -2,6 +2,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
+import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -28,6 +29,7 @@ const RISK_UNKNOWN_REASONS = new Set([
   'missing-close-date',
   'invalid-close-date',
   'future-loss-close-date',
+  'invalid-live-cycle-start',
 ])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -366,6 +368,23 @@ function isWeeklyReviewMetrics(value: unknown): boolean {
   )
 }
 
+function isWeeklyReviewEvidenceTrade(value: unknown): boolean {
+  return isRecord(value) &&
+    typeof value.id === 'string' && Boolean(value.id.trim()) &&
+    typeof value.ref === 'string' &&
+    typeof value.symbol === 'string' &&
+    TRADE_STATUSES.has(String(value.status)) &&
+    isNullableFiniteNumber(value.pnl) &&
+    isNullableFiniteNumber(value.rMultiple) &&
+    (value.missReason === undefined || MISS_REASONS.has(String(value.missReason)))
+}
+
+function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
+  return isRecord(value) &&
+    Array.isArray(value.trades) && value.trades.every(isWeeklyReviewEvidenceTrade) &&
+    Array.isArray(value.missedTrades) && value.missedTrades.every(isWeeklyReviewEvidenceTrade)
+}
+
 function isWeeklyReview(value: unknown): boolean {
   if (!isRecord(value)) return false
   if (
@@ -396,6 +415,7 @@ function isWeeklyReview(value: unknown): boolean {
   ) return false
   if (value.completedAt !== null && typeof value.completedAt !== 'string') return false
   if (value.metricsSnapshot !== null && !isWeeklyReviewMetrics(value.metricsSnapshot)) return false
+  if (value.evidenceSnapshot !== undefined && !isWeeklyReviewEvidenceSnapshot(value.evidenceSnapshot)) return false
   const riskSnapshot = value.riskSnapshot
   return riskSnapshot === undefined || (
     isWeeklyRiskReviewSnapshot(riskSnapshot) &&
@@ -619,6 +639,13 @@ export function assertValidPersistedSnapshot(
   if (!isUserProfile(value.profile)) throw new Error(`${label} contains an invalid profile`)
   if (!isSavedTradeViews(value.savedTradeViews)) throw new Error(`${label} contains invalid saved trade views`)
   if (!isSymbolIcons(value.symbolIcons)) throw new Error(`${label} contains invalid symbol icons`)
+  if (
+    value.liveStatsStartTradingDayKey !== undefined &&
+    value.liveStatsStartTradingDayKey !== null &&
+    !isValidLiveCycleDayKey(value.liveStatsStartTradingDayKey)
+  ) {
+    throw new Error(`${label}.liveStatsStartTradingDayKey must be a valid trading day or null`)
+  }
   if (value.symbolCatalog !== undefined && !isStringArray(value.symbolCatalog)) {
     throw new Error(`${label}.symbolCatalog must be a string array`)
   }

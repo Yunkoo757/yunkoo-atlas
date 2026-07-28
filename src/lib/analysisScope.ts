@@ -5,6 +5,7 @@ import {
   getPeriodBounds,
   isDateInRange,
   parseLocalDate,
+  DEFAULT_TRADING_DAY_START_HOUR,
   type BusinessDateAnchor,
 } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
@@ -55,7 +56,7 @@ export function filterTradesByAnalysisScope(
   trades: readonly Trade[],
   scope: AnalysisScope,
   now: Date | BusinessDateAnchor = new Date(),
-  tradingDayStartHour?: number,
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): Trade[] {
   const scoped = trades.filter((trade) =>
     !trade.deletedAt &&

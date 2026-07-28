@@ -144,6 +144,7 @@ export function useSidebarNavigationModel() {
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const sidebarPrimaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
@@ -152,8 +153,8 @@ export function useSidebarNavigationModel() {
   const setDisplay = useStore((state) => state.setDisplay)
   const businessDateAnchor = useBusinessDateAnchor()
   const countContext = useMemo(
-    () => ({ trades, starredIds, display, businessDateAnchor }),
-    [trades, starredIds, display, businessDateAnchor],
+    () => ({ trades, starredIds, display, businessDateAnchor, liveStatsStartTradingDayKey }),
+    [trades, starredIds, display, businessDateAnchor, liveStatsStartTradingDayKey],
   )
 
   const workspaceItems = useMemo(

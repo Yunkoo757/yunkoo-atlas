@@ -74,6 +74,8 @@ function triggeredState(source: 'planned' | 'missed' | 'loss'): TradeOpenRiskGat
     riskPolicyVersions: [policy],
     monthlyRiskLimits: [monthlyLimit],
     currentTradingDayKey: '2026-07-27',
+    liveStatsStartTradingDayKey: null,
+    tradingDayStartHour: 0,
   }
 }
 
@@ -180,6 +182,132 @@ export function testBelowAndUnconfiguredCleanOpenWithoutOverride(): void {
     unconfigured.kind === 'opened' && unconfigured.decision === 'unconfigured-clean',
     '无规则且无未知风险时应直接生成 open 候选',
   )
+}
+
+export function testHistoricalMonthlyPolicyGapFailsClosedWithoutCycleStart(): void {
+  const currentPolicy = {
+    ...policy,
+    id: 'policy-current-week',
+    effectiveTradingDay: '2026-07-27',
+    confirmedAt: '2026-07-27T00:00:00.000Z',
+  }
+  const historicalLoss = {
+    ...trade('historical-loss', 'loss', -1_000),
+    openedAt: '2026-07-01T08:00:00.000Z',
+    closedAt: '2026-07-01T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-01',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned'), historicalLoss],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: currentPolicy.id }],
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '未设置核算起点时历史规则缺口必须保守阻断')
+  assert(result.request.decisionType === 'unknown', '无法计算历史亏损风险时必须要求显式确认')
+}
+
+export function testHistoricalMonthlyPolicyGapCannotHideKnownMonthlyBreach(): void {
+  const currentPolicy = {
+    ...policy,
+    id: 'policy-current-month',
+    effectiveTradingDay: '2026-07-21',
+    confirmedAt: '2026-07-21T00:00:00.000Z',
+  }
+  const historicalLoss = {
+    ...trade('historical-loss-before-policy', 'loss', -1_000),
+    openedAt: '2026-07-01T08:00:00.000Z',
+    closedAt: '2026-07-01T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-01',
+  }
+  const knownMonthlyLoss = {
+    ...trade('known-monthly-breach', 'loss', -10_000),
+    openedAt: '2026-07-21T08:00:00.000Z',
+    closedAt: '2026-07-21T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-21',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned'), historicalLoss, knownMonthlyLoss],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: currentPolicy.id }],
+    currentTradingDayKey: '2026-07-29',
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '历史规则缺口不得掩盖已知月度触线')
+  assert(result.request.decisionType === 'triggered', '已知月度亏损达到限额时必须按触线处理')
+}
+
+export function testFutureRiskCycleStartFailsClosed(): void {
+  const state = {
+    ...triggeredState('planned'),
+    liveStatsStartTradingDayKey: '2099-01-01',
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '未来风险核算起点不得把历史亏损过滤为空')
+  assert(result.request.decisionType === 'unknown', '非法未来起点必须 fail-closed')
+  assert(result.request.unknownReasons.includes('invalid-live-cycle-start'), '必须保留起点无效原因')
+}
+
+export function testLiveCycleMonthlyPolicyGapStillRequiresConfirmation(): void {
+  const currentPolicy = {
+    ...policy,
+    id: 'policy-current-week-with-cycle',
+    effectiveTradingDay: '2026-07-27',
+    confirmedAt: '2026-07-27T00:00:00.000Z',
+  }
+  const previousWeekLoss = {
+    ...trade('previous-week-loss-with-cycle', 'loss', -1_000),
+    openedAt: '2026-07-20T08:00:00.000Z',
+    closedAt: '2026-07-20T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-20',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned'), previousWeekLoss],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: currentPolicy.id }],
+    currentTradingDayKey: '2026-07-29',
+    liveStatsStartTradingDayKey: '2026-07-01',
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '周期已开启时同月前一周规则缺口必须继续确认')
+  assert(result.request.decisionType === 'unknown', '周期内缺失规则覆盖必须保持 unknown')
+}
+
+export function testCurrentWeekPolicyGapStillRequiresConfirmation(): void {
+  const currentPolicy = {
+    ...policy,
+    id: 'policy-midweek',
+    effectiveTradingDay: '2026-07-28',
+    confirmedAt: '2026-07-27T12:00:00.000Z',
+  }
+  const weeklyLoss = {
+    ...trade('weekly-loss', 'loss', -1_000),
+    closedAt: '2026-07-27T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-27',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned'), weeklyLoss],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: currentPolicy.id }],
+    currentTradingDayKey: '2026-07-29',
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '本周亏损缺少适用规则时仍必须确认')
+  assert(result.request.decisionType === 'unknown', '本周规则缺口必须保持 unknown 判定')
 }
 
 export function testUnknownRequiresConfirmationAndExistingPendingWins(): void {
@@ -306,4 +434,73 @@ export function testDomainOpenCandidateNeverCreatesUndoRedoEntries(): void {
   assert(opened.kind === 'opened', 'below fixture 必须直接生成 open 候选')
   assert(opened.state.undoStack === state.undoStack, '首次 open 领域命令不得追加 Undo')
   assert(opened.state.redoStack === state.redoStack, '首次 open 领域命令不得创建可绕过 Gate 的 Redo')
+}
+
+export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClosed(): void {
+  const state = {
+    ...triggeredState('planned'),
+    trades: [
+      trade('target', 'planned'),
+      {
+        ...trade('old-loss', 'loss', -2_000),
+        openedAt: '2026-07-26',
+        closedAt: '2026-07-27T09:00:00.000Z',
+        closedTradingDayKey: '2026-07-27',
+      },
+    ],
+    liveStatsStartTradingDayKey: '2026-07-27',
+    tradingDayStartHour: 0,
+  }
+
+  const below = requestTradeOpenCandidate(state, 'target')
+  assert(below.kind === 'opened' && below.decision === 'below', '起点前开仓的旧亏损不得触发当前 Gate')
+
+  const boundaryUnknown = requestTradeOpenCandidate({
+    ...state,
+    trades: state.trades.map((item) => item.id === 'old-loss' ? {
+      ...item,
+      openedAt: '2026-07-27',
+      pnl: null,
+      resultSource: 'r' as const,
+      rMultiple: -1,
+    } : item),
+  }, 'target')
+  assert(
+    boundaryUnknown.kind === 'confirmation-required' && boundaryUnknown.request.decisionType === 'unknown',
+    '起点日开仓的未知亏损必须继续 fail-closed',
+  )
+}
+
+export function testChangingLiveCycleStartInvalidatesPendingConfirmation(): void {
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned')],
+    monthlyRiskLimits: [],
+  }
+  const candidate = requestTradeOpenCandidate(state, 'target')
+  assert(candidate.kind === 'confirmation-required', 'fixture 必须因缺少月限额产生 pending')
+
+  const validation = validatePendingFingerprint(candidate.request, {
+    ...state,
+    liveStatsStartTradingDayKey: '2026-07-27',
+  })
+
+  assert(validation.kind === 'needs-reconfirmation', '周期起点变化必须使既有确认失效')
+}
+
+export function testChangingTradingDayStartHourInvalidatesPendingConfirmation(): void {
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned')],
+    monthlyRiskLimits: [],
+  }
+  const candidate = requestTradeOpenCandidate(state, 'target')
+  assert(candidate.kind === 'confirmation-required', 'fixture 必须因缺少月限额产生 pending')
+
+  const validation = validatePendingFingerprint(candidate.request, {
+    ...state,
+    tradingDayStartHour: 1,
+  })
+
+  assert(validation.kind === 'needs-reconfirmation', '交易日起始小时变化必须使既有确认失效')
 }

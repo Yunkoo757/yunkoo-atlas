@@ -59,6 +59,15 @@ export function testWeeklyReviewFactsOnlyIncludeLiveTradesClosedInsideTheWeek():
   assert(result.map((item) => item.id).join(',') === 'inside', '周事实不得混入模拟、未平仓、错过、已删除或其他周记录')
 }
 
+export function testWeeklyReviewFactsIgnoreRiskAccountingStart(): void {
+  const trades = [
+    trade({ id: 'old', openedAt: '2026-07-20', closedAt: '2026-07-28' }),
+    trade({ id: 'new', openedAt: '2026-07-27', closedAt: '2026-07-28' }),
+  ]
+  const result = tradesClosedInWeek(trades, '2026-07-27', 0)
+  assert(result.map((item) => item.id).join() === 'old,new', '风险核算起点不得截断当周交易事实')
+}
+
 export function testWeeklyReviewSeparatesMissedOpportunitiesByMarkedWeek(): void {
   const trades = [
     trade({ id: 'missed', status: 'missed', missReason: 'hesitation', pnl: null, resultSource: undefined }),

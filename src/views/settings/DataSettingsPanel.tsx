@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { DataIOContent } from '@/components/DataIOContent'
+import { LiveCycleSettings } from '@/components/LiveCycleSettings'
+import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
@@ -56,6 +58,7 @@ function fmtBackupSize(bytes: number): string {
 export function DataSettingsPanel({
   assetPurgeCommitEnabled = ASSET_PURGE_COMMIT_ENABLED,
 }: { assetPurgeCommitEnabled?: boolean } = {}) {
+  const currentTradingDayKey = useLocalDateKey()
   const electron = isElectron()
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [backing, setBacking] = useState(false)
@@ -365,6 +368,7 @@ export function DataSettingsPanel({
           void refreshHealth()
         }}
       />
+      <LiveCycleSettings variant="settings" currentTradingDayKey={currentTradingDayKey} />
 
       {/* 存储健康面板 */}
       <section className="settings-page-section">
@@ -458,7 +462,7 @@ export function DataSettingsPanel({
               <Trash2 size={14} />
               <span>{purgeBusy ? '扫描中…' : '预览可清理的孤立附件'}</span>
             </button>
-            <p className="dio-section-muted data-section-muted">
+            <p className="data-support-note">
               {assetPurgeCommitEnabled
                 ? '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。删除前须先导出恢复归档。'
                 : '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。当前正式版仅提供预览与导出恢复归档，不在本机永久删除。'}
@@ -568,7 +572,7 @@ export function DataSettingsPanel({
           )}
 
           {backups.length > 0 && (
-            <p className="dio-section-muted data-section-muted">
+            <p className="data-path-note">
               备份文件位于资料库目录的 <code>backups/</code> 下。
             </p>
           )}

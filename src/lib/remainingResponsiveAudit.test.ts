@@ -28,7 +28,7 @@ export async function testPrimaryMobileBreakpointHasNoNineHundredPixelSplit(): P
     'src/views/settings/ProfileSettingsPanel.css',
     'src/views/WeeklyReviewView.css',
     'src/views/settings/SymbolsPanel.css',
-    'src/components/RiskBudgetCard.css',
+    'src/components/RiskStatusStrip.css',
     'src/components/WeeklyRiskPreparationCard.css',
   ]
   for (const file of files) {

@@ -78,6 +78,23 @@ const openPaperTrade: Trade = {
   reviewStatus: 'unreviewed',
 }
 
+const oldLiveTrade: Trade = {
+  ...paperTrade,
+  id: 'old-live',
+  ref: 'TRD-OLD-LIVE',
+  tradeKind: 'live',
+  openedAt: '2000-01-01',
+  closedAt: paperTrade.closedAt,
+  pnl: 500,
+}
+
+const currentLiveTrade: Trade = {
+  ...paperTrade,
+  id: 'current-live',
+  ref: 'TRD-CURRENT-LIVE',
+  tradeKind: 'live',
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -143,9 +160,30 @@ async function run(): Promise<void> {
       () => document.querySelector('[data-testid="location"]')?.textContent === '/sim',
       '模拟范围的空状态应回到模拟交易工作区',
     )
+
+    root.unmount()
+    useStore.setState({
+      trades: [oldLiveTrade, currentLiveTrade],
+      liveStatsStartTradingDayKey: currentLiveTrade.openedAt,
+    })
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => Boolean(document.querySelector('a.db-strat')), '全历史策略统计未出现')
+    assert(document.body.textContent?.includes('+$750'), '风险核算起点不得截断默认实盘与策略统计')
   } finally {
     root.unmount()
-    useStore.setState({ trades: previous.trades, strategies: previous.strategies })
+    useStore.setState({
+      trades: previous.trades,
+      strategies: previous.strategies,
+      liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
+    })
   }
 }
 

@@ -11,6 +11,7 @@ export type RiskUnknownReason =
   | 'missing-close-date'
   | 'invalid-close-date'
   | 'future-loss-close-date'
+  | 'invalid-live-cycle-start'
 
 export interface RiskPolicyDraft {
   capitalBase: number | null

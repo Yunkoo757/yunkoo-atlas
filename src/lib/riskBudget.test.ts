@@ -229,3 +229,71 @@ export function testHistoricalDirtyResultDoesNotPoisonCurrentRiskCoverage(): voi
   assert(result.month.coverage === 'complete', '本月覆盖率只应检查本月相关结果')
   assert(!result.unknownReasons.includes('missing-loss-pnl'), '当前闸门原因不得混入其他月份问题')
 }
+
+export function testRiskBudgetExcludesPreCycleTradeByOpenDay(): void {
+  const input = fixture({ pnls: [-1_000, -1_000] })
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.tradingDayStartHour = 0
+  input.trades[0] = {
+    ...input.trades[0]!,
+    openedAt: '2026-07-26',
+    closedAt: '2026-07-27',
+    closedTradingDayKey: '2026-07-27',
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.month.coverage === 'complete', '规则前交易不得制造当前周期未知覆盖')
+  assert(result.month.netBudgetR === -1, '只应计入边界日开仓的当前周期交易')
+  assert(result.month.includedTradeCount === 1, '规则前交易不得显示为当前周期未计入')
+}
+
+export function testRiskBudgetKeepsCurrentCycleUnknownFailClosed(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.trades[0] = { ...input.trades[0]!, pnl: null, resultSource: 'r', rMultiple: -1 }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.gateCoverage === 'unknown', '当前周期缺失现金亏损必须继续 unknown')
+}
+
+export function testRiskBudgetIncludesPlanOpenedAfterCycleStart(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.currentTradingDayKey = '2026-07-28'
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.tradingDayStartHour = 0
+  input.trades[0] = {
+    ...input.trades[0]!,
+    openedAt: '2026-07-26',
+    closedAt: '2026-07-28',
+    closedTradingDayKey: '2026-07-28',
+    activities: [{
+      id: 'activity-open-current-cycle',
+      kind: 'status',
+      status: 'open',
+      timestamp: '2026-07-28T08:00:00.000Z',
+    }],
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.month.includedTradeCount === 1, '起点后首次真实开仓的计划单必须计入风险预算')
+  assert(result.month.netBudgetR === -1, '起点后首次真实开仓的亏损不得被规则前日期排除')
+}
+
+export function testRiskBudgetUsesConfiguredTradingDayBoundaryForCloseDate(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.currentTradingDayKey = '2026-07-27'
+  input.tradingDayStartHour = 6
+  input.trades[0] = {
+    ...input.trades[0]!,
+    closedAt: new Date(2026, 6, 28, 5, 0).toISOString(),
+    closedTradingDayKey: undefined,
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.day.coverage === 'complete', '06:00 前平仓必须归入前一交易日')
+  assert(result.day.netBudgetR === -1, '凌晨平仓亏损必须进入对应交易日风险预算')
+}

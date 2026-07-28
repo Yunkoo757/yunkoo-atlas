@@ -76,6 +76,7 @@ export type SidebarCountContext = {
   starredIds: string[]
   display: DisplayPrefs
   businessDateAnchor?: BusinessDateAnchor
+  liveStatsStartTradingDayKey?: string | null
 }
 
 export const MAX_PINNED_SIDEBAR_ITEMS = 8

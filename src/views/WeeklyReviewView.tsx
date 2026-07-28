@@ -22,6 +22,7 @@ import {
   weekEndFor,
   weekStartFor,
   type WeeklyReview,
+  type WeeklyReviewEvidenceTrade,
   type WeeklyCommitmentResult,
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
@@ -146,7 +147,7 @@ function TradeEvidence({
   review,
   onPatch,
 }: {
-  trade: Trade
+  trade: WeeklyReviewEvidenceTrade
   review: WeeklyReview
   onPatch: (patch: ReviewPatch) => void
 }) {
@@ -214,11 +215,19 @@ export function WeeklyReviewView() {
   const storedReview = reviews.find((item) => item.weekStart === selectedWeek)
   const review = storedReview ?? createWeeklyReview(selectedWeek)
   const weekTrades = useMemo(
-    () => tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour),
+    () => tradesClosedInWeek(
+      trades,
+      selectedWeek,
+      tradingDayStartHour,
+    ),
     [trades, selectedWeek, tradingDayStartHour],
   )
   const weekMissedTrades = useMemo(
-    () => missedTradesInWeek(trades, selectedWeek, tradingDayStartHour),
+    () => missedTradesInWeek(
+      trades,
+      selectedWeek,
+      tradingDayStartHour,
+    ),
     [trades, selectedWeek, tradingDayStartHour],
   )
   const liveMetrics = useMemo(
@@ -228,6 +237,12 @@ export function WeeklyReviewView() {
   const metrics = review.status === 'completed' && review.metricsSnapshot
     ? review.metricsSnapshot
     : liveMetrics
+  const evidenceTrades = review.status === 'completed'
+    ? review.evidenceSnapshot?.trades ?? tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour)
+    : weekTrades
+  const evidenceMissedTrades = review.status === 'completed'
+    ? review.evidenceSnapshot?.missedTrades ?? missedTradesInWeek(trades, selectedWeek, tradingDayStartHour)
+    : weekMissedTrades
   const customMistakeEvidence = Object.entries(metrics.mistakeTagCounts)
     .filter(([tag]) => !WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number]))
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
@@ -348,7 +363,9 @@ export function WeeklyReviewView() {
               <div>
                 <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
                 <h1>{formatWeekRange(selectedWeek)}</h1>
-                <p>{selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列</p>
+                <p>
+                  {selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列
+                </p>
               </div>
               <div className="wr-head-actions">
                 <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">
@@ -475,21 +492,21 @@ export function WeeklyReviewView() {
 
               <section className="wr-section">
                 <div className="wr-section-head"><div><span>{previousReview ? '05' : '04'}</span><h2>关键交易证据</h2></div><small>标记角色后，可在年度复盘中回看</small></div>
-                {weekTrades.length || weekMissedTrades.length ? (
+                {evidenceTrades.length || evidenceMissedTrades.length ? (
                   <div className="wr-evidence-groups">
-                    {weekTrades.length ? (
+                    {evidenceTrades.length ? (
                       <div className="wr-evidence-group">
-                        {weekMissedTrades.length ? <div className="wr-evidence-group-title">已执行并平仓</div> : null}
+                        {evidenceMissedTrades.length ? <div className="wr-evidence-group-title">已执行并平仓</div> : null}
                         <div className="wr-trade-list">
-                          {weekTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
+                          {evidenceTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
                         </div>
                       </div>
                     ) : null}
-                    {weekMissedTrades.length ? (
+                    {evidenceMissedTrades.length ? (
                       <div className="wr-evidence-group">
                         <div className="wr-evidence-group-title">错过机会 <small>仅作执行证据，不计入绩效</small></div>
                         <div className="wr-trade-list">
-                          {weekMissedTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
+                          {evidenceMissedTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
                         </div>
                       </div>
                     ) : null}

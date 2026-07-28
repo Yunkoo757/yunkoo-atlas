@@ -219,7 +219,7 @@
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0.02em;
-  color: color-mix(in srgb, var(--sb-text) 72%, transparent);
+  color: var(--sb-text);
 }
 
 .sb-item {

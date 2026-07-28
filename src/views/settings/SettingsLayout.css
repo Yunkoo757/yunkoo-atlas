@@ -110,7 +110,11 @@
   margin-top: var(--sp-8);
 }
 
-@media (max-width: 768px) {
+.settings-page > :not(.settings-page-head) + .settings-page-section {
+  margin-top: var(--sp-8);
+}
+
+@media (max-width: 899px) {
   .settings-body {
     flex-direction: column;
     padding: 0;
@@ -119,15 +123,21 @@
   .settings-nav {
     width: 100%;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
     border-right: none;
     border-bottom: 1px solid var(--border-subtle);
     border-radius: 0;
     padding: var(--sp-3);
   }
+  .settings-nav::-webkit-scrollbar { display: none; }
   .settings-nav-item {
+    flex: 0 0 auto;
     height: 44px;
   }
+  .settings-nav-item.is-active { order: -1; }
   .settings-panel {
     border-left: none;
     border-right: none;

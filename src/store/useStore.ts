@@ -41,6 +41,7 @@ import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
 import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
   completeWeeklyReviewCandidate,
@@ -299,6 +300,7 @@ interface State {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
+  liveStatsStartTradingDayKey: string | null
   quickNotes: QuickNote[]
   strategies: Strategy[]
   selectedId: string | null
@@ -350,6 +352,7 @@ interface State {
     input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
   ) => void
   ensureRiskPeriodRecords: (tradingDay: string) => void
+  setLiveStatsStartTradingDayKey: (value: string | null) => void
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
   cancelTradeOpen: () => void
@@ -454,6 +457,7 @@ export const useStore = create<State>()((set, get) => ({
       riskPolicyVersions: [],
       monthlyRiskLimits: [],
       riskOverrideEvents: [],
+      liveStatsStartTradingDayKey: null,
       quickNotes: [],
       strategies: [],
       selectedId: null,
@@ -796,6 +800,12 @@ export const useStore = create<State>()((set, get) => ({
           monthlyRiskLimits: s.monthlyRiskLimits,
           riskOverrideEvents: s.riskOverrideEvents,
         }, tradingDay)),
+      setLiveStatsStartTradingDayKey: (value) => {
+        if (value !== null && !isValidLiveCycleDayKey(value)) {
+          throw new Error('风险核算起点必须是有效交易日')
+        }
+        set({ liveStatsStartTradingDayKey: value, pendingTradeOpenRequest: null })
+      },
       setStatus: (id, status) => {
         const current = get().trades.find((trade) => trade.id === id)
         if (!current) return 'not-found'
@@ -843,6 +853,8 @@ export const useStore = create<State>()((set, get) => ({
           const candidate = requestTradeOpenCandidate({
             ...s,
             currentTradingDayKey: getTradingDayKey(new Date(), s.display.tradingDayStartHour),
+            liveStatsStartTradingDayKey: s.liveStatsStartTradingDayKey,
+            tradingDayStartHour: s.display.tradingDayStartHour,
           }, id, { existingPending: s.pendingTradeOpenRequest })
           if (candidate.kind === 'not-found') return s
           if (candidate.kind === 'pending-exists') {
@@ -917,6 +929,7 @@ export const useStore = create<State>()((set, get) => ({
           riskPolicyVersions: snapshot.riskPolicyVersions,
           monthlyRiskLimits: snapshot.monthlyRiskLimits,
           riskOverrideEvents: snapshot.riskOverrideEvents,
+          liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
           pendingTradeOpenRequest: null,
         })
       },

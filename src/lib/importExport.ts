@@ -119,6 +119,7 @@ interface ExportState extends PersistedSlice {
 
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
+  liveStatsStartTradingDayKey?: PersistedSnapshot['liveStatsStartTradingDayKey']
   weeklyRiskPreparations?: PersistedSnapshot['weeklyRiskPreparations']
   riskPolicyVersions?: PersistedSnapshot['riskPolicyVersions']
   monthlyRiskLimits?: PersistedSnapshot['monthlyRiskLimits']
@@ -146,6 +147,7 @@ export function buildPortableSnapshotFromState(
   const shortcuts = bindingsForPersist(shortcutBindings)
   return {
     trades: state.trades,
+    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
     weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
     riskPolicyVersions: state.riskPolicyVersions ?? [],
     monthlyRiskLimits: state.monthlyRiskLimits ?? [],
@@ -298,6 +300,7 @@ export async function buildExportPayloadFromState(
   return {
     version: EXPORT_VERSION,
     trades: state.trades,
+    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
     weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
     riskPolicyVersions: state.riskPolicyVersions ?? [],
     monthlyRiskLimits: state.monthlyRiskLimits ?? [],
@@ -355,7 +358,7 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, liveStatsStartTradingDayKey, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
@@ -365,6 +368,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       riskPolicyVersions,
       monthlyRiskLimits,
       riskOverrideEvents,
+      liveStatsStartTradingDayKey,
       weeklyReviews,
       quickNotes,
       strategies,
@@ -1167,6 +1171,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
     riskPolicyVersions: snapshot.riskPolicyVersions,
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
     riskOverrideEvents: snapshot.riskOverrideEvents,
+    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
     weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
     quickNotes: normalizeQuickNotes(snapshot.quickNotes),
     strategies: normalized.strategies,
@@ -1200,6 +1205,7 @@ export function resetEmptyLibraryIntoStore(): void {
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
+    liveStatsStartTradingDayKey: null,
     weeklyReviews: [],
     quickNotes: [],
     strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),

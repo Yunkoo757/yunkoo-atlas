@@ -185,6 +185,28 @@ export function testWriteAnalysisScopePreservesUnrelatedQueryState(): void {
   assert(params.get('range') === 'this-month', 'writing analysis scope must persist the selected range')
 }
 
+export function testAnalysisScopeIgnoresRiskAccountingStart(): void {
+  const trades: Trade[] = [
+    { ...closedLiveTrade, id: 'old-live', openedAt: '2026-07-20', closedAt: '2026-07-27' },
+    { ...closedLiveTrade, id: 'new-live', openedAt: '2026-07-27', closedAt: '2026-07-27' },
+    { ...closedLiveTrade, id: 'paper', tradeKind: 'paper', openedAt: '2026-07-20', closedAt: '2026-07-27' },
+  ]
+  const live = filterTradesByAnalysisScope(
+    trades,
+    { kind: 'live', range: 'all' },
+    new Date('2026-07-28T12:00:00'),
+    0,
+  )
+  const all = filterTradesByAnalysisScope(
+    trades,
+    { kind: 'all', range: 'all' },
+    new Date('2026-07-28T12:00:00'),
+    0,
+  )
+  assert(live.map((item) => item.id).join() === 'old-live,new-live', '风险核算起点不得截断实盘分析')
+  assert(all.map((item) => item.id).join() === 'old-live,new-live,paper', '风险核算起点不得截断混合分析')
+}
+
 export function testAnalysisScopeUsesFrozenClosedTradingDayKey(): void {
   const result = filterTradesByAnalysisScope(
     [{

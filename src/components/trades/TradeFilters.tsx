@@ -54,6 +54,7 @@ const KNOWN_TRADE_VIEW_PARAMS = new Set([
   'masteryState',
   'kind',
   'range',
+  'liveCycle',
 ])
 
 export function TradeFilters({
@@ -69,6 +70,7 @@ export function TradeFilters({
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
+  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const symbolIcons = useStore((state) => state.symbolIcons)
@@ -93,6 +95,8 @@ export function TradeFilters({
   const isCaseWorkspace = workspaceKind === 'case'
   const isPaperWorkspace = workspaceKind === 'paper'
   const usesQueryScope = isCaseWorkspace || isPaperWorkspace
+  const allowsLiveCycleScope = Boolean(liveStatsStartTradingDayKey) &&
+    !isCaseWorkspace && !isPaperWorkspace && filter.analysisScope?.kind !== 'paper'
   const allowsTradeKindFacet = !filter.tradeKind && (
     !filter.analysisScope || filter.analysisScope.kind === 'all'
   )
@@ -130,8 +134,10 @@ export function TradeFilters({
     const current = searchParams.toString()
     const canonical = canonicalizeTradeViewSearch(searchParams)
     if (!allowsTradeKindFacet) canonical.delete('tradeKind')
+    if (!liveStatsStartTradingDayKey) canonical.delete('liveCycle')
+    else if (!allowsLiveCycleScope) canonical.delete('liveCycle')
     if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
-  }, [allowsTradeKindFacet, searchParams, setSearchParams])
+  }, [allowsLiveCycleScope, allowsTradeKindFacet, liveStatsStartTradingDayKey, searchParams, setSearchParams])
 
   const activeFilters: ActiveFilter[] = []
   const quickPeriod = ['/period/this-week', '/period/this-month'].includes(
@@ -154,6 +160,14 @@ export function TradeFilters({
   }
 
   const facetLabels: Array<[string, string]> = [
+    [
+      'liveCycle',
+      searchParams.get('liveCycle') === 'pre-cycle'
+        ? '规则前'
+        : searchParams.get('liveCycle') === 'current'
+          ? '当前周期'
+          : '',
+    ],
     [
       'tradeKind',
       allowsTradeKindFacet
@@ -383,6 +397,18 @@ export function TradeFilters({
                     ['last-month', '上月'],
                   ]}
                 />
+                {allowsLiveCycleScope ? (
+                  <FilterSelect
+                    label="实盘周期"
+                    value={searchParams.get('liveCycle') ?? ''}
+                    onChange={(value) => setParam('liveCycle', value)}
+                    options={[
+                      ['', '全部实盘'],
+                      ['current', '当前周期'],
+                      ['pre-cycle', '规则前'],
+                    ]}
+                  />
+                ) : null}
                 <FilterSelect
                   label="策略"
                   value={

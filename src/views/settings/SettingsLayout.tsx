@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes, Download, FileText } from '@/icons/appIcons'
+import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes, Download, FileText, Shield } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import './SettingsLayout.css'
 
@@ -7,6 +7,7 @@ const NAV = [
   { to: '/settings/profile', label: '资料', icon: UserCircle },
   { to: '/settings/shortcuts', label: '快捷键', icon: Keyboard },
   { to: '/settings/strategies', label: '策略', icon: Settings2 },
+  { to: '/settings/risk', label: '风险管理', icon: Shield },
   { to: '/settings/tags', label: '标签', icon: Tag },
   { to: '/settings/symbols', label: '品种', icon: Shapes },
   { to: '/settings/review-templates', label: '复盘起稿', icon: FileText },

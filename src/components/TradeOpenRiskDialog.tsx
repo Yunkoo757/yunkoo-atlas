@@ -21,6 +21,7 @@ const UNKNOWN_REASON_COPY: Record<RiskUnknownReason, string> = {
   'missing-close-date': '亏损交易缺少平仓日期',
   'invalid-close-date': '平仓日期无效',
   'future-loss-close-date': '亏损平仓日期晚于当前交易日',
+  'invalid-live-cycle-start': '风险核算起点晚于当前交易日',
 }
 
 type CommitState = 'idle' | 'committing' | 'error' | 'reload-required'

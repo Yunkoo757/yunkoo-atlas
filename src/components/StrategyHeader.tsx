@@ -9,6 +9,7 @@ import {
 } from '@/lib/analysisScope'
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
+import { filterTradesForLiveCycle, parseLiveCycleScope } from '@/lib/liveCycle'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
 
@@ -26,6 +27,7 @@ export function StrategyHeader({
   const trades = useStore((s) => s.trades)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
+  const liveStatsStartTradingDayKey = useStore((s) => s.liveStatsStartTradingDayKey)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const facets = useMemo(() => {
@@ -36,9 +38,24 @@ export function StrategyHeader({
   }, [analysisScope?.kind, search])
 
   const stats = useMemo(() => {
+    const requestedLiveCycleScope = new URLSearchParams(search).get('liveCycle')
+    const liveCycleScope = requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
+      ? parseLiveCycleScope(search)
+      : 'all'
+    const cycleScopedTrades = filterTradesForLiveCycle(
+      trades,
+      analysisScope?.kind === 'paper' ? 'all' : liveCycleScope,
+      liveStatsStartTradingDayKey,
+      tradingDayStartHour,
+    )
     const scoped = analysisScope
-      ? filterTradesByAnalysisScope(trades, analysisScope, businessDateAnchor)
-      : trades
+      ? filterTradesByAnalysisScope(
+        cycleScopedTrades,
+        analysisScope,
+        businessDateAnchor,
+        tradingDayStartHour,
+      )
+      : cycleScopedTrades
     return computeStrategyStats(
       filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor),
       strategyId,
@@ -49,10 +66,12 @@ export function StrategyHeader({
       strategyId,
       analysisScope?.kind,
       analysisScope?.range,
+      search,
       facets,
       localDateKey,
       businessDateAnchor,
       tradingDayStartHour,
+      liveStatsStartTradingDayKey,
     ])
 
   const scopeLabel = analysisScope

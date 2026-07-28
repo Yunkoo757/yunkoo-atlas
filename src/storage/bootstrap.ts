@@ -78,6 +78,7 @@ async function runBootstrapStorage(): Promise<void> {
       riskPolicyVersions: snapshot.riskPolicyVersions,
       monthlyRiskLimits: snapshot.monthlyRiskLimits,
       riskOverrideEvents: snapshot.riskOverrideEvents,
+      liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
       weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
       quickNotes: normalizeQuickNotes(snapshot.quickNotes),
       strategies: normalized.strategies,

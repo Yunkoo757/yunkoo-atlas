@@ -1130,6 +1130,48 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
   }
 }
 
+export function testLiveWorkbenchAndSidebarCountsPreserveHistoryByDefault(): void {
+  const trades: Trade[] = [
+    { ...trade, id: 'old-live', status: 'open', openedAt: '2026-07-20' },
+    { ...trade, id: 'new-live', status: 'open', openedAt: '2026-07-27' },
+    { ...trade, id: 'paper', tradeKind: 'paper', status: 'open', openedAt: '2026-07-20' },
+    { ...trade, id: 'case', tradeKind: 'case', openedAt: '2026-07-20' },
+  ]
+  const context = {
+    trades,
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    liveStatsStartTradingDayKey: '2026-07-27',
+  }
+  const live = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'all', tradeKind: 'live' },
+    search: '',
+  })
+  const currentCycle = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'all', tradeKind: 'live' },
+    search: '?liveCycle=current',
+  })
+  const paper = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'all', tradeKind: 'paper' },
+    search: '',
+  })
+  const cases = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' },
+    search: '',
+  })
+
+  assert(live.map((item) => item.id).sort().join() === 'new-live,old-live', '交易日志缺省范围必须保留全部实盘历史')
+  assert(countSidebarRoute('/list', '', context) === 2, '侧栏交易日志计数必须保留全部实盘历史')
+  assert(currentCycle.map((item) => item.id).join() === 'new-live', '显式当前周期筛选必须只显示周期内实盘')
+  assert(countSidebarRoute('/list', '?liveCycle=current', context) === 1, '显式当前周期侧栏计数必须与列表一致')
+  assert(paper.map((item) => item.id).join() === 'paper', '模拟盘计数不得受实盘周期影响')
+  assert(cases.map((item) => item.id).join() === 'case', '案例计数不得受实盘周期影响')
+}
+
 export function testTradeFiltersReexportTheWorkbenchRuleSourceWithoutBehaviorDrift(): void {
   assert(filterTrades === filterWorkbenchTrades, '路由筛选必须从 workbenchTrades 共享唯一实现')
   assert(

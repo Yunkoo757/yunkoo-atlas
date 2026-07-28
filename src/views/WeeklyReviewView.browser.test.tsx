@@ -218,6 +218,21 @@ async function run(): Promise<void> {
       .find((link) => link.textContent === '查看交易' && link.getAttribute('href') === '/trade/TRD-one')
     assert(resolvedLink, 'resolved 冻结事件没有生成真实交易详情路由')
 
+    const frozenEvidence = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
+      .map((row) => row.textContent)
+    const nextCycleDate = new Date(`${activeWeekStart}T12:00:00`)
+    nextCycleDate.setDate(nextCycleDate.getDate() + 7)
+    useStore.setState({ liveStatsStartTradingDayKey: getTradingDayKey(nextCycleDate) })
+    await waitFor(
+      () => document.querySelectorAll('.wr-trade-row').length === frozenEvidence.length,
+      '调整统计周期后冻结证据列表被实时数据改写',
+    )
+    assert(
+      [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
+        .map((row) => row.textContent).join('|') === frozenEvidence.join('|'),
+      '调整统计周期后冻结证据内容必须保持完成时快照',
+    )
+
     useStore.getState().removeTrade('two')
     await waitFor(() => document.querySelector('[data-testid="store-render-sentinel"]')?.textContent === '3:1', '生产软删除后 Store 未确定重渲染')
     useStore.getState().purgeTrade('two')
@@ -226,6 +241,11 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('触线后只执行预设止损') ?? false, '删除关联交易后冻结事件消失')
     assert(document.body.textContent?.includes('浏览器冻结规则'), '完成后读取了实时规则而不是快照')
     assert(document.body.textContent?.includes('+$100'), '完成后读取了实时绩效而不是快照')
+    assert(
+      [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
+        .map((row) => row.textContent).join('|') === frozenEvidence.join('|'),
+      '删除交易后冻结证据内容必须保持完成时快照',
+    )
 
     resolvedLink.click()
     await waitFor(() => document.body.textContent?.includes('交易详情') ?? false, 'resolved 冻结事件链接未进入交易详情路由')
@@ -256,6 +276,29 @@ async function run(): Promise<void> {
 
     clickButton('年度趋势')
     await waitFor(() => document.body.textContent?.includes('做法评分趋势') ?? false, '年度趋势页不可达')
+
+    clickButton('本周复盘')
+    const legacyCycleStart = new Date(`${activeWeekStart}T12:00:00`)
+    legacyCycleStart.setDate(legacyCycleStart.getDate() + 1)
+    const legacyCompletedReview = { ...completed, evidenceSnapshot: undefined }
+    useStore.setState({
+      trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50), makeTrade('three', 'missed', null)],
+      weeklyReviews: [legacyCompletedReview],
+      liveStatsStartTradingDayKey: getTradingDayKey(legacyCycleStart),
+    })
+    await waitFor(
+      () => document.body.textContent?.includes('完成时快照') ?? false,
+      '旧 completed 复盘未进入冻结展示态',
+    )
+    assert(
+      document.querySelectorAll('.wr-trade-row').length === 3,
+      '旧 completed 无 evidenceSnapshot 时必须回退展示未经当前周期过滤的当周历史证据',
+    )
+    assert(
+      !document.body.textContent?.includes('当前周期自'),
+      '旧 completed 无 evidenceSnapshot 时不得显示后来设置的当前周期标签',
+    )
+    assert(legacyCompletedReview.metricsSnapshot?.totalPnl === 100, '旧 completed 的冻结 metrics 不得重算')
   } finally {
     window.removeEventListener('error', capturePageError)
     root.unmount()
@@ -265,6 +308,7 @@ async function run(): Promise<void> {
       riskPolicyVersions: previous.riskPolicyVersions,
       monthlyRiskLimits: previous.monthlyRiskLimits,
       riskOverrideEvents: previous.riskOverrideEvents,
+      liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
     })
   }
 }

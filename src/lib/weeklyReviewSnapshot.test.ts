@@ -4,6 +4,7 @@ import {
   createWeeklyReview,
   normalizeWeeklyReviews,
   reopenCompletedReview,
+  type CompleteWeeklyReviewState,
 } from '@/data/weeklyReviews'
 import type {
   MonthlyRiskLimit,
@@ -97,7 +98,7 @@ function monthlyLimit(revision: number): MonthlyRiskLimit {
   }
 }
 
-function stateAtRevision(revision: number) {
+function stateAtRevision(revision: number): CompleteWeeklyReviewState {
   const review = {
     ...createWeeklyReview('2026-07-20', new Date('2026-07-20T00:00:00.000Z')),
     id: 'review-1',
@@ -108,6 +109,7 @@ function stateAtRevision(revision: number) {
     riskPolicyVersions: [policy(revision)],
     monthlyRiskLimits: [monthlyLimit(revision)],
     riskOverrideEvents: [overrideEvent(revision)],
+    liveStatsStartTradingDayKey: null,
     display: { tradingDayStartHour: 0 },
   }
 }
@@ -228,4 +230,48 @@ export function testLossAfterReviewCompletionRemainsUnknown(): void {
     completed.riskSnapshot?.dailyOutcomes[0]?.unknownReasons.includes('future-loss-close-date') ?? false,
     '非法 future loss 必须保留具体原因',
   )
+}
+
+export function testWeeklyReviewSeparatesPerformanceEvidenceFromRiskCycle(): void {
+  const state = stateAtRevision(7)
+  state.liveStatsStartTradingDayKey = '2026-07-21'
+  state.trades = [
+    { ...trade(7), id: 'old', openedAt: '2026-07-20T08:00:00.000Z' },
+    { ...trade(7), id: 'new', openedAt: '2026-07-21T08:00:00.000Z' },
+  ]
+
+  const completed = completeWeeklyReviewCandidate(state, 'review-1').review
+
+  assert(completed.metricsSnapshot?.tradeCount === 2, '风险核算起点不得截断周复盘事实与绩效')
+  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照仍必须只核算起点后的交易')
+}
+
+export function testWeeklyReviewEvidenceStoresOnlyDisplayFacts(): void {
+  const state = stateAtRevision(7)
+  state.trades[0] = {
+    ...state.trades[0]!,
+    note: '<p>复盘</p><img data-asset-id="asset-private-note">',
+    comments: [{ id: 'comment-1', text: '不应重复冻结', createdAt: '2026-07-20T10:00:00.000Z' }],
+  }
+
+  const completed = completeWeeklyReviewCandidate(state, 'review-1').review
+  const evidence = completed.evidenceSnapshot?.trades[0]
+
+  assert(evidence, '完成周复盘必须冻结交易证据')
+  assert(!('note' in evidence), '冻结证据不得重复保存富文本与附件引用')
+  assert(!('comments' in evidence), '冻结证据不得复制无关评论历史')
+  assert(evidence.ref === state.trades[0]?.ref && evidence.pnl === state.trades[0]?.pnl, '必须保留列表展示需要的客观事实')
+}
+
+export function testCompletedWeeklyReviewCannotBeRewritten(): void {
+  const state = stateAtRevision(7)
+  const completed = completeWeeklyReviewCandidate(state, 'review-1').review
+  const rewritten = completeWeeklyReviewCandidate({
+    ...state,
+    trades: [{ ...trade(7), pnl: -9_000 }],
+    weeklyReviews: [completed],
+  }, 'review-1').review
+
+  assert(rewritten.metricsSnapshot?.totalPnl === -1_000, '已冻结周复盘不得被后续交易数据改写')
+  assert(rewritten.completedAt === completed.completedAt, '已冻结周复盘必须保留原冻结时间')
 }

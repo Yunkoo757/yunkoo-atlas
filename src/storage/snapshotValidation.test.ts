@@ -27,6 +27,18 @@ export function testSnapshotValidationAcceptsOpenTradesAndLegacyOptionalFields()
   assertValidPersistedSnapshot(legacy)
 }
 
+export function testSnapshotValidationRejectsMalformedLiveCycleStart(): void {
+  for (const value of ['2026-02-30', '27-07-2026', 20260727]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({ ...valid, liveStatsStartTradingDayKey: value })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, `非法实盘统计起点 ${value} 必须拒绝`)
+  }
+}
+
 export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalformedExecutionGaps(): void {
   const review = {
     ...createWeeklyReview('2026-07-13'),
@@ -57,6 +69,34 @@ export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalfor
       rejected = true
     }
     assert(rejected, '损坏的执行缺口统计不得进入资料库快照')
+  }
+}
+
+export function testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots(): void {
+  const review = {
+    ...createWeeklyReview('2026-07-13'),
+    evidenceSnapshot: {
+      trades: [{ ...valid.trades[0] }],
+      missedTrades: [{ ...valid.trades[0] }],
+    },
+  }
+  assertValidPersistedSnapshot({ ...valid, weeklyReviews: [review] })
+
+  for (const evidenceSnapshot of [
+    [],
+    { trades: [], missedTrades: {} },
+    { trades: [{ ...valid.trades[0], pnl: '100' }], missedTrades: [] },
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({
+        ...valid,
+        weeklyReviews: [{ ...review, evidenceSnapshot }],
+      })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '损坏的周复盘证据快照不得进入资料库')
   }
 }
 

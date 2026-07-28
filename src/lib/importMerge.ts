@@ -58,6 +58,7 @@ export function mergeImportPayload(
   return {
     strategies,
     trades: normalizeTrades(riskMerged.trades),
+    liveStatsStartTradingDayKey: current.liveStatsStartTradingDayKey ?? null,
     weeklyRiskPreparations: riskMerged.weeklyRiskPreparations,
     riskPolicyVersions: riskMerged.riskPolicyVersions,
     monthlyRiskLimits: riskMerged.monthlyRiskLimits,
@@ -67,7 +68,11 @@ export function mergeImportPayload(
     starredIds: riskMerged.starredIds,
     subscribedIds: riskMerged.subscribedIds,
     pinnedStrategyIds: [...new Set([...current.pinnedStrategyIds, ...payload.pinnedStrategyIds])],
-    display: normalizeDisplay({ ...current.display, ...payload.display }),
+    display: normalizeDisplay({
+      ...current.display,
+      ...payload.display,
+      tradingDayStartHour: current.display.tradingDayStartHour,
+    }),
     tagPresets: mergeTagPresets(current.tagPresets ?? [], payload.tagPresets ?? []),
     mistakeTagPresets: mergeTagPresets(
       current.mistakeTagPresets ?? [],

@@ -42,6 +42,16 @@
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
+.dv-cycle-badge {
+  padding: 1px 5px;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-4);
+  background: var(--bg-inset);
+  font-size: var(--type-metadata-size);
+  line-height: 1.3;
+  white-space: nowrap;
+}
 .dv-crumb-sep {
   color: var(--text-quaternary);
 }
