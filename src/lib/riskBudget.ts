@@ -194,7 +194,7 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
     const truth = resolveTradeTruth(trade)
     const reasons: RiskUnknownReason[] = []
     let partial = false
-    let date = closedTradingDayKey(trade)
+    let date = closedTradingDayKey(trade, input.tradingDayStartHour ?? 0)
 
     if (truth.hasConflict || !isTradeResultAuthorityConsistent(trade)) {
       reasons.push('result-conflict')

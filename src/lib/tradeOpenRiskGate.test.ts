@@ -209,6 +209,39 @@ export function testHistoricalMonthlyPolicyGapDoesNotBlockCurrentOpen(): void {
   assert(result.kind === 'opened' && result.decision === 'below', '仅有月内历史规则缺口时不得反复阻断当前开仓')
 }
 
+export function testHistoricalMonthlyPolicyGapCannotHideKnownMonthlyBreach(): void {
+  const currentPolicy = {
+    ...policy,
+    id: 'policy-current-month',
+    effectiveTradingDay: '2026-07-21',
+    confirmedAt: '2026-07-21T00:00:00.000Z',
+  }
+  const historicalLoss = {
+    ...trade('historical-loss-before-policy', 'loss', -1_000),
+    openedAt: '2026-07-01T08:00:00.000Z',
+    closedAt: '2026-07-01T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-01',
+  }
+  const knownMonthlyLoss = {
+    ...trade('known-monthly-breach', 'loss', -10_000),
+    openedAt: '2026-07-21T08:00:00.000Z',
+    closedAt: '2026-07-21T09:00:00.000Z',
+    closedTradingDayKey: '2026-07-21',
+  }
+  const state = {
+    ...triggeredState('planned'),
+    trades: [trade('target', 'planned'), historicalLoss, knownMonthlyLoss],
+    riskPolicyVersions: [currentPolicy],
+    monthlyRiskLimits: [{ ...monthlyLimit, sourcePolicyVersionId: currentPolicy.id }],
+    currentTradingDayKey: '2026-07-29',
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '历史规则缺口不得掩盖已知月度触线')
+  assert(result.request.decisionType === 'triggered', '已知月度亏损达到限额时必须按触线处理')
+}
+
 export function testLiveCycleMonthlyPolicyGapStillRequiresConfirmation(): void {
   const currentPolicy = {
     ...policy,

@@ -273,13 +273,16 @@ function createPendingRequest(
     outcomes.month.coverage === 'unknown' &&
     resolved.unknownReasons.length > 0 &&
     resolved.unknownReasons.every((reason) => reason === 'missing-policy')
+  const knownMonthlyLimitTriggered = historicalMonthlyPolicyGapOnly &&
+    outcomes.month.limitR > 0 &&
+    outcomes.month.netBudgetR <= -outcomes.month.limitR
   const decisionType: RiskDecisionType | null = (
     resolved.gateCoverage === 'unknown' && !historicalMonthlyPolicyGapOnly
   ) || (
     policy !== null && monthlyLimit === null
   )
     ? 'unknown'
-    : Object.values(outcomes).some((outcome) => outcome.triggered)
+    : knownMonthlyLimitTriggered || Object.values(outcomes).some((outcome) => outcome.triggered)
       ? 'triggered'
       : null
   if (!decisionType) return null

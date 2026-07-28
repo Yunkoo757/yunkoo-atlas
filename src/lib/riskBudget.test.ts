@@ -257,3 +257,19 @@ export function testRiskBudgetKeepsCurrentCycleUnknownFailClosed(): void {
 
   assert(result.gateCoverage === 'unknown', '当前周期缺失现金亏损必须继续 unknown')
 }
+
+export function testRiskBudgetUsesConfiguredTradingDayBoundaryForCloseDate(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.currentTradingDayKey = '2026-07-27'
+  input.tradingDayStartHour = 6
+  input.trades[0] = {
+    ...input.trades[0]!,
+    closedAt: new Date(2026, 6, 28, 5, 0).toISOString(),
+    closedTradingDayKey: undefined,
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.day.coverage === 'complete', '06:00 前平仓必须归入前一交易日')
+  assert(result.day.netBudgetR === -1, '凌晨平仓亏损必须进入对应交易日风险预算')
+}
