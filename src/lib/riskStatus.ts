@@ -19,8 +19,8 @@ export interface RiskStatusRow {
 }
 
 export function presentRiskOutcome(outcome: RiskPeriodOutcomeSnapshot): RiskStatusPresentation {
-  if (outcome.limitR <= 0) return { kind: 'unconfigured', label: '未配置' }
   if (outcome.coverage === 'unknown') return { kind: 'unknown', label: '无法判断' }
+  if (outcome.limitR <= 0) return { kind: 'unconfigured', label: '未配置' }
   if (outcome.triggered || outcome.progress >= 1) return { kind: 'triggered', label: '已超限' }
   if (outcome.coverage === 'partial') return { kind: 'partial', label: '待确认' }
   if (outcome.progress >= 0.9) return { kind: 'near', label: '接近限额' }

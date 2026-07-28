@@ -28,6 +28,9 @@ export function testRiskStatusPresentationUsesFailClosedPrecedence(): void {
   if (presentRiskOutcome(outcome({ coverage: 'unknown' })).kind !== 'unknown') {
     throw new Error('unknown coverage must not be presented as safe')
   }
+  if (presentRiskOutcome(outcome({ coverage: 'unknown', limitR: 0 })).kind !== 'unknown') {
+    throw new Error('unknown coverage must outrank an unconfigured limit')
+  }
   if (presentRiskOutcome(outcome({ coverage: 'partial', triggered: true, progress: 1 })).kind !== 'triggered') {
     throw new Error('a confirmed breach must outrank partial coverage')
   }

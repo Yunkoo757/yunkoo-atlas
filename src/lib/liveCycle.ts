@@ -22,7 +22,17 @@ export function isValidLiveCycleDayKey(value: unknown): value is string {
     formatYmd(parseLocalDate(value)) === value
 }
 
-export function openedTradingDayKey(trade: Pick<Trade, 'openedAt'>, tradingDayStartHour: number): string | null {
+export function openedTradingDayKey(
+  trade: Pick<Trade, 'openedAt' | 'activities'>,
+  tradingDayStartHour: number,
+): string | null {
+  let firstOpenAt = Number.POSITIVE_INFINITY
+  for (const activity of trade.activities ?? []) {
+    if (activity.kind !== 'status' || activity.status !== 'open') continue
+    const timestamp = Date.parse(activity.timestamp)
+    if (Number.isFinite(timestamp) && timestamp < firstOpenAt) firstOpenAt = timestamp
+  }
+  if (Number.isFinite(firstOpenAt)) return getTradingDayKey(new Date(firstOpenAt), tradingDayStartHour)
   if (isValidLiveCycleDayKey(trade.openedAt)) return trade.openedAt
   const timestamp = new Date(trade.openedAt)
   if (Number.isNaN(timestamp.getTime())) return null
@@ -30,7 +40,7 @@ export function openedTradingDayKey(trade: Pick<Trade, 'openedAt'>, tradingDaySt
 }
 
 export function classifyLiveCycleTrade(
-  trade: Pick<Trade, 'tradeKind' | 'openedAt'>,
+  trade: Pick<Trade, 'tradeKind' | 'openedAt' | 'activities'>,
   startTradingDayKey: string | null,
   tradingDayStartHour: number,
 ): LiveCycleClassification {

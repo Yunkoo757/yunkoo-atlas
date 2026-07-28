@@ -140,6 +140,8 @@ function rewriteTradeReferences(
   })
   const tradesById = new Map([...currentTrades, ...rewrittenTrades].map((trade) => [trade.id, trade]))
   const rewriteIds = (ids: string[]): string[] => ids.map((id) => idMap.get(id) ?? id)
+  const rewriteEvidenceTrades = <T extends { id: string }>(trades: T[]): T[] =>
+    trades.map((trade) => ({ ...trade, id: idMap.get(trade.id) ?? trade.id }))
   const rewriteEvents = (events: RiskOverrideEvent[]): RiskOverrideEvent[] =>
     events.map((event) => rewriteEvent(event, idMap, tradesById))
   return {
@@ -151,6 +153,12 @@ function rewriteTradeReferences(
       highlightTradeIds: rewriteIds(review.highlightTradeIds),
       mistakeTradeIds: rewriteIds(review.mistakeTradeIds),
       followUpTradeIds: rewriteIds(review.followUpTradeIds),
+      evidenceSnapshot: review.evidenceSnapshot
+        ? {
+            trades: rewriteEvidenceTrades(review.evidenceSnapshot.trades),
+            missedTrades: rewriteEvidenceTrades(review.evidenceSnapshot.missedTrades),
+          }
+        : undefined,
       riskSnapshot: review.riskSnapshot
         ? { ...review.riskSnapshot, overrideEvents: rewriteEvents(review.riskSnapshot.overrideEvents) }
         : undefined,

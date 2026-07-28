@@ -39,6 +39,7 @@
 .live-cycle-preview-list > div { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(70px, 1fr) minmax(100px, 1.4fr); gap: var(--sp-2); min-width: 0; padding: var(--sp-2) 0; color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--type-metadata-size); border-bottom: 1px solid var(--border-subtle); }
 .live-cycle-preview-list > div > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-cycle-preview-list code { display: block; color: var(--text-primary); font: inherit; }
+.live-cycle-preview-more { margin: calc(var(--sp-3) * -1) 0 0; color: var(--text-tertiary); font-size: var(--type-metadata-size); }
 
 @media (max-width: 640px) {
   .live-cycle-settings,

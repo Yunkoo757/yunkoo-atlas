@@ -55,15 +55,20 @@ function RiskPeriod({
   ariaLabel,
   outcome,
   presentation,
+  requiresReview,
 }: {
   label: string
   ariaLabel: string
   outcome: RiskPeriodOutcomeSnapshot
   presentation: RiskStatusPresentation
+  requiresReview?: boolean
 }) {
   const display = presentation.label === '待复核'
     ? { ...presentation, detail: '本周规则未确认' }
-    : { ...presentation, detail: detailCopy(outcome) }
+    : {
+        ...presentation,
+        detail: `${detailCopy(outcome)}${requiresReview ? ' · 本周规则未确认' : ''}`,
+      }
   const percentage = Math.round(Math.min(1, Math.max(0, outcome.progress)) * 100)
   return (
     <div className={`risk-status-period is-${display.kind}`} data-risk-period data-risk-state={display.kind}>
@@ -115,14 +120,20 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
     item.weekStart === currentWeek && Boolean(item.reviewedAt && item.confirmedPolicyVersionId))
   const policy = activeRiskPolicy(policies, tradingDay)
   const rows = PERIODS.map((period) => {
-    const presentation: RiskStatusPresentation = period.scope === 'week' && !reviewed
+    const outcome = outcomes[period.scope]
+    const resolvedPresentation = presentRiskOutcome(outcome)
+    const requiresReview = period.scope === 'week' && !reviewed
+    const presentation: RiskStatusPresentation = requiresReview && (
+      resolvedPresentation.kind === 'normal' || resolvedPresentation.kind === 'near'
+    )
       ? { kind: 'partial', label: '待复核' }
-      : presentRiskOutcome(outcomes[period.scope])
+      : resolvedPresentation
     return {
       ...period,
       displayLabel: scopedPeriodLabel(period.scope, period.label, liveStatsStartTradingDayKey, tradingDay),
-      outcome: outcomes[period.scope],
+      outcome,
       presentation,
+      requiresReview,
     }
   })
   const needsRecovery = !policy || !reviewed || rows.some((row) =>
@@ -145,6 +156,7 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
             ariaLabel={row.ariaLabel}
             outcome={row.outcome}
             presentation={row.presentation}
+            requiresReview={row.requiresReview}
           />
         ))}
       </div>

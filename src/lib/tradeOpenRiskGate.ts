@@ -265,25 +265,14 @@ function createPendingRequest(
     week: cloneRiskOutcome(resolved.week),
     month: cloneRiskOutcome(resolved.month),
   }
-  const historicalMonthlyPolicyGapOnly = state.liveStatsStartTradingDayKey === null &&
-    policy !== null &&
-    monthlyLimit !== null &&
-    outcomes.day.coverage === 'complete' &&
-    outcomes.week.coverage === 'complete' &&
-    outcomes.month.coverage === 'unknown' &&
-    resolved.unknownReasons.length > 0 &&
-    resolved.unknownReasons.every((reason) => reason === 'missing-policy')
-  const knownMonthlyLimitTriggered = historicalMonthlyPolicyGapOnly &&
-    outcomes.month.limitR > 0 &&
-    outcomes.month.netBudgetR <= -outcomes.month.limitR
-  const decisionType: RiskDecisionType | null = (
-    resolved.gateCoverage === 'unknown' && !historicalMonthlyPolicyGapOnly
-  ) || (
+  const knownLimitTriggered = Object.values(outcomes).some((outcome) =>
+    outcome.limitR > 0 && outcome.netBudgetR <= -outcome.limitR)
+  const decisionType: RiskDecisionType | null = knownLimitTriggered
+    ? 'triggered'
+    : resolved.gateCoverage === 'unknown' || (
     policy !== null && monthlyLimit === null
-  )
-    ? 'unknown'
-    : knownMonthlyLimitTriggered || Object.values(outcomes).some((outcome) => outcome.triggered)
-      ? 'triggered'
+      )
+      ? 'unknown'
       : null
   if (!decisionType) return null
   const fingerprint = buildRiskGateFingerprint({

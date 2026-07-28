@@ -217,13 +217,29 @@ async function run(): Promise<void> {
 
     useStore.setState({ trades: [trade('target', 'planned'), trade('unreviewed-unknown', 'loss', { unknown: true })] })
     await waitFor(
-      () => ['今日无法判断', '本周数据待确认', '本月无法判断'].every((copy) => status.textContent?.includes(copy)),
-      '未复核周不得覆盖日/月未知摘要',
+      () => ['今日无法判断', '本周无法判断', '本月无法判断'].every((copy) => status.textContent?.includes(copy)),
+      '未复核状态不得覆盖真实未知摘要',
     )
+    assert(initialWeek.textContent?.includes('本周规则未确认'), '真实未知状态仍应保留本周未复核辅助提示')
+
+    useStore.setState({
+      trades: [
+        trade('target', 'planned'),
+        trade('weekly-triggered-1', 'loss'),
+        trade('weekly-triggered-2', 'loss'),
+        trade('weekly-triggered-3', 'loss'),
+      ],
+    })
+    await waitFor(
+      () => initialWeek.dataset.riskState === 'triggered' && (initialWeek.textContent?.includes('已超限') ?? false),
+      '未复核状态不得覆盖真实周超限',
+    )
+    assert(initialWeek.textContent?.includes('本周规则未确认'), '真实周超限仍应保留本周未复核辅助提示')
 
     useStore.setState({ trades: [trade('target', 'planned')] })
 
     useStore.setState({
+      trades: [trade('target', 'planned')],
       weeklyRiskPreparations: [{
         ...useStore.getState().weeklyRiskPreparations[0]!,
         reviewedAt: confirmedAt,
@@ -283,6 +299,9 @@ async function run(): Promise<void> {
     }
 
     useStore.setState({
+      trades: [trade('target', 'planned')],
+      riskPolicyVersions: [policy],
+      monthlyRiskLimits: [monthlyLimit],
       weeklyRiskPreparations: [{
         ...useStore.getState().weeklyRiskPreparations[0]!,
         reviewedAt: confirmedAt,

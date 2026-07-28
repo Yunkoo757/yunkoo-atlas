@@ -20,6 +20,8 @@ type LiveCycleSettingsProps = {
   forcePrompt?: boolean
 }
 
+const PREVIEW_LIMIT = 50
+
 function resetDraft(current: string | null, suggested: string | null, fallback: string): string {
   return current ?? suggested ?? fallback
 }
@@ -63,8 +65,12 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
       toast(successMessage)
     } catch {
       saveStart(previous)
-      await flushPersistNow().catch(() => undefined)
-      toast('风险核算起点保存失败，原设置已保留')
+      try {
+        await flushPersistNow()
+        toast('风险核算起点保存失败，原设置已保留')
+      } catch {
+        toast('风险核算起点保存与回滚均失败，请重新打开应用核对当前设置')
+      }
     } finally {
       setBusy(false)
     }
@@ -163,12 +169,17 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
               <p className="live-cycle-warning" role="status"><AlertCircle size={16} />所选起点当日没有生效的风险规则；周期内缺少规则覆盖的交易仍会显示为覆盖未知。此提示不阻止保存。</p>
             ) : null}
             <div className="live-cycle-preview-list">
-              {[...preview.preCycle, ...preview.current, ...preview.unresolved].map((trade) => (
+              {[...preview.preCycle, ...preview.current, ...preview.unresolved].slice(0, PREVIEW_LIMIT).map((trade) => (
                 <div key={trade.id}>
                   <code>{trade.ref}</code><span>{trade.symbol}</span><time>{trade.openedAt}</time>
                 </div>
               ))}
             </div>
+            {preview.preCycle.length + preview.current.length + preview.unresolved.length > PREVIEW_LIMIT ? (
+              <p className="live-cycle-preview-more">
+                仅显示前 {PREVIEW_LIMIT} 笔，另有 {preview.preCycle.length + preview.current.length + preview.unresolved.length - PREVIEW_LIMIT} 笔未展开。
+              </p>
+            ) : null}
           </div>
         </ModalShell>
       ) : null}

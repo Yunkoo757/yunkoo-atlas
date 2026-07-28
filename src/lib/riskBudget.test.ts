@@ -258,6 +258,30 @@ export function testRiskBudgetKeepsCurrentCycleUnknownFailClosed(): void {
   assert(result.gateCoverage === 'unknown', '当前周期缺失现金亏损必须继续 unknown')
 }
 
+export function testRiskBudgetIncludesPlanOpenedAfterCycleStart(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.currentTradingDayKey = '2026-07-28'
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.tradingDayStartHour = 0
+  input.trades[0] = {
+    ...input.trades[0]!,
+    openedAt: '2026-07-26',
+    closedAt: '2026-07-28',
+    closedTradingDayKey: '2026-07-28',
+    activities: [{
+      id: 'activity-open-current-cycle',
+      kind: 'status',
+      status: 'open',
+      timestamp: '2026-07-28T08:00:00.000Z',
+    }],
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.month.includedTradeCount === 1, '起点后首次真实开仓的计划单必须计入风险预算')
+  assert(result.month.netBudgetR === -1, '起点后首次真实开仓的亏损不得被规则前日期排除')
+}
+
 export function testRiskBudgetUsesConfiguredTradingDayBoundaryForCloseDate(): void {
   const input = fixture({ pnls: [-1_000] })
   input.currentTradingDayKey = '2026-07-27'

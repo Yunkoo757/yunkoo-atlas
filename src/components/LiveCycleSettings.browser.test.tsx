@@ -155,7 +155,10 @@ async function run(): Promise<void> {
       click('确认设置起点')
       await waitFor(() => saveAttempts >= 2, '失败后必须尝试持久化回滚')
       assert(useStore.getState().liveStatsStartTradingDayKey === null, '保存失败必须恢复旧统计起点')
-      assert(useToast.getState().message === '风险核算起点保存失败，原设置已保留', '保存失败必须明确提示且不得虚报成功')
+      assert(
+        useToast.getState().message === '风险核算起点保存与回滚均失败，请重新打开应用核对当前设置',
+        '保存与回滚均失败时必须提示重新核对，不能声称原设置已保留',
+      )
       assert(!useToast.getState().message?.includes('风险核算将从'), '保存失败不得出现成功提示')
     } finally {
       storage.saveSnapshot = originalSaveSnapshot

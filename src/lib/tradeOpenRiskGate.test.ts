@@ -184,7 +184,7 @@ export function testBelowAndUnconfiguredCleanOpenWithoutOverride(): void {
   )
 }
 
-export function testHistoricalMonthlyPolicyGapDoesNotBlockCurrentOpen(): void {
+export function testHistoricalMonthlyPolicyGapFailsClosedWithoutCycleStart(): void {
   const currentPolicy = {
     ...policy,
     id: 'policy-current-week',
@@ -206,7 +206,8 @@ export function testHistoricalMonthlyPolicyGapDoesNotBlockCurrentOpen(): void {
 
   const result = requestTradeOpenCandidate(state, 'target')
 
-  assert(result.kind === 'opened' && result.decision === 'below', '仅有月内历史规则缺口时不得反复阻断当前开仓')
+  assert(result.kind === 'confirmation-required', '未设置核算起点时历史规则缺口必须保守阻断')
+  assert(result.request.decisionType === 'unknown', '无法计算历史亏损风险时必须要求显式确认')
 }
 
 export function testHistoricalMonthlyPolicyGapCannotHideKnownMonthlyBreach(): void {

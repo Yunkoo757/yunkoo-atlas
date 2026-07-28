@@ -60,6 +60,22 @@ export function testLiveCycleOffsetTimestampsUseTheirRealInstant(): void {
   assert(openedTradingDayKey(trade('z-after-boundary', localAfterBoundary), startHour) === '2026-07-27', 'Z 时间在本地交易日边界后必须归当日')
 }
 
+export function testLiveCycleUsesFirstTrustedOpenActivityBeforePlannedDate(): void {
+  const plannedBeforeCycle = {
+    ...trade('opened-after-cycle', '2026-07-26'),
+    activities: [{
+      id: 'activity-open-after-cycle',
+      kind: 'status' as const,
+      status: 'open' as const,
+      timestamp: '2026-07-28T08:00:00.000Z',
+    }],
+  }
+  assert(
+    classifyLiveCycleTrade(plannedBeforeCycle, '2026-07-27', 0) === 'current',
+    '起点前建立的计划单必须按首次可信开仓活动进入当前周期',
+  )
+}
+
 export function testLiveCyclePreviewDoesNotHideUnresolvedOrRewritePaper(): void {
   const trades = [
     trade('old', '2026-07-26'),
