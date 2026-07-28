@@ -202,8 +202,8 @@
   --text-disabled: var(--color-text-disabled);
 
   /* 品牌 */
-  --accent-hover: color-mix(in srgb, var(--accent) 88%, white 12%);
-  --accent-text: lch(96% 0.6 272 / 1);
+  --accent-hover: color-mix(in srgb, var(--accent) 90%, black 10%);
+  --accent-text: #fff;
 
   /* 侧栏导航/工作区图标高彩（仅选中态） */
   --nav-icon-today: lch(80% 90 85);

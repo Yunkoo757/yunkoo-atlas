@@ -37,7 +37,7 @@
   display: block;
   margin-bottom: 2px;
   color: var(--warn-action);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -92,7 +92,10 @@
   white-space: normal;
 }
 
-.risk-preparation-card.is-reviewed .ui-btn { min-height: 32px; }
+.risk-preparation-card.is-reviewed .ui-btn {
+  min-height: 32px;
+  font-size: 13px;
+}
 
 .risk-preparation-form { margin-top: 14px; }
 
@@ -108,7 +111,7 @@
   flex-direction: column;
   gap: 5px;
   color: var(--text-muted);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
 }
 
@@ -139,7 +142,7 @@
   top: 50%;
   right: 9px;
   color: var(--text-quaternary);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-metadata-size);
   transform: translateY(-50%);
 }
 
@@ -154,7 +157,7 @@
 .risk-preparation-month-lock {
   margin-top: var(--sp-2);
   color: var(--text-quaternary);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-metadata-size);
 }
 
 .risk-preparation-actions {
@@ -163,11 +166,18 @@
   gap: var(--sp-2);
 }
 
+.risk-preparation-actions .ui-btn {
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.risk-preparation-actions .ui-btn-primary { min-height: 36px; }
+
 .risk-preparation-risk-amount {
   margin-right: 3px;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-metadata-size);
   font-variant-numeric: tabular-nums;
 }
 
@@ -190,6 +200,10 @@
   .risk-preparation-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .risk-preparation-discipline-row { grid-template-columns: 1fr; }
   .risk-preparation-actions { justify-content: flex-end; }
+}
+
+@media (max-width: 768px) {
+  .risk-preparation-actions .ui-btn-primary { min-height: 44px; }
 }
 
 @media (max-width: 640px) {
