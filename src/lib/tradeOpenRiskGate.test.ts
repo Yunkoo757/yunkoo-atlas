@@ -242,6 +242,19 @@ export function testHistoricalMonthlyPolicyGapCannotHideKnownMonthlyBreach(): vo
   assert(result.request.decisionType === 'triggered', '已知月度亏损达到限额时必须按触线处理')
 }
 
+export function testFutureRiskCycleStartFailsClosed(): void {
+  const state = {
+    ...triggeredState('planned'),
+    liveStatsStartTradingDayKey: '2099-01-01',
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'confirmation-required', '未来风险核算起点不得把历史亏损过滤为空')
+  assert(result.request.decisionType === 'unknown', '非法未来起点必须 fail-closed')
+  assert(result.request.unknownReasons.includes('invalid-live-cycle-start'), '必须保留起点无效原因')
+}
+
 export function testLiveCycleMonthlyPolicyGapStillRequiresConfirmation(): void {
   const currentPolicy = {
     ...policy,

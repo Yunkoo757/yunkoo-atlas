@@ -29,6 +29,7 @@ const RISK_UNKNOWN_REASONS = new Set([
   'missing-close-date',
   'invalid-close-date',
   'future-loss-close-date',
+  'invalid-live-cycle-start',
 ])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -367,10 +368,21 @@ function isWeeklyReviewMetrics(value: unknown): boolean {
   )
 }
 
+function isWeeklyReviewEvidenceTrade(value: unknown): boolean {
+  return isRecord(value) &&
+    typeof value.id === 'string' && Boolean(value.id.trim()) &&
+    typeof value.ref === 'string' &&
+    typeof value.symbol === 'string' &&
+    TRADE_STATUSES.has(String(value.status)) &&
+    isNullableFiniteNumber(value.pnl) &&
+    isNullableFiniteNumber(value.rMultiple) &&
+    (value.missReason === undefined || MISS_REASONS.has(String(value.missReason)))
+}
+
 function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
   return isRecord(value) &&
-    Array.isArray(value.trades) && value.trades.every(isValidPersistedTrade) &&
-    Array.isArray(value.missedTrades) && value.missedTrades.every(isValidPersistedTrade)
+    Array.isArray(value.trades) && value.trades.every(isWeeklyReviewEvidenceTrade) &&
+    Array.isArray(value.missedTrades) && value.missedTrades.every(isWeeklyReviewEvidenceTrade)
 }
 
 function isWeeklyReview(value: unknown): boolean {

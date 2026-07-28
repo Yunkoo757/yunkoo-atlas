@@ -25,6 +25,7 @@ const UNKNOWN_REASON_ORDER: RiskUnknownReason[] = [
   'missing-close-date',
   'invalid-close-date',
   'future-loss-close-date',
+  'invalid-live-cycle-start',
 ]
 
 function precisionFactor(digits: number): number {
@@ -180,6 +181,28 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
   const currentWeekStart = weekStart(input.currentTradingDayKey)
   const currentMonth = input.currentTradingDayKey.slice(0, 7)
   const monthlyLimit = input.monthlyLimits.find((limit) => limit.monthKey === currentMonth)
+  if (
+    input.liveStatsStartTradingDayKey &&
+    input.liveStatsStartTradingDayKey > input.currentTradingDayKey
+  ) {
+    const reason: RiskUnknownReason = 'invalid-live-cycle-start'
+    const invalidResult: CandidateResult = {
+      date: null,
+      budgetR: null,
+      unknownReasons: [reason],
+      partial: false,
+    }
+    const invalidSnapshot = (limit: number) => makeSnapshot(
+      [invalidResult],
+      [],
+      limit,
+      [reason],
+    )
+    const day = invalidSnapshot(limitR(currentPolicy?.dailyLossLimitR))
+    const week = invalidSnapshot(limitR(currentPolicy?.weeklyLossLimitR))
+    const month = invalidSnapshot(limitR(monthlyLimit?.limitR))
+    return { day, week, month, gateCoverage: 'unknown', unknownReasons: [reason] }
+  }
   const results: CandidateResult[] = []
   const currentCycleTrades = filterTradesForLiveCycle(
     input.trades,

@@ -293,11 +293,12 @@ export function countWorkbenchVisibleTrades(options: {
     : requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
       ? parseLiveCycleScope(options.search)
       : 'all'
+  const starred = new Set(options.starredIds)
   const routeFiltered = options.trades.filter((trade) =>
     !trade.deletedAt && matchesListFilter(
       trade,
       options.filter,
-      new Set(options.starredIds),
+      starred,
       tradingDayStartHour,
       options.businessDateAnchor,
     ),

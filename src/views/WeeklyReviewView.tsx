@@ -22,6 +22,7 @@ import {
   weekEndFor,
   weekStartFor,
   type WeeklyReview,
+  type WeeklyReviewEvidenceTrade,
   type WeeklyCommitmentResult,
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
@@ -146,7 +147,7 @@ function TradeEvidence({
   review,
   onPatch,
 }: {
-  trade: Trade
+  trade: WeeklyReviewEvidenceTrade
   review: WeeklyReview
   onPatch: (patch: ReviewPatch) => void
 }) {

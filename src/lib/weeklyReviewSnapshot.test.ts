@@ -246,6 +246,23 @@ export function testWeeklyReviewSeparatesPerformanceEvidenceFromRiskCycle(): voi
   assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照仍必须只核算起点后的交易')
 }
 
+export function testWeeklyReviewEvidenceStoresOnlyDisplayFacts(): void {
+  const state = stateAtRevision(7)
+  state.trades[0] = {
+    ...state.trades[0]!,
+    note: '<p>复盘</p><img data-asset-id="asset-private-note">',
+    comments: [{ id: 'comment-1', text: '不应重复冻结', createdAt: '2026-07-20T10:00:00.000Z' }],
+  }
+
+  const completed = completeWeeklyReviewCandidate(state, 'review-1').review
+  const evidence = completed.evidenceSnapshot?.trades[0]
+
+  assert(evidence, '完成周复盘必须冻结交易证据')
+  assert(!('note' in evidence), '冻结证据不得重复保存富文本与附件引用')
+  assert(!('comments' in evidence), '冻结证据不得复制无关评论历史')
+  assert(evidence.ref === state.trades[0]?.ref && evidence.pnl === state.trades[0]?.pnl, '必须保留列表展示需要的客观事实')
+}
+
 export function testCompletedWeeklyReviewCannotBeRewritten(): void {
   const state = stateAtRevision(7)
   const completed = completeWeeklyReviewCandidate(state, 'review-1').review

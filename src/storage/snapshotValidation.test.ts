@@ -85,7 +85,7 @@ export function testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots():
   for (const evidenceSnapshot of [
     [],
     { trades: [], missedTrades: {} },
-    { trades: [{ ...valid.trades[0], entry: '100' }], missedTrades: [] },
+    { trades: [{ ...valid.trades[0], pnl: '100' }], missedTrades: [] },
   ]) {
     let rejected = false
     try {

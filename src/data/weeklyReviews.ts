@@ -42,9 +42,14 @@ export interface WeeklyReviewMetrics {
   missedReasonCounts: Record<string, number>
 }
 
+export type WeeklyReviewEvidenceTrade = Pick<
+  Trade,
+  'id' | 'ref' | 'symbol' | 'status' | 'pnl' | 'rMultiple' | 'missReason'
+>
+
 export interface WeeklyReviewEvidenceSnapshot {
-  trades: Trade[]
-  missedTrades: Trade[]
+  trades: WeeklyReviewEvidenceTrade[]
+  missedTrades: WeeklyReviewEvidenceTrade[]
 }
 
 export interface WeeklyReview {
@@ -194,6 +199,18 @@ export function buildWeeklyReviewMetrics(trades: Trade[], missedTrades: Trade[] 
   }
 }
 
+function toWeeklyReviewEvidenceTrade(trade: WeeklyReviewEvidenceTrade): WeeklyReviewEvidenceTrade {
+  return {
+    id: trade.id,
+    ref: trade.ref,
+    symbol: trade.symbol,
+    status: trade.status,
+    pnl: trade.pnl,
+    rMultiple: trade.rMultiple,
+    ...(trade.missReason ? { missReason: trade.missReason } : {}),
+  }
+}
+
 function daysThrough(start: string, end: string): string[] {
   const days: string[] = []
   for (let day = start; day <= end; day = formatYmd(addDays(parseLocalDate(day), 1))) days.push(day)
@@ -289,7 +306,10 @@ export function completeWeeklyReviewCandidate(
     ...existing,
     status: 'completed',
     metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(trades, missedTrades)),
-    evidenceSnapshot: structuredClone({ trades, missedTrades }),
+    evidenceSnapshot: {
+      trades: trades.map(toWeeklyReviewEvidenceTrade),
+      missedTrades: missedTrades.map(toWeeklyReviewEvidenceTrade),
+    },
     riskSnapshot: buildWeeklyRiskReviewSnapshot(state, existing, completedAt),
     completedAt,
     updatedAt: completedAt,
@@ -343,7 +363,7 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
   if (!value) return []
   const byWeek = new Map<string, WeeklyReview>()
   for (const review of value) {
-    const normalized = review.metricsSnapshot && (
+    let normalized: WeeklyReview = review.metricsSnapshot && (
       review.metricsSnapshot.missedCount === undefined ||
       review.metricsSnapshot.missedReasonCounts === undefined
     )
@@ -356,6 +376,15 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
           },
         }
       : review
+    if (normalized.evidenceSnapshot) {
+      normalized = {
+        ...normalized,
+        evidenceSnapshot: {
+          trades: normalized.evidenceSnapshot.trades.map(toWeeklyReviewEvidenceTrade),
+          missedTrades: normalized.evidenceSnapshot.missedTrades.map(toWeeklyReviewEvidenceTrade),
+        },
+      }
+    }
     const current = byWeek.get(review.weekStart)
     if (!current || normalized.updatedAt > current.updatedAt) byWeek.set(normalized.weekStart, normalized)
   }
