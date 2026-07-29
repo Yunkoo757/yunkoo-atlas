@@ -76,7 +76,7 @@ export function capabilityForWorkspaceViewId(viewId: string): SidebarCapabilityI
   return null
 }
 
-/** 按侧栏能力的可见工作区过滤快捷视图；未传侧栏配置时保持全量（便于契约测试） */
+/** 按侧栏能力范围过滤快捷视图；错过的机会始终保留来源工作区本地入口。 */
 export function filterViewsBySidebarCapabilities(
   kind: WorkspaceKind,
   views: readonly WorkspaceViewTarget[],
@@ -87,7 +87,7 @@ export function filterViewsBySidebarCapabilities(
   if (!workspace) return [...views]
   return views.filter((view) => {
     const capability = capabilityForWorkspaceViewId(view.id)
-    if (!capability) return true
+    if (!capability || capability === 'missed') return true
     return isCapabilityEnabledForWorkspace(sidebarItems, capability, workspace)
   })
 }

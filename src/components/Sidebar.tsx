@@ -100,6 +100,7 @@ function buildCapabilityVisibilityItems(
     label: string,
   ) => void,
 ): CtxItem[] {
+  const scopeLabel = capabilityId === 'missed' ? '包含范围' : '可见工作区'
   const existing = items.find(
     (item) => item.target.kind === 'system' && item.target.id === capabilityId,
   )
@@ -109,7 +110,7 @@ function buildCapabilityVisibilityItems(
       : [],
   )
   return [
-    { type: 'label', text: '可见工作区' },
+    { type: 'label', text: scopeLabel },
     ...SIDEBAR_CAPABILITY_WORKSPACES[capabilityId].flatMap((workspace) => {
       if (!resolveCapabilityRoute(capabilityId, workspace)) return []
       const checked = enabled.has(workspace)
@@ -168,6 +169,7 @@ export function useSidebarNavigationModel() {
       .filter((item) => {
         const target = item.item.target
         if (target.kind === 'system' && isSidebarCapabilityId(target.id)) {
+          if (target.id === 'missed') return true
           return isCapabilityEnabledForWorkspace(
             [item.item],
             target.id,
@@ -486,6 +488,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     ) => {
       const previous = useStore.getState().display.sidebarWorkspaceItems
       const next = setCapabilityWorkspaceEnabled(previous, id, workspace, enabled)
+      if (id === 'missed' && !enabled && next === previous) {
+        toast('至少保留一个包含来源')
+        return
+      }
       replaceSidebarWorkspaceItems(next)
       const stillPresent = next.some(
         (candidate) => candidate.target.kind === 'system' && candidate.target.id === id,
@@ -580,7 +586,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <button
             type="button"
             className="sb-workspace-capability-menu"
-            aria-label={`${item.label}可见工作区`}
+            aria-label={`${item.label}${capabilityId === 'missed' ? '包含范围' : '可见工作区'}`}
             aria-haspopup="menu"
             aria-expanded={capabilityMenuOpen}
             onPointerDown={(event) => {

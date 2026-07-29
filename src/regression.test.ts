@@ -302,19 +302,26 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
     '可见工作区应合并到同一项上',
   )
 
-  const tradeRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/list')
-  const paperRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/sim')
-  const caseRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/review-cases')
-  assert(tradeRoute.pathname === '/missed', '在交易日志时应进入实盘错过')
-  assert(paperRoute.pathname === '/sim' && paperRoute.search === '?status=missed', '在模拟时应进入模拟错过')
+  for (const currentPathname of ['/list', '/sim', '/review-cases', '/settings', '/dashboard']) {
+    const resolved = resolveSidebarWorkspaceItem(
+      merged[0]!,
+      { savedViews: [], strategies: [] },
+      currentPathname,
+    )
+    assert(
+      resolved.pathname === '/missed' && resolved.search === '',
+      `${currentPathname} 必须固定进入聚合页`,
+    )
+  }
+  const activeRoute = resolveCapabilityNavRoute('active', ['trade', 'paper'], '/sim')
   assert(
-    caseRoute.pathname === '/review-cases' && caseRoute.search === '?caseType=missed',
-    '在案例记录时应进入案例错过',
+    activeRoute.pathname === '/sim' && activeRoute.search === '?status=open',
+    '进行中能力仍应优先解析当前工作区',
   )
   assert(resolveCapabilityRoute('active', 'case') === null, '案例不得配置进行中能力')
   assert(
-    capabilityNavRoutes('missed', ['trade', 'paper']).length === 2,
-    '可见范围决定能力可跳转的工作区路由数',
+    capabilityNavRoutes('missed', ['trade', 'paper']).length === 1,
+    '错过的机会只应有聚合页路由',
   )
 
   const resolved = resolveSidebarWorkspaceItem(
@@ -323,7 +330,16 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
     '/sim',
   )
   assert(resolved.label === '错过的机会', '侧栏仍显示单一短名')
-  assert(resolved.pathname === '/sim' && resolved.search === '?status=missed', '链接随当前工作区解析')
+  assert(resolved.pathname === '/missed' && resolved.search === '', '链接必须固定指向聚合页')
+  for (const [pathname, search] of [
+    ['/sim', '?status=missed'],
+    ['/review-cases', '?caseType=missed'],
+  ] as const) {
+    assert(
+      resolveSidebarSelection({ pathname, search, items: [resolved] }).activeWorkspaceItemId === undefined,
+      `${pathname}${search} 不得高亮聚合入口`,
+    )
+  }
   assert(sidebarTargetKey(merged[0]!.target) === 'system:missed', '能力项 key 保持唯一')
 
   const tradeOnly = setCapabilityWorkspaceEnabled(
@@ -339,15 +355,42 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
   )
   assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'paper') === false, '取消后模拟域不得生效')
   assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'trade') === true, '交易日志域应仍生效')
+  const keptAfterRemovingPaperAndCase = setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'case', false)
+  const kept = setCapabilityWorkspaceEnabled(keptAfterRemovingPaperAndCase, 'missed', 'trade', false)
   assert(
-    setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'trade', false).length === 1 &&
-      setCapabilityWorkspaceEnabled(
-        setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'trade', false),
-        'missed',
-        'case',
-        false,
-      ).length === 0,
-    '可见工作区全部取消后应移除该能力项',
+    kept === keptAfterRemovingPaperAndCase,
+    '关闭最后一个 missed 来源必须保持原状态',
+  )
+}
+
+export function testMissedSidebarCountUsesAggregateInclusionScope(): void {
+  const liveMissed: Trade = { ...trade, id: 'live-missed', tradeKind: 'live', status: 'missed' }
+  const paperMissed: Trade = { ...trade, id: 'paper-missed', tradeKind: 'paper', status: 'missed' }
+  const linkedCase: Trade = {
+    ...trade,
+    id: 'linked-missed-case',
+    tradeKind: 'case',
+    status: 'loss',
+    caseType: 'missed',
+    sourceTradeId: liveMissed.id,
+  }
+  const resolved = resolveSidebarWorkspaceItem(
+    {
+      id: 'system:missed',
+      target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] },
+      placement: 'pinned',
+      order: 0,
+    },
+    { savedViews: [], strategies: [] },
+  )
+
+  assert(
+    countSidebarTarget(resolved, {
+      trades: [liveMissed, paperMissed, linkedCase],
+      starredIds: [],
+      display: DEFAULT_DISPLAY,
+    }) === 2,
+    '错过的机会侧栏计数必须使用包含范围内的去重聚合总数',
   )
 }
 
@@ -356,7 +399,7 @@ export async function testSidebarTargetPickerConfiguresVisibilityNotDuplicatePin
   const source = await fs.readFile('src/components/sidebar/SidebarTargetPicker.tsx', 'utf8')
   const editor = await fs.readFile('src/components/sidebar/SidebarWorkspaceEditor.tsx', 'utf8')
   const sidebar = await fs.readFile('src/components/Sidebar.tsx', 'utf8')
-  assert(source.includes('可见工作区（侧栏只显示一项）'), '添加项目应说明侧栏只显示一项')
+  assert(source.includes('包含范围（侧栏只显示一项）'), '错过的机会应说明聚合包含范围')
   assert(source.includes('toggleCapabilityWorkspace'), '应通过勾选配置同一能力的可见工作区')
   assert(source.includes('setCapabilityWorkspaceEnabled'), '添加项目应复用统一的可见范围写入')
   assert(source.includes("id: 'missed'"), '错过的机会应作为单一能力出现')
@@ -418,6 +461,7 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')
   assert(source.includes('isCapabilityEnabledForWorkspace'), 'Sidebar 应按当前工作区隐藏未开启的能力项')
   assert(source.includes('workspaceKindFromPath'), 'Sidebar 应按当前路径判断能力可见工作区')
+  assert(source.includes("if (target.id === 'missed') return true"), '聚合错过入口不得因当前工作区被隐藏')
   assert(source.includes('buildCapabilityVisibilityItems'), 'Sidebar 应在能力项就地配置可见工作区')
   assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
   assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
@@ -2068,12 +2112,12 @@ export function testRecordDomainsKeepSeparateMissedEntrypoints(): void {
     },
   ])
   assert(
-    !getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'missed'),
-    '未对模拟开启错过能力时，模拟主视图不得出现错过机会',
+    getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '模拟主视图必须保留本地错过机会入口，不受聚合范围影响',
   )
   assert(
-    !getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
-    '未对案例开启错过能力时，案例主视图不得出现错过机会',
+    getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '案例主视图必须保留本地错过机会入口，不受聚合范围影响',
   )
   assert(
     getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'open'),
