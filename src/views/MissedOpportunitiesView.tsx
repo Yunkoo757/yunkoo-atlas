@@ -1,8 +1,11 @@
-import { Link, useSearchParams } from 'react-router-dom'
-import { MISS_REASON_META } from '@/data/trades'
+import { useCallback, useMemo, useRef } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { MissedOpportunityFilters } from '@/components/trades/MissedOpportunityFilters'
+import { MissedOpportunityRow } from '@/components/trades/MissedOpportunityRow'
+import { TradeList } from '@/components/trades/TradeList'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
+import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import {
   buildMissedOpportunitySummary,
   filterMissedOpportunityItems,
@@ -15,8 +18,11 @@ import {
   systemCapabilityWorkspaces,
 } from '@/lib/sidebarWorkspace'
 import { toast } from '@/lib/toast'
+import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { useStore } from '@/store/useStore'
 import './MissedOpportunitiesView.css'
+
+const EMPTY_SELECTION = new Set<string>()
 
 const SOURCE_LABELS: Record<MissedOpportunitySource, string> = {
   trade: '交易日志',
@@ -26,11 +32,16 @@ const SOURCE_LABELS: Record<MissedOpportunitySource, string> = {
 
 export function MissedOpportunitiesView() {
   const trades = useStore((state) => state.trades)
+  const strategies = useStore((state) => state.strategies)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const replaceSidebarWorkspaceItems = useStore((state) => state.replaceSidebarWorkspaceItems)
   const businessDateAnchor = useBusinessDateAnchor()
   const [searchParams, setSearchParams] = useSearchParams()
+  const listScrollRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  useTradeReturnAnchor()
   const existingScope = sidebarWorkspaceItems.find(
     (item) => item.target.kind === 'system' && item.target.id === 'missed',
   )
@@ -40,6 +51,20 @@ export function MissedOpportunitiesView() {
   const summary = buildMissedOpportunitySummary(trades, sources)
   const filters = parseMissedOpportunityFilters(searchParams)
   const visibleItems = filterMissedOpportunityItems(summary.items, filters, businessDateAnchor)
+  const itemByPrimaryId = useMemo(
+    () => new Map(visibleItems.map((item) => [item.primary.id, item])),
+    [visibleItems],
+  )
+
+  const openSourceDetail = useCallback((target: (typeof trades)[number], anchorId: string) => {
+    const from = {
+      pathname: location.pathname,
+      search: location.search,
+      anchorTradeId: anchorId,
+    }
+    rememberTradeReturnAnchor(from)
+    navigate(tradeDetailPath(target), { state: tradeDetailNavState(from) })
+  }, [location.pathname, location.search, navigate])
 
   const toggleSource = (source: MissedOpportunitySource) => {
     const previous = useStore.getState().display.sidebarWorkspaceItems
@@ -109,7 +134,7 @@ export function MissedOpportunitiesView() {
 
         <MissedOpportunityFilters trades={trades} symbolCatalog={symbolCatalog} />
 
-        <section className="missed-content" aria-label="错过机会结果">
+        <section className="missed-content" aria-label="错过机会结果" ref={listScrollRef}>
           {summary.rawTotal === 0 ? (
             <div className="missed-empty">
               <h2>所选来源暂无错过记录</h2>
@@ -132,18 +157,35 @@ export function MissedOpportunitiesView() {
               <button type="button" onClick={clearFilters}>清除筛选</button>
             </div>
           ) : (
-            <ul className="missed-results" data-missed-results aria-label="当前错过机会">
-              {visibleItems.map((item) => (
-                <li key={item.key}>
-                  <strong>{item.primary.symbol}</strong>
-                  <span>{item.primary.ref}</span>
-                  <span>{SOURCE_LABELS[item.source]}</span>
-                  <span>{item.primary.side === 'long' ? '做多' : '做空'}</span>
-                  <span>{MISS_REASON_META[item.primary.missReason ?? 'other'].label}</span>
-                  <time dateTime={item.occurredAt}>{item.occurredAt}</time>
-                </li>
-              ))}
-            </ul>
+            <div className="missed-results" data-missed-results aria-label="当前错过机会">
+              <TradeList
+                groups={[{
+                  key: 'missed-opportunities',
+                  items: visibleItems.map((item) => item.primary),
+                }]}
+                strategies={strategies}
+                focusedId={null}
+                selectedIds={EMPTY_SELECTION}
+                starredIds={[]}
+                scrollParentRef={listScrollRef}
+                selectionEnabled={false}
+                renderRow={(trade, context) => (
+                  <MissedOpportunityRow
+                    item={itemByPrimaryId.get(trade.id)!}
+                    strategies={strategies}
+                    focused={context.focused}
+                    symbolIcons={context.symbolIcons}
+                    onOpen={openSourceDetail}
+                  />
+                )}
+                onOpen={() => undefined}
+                onSelect={() => undefined}
+                onClearSelection={() => undefined}
+                onToggleStar={() => undefined}
+                onContextMenu={() => undefined}
+                onCreate={() => undefined}
+              />
+            </div>
           )}
         </section>
       </main>

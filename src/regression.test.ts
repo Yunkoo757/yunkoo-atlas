@@ -667,9 +667,11 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(app.includes('path="/missed/board"') && app.includes('to="/missed"'), '旧看板路径必须重定向')
   assert(!missedRouteBlock.includes("filter={{ type: 'missed', tradeKind: 'live' }}"), '聚合入口不得再伪装成实盘列表')
 
-  const [missedView, missedFilters] = await Promise.all([
+  const [missedView, missedFilters, tradeList, missedRow] = await Promise.all([
     fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
     fs.readFile('src/components/trades/MissedOpportunityFilters.tsx', 'utf8'),
+    fs.readFile('src/components/trades/TradeList.tsx', 'utf8'),
+    fs.readFile('src/components/trades/MissedOpportunityRow.tsx', 'utf8').catch(() => ''),
   ])
   assert(missedView.includes('showDisplay={false}'), '聚合页不得显示交易列表展示设置')
   assert(!missedView.includes('onView='), '聚合页不得暗示存在列表/看板切换')
@@ -699,6 +701,12 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(missedFilters.includes('未支持的筛选条件，可移除'), '未知 query 参数必须以可移除条件展示')
   assert(missedFilters.includes('new URLSearchParams()') && missedFilters.includes('{ replace: true }'), '清除临时筛选必须保留 pathname 并替换 search')
   assert(!missedFilters.includes('DisplayPrefs') && !missedFilters.includes('setDisplay('), '临时筛选不得写入展示偏好')
+  assert(tradeList.includes('renderRow?:'), '虚拟列表必须支持聚合自定义行')
+  assert(tradeList.includes('selectionEnabled = true'), '现有列表默认仍允许选择')
+  assert(missedRow.includes('data-missed-source'), '聚合行必须显示文字来源')
+  assert(missedRow.includes('打开原始记录'), '合并项缺少原始记录动作')
+  assert(missedRow.includes('打开案例'), '合并项缺少案例动作')
+  assert(missedRow.includes('来源记录已删除'), '失效来源没有可见状态')
 }
 
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
