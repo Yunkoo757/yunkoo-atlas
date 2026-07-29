@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { MissedOpportunityFilters } from '@/components/trades/MissedOpportunityFilters'
@@ -57,6 +57,14 @@ export function MissedOpportunitiesView() {
   const summary = buildMissedOpportunitySummary(trades, sources)
   const filters = parseMissedOpportunityFilters(searchParams)
   const visibleItems = filterMissedOpportunityItems(summary.items, filters, businessDateAnchor)
+  const visibleResultKey = JSON.stringify([
+    sources,
+    searchParams.toString(),
+    visibleItems.map((item) => item.key),
+  ])
+  useEffect(() => {
+    setReturnStatus(null)
+  }, [visibleResultKey])
   const itemByPrimaryId = useMemo(
     () => new Map(visibleItems.map((item) => [item.primary.id, item])),
     [visibleItems],

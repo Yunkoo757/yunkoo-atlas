@@ -142,7 +142,7 @@ export function MissedOpportunityRow({
           <Menu
             align="right"
             trigger={(
-              <button type="button" aria-label="更多">
+              <button type="button" aria-label={`更多 ${primary.symbol} 案例操作`}>
                 <MoreHorizontal size={18} aria-hidden="true" />
               </button>
             )}
