@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { useVirtualizer, defaultRangeExtractor, type Range } from '@tanstack/react-virtual'
 import { CalendarDays, Plus } from '@/icons/appIcons'
 import { DisclosureChevron, StatusIndicator } from '@/icons/StatusIndicator'
@@ -8,6 +16,7 @@ import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { buildDashboardStats } from '@/lib/dashboardStats'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { TradeRow } from '@/components/trades/TradeRow'
+import type { StrategyPreviewStats } from '@/components/RowPreviews'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
@@ -22,6 +31,12 @@ export type TradeListGroup = {
   /** 策略分组时传入，用于显示策略图标。 */
   strategyId?: string
   items: Trade[]
+}
+
+export type TradeListRowRenderContext = {
+  focused: boolean
+  strategyStats: StrategyPreviewStats | null
+  symbolIcons: SymbolIconsMap
 }
 
 type FlatItem =
@@ -145,6 +160,9 @@ export function TradeList({
   onContextMenu,
   onCreate,
   recordLabel = '交易',
+  renderRow,
+  selectionEnabled = true,
+  overscan = 14,
 }: {
   groups: TradeListGroup[]
   strategies: Strategy[]
@@ -161,6 +179,10 @@ export function TradeList({
   onCreate: () => void
   /** 分组新建按钮文案：交易 / 案例记录 */
   recordLabel?: string
+  renderRow?: (trade: Trade, context: TradeListRowRenderContext) => ReactNode
+  selectionEnabled?: boolean
+  /** 预渲染行数；聚合视图可提高该值，保证快速滚动与返回定位稳定。 */
+  overscan?: number
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const [selectionMode, setSelectionMode] = useState(false)
@@ -288,7 +310,7 @@ export function TradeList({
       if (item.kind === 'header') return HEADER_HEIGHT
       return Math.max(0, ROW_HEIGHT * item.openProgress)
     },
-    overscan: 14,
+    overscan,
     rangeExtractor: (range: Range) => {
       activeStickyIndexRef.current =
         [...stickyIndexes].reverse().find((index) => range.startIndex >= index) ?? 0
@@ -362,21 +384,23 @@ export function TradeList({
 
   return (
     <>
-      <button
-        type="button"
-        className={'trade-list-mobile-select-toggle' + (selectionMode || selectedIds.size > 0 ? ' is-active' : '')}
-        aria-pressed={selectionMode || selectedIds.size > 0}
-        onClick={() => {
-          if (selectionMode || selectedIds.size > 0) {
-            setSelectionMode(false)
-            onClearSelection()
-          } else {
-            setSelectionMode(true)
-          }
-        }}
-      >
-        {selectionMode || selectedIds.size > 0 ? '完成选择' : '选择'}
-      </button>
+      {selectionEnabled ? (
+        <button
+          type="button"
+          className={'trade-list-mobile-select-toggle' + (selectionMode || selectedIds.size > 0 ? ' is-active' : '')}
+          aria-pressed={selectionMode || selectedIds.size > 0}
+          onClick={() => {
+            if (selectionMode || selectedIds.size > 0) {
+              setSelectionMode(false)
+              onClearSelection()
+            } else {
+              setSelectionMode(true)
+            }
+          }}
+        >
+          {selectionMode || selectedIds.size > 0 ? '完成选择' : '选择'}
+        </button>
+      ) : null}
       <div
       className={'trade-list trade-list-virtual' + (selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : '')}
       role="list"
@@ -393,6 +417,7 @@ export function TradeList({
         return (
           <div
             key={item.key}
+            ref={virtualizer.measureElement}
             data-index={virtualRow.index}
             className={
               'trade-list-virtual-item' +
@@ -405,10 +430,18 @@ export function TradeList({
               top: isSticky ? 0 : virtualRow.start,
               left: 0,
               width: '100%',
-              height: virtualRow.size,
+              height:
+                item.kind === 'header' || item.openProgress < 0.999
+                  ? virtualRow.size
+                  : undefined,
+              minHeight:
+                item.kind === 'row' && item.openProgress >= 0.999
+                  ? ROW_HEIGHT
+                  : undefined,
               zIndex: isSticky ? 3 : item.kind === 'header' ? 2 : 1,
               opacity: rowOpacity,
-              overflow: 'hidden',
+              overflow:
+                item.kind === 'header' || item.openProgress < 0.999 ? 'hidden' : undefined,
             }}
           >
             {item.kind === 'header' ? (
@@ -460,6 +493,12 @@ export function TradeList({
                   </button>
                 </Tooltip>
               </div>
+            ) : renderRow ? (
+              renderRow(item.trade, {
+                focused: item.trade.id === focusedId,
+                strategyStats: strategyStatsById.get(item.trade.strategyId) ?? null,
+                symbolIcons,
+              })
             ) : (
               <TradeRow
                 trade={item.trade}
@@ -469,6 +508,7 @@ export function TradeList({
                 focused={item.trade.id === focusedId}
                 selected={selectedIds.has(item.trade.id)}
                 starred={starredIds.includes(item.trade.id)}
+                selectable={selectionEnabled}
                 onOpen={onOpen}
                 onSelect={onSelect}
                 onToggleStar={onToggleStar}

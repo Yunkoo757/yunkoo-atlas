@@ -14,6 +14,7 @@ import {
 import type { DisplayPrefs, ListFilter, ReviewCaseScope } from '@/lib/tradeFilters'
 import { isValidPeriodSlug, type BusinessDateAnchor } from '@/lib/periods'
 import { parseAnalysisScope } from '@/lib/analysisScope'
+import { buildMissedOpportunitySummary } from '@/lib/missedOpportunities'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 
 /** 可跨工作区配置可见范围的侧栏能力 */
@@ -71,6 +72,8 @@ const CAPABILITY_ROUTES: Record<
   'case:active': null,
 }
 
+const MISSED_AGGREGATE_ROUTE = { pathname: '/missed', search: '', icon: 'missed' } as const
+
 export type SidebarCountContext = {
   trades: Trade[]
   starredIds: string[]
@@ -121,7 +124,7 @@ function normalizeWorkspaceList(
   return unique.length > 0 ? unique : [...fallback]
 }
 
-/** 能力项的可见工作区；旧数据无字段时默认全开（可被用户收窄） */
+/** 能力项的工作区范围；旧数据无字段时默认包含全部可用来源。 */
 export function systemCapabilityWorkspaces(
   target: Extract<SidebarTarget, { kind: 'system' }>,
 ): SidebarQuickWorkspace[] {
@@ -130,7 +133,7 @@ export function systemCapabilityWorkspaces(
   return normalizeWorkspaceList(target.workspaces, allowed, allowed)
 }
 
-/** 侧栏是否钉了该能力，且指定工作区在可见范围内 */
+/** 侧栏是否钉了该能力，且指定工作区在配置范围内 */
 export function isCapabilityEnabledForWorkspace(
   items: readonly SidebarWorkspaceItem[],
   capability: SidebarCapabilityId,
@@ -161,6 +164,7 @@ export function setCapabilityWorkspaceEnabled(
   nextWorkspaces = nextWorkspaces.filter((item) => Boolean(resolveCapabilityRoute(capability, item)))
 
   if (nextWorkspaces.length === 0) {
+    if (capability === 'missed') return items
     return existing ? items.filter((item) => item.id !== existing.id) : items
   }
 
@@ -202,12 +206,13 @@ export function workspaceKindFromPath(pathname: string): SidebarQuickWorkspace {
   return 'trade'
 }
 
-/** 按当前所在工作区解析能力入口；当前域未开启则回落到第一个可见域 */
+/** 错过的机会固定进入聚合页；进行中保留当前工作区优先与回退逻辑。 */
 export function resolveCapabilityNavRoute(
   capability: SidebarCapabilityId,
   workspaces: readonly SidebarQuickWorkspace[],
   currentPathname = '/list',
 ): { pathname: string; search: string; icon: ResolvedSidebarWorkspaceItem['icon'] } {
+  if (capability === 'missed') return MISSED_AGGREGATE_ROUTE
   const enabled = workspaces
     .map((workspace) => ({ workspace, route: resolveCapabilityRoute(capability, workspace) }))
     .filter((entry): entry is { workspace: SidebarQuickWorkspace; route: NonNullable<typeof entry.route> } =>
@@ -222,6 +227,9 @@ export function capabilityNavRoutes(
   capability: SidebarCapabilityId,
   workspaces: readonly SidebarQuickWorkspace[],
 ): Array<{ pathname: string; search: string }> {
+  if (capability === 'missed') {
+    return [{ pathname: MISSED_AGGREGATE_ROUTE.pathname, search: MISSED_AGGREGATE_ROUTE.search }]
+  }
   return workspaces.flatMap((workspace) => {
     const route = resolveCapabilityRoute(capability, workspace)
     return route ? [{ pathname: route.pathname, search: route.search }] : []
@@ -311,7 +319,7 @@ export function normalizeSidebarWorkspaceItems(value: unknown): SidebarWorkspace
 
   normalized.sort((a, b) => a.item.order - b.item.order || a.inputIndex - b.inputIndex)
 
-  // 同一能力只保留一项，合并可见工作区（避免侧栏出现多个「错过的机会」）
+  // 同一能力只保留一项，合并配置范围（避免侧栏出现多个「错过的机会」）
   const mergedByKey = new Map<string, { item: SidebarWorkspaceItem; inputIndex: number }>()
   for (const entry of normalized) {
     const key = sidebarTargetKey(entry.item.target)
@@ -590,7 +598,6 @@ function listTargetForPath(pathname: string, search = ''): ListFilter | undefine
   if (path === '/list') return { type: 'all', tradeKind: 'live' }
   if (path === '/active') return { type: 'active', tradeKind: 'live' }
   if (path === '/favorites') return { type: 'starred', tradeKind: 'live' }
-  if (path === '/missed') return { type: 'missed', tradeKind: 'live' }
   if (path === '/sim') return { type: 'all', tradeKind: 'paper' }
   if (path === '/today-record') return { type: 'period', period: 'today', tradeKind: 'live' }
   if (path === '/review-cases') {
@@ -628,6 +635,12 @@ export function countSidebarTarget(
   context: SidebarCountContext,
 ): number | undefined {
   if (target.invalid) return undefined
+  if (target.item.target.kind === 'system' && target.item.target.id === 'missed') {
+    return buildMissedOpportunitySummary(
+      context.trades,
+      systemCapabilityWorkspaces(target.item.target),
+    ).aggregateTotal
+  }
   return countSidebarRoute(target.pathname, target.search, context)
 }
 

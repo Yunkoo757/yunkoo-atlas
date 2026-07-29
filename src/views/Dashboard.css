@@ -531,6 +531,7 @@ a.db-strat:hover {
   }
 
   .db-seg,
+  .db-week-link,
   .db-chart-data summary {
     min-height: 44px;
   }

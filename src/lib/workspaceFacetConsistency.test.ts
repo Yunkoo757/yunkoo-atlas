@@ -21,6 +21,7 @@ import {
   isSavedViewInWorkspace,
   searchForWorkspaceViewTarget,
 } from '@/lib/workspaceViews'
+import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -51,6 +52,28 @@ const caseTrade: Trade = {
   openedAt: '2026-07-16T08:00:00.000Z',
   closedAt: '2026-07-16T09:00:00.000Z',
   note: '<p>案例复盘</p>',
+}
+
+export function testMissedLocalQuickViewsIgnoreAggregateInclusionScope(): void {
+  const tradeOnlyMissed: SidebarWorkspaceItem[] = [{
+    id: 'system:missed',
+    target: { kind: 'system', id: 'missed', workspaces: ['trade'] },
+    placement: 'pinned',
+    order: 0,
+  }]
+
+  assert(
+    getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '模拟盘本地错过快捷视图不得受聚合包含范围隐藏',
+  )
+  assert(
+    getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '案例记录本地错过快捷视图不得受聚合包含范围隐藏',
+  )
+  assert(
+    !getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'open'),
+    '进行中快捷视图仍应遵循可见工作区过滤',
+  )
 }
 
 export function testCaseFacetsRoundTripThroughUrlAndMatchTheSameRecords(): void {

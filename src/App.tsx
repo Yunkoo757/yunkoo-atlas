@@ -150,6 +150,9 @@ const UpdatesSettingsPanel = lazy(() =>
 const ReviewTemplatesPanel = lazy(() =>
   import('./views/settings/ReviewTemplatesPanel').then((module) => ({ default: module.ReviewTemplatesPanel })),
 )
+const MissedOpportunitiesView = lazy(() =>
+  import('./views/MissedOpportunitiesView').then((module) => ({ default: module.MissedOpportunitiesView })),
+)
 
 function TradesPage({
   title,
@@ -368,26 +371,8 @@ function Shell() {
               />
             }
           />
-          <Route
-            path="/missed"
-            element={
-              <TradesPage
-                title="交易日志"
-                filter={{ type: 'missed', tradeKind: 'live' }}
-                listPath="/missed"
-              />
-            }
-          />
-          <Route
-            path="/missed/board"
-            element={
-              <TradesPage
-                title="交易日志"
-                filter={{ type: 'missed', tradeKind: 'live' }}
-                listPath="/missed"
-              />
-            }
-          />
+          <Route path="/missed" element={<MissedOpportunitiesView />} />
+          <Route path="/missed/board" element={<Navigate to="/missed" replace />} />
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/today-record" element={<TodayRecordPage />} />

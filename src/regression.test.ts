@@ -133,6 +133,7 @@ import { syncEditorLightboxEditable } from '@/editor/Editor'
 import { useStore } from '@/store/useStore'
 import { migrateShortcutBindings, useShortcutStore } from '@/store/shortcutStore'
 import {
+  findTradeReturnFocusTarget,
   parseTradeReturnAnchor,
   serializeTradeReturnAnchor,
 } from '@/hooks/useTradeReturnAnchor'
@@ -302,19 +303,26 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
     '可见工作区应合并到同一项上',
   )
 
-  const tradeRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/list')
-  const paperRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/sim')
-  const caseRoute = resolveCapabilityNavRoute('missed', ['trade', 'paper', 'case'], '/review-cases')
-  assert(tradeRoute.pathname === '/missed', '在交易日志时应进入实盘错过')
-  assert(paperRoute.pathname === '/sim' && paperRoute.search === '?status=missed', '在模拟时应进入模拟错过')
+  for (const currentPathname of ['/list', '/sim', '/review-cases', '/settings', '/dashboard']) {
+    const resolved = resolveSidebarWorkspaceItem(
+      merged[0]!,
+      { savedViews: [], strategies: [] },
+      currentPathname,
+    )
+    assert(
+      resolved.pathname === '/missed' && resolved.search === '',
+      `${currentPathname} 必须固定进入聚合页`,
+    )
+  }
+  const activeRoute = resolveCapabilityNavRoute('active', ['trade', 'paper'], '/sim')
   assert(
-    caseRoute.pathname === '/review-cases' && caseRoute.search === '?caseType=missed',
-    '在案例记录时应进入案例错过',
+    activeRoute.pathname === '/sim' && activeRoute.search === '?status=open',
+    '进行中能力仍应优先解析当前工作区',
   )
   assert(resolveCapabilityRoute('active', 'case') === null, '案例不得配置进行中能力')
   assert(
-    capabilityNavRoutes('missed', ['trade', 'paper']).length === 2,
-    '可见范围决定能力可跳转的工作区路由数',
+    capabilityNavRoutes('missed', ['trade', 'paper']).length === 1,
+    '错过的机会只应有聚合页路由',
   )
 
   const resolved = resolveSidebarWorkspaceItem(
@@ -323,7 +331,16 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
     '/sim',
   )
   assert(resolved.label === '错过的机会', '侧栏仍显示单一短名')
-  assert(resolved.pathname === '/sim' && resolved.search === '?status=missed', '链接随当前工作区解析')
+  assert(resolved.pathname === '/missed' && resolved.search === '', '链接必须固定指向聚合页')
+  for (const [pathname, search] of [
+    ['/sim', '?status=missed'],
+    ['/review-cases', '?caseType=missed'],
+  ] as const) {
+    assert(
+      resolveSidebarSelection({ pathname, search, items: [resolved] }).activeWorkspaceItemId === undefined,
+      `${pathname}${search} 不得高亮聚合入口`,
+    )
+  }
   assert(sidebarTargetKey(merged[0]!.target) === 'system:missed', '能力项 key 保持唯一')
 
   const tradeOnly = setCapabilityWorkspaceEnabled(
@@ -339,15 +356,42 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
   )
   assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'paper') === false, '取消后模拟域不得生效')
   assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'trade') === true, '交易日志域应仍生效')
+  const keptAfterRemovingPaperAndCase = setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'case', false)
+  const kept = setCapabilityWorkspaceEnabled(keptAfterRemovingPaperAndCase, 'missed', 'trade', false)
   assert(
-    setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'trade', false).length === 1 &&
-      setCapabilityWorkspaceEnabled(
-        setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'trade', false),
-        'missed',
-        'case',
-        false,
-      ).length === 0,
-    '可见工作区全部取消后应移除该能力项',
+    kept === keptAfterRemovingPaperAndCase,
+    '关闭最后一个 missed 来源必须保持原状态',
+  )
+}
+
+export function testMissedSidebarCountUsesAggregateInclusionScope(): void {
+  const liveMissed: Trade = { ...trade, id: 'live-missed', tradeKind: 'live', status: 'missed' }
+  const paperMissed: Trade = { ...trade, id: 'paper-missed', tradeKind: 'paper', status: 'missed' }
+  const linkedCase: Trade = {
+    ...trade,
+    id: 'linked-missed-case',
+    tradeKind: 'case',
+    status: 'loss',
+    caseType: 'missed',
+    sourceTradeId: liveMissed.id,
+  }
+  const resolved = resolveSidebarWorkspaceItem(
+    {
+      id: 'system:missed',
+      target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] },
+      placement: 'pinned',
+      order: 0,
+    },
+    { savedViews: [], strategies: [] },
+  )
+
+  assert(
+    countSidebarTarget(resolved, {
+      trades: [liveMissed, paperMissed, linkedCase],
+      starredIds: [],
+      display: DEFAULT_DISPLAY,
+    }) === 2,
+    '错过的机会侧栏计数必须使用包含范围内的去重聚合总数',
   )
 }
 
@@ -356,7 +400,7 @@ export async function testSidebarTargetPickerConfiguresVisibilityNotDuplicatePin
   const source = await fs.readFile('src/components/sidebar/SidebarTargetPicker.tsx', 'utf8')
   const editor = await fs.readFile('src/components/sidebar/SidebarWorkspaceEditor.tsx', 'utf8')
   const sidebar = await fs.readFile('src/components/Sidebar.tsx', 'utf8')
-  assert(source.includes('可见工作区（侧栏只显示一项）'), '添加项目应说明侧栏只显示一项')
+  assert(source.includes('包含范围（侧栏只显示一项）'), '错过的机会应说明聚合包含范围')
   assert(source.includes('toggleCapabilityWorkspace'), '应通过勾选配置同一能力的可见工作区')
   assert(source.includes('setCapabilityWorkspaceEnabled'), '添加项目应复用统一的可见范围写入')
   assert(source.includes("id: 'missed'"), '错过的机会应作为单一能力出现')
@@ -418,6 +462,7 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')
   assert(source.includes('isCapabilityEnabledForWorkspace'), 'Sidebar 应按当前工作区隐藏未开启的能力项')
   assert(source.includes('workspaceKindFromPath'), 'Sidebar 应按当前路径判断能力可见工作区')
+  assert(source.includes("if (target.id === 'missed') return true"), '聚合错过入口不得因当前工作区被隐藏')
   assert(source.includes('buildCapabilityVisibilityItems'), 'Sidebar 应在能力项就地配置可见工作区')
   assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
   assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
@@ -610,6 +655,75 @@ export async function testHeavyRoutesAreLoadedOnDemand(): Promise<void> {
       `${name} 应直接导入 storage/bootstrap，避免延迟分块循环依赖`,
     )
   }
+}
+
+export async function testMissedOpportunityAggregateRouteAndViewContract(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const app = await fs.readFile('src/App.tsx', 'utf8')
+  const missedRouteStart = app.indexOf('path="/missed"')
+  const missedRouteEnd = app.indexOf('path="/period/:slug"', missedRouteStart)
+  const missedRouteBlock = app.slice(missedRouteStart, missedRouteEnd)
+
+  assert(app.includes('<MissedOpportunitiesView />'), '/missed 必须接入独立聚合页')
+  assert(app.includes('path="/missed/board"') && app.includes('to="/missed"'), '旧看板路径必须重定向')
+  assert(!missedRouteBlock.includes("filter={{ type: 'missed', tradeKind: 'live' }}"), '聚合入口不得再伪装成实盘列表')
+
+  const [missedView, missedFilters, tradeList, missedRow, missedCss] = await Promise.all([
+    fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
+    fs.readFile('src/components/trades/MissedOpportunityFilters.tsx', 'utf8'),
+    fs.readFile('src/components/trades/TradeList.tsx', 'utf8'),
+    fs.readFile('src/components/trades/MissedOpportunityRow.tsx', 'utf8').catch(() => ''),
+    fs.readFile('src/views/MissedOpportunitiesView.css', 'utf8'),
+  ])
+  assert(missedView.includes('showDisplay={false}'), '聚合页不得显示交易列表展示设置')
+  assert(!missedView.includes('onView='), '聚合页不得暗示存在列表/看板切换')
+  assert(missedView.includes('title="错过的机会"'), '聚合页必须显示固定标题')
+  assert(missedView.includes('subtitle="来自你选择的工作区"'), '聚合页必须说明数据来源范围')
+  assert(missedView.includes('管理包含范围'), '聚合页必须提供范围管理入口')
+  assert(missedView.includes('data-missed-scope'), '聚合页必须暴露范围摘要语义')
+  assert(
+    missedView.includes('const seeded') && missedView.includes('MISSED_OPPORTUNITY_SOURCES.reduce'),
+    '缺少 system:missed 项时首次范围切换必须先建立默认三来源范围',
+  )
+  assert(missedView.includes('summary.rawCounts[source]'), '范围按钮必须显示不受临时筛选影响的来源原始数量')
+  assert(missedView.includes('data-missed-total') && missedView.includes('visibleItems.length'), '主总数必须显示临时筛选后的去重结果数')
+  assert(missedView.includes('跨工作区关联项已合并'), '原始数量高于去重总数时必须说明差异')
+  assert(missedView.includes('aria-live="polite"') && missedView.includes('当前显示'), '范围或筛选变化必须提供 live region 文案')
+  assert(missedView.includes('data-missed-results'), '非空聚合结果必须提供最小只读结果容器')
+  assert(missedView.includes('当前筛选下没有记录') && missedView.includes('清除筛选'), '筛选后为空必须提供可恢复空状态')
+  assert(missedView.includes('交易日志') && missedView.includes('模拟盘') && missedView.includes('案例记录'), '范围为空时必须逐项说明三个来源')
+  assert(missedView.includes('to="/list"') && missedView.includes('to="/sim"') && missedView.includes('to="/review-cases"'), '范围为空时必须链接到各来源工作区')
+
+  for (const key of ['period', 'symbol', 'side', 'missReason']) {
+    assert(missedFilters.includes(`'${key}'`), `临时筛选必须支持 ${key} URL 参数`)
+  }
+  assert(missedFilters.includes('FilterBar') && missedFilters.includes('Select'), '聚合筛选必须复用 FilterBar 与 Select')
+  assert(missedFilters.includes('PERIOD_LABELS') && missedFilters.includes('MISS_REASON_META'), '聚合筛选必须复用已有筛选标签')
+  assert(missedFilters.includes('collectSymbolOptions'), '聚合筛选必须复用品种选项收集器')
+  assert(missedFilters.includes('未支持的筛选条件，可移除'), '未知 query 参数必须以可移除条件展示')
+  assert(missedFilters.includes('new URLSearchParams()') && missedFilters.includes('{ replace: true }'), '清除临时筛选必须保留 pathname 并替换 search')
+  assert(!missedFilters.includes('DisplayPrefs') && !missedFilters.includes('setDisplay('), '临时筛选不得写入展示偏好')
+  assert(tradeList.includes('renderRow?:'), '虚拟列表必须支持聚合自定义行')
+  assert(tradeList.includes('selectionEnabled = true'), '现有列表默认仍允许选择')
+  assert(missedRow.includes('data-missed-source'), '聚合行必须显示文字来源')
+  assert(missedRow.includes('打开原始记录'), '合并项缺少原始记录动作')
+  assert(missedRow.includes('打开案例'), '合并项缺少案例动作')
+  assert(missedRow.includes('来源记录已删除'), '失效来源没有可见状态')
+  const summaryStart = missedRow.indexOf('<span className="missed-row-summary">')
+  const summaryEnd = missedRow.indexOf('<time className="missed-row-time"', summaryStart)
+  const summarySource = missedRow.slice(summaryStart, summaryEnd)
+  const missingRule = missedCss.match(/\.missed-row-missing\s*\{[^}]*\}/)?.[0] ?? ''
+  assert(
+    missedRow.includes('<span className="missed-row-missing">来源记录已删除</span>') &&
+      !summarySource.includes('missed-row-missing'),
+    '失效来源状态必须位于摘要裁切区域之外',
+  )
+  assert(
+    missingRule.includes('grid-area: state') &&
+      missingRule.includes('white-space: nowrap') &&
+      missedCss.includes("'state state state state actions'"),
+    '失效来源状态必须使用独立且不可裁切的响应式网格区域',
+  )
 }
 
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
@@ -1576,6 +1690,19 @@ export function testTradeDetailReturnRemembersListView(): void {
   assert(fallback.pathname === '/review-cases', '无上下文时案例详情回退到案例列表')
   assert(fallback.search === '', '无上下文时不应伪造查询参数')
 
+  for (const tradeKind of ['live', 'paper', 'case'] as const) {
+    const target = resolveTradeDetailReturn({
+      from: {
+        pathname: '/missed',
+        search: '?symbol=XAUUSD&side=long',
+        anchorTradeId: 'root-1',
+      },
+      tradeKind,
+    })
+    assert(target.pathname === '/missed', `${tradeKind} 必须能返回聚合页`)
+    assert(target.search === '?symbol=XAUUSD&side=long', `${tradeKind} 必须保留聚合筛选`)
+  }
+
   const invalidCaseSource = resolveTradeDetailReturn({
     from: { pathname: '/list', search: '?status=loss', anchorTradeId: trade.id },
     tradeKind: 'case',
@@ -1589,6 +1716,43 @@ export function testTradeDetailReturnRemembersListView(): void {
   assert(invalidLiveSource.pathname === '/list', '交易详情的失效案例来源应回退到交易列表')
 }
 
+export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [detailView, returnAnchor, missedView] = await Promise.all([
+    fs.readFile('src/views/DetailView.tsx', 'utf8'),
+    fs.readFile('src/hooks/useTradeReturnAnchor.ts', 'utf8'),
+    fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
+  ])
+
+  assert(
+    detailView.includes("from?.pathname === '/missed'") && detailView.includes("'错过的机会'"),
+    '聚合来源详情必须显示“错过的机会”面包屑',
+  )
+  assert(detailView.includes("'返回错过的机会'"), '聚合来源详情返回按钮必须提供专属 aria-label')
+  assert(
+    returnAnchor.includes('findTradeReturnFocusTarget(target)') &&
+      returnAnchor.includes('focus({ preventScroll: true })'),
+    '返回锚点必须优先聚焦主动作，并阻止 focus 自行滚动',
+  )
+  assert(returnAnchor.includes('onMissing?: (tradeId: string) => void'), '返回锚点必须支持目标消失回调')
+  assert(
+    missedView.includes('原记录已变化，已返回错过的机会列表') &&
+      missedView.includes('tabIndex={-1}') &&
+      missedView.includes('focus({ preventScroll: true })'),
+    '聚合目标消失时必须聚焦可见标题并通过 live region 说明回退结果',
+  )
+}
+
+export async function testMissedRowsExposePredictablePrimaryReturnFocus(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const missedRow = await fs.readFile('src/components/trades/MissedOpportunityRow.tsx', 'utf8')
+
+  assert(
+    missedRow.match(/data-trade-primary-action/g)?.length === 2,
+    '普通项覆盖按钮和合并项首个动作必须标记为可预测的返回焦点',
+  )
+}
+
 export function testTradeReturnAnchorSerializationExpires(): void {
   const createdAt = 1_000_000
   const serialized = serializeTradeReturnAnchor('trade-42', createdAt)
@@ -1596,6 +1760,54 @@ export function testTradeReturnAnchorSerializationExpires(): void {
   assert(parseTradeReturnAnchor(serialized, createdAt) === 'trade-42', '返回锚点应可从版本化存储中恢复')
   assert(parseTradeReturnAnchor(serialized, createdAt + 30_001) === null, '超过恢复窗口的返回锚点必须过期')
   assert(parseTradeReturnAnchor('trade-42', createdAt) === null, '旧的无版本锚点不得无限保留')
+}
+
+export function testTradeReturnFocusTargetSkipsHiddenAndDisabledPrimaryActions(): void {
+  const candidate = (options: {
+    visible?: boolean
+    hidden?: boolean
+    ariaHidden?: boolean
+    disabled?: boolean
+    tabIndex?: number
+  } = {}): HTMLElement => {
+    const element = {
+      hidden: options.hidden ?? false,
+      disabled: options.disabled ?? false,
+      tabIndex: options.tabIndex ?? 0,
+      getAttribute: (name: string) => {
+        if (name === 'aria-hidden' && options.ariaHidden) return 'true'
+        return null
+      },
+      closest: () => options.hidden || options.ariaHidden ? element : null,
+      getClientRects: () => ({ length: options.visible === false ? 0 : 1 }),
+    }
+    return element as unknown as HTMLElement
+  }
+
+  const cssHiddenPrimary = candidate({ visible: false })
+  const hiddenPrimary = candidate({ hidden: true })
+  const ariaHiddenPrimary = candidate({ ariaHidden: true })
+  const disabledPrimary = candidate({ disabled: true })
+  const nonFocusablePrimary = candidate({ tabIndex: -1 })
+  const mobileMenuButton = candidate()
+  const primaryCandidates = [
+    cssHiddenPrimary,
+    hiddenPrimary,
+    ariaHiddenPrimary,
+    disabledPrimary,
+    nonFocusablePrimary,
+  ]
+  const target = {
+    querySelector: () => cssHiddenPrimary,
+    querySelectorAll: (selector: string) => selector === '[data-trade-primary-action]'
+      ? primaryCandidates
+      : [...primaryCandidates, mobileMenuButton],
+  } as unknown as HTMLElement
+
+  assert(
+    findTradeReturnFocusTarget(target) === mobileMenuButton,
+    '隐藏、aria-hidden、禁用或不可聚焦的主动作必须回退到可见移动菜单按钮',
+  )
 }
 
 export function testCaseDetailRejectsStaleLiveListContext(): void {
@@ -2068,12 +2280,12 @@ export function testRecordDomainsKeepSeparateMissedEntrypoints(): void {
     },
   ])
   assert(
-    !getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'missed'),
-    '未对模拟开启错过能力时，模拟主视图不得出现错过机会',
+    getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '模拟主视图必须保留本地错过机会入口，不受聚合范围影响',
   )
   assert(
-    !getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
-    '未对案例开启错过能力时，案例主视图不得出现错过机会',
+    getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '案例主视图必须保留本地错过机会入口，不受聚合范围影响',
   )
   assert(
     getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'open'),

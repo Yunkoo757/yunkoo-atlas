@@ -179,6 +179,10 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
     setCapacityMessage('')
     const beforePinned = pinnedCount
     const next = setCapabilityWorkspaceEnabled(items, capabilityId, workspace, enabled)
+    if (capabilityId === 'missed' && !enabled && next === items) {
+      setCapacityMessage('至少保留一个包含来源')
+      return
+    }
     const afterPinned = next.filter((item) => item.placement === 'pinned').length
     if (afterPinned > beforePinned && afterPinned >= MAX_PINNED_SIDEBAR_ITEMS) {
       const added = next.find((item) => item.id === `system:${capabilityId}`)
@@ -225,6 +229,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
                   <p className="sb-editor-empty">暂无可添加项</p>
                 ) : (
                   visible.map((capability) => {
+                    const scopeLabel = capability.id === 'missed' ? '包含范围' : '可见工作区'
                     const existing = byTarget.get(`system:${capability.id}`)
                     const enabled = existing && existing.target.kind === 'system'
                       ? new Set(systemCapabilityWorkspaces(existing.target))
@@ -238,11 +243,15 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
                           <span className="sb-capability-title">{capability.label}</span>
                           <span className={`sb-target-row-state ${stateClass}`}>{state}</span>
                         </div>
-                        <p className="sb-capability-hint">可见工作区（侧栏只显示一项）</p>
+                        <p className="sb-capability-hint">
+                          {capability.id === 'missed'
+                            ? '包含范围（侧栏只显示一项）'
+                            : '可见工作区（侧栏只显示一项）'}
+                        </p>
                         <div
                           className="sb-capability-options"
                           role="group"
-                          aria-label={`${capability.label}可见工作区`}
+                          aria-label={`${capability.label}${scopeLabel}`}
                         >
                           {capability.workspaces.map((workspace) => {
                             if (!resolveCapabilityRoute(capability.id, workspace)) return null
