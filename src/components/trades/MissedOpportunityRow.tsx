@@ -75,6 +75,7 @@ export function MissedOpportunityRow({
         <button
           type="button"
           className="missed-row-open"
+          data-trade-primary-action
           aria-label={openLabel}
           onClick={() => onOpen(primary, item.key)}
         />
@@ -104,7 +105,11 @@ export function MissedOpportunityRow({
 
       {merged ? (
         <span className="missed-row-actions">
-          <button type="button" onClick={() => onOpen(primary, item.key)}>
+          <button
+            type="button"
+            data-trade-primary-action
+            onClick={() => onOpen(primary, item.key)}
+          >
             打开原始记录
           </button>
           {caseCount === 1 ? (

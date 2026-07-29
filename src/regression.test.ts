@@ -1689,6 +1689,19 @@ export function testTradeDetailReturnRemembersListView(): void {
   assert(fallback.pathname === '/review-cases', '无上下文时案例详情回退到案例列表')
   assert(fallback.search === '', '无上下文时不应伪造查询参数')
 
+  for (const tradeKind of ['live', 'paper', 'case'] as const) {
+    const target = resolveTradeDetailReturn({
+      from: {
+        pathname: '/missed',
+        search: '?symbol=XAUUSD&side=long',
+        anchorTradeId: 'root-1',
+      },
+      tradeKind,
+    })
+    assert(target.pathname === '/missed', `${tradeKind} 必须能返回聚合页`)
+    assert(target.search === '?symbol=XAUUSD&side=long', `${tradeKind} 必须保留聚合筛选`)
+  }
+
   const invalidCaseSource = resolveTradeDetailReturn({
     from: { pathname: '/list', search: '?status=loss', anchorTradeId: trade.id },
     tradeKind: 'case',
@@ -1700,6 +1713,43 @@ export function testTradeDetailReturnRemembersListView(): void {
     tradeKind: 'live',
   })
   assert(invalidLiveSource.pathname === '/list', '交易详情的失效案例来源应回退到交易列表')
+}
+
+export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [detailView, returnAnchor, missedView] = await Promise.all([
+    fs.readFile('src/views/DetailView.tsx', 'utf8'),
+    fs.readFile('src/hooks/useTradeReturnAnchor.ts', 'utf8'),
+    fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
+  ])
+
+  assert(
+    detailView.includes("from?.pathname === '/missed'") && detailView.includes("'错过的机会'"),
+    '聚合来源详情必须显示“错过的机会”面包屑',
+  )
+  assert(detailView.includes("'返回错过的机会'"), '聚合来源详情返回按钮必须提供专属 aria-label')
+  assert(
+    returnAnchor.includes("'[data-trade-primary-action], button, a'") &&
+      returnAnchor.includes('focus({ preventScroll: true })'),
+    '返回锚点必须优先聚焦主动作，并阻止 focus 自行滚动',
+  )
+  assert(returnAnchor.includes('onMissing?: (tradeId: string) => void'), '返回锚点必须支持目标消失回调')
+  assert(
+    missedView.includes('原记录已变化，已返回错过的机会列表') &&
+      missedView.includes('tabIndex={-1}') &&
+      missedView.includes('focus({ preventScroll: true })'),
+    '聚合目标消失时必须聚焦可见标题并通过 live region 说明回退结果',
+  )
+}
+
+export async function testMissedRowsExposePredictablePrimaryReturnFocus(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const missedRow = await fs.readFile('src/components/trades/MissedOpportunityRow.tsx', 'utf8')
+
+  assert(
+    missedRow.match(/data-trade-primary-action/g)?.length === 2,
+    '普通项覆盖按钮和合并项首个动作必须标记为可预测的返回焦点',
+  )
 }
 
 export function testTradeReturnAnchorSerializationExpires(): void {

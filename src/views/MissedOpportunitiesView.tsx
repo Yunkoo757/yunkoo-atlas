@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { MissedOpportunityFilters } from '@/components/trades/MissedOpportunityFilters'
@@ -39,9 +39,15 @@ export function MissedOpportunitiesView() {
   const businessDateAnchor = useBusinessDateAnchor()
   const [searchParams, setSearchParams] = useSearchParams()
   const listScrollRef = useRef<HTMLDivElement>(null)
+  const returnHeadingRef = useRef<HTMLHeadingElement>(null)
+  const [returnStatus, setReturnStatus] = useState<string | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
-  useTradeReturnAnchor()
+  const handleMissingReturnAnchor = useCallback(() => {
+    returnHeadingRef.current?.focus({ preventScroll: true })
+    setReturnStatus('原记录已变化，已返回错过的机会列表')
+  }, [])
+  useTradeReturnAnchor({ onMissing: handleMissingReturnAnchor })
   const existingScope = sidebarWorkspaceItems.find(
     (item) => item.target.kind === 'system' && item.target.id === 'missed',
   )
@@ -104,7 +110,7 @@ export function MissedOpportunitiesView() {
         <section className="missed-scope" data-missed-scope={sources.join(',')} aria-labelledby="missed-scope-title">
           <div className="missed-scope-heading">
             <div>
-              <h2 id="missed-scope-title">管理包含范围</h2>
+              <h2 id="missed-scope-title" ref={returnHeadingRef} tabIndex={-1}>管理包含范围</h2>
               <p>选择哪些工作区长期汇总到这里；当前临时筛选会保留。</p>
             </div>
             <div className="missed-total" data-missed-total={visibleItems.length}>
@@ -128,7 +134,7 @@ export function MissedOpportunitiesView() {
             <p className="missed-merge-note">跨工作区关联项已合并</p>
           ) : null}
           <span className="missed-live" aria-live="polite">
-            当前显示 {visibleItems.length} 条错过机会
+            {returnStatus ?? `当前显示 ${visibleItems.length} 条错过机会`}
           </span>
         </section>
 

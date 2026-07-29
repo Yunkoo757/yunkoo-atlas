@@ -217,6 +217,16 @@ export function DetailView() {
   }, [trade, routeParam, navigate, location.state])
 
   const from = (location.state as TradeDetailLocationState | null)?.from
+  const fromMissedOpportunities = from?.pathname === '/missed'
+  const detailKind = trade?.tradeKind ?? deletedTrade?.tradeKind
+  const detailCrumb = fromMissedOpportunities
+    ? '错过的机会'
+    : detailKind === 'case'
+      ? '案例记录'
+      : detailKind === 'paper'
+        ? '模拟'
+        : '交易日志'
+  const backAriaLabel = fromMissedOpportunities ? '返回错过的机会' : '返回列表'
   const detailReturn = useMemo(() => {
     return resolveTradeDetailReturn({
       from,
@@ -376,12 +386,7 @@ export function DetailView() {
       : activities.system.length - FEED_VISIBLE
 
   if (!trade) {
-    const recordLabel =
-      deletedTrade?.tradeKind === 'case'
-        ? '案例记录'
-        : deletedTrade?.tradeKind === 'paper'
-          ? '模拟'
-          : '交易日志'
+    const recordLabel = detailCrumb
     return (
       <>
         <header className="dv-topbar">
@@ -390,7 +395,7 @@ export function DetailView() {
               to={detailReturn}
               state={tradeReturnLocationState(from?.anchorTradeId)}
               className="dv-back"
-              aria-label="返回列表"
+              aria-label={backAriaLabel}
             >
               <ChevronLeft size={16} />
             </Link>
@@ -500,12 +505,6 @@ export function DetailView() {
     navigate(tradeDetailPath(reviewCase), { state: location.state })
   }
 
-  const detailCrumb =
-    trade.tradeKind === 'case'
-      ? '案例记录'
-      : trade.tradeKind === 'paper'
-        ? '模拟'
-        : '交易日志'
   const isPreCycle = classifyLiveCycleTrade(
     trade,
     liveStatsStartTradingDayKey,
@@ -649,7 +648,7 @@ export function DetailView() {
             to={detailReturn}
             state={tradeReturnLocationState(from?.anchorTradeId)}
             className="dv-back"
-            aria-label="返回列表"
+            aria-label={backAriaLabel}
           >
             <ChevronLeft size={16} />
           </Link>

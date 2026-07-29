@@ -12,6 +12,12 @@ type TradeReturnLocationState = {
   restoreTradeId?: string
 }
 
+export type UseTradeReturnAnchorOptions = {
+  onMissing?: (tradeId: string) => void
+}
+
+const DEFAULT_RETURN_ANCHOR_OPTIONS: UseTradeReturnAnchorOptions = {}
+
 function storageKey(from: TradeDetailFrom): string {
   const pathname = from.pathname.trim().replace(/\/$/, '') || '/'
   const search = new URLSearchParams(from.search ?? '')
@@ -54,10 +60,17 @@ export function tradeReturnLocationState(anchorTradeId?: string): TradeReturnLoc
   return anchorTradeId ? { restoreTradeId: anchorTradeId } : {}
 }
 
-export function useTradeReturnAnchor(): void {
+export function useTradeReturnAnchor(
+  options: UseTradeReturnAnchorOptions = DEFAULT_RETURN_ANCHOR_OPTIONS,
+): void {
   const location = useLocation()
   const navigate = useNavigate()
   const pendingRef = useRef<{ key: string; tradeId: string; explicit: boolean } | null>(null)
+  const onMissingRef = useRef(options.onMissing)
+
+  useEffect(() => {
+    onMissingRef.current = options.onMissing
+  }, [options.onMissing])
 
   useEffect(() => {
     const key = storageKey({ pathname: location.pathname, search: location.search })
@@ -73,6 +86,7 @@ export function useTradeReturnAnchor(): void {
 
     let frame = 0
     let animationFrame = 0
+    let requestedVirtualScroll = false
     const finish = () => {
       pendingRef.current = null
       if (!pending.explicit) return
@@ -82,35 +96,22 @@ export function useTradeReturnAnchor(): void {
       )
     }
     const attemptRestore = () => {
-      if (requestScrollToTrade(pending.tradeId)) {
-        // 虚拟列表滚到索引后可能需多帧才挂载 DOM
-        let wait = 0
-        const waitForMounted = () => {
-          const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
-            .find((element) => element.dataset.tradeId === pending.tradeId)
-          if (target) {
-            target.scrollIntoView({ block: 'center' })
-            finish()
-            return
-          }
-          if (wait >= 16) {
-            finish()
-            return
-          }
-          wait += 1
-          animationFrame = requestAnimationFrame(waitForMounted)
-        }
-        animationFrame = requestAnimationFrame(waitForMounted)
-        return
+      if (!requestedVirtualScroll) {
+        requestedVirtualScroll = requestScrollToTrade(pending.tradeId)
       }
       const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
         .find((element) => element.dataset.tradeId === pending.tradeId)
       if (target) {
+        const focusTarget = target.querySelector<HTMLElement>(
+          '[data-trade-primary-action], button, a',
+        )
+        focusTarget?.focus({ preventScroll: true })
         target.scrollIntoView({ block: 'center' })
         finish()
         return
       }
       if (frame >= MAX_RESTORE_FRAMES) {
+        onMissingRef.current?.(pending.tradeId)
         finish()
         return
       }
