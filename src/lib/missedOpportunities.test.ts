@@ -160,6 +160,15 @@ export function testTemporaryMissReasonFilterUsesPrimary(): void {
   assert(result.map((item) => item.primary.id).join(',') === 'alert', '错过原因筛选必须只检查聚合项 primary')
 }
 
+export function testTemporaryOtherMissReasonFilterIncludesMissingReason(): void {
+  const summary = buildMissedOpportunitySummary([
+    trade({ id: 'missing-reason', missReason: undefined }),
+    trade({ id: 'hesitation', tradeKind: 'paper', missReason: 'hesitation' }),
+  ], ['trade', 'paper'])
+  const result = filterMissedOpportunityItems(summary.items, { missReason: 'other' }, createBusinessDateAnchor())
+  assert(result.map((item) => item.primary.id).join(',') === 'missing-reason', '未填写的错过原因在“其他”筛选下必须命中')
+}
+
 export function testParseTemporaryFiltersIgnoresUnknownValues(): void {
   const parsed = parseMissedOpportunityFilters('?period=today&symbol=BTCUSDT&side=long&missReason=hesitation')
   assert(parsed.period === 'today' && parsed.symbol === 'BTCUSDT' && parsed.side === 'long' && parsed.missReason === 'hesitation', '合法 URL 筛选值必须保留')

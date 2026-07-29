@@ -368,6 +368,59 @@ async function run(): Promise<void> {
     assert(mergedRow.classList.contains('is-merged'), '明确关联项缺少合并状态')
     assert(mergedRow.querySelector('.missed-row-actions')?.textContent?.includes('打开原始记录'), '合并项缺少原始记录动作')
     assert(mergedRow.querySelector('.missed-row-actions')?.textContent?.includes('打开案例（2）'), '合并项缺少案例动作')
+    const multipleCaseTrigger = [...mergedRow.querySelectorAll<HTMLButtonElement>('.missed-row-actions button')]
+      .find((button) => button.textContent?.trim() === '打开案例（2）')
+    assert(
+      multipleCaseTrigger?.getAttribute('aria-label') === '打开 XAUUSD 案例（2）',
+      '桌面多案例菜单必须包含品种上下文',
+    )
+
+    useStore.setState({ trades: fixtureTrades.filter((trade) => trade.id !== linkedCaseTwo.id) })
+    await waitFor(
+      () => resultRow(rootTrade.id).querySelector('.missed-row-actions')?.textContent?.includes('打开案例') === true
+        && resultRow(rootTrade.id).querySelector('.missed-row-actions')?.textContent?.includes('打开案例（2）') === false,
+      '未进入单案例聚合状态',
+    )
+    const singleCaseRow = resultRow(rootTrade.id)
+    const sourceAccessibleAction = singleCaseRow.querySelector<HTMLButtonElement>(
+      '.missed-row-actions [data-trade-primary-action]',
+    )
+    assert(sourceAccessibleAction?.textContent?.trim() === '打开原始记录', '桌面原始记录动作可见文字必须保持简洁')
+    assert(
+      sourceAccessibleAction.getAttribute('aria-label') === '打开 XAUUSD 原始交易记录',
+      '桌面原始记录动作必须包含品种上下文',
+    )
+    const singleCaseAction = [...singleCaseRow.querySelectorAll<HTMLButtonElement>('.missed-row-actions button')]
+      .find((button) => button.textContent?.trim() === '打开案例')
+    assert(singleCaseAction, '单案例聚合项缺少桌面案例动作')
+    assert(singleCaseAction.textContent?.trim() === '打开案例', '桌面案例动作可见文字必须保持简洁')
+    assert(
+      singleCaseAction.getAttribute('aria-label') === '打开案例 CAS-LINK-1',
+      '桌面单案例动作必须包含案例 ref 上下文',
+    )
+
+    const mobileMenuTrigger = singleCaseRow.querySelector<HTMLButtonElement>('.missed-row-mobile-menu button')
+    assert(mobileMenuTrigger, '单案例聚合项缺少移动菜单')
+    mobileMenuTrigger.click()
+    await waitFor(() => document.querySelector('[role="menu"]') !== null, '移动菜单未打开')
+    const mobileMenuLabels = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .map((button) => button.textContent?.trim())
+    assert(
+      mobileMenuLabels.includes('打开 XAUUSD 原始交易记录'),
+      '移动菜单原始记录动作必须与桌面使用相同完整名称',
+    )
+    assert(
+      mobileMenuLabels.includes('打开案例 CAS-LINK-1'),
+      '移动菜单案例动作必须与桌面使用相同完整名称',
+    )
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await waitFor(() => document.querySelector('[role="menu"]') === null, '移动菜单未关闭')
+
+    useStore.setState({ trades: fixtureTrades })
+    await waitFor(
+      () => resultRow(rootTrade.id).querySelector('.missed-row-actions')?.textContent?.includes('打开案例（2）') === true,
+      '完整 fixture 未恢复多案例聚合状态',
+    )
     for (const source of document.querySelectorAll<HTMLElement>('.missed-row-source')) {
       assert(source.getAttribute('aria-hidden') !== 'true', '来源文字不得 aria-hidden')
       assert(source.closest('[aria-hidden="true"]') === null, '来源文字祖先不得 aria-hidden')

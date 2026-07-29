@@ -28,6 +28,14 @@ const RECORD_LABELS: Record<Trade['tradeKind'], string> = {
   case: '案例记录',
 }
 
+function mergedSourceActionLabel(trade: Trade): string {
+  return `打开 ${trade.symbol} 原始${RECORD_LABELS[trade.tradeKind]}`
+}
+
+function caseActionLabel(reviewCase: Trade): string {
+  return `打开案例 ${reviewCase.ref}`
+}
+
 export function MissedOpportunityRow({
   item,
   strategies,
@@ -42,12 +50,15 @@ export function MissedOpportunityRow({
   const missReason = MISS_REASON_META[primary.missReason ?? 'other'].label
   const openLabel = `打开 ${primary.symbol} ${RECORD_LABELS[primary.tradeKind]}`
   const caseCount = item.linkedCases.length
-  const caseActionLabel = caseCount > 1 ? `打开案例（${caseCount}）` : '打开案例'
+  const sourceActionLabel = mergedSourceActionLabel(primary)
+  const caseActionText = caseCount > 1 ? `打开案例（${caseCount}）` : '打开案例'
+  const caseMenuActionLabel = `打开 ${primary.symbol} 案例（${caseCount}）`
+  const singleCase = caseCount === 1 ? item.linkedCases[0] : undefined
   const menuOptions = [
-    { value: `source:${primary.id}`, label: '打开原始记录' },
+    { value: `source:${primary.id}`, label: sourceActionLabel },
     ...item.linkedCases.map((reviewCase) => ({
       value: `case:${reviewCase.id}`,
-      label: `打开案例 ${reviewCase.ref}`,
+      label: caseActionLabel(reviewCase),
     })),
   ]
 
@@ -108,25 +119,30 @@ export function MissedOpportunityRow({
           <button
             type="button"
             data-trade-primary-action
+            aria-label={sourceActionLabel}
             onClick={() => onOpen(primary, item.key)}
           >
             打开原始记录
           </button>
-          {caseCount === 1 ? (
-            <button type="button" onClick={() => onOpen(item.linkedCases[0]!, item.key)}>
+          {singleCase ? (
+            <button
+              type="button"
+              aria-label={caseActionLabel(singleCase)}
+              onClick={() => onOpen(singleCase, item.key)}
+            >
               打开案例
             </button>
           ) : (
             <Menu
               align="right"
               trigger={(
-                <button type="button" aria-label={caseActionLabel}>
-                  {caseActionLabel}
+                <button type="button" aria-label={caseMenuActionLabel}>
+                  {caseActionText}
                 </button>
               )}
               options={item.linkedCases.map((reviewCase) => ({
                 value: reviewCase.id,
-                label: `打开案例 ${reviewCase.ref}`,
+                label: caseActionLabel(reviewCase),
               }))}
               onSelect={(caseId) => {
                 const reviewCase = item.linkedCases.find((candidate) => candidate.id === caseId)

@@ -165,7 +165,7 @@ try {
     let mobileMenu = page.locator('[data-trade-id="live-root"]')
       .getByRole('button', { name: /更多.*案例/ })
     await activateWithTabAndEnter(page, mobileMenu, '合并项移动菜单')
-    const sourceMenuItem = page.getByRole('menuitem', { name: '打开原始记录', exact: true })
+    const sourceMenuItem = page.getByRole('menuitem', { name: '打开 XAUUSD 原始交易记录', exact: true })
     await activateWithTabAndEnter(page, sourceMenuItem, '移动菜单原始记录动作')
     await waitForRouterLocation(page, '/trade/LIVE-001')
     await activateWithTabAndEnter(page, page.getByRole('link', { name: '返回错过的机会' }), '原始记录详情返回')

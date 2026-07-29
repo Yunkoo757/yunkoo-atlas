@@ -134,7 +134,7 @@ export function filterMissedOpportunityItems(
     const { primary } = item
     if (filters.symbol && primary.symbol !== filters.symbol) return false
     if (filters.side && primary.side !== filters.side) return false
-    if (filters.missReason && primary.missReason !== filters.missReason) return false
+    if (filters.missReason && (primary.missReason ?? 'other') !== filters.missReason) return false
     return !bounds || isDateInRange(item.occurredAt, bounds)
   })
 }
