@@ -1,0 +1,208 @@
+.missed-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.missed-scope {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4) 18px var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.missed-scope-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.missed-scope h2,
+.missed-empty h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.missed-scope p,
+.missed-empty p {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+}
+
+.missed-total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  white-space: nowrap;
+}
+
+.missed-total strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-title3);
+}
+
+.missed-scope-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.missed-scope-actions button,
+.missed-empty button,
+.missed-filter-clear {
+  min-height: var(--field-height-md);
+  padding: 0 var(--sp-3);
+  color: var(--text-secondary);
+  font: inherit;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-6);
+  background: var(--surface-control);
+}
+
+.missed-scope-actions button[aria-pressed='true'] {
+  color: var(--text-primary);
+  border-color: var(--surface-control-border-active);
+  background: var(--surface-control-active);
+}
+
+.missed-scope-actions button:hover,
+.missed-empty button:hover,
+.missed-filter-clear:hover {
+  color: var(--text-primary);
+  background: var(--surface-control-active);
+}
+
+.missed-scope .missed-merge-note {
+  margin: 0;
+}
+
+.missed-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.missed-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.missed-results {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.missed-results li {
+  display: grid;
+  grid-template-columns: minmax(100px, 1.4fr) minmax(72px, 0.8fr) minmax(76px, 0.8fr) 56px minmax(88px, 0.9fr) minmax(180px, 1.2fr);
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--trade-row-height);
+  padding: 0 18px;
+  color: var(--text-secondary);
+  font-size: var(--fs-mini);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.missed-results strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.missed-results time {
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+.missed-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--sp-3);
+  max-width: 520px;
+  margin: 9vh auto 0;
+  padding: var(--sp-5);
+  color: var(--text-secondary);
+}
+
+.missed-empty ul {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding-left: var(--sp-5);
+}
+
+.missed-empty a {
+  margin-left: var(--sp-2);
+  color: var(--accent-readable);
+}
+
+.missed-filter-panel {
+  position: absolute;
+  z-index: var(--z-navigation-panel);
+  top: calc(100% - 2px);
+  right: var(--sp-3);
+  left: var(--sp-3);
+  display: flex;
+  align-items: end;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--popover-bg);
+  border: 1px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+}
+
+.missed-filter-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+.missed-filter-field {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+}
+
+@media (max-width: 768px) {
+  .missed-filter-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .missed-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .missed-results li {
+    grid-template-columns: minmax(100px, 1fr) 72px 52px;
+  }
+
+  .missed-results li span:nth-of-type(2),
+  .missed-results li span:nth-of-type(4),
+  .missed-results time {
+    display: none;
+  }
+}

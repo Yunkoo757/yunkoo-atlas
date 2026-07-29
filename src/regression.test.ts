@@ -656,6 +656,51 @@ export async function testHeavyRoutesAreLoadedOnDemand(): Promise<void> {
   }
 }
 
+export async function testMissedOpportunityAggregateRouteAndViewContract(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const app = await fs.readFile('src/App.tsx', 'utf8')
+  const missedRouteStart = app.indexOf('path="/missed"')
+  const missedRouteEnd = app.indexOf('path="/period/:slug"', missedRouteStart)
+  const missedRouteBlock = app.slice(missedRouteStart, missedRouteEnd)
+
+  assert(app.includes('<MissedOpportunitiesView />'), '/missed 必须接入独立聚合页')
+  assert(app.includes('path="/missed/board"') && app.includes('to="/missed"'), '旧看板路径必须重定向')
+  assert(!missedRouteBlock.includes("filter={{ type: 'missed', tradeKind: 'live' }}"), '聚合入口不得再伪装成实盘列表')
+
+  const [missedView, missedFilters] = await Promise.all([
+    fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
+    fs.readFile('src/components/trades/MissedOpportunityFilters.tsx', 'utf8'),
+  ])
+  assert(missedView.includes('showDisplay={false}'), '聚合页不得显示交易列表展示设置')
+  assert(!missedView.includes('onView='), '聚合页不得暗示存在列表/看板切换')
+  assert(missedView.includes('title="错过的机会"'), '聚合页必须显示固定标题')
+  assert(missedView.includes('subtitle="来自你选择的工作区"'), '聚合页必须说明数据来源范围')
+  assert(missedView.includes('管理包含范围'), '聚合页必须提供范围管理入口')
+  assert(missedView.includes('data-missed-scope'), '聚合页必须暴露范围摘要语义')
+  assert(
+    missedView.includes('const seeded') && missedView.includes('MISSED_OPPORTUNITY_SOURCES.reduce'),
+    '缺少 system:missed 项时首次范围切换必须先建立默认三来源范围',
+  )
+  assert(missedView.includes('summary.rawCounts[source]'), '范围按钮必须显示不受临时筛选影响的来源原始数量')
+  assert(missedView.includes('data-missed-total') && missedView.includes('visibleItems.length'), '主总数必须显示临时筛选后的去重结果数')
+  assert(missedView.includes('跨工作区关联项已合并'), '原始数量高于去重总数时必须说明差异')
+  assert(missedView.includes('aria-live="polite"') && missedView.includes('当前显示'), '范围或筛选变化必须提供 live region 文案')
+  assert(missedView.includes('data-missed-results'), '非空聚合结果必须提供最小只读结果容器')
+  assert(missedView.includes('当前筛选下没有记录') && missedView.includes('清除筛选'), '筛选后为空必须提供可恢复空状态')
+  assert(missedView.includes('交易日志') && missedView.includes('模拟盘') && missedView.includes('案例记录'), '范围为空时必须逐项说明三个来源')
+  assert(missedView.includes('to="/list"') && missedView.includes('to="/sim"') && missedView.includes('to="/review-cases"'), '范围为空时必须链接到各来源工作区')
+
+  for (const key of ['period', 'symbol', 'side', 'missReason']) {
+    assert(missedFilters.includes(`'${key}'`), `临时筛选必须支持 ${key} URL 参数`)
+  }
+  assert(missedFilters.includes('FilterBar') && missedFilters.includes('Select'), '聚合筛选必须复用 FilterBar 与 Select')
+  assert(missedFilters.includes('PERIOD_LABELS') && missedFilters.includes('MISS_REASON_META'), '聚合筛选必须复用已有筛选标签')
+  assert(missedFilters.includes('collectSymbolOptions'), '聚合筛选必须复用品种选项收集器')
+  assert(missedFilters.includes('未支持的筛选条件，可移除'), '未知 query 参数必须以可移除条件展示')
+  assert(missedFilters.includes('new URLSearchParams()') && missedFilters.includes('{ replace: true }'), '清除临时筛选必须保留 pathname 并替换 search')
+  assert(!missedFilters.includes('DisplayPrefs') && !missedFilters.includes('setDisplay('), '临时筛选不得写入展示偏好')
+}
+
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8')
