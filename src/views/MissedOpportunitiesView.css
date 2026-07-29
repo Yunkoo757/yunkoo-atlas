@@ -8,8 +8,13 @@
 .missed-scope {
   display: grid;
   gap: var(--sp-3);
-  padding: var(--sp-4) 18px var(--sp-3);
+  padding: var(--sp-4) max(18px, calc(100% - 1180px)) var(--sp-3) 18px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.missed-view > .ui-filter-shell .ui-filter-bar {
+  padding-right: max(15px, calc(100% - 1180px));
+  padding-left: 18px;
 }
 
 .missed-scope-heading {
@@ -274,8 +279,8 @@
   position: absolute;
   z-index: var(--z-navigation-panel);
   top: calc(100% - 2px);
-  right: var(--sp-3);
-  left: var(--sp-3);
+  right: max(var(--sp-3), calc(100% - 1180px));
+  left: 18px;
   display: flex;
   align-items: end;
   gap: var(--sp-3);
