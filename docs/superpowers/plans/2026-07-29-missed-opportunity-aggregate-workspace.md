@@ -34,12 +34,13 @@
 - `src/views/MissedOpportunitiesView.css`：聚合头部、范围条、列表行、桌面/移动响应式和状态样式。
 - `src/components/trades/MissedOpportunityFilters.tsx`：复用 `FilterBar`、`Select` 和现有筛选视觉，管理四个 URL 临时条件。
 - `src/components/trades/MissedOpportunityRow.tsx`：来源文字标签、普通/合并项动作、失效来源提示和移动端菜单。
-- `src/components/trades/TradeList.tsx`：仅增加向后兼容的 `renderRow` 与 `selectionEnabled` 扩展，继续提供虚拟化和返回锚点注册。
+- `src/components/trades/TradeList.tsx`：仅增加向后兼容的 `renderRow`、`selectionEnabled` 与动态行高测量，继续提供虚拟化和返回锚点注册。
 - `src/hooks/useTradeReturnAnchor.ts`：在滚动恢复后恢复焦点，并为目标消失提供安全回退回调。
 - `src/lib/tradeRoute.ts`、`src/views/DetailView.tsx`：允许三种记录从 `/missed` 返回，并显示“返回错过的机会”的明确上下文。
 - `src/App.tsx`：接入聚合页并重定向旧看板路径。
 - `src/regression.test.ts`、`src/lib/workspaceFacetConsistency.test.ts`：更新静态/纯函数回归契约。
 - `src/views/MissedOpportunitiesView.browser.test.tsx`、`src/views/MissedOpportunitiesView.browser.test.html`：覆盖真实交互、导航返回、响应式和可访问性。
+- `scripts/qa-missed-opportunities.mjs`：使用 Playwright 真实 375×812 viewport 覆盖移动端布局、命中区和水平溢出。
 
 ---
 
@@ -444,7 +445,17 @@ renderRow?: (trade: Trade, context: TradeListRowRenderContext) => ReactNode
 selectionEnabled?: boolean
 ```
 
-`selectionEnabled` 默认 `true`；为 `false` 时不渲染移动端“选择”按钮。虚拟行分支优先调用 `renderRow`，否则原样渲染 `TradeRow`。不得改变 `ROW_HEIGHT`、overscan、sticky header、滚动目标注册和现有调用方默认行为。
+`selectionEnabled` 默认 `true`；为 `false` 时不渲染移动端“选择”按钮。虚拟行分支优先调用 `renderRow`，否则原样渲染 `TradeRow`。保留 `ROW_HEIGHT` 作为默认估算值，并把虚拟项 DOM 交给 TanStack Virtual 实测，支持移动端自动增高且不让相邻行重叠：
+
+```tsx
+<div
+  ref={virtualizer.measureElement}
+  data-index={virtualRow.index}
+  // 其余定位与 sticky 属性保持现状
+>
+```
+
+不得改变默认估算值、overscan、sticky header、滚动目标注册和现有调用方默认行为。
 
 - [ ] **Step 4: 实现普通、合并和失效三类行**
 
@@ -631,13 +642,15 @@ git commit -m "fix: restore missed opportunity browsing context"
 **Files:**
 - Create: `src/views/MissedOpportunitiesView.browser.test.tsx`
 - Create: `src/views/MissedOpportunitiesView.browser.test.html`
+- Create: `scripts/qa-missed-opportunities.mjs`
+- Modify: `package.json`
 - Modify: `src/views/MissedOpportunitiesView.tsx`
 - Modify: `src/views/MissedOpportunitiesView.css`
 - Modify: `src/components/trades/MissedOpportunityRow.tsx`
 
 **Interfaces:**
-- Consumes: `MemoryRouter`、Zustand 测试状态、`window.__missedOpportunitiesBrowserTest`、375px viewport。
-- Produces: 范围切换、筛选、普通/合并跳转、返回、空状态、键盘与无溢出的浏览器证据。
+- Consumes: `MemoryRouter`、Zustand 测试状态、`window.__missedOpportunitiesBrowserTest`、Playwright `page.setViewportSize()`。
+- Produces: 范围切换、筛选、普通/合并跳转、返回、空状态、键盘与真实 375×812 viewport 无溢出的浏览器证据。
 
 - [ ] **Step 1: 创建浏览器 fixture 和失败契约**
 
@@ -681,28 +694,36 @@ assert(document.activeElement?.closest('[data-trade-id]')?.getAttribute('data-tr
 
 测试中删除锚点对应记录再返回，断言标题获得焦点且 live region 说明结果变化。
 
-- [ ] **Step 4: 覆盖 375px 响应式与键盘操作**
+- [ ] **Step 4: 覆盖键盘操作并建立真实 375px 响应式 QA**
 
-在 fixture 支持 `?visual=mobile`，浏览器测试设置 `document.documentElement.style.width = '375px'` 后断言：
+浏览器契约通过 Tab/Enter 完成筛选器开启、普通项打开、合并项菜单打开和两个来源动作；来源标签可见文本不得被 `aria-hidden`。
+
+新增 `scripts/qa-missed-opportunities.mjs`，复用仓库现有 Vite + Playwright 启动模式，打开 fixture 的 `?visual=mobile` 状态并设置真实 viewport：
 
 ```ts
+await page.setViewportSize({ width: 375, height: 812 })
+await page.goto(new URL('/src/views/MissedOpportunitiesView.browser.test.html?visual=mobile', baseUrl).href)
+await page.waitForFunction(() => '__missedOpportunitiesBrowserTest' in window)
+await page.evaluate(() => window.__missedOpportunitiesBrowserTest)
 assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, '375px 不得横向溢出')
 const menuButton = getByRole('button', { name: /更多.*案例/ })
 assert(menuButton.getBoundingClientRect().width >= 44, '合并项菜单命中区宽度不足 44px')
 assert(menuButton.getBoundingClientRect().height >= 44, '合并项菜单命中区高度不足 44px')
 ```
 
-通过 Tab/Enter 完成筛选器开启、普通项打开、合并项菜单打开和两个来源动作；来源标签可见文本不得被 `aria-hidden`。
+在 `package.json` 增加 `"qa:missed-opportunities": "node scripts/qa-missed-opportunities.mjs"`，不新增依赖。
 
 - [ ] **Step 5: 运行浏览器契约并修正样式/语义**
 
 Run: `node scripts/run-browser-tests.mjs . vite.config.ts`
 Expected: PASS，包括 `src/views/MissedOpportunitiesView.browser.test.html`；控制台无未允许错误。
+Run: `pnpm qa:missed-opportunities`
+Expected: PASS，真实 375×812 viewport 无水平溢出，移动端合并项菜单命中区至少 44×44px。
 
 - [ ] **Step 6: 提交浏览器覆盖**
 
 ```bash
-git add src/views/MissedOpportunitiesView.browser.test.tsx src/views/MissedOpportunitiesView.browser.test.html src/views/MissedOpportunitiesView.tsx src/views/MissedOpportunitiesView.css src/components/trades/MissedOpportunityRow.tsx
+git add package.json scripts/qa-missed-opportunities.mjs src/views/MissedOpportunitiesView.browser.test.tsx src/views/MissedOpportunitiesView.browser.test.html src/views/MissedOpportunitiesView.tsx src/views/MissedOpportunitiesView.css src/components/trades/MissedOpportunityRow.tsx
 git commit -m "test: cover missed opportunity workspace flow"
 ```
 
@@ -732,6 +753,8 @@ Run: `pnpm qa:design`
 Expected: PASS。
 Run: `pnpm qa:sidebar`
 Expected: PASS。
+Run: `pnpm qa:missed-opportunities`
+Expected: PASS，真实移动端 viewport 契约通过。
 
 - [ ] **Step 3: 启动真实项目并完成视觉复核**
 
@@ -764,7 +787,7 @@ Expected: 只有本计划范围内的文件。
 若 Step 1–4 没有产生修正，不创建空提交；若产生修正：
 
 ```bash
-git add src/App.tsx src/lib/missedOpportunities.ts src/lib/missedOpportunities.test.ts src/lib/sidebarWorkspace.ts src/lib/workspaceViews.ts src/lib/tradeRoute.ts src/hooks/useTradeReturnAnchor.ts src/components/Sidebar.tsx src/components/sidebar/SidebarTargetPicker.tsx src/components/trades/TradeList.tsx src/components/trades/TradeList.css src/components/trades/MissedOpportunityFilters.tsx src/components/trades/MissedOpportunityRow.tsx src/views/MissedOpportunitiesView.tsx src/views/MissedOpportunitiesView.css src/views/DetailView.tsx src/views/MissedOpportunitiesView.browser.test.tsx src/views/MissedOpportunitiesView.browser.test.html src/regression.test.ts src/lib/workspaceFacetConsistency.test.ts scripts/qa-sidebar-navigation.mjs
+git add package.json scripts/qa-missed-opportunities.mjs src/App.tsx src/lib/missedOpportunities.ts src/lib/missedOpportunities.test.ts src/lib/sidebarWorkspace.ts src/lib/workspaceViews.ts src/lib/tradeRoute.ts src/hooks/useTradeReturnAnchor.ts src/components/Sidebar.tsx src/components/sidebar/SidebarTargetPicker.tsx src/components/trades/TradeList.tsx src/components/trades/TradeList.css src/components/trades/MissedOpportunityFilters.tsx src/components/trades/MissedOpportunityRow.tsx src/views/MissedOpportunitiesView.tsx src/views/MissedOpportunitiesView.css src/views/DetailView.tsx src/views/MissedOpportunitiesView.browser.test.tsx src/views/MissedOpportunitiesView.browser.test.html src/regression.test.ts src/lib/workspaceFacetConsistency.test.ts scripts/qa-sidebar-navigation.mjs
 git commit -m "fix: complete missed opportunity acceptance"
 ```
 
@@ -774,6 +797,7 @@ git commit -m "fix: complete missed opportunity acceptance"
 
 - `node scripts/run-regression-tests.mjs --unit-only src/lib/missedOpportunities.test.ts src/lib/workspaceFacetConsistency.test.ts src/regression.test.ts` — 聚合、导航、计数与来源工作区隔离全部通过。
 - `node scripts/run-browser-tests.mjs . vite.config.ts` — 聚合页交互、返回现场、375px 与键盘契约通过。
+- `pnpm qa:missed-opportunities` — Playwright 真实 375×812 viewport 契约通过。
 - `pnpm test` — 全量质量与回归基线通过。
 - `pnpm build` — 类型、生产构建和 bundle budget 通过。
 - `pnpm qa:design`、`pnpm qa:sidebar` — 设计和侧栏契约通过。
