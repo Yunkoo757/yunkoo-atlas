@@ -133,6 +133,7 @@ import { syncEditorLightboxEditable } from '@/editor/Editor'
 import { useStore } from '@/store/useStore'
 import { migrateShortcutBindings, useShortcutStore } from '@/store/shortcutStore'
 import {
+  findTradeReturnFocusTarget,
   parseTradeReturnAnchor,
   serializeTradeReturnAnchor,
 } from '@/hooks/useTradeReturnAnchor'
@@ -1729,7 +1730,7 @@ export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(
   )
   assert(detailView.includes("'返回错过的机会'"), '聚合来源详情返回按钮必须提供专属 aria-label')
   assert(
-    returnAnchor.includes("'[data-trade-primary-action], button, a'") &&
+    returnAnchor.includes('findTradeReturnFocusTarget(target)') &&
       returnAnchor.includes('focus({ preventScroll: true })'),
     '返回锚点必须优先聚焦主动作，并阻止 focus 自行滚动',
   )
@@ -1759,6 +1760,54 @@ export function testTradeReturnAnchorSerializationExpires(): void {
   assert(parseTradeReturnAnchor(serialized, createdAt) === 'trade-42', '返回锚点应可从版本化存储中恢复')
   assert(parseTradeReturnAnchor(serialized, createdAt + 30_001) === null, '超过恢复窗口的返回锚点必须过期')
   assert(parseTradeReturnAnchor('trade-42', createdAt) === null, '旧的无版本锚点不得无限保留')
+}
+
+export function testTradeReturnFocusTargetSkipsHiddenAndDisabledPrimaryActions(): void {
+  const candidate = (options: {
+    visible?: boolean
+    hidden?: boolean
+    ariaHidden?: boolean
+    disabled?: boolean
+    tabIndex?: number
+  } = {}): HTMLElement => {
+    const element = {
+      hidden: options.hidden ?? false,
+      disabled: options.disabled ?? false,
+      tabIndex: options.tabIndex ?? 0,
+      getAttribute: (name: string) => {
+        if (name === 'aria-hidden' && options.ariaHidden) return 'true'
+        return null
+      },
+      closest: () => options.hidden || options.ariaHidden ? element : null,
+      getClientRects: () => ({ length: options.visible === false ? 0 : 1 }),
+    }
+    return element as unknown as HTMLElement
+  }
+
+  const cssHiddenPrimary = candidate({ visible: false })
+  const hiddenPrimary = candidate({ hidden: true })
+  const ariaHiddenPrimary = candidate({ ariaHidden: true })
+  const disabledPrimary = candidate({ disabled: true })
+  const nonFocusablePrimary = candidate({ tabIndex: -1 })
+  const mobileMenuButton = candidate()
+  const primaryCandidates = [
+    cssHiddenPrimary,
+    hiddenPrimary,
+    ariaHiddenPrimary,
+    disabledPrimary,
+    nonFocusablePrimary,
+  ]
+  const target = {
+    querySelector: () => cssHiddenPrimary,
+    querySelectorAll: (selector: string) => selector === '[data-trade-primary-action]'
+      ? primaryCandidates
+      : [...primaryCandidates, mobileMenuButton],
+  } as unknown as HTMLElement
+
+  assert(
+    findTradeReturnFocusTarget(target) === mobileMenuButton,
+    '隐藏、aria-hidden、禁用或不可聚焦的主动作必须回退到可见移动菜单按钮',
+  )
 }
 
 export function testCaseDetailRejectsStaleLiveListContext(): void {

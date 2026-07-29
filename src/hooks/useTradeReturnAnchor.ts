@@ -60,6 +60,25 @@ export function tradeReturnLocationState(anchorTradeId?: string): TradeReturnLoc
   return anchorTradeId ? { restoreTradeId: anchorTradeId } : {}
 }
 
+export function findTradeReturnFocusTarget(target: HTMLElement): HTMLElement | null {
+  const primaryActions = target.querySelectorAll<HTMLElement>('[data-trade-primary-action]')
+  const fallbackActions = target.querySelectorAll<HTMLElement>('button, a')
+  const candidates = [...primaryActions, ...fallbackActions]
+
+  return candidates.find((candidate) => {
+    const canBeDisabled = candidate as HTMLElement & { disabled?: boolean }
+    return (
+      candidate.tabIndex >= 0 &&
+      !canBeDisabled.disabled &&
+      candidate.getAttribute('aria-disabled') !== 'true' &&
+      !candidate.hidden &&
+      candidate.getAttribute('aria-hidden') !== 'true' &&
+      candidate.closest('[hidden], [aria-hidden="true"]') === null &&
+      candidate.getClientRects().length > 0
+    )
+  }) ?? null
+}
+
 export function useTradeReturnAnchor(
   options: UseTradeReturnAnchorOptions = DEFAULT_RETURN_ANCHOR_OPTIONS,
 ): void {
@@ -102,9 +121,7 @@ export function useTradeReturnAnchor(
       const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
         .find((element) => element.dataset.tradeId === pending.tradeId)
       if (target) {
-        const focusTarget = target.querySelector<HTMLElement>(
-          '[data-trade-primary-action], button, a',
-        )
+        const focusTarget = findTradeReturnFocusTarget(target)
         focusTarget?.focus({ preventScroll: true })
         target.scrollIntoView({ block: 'center' })
         finish()
