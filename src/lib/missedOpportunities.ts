@@ -37,7 +37,7 @@ const TRADE_SIDES: readonly TradeSide[] = ['long', 'short']
 const MISS_REASONS: readonly MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 
 export function missedOpportunitySourceOf(trade: Trade): MissedOpportunitySource | null {
-  if (trade.deletedAt) return null
+  if (trade.deletedAt !== undefined) return null
   if (trade.tradeKind === 'live' && trade.status === 'missed') return 'trade'
   if (trade.tradeKind === 'paper' && trade.status === 'missed') return 'paper'
   if (trade.tradeKind === 'case' && trade.caseType === 'missed') return 'case'
@@ -62,14 +62,14 @@ function createRootItem(trade: Trade): MissedOpportunityItem {
   }
 }
 
-function createStandaloneCase(reviewCase: Trade, deletedSourceAt?: string): MissedOpportunityItem {
+function createStandaloneCase(reviewCase: Trade, sourceIsDeleted: boolean): MissedOpportunityItem {
   return {
     key: reviewCase.id,
     source: 'case',
     primary: reviewCase,
     linkedCases: [],
     occurredAt: missedOpportunityOccurredAt(reviewCase),
-    ...(deletedSourceAt && reviewCase.sourceTradeId ? { missingSourceId: reviewCase.sourceTradeId } : {}),
+    ...(sourceIsDeleted && reviewCase.sourceTradeId ? { missingSourceId: reviewCase.sourceTradeId } : {}),
   }
 }
 
@@ -112,7 +112,10 @@ export function buildMissedOpportunitySummary(
       root.linkedCases.push(reviewCase)
       continue
     }
-    items.push(createStandaloneCase(reviewCase, allById.get(reviewCase.sourceTradeId ?? '')?.deletedAt))
+    items.push(createStandaloneCase(
+      reviewCase,
+      allById.get(reviewCase.sourceTradeId ?? '')?.deletedAt !== undefined,
+    ))
   }
 
   for (const item of items) item.linkedCases.sort(compareCases)

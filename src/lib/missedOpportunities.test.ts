@@ -97,6 +97,24 @@ export function testSummaryKeepsExcludedAndDeletedOriginsDistinct(): void {
   assert(caseDeletedSummary.items[0]?.linkedCases.length === 0, '案例删除后根项必须退化为普通项')
 }
 
+export function testSummaryTreatsEmptyDeletedAtAsDeleted(): void {
+  const emptyDeleted = trade({ id: 'empty-deleted', deletedAt: '' })
+  const summary = buildMissedOpportunitySummary([emptyDeleted], ['trade'])
+  assert(summary.items.length === 0 && summary.rawTotal === 0, 'deletedAt 为空字符串的命中记录也必须排除')
+}
+
+export function testSummaryMarksEmptyDeletedAtSourceAsMissing(): void {
+  const emptyDeletedSource = trade({ id: 'empty-deleted-source', deletedAt: '' })
+  const linkedCase = trade({
+    id: 'linked-to-empty-deleted',
+    tradeKind: 'case',
+    caseType: 'missed',
+    sourceTradeId: emptyDeletedSource.id,
+  })
+  const summary = buildMissedOpportunitySummary([emptyDeletedSource, linkedCase], ['case'])
+  assert(summary.items[0]?.missingSourceId === emptyDeletedSource.id, '全量来源 deletedAt 为空字符串时案例必须标记失效追溯')
+}
+
 export function testSummarySortsByBusinessOccurrenceThenEnglishKey(): void {
   const laterCase = trade({ id: 'z-case', tradeKind: 'case', caseType: 'missed', recordedAt: '2026-07-22T08:00:00.000Z' })
   const sameTimeB = trade({ id: 'b-live', closedAt: '2026-07-21T08:00:00.000Z' })
