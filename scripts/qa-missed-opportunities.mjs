@@ -207,6 +207,9 @@ try {
 
   console.log('PASS: missed opportunities full flow QA at 375×812')
 } finally {
-  await browser?.close()
-  await server.close()
+  try {
+    await browser?.close()
+  } finally {
+    await server.close()
+  }
 }

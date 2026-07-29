@@ -36,6 +36,13 @@ async function waitFor(condition: () => boolean, message: string): Promise<void>
   throw new Error(message)
 }
 
+async function assertLiveRegionStable(text: string, message: string): Promise<void> {
+  const matches = () => document.querySelector<HTMLElement>('.missed-live')?.textContent?.includes(text) === true
+  await waitFor(matches, `${message}：未等待到目标文案`)
+  await frame()
+  assert(matches(), `${message}：目标文案未跨至少一帧保持稳定`)
+}
+
 function sourceButton(label: string): HTMLButtonElement {
   const button = [...document.querySelectorAll<HTMLButtonElement>('.missed-scope-actions button')]
     .find((candidate) => candidate.textContent?.trim().startsWith(label))
@@ -554,8 +561,8 @@ async function run(): Promise<void> {
     useStore.getState().removeTrade('filler-17')
     document.querySelector<HTMLAnchorElement>('[aria-label="返回错过的机会"]')?.click()
     await waitFor(() => document.activeElement?.getAttribute('id') === 'missed-scope-title', '目标删除返回必须聚焦范围标题')
-    assert(
-      document.querySelector('.missed-live')?.textContent?.includes('原记录已变化，已返回错过的机会列表'),
+    await assertLiveRegionStable(
+      '原记录已变化，已返回错过的机会列表',
       '目标删除返回必须说明结果变化',
     )
     await ensureFilterOpen()
@@ -587,9 +594,8 @@ async function run(): Promise<void> {
       () => document.activeElement?.getAttribute('id') === 'missed-scope-title',
       '返回锚点消失后必须聚焦范围标题',
     )
-    const liveRegion = document.querySelector<HTMLElement>('.missed-live')
-    assert(
-      liveRegion?.textContent?.includes('原记录已变化，已返回错过的机会列表'),
+    await assertLiveRegionStable(
+      '原记录已变化，已返回错过的机会列表',
       '返回锚点消失后必须播报结果变化',
     )
 
