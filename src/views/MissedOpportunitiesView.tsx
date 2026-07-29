@@ -183,6 +183,7 @@ export function MissedOpportunitiesView() {
                 starredIds={[]}
                 scrollParentRef={listScrollRef}
                 selectionEnabled={false}
+                overscan={18}
                 renderRow={(trade, context) => (
                   <MissedOpportunityRow
                     item={itemByPrimaryId.get(trade.id)!}

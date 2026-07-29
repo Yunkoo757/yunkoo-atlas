@@ -162,6 +162,7 @@ export function TradeList({
   recordLabel = '交易',
   renderRow,
   selectionEnabled = true,
+  overscan = 14,
 }: {
   groups: TradeListGroup[]
   strategies: Strategy[]
@@ -180,6 +181,8 @@ export function TradeList({
   recordLabel?: string
   renderRow?: (trade: Trade, context: TradeListRowRenderContext) => ReactNode
   selectionEnabled?: boolean
+  /** 预渲染行数；聚合视图可提高该值，保证快速滚动与返回定位稳定。 */
+  overscan?: number
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const [selectionMode, setSelectionMode] = useState(false)
@@ -307,7 +310,7 @@ export function TradeList({
       if (item.kind === 'header') return HEADER_HEIGHT
       return Math.max(0, ROW_HEIGHT * item.openProgress)
     },
-    overscan: 14,
+    overscan,
     rangeExtractor: (range: Range) => {
       activeStickyIndexRef.current =
         [...stickyIndexes].reverse().find((index) => range.startIndex >= index) ?? 0
