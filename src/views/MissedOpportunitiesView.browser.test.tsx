@@ -47,6 +47,14 @@ function routerLocation(): string {
   return document.querySelector('[data-router-location]')?.textContent ?? ''
 }
 
+function normalizedSearch(params: URLSearchParams): string {
+  return JSON.stringify(
+    [...params.entries()].sort(([leftKey, leftValue], [rightKey, rightValue]) => (
+      leftKey.localeCompare(rightKey) || leftValue.localeCompare(rightValue)
+    )),
+  )
+}
+
 function resultRow(id: string): HTMLElement {
   const row = document.querySelector<HTMLElement>(`[data-trade-id="${CSS.escape(id)}"]`)
   assert(row, `找不到聚合行：${id}`)
@@ -384,6 +392,37 @@ async function run(): Promise<void> {
     sourceButton('案例记录').click()
     await waitFor(() => resultRow(rootTrade.id).classList.contains('is-merged'), '恢复案例来源后聚合项未恢复')
 
+    useStore.setState({ trades: [] })
+    await waitFor(
+      () => document.querySelector('.missed-empty h2')?.textContent?.trim() === '所选来源暂无错过记录',
+      '所选来源无数据时必须进入来源空状态',
+    )
+    const sourceEmpty = document.querySelector<HTMLElement>('.missed-empty')
+    assert(sourceEmpty, '来源空状态容器未渲染')
+    assert(
+      sourceEmpty.querySelector('p')?.textContent?.trim() === '可以前往当前包含的工作区查看或补充原始记录。',
+      '来源空状态缺少包含范围说明',
+    )
+    const emptySourceHrefs = () => [...document.querySelectorAll<HTMLAnchorElement>('.missed-empty a')]
+      .map((link) => link.getAttribute('href'))
+      .sort()
+    assert(emptySourceHrefs().join(',') === '/list,/review-cases,/sim', '三来源空状态必须显示三个准确入口')
+
+    sourceButton('模拟盘').click()
+    await waitFor(() => sourceButton('模拟盘').getAttribute('aria-pressed') === 'false', '来源空状态无法关闭模拟盘')
+    assert(emptySourceHrefs().join(',') === '/list,/review-cases', '关闭模拟盘后空状态不得保留 /sim 入口')
+    sourceButton('交易日志').click()
+    await waitFor(() => sourceButton('交易日志').getAttribute('aria-pressed') === 'false', '来源空状态无法关闭交易日志')
+    assert(emptySourceHrefs().join(',') === '/review-cases', '仅保留案例来源时只能显示 /review-cases 入口')
+
+    sourceButton('交易日志').click()
+    sourceButton('模拟盘').click()
+    useStore.setState({ trades: fixtureTrades })
+    await waitFor(
+      () => document.querySelector(`[data-trade-id="${rootTrade.id}"]`)?.classList.contains('is-merged') === true,
+      '来源空状态后聚合结果未恢复',
+    )
+
     await ensureFilterOpen()
     await selectFilter('品种', 'XAUUSD')
     await selectFilter('方向', 'long')
@@ -419,9 +458,18 @@ async function run(): Promise<void> {
 
     const mergedSummary = resultRow(rootTrade.id).querySelector<HTMLElement>('.missed-row-summary')
     assert(mergedSummary, '合并项缺少摘要区域')
-    mergedSummary.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    const mergedSummaryRect = mergedSummary.getBoundingClientRect()
+    const mergedHit = document.elementFromPoint(
+      mergedSummaryRect.left + mergedSummaryRect.width / 2,
+      mergedSummaryRect.top + mergedSummaryRect.height / 2,
+    )
+    assert(mergedHit instanceof HTMLElement, '合并项摘要坐标未命中 HTML 元素')
+    const mergedHitIsSummary = mergedSummary.contains(mergedHit)
+    const mergedHitIsAction = mergedHit.closest('button, a, [role="button"]') !== null
+    mergedHit.click()
     await frame()
-    assert(routerLocation() === '/missed', '点击合并项本身不得猜测导航目标')
+    assert(mergedHitIsSummary && !mergedHitIsAction, '合并项摘要坐标必须命中非动作内容')
+    assert(routerLocation() === '/missed', '点击合并项非动作内容不得猜测导航目标')
 
     const sourceAction = resultRow(rootTrade.id).querySelector<HTMLButtonElement>(
       '.missed-row-actions [data-trade-primary-action]',
@@ -455,6 +503,17 @@ async function run(): Promise<void> {
     await selectFilter('方向', 'long')
     await selectFilter('时间', 'today')
     await selectFilter('错过原因', 'hesitation')
+    const expectedReturnFilters = new URLSearchParams({
+      period: 'today',
+      symbol: 'XAUUSD',
+      side: 'long',
+      missReason: 'hesitation',
+    })
+    const returnFiltersBeforeDetail = new URLSearchParams(routerLocation().split('?')[1] ?? '')
+    assert(
+      normalizedSearch(returnFiltersBeforeDetail) === normalizedSearch(expectedReturnFilters),
+      '进入详情前 URL 必须准确包含四类筛选键值',
+    )
     if (filterTrigger().getAttribute('aria-expanded') === 'true') filterTrigger().click()
     const content = document.querySelector<HTMLElement>('.missed-content')
     assert(content, '聚合列表缺少滚动容器')
@@ -470,7 +529,10 @@ async function run(): Promise<void> {
     await waitFor(() => routerLocation() === '/trade/LIVE-001', '滚动现场未进入详情')
     await returnFromDetail(rootTrade.id)
     const restoredParams = new URLSearchParams(routerLocation().split('?')[1] ?? '')
-    assert(restoredParams.get('symbol') === 'XAUUSD', '详情返回必须恢复临时筛选')
+    assert(
+      normalizedSearch(restoredParams) === normalizedSearch(returnFiltersBeforeDetail),
+      '详情返回必须完整恢复 period、symbol、side、missReason 四类筛选键值',
+    )
     assert(document.querySelector<HTMLElement>('.missed-content')?.scrollTop! > 0, '详情返回必须恢复滚动现场')
 
     await ensureFilterOpen()
