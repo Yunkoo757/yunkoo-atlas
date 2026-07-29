@@ -667,11 +667,12 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(app.includes('path="/missed/board"') && app.includes('to="/missed"'), '旧看板路径必须重定向')
   assert(!missedRouteBlock.includes("filter={{ type: 'missed', tradeKind: 'live' }}"), '聚合入口不得再伪装成实盘列表')
 
-  const [missedView, missedFilters, tradeList, missedRow] = await Promise.all([
+  const [missedView, missedFilters, tradeList, missedRow, missedCss] = await Promise.all([
     fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
     fs.readFile('src/components/trades/MissedOpportunityFilters.tsx', 'utf8'),
     fs.readFile('src/components/trades/TradeList.tsx', 'utf8'),
     fs.readFile('src/components/trades/MissedOpportunityRow.tsx', 'utf8').catch(() => ''),
+    fs.readFile('src/views/MissedOpportunitiesView.css', 'utf8'),
   ])
   assert(missedView.includes('showDisplay={false}'), '聚合页不得显示交易列表展示设置')
   assert(!missedView.includes('onView='), '聚合页不得暗示存在列表/看板切换')
@@ -707,6 +708,21 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(missedRow.includes('打开原始记录'), '合并项缺少原始记录动作')
   assert(missedRow.includes('打开案例'), '合并项缺少案例动作')
   assert(missedRow.includes('来源记录已删除'), '失效来源没有可见状态')
+  const summaryStart = missedRow.indexOf('<span className="missed-row-summary">')
+  const summaryEnd = missedRow.indexOf('<time className="missed-row-time"', summaryStart)
+  const summarySource = missedRow.slice(summaryStart, summaryEnd)
+  const missingRule = missedCss.match(/\.missed-row-missing\s*\{[^}]*\}/)?.[0] ?? ''
+  assert(
+    missedRow.includes('<span className="missed-row-missing">来源记录已删除</span>') &&
+      !summarySource.includes('missed-row-missing'),
+    '失效来源状态必须位于摘要裁切区域之外',
+  )
+  assert(
+    missingRule.includes('grid-area: state') &&
+      missingRule.includes('white-space: nowrap') &&
+      missedCss.includes("'state state state state actions'"),
+    '失效来源状态必须使用独立且不可裁切的响应式网格区域',
+  )
 }
 
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {

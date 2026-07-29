@@ -62,7 +62,12 @@ export function MissedOpportunityRow({
 
   return (
     <div
-      className={'missed-row' + (focused ? ' is-focused' : '') + (merged ? ' is-merged' : '')}
+      className={
+        'missed-row' +
+        (focused ? ' is-focused' : '') +
+        (merged ? ' is-merged' : '') +
+        (item.missingSourceId ? ' has-missing-source' : '')
+      }
       data-trade-id={item.key}
       role="listitem"
     >
@@ -78,6 +83,9 @@ export function MissedOpportunityRow({
       <span className="missed-row-source" data-missed-source={item.source}>
         {SOURCE_LABELS[item.source]}
       </span>
+      {item.missingSourceId ? (
+        <span className="missed-row-missing">来源记录已删除</span>
+      ) : null}
       <span className="missed-row-symbol">
         <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={14} />
         <strong>{primary.symbol}</strong>
@@ -89,9 +97,6 @@ export function MissedOpportunityRow({
         <span>{missReason}</span>
         <span aria-hidden="true"> · </span>
         <span>{primary.ref}</span>
-        {item.missingSourceId ? (
-          <strong className="missed-row-missing">来源记录已删除</strong>
-        ) : null}
       </span>
       <time className="missed-row-time" dateTime={item.occurredAt}>
         {fmtDate(item.occurredAt)}

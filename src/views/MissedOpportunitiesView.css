@@ -126,6 +126,11 @@
   background: var(--bg-hover);
 }
 
+.missed-row.has-missing-source {
+  grid-template-areas: 'source symbol side summary state time actions';
+  grid-template-columns: 72px minmax(100px, 1fr) 52px minmax(0, 1fr) max-content minmax(76px, auto) auto;
+}
+
 .missed-row-open {
   position: absolute;
   z-index: var(--z-content);
@@ -197,9 +202,11 @@
 }
 
 .missed-row-missing {
-  margin-left: var(--sp-2);
+  grid-area: state;
+  min-width: max-content;
   color: var(--text-tertiary);
   font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
 .missed-row-time {
@@ -313,6 +320,14 @@
     gap: var(--sp-1);
     min-height: 76px;
     padding: var(--sp-2);
+  }
+
+  .missed-row.has-missing-source {
+    grid-template-areas:
+      'source symbol side time actions'
+      'state state state state actions'
+      'summary summary summary summary actions';
+    grid-template-columns: 64px minmax(0, 1fr) 42px minmax(72px, auto) 44px;
   }
 
   .missed-row-actions {
