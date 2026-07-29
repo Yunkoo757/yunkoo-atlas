@@ -306,7 +306,10 @@
 }
 
 .missed-empty a {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
+  min-height: 44px;
   color: var(--accent-readable);
   white-space: nowrap;
 }
@@ -348,6 +351,15 @@
 }
 
 @media (max-width: 768px) {
+  .missed-scope-actions button,
+  .missed-view > .ui-filter-shell .ui-filter-trigger {
+    min-height: 44px;
+  }
+
+  .missed-empty li {
+    min-height: 44px;
+  }
+
   .missed-filter-panel {
     align-items: stretch;
     flex-direction: column;
