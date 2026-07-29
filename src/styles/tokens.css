@@ -357,3 +357,10 @@
   --sidebar-w: var(--sidebar-width);
   --header-h: 43.5714px;
 }
+
+@media (max-width: 899px), (pointer: coarse) {
+  :root {
+    --control-height: var(--touch-target);
+    --field-height-md: var(--touch-target);
+  }
+}
