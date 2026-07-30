@@ -81,6 +81,37 @@ test('browser discovery derives one promise key from each HTML contract', async 
   })
 })
 
+test('browser discovery expands declarative viewport metadata into real browser entries', async () => {
+  await withFixture(async (root) => {
+    await write(
+      root,
+      'src/components/Responsive.browser.test.html',
+      `<meta name="atlas-browser-viewports" content="1440x900, 375x812">
+      <script>window.__responsiveBrowserTest = Promise.resolve()</script>`,
+    )
+
+    assert.deepEqual(await discoverBrowserTests(root), [
+      {
+        url: '/src/components/Responsive.browser.test.html',
+        promiseKey: '__responsiveBrowserTest',
+        label: 'src/components/Responsive.browser.test.html',
+      },
+      {
+        url: '/src/components/Responsive.browser.test.html',
+        promiseKey: '__responsiveBrowserTest',
+        label: 'src/components/Responsive.browser.test.html (1440×900)',
+        viewport: { width: 1440, height: 900 },
+      },
+      {
+        url: '/src/components/Responsive.browser.test.html',
+        promiseKey: '__responsiveBrowserTest',
+        label: 'src/components/Responsive.browser.test.html (375×812)',
+        viewport: { width: 375, height: 812 },
+      },
+    ])
+  })
+})
+
 test('browser runner performs declarative HTML hover setup before awaiting the test promise', async () => {
   await withFixture(async (root) => {
     await write(root, 'src/Hover.browser.test.html', `<!doctype html>
@@ -101,6 +132,31 @@ test('browser runner performs declarative HTML hover setup before awaiting the t
     )
     assert.equal(result.status, 0, `runner output:\n${result.stdout}\n${result.stderr}`)
     assert.match(`${result.stdout}\n${result.stderr}`, /PASS src\/Hover\.browser\.test\.html/)
+  })
+})
+
+test('browser runner applies every declared viewport before resolving the page contract', async () => {
+  await withFixture(async (root) => {
+    await write(root, 'src/Viewport.browser.test.html', `<!doctype html>
+      <meta name="atlas-browser-viewports" content="1440x900, 375x812">
+      <script>
+        window.__viewportBrowserTest = (async () => {
+          await window.__atlasBrowserWaitForActions()
+          const size = window.innerWidth + 'x' + window.innerHeight
+          if (size === '1280x720' || size === '1440x900' || size === '375x812') return
+          throw new Error('runner did not apply declared viewport: ' + size)
+        })()
+      </script>`)
+
+    const result = spawnSync(
+      process.execPath,
+      [path.resolve('scripts/run-browser-tests.mjs'), root],
+      { cwd: process.cwd(), encoding: 'utf8', timeout: 20_000 },
+    )
+    assert.equal(result.status, 0, `runner output:\n${result.stdout}\n${result.stderr}`)
+    assert.match(`${result.stdout}\n${result.stderr}`, /PASS src\/Viewport\.browser\.test\.html$/m)
+    assert.match(`${result.stdout}\n${result.stderr}`, /Viewport\.browser\.test\.html \(1440×900\)/)
+    assert.match(`${result.stdout}\n${result.stderr}`, /Viewport\.browser\.test\.html \(375×812\)/)
   })
 })
 

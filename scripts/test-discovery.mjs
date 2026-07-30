@@ -76,6 +76,31 @@ function hoverSelectorFromHtml(html, htmlPath) {
   return selector
 }
 
+function viewportsFromHtml(html, htmlPath) {
+  const viewportMetadata = (html.match(/<meta\b[^>]*>/gi) ?? [])
+    .filter((tag) => htmlAttribute(tag, 'name') === 'atlas-browser-viewports')
+
+  if (viewportMetadata.length === 0) return []
+  if (viewportMetadata.length > 1) {
+    throw new Error(`${htmlPath} must declare at most one atlas-browser-viewports metadata tag`)
+  }
+
+  const content = htmlAttribute(viewportMetadata[0], 'content')?.trim()
+  if (!content) {
+    throw new Error(`${htmlPath} atlas-browser-viewports metadata requires one or more WIDTHxHEIGHT values`)
+  }
+
+  return content.split(',').map((entry) => {
+    const match = entry.trim().match(/^(\d+)\s*[x×]\s*(\d+)$/i)
+    const width = Number(match?.[1])
+    const height = Number(match?.[2])
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      throw new Error(`${htmlPath} atlas-browser-viewports value must be WIDTHxHEIGHT: ${entry.trim()}`)
+    }
+    return { width, height }
+  })
+}
+
 function resolveModuleSource(root, htmlPath, source) {
   if (source.startsWith('/')) return path.join(root, source.slice(1))
   return path.resolve(path.dirname(path.join(root, htmlPath)), source)
@@ -91,6 +116,7 @@ export async function discoverBrowserTests(root) {
   for (const htmlPath of htmlFiles) {
     const html = await fs.readFile(path.join(root, htmlPath), 'utf8')
     const hoverSelector = hoverSelectorFromHtml(html, htmlPath)
+    const viewports = viewportsFromHtml(html, htmlPath)
     const promiseKeys = new Set()
     collectPromiseKeys(html, promiseKeys)
     for (const source of moduleSourcesFromHtml(html)) {
@@ -117,6 +143,14 @@ export async function discoverBrowserTests(root) {
     }
     if (hoverSelector) test.hoverSelector = hoverSelector
     tests.push(test)
+    for (const viewport of viewports) {
+      const viewportTest = {
+        ...test,
+        label: `${htmlPath} (${viewport.width}×${viewport.height})`,
+        viewport,
+      }
+      tests.push(viewportTest)
+    }
   }
   return tests
 }

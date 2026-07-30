@@ -33,8 +33,10 @@ export async function runBrowserRegressionTests(root, options = {}) {
 
     for (const browserTest of browserTests) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const page = await browser.newPage()
-        await page.addInitScript(() => {
+        const page = browserTest.viewport
+          ? await browser.newPage({ viewport: browserTest.viewport })
+          : await browser.newPage()
+        await page.addInitScript((viewport) => {
           let actionsComplete = false
           let resolveActions
           const actions = new Promise((resolve) => {
@@ -46,7 +48,8 @@ export async function runBrowserRegressionTests(root, options = {}) {
             actionsComplete = true
             resolveActions()
           }
-        })
+          window.__atlasBrowserViewport = viewport
+        }, browserTest.viewport ?? null)
         const diagnostics = []
         page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`))
         page.on('console', (message) => {

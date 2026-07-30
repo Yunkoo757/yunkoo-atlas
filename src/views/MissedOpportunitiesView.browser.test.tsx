@@ -17,6 +17,7 @@ import '@/styles/global.css'
 declare global {
   interface Window {
     __missedOpportunitiesBrowserTest: Promise<void>
+    __atlasBrowserViewport?: { width: number; height: number } | null
   }
 }
 
@@ -170,13 +171,14 @@ function assertVisualResponsiveContract(): void {
   }
 
   if (window.matchMedia('(max-width: 768px)').matches) {
+    const fieldHeight = getComputedStyle(document.documentElement).getPropertyValue('--field-height-md').trim()
     for (const [label, control] of [
       ['范围', scopeTrigger()],
       ['筛选', filterTrigger()],
     ] as const) {
       assert(
-        getComputedStyle(control, '::before').height === '32px',
-        `${label}按钮必须保留 32px 工具栏胶囊层`,
+        getComputedStyle(control, '::before').height === fieldHeight,
+        `${label}按钮胶囊层必须复用共享 field-height-md`,
       )
     }
   }
@@ -479,6 +481,7 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const root = createRoot(rootElement)
   const visualMode = new URLSearchParams(window.location.search).get('visual') === 'mobile'
+    || Boolean(window.__atlasBrowserViewport)
   let keepMounted = false
   sessionStorage.clear()
 
