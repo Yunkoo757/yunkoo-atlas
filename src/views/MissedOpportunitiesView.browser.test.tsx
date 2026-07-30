@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { MobileNavigation } from '@/components/MobileNavigation'
 import { ToastHost } from '@/components/Toast'
 import { AppFrame } from '@/components/ui/AppFrame'
+import { TradeRow } from '@/components/trades/TradeRow'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { getTradingDayKey } from '@/lib/periods'
@@ -147,6 +148,41 @@ function assertFocusedAggregateRowHasNoVisualHighlight(): void {
   assert(getComputedStyle(row).boxShadow === 'none', '聚合行不得绘制焦点亮边')
   assert(getComputedStyle(row, '::before').content === 'none', '聚合行不得保留焦点边缘标记')
   assert(getComputedStyle(row).backgroundColor === 'rgba(0, 0, 0, 0)', '聚合焦点行不得改变底色')
+}
+
+function assertAggregateRowUsesTradeRowGeometry(): void {
+  const reference = document.querySelector<HTMLElement>('[data-trade-id="trade-row-reference"]')
+  const aggregate = resultRow(paperTrade.id)
+  assert(reference, '缺少标准行几何参照')
+  const referenceContainer = reference.closest<HTMLElement>('[data-trade-row-geometry-reference]')
+  assert(referenceContainer, '标准行几何参照缺少容器')
+  const aggregateRect = aggregate.getBoundingClientRect()
+  referenceContainer.style.right = 'auto'
+  referenceContainer.style.left = `${aggregateRect.left}px`
+  referenceContainer.style.width = `${aggregateRect.width}px`
+  assert(aggregate.classList.contains('trade-row'), '聚合项必须复用标准 trade-row 壳层')
+  assert(Math.abs(aggregate.getBoundingClientRect().height - 44) < 1, '聚合行高度必须为 44px')
+  assert(aggregate.querySelector('.missed-row-source') === null, '来源不得占用独立首列')
+
+  const source = aggregate.querySelector<HTMLElement>('[data-missed-source="paper"]')
+  assert(source?.closest('.trade-row-tags'), '模拟盘来源必须位于标准标签区')
+
+  for (const selector of [
+    '.trade-row-ref',
+    '.trade-row-symbol',
+    '.trade-row-timeframe-slot',
+    '.trade-row-pnl',
+    '.trade-row-r',
+    '.trade-row-date',
+  ]) {
+    const referenceSlot = reference.querySelector<HTMLElement>(selector)
+    const aggregateSlot = aggregate.querySelector<HTMLElement>(selector)
+    assert(referenceSlot && aggregateSlot, `标准列缺失：${selector}`)
+    assert(
+      Math.abs(referenceSlot.getBoundingClientRect().left - aggregateSlot.getBoundingClientRect().left) < 1,
+      `聚合行 ${selector} 左边界必须与标准行一致`,
+    )
+  }
 }
 
 async function ensureFilterOpen(): Promise<void> {
@@ -365,14 +401,33 @@ const missedWorkspace: SidebarWorkspaceItem = {
 
 function FixtureApp() {
   return (
-    <AppFrame sidebar={null} mobileNavigation={<MobileNavigation />}>
-      <Routes>
-        <Route path="/missed" element={<MissedOpportunitiesView />} />
-        <Route path="/trade/:id" element={<DetailView />} />
-      </Routes>
-      <LocationProbe />
-      <ToastHost />
-    </AppFrame>
+    <>
+      <AppFrame sidebar={null} mobileNavigation={<MobileNavigation />}>
+        <Routes>
+          <Route path="/missed" element={<MissedOpportunitiesView />} />
+          <Route path="/trade/:id" element={<DetailView />} />
+        </Routes>
+        <LocationProbe />
+        <ToastHost />
+      </AppFrame>
+      <div
+        className="trade-list"
+        data-trade-row-geometry-reference
+        aria-hidden
+        style={{ position: 'fixed', top: 0, right: 0, left: 0, visibility: 'hidden' }}
+      >
+        <TradeRow
+          trade={{ ...paperTrade, id: 'trade-row-reference' }}
+          strategies={[strategy]}
+          selected={false}
+          focused={false}
+          starred={false}
+          onOpen={() => {}}
+          onSelect={() => {}}
+          onToggleStar={() => {}}
+        />
+      </div>
+    </>
   )
 }
 
@@ -419,6 +474,7 @@ async function run(): Promise<void> {
     assert(scopeTrigger().textContent?.trim() === '范围 · 3', '范围入口必须显示已启用来源数')
     assertToolbarActionsUseSharedControlStyle()
     assertFocusedAggregateRowHasNoVisualHighlight()
+    assertAggregateRowUsesTradeRowGeometry()
     await ensureScopeOpen()
     const scopePanel = document.querySelector<HTMLElement>('[role="menu"][aria-label="包含范围"]')
     assert(scopePanel?.contains(document.activeElement), '范围菜单打开后必须接收焦点')
@@ -441,7 +497,7 @@ async function run(): Promise<void> {
     assert(document.activeElement === scopeTrigger(), '外部点击关闭后焦点必须返回范围入口')
     await ensureScopeOpen()
     assert(document.body.textContent?.includes('跨工作区关联项已合并'), 'raw 大于主数时缺少合并说明')
-    assert(document.querySelectorAll('[data-trade-id]').length === 4, '明确关联必须只渲染一个聚合行')
+    assert(document.querySelectorAll('.missed-results [data-trade-id]').length === 4, '明确关联必须只渲染一个聚合行')
     assert(document.querySelector('[data-trade-id="case-linked-one"]') === null, 'linked case 不得重复渲染为独立行')
     assert(document.querySelector('[data-trade-id="case-linked-two"]') === null, '第二个 linked case 不得重复渲染为独立行')
     assert(document.querySelector('[data-trade-id="case-unlinked"]'), '未关联案例必须独立渲染')
@@ -464,7 +520,7 @@ async function run(): Promise<void> {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await waitFor(() => document.querySelector('[role="menu"]') === null, '合并项菜单未关闭')
     await ensureScopeOpen()
-    for (const source of document.querySelectorAll<HTMLElement>('.missed-row-source')) {
+    for (const source of document.querySelectorAll<HTMLElement>('[data-missed-source]')) {
       assert(source.getAttribute('aria-hidden') !== 'true', '来源文字不得 aria-hidden')
       assert(source.closest('[aria-hidden="true"]') === null, '来源文字祖先不得 aria-hidden')
       assert(source.getClientRects().length > 0, '来源文字必须真实可见')
@@ -562,7 +618,7 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('[aria-label="错过机会筛选"]') === null, '清除后筛选面板未关闭')
 
     const paperRow = resultRow(paperTrade.id)
-    const paperSummary = paperRow.querySelector<HTMLElement>('.missed-row-summary')
+    const paperSummary = paperRow.querySelector<HTMLElement>('.trade-row-tags')
     const paperOverlay = paperRow.querySelector<HTMLButtonElement>('[data-trade-primary-action]')
     assert(paperSummary && paperOverlay, '普通项缺少整行覆盖动作')
     const summaryRect = paperSummary.getBoundingClientRect()
@@ -572,7 +628,7 @@ async function run(): Promise<void> {
     await waitFor(() => routerLocation() === '/trade/PAPER-001', '普通模拟项未进入自身详情')
     await returnFromDetail(paperTrade.id)
 
-    const mergedSummary = resultRow(rootTrade.id).querySelector<HTMLElement>('.missed-row-summary')
+    const mergedSummary = resultRow(rootTrade.id).querySelector<HTMLElement>('.trade-row-tags')
     assert(mergedSummary, '合并项缺少摘要区域')
     const mergedSummaryRect = mergedSummary.getBoundingClientRect()
     const mergedHit = document.elementFromPoint(
@@ -580,11 +636,10 @@ async function run(): Promise<void> {
       mergedSummaryRect.top + mergedSummaryRect.height / 2,
     )
     assert(mergedHit instanceof HTMLElement, '合并项摘要坐标未命中 HTML 元素')
-    const mergedHitIsSummary = mergedSummary.contains(mergedHit)
     const mergedHitIsAction = mergedHit.closest('button, a, [role="button"]') !== null
     mergedHit.click()
     await frame()
-    assert(mergedHitIsSummary && !mergedHitIsAction, '合并项摘要坐标必须命中非动作内容')
+    assert(!mergedHitIsAction, '合并项标签区域不得猜测导航目标')
     assert(routerLocation() === '/missed', '点击合并项非动作内容不得猜测导航目标')
 
     const sourceMenu = resultRow(rootTrade.id).querySelector<HTMLButtonElement>('.missed-row-menu [data-trade-primary-action]')

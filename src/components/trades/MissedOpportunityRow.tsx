@@ -1,12 +1,14 @@
 import { MoreHorizontal } from '@/icons/appIcons'
 import { Menu } from '@/components/Menu'
+import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
+import { StrategyLabel } from '@/components/StrategyIcon'
 import type { Strategy } from '@/data/strategies'
-import { MISS_REASON_META, type Trade } from '@/data/trades'
-import { getStrategyName } from '@/lib/strategies'
+import { MISS_REASON_META, resolveTimeframe, type Trade } from '@/data/trades'
 import type { MissedOpportunityItem, MissedOpportunitySource } from '@/lib/missedOpportunities'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
-import { fmtDate } from '@/lib/format'
+import { fmtDate, fmtR } from '@/lib/format'
+import { TradeRowLayout, type TradeRowOpenAction } from './TradeRowLayout'
 
 type MissedOpportunityRowProps = {
   item: MissedOpportunityItem
@@ -36,6 +38,33 @@ function caseActionLabel(reviewCase: Trade): string {
   return `打开案例 ${reviewCase.ref}`
 }
 
+function MissedOpportunityTags({
+  item,
+  strategies,
+  merged,
+}: {
+  item: MissedOpportunityItem
+  strategies: Strategy[]
+  merged: boolean
+}) {
+  const { primary } = item
+  const missReason = MISS_REASON_META[primary.missReason ?? 'other'].label
+
+  return (
+    <>
+      <span className="trade-row-strategy">
+        <StrategyLabel strategyId={primary.strategyId} strategies={strategies} />
+      </span>
+      <span className="trade-row-tag missed-opportunity-source" data-missed-source={item.source}>
+        {SOURCE_LABELS[item.source]}
+      </span>
+      <span className="trade-row-tag missed-row-reason">{missReason}</span>
+      {item.missingSourceId ? <span className="trade-row-tag missed-row-missing">来源记录已删除</span> : null}
+      {merged ? <span className="trade-row-more missed-row-relation">关联 {item.linkedCases.length} 个案例</span> : null}
+    </>
+  )
+}
+
 export function MissedOpportunityRow({
   item,
   strategies,
@@ -45,14 +74,18 @@ export function MissedOpportunityRow({
 }: MissedOpportunityRowProps) {
   const { primary } = item
   const merged = !item.missingSourceId && item.linkedCases.length > 0
-  const strategyName = getStrategyName(strategies, primary.strategyId)
   const sideLabel = primary.side === 'long' ? '做多' : '做空'
   const missReason = MISS_REASON_META[primary.missReason ?? 'other'].label
   const openLabel = `打开 ${primary.symbol} ${RECORD_LABELS[primary.tradeKind]}`
-  const caseCount = item.linkedCases.length
-  const sourceActionLabel = mergedSourceActionLabel(primary)
+  const openAction: TradeRowOpenAction | undefined = merged
+    ? undefined
+    : {
+        ariaLabel: openLabel,
+        onClick: () => onOpen(primary, item.key),
+        primary: true,
+      }
   const menuOptions = [
-    { value: `source:${primary.id}`, label: sourceActionLabel },
+    { value: `source:${primary.id}`, label: mergedSourceActionLabel(primary) },
     ...item.linkedCases.map((reviewCase) => ({
       value: `case:${reviewCase.id}`,
       label: caseActionLabel(reviewCase),
@@ -69,59 +102,35 @@ export function MissedOpportunityRow({
   }
 
   return (
-    <div
-      className={
-        'missed-row' +
-        (focused ? ' is-focused' : '') +
-        (merged ? ' is-merged' : '') +
-        (item.missingSourceId ? ' has-missing-source' : '')
-      }
-      data-trade-id={item.key}
+    <TradeRowLayout
+      tradeId={item.key}
+      className={'missed-opportunity-row' + (merged ? ' is-merged' : '')}
       role="listitem"
-      aria-label={`${primary.symbol}，${sideLabel}，${SOURCE_LABELS[item.source]}，${fmtDate(item.occurredAt)}`}
-    >
-      {!merged ? (
-        <button
-          type="button"
-          className="missed-row-open"
-          data-trade-primary-action
-          aria-label={openLabel}
-          onClick={() => onOpen(primary, item.key)}
-        />
-      ) : null}
-
-      <span className="missed-row-source" data-missed-source={item.source}>
-        {SOURCE_LABELS[item.source]}
-      </span>
-      <span className="missed-row-symbol">
-        <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={14} />
-        <strong>{primary.symbol}</strong>
-      </span>
-      <span className={'missed-row-side is-' + primary.side}>{sideLabel}</span>
-      <span className="missed-row-summary">
-        {item.missingSourceId ? (
-          <>
-            <span className="missed-row-missing">来源记录已删除</span>
-            <span aria-hidden="true"> · </span>
-          </>
-        ) : null}
-        <span>{strategyName}</span>
-        <span aria-hidden="true"> · </span>
-        <span>{missReason}</span>
-        <span aria-hidden="true"> · </span>
-        <span>{primary.ref}</span>
-        {merged ? (
-          <>
-            <span aria-hidden="true"> · </span>
-            <span className="missed-row-relation">关联 {caseCount} 个案例</span>
-          </>
-        ) : null}
-      </span>
-      <time className="missed-row-time" dateTime={item.occurredAt}>
-        {fmtDate(item.occurredAt)}
-      </time>
-
-      {merged ? (
+      ariaLabel={`${primary.symbol}，${sideLabel}，${SOURCE_LABELS[item.source]}，${missReason}，${fmtDate(item.occurredAt)}`}
+      focused={focused}
+      openAction={openAction}
+      check={<span className="trade-row-check-placeholder" aria-hidden />}
+      status={<StatusIcon status="missed" />}
+      reference={primary.ref}
+      symbol={
+        <>
+          <span className="trade-row-symbol-main">
+            <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={14} />
+            <strong>{primary.symbol}</strong>
+          </span>
+          <SideTag side={primary.side} quiet />
+        </>
+      }
+      tags={<MissedOpportunityTags item={item} strategies={strategies} merged={merged} />}
+      timeframe={<span className="trade-row-timeframe">{resolveTimeframe(primary.timeframe)}</span>}
+      pnl={<span className="trade-row-pnl is-missed">未成交</span>}
+      r={
+        <span className={'trade-row-r' + (primary.rMultiple != null ? ' is-opportunity' : ' is-zero')}>
+          {fmtR(primary.rMultiple)}
+        </span>
+      }
+      date={<time dateTime={item.occurredAt}>{fmtDate(item.occurredAt)}</time>}
+      end={merged ? (
         <span className="missed-row-menu">
           <Menu
             align="right"
@@ -138,7 +147,7 @@ export function MissedOpportunityRow({
             onSelect={openMenuTarget}
           />
         </span>
-      ) : null}
-    </div>
+      ) : <span aria-hidden />}
+    />
   )
 }

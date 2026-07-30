@@ -711,17 +711,16 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(!missedFilters.includes('DisplayPrefs') && !missedFilters.includes('setDisplay('), '临时筛选不得写入展示偏好')
   assert(tradeList.includes('renderRow?:'), '虚拟列表必须支持聚合自定义行')
   assert(tradeList.includes('selectionEnabled = true'), '现有列表默认仍允许选择')
+  assert(missedRow.includes('<TradeRowLayout'), '聚合行必须复用标准行壳层')
+  assert(missedRow.includes('reference={primary.ref}'), '聚合行必须在标准编号列展示来源编号')
   assert(missedRow.includes('data-missed-source'), '聚合行必须显示文字来源')
   assert(missedRow.includes('来源记录已删除'), '失效来源没有可见状态')
-  assert(missedRow.includes('关联 {caseCount} 个案例'), '合并项缺少关联案例数量')
-  const summaryStart = missedRow.indexOf('<span className="missed-row-summary">')
-  const summaryEnd = missedRow.indexOf('<time className="missed-row-time"', summaryStart)
-  const summarySource = missedRow.slice(summaryStart, summaryEnd)
+  assert(missedRow.includes('关联 {item.linkedCases.length} 个案例'), '合并项缺少关联案例数量')
   assert(
-    missedRow.includes('<span className="missed-row-missing">来源记录已删除</span>') &&
-      summarySource.includes('missed-row-missing'),
-    '失效来源状态必须位于跨端可见的摘要区域',
+    missedRow.includes('className="trade-row-tag missed-row-missing"'),
+    '失效来源状态必须作为标准标签呈现',
   )
+  assert(!missedCss.includes('.missed-row {'), '聚合页不得保留独立行网格')
 }
 
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
