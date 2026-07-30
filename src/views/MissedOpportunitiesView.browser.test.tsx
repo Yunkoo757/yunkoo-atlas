@@ -370,6 +370,10 @@ async function run(): Promise<void> {
     assert(document.querySelector('[data-missed-total]')?.textContent?.includes('全部机会 4'), '工具栏结果数不准确')
     assert(scopeTrigger().textContent?.trim() === '范围 · 3', '范围入口必须显示已启用来源数')
     await ensureScopeOpen()
+    const scopePanel = document.querySelector<HTMLElement>('[role="menu"][aria-label="包含范围"]')
+    assert(scopePanel?.contains(document.activeElement), '范围菜单打开后必须接收焦点')
+    assert(scopeTrigger().getAttribute('aria-expanded') === 'true', '范围打开态缺少 aria-expanded')
+    assert(scopeOption('交易日志').getAttribute('aria-checked') === 'true', '范围选中态缺少 aria-checked')
     const scopeOptions = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')]
     assert(scopeOptions.length === 3, '必须渲染三个包含来源选项')
     assert(scopeOptions.every((button) => button.getAttribute('aria-checked') === 'true'), '三个来源初始必须全部启用')
@@ -392,6 +396,10 @@ async function run(): Promise<void> {
     assert(mergedRow.textContent?.includes('关联 2 个案例'), '合并项缺少安静的关联数量')
     const mergedMenu = mergedRow.querySelector<HTMLButtonElement>('.missed-row-menu [data-trade-primary-action]')
     assert(mergedMenu?.getAttribute('aria-label') === '更多操作：XAUUSD', '合并项必须使用上下文化行尾菜单')
+    for (const [index, rowMenu] of [...document.querySelectorAll<HTMLButtonElement>('.missed-row-menu button')].entries()) {
+      if (rowMenu.getClientRects().length === 0) continue
+      assert(rowMenu.getAttribute('aria-label')?.trim(), `第 ${index + 1} 个可见行菜单缺少可访问名称`)
+    }
     mergedMenu.click()
     await waitFor(() => document.querySelector('[role="menu"]') !== null, '合并项菜单未打开')
     const labels = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
@@ -442,6 +450,7 @@ async function run(): Promise<void> {
       () => document.querySelector('.missed-empty h2')?.textContent?.trim() === '所选工作区暂无错过记录',
       '所选来源无数据时必须进入来源空状态',
     )
+    assert(document.querySelector('.missed-empty h2')?.textContent?.trim() === '所选工作区暂无错过记录', '来源空状态标题不准确')
     const sourceEmpty = document.querySelector<HTMLElement>('.missed-empty')
     assert(sourceEmpty, '来源空状态容器未渲染')
     assert(
@@ -484,6 +493,7 @@ async function run(): Promise<void> {
     assert(document.querySelector('.missed-live')?.textContent?.trim() === '当前显示 1 条错过机会', '筛选后 live region 数量不准确')
     await selectFilter('品种', 'NZDCHF')
     await waitFor(() => document.body.textContent?.includes('没有符合当前筛选的机会') ?? false, '零结果筛选缺少空状态')
+    assert(document.body.textContent?.includes('没有符合当前筛选的机会') ?? false, '筛选零结果文案不准确')
     const emptyClear = document.querySelector<HTMLButtonElement>('.missed-empty button')
     assert(emptyClear?.textContent?.trim() === '清除筛选', '筛选空状态缺少清除动作')
     emptyClear.click()

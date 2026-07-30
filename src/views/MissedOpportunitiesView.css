@@ -6,8 +6,9 @@
 }
 
 .missed-view > .ui-filter-shell .ui-filter-bar {
-  padding-right: max(15px, calc(100% - 1180px));
-  padding-left: 18px;
+  padding-right: 16px;
+  padding-left: 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .missed-empty h2 {
@@ -75,6 +76,7 @@
   color: var(--text-secondary);
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
 .missed-results-heading span {
@@ -82,17 +84,17 @@
   font-variant-numeric: tabular-nums;
 }
 
-.missed-view > .ui-filter-shell .ui-filter-trigger {
-  height: var(--field-height-md);
-}
-
 .missed-scope-menu {
   position: relative;
   display: inline-flex;
 }
 
-.missed-scope-trigger {
+.missed-scope-trigger,
+.missed-view > .ui-filter-shell .ui-filter-trigger {
   height: var(--field-height-md);
+}
+
+.missed-scope-trigger {
   padding: 0 var(--sp-2);
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
@@ -293,7 +295,7 @@
   width: 100%;
   min-height: 100%;
   margin: auto;
-  padding: clamp(36px, 6vh, 56px) 18px;
+  padding: 32px 16px;
   text-align: center;
   color: var(--text-secondary);
 }
@@ -356,9 +358,17 @@
 }
 
 @media (max-width: 768px) {
-  .missed-view > .ui-filter-shell .ui-filter-trigger,
-  .missed-scope-trigger {
-    min-height: 44px;
+  .missed-view > .ui-filter-shell .ui-filter-bar {
+    min-height: 56px;
+    padding-right: 12px;
+    padding-left: 12px;
+    flex-wrap: nowrap;
+  }
+
+  .missed-scope-trigger,
+  .missed-view > .ui-filter-shell .ui-filter-trigger {
+    min-width: 44px;
+    height: 44px;
   }
 
   .missed-filter-panel {
@@ -395,5 +405,14 @@
   .missed-row-time {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .missed-scope-popover,
+  .missed-row,
+  .missed-scope-trigger {
+    animation: none;
+    transition: none;
   }
 }
