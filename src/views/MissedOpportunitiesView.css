@@ -87,7 +87,7 @@
   z-index: var(--z-popover);
   top: calc(100% + 4px);
   right: 0;
-  width: clamp(240px, 22vw, 280px);
+  width: 240px;
   padding: var(--sp-2);
   background: var(--popover-bg);
   border: 1px solid var(--popover-border);
@@ -104,6 +104,8 @@
   min-height: 36px;
   padding: 0 var(--sp-2);
   color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
   border-radius: var(--radius-6);
   text-align: left;
 }
