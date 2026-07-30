@@ -810,6 +810,7 @@
 
   .trade-row-ref,
   .trade-row-strategy,
+  .trade-row-tags,
   .trade-row-timeframe-slot,
   .trade-row-pnl {
     display: none;
@@ -821,6 +822,10 @@
   }
 
   .missed-opportunity-row .trade-row-tags > :not(.missed-opportunity-source) {
+    display: none;
+  }
+
+  .missed-opportunity-row .trade-row-r {
     display: none;
   }
 

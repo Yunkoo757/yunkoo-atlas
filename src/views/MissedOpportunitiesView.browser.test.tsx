@@ -151,6 +151,16 @@ function assertFocusedAggregateRowHasNoVisualHighlight(): void {
   assert(getComputedStyle(row).backgroundColor === 'rgba(0, 0, 0, 0)', '聚合焦点行不得改变底色')
 }
 
+function assertRectWithinRow(element: HTMLElement, row: HTMLElement, label: string): void {
+  const tolerance = 1
+  const rect = element.getBoundingClientRect()
+  const rowRect = row.getBoundingClientRect()
+  assert(rect.top >= rowRect.top - tolerance, `${label} 顶边不得越出所属行：${rect.top} < ${rowRect.top}`)
+  assert(rect.bottom <= rowRect.bottom + tolerance, `${label} 底边不得越出所属行：${rect.bottom} > ${rowRect.bottom}`)
+  assert(rect.left >= rowRect.left - tolerance, `${label} 左边不得越出所属行：${rect.left} < ${rowRect.left}`)
+  assert(rect.right <= rowRect.right + tolerance, `${label} 右边不得越出所属行：${rect.right} > ${rowRect.right}`)
+}
+
 function assertVisualResponsiveContract(): void {
   assert(
     document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -176,11 +186,24 @@ function assertVisualResponsiveContract(): void {
       `375px 长品种与来源标签不得重叠：symbol.right=${symbolRect.right}, source.left=${sourceRect.left}`,
     )
 
-    for (const menu of document.querySelectorAll<HTMLButtonElement>('.missed-row-menu button')) {
+    for (const [index, menu] of [...document.querySelectorAll<HTMLButtonElement>('.missed-row-menu button')].entries()) {
+      const row = menu.closest<HTMLElement>('.trade-row')
+      const end = menu.closest<HTMLElement>('.trade-row-end')
+      assert(row && end, `375px 第 ${index + 1} 个合并项菜单必须位于标准行尾槽`)
       const rect = menu.getBoundingClientRect()
       assert(rect.width >= 44, `375px 合并项菜单宽度不足 44px：${rect.width}px`)
       assert(rect.height >= 44, `375px 合并项菜单高度不足 44px：${rect.height}px`)
+      assertRectWithinRow(menu, row, `375px 第 ${index + 1} 个合并项菜单`)
+      assertRectWithinRow(end, row, `375px 第 ${index + 1} 个合并项行尾槽`)
     }
+
+    const reference = document.querySelector<HTMLElement>('[data-trade-id="trade-row-reference"]')
+    assert(reference, '375px 缺少标准 TradeRow 几何参照')
+    const referenceEnd = reference.querySelector<HTMLElement>('.trade-row-end')
+    const referenceTags = reference.querySelector<HTMLElement>('.trade-row-tags')
+    assert(referenceEnd && referenceTags, '375px 标准 TradeRow 缺少标签或行尾槽')
+    assert(getComputedStyle(referenceTags).display === 'none', '375px 标准 TradeRow 的通用标签必须隐藏')
+    assertRectWithinRow(referenceEnd, reference, '375px 标准 TradeRow 行尾槽')
   }
 
   if (window.matchMedia('(max-width: 768px)').matches) {
