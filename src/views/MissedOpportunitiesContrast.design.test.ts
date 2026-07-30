@@ -5,6 +5,25 @@ function read(relativePath: string): string {
   return readFileSync(path.resolve(relativePath), 'utf8').replace(/\r\n?/g, '\n')
 }
 
+function ruleBlock(source: string, start: number): string {
+  const open = source.indexOf('{', start)
+  if (open < 0) throw new Error('CSS 规则缺少起始花括号')
+  let depth = 0
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1
+    if (source[index] === '}') {
+      depth -= 1
+      if (depth === 0) return source.slice(open + 1, index)
+    }
+  }
+  throw new Error('CSS 规则缺少结束花括号')
+}
+
+function mediaBlock(source: string, query: string): string | null {
+  const start = source.indexOf(query)
+  return start < 0 ? null : ruleBlock(source, start)
+}
+
 export function testMissedOpportunityActionsUseTheSharedToolbarControl(): void {
   const scopeMenu = read('src/components/trades/MissedOpportunityScopeMenu.tsx')
   const viewStyles = read('src/views/MissedOpportunitiesView.css')
@@ -19,7 +38,16 @@ export function testMissedOpportunityActionsUseTheSharedToolbarControl(): void {
   if (!tokens.includes('--toolbar-action-height: var(--field-height-md);')) {
     throw new Error('工具栏动作高度必须复用共享 field-height-md token')
   }
-  const mobileActionPillUsesSharedHeight = /@media \(max-width: 768px\) \{[\s\S]*?\.missed-scope-trigger::before,\s*\n\s*\.missed-view > \.ui-filter-shell \.ui-filter-trigger::before,\s*\n\s*\.missed-view > \.ui-filter-shell \.ui-filter-chip:not\(\.ui-filter-chip-static\)::before\s*\{[\s\S]*?height:\s*var\(--toolbar-action-height\);/.test(viewStyles)
+  const mobileStyles = mediaBlock(viewStyles, '@media (max-width: 768px)')
+  const mobilePillSelector = `.missed-scope-trigger::before,
+  .missed-view > .ui-filter-shell .ui-filter-trigger::before,
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static)::before`
+  const mobilePillStart = mobileStyles?.indexOf(mobilePillSelector) ?? -1
+  const mobilePillStyles = mobilePillStart >= 0 && mobileStyles
+    ? ruleBlock(mobileStyles, mobilePillStart)
+    : null
+  const mobileActionPillUsesSharedHeight = mobilePillStyles !== null
+    && /(?:^|\n)\s*height:\s*var\(--toolbar-action-height\);/.test(mobilePillStyles)
   if (!mobileActionPillUsesSharedHeight) {
     throw new Error('移动端范围与筛选按钮的胶囊层必须保留共享高度 token')
   }
