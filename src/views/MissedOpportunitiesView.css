@@ -328,20 +328,6 @@
   gap: var(--sp-2);
 }
 
-.missed-empty a,
-.missed-empty button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--field-height-md);
-  padding: 0 var(--sp-3);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  background: var(--surface-control);
-  white-space: nowrap;
-}
-
 .missed-filter-panel {
   position: absolute;
   z-index: var(--z-navigation-panel);

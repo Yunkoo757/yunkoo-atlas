@@ -132,15 +132,15 @@ export function MissedOpportunitiesView() {
       <h2>所选工作区暂无错过记录</h2>
       <p>可以前往已包含的工作区查看或补充原始记录。</p>
       <div className="missed-empty-actions">
-        {sources.includes('trade') ? <Link to="/list">前往交易日志</Link> : null}
-        {sources.includes('paper') ? <Link to="/sim">前往模拟盘</Link> : null}
-        {sources.includes('case') ? <Link to="/review-cases">前往案例记录</Link> : null}
+        {sources.includes('trade') ? <Link className="ui-btn ui-btn-bordered" to="/list">前往交易日志</Link> : null}
+        {sources.includes('paper') ? <Link className="ui-btn ui-btn-bordered" to="/sim">前往模拟盘</Link> : null}
+        {sources.includes('case') ? <Link className="ui-btn ui-btn-bordered" to="/review-cases">前往案例记录</Link> : null}
       </div>
     </div>
   ) : visibleItems.length === 0 ? (
     <div className="missed-empty">
       <h2>没有符合当前筛选的机会</h2>
-      <button type="button" onClick={clearFilters}>清除筛选</button>
+      <button type="button" className="ui-btn ui-btn-bordered" onClick={clearFilters}>清除筛选</button>
     </div>
   ) : null
 
