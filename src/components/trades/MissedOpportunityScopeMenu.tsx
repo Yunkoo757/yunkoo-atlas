@@ -73,7 +73,7 @@ export function MissedOpportunityScopeMenu({
           setOpen(true)
         }}
       >
-        <span>范围 · {sources.length}</span>
+        范围 · {sources.length}
       </button>
       {open ? (
         <div id={panelId} className="missed-scope-popover" role="menu" aria-label="包含范围">
