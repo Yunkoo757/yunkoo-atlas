@@ -834,6 +834,26 @@
   .trade-row-symbol strong {
     font-size: var(--fs-mini);
   }
+
+  .trade-row-symbol,
+  .trade-row-symbol.trade-row-primary {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .trade-row-symbol-main {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .trade-row-symbol strong {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .trade-row-star {
     width: 44px;
     height: 44px;

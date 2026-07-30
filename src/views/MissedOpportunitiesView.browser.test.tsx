@@ -163,6 +163,19 @@ function assertVisualResponsiveContract(): void {
   }
 
   if (window.innerWidth === 375) {
+    const longSymbolRow = resultRow(mobileLastTrade.id)
+    const symbol = longSymbolRow.querySelector<HTMLElement>('.trade-row-symbol')
+    const source = longSymbolRow.querySelector<HTMLElement>('[data-missed-source]')
+    assert(symbol && source, '375px 长品种聚合项必须保留品种与来源标签')
+    const symbolRect = symbol.getBoundingClientRect()
+    const sourceRect = source.getBoundingClientRect()
+    assert(source.textContent?.trim(), '375px 长品种聚合项来源文字必须可见')
+    assert(source.getClientRects().length > 0, '375px 长品种聚合项来源标签必须真实可见')
+    assert(
+      symbolRect.right <= sourceRect.left - 4,
+      `375px 长品种与来源标签不得重叠：symbol.right=${symbolRect.right}, source.left=${sourceRect.left}`,
+    )
+
     for (const menu of document.querySelectorAll<HTMLButtonElement>('.missed-row-menu button')) {
       const rect = menu.getBoundingClientRect()
       assert(rect.width >= 44, `375px 合并项菜单宽度不足 44px：${rect.width}px`)
