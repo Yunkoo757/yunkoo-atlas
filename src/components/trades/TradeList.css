@@ -292,13 +292,8 @@
   background: transparent;
 }
 
-.trade-row.is-selected::after,
-.trade-row.is-focused::after {
-  background: var(--surface-row-selected);
-}
-
-.trade-row:has(.trade-row-open:focus-visible) {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 44%, transparent);
+.trade-row-open:focus-visible {
+  outline: none;
 }
 
 .trade-row-check,

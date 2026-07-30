@@ -13,6 +13,7 @@ import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
+import { TradeRowLayout } from './TradeRowLayout'
 
 export type TradeRowProps = {
   trade: Trade
@@ -69,18 +70,16 @@ export const TradeRow = memo(function TradeRow({
         : null
 
   return (
-    <div
-      className={'trade-row' + (selected ? ' is-selected' : '') + (focused ? ' is-focused' : '')}
-      data-trade-id={trade.id}
-      onContextMenu={(event) => onContextMenu?.(event, trade)}
-    >
-      <button
-        type="button"
-        className="trade-row-open"
-        aria-label={`打开 ${trade.symbol} ${trade.ref}`}
-        onClick={() => onOpen(trade)}
-      />
-      {selectable ? (
+    <TradeRowLayout
+      tradeId={trade.id}
+      focused={focused}
+      selected={selected}
+      openAction={{
+        ariaLabel: `打开 ${trade.symbol} ${trade.ref}`,
+        onClick: () => onOpen(trade),
+        primary: true,
+      }}
+      check={selectable ? (
         <SelectionBox
           checked={selected}
           label={selected ? '取消选择' : '选择交易'}
@@ -90,95 +89,127 @@ export const TradeRow = memo(function TradeRow({
       ) : (
         <span className="trade-row-check-placeholder" aria-hidden />
       )}
-      <span className="trade-row-status"><StatusIcon status={trade.status} /></span>
-      <span className="trade-row-ref">{trade.ref}</span>
-      <span className="trade-row-symbol trade-row-primary">
-        <span className="trade-row-symbol-main">
-          <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={14} />
-          <strong>{trade.symbol}</strong>
-        </span>
-        <SideTag side={trade.side} quiet />
-      </span>
-      <span className="trade-row-tags">
-        <HoverPreview
-          content={
-            <StrategyPreview
-              strategyId={trade.strategyId}
-              strategies={strategies}
-              stats={strategyStats}
-            />
-          }
-        >
-          <button
-            type="button"
-            className="trade-row-strategy"
-            aria-label={`打开 ${trade.ref} 交易详情`}
-            onClick={() => onOpen(trade)}
+      status={<StatusIcon status={trade.status} />}
+      reference={trade.ref}
+      symbol={
+        <>
+          <span className="trade-row-symbol-main">
+            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={14} />
+            <strong>{trade.symbol}</strong>
+          </span>
+          <SideTag side={trade.side} quiet />
+        </>
+      }
+      tags={
+        <>
+          <HoverPreview
+            content={
+              <StrategyPreview
+                strategyId={trade.strategyId}
+                strategies={strategies}
+                stats={strategyStats}
+              />
+            }
           >
-            <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
-          </button>
-        </HoverPreview>
-        {session && (
-          session.raw !== session.label ? (
-            <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
+            <button
+              type="button"
+              className="trade-row-strategy"
+              aria-label={`打开 ${trade.ref} 交易详情`}
+              onClick={() => onOpen(trade)}
+            >
+              <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
+            </button>
+          </HoverPreview>
+          {session && (
+            session.raw !== session.label ? (
+              <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
+                <span className={`trade-row-session is-${session.kind}`}>
+                  {session.label}
+                </span>
+              </Tooltip>
+            ) : (
               <span className={`trade-row-session is-${session.kind}`}>
                 {session.label}
               </span>
+            )
+          )}
+          {mistakeTags.visible.map((tag) => (
+            <span className="trade-row-tag is-mistake" key={tag}>{tag}</span>
+          ))}
+          {mistakeTags.hiddenCount > 0 && (
+            <Tooltip
+              content={mistakeTags.hidden.join(' · ')}
+              label={`其余错误标签：${mistakeTags.hidden.join('、')}`}
+              focusable
+            >
+              <span className="trade-row-more is-mistake-more">
+                +{mistakeTags.hiddenCount}
+              </span>
             </Tooltip>
-          ) : (
-            <span className={`trade-row-session is-${session.kind}`}>
-              {session.label}
+          )}
+          {regularTags.visible.map((tag) => (
+            <span className="trade-row-tag" key={tag}>{tag}</span>
+          ))}
+          {reviewLabel && (
+            <span
+              className={
+                'trade-row-tag is-review' +
+                ((trade.caseType ?? trade.reviewCategory) === 'ambiguous' ? ' is-ambiguous' : '')
+              }
+            >
+              {reviewLabel}
             </span>
-          )
-        )}
-        {mistakeTags.visible.map((tag) => (
-          <span className="trade-row-tag is-mistake" key={tag}>{tag}</span>
-        ))}
-        {mistakeTags.hiddenCount > 0 && (
-          <Tooltip
-            content={mistakeTags.hidden.join(' · ')}
-            label={`其余错误标签：${mistakeTags.hidden.join('、')}`}
-            focusable
-          >
-            <span className="trade-row-more is-mistake-more">
-              +{mistakeTags.hiddenCount}
-            </span>
-          </Tooltip>
-        )}
-        {regularTags.visible.map((tag) => (
-          <span className="trade-row-tag" key={tag}>{tag}</span>
-        ))}
-        {reviewLabel && (
-          <span
-            className={
-              'trade-row-tag is-review' +
-              ((trade.caseType ?? trade.reviewCategory) === 'ambiguous' ? ' is-ambiguous' : '')
-            }
-          >
-            {reviewLabel}
-          </span>
-        )}
-        {regularTags.hiddenCount > 0 && (
-          <Tooltip
-            content={regularTags.hidden.join(' · ')}
-            label={`其余标签：${regularTags.hidden.join('、')}`}
-            focusable
-          >
-            <span className="trade-row-more">+{regularTags.hiddenCount}</span>
-          </Tooltip>
-        )}
-      </span>
-      <span className="trade-row-timeframe-slot">
+          )}
+          {regularTags.hiddenCount > 0 && (
+            <Tooltip
+              content={regularTags.hidden.join(' · ')}
+              label={`其余标签：${regularTags.hidden.join('、')}`}
+              focusable
+            >
+              <span className="trade-row-more">+{regularTags.hiddenCount}</span>
+            </Tooltip>
+          )}
+        </>
+      }
+      timeframe={
         <span className="trade-row-timeframe">{timeframe}</span>
-      </span>
-      <span className={'trade-row-pnl' + (isMissed ? ' is-missed' : privacyMode ? ' is-zero' : trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ' is-zero')}>
-        {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, privacyMode)) : '—'}
-      </span>
-      <span className={'trade-row-r' + (isMissed && trade.rMultiple != null ? ' is-opportunity' : trade.rMultiple != null && trade.rMultiple > 0 ? ' is-positive' : trade.rMultiple != null && trade.rMultiple < 0 ? ' is-negative' : ' is-zero')}>
-        {showResult ? fmtR(trade.rMultiple) : '—'}
-      </span>
-      <span className="trade-row-date">{fmtDate(trade.openedAt)}</span>
-      <span className="trade-row-end">
+      }
+      pnl={
+        <span
+          className={
+            'trade-row-pnl' +
+            (isMissed
+              ? ' is-missed'
+              : privacyMode
+                ? ' is-zero'
+                : trade.pnl != null && trade.pnl > 0
+                  ? ' is-positive'
+                  : trade.pnl != null && trade.pnl < 0
+                    ? ' is-negative'
+                    : ' is-zero')
+          }
+        >
+          {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, privacyMode)) : '—'}
+        </span>
+      }
+      r={
+        <span
+          className={
+            'trade-row-r' +
+            (isMissed && trade.rMultiple != null
+              ? ' is-opportunity'
+              : trade.rMultiple != null && trade.rMultiple > 0
+                ? ' is-positive'
+                : trade.rMultiple != null && trade.rMultiple < 0
+                  ? ' is-negative'
+                  : ' is-zero')
+          }
+        >
+          {showResult ? fmtR(trade.rMultiple) : '—'}
+        </span>
+      }
+      date={fmtDate(trade.openedAt)}
+      end={
         <Tooltip
           asChild
           content={starred ? '取消星标' : '星标交易'}
@@ -196,7 +227,8 @@ export const TradeRow = memo(function TradeRow({
             <Star size={13} fill={starred ? 'currentColor' : 'none'} />
           </button>
         </Tooltip>
-      </span>
-    </div>
+      }
+      onContextMenu={(event) => onContextMenu?.(event, trade)}
+    />
   )
 })
