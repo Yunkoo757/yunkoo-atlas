@@ -40,6 +40,24 @@
   margin-left: auto;
 }
 
+.ui-filter-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.ui-filter-actions .ui-filter-trigger {
+  margin-left: 0;
+}
+
+.ui-filter-trigger.has-filters {
+  color: var(--list-text-strong);
+  border-color: var(--surface-control-border-active);
+  background: var(--surface-control-active);
+}
+
 .ui-filter-trigger:hover,
 .ui-filter-trigger.is-open,
 .ui-filter-chip:hover {

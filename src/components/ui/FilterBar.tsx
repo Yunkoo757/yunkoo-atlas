@@ -20,6 +20,7 @@ export function FilterBar({
   quickViews,
   label = '筛选交易',
   shortcutActionId,
+  actions,
 }: {
   activeFilters: ActiveFilter[]
   open: boolean
@@ -31,11 +32,16 @@ export function FilterBar({
   quickViews?: ReactNode
   label?: string
   shortcutActionId?: string
+  actions?: ReactNode
 }) {
   const trigger = (
     <button
       type="button"
-      className={'ui-filter-trigger' + (open ? ' is-open' : '')}
+      className={
+        'ui-filter-trigger' +
+        (open ? ' is-open' : '') +
+        (activeFilters.length > 0 ? ' has-filters' : '')
+      }
       ref={triggerRef}
       onClick={onToggle}
       aria-expanded={open}
@@ -44,7 +50,7 @@ export function FilterBar({
       aria-label={label}
     >
       <SlidersHorizontal size={14} />
-      <span>筛选</span>
+      <span>{activeFilters.length > 0 ? `筛选 · ${activeFilters.length}` : '筛选'}</span>
     </button>
   )
   return (
@@ -75,11 +81,14 @@ export function FilterBar({
             )
           ) : null}
         </div>
-        {shortcutActionId ? (
-          <ShortcutTooltip actionId={shortcutActionId} label={label} mode="shortcut">
-            {trigger}
-          </ShortcutTooltip>
-        ) : trigger}
+        <div className="ui-filter-actions">
+          {actions}
+          {shortcutActionId ? (
+            <ShortcutTooltip actionId={shortcutActionId} label={label} mode="shortcut">
+              {trigger}
+            </ShortcutTooltip>
+          ) : trigger}
+        </div>
       </div>
       {open && children}
     </div>

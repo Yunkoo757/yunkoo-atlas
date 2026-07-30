@@ -660,6 +660,7 @@ export async function testHeavyRoutesAreLoadedOnDemand(): Promise<void> {
 export async function testMissedOpportunityAggregateRouteAndViewContract(): Promise<void> {
   const fs = await import('node:fs/promises')
   const app = await fs.readFile('src/App.tsx', 'utf8')
+  const filterBar = await fs.readFile('src/components/ui/FilterBar.tsx', 'utf8')
   const missedRouteStart = app.indexOf('path="/missed"')
   const missedRouteEnd = app.indexOf('path="/period/:slug"', missedRouteStart)
   const missedRouteBlock = app.slice(missedRouteStart, missedRouteEnd)
@@ -667,6 +668,9 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(app.includes('<MissedOpportunitiesView />'), '/missed 必须接入独立聚合页')
   assert(app.includes('path="/missed/board"') && app.includes('to="/missed"'), '旧看板路径必须重定向')
   assert(!missedRouteBlock.includes("filter={{ type: 'missed', tradeKind: 'live' }}"), '聚合入口不得再伪装成实盘列表')
+  assert(filterBar.includes('actions?: ReactNode'), 'FilterBar 必须提供标准右侧动作槽')
+  assert(filterBar.includes('className="ui-filter-actions"'), 'FilterBar 必须把并列动作收进统一动作组')
+  assert(filterBar.includes("' has-filters'") && filterBar.includes('筛选 ·'), 'FilterBar 必须在入口显示激活筛选数量')
 
   const [missedView, missedFilters, tradeList, missedRow, missedCss] = await Promise.all([
     fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
