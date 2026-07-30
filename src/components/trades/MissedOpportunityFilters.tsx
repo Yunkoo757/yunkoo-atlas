@@ -136,7 +136,7 @@ export function MissedOpportunityFilters({
             ]}
           />
         </div>
-        <button type="button" className="missed-filter-clear" onClick={clearFilters}>
+        <button type="button" className="ui-btn ui-btn-bordered missed-filter-clear" onClick={clearFilters}>
           清除筛选
         </button>
       </div>

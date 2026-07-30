@@ -463,7 +463,7 @@ async function run(): Promise<void> {
     const sourceEmpty = document.querySelector<HTMLElement>('.missed-empty')
     assert(sourceEmpty, '来源空状态容器未渲染')
     assert(
-      sourceEmpty.querySelector('p')?.textContent?.trim() === '可以前往已包含的工作区查看或补充原始记录。',
+      sourceEmpty.querySelector('.empty-hint')?.textContent?.trim() === '可以前往已包含的工作区查看或补充原始记录。',
       '来源空状态缺少包含范围说明',
     )
     const emptySourceHrefs = () => [...document.querySelectorAll<HTMLAnchorElement>('.missed-empty a')]

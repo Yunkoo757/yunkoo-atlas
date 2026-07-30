@@ -17,43 +17,6 @@
   border-color: var(--missed-control-boundary);
 }
 
-.missed-empty h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 16px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.35;
-}
-
-.missed-empty p {
-  margin: var(--sp-1) 0 0;
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.missed-empty button,
-.missed-filter-clear {
-  min-height: var(--field-height-md);
-  padding: 0 var(--sp-3);
-  color: var(--text-secondary);
-  font: inherit;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  background: var(--surface-control);
-  cursor: pointer;
-  transition:
-    color var(--motion-fast) var(--ease-out),
-    background var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
-}
-
-.missed-empty button:hover,
-.missed-filter-clear:hover {
-  color: var(--text-primary);
-  background: var(--surface-control-active);
-}
-
 .missed-live {
   position: absolute;
   width: 1px;
@@ -308,19 +271,6 @@
   color: var(--text-primary);
 }
 
-.missed-empty {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: var(--sp-3);
-  width: 100%;
-  min-height: 100%;
-  margin: auto;
-  padding: var(--sp-8) var(--sp-4);
-  text-align: center;
-  color: var(--text-secondary);
-}
-
 .missed-empty-actions {
   display: flex;
   flex-wrap: wrap;
@@ -359,9 +309,8 @@
   font-size: var(--fs-mini);
 }
 
-.missed-view > .ui-filter-shell .ui-filter-empty {
-  color: var(--text-tertiary);
-  font-size: 14px;
+.missed-filter-clear {
+  height: var(--field-height-md);
 }
 
 @media (max-width: 768px) {
@@ -457,6 +406,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .missed-filter-clear {
+    min-height: 44px;
+  }
+
   .missed-row {
     grid-template-areas:
       'symbol side time actions'
@@ -482,6 +435,18 @@
   .missed-row-time {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 480px) {
+  .missed-empty-actions {
+    flex-direction: column;
+    width: min(100%, 220px);
+  }
+
+  .missed-empty-actions > * {
+    width: 100%;
+    min-height: 44px;
   }
 }
 
