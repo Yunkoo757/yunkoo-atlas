@@ -147,7 +147,7 @@
   position: relative;
   display: grid;
   grid-template-areas: 'source symbol side summary time actions';
-  grid-template-columns: 72px minmax(108px, 0.8fr) 48px minmax(180px, 1.7fr) 76px 32px;
+  grid-template-columns: 72px minmax(120px, 168px) 48px minmax(180px, 1fr) 76px 32px;
   align-items: center;
   column-gap: var(--sp-2);
   min-width: 0;
@@ -437,6 +437,17 @@
   .missed-row-time {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+@media (min-width: 700px) and (max-width: 768px) {
+  .missed-row {
+    grid-template-areas: 'source symbol side summary time actions';
+    grid-template-columns: 72px minmax(120px, 168px) 48px minmax(180px, 1fr) 76px 44px;
+    grid-template-rows: 52px;
+    min-height: 52px;
+    height: 52px;
+    padding: 0 var(--sp-3);
   }
 }
 
