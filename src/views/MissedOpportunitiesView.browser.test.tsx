@@ -150,6 +150,47 @@ function assertFocusedAggregateRowHasNoVisualHighlight(): void {
   assert(getComputedStyle(row).backgroundColor === 'rgba(0, 0, 0, 0)', '聚合焦点行不得改变底色')
 }
 
+function assertVisualResponsiveContract(): void {
+  assert(
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    `${window.innerWidth}px viewport 不得横向溢出`,
+  )
+
+  for (const source of document.querySelectorAll<HTMLElement>('[data-missed-source]')) {
+    assert(source.textContent?.trim(), '来源文字不得为空')
+    assert(source.getClientRects().length > 0, `${window.innerWidth}px viewport 来源文字必须可见`)
+  }
+
+  if (window.innerWidth === 375) {
+    for (const menu of document.querySelectorAll<HTMLButtonElement>('.missed-row-menu button')) {
+      const rect = menu.getBoundingClientRect()
+      assert(rect.width >= 44, `375px 合并项菜单宽度不足 44px：${rect.width}px`)
+      assert(rect.height >= 44, `375px 合并项菜单高度不足 44px：${rect.height}px`)
+    }
+  }
+
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    for (const [label, control] of [
+      ['范围', scopeTrigger()],
+      ['筛选', filterTrigger()],
+    ] as const) {
+      assert(
+        getComputedStyle(control, '::before').height === '32px',
+        `${label}按钮必须保留 32px 工具栏胶囊层`,
+      )
+    }
+  }
+}
+
+function assertReturnedAggregateRowHasNoVisualHighlight(anchorId: string): void {
+  const row = resultRow(anchorId)
+  assert(getComputedStyle(row).boxShadow === 'none', '详情返回后聚合行不得绘制焦点亮边')
+  assert(
+    getComputedStyle(row, '::after').backgroundColor === 'rgba(0, 0, 0, 0)',
+    '详情返回后聚合行不得绘制焦点底色',
+  )
+}
+
 function assertAggregateRowUsesTradeRowGeometry(): void {
   const reference = document.querySelector<HTMLElement>('[data-trade-id="trade-row-reference"]')
   const aggregate = resultRow(paperTrade.id)
@@ -223,6 +264,7 @@ async function returnFromDetail(anchorId: string): Promise<void> {
     () => document.activeElement?.closest('[data-trade-id]')?.getAttribute('data-trade-id') === anchorId,
     `详情返回未恢复聚合项焦点：${anchorId}`,
   )
+  assertReturnedAggregateRowHasNoVisualHighlight(anchorId)
 }
 
 function LocationProbe() {
@@ -461,6 +503,7 @@ async function run(): Promise<void> {
       '聚合来源行未渲染',
     )
     if (visualMode) {
+      assertVisualResponsiveContract()
       keepMounted = true
       await frame()
       await frame()

@@ -59,7 +59,7 @@ export function MissedOpportunityScopeMenu({
       <button
         ref={triggerRef}
         type="button"
-        className={'missed-scope-trigger' + (open ? ' is-open' : '')}
+        className={'ui-filter-trigger missed-scope-trigger' + (open ? ' is-open' : '')}
         aria-label="管理包含范围"
         aria-expanded={open}
         aria-controls={panelId}

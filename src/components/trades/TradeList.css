@@ -803,17 +803,32 @@
     opacity: 1;
   }
   .trade-row {
-    grid-template-columns: 44px 16px minmax(100px, 1fr) 48px 54px 44px;
+    grid-template-columns: 44px 16px minmax(0, 1fr) max-content 54px 44px;
     column-gap: 6px;
     padding: 0 var(--sp-2);
   }
 
   .trade-row-ref,
   .trade-row-strategy,
-  .trade-row-tags,
   .trade-row-timeframe-slot,
   .trade-row-pnl {
     display: none;
+  }
+
+  /* 聚合项来源留在共享 tags 槽内；窄屏仅保留这枚必要语义标签。 */
+  .missed-opportunity-row .trade-row-tags {
+    display: flex;
+  }
+
+  .missed-opportunity-row .trade-row-tags > :not(.missed-opportunity-source) {
+    display: none;
+  }
+
+  .trade-row .missed-row-menu button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
   }
 
   .trade-row-symbol strong {
