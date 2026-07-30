@@ -51,9 +51,6 @@ export function MissedOpportunityRow({
   const openLabel = `打开 ${primary.symbol} ${RECORD_LABELS[primary.tradeKind]}`
   const caseCount = item.linkedCases.length
   const sourceActionLabel = mergedSourceActionLabel(primary)
-  const caseActionText = caseCount > 1 ? `打开案例（${caseCount}）` : '打开案例'
-  const caseMenuActionLabel = `打开 ${primary.symbol} 案例（${caseCount}）`
-  const singleCase = caseCount === 1 ? item.linkedCases[0] : undefined
   const menuOptions = [
     { value: `source:${primary.id}`, label: sourceActionLabel },
     ...item.linkedCases.map((reviewCase) => ({
@@ -81,6 +78,7 @@ export function MissedOpportunityRow({
       }
       data-trade-id={item.key}
       role="listitem"
+      aria-label={`${primary.symbol}，${sideLabel}，${SOURCE_LABELS[item.source]}，${fmtDate(item.occurredAt)}`}
     >
       {!merged ? (
         <button
@@ -95,71 +93,45 @@ export function MissedOpportunityRow({
       <span className="missed-row-source" data-missed-source={item.source}>
         {SOURCE_LABELS[item.source]}
       </span>
-      {item.missingSourceId ? (
-        <span className="missed-row-missing">来源记录已删除</span>
-      ) : null}
       <span className="missed-row-symbol">
         <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={14} />
         <strong>{primary.symbol}</strong>
       </span>
       <span className={'missed-row-side is-' + primary.side}>{sideLabel}</span>
       <span className="missed-row-summary">
+        {item.missingSourceId ? (
+          <>
+            <span className="missed-row-missing">来源记录已删除</span>
+            <span aria-hidden="true"> · </span>
+          </>
+        ) : null}
         <span>{strategyName}</span>
         <span aria-hidden="true"> · </span>
         <span>{missReason}</span>
         <span aria-hidden="true"> · </span>
         <span>{primary.ref}</span>
+        {merged ? (
+          <>
+            <span aria-hidden="true"> · </span>
+            <span className="missed-row-relation">关联 {caseCount} 个案例</span>
+          </>
+        ) : null}
       </span>
       <time className="missed-row-time" dateTime={item.occurredAt}>
         {fmtDate(item.occurredAt)}
       </time>
 
       {merged ? (
-        <span className="missed-row-actions">
-          <button
-            type="button"
-            data-trade-primary-action
-            aria-label={sourceActionLabel}
-            onClick={() => onOpen(primary, item.key)}
-          >
-            打开原始记录
-          </button>
-          {singleCase ? (
-            <button
-              type="button"
-              aria-label={caseActionLabel(singleCase)}
-              onClick={() => onOpen(singleCase, item.key)}
-            >
-              打开案例
-            </button>
-          ) : (
-            <Menu
-              align="right"
-              trigger={(
-                <button type="button" aria-label={caseMenuActionLabel}>
-                  {caseActionText}
-                </button>
-              )}
-              options={item.linkedCases.map((reviewCase) => ({
-                value: reviewCase.id,
-                label: caseActionLabel(reviewCase),
-              }))}
-              onSelect={(caseId) => {
-                const reviewCase = item.linkedCases.find((candidate) => candidate.id === caseId)
-                if (reviewCase) onOpen(reviewCase, item.key)
-              }}
-            />
-          )}
-        </span>
-      ) : null}
-
-      {merged ? (
-        <span className="missed-row-mobile-menu">
+        <span className="missed-row-menu">
           <Menu
             align="right"
             trigger={(
-              <button type="button" aria-label={`更多 ${primary.symbol} 案例操作`}>
-                <MoreHorizontal size={18} aria-hidden="true" />
+              <button
+                type="button"
+                data-trade-primary-action
+                aria-label={`更多操作：${primary.symbol}`}
+              >
+                <MoreHorizontal size={16} aria-hidden="true" />
               </button>
             )}
             options={menuOptions}

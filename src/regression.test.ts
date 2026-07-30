@@ -712,23 +712,15 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(tradeList.includes('renderRow?:'), '虚拟列表必须支持聚合自定义行')
   assert(tradeList.includes('selectionEnabled = true'), '现有列表默认仍允许选择')
   assert(missedRow.includes('data-missed-source'), '聚合行必须显示文字来源')
-  assert(missedRow.includes('打开原始记录'), '合并项缺少原始记录动作')
-  assert(missedRow.includes('打开案例'), '合并项缺少案例动作')
   assert(missedRow.includes('来源记录已删除'), '失效来源没有可见状态')
+  assert(missedRow.includes('关联 {caseCount} 个案例'), '合并项缺少关联案例数量')
   const summaryStart = missedRow.indexOf('<span className="missed-row-summary">')
   const summaryEnd = missedRow.indexOf('<time className="missed-row-time"', summaryStart)
   const summarySource = missedRow.slice(summaryStart, summaryEnd)
-  const missingRule = missedCss.match(/\.missed-row-missing\s*\{[^}]*\}/)?.[0] ?? ''
   assert(
     missedRow.includes('<span className="missed-row-missing">来源记录已删除</span>') &&
-      !summarySource.includes('missed-row-missing'),
-    '失效来源状态必须位于摘要裁切区域之外',
-  )
-  assert(
-    missingRule.includes('grid-area: state') &&
-      missingRule.includes('white-space: nowrap') &&
-      missedCss.includes("'state state state state actions'"),
-    '失效来源状态必须使用独立且不可裁切的响应式网格区域',
+      summarySource.includes('missed-row-missing'),
+    '失效来源状态必须位于跨端可见的摘要区域',
   )
 }
 
@@ -1755,10 +1747,10 @@ export async function testMissedRowsExposePredictablePrimaryReturnFocus(): Promi
   const fs = await import('node:fs/promises')
   const missedRow = await fs.readFile('src/components/trades/MissedOpportunityRow.tsx', 'utf8')
 
-  assert(
-    missedRow.match(/data-trade-primary-action/g)?.length === 2,
-    '普通项覆盖按钮和合并项首个动作必须标记为可预测的返回焦点',
-  )
+  assert(missedRow.includes('className="missed-row-menu"'), '合并项必须统一使用行尾菜单')
+  assert(missedRow.includes('data-trade-primary-action'), '普通项和合并项必须暴露返回焦点')
+  assert(!missedRow.includes('missed-row-mobile-menu'), '不得维护独立移动操作树')
+  assert(!missedRow.includes('missed-row-actions'), '不得在桌面行内堆叠多个动作按钮')
 }
 
 export function testTradeReturnAnchorSerializationExpires(): void {
