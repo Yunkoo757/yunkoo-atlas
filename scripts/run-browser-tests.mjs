@@ -34,6 +34,19 @@ export async function runBrowserRegressionTests(root, options = {}) {
     for (const browserTest of browserTests) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const page = await browser.newPage()
+        await page.addInitScript(() => {
+          let actionsComplete = false
+          let resolveActions
+          const actions = new Promise((resolve) => {
+            resolveActions = resolve
+          })
+          window.__atlasBrowserWaitForActions = () => actionsComplete ? Promise.resolve() : actions
+          window.__atlasBrowserCompleteActions = () => {
+            if (actionsComplete) return
+            actionsComplete = true
+            resolveActions()
+          }
+        })
         const diagnostics = []
         page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`))
         page.on('console', (message) => {
@@ -42,6 +55,8 @@ export async function runBrowserRegressionTests(root, options = {}) {
         try {
           await page.goto(new URL(browserTest.url, baseUrl).href)
           await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: 5000 })
+          if (browserTest.hoverSelector) await page.hover(browserTest.hoverSelector)
+          await page.evaluate(() => window.__atlasBrowserCompleteActions())
           await page.evaluate((key) => window[key], browserTest.promiseKey)
           await settleBrowserDiagnostics(page)
           const allowedMessages = await page.evaluate(

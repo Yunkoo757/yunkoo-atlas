@@ -9,7 +9,7 @@ import './TradeList.css'
 declare global {
   interface Window {
     __tradeRowPresentationBrowserTest: Promise<void>
-    __tradeRowPresentationAssertHovered?: () => void
+    __atlasBrowserWaitForActions: () => Promise<void>
   }
 }
 
@@ -110,7 +110,6 @@ async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
   const root = createRoot(rootElement)
-  const hoverOnly = new URLSearchParams(window.location.search).has('hover-only')
 
   try {
     root.render(<Fixture />)
@@ -123,8 +122,10 @@ async function run(): Promise<void> {
     const overlay = focusedRow.querySelector<HTMLButtonElement>('.trade-row-open')!
     assert(defaultRow && focusedRow && selectedRow && overlay, '三种标准行状态必须完整渲染')
 
-    window.__tradeRowPresentationAssertHovered = () => assertDefaultRowHoverUsesHoverToken(defaultRow)
-    if (hoverOnly) return
+    await window.__atlasBrowserWaitForActions()
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    assert(defaultRow.matches(':hover'), '浏览器 runner 必须执行声明的 Playwright hover()')
+    assertDefaultRowHoverUsesHoverToken(defaultRow)
 
     overlay.focus()
 
@@ -135,10 +136,7 @@ async function run(): Promise<void> {
     assert(getComputedStyle(selectedRow, '::after').backgroundColor === 'rgba(0, 0, 0, 0)', '多选不得改变整行底色')
     assert(selectedRow.querySelector('.selection-box.is-selected'), '多选仍必须由复选框表达')
   } finally {
-    if (!hoverOnly) {
-      delete window.__tradeRowPresentationAssertHovered
-      root.unmount()
-    }
+    root.unmount()
   }
 }
 

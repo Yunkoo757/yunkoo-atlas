@@ -51,7 +51,8 @@ test('browser discovery derives one promise key from each HTML contract', async 
     await write(
       root,
       'src/components/Sample.browser.test.html',
-      '<script type="module" src="/src/components/Sample.browser.test.tsx"></script>',
+      `<meta name="atlas-browser-hover" content='[data-test-target="sample"]'>
+      <script type="module" src="/src/components/Sample.browser.test.tsx"></script>`,
     )
     await write(
       root,
@@ -69,6 +70,7 @@ test('browser discovery derives one promise key from each HTML contract', async 
         url: '/src/components/Sample.browser.test.html',
         promiseKey: '__sampleBrowserTest',
         label: 'src/components/Sample.browser.test.html',
+        hoverSelector: '[data-test-target="sample"]',
       },
       {
         url: '/src/storage/Inline.browser.test.html',
@@ -76,6 +78,29 @@ test('browser discovery derives one promise key from each HTML contract', async 
         label: 'src/storage/Inline.browser.test.html',
       },
     ])
+  })
+})
+
+test('browser runner performs declarative HTML hover setup before awaiting the test promise', async () => {
+  await withFixture(async (root) => {
+    await write(root, 'src/Hover.browser.test.html', `<!doctype html>
+      <meta name="atlas-browser-hover" content="#hover-target">
+      <button id="hover-target">Hover target</button>
+      <script>
+        window.__hoverBrowserTest = (async () => {
+          await window.__atlasBrowserWaitForActions()
+          if (document.querySelector('#hover-target').matches(':hover')) return
+          throw new Error('runner did not perform declared hover')
+        })()
+      </script>`)
+
+    const result = spawnSync(
+      process.execPath,
+      [path.resolve('scripts/run-browser-tests.mjs'), root],
+      { cwd: process.cwd(), encoding: 'utf8', timeout: 20_000 },
+    )
+    assert.equal(result.status, 0, `runner output:\n${result.stdout}\n${result.stderr}`)
+    assert.match(`${result.stdout}\n${result.stderr}`, /PASS src\/Hover\.browser\.test\.html/)
   })
 })
 

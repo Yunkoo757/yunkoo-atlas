@@ -54,6 +54,28 @@ function moduleSourcesFromHtml(html) {
   return sources
 }
 
+function htmlAttribute(tag, name) {
+  const attributePattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i')
+  const match = tag.match(attributePattern)
+  return match?.[1] ?? match?.[2]
+}
+
+function hoverSelectorFromHtml(html, htmlPath) {
+  const hoverMetadata = (html.match(/<meta\b[^>]*>/gi) ?? [])
+    .filter((tag) => htmlAttribute(tag, 'name') === 'atlas-browser-hover')
+
+  if (hoverMetadata.length === 0) return undefined
+  if (hoverMetadata.length > 1) {
+    throw new Error(`${htmlPath} must declare at most one atlas-browser-hover selector`)
+  }
+
+  const selector = htmlAttribute(hoverMetadata[0], 'content')?.trim()
+  if (!selector) {
+    throw new Error(`${htmlPath} atlas-browser-hover metadata requires a non-empty content selector`)
+  }
+  return selector
+}
+
 function resolveModuleSource(root, htmlPath, source) {
   if (source.startsWith('/')) return path.join(root, source.slice(1))
   return path.resolve(path.dirname(path.join(root, htmlPath)), source)
@@ -68,6 +90,7 @@ export async function discoverBrowserTests(root) {
   const keyOwners = new Map()
   for (const htmlPath of htmlFiles) {
     const html = await fs.readFile(path.join(root, htmlPath), 'utf8')
+    const hoverSelector = hoverSelectorFromHtml(html, htmlPath)
     const promiseKeys = new Set()
     collectPromiseKeys(html, promiseKeys)
     for (const source of moduleSourcesFromHtml(html)) {
@@ -87,11 +110,13 @@ export async function discoverBrowserTests(root) {
       )
     }
     keyOwners.set(promiseKey, htmlPath)
-    tests.push({
+    const test = {
       url: `/${htmlPath}`,
       promiseKey,
       label: htmlPath,
-    })
+    }
+    if (hoverSelector) test.hoverSelector = hoverSelector
+    tests.push(test)
   }
   return tests
 }
