@@ -377,6 +377,10 @@
     height: 44px;
   }
 
+  .missed-scope-popover [role='menuitemcheckbox'] {
+    min-height: 44px;
+  }
+
   .missed-filter-panel {
     align-items: stretch;
     flex-direction: column;

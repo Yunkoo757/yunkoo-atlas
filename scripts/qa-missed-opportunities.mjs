@@ -255,6 +255,23 @@ async function assertResponsiveLayout(page, viewport) {
     }
   }
 
+  if (viewport.width <= 768) {
+    await scope.click()
+    const scopeItems = page.locator('.missed-scope-popover [role="menuitemcheckbox"]')
+    await scopeItems.first().waitFor()
+    const scopeItemRects = await scopeItems.evaluateAll((elements) => elements.map((element) => {
+      const rect = element.getBoundingClientRect()
+      return { width: rect.width, height: rect.height }
+    }))
+    assert.equal(scopeItemRects.length, 3, `${viewport.name} 范围菜单必须渲染三个来源选项`)
+    for (const [index, rect] of scopeItemRects.entries()) {
+      assert.ok(rect.width >= 44, `${viewport.name} 范围菜单第 ${index + 1} 项命中区宽度不足 44px：${rect.width}px`)
+      assert.ok(rect.height >= 44, `${viewport.name} 范围菜单第 ${index + 1} 项命中区高度不足 44px：${rect.height}px`)
+    }
+    await page.keyboard.press('Escape')
+    await scopeItems.first().waitFor({ state: 'hidden' })
+  }
+
   const visibleRowMenus = page.locator('.missed-row-menu button:visible')
   const menuCount = await visibleRowMenus.count()
   assert.ok(menuCount > 0, `${viewport.name} 至少需要一个可见行菜单`)
