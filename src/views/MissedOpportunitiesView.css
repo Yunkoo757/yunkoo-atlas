@@ -111,6 +111,14 @@
   background: var(--surface-control);
 }
 
+.missed-scope-trigger:hover,
+.missed-scope-trigger:active:not(:disabled),
+.missed-scope-trigger:focus-visible,
+.missed-scope-trigger.is-open {
+  color: var(--list-text-strong);
+  background: var(--surface-control-active);
+}
+
 .missed-scope-popover {
   position: absolute;
   z-index: var(--z-popover);
@@ -137,6 +145,13 @@
   text-align: left;
 }
 
+.missed-scope-popover [role='menuitemcheckbox']:hover,
+.missed-scope-popover [role='menuitemcheckbox']:active:not(:disabled),
+.missed-scope-popover [role='menuitemcheckbox']:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-control-active);
+}
+
 .missed-scope-check {
   display: grid;
   place-items: center;
@@ -158,7 +173,7 @@
 }
 
 .missed-merge-note {
-  margin: var(--sp-2) 18px;
+  margin: var(--sp-2) var(--sp-4);
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
 }
@@ -332,7 +347,7 @@
   z-index: var(--z-navigation-panel);
   top: calc(100% - 2px);
   right: max(var(--sp-3), calc(100% - 1180px));
-  left: 18px;
+  left: var(--sp-4);
   display: flex;
   align-items: end;
   gap: var(--sp-3);
@@ -372,7 +387,8 @@
   }
 
   .missed-scope-trigger,
-  .missed-view > .ui-filter-shell .ui-filter-trigger {
+  .missed-view > .ui-filter-shell .ui-filter-trigger,
+  .missed-view > .ui-filter-shell .ui-filter-chip {
     min-width: 44px;
     height: 44px;
   }
@@ -381,7 +397,14 @@
     min-height: 44px;
   }
 
+  .missed-merge-note {
+    margin-right: var(--sp-3);
+    margin-left: var(--sp-3);
+  }
+
   .missed-filter-panel {
+    right: var(--sp-3);
+    left: var(--sp-3);
     align-items: stretch;
     flex-direction: column;
   }

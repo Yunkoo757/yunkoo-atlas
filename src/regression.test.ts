@@ -1789,7 +1789,7 @@ export function testTradeReturnFocusTargetSkipsHiddenAndDisabledPrimaryActions()
   const ariaHiddenPrimary = candidate({ ariaHidden: true })
   const disabledPrimary = candidate({ disabled: true })
   const nonFocusablePrimary = candidate({ tabIndex: -1 })
-  const mobileMenuButton = candidate()
+  const sharedRowMenuButton = candidate()
   const primaryCandidates = [
     cssHiddenPrimary,
     hiddenPrimary,
@@ -1801,12 +1801,12 @@ export function testTradeReturnFocusTargetSkipsHiddenAndDisabledPrimaryActions()
     querySelector: () => cssHiddenPrimary,
     querySelectorAll: (selector: string) => selector === '[data-trade-primary-action]'
       ? primaryCandidates
-      : [...primaryCandidates, mobileMenuButton],
+      : [...primaryCandidates, sharedRowMenuButton],
   } as unknown as HTMLElement
 
   assert(
-    findTradeReturnFocusTarget(target) === mobileMenuButton,
-    '隐藏、aria-hidden、禁用或不可聚焦的主动作必须回退到可见移动菜单按钮',
+    findTradeReturnFocusTarget(target) === sharedRowMenuButton,
+    '隐藏、aria-hidden、禁用或不可聚焦的主动作必须回退到可见共享行菜单按钮',
   )
 }
 

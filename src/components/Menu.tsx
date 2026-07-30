@@ -1,10 +1,12 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -24,6 +26,20 @@ type MenuPosition = {
   placement: 'bottom' | 'top'
   minWidth: number
 }
+
+const NATIVE_TRIGGER_CONTROL_SELECTOR = [
+  'button',
+  'a[href]',
+  'input',
+  'select',
+  'textarea',
+].join(', ')
+
+const FALLBACK_TRIGGER_CONTROL_SELECTOR = [
+  '[role="button"]',
+  '[role="combobox"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ')
 
 // 下拉菜单：点击 trigger 弹出，含选中勾、hover 高亮、点击外部关闭、Esc 关闭。
 // 弹出层经 portal 挂到 body，避免被顶栏等 overflow 容器裁切。
@@ -50,9 +66,27 @@ export function Menu({
   })
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLDivElement>(null)
+  const triggerControlRef = useRef<HTMLElement | null>(null)
   const popRef = useRef<HTMLDivElement | null>(null)
   const popExitRef = useExitClone<HTMLDivElement>(open)
   const isSelectionMenu = value !== undefined
+
+  const resolveTriggerControl = useCallback(() => {
+    const control =
+      triggerRef.current?.querySelector<HTMLElement>(NATIVE_TRIGGER_CONTROL_SELECTOR) ??
+      triggerRef.current?.querySelector<HTMLElement>(FALLBACK_TRIGGER_CONTROL_SELECTOR) ??
+      null
+    if (control) triggerControlRef.current = control
+    return control
+  }, [])
+
+  const closeAndRestoreFocus = useCallback(() => {
+    setOpen(false)
+    requestAnimationFrame(() => {
+      const control = resolveTriggerControl() ?? triggerControlRef.current
+      control?.focus()
+    })
+  }, [resolveTriggerControl])
 
   const updatePosition = () => {
     const triggerRect = triggerRef.current?.getBoundingClientRect()
@@ -90,7 +124,7 @@ export function Menu({
       if (e.key !== 'Escape') return
       e.preventDefault()
       e.stopPropagation()
-      setOpen(false)
+      closeAndRestoreFocus()
     }
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
@@ -98,11 +132,36 @@ export function Menu({
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [closeAndRestoreFocus, open])
+
+  useLayoutEffect(() => {
+    const control = resolveTriggerControl()
+    if (!control) return
+    const previous = {
+      haspopup: control.getAttribute('aria-haspopup'),
+      expanded: control.getAttribute('aria-expanded'),
+      controls: control.getAttribute('aria-controls'),
+    }
+    control.setAttribute('aria-haspopup', 'menu')
+    control.setAttribute('aria-expanded', String(open))
+    control.setAttribute('aria-controls', menuId)
+    return () => {
+      for (const [name, value] of [
+        ['aria-haspopup', previous.haspopup],
+        ['aria-expanded', previous.expanded],
+        ['aria-controls', previous.controls],
+      ] as const) {
+        if (value === null) control.removeAttribute(name)
+        else control.setAttribute(name, value)
+      }
+      if (triggerControlRef.current === control) triggerControlRef.current = null
+    }
+  }, [menuId, open, resolveTriggerControl, trigger])
 
   useLayoutEffect(() => {
     if (!open) return
     updatePosition()
+    popRef.current?.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)')?.focus()
     const frame = requestAnimationFrame(() => updatePosition())
     return () => cancelAnimationFrame(frame)
   }, [open, align, options.length])
@@ -129,6 +188,21 @@ export function Menu({
     popExitRef(node)
   }
 
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('.menu-item:not(:disabled)')]
+    if (items.length === 0) return
+    const currentIndex = items.findIndex((item) => item === document.activeElement)
+    let nextIndex = currentIndex
+    if (event.key === 'Home') nextIndex = 0
+    else if (event.key === 'End') nextIndex = items.length - 1
+    else if (event.key === 'ArrowDown') nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length
+    else nextIndex = currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length
+    event.preventDefault()
+    event.stopPropagation()
+    items[nextIndex]?.focus()
+  }
+
   return (
     <div className="menu-root" ref={rootRef} data-menu-id={menuId}>
       <div
@@ -141,11 +215,13 @@ export function Menu({
       {open &&
         createPortal(
           <div
+            id={menuId}
             className={`menu-pop menu-placement-${position.placement}`}
             role="menu"
             ref={assignPopRef}
             style={popStyle}
             data-menu-id={menuId}
+            onKeyDown={onMenuKeyDown}
           >
             {options.map((o) => (
               <button

@@ -27,9 +27,10 @@ function watchDiagnostics(page) {
   return diagnostics
 }
 
-async function openFixture(baseUrl, viewport) {
+async function openFixture(baseUrl, viewport, options = {}) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
+    ...(options.reducedMotion ? { reducedMotion: options.reducedMotion } : {}),
   })
   const page = await context.newPage()
   const diagnostics = watchDiagnostics(page)
@@ -50,13 +51,42 @@ async function assertNoHorizontalOverflow(page, viewport) {
   assert.ok(metrics.bodyWidth <= metrics.bodyClientWidth, `${viewport.name} body 不得横向溢出`)
 }
 
-async function activateWithTabAndEnter(page, locator, message) {
+async function tabToTarget(page, locator, message, key = 'Tab') {
   await locator.scrollIntoViewIfNeeded()
-  await locator.focus()
-  await page.keyboard.press('Shift+Tab')
-  await page.keyboard.press('Tab')
-  assert.equal(await locator.evaluate((element) => document.activeElement === element), true, `${message}：Tab 未到达目标`)
+  await locator.waitFor({ state: 'visible' })
+  for (let step = 0; step < 200; step += 1) {
+    if (await locator.evaluate((element) => document.activeElement === element)) return
+    await page.keyboard.press(key)
+  }
+  assert.fail(`${message}：自然键盘链未在 200 步内到达目标`)
+}
+
+async function activateWithTabAndEnter(page, locator, message, key = 'Tab') {
+  await tabToTarget(page, locator, message, key)
   await page.keyboard.press('Enter')
+}
+
+async function assertFocused(locator, message) {
+  assert.equal(
+    await locator.evaluate((element) => document.activeElement === element),
+    true,
+    message,
+  )
+}
+
+async function readVisualState(locator) {
+  return locator.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      color: style.color,
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderTopColor,
+    }
+  })
+}
+
+function assertVisualStateDiffers(actual, baseline, message) {
+  assert.notDeepEqual(actual, baseline, message)
 }
 
 async function waitForRouterLocation(page, expected) {
@@ -92,7 +122,7 @@ async function assertRowsDoNotOverlap(page, phase) {
     const current = rows[index]
     assert.ok(
       previous.bottom <= current.top + 0.5,
-      `${phase}：移动行 ${previous.id} 与 ${current.id} 发生重叠`,
+      `${phase}：移动行 ${previous.id} ${JSON.stringify(previous)} 与 ${current.id} ${JSON.stringify(current)} 发生重叠`,
     )
   }
 }
@@ -126,6 +156,196 @@ async function assertResultsScrolledToBottom(page, viewport) {
       && metrics.lastRowBottom <= metrics.contentBottom + 1,
     `${viewport.name} 最后一条记录必须稳定落在列表可视边界内`,
   )
+}
+
+async function assertInteractiveToolbarTargets(page, viewport, toolbar, filter) {
+  await filter.click()
+  const panel = page.getByRole('dialog', { name: '错过机会筛选' })
+  await panel.waitFor()
+  const symbol = page.getByRole('combobox', { name: '品种' })
+  await symbol.click()
+  const symbolOption = page.locator('[role="listbox"][aria-label="品种"] [role="option"][data-value="XAUUSD"]')
+  await symbolOption.click()
+  const removableChip = page.getByRole('button', { name: '移除 XAUUSD', exact: true })
+  await removableChip.waitFor()
+  if (await filter.getAttribute('aria-expanded') === 'true') await filter.click()
+  await panel.waitFor({ state: 'hidden' })
+
+  const targets = toolbar.locator(
+    'button:visible, a[href]:visible, input:not([type="hidden"]):visible, select:visible, [role="button"]:visible',
+  )
+  const targetRects = await targets.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect()
+    return {
+      label: element.getAttribute('aria-label') ?? element.textContent?.trim() ?? element.tagName,
+      className: element.className,
+      width: rect.width,
+      height: rect.height,
+    }
+  }))
+  assert.ok(
+    targetRects.some((target) => String(target.className).includes('ui-filter-chip')),
+    `${viewport.name} 工具栏命中区枚举必须包含可移除筛选 chip`,
+  )
+  for (const target of targetRects) {
+    assert.ok(
+      target.width >= 44,
+      `${viewport.name} 工具栏交互目标“${target.label}”宽度不足 44px：${target.width}px`,
+    )
+    assert.ok(
+      target.height >= 44,
+      `${viewport.name} 工具栏交互目标“${target.label}”高度不足 44px：${target.height}px`,
+    )
+  }
+
+  await removableChip.click()
+  await removableChip.waitFor({ state: 'hidden' })
+}
+
+async function assertScopeInteractionStyles(page) {
+  const scope = page.getByRole('button', { name: '管理包含范围' })
+  const scopePanel = page.getByRole('menu', { name: '包含范围' })
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(200)
+  const triggerBase = await readVisualState(scope)
+
+  await scope.hover()
+  await page.waitForTimeout(200)
+  const triggerHover = await readVisualState(scope)
+  assertVisualStateDiffers(triggerHover, triggerBase, '范围触发器 hover 必须与默认态可见不同')
+
+  await page.mouse.down()
+  await page.waitForTimeout(200)
+  const triggerPressed = await readVisualState(scope)
+  assertVisualStateDiffers(triggerPressed, triggerBase, '范围触发器 pressed 必须与默认态可见不同')
+  await page.mouse.up()
+  await scopePanel.waitFor()
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(200)
+  const triggerOpen = await readVisualState(scope)
+  assertVisualStateDiffers(triggerOpen, triggerBase, '范围触发器 open 必须与默认态可见不同')
+
+  await page.keyboard.press('Escape')
+  await scopePanel.waitFor({ state: 'hidden' })
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '管理包含范围')
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Shift+Tab')
+  await assertFocused(scope, '范围触发器必须能通过自然 Tab 链获得焦点')
+  assert.equal(
+    await scope.evaluate((element) => element.matches(':focus-visible')),
+    true,
+    '范围触发器必须呈现 focus-visible 状态',
+  )
+  await page.waitForTimeout(200)
+  const triggerFocus = await readVisualState(scope)
+  assertVisualStateDiffers(triggerFocus, triggerBase, '范围触发器 focus-visible 必须与默认态可见不同')
+
+  await page.keyboard.press('Enter')
+  await scopePanel.waitFor()
+  const tradeScope = page.getByRole('menuitemcheckbox', { name: '交易日志', exact: true })
+  const paperScope = page.getByRole('menuitemcheckbox', { name: '模拟盘', exact: true })
+  await assertFocused(tradeScope, '范围菜单键盘打开后第一项必须自然获得焦点')
+  assert.equal(
+    await tradeScope.evaluate((element) => element.matches(':focus-visible')),
+    true,
+    '范围菜单第一项必须呈现 focus-visible 状态',
+  )
+  await page.mouse.move(0, 0)
+  await page.waitForTimeout(200)
+  const optionFocus = await readVisualState(tradeScope)
+  const optionBase = await readVisualState(paperScope)
+  assertVisualStateDiffers(optionFocus, optionBase, '范围选项 focus-visible 必须与默认态可见不同')
+
+  await paperScope.hover()
+  await page.waitForTimeout(200)
+  const optionHover = await readVisualState(paperScope)
+  assertVisualStateDiffers(optionHover, optionBase, '范围选项 hover 必须与默认态可见不同')
+
+  await page.mouse.down()
+  await page.waitForTimeout(200)
+  const optionPressed = await readVisualState(paperScope)
+  assertVisualStateDiffers(optionPressed, optionBase, '范围选项 pressed 必须与默认态可见不同')
+  await page.mouse.up()
+  assert.equal(await paperScope.getAttribute('aria-checked'), 'false', '范围选项 pressed 流程未完成真实切换')
+  await paperScope.click()
+  assert.equal(await paperScope.getAttribute('aria-checked'), 'true', '范围选项样式验证后未恢复来源')
+  await page.keyboard.press('Escape')
+  await scopePanel.waitFor({ state: 'hidden' })
+}
+
+async function assertReducedMotionResult(page) {
+  assert.equal(
+    await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches),
+    true,
+    'reducedMotion 浏览器上下文必须真实匹配 prefers-reduced-motion',
+  )
+
+  const scope = page.getByRole('button', { name: '管理包含范围' })
+  await scope.click()
+  const scopePanel = page.getByRole('menu', { name: '包含范围' })
+  await scopePanel.waitFor()
+  const pageMotion = await page.locator(
+    '.missed-scope-trigger, .missed-scope-popover, .missed-row',
+  ).evaluateAll((elements) => elements.map((element) => {
+    const style = getComputedStyle(element)
+    const toMilliseconds = (value) => Math.max(...value.split(',').map((part) => {
+      const token = part.trim()
+      return token.endsWith('ms')
+        ? Number.parseFloat(token)
+        : Number.parseFloat(token) * 1_000
+    }))
+    return {
+      selector: element.className,
+      animationDurationMs: toMilliseconds(style.animationDuration),
+      transitionDurationMs: toMilliseconds(style.transitionDuration),
+    }
+  }))
+  for (const motion of pageMotion) {
+    assert.ok(
+      motion.animationDurationMs <= 0.001,
+      `reduced-motion 下 ${motion.selector} 动画必须降为至多 0.001ms`,
+    )
+    assert.ok(
+      motion.transitionDurationMs <= 0.001,
+      `reduced-motion 下 ${motion.selector} 过渡必须降为至多 0.001ms`,
+    )
+  }
+  await page.keyboard.press('Escape')
+  await scopePanel.waitFor({ state: 'hidden' })
+
+  const rowMenu = page.locator('[data-trade-id="live-root"]')
+    .getByRole('button', { name: '更多操作：XAUUSD' })
+  await rowMenu.scrollIntoViewIfNeeded()
+  await rowMenu.click()
+  const genericMenu = page.getByRole('menu').filter({
+    has: page.getByRole('menuitem', { name: '打开 XAUUSD 原始交易记录', exact: true }),
+  })
+  await genericMenu.waitFor()
+  const genericMotion = await genericMenu.evaluate((element) => {
+    const style = getComputedStyle(element)
+    const toMilliseconds = (value) => Math.max(...value.split(',').map((part) => {
+      const token = part.trim()
+      return token.endsWith('ms')
+        ? Number.parseFloat(token)
+        : Number.parseFloat(token) * 1_000
+    }))
+    return {
+      animationDurationMs: toMilliseconds(style.animationDuration),
+      animationIterationCount: style.animationIterationCount,
+      transitionDurationMs: toMilliseconds(style.transitionDuration),
+    }
+  })
+  assert.ok(
+    genericMotion.animationDurationMs <= 0.001,
+    `reduced-motion 下共享行菜单动画必须降为至多 0.001ms，实测 ${genericMotion.animationDurationMs}ms`,
+  )
+  assert.equal(genericMotion.animationIterationCount, '1', 'reduced-motion 下共享行菜单动画不得循环')
+  assert.ok(
+    genericMotion.transitionDurationMs <= 0.001,
+    `reduced-motion 下共享行菜单过渡必须降为至多 0.001ms，实测 ${genericMotion.transitionDurationMs}ms`,
+  )
+  await page.keyboard.press('Escape')
+  await genericMenu.waitFor({ state: 'hidden' })
 }
 
 async function assertResponsiveLayout(page, viewport) {
@@ -259,6 +479,13 @@ async function assertResponsiveLayout(page, viewport) {
     await scope.click()
     const scopeItems = page.locator('.missed-scope-popover [role="menuitemcheckbox"]')
     await scopeItems.first().waitFor()
+    for (const sourceName of ['交易日志', '模拟盘', '案例记录']) {
+      assert.equal(
+        await page.getByRole('menuitemcheckbox', { name: sourceName, exact: true }).count(),
+        1,
+        `${viewport.name} 范围选项“${sourceName}”的可访问名称不得包含计数`,
+      )
+    }
     const scopeItemRects = await scopeItems.evaluateAll((elements) => elements.map((element) => {
       const rect = element.getBoundingClientRect()
       return { width: rect.width, height: rect.height }
@@ -339,16 +566,46 @@ try {
     }
   }
 
+  for (const viewport of VIEWPORTS.filter((candidate) => candidate.width <= 768)) {
+    const toolbarFixture = await openFixture(baseUrl, viewport)
+    try {
+      const toolbar = toolbarFixture.page.locator('.missed-view > .ui-filter-shell .ui-filter-bar')
+      const filter = toolbarFixture.page.getByRole('button', { name: '筛选错过机会' })
+      await assertInteractiveToolbarTargets(toolbarFixture.page, viewport, toolbar, filter)
+      assert.deepEqual(
+        toolbarFixture.diagnostics,
+        [],
+        `${viewport.name} 工具栏命中区 QA 不得产生浏览器错误`,
+      )
+    } finally {
+      await toolbarFixture.context.close()
+    }
+  }
+
+  const reducedMotionFixture = await openFixture(baseUrl, VIEWPORTS[0], { reducedMotion: 'reduce' })
+  try {
+    await assertReducedMotionResult(reducedMotionFixture.page)
+    await reducedMotionFixture.page.waitForTimeout(100)
+    assert.deepEqual(
+      reducedMotionFixture.diagnostics,
+      [],
+      'reduced-motion QA 不得产生浏览器错误',
+    )
+  } finally {
+    await reducedMotionFixture.context.close()
+  }
+
   const keyboardFixture = await openFixture(baseUrl, VIEWPORTS[0])
   try {
     const { page } = keyboardFixture
+    await assertScopeInteractionStyles(page)
     const filter = page.getByRole('button', { name: '筛选错过机会' })
     await activateWithTabAndEnter(page, filter, '筛选器开启')
     await page.getByRole('dialog', { name: '错过机会筛选' }).waitFor()
     await activateWithTabAndEnter(page, filter, '筛选器关闭')
 
     const scope = page.getByRole('button', { name: '管理包含范围' })
-    await activateWithTabAndEnter(page, scope, '范围菜单开启')
+    await activateWithTabAndEnter(page, scope, '范围菜单开启', 'Shift+Tab')
     const scopePanel = page.getByRole('menu', { name: '包含范围' })
     await scopePanel.waitFor()
     assert.equal(await scope.getAttribute('aria-expanded'), 'true', '范围打开态缺少 aria-expanded')
@@ -357,15 +614,19 @@ try {
       true,
       '范围菜单打开后必须接收焦点',
     )
-    const tradeScope = page.getByRole('menuitemcheckbox', { name: /^交易日志/ })
+    const tradeScope = page.getByRole('menuitemcheckbox', { name: '交易日志', exact: true })
+    const paperScope = page.getByRole('menuitemcheckbox', { name: '模拟盘', exact: true })
+    const caseScope = page.getByRole('menuitemcheckbox', { name: '案例记录', exact: true })
+    await assertFocused(tradeScope, '范围菜单打开后交易日志选项必须自然获得焦点')
     assert.equal(await tradeScope.getAttribute('aria-checked'), 'true', '范围选中态缺少 aria-checked')
+    assert.equal(await paperScope.count(), 1, '模拟盘范围选项必须使用不含计数的精确可访问名称')
+    assert.equal(await caseScope.count(), 1, '案例记录范围选项必须使用不含计数的精确可访问名称')
     await page.keyboard.press('Escape')
     await scopePanel.waitFor({ state: 'hidden' })
     await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '管理包含范围')
     assert.equal(await scope.evaluate((element) => document.activeElement === element), true, 'Escape 关闭后焦点必须返回范围入口')
 
     await activateWithTabAndEnter(page, scope, '范围菜单重新开启')
-    const paperScope = page.getByRole('menuitemcheckbox', { name: /^模拟盘/ })
     await activateWithTabAndEnter(page, paperScope, '来源关闭动作')
     assert.equal(await paperScope.getAttribute('aria-checked'), 'false', '键盘关闭来源未更新 aria-checked')
     await activateWithTabAndEnter(page, paperScope, '来源恢复动作')
@@ -381,11 +642,38 @@ try {
     await page.waitForFunction(() => document.activeElement?.closest('[data-trade-id]')?.getAttribute('data-trade-id') === 'filler-17')
 
     await scrollResultsToBottom(page)
-    let mobileMenu = page.locator('[data-trade-id="live-root"]')
+    let rowMenu = page.locator('[data-trade-id="live-root"]')
       .getByRole('button', { name: '更多操作：XAUUSD' })
-    await activateWithTabAndEnter(page, mobileMenu, '合并项移动菜单')
+    await activateWithTabAndEnter(page, rowMenu, '合并项共享行菜单')
+    assert.equal(await rowMenu.getAttribute('aria-haspopup'), 'menu', '共享行菜单真实触发器缺少 aria-haspopup')
+    assert.equal(await rowMenu.getAttribute('aria-expanded'), 'true', '共享行菜单真实触发器缺少打开态 aria-expanded')
+    const rowMenuId = await rowMenu.getAttribute('aria-controls')
+    assert.ok(rowMenuId, '共享行菜单真实触发器缺少 aria-controls')
+    const rowMenuPanel = page.locator(`[id=${JSON.stringify(rowMenuId)}]`)
+    assert.equal(
+      await rowMenuPanel.getAttribute('role'),
+      'menu',
+      '共享行菜单 aria-controls 未指向实际菜单',
+    )
     const sourceMenuItem = page.getByRole('menuitem', { name: '打开 XAUUSD 原始交易记录', exact: true })
-    await activateWithTabAndEnter(page, sourceMenuItem, '移动菜单原始记录动作')
+    const rowMenuItems = rowMenuPanel.getByRole('menuitem')
+    const secondRowMenuItem = rowMenuItems.nth(1)
+    const lastRowMenuItem = rowMenuItems.last()
+    await assertFocused(sourceMenuItem, '共享行菜单打开后首项必须自然获得焦点')
+    await page.keyboard.press('ArrowDown')
+    await assertFocused(secondRowMenuItem, '共享行菜单 ArrowDown 必须移动到下一项')
+    await page.keyboard.press('End')
+    await assertFocused(lastRowMenuItem, '共享行菜单 End 必须移动到末项')
+    await page.keyboard.press('Home')
+    await assertFocused(sourceMenuItem, '共享行菜单 Home 必须移动到首项')
+    await page.keyboard.press('ArrowUp')
+    await assertFocused(lastRowMenuItem, '共享行菜单 ArrowUp 必须从首项循环到末项')
+    await page.keyboard.press('Escape')
+    await rowMenuPanel.waitFor({ state: 'hidden' })
+    await assertFocused(rowMenu, '共享行菜单 Escape 必须把焦点还给真实触发器')
+    await page.keyboard.press('Enter')
+    await assertFocused(sourceMenuItem, '共享行菜单重新打开后首项必须自然获得焦点')
+    await page.keyboard.press('Enter')
     await waitForRouterLocation(page, '/trade/LIVE-001')
     await activateWithTabAndEnter(page, page.getByRole('link', { name: '返回错过的机会' }), '原始记录详情返回')
     await waitForRouterLocation(page, '/missed')
@@ -409,11 +697,13 @@ try {
     assert.notEqual(restoredFocus.display, 'none', '移动端详情返回不得聚焦 display:none 桌面按钮')
     assert.ok(restoredFocus.rectCount > 0 && restoredFocus.width >= 44 && restoredFocus.height >= 44, '移动端详情返回必须聚焦可见 44×44 菜单')
 
-    mobileMenu = page.locator('[data-trade-id="live-root"]')
+    rowMenu = page.locator('[data-trade-id="live-root"]')
       .getByRole('button', { name: '更多操作：XAUUSD' })
-    await activateWithTabAndEnter(page, mobileMenu, '合并项案例菜单')
+    await activateWithTabAndEnter(page, rowMenu, '合并项案例共享行菜单')
     const caseMenuItem = page.getByRole('menuitem', { name: '打开案例 CAS-LINK-1', exact: true })
-    await activateWithTabAndEnter(page, caseMenuItem, '移动菜单案例动作')
+    await assertFocused(sourceMenuItem, '案例共享行菜单打开后首项必须自然获得焦点')
+    await tabToTarget(page, caseMenuItem, '案例共享行菜单必须通过 ArrowDown 到达案例动作', 'ArrowDown')
+    await page.keyboard.press('Enter')
     await waitForRouterLocation(page, '/trade/CAS-LINK-1')
     await activateWithTabAndEnter(page, page.getByRole('link', { name: '返回错过的机会' }), '案例详情返回')
     await waitForRouterLocation(page, '/missed')

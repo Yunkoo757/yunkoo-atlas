@@ -30,6 +30,7 @@ export function MissedOpportunityScopeMenu({
   const panelId = useId()
 
   const close = useCallback(() => {
+    setConstraint(null)
     setOpen(false)
     requestAnimationFrame(() => triggerRef.current?.focus())
   }, [])
@@ -63,7 +64,14 @@ export function MissedOpportunityScopeMenu({
         aria-expanded={open}
         aria-controls={panelId}
         aria-haspopup="menu"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (open) {
+            close()
+            return
+          }
+          setConstraint(null)
+          setOpen(true)
+        }}
       >
         范围 · {sources.length}
       </button>
@@ -85,7 +93,7 @@ export function MissedOpportunityScopeMenu({
                 {sources.includes(source) ? <Check size={11} /> : null}
               </span>
               <span>{SOURCE_LABELS[source]}</span>
-              <span className="missed-scope-count">{rawCounts[source]}</span>
+              <span className="missed-scope-count" aria-hidden="true">{rawCounts[source]}</span>
             </button>
           ))}
           {constraint ? <p role="status">{constraint}</p> : null}

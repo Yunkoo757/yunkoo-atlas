@@ -197,6 +197,31 @@ export async function testSpacingScaleIsUsedForCanonicalSpacingValues(): Promise
   }
 }
 
+export async function testMissedOpportunityInsetsUseSharedResponsiveSpacingTokens(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const css = (await fs.readFile('src/views/MissedOpportunitiesView.css', 'utf8'))
+    .replace(/\r\n?/g, '\n')
+
+  assert(
+    /\.missed-merge-note\s*\{[^}]*margin:\s*var\(--sp-2\)\s+var\(--sp-4\);/s.test(css),
+    '错过机会桌面合并说明必须使用 16px 的 --sp-4 横向间距',
+  )
+  assert(
+    /\.missed-filter-panel\s*\{[^}]*left:\s*var\(--sp-4\);/s.test(css),
+    '错过机会桌面筛选面板必须使用 16px 的 --sp-4 左侧 inset',
+  )
+
+  const mobile = css.slice(css.indexOf('@media (max-width: 768px)'))
+  assert(
+    /\.missed-merge-note\s*\{[^}]*margin-right:\s*var\(--sp-3\);[^}]*margin-left:\s*var\(--sp-3\);/s.test(mobile),
+    '错过机会移动合并说明必须使用 12px 的 --sp-3 横向间距',
+  )
+  assert(
+    /\.missed-filter-panel\s*\{[^}]*right:\s*var\(--sp-3\);[^}]*left:\s*var\(--sp-3\);/s.test(mobile),
+    '错过机会移动筛选面板必须使用 12px 的 --sp-3 横向 inset',
+  )
+}
+
 export async function testCssModifiersUseTheSingleIsStateConvention(): Promise<void> {
   const fs = await import('node:fs/promises')
   const sources = await Promise.all(CSS_FILES.map((file) => fs.readFile(file, 'utf8')))

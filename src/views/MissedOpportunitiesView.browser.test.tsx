@@ -380,6 +380,11 @@ async function run(): Promise<void> {
     assert(scopeOption('交易日志').textContent?.includes('1'), '交易日志来源计数不准确')
     assert(scopeOption('模拟盘').textContent?.includes('1'), '模拟盘来源计数不准确')
     assert(scopeOption('案例记录').textContent?.includes('4'), '案例记录来源计数不准确')
+    assert(
+      [...document.querySelectorAll<HTMLElement>('.missed-scope-count')]
+        .every((count) => count.getAttribute('aria-hidden') === 'true'),
+      '范围计数必须从复选项可访问名称中隐藏',
+    )
     document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
     await waitFor(() => document.querySelector('[role="menu"][aria-label="包含范围"]') === null, '外部点击未关闭范围菜单')
     await frame()
@@ -441,6 +446,10 @@ async function run(): Promise<void> {
     await frame()
     assert(document.activeElement === scopeTrigger(), 'Escape 关闭后焦点必须返回范围入口')
     await ensureScopeOpen()
+    assert(
+      document.querySelector('.missed-scope-popover [role="status"]') === null,
+      '关闭后重新打开范围菜单不得恢复上一次会话的约束提示',
+    )
     scopeOption('模拟盘').click()
     scopeOption('案例记录').click()
     await waitFor(() => resultRow(rootTrade.id).classList.contains('is-merged'), '恢复案例来源后聚合项未恢复')
@@ -530,12 +539,12 @@ async function run(): Promise<void> {
 
     const sourceMenu = resultRow(rootTrade.id).querySelector<HTMLButtonElement>('.missed-row-menu [data-trade-primary-action]')
     assert(sourceMenu, '聚合来源缺少行尾菜单')
-    keyboardActivate(sourceMenu)
-    await waitFor(() => document.querySelector('[role="menu"]') !== null, '键盘未打开聚合菜单')
+    sourceMenu.click()
+    await waitFor(() => document.querySelector('[role="menu"]') !== null, '未打开聚合菜单')
     const sourceAction = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
       .find((button) => button.textContent?.trim() === '打开 XAUUSD 原始交易记录')
     assert(sourceAction, '聚合菜单缺少打开原始记录动作')
-    keyboardActivate(sourceAction)
+    sourceAction.click()
     await waitFor(
       () => routerLocation() === '/trade/LIVE-001',
       '桌面原始记录动作未进入准确目标',
@@ -545,12 +554,12 @@ async function run(): Promise<void> {
     for (const reviewCase of [linkedCaseOne, linkedCaseTwo]) {
       const caseMenu = resultRow(rootTrade.id).querySelector<HTMLButtonElement>('.missed-row-menu [data-trade-primary-action]')
       assert(caseMenu, '聚合项缺少行尾菜单')
-      keyboardActivate(caseMenu)
-      await waitFor(() => document.querySelector('[role="menu"]') !== null, '键盘未打开聚合菜单')
+      caseMenu.click()
+      await waitFor(() => document.querySelector('[role="menu"]') !== null, '未打开聚合菜单')
       const menuItem = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
         .find((button) => button.textContent?.trim() === `打开案例 ${reviewCase.ref}`)
       assert(menuItem, `多案例菜单缺少准确目标：${reviewCase.ref}`)
-      keyboardActivate(menuItem)
+      menuItem.click()
       await waitFor(() => routerLocation() === `/trade/${reviewCase.ref}`, `案例动作未进入 ${reviewCase.ref}`)
       await returnFromDetail(rootTrade.id)
     }
