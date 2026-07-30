@@ -97,6 +97,37 @@ async function assertRowsDoNotOverlap(page, phase) {
   }
 }
 
+async function assertResultsScrolledToBottom(page, viewport) {
+  const metrics = await page.locator('.missed-content').evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    const lastRow = document.querySelector('[data-trade-id="mobile-last"]')?.getBoundingClientRect()
+    return {
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      contentTop: rect.top,
+      contentBottom: rect.bottom,
+      lastRowTop: lastRow?.top,
+      lastRowBottom: lastRow?.bottom,
+    }
+  })
+  assert.ok(metrics.scrollTop > 0, `${viewport.name} 长列表滚动到底后必须形成非零滚动位置`)
+  assert.ok(
+    Math.abs(metrics.scrollHeight - metrics.clientHeight - metrics.scrollTop) <= 1,
+    `${viewport.name} 长列表必须真实滚动到底部边界`,
+  )
+  assert.ok(
+    metrics.lastRowTop !== undefined && metrics.lastRowBottom !== undefined,
+    `${viewport.name} 长列表底部缺少最后一条真实记录`,
+  )
+  assert.ok(
+    metrics.lastRowTop < metrics.contentBottom
+      && metrics.lastRowBottom > metrics.contentTop
+      && metrics.lastRowBottom <= metrics.contentBottom + 1,
+    `${viewport.name} 最后一条记录必须稳定落在列表可视边界内`,
+  )
+}
+
 async function assertResponsiveLayout(page, viewport) {
   const expectedViewport = { width: viewport.width, height: viewport.height }
   assert.deepEqual(
@@ -129,6 +160,10 @@ async function assertResponsiveLayout(page, viewport) {
     const visibleChildren = [...element.children]
       .map((child) => child.getBoundingClientRect())
       .filter((rect) => rect.width > 0 && rect.height > 0)
+    const childCenterLines = visibleChildren.map((rect) => rect.top + rect.height / 2)
+    const centerLineSpread = childCenterLines.length > 0
+      ? Math.max(...childCenterLines) - Math.min(...childCenterLines)
+      : Number.POSITIVE_INFINITY
     return {
       height: barRect.height,
       flexWrap: style.flexWrap,
@@ -136,7 +171,8 @@ async function assertResponsiveLayout(page, viewport) {
       paddingLeft: Number.parseFloat(style.paddingLeft),
       paddingRight: Number.parseFloat(style.paddingRight),
       actionsInside: Boolean(actions && actions.left >= barRect.left && actions.right <= barRect.right + 0.5),
-      oneRow: visibleChildren.every((rect) => rect.top >= barRect.top - 0.5 && rect.bottom <= barRect.bottom + 0.5),
+      visibleChildCount: visibleChildren.length,
+      centerLineSpread,
       activeFiltersOverflowX: activeStyle?.overflowX,
     }
   })
@@ -144,7 +180,11 @@ async function assertResponsiveLayout(page, viewport) {
   assert.equal(toolbarMetrics.overflowX, 'visible', `${viewport.name} 工具栏自身不得横向滚动`)
   assert.equal(toolbarMetrics.activeFiltersOverflowX, 'auto', `${viewport.name} 只能由当前筛选区横向滚动`)
   assert.equal(toolbarMetrics.actionsInside, true, `${viewport.name} 工具栏动作不得被挤出屏幕`)
-  assert.equal(toolbarMetrics.oneRow, true, `${viewport.name} 工具栏必须保持单行`)
+  assert.ok(toolbarMetrics.visibleChildCount >= 2, `${viewport.name} 工具栏必须具有可比较的真实子项`)
+  assert.ok(
+    toolbarMetrics.centerLineSpread <= 0.5,
+    `${viewport.name} 工具栏子项必须处于同一行中心线`,
+  )
   const expectedPadding = viewport.width <= 768 ? 12 : 16
   assert.equal(toolbarMetrics.paddingLeft, expectedPadding, `${viewport.name} 工具栏左内边距不准确`)
   assert.equal(toolbarMetrics.paddingRight, expectedPadding, `${viewport.name} 工具栏右内边距不准确`)
@@ -154,15 +194,43 @@ async function assertResponsiveLayout(page, viewport) {
 
   const contentMetrics = await page.locator('.missed-content').evaluate((element) => {
     const rect = element.getBoundingClientRect()
+    const firstVisibleRow = [...element.querySelectorAll('.missed-row')]
+      .map((row) => row.getBoundingClientRect())
+      .find((rowRect) => rowRect.bottom > rect.top && rowRect.top < rect.bottom)
     return {
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
       width: rect.width,
       height: rect.height,
       clientHeight: element.clientHeight,
       scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+      firstRowTop: firstVisibleRow?.top,
+      firstRowBottom: firstVisibleRow?.bottom,
     }
   })
-  assert.ok(contentMetrics.width > 0 && contentMetrics.height > 0, `${viewport.name} 列表区域必须稳定可见`)
-  assert.ok(contentMetrics.scrollHeight >= contentMetrics.clientHeight, `${viewport.name} 列表滚动区域尺寸不稳定`)
+  assert.ok(
+    contentMetrics.width > 0 && contentMetrics.height >= viewport.height * 0.5,
+    `${viewport.name} 列表区域必须稳定占据至少半个 viewport 高度`,
+  )
+  assert.ok(
+    contentMetrics.left >= -0.5 && contentMetrics.right <= contentMetrics.viewportWidth + 0.5
+      && contentMetrics.top >= -0.5 && contentMetrics.bottom <= contentMetrics.viewportHeight + 0.5,
+    `${viewport.name} 列表区域必须完整落在 viewport 边界内`,
+  )
+  assert.equal(contentMetrics.scrollTop, 0, `${viewport.name} 列表初始位置必须稳定在顶部`)
+  assert.ok(contentMetrics.scrollHeight > contentMetrics.clientHeight, `${viewport.name} 足量长列表必须形成真实纵向滚动`)
+  assert.ok(
+    contentMetrics.firstRowTop !== undefined && contentMetrics.firstRowBottom !== undefined
+      && contentMetrics.firstRowTop >= contentMetrics.top - 0.5
+      && contentMetrics.firstRowTop < contentMetrics.bottom
+      && contentMetrics.firstRowBottom > contentMetrics.top,
+    `${viewport.name} 首条可见记录必须稳定落在列表顶部边界内`,
+  )
 
   const rowHeights = await page.locator('.missed-row').evaluateAll((elements) => elements
     .map((element) => element.getBoundingClientRect().height)
@@ -174,19 +242,39 @@ async function assertResponsiveLayout(page, viewport) {
     assert.equal(rowHeights.every((height) => height >= 64 && height <= 72), true, `${viewport.name} 行高必须在 64–72px`)
   }
 
-  if (viewport.width <= 768) {
-    for (const [name, trigger] of [['范围', scope], ['筛选', filter]]) {
-      const rect = await trigger.boundingBox()
-      assert.ok(rect && rect.height >= 44, `${viewport.name} ${name}按钮命中区高度不足 44px`)
+  for (const [name, trigger] of [['范围', scope], ['筛选', filter]]) {
+    const rect = await trigger.boundingBox()
+    assert.ok(rect, `${viewport.name} ${name}按钮必须具有真实几何尺寸`)
+    const computedHeight = await trigger.evaluate((element) => Number.parseFloat(getComputedStyle(element).height))
+    if (viewport.width <= 768) {
+      assert.ok(rect.width >= 44, `${viewport.name} ${name}按钮命中区宽度不足 44px`)
+      assert.ok(rect.height >= 44, `${viewport.name} ${name}按钮命中区高度不足 44px`)
+    } else {
+      assert.ok(Math.abs(rect.height - 32) <= 0.5, `${viewport.name} ${name}按钮几何高度必须为 32px`)
+      assert.ok(Math.abs(computedHeight - 32) <= 0.5, `${viewport.name} ${name}按钮 computed height 必须为 32px`)
     }
   }
 
   const visibleRowMenus = page.locator('.missed-row-menu button:visible')
   const menuCount = await visibleRowMenus.count()
   assert.ok(menuCount > 0, `${viewport.name} 至少需要一个可见行菜单`)
-  for (let index = 0; index < menuCount; index += 1) {
-    const accessibleName = await visibleRowMenus.nth(index).getAttribute('aria-label')
-    assert.ok(accessibleName?.trim(), `${viewport.name} 第 ${index + 1} 个可见行菜单缺少可访问名称`)
+  const menuContexts = await visibleRowMenus.evaluateAll((buttons) => buttons.map((button) => {
+    const row = button.closest('[data-trade-id]')
+    const symbolElement = row?.querySelector('.missed-row-symbol strong')
+    return {
+      tradeId: row?.getAttribute('data-trade-id') ?? '',
+      symbol: symbolElement?.textContent?.trim() ?? '',
+      symbolVisible: Boolean(symbolElement && symbolElement.getClientRects().length > 0),
+      accessibleName: button.getAttribute('aria-label')?.trim() ?? '',
+    }
+  }))
+  for (const [index, context] of menuContexts.entries()) {
+    assert.ok(context.tradeId, `${viewport.name} 第 ${index + 1} 个可见行菜单缺少所属记录`)
+    assert.ok(context.symbol && context.symbolVisible, `${viewport.name} 记录 ${context.tradeId} 缺少可见 symbol`)
+    assert.ok(
+      context.accessibleName.includes(context.symbol),
+      `${viewport.name} 记录 ${context.tradeId} 的行菜单名称必须包含 symbol ${context.symbol}`,
+    )
   }
 }
 
@@ -204,6 +292,7 @@ try {
       await assertRowsDoNotOverlap(page, `${viewport.name} 列表顶部`)
       await scrollResultsToBottom(page)
       await assertRowsDoNotOverlap(page, `${viewport.name} 列表底部`)
+      await assertResultsScrolledToBottom(page, viewport)
 
       if (viewport.width <= 768) {
         const menuButton = page.locator('[data-trade-id="live-root"]')
