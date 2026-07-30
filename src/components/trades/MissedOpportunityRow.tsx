@@ -109,7 +109,7 @@ export function MissedOpportunityRow({
       ariaLabel={`${primary.symbol}，${sideLabel}，${SOURCE_LABELS[item.source]}，${missReason}，${fmtDate(item.occurredAt)}`}
       focused={focused}
       openAction={openAction}
-      check={<span className="trade-row-check-placeholder" aria-hidden />}
+      check={<span className="trade-row-check-spacer" aria-hidden />}
       status={<StatusIcon status="missed" />}
       reference={primary.ref}
       symbol={

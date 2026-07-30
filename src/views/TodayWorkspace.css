@@ -238,7 +238,7 @@
 }
 
 .today-workflow-list .trade-row:last-child { border-bottom: 0; }
-.today-workflow-list .trade-row-check-placeholder {
+.today-workflow-list .trade-row-check-spacer {
   width: 18px;
   height: 18px;
 }

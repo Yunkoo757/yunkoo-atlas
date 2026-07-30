@@ -87,7 +87,7 @@ export const TradeRow = memo(function TradeRow({
           className="trade-row-check"
         />
       ) : (
-        <span className="trade-row-check-placeholder" aria-hidden />
+        <span className="trade-row-check-spacer" aria-hidden />
       )}
       status={<StatusIcon status={trade.status} />}
       reference={trade.ref}
