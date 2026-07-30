@@ -29,4 +29,12 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   assert(tokens.includes('--neg:'), '必须保留盈亏红色令牌')
   assert(statusIcon.includes("win: 'var(--pos)'"), '盈利状态图标必须使用盈亏绿')
   assert(statusIcon.includes("loss: 'var(--neg)'"), '亏损状态图标必须使用盈亏红')
+
+  for (const forbidden of [
+    '.trade-row.is-selected::after',
+    '.trade-row.is-focused::after',
+    '.trade-row:has(.trade-row-open:focus-visible)',
+  ]) {
+    if (css.includes(forbidden)) throw new Error(`不得恢复整行高亮：${forbidden}`)
+  }
 }

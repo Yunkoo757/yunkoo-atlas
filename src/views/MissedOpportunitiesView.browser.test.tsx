@@ -101,6 +101,54 @@ function filterTrigger(): HTMLButtonElement {
   return trigger
 }
 
+function assertToolbarActionsUseSharedControlStyle(): void {
+  const reference = document.createElement('button')
+  reference.type = 'button'
+  reference.className = 'ui-filter-trigger'
+  reference.textContent = '参考'
+  reference.style.position = 'absolute'
+  reference.style.left = '-9999px'
+  document.body.append(reference)
+
+  try {
+    const referenceStyle = getComputedStyle(reference)
+    for (const [label, control] of [
+      ['范围', scopeTrigger()],
+      ['筛选', filterTrigger()],
+    ] as const) {
+      const style = getComputedStyle(control)
+      for (const property of [
+        'height',
+        'paddingLeft',
+        'paddingRight',
+        'fontSize',
+        'fontWeight',
+        'borderTopColor',
+        'borderTopWidth',
+        'borderRadius',
+        'backgroundColor',
+      ] as const) {
+        assert(
+          style[property] === referenceStyle[property],
+          `${label}按钮必须复用工具栏控件样式：${property}`,
+        )
+      }
+    }
+  } finally {
+    reference.remove()
+  }
+}
+
+function assertFocusedAggregateRowHasNoVisualHighlight(): void {
+  const row = resultRow(paperTrade.id)
+  const overlay = row.querySelector<HTMLButtonElement>('[data-trade-primary-action]')!
+  overlay.focus()
+  assert(getComputedStyle(overlay).outlineStyle === 'none', '聚合整行入口不得绘制外框')
+  assert(getComputedStyle(row).boxShadow === 'none', '聚合行不得绘制焦点亮边')
+  assert(getComputedStyle(row, '::before').content === 'none', '聚合行不得保留焦点边缘标记')
+  assert(getComputedStyle(row).backgroundColor === 'rgba(0, 0, 0, 0)', '聚合焦点行不得改变底色')
+}
+
 async function ensureFilterOpen(): Promise<void> {
   if (document.querySelector('[aria-label="错过机会筛选"]')) return
   keyboardActivate(filterTrigger())
@@ -369,6 +417,8 @@ async function run(): Promise<void> {
     assert(document.querySelector('.missed-scope') === null, '不得保留常驻范围配置区')
     assert(document.querySelector('[data-missed-total]')?.textContent?.includes('全部机会 4'), '工具栏结果数不准确')
     assert(scopeTrigger().textContent?.trim() === '范围 · 3', '范围入口必须显示已启用来源数')
+    assertToolbarActionsUseSharedControlStyle()
+    assertFocusedAggregateRowHasNoVisualHighlight()
     await ensureScopeOpen()
     const scopePanel = document.querySelector<HTMLElement>('[role="menu"][aria-label="包含范围"]')
     assert(scopePanel?.contains(document.activeElement), '范围菜单打开后必须接收焦点')
