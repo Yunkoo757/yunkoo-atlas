@@ -315,6 +315,10 @@
   height: var(--field-height-md);
 }
 
+.ui-filter-shell:not(:has(.ui-filter-chip)) .missed-filter-clear {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .missed-view > .ui-filter-shell .ui-filter-bar {
     min-height: 56px;

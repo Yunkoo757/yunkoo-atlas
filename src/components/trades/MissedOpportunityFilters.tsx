@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { FilterBar, type ActiveFilter } from '@/components/ui/FilterBar'
@@ -24,6 +24,9 @@ export function MissedOpportunityFilters({
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const symbols = useMemo(
     () => collectSymbolOptions(symbolCatalog, trades.map((trade) => trade.symbol)),
     [symbolCatalog, trades],
@@ -40,6 +43,34 @@ export function MissedOpportunityFilters({
     setSearchParams(next, { replace: true })
   }
   const clearFilters = () => setSearchParams(new URLSearchParams(), { replace: true })
+  const closeFilters = useCallback((restoreFocus = true) => {
+    setOpen(false)
+    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus())
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    panelRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus()
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('.ui-select-menu')) return
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
+        closeFilters(false)
+      }
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || document.querySelector('.ui-select-menu')) return
+      event.preventDefault()
+      closeFilters()
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [closeFilters, open])
 
   const activeFilters: ActiveFilter[] = []
   const period = searchParams.get('period') as CalendarPeriod | null
@@ -74,7 +105,9 @@ export function MissedOpportunityFilters({
     <FilterBar
       activeFilters={activeFilters}
       open={open}
-      onToggle={() => setOpen((current) => !current)}
+      onToggle={() => (open ? closeFilters() : setOpen(true))}
+      rootRef={rootRef}
+      triggerRef={triggerRef}
       panelId="missed-opportunity-filter-panel"
       label="筛选错过机会"
       quickViews={(
@@ -91,6 +124,7 @@ export function MissedOpportunityFilters({
       actions={actions}
     >
       <div
+        ref={panelRef}
         className="missed-filter-panel"
         id="missed-opportunity-filter-panel"
         role="dialog"
