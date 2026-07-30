@@ -6,8 +6,8 @@
 }
 
 .missed-view > .ui-filter-shell .ui-filter-bar {
-  padding-right: 16px;
-  padding-left: 16px;
+  padding-right: var(--sp-4);
+  padding-left: var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -295,7 +295,7 @@
   width: 100%;
   min-height: 100%;
   margin: auto;
-  padding: 32px 16px;
+  padding: var(--sp-8) var(--sp-4);
   text-align: center;
   color: var(--text-secondary);
 }
@@ -360,8 +360,8 @@
 @media (max-width: 768px) {
   .missed-view > .ui-filter-shell .ui-filter-bar {
     min-height: 56px;
-    padding-right: 12px;
-    padding-left: 12px;
+    padding-right: var(--sp-3);
+    padding-left: var(--sp-3);
     flex-wrap: nowrap;
   }
 
