@@ -97,7 +97,7 @@
 
 .missed-scope-trigger,
 .missed-view > .ui-filter-shell .ui-filter-trigger {
-  height: var(--field-height-md);
+  height: var(--toolbar-action-height);
 }
 
 .missed-scope-trigger {
@@ -388,9 +388,67 @@
 
   .missed-scope-trigger,
   .missed-view > .ui-filter-shell .ui-filter-trigger,
-  .missed-view > .ui-filter-shell .ui-filter-chip {
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static) {
+    position: relative;
     min-width: 44px;
     height: 44px;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .missed-scope-trigger::before,
+  .missed-view > .ui-filter-shell .ui-filter-trigger::before,
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static)::before {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: var(--toolbar-action-height);
+    transform: translateY(-50%);
+    border: 1px solid var(--surface-control-border);
+    border-radius: var(--radius-full);
+    background: var(--surface-control);
+  }
+
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static)::before {
+    height: var(--toolbar-chip-height);
+  }
+
+  .missed-scope-trigger > *,
+  .missed-view > .ui-filter-shell .ui-filter-trigger > *,
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static) > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .missed-view > .ui-filter-shell .ui-filter-chip-static {
+    height: var(--toolbar-chip-height);
+  }
+
+  .missed-scope-trigger:hover,
+  .missed-scope-trigger:active:not(:disabled),
+  .missed-scope-trigger:focus-visible,
+  .missed-scope-trigger.is-open,
+  .missed-view > .ui-filter-shell .ui-filter-trigger:hover,
+  .missed-view > .ui-filter-shell .ui-filter-trigger.is-open,
+  .missed-view > .ui-filter-shell .ui-filter-trigger.has-filters,
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static):hover {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .missed-scope-trigger:hover::before,
+  .missed-scope-trigger:active:not(:disabled)::before,
+  .missed-scope-trigger:focus-visible::before,
+  .missed-scope-trigger.is-open::before,
+  .missed-view > .ui-filter-shell .ui-filter-trigger:hover::before,
+  .missed-view > .ui-filter-shell .ui-filter-trigger.is-open::before,
+  .missed-view > .ui-filter-shell .ui-filter-trigger.has-filters::before,
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static):hover::before {
+    border-color: var(--surface-control-border-active);
+    background: var(--surface-control-active);
   }
 
   .missed-scope-popover [role='menuitemcheckbox'] {
@@ -438,6 +496,25 @@
   .missed-row-time {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+}
+
+@media (min-width: 769px) and (pointer: coarse) {
+  .missed-scope-trigger,
+  .missed-view > .ui-filter-shell .ui-filter-trigger,
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static) {
+    position: relative;
+  }
+
+  .missed-scope-trigger::after,
+  .missed-view > .ui-filter-shell .ui-filter-trigger::after,
+  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static)::after {
+    content: '';
+    position: absolute;
+    inset: 50%;
+    width: max(100%, var(--touch-target));
+    height: var(--touch-target);
+    transform: translate(-50%, -50%);
   }
 }
 
