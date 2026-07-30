@@ -1,4 +1,6 @@
 .missed-view {
+  --missed-control-boundary: color-mix(in srgb, var(--text-tertiary) 66%, var(--bg-surface));
+
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -9,6 +11,10 @@
   padding-right: var(--sp-4);
   padding-left: var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.missed-view > .ui-filter-shell .ui-filter-trigger {
+  border-color: var(--missed-control-boundary);
 }
 
 .missed-empty h2 {
@@ -100,7 +106,7 @@
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-medium);
-  border: 1px solid var(--surface-control-border);
+  border: 1px solid var(--missed-control-boundary);
   border-radius: var(--radius-full);
   background: var(--surface-control);
 }
@@ -136,7 +142,7 @@
   place-items: center;
   width: 18px;
   height: 18px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--missed-control-boundary);
   border-radius: var(--radius-4);
 }
 
