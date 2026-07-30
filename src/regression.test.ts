@@ -682,19 +682,21 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   assert(missedView.includes('showDisplay={false}'), '聚合页不得显示交易列表展示设置')
   assert(!missedView.includes('onView='), '聚合页不得暗示存在列表/看板切换')
   assert(missedView.includes('title="错过的机会"'), '聚合页必须显示固定标题')
-  assert(missedView.includes('subtitle="来自你选择的工作区"'), '聚合页必须说明数据来源范围')
-  assert(missedView.includes('管理包含范围'), '聚合页必须提供范围管理入口')
-  assert(missedView.includes('data-missed-scope'), '聚合页必须暴露范围摘要语义')
+  assert(missedView.includes('subtitle="跨工作区汇总"'), '聚合页必须使用工作台上下文副标题')
+  assert(missedView.includes('showSaveStatus={false}'), '聚合页不得常驻显示无关保存状态')
+  assert(!missedView.includes('className="missed-scope"'), '聚合页不得保留常驻范围设置区')
+  assert(missedView.includes('<MissedOpportunityScopeMenu'), '聚合页必须提供工具栏范围菜单')
   assert(
     missedView.includes('const seeded') && missedView.includes('MISSED_OPPORTUNITY_SOURCES.reduce'),
     '缺少 system:missed 项时首次范围切换必须先建立默认三来源范围',
   )
-  assert(missedView.includes('summary.rawCounts[source]'), '范围按钮必须显示不受临时筛选影响的来源原始数量')
-  assert(missedView.includes('data-missed-total') && missedView.includes('visibleItems.length'), '主总数必须显示临时筛选后的去重结果数')
+  assert(missedFilters.includes('resultCount') && missedFilters.includes('actions={actions}'), '结果数和范围入口必须进入同一工具栏')
+  assert(missedFilters.includes('id="missed-results-heading"'), '筛选工具栏必须提供结果标题')
+  assert(missedView.includes('headingRef={returnHeadingRef}'), '返回目标消失时必须聚焦结果标题')
   assert(missedView.includes('跨工作区关联项已合并'), '原始数量高于去重总数时必须说明差异')
   assert(missedView.includes('aria-live="polite"') && missedView.includes('当前显示'), '范围或筛选变化必须提供 live region 文案')
   assert(missedView.includes('data-missed-results'), '非空聚合结果必须提供最小只读结果容器')
-  assert(missedView.includes('当前筛选下没有记录') && missedView.includes('清除筛选'), '筛选后为空必须提供可恢复空状态')
+  assert(missedView.includes('没有符合当前筛选的机会') && missedView.includes('清除筛选'), '筛选后为空必须提供可恢复空状态')
   assert(missedView.includes('交易日志') && missedView.includes('模拟盘') && missedView.includes('案例记录'), '范围为空时必须逐项说明三个来源')
   assert(missedView.includes('to="/list"') && missedView.includes('to="/sim"') && missedView.includes('to="/review-cases"'), '范围为空时必须链接到各来源工作区')
 
@@ -1722,10 +1724,11 @@ export function testTradeDetailReturnRemembersListView(): void {
 
 export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [detailView, returnAnchor, missedView] = await Promise.all([
+  const [detailView, returnAnchor, missedView, missedFilters] = await Promise.all([
     fs.readFile('src/views/DetailView.tsx', 'utf8'),
     fs.readFile('src/hooks/useTradeReturnAnchor.ts', 'utf8'),
     fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
+    fs.readFile('src/components/trades/MissedOpportunityFilters.tsx', 'utf8'),
   ])
 
   assert(
@@ -1741,8 +1744,9 @@ export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(
   assert(returnAnchor.includes('onMissing?: (tradeId: string) => void'), '返回锚点必须支持目标消失回调')
   assert(
     missedView.includes('原记录已变化，已返回错过的机会列表') &&
-      missedView.includes('tabIndex={-1}') &&
-      missedView.includes('focus({ preventScroll: true })'),
+      missedView.includes('focus({ preventScroll: true })') &&
+      missedFilters.includes('id="missed-results-heading"') &&
+      missedFilters.includes('tabIndex={-1}'),
     '聚合目标消失时必须聚焦可见标题并通过 live region 说明回退结果',
   )
 }

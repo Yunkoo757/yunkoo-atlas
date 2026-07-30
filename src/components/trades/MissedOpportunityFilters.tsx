@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode, type RefObject } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { FilterBar, type ActiveFilter } from '@/components/ui/FilterBar'
@@ -12,9 +12,15 @@ const SUPPORTED_FILTERS = new Set(['period', 'symbol', 'side', 'missReason'])
 export function MissedOpportunityFilters({
   trades,
   symbolCatalog,
+  resultCount,
+  actions,
+  headingRef,
 }: {
   trades: Trade[]
   symbolCatalog: string[]
+  resultCount: number
+  actions: ReactNode
+  headingRef: RefObject<HTMLHeadingElement | null>
 }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [open, setOpen] = useState(false)
@@ -71,6 +77,18 @@ export function MissedOpportunityFilters({
       onToggle={() => setOpen((current) => !current)}
       panelId="missed-opportunity-filter-panel"
       label="筛选错过机会"
+      quickViews={(
+        <h2
+          id="missed-results-heading"
+          ref={headingRef as RefObject<HTMLHeadingElement>}
+          className="missed-results-heading"
+          data-missed-total={resultCount}
+          tabIndex={-1}
+        >
+          全部机会 <span>{resultCount}</span>
+        </h2>
+      )}
+      actions={actions}
     >
       <div
         className="missed-filter-panel"

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { MissedOpportunityFilters } from '@/components/trades/MissedOpportunityFilters'
+import { MissedOpportunityScopeMenu } from '@/components/trades/MissedOpportunityScopeMenu'
 import { MissedOpportunityRow } from '@/components/trades/MissedOpportunityRow'
 import { TradeList } from '@/components/trades/TradeList'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -41,6 +42,7 @@ export function MissedOpportunitiesView() {
   const listScrollRef = useRef<HTMLDivElement>(null)
   const returnHeadingRef = useRef<HTMLHeadingElement>(null)
   const [returnStatus, setReturnStatus] = useState<string | null>(null)
+  const scopeAnnouncementResultKey = useRef<string | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
   const handleMissingReturnAnchor = useCallback(() => {
@@ -63,6 +65,10 @@ export function MissedOpportunitiesView() {
     visibleItems.map((item) => item.key),
   ])
   useEffect(() => {
+    if (scopeAnnouncementResultKey.current === visibleResultKey) {
+      scopeAnnouncementResultKey.current = null
+      return
+    }
     setReturnStatus(null)
   }, [visibleResultKey])
   const itemByPrimaryId = useMemo(
@@ -80,7 +86,7 @@ export function MissedOpportunitiesView() {
     navigate(tradeDetailPath(target), { state: tradeDetailNavState(from) })
   }, [location.pathname, location.search, navigate])
 
-  const toggleSource = (source: MissedOpportunitySource) => {
+  const toggleSource = (source: MissedOpportunitySource): boolean => {
     const previous = useStore.getState().display.sidebarWorkspaceItems
     const hasMissedScope = previous.some(
       (item) => item.target.kind === 'system' && item.target.id === 'missed',
@@ -100,78 +106,76 @@ export function MissedOpportunitiesView() {
     )
     if (next === seeded) {
       toast('至少保留一个包含来源')
-      return
+      return false
     }
+    const nextSources = sources.includes(source)
+      ? sources.filter((candidate) => candidate !== source)
+      : [...sources, source]
+    const nextVisibleItems = filterMissedOpportunityItems(
+      buildMissedOpportunitySummary(trades, nextSources).items,
+      filters,
+      businessDateAnchor,
+    )
+    scopeAnnouncementResultKey.current = JSON.stringify([
+      nextSources,
+      searchParams.toString(),
+      nextVisibleItems.map((item) => item.key),
+    ])
     replaceSidebarWorkspaceItems(next)
+    setReturnStatus(`已更新包含范围：${nextSources.map((item) => SOURCE_LABELS[item]).join('、')}；当前显示 ${nextVisibleItems.length} 条错过机会`)
+    return true
   }
 
   const clearFilters = () => setSearchParams(new URLSearchParams(), { replace: true })
+  const emptyContent = summary.rawTotal === 0 ? (
+    <div className="missed-empty">
+      <h2>所选工作区暂无错过记录</h2>
+      <p>可以前往已包含的工作区查看或补充原始记录。</p>
+      <div className="missed-empty-actions">
+        {sources.includes('trade') ? <Link to="/list">前往交易日志</Link> : null}
+        {sources.includes('paper') ? <Link to="/sim">前往模拟盘</Link> : null}
+        {sources.includes('case') ? <Link to="/review-cases">前往案例记录</Link> : null}
+      </div>
+    </div>
+  ) : visibleItems.length === 0 ? (
+    <div className="missed-empty">
+      <h2>没有符合当前筛选的机会</h2>
+      <button type="button" onClick={clearFilters}>清除筛选</button>
+    </div>
+  ) : null
 
   return (
     <>
       <Topbar
         title="错过的机会"
-        subtitle="来自你选择的工作区"
+        subtitle="跨工作区汇总"
         showDisplay={false}
+        showSaveStatus={false}
       />
       <main className="missed-view">
-        <section className="missed-scope" data-missed-scope={sources.join(',')} aria-labelledby="missed-scope-title">
-          <div className="missed-scope-heading">
-            <div>
-              <h2 id="missed-scope-title" ref={returnHeadingRef} tabIndex={-1}>管理包含范围</h2>
-              <p>选择哪些工作区长期汇总到这里；当前临时筛选会保留。</p>
-            </div>
-            <div className="missed-total" data-missed-total={visibleItems.length}>
-              <strong>{visibleItems.length}</strong>
-              <span>条去重机会</span>
-            </div>
-          </div>
-          <div className="missed-scope-actions" role="group" aria-label="错过机会包含范围">
-            {MISSED_OPPORTUNITY_SOURCES.map((source) => (
-              <button
-                type="button"
-                key={source}
-                aria-pressed={sources.includes(source)}
-                onClick={() => toggleSource(source)}
-              >
-                {SOURCE_LABELS[source]} {summary.rawCounts[source]}
-              </button>
-            ))}
-          </div>
-          {summary.rawTotal > summary.aggregateTotal ? (
-            <p className="missed-merge-note">跨工作区关联项已合并</p>
-          ) : null}
-          <span className="missed-live" aria-live="polite">
-            {returnStatus ?? `当前显示 ${visibleItems.length} 条错过机会`}
-          </span>
-        </section>
-
-        <MissedOpportunityFilters trades={trades} symbolCatalog={symbolCatalog} />
+        <MissedOpportunityFilters
+          trades={trades}
+          symbolCatalog={symbolCatalog}
+          resultCount={visibleItems.length}
+          headingRef={returnHeadingRef}
+          actions={(
+            <MissedOpportunityScopeMenu
+              sources={sources}
+              rawCounts={summary.rawCounts}
+              onToggle={toggleSource}
+            />
+          )}
+        />
+        <span className="missed-live" aria-live="polite">
+          {returnStatus ?? `当前显示 ${visibleItems.length} 条错过机会`}
+        </span>
 
         <section className="missed-content" aria-label="错过机会结果" ref={listScrollRef}>
-          {summary.rawTotal === 0 ? (
-            <div className="missed-empty">
-              <h2>所选来源暂无错过记录</h2>
-              <p>可以前往当前包含的工作区查看或补充原始记录。</p>
-              <ul>
-                {sources.includes('trade') ? (
-                  <li>交易日志中暂无错过记录。<Link to="/list">前往交易日志</Link></li>
-                ) : null}
-                {sources.includes('paper') ? (
-                  <li>模拟盘中暂无错过记录。<Link to="/sim">前往模拟盘</Link></li>
-                ) : null}
-                {sources.includes('case') ? (
-                  <li>案例记录中暂无错过记录。<Link to="/review-cases">前往案例记录</Link></li>
-                ) : null}
-              </ul>
-            </div>
-          ) : visibleItems.length === 0 ? (
-            <div className="missed-empty">
-              <h2>当前筛选下没有记录</h2>
-              <button type="button" onClick={clearFilters}>清除筛选</button>
-            </div>
-          ) : (
+          {emptyContent ?? (
             <div className="missed-results" data-missed-results aria-label="当前错过机会">
+              {summary.rawTotal > summary.aggregateTotal ? (
+                <p className="missed-merge-note">跨工作区关联项已合并</p>
+              ) : null}
               <TradeList
                 groups={[{
                   key: 'missed-opportunities',

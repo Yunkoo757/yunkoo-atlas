@@ -43,11 +43,26 @@ async function assertLiveRegionStable(text: string, message: string): Promise<vo
   assert(matches(), `${message}：目标文案未跨至少一帧保持稳定`)
 }
 
-function sourceButton(label: string): HTMLButtonElement {
-  const button = [...document.querySelectorAll<HTMLButtonElement>('.missed-scope-actions button')]
+function scopeTrigger(): HTMLButtonElement {
+  const trigger = document.querySelector<HTMLButtonElement>('[aria-label="管理包含范围"]')
+  assert(trigger, '找不到包含范围入口')
+  return trigger
+}
+
+async function ensureScopeOpen(): Promise<void> {
+  if (document.querySelector('[role="menu"][aria-label="包含范围"]')) return
+  keyboardActivate(scopeTrigger())
+  await waitFor(
+    () => document.querySelector('[role="menu"][aria-label="包含范围"]') !== null,
+    '键盘 Enter 未打开包含范围',
+  )
+}
+
+function scopeOption(label: string): HTMLButtonElement {
+  const option = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')]
     .find((candidate) => candidate.textContent?.trim().startsWith(label))
-  assert(button, `找不到来源按钮：${label}`)
-  return button
+  assert(option, `找不到范围选项：${label}`)
+  return option
 }
 
 function routerLocation(): string {
@@ -350,14 +365,22 @@ async function run(): Promise<void> {
     }
 
     assert(document.querySelector('h1')?.textContent?.trim() === '错过的机会', '页面标题不准确')
-    assert(document.querySelector('.ui-toolbar-context')?.textContent?.trim() === '来自你选择的工作区', '页面副标题不准确')
-    const sourceButtons = [...document.querySelectorAll<HTMLButtonElement>('.missed-scope-actions button')]
-    assert(sourceButtons.length === 3, '必须渲染三个包含来源按钮')
-    assert(sourceButtons.every((button) => button.getAttribute('aria-pressed') === 'true'), '三个来源初始必须全部启用')
-    assert(sourceButton('交易日志').textContent?.trim() === '交易日志 1', '交易日志来源计数不准确')
-    assert(sourceButton('模拟盘').textContent?.trim() === '模拟盘 1', '模拟盘来源计数不准确')
-    assert(sourceButton('案例记录').textContent?.trim() === '案例记录 4', '案例记录来源计数不准确')
-    assert(document.querySelector('[data-missed-total]')?.getAttribute('data-missed-total') === '4', '去重主数不准确')
+    assert(document.querySelector('.ui-toolbar-context')?.textContent?.trim() === '跨工作区汇总', '页面副标题不准确')
+    assert(document.querySelector('.missed-scope') === null, '不得保留常驻范围配置区')
+    assert(document.querySelector('[data-missed-total]')?.textContent?.includes('全部机会 4'), '工具栏结果数不准确')
+    assert(scopeTrigger().textContent?.trim() === '范围 · 3', '范围入口必须显示已启用来源数')
+    await ensureScopeOpen()
+    const scopeOptions = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')]
+    assert(scopeOptions.length === 3, '必须渲染三个包含来源选项')
+    assert(scopeOptions.every((button) => button.getAttribute('aria-checked') === 'true'), '三个来源初始必须全部启用')
+    assert(scopeOption('交易日志').textContent?.includes('1'), '交易日志来源计数不准确')
+    assert(scopeOption('模拟盘').textContent?.includes('1'), '模拟盘来源计数不准确')
+    assert(scopeOption('案例记录').textContent?.includes('4'), '案例记录来源计数不准确')
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    await waitFor(() => document.querySelector('[role="menu"][aria-label="包含范围"]') === null, '外部点击未关闭范围菜单')
+    await frame()
+    assert(document.activeElement === scopeTrigger(), '外部点击关闭后焦点必须返回范围入口')
+    await ensureScopeOpen()
     assert(document.body.textContent?.includes('跨工作区关联项已合并'), 'raw 大于主数时缺少合并说明')
     assert(document.querySelectorAll('[data-trade-id]').length === 4, '明确关联必须只渲染一个聚合行')
     assert(document.querySelector('[data-trade-id="case-linked-one"]') === null, 'linked case 不得重复渲染为独立行')
@@ -415,6 +438,7 @@ async function run(): Promise<void> {
     )
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await waitFor(() => document.querySelector('[role="menu"]') === null, '移动菜单未关闭')
+    await ensureScopeOpen()
 
     useStore.setState({ trades: fixtureTrades })
     await waitFor(
@@ -428,39 +452,44 @@ async function run(): Promise<void> {
     }
 
     const originalPaper = useStore.getState().trades.find((trade) => trade.id === paperTrade.id)
-    keyboardActivate(sourceButton('模拟盘'))
+    keyboardActivate(scopeOption('模拟盘'))
     await waitFor(() => document.querySelector('[data-trade-id="paper-standalone"]') === null, '关闭模拟盘后模拟行仍存在')
-    assert(sourceButton('模拟盘').getAttribute('aria-pressed') === 'false', '关闭模拟盘后 aria-pressed 未更新')
+    assert(scopeOption('模拟盘').getAttribute('aria-checked') === 'false', '关闭模拟盘后 aria-checked 未更新')
     assert(useStore.getState().trades.find((trade) => trade.id === paperTrade.id) === originalPaper, '关闭来源不得修改 /sim 本地数据')
-    keyboardActivate(sourceButton('模拟盘'))
+    keyboardActivate(scopeOption('模拟盘'))
     await waitFor(() => document.querySelector('[data-trade-id="paper-standalone"]') !== null, '重新启用模拟盘后结果未恢复')
 
-    sourceButton('模拟盘').click()
-    sourceButton('案例记录').click()
+    scopeOption('模拟盘').click()
+    scopeOption('案例记录').click()
     await waitFor(
-      () => [...document.querySelectorAll<HTMLButtonElement>('.missed-scope-actions button')]
-        .filter((button) => button.getAttribute('aria-pressed') === 'true').length === 1,
+      () => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')]
+        .filter((button) => button.getAttribute('aria-checked') === 'true').length === 1,
       '未进入只保留一个来源的状态',
     )
-    sourceButton('交易日志').click()
-    assert(sourceButton('交易日志').getAttribute('aria-pressed') === 'true', '最后一个来源不得关闭')
+    scopeOption('交易日志').click()
+    assert(scopeOption('交易日志').getAttribute('aria-checked') === 'true', '最后一个来源不得关闭')
     await waitFor(
-      () => document.querySelector('[role="status"]')?.textContent?.includes('至少保留一个包含来源') === true,
+      () => document.querySelector('[role="status"]')?.textContent?.includes('至少保留一个工作区') === true,
       '最后来源保护缺少可见状态反馈',
     )
-    sourceButton('模拟盘').click()
-    sourceButton('案例记录').click()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await waitFor(() => document.querySelector('[role="menu"][aria-label="包含范围"]') === null, 'Escape 未关闭范围菜单')
+    await frame()
+    assert(document.activeElement === scopeTrigger(), 'Escape 关闭后焦点必须返回范围入口')
+    await ensureScopeOpen()
+    scopeOption('模拟盘').click()
+    scopeOption('案例记录').click()
     await waitFor(() => resultRow(rootTrade.id).classList.contains('is-merged'), '恢复案例来源后聚合项未恢复')
 
     useStore.setState({ trades: [] })
     await waitFor(
-      () => document.querySelector('.missed-empty h2')?.textContent?.trim() === '所选来源暂无错过记录',
+      () => document.querySelector('.missed-empty h2')?.textContent?.trim() === '所选工作区暂无错过记录',
       '所选来源无数据时必须进入来源空状态',
     )
     const sourceEmpty = document.querySelector<HTMLElement>('.missed-empty')
     assert(sourceEmpty, '来源空状态容器未渲染')
     assert(
-      sourceEmpty.querySelector('p')?.textContent?.trim() === '可以前往当前包含的工作区查看或补充原始记录。',
+      sourceEmpty.querySelector('p')?.textContent?.trim() === '可以前往已包含的工作区查看或补充原始记录。',
       '来源空状态缺少包含范围说明',
     )
     const emptySourceHrefs = () => [...document.querySelectorAll<HTMLAnchorElement>('.missed-empty a')]
@@ -468,20 +497,22 @@ async function run(): Promise<void> {
       .sort()
     assert(emptySourceHrefs().join(',') === '/list,/review-cases,/sim', '三来源空状态必须显示三个准确入口')
 
-    sourceButton('模拟盘').click()
-    await waitFor(() => sourceButton('模拟盘').getAttribute('aria-pressed') === 'false', '来源空状态无法关闭模拟盘')
+    scopeOption('模拟盘').click()
+    await waitFor(() => scopeOption('模拟盘').getAttribute('aria-checked') === 'false', '来源空状态无法关闭模拟盘')
     assert(emptySourceHrefs().join(',') === '/list,/review-cases', '关闭模拟盘后空状态不得保留 /sim 入口')
-    sourceButton('交易日志').click()
-    await waitFor(() => sourceButton('交易日志').getAttribute('aria-pressed') === 'false', '来源空状态无法关闭交易日志')
+    scopeOption('交易日志').click()
+    await waitFor(() => scopeOption('交易日志').getAttribute('aria-checked') === 'false', '来源空状态无法关闭交易日志')
     assert(emptySourceHrefs().join(',') === '/review-cases', '仅保留案例来源时只能显示 /review-cases 入口')
 
-    sourceButton('交易日志').click()
-    sourceButton('模拟盘').click()
+    scopeOption('交易日志').click()
+    scopeOption('模拟盘').click()
     useStore.setState({ trades: fixtureTrades })
     await waitFor(
       () => document.querySelector(`[data-trade-id="${rootTrade.id}"]`)?.classList.contains('is-merged') === true,
       '来源空状态后聚合结果未恢复',
     )
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await waitFor(() => document.querySelector('[role="menu"][aria-label="包含范围"]') === null, '来源交互后范围菜单未关闭')
 
     await ensureFilterOpen()
     await selectFilter('品种', 'XAUUSD')
@@ -496,7 +527,7 @@ async function run(): Promise<void> {
     )
     assert(document.querySelector('.missed-live')?.textContent?.trim() === '当前显示 1 条错过机会', '筛选后 live region 数量不准确')
     await selectFilter('品种', 'NZDCHF')
-    await waitFor(() => document.body.textContent?.includes('当前筛选下没有记录') ?? false, '零结果筛选缺少空状态')
+    await waitFor(() => document.body.textContent?.includes('没有符合当前筛选的机会') ?? false, '零结果筛选缺少空状态')
     const emptyClear = document.querySelector<HTMLButtonElement>('.missed-empty button')
     assert(emptyClear?.textContent?.trim() === '清除筛选', '筛选空状态缺少清除动作')
     emptyClear.click()
@@ -613,7 +644,7 @@ async function run(): Promise<void> {
     await waitFor(() => routerLocation() === '/trade/FILLER-17', '临时筛选 fallback 目标未进入详情')
     useStore.getState().removeTrade('filler-17')
     document.querySelector<HTMLAnchorElement>('[aria-label="返回错过的机会"]')?.click()
-    await waitFor(() => document.activeElement?.getAttribute('id') === 'missed-scope-title', '目标删除返回必须聚焦范围标题')
+    await waitFor(() => document.activeElement?.getAttribute('id') === 'missed-results-heading', '目标删除返回必须聚焦结果标题')
     await assertLiveRegionStable(
       '原记录已变化，已返回错过的机会列表',
       '目标删除返回必须说明结果变化',
@@ -644,19 +675,17 @@ async function run(): Promise<void> {
     )
     document.querySelector<HTMLAnchorElement>('[aria-label="返回错过的机会"]')?.click()
     await waitFor(
-      () => document.activeElement?.getAttribute('id') === 'missed-scope-title',
-      '返回锚点消失后必须聚焦范围标题',
+      () => document.activeElement?.getAttribute('id') === 'missed-results-heading',
+      '返回锚点消失后必须聚焦结果标题',
     )
     await assertLiveRegionStable(
       '原记录已变化，已返回错过的机会列表',
       '返回锚点消失后必须播报结果变化',
     )
 
-    sourceButton('案例记录').click()
-    await waitFor(
-      () => document.querySelector<HTMLElement>('.missed-live')?.textContent?.startsWith('当前显示 ') === true,
-      '下一次来源结果变化后 aria-live 必须恢复当前数量播报',
-    )
+    await ensureScopeOpen()
+    scopeOption('案例记录').click()
+    await assertLiveRegionStable('已更新包含范围：', '来源结果变化后 aria-live 必须说明新的包含范围')
   } finally {
     if (!keepMounted) {
       root.unmount()
