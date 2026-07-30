@@ -448,9 +448,9 @@
   .missed-row {
     grid-template-areas: 'source symbol side summary time actions';
     grid-template-columns: 72px minmax(120px, 168px) 48px minmax(180px, 1fr) 76px 44px;
-    grid-template-rows: 52px;
-    min-height: 52px;
-    height: 52px;
+    grid-template-rows: 64px;
+    min-height: 64px;
+    height: 64px;
     padding: 0 var(--sp-3);
   }
 }
