@@ -167,6 +167,25 @@ function assertVisualResponsiveContract(): void {
     `${window.innerWidth}px viewport 不得横向溢出`,
   )
 
+  if (window.innerWidth >= 1280) {
+    const row = resultRow(paperTrade.id)
+    const tags = row.querySelector<HTMLElement>('.trade-row-tags')
+    const strategy = row.querySelector<HTMLElement>('.trade-row-strategy')
+    const label = strategy?.querySelector<HTMLElement>('.strategy-label')
+    assert(tags && strategy && label, '桌面聚合行必须渲染策略标签')
+    const tagsWidth = tags.getBoundingClientRect().width
+    const strategyWidth = strategy.getBoundingClientRect().width
+    const labelWidth = label.getBoundingClientRect().width
+    assert(
+      strategyWidth <= labelWidth + 24,
+      `桌面聚合行策略胶囊必须紧贴内容：strategy=${strategyWidth}px, label=${labelWidth}px`,
+    )
+    assert(
+      strategyWidth < tagsWidth * 0.75,
+      `桌面聚合行策略胶囊不得占满标签列：strategy=${strategyWidth}px, tags=${tagsWidth}px`,
+    )
+  }
+
   for (const source of document.querySelectorAll<HTMLElement>('[data-missed-source]')) {
     assert(source.textContent?.trim(), '来源文字不得为空')
     assert(source.getClientRects().length > 0, `${window.innerWidth}px viewport 来源文字必须可见`)

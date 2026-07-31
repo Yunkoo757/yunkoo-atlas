@@ -126,6 +126,15 @@
   color: var(--list-text-secondary);
 }
 
+.missed-opportunity-row .trade-row-strategy {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 14ch;
+  margin-right: 0;
+  cursor: default;
+  pointer-events: none;
+}
+
 .missed-row-missing {
   color: color-mix(in srgb, var(--warn) 70%, var(--list-text-secondary));
   border-color: color-mix(in srgb, var(--warn) 24%, var(--border-subtle));
