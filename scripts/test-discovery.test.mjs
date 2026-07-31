@@ -10,6 +10,7 @@ import {
   settleBrowserDiagnostics,
   unexpectedBrowserDiagnostics,
 } from './test-discovery.mjs'
+import { runBrowserRegressionTests } from './run-browser-tests.mjs'
 
 async function withFixture(run) {
   const fixtureParent = path.join(process.cwd(), 'test-results')
@@ -157,6 +158,30 @@ test('browser runner applies every declared viewport before resolving the page c
     assert.match(`${result.stdout}\n${result.stderr}`, /PASS src\/Viewport\.browser\.test\.html$/m)
     assert.match(`${result.stdout}\n${result.stderr}`, /Viewport\.browser\.test\.html \(1440×900\)/)
     assert.match(`${result.stdout}\n${result.stderr}`, /Viewport\.browser\.test\.html \(375×812\)/)
+  })
+})
+
+test('browser runner reports real files while viewport variants keep unique test IDs', async () => {
+  await withFixture(async (root) => {
+    await write(root, 'src/ViewportIdentity.browser.test.html', `<!doctype html>
+      <meta name="atlas-browser-viewports" content="1440x900, 375x812">
+      <script>
+        window.__viewportIdentityBrowserTest = (async () => {
+          await window.__atlasBrowserWaitForActions()
+        })()
+      </script>`)
+
+    const result = await runBrowserRegressionTests(root)
+
+    assert.equal(result.failed, 0)
+    assert.deepEqual(result.passedEntries, [
+      'src/ViewportIdentity.browser.test.html',
+    ])
+    assert.deepEqual(result.passedTests, [
+      'src/ViewportIdentity.browser.test.html#__viewportIdentityBrowserTest',
+      'src/ViewportIdentity.browser.test.html#__viewportIdentityBrowserTest@1440x900',
+      'src/ViewportIdentity.browser.test.html#__viewportIdentityBrowserTest@375x812',
+    ])
   })
 })
 

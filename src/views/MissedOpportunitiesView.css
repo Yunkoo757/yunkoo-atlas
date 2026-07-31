@@ -131,8 +131,6 @@
   width: auto;
   max-width: 14ch;
   margin-right: 0;
-  cursor: default;
-  pointer-events: none;
 }
 
 .missed-row-missing {

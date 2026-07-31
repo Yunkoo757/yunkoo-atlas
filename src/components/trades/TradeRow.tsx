@@ -4,9 +4,7 @@ import type { Strategy } from '@/data/strategies'
 import { CASE_TYPE_META, REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
-import { StrategyLabel } from '@/components/StrategyIcon'
-import { HoverPreview } from '@/components/HoverPreview'
-import { StrategyPreview, type StrategyPreviewStats } from '@/components/RowPreviews'
+import type { StrategyPreviewStats } from '@/components/RowPreviews'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
@@ -14,6 +12,7 @@ import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import { TradeRowLayout } from './TradeRowLayout'
+import { TradeRowStrategy } from './TradeRowStrategy'
 
 export type TradeRowProps = {
   trade: Trade
@@ -102,24 +101,13 @@ export const TradeRow = memo(function TradeRow({
       }
       tags={
         <>
-          <HoverPreview
-            content={
-              <StrategyPreview
-                strategyId={trade.strategyId}
-                strategies={strategies}
-                stats={strategyStats}
-              />
-            }
-          >
-            <button
-              type="button"
-              className="trade-row-strategy"
-              aria-label={`打开 ${trade.ref} 交易详情`}
-              onClick={() => onOpen(trade)}
-            >
-              <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
-            </button>
-          </HoverPreview>
+          <TradeRowStrategy
+            strategyId={trade.strategyId}
+            strategies={strategies}
+            stats={strategyStats}
+            ariaLabel={`打开 ${trade.ref} 交易详情`}
+            onClick={() => onOpen(trade)}
+          />
           {session && (
             session.raw !== session.label ? (
               <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>

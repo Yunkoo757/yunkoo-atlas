@@ -2,17 +2,19 @@ import { MoreHorizontal } from '@/icons/appIcons'
 import { Menu } from '@/components/Menu'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
-import { StrategyLabel } from '@/components/StrategyIcon'
+import type { StrategyPreviewStats } from '@/components/RowPreviews'
 import type { Strategy } from '@/data/strategies'
 import { MISS_REASON_META, resolveTimeframe, type Trade } from '@/data/trades'
 import type { MissedOpportunityItem, MissedOpportunitySource } from '@/lib/missedOpportunities'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { fmtDate, fmtR } from '@/lib/format'
 import { TradeRowLayout, type TradeRowOpenAction } from './TradeRowLayout'
+import { TradeRowStrategy } from './TradeRowStrategy'
 
 type MissedOpportunityRowProps = {
   item: MissedOpportunityItem
   strategies: Strategy[]
+  strategyStats: StrategyPreviewStats | null
   focused: boolean
   symbolIcons: SymbolIconsMap
   onOpen: (target: Trade, anchorId: string) => void
@@ -41,20 +43,31 @@ function caseActionLabel(reviewCase: Trade): string {
 function MissedOpportunityTags({
   item,
   strategies,
+  strategyStats,
   merged,
+  onOpen,
 }: {
   item: MissedOpportunityItem
   strategies: Strategy[]
+  strategyStats: StrategyPreviewStats | null
   merged: boolean
+  onOpen: (target: Trade, anchorId: string) => void
 }) {
   const { primary } = item
   const missReason = MISS_REASON_META[primary.missReason ?? 'other'].label
+  const strategyName = strategies.find((strategy) => strategy.id === primary.strategyId)?.name ?? '未分类'
 
   return (
     <>
-      <span className="trade-row-strategy">
-        <StrategyLabel strategyId={primary.strategyId} strategies={strategies} />
-      </span>
+      <TradeRowStrategy
+        strategyId={primary.strategyId}
+        strategies={strategies}
+        stats={strategyStats}
+        ariaLabel={merged
+          ? `查看 ${strategyName} 策略统计`
+          : `打开 ${primary.ref} ${RECORD_LABELS[primary.tradeKind]}`}
+        onClick={merged ? undefined : () => onOpen(primary, item.key)}
+      />
       <span className="trade-row-tag missed-opportunity-source" data-missed-source={item.source}>
         {SOURCE_LABELS[item.source]}
       </span>
@@ -68,6 +81,7 @@ function MissedOpportunityTags({
 export function MissedOpportunityRow({
   item,
   strategies,
+  strategyStats,
   focused,
   symbolIcons,
   onOpen,
@@ -121,7 +135,15 @@ export function MissedOpportunityRow({
           <SideTag side={primary.side} quiet />
         </>
       }
-      tags={<MissedOpportunityTags item={item} strategies={strategies} merged={merged} />}
+      tags={(
+        <MissedOpportunityTags
+          item={item}
+          strategies={strategies}
+          strategyStats={strategyStats}
+          merged={merged}
+          onOpen={onOpen}
+        />
+      )}
       timeframe={<span className="trade-row-timeframe">{resolveTimeframe(primary.timeframe)}</span>}
       pnl={<span className="trade-row-pnl is-missed">未成交</span>}
       r={

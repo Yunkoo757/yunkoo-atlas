@@ -10,7 +10,7 @@ import {
 
 export async function runBrowserRegressionTests(root, options = {}) {
   let failed = 0
-  const passedEntries = []
+  const passedEntries = new Set()
   const passedTests = []
   const server = await createServer({
     root,
@@ -72,8 +72,12 @@ export async function runBrowserRegressionTests(root, options = {}) {
             throw new Error(`unexpected browser diagnostics:\n${unexpected.join('\n')}`)
           }
           console.log(`PASS ${browserTest.label}`)
-          passedEntries.push(browserTest.label)
-          passedTests.push(`${browserTest.label}#${browserTest.promiseKey}`)
+          const entry = browserTest.url.startsWith('/') ? browserTest.url.slice(1) : browserTest.url
+          const variant = browserTest.viewport
+            ? `@${browserTest.viewport.width}x${browserTest.viewport.height}`
+            : ''
+          passedEntries.add(entry)
+          passedTests.push(`${entry}#${browserTest.promiseKey}${variant}`)
           break
         } catch (error) {
           const retry = attempt === 0 && diagnostics.some((message) => message.includes('net::ERR_NO_BUFFER_SPACE'))
@@ -97,7 +101,7 @@ export async function runBrowserRegressionTests(root, options = {}) {
     await browser?.close()
     await server.close()
   }
-  return { failed, passedEntries, passedTests }
+  return { failed, passedEntries: [...passedEntries], passedTests }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

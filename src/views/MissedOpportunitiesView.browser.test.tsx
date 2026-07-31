@@ -283,6 +283,32 @@ function assertAggregateRowUsesTradeRowGeometry(): void {
   }
 }
 
+async function assertAggregateStrategyShowsHoverPreview(rowId: string): Promise<void> {
+  const strategyTrigger = resultRow(rowId).querySelector<HTMLElement>('.trade-row-strategy')
+  assert(strategyTrigger, `聚合行缺少策略入口：${rowId}`)
+  const triggerRect = strategyTrigger.getBoundingClientRect()
+  const pointerTarget = document.elementFromPoint(
+    triggerRect.left + triggerRect.width / 2,
+    triggerRect.top + triggerRect.height / 2,
+  )
+  assert(
+    pointerTarget?.closest('.trade-row-strategy') === strategyTrigger,
+    `聚合行策略入口必须能被真实指针命中：${rowId}`,
+  )
+
+  strategyTrigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+  await waitFor(
+    () => document.querySelector<HTMLElement>('[role="tooltip"]')?.textContent?.includes(strategy.name) === true,
+    `聚合行策略悬浮后未显示统计预览：${rowId}`,
+  )
+
+  strategyTrigger.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }))
+  await waitFor(
+    () => document.querySelector('[role="tooltip"]') === null,
+    `聚合行策略移出后未关闭统计预览：${rowId}`,
+  )
+}
+
 async function ensureFilterOpen(): Promise<void> {
   if (document.querySelector('[aria-label="错过机会筛选"]')) return
   keyboardActivate(filterTrigger())
@@ -576,6 +602,8 @@ async function run(): Promise<void> {
     assertToolbarActionsUseSharedControlStyle()
     assertFocusedAggregateRowHasNoVisualHighlight()
     assertAggregateRowUsesTradeRowGeometry()
+    await assertAggregateStrategyShowsHoverPreview(paperTrade.id)
+    await assertAggregateStrategyShowsHoverPreview(rootTrade.id)
     await ensureScopeOpen()
     const scopePanel = document.querySelector<HTMLElement>('[role="menu"][aria-label="包含范围"]')
     assert(scopePanel?.contains(document.activeElement), '范围菜单打开后必须接收焦点')

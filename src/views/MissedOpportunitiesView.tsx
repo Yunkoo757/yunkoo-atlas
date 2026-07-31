@@ -197,6 +197,7 @@ export function MissedOpportunitiesView() {
                   <MissedOpportunityRow
                     item={itemByPrimaryId.get(trade.id)!}
                     strategies={strategies}
+                    strategyStats={context.strategyStats}
                     focused={context.focused}
                     symbolIcons={context.symbolIcons}
                     onOpen={openSourceDetail}
