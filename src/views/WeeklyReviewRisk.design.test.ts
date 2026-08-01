@@ -91,7 +91,7 @@ const APPROVED_RISK_COLOR_TOKENS = new Set([
   '--accent', '--bg-elevated', '--bg-inset', '--bg-surface', '--border-strong', '--border-subtle',
   '--neg', '--pos', '--text-body', '--text-muted', '--text-strong', '--warn',
 ])
-const REQUIRED_RISK_TOKENS = ['--bg-elevated', '--bg-inset', '--border-subtle', '--text-strong', '--text-muted', '--font-mono']
+const REQUIRED_RISK_TOKENS = ['--bg-inset', '--border-subtle', '--text-strong', '--text-muted', '--font-mono']
 const TOKEN_ONLY_PROPERTIES = new Set([
   'font-size', 'gap', 'row-gap', 'column-gap', 'padding', 'padding-block', 'padding-inline',
   'padding-block-start', 'padding-block-end', 'padding-inline-start', 'padding-inline-end',
@@ -288,7 +288,7 @@ export function testWeeklyRiskStylesTargetTheEvidenceDom(): void {
     throw new Error('每日风险的实际 strong 元素必须继承等宽数字样式')
   }
   for (const declaration of [
-    'padding-block-end: var(--sp-4)',
+    'padding-block-end: var(--sp-3)',
     'color: var(--text-muted)',
     'font-size: var(--type-metadata-size)',
   ]) {
