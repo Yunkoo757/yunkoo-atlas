@@ -45,6 +45,7 @@ async function run(): Promise<void> {
     search.focus()
     await frame()
     assert(document.activeElement === search, '随记搜索框未获得焦点')
+    assert(search.autocomplete === 'off', '随记搜索框必须禁用浏览器自动填充，避免恢复内层字段背景')
     assert(getComputedStyle(search).boxShadow === 'none', '随记搜索框内部不得叠加第二层焦点阴影')
     assert(
       getComputedStyle(search.closest('.quick-notes-search')!).borderColor !== 'rgba(0, 0, 0, 0)',

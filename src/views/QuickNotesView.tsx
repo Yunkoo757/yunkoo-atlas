@@ -136,6 +136,7 @@ export function QuickNotesView() {
             <Search size={14} aria-hidden="true" />
             <input
               type="search"
+              autoComplete="off"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索随记"

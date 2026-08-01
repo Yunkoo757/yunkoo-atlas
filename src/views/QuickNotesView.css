@@ -45,7 +45,10 @@
   min-width: 0;
   border: 0;
   outline: 0;
-  background: transparent;
+  appearance: none;
+  background: transparent !important;
+  background-clip: text;
+  -webkit-background-clip: text;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
