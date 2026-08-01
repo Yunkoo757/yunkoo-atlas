@@ -17,6 +17,7 @@ declare global {
 }
 
 const activeWeekStart = weekStartFor(parseLocalDate(getTradingDayKey()))
+const browserPolicyId = 'policybrowserabcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -100,6 +101,50 @@ function addDays(ymd: string, days: number): string {
   return formatYmd(date)
 }
 
+function assertNoHorizontalOverflow(elements: HTMLElement[], message: string): void {
+  for (const element of elements) {
+    assert(element.scrollWidth <= element.clientWidth, `${message}：${element.className || element.tagName}`)
+  }
+}
+
+function assertRectFitsHorizontally(
+  element: HTMLElement,
+  container: DOMRect,
+  message: string,
+): void {
+  const rect = element.getBoundingClientRect()
+  assert(rect.left >= container.left && rect.right <= container.right, message)
+  assert(rect.left >= 0 && rect.right <= window.innerWidth, `${message}：超出视口`)
+}
+
+function assertNoOverlaps(elements: HTMLElement[], message: string): void {
+  for (let left = 0; left < elements.length; left += 1) {
+    const leftRect = elements[left]!.getBoundingClientRect()
+    for (let right = left + 1; right < elements.length; right += 1) {
+      const rightRect = elements[right]!.getBoundingClientRect()
+      const overlaps = leftRect.left < rightRect.right
+        && leftRect.right > rightRect.left
+        && leftRect.top < rightRect.bottom
+        && leftRect.bottom > rightRect.top
+      assert(!overlaps, message)
+    }
+  }
+}
+
+function assertDailyRiskRowKeepsKeyValuesOnOneLine(row: HTMLElement): void {
+  const values = [
+    row.querySelector<HTMLElement>('.wr-risk-day-date'),
+    row.querySelector<HTMLElement>('strong'),
+    row.querySelector<HTMLElement>('.wr-risk-day-status'),
+  ]
+  assert(values.every(Boolean), '每日轨迹缺少日期、R 值或状态')
+  const centers = values.map((value) => {
+    const rect = value!.getBoundingClientRect()
+    return rect.top + rect.height / 2
+  })
+  assert(centers.every((center) => Math.abs(center - centers[0]!) < 1), '每日日期、R 值和状态必须保持同一行')
+}
+
 function riskEvent(): RiskOverrideEvent {
   const outcome = riskOutcome(-1, 2)
   return {
@@ -109,7 +154,7 @@ function riskEvent(): RiskOverrideEvent {
     linkState: 'unresolved',
     decisionType: 'triggered',
     tradingDayKeyAtDecision: activeWeekStart,
-    policyVersionId: 'policy-browser',
+    policyVersionId: browserPolicyId,
     createdAt: `${activeWeekStart}T10:00:00.000Z`,
     reason: '触线后只执行预设止损',
     fingerprint: 'browser-fixture',
@@ -147,7 +192,7 @@ async function run(): Promise<void> {
       trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50), makeTrade('three', 'missed', null)],
       weeklyReviews: [],
       riskPolicyVersions: [{
-        id: 'policy-browser',
+        id: browserPolicyId,
         sourceWeekStart: activeWeekStart,
         effectiveTradingDay: activeWeekStart,
         capitalBase: 10_000,
@@ -163,7 +208,7 @@ async function run(): Promise<void> {
         id: `monthly-risk-limit:${activeWeekStart.slice(0, 7)}`,
         monthKey: activeWeekStart.slice(0, 7),
         limitR: 10,
-        sourcePolicyVersionId: 'policy-browser',
+        sourcePolicyVersionId: browserPolicyId,
         lockedAt: `${activeWeekStart}T07:00:00.000Z`,
       }],
       riskOverrideEvents: [riskEvent(), resolvedRiskEvent()],
@@ -220,8 +265,12 @@ async function run(): Promise<void> {
     const risk = document.querySelector<HTMLElement>('.wr-risk-evidence')
     assert(risk, '已完成复盘没有展示冻结风控证据')
     const text = risk.textContent ?? ''
-    assert(text.indexOf('本周风险状态') < text.indexOf('完成时月度状态'), '本周状态必须优先')
-    assert(text.indexOf('完成时月度状态') < text.indexOf('每日风险轨迹'), '每日轨迹不得压过周期结论')
+    const weekly = text.indexOf('本周风险状态')
+    const monthly = text.indexOf('完成时月度状态')
+    const daily = text.indexOf('每日风险轨迹')
+    const audit = text.indexOf('冻结审计')
+    assert([weekly, monthly, daily, audit].every((index) => index >= 0), '冻结风控证据缺少信息层级标题')
+    assert(weekly < monthly && monthly < daily && daily < audit, '本周→月度→每日→审计顺序错误')
     assert(document.querySelectorAll('.wr-risk-day').length === completed.riskSnapshot?.dailyOutcomes.length, '每日轨迹数量错误')
     const audits = [...document.querySelectorAll<HTMLDetailsElement>('.wr-risk-audit')]
     assert(audits.length === 2 && audits.every((item) => !item.open), '两个审计区默认必须收起')
@@ -231,8 +280,39 @@ async function run(): Promise<void> {
     assert(document.activeElement === firstSummary, '审计摘要必须能够获得键盘焦点')
     firstSummary.click()
     assert(audits[0]!.open, '激活 summary 后必须展开审计区')
-    assert(audits[0]!.textContent?.includes('policy-browser'), '规则展开后必须显示完整 ID')
-    assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, `${window.innerWidth}px 不得横向溢出`)
+    assert(audits[0]!.textContent?.includes(browserPolicyId), '规则展开后必须显示完整 ID')
+    const shell = document.querySelector<HTMLElement>('.wr-shell')
+    const decisions = risk.querySelector<HTMLElement>('.wr-risk-decisions')
+    const dailyEvidence = risk.querySelector<HTMLElement>('.wr-risk-daily')
+    const auditEvidence = risk.querySelector<HTMLElement>('.wr-risk-audits')
+    assert(shell, '复盘页面缺少宽度边界容器')
+    assert(decisions && dailyEvidence && auditEvidence, '冻结风控证据缺少关键布局容器')
+    const riskElements = [
+      shell,
+      risk,
+      decisions,
+      dailyEvidence,
+      auditEvidence,
+      ...risk.querySelectorAll<HTMLElement>('[class*="wr-risk-"]'),
+    ]
+    assertNoHorizontalOverflow(riskElements, `${window.innerWidth}px 风控容器不得横向滚动`)
+    const shellBounds = shell.getBoundingClientRect()
+    for (const element of [risk, decisions, dailyEvidence, auditEvidence]) {
+      assertRectFitsHorizontally(element, shellBounds, '风控布局容器必须位于页面容器内')
+    }
+    const riskBounds = risk.getBoundingClientRect()
+    const periods = [...risk.querySelectorAll<HTMLElement>('.wr-risk-period')]
+    const days = [...risk.querySelectorAll<HTMLElement>('.wr-risk-day')]
+    for (const element of [...periods, ...days, ...audits]) assertRectFitsHorizontally(element, riskBounds, '风控区关键元素必须位于容器内')
+    const visibleChildren = [...periods, ...days, audits[0]!]
+      .flatMap((element) => [...element.children])
+      .filter((element): element is HTMLElement => element instanceof HTMLElement && element.getClientRects().length > 0)
+    for (const child of visibleChildren) {
+      assertRectFitsHorizontally(child, child.parentElement!.getBoundingClientRect(), '风控区关键子元素必须位于父容器内')
+    }
+    assertNoOverlaps(periods, '风险决策卡不得重叠')
+    assertNoOverlaps(days, '每日风险行不得重叠')
+    assertNoOverlaps(audits, '审计区不得重叠')
     assert(document.body.textContent?.includes('触线后只执行预设止损'), '已完成复盘没有展示确认原因')
     assert(document.body.textContent?.includes('TRD-two · ETHUSDT · 关联未解析'), '未解析事件没有展示冻结身份与关联状态')
     const resolvedLink = [...document.querySelectorAll<HTMLAnchorElement>('a')]
@@ -240,22 +320,34 @@ async function run(): Promise<void> {
     assert(resolvedLink, 'resolved 冻结事件没有生成真实交易详情路由')
 
     const frozen = completed.riskSnapshot!
+    const dailyFixture = [
+      { date: activeWeekStart, coverage: 'complete' as const, triggered: false, label: '未触线' },
+      { date: addDays(activeWeekStart, 1), coverage: 'partial' as const, triggered: false, label: '部分覆盖' },
+      { date: addDays(activeWeekStart, 2), coverage: 'unknown' as const, triggered: false, label: '无法确认' },
+      { date: addDays(activeWeekStart, 3), coverage: 'complete' as const, triggered: true, label: '已触线' },
+    ]
     useStore.setState({
       weeklyReviews: [{
         ...completed,
         riskSnapshot: {
           ...frozen,
-          dailyOutcomes: [
-            { ...frozen.weeklyOutcome, coverage: 'partial', date: activeWeekStart },
-            { ...frozen.weeklyOutcome, coverage: 'unknown', triggered: false, date: addDays(activeWeekStart, 1) },
-            { ...frozen.weeklyOutcome, coverage: 'complete', triggered: true, date: addDays(activeWeekStart, 2) },
-          ],
+          dailyOutcomes: dailyFixture.map(({ date, coverage, triggered }) => ({
+            ...frozen.weeklyOutcome, coverage, triggered, date,
+          })),
         },
       }],
     })
-    await waitFor(() => document.body.textContent?.includes('部分覆盖') ?? false, '部分覆盖文字未出现')
-    assert(document.body.textContent?.includes('无法确认'), '未知覆盖文字未出现')
-    assert(document.body.textContent?.includes('已触线'), '触线文字未出现')
+    await waitFor(
+      () => document.querySelectorAll('.wr-risk-day').length === dailyFixture.length,
+      '每日状态 fixture 未完整渲染',
+    )
+    const dailyRows = [...document.querySelectorAll<HTMLElement>('.wr-risk-day')]
+    for (const expected of dailyFixture) {
+      const row = dailyRows.find((item) => item.querySelector('.wr-risk-day-date')?.textContent === expected.date)
+      assert(row, `每日轨迹缺少 ${expected.date}`)
+      assert(row.querySelector('.wr-risk-day-status')?.textContent === expected.label, `${expected.date} 状态文案错误`)
+      assertDailyRiskRowKeepsKeyValuesOnOneLine(row)
+    }
     useStore.setState({ weeklyReviews: [completed] })
 
     const frozenEvidence = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
