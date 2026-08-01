@@ -43,6 +43,7 @@ export function QuickNotesView() {
   const removeNote = useStore((state) => state.removeQuickNote)
   const [query, setQuery] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
+  const [loadedNoteId, setLoadedNoteId] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -72,6 +73,7 @@ export function QuickNotesView() {
   useEffect(() => {
     setEditorReady(false)
     setEditorHtml('')
+    setLoadedNoteId(null)
     if (!selectedNote) return
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
     let cancelled = false
@@ -79,6 +81,7 @@ export function QuickNotesView() {
       if (cancelled) return
       setEditorHtml(result.html)
       setEditorReady(result.editable)
+      setLoadedNoteId(selectedNote.id)
       if (!result.editable) toast('随记中有图片附件缺失，正文已切换为只读')
     })
     return () => {
@@ -180,7 +183,6 @@ export function QuickNotesView() {
                       : {
                           title: titleFromQuickNoteHtml(editorHtml),
                           titleMode: 'auto',
-                          contentHtml: editorHtml,
                         })
                   }}
                 />
@@ -208,15 +210,17 @@ export function QuickNotesView() {
                 }).format(new Date(selectedNote.updatedAt))}
               </div>
               <div className="quick-notes-editor-body">
-                <Editor
-                  key={selectedNote.id}
-                  content={editorHtml}
-                  onChange={onEditorChange}
-                  noteDraftId={`${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`}
-                  readOnly={!editorReady}
-                  ariaLabel="随记正文"
-                  placeholder="记录此刻的想法、盘面观察或灵感… 可直接粘贴截图"
-                />
+                {loadedNoteId === selectedNote.id ? (
+                  <Editor
+                    key={selectedNote.id}
+                    content={editorHtml}
+                    onChange={onEditorChange}
+                    noteDraftId={`${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`}
+                    readOnly={!editorReady}
+                    ariaLabel="随记正文"
+                    placeholder="记录此刻的想法、盘面观察或灵感… 可直接粘贴截图"
+                  />
+                ) : null}
               </div>
             </>
           ) : (

@@ -188,6 +188,7 @@ export function createFullPersistedSnapshotFixture(
       ...quickNote,
       id: 'quick-note-contract',
       title: '随记哨兵',
+      titleMode: 'manual',
       contentHtml: `<p>随记正文哨兵</p>${assetImage(assetIds.quickNote)}${assetImage(assetIds.shared)}`,
       pinned: true,
     }],
