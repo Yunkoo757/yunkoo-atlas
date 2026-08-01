@@ -3,7 +3,7 @@ import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
-import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -12,6 +12,7 @@ import '@/styles/global.css'
 declare global {
   interface Window {
     __weeklyReviewFlowTest?: Promise<void>
+    __atlasBrowserViewport?: { width: number, height: number } | null
   }
 }
 
@@ -91,6 +92,12 @@ function riskOutcome(netBudgetR: number, limitR: number): RiskPeriodOutcomeSnaps
     excludedTradeCount: 0,
     unknownReasons: [],
   }
+}
+
+function addDays(ymd: string, days: number): string {
+  const date = parseLocalDate(ymd)
+  date.setDate(date.getDate() + days)
+  return formatYmd(date)
 }
 
 function riskEvent(): RiskOverrideEvent {
@@ -210,13 +217,46 @@ async function run(): Promise<void> {
     assert(completed?.metricsSnapshot?.mistakeTagCounts['情绪化'] === undefined, '错过机会标签污染了已执行交易错误统计')
     assert(completed.completedAt === completed.riskSnapshot?.frozenAt, '完成与风险冻结必须使用同一时间戳')
     assert(document.body.textContent?.includes('浏览器冻结规则'), '已完成复盘没有展示冻结规则')
-    assert(document.body.textContent?.includes('完成时月度'), '已完成复盘没有展示冻结月度结果')
-    assert(document.body.textContent?.includes('完整 · 上限'), 'coverage 没有使用中文文案')
+    const risk = document.querySelector<HTMLElement>('.wr-risk-evidence')
+    assert(risk, '已完成复盘没有展示冻结风控证据')
+    const text = risk.textContent ?? ''
+    assert(text.indexOf('本周风险状态') < text.indexOf('完成时月度状态'), '本周状态必须优先')
+    assert(text.indexOf('完成时月度状态') < text.indexOf('每日风险轨迹'), '每日轨迹不得压过周期结论')
+    assert(document.querySelectorAll('.wr-risk-day').length === completed.riskSnapshot?.dailyOutcomes.length, '每日轨迹数量错误')
+    const audits = [...document.querySelectorAll<HTMLDetailsElement>('.wr-risk-audit')]
+    assert(audits.length === 2 && audits.every((item) => !item.open), '两个审计区默认必须收起')
+    const firstSummary = audits[0]!.querySelector<HTMLElement>('summary')
+    assert(firstSummary && firstSummary.tabIndex >= 0, '原生 summary 必须可聚焦')
+    firstSummary.focus()
+    assert(document.activeElement === firstSummary, '审计摘要必须能够获得键盘焦点')
+    firstSummary.click()
+    assert(audits[0]!.open, '激活 summary 后必须展开审计区')
+    assert(audits[0]!.textContent?.includes('policy-browser'), '规则展开后必须显示完整 ID')
+    assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, `${window.innerWidth}px 不得横向溢出`)
     assert(document.body.textContent?.includes('触线后只执行预设止损'), '已完成复盘没有展示确认原因')
     assert(document.body.textContent?.includes('TRD-two · ETHUSDT · 关联未解析'), '未解析事件没有展示冻结身份与关联状态')
     const resolvedLink = [...document.querySelectorAll<HTMLAnchorElement>('a')]
       .find((link) => link.textContent === '查看交易' && link.getAttribute('href') === '/trade/TRD-one')
     assert(resolvedLink, 'resolved 冻结事件没有生成真实交易详情路由')
+
+    const frozen = completed.riskSnapshot!
+    useStore.setState({
+      weeklyReviews: [{
+        ...completed,
+        riskSnapshot: {
+          ...frozen,
+          dailyOutcomes: [
+            { ...frozen.weeklyOutcome, coverage: 'partial', date: activeWeekStart },
+            { ...frozen.weeklyOutcome, coverage: 'unknown', triggered: false, date: addDays(activeWeekStart, 1) },
+            { ...frozen.weeklyOutcome, coverage: 'complete', triggered: true, date: addDays(activeWeekStart, 2) },
+          ],
+        },
+      }],
+    })
+    await waitFor(() => document.body.textContent?.includes('部分覆盖') ?? false, '部分覆盖文字未出现')
+    assert(document.body.textContent?.includes('无法确认'), '未知覆盖文字未出现')
+    assert(document.body.textContent?.includes('已触线'), '触线文字未出现')
+    useStore.setState({ weeklyReviews: [completed] })
 
     const frozenEvidence = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
       .map((row) => row.textContent)

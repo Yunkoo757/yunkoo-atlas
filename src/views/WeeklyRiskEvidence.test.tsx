@@ -58,3 +58,10 @@ export function testWeeklyRiskEvidenceUsesDecisionFirstStructure(): void {
   assert(!html.includes('<details class="wr-risk-audit" open=""'), '审计层默认必须收起')
   assert(!html.includes('wr-metric-grid'), '风控区不得继续使用等权指标网格')
 }
+
+export function testWeeklyRiskEvidenceExplainsEmptyConfirmationAudit(): void {
+  const html = renderToStaticMarkup(
+    <MemoryRouter><WeeklyRiskEvidence snapshot={{ ...snapshot, overrideEvents: [] }} /></MemoryRouter>,
+  )
+  assert(html.includes('展开后无继续交易确认'), '零确认的审计展开区必须说明为空')
+}

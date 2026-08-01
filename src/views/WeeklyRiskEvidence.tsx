@@ -28,7 +28,7 @@ function PeriodDecision({ label, outcome, primary = false }: PeriodDecisionProps
         className="wr-risk-track"
         style={style}
         role="progressbar"
-        aria-label={`已使用 ${fmtR(outcome.consumedR)}，限制 ${fmtR(outcome.limitR)}`}
+        aria-label={`${label}：${status.label}，已使用 ${fmtR(outcome.consumedR)}，限制 ${fmtR(outcome.limitR)}，${status.hint}`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(progress * 100)}
@@ -55,13 +55,17 @@ export function WeeklyRiskEvidence({ snapshot }: { snapshot: WeeklyRiskReviewSna
       </div>
       <div className="wr-risk-daily">
         <h3>每日风险轨迹</h3>
-        {snapshot.dailyOutcomes.map((outcome) => (
-          <article className="wr-risk-day" key={outcome.date}>
-            <span>{outcome.date}</span>
+        {snapshot.dailyOutcomes.map((outcome) => {
+          const status = getWeeklyRiskStatus(outcome)
+          return (
+          <article className="wr-risk-day" data-risk-tone={status.tone} key={outcome.date}>
+            <span className="wr-risk-day-date">{outcome.date}</span>
             <strong>{fmtR(outcome.remainingR)} 剩余</strong>
+            <span className="wr-risk-day-status">{status.label}</span>
             <small>{fmtR(outcome.consumedR)} 已使用 / {fmtR(outcome.limitR)} 限制</small>
           </article>
-        ))}
+          )
+        })}
       </div>
       <div className="wr-risk-audits">
         <h3>冻结审计</h3>
@@ -73,7 +77,7 @@ export function WeeklyRiskEvidence({ snapshot }: { snapshot: WeeklyRiskReviewSna
         </details>
         <details className="wr-risk-audit">
           <summary>继续交易确认 · {confirmationSummary}</summary>
-          {snapshot.overrideEvents.map((event) => (
+          {snapshot.overrideEvents.length ? snapshot.overrideEvents.map((event) => (
             <article key={event.id}>
               <p>{event.reason}</p>
               <small>
@@ -81,7 +85,7 @@ export function WeeklyRiskEvidence({ snapshot }: { snapshot: WeeklyRiskReviewSna
                 {event.linkState === 'resolved' ? <> · <Link to={tradeDetailPath(event.tradeIdentityAtDecision)}>查看交易</Link></> : null}
               </small>
             </article>
-          ))}
+          )) : <p>展开后无继续交易确认。</p>}
         </details>
       </div>
     </section>
