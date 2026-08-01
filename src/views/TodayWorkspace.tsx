@@ -30,19 +30,19 @@ const WORKFLOW_GROUPS = [
   {
     key: 'active',
     title: '进行中的交易',
-    description: '继续执行持仓或已到期计划；未来计划会在到期日出现。',
+    description: '打开交易，继续执行持仓或已到期计划；未来计划会在到期日出现。',
     icon: Clock,
   },
   {
     key: 'resultPending',
     title: '待补交易结果',
-    description: '补齐盈亏或 R 倍数后，才会进入有效统计。',
+    description: '打开交易，补齐盈亏或 R 倍数，纳入有效统计。',
     icon: AlertCircle,
   },
   {
     key: 'reviewPending',
     title: '待完成复盘',
-    description: '记录判断、执行偏差和下一次行动。',
+    description: '打开交易，继续记录判断、执行偏差和下一次行动。',
     icon: BookOpen,
   },
 ] as const
