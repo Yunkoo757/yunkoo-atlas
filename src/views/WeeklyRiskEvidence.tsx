@@ -41,7 +41,34 @@ function PeriodDecision({ label, outcome, primary = false }: PeriodDecisionProps
   )
 }
 
-export function WeeklyRiskEvidence({ snapshot }: { snapshot: WeeklyRiskReviewSnapshot }): JSX.Element {
+interface WeeklyRiskEvidenceProps {
+  snapshot?: WeeklyRiskReviewSnapshot
+  availability?: 'draft' | 'legacy'
+}
+
+export function WeeklyRiskEvidence({
+  snapshot,
+  availability = 'legacy',
+}: WeeklyRiskEvidenceProps): JSX.Element {
+  if (!snapshot) {
+    const draft = availability === 'draft'
+    return (
+      <section className="wr-section wr-risk-evidence" data-risk-availability={availability}>
+        <div className="wr-section-head">
+          <div><span>R</span><h2>风控执行</h2></div>
+          <small>{draft ? '完成复盘后冻结' : '历史记录'}</small>
+        </div>
+        <div className="wr-risk-unavailable">
+          <strong>{draft ? '完成复盘后生成风控证据' : '历史记录未包含风控快照'}</strong>
+          <span>
+            {draft
+              ? '完成时会固化本周、月度和每日风险轨迹。'
+              : '该周完成早于风控证据功能，保留原始记录且不回填推测数据。'}
+          </span>
+        </div>
+      </section>
+    )
+  }
   const policySummary = summarizeRiskPolicies(snapshot.policyVersions)
   const confirmationSummary = snapshot.overrideEvents.length
     ? `${snapshot.overrideEvents.length} 条继续交易确认`

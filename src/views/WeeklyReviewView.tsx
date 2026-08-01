@@ -369,9 +369,10 @@ export function WeeklyReviewView() {
                 {metrics.conflictCount > 0 ? <p className="wr-data-warning">有 {metrics.conflictCount} 笔结果口径冲突，未进入绩效计算。</p> : null}
               </section>
 
-              {review.status === 'completed' && review.riskSnapshot
-                ? <WeeklyRiskEvidence snapshot={review.riskSnapshot} />
-                : null}
+              <WeeklyRiskEvidence
+                snapshot={review.riskSnapshot}
+                availability={review.status === 'completed' ? 'legacy' : 'draft'}
+              />
 
               {previousReview ? (
                 <section className="wr-section wr-previous">
