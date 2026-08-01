@@ -36,27 +36,6 @@ import {
 } from './reviewContext'
 import './Editor.css'
 
-const editorBridge = {
-  editor: null as TiptapEditor | null,
-  openLightbox: (src: string, ownerId?: string, source?: HTMLElement) => {
-    editorBridge.editor?.commands.blur()
-    const html = editorBridge.editor?.getHTML() ?? ''
-    const images = collectImageSrcsFromHtml(html)
-    const list = images.length > 0 ? images : [src]
-    const rect = source?.getBoundingClientRect()
-    const origin = rect && rect.width > 0 && rect.height > 0
-      ? {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-          borderRadius: Number.parseFloat(getComputedStyle(source!).borderRadius) || 0,
-        }
-      : undefined
-    useShortcutStore.getState().openLightbox(list, indexOfImageSrc(list, src), ownerId, origin)
-  },
-}
-
 export function syncEditorLightboxEditable(
   editor: Pick<TiptapEditor, 'setEditable'>,
   lightboxOpen: boolean,
@@ -101,6 +80,24 @@ export function Editor({
   readOnlyRef.current = readOnly
   noteDraftIdRef.current = noteDraftId
   allowImagesRef.current = allowImages
+  const openLightboxForEditor = (src: string, ownerId?: string, source?: HTMLElement) => {
+    const currentEditor = editorRef.current
+    currentEditor?.commands.blur()
+    const html = currentEditor?.getHTML() ?? ''
+    const images = collectImageSrcsFromHtml(html)
+    const list = images.length > 0 ? images : [src]
+    const rect = source?.getBoundingClientRect()
+    const origin = source && rect && rect.width > 0 && rect.height > 0
+      ? {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          borderRadius: Number.parseFloat(getComputedStyle(source).borderRadius) || 0,
+        }
+      : undefined
+    useShortcutStore.getState().openLightbox(list, indexOfImageSrc(list, src), ownerId, origin)
+  }
   const editor = useEditor({
     editable: !readOnly,
     extensions: [
@@ -167,7 +164,7 @@ export function Editor({
           const src = target.getAttribute('src')
           if (!src) return false
           event.preventDefault()
-            editorBridge.openLightbox(src, noteDraftIdRef.current, target)
+          openLightboxForEditor(src, noteDraftIdRef.current, target)
           return true
         },
         click(view, event) {
@@ -178,7 +175,7 @@ export function Editor({
             top: event.clientY,
           })
           if (coords) return false
-          editorBridge.editor?.chain().focus('end').run()
+          editorRef.current?.chain().focus('end').run()
           return true
         },
       },
@@ -196,7 +193,6 @@ export function Editor({
     },
   })
 
-  editorBridge.editor = editor
   editorRef.current = editor
 
   useEffect(() => {

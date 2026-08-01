@@ -99,6 +99,11 @@ import './DetailView.css'
 
 const FEED_VISIBLE = 8
 
+type CaseCreationOperation = Readonly<{
+  generation: number
+  tradeId: string
+}>
+
 const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
 const KIND_OPTS: TradeKind[] = ['live', 'paper', 'case']
@@ -198,7 +203,10 @@ export function DetailView() {
   const pendingHtmlRef = useRef<string | null>(null)
   const pendingTradeIdRef = useRef<string | null>(null)
   const noteResolvedRef = useRef(false)   // 初始内容是否已加载，防止空 onUpdate 覆盖真实笔记
-  const caseCreatingRef = useRef(false)
+  const caseCreationOwnerRef = useRef<CaseCreationOperation | null>(null)
+  const caseCreationGenerationRef = useRef(0)
+  const activeTradeIdRef = useRef<string | null>(trade?.id ?? null)
+  const detailMountedRef = useRef(true)
   const commentRef = useRef<HTMLTextAreaElement>(null)
 
   const sourceTrade = trade?.sourceTradeId
@@ -364,6 +372,16 @@ export function DetailView() {
     }
   }, [])
 
+  useLayoutEffect(() => {
+    detailMountedRef.current = true
+    return () => {
+      detailMountedRef.current = false
+      activeTradeIdRef.current = null
+      caseCreationGenerationRef.current += 1
+      caseCreationOwnerRef.current = null
+    }
+  }, [])
+
   const onEditorChange = useCallback(
     (html: string) => {
       setEditorHtml(html)
@@ -388,13 +406,15 @@ export function DetailView() {
     if (target) navigate(tradeDetailPath(target), { state: location.state })
   }, [trades, navigate, location.state])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    activeTradeIdRef.current = trade?.id ?? null
+    caseCreationGenerationRef.current += 1
+    caseCreationOwnerRef.current = null
     setActivityOpen(false)
     setFeedExpanded(false)
     setReviewIssue(null)
     setReviewSubmitting(false)
     setCaseCreating(false)
-    caseCreatingRef.current = false
   }, [trade?.id])
 
   const activities = useMemo(
@@ -543,24 +563,44 @@ export function DetailView() {
   }
 
   const createCaseFromCurrentTrade = async () => {
-    if (caseCreatingRef.current || caseCreating || trade.tradeKind === 'case') return
-    caseCreatingRef.current = true
+    if (caseCreationOwnerRef.current || caseCreating || trade.tradeKind === 'case') return
+    const operation: CaseCreationOperation = {
+      generation: caseCreationGenerationRef.current,
+      tradeId: trade.id,
+    }
+    const ownsCurrentTrade = () =>
+      detailMountedRef.current &&
+      caseCreationOwnerRef.current === operation &&
+      caseCreationGenerationRef.current === operation.generation &&
+      activeTradeIdRef.current === operation.tradeId
+
+    caseCreationOwnerRef.current = operation
     setCaseCreating(true)
     try {
-      if (!(await flushNoteDraftToStore(trade.id))) {
+      const noteSaved = await flushNoteDraftToStore(operation.tradeId)
+      if (!ownsCurrentTrade()) return
+      if (!noteSaved) {
         toast('正文尚未保存，未创建案例')
         return
       }
-      const result = useStore.getState().createReviewCaseFromTrade(trade.id)
+      const result = useStore.getState().createReviewCaseFromTrade(operation.tradeId)
+      if (!ownsCurrentTrade()) return
       if (result.status !== 'created') {
         toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
         return
       }
+      if (!ownsCurrentTrade()) return
       toast('已提炼为案例')
       navigate(tradeDetailPath(result.reviewCase), { state: location.state })
     } finally {
-      caseCreatingRef.current = false
-      setCaseCreating(false)
+      if (caseCreationOwnerRef.current === operation) {
+        caseCreationOwnerRef.current = null
+        if (
+          detailMountedRef.current &&
+          caseCreationGenerationRef.current === operation.generation &&
+          activeTradeIdRef.current === operation.tradeId
+        ) setCaseCreating(false)
+      }
     }
   }
 
