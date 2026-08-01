@@ -38,17 +38,17 @@ Release 0 不提前引入该协议：旧库缺少 revision 时只按兼容值 `0
 
 Generation 目录布局当前为 **No-Go**：隔离 Spike 不进入生产 bundle，也不允许部分上线。发布门要求同一干净源码的 Windows NTFS 与 macOS APFS 原始故障矩阵及聚合决策同时存在；当前 Node/Electron 无法提供真实目录 `fsync` durability barrier，因此即使矩阵通过也保持 No-Go。详见 `docs/architecture/decisions/ADR-0001-electron-generation-layout.md`。
 
-### 当前库附件 GC（Release 3）
+### 当前库附件 GC
 
-Spec v2 §9 / §14.5：当前库孤立附件清理默认只开放**预览 + 导出恢复归档**；真删是单独开闸能力，可用 kill switch 随时关回。应用内没有用户可点的「开发者开关」。
+当前库孤立附件清理默认开放完整安全流程：扫描候选、导出并验证恢复归档、人工确认、永久清理。紧急情况下仍可通过构建时 kill switch 关闭最后的永久清理步骤；应用内不提供绕过恢复归档的开发者开关。
 
 | 项 | 说明 |
 |---|---|
-| 当前正式包状态 | dry-run：设置 → 数据 →「预览可清理的孤立附件」；不渲染永久删除主按钮 |
+| 当前正式包状态 | 设置 → 数据 →「清理孤立附件」；恢复归档导出并验证成功后才允许永久清理 |
 | 范围 | 仅当前活动库零引用附件；不扫描、不修改 `backups/` |
-| 开闸环境变量 | Electron：`ATLAS_ENABLE_ASSET_PURGE_COMMIT=true`；渲染进程：`VITE_ENABLE_ASSET_PURGE_COMMIT=true`（须在 `pnpm build:app` / `dist:*` 时同时注入） |
-| 本地开闸构建 | `pnpm dist:win:purge-commit` 或 `pnpm dist:mac:purge-commit` |
-| CI 开闸 | Release workflow 读取 repository variable `ATLAS_ENABLE_ASSET_PURGE_COMMIT`（须为字面量 `true`）；未设置则保持 dry-run |
+| 紧急关闭 | 构建时同时设置 Electron `ATLAS_ENABLE_ASSET_PURGE_COMMIT=false` 与渲染进程 `VITE_ENABLE_ASSET_PURGE_COMMIT=false` |
+| 默认构建 | `pnpm dist:win` / `pnpm dist:mac` 默认包含完整安全清理流程 |
+| CI | 未设置变量时默认开放；紧急回滚版本显式注入字面量 `false` |
 
 **观察清单（默认至少 3 天，勾完再开闸）：**
 
@@ -60,14 +60,13 @@ Spec v2 §9 / §14.5：当前库孤立附件清理默认只开放**预览 + 导�
 - [ ] `pnpm test:asset-lifecycle:electron` 在 Windows 与 macOS 证据齐全且同源码身份
 - [ ] Release 维护者确认恢复归档流程可操作；用户文案仅承诺当前库
 
-**开闸条件：** 上表全部勾选 + Release 维护者签字记录（commit / Train / 原因）。  
-**回滚（kill switch）：** 下一正式构建去掉上述环境变量（或 repository variable 改为非 `true`）并发布；inventory / 健康检查 / 预览保留。误删 live、shared 或 backup，或 stale dry-run 仍执行时，立即关闸。
+**回滚（kill switch）：** 下一正式构建同时注入两个 `false` 环境变量并发布；inventory、健康检查、预览和恢复归档仍保留。若发现误删 live、shared 或 backup，或过期预览仍可执行，立即关闭永久清理。
 
 **开闸发版检查表：**
 
-1. 确认观察清单已勾完并写入本次发布说明。
-2. 将 GitHub repository variable `ATLAS_ENABLE_ASSET_PURGE_COMMIT` 设为 `true`，或使用 `pnpm dist:*:purge-commit` 打可审计安装包。
-3. 验证设置页出现「永久删除候选附件」完整确认流（导出归档 → 勾选 → 删除）。
+1. 确认资产生命周期测试与恢复验证通过并写入本次发布说明。
+2. 使用标准 `pnpm dist:*` 构建可审计安装包。
+3. 验证设置页出现「确认永久清理」完整确认流（导出归档 → 勾选 → 清理）。
 4. 发布说明写明：仅当前库；备份可能仍含副本；恢复靠用户归档或 Electron `.trash`。
 5. 保留关闸回滚步骤于本小节。
 

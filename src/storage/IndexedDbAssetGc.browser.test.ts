@@ -66,9 +66,9 @@ async function createFixture(databaseName: string): Promise<{
   return { storage, liveId }
 }
 
-async function testDefaultKillSwitchAndRecoveryAuthorizationAreEnforced(): Promise<void> {
+async function testExplicitKillSwitchAndRecoveryAuthorizationAreEnforced(): Promise<void> {
   const databaseName = `asset-gc-policy-${crypto.randomUUID()}`
-  const storage = new IndexedDbStorageAdapter(databaseName)
+  const storage = new IndexedDbStorageAdapter(databaseName, { assetPurgeCommitEnabled: false })
   await storage.open()
   const liveId = await storage.saveAsset(new Blob(['shared-live']), 'image/png')
   await storage.saveSnapshot(snapshot(liveId))
@@ -79,7 +79,7 @@ async function testDefaultKillSwitchAndRecoveryAuthorizationAreEnforced(): Promi
     const before = await fingerprint(storage)
     let rejected = false
     try { await storage.commitAssetPurge(preview, recovery.authorization) } catch { rejected = true }
-    assert(rejected, '默认 Release 3 kill switch 必须在 adapter 边界拒绝直接永久删除')
+    assert(rejected, '显式 kill switch 必须在 adapter 边界拒绝直接永久删除')
     assert(await fingerprint(storage) === before, '边界开关拒绝必须零删除')
   } finally {
     storage.close()
@@ -284,7 +284,7 @@ async function testSourceSnapshotAssetIsNotAnOrphan(): Promise<void> {
 }
 
 async function run(): Promise<void> {
-  await testDefaultKillSwitchAndRecoveryAuthorizationAreEnforced()
+  await testExplicitKillSwitchAndRecoveryAuthorizationAreEnforced()
   await testStalePreviewDeletesNothing()
   await testDeleteFailureRollsBackAndSuccessRevokesCache()
   await testSourceSnapshotAssetIsNotAnOrphan()

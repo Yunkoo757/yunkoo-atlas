@@ -291,7 +291,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     options: { assetPurgeCommitEnabled?: boolean } = {},
   ) {
     this.assetPurgeCommitEnabled = options.assetPurgeCommitEnabled
-      ?? import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT === 'true'
+      ?? import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
   }
 
   clearObjectUrlCache(): void {
@@ -799,7 +799,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     })
     try {
       if (!this.assetPurgeCommitEnabled) {
-        throw new Error('当前发布阶段仅开放附件清理 dry-run，永久删除已在存储边界关闭')
+        throw new Error('附件永久清理已在存储边界关闭')
       }
       const expectedAuthorization = this.assetPurgeAuthorizations.get(preview.operationId)
       this.assetPurgeAuthorizations.delete(preview.operationId)

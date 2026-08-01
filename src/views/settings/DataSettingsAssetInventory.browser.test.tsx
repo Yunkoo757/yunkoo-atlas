@@ -83,23 +83,23 @@ async function run(): Promise<void> {
   const container = document.getElementById('root')!
   const root = createRoot(container)
   try {
-    root.render(<DataSettingsPanel assetPurgeCommitEnabled />)
+    root.render(<DataSettingsPanel />)
     await waitFor(() => container.textContent?.includes('1 张 · 3 B') === true, 'QuickNote-only 附件未计入健康清单')
     assert(container.textContent?.includes('1 张当前库孤立附件'), '孤立附件未展示')
     assert(container.textContent?.includes('1 个未知或非法附件项'), 'foreign 未展示')
     assert(container.textContent?.includes('1 个未完成临时附件'), 'temp 未展示')
 
     const previewButton = [...container.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('预览可清理的孤立附件'))
+      .find((button) => button.textContent?.includes('清理孤立附件'))
     assert(previewButton, '存在 orphan 时必须提供清理预览入口')
     previewButton.click()
-    await waitFor(() => document.body.textContent?.includes('永久清理当前库孤立附件') === true, '开闸模式下清理确认弹窗未打开')
+    await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '默认完整清理确认弹窗未打开')
     assert(Number(previewCalls) === 1, '打开清理确认前必须只执行一次真实 preview')
     assert(document.body.textContent?.includes('历史备份不会被扫描或修改'), 'UI 必须明确历史备份不在清理范围')
-    assert(document.body.textContent?.includes('预览 revision：7'), 'UI 必须展示绑定提交的 preview revision')
+    assert(document.body.textContent?.includes('数据版本：7'), 'UI 必须展示绑定提交的数据版本')
     assert(document.body.textContent?.includes('先导出恢复归档'), '永久删除前必须提供恢复归档入口')
     const deleteButton = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('永久删除候选附件')) as HTMLButtonElement | undefined
+      .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
     assert(deleteButton?.disabled, '未导出归档时永久删除必须禁用')
     const archiveButton = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('先导出恢复归档'))
@@ -113,14 +113,14 @@ async function run(): Promise<void> {
     checkbox.click()
     await waitFor(() => !deleteButton.disabled, '人工确认后提交按钮未解锁')
     deleteButton.click()
-    await waitFor(() => !document.body.textContent?.includes('永久清理当前库孤立附件'), 'stale commit 后必须丢弃 modal/preview')
+    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), 'stale commit 后必须丢弃 modal/preview')
     assert(Number(commitCalls) === 1 && cancelCalls >= 1, 'stale commit 必须取消旧 preview/authorization')
 
     const reopenPreview = [...container.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('预览可清理的孤立附件'))
+      .find((button) => button.textContent?.includes('清理孤立附件'))
     assert(reopenPreview, 'stale 后必须能从完整预览流程重试')
     reopenPreview.click()
-    await waitFor(() => document.body.textContent?.includes('永久清理当前库孤立附件') === true, '清理确认重试未打开')
+    await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '清理确认重试未打开')
     const retryArchive = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('先导出恢复归档'))
     assert(retryArchive, '重新预览后必须重新归档')
@@ -129,42 +129,42 @@ async function run(): Promise<void> {
     const retryCheckbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
     retryCheckbox?.click()
     const retryDelete = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('永久删除候选附件')) as HTMLButtonElement | undefined
+      .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
     await waitFor(() => retryDelete?.disabled === false, '重试确认未解锁')
     retryDelete!.click()
-    await waitFor(() => !document.body.textContent?.includes('永久清理当前库孤立附件'), '成功提交后 modal 未关闭')
+    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '成功提交后 modal 未关闭')
     assert(Number(commitCalls) === 2 && Number(prepareCalls) === 2, 'stale 后必须重新归档授权才能成功提交')
 
     const cancelCallsBefore = cancelCalls
     reopenPreview.click()
-    await waitFor(() => document.body.textContent?.includes('永久清理当前库孤立附件') === true, '取消场景未打开')
+    await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '取消场景未打开')
     const cancelButton = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === '取消')
     assert(cancelButton, '开闸模式必须可取消')
     cancelButton.click()
-    await waitFor(() => !document.body.textContent?.includes('永久清理当前库孤立附件'), '取消后必须关闭弹窗')
+    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '取消后必须关闭弹窗')
     assert(Number(commitCalls) === 2 && cancelCalls === cancelCallsBefore + 1, '取消预览必须零写入并撤销 adapter preview')
 
     // 默认未开闸：只展示预览与导出，不出现永久删除主 CTA
     root.render(<DataSettingsPanel assetPurgeCommitEnabled={false} />)
     await waitFor(
-      () => container.textContent?.includes('当前正式版仅提供预览与导出恢复归档') === true,
-      '未开闸说明必须写清正式版不做本机永久删除',
+      () => container.textContent?.includes('当前已关闭永久清理') === true,
+      '显式关闭时必须说明只保留预览与恢复归档',
     )
-    assert(container.textContent?.includes('预览可清理的孤立附件') === true, '未开闸入口文案未更新')
+    assert(container.textContent?.includes('清理孤立附件') === true, '显式关闭时仍须提供清理入口')
     const dryRunPreview = [...container.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('预览可清理的孤立附件'))
+      .find((button) => button.textContent?.includes('清理孤立附件'))
     assert(dryRunPreview, '未开闸时仍须提供预览入口')
     dryRunPreview.click()
-    await waitFor(() => document.body.textContent?.includes('正式版暂未开放本机永久删除') === true, '未开闸预览弹窗未打开')
-    assert(!document.body.textContent?.includes('永久删除候选附件'), '未开闸不得渲染永久删除主按钮')
+    await waitFor(() => document.body.textContent?.includes('当前永久清理已关闭') === true, '显式关闭时预览弹窗未打开')
+    assert(!document.body.textContent?.includes('确认永久清理'), '显式关闭时不得渲染永久清理主按钮')
     assert(!document.body.textContent?.includes('观察期'), '未开闸文案不得出现观察期黑话')
     assert(document.body.textContent?.includes('导出恢复归档'), '未开闸主操作应为导出恢复归档')
     const dryRunClose = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === '关闭')
     assert(dryRunClose, '未开闸弹窗须提供关闭')
     dryRunClose.click()
-    await waitFor(() => !document.body.textContent?.includes('正式版暂未开放本机永久删除'), '关闭预览后弹窗未消失')
+    await waitFor(() => !document.body.textContent?.includes('当前永久清理已关闭'), '关闭预览后弹窗未消失')
     storage.listAssetRecords = async () => { throw new Error('inventory unavailable') }
     const refresh = [...container.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('刷新检查'))

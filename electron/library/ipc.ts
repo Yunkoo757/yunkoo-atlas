@@ -599,8 +599,8 @@ export function registerLibraryIpc(): void {
     })
     try {
       const result = await operationGate.runExclusive(async () => {
-        if (process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT !== 'true') {
-          throw new Error('当前发布阶段仅开放附件清理 dry-run，永久删除已在主进程边界关闭')
+        if (process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT === 'false') {
+          throw new Error('附件永久清理已在主进程边界关闭')
         }
         const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
         assetPurgeAuthorizations.delete(payload.preview.operationId)

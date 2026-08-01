@@ -33,7 +33,7 @@ import { useSaveStatus } from '@/store/saveStatus'
 import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 
-const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT === 'true'
+const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
 
 function reportDataSettingsFailure(operation: string, error: unknown): void {
   console.warn(`[DataSettings] ${operation}`, error)
@@ -460,12 +460,12 @@ export function DataSettingsPanel({
               onClick={() => void handlePreviewAssetPurge()}
             >
               <Trash2 size={14} />
-              <span>{purgeBusy ? '扫描中…' : '预览可清理的孤立附件'}</span>
+              <span>{purgeBusy ? '扫描中…' : '清理孤立附件'}</span>
             </button>
             <p className="data-support-note">
               {assetPurgeCommitEnabled
-                ? '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。删除前须先导出恢复归档。'
-                : '只扫描当前活动库中的零引用附件；历史备份不会被扫描或修改。当前正式版仅提供预览与导出恢复归档，不在本机永久删除。'}
+                ? '只处理当前资料库中未被任何内容引用的附件；删除前必须先导出恢复归档。'
+                : '当前已关闭永久清理，只提供候选预览和恢复归档导出。'}
             </p>
           </div>
         ) : null}
@@ -626,11 +626,11 @@ export function DataSettingsPanel({
       ) : null}
       {purgePreview ? (
         <ModalShell
-          title={assetPurgeCommitEnabled ? '永久清理当前库孤立附件' : '预览可清理的孤立附件'}
+          title={assetPurgeCommitEnabled ? '清理孤立附件' : '预览孤立附件'}
           description={
             assetPurgeCommitEnabled
-              ? '候选只来自当前活动库中的零引用附件；历史备份不会被扫描或修改。'
-              : '这是清理预览。候选只来自当前活动库中的零引用附件；历史备份不会被扫描或修改。'
+              ? '只处理当前资料库中未被任何内容引用的附件；历史备份不会被扫描或修改。'
+              : '当前已关闭永久清理；历史备份不会被扫描或修改。'
           }
           size="compact"
           busy={purgeBusy}
@@ -668,7 +668,7 @@ export function DataSettingsPanel({
                   disabled={purgeBusy || !purgeArchiveReady || !purgeConfirmed}
                   onClick={() => void handleCommitAssetPurge()}
                 >
-                  永久删除候选附件
+                  确认永久清理
                 </button>
               ) : null}
             </>
@@ -678,12 +678,12 @@ export function DataSettingsPanel({
             <AlertCircle size={17} />
             <span>
               {assetPurgeCommitEnabled
-                ? `将永久删除 ${purgePreview.candidateIds.length} 个当前库零引用附件（${fmtBackupSize(purgePreview.totalBytes)}）。成功后只能从刚导出的恢复归档找回；自动备份或你另存的副本可能仍包含这些内容。`
-                : `预览发现 ${purgePreview.candidateIds.length} 个当前库零引用附件（${fmtBackupSize(purgePreview.totalBytes)}）。正式版暂未开放本机永久删除；可导出恢复归档备用。`}
+                ? `已确认 ${purgePreview.candidateIds.length} 个未被引用的附件，共 ${fmtBackupSize(purgePreview.totalBytes)}。清理后只能从刚导出的恢复归档找回；历史备份仍保持原样。`
+                : `发现 ${purgePreview.candidateIds.length} 个未被引用的附件，共 ${fmtBackupSize(purgePreview.totalBytes)}。当前永久清理已关闭。`}
             </span>
           </div>
           <p className="dio-section-muted">
-            预览 revision：{purgePreview.revision}。
+            数据版本：{purgePreview.revision}。
             {assetPurgeCommitEnabled
               ? '预览后若数据变化，提交会被拒绝并要求重新扫描。'
               : '重新扫描可刷新候选列表。'}
@@ -696,7 +696,7 @@ export function DataSettingsPanel({
                 disabled={!purgeArchiveReady || purgeBusy}
                 onChange={(event) => setPurgeConfirmed(event.target.checked)}
               />
-              <span>我已保存恢复归档，并确认只永久删除本次预览列出的当前库零引用附件。</span>
+              <span>我已保存恢复归档，并确认永久清理本次列出的未引用附件。</span>
             </label>
           ) : null}
         </ModalShell>
