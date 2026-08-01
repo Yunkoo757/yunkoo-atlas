@@ -157,7 +157,7 @@ export function TodayWorkspace() {
               <h1 id="today-focus-title">
                 {buckets.actionCount > 0
                   ? `还有 ${buckets.actionCount} 项需要处理`
-                  : '今日交易已完成闭环'}
+                  : '今日没有交易待办'}
               </h1>
               <p>
                 {buckets.actionCount > 0
