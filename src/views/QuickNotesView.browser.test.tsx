@@ -21,6 +21,20 @@ function frame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function pressUndo(target: HTMLElement): void {
+  target.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'z',
+    code: 'KeyZ',
+    ctrlKey: true,
+    bubbles: true,
+    cancelable: true,
+  }))
+}
+
 async function waitForSearch(): Promise<HTMLInputElement> {
   const deadline = performance.now() + 2_000
   while (performance.now() < deadline) {
@@ -97,13 +111,53 @@ async function run(): Promise<void> {
     )
 
     const editable = document.querySelector<HTMLElement>('[aria-label="随记正文"]')
-    const editor = (editable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor
+    assert(editable, '无法取得随记正文编辑区')
+    const editor = (editable as HTMLElement & { editor?: TiptapEditor }).editor
     assert(editor, '无法取得随记编辑器实例')
-    editor.commands.undo()
+    editable.focus()
+    pressUndo(editable)
     await frame()
     assert(
       editor.getText() === '不能丢失的当前正文',
       '切换随记后首次撤销不得恢复上一条随记正文',
+    )
+
+    editor.commands.focus('end')
+    editor.commands.insertContent('临时输入')
+    await waitFor(() => editor.getText().endsWith('临时输入'), '随记正文没有接受测试输入')
+    pressUndo(editable)
+    await waitFor(
+      () => editor.getText() === '不能丢失的当前正文',
+      '当前随记内 Ctrl+Z 必须撤销刚才的输入',
+    )
+
+    editor.commands.focus('end')
+    editor.commands.insertContent('跨切换撤销')
+    await waitFor(() => editor.getText().endsWith('跨切换撤销'), '跨切换撤销的测试输入没有写入')
+    await delay(600)
+    const previousButton = [...document.querySelectorAll<HTMLButtonElement>('.quick-notes-list-item')]
+      .find((button) => button.textContent?.includes('上一条随记'))
+    assert(previousButton, '随记列表缺少上一条随记')
+    previousButton.click()
+    await waitFor(
+      () => document.querySelector('[aria-label="随记正文"]')?.textContent === '上一条正文',
+      '没有成功切离编辑中的随记',
+    )
+    const currentButtonAfterSwitch = [...document.querySelectorAll<HTMLButtonElement>('.quick-notes-list-item')]
+      .find((button) => button.textContent?.includes('当前随记'))
+    assert(currentButtonAfterSwitch, '切换后随记列表缺少当前随记')
+    currentButtonAfterSwitch.click()
+    await waitFor(
+      () => document.querySelector('[aria-label="随记正文"]')?.textContent === '不能丢失的当前正文跨切换撤销',
+      '返回随记后没有恢复最新正文',
+    )
+    const returnedEditable = document.querySelector<HTMLElement>('[aria-label="随记正文"]')
+    assert(returnedEditable, '返回随记后编辑器没有重新挂载')
+    returnedEditable.focus()
+    pressUndo(returnedEditable)
+    await waitFor(
+      () => returnedEditable.textContent === '不能丢失的当前正文',
+      '切走再返回后 Ctrl+Z 必须恢复切换前的正文版本',
     )
   } finally {
     root.unmount()

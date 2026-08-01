@@ -36,6 +36,17 @@ import {
 } from './reviewContext'
 import './Editor.css'
 
+function setContentWithoutHistory(editor: TiptapEditor, content: string): void {
+  editor
+    .chain()
+    .setContent(content, false)
+    .command(({ tr }) => {
+      tr.setMeta('addToHistory', false)
+      return true
+    })
+    .run()
+}
+
 export function syncEditorLightboxEditable(
   editor: Pick<TiptapEditor, 'setEditable'>,
   lightboxOpen: boolean,
@@ -55,6 +66,7 @@ export function Editor({
   reviewContextTools = false,
   reviewTemplates = [],
   reviewContextPinned = true,
+  onHistoryFallback,
 }: {
   content: string
   onChange: (html: string) => void
@@ -67,6 +79,7 @@ export function Editor({
   reviewContextTools?: boolean
   reviewTemplates?: ReviewTemplate[]
   reviewContextPinned?: boolean
+  onHistoryFallback?: (currentHtml: string) => string | null
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
@@ -74,12 +87,14 @@ export function Editor({
   const editorRef = useRef<TiptapEditor | null>(null)
   const noteDraftIdRef = useRef(noteDraftId)
   const allowImagesRef = useRef(allowImages)
+  const onHistoryFallbackRef = useRef(onHistoryFallback)
   const [hasReviewContext, setHasReviewContext] = useState(false)
   const [hasLeadingReviewText, setHasLeadingReviewText] = useState(false)
   onChangeRef.current = onChange
   readOnlyRef.current = readOnly
   noteDraftIdRef.current = noteDraftId
   allowImagesRef.current = allowImages
+  onHistoryFallbackRef.current = onHistoryFallback
   const openLightboxForEditor = (src: string, ownerId?: string, source?: HTMLElement) => {
     const currentEditor = editorRef.current
     currentEditor?.commands.blur()
@@ -125,6 +140,18 @@ export function Editor({
         autocorrect: 'off',
         autocapitalize: 'off',
         ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
+      },
+      handleKeyDown(_view, event) {
+        const currentEditor = editorRef.current
+        const fallback = onHistoryFallbackRef.current
+        const mod = event.ctrlKey || event.metaKey
+        const key = event.key.toLowerCase()
+        if (!currentEditor || !fallback || !mod || event.altKey) return false
+        if (key !== 'z' || event.shiftKey || currentEditor.can().undo()) return false
+        const restored = fallback(currentEditor.getHTML())
+        if (restored === null) return false
+        setContentWithoutHistory(currentEditor, restored)
+        return true
       },
       handlePaste(_view, event) {
         if (!allowImagesRef.current) return false
@@ -202,7 +229,7 @@ export function Editor({
 
   useLayoutEffect(() => {
     if (!editor) return
-    if (content !== editor.getHTML()) editor.commands.setContent(content, false)
+    if (content !== editor.getHTML()) setContentWithoutHistory(editor, content)
     const doc = editor.getJSON()
     setHasReviewContext(hasReviewContextDocument(doc))
     setHasLeadingReviewText(hasLeadingReviewParagraphs(doc))

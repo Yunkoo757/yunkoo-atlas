@@ -23,6 +23,7 @@ import { toast } from '@/lib/toast'
 import './QuickNotesView.css'
 
 const NOTE_IDLE_COMMIT_MS = 500
+const QUICK_NOTE_HISTORY_LIMIT = 50
 
 function formatNoteTime(value: string): string {
   const date = new Date(value)
@@ -47,6 +48,8 @@ export function QuickNotesView() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const noteHistoriesRef = useRef(new Map<string, string[]>())
+  const editSessionRef = useRef<{ noteId: string; baseline: string; recorded: boolean } | null>(null)
 
   const filteredNotes = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase('zh-CN')
@@ -73,6 +76,7 @@ export function QuickNotesView() {
   useEffect(() => {
     setEditorReady(false)
     setEditorHtml('')
+    editSessionRef.current = null
     setLoadedNoteId(null)
     if (!selectedNote) return
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
@@ -80,6 +84,7 @@ export function QuickNotesView() {
     void resolveNoteForDisplayResult(selectedNote.contentHtml, getStorage()).then((result) => {
       if (cancelled) return
       setEditorHtml(result.html)
+      editSessionRef.current = { noteId: selectedNote.id, baseline: result.html, recorded: false }
       setEditorReady(result.editable)
       setLoadedNoteId(selectedNote.id)
       if (!result.editable) toast('随记中有图片附件缺失，正文已切换为只读')
@@ -94,6 +99,18 @@ export function QuickNotesView() {
 
   const onEditorChange = useCallback((html: string) => {
     if (!selectedNote || !editorReady) return
+    const session = editSessionRef.current
+    if (
+      session?.noteId === selectedNote.id &&
+      !session.recorded &&
+      html !== session.baseline
+    ) {
+      const history = noteHistoriesRef.current.get(selectedNote.id) ?? []
+      if (history.at(-1) !== session.baseline) history.push(session.baseline)
+      if (history.length > QUICK_NOTE_HISTORY_LIMIT) history.shift()
+      noteHistoriesRef.current.set(selectedNote.id, history)
+      session.recorded = true
+    }
     setEditorHtml(html)
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
     setNoteDraft(draftId, html)
@@ -104,11 +121,32 @@ export function QuickNotesView() {
     }, NOTE_IDLE_COMMIT_MS)
   }, [editorReady, selectedNote])
 
+  const onEditorHistoryFallback = useCallback((currentHtml: string): string | null => {
+    if (!selectedNote || loadedNoteId !== selectedNote.id) return null
+    const history = noteHistoriesRef.current.get(selectedNote.id)
+    if (!history) return null
+    while (history.at(-1) === currentHtml) history.pop()
+    const restored = history.pop()
+    if (restored === undefined) return null
+
+    setEditorHtml(restored)
+    editSessionRef.current = { noteId: selectedNote.id, baseline: restored, recorded: false }
+    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+    setNoteDraft(draftId, restored)
+    if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
+    noteTimerRef.current = setTimeout(() => {
+      noteTimerRef.current = null
+      void flushNoteDraftToStore(draftId)
+    }, NOTE_IDLE_COMMIT_MS)
+    return restored
+  }, [loadedNoteId, selectedNote])
+
   const confirmDelete = () => {
     if (!selectedNote) return
     const currentIndex = notes.findIndex((note) => note.id === selectedNote.id)
     const next = notes[currentIndex + 1] ?? notes[currentIndex - 1] ?? null
     clearNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`)
+    noteHistoriesRef.current.delete(selectedNote.id)
     removeNote(selectedNote.id)
     setDeleteOpen(false)
     navigate(next ? `/notes/${encodeURIComponent(next.id)}` : '/notes', { replace: true })
@@ -216,6 +254,7 @@ export function QuickNotesView() {
                     content={editorHtml}
                     onChange={onEditorChange}
                     noteDraftId={`${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`}
+                    onHistoryFallback={onEditorHistoryFallback}
                     readOnly={!editorReady}
                     ariaLabel="随记正文"
                     placeholder="记录此刻的想法、盘面观察或灵感… 可直接粘贴截图"
