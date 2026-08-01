@@ -27,20 +27,21 @@
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
 }
 
 .today-focus h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(21px, 1.6vw, 24px);
+  font-size: clamp(22px, 1.65vw, 26px);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.025em;
-  line-height: 1.25;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
 .today-focus p {
   margin: 7px 0 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: var(--type-row-size);
   line-height: 1.55;
 }
@@ -271,7 +272,7 @@
 
 .today-workflow-group header p {
   margin: 2px 0 0;
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: var(--type-metadata-size);
   line-height: 1.45;
 }
@@ -284,6 +285,9 @@
 }
 
 .today-workflow-list .trade-row:last-child { border-bottom: 0; }
+.today-workflow-list .trade-row-symbol strong { font-weight: var(--font-weight-semibold); }
+.today-workflow-list .trade-row-pnl,
+.today-workflow-list .trade-row-r { font-weight: var(--font-weight-semibold); }
 .today-workflow-list .trade-row-check-spacer {
   width: 18px;
   height: 18px;
