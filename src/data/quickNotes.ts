@@ -7,9 +7,12 @@ export {
   titleFromQuickNoteHtml,
 } from '@/data/quickNoteCodec'
 
+export type QuickNoteTitleMode = 'auto' | 'manual'
+
 export interface QuickNote {
   id: string
   title: string
+  titleMode?: QuickNoteTitleMode
   contentHtml: string
   pinned: boolean
   createdAt: string
@@ -28,6 +31,7 @@ export function createQuickNote(now = new Date()): QuickNote {
   return {
     id: createId(),
     title: UNTITLED_QUICK_NOTE,
+    titleMode: 'auto',
     contentHtml: '',
     pinned: false,
     createdAt: timestamp,

@@ -465,7 +465,7 @@ interface State {
   completeWeeklyReview: (id: string) => void
   reopenWeeklyReview: (id: string) => void
   upsertQuickNote: (note: QuickNote) => void
-  updateQuickNote: (id: string, patch: Partial<Pick<QuickNote, 'title' | 'contentHtml' | 'pinned'>>) => void
+  updateQuickNote: (id: string, patch: Partial<Pick<QuickNote, 'title' | 'titleMode' | 'contentHtml' | 'pinned'>>) => void
   removeQuickNote: (id: string) => void
 }
 

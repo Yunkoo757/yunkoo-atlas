@@ -5,7 +5,6 @@ import {
   createQuickNote,
   textFromQuickNoteHtml,
   titleFromQuickNoteHtml,
-  UNTITLED_QUICK_NOTE,
 } from '@/data/quickNotes'
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage/bootstrap'
@@ -95,16 +94,12 @@ export function QuickNotesView() {
     setEditorHtml(html)
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
     setNoteDraft(draftId, html)
-    if (selectedNote.title === UNTITLED_QUICK_NOTE) {
-      const derivedTitle = titleFromQuickNoteHtml(html)
-      if (derivedTitle !== UNTITLED_QUICK_NOTE) updateNote(selectedNote.id, { title: derivedTitle })
-    }
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
       noteTimerRef.current = null
       void flushNoteDraftToStore(draftId)
     }, NOTE_IDLE_COMMIT_MS)
-  }, [editorReady, selectedNote, updateNote])
+  }, [editorReady, selectedNote])
 
   const confirmDelete = () => {
     if (!selectedNote) return
@@ -178,13 +173,15 @@ export function QuickNotesView() {
                   maxLength={80}
                   aria-label="随记标题"
                   onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) => updateNote(selectedNote.id, {
-                    title: event.target.value.slice(0, 80),
-                  })}
-                  onBlur={(event) => {
-                    if (!event.currentTarget.value.trim()) {
-                      updateNote(selectedNote.id, { title: titleFromQuickNoteHtml(editorHtml) })
-                    }
+                  onChange={(event) => {
+                    const title = event.target.value.slice(0, 80)
+                    updateNote(selectedNote.id, title.trim()
+                      ? { title, titleMode: 'manual' }
+                      : {
+                          title: titleFromQuickNoteHtml(editorHtml),
+                          titleMode: 'auto',
+                          contentHtml: editorHtml,
+                        })
                   }}
                 />
                 <div className="quick-notes-editor-actions">

@@ -216,6 +216,18 @@ export async function testQuickNoteDraftFlushesToIndependentNoteStore(): Promise
       useStore.getState().quickNotes[0]?.contentHtml === '<p>随手记录，不是一笔交易</p>',
       '随记草稿必须写入 quickNotes，而不是交易 note',
     )
+    assert(
+      useStore.getState().quickNotes[0]?.title === '随手记录，不是一笔交易',
+      '自动标题必须在随记草稿写入时同步正文开头',
+    )
+
+    useStore.getState().updateQuickNote(note.id, { title: '手动标题', titleMode: 'manual' })
+    setNoteDraft(draftId, '<p>正文后来继续变化</p>')
+    assert(await flushNoteDraftToStore(draftId), '手动标题后的随记草稿仍须正常写入')
+    assert(
+      useStore.getState().quickNotes[0]?.title === '手动标题',
+      '用户手动编辑标题后，正文不得再次覆盖标题',
+    )
   } finally {
     resetNoteDraftsForTests()
     useStore.setState({ quickNotes: originalNotes })

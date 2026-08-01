@@ -429,6 +429,7 @@ function isQuickNote(value: unknown): boolean {
     typeof value.id === 'string' && Boolean(value.id.trim()) &&
     typeof value.title === 'string' &&
     typeof value.contentHtml === 'string' &&
+    (value.titleMode === undefined || value.titleMode === 'auto' || value.titleMode === 'manual') &&
     typeof value.pinned === 'boolean' &&
     typeof value.createdAt === 'string' &&
     typeof value.updatedAt === 'string'
