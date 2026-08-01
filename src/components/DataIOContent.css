@@ -356,6 +356,66 @@
   gap: var(--sp-2);
   align-items: flex-start;
   margin-top: var(--sp-3);
+  color: var(--text-secondary);
+  font-size: var(--type-body-size);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.data-purge-confirm input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.data-purge-confirm input:disabled {
+  cursor: wait;
+}
+
+.data-purge-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-1) var(--sp-3);
+  align-items: baseline;
+  padding: var(--sp-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: var(--bg-inset);
+}
+
+.data-purge-summary > span,
+.data-purge-summary > small {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+}
+
+.data-purge-summary > strong {
+  color: var(--text-primary);
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.data-purge-summary > small {
+  grid-column: 1 / -1;
+}
+
+.data-purge-details {
+  margin-top: var(--sp-3);
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+}
+
+.data-purge-details summary {
+  width: max-content;
+  cursor: pointer;
+}
+
+.data-purge-details p {
+  margin: var(--sp-2) 0 0;
+  line-height: 1.5;
 }
 
 @media (max-width: 480px) {

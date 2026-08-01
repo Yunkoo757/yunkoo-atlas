@@ -123,6 +123,22 @@ async function testStalePreviewDeletesNothing(): Promise<void> {
   }
 }
 
+async function testRecoveryArchiveIsOptional(): Promise<void> {
+  const databaseName = `asset-gc-optional-recovery-${crypto.randomUUID()}`
+  const { storage, liveId } = await createFixture(databaseName)
+  try {
+    const preview = await storage.previewAssetPurge()
+    const result = await storage.commitAssetPurge(preview)
+    assert(result.deletedIds.join(',') === 'orphan-a,orphan-b', '未导出恢复归档时仍应按预览清理孤立附件')
+    assert(await storage.getAssetForExport('orphan-a') === null, '可选归档路径必须实际删除 orphan-a')
+    assert(await storage.getAssetForExport('orphan-b') === null, '可选归档路径必须实际删除 orphan-b')
+    assert(await storage.getAssetForExport(liveId), '可选归档路径必须保留仍被引用的附件')
+  } finally {
+    storage.close()
+    await deleteDatabase(databaseName)
+  }
+}
+
 async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void> {
   const databaseName = `asset-gc-atomic-${crypto.randomUUID()}`
   const { storage, liveId } = await createFixture(databaseName)
@@ -136,11 +152,11 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
     try { await storage.commitAssetPurge(canceled, canceledRecovery.authorization) } catch { canceledRejected = true }
     assert(canceledRejected, '取消后旧 preview 与恢复授权必须立即失效')
     assert(await fingerprint(storage) === before, '取消旧授权必须零删除')
-    const unauthorized = await storage.previewAssetPurge()
-    let unauthorizedRejected = false
-    try { await storage.commitAssetPurge(unauthorized, '') } catch { unauthorizedRejected = true }
-    assert(unauthorizedRejected, '即使 kill switch 开启，缺少恢复归档授权也必须在删除前拒绝')
-    assert(await fingerprint(storage) === before, '缺少归档授权必须零删除')
+    const invalidAuthorization = await storage.previewAssetPurge()
+    let invalidAuthorizationRejected = false
+    try { await storage.commitAssetPurge(invalidAuthorization, 'invalid-authorization') } catch { invalidAuthorizationRejected = true }
+    assert(invalidAuthorizationRejected, '用户提供恢复归档授权时必须校验其与预览一致')
+    assert(await fingerprint(storage) === before, '错误归档授权必须零删除')
     for (const mutate of [
       (preview: Awaited<ReturnType<typeof storage.previewAssetPurge>>) => { preview.revision += 1 },
       (preview: Awaited<ReturnType<typeof storage.previewAssetPurge>>) => { preview.candidateIds.pop() },
@@ -286,6 +302,7 @@ async function testSourceSnapshotAssetIsNotAnOrphan(): Promise<void> {
 async function run(): Promise<void> {
   await testExplicitKillSwitchAndRecoveryAuthorizationAreEnforced()
   await testStalePreviewDeletesNothing()
+  await testRecoveryArchiveIsOptional()
   await testDeleteFailureRollsBackAndSuccessRevokesCache()
   await testSourceSnapshotAssetIsNotAnOrphan()
 }

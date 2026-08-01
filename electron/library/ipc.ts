@@ -604,13 +604,13 @@ export function registerLibraryIpc(): void {
         }
         const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
         assetPurgeAuthorizations.delete(payload.preview.operationId)
-        if (
-          !prepared ||
+        if (payload.authorization !== undefined && (
           !payload.authorization ||
+          !prepared ||
           prepared.token !== payload.authorization ||
           prepared.signature !== JSON.stringify(payload.preview) ||
           Date.now() - prepared.createdAt > 15 * 60_000
-        ) {
+        )) {
           throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
         }
         const lib = await ensureStorage()

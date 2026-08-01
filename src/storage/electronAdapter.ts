@@ -92,7 +92,7 @@ export class ElectronStorageAdapter implements StorageAdapter {
     await getJournalBridge()!.cancelAssetPurge(operationId)
   }
 
-  async commitAssetPurge(preview: AssetPurgePreview, authorization: string): Promise<AssetPurgeResult> {
+  async commitAssetPurge(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult> {
     const result = await getJournalBridge()!.commitAssetPurge(preview, authorization)
     for (const id of result.deletedIds) {
       const cached = this.objectUrlCache.get(id)

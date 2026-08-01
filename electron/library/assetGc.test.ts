@@ -317,7 +317,10 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
   const recoveryHandler = source.slice(recoveryStart, start)
   assert(start >= 0 && handler.includes('operationGate.runExclusive'), 'Electron purge IPC 必须使用 exclusive gate')
   assert(handler.includes("ATLAS_ENABLE_ASSET_PURGE_COMMIT === 'false'"), 'Electron 主进程必须保留显式关闭实际删除的边界')
-  assert(handler.includes('assetPurgeAuthorizations') && handler.includes('payload.authorization'), 'Electron 删除必须消费恢复归档一次性授权')
+  assert(
+    handler.includes('assetPurgeAuthorizations') && handler.includes('payload.authorization !== undefined'),
+    'Electron 删除应允许用户跳过归档，但提供授权时必须消费并校验一次性授权',
+  )
   assert(
     recoveryStart >= 0 &&
     recoveryHandler.includes('operationGate.runExclusive') &&

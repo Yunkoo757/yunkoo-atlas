@@ -55,7 +55,7 @@ export interface StorageAdapter {
   previewAssetPurge?(): Promise<AssetPurgePreview>
   prepareAssetPurgeRecovery?(preview: AssetPurgePreview): Promise<AssetPurgeRecovery>
   cancelAssetPurge?(operationId: string): Promise<void>
-  commitAssetPurge?(preview: AssetPurgePreview, authorization: string): Promise<AssetPurgeResult>
+  commitAssetPurge?(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult>
   importAssets(assets: ExportAssetRecord[]): Promise<void>
   commitImport(
     snapshot: PersistedSnapshot,

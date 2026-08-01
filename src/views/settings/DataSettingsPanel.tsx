@@ -321,6 +321,7 @@ export function DataSettingsPanel({
       setPurgePreview(refreshedPreview)
       setPurgeAuthorization(recovery.authorization)
       setPurgeArchiveReady(true)
+      setPurgeConfirmed(false)
       toast('当前资料库恢复归档已导出')
     } catch (error) {
       reportDataSettingsFailure('导出清理恢复归档失败', error)
@@ -335,12 +336,12 @@ export function DataSettingsPanel({
   }
 
   const handleCommitAssetPurge = async () => {
-    if (!purgePreview || !purgeAuthorization || !purgeArchiveReady || !purgeConfirmed || !assetPurgeCommitEnabled) return
+    if (!purgePreview || !purgeConfirmed || !assetPurgeCommitEnabled) return
     setPurgeBusy(true)
     try {
       const commit = getStorage().commitAssetPurge
       if (!commit) throw new Error('当前存储后端不支持永久清理')
-      const result = await commit.call(getStorage(), purgePreview, purgeAuthorization)
+      const result = await commit.call(getStorage(), purgePreview, purgeAuthorization ?? undefined)
       setPurgePreview(null)
       setPurgeArchiveReady(false)
       setPurgeAuthorization(null)
@@ -350,7 +351,7 @@ export function DataSettingsPanel({
     } catch (error) {
       reportDataSettingsFailure('永久清理附件失败', error)
       discardPurge()
-      toast(`${userFacingErrorMessage(error, '永久清理失败')}；请重新预览并重新导出恢复归档`)
+      toast(`${userFacingErrorMessage(error, '永久清理失败')}；请重新预览后再确认`)
     } finally {
       setPurgeBusy(false)
     }
@@ -464,7 +465,7 @@ export function DataSettingsPanel({
             </button>
             <p className="data-support-note">
               {assetPurgeCommitEnabled
-                ? '只处理当前资料库中未被任何内容引用的附件；删除前必须先导出恢复归档。'
+                ? '只处理当前资料库中未被任何内容引用的附件；恢复归档可按需导出。'
                 : '当前已关闭永久清理，只提供候选预览和恢复归档导出。'}
             </p>
           </div>
@@ -649,7 +650,7 @@ export function DataSettingsPanel({
                 {purgeArchiveReady
                   ? '恢复归档已导出'
                   : assetPurgeCommitEnabled
-                    ? '先导出恢复归档'
+                    ? '导出恢复归档（可选）'
                     : '导出恢复归档'}
               </button>
               <button
@@ -665,7 +666,7 @@ export function DataSettingsPanel({
                 <button
                   type="button"
                   className="ui-btn ui-btn-danger-solid"
-                  disabled={purgeBusy || !purgeArchiveReady || !purgeConfirmed}
+                  disabled={purgeBusy || !purgeConfirmed}
                   onClick={() => void handleCommitAssetPurge()}
                 >
                   确认永久清理
@@ -674,29 +675,29 @@ export function DataSettingsPanel({
             </>
           )}
         >
-          <div className="dio-restore-warning" role="alert">
-            <AlertCircle size={17} />
-            <span>
-              {assetPurgeCommitEnabled
-                ? `已确认 ${purgePreview.candidateIds.length} 个未被引用的附件，共 ${fmtBackupSize(purgePreview.totalBytes)}。清理后只能从刚导出的恢复归档找回；历史备份仍保持原样。`
-                : `发现 ${purgePreview.candidateIds.length} 个未被引用的附件，共 ${fmtBackupSize(purgePreview.totalBytes)}。当前永久清理已关闭。`}
-            </span>
+          <div className="data-purge-summary">
+            <span>{assetPurgeCommitEnabled ? '待清理' : '扫描结果'}</span>
+            <strong>{purgePreview.candidateIds.length} 个 · {fmtBackupSize(purgePreview.totalBytes)}</strong>
+            <small>{assetPurgeCommitEnabled ? '永久清理不可撤销；恢复归档可选。' : '当前永久清理已关闭。'}</small>
           </div>
-          <p className="dio-section-muted">
-            数据版本：{purgePreview.revision}。
-            {assetPurgeCommitEnabled
-              ? '预览后若数据变化，提交会被拒绝并要求重新扫描。'
-              : '重新扫描可刷新候选列表。'}
-          </p>
+          <details className="data-purge-details">
+            <summary>安全校验信息</summary>
+            <p>
+              数据版本：{purgePreview.revision}。
+              {assetPurgeCommitEnabled
+                ? '预览后若数据变化，提交会被拒绝并要求重新扫描。'
+                : '重新扫描可刷新候选列表。'}
+            </p>
+          </details>
           {assetPurgeCommitEnabled ? (
             <label className="data-purge-confirm">
               <input
                 type="checkbox"
                 checked={purgeConfirmed}
-                disabled={!purgeArchiveReady || purgeBusy}
+                disabled={purgeBusy}
                 onChange={(event) => setPurgeConfirmed(event.target.checked)}
               />
-              <span>我已保存恢复归档，并确认永久清理本次列出的未引用附件。</span>
+              <span>我确认清理本次列出的未引用附件，并理解删除后无法从当前资料库恢复。</span>
             </label>
           ) : null}
         </ModalShell>

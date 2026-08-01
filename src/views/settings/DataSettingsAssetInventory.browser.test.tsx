@@ -97,35 +97,23 @@ async function run(): Promise<void> {
     assert(Number(previewCalls) === 1, '打开清理确认前必须只执行一次真实 preview')
     assert(document.body.textContent?.includes('历史备份不会被扫描或修改'), 'UI 必须明确历史备份不在清理范围')
     assert(document.body.textContent?.includes('数据版本：7'), 'UI 必须展示绑定提交的数据版本')
-    assert(document.body.textContent?.includes('先导出恢复归档'), '永久删除前必须提供恢复归档入口')
+    assert(document.body.textContent?.includes('导出恢复归档（可选）'), '必须保留可选的恢复归档入口')
     const deleteButton = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
-    assert(deleteButton?.disabled, '未导出归档时永久删除必须禁用')
-    const archiveButton = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('先导出恢复归档'))
-    assert(archiveButton, '缺少恢复归档动作')
-    archiveButton.click()
-    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '成功恢复归档未解锁确认流程')
-    assert(Number(previewCalls) === 2, '归档前必须在最后一次 flush 后重新生成 preview')
-    assert(Number(commitCalls) === 0 && deleteButton.disabled, '已归档但未人工确认时必须零提交')
     const checkbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
-    assert(checkbox && !checkbox.disabled, '成功归档后必须允许人工确认')
+    assert(checkbox && !checkbox.disabled, '预览完成后必须允许用户直接确认，不得强制导出归档')
+    assert(deleteButton?.disabled, '未人工确认时永久删除必须禁用')
     checkbox.click()
     await waitFor(() => !deleteButton.disabled, '人工确认后提交按钮未解锁')
     deleteButton.click()
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), 'stale commit 后必须丢弃 modal/preview')
-    assert(Number(commitCalls) === 1 && cancelCalls >= 1, 'stale commit 必须取消旧 preview/authorization')
+    assert(Number(commitCalls) === 1 && Number(prepareCalls) === 0 && cancelCalls >= 1, '不导出归档也必须提交；stale 时取消旧 preview')
 
     const reopenPreview = [...container.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('清理孤立附件'))
     assert(reopenPreview, 'stale 后必须能从完整预览流程重试')
     reopenPreview.click()
     await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '清理确认重试未打开')
-    const retryArchive = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('先导出恢复归档'))
-    assert(retryArchive, '重新预览后必须重新归档')
-    retryArchive.click()
-    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '重试归档未成功')
     const retryCheckbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
     retryCheckbox?.click()
     const retryDelete = [...document.body.querySelectorAll('button')]
@@ -133,17 +121,23 @@ async function run(): Promise<void> {
     await waitFor(() => retryDelete?.disabled === false, '重试确认未解锁')
     retryDelete!.click()
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '成功提交后 modal 未关闭')
-    assert(Number(commitCalls) === 2 && Number(prepareCalls) === 2, 'stale 后必须重新归档授权才能成功提交')
+    assert(Number(commitCalls) === 2 && Number(prepareCalls) === 0, 'stale 后重新预览确认即可成功提交')
 
     const cancelCallsBefore = cancelCalls
     reopenPreview.click()
     await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '取消场景未打开')
+    const archiveButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('导出恢复归档（可选）'))
+    assert(archiveButton, '缺少可选恢复归档动作')
+    archiveButton.click()
+    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '用户主动导出恢复归档未成功')
+    assert(Number(prepareCalls) === 1, '恢复归档只应在用户主动选择时生成')
     const cancelButton = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === '取消')
     assert(cancelButton, '开闸模式必须可取消')
     cancelButton.click()
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '取消后必须关闭弹窗')
-    assert(Number(commitCalls) === 2 && cancelCalls === cancelCallsBefore + 1, '取消预览必须零写入并撤销 adapter preview')
+    assert(Number(commitCalls) === 2 && cancelCalls >= cancelCallsBefore + 2, '取消预览必须零写入并撤销归档前后的 adapter preview')
 
     // 默认未开闸：只展示预览与导出，不出现永久删除主 CTA
     root.render(<DataSettingsPanel assetPurgeCommitEnabled={false} />)

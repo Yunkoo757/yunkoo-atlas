@@ -790,7 +790,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     }
   }
 
-  async commitAssetPurge(preview: AssetPurgePreview, authorization: string): Promise<AssetPurgeResult> {
+  async commitAssetPurge(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult> {
     const operation = beginWebOperation('gc', {
       operationId: preview.operationId,
       actionId: preview.operationId,
@@ -803,11 +803,11 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       }
       const expectedAuthorization = this.assetPurgeAuthorizations.get(preview.operationId)
       this.assetPurgeAuthorizations.delete(preview.operationId)
-      if (
+      if (authorization !== undefined && (
         !authorization ||
         authorization !== expectedAuthorization?.token ||
         Date.now() - (expectedAuthorization?.createdAt ?? 0) > 15 * 60_000
-      ) {
+      )) {
         throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
       }
       const prepared = this.assetPurgePreviews.get(preview.operationId)
