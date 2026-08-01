@@ -90,6 +90,8 @@ export interface Trade {
   tradeKind: TradeKind
   /** 案例来源交易；仅案例记录使用，保证知识条目可追溯。 */
   sourceTradeId?: string
+  /** 关联来源交易最近一次成功保存的正文快照；仅案例记录使用。 */
+  sourceNoteHtml?: string
   caseType?: CaseType
   masteryState?: MasteryState
   nextReviewAt?: string | null

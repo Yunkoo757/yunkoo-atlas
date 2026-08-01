@@ -1,14 +1,6 @@
 import type { CaseType, Trade } from '@/data/trades'
 import { formatYmd } from '@/lib/periods'
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
 export function getNextReviewCaseRef(trades: Trade[]): string {
   const maxNum = trades.reduce((max, trade) => {
     const match = trade.ref.match(/^CAS-(\d+)$/)
@@ -21,8 +13,6 @@ export function buildReviewCaseFromTrade(
   source: Trade,
   options: { id: string; ref: string },
 ): Trade {
-  const sourceLine = `<p>来源交易：${escapeHtml(source.ref)} · ${escapeHtml(source.symbol)}</p>`
-  const note = [sourceLine, source.note].filter(Boolean).join('\n')
   const { deletedAt: _deletedAt, deletedBy: _deletedBy, ...activeSource } = source
   const caseType: CaseType =
     source.status === 'missed'
@@ -41,6 +31,7 @@ export function buildReviewCaseFromTrade(
     ref: options.ref,
     tradeKind: 'case',
     sourceTradeId: source.id,
+    sourceNoteHtml: source.note,
     caseType,
     masteryState: 'new',
     nextReviewAt: formatYmd(nextReview),
@@ -52,7 +43,7 @@ export function buildReviewCaseFromTrade(
           ? 'ambiguous'
           : 'normal',
     recordedAt: new Date().toISOString(),
-    note,
+    note: '',
     comments: [],
     activities: [],
   }
