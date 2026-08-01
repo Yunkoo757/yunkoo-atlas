@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { MonthlyRiskLimit, RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { TradeOpenRiskDialog } from '@/components/TradeOpenRiskDialog'
-import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { TodayWorkspace } from '@/views/TodayWorkspace'
@@ -201,6 +201,14 @@ async function run(): Promise<void> {
     assert(initialWeek?.dataset.riskState === 'partial', '未复核时本周必须使用 partial 警告语义')
     assert(initialWeek.textContent?.includes('待复核'), '未复核本周必须使用待复核标签')
     assert(initialWeek.textContent?.includes('本周规则未确认'), '未复核本周必须说明规则未确认')
+    const previousMonthLastDate = parseLocalDate(`${monthKey}-01`)
+    previousMonthLastDate.setDate(previousMonthLastDate.getDate() - 1)
+    useStore.setState({ liveStatsStartTradingDayKey: formatYmd(previousMonthLastDate) })
+    await waitFor(
+      () => initialMonth.textContent?.includes(`${Number(monthKey.slice(5, 7))}月1日重置`) ?? false,
+      '核算起点早于当前月时，月度状态必须说明自然月已重置',
+    )
+    useStore.setState({ liveStatsStartTradingDayKey: null })
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
     assert(status.querySelectorAll('[data-risk-period]').length === 3, '风险状态必须始终展示日周月')
     assert(!status.querySelector('details'), '风险状态不得折叠')

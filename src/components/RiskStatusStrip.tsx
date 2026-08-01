@@ -33,6 +33,9 @@ function scopedPeriodLabel(
     : scope === 'week'
       ? weekStartFor(parseLocalDate(tradingDay))
       : `${tradingDay.slice(0, 7)}-01`
+  if (scope === 'month' && liveStart < periodStart) {
+    return `${label} · ${Number(tradingDay.slice(5, 7))}月1日重置`
+  }
   return liveStart > periodStart
     ? `${label} · 自${Number(liveStart.slice(5, 7))}月${Number(liveStart.slice(8, 10))}日起`
     : label

@@ -248,6 +248,30 @@ export function testRiskBudgetExcludesPreCycleTradeByOpenDay(): void {
   assert(result.month.includedTradeCount === 1, '规则前交易不得显示为当前周期未计入')
 }
 
+export function testMonthlyBudgetResetsAtCalendarMonthWhileWeekCanCrossMonth(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.currentTradingDayKey = '2026-08-01'
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.monthlyLimits = [{
+    ...input.monthlyLimits[0]!,
+    id: 'monthly-risk-limit:2026-08',
+    monthKey: '2026-08',
+    lockedAt: '2026-08-01T00:00:00.000Z',
+  }]
+  input.trades[0] = {
+    ...input.trades[0]!,
+    openedAt: '2026-07-31',
+    closedAt: '2026-07-31',
+    closedTradingDayKey: '2026-07-31',
+  }
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.week.netBudgetR === -1, '跨月自然周必须继续计入 7 月 31 日亏损')
+  assert(result.month.netBudgetR === 0, '8 月月度额度不得计入 7 月平仓结果')
+  assert(result.month.remainingR === 10, '自然月切换后月度额度必须恢复为 10R')
+}
+
 export function testRiskBudgetKeepsCurrentCycleUnknownFailClosed(): void {
   const input = fixture({ pnls: [-1_000] })
   input.liveStatsStartTradingDayKey = '2026-07-27'

@@ -52,6 +52,10 @@
   font-weight: var(--font-weight-medium);
 }
 
+.quick-notes-search input:focus-visible {
+  box-shadow: none;
+}
+
 .quick-notes-list {
   min-height: 0;
   overflow: auto;
