@@ -1,7 +1,56 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
+function stripCssBlockComments(source: string): string {
+  let result = ''
+  let index = 0
+  let quote: '"' | "'" | null = null
+
+  while (index < source.length) {
+    const character = source[index]!
+    if (quote !== null) {
+      result += character
+      if (character === '\\' && index + 1 < source.length) {
+        result += source[index + 1]
+        index += 2
+        continue
+      }
+      if (character === quote) quote = null
+      index += 1
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      result += character
+      index += 1
+      continue
+    }
+    if (character !== '/' || source[index + 1] !== '*') {
+      result += character
+      index += 1
+      continue
+    }
+
+    result += ' '
+    index += 2
+    let closed = false
+    while (index < source.length) {
+      if (source[index] === '*' && source[index + 1] === '/') {
+        index += 2
+        closed = true
+        break
+      }
+      if (source[index] === '\r' || source[index] === '\n') result += source[index]
+      index += 1
+    }
+    if (!closed) throw new Error('CSS 注释缺少结束标记')
+  }
+
+  return result
+}
+
 function riskRuleBlocks(source: string): string[] {
+  source = stripCssBlockComments(source)
   const blocks: string[] = []
   function closingBrace(open: number, end: number): number {
     let depth = 0
@@ -61,6 +110,7 @@ const COLOR_PROPERTIES = new Set([
 ])
 
 function declarations(rule: string): Array<{ property: string, value: string }> {
+  rule = stripCssBlockComments(rule)
   const open = rule.indexOf('{')
   const close = rule.lastIndexOf('}')
   if (open < 0 || close < open) throw new Error('CSS 风控规则缺少花括号')
@@ -191,6 +241,39 @@ export function testWeeklyRiskStyleContractRejectsTokenAndVisualBypasses(): void
   if (/(?:font-size|gap|padding|margin|border-radius):var\(--/.test(riskRuleBlocks(css).join('\n'))) {
     throw new Error('风控 token 声明必须保留冒号后的可读空格')
   }
+}
+
+export function testWeeklyRiskStyleContractCannotBeBypassedWithComments(): void {
+  const approvedRoles = `
+    .wr-risk-period {
+      background: var(--bg-elevated);
+      color: var(--text-strong);
+      border: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+    }
+    .wr-risk-period.is-primary { background: var(--bg-inset); }
+    .wr-risk-period small { color: var(--text-muted); }
+  `
+
+  for (const [name, rule] of [
+    ['声明前单行注释', '.wr-risk-comment { /* 说明 */ background-image: linear-gradient(#fff, #000); }'],
+    ['声明前多行注释', `.wr-risk-comment {
+      /* 多行
+         说明 */
+      text-shadow: 0 0 1px red;
+    }`],
+    ['含结构字符的注释', '.wr-risk-comment { /* ; { } */ font-family: serif; }'],
+  ]) {
+    expectRiskContractFailure(`${approvedRoles}${rule}`, `CSS 注释绕过了${name}门禁`)
+  }
+
+  validateRiskStyles(`${approvedRoles}
+    .wr-risk-comment {
+      /* 合法说明；可以换行 */
+      color: var(--text-strong);
+      font-family: var(--font-mono);
+    }
+  `)
 }
 
 export function testWeeklyRiskStylesTargetTheEvidenceDom(): void {
