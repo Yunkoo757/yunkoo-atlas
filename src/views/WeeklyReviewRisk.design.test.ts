@@ -101,8 +101,16 @@ function validateRiskStyles(css: string): void {
   for (const rule of riskRules) {
     if (rule.includes('.wr-metric-grid')) throw new Error('风控区不得继续使用指标网格')
     for (const { property, value } of declarations(rule)) {
-      if (property === 'box-shadow') throw new Error('风控区不得使用阴影')
+      if (['box-shadow', 'text-shadow', 'filter', '-webkit-filter'].includes(property)) {
+        throw new Error('风控区不得使用阴影或滤镜')
+      }
+      if (property === 'background-image' || property.startsWith('border-image')) {
+        throw new Error('风控区不得使用私有图像颜色入口')
+      }
       if (property === 'font') throw new Error('风控区不得使用 font 简写')
+      if (property === 'font-family' && !/^var\(\s*--font-mono\s*\)$/.test(value)) {
+        throw new Error('风控区字体族必须使用 --font-mono')
+      }
       if (TOKEN_ONLY_PROPERTIES.has(property) && !/^var\(--[\w-]+\)$/.test(value)) {
         throw new Error(`${property} 必须直接消费 token`)
       }
@@ -155,6 +163,12 @@ export function testWeeklyRiskStyleContractRejectsTokenAndVisualBypasses(): void
     ['font 简写', 'font: 12px serif;'],
     ['大小写 font 简写', 'FONT: 12px serif;'],
     ['大小写 box-shadow', 'BOX-SHADOW: 0 0 1px var(--accent);'],
+    ['background-image 渐变', 'background-image: linear-gradient(#fff, #000);'],
+    ['text-shadow 命名颜色', 'text-shadow: 0 0 1px red;'],
+    ['drop-shadow 滤镜', 'filter: drop-shadow(0 0 1px red);'],
+    ['border-image 简写', 'border-image: linear-gradient(red, blue) 1;'],
+    ['border-image-source', 'border-image-source: linear-gradient(red, blue);'],
+    ['私有字体族', 'font-family: serif;'],
     ['color-mix 颜色函数', 'color: color-mix(in srgb, var(--pos), var(--neg));'],
     ['大小写 color 命名颜色', 'COLOR: red;'],
     ['大小写 background 颜色函数', 'BACKGROUND: color-mix(in srgb, var(--pos), var(--neg));'],

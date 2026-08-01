@@ -65,3 +65,44 @@ export function testWeeklyRiskEvidenceExplainsEmptyConfirmationAudit(): void {
   )
   assert(html.includes('展开后无继续交易确认'), '零确认的审计展开区必须说明为空')
 }
+
+export function testWeeklyRiskDailyUsesNetBudgetAndExplainsIncompleteCoverage(): void {
+  const dailyOutcomes: WeeklyRiskReviewSnapshot['dailyOutcomes'] = [
+    {
+      ...complete,
+      date: '2026-07-27',
+      netBudgetR: 1.25,
+      remainingR: 8.75,
+      unknownReasons: ['missing-policy'],
+    },
+    {
+      ...complete,
+      date: '2026-07-28',
+      netBudgetR: -1.5,
+      remainingR: 3.5,
+      coverage: 'partial',
+      unknownReasons: ['missing-loss-pnl'],
+    },
+    {
+      ...complete,
+      date: '2026-07-29',
+      netBudgetR: -2.25,
+      remainingR: 2.75,
+      coverage: 'unknown',
+      unknownReasons: ['future-loss-close-date', 'invalid-live-cycle-start'],
+    },
+  ]
+  const html = renderToStaticMarkup(
+    <MemoryRouter><WeeklyRiskEvidence snapshot={{ ...snapshot, dailyOutcomes }} /></MemoryRouter>,
+  )
+
+  assert(html.includes('<strong>+1.25R</strong>'), '每日主数值必须展示净预算 R')
+  assert(html.includes('<strong>-1.5R</strong>'), '负净预算 R 必须原样展示')
+  assert(!html.includes('8.75R 剩余') && !html.includes('3.5R 剩余'), '每日主数值不得误用 remainingR')
+  assert((html.match(/class="wr-risk-day-reasons"/g) ?? []).length === 2, '仅 partial/unknown 应展示原因摘要')
+  assert(!html.includes('历史亏损缺少适用规则'), 'complete 行不得展示 unknownReasons')
+  assert(html.includes('原因：亏损交易缺少金额'), 'partial 行必须展示共享中文原因')
+  assert(html.includes('亏损平仓日期晚于当前交易日、风险核算起点晚于当前交易日'), 'unknown 行必须完整展示多个原因')
+  const dailyMarkup = html.slice(html.indexOf('class="wr-risk-daily"'), html.indexOf('class="wr-risk-audits"'))
+  assert(!dailyMarkup.includes('已使用 /'), '每日轨迹不得重复已使用/限制文案')
+}

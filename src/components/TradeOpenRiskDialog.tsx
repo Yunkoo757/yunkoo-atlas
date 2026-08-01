@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AlertCircle, Shield } from '@/icons/appIcons'
-import type { RiskPeriodScope, RiskUnknownReason } from '@/data/riskManagement'
+import type { RiskPeriodScope } from '@/data/riskManagement'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { RiskGatePublishAfterCommitError } from '@/lib/riskGatedTradeOpenCommit'
+import { RISK_UNKNOWN_REASON_COPY } from '@/lib/riskUnknownReasonPresentation'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
 import { useStore, type StorePendingTradeOpenRequest } from '@/store/useStore'
@@ -13,16 +14,6 @@ const PERIODS: Array<{ scope: RiskPeriodScope; label: string }> = [
   { scope: 'week', label: '本周' },
   { scope: 'month', label: '本月' },
 ]
-
-const UNKNOWN_REASON_COPY: Record<RiskUnknownReason, string> = {
-  'missing-loss-pnl': '亏损交易缺少金额',
-  'result-conflict': '交易结果存在冲突',
-  'missing-policy': '历史亏损缺少适用规则',
-  'missing-close-date': '亏损交易缺少平仓日期',
-  'invalid-close-date': '平仓日期无效',
-  'future-loss-close-date': '亏损平仓日期晚于当前交易日',
-  'invalid-live-cycle-start': '风险核算起点晚于当前交易日',
-}
 
 type CommitState = 'idle' | 'committing' | 'error' | 'reload-required'
 
@@ -109,7 +100,7 @@ export function TradeOpenRiskDialog() {
   }, [commitState])
 
   const unknownReasonText = useMemo(() => request
-    ? request.unknownReasons.map((item) => UNKNOWN_REASON_COPY[item]).join('、')
+    ? request.unknownReasons.map((item) => RISK_UNKNOWN_REASON_COPY[item]).join('、')
     : '', [request])
 
   if (!request || !trade) return null

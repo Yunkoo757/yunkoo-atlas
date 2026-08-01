@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import type { RiskPeriodOutcomeSnapshot, WeeklyRiskReviewSnapshot } from '@/data/riskManagement'
 import { fmtR } from '@/lib/format'
+import { RISK_UNKNOWN_REASON_COPY } from '@/lib/riskUnknownReasonPresentation'
 import {
   clampRiskProgress,
   getWeeklyRiskStatus,
@@ -28,7 +29,7 @@ function PeriodDecision({ label, outcome, primary = false }: PeriodDecisionProps
         className="wr-risk-track"
         style={style}
         role="progressbar"
-        aria-label={`${label}：${status.label}，已使用 ${fmtR(outcome.consumedR)}，限制 ${fmtR(outcome.limitR)}，${status.hint}`}
+        aria-label={`${label}：${status.label}，${fmtR(outcome.consumedR)} 已使用 / ${fmtR(outcome.limitR)} 限制，${status.hint}`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(progress * 100)}
@@ -57,12 +58,15 @@ export function WeeklyRiskEvidence({ snapshot }: { snapshot: WeeklyRiskReviewSna
         <h3>每日风险轨迹</h3>
         {snapshot.dailyOutcomes.map((outcome) => {
           const status = getWeeklyRiskStatus(outcome)
+          const reasonSummary = outcome.coverage === 'complete'
+            ? null
+            : outcome.unknownReasons.map((reason) => RISK_UNKNOWN_REASON_COPY[reason]).join('、')
           return (
           <article className="wr-risk-day" data-risk-tone={status.tone} key={outcome.date}>
             <span className="wr-risk-day-date">{outcome.date}</span>
-            <strong>{fmtR(outcome.remainingR)} 剩余</strong>
+            <strong>{fmtR(outcome.netBudgetR)}</strong>
             <span className="wr-risk-day-status">{status.label}</span>
-            <small>{fmtR(outcome.consumedR)} 已使用 / {fmtR(outcome.limitR)} 限制</small>
+            {reasonSummary ? <small className="wr-risk-day-reasons">原因：{reasonSummary}</small> : null}
           </article>
           )
         })}

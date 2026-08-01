@@ -315,6 +315,15 @@ async function run(): Promise<void> {
     assert([weekly, monthly, daily, audit].every((index) => index >= 0), '冻结风控证据缺少信息层级标题')
     assert(weekly < monthly && monthly < daily && daily < audit, '本周→月度→每日→审计顺序错误')
     assert(document.querySelectorAll('.wr-risk-day').length === completed.riskSnapshot?.dailyOutcomes.length, '每日轨迹数量错误')
+    const progressbars = [...risk.querySelectorAll<HTMLElement>('[role="progressbar"]')]
+    assert(progressbars.length === 2, '风控决策必须有两个周期进度条')
+    for (const [progressbar, expected] of [
+      [progressbars[0]!, ['本周风险状态', '未触线', '0.0R 已使用 / +5.0R 限制']],
+      [progressbars[1]!, ['完成时月度状态', '未触线', '0.0R 已使用 / 0.0R 限制']],
+    ] as const) {
+      const accessibleName = progressbar.getAttribute('aria-label') ?? ''
+      assert(expected.every((part) => accessibleName.includes(part)), `进度条可访问名称不完整：${accessibleName}`)
+    }
     const audits = [...document.querySelectorAll<HTMLDetailsElement>('.wr-risk-audit')]
     assert(audits.length === 2 && audits.every((item) => !item.open), '两个审计区默认必须收起')
     const firstSummary = audits[0]!.querySelector<HTMLElement>('summary')
@@ -382,18 +391,22 @@ async function run(): Promise<void> {
 
     const frozen = completed.riskSnapshot!
     const dailyFixture = [
-      { date: activeWeekStart, coverage: 'complete' as const, triggered: false, label: '未触线' },
-      { date: addDays(activeWeekStart, 1), coverage: 'partial' as const, triggered: false, label: '部分覆盖' },
-      { date: addDays(activeWeekStart, 2), coverage: 'unknown' as const, triggered: false, label: '无法确认' },
-      { date: addDays(activeWeekStart, 3), coverage: 'complete' as const, triggered: true, label: '已触线' },
+      { date: activeWeekStart, coverage: 'complete' as const, triggered: false, label: '未触线', netBudgetR: 1.25, remainingR: 8.75, unknownReasons: [], expectedNet: '+1.25R' },
+      { date: addDays(activeWeekStart, 1), coverage: 'partial' as const, triggered: false, label: '部分覆盖', netBudgetR: -1.5, remainingR: 3.5, unknownReasons: ['missing-loss-pnl'] as const, expectedNet: '-1.5R' },
+      {
+        date: addDays(activeWeekStart, 2), coverage: 'unknown' as const, triggered: false, label: '无法确认', netBudgetR: -2.25, remainingR: 2.75,
+        unknownReasons: ['result-conflict', 'missing-policy', 'missing-close-date', 'invalid-close-date', 'future-loss-close-date', 'invalid-live-cycle-start'] as const,
+        expectedNet: '-2.25R',
+      },
+      { date: addDays(activeWeekStart, 3), coverage: 'complete' as const, triggered: true, label: '已触线', netBudgetR: -5, remainingR: 0, unknownReasons: [], expectedNet: '-5.0R' },
     ]
     useStore.setState({
       weeklyReviews: [{
         ...completed,
         riskSnapshot: {
           ...frozen,
-          dailyOutcomes: dailyFixture.map(({ date, coverage, triggered }) => ({
-            ...frozen.weeklyOutcome, coverage, triggered, date,
+          dailyOutcomes: dailyFixture.map(({ date, coverage, triggered, netBudgetR, remainingR, unknownReasons }) => ({
+            ...frozen.weeklyOutcome, coverage, triggered, date, netBudgetR, remainingR, unknownReasons: [...unknownReasons],
           })),
         },
       }],
@@ -407,8 +420,17 @@ async function run(): Promise<void> {
       const row = dailyRows.find((item) => item.querySelector('.wr-risk-day-date')?.textContent === expected.date)
       assert(row, `每日轨迹缺少 ${expected.date}`)
       assert(row.querySelector('.wr-risk-day-status')?.textContent === expected.label, `${expected.date} 状态文案错误`)
+      const value = row.querySelector('strong')?.textContent ?? ''
+      assert(value === expected.expectedNet, `${expected.date} 必须展示净预算 R，实际为 ${value}`)
       assertDailyRiskRowKeepsKeyValuesOnOneLine(row)
     }
+    const unknownRow = dailyRows.find((item) => item.querySelector('.wr-risk-day-status')?.textContent === '无法确认')
+    assert(unknownRow, '每日轨迹缺少无法确认行')
+    const longReasons = unknownRow?.querySelector<HTMLElement>('.wr-risk-day-reasons')
+    assert(longReasons, '无法确认行缺少原因摘要')
+    assert(longReasons.textContent?.includes('风险核算起点晚于当前交易日'), '长原因摘要没有完整渲染')
+    assert(longReasons.scrollWidth <= longReasons.clientWidth, `${window.innerWidth}px 长原因摘要不得水平裁切`)
+    assertRectFitsHorizontally(longReasons, unknownRow.getBoundingClientRect(), '长原因摘要必须在每日行内换行')
     useStore.setState({ weeklyReviews: [completed] })
 
     const frozenEvidence = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
