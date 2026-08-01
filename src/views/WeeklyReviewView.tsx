@@ -26,12 +26,12 @@ import {
   type WeeklyCommitmentResult,
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
-import type { RiskPeriodOutcomeSnapshot, WeeklyRiskReviewSnapshot } from '@/data/riskManagement'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { tradeDetailPath } from '@/lib/tradeRoute'
+import { WeeklyRiskEvidence } from '@/views/WeeklyRiskEvidence'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
 import {
@@ -68,54 +68,6 @@ const COMMITMENT_RESULTS: { value: WeeklyCommitmentResult; label: string }[] = [
 ]
 
 type ReviewPatch = Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>
-
-const RISK_COVERAGE_META: Record<RiskPeriodOutcomeSnapshot['coverage'], { label: string; hint: string }> = {
-  complete: { label: '完整', hint: '' },
-  partial: { label: '部分覆盖', hint: '按保守数值展示' },
-  unknown: { label: '无法确认', hint: '数据不完整，不能判断是否安全' },
-}
-
-function RiskOutcome({ label, outcome }: { label: string; outcome: RiskPeriodOutcomeSnapshot }) {
-  const coverage = RISK_COVERAGE_META[outcome.coverage]
-  return (
-    <div className="wr-metric">
-      <span>{label}</span>
-      <strong>{fmtR(outcome.netBudgetR)}</strong>
-      <small>{coverage.label} · 上限 {fmtR(outcome.limitR)}{coverage.hint ? ` · ${coverage.hint}` : ''}</small>
-    </div>
-  )
-}
-
-function WeeklyRiskEvidence({ snapshot }: { snapshot: WeeklyRiskReviewSnapshot }) {
-  return (
-    <section className="wr-section wr-risk-evidence">
-      <div className="wr-section-head"><div><span>R</span><h2>风控执行</h2></div><small>完成时冻结证据</small></div>
-      <div className="wr-risk-policies">
-        <strong>当周规则版本</strong>
-        {snapshot.policyVersions.length ? snapshot.policyVersions.map((policy) => (
-          <p key={policy.id}>{policy.id} · {policy.effectiveTradingDay} 生效 · {policy.disciplineText || '未填写纪律文本'}</p>
-        )) : <p>当周没有生效规则</p>}
-      </div>
-      <div className="wr-metric-grid">
-        {snapshot.dailyOutcomes.map((outcome) => <RiskOutcome key={outcome.date} label={`每日 ${outcome.date.slice(5)}`} outcome={outcome} />)}
-        <RiskOutcome label="本周最终" outcome={snapshot.weeklyOutcome} />
-        <RiskOutcome label="完成时月度" outcome={snapshot.monthlyOutcomeAtCompletion} />
-      </div>
-      <div className="wr-risk-events">
-        <strong>继续交易确认</strong>
-        {snapshot.overrideEvents.length ? snapshot.overrideEvents.map((event) => (
-          <article key={event.id}>
-            <p>{event.reason}</p>
-            <small>
-              {event.tradeIdentityAtDecision.ref} · {event.tradeIdentityAtDecision.symbol} · {event.linkState === 'resolved' ? '已关联' : '关联未解析'}
-              {event.linkState === 'resolved' ? <> · <Link to={tradeDetailPath(event.tradeIdentityAtDecision)}>查看交易</Link></> : null}
-            </small>
-          </article>
-        )) : <p>本周没有继续交易确认</p>}
-      </div>
-    </section>
-  )
-}
 
 function addDays(ymd: string, days: number): string {
   const next = parseLocalDate(ymd)
