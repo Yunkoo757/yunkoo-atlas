@@ -75,6 +75,13 @@ export function WeeklyRiskEvidence({
   const confirmationSummary = snapshot.overrideEvents.length
     ? `${snapshot.overrideEvents.length} 条继续交易确认`
     : '本周无继续交易确认'
+  const triggeredDayCount = snapshot.dailyOutcomes.filter((outcome) => outcome.triggered).length
+  const incompleteDayCount = snapshot.dailyOutcomes.filter((outcome) => outcome.coverage !== 'complete').length
+  const dailySummary = [
+    `${snapshot.dailyOutcomes.length} 个交易日`,
+    triggeredDayCount ? `${triggeredDayCount} 日触线` : '全程未触线',
+    incompleteDayCount ? `${incompleteDayCount} 日待确认` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
     <section className="wr-section wr-risk-evidence">
@@ -83,8 +90,8 @@ export function WeeklyRiskEvidence({
         <PeriodDecision label="本周风险状态" outcome={snapshot.weeklyOutcome} primary />
         <PeriodDecision label="完成时月度状态" outcome={snapshot.monthlyOutcomeAtCompletion} />
       </div>
-      <div className="wr-risk-daily">
-        <h3>每日风险轨迹</h3>
+      <details className="wr-risk-daily">
+        <summary><span>每日风险轨迹</span><small>{dailySummary}</small></summary>
         <div className="wr-risk-day-list">
           {snapshot.dailyOutcomes.map((outcome) => {
             const status = getWeeklyRiskStatus(outcome)
@@ -101,7 +108,7 @@ export function WeeklyRiskEvidence({
             )
           })}
         </div>
-      </div>
+      </details>
       <div className="wr-risk-audits">
         <h3>冻结审计</h3>
         <div className="wr-risk-audit-list">

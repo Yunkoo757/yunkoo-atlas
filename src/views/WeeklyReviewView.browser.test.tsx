@@ -103,7 +103,10 @@ function addDays(ymd: string, days: number): string {
 
 function assertNoHorizontalOverflow(elements: HTMLElement[], message: string): void {
   for (const element of elements) {
-    assert(element.scrollWidth <= element.clientWidth, `${message}：${element.className || element.tagName}`)
+    assert(
+      element.scrollWidth <= element.clientWidth,
+      `${message}：${element.className || element.tagName}（${element.scrollWidth}/${element.clientWidth}px）`,
+    )
   }
 }
 
@@ -326,6 +329,13 @@ async function run(): Promise<void> {
     }
     const audits = [...document.querySelectorAll<HTMLDetailsElement>('.wr-risk-audit')]
     assert(audits.length === 2 && audits.every((item) => !item.open), '两个审计区默认必须收起')
+    const dailyDisclosure = risk.querySelector<HTMLDetailsElement>('.wr-risk-daily')
+    assert(dailyDisclosure && !dailyDisclosure.open, '每日风险轨迹默认必须收起，避免风控区过度占高')
+    const collapsedRiskHeight = risk.getBoundingClientRect().height
+    const compactHeightLimit = window.innerWidth <= 768 ? 440 : 360
+    assert(collapsedRiskHeight < compactHeightLimit, `收起状态的风控区高度必须紧凑，当前为 ${collapsedRiskHeight}px`)
+    dailyDisclosure.querySelector<HTMLElement>('summary')?.click()
+    assert(dailyDisclosure.open, '每日风险轨迹必须能够按需展开')
     const firstSummary = audits[0]!.querySelector<HTMLElement>('summary')
     assert(firstSummary && firstSummary.tabIndex >= 0, '原生 summary 必须可聚焦')
     firstSummary.focus()
