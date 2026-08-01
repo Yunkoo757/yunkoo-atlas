@@ -80,7 +80,6 @@ import {
 } from '@/storage/noteDrafts'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
-import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
@@ -169,7 +168,6 @@ export function DetailView() {
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
   const restoreTrade = useStore((s) => s.restoreTrade)
-  const upsertTrade = useStore((s) => s.upsertTrade)
   const profile = useStore((s) => s.profile)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const starredIds = useStore((s) => s.starredIds)
@@ -185,16 +183,30 @@ export function DetailView() {
   const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
   const [noteRetrying, setNoteRetrying] = useState(false)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [caseCreating, setCaseCreating] = useState(false)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
   const [noteLoad, setNoteLoad] = useState<{
     tradeId: string | null
     state: DetailNoteLoadResult | { status: 'loading' }
   }>({ tradeId: null, state: { status: 'loading' } })
+  const [sourceNoteLoad, setSourceNoteLoad] = useState<{
+    tradeId: string | null
+    sourceHtml: string | undefined
+    state: DetailNoteLoadResult | { status: 'loading' }
+  }>({ tradeId: null, sourceHtml: undefined, state: { status: 'loading' } })
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingHtmlRef = useRef<string | null>(null)
   const pendingTradeIdRef = useRef<string | null>(null)
   const noteResolvedRef = useRef(false)   // 初始内容是否已加载，防止空 onUpdate 覆盖真实笔记
+  const caseCreatingRef = useRef(false)
   const commentRef = useRef<HTMLTextAreaElement>(null)
+
+  const sourceTrade = trade?.sourceTradeId
+    ? trades.find((item) => item.id === trade.sourceTradeId)
+    : undefined
+  const sourceSnapshotHtml = trade?.tradeKind === 'case'
+    ? trade.sourceNoteHtml ?? sourceTrade?.note
+    : undefined
 
   /** 键入只更新本地草稿；idle 后再写入 trades，避免全量快照 thrash */
   const NOTE_IDLE_COMMIT_MS = 2000
@@ -282,6 +294,31 @@ export function DetailView() {
     }
   }, [trade?.id, noteLoadAttempt])
 
+  useEffect(() => {
+    if (!trade || sourceSnapshotHtml === undefined) {
+      setSourceNoteLoad({
+        tradeId: trade?.id ?? null,
+        sourceHtml: undefined,
+        state: { status: 'loading' },
+      })
+      return
+    }
+
+    const tradeId = trade.id
+    setSourceNoteLoad({ tradeId, sourceHtml: sourceSnapshotHtml, state: { status: 'loading' } })
+    let cancelled = false
+    void loadDetailNote(
+      sourceSnapshotHtml,
+      (html) => resolveNoteForDisplayResult(html, getStorage()),
+    ).then((result) => {
+      if (cancelled) return
+      setSourceNoteLoad({ tradeId, sourceHtml: sourceSnapshotHtml, state: result })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [trade?.id, sourceSnapshotHtml])
+
   useLayoutEffect(() => {
     if (!trade || !lightbox) return
     if (!lightbox.ownerId) {
@@ -356,6 +393,8 @@ export function DetailView() {
     setFeedExpanded(false)
     setReviewIssue(null)
     setReviewSubmitting(false)
+    setCaseCreating(false)
+    caseCreatingRef.current = false
   }, [trade?.id])
 
   const activities = useMemo(
@@ -441,6 +480,15 @@ export function DetailView() {
   const noteEditorContent = activeNoteLoad.status === 'error'
       ? activeNoteLoad.fallbackHtml
       : editorHtml
+  const activeSourceNoteLoad =
+    sourceNoteLoad.tradeId === trade.id && sourceNoteLoad.sourceHtml === sourceSnapshotHtml
+      ? sourceNoteLoad.state
+      : { status: 'loading' as const }
+  const sourceNoteEditorContent = activeSourceNoteLoad.status === 'ready'
+    ? activeSourceNoteLoad.html
+    : activeSourceNoteLoad.status === 'error'
+      ? activeSourceNoteLoad.fallbackHtml
+      : ''
   const reviewReadiness = evaluateReviewCompletion(editorHtml)
 
   const commitTradeResultEdit = (edit: TradeResultEdit) => {
@@ -494,15 +542,26 @@ export function DetailView() {
     navigate(detailReturn, { state: tradeReturnLocationState(from?.anchorTradeId) })
   }
 
-  const createReviewCaseFromTrade = () => {
-    if (trade.tradeKind === 'case') return
-    const reviewCase = buildReviewCaseFromTrade(trade, {
-      id: crypto.randomUUID(),
-      ref: getNextReviewCaseRef(trades),
-    })
-    upsertTrade(reviewCase)
-    toast('已提炼为案例')
-    navigate(tradeDetailPath(reviewCase), { state: location.state })
+  const createCaseFromCurrentTrade = async () => {
+    if (caseCreatingRef.current || caseCreating || trade.tradeKind === 'case') return
+    caseCreatingRef.current = true
+    setCaseCreating(true)
+    try {
+      if (!(await flushNoteDraftToStore(trade.id))) {
+        toast('正文尚未保存，未创建案例')
+        return
+      }
+      const result = useStore.getState().createReviewCaseFromTrade(trade.id)
+      if (result.status !== 'created') {
+        toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+        return
+      }
+      toast('已提炼为案例')
+      navigate(tradeDetailPath(result.reviewCase), { state: location.state })
+    } finally {
+      caseCreatingRef.current = false
+      setCaseCreating(false)
+    }
   }
 
   const isPreCycle = classifyLiveCycleTrade(
@@ -528,10 +587,6 @@ export function DetailView() {
     trade.tradeKind !== 'case' &&
     isReviewCompleted(trade.reviewStatus) &&
     (truth.executionState === 'missed' || truth.executionState === 'closed')
-  const sourceTrade = trade.sourceTradeId
-    ? trades.find((item) => item.id === trade.sourceTradeId)
-    : undefined
-
   const completeReview = async () => {
     if (reviewSubmitting || activeNoteLoad.status !== 'ready' || !reviewReadiness.ready) return
 
@@ -625,7 +680,7 @@ export function DetailView() {
       ]}
       onSelect={(v) => {
         if (v === 'edit') openComposer(trade)
-        else if (v === 'review-case') createReviewCaseFromTrade()
+        else if (v === 'review-case') void createCaseFromCurrentTrade()
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
         else if (v === 'copy-link') copyLink()
         else if (v === 'copy') copyRef()
@@ -763,6 +818,35 @@ export function DetailView() {
                 )}
               </section>
             )}
+            {sourceSnapshotHtml !== undefined && (
+              <section className="dv-case-source-note" aria-labelledby="case-source-note-title">
+                <div className="dv-case-note-heading">
+                  <h2 id="case-source-note-title">来源复盘</h2>
+                  <span>随原交易自动更新 · 只读</span>
+                </div>
+                {activeSourceNoteLoad.status === 'loading' && (
+                  <div className="dv-case-source-note-status" role="status" aria-live="polite">
+                    来源复盘载入中…
+                  </div>
+                )}
+                {activeSourceNoteLoad.status === 'error' && (
+                  <div className="dv-note-load is-error" role="alert">
+                    <AlertCircle size={16} aria-hidden />
+                    <div className="dv-note-load-copy">
+                      <strong>来源附件未完整载入</strong>
+                      <span>图片附件读取失败，最后保存的文字与可用附件仍以只读方式展示。</span>
+                    </div>
+                  </div>
+                )}
+                <Editor
+                  content={sourceNoteEditorContent}
+                  onChange={() => {}}
+                  ariaLabel="来源复盘正文"
+                  readOnly
+                  allowImages={false}
+                />
+              </section>
+            )}
             {needsResult && (
               <section
                 className={
@@ -805,6 +889,12 @@ export function DetailView() {
                 + (activeNoteLoad.status === 'loading' ? ' is-note-loading' : '')
                 + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}
             >
+              {trade.tradeKind === 'case' && (
+                <div className="dv-case-note-heading">
+                  <h2 id="case-owned-note-title">案例沉淀</h2>
+                  <span>独立编辑 · 不影响来源复盘</span>
+                </div>
+              )}
               <div className="dv-note-status">
                 {activeNoteLoad.status === 'loading' && (
                   <div className="dv-note-load is-loading" role="status" aria-live="polite">
@@ -860,7 +950,7 @@ export function DetailView() {
               <Editor
                 content={noteEditorContent}
                 onChange={onEditorChange}
-                ariaLabel={trade.tradeKind === 'case' ? '案例复盘笔记' : '交易复盘笔记'}
+                ariaLabel={trade.tradeKind === 'case' ? '案例沉淀正文' : '交易复盘笔记'}
                 noteDraftId={trade.id}
                 readOnly={activeNoteLoad.status !== 'ready'}
                 reviewContextTools

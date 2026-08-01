@@ -382,6 +382,46 @@
 }
 
 .dv-case-source button:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.dv-case-source-note {
+  position: relative;
+  margin-bottom: var(--sp-6);
+  padding-bottom: var(--sp-6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dv-case-note-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.dv-case-note-heading h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.dv-case-note-heading span,
+.dv-case-source-note-status {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+}
+
+.dv-case-source-note-status {
+  margin-bottom: var(--sp-2);
+}
+
+.dv-case-source-note .editor .ProseMirror {
+  min-height: 120px;
+}
+
+.dv-case-source-note .dv-note-load.is-error {
+  grid-template-columns: 18px minmax(0, 1fr);
+}
 .dv-summary-item {
   min-width: 0;
   padding: 10px var(--sp-3);

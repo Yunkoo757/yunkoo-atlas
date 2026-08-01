@@ -27,7 +27,6 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
-import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
@@ -69,7 +68,6 @@ export function BoardView({
   const setStatus = useStore((s) => s.setStatus)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
-  const upsertTrade = useStore((s) => s.upsertTrade)
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -195,13 +193,13 @@ export function BoardView({
                       openComposer,
                       removeTrade,
                       createReviewCase: (source) => {
-                        const reviewCase = buildReviewCaseFromTrade(source, {
-                          id: crypto.randomUUID(),
-                          ref: getNextReviewCaseRef(trades),
-                        })
-                        upsertTrade(reviewCase)
+                        const result = useStore.getState().createReviewCaseFromTrade(source.id)
+                        if (result.status !== 'created') {
+                          toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+                          return
+                        }
                         toast('已提炼为案例')
-                        onOpen(reviewCase.id)
+                        onOpen(result.reviewCase.id)
                       },
                       toggleStar,
                       isStarred,
