@@ -120,7 +120,11 @@ function completedFixture() {
 
 export function testCompleteReviewFreezesRiskFromOneState(): void {
   const state = stateAtRevision(7)
-  const completed = completeWeeklyReviewCandidate(state, 'review-1')
+  const completed = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-26T23:00:00.000+08:00'),
+  )
   assert(completed.review.completedAt === completed.review.riskSnapshot?.frozenAt, '完成时间与风险冻结时间必须一致')
   assert(completed.review.riskSnapshot?.overrideEvents.length === 1, '必须冻结当时事件')
   assert(completed.review.riskSnapshot?.policyVersions[0]?.id === 'policy-7', '必须冻结同一版本的规则')
