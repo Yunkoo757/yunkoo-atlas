@@ -38,6 +38,10 @@ const APPROVED_RISK_TOKENS = new Set([
   '--sp-1', '--sp-2', '--sp-3', '--sp-4', '--sp-5', '--text-body', '--text-muted', '--text-strong',
   '--type-body-size', '--type-metadata-size', '--type-section-title-size', '--warn',
 ])
+const APPROVED_RISK_COLOR_TOKENS = new Set([
+  '--accent', '--bg-elevated', '--bg-inset', '--bg-surface', '--border-strong', '--border-subtle',
+  '--neg', '--pos', '--text-body', '--text-muted', '--text-strong', '--warn',
+])
 const REQUIRED_RISK_TOKENS = ['--bg-elevated', '--bg-inset', '--border-subtle', '--text-strong', '--text-muted', '--font-mono']
 const TOKEN_ONLY_PROPERTIES = new Set([
   'font-size', 'gap', 'row-gap', 'column-gap', 'padding', 'padding-block', 'padding-inline',
@@ -47,7 +51,13 @@ const TOKEN_ONLY_PROPERTIES = new Set([
 ])
 const COLOR_PROPERTIES = new Set([
   'color', 'background', 'background-color', 'border', 'border-color', 'border-top', 'border-right',
-  'border-bottom', 'border-left', 'outline', 'outline-color',
+  'border-bottom', 'border-left', 'border-block', 'border-inline', 'border-block-start', 'border-block-end',
+  'border-inline-start', 'border-inline-end', 'border-top-color', 'border-right-color', 'border-bottom-color',
+  'border-left-color', 'border-block-color', 'border-inline-color', 'border-block-start-color',
+  'border-block-end-color', 'border-inline-start-color', 'border-inline-end-color', 'outline', 'outline-color',
+  'text-decoration', 'text-decoration-color', 'caret-color', 'fill', 'stroke', 'column-rule',
+  'column-rule-color', 'text-emphasis', 'text-emphasis-color', '-webkit-text-fill-color',
+  '-webkit-text-stroke', '-webkit-text-stroke-color', 'accent-color', 'scrollbar-color',
 ])
 
 function declarations(rule: string): Array<{ property: string, value: string }> {
@@ -59,7 +69,7 @@ function declarations(rule: string): Array<{ property: string, value: string }> 
   let match: RegExpExecArray | null
   const body = rule.slice(open + 1, close)
   while ((match = matches.exec(body)) !== null) {
-    result.push({ property: match[1]!, value: match[2]!.trim() })
+    result.push({ property: match[1]!.trim().toLowerCase(), value: match[2]!.trim() })
   }
   return result
 }
@@ -67,6 +77,10 @@ function declarations(rule: string): Array<{ property: string, value: string }> 
 function assertRiskColorUsesApprovedTokens(property: string, value: string): void {
   if (!COLOR_PROPERTIES.has(property)) return
   if (/\bcurrentcolor\b/i.test(value)) throw new Error(`${property} 不得使用 currentColor`)
+  if (/#(?:[\da-f]{3,8})\b/i.test(value)) throw new Error(`${property} 不得使用私有十六进制颜色`)
+  for (const token of value.matchAll(/var\(\s*(--[\w-]+)/g)) {
+    if (!APPROVED_RISK_COLOR_TOKENS.has(token[1])) throw new Error(`${property} 必须使用批准颜色 token`)
+  }
   const withoutTokens = value.replace(/var\(--[\w-]+\)/g, '')
   if (/\b[a-z-]+\s*\(/i.test(withoutTokens)) throw new Error(`${property} 不得使用颜色函数`)
   const withoutBorderSyntax = withoutTokens
@@ -132,16 +146,25 @@ export function testWeeklyRiskStyleContractRejectsTokenAndVisualBypasses(): void
     ['未批准 token', 'color: var(--unapproved);'],
     ['带 fallback 的未批准 token', 'width: var(--unapproved, 0px);'],
     ['padding-block 裸值', 'padding-block: 12px;'],
+    ['大小写 padding-block 裸值', 'Padding-block: 12px;'],
     ['margin-block 裸值', 'margin-block: 12px;'],
     ['padding-inline 裸值', 'padding-inline: 12px;'],
     ['margin-inline 裸值', 'margin-inline: 12px;'],
     ['row-gap 裸值', 'row-gap: 12px;'],
     ['column-gap 裸值', 'column-gap: 12px;'],
     ['font 简写', 'font: 12px serif;'],
+    ['大小写 font 简写', 'FONT: 12px serif;'],
+    ['大小写 box-shadow', 'BOX-SHADOW: 0 0 1px var(--accent);'],
     ['color-mix 颜色函数', 'color: color-mix(in srgb, var(--pos), var(--neg));'],
+    ['大小写 color 命名颜色', 'COLOR: red;'],
+    ['大小写 background 颜色函数', 'BACKGROUND: color-mix(in srgb, var(--pos), var(--neg));'],
     ['currentColor', 'color: currentColor;'],
     ['命名颜色', 'color: red;'],
+    ['十六进制颜色', 'color: #123456;'],
+    ['非颜色 token', 'color: var(--sp-3);'],
     ['其他颜色函数', 'color: light-dark(var(--pos), var(--neg));'],
+    ['fill 命名颜色', 'fill: red;'],
+    ['stroke currentColor', 'stroke: currentColor;'],
   ]) {
     expectRiskContractFailure(`${approvedRoles}.wr-risk-bypass { ${declaration} }`, `合同未拒绝${name}`)
   }
