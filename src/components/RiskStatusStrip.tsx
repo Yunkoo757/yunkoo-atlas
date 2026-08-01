@@ -59,14 +59,25 @@ function RiskPeriod({
   outcome,
   presentation,
   requiresReview,
+  constrainedBy,
 }: {
   label: string
   ariaLabel: string
   outcome: RiskPeriodOutcomeSnapshot
   presentation: RiskStatusPresentation
   requiresReview?: boolean
+  constrainedBy?: string
 }) {
-  const display = presentation.label === '待复核'
+  const constrained = Boolean(constrainedBy) && (
+    presentation.kind === 'normal' || presentation.kind === 'near'
+  )
+  const display = constrained
+    ? {
+        kind: 'constrained',
+        label: `受${constrainedBy}限制`,
+        detail: `账面剩余 ${formatBudgetR(outcome.remainingR)}`,
+      }
+    : presentation.label === '待复核'
     ? { ...presentation, detail: '本周规则未确认' }
     : {
         ...presentation,
@@ -143,10 +154,22 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
     row.presentation.kind === 'unknown' ||
     row.presentation.kind === 'partial' ||
     row.presentation.kind === 'unconfigured')
-  const summary = summarizeRiskStatus(rows.map((row) => ({
+  const summaryRows = rows.map((row) => ({
     periodLabel: row.label,
     presentation: row.presentation,
-  })))
+  }))
+  const triggeredRows = rows.filter((row) => row.presentation.kind === 'triggered')
+  const blockingRow = triggeredRows[0]
+  const remainingSummaryRows = summaryRows.filter((row) => row.presentation.kind !== 'triggered')
+  const crossMonthWeeklyConstraint = blockingRow?.scope === 'week' &&
+    rows.some((row) => row.scope === 'month' && row.displayLabel.includes('重置'))
+  const summary = triggeredRows.length > 0
+    ? [
+        `${triggeredRows.map((row) => row.label).join('、')}已超限，当前暂停开仓。`,
+        remainingSummaryRows.length > 0 ? summarizeRiskStatus(remainingSummaryRows) : null,
+        crossMonthWeeklyConstraint ? '月度重置不会解除本周限制。' : null,
+      ].filter(Boolean).join(' ')
+    : summarizeRiskStatus(summaryRows)
 
   return (
     <section className="risk-status-strip" data-risk-status aria-labelledby="risk-status-title">
@@ -160,6 +183,7 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
             outcome={row.outcome}
             presentation={row.presentation}
             requiresReview={row.requiresReview}
+            constrainedBy={row.presentation.kind !== 'triggered' ? blockingRow?.label : undefined}
           />
         ))}
       </div>

@@ -256,6 +256,46 @@ async function run(): Promise<void> {
     })
     await waitFor(() => initialWeek.dataset.riskState === 'normal', '已复核状态没有生效')
 
+    const previousMonthTradingDay = formatYmd(previousMonthLastDate)
+    const previousMonthLosses = ['cross-month-loss-1', 'cross-month-loss-2', 'cross-month-loss-3'].map((id) => {
+      const loss = trade(id, 'loss')
+      return {
+        ...loss,
+        openedAt: `${previousMonthTradingDay}T01:00:00.000Z`,
+        closedAt: `${previousMonthTradingDay}T02:00:00.000Z`,
+        closedTradingDayKey: previousMonthTradingDay,
+        activities: loss.activities?.map((activity) => ({
+          ...activity,
+          timestamp: `${previousMonthTradingDay}T01:00:00.000Z`,
+        })),
+      }
+    })
+    useStore.setState({
+      trades: [trade('target', 'planned'), ...previousMonthLosses],
+      riskPolicyVersions: [{ ...policy, effectiveTradingDay: previousMonthTradingDay }],
+      liveStatsStartTradingDayKey: previousMonthTradingDay,
+    })
+    await waitFor(
+      () => initialWeek.dataset.riskState === 'triggered',
+      '跨月周夹具必须先真实触发周限额',
+    )
+    assert(initialMonth.textContent?.includes('0.0R / 10.0R'), '跨月周夹具的当前月账面额度必须尚未消耗')
+    await waitFor(
+      () => initialMonth.dataset.riskState === 'constrained',
+      '跨月周触发周限额时，月度重置额度必须呈现为受周限额约束',
+    )
+    assert(initialMonth.textContent?.includes('受本周限制'), '月度卡片必须说明当前不可使用账面额度')
+    assert(initialMonth.textContent?.includes('账面剩余 10.0R'), '月度卡片必须保留独立账期余额')
+    assert(status.textContent?.includes('本周已超限，当前暂停开仓'), '风险摘要必须先给出当前行动约束')
+    assert(status.textContent?.includes('月度重置不会解除本周限制'), '跨月周必须解释月度重置与周限额的联合约束')
+
+    useStore.setState({
+      trades: [trade('target', 'planned')],
+      riskPolicyVersions: [policy],
+      liveStatsStartTradingDayKey: null,
+    })
+    await waitFor(() => initialWeek.dataset.riskState === 'normal', '跨月周场景清理失败')
+
     const cases = [
       {
         name: '正常',

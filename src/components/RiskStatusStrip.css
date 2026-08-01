@@ -32,11 +32,13 @@
 .risk-status-values { color: var(--text-muted); font-size: var(--type-metadata-size); font-variant-numeric: tabular-nums; }
 .risk-status-values strong { color: var(--text-primary); font-family: var(--font-mono); }
 .risk-status-period.is-near .risk-status-period-head strong,
+.risk-status-period.is-constrained .risk-status-period-head strong,
 .risk-status-period.is-partial .risk-status-period-head strong,
 .risk-status-period.is-unknown .risk-status-period-head strong,
 .risk-status-period.is-unconfigured .risk-status-period-head strong,
 .risk-status-period.is-unreviewed .risk-status-period-head strong { color: var(--warn-action); }
 .risk-status-period.is-near .risk-status-track > span,
+.risk-status-period.is-constrained .risk-status-track > span,
 .risk-status-period.is-partial .risk-status-track > span,
 .risk-status-period.is-unknown .risk-status-track > span,
 .risk-status-period.is-unconfigured .risk-status-track > span,
