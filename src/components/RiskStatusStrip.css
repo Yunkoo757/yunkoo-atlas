@@ -1,16 +1,16 @@
 .risk-status-strip {
   margin-top: 14px;
   color: var(--text-body);
-  background: transparent;
+  background: color-mix(in srgb, var(--bg-elevated) 34%, transparent);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 3%, transparent);
 }
 .risk-status-head {
   display: flex;
-  min-height: 38px;
+  min-height: 40px;
   align-items: center;
   padding: 0 var(--sp-3);
-  border-bottom: 1px solid var(--border-subtle);
 }
 .risk-status-head h2 {
   margin: 0;
@@ -20,7 +20,9 @@
 }
 .risk-status-periods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .risk-status-period { min-width: 0; padding: 11px var(--sp-3) 10px; background: transparent; }
-.risk-status-period + .risk-status-period { border-left: 1px solid var(--border-subtle); }
+.risk-status-period + .risk-status-period {
+  border-left: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
+}
 .risk-status-period-head,
 .risk-status-values { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
 .risk-status-period-head span { color: var(--text-secondary); font-size: var(--type-row-size); font-weight: var(--font-weight-semibold); }
@@ -39,7 +41,7 @@
 .risk-status-period.is-unknown .risk-status-track > span,
 .risk-status-period.is-unconfigured .risk-status-track > span,
 .risk-status-period.is-unreviewed .risk-status-track > span { background: var(--warn-action); }
-.risk-status-period.is-triggered { background: color-mix(in srgb, var(--neg) 4%, transparent); }
+.risk-status-period.is-triggered { background: color-mix(in srgb, var(--neg) 6%, transparent); }
 .risk-status-period.is-triggered .risk-status-period-head strong { color: var(--neg); }
 .risk-status-period.is-triggered .risk-status-track > span { background: var(--neg); }
 .risk-status-summary {
@@ -51,7 +53,6 @@
   padding: 0 var(--sp-3);
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  border-top: 1px solid var(--border-subtle);
 }
 .risk-status-summary a { color: var(--accent-readable); }
 @media (max-width: 899px) {
