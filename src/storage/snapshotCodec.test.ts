@@ -77,21 +77,36 @@ export function testSnapshotCodecIsIdempotentAndPreservesTheFullGoldenFixture():
 
 export function testSnapshotCodecPreservesCaseSourceNoteSnapshotsWithoutBackfillingLegacyCases(): void {
   const fixture = createFullPersistedSnapshotFixture()
+  const { sourceNoteHtml: _sourceNoteHtml, ...legacyTrade } = fixture.trades[0]!
+  const legacyNote = '<p>历史混合正文</p>'
   const legacyCase = {
-    ...fixture.trades[0]!,
+    ...legacyTrade,
     tradeKind: 'case' as const,
     sourceTradeId: 'source-trade',
-    note: '<p>历史混合正文</p>',
+    note: legacyNote,
   }
+  assert(
+    !Object.prototype.hasOwnProperty.call(legacyCase, 'sourceNoteHtml'),
+    '构造的旧版本 case 必须确实缺少 sourceNoteHtml own property',
+  )
+  assert(legacyCase.note === legacyNote, '构造旧版本 case 时不得改写 note')
+  const legacyPayload = JSON.parse(JSON.stringify({ ...fixture, trades: [legacyCase] })) as {
+    trades: Record<string, unknown>[]
+  }
+  assert(
+    !Object.prototype.hasOwnProperty.call(legacyPayload.trades[0]!, 'sourceNoteHtml'),
+    'JSON 往返后的旧版本 case 必须继续缺少 sourceNoteHtml own property',
+  )
+  assert(legacyPayload.trades[0]?.note === legacyNote, 'JSON 往返不得改写旧版本 case note')
   const legacy = decodeCanonicalSnapshot(
-    JSON.parse(JSON.stringify({ ...fixture, trades: [legacyCase] })),
+    legacyPayload,
     { version: SCHEMA_VERSION },
   )
   assert(
     !Object.prototype.hasOwnProperty.call(legacy.trades[0]!, 'sourceNoteHtml'),
     '旧版本 case 不得补写空 sourceNoteHtml 字段',
   )
-  assert(legacy.trades[0]?.note === '<p>历史混合正文</p>', '旧版本 case 不得改写 note')
+  assert(legacy.trades[0]?.note === legacyNote, '旧版本 case 不得改写 note')
 
   const sourceNoteHtml = '<p>来源快照：逐字保留 &amp; 不混入洞见</p>'
   const current = decodeCanonicalSnapshot(
