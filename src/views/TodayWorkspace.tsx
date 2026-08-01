@@ -6,7 +6,6 @@ import { Topbar } from '@/components/Topbar'
 import { TradeRow } from '@/components/trades/TradeRow'
 import type { Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
-import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
@@ -67,7 +66,6 @@ export function TodayWorkspace() {
   const requestTradeClose = useStore((state) => state.requestTradeClose)
   const requestTradeOpen = useStore((state) => state.requestTradeOpen)
   const removeTrade = useStore((state) => state.removeTrade)
-  const upsertTrade = useStore((state) => state.upsertTrade)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
   const privacyMode = useStore((state) => state.display.privacyMode)
@@ -116,13 +114,13 @@ export function TodayWorkspace() {
         openComposer,
         removeTrade,
         createReviewCase: (source) => {
-          const reviewCase = buildReviewCaseFromTrade(source, {
-            id: crypto.randomUUID(),
-            ref: getNextReviewCaseRef(trades),
-          })
-          upsertTrade(reviewCase)
+          const result = useStore.getState().createReviewCaseFromTrade(source.id)
+          if (result.status !== 'created') {
+            toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+            return
+          }
           toast('已提炼为案例')
-          openTrade(reviewCase)
+          openTrade(result.reviewCase)
         },
         toggleStar,
         isStarred,

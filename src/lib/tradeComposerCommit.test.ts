@@ -4,6 +4,7 @@ import {
   prepareComposerAssetsForCommit,
 } from '@/lib/tradeComposerCommit'
 import type { StorageAdapter } from '@/storage/adapter'
+import { collectAssetIdsFromNotes } from '@/storage/assets'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
 
@@ -31,6 +32,30 @@ const existingTrade: Trade = {
   openedAt: '2026-07-01',
   closedAt: null,
   note: '<img src="journal-asset://old-shared-asset">',
+}
+
+const sourceTrade: Trade = {
+  ...existingTrade,
+  id: 'composer-source',
+  ref: 'TRD-SOURCE',
+  status: 'win',
+  exit: 110,
+  pnl: 10,
+  rMultiple: 1,
+  note: '<p>旧来源正文</p><img src="journal-asset://old-source-asset">',
+}
+
+const sourceCase: Trade = {
+  ...sourceTrade,
+  id: 'composer-source-case',
+  ref: 'CAS-1',
+  tradeKind: 'case',
+  sourceTradeId: sourceTrade.id,
+  sourceNoteHtml: sourceTrade.note,
+  note: '<p>案例自己的结论</p><img src="journal-asset://case-owned-asset">',
+  masteryState: 'recheck',
+  deletedAt: '2026-08-01T00:00:00.000Z',
+  activities: [{ id: 'case-note-activity', kind: 'note', timestamp: '2026-07-31T00:00:00.000Z' }],
 }
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -143,6 +168,73 @@ export async function testComposerCommitsNewAssetsAndTradeAsOneMergeBatch(): Pro
     assert(committedOptions?.pruneUnreferenced !== true, 'Composer 合并提交不得删除旧或共享附件')
     assert(useStore.getState().trades[0]?.note === committedSnapshot?.trades[0]?.note, '存储成功后才可发布同一交易到 store')
   } finally {
+    useStore.setState({ trades: previous.trades })
+  }
+}
+
+export async function testComposerSourceCommitSynchronizesCaseSnapshotInTheSamePatch(): Promise<void> {
+  const previous = useStore.getState()
+  useStore.setState({ trades: [sourceTrade, sourceCase] })
+  let committedSnapshot: PersistedSnapshot | undefined
+  try {
+    const result = await commitComposerTradeBatch({
+      targetTradeId: sourceTrade.id,
+      images: [image('latest-source-image')],
+      storage: {
+        commitImport: async (snapshot: PersistedSnapshot) => { committedSnapshot = snapshot },
+      } as unknown as StorageAdapter,
+      createAssetId: () => 'composer-source-latest-asset',
+      buildTrade: (state, html) => {
+        const latest = state.trades.find((trade) => trade.id === sourceTrade.id)
+        return latest ? { ...latest, note: `<p>最新来源正文</p>\n${html}` } : null
+      },
+    })
+
+    const committedSource = committedSnapshot?.trades.find((trade) => trade.id === sourceTrade.id)
+    const committedCase = committedSnapshot?.trades.find((trade) => trade.id === sourceCase.id)
+    const publishedCase = useStore.getState().trades.find((trade) => trade.id === sourceCase.id)
+    assert(result.trade?.note.includes('composer-source-latest-asset'), 'Composer 成功结果必须包含最新来源截图')
+    assert(committedSource?.note === committedCase?.sourceNoteHtml, '同一持久化快照必须同步来源正文与案例快照')
+    assert(publishedCase?.sourceNoteHtml === committedSource?.note, '持久化成功后必须一次发布相同案例快照')
+    assert(committedCase?.note === sourceCase.note && publishedCase?.note === sourceCase.note, '来源同步不得覆盖案例正文')
+    assert(committedCase?.activities === sourceCase.activities, '来源同步不得创建或替换案例活动')
+    assert(publishedCase?.activities === sourceCase.activities, '发布 patch 必须保留案例活动引用')
+    assert(publishedCase?.deletedAt === sourceCase.deletedAt, '软删除案例必须同步且保持删除状态')
+
+    useStore.getState().purgeTrade(sourceTrade.id)
+    assert(
+      collectAssetIdsFromNotes(useStore.getState().trades).includes('composer-source-latest-asset'),
+      '来源 purge 后最新截图仍必须由案例快照保护',
+    )
+  } finally {
+    useStore.setState({ trades: previous.trades })
+  }
+}
+
+export async function testComposerSourceCommitFailurePublishesNoCascade(): Promise<void> {
+  const previous = useStore.getState()
+  const initialTrades = [sourceTrade, sourceCase]
+  useStore.setState({ trades: initialTrades })
+  let error: unknown
+  try {
+    await commitComposerTradeBatch({
+      targetTradeId: sourceTrade.id,
+      images: [image('rejected-source-image')],
+      storage: {
+        commitImport: async () => { throw new Error('forced source snapshot failure') },
+      } as unknown as StorageAdapter,
+      createAssetId: () => 'composer-rejected-source-asset',
+      buildTrade: (state, html) => {
+        const latest = state.trades.find((trade) => trade.id === sourceTrade.id)
+        return latest ? { ...latest, note: `<p>不得发布的来源正文</p>\n${html}` } : null
+      },
+    })
+  } catch (caught) {
+    error = caught
+  } finally {
+    assert(error instanceof Error && error.message.includes('source snapshot'), '来源快照持久化错误必须返回调用方')
+    assert(useStore.getState().trades === initialTrades, '持久化失败不得发布来源或案例的任何部分 patch')
+    assert(useStore.getState().trades[1]?.sourceNoteHtml === sourceCase.sourceNoteHtml, '失败后案例快照必须保持旧值')
     useStore.setState({ trades: previous.trades })
   }
 }

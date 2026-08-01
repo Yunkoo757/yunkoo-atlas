@@ -90,6 +90,7 @@ import {
 } from '@/lib/tradeOpenRiskGate'
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
+import { cascadeReviewCaseSourceSnapshot } from '@/lib/reviewCaseSourceSync'
 
 export interface StorePendingTradeOpenRequest extends PendingTradeOpenRequest {
   returnFocus: HTMLElement | null
@@ -1031,19 +1032,13 @@ export const useStore = create<State>()((set, get) => ({
       updateNote: (id, note) =>
         set((s) => {
           const source = s.trades.find((trade) => trade.id === id)
-          const cascadesToCases = source !== undefined && source.tradeKind !== 'case'
-          return {
-            trades: s.trades.map((trade) => {
-              if (trade.id === id) return updateOwnedNoteActivity(trade, note)
-              if (
-                cascadesToCases &&
-                trade.tradeKind === 'case' &&
-                trade.sourceTradeId === id &&
-                trade.sourceNoteHtml !== note
-              ) return { ...trade, sourceNoteHtml: note }
-              return trade
-            }),
-          }
+          if (!source) return s
+          const updatedSource = updateOwnedNoteActivity(source, note)
+          const withUpdatedSource = updatedSource === source
+            ? s.trades
+            : s.trades.map((trade) => trade.id === id ? updatedSource : trade)
+          const trades = cascadeReviewCaseSourceSnapshot(withUpdatedSource, id)
+          return trades === s.trades ? s : { trades }
         }),
       updateTradeData: (id, patch) =>
         set((s) => {

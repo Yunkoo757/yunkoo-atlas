@@ -15,6 +15,7 @@ import { lockStorageCutoverInteraction } from '@/storage/cutover'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { applyTradeUpsertsToSlice, useStore } from '@/store/useStore'
 import { assetUrl } from '@/storage/assets'
+import { cascadeReviewCaseSourceSnapshot } from '@/lib/reviewCaseSourceSync'
 
 export interface ComposerImageInput {
   file: Blob
@@ -99,13 +100,17 @@ function sameRevision(left: PersistedRevision, right: PersistedRevision): boolea
 }
 
 function buildTradePatch(state: ReturnType<typeof useStore.getState>, trade: Trade) {
-  return applyTradeUpsertsToSlice({
+  const patch = applyTradeUpsertsToSlice({
     trades: state.trades,
     strategies: state.strategies,
     symbolCatalog: state.symbolCatalog,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
   }, [trade], state.display.tradingDayStartHour)
+  return {
+    ...patch,
+    trades: cascadeReviewCaseSourceSnapshot(patch.trades, trade.id),
+  }
 }
 
 /**
