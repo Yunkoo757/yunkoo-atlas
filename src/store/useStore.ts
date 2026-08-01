@@ -89,12 +89,17 @@ import {
   type TradeOpenRequestResult,
 } from '@/lib/tradeOpenRiskGate'
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
+import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 
 export interface StorePendingTradeOpenRequest extends PendingTradeOpenRequest {
   returnFocus: HTMLElement | null
 }
 
 export type SetTradeStatusResult = TradeOpenRequestResult | 'updated' | 'unchanged'
+
+export type CreateReviewCaseResult =
+  | { status: 'created'; reviewCase: Trade }
+  | { status: 'missing-source' | 'source-is-case' }
 
 function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boolean {
   return left.capitalBase === right.capitalBase &&
@@ -293,6 +298,18 @@ export function applyTradeUpsertsToSlice(
   return slice
 }
 
+function updateOwnedNoteActivity(trade: Trade, note: string): Trade {
+  if (trade.note === note) return trade
+  const now = new Date().toISOString()
+  const activities = [...(trade.activities ?? [])]
+  const last = activities[activities.length - 1]
+  if (last?.kind === 'note') {
+    activities[activities.length - 1] = { ...last, timestamp: now }
+    return { ...trade, note, activities }
+  }
+  return appendActivity({ ...trade, note }, { kind: 'note', timestamp: now })
+}
+
 interface State {
   trades: Trade[]
   weeklyReviews: WeeklyReview[]
@@ -427,6 +444,7 @@ interface State {
   restoreTrades: (ids: string[]) => void
   purgeTrade: (id: string) => void
   purgeTrades: (ids: string[]) => void
+  createReviewCaseFromTrade: (sourceId: string) => CreateReviewCaseResult
   openComposer: (trade?: Trade | null, kind?: TradeKind | null) => void
   closeComposer: () => void
   requestTradeClose: (
@@ -1011,22 +1029,22 @@ export const useStore = create<State>()((set, get) => ({
         }))
       },
       updateNote: (id, note) =>
-        set((s) => ({
-          trades: s.trades.map((t) => {
-            if (t.id !== id || t.note === note) return t
-            const now = new Date().toISOString()
-            const activities = [...(t.activities ?? [])]
-            const last = activities[activities.length - 1]
-            if (last?.kind === 'note') {
-              activities[activities.length - 1] = { ...last, timestamp: now }
-              return { ...t, note, activities }
-            }
-            return appendActivity({ ...t, note }, {
-              kind: 'note',
-              timestamp: now,
-            })
-          }),
-        })),
+        set((s) => {
+          const source = s.trades.find((trade) => trade.id === id)
+          const cascadesToCases = source !== undefined && source.tradeKind !== 'case'
+          return {
+            trades: s.trades.map((trade) => {
+              if (trade.id === id) return updateOwnedNoteActivity(trade, note)
+              if (
+                cascadesToCases &&
+                trade.tradeKind === 'case' &&
+                trade.sourceTradeId === id &&
+                trade.sourceNoteHtml !== note
+              ) return { ...trade, sourceNoteHtml: note }
+              return trade
+            }),
+          }
+        }),
       updateTradeData: (id, patch) =>
         set((s) => {
           if ('tradeKind' in patch) return s
@@ -1206,6 +1224,24 @@ export const useStore = create<State>()((set, get) => ({
         if (upsertWouldBypassFirstOpenGate(existing, trade)) return 'requires-risk-gate'
         set((s) => upsertTradeIntoSlice(s, trade, s.display.tradingDayStartHour))
         return 'updated'
+      },
+      createReviewCaseFromTrade: (sourceId) => {
+        let result: CreateReviewCaseResult = { status: 'missing-source' }
+        set((state) => {
+          const source = state.trades.find((trade) => trade.id === sourceId)
+          if (!source) return state
+          if (source.tradeKind === 'case') {
+            result = { status: 'source-is-case' }
+            return state
+          }
+          const reviewCase = buildReviewCaseFromTrade(source, {
+            id: crypto.randomUUID(),
+            ref: getNextReviewCaseRef(state.trades),
+          })
+          result = { status: 'created', reviewCase }
+          return upsertTradeIntoSlice(state, reviewCase, state.display.tradingDayStartHour)
+        })
+        return result
       },
       upsertTrades: (trades) => {
         const currentTrades = get().trades
