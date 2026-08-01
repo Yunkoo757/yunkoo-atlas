@@ -220,6 +220,7 @@ export function isValidPersistedTrade(
     'psychology',
     'recordedAt',
     'sourceTradeId',
+    'sourceNoteHtml',
     'deletedAt',
     'deletedBy',
   ]) {

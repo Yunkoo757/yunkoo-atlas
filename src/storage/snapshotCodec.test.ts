@@ -75,6 +75,35 @@ export function testSnapshotCodecIsIdempotentAndPreservesTheFullGoldenFixture():
   }
 }
 
+export function testSnapshotCodecPreservesCaseSourceNoteSnapshotsWithoutBackfillingLegacyCases(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const legacyCase = {
+    ...fixture.trades[0]!,
+    tradeKind: 'case' as const,
+    sourceTradeId: 'source-trade',
+    note: '<p>历史混合正文</p>',
+  }
+  const legacy = decodeCanonicalSnapshot(
+    JSON.parse(JSON.stringify({ ...fixture, trades: [legacyCase] })),
+    { version: SCHEMA_VERSION },
+  )
+  assert(
+    !Object.prototype.hasOwnProperty.call(legacy.trades[0]!, 'sourceNoteHtml'),
+    '旧版本 case 不得补写空 sourceNoteHtml 字段',
+  )
+  assert(legacy.trades[0]?.note === '<p>历史混合正文</p>', '旧版本 case 不得改写 note')
+
+  const sourceNoteHtml = '<p>来源快照：逐字保留 &amp; 不混入洞见</p>'
+  const current = decodeCanonicalSnapshot(
+    JSON.parse(JSON.stringify({
+      ...fixture,
+      trades: [{ ...legacyCase, sourceNoteHtml }],
+    })),
+    { version: SCHEMA_VERSION },
+  )
+  assert(current.trades[0]?.sourceNoteHtml === sourceNoteHtml, 'case 来源快照必须经 JSON 往返逐字保留')
+}
+
 export function testSnapshotCodecDistinguishesMissingDefaultsFromExplicitEmptyValues(): void {
   const missing = decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version: 1 })
   const explicit = decodeCanonicalSnapshot({

@@ -280,6 +280,19 @@ export function testSnapshotValidationExportsReusableTradeValidation(): void {
     !isValidPersistedTrade({ ...valid.trades[0], comments: [{ id: 'c-1', text: 2, createdAt: 'now' }] }),
     '共享 Trade 校验应拒绝会破坏评论流的数据',
   )
+
+  const legacyCase = {
+    ...valid.trades[0],
+    tradeKind: 'case',
+    sourceTradeId: 'source',
+    note: '<p>历史混合正文</p>',
+  }
+  assert(isValidPersistedTrade(legacyCase), '历史案例缺少 sourceNoteHtml 必须继续有效')
+  assert(
+    isValidPersistedTrade({ ...legacyCase, sourceNoteHtml: '<p>来源快照</p>' }),
+    '字符串快照必须有效',
+  )
+  assert(!isValidPersistedTrade({ ...legacyCase, sourceNoteHtml: 42 }), '非字符串快照必须拒绝')
 }
 
 export function testSnapshotValidationRejectsDuplicateEntityIds(): void {
