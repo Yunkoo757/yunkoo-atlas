@@ -166,6 +166,12 @@ export function TodayWorkspace() {
                     : '按执行、结果、复盘的顺序完成闭环；统计会自动保持可信。'
                   : '没有遗留的平仓结果或复盘任务，可以开始记录新机会。'}
               </p>
+              <Link to="/settings/risk" className="today-risk-alert is-triggered">
+                风险已超限 · 开仓前先查看
+              </Link>
+              <Link to="/settings/risk" className="today-risk-alert is-unready">
+                风险状态待处理 · 前往设置
+              </Link>
             </div>
             <button
               type="button"
