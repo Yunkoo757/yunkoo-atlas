@@ -478,7 +478,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       item.item.target.kind === 'system' && isSidebarCapabilityId(item.item.target.id)
         ? item.item.target.id
         : null
-    const capabilityMenuOpen = capabilityMenu?.itemId === item.item.id
+    const capabilityMenuId = capabilityId === 'missed' ? null : capabilityId
+    const capabilityMenuOpen = Boolean(capabilityMenuId && capabilityMenu?.itemId === item.item.id)
 
     const toggleCapabilityWorkspace = (
       id: SidebarCapabilityId,
@@ -515,13 +516,13 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     }
 
     const openCapabilityMenu = (x: number, y: number) => {
-      if (!capabilityId) return
+      if (!capabilityMenuId) return
       setCapabilityMenu({
         itemId: item.item.id,
         x,
         y,
         items: buildCapabilityVisibilityItems(
-          capabilityId,
+          capabilityMenuId,
           item.label,
           useStore.getState().display.sidebarWorkspaceItems,
           toggleCapabilityWorkspace,
@@ -555,7 +556,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         onPointerUp={onWorkspacePointerUp}
         onPointerCancel={onWorkspacePointerCancel}
         onContextMenu={(event) => {
-          if (!capabilityId) return
+          if (!capabilityMenuId) return
           event.preventDefault()
           openCapabilityMenu(event.clientX, event.clientY)
         }}
@@ -582,11 +583,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <span className="sb-screen-reader">当前条件已修改</span>
           </span>
         ) : null}
-        {capabilityId ? (
+        {capabilityMenuId ? (
           <button
             type="button"
             className="sb-workspace-capability-menu"
-            aria-label={`${item.label}${capabilityId === 'missed' ? '包含范围' : '可见工作区'}`}
+            aria-label={`${item.label}可见工作区`}
             aria-haspopup="menu"
             aria-expanded={capabilityMenuOpen}
             onPointerDown={(event) => {
