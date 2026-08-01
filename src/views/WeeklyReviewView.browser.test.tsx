@@ -131,6 +131,30 @@ function assertNoOverlaps(elements: HTMLElement[], message: string): void {
   }
 }
 
+function assertVerticallyAfter(previous: HTMLElement, next: HTMLElement, message: string): void {
+  const previousRect = previous.getBoundingClientRect()
+  const nextRect = next.getBoundingClientRect()
+  assert(previousRect.bottom <= nextRect.top + 0.5, message)
+}
+
+function assertAuditTextIsVisible(element: HTMLElement, message: string): void {
+  const style = window.getComputedStyle(element)
+  assert(!['hidden', 'clip'].includes(style.overflowX), `${message}：不得裁切横向内容`)
+  assert(!['hidden', 'clip'].includes(style.overflowY), `${message}：不得裁切纵向内容`)
+  assert(element.scrollWidth <= element.clientWidth, `${message}：内容不得横向溢出`)
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  const elementRect = element.getBoundingClientRect()
+  const parentRect = element.parentElement!.getBoundingClientRect()
+  const textRects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0)
+  assert(textRects.length > 0, `${message}：内容必须可见`)
+  for (const rect of textRects) {
+    assert(rect.left >= elementRect.left && rect.right <= elementRect.right, `${message}：文本超出内容节点`)
+    assert(rect.left >= parentRect.left && rect.right <= parentRect.right, `${message}：文本超出审计容器`)
+    assert(rect.left >= 0 && rect.right <= window.innerWidth, `${message}：文本超出视口`)
+  }
+}
+
 function assertDailyRiskRowKeepsKeyValuesOnOneLine(row: HTMLElement): void {
   const values = [
     row.querySelector<HTMLElement>('.wr-risk-day-date'),
@@ -281,6 +305,10 @@ async function run(): Promise<void> {
     firstSummary.click()
     assert(audits[0]!.open, '激活 summary 后必须展开审计区')
     assert(audits[0]!.textContent?.includes(browserPolicyId), '规则展开后必须显示完整 ID')
+    const secondSummary = audits[1]!.querySelector<HTMLElement>('summary')
+    assert(secondSummary, '继续交易确认缺少审计摘要')
+    secondSummary.click()
+    assert(audits[1]!.open, '继续交易确认必须能够展开')
     const shell = document.querySelector<HTMLElement>('.wr-shell')
     const decisions = risk.querySelector<HTMLElement>('.wr-risk-decisions')
     const dailyEvidence = risk.querySelector<HTMLElement>('.wr-risk-daily')
@@ -304,7 +332,15 @@ async function run(): Promise<void> {
     const periods = [...risk.querySelectorAll<HTMLElement>('.wr-risk-period')]
     const days = [...risk.querySelectorAll<HTMLElement>('.wr-risk-day')]
     for (const element of [...periods, ...days, ...audits]) assertRectFitsHorizontally(element, riskBounds, '风控区关键元素必须位于容器内')
-    const visibleChildren = [...periods, ...days, audits[0]!]
+    const ruleParagraph = audits[0]!.querySelector<HTMLElement>(':scope > p')
+    const confirmationArticle = audits[1]!.querySelector<HTMLElement>(':scope > article')
+    assert(ruleParagraph?.textContent?.includes(browserPolicyId), '规则审计内容缺少完整长 ID')
+    assert(confirmationArticle?.textContent?.includes('触线后只执行预设止损'), '继续交易确认缺少实际内容')
+    const auditContent = [ruleParagraph, confirmationArticle].filter((element): element is HTMLElement => Boolean(element))
+    assert(auditContent.length === 2, '审计展开后必须渲染规则与确认内容')
+    assertNoHorizontalOverflow(auditContent, `${window.innerWidth}px 审计内容不得横向滚动`)
+    for (const content of auditContent) assertAuditTextIsVisible(content, '审计文本必须完整可见')
+    const visibleChildren = [...periods, ...days, ...audits]
       .flatMap((element) => [...element.children])
       .filter((element): element is HTMLElement => element instanceof HTMLElement && element.getClientRects().length > 0)
     for (const child of visibleChildren) {
@@ -313,6 +349,8 @@ async function run(): Promise<void> {
     assertNoOverlaps(periods, '风险决策卡不得重叠')
     assertNoOverlaps(days, '每日风险行不得重叠')
     assertNoOverlaps(audits, '审计区不得重叠')
+    assertVerticallyAfter(decisions, dailyEvidence, '每日风险轨迹不得与风险决策区重叠')
+    assertVerticallyAfter(dailyEvidence, auditEvidence, '冻结审计不得与每日风险轨迹重叠')
     assert(document.body.textContent?.includes('触线后只执行预设止损'), '已完成复盘没有展示确认原因')
     assert(document.body.textContent?.includes('TRD-two · ETHUSDT · 关联未解析'), '未解析事件没有展示冻结身份与关联状态')
     const resolvedLink = [...document.querySelectorAll<HTMLAnchorElement>('a')]
