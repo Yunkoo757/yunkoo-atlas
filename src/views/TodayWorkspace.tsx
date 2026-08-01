@@ -148,7 +148,12 @@ export function TodayWorkspace() {
 
   return (
     <>
-      <Topbar title="今日工作台" subtitle={`${dateLabel(today)} · 交易日`} showDisplay={false} />
+      <Topbar
+        title="今日工作台"
+        subtitle={`${dateLabel(today)} · 交易日`}
+        showDisplay={false}
+        titleAsHeading={false}
+      />
       <div className="today-workspace-scroll">
         <div className="today-workspace-inner">
           <section className="today-focus" aria-labelledby="today-focus-title">
