@@ -137,7 +137,7 @@ function assertVerticallyAfter(previous: HTMLElement, next: HTMLElement, message
   assert(previousRect.bottom <= nextRect.top + 0.5, message)
 }
 
-function assertAuditTextIsVisible(element: HTMLElement, message: string): void {
+function assertAuditTextIsVisible(element: HTMLElement, auditEvidence: HTMLElement, message: string): void {
   const style = window.getComputedStyle(element)
   assert(!['hidden', 'clip'].includes(style.overflowX), `${message}：不得裁切横向内容`)
   assert(!['hidden', 'clip'].includes(style.overflowY), `${message}：不得裁切纵向内容`)
@@ -146,13 +146,32 @@ function assertAuditTextIsVisible(element: HTMLElement, message: string): void {
   range.selectNodeContents(element)
   const elementRect = element.getBoundingClientRect()
   const parentRect = element.parentElement!.getBoundingClientRect()
+  const auditRect = auditEvidence.getBoundingClientRect()
+  let ancestor: HTMLElement | null = element
+  while (ancestor) {
+    const ancestorStyle = window.getComputedStyle(ancestor)
+    assert(!['hidden', 'clip'].includes(ancestorStyle.overflowY), `${message}：祖先不得裁切纵向内容`)
+    if (ancestorStyle.overflowY === 'auto') assert(ancestor.scrollHeight <= ancestor.clientHeight, `${message}：祖先不得隐藏纵向滚动内容`)
+    if (ancestor === auditEvidence) break
+    ancestor = ancestor.parentElement
+  }
   const textRects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0)
   assert(textRects.length > 0, `${message}：内容必须可见`)
   for (const rect of textRects) {
     assert(rect.left >= elementRect.left && rect.right <= elementRect.right, `${message}：文本超出内容节点`)
     assert(rect.left >= parentRect.left && rect.right <= parentRect.right, `${message}：文本超出审计容器`)
     assert(rect.left >= 0 && rect.right <= window.innerWidth, `${message}：文本超出视口`)
+    assert(rect.top >= elementRect.top && rect.bottom <= elementRect.bottom, `${message}：文本超出内容节点`)
+    assert(rect.top >= parentRect.top && rect.bottom <= parentRect.bottom, `${message}：文本超出审计容器`)
+    assert(rect.top >= auditRect.top && rect.bottom <= auditRect.bottom, `${message}：文本超出审计区`)
+    assert(rect.top >= 0 && rect.bottom <= window.innerHeight, `${message}：文本超出视口`)
   }
+}
+
+function assertVisibleContentAfter(previous: HTMLElement[], next: HTMLElement[], message: string): void {
+  const previousBottom = Math.max(...previous.map((element) => element.getBoundingClientRect().bottom))
+  const nextTop = Math.min(...next.map((element) => element.getBoundingClientRect().top))
+  assert(previousBottom <= nextTop + 0.5, message)
 }
 
 function assertDailyRiskRowKeepsKeyValuesOnOneLine(row: HTMLElement): void {
@@ -338,8 +357,10 @@ async function run(): Promise<void> {
     assert(confirmationArticle?.textContent?.includes('触线后只执行预设止损'), '继续交易确认缺少实际内容')
     const auditContent = [ruleParagraph, confirmationArticle].filter((element): element is HTMLElement => Boolean(element))
     assert(auditContent.length === 2, '审计展开后必须渲染规则与确认内容')
+    auditEvidence.scrollIntoView({ block: 'center' })
+    await waitForFrame()
     assertNoHorizontalOverflow(auditContent, `${window.innerWidth}px 审计内容不得横向滚动`)
-    for (const content of auditContent) assertAuditTextIsVisible(content, '审计文本必须完整可见')
+    for (const content of auditContent) assertAuditTextIsVisible(content, auditEvidence, '审计文本必须完整可见')
     const visibleChildren = [...periods, ...days, ...audits]
       .flatMap((element) => [...element.children])
       .filter((element): element is HTMLElement => element instanceof HTMLElement && element.getClientRects().length > 0)
@@ -351,6 +372,8 @@ async function run(): Promise<void> {
     assertNoOverlaps(audits, '审计区不得重叠')
     assertVerticallyAfter(decisions, dailyEvidence, '每日风险轨迹不得与风险决策区重叠')
     assertVerticallyAfter(dailyEvidence, auditEvidence, '冻结审计不得与每日风险轨迹重叠')
+    assertVisibleContentAfter(periods, days, '每日实际内容不得侵入风险决策区')
+    assertVisibleContentAfter(days, auditContent, '审计实际内容不得侵入每日风险轨迹')
     assert(document.body.textContent?.includes('触线后只执行预设止损'), '已完成复盘没有展示确认原因')
     assert(document.body.textContent?.includes('TRD-two · ETHUSDT · 关联未解析'), '未解析事件没有展示冻结身份与关联状态')
     const resolvedLink = [...document.querySelectorAll<HTMLAnchorElement>('a')]
