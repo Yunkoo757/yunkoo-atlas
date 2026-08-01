@@ -167,7 +167,11 @@ export function TodayWorkspace() {
                   : '没有遗留的平仓结果或复盘任务，可以开始记录新机会。'}
               </p>
             </div>
-            <button type="button" className="empty-btn" onClick={() => openComposer()}>
+            <button
+              type="button"
+              className={`empty-btn${buckets.actionCount > 0 ? ' is-secondary' : ''}`}
+              onClick={() => openComposer()}
+            >
               <Plus size={15} />
               新建交易
             </button>

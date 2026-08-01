@@ -50,6 +50,18 @@
   font-size: 13px;
 }
 
+.today-focus .empty-btn.is-secondary {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-default);
+}
+
+.today-focus .empty-btn.is-secondary:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
 .today-stats {
   margin: 14px 0 0;
   padding: 14px var(--sp-4) 15px;
