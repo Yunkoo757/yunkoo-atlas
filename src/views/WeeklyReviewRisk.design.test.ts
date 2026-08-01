@@ -3,39 +3,157 @@ import path from 'node:path'
 
 function riskRuleBlocks(source: string): string[] {
   const blocks: string[] = []
-  const starts = /([^{}]+)\{/g
-  let match: RegExpExecArray | null
-  while ((match = starts.exec(source)) !== null) {
-    if (!match[1]?.includes('.wr-risk-')) continue
-    const open = match.index + match[0].lastIndexOf('{')
+  function closingBrace(open: number, end: number): number {
     let depth = 0
-    for (let index = open; index < source.length; index += 1) {
+    for (let index = open; index < end; index += 1) {
       if (source[index] === '{') depth += 1
-      if (source[index] !== '}') continue
-      depth -= 1
-      if (depth === 0) {
-        blocks.push(source.slice(match.index, index + 1))
-        break
+      if (source[index] === '}') {
+        depth -= 1
+        if (depth === 0) return index
       }
     }
+    throw new Error('CSS 规则缺少结束花括号')
   }
+
+  function collect(start: number, end: number): void {
+    let cursor = start
+    while (cursor < end) {
+      const open = source.indexOf('{', cursor)
+      if (open < 0 || open >= end) return
+      const close = closingBrace(open, end)
+      const selector = source.slice(cursor, open).trim()
+      if (selector.startsWith('@')) collect(open + 1, close)
+      else if (selector.includes('.wr-risk-')) blocks.push(source.slice(cursor, close + 1))
+      cursor = close + 1
+    }
+  }
+
+  collect(0, source.length)
   return blocks
+}
+
+const APPROVED_RISK_TOKENS = new Set([
+  '--accent', '--bg-elevated', '--bg-inset', '--bg-surface', '--border-strong', '--border-subtle',
+  '--font-mono', '--neg', '--pos', '--radius-6', '--radius-8', '--risk-progress',
+  '--sp-1', '--sp-2', '--sp-3', '--sp-4', '--sp-5', '--text-body', '--text-muted', '--text-strong',
+  '--type-body-size', '--type-metadata-size', '--type-section-title-size', '--warn',
+])
+const REQUIRED_RISK_TOKENS = ['--bg-elevated', '--bg-inset', '--border-subtle', '--text-strong', '--text-muted', '--font-mono']
+const TOKEN_ONLY_PROPERTIES = new Set([
+  'font-size', 'gap', 'row-gap', 'column-gap', 'padding', 'padding-block', 'padding-inline',
+  'padding-block-start', 'padding-block-end', 'padding-inline-start', 'padding-inline-end',
+  'margin', 'margin-block', 'margin-inline', 'margin-block-start', 'margin-block-end',
+  'margin-inline-start', 'margin-inline-end', 'border-radius',
+])
+const COLOR_PROPERTIES = new Set([
+  'color', 'background', 'background-color', 'border', 'border-color', 'border-top', 'border-right',
+  'border-bottom', 'border-left', 'outline', 'outline-color',
+])
+
+function declarations(rule: string): Array<{ property: string, value: string }> {
+  const open = rule.indexOf('{')
+  const close = rule.lastIndexOf('}')
+  if (open < 0 || close < open) throw new Error('CSS 风控规则缺少花括号')
+  const result: Array<{ property: string, value: string }> = []
+  const matches = /(?:^|;)\s*([\w-]+)\s*:\s*([^;{}]+)(?=;|$)/g
+  let match: RegExpExecArray | null
+  const body = rule.slice(open + 1, close)
+  while ((match = matches.exec(body)) !== null) {
+    result.push({ property: match[1]!, value: match[2]!.trim() })
+  }
+  return result
+}
+
+function assertRiskColorUsesApprovedTokens(property: string, value: string): void {
+  if (!COLOR_PROPERTIES.has(property)) return
+  if (/\bcurrentcolor\b/i.test(value)) throw new Error(`${property} 不得使用 currentColor`)
+  const withoutTokens = value.replace(/var\(--[\w-]+\)/g, '')
+  if (/\b[a-z-]+\s*\(/i.test(withoutTokens)) throw new Error(`${property} 不得使用颜色函数`)
+  const withoutBorderSyntax = withoutTokens
+    .replace(/\b(?:solid|dashed|dotted|double|groove|ridge|inset|outset|none|hidden)\b/gi, '')
+    .replace(/[-+]?(?:\d*\.)?\d+(?:[a-z%]+)?/gi, '')
+  if (/[a-z]/i.test(withoutBorderSyntax)) throw new Error(`${property} 颜色必须来自批准 token`)
+}
+
+function validateRiskStyles(css: string): void {
+  const riskRules = riskRuleBlocks(css)
+  const riskCss = riskRules.join('\n')
+  for (const token of riskCss.matchAll(/var\(\s*(--[\w-]+)/g)) {
+    if (!APPROVED_RISK_TOKENS.has(token[1])) throw new Error(`风控区使用未批准 token：${token[1]}`)
+  }
+  for (const token of REQUIRED_RISK_TOKENS) {
+    if (!riskCss.includes(`var(${token})`)) throw new Error(`缺少设计角色 ${token}`)
+  }
+  for (const rule of riskRules) {
+    if (rule.includes('.wr-metric-grid')) throw new Error('风控区不得继续使用指标网格')
+    for (const { property, value } of declarations(rule)) {
+      if (property === 'box-shadow') throw new Error('风控区不得使用阴影')
+      if (property === 'font') throw new Error('风控区不得使用 font 简写')
+      if (TOKEN_ONLY_PROPERTIES.has(property) && !/^var\(--[\w-]+\)$/.test(value)) {
+        throw new Error(`${property} 必须直接消费 token`)
+      }
+      assertRiskColorUsesApprovedTokens(property, value)
+    }
+  }
+}
+
+function expectRiskContractFailure(css: string, message: string): void {
+  try {
+    validateRiskStyles(css)
+  } catch {
+    return
+  }
+  throw new Error(message)
 }
 
 export function testWeeklyRiskStylesUseOnlyApprovedDesignRoles(): void {
   const css = readFileSync(path.resolve('src/views/WeeklyReviewView.css'), 'utf8').replace(/\r\n?/g, '\n')
-  const riskCss = riskRuleBlocks(css).join('\n')
-  for (const forbidden of [/#(?:[\da-f]{3}){1,2}\b/i, /\brgba?\(/i, /\bhsla?\(/i, /\b(?:ok)?lch\(/i, /box-shadow\s*:/i]) {
-    if (forbidden.test(riskCss)) throw new Error(`风控区出现私有视觉值：${forbidden}`)
+  validateRiskStyles(css)
+}
+
+export function testWeeklyRiskStyleContractRejectsTokenAndVisualBypasses(): void {
+  const approvedRoles = `
+    .wr-risk-period {
+      background: var(--bg-elevated);
+      color: var(--text-strong);
+      border: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+    }
+    .wr-risk-period.is-primary { background: var(--bg-inset); }
+    .wr-risk-period small { color: var(--text-muted); }
+  `
+  const readableTokenFixture = `${approvedRoles}
+    .wr-risk-readable { font-size: var(--type-body-size); gap: var(--sp-3); }
+  `
+
+  validateRiskStyles(readableTokenFixture)
+
+  for (const [name, declaration] of [
+    ['未批准 token', 'color: var(--unapproved);'],
+    ['带 fallback 的未批准 token', 'width: var(--unapproved, 0px);'],
+    ['padding-block 裸值', 'padding-block: 12px;'],
+    ['margin-block 裸值', 'margin-block: 12px;'],
+    ['padding-inline 裸值', 'padding-inline: 12px;'],
+    ['margin-inline 裸值', 'margin-inline: 12px;'],
+    ['row-gap 裸值', 'row-gap: 12px;'],
+    ['column-gap 裸值', 'column-gap: 12px;'],
+    ['font 简写', 'font: 12px serif;'],
+    ['color-mix 颜色函数', 'color: color-mix(in srgb, var(--pos), var(--neg));'],
+    ['currentColor', 'color: currentColor;'],
+    ['命名颜色', 'color: red;'],
+    ['其他颜色函数', 'color: light-dark(var(--pos), var(--neg));'],
+  ]) {
+    expectRiskContractFailure(`${approvedRoles}.wr-risk-bypass { ${declaration} }`, `合同未拒绝${name}`)
   }
-  for (const declaration of ['font-size', 'gap', 'padding', 'margin', 'border-radius']) {
-    const rawValue = new RegExp(`${declaration}\\s*:\\s*(?!var\\(--)[^;]+;`, 'g')
-    if (rawValue.test(riskCss)) throw new Error(`${declaration} 必须直接消费 token`)
+  expectRiskContractFailure(
+    `${approvedRoles}.wr-risk-period .wr-metric-grid { display: grid; }`,
+    '合同未拒绝风控指标网格',
+  )
+
+  const css = readFileSync(path.resolve('src/views/WeeklyReviewView.css'), 'utf8').replace(/\r\n?/g, '\n')
+  if (/(?:font-size|gap|padding|margin|border-radius):var\(--/.test(riskRuleBlocks(css).join('\n'))) {
+    throw new Error('风控 token 声明必须保留冒号后的可读空格')
   }
-  for (const token of ['--bg-elevated', '--bg-inset', '--border-subtle', '--text-strong', '--text-muted', '--font-mono']) {
-    if (!riskCss.includes(`var(${token})`)) throw new Error(`缺少设计角色 ${token}`)
-  }
-  if (css.includes('.wr-risk-evidence .wr-metric-grid')) throw new Error('风控区不得继续使用指标网格')
 }
 
 export function testWeeklyRiskStylesTargetTheEvidenceDom(): void {
@@ -52,7 +170,7 @@ export function testWeeklyRiskStylesTargetTheEvidenceDom(): void {
   for (const declaration of [
     'padding-block-end: var(--sp-4)',
     'color: var(--text-muted)',
-    'font-size:var(--type-metadata-size)',
+    'font-size: var(--type-metadata-size)',
   ]) {
     if (!auditContentRule.includes(declaration)) {
       throw new Error(`审计实际内容必须保留详情样式：${declaration}`)
