@@ -24,6 +24,7 @@ import {
   createJournalZipEntryGuard,
   exportJournalZip,
   importJournalZipToPath,
+  validateLibraryDatabaseFile,
   validateDesktopLibrary,
 } from './journalZip'
 import { LibraryStorage } from './storage'
@@ -69,6 +70,23 @@ function snapshotWithAsset(assetId: string): PersistedSnapshot {
       openedAt: '2026-07-16',
       closedAt: null,
       note: `<img src="journal-asset://${assetId}">`,
+    }],
+  }
+}
+
+function snapshotWithCaseSourceAsset(assetId: string): PersistedSnapshot {
+  const next = snapshotWithAsset(assetId)
+  const source = next.trades[0]!
+  return {
+    ...next,
+    trades: [{
+      ...source,
+      id: 'case-with-source-asset',
+      ref: 'CAS-SOURCE-ASSET',
+      tradeKind: 'case',
+      sourceTradeId: 'source-trade',
+      note: '',
+      sourceNoteHtml: `<img src="journal-asset://${assetId}">`,
     }],
   }
 }
@@ -519,6 +537,123 @@ export async function testElectronWebImportKeepsValidDeclaredAssetBytes(): Promi
     )
   } finally {
     storage?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testElectronWebImportKeepsCaseSourceSnapshotOnlyAsset(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-case-source-'))
+  const archive = path.join(root, 'candidate.journal.zip')
+  const assetBytes = new Uint8Array([9, 8, 7, 6])
+  let storage: LibraryStorage | null = null
+  try {
+    await writeWebArchive(
+      archive,
+      {
+        version: WEB_JOURNAL_EXPORT_VERSION,
+        schemaVersion: SCHEMA_VERSION,
+        ...snapshotWithCaseSourceAsset('case-source-only'),
+        assets: [{ id: 'case-source-only', mime: 'image/png' }],
+      },
+      { 'assets/case-source-only.png': assetBytes },
+    )
+
+    await importJournalZipToPath(root, archive)
+    storage = new LibraryStorage(root)
+    await storage.open()
+    assert(
+      storage.loadSnapshot()?.trades[0]?.sourceNoteHtml?.includes('case-source-only'),
+      'Electron Web 归档必须保留案例来源快照引用',
+    )
+    assert(
+      Buffer.from(storage.getAssetBytes('case-source-only')?.bytes ?? []).equals(Buffer.from(assetBytes)),
+      'Electron Web 归档必须保留仅由案例来源快照引用的附件字节',
+    )
+  } finally {
+    storage?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testElectronWebImportRejectsMissingCaseSourceSnapshotAsset(): Promise<void> {
+  const error = await captureImportError({
+    version: WEB_JOURNAL_EXPORT_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    ...snapshotWithCaseSourceAsset('missing-case-source'),
+    assets: [],
+  })
+
+  assert(
+    error.includes('undeclared asset'),
+    'Electron Web 归档必须拒绝来源快照引用但未声明的附件',
+  )
+}
+
+export async function testLibraryDatabaseValidationIncludesCaseSourceSnapshotAsset(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-db-case-source-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.importAsset('case-source-db', 'image/png', Buffer.from('case-source-db-image'))
+    storage.saveSnapshot(snapshotWithCaseSourceAsset('case-source-db'))
+
+    const inspection = await validateLibraryDatabaseFile(storage.getPaths().dbFile, {
+      schemaVersion: SCHEMA_VERSION,
+    })
+    assert(
+      inspection.referencedAssetIds.join(',') === 'case-source-db',
+      'library DB 校验必须收集仅由案例来源快照引用的附件',
+    )
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testLibraryDatabaseValidationRejectsMissingCaseSourceSnapshotAsset(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-db-missing-case-source-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.saveSnapshot(snapshotWithCaseSourceAsset('missing-case-source-db'))
+
+    let error = ''
+    try {
+      await validateLibraryDatabaseFile(storage.getPaths().dbFile, {
+        schemaVersion: SCHEMA_VERSION,
+      })
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : String(caught)
+    }
+    assert(
+      error.includes('snapshot references a missing asset'),
+      'library DB 校验必须拒绝来源快照引用但物理记录缺失的附件',
+    )
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testLibraryDatabaseValidationDeduplicatesSharedCaseAsset(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-db-shared-case-source-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.importAsset('shared-case-asset', 'image/png', Buffer.from('shared-case-image'))
+    const next = snapshotWithCaseSourceAsset('shared-case-asset')
+    next.trades[0]!.note = '<img src="journal-asset://shared-case-asset">'
+    storage.saveSnapshot(next)
+
+    const inspection = await validateLibraryDatabaseFile(storage.getPaths().dbFile, {
+      schemaVersion: SCHEMA_VERSION,
+    })
+    assert(
+      inspection.referencedAssetIds.join(',') === 'shared-case-asset',
+      '正文与来源快照共享附件时 library DB 校验只能收集一个 ID',
+    )
+  } finally {
+    storage.release()
     fs.rmSync(root, { recursive: true, force: true })
   }
 }

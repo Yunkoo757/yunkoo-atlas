@@ -2,6 +2,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 import type { PhysicalAssetRecord } from '@/storage/adapter'
 import { collectAssetIdsFromHtml } from '@/storage/assets'
 import { isSafeAssetId } from '@/storage/assetId'
+import { tradeRichTextEntries } from '@/storage/tradeRichText'
 
 export interface AssetInventoryItem {
   id: string
@@ -16,7 +17,7 @@ export const RICH_TEXT_ASSET_DOMAINS: ReadonlyArray<{
   domain: AssetReferenceDomain
   selectHtml(snapshot: Pick<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'quickNotes'>): string[]
 }> = [
-  { domain: 'trade', selectHtml: (snapshot) => snapshot.trades.map((trade) => trade.note) },
+  { domain: 'trade', selectHtml: (snapshot) => snapshot.trades.flatMap(tradeRichTextEntries) },
   {
     domain: 'weeklyReview',
     selectHtml: (snapshot) => (snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),

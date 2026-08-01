@@ -17,6 +17,7 @@ import { isImageMime, processImageBuffer } from './images'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
 import { buildAssetInventory } from '../../src/storage/assetInventory'
+import { tradeRichTextEntries } from '../../src/storage/tradeRichText'
 import { OperationalError } from '../../src/lib/operationalError'
 import {
   assertOpenedPairVersion,
@@ -872,9 +873,11 @@ export class LibraryStorage {
     const committedFiles: string[] = []
     const referencedAssetIds = new Set<string>()
     for (const trade of snapshot.trades) {
-      const re = /journal-asset:\/\/([^"'\s>]+)/g
-      let match: RegExpExecArray | null
-      while ((match = re.exec(trade.note)) !== null) referencedAssetIds.add(match[1])
+      for (const html of tradeRichTextEntries(trade)) {
+        const re = /journal-asset:\/\/([^"'\s>]+)/g
+        let match: RegExpExecArray | null
+        while ((match = re.exec(html)) !== null) referencedAssetIds.add(match[1])
+      }
     }
     for (const review of snapshot.weeklyReviews ?? []) {
       const re = /journal-asset:\/\/([^"'\s>]+)/g

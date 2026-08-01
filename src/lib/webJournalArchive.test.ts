@@ -239,6 +239,41 @@ export async function testParsesCurrentWebArchiveAndPreservesCompleteSnapshot():
   }
 }
 
+export async function testWebArchiveValidatesCaseSourceSnapshotAssets(): Promise<void> {
+  const snapshot = createFullPersistedSnapshotFixture()
+  const source = snapshot.trades[0]!
+  snapshot.trades.push({
+    ...source,
+    id: 'case-source',
+    ref: 'CAS-SOURCE',
+    tradeKind: 'case',
+    sourceTradeId: source.id,
+    note: '',
+    sourceNoteHtml: '<img src="journal-asset://source-only">',
+  })
+  const records = [
+    ...Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id) => ({
+      id,
+      mime: 'image/png',
+      data: 'aW1hZ2U=',
+    })),
+    { id: 'source-only', mime: 'image/png', data: 'aW1hZ2U=' },
+  ]
+
+  const parsed = await parseWebJournalArchive(buildWebJournalArchiveBlob(snapshot, records))
+  assert(
+    parsed.snapshot.trades.some((item) => item.sourceNoteHtml?.includes('source-only')),
+    '归档未保留来源附件',
+  )
+  let rejected = false
+  try {
+    await parseWebJournalArchive(buildWebJournalArchiveBlob(snapshot, records.slice(0, -1)))
+  } catch {
+    rejected = true
+  }
+  assert(rejected, '来源快照附件缺失时必须拒绝归档')
+}
+
 export async function testCurrentWriterRoundTripsEverySafeImageMime(): Promise<void> {
   const payload = makePayload()
   const trade = (payload.trades as Array<Record<string, unknown>>)[0]!

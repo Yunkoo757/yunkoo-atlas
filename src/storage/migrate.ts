@@ -59,6 +59,9 @@ async function externalizeAllNotes(
     snapshot.trades.map(async (t) => ({
       ...t,
       note: await externalizeNoteImages(t.note, adapter),
+      ...(t.sourceNoteHtml === undefined
+        ? {}
+        : { sourceNoteHtml: await externalizeNoteImages(t.sourceNoteHtml, adapter) }),
     })),
   )
   const weeklyReviews = await Promise.all(

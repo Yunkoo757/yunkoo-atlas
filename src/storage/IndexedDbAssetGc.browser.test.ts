@@ -245,10 +245,49 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
   }
 }
 
+async function testSourceSnapshotAssetIsNotAnOrphan(): Promise<void> {
+  const databaseName = `asset-gc-case-source-${crypto.randomUUID()}`
+  const storage = new IndexedDbStorageAdapter(databaseName, { assetPurgeCommitEnabled: true })
+  await storage.open()
+  try {
+    const sourceOnlyId = await storage.saveAsset(new Blob(['source-only']), 'image/png')
+    const next = createFullPersistedSnapshotFixture()
+    const source = next.trades[0]!
+    source.note = ''
+    for (const review of next.weeklyReviews ?? []) review.contentHtml = ''
+    for (const note of next.quickNotes ?? []) note.contentHtml = ''
+    next.trades.push({
+      ...source,
+      id: 'case-source-only',
+      ref: 'CAS-SOURCE',
+      tradeKind: 'case',
+      sourceTradeId: source.id,
+      note: '',
+      sourceNoteHtml: `<img src="journal-asset://${sourceOnlyId}">`,
+    })
+    await storage.saveSnapshot(next)
+
+    const physical = await storage.listAssetRecords()
+    assert(
+      physical.some((record) => record.id === sourceOnlyId && record.source === 'committed'),
+      '来源快照附件必须与引用快照一起提交到物理库',
+    )
+    const preview = await storage.previewAssetPurge()
+    assert(
+      !preview.candidateIds.includes(sourceOnlyId),
+      '来源快照附件不得被 GC 视为 orphan',
+    )
+  } finally {
+    storage.close()
+    await deleteDatabase(databaseName)
+  }
+}
+
 async function run(): Promise<void> {
   await testDefaultKillSwitchAndRecoveryAuthorizationAreEnforced()
   await testStalePreviewDeletesNothing()
   await testDeleteFailureRollsBackAndSuccessRevokesCache()
+  await testSourceSnapshotAssetIsNotAnOrphan()
 }
 
 window.__indexedDbAssetGcTest = run()

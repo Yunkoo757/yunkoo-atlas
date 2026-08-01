@@ -708,6 +708,39 @@ export function testJsonImportPreparesFreshAssetIdsBeforeAtomicCommit(): void {
   assert(prepared.assets.length === 2, 'all imported images should enter one commit batch')
 }
 
+export function testCaseSourceSnapshotSharesOneRenumberedImportAsset(): void {
+  const prepared = prepareImportPayloadForCommit({
+    version: 3,
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
+    trades: [{
+      ...trade,
+      tradeKind: 'case',
+      sourceTradeId: 'source',
+      note: '<img src="journal-asset://shared-source">',
+      sourceNoteHtml: '<img src="journal-asset://shared-source">',
+    }],
+    strategies: [strategy],
+    starredIds: [],
+    subscribedIds: [],
+    pinnedStrategyIds: [],
+    display: DEFAULT_DISPLAY,
+    assets: [{ id: 'shared-source', mime: 'image/png', data: 'aW1hZ2U=' }],
+  }, () => 'renumbered-source')
+
+  assert(
+    prepared.payload.trades[0]?.note.includes('journal-asset://renumbered-source'),
+    '案例正文附件未重编号',
+  )
+  assert(
+    prepared.payload.trades[0]?.sourceNoteHtml?.includes('journal-asset://renumbered-source'),
+    '来源快照附件未重编号',
+  )
+  assert(prepared.assets.length === 1, '共享附件只能生成一个新 ID')
+}
+
 export function testJsonImportRejectsNotesWhoseReferencedAttachmentIsMissing(): void {
   let rejected = false
   try {

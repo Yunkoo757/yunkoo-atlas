@@ -52,4 +52,26 @@ export function testRichTextAssetDomainsAreRegisteredInOneInventoryTable(): void
     '三个当前富文本域必须通过统一注册表接入盘点',
   )
 }
+
+export function testCaseSourceSnapshotAssetsRemainInTradeDomain(): void {
+  const snapshot = createFullPersistedSnapshotFixture()
+  const source = snapshot.trades[0]!
+  snapshot.trades.push({
+    ...source,
+    id: 'case-source-only',
+    ref: 'CAS-SOURCE',
+    tradeKind: 'case',
+    sourceTradeId: source.id,
+    note: '',
+    sourceNoteHtml: '<img src="journal-asset://source-only">',
+  })
+
+  const inventory = buildAssetInventory(snapshot, [record('source-only', 'healthy')])
+  const reference = inventory.referenced.find((item) => item.id === 'source-only')
+  assert(reference?.domains.join(',') === 'trade', '来源快照必须沿用 trade 富文本域')
+  assert(
+    !inventory.orphan.some((item) => item.id === 'source-only'),
+    '来源快照附件不得成为 orphan',
+  )
+}
 // Quality-Scenario: A-INVENTORY-SHARED

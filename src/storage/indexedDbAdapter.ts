@@ -18,6 +18,7 @@ import {
 import { collectAssetIdsFromHtml, collectAssetIdsFromSnapshot } from '@/storage/assets'
 import { isSafeAssetId } from '@/storage/assetId'
 import { buildAssetInventory } from '@/storage/assetInventory'
+import { tradeRichTextEntries } from '@/storage/tradeRichText'
 import { OperationalError } from '@/lib/operationalError'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import {
@@ -84,25 +85,29 @@ async function collectAssetIdsFromSnapshotCooperatively(
   const assetIds = new Set<string>()
   const collectEntries = async (
     length: number,
-    getHtml: (index: number) => string,
+    getHtmlEntries: (index: number) => readonly string[],
   ): Promise<void> => {
     for (let start = 0; start < length; start += SNAPSHOT_VALIDATION_BATCH_SIZE) {
       await yieldMainThread()
       const end = Math.min(start + SNAPSHOT_VALIDATION_BATCH_SIZE, length)
       const htmlEntries: string[] = []
-      for (let index = start; index < end; index += 1) htmlEntries.push(getHtml(index))
+      for (let index = start; index < end; index += 1) {
+        htmlEntries.push(...getHtmlEntries(index))
+      }
       for (const id of collectAssetIdsFromHtml(htmlEntries)) assetIds.add(id)
     }
   }
 
-  await collectEntries(snapshot.trades.length, (index) => snapshot.trades[index].note)
+  await collectEntries(snapshot.trades.length, (index) => (
+    tradeRichTextEntries(snapshot.trades[index])
+  ))
   await collectEntries(
     snapshot.weeklyReviews?.length ?? 0,
-    (index) => snapshot.weeklyReviews?.[index].contentHtml ?? '',
+    (index) => [snapshot.weeklyReviews?.[index].contentHtml ?? ''],
   )
   await collectEntries(
     snapshot.quickNotes?.length ?? 0,
-    (index) => snapshot.quickNotes?.[index].contentHtml ?? '',
+    (index) => [snapshot.quickNotes?.[index].contentHtml ?? ''],
   )
   return assetIds
 }

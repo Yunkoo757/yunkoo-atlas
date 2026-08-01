@@ -9,6 +9,7 @@
       import {
         testInvalidBlobImageIsNotPersistedAsBlobUrl,
         testMissingAssetRendersDiagnosticPlaceholder,
+        testSourceSnapshotDataImagesAreExternalized,
       } from './assets.test.ts'
 
       window.__atlasBrowserAllowedErrors = [
@@ -18,6 +19,7 @@
       window.__storageAssetsTest = (async () => {
         await testMissingAssetRendersDiagnosticPlaceholder()
         await testInvalidBlobImageIsNotPersistedAsBlobUrl()
+        await testSourceSnapshotDataImagesAreExternalized()
       })()
     </script>
   </body>

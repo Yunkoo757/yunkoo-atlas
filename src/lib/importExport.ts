@@ -71,6 +71,7 @@ import {
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import { applyNoteDraftsToSnapshot } from '@/storage/noteDrafts'
 import { RECOVERY_MISSING_DRAFT_ASSET_PREFIX } from '@/storage/assets'
+import { mapTradeRichText, tradeRichTextEntries } from '@/storage/tradeRichText'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import {
   MAX_WEB_JOURNAL_ARCHIVE_BYTES,
@@ -428,7 +429,7 @@ export function serializeJsonExportPayload(payload: unknown): string {
     assertJsonEntityBudget(payload)
     const snapshot = decodeCanonicalSnapshot(payload, { version: payload.version, label: 'JSON export' })
     normalizeAndValidateImportAssets([
-      ...snapshot.trades.map((trade) => trade.note),
+      ...snapshot.trades.flatMap(tradeRichTextEntries),
       ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
       ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
     ], payload.assets)
@@ -760,7 +761,7 @@ export function parseImportJson(text: string): ImportResult {
       { version: raw.version, label: 'JSON backup' },
     )
     assets = normalizeAndValidateImportAssets([
-      ...snapshotCandidate.trades.map((trade) => trade.note),
+      ...snapshotCandidate.trades.flatMap(tradeRichTextEntries),
       ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),
       ...(snapshotCandidate.quickNotes ?? []).map((note) => note.contentHtml),
     ], raw.assets)
@@ -880,7 +881,7 @@ export function prepareImportPayloadForCommit(
   createId: () => string = () => crypto.randomUUID(),
 ): { payload: ExportPayload; assets: ExportAssetRecord[] } {
   const sourceAssets = normalizeAndValidateImportAssets([
-    ...payload.trades.map((trade) => trade.note),
+    ...payload.trades.flatMap(tradeRichTextEntries),
     ...(payload.weeklyReviews ?? []).map((review) => review.contentHtml),
     ...(payload.quickNotes ?? []).map((note) => note.contentHtml),
   ], payload.assets)
@@ -923,7 +924,7 @@ export function prepareImportPayloadForCommit(
     )
     return html
   }
-  const trades = payload.trades.map((trade) => ({ ...trade, note: rewriteHtml(trade.note) }))
+  const trades = payload.trades.map((trade) => mapTradeRichText(trade, rewriteHtml))
   const weeklyReviews = payload.weeklyReviews?.map((review) => ({
     ...review,
     contentHtml: rewriteHtml(review.contentHtml),

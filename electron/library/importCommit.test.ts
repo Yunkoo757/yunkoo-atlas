@@ -51,6 +51,21 @@ function snapshotWithAsset(label: string, assetId: string): PersistedSnapshot {
   }
 }
 
+function snapshotWithCaseSourceAsset(label: string, assetId: string): PersistedSnapshot {
+  const next = snapshotWithAsset(label, assetId)
+  const source = next.trades[0]!
+  return {
+    ...next,
+    trades: [{
+      ...source,
+      tradeKind: 'case',
+      sourceTradeId: 'source-trade',
+      note: '',
+      sourceNoteHtml: `<img src="journal-asset://${assetId}">`,
+    }],
+  }
+}
+
 export async function testImportCommitReplacesSnapshotAndAssetsTogether(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-import-commit-'))
   const storage = new LibraryStorage(root)
@@ -157,6 +172,39 @@ export async function testCompensatingImportRemovesOnlyUnreferencedBatchAssets()
     assert(storage.loadSnapshot()?.tagPresets?.[0] === 'local', '补偿提交必须恢复本地快照')
     assert(storage.getAssetBytes(imported.id) === null, '补偿提交必须删除本批已失去引用的附件')
     assert(storage.getAssetBytes('existing-asset') !== null, '补偿不得删除本批以外的既有附件')
+  } finally {
+    storage.close()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testPrunedImportKeepsCaseSourceSnapshotAsset(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-import-case-source-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    const sourceAsset = {
+      id: 'case-source-only',
+      mime: 'image/png',
+      buffer: Buffer.from('case-source-image'),
+    }
+    const orphanAsset = {
+      id: 'unreferenced-import',
+      mime: 'image/png',
+      buffer: Buffer.from('orphan-image'),
+    }
+
+    await storage.commitImport(
+      snapshotWithCaseSourceAsset('case-source', sourceAsset.id),
+      [sourceAsset, orphanAsset],
+      { pruneUnreferenced: true },
+    )
+
+    assert(
+      Buffer.from(storage.getAssetBytes(sourceAsset.id)?.bytes ?? []).equals(sourceAsset.buffer),
+      'prune 导入必须保留仅由案例来源快照引用的附件',
+    )
+    assert(storage.getAssetBytes(orphanAsset.id) === null, 'prune 导入仍必须删除真正未引用的附件')
   } finally {
     storage.close()
     fs.rmSync(root, { recursive: true, force: true })

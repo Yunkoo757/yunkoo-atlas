@@ -4,6 +4,8 @@ import {
   resolveNoteForDisplay,
   resolveNoteForDisplayResult,
 } from '@/storage/assets'
+import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
+import { externalizeSnapshotNotes } from '@/storage/migrate'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -65,4 +67,25 @@ export async function testInvalidBlobImageIsNotPersistedAsBlobUrl(): Promise<voi
   )
   assert(!html.includes('blob:http://127.0.0.1:5177/missing-blob'), 'invalid blob url is not persisted')
   assert(html.includes('图片未能保存'), 'invalid blob image renders a save-failure placeholder')
+}
+
+export async function testSourceSnapshotDataImagesAreExternalized(): Promise<void> {
+  const snapshot = createFullPersistedSnapshotFixture()
+  const source = snapshot.trades[0]!
+  snapshot.trades.push({
+    ...source,
+    id: 'case-inline-source',
+    ref: 'CAS-INLINE',
+    tradeKind: 'case',
+    sourceTradeId: source.id,
+    note: '',
+    sourceNoteHtml: '<img src="data:image/png;base64,QQ==">',
+  })
+
+  const externalized = await externalizeSnapshotNotes(snapshot, missingAssetAdapter)
+  const html = externalized.trades.find(
+    (item) => item.id === 'case-inline-source',
+  )?.sourceNoteHtml ?? ''
+  assert(html.includes('journal-asset://asset-1'), '来源快照 data URL 必须外置')
+  assert(!html.includes('data:image'), '来源快照不得残留内嵌图片')
 }

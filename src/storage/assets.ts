@@ -1,5 +1,9 @@
 import type { StorageAdapter } from '@/storage/adapter'
 import { isSafeAssetId } from '@/storage/assetId'
+import {
+  tradeRichTextEntries,
+  type TradeRichTextCarrier,
+} from '@/storage/tradeRichText'
 
 export const ASSET_URL_PREFIX = 'journal-asset://'
 
@@ -210,17 +214,17 @@ export function collectAssetIdsFromHtml(htmlEntries: readonly string[]): string[
   return [...ids]
 }
 
-export function collectAssetIdsFromNotes(trades: { note: string }[]): string[] {
-  return collectAssetIdsFromHtml(trades.map((trade) => trade.note))
+export function collectAssetIdsFromNotes(trades: TradeRichTextCarrier[]): string[] {
+  return collectAssetIdsFromHtml(trades.flatMap(tradeRichTextEntries))
 }
 
 export function collectAssetIdsFromSnapshot(snapshot: {
-  trades: { note: string }[]
+  trades: TradeRichTextCarrier[]
   weeklyReviews?: { contentHtml: string }[]
   quickNotes?: { contentHtml: string }[]
 }): string[] {
   return collectAssetIdsFromHtml([
-    ...snapshot.trades.map((trade) => trade.note),
+    ...snapshot.trades.flatMap(tradeRichTextEntries),
     ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
     ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
   ])

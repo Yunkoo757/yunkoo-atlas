@@ -16,6 +16,7 @@ import {
 } from '../../src/storage/types'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { isSafeAssetId } from '../../src/storage/assetId'
+import { tradeRichTextEntries } from '../../src/storage/tradeRichText'
 import {
   WEB_JOURNAL_EXPORT_VERSION,
   normalizeWebJournalImageMime,
@@ -472,20 +473,21 @@ function validateWebAssets(
 
   const referencedIds = new Set<string>()
   for (const trade of snapshot.trades) {
-    const note = typeof trade.note === 'string' ? trade.note : ''
-    for (const match of note.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-      const id = match[1]
-      if (!isSafeAssetId(id)) {
-        throw new Error(
-          `Invalid .journal.zip: trade ${trade.ref || trade.id} references an invalid asset`,
-        )
+    for (const html of tradeRichTextEntries(trade)) {
+      for (const match of html.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
+        const id = match[1]
+        if (!isSafeAssetId(id)) {
+          throw new Error(
+            `Invalid .journal.zip: trade ${trade.ref || trade.id} references an invalid asset`,
+          )
+        }
+        if (!declarations.has(id)) {
+          throw new Error(
+            `Invalid .journal.zip: trade ${trade.ref || trade.id} references an undeclared asset (${id})`,
+          )
+        }
+        referencedIds.add(id)
       }
-      if (!declarations.has(id)) {
-        throw new Error(
-          `Invalid .journal.zip: trade ${trade.ref || trade.id} references an undeclared asset (${id})`,
-        )
-      }
-      referencedIds.add(id)
     }
   }
   for (const review of snapshot.weeklyReviews ?? []) {
@@ -643,11 +645,12 @@ export async function validateLibraryDatabaseFile(
 
     const referencedAssetIds = new Set<string>()
     for (const trade of snapshot?.trades ?? []) {
-      const note = typeof trade.note === 'string' ? trade.note : ''
-      const pattern = /journal-asset:\/\/([^"'\s>]+)/g
-      let match: RegExpExecArray | null
-      while ((match = pattern.exec(note)) !== null) {
-        if (match[1]) referencedAssetIds.add(match[1])
+      for (const html of tradeRichTextEntries(trade)) {
+        const pattern = /journal-asset:\/\/([^"'\s>]+)/g
+        let match: RegExpExecArray | null
+        while ((match = pattern.exec(html)) !== null) {
+          if (match[1]) referencedAssetIds.add(match[1])
+        }
       }
     }
     for (const review of snapshot?.weeklyReviews ?? []) {

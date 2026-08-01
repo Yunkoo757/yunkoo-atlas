@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { isSafeAssetId } from '@/storage/assetId'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
+import { tradeRichTextEntries } from '@/storage/tradeRichText'
 import {
   SCHEMA_VERSION,
   type ExportAssetRecord,
@@ -605,19 +606,20 @@ function validateNoteAssetReferences(
 ): void {
   const referencedIds = new Set<string>()
   for (const trade of snapshot.trades) {
-    const note = typeof trade.note === 'string' ? trade.note : ''
-    for (const match of note.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-      const id = match[1]
-      if (!id || !isSafeAssetId(id)) {
-        throw archiveError('invalid-asset', `记录 ${trade.ref || trade.id} 引用了非法附件`)
+    for (const html of tradeRichTextEntries(trade)) {
+      for (const match of html.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
+        const id = match[1]
+        if (!id || !isSafeAssetId(id)) {
+          throw archiveError('invalid-asset', `记录 ${trade.ref || trade.id} 引用了非法附件`)
+        }
+        if (!declaredIds.has(id)) {
+          throw archiveError(
+            'invalid-asset',
+            `记录 ${trade.ref || trade.id} 引用了未声明或缺失的附件：${id}`,
+          )
+        }
+        referencedIds.add(id)
       }
-      if (!declaredIds.has(id)) {
-        throw archiveError(
-          'invalid-asset',
-          `记录 ${trade.ref || trade.id} 引用了未声明或缺失的附件：${id}`,
-        )
-      }
-      referencedIds.add(id)
     }
   }
   for (const review of snapshot.weeklyReviews ?? []) {
