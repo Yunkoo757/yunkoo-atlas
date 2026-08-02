@@ -14,6 +14,7 @@ import {
   buildWeeklyReviewMetrics,
   buildWeeklyReviewTrend,
   createWeeklyReview,
+  deriveWeeklyReviewWeeks,
   missedTradesInWeek,
   summarizeWeeklyMistakeDimensions,
   tradesClosedInWeek,
@@ -204,10 +205,15 @@ export function WeeklyReviewView() {
     .filter((item) => item.weekStart < selectedWeek && item.commitmentText.trim())
     .sort((left, right) => right.weekStart.localeCompare(left.weekStart))[0]
 
-  const availableWeeks = useMemo(() => {
-    const weeks = new Set([currentWeek, ...reviews.map((item) => item.weekStart)])
-    return [...weeks].sort((left, right) => right.localeCompare(left))
-  }, [reviews, currentWeek])
+  const availableWeeks = useMemo(
+    () => deriveWeeklyReviewWeeks(
+      trades,
+      reviews,
+      currentWeek,
+      tradingDayStartHour,
+    ),
+    [trades, reviews, currentWeek, tradingDayStartHour],
+  )
   const selectedWeekIndex = availableWeeks.indexOf(selectedWeek)
   const olderWeek = selectedWeekIndex >= 0 ? availableWeeks[selectedWeekIndex + 1] : undefined
   const newerWeek = selectedWeekIndex > 0 ? availableWeeks[selectedWeekIndex - 1] : undefined
@@ -296,11 +302,13 @@ export function WeeklyReviewView() {
                   key={week}
                   type="button"
                   className={week === selectedWeek ? 'is-active' : ''}
+                  data-review-week={week}
+                  data-review-week-state={item?.status ?? 'pending'}
                   onClick={() => changeWeek(week)}
                 >
                   <span>{weekLabel(week, currentWeek)}</span>
-                  <small>{week.slice(5).replace('-', '.')}</small>
-                  <i className={item?.status === 'completed' ? 'is-complete' : item ? 'is-draft' : ''} />
+                  <small>{item ? week.slice(5).replace('-', '.') : '待补做'}</small>
+                  <i className={item?.status === 'completed' ? 'is-complete' : item ? 'is-draft' : 'is-pending'} />
                 </button>
               )
             })}

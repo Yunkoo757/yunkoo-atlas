@@ -284,6 +284,37 @@ async function run(): Promise<void> {
       await new Promise<void>(() => {})
     }
 
+    const priorActivityWeek = addDays(activeWeekStart, -7)
+    const priorActivityTrade = {
+      ...makeTrade('prior-activity', 'loss', -50),
+      openedAt: priorActivityWeek,
+      closedAt: priorActivityWeek,
+      closedTradingDayKey: priorActivityWeek,
+    }
+    useStore.setState((state) => ({ trades: [...state.trades, priorActivityTrade] }))
+    await waitFor(() => document.querySelectorAll('.wr-history button').length === 2, '活动周没有进入复盘历史')
+    const pendingWeek = document.querySelector<HTMLButtonElement>(`[data-review-week="${priorActivityWeek}"]`)
+    assert(pendingWeek, '有活动但未建档的周必须进入复盘历史')
+    assert(pendingWeek.textContent?.includes('待补做'), '有活动但未建档的周必须显示待补做')
+    pendingWeek.click()
+    await waitFor(() => pendingWeek.classList.contains('is-active'), '待补做周无法切换')
+    assert(useStore.getState().weeklyReviews.length === 0, '只查看待补做周不得创建空复盘')
+    clickButton('3')
+    await waitFor(
+      () => useStore.getState().weeklyReviews.some((review) => review.weekStart === priorActivityWeek),
+      '首次编辑后没有创建待补做周复盘',
+    )
+    document.querySelector<HTMLButtonElement>('[aria-label="下一条复盘"]')?.click()
+    await waitFor(
+      () => document.querySelector(`[data-review-week="${activeWeekStart}"].is-active`) !== null,
+      '下一条复盘没有沿活动周序列返回本周',
+    )
+    useStore.setState((state) => ({
+      trades: state.trades.filter((trade) => trade.id !== priorActivityTrade.id),
+      weeklyReviews: [],
+    }))
+    await waitFor(() => document.querySelectorAll('.wr-history button').length === 0, '清除活动历史后首次复盘状态没有恢复')
+
     for (const group of document.querySelectorAll<HTMLElement>('.wr-score-row [role="radiogroup"]')) {
       const score = [...group.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '4')
       score?.click()

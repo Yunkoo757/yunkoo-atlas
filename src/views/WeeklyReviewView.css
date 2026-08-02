@@ -6,7 +6,9 @@
 .wr-history button:hover { background: var(--bg-hover); color: var(--text-secondary); }
 .wr-history button.is-active { background: var(--bg-selected); color: var(--text-primary); }
 .wr-history button small { font-size: var(--fs-micro); color: var(--text-quaternary); }
+.wr-history button[data-review-week-state="pending"] small { color: var(--warn); }
 .wr-history button i { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.wr-history button i.is-pending { border: 1px solid var(--warn); }
 .wr-history button i.is-draft { background: var(--warn); }.wr-history button i.is-complete { background: var(--pos); }
 .wr-main { overflow-y: auto; min-width: 0; }
 .wr-page-head { position: sticky; top: 0; z-index: var(--z-content-overlay); border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--bg-surface) 92%, transparent); backdrop-filter: blur(14px); }
