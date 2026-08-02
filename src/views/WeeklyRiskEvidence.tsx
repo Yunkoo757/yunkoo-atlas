@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import type { RiskPeriodOutcomeSnapshot, WeeklyRiskReviewSnapshot } from '@/data/riskManagement'
+import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { fmtR } from '@/lib/format'
 import { RISK_UNKNOWN_REASON_COPY } from '@/lib/riskUnknownReasonPresentation'
 import {
@@ -8,7 +9,7 @@ import {
   getWeeklyRiskStatus,
   summarizeRiskPolicies,
 } from '@/lib/weeklyRiskPresentation'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { tradeDetailNavState, tradeDetailPath, type TradeDetailFrom } from '@/lib/tradeRoute'
 
 interface PeriodDecisionProps {
   label: string
@@ -46,11 +47,17 @@ function PeriodDecision({ label, outcome, primary = false }: PeriodDecisionProps
 interface WeeklyRiskEvidenceProps {
   snapshot?: WeeklyRiskReviewSnapshot
   availability?: 'draft' | 'legacy'
+  detailSource?: Pick<TradeDetailFrom, 'pathname' | 'search'>
+  overrideEventsOpen?: boolean
+  onOverrideEventsOpenChange?: (open: boolean) => void
 }
 
 export function WeeklyRiskEvidence({
   snapshot,
   availability = 'legacy',
+  detailSource,
+  overrideEventsOpen,
+  onOverrideEventsOpenChange,
 }: WeeklyRiskEvidenceProps): JSX.Element {
   if (!snapshot) {
     const draft = availability === 'draft'
@@ -118,17 +125,39 @@ export function WeeklyRiskEvidence({
               <p key={policy.id}>{policy.effectiveTradingDay} 生效 · {policy.disciplineText || '未填写纪律文本'} · {policy.id}</p>
             )) : <p>当周没有生效规则</p>}
           </details>
-          <details className="wr-risk-audit">
+          <details
+            className="wr-risk-audit"
+            open={overrideEventsOpen}
+            onToggle={(event) => onOverrideEventsOpenChange?.(event.currentTarget.open)}
+          >
             <summary>继续交易确认 · {confirmationSummary}</summary>
-            {snapshot.overrideEvents.length ? snapshot.overrideEvents.map((event) => (
-              <article key={event.id}>
-                <p>{event.reason}</p>
-                <small>
-                  {event.tradeIdentityAtDecision.ref} · {event.tradeIdentityAtDecision.symbol} · {event.linkState === 'resolved' ? '已关联' : '关联未解析'}
-                  {event.linkState === 'resolved' ? <> · <Link to={tradeDetailPath(event.tradeIdentityAtDecision)}>查看交易</Link></> : null}
-                </small>
-              </article>
-            )) : <p>展开后无继续交易确认。</p>}
+            {snapshot.overrideEvents.length ? snapshot.overrideEvents.map((event) => {
+              const eventFrom = detailSource
+                ? {
+                    ...detailSource,
+                    anchorTradeId: `weekly-risk:${event.id}`,
+                  }
+                : undefined
+              return (
+                <article key={event.id} data-trade-id={eventFrom?.anchorTradeId}>
+                  <p>{event.reason}</p>
+                  <small>
+                    {event.tradeIdentityAtDecision.ref} · {event.tradeIdentityAtDecision.symbol} · {event.linkState === 'resolved' ? '已关联' : '关联未解析'}
+                    {event.linkState === 'resolved' ? <>
+                      {' · '}
+                      <Link
+                        to={tradeDetailPath(event.tradeIdentityAtDecision)}
+                        state={eventFrom ? tradeDetailNavState(eventFrom) : undefined}
+                        onClick={() => eventFrom && rememberTradeReturnAnchor(eventFrom)}
+                        data-trade-primary-action
+                      >
+                        查看交易
+                      </Link>
+                    </> : null}
+                  </small>
+                </article>
+              )
+            }) : <p>展开后无继续交易确认。</p>}
           </details>
         </div>
       </div>

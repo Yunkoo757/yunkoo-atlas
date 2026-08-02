@@ -14,6 +14,7 @@ type TradeReturnLocationState = {
 
 export type UseTradeReturnAnchorOptions = {
   onMissing?: (tradeId: string) => void
+  onRestoreStart?: (tradeId: string) => void
 }
 
 const DEFAULT_RETURN_ANCHOR_OPTIONS: UseTradeReturnAnchorOptions = {}
@@ -84,12 +85,22 @@ export function useTradeReturnAnchor(
 ): void {
   const location = useLocation()
   const navigate = useNavigate()
-  const pendingRef = useRef<{ key: string; tradeId: string; explicit: boolean } | null>(null)
+  const pendingRef = useRef<{
+    key: string
+    tradeId: string
+    explicit: boolean
+    prepared: boolean
+  } | null>(null)
   const onMissingRef = useRef(options.onMissing)
+  const onRestoreStartRef = useRef(options.onRestoreStart)
 
   useEffect(() => {
     onMissingRef.current = options.onMissing
   }, [options.onMissing])
+
+  useEffect(() => {
+    onRestoreStartRef.current = options.onRestoreStart
+  }, [options.onRestoreStart])
 
   useEffect(() => {
     const key = storageKey({ pathname: location.pathname, search: location.search })
@@ -98,7 +109,9 @@ export function useTradeReturnAnchor(
       const stored = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(key)
       if (stored !== null) sessionStorage.removeItem(key)
       const tradeId = explicit ?? parseTradeReturnAnchor(stored)
-      pendingRef.current = tradeId ? { key, tradeId, explicit: Boolean(explicit) } : null
+      pendingRef.current = tradeId
+        ? { key, tradeId, explicit: Boolean(explicit), prepared: false }
+        : null
     }
     const pending = pendingRef.current
     if (!pending) return
@@ -115,6 +128,13 @@ export function useTradeReturnAnchor(
       )
     }
     const attemptRestore = () => {
+      if (!pending.prepared) {
+        pending.prepared = true
+        onRestoreStartRef.current?.(pending.tradeId)
+        frame += 1
+        animationFrame = requestAnimationFrame(attemptRestore)
+        return
+      }
       if (!requestedVirtualScroll) {
         requestedVirtualScroll = requestScrollToTrade(pending.tradeId)
       }

@@ -37,7 +37,11 @@ import {
   type WeeklyReviewTab,
 } from '@/lib/weeklyReviewRouteState'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import {
+  tradeDetailNavState,
+  tradeDetailPath,
+  type TradeDetailFrom,
+} from '@/lib/tradeRoute'
 import { WeeklyRiskEvidence } from '@/views/WeeklyRiskEvidence'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
@@ -48,6 +52,10 @@ import {
 } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
+import {
+  rememberTradeReturnAnchor,
+  useTradeReturnAnchor,
+} from '@/hooks/useTradeReturnAnchor'
 import './WeeklyReviewView.css'
 
 const WeeklyReviewScoreChart = lazy(() =>
@@ -105,10 +113,12 @@ function TradeEvidence({
   trade,
   review,
   onPatch,
+  detailFrom,
 }: {
   trade: WeeklyReviewEvidenceTrade
   review: WeeklyReview
   onPatch: (patch: ReviewPatch) => void
+  detailFrom: TradeDetailFrom
 }) {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const isMissedTrade = trade.status === 'missed'
@@ -121,8 +131,14 @@ function TradeEvidence({
     { key: 'followUpTradeIds' as const, label: '待研究' },
   ]
   return (
-    <article className="wr-trade-row">
-      <Link to={tradeDetailPath(trade)} className="wr-trade-main">
+    <article className="wr-trade-row" data-trade-id={detailFrom.anchorTradeId}>
+      <Link
+        to={tradeDetailPath(trade)}
+        state={tradeDetailNavState(detailFrom)}
+        onClick={() => rememberTradeReturnAnchor(detailFrom)}
+        className="wr-trade-main"
+        data-trade-primary-action
+      >
         <span className="wr-symbol">{trade.symbol}</span>
         <span>{trade.ref}</span>
         <span className={`wr-result ${isMissedTrade ? 'is-missed' : trade.status === 'loss' ? 'is-negative' : trade.status === 'win' ? 'is-positive' : ''}`}>
@@ -170,8 +186,25 @@ export function WeeklyReviewView() {
   )
   const { selectedWeek, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
+  const mainContentRef = useRef<HTMLElement>(null)
+  const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
   const editorReadyRef = useRef(false)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleReturnRestoreStart = useCallback((anchorId: string) => {
+    if (anchorId.startsWith('weekly-risk:')) setOverrideEventsOpen(true)
+  }, [])
+  const handleMissingReturnAnchor = useCallback(() => {
+    const target = mainContentRef.current
+    target?.focus({ preventScroll: true })
+    target?.scrollIntoView({ block: 'start' })
+    toast('原交易已不在当前复盘证据中')
+  }, [])
+
+  useTradeReturnAnchor({
+    onRestoreStart: handleReturnRestoreStart,
+    onMissing: handleMissingReturnAnchor,
+  })
 
   useEffect(() => {
     if (!routeResolution.needsReplace) return
@@ -283,6 +316,12 @@ export function WeeklyReviewView() {
     )
   }, [currentWeek, location.pathname, location.search, location.state, navigate])
 
+  const detailFrom = useCallback((anchorTradeId: string): TradeDetailFrom => ({
+    pathname: location.pathname,
+    search: routeResolution.canonicalSearch,
+    anchorTradeId,
+  }), [location.pathname, routeResolution.canonicalSearch])
+
   const changeWeek = async (week: string) => {
     if (week === selectedWeek) return
     const draftSaved = await flushNoteDraftToStore(draftId)
@@ -348,7 +387,12 @@ export function WeeklyReviewView() {
           </aside>
         ) : null}
 
-        <section className="wr-main" aria-label="周复盘内容">
+        <section
+          ref={mainContentRef}
+          className="wr-main"
+          aria-label="周复盘内容"
+          tabIndex={-1}
+        >
           <header className="wr-page-head">
             <div className="wr-page-head-inner">
               <div>
@@ -411,6 +455,12 @@ export function WeeklyReviewView() {
               <WeeklyRiskEvidence
                 snapshot={review.riskSnapshot}
                 availability={review.status === 'completed' ? 'legacy' : 'draft'}
+                detailSource={{
+                  pathname: location.pathname,
+                  search: routeResolution.canonicalSearch,
+                }}
+                overrideEventsOpen={overrideEventsOpen}
+                onOverrideEventsOpenChange={setOverrideEventsOpen}
               />
 
               {previousReview ? (
@@ -490,7 +540,15 @@ export function WeeklyReviewView() {
                       <div className="wr-evidence-group">
                         {evidenceMissedTrades.length ? <div className="wr-evidence-group-title">已执行并平仓</div> : null}
                         <div className="wr-trade-list">
-                          {evidenceTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
+                          {evidenceTrades.map((trade) => (
+                            <TradeEvidence
+                              key={trade.id}
+                              trade={trade}
+                              review={review}
+                              onPatch={commitPatch}
+                              detailFrom={detailFrom(`weekly-trade:${trade.id}`)}
+                            />
+                          ))}
                         </div>
                       </div>
                     ) : null}
@@ -498,7 +556,15 @@ export function WeeklyReviewView() {
                       <div className="wr-evidence-group">
                         <div className="wr-evidence-group-title">错过机会 <small>仅作执行证据，不计入绩效</small></div>
                         <div className="wr-trade-list">
-                          {evidenceMissedTrades.map((trade) => <TradeEvidence key={trade.id} trade={trade} review={review} onPatch={commitPatch} />)}
+                          {evidenceMissedTrades.map((trade) => (
+                            <TradeEvidence
+                              key={trade.id}
+                              trade={trade}
+                              review={review}
+                              onPatch={commitPatch}
+                              detailFrom={detailFrom(`weekly-trade:${trade.id}`)}
+                            />
+                          ))}
                         </div>
                       </div>
                     ) : null}

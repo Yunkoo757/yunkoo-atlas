@@ -1,9 +1,12 @@
 import { createRoot } from 'react-dom/client'
-import { Link, MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
+import { ToastHost } from '@/components/Toast'
+import { tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import type { TradeDetailLocationState } from '@/lib/tradeRoute'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -225,6 +228,14 @@ function StoreRenderSentinel() {
   return <output data-testid="store-render-sentinel">{trades.length}:{trades.filter((trade) => trade.deletedAt).length}</output>
 }
 
+function clickLink(label: string): HTMLAnchorElement {
+  const link = [...document.querySelectorAll<HTMLAnchorElement>('a')]
+    .find((item) => item.textContent?.trim() === label)
+  assert(link, `找不到链接：${label}`)
+  link.click()
+  return link
+}
+
 function RouteProbe() {
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -235,6 +246,24 @@ function RouteProbe() {
       data-search={location.search}
       data-navigation-type={navigationType}
     />
+  )
+}
+
+function DetailFixture() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const from = (location.state as TradeDetailLocationState | null)?.from
+  return (
+    <div data-testid="weekly-detail" data-source-anchor={from?.anchorTradeId ?? ''}>
+      交易详情
+      <Link
+        to={{ pathname: from?.pathname ?? '/list', search: from?.search ?? '' }}
+        state={tradeReturnLocationState(from?.anchorTradeId)}
+      >
+        返回复盘
+      </Link>
+      <button type="button" onClick={() => navigate(-1)}>浏览器返回</button>
+    </div>
   )
 }
 
@@ -276,7 +305,7 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={['/weekly-review']}>
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><StoreRenderSentinel /><RouteProbe /></>} />
-          <Route path="/trade/:id" element={<div>交易详情 <Link to="/weekly-review">返回复盘</Link></div>} />
+          <Route path="/trade/:id" element={<DetailFixture />} />
         </Routes>
       </MemoryRouter>,
     )
@@ -296,6 +325,33 @@ async function run(): Promise<void> {
     if (new URLSearchParams(location.search).has('visual')) {
       await new Promise<void>(() => {})
     }
+
+    const ordinaryEvidenceLink = document.querySelector<HTMLAnchorElement>(
+      '[data-trade-id="weekly-trade:one"] [data-trade-primary-action]',
+    )
+    assert(ordinaryEvidenceLink, '普通交易证据缺少稳定返回锚点和主操作')
+    ordinaryEvidenceLink.click()
+    await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '普通证据未进入详情')
+    assert(
+      document.querySelector('[data-testid="weekly-detail"]')
+        ?.getAttribute('data-source-anchor') === 'weekly-trade:one',
+      '普通证据没有携带命名空间锚点',
+    )
+    clickLink('返回复盘')
+    await waitFor(
+      () => document.activeElement?.closest('[data-trade-id="weekly-trade:one"]') !== null,
+      '普通证据返回后没有恢复原位置和焦点',
+    )
+
+    document.querySelector<HTMLAnchorElement>(
+      '[data-trade-id="weekly-trade:one"] [data-trade-primary-action]',
+    )?.click()
+    await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '第二次未进入普通证据详情')
+    clickButton('浏览器返回')
+    await waitFor(
+      () => document.activeElement?.closest('[data-trade-id="weekly-trade:one"]') !== null,
+      '浏览器返回没有读取 sessionStorage 并恢复普通证据焦点',
+    )
 
     const priorActivityWeek = addDays(activeWeekStart, -7)
     const priorActivityTrade = {
@@ -443,6 +499,36 @@ async function run(): Promise<void> {
       .find((link) => link.textContent === '查看交易' && link.getAttribute('href') === '/trade/TRD-one')
     assert(resolvedLink, 'resolved 冻结事件没有生成真实交易详情路由')
 
+    const confirmationDisclosure = [...document.querySelectorAll<HTMLDetailsElement>('.wr-risk-audit')]
+      .find((details) => details.querySelector('summary')?.textContent?.includes('继续交易确认'))
+    assert(confirmationDisclosure, '缺少继续交易确认审计区')
+    if (!confirmationDisclosure.open) confirmationDisclosure.querySelector('summary')?.click()
+    await waitFor(() => confirmationDisclosure.open, '继续交易确认审计区没有展开')
+    const resolvedRiskArticle = document.querySelector<HTMLElement>(
+      '[data-trade-id="weekly-risk:override-resolved"]',
+    )
+    const resolvedRiskLink = resolvedRiskArticle?.querySelector<HTMLAnchorElement>(
+      '[data-trade-primary-action]',
+    )
+    assert(resolvedRiskLink, '风险事件缺少独立锚点和主操作')
+    resolvedRiskLink.click()
+    await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '风险事件未进入详情')
+    assert(
+      document.querySelector('[data-testid="weekly-detail"]')
+        ?.getAttribute('data-source-anchor') === 'weekly-risk:override-resolved',
+      '风险事件没有携带独立命名空间锚点',
+    )
+    clickLink('返回复盘')
+    await waitFor(
+      () => document.activeElement?.closest('[data-trade-id="weekly-risk:override-resolved"]') !== null,
+      '风险事件返回后错误定位到普通证据',
+    )
+    assert(
+      [...document.querySelectorAll<HTMLDetailsElement>('.wr-risk-audit')]
+        .some((details) => details.open && details.textContent?.includes('盈利后仍按计划执行')),
+      '风险事件返回后没有先展开继续交易确认审计区',
+    )
+
     const frozen = completed.riskSnapshot!
     const dailyFixture = [
       { date: activeWeekStart, coverage: 'complete' as const, triggered: false, label: '未触线', netBudgetR: 1.25, remainingR: 8.75, unknownReasons: [], expectedNet: '+1.25R' },
@@ -515,13 +601,6 @@ async function run(): Promise<void> {
         .map((row) => row.textContent).join('|') === frozenEvidence.join('|'),
       '删除交易后冻结证据内容必须保持完成时快照',
     )
-
-    resolvedLink.click()
-    await waitFor(() => document.body.textContent?.includes('交易详情') ?? false, 'resolved 冻结事件链接未进入交易详情路由')
-    const returnLink = [...document.querySelectorAll<HTMLAnchorElement>('a')].find((link) => link.textContent === '返回复盘')
-    assert(returnLink, '交易详情缺少返回复盘入口')
-    returnLink.click()
-    await waitFor(() => document.body.textContent?.includes('这周已经形成闭环') ?? false, '从冻结交易详情返回后没有恢复复盘')
 
     clickButton('重新打开')
     await waitFor(() => useStore.getState().weeklyReviews[0]?.status === 'draft', '完成的复盘无法重新打开')
@@ -622,6 +701,33 @@ async function run(): Promise<void> {
       '旧 completed 无 evidenceSnapshot 时不得显示后来设置的当前周期标签',
     )
     assert(legacyCompletedReview.metricsSnapshot?.totalPnl === 100, '旧 completed 的冻结 metrics 不得重算')
+    root.render(
+      <MemoryRouter
+        key="missing-weekly-anchor"
+        initialEntries={[{
+          pathname: '/weekly-review',
+          state: { restoreTradeId: 'weekly-trade:missing' },
+        }]}
+      >
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.body.textContent?.includes('原交易已不在当前复盘证据中') ?? false,
+      '缺失锚点没有触发降级提示',
+    )
+    assert(
+      document.body.textContent?.includes('原交易已不在当前复盘证据中'),
+      '锚点消失后缺少明确降级提示',
+    )
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-pathname') === '/weekly-review',
+      '锚点消失后不得跳回交易日志',
+    )
+    assert(document.activeElement?.classList.contains('wr-main'), '锚点消失后焦点必须落到周复盘内容起点')
   } finally {
     window.removeEventListener('error', capturePageError)
     root.unmount()
