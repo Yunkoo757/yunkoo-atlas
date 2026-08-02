@@ -63,6 +63,7 @@ export function resolveTradeDetailReturn(options: {
 function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | undefined): boolean {
   if (pathname === '/missed') return true
   if (pathname === '/review-session') return true
+  if (pathname === '/settings/risk') return tradeKind === 'live'
   if (tradeKind === 'case') return isCaseWorkspaceEntryPath(pathname)
   if (isCaseWorkspaceEntryPath(pathname)) return false
   return (

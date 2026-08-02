@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import type { Trade } from '@/data/trades'
 import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { SettingsLayout } from '@/views/settings/SettingsLayout'
@@ -33,6 +34,39 @@ function setText(element: HTMLInputElement, value: string): void {
   element.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
+function dirtyLoss(currentDay: string): Trade {
+  return {
+    id: 'risk-dirty-loss',
+    ref: 'TRD-RISK-1',
+    symbol: 'BTCUSDT',
+    side: 'long',
+    status: 'loss',
+    conviction: 'medium',
+    strategyId: 'strategy-1',
+    tags: [],
+    mistakeTags: [],
+    reviewStatus: 'unreviewed',
+    reviewCategory: 'normal',
+    tradeKind: 'live',
+    entry: 100,
+    exit: 90,
+    size: 1,
+    pnl: null,
+    rMultiple: -1,
+    resultSource: 'r',
+    openedAt: currentDay,
+    closedAt: currentDay,
+    closedTradingDayKey: currentDay,
+    note: '',
+  }
+}
+
+function TradeRouteProbe() {
+  const location = useLocation()
+  const source = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? ''
+  return <div data-trade-route-source={source}>交易详情<Link to="/settings/risk">返回风险设置</Link></div>
+}
+
 function Harness() {
   const [panelKey, setPanelKey] = useState(0)
   return (
@@ -43,7 +77,9 @@ function Harness() {
       <Routes>
         <Route path="/settings" element={<SettingsLayout />}>
           <Route path="risk" element={<RiskManagementSettingsPanel key={panelKey} />} />
+          <Route path="data" element={<div>数据管理</div>} />
         </Route>
+        <Route path="/trade/:id" element={<TradeRouteProbe />} />
       </Routes>
     </MemoryRouter>
   )
@@ -55,7 +91,20 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const root = createRoot(rootElement)
   try {
+    const currentDay = getTradingDayKey(new Date(), 0)
+    const priorDay = parseLocalDate(currentDay)
+    priorDay.setDate(priorDay.getDate() - 1)
+    const incompleteTrade = dirtyLoss(getTradingDayKey(priorDay, 0))
+    const partialTrade: Trade = {
+      ...incompleteTrade,
+      id: 'risk-partial-win',
+      ref: 'TRD-RISK-2',
+      symbol: 'ETHUSDT',
+      status: 'win',
+      rMultiple: 1,
+    }
     useStore.setState((state) => ({
+      trades: [incompleteTrade, partialTrade],
       weeklyRiskPreparations: [],
       riskPolicyVersions: [],
       monthlyRiskLimits: [],
@@ -72,6 +121,24 @@ async function run(): Promise<void> {
       throw new Error('风险管理设置页缺少周期限额')
     }
     if (!panel.textContent?.includes('确认本周规则')) throw new Error('设置页缺少每周确认动作')
+    await waitFor(() => panel?.textContent?.includes('阻断风险判断 1 条') ?? false, '没有显示阻断风险数据摘要')
+    if (!panel.textContent?.includes('影响完整度 1 条')) throw new Error('没有显示部分覆盖数据摘要')
+    if (!panel.textContent?.includes('亏损交易缺少盈亏金额')) throw new Error('阻断项缺少具体修复原因')
+    if (!panel.textContent?.includes('缺少可用于风险核算的盈亏金额')) throw new Error('部分覆盖项缺少具体原因')
+    const openTrade = panel.querySelector<HTMLAnchorElement>('[data-risk-issue-trade]')
+    if (!openTrade?.textContent?.includes('打开交易')) throw new Error('缺少交易修复入口')
+    openTrade.click()
+    await waitFor(() => document.querySelector('[data-trade-route-source]') !== null, '没有进入问题交易')
+    if (document.querySelector('[data-trade-route-source]')?.getAttribute('data-trade-route-source') !== '/settings/risk') {
+      throw new Error('问题交易没有携带风险设置返回上下文')
+    }
+    const returnLink = [...document.querySelectorAll<HTMLAnchorElement>('a')]
+      .find((link) => link.textContent?.trim() === '返回风险设置')
+    if (!returnLink) throw new Error('交易测试路由缺少返回入口')
+    returnLink.click()
+    await waitFor(() => document.querySelector('[data-risk-management-settings]') !== null, '没有返回风险设置')
+    panel = document.querySelector<HTMLElement>('[data-risk-management-settings]')
+    if (!panel) throw new Error('返回后风险管理设置页没有渲染')
 
     if (new URLSearchParams(location.search).get('visual') === 'cards') {
       await new Promise<void>(() => {})
@@ -114,7 +181,6 @@ async function run(): Promise<void> {
     await waitFor(() => panel.textContent?.includes('本周风险规则已复核') ?? false, '设置页确认没有完成')
     if (panel.querySelector('input')) throw new Error('确认后设置页必须回到只读摘要')
 
-    const currentDay = getTradingDayKey(new Date(), 0)
     const currentWeek = weekStartFor(parseLocalDate(currentDay))
     const currentMonth = currentDay.slice(0, 7)
     const firstPreparation = useStore.getState().weeklyRiskPreparations.find((item) => item.weekStart === currentWeek)
@@ -122,9 +188,32 @@ async function run(): Promise<void> {
       throw new Error('首次确认没有保存已复核准备状态')
     }
     if (useStore.getState().riskPolicyVersions.length !== 1) throw new Error('首次确认必须生成一个规则版本')
-    if (useStore.getState().monthlyRiskLimits.find((item) => item.monthKey === currentMonth)?.limitR !== 10) {
-      throw new Error('首次确认必须建立并锁定当前月限额')
+    const firstMonthLimit = useStore.getState().monthlyRiskLimits.find((item) => item.monthKey === currentMonth)
+    if (firstMonthLimit?.limitR !== 10) {
+      throw new Error(`首次确认必须建立并锁定当前月限额：${JSON.stringify(useStore.getState().monthlyRiskLimits)}`)
     }
+
+    useStore.setState({
+      trades: [
+        {
+          ...incompleteTrade,
+          pnl: -1_000,
+          rMultiple: null,
+          resultSource: 'pnl',
+          closedAt: currentDay,
+          closedTradingDayKey: currentDay,
+        },
+        {
+          ...partialTrade,
+          pnl: 1_000,
+          rMultiple: null,
+          resultSource: 'pnl',
+          closedAt: currentDay,
+          closedTradingDayKey: currentDay,
+        },
+      ],
+    })
+    await waitFor(() => document.querySelector('[data-risk-data-complete]') !== null, '修复交易后问题没有自动消失')
 
     const reviewedPolicyCount = useStore.getState().riskPolicyVersions.length
     const edit = [...panel.querySelectorAll<HTMLButtonElement>('button')]
@@ -203,6 +292,13 @@ async function run(): Promise<void> {
       .find((label) => label.textContent?.includes('资金基准'))
       ?.querySelector<HTMLInputElement>('input')
     if (privateCapital?.type !== 'password') throw new Error('隐私模式没有掩码资金基准')
+
+    const nextDay = parseLocalDate(currentDay)
+    nextDay.setDate(nextDay.getDate() + 1)
+    useStore.setState({ liveStatsStartTradingDayKey: getTradingDayKey(nextDay, 0) })
+    await waitFor(() => panel?.textContent?.includes('风险核算起点晚于当前交易日') ?? false, '全局核算起点问题没有出现')
+    const cycleSettings = panel.querySelector<HTMLAnchorElement>('a[href="/settings/data"]')
+    if (!cycleSettings?.textContent?.includes('调整核算起点')) throw new Error('全局问题缺少数据设置入口')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

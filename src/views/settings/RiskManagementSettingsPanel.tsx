@@ -1,5 +1,6 @@
 import { WeeklyRiskPreparationCard } from '@/components/WeeklyRiskPreparationCard'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
+import { RiskDataIssuesSection } from '@/views/settings/RiskDataIssuesSection'
 import './RiskManagementSettingsPanel.css'
 
 export function RiskManagementSettingsPanel() {
@@ -11,6 +12,7 @@ export function RiskManagementSettingsPanel() {
         <h1 className="settings-page-title">风险管理</h1>
         <p className="settings-page-desc">配置资金基准、周期止损限额，并完成本周风险规则确认。</p>
       </div>
+      <RiskDataIssuesSection currentTradingDayKey={today} />
       <section className="settings-page-section">
         <div className="settings-page-head">
           <h2 className="settings-section-title">本周风险规则</h2>

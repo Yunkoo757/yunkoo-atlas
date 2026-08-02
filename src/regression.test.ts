@@ -1711,6 +1711,18 @@ export function testTradeDetailReturnRemembersListView(): void {
     tradeKind: 'live',
   })
   assert(invalidLiveSource.pathname === '/list', '交易详情的失效案例来源应回退到交易列表')
+
+  const riskSettingsReturn = resolveTradeDetailReturn({
+    from: { pathname: '/settings/risk', search: '', anchorTradeId: trade.id },
+    tradeKind: 'live',
+  })
+  assert(riskSettingsReturn.pathname === '/settings/risk', '风险修复后的交易详情必须返回风险设置')
+
+  const invalidCaseRiskSource = resolveTradeDetailReturn({
+    from: { pathname: '/settings/risk', search: '', anchorTradeId: trade.id },
+    tradeKind: 'case',
+  })
+  assert(invalidCaseRiskSource.pathname === '/review-cases', '案例详情不得接受风险设置作为来源')
 }
 
 export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(): Promise<void> {
