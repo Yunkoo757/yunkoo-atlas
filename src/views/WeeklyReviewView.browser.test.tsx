@@ -4,7 +4,7 @@ import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { ToastHost } from '@/components/Toast'
-import { tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
+import { tradeReturnLocationState, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import type { TradeDetailLocationState } from '@/lib/tradeRoute'
 import { useStore } from '@/store/useStore'
@@ -264,6 +264,50 @@ function DetailFixture() {
       </Link>
       <button type="button" onClick={() => navigate(-1)}>浏览器返回</button>
     </div>
+  )
+}
+
+const focusedRestoreStarts: string[] = []
+const focusedRestoreMissing: string[] = []
+
+function ReturnAnchorRaceFixture() {
+  const navigate = useNavigate()
+  useTradeReturnAnchor({
+    onRestoreStart: (anchorId) => focusedRestoreStarts.push(anchorId),
+    onMissing: (anchorId) => focusedRestoreMissing.push(anchorId),
+  })
+  return (
+    <main>
+      <button
+        type="button"
+        onClick={() => navigate(
+          { pathname: '/weekly-anchor-race', search: '?view=review' },
+          { replace: true, state: { restoreTradeId: 'weekly-trade:race-b' } },
+        )}
+      >
+        替换恢复锚点
+      </button>
+      <article data-trade-id="weekly-trade:race-b">
+        <button type="button" data-trade-primary-action>恢复目标 B</button>
+      </article>
+    </main>
+  )
+}
+
+function HiddenReturnAnchorFixture() {
+  useTradeReturnAnchor({
+    onRestoreStart: (anchorId) => focusedRestoreStarts.push(anchorId),
+    onMissing: (anchorId) => focusedRestoreMissing.push(anchorId),
+  })
+  return (
+    <main>
+      <details>
+        <summary>隐藏恢复目标</summary>
+        <article data-trade-id="weekly-risk:hidden-event">
+          <button type="button" data-trade-primary-action>隐藏主操作</button>
+        </article>
+      </details>
+    </main>
   )
 }
 
@@ -728,6 +772,72 @@ async function run(): Promise<void> {
       '锚点消失后不得跳回交易日志',
     )
     assert(document.activeElement?.classList.contains('wr-main'), '锚点消失后焦点必须落到周复盘内容起点')
+
+    focusedRestoreStarts.length = 0
+    focusedRestoreMissing.length = 0
+    root.render(
+      <MemoryRouter
+        key="weekly-anchor-race"
+        initialEntries={[{
+          pathname: '/weekly-anchor-race',
+          search: '?view=review',
+          state: { restoreTradeId: 'weekly-trade:race-a' },
+        }]}
+      >
+        <Routes>
+          <Route path="/weekly-anchor-race" element={<ReturnAnchorRaceFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => focusedRestoreStarts.join('|') === 'weekly-trade:race-a',
+      '首个恢复请求没有进入准备阶段',
+    )
+    const raceStorageKey = 'trade-return-anchor:/weekly-anchor-race?view=review'
+    sessionStorage.setItem(raceStorageKey, 'second-consumption-sentinel')
+    clickButton('替换恢复锚点')
+    await waitFor(
+      () => document.activeElement?.closest('[data-trade-id="weekly-trade:race-b"]') !== null,
+      '同路由的新恢复请求被旧 pending 吞掉',
+    )
+    assert(
+      focusedRestoreStarts.join('|') === 'weekly-trade:race-a|weekly-trade:race-b',
+      '每个恢复请求必须且只能调用一次恢复准备回调',
+    )
+    assert(!focusedRestoreMissing.includes('weekly-trade:race-a'), '旧恢复请求被替换后不得触发缺失降级')
+    assert(
+      sessionStorage.getItem(raceStorageKey) === 'second-consumption-sentinel',
+      '同一来源路由的 sessionStorage 锚点只能消费一次',
+    )
+    sessionStorage.removeItem(raceStorageKey)
+
+    focusedRestoreStarts.length = 0
+    focusedRestoreMissing.length = 0
+    root.render(
+      <MemoryRouter
+        key="weekly-hidden-anchor"
+        initialEntries={[{
+          pathname: '/weekly-hidden-anchor',
+          state: { restoreTradeId: 'weekly-risk:hidden-event' },
+        }]}
+      >
+        <Routes>
+          <Route path="/weekly-hidden-anchor" element={<HiddenReturnAnchorFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => focusedRestoreMissing.includes('weekly-risk:hidden-event'),
+      'DOM 中仍隐藏的恢复目标被误判为成功',
+    )
+    assert(
+      focusedRestoreStarts.join('|') === 'weekly-risk:hidden-event',
+      '隐藏目标逐帧等待期间恢复准备回调只能调用一次',
+    )
+    assert(
+      document.activeElement?.closest('[data-trade-id="weekly-risk:hidden-event"]') === null,
+      '不可见主操作不得获得焦点',
+    )
   } finally {
     window.removeEventListener('error', capturePageError)
     root.unmount()

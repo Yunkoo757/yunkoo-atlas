@@ -61,6 +61,21 @@ export function tradeReturnLocationState(anchorTradeId?: string): TradeReturnLoc
   return anchorTradeId ? { restoreTradeId: anchorTradeId } : {}
 }
 
+function isTradeReturnElementVisible(element: HTMLElement): boolean {
+  const closedDetails = element.closest<HTMLDetailsElement>('details:not([open])')
+  if (closedDetails && closedDetails !== element) {
+    const summary = closedDetails.querySelector<HTMLElement>(':scope > summary')
+    if (!summary?.contains(element)) return false
+  }
+  const style = window.getComputedStyle(element)
+  return (
+    style.display !== 'none' &&
+    style.visibility !== 'hidden' &&
+    style.visibility !== 'collapse' &&
+    element.getClientRects().length > 0
+  )
+}
+
 export function findTradeReturnFocusTarget(target: HTMLElement): HTMLElement | null {
   const primaryActions = target.querySelectorAll<HTMLElement>('[data-trade-primary-action]')
   const fallbackActions = target.querySelectorAll<HTMLElement>('button, a')
@@ -75,7 +90,7 @@ export function findTradeReturnFocusTarget(target: HTMLElement): HTMLElement | n
       !candidate.hidden &&
       candidate.getAttribute('aria-hidden') !== 'true' &&
       candidate.closest('[hidden], [aria-hidden="true"]') === null &&
-      candidate.getClientRects().length > 0
+      isTradeReturnElementVisible(candidate)
     )
   }) ?? null
 }
@@ -86,11 +101,14 @@ export function useTradeReturnAnchor(
   const location = useLocation()
   const navigate = useNavigate()
   const pendingRef = useRef<{
-    key: string
+    storageKey: string
+    locationKey: string
+    explicitTradeId?: string
     tradeId: string
     explicit: boolean
     prepared: boolean
   } | null>(null)
+  const consumedStorageKeyRef = useRef<string | null>(null)
   const onMissingRef = useRef(options.onMissing)
   const onRestoreStartRef = useRef(options.onRestoreStart)
 
@@ -103,14 +121,32 @@ export function useTradeReturnAnchor(
   }, [options.onRestoreStart])
 
   useEffect(() => {
-    const key = storageKey({ pathname: location.pathname, search: location.search })
+    const currentStorageKey = storageKey({ pathname: location.pathname, search: location.search })
     const explicit = (location.state as TradeReturnLocationState | null)?.restoreTradeId
-    if (pendingRef.current?.key !== key) {
-      const stored = typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(key)
-      if (stored !== null) sessionStorage.removeItem(key)
+    const currentPending = pendingRef.current
+    if (
+      currentPending?.storageKey !== currentStorageKey ||
+      currentPending.locationKey !== location.key ||
+      currentPending.explicitTradeId !== explicit
+    ) {
+      let stored: string | null = null
+      if (consumedStorageKeyRef.current !== currentStorageKey) {
+        consumedStorageKeyRef.current = currentStorageKey
+        stored = typeof sessionStorage === 'undefined'
+          ? null
+          : sessionStorage.getItem(currentStorageKey)
+        if (stored !== null) sessionStorage.removeItem(currentStorageKey)
+      }
       const tradeId = explicit ?? parseTradeReturnAnchor(stored)
       pendingRef.current = tradeId
-        ? { key, tradeId, explicit: Boolean(explicit), prepared: false }
+        ? {
+            storageKey: currentStorageKey,
+            locationKey: location.key,
+            explicitTradeId: explicit,
+            tradeId,
+            explicit: Boolean(explicit),
+            prepared: false,
+          }
         : null
     }
     const pending = pendingRef.current
@@ -120,6 +156,7 @@ export function useTradeReturnAnchor(
     let animationFrame = 0
     let requestedVirtualScroll = false
     const finish = () => {
+      if (pendingRef.current !== pending) return
       pendingRef.current = null
       if (!pending.explicit) return
       navigate(
@@ -128,6 +165,7 @@ export function useTradeReturnAnchor(
       )
     }
     const attemptRestore = () => {
+      if (pendingRef.current !== pending) return
       if (!pending.prepared) {
         pending.prepared = true
         onRestoreStartRef.current?.(pending.tradeId)
@@ -140,12 +178,14 @@ export function useTradeReturnAnchor(
       }
       const target = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
         .find((element) => element.dataset.tradeId === pending.tradeId)
-      if (target) {
+      if (target && isTradeReturnElementVisible(target)) {
         const focusTarget = findTradeReturnFocusTarget(target)
-        focusTarget?.focus({ preventScroll: true })
-        target.scrollIntoView({ block: 'center' })
-        finish()
-        return
+        if (focusTarget) {
+          focusTarget.focus({ preventScroll: true })
+          target.scrollIntoView({ block: 'center' })
+          finish()
+          return
+        }
       }
       if (frame >= MAX_RESTORE_FRAMES) {
         onMissingRef.current?.(pending.tradeId)
@@ -157,5 +197,5 @@ export function useTradeReturnAnchor(
     }
     attemptRestore()
     return () => cancelAnimationFrame(animationFrame)
-  }, [location.hash, location.pathname, location.search, location.state, navigate])
+  }, [location.hash, location.key, location.pathname, location.search, location.state, navigate])
 }
