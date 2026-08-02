@@ -13,6 +13,25 @@ export type RiskUnknownReason =
   | 'future-loss-close-date'
   | 'invalid-live-cycle-start'
 
+export type RiskPartialReason =
+  | 'partial-missing-pnl'
+  | 'partial-missing-close-date'
+  | 'partial-invalid-close-date'
+  | 'partial-future-close-date'
+  | 'partial-missing-policy'
+
+export type RiskDataIssueReason = RiskUnknownReason | RiskPartialReason
+
+export type RiskDataIssueSeverity = 'blocking' | 'partial' | 'global'
+
+export interface RiskDataIssue {
+  tradeId: string | null
+  tradeRef: string | null
+  tradingDayKey: string | null
+  severity: RiskDataIssueSeverity
+  reasons: RiskDataIssueReason[]
+}
+
 export interface RiskPolicyDraft {
   capitalBase: number | null
   riskPercent: number

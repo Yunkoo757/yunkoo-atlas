@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import type { MonthlyRiskLimit, RiskPolicyVersion } from '@/data/riskManagement'
 import {
   quantizeR,
+  resolveRiskDataIssues,
   resolveRiskOutcomes,
   resolveTrustedBudgetPnl,
   toMoneyCents,
@@ -320,4 +321,78 @@ export function testRiskBudgetUsesConfiguredTradingDayBoundaryForCloseDate(): vo
 
   assert(result.day.coverage === 'complete', '06:00 前平仓必须归入前一交易日')
   assert(result.day.netBudgetR === -1, '凌晨平仓亏损必须进入对应交易日风险预算')
+}
+
+export function testRiskDataIssuesMergeReasonsAndKeepStableOrder(): void {
+  const input = fixture({ pnls: [-1_000, 1_000] })
+  input.trades[0] = {
+    ...input.trades[0]!,
+    pnl: null,
+    resultSource: 'r',
+    rMultiple: -1,
+    closedAt: null,
+    closedTradingDayKey: undefined,
+  }
+  input.trades[1] = {
+    ...input.trades[1]!,
+    pnl: null,
+    resultSource: 'r',
+    rMultiple: 1,
+  }
+
+  const issues = resolveRiskDataIssues({ ...input, trades: [...input.trades].reverse() })
+
+  assert(issues.length === 2, '同一交易的多个原因必须合并为一项')
+  assert(issues[0]?.tradeId === 'trade-1' && issues[0].severity === 'blocking', '阻断项必须优先')
+  assert(issues[0]?.reasons.join() === 'missing-loss-pnl,missing-close-date', '阻断原因必须稳定排序')
+  assert(issues[1]?.severity === 'partial', '部分覆盖项必须排在阻断项之后')
+  assert(issues[1]?.reasons.includes('partial-missing-pnl'), '非亏损缺金额必须显式标为部分覆盖')
+}
+
+export function testRiskDataIssuesExposeGlobalCycleStartProblem(): void {
+  const input = fixture({ pnls: [-1_000] })
+  input.liveStatsStartTradingDayKey = '2026-07-28'
+
+  const issues = resolveRiskDataIssues(input)
+
+  assert(issues.length === 1 && issues[0]?.severity === 'global', '未来核算起点必须生成独立全局项')
+  assert(issues[0]?.tradeId === null, '全局项不得伪装成交易问题')
+  assert(issues[0]?.reasons[0] === 'invalid-live-cycle-start', '全局项必须保留准确原因')
+}
+
+export function testRiskDataIssuesExplainEveryPartialCoverageCause(): void {
+  const input = fixture({ pnls: [1_000, 1_000, 1_000, 1_000, 1_000] })
+  input.trades[0] = { ...input.trades[0]!, pnl: null, resultSource: 'r', rMultiple: 1 }
+  input.trades[1] = { ...input.trades[1]!, closedAt: null, closedTradingDayKey: undefined }
+  input.trades[2] = { ...input.trades[2]!, closedAt: 'invalid', closedTradingDayKey: undefined }
+  input.trades[3] = { ...input.trades[3]!, closedAt: '2026-07-28', closedTradingDayKey: '2026-07-28' }
+  input.trades[4] = { ...input.trades[4]!, closedAt: '2026-06-30', closedTradingDayKey: '2026-06-30' }
+
+  const reasons = new Set(resolveRiskDataIssues(input).flatMap((issue) => issue.reasons))
+
+  for (const reason of [
+    'partial-missing-pnl',
+    'partial-missing-close-date',
+    'partial-invalid-close-date',
+    'partial-future-close-date',
+    'partial-missing-policy',
+  ] as const) {
+    assert(reasons.has(reason), `部分覆盖清单缺少 ${reason}`)
+  }
+}
+
+export function testRiskDataIssuesExcludeNonCurrentLiveCycleRecords(): void {
+  const input = fixture({ pnls: [-1_000, -1_000, -1_000, -1_000] })
+  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.trades = input.trades.map((item) => ({ ...item, pnl: null, resultSource: 'r', rMultiple: -1 }))
+  input.trades[0] = { ...input.trades[0]!, openedAt: '2026-07-26' }
+  input.trades[1] = { ...input.trades[1]!, tradeKind: 'paper' }
+  input.trades[2] = { ...input.trades[2]!, tradeKind: 'case' }
+  input.trades[3] = { ...input.trades[3]!, deletedAt: '2026-07-27T12:00:00.000Z' }
+
+  assert(resolveRiskDataIssues(input).length === 0, '规则前、模拟、案例和已删除记录不得进入风险修复清单')
+}
+
+export function testRiskDataIssuesAreEmptyForCompleteCurrentCycle(): void {
+  assert(resolveRiskDataIssues(fixture({ pnls: [-1_000, 2_000] })).length === 0, '完整风险数据不得生成修复项')
 }

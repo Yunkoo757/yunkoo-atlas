@@ -1,7 +1,9 @@
 import type {
   MonthlyRiskLimit,
   RiskCoverage,
+  RiskDataIssue,
   RiskPeriodOutcomeSnapshot,
+  RiskPartialReason,
   RiskPolicyVersion,
   RiskUnknownReason,
 } from '@/data/riskManagement'
@@ -26,6 +28,14 @@ const UNKNOWN_REASON_ORDER: RiskUnknownReason[] = [
   'invalid-close-date',
   'future-loss-close-date',
   'invalid-live-cycle-start',
+]
+
+const PARTIAL_REASON_ORDER: RiskPartialReason[] = [
+  'partial-missing-pnl',
+  'partial-missing-close-date',
+  'partial-invalid-close-date',
+  'partial-future-close-date',
+  'partial-missing-policy',
 ]
 
 function precisionFactor(digits: number): number {
@@ -98,10 +108,17 @@ export interface ResolvedRiskOutcomes {
 }
 
 type CandidateResult = {
+  tradeId: string | null
+  tradeRef: string | null
   date: string | null
   budgetR: number | null
   unknownReasons: RiskUnknownReason[]
-  partial: boolean
+  partialReasons: RiskPartialReason[]
+}
+
+type RiskCandidateEvaluation = {
+  results: CandidateResult[]
+  globalReasons: RiskUnknownReason[]
 }
 
 function validDayKey(value: string | undefined): value is string {
@@ -142,9 +159,14 @@ function stableReasons(reasons: Iterable<RiskUnknownReason>): RiskUnknownReason[
   return UNKNOWN_REASON_ORDER.filter((reason) => found.has(reason))
 }
 
+function stablePartialReasons(reasons: Iterable<RiskPartialReason>): RiskPartialReason[] {
+  const found = new Set(reasons)
+  return PARTIAL_REASON_ORDER.filter((reason) => found.has(reason))
+}
+
 function periodCoverage(results: CandidateResult[]): RiskCoverage {
   if (results.some((result) => result.unknownReasons.length > 0)) return 'unknown'
-  return results.some((result) => result.partial) ? 'partial' : 'complete'
+  return results.some((result) => result.partialReasons.length > 0) ? 'partial' : 'complete'
 }
 
 function limitR(value: unknown): number {
@@ -176,32 +198,12 @@ function makeSnapshot(
   }
 }
 
-function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRiskOutcomes {
-  const currentPolicy = activeRiskPolicy(input.policies, input.currentTradingDayKey)
-  const currentWeekStart = weekStart(input.currentTradingDayKey)
-  const currentMonth = input.currentTradingDayKey.slice(0, 7)
-  const monthlyLimit = input.monthlyLimits.find((limit) => limit.monthKey === currentMonth)
+function evaluateRiskCandidates(input: ResolveRiskOutcomesInput): RiskCandidateEvaluation {
   if (
     input.liveStatsStartTradingDayKey &&
     input.liveStatsStartTradingDayKey > input.currentTradingDayKey
   ) {
-    const reason: RiskUnknownReason = 'invalid-live-cycle-start'
-    const invalidResult: CandidateResult = {
-      date: null,
-      budgetR: null,
-      unknownReasons: [reason],
-      partial: false,
-    }
-    const invalidSnapshot = (limit: number) => makeSnapshot(
-      [invalidResult],
-      [],
-      limit,
-      [reason],
-    )
-    const day = invalidSnapshot(limitR(currentPolicy?.dailyLossLimitR))
-    const week = invalidSnapshot(limitR(currentPolicy?.weeklyLossLimitR))
-    const month = invalidSnapshot(limitR(monthlyLimit?.limitR))
-    return { day, week, month, gateCoverage: 'unknown', unknownReasons: [reason] }
+    return { results: [], globalReasons: ['invalid-live-cycle-start'] }
   }
   const results: CandidateResult[] = []
   const currentCycleTrades = filterTradesForLiveCycle(
@@ -216,7 +218,7 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
     .sort((left, right) => left.id.localeCompare(right.id))) {
     const truth = resolveTradeTruth(trade)
     const reasons: RiskUnknownReason[] = []
-    let partial = false
+    const partialReasons: RiskPartialReason[] = []
     let date = closedTradingDayKey(trade, input.tradingDayStartHour ?? 0)
 
     if (truth.hasConflict || !isTradeResultAuthorityConsistent(trade)) {
@@ -229,16 +231,16 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
       : truth.outcome === 'loss' || trade.status === 'loss'
     if (trustedPnl === null && reasons.length === 0) {
       if (knownLoss) reasons.push('missing-loss-pnl')
-      else partial = true
+      else partialReasons.push('partial-missing-pnl')
     }
 
     if (!date) {
       const dateReason: RiskUnknownReason = trade.closedAt ? 'invalid-close-date' : 'missing-close-date'
       if (knownLoss) reasons.push(dateReason)
-      else partial = true
+      else partialReasons.push(trade.closedAt ? 'partial-invalid-close-date' : 'partial-missing-close-date')
     } else if (date > input.currentTradingDayKey) {
       if (knownLoss) reasons.push('future-loss-close-date')
-      else partial = true
+      else partialReasons.push('partial-future-close-date')
       date = null
     }
 
@@ -247,20 +249,58 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
       const policy = activeRiskPolicy(input.policies, date)
       if (!policy || !Number.isFinite(policy.riskAmount) || toMoneyCents(policy.riskAmount) <= 0) {
         if (trustedPnl < 0) reasons.push('missing-policy')
-        else partial = true
+        else partialReasons.push('partial-missing-policy')
       } else {
         budgetR = quantizeR(toMoneyCents(trustedPnl) / toMoneyCents(policy.riskAmount))
       }
     }
 
-    results.push({ date, budgetR, unknownReasons: stableReasons(reasons), partial })
+    results.push({
+      tradeId: trade.id,
+      tradeRef: trade.ref,
+      date,
+      budgetR,
+      unknownReasons: stableReasons(reasons),
+      partialReasons: stablePartialReasons(partialReasons),
+    })
   }
+
+  return { results, globalReasons: [] }
+}
+
+function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRiskOutcomes {
+  const currentPolicy = activeRiskPolicy(input.policies, input.currentTradingDayKey)
+  const currentWeekStart = weekStart(input.currentTradingDayKey)
+  const currentMonth = input.currentTradingDayKey.slice(0, 7)
+  const monthlyLimit = input.monthlyLimits.find((limit) => limit.monthKey === currentMonth)
+  const evaluation = evaluateRiskCandidates(input)
+  if (evaluation.globalReasons.length > 0) {
+    const invalidResult: CandidateResult = {
+      tradeId: null,
+      tradeRef: null,
+      date: null,
+      budgetR: null,
+      unknownReasons: evaluation.globalReasons,
+      partialReasons: [],
+    }
+    const invalidSnapshot = (limit: number) => makeSnapshot(
+      [invalidResult],
+      [],
+      limit,
+      evaluation.globalReasons,
+    )
+    const day = invalidSnapshot(limitR(currentPolicy?.dailyLossLimitR))
+    const week = invalidSnapshot(limitR(currentPolicy?.weeklyLossLimitR))
+    const month = invalidSnapshot(limitR(monthlyLimit?.limitR))
+    return { day, week, month, gateCoverage: 'unknown', unknownReasons: evaluation.globalReasons }
+  }
+  const results = evaluation.results
 
   const isCurrentDay = (result: CandidateResult) => result.date === input.currentTradingDayKey
   const isCurrentWeek = (result: CandidateResult) => result.date !== null && weekStart(result.date) === currentWeekStart
   const isCurrentMonth = (result: CandidateResult) => result.date?.slice(0, 7) === currentMonth
   const resultsFor = (matches: (result: CandidateResult) => boolean) => results.filter((result) =>
-    matches(result) || (result.date === null && (result.partial || result.unknownReasons.length > 0)),
+    matches(result) || (result.date === null && (result.partialReasons.length > 0 || result.unknownReasons.length > 0)),
   )
   const snapshotFor = (periodResults: CandidateResult[], limit: number) => makeSnapshot(
     periodResults,
@@ -283,4 +323,36 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
 
 export function resolveRiskOutcomes(input: ResolveRiskOutcomesInput): ResolvedRiskOutcomes {
   return calculateCanonicalOutcomes(input)
+}
+
+function compareRiskDataIssues(left: RiskDataIssue, right: RiskDataIssue): number {
+  const severityOrder = { global: 0, blocking: 1, partial: 2 } as const
+  return severityOrder[left.severity] - severityOrder[right.severity]
+    || (left.tradingDayKey ?? '9999-12-31').localeCompare(right.tradingDayKey ?? '9999-12-31')
+    || (left.tradeRef ?? '').localeCompare(right.tradeRef ?? '')
+    || (left.tradeId ?? '').localeCompare(right.tradeId ?? '')
+}
+
+export function resolveRiskDataIssues(input: ResolveRiskOutcomesInput): RiskDataIssue[] {
+  const evaluation = evaluateRiskCandidates(input)
+  if (evaluation.globalReasons.length > 0) {
+    return [{
+      tradeId: null,
+      tradeRef: null,
+      tradingDayKey: null,
+      severity: 'global',
+      reasons: evaluation.globalReasons,
+    }]
+  }
+  return evaluation.results.flatMap((result): RiskDataIssue[] => {
+    const reasons = [...result.unknownReasons, ...result.partialReasons]
+    if (reasons.length === 0) return []
+    return [{
+      tradeId: result.tradeId,
+      tradeRef: result.tradeRef,
+      tradingDayKey: result.date,
+      severity: result.unknownReasons.length > 0 ? 'blocking' : 'partial',
+      reasons,
+    }]
+  }).sort(compareRiskDataIssues)
 }
