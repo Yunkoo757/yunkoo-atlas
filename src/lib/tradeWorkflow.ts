@@ -1,4 +1,6 @@
 import { isReviewCompleted, type Trade } from '@/data/trades'
+import { getTradingDayKey } from '@/lib/periods'
+import { closedTradingDayKey } from '@/lib/riskBudget'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
 
@@ -27,15 +29,14 @@ function newestFirst(left: Trade, right: Trade): number {
   return rightTime.localeCompare(leftTime)
 }
 
-function dateKeyFromStoredValue(value: string | null | undefined): string | null {
+function tradingDayKeyFromStoredValue(
+  value: string | null | undefined,
+  tradingDayStartHour: number,
+): string | null {
   if (!value) return null
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
   const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value.slice(0, 10) : toLocalDateKey(parsed)
-}
-
-function sameLocalDate(value: string | null | undefined, date: string): boolean {
-  return dateKeyFromStoredValue(value) === date
+  return Number.isNaN(parsed.getTime()) ? null : getTradingDayKey(parsed, tradingDayStartHour)
 }
 
 function completedNewestFirst(left: Trade, right: Trade): number {
@@ -44,21 +45,29 @@ function completedNewestFirst(left: Trade, right: Trade): number {
   return rightTime.localeCompare(leftTime)
 }
 
-function workflowDate(trade: Trade): string {
-  return dateKeyFromStoredValue(trade.closedAt ?? trade.openedAt) ?? ''
+function workflowDate(trade: Trade, tradingDayStartHour: number): string {
+  if (trade.status !== 'planned' && trade.status !== 'open') {
+    const frozenOrClosedDay = closedTradingDayKey(trade, tradingDayStartHour)
+    if (frozenOrClosedDay) return frozenOrClosedDay
+  }
+  return tradingDayKeyFromStoredValue(trade.openedAt, tradingDayStartHour) ?? ''
 }
 
 /** 今日已平仓实盘（按平仓日；无 closedAt 时回退 openedAt），供战绩条统计。 */
 export function filterTodayClosedLiveTrades(
   trades: readonly Trade[],
   today: string,
+  tradingDayStartHour = 0,
 ): Trade[] {
   return trades.filter(
-    (trade) =>
-      trade.tradeKind === 'live' &&
-      !trade.deletedAt &&
-      isExecutedClosed(trade.status) &&
-      sameLocalDate(trade.closedAt ?? trade.openedAt, today),
+    (trade) => {
+      if (trade.tradeKind !== 'live' || trade.deletedAt || !isExecutedClosed(trade.status)) return false
+      const closedDay = closedTradingDayKey(trade, tradingDayStartHour)
+      const legacyFallback = trade.closedTradingDayKey === undefined && !trade.closedAt
+        ? tradingDayKeyFromStoredValue(trade.openedAt, tradingDayStartHour)
+        : null
+      return (closedDay ?? legacyFallback) === today
+    },
   )
 }
 
@@ -66,14 +75,16 @@ export function filterTodayClosedLiveTrades(
 export function buildTodayClosedMetrics(
   trades: readonly Trade[],
   today: string,
+  tradingDayStartHour = 0,
 ): TodayClosedMetrics {
-  return summarizeTradeResults(filterTodayClosedLiveTrades(trades, today))
+  return summarizeTradeResults(filterTodayClosedLiveTrades(trades, today, tradingDayStartHour))
 }
 
 /** 把交易库投影为互斥的今日行动队列，避免同一笔交易在多个区块重复出现。 */
 export function getTodayWorkflowBuckets(
   trades: readonly Trade[],
   today: string,
+  tradingDayStartHour = 0,
 ): TodayWorkflowBuckets {
   const live = trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt)
   const active: Trade[] = []
@@ -83,7 +94,7 @@ export function getTodayWorkflowBuckets(
 
   for (const trade of live) {
     if (trade.status === 'planned' || trade.status === 'open') {
-      if (trade.status === 'planned' && workflowDate(trade) > today) continue
+      if (trade.status === 'planned' && workflowDate(trade, tradingDayStartHour) > today) continue
       active.push(trade)
       continue
     }
@@ -102,8 +113,8 @@ export function getTodayWorkflowBuckets(
       continue
     }
     if (
-      sameLocalDate(trade.reviewedAt, today) ||
-      (!trade.reviewedAt && (sameLocalDate(trade.openedAt, today) || sameLocalDate(trade.closedAt, today)))
+      tradingDayKeyFromStoredValue(trade.reviewedAt, tradingDayStartHour) === today ||
+      (!trade.reviewedAt && workflowDate(trade, tradingDayStartHour) === today)
     ) {
       completedToday.push(trade)
     }
@@ -122,6 +133,6 @@ export function getTodayWorkflowBuckets(
     reviewPending,
     completedToday,
     actionCount: actions.length,
-    historicalActionCount: actions.filter((trade) => workflowDate(trade) < today).length,
+    historicalActionCount: actions.filter((trade) => workflowDate(trade, tradingDayStartHour) < today).length,
   }
 }

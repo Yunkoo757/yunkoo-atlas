@@ -236,6 +236,7 @@ export async function testQuickNoteTextAndImagesRoundTripWithoutEnteringTrades()
   const note = {
     ...createQuickNote(new Date('2026-07-18T08:00:00.000Z')),
     title: '盘前灵感',
+    titleMode: 'manual' as const,
     contentHtml: '<p>观察美元流动性</p><img src="journal-asset://quick-note-asset">',
   }
   const payload = await buildExportPayloadFromState(

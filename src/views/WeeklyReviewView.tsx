@@ -29,6 +29,7 @@ import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
+import { getWeeklyReviewCompletionIssue } from '@/lib/weeklyReviewCompletion'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { WeeklyRiskEvidence } from '@/views/WeeklyRiskEvidence'
@@ -259,14 +260,11 @@ export function WeeklyReviewView() {
   }
 
   const completeReview = async () => {
-    await flushNoteDraftToStore(draftId)
+    const draftSaved = await flushNoteDraftToStore(draftId)
     const latest = useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek) ?? review
-    if ([latest.executionScore, latest.riskScore, latest.emotionScore].some((score) => score === null)) {
-      toast('请先完成执行、风控和情绪三项评分')
-      return
-    }
-    if (!latest.commitmentText.trim() || !latest.commitmentCriteria.trim()) {
-      toast('请写清下周只做的一件事和验收标准')
+    const issue = getWeeklyReviewCompletionIssue(latest, draftSaved)
+    if (issue) {
+      toast(issue)
       return
     }
     completeWeeklyReview(latest.id)

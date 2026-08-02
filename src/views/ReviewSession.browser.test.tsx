@@ -197,7 +197,11 @@ async function run(): Promise<void> {
     )
     const assessed = useStore.getState().trades.find((item) => item.id === trade.id)
     assert(assessed?.masteryState === 'recheck', '评估没有写回记录掌握度')
-    assert(assessed.reviewCategory === 'recheck' && Boolean(assessed.nextReviewAt), '基本理解没有生成复看计划')
+    assert(Boolean(assessed.nextReviewAt), '基本理解没有生成复看计划')
+    assert(
+      assessed.reviewStatus === 'reviewed' && assessed.reviewCategory === 'normal',
+      '随机掌握度评估不得改写账户交易的正式复盘状态与分类',
+    )
     await waitFor(
       () => document.body.textContent?.includes('本轮完成') === true,
       '评估后没有进入下一条或完成本轮',

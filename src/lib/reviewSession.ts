@@ -1,10 +1,11 @@
-import type { Trade } from '@/data/trades'
+import { isReviewCompleted, type Trade } from '@/data/trades'
 import { formatYmd } from '@/lib/periods'
 import {
   matchesReviewCaseScope,
   type ReviewCaseScope,
 } from '@/lib/reviewCaseScope'
 import { isTypingTarget, normalizeKey } from '@/shortcuts/chords'
+import { resolveTradeTruth } from '@/lib/tradeTruth'
 
 export type ReviewSessionFilters = {
   includeCases: boolean
@@ -33,6 +34,22 @@ export function buildReviewAssessmentPatch(
   assessment: ReviewSessionAssessment,
   now: Date = new Date(),
 ) {
+  if (trade.tradeKind !== 'case') {
+    if (assessment === 'mastered') {
+      return {
+        masteryState: 'mastered' as const,
+        nextReviewAt: null,
+      }
+    }
+
+    const nextReview = new Date(now)
+    nextReview.setDate(nextReview.getDate() + (assessment === 'unfamiliar' ? 3 : 7))
+    return {
+      masteryState: assessment === 'recheck' ? 'recheck' as const : 'new' as const,
+      nextReviewAt: formatYmd(nextReview),
+    }
+  }
+
   if (assessment === 'mastered') {
     return {
       masteryState: 'mastered' as const,
@@ -98,6 +115,22 @@ export function hasEffectiveReviewContent(note: string | null | undefined): bool
   return text.length > 0
 }
 
+/** 随机复盘展示案例自身洞见及其来源交易快照，账户交易仍只读取自身正文。 */
+export function getReviewSessionContent(trade: Trade): string {
+  if (trade.tradeKind !== 'case') return trade.note
+  const ownNote = hasEffectiveReviewContent(trade.note) ? trade.note : ''
+  const sourceNote = hasEffectiveReviewContent(trade.sourceNoteHtml) ? trade.sourceNoteHtml! : ''
+  if (!ownNote) return sourceNote
+  if (!sourceNote) return ownNote
+  return [
+    '<section data-review-session-section="case"><h2>案例洞见</h2>',
+    ownNote,
+    '</section><section data-review-session-section="source"><h2>来源交易复盘</h2>',
+    sourceNote,
+    '</section>',
+  ].join('')
+}
+
 export function buildReviewSessionPool(
   trades: readonly Trade[],
   filters: ReviewSessionFilters,
@@ -105,11 +138,18 @@ export function buildReviewSessionPool(
 ): Trade[] {
   return trades.filter((trade) => {
     if (trade.deletedAt) return false
-    if (filters.requireContent && !hasEffectiveReviewContent(trade.note)) return false
+    const content = getReviewSessionContent(trade)
+    if (filters.requireContent && !hasEffectiveReviewContent(content)) return false
     if (trade.tradeKind === 'case') {
       return filters.includeCases && matchesReviewCaseScope(trade, filters.caseScope, starredIds)
     }
-    return filters.includeAccountTrades && (trade.tradeKind === 'live' || trade.tradeKind === 'paper')
+    if (!filters.includeAccountTrades || (trade.tradeKind !== 'live' && trade.tradeKind !== 'paper')) return false
+    const executionState = resolveTradeTruth(trade).executionState
+    return (
+      (executionState === 'closed' || executionState === 'missed') &&
+      isReviewCompleted(trade.reviewStatus) &&
+      hasEffectiveReviewContent(content)
+    )
   })
 }
 

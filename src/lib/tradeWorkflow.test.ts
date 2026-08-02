@@ -267,4 +267,50 @@ export function testTodayClosedMetricsUsesCloseDateLiveOnly(): void {
   assert(metrics.totalPnl === 100, 'total pnl sums verified amounts only')
 }
 
+export function testTodayClosedMetricsPrefersFrozenTradingDayAndHonorsDayBoundary(): void {
+  const beforeBoundary = new Date(2026, 6, 21, 4, 0, 0).toISOString()
+  const frozenDay = {
+    ...base,
+    id: 'frozen-day',
+    status: 'win',
+    exit: 110,
+    pnl: 100,
+    rMultiple: 2,
+    closedAt: new Date(2026, 6, 21, 9, 0, 0).toISOString(),
+    closedTradingDayKey: '2026-07-20',
+  } as Trade
+  const earlyClose = {
+    ...frozenDay,
+    id: 'early-close',
+    closedAt: beforeBoundary,
+    closedTradingDayKey: undefined,
+  } as Trade
+
+  const metrics = buildTodayClosedMetrics([frozenDay, earlyClose], '2026-07-20', 6)
+
+  assert(metrics.closedCount === 2,
+    'Today 战绩应优先使用冻结交易日，并把起始小时前的平仓归入前一交易日')
+}
+
+export function testTodayCompletedReviewHonorsTradingDayBoundary(): void {
+  const reviewedBeforeBoundary = {
+    ...base,
+    id: 'reviewed-before-boundary',
+    status: 'win',
+    exit: 110,
+    pnl: 10,
+    closedAt: '2026-07-20',
+    reviewStatus: 'reviewed',
+    reviewedAt: new Date(2026, 6, 21, 4, 0, 0).toISOString(),
+  } as Trade
+
+  const previousDay = getTodayWorkflowBuckets([reviewedBeforeBoundary], '2026-07-20', 6)
+  const calendarDay = getTodayWorkflowBuckets([reviewedBeforeBoundary], '2026-07-21', 6)
+
+  assert(previousDay.completedToday[0]?.id === reviewedBeforeBoundary.id,
+    '起始小时前完成的复盘应归入前一交易日')
+  assert(calendarDay.completedToday.length === 0,
+    '起始小时前完成的复盘不得出现在新交易日完成历史中')
+}
+
 

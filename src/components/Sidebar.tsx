@@ -196,6 +196,7 @@ export function useSidebarNavigationModel() {
     today: getTodayWorkflowBuckets(
       trades,
       businessDateAnchor.currentTradingDayKey,
+      display.tradingDayStartHour,
     ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),

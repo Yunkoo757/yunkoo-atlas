@@ -69,13 +69,20 @@ export function TodayWorkspace() {
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
   const location = useLocation()
   const today = useLocalDateKey()
-  const buckets = useMemo(() => getTodayWorkflowBuckets(trades, today), [trades, today])
-  const todayMetrics = useMemo(() => buildTodayClosedMetrics(trades, today), [trades, today])
+  const buckets = useMemo(
+    () => getTodayWorkflowBuckets(trades, today, tradingDayStartHour),
+    [trades, today, tradingDayStartHour],
+  )
+  const todayMetrics = useMemo(
+    () => buildTodayClosedMetrics(trades, today, tradingDayStartHour),
+    [trades, today, tradingDayStartHour],
+  )
   const visibleWorkflowGroups = useMemo(
     () => queueFilter === 'all'
       ? WORKFLOW_GROUPS

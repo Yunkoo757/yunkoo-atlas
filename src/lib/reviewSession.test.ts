@@ -11,6 +11,7 @@ import {
   reviewSessionStorageKey,
   saveReviewSession,
   shuffleReviewSessionIds,
+  getReviewSessionContent,
   type ReviewSessionSnapshot,
 } from '@/lib/reviewSession'
 
@@ -38,7 +39,7 @@ const baseTrade: Trade = {
   rMultiple: 2,
   openedAt: '2026-07-01',
   closedAt: '2026-07-02',
-  note: '',
+  note: '<p>等待确认后入场</p>',
 }
 
 class MemoryStorage {
@@ -99,6 +100,28 @@ export function testReviewSessionDefaultPoolIncludesCasesAndAccountTradesOnly():
     '默认池应包含未删除的案例、实盘和模拟交易')
 }
 
+export function testReviewSessionAccountTradesRequireClosedReviewedContent(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'eligible' },
+    { ...baseTrade, id: 'open', status: 'open', closedAt: null },
+    { ...baseTrade, id: 'unreviewed', reviewStatus: 'unreviewed' },
+    { ...baseTrade, id: 'empty', note: '<p>&nbsp;</p>' },
+    {
+      ...baseTrade,
+      id: 'missed',
+      status: 'missed',
+      pnl: null,
+      rMultiple: null,
+      note: '<p>犹豫导致错过</p>',
+    },
+  ]
+
+  const pool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set())
+
+  assert(pool.map((trade) => trade.id).join(',') === 'eligible,missed',
+    '账户交易必须已结束、已正式复盘且有有效内容才可进入随机复盘')
+}
+
 export function testReviewSessionContentFilterKeepsTextAndImageNotes(): void {
   const filters = {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
@@ -114,6 +137,22 @@ export function testReviewSessionContentFilterKeepsTextAndImageNotes(): void {
 
   assert(pool.map((trade) => trade.id).join(',') === 'text,image',
     '仅含有效图文应保留正文笔记和纯图片笔记')
+}
+
+export function testReviewSessionCaseContentIncludesOwnInsightsAndSourceReview(): void {
+  const reviewCase = {
+    ...baseTrade,
+    id: 'case-with-source',
+    tradeKind: 'case',
+    note: '<p>案例洞见</p>',
+    sourceNoteHtml: '<p>原交易复盘</p>',
+  } as Trade
+
+  const content = getReviewSessionContent(reviewCase)
+
+  assert(content.includes('案例洞见'), '随机复盘必须显示案例自身补充的洞见')
+  assert(content.includes('原交易复盘'), '随机复盘必须显示案例来源交易的复盘快照')
+  assert(getReviewSessionContent(baseTrade) === baseTrade.note, '账户交易应继续读取自身复盘正文')
 }
 
 export function testReviewSessionCaseScopeUsesSharedStarredFocusRule(): void {
@@ -189,19 +228,28 @@ export function testReviewAssessmentBuildsMasteryAndRecheckPlans(): void {
   )
   assert(unfamiliar.masteryState === 'new' && unfamiliar.nextReviewAt === '2026-07-19',
     '还没掌握应安排 3 天后复看')
-  assert(unfamiliar.reviewCategory === 'mistake', '还没掌握不得抹掉原有错误分类')
+  assert(!('reviewStatus' in unfamiliar) && !('reviewCategory' in unfamiliar),
+    '账户交易还没掌握也不得改写正式复盘状态或分类')
 
   const recheck = buildReviewAssessmentPatch(baseTrade, 'recheck', now)
   assert(recheck.masteryState === 'recheck' && recheck.nextReviewAt === '2026-07-23',
     '基本理解应安排 7 天后复看')
-  assert(recheck.reviewStatus === 'unreviewed' && recheck.reviewCategory === 'recheck',
-    '基本理解应回到待复看状态')
+  assert(!('reviewStatus' in recheck) && !('reviewCategory' in recheck),
+    '账户交易的记忆评估不得改写正式复盘状态或分类')
 
   const mastered = buildReviewAssessmentPatch(baseTrade, 'mastered', now)
   assert(mastered.masteryState === 'mastered' && mastered.nextReviewAt === null,
     '已经掌握应清空复看日期')
-  assert(mastered.reviewStatus === 'reviewed' && mastered.reviewCategory === 'mastered',
-    '已经掌握应同步完成状态')
+  assert(!('reviewStatus' in mastered) && !('reviewCategory' in mastered),
+    '账户交易已掌握不得冒充正式复盘完成')
+
+  const reviewCase = { ...baseTrade, id: 'case', tradeKind: 'case' } as Trade
+  const caseRecheck = buildReviewAssessmentPatch(reviewCase, 'recheck', now)
+  assert(caseRecheck.reviewStatus === 'unreviewed' && caseRecheck.reviewCategory === 'recheck',
+    '案例的基本理解仍应进入待复看分类')
+  const caseMastered = buildReviewAssessmentPatch(reviewCase, 'mastered', now)
+  assert(caseMastered.reviewStatus === 'reviewed' && caseMastered.reviewCategory === 'mastered',
+    '案例的已经掌握仍应同步案例完成状态')
 }
 
 export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void {

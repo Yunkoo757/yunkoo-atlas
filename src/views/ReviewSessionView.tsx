@@ -28,6 +28,7 @@ import {
   buildReviewAssessmentPatch,
   buildReviewSessionPool,
   clearReviewSessionStorage,
+  getReviewSessionContent,
   hasEffectiveReviewContent,
   loadReviewSession,
   reconcileReviewSession,
@@ -177,20 +178,21 @@ export function ReviewSessionView() {
       setResolvedNote(EMPTY_NOTE_STATE)
       return
     }
-    if (!hasEffectiveReviewContent(current.note)) {
+    const content = getReviewSessionContent(current)
+    if (!hasEffectiveReviewContent(content)) {
       setResolvedNote({ tradeId: current.id, status: 'ready', html: '' })
       return
     }
 
     let cancelled = false
     setResolvedNote({ tradeId: current.id, status: 'loading', html: '' })
-    void resolveNoteForDisplayResult(current.note, getStorage()).then((result) => {
+    void resolveNoteForDisplayResult(content, getStorage()).then((result) => {
       if (!cancelled) setResolvedNote({ tradeId: current.id, status: 'ready', html: result.html })
     }).catch(() => {
       if (!cancelled) setResolvedNote({ tradeId: current.id, status: 'error', html: '' })
     })
     return () => { cancelled = true }
-  }, [current?.id, current?.note])
+  }, [current?.id, current?.note, current?.sourceNoteHtml, current?.tradeKind])
 
   const advance = useCallback(() => {
     focusAfterTransitionRef.current = true
