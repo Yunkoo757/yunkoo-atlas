@@ -167,6 +167,34 @@ export function missedTradesInWeek(
   })
 }
 
+function reviewActivityWeek(trade: Trade, tradingDayStartHour: number): string | null {
+  if (trade.deletedAt || trade.tradeKind !== 'live') return null
+  if (!isExecutedClosed(trade.status) && !isMissed(trade.status)) return null
+  const day = closedTradingDayKey(trade, tradingDayStartHour)
+  return day ? weekStartFor(parseLocalDate(day)) : null
+}
+
+export function deriveWeeklyReviewWeeks(
+  trades: Trade[],
+  reviews: Pick<WeeklyReview, 'weekStart'>[],
+  currentWeek: string,
+  tradingDayStartHour = 0,
+  activityLimit = 12,
+): string[] {
+  const limit = Math.max(0, Math.trunc(activityLimit))
+  const activityWeeks = [...new Set(trades.flatMap((trade) => {
+    const week = reviewActivityWeek(trade, tradingDayStartHour)
+    return week ? [week] : []
+  }))]
+    .sort((left, right) => right.localeCompare(left))
+    .slice(0, limit)
+  return [...new Set([
+    currentWeek,
+    ...reviews.map((review) => review.weekStart),
+    ...activityWeeks,
+  ])].sort((left, right) => right.localeCompare(left))
+}
+
 export function buildWeeklyReviewMetrics(trades: Trade[], missedTrades: Trade[] = []): WeeklyReviewMetrics {
   const summary = summarizeTradeResults(trades)
   const mistakeTagCounts: Record<string, number> = {}

@@ -2,11 +2,13 @@ import type { Trade } from '@/data/trades'
 import {
   buildWeeklyReviewMetrics,
   createWeeklyReview,
+  deriveWeeklyReviewWeeks,
   missedTradesInWeek,
   normalizeWeeklyReviews,
   tradesClosedInWeek,
   weekStartFor,
 } from '@/data/weeklyReviews'
+import { formatYmd, parseLocalDate } from '@/lib/periods'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -37,6 +39,12 @@ function trade(overrides: Partial<Trade>): Trade {
     note: '',
     ...overrides,
   }
+}
+
+function addDays(ymd: string, days: number): string {
+  const date = parseLocalDate(ymd)
+  date.setDate(date.getDate() + days)
+  return formatYmd(date)
 }
 
 export function testWeeklyReviewUsesMondayAsTheLocalWeekBoundary(): void {
@@ -78,6 +86,47 @@ export function testWeeklyReviewSeparatesMissedOpportunitiesByMarkedWeek(): void
   ]
   const result = missedTradesInWeek(trades, '2026-07-13')
   assert(result.map((item) => item.id).join(',') === 'missed', '执行缺口只能包含本周标记的实盘错过机会')
+}
+
+export function testWeeklyReviewWeeksKeepStoredWeeksAndLimitActivityHistory(): void {
+  const activity = Array.from({ length: 14 }, (_, index) => trade({
+    id: `activity-${index}`,
+    closedAt: addDays('2026-07-27', -index * 7),
+  }))
+  const stored = createWeeklyReview('2025-01-06')
+
+  const result = deriveWeeklyReviewWeeks(activity, [stored], '2026-08-03', 0, 12)
+
+  assert(result.includes('2025-01-06'), '已有复盘不得被活动周上限淘汰')
+  assert(result.includes('2026-08-03'), '当前周必须始终存在')
+  const includedActivityWeeks = activity
+    .map((item) => weekStartFor(parseLocalDate(item.closedAt!)))
+    .filter((week) => result.includes(week))
+  assert(new Set(includedActivityWeeks).size === 12, '只应补入最近 12 个活动周')
+  assert(result.join() === [...result].sort((left, right) => right.localeCompare(left)).join(), '周列表必须按新到旧排序')
+}
+
+export function testWeeklyReviewWeeksOnlyIncludeReviewableLiveActivity(): void {
+  const result = deriveWeeklyReviewWeeks([
+    trade({ id: 'closed-live', closedAt: '2026-07-27' }),
+    trade({ id: 'missed-live', status: 'missed', pnl: null, resultSource: undefined, closedAt: '2026-07-20' }),
+    trade({ id: 'paper', tradeKind: 'paper', closedAt: '2026-07-13' }),
+    trade({ id: 'case', tradeKind: 'case', closedAt: '2026-07-06' }),
+    trade({ id: 'open', status: 'open', pnl: null, resultSource: undefined, closedAt: null }),
+    trade({ id: 'deleted', deletedAt: '2026-06-29', closedAt: '2026-06-29' }),
+  ], [], '2026-08-03')
+
+  assert(result.join() === '2026-08-03,2026-07-27,2026-07-20', '空周和不可复盘记录不得进入列表')
+}
+
+export function testWeeklyReviewWeeksUseConfiguredTradingDayBoundary(): void {
+  const earlyMonday = new Date(2026, 6, 27, 5, 0).toISOString()
+
+  const result = deriveWeeklyReviewWeeks([
+    trade({ id: 'boundary', closedAt: earlyMonday, closedTradingDayKey: undefined }),
+  ], [], '2026-07-27', 6)
+
+  assert(result.join() === '2026-07-27,2026-07-20', '周列表必须按配置后的交易日归属跨周记录')
 }
 
 export function testWeeklyReviewMetricsPreserveCoverageAndMistakeEvidence(): void {
