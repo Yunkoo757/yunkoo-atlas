@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { Editor } from '@/editor/Editor'
 import {
@@ -31,6 +31,11 @@ import { fmtMoney, fmtR } from '@/lib/format'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { getWeeklyReviewCompletionIssue } from '@/lib/weeklyReviewCompletion'
+import {
+  buildWeeklyReviewSearch,
+  resolveWeeklyReviewRouteState,
+  type WeeklyReviewTab,
+} from '@/lib/weeklyReviewRouteState'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { WeeklyRiskEvidence } from '@/views/WeeklyRiskEvidence'
@@ -153,18 +158,34 @@ export function WeeklyReviewView() {
   const reopenWeeklyReview = useStore((state) => state.reopenWeeklyReview)
   const businessDateAnchor = useBusinessDateAnchor()
   const currentWeek = weekStartFor(parseLocalDate(businessDateAnchor.currentTradingDayKey))
-  const [selectedWeek, setSelectedWeek] = useState(currentWeek)
-  const previousCurrentWeekRef = useRef(currentWeek)
-  const [tab, setTab] = useState<'review' | 'year'>('review')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const availableWeeks = useMemo(
+    () => deriveWeeklyReviewWeeks(trades, reviews, currentWeek, tradingDayStartHour),
+    [trades, reviews, currentWeek, tradingDayStartHour],
+  )
+  const routeResolution = useMemo(
+    () => resolveWeeklyReviewRouteState(location.search, { currentWeek, availableWeeks }),
+    [availableWeeks, currentWeek, location.search],
+  )
+  const { selectedWeek, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
   const editorReadyRef = useRef(false)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const previousCurrentWeek = previousCurrentWeekRef.current
-    setSelectedWeek((selected) => selected === previousCurrentWeek ? currentWeek : selected)
-    previousCurrentWeekRef.current = currentWeek
-  }, [currentWeek])
+    if (!routeResolution.needsReplace) return
+    navigate(
+      { pathname: location.pathname, search: routeResolution.canonicalSearch },
+      { replace: true, state: location.state },
+    )
+  }, [
+    location.pathname,
+    location.state,
+    navigate,
+    routeResolution.canonicalSearch,
+    routeResolution.needsReplace,
+  ])
 
   const storedReview = reviews.find((item) => item.weekStart === selectedWeek)
   const review = storedReview ?? createWeeklyReview(selectedWeek)
@@ -205,15 +226,6 @@ export function WeeklyReviewView() {
     .filter((item) => item.weekStart < selectedWeek && item.commitmentText.trim())
     .sort((left, right) => right.weekStart.localeCompare(left.weekStart))[0]
 
-  const availableWeeks = useMemo(
-    () => deriveWeeklyReviewWeeks(
-      trades,
-      reviews,
-      currentWeek,
-      tradingDayStartHour,
-    ),
-    [trades, reviews, currentWeek, tradingDayStartHour],
-  )
   const selectedWeekIndex = availableWeeks.indexOf(selectedWeek)
   const olderWeek = selectedWeekIndex >= 0 ? availableWeeks[selectedWeekIndex + 1] : undefined
   const newerWeek = selectedWeekIndex > 0 ? availableWeeks[selectedWeekIndex - 1] : undefined
@@ -259,10 +271,31 @@ export function WeeklyReviewView() {
     }, 500)
   }, [review.id, selectedWeek, upsertReview])
 
-  const changeWeek = (week: string) => {
+  const replaceRouteState = useCallback((nextWeek: string, nextTab: WeeklyReviewTab) => {
+    const search = buildWeeklyReviewSearch(
+      location.search,
+      { selectedWeek: nextWeek, tab: nextTab },
+      currentWeek,
+    )
+    navigate(
+      { pathname: location.pathname, search },
+      { replace: true, state: location.state },
+    )
+  }, [currentWeek, location.pathname, location.search, location.state, navigate])
+
+  const changeWeek = async (week: string) => {
     if (week === selectedWeek) return
-    void flushNoteDraftToStore(draftId)
-    setSelectedWeek(week)
+    const draftSaved = await flushNoteDraftToStore(draftId)
+    if (!draftSaved) {
+      toast('正文尚未保存，请重试')
+      return
+    }
+    replaceRouteState(week, tab)
+  }
+
+  const changeTab = (nextTab: WeeklyReviewTab) => {
+    if (nextTab === tab) return
+    replaceRouteState(selectedWeek, nextTab)
   }
 
   const completeReview = async () => {
@@ -304,7 +337,7 @@ export function WeeklyReviewView() {
                   className={week === selectedWeek ? 'is-active' : ''}
                   data-review-week={week}
                   data-review-week-state={item?.status ?? 'pending'}
-                  onClick={() => changeWeek(week)}
+                  onClick={() => void changeWeek(week)}
                 >
                   <span>{weekLabel(week, currentWeek)}</span>
                   <small>{item ? week.slice(5).replace('-', '.') : '待补做'}</small>
@@ -327,13 +360,13 @@ export function WeeklyReviewView() {
               </div>
               <div className="wr-head-actions">
                 <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">
-                  <button type="button" role="tab" aria-selected={tab === 'review'} onClick={() => setTab('review')}>本周复盘</button>
-                  <button type="button" role="tab" aria-selected={tab === 'year'} onClick={() => setTab('year')}>年度趋势</button>
+                  <button type="button" role="tab" aria-selected={tab === 'review'} onClick={() => changeTab('review')}>本周复盘</button>
+                  <button type="button" role="tab" aria-selected={tab === 'year'} onClick={() => changeTab('year')}>年度趋势</button>
                 </div>
                 {hasReviewHistory ? (
                   <>
-                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && changeWeek(olderWeek)}><ChevronLeft size={16} /></button>
-                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && changeWeek(newerWeek)}><ChevronRight size={16} /></button>
+                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={16} /></button>
+                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={16} /></button>
                   </>
                 ) : null}
               </div>

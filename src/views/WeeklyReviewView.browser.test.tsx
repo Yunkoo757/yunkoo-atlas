@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
@@ -225,6 +225,19 @@ function StoreRenderSentinel() {
   return <output data-testid="store-render-sentinel">{trades.length}:{trades.filter((trade) => trade.deletedAt).length}</output>
 }
 
+function RouteProbe() {
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  return (
+    <output
+      data-testid="weekly-route-probe"
+      data-pathname={location.pathname}
+      data-search={location.search}
+      data-navigation-type={navigationType}
+    />
+  )
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -262,7 +275,7 @@ async function run(): Promise<void> {
     root.render(
       <MemoryRouter initialEntries={['/weekly-review']}>
         <Routes>
-          <Route path="/weekly-review" element={<><WeeklyReviewView /><StoreRenderSentinel /></>} />
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><StoreRenderSentinel /><RouteProbe /></>} />
           <Route path="/trade/:id" element={<div>交易详情 <Link to="/weekly-review">返回复盘</Link></div>} />
         </Routes>
       </MemoryRouter>,
@@ -526,14 +539,68 @@ async function run(): Promise<void> {
     const historyButtons = [...document.querySelectorAll<HTMLButtonElement>('.wr-history button')]
     historyButtons[1]?.click()
     await waitFor(() => document.body.textContent?.includes('上一周真实复盘') ?? false, '切换历史周后正文没有更新')
-    historyButtons[0]?.click()
-    await waitFor(() => !document.body.textContent?.includes('上一周真实复盘'), '返回本周后仍显示历史正文')
-    assert(!pageErrors.some((message) => message.includes('removeChild')), '切换周次触发了 removeChild 页面异常')
-
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}`,
+      '切换历史周后 URL 没有写入 week',
+    )
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-navigation-type') === 'REPLACE',
+      '周次切换必须替换当前历史项',
+    )
     clickButton('年度趋势')
     await waitFor(() => document.body.textContent?.includes('做法评分趋势') ?? false, '年度趋势页不可达')
 
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&tab=year`,
+      '年度趋势没有保留历史周并写入 tab=year',
+    )
+
     clickButton('本周复盘')
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}`,
+      '返回复盘详情后没有清理默认 tab',
+    )
+    historyButtons[0]?.click()
+    await waitFor(() => !document.body.textContent?.includes('上一周真实复盘'), '返回本周后仍显示历史正文')
+    assert(!pageErrors.some((message) => message.includes('removeChild')), '切换周次触发了 removeChild 页面异常')
+    root.render(
+      <MemoryRouter
+        key="restored-weekly-route"
+        initialEntries={[`/weekly-review?week=${priorReview.weekStart}&tab=year&visual=mobile`]}
+      >
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.body.textContent?.includes('做法评分趋势') ?? false,
+      '重挂载历史年度深链后没有恢复年度趋势',
+    )
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&tab=year&visual=mobile`,
+      '重挂载后没有保留历史周、页签和无关参数',
+    )
+    root.render(
+      <MemoryRouter
+        key="invalid-weekly-route"
+        initialEntries={['/weekly-review?week=2026-07-22&tab=unknown&visual=mobile']}
+      >
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === '?visual=mobile',
+      '非法周复盘参数没有一次性清理',
+    )
     const legacyCycleStart = new Date(`${activeWeekStart}T12:00:00`)
     legacyCycleStart.setDate(legacyCycleStart.getDate() + 1)
     const legacyCompletedReview = { ...completed, evidenceSnapshot: undefined }
