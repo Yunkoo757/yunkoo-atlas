@@ -64,6 +64,7 @@ function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | u
   if (pathname === '/missed') return true
   if (pathname === '/review-session') return true
   if (pathname === '/settings/risk') return tradeKind === 'live'
+  if (pathname === '/weekly-review') return tradeKind === 'live' || tradeKind === undefined
   if (tradeKind === 'case') return isCaseWorkspaceEntryPath(pathname)
   if (isCaseWorkspaceEntryPath(pathname)) return false
   return (

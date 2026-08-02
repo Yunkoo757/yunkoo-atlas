@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
+import { tradeDetailNavState } from '@/lib/tradeRoute'
 import { useShortcutHost } from '@/shortcuts/ShortcutHost'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -59,6 +60,25 @@ function makeCase(index: number): Trade {
       ? `<p>案例 ${index} 的复盘正文</p>`
       : `<p>案例 ${index} 的复盘正文</p><img src="/src/views/fixtures/browser-test-image.svg?case-${index}.png">`,
   }
+}
+
+function makeWeeklyLiveTrade(): Trade {
+  return {
+    ...makeCase(1),
+    id: 'weekly-live-1',
+    ref: 'TRD-WEEKLY-LIVE-1',
+    symbol: 'BTCUSDT',
+    tradeKind: 'live',
+    caseType: undefined,
+    masteryState: undefined,
+    nextReviewAt: undefined,
+    note: '<p>周复盘来源交易</p>',
+  }
+}
+
+function WeeklyReturnProbe() {
+  const location = useLocation()
+  return <output data-testid="weekly-return-search">{location.search}</output>
 }
 
 function ShortcutDetailFixture() {
@@ -209,6 +229,72 @@ async function run(): Promise<void> {
     )
     assert(pageErrors.length === 0, `Q/E 切换案例出现未处理异常：${pageErrors.join(' | ')}`)
     assert(document.querySelector('.ProseMirror'), '连续切换后案例编辑器不应丢失')
+
+    const weeklyTrade = makeWeeklyLiveTrade()
+    useStore.setState({ trades: [weeklyTrade] })
+    root.render(
+      <MemoryRouter
+        key="weekly-detail-source"
+        initialEntries={[{
+          pathname: `/trade/${weeklyTrade.ref}`,
+          state: tradeDetailNavState({
+            pathname: '/weekly-review',
+            search: '?week=2026-07-20&visual=mobile',
+            anchorTradeId: 'weekly-trade:weekly-live-1',
+          }),
+        }]}
+      >
+        <Routes>
+          <Route path="/trade/:id" element={<DetailView />} />
+          <Route path="/weekly-review" element={<WeeklyReturnProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[aria-label="返回周复盘"]') !== null,
+      '真实详情页没有显示周复盘返回名称',
+    )
+    assert(document.body.textContent?.includes('周复盘'), '真实详情页面包屑没有显示周复盘')
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回周复盘"]')?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-return-search"]')?.textContent
+        === '?week=2026-07-20&visual=mobile',
+      '真实详情返回后没有保留原周和无关参数',
+    )
+
+    useStore.getState().removeTrade(weeklyTrade.id)
+    useStore.getState().purgeTrade(weeklyTrade.id)
+    root.render(
+      <MemoryRouter
+        key="missing-weekly-detail-source"
+        initialEntries={[{
+          pathname: `/trade/${weeklyTrade.ref}`,
+          state: tradeDetailNavState({
+            pathname: '/weekly-review',
+            search: '?week=2026-07-20',
+            anchorTradeId: 'weekly-trade:weekly-live-1',
+          }),
+        }]}
+      >
+        <Routes>
+          <Route path="/trade/:id" element={<DetailView />} />
+          <Route path="/weekly-review" element={<WeeklyReturnProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => [...document.querySelectorAll<HTMLAnchorElement>('a')]
+        .some((link) => link.textContent?.trim() === '返回周复盘'),
+      '交易彻底不存在时空状态没有保留周复盘入口',
+    )
+    const missingReturn = [...document.querySelectorAll<HTMLAnchorElement>('a')]
+      .find((link) => link.textContent?.trim() === '返回周复盘')
+    missingReturn?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-return-search"]')?.textContent
+        === '?week=2026-07-20',
+      '交易彻底不存在时没有返回原周',
+    )
   } finally {
     window.removeEventListener('error', capturePageError)
     root.unmount()

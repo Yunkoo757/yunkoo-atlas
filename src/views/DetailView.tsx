@@ -238,15 +238,29 @@ export function DetailView() {
 
   const from = (location.state as TradeDetailLocationState | null)?.from
   const fromMissedOpportunities = from?.pathname === '/missed'
+  const fromWeeklyReview = from?.pathname === '/weekly-review'
   const detailKind = trade?.tradeKind ?? deletedTrade?.tradeKind
   const detailCrumb = fromMissedOpportunities
     ? '错过的机会'
-    : detailKind === 'case'
-      ? '案例记录'
-      : detailKind === 'paper'
-        ? '模拟'
+    : fromWeeklyReview
+      ? '周复盘'
+      : detailKind === 'case'
+        ? '案例记录'
+        : detailKind === 'paper'
+          ? '模拟'
+          : '交易日志'
+  const backAriaLabel = fromMissedOpportunities
+    ? '返回错过的机会'
+    : fromWeeklyReview
+      ? '返回周复盘'
+      : '返回列表'
+  const returnDestinationLabel = fromMissedOpportunities
+    ? '错过的机会'
+    : fromWeeklyReview
+      ? '周复盘'
+      : detailKind === 'case'
+        ? '案例记录'
         : '交易日志'
-  const backAriaLabel = fromMissedOpportunities ? '返回错过的机会' : '返回列表'
   const detailReturn = useMemo(() => {
     return resolveTradeDetailReturn({
       from,
@@ -480,7 +494,7 @@ export function DetailView() {
                 state={tradeReturnLocationState(from?.anchorTradeId)}
                 className="ui-btn ui-btn-bordered"
               >
-                返回{deletedTrade?.tradeKind === 'case' ? '案例记录' : '交易日志'}
+                返回{returnDestinationLabel}
               </Link>
               {deletedTrade && (
                 <Link to="/trade-trash" className="empty-btn">

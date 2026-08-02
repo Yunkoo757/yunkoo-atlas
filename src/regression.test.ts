@@ -1723,6 +1723,50 @@ export function testTradeDetailReturnRemembersListView(): void {
     tradeKind: 'case',
   })
   assert(invalidCaseRiskSource.pathname === '/review-cases', '案例详情不得接受风险设置作为来源')
+
+  const weeklyReviewReturn = resolveTradeDetailReturn({
+    from: {
+      pathname: '/weekly-review',
+      search: '?week=2026-07-20&tab=year&visual=mobile',
+      anchorTradeId: 'weekly-trade:live-1',
+    },
+    tradeKind: 'live',
+  })
+  assert(weeklyReviewReturn.pathname === '/weekly-review', '实盘详情必须接受周复盘来源')
+  assert(
+    weeklyReviewReturn.search === '?week=2026-07-20&tab=year&visual=mobile',
+    '周复盘返回目标必须保留完整查询参数',
+  )
+
+  const invalidPaperWeeklySource = resolveTradeDetailReturn({
+    from: { pathname: '/weekly-review', anchorTradeId: 'weekly-trade:paper-1' },
+    tradeKind: 'paper',
+  })
+  assert(invalidPaperWeeklySource.pathname === '/list', '模拟盘不得接受周复盘来源')
+
+  const invalidCaseWeeklySource = resolveTradeDetailReturn({
+    from: { pathname: '/weekly-review', anchorTradeId: 'weekly-trade:case-1' },
+    tradeKind: 'case',
+  })
+  assert(invalidCaseWeeklySource.pathname === '/review-cases', '案例不得接受周复盘来源')
+
+  const missingWeeklyTradeReturn = resolveTradeDetailReturn({
+    from: {
+      pathname: '/weekly-review',
+      search: '?week=2026-07-20',
+      anchorTradeId: 'weekly-trade:purged-live-1',
+    },
+  })
+  assert(missingWeeklyTradeReturn.pathname === '/weekly-review', '已彻底不存在的周复盘来源交易仍须返回原周')
+  assert(missingWeeklyTradeReturn.search === '?week=2026-07-20', '缺失交易返回时不得丢失原周')
+}
+
+export async function testWeeklyReviewDetailSourceUsesDedicatedReturnCopy(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const detailView = await fs.readFile('src/views/DetailView.tsx', 'utf8')
+  assert(detailView.includes("from?.pathname === '/weekly-review'"), '详情页必须识别周复盘来源')
+  assert(detailView.includes("'周复盘'"), '详情面包屑必须显示周复盘')
+  assert(detailView.includes("'返回周复盘'"), '详情返回按钮必须使用周复盘专属名称')
 }
 
 export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(): Promise<void> {
