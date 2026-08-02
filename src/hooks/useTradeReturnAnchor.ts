@@ -62,6 +62,7 @@ export function tradeReturnLocationState(anchorTradeId?: string): TradeReturnLoc
 }
 
 function isTradeReturnElementVisible(element: HTMLElement): boolean {
+  if (typeof window === 'undefined') return element.getClientRects().length > 0
   const closedDetails = element.closest<HTMLDetailsElement>('details:not([open])')
   if (closedDetails && closedDetails !== element) {
     const summary = closedDetails.querySelector<HTMLElement>(':scope > summary')
