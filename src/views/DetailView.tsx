@@ -238,8 +238,16 @@ export function DetailView() {
 
   const from = (location.state as TradeDetailLocationState | null)?.from
   const fromMissedOpportunities = from?.pathname === '/missed'
-  const fromWeeklyReview = from?.pathname === '/weekly-review'
   const detailKind = trade?.tradeKind ?? deletedTrade?.tradeKind
+  const detailReturn = useMemo(() => {
+    return resolveTradeDetailReturn({
+      from,
+      listPath: listContext?.listPath,
+      listSearch: listContext?.listSearch,
+      tradeKind: detailKind,
+    })
+  }, [from, listContext?.listPath, listContext?.listSearch, detailKind])
+  const fromWeeklyReview = detailReturn.pathname === '/weekly-review'
   const detailCrumb = fromMissedOpportunities
     ? '错过的机会'
     : fromWeeklyReview
@@ -261,14 +269,6 @@ export function DetailView() {
       : detailKind === 'case'
         ? '案例记录'
         : '交易日志'
-  const detailReturn = useMemo(() => {
-    return resolveTradeDetailReturn({
-      from,
-      listPath: listContext?.listPath,
-      listSearch: listContext?.listSearch,
-      tradeKind: trade?.tradeKind ?? deletedTrade?.tradeKind,
-    })
-  }, [from, listContext?.listPath, listContext?.listSearch, trade?.tradeKind, deletedTrade?.tradeKind])
 
   const persistEditorNote = useCallback((html: string, tradeId: string) => {
     pendingHtmlRef.current = html

@@ -81,6 +81,11 @@ function WeeklyReturnProbe() {
   return <output data-testid="weekly-return-search">{location.search}</output>
 }
 
+function ReturnPathProbe() {
+  const location = useLocation()
+  return <output data-testid="detail-return-path">{location.pathname}</output>
+}
+
 function ShortcutDetailFixture() {
   useShortcutHost({ onToggleCmdk: () => {} })
   return <>
@@ -294,6 +299,75 @@ async function run(): Promise<void> {
       () => document.querySelector('[data-testid="weekly-return-search"]')?.textContent
         === '?week=2026-07-20',
       '交易彻底不存在时没有返回原周',
+    )
+
+    const invalidWeeklyPaper: Trade = {
+      ...weeklyTrade,
+      id: 'weekly-paper-1',
+      ref: 'TRD-WEEKLY-PAPER-1',
+      tradeKind: 'paper',
+      note: '<p>模拟盘来源交易</p>',
+    }
+    useStore.setState({ trades: [invalidWeeklyPaper] })
+    root.render(
+      <MemoryRouter
+        key="invalid-paper-weekly-source"
+        initialEntries={[{
+          pathname: `/trade/${invalidWeeklyPaper.ref}`,
+          state: tradeDetailNavState({
+            pathname: '/weekly-review',
+            search: '?week=2026-07-20',
+            anchorTradeId: 'weekly-trade:weekly-paper-1',
+          }),
+        }]}
+      >
+        <Routes>
+          <Route path="/trade/:id" element={<DetailView />} />
+          <Route path="/list" element={<ReturnPathProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[aria-label="返回列表"]') !== null,
+      '模拟盘非法周复盘来源仍显示周复盘返回名称',
+    )
+    assert(!document.body.textContent?.includes('周复盘'), '模拟盘非法来源不得显示周复盘面包屑')
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="detail-return-path"]')?.textContent === '/list',
+      '模拟盘非法周复盘来源没有返回交易列表',
+    )
+
+    const invalidWeeklyCase = makeCase(4)
+    useStore.setState({ trades: [invalidWeeklyCase] })
+    root.render(
+      <MemoryRouter
+        key="invalid-case-weekly-source"
+        initialEntries={[{
+          pathname: `/trade/${invalidWeeklyCase.ref}`,
+          state: tradeDetailNavState({
+            pathname: '/weekly-review',
+            search: '?week=2026-07-20',
+            anchorTradeId: 'weekly-trade:case-4',
+          }),
+        }]}
+      >
+        <Routes>
+          <Route path="/trade/:id" element={<DetailView />} />
+          <Route path="/review-cases" element={<ReturnPathProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[aria-label="返回列表"]') !== null,
+      '案例非法周复盘来源仍显示周复盘返回名称',
+    )
+    assert(!document.body.textContent?.includes('周复盘'), '案例非法来源不得显示周复盘面包屑')
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="detail-return-path"]')?.textContent
+        === '/review-cases',
+      '案例非法周复盘来源没有返回案例列表',
     )
   } finally {
     window.removeEventListener('error', capturePageError)

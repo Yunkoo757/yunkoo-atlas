@@ -1764,7 +1764,14 @@ export function testTradeDetailReturnRemembersListView(): void {
 export async function testWeeklyReviewDetailSourceUsesDedicatedReturnCopy(): Promise<void> {
   const fs = await import('node:fs/promises')
   const detailView = await fs.readFile('src/views/DetailView.tsx', 'utf8')
-  assert(detailView.includes("from?.pathname === '/weekly-review'"), '详情页必须识别周复盘来源')
+  assert(
+    detailView.includes("const fromWeeklyReview = detailReturn.pathname === '/weekly-review'"),
+    '详情页周复盘文案资格必须使用已经过类型门禁的返回目标',
+  )
+  assert(
+    !detailView.includes("const fromWeeklyReview = from?.pathname === '/weekly-review'"),
+    '详情页不得直接信任未经类型门禁的周复盘来源',
+  )
   assert(detailView.includes("'周复盘'"), '详情面包屑必须显示周复盘')
   assert(detailView.includes("'返回周复盘'"), '详情返回按钮必须使用周复盘专属名称')
 }
