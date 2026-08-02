@@ -466,7 +466,7 @@ export function DetailView() {
           <div className="dv-tb-left">
             <Link
               to={detailReturn}
-              state={tradeReturnLocationState(from?.anchorTradeId)}
+              state={tradeReturnLocationState(from)}
               className="dv-back"
               aria-label={backAriaLabel}
             >
@@ -491,7 +491,7 @@ export function DetailView() {
             <div className="dv-empty-actions">
               <Link
                 to={detailReturn}
-                state={tradeReturnLocationState(from?.anchorTradeId)}
+                state={tradeReturnLocationState(from)}
                 className="ui-btn ui-btn-bordered"
               >
                 返回{returnDestinationLabel}
@@ -573,7 +573,7 @@ export function DetailView() {
         toast('已从回收站恢复')
       },
     })
-    navigate(detailReturn, { state: tradeReturnLocationState(from?.anchorTradeId) })
+    navigate(detailReturn, { state: tradeReturnLocationState(from) })
   }
 
   const createCaseFromCurrentTrade = async () => {
@@ -755,7 +755,7 @@ export function DetailView() {
         <div className="dv-tb-left">
           <Link
             to={detailReturn}
-            state={tradeReturnLocationState(from?.anchorTradeId)}
+            state={tradeReturnLocationState(from)}
             className="dv-back"
             aria-label={backAriaLabel}
           >

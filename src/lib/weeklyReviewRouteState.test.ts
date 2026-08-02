@@ -52,6 +52,51 @@ export function testWeeklyReviewRouteCleansInvalidOwnedParamsOnly(): void {
   )
 }
 
+export function testWeeklyReviewRouteRejectsInvalidCalendarDatesAndNonMondayMembers(): void {
+  const invalidMembers = ['2026-02-30', '2026-07-22']
+
+  for (const requestedWeek of invalidMembers) {
+    const result = resolveWeeklyReviewRouteState(
+      `?week=${requestedWeek}&visual=mobile`,
+      { currentWeek, availableWeeks: [currentWeek, ...invalidMembers] },
+    )
+    assert(
+      result.state.selectedWeek === currentWeek,
+      `${requestedWeek} 即使存在于 availableWeeks 也不得成为有效周起始日`,
+    )
+    assert(
+      result.canonicalSearch === '?visual=mobile',
+      `${requestedWeek} 必须从规范地址中移除并保留无关参数`,
+    )
+  }
+}
+
+export function testWeeklyReviewRouteTemporarilyAdmitsOnlyTheVerifiedReturnWeek(): void {
+  const unavailableReturnWeek = '2026-07-13'
+  const verifiedReturnOptions = {
+    currentWeek,
+    availableWeeks,
+    verifiedReturnWeek: unavailableReturnWeek,
+  }
+  const restored = resolveWeeklyReviewRouteState(
+    `?week=${unavailableReturnWeek}&tab=year`,
+    verifiedReturnOptions,
+  )
+  assert(restored.state.selectedWeek === unavailableReturnWeek, '已验证返回请求必须临时放行原周')
+  assert(restored.state.tab === 'year', '已验证返回请求必须同时保留原页签')
+  assert(
+    restored.canonicalSearch === `?week=${unavailableReturnWeek}&tab=year`,
+    '放行后的原周与页签必须保持为可恢复地址',
+  )
+
+  const ordinaryDeepLink = resolveWeeklyReviewRouteState(
+    `?week=${unavailableReturnWeek}&tab=year`,
+    { currentWeek, availableWeeks },
+  )
+  assert(ordinaryDeepLink.state.selectedWeek === currentWeek, '没有返回上下文的不可用周仍须回退当前周')
+  assert(ordinaryDeepLink.canonicalSearch === '?tab=year', '普通深链必须清理不可用 week')
+}
+
 export function testWeeklyReviewRouteBuildersPreserveUnrelatedParams(): void {
   const historySearch = buildWeeklyReviewSearch(
     '?visual=mobile&fixture=route',

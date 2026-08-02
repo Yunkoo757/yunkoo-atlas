@@ -9,6 +9,7 @@ import {
 export type TradeDetailFrom = {
   pathname: string
   search?: string
+  restoreSearch?: string
   anchorTradeId?: string
 }
 
@@ -37,6 +38,7 @@ export function tradeDetailNavState(from: TradeDetailFrom): TradeDetailLocationS
     from: {
       pathname: from.pathname,
       search: from.search ?? '',
+      ...(from.restoreSearch !== undefined ? { restoreSearch: from.restoreSearch } : {}),
       ...(from.anchorTradeId ? { anchorTradeId: from.anchorTradeId } : {}),
     },
   }
@@ -52,7 +54,10 @@ export function resolveTradeDetailReturn(options: {
   const fallback = options.tradeKind === 'case' ? '/review-cases' : '/list'
 
   if (options.from?.pathname && isValidDetailSource(options.from.pathname, options.tradeKind)) {
-    return routeWithSearch(options.from.pathname, options.from.search ?? '')
+    return routeWithSearch(
+      options.from.pathname,
+      options.from.restoreSearch ?? options.from.search ?? '',
+    )
   }
   if (options.listPath && isValidDetailSource(options.listPath, options.tradeKind)) {
     return routeWithSearch(options.listPath, options.listSearch ?? '')

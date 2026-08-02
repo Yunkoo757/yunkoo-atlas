@@ -47,7 +47,7 @@ function PeriodDecision({ label, outcome, primary = false }: PeriodDecisionProps
 interface WeeklyRiskEvidenceProps {
   snapshot?: WeeklyRiskReviewSnapshot
   availability?: 'draft' | 'legacy'
-  detailSource?: Pick<TradeDetailFrom, 'pathname' | 'search'>
+  detailSource?: Pick<TradeDetailFrom, 'pathname' | 'search' | 'restoreSearch'>
   overrideEventsOpen?: boolean
   onOverrideEventsOpenChange?: (open: boolean) => void
 }

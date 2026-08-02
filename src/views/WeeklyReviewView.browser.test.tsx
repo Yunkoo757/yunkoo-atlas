@@ -1,12 +1,33 @@
 import { createRoot } from 'react-dom/client'
-import { Link, MemoryRouter, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import {
+  createMemoryRouter,
+  Link,
+  MemoryRouter,
+  Route,
+  RouterProvider,
+  Routes,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { ToastHost } from '@/components/Toast'
-import { tradeReturnLocationState, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import {
+  rememberTradeReturnAnchor,
+  tradeReturnLocationState,
+  useTradeReturnAnchor,
+} from '@/hooks/useTradeReturnAnchor'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import type { TradeDetailLocationState } from '@/lib/tradeRoute'
+import { getStorage } from '@/storage/bootstrap'
+import {
+  hasNoteDraft,
+  resetNoteDraftsForTests,
+  setNoteDraft,
+  WEEKLY_REVIEW_DRAFT_PREFIX,
+} from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -28,6 +49,16 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function waitForFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+async function waitForFrames(count: number): Promise<void> {
+  for (let frame = 0; frame < count; frame += 1) await waitForFrame()
 }
 
 async function waitFor(condition: () => boolean, message: string): Promise<void> {
@@ -228,6 +259,43 @@ function StoreRenderSentinel() {
   return <output data-testid="store-render-sentinel">{trades.length}:{trades.filter((trade) => trade.deletedAt).length}</output>
 }
 
+function weekRangeText(start: string): string {
+  const end = addDays(start, 6)
+  const left = parseLocalDate(start)
+  const right = parseLocalDate(end)
+  return left.getMonth() === right.getMonth()
+    ? `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getDate()}日`
+    : `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getMonth() + 1}月${right.getDate()}日`
+}
+
+function installCurrentDate(initialNow: number): {
+  set: (nextNow: number) => void
+  restore: () => void
+} {
+  const NativeDate = globalThis.Date
+  let currentNow = initialNow
+  const ShiftedDate = new Proxy(NativeDate, {
+    construct(target, argumentsList) {
+      return argumentsList.length > 0
+        ? Reflect.construct(target, argumentsList)
+        : new target(currentNow)
+    },
+    get(target, property, receiver) {
+      if (property === 'now') return () => currentNow
+      return Reflect.get(target, property, receiver)
+    },
+  })
+  globalThis.Date = ShiftedDate as DateConstructor
+  return {
+    set: (nextNow) => {
+      currentNow = nextNow
+    },
+    restore: () => {
+      globalThis.Date = NativeDate
+    },
+  }
+}
+
 function clickLink(label: string): HTMLAnchorElement {
   const link = [...document.querySelectorAll<HTMLAnchorElement>('a')]
     .find((item) => item.textContent?.trim() === label)
@@ -257,8 +325,11 @@ function DetailFixture() {
     <div data-testid="weekly-detail" data-source-anchor={from?.anchorTradeId ?? ''}>
       交易详情
       <Link
-        to={{ pathname: from?.pathname ?? '/list', search: from?.search ?? '' }}
-        state={tradeReturnLocationState(from?.anchorTradeId)}
+        to={{
+          pathname: from?.pathname ?? '/list',
+          search: from?.restoreSearch ?? from?.search ?? '',
+        }}
+        state={tradeReturnLocationState(from)}
       >
         返回复盘
       </Link>
@@ -311,11 +382,73 @@ function HiddenReturnAnchorFixture() {
   )
 }
 
+function BoardCardReturnAnchorFixture() {
+  useTradeReturnAnchor({
+    onRestoreStart: (anchorId) => focusedRestoreStarts.push(anchorId),
+    onMissing: (anchorId) => focusedRestoreMissing.push(anchorId),
+  })
+  return (
+    <main>
+      <div style={{ height: '1200px' }} aria-hidden />
+      <article
+        data-trade-id="board-card:return-target"
+        role="button"
+        tabIndex={0}
+        style={{ height: '120px' }}
+      >
+        看板返回卡片
+      </article>
+      <div style={{ height: '1200px' }} aria-hidden />
+    </main>
+  )
+}
+
+function ReturnAnchorNavigationFixture() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  useTradeReturnAnchor({
+    onRestoreStart: (anchorId) => focusedRestoreStarts.push(anchorId),
+    onMissing: (anchorId) => focusedRestoreMissing.push(anchorId),
+  })
+  const detailFrom = {
+    pathname: '/return-anchor-navigation',
+    search: '?view=review',
+    anchorTradeId: 'weekly-trade:race-b',
+  }
+  return (
+    <main>
+      <output data-testid="return-state-probe">
+        {(location.state as { restoreTradeId?: string } | null)?.restoreTradeId ?? ''}
+      </output>
+      <button
+        type="button"
+        onClick={() => {
+          rememberTradeReturnAnchor(detailFrom)
+          navigate('/return-anchor-detail')
+        }}
+      >
+        打开详情 B
+      </button>
+      <article data-trade-id="weekly-trade:race-b">
+        <button type="button" data-trade-primary-action>恢复目标 B</button>
+      </article>
+    </main>
+  )
+}
+
+function ReturnAnchorNavigationDetailFixture() {
+  const navigate = useNavigate()
+  return <button type="button" onClick={() => navigate(-1)}>浏览器返回 B</button>
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
   const previous = useStore.getState()
   const root = createRoot(rootElement)
+  const storage = getStorage()
+  const originalSaveAsset = storage.saveAsset
+  let currentDateControl: ReturnType<typeof installCurrentDate> | null = null
   const pageErrors: string[] = []
   const capturePageError = (event: ErrorEvent) => pageErrors.push(event.error?.message ?? event.message)
   window.addEventListener('error', capturePageError)
@@ -386,6 +519,12 @@ async function run(): Promise<void> {
       () => document.activeElement?.closest('[data-trade-id="weekly-trade:one"]') !== null,
       '普通证据返回后没有恢复原位置和焦点',
     )
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === '',
+      '当前周恢复成功后没有压缩为规范地址',
+    )
+    await waitForFrame()
 
     document.querySelector<HTMLAnchorElement>(
       '[data-trade-id="weekly-trade:one"] [data-trade-primary-action]',
@@ -838,7 +977,451 @@ async function run(): Promise<void> {
       document.activeElement?.closest('[data-trade-id="weekly-risk:hidden-event"]') === null,
       '不可见主操作不得获得焦点',
     )
+    assert(
+      focusedRestoreMissing.filter((anchorId) => anchorId === 'weekly-risk:hidden-event').length === 1,
+      '隐藏目标的缺失回调必须且只能触发一次',
+    )
+
+    focusedRestoreStarts.length = 0
+    focusedRestoreMissing.length = 0
+    root.render(
+      <MemoryRouter
+        key="board-card-return-anchor"
+        initialEntries={[{
+          pathname: '/board-return-anchor',
+          state: { restoreTradeId: 'board-card:return-target' },
+        }]}
+      >
+        <Routes>
+          <Route path="/board-return-anchor" element={<BoardCardReturnAnchorFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-trade-id="board-card:return-target"]') !== null,
+      '看板返回夹具缺少目标卡片',
+    )
+    const boardCard = document.querySelector<HTMLElement>('[data-trade-id="board-card:return-target"]')
+    assert(boardCard, '看板返回夹具缺少目标卡片')
+    await waitFor(() => document.activeElement === boardCard, '看板卡片自身没有获得返回焦点')
+    const boardCardRect = boardCard.getBoundingClientRect()
+    assert(
+      Math.abs(boardCardRect.top + boardCardRect.height / 2 - window.innerHeight / 2) < 2,
+      '看板卡片返回后没有滚动到视口中部',
+    )
+    assert(focusedRestoreMissing.length === 0, '看板卡片自身可聚焦时不得触发缺失回调')
+
+    focusedRestoreStarts.length = 0
+    focusedRestoreMissing.length = 0
+    root.render(
+      <MemoryRouter
+        key="return-anchor-navigation"
+        initialEntries={[{
+          pathname: '/return-anchor-navigation',
+          search: '?view=review',
+          state: { restoreTradeId: 'weekly-trade:race-a' },
+        }]}
+      >
+        <Routes>
+          <Route path="/return-anchor-navigation" element={<ReturnAnchorNavigationFixture />} />
+          <Route path="/return-anchor-detail" element={<ReturnAnchorNavigationDetailFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => focusedRestoreStarts.join('|') === 'weekly-trade:race-a',
+      '恢复 A 没有进入待处理阶段',
+    )
+    clickButton('打开详情 B')
+    await waitFor(
+      () => document.body.textContent?.includes('浏览器返回 B') ?? false,
+      '恢复 A 待处理期间没有打开详情 B',
+    )
+    clickButton('浏览器返回 B')
+    await waitFor(
+      () => document.activeElement?.closest('[data-trade-id="weekly-trade:race-b"]') !== null,
+      '浏览器返回后最新的恢复请求 B 没有获得焦点',
+    )
+    await waitForFrames(40)
+    assert(
+      focusedRestoreStarts.join('|') === 'weekly-trade:race-a|weekly-trade:race-b',
+      '离开未完成的 A 后只能启动最新请求 B',
+    )
+    assert(!focusedRestoreMissing.includes('weekly-trade:race-a'), '已离开的恢复 A 不得延迟触发缺失回退')
+    assert(
+      document.querySelector('[data-testid="return-state-probe"]')?.textContent === '',
+      '显式恢复请求必须在恢复完成前从来源 history state 消费',
+    )
+    assert(
+      sessionStorage.getItem('trade-return-anchor:/return-anchor-navigation?view=review') === null,
+      '最新恢复请求 B 必须保持 sessionStorage 单次消费',
+    )
+
+    const rolloverTrade = makeTrade('rollover-source', 'win', 80)
+    const rolloverDate = parseLocalDate(addDays(activeWeekStart, 7))
+    rolloverDate.setHours(useStore.getState().display.tradingDayStartHour, 0, 0, 0)
+    const rolloverBoundary = rolloverDate.getTime()
+    currentDateControl = installCurrentDate(rolloverBoundary - 10_000)
+    useStore.setState({ trades: [rolloverTrade], weeklyReviews: [] })
+    root.render(
+      <MemoryRouter key="weekly-current-rollover" initialEntries={['/weekly-review']}>
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
+          <Route path="/trade/:id" element={<DetailFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-trade-id="weekly-trade:rollover-source"]') !== null,
+      '跨周返回夹具没有渲染来源周证据',
+    )
+    document.querySelector<HTMLAnchorElement>(
+      '[data-trade-id="weekly-trade:rollover-source"] [data-trade-primary-action]',
+    )?.click()
+    await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '跨周返回夹具没有进入详情')
+    currentDateControl?.set(rolloverBoundary + 10_000)
+    clickLink('返回复盘')
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === `?week=${activeWeekStart}`,
+      '业务周推进后返回没有冻结原来源周',
+    )
+    await waitFor(
+      () => document.activeElement?.closest('[data-trade-id="weekly-trade:rollover-source"]') !== null,
+      '业务周推进后没有恢复原周锚点与焦点',
+    )
+    assert(
+      document.querySelector('.wr-page-head h1')?.textContent === weekRangeText(activeWeekStart),
+      '业务周推进后页面内容没有保持原来源周',
+    )
+    assert(
+      !document.querySelector('.wr-page-head p')?.textContent?.includes('本周进行中'),
+      '原来源周在业务周推进后必须显示为历史周',
+    )
+    currentDateControl?.restore()
+    currentDateControl = null
+
+    currentDateControl = installCurrentDate(rolloverBoundary - 10_000)
+    useStore.setState({ trades: [rolloverTrade], weeklyReviews: [] })
+    root.render(
+      <MemoryRouter key="weekly-current-rollover-browser-back" initialEntries={['/weekly-review']}>
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
+          <Route path="/trade/:id" element={<DetailFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => (
+        document.querySelector('[data-testid="weekly-route-probe"]')
+          ?.getAttribute('data-search') === '' &&
+        document.querySelector('[data-trade-id="weekly-trade:rollover-source"]') !== null
+      ),
+      '浏览器返回跨周夹具没有渲染来源周证据',
+    )
+    await waitForFrame()
+    document.querySelector<HTMLAnchorElement>(
+      '[data-trade-id="weekly-trade:rollover-source"] [data-trade-primary-action]',
+    )?.click()
+    await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '浏览器返回跨周夹具没有进入详情')
+    currentDateControl?.set(rolloverBoundary + 10_000)
+    clickButton('浏览器返回')
+    await waitFor(
+      () => (
+        document.querySelector('[data-testid="weekly-route-probe"]')
+          ?.getAttribute('data-search') === `?week=${activeWeekStart}` &&
+        document.activeElement?.closest('[data-trade-id="weekly-trade:rollover-source"]') !== null
+      ),
+      '业务周推进后的浏览器返回没有恢复原周锚点与焦点',
+    )
+    currentDateControl?.restore()
+    currentDateControl = null
+
+    const disappearingWeek = addDays(activeWeekStart, -7)
+    const disappearingTrade = {
+      ...makeTrade('disappearing-activity', 'loss', -40),
+      openedAt: disappearingWeek,
+      closedAt: disappearingWeek,
+      closedTradingDayKey: disappearingWeek,
+    }
+    useStore.setState({ trades: [disappearingTrade], weeklyReviews: [] })
+    root.render(
+      <MemoryRouter
+        key="weekly-disappearing-activity"
+        initialEntries={[`/weekly-review?week=${disappearingWeek}`]}
+      >
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
+          <Route path="/trade/:id" element={<DetailFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-trade-id="weekly-trade:disappearing-activity"]') !== null,
+      '活动历史周没有渲染待返回证据',
+    )
+    document.querySelector<HTMLAnchorElement>(
+      '[data-trade-id="weekly-trade:disappearing-activity"] [data-trade-primary-action]',
+    )?.click()
+    await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '活动历史周没有进入详情')
+    useStore.setState({ trades: [] })
+    clickLink('返回复盘')
+    await waitFor(
+      () => (
+        (document.body.textContent?.includes('原交易已不在当前复盘证据中') ?? false) &&
+        document.activeElement?.classList.contains('wr-main') === true
+      ),
+      '活动历史周消失后返回没有执行缺失锚点回退',
+    )
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === `?week=${disappearingWeek}`,
+      '已验证返回请求没有临时保留消失的活动历史周',
+    )
+    assert(
+      document.querySelector('.wr-page-head h1')?.textContent === weekRangeText(disappearingWeek),
+      '缺失锚点回退没有停留在原活动历史周',
+    )
+    assert(document.activeElement?.classList.contains('wr-main'), '缺失锚点回退必须聚焦周复盘内容起点')
+    assert(useStore.getState().weeklyReviews.length === 0, '为保留返回周次不得创建周复盘实体')
+
+    root.render(
+      <MemoryRouter
+        key="weekly-disappearing-direct-link"
+        initialEntries={[`/weekly-review?week=${disappearingWeek}`]}
+      >
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === '',
+      '没有返回上下文的不可用周深链仍被错误放行',
+    )
+    assert(
+      document.querySelector('.wr-page-head p')?.textContent?.includes('本周进行中'),
+      '普通不可用周深链必须恢复当前周内容',
+    )
+
+    root.render(<div data-testid="route-intent-reset" />)
+    await waitForFrame()
+    resetNoteDraftsForTests()
+    const intentWeekA = addDays(activeWeekStart, -7)
+    const intentWeekB = addDays(activeWeekStart, -14)
+    const makeIntentReviews = () => [
+      createWeeklyReview(activeWeekStart),
+      createWeeklyReview(intentWeekA),
+      createWeeklyReview(intentWeekB),
+    ]
+    const currentDraftId = `${WEEKLY_REVIEW_DRAFT_PREFIX}weekly-review:${activeWeekStart}`
+
+    useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
+    const weekThenTabStarted = deferred<void>()
+    const allowWeekThenTab = deferred<string>()
+    storage.saveAsset = async () => {
+      weekThenTabStarted.resolve()
+      return allowWeekThenTab.promise
+    }
+    setNoteDraft(currentDraftId, '<p>周切换等待页签</p><img src="data:image/png;base64,QQ==">')
+    const weekThenTabRouter = createMemoryRouter([{
+      path: '/weekly-review',
+      element: <><WeeklyReviewView /><RouteProbe /></>,
+    }], { initialEntries: ['/weekly-review'] })
+    const weekThenTabWrites: string[] = []
+    const unsubscribeWeekThenTab = weekThenTabRouter.subscribe((state) => {
+      weekThenTabWrites.push(state.location.search)
+    })
+    root.render(<RouterProvider key="week-then-tab" router={weekThenTabRouter} />)
+    await waitFor(
+      () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
+      '周后页签竞态夹具没有渲染目标周',
+    )
+    document.querySelector<HTMLButtonElement>(`[data-review-week="${intentWeekA}"]`)?.click()
+    await weekThenTabStarted.promise
+    clickButton('年度趋势')
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')?.getAttribute('data-search') === '?tab=year',
+      '较新的页签意图没有先写入路由',
+    )
+    allowWeekThenTab.resolve('week-then-tab-asset')
+    await waitFor(() => !hasNoteDraft(currentDraftId), '周后页签竞态的草稿没有完成 flush')
+    await waitForFrames(4)
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')?.getAttribute('data-search') === '?tab=year',
+      '较旧的周切换在 flush 后覆盖了较新的页签意图',
+    )
+    assert(
+      !weekThenTabWrites.some((search) => search.includes(`week=${intentWeekA}`)),
+      '较旧的周切换仍曾写入路由',
+    )
+    unsubscribeWeekThenTab()
+
+    root.render(<div data-testid="route-intent-reset" />)
+    await waitForFrame()
+    resetNoteDraftsForTests()
+    useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
+    const weekThenWeekStarted = deferred<void>()
+    const allowWeekThenWeek = deferred<string>()
+    storage.saveAsset = async () => {
+      weekThenWeekStarted.resolve()
+      return allowWeekThenWeek.promise
+    }
+    setNoteDraft(currentDraftId, '<p>连续周切换</p><img src="data:image/png;base64,Qg==">')
+    const weekThenWeekRouter = createMemoryRouter([{
+      path: '/weekly-review',
+      element: <><WeeklyReviewView /><RouteProbe /></>,
+    }], { initialEntries: ['/weekly-review'] })
+    const weekThenWeekWrites: string[] = []
+    const unsubscribeWeekThenWeek = weekThenWeekRouter.subscribe((state) => {
+      weekThenWeekWrites.push(state.location.search)
+    })
+    root.render(<RouterProvider key="week-then-week" router={weekThenWeekRouter} />)
+    await waitFor(
+      () => document.querySelector(`[data-review-week="${intentWeekB}"]`) !== null,
+      '连续周切换竞态夹具没有渲染两个目标周',
+    )
+    document.querySelector<HTMLButtonElement>(`[data-review-week="${intentWeekA}"]`)?.click()
+    await weekThenWeekStarted.promise
+    document.querySelector<HTMLButtonElement>(`[data-review-week="${intentWeekB}"]`)?.click()
+    allowWeekThenWeek.resolve('week-then-week-asset')
+    await waitFor(() => !hasNoteDraft(currentDraftId), '连续周切换竞态的草稿没有完成 flush')
+    await waitForFrames(4)
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === `?week=${intentWeekB}`,
+      '连续周切换没有保留最后一次周选择',
+    )
+    assert(
+      !weekThenWeekWrites.includes(`?week=${intentWeekA}`),
+      '连续周切换期间较旧的周 A 仍曾写入路由',
+    )
+    unsubscribeWeekThenWeek()
+
+    root.render(<div data-testid="route-intent-reset" />)
+    await waitForFrame()
+    resetNoteDraftsForTests()
+    useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
+    const browserNavigationStarted = deferred<void>()
+    const allowBrowserNavigation = deferred<string>()
+    storage.saveAsset = async () => {
+      browserNavigationStarted.resolve()
+      return allowBrowserNavigation.promise
+    }
+    setNoteDraft(currentDraftId, '<p>等待浏览器导航</p><img src="data:image/png;base64,Qw==">')
+    const browserNavigationRouter = createMemoryRouter([{
+      path: '/weekly-review',
+      element: <><WeeklyReviewView /><RouteProbe /></>,
+    }], {
+      initialEntries: ['/weekly-review?tab=year&visual=browser', '/weekly-review'],
+      initialIndex: 1,
+    })
+    const browserNavigationWrites: string[] = []
+    let releaseFlushOnBrowserNavigation = false
+    const unsubscribeBrowserNavigation = browserNavigationRouter.subscribe((state) => {
+      browserNavigationWrites.push(state.location.search)
+      if (
+        releaseFlushOnBrowserNavigation &&
+        state.location.search === '?tab=year&visual=browser'
+      ) {
+        releaseFlushOnBrowserNavigation = false
+        allowBrowserNavigation.resolve('browser-navigation-asset')
+      }
+    })
+    root.render(<RouterProvider key="browser-navigation-before-flush" router={browserNavigationRouter} />)
+    await waitFor(
+      () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
+      '浏览器导航竞态夹具没有渲染目标周',
+    )
+    document.querySelector<HTMLButtonElement>(`[data-review-week="${intentWeekA}"]`)?.click()
+    await browserNavigationStarted.promise
+    releaseFlushOnBrowserNavigation = true
+    await browserNavigationRouter.navigate(-1)
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === '?tab=year&visual=browser',
+      'flush 等待期间的浏览器导航没有生效',
+    )
+    await waitFor(() => !hasNoteDraft(currentDraftId), '浏览器导航竞态的草稿没有完成 flush')
+    await waitForFrames(4)
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')
+        ?.getAttribute('data-search') === '?tab=year&visual=browser',
+      '较旧的周切换在 flush 后覆盖了浏览器导航',
+    )
+    assert(
+      !browserNavigationWrites.some((search) => search.includes(`week=${intentWeekA}`)),
+      '浏览器导航后较旧的周切换仍曾写入路由',
+    )
+    unsubscribeBrowserNavigation()
+
+    root.render(<div data-testid="route-intent-reset" />)
+    await waitForFrame()
+    resetNoteDraftsForTests()
+    useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
+    const unmountStarted = deferred<void>()
+    const allowUnmountedFlush = deferred<string>()
+    storage.saveAsset = async () => {
+      unmountStarted.resolve()
+      return allowUnmountedFlush.promise
+    }
+    setNoteDraft(currentDraftId, '<p>等待组件卸载</p><img src="data:image/png;base64,RA==">')
+    const unmountRouter = createMemoryRouter([{
+      path: '/weekly-review',
+      element: <><WeeklyReviewView /><RouteProbe /></>,
+    }], { initialEntries: ['/weekly-review'] })
+    const unmountWrites: string[] = []
+    const unsubscribeUnmount = unmountRouter.subscribe((state) => {
+      unmountWrites.push(state.location.search)
+    })
+    root.render(<RouterProvider key="unmount-before-flush" router={unmountRouter} />)
+    await waitFor(
+      () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
+      '组件卸载竞态夹具没有渲染目标周',
+    )
+    document.querySelector<HTMLButtonElement>(`[data-review-week="${intentWeekA}"]`)?.click()
+    await unmountStarted.promise
+    root.render(<div data-testid="route-intent-unmounted" />)
+    await waitFor(
+      () => document.querySelector('[data-testid="route-intent-unmounted"]') !== null,
+      '慢 flush 等待期间没有卸载周复盘组件',
+    )
+    allowUnmountedFlush.resolve('unmounted-route-intent-asset')
+    await waitFor(() => !hasNoteDraft(currentDraftId), '组件卸载后的草稿没有完成 flush')
+    await waitForFrames(4)
+    assert(
+      !unmountWrites.some((search) => search.includes(`week=${intentWeekA}`)),
+      '组件卸载后较旧的周切换仍写入路由',
+    )
+    unsubscribeUnmount()
+
+    resetNoteDraftsForTests()
+    useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
+    storage.saveAsset = async () => { throw new Error('fixture draft save failure') }
+    setNoteDraft(currentDraftId, '<p>保存失败</p><img src="data:image/png;base64,RQ==">')
+    const failedDraftRouter = createMemoryRouter([{
+      path: '/weekly-review',
+      element: <><WeeklyReviewView /><RouteProbe /><ToastHost /></>,
+    }], { initialEntries: ['/weekly-review'] })
+    root.render(<RouterProvider key="failed-current-route-intent" router={failedDraftRouter} />)
+    await waitFor(
+      () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
+      '保存失败夹具没有渲染目标周',
+    )
+    document.querySelector<HTMLButtonElement>(`[data-review-week="${intentWeekA}"]`)?.click()
+    await waitFor(
+      () => document.body.textContent?.includes('正文尚未保存，请重试') ?? false,
+      '当前周切换的草稿保存失败没有显示既有提示',
+    )
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')?.getAttribute('data-search') === '',
+      '草稿保存失败后仍执行了周切换',
+    )
   } finally {
+    currentDateControl?.restore()
+    storage.saveAsset = originalSaveAsset
+    resetNoteDraftsForTests()
     window.removeEventListener('error', capturePageError)
     root.unmount()
     useStore.setState({

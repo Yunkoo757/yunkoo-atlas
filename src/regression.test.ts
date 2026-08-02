@@ -135,6 +135,7 @@ import { migrateShortcutBindings, useShortcutStore } from '@/store/shortcutStore
 import {
   findTradeReturnFocusTarget,
   parseTradeReturnAnchor,
+  peekTradeReturnRequest,
   serializeTradeReturnAnchor,
 } from '@/hooks/useTradeReturnAnchor'
 
@@ -1822,6 +1823,53 @@ export function testTradeReturnAnchorSerializationExpires(): void {
   assert(parseTradeReturnAnchor(serialized, createdAt) === 'trade-42', '返回锚点应可从版本化存储中恢复')
   assert(parseTradeReturnAnchor(serialized, createdAt + 30_001) === null, '超过恢复窗口的返回锚点必须过期')
   assert(parseTradeReturnAnchor('trade-42', createdAt) === null, '旧的无版本锚点不得无限保留')
+}
+
+export function testExpiredTradeReturnAnchorKeepsSingleUseFrozenRouteContext(): void {
+  const createdAt = 1_000_000
+  const serialized = serializeTradeReturnAnchor(
+    'trade-42',
+    createdAt,
+    '?week=2026-07-20&tab=year',
+    '',
+  )
+  const originalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage')
+  const fakeStorage = {
+    getItem: (key: string) => key === 'trade-return-anchor:/weekly-review' ? serialized : null,
+    setItem: () => {},
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    length: 1,
+  } satisfies Storage
+  Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: fakeStorage })
+  try {
+    const request = peekTradeReturnRequest(
+      { pathname: '/weekly-review', search: '' },
+      null,
+      createdAt + 30_001,
+    )
+    assert(request?.restoreSearch === '?week=2026-07-20&tab=year', '锚点过期后仍须保留单次冻结路由上下文')
+    assert(request?.tradeId === undefined, '过期锚点不得继续触发滚动与焦点恢复')
+    const explicitRequest = peekTradeReturnRequest(
+      { pathname: '/weekly-review', search: '' },
+      {
+        restoreTradeId: 'trade-explicit',
+        restoreSearch: '?week=2026-07-20&tab=year',
+        restoreSourceSearch: '',
+        restoreCreatedAt: createdAt,
+      },
+      createdAt + 30_001,
+    )
+    assert(
+      explicitRequest?.restoreSearch === '?week=2026-07-20&tab=year',
+      '显式锚点过期后仍须保留单次冻结路由上下文',
+    )
+    assert(explicitRequest?.tradeId === undefined, '过期显式锚点不得继续触发滚动与焦点恢复')
+  } finally {
+    if (originalDescriptor) Object.defineProperty(globalThis, 'sessionStorage', originalDescriptor)
+    else Reflect.deleteProperty(globalThis, 'sessionStorage')
+  }
 }
 
 export function testTradeReturnFocusTargetSkipsHiddenAndDisabledPrimaryActions(): void {

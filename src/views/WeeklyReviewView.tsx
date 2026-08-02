@@ -1,5 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  Link,
+  UNSAFE_DataRouterContext,
+  UNSAFE_NavigationContext,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { Editor } from '@/editor/Editor'
 import {
@@ -32,6 +38,7 @@ import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { getWeeklyReviewCompletionIssue } from '@/lib/weeklyReviewCompletion'
 import {
+  buildWeeklyReviewReturnSearch,
   buildWeeklyReviewSearch,
   resolveWeeklyReviewRouteState,
   type WeeklyReviewTab,
@@ -53,6 +60,7 @@ import {
 import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import {
+  peekTradeReturnRequest,
   rememberTradeReturnAnchor,
   useTradeReturnAnchor,
 } from '@/hooks/useTradeReturnAnchor'
@@ -176,13 +184,30 @@ export function WeeklyReviewView() {
   const currentWeek = weekStartFor(parseLocalDate(businessDateAnchor.currentTradingDayKey))
   const location = useLocation()
   const navigate = useNavigate()
+  const returnRequest = peekTradeReturnRequest(
+    { pathname: location.pathname, search: location.search },
+    location.state,
+  )
+  const verifiedReturnWeekRef = useRef<string | undefined>(undefined)
+  const requestedReturnWeek = returnRequest?.restoreSearch === undefined
+    ? null
+    : new URLSearchParams(returnRequest.restoreSearch).get('week')
+  if (requestedReturnWeek) verifiedReturnWeekRef.current = requestedReturnWeek
+  const [returnRestoreActive, setReturnRestoreActive] = useState(Boolean(returnRequest))
   const availableWeeks = useMemo(
     () => deriveWeeklyReviewWeeks(trades, reviews, currentWeek, tradingDayStartHour),
     [trades, reviews, currentWeek, tradingDayStartHour],
   )
   const routeResolution = useMemo(
-    () => resolveWeeklyReviewRouteState(location.search, { currentWeek, availableWeeks }),
-    [availableWeeks, currentWeek, location.search],
+    () => resolveWeeklyReviewRouteState(
+      returnRequest?.restoreSearch ?? location.search,
+      {
+        currentWeek,
+        availableWeeks,
+        verifiedReturnWeek: verifiedReturnWeekRef.current,
+      },
+    ),
+    [availableWeeks, currentWeek, location.search, returnRequest?.restoreSearch],
   )
   const { selectedWeek, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
@@ -190,9 +215,57 @@ export function WeeklyReviewView() {
   const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
   const editorReadyRef = useRef(false)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const routeIntentGenerationRef = useRef(0)
+  const dataRouterContext = useContext(UNSAFE_DataRouterContext)
+  const navigationContext = useContext(UNSAFE_NavigationContext)
+
+  useEffect(() => {
+    const invalidatePendingRouteIntent = () => {
+      routeIntentGenerationRef.current += 1
+    }
+    if (dataRouterContext) {
+      return dataRouterContext.router.subscribe(invalidatePendingRouteIntent)
+    }
+    const navigator = navigationContext.navigator
+    const originalPush = navigator.push
+    const originalReplace = navigator.replace
+    const originalGo = navigator.go
+    const wrappedPush: typeof originalPush = (...args) => {
+      invalidatePendingRouteIntent()
+      originalPush(...args)
+    }
+    const wrappedReplace: typeof originalReplace = (...args) => {
+      invalidatePendingRouteIntent()
+      originalReplace(...args)
+    }
+    const wrappedGo: typeof originalGo = (...args) => {
+      invalidatePendingRouteIntent()
+      originalGo(...args)
+    }
+    navigator.push = wrappedPush
+    navigator.replace = wrappedReplace
+    navigator.go = wrappedGo
+    window.addEventListener('popstate', invalidatePendingRouteIntent)
+    window.addEventListener('hashchange', invalidatePendingRouteIntent)
+    return () => {
+      if (navigator.push === wrappedPush) navigator.push = originalPush
+      if (navigator.replace === wrappedReplace) navigator.replace = originalReplace
+      if (navigator.go === wrappedGo) navigator.go = originalGo
+      window.removeEventListener('popstate', invalidatePendingRouteIntent)
+      window.removeEventListener('hashchange', invalidatePendingRouteIntent)
+    }
+  }, [dataRouterContext, navigationContext.navigator])
+
+  useEffect(() => () => {
+    routeIntentGenerationRef.current += 1
+  }, [])
 
   const handleReturnRestoreStart = useCallback((anchorId: string) => {
+    setReturnRestoreActive(true)
     if (anchorId.startsWith('weekly-risk:')) setOverrideEventsOpen(true)
+  }, [])
+  const handleReturnRestoreFinish = useCallback(() => {
+    setReturnRestoreActive(false)
   }, [])
   const handleMissingReturnAnchor = useCallback(() => {
     const target = mainContentRef.current
@@ -203,11 +276,12 @@ export function WeeklyReviewView() {
 
   useTradeReturnAnchor({
     onRestoreStart: handleReturnRestoreStart,
+    onRestoreFinish: handleReturnRestoreFinish,
     onMissing: handleMissingReturnAnchor,
   })
 
   useEffect(() => {
-    if (!routeResolution.needsReplace) return
+    if (!routeResolution.needsReplace || returnRestoreActive) return
     navigate(
       { pathname: location.pathname, search: routeResolution.canonicalSearch },
       { replace: true, state: location.state },
@@ -216,6 +290,7 @@ export function WeeklyReviewView() {
     location.pathname,
     location.state,
     navigate,
+    returnRestoreActive,
     routeResolution.canonicalSearch,
     routeResolution.needsReplace,
   ])
@@ -319,12 +394,18 @@ export function WeeklyReviewView() {
   const detailFrom = useCallback((anchorTradeId: string): TradeDetailFrom => ({
     pathname: location.pathname,
     search: routeResolution.canonicalSearch,
+    restoreSearch: buildWeeklyReviewReturnSearch(
+      location.search,
+      { selectedWeek, tab },
+    ),
     anchorTradeId,
-  }), [location.pathname, routeResolution.canonicalSearch])
+  }), [location.pathname, location.search, routeResolution.canonicalSearch, selectedWeek, tab])
 
   const changeWeek = async (week: string) => {
+    const intentGeneration = ++routeIntentGenerationRef.current
     if (week === selectedWeek) return
     const draftSaved = await flushNoteDraftToStore(draftId)
+    if (intentGeneration !== routeIntentGenerationRef.current) return
     if (!draftSaved) {
       toast('正文尚未保存，请重试')
       return
@@ -333,6 +414,7 @@ export function WeeklyReviewView() {
   }
 
   const changeTab = (nextTab: WeeklyReviewTab) => {
+    routeIntentGenerationRef.current += 1
     if (nextTab === tab) return
     replaceRouteState(selectedWeek, nextTab)
   }
@@ -458,6 +540,10 @@ export function WeeklyReviewView() {
                 detailSource={{
                   pathname: location.pathname,
                   search: routeResolution.canonicalSearch,
+                  restoreSearch: buildWeeklyReviewReturnSearch(
+                    location.search,
+                    { selectedWeek, tab },
+                  ),
                 }}
                 overrideEventsOpen={overrideEventsOpen}
                 onOverrideEventsOpenChange={setOverrideEventsOpen}

@@ -8,6 +8,7 @@ export type WeeklyReviewRouteState = {
 export type WeeklyReviewRouteOptions = {
   currentWeek: string
   availableWeeks: readonly string[]
+  verifiedReturnWeek?: string
 }
 
 export type WeeklyReviewRouteResolution = {
@@ -31,6 +32,21 @@ function toSearch(params: URLSearchParams): string {
   return value ? `?${value}` : ''
 }
 
+function isMondayWeekStart(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return false
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const parsed = new Date(year, month - 1, day)
+  return (
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day &&
+    parsed.getDay() === 1
+  )
+}
+
 export function buildWeeklyReviewSearch(
   baseSearch: string,
   state: WeeklyReviewRouteState,
@@ -43,13 +59,29 @@ export function buildWeeklyReviewSearch(
   return toSearch(params)
 }
 
+export function buildWeeklyReviewReturnSearch(
+  baseSearch: string,
+  state: WeeklyReviewRouteState,
+): string {
+  const params = new URLSearchParams()
+  params.set('week', state.selectedWeek)
+  if (state.tab === 'year') params.set('tab', 'year')
+  for (const [key, value] of unrelatedEntries(baseSearch)) params.append(key, value)
+  return toSearch(params)
+}
+
 export function resolveWeeklyReviewRouteState(
   search: string,
   options: WeeklyReviewRouteOptions,
 ): WeeklyReviewRouteResolution {
   const params = new URLSearchParams(search)
   const requestedWeek = params.get('week')
-  const selectedWeek = requestedWeek && options.availableWeeks.includes(requestedWeek)
+  const selectedWeek = requestedWeek &&
+    isMondayWeekStart(requestedWeek) &&
+    (
+      options.availableWeeks.includes(requestedWeek) ||
+      options.verifiedReturnWeek === requestedWeek
+    )
     ? requestedWeek
     : options.currentWeek
   const tab: WeeklyReviewTab = params.get('tab') === 'year' ? 'year' : 'review'
