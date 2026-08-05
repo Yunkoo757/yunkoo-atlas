@@ -92,6 +92,7 @@
 @media (max-width: 768px) {
   .wr-risk-decisions { grid-template-columns: 1fr; }
   .wr-risk-period { grid-template-columns: minmax(0, 1fr) minmax(140px, .8fr); }
+  .wr-risk-period p { white-space: normal; }
   .wr-risk-audits { grid-template-columns: 1fr; }
   .wr-risk-day { grid-template-columns: auto auto minmax(0, 1fr); }
   .wr-risk-day-reasons { grid-column: 1 / -1; }
