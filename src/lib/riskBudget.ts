@@ -11,6 +11,7 @@ import type { Trade } from '@/data/trades'
 import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import {
   isTradeResultAuthorityConsistent,
@@ -86,6 +87,7 @@ export function closedTradingDayKeyFromClosedAt(
     const parsed = parseLocalDate(closedAt)
     return formatYmd(parsed) === closedAt ? closedAt : null
   }
+  if (!isCanonicalIsoInstant(closedAt)) return null
   const timestamp = new Date(closedAt)
   return Number.isNaN(timestamp.getTime()) ? null : getTradingDayKey(timestamp, tradingDayStartHour)
 }

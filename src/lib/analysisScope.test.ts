@@ -276,6 +276,31 @@ export function testPerformanceBoundsExcludeTradesWithoutAValidCloseTradingDay()
   )
 }
 
+export function testPerformanceBoundsExcludeRolloverCloseTimestamps(): void {
+  const trades: Trade[] = [
+    {
+      ...closedLiveTrade,
+      id: 'rollover-close',
+      openedAt: '2026-03-02',
+      closedAt: '2026-02-30T00:00:00.000Z',
+    },
+    { ...closedLiveTrade, id: 'valid-close', openedAt: '2026-02-28', closedAt: '2026-03-02' },
+  ]
+
+  const result = filterTradesByAnalysisScope(
+    trades,
+    { kind: 'live', range: 'all' },
+    new Date(),
+    4,
+    { startInclusive: '2026-03-01', endExclusive: '2026-03-03' },
+  )
+
+  assert(
+    result.map((trade) => trade.id).join() === 'valid-close',
+    '周期范围不得把被 Date 归一化的 rollover 平仓时间戳当作合法平仓日',
+  )
+}
+
 export function testAnalysisScopeUsesFrozenClosedTradingDayKey(): void {
   const result = filterTradesByAnalysisScope(
     [{
