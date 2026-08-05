@@ -48,6 +48,47 @@ export function testMergeImportKeepsCurrentLibraryLiveCycleStart(): void {
   )
 }
 
+export function testMergeImportPrefersNonemptyLocalLivePerformanceCycles(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  current.livePerformanceCycles = [{
+    id: 'local-cycle',
+    name: '本地统计周期',
+    startTradingDayKey: '2026-07-20',
+    createdAt: '2026-07-20T00:00:00.000Z',
+  }]
+  imported.livePerformanceCycles = [{
+    id: 'imported-cycle',
+    name: '导入统计周期',
+    startTradingDayKey: '2026-07-21',
+    createdAt: '2026-07-21T00:00:00.000Z',
+  }]
+
+  const merged = mergeImportPayload(current, { version: 10, ...imported })
+
+  assert(merged.livePerformanceCycles?.[0]?.id === 'local-cycle', '非空本地周期必须优先于导入周期')
+  assert(merged.trades.length === 1, '周期优先级不得改变交易合并行为')
+  assert(merged.riskPolicyVersions?.length === 1, '周期优先级不得改变风险合并行为')
+}
+
+export function testMergeImportAdoptsImportedLivePerformanceCyclesWhenLocalIsEmpty(): void {
+  const current = createFullPersistedSnapshotFixture()
+  const imported = createFullPersistedSnapshotFixture()
+  current.livePerformanceCycles = []
+  imported.livePerformanceCycles = [{
+    id: 'imported-cycle',
+    name: '导入统计周期',
+    startTradingDayKey: '2026-07-21',
+    createdAt: '2026-07-21T00:00:00.000Z',
+  }]
+
+  const merged = mergeImportPayload(current, { version: 10, ...imported })
+  imported.livePerformanceCycles[0]!.name = '导入后外部变更'
+
+  assert(merged.livePerformanceCycles?.[0]?.id === 'imported-cycle', '空本地周期必须采用导入周期')
+  assert(merged.livePerformanceCycles?.[0]?.name === '导入统计周期', '采用导入周期必须克隆输入')
+}
+
 export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
   const current = createFullPersistedSnapshotFixture()
   current.display = { ...current.display, tradingDayStartHour: 6 }

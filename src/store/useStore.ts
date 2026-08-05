@@ -42,7 +42,13 @@ import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTrut
 import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
+import {
+  appendLivePerformanceCycle,
+  cloneLivePerformanceCycles,
+  renameLivePerformanceCycle as renameLivePerformanceCycleInList,
+  undoLatestLivePerformanceCycle as undoLatestLivePerformanceCycleInList,
+  type LivePerformanceCycle,
+} from '@/lib/livePerformanceCycles'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
   completeWeeklyReviewCandidate,
@@ -373,6 +379,10 @@ interface State {
   ) => void
   ensureRiskPeriodRecords: (tradingDay: string) => void
   setLiveStatsStartTradingDayKey: (value: string | null) => void
+  replaceLivePerformanceCycles: (cycles: readonly LivePerformanceCycle[]) => void
+  createLivePerformanceCycle: (cycle: LivePerformanceCycle, currentTradingDayKey: string) => void
+  renameLivePerformanceCycle: (id: string, name: string) => void
+  undoLatestLivePerformanceCycle: () => void
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
   cancelTradeOpen: () => void
@@ -828,6 +838,22 @@ export const useStore = create<State>()((set, get) => ({
         }
         set({ liveStatsStartTradingDayKey: value, pendingTradeOpenRequest: null })
       },
+      replaceLivePerformanceCycles: (cycles) => {
+        const next = cloneLivePerformanceCycles(cycles)
+        set((s) => next === s.livePerformanceCycles ? s : { livePerformanceCycles: next })
+      },
+      createLivePerformanceCycle: (cycle, currentTradingDayKey) => set((s) => {
+        const next = appendLivePerformanceCycle(s.livePerformanceCycles, cycle, currentTradingDayKey)
+        return next === s.livePerformanceCycles ? s : { livePerformanceCycles: next }
+      }),
+      renameLivePerformanceCycle: (id, name) => set((s) => {
+        const next = renameLivePerformanceCycleInList(s.livePerformanceCycles, id, name)
+        return next === s.livePerformanceCycles ? s : { livePerformanceCycles: next }
+      }),
+      undoLatestLivePerformanceCycle: () => set((s) => {
+        const next = undoLatestLivePerformanceCycleInList(s.livePerformanceCycles)
+        return next === s.livePerformanceCycles ? s : { livePerformanceCycles: next }
+      }),
       setStatus: (id, status) => {
         const current = get().trades.find((trade) => trade.id === id)
         if (!current) return 'not-found'
@@ -952,6 +978,7 @@ export const useStore = create<State>()((set, get) => ({
           monthlyRiskLimits: snapshot.monthlyRiskLimits,
           riskOverrideEvents: snapshot.riskOverrideEvents,
           liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
+          livePerformanceCycles: cloneLivePerformanceCycles(snapshot.livePerformanceCycles ?? []),
           pendingTradeOpenRequest: null,
         })
       },

@@ -7,6 +7,7 @@ import { mergeSymbolCatalog, mergeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { mergeRiskImport } from '@/lib/riskImportMerge'
 
@@ -59,6 +60,10 @@ export function mergeImportPayload(
     strategies,
     trades: normalizeTrades(riskMerged.trades),
     liveStatsStartTradingDayKey: current.liveStatsStartTradingDayKey ?? null,
+    livePerformanceCycles:
+      (current.livePerformanceCycles?.length ?? 0) > 0
+        ? cloneLivePerformanceCycles(current.livePerformanceCycles)
+        : cloneLivePerformanceCycles(payload.livePerformanceCycles),
     weeklyRiskPreparations: riskMerged.weeklyRiskPreparations,
     riskPolicyVersions: riskMerged.riskPolicyVersions,
     monthlyRiskLimits: riskMerged.monthlyRiskLimits,

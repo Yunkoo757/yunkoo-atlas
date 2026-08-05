@@ -511,6 +511,104 @@ export async function testSameValueImmutableRiskReplacementRetriesWithoutConflic
   }
 }
 
+export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLatestLocalConfiguration(): Promise<void> {
+  const commitStarted = deferred()
+  const allowCommit = deferred()
+  const savedSnapshots: PersistedSnapshot[] = []
+  let commitCount = 0
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      journalBridge: {
+        isElectron: true,
+        commitImport: async () => {
+          commitCount += 1
+          if (commitCount === 1) {
+            commitStarted.resolve()
+            await allowCommit.promise
+          }
+          return true
+        },
+        saveSnapshot: async (snapshot: PersistedSnapshot) => {
+          savedSnapshots.push(snapshot)
+          return true
+        },
+      },
+    },
+  })
+
+  const previous = useStore.getState()
+  const localDuringImport = {
+    id: 'local-during-import-cycle',
+    name: '等待期间本地周期',
+    startTradingDayKey: '2026-08-05',
+    createdAt: '2026-08-05T00:00:00.000Z',
+  }
+  const importedCycle = {
+    id: 'imported-cycle',
+    name: '导入周期',
+    startTradingDayKey: '2026-08-01',
+    createdAt: '2026-08-01T00:00:00.000Z',
+  }
+  useStore.setState({
+    trades: [], strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
+    display: { ...DEFAULT_DISPLAY }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
+    symbolIcons: {}, symbolCatalog: [], livePerformanceCycles: [],
+  })
+
+  enablePersistWrites()
+  try {
+    const importing = applyImport({
+      version: 10,
+      trades: [], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
+      strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: { ...DEFAULT_DISPLAY },
+      livePerformanceCycles: [importedCycle],
+    })
+    await commitStarted.promise
+    useStore.getState().replaceLivePerformanceCycles([localDuringImport])
+    allowCommit.resolve()
+    const result = await importing
+
+    assert(commitCount === 2, '并发本地周期修改必须触发基于最新状态的重试')
+    assert(useStore.getState().livePerformanceCycles[0]?.id === localDuringImport.id, '最终状态必须保留最新本地周期配置')
+    assert(savedSnapshots.at(-1)?.livePerformanceCycles?.[0]?.id === localDuringImport.id, '最终落盘必须保留最新本地周期配置')
+    assert(result.summary.includes('保留当前统计周期设置'), '本地周期与导入周期均非空时摘要必须说明保留当前设置')
+  } finally {
+    disablePersistWrites()
+    useStore.setState(previous)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testJsonImportSummaryCountsAdoptedLivePerformanceCycles(): Promise<void> {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { journalBridge: { isElectron: true, commitImport: async () => true, saveSnapshot: async () => true } },
+  })
+  const previous = useStore.getState()
+  useStore.setState({
+    trades: [], strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
+    display: { ...DEFAULT_DISPLAY }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
+    symbolIcons: {}, symbolCatalog: [], livePerformanceCycles: [],
+  })
+  enablePersistWrites()
+  try {
+    const result = await applyImport({
+      version: 10,
+      trades: [], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
+      strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: { ...DEFAULT_DISPLAY },
+      livePerformanceCycles: [{
+        id: 'adopted-cycle', name: '采用周期', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z',
+      }],
+    })
+    assert(result.summary.includes('1 个统计周期'), '空本地周期采用导入周期时摘要必须包含采用数量')
+  } finally {
+    disablePersistWrites()
+    useStore.setState(previous)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
 export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndReferences(): Promise<void> {
   const committedSnapshots: PersistedSnapshot[] = []
   const persistedAssets = new Set<string>()

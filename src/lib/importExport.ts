@@ -98,6 +98,7 @@ import {
   type JsonImportErrorCode,
 } from '@/lib/importLimits'
 import { OperationalError } from '@/lib/operationalError'
+import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
@@ -150,7 +151,7 @@ export function buildPortableSnapshotFromState(
   return {
     trades: state.trades,
     liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: state.livePerformanceCycles ?? [],
+    livePerformanceCycles: cloneLivePerformanceCycles(state.livePerformanceCycles),
     weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
     riskPolicyVersions: state.riskPolicyVersions ?? [],
     monthlyRiskLimits: state.monthlyRiskLimits ?? [],
@@ -304,7 +305,7 @@ export async function buildExportPayloadFromState(
     version: EXPORT_VERSION,
     trades: state.trades,
     liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: state.livePerformanceCycles ?? [],
+    livePerformanceCycles: cloneLivePerformanceCycles(state.livePerformanceCycles),
     weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
     riskPolicyVersions: state.riskPolicyVersions ?? [],
     monthlyRiskLimits: state.monthlyRiskLimits ?? [],
@@ -950,6 +951,25 @@ interface PersistedStateRevision {
   references: readonly unknown[]
 }
 
+interface LivePerformanceCycleImportDecision {
+  preservesCurrent: boolean
+  adoptsImported: boolean
+  adoptedCount: number
+}
+
+function resolveLivePerformanceCycleImportDecision(
+  current: PersistedSlice,
+  payload: ExportPayload,
+): LivePerformanceCycleImportDecision {
+  const currentCycles = current.livePerformanceCycles ?? []
+  const importedCycles = payload.livePerformanceCycles ?? []
+  return {
+    preservesCurrent: currentCycles.length > 0 && importedCycles.length > 0,
+    adoptsImported: currentCycles.length === 0,
+    adoptedCount: currentCycles.length === 0 ? importedCycles.length : 0,
+  }
+}
+
 function capturePersistedStateRevision(): PersistedStateRevision {
   const state = useStore.getState()
   const shortcutBindings = useShortcutStore.getState().bindings
@@ -1106,6 +1126,11 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     suspendPersist()
     suspended = true
     let revision = capturePersistedStateRevision()
+    const initialLivePerformanceCycleDecision = resolveLivePerformanceCycleImportDecision(
+      revision.state,
+      prepared.payload,
+    )
+    let finalLivePerformanceCycleDecision = initialLivePerformanceCycleDecision
     const importedTradeBaseline = captureImportedTradeBaseline(
       revision,
       prepared.payload,
@@ -1113,6 +1138,10 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
       payload,
     )
     while (true) {
+      finalLivePerformanceCycleDecision = resolveLivePerformanceCycleImportDecision(
+        revision.state,
+        prepared.payload,
+      )
       const immutableRiskBaseline = captureImmutableRiskImportBaseline(
         revision.state,
         prepared.payload,
@@ -1160,6 +1189,11 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
 
     const parts: string[] = [`${prepared.payload.trades.length} 笔交易`]
     if (prepared.assets.length > 0) parts.push(`${prepared.assets.length} 个附件`)
+    if (finalLivePerformanceCycleDecision.preservesCurrent) {
+      parts.push('保留当前统计周期设置')
+    } else if (finalLivePerformanceCycleDecision.adoptsImported) {
+      parts.push(`${finalLivePerformanceCycleDecision.adoptedCount} 个统计周期`)
+    }
     return { summary: `已导入 ${parts.join('、')}` }
   } finally {
     if (suspended) await resumePersistAndFlush()
@@ -1177,6 +1211,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
     riskOverrideEvents: snapshot.riskOverrideEvents,
     liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
+    livePerformanceCycles: cloneLivePerformanceCycles(snapshot.livePerformanceCycles ?? []),
     weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
     quickNotes: normalizeQuickNotes(snapshot.quickNotes),
     strategies: normalized.strategies,
@@ -1211,6 +1246,7 @@ export function resetEmptyLibraryIntoStore(): void {
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
     liveStatsStartTradingDayKey: null,
+    livePerformanceCycles: [],
     weeklyReviews: [],
     quickNotes: [],
     strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
