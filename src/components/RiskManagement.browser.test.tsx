@@ -54,6 +54,21 @@ function setText(element: HTMLInputElement | HTMLTextAreaElement, value: string)
   element.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
+const NativeDate = globalThis.Date
+const frozenNow = new NativeDate(2026, 7, 2, 12).getTime()
+const FrozenDate = new Proxy(NativeDate, {
+  construct(target, argumentsList) {
+    return argumentsList.length > 0
+      ? Reflect.construct(target, argumentsList)
+      : new target(frozenNow)
+  },
+  get(target, property, receiver) {
+    if (property === 'now') return () => frozenNow
+    return Reflect.get(target, property, receiver)
+  },
+})
+globalThis.Date = FrozenDate as DateConstructor
+
 const day = getTradingDayKey(new Date(), 0)
 const weekStart = weekStartFor(parseLocalDate(day))
 const monthKey = day.slice(0, 7)
@@ -546,6 +561,7 @@ async function run(): Promise<void> {
     assert(recovered === 2, 'reload-required 唯一主动作必须重试 storage reload')
     assert(useStore.getState().trades[0]?.status === 'open', 'rehydrate 后必须采用 durable open 状态')
   } finally {
+    globalThis.Date = NativeDate
     root.unmount()
     useStore.setState(previous)
   }

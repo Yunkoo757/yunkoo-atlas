@@ -605,7 +605,7 @@ async function run(): Promise<void> {
     assert(progressbars.length === 2, '风控决策必须有两个周期进度条')
     for (const [progressbar, expected] of [
       [progressbars[0]!, ['本周风险状态', '未触线', '0.0R 已使用 / +5.0R 限制']],
-      [progressbars[1]!, ['完成时月度状态', '未触线', '0.0R 已使用 / 0.0R 限制']],
+      [progressbars[1]!, ['完成时月度状态', '未触线', '0.0R 已使用 / +10.0R 限制']],
     ] as const) {
       const accessibleName = progressbar.getAttribute('aria-label') ?? ''
       assert(expected.every((part) => accessibleName.includes(part)), `进度条可访问名称不完整：${accessibleName}`)
