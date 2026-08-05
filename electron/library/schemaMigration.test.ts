@@ -77,6 +77,71 @@ async function createV8LibraryFixture(): Promise<V8LibraryFixture> {
   }
 }
 
+async function createV9LibraryFixture(): Promise<V8LibraryFixture> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v9-'))
+  const storage = new LibraryStorage(root)
+  await storage.open()
+  storage.release()
+  const dbFile = path.join(root, 'journal.db')
+  const SQL = await sqlRuntime()
+  const db = new SQL.Database(fs.readFileSync(dbFile))
+  try {
+    const snapshot = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
+    delete snapshot.livePerformanceCycles
+    db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
+    db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '9') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    fs.writeFileSync(dbFile, Buffer.from(db.export()))
+  } finally {
+    db.close()
+  }
+  const manifestFile = path.join(root, 'manifest.json')
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')) as Record<string, unknown>
+  manifest.schemaVersion = 9
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf8')
+  return { path: root, originalDatabase: fs.readFileSync(dbFile), originalManifest: fs.readFileSync(manifestFile) }
+}
+
+export async function testNormalV9OpenMigratesCyclesAndDirectLegacySaveRemainsReadable(): Promise<void> {
+  const library = await createV9LibraryFixture()
+  try {
+    const storage = new LibraryStorage(library.path, { allowCreate: false })
+    await storage.open()
+    const migrated = storage.loadSnapshot()!
+    assert(migrated.livePerformanceCycles?.length === 0, 'v9 打开必须迁移为空周期')
+    const legacy = { ...migrated } as Record<string, unknown>
+    delete legacy.livePerformanceCycles
+    storage.saveSnapshot(legacy as unknown as typeof migrated)
+    assert(storage.loadSnapshot()?.livePerformanceCycles?.length === 0, '直接保存旧形状后必须仍可读取')
+    storage.release()
+  } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
+}
+
+export async function testV9MigrationCrashRecoversAndAcceptsHistoricalV9Marker(): Promise<void> {
+  const library = await createV9LibraryFixture()
+  const previous = process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY
+  process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY = 'after-database-replace'
+  try {
+    const storage = new LibraryStorage(library.path, { allowCreate: false })
+    let crashed = false
+    try { await storage.open() } catch { crashed = true } finally { storage.release() }
+    assert(crashed, 'v9 迁移必须在替换边界可中断')
+    const markerPath = path.join(library.path, SCHEMA_MIGRATION_MARKER_FILE)
+    const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as Record<string, unknown>
+    marker.toVersion = 9
+    fs.writeFileSync(markerPath, JSON.stringify(marker), 'utf8')
+    if (previous === undefined) delete process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY
+    else process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY = previous
+    const reopened = new LibraryStorage(library.path, { allowCreate: false })
+    await reopened.open()
+    assert(reopened.readManifest().schemaVersion === SCHEMA_VERSION, '历史 v9 marker 恢复后必须继续迁移至当前 schema')
+    reopened.release()
+  } finally {
+    if (previous === undefined) delete process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY
+    else process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY = previous
+    fs.rmSync(library.path, { recursive: true, force: true })
+  }
+}
+
 async function readAndDecodePair(libraryPath: string) {
   const manifest = JSON.parse(
     fs.readFileSync(path.join(libraryPath, 'manifest.json'), 'utf8'),

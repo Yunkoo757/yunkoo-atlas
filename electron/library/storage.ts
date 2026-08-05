@@ -273,7 +273,7 @@ export class LibraryStorage {
       }
 
       const manifest = this.readManifest()
-      if (manifest.schemaVersion === 8) {
+      if (manifest.schemaVersion >= 8 && manifest.schemaVersion < SCHEMA_VERSION) {
         migrateOpenedLibraryV8ToV9({ db: this.db, paths: this.paths, manifest })
         this.closeDatabaseBestEffort()
         this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
@@ -373,12 +373,16 @@ export class LibraryStorage {
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {
-    assertValidPersistedSnapshot(snapshot, 'Library snapshot')
+    const canonicalSnapshot: PersistedSnapshot = {
+      ...snapshot,
+      livePerformanceCycles: snapshot.livePerformanceCycles ?? [],
+    }
+    assertValidPersistedSnapshot(canonicalSnapshot, 'Library snapshot')
     const db = this.requireDb()
     db.run(
       `INSERT INTO meta (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+      [SNAPSHOT_KEY, JSON.stringify(canonicalSnapshot)],
     )
     this.persistDb()
   }

@@ -21,7 +21,7 @@ const DATABASE_SCHEMA_KEY = 'schemaVersion'
 
 export interface SchemaMigrationMarker {
   version: 1
-  fromVersion: 8
+  fromVersion: 8 | 9
   toVersion: number
   phase: MigrationPhase
   recoveryDirectory: typeof SCHEMA_MIGRATION_RECOVERY_DIRECTORY
@@ -89,8 +89,8 @@ function readMigrationMarker(paths: LibraryPaths): SchemaMigrationMarker | null 
     typeof value !== 'object' ||
     value === null ||
     marker.version !== 1 ||
-    marker.fromVersion !== 8 ||
-    marker.toVersion !== SCHEMA_VERSION ||
+    ![8, 9].includes(Number(marker.fromVersion)) ||
+    ![9, SCHEMA_VERSION].includes(Number(marker.toVersion)) ||
     !['prepared', 'database-replaced', 'manifest-replaced'].includes(String(marker.phase)) ||
     marker.recoveryDirectory !== SCHEMA_MIGRATION_RECOVERY_DIRECTORY ||
     typeof marker.databaseSha256 !== 'string' ||
@@ -124,7 +124,9 @@ function copyRecoveryPair(
 ): SchemaMigrationMarker {
   assertRegularFile(paths.dbFile, 'journal.db')
   const manifest = readManifestFile(paths)
-  if (manifest.schemaVersion !== 8) throw new Error('只有 v8 Electron library 可以准备 v9 迁移')
+  if (![8, 9].includes(manifest.schemaVersion) || manifest.schemaVersion >= SCHEMA_VERSION) {
+    throw new Error('只有旧版 Electron library 可以准备当前 schema 迁移')
+  }
 
   const directory = recoveryRoot(paths)
   assertDirectLibraryChild(paths, directory, SCHEMA_MIGRATION_RECOVERY_DIRECTORY)
@@ -140,7 +142,7 @@ function copyRecoveryPair(
 
   const marker: SchemaMigrationMarker = {
     version: 1,
-    fromVersion: 8,
+    fromVersion: manifest.schemaVersion as 8 | 9,
     toVersion: SCHEMA_VERSION,
     phase: 'prepared',
     recoveryDirectory: SCHEMA_MIGRATION_RECOVERY_DIRECTORY,
@@ -158,7 +160,7 @@ function copyRecoveryPair(
     const recoveryManifestValue = JSON.parse(
       fs.readFileSync(recoveryManifest, 'utf8'),
     ) as LibraryManifest
-    assertOpenedPairVersion(reopened, recoveryManifestValue, 8, { requireSnapshot: true })
+    assertOpenedPairVersion(reopened, recoveryManifestValue, marker.fromVersion, { requireSnapshot: true })
   } finally {
     reopened.close()
   }
@@ -181,7 +183,7 @@ function recoveryFiles(paths: LibraryPaths, marker: SchemaMigrationMarker) {
     throw new Error('Schema 迁移恢复文件 checksum 无效，已停止恢复')
   }
   const recoveryManifest = JSON.parse(fs.readFileSync(manifest, 'utf8')) as LibraryManifest
-  if (recoveryManifest.schemaVersion !== 8) throw new Error('Schema 迁移恢复 manifest 不是 v8')
+  if (recoveryManifest.schemaVersion !== marker.fromVersion) throw new Error('Schema 迁移恢复 manifest 版本不匹配')
   return { database, manifest }
 }
 
@@ -192,7 +194,7 @@ export function restoreVerifiedV8Pair(paths: LibraryPaths, marker: SchemaMigrati
   if (
     checksum(paths.dbFile) !== marker.databaseSha256 ||
     checksum(paths.manifestFile) !== marker.manifestSha256 ||
-    readManifestFile(paths).schemaVersion !== 8
+    readManifestFile(paths).schemaVersion !== marker.fromVersion
   ) {
     throw new Error('Schema v8 文件对恢复后校验失败')
   }
@@ -240,7 +242,7 @@ function activeFilesAreTheVerifiedV8Pair(
   marker: SchemaMigrationMarker,
 ): boolean {
   try {
-    return readManifestFile(paths).schemaVersion === 8 &&
+    return readManifestFile(paths).schemaVersion === marker.fromVersion &&
       checksum(paths.dbFile) === marker.databaseSha256 &&
       checksum(paths.manifestFile) === marker.manifestSha256
   } catch {
@@ -413,7 +415,10 @@ export function migrateOpenedLibraryV8ToV9(input: {
   manifest: LibraryManifest
 }): void {
   if (SCHEMA_VERSION < 9) throw new Error('Electron v8 迁移协议需要 schema v9 或更新版本')
-  assertOpenedPairVersion(input.db, input.manifest, 8, { requireSnapshot: true })
+  if (![8, 9].includes(input.manifest.schemaVersion) || input.manifest.schemaVersion >= SCHEMA_VERSION) {
+    throw new Error('Electron schema 迁移仅支持旧版 v8/v9 资料库')
+  }
+  assertOpenedPairVersion(input.db, input.manifest, input.manifest.schemaVersion, { requireSnapshot: true })
 
   const DatabaseClass = databaseConstructor(input.db)
   let marker: SchemaMigrationMarker | null = null
@@ -426,7 +431,7 @@ export function migrateOpenedLibraryV8ToV9(input: {
     const rawSnapshot = readSnapshot(input.db)
     if (rawSnapshot === null) throw new Error('v8 Electron library 缺少 meta.snapshot，无法迁移')
     const canonical = decodeCanonicalSnapshot(rawSnapshot, {
-      version: 8,
+      version: input.manifest.schemaVersion,
       label: 'Electron v8 migration snapshot',
     })
     candidate = new DatabaseClass(input.db.export())
@@ -488,7 +493,7 @@ export function migrateOpenedLibraryV8ToV9(input: {
         DatabaseClass,
         input.paths.dbFile,
         readManifestFile(input.paths),
-        8,
+        marker.fromVersion,
       )
       restored.close()
       removeMigrationRecovery(input.paths, marker)
