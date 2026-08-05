@@ -46,6 +46,18 @@ export function testStrategyAnalysisHrefPreservesDashboardScope(): void {
   )
 }
 
+export function testStrategyAnalysisHrefCarriesCanonicalStatsCycleWhenProvided(): void {
+  const href = strategyAnalysisHref('breakout alpha', {
+    kind: 'live',
+    range: 'all',
+  }, 'old-id')
+
+  assert(
+    href === '/strategy/breakout%20alpha?kind=live&range=all&statsCycle=old-id',
+    '策略分析链接必须可携带已规范的统计周期',
+  )
+}
+
 export function testParseAnalysisScopeDistinguishesExplicitDrilldown(): void {
   const ordinaryStrategyPage = parseAnalysisScope('')
   const dashboardDrilldown = parseAnalysisScope('?kind=paper&range=90d')
@@ -205,6 +217,42 @@ export function testAnalysisScopeIgnoresRiskAccountingStart(): void {
   )
   assert(live.map((item) => item.id).join() === 'old-live,new-live', '风险核算起点不得截断实盘分析')
   assert(all.map((item) => item.id).join() === 'old-live,new-live,paper', '风险核算起点不得截断混合分析')
+}
+
+export function testPerformanceBoundsApplyOnlyToLiveAnalysis(): void {
+  const trades: Trade[] = [
+    { ...closedLiveTrade, id: 'before', closedAt: '2026-06-30' },
+    { ...closedLiveTrade, id: 'inside', closedAt: '2026-07-10' },
+    { ...closedLiveTrade, id: 'after', closedAt: '2026-08-01' },
+    { ...closedLiveTrade, id: 'paper', tradeKind: 'paper', closedAt: '2026-06-30' },
+  ]
+  const bounds = { startInclusive: '2026-07-01', endExclusive: '2026-08-01' }
+
+  const live = filterTradesByAnalysisScope(trades, { kind: 'live', range: 'all' }, new Date(), 4, bounds)
+  const paper = filterTradesByAnalysisScope(trades, { kind: 'paper', range: 'all' }, new Date(), 4, bounds)
+  const all = filterTradesByAnalysisScope(trades, { kind: 'all', range: 'all' }, new Date(), 4, bounds)
+
+  assert(live.map((trade) => trade.id).join() === 'inside', '周期边界必须只保留范围内实盘')
+  assert(paper.map((trade) => trade.id).join() === 'paper', '周期边界不得影响模拟盘分析')
+  assert(all.map((trade) => trade.id).join() === 'before,inside,after,paper', '周期边界不得影响全部类型分析')
+}
+
+export function testPerformanceBoundsIntersectRelativeRanges(): void {
+  const trades: Trade[] = [
+    { ...closedLiveTrade, id: 'cycle-before-range', closedAt: '2026-07-01' },
+    { ...closedLiveTrade, id: 'intersection', closedAt: '2026-07-10' },
+    { ...closedLiveTrade, id: 'range-after-cycle', closedAt: '2026-07-16' },
+  ]
+
+  const result = filterTradesByAnalysisScope(
+    trades,
+    { kind: 'live', range: '30d' },
+    new Date(2026, 6, 16, 12),
+    4,
+    { startInclusive: '2026-07-05', endExclusive: '2026-07-15' },
+  )
+
+  assert(result.map((trade) => trade.id).join() === 'intersection', '周期边界与相对范围必须取交集')
 }
 
 export function testAnalysisScopeUsesFrozenClosedTradingDayKey(): void {

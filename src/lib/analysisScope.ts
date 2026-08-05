@@ -10,6 +10,7 @@ import {
 } from '@/lib/periods'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
+import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 
 export type AnalysisKind = 'live' | 'paper' | 'all'
 export type AnalysisRange = 'all' | 'this-week' | 'this-month' | '30d' | '90d' | 'ytd'
@@ -57,13 +58,23 @@ export function filterTradesByAnalysisScope(
   scope: AnalysisScope,
   now: Date | BusinessDateAnchor = new Date(),
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+  performanceBounds: LivePerformanceCycleBounds | null = null,
 ): Trade[] {
-  const scoped = trades.filter((trade) =>
+  let scoped = trades.filter((trade) =>
     !trade.deletedAt &&
     isAccountTrade(trade) &&
     isExecutedClosed(trade.status) &&
     (scope.kind === 'all' || trade.tradeKind === scope.kind),
   )
+  if (scope.kind === 'live' && performanceBounds !== null) {
+    scoped = scoped.filter((trade) => {
+      const day = (trade.closedTradingDayKey ?? trade.closedAt ?? trade.openedAt).slice(0, 10)
+      return (
+        (performanceBounds.startInclusive === null || day >= performanceBounds.startInclusive) &&
+        (performanceBounds.endExclusive === null || day < performanceBounds.endExclusive)
+      )
+    })
+  }
   if (scope.range === 'all') return scoped
 
   const anchor = now instanceof Date
@@ -113,9 +124,11 @@ export function writeAnalysisScope(
 export function strategyAnalysisHref(
   strategyId: string,
   scope: AnalysisScope,
+  statsCycle?: string,
 ): string {
   const params = new URLSearchParams()
   params.set('kind', scope.kind)
   params.set('range', scope.range)
+  if (statsCycle) params.set('statsCycle', statsCycle)
   return `/strategy/${encodeURIComponent(strategyId)}?${params.toString()}`
 }
