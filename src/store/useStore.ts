@@ -42,6 +42,7 @@ import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTrut
 import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
   completeWeeklyReviewCandidate,
@@ -319,6 +320,7 @@ interface State {
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
   liveStatsStartTradingDayKey: string | null
+  livePerformanceCycles: LivePerformanceCycle[]
   quickNotes: QuickNote[]
   strategies: Strategy[]
   selectedId: string | null
@@ -477,6 +479,7 @@ export const useStore = create<State>()((set, get) => ({
       monthlyRiskLimits: [],
       riskOverrideEvents: [],
       liveStatsStartTradingDayKey: null,
+      livePerformanceCycles: [],
       quickNotes: [],
       strategies: [],
       selectedId: null,

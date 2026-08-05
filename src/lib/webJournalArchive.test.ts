@@ -30,6 +30,7 @@ function makePayload(overrides: Record<string, unknown> = {}): Record<string, un
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
+    livePerformanceCycles: [],
     trades: [
       {
         id: 'trade-1',

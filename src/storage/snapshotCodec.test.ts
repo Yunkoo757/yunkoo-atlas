@@ -51,7 +51,7 @@ export function testSnapshotCodecNormalizesVersionsOneThroughEightToAllContractF
     const canonical = decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version })
     assert(
       canonicalContractJson(Object.keys(canonical).sort()) === canonicalContractJson([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-      `v${version} 必须规范化为完整 21 字段 CanonicalSnapshot`,
+      `v${version} 必须规范化为完整 22 字段 CanonicalSnapshot`,
     )
     for (const field of PERSISTED_SNAPSHOT_FIELDS) {
       assert(canonical[field] !== undefined, `v${version} 字段 ${field} 不得为 undefined`)
@@ -239,6 +239,15 @@ export function testV9DefaultsMissingLiveCycleStartAndPreservesValidValue(): voi
     ).liveStatsStartTradingDayKey === '2026-07-27',
     '合法起点必须往返',
   )
+}
+
+export function testV10RequiresCyclesAndV9DefaultsThem(): void {
+  const full = createFullPersistedSnapshotFixture()
+  const missing = { ...full } as Record<string, unknown>
+  delete missing.livePerformanceCycles
+  assertThrows(() => decodeCanonicalSnapshot(missing, { version: 10 }), 'v10 必须要求周期字段')
+  const legacy = decodeCanonicalSnapshot(missing, { version: 9 })
+  assert(legacy.livePerformanceCycles.length === 0, 'v9 必须迁移为空周期且保持全部历史')
 }
 
 export function testV8BackfillsRiskFields(): void {

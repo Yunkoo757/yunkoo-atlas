@@ -22,7 +22,7 @@ const DATABASE_SCHEMA_KEY = 'schemaVersion'
 export interface SchemaMigrationMarker {
   version: 1
   fromVersion: 8
-  toVersion: 9
+  toVersion: number
   phase: MigrationPhase
   recoveryDirectory: typeof SCHEMA_MIGRATION_RECOVERY_DIRECTORY
   databaseSha256: string
@@ -90,7 +90,7 @@ function readMigrationMarker(paths: LibraryPaths): SchemaMigrationMarker | null 
     value === null ||
     marker.version !== 1 ||
     marker.fromVersion !== 8 ||
-    marker.toVersion !== 9 ||
+    marker.toVersion !== SCHEMA_VERSION ||
     !['prepared', 'database-replaced', 'manifest-replaced'].includes(String(marker.phase)) ||
     marker.recoveryDirectory !== SCHEMA_MIGRATION_RECOVERY_DIRECTORY ||
     typeof marker.databaseSha256 !== 'string' ||
@@ -141,7 +141,7 @@ function copyRecoveryPair(
   const marker: SchemaMigrationMarker = {
     version: 1,
     fromVersion: 8,
-    toVersion: 9,
+    toVersion: SCHEMA_VERSION,
     phase: 'prepared',
     recoveryDirectory: SCHEMA_MIGRATION_RECOVERY_DIRECTORY,
     databaseSha256: checksum(recoveryDatabase),
@@ -254,7 +254,7 @@ export function recoverInterruptedSchemaMigrationFiles(paths: LibraryPaths): Rec
 
   if (marker.phase === 'manifest-replaced') {
     try {
-      if (readManifestFile(paths).schemaVersion === 9) {
+      if (readManifestFile(paths).schemaVersion === SCHEMA_VERSION) {
         return { kind: 'pending-v9-validation', marker }
       }
     } catch {
@@ -412,7 +412,7 @@ export function migrateOpenedLibraryV8ToV9(input: {
   paths: LibraryPaths
   manifest: LibraryManifest
 }): void {
-  if (SCHEMA_VERSION !== 9) throw new Error('Electron v8 迁移协议只支持目标 schema v9')
+  if (SCHEMA_VERSION < 9) throw new Error('Electron v8 迁移协议需要 schema v9 或更新版本')
   assertOpenedPairVersion(input.db, input.manifest, 8, { requireSnapshot: true })
 
   const DatabaseClass = databaseConstructor(input.db)

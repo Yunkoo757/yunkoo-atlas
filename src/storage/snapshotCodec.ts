@@ -12,6 +12,7 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
+import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import type { ActivePersistedSnapshotKey } from '@/storage/persistedKeys'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -127,6 +128,17 @@ function decodeLiveCycleStart(raw: Record<string, unknown>): string | null {
   throw new Error('liveStatsStartTradingDayKey 必须是有效交易日或 null')
 }
 
+function decodeLivePerformanceCycles(
+  raw: Record<string, unknown>,
+  version: number,
+): unknown[] {
+  const value = raw.livePerformanceCycles
+  if (value === undefined && version <= 9) return []
+  if (value === undefined) throw new Error('缺少必需字段 livePerformanceCycles')
+  if (!Array.isArray(value)) throw new Error('livePerformanceCycles 必须是数组')
+  return value
+}
+
 function backfillClosedTradingDayKeys(
   value: unknown,
   tradingDayStartHour: unknown,
@@ -153,7 +165,7 @@ function backfillClosedTradingDayKeys(
 }
 
 /**
- * 纯快照 codec：处理 legacy v1–v8 迁移与严格 v9 快照的校验、规范化。
+ * 纯快照 codec：处理 legacy v1–v9 迁移与严格 v10 快照的校验、规范化。
  * format envelope、merge/replace 策略以及任何持久化提交均由调用方负责。
  */
 export function decodeCanonicalSnapshot(
@@ -181,6 +193,7 @@ export function decodeCanonicalSnapshot(
     monthlyRiskLimits: decodeVersionedArray(raw, 'monthlyRiskLimits', options.version) as PersistedSnapshot['monthlyRiskLimits'],
     riskOverrideEvents: decodeVersionedArray(raw, 'riskOverrideEvents', options.version) as PersistedSnapshot['riskOverrideEvents'],
     liveStatsStartTradingDayKey: decodeLiveCycleStart(raw),
+    livePerformanceCycles: decodeLivePerformanceCycles(raw, options.version) as PersistedSnapshot['livePerformanceCycles'],
     weeklyReviews: (raw.weeklyReviews === undefined ? [] : raw.weeklyReviews) as PersistedSnapshot['weeklyReviews'],
     quickNotes: (raw.quickNotes === undefined ? [] : raw.quickNotes) as PersistedSnapshot['quickNotes'],
     strategies: (raw.strategies === undefined ? [] : raw.strategies) as PersistedSnapshot['strategies'],
@@ -228,6 +241,7 @@ export function decodeCanonicalSnapshot(
       unknownReasons: [...item.unknownReasons],
     })),
     liveStatsStartTradingDayKey: candidate.liveStatsStartTradingDayKey ?? null,
+    livePerformanceCycles: cloneLivePerformanceCycles(candidate.livePerformanceCycles),
     weeklyReviews: normalizeWeeklyReviews(candidate.weeklyReviews),
     quickNotes: normalizeQuickNotes(candidate.quickNotes),
     strategies: normalizedRelations.strategies,

@@ -5,6 +5,7 @@ import type { ShortcutBinding } from '@/shortcuts/types'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import type { ReviewTemplate } from '@/data/reviewTemplates'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import type { QuickNote } from '@/data/quickNotes'
 import type {
   MonthlyRiskLimit,
@@ -13,7 +14,7 @@ import type {
   WeeklyRiskPreparation,
 } from '@/data/riskManagement'
 
-export const SCHEMA_VERSION = 9
+export const SCHEMA_VERSION = 10
 
 export interface LibraryManifest {
   schemaVersion: number
@@ -45,6 +46,8 @@ export interface PersistedSnapshot {
   riskOverrideEvents: RiskOverrideEvent[]
   /** 实盘统计周期起点；null 或缺失表示未启用。 */
   liveStatsStartTradingDayKey?: string | null
+  /** v10：实盘统计周期边界。旧资料库省略时按空数组加载。 */
+  livePerformanceCycles?: LivePerformanceCycle[]
   /** v7：独立于交易记录的周复盘。旧资料库省略时按空数组加载。 */
   weeklyReviews?: WeeklyReview[]
   /** v8：独立于交易体系的随记。不会参与交易统计或随机复盘。 */

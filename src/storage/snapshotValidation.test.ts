@@ -39,6 +39,37 @@ export function testSnapshotValidationRejectsMalformedLiveCycleStart(): void {
   }
 }
 
+export function testSnapshotValidationValidatesLivePerformanceCycles(): void {
+  const cycles = [{
+    id: 'performance-cycle-validation',
+    name: '验证统计周期',
+    startTradingDayKey: '2026-07-14',
+    createdAt: '2026-07-14T00:00:00.000Z',
+  }]
+  const serialized = JSON.stringify(cycles)
+  assertValidPersistedSnapshot({ ...valid, livePerformanceCycles: cycles })
+  assert(JSON.stringify(cycles) === serialized, '合法非空周期集合必须原样通过验证')
+
+  const invalidCollections = [
+    [cycles[0], { ...cycles[0], name: '另一周期', startTradingDayKey: '2026-07-15' }],
+    [cycles[0], { ...cycles[0], id: 'performance-cycle-validation-2', startTradingDayKey: '2026-07-15' }],
+    [cycles[0], { ...cycles[0], id: 'performance-cycle-validation-2', name: '另一周期' }],
+    [{ ...cycles[0], startTradingDayKey: '2026-07-15' }, cycles[0]],
+    [{ ...cycles[0], startTradingDayKey: '2026-02-30' }],
+    [{ ...cycles[0], createdAt: '2026-07-14T00:00:00' }],
+    [{}],
+  ]
+  for (const livePerformanceCycles of invalidCollections) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({ ...valid, livePerformanceCycles })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '重复、无序或畸形实盘统计周期不得进入资料库快照')
+  }
+}
+
 export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalformedExecutionGaps(): void {
   const review = {
     ...createWeeklyReview('2026-07-13'),

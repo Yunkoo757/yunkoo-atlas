@@ -169,6 +169,12 @@ export function createFullPersistedSnapshotFixture(
       unknownReasons: [],
     }],
     liveStatsStartTradingDayKey: '2026-07-13',
+    livePerformanceCycles: [{
+      id: 'performance-cycle-contract',
+      name: '合同统计周期',
+      startTradingDayKey: '2026-07-14',
+      createdAt: '2026-07-14T00:00:00.000Z',
+    }],
     weeklyReviews: [{
       ...weeklyReview,
       status: 'completed',

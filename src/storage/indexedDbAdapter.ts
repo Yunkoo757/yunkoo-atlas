@@ -599,13 +599,17 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
+    const canonicalSnapshot: PersistedSnapshot = {
+      ...snapshot,
+      livePerformanceCycles: snapshot.livePerformanceCycles ?? [],
+    }
     let assetPuts: AssetRecord[] = []
     if (this.preparedAssets.size > 0) {
-      const referencedIds = await collectAssetIdsFromSnapshotCooperatively(snapshot)
+      const referencedIds = await collectAssetIdsFromSnapshotCooperatively(canonicalSnapshot)
       assetPuts = [...this.preparedAssets.values()].filter((asset) => referencedIds.has(asset.id))
     }
     await this.commitAtCurrentRevision(() => ({
-      snapshot,
+      snapshot: canonicalSnapshot,
       assetPuts,
       reason: 'autosave',
     }))

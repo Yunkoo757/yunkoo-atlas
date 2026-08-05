@@ -800,6 +800,10 @@ async function importWebJournalZip(
     'snapshot',
     JSON.stringify(snapshot),
   ])
+  db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
+    'schemaVersion',
+    String(SCHEMA_VERSION),
+  ])
 
   clearDirectory(paths.attachments)
   const createdAt = new Date().toISOString()

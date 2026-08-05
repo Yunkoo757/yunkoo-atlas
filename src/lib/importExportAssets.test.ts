@@ -468,7 +468,7 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
     .sort()
   assert(
     JSON.stringify(actualFields) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'PATH-A writer 经过 JSON.stringify 后仍必须显式拥有全部 21 字段',
+    'PATH-A writer 经过 JSON.stringify 后仍必须显式拥有全部 22 字段',
   )
   assert(JSON.stringify(serialized.shortcuts) === '{}', '空快捷键覆盖必须序列化为空对象')
   assert(JSON.stringify(serialized.tagPresets) === '[]', '缺失标签预设必须序列化为空数组')
@@ -484,7 +484,7 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
   assert(
     JSON.stringify(Object.keys(portableSerialized).sort()) ===
       JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'Web ZIP portable writer 序列化后也必须显式拥有全部 21 字段',
+    'Web ZIP portable writer 序列化后也必须显式拥有全部 22 字段',
   )
 }
 

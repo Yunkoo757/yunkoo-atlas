@@ -4,6 +4,7 @@ import path from 'node:path'
 import initSqlJs, { type Database } from 'sql.js'
 import { createFullPersistedSnapshotFixture } from '../../src/storage/fixtures/fullPersistedSnapshot'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
+import { SCHEMA_VERSION } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
 import {
   migrateOpenedLibraryV8ToV9,
@@ -150,8 +151,8 @@ async function assertCrashBoundaryRecovers(boundary: CrashBoundary): Promise<voi
         '恢复后 manifest 与 journal.db 版本必须一致',
       )
       assert(
-        [8, 9].includes(pair.manifest.schemaVersion),
-        '恢复结果只能是完整 v8 或完整 v9 文件对',
+        [8, SCHEMA_VERSION].includes(pair.manifest.schemaVersion),
+        '恢复结果只能是完整 v8 或完整当前 schema 文件对',
       )
       assert(!fs.existsSync(path.join(library.path, SCHEMA_MIGRATION_MARKER_FILE)), '验证完成后必须清理 marker')
       assert(
@@ -203,7 +204,7 @@ export async function testNormalV8OpenMigratesSnapshotAndBackfillsTradingDays():
     try {
       await storage.open()
       const pair = await readAndDecodePair(library.path)
-      assert(pair.manifest.schemaVersion === 9 && pair.decodedSchemaVersion === 9, '普通 v8 open 必须完成 v9 文件对迁移')
+      assert(pair.manifest.schemaVersion === SCHEMA_VERSION && pair.decodedSchemaVersion === SCHEMA_VERSION, '普通 v8 open 必须完成当前 schema 文件对迁移')
       assert(pair.snapshot.trades[0]?.closedTradingDayKey === '2026-07-26', '时间戳必须按快照内 6 点边界回填')
       assert(pair.snapshot.trades[1]?.closedTradingDayKey === '2026-07-27', '日期字符串不得二次换日')
       assert(pair.snapshot.trades[2]?.closedTradingDayKey === undefined, '非法日期必须保持缺失')
@@ -246,7 +247,7 @@ export async function testCaughtMigrationFailureRestoresTheVerifiedV8Pair(): Pro
     )
 
     await storage.open()
-    assert(storage.readManifest().schemaVersion === 9, '同一实例重试必须真正重新打开并完成迁移')
+    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, '同一实例重试必须真正重新打开并完成迁移')
     const loaded = storage.loadSnapshot()
     assert(loaded !== null, '同一实例重试后必须可读 snapshot')
     loaded.profile = {
@@ -312,7 +313,7 @@ export async function testManifestReplacedMarkerRestoresV8WhenRequiredTablesAreM
     try {
       await reopened.open()
       const pair = await readAndDecodePair(library.path)
-      assert(pair.manifest.schemaVersion === 9, '缺少必需表的 v9 DB 必须先恢复 v8 再迁移')
+      assert(pair.manifest.schemaVersion === SCHEMA_VERSION, '缺少必需表的当前 DB 必须先恢复 v8 再迁移')
     } finally {
       reopened.release()
     }
@@ -366,7 +367,7 @@ export async function testPendingV9RecoveryRestoresWhenTheFormalDatabaseIsMissin
     try {
       await reopened.open()
       const pair = await readAndDecodePair(library.path)
-      assert(pair.manifest.schemaVersion === 9, '正式 DB 丢失时必须恢复 verified v8 pair 后重迁 v9')
+      assert(pair.manifest.schemaVersion === SCHEMA_VERSION, '正式 DB 丢失时必须恢复 verified v8 pair 后重迁当前 schema')
       assert(pair.snapshot.profile.displayName === '合同用户', '正式 DB 丢失恢复不得丢失 snapshot')
     } finally {
       reopened.release()
@@ -442,7 +443,7 @@ export async function testCleanupFailureKeepsMarkerAndAllowsSameInstanceRetry():
     )
 
     await storage.open()
-    assert(storage.readManifest().schemaVersion === 9, '同实例重试必须完成 pending-v9 cleanup')
+    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, '同实例重试必须完成 pending cleanup')
     const loaded = storage.loadSnapshot()
     assert(loaded !== null, 'cleanup 重试后必须可读 snapshot')
     loaded.profile = {
@@ -476,7 +477,7 @@ export async function testPendingV9RecoveryRestoresAfterFormalDatabaseReadFailur
     try {
       await storage.open()
       assert(!failNextRead, 'pending-v9 正式路径必须经过可失败的 readFile 边界')
-      assert(storage.readManifest().schemaVersion === 9, '正式 DB 读取失败必须恢复 v8 后重迁')
+      assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, '正式 DB 读取失败必须恢复 v8 后重迁')
       assert(storage.loadSnapshot()?.profile?.displayName === '合同用户', '读取失败恢复必须保留数据')
     } finally {
       storage.release()
@@ -507,7 +508,7 @@ export async function testPendingV9RecoveryRestoresAfterSqlDatabaseConstructorFa
     try {
       await storage.open()
       assert(!failNextConstruction, 'pending-v9 正式路径必须经过可失败的 SQL constructor 边界')
-      assert(storage.readManifest().schemaVersion === 9, 'SQL constructor 失败必须恢复 v8 后重迁')
+      assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, 'SQL constructor 失败必须恢复 v8 后重迁')
       assert(storage.loadSnapshot()?.profile?.displayName === '合同用户', 'constructor 失败恢复必须保留数据')
     } finally {
       storage.release()
@@ -546,7 +547,7 @@ export async function testRollbackCleanupFailureRetriesFromTheVerifiedActiveV8Pa
     assert(fs.readFileSync(path.join(library.path, 'manifest.json')).equals(library.originalManifest), '正式 manifest 必须已恢复为原始 v8')
 
     await storage.open()
-    assert(storage.readManifest().schemaVersion === 9, '同实例重试必须识别 verified active v8 pair 并完成迁移')
+    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, '同实例重试必须识别 verified active v8 pair 并完成迁移')
     const loaded = storage.loadSnapshot()
     assert(loaded !== null, '回滚 cleanup 重试后必须可读')
     loaded.profile = {

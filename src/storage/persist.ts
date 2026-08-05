@@ -22,6 +22,7 @@ export function pickPersisted(
     monthlyRiskLimits: state.monthlyRiskLimits,
     riskOverrideEvents: state.riskOverrideEvents,
     liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
+    livePerformanceCycles: state.livePerformanceCycles ?? [],
     weeklyReviews: state.weeklyReviews,
     quickNotes: state.quickNotes,
     strategies: state.strategies,

@@ -75,12 +75,17 @@ async function createVerifiableBackup(
           riskPolicyVersions: [],
           monthlyRiskLimits: [],
           riskOverrideEvents: [],
+          livePerformanceCycles: [],
           strategies: [],
           starredIds: [],
           subscribedIds: [],
           pinnedStrategyIds: [],
           display: {},
         }),
+      ])
+      db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
+        'schemaVersion',
+        String(SCHEMA_VERSION),
       ])
     }
     if (includeAsset) {

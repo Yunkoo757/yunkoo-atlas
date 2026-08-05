@@ -3,6 +3,7 @@ import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
+import { assertValidLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -647,6 +648,15 @@ export function assertValidPersistedSnapshot(
     !isValidLiveCycleDayKey(value.liveStatsStartTradingDayKey)
   ) {
     throw new Error(`${label}.liveStatsStartTradingDayKey must be a valid trading day or null`)
+  }
+  if (value.livePerformanceCycles !== undefined) {
+    try {
+      assertValidLivePerformanceCycles(value.livePerformanceCycles)
+    } catch (error) {
+      throw new Error(
+        `${label}.livePerformanceCycles ${error instanceof Error ? error.message : '无效'}`,
+      )
+    }
   }
   if (value.symbolCatalog !== undefined && !isStringArray(value.symbolCatalog)) {
     throw new Error(`${label}.symbolCatalog must be a string array`)

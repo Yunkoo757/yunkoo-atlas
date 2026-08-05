@@ -121,6 +121,7 @@ interface ExportState extends PersistedSlice {
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
   liveStatsStartTradingDayKey?: PersistedSnapshot['liveStatsStartTradingDayKey']
+  livePerformanceCycles?: PersistedSnapshot['livePerformanceCycles']
   weeklyRiskPreparations?: PersistedSnapshot['weeklyRiskPreparations']
   riskPolicyVersions?: PersistedSnapshot['riskPolicyVersions']
   monthlyRiskLimits?: PersistedSnapshot['monthlyRiskLimits']
@@ -149,6 +150,7 @@ export function buildPortableSnapshotFromState(
   return {
     trades: state.trades,
     liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
+    livePerformanceCycles: state.livePerformanceCycles ?? [],
     weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
     riskPolicyVersions: state.riskPolicyVersions ?? [],
     monthlyRiskLimits: state.monthlyRiskLimits ?? [],
@@ -302,6 +304,7 @@ export async function buildExportPayloadFromState(
     version: EXPORT_VERSION,
     trades: state.trades,
     liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
+    livePerformanceCycles: state.livePerformanceCycles ?? [],
     weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
     riskPolicyVersions: state.riskPolicyVersions ?? [],
     monthlyRiskLimits: state.monthlyRiskLimits ?? [],
@@ -359,7 +362,7 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, liveStatsStartTradingDayKey, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, liveStatsStartTradingDayKey, livePerformanceCycles, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
@@ -370,6 +373,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       monthlyRiskLimits,
       riskOverrideEvents,
       liveStatsStartTradingDayKey,
+      livePerformanceCycles,
       weeklyReviews,
       quickNotes,
       strategies,

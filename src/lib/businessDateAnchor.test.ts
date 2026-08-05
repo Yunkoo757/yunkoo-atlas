@@ -29,8 +29,8 @@ export function testCalendarRangesAndBoundaryDelayUseLocalCalendarArithmetic(): 
   assert(delay >= 1_000 && delay < 1_100, '边界前 1ms 应按最小 1 秒安全延迟排程，不依赖固定 24 小时')
 }
 
-export function testDateUnificationDoesNotChangePersistenceSchema(): void {
-  assert(SCHEMA_VERSION === 9, '风险管理持久化包必须升级到 schema v9')
+export function testLivePerformanceCyclesUpgradePersistenceSchema(): void {
+  assert(SCHEMA_VERSION === 10, '实盘统计周期持久化包必须升级到 schema v10')
 }
 
 export function testBusinessDateBoundaryDelayAcrossNewYorkDstTransitions(): void {
