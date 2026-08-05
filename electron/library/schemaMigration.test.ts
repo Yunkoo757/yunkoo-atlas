@@ -116,15 +116,15 @@ export async function testNormalV9OpenMigratesCyclesAndDirectLegacySaveRemainsRe
   } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
 }
 
-export async function testV9MigrationCrashRecoversAndAcceptsHistoricalV9Marker(): Promise<void> {
-  const library = await createV9LibraryFixture()
+export async function testHistoricalV8ToV9MarkerRecoversThenMigratesToCurrentSchema(): Promise<void> {
+  const library = await createV8LibraryFixture()
   const previous = process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY
   process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY = 'after-database-replace'
   try {
     const storage = new LibraryStorage(library.path, { allowCreate: false })
     let crashed = false
     try { await storage.open() } catch { crashed = true } finally { storage.release() }
-    assert(crashed, 'v9 迁移必须在替换边界可中断')
+    assert(crashed, '历史 v8→v9 迁移必须在替换边界可中断')
     const markerPath = path.join(library.path, SCHEMA_MIGRATION_MARKER_FILE)
     const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as Record<string, unknown>
     marker.toVersion = 9
@@ -133,7 +133,7 @@ export async function testV9MigrationCrashRecoversAndAcceptsHistoricalV9Marker()
     else process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY = previous
     const reopened = new LibraryStorage(library.path, { allowCreate: false })
     await reopened.open()
-    assert(reopened.readManifest().schemaVersion === SCHEMA_VERSION, '历史 v9 marker 恢复后必须继续迁移至当前 schema')
+    assert(reopened.readManifest().schemaVersion === SCHEMA_VERSION, '历史 v8→v9 marker 恢复后必须继续迁移至当前 schema')
     reopened.release()
   } finally {
     if (previous === undefined) delete process.env.ATLAS_TEST_SCHEMA_MIGRATION_CRASH_BOUNDARY
