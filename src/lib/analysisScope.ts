@@ -11,6 +11,7 @@ import {
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
+import { closedTradingDayKey } from '@/lib/riskBudget'
 
 export type AnalysisKind = 'live' | 'paper' | 'all'
 export type AnalysisRange = 'all' | 'this-week' | 'this-month' | '30d' | '90d' | 'ytd'
@@ -68,7 +69,8 @@ export function filterTradesByAnalysisScope(
   )
   if (scope.kind === 'live' && performanceBounds !== null) {
     scoped = scoped.filter((trade) => {
-      const day = (trade.closedTradingDayKey ?? trade.closedAt ?? trade.openedAt).slice(0, 10)
+      const day = closedTradingDayKey(trade, tradingDayStartHour)
+      if (day === null) return false
       return (
         (performanceBounds.startInclusive === null || day >= performanceBounds.startInclusive) &&
         (performanceBounds.endExclusive === null || day < performanceBounds.endExclusive)

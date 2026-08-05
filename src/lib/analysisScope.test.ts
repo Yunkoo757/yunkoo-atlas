@@ -255,6 +255,27 @@ export function testPerformanceBoundsIntersectRelativeRanges(): void {
   assert(result.map((trade) => trade.id).join() === 'intersection', '周期边界与相对范围必须取交集')
 }
 
+export function testPerformanceBoundsExcludeTradesWithoutAValidCloseTradingDay(): void {
+  const trades: Trade[] = [
+    { ...closedLiveTrade, id: 'missing-close', openedAt: '2026-07-10', closedAt: null },
+    { ...closedLiveTrade, id: 'malformed-close', openedAt: '2026-07-10', closedAt: '2026-07-40' },
+    { ...closedLiveTrade, id: 'valid-close', openedAt: '2026-06-30', closedAt: '2026-07-10' },
+  ]
+
+  const result = filterTradesByAnalysisScope(
+    trades,
+    { kind: 'live', range: 'all' },
+    new Date(),
+    4,
+    { startInclusive: '2026-07-01', endExclusive: '2026-08-01' },
+  )
+
+  assert(
+    result.map((trade) => trade.id).join() === 'valid-close',
+    '周期范围只能按合法平仓交易日归属，不得以开仓日或畸形平仓日期纳入交易',
+  )
+}
+
 export function testAnalysisScopeUsesFrozenClosedTradingDayKey(): void {
   const result = filterTradesByAnalysisScope(
     [{
