@@ -20,11 +20,23 @@ function focusLink(link: HTMLAnchorElement): void {
 function trade(id: string, day: string, patch: Partial<Trade> = {}): Trade { return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch } }
 async function run() {
   const element = document.getElementById('root'); assert(element, '缺少测试挂载节点')
-  const previous = useStore.getState(); const root = createRoot(element)
+  const previous = useStore.getState(); let root = createRoot(element)
   const cycles: LivePerformanceCycle[] = [{ id: 'members-only', name: '实盘-2025-12-01', startTradingDayKey: '2025-12-01', createdAt: '2025-12-01T00:00:00.000Z' }, { id: 'archive', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }, { id: 'current', name: '实盘-2026-02-01', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' }]
   const old = Array.from({ length: 126 }, (_, i) => trade(`old-${i}`, '2026-01-15'))
   const source = old[0]!
   try {
+    const singleBoundary: LivePerformanceCycle[] = [{ id: 'only-boundary', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }]
+    useStore.setState((state) => ({ trades: [trade('before-boundary', '2025-12-15')], livePerformanceCycles: singleBoundary, display: { ...state.display, tradingDayStartHour: 0 } }))
+    root.render(<MemoryRouter key="single-boundary" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '单边界归档首页必须可达')
+    assert(document.body.textContent?.includes('1 笔已平仓'), '单边界前的旧交易必须生成归档卡片')
+    const earliestLink = document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')
+    assert(earliestLink?.getAttribute('href') === '/live-archive/pre-cycle', '最早边界前归档必须使用稳定入口')
+    earliestLink?.click()
+    await waitFor(() => document.body.textContent?.includes('归档交易') ?? false, '最早边界前归档详情必须可达')
+    assert(document.body.textContent?.includes('TRD-before-boundary'), '最早边界前交易必须能在详情回看')
+
+    root.unmount(); root = createRoot(element)
     const incomplete = trade('incomplete', '2026-01-20', { pnl: null, rMultiple: null, resultSource: undefined })
     const membersOnly = trade('missed-only', '2025-12-15', { status: 'missed', pnl: null, rMultiple: null, resultSource: undefined })
     const deletedSource = { ...source, id: 'source-deleted', deletedAt: '2026-02-03T00:00:00.000Z' }

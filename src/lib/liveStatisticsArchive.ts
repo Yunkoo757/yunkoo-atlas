@@ -39,6 +39,9 @@ export type LiveArchiveProjection = {
   members: Trade[]
 }
 
+/** 归档首页中用于表示最早边界之前记录的稳定入口。 */
+export const LIVE_ARCHIVE_PRE_CYCLE_ID = 'pre-cycle'
+
 function boundsFor(cycles: readonly LivePerformanceCycle[], index: number): LivePerformanceCycleBounds {
   return {
     startInclusive: cycles[index]!.startTradingDayKey,
@@ -62,6 +65,14 @@ export function resolveLiveArchiveScope(
   const requested = requestedKey ?? null
   const currentIndex = cycles.length - 1
   if (requested === 'pending') return { kind: 'pending', archiveId: null, bounds: null, label: '待整理' }
+  if (requested === LIVE_ARCHIVE_PRE_CYCLE_ID) {
+    return {
+      kind: 'archive',
+      archiveId: LIVE_ARCHIVE_PRE_CYCLE_ID,
+      bounds: { startInclusive: null, endExclusive: cycles[0]?.startTradingDayKey ?? null },
+      label: '更早记录',
+    }
+  }
   if (requested === 'all-archives' || requested === 'all') {
     return { kind: 'all-archives', archiveId: null, bounds: latestBounds(cycles), label: '全部归档' }
   }
@@ -190,4 +201,27 @@ export function buildLiveArchiveProjection(
     members,
     summary: buildLiveArchiveSummary(trades, cases, cycle, cycles, tradingDayStartHour, members),
   }
+}
+
+/**
+ * 列出所有有日志成员的历史归档：包括最早边界之前的隐式归档，且不把最新边界当作历史卡片。
+ * 页面只消费此投影，不自行推导日期边界。
+ */
+export function listLiveArchiveProjections(
+  trades: readonly Trade[],
+  cases: readonly Trade[],
+  cycles: readonly LivePerformanceCycle[],
+  tradingDayStartHour: number,
+): LiveArchiveProjection[] {
+  if (cycles.length === 0) return []
+  const preCycle: LivePerformanceCycle = {
+    id: LIVE_ARCHIVE_PRE_CYCLE_ID,
+    name: '更早记录',
+    startTradingDayKey: cycles[0]!.startTradingDayKey,
+    createdAt: cycles[0]!.createdAt,
+  }
+  return [preCycle, ...cycles.slice(0, -1)]
+    .map((cycle) => buildLiveArchiveProjection(trades, cases, cycle, cycles, tradingDayStartHour))
+    .filter((projection) => projection.members.length > 0)
+    .reverse()
 }

@@ -5,6 +5,7 @@ import {
   buildLiveArchiveSummary,
   filterLiveLogRecords,
   filterLivePerformanceRecords,
+  listLiveArchiveProjections,
   resolveLiveArchiveScope,
   resolveLiveRecordBucket,
 } from '@/lib/liveStatisticsArchive'
@@ -120,4 +121,14 @@ export function testNoCycleBoundaryTreatsAllHistoryAsCurrent(): void {
   const historical = trade('historical', { openedAt: '2020-01-01', closedAt: '2020-01-02' })
   assert(resolveLiveArchiveScope([], null).kind === 'current', '无边界时缺省 scope 仍是当前')
   assert(resolveLiveRecordBucket(historical, [], 0) === 'current', '无边界时全部历史实盘都属于当前')
+}
+
+export function testArchiveProjectionsKeepPreBoundaryHistoryWithOneCycle(): void {
+  const oneCycle = [cycle('only', '2026-01-10')]
+  const before = trade('before-boundary', { closedTradingDayKey: '2026-01-09' })
+  const projections = listLiveArchiveProjections([before], [], oneCycle, 0)
+  assert(projections.length === 1, '单边界前的历史记录必须生成一个归档投影')
+  assert(projections[0]!.summary.archiveId === 'pre-cycle', '最早边界前投影必须使用稳定 ID')
+  assert(ids(projections[0]!.members) === 'before-boundary', '最早边界前投影必须包含旧交易')
+  assert(resolveLiveArchiveScope(oneCycle, 'pre-cycle').bounds?.endExclusive === '2026-01-10', '最早边界前范围必须截止于第一条边界')
 }

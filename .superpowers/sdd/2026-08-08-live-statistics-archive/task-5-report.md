@@ -47,3 +47,17 @@ pnpm typecheck
 - 归档 CSS 已整理为多行规则并使用间距 token。
 
 验证：`src/lib/liveStatisticsArchive.test.ts`、`pnpm typecheck`、`git diff --check` 全部通过；归档浏览器夹具在 375×812、768×900、1280×900、1920×1080 均通过。目标文件已检查 UTF-8 无 BOM。
+
+## Fix Round 2：保留最早边界前历史
+
+### RED
+
+最终整包审查补充单边界夹具：只有一条边界且存在边界前交易时，旧实现因 `cycles.slice(0, -1)` 没有任何卡片，浏览器断言“单边界前的旧交易必须生成归档卡片”稳定失败。
+
+### GREEN
+
+- 归属内核新增 `LIVE_ARCHIVE_PRE_CYCLE_ID`、`pre-cycle` 左闭右开范围（`[null, 第一条边界)`）和 `listLiveArchiveProjections()`，统一枚举最早边界前隐式归档与所有非当前边界；只保留有日志成员的投影。
+- 首页改为消费共享投影列表，不再假定数组最后一项之外都是归档；单边界和多边界均可从首页进入稳定的 `/live-archive/pre-cycle` 详情。
+- 补充单元断言与浏览器断言，验证最早边界前交易在卡片和详情可达。
+
+验证：`node scripts/run-regression-tests.mjs --unit-only src/lib/liveStatisticsArchive.test.ts`、`pnpm typecheck`、`git diff --check`、UTF-8 无 BOM 检查通过；浏览器夹具四档 `375×812`、`768×900`、`1280×900`、`1920×1080` 全部 PASS。
