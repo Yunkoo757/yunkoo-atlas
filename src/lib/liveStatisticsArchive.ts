@@ -128,7 +128,7 @@ export function filterLivePerformanceRecords(
   tradingDayStartHour: number,
 ): Trade[] {
   return filterLiveLogRecords(trades, scope, tradingDayStartHour)
-    .filter((trade) => isExecutedClosed(trade.status))
+    .filter((trade) => isExecutedClosed(trade.status) && resolveTradeTruth(trade).isResultComplete)
 }
 
 export function buildLiveArchiveSummary(
@@ -139,17 +139,18 @@ export function buildLiveArchiveSummary(
   tradingDayStartHour: number,
 ): LiveArchiveSummary {
   const scope = resolveLiveArchiveScope(cycles, cycle.id)
+  const archiveLogRecords = filterLiveLogRecords(trades, scope, tradingDayStartHour)
+  const archiveClosedRecords = archiveLogRecords.filter((trade) => isExecutedClosed(trade.status))
   const archiveTrades = filterLivePerformanceRecords(trades, scope, tradingDayStartHour)
-  const sourceIds = new Set(archiveTrades.map((trade) => trade.id))
-  const validResultCount = archiveTrades.filter((trade) => resolveTradeTruth(trade).isResultComplete).length
-  const conflictCount = archiveTrades.filter((trade) => resolveTradeTruth(trade).hasConflict).length
-  const missingResultCount = archiveTrades.filter((trade) => {
+  const sourceIds = new Set(archiveLogRecords.map((trade) => trade.id))
+  const validResultCount = archiveClosedRecords.filter((trade) => resolveTradeTruth(trade).isResultComplete).length
+  const conflictCount = archiveClosedRecords.filter((trade) => resolveTradeTruth(trade).hasConflict).length
+  const missingResultCount = archiveClosedRecords.filter((trade) => {
     const truth = resolveTradeTruth(trade)
     return !truth.isResultComplete && !truth.hasConflict
   }).length
-  const missingCloseDayCount = trades.filter((trade) =>
-    isVisibleLiveRecord(trade) && isExecutedClosed(trade.status)
-      && resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour) === null,
+  const missingCloseDayCount = archiveClosedRecords.filter((trade) =>
+    resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour) === null,
   ).length
   const associatedCaseCount = cases.filter((candidate) =>
     candidate.tradeKind === 'case' && candidate.deletedAt === undefined && !!candidate.sourceTradeId && sourceIds.has(candidate.sourceTradeId),
@@ -160,7 +161,7 @@ export function buildLiveArchiveSummary(
     endExclusiveTradingDayKey: scope.bounds?.endExclusive ?? null,
     trades: archiveTrades,
     resultCompleteness: {
-      closedCount: archiveTrades.length,
+      closedCount: archiveClosedRecords.length,
       validResultCount,
       conflictCount,
       missingResultCount,

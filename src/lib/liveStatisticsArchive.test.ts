@@ -61,6 +61,8 @@ export function testRecordBucketsUseReliableCloseDayAndKeepNonPerformanceRecords
     trade('open', { status: 'open', pnl: null, resultSource: undefined, closedAt: null }),
     trade('missed', { status: 'missed', pnl: null, resultSource: undefined, closedTradingDayKey: '2026-02-11' }),
     trade('missed-no-day', { status: 'missed', pnl: null, resultSource: undefined, closedAt: null }),
+    trade('result-conflict', { closedTradingDayKey: '2026-02-12', pnl: 1, rMultiple: -1, resultSource: 'imported' }),
+    trade('result-missing', { closedTradingDayKey: '2026-02-13', pnl: null, rMultiple: null, resultSource: undefined }),
     trade('case', { tradeKind: 'case', sourceTradeId: 'on-second' }),
     trade('deleted', { deletedAt: '2026-02-11T00:00:00.000Z' }),
   ]
@@ -72,10 +74,10 @@ export function testRecordBucketsUseReliableCloseDayAndKeepNonPerformanceRecords
   assert(resolveLiveRecordBucket(records[6]!, cycles, 0) === 'pending', '已平仓但缺可靠日期必须待整理')
   assert(resolveLiveRecordBucket(records[7]!, cycles, 0) === 'current' && resolveLiveRecordBucket(records[8]!, cycles, 0) === 'current', '计划中和持仓中只归当前日志')
   assert(resolveLiveRecordBucket(records[9]!, cycles, 0) === 'archive' && resolveLiveRecordBucket(records[10]!, cycles, 0) === 'pending', '错过机会按可靠日期归属，缺日期待整理')
-  assert(resolveLiveRecordBucket(records[11]!, cycles, 0) === 'excluded' && resolveLiveRecordBucket(records[12]!, cycles, 0) === 'excluded', '案例与软删除记录必须排除')
-  assert(ids(filterLiveLogRecords(records, resolveLiveArchiveScope(cycles, 'two'), 0)) === 'on-second,legacy,missed', '日志必须包含对应周期的已平仓、错过和待展示记录')
-  assert(ids(filterLivePerformanceRecords(records, resolveLiveArchiveScope(cycles, 'two'), 0)) === 'on-second,legacy', '绩效只能包含有效已执行已平仓实盘')
-  assert(ids(filterLiveLogRecords(records, resolveLiveArchiveScope(cycles, 'gone'), 0)) === 'before,on-first,on-second,legacy,missed', '全部归档必须包含当前边界前的可靠历史记录')
+  assert(resolveLiveRecordBucket(records[13]!, cycles, 0) === 'excluded' && resolveLiveRecordBucket(records[14]!, cycles, 0) === 'excluded', '案例与软删除记录必须排除')
+  assert(ids(filterLiveLogRecords(records, resolveLiveArchiveScope(cycles, 'two'), 0)) === 'on-second,legacy,missed,result-conflict,result-missing', '日志必须包含对应周期的已平仓、错过和待展示记录')
+  assert(ids(filterLivePerformanceRecords(records, resolveLiveArchiveScope(cycles, 'two'), 0)) === 'on-second,legacy', '绩效必须排除结果冲突和缺结果的已平仓实盘')
+  assert(ids(filterLiveLogRecords(records, resolveLiveArchiveScope(cycles, 'gone'), 0)) === 'before,on-first,on-second,legacy,missed,result-conflict,result-missing', '全部归档必须包含当前边界前的可靠历史记录')
 }
 
 export function testArchiveSummarySharesAttributionAndSeparatesResultCompleteness(): void {
@@ -83,23 +85,26 @@ export function testArchiveSummarySharesAttributionAndSeparatesResultCompletenes
     trade('valid', { closedTradingDayKey: '2026-02-10' }),
     trade('conflict', { closedTradingDayKey: '2026-02-11', pnl: 1, rMultiple: -1, resultSource: 'imported' }),
     trade('missing-result', { closedTradingDayKey: '2026-02-12', pnl: null, rMultiple: null, resultSource: undefined }),
+    trade('missed-in-scope', { status: 'missed', pnl: null, resultSource: undefined, closedTradingDayKey: '2026-02-13' }),
     trade('missing-close-day', { closedAt: null }),
     trade('outside', { closedTradingDayKey: '2026-03-10' }),
   ]
   const cases = [
     trade('case-valid', { tradeKind: 'case', sourceTradeId: 'valid' }),
     trade('case-conflict', { tradeKind: 'case', sourceTradeId: 'conflict' }),
+    trade('case-missing', { tradeKind: 'case', sourceTradeId: 'missing-result' }),
+    trade('case-missed', { tradeKind: 'case', sourceTradeId: 'missed-in-scope' }),
     trade('case-outside', { tradeKind: 'case', sourceTradeId: 'outside' }),
     trade('case-unlinked', { tradeKind: 'case' }),
     trade('case-deleted', { tradeKind: 'case', sourceTradeId: 'valid', deletedAt: '' }),
   ]
   const summary = buildLiveArchiveSummary(scopedTrades, cases, cycles[1]!, cycles, 0)
-  assert(ids(summary.trades) === 'valid,conflict,missing-result', '归档列表与统计必须共享同一可靠日期归属')
+  assert(ids(summary.trades) === 'valid', '绩效列表与 KPI 必须只消费结果完整的归档交易')
   assert(summary.startTradingDayKey === '2026-02-10' && summary.endExclusiveTradingDayKey === '2026-03-10', '摘要必须暴露归档边界')
   assert(summary.resultCompleteness.closedCount === 3 && summary.resultCompleteness.validResultCount === 1, '完整度必须按归属后的已平仓实盘计算')
   assert(summary.resultCompleteness.conflictCount === 1 && summary.resultCompleteness.missingResultCount === 1, '结果冲突与缺结果必须独立计算')
-  assert(summary.resultCompleteness.missingCloseDayCount === 1, '缺平仓日必须独立于结果完整度')
-  assert(summary.associatedCaseCount === 2, '案例只能按 sourceTradeId 关联到归档交易，且软删除案例不计数')
+  assert(summary.resultCompleteness.missingCloseDayCount === 0, '单归档不得重复计入无法归属的全局待整理平仓日')
+  assert(summary.associatedCaseCount === 4, '案例必须按 sourceTradeId 关联同周期日志成员，包括错过、冲突与缺结果记录')
 }
 
 export function testNoCycleBoundaryTreatsAllHistoryAsCurrent(): void {
