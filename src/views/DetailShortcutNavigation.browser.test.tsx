@@ -275,6 +275,14 @@ async function run(): Promise<void> {
       () => document.querySelector('[aria-label="返回周复盘"]') !== null,
       '真实详情页没有显示周复盘返回名称',
     )
+    const liveInlineCopy = document.querySelector<HTMLButtonElement>('.dv-copy-id')
+    assert(liveInlineCopy?.textContent?.trim() === `复制 ${weeklyTrade.ref}`, '实盘详情必须保留正文侧栏复制编号入口')
+    liveInlineCopy.click()
+    await waitFor(() => copied.at(-1) === weeklyTrade.ref, '实盘详情侧栏没有复制正确编号')
+    document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
+    await waitFor(() => Boolean(findButton('复制编号')), '实盘详情更多菜单缺少复制编号')
+    findButton('复制编号')?.click()
+    await waitFor(() => copied.at(-1) === weeklyTrade.ref, '实盘详情更多菜单没有复制正确编号')
     assert(document.body.textContent?.includes('周复盘'), '真实详情页面包屑没有显示周复盘')
     document.querySelector<HTMLAnchorElement>('[aria-label="返回周复盘"]')?.click()
     await waitFor(
@@ -347,6 +355,14 @@ async function run(): Promise<void> {
       () => document.querySelector('[aria-label="返回列表"]') !== null,
       '模拟盘非法周复盘来源仍显示周复盘返回名称',
     )
+    const paperInlineCopy = document.querySelector<HTMLButtonElement>('.dv-copy-id')
+    assert(paperInlineCopy?.textContent?.trim() === `复制 ${invalidWeeklyPaper.ref}`, '模拟盘详情必须保留正文侧栏复制编号入口')
+    paperInlineCopy.click()
+    await waitFor(() => copied.at(-1) === invalidWeeklyPaper.ref, '模拟盘详情侧栏没有复制正确编号')
+    document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
+    await waitFor(() => Boolean(findButton('复制编号')), '模拟盘详情更多菜单缺少复制编号')
+    findButton('复制编号')?.click()
+    await waitFor(() => copied.at(-1) === invalidWeeklyPaper.ref, '模拟盘详情更多菜单没有复制正确编号')
     assert(!document.body.textContent?.includes('周复盘'), '模拟盘非法来源不得显示周复盘面包屑')
     document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
     await waitFor(

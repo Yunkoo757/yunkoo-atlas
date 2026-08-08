@@ -177,12 +177,22 @@ async function run(): Promise<void> {
   try {
     await waitFor(() => document.querySelectorAll('.review-session-gallery-slot.is-loading').length === 2,
       '延迟图片期间没有渲染最终数量的骨架槽位')
+    const loadingGallery = document.querySelector<HTMLElement>('.review-session-gallery')
+    assert(loadingGallery?.getAttribute('aria-busy') === 'true', '图片组 settling 期间必须标记 aria-busy')
+    const loadingStatuses = loadingGallery.querySelectorAll<HTMLElement>('[role="status"]')
+    assert(loadingStatuses.length === 1, '图片组只能提供一个加载状态播报')
+    assert(loadingStatuses[0]?.textContent?.trim() === '交易截图载入中…', '图片组缺少简洁的加载状态文案')
+    const loadingStatusRect = loadingStatuses[0]?.getBoundingClientRect()
+    assert(Boolean(loadingStatusRect && loadingStatusRect.width <= 1 && loadingStatusRect.height <= 1),
+      '图片组加载状态必须在视觉上隐藏')
     assert(document.querySelectorAll('.review-session-gallery img').length === 0,
       '整组完成前不得提前暴露第一张图片')
     const before = galleryRects()
     slowGate.resolve()
     await waitFor(() => document.querySelectorAll('.review-session-gallery img').length === 2,
       '全部解码后没有原子显示整组图片')
+    assert(loadingGallery?.getAttribute('aria-busy') === 'false', '图片组 settled 后必须清除 aria-busy')
+    assert(loadingGallery?.querySelectorAll('[role="status"]').length === 0, '图片组 settled 后不得保留加载播报')
     assertRectsEqual(before, galleryRects(), '图片就绪前后画廊几何尺寸发生变化')
 
     findButton('跳过 N')?.click()

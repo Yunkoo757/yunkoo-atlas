@@ -704,7 +704,14 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   return (
     <section className={`review-session-content${hasBody && presentation.images.length > 0 ? ' has-split-content' : ''}`} aria-label="完整复盘内容">
       {presentation.images.length > 0 ? (
-        <div className={`review-session-gallery is-${presentation.images.length === 1 ? 'single' : 'multiple'}`} aria-label={`交易截图，共 ${presentation.images.length} 张`}>
+        <div
+          className={`review-session-gallery is-${presentation.images.length === 1 ? 'single' : 'multiple'}`}
+          aria-label={`交易截图，共 ${presentation.images.length} 张`}
+          aria-busy={!imagesReady}
+        >
+          {!imagesReady ? (
+            <span className="review-session-gallery-status" role="status">交易截图载入中…</span>
+          ) : null}
           {imagesReady ? settledImages.slots.map((slot, index) => (
             slot.status === 'ready' ? (
               <button

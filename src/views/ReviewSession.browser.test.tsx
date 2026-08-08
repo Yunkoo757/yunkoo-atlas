@@ -175,6 +175,9 @@ async function run(): Promise<void> {
     const reopenedSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
     assert(reopenedSourceInputs[1]?.checked === true, '应用后的账户交易设置没有保留到当前视图')
     reopenedSourceInputs[1]?.click()
+    const contentOnlyInput = document.querySelector<HTMLInputElement>('.review-session-content-toggle input[type="checkbox"]')
+    assert(contentOnlyInput?.checked === false, '仅含有效图文默认必须未选中')
+    contentOnlyInput.click()
     findButton('应用设置')?.click()
     await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '关闭账户交易后预览没有恢复案例数量')
 
@@ -184,7 +187,9 @@ async function run(): Promise<void> {
       '开始后没有直接打开完整交易',
     )
     assert(loadReviewSession(manifest.libraryId)?.filters.includeAccountTrades === false,
-      '默认开始的轮次快照不得包含账户交易')
+      '非默认轮次快照不得包含账户交易')
+    assert(loadReviewSession(manifest.libraryId)?.filters.requireContent === true,
+      '非默认轮次快照必须保留仅含有效图文设置')
     assert(loadReviewSession(manifest.libraryId)?.ids.join(',') === reviewCase.id,
       '默认一键开始只能建立案例队列')
     await waitFor(
@@ -256,7 +261,11 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(document.querySelector('.review-session-workspace')), '无法再次随机开始')
     assert(loadReviewSession(manifest.libraryId)?.filters.includeAccountTrades === false,
       '再随机一轮必须沿用已完成轮次的筛选条件')
-    const beforeNoOpAssessment = JSON.stringify(useStore.getState().trades[0])
+    assert(loadReviewSession(manifest.libraryId)?.filters.requireContent === true,
+      '再随机一轮不得把非默认筛选快照硬编码回默认值')
+    const beforeNoOpAssessment = JSON.stringify(
+      useStore.getState().trades.find((item) => item.id === reviewCase.id),
+    )
     const undoCountBeforeNoOp = useStore.getState().undoStack.length
     const repeatedAssessmentAccepted = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
       key: '2',
@@ -271,7 +280,9 @@ async function run(): Promise<void> {
     assert(backFromFinished, '完成页必须允许返回上一条 no-op 评估')
     backFromFinished.click()
     await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 0, 'no-op 评估返回时没有恢复队列位置')
-    assert(JSON.stringify(useStore.getState().trades[0]) === beforeNoOpAssessment, '返回 no-op 评估不得改写 Trade')
+    assert(JSON.stringify(
+      useStore.getState().trades.find((item) => item.id === reviewCase.id),
+    ) === beforeNoOpAssessment, '返回 no-op 评估不得改写队列中的目标案例')
 
     const skipAccepted = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
       key: 'n',
@@ -289,6 +300,25 @@ async function run(): Promise<void> {
       () => document.querySelector('.modal-shell')?.contains(document.activeElement) === true,
       '重新设置后焦点必须进入对话框',
     )
+    const resetSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    const resetContentOnlyInput = document.querySelector<HTMLInputElement>('.review-session-content-toggle input[type="checkbox"]')
+    assert(resetSourceInputs[1]?.checked === false, '重新设置必须恢复完成轮次的账户交易快照')
+    assert(resetContentOnlyInput?.checked === true, '重新设置必须恢复完成轮次的非默认图文快照')
+    resetSourceInputs[1]?.click()
+    resetContentOnlyInput.click()
+    findButton('取消')?.click()
+    await waitFor(() => Boolean(findButton('开启一轮新的复盘')), '取消重新设置后没有返回开始页')
+    assert(document.body.textContent?.includes('可随机复盘 1 条') === true, '取消重新设置不得提交草稿')
+
+    findButton('更多')?.click()
+    await waitFor(() => Boolean(findButton('复盘设置')), '取消后更多菜单没有继续提供复盘设置')
+    findButton('复盘设置')?.click()
+    await waitFor(() => document.querySelector('.modal-shell')?.contains(document.activeElement) === true,
+      '取消后再次打开设置没有恢复焦点')
+    const cancelledSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    const cancelledContentOnlyInput = document.querySelector<HTMLInputElement>('.review-session-content-toggle input[type="checkbox"]')
+    assert(cancelledSourceInputs[1]?.checked === false, '取消后账户交易草稿污染了完成轮次快照')
+    assert(cancelledContentOnlyInput?.checked === true, '取消后图文草稿污染了完成轮次快照')
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)

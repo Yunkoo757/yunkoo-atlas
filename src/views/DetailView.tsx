@@ -1488,6 +1488,15 @@ export function DetailView() {
               管理策略…
             </Link>
           </Section>
+
+          {trade.tradeKind !== 'case' ? (
+            <div className="dv-props-foot">
+              <button type="button" className="dv-copy-id" onClick={copyRef}>
+                <Copy size={13} aria-hidden />
+                <span>复制 {trade.ref}</span>
+              </button>
+            </div>
+          ) : null}
         </>
       )}
     />
