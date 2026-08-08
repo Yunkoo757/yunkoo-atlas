@@ -11,6 +11,12 @@ export type LivePerformanceCycleRouteState = {
   needsReplace: boolean
 }
 
+export type TradeListPerformanceCycleRouteState = {
+  resolved: ResolvedLivePerformanceCycle | null
+  canonicalSearch: string
+  needsReplace: boolean
+}
+
 function copyParams(input: string | URLSearchParams): URLSearchParams {
   return new URLSearchParams(input)
 }
@@ -78,4 +84,48 @@ export function writeTradeListPerformanceCycle(
   if (cycleId === null) params.delete('statsCycle')
   else params.set('statsCycle', cycleId)
   return params
+}
+
+/**
+ * 交易列表把缺省值解释为“不筛选”，因此不能复用分析页的 current 回退语义。
+ * 只有仍存在的显式真实 ID（或虚拟的起点前）才会解析出周期；失效 ID 只清除自身。
+ */
+export function resolveTradeListPerformanceCycleRoute(
+  input: string | URLSearchParams,
+  cycles: readonly LivePerformanceCycle[],
+  enabled: boolean,
+): TradeListPerformanceCycleRouteState {
+  const params = copyParams(input)
+  const originalSearch = searchFor(params)
+  const requested = params.get('statsCycle')?.trim() ?? ''
+  if (!requested) {
+    params.delete('statsCycle')
+    return {
+      resolved: null,
+      canonicalSearch: searchFor(params),
+      needsReplace: searchFor(params) !== originalSearch,
+    }
+  }
+
+  // 外部 URL 同时给出两种周期时，显式绩效周期拥有优先权；即便 ID 已失效也不回落到风险筛选。
+  removeRiskCycle(params)
+  const valid = enabled && (
+    (requested === 'pre-cycle' && cycles.length > 0) ||
+    cycles.some((cycle) => cycle.id === requested)
+  )
+  if (!valid) {
+    params.delete('statsCycle')
+    return {
+      resolved: null,
+      canonicalSearch: searchFor(params),
+      needsReplace: searchFor(params) !== originalSearch,
+    }
+  }
+
+  params.set('statsCycle', requested)
+  return {
+    resolved: resolveLivePerformanceCycle(cycles, requested),
+    canonicalSearch: searchFor(params),
+    needsReplace: searchFor(params) !== originalSearch,
+  }
 }

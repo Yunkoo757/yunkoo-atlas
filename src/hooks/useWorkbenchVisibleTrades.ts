@@ -24,6 +24,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   const display = useStore((state) => state.display)
   const starredIds = useStore((state) => state.starredIds)
   const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const [searchParams] = useSearchParams()
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
@@ -38,6 +39,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     search: searchParams,
     businessDateAnchor,
     liveStatsStartTradingDayKey,
+    livePerformanceCycles,
   }), [
     storedTrades,
     filter.type,
@@ -51,6 +53,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     starredIds,
     display,
     liveStatsStartTradingDayKey,
+    livePerformanceCycles,
     searchParams,
   ])
   const { trades, visible } = derived

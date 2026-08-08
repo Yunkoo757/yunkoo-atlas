@@ -146,6 +146,7 @@ export function useSidebarNavigationModel() {
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
   const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const sidebarPrimaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
@@ -154,15 +155,29 @@ export function useSidebarNavigationModel() {
   const setDisplay = useStore((state) => state.setDisplay)
   const businessDateAnchor = useBusinessDateAnchor()
   const countContext = useMemo(
-    () => ({ trades, starredIds, display, businessDateAnchor, liveStatsStartTradingDayKey }),
-    [trades, starredIds, display, businessDateAnchor, liveStatsStartTradingDayKey],
+    () => ({
+      trades,
+      starredIds,
+      display,
+      businessDateAnchor,
+      liveStatsStartTradingDayKey,
+      livePerformanceCycles,
+    }),
+    [
+      trades,
+      starredIds,
+      display,
+      businessDateAnchor,
+      liveStatsStartTradingDayKey,
+      livePerformanceCycles,
+    ],
   )
 
   const workspaceItems = useMemo(
     () => sidebarWorkspaceItems
       .map((item) => resolveSidebarWorkspaceItem(
         item,
-        { savedViews: savedTradeViews, strategies },
+        { savedViews: savedTradeViews, strategies, livePerformanceCycles },
         path,
       ))
       .filter((item) => !item.invalid)
@@ -182,7 +197,14 @@ export function useSidebarNavigationModel() {
         ...item,
         count: countSidebarTarget(item, countContext),
       })),
-    [countContext, path, savedTradeViews, sidebarWorkspaceItems, strategies],
+    [
+      countContext,
+      livePerformanceCycles,
+      path,
+      savedTradeViews,
+      sidebarWorkspaceItems,
+      strategies,
+    ],
   )
   const selection = useMemo(
     () => resolveSidebarSelection({ pathname: path, search, items: workspaceItems }),

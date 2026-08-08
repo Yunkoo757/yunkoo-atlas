@@ -9,6 +9,14 @@ import type {
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
 import { filterTradesForLiveCycle, parseLiveCycleScope } from '@/lib/liveCycle'
+import {
+  resolvePerformanceAnalysisRoute,
+  resolveTradeListPerformanceCycleRoute,
+} from '@/lib/livePerformanceCycleRoute'
+import {
+  filterTradesByLivePerformanceCycle,
+  type LivePerformanceCycle,
+} from '@/lib/livePerformanceCycles'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
@@ -206,6 +214,49 @@ type WorkbenchTradeDerivationOptions = {
   search: string | URLSearchParams
   businessDateAnchor?: BusinessDateAnchor
   liveStatsStartTradingDayKey?: string | null
+  livePerformanceCycles?: readonly LivePerformanceCycle[]
+}
+
+function filterWorkbenchCycles(
+  trades: Trade[],
+  options: WorkbenchTradeDerivationOptions,
+  tradingDayStartHour: number,
+): Trade[] {
+  const cycles = options.livePerformanceCycles ?? []
+  const analysisKind = options.filter.analysisScope?.kind ?? (
+    options.filter.tradeKind === 'live' || options.filter.tradeKind === 'paper'
+      ? options.filter.tradeKind
+      : 'all'
+  )
+  const performanceRoute = options.filter.type === 'strategy'
+    ? resolvePerformanceAnalysisRoute(options.search, analysisKind, cycles)
+    : resolveTradeListPerformanceCycleRoute(
+        options.search,
+        cycles,
+        analysisKind === 'live',
+      )
+  const performanceScoped = performanceRoute.resolved?.bounds
+    ? filterTradesByLivePerformanceCycle(
+        trades,
+        performanceRoute.resolved,
+        tradingDayStartHour,
+      )
+    : trades
+  const canonicalParams = new URLSearchParams(performanceRoute.canonicalSearch)
+  const requestedLiveCycleScope = canonicalParams.get('liveCycle')
+  const liveCycleScope = options.filter.tradeKind === 'paper' ||
+    options.filter.tradeKind === 'case' ||
+    options.filter.analysisScope?.kind === 'paper'
+    ? 'all'
+    : requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
+      ? parseLiveCycleScope(canonicalParams)
+      : 'all'
+  return filterTradesForLiveCycle(
+    performanceScoped,
+    liveCycleScope,
+    options.liveStatsStartTradingDayKey ?? null,
+    tradingDayStartHour,
+  )
 }
 
 export function deriveWorkbenchVisibleTrades(
@@ -226,18 +277,9 @@ export function deriveWorkbenchVisibleTrades(
     tradingDayStartHour,
     options.businessDateAnchor,
   )
-  const requestedLiveCycleScope = new URLSearchParams(options.search).get('liveCycle')
-  const liveCycleScope = options.filter.tradeKind === 'paper' ||
-    options.filter.tradeKind === 'case' ||
-    options.filter.analysisScope?.kind === 'paper'
-    ? 'all'
-    : requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
-      ? parseLiveCycleScope(options.search)
-      : 'all'
-  const cycleFiltered = filterTradesForLiveCycle(
+  const cycleFiltered = filterWorkbenchCycles(
     routeFiltered,
-    liveCycleScope,
-    options.liveStatsStartTradingDayKey ?? null,
+    options,
     tradingDayStartHour,
   )
   const analysisFiltered = options.filter.analysisScope
@@ -276,6 +318,7 @@ export function countWorkbenchVisibleTrades(options: {
   search: string | URLSearchParams
   businessDateAnchor?: BusinessDateAnchor
   liveStatsStartTradingDayKey?: string | null
+  livePerformanceCycles?: readonly LivePerformanceCycle[]
 }): number {
   const parsedFacets = parseTradeFacets(options.search)
   const facets = options.filter.tradeKind || (
@@ -285,14 +328,6 @@ export function countWorkbenchVisibleTrades(options: {
     : parsedFacets
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
-  const requestedLiveCycleScope = new URLSearchParams(options.search).get('liveCycle')
-  const liveCycleScope = options.filter.tradeKind === 'paper' ||
-    options.filter.tradeKind === 'case' ||
-    options.filter.analysisScope?.kind === 'paper'
-    ? 'all'
-    : requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
-      ? parseLiveCycleScope(options.search)
-      : 'all'
   const starred = new Set(options.starredIds)
   const routeFiltered = options.trades.filter((trade) =>
     !trade.deletedAt && matchesListFilter(
@@ -303,10 +338,9 @@ export function countWorkbenchVisibleTrades(options: {
       options.businessDateAnchor,
     ),
   )
-  const cycleScopedTrades = filterTradesForLiveCycle(
+  const cycleScopedTrades = filterWorkbenchCycles(
     routeFiltered,
-    liveCycleScope,
-    options.liveStatsStartTradingDayKey ?? null,
+    options,
     tradingDayStartHour,
   )
   const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'

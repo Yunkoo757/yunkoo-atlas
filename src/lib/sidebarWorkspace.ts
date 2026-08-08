@@ -3,6 +3,7 @@ import type { Trade } from '@/data/trades'
 import {
   savedViewSearch,
   normalizeSavedViewPath,
+  resolveTradeViewPerformanceCycleLabel,
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
 import {
@@ -16,6 +17,7 @@ import { isValidPeriodSlug, type BusinessDateAnchor } from '@/lib/periods'
 import { parseAnalysisScope } from '@/lib/analysisScope'
 import { buildMissedOpportunitySummary } from '@/lib/missedOpportunities'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 
 /** 可跨工作区配置可见范围的侧栏能力 */
 export type SidebarCapabilityId = 'missed' | 'active'
@@ -42,6 +44,7 @@ export type ResolvedSidebarWorkspaceItem = {
   search: string
   icon: 'active' | 'favorites' | 'missed' | 'paper' | 'saved-view' | 'strategy' | 'case-view'
   invalid: boolean
+  inactive?: boolean
 }
 
 export const SIDEBAR_QUICK_WORKSPACE_LABELS: Record<SidebarQuickWorkspace, string> = {
@@ -80,6 +83,7 @@ export type SidebarCountContext = {
   display: DisplayPrefs
   businessDateAnchor?: BusinessDateAnchor
   liveStatsStartTradingDayKey?: string | null
+  livePerformanceCycles?: readonly LivePerformanceCycle[]
 }
 
 export const MAX_PINNED_SIDEBAR_ITEMS = 8
@@ -419,7 +423,11 @@ const CASE_VIEW_LABELS: Record<Exclude<ReviewCaseScope, 'all'>, string> = {
 
 export function resolveSidebarWorkspaceItem(
   item: SidebarWorkspaceItem,
-  sources: { savedViews: SavedTradeView[]; strategies: Strategy[] },
+  sources: {
+    savedViews: SavedTradeView[]
+    strategies: Strategy[]
+    livePerformanceCycles?: readonly LivePerformanceCycle[]
+  },
   currentPathname = '/list',
 ): ResolvedSidebarWorkspaceItem {
   const target = item.target
@@ -454,14 +462,27 @@ export function resolveSidebarWorkspaceItem(
   }
   if (target.kind === 'saved-view') {
     const view = sources.savedViews.find((candidate) => candidate.id === target.viewId)
+    const requestedStatsCycle = view
+      ? new URLSearchParams(view.search).get('statsCycle')
+      : null
+    const inactive = Boolean(
+      view &&
+      sources.livePerformanceCycles !== undefined &&
+      requestedStatsCycle !== null &&
+      resolveTradeViewPerformanceCycleLabel(
+        view.search,
+        sources.livePerformanceCycles,
+      ) === null,
+    )
     return {
       item,
       key,
       label: view?.name ?? '已删除的保存视图',
       pathname: view?.pathname ?? '/list',
-      search: view ? savedViewSearch(view) : '',
+      search: view ? savedViewSearch(view, sources.livePerformanceCycles) : '',
       icon: 'saved-view',
       invalid: !view,
+      inactive,
     }
   }
   if (target.kind === 'strategy') {
@@ -552,7 +573,7 @@ export function resolveSidebarSelection(options: {
   modifiedWorkspaceItemId?: string
 } {
   const pathname = normalizeTargetPath(options.pathname)
-  const validItems = options.items.filter((item) => !item.invalid)
+  const validItems = options.items.filter((item) => !item.invalid && !item.inactive)
 
   const exact = validItems
     .filter((item) => {

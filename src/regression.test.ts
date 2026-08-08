@@ -99,6 +99,8 @@ import {
   savedViewMatchesLocation,
   suggestSavedViewName,
 } from '@/lib/savedTradeViews'
+import { resolveTradeListPerformanceCycleRoute } from '@/lib/livePerformanceCycleRoute'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import {
   filterTradesByFacets,
   getReviewCaseActivityTime,
@@ -1282,6 +1284,60 @@ export function testLiveWorkbenchAndSidebarCountsPreserveHistoryByDefault(): voi
   assert(countSidebarRoute('/list', '?liveCycle=current', context) === 1, '显式当前周期侧栏计数必须与列表一致')
   assert(paper.map((item) => item.id).join() === 'paper', '模拟盘计数不得受实盘周期影响')
   assert(cases.map((item) => item.id).join() === 'case', '案例计数不得受实盘周期影响')
+}
+
+export function testExplicitPerformanceCycleListRoutesStayStableAndClearInvalidIds(): void {
+  const cycles: LivePerformanceCycle[] = [
+    {
+      id: 'first-cycle-id',
+      name: '第一期',
+      startTradingDayKey: '2026-04-01',
+      createdAt: '2026-04-01T00:00:00.000Z',
+    },
+    {
+      id: 'second-cycle-id',
+      name: '第二期',
+      startTradingDayKey: '2026-07-01',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    },
+  ]
+  const selected = resolveTradeListPerformanceCycleRoute(
+    '?statsCycle=second-cycle-id&liveCycle=pre-cycle&symbol=BTCUSDT',
+    cycles,
+    true,
+  )
+  assert(selected.resolved?.cycleId === 'second-cycle-id', '交易列表必须解析显式真实周期 ID')
+  assert(!selected.canonicalSearch.includes('liveCycle'), '统计周期必须优先并移除风险周期')
+  assert(selected.canonicalSearch.includes('symbol=BTCUSDT'), '列表规范化必须保留无关条件')
+
+  const withNewCurrent = resolveTradeListPerformanceCycleRoute(
+    selected.canonicalSearch,
+    [
+      ...cycles,
+      {
+        id: 'third-cycle-id',
+        name: '第三期',
+        startTradingDayKey: '2026-08-01',
+        createdAt: '2026-08-01T00:00:00.000Z',
+      },
+    ],
+    true,
+  )
+  assert(
+    withNewCurrent.resolved?.cycleId === 'second-cycle-id' &&
+      withNewCurrent.canonicalSearch.includes('statsCycle=second-cycle-id'),
+    '新周期创建后既有显式列表 URL 不得漂移到 current',
+  )
+
+  const removed = resolveTradeListPerformanceCycleRoute(
+    selected.canonicalSearch,
+    [cycles[0]!],
+    true,
+  )
+  assert(removed.resolved === null, '失效列表周期不得回退到当前周期')
+  assert(!removed.canonicalSearch.includes('statsCycle'), '失效列表周期必须只清除 statsCycle')
+  assert(removed.canonicalSearch.includes('symbol=BTCUSDT'), '失效周期清理不得丢失无关筛选')
+  assert(removed.needsReplace, '失效周期清理必须使用 replace 规范化')
 }
 
 export function testTradeFiltersReexportTheWorkbenchRuleSourceWithoutBehaviorDrift(): void {

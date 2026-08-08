@@ -28,6 +28,7 @@ import { clampPopoverLeft } from '@/lib/popoverPosition'
 import {
   canonicalizeTradeViewSearch,
   normalizeSavedViewPath,
+  resolveTradeViewPerformanceCycleLabel,
   savedViewMatchesLocation,
 } from '@/lib/savedTradeViews'
 import { getActiveWorkspaceView, type WorkspaceKind } from '@/lib/workspaceViews'
@@ -55,6 +56,7 @@ const KNOWN_TRADE_VIEW_PARAMS = new Set([
   'kind',
   'range',
   'liveCycle',
+  'statsCycle',
 ])
 
 export function TradeFilters({
@@ -71,6 +73,7 @@ export function TradeFilters({
   const [searchParams, setSearchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
   const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const symbolIcons = useStore((state) => state.symbolIcons)
@@ -97,6 +100,11 @@ export function TradeFilters({
   const usesQueryScope = isCaseWorkspace || isPaperWorkspace
   const allowsLiveCycleScope = Boolean(liveStatsStartTradingDayKey) &&
     !isCaseWorkspace && !isPaperWorkspace && filter.analysisScope?.kind !== 'paper'
+  const allowsPerformanceCycleScope = livePerformanceCycles.length > 0 &&
+    !isCaseWorkspace &&
+    !isPaperWorkspace &&
+    filter.analysisScope?.kind !== 'paper' &&
+    filter.analysisScope?.kind !== 'all'
   const allowsTradeKindFacet = !filter.tradeKind && (
     !filter.analysisScope || filter.analysisScope.kind === 'all'
   )
@@ -127,17 +135,28 @@ export function TradeFilters({
     const next = new URLSearchParams(searchParams)
     if (value) next.set(key, value)
     else next.delete(key)
+    if (value && key === 'statsCycle') next.delete('liveCycle')
+    if (value && key === 'liveCycle') next.delete('statsCycle')
     setSearchParams(next, { replace: true })
   }
 
   useEffect(() => {
     const current = searchParams.toString()
-    const canonical = canonicalizeTradeViewSearch(searchParams)
+    const canonical = canonicalizeTradeViewSearch(searchParams, livePerformanceCycles)
     if (!allowsTradeKindFacet) canonical.delete('tradeKind')
+    if (!allowsPerformanceCycleScope) canonical.delete('statsCycle')
     if (!liveStatsStartTradingDayKey) canonical.delete('liveCycle')
     else if (!allowsLiveCycleScope) canonical.delete('liveCycle')
     if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
-  }, [allowsLiveCycleScope, allowsTradeKindFacet, liveStatsStartTradingDayKey, searchParams, setSearchParams])
+  }, [
+    allowsLiveCycleScope,
+    allowsPerformanceCycleScope,
+    allowsTradeKindFacet,
+    livePerformanceCycles,
+    liveStatsStartTradingDayKey,
+    searchParams,
+    setSearchParams,
+  ])
 
   const activeFilters: ActiveFilter[] = []
   const quickPeriod = ['/period/this-week', '/period/this-month'].includes(
@@ -160,6 +179,10 @@ export function TradeFilters({
   }
 
   const facetLabels: Array<[string, string]> = [
+    [
+      'statsCycle',
+      resolveTradeViewPerformanceCycleLabel(searchParams, livePerformanceCycles) ?? '',
+    ],
     [
       'liveCycle',
       searchParams.get('liveCycle') === 'pre-cycle'
@@ -250,7 +273,7 @@ export function TradeFilters({
   }
   const searchText = searchParams.toString()
   const currentSavedView = savedViews.some((view) =>
-    savedViewMatchesLocation(view, location.pathname, searchText),
+    savedViewMatchesLocation(view, location.pathname, searchText, livePerformanceCycles),
   )
   const visibleActiveFilters = currentSavedView
     ? activeFilters.filter((item) => item.key.startsWith('unsupported:'))
@@ -406,6 +429,20 @@ export function TradeFilters({
                       ['', '全部实盘'],
                       ['current', '当前周期'],
                       ['pre-cycle', '规则前'],
+                    ]}
+                  />
+                ) : null}
+                {allowsPerformanceCycleScope ? (
+                  <FilterSelect
+                    label="统计周期"
+                    value={searchParams.get('statsCycle') ?? ''}
+                    onChange={(value) => setParam('statsCycle', value)}
+                    options={[
+                      ['', '不按统计周期'],
+                      ...[...livePerformanceCycles]
+                        .reverse()
+                        .map((cycle) => [cycle.id, cycle.name] as [string, string]),
+                      ['pre-cycle', '统计起点前'],
                     ]}
                   />
                 ) : null}

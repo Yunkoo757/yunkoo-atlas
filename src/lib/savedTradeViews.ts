@@ -1,5 +1,6 @@
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 
 export type SavedTradeView = {
   id: string
@@ -80,6 +81,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** 清理已知单选 facet，保留 symbol/tag/source 等自由文本或未来参数。 */
 export function canonicalizeTradeViewSearch(
   search: string | URLSearchParams | Record<string, string>,
+  cycles?: readonly LivePerformanceCycle[],
 ): URLSearchParams {
   const params = new URLSearchParams(
     search instanceof URLSearchParams ? search.toString() : search,
@@ -93,7 +95,31 @@ export function canonicalizeTradeViewSearch(
     }
     if (raw !== value || params.getAll(key).length > 1) params.set(key, value)
   }
+  const rawStatsCycle = params.get('statsCycle')
+  const statsCycle = rawStatsCycle?.trim() ?? ''
+  if (rawStatsCycle !== null) {
+    // 显式绩效周期始终优先，避免失效 ID 清理后意外启用风险周期。
+    params.delete('liveCycle')
+    const valid = cycles === undefined || (
+      (statsCycle === 'pre-cycle' && cycles.length > 0) ||
+      cycles.some((cycle) => cycle.id === statsCycle)
+    )
+    if (!statsCycle || !valid) params.delete('statsCycle')
+    else if (rawStatsCycle !== statsCycle || params.getAll('statsCycle').length > 1) {
+      params.set('statsCycle', statsCycle)
+    }
+  }
   return params
+}
+
+export function resolveTradeViewPerformanceCycleLabel(
+  search: string | URLSearchParams | Record<string, string>,
+  cycles: readonly LivePerformanceCycle[],
+): string | null {
+  const statsCycle = canonicalizeTradeViewSearch(search, cycles).get('statsCycle')
+  if (statsCycle === 'pre-cycle') return '统计周期：统计起点前'
+  const cycle = cycles.find((candidate) => candidate.id === statsCycle)
+  return cycle ? `统计周期：${cycle.name}` : null
 }
 
 export function normalizeSavedViewPath(pathname: string): string {
@@ -124,16 +150,22 @@ function normalizeSearch(search: unknown): Record<string, string> {
   return searchParamsToRecord(new URLSearchParams(normalized))
 }
 
-export function searchParamsToRecord(searchParams: URLSearchParams): Record<string, string> {
+export function searchParamsToRecord(
+  searchParams: URLSearchParams,
+  cycles?: readonly LivePerformanceCycle[],
+): Record<string, string> {
   return Object.fromEntries(
-    [...canonicalizeTradeViewSearch(searchParams).entries()]
+    [...canonicalizeTradeViewSearch(searchParams, cycles).entries()]
       .filter(([key, value]) => Boolean(key.trim()) && Boolean(value.trim()))
       .sort(([left], [right]) => left.localeCompare(right)),
   )
 }
 
-export function savedViewSearch(view: SavedTradeView): string {
-  const search = canonicalizeTradeViewSearch(view.search).toString()
+export function savedViewSearch(
+  view: SavedTradeView,
+  cycles?: readonly LivePerformanceCycle[],
+): string {
+  const search = canonicalizeTradeViewSearch(view.search, cycles).toString()
   return search ? `?${search}` : ''
 }
 
@@ -181,12 +213,21 @@ export function savedViewMatchesLocation(
   view: SavedTradeView,
   pathname: string,
   search: string | URLSearchParams,
+  cycles?: readonly LivePerformanceCycle[],
 ): boolean {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
+  const requestedStatsCycle = new URLSearchParams(view.search).get('statsCycle')
+  if (
+    cycles !== undefined &&
+    requestedStatsCycle !== null &&
+    resolveTradeViewPerformanceCycleLabel(view.search, cycles) === null
+  ) {
+    return false
+  }
   return (
     normalizeSavedViewPath(view.pathname) === normalizeSavedViewPath(pathname) &&
-    new URLSearchParams(normalizeSearch(view.search)).toString() ===
-      new URLSearchParams(searchParamsToRecord(params)).toString()
+    new URLSearchParams(searchParamsToRecord(new URLSearchParams(view.search), cycles)).toString() ===
+      new URLSearchParams(searchParamsToRecord(params, cycles)).toString()
   )
 }
 
