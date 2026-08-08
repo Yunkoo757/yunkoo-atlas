@@ -5,6 +5,9 @@ import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { useStore } from '@/store/useStore'
 import { LiveArchiveView } from '@/views/LiveArchiveView'
 import { DetailView } from '@/views/DetailView'
+import { ListView } from '@/views/ListView'
+import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
+import { getTradingDayKey } from '@/lib/periods'
 
 declare global { interface Window { __liveArchiveViewTest?: Promise<void> } }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
@@ -45,6 +48,46 @@ async function run() {
     await waitFor(() => document.querySelectorAll('[data-archive-trade-row]').length === 0, '日期筛选必须按平仓业务日过滤')
     root.render(<MemoryRouter key="deleted-source-case" initialEntries={['/trade/case-source-deleted']}><Routes><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('来源已删除（来源不可用）') ?? false, '删除来源后案例仍必须可打开并说明来源不可用')
+
+    root.render(<MemoryRouter key="archive-fact-edit" initialEntries={['/trade/old-0']}><Routes><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('TRD-old-0') ?? false, '归档交易详情必须可打开')
+    const archiveBefore = JSON.stringify(useStore.getState().trades)
+    ;[...document.querySelectorAll<HTMLButtonElement>('.dv-section-head')].find((button) => button.textContent?.trim() === '时间')?.click()
+    await waitFor(() => Boolean(document.querySelector('.dv-datarow-btn')), '时间区必须可展开')
+    ;[...document.querySelectorAll<HTMLButtonElement>('.dv-datarow-btn')].find((button) => button.textContent?.trim().startsWith('平仓'))?.click()
+    await waitFor(() => Boolean(document.querySelector('[role="dialog"][aria-label="平仓日历"]')), '编辑平仓日必须打开日期选择器')
+    document.querySelector<HTMLButtonElement>('button[aria-label="下个月"]')?.click()
+    await waitFor(() => Boolean(document.querySelector('button[aria-label="2026-02-02"]')), '日期选择器必须可选择跨边界日期')
+    document.querySelector<HTMLButtonElement>('button[aria-label="2026-02-02"]')?.click()
+    await waitFor(() => document.body.textContent?.includes('保存后将离开当前归档') ?? false, '归档交易改到当前范围必须先确认')
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')?.click()
+    await waitFor(() => !(document.body.textContent?.includes('保存后将离开当前归档') ?? false), '取消必须关闭归属确认')
+    assert(JSON.stringify(useStore.getState().trades) === archiveBefore, '取消详情事实修正不得写入 Store')
+    ;[...document.querySelectorAll<HTMLButtonElement>('.dv-datarow-btn')].find((button) => button.textContent?.trim().startsWith('平仓'))?.click()
+    await waitFor(() => Boolean(document.querySelector('button[aria-label="2026-02-02"]')), '再次编辑必须仍能选择跨边界日期')
+    document.querySelector<HTMLButtonElement>('button[aria-label="2026-02-02"]')?.click()
+    await waitFor(() => Boolean([...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '确认保存')), '确认前不得直接写入详情事实')
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '确认保存')?.click()
+    await waitFor(() => useStore.getState().trades.find((item) => item.id === 'old-0')?.closedTradingDayKey === '2026-02-02', '确认后必须更新平仓业务日')
+    const moved = useStore.getState().trades.find((item) => item.id === 'old-0')
+    assert(moved?.closedAt === '2026-02-02', '确认后必须保存修改后的 closedAt')
+    assert(moved && resolveLiveRecordBucket(moved, cycles, 0) === 'current', '确认后归档交易必须进入当前范围')
+
+    const repairDay = getTradingDayKey(new Date(), 0)
+    root.render(<MemoryRouter key="pending-fact-edit" initialEntries={['/trade/pending']}><Routes><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('TRD-pending') ?? false, '待整理交易详情必须可打开')
+    ;[...document.querySelectorAll<HTMLButtonElement>('.dv-section-head')].find((button) => button.textContent?.trim() === '时间')?.click()
+    await waitFor(() => Boolean(document.querySelector('.dv-datarow-btn')), '待整理交易的时间区必须可展开')
+    ;[...document.querySelectorAll<HTMLButtonElement>('.dv-datarow-btn')].find((button) => button.textContent?.trim().startsWith('平仓'))?.click()
+    await waitFor(() => Boolean(document.querySelector(`button[aria-label="${repairDay}"]`)), '待整理交易必须可选择合法平仓日')
+    document.querySelector<HTMLButtonElement>(`button[aria-label="${repairDay}"]`)?.click()
+    await waitFor(() => useStore.getState().trades.find((item) => item.id === 'pending')?.closedTradingDayKey === repairDay, '待整理修复后必须冻结合法平仓业务日')
+    const repaired = useStore.getState().trades.find((item) => item.id === 'pending')
+    assert(repaired && resolveLiveRecordBucket(repaired, cycles, 0) === 'current', '待整理修复后必须按本地边界进入当前范围')
+    root.render(<MemoryRouter key="pending-list" initialEntries={['/list?statsCycle=pending']}><Routes><Route path="/list" element={<ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} />} /></Routes></MemoryRouter>)
+    await waitFor(() => !document.querySelector('[data-trade-id="pending"]'), '修复后记录必须从待整理列表消失')
+    root.render(<MemoryRouter key="current-list" initialEntries={['/list']}><Routes><Route path="/list" element={<ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} />} /></Routes></MemoryRouter>)
+    await waitFor(() => Boolean(document.querySelector('[data-trade-id="pending"]')), '修复后记录必须在当前日志可见')
   } finally { root.unmount(); useStore.setState({ trades: previous.trades, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display }) }
 }
 window.__liveArchiveViewTest = run()
