@@ -1,5 +1,11 @@
 import { createFullPersistedSnapshotFixture } from '../src/storage/fixtures/fullPersistedSnapshot'
 import { LibraryStorage } from './library/storage'
+import { resolveLiveRecordBucket } from '../src/lib/liveStatisticsArchive'
+import { createHash } from 'node:crypto'
+
+function snapshotRevision(snapshot: unknown): string {
+  return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
+}
 
 function snapshot(label: string, noteBytes = 0) {
   const value = createFullPersistedSnapshotFixture()
@@ -14,6 +20,17 @@ function snapshot(label: string, noteBytes = 0) {
       note: `<p>${'x'.repeat(noteBytes)}</p>`,
     }
   }
+  value.trades = [
+    ...value.trades,
+    {
+      ...value.trades[0],
+      id: 'trade-archive-contract',
+      ref: 'TRD-ARCHIVE-CONTRACT',
+      openedAt: '2026-07-12T08:00:00.000Z',
+      closedAt: '2026-07-13T08:00:00.000Z',
+      closedTradingDayKey: '2026-07-13',
+    },
+  ]
   return value
 }
 
@@ -39,9 +56,15 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
   await storage.open()
 
   if (mode === 'seed') {
-    storage.saveSnapshot(snapshot('confirmed-revision-1'))
+    const confirmed = snapshot('confirmed-revision-1')
+    storage.saveSnapshot(confirmed)
     storage.release()
-    send({ type: 'seeded', confirmed: 'confirmed-revision-1' })
+    send({
+      type: 'seeded',
+      confirmed: 'confirmed-revision-1',
+      snapshotRevision: snapshotRevision(confirmed),
+      livePerformanceCycleIds: confirmed.livePerformanceCycles.map((cycle) => cycle.id),
+    })
     return
   }
 
@@ -58,10 +81,19 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
   if (mode === 'verify') {
     const loaded = storage.loadSnapshot()
     storage.release()
+    const tradingDayStartHour = loaded?.display?.tradingDayStartHour ?? 0
     send({
       type: 'verified',
       displayName: loaded?.profile?.displayName ?? null,
       noteLength: loaded?.trades[0]?.note.length ?? null,
+      snapshotRevision: loaded ? snapshotRevision(loaded) : null,
+      livePerformanceCycleIds: loaded?.livePerformanceCycles.map((cycle) => cycle.id) ?? [],
+      currentTradeIds: loaded?.trades
+        .filter((trade) => resolveLiveRecordBucket(trade, loaded.livePerformanceCycles, tradingDayStartHour) === 'current')
+        .map((trade) => trade.id) ?? [],
+      archiveTradeIds: loaded?.trades
+        .filter((trade) => resolveLiveRecordBucket(trade, loaded.livePerformanceCycles, tradingDayStartHour) === 'archive')
+        .map((trade) => trade.id) ?? [],
     })
     return
   }

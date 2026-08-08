@@ -133,6 +133,9 @@ try {
   if (seed.code !== 0 || !seed.messages.some((message) => message?.type === 'seeded')) {
     throw new Error(`无法建立最后确认 revision：${seed.stderr}`)
   }
+  const seeded = seed.messages.find((message) => message?.type === 'seeded')
+  const expectedLivePerformanceCycleIds = seeded?.livePerformanceCycleIds ?? []
+  const expectedSnapshotRevision = seeded?.snapshotRevision ?? null
 
   let tempFileObserved = null
   let killRequestedAt = null
@@ -182,6 +185,10 @@ try {
   if (verify.code !== 0 || !verified) throw new Error(`强杀后无法重新打开资料库：${verify.stderr}`)
   const lastConfirmedRecovered = verified.displayName === 'confirmed-revision-1'
   const unconfirmedAbsent = verified.displayName !== 'unconfirmed-revision-2'
+  const livePerformanceCycleIdsRecovered = JSON.stringify(verified.livePerformanceCycleIds) === JSON.stringify(expectedLivePerformanceCycleIds)
+  const currentTradeIdsRecovered = verified.currentTradeIds?.includes('trade-contract') === true
+  const archiveTradeIdsRecovered = verified.archiveTradeIds?.includes('trade-archive-contract') === true
+  const snapshotRevisionRecovered = verified.snapshotRevision === expectedSnapshotRevision
   const schemaMigration = []
   for (const boundary of [
     'before-database-replace',
@@ -226,13 +233,23 @@ try {
       lastConfirmedRecovered,
       unconfirmedMemoryEditPromised: false,
       unconfirmedPendingRevisionAbsent: unconfirmedAbsent,
+      snapshotRevision: verified.snapshotRevision,
+      expectedSnapshotRevision,
+      livePerformanceCycleIds: verified.livePerformanceCycleIds,
+      expectedLivePerformanceCycleIds,
+      currentTradeIds: verified.currentTradeIds,
+      archiveTradeIds: verified.archiveTradeIds,
+      liveArchiveScopeRecovered: livePerformanceCycleIdsRecovered && currentTradeIdsRecovered && archiveTradeIdsRecovered,
+      snapshotRevisionRecovered,
     },
     schemaMigration,
     status: saveStartingMessage?.runtime === 'electron-main' &&
       saveStartingMessage?.processId === crash.pid &&
       typeof saveStartingMessage?.electronVersion === 'string' && saveStartingMessage.electronVersion.length > 0 &&
       killSignalSent && crash.signal === 'SIGKILL' && crash.code === null &&
-      lastConfirmedRecovered && unconfirmedAbsent && schemaMigrationRecovered ? 'pass' : 'fail',
+      lastConfirmedRecovered && unconfirmedAbsent && livePerformanceCycleIdsRecovered &&
+      currentTradeIdsRecovered && archiveTradeIdsRecovered && snapshotRevisionRecovered &&
+      schemaMigrationRecovered ? 'pass' : 'fail',
   }
   const platformName = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : process.platform
   const outputPath = path.resolve(explicitOutput ?? path.join(
