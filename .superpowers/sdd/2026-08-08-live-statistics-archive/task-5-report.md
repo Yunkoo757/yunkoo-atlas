@@ -89,3 +89,17 @@ pnpm typecheck
 - 增加对应警示样式，沿用现有间距与颜色 token。
 
 验证：归档单测 PASS，`pnpm typecheck` PASS；浏览器夹具 `375×812`、`768×900`、`1280×900`、`1920×1080` 全部 PASS；diff/no-BOM PASS。
+
+## Fix Round 5：空的最早归档回退首页
+
+### RED
+
+补充非空周期但没有边界前成员的浏览器场景：直接访问 `/live-archive/pre-cycle`。旧页面因投影被过滤后找不到 summary，稳定停留在“未找到这个归档”，没有回到首页。
+
+### GREEN
+
+- `LiveArchiveView` 将空 `pre-cycle` 视为保留导航入口，使用 `navigate('/live-archive', { replace: true })` 回退首页。
+- 真实无效 ID 仍保留 Fix Round 4 的 `archiveReason/requestedKey` 提示，不与空 pre-cycle 混淆。
+- 增加内核单测，确认没有前置成员时不生成空投影；浏览器夹具断言 URL 已 replace 到首页且不显示错误。
+
+验证：archive 单测、`pnpm typecheck`、`git diff --check`、UTF-8 无 BOM 和四档浏览器夹具全部通过。

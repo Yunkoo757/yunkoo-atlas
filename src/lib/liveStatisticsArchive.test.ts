@@ -131,4 +131,5 @@ export function testArchiveProjectionsKeepPreBoundaryHistoryWithOneCycle(): void
   assert(projections[0]!.summary.archiveId === 'pre-cycle', '最早边界前投影必须使用稳定 ID')
   assert(ids(projections[0]!.members) === 'before-boundary', '最早边界前投影必须包含旧交易')
   assert(resolveLiveArchiveScope(oneCycle, 'pre-cycle').bounds?.endExclusive === '2026-01-10', '最早边界前范围必须截止于第一条边界')
+  assert(listLiveArchiveProjections([], [], oneCycle, 0).length === 0, '没有最早边界前成员时不得生成空归档投影')
 }

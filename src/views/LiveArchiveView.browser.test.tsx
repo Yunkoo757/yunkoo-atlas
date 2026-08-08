@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { useStore } from '@/store/useStore'
@@ -17,6 +17,9 @@ function focusLink(link: HTMLAnchorElement): void {
   link.focus()
   assert(document.activeElement === link, `键盘必须能聚焦链接：${link.textContent}`)
 }
+function LocationProbe() {
+  return <output data-route-path>{useLocation().pathname}</output>
+}
 function trade(id: string, day: string, patch: Partial<Trade> = {}): Trade { return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch } }
 async function run() {
   const element = document.getElementById('root'); assert(element, '缺少测试挂载节点')
@@ -29,6 +32,13 @@ async function run() {
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '失效归档请求必须回到历史归档首页')
     assert(document.body.textContent?.includes('gone-cycle'), '失效归档提示必须保留原请求 ID')
     assert(document.body.textContent?.includes('找不到') || document.body.textContent?.includes('未找到'), '失效归档提示必须说明原因')
+    root.unmount(); root = createRoot(element)
+
+    useStore.setState((state) => ({ trades: [], livePerformanceCycles: [{ id: 'only-boundary', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }], display: { ...state.display, tradingDayStartHour: 0 } }))
+    root.render(<MemoryRouter key="empty-pre-cycle" initialEntries={['/live-archive/pre-cycle']}><Routes><Route path="/live-archive" element={<><LiveArchiveView /><LocationProbe /></>} /><Route path="/live-archive/:archiveId" element={<><LiveArchiveView /><LocationProbe /></>} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '空的最早归档必须回退历史归档首页')
+    await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/live-archive', '空的最早归档必须 replace 到首页路径')
+    assert(!document.body.textContent?.includes('未找到这个归档'), '空的最早归档不得显示失效归档错误')
     root.unmount(); root = createRoot(element)
 
     const singleBoundary: LivePerformanceCycle[] = [{ id: 'only-boundary', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }]

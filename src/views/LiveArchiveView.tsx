@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Archive, ChevronRight } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { Trade } from '@/data/trades'
@@ -43,6 +43,7 @@ function ArchiveMetrics({ trades }: { trades: Trade[] }) {
 
 export function LiveArchiveView() {
   const { archiveId } = useParams()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const trades = useStore((state) => state.trades)
   const cycles = useStore((state) => state.livePerformanceCycles)
@@ -56,10 +57,14 @@ export function LiveArchiveView() {
   const summaries = archiveEntries.map((entry) => entry.summary)
   const summary = archiveId ? summaries.find((item) => item.archiveId === archiveId) : null
   const members = archiveId ? archiveEntries.find((item) => item.summary.archiveId === archiveId)?.members ?? [] : []
+  const emptyPreCycle = archiveId === 'pre-cycle' && !summary
   const requestedKey = searchParams.get('requestedKey')
   const routeNotice = searchParams.get('archiveReason') === 'missing' && requestedKey
     ? `找不到历史归档“${requestedKey}”，已返回历史归档首页。`
     : null
+  useEffect(() => {
+    if (emptyPreCycle) navigate('/live-archive', { replace: true })
+  }, [emptyPreCycle, navigate])
   const archiveStatus = summary
     ? `正在查看历史归档：${rangeLabel(summary.startTradingDayKey, summary.endExclusiveTradingDayKey)}，共 ${members.length} 条日志记录。`
     : `历史归档首页：${archiveEntries.length} 份可查看归档，待整理 ${pendingCount} 条记录。`
@@ -73,7 +78,7 @@ export function LiveArchiveView() {
     })
   }, [members, query, dateFrom, dateTo, startHour])
 
-  if (archiveId && !summary) {
+  if (archiveId && !summary && !emptyPreCycle) {
     return <><Topbar title="历史归档" /><main className="la-scroll">{routeNotice ? <p className="la-route-notice" role="alert">{routeNotice}</p> : null}<section className="la-empty"><Archive size={24} aria-hidden /><h2>未找到这个归档</h2><Link to="/live-archive">返回历史归档</Link></section></main></>
   }
   if (summary) {
