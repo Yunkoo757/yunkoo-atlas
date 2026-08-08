@@ -94,3 +94,15 @@ git diff --check
 | 1920×1080 | 42.7ms | 1674.9ms |
 
 `WebStorageConflict.browser.test.html` 也通过上述完整远端边界恢复和冲突冻结场景。完整 browser/regression/`pnpm test` 的 124 秒无输出超时状态保持不变，未记为通过。
+
+## Fix Round 2：可信键盘事件验收
+
+审查指出浏览器夹具中的合成 `KeyboardEvent` 后接无条件 `.click()` 不会生成浏览器可信键盘事件，且页面文本可能让路由断言假绿。已移除该伪键盘 helper；原夹具只保留链接可聚焦与常规点击流程。
+
+新增不参与通用 browser discovery 的最小 HashRouter 夹具和 `scripts/qa-live-archive-keyboard.mjs`。脚本通过 Playwright 的 `page.keyboard.press('Enter')` 生成可信事件，并同时检查地址栏 hash 与 `useLocation()` 路由探针，依次验证：
+
+```text
+Dashboard → #/live-archive → #/live-archive/keyboard-archive → #/live-archive
+```
+
+在 1280×900 下运行 `node scripts/qa-live-archive-keyboard.mjs` 通过。其余聚焦 unit、`pnpm typecheck`、`git diff --check` 也通过；完整 browser/regression/`pnpm test` 的 124 秒无输出超时状态不变，仍未记为通过。
