@@ -64,7 +64,8 @@ async function run(): Promise<void> {
     await router.navigate('/board?statsCycle=all&symbol=BTCUSDT')
     await waitFor(() => router.state.location.pathname === '/live-archive', '看板 all 范围必须进入归档首页目标')
     await router.navigate('/board?statsCycle=pre-cycle&symbol=BTCUSDT')
-    await waitFor(() => router.state.location.pathname === '/live-archive/pre-cycle', '看板规则前范围必须进入归档详情目标')
+    await waitFor(() => router.state.location.pathname === '/live-archive/pre-cycle', '有周期时看板规则前范围必须进入归档详情')
+    assert(router.state.location.search === '?symbol=BTCUSDT', '看板规则前详情必须保留无关筛选')
     await router.navigate('/board?statsCycle=missing-archive&symbol=BTCUSDT')
     await waitFor(() => router.state.location.pathname === '/live-archive', '看板失效范围必须进入归档首页目标')
     assert(router.state.location.search.includes('archiveReason=missing'), '看板失效范围必须保留统一原因')
@@ -87,7 +88,7 @@ async function run(): Promise<void> {
 
     await router.navigate('/dashboard?kind=live&range=all&statsCycle=old&symbol=BTCUSDT')
     await waitFor(() => router.state.location.pathname === '/live-archive/old', 'Dashboard 历史链接必须进入对应归档详情')
-    const dashboardArchiveSearch = router.state.location.search
+    const dashboardArchiveSearch: string = router.state.location.search
     assert(dashboardArchiveSearch === '?kind=live&range=all&symbol=BTCUSDT', 'Dashboard 归档导航不得丢失分析范围')
 
     for (const requested of ['all', 'pre-cycle', 'missing-archive']) {

@@ -131,3 +131,28 @@ git diff --check                          PASS
 ```
 
 该修复只修改旧浏览器夹具与本报告；共享工作树中其他代理的 ListView/LiveArchive 改动未纳入本轮提交。
+
+## Fix Round 4：策略历史深链安全回退
+
+### RED
+
+新增真实策略路由浏览器夹具后，`/strategy/:id?kind=live&range=all&statsCycle=archive-cycle` 仍停留在策略页，稳定失败于“策略历史深链必须跳到只读归档详情”。这暴露出 StrategyPage 在显式 `analysisScope` 下没有消费 `resolveLiveRoute` 导航结果；`all`、`pre-cycle` 和失效 ID 也可能只清理参数而不进入归档首页。
+
+### GREEN
+
+- `StrategyPage` 对实盘或包含实盘的分析范围统一解析 `resolveLiveRoute()`；有效历史 ID 跳到 `/live-archive/:archiveId`，`all` 回到归档首页，失效 ID 跳 `/live-archive?archiveReason=missing&requestedKey=...`，不再在策略页展示错误范围统计。模拟盘链接会清除旧实盘参数后保持策略页。
+- `resolveLiveRouteNavigation()` 保持既有规则：有效规则前请求在存在周期时进入稳定 `/live-archive/pre-cycle` 详情；没有周期或详情无成员时由归档页回到首页并保留规则前原因；`all` 回到归档首页，失效 ID 保留统一原因与请求键。列表/看板导航断言同步覆盖该契约。
+- 新增 `StrategyArchiveNavigation.browser.test.html/.tsx`，用真实 MemoryRouter 渲染 `StrategyPage`，验证有效历史、`all`、失效 ID、规则前有成员详情，以及规则前无成员回首页五条策略深链；聚焦运行通过。
+
+### Fix Round 4 验证
+
+```powershell
+# Vite + Playwright，1280×900
+StrategyArchiveNavigation.browser.test.html PASS
+LivePerformanceCycleNavigation.browser.test.html PASS
+node scripts/run-regression-tests.mjs --unit-only src/lib/livePerformanceCycleRoute.test.ts PASS
+pnpm typecheck PASS
+git diff --check PASS
+```
+
+该修复不改变实盘归属或 KPI 口径，只防止策略旧链接静默留在错误页面；规则前有成员与无成员两种边界均有真实路由证据。

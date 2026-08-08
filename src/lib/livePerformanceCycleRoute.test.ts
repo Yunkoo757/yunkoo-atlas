@@ -75,8 +75,8 @@ export function testLiveRouteNavigationUsesArchiveDetailPathsAndPreservesInvalid
 
   assert(archiveDestination.pathname === '/live-archive/old-id', '有效历史范围必须进入对应归档详情路径')
   assert(archiveDestination.search === '?symbol=BTCUSDT', '归档详情路径必须保留无关筛选')
-  assert(preCycleDestination.pathname === '/live-archive/pre-cycle', '规则前范围必须进入稳定归档详情路径')
-  assert(preCycleDestination.search === '?symbol=BTCUSDT', '规则前归档必须保留无关筛选')
+  assert(preCycleDestination.pathname === '/live-archive/pre-cycle', '存在周期时规则前范围必须进入稳定归档详情')
+  assert(preCycleDestination.search === '?symbol=BTCUSDT', '规则前详情路径必须保留无关筛选')
   assert(invalidDestination.pathname === '/live-archive', '失效范围必须进入归档首页')
   assert(invalidDestination.search.includes('archiveReason=missing'), '失效范围必须保留统一失效原因')
   assert(invalidDestination.search.includes('requestedKey=missing'), '失效范围必须保留请求键')

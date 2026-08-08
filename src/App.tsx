@@ -51,6 +51,7 @@ import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import { parseAnalysisScope } from './lib/analysisScope'
+import { resolveLiveRoute, resolveLiveRouteNavigation } from './lib/livePerformanceCycleRoute'
 import './App.css'
 
 const CLOSE_SAVE_RECEIPT_MS = 560
@@ -197,7 +198,7 @@ function TradesPage({
   )
 }
 
-function StrategyPage() {
+export function StrategyPage() {
   const { id } = useParams()
   const { search } = useLocation()
   const strategies = useStore((s) => s.strategies)
@@ -206,6 +207,20 @@ function StrategyPage() {
   const title = getStrategyName(strategies, strategyId)
   const parsedScope = parseAnalysisScope(search)
   const analysisScope = parsedScope.explicit ? parsedScope.scope : undefined
+  const performanceCycles = useStore((s) => s.livePerformanceCycles)
+  const liveRoute = resolveLiveRoute(search, performanceCycles, 'strategy')
+  const liveRouteApplies = analysisScope?.kind !== 'paper'
+  if (liveRouteApplies && liveRoute.target.kind !== 'current') {
+    const destination = resolveLiveRouteNavigation(liveRoute)
+    return <Navigate to={`${destination.pathname}${destination.search}`} replace />
+  }
+  if (analysisScope?.kind === 'paper' && new URLSearchParams(search).has('statsCycle')) {
+    const params = new URLSearchParams(search)
+    params.delete('statsCycle')
+    params.delete('liveCycle')
+    const query = params.toString()
+    return <Navigate to={`${listPath}${query ? `?${query}` : ''}`} replace />
+  }
   const filter = analysisScope
     ? { type: 'strategy' as const, strategyId, analysisScope }
     : { type: 'strategy' as const, strategyId, tradeKind: 'live' as const }
