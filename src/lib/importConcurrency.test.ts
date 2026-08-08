@@ -572,7 +572,7 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
     assert(commitCount === 2, '并发本地周期修改必须触发基于最新状态的重试')
     assert(useStore.getState().livePerformanceCycles[0]?.id === localDuringImport.id, '最终状态必须保留最新本地周期配置')
     assert(savedSnapshots.at(-1)?.livePerformanceCycles?.[0]?.id === localDuringImport.id, '最终落盘必须保留最新本地周期配置')
-    assert(result.summary.includes('保留当前统计周期设置'), '本地周期与导入周期均非空时摘要必须说明保留当前设置')
+    assert(result.summary.includes('保留当前统计与历史归档设置'), '本地设置保留时摘要必须使用可理解的当前统计与历史归档文案')
   } finally {
     disablePersistWrites()
     useStore.setState(previous)
@@ -601,7 +601,7 @@ export async function testJsonImportSummaryCountsAdoptedLivePerformanceCycles():
         id: 'adopted-cycle', name: '采用周期', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z',
       }],
     })
-    assert(result.summary.includes('1 个统计周期'), '空本地周期采用导入周期时摘要必须包含采用数量')
+    assert(result.summary.includes('1 个历史归档设置'), '空本地设置采用导入内容时摘要必须使用历史归档文案')
   } finally {
     disablePersistWrites()
     useStore.setState(previous)

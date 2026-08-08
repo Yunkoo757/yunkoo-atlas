@@ -35,6 +35,15 @@ export function testLiveRouteSendsReservedScopesToArchiveHomeWithoutDrifting(): 
   }
 }
 
+export function testLiveRouteResolvesPendingRecordsWithoutRedirectingToArchiveHome(): void {
+  const route = resolveLiveRoute('?statsCycle=pending&symbol=BTCUSDT', cycles, 'trade-list')
+  assert(route.target.kind === 'pending', '待整理链接必须解析为待整理范围，而非归档首页')
+  if (route.target.kind === 'pending') {
+    assert(route.target.scope.kind === 'pending', '待整理链接必须使用共享 pending scope')
+  }
+  assert(route.canonicalSearch === '?statsCycle=pending&symbol=BTCUSDT', '待整理链接不得丢失无关筛选')
+}
+
 export function testAnalysisRouteCompressesTheCurrentCycleId(): void {
   const current = resolvePerformanceAnalysisRoute('?kind=live&statsCycle=current-id&visual=x', 'live', cycles)
 

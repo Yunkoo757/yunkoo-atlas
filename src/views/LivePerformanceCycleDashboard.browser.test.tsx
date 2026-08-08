@@ -181,12 +181,25 @@ async function run(): Promise<void> {
     mounted = mountDashboard(rootElement, '/dashboard?kind=all&range=all')
     await waitFor(() => text().includes('+$650'), 'all 必须为当前实盘加全部模拟盘')
     assert(!text().includes('+$750'), 'all 不得混入历史归档实盘')
+    assert(text().includes('当前实盘统计'), 'all 范围仍必须说明实盘统计采用当前范围')
 
     const missingCloseDay = closedTrade('missing-close-day', 50, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, { closedAt: 'invalid', closedTradingDayKey: undefined })
     mounted.root.unmount()
     useStore.setState({ trades: [missingCloseDay] })
     mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
     await waitFor(() => text().includes('待整理 1'), '缺少平仓日必须提供待整理入口')
+
+    const resultConflict = closedTrade('result-conflict', 50, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, { status: 'loss', rMultiple: 1, resultSource: 'imported' })
+    mounted.root.unmount()
+    useStore.setState({ trades: [resultConflict], livePerformanceCycles: fixture.cycles })
+    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
+    await waitFor(() => text().includes('1 笔结果冲突'), '结果冲突必须继续显示独立的数据健康提示')
+
+    mounted.root.unmount()
+    useStore.setState({ trades: [], livePerformanceCycles: [] })
+    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
+    await waitFor(() => text().includes('还没有已平仓交易'), '无周期且无已平仓交易必须保留通用空状态')
+    assert(text().includes('开启新一轮'), '无周期时必须保留开启新一轮统计入口')
   } finally {
     mounted?.root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles })

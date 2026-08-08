@@ -214,6 +214,21 @@ async function run(): Promise<void> {
     root.unmount()
     root = createRoot(rootElement)
     root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&statsCycle=archive-cycle&symbol=BTCUSDT']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/live-archive" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/live-archive?kind=live&statsCycle=archive-cycle&symbol=BTCUSDT',
+      '历史归档深链不得静默展示当前 Dashboard，必须安全转到历史归档入口',
+    )
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
       <MemoryRouter initialEntries={['/dashboard?kind=all&range=all']}>
         <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
       </MemoryRouter>,

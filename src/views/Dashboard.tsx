@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
@@ -87,7 +87,7 @@ export function Dashboard() {
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
-  const currentLiveRoute = resolveLiveRoute('', performanceCycles, 'dashboard')
+  const currentLiveRoute = resolveLiveRoute(searchParams, performanceCycles, 'dashboard')
   const currentLiveScope = currentLiveRoute.target.kind === 'current'
     ? currentLiveRoute.target.scope
     : null
@@ -95,6 +95,11 @@ export function Dashboard() {
   const hasPerformanceBounds = performanceBounds !== null
   const performanceStart = performanceBounds?.startInclusive ?? null
   const performanceEnd = performanceBounds?.endExclusive ?? null
+
+  useEffect(() => {
+    if (currentLiveRoute.target.kind === 'current') return
+    navigate({ pathname: '/live-archive', search: currentLiveRoute.canonicalSearch }, { replace: true })
+  }, [currentLiveRoute.canonicalSearch, currentLiveRoute.target.kind, navigate])
 
   const trades = useMemo(
     () => filterTradesByAnalysisScope(
@@ -230,7 +235,7 @@ export function Dashboard() {
               </button>
             ))}
           </div>
-          {scope.kind === 'live' ? (
+          {scope.kind !== 'paper' ? (
             <LivePerformanceCycleControl
               onManage={() => setCycleManagerOpen(true)}
             />

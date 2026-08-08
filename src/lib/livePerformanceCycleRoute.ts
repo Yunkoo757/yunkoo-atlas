@@ -22,6 +22,7 @@ export type TradeListPerformanceCycleRouteState = {
 export type LiveRouteTarget =
   | { kind: 'current'; scope: LiveArchiveScope }
   | { kind: 'archive'; scope: LiveArchiveScope }
+  | { kind: 'pending'; scope: LiveArchiveScope }
   | { kind: 'archive-home'; reason: 'all' | 'pre-cycle' | 'missing'; requestedKey: string | null }
 
 export type LiveRouteState = {
@@ -67,6 +68,13 @@ export function resolveLiveRoute(
     if (raw !== requested) params.set('statsCycle', requested)
     return {
       target: { kind: 'archive-home', reason: requested, requestedKey: requested },
+      canonicalSearch: searchFor(params),
+      needsReplace: searchFor(params) !== originalSearch,
+    }
+  }
+  if (requested === 'pending') {
+    return {
+      target: { kind: 'pending', scope: resolveLiveArchiveScope(cycles, 'pending') },
       canonicalSearch: searchFor(params),
       needsReplace: searchFor(params) !== originalSearch,
     }
