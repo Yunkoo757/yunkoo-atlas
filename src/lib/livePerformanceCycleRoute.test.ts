@@ -1,5 +1,6 @@
 import {
   resolveLiveRoute,
+  resolveLiveRouteNavigation,
   resolvePerformanceAnalysisRoute,
   resolveTradeListPerformanceCycleRoute,
   writePerformanceAnalysisCycle,
@@ -33,6 +34,29 @@ export function testLiveRouteSendsReservedScopesToArchiveHomeWithoutDrifting(): 
     assert(route.target.kind === 'archive-home', `${requested} 不得静默漂移到当前`)
     assert(route.canonicalSearch === `?statsCycle=${requested}&symbol=BTCUSDT`, '归档首页目标必须保留请求键')
   }
+}
+
+export function testLiveRouteNavigationUsesArchiveDetailPathsAndPreservesInvalidReasons(): void {
+  const archive = resolveLiveRoute('?statsCycle=old-id&symbol=BTCUSDT', cycles, 'strategy')
+  const preCycle = resolveLiveRoute('?statsCycle=pre-cycle&symbol=BTCUSDT', cycles, 'trade-list')
+  const invalid = resolveLiveRoute('?statsCycle=missing&symbol=BTCUSDT', cycles, 'trade-list')
+  const pending = resolveLiveRoute('?statsCycle=pending&symbol=BTCUSDT', cycles, 'trade-list')
+
+  const archiveDestination = resolveLiveRouteNavigation(archive)
+  const preCycleDestination = resolveLiveRouteNavigation(preCycle)
+  const invalidDestination = resolveLiveRouteNavigation(invalid)
+  const pendingDestination = resolveLiveRouteNavigation(pending)
+
+  assert(archiveDestination.pathname === '/live-archive/old-id', '有效历史范围必须进入对应归档详情路径')
+  assert(archiveDestination.search === '?symbol=BTCUSDT', '归档详情路径必须保留无关筛选')
+  assert(preCycleDestination.pathname === '/live-archive/pre-cycle', '规则前范围必须进入稳定归档详情路径')
+  assert(preCycleDestination.search === '?symbol=BTCUSDT', '规则前归档必须保留无关筛选')
+  assert(invalidDestination.pathname === '/live-archive', '失效范围必须进入归档首页')
+  assert(invalidDestination.search.includes('archiveReason=missing'), '失效范围必须保留统一失效原因')
+  assert(invalidDestination.search.includes('requestedKey=missing'), '失效范围必须保留请求键')
+  assert(!invalidDestination.search.includes('statsCycle='), '失效导航不得继续携带内部周期键')
+  assert(pendingDestination.pathname === '/list', '待整理范围必须继续进入待整理日志')
+  assert(pendingDestination.search === '?symbol=BTCUSDT&statsCycle=pending', '待整理导航必须保留待整理范围')
 }
 
 export function testLiveRouteResolvesPendingRecordsWithoutRedirectingToArchiveHome(): void {

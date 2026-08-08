@@ -31,6 +31,11 @@ export type LiveRouteState = {
   needsReplace: boolean
 }
 
+export type LiveRouteNavigation = {
+  pathname: string
+  search: string
+}
+
 function copyParams(input: string | URLSearchParams): URLSearchParams {
   return new URLSearchParams(input)
 }
@@ -93,6 +98,33 @@ export function resolveLiveRoute(
     return { target: { kind: 'current', scope }, canonicalSearch: searchFor(params), needsReplace: searchFor(params) !== originalSearch }
   }
   return { target: { kind: 'archive', scope }, canonicalSearch: searchFor(params), needsReplace: searchFor(params) !== originalSearch }
+}
+
+/** Converts a resolved live scope into its stable URL destination. */
+export function resolveLiveRouteNavigation(route: LiveRouteState): LiveRouteNavigation {
+  const params = new URLSearchParams(route.canonicalSearch)
+  params.delete('statsCycle')
+  params.delete('archiveReason')
+  params.delete('requestedKey')
+  if (route.target.kind === 'pending') params.set('statsCycle', 'pending')
+  const searchForDestination = () => searchFor(params)
+
+  if (route.target.kind === 'archive' && route.target.scope.archiveId) {
+    return {
+      pathname: `/live-archive/${encodeURIComponent(route.target.scope.archiveId)}`,
+      search: searchForDestination(),
+    }
+  }
+  if (route.target.kind === 'archive-home') {
+    if (route.target.reason === 'missing') {
+      params.set('archiveReason', route.target.reason)
+      if (route.target.requestedKey) params.set('requestedKey', route.target.requestedKey)
+    }
+    if (route.target.reason === 'pre-cycle') return { pathname: '/live-archive/pre-cycle', search: searchForDestination() }
+    return { pathname: '/live-archive', search: searchForDestination() }
+  }
+  if (route.target.kind === 'pending') return { pathname: '/list', search: searchForDestination() }
+  return { pathname: '/list', search: searchForDestination() }
 }
 
 export function resolvePerformanceAnalysisRoute(

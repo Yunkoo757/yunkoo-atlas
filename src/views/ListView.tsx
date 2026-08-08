@@ -33,7 +33,7 @@ import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
-import { resolveLiveRoute } from '@/lib/livePerformanceCycleRoute'
+import { resolveLiveRoute, resolveLiveRouteNavigation } from '@/lib/livePerformanceCycleRoute'
 import './ListView.css'
 
 export function ListView({
@@ -78,10 +78,8 @@ export function ListView({
   )
 
   useEffect(() => {
-    if (liveRoute?.target.kind !== 'archive-home') return
-    const params = new URLSearchParams(liveRoute.canonicalSearch)
-    params.delete('statsCycle')
-    navigate({ pathname: '/live-archive', search: params.toString() ? `?${params}` : '' }, { replace: true })
+    if (!liveRoute || (liveRoute.target.kind !== 'archive' && liveRoute.target.kind !== 'archive-home')) return
+    navigate(resolveLiveRouteNavigation(liveRoute), { replace: true })
   }, [liveRoute, navigate])
 
   useListContextSync(filter)

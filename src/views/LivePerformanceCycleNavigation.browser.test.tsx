@@ -43,6 +43,7 @@ async function run(): Promise<void> {
       { path: '/dashboard', element: <Dashboard /> },
       { path: '/list', element: <ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} /> },
       { path: '/live-archive', element: <div>历史归档入口</div> },
+      { path: '/live-archive/:archiveId', element: <div>归档详情入口</div> },
     ], { initialEntries: ['/dashboard'] })
     root.render(<RouterProvider router={router} />)
     await waitFor(() => document.body.textContent?.includes('当前实盘统计') ?? false, 'Dashboard 必须默认显示当前实盘统计')
@@ -62,10 +63,26 @@ async function run(): Promise<void> {
     assert(router.state.location.search.includes('symbol=BTCUSDT'), 'URL 规范化不得丢失无关品种筛选')
     assert(JSON.stringify(useStore.getState().trades) === factsBeforeNavigation, 'URL 规范化不得改写交易事实')
 
+    await router.navigate('/list?statsCycle=old&symbol=BTCUSDT')
+    await waitFor(() => router.state.location.pathname === '/live-archive/old', '有效历史日志不得继续停在旧日志列表')
+    const listArchiveSearch = router.state.location.search
+    assert(listArchiveSearch === '?symbol=BTCUSDT', '历史归档详情必须保留无关筛选')
+
+    await router.navigate('/dashboard?kind=live&range=all&statsCycle=old&symbol=BTCUSDT')
+    await waitFor(() => router.state.location.pathname === '/live-archive/old', 'Dashboard 历史链接必须进入对应归档详情')
+    const dashboardArchiveSearch = router.state.location.search
+    assert(dashboardArchiveSearch === '?kind=live&range=all&symbol=BTCUSDT', 'Dashboard 归档导航不得丢失分析范围')
+
     for (const requested of ['all', 'pre-cycle', 'missing-archive']) {
       await router.navigate(`/list?statsCycle=${requested}&symbol=BTCUSDT`)
-      await waitFor(() => router.state.location.pathname === '/live-archive', `${requested} 必须安全回退到历史归档首页（当前=${router.state.location.pathname}${router.state.location.search}）`)
-      assert(router.state.location.search.includes('symbol=BTCUSDT'), `${requested} 回退不得丢失安全筛选`)
+      const expectedPath = requested === 'pre-cycle' ? '/live-archive/pre-cycle' : '/live-archive'
+      await waitFor(() => router.state.location.pathname === expectedPath, `${requested} 必须安全进入归档目标（当前=${router.state.location.pathname}${router.state.location.search}）`)
+      const destinationSearch = router.state.location.search
+      assert(destinationSearch.includes('symbol=BTCUSDT'), `${requested} 回退不得丢失安全筛选`)
+      if (requested === 'missing-archive') {
+        assert(destinationSearch.includes('archiveReason=missing'), '失效范围必须保留统一原因')
+        assert(destinationSearch.includes('requestedKey=missing-archive'), '失效范围必须保留请求键')
+      }
     }
     await router.navigate('/list?statsCycle=current&symbol=BTCUSDT')
     await waitFor(() => router.state.location.pathname === '/list' && !router.state.location.search.includes('statsCycle'), '旧 current 链接必须回到动态当前实盘')

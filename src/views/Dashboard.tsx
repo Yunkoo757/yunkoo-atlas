@@ -46,6 +46,7 @@ import { MISS_REASON_META, type MissReason } from '@/data/trades'
 import { parseLocalDate } from '@/lib/periods'
 import {
   resolveLiveRoute,
+  resolveLiveRouteNavigation,
 } from '@/lib/livePerformanceCycleRoute'
 import { countLiveTradesMissingCloseDay } from '@/lib/livePerformanceCycles'
 import './Dashboard.css'
@@ -98,7 +99,8 @@ export function Dashboard() {
 
   useEffect(() => {
     if (currentLiveRoute.target.kind === 'current') return
-    navigate({ pathname: '/live-archive', search: currentLiveRoute.canonicalSearch }, { replace: true })
+    const destination = resolveLiveRouteNavigation(currentLiveRoute)
+    navigate(destination, { replace: true })
   }, [currentLiveRoute.canonicalSearch, currentLiveRoute.target.kind, navigate])
 
   const trades = useMemo(
