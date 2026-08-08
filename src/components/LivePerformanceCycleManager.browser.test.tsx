@@ -3,8 +3,9 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { useToast } from '@/lib/toast'
-import { disablePersistWrites, enablePersistWrites } from '@/storage/persist'
+import { disablePersistWrites, enablePersistWrites, pickPersisted } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
+import { StorageRevisionConflictError } from '@/storage/adapter'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 import '@/styles/tokens.css'
@@ -103,6 +104,32 @@ async function run(): Promise<void> {
     storage.saveSnapshot = async () => { saves += 1; throw new Error('test cycle rollback failure') }
     click('确认重新开始')
     await waitFor(() => useToast.getState().message === '统计周期保存与回滚均失败，请重新打开应用核对当前设置', '回滚失败必须提示重新核对')
+
+    const revisionedStorage = storage as typeof storage & {
+      loadSnapshotEnvelope: () => Promise<{ revision: number; snapshot: ReturnType<typeof pickPersisted> | null }>
+    }
+    const originalLoadSnapshotEnvelope = revisionedStorage.loadSnapshotEnvelope.bind(revisionedStorage)
+    const remoteSnapshot = {
+      ...pickPersisted(useStore.getState()),
+      trades: [closedLive('remote-winner', day)],
+      livePerformanceCycles: [{ id: 'remote-cycle', name: '统计周期 远端', startTradingDayKey: firstStart, createdAt: '2026-08-08T00:00:00.000Z' }],
+      profile: { ...useStore.getState().profile, displayName: '远端赢家' },
+    }
+    saves = 0
+    storage.saveSnapshot = async () => { saves += 1; throw new StorageRevisionConflictError(4, 5) }
+    revisionedStorage.loadSnapshotEnvelope = async () => ({ revision: 5, snapshot: remoteSnapshot })
+    click('确认重新开始')
+    await waitFor(
+      () => useToast.getState().message === '统计周期已被其他客户端更新，请重新打开核对',
+      'revision conflict 必须提示重新核对',
+    )
+    assert(saves === 1, 'revision conflict 后不得尝试回滚或覆盖远端快照')
+    assert(useStore.getState().trades[0]?.id === 'remote-winner', 'revision conflict 必须完整 hydrate 远端交易而非只替换周期')
+    assert(useStore.getState().profile.displayName === '远端赢家', 'revision conflict 必须完整 hydrate 远端设置')
+    await new Promise((resolve) => setTimeout(resolve, 450))
+    assert(saves === 1, 'hydrate 远端快照后不得由订阅自动覆盖远端数据')
+    assert(Boolean(document.querySelector('[data-cycle-manager]')), 'revision conflict 后不得成功关闭弹窗')
+    revisionedStorage.loadSnapshotEnvelope = originalLoadSnapshotEnvelope
   } finally {
     storage.saveSnapshot = originalSaveSnapshot; disablePersistWrites(); useToast.getState().dismiss(); root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: JSON.parse(firstTriggerCycles), liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey })

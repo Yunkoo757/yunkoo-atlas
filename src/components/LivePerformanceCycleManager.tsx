@@ -6,9 +6,22 @@ import {
 } from '@/lib/livePerformanceCycles'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { toast } from '@/lib/toast'
-import { flushPersistNow } from '@/storage/persist'
+import {
+  clearSessionUiAfterLibrarySwitch,
+  applySnapshotToStore,
+  resetEmptyLibraryIntoStore,
+} from '@/lib/importExport'
+import {
+  discardPendingAndResumePersist,
+  flushPersistNow,
+  resumePersist,
+  suspendPersist,
+} from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
-import { StorageRevisionConflictError } from '@/storage/adapter'
+import { isRevisionedStorageAdapter, StorageRevisionConflictError } from '@/storage/adapter'
+import { discardAllNoteDrafts } from '@/storage/noteDrafts'
+import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
+import { clearWebWriteConflictAfterReload } from '@/storage/webWriteGuard'
 import { buildLivePerformanceRestartPreview, useStore } from '@/store/useStore'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { ModalShell } from '@/components/ui/ModalShell'
@@ -84,11 +97,22 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
     } catch (error) {
       replaceLivePerformanceCycles(previous)
       if (error instanceof StorageRevisionConflictError) {
+        suspendPersist()
         try {
-          const latestSnapshot = await getStorage().loadSnapshot()
-          replaceLivePerformanceCycles(latestSnapshot?.livePerformanceCycles ?? [])
+          await waitForPendingStorageOperations()
+          const storage = getStorage()
+          const envelope = isRevisionedStorageAdapter(storage)
+            ? await storage.loadSnapshotEnvelope()
+            : { revision: null, snapshot: await storage.loadSnapshot() }
+          discardAllNoteDrafts()
+          if (envelope.snapshot) applySnapshotToStore(envelope.snapshot)
+          else resetEmptyLibraryIntoStore()
+          clearSessionUiAfterLibrarySwitch()
+          discardPendingAndResumePersist()
+          if (envelope.revision !== null) clearWebWriteConflictAfterReload(envelope.revision)
           toast('统计周期已被其他客户端更新，请重新打开核对')
         } catch {
+          resumePersist({ flushNow: false })
           toast('统计周期提交冲突，请重新打开应用核对当前设置')
         }
         return false
