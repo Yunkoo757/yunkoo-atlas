@@ -1,7 +1,7 @@
 # 随机复盘与工作台减负设计
 
 日期：2026-08-08
-状态：已确认，待实施
+状态：已实施并通过完整回归
 范围：随机复盘启动流程与图片呈现、工作台主导航、案例详情复制入口
 
 ## 1. 背景
@@ -244,3 +244,12 @@
 5. 案例正文阅读区不再显示复制编号，顶部“更多”仍完整保留能力。
 6. 不改变既有轮次恢复、随机算法、评分、案例数据、快捷键、持久化兼容和对象资源生命周期。
 7. 聚焦测试、完整测试、类型检查、构建、视口回归与 UTF-8 无 BOM 检查全部通过。
+
+## 13. 实施验证
+
+- `node scripts/run-regression-tests.mjs --unit-only src/lib/reviewSession.test.ts src/lib/reviewImageReadiness.test.ts src/regression.test.ts`：Exit 0。
+- `node scripts/run-browser-tests.mjs . vite.config.ts`：Exit 0，包含随机复盘图片时序与侧栏/详情真实交互夹具。
+- `pnpm typecheck`：Exit 0。
+- `pnpm test`：Exit 0。
+- `pnpm build`：Exit 0。
+- 变更文本文件严格 UTF-8、无 BOM；`git diff --check` 通过。
