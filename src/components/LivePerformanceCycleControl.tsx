@@ -51,6 +51,7 @@ export function LivePerformanceCycleControl({
         <button
           type="button"
           className="live-performance-cycle-action"
+          aria-haspopup="dialog"
           onClick={onManage}
         >
           开始新统计周期
@@ -82,6 +83,7 @@ export function LivePerformanceCycleControl({
       <button
         type="button"
         className="live-performance-cycle-action"
+        aria-haspopup="dialog"
         onClick={onManage}
       >
         管理周期

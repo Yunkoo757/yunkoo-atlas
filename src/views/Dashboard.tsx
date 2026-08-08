@@ -14,6 +14,7 @@ import {
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
+import { LivePerformanceCycleManager } from '@/components/LivePerformanceCycleManager'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
@@ -72,8 +73,6 @@ const KIND_OPTS: { value: AnalysisKind; label: string }[] = [
   { value: 'all', label: '实盘 + 模拟盘' },
 ]
 
-const deferPerformanceCycleManagement = () => undefined
-
 export function Dashboard() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -84,6 +83,7 @@ export function Dashboard() {
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const openComposer = useStore((s) => s.openComposer)
   const [curveDataOpen, setCurveDataOpen] = useState(false)
+  const [cycleManagerOpen, setCycleManagerOpen] = useState(false)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
@@ -181,6 +181,13 @@ export function Dashboard() {
     )
   }
 
+  const showCreatedPerformanceCycle = (cycles: Parameters<typeof writePerformanceAnalysisCycle>[2]) => {
+    setSearchParams(
+      writePerformanceAnalysisCycle(searchParams, 'current', cycles),
+      { replace: true },
+    )
+  }
+
   const openTrade = (tradeId: string) => {
     const t = tradeById.get(tradeId)
     navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`)
@@ -223,10 +230,18 @@ export function Dashboard() {
               selected={performanceRoute.resolved}
               cycles={performanceCycles}
               onSelect={updatePerformanceCycle}
-              onManage={deferPerformanceCycleManagement}
+              onManage={() => setCycleManagerOpen(true)}
             />
           ) : null}
         </div>
+
+        {cycleManagerOpen ? (
+          <LivePerformanceCycleManager
+            currentTradingDayKey={localDateKey}
+            onClose={() => setCycleManagerOpen(false)}
+            onCreated={showCreatedPerformanceCycle}
+          />
+        ) : null}
 
         <section className={'db-week' + (weekCardEmpty ? ' is-empty' : '')} aria-label="本周交易分析">
           <div className="db-week-head">
