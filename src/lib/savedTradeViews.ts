@@ -158,11 +158,33 @@ export function searchParamsToRecord(
   )
 }
 
+function isLegacyDynamicCurrentSavedView(
+  view: SavedTradeView,
+  cycles: readonly LivePerformanceCycle[] | undefined,
+): boolean {
+  if (!cycles?.length) return false
+  const requested = new URLSearchParams(view.search).get('statsCycle')?.trim()
+  if (!requested) return false
+  const currentWhenSaved = cycles
+    .filter((cycle) => cycle.createdAt <= view.updatedAt)
+    .at(-1)
+  return currentWhenSaved?.id === requested
+}
+
+function canonicalizeSavedViewSearch(
+  view: SavedTradeView,
+  cycles?: readonly LivePerformanceCycle[],
+): URLSearchParams {
+  const params = canonicalizeTradeViewSearch(view.search, cycles)
+  if (isLegacyDynamicCurrentSavedView(view, cycles)) params.delete('statsCycle')
+  return params
+}
+
 export function savedViewSearch(
   view: SavedTradeView,
   cycles?: readonly LivePerformanceCycle[],
 ): string {
-  const search = canonicalizeTradeViewSearch(view.search, cycles).toString()
+  const search = canonicalizeSavedViewSearch(view, cycles).toString()
   return search ? `?${search}` : ''
 }
 
@@ -217,13 +239,14 @@ export function savedViewMatchesLocation(
   if (
     cycles !== undefined &&
     requestedStatsCycle !== null &&
-    resolveTradeViewPerformanceCycleLabel(view.search, cycles) === null
+    resolveTradeViewPerformanceCycleLabel(view.search, cycles) === null &&
+    !isLegacyDynamicCurrentSavedView(view, cycles)
   ) {
     return false
   }
   return (
     normalizeSavedViewPath(view.pathname) === normalizeSavedViewPath(pathname) &&
-    new URLSearchParams(searchParamsToRecord(new URLSearchParams(view.search), cycles)).toString() ===
+    new URLSearchParams(searchParamsToRecord(canonicalizeSavedViewSearch(view, cycles), cycles)).toString() ===
       new URLSearchParams(searchParamsToRecord(params, cycles)).toString()
   )
 }

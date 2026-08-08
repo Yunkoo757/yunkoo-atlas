@@ -93,6 +93,24 @@ export function testSavingCurrentViewStillTracksCurrentAfterTheArchiveChanges():
   assert(savedViewSearch(saved, laterCycles) === '?symbol=BTCUSDT', '归档切换后保存视图必须仍跟随当前')
 }
 
+export function testLegacyExplicitCurrentViewStaysDynamicWhileHistoricalViewStaysFixed(): void {
+  const laterCycles: LivePerformanceCycle[] = [
+    ...cycles,
+    { id: 'cycle-next-id', name: '下一期', startTradingDayKey: '2026-09-01', createdAt: '2026-09-01T00:00:00.000Z' },
+  ]
+  const legacyCurrent = savedView('cycle-current-id')
+  const historical = savedView('cycle-human-name-id')
+
+  assert(
+    savedViewMatchesLocation(legacyCurrent, '/list', '?symbol=BTCUSDT', laterCycles),
+    '曾显式保存的 current ID 在新周期创建后仍必须匹配当前动态视图',
+  )
+  assert(
+    savedViewMatchesLocation(historical, '/list', '?statsCycle=cycle-human-name-id&symbol=BTCUSDT', laterCycles),
+    '历史归档保存视图必须继续匹配其原始 archive ID',
+  )
+}
+
 export function testRemovedPerformanceCycleIdsStayInactiveAndRouteToArchiveHome(): void {
   const removed = savedView('removed-cycle-uuid')
   const canonical = canonicalizeTradeViewSearch(removed.search, cycles)
