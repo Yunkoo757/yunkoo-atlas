@@ -16,7 +16,7 @@
     "test:analytics-baseline": "node --test scripts/fixtures/*.test.mjs",
     "test:asset-lifecycle:electron": "node scripts/run-asset-lifecycle-platform.mjs",
     "test:electron-safety:platform": "node scripts/run-electron-safety-platform.mjs",
-    "test:forced-kill:electron": "node scripts/run-forced-kill-evidence.mjs",
+    "test:forced-kill:electron": "node --experimental-strip-types scripts/run-forced-kill-evidence.mjs",
     "icons:app": "node scripts/generate-app-icon.mjs",
     "dev": "vite",
     "dev:electron": "cross-env ELECTRON=1 vite",

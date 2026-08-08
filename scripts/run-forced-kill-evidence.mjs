@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import initSqlJs from 'sql.js'
 
+import { SCHEMA_VERSION } from '../src/storage/types.ts'
 import { readGitProvenance } from './git-provenance.mjs'
 import { detectFileSystem } from './file-system-type.mjs'
 
@@ -108,7 +109,7 @@ async function forceKillMigrationAt(boundary) {
   const manifest = JSON.parse(fs.readFileSync(path.join(libraryRoot, 'manifest.json'), 'utf8'))
   const markerAbsent = !fs.existsSync(path.join(libraryRoot, 'v8-to-v9.migration'))
   const recoveryAbsent = !fs.existsSync(path.join(libraryRoot, '.v8-to-v9-recovery'))
-  const passed = reopened.code === 0 && Boolean(verified) && manifest.schemaVersion === 9 &&
+  const passed = reopened.code === 0 && Boolean(verified) && manifest.schemaVersion === SCHEMA_VERSION &&
     verified.displayName === 'confirmed-revision-1' && markerAbsent && recoveryAbsent
   return {
     boundary,

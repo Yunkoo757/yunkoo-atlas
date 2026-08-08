@@ -7,6 +7,7 @@ test('E-FORCED-KILL 使用真实 Electron 主进程、原子临时文件观察�
   const main = fs.readFileSync('electron/main.ts', 'utf8')
   const qa = fs.readFileSync('electron/forcedKillQa.ts', 'utf8')
   const workflow = fs.readFileSync('.github/workflows/forced-kill-evidence.yml', 'utf8')
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
   assert.match(runner, /createRequire\(import\.meta\.url\)/)
   assert.match(runner, /spawn\(electronExecutable, \['\.'\]/)
   assert.match(runner, /delete env\.ELECTRON_RUN_AS_NODE/)
@@ -22,6 +23,13 @@ test('E-FORCED-KILL 使用真实 Electron 主进程、原子临时文件观察�
   assert.match(runner, /gitTree: provenance\.gitTree/)
   assert.match(runner, /sourceIdentity: provenance\.sourceIdentity/)
   assert.match(runner, /unconfirmedMemoryEditPromised: false/)
+  assert.match(runner, /import \{ SCHEMA_VERSION \} from '\.\.\/src\/storage\/types\.ts'/)
+  assert.match(runner, /manifest\.schemaVersion === SCHEMA_VERSION/)
+  assert.doesNotMatch(runner, /manifest\.schemaVersion === 9/)
+  assert.equal(
+    pkg.scripts['test:forced-kill:electron'],
+    'node --experimental-strip-types scripts/run-forced-kill-evidence.mjs',
+  )
   assert.match(main, /runElectronForcedKillMode\(forcedKillMode, libraryRoot\)/)
   assert.match(qa, /runtime: 'electron-main'/)
   assert.match(qa, /confirmed-revision-1/)
