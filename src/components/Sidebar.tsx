@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
   ChevronDown,
+  Archive,
   Ban,
   BookOpen,
   Bookmark,
@@ -665,6 +666,12 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <span aria-hidden="true">＋</span>
           <span>添加或管理</span>
         </button>
+      </nav>
+      <nav className="sb-section" aria-label="历史记录">
+        <NavLink to="/live-archive" className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}>
+          <Archive size={ICON_MD} />
+          <span className="sb-item-label">历史归档</span>
+        </NavLink>
       </nav>
       </div>
 
