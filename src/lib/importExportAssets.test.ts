@@ -71,7 +71,7 @@ export function testMergeImportPrefersNonemptyLocalLivePerformanceCycles(): void
   assert(merged.riskPolicyVersions?.length === 1, '周期优先级不得改变风险合并行为')
 }
 
-export function testMergeImportAdoptsImportedLivePerformanceCyclesWhenLocalIsEmpty(): void {
+export function testMergeImportPreservesEmptyLocalLivePerformanceCycles(): void {
   const current = createFullPersistedSnapshotFixture()
   const imported = createFullPersistedSnapshotFixture()
   current.livePerformanceCycles = []
@@ -83,10 +83,8 @@ export function testMergeImportAdoptsImportedLivePerformanceCyclesWhenLocalIsEmp
   }]
 
   const merged = mergeImportPayload(current, { version: 10, ...imported })
-  imported.livePerformanceCycles[0]!.name = '导入后外部变更'
-
-  assert(merged.livePerformanceCycles?.[0]?.id === 'imported-cycle', '空本地周期必须采用导入周期')
-  assert(merged.livePerformanceCycles?.[0]?.name === '导入统计周期', '采用导入周期必须克隆输入')
+  assert(merged.livePerformanceCycles?.length === 0, '空本地周期也必须优先保留，不得被导入周期覆盖')
+  assert(merged.livePerformanceCycles !== current.livePerformanceCycles, '本地周期集合必须通过独立数组克隆')
 }
 
 export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
