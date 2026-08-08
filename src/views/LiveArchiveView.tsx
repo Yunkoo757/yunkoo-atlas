@@ -59,12 +59,17 @@ export function LiveArchiveView() {
   const members = archiveId ? archiveEntries.find((item) => item.summary.archiveId === archiveId)?.members ?? [] : []
   const emptyPreCycle = archiveId === 'pre-cycle' && !summary
   const requestedKey = searchParams.get('requestedKey')
-  const routeNotice = searchParams.get('archiveReason') === 'missing' && requestedKey
-    ? `找不到历史归档“${requestedKey}”，已返回历史归档首页。`
+  const staleArchive = Boolean(archiveId && !summary && !emptyPreCycle)
+  const missingArchiveKey = requestedKey ?? (staleArchive ? archiveId : null)
+  const routeNotice = searchParams.get('archiveReason') === 'missing' && missingArchiveKey
+    ? `原历史范围“${missingArchiveKey}”不存在，已返回历史归档首页。`
     : null
   useEffect(() => {
     if (emptyPreCycle) navigate('/live-archive', { replace: true })
-  }, [emptyPreCycle, navigate])
+    else if (staleArchive && archiveId) {
+      navigate(`/live-archive?archiveReason=missing&requestedKey=${encodeURIComponent(archiveId)}`, { replace: true })
+    }
+  }, [archiveId, emptyPreCycle, navigate, staleArchive])
   const archiveStatus = summary
     ? `正在查看历史归档：${rangeLabel(summary.startTradingDayKey, summary.endExclusiveTradingDayKey)}，共 ${members.length} 条日志记录。`
     : `历史归档首页：${archiveEntries.length} 份可查看归档，待整理 ${pendingCount} 条记录。`
@@ -110,7 +115,7 @@ export function LiveArchiveView() {
       {routeNotice ? <p className="la-route-notice" role="alert">{routeNotice}</p> : null}
       <p className="la-sr-status" role="status" aria-live="polite">{archiveStatus}</p>
       <div className="la-page-head"><div><h2>历史归档</h2><p>重新开始后，旧记录仍可随时回看。</p></div><Link className="la-pending" aria-label={`查看待整理记录，共 ${pendingCount} 条`} to="/list?statsCycle=pending">待整理 {pendingCount}</Link></div>
-      {archiveEntries.length ? <div className="la-cards">{archiveEntries.map(({ summary: item }) => <article className="la-card" key={item.archiveId}><div className="la-card-head"><div><h3>{rangeLabel(item.startTradingDayKey, item.endExclusiveTradingDayKey)}</h3><p>{item.resultCompleteness.closedCount ? `${item.resultCompleteness.closedCount} 笔已平仓` : '暂无已平仓记录'}</p></div><span className="la-completeness">结果完整度 · {summaryText(item)}</span></div><ArchiveMetrics trades={item.trades} /><div className="la-card-foot"><span>关联案例 {item.associatedCaseCount} 个</span><Link data-archive-detail-link to={`/live-archive/${item.archiveId}`}>查看归档交易 <ChevronRight size={14} /></Link></div></article>)}</div> : <section className="la-empty"><Archive size={24} aria-hidden /><h2>还没有可查看的历史归档</h2><p>开启新一轮当前实盘后，旧的已平仓记录会显示在这里。</p></section>}
+      {archiveEntries.length ? <div className="la-cards">{archiveEntries.map(({ summary: item }) => <article className="la-card" key={item.archiveId}><div className="la-card-head"><div><h3>{rangeLabel(item.startTradingDayKey, item.endExclusiveTradingDayKey)}</h3><p>{item.resultCompleteness.closedCount ? `${item.resultCompleteness.closedCount} 笔已平仓` : '暂无已平仓记录'}</p></div><span className="la-completeness">结果完整度 · {summaryText(item)}</span></div><ArchiveMetrics trades={item.trades} /><div className="la-card-foot"><span>关联案例 {item.associatedCaseCount} 个</span><Link data-archive-detail-link to={`/live-archive/${encodeURIComponent(item.archiveId)}`}>查看归档交易 <ChevronRight size={14} /></Link></div></article>)}</div> : <section className="la-empty"><Archive size={24} aria-hidden /><h2>还没有可查看的历史归档</h2><p>开启新一轮当前实盘后，旧的已平仓记录会显示在这里。</p></section>}
     </main>
   </>
 }

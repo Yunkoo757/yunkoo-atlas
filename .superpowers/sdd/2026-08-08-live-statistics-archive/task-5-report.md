@@ -103,3 +103,16 @@ pnpm typecheck
 - 增加内核单测，确认没有前置成员时不生成空投影；浏览器夹具断言 URL 已 replace 到首页且不显示错误。
 
 验证：archive 单测、`pnpm typecheck`、`git diff --check`、UTF-8 无 BOM 和四档浏览器夹具全部通过。
+
+## Fix Round 6：陈旧书签统一回退与特殊 ID 链接
+
+### RED
+
+新增直接访问 `/live-archive/stale-cycle` 的浏览器场景。旧页面只显示“未找到这个归档”，URL 仍停留在详情路径，且没有统一的“原历史范围不存在”提示。
+
+### GREEN
+
+- 真实未知 `archiveId` 现在 replace 到 `/live-archive?archiveReason=missing&requestedKey=<原 ID>`，复用统一的原历史范围提示；带已有 `archiveReason` 的失效查询仍保留原请求 ID。
+- 归档卡片详情链接使用 `encodeURIComponent(item.archiveId)`，避免合法 ID 含 `/` 或 `?` 时路径被拆解；夹具覆盖 `archive/2026?one`。
+
+验证：`pnpm typecheck`、归档单测、diff/no-BOM 及浏览器四档全部通过。

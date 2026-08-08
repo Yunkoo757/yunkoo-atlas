@@ -31,7 +31,7 @@ async function run() {
     root.render(<MemoryRouter key="missing-archive" initialEntries={['/live-archive?archiveReason=missing&requestedKey=gone-cycle']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '失效归档请求必须回到历史归档首页')
     assert(document.body.textContent?.includes('gone-cycle'), '失效归档提示必须保留原请求 ID')
-    assert(document.body.textContent?.includes('找不到') || document.body.textContent?.includes('未找到'), '失效归档提示必须说明原因')
+    assert(document.body.textContent?.includes('原历史范围'), '失效归档提示必须说明原因')
     root.unmount(); root = createRoot(element)
 
     useStore.setState((state) => ({ trades: [], livePerformanceCycles: [{ id: 'only-boundary', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }], display: { ...state.display, tradingDayStartHour: 0 } }))
@@ -39,6 +39,18 @@ async function run() {
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '空的最早归档必须回退历史归档首页')
     await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/live-archive', '空的最早归档必须 replace 到首页路径')
     assert(!document.body.textContent?.includes('未找到这个归档'), '空的最早归档不得显示失效归档错误')
+    root.unmount(); root = createRoot(element)
+
+    root.render(<MemoryRouter key="stale-bookmark" initialEntries={['/live-archive/stale-cycle']}><Routes><Route path="/live-archive" element={<><LiveArchiveView /><LocationProbe /></>} /><Route path="/live-archive/:archiveId" element={<><LiveArchiveView /><LocationProbe /></>} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '陈旧归档书签必须可达归档入口')
+    await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/live-archive', '陈旧归档书签必须 replace 到归档首页')
+    assert(document.body.textContent?.includes('原历史范围') && document.body.textContent?.includes('stale-cycle'), '陈旧归档书签必须显示统一范围不存在提示')
+    root.unmount(); root = createRoot(element)
+
+    useStore.setState((state) => ({ trades: [trade('special-id-trade', '2026-01-15')], livePerformanceCycles: [{ id: 'archive/2026?one', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }, { id: 'special-current', name: '实盘-2026-02-01', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' }], display: { ...state.display, tradingDayStartHour: 0 } }))
+    root.render(<MemoryRouter key="special-archive-id" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
+    await waitFor(() => Boolean(document.querySelector('[data-archive-detail-link]')), '特殊 ID 归档必须有详情入口')
+    assert(document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')?.getAttribute('href') === '/live-archive/archive%2F2026%3Fone', '归档详情链接必须编码特殊 ID')
     root.unmount(); root = createRoot(element)
 
     const singleBoundary: LivePerformanceCycle[] = [{ id: 'only-boundary', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }]
