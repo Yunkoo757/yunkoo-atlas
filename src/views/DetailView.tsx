@@ -89,7 +89,6 @@ import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
-import { classifyLiveCycleTrade } from '@/lib/liveCycle'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import {
@@ -181,7 +180,6 @@ export function DetailView() {
   const reviewTemplates = useStore((s) => s.reviewTemplates)
   const reviewContextPinned = useStore((s) => s.display.reviewContextPinned ?? true)
   const privacyMode = useStore((s) => s.display.privacyMode)
-  const liveStatsStartTradingDayKey = useStore((s) => s.liveStatsStartTradingDayKey)
   const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const [comment, setComment] = useState('')
@@ -651,11 +649,6 @@ export function DetailView() {
     }
   }
 
-  const isPreCycle = classifyLiveCycleTrade(
-    trade,
-    liveStatsStartTradingDayKey,
-    tradingDayStartHour,
-  ) === 'pre-cycle'
   const detailUnit = trade.tradeKind === 'case'
     ? '案例'
     : trade.tradeKind === 'paper'
@@ -798,7 +791,6 @@ export function DetailView() {
           <span className="dv-crumb">{detailCrumb}</span>
           <ChevronRight size={13} className="dv-crumb-sep" />
           <span className="dv-crumb dv-crumb-active">{trade.ref}</span>
-          {isPreCycle ? <span className="dv-cycle-badge">规则前</span> : null}
           <div className="dv-detail-crumb-actions">
             {favoriteButton}
             {moreMenu}

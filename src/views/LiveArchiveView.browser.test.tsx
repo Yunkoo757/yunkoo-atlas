@@ -40,7 +40,7 @@ async function run() {
     const incomplete = trade('incomplete', '2026-01-20', { pnl: null, rMultiple: null, resultSource: undefined })
     const membersOnly = trade('missed-only', '2025-12-15', { status: 'missed', pnl: null, rMultiple: null, resultSource: undefined })
     const deletedSource = { ...source, id: 'source-deleted', deletedAt: '2026-02-03T00:00:00.000Z' }
-    useStore.setState((state) => ({ trades: [...old, incomplete, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, display: { ...state.display, tradingDayStartHour: 0 } }))
+    useStore.setState((state) => ({ trades: [...old, incomplete, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, liveStatsStartTradingDayKey: '2026-02-01', display: { ...state.display, tradingDayStartHour: 0 } }))
     root.render(<MemoryRouter key="archive-home" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /><Route path="/list" element={<div>日志入口</div>} /><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '归档首页必须可达')
     assert(document.body.textContent?.includes('127 笔已平仓'), '卡片必须展示已平仓数量')
@@ -80,6 +80,7 @@ async function run() {
 
     root.render(<MemoryRouter key="archive-fact-edit" initialEntries={['/trade/old-0']}><Routes><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('TRD-old-0') ?? false, '归档交易详情必须可打开')
+    assert(!document.body.textContent?.includes('规则前'), '详情页不得把风险起算日投射为规则前徽标')
     const archiveBefore = JSON.stringify(useStore.getState().trades)
     ;[...document.querySelectorAll<HTMLButtonElement>('.dv-section-head')].find((button) => button.textContent?.trim() === '时间')?.click()
     await waitFor(() => Boolean(document.querySelector('.dv-datarow-btn')), '时间区必须可展开')
