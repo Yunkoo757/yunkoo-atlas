@@ -101,7 +101,6 @@ export function canonicalizeTradeViewSearch(
     // 显式绩效周期始终优先，避免失效 ID 清理后意外启用风险周期。
     params.delete('liveCycle')
     const current = cycles?.at(-1)?.id === statsCycle || statsCycle === 'current'
-    const valid = cycles === undefined || statsCycle === 'all' || statsCycle === 'pre-cycle' || cycles.some((cycle) => cycle.id === statsCycle)
     if (!statsCycle || current) params.delete('statsCycle')
     else if (rawStatsCycle !== statsCycle || params.getAll('statsCycle').length > 1) {
       params.set('statsCycle', statsCycle)

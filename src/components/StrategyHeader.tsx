@@ -50,7 +50,7 @@ export function StrategyHeader({
 
   const stats = useMemo(() => {
     const cycleScopedTrades = performanceRoute.target.kind === 'archive-home'
-      ? trades
+      ? []
       : (() => {
           const scoped = filterLivePerformanceRecords(trades, performanceRoute.target.scope, tradingDayStartHour)
           const ids = new Set(scoped.map((trade) => trade.id))

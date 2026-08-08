@@ -100,6 +100,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const strategies = useStore((state) => state.strategies)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const saveTradeView = useStore((state) => state.saveTradeView)
@@ -134,7 +135,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const workspaceSavedViews = savedViews.filter((view) => isSavedViewInWorkspace(view, kind))
   const pinned = workspaceSavedViews.filter((view) => view.pinned).slice(0, 4)
   const activeSavedViewId = pinned.find((view) =>
-    savedViewMatchesLocation(view, location.pathname, location.search),
+    savedViewMatchesLocation(view, location.pathname, location.search, livePerformanceCycles),
   )?.id
   const activePrimaryViewId = activeSavedViewId
     ? undefined
@@ -193,7 +194,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     const mode = workbenchModeFromPathname(location.pathname)
     navigate({
       pathname: pathWithWorkbenchMode(normalizeSavedViewPath(view.pathname), mode),
-      search: savedViewSearch(view),
+      search: savedViewSearch(view, livePerformanceCycles),
     })
   }
 
@@ -212,7 +213,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
       id: crypto.randomUUID(),
       name: trimmed,
       pathname: normalizeSavedViewPath(location.pathname),
-      search: searchParamsToRecord(searchParams),
+      search: searchParamsToRecord(searchParams, livePerformanceCycles),
       pinned: pinned.length < 4,
       order: savedViews.length,
       createdAt: now,
@@ -356,7 +357,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                     ) : (
                       <button type="button" className="quick-view-manage-name" onClick={() => goSavedView(view)}>
                         <span>{view.name}</span>
-                        {savedViewMatchesLocation(view, location.pathname, location.search) && <Check size={13} />}
+                        {savedViewMatchesLocation(view, location.pathname, location.search, livePerformanceCycles) && <Check size={13} />}
                       </button>
                     )}
                     <Tooltip content="重命名" label={`重命名 ${view.name}`}>

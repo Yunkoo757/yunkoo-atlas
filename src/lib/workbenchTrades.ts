@@ -8,7 +8,7 @@ import type {
 } from '@/data/trades'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
-import { resolveLiveRoute } from '@/lib/livePerformanceCycleRoute'
+import { resolveLiveRoute, type LiveRouteTarget } from '@/lib/livePerformanceCycleRoute'
 import { filterLiveLogRecords, filterLivePerformanceRecords } from '@/lib/liveStatisticsArchive'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
@@ -211,27 +211,35 @@ type WorkbenchTradeDerivationOptions = {
   livePerformanceCycles?: readonly LivePerformanceCycle[]
 }
 
+type ArchiveHomeTarget = Extract<LiveRouteTarget, { kind: 'archive-home' }>
+
+export type WorkbenchTradeDerivation = {
+  trades: Trade[]
+  visible: Trade[]
+  archiveHome?: ArchiveHomeTarget
+}
+
 function filterWorkbenchCycles(
   trades: Trade[],
   options: WorkbenchTradeDerivationOptions,
   tradingDayStartHour: number,
-): Trade[] {
+): { trades: Trade[]; archiveHome?: ArchiveHomeTarget } {
   const cycles = options.livePerformanceCycles ?? []
-  // 尚未设置归档边界时，所有既有日志都属于当前，保留工作台的完整日志语义。
-  if (cycles.length === 0) return trades
   const context = options.filter.analysisScope ? 'dashboard' : 'trade-list'
   const route = resolveLiveRoute(options.search, cycles, context)
-  if (route.target.kind === 'archive-home') return trades
+  if (route.target.kind === 'archive-home') return { trades: [], archiveHome: route.target }
+  // 尚未设置归档边界时，所有既有日志都属于当前，保留工作台的完整日志语义。
+  if (cycles.length === 0) return { trades }
   const scopedLive = options.filter.analysisScope
     ? filterLivePerformanceRecords(trades, route.target.scope, tradingDayStartHour)
     : filterLiveLogRecords(trades, route.target.scope, tradingDayStartHour)
   const liveIds = new Set(scopedLive.map((trade) => trade.id))
-  return trades.filter((trade) => trade.tradeKind !== 'live' || liveIds.has(trade.id))
+  return { trades: trades.filter((trade) => trade.tradeKind !== 'live' || liveIds.has(trade.id)) }
 }
 
 export function deriveWorkbenchVisibleTrades(
   options: WorkbenchTradeDerivationOptions,
-): { trades: Trade[]; visible: Trade[] } {
+): WorkbenchTradeDerivation {
   const parsedFacets = parseTradeFacets(options.search)
   const facets = options.filter.tradeKind || (
     options.filter.analysisScope && options.filter.analysisScope.kind !== 'all'
@@ -247,11 +255,13 @@ export function deriveWorkbenchVisibleTrades(
     tradingDayStartHour,
     options.businessDateAnchor,
   )
-  const cycleFiltered = filterWorkbenchCycles(
+  const cycleResult = filterWorkbenchCycles(
     routeFiltered,
     options,
     tradingDayStartHour,
   )
+  if (cycleResult.archiveHome) return { trades: [], visible: [], archiveHome: cycleResult.archiveHome }
+  const cycleFiltered = cycleResult.trades
   const analysisFiltered = options.filter.analysisScope
     ? filterTradesByAnalysisScope(
         cycleFiltered,
@@ -308,11 +318,13 @@ export function countWorkbenchVisibleTrades(options: {
       options.businessDateAnchor,
     ),
   )
-  const cycleScopedTrades = filterWorkbenchCycles(
+  const cycleResult = filterWorkbenchCycles(
     routeFiltered,
     options,
     tradingDayStartHour,
   )
+  if (cycleResult.archiveHome) return 0
+  const cycleScopedTrades = cycleResult.trades
   const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'
   const hideClosed = options.display.hideClosed && !skipHideClosed && !options.filter.analysisScope && !(
     facets.status && isHiddenWhenClosedFilter(facets.status)

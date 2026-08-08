@@ -2,6 +2,7 @@ import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import {
   canonicalizeTradeViewSearch,
   resolveTradeViewPerformanceCycleLabel,
+  searchParamsToRecord,
   savedViewMatchesLocation,
   savedViewSearch,
   type SavedTradeView,
@@ -75,6 +76,21 @@ export function testCurrentSavedViewTracksTheCurrentArchiveWithoutPersistingItsI
     savedViewSearch(savedView('cycle-current-id'), cycles) === '?symbol=BTCUSDT',
     '当前保存视图恢复时必须仍指向当前范围',
   )
+}
+
+export function testSavingCurrentViewStillTracksCurrentAfterTheArchiveChanges(): void {
+  const savedSearch = searchParamsToRecord(
+    new URLSearchParams('?statsCycle=cycle-current-id&symbol=BTCUSDT'),
+    cycles,
+  )
+  const saved: SavedTradeView = { ...savedView('cycle-current-id'), search: savedSearch }
+  const laterCycles: LivePerformanceCycle[] = [
+    ...cycles,
+    { id: 'cycle-next-id', name: '下一期', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' },
+  ]
+
+  assert(!('statsCycle' in saved.search), '保存当前视图时不得固化当前归档 ID')
+  assert(savedViewSearch(saved, laterCycles) === '?symbol=BTCUSDT', '归档切换后保存视图必须仍跟随当前')
 }
 
 export function testRemovedPerformanceCycleIdsStayInactiveAndRouteToArchiveHome(): void {

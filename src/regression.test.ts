@@ -85,6 +85,7 @@ import {
 import {
   applyDisplayPrefs as applyWorkbenchDisplayPrefs,
   countWorkbenchVisibleTrades,
+  deriveWorkbenchVisibleTrades,
   filterTrades as filterWorkbenchTrades,
   getWorkbenchVisibleTrades,
 } from '@/lib/workbenchTrades'
@@ -1292,6 +1293,24 @@ export function testLiveWorkbenchAndSidebarCountsUseCurrentArchiveByDefault(): v
   assert(countSidebarRoute('/list', '?statsCycle=current', context) === 1, '当前实盘侧栏计数必须与列表一致')
   assert(paper.map((item) => item.id).join() === 'paper', '模拟盘计数不得受实盘周期影响')
   assert(cases.map((item) => item.id).join() === 'case', '案例计数不得受实盘周期影响')
+}
+
+export function testArchiveHomeRouteNeverFallsThroughToTheLiveWorkbench(): void {
+  const cycles: LivePerformanceCycle[] = [
+    { id: 'current', name: '当前', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' },
+  ]
+  const options = {
+    trades: [{ ...trade, id: 'live', status: 'open' }] as Trade[],
+    filter: { type: 'all', tradeKind: 'live' } as const,
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    livePerformanceCycles: cycles,
+  }
+  for (const requested of ['all', 'pre-cycle', 'missing']) {
+    const derived = deriveWorkbenchVisibleTrades({ ...options, search: `?statsCycle=${requested}` })
+    assert(derived.visible.length === 0, `${requested} 不得回落为全部交易`)
+    assert(derived.archiveHome?.requestedKey === requested, `${requested} 必须暴露归档首页目标`)
+  }
 }
 
 export function testExplicitPerformanceCycleListRoutesStayStableAndClearInvalidIds(): void {
@@ -2576,6 +2595,9 @@ export async function testQuickViewBarHonorsCapabilityVisibility(): Promise<void
   const source = await fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8')
   assert(source.includes('filterViewsBySidebarCapabilities'), '快捷视图应按能力可见范围过滤')
   assert(source.includes('sidebarWorkspaceItems'), '快捷视图应读取侧栏工作区配置')
+  assert(source.includes('state.livePerformanceCycles'), '保存视图必须读取当前归档列表')
+  assert(source.includes('savedViewSearch(view, livePerformanceCycles)'), '恢复保存视图必须按当前归档解析')
+  assert(source.includes('searchParamsToRecord(searchParams, livePerformanceCycles)'), '保存当前视图必须压缩当前归档 ID')
 }
 
 export function testHideClosedDisplayPrefDoesNotHideReviewCases(): void {
