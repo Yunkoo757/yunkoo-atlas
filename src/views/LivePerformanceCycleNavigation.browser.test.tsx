@@ -79,6 +79,19 @@ function closedTrade(id: string, pnl: number, day: string): Trade {
   }
 }
 
+function openTrade(id: string, day: string): Trade {
+  return {
+    ...closedTrade(id, 0, day),
+    status: 'open',
+    exit: null,
+    pnl: null,
+    rMultiple: null,
+    resultSource: undefined,
+    closedAt: null,
+    closedTradingDayKey: undefined,
+  }
+}
+
 function buildFixture() {
   const tradingDayStartHour = useStore.getState().display.tradingDayStartHour
   const currentDay = getTradingDayKey(new Date(), tradingDayStartHour)
@@ -279,6 +292,42 @@ async function run(): Promise<void> {
       () => document.querySelector<HTMLElement>('[data-primary-id="trades"] .sb-item-count')?.textContent?.trim() === '1',
       '侧栏交易数量必须与统计周期后的可见列表一致',
     )
+
+    useStore.setState({
+      trades: [...fixture.trades, openTrade('plain-strategy-open', fixture.thirdCycle.startTradingDayKey)],
+      livePerformanceCycles: fixture.cycles,
+    })
+    await router.navigate(`/strategy/${strategy.id}`)
+    await waitFor(() => visibleTradeIds().length === 4, '普通策略页必须保留全部历史与未平仓交易')
+    assert(
+      visibleTradeIds().join(',') ===
+        'future-third-member,historical-member,plain-strategy-open,second-member',
+      '普通策略页无查询参数时的真实列表集合不得被当前周期截断',
+    )
+    const plainHeader = document.querySelector<HTMLElement>('.sh')
+    assert(plainHeader, '普通策略页必须渲染 Header')
+    assert(plainHeader.textContent?.includes('4 笔交易'), '普通策略页 Header 必须与完整列表总数一致')
+    assert(plainHeader.textContent.includes('3 笔已平'), '普通策略页 Header 必须保留全部历史已平仓数')
+
+    await router.navigate(`/strategy/${strategy.id}?statsCycle=cycle-two-real-id`)
+    await waitFor(
+      () => visibleTradeIds().join(',') === 'future-third-member,second-member',
+      '普通策略页显式当前 ID 必须筛选到该周期的已平仓成员',
+    )
+    await waitFor(
+      () => router.state.location.search.includes('statsCycle=cycle-two-real-id'),
+      '普通策略页显式当前真实 ID 不得压缩',
+    )
+    const explicitHeader = document.querySelector<HTMLElement>('.sh')
+    assert(explicitHeader?.textContent?.includes('2 笔已平'), '显式周期 Header 必须与列表成员一致')
+
+    await router.navigate(`/strategy/${strategy.id}?kind=live&range=all`)
+    await waitFor(
+      () => visibleTradeIds().join(',') === 'future-third-member,second-member',
+      'Dashboard 风格分析下钻仍必须使用隐式当前周期',
+    )
+    const analysisHeader = document.querySelector<HTMLElement>('.sh')
+    assert(analysisHeader?.textContent?.includes('2 笔已平'), '分析下钻 Header 必须保持当前周期口径')
   } finally {
     root?.unmount()
     useStore.setState({

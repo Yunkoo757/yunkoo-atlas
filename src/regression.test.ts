@@ -1340,6 +1340,97 @@ export function testExplicitPerformanceCycleListRoutesStayStableAndClearInvalidI
   assert(removed.needsReplace, '失效周期清理必须使用 replace 规范化')
 }
 
+export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCurrentCycle(): void {
+  const cycles: LivePerformanceCycle[] = [
+    {
+      id: 'old-strategy-cycle',
+      name: '策略旧周期',
+      startTradingDayKey: '2026-01-01',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+    {
+      id: 'current-strategy-cycle',
+      name: '策略当前周期',
+      startTradingDayKey: '2026-07-01',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    },
+  ]
+  const strategyTrades: Trade[] = [
+    {
+      ...trade,
+      id: 'old-closed-strategy',
+      tradeKind: 'live',
+      status: 'win',
+      openedAt: '2026-06-01',
+      closedAt: '2026-06-02',
+      closedTradingDayKey: '2026-06-02',
+      pnl: 100,
+      resultSource: 'imported',
+    },
+    {
+      ...trade,
+      id: 'current-closed-strategy',
+      tradeKind: 'live',
+      status: 'win',
+      openedAt: '2026-07-02',
+      closedAt: '2026-07-03',
+      closedTradingDayKey: '2026-07-03',
+      pnl: 150,
+      resultSource: 'imported',
+    },
+    {
+      ...trade,
+      id: 'current-open-strategy',
+      tradeKind: 'live',
+      status: 'open',
+      openedAt: '2026-07-04',
+      closedAt: null,
+      closedTradingDayKey: undefined,
+      pnl: null,
+      resultSource: undefined,
+    },
+  ]
+  const context = {
+    trades: strategyTrades,
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    livePerformanceCycles: cycles,
+  }
+  const plain = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'strategy', strategyId: strategy.id, tradeKind: 'live' },
+    search: '',
+  })
+  const explicitCurrent = getWorkbenchVisibleTrades({
+    ...context,
+    filter: { type: 'strategy', strategyId: strategy.id, tradeKind: 'live' },
+    search: '?statsCycle=current-strategy-cycle',
+  })
+  const dashboardAnalysis = getWorkbenchVisibleTrades({
+    ...context,
+    filter: {
+      type: 'strategy',
+      strategyId: strategy.id,
+      analysisScope: { kind: 'live', range: 'all' },
+    },
+    search: '?kind=live&range=all',
+  })
+
+  assert(
+    plain.map((item) => item.id).sort().join() ===
+      'current-closed-strategy,current-open-strategy,old-closed-strategy',
+    '普通策略页无查询参数时必须保留全部历史与未平仓实盘',
+  )
+  assert(
+    explicitCurrent.map((item) => item.id).join() === 'current-closed-strategy',
+    '普通策略页显式周期必须使用列表语义并按真实 ID 筛选',
+  )
+  assert(
+    dashboardAnalysis.map((item) => item.id).join() === 'current-closed-strategy',
+    'Dashboard 分析下钻仍必须用隐式当前周期分析语义',
+  )
+}
+
 export function testTradeFiltersReexportTheWorkbenchRuleSourceWithoutBehaviorDrift(): void {
   assert(filterTrades === filterWorkbenchTrades, '路由筛选必须从 workbenchTrades 共享唯一实现')
   assert(

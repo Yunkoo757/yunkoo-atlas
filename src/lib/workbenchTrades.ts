@@ -228,7 +228,7 @@ function filterWorkbenchCycles(
       ? options.filter.tradeKind
       : 'all'
   )
-  const performanceRoute = options.filter.type === 'strategy'
+  const performanceRoute = options.filter.analysisScope
     ? resolvePerformanceAnalysisRoute(options.search, analysisKind, cycles)
     : resolveTradeListPerformanceCycleRoute(
         options.search,

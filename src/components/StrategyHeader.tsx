@@ -11,7 +11,10 @@ import {
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
 import { filterTradesForLiveCycle, parseLiveCycleScope } from '@/lib/liveCycle'
-import { resolvePerformanceAnalysisRoute } from '@/lib/livePerformanceCycleRoute'
+import {
+  resolvePerformanceAnalysisRoute,
+  resolveTradeListPerformanceCycleRoute,
+} from '@/lib/livePerformanceCycleRoute'
 import { filterTradesByLivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
@@ -41,11 +44,17 @@ export function StrategyHeader({
       ? { ...parsed, tradeKind: undefined }
       : parsed
   }, [analysisScope?.kind, search])
-  const performanceRoute = resolvePerformanceAnalysisRoute(
-    search,
-    analysisScope?.kind ?? 'live',
-    livePerformanceCycles,
-  )
+  const performanceRoute = analysisScope
+    ? resolvePerformanceAnalysisRoute(
+        search,
+        analysisScope.kind,
+        livePerformanceCycles,
+      )
+    : resolveTradeListPerformanceCycleRoute(
+        search,
+        livePerformanceCycles,
+        true,
+      )
   const canonicalPerformanceSearch = performanceRoute.canonicalSearch
   const needsPerformanceReplace = performanceRoute.needsReplace
 
@@ -65,7 +74,7 @@ export function StrategyHeader({
       liveStatsStartTradingDayKey,
       tradingDayStartHour,
     )
-    const cycleScopedTrades = performanceRoute.resolved.bounds
+    const cycleScopedTrades = performanceRoute.resolved?.bounds
       ? filterTradesByLivePerformanceCycle(
           riskCycleScopedTrades,
           performanceRoute.resolved,
@@ -98,9 +107,9 @@ export function StrategyHeader({
       liveStatsStartTradingDayKey,
       livePerformanceCycles,
       canonicalPerformanceSearch,
-      performanceRoute.resolved.key,
-      performanceRoute.resolved.bounds?.startInclusive,
-      performanceRoute.resolved.bounds?.endExclusive,
+      performanceRoute.resolved?.key,
+      performanceRoute.resolved?.bounds?.startInclusive,
+      performanceRoute.resolved?.bounds?.endExclusive,
     ])
 
   const scopeLabel = analysisScope
