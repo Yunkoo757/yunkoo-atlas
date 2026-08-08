@@ -115,6 +115,19 @@ export function testCycleValidationRejectsMalformedAndUnorderedRecords(): void {
   }
 }
 
+export function testCycleValidationRejectsUnaddressableIds(): void {
+  const accepted: string[] = []
+  for (const id of [' padded-id ', 'all', 'pre-cycle', 'current']) {
+    try {
+      assertValidLivePerformanceCycles([cycle(id, `周期 ${id}`, '2026-01-01')])
+      accepted.push(id)
+    } catch {
+      // 预期拒绝，继续检查所有保留值，避免首个失败遮蔽其余契约。
+    }
+  }
+  assert(accepted.length === 0, `不可寻址周期 ID 必须全部拒绝，实际接受：${accepted.join(',')}`)
+}
+
 export function testCycleEditsEnforceChronologyAndReturnNewArrays(): void {
   const original = cycles.map((item) => ({ ...item }))
   const appended = appendLivePerformanceCycle(original, cycle('four', '第四期', '2026-08-01'), '2026-08-01')

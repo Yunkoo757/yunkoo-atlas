@@ -1,5 +1,6 @@
 import type { AnalysisKind } from '@/lib/analysisScope'
 import {
+  LIVE_PERFORMANCE_CYCLE_RESERVED_IDS,
   resolveLivePerformanceCycle,
   type LivePerformanceCycle,
   type ResolvedLivePerformanceCycle,
@@ -49,7 +50,7 @@ export function resolvePerformanceAnalysisRoute(
   }
 
   const resolved = resolveLivePerformanceCycle(cycles, params.get('statsCycle'))
-  if (resolved.isCurrent) params.delete('statsCycle')
+  if (cycles.length === 0 || resolved.isCurrent) params.delete('statsCycle')
 
   return {
     resolved,
@@ -68,9 +69,12 @@ export function writePerformanceAnalysisCycle(
   params.set('range', 'all')
 
   const resolved = resolveLivePerformanceCycle(cycles, selected === 'current' ? null : selected)
-  if (resolved.isCurrent) params.delete('statsCycle')
-  else if (resolved.key === 'all') params.set('statsCycle', 'all')
-  else if (resolved.key === 'pre-cycle') params.set('statsCycle', 'pre-cycle')
+  if (cycles.length === 0 || resolved.isCurrent) params.delete('statsCycle')
+  else if (resolved.key === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all) {
+    params.set('statsCycle', LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all)
+  } else if (resolved.key === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.preCycle) {
+    params.set('statsCycle', LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.preCycle)
+  }
   else params.set('statsCycle', resolved.cycleId!)
   return params
 }
@@ -110,7 +114,7 @@ export function resolveTradeListPerformanceCycleRoute(
   // 外部 URL 同时给出两种周期时，显式绩效周期拥有优先权；即便 ID 已失效也不回落到风险筛选。
   removeRiskCycle(params)
   const valid = enabled && (
-    (requested === 'pre-cycle' && cycles.length > 0) ||
+    (requested === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.preCycle && cycles.length > 0) ||
     cycles.some((cycle) => cycle.id === requested)
   )
   if (!valid) {

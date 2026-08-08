@@ -11,6 +11,18 @@ export type LivePerformanceCycle = {
   createdAt: string
 }
 
+export const LIVE_PERFORMANCE_CYCLE_RESERVED_IDS = {
+  all: 'all',
+  preCycle: 'pre-cycle',
+  current: 'current',
+} as const
+
+const RESERVED_CYCLE_IDS = new Set<string>(Object.values(LIVE_PERFORMANCE_CYCLE_RESERVED_IDS))
+
+export function isReservedLivePerformanceCycleId(value: string): boolean {
+  return RESERVED_CYCLE_IDS.has(value)
+}
+
 export type LivePerformanceCycleBounds = {
   startInclusive: string | null
   endExclusive: string | null
@@ -35,7 +47,10 @@ function assertValidCycleName(value: unknown): asserts value is string {
 function assertValidCycle(value: unknown): asserts value is LivePerformanceCycle {
   if (!value || typeof value !== 'object') throw new Error('周期必须是对象')
   const cycle = value as Record<string, unknown>
-  if (typeof cycle.id !== 'string' || !cycle.id.trim()) throw new Error('周期 ID 不能为空')
+  if (typeof cycle.id !== 'string' || !cycle.id || cycle.id.trim() !== cycle.id) {
+    throw new Error('周期 ID 必须为无首尾空格的非空字符串')
+  }
+  if (isReservedLivePerformanceCycleId(cycle.id)) throw new Error('周期 ID 不得使用路由保留值')
   assertValidCycleName(cycle.name)
   if (!isValidLiveCycleDayKey(cycle.startTradingDayKey)) throw new Error('周期起始交易日无效')
   if (!isCanonicalIsoInstant(cycle.createdAt)) throw new Error('周期创建时间必须是 ISO 时间戳')
@@ -94,9 +109,14 @@ export function resolveLivePerformanceCycle(
   requested: string | null,
 ): ResolvedLivePerformanceCycle {
   assertValidLivePerformanceCycles(cycles)
-  if (cycles.length === 0) return resolvedAll(requested, requested !== null && requested !== 'all')
-  if (requested === 'all') return resolvedAll(requested, false)
-  if (requested === 'pre-cycle') {
+  if (cycles.length === 0) {
+    return resolvedAll(
+      requested,
+      requested !== null && requested !== LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all,
+    )
+  }
+  if (requested === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all) return resolvedAll(requested, false)
+  if (requested === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.preCycle) {
     return {
       key: 'pre-cycle', cycleId: null, label: '周期前',
       bounds: { startInclusive: null, endExclusive: cycles[0]!.startTradingDayKey },

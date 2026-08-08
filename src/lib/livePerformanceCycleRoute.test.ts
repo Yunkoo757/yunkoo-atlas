@@ -1,5 +1,6 @@
 import {
   resolvePerformanceAnalysisRoute,
+  resolveTradeListPerformanceCycleRoute,
   writePerformanceAnalysisCycle,
   writeTradeListPerformanceCycle,
 } from '@/lib/livePerformanceCycleRoute'
@@ -49,6 +50,38 @@ export function testAnalysisRouteFallsBackInvalidIdsToCompressedCurrent(): void 
   assert(route.needsReplace, '非法统计周期必须标记替换')
 }
 
+export function testEmptyCycleAnalysisRouteRemovesEveryStatsCycleAliasAndStaysCanonical(): void {
+  for (const requested of ['pre-cycle', 'all', 'current', 'missing', 'cycle-looking-id']) {
+    const route = resolvePerformanceAnalysisRoute(
+      `?kind=live&statsCycle=${requested}&visual=x`,
+      'live',
+      [],
+    )
+
+    assert(route.resolved.key === 'all' && route.resolved.bounds === null, '空周期集合必须解析为全部历史')
+    assert(route.canonicalSearch === '?kind=live&visual=x', `空周期集合必须清除 ${requested} 并保留无关参数`)
+    assert(route.needsReplace, `清除空周期集合的 ${requested} 必须触发 canonical replace`)
+
+    const canonical = resolvePerformanceAnalysisRoute(route.canonicalSearch, 'live', [])
+    assert(canonical.canonicalSearch === route.canonicalSearch, '规范 URL 再解析必须稳定')
+    assert(!canonical.needsReplace, '规范 URL 不得产生 replace 循环')
+  }
+}
+
+export function testUndoingTheOnlyCycleCanonicalizesItsFormerVirtualScope(): void {
+  const soleCycle = [cycles[1]!]
+  const beforeUndo = resolvePerformanceAnalysisRoute(
+    '?kind=live&statsCycle=pre-cycle&visual=x',
+    'live',
+    soleCycle,
+  )
+  assert(!beforeUndo.needsReplace, '唯一周期存在时统计起点前必须是稳定可寻址范围')
+
+  const afterUndo = resolvePerformanceAnalysisRoute(beforeUndo.canonicalSearch, 'live', [])
+  assert(afterUndo.canonicalSearch === '?kind=live&visual=x', '撤销唯一周期后必须清除已消失的虚拟范围')
+  assert(afterUndo.needsReplace, '撤销唯一周期后必须执行真实 canonical replace')
+}
+
 export function testStatsCycleWinsOverAndRemovesRiskLiveCycle(): void {
   const route = resolvePerformanceAnalysisRoute('?kind=live&liveCycle=pre-cycle&statsCycle=old-id&visual=x', 'live', cycles)
 
@@ -68,6 +101,19 @@ export function testWritingAnalysisCycleResetsRelativeRangeAndCompressesCurrent(
   assert(historical.get('visual') === 'x', '写周期不得丢失无关参数')
 }
 
+export function testWritingAnalysisCycleCannotCreateStatsCycleForAnEmptyLibrary(): void {
+  for (const selected of ['current', 'pre-cycle', 'all', 'cycle-looking-id'] as const) {
+    const written = writePerformanceAnalysisCycle(
+      '?kind=live&range=30d&statsCycle=stale&visual=x',
+      selected,
+      [],
+    )
+    assert(!written.has('statsCycle'), `空周期集合写入 ${selected} 时不得制造误导 URL`)
+    assert(written.get('range') === 'all', '选择周期仍必须重置相对日期范围')
+    assert(written.get('visual') === 'x', '空周期写入不得丢失无关参数')
+  }
+}
+
 export function testTradeListKeepsExplicitCurrentIdAndCanClearInvalidSelection(): void {
   const selected = writeTradeListPerformanceCycle('?liveCycle=pre-cycle&visual=x', 'current-id')
   const cleared = writeTradeListPerformanceCycle('?statsCycle=missing&visual=x', null)
@@ -76,4 +122,16 @@ export function testTradeListKeepsExplicitCurrentIdAndCanClearInvalidSelection()
   assert(!selected.has('liveCycle'), '交易列表统计周期不得携带风险 liveCycle')
   assert(!cleared.has('statsCycle'), '无效列表 ID 必须可以删除而非回退当前周期')
   assert(cleared.get('visual') === 'x', '删除列表周期不得丢失无关参数')
+}
+
+export function testTradeListRouteAlreadyClearsStatsCycleWhenTheLibraryIsEmpty(): void {
+  const route = resolveTradeListPerformanceCycleRoute(
+    '?statsCycle=pre-cycle&liveCycle=pre-cycle&symbol=BTCUSDT',
+    [],
+    true,
+  )
+
+  assert(route.resolved === null, '空周期集合的交易列表不得解析出统计周期')
+  assert(route.canonicalSearch === '?symbol=BTCUSDT', '空周期集合必须清除失效周期和冲突风险参数')
+  assert(route.needsReplace, '交易列表清除失效周期必须触发 replace')
 }

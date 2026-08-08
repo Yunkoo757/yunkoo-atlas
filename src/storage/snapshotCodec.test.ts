@@ -241,6 +241,26 @@ export function testV9DefaultsMissingLiveCycleStartAndPreservesValidValue(): voi
   )
 }
 
+export function testV10SnapshotCodecRejectsUnaddressablePerformanceCycleIds(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const accepted: string[] = []
+  for (const id of [' padded-id ', 'all', 'pre-cycle', 'current']) {
+    try {
+      decodeCanonicalSnapshot({
+        ...fixture,
+        livePerformanceCycles: [{ ...fixture.livePerformanceCycles![0]!, id }],
+      }, { version: 10, label: 'v10 import snapshot' })
+      accepted.push(id)
+    } catch (error) {
+      assert(
+        /livePerformanceCycles.*周期 ID/.test(error instanceof Error ? error.message : String(error)),
+        `v10 拒绝 ${id} 时必须指出周期 ID 契约`,
+      )
+    }
+  }
+  assert(accepted.length === 0, `v10 恢复/导入必须拒绝不可寻址周期 ID，实际接受：${accepted.join(',')}`)
+}
+
 export function testV10RequiresCyclesAndV9DefaultsThem(): void {
   const full = createFullPersistedSnapshotFixture()
   const missing = { ...full } as Record<string, unknown>
