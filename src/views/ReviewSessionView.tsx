@@ -27,6 +27,11 @@ import { Select } from '@/components/ui/Select'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import {
+  settleReviewImageGroup,
+  type ReviewImageCandidate,
+  type ReviewImageSlot,
+} from '@/lib/reviewImageReadiness'
+import {
   DEFAULT_REVIEW_SESSION_FILTERS,
   buildReviewAssessmentPatch,
   buildReviewSessionPool,
@@ -57,8 +62,7 @@ type ResolvedNoteState = {
   status: 'idle' | 'loading' | 'ready' | 'error'
   html: string
 }
-type ReviewImage = { src: string; alt: string }
-type ReviewNotePresentation = { bodyHtml: string; images: ReviewImage[] }
+type ReviewNotePresentation = { bodyHtml: string; images: ReviewImageCandidate[] }
 
 const CASE_SCOPE_OPTIONS: Array<{ value: ReviewCaseScope; label: string }> = [
   { value: 'all', label: '全部案例' },
@@ -656,8 +660,26 @@ function ReviewSessionItem({
 
 function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   const presentation = useMemo(() => splitReviewNoteHtml(note.html), [note.html])
-  const imageSources = useMemo(() => presentation.images.map((image) => image.src), [presentation.images])
+  const [settledImages, setSettledImages] = useState<{
+    tradeId: string | null
+    status: 'idle' | 'loading' | 'ready'
+    slots: ReviewImageSlot[]
+  }>({ tradeId: null, status: 'idle', slots: [] })
   const hasBody = hasEffectiveReviewContent(presentation.bodyHtml)
+  const imagesReady = settledImages.tradeId === note.tradeId && settledImages.status === 'ready'
+
+  useEffect(() => {
+    if (note.status !== 'ready' || presentation.images.length === 0) {
+      setSettledImages({ tradeId: note.tradeId, status: 'idle', slots: [] })
+      return
+    }
+    let current = true
+    setSettledImages({ tradeId: note.tradeId, status: 'loading', slots: [] })
+    void settleReviewImageGroup(presentation.images).then((slots) => {
+      if (current) setSettledImages({ tradeId: note.tradeId, status: 'ready', slots })
+    })
+    return () => { current = false }
+  }, [note.tradeId, note.status, presentation.images])
 
   if (note.status === 'loading' || note.status === 'idle') {
     return <div className="review-session-note-state" role="status">正在载入完整复盘…</div>
@@ -683,31 +705,46 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
     <section className={`review-session-content${hasBody && presentation.images.length > 0 ? ' has-split-content' : ''}`} aria-label="完整复盘内容">
       {presentation.images.length > 0 ? (
         <div className={`review-session-gallery is-${presentation.images.length === 1 ? 'single' : 'multiple'}`} aria-label={`交易截图，共 ${presentation.images.length} 张`}>
-          {presentation.images.map((image, index) => (
-            <button
-              type="button"
-              key={`${image.src}-${index}`}
-              onClick={(event) => {
-                const imageElement = event.currentTarget.querySelector('img')
-                const rect = imageElement?.getBoundingClientRect()
-                useShortcutStore.getState().openLightbox(
-                  imageSources,
-                  index,
-                  undefined,
-                  rect ? {
-                    x: rect.x,
-                    y: rect.y,
-                    width: rect.width,
-                    height: rect.height,
-                    borderRadius: Number.parseFloat(getComputedStyle(imageElement!).borderRadius) || 0,
-                  } : undefined,
-                )
-              }}
-              aria-label={`放大查看${image.alt}`}
-            >
-              <img src={image.src} alt={image.alt} />
-              <span>{index + 1} / {presentation.images.length}</span>
-            </button>
+          {imagesReady ? settledImages.slots.map((slot, index) => (
+            slot.status === 'ready' ? (
+              <button
+                className="review-session-gallery-slot is-ready"
+                type="button"
+                key={`${slot.src}-${index}`}
+                onClick={(event) => {
+                  const readySources = settledImages.slots
+                    .filter((candidate) => candidate.status === 'ready')
+                    .map((candidate) => candidate.src)
+                  const lightboxIndex = settledImages.slots
+                    .slice(0, index + 1)
+                    .filter((candidate) => candidate.status === 'ready').length - 1
+                  const rect = event.currentTarget.querySelector('img')?.getBoundingClientRect()
+                  useShortcutStore.getState().openLightbox(
+                    readySources,
+                    lightboxIndex,
+                    undefined,
+                    rect ? {
+                      x: rect.x,
+                      y: rect.y,
+                      width: rect.width,
+                      height: rect.height,
+                      borderRadius: Number.parseFloat(getComputedStyle(event.currentTarget).borderRadius) || 0,
+                    } : undefined,
+                  )
+                }}
+                aria-label={`放大查看${slot.alt}`}
+              >
+                <img src={slot.src} alt={slot.alt} />
+                <span>{index + 1} / {presentation.images.length}</span>
+              </button>
+            ) : (
+              <div className="review-session-gallery-slot is-error" key={`${slot.src}-${index}`} role="img" aria-label={`${slot.alt}加载失败`}>
+                <AlertCircle size={18} aria-hidden />
+                <span>图片暂时无法显示</span>
+              </div>
+            )
+          )) : presentation.images.map((image, index) => (
+            <div className="review-session-gallery-slot is-loading" key={`${image.src}-${index}`} aria-hidden="true" />
           ))}
         </div>
       ) : null}
