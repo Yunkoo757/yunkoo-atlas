@@ -57,13 +57,14 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
 
   if (mode === 'seed') {
     const confirmed = snapshot('confirmed-revision-1')
+    const cycles = confirmed.livePerformanceCycles ?? []
     storage.saveSnapshot(confirmed)
     storage.release()
     send({
       type: 'seeded',
       confirmed: 'confirmed-revision-1',
       snapshotRevision: snapshotRevision(confirmed),
-      livePerformanceCycleIds: confirmed.livePerformanceCycles.map((cycle) => cycle.id),
+      livePerformanceCycleIds: cycles.map((cycle) => cycle.id),
     })
     return
   }
@@ -81,18 +82,20 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
   if (mode === 'verify') {
     const loaded = storage.loadSnapshot()
     storage.release()
+    const cycles = loaded?.livePerformanceCycles ?? []
+    const trades = loaded?.trades ?? []
     const tradingDayStartHour = loaded?.display?.tradingDayStartHour ?? 0
     send({
       type: 'verified',
       displayName: loaded?.profile?.displayName ?? null,
       noteLength: loaded?.trades[0]?.note.length ?? null,
       snapshotRevision: loaded ? snapshotRevision(loaded) : null,
-      livePerformanceCycleIds: loaded?.livePerformanceCycles.map((cycle) => cycle.id) ?? [],
-      currentTradeIds: loaded?.trades
-        .filter((trade) => resolveLiveRecordBucket(trade, loaded.livePerformanceCycles, tradingDayStartHour) === 'current')
+      livePerformanceCycleIds: cycles.map((cycle) => cycle.id),
+      currentTradeIds: trades
+        .filter((trade) => resolveLiveRecordBucket(trade, cycles, tradingDayStartHour) === 'current')
         .map((trade) => trade.id) ?? [],
-      archiveTradeIds: loaded?.trades
-        .filter((trade) => resolveLiveRecordBucket(trade, loaded.livePerformanceCycles, tradingDayStartHour) === 'archive')
+      archiveTradeIds: trades
+        .filter((trade) => resolveLiveRecordBucket(trade, cycles, tradingDayStartHour) === 'archive')
         .map((trade) => trade.id) ?? [],
     })
     return
