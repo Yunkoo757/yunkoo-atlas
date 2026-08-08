@@ -77,7 +77,7 @@ function keyEvent(
   } as KeyboardEvent
 }
 
-export function testReviewSessionDefaultPoolIncludesCasesAndAccountTradesOnly(): void {
+export function testReviewSessionDefaultPoolIncludesCasesOnly(): void {
   const trades: Trade[] = [
     baseTrade,
     { ...baseTrade, id: 'paper-1', ref: 'TRD-2', tradeKind: 'paper' },
@@ -90,14 +90,16 @@ export function testReviewSessionDefaultPoolIncludesCasesAndAccountTradesOnly():
     },
   ]
 
-  const pool = buildReviewSessionPool(
-    trades,
-    DEFAULT_REVIEW_SESSION_FILTERS,
-    new Set(),
-  )
+  const defaultPool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set())
+  assert(defaultPool.map((trade) => trade.id).join(',') === 'case-1',
+    '默认随机复盘池只能包含案例')
 
-  assert(pool.map((trade) => trade.id).join(',') === 'live-1,paper-1,case-1',
-    '默认池应包含未删除的案例、实盘和模拟交易')
+  const expandedPool = buildReviewSessionPool(trades, {
+    ...DEFAULT_REVIEW_SESSION_FILTERS,
+    includeAccountTrades: true,
+  }, new Set())
+  assert(expandedPool.map((trade) => trade.id).join(',') === 'live-1,paper-1,case-1',
+    '复盘设置仍应允许显式加入账户交易')
 }
 
 export function testReviewSessionAccountTradesRequireClosedReviewedContent(): void {
@@ -116,7 +118,10 @@ export function testReviewSessionAccountTradesRequireClosedReviewedContent(): vo
     },
   ]
 
-  const pool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set())
+  const pool = buildReviewSessionPool(trades, {
+    ...DEFAULT_REVIEW_SESSION_FILTERS,
+    includeAccountTrades: true,
+  }, new Set())
 
   assert(pool.map((trade) => trade.id).join(',') === 'eligible,missed',
     '账户交易必须已结束、已正式复盘且有有效内容才可进入随机复盘')
@@ -125,6 +130,7 @@ export function testReviewSessionAccountTradesRequireClosedReviewedContent(): vo
 export function testReviewSessionContentFilterKeepsTextAndImageNotes(): void {
   const filters = {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
+    includeAccountTrades: true,
     requireContent: true,
   }
   const trades: Trade[] = [
@@ -257,7 +263,7 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
   const snapshot: ReviewSessionSnapshot = {
     ids: ['case-1', 'live-1'],
     cursor: 1,
-    filters: DEFAULT_REVIEW_SESSION_FILTERS,
+    filters: { ...DEFAULT_REVIEW_SESSION_FILTERS, includeAccountTrades: true },
     assessments: { 'case-1': 'recheck' },
   }
 
@@ -339,7 +345,7 @@ export function testReviewSessionRestoreDropsUnavailableRecordsWithoutLosingCurr
   const snapshot: ReviewSessionSnapshot = {
     ids: ['deleted', 'case-1', 'live-1', 'missing'],
     cursor: 2,
-    filters: DEFAULT_REVIEW_SESSION_FILTERS,
+    filters: { ...DEFAULT_REVIEW_SESSION_FILTERS, includeAccountTrades: true },
     assessments: { deleted: 'mastered', 'case-1': 'recheck' },
   }
   const trades: Trade[] = [

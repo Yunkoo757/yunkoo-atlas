@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Image,
   ListTodo,
+  MoreHorizontal,
   RotateCcw,
   SlidersHorizontal,
 } from '@/icons/appIcons'
@@ -20,6 +21,8 @@ import { Editor } from '@/editor/Editor'
 import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { Kbd } from '@/components/ui/Kbd'
+import { Menu } from '@/components/Menu'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { Select } from '@/components/ui/Select'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
@@ -109,6 +112,7 @@ export function ReviewSessionView() {
   const updateTradeData = useStore((state) => state.updateTradeData)
   const starred = useMemo(() => new Set(starredIds), [starredIds])
   const [filters, setFilters] = useState<ReviewSessionFilters>(DEFAULT_REVIEW_SESSION_FILTERS)
+  const [settingsDraft, setSettingsDraft] = useState<ReviewSessionFilters | null>(null)
   const [session, setSession] = useState<ReviewSessionSnapshot | null>(null)
   const [libraryId, setLibraryId] = useState<string | null>(null)
   const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>('loading')
@@ -125,6 +129,10 @@ export function ReviewSessionView() {
   const pool = useMemo(
     () => buildReviewSessionPool(trades, filters, starred),
     [filters, starred, trades],
+  )
+  const settingsPoolSize = useMemo(
+    () => settingsDraft ? buildReviewSessionPool(trades, settingsDraft, starred).length : 0,
+    [settingsDraft, starred, trades],
   )
   const tradeById = useMemo(
     () => new Map(trades.filter((trade) => !trade.deletedAt).map((trade) => [trade.id, trade])),
@@ -273,6 +281,7 @@ export function ReviewSessionView() {
   useEffect(() => {
     if (!focusAfterTransitionRef.current) return
     focusAfterTransitionRef.current = false
+    if (settingsDraft) return
     const frame = requestAnimationFrame(() => {
       const selector = roundEnded
         ? '[data-review-session-finished-focus]'
@@ -282,7 +291,7 @@ export function ReviewSessionView() {
       document.querySelector<HTMLElement>(selector)?.focus()
     })
     return () => cancelAnimationFrame(frame)
-  }, [current, roundEnded, session?.cursor])
+  }, [current, roundEnded, session?.cursor, settingsDraft])
 
   useEffect(() => {
     if (!session || roundEnded || !current) return
@@ -323,6 +332,8 @@ export function ReviewSessionView() {
     setResolvedNote(EMPTY_NOTE_STATE)
   }
 
+  const openSettings = (next = filters) => setSettingsDraft({ ...next })
+
   const reshuffle = () => {
     if (!session) return
     const nextPool = buildReviewSessionPool(trades, session.filters, starred)
@@ -337,6 +348,13 @@ export function ReviewSessionView() {
       filters: session.filters,
       assessments: {},
     })
+  }
+
+  const adjustFinishedSession = () => {
+    if (!session) return
+    const previousFilters = { ...session.filters }
+    clearActiveSession(previousFilters)
+    setSettingsDraft(previousFilters)
   }
 
   const openDetail = () => {
@@ -389,13 +407,13 @@ export function ReviewSessionView() {
       ) : null}
 
       {!session ? (
-        <ReviewSessionStart filters={filters} poolSize={pool.length} onChange={setFilters} onStart={start} />
+        <ReviewSessionStart filters={filters} poolSize={pool.length} onOpenSettings={openSettings} onStart={start} />
       ) : roundEnded ? (
         <ReviewSessionFinished
           session={session}
           onBack={rewind}
           onReshuffle={reshuffle}
-          onAdjust={() => clearActiveSession(session.filters)}
+          onAdjust={adjustFinishedSession}
         />
       ) : !current ? (
         <div className="review-session-loading" role="status">正在跳过已删除的记录…</div>
@@ -411,6 +429,18 @@ export function ReviewSessionView() {
           privacyMode={privacyMode}
         />
       )}
+      {settingsDraft ? (
+        <ReviewSessionSettingsModal
+          filters={settingsDraft}
+          poolSize={settingsPoolSize}
+          onChange={setSettingsDraft}
+          onApply={() => {
+            setFilters(settingsDraft)
+            setSettingsDraft(null)
+          }}
+          onClose={() => setSettingsDraft(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -418,16 +448,24 @@ export function ReviewSessionView() {
 function ReviewSessionStart({
   filters,
   poolSize,
-  onChange,
+  onOpenSettings,
   onStart,
 }: {
   filters: ReviewSessionFilters
   poolSize: number
-  onChange: (filters: ReviewSessionFilters) => void
+  onOpenSettings: () => void
   onStart: () => void
 }) {
-  const patchFilters = (patch: Partial<ReviewSessionFilters>) => onChange({ ...filters, ...patch })
-  const noSources = !filters.includeCases && !filters.includeAccountTrades
+  const usesDefaultFilters = (
+    filters.includeCases === DEFAULT_REVIEW_SESSION_FILTERS.includeCases &&
+    filters.includeAccountTrades === DEFAULT_REVIEW_SESSION_FILTERS.includeAccountTrades &&
+    filters.caseScope === DEFAULT_REVIEW_SESSION_FILTERS.caseScope &&
+    filters.requireContent === DEFAULT_REVIEW_SESSION_FILTERS.requireContent
+  )
+  const emptyMessage = usesDefaultFilters
+    ? '还没有可复盘的案例，请先创建案例'
+    : '当前复盘设置下没有可复盘内容，请调整复盘设置'
+  const emptyHint = '你可以在复盘设置中调整随机范围。'
 
   return (
     <section className="review-session-start" data-review-session-start-focus tabIndex={-1}>
@@ -437,22 +475,78 @@ function ReviewSessionStart({
         <p>完整查看交易信息、复盘笔记和截图，再按真实理解程度评估。每轮随机排序且不重复。</p>
       </div>
 
-      <fieldset className="review-session-source-grid">
+      <div className="review-session-start-footer">
+        <div>
+          <strong>{poolSize > 0 ? `可随机复盘 ${poolSize} 条` : emptyMessage}</strong>
+          <span>{poolSize > 0 ? '使用当前设置直接开始，本轮随机排序且不重复。' : emptyHint}</span>
+        </div>
+        <div className="review-session-start-actions">
+          <Menu
+            align="right"
+            trigger={<Button type="button" variant="ghost"><MoreHorizontal size={16} aria-hidden />更多</Button>}
+            options={[{ value: 'settings', label: '复盘设置', icon: <SlidersHorizontal size={16} /> }]}
+            onSelect={(value) => { if (value === 'settings') onOpenSettings() }}
+          />
+          <Button type="button" variant="primary" size="lg" disabled={poolSize === 0} onClick={onStart}>
+            开启一轮新的复盘
+            <ChevronRight size={16} aria-hidden />
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ReviewSessionSettingsModal({
+  filters,
+  poolSize,
+  onChange,
+  onApply,
+  onClose,
+}: {
+  filters: ReviewSessionFilters
+  poolSize: number
+  onChange: (filters: ReviewSessionFilters) => void
+  onApply: () => void
+  onClose: () => void
+}) {
+  const patchFilters = (patch: Partial<ReviewSessionFilters>) => onChange({ ...filters, ...patch })
+  const noSources = !filters.includeCases && !filters.includeAccountTrades
+
+  return (
+    <ModalShell
+      title="复盘设置"
+      description="只影响接下来开启的这一轮复盘。"
+      size="compact"
+      onClose={onClose}
+      footer={<>
+        <Button type="button" variant="ghost" onClick={onClose}>取消</Button>
+        <Button type="button" variant="primary" disabled={noSources} onClick={onApply}>应用设置</Button>
+      </>}
+    >
+      <fieldset className="review-session-settings-sources">
         <legend>随机范围</legend>
         <label className={filters.includeCases ? 'is-selected' : undefined}>
-          <input type="checkbox" checked={filters.includeCases} onChange={(event) => patchFilters({ includeCases: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={filters.includeCases}
+            onChange={(event) => patchFilters({ includeCases: event.target.checked })}
+          />
           <BookOpen size={19} aria-hidden />
           <span><strong>案例记录</strong><small>优秀范例、错题与待复看案例</small></span>
         </label>
         <label className={filters.includeAccountTrades ? 'is-selected' : undefined}>
-          <input type="checkbox" checked={filters.includeAccountTrades} onChange={(event) => patchFilters({ includeAccountTrades: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={filters.includeAccountTrades}
+            onChange={(event) => patchFilters({ includeAccountTrades: event.target.checked })}
+          />
           <ListTodo size={19} aria-hidden />
           <span><strong>账户交易</strong><small>实盘与模拟盘记录</small></span>
         </label>
       </fieldset>
-
-      <div className="review-session-options">
-        <div className="review-session-case-scope">
+      <div className="review-session-settings-options">
+        <label className="review-session-case-scope">
           <span>案例范围</span>
           <Select
             className="review-session-scope-select"
@@ -462,25 +556,21 @@ function ReviewSessionStart({
             options={CASE_SCOPE_OPTIONS}
             onValueChange={(value) => patchFilters({ caseScope: value as ReviewCaseScope })}
           />
-        </div>
+        </label>
         <label className="review-session-content-toggle">
-          <input type="checkbox" checked={filters.requireContent} onChange={(event) => patchFilters({ requireContent: event.target.checked })} />
+          <input
+            type="checkbox"
+            checked={filters.requireContent}
+            onChange={(event) => patchFilters({ requireContent: event.target.checked })}
+          />
           <Image size={17} aria-hidden />
           <span>仅含有效图文</span>
         </label>
       </div>
-
-      <div className="review-session-start-footer">
-        <div>
-          <strong>{noSources ? '请选择至少一个来源' : `可随机复盘 ${poolSize} 条`}</strong>
-          <span>{poolSize === 0 && !noSources ? '当前条件没有可复盘记录，请放宽筛选。' : '进入后直接显示完整内容，不再翻面。'}</span>
-        </div>
-        <Button type="button" variant="primary" size="lg" disabled={noSources || poolSize === 0} onClick={onStart}>
-          随机开始
-          <ChevronRight size={16} aria-hidden />
-        </Button>
-      </div>
-    </section>
+      <p className="review-session-settings-count" role="status">
+        {noSources ? '请选择至少一个来源' : `当前设置可复盘 ${poolSize} 条`}
+      </p>
+    </ModalShell>
   )
 }
 
@@ -663,7 +753,7 @@ function ReviewSessionFinished({
       <div className="review-session-finished-actions">
         <Button type="button" variant="bordered" onClick={onBack}><ChevronLeft size={16} aria-hidden />上一条</Button>
         <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={16} aria-hidden />再随机一轮</Button>
-        <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={16} aria-hidden />调整范围</Button>
+        <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={16} aria-hidden />重新设置</Button>
       </div>
     </section>
   )

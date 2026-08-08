@@ -111,16 +111,15 @@
   line-height: 1.7;
 }
 
-.review-session-source-grid {
+.review-session-settings-sources {
   display: grid;
   margin: 0;
   padding: 0;
   border: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--sp-2);
 }
 
-.review-session-source-grid legend {
+.review-session-settings-sources legend {
   width: 100%;
   margin-bottom: 9px;
   color: var(--text-secondary);
@@ -128,7 +127,7 @@
   font-weight: 600;
 }
 
-.review-session-source-grid label {
+.review-session-settings-sources label {
   display: grid;
   min-height: 82px;
   grid-template-columns: auto auto 1fr;
@@ -142,43 +141,43 @@
   cursor: pointer;
 }
 
-.review-session-source-grid label:hover {
+.review-session-settings-sources label:hover {
   border-color: var(--border-strong);
   background: var(--bg-hover);
 }
 
-.review-session-source-grid label.is-selected {
+.review-session-settings-sources label.is-selected {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border-default));
   background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated));
   color: color-mix(in srgb, var(--accent) 70%, white);
 }
 
-.review-session-source-grid input,
+.review-session-settings-sources input,
 .review-session-content-toggle input {
   width: 16px;
   height: 16px;
   accent-color: var(--accent);
 }
 
-.review-session-source-grid label > span {
+.review-session-settings-sources label > span {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: var(--sp-1);
 }
 
-.review-session-source-grid strong {
+.review-session-settings-sources strong {
   color: var(--text-primary);
   font-size: var(--fs-sm);
 }
 
-.review-session-source-grid small {
+.review-session-settings-sources small {
   color: var(--text-tertiary);
   font-size: var(--fs-xs);
   line-height: 1.4;
 }
 
-.review-session-options {
+.review-session-settings-options {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -189,7 +188,7 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.review-session-options > label,
+.review-session-settings-options > label,
 .review-session-case-scope {
   display: flex;
   align-items: center;
@@ -204,6 +203,12 @@
 
 .review-session-scope-select .ui-select-trigger { min-height: 32px; }
 .review-session-content-toggle { cursor: pointer; }
+
+.review-session-settings-count {
+  margin: var(--sp-3) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
 
 .review-session-start-footer {
   display: flex;
@@ -222,6 +227,13 @@
 
 .review-session-start-footer strong { font-size: var(--fs-sm); }
 .review-session-start-footer span { color: var(--text-tertiary); font-size: var(--fs-xs); }
+
+.review-session-start-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
 
 .review-session-stage {
   display: flex;
@@ -555,11 +567,11 @@
 }
 
 @media (max-width: 640px) {
-  .review-session-source-grid { grid-template-columns: 1fr; }
-  .review-session-options,
   .review-session-start-footer { align-items: stretch; flex-direction: column; }
-  .review-session-options > label,
+  .review-session-settings-options > label,
   .review-session-case-scope { justify-content: space-between; }
+  .review-session-start-actions { align-items: stretch; flex-direction: column-reverse; }
+  .review-session-start-actions .ui-btn:last-child { width: 100%; }
   .review-session-assessed { display: none; }
   .review-session-stage { padding: 0; }
   .review-session-workspace { border: 0; border-radius: 0; }

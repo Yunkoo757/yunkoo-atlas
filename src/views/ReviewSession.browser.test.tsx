@@ -113,8 +113,20 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const previousShortcuts = useShortcutStore.getState()
   clearReviewSessionStorage(manifest.libraryId)
+  const accountTrade = trade
+  const reviewCase: Trade = {
+    ...trade,
+    id: 'review-session-case',
+    ref: 'CAS-RANDOM-1',
+    symbol: 'SOLUSDT',
+    tradeKind: 'case',
+    caseType: 'exemplar',
+    masteryState: 'new',
+    nextReviewAt: null,
+    note: '<p>案例结论：等待结构确认。</p>',
+  }
   useStore.setState({
-    trades: [trade],
+    trades: [accountTrade, reviewCase],
     strategies: [strategy],
     starredIds: [],
     composerOpen: false,
@@ -141,27 +153,49 @@ async function run(): Promise<void> {
       () => document.body.textContent?.includes('可随机复盘 1 条') === true,
       '随机复盘没有显示实时范围数量',
     )
-    assert(document.querySelector('.review-session-scope-select .ui-select-trigger'), '案例范围应使用统一选择框')
-    assert(!document.querySelector('.review-session-options select'), '随机复盘不得退回系统原生下拉框')
-    findButton('随机开始')?.click()
+    assert(!document.querySelector('.review-session-source-grid'), '开始页不得直接暴露来源表单')
+    assert(!document.querySelector('.review-session-options'), '开始页不得直接暴露高级选项')
+    assert(findButton('开启一轮新的复盘'), '开始页缺少单一主操作')
+
+    findButton('更多')?.click()
+    await waitFor(() => Boolean(findButton('复盘设置')), '更多菜单没有提供复盘设置')
+    findButton('复盘设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('只影响接下来开启的这一轮复盘。') === true, '没有打开复盘设置')
+    const sourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    assert(sourceInputs.length === 2, '复盘设置缺少来源选项')
+    assert(sourceInputs[1]?.checked === false, '账户交易默认必须未选中')
+    sourceInputs[1]?.click()
+    findButton('应用设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '启用账户交易后预览没有包含两条记录')
+
+    findButton('更多')?.click()
+    await waitFor(() => Boolean(findButton('复盘设置')), '更多菜单没有再次提供复盘设置')
+    findButton('复盘设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('只影响接下来开启的这一轮复盘。') === true, '没有再次打开复盘设置')
+    const reopenedSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    assert(reopenedSourceInputs[1]?.checked === true, '应用后的账户交易设置没有保留到当前视图')
+    reopenedSourceInputs[1]?.click()
+    findButton('应用设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '关闭账户交易后预览没有恢复案例数量')
+
+    findButton('开启一轮新的复盘')?.click()
     await waitFor(
       () => Boolean(document.querySelector('.review-session-workspace')),
       '开始后没有直接打开完整交易',
     )
+    assert(loadReviewSession(manifest.libraryId)?.filters.includeAccountTrades === false,
+      '默认开始的轮次快照不得包含账户交易')
+    assert(loadReviewSession(manifest.libraryId)?.ids.join(',') === reviewCase.id,
+      '默认一键开始只能建立案例队列')
     await waitFor(
       () => document.activeElement?.hasAttribute('data-review-session-focus') === true,
       '开始复盘后没有把焦点移入当前交易',
     )
     await waitFor(
-      () => document.body.textContent?.includes('复盘结论') === true,
+      () => document.body.textContent?.includes('案例结论') === true,
       '完整交易没有直接显示复盘正文',
     )
     assert(!document.querySelector('.review-session-card.is-front, .review-session-card.is-back'), '随机复盘不得再出现正反面卡片')
-    assert(document.querySelectorAll('.review-session-gallery img').length === 1, '有效截图应从正文拆入受控图片画廊')
-    assert(
-      document.body.textContent?.includes('图片附件缺失'),
-      '图片读取失败应显示可继续复盘的缺失占位',
-    )
 
     const openDetail = findButton('打开详情')
     assert(openDetail, '完整复盘缺少详情入口')
@@ -172,14 +206,14 @@ async function run(): Promise<void> {
       cancelable: true,
     }))
     assert(buttonSpaceAccepted, '按钮获得焦点时 Space 必须保留原生激活行为')
-    assert(document.body.textContent?.includes('复盘结论'), '按钮 Space 不得推进当前交易')
+    assert(document.body.textContent?.includes('案例结论'), '按钮 Space 不得推进当前交易')
 
     openDetail.click()
     await waitFor(() => Boolean(document.querySelector('[data-detail-probe]')), '没有进入交易详情')
     assert(document.body.textContent?.includes('/review-session'), '详情来源没有记录随机复盘')
     findButton('返回复盘')?.click()
     await waitFor(
-      () => document.body.textContent?.includes('复盘结论') === true,
+      () => document.body.textContent?.includes('案例结论') === true,
       '从详情返回后没有恢复同一条完整交易',
     )
     assert(loadReviewSession(manifest.libraryId)?.cursor === 0, '打开详情不得推进随机队列')
@@ -192,15 +226,20 @@ async function run(): Promise<void> {
     }))
     assert(!accepted, '掌握度快捷键应在捕获阶段被随机复盘消费')
     await waitFor(
-      () => loadReviewSession(manifest.libraryId)?.assessments[trade.id] === 'recheck',
+      () => loadReviewSession(manifest.libraryId)?.assessments[reviewCase.id] === 'recheck',
       '基本理解没有写入会话结果',
     )
-    const assessed = useStore.getState().trades.find((item) => item.id === trade.id)
+    const assessed = useStore.getState().trades.find((item) => item.id === reviewCase.id)
     assert(assessed?.masteryState === 'recheck', '评估没有写回记录掌握度')
     assert(Boolean(assessed.nextReviewAt), '基本理解没有生成复看计划')
     assert(
-      assessed.reviewStatus === 'reviewed' && assessed.reviewCategory === 'normal',
-      '随机掌握度评估不得改写账户交易的正式复盘状态与分类',
+      assessed?.reviewStatus === 'unreviewed' && assessed.reviewCategory === 'recheck',
+      '案例评估必须同步更新案例复盘状态与分类',
+    )
+    const untouchedAccountTrade = useStore.getState().trades.find((item) => item.id === accountTrade.id)
+    assert(
+      untouchedAccountTrade?.reviewStatus === 'reviewed' && untouchedAccountTrade.reviewCategory === 'normal',
+      '未入队的账户交易不得被案例评估改写',
     )
     await waitFor(
       () => document.body.textContent?.includes('本轮完成') === true,
@@ -215,6 +254,8 @@ async function run(): Promise<void> {
 
     findButton('再随机一轮')?.click()
     await waitFor(() => Boolean(document.querySelector('.review-session-workspace')), '无法再次随机开始')
+    assert(loadReviewSession(manifest.libraryId)?.filters.includeAccountTrades === false,
+      '再随机一轮必须沿用已完成轮次的筛选条件')
     const beforeNoOpAssessment = JSON.stringify(useStore.getState().trades[0])
     const undoCountBeforeNoOp = useStore.getState().undoStack.length
     const repeatedAssessmentAccepted = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
@@ -240,6 +281,14 @@ async function run(): Promise<void> {
     assert(!skipAccepted, 'N 应在捕获阶段执行跳过')
     await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 1, 'N 没有跳过当前记录')
     assert(!useStore.getState().composerOpen, '随机复盘中的 N 不得触发全局新建交易')
+
+    await waitFor(() => document.body.textContent?.includes('本轮完成') === true, '跳过后没有完成当前轮次')
+    findButton('重新设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('只影响接下来开启的这一轮复盘。') === true, '重新设置没有打开同一个对话框')
+    await waitFor(
+      () => document.querySelector('.modal-shell')?.contains(document.activeElement) === true,
+      '重新设置后焦点必须进入对话框',
+    )
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)

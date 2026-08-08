@@ -98,7 +98,7 @@ const REVIEW_SESSION_SCOPES: ReviewCaseScope[] = [
 
 export const DEFAULT_REVIEW_SESSION_FILTERS: ReviewSessionFilters = {
   includeCases: true,
-  includeAccountTrades: true,
+  includeAccountTrades: false,
   caseScope: 'all',
   requireContent: false,
 }
