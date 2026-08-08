@@ -48,10 +48,33 @@ function snapshot(displayName: string, assetId?: string): PersistedSnapshot {
 
 async function deleteDatabase(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
+    let settled = false
+    const timeout = window.setTimeout(() => {
+      if (settled) return
+      settled = true
+      reject(new Error('测试数据库持续被占用'))
+    }, 2_000)
+    const finish = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeout)
+      callback()
+    }
     const request = indexedDB.deleteDatabase(DB_NAME)
-    request.onsuccess = () => resolve()
+    request.onsuccess = () => finish(resolve)
+    request.onerror = () => finish(() => reject(request.error))
+    request.onblocked = () => undefined
+  })
+}
+
+async function holdDatabaseOpenBriefly(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME)
+    request.onsuccess = () => {
+      window.setTimeout(() => request.result.close(), 50)
+      resolve()
+    }
     request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('测试数据库仍被占用'))
   })
 }
 
@@ -210,6 +233,7 @@ async function expectConflict(
 }
 
 async function run(): Promise<void> {
+  await holdDatabaseOpenBriefly()
   await seedCurrentCorruptSnapshot()
   const corrupt = new IndexedDbStorageAdapter()
   await corrupt.open()
