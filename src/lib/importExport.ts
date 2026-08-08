@@ -958,13 +958,12 @@ interface LivePerformanceCycleImportDecision {
 }
 
 function resolveLivePerformanceCycleImportDecision(
-  current: PersistedSlice,
-  payload: ExportPayload,
+  _current: PersistedSlice,
+  _payload: ExportPayload,
 ): LivePerformanceCycleImportDecision {
-  const importedCycles = payload.livePerformanceCycles ?? []
   return {
-    // 本地空数组同样是明确的边界选择，导入不能重置其统计语境。
-    preservesCurrent: importedCycles.length > 0,
+    // 本地（包括空数组）始终是唯一的边界语境；导入摘要必须明确这一点。
+    preservesCurrent: true,
     adoptsImported: false,
     adoptedCount: 0,
   }

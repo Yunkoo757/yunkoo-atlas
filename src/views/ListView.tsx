@@ -33,6 +33,7 @@ import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
+import { resolveLiveRoute } from '@/lib/livePerformanceCycleRoute'
 import './ListView.css'
 
 export function ListView({
@@ -61,6 +62,7 @@ export function ListView({
   const upsertTrades = useStore((state) => state.upsertTrades)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -68,6 +70,19 @@ export function ListView({
   const listScrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const liveRoute = useMemo(
+    () => filter.tradeKind === 'live'
+      ? resolveLiveRoute(location.search, livePerformanceCycles, 'trade-list')
+      : null,
+    [filter.tradeKind, livePerformanceCycles, location.search],
+  )
+
+  useEffect(() => {
+    if (liveRoute?.target.kind !== 'archive-home') return
+    const params = new URLSearchParams(liveRoute.canonicalSearch)
+    params.delete('statsCycle')
+    navigate({ pathname: '/live-archive', search: params.toString() ? `?${params}` : '' }, { replace: true })
+  }, [liveRoute, navigate])
 
   useListContextSync(filter)
   useTradeReturnAnchor()

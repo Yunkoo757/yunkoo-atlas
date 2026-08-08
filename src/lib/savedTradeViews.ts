@@ -103,11 +103,12 @@ export function canonicalizeTradeViewSearch(
     }
     if (raw !== value || params.getAll(key).length > 1) params.set(key, value)
   }
+  // liveCycle 是旧风险核算筛选，不得继续参与实盘归档保存视图。
+  params.delete('liveCycle')
   const rawStatsCycle = params.get('statsCycle')
   const statsCycle = rawStatsCycle?.trim() ?? ''
   if (rawStatsCycle !== null) {
     // 显式绩效周期始终优先，避免失效 ID 清理后意外启用风险周期。
-    params.delete('liveCycle')
     const current = cycles?.at(-1)?.id === statsCycle || statsCycle === 'current'
     if (!statsCycle || current || options.mode === 'current') params.delete('statsCycle')
     else if (rawStatsCycle !== statsCycle || params.getAll('statsCycle').length > 1) {

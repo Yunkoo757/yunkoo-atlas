@@ -62,10 +62,22 @@ async function run(): Promise<void> {
     assert(router.state.location.search.includes('symbol=BTCUSDT'), 'URL 规范化不得丢失无关品种筛选')
     assert(JSON.stringify(useStore.getState().trades) === factsBeforeNavigation, 'URL 规范化不得改写交易事实')
 
+    for (const requested of ['all', 'pre-cycle', 'missing-archive']) {
+      await router.navigate(`/list?statsCycle=${requested}&symbol=BTCUSDT`)
+      await waitFor(() => router.state.location.pathname === '/live-archive', `${requested} 必须安全回退到历史归档首页（当前=${router.state.location.pathname}${router.state.location.search}）`)
+      assert(router.state.location.search.includes('symbol=BTCUSDT'), `${requested} 回退不得丢失安全筛选`)
+    }
+    await router.navigate('/list?statsCycle=current&symbol=BTCUSDT')
+    await waitFor(() => router.state.location.pathname === '/list' && !router.state.location.search.includes('statsCycle'), '旧 current 链接必须回到动态当前实盘')
+    await router.navigate('/list?liveCycle=pre-cycle&symbol=BTCUSDT')
+    await waitFor(() => !router.state.location.search.includes('liveCycle'), '单独旧 liveCycle 必须被清理')
+    assert(router.state.location.search.includes('symbol=BTCUSDT'), '清理单独旧 liveCycle 不得丢失安全筛选')
+
     useStore.setState({ livePerformanceCycles: [] })
     await router.navigate('/list?statsCycle=pending')
     await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, '无周期时待整理日志仍必须只显示缺少平仓日记录')
     assert(document.querySelector('[data-trade-id]')?.getAttribute('data-trade-id') === 'missing', '无周期待整理不得回退为全部实盘')
+    assert(JSON.stringify(useStore.getState().trades) === factsBeforeNavigation, '旧链接回退不得改写交易事实')
   } finally {
     root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display })

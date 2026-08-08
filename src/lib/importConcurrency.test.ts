@@ -598,9 +598,6 @@ export async function testJsonImportSummaryPreservesEmptyLocalLivePerformanceCyc
       version: 10,
       trades: [], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
       strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: { ...DEFAULT_DISPLAY },
-      livePerformanceCycles: [{
-        id: 'adopted-cycle', name: '采用周期', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z',
-      }],
     })
     assert(
       result.summary.includes('保留当前统计与历史归档设置'),

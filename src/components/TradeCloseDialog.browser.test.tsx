@@ -83,6 +83,11 @@ async function run(): Promise<void> {
     assert(!document.body.textContent?.includes('记录依据'), '平仓不应再显示价格记录方式')
     assert(!document.body.textContent?.includes('出场价格'), '平仓不应再提供出场价格模式')
 
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')?.click()
+    await waitFor(() => useStore.getState().closeTradeRequest === null, '普通平仓弹窗的取消必须关闭请求')
+    useStore.getState().requestTradeClose(trade.id)
+    await waitFor(() => Boolean(document.querySelector('input[aria-label="盈亏金额"]')), '取消后必须能再次打开平仓弹窗')
+
     const submit = [...document.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent?.trim() === '保存并待复盘')
     assert(submit, '缺少保存平仓按钮')
@@ -111,6 +116,37 @@ async function run(): Promise<void> {
     assert(restored?.status === 'open' && restored.pnl === null && restored.rMultiple === null, '旧 Toast 必须只撤销自己的平仓动作')
     assert(restored.openedAt === '2026-07-16', '旧 Toast 不得覆盖动作后的非 touched 字段')
     assert(useStore.getState().undoStack.some((action) => action.actionId === laterActionId), '旧 Toast 不得误撤新的栈顶动作')
+
+    const archiveCandidate: Trade = { ...trade, id: 'close-to-archive', ref: 'TRD-ARCHIVE', closedAt: '2026-07-01' }
+    useStore.setState({
+      trades: [archiveCandidate],
+      closeTradeRequest: { tradeId: archiveCandidate.id },
+      undoStack: [],
+      redoStack: [],
+      livePerformanceCycles: [{ id: 'current-boundary', name: '当前', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' }],
+      display: { ...previous.display, tradingDayStartHour: 0 },
+    })
+    root.render(<TradeCloseDialog />)
+    await waitFor(() => document.body.textContent?.includes('TRD-ARCHIVE') ?? false, '迁移场景必须加载新交易')
+    await waitFor(() => Boolean(document.querySelector('input[aria-label="盈亏金额"]')), '迁移场景平仓弹窗没有打开')
+    const archivePnl = document.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')
+    assert(archivePnl, '迁移场景缺少盈亏金额输入')
+    enterValue(archivePnl, '100')
+    const archiveSubmit = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '保存并待复盘')
+    assert(archiveSubmit, '迁移场景缺少提交按钮')
+    await waitFor(() => !archiveSubmit.disabled, '迁移场景填写结果后提交按钮必须可用')
+    archiveSubmit.click()
+    await waitFor(() => document.body.textContent?.includes('保存后将离开当前归档') ?? false, '跨边界平仓必须先请求归属确认')
+    const beforeCancel = JSON.stringify(useStore.getState().trades)
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')?.click()
+    await waitFor(() => Boolean([...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '保存并待复盘')), '取消确认后必须回到平仓表单')
+    assert(JSON.stringify(useStore.getState().trades) === beforeCancel, '取消归属确认不得写入 Store')
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '保存并待复盘')?.click()
+    await waitFor(() => Boolean([...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '确认保存')), '再次提交必须仍要求归属确认')
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '确认保存')?.click()
+    await waitFor(() => useStore.getState().closeTradeRequest === null, '确认后才应提交平仓')
+    assert(useStore.getState().trades[0]?.status === 'win', '确认后必须完成平仓')
+    assert(useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-01', '确认后必须按选择的平仓日归属历史范围')
   } finally {
     root.unmount()
     useToast.getState().dismiss()
@@ -119,6 +155,8 @@ async function run(): Promise<void> {
       closeTradeRequest: previous.closeTradeRequest,
       undoStack: previous.undoStack,
       redoStack: previous.redoStack,
+      livePerformanceCycles: previous.livePerformanceCycles,
+      display: previous.display,
     })
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { X } from '@/icons/appIcons'
 import { DatePicker } from '@/components/ui/DatePicker'
-import type { TradeStatus } from '@/data/trades'
+import type { Trade, TradeStatus } from '@/data/trades'
 import { pnlToStatus } from '@/lib/tradeCalc'
 import {
   prepareTradeClose,
@@ -14,6 +14,8 @@ import { getTradingDayKey } from '@/lib/periods'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { Button } from '@/components/ui/Button'
+import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import './TradeCloseDialog.css'
 
 const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
@@ -54,6 +56,7 @@ export function TradeCloseDialog() {
   const completeTradeClose = useStore((state) => state.completeTradeClose)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const [outcome, setOutcome] = useState<CloseOutcome>('win')
   const [pnl, setPnl] = useState('')
   const [rMultiple, setRMultiple] = useState('')
@@ -61,6 +64,10 @@ export function TradeCloseDialog() {
     toTradingDay(new Date(), useStore.getState().display.tradingDayStartHour),
   )
   const [error, setError] = useState('')
+  const [archiveConfirm, setArchiveConfirm] = useState<{
+    status: CloseOutcome
+    patch: Partial<Trade>
+  } | null>(null)
   const exitRef = useExitClone<HTMLDivElement>(Boolean(request && trade))
 
   useEffect(() => {
@@ -86,6 +93,7 @@ export function TradeCloseDialog() {
     setRMultiple(trade.rMultiple == null ? '' : String(Math.abs(trade.rMultiple)))
     setClosedAt(trade.closedAt ?? toTradingDay(new Date(), tradingDayStartHour))
     setError('')
+    setArchiveConfirm(null)
   }, [trade?.id, request?.targetStatus, tradingDayStartHour])
 
   useEffect(() => {
@@ -114,6 +122,20 @@ export function TradeCloseDialog() {
 
   if (!request || !trade) return null
 
+  const commitClose = (status: CloseOutcome, patch: Partial<Trade>) => {
+    const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
+    completeTradeClose(trade.id, status, patch)
+    const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
+    const actionId = latestActionId !== previousActionId ? latestActionId : undefined
+    toast(`${trade.ref} 已平仓，已加入待复盘`, {
+      label: '撤销',
+      onClick: () => {
+        if (actionId && useStore.getState().undo(actionId)) toast('已撤销平仓')
+        else toast('目标交易之后已变化，无法安全撤销')
+      },
+    })
+  }
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const result = prepareTradeClose(trade, {
@@ -127,17 +149,18 @@ export function TradeCloseDialog() {
       setError(result.error)
       return
     }
-    const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
-    completeTradeClose(trade.id, result.status, result.patch)
-    const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
-    const actionId = latestActionId !== previousActionId ? latestActionId : undefined
-    toast(`${trade.ref} 已平仓，已加入待复盘`, {
-      label: '撤销',
-      onClick: () => {
-        if (actionId && useStore.getState().undo(actionId)) toast('已撤销平仓')
-        else toast('目标交易之后已变化，无法安全撤销')
-      },
-    })
+    const before = resolveLiveRecordBucket(trade, livePerformanceCycles, tradingDayStartHour)
+    const after = resolveLiveRecordBucket({
+      ...trade,
+      ...result.patch,
+      status: result.status,
+      closedTradingDayKey: closedTradingDayKeyFromClosedAt(result.patch.closedAt ?? null, tradingDayStartHour) ?? undefined,
+    }, livePerformanceCycles, tradingDayStartHour)
+    if ((before === 'current' || before === 'archive') && before !== after) {
+      setArchiveConfirm({ status: result.status, patch: result.patch })
+      return
+    }
+    commitClose(result.status, result.patch)
   }
 
   const preview = previewResult?.ok ? previewResult : null
@@ -201,6 +224,13 @@ export function TradeCloseDialog() {
         </header>
 
         <div className="trade-close-body">
+          {archiveConfirm ? (
+            <section className="trade-close-section" aria-live="polite">
+              <span className="trade-close-label">归属将改变</span>
+              <p>保存后将离开当前归档。交易与关联案例不会删除，系统会按平仓业务日重新归属。</p>
+            </section>
+          ) : (
+            <>
           <section className="trade-close-section">
             <span className="trade-close-label">交易结果</span>
             <div className="trade-close-outcomes" role="radiogroup" aria-label="交易结果">
@@ -272,13 +302,22 @@ export function TradeCloseDialog() {
           <div className={`trade-close-summary${error ? ' is-error' : ''}`} role={error ? 'alert' : 'status'}>
             {summary}
           </div>
+            </>
+          )}
         </div>
 
         <footer className="trade-close-footer">
           <span>保存后进入「待复盘」</span>
           <div>
-            <Button type="button" variant="bordered" size="lg" onClick={cancelTradeClose}>取消</Button>
-            <Button type="submit" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
+            <Button type="button" variant="bordered" size="lg" onClick={() => {
+              if (archiveConfirm) setArchiveConfirm(null)
+              else cancelTradeClose()
+            }}>取消</Button>
+            {archiveConfirm ? (
+              <Button type="button" variant="primary" size="lg" onClick={() => commitClose(archiveConfirm.status, archiveConfirm.patch)}>确认保存</Button>
+            ) : (
+              <Button type="submit" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
+            )}
           </div>
         </footer>
       </form>
