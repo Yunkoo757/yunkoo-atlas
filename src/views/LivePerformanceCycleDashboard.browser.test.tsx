@@ -187,6 +187,13 @@ async function run(): Promise<void> {
       document.querySelector('button[role="combobox"][aria-label="统计周期"]')?.getAttribute('data-value') === 'cycle-two',
       '选择器必须解析到当前周期',
     )
+    const currentCycleTradeHref = document
+      .querySelector<HTMLAnchorElement>('[data-cycle-trade-link]')
+      ?.getAttribute('href')
+    assert(
+      currentCycleTradeHref?.includes('statsCycle=cycle-two'),
+      '查看本周期交易链接必须显式保留当前周期真实 ID',
+    )
 
     await selectCycle('第一期')
     await waitFor(
