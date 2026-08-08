@@ -102,7 +102,7 @@ export function LiveArchiveView() {
           {visibleMembers.map((trade) => {
             const truth = resolveTradeTruth(trade)
             const state = trade.status === 'missed' ? '错过机会' : truth.hasConflict ? '结果冲突' : !truth.isResultComplete ? '待补结果' : trade.status === 'win' ? '盈利' : trade.status === 'loss' ? '亏损' : '保本'
-            return <Link data-archive-trade-row key={trade.id} className="la-trade-row" to={tradeDetailPath(trade)} state={tradeDetailNavState({ pathname: `/live-archive/${summary.archiveId}`, anchorTradeId: trade.id })}><div><strong>{trade.symbol}</strong><span>{trade.ref} · {fmtDate(resolveLivePerformanceCloseTradingDayKey(trade, startHour) ?? '')}</span></div><div><span>{state}</span><strong>{truth.isResultComplete ? fmtMoney(trade.pnl) : '—'}</strong></div></Link>
+            return <Link data-archive-trade-row key={trade.id} className="la-trade-row" to={tradeDetailPath(trade)} state={tradeDetailNavState({ pathname: `/live-archive/${encodeURIComponent(summary.archiveId)}`, anchorTradeId: trade.id })}><div><strong>{trade.symbol}</strong><span>{trade.ref} · {fmtDate(resolveLivePerformanceCloseTradingDayKey(trade, startHour) ?? '')}</span></div><div><span>{state}</span><strong>{truth.isResultComplete ? fmtMoney(trade.pnl) : '—'}</strong></div></Link>
           })}
           {visibleMembers.length === 0 ? <p className="la-no-results">当前筛选没有归档记录</p> : null}
         </section>
@@ -114,7 +114,7 @@ export function LiveArchiveView() {
     <main className="la-scroll">
       {routeNotice ? <p className="la-route-notice" role="alert">{routeNotice}</p> : null}
       <p className="la-sr-status" role="status" aria-live="polite">{archiveStatus}</p>
-      <div className="la-page-head"><div><h2>历史归档</h2><p>重新开始后，旧记录仍可随时回看。</p></div><Link className="la-pending" aria-label={`查看待整理记录，共 ${pendingCount} 条`} to="/list?statsCycle=pending">待整理 {pendingCount}</Link></div>
+      <div className="la-page-head"><div><h2>历史归档</h2><p>重新开始后，旧记录仍可随时回看。</p></div><Link data-pending-log-link className="la-pending" aria-label={`查看待整理记录，共 ${pendingCount} 条`} to="/list?statsCycle=pending" state={tradeDetailNavState({ pathname: archiveId ? `/live-archive/${encodeURIComponent(archiveId)}` : '/live-archive' })}>待整理 {pendingCount}</Link></div>
       {archiveEntries.length ? <div className="la-cards">{archiveEntries.map(({ summary: item }) => <article className="la-card" key={item.archiveId}><div className="la-card-head"><div><h3>{rangeLabel(item.startTradingDayKey, item.endExclusiveTradingDayKey)}</h3><p>{item.resultCompleteness.closedCount ? `${item.resultCompleteness.closedCount} 笔已平仓` : '暂无已平仓记录'}</p></div><span className="la-completeness">结果完整度 · {summaryText(item)}</span></div><ArchiveMetrics trades={item.trades} /><div className="la-card-foot"><span>关联案例 {item.associatedCaseCount} 个</span><Link data-archive-detail-link to={`/live-archive/${encodeURIComponent(item.archiveId)}`}>查看归档交易 <ChevronRight size={14} /></Link></div></article>)}</div> : <section className="la-empty"><Archive size={24} aria-hidden /><h2>还没有可查看的历史归档</h2><p>开启新一轮当前实盘后，旧的已平仓记录会显示在这里。</p></section>}
     </main>
   </>

@@ -13,7 +13,7 @@ import { getStrategyName } from '@/lib/strategies'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
-import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
+import { tradeDetailPath, tradeDetailNavState, type TradeDetailLocationState } from '@/lib/tradeRoute'
 import {
   groupTradesByMonth,
   intersectSelectedTradeIds,
@@ -100,9 +100,12 @@ export function ListView({
   const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = useCallback((trade: Trade) => {
+    const inheritedFrom = (location.state as TradeDetailLocationState | null)?.from
+    const inheritedArchive = inheritedFrom?.pathname === '/live-archive'
+      || inheritedFrom?.pathname.startsWith('/live-archive/')
     const from = {
-      pathname: location.pathname,
-      search: location.search,
+      pathname: inheritedArchive ? inheritedFrom!.pathname : location.pathname,
+      search: inheritedArchive ? inheritedFrom!.search ?? '' : location.search,
       anchorTradeId: trade.id,
     }
     rememberTradeReturnAnchor(from)
