@@ -14,7 +14,6 @@ import {
 import {
   discardPendingAndResumePersist,
   flushPersistNow,
-  resumePersist,
   suspendPersist,
 } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
@@ -112,7 +111,7 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
           if (envelope.revision !== null) clearWebWriteConflictAfterReload(envelope.revision)
           toast('统计周期已被其他客户端更新，请重新打开核对')
         } catch {
-          resumePersist({ flushNow: false })
+          discardPendingAndResumePersist()
           toast('统计周期提交冲突，请重新打开应用核对当前设置')
         }
         return false

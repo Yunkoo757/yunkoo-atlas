@@ -126,9 +126,22 @@ async function run(): Promise<void> {
     assert(saves === 1, 'revision conflict 后不得尝试回滚或覆盖远端快照')
     assert(useStore.getState().trades[0]?.id === 'remote-winner', 'revision conflict 必须完整 hydrate 远端交易而非只替换周期')
     assert(useStore.getState().profile.displayName === '远端赢家', 'revision conflict 必须完整 hydrate 远端设置')
+    assert(useStore.getState().livePerformanceCycles[0]?.id === 'remote-cycle', 'revision conflict 必须完整 hydrate 远端统计周期')
     await new Promise((resolve) => setTimeout(resolve, 450))
     assert(saves === 1, 'hydrate 远端快照后不得由订阅自动覆盖远端数据')
     assert(Boolean(document.querySelector('[data-cycle-manager]')), 'revision conflict 后不得成功关闭弹窗')
+
+    saves = 0
+    revisionedStorage.loadSnapshotEnvelope = async () => { throw new Error('test remote snapshot load failure') }
+    await selectDate(day)
+    click('确认重新开始')
+    await waitFor(
+      () => useToast.getState().message === '统计周期提交冲突，请重新打开应用核对当前设置',
+      '远端快照读取失败必须提示重新核对',
+    )
+    assert(saves === 1, '远端快照读取失败后不得尝试回滚或覆盖远端快照')
+    await new Promise((resolve) => setTimeout(resolve, 450))
+    assert(saves === 1, '远端快照读取失败后不得重新调度旧 pending 快照')
     revisionedStorage.loadSnapshotEnvelope = originalLoadSnapshotEnvelope
   } finally {
     storage.saveSnapshot = originalSaveSnapshot; disablePersistWrites(); useToast.getState().dismiss(); root.unmount()
