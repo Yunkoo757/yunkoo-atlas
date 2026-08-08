@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
+import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
@@ -42,6 +43,10 @@ import {
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason } from '@/data/trades'
 import { parseLocalDate } from '@/lib/periods'
+import {
+  resolvePerformanceAnalysisRoute,
+  writePerformanceAnalysisCycle,
+} from '@/lib/livePerformanceCycleRoute'
 import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
@@ -67,11 +72,14 @@ const KIND_OPTS: { value: AnalysisKind; label: string }[] = [
   { value: 'all', label: '实盘 + 模拟盘' },
 ]
 
+const deferPerformanceCycleManagement = () => undefined
+
 export function Dashboard() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const allTrades = useStore((s) => s.trades)
   const strategyDefs = useStore((s) => s.strategies)
+  const performanceCycles = useStore((s) => s.livePerformanceCycles)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const openComposer = useStore((s) => s.openComposer)
@@ -79,12 +87,27 @@ export function Dashboard() {
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
+  const performanceRoute = resolvePerformanceAnalysisRoute(searchParams, scope.kind, performanceCycles)
+  const hasPerformanceBounds = performanceRoute.resolved.bounds !== null
+  const performanceStart = performanceRoute.resolved.bounds?.startInclusive ?? null
+  const performanceEnd = performanceRoute.resolved.bounds?.endExclusive ?? null
+  const canonicalPerformanceSearch = performanceRoute.canonicalSearch
+  const needsPerformanceReplace = performanceRoute.needsReplace
+
+  useEffect(() => {
+    if (!needsPerformanceReplace) return
+    setSearchParams(new URLSearchParams(canonicalPerformanceSearch), { replace: true })
+  }, [canonicalPerformanceSearch, needsPerformanceReplace, setSearchParams])
+
   const trades = useMemo(
     () => filterTradesByAnalysisScope(
       allTrades,
       scope,
       businessDateAnchor,
       tradingDayStartHour,
+      hasPerformanceBounds
+        ? { startInclusive: performanceStart, endExclusive: performanceEnd }
+        : null,
     ),
     [
       allTrades,
@@ -92,6 +115,9 @@ export function Dashboard() {
       scope.range,
       localDateKey,
       tradingDayStartHour,
+      hasPerformanceBounds,
+      performanceStart,
+      performanceEnd,
     ],
   )
   const activeTrades = useMemo(
@@ -140,9 +166,19 @@ export function Dashboard() {
     .sort((left, right) => right[1] - left[1])
     .map(([reason, count]) => `${MISS_REASON_META[reason as MissReason]?.label ?? '其他'} ×${count}`)
     .join(' · ')
+  const strategyStatsCycle = scope.kind === 'live' && !performanceRoute.resolved.isCurrent
+    ? performanceRoute.resolved.key
+    : undefined
 
   const updateScope = (patch: Partial<typeof scope>) => {
     setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
+  }
+
+  const updatePerformanceCycle = (selected: 'pre-cycle' | 'all' | string) => {
+    setSearchParams(
+      writePerformanceAnalysisCycle(searchParams, selected, performanceCycles),
+      { replace: true },
+    )
   }
 
   const openTrade = (tradeId: string) => {
@@ -182,6 +218,14 @@ export function Dashboard() {
               </button>
             ))}
           </div>
+          {scope.kind === 'live' ? (
+            <LivePerformanceCycleControl
+              selected={performanceRoute.resolved}
+              cycles={performanceCycles}
+              onSelect={updatePerformanceCycle}
+              onManage={deferPerformanceCycleManagement}
+            />
+          ) : null}
         </div>
 
         <section className={'db-week' + (weekCardEmpty ? ' is-empty' : '')} aria-label="本周交易分析">
@@ -416,7 +460,7 @@ export function Dashboard() {
               <div className="db-strats-empty">该时间范围内暂无策略数据</div>
             ) : (
               stats.strategies.map((s) => (
-                <Link to={strategyAnalysisHref(s.id, scope)} className="db-strat" key={s.id}>
+                <Link to={strategyAnalysisHref(s.id, scope, strategyStatsCycle)} className="db-strat" key={s.id}>
                   <div className="db-strat-head">
                     {s.meta && (
                       <StrategyIcon icon={s.meta.icon} color={s.meta.color} size={16} />

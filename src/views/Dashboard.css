@@ -14,6 +14,10 @@
   margin-bottom: var(--sp-3);
 }
 
+.db-toolbar:has(.live-performance-cycle-control) {
+  row-gap: var(--sp-2);
+}
+
 .db-toolbar-label {
   margin-right: auto;
   color: var(--text-muted);

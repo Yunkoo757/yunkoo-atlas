@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="atlas-browser-viewports" content="1280x900, 768x1024, 375x812" />
+    <title>Dashboard live performance cycle browser test</title>
+    <style>
+      html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+      #root { display: flex; height: 900px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/views/LivePerformanceCycleDashboard.browser.test.tsx"></script>
+  </body>
+</html>
