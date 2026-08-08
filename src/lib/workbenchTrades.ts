@@ -228,8 +228,8 @@ function filterWorkbenchCycles(
   const context = options.filter.analysisScope ? 'dashboard' : 'trade-list'
   const route = resolveLiveRoute(options.search, cycles, context)
   if (route.target.kind === 'archive-home') return { trades: [], archiveHome: route.target }
-  // 尚未设置归档边界时，所有既有日志都属于当前，保留工作台的完整日志语义。
-  if (cycles.length === 0) return { trades }
+  // 尚未设置归档边界时，只有默认当前日志可回退为全部实盘；待整理仍需按缺少平仓日筛选。
+  if (cycles.length === 0 && route.target.kind === 'current') return { trades }
   const scopedLive = options.filter.analysisScope
     ? filterLivePerformanceRecords(trades, route.target.scope, tradingDayStartHour)
     : filterLiveLogRecords(trades, route.target.scope, tradingDayStartHour)

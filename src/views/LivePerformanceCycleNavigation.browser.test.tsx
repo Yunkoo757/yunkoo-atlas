@@ -38,6 +38,7 @@ async function run(): Promise<void> {
   const root = createRoot(element)
   try {
     useStore.setState({ trades: [trade('old', oldDay), trade('current', day), missing], strategies: [strategy], livePerformanceCycles: cycles })
+    const factsBeforeNavigation = JSON.stringify(useStore.getState().trades)
     const router = createMemoryRouter([
       { path: '/dashboard', element: <Dashboard /> },
       { path: '/list', element: <ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} /> },
@@ -50,6 +51,21 @@ async function run(): Promise<void> {
     await router.navigate('/list?statsCycle=pending')
     await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, '待整理日志必须只显示缺少平仓日的实盘记录')
     assert(document.querySelector('[data-trade-id]')?.getAttribute('data-trade-id') === 'missing', '待整理日志不得混入当前或历史交易')
+    assert(JSON.stringify(useStore.getState().trades) === factsBeforeNavigation, 'Dashboard 与日志切换不得改写交易事实')
+
+    let replaceCount = 0
+    const unsubscribe = router.subscribe((state) => { if (state.historyAction === 'REPLACE') replaceCount += 1 })
+    await router.navigate('/list?statsCycle=pending&liveCycle=pre-cycle&symbol=BTCUSDT')
+    await waitFor(() => !router.state.location.search.includes('liveCycle'), '冲突 URL 必须清除风险范围参数')
+    unsubscribe()
+    assert(replaceCount === 1, `冲突 URL 必须且只能 replace 一次，实际 ${replaceCount} 次`)
+    assert(router.state.location.search.includes('symbol=BTCUSDT'), 'URL 规范化不得丢失无关品种筛选')
+    assert(JSON.stringify(useStore.getState().trades) === factsBeforeNavigation, 'URL 规范化不得改写交易事实')
+
+    useStore.setState({ livePerformanceCycles: [] })
+    await router.navigate('/list?statsCycle=pending')
+    await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, '无周期时待整理日志仍必须只显示缺少平仓日记录')
+    assert(document.querySelector('[data-trade-id]')?.getAttribute('data-trade-id') === 'missing', '无周期待整理不得回退为全部实盘')
   } finally {
     root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display })

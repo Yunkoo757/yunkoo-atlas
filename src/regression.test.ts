@@ -1313,6 +1313,20 @@ export function testArchiveHomeRouteNeverFallsThroughToTheLiveWorkbench(): void 
   }
 }
 
+export function testPendingWorkbenchRouteStillFiltersWithoutArchiveBoundaries(): void {
+  const pending = { ...trade, id: 'pending-close-day', status: 'win' as const, closedAt: 'invalid', closedTradingDayKey: undefined }
+  const current = { ...trade, id: 'current-close-day', status: 'win' as const, closedAt: '2026-08-08', closedTradingDayKey: '2026-08-08' }
+  const derived = deriveWorkbenchVisibleTrades({
+    trades: [pending, current],
+    filter: { type: 'all', tradeKind: 'live' },
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    livePerformanceCycles: [],
+    search: '?statsCycle=pending',
+  })
+  assert(derived.visible.map((item) => item.id).join() === 'pending-close-day', '无周期时待整理日志不得回退为全部实盘')
+}
+
 export function testExplicitPerformanceCycleListRoutesStayStableAndClearInvalidIds(): void {
   const cycles: LivePerformanceCycle[] = [
     {
