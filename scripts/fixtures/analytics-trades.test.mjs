@@ -72,6 +72,7 @@ test('10k 快照可作为隔离存储的完整输入', () => {
   assert.ok(Array.isArray(snapshot.riskPolicyVersions))
   assert.ok(Array.isArray(snapshot.monthlyRiskLimits))
   assert.ok(Array.isArray(snapshot.riskOverrideEvents))
+  assert.deepEqual(snapshot.livePerformanceCycles, [], 'v10 基准快照必须携带实盘统计周期字段')
   assert.equal(typeof snapshot.display, 'object')
   assert.equal(typeof snapshot.profile.displayName, 'string')
   assert.ok(snapshot.trades.every((trade) => (

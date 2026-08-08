@@ -145,6 +145,7 @@ export function createAnalyticsSnapshot(options = {}) {
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
+    livePerformanceCycles: [],
   }
 }
 
