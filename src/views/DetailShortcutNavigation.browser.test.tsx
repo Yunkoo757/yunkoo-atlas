@@ -110,6 +110,17 @@ async function run(): Promise<void> {
   const pageErrors: string[] = []
   const capturePageError = (event: ErrorEvent) => pageErrors.push(event.error?.message ?? event.message)
   window.addEventListener('error', capturePageError)
+  const copied: string[] = []
+  const ownClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: async (value: string) => { copied.push(value) } },
+  })
+
+  function findButton(label: string): HTMLButtonElement | undefined {
+    return [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === label)
+  }
 
   try {
     useStore.setState({
@@ -141,6 +152,11 @@ async function run(): Promise<void> {
       () => document.querySelector('.ProseMirror')?.textContent?.includes('案例 2') ?? false,
       '初始案例正文未载入',
     )
+    assert(!document.querySelector('.dv-copy-id'), '案例正文右侧不得显示复制编号按钮')
+    document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
+    await waitFor(() => Boolean(findButton('复制编号')), '更多菜单缺少复制编号')
+    findButton('复制编号')?.click()
+    await waitFor(() => copied.at(-1) === 'CAS-2', '更多菜单没有复制当前案例编号')
     const tagsSection = [...document.querySelectorAll<HTMLButtonElement>('.dv-section-head')]
       .find((button) => button.textContent?.trim() === '标签')
     assert(tagsSection, '详情页缺少标签分区')
@@ -370,6 +386,11 @@ async function run(): Promise<void> {
       '案例非法周复盘来源没有返回案例列表',
     )
   } finally {
+    if (ownClipboardDescriptor) {
+      Object.defineProperty(navigator, 'clipboard', ownClipboardDescriptor)
+    } else {
+      delete (navigator as unknown as { clipboard?: Clipboard }).clipboard
+    }
     window.removeEventListener('error', capturePageError)
     root.unmount()
     useStore.setState({

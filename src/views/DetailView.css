@@ -1191,27 +1191,6 @@
   align-self: center;
 }
 
-.dv-props-foot {
-  padding: 10px var(--sp-3);
-  background: var(--surface-group);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-10);
-}
-.dv-copy-id {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: var(--radius-lg);
-  font-size: var(--fs-mini);
-  color: var(--text-tertiary);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.dv-copy-id:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-}
 .dv-strategy-manage {
   display: inline-flex;
   align-items: center;
@@ -1234,8 +1213,7 @@
 @media (max-width: 1024px) {
   .dv-props .dv-section-head,
   .dv-props .dv-prop-row,
-  .dv-props .dv-datarow-btn,
-  .dv-props .dv-copy-id {
+  .dv-props .dv-datarow-btn {
     min-height: 44px;
   }
   .dv-strategy-manage {

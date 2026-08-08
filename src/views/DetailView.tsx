@@ -1488,13 +1488,6 @@ export function DetailView() {
               管理策略…
             </Link>
           </Section>
-
-          <div className="dv-props-foot">
-            <button className="dv-copy-id" onClick={copyRef}>
-              <Copy size={13} />
-              <span>复制 {trade.ref}</span>
-            </button>
-          </div>
         </>
       )}
     />
