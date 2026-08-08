@@ -102,7 +102,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
   ) : (
     <section className="live-cycle-settings" data-live-cycle-settings>
       <div className="live-cycle-settings-copy">
-        <h2>风险核算范围</h2>
+        <h2>风险数据起算日</h2>
         <p>{currentStart
           ? `风险额度与开仓门禁从 ${currentStart} 起核算；交易日志、策略与绩效统计仍保留全部历史。`
           : '未设置起点，风险核算会检查全部实盘历史。'}</p>
@@ -131,7 +131,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
       {open ? (
         <ModalShell
           title={currentStart ? '调整风险核算起点' : '建立风险核算起点'}
-          description="保存前先核对风险核算范围；不会修改交易记录，也不会改变策略与绩效统计。"
+          description="保存前先核对风险数据起算日；不会修改交易记录，也不会改变策略与表现统计。"
           size="compact"
           busy={busy}
           onClose={() => {
@@ -158,7 +158,7 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
               <small>不得晚于当前交易日 {currentTradingDayKey}</small>
             </label>
             <div className="live-cycle-counts" aria-label="周期影响预览">
-              <div><strong>规则前实盘 {preview.preCycle.length} 笔</strong><span>不计入风险核算</span></div>
+              <div><strong>起算日前实盘 {preview.preCycle.length} 笔</strong><span>不计入风险核算</span></div>
               <div><strong>起点后实盘 {preview.current.length} 笔</strong><span>计入风险核算</span></div>
               <div><strong>无法判断 {preview.unresolved.length} 笔</strong><span>需先修正开仓日期</span></div>
             </div>

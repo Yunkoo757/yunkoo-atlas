@@ -1190,9 +1190,9 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     const parts: string[] = [`${prepared.payload.trades.length} 笔交易`]
     if (prepared.assets.length > 0) parts.push(`${prepared.assets.length} 个附件`)
     if (finalLivePerformanceCycleDecision.preservesCurrent) {
-      parts.push('保留当前统计周期设置')
+      parts.push('保留当前统计与历史归档设置')
     } else if (finalLivePerformanceCycleDecision.adoptsImported) {
-      parts.push(`${finalLivePerformanceCycleDecision.adoptedCount} 个统计周期`)
+      parts.push(`${finalLivePerformanceCycleDecision.adoptedCount} 个历史归档设置`)
     }
     return { summary: `已导入 ${parts.join('、')}` }
   } finally {

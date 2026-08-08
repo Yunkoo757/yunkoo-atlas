@@ -165,232 +165,31 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const fixture = buildFixture()
   let mounted: ReturnType<typeof mountDashboard> | null = null
-
   try {
-    useStore.setState({
-      trades: fixture.trades,
-      strategies,
-      livePerformanceCycles: fixture.cycles,
-    })
+    useStore.setState({ trades: fixture.trades, strategies, livePerformanceCycles: fixture.cycles })
     mounted = mountDashboard(rootElement, '/dashboard')
-
-    await waitFor(() => text().includes('当前统计周期 · 第二期'), '默认实盘必须显示当前统计周期')
-    assert(text().includes('+$250'), '默认实盘主聚合必须只统计第二期并按平仓日纳入跨界交易')
-    assert(!text().includes('+$999'), '从实盘复制的案例不得进入仪表盘聚合')
-    assert(
-      document.querySelector('button[role="combobox"][aria-label="统计周期"]')?.getAttribute('data-value') === 'cycle-two',
-      '选择器必须解析到当前周期',
-    )
-    const currentCycleTradeHref = document
-      .querySelector<HTMLAnchorElement>('[data-cycle-trade-link]')
-      ?.getAttribute('href')
-    assert(
-      currentCycleTradeHref?.includes('statsCycle=cycle-two'),
-      '查看本周期交易链接必须显式保留当前周期真实 ID',
-    )
-    assertNoRiskCycleCopy('当前周期')
-
-    const keyboardTrigger = document.querySelector<HTMLButtonElement>(
-      'button[role="combobox"][aria-label="统计周期"]',
-    )
-    assert(keyboardTrigger, '统计周期选择器必须有可访问名称')
-    keyboardTrigger.focus()
-    pressKey(keyboardTrigger, 'ArrowDown')
-    await waitFor(
-      () => document.querySelectorAll('[role="option"]').length === 4,
-      '键盘没有打开统计周期选项',
-    )
-    const optionLabels = [...document.querySelectorAll<HTMLElement>('[role="option"]')]
-      .map((option) => option.textContent?.trim() ?? '')
-    assert(
-      optionLabels.join(',') === '第二期,第一期,统计起点前,全部历史',
-      `统计周期选项顺序或标签错误：${optionLabels.join(',')}`,
-    )
-    assertNoRiskCycleCopy('统计周期选项')
-    pressKey(keyboardTrigger, 'End')
-    await waitFor(
-      () => document.querySelector('[role="option"].is-active')?.getAttribute('data-value') === 'all',
-      '键盘 End 没有移动到全部历史',
-    )
-    pressKey(keyboardTrigger, 'Enter')
-    await waitFor(
-      () => mounted?.router.state.location.search.includes('statsCycle=all') === true,
-      '键盘无法选择全部历史',
-    )
-    await waitFor(() => text().includes('当前统计周期 · 全部历史'), '全部历史标签没有更新')
-    assertNoRiskCycleCopy('全部历史')
-
-    keyboardTrigger.focus()
-    pressKey(keyboardTrigger, 'ArrowDown')
-    await waitFor(() => document.querySelectorAll('[role="option"]').length === 4, '键盘无法重新打开统计周期选项')
-    pressKey(keyboardTrigger, 'Home')
-    await waitFor(
-      () => document.querySelector('[role="option"].is-active')?.getAttribute('data-value') === 'cycle-two',
-      '键盘 Home 没有移动到当前周期',
-    )
-    pressKey(keyboardTrigger, 'Enter')
-    await waitFor(
-      () => !mounted?.router.state.location.search.includes('statsCycle'),
-      '键盘无法恢复 canonical 当前周期',
-    )
-    assertNoRiskCycleCopy('恢复当前周期')
-
-    keyboardTrigger.focus()
-    pressKey(keyboardTrigger, 'ArrowDown')
-    await waitFor(() => document.querySelectorAll('[role="option"]').length === 4, '键盘无法打开历史周期选项')
-    pressKey(keyboardTrigger, 'ArrowDown')
-    await waitFor(
-      () => document.querySelector('[role="option"].is-active')?.getAttribute('data-value') === 'cycle-one',
-      '键盘 ArrowDown 没有移动到历史周期',
-    )
-    pressKey(keyboardTrigger, 'Enter')
-
-    await waitFor(
-      () => mounted?.router.state.location.search.includes('statsCycle=cycle-one') === true,
-      '历史周期没有写入 URL',
-    )
-    assert(mounted.router.state.location.search.includes('range=all'), '选择周期必须把时间范围重置为全部')
-    await waitFor(() => text().includes('当前统计周期 · 第一期'), '历史周期范围标识没有更新')
-    assert(text().includes('+$100'), '历史周期主聚合必须只统计第一期')
-    assert(text().includes('错过 1'), '历史周期不得截断当前自然周的错过机会')
-    assert(text().includes('执行缺口：犹豫未进 ×1'), '自然周错过原因汇总必须保持不变')
-    assert(
-      document.querySelector('[aria-label="本周交易分析"] .db-week-title')?.textContent?.trim() === '本周交易分析',
-      '历史统计周期下自然周卡仍必须明确写作“本周交易分析”',
-    )
-    assertNoRiskCycleCopy('历史周期')
-    const cycleTradeHref = document
-      .querySelector<HTMLAnchorElement>('[data-cycle-trade-link]')
-      ?.getAttribute('href')
-    assert(cycleTradeHref?.includes('statsCycle=cycle-one'), '查看本周期交易链接必须使用同一历史周期')
-    const strategyHref = document.querySelector<HTMLAnchorElement>('a.db-strat')?.getAttribute('href')
-    assert(strategyHref?.includes('statsCycle=cycle-one'), '策略下钻链接必须使用同一历史周期')
-
-    mounted.root.unmount()
-    mounted = mountDashboard(rootElement, '/dashboard?kind=paper&range=all')
-    await waitFor(() => text().includes('+$400'), '模拟盘原有全历史合计被实盘周期污染')
-    assert(!document.querySelector('button[role="combobox"][aria-label="统计周期"]'), '模拟盘必须隐藏统计周期选择器')
-    assert(!text().includes('当前统计周期 ·'), '模拟盘必须隐藏统计周期范围标识')
+    await waitFor(() => text().includes('当前实盘统计'), '默认必须显示当前实盘统计')
+    assert(text().includes('+$250'), '主统计只应包含当前实盘及跨边界平仓交易')
+    assert(document.querySelector('[aria-label="本周交易分析"] .db-week-metric strong')?.textContent === '2', '本周卡片必须复用当前实盘范围')
+    assert(!document.querySelector('button[role="combobox"]'), 'Dashboard 不得提供统计周期选择器')
+    assert(text().includes('历史归档'), 'Dashboard 必须提供历史归档入口')
+    assert(!text().includes('绩效阶段'), 'Dashboard 不得暴露绩效阶段术语')
+    assert(document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href') === '/list?kind=live&range=all', '当前实盘链接必须跟随当前范围')
+    assert(document.querySelector<HTMLAnchorElement>('a.db-strat')?.getAttribute('href')?.includes('statsCycle=') === false, '策略下钻不得固定历史归档 ID')
 
     mounted.root.unmount()
     mounted = mountDashboard(rootElement, '/dashboard?kind=all&range=all')
-    await waitFor(() => text().includes('+$750'), '全部交易原有全历史合计被实盘周期污染')
-    assert(!document.querySelector('button[role="combobox"][aria-label="统计周期"]'), '全部交易必须隐藏统计周期选择器')
+    await waitFor(() => text().includes('+$650'), 'all 必须为当前实盘加全部模拟盘')
+    assert(!text().includes('+$750'), 'all 不得混入历史归档实盘')
 
-    mounted.root.unmount()
-    mounted = mountDashboard(rootElement, '/dashboard?kind=live&statsCycle=missing')
-    let replaceCount = 0
-    const unsubscribe = mounted.router.subscribe((state) => {
-      if (state.historyAction === 'REPLACE') replaceCount += 1
-    })
-    await waitFor(
-      () => !mounted?.router.state.location.search.includes('statsCycle'),
-      '无效统计周期没有规范化为当前周期',
-    )
-    await waitForFrames(4)
-    unsubscribe()
-    assert(replaceCount === 1, `无效统计周期必须且只能 replace 一次，实际 ${replaceCount} 次`)
-    assert(text().includes('当前统计周期 · 第二期'), '无效统计周期必须回退当前周期')
-
-    mounted.root.unmount()
-    useStore.setState({
-      trades: fixture.trades,
-      livePerformanceCycles: fixture.cycles,
-    })
-    mounted = mountDashboard(
-      rootElement,
-      '/dashboard?kind=live&range=this-week&statsCycle=cycle-one',
-    )
-    await waitFor(
-      () => text().includes('当前时间范围暂无已平仓实盘'),
-      '历史真实周期有成员但当前时间范围无交集时必须显示时间范围空状态',
-    )
-    assert(
-      !text().includes('所选统计周期暂无已平仓实盘'),
-      '时间范围无交集不得误报为所选统计周期为空',
-    )
-
-    mounted.root.unmount()
-    useStore.setState({ livePerformanceCycles: [] })
-    mounted = mountDashboard(rootElement, '/dashboard')
-    await waitFor(() => text().includes('+$350'), '无周期集合必须保留实盘全历史统计')
-    assert(text().includes('开始新统计周期'), '无周期集合必须显示创建入口')
-    assert(!document.querySelector('button[role="combobox"][aria-label="统计周期"]'), '无周期集合不得显示空选择器')
-
-    const missedOnly = fixture.trades.filter((trade) => trade.id === 'missed')
-    mounted.root.unmount()
-    useStore.setState({
-      trades: missedOnly,
-      livePerformanceCycles: [],
-    })
-    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
-    await waitFor(() => text().includes('还没有已平仓交易'), '无周期且无已平仓交易必须显示通用空状态')
-    assert(
-      !text().includes('所选统计周期暂无已平仓实盘'),
-      '空周期库不得显示所选周期专属空状态',
-    )
-
-    const firstCycleOnly = fixture.trades.filter((trade) => trade.id === 'cycle-one')
-    mounted.root.unmount()
-    useStore.setState({
-      trades: firstCycleOnly,
-      livePerformanceCycles: fixture.cycles,
-    })
-    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
-    await waitFor(
-      () => text().includes('所选统计周期暂无已平仓实盘'),
-      '成员为空的真实当前周期必须显示周期专属空状态',
-    )
-    assert(!text().includes('还没有已平仓交易'), '空的真实周期不得显示通用空状态')
-
-    mounted.root.unmount()
-    useStore.setState({
-      trades: fixture.trades,
-      livePerformanceCycles: fixture.cycles,
-    })
-    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all&statsCycle=pre-cycle')
-    await waitFor(
-      () => text().includes('所选统计周期暂无已平仓实盘'),
-      '空的所选周期必须显示周期专属空状态，不能与空周期库或数据错误混淆',
-    )
-
-    const currentDay = getTradingDayKey(
-      new Date(),
-      useStore.getState().display.tradingDayStartHour,
-    )
-    const missingCloseDay = closedTrade('missing-close-day', 50, currentDay, strategies[0]!.id, {
-      closedAt: 'not-a-close-date',
-      closedTradingDayKey: undefined,
-    })
+    const missingCloseDay = closedTrade('missing-close-day', 50, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, { closedAt: 'invalid', closedTradingDayKey: undefined })
     mounted.root.unmount()
     useStore.setState({ trades: [missingCloseDay] })
     mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
-    await waitFor(
-      () => text().includes('1 笔实盘缺少有效平仓日期，未计入统计周期'),
-      '缺平仓日必须显示独立、可执行的数据健康提示',
-    )
-    assert(!text().includes('1 笔结果冲突'), '缺平仓日不得误报为结果冲突')
-
-    const resultConflict = closedTrade('result-conflict', 50, currentDay, strategies[0]!.id, {
-      status: 'loss',
-      rMultiple: 1,
-      resultSource: 'imported',
-    })
-    mounted.root.unmount()
-    useStore.setState({ trades: [resultConflict] })
-    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
-    await waitFor(() => text().includes('1 笔结果冲突'), '结果冲突必须沿用独立的数据健康提示')
-    assert(
-      !text().includes('缺少有效平仓日期'),
-      '结果冲突不得误报为缺少平仓日期',
-    )
+    await waitFor(() => text().includes('待整理 1'), '缺少平仓日必须提供待整理入口')
   } finally {
     mounted?.root.unmount()
-    useStore.setState({
-      trades: previous.trades,
-      strategies: previous.strategies,
-      livePerformanceCycles: previous.livePerformanceCycles,
-    })
+    useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles })
   }
 }
 

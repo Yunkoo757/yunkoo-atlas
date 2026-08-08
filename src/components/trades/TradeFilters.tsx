@@ -28,7 +28,6 @@ import { clampPopoverLeft } from '@/lib/popoverPosition'
 import {
   canonicalizeTradeViewSearch,
   normalizeSavedViewPath,
-  resolveTradeViewPerformanceCycleLabel,
   savedViewMatchesLocation,
 } from '@/lib/savedTradeViews'
 import { getActiveWorkspaceView, type WorkspaceKind } from '@/lib/workspaceViews'
@@ -97,11 +96,6 @@ export function TradeFilters({
   const isCaseWorkspace = workspaceKind === 'case'
   const isPaperWorkspace = workspaceKind === 'paper'
   const usesQueryScope = isCaseWorkspace || isPaperWorkspace
-  const allowsPerformanceCycleScope = livePerformanceCycles.length > 0 &&
-    !isCaseWorkspace &&
-    !isPaperWorkspace &&
-    filter.analysisScope?.kind !== 'paper' &&
-    filter.analysisScope?.kind !== 'all'
   const allowsTradeKindFacet = !filter.tradeKind && (
     !filter.analysisScope || filter.analysisScope.kind === 'all'
   )
@@ -132,7 +126,6 @@ export function TradeFilters({
     const next = new URLSearchParams(searchParams)
     if (value) next.set(key, value)
     else next.delete(key)
-    if (value && key === 'statsCycle') next.delete('liveCycle')
     if (key === 'liveCycle') next.delete('liveCycle')
     setSearchParams(next, { replace: true })
   }
@@ -141,11 +134,9 @@ export function TradeFilters({
     const current = searchParams.toString()
     const canonical = canonicalizeTradeViewSearch(searchParams, livePerformanceCycles)
     if (!allowsTradeKindFacet) canonical.delete('tradeKind')
-    if (!allowsPerformanceCycleScope) canonical.delete('statsCycle')
     canonical.delete('liveCycle')
     if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
   }, [
-    allowsPerformanceCycleScope,
     allowsTradeKindFacet,
     livePerformanceCycles,
     searchParams,
@@ -173,10 +164,6 @@ export function TradeFilters({
   }
 
   const facetLabels: Array<[string, string]> = [
-    [
-      'statsCycle',
-      resolveTradeViewPerformanceCycleLabel(searchParams, livePerformanceCycles) ?? '',
-    ],
     [
       'tradeKind',
       allowsTradeKindFacet
@@ -406,19 +393,6 @@ export function TradeFilters({
                     ['last-month', '上月'],
                   ]}
                 />
-                {allowsPerformanceCycleScope ? (
-                  <FilterSelect
-                    label="实盘范围"
-                    value={searchParams.get('statsCycle') ?? ''}
-                    onChange={(value) => setParam('statsCycle', value)}
-                    options={[
-                      ['', '当前实盘'],
-                      ...[...livePerformanceCycles]
-                        .reverse()
-                        .map((cycle) => [cycle.id, cycle.name] as [string, string]),
-                    ]}
-                  />
-                ) : null}
                 <FilterSelect
                   label="策略"
                   value={

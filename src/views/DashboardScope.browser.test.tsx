@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { getTradingDayKey } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
@@ -177,6 +178,48 @@ async function run(): Promise<void> {
 
     await waitFor(() => Boolean(document.querySelector('a.db-strat')), '全历史策略统计未出现')
     assert(document.body.textContent?.includes('+$750'), '风险核算起点不得截断默认实盘与策略统计')
+
+    // 此断言会捕捉 Dashboard 忘记把同一当前实盘范围传给主统计、周卡片、策略下钻或 all 范围的回归。
+    const currentDay = getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour)
+    const previousDay = new Date(`${currentDay}T12:00:00`)
+    previousDay.setDate(previousDay.getDate() - 7)
+    const oldDay = previousDay.toISOString().slice(0, 10)
+    const cycles: LivePerformanceCycle[] = [
+      { id: 'archive-cycle', name: '实盘-旧', startTradingDayKey: '2000-01-01', createdAt: '2000-01-01T00:00:00.000Z' },
+      { id: 'current-cycle', name: '实盘-当前', startTradingDayKey: currentDay, createdAt: `${currentDay}T00:00:00.000Z` },
+    ]
+    const archivedLive: Trade = { ...oldLiveTrade, id: 'archived-live', ref: 'TRD-ARCHIVED', openedAt: oldDay, closedAt: oldDay, closedTradingDayKey: oldDay, pnl: 900 }
+    const currentLive: Trade = { ...currentLiveTrade, id: 'current-live-stat', ref: 'TRD-CURRENT', openedAt: currentDay, closedAt: currentDay, closedTradingDayKey: currentDay, pnl: 100 }
+    const historicalPaper: Trade = { ...paperTrade, id: 'historical-paper', ref: 'TRD-PAPER-HISTORY', openedAt: oldDay, closedAt: oldDay, closedTradingDayKey: oldDay, pnl: 50 }
+    root.unmount()
+    useStore.setState({ trades: [archivedLive, currentLive, historicalPaper], livePerformanceCycles: cycles })
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/list" element={<LocationProbe />} />
+          <Route path="/strategy/:id" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('当前实盘统计') ?? false, 'Dashboard 必须明确显示当前实盘统计')
+    assert(document.body.textContent?.includes('+$100'), '主统计只能包含当前实盘交易')
+    assert(!document.body.textContent?.includes('+$900'), '历史归档实盘不得混入当前主统计')
+    assert(document.body.textContent?.includes('历史归档'), 'Dashboard 必须提供历史归档入口')
+    assert(!document.body.textContent?.includes('绩效阶段'), 'Dashboard 不得暴露实现术语')
+    const currentHref = document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href')
+    assert(currentHref === '/list?kind=live&range=all', `查看当前实盘必须只进入当前范围，实际 ${currentHref}`)
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=all&range=all']}>
+        <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('+$150') ?? false, '全部范围必须保留全部模拟盘且只包含当前实盘')
+    assert(!document.body.textContent?.includes('+$1,050'), '全部范围不得把历史归档实盘重新混入统计')
   } finally {
     root.unmount()
     useStore.setState({

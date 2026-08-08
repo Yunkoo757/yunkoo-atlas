@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
@@ -45,8 +45,7 @@ import {
 import { MISS_REASON_META, type MissReason } from '@/data/trades'
 import { parseLocalDate } from '@/lib/periods'
 import {
-  resolvePerformanceAnalysisRoute,
-  writePerformanceAnalysisCycle,
+  resolveLiveRoute,
 } from '@/lib/livePerformanceCycleRoute'
 import { countLiveTradesMissingCloseDay } from '@/lib/livePerformanceCycles'
 import './Dashboard.css'
@@ -88,17 +87,14 @@ export function Dashboard() {
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
-  const performanceRoute = resolvePerformanceAnalysisRoute(searchParams, scope.kind, performanceCycles)
-  const hasPerformanceBounds = performanceRoute.resolved.bounds !== null
-  const performanceStart = performanceRoute.resolved.bounds?.startInclusive ?? null
-  const performanceEnd = performanceRoute.resolved.bounds?.endExclusive ?? null
-  const canonicalPerformanceSearch = performanceRoute.canonicalSearch
-  const needsPerformanceReplace = performanceRoute.needsReplace
-
-  useEffect(() => {
-    if (!needsPerformanceReplace) return
-    setSearchParams(new URLSearchParams(canonicalPerformanceSearch), { replace: true })
-  }, [canonicalPerformanceSearch, needsPerformanceReplace, setSearchParams])
+  const currentLiveRoute = resolveLiveRoute('', performanceCycles, 'dashboard')
+  const currentLiveScope = currentLiveRoute.target.kind === 'current'
+    ? currentLiveRoute.target.scope
+    : null
+  const performanceBounds = currentLiveScope?.bounds ?? null
+  const hasPerformanceBounds = performanceBounds !== null
+  const performanceStart = performanceBounds?.startInclusive ?? null
+  const performanceEnd = performanceBounds?.endExclusive ?? null
 
   const trades = useMemo(
     () => filterTradesByAnalysisScope(
@@ -106,9 +102,7 @@ export function Dashboard() {
       scope,
       businessDateAnchor,
       tradingDayStartHour,
-      hasPerformanceBounds
-        ? { startInclusive: performanceStart, endExclusive: performanceEnd }
-        : null,
+      performanceBounds,
     ),
     [
       allTrades,
@@ -116,9 +110,7 @@ export function Dashboard() {
       scope.range,
       localDateKey,
       tradingDayStartHour,
-      hasPerformanceBounds,
-      performanceStart,
-      performanceEnd,
+      performanceBounds,
     ],
   )
   const activeTrades = useMemo(
@@ -155,7 +147,7 @@ export function Dashboard() {
     ],
   )
   const missingPerformanceCloseDayCount = useMemo(
-    () => scope.kind === 'live' && hasPerformanceBounds
+    () => scope.kind !== 'paper'
       ? countLiveTradesMissingCloseDay(allTrades, tradingDayStartHour)
       : 0,
     [allTrades, hasPerformanceBounds, scope.kind, tradingDayStartHour],
@@ -168,6 +160,7 @@ export function Dashboard() {
       { kind: scope.kind, range: 'this-week' },
       businessDateAnchor,
       tradingDayStartHour,
+      performanceBounds,
     )
     const missed = scope.kind === 'paper'
       ? []
@@ -177,7 +170,7 @@ export function Dashboard() {
         tradingDayStartHour,
       )
     return buildWeeklyReviewMetrics(weekTrades, missed)
-  }, [allTrades, businessDateAnchor, localDateKey, scope.kind, tradingDayStartHour, weekStart])
+  }, [allTrades, businessDateAnchor, localDateKey, performanceBounds, scope.kind, tradingDayStartHour, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
   const hasClosedTrades = stats.closedCount > 0
@@ -192,27 +185,13 @@ export function Dashboard() {
     .sort((left, right) => right[1] - left[1])
     .map(([reason, count]) => `${MISS_REASON_META[reason as MissReason]?.label ?? '其他'} ×${count}`)
     .join(' · ')
-  const strategyStatsCycle = scope.kind === 'live' && !performanceRoute.resolved.isCurrent
-    ? performanceRoute.resolved.key
-    : undefined
+  const strategyStatsCycle = undefined
 
   const updateScope = (patch: Partial<typeof scope>) => {
     setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
   }
 
-  const updatePerformanceCycle = (selected: 'pre-cycle' | 'all' | string) => {
-    setSearchParams(
-      writePerformanceAnalysisCycle(searchParams, selected, performanceCycles),
-      { replace: true },
-    )
-  }
-
-  const showRestartedPerformanceCycle = (cycles: Parameters<typeof writePerformanceAnalysisCycle>[2]) => {
-    setSearchParams(
-      writePerformanceAnalysisCycle(searchParams, 'current', cycles),
-      { replace: true },
-    )
-  }
+  const showRestartedPerformanceCycle = () => undefined
 
   const openTrade = (tradeId: string) => {
     const t = tradeById.get(tradeId)
@@ -253,9 +232,6 @@ export function Dashboard() {
           </div>
           {scope.kind === 'live' ? (
             <LivePerformanceCycleControl
-              selected={performanceRoute.resolved}
-              cycles={performanceCycles}
-              onSelect={updatePerformanceCycle}
               onManage={() => setCycleManagerOpen(true)}
             />
           ) : null}
@@ -342,6 +318,10 @@ export function Dashboard() {
           ) : null}
         </section>
 
+        <div className="db-live-links" aria-label="实盘统计入口">
+          <Link to="/live-archive" className="db-live-link">历史归档</Link>
+        </div>
+
         <div className="db-cards" aria-label={`当前范围指标 · ${kindLabel} · ${rangeLabel}`}>
           <Card
             label="净盈亏"
@@ -386,8 +366,9 @@ export function Dashboard() {
           <div className="db-data-health has-conflict">
             <span className="db-data-health-title">待补平仓日期</span>
             <span className="db-data-health-state">
-              {missingPerformanceCloseDayCount} 笔实盘缺少有效平仓日期，未计入统计周期
+              {missingPerformanceCloseDayCount} 笔实盘缺少有效平仓日期，暂未计入当前统计
             </span>
+            <Link to="/list?statsCycle=pending" className="db-live-link">待整理 {missingPerformanceCloseDayCount}</Link>
           </div>
         ) : null}
 
@@ -395,14 +376,14 @@ export function Dashboard() {
           <EmptyState
             className="db-empty"
             title={selectedPerformanceCycleIsEmpty
-              ? '所选统计周期暂无已平仓实盘'
+              ? '当前实盘暂无已平仓记录'
               : hasPerformanceBounds
                 ? '当前时间范围暂无已平仓实盘'
                 : '还没有已平仓交易'}
             hint={selectedPerformanceCycleIsEmpty
-              ? '可以切换统计周期查看其他记录；交易、案例和复盘仍完整保留。'
+              ? '历史记录仍完整保留，可从历史归档查看。'
               : hasPerformanceBounds
-                ? '该统计周期内有已平仓实盘，可以切换时间范围查看。'
+                ? '当前实盘有已平仓记录，可以切换时间范围查看。'
                 : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}
             action={
               activeTrades.length > 0 ? (

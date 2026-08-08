@@ -79,14 +79,19 @@ async function run(): Promise<void> {
     root.render(<LiveCycleSettings variant="settings" currentTradingDayKey="2026-07-28" />)
 
     await waitFor(
+      () => document.body.textContent?.includes('风险数据起算日') ?? false,
+      '风险设置必须使用风险数据起算日文案',
+    )
+
+    await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('button')]
         .some((button) => button.textContent?.trim() === '建立风险核算起点'),
       '建立按钮未出现',
     )
     click('建立风险核算起点')
     await waitFor(
-      () => document.body.textContent?.includes('规则前实盘 1 笔') ?? false,
-      '预览未显示规则前数量',
+      () => document.body.textContent?.includes('起算日前实盘 1 笔') ?? false,
+      '预览未显示起算日前数量',
     )
     assert(document.body.textContent?.includes('起点后实盘 1 笔'), '预览必须显示起点后数量')
     const dateTrigger = document.querySelector<HTMLButtonElement>('[aria-label="风险核算起点"]')

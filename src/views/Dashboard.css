@@ -25,6 +25,23 @@
   font-weight: var(--type-metadata-weight);
 }
 
+.db-live-links {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 var(--sp-3);
+}
+
+.db-live-link {
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  text-decoration: none;
+}
+
+.db-live-link:hover {
+  color: var(--text-strong);
+  text-decoration: underline;
+}
+
 .db-week {
   margin-bottom: var(--sp-3);
   padding: 14px 18px var(--sp-4);
