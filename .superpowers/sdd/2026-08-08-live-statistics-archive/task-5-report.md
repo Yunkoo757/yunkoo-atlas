@@ -116,3 +116,15 @@ pnpm typecheck
 - 归档卡片详情链接使用 `encodeURIComponent(item.archiveId)`，避免合法 ID 含 `/` 或 `?` 时路径被拆解；夹具覆盖 `archive/2026?one`。
 
 验证：`pnpm typecheck`、归档单测、diff/no-BOM 及浏览器四档全部通过。
+
+## Fix Round 7：响应式断点治理
+
+### RED
+
+设计治理单测 `testResponsiveBreakpointsUseTheSharedViewportSet` 稳定失败，指出 `LiveArchiveView.css` 使用未治理的 `600px` 断点。
+
+### GREEN
+
+将归档页窄屏媒体查询统一到项目允许的 `640px` 断点；布局规则和四档视口行为保持不变。
+
+验证：设计治理单测、`pnpm typecheck`、diff/no-BOM 通过；浏览器夹具 `375×812`、`768×900`、`1280×900`、`1920×1080` 全部 PASS。
