@@ -1,28 +1,21 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   appendLivePerformanceCycle,
-  filterTradesByLivePerformanceCycle,
-  renameLivePerformanceCycle,
   undoLatestLivePerformanceCycle,
   type LivePerformanceCycle,
-  type LivePerformanceCycleBounds,
-  type ResolvedLivePerformanceCycle,
 } from '@/lib/livePerformanceCycles'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
-import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { flushPersistNow } from '@/storage/persist'
-import { useStore } from '@/store/useStore'
+import { getStorage } from '@/storage/provider'
+import { StorageRevisionConflictError } from '@/storage/adapter'
+import { buildLivePerformanceRestartPreview, useStore } from '@/store/useStore'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { ModalShell } from '@/components/ui/ModalShell'
 import './LivePerformanceCycleManager.css'
 
-type ManagerMode = 'manage' | 'create' | 'rename' | 'undo'
-
-type ManagerFocusSource =
-  | { type: 'create' }
-  | { type: 'rename'; cycleId: string }
-  | { type: 'undo' }
+type ManagerMode = 'manage' | 'create' | 'undo'
+type FocusSource = 'create' | 'undo' | null
 
 type LivePerformanceCycleManagerProps = {
   currentTradingDayKey: string
@@ -30,58 +23,26 @@ type LivePerformanceCycleManagerProps = {
   onCreated: (cycles: readonly LivePerformanceCycle[]) => void
 }
 
-function previousDay(dayKey: string): string {
-  const date = parseLocalDate(dayKey)
-  date.setDate(date.getDate() - 1)
-  return formatYmd(date)
+function stableCycleName(startTradingDayKey: string): string {
+  return `统计周期 ${startTradingDayKey}`
 }
 
-function resolvedPreview(bounds: LivePerformanceCycleBounds): ResolvedLivePerformanceCycle {
-  return {
-    key: 'preview',
-    cycleId: null,
-    label: '预览',
-    bounds,
-    isCurrent: false,
-    requestedKey: null,
-    wasFallback: false,
-  }
-}
-
-function createNameReason(name: string, cycles: readonly LivePerformanceCycle[], excludeId?: string): string | null {
-  const trimmed = name.trim()
-  if (!trimmed) return '请输入统计周期名称'
-  if (trimmed.length > 40) return '统计周期名称不能超过 40 个字符'
-  if (cycles.some((cycle) => cycle.id !== excludeId && cycle.name === trimmed)) return '统计周期名称已存在'
-  return null
-}
-
-export function LivePerformanceCycleManager({
-  currentTradingDayKey,
-  onClose,
-  onCreated,
-}: LivePerformanceCycleManagerProps) {
+export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onCreated }: LivePerformanceCycleManagerProps) {
   const cycles = useStore((state) => state.livePerformanceCycles)
   const trades = useStore((state) => state.trades)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const replaceLivePerformanceCycles = useStore((state) => state.replaceLivePerformanceCycles)
   const [mode, setMode] = useState<ManagerMode>(() => cycles.length === 0 ? 'create' : 'manage')
-  const [name, setName] = useState('')
   const [startTradingDayKey, setStartTradingDayKey] = useState(currentTradingDayKey)
-  const [renameId, setRenameId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
-  const nameInputRef = useRef<HTMLInputElement>(null)
-  const undoConfirmRef = useRef<HTMLButtonElement>(null)
   const createTriggerRef = useRef<HTMLButtonElement>(null)
   const undoTriggerRef = useRef<HTMLButtonElement>(null)
-  const renameTriggerRefs = useRef(new Map<string, HTMLButtonElement>())
-  const focusSourceRef = useRef<ManagerFocusSource | null>(null)
-  const nameId = useId()
+  const undoConfirmRef = useRef<HTMLButtonElement>(null)
+  const focusSourceRef = useRef<FocusSource>(null)
+  const summaryId = useId()
 
   const latest = cycles.at(-1) ?? null
-  const renameTarget = cycles.find((cycle) => cycle.id === renameId) ?? null
-  const nameReason = createNameReason(name, cycles, mode === 'rename' ? renameId ?? undefined : undefined)
   const startReason = mode !== 'create'
     ? null
     : !isValidLiveCycleDayKey(startTradingDayKey)
@@ -91,27 +52,13 @@ export function LivePerformanceCycleManager({
         : latest && startTradingDayKey <= latest.startTradingDayKey
           ? '开始日期必须晚于当前统计周期的开始日期'
           : null
-  const renameUnchanged = mode === 'rename' && renameTarget?.name === name.trim()
-  const validationReason = nameReason ?? startReason ?? (renameUnchanged ? '统计周期名称没有变化' : null)
-
-  const firstCycleCounts = useMemo(() => {
-    if (mode !== 'create' || latest || !isValidLiveCycleDayKey(startTradingDayKey)) return null
-    const preCycle = filterTradesByLivePerformanceCycle(
-      trades,
-      resolvedPreview({ startInclusive: null, endExclusive: startTradingDayKey }),
-      tradingDayStartHour,
-    ).length
-    const current = filterTradesByLivePerformanceCycle(
-      trades,
-      resolvedPreview({ startInclusive: startTradingDayKey, endExclusive: null }),
-      tradingDayStartHour,
-    ).length
-    return { preCycle, current }
-  }, [latest, mode, startTradingDayKey, trades, tradingDayStartHour])
+  const preview = useMemo(() => mode === 'create' && !startReason
+    ? buildLivePerformanceRestartPreview(trades, cycles, startTradingDayKey, tradingDayStartHour)
+    : null, [cycles, mode, startReason, startTradingDayKey, trades, tradingDayStartHour])
 
   useEffect(() => {
-    if (mode === 'create' || mode === 'rename') {
-      nameInputRef.current?.focus()
+    if (mode === 'create') {
+      document.querySelector<HTMLButtonElement>('button[aria-label="统计周期开始日期"]')?.focus()
       return
     }
     if (mode === 'undo') {
@@ -120,9 +67,8 @@ export function LivePerformanceCycleManager({
     }
     const source = focusSourceRef.current
     focusSourceRef.current = null
-    if (source?.type === 'create') createTriggerRef.current?.focus()
-    else if (source?.type === 'undo') undoTriggerRef.current?.focus()
-    else if (source?.type === 'rename') renameTriggerRefs.current.get(source.cycleId)?.focus()
+    if (source === 'create') createTriggerRef.current?.focus()
+    if (source === 'undo') undoTriggerRef.current?.focus()
   }, [mode])
 
   async function commitCycles(next: LivePerformanceCycle[], successMessage: string): Promise<boolean> {
@@ -135,8 +81,18 @@ export function LivePerformanceCycleManager({
       await flushPersistNow()
       toast(successMessage)
       return true
-    } catch {
+    } catch (error) {
       replaceLivePerformanceCycles(previous)
+      if (error instanceof StorageRevisionConflictError) {
+        try {
+          const latestSnapshot = await getStorage().loadSnapshot()
+          replaceLivePerformanceCycles(latestSnapshot?.livePerformanceCycles ?? [])
+          toast('统计周期已被其他客户端更新，请重新打开核对')
+        } catch {
+          toast('统计周期提交冲突，请重新打开应用核对当前设置')
+        }
+        return false
+      }
       try {
         await flushPersistNow()
         toast('统计周期保存失败，原设置已保留')
@@ -151,211 +107,76 @@ export function LivePerformanceCycleManager({
   }
 
   const beginCreate = () => {
-    focusSourceRef.current = { type: 'create' }
-    setName('')
+    focusSourceRef.current = 'create'
     setStartTradingDayKey(currentTradingDayKey)
-    setRenameId(null)
     setMode('create')
   }
-
-  const beginRename = (cycle: LivePerformanceCycle) => {
-    focusSourceRef.current = { type: 'rename', cycleId: cycle.id }
-    setName(cycle.name)
-    setRenameId(cycle.id)
-    setMode('rename')
-  }
-
   const beginUndo = () => {
-    focusSourceRef.current = { type: 'undo' }
+    focusSourceRef.current = 'undo'
     setMode('undo')
   }
-
-  const leaveForm = () => {
-    if (cycles.length === 0) onClose()
-    else setMode('manage')
-  }
+  const leaveForm = () => cycles.length === 0 ? onClose() : setMode('manage')
 
   const confirmCreate = async () => {
-    if (validationReason || busyRef.current) return
+    if (startReason || busyRef.current) return
     const cycle: LivePerformanceCycle = {
       id: globalThis.crypto.randomUUID(),
-      name: name.trim(),
+      name: stableCycleName(startTradingDayKey),
       startTradingDayKey,
       createdAt: new Date().toISOString(),
     }
     const next = appendLivePerformanceCycle(cycles, cycle, currentTradingDayKey)
-    if (await commitCycles(next, `已开始统计周期「${cycle.name}」`)) {
+    if (await commitCycles(next, '已重新开始当前实盘统计')) {
       onClose()
       onCreated(next)
     }
   }
-
-  const confirmRename = async () => {
-    if (validationReason || !renameTarget || busyRef.current) return
-    const next = renameLivePerformanceCycle(cycles, renameTarget.id, name.trim())
-    if (await commitCycles(next, '统计周期已重命名')) onClose()
-  }
-
   const confirmUndo = async () => {
     if (!latest || busyRef.current) return
     const next = undoLatestLivePerformanceCycle(cycles)
     if (await commitCycles(next, '已撤销最新统计周期')) onClose()
   }
 
-  const title = mode === 'manage'
-    ? '管理统计周期'
-    : mode === 'create'
-      ? cycles.length === 0 ? '开始统计周期' : '开始下一统计周期'
-      : mode === 'rename'
-        ? '重命名统计周期'
-        : '撤销最新统计周期'
-
-  const description = mode === 'manage'
-    ? '统计周期只调整绩效统计边界，不会改动交易、案例或复盘。'
-    : mode === 'create'
-      ? '新周期按交易的平仓日划分，既有记录会保留。'
-      : mode === 'rename'
-        ? '只修改显示名称，周期日期和全部记录保持不变。'
-        : '仅撤销最新一次周期划分，全部记录仍会保留。'
-
-  const footer = mode === 'manage' ? (
-    <button type="button" className="ui-btn ui-btn-bordered" onClick={onClose}>完成</button>
-  ) : mode === 'create' ? (
-    <>
+  const title = mode === 'manage' ? '管理统计周期' : mode === 'create' ? '重新开始当前实盘统计' : '撤销最新统计周期'
+  const description = mode === 'create'
+    ? '这只会建立统计边界，不会复制、移动或删除交易、案例、图片、正文，也不会改变风险核算起点。'
+    : mode === 'undo'
+      ? '仅撤销最新一次统计边界，交易、案例和复盘均保持不变。'
+      : '统计周期只调整绩效统计边界；旧名称仅作为内部记录保留。'
+  const footer = mode === 'manage' ? <button type="button" className="ui-btn ui-btn-bordered" onClick={onClose}>完成</button>
+    : <>
       <button type="button" className="ui-btn ui-btn-bordered" disabled={busy} onClick={leaveForm}>取消</button>
-      <button
-        type="button"
-        className="ui-btn ui-btn-primary"
-        disabled={busy || Boolean(validationReason)}
-        onClick={() => void confirmCreate()}
-      >
-        {busy ? '正在保存…' : '确认开始'}
+      <button ref={mode === 'undo' ? undoConfirmRef : undefined} type="button" className={mode === 'undo' ? 'ui-btn ui-btn-danger-solid' : 'ui-btn ui-btn-primary'} disabled={busy || (mode === 'create' && Boolean(startReason)) || (mode === 'undo' && !latest)} onClick={() => void (mode === 'create' ? confirmCreate() : confirmUndo())}>
+        {busy ? '正在保存…' : mode === 'undo' ? '确认撤销' : '确认重新开始'}
       </button>
     </>
-  ) : mode === 'rename' ? (
-    <>
-      <button type="button" className="ui-btn ui-btn-bordered" disabled={busy} onClick={leaveForm}>取消</button>
-      <button
-        type="button"
-        className="ui-btn ui-btn-primary"
-        disabled={busy || Boolean(validationReason)}
-        onClick={() => void confirmRename()}
-      >
-        {busy ? '正在保存…' : '确认重命名'}
-      </button>
-    </>
-  ) : (
-    <>
-      <button type="button" className="ui-btn ui-btn-bordered" disabled={busy} onClick={leaveForm}>取消</button>
-      <button
-        ref={undoConfirmRef}
-        type="button"
-        className="ui-btn ui-btn-danger-solid"
-        disabled={busy || !latest}
-        onClick={() => void confirmUndo()}
-      >
-        {busy ? '正在保存…' : '确认撤销'}
-      </button>
-    </>
-  )
 
-  return (
-    <ModalShell
-      title={title}
-      description={description}
-      busy={busy}
-      onClose={onClose}
-      footer={footer}
-    >
-      <div className="live-performance-cycle-manager" data-cycle-manager>
-        {mode === 'manage' ? (
-          <>
-            <div className="live-performance-cycle-manager-actions">
-              <button ref={createTriggerRef} type="button" className="ui-btn ui-btn-primary" onClick={beginCreate}>开始下一统计周期</button>
-              <button ref={undoTriggerRef} type="button" className="ui-btn ui-btn-danger" onClick={beginUndo}>撤销最新周期</button>
-            </div>
-            <div className="live-performance-cycle-list" aria-label="统计周期列表">
-              {[...cycles].reverse().map((cycle) => (
-                <div className="live-performance-cycle-row" data-cycle-id={cycle.id} key={cycle.id}>
-                  <div>
-                    <strong>{cycle.name}</strong>
-                    <span>从 {cycle.startTradingDayKey} 开始{cycle.id === latest?.id ? ' · 当前' : ''}</span>
-                  </div>
-                  <button
-                    ref={(node) => {
-                      if (node) renameTriggerRefs.current.set(cycle.id, node)
-                      else renameTriggerRefs.current.delete(cycle.id)
-                    }}
-                    type="button"
-                    className="ui-btn ui-btn-ghost"
-                    onClick={() => beginRename(cycle)}
-                  >
-                    重命名
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {mode === 'create' || mode === 'rename' ? (
-          <div className="live-performance-cycle-form">
-            <label className="live-performance-cycle-field" htmlFor={nameId}>
-              <span>统计周期名称</span>
-              <input
-                ref={nameInputRef}
-                id={nameId}
-                type="text"
-                value={name}
-                aria-label="统计周期名称"
-                maxLength={80}
-                disabled={busy}
-                data-autofocus
-                onChange={(event) => setName(event.target.value)}
-              />
-              <small>{name.trim().length}/40 个字符</small>
-            </label>
-            {mode === 'create' ? (
-              <label className="live-performance-cycle-field">
-                <span>开始日期</span>
-                <DatePicker
-                  value={startTradingDayKey}
-                  onValueChange={setStartTradingDayKey}
-                  ariaLabel="统计周期开始日期"
-                  disabled={busy}
-                  required
-                />
-              </label>
-            ) : null}
-            {validationReason ? (
-              <p className="live-performance-cycle-validation" data-cycle-validation role="status">
-                {validationReason}
-              </p>
-            ) : null}
-            {mode === 'create' && !startReason ? (
-              latest ? (
-                <p className="live-performance-cycle-preview">
-                  上一统计周期将于 <strong>{previousDay(startTradingDayKey)}</strong> 结束；新周期从平仓日 {startTradingDayKey} 起统计。
-                </p>
-              ) : firstCycleCounts ? (
-                <div className="live-performance-cycle-counts" aria-label="第一期统计预览">
-                  <div><strong>统计起点前实盘 {firstCycleCounts.preCycle} 笔</strong><span>仍可在全部历史中查看</span></div>
-                  <div><strong>本周期实盘 {firstCycleCounts.current} 笔</strong><span>按平仓日计入第一期</span></div>
-                </div>
-              ) : null
-            ) : null}
-          </div>
-        ) : null}
-
-        {mode === 'undo' && latest ? (
-          <div className="live-performance-cycle-undo" role="alert">
-            <strong>将撤销「{latest.name}」的周期划分</strong>
-            <p>{cycles.length === 1
-              ? '撤销后将恢复全部历史统计；交易、案例和复盘不会改变。'
-              : '撤销后，上一期将成为当前统计周期；交易、案例和复盘不会改变。'}</p>
-          </div>
-        ) : null}
-      </div>
-    </ModalShell>
-  )
+  return <ModalShell title={title} description={description} describedById={preview ? summaryId : undefined} busy={busy} onClose={onClose} footer={footer}>
+    <div className="live-performance-cycle-manager" data-cycle-manager>
+      {mode === 'manage' ? <>
+        <div className="live-performance-cycle-manager-actions">
+          <button ref={createTriggerRef} type="button" className="ui-btn ui-btn-primary" onClick={beginCreate}>重新开始统计</button>
+          <button ref={undoTriggerRef} type="button" className="ui-btn ui-btn-danger" onClick={beginUndo}>撤销最新周期</button>
+        </div>
+        <div className="live-performance-cycle-list" aria-label="统计周期列表">
+          {[...cycles].reverse().map((cycle) => <div className="live-performance-cycle-row" data-cycle-id={cycle.id} key={cycle.id}>
+            <div><strong>{cycle.startTradingDayKey}{cycle.id === latest?.id ? ' · 当前' : ''}</strong><span>{cycle.name}</span></div>
+          </div>)}
+        </div>
+      </> : null}
+      {mode === 'create' ? <div className="live-performance-cycle-form">
+        <label className="live-performance-cycle-field"><span>开始日期</span><DatePicker value={startTradingDayKey} onValueChange={setStartTradingDayKey} ariaLabel="统计周期开始日期" disabled={busy} required /></label>
+        {startReason ? <p className="live-performance-cycle-validation" data-cycle-validation role="status">{startReason}</p> : null}
+        {preview ? <div className="live-performance-cycle-counts" id={summaryId} aria-label="重新开始统计确认摘要">
+          <div><strong>归档有效已平仓 {preview.archivedClosedCount} 笔</strong><span>起点前记录进入历史</span></div>
+          <div><strong>当前有效已平仓 {preview.currentClosedCount} 笔</strong><span>含起点当天已平仓</span></div>
+          <div><strong>进行中 {preview.activeCount} 笔</strong><span>继续留在当前工作区</span></div>
+          <div><strong>待整理 {preview.pendingCount} 笔</strong><span>计划中交易继续留在当前工作区</span></div>
+          <div><strong>关联案例 {preview.associatedCaseCount} 个</strong><span>案例内容不会移动或复制</span></div>
+          <div><strong>风险核算起点不变</strong><span>只新增统计边界</span></div>
+        </div> : null}
+      </div> : null}
+      {mode === 'undo' && latest ? <div className="live-performance-cycle-undo" role="alert"><strong>将撤销 {latest.startTradingDayKey} 的统计边界</strong><p>{cycles.length === 1 ? '撤销后将恢复全部历史为当前；交易、案例和复盘不会改变。' : '撤销后上一统计边界将成为当前；交易、案例和复盘不会改变。'}</p></div> : null}
+    </div>
+  </ModalShell>
 }

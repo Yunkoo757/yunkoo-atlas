@@ -183,6 +183,7 @@ async function run(): Promise<void> {
       trades: previous.trades,
       strategies: previous.strategies,
       liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
+      livePerformanceCycles: previous.livePerformanceCycles,
     })
   }
 }

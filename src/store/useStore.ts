@@ -49,6 +49,11 @@ import {
   undoLatestLivePerformanceCycle as undoLatestLivePerformanceCycleInList,
   type LivePerformanceCycle,
 } from '@/lib/livePerformanceCycles'
+import {
+  filterLivePerformanceRecords,
+  resolveLiveArchiveScope,
+  resolveLiveRecordBucket,
+} from '@/lib/liveStatisticsArchive'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
   completeWeeklyReviewCandidate,
@@ -70,6 +75,53 @@ import {
   normalizeQuickNotes,
   type QuickNote,
 } from '@/data/quickNotes'
+
+export type LivePerformanceRestartPreview = {
+  startTradingDayKey: string
+  archivedClosedCount: number
+  currentClosedCount: number
+  activeCount: number
+  pendingCount: number
+  associatedCaseCount: number
+}
+
+/** 在写入新边界前，用同一归属内核生成重新开始统计的确认摘要。 */
+export function buildLivePerformanceRestartPreview(
+  trades: readonly Trade[],
+  cycles: readonly LivePerformanceCycle[],
+  startTradingDayKey: string,
+  tradingDayStartHour: number,
+): LivePerformanceRestartPreview {
+  const previewCycle: LivePerformanceCycle = {
+    id: '__restart-preview__',
+    name: '统计预览',
+    startTradingDayKey,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }
+  const nextCycles = [...cycles, previewCycle]
+  const currentBeforeRestart = resolveLiveArchiveScope(cycles, 'current')
+  const currentScope = resolveLiveArchiveScope(nextCycles, 'current')
+  const archivedSourceIds = new Set(
+    trades
+      .filter((trade) =>
+        resolveLiveRecordBucket(trade, cycles, tradingDayStartHour) === 'current'
+        && resolveLiveRecordBucket(trade, nextCycles, tradingDayStartHour) === 'archive',
+      )
+      .map((trade) => trade.id),
+  )
+
+  return {
+    startTradingDayKey,
+    archivedClosedCount: filterLivePerformanceRecords(trades, currentBeforeRestart, tradingDayStartHour)
+      .filter((trade) => resolveLiveRecordBucket(trade, nextCycles, tradingDayStartHour) === 'archive').length,
+    currentClosedCount: filterLivePerformanceRecords(trades, currentScope, tradingDayStartHour).length,
+    activeCount: trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt && trade.status === 'open').length,
+    pendingCount: trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt && trade.status === 'planned').length,
+    associatedCaseCount: trades.filter((trade) =>
+      trade.tradeKind === 'case' && !trade.deletedAt && !!trade.sourceTradeId && archivedSourceIds.has(trade.sourceTradeId),
+    ).length,
+  }
+}
 import {
   applyUndoAction,
   buildUndoAction,

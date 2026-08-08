@@ -207,7 +207,7 @@ export function Dashboard() {
     )
   }
 
-  const showCreatedPerformanceCycle = (cycles: Parameters<typeof writePerformanceAnalysisCycle>[2]) => {
+  const showRestartedPerformanceCycle = (cycles: Parameters<typeof writePerformanceAnalysisCycle>[2]) => {
     setSearchParams(
       writePerformanceAnalysisCycle(searchParams, 'current', cycles),
       { replace: true },
@@ -265,7 +265,7 @@ export function Dashboard() {
           <LivePerformanceCycleManager
             currentTradingDayKey={localDateKey}
             onClose={() => setCycleManagerOpen(false)}
-            onCreated={showCreatedPerformanceCycle}
+            onCreated={showRestartedPerformanceCycle}
           />
         ) : null}
 

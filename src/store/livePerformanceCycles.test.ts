@@ -1,5 +1,6 @@
+import type { Trade } from '@/data/trades'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
-import { useStore } from '@/store/useStore'
+import { buildLivePerformanceRestartPreview, useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -10,6 +11,54 @@ const first: LivePerformanceCycle = {
   name: '首个周期',
   startTradingDayKey: '2026-08-01',
   createdAt: '2026-08-01T00:00:00.000Z',
+}
+
+function closedLiveTrade(id: string, day: string, patch: Partial<Trade> = {}): Trade {
+  return {
+    id,
+    ref: `TRD-${id}`,
+    symbol: 'BTCUSDT',
+    side: 'long',
+    status: 'win',
+    conviction: 'medium',
+    strategyId: 'strategy-1',
+    tradeKind: 'live',
+    tags: [],
+    mistakeTags: [],
+    reviewStatus: 'reviewed',
+    reviewCategory: 'normal',
+    entry: 100,
+    exit: 110,
+    size: 1,
+    pnl: 10,
+    rMultiple: 1,
+    resultSource: 'imported',
+    openedAt: day,
+    closedAt: day,
+    closedTradingDayKey: day,
+    note: '',
+    ...patch,
+  }
+}
+
+export function testRestartPreviewCountsArchiveCurrentActivePendingAndCases(): void {
+  const trades: Trade[] = [
+    closedLiveTrade('archived-valid', '2026-08-02'),
+    closedLiveTrade('current-on-start', '2026-08-05'),
+    closedLiveTrade('pending-close-day', '2026-08-04', { closedTradingDayKey: 'invalid' }),
+    { ...closedLiveTrade('active-open', '2026-08-04'), status: 'open' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
+    { ...closedLiveTrade('pending-planned', '2026-08-04'), status: 'planned' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
+    { ...closedLiveTrade('case-for-archive', '2026-08-02'), tradeKind: 'case', sourceTradeId: 'archived-valid' },
+  ]
+
+  const preview = buildLivePerformanceRestartPreview(trades, [first], '2026-08-05', 0)
+
+  assert(preview.startTradingDayKey === '2026-08-05', '预览必须回显所选业务日起点')
+  assert(preview.archivedClosedCount === 1, '起点前的有效已平仓实盘必须计入归档')
+  assert(preview.currentClosedCount === 1, '起点当天已平仓的有效实盘必须保留在当前')
+  assert(preview.activeCount === 1, '持仓中实盘必须继续留在当前')
+  assert(preview.pendingCount === 1, '计划中实盘必须继续留在当前')
+  assert(preview.associatedCaseCount === 1, '来源于将归档实盘的案例必须被计数')
 }
 
 export function testLivePerformanceCycleStoreActionsDoNotModifyTradesOrReviews(): void {

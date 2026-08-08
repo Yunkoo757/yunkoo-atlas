@@ -57,33 +57,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.live-performance-cycle-field input {
-  width: 100%;
-  height: var(--control-height);
-  padding: 0 10px;
-  color: var(--text-primary);
-  background: var(--bg-inset);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  outline: none;
-}
-
-.live-performance-cycle-field input:focus-visible {
-  border-color: var(--accent);
-  box-shadow: var(--focus-ring);
-}
-
-.live-performance-cycle-field input:disabled {
-  color: var(--text-quaternary);
-  cursor: not-allowed;
-}
-
-.live-performance-cycle-field small {
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  text-align: right;
-}
-
 .live-performance-cycle-validation,
 .live-performance-cycle-preview,
 .live-performance-cycle-undo p {
@@ -112,7 +85,7 @@
 
 .live-performance-cycle-counts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-2);
 }
 
