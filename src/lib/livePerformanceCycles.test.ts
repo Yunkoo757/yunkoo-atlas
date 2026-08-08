@@ -5,6 +5,7 @@ import {
   countLiveTradesMissingCloseDay,
   filterTradesByLivePerformanceCycle,
   renameLivePerformanceCycle,
+  resolveLivePerformanceCloseTradingDayKey,
   resolveLivePerformanceCycle,
   undoLatestLivePerformanceCycle,
 } from '@/lib/livePerformanceCycles'
@@ -83,6 +84,7 @@ export function testCycleFilteringUsesFrozenCloseDayAndExcludesIneligibleTrades(
     closedLive('open', { status: 'open', closedAt: '2026-04-02' }),
     closedLive('missed', { status: 'missed', closedAt: '2026-04-02' }),
     closedLive('deleted', { deletedAt: '2026-04-02T00:00:00.000Z', closedAt: '2026-04-02' }),
+    closedLive('empty-deleted', { deletedAt: '', closedAt: '2026-04-02' }),
   ]
   assert(ids(filterTradesByLivePerformanceCycle(candidates, resolved, 0)) === 'frozen-wins', '只允许未删除、已平仓的实盘，并优先使用冻结平仓日')
 }
@@ -95,6 +97,13 @@ export function testMalformedCloseDatesAreCountedAndNeverAttributed(): void {
   ]
   assert(countLiveTradesMissingCloseDay(malformed, 0) === 3, '无效或缺失平仓日必须计数')
   assert(ids(filterTradesByLivePerformanceCycle(malformed, resolveLivePerformanceCycle(cycles, 'two'), 0)) === '', '无效平仓日不得进入任何周期')
+}
+
+export function testCloseDayResolutionNeverFallsBackFromAnInvalidFrozenDay(): void {
+  const frozenInvalid = closedLive('frozen-invalid', { closedTradingDayKey: '2026-02-30', closedAt: '2026-04-02' })
+  const legacy = closedLive('legacy', { closedTradingDayKey: undefined, closedAt: '2026-04-02' })
+  assert(resolveLivePerformanceCloseTradingDayKey(frozenInvalid, 0) === null, '无效冻结日不得悄悄回退到 closedAt')
+  assert(resolveLivePerformanceCloseTradingDayKey(legacy, 0) === '2026-04-02', '未冻结的旧记录才允许由合法 closedAt 补算')
 }
 
 export function testCycleValidationRejectsMalformedAndUnorderedRecords(): void {

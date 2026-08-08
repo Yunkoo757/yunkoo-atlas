@@ -36,8 +36,13 @@ export type MissedOpportunityFilters = {
 const TRADE_SIDES: readonly TradeSide[] = ['long', 'short']
 const MISS_REASONS: readonly MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 
+/** deletedAt 只要存在（包括旧数据中的空字符串）即视为软删除。 */
+export function isMissedOpportunityDeleted(trade: Trade): boolean {
+  return trade.deletedAt !== undefined
+}
+
 export function missedOpportunitySourceOf(trade: Trade): MissedOpportunitySource | null {
-  if (trade.deletedAt !== undefined) return null
+  if (isMissedOpportunityDeleted(trade)) return null
   if (trade.tradeKind === 'live' && trade.status === 'missed') return 'trade'
   if (trade.tradeKind === 'paper' && trade.status === 'missed') return 'paper'
   if (trade.tradeKind === 'case' && trade.caseType === 'missed') return 'case'
@@ -114,7 +119,7 @@ export function buildMissedOpportunitySummary(
     }
     items.push(createStandaloneCase(
       reviewCase,
-      allById.get(reviewCase.sourceTradeId ?? '')?.deletedAt !== undefined,
+      isMissedOpportunityDeleted(allById.get(reviewCase.sourceTradeId ?? '') ?? reviewCase),
     ))
   }
 

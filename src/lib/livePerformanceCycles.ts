@@ -131,10 +131,17 @@ export function resolveLivePerformanceCycle(
 }
 
 function isEligibleLiveClosedTrade(trade: Trade): boolean {
-  return trade.tradeKind === 'live' && !trade.deletedAt && isExecutedClosed(trade.status)
+  return trade.tradeKind === 'live' && trade.deletedAt === undefined && isExecutedClosed(trade.status)
 }
 
-function resolveCloseTradingDayKey(trade: Trade, tradingDayStartHour: number): string | null {
+/**
+ * 归档与周期筛选共用的可靠平仓业务日：已冻结字段优先，旧记录才从 closedAt 补算。
+ * 一旦已存在冻结字段，即使其无效也绝不可回退，避免静默改写历史归属。
+ */
+export function resolveLivePerformanceCloseTradingDayKey(
+  trade: Trade,
+  tradingDayStartHour: number,
+): string | null {
   if (trade.closedTradingDayKey !== undefined) {
     return isValidLiveCycleDayKey(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
   }
@@ -151,7 +158,7 @@ export function filterTradesByLivePerformanceCycle(
   const { startInclusive, endExclusive } = resolved.bounds
   return trades.filter((trade) => {
     if (!isEligibleLiveClosedTrade(trade)) return false
-    const day = resolveCloseTradingDayKey(trade, tradingDayStartHour)
+    const day = resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour)
     if (day === null) return false
     return (startInclusive === null || day >= startInclusive) && (endExclusive === null || day < endExclusive)
   })
@@ -161,7 +168,7 @@ export function countLiveTradesMissingCloseDay(
   trades: readonly Trade[],
   tradingDayStartHour: number,
 ): number {
-  return trades.filter((trade) => isEligibleLiveClosedTrade(trade) && resolveCloseTradingDayKey(trade, tradingDayStartHour) === null).length
+  return trades.filter((trade) => isEligibleLiveClosedTrade(trade) && resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour) === null).length
 }
 
 export function appendLivePerformanceCycle(

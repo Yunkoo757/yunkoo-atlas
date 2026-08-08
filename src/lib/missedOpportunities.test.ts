@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import {
   buildMissedOpportunitySummary,
   filterMissedOpportunityItems,
+  isMissedOpportunityDeleted,
   parseMissedOpportunityFilters,
   type MissedOpportunitySource,
 } from '@/lib/missedOpportunities'
@@ -100,6 +101,7 @@ export function testSummaryKeepsExcludedAndDeletedOriginsDistinct(): void {
 export function testSummaryTreatsEmptyDeletedAtAsDeleted(): void {
   const emptyDeleted = trade({ id: 'empty-deleted', deletedAt: '' })
   const summary = buildMissedOpportunitySummary([emptyDeleted], ['trade'])
+  assert(isMissedOpportunityDeleted(emptyDeleted), 'deletedAt 为空字符串也必须视为软删除')
   assert(summary.items.length === 0 && summary.rawTotal === 0, 'deletedAt 为空字符串的命中记录也必须排除')
 }
 
