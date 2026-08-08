@@ -10,6 +10,7 @@ import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
 import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
+import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
@@ -157,12 +158,18 @@ export function missedTradesInWeek(
   trades: Trade[],
   weekStart: string,
   tradingDayStartHour = 0,
+  performanceBounds: LivePerformanceCycleBounds | null = null,
 ): Trade[] {
   const weekEnd = weekEndFor(weekStart)
   return trades.filter((trade) => {
     if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status)) return false
     const date = closedTradingDayKey(trade, tradingDayStartHour)
     if (!date) return false
+    if (
+      performanceBounds !== null &&
+      (performanceBounds.startInclusive !== null && date < performanceBounds.startInclusive ||
+        performanceBounds.endExclusive !== null && date >= performanceBounds.endExclusive)
+    ) return false
     return date >= weekStart && date <= weekEnd
   })
 }

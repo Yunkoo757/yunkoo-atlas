@@ -3,7 +3,8 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
-import { getTradingDayKey } from '@/lib/periods'
+import { formatYmd, getTradingDayKey } from '@/lib/periods'
+import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 
@@ -218,11 +219,12 @@ async function run(): Promise<void> {
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
           <Route path="/live-archive" element={<LocationProbe />} />
+          <Route path="/live-archive/:archiveId" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     )
     await waitFor(
-      () => document.querySelector('[data-testid="location"]')?.textContent === '/live-archive?kind=live&statsCycle=archive-cycle&symbol=BTCUSDT',
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/live-archive/archive-cycle?kind=live&symbol=BTCUSDT',
       '历史归档深链不得静默展示当前 Dashboard，必须安全转到历史归档入口',
     )
 
@@ -235,6 +237,65 @@ async function run(): Promise<void> {
     )
     await waitFor(() => document.body.textContent?.includes('+$150') ?? false, '全部范围必须保留全部模拟盘且只包含当前实盘')
     assert(!document.body.textContent?.includes('+$1,050'), '全部范围不得把历史归档实盘重新混入统计')
+
+    root.unmount()
+    const weekStart = weekStartFor(new Date(`${currentDay}T12:00:00`))
+    const currentCycleStartDate = new Date(`${weekStart}T12:00:00`)
+    currentCycleStartDate.setDate(currentCycleStartDate.getDate() + 1)
+    const currentCycleStart = formatYmd(currentCycleStartDate)
+    const archivedMissed: Trade = {
+      ...currentLiveTrade,
+      id: 'archived-missed',
+      status: 'missed',
+      closedAt: weekStart,
+      closedTradingDayKey: weekStart,
+      pnl: null,
+      rMultiple: null,
+      resultSource: undefined,
+    }
+    const currentMissed: Trade = {
+      ...currentLiveTrade,
+      id: 'current-missed',
+      status: 'missed',
+      closedAt: currentCycleStart,
+      closedTradingDayKey: currentCycleStart,
+      pnl: null,
+      rMultiple: null,
+      resultSource: undefined,
+    }
+    useStore.setState({
+      trades: [archivedMissed, currentMissed],
+      livePerformanceCycles: [
+        { id: 'week-archive', name: '周旧', startTradingDayKey: '2000-01-01', createdAt: '2000-01-01T00:00:00.000Z' },
+        { id: 'week-current', name: '周当前', startTradingDayKey: currentCycleStart, createdAt: `${currentCycleStart}T00:00:00.000Z` },
+      ],
+    })
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all']}>
+        <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('错过 1') ?? false, '本周错过机会必须只统计当前实盘周期')
+    assert(!document.body.textContent?.includes('错过 2'), '旧周期本周错过机会不得混入当前实盘周卡片')
+
+    root.unmount()
+    const missingCloseLive: Trade = {
+      ...currentLiveTrade,
+      id: 'missing-close-live',
+      openedAt: currentDay,
+      closedAt: null,
+      pnl: 777,
+    }
+    useStore.setState({ trades: [missingCloseLive], livePerformanceCycles: [] })
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all']}>
+        <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => Boolean(document.querySelector('.db-empty')), '无可靠平仓日的实盘结果应从无周期 KPI 移除')
+    assert(!document.body.textContent?.includes('+$777'), '无周期实盘 KPI 不得从 openedAt 回退纳入结果')
   } finally {
     root.unmount()
     useStore.setState({

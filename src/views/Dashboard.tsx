@@ -175,6 +175,7 @@ export function Dashboard() {
         allTrades,
         weekStart,
         tradingDayStartHour,
+        performanceBounds,
       )
     return buildWeeklyReviewMetrics(weekTrades, missed)
   }, [allTrades, businessDateAnchor, localDateKey, performanceBounds, scope.kind, tradingDayStartHour, weekStart])

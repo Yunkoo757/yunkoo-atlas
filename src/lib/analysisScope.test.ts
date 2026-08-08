@@ -85,6 +85,24 @@ export function testAnalysisScopeMatchesDashboardResultSet(): void {
   assert(result[0]?.id === closedLiveTrade.id, 'analysis scope must keep the matching closed trade')
 }
 
+export function testLiveAndAllAnalysisExcludeLiveResultsWithoutReliableCloseDay(): void {
+  const trades: Trade[] = [
+    { ...closedLiveTrade, id: 'missing-live-close', openedAt: '2026-07-10', closedAt: null, pnl: 777 },
+    { ...closedLiveTrade, id: 'malformed-live-close', openedAt: '2026-07-10', closedAt: '2026-07-40', pnl: 888 },
+    { ...closedLiveTrade, id: 'valid-live-close', openedAt: '2026-06-30', closedAt: '2026-07-10' },
+    { ...closedLiveTrade, id: 'paper-history', tradeKind: 'paper', openedAt: '2026-07-10', closedAt: '2026-07-10' },
+  ]
+
+  const live = filterTradesByAnalysisScope(trades, { kind: 'live', range: 'all' })
+  const all = filterTradesByAnalysisScope(trades, { kind: 'all', range: 'all' })
+
+  assert(live.map((trade) => trade.id).join() === 'valid-live-close', '无周期实盘 KPI 不得纳入缺少可靠平仓日的完整结果')
+  assert(
+    all.map((trade) => trade.id).join() === 'valid-live-close,paper-history',
+    '全部类型 KPI 只应保留可靠归属的实盘，并保留模拟盘历史',
+  )
+}
+
 export function testThirtyDayScopeUsesInclusiveClosedDateWindow(): void {
   const trades: Trade[] = [
     {

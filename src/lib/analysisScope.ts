@@ -32,6 +32,11 @@ export const DEFAULT_ANALYSIS_SCOPE: AnalysisScope = {
   range: 'all',
 }
 
+function analysisTradingDay(trade: Trade, tradingDayStartHour: number): string | null {
+  if (trade.tradeKind === 'live') return closedTradingDayKey(trade, tradingDayStartHour)
+  return trade.closedTradingDayKey ?? trade.closedAt ?? trade.openedAt
+}
+
 const ANALYSIS_KINDS: AnalysisKind[] = ['live', 'paper', 'all']
 const ANALYSIS_RANGES: AnalysisRange[] = ['all', 'this-week', 'this-month', '30d', '90d', 'ytd']
 
@@ -68,11 +73,12 @@ export function filterTradesByAnalysisScope(
     isExecutedClosed(trade.status) &&
     (scope.kind === 'all' || trade.tradeKind === scope.kind),
   )
-  if (scope.kind !== 'paper' && performanceBounds !== null) {
+  if (scope.kind !== 'paper') {
     scoped = scoped.filter((trade) => {
       if (trade.tradeKind !== 'live') return true
-      const day = closedTradingDayKey(trade, tradingDayStartHour)
+      const day = analysisTradingDay(trade, tradingDayStartHour)
       if (day === null) return false
+      if (performanceBounds === null) return true
       return (
         (performanceBounds.startInclusive === null || day >= performanceBounds.startInclusive) &&
         (performanceBounds.endExclusive === null || day < performanceBounds.endExclusive)
@@ -109,10 +115,10 @@ export function filterTradesByAnalysisScope(
     bounds = { start: formatYmd(start), end: today }
   }
 
-  return scoped.filter((trade) => isDateInRange(
-    trade.closedTradingDayKey ?? trade.closedAt ?? trade.openedAt,
-    bounds,
-  ))
+  return scoped.filter((trade) => {
+    const day = analysisTradingDay(trade, tradingDayStartHour)
+    return day !== null && isDateInRange(day, bounds)
+  })
 }
 
 export function intersectLiveScopeWithNaturalRange(
