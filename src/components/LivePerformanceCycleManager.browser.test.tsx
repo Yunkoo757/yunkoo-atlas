@@ -34,7 +34,7 @@ function button(label: string, scope: ParentNode = document): HTMLButtonElement 
 }
 function click(label: string, scope: ParentNode = document): void { button(label, scope).click() }
 async function selectDate(dayKey: string): Promise<void> {
-  const trigger = document.querySelector<HTMLButtonElement>('button[aria-label="统计周期开始日期"]')
+  const trigger = document.querySelector<HTMLButtonElement>('button[aria-label="开始日期"]')
   assert(trigger, '找不到日期选择器')
   trigger.click()
   await waitFor(() => Boolean(document.querySelector(`[role="gridcell"][aria-label="${dayKey}"]`)), `日历没有显示 ${dayKey}`)
@@ -73,7 +73,8 @@ async function run(): Promise<void> {
     root.render(<RouterProvider router={router} />)
     await waitFor(() => text().includes('开启新一轮'), '空库没有显示创建入口')
     const trigger = button('开启新一轮'); await openManager()
-    await waitFor(() => document.activeElement === document.querySelector('button[aria-label="统计周期开始日期"]'), '创建弹窗必须聚焦日期')
+    await waitFor(() => document.activeElement === document.querySelector('button[aria-label="开始日期"]'), '创建弹窗必须聚焦日期')
+    assert(!document.querySelector('[aria-label*="统计周期"]'), '无障碍标签不得暴露统计周期术语')
     assert(!document.querySelector('input[aria-label="统计周期名称"]'), '重新开始不得要求名称输入')
     assert(document.querySelector('[role="dialog"]')?.getAttribute('aria-describedby'), '确认摘要必须关联到 aria-describedby')
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
@@ -94,7 +95,7 @@ async function run(): Promise<void> {
     storage.saveSnapshot = originalSaveSnapshot; disablePersistWrites()
 
     await openManager()
-    await waitFor(() => Boolean(document.querySelector('button[aria-label="统计周期开始日期"]')), '已有边界时主入口必须直接进入开启新一轮确认')
+    await waitFor(() => Boolean(document.querySelector('button[aria-label="开始日期"]')), '已有边界时主入口必须直接进入开启新一轮确认')
     assert(!text().includes('管理统计周期'), '主入口不得先展示管理统计周期')
     click('取消'); await waitFor(() => !document.querySelector('[data-cycle-manager]') && document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '开启新一轮'), '取消创建必须关闭弹窗并恢复焦点')
     await openManager(); click('更多操作')
@@ -107,11 +108,11 @@ async function run(): Promise<void> {
     const beforeFailure = JSON.stringify(useStore.getState().livePerformanceCycles)
     saves = 0; storage.saveSnapshot = async () => { saves += 1; if (saves === 1) throw new Error('test cycle save failure') }
     enablePersistWrites(); click('确认重新开始')
-    await waitFor(() => saves === 2 && useToast.getState().message === '统计周期保存失败，原设置已保留', '保存失败必须持久化回滚并提示')
+    await waitFor(() => saves === 2 && useToast.getState().message === '实盘统计保存失败，原设置已保留', '保存失败必须持久化回滚并提示')
     assert(JSON.stringify(useStore.getState().livePerformanceCycles) === beforeFailure, '保存失败必须恢复内存边界')
     storage.saveSnapshot = async () => { saves += 1; throw new Error('test cycle rollback failure') }
     click('确认重新开始')
-    await waitFor(() => useToast.getState().message === '统计周期保存与回滚均失败，请重新打开应用核对当前设置', '回滚失败必须提示重新核对')
+    await waitFor(() => useToast.getState().message === '实盘统计保存与回滚均失败，请重新打开应用核对当前设置', '回滚失败必须提示重新核对')
 
     const revisionedStorage = storage as typeof storage & {
       loadSnapshotEnvelope: () => Promise<{ revision: number; snapshot: ReturnType<typeof pickPersisted> | null }>
@@ -128,7 +129,7 @@ async function run(): Promise<void> {
     revisionedStorage.loadSnapshotEnvelope = async () => ({ revision: 5, snapshot: remoteSnapshot })
     click('确认重新开始')
     await waitFor(
-      () => useToast.getState().message === '统计周期已被其他客户端更新，请重新打开核对',
+      () => useToast.getState().message === '当前实盘已被其他客户端更新，请重新打开核对',
       'revision conflict 必须提示重新核对',
     )
     assert(saves === 1, 'revision conflict 后不得尝试回滚或覆盖远端快照')
@@ -144,7 +145,7 @@ async function run(): Promise<void> {
     await selectDate(day)
     click('确认重新开始')
     await waitFor(
-      () => useToast.getState().message === '统计周期提交冲突，请重新打开应用核对当前设置',
+      () => useToast.getState().message === '实盘统计提交冲突，请重新打开应用核对当前设置',
       '远端快照读取失败必须提示重新核对',
     )
     assert(saves === 1, '远端快照读取失败后不得尝试回滚或覆盖远端快照')

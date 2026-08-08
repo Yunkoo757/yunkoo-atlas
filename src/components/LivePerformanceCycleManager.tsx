@@ -58,11 +58,11 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
   const startReason = mode !== 'create'
     ? null
     : !isValidLiveCycleDayKey(startTradingDayKey)
-      ? '请选择有效的统计周期开始日期'
+      ? '请选择有效的开始日期'
       : startTradingDayKey > currentTradingDayKey
         ? '开始日期不能晚于当前交易日'
         : latest && startTradingDayKey <= latest.startTradingDayKey
-          ? '开始日期必须晚于当前统计周期的开始日期'
+          ? '开始日期必须晚于最近一轮的开始日期'
           : null
   const preview = useMemo(() => mode === 'create' && !startReason
     ? buildLivePerformanceRestartPreview(trades, cycles, startTradingDayKey, tradingDayStartHour)
@@ -70,7 +70,7 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
 
   useEffect(() => {
     if (mode === 'create') {
-      document.querySelector<HTMLButtonElement>('button[aria-label="统计周期开始日期"]')?.focus()
+      document.querySelector<HTMLButtonElement>('button[aria-label="开始日期"]')?.focus()
       return
     }
     if (mode === 'undo') {
@@ -109,18 +109,18 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
           clearSessionUiAfterLibrarySwitch()
           discardPendingAndResumePersist()
           if (envelope.revision !== null) clearWebWriteConflictAfterReload(envelope.revision)
-          toast('统计周期已被其他客户端更新，请重新打开核对')
+          toast('当前实盘已被其他客户端更新，请重新打开核对')
         } catch {
           discardPendingAndResumePersist()
-          toast('统计周期提交冲突，请重新打开应用核对当前设置')
+          toast('实盘统计提交冲突，请重新打开应用核对当前设置')
         }
         return false
       }
       try {
         await flushPersistNow()
-        toast('统计周期保存失败，原设置已保留')
+        toast('实盘统计保存失败，原设置已保留')
       } catch {
-        toast('统计周期保存与回滚均失败，请重新打开应用核对当前设置')
+        toast('实盘统计保存与回滚均失败，请重新打开应用核对当前设置')
       }
       return false
     } finally {
@@ -157,7 +157,7 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
   const confirmUndo = async () => {
     if (!latest || busyRef.current) return
     const next = undoLatestLivePerformanceCycle(cycles)
-    if (await commitCycles(next, '已撤销最新统计周期')) onClose()
+    if (await commitCycles(next, '已撤销最近一轮实盘统计')) onClose()
   }
 
   const title = mode === 'manage' ? '更多统计操作' : mode === 'create' ? '开启新一轮实盘统计' : '撤销最近一轮统计'
@@ -189,9 +189,9 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
       </> : null}
       {mode === 'create' ? <div className="live-performance-cycle-form">
         {cycles.length > 0 ? <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setMode('manage')}>更多操作</button> : null}
-        <label className="live-performance-cycle-field"><span>开始日期</span><DatePicker value={startTradingDayKey} onValueChange={setStartTradingDayKey} ariaLabel="统计周期开始日期" disabled={busy} required /></label>
+        <label className="live-performance-cycle-field"><span>开始日期</span><DatePicker value={startTradingDayKey} onValueChange={setStartTradingDayKey} ariaLabel="开始日期" disabled={busy} required /></label>
         {startReason ? <p className="live-performance-cycle-validation" data-cycle-validation role="status">{startReason}</p> : null}
-        {preview ? <div className="live-performance-cycle-counts" id={summaryId} aria-label="重新开始统计确认摘要">
+        {preview ? <div className="live-performance-cycle-counts" id={summaryId} aria-label="开启新一轮实盘统计确认摘要">
           <div><strong>归档已结束 {preview.archivedClosedCount} 笔</strong><span>起点前记录进入历史，结果问题仍可整理</span></div>
           <div><strong>当前已结束 {preview.currentClosedCount} 笔</strong><span>含起点当天已结束记录</span></div>
           <div><strong>进行中 {preview.activeCount} 笔</strong><span>计划中和持仓中继续留在当前</span></div>
