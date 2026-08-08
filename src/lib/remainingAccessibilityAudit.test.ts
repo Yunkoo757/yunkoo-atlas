@@ -52,3 +52,11 @@ export async function testCustomOverlaysCaptureAndRestoreFocus(): Promise<void> 
   )
   assert(sources[2].includes("if (event.key !== 'Tab') return"), '图片预览必须把 Tab 限制在模态浮层内')
 }
+
+export async function testLiveArchiveRangeAndPendingCountAreAnnounced(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/views/LiveArchiveView.tsx', 'utf8')
+  assert(source.includes('role="status" aria-live="polite"'), '历史归档范围变化必须通过 polite live region 反馈')
+  assert(source.includes('aria-label={`查看待整理记录，共 ${pendingCount} 条`}'), '待整理数量必须有完整文字标签，不能只依赖颜色')
+  assert(source.includes('data-archive-detail-link'), '归档详情入口必须保留原生可聚焦链接')
+}

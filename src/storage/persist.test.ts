@@ -421,3 +421,37 @@ export async function testDiscardPendingResumeCannotWriteThePreviousLibrarySnaps
     useSaveStatus.getState().reset()
   }
 }
+
+export async function testLiveArchiveBoundaryFlushNeverSerializesAPartialCycleSet(): Promise<void> {
+  const storage = getStorage()
+  const originalSaveSnapshot = storage.saveSnapshot.bind(storage)
+  const originalCycles = useStore.getState().livePerformanceCycles
+  let persistedCycleIds: string[] | null = null
+
+  disablePersistWrites()
+  setPreFlushCallback(null)
+  useSaveStatus.getState().reset()
+  storage.saveSnapshot = async (snapshot) => {
+    persistedCycleIds = snapshot.livePerformanceCycles?.map((cycle) => cycle.id) ?? null
+  }
+
+  try {
+    useStore.getState().replaceLivePerformanceCycles([
+      { id: 'archive-before', name: '实盘-2026-08-01', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' },
+      { id: 'current-after', name: '实盘-2026-08-08', startTradingDayKey: '2026-08-08', createdAt: '2026-08-08T00:00:00.000Z' },
+    ])
+    enablePersistWrites()
+    await flushPersistNow()
+
+    assert(
+      JSON.stringify(persistedCycleIds) === JSON.stringify(['archive-before', 'current-after']),
+      'Web 与 Electron 共用的快照写入必须携带完整旧/新边界集合，不能留下半提交集合',
+    )
+  } finally {
+    disablePersistWrites()
+    setPreFlushCallback(null)
+    storage.saveSnapshot = originalSaveSnapshot
+    useStore.getState().replaceLivePerformanceCycles(originalCycles)
+    useSaveStatus.getState().reset()
+  }
+}

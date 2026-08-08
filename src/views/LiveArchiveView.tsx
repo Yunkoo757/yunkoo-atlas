@@ -49,6 +49,9 @@ export function LiveArchiveView() {
   const summaries = archiveEntries.map((entry) => entry.summary)
   const summary = archiveId ? summaries.find((item) => item.archiveId === archiveId) : null
   const members = archiveId ? archiveEntries.find((item) => item.summary.archiveId === archiveId)?.members ?? [] : []
+  const archiveStatus = summary
+    ? `正在查看历史归档：${rangeLabel(summary.startTradingDayKey, summary.endExclusiveTradingDayKey)}，共 ${members.length} 条日志记录。`
+    : `历史归档首页：${archiveEntries.length} 份可查看归档，待整理 ${pendingCount} 条记录。`
   const visibleMembers = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase()
     return members.filter((trade) => {
@@ -66,6 +69,7 @@ export function LiveArchiveView() {
     return <>
       <Topbar title="归档交易" subtitle={rangeLabel(summary.startTradingDayKey, summary.endExclusiveTradingDayKey)} />
       <main className="la-scroll">
+        <p className="la-sr-status" role="status" aria-live="polite">{archiveStatus}</p>
         <div className="la-detail-head"><Link data-archive-return className="la-back" to="/live-archive"><ArrowLeft size={15} />返回历史归档</Link><span>平仓日期范围内的只读记录</span></div>
         <section className="la-detail-summary"><strong>{summary.resultCompleteness.closedCount} 笔已平仓</strong><span>结果完整度：{summaryText(summary)}</span><span>关联案例 {summary.associatedCaseCount} 个</span></section>
         <div className="la-filters" aria-label="归档只读筛选">
@@ -87,7 +91,8 @@ export function LiveArchiveView() {
   return <>
     <Topbar title="历史归档" subtitle="旧实盘记录会保留在这里" />
     <main className="la-scroll">
-      <div className="la-page-head"><div><h2>历史归档</h2><p>重新开始后，旧记录仍可随时回看。</p></div><Link className="la-pending" to="/list?statsCycle=pending">待整理 {pendingCount}</Link></div>
+      <p className="la-sr-status" role="status" aria-live="polite">{archiveStatus}</p>
+      <div className="la-page-head"><div><h2>历史归档</h2><p>重新开始后，旧记录仍可随时回看。</p></div><Link className="la-pending" aria-label={`查看待整理记录，共 ${pendingCount} 条`} to="/list?statsCycle=pending">待整理 {pendingCount}</Link></div>
       {archiveEntries.length ? <div className="la-cards">{archiveEntries.map(({ summary: item }) => <article className="la-card" key={item.archiveId}><div className="la-card-head"><div><h3>{rangeLabel(item.startTradingDayKey, item.endExclusiveTradingDayKey)}</h3><p>{item.resultCompleteness.closedCount ? `${item.resultCompleteness.closedCount} 笔已平仓` : '暂无已平仓记录'}</p></div><span className="la-completeness">结果完整度 · {summaryText(item)}</span></div><ArchiveMetrics trades={item.trades} /><div className="la-card-foot"><span>关联案例 {item.associatedCaseCount} 个</span><Link data-archive-detail-link to={`/live-archive/${item.archiveId}`}>查看归档交易 <ChevronRight size={14} /></Link></div></article>)}</div> : <section className="la-empty"><Archive size={24} aria-hidden /><h2>还没有可查看的历史归档</h2><p>开启新一轮当前实盘后，旧的已平仓记录会显示在这里。</p></section>}
     </main>
   </>

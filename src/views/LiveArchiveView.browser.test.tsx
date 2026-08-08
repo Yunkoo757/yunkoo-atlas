@@ -9,7 +9,7 @@ import { ListView } from '@/views/ListView'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { getTradingDayKey } from '@/lib/periods'
 
-declare global { interface Window { __liveArchiveViewTest?: Promise<void> } }
+declare global { interface Window { __liveArchiveViewTest?: Promise<void>; __liveArchivePerfMetrics?: { homepageMs: number; detailMs: number } } }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
 const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 async function waitFor(check: () => boolean, message: string) { for (let i = 0; i < 120; i += 1) { if (check()) return; await frame() } throw new Error(message) }
@@ -31,12 +31,22 @@ async function run() {
     assert(document.body.textContent?.includes('结果完整度'), '卡片必须展示结果完整度')
     assert(document.body.textContent?.includes('关联案例 1 个'), '案例计数只能按 sourceTradeId')
     assert(document.body.textContent?.includes('暂无已平仓记录'), '仅含日志成员的归档不能被隐藏')
+    const liveStatus = document.querySelector<HTMLElement>('[role="status"][aria-live="polite"]')
+    assert(liveStatus?.textContent?.includes('历史归档首页'), '归档首页必须向辅助技术发布当前范围状态')
+    assert(document.documentElement.scrollWidth <= window.innerWidth, `归档首页在 ${window.innerWidth}px 不得横向溢出`)
     const pending = [...document.querySelectorAll<HTMLAnchorElement>('a')].find((link) => link.textContent?.includes('待整理'))
     assert(pending?.getAttribute('href') === '/list?statsCycle=pending', '待整理入口必须进入共享 pending 日志')
-    document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')?.click()
+    assert(pending?.getAttribute('aria-label')?.includes('待整理记录'), '待整理数量不能仅依赖颜色或位置表达')
+    const detailLink = document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')
+    assert(detailLink, '归档卡片必须提供可聚焦的详情入口')
+    detailLink.focus()
+    assert(document.activeElement === detailLink, '键盘必须能聚焦归档详情入口')
+    detailLink.click()
     await waitFor(() => document.body.textContent?.includes('归档交易') ?? false, '归档详情必须可达')
     assert(document.body.textContent?.includes('平仓日期'), '详情筛选必须按平仓日期说明')
     assert(Boolean(document.querySelector('[data-archive-return]')), '详情必须提供返回归档首页')
+    assert(document.querySelector<HTMLElement>('[role="status"][aria-live="polite"]')?.textContent?.includes('正在查看历史归档'), '归档详情必须向辅助技术发布固定范围状态')
+    assert(document.documentElement.scrollWidth <= window.innerWidth, `归档详情在 ${window.innerWidth}px 不得横向溢出`)
     assert(document.body.textContent?.includes('待补结果'), '详情必须保留固定归档内的缺结果日志成员')
     const query = document.querySelector<HTMLInputElement>('[data-archive-query]')
     assert(query, '详情必须提供只读搜索')
@@ -88,6 +98,29 @@ async function run() {
     await waitFor(() => !document.querySelector('[data-trade-id="pending"]'), '修复后记录必须从待整理列表消失')
     root.render(<MemoryRouter key="current-list" initialEntries={['/list']}><Routes><Route path="/list" element={<ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} />} /></Routes></MemoryRouter>)
     await waitFor(() => Boolean(document.querySelector('[data-trade-id="pending"]')), '修复后记录必须在当前日志可见')
+
+    const performanceTrades = Array.from({ length: 20_000 }, (_, index) => trade(`performance-${index}`, '2026-01-15'))
+    useStore.setState((state) => ({
+      trades: performanceTrades,
+      livePerformanceCycles: [
+        { id: 'performance-archive', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' },
+        { id: 'performance-current', name: '实盘-2026-02-01', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' },
+      ],
+      display: { ...state.display, tradingDayStartHour: 0 },
+    }))
+    const homepageStartedAt = performance.now()
+    root.render(<MemoryRouter key="archive-performance-home" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
+    await waitFor(() => Boolean(document.querySelector('[data-archive-detail-link]')), '两万笔归档首页必须保持可达')
+    const homepageMs = performance.now() - homepageStartedAt
+    const performanceDetail = document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')
+    assert(performanceDetail, '两万笔归档首页必须保留详情入口')
+    const detailStartedAt = performance.now()
+    performanceDetail.click()
+    await waitFor(() => document.querySelectorAll('[data-archive-trade-row]').length === 20_000, '两万笔归档详情必须完整渲染固定成员')
+    const detailMs = performance.now() - detailStartedAt
+    assert(homepageMs < 2_500, `两万笔归档首页首屏投影过慢：${homepageMs.toFixed(1)}ms`)
+    assert(detailMs < 8_000, `两万笔归档详情渲染过慢：${detailMs.toFixed(1)}ms`)
+    window.__liveArchivePerfMetrics = { homepageMs, detailMs }
   } finally { root.unmount(); useStore.setState({ trades: previous.trades, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display }) }
 }
 window.__liveArchiveViewTest = run()
