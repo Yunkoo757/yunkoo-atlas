@@ -52,7 +52,7 @@ export function testSavedViewsPreserveValidPerformanceCycleIdsAndResolveHumanLab
 
   assert(canonical.get('statsCycle') === 'cycle-human-name-id', '有效统计周期 ID 必须保留')
   assert(
-    resolveTradeViewPerformanceCycleLabel(canonical, cycles) === '统计周期：稳健执行期',
+    resolveTradeViewPerformanceCycleLabel(canonical, cycles) === '实盘归档：稳健执行期',
     '渲染标签必须从当前 Store 周期名称解析，不得显示原始 ID',
   )
   assert(
@@ -66,19 +66,30 @@ export function testSavedViewsPreserveValidPerformanceCycleIdsAndResolveHumanLab
   )
 }
 
-export function testRemovedPerformanceCycleIdsBecomeClearedAndInactive(): void {
+export function testCurrentSavedViewTracksTheCurrentArchiveWithoutPersistingItsId(): void {
+  const canonical = canonicalizeTradeViewSearch('?statsCycle=cycle-current-id&symbol=BTCUSDT', cycles)
+
+  assert(!canonical.has('statsCycle'), '当前保存视图必须删除 statsCycle 以动态跟随当前')
+  assert(canonical.get('symbol') === 'BTCUSDT', '删除当前范围不得丢失 symbol')
+  assert(
+    savedViewSearch(savedView('cycle-current-id'), cycles) === '?symbol=BTCUSDT',
+    '当前保存视图恢复时必须仍指向当前范围',
+  )
+}
+
+export function testRemovedPerformanceCycleIdsStayInactiveAndRouteToArchiveHome(): void {
   const removed = savedView('removed-cycle-uuid')
   const canonical = canonicalizeTradeViewSearch(removed.search, cycles)
 
-  assert(!canonical.has('statsCycle'), '失效保存视图周期必须清除，不能漂移到当前周期')
-  assert(canonical.get('symbol') === 'BTCUSDT', '清除失效周期不得丢失无关筛选')
+  assert(canonical.get('statsCycle') === 'removed-cycle-uuid', '失效保存视图必须保留请求，不能漂移到当前周期')
+  assert(canonical.get('symbol') === 'BTCUSDT', '保留失效周期不得丢失无关筛选')
   assert(
-    savedViewSearch(removed, cycles) === '?symbol=BTCUSDT',
-    '恢复失效保存视图时必须只清除周期条件',
+    savedViewSearch(removed, cycles) === '?statsCycle=removed-cycle-uuid&symbol=BTCUSDT',
+    '恢复失效保存视图必须保留归档首页请求',
   )
   assert(
-    !savedViewMatchesLocation(removed, '/list', '?symbol=BTCUSDT', cycles),
-    '引用已删除周期的保存视图必须呈 inactive，不能把清除后的页面误判为 active',
+    !savedViewMatchesLocation(removed, '/list', '?statsCycle=removed-cycle-uuid&symbol=BTCUSDT', cycles),
+    '失效保存视图虽保留归档请求，仍不得被视为可用视图',
   )
   assert(
     resolveTradeViewPerformanceCycleLabel(removed.search, cycles) === null,
@@ -96,14 +107,14 @@ export function testRemovedPerformanceCycleIdsBecomeClearedAndInactive(): void {
     strategies: [],
     livePerformanceCycles: cycles,
   })
-  assert(resolved.search === '?symbol=BTCUSDT', '侧栏恢复链接也必须清除失效周期')
+  assert(resolved.search === '?statsCycle=removed-cycle-uuid&symbol=BTCUSDT', '侧栏恢复链接必须保留失效归档请求')
   assert('inactive' in resolved && resolved.inactive === true, '失效周期保存视图在侧栏必须呈 inactive')
   const selection = resolveSidebarSelection({
     pathname: '/list',
-    search: '?symbol=BTCUSDT',
+    search: '?statsCycle=removed-cycle-uuid&symbol=BTCUSDT',
     items: [resolved],
   })
-  assert(!selection.activeWorkspaceItemId, '清除后的普通页面不得误激活原失效周期保存视图')
+  assert(!selection.activeWorkspaceItemId, '失效归档请求不得激活已失效保存视图')
 }
 
 export function testPerformanceAndRiskCycleConflictsCanonicalizeToStatisticsScope(): void {

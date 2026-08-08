@@ -1,4 +1,5 @@
 import {
+  resolveLiveRoute,
   resolvePerformanceAnalysisRoute,
   resolveTradeListPerformanceCycleRoute,
   writePerformanceAnalysisCycle,
@@ -14,6 +15,25 @@ const cycles: LivePerformanceCycle[] = [
   { id: 'old-id', name: '旧周期', startTradingDayKey: '2026-04-01', createdAt: '2026-04-01T00:00:00.000Z' },
   { id: 'current-id', name: '当前周期', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' },
 ]
+
+export function testLiveRouteDefaultsTradeLogsToTheCurrentArchive(): void {
+  const current = resolveLiveRoute('?symbol=BTCUSDT', cycles, 'trade-list')
+  const archive = resolveLiveRoute('?statsCycle=old-id', cycles, 'strategy')
+  const invalid = resolveLiveRoute('?statsCycle=missing', cycles, 'trade-list')
+
+  assert(current.target.kind === 'current', '普通实盘日志缺省必须是当前')
+  assert(current.canonicalSearch === '?symbol=BTCUSDT', '当前默认不得把 statsCycle 暴露到 URL')
+  assert(archive.target.kind === 'archive', '有效真实 ID 必须固定到历史归档')
+  assert(invalid.target.kind === 'archive-home', '失效范围必须回到归档首页')
+}
+
+export function testLiveRouteSendsReservedScopesToArchiveHomeWithoutDrifting(): void {
+  for (const requested of ['all', 'pre-cycle'] as const) {
+    const route = resolveLiveRoute(`?statsCycle=${requested}&symbol=BTCUSDT`, cycles, 'trade-list')
+    assert(route.target.kind === 'archive-home', `${requested} 不得静默漂移到当前`)
+    assert(route.canonicalSearch === `?statsCycle=${requested}&symbol=BTCUSDT`, '归档首页目标必须保留请求键')
+  }
+}
 
 export function testAnalysisRouteCompressesTheCurrentCycleId(): void {
   const current = resolvePerformanceAnalysisRoute('?kind=live&statsCycle=current-id&visual=x', 'live', cycles)

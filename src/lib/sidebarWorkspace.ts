@@ -469,6 +469,8 @@ export function resolveSidebarWorkspaceItem(
       view &&
       sources.livePerformanceCycles !== undefined &&
       requestedStatsCycle !== null &&
+      requestedStatsCycle !== sources.livePerformanceCycles.at(-1)?.id &&
+      requestedStatsCycle !== 'current' &&
       resolveTradeViewPerformanceCycleLabel(
         view.search,
         sources.livePerformanceCycles,

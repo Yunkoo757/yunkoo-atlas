@@ -72,7 +72,6 @@ export function TradeFilters({
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
-  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
   const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
@@ -98,8 +97,6 @@ export function TradeFilters({
   const isCaseWorkspace = workspaceKind === 'case'
   const isPaperWorkspace = workspaceKind === 'paper'
   const usesQueryScope = isCaseWorkspace || isPaperWorkspace
-  const allowsLiveCycleScope = Boolean(liveStatsStartTradingDayKey) &&
-    !isCaseWorkspace && !isPaperWorkspace && filter.analysisScope?.kind !== 'paper'
   const allowsPerformanceCycleScope = livePerformanceCycles.length > 0 &&
     !isCaseWorkspace &&
     !isPaperWorkspace &&
@@ -136,7 +133,7 @@ export function TradeFilters({
     if (value) next.set(key, value)
     else next.delete(key)
     if (value && key === 'statsCycle') next.delete('liveCycle')
-    if (value && key === 'liveCycle') next.delete('statsCycle')
+    if (key === 'liveCycle') next.delete('liveCycle')
     setSearchParams(next, { replace: true })
   }
 
@@ -145,15 +142,12 @@ export function TradeFilters({
     const canonical = canonicalizeTradeViewSearch(searchParams, livePerformanceCycles)
     if (!allowsTradeKindFacet) canonical.delete('tradeKind')
     if (!allowsPerformanceCycleScope) canonical.delete('statsCycle')
-    if (!liveStatsStartTradingDayKey) canonical.delete('liveCycle')
-    else if (!allowsLiveCycleScope) canonical.delete('liveCycle')
+    canonical.delete('liveCycle')
     if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
   }, [
-    allowsLiveCycleScope,
     allowsPerformanceCycleScope,
     allowsTradeKindFacet,
     livePerformanceCycles,
-    liveStatsStartTradingDayKey,
     searchParams,
     setSearchParams,
   ])
@@ -182,14 +176,6 @@ export function TradeFilters({
     [
       'statsCycle',
       resolveTradeViewPerformanceCycleLabel(searchParams, livePerformanceCycles) ?? '',
-    ],
-    [
-      'liveCycle',
-      searchParams.get('liveCycle') === 'pre-cycle'
-        ? '规则前'
-        : searchParams.get('liveCycle') === 'current'
-          ? '当前周期'
-          : '',
     ],
     [
       'tradeKind',
@@ -420,29 +406,16 @@ export function TradeFilters({
                     ['last-month', '上月'],
                   ]}
                 />
-                {allowsLiveCycleScope ? (
-                  <FilterSelect
-                    label="实盘周期"
-                    value={searchParams.get('liveCycle') ?? ''}
-                    onChange={(value) => setParam('liveCycle', value)}
-                    options={[
-                      ['', '全部实盘'],
-                      ['current', '当前周期'],
-                      ['pre-cycle', '规则前'],
-                    ]}
-                  />
-                ) : null}
                 {allowsPerformanceCycleScope ? (
                   <FilterSelect
-                    label="统计周期"
+                    label="实盘范围"
                     value={searchParams.get('statsCycle') ?? ''}
                     onChange={(value) => setParam('statsCycle', value)}
                     options={[
-                      ['', '不按统计周期'],
+                      ['', '当前实盘'],
                       ...[...livePerformanceCycles]
                         .reverse()
                         .map((cycle) => [cycle.id, cycle.name] as [string, string]),
-                      ['pre-cycle', '统计起点前'],
                     ]}
                   />
                 ) : null}

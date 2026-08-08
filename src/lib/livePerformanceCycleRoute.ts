@@ -1,4 +1,5 @@
 import type { AnalysisKind } from '@/lib/analysisScope'
+import { resolveLiveArchiveScope, type LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import {
   LIVE_PERFORMANCE_CYCLE_RESERVED_IDS,
   resolveLivePerformanceCycle,
@@ -18,6 +19,17 @@ export type TradeListPerformanceCycleRouteState = {
   needsReplace: boolean
 }
 
+export type LiveRouteTarget =
+  | { kind: 'current'; scope: LiveArchiveScope }
+  | { kind: 'archive'; scope: LiveArchiveScope }
+  | { kind: 'archive-home'; reason: 'all' | 'pre-cycle' | 'missing'; requestedKey: string | null }
+
+export type LiveRouteState = {
+  target: LiveRouteTarget
+  canonicalSearch: string
+  needsReplace: boolean
+}
+
 function copyParams(input: string | URLSearchParams): URLSearchParams {
   return new URLSearchParams(input)
 }
@@ -29,6 +41,50 @@ function searchFor(params: URLSearchParams): string {
 
 function removeRiskCycle(params: URLSearchParams): void {
   params.delete('liveCycle')
+}
+
+/** Resolves every live-facing route through the archive kernel without making current explicit in URLs. */
+export function resolveLiveRoute(
+  input: string | URLSearchParams,
+  cycles: readonly LivePerformanceCycle[],
+  _context: 'dashboard' | 'trade-list' | 'strategy' | 'archive',
+): LiveRouteState {
+  const params = copyParams(input)
+  const originalSearch = searchFor(params)
+  const raw = params.get('statsCycle')
+  const requested = raw?.trim() ?? null
+  removeRiskCycle(params)
+
+  if (requested === null || requested === '' || requested === 'current') {
+    params.delete('statsCycle')
+    return {
+      target: { kind: 'current', scope: resolveLiveArchiveScope(cycles, null) },
+      canonicalSearch: searchFor(params),
+      needsReplace: searchFor(params) !== originalSearch,
+    }
+  }
+  if (requested === 'all' || requested === 'pre-cycle') {
+    if (raw !== requested) params.set('statsCycle', requested)
+    return {
+      target: { kind: 'archive-home', reason: requested, requestedKey: requested },
+      canonicalSearch: searchFor(params),
+      needsReplace: searchFor(params) !== originalSearch,
+    }
+  }
+  const scope = resolveLiveArchiveScope(cycles, requested)
+  if (scope.missingRequestedKey) {
+    if (raw !== requested) params.set('statsCycle', requested)
+    return {
+      target: { kind: 'archive-home', reason: 'missing', requestedKey: requested },
+      canonicalSearch: searchFor(params),
+      needsReplace: searchFor(params) !== originalSearch,
+    }
+  }
+  if (scope.kind === 'current') {
+    params.delete('statsCycle')
+    return { target: { kind: 'current', scope }, canonicalSearch: searchFor(params), needsReplace: searchFor(params) !== originalSearch }
+  }
+  return { target: { kind: 'archive', scope }, canonicalSearch: searchFor(params), needsReplace: searchFor(params) !== originalSearch }
 }
 
 export function resolvePerformanceAnalysisRoute(

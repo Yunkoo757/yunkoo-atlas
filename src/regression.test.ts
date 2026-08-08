@@ -1251,10 +1251,10 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
   }
 }
 
-export function testLiveWorkbenchAndSidebarCountsPreserveHistoryByDefault(): void {
+export function testLiveWorkbenchAndSidebarCountsUseCurrentArchiveByDefault(): void {
   const trades: Trade[] = [
-    { ...trade, id: 'old-live', status: 'open', openedAt: '2026-07-20' },
-    { ...trade, id: 'new-live', status: 'open', openedAt: '2026-07-27' },
+    { ...trade, id: 'old-live', status: 'win', openedAt: '2026-07-20', closedAt: '2026-07-20', closedTradingDayKey: '2026-07-20' },
+    { ...trade, id: 'new-live', status: 'win', openedAt: '2026-07-27', closedAt: '2026-07-27', closedTradingDayKey: '2026-07-27' },
     { ...trade, id: 'paper', tradeKind: 'paper', status: 'open', openedAt: '2026-07-20' },
     { ...trade, id: 'case', tradeKind: 'case', openedAt: '2026-07-20' },
   ]
@@ -1263,6 +1263,7 @@ export function testLiveWorkbenchAndSidebarCountsPreserveHistoryByDefault(): voi
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
     liveStatsStartTradingDayKey: '2026-07-27',
+    livePerformanceCycles: [{ id: 'current', name: '当前', startTradingDayKey: '2026-07-27', createdAt: '2026-07-27T00:00:00.000Z' }],
   }
   const live = getWorkbenchVisibleTrades({
     ...context,
@@ -1272,7 +1273,7 @@ export function testLiveWorkbenchAndSidebarCountsPreserveHistoryByDefault(): voi
   const currentCycle = getWorkbenchVisibleTrades({
     ...context,
     filter: { type: 'all', tradeKind: 'live' },
-    search: '?liveCycle=current',
+    search: '?statsCycle=current',
   })
   const paper = getWorkbenchVisibleTrades({
     ...context,
@@ -1285,10 +1286,10 @@ export function testLiveWorkbenchAndSidebarCountsPreserveHistoryByDefault(): voi
     search: '',
   })
 
-  assert(live.map((item) => item.id).sort().join() === 'new-live,old-live', '交易日志缺省范围必须保留全部实盘历史')
-  assert(countSidebarRoute('/list', '', context) === 2, '侧栏交易日志计数必须保留全部实盘历史')
-  assert(currentCycle.map((item) => item.id).join() === 'new-live', '显式当前周期筛选必须只显示周期内实盘')
-  assert(countSidebarRoute('/list', '?liveCycle=current', context) === 1, '显式当前周期侧栏计数必须与列表一致')
+  assert(live.map((item) => item.id).join() === 'new-live', '交易日志缺省范围必须是当前实盘')
+  assert(countSidebarRoute('/list', '', context) === 1, '侧栏交易日志计数必须使用当前实盘')
+  assert(currentCycle.map((item) => item.id).join() === 'new-live', '显式 current 必须等同当前实盘')
+  assert(countSidebarRoute('/list', '?statsCycle=current', context) === 1, '当前实盘侧栏计数必须与列表一致')
   assert(paper.map((item) => item.id).join() === 'paper', '模拟盘计数不得受实盘周期影响')
   assert(cases.map((item) => item.id).join() === 'case', '案例计数不得受实盘周期影响')
 }
@@ -1372,6 +1373,7 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
       closedAt: '2026-06-02',
       closedTradingDayKey: '2026-06-02',
       pnl: 100,
+      rMultiple: 2,
       resultSource: 'imported',
     },
     {
@@ -1383,6 +1385,7 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
       closedAt: '2026-07-03',
       closedTradingDayKey: '2026-07-03',
       pnl: 150,
+      rMultiple: 2,
       resultSource: 'imported',
     },
     {
@@ -1425,12 +1428,12 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
 
   assert(
     plain.map((item) => item.id).sort().join() ===
-      'current-closed-strategy,current-open-strategy,old-closed-strategy',
-    '普通策略页无查询参数时必须保留全部历史与未平仓实盘',
+      'current-closed-strategy,current-open-strategy',
+    '普通策略页无查询参数必须使用当前日志范围',
   )
   assert(
-    explicitCurrent.map((item) => item.id).join() === 'current-closed-strategy',
-    '普通策略页显式周期必须使用列表语义并按真实 ID 筛选',
+    explicitCurrent.map((item) => item.id).sort().join() === 'current-closed-strategy,current-open-strategy',
+    '普通策略页显式当前范围必须保留当前日志中的未平仓记录',
   )
   assert(
     dashboardAnalysis.map((item) => item.id).join() === 'current-closed-strategy',

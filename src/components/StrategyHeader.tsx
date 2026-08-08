@@ -10,12 +10,8 @@ import {
 } from '@/lib/analysisScope'
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
-import { filterTradesForLiveCycle, parseLiveCycleScope } from '@/lib/liveCycle'
-import {
-  resolvePerformanceAnalysisRoute,
-  resolveTradeListPerformanceCycleRoute,
-} from '@/lib/livePerformanceCycleRoute'
-import { filterTradesByLivePerformanceCycle } from '@/lib/livePerformanceCycles'
+import { resolveLiveRoute } from '@/lib/livePerformanceCycleRoute'
+import { filterLivePerformanceRecords } from '@/lib/liveStatisticsArchive'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
 
@@ -33,7 +29,6 @@ export function StrategyHeader({
   const trades = useStore((s) => s.trades)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
-  const liveStatsStartTradingDayKey = useStore((s) => s.liveStatsStartTradingDayKey)
   const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
   const [, setSearchParams] = useSearchParams()
   const businessDateAnchor = useBusinessDateAnchor()
@@ -44,17 +39,7 @@ export function StrategyHeader({
       ? { ...parsed, tradeKind: undefined }
       : parsed
   }, [analysisScope?.kind, search])
-  const performanceRoute = analysisScope
-    ? resolvePerformanceAnalysisRoute(
-        search,
-        analysisScope.kind,
-        livePerformanceCycles,
-      )
-    : resolveTradeListPerformanceCycleRoute(
-        search,
-        livePerformanceCycles,
-        true,
-      )
+  const performanceRoute = resolveLiveRoute(search, livePerformanceCycles, 'strategy')
   const canonicalPerformanceSearch = performanceRoute.canonicalSearch
   const needsPerformanceReplace = performanceRoute.needsReplace
 
@@ -64,23 +49,13 @@ export function StrategyHeader({
   }, [canonicalPerformanceSearch, needsPerformanceReplace, setSearchParams])
 
   const stats = useMemo(() => {
-    const requestedLiveCycleScope = new URLSearchParams(canonicalPerformanceSearch).get('liveCycle')
-    const liveCycleScope = requestedLiveCycleScope === 'current' || requestedLiveCycleScope === 'pre-cycle'
-      ? parseLiveCycleScope(search)
-      : 'all'
-    const riskCycleScopedTrades = filterTradesForLiveCycle(
-      trades,
-      analysisScope?.kind === 'paper' ? 'all' : liveCycleScope,
-      liveStatsStartTradingDayKey,
-      tradingDayStartHour,
-    )
-    const cycleScopedTrades = performanceRoute.resolved?.bounds
-      ? filterTradesByLivePerformanceCycle(
-          riskCycleScopedTrades,
-          performanceRoute.resolved,
-          tradingDayStartHour,
-        )
-      : riskCycleScopedTrades
+    const cycleScopedTrades = performanceRoute.target.kind === 'archive-home'
+      ? trades
+      : (() => {
+          const scoped = filterLivePerformanceRecords(trades, performanceRoute.target.scope, tradingDayStartHour)
+          const ids = new Set(scoped.map((trade) => trade.id))
+          return trades.filter((trade) => trade.tradeKind !== 'live' || ids.has(trade.id))
+        })()
     const scoped = analysisScope
       ? filterTradesByAnalysisScope(
         cycleScopedTrades,
@@ -104,12 +79,9 @@ export function StrategyHeader({
       localDateKey,
       businessDateAnchor,
       tradingDayStartHour,
-      liveStatsStartTradingDayKey,
       livePerformanceCycles,
       canonicalPerformanceSearch,
-      performanceRoute.resolved?.key,
-      performanceRoute.resolved?.bounds?.startInclusive,
-      performanceRoute.resolved?.bounds?.endExclusive,
+      performanceRoute.target,
     ])
 
   const scopeLabel = analysisScope
