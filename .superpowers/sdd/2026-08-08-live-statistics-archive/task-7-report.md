@@ -106,3 +106,28 @@ Dashboard → #/live-archive → #/live-archive/keyboard-archive → #/live-arch
 ```
 
 在 1280×900 下运行 `node scripts/qa-live-archive-keyboard.mjs` 通过。其余聚焦 unit、`pnpm typecheck`、`git diff --check` 也通过；完整 browser/regression/`pnpm test` 的 124 秒无输出超时状态不变，仍未记为通过。
+
+## Fix Round 3：迁移旧 LiveCycleHistory 浏览器合同
+
+### RED
+
+旧 `src/views/LiveCycleHistory.browser.test.tsx` 仍把 `liveStatsStartTradingDayKey` 与 `liveCycle=current/pre-cycle/all` 当成日志范围入口。用项目 Vite + Playwright 运行该夹具时真实失败于“显式当前周期范围必须只显示周期内交易”，说明旧 fixture 已与 `livePerformanceCycles`、`statsCycle=current/archive/pending` 新合同不兼容；未删除失败断言。
+
+### GREEN
+
+- 将夹具数据改为两条 `livePerformanceCycles` 边界、可靠 `closedTradingDayKey`、一条缺平仓日的待整理记录。
+- 缺省日志断言改为当前实盘；显式 `statsCycle=current` 保持动态当前；真实 archive ID 仅显示旧归档；`statsCycle=pending` 仅显示待整理；移除 `liveCycle`、`pre-cycle`、`all` 和 `liveStatsStartTradingDayKey` 依赖。
+- 保留无边界资料库回退断言：全部历史属于当前，并继续验证交易筛选面板不出现旧实盘周期控件；案例分类计数回归保持不变。
+
+### Fix Round 3 验证
+
+```powershell
+# Vite + Playwright，1280×900
+LiveCycleHistory.browser.test.html        PASS
+LivePerformanceCycleNavigation.browser.test.html PASS
+node scripts/run-regression-tests.mjs --unit-only src/lib/liveStatisticsArchive.test.ts src/storage/persist.test.ts src/views/LiveArchiveView.design.test.ts PASS
+pnpm typecheck                            PASS
+git diff --check                          PASS
+```
+
+该修复只修改旧浏览器夹具与本报告；共享工作树中其他代理的 ListView/LiveArchive 改动未纳入本轮提交。
