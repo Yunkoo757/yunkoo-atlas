@@ -44,7 +44,7 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
   const trades = useStore((state) => state.trades)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const replaceLivePerformanceCycles = useStore((state) => state.replaceLivePerformanceCycles)
-  const [mode, setMode] = useState<ManagerMode>(() => cycles.length === 0 ? 'create' : 'manage')
+  const [mode, setMode] = useState<ManagerMode>('create')
   const [startTradingDayKey, setStartTradingDayKey] = useState(currentTradingDayKey)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
@@ -138,7 +138,7 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
     focusSourceRef.current = 'undo'
     setMode('undo')
   }
-  const leaveForm = () => cycles.length === 0 ? onClose() : setMode('manage')
+  const leaveForm = () => onClose()
 
   const confirmCreate = async () => {
     if (startReason || busyRef.current) return
@@ -160,12 +160,12 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
     if (await commitCycles(next, '已撤销最新统计周期')) onClose()
   }
 
-  const title = mode === 'manage' ? '管理统计周期' : mode === 'create' ? '重新开始当前实盘统计' : '撤销最新统计周期'
+  const title = mode === 'manage' ? '更多统计操作' : mode === 'create' ? '开启新一轮实盘统计' : '撤销最近一轮统计'
   const description = mode === 'create'
     ? '这只会建立统计边界，不会复制、移动或删除交易、案例、图片、正文，也不会改变风险核算起点。'
     : mode === 'undo'
       ? '仅撤销最新一次统计边界，交易、案例和复盘均保持不变。'
-      : '统计周期只调整绩效统计边界；旧名称仅作为内部记录保留。'
+      : '历史归档和撤销操作只调整统计边界，不会改动交易或案例。'
   const footer = mode === 'manage' ? <button type="button" className="ui-btn ui-btn-bordered" onClick={onClose}>完成</button>
     : <>
       <button type="button" className="ui-btn ui-btn-bordered" disabled={busy} onClick={leaveForm}>取消</button>
@@ -178,23 +178,24 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
     <div className="live-performance-cycle-manager" data-cycle-manager>
       {mode === 'manage' ? <>
         <div className="live-performance-cycle-manager-actions">
-          <button ref={createTriggerRef} type="button" className="ui-btn ui-btn-primary" onClick={beginCreate}>重新开始统计</button>
-          <button ref={undoTriggerRef} type="button" className="ui-btn ui-btn-danger" onClick={beginUndo}>撤销最新周期</button>
+          <button ref={createTriggerRef} type="button" className="ui-btn ui-btn-primary" onClick={beginCreate}>开启新一轮</button>
+          <button ref={undoTriggerRef} type="button" className="ui-btn ui-btn-danger" onClick={beginUndo}>撤销最近一轮</button>
         </div>
-        <div className="live-performance-cycle-list" aria-label="统计周期列表">
+        <div className="live-performance-cycle-list" aria-label="历史归档边界">
           {[...cycles].reverse().map((cycle) => <div className="live-performance-cycle-row" data-cycle-id={cycle.id} key={cycle.id}>
-            <div><strong>{cycle.startTradingDayKey}{cycle.id === latest?.id ? ' · 当前' : ''}</strong><span>{cycle.name}</span></div>
+            <div><strong>{cycle.startTradingDayKey}{cycle.id === latest?.id ? ' · 当前' : ''}</strong><span>{cycle.id === latest?.id ? '当前实盘' : '历史归档'}</span></div>
           </div>)}
         </div>
       </> : null}
       {mode === 'create' ? <div className="live-performance-cycle-form">
+        {cycles.length > 0 ? <button type="button" className="ui-btn ui-btn-ghost" onClick={() => setMode('manage')}>更多操作</button> : null}
         <label className="live-performance-cycle-field"><span>开始日期</span><DatePicker value={startTradingDayKey} onValueChange={setStartTradingDayKey} ariaLabel="统计周期开始日期" disabled={busy} required /></label>
         {startReason ? <p className="live-performance-cycle-validation" data-cycle-validation role="status">{startReason}</p> : null}
         {preview ? <div className="live-performance-cycle-counts" id={summaryId} aria-label="重新开始统计确认摘要">
-          <div><strong>归档有效已平仓 {preview.archivedClosedCount} 笔</strong><span>起点前记录进入历史</span></div>
-          <div><strong>当前有效已平仓 {preview.currentClosedCount} 笔</strong><span>含起点当天已平仓</span></div>
-          <div><strong>进行中 {preview.activeCount} 笔</strong><span>继续留在当前工作区</span></div>
-          <div><strong>待整理 {preview.pendingCount} 笔</strong><span>计划中交易继续留在当前工作区</span></div>
+          <div><strong>归档已结束 {preview.archivedClosedCount} 笔</strong><span>起点前记录进入历史，结果问题仍可整理</span></div>
+          <div><strong>当前已结束 {preview.currentClosedCount} 笔</strong><span>含起点当天已结束记录</span></div>
+          <div><strong>进行中 {preview.activeCount} 笔</strong><span>计划中和持仓中继续留在当前</span></div>
+          <div><strong>待整理 {preview.pendingCount} 笔</strong><span>缺有效平仓日或暂无法归属</span></div>
           <div><strong>关联案例 {preview.associatedCaseCount} 个</strong><span>案例内容不会移动或复制</span></div>
           <div><strong>风险核算起点不变</strong><span>只新增统计边界</span></div>
         </div> : null}

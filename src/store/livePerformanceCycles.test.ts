@@ -44,6 +44,8 @@ function closedLiveTrade(id: string, day: string, patch: Partial<Trade> = {}): T
 export function testRestartPreviewCountsArchiveCurrentActivePendingAndCases(): void {
   const trades: Trade[] = [
     closedLiveTrade('archived-valid', '2026-08-02'),
+    closedLiveTrade('archived-conflict', '2026-08-02', { pnl: 10, rMultiple: -1 }),
+    closedLiveTrade('archived-missing-result', '2026-08-02', { pnl: null, rMultiple: null, resultSource: undefined }),
     closedLiveTrade('current-on-start', '2026-08-05'),
     closedLiveTrade('pending-close-day', '2026-08-04', { closedTradingDayKey: 'invalid' }),
     { ...closedLiveTrade('active-open', '2026-08-04'), status: 'open' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
@@ -54,10 +56,10 @@ export function testRestartPreviewCountsArchiveCurrentActivePendingAndCases(): v
   const preview = buildLivePerformanceRestartPreview(trades, [first], '2026-08-05', 0)
 
   assert(preview.startTradingDayKey === '2026-08-05', '预览必须回显所选业务日起点')
-  assert(preview.archivedClosedCount === 1, '起点前的有效已平仓实盘必须计入归档')
+  assert(preview.archivedClosedCount === 3, '起点前已结束实盘必须计入归档，结果冲突和缺结果不得丢失')
   assert(preview.currentClosedCount === 1, '起点当天已平仓的有效实盘必须保留在当前')
-  assert(preview.activeCount === 1, '持仓中实盘必须继续留在当前')
-  assert(preview.pendingCount === 1, '计划中实盘必须继续留在当前')
+  assert(preview.activeCount === 2, '计划中和持仓中实盘必须统一计入进行中')
+  assert(preview.pendingCount === 1, '缺有效平仓日的已结束实盘必须计入待整理，计划中不得冒充待整理')
   assert(preview.associatedCaseCount === 1, '来源于将归档实盘的案例必须被计数')
 }
 

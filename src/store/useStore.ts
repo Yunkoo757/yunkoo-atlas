@@ -24,7 +24,7 @@ import {
 } from '@/data/reviewTemplates'
 import { mergeImportPayload } from '@/lib/importMerge'
 import { appendActivity, createActivity } from '@/lib/activities'
-import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
+import { isActive, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 import { promoteTradeSession, promoteTradeNotionMeta } from '@/lib/tradeView'
 import {
@@ -50,7 +50,7 @@ import {
   type LivePerformanceCycle,
 } from '@/lib/livePerformanceCycles'
 import {
-  filterLivePerformanceRecords,
+  filterLiveLogRecords,
   resolveLiveArchiveScope,
   resolveLiveRecordBucket,
 } from '@/lib/liveStatisticsArchive'
@@ -101,6 +101,10 @@ export function buildLivePerformanceRestartPreview(
   const nextCycles = [...cycles, previewCycle]
   const currentBeforeRestart = resolveLiveArchiveScope(cycles, 'current')
   const currentScope = resolveLiveArchiveScope(nextCycles, 'current')
+  const pendingScope = resolveLiveArchiveScope(nextCycles, 'pending')
+  const archiveCandidates = filterLiveLogRecords(trades, currentBeforeRestart, tradingDayStartHour)
+    .filter((trade) => resolveLiveRecordBucket(trade, nextCycles, tradingDayStartHour) === 'archive')
+  const currentLogRecords = filterLiveLogRecords(trades, currentScope, tradingDayStartHour)
   const archivedSourceIds = new Set(
     trades
       .filter((trade) =>
@@ -112,11 +116,10 @@ export function buildLivePerformanceRestartPreview(
 
   return {
     startTradingDayKey,
-    archivedClosedCount: filterLivePerformanceRecords(trades, currentBeforeRestart, tradingDayStartHour)
-      .filter((trade) => resolveLiveRecordBucket(trade, nextCycles, tradingDayStartHour) === 'archive').length,
-    currentClosedCount: filterLivePerformanceRecords(trades, currentScope, tradingDayStartHour).length,
-    activeCount: trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt && trade.status === 'open').length,
-    pendingCount: trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt && trade.status === 'planned').length,
+    archivedClosedCount: archiveCandidates.filter((trade) => isExecutedClosed(trade.status)).length,
+    currentClosedCount: currentLogRecords.filter((trade) => isExecutedClosed(trade.status)).length,
+    activeCount: currentLogRecords.filter((trade) => isActive(trade.status)).length,
+    pendingCount: filterLiveLogRecords(trades, pendingScope, tradingDayStartHour).length,
     associatedCaseCount: trades.filter((trade) =>
       trade.tradeKind === 'case' && !trade.deletedAt && !!trade.sourceTradeId && archivedSourceIds.has(trade.sourceTradeId),
     ).length,

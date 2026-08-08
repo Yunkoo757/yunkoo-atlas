@@ -12,7 +12,11 @@ import '@/styles/tokens.css'
 import '@/styles/global.css'
 
 declare global { interface Window { __livePerformanceCycleManagerTest?: Promise<void>; __atlasBrowserAllowedErrors?: string[] } }
-window.__atlasBrowserAllowedErrors = ['Persist failed Error: test cycle save failure', 'Persist failed Error: test cycle rollback failure']
+window.__atlasBrowserAllowedErrors = [
+  'Persist failed Error: test cycle save failure',
+  'Persist failed Error: test cycle rollback failure',
+  'Persist failed StorageRevisionConflictError: Storage revision conflict',
+]
 
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message) }
 function frame(): Promise<void> { return new Promise((resolve) => requestAnimationFrame(() => resolve())) }
@@ -40,7 +44,7 @@ function closedLive(id: string, day: string, patch: Partial<Trade> = {}): Trade 
   return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy-1', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 10, rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch }
 }
 async function openManager(): Promise<void> {
-  const trigger = button(useStore.getState().livePerformanceCycles.length ? '管理周期' : '开始新统计周期')
+  const trigger = button('开启新一轮')
   trigger.focus(); trigger.click()
   await waitFor(() => Boolean(document.querySelector('[data-cycle-manager]')), '统计周期弹窗未打开')
 }
@@ -51,13 +55,14 @@ async function run(): Promise<void> {
   const day = getTradingDayKey(new Date(), previous.display.tradingDayStartHour)
   const firstStart = addDays(day, -3); const beforeFirst = addDays(firstStart, -1)
   const firstTriggerCycles = JSON.stringify(previous.livePerformanceCycles)
-  const router = createMemoryRouter([{ path: '/dashboard', element: <Dashboard /> }], { initialEntries: ['/dashboard?kind=live&range=this-week&statsCycle=gone'] })
+  const router = createMemoryRouter([{ path: '/dashboard', element: <Dashboard /> }], { initialEntries: ['/dashboard?kind=live&range=this-week'] })
   const root = createRoot(rootElement)
   try {
     disablePersistWrites()
     useStore.setState({
       trades: [
         closedLive('archived', beforeFirst), closedLive('current-on-start', firstStart),
+        closedLive('missing-day', beforeFirst, { closedTradingDayKey: 'invalid' }),
         { ...closedLive('active', beforeFirst), status: 'open', exit: null, closedAt: null, pnl: null, rMultiple: null, resultSource: undefined },
         { ...closedLive('planned', beforeFirst), status: 'planned', exit: null, closedAt: null, pnl: null, rMultiple: null, resultSource: undefined },
         { ...closedLive('case', beforeFirst), tradeKind: 'case', sourceTradeId: 'archived' },
@@ -66,8 +71,8 @@ async function run(): Promise<void> {
     })
     const immutable = JSON.stringify({ trades: useStore.getState().trades, risk: useStore.getState().liveStatsStartTradingDayKey })
     root.render(<RouterProvider router={router} />)
-    await waitFor(() => text().includes('开始新统计周期'), '空库没有显示创建入口')
-    const trigger = button('开始新统计周期'); await openManager()
+    await waitFor(() => text().includes('开启新一轮'), '空库没有显示创建入口')
+    const trigger = button('开启新一轮'); await openManager()
     await waitFor(() => document.activeElement === document.querySelector('button[aria-label="统计周期开始日期"]'), '创建弹窗必须聚焦日期')
     assert(!document.querySelector('input[aria-label="统计周期名称"]'), '重新开始不得要求名称输入')
     assert(document.querySelector('[role="dialog"]')?.getAttribute('aria-describedby'), '确认摘要必须关联到 aria-describedby')
@@ -76,7 +81,7 @@ async function run(): Promise<void> {
     await waitFor(() => document.activeElement === trigger, 'Escape 后必须恢复触发器焦点')
 
     await openManager(); await selectDate(firstStart)
-    await waitFor(() => text().includes('归档有效已平仓 1 笔') && text().includes('当前有效已平仓 1 笔') && text().includes('进行中 1 笔') && text().includes('待整理 1 笔') && text().includes('关联案例 1 个') && text().includes('风险核算起点不变'), '确认摘要计数或风险说明错误')
+    await waitFor(() => text().includes('归档已结束 1 笔') && text().includes('当前已结束 1 笔') && text().includes('进行中 2 笔') && text().includes('待整理 1 笔') && text().includes('关联案例 1 个') && text().includes('风险核算起点不变'), '确认摘要计数或风险说明错误')
     let releaseSave: () => void = () => undefined; let saves = 0
     storage.saveSnapshot = async () => { saves += 1; await new Promise<void>((resolve) => { releaseSave = resolve }) }
     enablePersistWrites(); click('确认重新开始')
@@ -88,10 +93,13 @@ async function run(): Promise<void> {
     assert(JSON.stringify({ trades: useStore.getState().trades, risk: useStore.getState().liveStatsStartTradingDayKey }) === immutable, '创建不得改写交易或风险起点')
     storage.saveSnapshot = originalSaveSnapshot; disablePersistWrites()
 
-    await openManager(); click('重新开始统计')
-    await waitFor(() => Boolean(document.querySelector('button[aria-label="统计周期开始日期"]')), '重新开始表单未出现')
-    click('取消'); await waitFor(() => document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '重新开始统计'), '取消创建必须恢复焦点')
-    click('撤销最新周期'); await waitFor(() => document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '确认撤销'), '撤销确认必须获得焦点')
+    await openManager()
+    await waitFor(() => Boolean(document.querySelector('button[aria-label="统计周期开始日期"]')), '已有边界时主入口必须直接进入开启新一轮确认')
+    assert(!text().includes('管理统计周期'), '主入口不得先展示管理统计周期')
+    click('取消'); await waitFor(() => !document.querySelector('[data-cycle-manager]') && document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '开启新一轮'), '取消创建必须关闭弹窗并恢复焦点')
+    await openManager(); click('更多操作')
+    await waitFor(() => Boolean([...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '撤销最近一轮')), '更多操作菜单未打开')
+    click('撤销最近一轮'); await waitFor(() => document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '确认撤销'), '撤销确认必须获得焦点')
     click('确认撤销'); await waitFor(() => useStore.getState().livePerformanceCycles.length === 0 && !document.querySelector('[data-cycle-manager]'), '撤销只能移除最新边界')
     assert(JSON.stringify({ trades: useStore.getState().trades, risk: useStore.getState().liveStatsStartTradingDayKey }) === immutable, '撤销不得改写交易或风险起点')
 
