@@ -15,8 +15,8 @@ node scripts/run-regression-tests.mjs --unit-only src/views/LiveArchiveView.desi
 - `LiveArchiveView` 在首页与详情均增加 `role="status" aria-live="polite"` 的范围状态；待整理入口增加带数量的文字标签，计数不再只依赖颜色或位置。
 - 归档卡片网格在窄容器将最小列宽限制为容器宽度，卡片/摘要可收缩，长交易编号与链接可断行；375px 下卡片底部操作改为纵向排列，避免横向溢出。
 - 浏览器夹具新增实际 `scrollWidth <= innerWidth`、live region、待整理可读名称与详情链接键盘焦点断言。
-- 归档夹具增加 20,000 笔交易的首页和详情实测；摘要和日志成员继续复用同一个 `archiveEntries` memoized 投影，未新增循环周期映射。
-- 持久化单测证明公共快照写入会一次携带完整的旧归档边界与新当前边界集合，不能写出半集合；Web 冲突夹具既有“禁止覆盖写入 / 丢锁冻结写入”路径复测通过。Electron 强杀证据由最终门禁执行。
+- 归档夹具增加 20,000 笔交易的首页和详情实测。
+- `LiveArchiveView.design.test.ts` 是静态设计补充检查；发布行为门禁以真实浏览器 DOM 的 live region、无溢出、路由和键盘焦点断言为准。
 
 ## 浏览器与性能证据
 
@@ -63,3 +63,34 @@ git diff --check
 - 设计规格状态已更新为“实施完成，待发布验收”。
 - 不复制、移动或删除交易、案例、图片、正文或周复盘快照；未改变已确认的归属、风险或路由口径。
 - 修改文件均为 UTF-8 无 BOM；未把用户已有的文档删除、DeepSeek 材料或 `ux-audit/` 纳入本任务。
+
+## Fix Round 1：单次投影、完整键盘路由与真实 Web 冲突恢复
+
+### RED
+
+审查发现归档页虽然把外层数组包在 `useMemo`，但每份归档仍先调用摘要（内部两次全量筛选）再单独构造详情 members；同时原夹具只验证卡片链接 focus/click，并未从 Dashboard 进入，也没有真实 Web 远端边界恢复断言。这些问题不能用放宽 20k 阈值处理。
+
+### GREEN
+
+- 新增 `buildLiveArchiveProjection()`：每个 scope 先且只生成一次日志成员，再把同一成员数组传给摘要派生 KPI、完整度和案例数；`LiveArchiveView` 只消费该 projection。领域单测断言预计算成员与摘要结果一致，浏览器 20k 场景继续实际验证首页与详情。
+- 浏览器夹具从真实 `Dashboard` 的“历史归档”链接进入 `/live-archive`，对 Dashboard→首页、卡片→详情、详情→首页的原生链接逐一做可聚焦和 Enter/Space 激活路径断言；详情返回后再继续原有事实修正流程。
+- Web 冲突夹具保存完整远端 `livePerformanceCycles`，将本地未确认边界置入 Store 后触发 revision conflict：断言写入口冻结，点击“加载资料库最新版”后 Store 仅恢复远端完整集合，且本地 cycle ID 不残留。该行为验证替代了先前仅 mock `saveSnapshot` 数组的跨端表述；Electron 原子恢复仍只由强杀报告单独证明。
+
+### Fix Round 1 验证
+
+```powershell
+node scripts/run-regression-tests.mjs --unit-only src/lib/liveStatisticsArchive.test.ts src/storage/persist.test.ts src/views/LiveArchiveView.design.test.ts
+pnpm typecheck
+git diff --check
+```
+
+均通过。项目 Vite + Playwright 聚焦夹具通过：
+
+| 视口 | 首页 20k | 详情 20k |
+| --- | ---: | ---: |
+| 375×812 | 48.6ms | 1680.1ms |
+| 768×900 | 43.5ms | 1680.9ms |
+| 1280×900 | 41.0ms | 1675.6ms |
+| 1920×1080 | 42.7ms | 1674.9ms |
+
+`WebStorageConflict.browser.test.html` 也通过上述完整远端边界恢复和冲突冻结场景。完整 browser/regression/`pnpm test` 的 124 秒无输出超时状态保持不变，未记为通过。

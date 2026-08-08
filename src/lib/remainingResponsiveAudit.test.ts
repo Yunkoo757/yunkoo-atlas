@@ -67,11 +67,3 @@ export async function testGlobalOverlayLayersUseNamedTokens(): Promise<void> {
   assert(tooltip.includes('z-index: var(--z-tooltip)'), 'Tooltip 必须使用统一层级')
   assert(toast.includes('z-index: var(--z-toast)'), 'Toast 必须使用统一最高反馈层级')
 }
-
-export async function testLiveArchiveCardsShrinkAtPhoneWidth(): Promise<void> {
-  const fs = await import('node:fs/promises')
-  const css = await fs.readFile('src/views/LiveArchiveView.css', 'utf8')
-  assert(css.includes('minmax(min(280px, 100%), 1fr)'), '历史归档卡片必须可在 375px 容器内收缩')
-  assert(css.includes('@media (max-width: 600px)'), '历史归档必须提供窄屏布局')
-  assert(css.includes('.la-card-foot, .la-detail-head { align-items: flex-start; flex-direction: column; }'), '窄屏归档卡片底部操作不得挤压成横向溢出')
-}

@@ -9,7 +9,9 @@ import {
   type WebLockManagerLike,
 } from '@/storage/webWriteGuard'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
+import { pickPersisted } from '@/storage/persist'
 import { useSaveStatus } from '@/store/saveStatus'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 
 declare global {
@@ -49,7 +51,13 @@ async function run(): Promise<void> {
   await adapter.open()
   const preparedId = await adapter.saveAsset(new Blob(['prepared'], { type: 'image/png' }), 'image/png')
   const originalQuickNotes = useStore.getState().quickNotes
+  const originalCycles = useStore.getState().livePerformanceCycles
+  const remoteCycles = [{ id: 'remote-current', name: '实盘-远端', startTradingDayKey: '2026-08-08', createdAt: '2026-08-08T00:00:00.000Z' }]
+  const localCycles = [{ id: 'local-current', name: '实盘-本地', startTradingDayKey: '2026-08-09', createdAt: '2026-08-09T00:00:00.000Z' }]
+  useStore.setState({ livePerformanceCycles: remoteCycles })
+  await adapter.saveSnapshot(pickPersisted(useStore.getState(), useShortcutStore.getState().bindings))
   useStore.setState({
+    livePerformanceCycles: localCycles,
     quickNotes: [{
       id: 'conflict-recovery-note',
       title: '抢救导出',
@@ -69,6 +77,13 @@ async function run(): Promise<void> {
   const buttonLabels = [...document.querySelectorAll('button')].map((button) => button.textContent ?? '')
   assert(!buttonLabels.some((label) => label.includes('强制覆盖')), '冲突 modal 不得提供 force overwrite 按钮')
   assert(!document.querySelector('[aria-label="关闭"]'), '冲突 modal 不得出现关闭入口')
+  let frozenDuringConflict = false
+  try {
+    assertWebWriteAllowed()
+  } catch {
+    frozenDuringConflict = true
+  }
+  assert(frozenDuringConflict, 'revision 冲突时必须冻结写入，不能将本地边界混合写回资料库')
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
   await waitForFrame()
   assert(document.body.textContent?.includes('检测到资料库写入冲突'), 'Escape 不得绕过冲突 modal')
@@ -108,11 +123,24 @@ async function run(): Promise<void> {
       JSON.stringify(recoveryPayload.recovery?.missingAssetIds) === JSON.stringify(['missing-recovery-asset']),
       '恢复副本必须逐项记录真实缺失附件 ID',
     )
+    const reloadButton = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.includes('加载资料库最新版'),
+    )
+    assert(reloadButton, '冲突 modal 必须提供加载完整远端快照的操作')
+    reloadButton.click()
+    await waitFor(
+      () => JSON.stringify(useStore.getState().livePerformanceCycles) === JSON.stringify(remoteCycles),
+      '加载远端最新版后必须恢复完整远端边界集合，不能留下本地/远端混合集合',
+    )
+    assert(
+      useStore.getState().livePerformanceCycles.every((cycle) => cycle.id !== localCycles[0]!.id),
+      '远端恢复后本地未确认边界不得残留',
+    )
   } finally {
     URL.createObjectURL = originalCreateObjectUrl
     URL.revokeObjectURL = originalRevokeObjectUrl
     HTMLAnchorElement.prototype.click = originalAnchorClick
-    useStore.setState({ quickNotes: originalQuickNotes })
+    useStore.setState({ quickNotes: originalQuickNotes, livePerformanceCycles: originalCycles })
     adapter.close()
   }
 

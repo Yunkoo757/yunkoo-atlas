@@ -34,6 +34,11 @@ export type LiveArchiveSummary = {
   associatedCaseCount: number
 }
 
+export type LiveArchiveProjection = {
+  summary: LiveArchiveSummary
+  members: Trade[]
+}
+
 function boundsFor(cycles: readonly LivePerformanceCycle[], index: number): LivePerformanceCycleBounds {
   return {
     startInclusive: cycles[index]!.startTradingDayKey,
@@ -137,11 +142,12 @@ export function buildLiveArchiveSummary(
   cycle: LivePerformanceCycle,
   cycles: readonly LivePerformanceCycle[],
   tradingDayStartHour: number,
+  precomputedLogRecords?: readonly Trade[],
 ): LiveArchiveSummary {
   const scope = resolveLiveArchiveScope(cycles, cycle.id)
-  const archiveLogRecords = filterLiveLogRecords(trades, scope, tradingDayStartHour)
+  const archiveLogRecords = precomputedLogRecords ? [...precomputedLogRecords] : filterLiveLogRecords(trades, scope, tradingDayStartHour)
   const archiveClosedRecords = archiveLogRecords.filter((trade) => isExecutedClosed(trade.status))
-  const archiveTrades = filterLivePerformanceRecords(trades, scope, tradingDayStartHour)
+  const archiveTrades = archiveLogRecords.filter((trade) => isExecutedClosed(trade.status) && resolveTradeTruth(trade).isResultComplete)
   const sourceIds = new Set(archiveLogRecords.map((trade) => trade.id))
   const validResultCount = archiveClosedRecords.filter((trade) => resolveTradeTruth(trade).isResultComplete).length
   const conflictCount = archiveClosedRecords.filter((trade) => resolveTradeTruth(trade).hasConflict).length
@@ -168,5 +174,20 @@ export function buildLiveArchiveSummary(
       missingCloseDayCount,
     },
     associatedCaseCount,
+  }
+}
+
+export function buildLiveArchiveProjection(
+  trades: readonly Trade[],
+  cases: readonly Trade[],
+  cycle: LivePerformanceCycle,
+  cycles: readonly LivePerformanceCycle[],
+  tradingDayStartHour: number,
+): LiveArchiveProjection {
+  const scope = resolveLiveArchiveScope(cycles, cycle.id)
+  const members = filterLiveLogRecords(trades, scope, tradingDayStartHour)
+  return {
+    members,
+    summary: buildLiveArchiveSummary(trades, cases, cycle, cycles, tradingDayStartHour, members),
   }
 }

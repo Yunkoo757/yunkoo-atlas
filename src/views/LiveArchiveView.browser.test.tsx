@@ -4,6 +4,7 @@ import type { Trade } from '@/data/trades'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { useStore } from '@/store/useStore'
 import { LiveArchiveView } from '@/views/LiveArchiveView'
+import { Dashboard } from '@/views/Dashboard'
 import { DetailView } from '@/views/DetailView'
 import { ListView } from '@/views/ListView'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
@@ -13,6 +14,12 @@ declare global { interface Window { __liveArchiveViewTest?: Promise<void>; __liv
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
 const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 async function waitFor(check: () => boolean, message: string) { for (let i = 0; i < 120; i += 1) { if (check()) return; await frame() } throw new Error(message) }
+function activateLinkFromKeyboard(link: HTMLAnchorElement, key: 'Enter' | ' '): void {
+  link.focus()
+  assert(document.activeElement === link, `键盘必须能聚焦链接：${link.textContent}`)
+  link.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+  link.click()
+}
 function trade(id: string, day: string, patch: Partial<Trade> = {}): Trade { return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch } }
 async function run() {
   const element = document.getElementById('root'); assert(element, '缺少测试挂载节点')
@@ -25,7 +32,13 @@ async function run() {
     const membersOnly = trade('missed-only', '2025-12-15', { status: 'missed', pnl: null, rMultiple: null, resultSource: undefined })
     const deletedSource = { ...source, id: 'source-deleted', deletedAt: '2026-02-03T00:00:00.000Z' }
     useStore.setState((state) => ({ trades: [...old, incomplete, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, display: { ...state.display, tradingDayStartHour: 0 } }))
-    root.render(<MemoryRouter initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /><Route path="/list" element={<div>日志入口</div>} /><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
+    root.render(<MemoryRouter initialEntries={['/dashboard']}><Routes><Route path="/dashboard" element={<Dashboard />} /><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
+    await waitFor(() => Boolean(document.querySelector<HTMLAnchorElement>('.db-live-link')), 'Dashboard 必须提供历史归档入口')
+    const dashboardArchiveLink = document.querySelector<HTMLAnchorElement>('.db-live-link')
+    assert(dashboardArchiveLink?.getAttribute('href') === '/live-archive', 'Dashboard 历史归档入口必须使用独立路由')
+    activateLinkFromKeyboard(dashboardArchiveLink, 'Enter')
+    await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '必须能从真实 Dashboard 进入历史归档')
+    root.render(<MemoryRouter key="archive-home" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /><Route path="/list" element={<div>日志入口</div>} /><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '归档首页必须可达')
     assert(document.body.textContent?.includes('127 笔已平仓'), '卡片必须展示已平仓数量')
     assert(document.body.textContent?.includes('结果完整度'), '卡片必须展示结果完整度')
@@ -39,12 +52,11 @@ async function run() {
     assert(pending?.getAttribute('aria-label')?.includes('待整理记录'), '待整理数量不能仅依赖颜色或位置表达')
     const detailLink = document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')
     assert(detailLink, '归档卡片必须提供可聚焦的详情入口')
-    detailLink.focus()
-    assert(document.activeElement === detailLink, '键盘必须能聚焦归档详情入口')
-    detailLink.click()
+    activateLinkFromKeyboard(detailLink, 'Enter')
     await waitFor(() => document.body.textContent?.includes('归档交易') ?? false, '归档详情必须可达')
     assert(document.body.textContent?.includes('平仓日期'), '详情筛选必须按平仓日期说明')
-    assert(Boolean(document.querySelector('[data-archive-return]')), '详情必须提供返回归档首页')
+    const returnLink = document.querySelector<HTMLAnchorElement>('[data-archive-return]')
+    assert(returnLink, '详情必须提供返回归档首页')
     assert(document.querySelector<HTMLElement>('[role="status"][aria-live="polite"]')?.textContent?.includes('正在查看历史归档'), '归档详情必须向辅助技术发布固定范围状态')
     assert(document.documentElement.scrollWidth <= window.innerWidth, `归档详情在 ${window.innerWidth}px 不得横向溢出`)
     assert(document.body.textContent?.includes('待补结果'), '详情必须保留固定归档内的缺结果日志成员')
@@ -56,6 +68,8 @@ async function run() {
     assert(from, '详情必须提供平仓日期范围筛选')
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(from, '2026-01-21'); from.dispatchEvent(new Event('input', { bubbles: true }))
     await waitFor(() => document.querySelectorAll('[data-archive-trade-row]').length === 0, '日期筛选必须按平仓业务日过滤')
+    activateLinkFromKeyboard(returnLink, ' ')
+    await waitFor(() => document.body.textContent?.includes('旧实盘记录会保留在这里') ?? false, '键盘必须能从归档详情返回归档首页')
     root.render(<MemoryRouter key="deleted-source-case" initialEntries={['/trade/case-source-deleted']}><Routes><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('来源已删除（来源不可用）') ?? false, '删除来源后案例仍必须可打开并说明来源不可用')
 

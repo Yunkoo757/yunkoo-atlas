@@ -4,7 +4,7 @@ import { ArrowLeft, Archive, ChevronRight } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { Trade } from '@/data/trades'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
-import { buildLiveArchiveSummary, filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { buildLiveArchiveProjection, filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { resolveLivePerformanceCloseTradingDayKey } from '@/lib/livePerformanceCycles'
 import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
 import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
@@ -16,7 +16,7 @@ function rangeLabel(start: string | null, end: string | null): string {
   return end ? `${fmtDate(start)} – ${fmtDate(end)}` : `${fmtDate(start)}起`
 }
 
-function summaryText(summary: ReturnType<typeof buildLiveArchiveSummary>): string {
+function summaryText(summary: ReturnType<typeof buildLiveArchiveProjection>['summary']): string {
   const result = summary.resultCompleteness
   if (result.closedCount === 0) return '暂无已平仓记录'
   if (result.validResultCount === result.closedCount) return `完整 ${result.validResultCount}/${result.closedCount}`
@@ -42,10 +42,10 @@ export function LiveArchiveView() {
   const [dateTo, setDateTo] = useState('')
   const cases = useMemo(() => trades.filter((trade) => trade.tradeKind === 'case'), [trades])
   const pendingCount = useMemo(() => filterLiveLogRecords(trades, resolveLiveArchiveScope(cycles, 'pending'), startHour).length, [trades, cycles, startHour])
-  const archiveEntries = useMemo(() => cycles.slice(0, -1).map((cycle) => {
-    const scope = resolveLiveArchiveScope(cycles, cycle.id)
-    return { summary: buildLiveArchiveSummary(trades, cases, cycle, cycles, startHour), members: filterLiveLogRecords(trades, scope, startHour) }
-  }).filter((entry) => entry.members.length > 0).reverse(), [trades, cases, cycles, startHour])
+  const archiveEntries = useMemo(() => cycles.slice(0, -1)
+    .map((cycle) => buildLiveArchiveProjection(trades, cases, cycle, cycles, startHour))
+    .filter((entry) => entry.members.length > 0)
+    .reverse(), [trades, cases, cycles, startHour])
   const summaries = archiveEntries.map((entry) => entry.summary)
   const summary = archiveId ? summaries.find((item) => item.archiveId === archiveId) : null
   const members = archiveId ? archiveEntries.find((item) => item.summary.archiveId === archiveId)?.members ?? [] : []

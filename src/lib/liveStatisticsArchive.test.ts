@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import {
+  buildLiveArchiveProjection,
   buildLiveArchiveSummary,
   filterLiveLogRecords,
   filterLivePerformanceRecords,
@@ -105,6 +106,14 @@ export function testArchiveSummarySharesAttributionAndSeparatesResultCompletenes
   assert(summary.resultCompleteness.conflictCount === 1 && summary.resultCompleteness.missingResultCount === 1, '结果冲突与缺结果必须独立计算')
   assert(summary.resultCompleteness.missingCloseDayCount === 0, '单归档不得重复计入无法归属的全局待整理平仓日')
   assert(summary.associatedCaseCount === 4, '案例必须按 sourceTradeId 关联同周期日志成员，包括错过、冲突与缺结果记录')
+
+  const projection = buildLiveArchiveProjection(scopedTrades, cases, cycles[1]!, cycles, 0)
+  assert(projection.members.length === 4, '归档投影必须一次生成详情日志成员')
+  assert(ids(projection.summary.trades) === 'valid', '同一投影必须派生 KPI，不能再次扫描全量交易构造详情范围')
+  assert(
+    JSON.stringify(projection.summary) === JSON.stringify(buildLiveArchiveSummary(scopedTrades, cases, cycles[1]!, cycles, 0, projection.members)),
+    '预计算成员传给摘要后必须保持与单次归档投影相同的统计结果',
+  )
 }
 
 export function testNoCycleBoundaryTreatsAllHistoryAsCurrent(): void {
