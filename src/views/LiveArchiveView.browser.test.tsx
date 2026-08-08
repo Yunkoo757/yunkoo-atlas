@@ -25,6 +25,12 @@ async function run() {
   const old = Array.from({ length: 126 }, (_, i) => trade(`old-${i}`, '2026-01-15'))
   const source = old[0]!
   try {
+    root.render(<MemoryRouter key="missing-archive" initialEntries={['/live-archive?archiveReason=missing&requestedKey=gone-cycle']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '失效归档请求必须回到历史归档首页')
+    assert(document.body.textContent?.includes('gone-cycle'), '失效归档提示必须保留原请求 ID')
+    assert(document.body.textContent?.includes('找不到') || document.body.textContent?.includes('未找到'), '失效归档提示必须说明原因')
+    root.unmount(); root = createRoot(element)
+
     const singleBoundary: LivePerformanceCycle[] = [{ id: 'only-boundary', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }]
     useStore.setState((state) => ({ trades: [trade('before-boundary', '2025-12-15')], livePerformanceCycles: singleBoundary, display: { ...state.display, tradingDayStartHour: 0 } }))
     root.render(<MemoryRouter key="single-boundary" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)

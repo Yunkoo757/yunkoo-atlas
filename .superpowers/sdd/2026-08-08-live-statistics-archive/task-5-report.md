@@ -74,4 +74,18 @@ pnpm typecheck
 - `summaryText()` 分开呈现 `conflictCount` 与 `missingResultCount`，保留完整结果分母。
 - 浏览器性能夹具升级为 20,000 条交易、8 条边界（7 个非空历史归档），首页断言列出 7 张卡片，详情固定到 19,993 条成员；1280px 实测首页约 94.5ms、详情约 1,689ms，均在现有门槛内。
 
-验证：archive 单测通过；归档浏览器夹具四档全部 PASS。当前共享 worktree 的 `pnpm typecheck` 仍被父任务未提交的 `LivePerformanceCycleNavigation.browser.test.tsx` 类型错误阻塞（与本轮 Task5 文件无关），已保留为交接顾虑；本轮自身 diff/no-BOM 检查通过。
+验证：archive 单测通过；归档浏览器夹具四档全部 PASS。该轮执行时共享 worktree 的 `pnpm typecheck` 曾被父任务未提交的 `LivePerformanceCycleNavigation.browser.test.tsx` 类型错误阻塞（与本轮 Task5 文件无关），本轮已在父任务修复后重新通过；自身 diff/no-BOM 检查通过。
+
+## Fix Round 4：失效归档请求提示
+
+### RED
+
+核对 Task2 的 `resolveLiveRouteNavigation()` 后确认，失效历史链接会导航到 `/live-archive?archiveReason=missing&requestedKey=gone-cycle`。新增浏览器断言后，旧归档页稳定失败于“失效归档提示必须保留原请求 ID”，证明页面丢失了路由原因与原始请求。
+
+### GREEN
+
+- `LiveArchiveView` 读取 `archiveReason` 与 `requestedKey`，在首页和未找到详情状态显示“找不到历史归档……已返回历史归档首页”的可读提示。
+- 提示使用 alert 语义并保留可见原始 ID；没有改变 Task2 的路由归一化，也没有把实现字段暴露到普通归档卡片。
+- 增加对应警示样式，沿用现有间距与颜色 token。
+
+验证：归档单测 PASS，`pnpm typecheck` PASS；浏览器夹具 `375×812`、`768×900`、`1280×900`、`1920×1080` 全部 PASS；diff/no-BOM PASS。
