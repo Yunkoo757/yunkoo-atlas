@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { applyImport } from '@/lib/importExport'
+import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
@@ -580,7 +581,7 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
   }
 }
 
-export async function testJsonImportSummaryCountsAdoptedLivePerformanceCycles(): Promise<void> {
+export async function testJsonImportSummaryPreservesEmptyLocalLivePerformanceCycles(): Promise<void> {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: { journalBridge: { isElectron: true, commitImport: async () => true, saveSnapshot: async () => true } },
@@ -601,7 +602,53 @@ export async function testJsonImportSummaryCountsAdoptedLivePerformanceCycles():
         id: 'adopted-cycle', name: '采用周期', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z',
       }],
     })
-    assert(result.summary.includes('1 个历史归档设置'), '空本地设置采用导入内容时摘要必须使用历史归档文案')
+    assert(
+      result.summary.includes('保留当前统计与历史归档设置'),
+      '空本地边界也必须明确告知保留当前统计与历史归档设置',
+    )
+    assert(useStore.getState().livePerformanceCycles.length === 0, '导入周期不得覆盖本地空边界')
+  } finally {
+    disablePersistWrites()
+    useStore.setState(previous)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testImportedTradesUseLocalBoundaries(): Promise<void> {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { journalBridge: { isElectron: true, commitImport: async () => true, saveSnapshot: async () => true } },
+  })
+  const previous = useStore.getState()
+  const localCycle = {
+    id: 'local-boundary', name: '本地统计', startTradingDayKey: '2026-08-10', createdAt: '2026-08-10T00:00:00.000Z',
+  }
+  const imported = {
+    ...trade('imported-local-boundary', 'BTCUSDT'),
+    status: 'win' as const,
+    closedAt: '2026-08-05T12:00:00.000Z',
+    closedTradingDayKey: '2026-08-05',
+    exit: 110,
+    pnl: 100,
+    rMultiple: 1,
+    resultSource: 'imported' as const,
+  }
+  useStore.setState({
+    trades: [], strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
+    display: { ...DEFAULT_DISPLAY, tradingDayStartHour: 0 }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
+    symbolIcons: {}, symbolCatalog: [], livePerformanceCycles: [localCycle],
+  })
+  enablePersistWrites()
+  try {
+    await applyImport({
+      version: 10, trades: [imported], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
+      strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: { ...DEFAULT_DISPLAY },
+      livePerformanceCycles: [{ id: 'external-boundary', name: '外部统计', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' }],
+    })
+    const merged = useStore.getState()
+    const actual = merged.trades.find((item) => item.id === imported.id)
+    assert(merged.livePerformanceCycles[0]?.id === localCycle.id, '导入必须保留本地统计边界')
+    assert(actual && resolveLiveRecordBucket(actual, merged.livePerformanceCycles, 0) === 'archive', '导入交易必须按本地边界重新投影')
   } finally {
     disablePersistWrites()
     useStore.setState(previous)

@@ -59,6 +59,18 @@ export function testSnapshotCodecNormalizesVersionsOneThroughEightToAllContractF
   }
 }
 
+export function testVersionTenSnapshotWithoutPerformanceCyclesUsesEmptyBoundaries(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const missing = { ...fixture }
+  delete (missing as { livePerformanceCycles?: unknown }).livePerformanceCycles
+  const decoded = decodeCanonicalSnapshot(missing, { version: SCHEMA_VERSION })
+  assert(decoded.livePerformanceCycles.length === 0, 'v10 缺少实盘边界必须恢复为空数组')
+  assert(
+    canonicalContractJson(decoded.weeklyReviews) === canonicalContractJson(fixture.weeklyReviews),
+    '补齐缺省边界不得改写周复盘快照',
+  )
+}
+
 export function testSnapshotCodecIsIdempotentAndPreservesTheFullGoldenFixture(): void {
   const expected = createFullPersistedSnapshotFixture()
   const once = decodeCanonicalSnapshot(expected, { version: SCHEMA_VERSION })
@@ -261,11 +273,14 @@ export function testV10SnapshotCodecRejectsUnaddressablePerformanceCycleIds(): v
   assert(accepted.length === 0, `v10 恢复/导入必须拒绝不可寻址周期 ID，实际接受：${accepted.join(',')}`)
 }
 
-export function testV10RequiresCyclesAndV9DefaultsThem(): void {
+export function testV10AndV9DefaultMissingCyclesToEmptyBoundaries(): void {
   const full = createFullPersistedSnapshotFixture()
   const missing = { ...full } as Record<string, unknown>
   delete missing.livePerformanceCycles
-  assertThrows(() => decodeCanonicalSnapshot(missing, { version: 10 }), 'v10 必须要求周期字段')
+  assert(
+    decodeCanonicalSnapshot(missing, { version: 10 }).livePerformanceCycles.length === 0,
+    'v10 缺少周期字段必须保持空边界兼容语义',
+  )
   const legacy = decodeCanonicalSnapshot(missing, { version: 9 })
   assert(legacy.livePerformanceCycles.length === 0, 'v9 必须迁移为空周期且保持全部历史')
 }

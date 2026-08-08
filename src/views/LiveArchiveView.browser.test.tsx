@@ -4,6 +4,7 @@ import type { Trade } from '@/data/trades'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { useStore } from '@/store/useStore'
 import { LiveArchiveView } from '@/views/LiveArchiveView'
+import { DetailView } from '@/views/DetailView'
 
 declare global { interface Window { __liveArchiveViewTest?: Promise<void> } }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
@@ -19,8 +20,9 @@ async function run() {
   try {
     const incomplete = trade('incomplete', '2026-01-20', { pnl: null, rMultiple: null, resultSource: undefined })
     const membersOnly = trade('missed-only', '2025-12-15', { status: 'missed', pnl: null, rMultiple: null, resultSource: undefined })
-    useStore.setState((state) => ({ trades: [...old, incomplete, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }], livePerformanceCycles: cycles, display: { ...state.display, tradingDayStartHour: 0 } }))
-    root.render(<MemoryRouter initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /><Route path="/list" element={<div>日志入口</div>} /></Routes></MemoryRouter>)
+    const deletedSource = { ...source, id: 'source-deleted', deletedAt: '2026-02-03T00:00:00.000Z' }
+    useStore.setState((state) => ({ trades: [...old, incomplete, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, display: { ...state.display, tradingDayStartHour: 0 } }))
+    root.render(<MemoryRouter initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /><Route path="/list" element={<div>日志入口</div>} /><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '归档首页必须可达')
     assert(document.body.textContent?.includes('127 笔已平仓'), '卡片必须展示已平仓数量')
     assert(document.body.textContent?.includes('结果完整度'), '卡片必须展示结果完整度')
@@ -41,6 +43,8 @@ async function run() {
     assert(from, '详情必须提供平仓日期范围筛选')
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(from, '2026-01-21'); from.dispatchEvent(new Event('input', { bubbles: true }))
     await waitFor(() => document.querySelectorAll('[data-archive-trade-row]').length === 0, '日期筛选必须按平仓业务日过滤')
+    root.render(<MemoryRouter key="deleted-source-case" initialEntries={['/trade/case-source-deleted']}><Routes><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('来源已删除（来源不可用）') ?? false, '删除来源后案例仍必须可打开并说明来源不可用')
   } finally { root.unmount(); useStore.setState({ trades: previous.trades, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display }) }
 }
 window.__liveArchiveViewTest = run()

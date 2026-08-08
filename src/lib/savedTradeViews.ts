@@ -2,6 +2,13 @@ import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 
+export type TradeViewScopeMode = 'current' | 'archive'
+
+export type TradeViewCanonicalizationOptions = {
+  /** 当前视图始终动态跟随最新一轮统计，不固化边界 ID。 */
+  mode?: TradeViewScopeMode
+}
+
 export type SavedTradeView = {
   id: string
   name: string
@@ -82,6 +89,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function canonicalizeTradeViewSearch(
   search: string | URLSearchParams | Record<string, string>,
   cycles?: readonly LivePerformanceCycle[],
+  options: TradeViewCanonicalizationOptions = {},
 ): URLSearchParams {
   const params = new URLSearchParams(
     search instanceof URLSearchParams ? search.toString() : search,
@@ -101,7 +109,7 @@ export function canonicalizeTradeViewSearch(
     // 显式绩效周期始终优先，避免失效 ID 清理后意外启用风险周期。
     params.delete('liveCycle')
     const current = cycles?.at(-1)?.id === statsCycle || statsCycle === 'current'
-    if (!statsCycle || current) params.delete('statsCycle')
+    if (!statsCycle || current || options.mode === 'current') params.delete('statsCycle')
     else if (rawStatsCycle !== statsCycle || params.getAll('statsCycle').length > 1) {
       params.set('statsCycle', statsCycle)
     }

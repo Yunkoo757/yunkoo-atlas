@@ -961,12 +961,12 @@ function resolveLivePerformanceCycleImportDecision(
   current: PersistedSlice,
   payload: ExportPayload,
 ): LivePerformanceCycleImportDecision {
-  const currentCycles = current.livePerformanceCycles ?? []
   const importedCycles = payload.livePerformanceCycles ?? []
   return {
-    preservesCurrent: currentCycles.length > 0 && importedCycles.length > 0,
-    adoptsImported: currentCycles.length === 0,
-    adoptedCount: currentCycles.length === 0 ? importedCycles.length : 0,
+    // 本地空数组同样是明确的边界选择，导入不能重置其统计语境。
+    preservesCurrent: importedCycles.length > 0,
+    adoptsImported: false,
+    adoptedCount: 0,
   }
 }
 

@@ -60,10 +60,8 @@ export function mergeImportPayload(
     strategies,
     trades: normalizeTrades(riskMerged.trades),
     liveStatsStartTradingDayKey: current.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles:
-      (current.livePerformanceCycles?.length ?? 0) > 0
-        ? cloneLivePerformanceCycles(current.livePerformanceCycles)
-        : cloneLivePerformanceCycles(payload.livePerformanceCycles),
+    // 周期边界属于本资料库：空集合也有明确的“尚未分段”语义，不能被导入覆盖。
+    livePerformanceCycles: cloneLivePerformanceCycles(current.livePerformanceCycles ?? []),
     weeklyRiskPreparations: riskMerged.weeklyRiskPreparations,
     riskPolicyVersions: riskMerged.riskPolicyVersions,
     monthlyRiskLimits: riskMerged.monthlyRiskLimits,

@@ -90,6 +90,8 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { classifyLiveCycleTrade } from '@/lib/liveCycle'
+import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import {
   loadDetailNote,
   removeMissingAssetReferences,
@@ -180,6 +182,7 @@ export function DetailView() {
   const reviewContextPinned = useStore((s) => s.display.reviewContextPinned ?? true)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const liveStatsStartTradingDayKey = useStore((s) => s.liveStatsStartTradingDayKey)
+  const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
@@ -190,6 +193,7 @@ export function DetailView() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [caseCreating, setCaseCreating] = useState(false)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
+  const [pendingArchivePatch, setPendingArchivePatch] = useState<Partial<Trade> | null>(null)
   const [noteLoad, setNoteLoad] = useState<{
     tradeId: string | null
     state: DetailNoteLoadResult | { status: 'loading' }
@@ -538,7 +542,29 @@ export function DetailView() {
       completeTradeClose(trade.id, result.status, result.patch)
       return
     }
-    updateTradeData(trade.id, result.patch)
+    requestTradeDataUpdate(result.patch)
+  }
+
+  const requestTradeDataUpdate = (patch: Partial<Trade>) => {
+    const next = {
+      ...trade,
+      ...patch,
+      ...('closedAt' in patch
+        ? {
+            closedTradingDayKey: closedTradingDayKeyFromClosedAt(
+              patch.closedAt ?? null,
+              tradingDayStartHour,
+            ) ?? undefined,
+          }
+        : {}),
+    }
+    const before = resolveLiveRecordBucket(trade, livePerformanceCycles, tradingDayStartHour)
+    const after = resolveLiveRecordBucket(next, livePerformanceCycles, tradingDayStartHour)
+    if ((before === 'current' || before === 'archive') && before !== after) {
+      setPendingArchivePatch(patch)
+      return
+    }
+    updateTradeData(trade.id, patch)
   }
 
   const copyLink = async () => {
@@ -756,7 +782,8 @@ export function DetailView() {
   )
 
   return (
-    <TradeDetailLayout
+    <>
+      <TradeDetailLayout
       header={(
       <header className="dv-topbar">
         <div className="dv-tb-left">
@@ -870,7 +897,7 @@ export function DetailView() {
                 <BookOpen size={15} aria-hidden />
                 <div>
                   <span>来源交易</span>
-                  <strong>{sourceTrade ? `${sourceTrade.ref} · ${sourceTrade.symbol}` : '原交易已不存在'}</strong>
+                  <strong>{sourceTrade ? `${sourceTrade.ref} · ${sourceTrade.symbol}` : '来源已删除（来源不可用）'}</strong>
                 </div>
                 {sourceTrade && (
                   <button type="button" onClick={() => navigate(tradeDetailPath(sourceTrade), { state: location.state })}>
@@ -1432,7 +1459,7 @@ export function DetailView() {
               <EditableDateRow
                 label="平仓"
                 value={trade.closedAt ?? trade.openedAt}
-                onSave={(v) => updateTradeData(trade.id, { closedAt: v })}
+                onSave={(v) => requestTradeDataUpdate({ closedAt: v })}
               />
             ) : (
               <DataRow label="平仓" value="—" />
@@ -1506,7 +1533,33 @@ export function DetailView() {
           ) : null}
         </>
       )}
-    />
+      />
+      {pendingArchivePatch && (
+        <ModalShell
+          title="保存后将离开当前归档"
+          description="这次平仓事实修正会改变它所属的实盘范围。交易与关联案例不会被删除；确认后会按平仓业务日重新归属。"
+          size="compact"
+          onClose={() => setPendingArchivePatch(null)}
+          footer={(
+            <>
+              <button type="button" className="ui-btn ui-btn-bordered" data-autofocus onClick={() => setPendingArchivePatch(null)}>
+                取消
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-solid"
+                onClick={() => {
+                  updateTradeData(trade.id, pendingArchivePatch)
+                  setPendingArchivePatch(null)
+                }}
+              >
+                确认保存
+              </button>
+            </>
+          )}
+        />
+      )}
+    </>
   )
 }
 

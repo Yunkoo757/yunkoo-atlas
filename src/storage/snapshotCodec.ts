@@ -133,8 +133,8 @@ function decodeLivePerformanceCycles(
   version: number,
 ): unknown[] {
   const value = raw.livePerformanceCycles
-  if (value === undefined && version <= 9) return []
-  if (value === undefined) throw new Error('缺少必需字段 livePerformanceCycles')
+  // 周期边界是可选的资料库设置；缺失时保留旧资料库的全历史当前语义。
+  if (value === undefined) return []
   if (!Array.isArray(value)) throw new Error('livePerformanceCycles 必须是数组')
   return value
 }

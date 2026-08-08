@@ -78,6 +78,25 @@ export function testCurrentSavedViewTracksTheCurrentArchiveWithoutPersistingItsI
   )
 }
 
+export function testCurrentSavedViewFollowsNewBoundary(): void {
+  const canonical = canonicalizeTradeViewSearch(
+    '?statsCycle=cycle-human-name-id&symbol=BTCUSDT',
+    cycles,
+    { mode: 'current' },
+  )
+  assert(!canonical.has('statsCycle'), '当前保存视图不得固定旧边界')
+  assert(canonical.get('symbol') === 'BTCUSDT', '安全筛选必须保留')
+}
+
+export function testArchiveSavedViewKeepsItsConcreteBoundary(): void {
+  const canonical = canonicalizeTradeViewSearch(
+    '?statsCycle=cycle-human-name-id&symbol=BTCUSDT',
+    cycles,
+    { mode: 'archive' },
+  )
+  assert(canonical.get('statsCycle') === 'cycle-human-name-id', '归档保存视图必须固定真实 archive ID')
+}
+
 export function testSavingCurrentViewStillTracksCurrentAfterTheArchiveChanges(): void {
   const savedSearch = searchParamsToRecord(
     new URLSearchParams('?statsCycle=cycle-current-id&symbol=BTCUSDT'),
