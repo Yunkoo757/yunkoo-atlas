@@ -29,6 +29,7 @@ export type LiveRouteState = {
   target: LiveRouteTarget
   canonicalSearch: string
   needsReplace: boolean
+  archiveHomeDestination?: 'home' | 'pre-cycle'
 }
 
 export type LiveRouteNavigation = {
@@ -75,6 +76,7 @@ export function resolveLiveRoute(
       target: { kind: 'archive-home', reason: requested, requestedKey: requested },
       canonicalSearch: searchFor(params),
       needsReplace: searchFor(params) !== originalSearch,
+      archiveHomeDestination: requested === 'pre-cycle' && cycles.length > 0 ? 'pre-cycle' : 'home',
     }
   }
   if (requested === 'pending') {
@@ -116,11 +118,15 @@ export function resolveLiveRouteNavigation(route: LiveRouteState): LiveRouteNavi
     }
   }
   if (route.target.kind === 'archive-home') {
-    if (route.target.reason === 'missing') {
+    const needsReasonQuery = route.target.reason === 'missing'
+      || (route.target.reason === 'pre-cycle' && route.archiveHomeDestination === 'home')
+    if (needsReasonQuery) {
       params.set('archiveReason', route.target.reason)
       if (route.target.requestedKey) params.set('requestedKey', route.target.requestedKey)
     }
-    if (route.target.reason === 'pre-cycle') return { pathname: '/live-archive/pre-cycle', search: searchForDestination() }
+    if (route.target.reason === 'pre-cycle' && route.archiveHomeDestination !== 'home') {
+      return { pathname: '/live-archive/pre-cycle', search: searchForDestination() }
+    }
     return { pathname: '/live-archive', search: searchForDestination() }
   }
   if (route.target.kind === 'pending') return { pathname: '/list', search: searchForDestination() }

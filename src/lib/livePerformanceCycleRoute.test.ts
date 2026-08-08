@@ -59,6 +59,18 @@ export function testLiveRouteNavigationUsesArchiveDetailPathsAndPreservesInvalid
   assert(pendingDestination.search === '?symbol=BTCUSDT&statsCycle=pending', '待整理导航必须保留待整理范围')
 }
 
+export function testEmptyCyclesPreCycleFallsBackToArchiveHomeWithReason(): void {
+  const route = resolveLiveRoute('?statsCycle=pre-cycle&symbol=BTCUSDT', [], 'trade-list')
+  assert(route.target.kind === 'archive-home', '空周期集合的规则前请求必须进入归档首页目标')
+  if (route.target.kind === 'archive-home') {
+    assert(route.target.reason === 'pre-cycle', '空周期集合必须保留规则前原因')
+  }
+  const destination = resolveLiveRouteNavigation(route)
+  assert(destination.pathname === '/live-archive', '空周期集合的规则前导航必须回到归档首页')
+  assert(destination.search.includes('archiveReason=pre-cycle'), '归档首页必须保留规则前失效原因')
+  assert(destination.search.includes('requestedKey=pre-cycle'), '归档首页必须保留规则前请求键')
+}
+
 export function testLiveRouteResolvesPendingRecordsWithoutRedirectingToArchiveHome(): void {
   const route = resolveLiveRoute('?statsCycle=pending&symbol=BTCUSDT', cycles, 'trade-list')
   assert(route.target.kind === 'pending', '待整理链接必须解析为待整理范围，而非归档首页')

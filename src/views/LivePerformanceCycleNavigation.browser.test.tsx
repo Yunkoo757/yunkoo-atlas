@@ -95,6 +95,12 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, '无周期时待整理日志仍必须只显示缺少平仓日记录')
     assert(document.querySelector('[data-trade-id]')?.getAttribute('data-trade-id') === 'missing', '无周期待整理不得回退为全部实盘')
     assert(JSON.stringify(useStore.getState().trades) === factsBeforeNavigation, '旧链接回退不得改写交易事实')
+
+    await router.navigate('/list?statsCycle=pre-cycle&symbol=BTCUSDT')
+    await waitFor(() => router.state.location.pathname === '/live-archive', '无周期时规则前链接必须回到归档首页')
+    const emptyPreCycleSearch = router.state.location.search
+    assert(emptyPreCycleSearch.includes('archiveReason=pre-cycle'), '无周期归档首页必须保留规则前原因')
+    assert(emptyPreCycleSearch.includes('requestedKey=pre-cycle'), '无周期归档首页必须保留规则前请求键')
   } finally {
     root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display })
