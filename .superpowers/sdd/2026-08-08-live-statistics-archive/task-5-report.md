@@ -61,3 +61,17 @@ pnpm typecheck
 - 补充单元断言与浏览器断言，验证最早边界前交易在卡片和详情可达。
 
 验证：`node scripts/run-regression-tests.mjs --unit-only src/lib/liveStatisticsArchive.test.ts`、`pnpm typecheck`、`git diff --check`、UTF-8 无 BOM 检查通过；浏览器夹具四档 `375×812`、`768×900`、`1280×900`、`1920×1080` 全部 PASS。
+
+## Fix Round 3：范围文案、结果完整度与多边界性能证据
+
+### RED
+
+补充浏览器断言后，旧实现稳定失败于右开边界直接显示 `1月1日 – 2月1日`，而用户需要看到边界前一日；同时夹具加入结果冲突记录，要求“冲突 1”和“待补 1”分别可见，旧实现只显示笼统的“待补”。
+
+### GREEN
+
+- `rangeLabel()` 使用本地业务日计算右边界前一日，避免把下一轮起点误显示成当前归档日期。
+- `summaryText()` 分开呈现 `conflictCount` 与 `missingResultCount`，保留完整结果分母。
+- 浏览器性能夹具升级为 20,000 条交易、8 条边界（7 个非空历史归档），首页断言列出 7 张卡片，详情固定到 19,993 条成员；1280px 实测首页约 94.5ms、详情约 1,689ms，均在现有门槛内。
+
+验证：archive 单测通过；归档浏览器夹具四档全部 PASS。当前共享 worktree 的 `pnpm typecheck` 仍被父任务未提交的 `LivePerformanceCycleNavigation.browser.test.tsx` 类型错误阻塞（与本轮 Task5 文件无关），已保留为交接顾虑；本轮自身 diff/no-BOM 检查通过。

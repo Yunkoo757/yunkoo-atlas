@@ -7,7 +7,7 @@ import { LiveArchiveView } from '@/views/LiveArchiveView'
 import { DetailView } from '@/views/DetailView'
 import { ListView } from '@/views/ListView'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
-import { getTradingDayKey } from '@/lib/periods'
+import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 
 declare global { interface Window { __liveArchiveViewTest?: Promise<void>; __liveArchivePerfMetrics?: { homepageMs: number; detailMs: number } } }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
@@ -38,15 +38,18 @@ async function run() {
 
     root.unmount(); root = createRoot(element)
     const incomplete = trade('incomplete', '2026-01-20', { pnl: null, rMultiple: null, resultSource: undefined })
+    const conflict = trade('conflict', '2026-01-21', { pnl: 100, rMultiple: -1, resultSource: 'imported' })
     const membersOnly = trade('missed-only', '2025-12-15', { status: 'missed', pnl: null, rMultiple: null, resultSource: undefined })
     const deletedSource = { ...source, id: 'source-deleted', deletedAt: '2026-02-03T00:00:00.000Z' }
-    useStore.setState((state) => ({ trades: [...old, incomplete, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, liveStatsStartTradingDayKey: '2026-02-01', display: { ...state.display, tradingDayStartHour: 0 } }))
+    useStore.setState((state) => ({ trades: [...old, incomplete, conflict, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, liveStatsStartTradingDayKey: '2026-02-01', display: { ...state.display, tradingDayStartHour: 0 } }))
     root.render(<MemoryRouter key="archive-home" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /><Route path="/list" element={<div>日志入口</div>} /><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '归档首页必须可达')
-    assert(document.body.textContent?.includes('127 笔已平仓'), '卡片必须展示已平仓数量')
+    assert(document.body.textContent?.includes('128 笔已平仓'), '卡片必须展示已平仓数量')
+    assert(document.body.textContent?.includes('1月1日 – 1月31日'), '右开边界必须展示为边界前一日')
     assert(document.body.textContent?.includes('结果完整度'), '卡片必须展示结果完整度')
     assert(document.body.textContent?.includes('关联案例 1 个'), '案例计数只能按 sourceTradeId')
     assert(document.body.textContent?.includes('暂无已平仓记录'), '仅含日志成员的归档不能被隐藏')
+    assert(document.body.textContent?.includes('冲突 1') && document.body.textContent?.includes('待补 1'), '结果冲突与缺结果必须分别呈现')
     const liveStatus = document.querySelector<HTMLElement>('[role="status"][aria-live="polite"]')
     assert(liveStatus?.textContent?.includes('历史归档首页'), '归档首页必须向辅助技术发布当前范围状态')
     assert(document.documentElement.scrollWidth <= window.innerWidth, `归档首页在 ${window.innerWidth}px 不得横向溢出`)
@@ -119,24 +122,25 @@ async function run() {
     root.render(<MemoryRouter key="current-list" initialEntries={['/list']}><Routes><Route path="/list" element={<ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} />} /></Routes></MemoryRouter>)
     await waitFor(() => Boolean(document.querySelector('[data-trade-id="pending"]')), '修复后记录必须在当前日志可见')
 
-    const performanceTrades = Array.from({ length: 20_000 }, (_, index) => trade(`performance-${index}`, '2026-01-15'))
+    const performanceStarts = ['2026-01-01', '2026-02-01', '2026-03-01', '2026-04-01', '2026-05-01', '2026-06-01', '2026-07-01', '2026-08-01']
+    const performanceTrades = Array.from({ length: 20_000 }, (_, index) => {
+      const day = index < 19_993 ? '2026-01-15' : `2026-${String(index - 19_993 + 2).padStart(2, '0')}-15`
+      return trade(`performance-${index}`, day)
+    })
     useStore.setState((state) => ({
       trades: performanceTrades,
-      livePerformanceCycles: [
-        { id: 'performance-archive', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' },
-        { id: 'performance-current', name: '实盘-2026-02-01', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' },
-      ],
+      livePerformanceCycles: performanceStarts.map((start, index) => ({ id: index === 0 ? 'performance-archive' : index === performanceStarts.length - 1 ? 'performance-current' : `performance-cycle-${index}`, name: `实盘-${start}`, startTradingDayKey: start, createdAt: `${start}T00:00:00.000Z` })),
       display: { ...state.display, tradingDayStartHour: 0 },
     }))
     const homepageStartedAt = performance.now()
     root.render(<MemoryRouter key="archive-performance-home" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
-    await waitFor(() => Boolean(document.querySelector('[data-archive-detail-link]')), '两万笔归档首页必须保持可达')
+    await waitFor(() => document.querySelectorAll('[data-archive-detail-link]').length === 7, '两万笔多边界归档首页必须列出所有非空归档')
     const homepageMs = performance.now() - homepageStartedAt
-    const performanceDetail = document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')
+    const performanceDetail = document.querySelector<HTMLAnchorElement>('a[href="/live-archive/performance-archive"]')
     assert(performanceDetail, '两万笔归档首页必须保留详情入口')
     const detailStartedAt = performance.now()
     performanceDetail.click()
-    await waitFor(() => document.querySelectorAll('[data-archive-trade-row]').length === 20_000, '两万笔归档详情必须完整渲染固定成员')
+    await waitFor(() => document.querySelectorAll('[data-archive-trade-row]').length === 19_993, '两万笔归档详情必须完整渲染固定成员')
     const detailMs = performance.now() - detailStartedAt
     assert(homepageMs < 2_500, `两万笔归档首页首屏投影过慢：${homepageMs.toFixed(1)}ms`)
     assert(detailMs < 8_000, `两万笔归档详情渲染过慢：${detailMs.toFixed(1)}ms`)

@@ -4,6 +4,7 @@ import { ArrowLeft, Archive, ChevronRight } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { Trade } from '@/data/trades'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
+import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { filterLiveLogRecords, listLiveArchiveProjections, resolveLiveArchiveScope, type LiveArchiveSummary } from '@/lib/liveStatisticsArchive'
 import { resolveLivePerformanceCloseTradingDayKey } from '@/lib/livePerformanceCycles'
 import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
@@ -13,14 +14,22 @@ import './LiveArchiveView.css'
 
 function rangeLabel(start: string | null, end: string | null): string {
   if (!start) return '较早记录'
-  return end ? `${fmtDate(start)} – ${fmtDate(end)}` : `${fmtDate(start)}起`
+  if (!end) return `${fmtDate(start)}起`
+  const endDate = parseLocalDate(end)
+  endDate.setDate(endDate.getDate() - 1)
+  return `${fmtDate(start)} – ${fmtDate(formatYmd(endDate))}`
 }
 
 function summaryText(summary: LiveArchiveSummary): string {
   const result = summary.resultCompleteness
   if (result.closedCount === 0) return '暂无已平仓记录'
-  if (result.validResultCount === result.closedCount) return `完整 ${result.validResultCount}/${result.closedCount}`
-  return `完整 ${result.validResultCount}/${result.closedCount} · 待补 ${result.closedCount - result.validResultCount}`
+  const issues = [
+    result.conflictCount > 0 ? `冲突 ${result.conflictCount}` : null,
+    result.missingResultCount > 0 ? `待补 ${result.missingResultCount}` : null,
+  ].filter((item): item is string => item !== null)
+  return issues.length > 0
+    ? `完整 ${result.validResultCount}/${result.closedCount} · ${issues.join(' · ')}`
+    : `完整 ${result.validResultCount}/${result.closedCount}`
 }
 
 function ArchiveMetrics({ trades }: { trades: Trade[] }) {
