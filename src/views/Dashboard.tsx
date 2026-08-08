@@ -98,10 +98,15 @@ export function Dashboard() {
   const performanceEnd = performanceBounds?.endExclusive ?? null
 
   useEffect(() => {
-    if (currentLiveRoute.target.kind === 'current') return
+    if (currentLiveRoute.target.kind === 'current') {
+      if (currentLiveRoute.needsReplace) {
+        navigate({ search: currentLiveRoute.canonicalSearch }, { replace: true })
+      }
+      return
+    }
     const destination = resolveLiveRouteNavigation(currentLiveRoute)
     navigate(destination, { replace: true })
-  }, [currentLiveRoute.canonicalSearch, currentLiveRoute.target.kind, navigate])
+  }, [currentLiveRoute.canonicalSearch, currentLiveRoute.needsReplace, currentLiveRoute.target.kind, navigate])
 
   const trades = useMemo(
     () => filterTradesByAnalysisScope(

@@ -215,6 +215,34 @@ async function run(): Promise<void> {
     root.unmount()
     root = createRoot(rootElement)
     root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&statsCycle=current&symbol=BTCUSDT']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&symbol=BTCUSDT',
+      'Dashboard 必须移除显式当前周期参数并保留无关筛选',
+    )
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveCycle=pre-cycle&symbol=BTCUSDT']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&symbol=BTCUSDT',
+      'Dashboard 必须移除风险周期别名并保留无关筛选',
+    )
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
       <MemoryRouter initialEntries={['/dashboard?kind=live&statsCycle=archive-cycle&symbol=BTCUSDT']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />

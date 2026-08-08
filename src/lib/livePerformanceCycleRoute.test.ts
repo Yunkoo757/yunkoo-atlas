@@ -28,6 +28,32 @@ export function testLiveRouteDefaultsTradeLogsToTheCurrentArchive(): void {
   assert(invalid.target.kind === 'archive-home', '失效范围必须回到归档首页')
 }
 
+export function testLiveRouteCurrentAliasesExposeCanonicalReplacement(): void {
+  const explicitCurrent = resolveLiveRoute(
+    '?kind=live&range=all&statsCycle=current&symbol=BTCUSDT',
+    cycles,
+    'dashboard',
+  )
+  const riskAlias = resolveLiveRoute(
+    '?kind=live&range=all&liveCycle=pre-cycle&symbol=BTCUSDT',
+    cycles,
+    'dashboard',
+  )
+
+  assert(explicitCurrent.target.kind === 'current', '显式当前统计周期必须解析为当前范围')
+  assert(explicitCurrent.needsReplace, '显式当前统计周期必须标记规范替换')
+  assert(
+    explicitCurrent.canonicalSearch === '?kind=live&range=all&symbol=BTCUSDT',
+    '显式当前统计周期规范化时必须保留无关参数',
+  )
+  assert(riskAlias.target.kind === 'current', '风险周期别名必须解析为当前范围')
+  assert(riskAlias.needsReplace, '风险周期别名必须标记规范替换')
+  assert(
+    riskAlias.canonicalSearch === '?kind=live&range=all&symbol=BTCUSDT',
+    '风险周期别名规范化时必须保留无关参数',
+  )
+}
+
 export function testLiveRouteSendsReservedScopesToArchiveHomeWithoutDrifting(): void {
   for (const requested of ['all', 'pre-cycle'] as const) {
     const route = resolveLiveRoute(`?statsCycle=${requested}&symbol=BTCUSDT`, cycles, 'trade-list')
