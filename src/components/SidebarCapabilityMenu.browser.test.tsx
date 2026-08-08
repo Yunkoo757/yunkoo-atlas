@@ -20,6 +20,12 @@ function frame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds)
+  })
+}
+
 async function waitFor(condition: () => boolean, message: string): Promise<void> {
   const deadline = performance.now() + 5_000
   while (performance.now() < deadline) {
@@ -58,6 +64,15 @@ async function run(): Promise<void> {
       display: {
         ...state.display,
         sidebarWorkspaceItems: sidebarItems,
+        sidebarPrimaryOrder: [
+          'dashboard',
+          'reviewSession',
+          'weeklyReview',
+          'reviewCases',
+          'trades',
+          'quickNotes',
+          'today',
+        ],
       },
     }))
     root.render(
@@ -69,6 +84,73 @@ async function run(): Promise<void> {
     await waitFor(
       () => document.querySelector('[data-sidebar-workspace-id="system:missed"]') !== null,
       '错过的机会侧栏项没有渲染',
+    )
+
+    const primaryLabels = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id] .sb-item-label')]
+      .map((node) => node.textContent?.trim())
+    assert(
+      primaryLabels.join(',') === '今日工作台,随记,交易日志,案例记录,周复盘,随机复盘,仪表盘',
+      '旧持久化顺序不得改变工作台标准顺序',
+    )
+
+    const primary = document.querySelector<HTMLAnchorElement>('[data-primary-id="dashboard"]')
+    assert(primary, '缺少仪表盘主导航')
+    primary.focus()
+    await frame()
+    assert(!document.querySelector('[role="tooltip"]'), '聚焦工作台主导航不得显示 Tooltip')
+    primary.blur()
+    primary.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+    await wait(700)
+    assert(!document.querySelector('[role="tooltip"]'), '悬停工作台主导航不得显示 Tooltip')
+
+    const search = document.querySelector<HTMLButtonElement>('.sb-hbtn-search')
+    assert(search, '搜索按钮必须保留')
+    search.focus()
+    await waitFor(
+      () => document.querySelector('[role="tooltip"]') !== null,
+      '搜索纯图标按钮仍应显示 Tooltip',
+    )
+
+    const today = document.querySelector<HTMLAnchorElement>('[data-primary-id="today"]')
+    assert(today, '缺少今日主导航')
+    const persistedBefore = useStore.getState().display.sidebarPrimaryOrder?.join(',') ?? ''
+    const orderBefore = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id]')]
+      .map((node) => node.dataset.primaryId).join(',')
+    const originalElementFromPoint = document.elementFromPoint.bind(document)
+    document.elementFromPoint = () => today
+    try {
+      primary.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true,
+        pointerId: 7,
+        button: 0,
+        clientX: 20,
+        clientY: 20,
+      }))
+      primary.dispatchEvent(new PointerEvent('pointermove', {
+        bubbles: true,
+        pointerId: 7,
+        buttons: 1,
+        clientX: 20,
+        clientY: 80,
+      }))
+      primary.dispatchEvent(new PointerEvent('pointerup', {
+        bubbles: true,
+        pointerId: 7,
+        button: 0,
+        clientX: 20,
+        clientY: 80,
+      }))
+    } finally {
+      document.elementFromPoint = originalElementFromPoint
+    }
+    assert(
+      (useStore.getState().display.sidebarPrimaryOrder?.join(',') ?? '') === persistedBefore,
+      '主导航手势不得写回旧顺序字段',
+    )
+    assert(
+      [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id]')]
+        .map((node) => node.dataset.primaryId).join(',') === orderBefore,
+      '主导航手势不得改变标准顺序',
     )
 
     const missedItem = document.querySelector<HTMLElement>(

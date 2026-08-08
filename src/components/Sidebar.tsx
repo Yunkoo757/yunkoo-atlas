@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
@@ -22,7 +22,6 @@ import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { Menu } from '@/components/Menu'
 import { ContextMenu, type CtxItem, type CtxState } from '@/components/ContextMenu'
 import {
-  reorderPrimarySidebarNav,
   resolvePrimarySidebarNav,
   type PrimarySidebarNavId,
 } from '@/lib/sidebarNav'
@@ -59,15 +58,6 @@ import { newTradeKindForPath } from '@/lib/tradeKind'
 import { createQuickNote } from '@/data/quickNotes'
 import { useExitClone } from '@/components/ui/useExitClone'
 
-const PRIMARY_NAV_SHORTCUT: Partial<Record<PrimarySidebarNavId, string>> = {
-  today: 'nav.today',
-  quickNotes: 'nav.quickNotes',
-  trades: 'nav.list',
-  reviewCases: 'nav.reviewCases',
-  weeklyReview: 'nav.weeklyReview',
-  reviewSession: 'nav.reviewSession',
-  dashboard: 'nav.dashboard',
-}
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
@@ -149,10 +139,8 @@ export function useSidebarNavigationModel() {
   const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
-  const sidebarPrimaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
   const replaceSidebarWorkspaceItems = useStore((state) => state.replaceSidebarWorkspaceItems)
-  const setDisplay = useStore((state) => state.setDisplay)
   const businessDateAnchor = useBusinessDateAnchor()
   const countContext = useMemo(
     () => ({
@@ -242,10 +230,8 @@ export function useSidebarNavigationModel() {
     trades,
     strategies,
     sidebarWorkspaceItems,
-    sidebarPrimaryOrder,
     savedTradeViews,
     replaceSidebarWorkspaceItems,
-    setDisplay,
     workspaceItems,
     selection,
     primaryCount,
@@ -258,7 +244,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
   const [workspaceDrag, setWorkspaceDrag] = useState<SidebarDragState | null>(null)
-  const [primaryDrag, setPrimaryDrag] = useState<SidebarDragState | null>(null)
   const [capabilityMenu, setCapabilityMenu] = useState<(CtxState & { itemId: string }) | null>(null)
   const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
   const workspaceDragSession = useRef<{
@@ -271,15 +256,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     overId: string | null
   } | null>(null)
   const suppressWorkspaceClick = useRef(false)
-  const primaryDragSession = useRef<{
-    id: PrimarySidebarNavId
-    pointerId: number
-    startX: number
-    startY: number
-    active: boolean
-    overId: PrimarySidebarNavId | null
-  } | null>(null)
-  const suppressPrimaryClick = useRef(false)
   const workspaceEditorExitRef = useExitClone<HTMLDivElement>(workspaceEditorOpen)
   const openComposer = useStore((state) => state.openComposer)
   const upsertQuickNote = useStore((state) => state.upsertQuickNote)
@@ -289,19 +265,13 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     trades,
     strategies,
     sidebarWorkspaceItems,
-    sidebarPrimaryOrder,
     savedTradeViews,
     replaceSidebarWorkspaceItems,
-    setDisplay,
     workspaceItems,
     selection,
     primaryCount,
     primaryHref,
   } = useSidebarNavigationModel()
-  const orderedPrimaryNav = useMemo(
-    () => resolvePrimarySidebarNav(sidebarPrimaryOrder),
-    [sidebarPrimaryOrder],
-  )
   const pinnedWorkspaceItems = workspaceItems
     .filter((item) => item.item.placement === 'pinned')
     .slice(0, 8)
@@ -417,74 +387,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     const session = workspaceDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
     finishWorkspaceDrag(false)
-  }
-
-  const finishPrimaryDrag = (commit: boolean) => {
-    const session = primaryDragSession.current
-    primaryDragSession.current = null
-    setPrimaryDrag(null)
-    if (!commit || !session?.active || !session.overId || session.overId === session.id) return
-    setDisplay({
-      sidebarPrimaryOrder: reorderPrimarySidebarNav(
-        sidebarPrimaryOrder,
-        session.id,
-        session.overId,
-      ),
-    })
-  }
-
-  const onPrimaryPointerDown = (
-    event: ReactPointerEvent<HTMLAnchorElement>,
-    id: PrimarySidebarNavId,
-  ) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-    primaryDragSession.current = {
-      id,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      active: false,
-      overId: null,
-    }
-  }
-
-  const onPrimaryPointerMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
-    const session = primaryDragSession.current
-    if (!session || session.pointerId !== event.pointerId) return
-    if (!session.active) {
-      const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
-      if (distance < WORKSPACE_DRAG_THRESHOLD_PX) return
-      session.active = true
-      suppressPrimaryClick.current = true
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // 捕获失败时仍靠后续 pointer 事件收尾
-      }
-    }
-    const hit = document.elementFromPoint(event.clientX, event.clientY)
-    const row = hit?.closest<HTMLElement>('[data-sidebar-primary-id]')
-    const overId = row?.dataset.sidebarPrimaryId as PrimarySidebarNavId | undefined
-    session.overId = overId && overId !== session.id ? overId : null
-    setPrimaryDrag({ id: session.id, overId: session.overId })
-  }
-
-  const onPrimaryPointerUp = (event: ReactPointerEvent<HTMLAnchorElement>) => {
-    const session = primaryDragSession.current
-    if (!session || session.pointerId !== event.pointerId) return
-    if (session.active) {
-      try {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      } catch {
-        // ignore
-      }
-    }
-    finishPrimaryDrag(true)
-  }
-
-  const onPrimaryPointerCancel = (event: ReactPointerEvent<HTMLAnchorElement>) => {
-    if (primaryDragSession.current?.pointerId !== event.pointerId) return
-    finishPrimaryDrag(false)
   }
 
   const renderWorkspaceLink = (item: (typeof workspaceItems)[number]) => {
@@ -633,7 +535,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   return (
-    <nav className={'sidebar' + (workspaceDrag || primaryDrag ? ' is-reordering' : '')} aria-label="主导航">
+    <nav className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')} aria-label="主导航">
       <div className="sb-header">
         <Menu
           align="left"
@@ -702,49 +604,21 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       <div className="sb-scroll">
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作台</div>
-        {orderedPrimaryNav.map(({ id, to, label, icon: Icon }) => {
-          const isDragging = primaryDrag?.id === id
-          const isDropTarget = primaryDrag?.overId === id
-          const shortcutActionId = PRIMARY_NAV_SHORTCUT[id]
-          const link = (
-            <NavLink
-              to={primaryHref(id, to)}
-              draggable={false}
-              data-sidebar-primary-id={id}
-              onDragStart={(event) => event.preventDefault()}
-              className={() => `sb-item${selection.activePrimaryId === id ? ' is-active' : ''}${
-                isDragging ? ' is-dragging' : ''
-              }${isDropTarget ? ' is-drop-target' : ''}`}
-              data-primary-id={id}
-              aria-current={selection.activePrimaryId === id ? 'page' : undefined}
-              onPointerDown={(event) => onPrimaryPointerDown(event, id)}
-              onPointerMove={onPrimaryPointerMove}
-              onPointerUp={onPrimaryPointerUp}
-              onPointerCancel={onPrimaryPointerCancel}
-              onClick={(event) => {
-                if (!suppressPrimaryClick.current) return
-                event.preventDefault()
-                suppressPrimaryClick.current = false
-              }}
-            >
-              <Icon size={ICON_MD} />
-              <span className="sb-item-label">{label}</span>
-              <Count value={primaryCount(id)} />
-            </NavLink>
-          )
-          if (!shortcutActionId) return <Fragment key={id}>{link}</Fragment>
-          return (
-            <ShortcutTooltip
-              key={id}
-              actionId={shortcutActionId}
-              label={label}
-              mode="shortcut"
-              side="right"
-            >
-              {link}
-            </ShortcutTooltip>
-          )
-        })}
+        {resolvePrimarySidebarNav().map(({ id, to, label, icon: Icon }) => (
+          <NavLink
+            key={id}
+            to={primaryHref(id, to)}
+            draggable={false}
+            onDragStart={(event) => event.preventDefault()}
+            className={() => `sb-item${selection.activePrimaryId === id ? ' is-active' : ''}`}
+            data-primary-id={id}
+            aria-current={selection.activePrimaryId === id ? 'page' : undefined}
+          >
+            <Icon size={ICON_MD} />
+            <span className="sb-item-label">{label}</span>
+            <Count value={primaryCount(id)} />
+          </NavLink>
+        ))}
       </nav>
 
       <nav className="sb-section sb-workspace" aria-label="我的空间">

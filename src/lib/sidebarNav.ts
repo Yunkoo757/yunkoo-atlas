@@ -53,25 +53,8 @@ export const PRIMARY_NAV: PrimarySidebarNavItem[] = PRIMARY_NAV_ITEMS.map((item)
   icon: PRIMARY_NAV_ICONS[item.id],
 }))
 
-export function reorderPrimarySidebarNav(
-  order: unknown,
-  sourceId: PrimarySidebarNavId,
-  targetId: PrimarySidebarNavId,
-): PrimarySidebarNavId[] {
-  const next = normalizePrimarySidebarOrder(order)
-  const sourceIndex = next.indexOf(sourceId)
-  const targetIndex = next.indexOf(targetId)
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return next
-  next.splice(sourceIndex, 1)
-  next.splice(targetIndex, 0, sourceId)
-  return next
-}
-
-export function resolvePrimarySidebarNav(order: unknown): PrimarySidebarNavItem[] {
-  const byId = new Map(PRIMARY_NAV.map((item) => [item.id, item]))
-  return normalizePrimarySidebarOrder(order)
-    .map((id) => byId.get(id))
-    .filter((item): item is PrimarySidebarNavItem => Boolean(item))
+export function resolvePrimarySidebarNav(): PrimarySidebarNavItem[] {
+  return [...PRIMARY_NAV]
 }
 
 export interface SidebarNavItem {

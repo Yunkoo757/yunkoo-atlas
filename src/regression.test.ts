@@ -63,7 +63,7 @@ import {
   SECONDARY_NAV,
   DEFAULT_SIDEBAR_PINS,
   normalizePrimarySidebarOrder,
-  reorderPrimarySidebarNav,
+  resolvePrimarySidebarNav,
   resolvePinnedSecondaryNav,
 } from '@/lib/sidebarNav'
 import {
@@ -469,6 +469,9 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('buildCapabilityVisibilityItems'), 'Sidebar 应在能力项就地配置可见工作区')
   assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
   assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
+  assert(!source.includes('data-sidebar-primary-id'), '工作台主导航不得保留排序命中区')
+  assert(!source.includes('primaryDragSession'), '工作台主导航不得保留指针拖拽会话')
+  assert(!source.includes('sidebarPrimaryOrder'), 'Sidebar 不得读取或写入旧主导航顺序')
   assert(source.includes('<StrategyIcon'), '侧栏策略入口必须复用真实策略图标组件')
   assert(
     source.includes("item.item.target.kind === 'strategy'"),
@@ -738,15 +741,16 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
   )
 }
 
-export function testPrimarySidebarOrderNormalizesAndReordersSafely(): void {
+export function testPrimarySidebarKeepsLegacyOrderCompatibleButRendersCanonicalOrder(): void {
   assert(
     normalizePrimarySidebarOrder(['dashboard', 'trades', 'dashboard', 'unknown'])
       .join(',') === 'dashboard,trades,today,quickNotes,reviewCases,weeklyReview,reviewSession',
-    '主导航顺序应去重、忽略未知项并补齐新增模块',
+    '旧快照顺序仍应可规范化并保留兼容性',
   )
   assert(
-    reorderPrimarySidebarNav(DEFAULT_DISPLAY.sidebarPrimaryOrder, 'dashboard', 'today')[0] === 'dashboard',
-    '主导航拖拽应把来源项移动到目标位置',
+    resolvePrimarySidebarNav().map((item) => item.id).join(',')
+      === 'today,quickNotes,trades,reviewCases,weeklyReview,reviewSession,dashboard',
+    '工作台主导航必须始终使用标准顺序',
   )
 }
 
@@ -762,7 +766,10 @@ export async function testDesktopShellDisablesAccidentalSelectionAndAnimatesModa
   ])
   assert(/body\s*\{[\s\S]*?user-select:\s*none;/.test(globalCss), '应用外壳应禁用普通文本拖选')
   assert(globalCss.includes("[contenteditable='true']") && globalCss.includes('user-select: text'), '编辑区必须保留文字选择能力')
-  assert(sidebarSource.includes('data-sidebar-primary-id'), '工作台主导航应支持原位拖拽排序')
+  assert(!sidebarSource.includes('data-sidebar-primary-id'), '工作台主导航不得保留排序命中区')
+  assert(!sidebarSource.includes('primaryDragSession'), '工作台主导航不得保留指针拖拽会话')
+  assert(!sidebarSource.includes('sidebarPrimaryOrder'), 'Sidebar 不得读取或写入旧主导航顺序')
+  assert(sidebarSource.includes('reorderSidebarWorkspaceItem'), '我的空间仍应支持自定义排序')
   assert(!sidebarSource.includes('sb-workspace-drag-ghost'), '侧栏拖拽不得生成跟随鼠标的浮动窗口')
   assert(exitSource.includes('appendExitClone'), '条件卸载弹层应保留离场快照')
   for (const [name, source] of [
