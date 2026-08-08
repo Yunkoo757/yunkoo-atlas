@@ -134,6 +134,12 @@ function isEligibleLiveClosedTrade(trade: Trade): boolean {
   return trade.tradeKind === 'live' && trade.deletedAt === undefined && isExecutedClosed(trade.status)
 }
 
+function isEligibleLivePendingTrade(trade: Trade): boolean {
+  return trade.tradeKind === 'live'
+    && trade.deletedAt === undefined
+    && (trade.status === 'missed' || isExecutedClosed(trade.status))
+}
+
 /**
  * 归档与周期筛选共用的可靠平仓业务日：已冻结字段优先，旧记录才从 closedAt 补算。
  * 一旦已存在冻结字段，即使其无效也绝不可回退，避免静默改写历史归属。
@@ -168,7 +174,7 @@ export function countLiveTradesMissingCloseDay(
   trades: readonly Trade[],
   tradingDayStartHour: number,
 ): number {
-  return trades.filter((trade) => isEligibleLiveClosedTrade(trade) && resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour) === null).length
+  return trades.filter((trade) => isEligibleLivePendingTrade(trade) && resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour) === null).length
 }
 
 export function appendLivePerformanceCycle(

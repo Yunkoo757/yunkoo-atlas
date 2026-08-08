@@ -184,10 +184,21 @@ async function run(): Promise<void> {
     assert(text().includes('当前实盘统计'), 'all 范围仍必须说明实盘统计采用当前范围')
 
     const missingCloseDay = closedTrade('missing-close-day', 50, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, { closedAt: 'invalid', closedTradingDayKey: undefined })
+    const missedMissingCloseDay = closedTrade('missed-missing-close-day', 0, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, {
+      status: 'missed',
+      exit: null,
+      pnl: null,
+      rMultiple: null,
+      resultSource: undefined,
+      closedAt: 'invalid',
+      closedTradingDayKey: undefined,
+      missReason: 'hesitation',
+      reviewStatus: 'unreviewed',
+    })
     mounted.root.unmount()
-    useStore.setState({ trades: [missingCloseDay] })
+    useStore.setState({ trades: [missingCloseDay, missedMissingCloseDay] })
     mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
-    await waitFor(() => text().includes('待整理 1'), '缺少平仓日必须提供待整理入口')
+    await waitFor(() => text().includes('待整理 2'), '缺少平仓日必须提供待整理入口并包含错过机会无日期')
 
     const resultConflict = closedTrade('result-conflict', 50, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, { status: 'loss', rMultiple: 1, resultSource: 'imported' })
     mounted.root.unmount()

@@ -94,8 +94,11 @@ export function testMalformedCloseDatesAreCountedAndNeverAttributed(): void {
     closedLive('bad-frozen', { closedTradingDayKey: '2026-02-30', closedAt: '2026-04-02' }),
     closedLive('bad-closed', { closedAt: 'not-a-date' }),
     closedLive('missing', { closedAt: null }),
+    closedLive('missed-missing', { status: 'missed', closedAt: null, closedTradingDayKey: undefined, pnl: null, rMultiple: null, resultSource: undefined }),
+    closedLive('open-missing', { status: 'open', closedAt: null }),
+    closedLive('planned-missing', { status: 'planned', closedAt: null }),
   ]
-  assert(countLiveTradesMissingCloseDay(malformed, 0) === 3, '无效或缺失平仓日必须计数')
+  assert(countLiveTradesMissingCloseDay(malformed, 0) === 4, '无效或缺失平仓日必须计数，包含缺日期的错过机会但排除进行中记录')
   assert(ids(filterTradesByLivePerformanceCycle(malformed, resolveLivePerformanceCycle(cycles, 'two'), 0)) === '', '无效平仓日不得进入任何周期')
 }
 

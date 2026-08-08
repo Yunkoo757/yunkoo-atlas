@@ -68,8 +68,9 @@ async function run() {
     const incomplete = trade('incomplete', '2026-01-20', { pnl: null, rMultiple: null, resultSource: undefined })
     const conflict = trade('conflict', '2026-01-21', { pnl: 100, rMultiple: -1, resultSource: 'imported' })
     const membersOnly = trade('missed-only', '2025-12-15', { status: 'missed', pnl: null, rMultiple: null, resultSource: undefined })
+    const missedPending = trade('missed-pending', '2026-02-03', { status: 'missed', closedAt: 'invalid', closedTradingDayKey: undefined, pnl: null, rMultiple: null, resultSource: undefined })
     const deletedSource = { ...source, id: 'source-deleted', deletedAt: '2026-02-03T00:00:00.000Z' }
-    useStore.setState((state) => ({ trades: [...old, incomplete, conflict, membersOnly, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, liveStatsStartTradingDayKey: '2026-02-01', display: { ...state.display, tradingDayStartHour: 0 } }))
+    useStore.setState((state) => ({ trades: [...old, incomplete, conflict, membersOnly, missedPending, trade('current', '2026-02-02'), trade('pending', '2026-02-03', { closedAt: 'invalid', closedTradingDayKey: undefined }), { ...source, id: 'case-linked', ref: 'CAS-1', tradeKind: 'case', sourceTradeId: source.id }, { ...source, id: 'case-members-only', ref: 'CAS-ONLY', tradeKind: 'case', sourceTradeId: membersOnly.id }, { ...source, id: 'case-other', ref: 'CAS-2', tradeKind: 'case', sourceTradeId: 'current' }, deletedSource, { ...source, id: 'case-source-deleted', ref: 'CAS-DELETED', tradeKind: 'case', sourceTradeId: deletedSource.id }], livePerformanceCycles: cycles, liveStatsStartTradingDayKey: '2026-02-01', display: { ...state.display, tradingDayStartHour: 0 } }))
     root.render(<MemoryRouter key="archive-home" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /><Route path="/list" element={<div>日志入口</div>} /><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('历史归档') ?? false, '归档首页必须可达')
     assert(document.body.textContent?.includes('128 笔已平仓'), '卡片必须展示已平仓数量')
@@ -83,6 +84,7 @@ async function run() {
     assert(document.documentElement.scrollWidth <= window.innerWidth, `归档首页在 ${window.innerWidth}px 不得横向溢出`)
     const pending = [...document.querySelectorAll<HTMLAnchorElement>('a')].find((link) => link.textContent?.includes('待整理'))
     assert(pending?.getAttribute('href') === '/list?statsCycle=pending', '待整理入口必须进入共享 pending 日志')
+    assert(pending?.textContent?.includes('待整理 2'), '归档首页待整理数量必须包含缺日期的错过机会')
     assert(pending?.getAttribute('aria-label')?.includes('待整理记录'), '待整理数量不能仅依赖颜色或位置表达')
     const detailLink = document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')
     assert(detailLink, '归档卡片必须提供可聚焦的详情入口')
