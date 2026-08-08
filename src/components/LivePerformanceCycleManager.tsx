@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   appendLivePerformanceCycle,
   filterTradesByLivePerformanceCycle,
@@ -18,6 +18,11 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import './LivePerformanceCycleManager.css'
 
 type ManagerMode = 'manage' | 'create' | 'rename' | 'undo'
+
+type ManagerFocusSource =
+  | { type: 'create' }
+  | { type: 'rename'; cycleId: string }
+  | { type: 'undo' }
 
 type LivePerformanceCycleManagerProps = {
   currentTradingDayKey: string
@@ -66,6 +71,12 @@ export function LivePerformanceCycleManager({
   const [renameId, setRenameId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const undoConfirmRef = useRef<HTMLButtonElement>(null)
+  const createTriggerRef = useRef<HTMLButtonElement>(null)
+  const undoTriggerRef = useRef<HTMLButtonElement>(null)
+  const renameTriggerRefs = useRef(new Map<string, HTMLButtonElement>())
+  const focusSourceRef = useRef<ManagerFocusSource | null>(null)
   const nameId = useId()
 
   const latest = cycles.at(-1) ?? null
@@ -98,6 +109,22 @@ export function LivePerformanceCycleManager({
     return { preCycle, current }
   }, [latest, mode, startTradingDayKey, trades, tradingDayStartHour])
 
+  useEffect(() => {
+    if (mode === 'create' || mode === 'rename') {
+      nameInputRef.current?.focus()
+      return
+    }
+    if (mode === 'undo') {
+      undoConfirmRef.current?.focus()
+      return
+    }
+    const source = focusSourceRef.current
+    focusSourceRef.current = null
+    if (source?.type === 'create') createTriggerRef.current?.focus()
+    else if (source?.type === 'undo') undoTriggerRef.current?.focus()
+    else if (source?.type === 'rename') renameTriggerRefs.current.get(source.cycleId)?.focus()
+  }, [mode])
+
   async function commitCycles(next: LivePerformanceCycle[], successMessage: string): Promise<boolean> {
     if (busyRef.current) return false
     const previous = useStore.getState().livePerformanceCycles
@@ -124,6 +151,7 @@ export function LivePerformanceCycleManager({
   }
 
   const beginCreate = () => {
+    focusSourceRef.current = { type: 'create' }
     setName('')
     setStartTradingDayKey(currentTradingDayKey)
     setRenameId(null)
@@ -131,9 +159,15 @@ export function LivePerformanceCycleManager({
   }
 
   const beginRename = (cycle: LivePerformanceCycle) => {
+    focusSourceRef.current = { type: 'rename', cycleId: cycle.id }
     setName(cycle.name)
     setRenameId(cycle.id)
     setMode('rename')
+  }
+
+  const beginUndo = () => {
+    focusSourceRef.current = { type: 'undo' }
+    setMode('undo')
   }
 
   const leaveForm = () => {
@@ -214,6 +248,7 @@ export function LivePerformanceCycleManager({
     <>
       <button type="button" className="ui-btn ui-btn-bordered" disabled={busy} onClick={leaveForm}>取消</button>
       <button
+        ref={undoConfirmRef}
         type="button"
         className="ui-btn ui-btn-danger-solid"
         disabled={busy || !latest}
@@ -236,8 +271,8 @@ export function LivePerformanceCycleManager({
         {mode === 'manage' ? (
           <>
             <div className="live-performance-cycle-manager-actions">
-              <button type="button" className="ui-btn ui-btn-primary" onClick={beginCreate}>开始下一统计周期</button>
-              <button type="button" className="ui-btn ui-btn-danger" onClick={() => setMode('undo')}>撤销最新周期</button>
+              <button ref={createTriggerRef} type="button" className="ui-btn ui-btn-primary" onClick={beginCreate}>开始下一统计周期</button>
+              <button ref={undoTriggerRef} type="button" className="ui-btn ui-btn-danger" onClick={beginUndo}>撤销最新周期</button>
             </div>
             <div className="live-performance-cycle-list" aria-label="统计周期列表">
               {[...cycles].reverse().map((cycle) => (
@@ -246,7 +281,17 @@ export function LivePerformanceCycleManager({
                     <strong>{cycle.name}</strong>
                     <span>从 {cycle.startTradingDayKey} 开始{cycle.id === latest?.id ? ' · 当前' : ''}</span>
                   </div>
-                  <button type="button" className="ui-btn ui-btn-ghost" onClick={() => beginRename(cycle)}>重命名</button>
+                  <button
+                    ref={(node) => {
+                      if (node) renameTriggerRefs.current.set(cycle.id, node)
+                      else renameTriggerRefs.current.delete(cycle.id)
+                    }}
+                    type="button"
+                    className="ui-btn ui-btn-ghost"
+                    onClick={() => beginRename(cycle)}
+                  >
+                    重命名
+                  </button>
                 </div>
               ))}
             </div>
@@ -258,6 +303,7 @@ export function LivePerformanceCycleManager({
             <label className="live-performance-cycle-field" htmlFor={nameId}>
               <span>统计周期名称</span>
               <input
+                ref={nameInputRef}
                 id={nameId}
                 type="text"
                 value={name}

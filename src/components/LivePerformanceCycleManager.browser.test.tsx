@@ -49,9 +49,14 @@ function text(): string {
   return document.body.textContent ?? ''
 }
 
-function button(label: string, scope: ParentNode = document): HTMLButtonElement {
-  const result = [...scope.querySelectorAll<HTMLButtonElement>('button')]
+function findButton(label: string, scope: ParentNode = document): HTMLButtonElement | null {
+  return [...scope.querySelectorAll<HTMLButtonElement>('button')]
     .find((candidate) => candidate.textContent?.trim() === label)
+    ?? null
+}
+
+function button(label: string, scope: ParentNode = document): HTMLButtonElement {
+  const result = findButton(label, scope)
   assert(result, `找不到按钮：${label}`)
   return result
 }
@@ -213,6 +218,43 @@ async function run(): Promise<void> {
     disablePersistWrites()
 
     await openManager()
+    await frame()
+    await frame()
+    click('开始下一统计周期')
+    await waitFor(
+      () => document.activeElement === document.querySelector('input[aria-label="统计周期名称"]'),
+      '首页进入创建后必须聚焦名称输入',
+    )
+    click('取消')
+    await waitFor(
+      () => document.activeElement === findButton('开始下一统计周期'),
+      '取消创建后必须恢复到开始下一统计周期按钮',
+    )
+
+    const focusRenameRow = document.querySelector<HTMLElement>(`[data-cycle-id="${firstCreated.id}"]`)
+    assert(focusRenameRow, '焦点测试缺少第一期')
+    click('重命名', focusRenameRow)
+    await waitFor(
+      () => document.activeElement === document.querySelector('input[aria-label="统计周期名称"]'),
+      '首页进入重命名后必须聚焦名称输入',
+    )
+    click('取消')
+    await waitFor(() => {
+      const returnedRow = document.querySelector<HTMLElement>(`[data-cycle-id="${firstCreated.id}"]`)
+      return returnedRow ? document.activeElement === findButton('重命名', returnedRow) : false
+    }, '取消重命名后必须恢复到对应周期的重命名按钮')
+
+    click('撤销最新周期')
+    await waitFor(
+      () => document.activeElement === findButton('确认撤销'),
+      '首页进入撤销后必须聚焦确认撤销按钮',
+    )
+    click('取消')
+    await waitFor(
+      () => document.activeElement === findButton('撤销最新周期'),
+      '取消撤销后必须恢复到撤销最新周期按钮',
+    )
+
     click('开始下一统计周期')
     await waitFor(() => Boolean(document.querySelector('input[aria-label="统计周期名称"]')), '下一期表单未出现')
     setInput('统计周期名称', '一'.repeat(41))
