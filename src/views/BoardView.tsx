@@ -34,6 +34,7 @@ import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { Tooltip } from '@/components/ui/Tooltip'
 import type { Strategy } from '@/data/strategies'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
+import { resolveLiveRoute, resolveLiveRouteNavigation } from '@/lib/livePerformanceCycleRoute'
 import {
   getWorkbenchResetPath,
   resolveWorkbenchEmptyState,
@@ -70,12 +71,24 @@ export function BoardView({
   const removeTrade = useStore((s) => s.removeTrade)
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
+  const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const liveRoute = useMemo(
+    () => filter.tradeKind === 'live'
+      ? resolveLiveRoute(location.search, livePerformanceCycles, 'trade-list')
+      : null,
+    [filter.tradeKind, livePerformanceCycles, location.search],
+  )
+
+  useEffect(() => {
+    if (!liveRoute || (liveRoute.target.kind !== 'archive' && liveRoute.target.kind !== 'archive-home')) return
+    navigate(resolveLiveRouteNavigation(liveRoute), { replace: true })
+  }, [liveRoute, navigate])
 
   useListContextSync(filter)
   useTradeReturnAnchor()

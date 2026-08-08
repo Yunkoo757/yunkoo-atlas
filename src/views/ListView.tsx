@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Copy, Trash2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { Topbar, type WorkbenchView } from '@/components/Topbar'
@@ -34,6 +34,7 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
 import { resolveLiveRoute, resolveLiveRouteNavigation } from '@/lib/livePerformanceCycleRoute'
+import { filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import './ListView.css'
 
 export function ListView({
@@ -50,6 +51,7 @@ export function ListView({
   header?: ReactNode
 }) {
   const strategies = useStore((state) => state.strategies)
+  const storedTrades = useStore((state) => state.trades)
   const display = useStore((state) => state.display)
   const setDisplay = useStore((state) => state.setDisplay)
   const starredIds = useStore((state) => state.starredIds)
@@ -76,6 +78,17 @@ export function ListView({
       : null,
     [filter.tradeKind, livePerformanceCycles, location.search],
   )
+  const pendingCount = useMemo(() => {
+    if (filter.tradeKind !== 'live') return 0
+    return filterLiveLogRecords(
+      storedTrades,
+      resolveLiveArchiveScope(livePerformanceCycles, 'pending'),
+      display.tradingDayStartHour,
+    ).length
+  }, [display.tradingDayStartHour, filter.tradeKind, livePerformanceCycles, storedTrades])
+  const showPendingLink = filter.tradeKind === 'live'
+    && pendingCount > 0
+    && liveRoute?.target.kind !== 'pending'
 
   useEffect(() => {
     if (!liveRoute || (liveRoute.target.kind !== 'archive' && liveRoute.target.kind !== 'archive-home')) return
@@ -326,6 +339,18 @@ export function ListView({
   return (
     <>
       <Topbar title={title} subtitle={getTradesPageSubtitle(filter, businessDateAnchor)} view={view} onView={onView} />
+      {showPendingLink ? (
+        <div className="list-pending-entry">
+          <Link
+            data-pending-log-link
+            className="list-pending-link"
+            to="/list?statsCycle=pending"
+            aria-label={`查看待整理记录，共 ${pendingCount} 条`}
+          >
+            待整理 {pendingCount}
+          </Link>
+        </div>
+      ) : null}
       {header}
       {emptyState?.kind !== 'library' ? (
         <TradeFilters filter={filter} trades={trades} strategies={strategies} />

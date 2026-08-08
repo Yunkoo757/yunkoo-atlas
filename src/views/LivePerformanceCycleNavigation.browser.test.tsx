@@ -6,6 +6,7 @@ import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { getTradingDayKey } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
+import { BoardView } from '@/views/BoardView'
 import { ListView } from '@/views/ListView'
 
 declare global { interface Window { __livePerformanceCycleNavigationTest?: Promise<void> } }
@@ -42,6 +43,7 @@ async function run(): Promise<void> {
     const router = createMemoryRouter([
       { path: '/dashboard', element: <Dashboard /> },
       { path: '/list', element: <ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} /> },
+      { path: '/board', element: <BoardView title="交易日志" view="board" onView={() => undefined} onOpen={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} /> },
       { path: '/live-archive', element: <div>历史归档入口</div> },
       { path: '/live-archive/:archiveId', element: <div>归档详情入口</div> },
     ], { initialEntries: ['/dashboard'] })
@@ -49,9 +51,24 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('当前实盘统计') ?? false, 'Dashboard 必须默认显示当前实盘统计')
     assert(!document.querySelector('button[role="combobox"]'), 'Dashboard 不得恢复周期下拉')
     assert(document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href') === '/list?kind=live&range=all', '当前日志入口必须使用隐式当前范围')
+    await router.navigate('/list')
+    await waitFor(() => Boolean(document.querySelector('[data-pending-log-link]')), '普通交易日志必须提供待整理入口')
+    const pendingLogLink = document.querySelector<HTMLAnchorElement>('[data-pending-log-link]')
+    assert(pendingLogLink?.getAttribute('href') === '/list?statsCycle=pending', '待整理入口必须进入共享 pending 日志')
+    assert(pendingLogLink?.textContent?.includes('待整理 1'), '待整理入口必须显示共享待整理数量')
     await router.navigate('/list?statsCycle=pending')
     await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, '待整理日志必须只显示缺少平仓日的实盘记录')
+    await waitFor(() => !document.querySelector('[data-pending-log-link]'), '待整理日志自身不得重复显示待整理入口')
     assert(document.querySelector('[data-trade-id]')?.getAttribute('data-trade-id') === 'missing', '待整理日志不得混入当前或历史交易')
+
+    await router.navigate('/board?statsCycle=all&symbol=BTCUSDT')
+    await waitFor(() => router.state.location.pathname === '/live-archive', '看板 all 范围必须进入归档首页目标')
+    await router.navigate('/board?statsCycle=pre-cycle&symbol=BTCUSDT')
+    await waitFor(() => router.state.location.pathname === '/live-archive/pre-cycle', '看板规则前范围必须进入归档详情目标')
+    await router.navigate('/board?statsCycle=missing-archive&symbol=BTCUSDT')
+    await waitFor(() => router.state.location.pathname === '/live-archive', '看板失效范围必须进入归档首页目标')
+    assert(router.state.location.search.includes('archiveReason=missing'), '看板失效范围必须保留统一原因')
+    assert(router.state.location.search.includes('requestedKey=missing-archive'), '看板失效范围必须保留请求键')
     assert(JSON.stringify(useStore.getState().trades) === factsBeforeNavigation, 'Dashboard 与日志切换不得改写交易事实')
 
     let replaceCount = 0
