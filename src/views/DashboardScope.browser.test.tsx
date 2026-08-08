@@ -7,6 +7,7 @@ import { formatYmd, getTradingDayKey } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
+import { DetailView } from '@/views/DetailView'
 
 declare global {
   interface Window {
@@ -238,6 +239,30 @@ async function run(): Promise<void> {
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&symbol=BTCUSDT',
       'Dashboard 必须移除风险周期别名并保留无关筛选',
+    )
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/trade/:id" element={<DetailView />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.querySelector('summary') !== null, 'Dashboard 累计盈亏数据表入口未出现')
+    document.querySelector('summary')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await waitFor(
+      () => document.querySelector<HTMLAnchorElement>('a[href="/trade/TRD-CURRENT"]') !== null,
+      'Dashboard 数据表未提供交易详情入口',
+    )
+    document.querySelector<HTMLAnchorElement>('a[href="/trade/TRD-CURRENT"]')?.click()
+    await waitFor(() => document.querySelector('[aria-label="返回列表"]') !== null, '交易详情未显示返回入口')
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all',
+      '从 Dashboard 当前范围进入详情再返回时不得回退列表或丢失分析查询',
     )
 
     root.unmount()

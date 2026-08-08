@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
   Area,
@@ -20,7 +20,7 @@ import { Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { fmtMoney } from '@/lib/format'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isActive } from '@/lib/tradeStatus'
 import {
@@ -75,6 +75,7 @@ const KIND_OPTS: { value: AnalysisKind; label: string }[] = [
 ]
 
 export function Dashboard() {
+  const location = useLocation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const allTrades = useStore((s) => s.trades)
@@ -208,7 +209,9 @@ export function Dashboard() {
 
   const openTrade = (tradeId: string) => {
     const t = tradeById.get(tradeId)
-    navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`)
+    navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`, {
+      state: tradeDetailNavState({ pathname: location.pathname, search: location.search }),
+    })
   }
 
   return (
@@ -484,7 +487,10 @@ export function Dashboard() {
                           return (
                             <tr key={point.tradeId}>
                               <th scope="row">
-                                <Link to={trade ? tradeDetailPath(trade) : `/trade/${point.tradeId}`}>
+                                <Link
+                                  to={trade ? tradeDetailPath(trade) : `/trade/${point.tradeId}`}
+                                  state={tradeDetailNavState({ pathname: location.pathname, search: location.search })}
+                                >
                                   {point.ref} · {point.label}
                                 </Link>
                               </th>

@@ -1866,6 +1866,16 @@ export function testTradeDetailReturnRemembersListView(): void {
     '优先使用详情路由 state 的自定义视图查询',
   )
 
+  const dashboardReturn = resolveTradeDetailReturn({
+    from: { pathname: '/dashboard', search: '?kind=live&range=all&statsCycle=current' },
+    tradeKind: 'live',
+  })
+  assert(dashboardReturn.pathname === '/dashboard', 'Dashboard 详情必须接受 Dashboard 作为返回来源')
+  assert(
+    dashboardReturn.search === '?kind=live&range=all&statsCycle=current',
+    'Dashboard 详情返回必须保留当前分析查询',
+  )
+
   const fromContext = resolveTradeDetailReturn({
     listPath: '/review-cases/mistakes',
     listSearch: '?symbol=BTCUSDT',
