@@ -136,6 +136,24 @@ export function Dashboard() {
   )
 
   const stats = useMemo(() => buildDashboardStats(trades, strategyDefs), [trades, strategyDefs])
+  const performanceCycleClosedCount = useMemo(
+    () => hasPerformanceBounds
+      ? filterTradesByAnalysisScope(
+        allTrades,
+        { kind: 'live', range: 'all' },
+        businessDateAnchor,
+        tradingDayStartHour,
+        { startInclusive: performanceStart, endExclusive: performanceEnd },
+      ).length
+      : null,
+    [
+      allTrades,
+      tradingDayStartHour,
+      hasPerformanceBounds,
+      performanceStart,
+      performanceEnd,
+    ],
+  )
   const missingPerformanceCloseDayCount = useMemo(
     () => scope.kind === 'live' && hasPerformanceBounds
       ? countLiveTradesMissingCloseDay(allTrades, tradingDayStartHour)
@@ -163,6 +181,7 @@ export function Dashboard() {
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
   const hasClosedTrades = stats.closedCount > 0
+  const selectedPerformanceCycleIsEmpty = performanceCycleClosedCount === 0
   const activeTradesPath = scope.kind === 'paper' || (
     scope.kind === 'all' && !activeTrades.some((trade) => trade.tradeKind === 'live')
   )
@@ -375,10 +394,16 @@ export function Dashboard() {
         {!hasClosedTrades ? (
           <EmptyState
             className="db-empty"
-            title={hasPerformanceBounds ? '所选统计周期暂无已平仓实盘' : '还没有已平仓交易'}
-            hint={hasPerformanceBounds
+            title={selectedPerformanceCycleIsEmpty
+              ? '所选统计周期暂无已平仓实盘'
+              : hasPerformanceBounds
+                ? '当前时间范围暂无已平仓实盘'
+                : '还没有已平仓交易'}
+            hint={selectedPerformanceCycleIsEmpty
               ? '可以切换统计周期查看其他记录；交易、案例和复盘仍完整保留。'
-              : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}
+              : hasPerformanceBounds
+                ? '该统计周期内有已平仓实盘，可以切换时间范围查看。'
+                : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}
             action={
               activeTrades.length > 0 ? (
                 <button type="button" className="empty-btn" onClick={() => navigate(activeTradesPath)}>

@@ -293,11 +293,55 @@ async function run(): Promise<void> {
     assert(text().includes('当前统计周期 · 第二期'), '无效统计周期必须回退当前周期')
 
     mounted.root.unmount()
+    useStore.setState({
+      trades: fixture.trades,
+      livePerformanceCycles: fixture.cycles,
+    })
+    mounted = mountDashboard(
+      rootElement,
+      '/dashboard?kind=live&range=this-week&statsCycle=cycle-one',
+    )
+    await waitFor(
+      () => text().includes('当前时间范围暂无已平仓实盘'),
+      '历史真实周期有成员但当前时间范围无交集时必须显示时间范围空状态',
+    )
+    assert(
+      !text().includes('所选统计周期暂无已平仓实盘'),
+      '时间范围无交集不得误报为所选统计周期为空',
+    )
+
+    mounted.root.unmount()
     useStore.setState({ livePerformanceCycles: [] })
     mounted = mountDashboard(rootElement, '/dashboard')
     await waitFor(() => text().includes('+$350'), '无周期集合必须保留实盘全历史统计')
     assert(text().includes('开始新统计周期'), '无周期集合必须显示创建入口')
     assert(!document.querySelector('button[role="combobox"][aria-label="统计周期"]'), '无周期集合不得显示空选择器')
+
+    const missedOnly = fixture.trades.filter((trade) => trade.id === 'missed')
+    mounted.root.unmount()
+    useStore.setState({
+      trades: missedOnly,
+      livePerformanceCycles: [],
+    })
+    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
+    await waitFor(() => text().includes('还没有已平仓交易'), '无周期且无已平仓交易必须显示通用空状态')
+    assert(
+      !text().includes('所选统计周期暂无已平仓实盘'),
+      '空周期库不得显示所选周期专属空状态',
+    )
+
+    const firstCycleOnly = fixture.trades.filter((trade) => trade.id === 'cycle-one')
+    mounted.root.unmount()
+    useStore.setState({
+      trades: firstCycleOnly,
+      livePerformanceCycles: fixture.cycles,
+    })
+    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
+    await waitFor(
+      () => text().includes('所选统计周期暂无已平仓实盘'),
+      '成员为空的真实当前周期必须显示周期专属空状态',
+    )
+    assert(!text().includes('还没有已平仓交易'), '空的真实周期不得显示通用空状态')
 
     mounted.root.unmount()
     useStore.setState({
