@@ -1,8 +1,10 @@
 import { createRoot } from 'react-dom/client'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { createWeeklyReview } from '@/data/weeklyReviews'
 import type { Trade } from '@/data/trades'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { useToast } from '@/lib/toast'
+import { collectAssetIdsFromSnapshot } from '@/storage/assets'
 import { disablePersistWrites, enablePersistWrites } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
 import { useStore } from '@/store/useStore'
@@ -124,7 +126,9 @@ function closedLive(
 }
 
 async function openManager(): Promise<void> {
-  click(useStore.getState().livePerformanceCycles.length === 0 ? '开始新统计周期' : '管理周期')
+  const trigger = button(useStore.getState().livePerformanceCycles.length === 0 ? '开始新统计周期' : '管理周期')
+  trigger.focus()
+  trigger.click()
   await waitFor(() => Boolean(document.querySelector('[data-cycle-manager]')), '统计周期管理弹窗未打开')
 }
 
@@ -133,6 +137,56 @@ async function closeManager(): Promise<void> {
   assert(close, '统计周期管理弹窗缺少关闭按钮')
   close.click()
   await waitFor(() => !document.querySelector('[data-cycle-manager]'), '统计周期管理弹窗未关闭')
+}
+
+function compatibilitySnapshot(): string {
+  const state = useStore.getState()
+  const caseOwnedFields = state.trades
+    .filter((trade) => trade.tradeKind === 'case')
+    .map((trade) => ({
+      id: trade.id,
+      sourceTradeId: trade.sourceTradeId,
+      sourceNoteHtml: trade.sourceNoteHtml,
+      note: trade.note,
+      caseType: trade.caseType,
+      masteryState: trade.masteryState,
+      nextReviewAt: trade.nextReviewAt,
+      recordedAt: trade.recordedAt,
+    }))
+  const assetReferences = collectAssetIdsFromSnapshot({
+    trades: state.trades,
+    weeklyReviews: state.weeklyReviews,
+    quickNotes: state.quickNotes,
+  }).sort()
+  return JSON.stringify({
+    trades: state.trades,
+    caseOwnedFields,
+    weeklyReviews: state.weeklyReviews,
+    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
+    assetReferences,
+  })
+}
+
+function assertCompatibilityUnchanged(expected: string, context: string): void {
+  assert(
+    compatibilitySnapshot() === expected,
+    `${context}不得改写交易、案例字段、周复盘快照、风险核算起点或资源引用`,
+  )
+}
+
+function assertMobileDialogReachable(): void {
+  assert(
+    document.documentElement.scrollWidth <= window.innerWidth,
+    `统计周期弹窗不得横向溢出：${document.documentElement.scrollWidth} > ${window.innerWidth}`,
+  )
+  for (const label of ['取消', '确认开始']) {
+    const target = button(label)
+    const rect = target.getBoundingClientRect()
+    assert(
+      rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0 && rect.bottom <= window.innerHeight,
+      `${label}按钮必须在 ${window.innerWidth}×${window.innerHeight} 视口内可达`,
+    )
+  }
 }
 
 async function run(): Promise<void> {
@@ -154,10 +208,19 @@ async function run(): Promise<void> {
     closedLive('copied-case', 999, beforeFirst, beforeFirst, {
       tradeKind: 'case',
       sourceTradeId: 'before-first',
+      sourceNoteHtml: '<p>来源快照</p><img src="journal-asset://source-snapshot-asset">',
       caseType: 'exemplar',
+      masteryState: 'recheck',
       recordedAt: currentDay,
+      note: '<p>案例自己的结论</p><img src="journal-asset://case-owned-asset">',
     }),
   ]
+  const weeklyReview = {
+    ...createWeeklyReview(firstStart, new Date(`${firstStart}T12:00:00.000Z`)),
+    status: 'completed' as const,
+    contentHtml: '<p>冻结周复盘</p><img src="journal-asset://weekly-review-asset">',
+    completedAt: `${firstStart}T12:00:00.000Z`,
+  }
   const router = createMemoryRouter([
     { path: '/dashboard', element: <Dashboard /> },
   ], { initialEntries: ['/dashboard?kind=live&range=this-week'] })
@@ -167,14 +230,33 @@ async function run(): Promise<void> {
     disablePersistWrites()
     useStore.setState({
       trades: fixtureTrades,
+      weeklyReviews: [weeklyReview],
       strategies: [{ id: 'strategy-1', name: '测试策略', icon: 'target', color: '#5e6ad2' }],
       livePerformanceCycles: [],
       liveStatsStartTradingDayKey: addDays(firstStart, -20),
     })
+    const immutableCompatibility = compatibilitySnapshot()
     root.render(<RouterProvider router={router} />)
 
     await waitFor(() => text().includes('开始新统计周期'), '空库没有显示创建入口')
+    const initialTrigger = button('开始新统计周期')
     await openManager()
+    await waitFor(
+      () => document.activeElement === document.querySelector('input[aria-label="统计周期名称"]'),
+      '首次创建弹窗必须把焦点送入首个无效主字段',
+    )
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await waitFor(() => !document.querySelector('[data-cycle-manager]'), 'idle 状态按 Escape 必须关闭弹窗')
+    await waitFor(
+      () => document.activeElement === initialTrigger,
+      'idle Escape 关闭后必须把焦点返回原触发器',
+    )
+    await openManager()
+    await waitFor(
+      () => document.activeElement === document.querySelector('input[aria-label="统计周期名称"]'),
+      '重新打开创建弹窗必须聚焦名称主字段',
+    )
+    assertMobileDialogReachable()
     assert(useStore.getState().livePerformanceCycles.length === 0, '打开弹窗不得提前生成周期')
     assert(validationReason() === '请输入统计周期名称', '空名称必须显示稳定原因')
     assert(button('确认开始').disabled, '空名称时确认必须禁用')
@@ -210,6 +292,7 @@ async function run(): Promise<void> {
     assert(useStore.getState().livePerformanceCycles.length === 1, '确认时才应生成首个周期')
     const firstCreated = useStore.getState().livePerformanceCycles[0]
     assert(firstCreated?.id && firstCreated.createdAt, '确认创建必须同时生成 ID 与 createdAt')
+    assertCompatibilityUnchanged(immutableCompatibility, '创建首个周期')
     releaseSave()
     await waitFor(() => !document.querySelector('[data-cycle-manager]'), '创建持久化成功后弹窗未关闭')
     await waitFor(() => router.state.location.search.includes('range=all'), '创建成功后没有导航到全部时间范围')
@@ -286,6 +369,7 @@ async function run(): Promise<void> {
     click('确认开始')
     await waitFor(() => useStore.getState().livePerformanceCycles.length === 2, '第二期未创建')
     await waitFor(() => !document.querySelector('[data-cycle-manager]'), '第二期创建成功后弹窗未关闭')
+    assertCompatibilityUnchanged(immutableCompatibility, '创建下一统计周期')
 
     const recordsBeforeRename = {
       trades: JSON.stringify(useStore.getState().trades),
@@ -312,6 +396,7 @@ async function run(): Promise<void> {
     )
     assert(JSON.stringify(useStore.getState().weeklyReviews) === recordsBeforeRename.weeklyReviews, '重命名不得改写周复盘')
     assert(useStore.getState().liveStatsStartTradingDayKey === recordsBeforeRename.riskStart, '重命名不得改写风险核算起点')
+    assertCompatibilityUnchanged(immutableCompatibility, '重命名统计周期')
 
     await openManager()
     click('撤销最新周期')
@@ -320,6 +405,7 @@ async function run(): Promise<void> {
     await waitFor(() => useStore.getState().livePerformanceCycles.length === 1, '撤销必须只移除最新一期')
     await waitFor(() => !document.querySelector('[data-cycle-manager]'), '撤销最新周期成功后弹窗未关闭')
     assert(useStore.getState().livePerformanceCycles[0]?.id === firstCreated.id, '撤销误删了非最新周期')
+    assertCompatibilityUnchanged(immutableCompatibility, '撤销最新统计周期')
 
     const rollbackBefore = JSON.stringify(useStore.getState().livePerformanceCycles)
     saveAttempts = 0
@@ -340,6 +426,7 @@ async function run(): Promise<void> {
       () => useToast.getState().message === '统计周期保存失败，原设置已保留',
       '保存失败且回滚成功的提示错误',
     )
+    const rollbackSucceededCopy = useToast.getState().message
     assert(JSON.stringify(useStore.getState().livePerformanceCycles) === rollbackBefore, '保存失败必须精确恢复旧周期数组内容')
     assert(Boolean(document.querySelector('[data-cycle-manager]')), '保存失败后应保留弹窗供用户核对')
     await closeManager()
@@ -359,7 +446,13 @@ async function run(): Promise<void> {
       () => useToast.getState().message === '统计周期保存与回滚均失败，请重新打开应用核对当前设置',
       '保存与回滚均失败提示错误',
     )
+    const rollbackFailedCopy = useToast.getState().message
+    assert(
+      rollbackSucceededCopy !== rollbackFailedCopy,
+      '持久化失败与保存/回滚双失败必须使用不同提示',
+    )
     assert(JSON.stringify(useStore.getState().livePerformanceCycles) === rollbackBefore, '双失败后内存仍必须恢复旧周期数组')
+    assertCompatibilityUnchanged(immutableCompatibility, '持久化失败回滚')
     await closeManager()
     storage.saveSnapshot = originalSaveSnapshot
     disablePersistWrites()
@@ -372,6 +465,7 @@ async function run(): Promise<void> {
     await waitFor(() => useStore.getState().livePerformanceCycles.length === 0, '唯一周期撤销后必须恢复空周期')
     await waitFor(() => text().includes('开始新统计周期'), '唯一周期撤销后没有恢复创建入口')
     await waitFor(() => text().includes('+$60'), '唯一周期撤销后 Dashboard 没有恢复全部实盘历史')
+    assertCompatibilityUnchanged(immutableCompatibility, '撤销唯一统计周期')
   } finally {
     storage.saveSnapshot = originalSaveSnapshot
     disablePersistWrites()

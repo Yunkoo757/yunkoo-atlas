@@ -138,18 +138,12 @@ function text(): string {
   return document.body.textContent ?? ''
 }
 
-async function selectCycle(label: string): Promise<void> {
-  const trigger = document.querySelector<HTMLButtonElement>('button[role="combobox"][aria-label="统计周期"]')
-  assert(trigger, '统计周期选择器未渲染')
-  trigger.click()
-  await waitFor(
-    () => [...document.querySelectorAll<HTMLButtonElement>('[role="option"]')]
-      .some((option) => option.textContent?.trim() === label),
-    `统计周期选项“${label}”未出现`,
-  )
-  const option = [...document.querySelectorAll<HTMLButtonElement>('[role="option"]')]
-    .find((candidate) => candidate.textContent?.trim() === label)
-  option?.click()
+function pressKey(target: HTMLElement, key: string): void {
+  target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+}
+
+function assertNoRiskCycleCopy(context: string): void {
+  assert(!text().includes('风险核算周期'), `${context}不得把绩效统计周期写成“风险核算周期”`)
 }
 
 function mountDashboard(
@@ -194,8 +188,63 @@ async function run(): Promise<void> {
       currentCycleTradeHref?.includes('statsCycle=cycle-two'),
       '查看本周期交易链接必须显式保留当前周期真实 ID',
     )
+    assertNoRiskCycleCopy('当前周期')
 
-    await selectCycle('第一期')
+    const keyboardTrigger = document.querySelector<HTMLButtonElement>(
+      'button[role="combobox"][aria-label="统计周期"]',
+    )
+    assert(keyboardTrigger, '统计周期选择器必须有可访问名称')
+    keyboardTrigger.focus()
+    pressKey(keyboardTrigger, 'ArrowDown')
+    await waitFor(
+      () => document.querySelectorAll('[role="option"]').length === 4,
+      '键盘没有打开统计周期选项',
+    )
+    const optionLabels = [...document.querySelectorAll<HTMLElement>('[role="option"]')]
+      .map((option) => option.textContent?.trim() ?? '')
+    assert(
+      optionLabels.join(',') === '第二期,第一期,统计起点前,全部历史',
+      `统计周期选项顺序或标签错误：${optionLabels.join(',')}`,
+    )
+    assertNoRiskCycleCopy('统计周期选项')
+    pressKey(keyboardTrigger, 'End')
+    await waitFor(
+      () => document.querySelector('[role="option"].is-active')?.getAttribute('data-value') === 'all',
+      '键盘 End 没有移动到全部历史',
+    )
+    pressKey(keyboardTrigger, 'Enter')
+    await waitFor(
+      () => mounted?.router.state.location.search.includes('statsCycle=all') === true,
+      '键盘无法选择全部历史',
+    )
+    await waitFor(() => text().includes('当前统计周期 · 全部历史'), '全部历史标签没有更新')
+    assertNoRiskCycleCopy('全部历史')
+
+    keyboardTrigger.focus()
+    pressKey(keyboardTrigger, 'ArrowDown')
+    await waitFor(() => document.querySelectorAll('[role="option"]').length === 4, '键盘无法重新打开统计周期选项')
+    pressKey(keyboardTrigger, 'Home')
+    await waitFor(
+      () => document.querySelector('[role="option"].is-active')?.getAttribute('data-value') === 'cycle-two',
+      '键盘 Home 没有移动到当前周期',
+    )
+    pressKey(keyboardTrigger, 'Enter')
+    await waitFor(
+      () => !mounted?.router.state.location.search.includes('statsCycle'),
+      '键盘无法恢复 canonical 当前周期',
+    )
+    assertNoRiskCycleCopy('恢复当前周期')
+
+    keyboardTrigger.focus()
+    pressKey(keyboardTrigger, 'ArrowDown')
+    await waitFor(() => document.querySelectorAll('[role="option"]').length === 4, '键盘无法打开历史周期选项')
+    pressKey(keyboardTrigger, 'ArrowDown')
+    await waitFor(
+      () => document.querySelector('[role="option"].is-active')?.getAttribute('data-value') === 'cycle-one',
+      '键盘 ArrowDown 没有移动到历史周期',
+    )
+    pressKey(keyboardTrigger, 'Enter')
+
     await waitFor(
       () => mounted?.router.state.location.search.includes('statsCycle=cycle-one') === true,
       '历史周期没有写入 URL',
@@ -205,6 +254,11 @@ async function run(): Promise<void> {
     assert(text().includes('+$100'), '历史周期主聚合必须只统计第一期')
     assert(text().includes('错过 1'), '历史周期不得截断当前自然周的错过机会')
     assert(text().includes('执行缺口：犹豫未进 ×1'), '自然周错过原因汇总必须保持不变')
+    assert(
+      document.querySelector('[aria-label="本周交易分析"] .db-week-title')?.textContent?.trim() === '本周交易分析',
+      '历史统计周期下自然周卡仍必须明确写作“本周交易分析”',
+    )
+    assertNoRiskCycleCopy('历史周期')
     const cycleTradeHref = document
       .querySelector<HTMLAnchorElement>('[data-cycle-trade-link]')
       ?.getAttribute('href')
@@ -244,6 +298,48 @@ async function run(): Promise<void> {
     await waitFor(() => text().includes('+$350'), '无周期集合必须保留实盘全历史统计')
     assert(text().includes('开始新统计周期'), '无周期集合必须显示创建入口')
     assert(!document.querySelector('button[role="combobox"][aria-label="统计周期"]'), '无周期集合不得显示空选择器')
+
+    mounted.root.unmount()
+    useStore.setState({
+      trades: fixture.trades,
+      livePerformanceCycles: fixture.cycles,
+    })
+    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all&statsCycle=pre-cycle')
+    await waitFor(
+      () => text().includes('所选统计周期暂无已平仓实盘'),
+      '空的所选周期必须显示周期专属空状态，不能与空周期库或数据错误混淆',
+    )
+
+    const currentDay = getTradingDayKey(
+      new Date(),
+      useStore.getState().display.tradingDayStartHour,
+    )
+    const missingCloseDay = closedTrade('missing-close-day', 50, currentDay, strategies[0]!.id, {
+      closedAt: 'not-a-close-date',
+      closedTradingDayKey: undefined,
+    })
+    mounted.root.unmount()
+    useStore.setState({ trades: [missingCloseDay] })
+    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
+    await waitFor(
+      () => text().includes('1 笔实盘缺少有效平仓日期，未计入统计周期'),
+      '缺平仓日必须显示独立、可执行的数据健康提示',
+    )
+    assert(!text().includes('1 笔结果冲突'), '缺平仓日不得误报为结果冲突')
+
+    const resultConflict = closedTrade('result-conflict', 50, currentDay, strategies[0]!.id, {
+      status: 'loss',
+      rMultiple: 1,
+      resultSource: 'imported',
+    })
+    mounted.root.unmount()
+    useStore.setState({ trades: [resultConflict] })
+    mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
+    await waitFor(() => text().includes('1 笔结果冲突'), '结果冲突必须沿用独立的数据健康提示')
+    assert(
+      !text().includes('缺少有效平仓日期'),
+      '结果冲突不得误报为缺少平仓日期',
+    )
   } finally {
     mounted?.root.unmount()
     useStore.setState({

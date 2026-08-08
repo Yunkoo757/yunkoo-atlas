@@ -210,6 +210,7 @@ async function run(): Promise<void> {
         workspaceMemory: undefined,
       },
     })
+    const serializedTradesBeforeNavigation = JSON.stringify(useStore.getState().trades)
 
     const router = createMemoryRouter([
       { path: '/dashboard', element: <Dashboard /> },
@@ -291,6 +292,10 @@ async function run(): Promise<void> {
     await waitFor(
       () => document.querySelector<HTMLElement>('[data-primary-id="trades"] .sb-item-count')?.textContent?.trim() === '1',
       '侧栏交易数量必须与统计周期后的可见列表一致',
+    )
+    assert(
+      JSON.stringify(useStore.getState().trades) === serializedTradesBeforeNavigation,
+      'Dashboard、策略与列表之间切换统计周期不得改写序列化交易事实',
     )
 
     useStore.setState({

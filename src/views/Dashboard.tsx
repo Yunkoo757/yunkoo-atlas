@@ -48,6 +48,7 @@ import {
   resolvePerformanceAnalysisRoute,
   writePerformanceAnalysisCycle,
 } from '@/lib/livePerformanceCycleRoute'
+import { countLiveTradesMissingCloseDay } from '@/lib/livePerformanceCycles'
 import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
@@ -135,6 +136,12 @@ export function Dashboard() {
   )
 
   const stats = useMemo(() => buildDashboardStats(trades, strategyDefs), [trades, strategyDefs])
+  const missingPerformanceCloseDayCount = useMemo(
+    () => scope.kind === 'live' && hasPerformanceBounds
+      ? countLiveTradesMissingCloseDay(allTrades, tradingDayStartHour)
+      : 0,
+    [allTrades, hasPerformanceBounds, scope.kind, tradingDayStartHour],
+  )
   const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
   const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
   const weekMetrics = useMemo(() => {
@@ -356,11 +363,22 @@ export function Dashboard() {
           </div>
         )}
 
+        {missingPerformanceCloseDayCount > 0 ? (
+          <div className="db-data-health has-conflict">
+            <span className="db-data-health-title">待补平仓日期</span>
+            <span className="db-data-health-state">
+              {missingPerformanceCloseDayCount} 笔实盘缺少有效平仓日期，未计入统计周期
+            </span>
+          </div>
+        ) : null}
+
         {!hasClosedTrades ? (
           <EmptyState
             className="db-empty"
-            title="还没有已平仓交易"
-            hint="平仓并填写结果后，这里会生成盈亏曲线与策略表现。"
+            title={hasPerformanceBounds ? '所选统计周期暂无已平仓实盘' : '还没有已平仓交易'}
+            hint={hasPerformanceBounds
+              ? '可以切换统计周期查看其他记录；交易、案例和复盘仍完整保留。'
+              : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}
             action={
               activeTrades.length > 0 ? (
                 <button type="button" className="empty-btn" onClick={() => navigate(activeTradesPath)}>
