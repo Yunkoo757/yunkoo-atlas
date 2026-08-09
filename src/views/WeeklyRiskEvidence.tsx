@@ -46,7 +46,7 @@ function PeriodDecision({ label, outcome, primary = false }: PeriodDecisionProps
 
 interface WeeklyRiskEvidenceProps {
   snapshot?: WeeklyRiskReviewSnapshot
-  availability?: 'draft' | 'legacy'
+  availability?: 'draft' | 'legacy' | 'incomplete-snapshot'
   detailSource?: Pick<TradeDetailFrom, 'pathname' | 'search' | 'restoreSearch'>
   overrideEventsOpen?: boolean
   onOverrideEventsOpenChange?: (open: boolean) => void
@@ -61,17 +61,20 @@ export function WeeklyRiskEvidence({
 }: WeeklyRiskEvidenceProps): JSX.Element {
   if (!snapshot) {
     const draft = availability === 'draft'
+    const incompleteSnapshot = availability === 'incomplete-snapshot'
     return (
       <section className="wr-section wr-risk-evidence" data-risk-availability={availability}>
         <div className="wr-section-head">
           <div><span>R</span><h2>风控执行</h2></div>
-          <small>{draft ? '完成复盘后冻结' : '历史记录'}</small>
+          <small>{draft ? '完成复盘后冻结' : incompleteSnapshot ? '快照集合不完整' : '历史记录'}</small>
         </div>
         <div className="wr-risk-unavailable">
-          <strong>{draft ? '完成复盘后生成风控证据' : '历史记录未包含风控快照'}</strong>
+          <strong>{draft ? '完成复盘后生成风控证据' : incompleteSnapshot ? '快照集合不完整，已停用冻结风险展示，避免混合来源' : '历史记录未包含风控快照'}</strong>
           <span>
             {draft
               ? '完成时会固化本周、月度和每日风险轨迹。'
+              : incompleteSnapshot
+                ? '指标或交易证据快照缺失，当前无法将保留的风控快照与实时内容混合展示。'
               : '该周完成早于风控证据功能，保留原始记录且不回填推测数据。'}
           </span>
         </div>

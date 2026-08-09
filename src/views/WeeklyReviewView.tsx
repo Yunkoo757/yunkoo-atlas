@@ -331,6 +331,9 @@ export function WeeklyReviewView() {
     ? missingWeeklyReviewSnapshotCategories(review).map((category) => SNAPSHOT_CATEGORY_LABELS[category])
     : []
   const usesCompleteSnapshot = reviewDataSource === 'complete-snapshot'
+  const riskEvidenceAvailability = review.status === 'completed'
+    ? review.riskSnapshot ? (usesCompleteSnapshot ? 'legacy' : 'incomplete-snapshot') : 'legacy'
+    : 'draft'
   const metrics = usesCompleteSnapshot
     ? review.metricsSnapshot!
     : liveMetrics
@@ -521,12 +524,12 @@ export function WeeklyReviewView() {
                 usesCompleteSnapshot ? (
                   <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成时快照</div>
                 ) : (
-                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，当前内容为实时重算（缺少：{missingSnapshotLabels.join('、')}）</div>
+                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用（缺少：{missingSnapshotLabels.join('、')}）</div>
                 )
               ) : null}
 
               <section className="wr-section wr-metrics">
-                <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{usesCompleteSnapshot ? '完成时快照' : review.status === 'completed' ? '历史快照缺失，当前内容为实时重算' : '随交易记录实时更新'}</small></div>
+                <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{usesCompleteSnapshot ? '完成时快照' : review.status === 'completed' ? '指标与交易证据为实时重算' : '随交易记录实时更新'}</small></div>
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
                   <Metric label="胜率" value={metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} hint={`${metrics.winCount} 赢 · ${metrics.lossCount} 亏 · ${metrics.breakevenCount} 平`} />
@@ -554,7 +557,7 @@ export function WeeklyReviewView() {
 
               <WeeklyRiskEvidence
                 snapshot={usesCompleteSnapshot ? review.riskSnapshot : undefined}
-                availability={review.status === 'completed' ? 'legacy' : 'draft'}
+                availability={riskEvidenceAvailability}
                 detailSource={{
                   pathname: location.pathname,
                   search: routeResolution.canonicalSearch,

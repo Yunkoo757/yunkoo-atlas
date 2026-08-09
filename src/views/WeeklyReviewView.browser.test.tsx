@@ -868,10 +868,10 @@ async function run(): Promise<void> {
       makeTrade('two', 'loss', -50),
       makeTrade('three', 'missed', null),
     ]
-    const assertLiveRecomputedState = async (missingType: string) => {
+    const assertLiveRecomputedState = async (missingType: string, riskUnavailableReason: string) => {
       await waitFor(
-        () => document.body.textContent?.includes('历史快照缺失，当前内容为实时重算') ?? false,
-        `缺少${missingType}时没有说明实时重算来源`,
+        () => document.body.textContent?.includes('历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用') ?? false,
+        `缺少${missingType}时没有诚实说明各区域数据来源`,
       )
       const metricText = document.querySelector('.wr-metrics')?.textContent ?? ''
       const evidenceText = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
@@ -880,6 +880,9 @@ async function run(): Promise<void> {
       assert(evidenceText.includes('+$300') && !evidenceText.includes('+$100'), `缺少${missingType}时交易证据必须来自实时交易`)
       assert(document.body.textContent?.includes(missingType), `缺少${missingType}时必须列出缺失快照类型`)
       assert(!document.body.textContent?.includes('数据已冻结'), `缺少${missingType}时不得宣称数据已冻结`)
+      const riskText = document.querySelector('.wr-risk-evidence')?.textContent ?? ''
+      assert(riskText.includes(riskUnavailableReason), `缺少${missingType}时风控不可用原因不准确`)
+      assert(document.querySelectorAll('.wr-risk-evidence [role="progressbar"]').length === 0, `缺少${missingType}时不得展示冻结风险数值`)
     }
 
     useStore.setState({ trades: liveRecomputedTrades, weeklyReviews: [completed] })
@@ -892,15 +895,17 @@ async function run(): Promise<void> {
       [...document.querySelectorAll<HTMLElement>('.wr-trade-row')].some((row) => row.textContent?.includes('+$150')),
       '完整快照时交易证据必须来自完成时快照',
     )
+    assert(document.querySelector('.wr-risk-evidence')?.textContent?.includes('浏览器冻结规则'), '完整快照时风控必须来自完成时冻结数据')
+    assert(document.querySelectorAll('.wr-risk-evidence [role="progressbar"]').length === 2, '完整快照时必须展示冻结风险数值')
 
     useStore.setState({ weeklyReviews: [{ ...completed, metricsSnapshot: null }] })
-    await assertLiveRecomputedState('指标快照')
+    await assertLiveRecomputedState('指标快照', '快照集合不完整，已停用冻结风险展示，避免混合来源')
 
     useStore.setState({ weeklyReviews: [{ ...completed, evidenceSnapshot: undefined }] })
-    await assertLiveRecomputedState('交易证据快照')
+    await assertLiveRecomputedState('交易证据快照', '快照集合不完整，已停用冻结风险展示，避免混合来源')
 
     useStore.setState({ weeklyReviews: [{ ...completed, riskSnapshot: undefined }] })
-    await assertLiveRecomputedState('风控快照')
+    await assertLiveRecomputedState('风控快照', '历史记录未包含风控快照')
     assert(
       document.querySelector('.wr-risk-evidence')?.textContent?.includes('历史记录未包含风控快照'),
       '缺少风控快照时不得伪造历史风控数据',
