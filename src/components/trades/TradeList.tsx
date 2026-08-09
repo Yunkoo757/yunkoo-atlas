@@ -14,6 +14,9 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { buildDashboardStats } from '@/lib/dashboardStats'
+import { buildPerformanceSelection, PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
+import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { TradeRow } from '@/components/trades/TradeRow'
 import type { StrategyPreviewStats } from '@/components/RowPreviews'
@@ -188,6 +191,9 @@ export function TradeList({
   const [selectionMode, setSelectionMode] = useState(false)
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
   const allTrades = useStore((state) => state.trades)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const businessDateAnchor = useBusinessDateAnchor()
   /** 分组展开进度 0..1；缺省视为 1 */
   const [openProgressByGroup, setOpenProgressByGroup] = useState<Map<string, number>>(
     () => new Map(),
@@ -279,14 +285,25 @@ export function TradeList({
     () => flattenGroups(groups, openProgressByGroup),
     [groups, openProgressByGroup],
   )
+  const strategyPerformanceSelection = useMemo(
+    () => buildPerformanceSelection(allTrades, {
+      scope: { kind: 'live', range: 'all' },
+      liveScope: resolveLiveArchiveScope(livePerformanceCycles, null),
+      anchor: businessDateAnchor,
+      legacyCashCurrencyAssumption: PERFORMANCE_REPORT_CURRENCY,
+    }),
+    [allTrades, businessDateAnchor, livePerformanceCycles],
+  )
   const strategyStatsById = useMemo(
     () => new Map(
       buildDashboardStats(
-        allTrades.filter((trade) => !trade.deletedAt && trade.tradeKind === 'live'),
+        allTrades,
         strategies,
+        strategyPerformanceSelection.eligibleMetricIds,
+        tradingDayStartHour,
       ).strategies.map((stats) => [stats.id, stats]),
     ),
-    [allTrades, strategies],
+    [allTrades, strategies, strategyPerformanceSelection.eligibleMetricIds, tradingDayStartHour],
   )
   const stickyIndexes = useMemo(
     () =>

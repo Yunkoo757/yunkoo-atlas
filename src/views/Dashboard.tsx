@@ -48,7 +48,7 @@ import {
   resolveLiveRoute,
   resolveLiveRouteNavigation,
 } from '@/lib/livePerformanceCycleRoute'
-import { countLiveTradesMissingCloseDay } from '@/lib/livePerformanceCycles'
+import { buildPerformanceSelection, PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
 import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
@@ -109,23 +109,29 @@ export function Dashboard() {
     navigate(destination, { replace: true })
   }, [currentLiveRoute.canonicalSearch, currentLiveRoute.needsReplace, currentLiveRoute.target.kind, navigate])
 
-  const trades = useMemo(
-    () => filterTradesByAnalysisScope(
-      allTrades,
+  const performanceSelection = useMemo(
+    () => buildPerformanceSelection(allTrades, {
       scope,
-      businessDateAnchor,
-      tradingDayStartHour,
-      performanceBounds,
-    ),
+      liveScope: currentLiveScope,
+      anchor: businessDateAnchor,
+      legacyCashCurrencyAssumption: PERFORMANCE_REPORT_CURRENCY,
+    }),
     [
       allTrades,
       scope.kind,
       scope.range,
       localDateKey,
       tradingDayStartHour,
-      performanceBounds,
+      currentLiveScope,
     ],
   )
+  const trades = useMemo(() => {
+    const tradeById = new Map(allTrades.map((trade) => [trade.id, trade]))
+    return performanceSelection.eligibleMetricIds.flatMap((id) => {
+      const trade = tradeById.get(id)
+      return trade ? [trade] : []
+    })
+  }, [allTrades, performanceSelection.eligibleMetricIds])
   const activeTrades = useMemo(
     () => allTrades.filter((trade) =>
       !trade.deletedAt &&
@@ -140,7 +146,15 @@ export function Dashboard() {
     [allTrades],
   )
 
-  const stats = useMemo(() => buildDashboardStats(trades, strategyDefs), [trades, strategyDefs])
+  const stats = useMemo(
+    () => buildDashboardStats(
+      allTrades,
+      strategyDefs,
+      performanceSelection.eligibleMetricIds,
+      tradingDayStartHour,
+    ),
+    [allTrades, performanceSelection.eligibleMetricIds, strategyDefs, tradingDayStartHour],
+  )
   const performanceCycleClosedCount = useMemo(
     () => hasPerformanceBounds
       ? filterTradesByAnalysisScope(
@@ -160,10 +174,15 @@ export function Dashboard() {
     ],
   )
   const missingPerformanceCloseDayCount = useMemo(
-    () => scope.kind !== 'paper'
-      ? countLiveTradesMissingCloseDay(allTrades, tradingDayStartHour)
-      : 0,
-    [allTrades, hasPerformanceBounds, scope.kind, tradingDayStartHour],
+    () => {
+      if (scope.kind === 'paper') return 0
+      const liveTradeIds = new Set(allTrades.filter((trade) => trade.tradeKind === 'live').map((trade) => trade.id))
+      return [
+        ...performanceSelection.missingCloseDayIds,
+        ...performanceSelection.invalidCloseDayIds,
+      ].filter((id) => liveTradeIds.has(id)).length
+    },
+    [allTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds, scope.kind],
   )
   const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
   const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
@@ -187,7 +206,14 @@ export function Dashboard() {
   }, [allTrades, businessDateAnchor, localDateKey, performanceBounds, scope.kind, tradingDayStartHour, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
-  const hasClosedTrades = stats.closedCount > 0
+  const scopedClosedCount = performanceSelection.eligibleMetricIds.length
+    + performanceSelection.conflictResultIds.length
+    + performanceSelection.missingResultIds.length
+  const resultHealth = {
+    conflictCount: performanceSelection.conflictResultIds.length,
+    missingResultCount: performanceSelection.missingResultIds.length,
+  }
+  const hasClosedTrades = scopedClosedCount > 0
   const selectedPerformanceCycleIsEmpty = performanceCycleClosedCount === 0
   const activeTradesPath = scope.kind === 'paper' || (
     scope.kind === 'all' && !activeTrades.some((trade) => trade.tradeKind === 'live')
@@ -200,6 +226,7 @@ export function Dashboard() {
     .map(([reason, count]) => `${MISS_REASON_META[reason as MissReason]?.label ?? '其他'} ×${count}`)
     .join(' · ')
   const strategyStatsCycle = undefined
+  const performanceDrilldownHref = `/list${performanceSelection.drilldownTarget}`
 
   const updateScope = (patch: Partial<typeof scope>) => {
     setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
@@ -342,38 +369,42 @@ export function Dashboard() {
           <Card
             label="净盈亏"
             value={stats.pnlCount === 0 ? '—' : fmtMoney(stats.totalPnl, privacyMode)}
-            sub={`当前范围 · ${stats.pnlCount}/${stats.closedCount} 笔含盈亏`}
+            sub={`当前范围 · ${stats.pnlCount}/${scopedClosedCount} 笔含盈亏`}
             accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
+            to={performanceDrilldownHref}
           />
           <Card
             label="胜率"
             value={stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
-            sub={`当前范围 · ${stats.evaluatedCount}/${stats.closedCount} 笔结果有效`}
+            sub={`当前范围 · ${stats.evaluatedCount}/${scopedClosedCount} 笔结果有效`}
+            to={performanceDrilldownHref}
           />
           <Card
             label="平均 R"
             value={stats.averageR == null ? '—' : `${stats.averageR > 0 ? '+' : ''}${stats.averageR.toFixed(2)}`}
-            sub={`当前范围 · ${stats.rCount}/${stats.closedCount} 笔含 R`}
+            sub={`当前范围 · ${stats.rCount}/${scopedClosedCount} 笔含 R`}
             accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
+            to={performanceDrilldownHref}
           />
           <Card
             label="盈利笔数"
             value={stats.evaluatedCount === 0 ? '—' : String(stats.winCount)}
             sub={`当前范围 · 共 ${stats.evaluatedCount} 笔有效结果`}
             muted
+            to={performanceDrilldownHref}
           />
         </div>
 
         {hasClosedTrades && (
-          <div className={'db-data-health' + (stats.conflictCount > 0 ? ' has-conflict' : '')}>
+          <div className={'db-data-health' + (resultHealth.conflictCount > 0 ? ' has-conflict' : '')}>
             <div>
               <span className="db-data-health-title">数据完整度</span>
               <span className="db-data-health-copy">
-                盈亏 {stats.pnlCount}/{stats.closedCount} · R {stats.rCount}/{stats.closedCount}
+                盈亏 {stats.pnlCount}/{scopedClosedCount} · R {stats.rCount}/{scopedClosedCount}
               </span>
             </div>
             <span className="db-data-health-state">
-              {describeDashboardResultHealth(stats)}
+              {describeDashboardResultHealth(resultHealth)}
             </span>
           </div>
         )}
@@ -421,7 +452,7 @@ export function Dashboard() {
             <div>
               <span className="db-panel-title">累计盈亏曲线</span>
               <div className="db-panel-sub">
-                {stats.closedCount} 笔已平仓 · {kindLabel} · {rangeLabel}
+                {scopedClosedCount} 笔已平仓 · {kindLabel} · {rangeLabel}
               </div>
             </div>
             {stats.curve.length > 0 && (
@@ -669,12 +700,14 @@ function Card({
   sub,
   accent,
   muted,
+  to,
 }: {
   label: string
   value: string
   sub?: string
   accent?: boolean
   muted?: boolean
+  to?: string
 }) {
   const color = muted
     ? 'var(--text-primary)'
@@ -683,15 +716,18 @@ function Card({
       : accent
         ? 'var(--pos)'
         : 'var(--neg)'
-  return (
-    <div className="db-card">
+  const content = (
+    <>
       <span className="db-card-label">{label}</span>
       <span className="db-card-value" style={{ color }}>
         {value}
       </span>
       {sub && <span className="db-card-sub">{sub}</span>}
-    </div>
+    </>
   )
+  return to ? (
+    <Link className="db-card" to={to} data-kpi-drilldown style={{ textDecoration: 'none' }}>{content}</Link>
+  ) : <div className="db-card">{content}</div>
 }
 
 function formatDashboardWeekRange(weekStart: string): string {

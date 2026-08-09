@@ -119,3 +119,40 @@ export function testDashboardHealthReportsConflictsAndMissingResultsTogether(): 
     '混合数据问题必须同时呈现，不能让冲突遮住缺失结果',
   )
 }
+
+export function testDashboardStatsUseOnlyEligibleMetricIdsForEveryAggregation(): void {
+  const eligibleA = closedTrade('eligible-a', {
+    pnl: 25,
+    rMultiple: null,
+    resultSource: 'pnl',
+    openedAt: '2030-01-01',
+    closedAt: '2026-08-09T05:59:59.000+08:00',
+  })
+  const eligibleB = closedTrade('eligible-b', {
+    status: 'loss',
+    pnl: -5,
+    rMultiple: null,
+    resultSource: 'pnl',
+    openedAt: '2020-01-01',
+    closedAt: '2026-08-09T06:00:00.000+08:00',
+  })
+  const excluded = closedTrade('excluded', {
+    pnl: 10_000,
+    rMultiple: null,
+    resultSource: 'pnl',
+    openedAt: '2010-01-01',
+    closedAt: '2026-08-08',
+  })
+
+  const stats = buildDashboardStats(
+    [excluded, eligibleB, eligibleA],
+    [strategy],
+    ['eligible-a', 'eligible-b'],
+    6,
+  )
+
+  assert(stats.totalPnl === 20, '总计必须只消费 eligibleMetricIds')
+  assert(stats.curve.map((point) => point.tradeId).join() === 'eligible-a,eligible-b', '曲线成员必须与 eligibleMetricIds 一致')
+  assert(stats.curve.map((point) => point.date).join() === '08-08,08-09', '曲线日期必须按 06:00 平仓业务日计算')
+  assert(stats.strategies[0]?.tradeIds.join() === 'eligible-a,eligible-b', '策略分组成员必须与 eligibleMetricIds 一致')
+}

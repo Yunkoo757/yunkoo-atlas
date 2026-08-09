@@ -3,16 +3,16 @@ import {
   createBusinessDateAnchor,
   formatYmd,
   getPeriodBounds,
-  isDateInRange,
   parseLocalDate,
   DEFAULT_TRADING_DAY_START_HOUR,
   type BusinessDateAnchor,
 } from '@/lib/periods'
-import { isAccountTrade } from '@/lib/tradeKind'
-import { isExecutedClosed } from '@/lib/tradeStatus'
 import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
-import { closedTradingDayKey } from '@/lib/riskBudget'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
+
+export { writeAnalysisScope } from '@/lib/analysisScopeQuery'
 
 export type AnalysisKind = 'live' | 'paper' | 'all'
 export type AnalysisRange = 'all' | 'this-week' | 'this-month' | '30d' | '90d' | 'ytd'
@@ -30,11 +30,6 @@ export interface ParsedAnalysisScope {
 export const DEFAULT_ANALYSIS_SCOPE: AnalysisScope = {
   kind: 'live',
   range: 'all',
-}
-
-function analysisTradingDay(trade: Trade, tradingDayStartHour: number): string | null {
-  if (trade.tradeKind === 'live') return closedTradingDayKey(trade, tradingDayStartHour)
-  return trade.closedTradingDayKey ?? trade.closedAt ?? trade.openedAt
 }
 
 const ANALYSIS_KINDS: AnalysisKind[] = ['live', 'paper', 'all']
@@ -67,58 +62,24 @@ export function filterTradesByAnalysisScope(
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
   performanceBounds: LivePerformanceCycleBounds | null = null,
 ): Trade[] {
-  let scoped = trades.filter((trade) =>
-    !trade.deletedAt &&
-    isAccountTrade(trade) &&
-    isExecutedClosed(trade.status) &&
-    (scope.kind === 'all' || trade.tradeKind === scope.kind),
-  )
-  if (scope.kind !== 'paper') {
-    scoped = scoped.filter((trade) => {
-      if (trade.tradeKind !== 'live') return true
-      const day = analysisTradingDay(trade, tradingDayStartHour)
-      if (day === null) return false
-      if (performanceBounds === null) return true
-      return (
-        (performanceBounds.startInclusive === null || day >= performanceBounds.startInclusive) &&
-        (performanceBounds.endExclusive === null || day < performanceBounds.endExclusive)
-      )
-    })
-  }
-  if (scope.range === 'all') return scoped
-
   const anchor = now instanceof Date
     ? createBusinessDateAnchor(now, tradingDayStartHour)
     : now
-  const end = parseLocalDate(anchor.currentTradingDayKey)
-  const today = anchor.currentTradingDayKey
-  let bounds: { start: string; end: string }
-
-  if (scope.range === 'this-week') {
-    // 与本月一致：周一起点到今天（不含未来周日）
-    bounds = { start: getPeriodBounds('this-week', anchor).start, end: today }
-  } else if (scope.range === 'this-month') {
-    bounds = {
-      start: formatYmd(new Date(end.getFullYear(), end.getMonth(), 1)),
-      end: today,
-    }
-  } else if (scope.range === 'ytd') {
-    bounds = {
-      start: formatYmd(new Date(end.getFullYear(), 0, 1)),
-      end: today,
-    }
-  } else {
-    const dayCount = scope.range === '30d' ? 30 : scope.range === '90d' ? 90 : null
-    if (dayCount === null) return scoped
-    const start = new Date(end)
-    start.setDate(start.getDate() - (dayCount - 1))
-    bounds = { start: formatYmd(start), end: today }
-  }
-
-  return scoped.filter((trade) => {
-    const day = analysisTradingDay(trade, tradingDayStartHour)
-    return day !== null && isDateInRange(day, bounds)
-  })
+  const liveScope: LiveArchiveScope | null = performanceBounds === null
+    ? null
+    : {
+        kind: 'current',
+        archiveId: null,
+        bounds: performanceBounds,
+        label: '当前实盘',
+      }
+  const eligibleIds = new Set(buildPerformanceSelection(trades, {
+    scope,
+    liveScope,
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  }).eligibleMetricIds)
+  return trades.filter((trade) => eligibleIds.has(trade.id))
 }
 
 export function intersectLiveScopeWithNaturalRange(
@@ -147,16 +108,6 @@ export function intersectLiveScopeWithNaturalRange(
   const intersectedEnd = scope.bounds.endExclusive && scope.bounds.endExclusive < endExclusive
     ? scope.bounds.endExclusive : endExclusive
   return intersectedStart >= intersectedEnd ? null : { startInclusive: intersectedStart, endExclusive: intersectedEnd }
-}
-
-export function writeAnalysisScope(
-  input: string | URLSearchParams,
-  scope: AnalysisScope,
-): URLSearchParams {
-  const params = new URLSearchParams(input)
-  params.set('kind', scope.kind)
-  params.set('range', scope.range)
-  return params
 }
 
 export function strategyAnalysisHref(

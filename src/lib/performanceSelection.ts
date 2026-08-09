@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
-import { writeAnalysisScope, type AnalysisRange, type AnalysisScope } from '@/lib/analysisScope'
+import type { AnalysisRange, AnalysisScope } from '@/lib/analysisScope'
+import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
 import { formatYmd, getPeriodBounds, parseLocalDate, type BusinessDateAnchor } from '@/lib/periods'
 import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'

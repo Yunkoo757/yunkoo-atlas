@@ -103,6 +103,73 @@ export function testLiveAndAllAnalysisExcludeLiveResultsWithoutReliableCloseDay(
   )
 }
 
+export function testPaperTerminalWithoutCloseFactNeverEntersPerformanceRanges(): void {
+  const paperWithoutClose: Trade = {
+    ...closedLiveTrade,
+    id: 'paper-without-close',
+    tradeKind: 'paper',
+    openedAt: '2026-07-16',
+    closedAt: null,
+  }
+
+  for (const range of ['all', 'this-week', 'this-month', '30d', '90d', 'ytd'] as const) {
+    const result = filterTradesByAnalysisScope(
+      [paperWithoutClose],
+      { kind: 'paper', range },
+      new Date(2026, 6, 16, 12),
+    )
+    assert(result.length === 0, `${range} 不得用 openedAt 补造模拟盘平仓事实`)
+  }
+}
+
+export function testAllRangeStopsAtTheNextBusinessDayExclusiveBoundary(): void {
+  const result = filterTradesByAnalysisScope(
+    [
+      { ...closedLiveTrade, id: 'today', closedAt: '2026-07-16' },
+      { ...closedLiveTrade, id: 'future', closedAt: '2026-07-17' },
+    ],
+    { kind: 'live', range: 'all' },
+    new Date(2026, 6, 16, 12),
+  )
+
+  assert(result.map((trade) => trade.id).join() === 'today', 'all 必须应用 [起点, 下一业务日) 上界并排除未来平仓')
+}
+
+export function testAnalysisScopeUsesFrozenOrDerivedCloseDayAcrossTheSixAmBoundary(): void {
+  const result = filterTradesByAnalysisScope(
+    [
+      {
+        ...closedLiveTrade,
+        id: 'derived-0559',
+        openedAt: '2026-08-09',
+        closedAt: '2026-08-09T05:59:59.000+08:00',
+      },
+      {
+        ...closedLiveTrade,
+        id: 'derived-0600',
+        openedAt: '2026-08-08',
+        closedAt: '2026-08-09T06:00:00.000+08:00',
+      },
+      {
+        ...closedLiveTrade,
+        id: 'frozen-previous-day',
+        openedAt: '2026-08-09',
+        closedAt: '2026-08-09T06:00:00.000+08:00',
+        closedTradingDayKey: '2026-08-08',
+      },
+    ],
+    { kind: 'live', range: 'this-week' },
+    new Date(2026, 7, 9, 12),
+    6,
+    { startInclusive: '2026-08-09', endExclusive: '2026-08-10' },
+  )
+
+  assert(
+    result.map((trade) => trade.id).join() === 'derived-0600',
+    '06:00 边界必须按固化/推导平仓业务日归属，且冻结事实优先于 closedAt',
+  )
+}
+
 export function testThirtyDayScopeUsesInclusiveClosedDateWindow(): void {
   const trades: Trade[] = [
     {

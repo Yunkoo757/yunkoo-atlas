@@ -91,6 +91,8 @@ import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { buildPerformanceSelection, PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import {
   loadDetailNote,
   removeMissingAssetReferences,
@@ -182,6 +184,27 @@ export function DetailView() {
   const privacyMode = useStore((s) => s.display.privacyMode)
   const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
+  const businessDateAnchor = useBusinessDateAnchor()
+  const performanceSelection = useMemo(
+    () => buildPerformanceSelection(trade ? [trade] : [], {
+      scope: { kind: 'all', range: 'all' },
+      liveScope: null,
+      anchor: businessDateAnchor,
+      legacyCashCurrencyAssumption: PERFORMANCE_REPORT_CURRENCY,
+    }),
+    [businessDateAnchor, trade],
+  )
+  const performanceDateState = trade
+    ? performanceSelection.missingCloseDayIds.includes(trade.id)
+      ? '待补平仓日期'
+      : performanceSelection.invalidCloseDayIds.includes(trade.id)
+        ? '平仓日期无效'
+        : performanceSelection.futureCloseDayIds.includes(trade.id)
+          ? '未来业务日，暂未计入'
+          : performanceSelection.eligibleMetricIds.includes(trade.id)
+            ? '已按平仓业务日计入'
+            : '日期有效，结果暂未计入'
+    : null
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
@@ -1450,12 +1473,15 @@ export function DetailView() {
             {isTerminal(trade.status) ? (
               <EditableDateRow
                 label="平仓"
-                value={trade.closedAt ?? trade.openedAt}
+                value={trade.closedAt ?? ''}
                 onSave={(v) => requestTradeDataUpdate({ closedAt: v })}
               />
             ) : (
               <DataRow label="平仓" value="—" />
             )}
+            {isTerminal(trade.status) && trade.tradeKind !== 'case' && performanceDateState ? (
+              <DataRow label="绩效日期状态" value={performanceDateState} />
+            ) : null}
             {trade.tradeKind === 'case' && trade.masteryState !== 'mastered' && trade.nextReviewAt && (
               <EditableDateRow
                 label="下次复看"

@@ -1,5 +1,7 @@
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
+import { DEFAULT_TRADING_DAY_START_HOUR } from '@/lib/periods'
+import { closedTradingDayKey } from '@/lib/riskBudget'
 import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
 
 export const MAX_DASHBOARD_CURVE_POINTS = 600
@@ -100,13 +102,25 @@ export function describeDashboardResultHealth({
   return issues.join(' · ') || '结果完整'
 }
 
-export function buildDashboardStats(closed: Trade[], strategyDefs: Strategy[]) {
-  const summary = summarizeTradeResults(closed)
+export function buildDashboardStats(
+  closed: Trade[],
+  strategyDefs: Strategy[],
+  eligibleMetricIds?: readonly string[],
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+) {
+  const tradeById = new Map(closed.map((trade) => [trade.id, trade]))
+  const selected = eligibleMetricIds === undefined
+    ? closed
+    : eligibleMetricIds.flatMap((id) => {
+        const trade = tradeById.get(id)
+        return trade ? [trade] : []
+      })
+  const summary = summarizeTradeResults(selected)
   const missingResultCount = Math.max(
     0,
     summary.closedCount - summary.evaluatedCount - summary.conflictCount,
   )
-  const verified = closed.filter(isVerifiedTradeResult)
+  const verified = selected.filter(isVerifiedTradeResult)
   const pnlTrades = verified.filter(
     (trade): trade is Trade & { pnl: number } =>
       typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
@@ -116,16 +130,15 @@ export function buildDashboardStats(closed: Trade[], strategyDefs: Strategy[]) {
       typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
   )
 
-  const sorted = [...pnlTrades].sort(
-    (left, right) =>
-      +new Date(left.closedAt ?? left.openedAt) - +new Date(right.closedAt ?? right.openedAt),
-  )
+  const sorted = [...pnlTrades]
+    .map((trade) => ({ trade, day: closedTradingDayKey(trade, tradingDayStartHour) }))
+    .filter((item): item is { trade: Trade & { pnl: number }, day: string } => item.day !== null)
+    .sort((left, right) => left.day.localeCompare(right.day))
   let cumulative = 0
-  const fullCurve: DashboardCurvePoint[] = sorted.map((trade) => {
+  const fullCurve: DashboardCurvePoint[] = sorted.map(({ trade, day }) => {
     cumulative += trade.pnl
-    const closedOn = (trade.closedAt ?? trade.openedAt).slice(0, 10)
     return {
-      date: closedOn.slice(5),
+      date: day.slice(5),
       equity: cumulative,
       label: trade.symbol,
       tradeId: trade.id,
@@ -135,7 +148,7 @@ export function buildDashboardStats(closed: Trade[], strategyDefs: Strategy[]) {
   })
 
   const byStrategy = new Map<string, Trade[]>()
-  for (const trade of closed) {
+  for (const trade of selected) {
     const strategyTrades = byStrategy.get(trade.strategyId)
     if (strategyTrades) strategyTrades.push(trade)
     else byStrategy.set(trade.strategyId, [trade])
@@ -147,6 +160,7 @@ export function buildDashboardStats(closed: Trade[], strategyDefs: Strategy[]) {
       const meta = strategyById.get(id)
       return {
         id,
+        tradeIds: strategyTrades.map((trade) => trade.id),
         pnl: result.totalPnl,
         pnlCount: result.pnlCount,
         n: result.evaluatedCount,

@@ -8,6 +8,10 @@ import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 import { DetailView } from '@/views/DetailView'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { parseAnalysisScope } from '@/lib/analysisScope'
+import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { createBusinessDateAnchor } from '@/lib/periods'
 
 declare global {
   interface Window {
@@ -285,11 +289,42 @@ async function run(): Promise<void> {
     root = createRoot(rootElement)
     root.render(
       <MemoryRouter initialEntries={['/dashboard?kind=all&range=all']}>
-        <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/list" element={<LocationProbe />} />
+        </Routes>
       </MemoryRouter>,
     )
     await waitFor(() => document.body.textContent?.includes('+$150') ?? false, '全部范围必须保留全部模拟盘且只包含当前实盘')
     assert(!document.body.textContent?.includes('+$1,050'), '全部范围不得把历史归档实盘重新混入统计')
+    const anchor = createBusinessDateAnchor(new Date(), useStore.getState().display.tradingDayStartHour)
+    const dashboardSelection = buildPerformanceSelection(useStore.getState().trades, {
+      scope: { kind: 'all', range: 'all' },
+      liveScope: resolveLiveArchiveScope(cycles, null),
+      anchor,
+      legacyCashCurrencyAssumption: 'USD',
+    })
+    const kpi = document.querySelector<HTMLAnchorElement>('[data-kpi-drilldown]')
+    assert(kpi, 'Dashboard KPI 必须提供统一选择器范围的下钻链接')
+    kpi.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent?.startsWith('/list?') ?? false,
+      'KPI 下钻必须进入携带分析范围的交易 URL',
+    )
+    const drilldownLocation = document.querySelector('[data-testid="location"]')?.textContent ?? ''
+    const drilldownSelection = buildPerformanceSelection(useStore.getState().trades, {
+      scope: parseAnalysisScope(drilldownLocation.slice(drilldownLocation.indexOf('?'))).scope,
+      liveScope: resolveLiveArchiveScope(cycles, null),
+      anchor,
+      legacyCashCurrencyAssumption: 'USD',
+    })
+    const dashboardIds = new Set(dashboardSelection.eligibleMetricIds)
+    const drilldownIds = new Set(drilldownSelection.eligibleMetricIds)
+    const difference = [
+      ...dashboardSelection.eligibleMetricIds.filter((id) => !drilldownIds.has(id)),
+      ...drilldownSelection.eligibleMetricIds.filter((id) => !dashboardIds.has(id)),
+    ]
+    assert(difference.length === 0, `KPI URL 与 Dashboard 选择器 ID 差集必须为 0，实际 ${difference.join(',')}`)
 
     root.unmount()
     const weekStart = weekStartFor(new Date(`${currentDay}T12:00:00`))
