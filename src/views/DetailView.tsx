@@ -91,7 +91,7 @@ import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
-import { buildPerformanceSelection, PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import {
   loadDetailNote,
@@ -190,9 +190,9 @@ export function DetailView() {
       scope: { kind: 'all', range: 'all' },
       liveScope: null,
       anchor: businessDateAnchor,
-      legacyCashCurrencyAssumption: PERFORMANCE_REPORT_CURRENCY,
+      legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
-    [businessDateAnchor, trade],
+    [businessDateAnchor, profile.legacyCashCurrencyAssumption, trade],
   )
   const performanceDateState = trade
     ? performanceSelection.missingCloseDayIds.includes(trade.id)
@@ -1418,7 +1418,7 @@ export function DetailView() {
               format={(v) =>
                 trade.status === 'planned' || trade.status === 'open'
                   ? '—'
-                  : fmtMoney(v as number, privacyMode)
+                  : fmtMoney(v as number, trade.cashCurrency ?? null, privacyMode)
               }
               inputType="number"
               nullable

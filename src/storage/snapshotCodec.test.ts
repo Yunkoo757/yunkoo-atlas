@@ -72,6 +72,42 @@ export function testVersionTenSnapshotWithoutPerformanceCyclesUsesEmptyBoundarie
   )
 }
 
+export function testLegacySnapshotLoadsWithNoCashCurrencyAssumptionAndPreservesTradeFacts(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const legacy = structuredClone(fixture) as unknown as Record<string, unknown>
+  const profile = { ...(legacy.profile as Record<string, unknown>) }
+  delete profile.legacyCashCurrencyAssumption
+  legacy.profile = profile
+  legacy.trades = [
+    { ...fixture.trades[0], id: 'legacy-missing-currency' },
+    { ...fixture.trades[0], id: 'explicit-unknown-currency', cashCurrency: null },
+  ]
+  delete (legacy.trades as Array<Record<string, unknown>>)[0]!.cashCurrency
+
+  const decoded = decodeCanonicalSnapshot(legacy, { version: 10 })
+  assert(decoded.profile.legacyCashCurrencyAssumption === null, 'v10 profile 必须迁移为未确认假设')
+  assert(
+    !Object.prototype.hasOwnProperty.call(decoded.trades[0]!, 'cashCurrency'),
+    '旧交易缺失 cashCurrency 必须继续保持缺字段，不得迁移成 USD',
+  )
+  assert(decoded.trades[1]!.cashCurrency === null, '显式 unknown 币种必须逐字保留')
+}
+
+export function testConfirmedCashCurrencyAssumptionSurvivesCanonicalRoundTrip(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const assumption = { currency: 'USD' as const, confirmedAt: '2026-08-09T04:00:00.000Z' }
+  const once = decodeCanonicalSnapshot({
+    ...fixture,
+    profile: { ...fixture.profile!, legacyCashCurrencyAssumption: assumption },
+  }, { version: SCHEMA_VERSION })
+  const twice = decodeCanonicalSnapshot(once, { version: SCHEMA_VERSION })
+
+  assert(
+    canonicalContractJson(twice.profile.legacyCashCurrencyAssumption) === canonicalContractJson(assumption),
+    '显式 USD 假设必须在当前 schema round-trip 后保持不变',
+  )
+}
+
 export function testSnapshotCodecIsIdempotentAndPreservesTheFullGoldenFixture(): void {
   const expected = createFullPersistedSnapshotFixture()
   const once = decodeCanonicalSnapshot(expected, { version: SCHEMA_VERSION })

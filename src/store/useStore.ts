@@ -174,6 +174,18 @@ export interface ImportDataHealthStoreDependencies {
   persistSnapshot: (snapshot: import('@/storage/types').PersistedSnapshot) => Promise<void>
 }
 
+export interface LegacyCashCurrencyAssumptionStoreDependencies {
+  now: () => string
+  persistSnapshot: (snapshot: PersistedSnapshot) => Promise<void>
+  boundary: {
+    lockInteraction: () => () => void
+    flushBeforeCommit: () => Promise<void>
+    suspendPersist: () => void
+    resumePersist: () => void
+    discardPendingAndResumePersist: () => void
+  }
+}
+
 function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boolean {
   return left.capitalBase === right.capitalBase &&
     left.riskPercent === right.riskPercent &&
@@ -474,6 +486,10 @@ interface State {
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
   hydrateProfile: (profile?: UserProfile) => void
+  setLegacyCashCurrencyAssumption: (
+    confirmed: boolean,
+    dependencies?: LegacyCashCurrencyAssumptionStoreDependencies,
+  ) => Promise<void>
   saveWeeklyRiskDraft: (weekStart: string, draft: RiskPolicyDraft, updatedAt: string) => void
   confirmWeeklyRiskPreparation: (
     input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
@@ -786,7 +802,11 @@ export const useStore = create<State>()((set, get) => ({
       tagPresets: [],
       mistakeTagPresets: [],
       display: DEFAULT_DISPLAY,
-      profile: { avatarId: null, displayName: DEFAULT_USER_DISPLAY_NAME },
+      profile: {
+        avatarId: null,
+        displayName: DEFAULT_USER_DISPLAY_NAME,
+        legacyCashCurrencyAssumption: null,
+      },
       savedTradeViews: [],
       symbolIcons: {},
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
@@ -1016,9 +1036,68 @@ export const useStore = create<State>()((set, get) => ({
                 avatarId: profile.avatarId ?? null,
                 displayName: profile.displayName || DEFAULT_USER_DISPLAY_NAME,
                 customAvatarDataUrl: profile.customAvatarDataUrl ?? null,
+                legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption
+                  ? { ...profile.legacyCashCurrencyAssumption }
+                  : null,
               }
             : s.profile,
         })),
+      setLegacyCashCurrencyAssumption: async (confirmed, dependencies) => {
+        let resolvedDependencies = dependencies
+        if (!resolvedDependencies) {
+          const [cutoverModule, persistModule, storageModule] = await Promise.all([
+            import('@/storage/cutover'),
+            import('@/storage/persist'),
+            import('@/storage'),
+          ])
+          resolvedDependencies = {
+            now: () => new Date().toISOString(),
+            persistSnapshot: (snapshot) => storageModule.getStorage().commitImport(snapshot, []),
+            boundary: {
+              lockInteraction: cutoverModule.lockStorageCutoverInteraction,
+              flushBeforeCommit: cutoverModule.flushStorageBeforeCutover,
+              suspendPersist: persistModule.suspendPersist,
+              resumePersist: persistModule.resumePersist,
+              discardPendingAndResumePersist: persistModule.discardPendingAndResumePersist,
+            },
+          }
+        }
+
+        const unlockInteraction = resolvedDependencies.boundary.lockInteraction()
+        let suspended = false
+        let committed = false
+        try {
+          await resolvedDependencies.boundary.flushBeforeCommit()
+          resolvedDependencies.boundary.suspendPersist()
+          suspended = true
+          const [persistModule, shortcutModule] = await Promise.all([
+            import('@/storage/persist'),
+            import('@/store/shortcutStore'),
+          ])
+          const current = get()
+          const nextProfile: UserProfile = {
+            ...current.profile,
+            legacyCashCurrencyAssumption: confirmed
+              ? { currency: 'USD', confirmedAt: resolvedDependencies.now() }
+              : null,
+          }
+          const snapshot = persistModule.pickPersisted(
+            { ...current, profile: nextProfile },
+            shortcutModule.useShortcutStore.getState().bindings,
+          )
+          await resolvedDependencies.persistSnapshot(snapshot)
+          committed = true
+          set({ profile: nextProfile })
+          resolvedDependencies.boundary.discardPendingAndResumePersist()
+          suspended = false
+        } finally {
+          if (suspended) {
+            if (committed) resolvedDependencies.boundary.discardPendingAndResumePersist()
+            else resolvedDependencies.boundary.resumePersist()
+          }
+          unlockInteraction()
+        }
+      },
       saveWeeklyRiskDraft: (weekStart, draft, updatedAt) =>
         set((s) => {
           const id = `weekly-risk-preparation:${weekStart}`

@@ -107,6 +107,7 @@ export function buildDashboardStats(
   strategyDefs: Strategy[],
   eligibleMetricIds?: readonly string[],
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+  eligibleUsdPnlIds: readonly string[] = [],
 ) {
   const tradeById = new Map(closed.map((trade) => [trade.id, trade]))
   const selected = eligibleMetricIds === undefined
@@ -121,9 +122,11 @@ export function buildDashboardStats(
     summary.closedCount - summary.evaluatedCount - summary.conflictCount,
   )
   const verified = selected.filter(isVerifiedTradeResult)
+  const eligibleUsdPnlIdSet = new Set(eligibleUsdPnlIds)
   const pnlTrades = verified.filter(
     (trade): trade is Trade & { pnl: number } =>
-      typeof trade.pnl === 'number' && Number.isFinite(trade.pnl),
+      typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
+      eligibleUsdPnlIdSet.has(trade.id),
   )
   const rTrades = verified.filter(
     (trade): trade is Trade & { rMultiple: number } =>
@@ -157,12 +160,16 @@ export function buildDashboardStats(
   const strategies = [...byStrategy.entries()]
     .map(([id, strategyTrades]) => {
       const result = summarizeTradeResults(strategyTrades)
+      const usdPnlTrades = strategyTrades.filter((trade) =>
+        typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
+        eligibleUsdPnlIdSet.has(trade.id),
+      )
       const meta = strategyById.get(id)
       return {
         id,
         tradeIds: strategyTrades.map((trade) => trade.id),
-        pnl: result.totalPnl,
-        pnlCount: result.pnlCount,
+        pnl: usdPnlTrades.reduce((total, trade) => total + (trade.pnl ?? 0), 0),
+        pnlCount: usdPnlTrades.length,
         n: result.evaluatedCount,
         closedCount: result.closedCount,
         wins: result.winCount,
@@ -189,6 +196,8 @@ export function buildDashboardStats(
 
   return {
     ...summary,
+    totalPnl: pnlTrades.reduce((total, trade) => total + trade.pnl, 0),
+    pnlCount: pnlTrades.length,
     missingResultCount,
     curve: downsampleDashboardCurve(fullCurve),
     strategies,

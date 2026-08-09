@@ -407,7 +407,7 @@ function BoardColumnBody({
                             : 'var(--text-tertiary)',
                     }}
                   >
-                    {t.status === 'planned' || t.status === 'open' ? '—' : fmtMoney(t.pnl, privacyMode)}
+                    {t.status === 'planned' || t.status === 'open' ? '—' : fmtMoney(t.pnl, t.cashCurrency ?? null, privacyMode)}
                   </span>
                   {t.status !== 'planned' && t.status !== 'open' && (
                     <span className="bd-card-r">{fmtR(t.rMultiple)}</span>

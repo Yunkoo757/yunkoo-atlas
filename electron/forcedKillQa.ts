@@ -13,6 +13,7 @@ function snapshot(label: string, noteBytes = 0) {
     avatarId: value.profile?.avatarId ?? null,
     displayName: label,
     customAvatarDataUrl: value.profile?.customAvatarDataUrl ?? null,
+    legacyCashCurrencyAssumption: value.profile?.legacyCashCurrencyAssumption ?? null,
   }
   if (noteBytes > 0) {
     value.trades[0] = {

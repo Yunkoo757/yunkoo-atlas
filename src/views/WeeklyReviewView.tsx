@@ -139,7 +139,7 @@ function TradeEvidence({
   const isMissedTrade = trade.status === 'missed'
   const result = isMissedTrade
     ? `错过 · ${MISS_REASON_META[trade.missReason ?? 'other'].label}`
-    : typeof trade.pnl === 'number' ? fmtMoney(trade.pnl, privacyMode) : fmtR(trade.rMultiple)
+    : typeof trade.pnl === 'number' ? fmtMoney(trade.pnl, null, privacyMode) : fmtR(trade.rMultiple)
   const roleButtons = [
     { key: 'highlightTradeIds' as const, label: '做得好' },
     { key: 'mistakeTradeIds' as const, label: '犯错' },
@@ -533,7 +533,7 @@ export function WeeklyReviewView() {
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
                   <Metric label="胜率" value={metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} hint={`${metrics.winCount} 赢 · ${metrics.lossCount} 亏 · ${metrics.breakevenCount} 平`} />
-                  <Metric label="净盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl, privacyMode) : '—'} tone={privacyMode ? undefined : metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={`${metrics.pnlCount}/${metrics.tradeCount} 笔含盈亏`} />
+                  <Metric label="净盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl, 'USD', privacyMode) : '—'} tone={privacyMode ? undefined : metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={`${metrics.pnlCount}/${metrics.tradeCount} 笔含盈亏`} />
                   <Metric label="平均 R" value={fmtR(metrics.averageR)} tone={(metrics.averageR ?? 0) > 0 ? 'positive' : (metrics.averageR ?? 0) < 0 ? 'negative' : undefined} hint={`${metrics.rCount}/${metrics.tradeCount} 笔含 R`} />
                 </div>
                 {metrics.missedCount > 0 ? (

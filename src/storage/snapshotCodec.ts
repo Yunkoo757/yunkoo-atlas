@@ -145,6 +145,15 @@ function decodeLivePerformanceCycles(
   return value
 }
 
+function decodeProfile(raw: Record<string, unknown>, version: number): unknown {
+  const value = raw.profile
+  if (value === undefined || !isRecord(value)) return value
+  if (version <= 10 && !Object.prototype.hasOwnProperty.call(value, 'legacyCashCurrencyAssumption')) {
+    return { ...value, legacyCashCurrencyAssumption: null }
+  }
+  return value
+}
+
 function backfillClosedTradingDayKeys(
   value: unknown,
   tradingDayStartHour: unknown,
@@ -210,7 +219,7 @@ export function decodeCanonicalSnapshot(
     shortcuts: raw.shortcuts as PersistedSnapshot['shortcuts'],
     tagPresets: raw.tagPresets as PersistedSnapshot['tagPresets'],
     mistakeTagPresets: raw.mistakeTagPresets as PersistedSnapshot['mistakeTagPresets'],
-    profile: raw.profile as PersistedSnapshot['profile'],
+    profile: decodeProfile(raw, options.version) as PersistedSnapshot['profile'],
     savedTradeViews: raw.savedTradeViews as PersistedSnapshot['savedTradeViews'],
     symbolIcons: raw.symbolIcons as PersistedSnapshot['symbolIcons'],
     symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
@@ -258,7 +267,14 @@ export function decodeCanonicalSnapshot(
     shortcuts: migrateShortcutBindings(candidate.shortcuts),
     tagPresets: mergeTagPresets(candidate.tagPresets),
     mistakeTagPresets: mergeTagPresets(candidate.mistakeTagPresets),
-    profile: candidate.profile ? { ...candidate.profile } : createDefaultUserProfile(),
+    profile: candidate.profile
+      ? {
+          ...candidate.profile,
+          legacyCashCurrencyAssumption: candidate.profile.legacyCashCurrencyAssumption
+            ? { ...candidate.profile.legacyCashCurrencyAssumption }
+            : null,
+        }
+      : createDefaultUserProfile(),
     savedTradeViews: normalizeSavedTradeViews(candidate.savedTradeViews),
     symbolIcons,
     symbolCatalog: normalizeSymbolCatalog(symbolCatalogSource),

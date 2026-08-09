@@ -90,7 +90,7 @@ function snapshotWithNote(note: string, displayName: string): PersistedSnapshot 
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: { ...DEFAULT_DISPLAY },
-    profile: { avatarId: null, displayName },
+    profile: { avatarId: null, displayName, legacyCashCurrencyAssumption: null },
   }
 }
 

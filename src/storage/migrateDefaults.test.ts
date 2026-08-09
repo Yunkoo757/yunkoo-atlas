@@ -46,7 +46,7 @@ function snapshotWithEmptyTrades(
     display: { ...DEFAULT_DISPLAY },
     tagPresets: ['既有标签'],
     mistakeTagPresets: ['既有错误'],
-    profile: { avatarId: 'monogram-2', displayName },
+    profile: { avatarId: 'monogram-2', displayName, legacyCashCurrencyAssumption: null },
   }
 }
 
@@ -124,7 +124,7 @@ export function testProfileFallbacksUseTheNeutralDisplayNameConstant(): void {
   try {
     useStore.getState().setDisplayName('   ')
     assert(useStore.getState().profile.displayName === DEFAULT_USER_DISPLAY_NAME, '空名称保存必须回退中性名称')
-    useStore.getState().hydrateProfile({ avatarId: null, displayName: '' })
+    useStore.getState().hydrateProfile({ avatarId: null, displayName: '', legacyCashCurrencyAssumption: null })
     assert(useStore.getState().profile.displayName === DEFAULT_USER_DISPLAY_NAME, '空快照名称必须回退中性名称')
   } finally {
     useStore.setState({ profile: previous })

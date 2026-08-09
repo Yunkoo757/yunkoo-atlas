@@ -79,6 +79,7 @@ export function Dashboard() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const allTrades = useStore((s) => s.trades)
+  const profile = useStore((s) => s.profile)
   const strategyDefs = useStore((s) => s.strategies)
   const performanceCycles = useStore((s) => s.livePerformanceCycles)
   const privacyMode = useStore((s) => s.display.privacyMode)
@@ -114,7 +115,7 @@ export function Dashboard() {
       scope,
       liveScope: currentLiveScope,
       anchor: businessDateAnchor,
-      legacyCashCurrencyAssumption: PERFORMANCE_REPORT_CURRENCY,
+      legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
     [
       allTrades,
@@ -123,6 +124,7 @@ export function Dashboard() {
       localDateKey,
       tradingDayStartHour,
       currentLiveScope,
+      profile.legacyCashCurrencyAssumption,
     ],
   )
   const activeTrades = useMemo(
@@ -145,8 +147,9 @@ export function Dashboard() {
       strategyDefs,
       performanceSelection.eligibleMetricIds,
       tradingDayStartHour,
+      performanceSelection.pnlIds,
     ),
-    [allTrades, performanceSelection.eligibleMetricIds, strategyDefs, tradingDayStartHour],
+    [allTrades, performanceSelection.eligibleMetricIds, performanceSelection.pnlIds, strategyDefs, tradingDayStartHour],
   )
   const performanceCycleClosedCount = useMemo(
     () => hasPerformanceBounds
@@ -195,13 +198,31 @@ export function Dashboard() {
         tradingDayStartHour,
         performanceBounds,
       )
-    return buildWeeklyReviewMetrics(weekTrades, missed)
-  }, [allTrades, businessDateAnchor, localDateKey, performanceBounds, scope.kind, tradingDayStartHour, weekStart])
+    return buildWeeklyReviewMetrics(weekTrades, missed, performanceSelection.pnlIds)
+  }, [allTrades, businessDateAnchor, localDateKey, performanceBounds, performanceSelection.pnlIds, scope.kind, tradingDayStartHour, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
   const scopedClosedCount = performanceSelection.eligibleMetricIds.length
     + performanceSelection.conflictResultIds.length
     + performanceSelection.missingResultIds.length
+  const currencyCashFactCount = performanceSelection.usdCoveredCount
+    + performanceSelection.excludedUnknownCount
+    + performanceSelection.excludedCurrencyCounts.reduce((total, item) => total + item.count, 0)
+  const currencyExclusionLabel = [
+    ...performanceSelection.excludedCurrencyCounts.map((item) => `${item.currency} ${item.count} 笔`),
+    performanceSelection.excludedUnknownCount > 0
+      ? `币种未知 ${performanceSelection.excludedUnknownCount} 笔`
+      : '',
+  ].filter(Boolean).join(' · ')
+  const combinedUsdTotals = useMemo(() => {
+    const usdIds = new Set(performanceSelection.pnlIds)
+    return allTrades.reduce((totals, trade) => {
+      if (!usdIds.has(trade.id) || typeof trade.pnl !== 'number') return totals
+      if (trade.tradeKind === 'live') totals.live += trade.pnl
+      if (trade.tradeKind === 'paper') totals.paper += trade.pnl
+      return totals
+    }, { live: 0, paper: 0 })
+  }, [allTrades, performanceSelection.pnlIds])
   const resultHealth = {
     conflictCount: performanceSelection.conflictResultIds.length,
     missingResultCount: performanceSelection.missingResultIds.length,
@@ -326,7 +347,7 @@ export function Dashboard() {
                         : 'var(--neg)',
                   }}
                 >
-                  {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, privacyMode)}
+                  {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
                 </strong>
                 <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small>
               </div>
@@ -361,7 +382,11 @@ export function Dashboard() {
         <div className="db-cards" aria-label={`当前范围指标 · ${kindLabel} · ${rangeLabel}`}>
           <Card
             label="净盈亏"
-            value={stats.pnlCount === 0 ? '—' : fmtMoney(stats.totalPnl, privacyMode)}
+            value={stats.pnlCount === 0
+              ? '—'
+              : scope.kind === 'all'
+                ? `实盘 ${fmtMoney(combinedUsdTotals.live, PERFORMANCE_REPORT_CURRENCY, privacyMode)} · 模拟 ${fmtMoney(combinedUsdTotals.paper, PERFORMANCE_REPORT_CURRENCY, privacyMode)}`
+                : fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
             sub={`当前范围 · ${stats.pnlCount}/${scopedClosedCount} 笔含盈亏`}
             accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
             to={performanceDrilldownHref}
@@ -401,6 +426,27 @@ export function Dashboard() {
             </span>
           </div>
         )}
+
+        {currencyCashFactCount > 0 ? (
+          <div
+            className={'db-data-health' + (performanceSelection.currencyMergeStatus === 'usd-with-exclusions' ? ' has-conflict' : '')}
+            data-currency-merge-status={performanceSelection.currencyMergeStatus}
+          >
+            <div>
+              <span className="db-data-health-title">USD 现金汇总</span>
+              <span className="db-data-health-copy">
+                USD 覆盖 {performanceSelection.usdCoveredCount}/{currencyCashFactCount} 笔
+              </span>
+            </div>
+            <span className="db-data-health-state">
+              {performanceSelection.currencyMergeStatus === 'usd-only'
+                ? '仅合并 USD'
+                : performanceSelection.currencyMergeStatus === 'no-usd-data'
+                  ? `暂无 USD 现金数据${currencyExclusionLabel ? ` · 已排除 ${currencyExclusionLabel}` : ''}`
+                  : `仅合并 USD · 已排除 ${currencyExclusionLabel}`}
+            </span>
+          </div>
+        ) : null}
 
         {missingPerformanceCloseDayCount > 0 ? (
           <div className="db-data-health has-conflict">
@@ -519,8 +565,8 @@ export function Dashboard() {
                                 </Link>
                               </th>
                               <td>{point.date}</td>
-                              <td>{fmtMoney(point.pnl, privacyMode)}</td>
-                              <td>{fmtMoney(point.equity, privacyMode)}</td>
+                              <td>{fmtMoney(point.pnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</td>
+                              <td>{fmtMoney(point.equity, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</td>
                             </tr>
                           )
                         })}
@@ -574,7 +620,7 @@ export function Dashboard() {
                           : 'var(--neg)',
                     }}
                   >
-                    {s.pnlCount === 0 ? '—' : fmtMoney(s.pnl, privacyMode)}
+                    {s.pnlCount === 0 ? '—' : fmtMoney(s.pnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
                   </div>
                 </Link>
               ))
@@ -676,11 +722,11 @@ function CurveTooltip({
       <div className="db-chart-tip-symbol">{p.label}</div>
       <div className="db-chart-tip-row">
         <span>单笔</span>
-        <span style={{ color: privacyMode ? 'var(--text-tertiary)' : p.pnl >= 0 ? 'var(--pos)' : 'var(--neg)' }}>{fmtMoney(p.pnl, privacyMode)}</span>
+        <span style={{ color: privacyMode ? 'var(--text-tertiary)' : p.pnl >= 0 ? 'var(--pos)' : 'var(--neg)' }}>{fmtMoney(p.pnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</span>
       </div>
       <div className="db-chart-tip-row">
         <span>累计</span>
-        <span>{fmtMoney(p.equity, privacyMode)}</span>
+        <span>{fmtMoney(p.equity, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</span>
       </div>
       <div className="db-chart-tip-hint">点击查看交易</div>
     </div>

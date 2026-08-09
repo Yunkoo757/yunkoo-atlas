@@ -157,7 +157,7 @@ async function run(): Promise<void> {
     ]))
     const nextSnapshot = {
       ...createFullPersistedSnapshotFixture(),
-      profile: { avatarId: null, displayName: 'Release 0 成功候选' },
+      profile: { avatarId: null, displayName: 'Release 0 成功候选', legacyCashCurrencyAssumption: null },
     }
     await seedRelease0Library(db, oldSnapshot, makeAssets('old'))
 
@@ -196,7 +196,7 @@ async function run(): Promise<void> {
     try {
       await replaceArchiveAsRelease0(
         db,
-        { ...nextSnapshot, profile: { avatarId: null, displayName: '不得提交的候选' } },
+        { ...nextSnapshot, profile: { avatarId: null, displayName: '不得提交的候选', legacyCashCurrencyAssumption: null } },
         makeAssets('aborted'),
         true,
       )

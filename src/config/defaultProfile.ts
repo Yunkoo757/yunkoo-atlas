@@ -48,6 +48,7 @@ export function createDefaultUserProfile(): UserProfile {
     avatarId: null,
     displayName: DEFAULT_USER_DISPLAY_NAME,
     customAvatarDataUrl: null,
+    legacyCashCurrencyAssumption: null,
   }
 }
 

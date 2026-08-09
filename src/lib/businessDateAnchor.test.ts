@@ -30,7 +30,7 @@ export function testCalendarRangesAndBoundaryDelayUseLocalCalendarArithmetic(): 
 }
 
 export function testLivePerformanceCyclesUpgradePersistenceSchema(): void {
-  assert(SCHEMA_VERSION === 10, '实盘统计周期持久化包必须升级到 schema v10')
+  assert(SCHEMA_VERSION === 11, '币种假设持久化包必须升级到 schema v11')
 }
 
 export function testBusinessDateBoundaryDelayAcrossNewYorkDstTransitions(): void {

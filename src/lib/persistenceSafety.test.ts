@@ -251,7 +251,7 @@ export function testTransientUiStateDoesNotScheduleAFullSnapshotRewrite(): void 
     },
     tagPresets: [],
     mistakeTagPresets: [],
-    profile: { avatarId: null, displayName: 'Yunkoo' },
+    profile: { avatarId: null, displayName: 'Yunkoo', legacyCashCurrencyAssumption: null },
     savedTradeViews: [],
     symbolIcons: {},
     symbolCatalog: [],

@@ -15,7 +15,7 @@ function snapshot(liveId: string, marker = 'stable') {
     quickNote: liveId,
     shared: liveId,
   })
-  value.profile = { avatarId: null, displayName: marker }
+  value.profile = { avatarId: null, displayName: marker, legacyCashCurrencyAssumption: null }
   return value
 }
 

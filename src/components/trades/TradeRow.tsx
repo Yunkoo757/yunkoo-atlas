@@ -177,7 +177,7 @@ export const TradeRow = memo(function TradeRow({
                     : ' is-zero')
           }
         >
-          {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, privacyMode)) : '—'}
+          {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)) : '—'}
         </span>
       }
       r={

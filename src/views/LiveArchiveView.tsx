@@ -36,7 +36,7 @@ function ArchiveMetrics({ trades }: { trades: Trade[] }) {
   const metrics = summarizeTradeResults(trades)
   return <div className="la-card-metrics">
     <span><small>胜率</small><strong>{metrics.winRate == null ? '—' : `${metrics.winRate.toFixed(0)}%`}</strong></span>
-    <span><small>净盈亏</small><strong className={metrics.totalPnl > 0 ? 'is-positive' : metrics.totalPnl < 0 ? 'is-negative' : ''}>{metrics.pnlCount ? fmtMoney(metrics.totalPnl) : '—'}</strong></span>
+    <span><small>净盈亏</small><strong className={metrics.totalPnl > 0 ? 'is-positive' : metrics.totalPnl < 0 ? 'is-negative' : ''}>{metrics.pnlCount ? fmtMoney(metrics.totalPnl, 'USD') : '—'}</strong></span>
     <span><small>平均 R</small><strong>{fmtR(metrics.averageR)}</strong></span>
   </div>
 }
@@ -102,7 +102,7 @@ export function LiveArchiveView() {
           {visibleMembers.map((trade) => {
             const truth = resolveTradeTruth(trade)
             const state = trade.status === 'missed' ? '错过机会' : truth.hasConflict ? '结果冲突' : !truth.isResultComplete ? '待补结果' : trade.status === 'win' ? '盈利' : trade.status === 'loss' ? '亏损' : '保本'
-            return <Link data-archive-trade-row key={trade.id} className="la-trade-row" to={tradeDetailPath(trade)} state={tradeDetailNavState({ pathname: `/live-archive/${encodeURIComponent(summary.archiveId)}`, anchorTradeId: trade.id })}><div><strong>{trade.symbol}</strong><span>{trade.ref} · {fmtDate(resolveLivePerformanceCloseTradingDayKey(trade, startHour) ?? '')}</span></div><div><span>{state}</span><strong>{truth.isResultComplete ? fmtMoney(trade.pnl) : '—'}</strong></div></Link>
+            return <Link data-archive-trade-row key={trade.id} className="la-trade-row" to={tradeDetailPath(trade)} state={tradeDetailNavState({ pathname: `/live-archive/${encodeURIComponent(summary.archiveId)}`, anchorTradeId: trade.id })}><div><strong>{trade.symbol}</strong><span>{trade.ref} · {fmtDate(resolveLivePerformanceCloseTradingDayKey(trade, startHour) ?? '')}</span></div><div><span>{state}</span><strong>{truth.isResultComplete ? fmtMoney(trade.pnl, trade.cashCurrency ?? null) : '—'}</strong></div></Link>
           })}
           {visibleMembers.length === 0 ? <p className="la-no-results">当前筛选没有归档记录</p> : null}
         </section>

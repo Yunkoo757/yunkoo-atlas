@@ -101,6 +101,50 @@ async function createV9LibraryFixture(): Promise<V8LibraryFixture> {
   return { path: root, originalDatabase: fs.readFileSync(dbFile), originalManifest: fs.readFileSync(manifestFile) }
 }
 
+async function createV10LibraryFixture(): Promise<V8LibraryFixture> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v10-'))
+  const storage = new LibraryStorage(root)
+  await storage.open()
+  storage.release()
+  const dbFile = path.join(root, 'journal.db')
+  const SQL = await sqlRuntime()
+  const db = new SQL.Database(fs.readFileSync(dbFile))
+  try {
+    const snapshot = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
+    const profile = { ...(snapshot.profile as Record<string, unknown>) }
+    delete profile.legacyCashCurrencyAssumption
+    snapshot.profile = profile
+    const trades = snapshot.trades as Array<Record<string, unknown>>
+    delete trades[0]!.cashCurrency
+    db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
+    db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '10') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    fs.writeFileSync(dbFile, Buffer.from(db.export()))
+  } finally {
+    db.close()
+  }
+  const manifestFile = path.join(root, 'manifest.json')
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')) as Record<string, unknown>
+  manifest.schemaVersion = 10
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf8')
+  return { path: root, originalDatabase: fs.readFileSync(dbFile), originalManifest: fs.readFileSync(manifestFile) }
+}
+
+export async function testNormalV10OpenAddsNullCurrencyAssumptionWithoutChangingTradeFacts(): Promise<void> {
+  const library = await createV10LibraryFixture()
+  try {
+    const storage = new LibraryStorage(library.path, { allowCreate: false })
+    await storage.open()
+    const migrated = storage.loadSnapshot()!
+    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, 'v10 桌面库必须迁移到当前 schema')
+    assert(migrated.profile?.legacyCashCurrencyAssumption === null, 'v10 桌面库必须补 assumption=null')
+    assert(
+      !Object.prototype.hasOwnProperty.call(migrated.trades[0]!, 'cashCurrency'),
+      'v10 交易缺失币种不得被迁移为 USD',
+    )
+    storage.release()
+  } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
+}
+
 export async function testNormalV9OpenMigratesCyclesAndDirectLegacySaveRemainsReadable(): Promise<void> {
   const library = await createV9LibraryFixture()
   try {
@@ -319,6 +363,7 @@ export async function testCaughtMigrationFailureRestoresTheVerifiedV8Pair(): Pro
       avatarId: loaded.profile?.avatarId ?? null,
       displayName: 'retry-write-sentinel',
       customAvatarDataUrl: loaded.profile?.customAvatarDataUrl ?? null,
+      legacyCashCurrencyAssumption: loaded.profile?.legacyCashCurrencyAssumption ?? null,
     }
     storage.saveSnapshot(loaded)
     storage.release()
@@ -515,6 +560,7 @@ export async function testCleanupFailureKeepsMarkerAndAllowsSameInstanceRetry():
       avatarId: loaded.profile?.avatarId ?? null,
       displayName: 'cleanup-retry-write',
       customAvatarDataUrl: loaded.profile?.customAvatarDataUrl ?? null,
+      legacyCashCurrencyAssumption: loaded.profile?.legacyCashCurrencyAssumption ?? null,
     }
     storage.saveSnapshot(loaded)
     assert(storage.loadSnapshot()?.profile?.displayName === 'cleanup-retry-write', 'cleanup 重试后必须可读写')
@@ -619,6 +665,7 @@ export async function testRollbackCleanupFailureRetriesFromTheVerifiedActiveV8Pa
       avatarId: loaded.profile?.avatarId ?? null,
       displayName: 'rollback-cleanup-retry-write',
       customAvatarDataUrl: loaded.profile?.customAvatarDataUrl ?? null,
+      legacyCashCurrencyAssumption: loaded.profile?.legacyCashCurrencyAssumption ?? null,
     }
     storage.saveSnapshot(loaded)
     assert(storage.loadSnapshot()?.profile?.displayName === 'rollback-cleanup-retry-write', '回滚 cleanup 重试后必须可写')

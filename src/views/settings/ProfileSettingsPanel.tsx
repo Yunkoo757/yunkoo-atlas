@@ -3,6 +3,7 @@ import { useStore } from '@/store/useStore'
 import { AVATAR_PRESETS, getAvatarPreset, resizeAvatarImage } from '@/lib/avatars'
 import { PresetAvatarGraphic, UserAvatar } from '@/components/UserAvatar'
 import { Check, Upload, X } from '@/icons/appIcons'
+import { normalizeCashCurrency } from '@/data/trades'
 import './ProfileSettingsPanel.css'
 
 export function ProfileSettingsPanel() {
@@ -10,9 +11,14 @@ export function ProfileSettingsPanel() {
   const setAvatar = useStore((s) => s.setAvatar)
   const setCustomAvatar = useStore((s) => s.setCustomAvatar)
   const setDisplayName = useStore((s) => s.setDisplayName)
+  const trades = useStore((s) => s.trades)
+  const setLegacyCashCurrencyAssumption = useStore((s) => s.setLegacyCashCurrencyAssumption)
   const [nameDraft, setNameDraft] = useState(profile.displayName)
   const [saved, setSaved] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [currencyConfirmationChecked, setCurrencyConfirmationChecked] = useState(false)
+  const [currencySaving, setCurrencySaving] = useState(false)
+  const [currencyMessage, setCurrencyMessage] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleNameSave = () => {
@@ -44,6 +50,31 @@ export function ProfileSettingsPanel() {
 
   const hasCustom = profile.customAvatarDataUrl ? true : false
   const activePresetId = getAvatarPreset(profile.avatarId).id
+  const cashTrades = trades.filter((trade) => typeof trade.pnl === 'number' && Number.isFinite(trade.pnl))
+  const legacyMissingCurrencyCount = cashTrades.filter((trade) => (
+    !Object.prototype.hasOwnProperty.call(trade, 'cashCurrency')
+  )).length
+  const explicitUnknownCurrencyCount = cashTrades.filter((trade) => (
+    Object.prototype.hasOwnProperty.call(trade, 'cashCurrency') &&
+    normalizeCashCurrency(trade.cashCurrency) === null
+  )).length
+  const effectiveUnknownCurrencyCount = explicitUnknownCurrencyCount + (
+    profile.legacyCashCurrencyAssumption ? 0 : legacyMissingCurrencyCount
+  )
+
+  const updateCurrencyAssumption = async (confirmed: boolean) => {
+    setCurrencySaving(true)
+    setCurrencyMessage('')
+    try {
+      await setLegacyCashCurrencyAssumption(confirmed)
+      setCurrencyConfirmationChecked(false)
+      setCurrencyMessage(confirmed ? '已持久化确认并重算 USD 统计。' : '已撤销假设，旧记录重新排除在 USD 总计外。')
+    } catch (error) {
+      setCurrencyMessage(error instanceof Error ? `保存失败：${error.message}` : '保存失败，请稍后重试。')
+    } finally {
+      setCurrencySaving(false)
+    }
+  }
 
   return (
     <div className="settings-page profile-settings">
@@ -83,6 +114,48 @@ export function ProfileSettingsPanel() {
             <span>{saved ? '已保存' : '保存'}</span>
           </button>
         </div>
+      </section>
+
+      <section className="profile-section" aria-labelledby="legacy-currency-title">
+        <h2 id="legacy-currency-title" className="profile-section-title">现金币种数据健康</h2>
+        <p className="profile-section-hint">
+          当前有 {effectiveUnknownCurrencyCount} 笔现金结果因币种未知不进入 USD 总计；其中 {legacyMissingCurrencyCount} 笔为旧记录缺少币种字段，{explicitUnknownCurrencyCount} 笔为来源明确标记未知。
+        </p>
+        {profile.legacyCashCurrencyAssumption ? (
+          <div>
+            <p className="profile-section-hint">
+              已于 {profile.legacyCashCurrencyAssumption.confirmedAt} 确认：缺少币种字段的旧记录按 USD 解释。显式 CNY 或币种未知记录不会被覆盖。
+            </p>
+            <button
+              type="button"
+              className="dio-btn dio-btn-warn"
+              disabled={currencySaving}
+              onClick={() => void updateCurrencyAssumption(false)}
+            >
+              撤销历史 USD 假设
+            </button>
+          </div>
+        ) : (
+          <div>
+            <label className="profile-section-hint">
+              <input
+                type="checkbox"
+                checked={currencyConfirmationChecked}
+                onChange={(event) => setCurrencyConfirmationChecked(event.target.checked)}
+              />
+              仅当全部历史现金值确为 USD 时使用。我确认所有缺少币种字段的旧记录均为 USD。
+            </label>
+            <button
+              type="button"
+              className="dio-btn"
+              disabled={currencySaving || !currencyConfirmationChecked || legacyMissingCurrencyCount === 0}
+              onClick={() => void updateCurrencyAssumption(true)}
+            >
+              {currencySaving ? '持久化中…' : '确认旧记录为 USD'}
+            </button>
+          </div>
+        )}
+        {currencyMessage ? <p role="status" className="profile-section-hint">{currencyMessage}</p> : null}
       </section>
 
       {/* 自定义图片上传 */}

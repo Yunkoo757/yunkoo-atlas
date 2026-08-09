@@ -65,6 +65,7 @@ const paperTrade: Trade = {
   exit: 110,
   size: 1,
   pnl: 250,
+  cashCurrency: 'USD',
   rMultiple: 2,
   resultSource: 'imported',
   openedAt: getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour),
@@ -304,7 +305,7 @@ async function run(): Promise<void> {
       scope: { kind: 'all', range: 'all' },
       liveScope: resolveLiveArchiveScope(cycles, null),
       anchor,
-      legacyCashCurrencyAssumption: 'USD',
+      legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
     })
     const kpi = document.querySelector<HTMLAnchorElement>('[data-kpi-drilldown]')
     assert(kpi, 'Dashboard KPI 必须提供统一选择器范围的下钻链接')
@@ -339,7 +340,7 @@ async function run(): Promise<void> {
         scope,
         liveScope: resolveLiveArchiveScope(cycles, archiveKey),
         anchor,
-        legacyCashCurrencyAssumption: 'USD',
+        legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
       })
       root.unmount()
       root = createRoot(rootElement)
@@ -497,7 +498,7 @@ async function run(): Promise<void> {
       scope: { kind: 'live', range: 'all' },
       liveScope: resolveLiveArchiveScope(multiCycles, 'all'),
       anchor,
-      legacyCashCurrencyAssumption: 'USD',
+      legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
     })
     assert(allArchivesSelection.drilldownTarget.includes('statsCycle=all'), 'all-archives 下钻必须使用 reserved all')
     root.unmount()
@@ -606,6 +607,55 @@ async function run(): Promise<void> {
     )
     await waitFor(() => Boolean(document.querySelector('.db-empty')), '无可靠平仓日的实盘结果应从无周期 KPI 移除')
     assert(!document.body.textContent?.includes('+$777'), '无周期实盘 KPI 不得从 openedAt 回退纳入结果')
+
+    root.unmount()
+    const usdLive: Trade = {
+      ...currentLiveTrade,
+      id: 'currency-usd-live',
+      ref: 'TRD-USD',
+      pnl: 100,
+      cashCurrency: 'USD',
+      closedAt: currentDay,
+      closedTradingDayKey: currentDay,
+    }
+    const cnyPaper: Trade = {
+      ...paperTrade,
+      id: 'currency-cny-paper',
+      ref: 'TRD-CNY',
+      pnl: 900,
+      cashCurrency: 'CNY',
+      closedAt: currentDay,
+      closedTradingDayKey: currentDay,
+    }
+    const unknownPaper: Trade = {
+      ...paperTrade,
+      id: 'currency-unknown-paper',
+      ref: 'TRD-UNKNOWN',
+      pnl: 50,
+      cashCurrency: null,
+      closedAt: currentDay,
+      closedTradingDayKey: currentDay,
+    }
+    useStore.setState({
+      trades: [usdLive, cnyPaper, unknownPaper],
+      livePerformanceCycles: [],
+      profile: { ...useStore.getState().profile, legacyCashCurrencyAssumption: null },
+    })
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=all&range=all']}>
+        <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-currency-merge-status="usd-with-exclusions"]') !== null,
+      '混合币种 Dashboard 必须显示 currencyMergeStatus',
+    )
+    const currencyHealth = document.querySelector('[data-currency-merge-status]')?.textContent ?? ''
+    assert(currencyHealth.includes('USD 覆盖 1/3 笔'), 'Dashboard 必须显示 USD 覆盖笔数')
+    assert(currencyHealth.includes('CNY 1 笔') && currencyHealth.includes('币种未知 1 笔'), 'Dashboard 必须列出排除币种与 unknown 数量')
+    assert(document.body.textContent?.includes('实盘 +$100 · 模拟 $0'), '组合视图必须并排显示实盘与模拟 USD 现金值')
+    assert(!document.body.textContent?.includes('+$1,050'), 'Dashboard 不得生成跨币种单一总数')
   } finally {
     root.unmount()
     useStore.setState({
@@ -613,6 +663,7 @@ async function run(): Promise<void> {
       strategies: previous.strategies,
       liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
       livePerformanceCycles: previous.livePerformanceCycles,
+      profile: previous.profile,
     })
   }
 }

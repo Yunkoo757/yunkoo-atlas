@@ -323,7 +323,7 @@ export function TradeTrashView() {
                           </div>
                         </div>
 
-                        <span className={'trash-item-pnl' + pnlTone}>{fmtMoney(trade.pnl, privacyMode)}</span>
+                        <span className={'trash-item-pnl' + pnlTone}>{fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)}</span>
                         <span className="trash-item-r">{fmtR(trade.rMultiple)}</span>
                         <span className="trash-item-date">{fmtDate(trade.deletedAt!)}</span>
                         <Tooltip

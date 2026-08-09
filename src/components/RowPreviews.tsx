@@ -52,7 +52,7 @@ export function TradePreview({
           </span>
           <span className="rp-meta-item">
             <span className="rp-meta-label">盈亏</span>
-            <span>{fmtMoney(trade.pnl, privacyMode)}</span>
+            <span>{fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)}</span>
           </span>
           <span className="rp-meta-item">
             <span className="rp-meta-label">R</span>
@@ -116,7 +116,7 @@ export function StrategyPreview({
           <span className="sp-metric">
             净盈亏
             <strong className={stats.pnl > 0 ? 'is-positive' : stats.pnl < 0 ? 'is-negative' : ''}>
-              {stats.pnlCount ? fmtMoney(stats.pnl, privacyMode) : '—'}
+              {stats.pnlCount ? fmtMoney(stats.pnl, 'USD', privacyMode) : '—'}
             </strong>
           </span>
           <span className="sp-metric">

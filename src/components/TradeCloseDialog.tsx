@@ -172,7 +172,7 @@ export function TradeCloseDialog() {
       return '至少填写盈亏金额或 R 倍数中的一项；两项都会保存。'
     }
     const values = [
-      preview.patch.pnl == null ? null : fmtMoney(preview.patch.pnl, privacyMode),
+      preview.patch.pnl == null ? null : fmtMoney(preview.patch.pnl, trade.cashCurrency ?? null, privacyMode),
       preview.patch.rMultiple == null ? null : fmtR(preview.patch.rMultiple),
     ].filter(Boolean)
     return `将记录 ${values.join(' · ')}`

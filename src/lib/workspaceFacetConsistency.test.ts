@@ -278,7 +278,7 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
       scope: entry.scope,
       liveScope: resolveLiveArchiveScope(cycles, entry.archiveKey),
       anchor,
-      legacyCashCurrencyAssumption: 'USD',
+      legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
     }).eligibleMetricIds
     const actual = getWorkbenchVisibleTrades({
       trades,

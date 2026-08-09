@@ -5,6 +5,7 @@ import { performanceTruthFixture } from '@/test/fixtures/performanceTruthFixture
 
 const fixture = performanceTruthFixture
 const hasOwn = (value: object, property: string): boolean => Object.prototype.hasOwnProperty.call(value, property)
+const legacyUsdAssumption = { currency: 'USD' as const, confirmedAt: '2026-08-09T04:00:00.000Z' }
 
 function selectionFor(range: 'all' | '30d' = 'all') {
   return buildPerformanceSelection(fixture.trades, {
@@ -56,7 +57,7 @@ export function testPerformanceSelectionUsesTheExplicitLegacyCashCurrencyAssumpt
     scope: { kind: 'all', range: 'all' },
     liveScope: fixture.currentLiveScope,
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
-    legacyCashCurrencyAssumption: 'USD',
+    legacyCashCurrencyAssumption: legacyUsdAssumption,
   })
 
   const expectedUsdIds = [
@@ -69,6 +70,10 @@ export function testPerformanceSelectionUsesTheExplicitLegacyCashCurrencyAssumpt
     { currency: 'USD', ids: expectedUsdIds },
     { currency: 'CNY', ids: ['FX-CNY'] },
   ])
+  assert.equal(selection.currencyMergeStatus, 'usd-with-exclusions')
+  assert.equal(selection.usdCoveredCount, expectedUsdIds.length)
+  assert.deepEqual(selection.excludedCurrencyCounts, [{ currency: 'CNY', count: 1 }])
+  assert.equal(selection.excludedUnknownCount, 1)
 }
 
 export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitted(): void {
@@ -81,7 +86,7 @@ export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitt
     scope: { kind: 'all', range: 'all' },
     liveScope: null,
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
-    legacyCashCurrencyAssumption: 'USD',
+    legacyCashCurrencyAssumption: legacyUsdAssumption,
   })
 
   assert.deepEqual(selection.pnlIds, ['tr-1011'])

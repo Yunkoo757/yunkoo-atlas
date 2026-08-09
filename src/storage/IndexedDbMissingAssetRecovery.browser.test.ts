@@ -28,7 +28,7 @@ function snapshot(name: string, assetIds: readonly string[]): PersistedSnapshot 
       updatedAt: '2026-07-27T00:00:00.000Z',
     }] : [],
     display: { ...DEFAULT_DISPLAY },
-    profile: { avatarId: null, displayName: name },
+    profile: { avatarId: null, displayName: name, legacyCashCurrencyAssumption: null },
   }
 }
 

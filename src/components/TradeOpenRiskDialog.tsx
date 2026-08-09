@@ -258,7 +258,7 @@ export function TradeOpenRiskDialog() {
           </div>
           <div>
             <span>1R 金额</span>
-            <strong>{policy ? (privacyMode ? '****' : fmtMoney(policy.riskAmount)) : '—'}</strong>
+            <strong>{policy ? (privacyMode ? '****' : fmtMoney(policy.riskAmount, 'USD')) : '—'}</strong>
           </div>
           <p>{policy?.disciplineText || '先补齐风险规则与缺失数据，再决定是否继续开仓。'}</p>
         </section>

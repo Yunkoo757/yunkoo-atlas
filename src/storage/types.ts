@@ -28,7 +28,7 @@ export type PersistedTrade = Trade & {
   importProvenance?: NotionTradeImportProvenance
 }
 
-export const SCHEMA_VERSION = 10
+export const SCHEMA_VERSION = 11
 
 export interface LibraryManifest {
   schemaVersion: number
@@ -46,10 +46,16 @@ export interface StoredAsset {
   createdAt: string
 }
 
+export interface LegacyCashCurrencyAssumption {
+  currency: 'USD'
+  confirmedAt: string
+}
+
 export interface UserProfile {
   avatarId: string | null
   displayName: string
   customAvatarDataUrl?: string | null
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
 }
 
 export interface PersistedSnapshot {

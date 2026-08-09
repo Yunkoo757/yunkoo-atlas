@@ -555,6 +555,7 @@ export function testSnapshotValidationCoversWorkflowMetadataStructures(): void {
       avatarId: null,
       displayName: 'Yunkoo',
       customAvatarDataUrl: null,
+      legacyCashCurrencyAssumption: null,
     },
     savedTradeViews: [{
       id: 'view-1',
@@ -587,6 +588,39 @@ export function testSnapshotValidationCoversWorkflowMetadataStructures(): void {
       rejected = true
     }
     assert(rejected, '损坏的快捷键、资料、视图或品种设置不得进入恢复流程')
+  }
+}
+
+export function testSnapshotValidationRejectsInvalidLegacyCashCurrencyAssumptions(): void {
+  const full = createFullPersistedSnapshotFixture()
+  assertValidPersistedSnapshot({
+    ...full,
+    profile: {
+      ...full.profile!,
+      legacyCashCurrencyAssumption: {
+        currency: 'USD',
+        confirmedAt: '2026-08-09T04:00:00.000Z',
+      },
+    },
+  })
+
+  for (const legacyCashCurrencyAssumption of [
+    { currency: 'CNY', confirmedAt: '2026-08-09T04:00:00.000Z' },
+    { currency: 'usd', confirmedAt: '2026-08-09T04:00:00.000Z' },
+    { currency: 'USD', confirmedAt: 'not-a-timestamp' },
+    { currency: 'USD', confirmedAt: '2026-02-30T04:00:00.000Z' },
+    undefined,
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({
+        ...full,
+        profile: { ...full.profile!, legacyCashCurrencyAssumption },
+      })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, `非法旧现金币种假设 ${JSON.stringify(legacyCashCurrencyAssumption)} 必须拒绝`)
   }
 }
 

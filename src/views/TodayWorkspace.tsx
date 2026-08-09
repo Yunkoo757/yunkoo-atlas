@@ -300,7 +300,7 @@ export function TodayWorkspace() {
                           : 'is-neg'
                     }
                   >
-                    {todayMetrics.pnlCount === 0 ? '—' : fmtMoney(todayMetrics.totalPnl, privacyMode)}
+                    {todayMetrics.pnlCount === 0 ? '—' : fmtMoney(todayMetrics.totalPnl, 'USD', privacyMode)}
                   </strong>
                   {todayMetrics.closedCount > todayMetrics.pnlCount ? (
                     <small>含 {todayMetrics.closedCount - todayMetrics.pnlCount} 笔待补金额未计入</small>

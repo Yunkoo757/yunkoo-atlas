@@ -708,7 +708,7 @@ function PreviewRow({
         )}
       </td>
       <td className={privacyMode ? '' : t.pnl != null && t.pnl > 0 ? 'nim-pnl-pos' : t.pnl != null && t.pnl < 0 ? 'nim-pnl-neg' : ''}>
-        {fmtMoney(t.pnl, privacyMode)}
+        {fmtMoney(t.pnl, t.cashCurrency ?? null, privacyMode)}
       </td>
       <td>{t.rMultiple != null ? t.rMultiple.toFixed(2) : '—'}</td>
       <td>{t.openedAt ?? '—'}</td>

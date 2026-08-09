@@ -301,6 +301,12 @@ function isUserProfile(value: unknown): boolean {
       value.customAvatarDataUrl === undefined ||
       value.customAvatarDataUrl === null ||
       typeof value.customAvatarDataUrl === 'string'
+    ) && (
+      value.legacyCashCurrencyAssumption === null || (
+        isRecord(value.legacyCashCurrencyAssumption) &&
+        value.legacyCashCurrencyAssumption.currency === 'USD' &&
+        isCanonicalIsoInstant(value.legacyCashCurrencyAssumption.confirmedAt)
+      )
     )
   )
 }

@@ -140,7 +140,7 @@ export function StrategyHeader({
                         : 'var(--neg)',
                 }}
               >
-                {fmtMoney(stats.totalPnl, privacyMode)}
+                {fmtMoney(stats.totalPnl, 'USD', privacyMode)}
               </span>
             </div>
           </Tooltip>
@@ -158,7 +158,7 @@ export function StrategyHeader({
                       : 'var(--neg)',
               }}
             >
-              {fmtMoney(stats.totalPnl, privacyMode)}
+              {fmtMoney(stats.totalPnl, 'USD', privacyMode)}
             </span>
           </div>
         )}

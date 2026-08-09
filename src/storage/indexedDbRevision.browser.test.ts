@@ -42,7 +42,7 @@ function snapshot(displayName: string, assetId?: string): PersistedSnapshot {
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: { ...DEFAULT_DISPLAY },
-    profile: { avatarId: null, displayName },
+    profile: { avatarId: null, displayName, legacyCashCurrencyAssumption: null },
   }
 }
 

@@ -625,7 +625,7 @@ function ReviewSessionItem({
             <span>{trade.side === 'long' ? '做多' : '做空'}</span>
             <span>{fmtDate(trade.recordedAt ?? trade.openedAt)}</span>
             <span className={`is-${rTone}`}>{fmtR(trade.rMultiple)}</span>
-            {trade.pnl != null ? <span className={`is-${pnlTone}`}>{fmtMoney(trade.pnl, privacyMode)}</span> : null}
+            {trade.pnl != null ? <span className={`is-${pnlTone}`}>{fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)}</span> : null}
             <Button type="button" variant="bordered" onClick={onOpenDetail}>打开详情</Button>
           </div>
         </header>

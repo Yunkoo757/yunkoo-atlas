@@ -1,18 +1,25 @@
-export function fmtMoney(n: number | null | undefined, masked = false): string {
+export function fmtMoney(
+  n: number | null | undefined,
+  currency: string | null,
+  masked = false,
+): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return '—'
   if (masked) return '****'
   const displayValue = Math.abs(n) < 0.005 ? 0 : n
   const sign = displayValue > 0 ? '+' : ''
   const hasFraction = !Number.isInteger(n)
-  return (
-    sign +
-    displayValue.toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: hasFraction ? 2 : 0,
-      maximumFractionDigits: 2,
-    })
-  )
+  const options: Intl.NumberFormatOptions = {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: 2,
+  }
+  if (currency === null) {
+    return `${sign}${displayValue.toLocaleString('en-US', options)} · 币种未知`
+  }
+  return sign + displayValue.toLocaleString('en-US', {
+    ...options,
+    style: 'currency',
+    currency,
+  })
 }
 
 export function fmtR(n: number | null | undefined): string {

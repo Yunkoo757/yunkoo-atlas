@@ -14,7 +14,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { buildDashboardStats } from '@/lib/dashboardStats'
-import { buildPerformanceSelection, PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
@@ -193,6 +193,7 @@ export function TradeList({
   const allTrades = useStore((state) => state.trades)
   const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const profile = useStore((state) => state.profile)
   const businessDateAnchor = useBusinessDateAnchor()
   /** 分组展开进度 0..1；缺省视为 1 */
   const [openProgressByGroup, setOpenProgressByGroup] = useState<Map<string, number>>(
@@ -290,9 +291,9 @@ export function TradeList({
       scope: { kind: 'live', range: 'all' },
       liveScope: resolveLiveArchiveScope(livePerformanceCycles, null),
       anchor: businessDateAnchor,
-      legacyCashCurrencyAssumption: PERFORMANCE_REPORT_CURRENCY,
+      legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
-    [allTrades, businessDateAnchor, livePerformanceCycles],
+    [allTrades, businessDateAnchor, livePerformanceCycles, profile.legacyCashCurrencyAssumption],
   )
   const strategyStatsById = useMemo(
     () => new Map(
@@ -301,9 +302,10 @@ export function TradeList({
         strategies,
         strategyPerformanceSelection.eligibleMetricIds,
         tradingDayStartHour,
+        strategyPerformanceSelection.pnlIds,
       ).strategies.map((stats) => [stats.id, stats]),
     ),
-    [allTrades, strategies, strategyPerformanceSelection.eligibleMetricIds, tradingDayStartHour],
+    [allTrades, strategies, strategyPerformanceSelection.eligibleMetricIds, strategyPerformanceSelection.pnlIds, tradingDayStartHour],
   )
   const stickyIndexes = useMemo(
     () =>

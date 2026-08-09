@@ -219,8 +219,17 @@ export function deriveWeeklyReviewWeeks(
   ])].sort((left, right) => right.localeCompare(left))
 }
 
-export function buildWeeklyReviewMetrics(trades: Trade[], missedTrades: Trade[] = []): WeeklyReviewMetrics {
+export function buildWeeklyReviewMetrics(
+  trades: Trade[],
+  missedTrades: Trade[] = [],
+  eligibleUsdPnlIds?: readonly string[],
+): WeeklyReviewMetrics {
   const summary = summarizeTradeResults(trades)
+  const eligibleUsdPnlIdSet = eligibleUsdPnlIds === undefined ? null : new Set(eligibleUsdPnlIds)
+  const usdPnlTrades = trades.filter((trade) =>
+    typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
+    (eligibleUsdPnlIdSet === null || eligibleUsdPnlIdSet.has(trade.id)),
+  )
   const mistakeTagCounts: Record<string, number> = {}
   const missedReasonCounts: Record<string, number> = {}
   for (const trade of trades) {
@@ -241,8 +250,8 @@ export function buildWeeklyReviewMetrics(trades: Trade[], missedTrades: Trade[] 
     breakevenCount: summary.breakevenCount,
     conflictCount: summary.conflictCount,
     winRate: summary.winRate,
-    pnlCount: summary.pnlCount,
-    totalPnl: summary.totalPnl,
+    pnlCount: usdPnlTrades.length,
+    totalPnl: usdPnlTrades.reduce((total, trade) => total + (trade.pnl ?? 0), 0),
     rCount: summary.rCount,
     averageR: summary.averageR,
     mistakeTagCounts,

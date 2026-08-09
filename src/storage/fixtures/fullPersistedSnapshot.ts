@@ -232,6 +232,7 @@ export function createFullPersistedSnapshotFixture(
       avatarId: 'avatar-contract',
       displayName: '合同用户',
       customAvatarDataUrl: null,
+      legacyCashCurrencyAssumption: null,
     },
     savedTradeViews: [{
       id: 'view-contract',

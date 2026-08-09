@@ -62,6 +62,7 @@ async function run(): Promise<void> {
         avatarId: initial.profile?.avatarId ?? null,
         customAvatarDataUrl: initial.profile?.customAvatarDataUrl ?? null,
         displayName: '并发赢家',
+        legacyCashCurrencyAssumption: initial.profile?.legacyCashCurrencyAssumption ?? null,
       },
     })
 

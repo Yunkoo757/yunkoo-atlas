@@ -181,7 +181,7 @@ async function run(): Promise<void> {
     trades: [trade('old', `<img src="journal-asset://${oldAssetId}">`)],
     strategies: [{ id: 'strategy-1', name: '旧策略', icon: 'target', color: '#5e6ad2' }],
   })
-  useStore.getState().hydrateProfile({ avatarId: null, displayName: '旧资料' })
+  useStore.getState().hydrateProfile({ avatarId: null, displayName: '旧资料', legacyCashCurrencyAssumption: null })
   await flushPersistNow()
   await verifyExportOperationLogging(adapter)
 
@@ -200,7 +200,7 @@ async function run(): Promise<void> {
     savedTradeViews: [],
     symbolIcons: {},
     symbolCatalog: ['BTCUSDT'],
-    profile: { avatarId: null, displayName: '恢复资料' },
+    profile: { avatarId: null, displayName: '恢复资料', legacyCashCurrencyAssumption: null },
   }
 
   const rootElement = document.getElementById('root')

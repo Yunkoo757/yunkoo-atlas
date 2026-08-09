@@ -10,6 +10,7 @@ import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { writeTradeListPerformanceCycle } from '@/lib/livePerformanceCycleRoute'
 import { LIVE_PERFORMANCE_CYCLE_RESERVED_IDS } from '@/lib/livePerformanceCycles'
+import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 
 export const PERFORMANCE_REPORT_CURRENCY = 'USD'
 
@@ -24,8 +25,10 @@ export type PerformanceSelectionInput = {
   scope: AnalysisScope
   liveScope: LiveArchiveScope | null
   anchor: BusinessDateAnchor
-  legacyCashCurrencyAssumption: string | null
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
 }
+
+export type CurrencyMergeStatus = 'usd-only' | 'usd-with-exclusions' | 'no-usd-data'
 
 export type PerformanceSelection = {
   drilldownTarget: string
@@ -40,6 +43,10 @@ export type PerformanceSelection = {
   rIds: string[]
   unknownCurrencyIds: string[]
   currencyGroups: Array<{ currency: string, ids: string[] }>
+  currencyMergeStatus: CurrencyMergeStatus
+  usdCoveredCount: number
+  excludedCurrencyCounts: Array<{ currency: string, count: number }>
+  excludedUnknownCount: number
 }
 
 function resolveCloseDay(trade: Trade, tradingDayStartHour: number): CloseDayResolution {
@@ -84,8 +91,11 @@ function matchesLiveScope(trade: Trade, liveScope: LiveArchiveScope | null, day:
     && (endExclusive === null || day < endExclusive)
 }
 
-function normalizedCurrency(trade: Trade, fallback: string | null): string | null {
-  const value = hasOwn(trade, 'cashCurrency') ? trade.cashCurrency : fallback
+function normalizedCurrency(
+  trade: Trade,
+  fallback: LegacyCashCurrencyAssumption | null,
+): string | null {
+  const value = hasOwn(trade, 'cashCurrency') ? trade.cashCurrency : fallback?.currency
   return normalizeCashCurrency(value)
 }
 
@@ -161,6 +171,15 @@ export function buildPerformanceSelection(
     writeAnalysisScope('', input.scope),
     archiveKey,
   ).toString()
+  const excludedCurrencyCounts = [...currencyGroups]
+    .filter(([currency]) => currency !== PERFORMANCE_REPORT_CURRENCY)
+    .map(([currency, ids]) => ({ currency, count: ids.length }))
+  const hasExclusions = excludedCurrencyCounts.length > 0 || unknownCurrencyIds.length > 0
+  const currencyMergeStatus: CurrencyMergeStatus = pnlIds.length === 0
+    ? 'no-usd-data'
+    : hasExclusions
+      ? 'usd-with-exclusions'
+      : 'usd-only'
   return {
     drilldownTarget: query ? `?${query}` : '',
     futureCloseDayIds,
@@ -174,5 +193,9 @@ export function buildPerformanceSelection(
     rIds,
     unknownCurrencyIds,
     currencyGroups: [...currencyGroups].map(([currency, ids]) => ({ currency, ids })),
+    currencyMergeStatus,
+    usdCoveredCount: pnlIds.length,
+    excludedCurrencyCounts,
+    excludedUnknownCount: unknownCurrencyIds.length,
   }
 }

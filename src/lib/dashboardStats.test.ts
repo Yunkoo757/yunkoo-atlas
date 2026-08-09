@@ -149,10 +149,36 @@ export function testDashboardStatsUseOnlyEligibleMetricIdsForEveryAggregation():
     [strategy],
     ['eligible-a', 'eligible-b'],
     6,
+    ['eligible-a', 'eligible-b'],
   )
 
   assert(stats.totalPnl === 20, '总计必须只消费 eligibleMetricIds')
   assert(stats.curve.map((point) => point.tradeId).join() === 'eligible-a,eligible-b', '曲线成员必须与 eligibleMetricIds 一致')
   assert(stats.curve.map((point) => point.date).join() === '08-08,08-09', '曲线日期必须按 06:00 平仓业务日计算')
   assert(stats.strategies[0]?.tradeIds.join() === 'eligible-a,eligible-b', '策略分组成员必须与 eligibleMetricIds 一致')
+}
+
+export function testDashboardStatsOnlyAggregatesTheProvidedUsdPnlIds(): void {
+  const usd = closedTrade('usd', { pnl: 100, cashCurrency: 'USD', resultSource: 'pnl' })
+  const cny = closedTrade('cny', { pnl: 900, cashCurrency: 'CNY', resultSource: 'pnl' })
+  const unknown = closedTrade('unknown', { pnl: 50, cashCurrency: null, resultSource: 'pnl' })
+  const guardedBuilder = buildDashboardStats as unknown as (
+    trades: Trade[],
+    strategies: Strategy[],
+    eligibleIds: readonly string[],
+    tradingDayStartHour: number,
+    usdPnlIds: readonly string[],
+  ) => ReturnType<typeof buildDashboardStats>
+  const stats = guardedBuilder(
+    [usd, cny, unknown],
+    [strategy],
+    ['usd', 'cny', 'unknown'],
+    6,
+    ['usd'],
+  )
+
+  assert(stats.totalPnl === 100, 'USD 总计不得混入 CNY 或 unknown 金额')
+  assert(stats.pnlCount === 1, 'USD 覆盖笔数必须只来自选择器 pnlIds')
+  assert(stats.curve.map((point) => point.tradeId).join(',') === 'usd', '累计现金曲线必须与 USD pnlIds 同源')
+  assert(stats.strategies[0]?.pnl === 100, '策略现金汇总不得绕过 USD guardrail')
 }
