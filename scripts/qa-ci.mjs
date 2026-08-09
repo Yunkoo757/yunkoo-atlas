@@ -1,6 +1,9 @@
 import { spawnSync } from 'node:child_process'
 import { resolveCommand } from './release-command.mjs'
 
+// 交易日边界与真值门禁按业务时区冻结，避免 UTC runner 误伤 06:00 口径。
+process.env.TZ ||= 'Asia/Shanghai'
+
 function run(name, args) {
   const invocation = resolveCommand(name, args)
   const result = spawnSync(invocation.file, invocation.args, {

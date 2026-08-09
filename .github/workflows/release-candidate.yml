@@ -21,6 +21,7 @@ jobs:
     timeout-minutes: 30
     env:
       QA_PERFORMANCE_PROFILE: hosted-windows
+      TZ: Asia/Shanghai
 
     steps:
       - name: Checkout exact candidate

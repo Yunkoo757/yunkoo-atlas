@@ -4,6 +4,9 @@ import path from 'node:path'
 import { resolveCommand } from './release-command.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 
+// 交易日边界与真值门禁按业务时区冻结，避免 UTC runner 误伤 06:00 口径。
+process.env.TZ ||= 'Asia/Shanghai'
+
 const PORT = 5181
 const BASE = `http://127.0.0.1:${PORT}`
 const full = process.argv.includes('--full')
