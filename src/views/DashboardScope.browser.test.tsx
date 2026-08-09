@@ -654,7 +654,8 @@ async function run(): Promise<void> {
     const currencyHealth = document.querySelector('[data-currency-merge-status]')?.textContent ?? ''
     assert(currencyHealth.includes('USD 覆盖 1/3 笔'), 'Dashboard 必须显示 USD 覆盖笔数')
     assert(currencyHealth.includes('CNY 1 笔') && currencyHealth.includes('币种未知 1 笔'), 'Dashboard 必须列出排除币种与 unknown 数量')
-    assert(document.body.textContent?.includes('实盘 +$100 · 模拟 $0'), '组合视图必须并排显示实盘与模拟 USD 现金值')
+    assert(document.body.textContent?.includes('实盘 +$100 · 模拟 —'), '组合视图必须保留两侧 USD 覆盖，缺失侧显示无数据而非零')
+    assert(!document.body.textContent?.includes('模拟 $0'), '模拟侧无 USD 记录时不得伪造成 $0')
     assert(!document.body.textContent?.includes('+$1,050'), 'Dashboard 不得生成跨币种单一总数')
   } finally {
     root.unmount()

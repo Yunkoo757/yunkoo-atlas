@@ -2855,6 +2855,7 @@ export function testStrategyStatsExcludeReviewCasesByDefault(): void {
     id: 'live-win',
     status: 'win',
     pnl: 100,
+    cashCurrency: 'USD',
     rMultiple: 2,
     closedAt: '2026-06-02',
   }

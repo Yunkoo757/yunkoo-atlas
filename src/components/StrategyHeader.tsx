@@ -30,6 +30,7 @@ export function StrategyHeader({
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
+  const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
   const [, setSearchParams] = useSearchParams()
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
@@ -67,7 +68,7 @@ export function StrategyHeader({
     return computeStrategyStats(
       filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor),
       strategyId,
-      { tradeKind: analysisScope ? 'all' : 'live' },
+      { tradeKind: analysisScope ? 'all' : 'live', legacyCashCurrencyAssumption },
     )
   }, [
       trades,
@@ -82,6 +83,7 @@ export function StrategyHeader({
       livePerformanceCycles,
       canonicalPerformanceSearch,
       performanceRoute.target,
+      legacyCashCurrencyAssumption,
     ])
 
   const scopeLabel = analysisScope

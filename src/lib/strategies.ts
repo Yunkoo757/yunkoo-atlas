@@ -5,6 +5,8 @@ import { isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { summarizeStrategyPerformance } from '@/lib/reviewAnalytics'
 import { isAccountTrade, normalizeTradeKind } from '@/lib/tradeKind'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
+import { summarizeUsdPnl } from '@/lib/cashCurrency'
+import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 
 export function getStrategy(
   strategies: Strategy[],
@@ -49,7 +51,10 @@ export function sortStrategies(strategies: Strategy[], pinnedIds: string[]): Str
 export function computeStrategyStats(
   trades: Trade[],
   strategyId: string,
-  options?: { tradeKind?: TradeKind | 'all' },
+  options?: {
+    tradeKind?: TradeKind | 'all'
+    legacyCashCurrencyAssumption?: LegacyCashCurrencyAssumption | null
+  },
 ) {
   const activeTrades = trades.filter((trade) => !trade.deletedAt)
   const kind = options?.tradeKind ?? 'all'
@@ -59,6 +64,7 @@ export function computeStrategyStats(
       : activeTrades.filter((t) => t.strategyId === strategyId && t.tradeKind === kind)
   const closed = all.filter((t) => isExecutedClosed(t.status))
   const result = summarizeTradeResults(closed)
+  const usd = summarizeUsdPnl(closed, options?.legacyCashCurrencyAssumption ?? null)
   const performance = summarizeStrategyPerformance(activeTrades, strategyId, options)
   return {
     ...performance,
@@ -66,10 +72,10 @@ export function computeStrategyStats(
     closedCount: result.closedCount,
     evaluatedCount: result.evaluatedCount,
     conflictCount: result.conflictCount,
-    pnlCount: result.pnlCount,
+    pnlCount: usd.pnlCount,
     rCount: result.rCount,
     winRate: result.winRate,
-    totalPnl: result.pnlCount > 0 ? result.totalPnl : null,
+    totalPnl: usd.pnlCount > 0 ? usd.totalPnl : null,
     totalR: result.rCount > 0 ? performance.totalR : null,
   }
 }

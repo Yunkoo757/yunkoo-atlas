@@ -8,6 +8,7 @@ import {
   type CloseOutcome,
 } from '@/lib/tradeClose'
 import { fmtMoney, fmtR } from '@/lib/format'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { getTradingDayKey } from '@/lib/periods'
@@ -57,6 +58,7 @@ export function TradeCloseDialog() {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const [outcome, setOutcome] = useState<CloseOutcome>('win')
   const [pnl, setPnl] = useState('')
   const [rMultiple, setRMultiple] = useState('')
@@ -172,7 +174,11 @@ export function TradeCloseDialog() {
       return '至少填写盈亏金额或 R 倍数中的一项；两项都会保存。'
     }
     const values = [
-      preview.patch.pnl == null ? null : fmtMoney(preview.patch.pnl, trade.cashCurrency ?? null, privacyMode),
+      preview.patch.pnl == null ? null : formatTradeCashPnl(
+        { ...trade, pnl: preview.patch.pnl },
+        legacyCashCurrencyAssumption,
+        privacyMode,
+      ),
       preview.patch.rMultiple == null ? null : fmtR(preview.patch.rMultiple),
     ].filter(Boolean)
     return `将记录 ${values.join(' · ')}`

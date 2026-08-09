@@ -36,6 +36,8 @@ import {
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { fmtMoney, fmtR } from '@/lib/format'
+import { eligibleUsdPnlIds, formatTradeCashPnl } from '@/lib/cashCurrency'
+import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { getWeeklyReviewCompletionIssue } from '@/lib/weeklyReviewCompletion'
@@ -129,17 +131,21 @@ function TradeEvidence({
   review,
   onPatch,
   detailFrom,
+  legacyCashCurrencyAssumption,
 }: {
   trade: WeeklyReviewEvidenceTrade
   review: WeeklyReview
   onPatch: (patch: ReviewPatch) => void
   detailFrom: TradeDetailFrom
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
 }) {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const isMissedTrade = trade.status === 'missed'
   const result = isMissedTrade
     ? `错过 · ${MISS_REASON_META[trade.missReason ?? 'other'].label}`
-    : typeof trade.pnl === 'number' ? fmtMoney(trade.pnl, null, privacyMode) : fmtR(trade.rMultiple)
+    : typeof trade.pnl === 'number'
+      ? formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)
+      : fmtR(trade.rMultiple)
   const roleButtons = [
     { key: 'highlightTradeIds' as const, label: '做得好' },
     { key: 'mistakeTradeIds' as const, label: '犯错' },
@@ -182,6 +188,7 @@ export function WeeklyReviewView() {
   const trades = useStore((state) => state.trades)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const reviews = useStore((state) => state.weeklyReviews)
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
@@ -321,8 +328,12 @@ export function WeeklyReviewView() {
     [trades, selectedWeek, tradingDayStartHour],
   )
   const liveMetrics = useMemo(
-    () => buildWeeklyReviewMetrics(weekTrades, weekMissedTrades),
-    [weekTrades, weekMissedTrades],
+    () => buildWeeklyReviewMetrics(
+      weekTrades,
+      weekMissedTrades,
+      eligibleUsdPnlIds(weekTrades, legacyCashCurrencyAssumption),
+    ),
+    [weekTrades, weekMissedTrades, legacyCashCurrencyAssumption],
   )
   const reviewDataSource = review.status === 'completed'
     ? resolveWeeklyReviewDataSource(review)
@@ -343,6 +354,9 @@ export function WeeklyReviewView() {
   const evidenceMissedTrades = usesCompleteSnapshot
     ? review.evidenceSnapshot!.missedTrades
     : weekMissedTrades
+  const evidenceCashCurrencyAssumption = usesCompleteSnapshot
+    ? review.evidenceSnapshot?.legacyCashCurrencyAssumption ?? null
+    : legacyCashCurrencyAssumption
   const customMistakeEvidence = Object.entries(metrics.mistakeTagCounts)
     .filter(([tag]) => !WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number]))
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
@@ -654,6 +668,7 @@ export function WeeklyReviewView() {
                               review={review}
                               onPatch={commitPatch}
                               detailFrom={detailFrom(`weekly-trade:${trade.id}`)}
+                              legacyCashCurrencyAssumption={evidenceCashCurrencyAssumption}
                             />
                           ))}
                         </div>
@@ -670,6 +685,7 @@ export function WeeklyReviewView() {
                               review={review}
                               onPatch={commitPatch}
                               detailFrom={detailFrom(`weekly-trade:${trade.id}`)}
+                              legacyCashCurrencyAssumption={evidenceCashCurrencyAssumption}
                             />
                           ))}
                         </div>

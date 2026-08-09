@@ -1,4 +1,5 @@
 import type { PersistedSnapshot } from '@/storage/types'
+import { normalizeCashCurrency } from '@/data/trades'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
@@ -234,6 +235,11 @@ export function isValidPersistedTrade(
   ) return false
   if (!isNullableFiniteNumber(value.exit)) return false
   if (!isNullableFiniteNumber(value.pnl)) return false
+  if (
+    Object.prototype.hasOwnProperty.call(value, 'cashCurrency') &&
+    value.cashCurrency !== null &&
+    (typeof value.cashCurrency !== 'string' || normalizeCashCurrency(value.cashCurrency) !== value.cashCurrency)
+  ) return false
   if (!isNullableFiniteNumber(value.rMultiple)) return false
   if (value.stopLoss !== undefined && !isNullableFiniteNumber(value.stopLoss)) return false
   if (value.initialStopLoss !== undefined && !isNullableFiniteNumber(value.initialStopLoss)) return false
@@ -394,13 +400,27 @@ function isWeeklyReviewEvidenceTrade(value: unknown): boolean {
     TRADE_STATUSES.has(String(value.status)) &&
     isNullableFiniteNumber(value.pnl) &&
     isNullableFiniteNumber(value.rMultiple) &&
+    (
+      !Object.prototype.hasOwnProperty.call(value, 'cashCurrency') ||
+      value.cashCurrency === null ||
+      (typeof value.cashCurrency === 'string' && normalizeCashCurrency(value.cashCurrency) === value.cashCurrency)
+    ) &&
     (value.missReason === undefined || MISS_REASONS.has(String(value.missReason)))
 }
 
 function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
   return isRecord(value) &&
     Array.isArray(value.trades) && value.trades.every(isWeeklyReviewEvidenceTrade) &&
-    Array.isArray(value.missedTrades) && value.missedTrades.every(isWeeklyReviewEvidenceTrade)
+    Array.isArray(value.missedTrades) && value.missedTrades.every(isWeeklyReviewEvidenceTrade) &&
+    (
+      value.legacyCashCurrencyAssumption === undefined ||
+      value.legacyCashCurrencyAssumption === null ||
+      (
+        isRecord(value.legacyCashCurrencyAssumption) &&
+        value.legacyCashCurrencyAssumption.currency === 'USD' &&
+        isCanonicalIsoInstant(value.legacyCashCurrencyAssumption.confirmedAt)
+      )
+    )
 }
 
 function isWeeklyReview(value: unknown): boolean {

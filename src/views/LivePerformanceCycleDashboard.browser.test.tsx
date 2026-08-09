@@ -75,6 +75,7 @@ function closedTrade(
     exit: 110,
     size: 1,
     pnl,
+    cashCurrency: 'USD',
     rMultiple: 1,
     resultSource: 'imported',
     openedAt: closedTradingDayKey,

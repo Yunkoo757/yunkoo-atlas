@@ -23,6 +23,7 @@ export function StrategiesPanel() {
   const addStrategy = useStore((s) => s.addStrategy)
   const updateStrategy = useStore((s) => s.updateStrategy)
   const removeStrategy = useStore((s) => s.removeStrategy)
+  const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Strategy | null>(null)
@@ -35,7 +36,7 @@ export function StrategiesPanel() {
       [...strategies]
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
         .map((s) => {
-          const stats = computeStrategyStats(trades, s.id, { tradeKind: 'live' })
+          const stats = computeStrategyStats(trades, s.id, { tradeKind: 'live', legacyCashCurrencyAssumption })
           return {
             ...s,
             count: stats.tradeCount,
@@ -49,7 +50,7 @@ export function StrategiesPanel() {
             stats,
           }
         }),
-    [strategies, trades],
+    [strategies, trades, legacyCashCurrencyAssumption],
   )
 
   const existingNames = strategies.map((s) => s.name)

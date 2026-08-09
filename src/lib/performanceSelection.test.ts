@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createBusinessDateAnchor } from '@/lib/periods'
-import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { buildPerformanceSelection, buildThisWeekPerformanceSelection } from '@/lib/performanceSelection'
 import { performanceTruthFixture } from '@/test/fixtures/performanceTruthFixture'
 
 const fixture = performanceTruthFixture
@@ -171,4 +171,33 @@ export function testPerformanceSelectionDrilldownReproducesArchiveScope(): void 
 
   assert.equal(archive.drilldownTarget, '?kind=live&range=all&statsCycle=archive-alpha')
   assert.equal(stale.drilldownTarget, '?kind=live&range=all&statsCycle=removed-archive')
+}
+
+export function testDashboardWeekSelectionDoesNotReuseTheCurrentYtdRange(): void {
+  const base = fixture.trades.find((trade) => trade.id === 'FX-USD')!
+  const previousYear = {
+    ...base,
+    id: 'week-december',
+    closedAt: '2026-12-30T12:00:00+08:00',
+    closedTradingDayKey: '2026-12-30',
+  }
+  const currentYear = {
+    ...base,
+    id: 'week-january',
+    closedAt: '2027-01-01T12:00:00+08:00',
+    closedTradingDayKey: '2027-01-01',
+  }
+  const input = {
+    scope: { kind: 'all' as const, range: 'ytd' as const },
+    liveScope: null,
+    anchor: createBusinessDateAnchor(new Date('2027-01-01T12:00:00+08:00'), 6),
+    legacyCashCurrencyAssumption: null,
+  }
+
+  assert.deepEqual(buildPerformanceSelection([previousYear, currentYear], input).pnlIds, ['week-january'])
+  assert.deepEqual(
+    buildThisWeekPerformanceSelection([previousYear, currentYear], input).pnlIds,
+    ['week-december', 'week-january'],
+    '周卡必须按 this-week 独立构建，不能被当前 YTD 边界截断',
+  )
 }

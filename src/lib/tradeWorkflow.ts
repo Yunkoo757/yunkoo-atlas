@@ -3,6 +3,8 @@ import { getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKey } from '@/lib/riskBudget'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
+import { summarizeUsdPnl } from '@/lib/cashCurrency'
+import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 
 export interface TodayWorkflowBuckets {
   active: Trade[]
@@ -76,8 +78,12 @@ export function buildTodayClosedMetrics(
   trades: readonly Trade[],
   today: string,
   tradingDayStartHour = 0,
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null = null,
 ): TodayClosedMetrics {
-  return summarizeTradeResults(filterTodayClosedLiveTrades(trades, today, tradingDayStartHour))
+  const closed = filterTodayClosedLiveTrades(trades, today, tradingDayStartHour)
+  const result = summarizeTradeResults(closed)
+  const usd = summarizeUsdPnl(closed, legacyCashCurrencyAssumption)
+  return { ...result, pnlCount: usd.pnlCount, totalPnl: usd.totalPnl }
 }
 
 /** 把交易库投影为互斥的今日行动队列，避免同一笔交易在多个区块重复出现。 */

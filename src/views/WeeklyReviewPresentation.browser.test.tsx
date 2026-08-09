@@ -55,6 +55,7 @@ function makeTrade(weekStart: string): Trade {
     exit: 90,
     size: 1,
     pnl: -100,
+    cashCurrency: 'USD',
     rMultiple: -1,
     resultSource: 'pnl',
     openedAt: `${weekStart}T08:00:00.000Z`,

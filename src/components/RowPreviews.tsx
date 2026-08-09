@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { fmtMoney, fmtR, fmtDate } from '@/lib/format'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { getStrategyName } from '@/lib/strategies'
 import type { buildDashboardStats } from '@/lib/dashboardStats'
 import { STATUS_META, CONVICTION_META } from '@/data/trades'
@@ -20,6 +21,7 @@ export function TradePreview({
   strategies: Strategy[]
 }) {
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const statusMeta = STATUS_META[trade.status]
   const convictionMeta = CONVICTION_META[trade.conviction]
   const strategyName = getStrategyName(strategies, trade.strategyId)
@@ -52,7 +54,7 @@ export function TradePreview({
           </span>
           <span className="rp-meta-item">
             <span className="rp-meta-label">盈亏</span>
-            <span>{fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)}</span>
+            <span>{formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)}</span>
           </span>
           <span className="rp-meta-item">
             <span className="rp-meta-label">R</span>

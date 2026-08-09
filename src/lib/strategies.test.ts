@@ -29,6 +29,7 @@ const closedLiveTrade: Trade = {
   exit: 110,
   size: 1,
   pnl: 100,
+  cashCurrency: 'USD',
   rMultiple: 2,
   openedAt: '2026-07-01',
   closedAt: '2026-07-02',
@@ -206,6 +207,20 @@ export function testUnknownStrategyReferenceFallsBackToAnExistingStrategy(): voi
     repaired.trades[0]?.strategyId === existing.id,
     '未知 strategyId 必须回退到真实存在的策略',
   )
+}
+
+export function testStrategyStatsAggregateUsdOnlyAndRespectLegacyFact(): void {
+  const cny = { ...closedLiveTrade, id: 'cny', pnl: 700, cashCurrency: 'CNY' }
+  const legacy = { ...closedLiveTrade, id: 'legacy', pnl: 50 }
+  delete legacy.cashCurrency
+  const unknown = { ...closedLiveTrade, id: 'unknown', pnl: 80, cashCurrency: null }
+
+  const withoutAssumption = computeStrategyStats([closedLiveTrade, cny, legacy, unknown], strategyId)
+  assert(withoutAssumption.pnlCount === 1 && withoutAssumption.totalPnl === 100, '策略 USD 总计必须排除其他币种与未知币种')
+  const withAssumption = computeStrategyStats([closedLiveTrade, cny, legacy, unknown], strategyId, {
+    legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
+  })
+  assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, '策略 legacy 假设只纳入缺字段旧记录')
 }
 
 export function testStrategyMigrationPreservesExplicitNullCloseDate(): void {

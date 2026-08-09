@@ -51,6 +51,7 @@ function trade(revision: number): Trade {
     exit: 90,
     size: 1,
     pnl: -1_000,
+    cashCurrency: 'USD',
     rMultiple: null,
     resultSource: 'pnl',
     openedAt: '2026-07-21T08:00:00.000Z',
@@ -111,6 +112,7 @@ function stateAtRevision(revision: number): CompleteWeeklyReviewState {
     monthlyRiskLimits: [monthlyLimit(revision)],
     riskOverrideEvents: [overrideEvent(revision)],
     liveStatsStartTradingDayKey: null,
+    profile: { legacyCashCurrencyAssumption: null },
     display: { tradingDayStartHour: 0 },
   }
 }
@@ -314,4 +316,39 @@ export function testCompletedWeeklyReviewCannotBeRewritten(): void {
 
   assert(rewritten.metricsSnapshot?.totalPnl === -1_000, '已冻结周复盘不得被后续交易数据改写')
   assert(rewritten.completedAt === completed.completedAt, '已冻结周复盘必须保留原冻结时间')
+}
+
+export function testWeeklyReviewCompletionFreezesOnlyUsdCashFacts(): void {
+  const state = stateAtRevision(7)
+  state.trades = [
+    { ...trade(7), id: 'usd', pnl: 100, cashCurrency: 'USD' },
+    { ...trade(7), id: 'cny', pnl: 700, cashCurrency: 'CNY' },
+    { ...trade(7), id: 'legacy', pnl: 50 },
+    { ...trade(7), id: 'unknown', pnl: 80, cashCurrency: null },
+  ]
+  delete state.trades[2]!.cashCurrency
+
+  const withoutAssumption = completeWeeklyReviewCandidate(state, 'review-1').review
+  assert(withoutAssumption.metricsSnapshot?.pnlCount === 1, '无假设时冻结快照只能纳入显式 USD')
+  assert(withoutAssumption.metricsSnapshot?.totalPnl === 100, 'CNY、缺字段和显式 null 不得混入 USD 快照')
+
+  const assumedState = {
+    ...state,
+    weeklyReviews: [{ ...state.weeklyReviews[0]!, id: 'review-assumed' }],
+    profile: {
+      legacyCashCurrencyAssumption: {
+        currency: 'USD' as const,
+        confirmedAt: '2026-08-09T04:00:00.000Z',
+      },
+    },
+  }
+  const assumedCandidate = completeWeeklyReviewCandidate(assumedState, 'review-assumed')
+  const assumed = assumedCandidate.review
+  assert(assumed.metricsSnapshot?.pnlCount === 2, '资料库假设只能额外纳入真正缺字段旧记录')
+  assert(assumed.metricsSnapshot?.totalPnl === 150, '显式 CNY 与显式 null 仍必须排除')
+  assert(
+    assumedCandidate.weeklyReviews[0]?.evidenceSnapshot?.legacyCashCurrencyAssumption?.currency === 'USD',
+    '规范化后必须保留完成时的 legacy USD 展示上下文',
+  )
+  assert(!Object.prototype.hasOwnProperty.call(state.trades[2]!, 'cashCurrency'), '完成周复盘不得回写旧交易币种字段')
 }

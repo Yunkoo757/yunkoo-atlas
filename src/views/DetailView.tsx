@@ -92,6 +92,7 @@ import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import {
   loadDetailNote,
@@ -1418,7 +1419,7 @@ export function DetailView() {
               format={(v) =>
                 trade.status === 'planned' || trade.status === 'open'
                   ? '—'
-                  : fmtMoney(v as number, trade.cashCurrency ?? null, privacyMode)
+                  : formatTradeCashPnl({ ...trade, pnl: v as number }, profile.legacyCashCurrencyAssumption, privacyMode)
               }
               inputType="number"
               nullable

@@ -9,6 +9,7 @@ import {
   getTradeRemainingDays,
 } from '@/data/trades'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { getStrategyName } from '@/lib/strategies'
 import {
   Trash2,
@@ -73,6 +74,7 @@ export function TradeTrashView() {
   const allTrades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const privacyMode = useStore((s) => s.display.privacyMode)
+  const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
   const restoreTrade = useStore((s) => s.restoreTrade)
   const restoreTrades = useStore((s) => s.restoreTrades)
   const purgeTrade = useStore((s) => s.purgeTrade)
@@ -323,7 +325,7 @@ export function TradeTrashView() {
                           </div>
                         </div>
 
-                        <span className={'trash-item-pnl' + pnlTone}>{fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)}</span>
+                        <span className={'trash-item-pnl' + pnlTone}>{formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)}</span>
                         <span className="trash-item-r">{fmtR(trade.rMultiple)}</span>
                         <span className="trash-item-date">{fmtDate(trade.deletedAt!)}</span>
                         <Tooltip

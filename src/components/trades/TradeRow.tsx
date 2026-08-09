@@ -7,6 +7,7 @@ import { SymbolIcon } from '@/components/SymbolIcon'
 import type { StrategyPreviewStats } from '@/components/RowPreviews'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -47,6 +48,7 @@ export const TradeRow = memo(function TradeRow({
   const showResult = trade.status !== 'planned' && trade.status !== 'open'
   const isMissed = trade.status === 'missed'
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
   const symbolIconsFromStore = useStore((state) =>
@@ -177,7 +179,7 @@ export const TradeRow = memo(function TradeRow({
                     : ' is-zero')
           }
         >
-          {showResult ? (isMissed ? '未成交' : fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)) : '—'}
+          {showResult ? (isMissed ? '未成交' : formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)) : '—'}
         </span>
       }
       r={

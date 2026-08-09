@@ -20,7 +20,7 @@ function focusLink(link: HTMLAnchorElement): void {
 function LocationProbe() {
   return <output data-route-path>{useLocation().pathname}</output>
 }
-function trade(id: string, day: string, patch: Partial<Trade> = {}): Trade { return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch } }
+function trade(id: string, day: string, patch: Partial<Trade> = {}): Trade { return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, cashCurrency: 'USD', rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch } }
 async function run() {
   const element = document.getElementById('root'); assert(element, '缺少测试挂载节点')
   const previous = useStore.getState(); let root = createRoot(element)
@@ -166,6 +166,29 @@ async function run() {
     root.render(<MemoryRouter key="current-list" initialEntries={['/list']}><Routes><Route path="/list" element={<ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} />} /></Routes></MemoryRouter>)
     await waitFor(() => Boolean(document.querySelector('[data-trade-id="pending"]')), '修复后记录必须在当前日志可见')
 
+    const legacyUsd = trade('legacy-usd', '2026-01-15', { pnl: 50 })
+    delete legacyUsd.cashCurrency
+    useStore.setState((state) => ({
+      trades: [
+        trade('explicit-usd', '2026-01-15', { pnl: 100, cashCurrency: 'USD' }),
+        trade('explicit-cny', '2026-01-15', { pnl: 700, cashCurrency: 'CNY' }),
+        legacyUsd,
+        trade('explicit-unknown', '2026-01-15', { pnl: 80, cashCurrency: null }),
+      ],
+      livePerformanceCycles: cycles,
+      profile: {
+        ...state.profile,
+        legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
+      },
+    }))
+    root.render(<MemoryRouter key="archive-currency-facts" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
+    await waitFor(() => document.body.textContent?.includes('+$150') ?? false, '归档卡片必须只汇总显式 USD 与已确认的 legacy USD')
+    assert(!document.body.textContent?.includes('+$930'), '归档卡片不得混入 CNY 与显式 unknown')
+    document.querySelector<HTMLAnchorElement>('[data-archive-detail-link]')?.click()
+    await waitFor(() => document.body.textContent?.includes('按资料库假设作为 USD') ?? false, '归档单笔旧记录必须解释 USD 假设来源')
+    assert(document.body.textContent?.includes('+CN¥700'), '归档单笔 CNY 必须展示自身币种')
+    assert(document.body.textContent?.includes('+80 · 币种未知'), '归档显式 null 必须保持币种未知')
+
     const performanceStarts = ['2026-01-01', '2026-02-01', '2026-03-01', '2026-04-01', '2026-05-01', '2026-06-01', '2026-07-01', '2026-08-01']
     const performanceTrades = Array.from({ length: 20_000 }, (_, index) => {
       const day = index < 19_993 ? '2026-01-15' : `2026-${String(index - 19_993 + 2).padStart(2, '0')}-15`
@@ -189,6 +212,6 @@ async function run() {
     assert(homepageMs < 2_500, `两万笔归档首页首屏投影过慢：${homepageMs.toFixed(1)}ms`)
     assert(detailMs < 8_000, `两万笔归档详情渲染过慢：${detailMs.toFixed(1)}ms`)
     window.__liveArchivePerfMetrics = { homepageMs, detailMs }
-  } finally { root.unmount(); useStore.setState({ trades: previous.trades, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display }) }
+  } finally { root.unmount(); useStore.setState({ trades: previous.trades, livePerformanceCycles: previous.livePerformanceCycles, display: previous.display, profile: previous.profile }) }
 }
 window.__liveArchiveViewTest = run()

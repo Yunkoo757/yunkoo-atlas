@@ -11,6 +11,8 @@ import { summarizeTradeResults } from '@/lib/tradeTruth'
 import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
 import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
+import type { LegacyCashCurrencyAssumption, UserProfile } from '@/storage/types'
+import { eligibleUsdPnlIds } from '@/lib/cashCurrency'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
@@ -45,12 +47,14 @@ export interface WeeklyReviewMetrics {
 
 export type WeeklyReviewEvidenceTrade = Pick<
   Trade,
-  'id' | 'ref' | 'symbol' | 'status' | 'pnl' | 'rMultiple' | 'missReason'
+  'id' | 'ref' | 'symbol' | 'status' | 'pnl' | 'rMultiple' | 'missReason' | 'cashCurrency'
 >
 
 export interface WeeklyReviewEvidenceSnapshot {
   trades: WeeklyReviewEvidenceTrade[]
   missedTrades: WeeklyReviewEvidenceTrade[]
+  /** 冻结证据时使用的解释上下文；旧快照缺失表示没有可证明的假设。 */
+  legacyCashCurrencyAssumption?: LegacyCashCurrencyAssumption | null
 }
 
 export interface WeeklyReview {
@@ -102,6 +106,7 @@ export interface CompleteWeeklyReviewState {
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
   liveStatsStartTradingDayKey: string | null
+  profile: Pick<UserProfile, 'legacyCashCurrencyAssumption'>
   display: { tradingDayStartHour: number }
 }
 
@@ -261,7 +266,7 @@ export function buildWeeklyReviewMetrics(
 }
 
 function toWeeklyReviewEvidenceTrade(trade: WeeklyReviewEvidenceTrade): WeeklyReviewEvidenceTrade {
-  return {
+  const evidence: WeeklyReviewEvidenceTrade = {
     id: trade.id,
     ref: trade.ref,
     symbol: trade.symbol,
@@ -270,6 +275,10 @@ function toWeeklyReviewEvidenceTrade(trade: WeeklyReviewEvidenceTrade): WeeklyRe
     rMultiple: trade.rMultiple,
     ...(trade.missReason ? { missReason: trade.missReason } : {}),
   }
+  if (Object.prototype.hasOwnProperty.call(trade, 'cashCurrency')) {
+    evidence.cashCurrency = trade.cashCurrency
+  }
+  return evidence
 }
 
 function daysThrough(start: string, end: string): string[] {
@@ -366,10 +375,17 @@ export function completeWeeklyReviewCandidate(
   const review: WeeklyReview = {
     ...existing,
     status: 'completed',
-    metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(trades, missedTrades)),
+    metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(
+      trades,
+      missedTrades,
+      eligibleUsdPnlIds(trades, state.profile.legacyCashCurrencyAssumption),
+    )),
     evidenceSnapshot: {
       trades: trades.map(toWeeklyReviewEvidenceTrade),
       missedTrades: missedTrades.map(toWeeklyReviewEvidenceTrade),
+      legacyCashCurrencyAssumption: state.profile.legacyCashCurrencyAssumption
+        ? { ...state.profile.legacyCashCurrencyAssumption }
+        : null,
     },
     riskSnapshot: buildWeeklyRiskReviewSnapshot(state, existing, completedAt),
     completedAt,
@@ -443,6 +459,14 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
         evidenceSnapshot: {
           trades: normalized.evidenceSnapshot.trades.map(toWeeklyReviewEvidenceTrade),
           missedTrades: normalized.evidenceSnapshot.missedTrades.map(toWeeklyReviewEvidenceTrade),
+          ...(Object.prototype.hasOwnProperty.call(
+            normalized.evidenceSnapshot,
+            'legacyCashCurrencyAssumption',
+          ) ? {
+              legacyCashCurrencyAssumption: normalized.evidenceSnapshot.legacyCashCurrencyAssumption
+                ? { ...normalized.evidenceSnapshot.legacyCashCurrencyAssumption }
+                : null,
+            } : {}),
         },
       }
     }

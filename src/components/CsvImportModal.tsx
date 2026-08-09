@@ -14,6 +14,7 @@ import {
   type TradeField,
 } from '@/lib/csvImport'
 import type { Trade } from '@/data/trades'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import {
   buildContentSignature,
   buildLibraryContentIndex,
@@ -519,7 +520,7 @@ export function CsvImportModal({ open, onClose }: Props) {
                         <td>{p.trade.side ?? ''}</td>
                         <td>{p.trade.entry ?? ''}</td>
                         <td>{p.trade.exit ?? ''}</td>
-                        <td>{p.trade.pnl == null ? '' : fmtMoney(p.trade.pnl, p.trade.cashCurrency ?? null, privacyMode)}</td>
+                        <td>{p.trade.pnl == null ? '' : formatTradeCashPnl(p.trade, null, privacyMode)}</td>
                         <td>{p.trade.openedAt ?? ''}</td>
                         <td className="csv-err-cell">
                           {p.errors.join('; ')}

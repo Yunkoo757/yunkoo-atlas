@@ -8,6 +8,8 @@ import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { filterLiveLogRecords, listLiveArchiveProjections, resolveLiveArchiveScope, type LiveArchiveSummary } from '@/lib/liveStatisticsArchive'
 import { resolveLivePerformanceCloseTradingDayKey } from '@/lib/livePerformanceCycles'
 import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
+import { formatTradeCashPnl, summarizeUsdPnl } from '@/lib/cashCurrency'
+import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { tradeDetailPath, tradeDetailNavState } from '@/lib/tradeRoute'
 import { useStore } from '@/store/useStore'
 import './LiveArchiveView.css'
@@ -32,11 +34,15 @@ function summaryText(summary: LiveArchiveSummary): string {
     : `完整 ${result.validResultCount}/${result.closedCount}`
 }
 
-function ArchiveMetrics({ trades }: { trades: Trade[] }) {
+function ArchiveMetrics({ trades, legacyCashCurrencyAssumption }: {
+  trades: Trade[]
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
+}) {
   const metrics = summarizeTradeResults(trades)
+  const usd = summarizeUsdPnl(trades, legacyCashCurrencyAssumption)
   return <div className="la-card-metrics">
     <span><small>胜率</small><strong>{metrics.winRate == null ? '—' : `${metrics.winRate.toFixed(0)}%`}</strong></span>
-    <span><small>净盈亏</small><strong className={metrics.totalPnl > 0 ? 'is-positive' : metrics.totalPnl < 0 ? 'is-negative' : ''}>{metrics.pnlCount ? fmtMoney(metrics.totalPnl, 'USD') : '—'}</strong></span>
+    <span><small>净盈亏</small><strong className={usd.totalPnl > 0 ? 'is-positive' : usd.totalPnl < 0 ? 'is-negative' : ''}>{usd.pnlCount ? fmtMoney(usd.totalPnl, 'USD') : '—'}</strong></span>
     <span><small>平均 R</small><strong>{fmtR(metrics.averageR)}</strong></span>
   </div>
 }
@@ -48,6 +54,7 @@ export function LiveArchiveView() {
   const trades = useStore((state) => state.trades)
   const cycles = useStore((state) => state.livePerformanceCycles)
   const startHour = useStore((state) => state.display.tradingDayStartHour)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -102,7 +109,7 @@ export function LiveArchiveView() {
           {visibleMembers.map((trade) => {
             const truth = resolveTradeTruth(trade)
             const state = trade.status === 'missed' ? '错过机会' : truth.hasConflict ? '结果冲突' : !truth.isResultComplete ? '待补结果' : trade.status === 'win' ? '盈利' : trade.status === 'loss' ? '亏损' : '保本'
-            return <Link data-archive-trade-row key={trade.id} className="la-trade-row" to={tradeDetailPath(trade)} state={tradeDetailNavState({ pathname: `/live-archive/${encodeURIComponent(summary.archiveId)}`, anchorTradeId: trade.id })}><div><strong>{trade.symbol}</strong><span>{trade.ref} · {fmtDate(resolveLivePerformanceCloseTradingDayKey(trade, startHour) ?? '')}</span></div><div><span>{state}</span><strong>{truth.isResultComplete ? fmtMoney(trade.pnl, trade.cashCurrency ?? null) : '—'}</strong></div></Link>
+            return <Link data-archive-trade-row key={trade.id} className="la-trade-row" to={tradeDetailPath(trade)} state={tradeDetailNavState({ pathname: `/live-archive/${encodeURIComponent(summary.archiveId)}`, anchorTradeId: trade.id })}><div><strong>{trade.symbol}</strong><span>{trade.ref} · {fmtDate(resolveLivePerformanceCloseTradingDayKey(trade, startHour) ?? '')}</span></div><div><span>{state}</span><strong>{truth.isResultComplete ? formatTradeCashPnl(trade, legacyCashCurrencyAssumption) : '—'}</strong></div></Link>
           })}
           {visibleMembers.length === 0 ? <p className="la-no-results">当前筛选没有归档记录</p> : null}
         </section>
@@ -115,7 +122,7 @@ export function LiveArchiveView() {
       {routeNotice ? <p className="la-route-notice" role="alert">{routeNotice}</p> : null}
       <p className="la-sr-status" role="status" aria-live="polite">{archiveStatus}</p>
       <div className="la-page-head"><div><h2>历史归档</h2><p>重新开始后，旧记录仍可随时回看。</p></div><div className="la-page-actions"><Link className="la-pending" to="/import-data-health">导入日期核对</Link><Link data-pending-log-link className="la-pending" aria-label={`查看待整理记录，共 ${pendingCount} 条`} to="/list?statsCycle=pending" state={tradeDetailNavState({ pathname: archiveId ? `/live-archive/${encodeURIComponent(archiveId)}` : '/live-archive' })}>待整理 {pendingCount}</Link></div></div>
-      {archiveEntries.length ? <div className="la-cards">{archiveEntries.map(({ summary: item }) => <article className="la-card" key={item.archiveId}><div className="la-card-head"><div><h3>{rangeLabel(item.startTradingDayKey, item.endExclusiveTradingDayKey)}</h3><p>{item.resultCompleteness.closedCount ? `${item.resultCompleteness.closedCount} 笔已平仓` : '暂无已平仓记录'}</p></div><span className="la-completeness">结果完整度 · {summaryText(item)}</span></div><ArchiveMetrics trades={item.trades} /><div className="la-card-foot"><span>关联案例 {item.associatedCaseCount} 个</span><Link data-archive-detail-link to={`/live-archive/${encodeURIComponent(item.archiveId)}`}>查看归档交易 <ChevronRight size={14} /></Link></div></article>)}</div> : <section className="la-empty"><Archive size={24} aria-hidden /><h2>还没有可查看的历史归档</h2><p>开启新一轮当前实盘后，旧的已平仓记录会显示在这里。</p></section>}
+      {archiveEntries.length ? <div className="la-cards">{archiveEntries.map(({ summary: item }) => <article className="la-card" key={item.archiveId}><div className="la-card-head"><div><h3>{rangeLabel(item.startTradingDayKey, item.endExclusiveTradingDayKey)}</h3><p>{item.resultCompleteness.closedCount ? `${item.resultCompleteness.closedCount} 笔已平仓` : '暂无已平仓记录'}</p></div><span className="la-completeness">结果完整度 · {summaryText(item)}</span></div><ArchiveMetrics trades={item.trades} legacyCashCurrencyAssumption={legacyCashCurrencyAssumption} /><div className="la-card-foot"><span>关联案例 {item.associatedCaseCount} 个</span><Link data-archive-detail-link to={`/live-archive/${encodeURIComponent(item.archiveId)}`}>查看归档交易 <ChevronRight size={14} /></Link></div></article>)}</div> : <section className="la-empty"><Archive size={24} aria-hidden /><h2>还没有可查看的历史归档</h2><p>开启新一轮当前实盘后，旧的已平仓记录会显示在这里。</p></section>}
     </main>
   </>
 }

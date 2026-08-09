@@ -48,7 +48,11 @@ import {
   resolveLiveRoute,
   resolveLiveRouteNavigation,
 } from '@/lib/livePerformanceCycleRoute'
-import { buildPerformanceSelection, PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
+import {
+  buildPerformanceSelection,
+  buildThisWeekPerformanceSelection,
+  PERFORMANCE_REPORT_CURRENCY,
+} from '@/lib/performanceSelection'
 import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
@@ -182,14 +186,18 @@ export function Dashboard() {
   )
   const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
   const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
+  const weekPerformanceSelection = useMemo(
+    () => buildThisWeekPerformanceSelection(allTrades, {
+      scope,
+      liveScope: currentLiveScope,
+      anchor: businessDateAnchor,
+      legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
+    }),
+    [allTrades, scope.kind, currentLiveScope, businessDateAnchor, profile.legacyCashCurrencyAssumption],
+  )
   const weekMetrics = useMemo(() => {
-    const weekTrades = filterTradesByAnalysisScope(
-      allTrades,
-      { kind: scope.kind, range: 'this-week' },
-      businessDateAnchor,
-      tradingDayStartHour,
-      performanceBounds,
-    )
+    const weekEligibleIds = new Set(weekPerformanceSelection.eligibleMetricIds)
+    const weekTrades = allTrades.filter((trade) => weekEligibleIds.has(trade.id))
     const missed = scope.kind === 'paper'
       ? []
       : missedTradesInWeek(
@@ -198,8 +206,8 @@ export function Dashboard() {
         tradingDayStartHour,
         performanceBounds,
       )
-    return buildWeeklyReviewMetrics(weekTrades, missed, performanceSelection.pnlIds)
-  }, [allTrades, businessDateAnchor, localDateKey, performanceBounds, performanceSelection.pnlIds, scope.kind, tradingDayStartHour, weekStart])
+    return buildWeeklyReviewMetrics(weekTrades, missed, weekPerformanceSelection.pnlIds)
+  }, [allTrades, performanceBounds, scope.kind, tradingDayStartHour, weekPerformanceSelection, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
   const scopedClosedCount = performanceSelection.eligibleMetricIds.length
@@ -218,10 +226,16 @@ export function Dashboard() {
     const usdIds = new Set(performanceSelection.pnlIds)
     return allTrades.reduce((totals, trade) => {
       if (!usdIds.has(trade.id) || typeof trade.pnl !== 'number') return totals
-      if (trade.tradeKind === 'live') totals.live += trade.pnl
-      if (trade.tradeKind === 'paper') totals.paper += trade.pnl
+      if (trade.tradeKind === 'live') {
+        totals.live.total += trade.pnl
+        totals.live.count += 1
+      }
+      if (trade.tradeKind === 'paper') {
+        totals.paper.total += trade.pnl
+        totals.paper.count += 1
+      }
       return totals
-    }, { live: 0, paper: 0 })
+    }, { live: { total: 0, count: 0 }, paper: { total: 0, count: 0 } })
   }, [allTrades, performanceSelection.pnlIds])
   const resultHealth = {
     conflictCount: performanceSelection.conflictResultIds.length,
@@ -385,7 +399,7 @@ export function Dashboard() {
             value={stats.pnlCount === 0
               ? '—'
               : scope.kind === 'all'
-                ? `实盘 ${fmtMoney(combinedUsdTotals.live, PERFORMANCE_REPORT_CURRENCY, privacyMode)} · 模拟 ${fmtMoney(combinedUsdTotals.paper, PERFORMANCE_REPORT_CURRENCY, privacyMode)}`
+                ? `实盘 ${combinedUsdTotals.live.count ? fmtMoney(combinedUsdTotals.live.total, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'} · 模拟 ${combinedUsdTotals.paper.count ? fmtMoney(combinedUsdTotals.paper.total, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'}`
                 : fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
             sub={`当前范围 · ${stats.pnlCount}/${scopedClosedCount} 笔含盈亏`}
             accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}

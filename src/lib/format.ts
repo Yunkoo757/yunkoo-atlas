@@ -1,3 +1,5 @@
+import { normalizeCashCurrency } from '@/data/trades'
+
 export function fmtMoney(
   n: number | null | undefined,
   currency: string | null,
@@ -12,13 +14,14 @@ export function fmtMoney(
     minimumFractionDigits: hasFraction ? 2 : 0,
     maximumFractionDigits: 2,
   }
-  if (currency === null) {
+  const normalizedCurrency = normalizeCashCurrency(currency)
+  if (normalizedCurrency === null) {
     return `${sign}${displayValue.toLocaleString('en-US', options)} · 币种未知`
   }
   return sign + displayValue.toLocaleString('en-US', {
     ...options,
     style: 'currency',
-    currency,
+    currency: normalizedCurrency,
   })
 }
 

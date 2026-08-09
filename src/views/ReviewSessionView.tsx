@@ -25,6 +25,7 @@ import { Menu } from '@/components/Menu'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Select } from '@/components/ui/Select'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { getStrategyName } from '@/lib/strategies'
 import {
   settleReviewImageGroup,
@@ -113,6 +114,7 @@ export function ReviewSessionView() {
   const strategies = useStore((state) => state.strategies)
   const starredIds = useStore((state) => state.starredIds)
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const updateTradeData = useStore((state) => state.updateTradeData)
   const starred = useMemo(() => new Set(starredIds), [starredIds])
   const [filters, setFilters] = useState<ReviewSessionFilters>(DEFAULT_REVIEW_SESSION_FILTERS)
@@ -431,6 +433,7 @@ export function ReviewSessionView() {
           onBack={session.cursor > 0 ? rewind : undefined}
           onOpenDetail={openDetail}
           privacyMode={privacyMode}
+          legacyCashCurrencyAssumption={legacyCashCurrencyAssumption}
         />
       )}
       {settingsDraft ? (
@@ -591,6 +594,7 @@ function ReviewSessionItem({
   onBack,
   onOpenDetail,
   privacyMode,
+  legacyCashCurrencyAssumption,
 }: {
   trade: Trade
   strategyName: string
@@ -600,6 +604,7 @@ function ReviewSessionItem({
   onBack?: () => void
   onOpenDetail: () => void
   privacyMode: boolean
+  legacyCashCurrencyAssumption: import('@/storage/types').LegacyCashCurrencyAssumption | null
 }) {
   const rTone = metricTone(trade.rMultiple)
   const rawPnlTone = metricTone(trade.pnl)
@@ -625,7 +630,7 @@ function ReviewSessionItem({
             <span>{trade.side === 'long' ? '做多' : '做空'}</span>
             <span>{fmtDate(trade.recordedAt ?? trade.openedAt)}</span>
             <span className={`is-${rTone}`}>{fmtR(trade.rMultiple)}</span>
-            {trade.pnl != null ? <span className={`is-${pnlTone}`}>{fmtMoney(trade.pnl, trade.cashCurrency ?? null, privacyMode)}</span> : null}
+            {trade.pnl != null ? <span className={`is-${pnlTone}`}>{formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)}</span> : null}
             <Button type="button" variant="bordered" onClick={onOpenDetail}>打开详情</Button>
           </div>
         </header>

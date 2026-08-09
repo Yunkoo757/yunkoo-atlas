@@ -70,6 +70,7 @@ export function TodayWorkspace() {
   const isStarred = useStore((state) => state.isStarred)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
@@ -80,8 +81,8 @@ export function TodayWorkspace() {
     [trades, today, tradingDayStartHour],
   )
   const todayMetrics = useMemo(
-    () => buildTodayClosedMetrics(trades, today, tradingDayStartHour),
-    [trades, today, tradingDayStartHour],
+    () => buildTodayClosedMetrics(trades, today, tradingDayStartHour, legacyCashCurrencyAssumption),
+    [trades, today, tradingDayStartHour, legacyCashCurrencyAssumption],
   )
   const visibleWorkflowGroups = useMemo(
     () => queueFilter === 'all'

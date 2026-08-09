@@ -1,4 +1,4 @@
-import { normalizeCashCurrency, type Trade } from '@/data/trades'
+import type { Trade } from '@/data/trades'
 import type { AnalysisRange, AnalysisScope } from '@/lib/analysisScope'
 import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
 import { formatYmd, getPeriodBounds, parseLocalDate, type BusinessDateAnchor } from '@/lib/periods'
@@ -11,10 +11,9 @@ import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { writeTradeListPerformanceCycle } from '@/lib/livePerformanceCycleRoute'
 import { LIVE_PERFORMANCE_CYCLE_RESERVED_IDS } from '@/lib/livePerformanceCycles'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
+import { resolveTradeCashCurrencyFact } from '@/lib/cashCurrency'
 
 export const PERFORMANCE_REPORT_CURRENCY = 'USD'
-
-const hasOwn = (value: object, property: string): boolean => Object.prototype.hasOwnProperty.call(value, property)
 
 type CloseDayResolution =
   | { kind: 'valid', day: string }
@@ -91,14 +90,6 @@ function matchesLiveScope(trade: Trade, liveScope: LiveArchiveScope | null, day:
     && (endExclusive === null || day < endExclusive)
 }
 
-function normalizedCurrency(
-  trade: Trade,
-  fallback: LegacyCashCurrencyAssumption | null,
-): string | null {
-  const value = hasOwn(trade, 'cashCurrency') ? trade.cashCurrency : fallback?.currency
-  return normalizeCashCurrency(value)
-}
-
 export function buildPerformanceSelection(
   trades: readonly Trade[],
   input: PerformanceSelectionInput,
@@ -150,7 +141,7 @@ export function buildPerformanceSelection(
     if (truth.hasR) rIds.push(trade.id)
     if (!truth.hasPnl) continue
 
-    const currency = normalizedCurrency(trade, input.legacyCashCurrencyAssumption)
+    const currency = resolveTradeCashCurrencyFact(trade, input.legacyCashCurrencyAssumption).currency
     if (currency === null) {
       unknownCurrencyIds.push(trade.id)
       continue
@@ -198,4 +189,15 @@ export function buildPerformanceSelection(
     excludedCurrencyCounts,
     excludedUnknownCount: unknownCurrencyIds.length,
   }
+}
+
+/** Dashboard 周卡使用独立周期选择，避免当前 30d/月度/YTD 范围截断跨边界自然周。 */
+export function buildThisWeekPerformanceSelection(
+  trades: readonly Trade[],
+  input: PerformanceSelectionInput,
+): PerformanceSelection {
+  return buildPerformanceSelection(trades, {
+    ...input,
+    scope: { ...input.scope, range: 'this-week' },
+  })
 }

@@ -9,6 +9,7 @@ export function testTradingValuesKeepMeaningfulPrecision(): void {
   assert(fmtMoney(12.5, 'USD') === '+$12.50', 'fractional cash must not be rounded to a whole dollar')
   assert(fmtMoney(12.5, 'CNY') === '+CN¥12.50', '单笔非 USD 现金必须展示自身币种')
   assert(fmtMoney(12.5, null) === '+12.50 · 币种未知', 'unknown 现金必须保留数值并明确币种未知')
+  assert(fmtMoney(12.5, 'US') === '+12.50 · 币种未知', '非法币种不得抛出 RangeError，必须安全降级为未知')
   assert(fmtPrice(1.095) === '1.095', 'forex prices must preserve meaningful decimals')
   assert(fmtPrice(0.00002345) === '0.00002345', 'small crypto prices must remain readable')
   assert(fmtR(1.25) === '+1.25R', 'R display must not hide a quarter-R difference')

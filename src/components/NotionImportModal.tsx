@@ -23,6 +23,7 @@ import {
 } from '@/lib/tradeDuplicates'
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { MAX_NOTION_IMPORT_ROWS } from '@/lib/notionImportLimits'
@@ -708,7 +709,7 @@ function PreviewRow({
         )}
       </td>
       <td className={privacyMode ? '' : t.pnl != null && t.pnl > 0 ? 'nim-pnl-pos' : t.pnl != null && t.pnl < 0 ? 'nim-pnl-neg' : ''}>
-        {fmtMoney(t.pnl, t.cashCurrency ?? null, privacyMode)}
+        {formatTradeCashPnl(t, null, privacyMode)}
       </td>
       <td>{t.rMultiple != null ? t.rMultiple.toFixed(2) : '—'}</td>
       <td>{t.openedAt ?? '—'}</td>

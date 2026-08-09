@@ -240,6 +240,7 @@ export function testTodayClosedMetricsUsesCloseDateLiveOnly(): void {
     closedAt: today,
     exit: 110,
     pnl: 100,
+    cashCurrency: 'USD',
     rMultiple: 2,
   } as Trade
   const openToday = { ...base, id: 'open-today', status: 'open', openedAt: today } as Trade
@@ -290,6 +291,25 @@ export function testTodayClosedMetricsPrefersFrozenTradingDayAndHonorsDayBoundar
 
   assert(metrics.closedCount === 2,
     'Today 战绩应优先使用冻结交易日，并把起始小时前的平仓归入前一交易日')
+}
+
+export function testTodayClosedMetricsUsesUsdOnlyWithExplicitLegacyAssumption(): void {
+  const today = '2026-07-21'
+  const usd = { ...base, id: 'usd', status: 'win', closedAt: today, exit: 2, pnl: 100, rMultiple: 1, cashCurrency: 'USD' } as Trade
+  const cny = { ...usd, id: 'cny', pnl: 700, cashCurrency: 'CNY' }
+  const legacy = { ...usd, id: 'legacy', pnl: 50 }
+  delete legacy.cashCurrency
+  const unknown = { ...usd, id: 'unknown', pnl: 80, cashCurrency: null }
+
+  const withoutAssumption = buildTodayClosedMetrics([usd, cny, legacy, unknown], today)
+  assert(withoutAssumption.pnlCount === 1 && withoutAssumption.totalPnl === 100, '今日 USD 总计必须排除 CNY 与未知币种')
+  const withAssumption = buildTodayClosedMetrics(
+    [usd, cny, legacy, unknown],
+    today,
+    0,
+    { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
+  )
+  assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, '今日总计的 legacy 假设只能作用于缺字段旧记录')
 }
 
 export function testTodayCompletedReviewHonorsTradingDayBoundary(): void {

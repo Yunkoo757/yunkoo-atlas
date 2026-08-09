@@ -307,6 +307,13 @@ export function testSnapshotValidationEnforcesDeclaredResultAuthorityMetrics(): 
 
 export function testSnapshotValidationExportsReusableTradeValidation(): void {
   assert(isValidPersistedTrade(valid.trades[0]), '共享 Trade 校验应接受有效持久化记录')
+  assert(isValidPersistedTrade({ ...valid.trades[0], cashCurrency: 'USD' }), '规范 active ISO 4217 币种必须接受')
+  assert(isValidPersistedTrade({ ...valid.trades[0], cashCurrency: null }), '显式 null 币种事实必须接受')
+  const missingCurrency: Record<string, unknown> = { ...valid.trades[0] }
+  delete missingCurrency.cashCurrency
+  assert(isValidPersistedTrade(missingCurrency), '旧记录缺失 cashCurrency 字段必须继续接受')
+  assert(!isValidPersistedTrade({ ...valid.trades[0], cashCurrency: 'US' }), '非三字母 ISO 4217 币种必须拒绝')
+  assert(!isValidPersistedTrade({ ...valid.trades[0], cashCurrency: 'usd' }), '非规范大小写币种不得在载入时静默改写')
   assert(
     !isValidPersistedTrade({ ...valid.trades[0], comments: [{ id: 'c-1', text: 2, createdAt: 'now' }] }),
     '共享 Trade 校验应拒绝会破坏评论流的数据',

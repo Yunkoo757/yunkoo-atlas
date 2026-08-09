@@ -104,6 +104,7 @@ function makeTrade(id: string, status: 'win' | 'loss' | 'missed', pnl: number | 
     exit: null,
     size: 1,
     pnl,
+    cashCurrency: 'USD',
     rMultiple: null,
     resultSource: status === 'missed' ? undefined : 'pnl',
     missReason: status === 'missed' ? 'hesitation' : undefined,

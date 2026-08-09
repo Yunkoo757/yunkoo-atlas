@@ -23,6 +23,7 @@ import {
 } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { fmtMoney, fmtR } from '@/lib/format'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
@@ -72,6 +73,7 @@ export function BoardView({
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
   const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
+  const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
   const [overIdx, setOverIdx] = useState<number | null>(null)
@@ -187,6 +189,7 @@ export function BoardView({
                 strategies={strategies}
                 symbolIcons={symbolIcons}
                 privacyMode={display.privacyMode}
+                legacyCashCurrencyAssumption={legacyCashCurrencyAssumption}
                 dragId={dragId}
                 overCol={overCol}
                 overIdx={overIdx}
@@ -236,6 +239,7 @@ function BoardColumnBody({
   strategies,
   symbolIcons,
   privacyMode,
+  legacyCashCurrencyAssumption,
   dragId,
   overCol,
   overIdx,
@@ -251,6 +255,7 @@ function BoardColumnBody({
   strategies: Strategy[]
   symbolIcons: SymbolIconsMap
   privacyMode: boolean
+  legacyCashCurrencyAssumption: import('@/storage/types').LegacyCashCurrencyAssumption | null
   dragId: string | null
   overCol: TradeStatus | null
   overIdx: number | null
@@ -407,7 +412,7 @@ function BoardColumnBody({
                             : 'var(--text-tertiary)',
                     }}
                   >
-                    {t.status === 'planned' || t.status === 'open' ? '—' : fmtMoney(t.pnl, t.cashCurrency ?? null, privacyMode)}
+                    {t.status === 'planned' || t.status === 'open' ? '—' : formatTradeCashPnl(t, legacyCashCurrencyAssumption, privacyMode)}
                   </span>
                   {t.status !== 'planned' && t.status !== 'open' && (
                     <span className="bd-card-r">{fmtR(t.rMultiple)}</span>
