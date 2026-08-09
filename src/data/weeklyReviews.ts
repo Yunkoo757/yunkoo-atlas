@@ -12,8 +12,7 @@ import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
 import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 import type { LegacyCashCurrencyAssumption, UserProfile } from '@/storage/types'
-import { eligibleUsdPnlIds } from '@/lib/cashCurrency'
-import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { buildPerformanceSelection, type PerformanceSelection } from '@/lib/performanceSelection'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
@@ -36,6 +35,7 @@ export interface WeeklyReviewMetrics {
   lossCount: number
   breakevenCount: number
   conflictCount: number
+  pendingResultCount: number
   winRate: number | null
   pnlCount: number
   totalPnl: number
@@ -169,6 +169,27 @@ export function tradesClosedInWeek(
   tradingDayStartHour = 0,
   currentTradingDayKey = weekEndFor(weekStart),
 ): Trade[] {
+  return buildWeeklyReviewTradeSelection(
+    trades,
+    weekStart,
+    tradingDayStartHour,
+    currentTradingDayKey,
+    null,
+  ).trades
+}
+
+export type WeeklyReviewTradeSelection = Pick<
+  PerformanceSelection,
+  'eligibleMetricIds' | 'pnlIds' | 'rIds' | 'conflictResultIds' | 'missingResultIds'
+> & { trades: Trade[] }
+
+export function buildWeeklyReviewTradeSelection(
+  trades: Trade[],
+  weekStart: string,
+  tradingDayStartHour = 0,
+  currentTradingDayKey = weekEndFor(weekStart),
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null = null,
+): WeeklyReviewTradeSelection {
   const weekEnd = weekEndFor(weekStart)
   const selection = buildPerformanceSelection(trades, {
     scope: { kind: 'live', range: 'all' },
@@ -178,14 +199,28 @@ export function tradesClosedInWeek(
       tradingDayStartHour,
       currentTradingDayKey,
     },
-    legacyCashCurrencyAssumption: null,
+    legacyCashCurrencyAssumption,
   })
-  const eligibleIds = new Set(selection.eligibleMetricIds)
-  return trades.filter((trade) => {
-    if (!eligibleIds.has(trade.id)) return false
+  const evidenceIds = new Set([
+    ...selection.eligibleMetricIds,
+    ...selection.conflictResultIds,
+    ...selection.missingResultIds,
+  ])
+  const evidenceTrades = trades.filter((trade) => {
+    if (!evidenceIds.has(trade.id)) return false
     const date = closedTradingDayKey(trade, tradingDayStartHour)
     return date !== null && date >= weekStart && date <= weekEnd
   })
+  const idsInWeek = new Set(evidenceTrades.map((trade) => trade.id))
+  const withinWeek = (ids: readonly string[]) => ids.filter((id) => idsInWeek.has(id))
+  return {
+    trades: evidenceTrades,
+    eligibleMetricIds: withinWeek(selection.eligibleMetricIds),
+    pnlIds: withinWeek(selection.pnlIds),
+    rIds: withinWeek(selection.rIds),
+    conflictResultIds: withinWeek(selection.conflictResultIds),
+    missingResultIds: withinWeek(selection.missingResultIds),
+  }
 }
 
 export function missedTradesInWeek(
@@ -213,12 +248,12 @@ export function missedTradesInWeek(
 function reviewActivityWeek(
   trade: Trade,
   tradingDayStartHour: number,
-  eligibleMetricIds: ReadonlySet<string>,
+  evidenceIds: ReadonlySet<string>,
   currentTradingDayKey: string,
 ): string | null {
   if (trade.deletedAt || trade.tradeKind !== 'live') return null
   if (!isExecutedClosed(trade.status) && !isMissed(trade.status)) return null
-  if (isExecutedClosed(trade.status) && !eligibleMetricIds.has(trade.id)) return null
+  if (isExecutedClosed(trade.status) && !evidenceIds.has(trade.id)) return null
   const day = closedTradingDayKey(trade, tradingDayStartHour)
   if (day !== null && day > currentTradingDayKey) return null
   return day ? weekStartFor(parseLocalDate(day)) : null
@@ -233,7 +268,7 @@ export function deriveWeeklyReviewWeeks(
   currentTradingDayKey = weekEndFor(currentWeek),
 ): string[] {
   const limit = Math.max(0, Math.trunc(activityLimit))
-  const eligibleMetricIds = new Set(buildPerformanceSelection(trades, {
+  const selection = buildPerformanceSelection(trades, {
     scope: { kind: 'live', range: 'all' },
     liveScope: null,
     anchor: {
@@ -242,10 +277,15 @@ export function deriveWeeklyReviewWeeks(
       currentTradingDayKey,
     },
     legacyCashCurrencyAssumption: null,
-  }).eligibleMetricIds)
+  })
+  const evidenceIds = new Set([
+    ...selection.eligibleMetricIds,
+    ...selection.conflictResultIds,
+    ...selection.missingResultIds,
+  ])
   const activityWeeks = [...new Set(trades.flatMap((trade) => {
     const week = reviewActivityWeek(
-      trade, tradingDayStartHour, eligibleMetricIds, currentTradingDayKey,
+      trade, tradingDayStartHour, evidenceIds, currentTradingDayKey,
     )
     return week ? [week] : []
   }))]
@@ -262,16 +302,33 @@ export function buildWeeklyReviewMetrics(
   trades: Trade[],
   missedTrades: Trade[] = [],
   eligibleUsdPnlIds?: readonly string[],
+  metricSelection?: Pick<
+    WeeklyReviewTradeSelection,
+    'eligibleMetricIds' | 'rIds' | 'conflictResultIds' | 'missingResultIds'
+  >,
 ): WeeklyReviewMetrics {
-  const summary = summarizeTradeResults(trades)
+  const eligibleMetricIdSet = metricSelection === undefined
+    ? null
+    : new Set(metricSelection.eligibleMetricIds)
+  const performanceTrades = eligibleMetricIdSet === null
+    ? trades
+    : trades.filter((trade) => eligibleMetricIdSet.has(trade.id))
+  const summary = summarizeTradeResults(performanceTrades)
+  const eligibleRIdSet = metricSelection === undefined ? null : new Set(metricSelection.rIds)
+  const rValues = performanceTrades.flatMap((trade) =>
+    (eligibleRIdSet === null || eligibleRIdSet.has(trade.id)) &&
+      typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple)
+      ? [trade.rMultiple]
+      : [],
+  )
   const eligibleUsdPnlIdSet = eligibleUsdPnlIds === undefined ? null : new Set(eligibleUsdPnlIds)
-  const usdPnlTrades = trades.filter((trade) =>
+  const usdPnlTrades = performanceTrades.filter((trade) =>
     typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
     (eligibleUsdPnlIdSet === null || eligibleUsdPnlIdSet.has(trade.id)),
   )
   const mistakeTagCounts: Record<string, number> = {}
   const missedReasonCounts: Record<string, number> = {}
-  for (const trade of trades) {
+  for (const trade of performanceTrades) {
     for (const tag of trade.mistakeTags ?? []) {
       mistakeTagCounts[tag] = (mistakeTagCounts[tag] ?? 0) + 1
     }
@@ -281,18 +338,23 @@ export function buildWeeklyReviewMetrics(
     missedReasonCounts[reason] = (missedReasonCounts[reason] ?? 0) + 1
   }
   return {
-    tradeCount: trades.length,
-    reviewedCount: trades.filter((trade) => isReviewCompleted(trade.reviewStatus)).length,
+    tradeCount: performanceTrades.length,
+    reviewedCount: performanceTrades.filter((trade) => isReviewCompleted(trade.reviewStatus)).length,
     evaluatedCount: summary.evaluatedCount,
     winCount: summary.winCount,
     lossCount: summary.lossCount,
     breakevenCount: summary.breakevenCount,
-    conflictCount: summary.conflictCount,
+    conflictCount: metricSelection?.conflictResultIds.length ?? summary.conflictCount,
+    pendingResultCount: metricSelection?.missingResultIds.length ?? 0,
     winRate: summary.winRate,
     pnlCount: usdPnlTrades.length,
     totalPnl: usdPnlTrades.reduce((total, trade) => total + (trade.pnl ?? 0), 0),
-    rCount: summary.rCount,
-    averageR: summary.averageR,
+    rCount: metricSelection === undefined ? summary.rCount : rValues.length,
+    averageR: metricSelection === undefined
+      ? summary.averageR
+      : rValues.length === 0
+        ? null
+        : rValues.reduce((total, value) => total + value, 0) / rValues.length,
     mistakeTagCounts,
     missedCount: missedTrades.length,
     missedReasonCounts,
@@ -397,11 +459,12 @@ export function completeWeeklyReviewCandidate(
   }
   const completedAt = now.toISOString()
   const completionTradingDay = getTradingDayKey(now, state.display.tradingDayStartHour)
-  const trades = tradesClosedInWeek(
+  const tradeSelection = buildWeeklyReviewTradeSelection(
     state.trades,
     existing.weekStart,
     state.display.tradingDayStartHour,
     completionTradingDay,
+    state.profile.legacyCashCurrencyAssumption,
   )
   const missedTrades = missedTradesInWeek(
     state.trades,
@@ -414,12 +477,13 @@ export function completeWeeklyReviewCandidate(
     ...existing,
     status: 'completed',
     metricsSnapshot: structuredClone(buildWeeklyReviewMetrics(
-      trades,
+      tradeSelection.trades,
       missedTrades,
-      eligibleUsdPnlIds(trades, state.profile.legacyCashCurrencyAssumption),
+      tradeSelection.pnlIds,
+      tradeSelection,
     )),
     evidenceSnapshot: {
-      trades: trades.map(toWeeklyReviewEvidenceTrade),
+      trades: tradeSelection.trades.map(toWeeklyReviewEvidenceTrade),
       missedTrades: missedTrades.map(toWeeklyReviewEvidenceTrade),
       legacyCashCurrencyAssumption: state.profile.legacyCashCurrencyAssumption
         ? { ...state.profile.legacyCashCurrencyAssumption }
@@ -479,6 +543,7 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
   const byWeek = new Map<string, WeeklyReview>()
   for (const review of value) {
     let normalized: WeeklyReview = review.metricsSnapshot && (
+      review.metricsSnapshot.pendingResultCount === undefined ||
       review.metricsSnapshot.missedCount === undefined ||
       review.metricsSnapshot.missedReasonCounts === undefined
     )
@@ -486,6 +551,7 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
           ...review,
           metricsSnapshot: {
             ...review.metricsSnapshot,
+            pendingResultCount: review.metricsSnapshot.pendingResultCount ?? 0,
             missedCount: review.metricsSnapshot.missedCount ?? 0,
             missedReasonCounts: review.metricsSnapshot.missedReasonCounts ?? {},
           },

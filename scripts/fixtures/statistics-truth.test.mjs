@@ -5,20 +5,36 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import test from 'node:test'
 
-const ACCEPTANCE_IDS = [
-  'T-SCOPE-001', 'T-SCOPE-002', 'T-SCOPE-003', 'T-SCOPE-004',
-  'T-DATE-001', 'T-DATE-002', 'T-DATE-003', 'T-DATE-004',
-  'T-IMPORT-001', 'T-IMPORT-002',
-  'T-REVIEW-001', 'T-REVIEW-002',
-  'T-ROUTE-001', 'T-ROUTE-002',
-  'T-CURRENCY-001', 'T-DRILL-001',
-]
+import {
+  ACCEPTANCE_TESTS,
+  BROWSER_TEST_IDS,
+  createCanonicalStatisticsTruthEvidence,
+  STATISTICS_TRUTH_UNIT_ENTRIES,
+} from '../qa-statistics-truth.mjs'
+
+test('statistics truth canonical gate covers the final truth surfaces', () => {
+  assert.deepEqual(
+    STATISTICS_TRUTH_UNIT_ENTRIES.filter((entry) => [
+      'src/lib/tradeWorkflow.test.ts',
+      'src/lib/strategies.test.ts',
+      'src/data/weeklyReviews.test.ts',
+    ].includes(entry)),
+    [
+      'src/lib/tradeWorkflow.test.ts',
+      'src/lib/strategies.test.ts',
+      'src/data/weeklyReviews.test.ts',
+    ],
+  )
+  assert(BROWSER_TEST_IDS.includes('src/views/StatisticsTruthSurfaces.browser.test.html#__statisticsTruthSurfacesTest'))
+  const canonicalIds = new Set(Object.values(ACCEPTANCE_TESTS).flat())
+  assert(canonicalIds.has('src/lib/tradeWorkflow.test.ts#testTodayClosedMetricsRejectsUnreliableFutureAndConflictingFacts'))
+  assert(canonicalIds.has('src/lib/strategies.test.ts#testStrategyStatsConsumeCallerEligibilityWithoutReclassifyingFacts'))
+  assert(canonicalIds.has('src/data/weeklyReviews.test.ts#testWeeklyReviewEvidenceKeepsReliableConflictAndPendingResultsWithoutMetrics'))
+  assert(canonicalIds.has('src/lib/weeklyReviewSnapshot.test.ts#testCompletionFreezesConflictAndPendingEvidenceWithoutPerformance'))
+  assert(canonicalIds.has('src/views/StatisticsTruthSurfaces.browser.test.html#__statisticsTruthSurfacesTest'))
+})
 
 async function validEvidence() {
-  const evidence = JSON.parse(await fs.readFile(
-    path.resolve('test-results/statistics-truth/statistics-truth-gate.json'),
-    'utf8',
-  ))
   const candidate = spawnSync('git', ['rev-parse', 'HEAD'], {
     cwd: process.cwd(), encoding: 'utf8',
   }).stdout.trim()
@@ -27,12 +43,10 @@ async function validEvidence() {
     ['show', `${candidate}:src/test/fixtures/performanceTruthFixture.ts`],
     { cwd: process.cwd(), encoding: null },
   ).stdout
-  evidence.candidateSha = candidate
-  evidence.fixture.path = 'src/test/fixtures/performanceTruthFixture.ts'
-  evidence.fixture.sampleCount = 56
-  evidence.fixture.checksumSha256 = crypto.createHash('sha256').update(fixtureSource).digest('hex')
-  evidence.failureReasons = []
-  return evidence
+  return createCanonicalStatisticsTruthEvidence({
+    candidateSha: candidate,
+    fixtureChecksumSha256: crypto.createHash('sha256').update(fixtureSource).digest('hex'),
+  })
 }
 
 async function runContractCase(mutate) {
@@ -55,6 +69,24 @@ async function runContractCase(mutate) {
 test('statistics truth validator accepts complete non-empty evidence', async () => {
   const result = await runContractCase()
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+})
+
+test('statistics truth validator contract passes without runtime gate JSON', async () => {
+  const runtimePath = path.resolve('test-results/statistics-truth/statistics-truth-gate.json')
+  const backupPath = `${runtimePath}.contract-backup-${process.pid}`
+  let hidden = false
+  try {
+    try {
+      await fs.rename(runtimePath, backupPath)
+      hidden = true
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+    const result = await runContractCase()
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  } finally {
+    if (hidden) await fs.rename(backupPath, runtimePath)
+  }
 })
 
 const invalidCases = [

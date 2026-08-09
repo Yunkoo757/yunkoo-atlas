@@ -204,6 +204,45 @@ export function testCompletionExcludesFutureTradesFromMetricsAndEvidence(): void
   )
 }
 
+export function testCompletionFreezesConflictAndPendingEvidenceWithoutPerformance(): void {
+  const state = stateAtRevision(7)
+  state.trades.push(
+    {
+      ...trade(8),
+      id: 'conflict',
+      ref: 'TRD-CONFLICT',
+      status: 'win',
+      pnl: -500,
+      rMultiple: 1,
+      resultSource: 'imported',
+    },
+    {
+      ...trade(9),
+      id: 'pending',
+      ref: 'TRD-PENDING',
+      status: 'win',
+      pnl: null,
+      rMultiple: null,
+      resultSource: undefined,
+    },
+  )
+
+  const completed = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-26T23:00:00.000+08:00'),
+  ).review
+
+  assert(
+    completed.evidenceSnapshot?.trades.map((item) => item.id).join() === 'trade-1,conflict,pending',
+    '新完成证据必须冻结日期可靠的完整、冲突和待补结果',
+  )
+  assert(completed.metricsSnapshot?.tradeCount === 1, '冲突和待补结果不得进入完成时绩效样本数')
+  assert(completed.metricsSnapshot?.totalPnl === -1_000 && completed.metricsSnapshot.rCount === 0, '冲突和待补结果不得污染 USD 或 R 快照')
+  assert(completed.metricsSnapshot?.conflictCount === 1, '完成时快照必须保留结果冲突告警')
+  assert(completed.metricsSnapshot?.pendingResultCount === 1, '完成时快照必须保留待补结果告警')
+}
+
 export function testReopenClearsBothSnapshots(): void {
   const reopened = reopenCompletedReview(completedFixture())
   assert(!reopened.metricsSnapshot && !reopened.riskSnapshot, '重开必须同时清除两类快照')

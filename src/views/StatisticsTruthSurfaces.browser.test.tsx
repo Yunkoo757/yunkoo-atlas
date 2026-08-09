@@ -146,6 +146,8 @@ async function run(): Promise<void> {
     useStore.setState({
       trades: [
         trade({ id: 'weekly-valid', ref: 'TRD-WEEKLY-VALID', openedAt: '2026-08-03', closedAt: '2026-08-03', closedTradingDayKey: '2026-08-03' }),
+        trade({ id: 'weekly-conflict', ref: 'TRD-WEEKLY-CONFLICT', status: 'win', openedAt: '2026-08-03', closedAt: '2026-08-03', closedTradingDayKey: '2026-08-03', pnl: -500, rMultiple: 1, resultSource: 'imported' }),
+        trade({ id: 'weekly-pending', ref: 'TRD-WEEKLY-PENDING', status: 'win', openedAt: '2026-08-03', closedAt: '2026-08-03', closedTradingDayKey: '2026-08-03', pnl: null, rMultiple: null, resultSource: undefined }),
         trade({ id: 'FX-CLOSE-FUTURE', ref: 'TRD-WEEKLY-FUTURE', openedAt: '2026-08-05', closedAt: '2026-08-05', closedTradingDayKey: '2026-08-05', pnl: 900 }),
         trade({ id: 'weekly-missed', ref: 'TRD-WEEKLY-MISSED', status: 'missed', openedAt: '2026-08-03', closedAt: '2026-08-03', closedTradingDayKey: '2026-08-03', pnl: null, rMultiple: null, resultSource: undefined, missReason: 'hesitation' }),
       ],
@@ -158,7 +160,9 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('.wr-trade-row') !== null, 'WeeklyReviewView 证据未渲染')
     const weeklyText = document.body.textContent ?? ''
     assert(weeklyText.includes('+$100') && !weeklyText.includes('TRD-WEEKLY-FUTURE'), 'Weekly renderer 必须冻结在当前业务日')
-    assert(document.querySelectorAll('.wr-trade-row').length === 2, 'Weekly evidence 应保留一笔绩效事实与独立 missed evidence')
+    assert(weeklyText.includes('1 笔结果口径冲突') && weeklyText.includes('1 笔待补结果'), 'Weekly renderer 必须显示 conflict/pending 告警')
+    assert(weeklyText.includes('TRD-WEEKLY-CONFLICT') && weeklyText.includes('TRD-WEEKLY-PENDING'), 'Weekly renderer 必须保留 conflict/pending 事实证据')
+    assert(document.querySelectorAll('.wr-trade-row').length === 4, 'Weekly evidence 应保留完整、冲突、待补与独立 missed evidence')
   } finally {
     root.unmount()
     date.restore()

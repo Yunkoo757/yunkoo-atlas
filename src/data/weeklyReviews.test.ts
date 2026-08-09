@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 import {
   buildWeeklyReviewMetrics,
+  buildWeeklyReviewTradeSelection,
   createWeeklyReview,
   deriveWeeklyReviewWeeks,
   missedTradesInWeek,
@@ -157,6 +158,63 @@ export function testWeeklyReviewWeeksAndTradesRejectFactsAfterTheFrozenBusinessD
 
   assert(weeks.join() === '2026-08-03', '未来平仓事实不得创建未来周入口')
   assert(closed.map((item) => item.id).join() === 'current', '实时周指标与证据必须冻结在当前业务日')
+}
+
+export function testWeeklyReviewEvidenceKeepsReliableConflictAndPendingResultsWithoutMetrics(): void {
+  const eligible = trade({
+    id: 'eligible',
+    closedAt: '2026-08-04',
+    closedTradingDayKey: '2026-08-04',
+    cashCurrency: 'USD',
+  })
+  const conflict = trade({
+    id: 'conflict',
+    status: 'win',
+    closedAt: '2026-08-05',
+    closedTradingDayKey: '2026-08-05',
+    pnl: -500,
+    rMultiple: 1,
+    resultSource: 'imported',
+  })
+  const pending = trade({
+    id: 'pending',
+    status: 'win',
+    closedAt: '2026-08-06',
+    closedTradingDayKey: '2026-08-06',
+    pnl: null,
+    rMultiple: null,
+    resultSource: undefined,
+  })
+  const future = trade({
+    id: 'future',
+    closedAt: '2026-08-10',
+    closedTradingDayKey: '2026-08-10',
+  })
+
+  const selection = buildWeeklyReviewTradeSelection(
+    [eligible, conflict, pending, future],
+    '2026-08-03',
+    0,
+    '2026-08-09',
+    null,
+  )
+  const metrics = buildWeeklyReviewMetrics(
+    selection.trades,
+    [],
+    selection.pnlIds,
+    selection,
+  )
+  const conflictOnlyWeeks = deriveWeeklyReviewWeeks([conflict], [], '2026-08-10', 0, 12, '2026-08-10')
+  const pendingOnlyWeeks = deriveWeeklyReviewWeeks([pending], [], '2026-08-10', 0, 12, '2026-08-10')
+
+  assert(selection.trades.map((item) => item.id).join() === 'eligible,conflict,pending', '周事实必须保留可靠日期的完整、冲突和待补结果，future 必须排除')
+  assert(selection.eligibleMetricIds.join() === 'eligible', '只有完整结果可以成为绩效样本')
+  assert(selection.conflictResultIds.join() === 'conflict' && selection.missingResultIds.join() === 'pending', '周选择必须保留冲突与待补结果分类')
+  assert(metrics.tradeCount === 1 && metrics.pnlCount === 1 && metrics.totalPnl === 100, '冲突和待补结果不得进入平仓数或 USD 绩效')
+  assert(metrics.rCount === 0 && metrics.winRate === 100, '冲突和待补结果不得进入 R 或胜率')
+  assert(metrics.conflictCount === 1 && metrics.pendingResultCount === 1, '周指标必须暴露独立 conflict/pending 告警计数')
+  assert(conflictOnlyWeeks.includes('2026-08-03'), '仅有冲突结果的周也必须生成周入口')
+  assert(pendingOnlyWeeks.includes('2026-08-03'), '仅有待补结果的周也必须生成周入口')
 }
 
 export function testWeeklyReviewMetricsPreserveCoverageAndMistakeEvidence(): void {

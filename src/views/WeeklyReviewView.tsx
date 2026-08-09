@@ -18,6 +18,7 @@ import {
 } from '@/icons/appIcons'
 import {
   buildWeeklyReviewMetrics,
+  buildWeeklyReviewTradeSelection,
   buildWeeklyReviewTrend,
   createWeeklyReview,
   deriveWeeklyReviewWeeks,
@@ -25,7 +26,6 @@ import {
   missedTradesInWeek,
   resolveWeeklyReviewDataSource,
   summarizeWeeklyMistakeDimensions,
-  tradesClosedInWeek,
   WEEKLY_MISTAKE_DIMENSIONS,
   weeklyReviewScoreAverage,
   weekEndFor,
@@ -36,7 +36,7 @@ import {
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { fmtMoney, fmtR } from '@/lib/format'
-import { eligibleUsdPnlIds, formatTradeCashPnl } from '@/lib/cashCurrency'
+import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
@@ -318,15 +318,17 @@ export function WeeklyReviewView() {
 
   const storedReview = reviews.find((item) => item.weekStart === selectedWeek)
   const review = storedReview ?? createWeeklyReview(selectedWeek)
-  const weekTrades = useMemo(
-    () => tradesClosedInWeek(
+  const weekTradeSelection = useMemo(
+    () => buildWeeklyReviewTradeSelection(
       trades,
       selectedWeek,
       tradingDayStartHour,
       businessDateAnchor.currentTradingDayKey,
+      legacyCashCurrencyAssumption,
     ),
-    [trades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
+    [trades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey, legacyCashCurrencyAssumption],
   )
+  const weekTrades = weekTradeSelection.trades
   const weekMissedTrades = useMemo(
     () => missedTradesInWeek(
       trades,
@@ -341,9 +343,10 @@ export function WeeklyReviewView() {
     () => buildWeeklyReviewMetrics(
       weekTrades,
       weekMissedTrades,
-      eligibleUsdPnlIds(weekTrades, legacyCashCurrencyAssumption),
+      weekTradeSelection.pnlIds,
+      weekTradeSelection,
     ),
-    [weekTrades, weekMissedTrades, legacyCashCurrencyAssumption],
+    [weekTrades, weekMissedTrades, weekTradeSelection],
   )
   const reviewDataSource = review.status === 'completed'
     ? resolveWeeklyReviewDataSource(review)
@@ -577,6 +580,7 @@ export function WeeklyReviewView() {
                   </div>
                 ) : null}
                 {metrics.conflictCount > 0 ? <p className="wr-data-warning">有 {metrics.conflictCount} 笔结果口径冲突，未进入绩效计算。</p> : null}
+                {metrics.pendingResultCount > 0 ? <p className="wr-data-warning">有 {metrics.pendingResultCount} 笔待补结果，未进入绩效计算。</p> : null}
               </section>
 
               <WeeklyRiskEvidence

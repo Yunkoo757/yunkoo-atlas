@@ -19,9 +19,12 @@ export const STATISTICS_TRUTH_ACCEPTANCE_IDS = [
 export const STATISTICS_TRUTH_FIXTURE_PATH = 'src/test/fixtures/performanceTruthFixture.ts'
 export const STATISTICS_TRUTH_FIXTURE_SAMPLE_COUNT = 56
 
-const UNIT_ENTRIES = [
+export const STATISTICS_TRUTH_UNIT_ENTRIES = [
   'src/lib/performanceSelection.test.ts',
   'src/lib/analysisScope.test.ts',
+  'src/lib/tradeWorkflow.test.ts',
+  'src/lib/strategies.test.ts',
+  'src/data/weeklyReviews.test.ts',
   'src/lib/dashboardStats.test.ts',
   'src/lib/notionDateAudit.test.ts',
   'src/lib/notionImportTradeFacts.test.ts',
@@ -42,22 +45,33 @@ export const BROWSER_TEST_IDS = [
   'src/views/ImportDataHealthView.browser.test.html#__importDataHealthViewTest@1280x900',
   'src/views/WeeklyReviewView.browser.test.html#__weeklyReviewFlowTest@1280x900',
   'src/views/settings/ProfileSettingsCurrency.browser.test.html#__profileSettingsCurrencyTest',
+  'src/views/StatisticsTruthSurfaces.browser.test.html#__statisticsTruthSurfacesTest',
 ]
 
 const UNIT_TEST = (file, name) => `${file}#${name}`
 
 export const ACCEPTANCE_TESTS = {
-  'T-SCOPE-001': [UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionFreezesEveryGoldenTruthCollection')],
+  'T-SCOPE-001': [
+    UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionFreezesEveryGoldenTruthCollection'),
+    UNIT_TEST('src/lib/strategies.test.ts', 'testStrategyStatsConsumeCallerEligibilityWithoutReclassifyingFacts'),
+  ],
   'T-SCOPE-002': [UNIT_TEST('src/lib/analysisScope.test.ts', 'testAnalysisScopeMatchesDashboardResultSet')],
   'T-SCOPE-003': [UNIT_TEST('src/lib/workspaceFacetConsistency.test.ts', 'testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive')],
-  'T-SCOPE-004': [BROWSER_TEST_IDS[0]],
+  'T-SCOPE-004': [BROWSER_TEST_IDS[0], BROWSER_TEST_IDS[5]],
   'T-DATE-001': [
     UNIT_TEST('src/lib/analysisScope.test.ts', 'testPaperTerminalWithoutCloseFactNeverEntersPerformanceRanges'),
     UNIT_TEST('src/lib/notionImportTradeFacts.test.ts', 'testNotionTerminalTradeWithoutSourceCloseDateStaysPending'),
   ],
   'T-DATE-002': [UNIT_TEST('src/lib/analysisScope.test.ts', 'testAllRangeStopsAtTheNextBusinessDayExclusiveBoundary')],
-  'T-DATE-003': [UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionFreezesTheSixAmCloseDayBoundary')],
-  'T-DATE-004': [UNIT_TEST('src/lib/dashboardStats.test.ts', 'testDashboardStatsUseOnlyEligibleMetricIdsForEveryAggregation')],
+  'T-DATE-003': [
+    UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionFreezesTheSixAmCloseDayBoundary'),
+    UNIT_TEST('src/lib/tradeWorkflow.test.ts', 'testTodayClosedMetricsPrefersFrozenTradingDayAndHonorsDayBoundary'),
+    UNIT_TEST('src/data/weeklyReviews.test.ts', 'testWeeklyReviewWeeksAndTradesRejectFactsAfterTheFrozenBusinessDay'),
+  ],
+  'T-DATE-004': [
+    UNIT_TEST('src/lib/dashboardStats.test.ts', 'testDashboardStatsUseOnlyEligibleMetricIdsForEveryAggregation'),
+    UNIT_TEST('src/lib/tradeWorkflow.test.ts', 'testTodayClosedMetricsRejectsUnreliableFutureAndConflictingFacts'),
+  ],
   'T-IMPORT-001': [
     UNIT_TEST('src/lib/notionImportTradeFacts.test.ts', 'testNotionImportParsesCurrencyOnlyFromSourceMoneyFacts'),
     BROWSER_TEST_IDS[1],
@@ -70,8 +84,10 @@ export const ACCEPTANCE_TESTS = {
     UNIT_TEST('src/lib/weeklyReviewSnapshot.test.ts', 'testCompletedReviewWithoutMetricsSnapshotUsesLiveRecomputedSource'),
     UNIT_TEST('src/lib/weeklyReviewSnapshot.test.ts', 'testCompletedReviewWithoutEvidenceSnapshotUsesLiveRecomputedSource'),
     UNIT_TEST('src/lib/weeklyReviewSnapshot.test.ts', 'testCompletedReviewWithoutRiskSnapshotUsesLiveRecomputedSource'),
+    UNIT_TEST('src/data/weeklyReviews.test.ts', 'testWeeklyReviewEvidenceKeepsReliableConflictAndPendingResultsWithoutMetrics'),
+    UNIT_TEST('src/lib/weeklyReviewSnapshot.test.ts', 'testCompletionFreezesConflictAndPendingEvidenceWithoutPerformance'),
   ],
-  'T-REVIEW-002': [BROWSER_TEST_IDS[3]],
+  'T-REVIEW-002': [BROWSER_TEST_IDS[3], BROWSER_TEST_IDS[5]],
   'T-ROUTE-001': [UNIT_TEST('src/lib/periods.test.ts', 'testYtdPeriodBoundsStartAtTheBusinessYearAndNeverIncludeFutureDays')],
   'T-ROUTE-002': [
     UNIT_TEST('src/lib/workspaceFacetConsistency.test.ts', 'testCalendarPeriodsAndDashboardPerformanceKeepDifferentDateFields'),
@@ -79,7 +95,10 @@ export const ACCEPTANCE_TESTS = {
   ],
   'T-CURRENCY-001': [
     UNIT_TEST('src/lib/cashCurrency.test.ts', 'testUsdEligibilityAndTotalsShareOneCurrencyFactRule'),
+    UNIT_TEST('src/lib/tradeWorkflow.test.ts', 'testTodayClosedMetricsUsesUsdOnlyWithExplicitLegacyAssumption'),
+    UNIT_TEST('src/lib/strategies.test.ts', 'testStrategyStatsAggregateUsdOnlyAndRespectLegacyFact'),
     BROWSER_TEST_IDS[4],
+    BROWSER_TEST_IDS[5],
   ],
   'T-DRILL-001': [
     UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionDrilldownReproducesArchiveScope'),
@@ -90,11 +109,11 @@ export const ACCEPTANCE_TESTS = {
 export const UNIT_REQUIRED_TEST_IDS = [...new Set(
   Object.values(ACCEPTANCE_TESTS).flat().filter((id) => !id.includes('.browser.test.html#')),
 )]
-const UNIT_COMMAND = `node scripts/run-regression-tests.mjs --unit-only ${UNIT_ENTRIES.join(' ')}`
-const BROWSER_COMMAND = `browser-runner ${BROWSER_TEST_IDS.join(' ')}`
+export const STATISTICS_TRUTH_UNIT_COMMAND = `node scripts/run-regression-tests.mjs --unit-only ${STATISTICS_TRUTH_UNIT_ENTRIES.join(' ')}`
+export const STATISTICS_TRUTH_BROWSER_COMMAND = `browser-runner ${BROWSER_TEST_IDS.join(' ')}`
 const COMMAND_TEST_CONTRACTS = new Map([
-  [UNIT_COMMAND, UNIT_REQUIRED_TEST_IDS],
-  [BROWSER_COMMAND, BROWSER_TEST_IDS],
+  [STATISTICS_TRUTH_UNIT_COMMAND, UNIT_REQUIRED_TEST_IDS],
+  [STATISTICS_TRUTH_BROWSER_COMMAND, BROWSER_TEST_IDS],
 ])
 
 function difference(expected, actual) {
@@ -417,6 +436,97 @@ function makeAcceptance(passedTestIds) {
   })
 }
 
+export function createCanonicalStatisticsTruthEvidence({ candidateSha, fixtureChecksumSha256 }) {
+  const unitActualIds = [...UNIT_REQUIRED_TEST_IDS]
+  const browserActualIds = [...BROWSER_TEST_IDS]
+  const passedTestIds = new Set([...unitActualIds, ...browserActualIds])
+  const acceptanceActual = makeAcceptance(passedTestIds)
+  return {
+    schemaVersion: 1,
+    candidateSha,
+    fixture: {
+      path: STATISTICS_TRUTH_FIXTURE_PATH,
+      checksumSha256: fixtureChecksumSha256,
+      sampleCount: STATISTICS_TRUTH_FIXTURE_SAMPLE_COUNT,
+    },
+    commands: [
+      {
+        command: STATISTICS_TRUTH_UNIT_COMMAND,
+        exitCode: 0,
+        durationMs: 0,
+        expectedTestIds: [...UNIT_REQUIRED_TEST_IDS],
+        actualTestIds: unitActualIds,
+        missingTestIds: [],
+        skippedTestIds: [],
+        todoTestIds: [],
+        outputSummary: 'canonical contract evidence',
+      },
+      {
+        command: STATISTICS_TRUTH_BROWSER_COMMAND,
+        exitCode: 0,
+        durationMs: 0,
+        expectedTestIds: [...BROWSER_TEST_IDS],
+        actualTestIds: browserActualIds,
+        missingTestIds: [],
+        skippedTestIds: [],
+        todoTestIds: [],
+        outputSummary: 'canonical contract evidence',
+      },
+    ],
+    acceptance: {
+      expectedIds: [...STATISTICS_TRUTH_ACCEPTANCE_IDS],
+      actual: acceptanceActual,
+      missingIds: [],
+      unexpectedIds: [],
+    },
+    golden: {
+      collections: {
+        eligibleMetricIds: {
+          expectedIds: [],
+          actualIds: [],
+          missingIds: [],
+          unexpectedIds: [],
+        },
+        pnlIds: {
+          expectedIds: [],
+          actualIds: [],
+          missingIds: [],
+          unexpectedIds: [],
+        },
+      },
+      drilldownTarget: { expected: '', actual: '' },
+    },
+    kpiTruth: {
+      futureCloseDayIds: [],
+      missingCloseDayIds: [],
+      invalidCloseDayIds: [],
+      usdTradeFacts: [],
+      expected: {
+        eligibleMetricIds: [],
+        pnlIds: [],
+        curveTradeIds: [],
+        pnlCount: 0,
+        totalPnl: 0,
+      },
+      actual: {
+        eligibleMetricIds: [],
+        pnlIds: [],
+        curveTradeIds: [],
+        pnlCount: 0,
+        totalPnl: 0,
+      },
+      contamination: {
+        futureInKpiIds: [],
+        missingInKpiIds: [],
+        invalidInKpiIds: [],
+        nonUsdInUsdTotalIds: [],
+        unknownCurrencyInUsdTotalIds: [],
+      },
+    },
+    failureReasons: [],
+  }
+}
+
 function renderReport(evidence, jsonPath) {
   const rows = evidence.acceptance.actual.map((item) =>
     `| ${item.id} | ${item.status === 'pass' ? 'PASS' : 'FAIL'} | \`${item.evidencePaths.join('`, `')}\` | ${item.actualTestIds.map((id) => `\`${id}\``).join('<br>')} |`,
@@ -449,7 +559,7 @@ async function runGate(root) {
   const golden = await buildGoldenEvidence(root)
   for (const collection of Object.values(golden.collections)) Object.assign(collection, difference(collection.expectedIds, collection.actualIds))
 
-  const unitArgs = ['scripts/run-regression-tests.mjs', '--unit-only', ...UNIT_ENTRIES]
+  const unitArgs = ['scripts/run-regression-tests.mjs', '--unit-only', ...STATISTICS_TRUTH_UNIT_ENTRIES]
   const unitCommand = `node ${unitArgs.join(' ')}`
   const unitResult = await runStreaming(process.execPath, unitArgs, root)
   const unitOutput = `${unitResult.stdout}\n${unitResult.stderr}`
@@ -467,7 +577,7 @@ async function runGate(root) {
       if (event.type === 'fail') process.stderr.write(`GATE FAIL ${event.testId}: ${event.reason}\n`)
     },
   })
-  const browserCommand = BROWSER_COMMAND
+  const browserCommand = STATISTICS_TRUTH_BROWSER_COMMAND
   const browserEvidence = commandEvidence(
     browserCommand,
     {
