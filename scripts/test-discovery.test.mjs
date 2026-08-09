@@ -395,10 +395,11 @@ test('image QA supplies deterministic image clipboard items without the system c
   assert.doesNotMatch(source, /navigator, 'locks'/)
 })
 
-test('workbench QA follows enabled modal controls and the current dashboard scope label', async () => {
+test('workbench QA follows enabled modal controls and the live-only dashboard contract', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-workbench.mjs'), 'utf8')
   assert.match(source, /const closeDialogLastFocusable = closeDialog\.locator\('button:not\(:disabled\):visible, input:not\(:disabled\):visible'\)\.last\(\)/)
-  assert.match(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.click\(\)/)
+  assert.match(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.count\(\)/)
+  assert.doesNotMatch(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.click\(\)/)
 })
 // Quality-Scenario: Q-DISCOVERY
 // Quality-Scenario: Q-PAGEERROR

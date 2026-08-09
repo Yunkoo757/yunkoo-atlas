@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -355,7 +356,12 @@ try {
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.getByRole('button', { name: '实盘 + 模拟盘' }).click()
+  // 仪表盘固定仅实盘；案例与模拟盘不得混入主统计。
+  assert.equal(
+    await page.getByRole('button', { name: '实盘 + 模拟盘' }).count(),
+    0,
+    '仪表盘不得再提供实盘+模拟盘切换',
+  )
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
