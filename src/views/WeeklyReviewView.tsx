@@ -21,7 +21,9 @@ import {
   buildWeeklyReviewTrend,
   createWeeklyReview,
   deriveWeeklyReviewWeeks,
+  missingWeeklyReviewSnapshotCategories,
   missedTradesInWeek,
+  resolveWeeklyReviewDataSource,
   summarizeWeeklyMistakeDimensions,
   tradesClosedInWeek,
   WEEKLY_MISTAKE_DIMENSIONS,
@@ -89,6 +91,11 @@ const COMMITMENT_RESULTS: { value: WeeklyCommitmentResult; label: string }[] = [
   { value: 'missed', label: '未做到' },
   { value: 'not-applicable', label: '本周不适用' },
 ]
+const SNAPSHOT_CATEGORY_LABELS = {
+  metrics: '指标快照',
+  evidence: '交易证据快照',
+  risk: '风控快照',
+}
 
 type ReviewPatch = Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>
 
@@ -317,14 +324,21 @@ export function WeeklyReviewView() {
     () => buildWeeklyReviewMetrics(weekTrades, weekMissedTrades),
     [weekTrades, weekMissedTrades],
   )
-  const metrics = review.status === 'completed' && review.metricsSnapshot
-    ? review.metricsSnapshot
+  const reviewDataSource = review.status === 'completed'
+    ? resolveWeeklyReviewDataSource(review)
+    : 'live-recomputed'
+  const missingSnapshotLabels = review.status === 'completed'
+    ? missingWeeklyReviewSnapshotCategories(review).map((category) => SNAPSHOT_CATEGORY_LABELS[category])
+    : []
+  const usesCompleteSnapshot = reviewDataSource === 'complete-snapshot'
+  const metrics = usesCompleteSnapshot
+    ? review.metricsSnapshot!
     : liveMetrics
-  const evidenceTrades = review.status === 'completed'
-    ? review.evidenceSnapshot?.trades ?? tradesClosedInWeek(trades, selectedWeek, tradingDayStartHour)
+  const evidenceTrades = usesCompleteSnapshot
+    ? review.evidenceSnapshot!.trades
     : weekTrades
-  const evidenceMissedTrades = review.status === 'completed'
-    ? review.evidenceSnapshot?.missedTrades ?? missedTradesInWeek(trades, selectedWeek, tradingDayStartHour)
+  const evidenceMissedTrades = usesCompleteSnapshot
+    ? review.evidenceSnapshot!.missedTrades
     : weekMissedTrades
   const customMistakeEvidence = Object.entries(metrics.mistakeTagCounts)
     .filter(([tag]) => !WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number]))
@@ -504,11 +518,15 @@ export function WeeklyReviewView() {
           ) : (
             <div className={`wr-content${locked ? ' is-locked' : ''}`}>
               {review.status === 'completed' ? (
-                <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，数据已冻结</div>
+                usesCompleteSnapshot ? (
+                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成时快照</div>
+                ) : (
+                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，当前内容为实时重算（缺少：{missingSnapshotLabels.join('、')}）</div>
+                )
               ) : null}
 
               <section className="wr-section wr-metrics">
-                <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{review.status === 'completed' ? '完成时快照' : '随交易记录实时更新'}</small></div>
+                <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{usesCompleteSnapshot ? '完成时快照' : review.status === 'completed' ? '历史快照缺失，当前内容为实时重算' : '随交易记录实时更新'}</small></div>
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
                   <Metric label="胜率" value={metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} hint={`${metrics.winCount} 赢 · ${metrics.lossCount} 亏 · ${metrics.breakevenCount} 平`} />
@@ -535,7 +553,7 @@ export function WeeklyReviewView() {
               </section>
 
               <WeeklyRiskEvidence
-                snapshot={review.riskSnapshot}
+                snapshot={usesCompleteSnapshot ? review.riskSnapshot : undefined}
                 availability={review.status === 'completed' ? 'legacy' : 'draft'}
                 detailSource={{
                   pathname: location.pathname,

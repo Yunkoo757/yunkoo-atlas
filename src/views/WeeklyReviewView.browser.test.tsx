@@ -863,27 +863,48 @@ async function run(): Promise<void> {
         ?.getAttribute('data-search') === '?visual=mobile',
       '非法周复盘参数没有一次性清理',
     )
-    const legacyCycleStart = new Date(`${activeWeekStart}T12:00:00`)
-    legacyCycleStart.setDate(legacyCycleStart.getDate() + 1)
-    const legacyCompletedReview = { ...completed, evidenceSnapshot: undefined }
-    useStore.setState({
-      trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50), makeTrade('three', 'missed', null)],
-      weeklyReviews: [legacyCompletedReview],
-      liveStatsStartTradingDayKey: getTradingDayKey(legacyCycleStart),
-    })
+    const liveRecomputedTrades = [
+      makeTrade('one', 'win', 300),
+      makeTrade('two', 'loss', -50),
+      makeTrade('three', 'missed', null),
+    ]
+    const assertLiveRecomputedState = async (missingType: string) => {
+      await waitFor(
+        () => document.body.textContent?.includes('历史快照缺失，当前内容为实时重算') ?? false,
+        `缺少${missingType}时没有说明实时重算来源`,
+      )
+      const metricText = document.querySelector('.wr-metrics')?.textContent ?? ''
+      const evidenceText = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
+        .map((row) => row.textContent).join('|')
+      assert(metricText.includes('+$250') && !metricText.includes('+$100'), `缺少${missingType}时指标必须来自实时交易`)
+      assert(evidenceText.includes('+$300') && !evidenceText.includes('+$100'), `缺少${missingType}时交易证据必须来自实时交易`)
+      assert(document.body.textContent?.includes(missingType), `缺少${missingType}时必须列出缺失快照类型`)
+      assert(!document.body.textContent?.includes('数据已冻结'), `缺少${missingType}时不得宣称数据已冻结`)
+    }
+
+    useStore.setState({ trades: liveRecomputedTrades, weeklyReviews: [completed] })
     await waitFor(
       () => document.body.textContent?.includes('完成时快照') ?? false,
-      '旧 completed 复盘未进入冻结展示态',
+      '三类快照齐全的 completed 复盘未进入完成时快照展示态',
     )
+    assert(document.querySelector('.wr-metrics')?.textContent?.includes('+$100'), '完整快照时指标必须来自完成时快照')
     assert(
-      document.querySelectorAll('.wr-trade-row').length === 3,
-      '旧 completed 无 evidenceSnapshot 时必须回退展示未经当前周期过滤的当周历史证据',
+      [...document.querySelectorAll<HTMLElement>('.wr-trade-row')].some((row) => row.textContent?.includes('+$150')),
+      '完整快照时交易证据必须来自完成时快照',
     )
+
+    useStore.setState({ weeklyReviews: [{ ...completed, metricsSnapshot: null }] })
+    await assertLiveRecomputedState('指标快照')
+
+    useStore.setState({ weeklyReviews: [{ ...completed, evidenceSnapshot: undefined }] })
+    await assertLiveRecomputedState('交易证据快照')
+
+    useStore.setState({ weeklyReviews: [{ ...completed, riskSnapshot: undefined }] })
+    await assertLiveRecomputedState('风控快照')
     assert(
-      !document.body.textContent?.includes('当前周期自'),
-      '旧 completed 无 evidenceSnapshot 时不得显示后来设置的当前周期标签',
+      document.querySelector('.wr-risk-evidence')?.textContent?.includes('历史记录未包含风控快照'),
+      '缺少风控快照时不得伪造历史风控数据',
     )
-    assert(legacyCompletedReview.metricsSnapshot?.totalPnl === 100, '旧 completed 的冻结 metrics 不得重算')
     root.render(
       <MemoryRouter
         key="missing-weekly-anchor"

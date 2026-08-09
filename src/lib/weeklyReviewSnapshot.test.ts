@@ -4,6 +4,7 @@ import {
   createWeeklyReview,
   normalizeWeeklyReviews,
   reopenCompletedReview,
+  resolveWeeklyReviewDataSource,
   type CompleteWeeklyReviewState,
 } from '@/data/weeklyReviews'
 import type {
@@ -118,6 +119,37 @@ function completedFixture() {
   return completeWeeklyReviewCandidate(stateAtRevision(7), 'review-1').review
 }
 
+export function testCompletedReviewWithoutMetricsSnapshotUsesLiveRecomputedSource(): void {
+  const reviewWithoutMetrics = { ...completedFixture(), metricsSnapshot: null }
+  assert(
+    resolveWeeklyReviewDataSource(reviewWithoutMetrics) === 'live-recomputed',
+    '缺少指标快照的已完成复盘必须标记为实时重算',
+  )
+}
+
+export function testCompletedReviewWithoutEvidenceSnapshotUsesLiveRecomputedSource(): void {
+  const reviewWithoutEvidence = { ...completedFixture(), evidenceSnapshot: undefined }
+  assert(
+    resolveWeeklyReviewDataSource(reviewWithoutEvidence) === 'live-recomputed',
+    '缺少交易证据快照的已完成复盘必须标记为实时重算',
+  )
+}
+
+export function testCompletedReviewWithoutRiskSnapshotUsesLiveRecomputedSource(): void {
+  const reviewWithoutRisk = { ...completedFixture(), riskSnapshot: undefined }
+  assert(
+    resolveWeeklyReviewDataSource(reviewWithoutRisk) === 'live-recomputed',
+    '缺少风控快照的已完成复盘必须标记为实时重算',
+  )
+}
+
+export function testCompletedReviewWithAllSnapshotsUsesCompleteSnapshotSource(): void {
+  assert(
+    resolveWeeklyReviewDataSource(completedFixture()) === 'complete-snapshot',
+    '三类快照齐全的已完成复盘必须标记为完成时快照',
+  )
+}
+
 export function testCompleteReviewFreezesRiskFromOneState(): void {
   const state = stateAtRevision(7)
   const completed = completeWeeklyReviewCandidate(
@@ -126,6 +158,10 @@ export function testCompleteReviewFreezesRiskFromOneState(): void {
     new Date('2026-07-26T23:00:00.000+08:00'),
   )
   assert(completed.review.completedAt === completed.review.riskSnapshot?.frozenAt, '完成时间与风险冻结时间必须一致')
+  assert(
+    Boolean(completed.review.metricsSnapshot && completed.review.evidenceSnapshot && completed.review.riskSnapshot),
+    '同一次完成调用必须同时生成指标、交易证据和风控三类快照',
+  )
   assert(completed.review.riskSnapshot?.overrideEvents.length === 1, '必须冻结当时事件')
   assert(completed.review.riskSnapshot?.policyVersions[0]?.id === 'policy-7', '必须冻结同一版本的规则')
   assert(completed.review.riskSnapshot?.dailyOutcomes[1]?.netBudgetR === -1, '必须冻结每日风险结果')

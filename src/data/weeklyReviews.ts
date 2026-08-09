@@ -78,6 +78,23 @@ export interface WeeklyReview {
   completedAt: string | null
 }
 
+export type WeeklyReviewDataSource = 'complete-snapshot' | 'live-recomputed'
+export type WeeklyReviewSnapshotCategory = 'metrics' | 'evidence' | 'risk'
+
+export function missingWeeklyReviewSnapshotCategories(review: WeeklyReview): WeeklyReviewSnapshotCategory[] {
+  return [
+    review.metricsSnapshot ? null : 'metrics',
+    review.evidenceSnapshot ? null : 'evidence',
+    review.riskSnapshot ? null : 'risk',
+  ].filter((category): category is WeeklyReviewSnapshotCategory => category !== null)
+}
+
+export function resolveWeeklyReviewDataSource(review: WeeklyReview): WeeklyReviewDataSource {
+  return missingWeeklyReviewSnapshotCategories(review).length === 0
+    ? 'complete-snapshot'
+    : 'live-recomputed'
+}
+
 export interface CompleteWeeklyReviewState {
   trades: Trade[]
   weeklyReviews: WeeklyReview[]
