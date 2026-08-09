@@ -47,6 +47,17 @@ test('unit discovery includes new tests without a runner allowlist', async () =>
   })
 })
 
+test('unit discovery includes the performance truth contract beside its fixture', async () => {
+  await withFixture(async (root) => {
+    await write(root, 'src/lib/performanceSelection.test.ts')
+    await write(root, 'src/test/fixtures/performanceTruthFixture.ts')
+
+    assert.deepEqual(await discoverUnitTestEntries(root), [
+      'src/lib/performanceSelection.test.ts',
+    ])
+  })
+})
+
 test('browser discovery derives one promise key from each HTML contract', async () => {
   await withFixture(async (root) => {
     await write(
