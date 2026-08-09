@@ -8,7 +8,10 @@ import { filterLivePerformanceRecords, resolveLiveArchiveScope } from '@/lib/liv
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot, PersistedTrade } from '@/storage/types'
 import { applyUndoAction, buildUndoAction, undoValuesEqual } from '@/lib/tradeUndo'
-import { useStore } from '@/store/useStore'
+import {
+  recoverCopiedCloseDateCleanupToStore,
+  useStore,
+} from '@/store/useStore'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -330,6 +333,88 @@ export async function testStoreUndoPersistenceFailureKeepsCleanedMemoryAndDisk()
     assert(useStore.getState().trades[0]?.closedAt === null, '撤销写盘失败不得提前恢复内存')
     assert(durable.trades[0]?.closedAt === null, '撤销写盘失败必须保持磁盘清理状态')
     assert(useStore.getState().undoStack.some((action) => action.actionId === cleaned.actionId), '失败后撤销 action 必须保留以便重试')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export async function testPublishFailureRecoveryPreservesHistoryAndKeepsCleanupDurablyUndoable(): Promise<void> {
+  const previous = useStore.getState()
+  const original = trade('recover-cleanup', { tags: ['notion-import'] })
+  const unrelatedBefore = trade('unrelated-history', { note: 'before' })
+  const unrelatedAfter = { ...unrelatedBefore, note: 'after' }
+  const oldUndo = buildUndoAction({
+    actionId: 'old-undo',
+    label: '无关旧撤销',
+    createdAt: '2026-08-08T00:00:00.000Z',
+    before: [unrelatedBefore],
+    after: [unrelatedAfter],
+  })!
+  const oldRedo = buildUndoAction({
+    actionId: 'old-redo',
+    label: '无关旧重做',
+    createdAt: '2026-08-08T00:00:01.000Z',
+    before: [unrelatedBefore],
+    after: [unrelatedAfter],
+  })!
+  let durable = snapshot([original, unrelatedAfter])
+  let cleanupAction: ReturnType<typeof buildUndoAction> = null
+  try {
+    useStore.setState({
+      trades: [original, unrelatedAfter],
+      undoStack: [oldUndo],
+      redoStack: [oldRedo],
+    })
+    let rejected = false
+    try {
+      await commitCopiedCloseDateCleanupThroughBoundary({
+        cleanup: {
+          tradeIds: ['recover-cleanup'],
+          tradingDayStartHour: 6,
+          captureLatest: () => ({
+            trades: useStore.getState().trades,
+            snapshot: snapshot(useStore.getState().trades),
+          }),
+          persistSnapshot: async (next) => {
+            const cleaned = next.trades.find((item) => item.id === original.id)!
+            cleanupAction = buildUndoAction({
+              actionId: 'recovered-cleanup-action',
+              label: '清空污染平仓日',
+              createdAt: '2026-08-09T00:00:00.000Z',
+              before: [original],
+              after: [cleaned],
+            })
+            durable = next
+          },
+          publish: () => { throw new Error('injected publish failure') },
+        },
+        boundary: {
+          ...successfulStoreBoundary([]),
+          recoverDurableSnapshot: (next) => {
+            assert(cleanupAction, 'durable commit 前必须已准备好稳定的清理 action')
+            recoverCopiedCloseDateCleanupToStore(next, cleanupAction)
+          },
+        },
+      })
+    } catch (error) {
+      rejected = error instanceof Error && error.message === 'injected publish failure'
+    }
+    assert(rejected, '注入 publish failure 必须透传')
+    assert(durable.trades.find((item) => item.id === original.id)?.closedAt === null, '磁盘必须保持清理态')
+    assert(useStore.getState().trades.find((item) => item.id === original.id)?.closedAt === null, '恢复后的内存必须同步耐久清理态')
+    assert(useStore.getState().undoStack.some((action) => action.actionId === oldUndo.actionId), '恢复不得清空无关 undo 历史')
+    assert(useStore.getState().redoStack.some((action) => action.actionId === oldRedo.actionId), '恢复不得清空无关 redo 历史')
+    assert(useStore.getState().undoStack.some((action) => action.actionId === cleanupAction?.actionId), '恢复必须加入本次清理 action')
+
+    const undone = await useStore.getState().undoCopiedCloseDateCleanup('recovered-cleanup-action', {
+      boundary: successfulStoreBoundary([]),
+      persistSnapshot: async (next) => { durable = next },
+    })
+    assert(undone.kind === 'committed', '发布失败恢复出的清理 action 必须仍可耐久撤销')
+    assert(durable.trades.find((item) => item.id === original.id)?.closedAt === original.closedAt, '耐久撤销必须恢复磁盘原日期')
+    assert(useStore.getState().trades.find((item) => item.id === original.id)?.closedAt === original.closedAt, '耐久撤销成功后内存必须与磁盘一致')
+    assert(useStore.getState().undoStack.some((action) => action.actionId === oldUndo.actionId), '耐久撤销不得删除无关 undo 历史')
+    assert(useStore.getState().redoStack.some((action) => action.actionId === oldRedo.actionId), '耐久撤销不得删除无关 redo 历史')
   } finally {
     useStore.setState(previous)
   }

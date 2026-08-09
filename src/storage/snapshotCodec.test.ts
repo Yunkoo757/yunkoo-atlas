@@ -115,6 +115,46 @@ export function testExplicitNullCloseDateSurvivesFullSnapshotReload(): void {
   )
 }
 
+export function testV1DecodeKeepsMissingAndExplicitNullCloseDatesDistinctAcrossRoundTrip(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const missing = {
+    ...fixture.trades[0]!,
+    id: 'v1-missing-close',
+    ref: 'TRD-V1-MISSING',
+  }
+  delete (missing as { closedAt?: string | null }).closedAt
+  delete missing.closedTradingDayKey
+  const explicitNull = {
+    ...fixture.trades[0]!,
+    id: 'v1-explicit-null',
+    ref: 'TRD-V1-NULL',
+    closedAt: null,
+  }
+  delete explicitNull.closedTradingDayKey
+  const persistedV1 = JSON.parse(JSON.stringify({
+    ...fixture,
+    trades: [missing, explicitNull],
+  })) as { trades: Record<string, unknown>[] }
+
+  assert(!Object.prototype.hasOwnProperty.call(persistedV1.trades[0], 'closedAt'), 'v1 fixture 必须真实缺少 closedAt')
+  assert(Object.prototype.hasOwnProperty.call(persistedV1.trades[1], 'closedAt'), '显式 null fixture 必须保留 closedAt own property')
+  const decodedV1 = decodeCanonicalSnapshot(persistedV1, { version: 1 })
+  const decodedMissing = decodedV1.trades.find((trade) => trade.id === 'v1-missing-close')!
+  const decodedNull = decodedV1.trades.find((trade) => trade.id === 'v1-explicit-null')!
+
+  assert(decodedMissing.closedAt === missing.openedAt, '完整 v1 终态缺失字段必须兼容回填 openedAt')
+  assert(decodedMissing.closedTradingDayKey === '2026-07-16', 'v1 缺失字段回填后必须生成对应冻结业务日')
+  assert(decodedNull.closedAt === null, 'v1 显式 null 不得被误判为缺失并回填')
+  assert(decodedNull.closedTradingDayKey === undefined, 'v1 显式 null 不得生成冻结业务日')
+
+  const roundTrip = decodeCanonicalSnapshot(
+    JSON.parse(JSON.stringify(decodedV1)),
+    { version: SCHEMA_VERSION },
+  )
+  assert(roundTrip.trades.find((trade) => trade.id === 'v1-missing-close')?.closedAt === missing.openedAt, '当前 codec round-trip 必须保持 v1 兼容回填值')
+  assert(roundTrip.trades.find((trade) => trade.id === 'v1-explicit-null')?.closedAt === null, '当前 codec round-trip 必须保持显式 null')
+}
+
 export function testSnapshotCodecPreservesCaseSourceNoteSnapshotsWithoutBackfillingLegacyCases(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const { sourceNoteHtml: _sourceNoteHtml, ...legacyTrade } = fixture.trades[0]!

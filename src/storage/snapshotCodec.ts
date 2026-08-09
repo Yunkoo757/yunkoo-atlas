@@ -5,6 +5,7 @@ import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { OperationalError } from '@/lib/operationalError'
 import { normalizeTradeStrategyReferences } from '@/lib/strategies'
+import { isTerminal } from '@/lib/tradeStatus'
 import { normalizeSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
@@ -59,19 +60,24 @@ function migrateHistoricalTrade(value: unknown, version: number): unknown {
   if (!isRecord(value)) return value
   const migrated: Record<string, unknown> = { ...value }
   if (version === 1) {
+    const closedAtWasMissing = !Object.prototype.hasOwnProperty.call(value, 'closedAt')
     for (const [field, fallback] of Object.entries({
       tags: [],
       note: '',
       exit: null,
       pnl: null,
       rMultiple: null,
-      closedAt: null,
       entry: 0,
       size: 0,
     })) {
       if (migrated[field] === undefined || ((field === 'entry' || field === 'size') && migrated[field] === null)) {
         migrated[field] = fallback
       }
+    }
+    if (closedAtWasMissing) {
+      migrated.closedAt = isTerminal(migrated.status as Parameters<typeof isTerminal>[0])
+        ? migrated.openedAt ?? null
+        : null
     }
   }
   if (version <= 6) {
