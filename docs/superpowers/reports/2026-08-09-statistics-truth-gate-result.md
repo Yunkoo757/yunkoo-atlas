@@ -1,6 +1,6 @@
 # Statistics Truth Gate Result
 
-- Candidate SHA: `5b9f1009e04c51c7077451fca52d337e9994c6c8`
+- Candidate SHA: `4f5d4c0e61fe27e38abd478568efe1de24c868b4`
 - Evidence JSON: `test-results/statistics-truth/statistics-truth-gate.json`
 - Fixture: `src/test/fixtures/performanceTruthFixture.ts`
 - Fixture SHA-256: `e33895367da2cedeb968fd54b95f201d8593ee2e095e626387172d847e4f3331`
@@ -34,7 +34,7 @@
 
 ## Command evidence
 
-- `node scripts/run-regression-tests.mjs --unit-only src/lib/performanceSelection.test.ts src/lib/analysisScope.test.ts src/lib/dashboardStats.test.ts src/lib/notionDateAudit.test.ts src/lib/notionImportTradeFacts.test.ts src/lib/notionImportCommit.test.ts src/lib/importDataHealth.test.ts src/lib/weeklyReviewSnapshot.test.ts src/lib/periods.test.ts src/lib/workspaceFacetConsistency.test.ts src/lib/cashCurrency.test.ts src/storage/snapshotCodec.test.ts src/storage/snapshotValidation.test.ts src/store/useStoreCurrencyAssumption.test.ts`: exit 0, 154/17 expected tests.
+- `node scripts/run-regression-tests.mjs --unit-only src/lib/performanceSelection.test.ts src/lib/analysisScope.test.ts src/lib/dashboardStats.test.ts src/lib/notionDateAudit.test.ts src/lib/notionImportTradeFacts.test.ts src/lib/notionImportCommit.test.ts src/lib/importDataHealth.test.ts src/lib/weeklyReviewSnapshot.test.ts src/lib/periods.test.ts src/lib/workspaceFacetConsistency.test.ts src/lib/cashCurrency.test.ts src/storage/snapshotCodec.test.ts src/storage/snapshotValidation.test.ts src/store/useStoreCurrencyAssumption.test.ts`: exit 0, 156/17 expected tests.
 - `browser-runner src/views/DashboardScope.browser.test.html#__dashboardAnalysisScopeTest src/components/NotionImportModal.browser.test.html#__notionImportPersistenceTest src/views/ImportDataHealthView.browser.test.html#__importDataHealthViewTest@1280x900 src/views/WeeklyReviewView.browser.test.html#__weeklyReviewFlowTest@1280x900 src/views/settings/ProfileSettingsCurrency.browser.test.html#__profileSettingsCurrencyTest`: exit 0, 5/5 expected tests.
 
 ## Failure reasons
@@ -43,14 +43,21 @@
 
 ## Final candidate verification
 
-- `pnpm qa:statistics-truth`: PASS；证据绑定 candidate `5b9f1009e04c51c7077451fca52d337e9994c6c8`。
+- Code candidate: `4f5d4c0e61fe27e38abd478568efe1de24c868b4` (`fix(stats): close final truth-surface gaps`).
+- `pnpm qa:statistics-truth`: PASS；16/16 acceptance IDs、17 个 required unit IDs、5 个 renderer IDs，证据固定引用上述 code candidate。
 - `pnpm typecheck`: PASS；应用与 Electron TypeScript 均通过。
-- `pnpm test`: PASS；完整项目测试、全部 renderer fixture 与治理门通过，未以聚焦结果代替全量结果。
+- `pnpm test`: PASS；完整项目测试、全部 renderer fixtures 与治理门通过，未以聚焦结果替代全量结果。
 - `pnpm test:release`: PASS；22/22 release contracts 通过。
+- 后续报告提交只包含文档，不改变上述候选的源码、测试或 fixture 身份。
+
+## Final truth-surface closure
+
+- Today 战绩通过 PerformanceSelection 的内部 today 窗消费 `eligibleMetricIds`、`pnlIds` 与 `rIds`，不再回退 `openedAt`。
+- StrategyHeader 与 StrategiesPanel 分开“当前实盘关联数”和“绩效样本数”，绩效只消费选择器资格 ID。
+- Weekly 周入口、实时指标、实时证据和新完成快照冻结在 `currentTradingDayKey`，future close 不进入绩效；missed evidence 保持独立。
+- 外部 evidence validator 将命令级 expected IDs、acceptance 映射与声明差集绑定到规范合同，并从 candidate 的 `git show` 重算 fixture checksum。
 
 ## Deferred non-blocking ledger
 
-- Task 4：旧 Notion 同日候选的 `openedAt` / `openedTradingDayKey` 取值优先级，以及 broad terminal helper 是否覆盖 `missed`，继续交由全分支最终审查；本 Gate 已明确 `missed` 不进入现金绩效选择。
-- Task 6：saved-view 的 YTD 标签与非法 period 页样式类仍为非阻断 minor。
-- Task 7：设置页影响数量仍混合“全部旧现金事实”与“当前绩效影响”，保持为非阻断 minor。
-- 上述项目均不改变本报告的 ID 集合、日期上界、USD-only KPI 或下钻真值结果。
+- 保持最终审查已登记的非阻断项：Task 4 同日候选解释、Task 6 saved-view YTD 标签、Task 6 非法范围页样式类、Task 7 设置页影响数量，以及 1 项 UX copy minor。
+- 上述项目未在本次 Important fix wave 中处理，不改变 Gate T 日期、结果、币种或下钻真值。
