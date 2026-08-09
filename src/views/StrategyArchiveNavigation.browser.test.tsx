@@ -39,16 +39,16 @@ async function run(): Promise<void> {
     await waitFor(() => router.state.location.pathname === '/live-archive/archive-cycle' && (document.body.textContent?.includes('归档交易') ?? false), '策略历史深链必须跳到并展示只读归档详情')
 
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=all')
-    await waitFor(() => router.state.location.pathname === '/live-archive' && router.state.location.search === '?kind=live&range=all' && (document.body.textContent?.includes('历史归档') ?? false), '策略 all 深链必须回到归档首页并保留分析范围')
+    await waitFor(() => router.state.location.pathname === '/live-archive' && router.state.location.search === '?kind=live&range=all' && (document.body.textContent?.includes('历史记录') ?? false), '策略 all 深链必须回到归档首页并保留分析范围')
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=missing-archive')
-    await waitFor(() => router.state.location.pathname === '/live-archive' && router.state.location.search.includes('archiveReason=missing') && (document.body.textContent?.includes('历史归档') ?? false), '策略无效深链必须回到归档首页并保留失效原因')
+    await waitFor(() => router.state.location.pathname === '/live-archive' && router.state.location.search.includes('archiveReason=missing') && (document.body.textContent?.includes('历史记录') ?? false), '策略无效深链必须回到归档首页并保留失效原因')
 
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=pre-cycle')
     await waitFor(() => router.state.location.pathname === '/live-archive/pre-cycle' && (document.body.textContent?.includes('TRD-STRATEGY-PRE') ?? false), '有规则前成员时策略深链必须进入并展示规则前归档详情')
 
     useStore.setState({ trades: [oldTrade, currentTrade] })
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=pre-cycle')
-    await waitFor(() => router.state.location.pathname === '/live-archive' && (document.body.textContent?.includes('历史归档') ?? false), '规则前没有成员时必须回到归档首页')
+    await waitFor(() => router.state.location.pathname === '/live-archive' && (document.body.textContent?.includes('历史记录') ?? false), '规则前没有成员时必须回到归档首页')
   } finally { root.unmount(); useStore.setState({ strategies: previous.strategies, trades: previous.trades, livePerformanceCycles: previous.livePerformanceCycles }) }
 }
 window.__strategyArchiveNavigationTest = run()

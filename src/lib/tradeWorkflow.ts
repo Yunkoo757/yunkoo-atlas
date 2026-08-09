@@ -5,7 +5,7 @@ import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
-import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { filterLiveLogRecords, type LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 
 export interface TodayWorkflowBuckets {
   active: Trade[]
@@ -120,8 +120,13 @@ export function getTodayWorkflowBuckets(
   trades: readonly Trade[],
   today: string,
   tradingDayStartHour = 0,
+  liveScope: LiveArchiveScope | null = null,
 ): TodayWorkflowBuckets {
-  const live = trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt)
+  const liveCandidates = trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt)
+  // 与交易日志当前实盘同一口径，避免重置后仍堆积历史遗留任务。
+  const live = liveScope
+    ? filterLiveLogRecords(liveCandidates, liveScope, tradingDayStartHour)
+    : liveCandidates
   const active: Trade[] = []
   const resultPending: Trade[] = []
   const reviewPending: Trade[] = []

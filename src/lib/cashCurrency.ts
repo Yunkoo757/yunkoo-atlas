@@ -66,7 +66,5 @@ export function formatTradeCashPnl(
   masked = false,
 ): string {
   const fact = resolveTradeCashCurrencyFact(trade, assumption)
-  const value = fmtMoney(trade.pnl, fact.currency, masked)
-  if (value === '—' || value === '****' || fact.source !== 'legacy-assumption') return value
-  return `${value} · 按资料库假设作为 USD`
+  return fmtMoney(trade.pnl, fact.currency, masked)
 }

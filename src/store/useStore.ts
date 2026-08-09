@@ -45,6 +45,7 @@ import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import {
   appendLivePerformanceCycle,
   cloneLivePerformanceCycles,
+  createLiveStatisticsResetEpoch,
   renameLivePerformanceCycle as renameLivePerformanceCycleInList,
   undoLatestLivePerformanceCycle as undoLatestLivePerformanceCycleInList,
   type LivePerformanceCycle,
@@ -52,7 +53,6 @@ import {
 import {
   filterLiveLogRecords,
   resolveLiveArchiveScope,
-  resolveLiveRecordBucket,
 } from '@/lib/liveStatisticsArchive'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
@@ -88,7 +88,7 @@ export type LivePerformanceRestartPreview = {
 /** 在写入新边界前，用同一归属内核生成重新开始统计的确认摘要。 */
 export function buildLivePerformanceRestartPreview(
   trades: readonly Trade[],
-  cycles: readonly LivePerformanceCycle[],
+  _cycles: readonly LivePerformanceCycle[],
   startTradingDayKey: string,
   tradingDayStartHour: number,
 ): LivePerformanceRestartPreview {
@@ -98,21 +98,14 @@ export function buildLivePerformanceRestartPreview(
     startTradingDayKey,
     createdAt: '2026-01-01T00:00:00.000Z',
   }
-  const nextCycles = [...cycles, previewCycle]
-  const currentBeforeRestart = resolveLiveArchiveScope(cycles, 'current')
+  // 重置采用单边界替换：历史统一进入「重置前」，不再叠加多轮。
+  const nextCycles = [previewCycle]
   const currentScope = resolveLiveArchiveScope(nextCycles, 'current')
+  const historyScope = resolveLiveArchiveScope(nextCycles, 'all-archives')
   const pendingScope = resolveLiveArchiveScope(nextCycles, 'pending')
-  const archiveCandidates = filterLiveLogRecords(trades, currentBeforeRestart, tradingDayStartHour)
-    .filter((trade) => resolveLiveRecordBucket(trade, nextCycles, tradingDayStartHour) === 'archive')
+  const archiveCandidates = filterLiveLogRecords(trades, historyScope, tradingDayStartHour)
   const currentLogRecords = filterLiveLogRecords(trades, currentScope, tradingDayStartHour)
-  const archivedSourceIds = new Set(
-    trades
-      .filter((trade) =>
-        resolveLiveRecordBucket(trade, cycles, tradingDayStartHour) === 'current'
-        && resolveLiveRecordBucket(trade, nextCycles, tradingDayStartHour) === 'archive',
-      )
-      .map((trade) => trade.id),
-  )
+  const archivedSourceIds = new Set(archiveCandidates.map((trade) => trade.id))
 
   return {
     startTradingDayKey,
@@ -500,6 +493,8 @@ interface State {
   createLivePerformanceCycle: (cycle: LivePerformanceCycle, currentTradingDayKey: string) => void
   renameLivePerformanceCycle: (id: string, name: string) => void
   undoLatestLivePerformanceCycle: () => void
+  /** 重置实盘绩效与风险统计：单边界替换 + 风险设置清回默认；不删交易/案例。 */
+  resetLiveStatistics: (startTradingDayKey: string, currentTradingDayKey: string) => void
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
   cancelTradeOpen: () => void
@@ -1175,6 +1170,23 @@ export const useStore = create<State>()((set, get) => ({
         const next = undoLatestLivePerformanceCycleInList(s.livePerformanceCycles)
         return next === s.livePerformanceCycles ? s : { livePerformanceCycles: next }
       }),
+      resetLiveStatistics: (startTradingDayKey, currentTradingDayKey) => {
+        const nextCycles = createLiveStatisticsResetEpoch(
+          startTradingDayKey,
+          currentTradingDayKey,
+          new Date().toISOString(),
+          globalThis.crypto.randomUUID(),
+        )
+        set({
+          livePerformanceCycles: nextCycles,
+          liveStatsStartTradingDayKey: startTradingDayKey,
+          weeklyRiskPreparations: [],
+          riskPolicyVersions: [],
+          monthlyRiskLimits: [],
+          riskOverrideEvents: [],
+          pendingTradeOpenRequest: null,
+        })
+      },
       setStatus: (id, status) => {
         const current = get().trades.find((trade) => trade.id === id)
         if (!current) return 'not-found'

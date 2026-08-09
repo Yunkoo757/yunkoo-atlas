@@ -16,7 +16,8 @@ export function fmtMoney(
   }
   const normalizedCurrency = normalizeCashCurrency(currency)
   if (normalizedCurrency === null) {
-    return `${sign}${displayValue.toLocaleString('en-US', options)} · 币种未知`
+    // 未知/非法币种只展示数值，不附加「币种未知」噪音标签；USD 总计排除仍由资格解析负责。
+    return `${sign}${displayValue.toLocaleString('en-US', options)}`
   }
   return sign + displayValue.toLocaleString('en-US', {
     ...options,

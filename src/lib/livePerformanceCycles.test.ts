@@ -3,6 +3,7 @@ import {
   appendLivePerformanceCycle,
   assertValidLivePerformanceCycles,
   countLiveTradesMissingCloseDay,
+  createLiveStatisticsResetEpoch,
   filterTradesByLivePerformanceCycle,
   renameLivePerformanceCycle,
   resolveLivePerformanceCloseTradingDayKey,
@@ -160,4 +161,13 @@ export function testCycleEditsEnforceChronologyAndReturnNewArrays(): void {
   const undone = undoLatestLivePerformanceCycle(original)
   assert(undone !== original && undone.map((item) => item.id).join(',') === 'one,two', '撤销只能移除最新边界')
   assert(original.map((item) => item.id).join(',') === 'one,two,three' && trades.length === 7, '撤销不得触碰输入或交易')
+}
+
+export function testCreateLiveStatisticsResetEpochCollapsesToSingleBoundary(): void {
+  const next = createLiveStatisticsResetEpoch('2026-08-05', '2026-08-09', '2026-08-09T00:00:00.000Z', 'reset-1')
+  assert(next.length === 1 && next[0]?.id === 'reset-1', '重置必须只保留一条边界')
+  assert(next[0]?.startTradingDayKey === '2026-08-05', '重置起点必须写入新边界')
+  let rejected = false
+  try { createLiveStatisticsResetEpoch('2026-08-10', '2026-08-09', '2026-08-09T00:00:00.000Z', 'bad') } catch { rejected = true }
+  assert(rejected, '重置起点不得晚于当前交易日')
 }

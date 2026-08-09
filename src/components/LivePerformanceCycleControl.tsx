@@ -26,7 +26,7 @@ export function LivePerformanceCycleControl({
         aria-haspopup="dialog"
         onClick={onManage}
       >
-        开启新一轮
+        重置统计
       </button>
     </div>
   )

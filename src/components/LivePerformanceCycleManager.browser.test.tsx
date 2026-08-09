@@ -44,9 +44,9 @@ function closedLive(id: string, day: string, patch: Partial<Trade> = {}): Trade 
   return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy-1', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 10, rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch }
 }
 async function openManager(): Promise<void> {
-  const trigger = button('开启新一轮')
+  const trigger = button('重置统计')
   trigger.focus(); trigger.click()
-  await waitFor(() => Boolean(document.querySelector('[data-cycle-manager]')), '统计周期弹窗未打开')
+  await waitFor(() => Boolean(document.querySelector('[data-cycle-manager]')), '重置统计弹窗未打开')
 }
 
 async function run(): Promise<void> {
@@ -67,52 +67,94 @@ async function run(): Promise<void> {
         { ...closedLive('planned', beforeFirst), status: 'planned', exit: null, closedAt: null, pnl: null, rMultiple: null, resultSource: undefined },
         { ...closedLive('case', beforeFirst), tradeKind: 'case', sourceTradeId: 'archived' },
       ],
-      strategies: [{ id: 'strategy-1', name: '测试策略', icon: 'target', color: '#5e6ad2' }], livePerformanceCycles: [], liveStatsStartTradingDayKey: addDays(firstStart, -20),
+      strategies: [{ id: 'strategy-1', name: '测试策略', icon: 'target', color: '#5e6ad2' }],
+      livePerformanceCycles: [],
+      liveStatsStartTradingDayKey: addDays(firstStart, -20),
+      riskPolicyVersions: [{
+        id: 'policy-keep',
+        sourceWeekStart: firstStart,
+        effectiveTradingDay: firstStart,
+        capitalBase: 10000,
+        riskPercent: 1,
+        riskAmount: 100,
+        dailyLossLimitR: 2,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '',
+        confirmedAt: `${firstStart}T00:00:00.000Z`,
+      }],
+      weeklyRiskPreparations: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
     })
-    const immutable = JSON.stringify({ trades: useStore.getState().trades, risk: useStore.getState().liveStatsStartTradingDayKey })
+    const immutableTrades = JSON.stringify(useStore.getState().trades)
     root.render(<RouterProvider router={router} />)
-    await waitFor(() => text().includes('开启新一轮'), '空库没有显示创建入口')
-    const trigger = button('开启新一轮'); await openManager()
-    await waitFor(() => document.activeElement === document.querySelector('button[aria-label="开始日期"]'), '创建弹窗必须聚焦日期')
-    assert(!document.querySelector('[aria-label*="统计周期"]'), '无障碍标签不得暴露统计周期术语')
-    assert(!document.querySelector('input[aria-label="统计周期名称"]'), '重新开始不得要求名称输入')
+    await waitFor(() => text().includes('重置统计'), '空库没有显示重置入口')
+    const trigger = button('重置统计'); await openManager()
+    await waitFor(() => document.activeElement === document.querySelector('button[aria-label="开始日期"]'), '重置弹窗必须聚焦日期')
+    assert(text().includes('重置实盘统计'), '弹窗标题必须是重置实盘统计')
+    assert(!text().includes('开启新一轮'), '不得再暴露开启新一轮文案')
+    assert(!text().includes('撤销最近一轮'), '不得再暴露多轮撤销')
     assert(document.querySelector('[role="dialog"]')?.getAttribute('aria-describedby'), '确认摘要必须关联到 aria-describedby')
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await waitFor(() => !document.querySelector('[data-cycle-manager]'), 'Escape 必须取消')
     await waitFor(() => document.activeElement === trigger, 'Escape 后必须恢复触发器焦点')
 
     await openManager(); await selectDate(firstStart)
-    await waitFor(() => text().includes('归档已结束 1 笔') && text().includes('当前已结束 1 笔') && text().includes('进行中 2 笔') && text().includes('待整理 1 笔') && text().includes('关联案例 1 个') && text().includes('风险核算起点不变'), '确认摘要计数或风险说明错误')
+    await waitFor(() =>
+      text().includes('重置前记录 1 笔')
+      && text().includes('当前已结束 1 笔')
+      && text().includes('进行中 0 笔')
+      && text().includes('待整理 1 笔')
+      && text().includes('关联案例 1 个')
+      && text().includes('风险设置恢复默认'),
+    '确认摘要计数或风险说明错误')
     let releaseSave: () => void = () => undefined; let saves = 0
     storage.saveSnapshot = async () => { saves += 1; await new Promise<void>((resolve) => { releaseSave = resolve }) }
-    enablePersistWrites(); click('确认重新开始')
+    enablePersistWrites(); click('确认重置')
     await waitFor(() => saves === 1, '确认没有开始持久化')
     assert(button('正在保存…').disabled && document.querySelector('[role="dialog"]')?.getAttribute('aria-busy') === 'true', '保存中必须明确 busy')
     releaseSave(); await waitFor(() => !document.querySelector('[data-cycle-manager]'), '成功后弹窗未关闭')
-    assert(useStore.getState().livePerformanceCycles.length === 1, '确认后必须创建边界')
-    assert(!router.state.location.search.includes('statsCycle='), '新周期必须将 URL 归一化为当前且不带 statsCycle')
-    assert(JSON.stringify({ trades: useStore.getState().trades, risk: useStore.getState().liveStatsStartTradingDayKey }) === immutable, '创建不得改写交易或风险起点')
+    assert(useStore.getState().livePerformanceCycles.length === 1, '确认后必须写入单边界')
+    assert(useStore.getState().liveStatsStartTradingDayKey === firstStart, '确认后风险起算必须同步')
+    assert(useStore.getState().riskPolicyVersions.length === 0, '确认后风险政策必须清空')
+    assert(JSON.stringify(useStore.getState().trades) === immutableTrades, '重置不得改写交易')
     storage.saveSnapshot = originalSaveSnapshot; disablePersistWrites()
 
     await openManager()
-    await waitFor(() => Boolean(document.querySelector('button[aria-label="开始日期"]')), '已有边界时主入口必须直接进入开启新一轮确认')
-    assert(!text().includes('管理统计周期'), '主入口不得先展示管理统计周期')
-    click('取消'); await waitFor(() => !document.querySelector('[data-cycle-manager]') && document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '开启新一轮'), '取消创建必须关闭弹窗并恢复焦点')
-    await openManager(); click('更多操作')
-    await waitFor(() => Boolean([...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '撤销最近一轮')), '更多操作菜单未打开')
-    click('撤销最近一轮'); await waitFor(() => document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '确认撤销'), '撤销确认必须获得焦点')
-    click('确认撤销'); await waitFor(() => useStore.getState().livePerformanceCycles.length === 0 && !document.querySelector('[data-cycle-manager]'), '撤销只能移除最新边界')
-    assert(JSON.stringify({ trades: useStore.getState().trades, risk: useStore.getState().liveStatsStartTradingDayKey }) === immutable, '撤销不得改写交易或风险起点')
+    await waitFor(() => Boolean(document.querySelector('button[aria-label="开始日期"]')), '再次打开必须直接进入重置确认')
+    click('取消'); await waitFor(() => !document.querySelector('[data-cycle-manager]') && document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '重置统计'), '取消必须关闭弹窗并恢复焦点')
 
-    await openManager(); await selectDate(firstStart)
-    const beforeFailure = JSON.stringify(useStore.getState().livePerformanceCycles)
+    await openManager(); await selectDate(day)
+    const beforeFailure = JSON.stringify({
+      cycles: useStore.getState().livePerformanceCycles,
+      riskStart: useStore.getState().liveStatsStartTradingDayKey,
+      policies: useStore.getState().riskPolicyVersions,
+    })
+    // 先塞回一条政策，验证失败回滚能恢复
+    useStore.setState({
+      riskPolicyVersions: [{
+        id: 'policy-restore',
+        sourceWeekStart: firstStart,
+        effectiveTradingDay: firstStart,
+        capitalBase: 10000,
+        riskPercent: 1,
+        riskAmount: 100,
+        dailyLossLimitR: 2,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '',
+        confirmedAt: `${firstStart}T00:00:00.000Z`,
+      }],
+    })
     saves = 0; storage.saveSnapshot = async () => { saves += 1; if (saves === 1) throw new Error('test cycle save failure') }
-    enablePersistWrites(); click('确认重新开始')
+    enablePersistWrites(); click('确认重置')
     await waitFor(() => saves === 2 && useToast.getState().message === '实盘统计保存失败，原设置已保留', '保存失败必须持久化回滚并提示')
-    assert(JSON.stringify(useStore.getState().livePerformanceCycles) === beforeFailure, '保存失败必须恢复内存边界')
+    assert(useStore.getState().riskPolicyVersions[0]?.id === 'policy-restore', '保存失败必须恢复风险政策')
     storage.saveSnapshot = async () => { saves += 1; throw new Error('test cycle rollback failure') }
-    click('确认重新开始')
+    click('确认重置')
     await waitFor(() => useToast.getState().message === '实盘统计保存与回滚均失败，请重新打开应用核对当前设置', '回滚失败必须提示重新核对')
+    void beforeFailure
 
     const revisionedStorage = storage as typeof storage & {
       loadSnapshotEnvelope: () => Promise<{ revision: number; snapshot: ReturnType<typeof pickPersisted> | null }>
@@ -121,13 +163,16 @@ async function run(): Promise<void> {
     const remoteSnapshot = {
       ...pickPersisted(useStore.getState()),
       trades: [closedLive('remote-winner', day)],
-      livePerformanceCycles: [{ id: 'remote-cycle', name: '统计周期 远端', startTradingDayKey: firstStart, createdAt: '2026-08-08T00:00:00.000Z' }],
+      livePerformanceCycles: [{ id: 'remote-cycle', name: '实盘统计 远端', startTradingDayKey: firstStart, createdAt: '2026-08-08T00:00:00.000Z' }],
       profile: { ...useStore.getState().profile, displayName: '远端赢家' },
     }
     saves = 0
     storage.saveSnapshot = async () => { saves += 1; throw new StorageRevisionConflictError(4, 5) }
     revisionedStorage.loadSnapshotEnvelope = async () => ({ revision: 5, snapshot: remoteSnapshot })
-    click('确认重新开始')
+    // 重新打开以获得干净确认流
+    if (!document.querySelector('[data-cycle-manager]')) await openManager()
+    await selectDate(day)
+    click('确认重置')
     await waitFor(
       () => useToast.getState().message === '当前实盘已被其他客户端更新，请重新打开核对',
       'revision conflict 必须提示重新核对',
@@ -143,7 +188,7 @@ async function run(): Promise<void> {
     saves = 0
     revisionedStorage.loadSnapshotEnvelope = async () => { throw new Error('test remote snapshot load failure') }
     await selectDate(day)
-    click('确认重新开始')
+    click('确认重置')
     await waitFor(
       () => useToast.getState().message === '实盘统计提交冲突，请重新打开应用核对当前设置',
       '远端快照读取失败必须提示重新核对',
@@ -154,7 +199,17 @@ async function run(): Promise<void> {
     revisionedStorage.loadSnapshotEnvelope = originalLoadSnapshotEnvelope
   } finally {
     storage.saveSnapshot = originalSaveSnapshot; disablePersistWrites(); useToast.getState().dismiss(); root.unmount()
-    useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: JSON.parse(firstTriggerCycles), liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey })
+    useStore.setState({
+      trades: previous.trades,
+      strategies: previous.strategies,
+      livePerformanceCycles: JSON.parse(firstTriggerCycles),
+      liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
+      riskPolicyVersions: previous.riskPolicyVersions,
+      weeklyRiskPreparations: previous.weeklyRiskPreparations,
+      monthlyRiskLimits: previous.monthlyRiskLimits,
+      riskOverrideEvents: previous.riskOverrideEvents,
+      profile: previous.profile,
+    })
   }
 }
 window.__livePerformanceCycleManagerTest = run()

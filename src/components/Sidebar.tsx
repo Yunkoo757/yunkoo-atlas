@@ -668,9 +668,13 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         </button>
       </nav>
       <nav className="sb-section" aria-label="历史记录">
-        <NavLink to="/live-archive" className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}>
+        <NavLink
+          to="/live-archive"
+          data-primary-id="liveArchive"
+          className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}
+        >
           <Archive size={ICON_MD} />
-          <span className="sb-item-label">历史归档</span>
+          <span className="sb-item-label">历史记录</span>
         </NavLink>
       </nav>
       </div>

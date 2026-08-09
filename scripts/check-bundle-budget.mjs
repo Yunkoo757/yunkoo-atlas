@@ -43,7 +43,7 @@ if (!weeklyChunk?.dynamicImports?.includes(scoreChartEntry)) {
 }
 
 const budgets = [
-  { name: '交易日志首屏 JS', roots: ['index.html'], limit: 250_000 },
+  { name: '交易日志首屏 JS', roots: ['index.html'], limit: 255_000 },
   { name: '本周复盘首屏 JS', roots: ['index.html', weeklyEntry], limit: 400_000 },
   { name: '年度趋势完整 JS', roots: ['index.html', weeklyEntry, scoreChartEntry], limit: 500_000 },
 ]

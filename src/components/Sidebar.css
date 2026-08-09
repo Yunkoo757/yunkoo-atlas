@@ -13,6 +13,7 @@
   --sb-nav-weekly: var(--nav-icon-weekly);
   --sb-nav-review-session: var(--nav-icon-review-session);
   --sb-nav-dashboard: var(--nav-icon-dashboard);
+  --sb-nav-archive: var(--nav-icon-archive);
   --sb-ws-active: var(--nav-icon-ws-active);
   --sb-ws-favorites: var(--nav-icon-ws-favorites);
   --sb-ws-missed: var(--nav-icon-ws-missed);
@@ -328,6 +329,9 @@ html[data-ui-settled='1'] .sb-item {
 }
 .sb-item[data-primary-id='dashboard'].is-active > svg {
   color: var(--sb-nav-dashboard);
+}
+.sb-item[data-primary-id='liveArchive'].is-active > svg {
+  color: var(--sb-nav-archive);
 }
 
 .sb-item[data-ws-icon='active'].is-active > svg {

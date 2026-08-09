@@ -1,4 +1,5 @@
 import type { Trade } from '@/data/trades'
+import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { buildTodayClosedMetrics, getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { useStore } from '@/store/useStore'
 
@@ -107,6 +108,45 @@ export function testTodayWorkflowKeepsHistoricalWorkVisibleButLabelsItsScope(): 
     buckets.completedToday.map((trade) => trade.id).join(',') === 'reviewed-today',
     'completed history should contain only records completed today',
   )
+}
+
+export function testTodayWorkflowRespectsCurrentLiveScopeAfterReset(): void {
+  const legacyOpen = {
+    ...base,
+    id: 'legacy-open',
+    status: 'open' as const,
+    openedAt: '2026-07-01',
+  }
+  const legacyReview = {
+    ...base,
+    id: 'legacy-review',
+    status: 'win' as const,
+    exit: 110,
+    pnl: 10,
+    openedAt: '2026-07-01',
+    closedAt: '2026-07-02',
+    closedTradingDayKey: '2026-07-02',
+    reviewStatus: 'unreviewed' as const,
+  }
+  const currentOpen = {
+    ...base,
+    id: 'current-open',
+    status: 'open' as const,
+    openedAt: '2026-08-05',
+  }
+  const scope = resolveLiveArchiveScope(
+    [{ id: 'epoch', name: '实盘统计 2026-08-05', startTradingDayKey: '2026-08-05', createdAt: '2026-08-05T00:00:00.000Z' }],
+    'current',
+  )
+  const buckets = getTodayWorkflowBuckets(
+    [legacyOpen, legacyReview, currentOpen],
+    '2026-08-09',
+    0,
+    scope,
+  )
+  assert(buckets.active.map((trade) => trade.id).join(',') === 'current-open', '重置后今日队列只能保留当前轮持仓')
+  assert(buckets.reviewPending.length === 0, '重置前待复盘不得继续占用今日工作台')
+  assert(buckets.actionCount === 1, '重置后行动队列不得混入历史遗留')
 }
 
 export function testHistoricalTradeCompletedReviewTodayAppearsInCompletedQueue(): void {

@@ -55,5 +55,6 @@ export default defineConfig({
   },
   base: isElectron ? './' : '/',
   build: { manifest: true },
-  server: { port: 5180, open: !isElectron },
+  // 本项目仅面向 Windows/macOS 桌面端；开发或 QA 服务不得自动唤起浏览器。
+  server: { port: 5180, open: false },
 })

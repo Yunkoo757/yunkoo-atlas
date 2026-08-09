@@ -1,0 +1,216 @@
+/* 导入数据健康：对齐交易日志 / 历史记录的 surface + filter/list token 语汇 */
+
+.idh-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-surface);
+}
+
+.idh-toolbar {
+  gap: var(--sp-3);
+}
+
+.idh-toolbar .list-pending-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.idh-toolbar-meta {
+  margin: 0;
+  margin-right: auto;
+  color: var(--text-secondary);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+}
+
+.idh-toolbar-meta span {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.idh-toolbar-action {
+  height: var(--toolbar-chip-height);
+  margin-left: 0;
+}
+
+.idh-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--type-metadata-size);
+}
+
+.idh-banner.is-success {
+  border-bottom-color: color-mix(in srgb, var(--pos) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--pos) 8%, var(--bg-surface));
+}
+
+.idh-banner.is-danger {
+  border-bottom-color: color-mix(in srgb, var(--neg) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--neg) 8%, var(--bg-surface));
+  color: var(--text-primary);
+}
+
+.idh-banner .ui-btn {
+  margin-left: auto;
+}
+
+.idh-content {
+  flex: 1;
+  min-height: 0;
+}
+
+.idh-list {
+  display: grid;
+  gap: 0;
+  padding: 0;
+}
+
+.idh-list-hint {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4);
+  color: var(--list-text-secondary);
+  font-size: var(--fs-micro);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.idh-row {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(160px, 1.1fr) minmax(240px, 1.6fr);
+  gap: var(--sp-3);
+  align-items: start;
+  min-height: var(--trade-row-height);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+}
+
+.idh-row:hover {
+  background: var(--bg-hover);
+}
+
+.idh-select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.idh-select input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.idh-select span {
+  display: inline-flex;
+  align-items: center;
+  height: var(--chip-height-sm);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--surface-control-border);
+  border-radius: var(--radius-full);
+  background: var(--surface-control);
+  font-size: var(--fs-micro);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.idh-select .is-high {
+  color: var(--pos);
+  border-color: color-mix(in srgb, var(--pos) 28%, var(--surface-control-border));
+  background: color-mix(in srgb, var(--pos) 10%, var(--surface-control));
+}
+
+.idh-select .is-review {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 28%, var(--surface-control-border));
+  background: color-mix(in srgb, var(--warn) 10%, var(--surface-control));
+}
+
+.idh-identity {
+  display: grid;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.idh-identity strong {
+  color: var(--list-text-strong);
+  font-size: var(--fs-sm);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.idh-identity span,
+.idh-evidence {
+  color: var(--list-text-secondary);
+  font-size: var(--fs-micro);
+}
+
+.idh-evidence {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.idh-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.idh-facts dt {
+  color: var(--list-text-secondary);
+  font-size: var(--fs-micro);
+}
+
+.idh-facts dd {
+  margin: 2px 0 0;
+  color: var(--list-text-primary);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.idh-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.idh-actions span {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .idh-row {
+    grid-template-columns: 1fr;
+  }
+
+  .idh-facts {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .idh-actions {
+    justify-content: space-between;
+  }
+}

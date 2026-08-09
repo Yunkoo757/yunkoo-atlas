@@ -74,12 +74,17 @@ export function testRecordBucketsUseReliableCloseDayAndKeepNonPerformanceRecords
   assert(resolveLiveRecordBucket(records[4]!, cycles, 0) === 'current', '冻结平仓业务日必须优先于 openedAt 与 closedAt')
   assert(resolveLiveRecordBucket(records[5]!, cycles, 0) === 'archive', '旧记录只可由合法 closedAt 补算业务日')
   assert(resolveLiveRecordBucket(records[6]!, cycles, 0) === 'pending', '已平仓但缺可靠日期必须待整理')
-  assert(resolveLiveRecordBucket(records[7]!, cycles, 0) === 'current' && resolveLiveRecordBucket(records[8]!, cycles, 0) === 'current', '计划中和持仓中只归当前日志')
+  assert(resolveLiveRecordBucket(records[7]!, cycles, 0) === 'archive', '重置前开仓的计划中必须进入历史')
+  assert(resolveLiveRecordBucket(records[8]!, cycles, 0) === 'archive', '重置前开仓的持仓必须进入历史')
+  assert(
+    resolveLiveRecordBucket(trade('open-current', { status: 'open', openedAt: '2026-03-12', pnl: null, resultSource: undefined, closedAt: null }), cycles, 0) === 'current',
+    '当前边界后开仓的持仓必须留在当前',
+  )
   assert(resolveLiveRecordBucket(records[9]!, cycles, 0) === 'archive' && resolveLiveRecordBucket(records[10]!, cycles, 0) === 'pending', '错过机会按可靠日期归属，缺日期待整理')
   assert(resolveLiveRecordBucket(records[13]!, cycles, 0) === 'excluded' && resolveLiveRecordBucket(records[14]!, cycles, 0) === 'excluded', '案例与软删除记录必须排除')
   assert(ids(filterLiveLogRecords(records, resolveLiveArchiveScope(cycles, 'two'), 0)) === 'on-second,legacy,missed,result-conflict,result-missing', '日志必须包含对应周期的已平仓、错过和待展示记录')
   assert(ids(filterLivePerformanceRecords(records, resolveLiveArchiveScope(cycles, 'two'), 0)) === 'on-second,legacy', '绩效必须排除结果冲突和缺结果的已平仓实盘')
-  assert(ids(filterLiveLogRecords(records, resolveLiveArchiveScope(cycles, 'gone'), 0)) === 'before,on-first,on-second,legacy,missed,result-conflict,result-missing', '全部归档必须包含当前边界前的可靠历史记录')
+  assert(ids(filterLiveLogRecords(records, resolveLiveArchiveScope(cycles, 'gone'), 0)) === 'before,on-first,on-second,legacy,planned,open,missed,result-conflict,result-missing', '全部归档必须包含当前边界前的可靠历史记录与重置前进行中')
 }
 
 export function testArchiveSummarySharesAttributionAndSeparatesResultCompleteness(): void {

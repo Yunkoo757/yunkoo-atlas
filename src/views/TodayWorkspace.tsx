@@ -78,9 +78,13 @@ export function TodayWorkspace() {
   const navigate = useNavigate()
   const location = useLocation()
   const today = useLocalDateKey()
+  const currentLiveScope = useMemo(
+    () => resolveLiveArchiveScope(livePerformanceCycles, null),
+    [livePerformanceCycles],
+  )
   const buckets = useMemo(
-    () => getTodayWorkflowBuckets(trades, today, tradingDayStartHour),
-    [trades, today, tradingDayStartHour],
+    () => getTodayWorkflowBuckets(trades, today, tradingDayStartHour, currentLiveScope),
+    [trades, today, tradingDayStartHour, currentLiveScope],
   )
   const todayMetrics = useMemo(
     () => buildTodayClosedMetrics(
@@ -88,9 +92,9 @@ export function TodayWorkspace() {
       today,
       tradingDayStartHour,
       legacyCashCurrencyAssumption,
-      resolveLiveArchiveScope(livePerformanceCycles, null),
+      currentLiveScope,
     ),
-    [trades, today, tradingDayStartHour, legacyCashCurrencyAssumption, livePerformanceCycles],
+    [trades, today, tradingDayStartHour, legacyCashCurrencyAssumption, currentLiveScope],
   )
   const visibleWorkflowGroups = useMemo(
     () => queueFilter === 'all'

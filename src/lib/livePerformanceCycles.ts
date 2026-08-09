@@ -193,6 +193,26 @@ export function appendLivePerformanceCycle(
   return next
 }
 
+/** 重置实盘统计：只保留一条新起点，旧多轮边界折叠进统一「重置前」历史。 */
+export function createLiveStatisticsResetEpoch(
+  startTradingDayKey: string,
+  currentTradingDayKey: string,
+  createdAt: string,
+  id: string,
+): LivePerformanceCycle[] {
+  if (!isValidLiveCycleDayKey(currentTradingDayKey)) throw new Error('当前交易日无效')
+  if (!isValidLiveCycleDayKey(startTradingDayKey)) throw new Error('重置起点交易日无效')
+  if (startTradingDayKey > currentTradingDayKey) throw new Error('重置起点不得晚于当前交易日')
+  const cycle: LivePerformanceCycle = {
+    id,
+    name: `实盘统计 ${startTradingDayKey}`,
+    startTradingDayKey,
+    createdAt,
+  }
+  assertValidCycle(cycle)
+  return [cycle]
+}
+
 export function renameLivePerformanceCycle(
   cycles: readonly LivePerformanceCycle[],
   id: string,

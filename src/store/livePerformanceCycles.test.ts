@@ -48,19 +48,88 @@ export function testRestartPreviewCountsArchiveCurrentActivePendingAndCases(): v
     closedLiveTrade('archived-missing-result', '2026-08-02', { pnl: null, rMultiple: null, resultSource: undefined }),
     closedLiveTrade('current-on-start', '2026-08-05'),
     closedLiveTrade('pending-close-day', '2026-08-04', { closedTradingDayKey: 'invalid' }),
-    { ...closedLiveTrade('active-open', '2026-08-04'), status: 'open' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
-    { ...closedLiveTrade('pending-planned', '2026-08-04'), status: 'planned' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
+    { ...closedLiveTrade('active-open', '2026-08-05'), status: 'open' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
+    { ...closedLiveTrade('legacy-open', '2026-08-02'), status: 'open' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
+    { ...closedLiveTrade('pending-planned', '2026-08-05'), status: 'planned' as const, exit: null, pnl: null, rMultiple: null, resultSource: undefined, closedAt: null },
     { ...closedLiveTrade('case-for-archive', '2026-08-02'), tradeKind: 'case', sourceTradeId: 'archived-valid' },
   ]
 
   const preview = buildLivePerformanceRestartPreview(trades, [first], '2026-08-05', 0)
 
   assert(preview.startTradingDayKey === '2026-08-05', '预览必须回显所选业务日起点')
-  assert(preview.archivedClosedCount === 3, '起点前已结束实盘必须计入归档，结果冲突和缺结果不得丢失')
+  assert(preview.archivedClosedCount === 3, '起点前已结束实盘必须计入统一历史，结果冲突和缺结果不得丢失')
   assert(preview.currentClosedCount === 1, '起点当天已平仓的有效实盘必须保留在当前')
-  assert(preview.activeCount === 2, '计划中和持仓中实盘必须统一计入进行中')
+  assert(preview.activeCount === 2, '仅开仓日在起点后的计划/持仓计入当前进行中')
   assert(preview.pendingCount === 1, '缺有效平仓日的已结束实盘必须计入待整理，计划中不得冒充待整理')
-  assert(preview.associatedCaseCount === 1, '来源于将归档实盘的案例必须被计数')
+  assert(preview.associatedCaseCount === 1, '来源于将进入历史的实盘的案例必须被计数')
+}
+
+export function testResetLiveStatisticsClearsRiskAndCollapsesCycles(): void {
+  const previous = useStore.getState()
+  const seedTrades = [
+    closedLiveTrade('keep-live', '2026-08-02'),
+    closedLiveTrade('keep-case', '2026-08-02', { tradeKind: 'case', sourceTradeId: 'keep-live' }),
+  ]
+  try {
+    useStore.setState({
+      trades: seedTrades,
+      livePerformanceCycles: [
+        first,
+        { id: 'cycle-store-second', name: '第二周期', startTradingDayKey: '2026-08-03', createdAt: '2026-08-03T00:00:00.000Z' },
+      ],
+      liveStatsStartTradingDayKey: '2026-07-01',
+      weeklyRiskPreparations: [{
+        id: 'prep-1',
+        weekStart: '2026-08-03',
+        draft: {
+          capitalBase: 10000,
+          riskPercent: 1,
+          riskAmount: 100,
+          dailyLossLimitR: 2,
+          weeklyLossLimitR: 5,
+          monthlyLossLimitRDefault: 10,
+          disciplineText: '',
+        },
+        reviewedAt: null,
+        confirmedPolicyVersionId: null,
+        createdAt: '2026-08-03T00:00:00.000Z',
+        updatedAt: '2026-08-03T00:00:00.000Z',
+      }],
+      riskPolicyVersions: [{
+        id: 'policy-1',
+        sourceWeekStart: '2026-08-03',
+        effectiveTradingDay: '2026-08-03',
+        capitalBase: 10000,
+        riskPercent: 1,
+        riskAmount: 100,
+        dailyLossLimitR: 2,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '',
+        confirmedAt: '2026-08-03T00:00:00.000Z',
+      }],
+      monthlyRiskLimits: [{
+        id: 'month-1',
+        monthKey: '2026-08',
+        limitR: 10,
+        sourcePolicyVersionId: 'policy-1',
+        lockedAt: '2026-08-03T00:00:00.000Z',
+      }],
+      riskOverrideEvents: [],
+    })
+
+    useStore.getState().resetLiveStatistics('2026-08-05', '2026-08-09')
+    const state = useStore.getState()
+    assert(state.livePerformanceCycles.length === 1, '重置后只保留一条当前起点')
+    assert(state.livePerformanceCycles[0]?.startTradingDayKey === '2026-08-05', '重置起点必须写入绩效边界')
+    assert(state.liveStatsStartTradingDayKey === '2026-08-05', '风险起算必须同步到同一天')
+    assert(state.weeklyRiskPreparations.length === 0, '周风险准备必须清空')
+    assert(state.riskPolicyVersions.length === 0, '风险政策版本必须清空')
+    assert(state.monthlyRiskLimits.length === 0, '月度限额必须清空')
+    assert(JSON.stringify(state.trades) === JSON.stringify(seedTrades), '重置不得改动交易与案例实体')
+  } finally {
+    useStore.setState(previous)
+  }
 }
 
 export function testLivePerformanceCycleStoreActionsDoNotModifyTradesOrReviews(): void {

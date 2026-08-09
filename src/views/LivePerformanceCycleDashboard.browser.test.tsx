@@ -173,16 +173,21 @@ async function run(): Promise<void> {
     assert(text().includes('+$250'), '主统计只应包含当前实盘及跨边界平仓交易')
     assert(document.querySelector('[aria-label="本周交易分析"] .db-week-metric strong')?.textContent === '2', '本周卡片必须复用当前实盘范围')
     assert(!document.querySelector('button[role="combobox"]'), 'Dashboard 不得提供统计周期选择器')
-    assert(text().includes('历史归档'), 'Dashboard 必须提供历史归档入口')
+    assert(text().includes('历史记录'), 'Dashboard 必须提供历史记录入口')
     assert(!text().includes('绩效阶段'), 'Dashboard 不得暴露绩效阶段术语')
     assert(document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href') === '/list?kind=live&range=all', '当前实盘链接必须跟随当前范围')
     assert(document.querySelector<HTMLAnchorElement>('a.db-strat')?.getAttribute('href')?.includes('statsCycle=') === false, '策略下钻不得固定历史归档 ID')
 
     mounted.root.unmount()
     mounted = mountDashboard(rootElement, '/dashboard?kind=all&range=all')
-    await waitFor(() => text().includes('+$650'), 'all 必须为当前实盘加全部模拟盘')
-    assert(!text().includes('+$750'), 'all 不得混入历史归档实盘')
-    assert(text().includes('当前实盘统计'), 'all 范围仍必须说明实盘统计采用当前范围')
+    await waitFor(() => text().includes('+$250'), 'kind=all 纠偏后仍只统计当前实盘')
+    assert(!text().includes('+$650'), '仪表盘不得再把模拟盘并入主统计')
+    assert(!text().includes('+$750'), '不得混入历史归档实盘')
+    assert(text().includes('当前实盘统计'), '纠偏后仍必须说明实盘统计采用当前范围')
+    assert(
+      ![...document.querySelectorAll('.db-seg')].some((button) => button.textContent?.includes('模拟盘')),
+      '仪表盘不得再提供模拟盘切换',
+    )
 
     const missingCloseDay = closedTrade('missing-close-day', 50, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, { closedAt: 'invalid', closedTradingDayKey: undefined })
     const missedMissingCloseDay = closedTrade('missed-missing-close-day', 0, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, {
@@ -212,7 +217,7 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [], livePerformanceCycles: [] })
     mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
     await waitFor(() => text().includes('还没有已平仓交易'), '无周期且无已平仓交易必须保留通用空状态')
-    assert(text().includes('开启新一轮'), '无周期时必须保留开启新一轮统计入口')
+    assert(text().includes('重置统计'), '无周期时必须保留重置统计入口')
   } finally {
     mounted?.root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles })

@@ -28,8 +28,8 @@ import {
   parseAnalysisScope,
   strategyAnalysisHref,
   writeAnalysisScope,
-  type AnalysisKind,
   type AnalysisRange,
+  type AnalysisScope,
 } from '@/lib/analysisScope'
 import {
   buildDashboardStats,
@@ -72,12 +72,6 @@ const RANGE_LABELS: Record<AnalysisRange, string> = {
   ytd: '本年',
 }
 
-const KIND_OPTS: { value: AnalysisKind; label: string }[] = [
-  { value: 'live', label: '实盘' },
-  { value: 'paper', label: '模拟盘' },
-  { value: 'all', label: '实盘 + 模拟盘' },
-]
-
 export function Dashboard() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -93,7 +87,12 @@ export function Dashboard() {
   const [cycleManagerOpen, setCycleManagerOpen] = useState(false)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
-  const scope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
+  const parsedScope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
+  /** 仪表盘固定仅实盘；URL 中的 paper/all 会在下方 effect 纠偏 */
+  const scope = useMemo(
+    (): AnalysisScope => ({ kind: 'live', range: parsedScope.range }),
+    [parsedScope.range],
+  )
   const currentLiveRoute = resolveLiveRoute(searchParams, performanceCycles, 'dashboard')
   const currentLiveScope = currentLiveRoute.target.kind === 'current'
     ? currentLiveRoute.target.scope
@@ -104,6 +103,10 @@ export function Dashboard() {
   const performanceEnd = performanceBounds?.endExclusive ?? null
 
   useEffect(() => {
+    if (parsedScope.kind !== 'live') {
+      setSearchParams(writeAnalysisScope(searchParams, scope), { replace: true })
+      return
+    }
     if (currentLiveRoute.target.kind === 'current') {
       if (currentLiveRoute.needsReplace) {
         navigate({ search: currentLiveRoute.canonicalSearch }, { replace: true })
@@ -112,7 +115,16 @@ export function Dashboard() {
     }
     const destination = resolveLiveRouteNavigation(currentLiveRoute)
     navigate(destination, { replace: true })
-  }, [currentLiveRoute.canonicalSearch, currentLiveRoute.needsReplace, currentLiveRoute.target.kind, navigate])
+  }, [
+    currentLiveRoute.canonicalSearch,
+    currentLiveRoute.needsReplace,
+    currentLiveRoute.target.kind,
+    navigate,
+    parsedScope.kind,
+    scope,
+    searchParams,
+    setSearchParams,
+  ])
 
   const performanceSelection = useMemo(
     () => buildPerformanceSelection(allTrades, {
@@ -123,8 +135,7 @@ export function Dashboard() {
     }),
     [
       allTrades,
-      scope.kind,
-      scope.range,
+      scope,
       localDateKey,
       tradingDayStartHour,
       currentLiveScope,
@@ -136,9 +147,9 @@ export function Dashboard() {
       !trade.deletedAt &&
       isAccountTrade(trade) &&
       isActive(trade.status) &&
-      (scope.kind === 'all' || trade.tradeKind === scope.kind),
+      trade.tradeKind === 'live',
     ),
-    [allTrades, scope.kind],
+    [allTrades],
   )
   const tradeById = useMemo(
     () => new Map(allTrades.filter((trade) => !trade.deletedAt).map((trade) => [trade.id, trade])),
@@ -175,14 +186,13 @@ export function Dashboard() {
   )
   const missingPerformanceCloseDayCount = useMemo(
     () => {
-      if (scope.kind === 'paper') return 0
       const liveTradeIds = new Set(allTrades.filter((trade) => trade.tradeKind === 'live').map((trade) => trade.id))
       return [
         ...performanceSelection.missingCloseDayIds,
         ...performanceSelection.invalidCloseDayIds,
       ].filter((id) => liveTradeIds.has(id)).length
     },
-    [allTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds, scope.kind],
+    [allTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds],
   )
   const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
   const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
@@ -193,23 +203,20 @@ export function Dashboard() {
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
-    [allTrades, scope.kind, currentLiveScope, businessDateAnchor, profile.legacyCashCurrencyAssumption],
+    [allTrades, scope, currentLiveScope, businessDateAnchor, profile.legacyCashCurrencyAssumption],
   )
   const weekMetrics = useMemo(() => {
     const weekEligibleIds = new Set(weekPerformanceSelection.eligibleMetricIds)
     const weekTrades = allTrades.filter((trade) => weekEligibleIds.has(trade.id))
-    const missed = scope.kind === 'paper'
-      ? []
-      : missedTradesInWeek(
-        allTrades,
-        weekStart,
-        tradingDayStartHour,
-        performanceBounds,
-      )
+    const missed = missedTradesInWeek(
+      allTrades,
+      weekStart,
+      tradingDayStartHour,
+      performanceBounds,
+    )
     return buildWeeklyReviewMetrics(weekTrades, missed, weekPerformanceSelection.pnlIds)
-  }, [allTrades, performanceBounds, scope.kind, tradingDayStartHour, weekPerformanceSelection, weekStart])
+  }, [allTrades, performanceBounds, tradingDayStartHour, weekPerformanceSelection, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
-  const kindLabel = KIND_OPTS.find((o) => o.value === scope.kind)?.label ?? '实盘 + 模拟盘'
   const scopedClosedCount = performanceSelection.eligibleMetricIds.length
     + performanceSelection.conflictResultIds.length
     + performanceSelection.missingResultIds.length
@@ -222,32 +229,12 @@ export function Dashboard() {
       ? `币种未知 ${performanceSelection.excludedUnknownCount} 笔`
       : '',
   ].filter(Boolean).join(' · ')
-  const combinedUsdTotals = useMemo(() => {
-    const usdIds = new Set(performanceSelection.pnlIds)
-    return allTrades.reduce((totals, trade) => {
-      if (!usdIds.has(trade.id) || typeof trade.pnl !== 'number') return totals
-      if (trade.tradeKind === 'live') {
-        totals.live.total += trade.pnl
-        totals.live.count += 1
-      }
-      if (trade.tradeKind === 'paper') {
-        totals.paper.total += trade.pnl
-        totals.paper.count += 1
-      }
-      return totals
-    }, { live: { total: 0, count: 0 }, paper: { total: 0, count: 0 } })
-  }, [allTrades, performanceSelection.pnlIds])
   const resultHealth = {
     conflictCount: performanceSelection.conflictResultIds.length,
     missingResultCount: performanceSelection.missingResultIds.length,
   }
   const hasClosedTrades = scopedClosedCount > 0
   const selectedPerformanceCycleIsEmpty = performanceCycleClosedCount === 0
-  const activeTradesPath = scope.kind === 'paper' || (
-    scope.kind === 'all' && !activeTrades.some((trade) => trade.tradeKind === 'live')
-  )
-    ? '/sim'
-    : '/active'
   const weekCardEmpty = weekMetrics.tradeCount === 0 && weekMetrics.missedCount === 0
   const missedReasonSummary = Object.entries(weekMetrics.missedReasonCounts)
     .sort((left, right) => right[1] - left[1])
@@ -256,8 +243,8 @@ export function Dashboard() {
   const strategyStatsCycle = undefined
   const performanceDrilldownHref = `/list${performanceSelection.drilldownTarget}`
 
-  const updateScope = (patch: Partial<typeof scope>) => {
-    setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
+  const updateScope = (patch: Partial<AnalysisScope>) => {
+    setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch, kind: 'live' }), { replace: true })
   }
 
   const showRestartedPerformanceCycle = () => undefined
@@ -274,20 +261,7 @@ export function Dashboard() {
       <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD" showDisplay={false} />
       <div className="db-scroll">
         <div className="db-toolbar">
-          <span className="db-toolbar-label">分析范围</span>
-          <div className="db-segmented" role="group" aria-label="交易类型">
-            {KIND_OPTS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={scope.kind === o.value}
-                className={'db-seg' + (scope.kind === o.value ? ' is-on' : '')}
-                onClick={() => updateScope({ kind: o.value })}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
+          <span className="db-toolbar-label">时间</span>
           <div className="db-segmented" role="group" aria-label="时间范围">
             {RANGE_OPTS.map((o) => (
               <button
@@ -301,11 +275,9 @@ export function Dashboard() {
               </button>
             ))}
           </div>
-          {scope.kind !== 'paper' ? (
-            <LivePerformanceCycleControl
-              onManage={() => setCycleManagerOpen(true)}
-            />
-          ) : null}
+          <LivePerformanceCycleControl
+            onManage={() => setCycleManagerOpen(true)}
+          />
         </div>
 
         {cycleManagerOpen ? (
@@ -325,16 +297,14 @@ export function Dashboard() {
                   ? hasClosedTrades
                     ? '本周暂无已平仓交易 · 下方继续显示当前筛选范围的历史统计'
                     : '本周尚无已平仓交易 · 平仓后汇总胜率、盈亏与平均 R'
-                  : `${weekRangeLabel} · ${kindLabel} · 按平仓日${weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}`}
+                  : `${weekRangeLabel} · 按平仓日${weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}`}
               </div>
             </div>
-            {scope.kind !== 'paper' ? (
-              <div className="db-week-actions">
-                <Link to="/weekly-review" className="db-week-link">
-                  打开周复盘
-                </Link>
-              </div>
-            ) : null}
+            <div className="db-week-actions">
+              <Link to="/weekly-review" className="db-week-link">
+                打开周复盘
+              </Link>
+            </div>
           </div>
           {!weekCardEmpty ? (
             <div className="db-week-metrics">
@@ -390,17 +360,15 @@ export function Dashboard() {
         </section>
 
         <div className="db-live-links" aria-label="实盘统计入口">
-          <Link to="/live-archive" className="db-live-link">历史归档</Link>
+          <Link to="/live-archive" className="db-live-link">历史记录</Link>
         </div>
 
-        <div className="db-cards" aria-label={`当前范围指标 · ${kindLabel} · ${rangeLabel}`}>
+        <div className="db-cards" aria-label={`当前范围指标 · ${rangeLabel}`}>
           <Card
             label="净盈亏"
             value={stats.pnlCount === 0
               ? '—'
-              : scope.kind === 'all'
-                ? `实盘 ${combinedUsdTotals.live.count ? fmtMoney(combinedUsdTotals.live.total, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'} · 模拟 ${combinedUsdTotals.paper.count ? fmtMoney(combinedUsdTotals.paper.total, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'}`
-                : fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
+              : fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
             sub={`当前范围 · ${stats.pnlCount}/${scopedClosedCount} 笔含盈亏`}
             accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
             to={performanceDrilldownHref}
@@ -481,13 +449,13 @@ export function Dashboard() {
                 ? '当前时间范围暂无已平仓实盘'
                 : '还没有已平仓交易'}
             hint={selectedPerformanceCycleIsEmpty
-              ? '历史记录仍完整保留，可从历史归档查看。'
+                  ? '历史记录仍完整保留，可从历史记录查看。'
               : hasPerformanceBounds
                 ? '当前实盘有已平仓记录，可以切换时间范围查看。'
                 : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}
             action={
               activeTrades.length > 0 ? (
-                <button type="button" className="empty-btn" onClick={() => navigate(activeTradesPath)}>
+                <button type="button" className="empty-btn" onClick={() => navigate('/active')}>
                   查看进行中交易
                 </button>
               ) : (
@@ -505,7 +473,7 @@ export function Dashboard() {
             <div>
               <span className="db-panel-title">累计盈亏曲线</span>
               <div className="db-panel-sub">
-                {scopedClosedCount} 笔已平仓 · {kindLabel} · {rangeLabel}
+                {scopedClosedCount} 笔已平仓 · {rangeLabel}
               </div>
             </div>
             {stats.curve.length > 0 && (

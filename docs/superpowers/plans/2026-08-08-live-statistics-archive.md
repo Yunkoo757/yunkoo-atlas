@@ -1,5 +1,7 @@
 # 当前实盘统计与历史归档 Implementation Plan
 
+> 2026-08-09 执行说明：本计划的业务目标继续有效，但 Web、移动端、375/768 视口和 Web/Electron 产品一致性任务已被最新 Windows/macOS-only 要求覆盖，不得原样执行。`codex/live-statistics-archive` 已完成本计划的大部分工作；剩余任务应在 `2026-08-09-desktop-ux-optimization-design.md` 审批后，从现有分支继续收口。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在不复制、移动或删除交易与案例实体的前提下，让用户可以一键重新开始当前实盘统计，并通过独立的历史归档入口回看旧记录。

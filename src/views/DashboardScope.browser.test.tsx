@@ -110,7 +110,7 @@ async function run(): Promise<void> {
   let root = createRoot(rootElement)
 
   try {
-    useStore.setState({ trades: [paperTrade], strategies: [strategy] })
+    useStore.setState({ trades: [paperTrade, currentLiveTrade], strategies: [strategy] })
     root.render(
       <MemoryRouter initialEntries={['/dashboard?kind=paper&range=this-week']}>
         <Routes>
@@ -123,50 +123,69 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
 
-    await waitFor(() => Boolean(document.querySelector('a.db-strat')), '策略分析链接未出现')
-    const selectedKind = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
-      .find((button) => button.textContent?.trim() === '模拟盘')
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/dashboard?kind=live&range=this-week',
+      '仪表盘必须把 kind=paper 纠偏为 live',
+    )
+    const kindButtons = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
+      .map((button) => button.textContent?.trim())
+    assert(!kindButtons.includes('模拟盘'), '仪表盘不得再提供模拟盘切换')
+    assert(!kindButtons.includes('实盘 + 模拟盘'), '仪表盘不得再提供实盘+模拟盘切换')
+    assert(!kindButtons.includes('实盘'), '仪表盘不应再显示单独的实盘分段（固定仅实盘）')
     const selectedRange = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
       .find((button) => button.textContent?.trim() === '本周')
-    assert(selectedKind?.getAttribute('aria-pressed') === 'true', '仪表盘必须从 URL 恢复交易类型')
     assert(selectedRange?.getAttribute('aria-pressed') === 'true', '仪表盘必须从 URL 恢复时间范围')
-    assert(document.body.textContent?.includes('+$250'), '仪表盘必须使用 URL 范围内的模拟交易')
+    await waitFor(() => Boolean(document.querySelector('a.db-strat')), '策略分析链接未出现')
+    assert(document.body.textContent?.includes('+$250'), '仪表盘纠偏后只统计实盘')
+    assert(!document.body.textContent?.includes('实盘 + 模拟盘'), '界面不得再出现合并范围文案')
 
     const link = document.querySelector<HTMLAnchorElement>('a.db-strat')
     assert(
-      link?.getAttribute('href') === '/strategy/paper-strategy?kind=paper&range=this-week',
-      '策略下钻链接必须保留仪表盘范围',
+      link?.getAttribute('href') === '/strategy/paper-strategy?kind=live&range=this-week',
+      '策略下钻链接必须使用实盘范围',
     )
     link.click()
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
-        '/strategy/paper-strategy?kind=paper&range=this-week',
+        '/strategy/paper-strategy?kind=live&range=this-week',
       '进入策略页后分析范围丢失',
     )
 
     root.unmount()
-    useStore.setState({ trades: [openPaperTrade] })
+    const openLiveTrade: Trade = {
+      ...openPaperTrade,
+      id: 'live-open',
+      ref: 'TRD-LIVE-OPEN',
+      tradeKind: 'live',
+    }
+    useStore.setState({ trades: [openLiveTrade] })
     root = createRoot(rootElement)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=this-week']}>
+      <MemoryRouter initialEntries={['/dashboard?kind=all&range=this-week']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
-          <Route path="/sim" element={<LocationProbe />} />
+          <Route path="/active" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     )
 
     await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/dashboard?kind=live&range=this-week',
+      '仪表盘必须把 kind=all 纠偏为 live',
+    )
+    await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('button')]
         .some((button) => button.textContent?.trim() === '查看进行中交易'),
-      '有模拟持仓但无平仓记录时，应引导查看进行中交易',
+      '有实盘持仓但无平仓记录时，应引导查看进行中交易',
     )
     const activeButton = [...document.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent?.trim() === '查看进行中交易')
     activeButton?.click()
     await waitFor(
-      () => document.querySelector('[data-testid="location"]')?.textContent === '/sim',
-      '模拟范围的空状态应回到模拟交易工作区',
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/active',
+      '实盘空状态应回到进行中交易工作区',
     )
 
     root.unmount()
@@ -213,7 +232,7 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('当前实盘统计') ?? false, 'Dashboard 必须明确显示当前实盘统计')
     assert(document.body.textContent?.includes('+$100'), '主统计只能包含当前实盘交易')
     assert(!document.body.textContent?.includes('+$900'), '历史归档实盘不得混入当前主统计')
-    assert(document.body.textContent?.includes('历史归档'), 'Dashboard 必须提供历史归档入口')
+    assert(document.body.textContent?.includes('历史记录'), 'Dashboard 必须提供历史记录入口')
     assert(!document.body.textContent?.includes('绩效阶段'), 'Dashboard 不得暴露实现术语')
     const currentHref = document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href')
     assert(currentHref === '/list?kind=live&range=all', `查看当前实盘必须只进入当前范围，实际 ${currentHref}`)
@@ -298,11 +317,16 @@ async function run(): Promise<void> {
         </Routes>
       </MemoryRouter>,
     )
-    await waitFor(() => document.body.textContent?.includes('+$150') ?? false, '全部范围必须保留全部模拟盘且只包含当前实盘')
-    assert(!document.body.textContent?.includes('+$1,050'), '全部范围不得把历史归档实盘重新混入统计')
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all',
+      '仪表盘必须把 kind=all 纠偏为 live',
+    )
+    await waitFor(() => document.body.textContent?.includes('+$100') ?? false, '纠偏后只统计当前实盘')
+    assert(!document.body.textContent?.includes('+$150'), '仪表盘不得再把模拟盘并入主统计')
+    assert(!document.body.textContent?.includes('+$1,050'), '不得把历史归档实盘重新混入统计')
     const anchor = createBusinessDateAnchor(new Date(), useStore.getState().display.tradingDayStartHour)
     const dashboardSelection = buildPerformanceSelection(useStore.getState().trades, {
-      scope: { kind: 'all', range: 'all' },
+      scope: { kind: 'live', range: 'all' },
       liveScope: resolveLiveArchiveScope(cycles, null),
       anchor,
       legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
@@ -618,32 +642,28 @@ async function run(): Promise<void> {
       closedAt: currentDay,
       closedTradingDayKey: currentDay,
     }
-    const cnyPaper: Trade = {
-      ...paperTrade,
-      id: 'currency-cny-paper',
+    const cnyLive: Trade = {
+      ...usdLive,
+      id: 'currency-cny-live',
       ref: 'TRD-CNY',
       pnl: 900,
       cashCurrency: 'CNY',
-      closedAt: currentDay,
-      closedTradingDayKey: currentDay,
     }
-    const unknownPaper: Trade = {
-      ...paperTrade,
-      id: 'currency-unknown-paper',
+    const unknownLive: Trade = {
+      ...usdLive,
+      id: 'currency-unknown-live',
       ref: 'TRD-UNKNOWN',
       pnl: 50,
       cashCurrency: null,
-      closedAt: currentDay,
-      closedTradingDayKey: currentDay,
     }
     useStore.setState({
-      trades: [usdLive, cnyPaper, unknownPaper],
+      trades: [usdLive, cnyLive, unknownLive],
       livePerformanceCycles: [],
       profile: { ...useStore.getState().profile, legacyCashCurrencyAssumption: null },
     })
     root = createRoot(rootElement)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=all&range=all']}>
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all']}>
         <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
       </MemoryRouter>,
     )
@@ -654,8 +674,8 @@ async function run(): Promise<void> {
     const currencyHealth = document.querySelector('[data-currency-merge-status]')?.textContent ?? ''
     assert(currencyHealth.includes('USD 覆盖 1/3 笔'), 'Dashboard 必须显示 USD 覆盖笔数')
     assert(currencyHealth.includes('CNY 1 笔') && currencyHealth.includes('币种未知 1 笔'), 'Dashboard 必须列出排除币种与 unknown 数量')
-    assert(document.body.textContent?.includes('实盘 +$100 · 模拟 —'), '组合视图必须保留两侧 USD 覆盖，缺失侧显示无数据而非零')
-    assert(!document.body.textContent?.includes('模拟 $0'), '模拟侧无 USD 记录时不得伪造成 $0')
+    assert(document.body.textContent?.includes('+$100'), '仪表盘净盈亏只合并 USD 实盘')
+    assert(!document.body.textContent?.includes('实盘 +$100 · 模拟'), '仪表盘不得再展示实盘/模拟分列盈亏')
     assert(!document.body.textContent?.includes('+$1,050'), 'Dashboard 不得生成跨币种单一总数')
   } finally {
     root.unmount()

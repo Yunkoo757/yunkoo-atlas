@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, Shield } from '@/icons/appIcons'
+import { ArrowLeft } from '@/icons/appIcons'
+import { EmptyState } from '@/components/EmptyState'
 import { Topbar } from '@/components/Topbar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
 import { buildCopiedCloseDateCandidates } from '@/lib/importDataHealth'
 import { useStore } from '@/store/useStore'
-import './LiveArchiveView.css'
+import './ImportDataHealthView.css'
+import './ListView.css'
 
 export function ImportDataHealthView() {
   const trades = useStore((state) => state.trades)
@@ -68,25 +70,78 @@ export function ImportDataHealthView() {
     }
   }
 
+  const toggleAllHigh = () => {
+    const highIds = candidates.filter((item) => item.confidence === 'high').map((item) => item.tradeId)
+    setSelected((current) => {
+      const allHighSelected = highIds.every((id) => current.has(id))
+      const next = new Set(current)
+      for (const id of highIds) {
+        if (allHighSelected) next.delete(id)
+        else next.add(id)
+      }
+      return next
+    })
+  }
+
   return (
     <>
-      <Topbar title="导入数据健康" />
-      <main className="la-scroll idh-page">
-        <div className="la-detail-head">
-          <Link className="la-back" to="/live-archive"><ArrowLeft size={15} />返回历史归档</Link>
-          <span>只处理经你确认的历史 Notion 日期污染</span>
+      <Topbar
+        title="导入数据健康"
+        subtitle="只处理经你确认的历史 Notion 日期污染"
+        showDisplay={false}
+      />
+      <main className="idh-view">
+        <div className="list-pending-entry idh-toolbar">
+          <Link className="list-pending-link" to="/live-archive">
+            <ArrowLeft size={14} aria-hidden />
+            返回历史记录
+          </Link>
+          <p className="idh-toolbar-meta" id="import-health-title">
+            平仓日待核对 <span>{candidates.length}</span>
+          </p>
+          {candidates.length > 0 ? (
+            <button type="button" className="ui-btn ui-btn-ghost idh-toolbar-action" onClick={toggleAllHigh}>
+              切换高置信选中
+            </button>
+          ) : null}
         </div>
-        <section className="idh-intro" aria-labelledby="import-health-title">
-          <div><h2 id="import-health-title">平仓日待核对</h2><p>高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。</p></div>
-          <Shield size={24} aria-hidden />
-        </section>
-        {notice ? <div className="idh-notice" role="status"><CheckCircle size={16} aria-hidden /><span>{notice}</span>{lastActionId ? <button data-health-undo type="button" disabled={busy} onClick={() => void undoCleanup()}>{busy ? '正在安全撤销…' : '撤销本次清理'}</button> : null}</div> : null}
-        {error ? <p className="la-route-notice" role="alert">{error}</p> : null}
-        {candidates.length === 0 ? (
-          <section className="la-empty"><CheckCircle size={24} aria-hidden /><h2>当前没有待核对记录</h2><p>没有历史记录会被自动修改。</p></section>
-        ) : (
-          <>
+
+        {notice ? (
+          <div className="idh-banner is-success" role="status">
+            <span>{notice}</span>
+            {lastActionId ? (
+              <button
+                data-health-undo
+                type="button"
+                className="ui-btn ui-btn-ghost"
+                disabled={busy}
+                onClick={() => void undoCleanup()}
+              >
+                {busy ? '正在安全撤销…' : '撤销本次清理'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {error ? (
+          <div className="idh-banner is-danger" role="alert">{error}</div>
+        ) : null}
+
+        <section className="list-scroll idh-content" aria-label="平仓日待核对">
+          {candidates.length === 0 ? (
+            <EmptyState
+              title="当前没有待核对记录"
+              hint="没有历史记录会被自动修改。高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。"
+              action={(
+                <Link className="ui-btn ui-btn-bordered" to="/live-archive">
+                  返回历史记录
+                </Link>
+              )}
+            />
+          ) : (
             <div className="idh-list" aria-label="历史 Notion 日期候选">
+              <p className="idh-list-hint">
+                高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。
+              </p>
               {candidates.map((candidate) => (
                 <article data-health-candidate key={candidate.tradeId} className="idh-row">
                   <label className="idh-select">
@@ -105,23 +160,37 @@ export function ImportDataHealthView() {
                       {candidate.confidence === 'high' ? '高置信' : '需人工核对'}
                     </span>
                   </label>
-                  <div className="idh-identity"><strong>{candidate.ref} · {candidate.symbol}</strong><span>来源 {candidate.source}</span></div>
+                  <div className="idh-identity">
+                    <strong>{candidate.ref} · {candidate.symbol}</strong>
+                    <span>来源 {candidate.source}</span>
+                  </div>
                   <dl className="idh-facts">
                     <div><dt>开仓日</dt><dd>{candidate.openedAt}</dd></div>
                     <div><dt>当前平仓日</dt><dd>{candidate.closedAt}</dd></div>
                     <div><dt>结果</dt><dd>{candidate.result}</dd></div>
                   </dl>
-                  <p>{candidate.evidence}</p>
+                  <p className="idh-evidence">{candidate.evidence}</p>
                 </article>
               ))}
             </div>
-            <div className="idh-actions">
-              <span>已选择 {selectedCount} / {candidates.length}</span>
-              <Button data-health-cleanup variant="danger" disabled={selectedCount === 0 || busy} onClick={() => setConfirming(true)}>清空平仓日</Button>
-            </div>
-          </>
-        )}
+          )}
+        </section>
+
+        {candidates.length > 0 ? (
+          <div className="idh-actions">
+            <span>已选择 {selectedCount} / {candidates.length}</span>
+            <Button
+              data-health-cleanup
+              variant="danger"
+              disabled={selectedCount === 0 || busy}
+              onClick={() => setConfirming(true)}
+            >
+              清空平仓日
+            </Button>
+          </div>
+        ) : null}
       </main>
+
       {confirming ? (
         <ModalShell
           title="确认清空平仓日？"
@@ -129,9 +198,20 @@ export function ImportDataHealthView() {
           busy={busy}
           dismissible={!busy}
           onClose={() => setConfirming(false)}
-          footer={<><Button data-health-cancel variant="bordered" disabled={busy} onClick={() => setConfirming(false)}>取消</Button><Button data-health-confirm variant="danger-solid" disabled={busy} onClick={() => void confirmCleanup()}>{busy ? '正在安全保存…' : '确认清空'}</Button></>}
+          footer={(
+            <>
+              <Button data-health-cancel variant="bordered" disabled={busy} onClick={() => setConfirming(false)}>
+                取消
+              </Button>
+              <Button data-health-confirm variant="danger-solid" disabled={busy} onClick={() => void confirmCleanup()}>
+                {busy ? '正在安全保存…' : '确认清空'}
+              </Button>
+            </>
+          )}
         >
-          <p>清理只修改已选择记录的 <code>closedAt</code> 与冻结平仓业务日，并生成可撤销 patch。人工核对项由你本次勾选确认。</p>
+          <p>
+            清理只修改已选择记录的 <code>closedAt</code> 与冻结平仓业务日，并生成可撤销 patch。人工核对项由你本次勾选确认。
+          </p>
         </ModalShell>
       ) : null}
     </>

@@ -1,4 +1,5 @@
 import type { Trade } from '@/data/trades'
+import { openedTradingDayKey } from '@/lib/liveCycle'
 import {
   resolveLivePerformanceCloseTradingDayKey,
   type LivePerformanceCycle,
@@ -100,18 +101,41 @@ function bucketForReliableDay(day: string, cycles: readonly LivePerformanceCycle
   return dayIsInBounds(day, latestBounds(cycles)!) ? 'current' : 'archive'
 }
 
+function activeMembershipDay(
+  trade: Trade,
+  tradingDayStartHour: number,
+): string | null {
+  return openedTradingDayKey(trade, tradingDayStartHour)
+}
+
 export function resolveLiveRecordBucket(
   trade: Trade,
   cycles: readonly LivePerformanceCycle[],
   tradingDayStartHour: number,
 ): LiveRecordBucket {
   if (!isVisibleLiveRecord(trade)) return 'excluded'
-  if (trade.status === 'planned' || trade.status === 'open') return 'current'
+  // 计划中/持仓按开仓日归属：重置前开仓的进行中进入历史，不再霸占当前工作面。
+  if (trade.status === 'planned' || trade.status === 'open') {
+    const day = activeMembershipDay(trade, tradingDayStartHour)
+    if (day === null) return 'pending'
+    return bucketForReliableDay(day, cycles)
+  }
   const day = resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour)
   if (trade.status === 'missed' || isExecutedClosed(trade.status)) {
     return day === null ? 'pending' : bucketForReliableDay(day, cycles)
   }
   return 'excluded'
+}
+
+function membershipDayForScope(
+  trade: Trade,
+  tradingDayStartHour: number,
+): string | null {
+  if (trade.status === 'planned' || trade.status === 'open') {
+    return activeMembershipDay(trade, tradingDayStartHour)
+  }
+  if (!isExecutedClosed(trade.status) && trade.status !== 'missed') return null
+  return resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour)
 }
 
 function matchesScope(
@@ -120,14 +144,22 @@ function matchesScope(
   tradingDayStartHour: number,
 ): boolean {
   if (!isVisibleLiveRecord(trade)) return false
-  if (scope.kind === 'current' && (trade.status === 'planned' || trade.status === 'open')) return true
-  if (!isExecutedClosed(trade.status) && trade.status !== 'missed') return false
-  const day = resolveLivePerformanceCloseTradingDayKey(trade, tradingDayStartHour)
-  if (scope.kind === 'pending') return day === null
+  const day = membershipDayForScope(trade, tradingDayStartHour)
+  if (scope.kind === 'pending') {
+    if (trade.status === 'planned' || trade.status === 'open') return day === null
+    if (!isExecutedClosed(trade.status) && trade.status !== 'missed') return false
+    return day === null
+  }
+  if (trade.status !== 'planned' && trade.status !== 'open'
+    && !isExecutedClosed(trade.status) && trade.status !== 'missed') {
+    return false
+  }
   if (day === null) return false
   if (scope.kind === 'current') return scope.bounds === null || dayIsInBounds(day, scope.bounds)
-  if (scope.kind === 'all-archives') return scope.bounds !== null && scope.bounds.startInclusive !== null && day < scope.bounds.startInclusive
-  return day !== null && scope.bounds !== null && dayIsInBounds(day, scope.bounds)
+  if (scope.kind === 'all-archives') {
+    return scope.bounds !== null && scope.bounds.startInclusive !== null && day < scope.bounds.startInclusive
+  }
+  return scope.bounds !== null && dayIsInBounds(day, scope.bounds)
 }
 
 export function filterLiveLogRecords(

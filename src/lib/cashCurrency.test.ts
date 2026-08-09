@@ -86,11 +86,11 @@ export function testUsdEligibilityAndTotalsShareOneCurrencyFactRule(): void {
   assert(conflictOnly.pnlCount === 0 && conflictOnly.totalPnl === 0, '单独的 USD 结果冲突必须冻结为零覆盖、零总计')
 }
 
-export function testSingleTradeCashPresentationExplainsLegacyAssumption(): void {
+export function testSingleTradeCashPresentationUsesResolvedCurrency(): void {
   assert(
-    formatTradeCashPnl(trade('legacy', 50, undefined, false), assumption) === '+$50 · 按资料库假设作为 USD',
-    '单笔旧记录必须明确说明 USD 来自资料库假设',
+    formatTradeCashPnl(trade('legacy', 50, undefined, false), assumption) === '+$50',
+    '单笔旧记录按资料库假设展示为 USD，不再附加解释后缀',
   )
-  assert(formatTradeCashPnl(trade('null', 80, null), assumption) === '+80 · 币种未知', '显式 null 必须继续显示币种未知')
+  assert(formatTradeCashPnl(trade('null', 80, null), assumption) === '+80', '显式 null 只展示数值，不附加币种未知标签')
   assert(formatTradeCashPnl(trade('cny', 700, 'CNY'), assumption) === '+CN¥700', '显式 CNY 必须展示自身币种')
 }
