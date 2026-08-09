@@ -137,7 +137,12 @@ export function createAnalyticsSnapshot(options = {}) {
     },
     tagPresets: ['趋势延续', '流动性扫盘'],
     mistakeTagPresets: ['追单', '止损移动'],
-    profile: { avatarId: null, displayName: 'Fixture' },
+    profile: {
+      avatarId: null,
+      displayName: 'Fixture',
+      customAvatarDataUrl: null,
+      legacyCashCurrencyAssumption: null,
+    },
     savedTradeViews: [],
     symbolIcons: {},
     symbolCatalog: [...new Set(trades.map((trade) => trade.symbol))],
