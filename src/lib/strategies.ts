@@ -98,7 +98,7 @@ export function migrateTradeStrategy(
     ...base,
     tradeKind: normalizeTradeKind(base.tradeKind),
     closedAt:
-      isTerminal(base.status) && !base.closedAt
+      isTerminal(base.status) && !Object.prototype.hasOwnProperty.call(base, 'closedAt')
         ? base.openedAt
         : base.closedAt,
   }

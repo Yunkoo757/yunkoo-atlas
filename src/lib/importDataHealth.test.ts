@@ -8,6 +8,7 @@ import { filterLivePerformanceRecords, resolveLiveArchiveScope } from '@/lib/liv
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot, PersistedTrade } from '@/storage/types'
 import { applyUndoAction, buildUndoAction, undoValuesEqual } from '@/lib/tradeUndo'
+import { useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -190,6 +191,8 @@ export async function testStaleSelectionIsRejectedBeforePersistence(): Promise<v
 export async function testBoundaryDiscardsOldAutosaveIfPublishFailsAfterDurableCommit(): Promise<void> {
   const original = trade('publish-failure', { tags: ['notion-import'] })
   const events: string[] = []
+  let durable = snapshot([original])
+  let memory = snapshot([original])
   let rejected = false
   try {
     await commitCopiedCloseDateCleanupThroughBoundary({
@@ -197,15 +200,21 @@ export async function testBoundaryDiscardsOldAutosaveIfPublishFailsAfterDurableC
         tradeIds: ['publish-failure'],
         tradingDayStartHour: 6,
         captureLatest: () => ({ trades: [original], snapshot: snapshot([original]) }),
-        persistSnapshot: async () => { events.push('persist') },
+        persistSnapshot: async (next) => { events.push('persist'); durable = next },
         publish: () => { events.push('publish'); throw new Error('publish failed') },
       },
       boundary: {
         lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
         flushBeforeCommit: async () => { events.push('flush') },
+        createVerifiedBackup: async () => { events.push('backup') },
         suspendPersist: () => { events.push('suspend') },
         resumePersist: () => { events.push('resume') },
         discardPendingAndResumePersist: () => { events.push('discard-resume') },
+        recoverDurableSnapshot: (snapshot) => {
+          events.push('recover')
+          memory = snapshot
+          assert(snapshot.trades[0]?.closedAt === null, '发布失败恢复必须使用已耐久快照')
+        },
       },
     })
   } catch (error) {
@@ -214,7 +223,114 @@ export async function testBoundaryDiscardsOldAutosaveIfPublishFailsAfterDurableC
 
   assert(rejected, '发布异常必须透传并交由上层要求重载')
   assert(
-    events.join(',') === 'lock,flush,suspend,persist,publish,discard-resume,unlock',
-    '一旦持久化成功，即使发布失败也必须丢弃旧 autosave，绝不能恢复并覆盖新快照',
+    events.join(',') === 'lock,flush,backup,suspend,persist,publish,recover,discard-resume,unlock',
+    '一旦持久化成功，即使发布失败也必须恢复耐久快照并丢弃旧 autosave',
   )
+  assert(memory.trades[0]?.closedAt === null, '发布失败后最终内存必须恢复为清理后的耐久状态')
+  assert(JSON.stringify(memory) === JSON.stringify(durable), '发布失败恢复后内存与磁盘必须完全一致')
+}
+
+export async function testVerifiedBackupFailurePreventsCommitAndPublish(): Promise<void> {
+  const original = trade('backup-failure', { tags: ['notion-import'] })
+  const events: string[] = []
+  let persisted = false
+  let published = false
+  let rejected = false
+  try {
+    await commitCopiedCloseDateCleanupThroughBoundary({
+      cleanup: {
+        tradeIds: ['backup-failure'],
+        tradingDayStartHour: 6,
+        captureLatest: () => ({ trades: [original], snapshot: snapshot([original]) }),
+        persistSnapshot: async () => { persisted = true },
+        publish: () => { published = true },
+      },
+      boundary: {
+        lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
+        flushBeforeCommit: async () => { events.push('flush') },
+        createVerifiedBackup: async () => { events.push('backup'); throw new Error('backup invalid') },
+        suspendPersist: () => { events.push('suspend') },
+        resumePersist: () => { events.push('resume') },
+        discardPendingAndResumePersist: () => { events.push('discard-resume') },
+        recoverDurableSnapshot: () => { events.push('recover') },
+      },
+    })
+  } catch (error) {
+    rejected = error instanceof Error && error.message === 'backup invalid'
+  }
+  assert(rejected, '可验证备份失败必须透传')
+  assert(events.join(',') === 'lock,flush,backup,unlock', '备份失败必须在 suspend 与 durable commit 前停止')
+  assert(!persisted && !published, '备份失败不得提交或发布')
+  assert(original.closedAt === '2025-11-03', '备份失败必须保持原值')
+}
+
+function successfulStoreBoundary(events: string[]) {
+  return {
+    lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
+    flushBeforeCommit: async () => { events.push('flush') },
+    createVerifiedBackup: async () => { events.push('backup') },
+    suspendPersist: () => { events.push('suspend') },
+    resumePersist: () => { events.push('resume') },
+    discardPendingAndResumePersist: () => { events.push('discard-resume') },
+    recoverDurableSnapshot: () => { events.push('recover') },
+  }
+}
+
+export async function testStoreCleanupAndUndoBothCommitBeforePublish(): Promise<void> {
+  const previous = useStore.getState()
+  const original = trade('store-durable', { tags: ['notion-import'] })
+  const diskWrites: PersistedSnapshot[] = []
+  const events: string[] = []
+  try {
+    useStore.setState({ trades: [original], undoStack: [], redoStack: [] })
+    const dependencies = {
+      boundary: successfulStoreBoundary(events),
+      persistSnapshot: async (next: PersistedSnapshot) => {
+        events.push('persist')
+        diskWrites.push(next)
+      },
+    }
+    const cleaned = await useStore.getState().cleanupCopiedCloseDates(['store-durable'], dependencies)
+    assert(cleaned.kind === 'committed' && cleaned.actionId, '真实 Store 清理必须返回耐久 actionId')
+    assert(useStore.getState().trades[0]?.closedAt === null, '真实 Store 仅在持久化后发布清理')
+    assert(diskWrites.at(-1)?.trades[0]?.closedAt === null, '清理快照必须已写入 storage')
+
+    const undone = await useStore.getState().undoCopiedCloseDateCleanup(cleaned.actionId, dependencies)
+    assert(undone.kind === 'committed', '耐久撤销必须成功')
+    assert(useStore.getState().trades[0]?.closedAt === '2025-11-03', '耐久撤销成功后 Store 才恢复原日期')
+    assert(diskWrites.at(-1)?.trades[0]?.closedAt === '2025-11-03', '耐久撤销必须先恢复 storage 快照')
+    assert(events.join(',').includes('backup,suspend,persist'), '清理与撤销都必须经过备份和 commit-before-publish')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export async function testStoreUndoPersistenceFailureKeepsCleanedMemoryAndDisk(): Promise<void> {
+  const previous = useStore.getState()
+  const original = trade('undo-failure', { tags: ['notion-import'] })
+  let durable = snapshot([original])
+  try {
+    useStore.setState({ trades: [original], undoStack: [], redoStack: [] })
+    const cleanDependencies = {
+      boundary: successfulStoreBoundary([]),
+      persistSnapshot: async (next: PersistedSnapshot) => { durable = next },
+    }
+    const cleaned = await useStore.getState().cleanupCopiedCloseDates(['undo-failure'], cleanDependencies)
+    assert(cleaned.kind === 'committed' && cleaned.actionId, 'fixture 清理必须成功')
+    let rejected = false
+    try {
+      await useStore.getState().undoCopiedCloseDateCleanup(cleaned.actionId, {
+        boundary: successfulStoreBoundary([]),
+        persistSnapshot: async () => { throw new Error('undo disk full') },
+      })
+    } catch (error) {
+      rejected = error instanceof Error && error.message === 'undo disk full'
+    }
+    assert(rejected, '撤销持久化失败必须透传')
+    assert(useStore.getState().trades[0]?.closedAt === null, '撤销写盘失败不得提前恢复内存')
+    assert(durable.trades[0]?.closedAt === null, '撤销写盘失败必须保持磁盘清理状态')
+    assert(useStore.getState().undoStack.some((action) => action.actionId === cleaned.actionId), '失败后撤销 action 必须保留以便重试')
+  } finally {
+    useStore.setState(previous)
+  }
 }

@@ -14,6 +14,7 @@ import {
   canonicalContractJson,
 } from '@/storage/fixtures/fullPersistedSnapshot'
 import { SCHEMA_VERSION } from '@/storage/types'
+import { filterLivePerformanceRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -85,6 +86,33 @@ export function testSnapshotCodecIsIdempotentAndPreservesTheFullGoldenFixture():
       `FND1 codec 不得改变 H0 golden 字段 ${field}`,
     )
   }
+}
+
+export function testExplicitNullCloseDateSurvivesFullSnapshotReload(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const cleaned = {
+    ...fixture.trades[0]!,
+    status: 'win' as const,
+    tradeKind: 'live' as const,
+    pnl: 10,
+    rMultiple: 1,
+    resultSource: 'imported' as const,
+    openedAt: '2025-11-03',
+    closedAt: null,
+  }
+  delete cleaned.closedTradingDayKey
+  const persistedBytes = JSON.stringify({ ...fixture, trades: [cleaned] })
+  const decoded = decodeCanonicalSnapshot(JSON.parse(persistedBytes), { version: SCHEMA_VERSION })
+  const reloaded = decoded.trades[0]!
+
+  assert(Object.prototype.hasOwnProperty.call(reloaded, 'closedAt'), '重载后必须保留显式 closedAt own property')
+  assert(reloaded.closedAt === null, '清理后的显式 null 不得被旧迁移重新复制 openedAt')
+  assert(reloaded.closedTradingDayKey === undefined, '重载后不得重新生成冻结平仓业务日')
+  const cycles = [{ id: 'current', name: '当前', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }]
+  assert(
+    filterLivePerformanceRecords(decoded.trades, resolveLiveArchiveScope(cycles, 'all-archives'), 6).length === 0,
+    '重启加载后统一绩效选择器仍必须排除清理记录',
+  )
 }
 
 export function testSnapshotCodecPreservesCaseSourceNoteSnapshotsWithoutBackfillingLegacyCases(): void {

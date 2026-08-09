@@ -12,7 +12,7 @@ export function ImportDataHealthView() {
   const trades = useStore((state) => state.trades)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const cleanupCopiedCloseDates = useStore((state) => state.cleanupCopiedCloseDates)
-  const undo = useStore((state) => state.undo)
+  const undoCopiedCloseDateCleanup = useStore((state) => state.undoCopiedCloseDateCleanup)
   const candidates = useMemo(
     () => buildCopiedCloseDateCandidates(trades, tradingDayStartHour),
     [trades, tradingDayStartHour],
@@ -49,14 +49,23 @@ export function ImportDataHealthView() {
     }
   }
 
-  const undoCleanup = () => {
+  const undoCleanup = async () => {
     if (!lastActionId) return
-    if (!undo(lastActionId)) {
-      setError('记录已发生其他修改，无法安全撤销。')
-      return
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await undoCopiedCloseDateCleanup(lastActionId)
+      if (result.kind === 'stale-action') {
+        setError('记录已发生其他修改，无法安全撤销。')
+        return
+      }
+      setLastActionId(null)
+      setNotice('已安全保存并恢复本次清理前的平仓日字段。')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '撤销持久化失败，当前清理状态保持不变。')
+    } finally {
+      setBusy(false)
     }
-    setLastActionId(null)
-    setNotice('已恢复本次清理前的平仓日字段。')
   }
 
   return (
@@ -71,7 +80,7 @@ export function ImportDataHealthView() {
           <div><h2 id="import-health-title">平仓日待核对</h2><p>高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。</p></div>
           <Shield size={24} aria-hidden />
         </section>
-        {notice ? <div className="idh-notice" role="status"><CheckCircle size={16} aria-hidden /><span>{notice}</span>{lastActionId ? <button data-health-undo type="button" onClick={undoCleanup}>撤销本次清理</button> : null}</div> : null}
+        {notice ? <div className="idh-notice" role="status"><CheckCircle size={16} aria-hidden /><span>{notice}</span>{lastActionId ? <button data-health-undo type="button" disabled={busy} onClick={() => void undoCleanup()}>{busy ? '正在安全撤销…' : '撤销本次清理'}</button> : null}</div> : null}
         {error ? <p className="la-route-notice" role="alert">{error}</p> : null}
         {candidates.length === 0 ? (
           <section className="la-empty"><CheckCircle size={24} aria-hidden /><h2>当前没有待核对记录</h2><p>没有历史记录会被自动修改。</p></section>

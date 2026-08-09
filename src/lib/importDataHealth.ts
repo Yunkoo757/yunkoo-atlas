@@ -2,6 +2,7 @@ import type { TradeStatus } from '@/data/trades'
 import { openedTradingDayKey } from '@/lib/liveCycle'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { isExecutedClosed } from '@/lib/tradeStatus'
+import { applyUndoAction, type UndoAction } from '@/lib/tradeUndo'
 import type { PersistedSnapshot, PersistedTrade } from '@/storage/types'
 
 export type CopiedCloseDateConfidence = 'high' | 'manual-review'
@@ -132,39 +133,96 @@ export async function commitCopiedCloseDateCleanup(
 export interface CopiedCloseDatePersistenceBoundary {
   lockInteraction: () => () => void
   flushBeforeCommit: () => Promise<void>
+  createVerifiedBackup: () => Promise<void>
   suspendPersist: () => void
   resumePersist: () => void
   discardPendingAndResumePersist: () => void
+  recoverDurableSnapshot: (snapshot: PersistedSnapshot) => void | Promise<void>
+}
+
+async function commitThroughPersistenceBoundary<Result>(input: {
+  persistSnapshot: (snapshot: PersistedSnapshot) => Promise<void>
+  commit: (persistSnapshot: (snapshot: PersistedSnapshot) => Promise<void>) => Promise<Result>
+  boundary: CopiedCloseDatePersistenceBoundary
+}): Promise<Result> {
+  const unlockInteraction = input.boundary.lockInteraction()
+  let suspended = false
+  let durableSnapshot: PersistedSnapshot | null = null
+  try {
+    await input.boundary.flushBeforeCommit()
+    await input.boundary.createVerifiedBackup()
+    input.boundary.suspendPersist()
+    suspended = true
+    let result: Result
+    try {
+      result = await input.commit(async (snapshot) => {
+        await input.persistSnapshot(snapshot)
+        durableSnapshot = snapshot
+      })
+    } catch (error) {
+      if (durableSnapshot) await input.boundary.recoverDurableSnapshot(durableSnapshot)
+      throw error
+    }
+    if (durableSnapshot) input.boundary.discardPendingAndResumePersist()
+    else input.boundary.resumePersist()
+    suspended = false
+    return result
+  } finally {
+    if (suspended) {
+      if (durableSnapshot) input.boundary.discardPendingAndResumePersist()
+      else input.boundary.resumePersist()
+    }
+    unlockInteraction()
+  }
 }
 
 export async function commitCopiedCloseDateCleanupThroughBoundary(input: {
   cleanup: CommitCopiedCloseDateCleanupInput
   boundary: CopiedCloseDatePersistenceBoundary
 }): Promise<CommitCopiedCloseDateCleanupResult> {
-  const unlockInteraction = input.boundary.lockInteraction()
-  let suspended = false
-  let durablyCommitted = false
-  try {
-    await input.boundary.flushBeforeCommit()
-    input.boundary.suspendPersist()
-    suspended = true
-    const persistSnapshot = input.cleanup.persistSnapshot
-    const result = await commitCopiedCloseDateCleanup({
+  return commitThroughPersistenceBoundary({
+    persistSnapshot: input.cleanup.persistSnapshot,
+    boundary: input.boundary,
+    commit: (persistSnapshot) => commitCopiedCloseDateCleanup({
       ...input.cleanup,
-      persistSnapshot: async (snapshot) => {
-        await persistSnapshot(snapshot)
-        durablyCommitted = true
-      },
-    })
-    if (durablyCommitted) input.boundary.discardPendingAndResumePersist()
-    else input.boundary.resumePersist()
-    suspended = false
-    return result
-  } finally {
-    if (suspended) {
-      if (durablyCommitted) input.boundary.discardPendingAndResumePersist()
-      else input.boundary.resumePersist()
-    }
-    unlockInteraction()
-  }
+      persistSnapshot,
+    }),
+  })
+}
+
+export interface CommitCopiedCloseDateUndoInput {
+  action: UndoAction
+  captureLatest: () => { trades: readonly PersistedTrade[]; snapshot: PersistedSnapshot }
+  persistSnapshot: (snapshot: PersistedSnapshot) => Promise<void>
+  publish: (trades: PersistedTrade[]) => void
+}
+
+export type CommitCopiedCloseDateUndoResult =
+  | { kind: 'committed'; trades: PersistedTrade[] }
+  | { kind: 'stale-action' }
+
+export async function commitCopiedCloseDateUndo(
+  input: CommitCopiedCloseDateUndoInput,
+): Promise<CommitCopiedCloseDateUndoResult> {
+  const baseline = input.captureLatest()
+  const applied = applyUndoAction([...baseline.trades], input.action, 'undo')
+  if (!applied.ok) return { kind: 'stale-action' }
+  const trades = applied.trades as PersistedTrade[]
+  await input.persistSnapshot({ ...baseline.snapshot, trades })
+  input.publish(trades)
+  return { kind: 'committed', trades }
+}
+
+export async function commitCopiedCloseDateUndoThroughBoundary(input: {
+  undo: CommitCopiedCloseDateUndoInput
+  boundary: CopiedCloseDatePersistenceBoundary
+}): Promise<CommitCopiedCloseDateUndoResult> {
+  return commitThroughPersistenceBoundary({
+    persistSnapshot: input.undo.persistSnapshot,
+    boundary: input.boundary,
+    commit: (persistSnapshot) => commitCopiedCloseDateUndo({
+      ...input.undo,
+      persistSnapshot,
+    }),
+  })
 }

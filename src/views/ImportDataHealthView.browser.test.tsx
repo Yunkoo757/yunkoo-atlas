@@ -70,6 +70,7 @@ async function run(): Promise<void> {
   const original = [trade('high', true), trade('manual', false)]
   let submittedIds: readonly string[] = []
   let undoCalled = false
+  const undoGate: { resolve?: () => void } = {}
   try {
     useStore.setState((state) => ({
       trades: original,
@@ -84,10 +85,11 @@ async function run(): Promise<void> {
         useStore.setState({ trades })
         return { kind: 'committed' as const, before, after, trades, actionId: 'cleanup-action' }
       },
-      undo: () => {
+      undoCopiedCloseDateCleanup: async () => {
         undoCalled = true
+        await new Promise<void>((resolve) => { undoGate.resolve = resolve })
         useStore.setState({ trades: original })
-        return true
+        return { kind: 'committed' as const, trades: original }
       },
     }))
     root.render(<MemoryRouter><ImportDataHealthView /></MemoryRouter>)
@@ -114,7 +116,12 @@ async function run(): Promise<void> {
     assert(undo, '清理成功后必须提供撤销入口')
     undo.click()
     await waitFor(() => undoCalled, '撤销入口必须调用指定清理 patch')
+    assert(undo.disabled, '耐久撤销完成前必须冻结重复交互')
+    assert(!document.body.textContent?.includes('已安全保存并恢复'), '耐久撤销完成前不得谎报已恢复')
+    assert(undoGate.resolve, '测试必须捕获耐久撤销完成入口')
+    undoGate.resolve()
     await waitFor(() => document.querySelectorAll('[data-health-candidate]').length === 2, '撤销后逐字段恢复的记录必须重新出现')
+    assert(document.body.textContent?.includes('已安全保存并恢复'), '只有耐久撤销成功后才能提示已恢复')
     assert(document.documentElement.scrollWidth <= window.innerWidth, '数据健康页不得横向溢出')
   } finally {
     root.unmount()

@@ -6,6 +6,7 @@ import {
   ensureStrategies,
   formatStrategyMetricCoverage,
   normalizeTradeStrategyReferences,
+  migrateTradeStrategy,
 } from '@/lib/strategies'
 import { applyTradeUpsertsToSlice } from '@/store/useStore'
 
@@ -205,4 +206,24 @@ export function testUnknownStrategyReferenceFallsBackToAnExistingStrategy(): voi
     repaired.trades[0]?.strategyId === existing.id,
     '未知 strategyId 必须回退到真实存在的策略',
   )
+}
+
+export function testStrategyMigrationPreservesExplicitNullCloseDate(): void {
+  const migrated = migrateTradeStrategy(
+    { ...closedLiveTrade, closedAt: null, closedTradingDayKey: undefined },
+    [{ id: strategyId, name: '突破', icon: 'target', color: '#5e6ad2' }],
+  )
+  assert(migrated.closedAt === null, '终态记录的显式 null 必须保持，不得复制 openedAt')
+}
+
+export function testStrategyMigrationOnlyBackfillsTrulyMissingLegacyCloseDate(): void {
+  const missing: Omit<Trade, 'closedAt'> & { closedAt?: string | null } = {
+    ...closedLiveTrade,
+  }
+  delete missing.closedAt
+  const migrated = migrateTradeStrategy(
+    missing as Trade,
+    [{ id: strategyId, name: '突破', icon: 'target', color: '#5e6ad2' }],
+  )
+  assert(migrated.closedAt === closedLiveTrade.openedAt, '真正缺失字段的旧终态记录仍需兼容回填')
 }

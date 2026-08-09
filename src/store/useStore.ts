@@ -153,7 +153,11 @@ import {
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { cascadeReviewCaseSourceSnapshot } from '@/lib/reviewCaseSourceSync'
-import type { CommitCopiedCloseDateCleanupResult } from '@/lib/importDataHealth'
+import type {
+  CommitCopiedCloseDateCleanupResult,
+  CommitCopiedCloseDateUndoResult,
+  CopiedCloseDatePersistenceBoundary,
+} from '@/lib/importDataHealth'
 
 export interface StorePendingTradeOpenRequest extends PendingTradeOpenRequest {
   returnFocus: HTMLElement | null
@@ -164,6 +168,11 @@ export type SetTradeStatusResult = TradeOpenRequestResult | 'updated' | 'unchang
 export type CreateReviewCaseResult =
   | { status: 'created'; reviewCase: Trade }
   | { status: 'missing-source' | 'source-is-case' }
+
+export interface ImportDataHealthStoreDependencies {
+  boundary: CopiedCloseDatePersistenceBoundary
+  persistSnapshot: (snapshot: import('@/storage/types').PersistedSnapshot) => Promise<void>
+}
 
 function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boolean {
   return left.capitalBase === right.capitalBase &&
@@ -402,7 +411,12 @@ interface State {
   redo: (actionId?: string) => boolean
   cleanupCopiedCloseDates: (
     tradeIds: readonly string[],
+    dependencies?: ImportDataHealthStoreDependencies,
   ) => Promise<CommitCopiedCloseDateCleanupResult & { actionId?: string }>
+  undoCopiedCloseDateCleanup: (
+    actionId: string,
+    dependencies?: ImportDataHealthStoreDependencies,
+  ) => Promise<CommitCopiedCloseDateUndoResult>
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -597,14 +611,41 @@ export const useStore = create<State>()((set, get) => ({
         })
         return succeeded
       },
-      cleanupCopiedCloseDates: async (tradeIds) => {
-        const [healthModule, persistModule, cutoverModule, storageModule, shortcutModule] = await Promise.all([
+      cleanupCopiedCloseDates: async (tradeIds, dependencies) => {
+        const [healthModule, persistModule, shortcutModule] = await Promise.all([
           import('@/lib/importDataHealth'),
           import('@/storage/persist'),
-          import('@/storage/cutover'),
-          import('@/storage'),
           import('@/store/shortcutStore'),
         ])
+        let resolvedDependencies = dependencies
+        if (!resolvedDependencies) {
+          const [cutoverModule, storageModule, importExportModule] = await Promise.all([
+            import('@/storage/cutover'),
+            import('@/storage'),
+            import('@/lib/importExport'),
+          ])
+          resolvedDependencies = {
+            persistSnapshot: (snapshot) => storageModule.getStorage().commitImport(snapshot, []),
+            boundary: {
+              lockInteraction: cutoverModule.lockStorageCutoverInteraction,
+              flushBeforeCommit: cutoverModule.flushStorageBeforeCutover,
+              createVerifiedBackup: async () => {
+                const bridge = storageModule.getJournalBridge()
+                if (!bridge) throw new Error('历史日期清理只能在 Windows 或 macOS 客户端执行')
+                const backupName = await bridge.createBackup()
+                if (!backupName) throw new Error('无法创建清理前备份')
+                const verification = await bridge.verifyBackup(backupName)
+                if (verification.status !== 'verified') {
+                  throw new Error(verification.error ?? '清理前备份验证失败')
+                }
+              },
+              suspendPersist: persistModule.suspendPersist,
+              resumePersist: persistModule.resumePersist,
+              discardPendingAndResumePersist: persistModule.discardPendingAndResumePersist,
+              recoverDurableSnapshot: (snapshot) => importExportModule.applySnapshotToStore(snapshot),
+            },
+          }
+        }
         const result = await healthModule.commitCopiedCloseDateCleanupThroughBoundary({
           cleanup: {
             tradeIds,
@@ -619,7 +660,7 @@ export const useStore = create<State>()((set, get) => ({
                 ),
               }
             },
-            persistSnapshot: (snapshot) => storageModule.getStorage().commitImport(snapshot, []),
+            persistSnapshot: resolvedDependencies.persistSnapshot,
             publish: (trades) => {
               const selectedIds = new Set(tradeIds)
               const before = get().trades.filter((trade) => selectedIds.has(trade.id))
@@ -633,17 +674,73 @@ export const useStore = create<State>()((set, get) => ({
               }))
             },
           },
-          boundary: {
-            lockInteraction: cutoverModule.lockStorageCutoverInteraction,
-            flushBeforeCommit: cutoverModule.flushStorageBeforeCutover,
-            suspendPersist: persistModule.suspendPersist,
-            resumePersist: persistModule.resumePersist,
-            discardPendingAndResumePersist: persistModule.discardPendingAndResumePersist,
-          },
+          boundary: resolvedDependencies.boundary,
         })
         return result.kind === 'committed'
           ? { ...result, actionId: get().undoStack.at(-1)?.actionId }
           : result
+      },
+      undoCopiedCloseDateCleanup: async (actionId, dependencies) => {
+        const [healthModule, persistModule, shortcutModule] = await Promise.all([
+          import('@/lib/importDataHealth'),
+          import('@/storage/persist'),
+          import('@/store/shortcutStore'),
+        ])
+        let resolvedDependencies = dependencies
+        if (!resolvedDependencies) {
+          const [cutoverModule, storageModule, importExportModule] = await Promise.all([
+            import('@/storage/cutover'),
+            import('@/storage'),
+            import('@/lib/importExport'),
+          ])
+          resolvedDependencies = {
+            persistSnapshot: (snapshot) => storageModule.getStorage().commitImport(snapshot, []),
+            boundary: {
+              lockInteraction: cutoverModule.lockStorageCutoverInteraction,
+              flushBeforeCommit: cutoverModule.flushStorageBeforeCutover,
+              createVerifiedBackup: async () => {
+                const bridge = storageModule.getJournalBridge()
+                if (!bridge) throw new Error('历史日期撤销只能在 Windows 或 macOS 客户端执行')
+                const backupName = await bridge.createBackup()
+                if (!backupName) throw new Error('无法创建撤销前备份')
+                const verification = await bridge.verifyBackup(backupName)
+                if (verification.status !== 'verified') {
+                  throw new Error(verification.error ?? '撤销前备份验证失败')
+                }
+              },
+              suspendPersist: persistModule.suspendPersist,
+              resumePersist: persistModule.resumePersist,
+              discardPendingAndResumePersist: persistModule.discardPendingAndResumePersist,
+              recoverDurableSnapshot: (snapshot) => importExportModule.applySnapshotToStore(snapshot),
+            },
+          }
+        }
+        const action = get().undoStack.find((candidate) =>
+          candidate.actionId === actionId && candidate.label === '清空污染平仓日',
+        )
+        if (!action) return { kind: 'stale-action' }
+        return healthModule.commitCopiedCloseDateUndoThroughBoundary({
+          undo: {
+            action,
+            captureLatest: () => {
+              const state = get()
+              return {
+                trades: state.trades,
+                snapshot: persistModule.pickPersisted(
+                  state,
+                  shortcutModule.useShortcutStore.getState().bindings,
+                ),
+              }
+            },
+            persistSnapshot: resolvedDependencies.persistSnapshot,
+            publish: (trades) => set((state) => ({
+              trades,
+              undoStack: state.undoStack.filter((candidate) => candidate.actionId !== actionId),
+              redoStack: appendBoundedHistory(state.redoStack, action),
+            })),
+          },
+          boundary: resolvedDependencies.boundary,
+        })
       },
       starredIds: [],
       subscribedIds: [],
