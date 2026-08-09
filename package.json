@@ -40,6 +40,7 @@
     "qa:sidebar": "node scripts/run-qa-sidebar.mjs",
     "qa:risk-management-mobile": "node scripts/qa-risk-management-mobile.mjs",
     "qa:missed-opportunities": "node scripts/qa-missed-opportunities.mjs",
+    "qa:statistics-truth": "node scripts/qa-statistics-truth.mjs",
     "benchmark:analytics": "pnpm build && node scripts/benchmark-analytics.mjs",
     "benchmark:persistence": "node scripts/benchmark-persistence.mjs",
     "benchmark:persistence:release": "node scripts/run-persistence-release-gate.mjs",

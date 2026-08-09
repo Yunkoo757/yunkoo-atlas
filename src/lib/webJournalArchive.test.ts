@@ -81,6 +81,7 @@ function makePayload(overrides: Record<string, unknown> = {}): Record<string, un
       avatarId: null,
       displayName: '测试用户',
       customAvatarDataUrl: null,
+      legacyCashCurrencyAssumption: null,
     },
     shortcuts: {
       'nav.dashboard': { key: 'i' },

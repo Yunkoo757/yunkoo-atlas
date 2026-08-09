@@ -231,8 +231,8 @@ async function run(): Promise<void> {
 
     useStore.getState().purgeTrade(source.id)
     await waitFor(
-      () => document.body.textContent?.includes('原交易已不存在') ?? false,
-      '来源清理状态未显示',
+      () => document.body.textContent?.includes('来源已删除（来源不可用）') ?? false,
+      '来源删除后必须使用共享的来源不可用状态',
     )
     assert(
       document.body.textContent?.includes('创建后的最新来源'),

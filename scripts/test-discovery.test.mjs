@@ -196,6 +196,63 @@ test('browser runner reports real files while viewport variants keep unique test
   })
 })
 
+test('browser runner executes only requested stable test IDs and returns structured progress', async () => {
+  await withFixture(async (root) => {
+    await write(root, 'src/First.browser.test.html', `<!doctype html>
+      <script>window.__firstBrowserTest = Promise.resolve()</script>`)
+    await write(root, 'src/Second.browser.test.html', `<!doctype html>
+      <script>window.__secondBrowserTest = Promise.resolve()</script>`)
+    const events = []
+
+    const result = await runBrowserRegressionTests(root, {
+      requestedTestIds: ['src/First.browser.test.html#__firstBrowserTest'],
+      testTimeoutMs: 2_000,
+      onEvent: (event) => events.push(event),
+    })
+
+    assert.equal(result.failed, 0)
+    assert.deepEqual(result.passedEntries, ['src/First.browser.test.html'])
+    assert.deepEqual(result.passedTests, ['src/First.browser.test.html#__firstBrowserTest'])
+    assert.deepEqual(result.missingRequestedTestIds, [])
+    assert(events.some((event) => event.type === 'start' && event.testId === 'src/First.browser.test.html#__firstBrowserTest'))
+    assert(events.some((event) => event.type === 'pass' && event.testId === 'src/First.browser.test.html#__firstBrowserTest'))
+  })
+})
+
+test('browser runner fails fast for an empty or unknown requested sample', async () => {
+  await withFixture(async (root) => {
+    await write(root, 'src/Only.browser.test.html', `<!doctype html>
+      <script>window.__onlyBrowserTest = Promise.resolve()</script>`)
+
+    const empty = await runBrowserRegressionTests(root, { requestedTestIds: [] })
+    assert.equal(empty.failed, 1)
+    assert.deepEqual(empty.missingRequestedTestIds, [])
+
+    const unknown = await runBrowserRegressionTests(root, {
+      requestedTestIds: ['src/Missing.browser.test.html#__missingBrowserTest'],
+    })
+    assert.equal(unknown.failed, 1)
+    assert.deepEqual(unknown.missingRequestedTestIds, [
+      'src/Missing.browser.test.html#__missingBrowserTest',
+    ])
+  })
+})
+
+test('browser runner times out a stalled requested fixture instead of hanging the suite', async () => {
+  await withFixture(async (root) => {
+    await write(root, 'src/Stalled.browser.test.html', `<!doctype html>
+      <script>window.__stalledBrowserTest = new Promise(() => {})</script>`)
+
+    const result = await runBrowserRegressionTests(root, {
+      requestedTestIds: ['src/Stalled.browser.test.html#__stalledBrowserTest'],
+      testTimeoutMs: 50,
+    })
+
+    assert.equal(result.failed, 1)
+    assert.deepEqual(result.failedTests, ['src/Stalled.browser.test.html#__stalledBrowserTest'])
+  })
+})
+
 test('browser discovery rejects pages without one unambiguous promise key', async () => {
   await withFixture(async (root) => {
     await write(root, 'src/components/Missing.browser.test.html', '<main>missing contract</main>')

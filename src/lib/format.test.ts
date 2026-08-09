@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process'
+import path from 'node:path'
 import { fmtDate, fmtMoney, fmtPrice, fmtR } from '@/lib/format'
 import { calcR } from '@/lib/tradeCalc'
 
@@ -24,15 +26,22 @@ export function testPrivacyModeMasksOnlyRealMoneyValues(): void {
 }
 
 export function testDateOnlyValuesDoNotShiftAcrossTimezones(): void {
-  const previousTimezone = process.env.TZ
-  try {
-    process.env.TZ = 'America/New_York'
+  if (process.env.ATLAS_FORMAT_TIMEZONE_CHILD === '1') {
     assert(fmtDate('2026-07-27') === '7月27日', '日期型字符串不得因负时区显示为前一天')
     assert(fmtDate('2026-01-01') === '1月1日', '日期型字符串不得跨年偏移')
-  } finally {
-    if (previousTimezone === undefined) delete process.env.TZ
-    else process.env.TZ = previousTimezone
+    return
   }
+  const result = spawnSync(
+    process.execPath,
+    [path.resolve('scripts/run-regression-tests.mjs'), '--unit-only', 'src/lib/format.test.ts'],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: { ...process.env, TZ: 'America/New_York', ATLAS_FORMAT_TIMEZONE_CHILD: '1' },
+    },
+  )
+  assert(result.status === 0, `负时区隔离子进程失败：\n${result.stdout}\n${result.stderr}`)
 }
 
 export function testRoundedZeroMoneyHasNoProfitSign(): void {

@@ -8,10 +8,60 @@ import {
   unexpectedBrowserDiagnostics,
 } from './test-discovery.mjs'
 
+function browserTestId(browserTest) {
+  const entry = browserTest.url.startsWith('/') ? browserTest.url.slice(1) : browserTest.url
+  const variant = browserTest.viewport
+    ? `@${browserTest.viewport.width}x${browserTest.viewport.height}`
+    : ''
+  return `${entry}#${browserTest.promiseKey}${variant}`
+}
+
+async function withTimeout(promise, milliseconds, message) {
+  let timer
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), milliseconds)
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function runBrowserRegressionTests(root, options = {}) {
   let failed = 0
   const passedEntries = new Set()
   const passedTests = []
+  const failedTests = []
+  const requestedTestIds = Object.hasOwn(options, 'requestedTestIds')
+    ? options.requestedTestIds
+    : null
+  const onEvent = options.onEvent ?? (() => {})
+  const testTimeoutMs = options.testTimeoutMs ?? 15_000
+  const discoveredTests = await discoverBrowserTests(root)
+  const testById = new Map(discoveredTests.map((browserTest) => [browserTestId(browserTest), browserTest]))
+  const missingRequestedTestIds = requestedTestIds === null
+    ? []
+    : requestedTestIds.filter((testId) => !testById.has(testId))
+  if (requestedTestIds !== null && (requestedTestIds.length === 0 || missingRequestedTestIds.length > 0)) {
+    const reason = requestedTestIds.length === 0
+      ? 'requested browser sample is empty'
+      : `requested browser tests are not discoverable: ${missingRequestedTestIds.join(', ')}`
+    console.error(`FAIL browser regression harness: ${reason}`)
+    onEvent({ type: 'harness-fail', reason })
+    return {
+      failed: 1,
+      passedEntries: [],
+      passedTests: [],
+      failedTests: [],
+      missingRequestedTestIds,
+    }
+  }
+  const browserTests = requestedTestIds === null
+    ? discoveredTests
+    : requestedTestIds.map((testId) => testById.get(testId))
   const server = await createServer({
     root,
     configFile: options.configFile ?? false,
@@ -25,18 +75,22 @@ export async function runBrowserRegressionTests(root, options = {}) {
   })
   let browser
   try {
-    const browserTests = await discoverBrowserTests(root)
     await server.listen()
     const baseUrl = server.resolvedUrls?.local[0]
     if (!baseUrl) throw new Error('Vite test server did not expose a local URL')
     browser = await chromium.launch({ headless: true })
 
     for (const browserTest of browserTests) {
+      const testId = browserTestId(browserTest)
       for (let attempt = 0; attempt < 2; attempt += 1) {
+        console.log(`START ${testId}`)
+        onEvent({ type: 'start', testId, attempt: attempt + 1 })
         const page = browserTest.viewport
           ? await browser.newPage({ viewport: browserTest.viewport })
           : await browser.newPage()
         await page.addInitScript((viewport) => {
+          window.$RefreshReg$ ??= () => {}
+          window.$RefreshSig$ ??= () => (type) => type
           let actionsComplete = false
           let resolveActions
           const actions = new Promise((resolve) => {
@@ -57,10 +111,14 @@ export async function runBrowserRegressionTests(root, options = {}) {
         })
         try {
           await page.goto(new URL(browserTest.url, baseUrl).href)
-          await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: 5000 })
+          await page.waitForFunction((key) => key in window, browserTest.promiseKey, { timeout: testTimeoutMs })
           if (browserTest.hoverSelector) await page.hover(browserTest.hoverSelector)
           await page.evaluate(() => window.__atlasBrowserCompleteActions())
-          await page.evaluate((key) => window[key], browserTest.promiseKey)
+          await withTimeout(
+            page.evaluate((key) => window[key], browserTest.promiseKey),
+            testTimeoutMs,
+            `browser test timed out after ${testTimeoutMs}ms: ${testId}`,
+          )
           await settleBrowserDiagnostics(page)
           const allowedMessages = await page.evaluate(
             () => Array.isArray(window.__atlasBrowserAllowedErrors)
@@ -73,20 +131,23 @@ export async function runBrowserRegressionTests(root, options = {}) {
           }
           console.log(`PASS ${browserTest.label}`)
           const entry = browserTest.url.startsWith('/') ? browserTest.url.slice(1) : browserTest.url
-          const variant = browserTest.viewport
-            ? `@${browserTest.viewport.width}x${browserTest.viewport.height}`
-            : ''
           passedEntries.add(entry)
-          passedTests.push(`${entry}#${browserTest.promiseKey}${variant}`)
+          passedTests.push(testId)
+          onEvent({ type: 'pass', testId, attempt: attempt + 1 })
           break
         } catch (error) {
           const retry = attempt === 0 && diagnostics.some((message) => message.includes('net::ERR_NO_BUFFER_SPACE'))
           if (!retry) {
             failed += 1
+            failedTests.push(testId)
             console.error(`FAIL ${browserTest.label}`)
             console.error(error)
             console.error(`URL ${page.url()}`)
             if (diagnostics.length > 0) console.error(diagnostics.join('\n'))
+            onEvent({ type: 'fail', testId, attempt: attempt + 1, reason: error instanceof Error ? error.message : String(error) })
+            break
+          } else {
+            onEvent({ type: 'retry', testId, attempt: attempt + 1, reason: 'net::ERR_NO_BUFFER_SPACE' })
           }
         } finally {
           await page.close()
@@ -97,11 +158,18 @@ export async function runBrowserRegressionTests(root, options = {}) {
     failed += 1
     console.error('FAIL browser regression harness')
     console.error(error)
+    onEvent({ type: 'harness-fail', reason: error instanceof Error ? error.message : String(error) })
   } finally {
     await browser?.close()
     await server.close()
   }
-  return { failed, passedEntries: [...passedEntries], passedTests }
+  return {
+    failed,
+    passedEntries: [...passedEntries],
+    passedTests,
+    failedTests,
+    missingRequestedTestIds,
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
