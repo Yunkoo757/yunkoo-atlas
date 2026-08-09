@@ -135,3 +135,34 @@ export function testPerformanceSelectionFreezesTheSixAmCloseDayBoundary(): void 
 
   assert.deepEqual(selection.eligibleMetricIds, ['FX-CLOSE-0600'])
 }
+
+export function testPerformanceSelectionDrilldownReproducesArchiveScope(): void {
+  const trade = fixture.trades.find((item) => item.id === 'tr-1001')!
+  const base = {
+    scope: { kind: 'live' as const, range: 'all' as const },
+    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
+    legacyCashCurrencyAssumption: null,
+  }
+  const archive = buildPerformanceSelection([trade], {
+    ...base,
+    liveScope: {
+      kind: 'archive',
+      archiveId: 'archive-alpha',
+      bounds: { startInclusive: '2026-06-01', endExclusive: '2026-07-01' },
+      label: '历史归档',
+    },
+  })
+  const stale = buildPerformanceSelection([trade], {
+    ...base,
+    liveScope: {
+      kind: 'current',
+      archiveId: null,
+      bounds: null,
+      label: '当前实盘',
+      missingRequestedKey: 'removed-archive',
+    },
+  })
+
+  assert.equal(archive.drilldownTarget, '?kind=live&range=all&statsCycle=archive-alpha')
+  assert.equal(stale.drilldownTarget, '?kind=live&range=all&statsCycle=removed-archive')
+}

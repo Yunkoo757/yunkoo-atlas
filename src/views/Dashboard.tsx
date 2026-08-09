@@ -125,13 +125,6 @@ export function Dashboard() {
       currentLiveScope,
     ],
   )
-  const trades = useMemo(() => {
-    const tradeById = new Map(allTrades.map((trade) => [trade.id, trade]))
-    return performanceSelection.eligibleMetricIds.flatMap((id) => {
-      const trade = tradeById.get(id)
-      return trade ? [trade] : []
-    })
-  }, [allTrades, performanceSelection.eligibleMetricIds])
   const activeTrades = useMemo(
     () => allTrades.filter((trade) =>
       !trade.deletedAt &&

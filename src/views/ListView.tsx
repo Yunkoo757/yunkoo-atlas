@@ -33,7 +33,11 @@ import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
-import { resolveLiveRoute, resolveLiveRouteNavigation } from '@/lib/livePerformanceCycleRoute'
+import {
+  resolveLiveRoute,
+  resolveLiveRouteNavigation,
+  resolvePerformanceAnalysisRoute,
+} from '@/lib/livePerformanceCycleRoute'
 import { filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import './ListView.css'
 
@@ -73,10 +77,18 @@ export function ListView({
   const navigate = useNavigate()
   const location = useLocation()
   const liveRoute = useMemo(
-    () => filter.tradeKind === 'live'
+    () => filter.tradeKind === 'live' || (
+      filter.analysisScope !== undefined && filter.analysisScope.kind !== 'paper'
+    )
       ? resolveLiveRoute(location.search, livePerformanceCycles, 'trade-list')
       : null,
-    [filter.tradeKind, livePerformanceCycles, location.search],
+    [filter.analysisScope, filter.tradeKind, livePerformanceCycles, location.search],
+  )
+  const paperAnalysisRoute = useMemo(
+    () => filter.analysisScope?.kind === 'paper'
+      ? resolvePerformanceAnalysisRoute(location.search, 'paper', livePerformanceCycles)
+      : null,
+    [filter.analysisScope?.kind, livePerformanceCycles, location.search],
   )
   const pendingCount = useMemo(() => {
     if (filter.tradeKind !== 'live') return 0
@@ -91,9 +103,19 @@ export function ListView({
     && liveRoute?.target.kind !== 'pending'
 
   useEffect(() => {
-    if (!liveRoute || (liveRoute.target.kind !== 'archive' && liveRoute.target.kind !== 'archive-home')) return
-    navigate(resolveLiveRouteNavigation(liveRoute), { replace: true })
-  }, [liveRoute, navigate])
+    if (paperAnalysisRoute?.needsReplace) {
+      navigate({ search: paperAnalysisRoute.canonicalSearch }, { replace: true })
+      return
+    }
+    if (!liveRoute) return
+    if (filter.analysisScope && liveRoute.needsReplace) {
+      navigate({ search: liveRoute.canonicalSearch }, { replace: true })
+      return
+    }
+    const leavesWorkbench = liveRoute.target.kind === 'archive-home'
+      || (liveRoute.target.kind === 'archive' && !filter.analysisScope)
+    if (leavesWorkbench) navigate(resolveLiveRouteNavigation(liveRoute), { replace: true })
+  }, [filter.analysisScope, liveRoute, navigate, paperAnalysisRoute])
 
   useListContextSync(filter)
   useTradeReturnAnchor()

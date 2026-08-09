@@ -8,6 +8,7 @@ import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
+import { writeTradeListPerformanceCycle } from '@/lib/livePerformanceCycleRoute'
 
 export const PERFORMANCE_REPORT_CURRENCY = 'USD'
 
@@ -152,7 +153,16 @@ export function buildPerformanceSelection(
     if (currency === PERFORMANCE_REPORT_CURRENCY) pnlIds.push(trade.id)
   }
 
-  const query = writeAnalysisScope('', input.scope).toString()
+  const archiveKey = input.scope.kind === 'paper'
+    ? null
+    : input.liveScope?.missingRequestedKey
+      ?? (input.liveScope?.kind === 'archive' ? input.liveScope.archiveId : null)
+      ?? (input.liveScope?.kind === 'all-archives' ? 'pre-cycle' : null)
+      ?? (input.liveScope?.kind === 'pending' ? 'pending' : null)
+  const query = writeTradeListPerformanceCycle(
+    writeAnalysisScope('', input.scope),
+    archiveKey,
+  ).toString()
   return {
     drilldownTarget: query ? `?${query}` : '',
     futureCloseDayIds,

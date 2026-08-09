@@ -41,7 +41,7 @@ import { TodayWorkspace } from './views/TodayWorkspace'
 import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
-import type { ListFilter, ReviewCaseScope } from './lib/tradeFilters'
+import { resolveTradeLogFilter, type ListFilter, type ReviewCaseScope } from './lib/tradeFilters'
 import { isValidPeriodSlug } from './lib/periods'
 import { tradeDetailPath, tradeDetailNavState } from './lib/tradeRoute'
 import { routeWithSearch } from './lib/tradeView'
@@ -198,6 +198,17 @@ function TradesPage({
   )
 }
 
+export function TradeLogPage() {
+  const { search } = useLocation()
+  return (
+    <TradesPage
+      title="交易日志"
+      filter={resolveTradeLogFilter(search)}
+      listPath="/list"
+    />
+  )
+}
+
 export function StrategyPage() {
   const { id } = useParams()
   const { search } = useLocation()
@@ -335,15 +346,11 @@ function Shell() {
           <Route path="/" element={<Navigate to="/list" replace />} />
           <Route
             path="/list"
-            element={
-              <TradesPage title="交易日志" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
-            }
+            element={<TradeLogPage />}
           />
           <Route
             path="/board"
-            element={
-              <TradesPage title="交易日志" filter={{ type: 'all', tradeKind: 'live' }} listPath="/list" />
-            }
+            element={<TradeLogPage />}
           />
           <Route
             path="/active"

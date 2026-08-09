@@ -85,6 +85,18 @@ export function testLiveRouteNavigationUsesArchiveDetailPathsAndPreservesInvalid
   assert(pendingDestination.search === '?symbol=BTCUSDT&statsCycle=pending', '待整理导航必须保留待整理范围')
 }
 
+export function testAnalysisListRouteKeepsValidArchiveAndExplainsInvalidArchive(): void {
+  const valid = resolveLiveRoute('?kind=live&range=30d&statsCycle=old-id', cycles, 'trade-list')
+  const invalid = resolveLiveRoute('?kind=live&range=30d&statsCycle=removed-id', cycles, 'trade-list')
+
+  assert(valid.target.kind === 'archive', '分析列表必须保留有效历史 archive scope')
+  assert(valid.canonicalSearch === '?kind=live&range=30d&statsCycle=old-id', '有效 archive 下钻 URL 必须稳定可复现')
+  const invalidDestination = resolveLiveRouteNavigation(invalid)
+  assert(invalid.target.kind === 'archive-home', '失效 archive 不得静默回退当前范围')
+  assert(invalidDestination.search.includes('archiveReason=missing'), '失效 archive 必须保留解释原因')
+  assert(invalidDestination.search.includes('requestedKey=removed-id'), '失效 archive 必须保留原请求键')
+}
+
 export function testEmptyCyclesPreCycleFallsBackToArchiveHomeWithReason(): void {
   const route = resolveLiveRoute('?statsCycle=pre-cycle&symbol=BTCUSDT', [], 'trade-list')
   assert(route.target.kind === 'archive-home', '空周期集合的规则前请求必须进入归档首页目标')

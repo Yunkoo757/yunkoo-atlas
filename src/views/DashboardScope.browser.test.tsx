@@ -9,9 +9,9 @@ import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 import { DetailView } from '@/views/DetailView'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
-import { parseAnalysisScope } from '@/lib/analysisScope'
 import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { createBusinessDateAnchor } from '@/lib/periods'
+import { TradeLogPage } from '@/App'
 
 declare global {
   interface Window {
@@ -291,7 +291,9 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={['/dashboard?kind=all&range=all']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
-          <Route path="/list" element={<LocationProbe />} />
+          <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
+          <Route path="/live-archive" element={<LocationProbe />} />
+          <Route path="/live-archive/:archiveId" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     )
@@ -311,20 +313,84 @@ async function run(): Promise<void> {
       () => document.querySelector('[data-testid="location"]')?.textContent?.startsWith('/list?') ?? false,
       'KPI 下钻必须进入携带分析范围的交易 URL',
     )
-    const drilldownLocation = document.querySelector('[data-testid="location"]')?.textContent ?? ''
-    const drilldownSelection = buildPerformanceSelection(useStore.getState().trades, {
-      scope: parseAnalysisScope(drilldownLocation.slice(drilldownLocation.indexOf('?'))).scope,
-      liveScope: resolveLiveArchiveScope(cycles, null),
-      anchor,
-      legacyCashCurrencyAssumption: 'USD',
-    })
     const dashboardIds = new Set(dashboardSelection.eligibleMetricIds)
-    const drilldownIds = new Set(drilldownSelection.eligibleMetricIds)
+    await waitFor(
+      () => document.querySelectorAll('[data-trade-id]').length === dashboardIds.size,
+      '真实 /list 未显示 Dashboard 选择器的完整集合',
+    )
+    const drilldownIds = new Set(
+      [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
+        .map((row) => row.dataset.tradeId!)
+        .filter(Boolean),
+    )
     const difference = [
       ...dashboardSelection.eligibleMetricIds.filter((id) => !drilldownIds.has(id)),
-      ...drilldownSelection.eligibleMetricIds.filter((id) => !dashboardIds.has(id)),
+      ...[...drilldownIds].filter((id) => !dashboardIds.has(id)),
     ]
     assert(difference.length === 0, `KPI URL 与 Dashboard 选择器 ID 差集必须为 0，实际 ${difference.join(',')}`)
+
+    const assertRealListMatchesSelection = async (
+      entry: string,
+      scope: { kind: 'live' | 'paper' | 'all', range: 'all' | 'this-week' },
+      archiveKey: string | null,
+      label: string,
+    ) => {
+      const expected = buildPerformanceSelection(useStore.getState().trades, {
+        scope,
+        liveScope: resolveLiveArchiveScope(cycles, archiveKey),
+        anchor,
+        legacyCashCurrencyAssumption: 'USD',
+      })
+      root.unmount()
+      root = createRoot(rootElement)
+      root.render(
+        <MemoryRouter initialEntries={[entry]}>
+          <Routes>
+            <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
+            <Route path="/live-archive" element={<LocationProbe />} />
+            <Route path="/live-archive/:archiveId" element={<LocationProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+      await waitFor(
+        () => document.querySelectorAll('[data-trade-id]').length === expected.eligibleMetricIds.length,
+        `${label} 的真实列表数量未与 Dashboard 选择器一致`,
+      )
+      const actualIds = new Set(
+        [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
+          .map((row) => row.dataset.tradeId!)
+          .filter(Boolean),
+      )
+      const expectedIds = new Set(expected.eligibleMetricIds)
+      const delta = [
+        ...expected.eligibleMetricIds.filter((id) => !actualIds.has(id)),
+        ...[...actualIds].filter((id) => !expectedIds.has(id)),
+      ]
+      assert(delta.length === 0, `${label} 的 Dashboard/List 双向差集必须为 0，实际 ${delta.join(',')}`)
+    }
+
+    await assertRealListMatchesSelection('/list?kind=live&range=all', { kind: 'live', range: 'all' }, null, 'live/all')
+    await assertRealListMatchesSelection('/list?kind=paper&range=all', { kind: 'paper', range: 'all' }, null, 'paper/all')
+    await assertRealListMatchesSelection('/list?kind=all&range=all', { kind: 'all', range: 'all' }, null, 'all/all')
+    await assertRealListMatchesSelection('/list?kind=all&range=this-week', { kind: 'all', range: 'this-week' }, null, 'all/this-week')
+    await assertRealListMatchesSelection('/list?kind=live&range=all&statsCycle=archive-cycle', { kind: 'live', range: 'all' }, 'archive-cycle', '历史 archive/all')
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/list?kind=live&range=all&statsCycle=removed-archive']}>
+        <Routes>
+          <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
+          <Route path="/live-archive" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent?.includes(
+        '/live-archive?kind=live&range=all&archiveReason=missing&requestedKey=removed-archive',
+      ) ?? false,
+      '失效 archive 下钻必须经统一路由进入带解释原因的历史归档首页',
+    )
 
     root.unmount()
     const weekStart = weekStartFor(new Date(`${currentDay}T12:00:00`))

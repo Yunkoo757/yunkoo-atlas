@@ -2,7 +2,7 @@ import type { TradeKind } from '@/data/trades'
 import { DEFAULT_PROFILE_DISPLAY } from '@/config/defaultProfile'
 import type { CalendarPeriod } from '@/lib/periods'
 import { DEFAULT_TRADING_DAY_START_HOUR, normalizeTradingDayStartHour } from '@/lib/periods'
-import type { AnalysisScope } from '@/lib/analysisScope'
+import { parseAnalysisScope, type AnalysisScope } from '@/lib/analysisScope'
 import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 import {
   DEFAULT_PRIMARY_SIDEBAR_ORDER,
@@ -36,6 +36,14 @@ export interface ListFilter {
   /** 仅用于仪表盘下钻：按平仓日、交易类型与日期范围锁定分析样本。 */
   analysisScope?: AnalysisScope
   reviewCaseScope?: ReviewCaseScope
+}
+
+/** 普通交易日志保持 live 工作区；只有合法 kind/range 参数才启用 Dashboard 绩效下钻。 */
+export function resolveTradeLogFilter(search: string | URLSearchParams): ListFilter {
+  const parsed = parseAnalysisScope(search)
+  return parsed.explicit
+    ? { type: 'all', analysisScope: parsed.scope }
+    : { type: 'all', tradeKind: 'live' }
 }
 
 export type { ReviewCaseScope } from '@/lib/reviewCaseScope'

@@ -22,6 +22,11 @@ import {
   searchForWorkspaceViewTarget,
 } from '@/lib/workspaceViews'
 import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
+import { resolveTradeLogFilter } from '@/lib/tradeFilters'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { createBusinessDateAnchor } from '@/lib/periods'
+import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -165,6 +170,79 @@ export function testCrossTypeWorkspacesCanFilterAndSaveRecordType(): void {
     suggestSavedViewName('/strategy/strategy-1', new URLSearchParams('tradeKind=paper')) === '模拟',
     '保存视图名称必须向用户说明记录类型',
   )
+}
+
+export function testTradeLogEnablesAnalysisOnlyForExplicitKindOrRange(): void {
+  const ordinary = resolveTradeLogFilter('?symbol=BTCUSDT')
+  const live = resolveTradeLogFilter('?kind=live&range=all&symbol=BTCUSDT')
+  const paper = resolveTradeLogFilter('?kind=paper&range=30d')
+  const combined = resolveTradeLogFilter('?kind=all&range=this-week')
+
+  assert(ordinary.tradeKind === 'live' && ordinary.analysisScope === undefined, '普通 /list 必须保留默认实盘工作区语义')
+  assert(live.analysisScope?.kind === 'live' && live.analysisScope.range === 'all', '显式实盘下钻必须启用绩效范围')
+  assert(paper.analysisScope?.kind === 'paper' && paper.analysisScope.range === '30d', '显式模拟下钻必须启用绩效范围')
+  assert(combined.analysisScope?.kind === 'all' && combined.analysisScope.range === 'this-week', '组合下钻必须保留自然范围')
+  assert(live.tradeKind === undefined && paper.tradeKind === undefined && combined.tradeKind === undefined, '分析下钻不得被固定 live facet 截断')
+
+  const app = readFileSync(path.resolve('src/App.tsx'), 'utf8')
+  assert(app.includes('resolveTradeLogFilter(search)'), '/list 与 /board 路由必须消费同一个显式分析 filter 解析器')
+}
+
+export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(): void {
+  const cycles: LivePerformanceCycle[] = [
+    { id: 'archive-id', name: '历史', startTradingDayKey: '2026-04-01', createdAt: '2026-04-01T00:00:00.000Z' },
+    { id: 'current-id', name: '当前', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' },
+  ]
+  const archivedLive = { ...caseTrade, id: 'archived-live', ref: 'TRD-ARCHIVED', tradeKind: 'live' as const, openedAt: '2026-06-15', closedAt: '2026-06-15', closedTradingDayKey: '2026-06-15' }
+  const currentLive = { ...archivedLive, id: 'current-live', ref: 'TRD-CURRENT', openedAt: '2026-08-08', closedAt: '2026-08-08', closedTradingDayKey: '2026-08-08' }
+  const openCurrent = { ...currentLive, id: 'open-current', ref: 'TRD-OPEN', status: 'open' as const, closedAt: null, closedTradingDayKey: undefined, pnl: null, rMultiple: null, resultSource: undefined }
+  const historicalPaper = { ...archivedLive, id: 'historical-paper', ref: 'TRD-PAPER', tradeKind: 'paper' as const }
+  const trades = [archivedLive, currentLive, openCurrent, historicalPaper]
+  const anchor = createBusinessDateAnchor(new Date(2026, 7, 9, 12), 6)
+  const display = { ...DEFAULT_DISPLAY, hideClosed: false, tradingDayStartHour: 6 }
+
+  const ordinary = getWorkbenchVisibleTrades({
+    trades,
+    filter: resolveTradeLogFilter(''),
+    starredIds: [],
+    display,
+    search: '',
+    businessDateAnchor: anchor,
+    livePerformanceCycles: cycles,
+  })
+  assert(ordinary.map((trade) => trade.id).sort().join() === 'current-live,open-current', '普通 /list 必须保留当前实盘日志并包含未平仓记录')
+
+  const matrix = [
+    { search: '?kind=live&range=all', scope: { kind: 'live' as const, range: 'all' as const }, archiveKey: null },
+    { search: '?kind=paper&range=all', scope: { kind: 'paper' as const, range: 'all' as const }, archiveKey: null },
+    { search: '?kind=all&range=all', scope: { kind: 'all' as const, range: 'all' as const }, archiveKey: null },
+    { search: '?kind=all&range=30d', scope: { kind: 'all' as const, range: '30d' as const }, archiveKey: null },
+    { search: '?kind=live&range=all&statsCycle=archive-id', scope: { kind: 'live' as const, range: 'all' as const }, archiveKey: 'archive-id' },
+  ]
+  for (const entry of matrix) {
+    const expected = buildPerformanceSelection(trades, {
+      scope: entry.scope,
+      liveScope: resolveLiveArchiveScope(cycles, entry.archiveKey),
+      anchor,
+      legacyCashCurrencyAssumption: 'USD',
+    }).eligibleMetricIds
+    const actual = getWorkbenchVisibleTrades({
+      trades,
+      filter: resolveTradeLogFilter(entry.search),
+      starredIds: [],
+      display,
+      search: entry.search,
+      businessDateAnchor: anchor,
+      livePerformanceCycles: cycles,
+    }).map((trade) => trade.id)
+    const expectedIds = new Set(expected)
+    const actualIds = new Set(actual)
+    const delta = [
+      ...expected.filter((id) => !actualIds.has(id)),
+      ...actual.filter((id) => !expectedIds.has(id)),
+    ]
+    assert(delta.length === 0, `${entry.search} 的 workbench/selector 双向差集必须为 0：${delta.join(',')}`)
+  }
 }
 
 export function testInvalidCaseFacetValuesAreIgnoredInsteadOfHidingEverything(): void {
