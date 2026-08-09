@@ -33,7 +33,13 @@ const tradeListStyles = read('src/components/trades/TradeList.css')
 const tradeListComponent = read('src/components/trades/TradeList.tsx')
 const app = read('src/App.tsx')
 const tradesPageStart = app.indexOf('function TradesPage(')
-const tradesPageEnd = app.indexOf('\nfunction StrategyPage()', tradesPageStart)
+const strategyPageMatchers = [
+  '\nexport function StrategyPage()',
+  '\nfunction StrategyPage()',
+]
+const tradesPageEnd = strategyPageMatchers
+  .map((marker) => app.indexOf(marker, tradesPageStart))
+  .find((index) => index > tradesPageStart) ?? -1
 const tradesPage =
   tradesPageStart >= 0 && tradesPageEnd > tradesPageStart
     ? app.slice(tradesPageStart, tradesPageEnd)
