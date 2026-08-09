@@ -535,6 +535,10 @@ try {
 
   await page.goto(`${BASE}/settings/profile`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
+  // 资料面板为 lazy 加载；须等到设置壳与预览都挂载后再测平面契约。
+  await page.locator('.settings-nav').waitFor({ state: 'visible', timeout: 15000 })
+  await page.locator('.settings-panel').waitFor({ state: 'visible', timeout: 15000 })
+  await page.locator('.profile-preview').waitFor({ state: 'visible', timeout: 15000 })
   const settingsSurface = await page.evaluate(() => {
     const nav = document.querySelector('.settings-nav')
     const panel = document.querySelector('.settings-panel')
