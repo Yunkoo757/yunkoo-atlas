@@ -18,8 +18,10 @@ type Fact = {
   currency?: string | null
 }
 
+const hasOwn = (value: object, property: string): boolean => Object.prototype.hasOwnProperty.call(value, property)
+
 function fact(input: Fact): PerformanceFixtureTrade {
-  return {
+  const trade: PerformanceFixtureTrade = {
     id: input.id,
     ref: input.id,
     symbol: 'BTCUSD',
@@ -44,8 +46,9 @@ function fact(input: Fact): PerformanceFixtureTrade {
     closedTradingDayKey: input.closedTradingDayKey,
     note: '',
     deletedAt: input.deletedAt,
-    currency: input.currency,
   }
+  if (hasOwn(input, 'currency')) trade.currency = input.currency
+  return trade
 }
 
 const imported = (id: string, day: string, status: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>, pnl: number, rMultiple: number): PerformanceFixtureTrade =>
@@ -111,7 +114,7 @@ const edgeCases: PerformanceFixtureTrade[] = [
   fact({ id: 'FX-CONFLICT', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 12, rMultiple: -1.2, resultSource: 'imported' }),
   fact({ id: 'FX-USD', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 100, rMultiple: 1, resultSource: 'imported', currency: 'USD' }),
   fact({ id: 'FX-CNY', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 700, rMultiple: 1, resultSource: 'imported', currency: 'CNY' }),
-  fact({ id: 'FX-CURRENCY-UNKNOWN', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 10, rMultiple: 1, resultSource: 'imported' }),
+  fact({ id: 'FX-CURRENCY-UNKNOWN', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 10, rMultiple: 1, resultSource: 'imported', currency: null }),
 ]
 
 export const performanceTruthFixture = {

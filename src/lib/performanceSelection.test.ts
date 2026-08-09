@@ -4,6 +4,7 @@ import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { performanceTruthFixture } from '@/test/fixtures/performanceTruthFixture'
 
 const fixture = performanceTruthFixture
+const hasOwn = (value: object, property: string): boolean => Object.prototype.hasOwnProperty.call(value, property)
 
 function selectionFor(range: 'all' | '30d' = 'all') {
   return buildPerformanceSelection(fixture.trades, {
@@ -61,12 +62,76 @@ export function testPerformanceSelectionUsesTheExplicitLegacyCashCurrencyAssumpt
   const expectedUsdIds = [
     ...fixture.expected.unknownCurrencyIds.slice(0, -1),
     'FX-USD',
-    'FX-CURRENCY-UNKNOWN',
   ]
-  assert.deepEqual(selection.unknownCurrencyIds, [])
+  assert.deepEqual(selection.unknownCurrencyIds, ['FX-CURRENCY-UNKNOWN'])
   assert.deepEqual(selection.pnlIds, expectedUsdIds)
   assert.deepEqual(selection.currencyGroups, [
     { currency: 'USD', ids: expectedUsdIds },
     { currency: 'CNY', ids: ['FX-CNY'] },
   ])
+}
+
+export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitted(): void {
+  const legacyTrade = fixture.trades.find((trade) => trade.id === 'tr-1011')!
+  const explicitUnknownTrade = fixture.trades.find((trade) => trade.id === 'FX-CURRENCY-UNKNOWN')!
+  assert.equal(hasOwn(legacyTrade, 'currency'), false)
+  assert.equal(hasOwn(explicitUnknownTrade, 'currency'), true)
+
+  const selection = buildPerformanceSelection([legacyTrade, explicitUnknownTrade], {
+    scope: { kind: 'all', range: 'all' },
+    liveScope: null,
+    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
+    legacyCashCurrencyAssumption: 'USD',
+  })
+
+  assert.deepEqual(selection.pnlIds, ['tr-1011'])
+  assert.deepEqual(selection.unknownCurrencyIds, ['FX-CURRENCY-UNKNOWN'])
+}
+
+export function testPerformanceSelectionUsesThePreCurrentBoundaryForAllArchives(): void {
+  const early = fixture.trades.find((trade) => trade.id === 'tr-1001')!
+  const current = fixture.trades.find((trade) => trade.id === 'tr-1011')!
+  const input = {
+    scope: { kind: 'live' as const, range: 'all' as const },
+    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
+    legacyCashCurrencyAssumption: null,
+  }
+
+  const archives = buildPerformanceSelection([early, current], {
+    ...input,
+    liveScope: {
+      kind: 'all-archives', archiveId: null,
+      bounds: { startInclusive: '2026-07-01', endExclusive: null }, label: '全部归档',
+    },
+  })
+  assert.deepEqual(archives.eligibleMetricIds, ['tr-1001'])
+}
+
+export function testPerformanceSelectionExcludesReliableDaysFromPendingLiveScope(): void {
+  const early = fixture.trades.find((trade) => trade.id === 'tr-1001')!
+  const current = fixture.trades.find((trade) => trade.id === 'tr-1011')!
+  const pending = buildPerformanceSelection([early, current], {
+    scope: { kind: 'live', range: 'all' },
+    liveScope: { kind: 'pending', archiveId: null, bounds: null, label: '待整理' },
+    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
+    legacyCashCurrencyAssumption: null,
+  })
+
+  assert.deepEqual(pending.eligibleMetricIds, [])
+}
+
+export function testPerformanceSelectionFreezesTheSixAmCloseDayBoundary(): void {
+  const close0559 = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-0559')!
+  const close0600 = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-0600')!
+  const selection = buildPerformanceSelection([close0559, close0600], {
+    scope: { kind: 'live', range: 'all' },
+    liveScope: {
+      kind: 'current', archiveId: 'day-nine',
+      bounds: { startInclusive: '2026-08-09', endExclusive: null }, label: '当前实盘',
+    },
+    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
+    legacyCashCurrencyAssumption: null,
+  })
+
+  assert.deepEqual(selection.eligibleMetricIds, ['FX-CLOSE-0600'])
 }

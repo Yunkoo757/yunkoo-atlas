@@ -11,6 +11,7 @@ import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 export const PERFORMANCE_REPORT_CURRENCY = 'USD'
 
 type CurrencyTrade = Trade & { currency?: string | null }
+const hasOwn = (value: object, property: string): boolean => Object.prototype.hasOwnProperty.call(value, property)
 
 type CloseDayResolution =
   | { kind: 'valid', day: string }
@@ -68,14 +69,21 @@ function matchesKind(trade: Trade, scope: AnalysisScope): boolean {
 }
 
 function matchesLiveScope(trade: Trade, liveScope: LiveArchiveScope | null, day: string): boolean {
-  if (trade.tradeKind !== 'live' || liveScope === null || liveScope.bounds === null) return true
+  if (trade.tradeKind !== 'live' || liveScope === null) return true
+  if (liveScope.kind === 'pending') return false
+  if (liveScope.kind === 'all-archives') {
+    return liveScope.bounds?.startInclusive !== null
+      && liveScope.bounds?.startInclusive !== undefined
+      && day < liveScope.bounds.startInclusive
+  }
+  if (liveScope.bounds === null) return liveScope.kind === 'current'
   const { startInclusive, endExclusive } = liveScope.bounds
   return (startInclusive === null || day >= startInclusive)
     && (endExclusive === null || day < endExclusive)
 }
 
 function normalizedCurrency(trade: CurrencyTrade, fallback: string | null): string | null {
-  const value = trade.currency ?? fallback
+  const value = hasOwn(trade, 'currency') ? trade.currency : fallback
   if (typeof value !== 'string') return null
   const normalized = value.trim().toUpperCase()
   return normalized || null
