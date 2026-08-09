@@ -14,6 +14,20 @@ import type {
   WeeklyRiskPreparation,
 } from '@/data/riskManagement'
 
+/**
+ * 可验证的导入来源事实。该字段只接受导入时实际观测到的值，不能为旧记录追溯猜测。
+ */
+export interface NotionTradeImportProvenance {
+  source: 'notion'
+  importedAt: string
+  openedAtSource: 'notion-date'
+  closedAtSource: 'missing-in-source' | 'notion-close-date'
+}
+
+export type PersistedTrade = Trade & {
+  importProvenance?: NotionTradeImportProvenance
+}
+
 export const SCHEMA_VERSION = 10
 
 export interface LibraryManifest {
@@ -39,7 +53,7 @@ export interface UserProfile {
 }
 
 export interface PersistedSnapshot {
-  trades: Trade[]
+  trades: PersistedTrade[]
   weeklyRiskPreparations: WeeklyRiskPreparation[]
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]

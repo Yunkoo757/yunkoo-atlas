@@ -255,6 +255,16 @@ export function isValidPersistedTrade(
   if (value.activities !== undefined && (
     !Array.isArray(value.activities) || !value.activities.every(isActivityEvent)
   )) return false
+  if (value.importProvenance !== undefined) {
+    const provenance = value.importProvenance
+    if (
+      !isRecord(provenance) ||
+      provenance.source !== 'notion' ||
+      !isCanonicalIsoInstant(provenance.importedAt) ||
+      provenance.openedAtSource !== 'notion-date' ||
+      (provenance.closedAtSource !== 'missing-in-source' && provenance.closedAtSource !== 'notion-close-date')
+    ) return false
+  }
   return true
 }
 

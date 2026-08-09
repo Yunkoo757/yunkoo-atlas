@@ -589,3 +589,36 @@ export function testSnapshotValidationCoversWorkflowMetadataStructures(): void {
     assert(rejected, '损坏的快捷键、资料、视图或品种设置不得进入恢复流程')
   }
 }
+
+export function testValidatesOptionalNotionImportProvenance(): void {
+  const valid = createFullPersistedSnapshotFixture()
+  const baseTrade = valid.trades[0]!
+  assertValidPersistedSnapshot({
+    ...valid,
+    trades: [{
+      ...baseTrade,
+      importProvenance: {
+        source: 'notion',
+        importedAt: '2026-08-09T00:00:00.000Z',
+        openedAtSource: 'notion-date',
+        closedAtSource: 'missing-in-source',
+      },
+    }],
+  })
+  const invalidValues = [
+    null,
+    { source: 'manual', importedAt: '2026-08-09T00:00:00.000Z', openedAtSource: 'notion-date', closedAtSource: 'missing-in-source' },
+    { source: 'notion', importedAt: 'not-a-time', openedAtSource: 'notion-date', closedAtSource: 'missing-in-source' },
+    { source: 'notion', importedAt: '2026-08-09T00:00:00.000Z', openedAtSource: 'guessed', closedAtSource: 'missing-in-source' },
+    { source: 'notion', importedAt: '2026-08-09T00:00:00.000Z', openedAtSource: 'notion-date', closedAtSource: 'copied' },
+  ]
+  for (const importProvenance of invalidValues) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({ ...valid, trades: [{ ...baseTrade, importProvenance }] })
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '非法 Notion 导入来源证据必须拒绝')
+  }
+}

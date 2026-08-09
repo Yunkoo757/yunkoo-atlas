@@ -153,6 +153,7 @@ import {
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import { cascadeReviewCaseSourceSnapshot } from '@/lib/reviewCaseSourceSync'
+import type { CommitCopiedCloseDateCleanupResult } from '@/lib/importDataHealth'
 
 export interface StorePendingTradeOpenRequest extends PendingTradeOpenRequest {
   returnFocus: HTMLElement | null
@@ -399,6 +400,9 @@ interface State {
   redoStack: UndoAction[]
   undo: (actionId?: string) => boolean
   redo: (actionId?: string) => boolean
+  cleanupCopiedCloseDates: (
+    tradeIds: readonly string[],
+  ) => Promise<CommitCopiedCloseDateCleanupResult & { actionId?: string }>
   starredIds: string[]
   subscribedIds: string[]
   pinnedStrategyIds: string[]
@@ -592,6 +596,54 @@ export const useStore = create<State>()((set, get) => ({
           }
         })
         return succeeded
+      },
+      cleanupCopiedCloseDates: async (tradeIds) => {
+        const [healthModule, persistModule, cutoverModule, storageModule, shortcutModule] = await Promise.all([
+          import('@/lib/importDataHealth'),
+          import('@/storage/persist'),
+          import('@/storage/cutover'),
+          import('@/storage'),
+          import('@/store/shortcutStore'),
+        ])
+        const result = await healthModule.commitCopiedCloseDateCleanupThroughBoundary({
+          cleanup: {
+            tradeIds,
+            tradingDayStartHour: get().display.tradingDayStartHour,
+            captureLatest: () => {
+              const state = get()
+              return {
+                trades: state.trades,
+                snapshot: persistModule.pickPersisted(
+                  state,
+                  shortcutModule.useShortcutStore.getState().bindings,
+                ),
+              }
+            },
+            persistSnapshot: (snapshot) => storageModule.getStorage().commitImport(snapshot, []),
+            publish: (trades) => {
+              const selectedIds = new Set(tradeIds)
+              const before = get().trades.filter((trade) => selectedIds.has(trade.id))
+              const after = trades.filter((trade) => selectedIds.has(trade.id))
+              const action = createStoreUndoAction('清空污染平仓日', before, after)
+              if (!action) throw new Error('清理候选没有产生可撤销字段变化')
+              set((state) => ({
+                trades,
+                undoStack: appendBoundedHistory(state.undoStack, action),
+                redoStack: [],
+              }))
+            },
+          },
+          boundary: {
+            lockInteraction: cutoverModule.lockStorageCutoverInteraction,
+            flushBeforeCommit: cutoverModule.flushStorageBeforeCutover,
+            suspendPersist: persistModule.suspendPersist,
+            resumePersist: persistModule.resumePersist,
+            discardPendingAndResumePersist: persistModule.discardPendingAndResumePersist,
+          },
+        })
+        return result.kind === 'committed'
+          ? { ...result, actionId: get().undoStack.at(-1)?.actionId }
+          : result
       },
       starredIds: [],
       subscribedIds: [],

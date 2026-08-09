@@ -115,6 +115,9 @@ const DetailView = lazy(() =>
 const LiveArchiveView = lazy(() =>
   import('./views/LiveArchiveView').then((module) => ({ default: module.LiveArchiveView })),
 )
+const ImportDataHealthView = lazy(() =>
+  import('./views/ImportDataHealthView').then((module) => ({ default: module.ImportDataHealthView })),
+)
 const ReviewSessionView = lazy(() =>
   import('./views/ReviewSessionView').then((module) => ({ default: module.ReviewSessionView })),
 )
@@ -421,6 +424,7 @@ function Shell() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/live-archive" element={<LiveArchiveView />} />
           <Route path="/live-archive/:archiveId" element={<LiveArchiveView />} />
+          <Route path="/import-data-health" element={<ImportDataHealthView />} />
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/cases" element={<Navigate to="/list" replace />} />
           <Route path="/trash" element={<Navigate to="/trade-trash" replace />} />
