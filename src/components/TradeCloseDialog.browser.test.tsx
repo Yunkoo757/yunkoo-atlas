@@ -117,7 +117,14 @@ async function run(): Promise<void> {
     assert(restored.openedAt === '2026-07-16', '旧 Toast 不得覆盖动作后的非 touched 字段')
     assert(useStore.getState().undoStack.some((action) => action.actionId === laterActionId), '旧 Toast 不得误撤新的栈顶动作')
 
-    const archiveCandidate: Trade = { ...trade, id: 'close-to-archive', ref: 'TRD-ARCHIVE', closedAt: '2026-07-01' }
+    // 开仓日在当前边界内，平仓日落到重置前：必须先确认归属变化。
+    const archiveCandidate: Trade = {
+      ...trade,
+      id: 'close-to-archive',
+      ref: 'TRD-ARCHIVE',
+      openedAt: '2026-08-05',
+      closedAt: '2026-07-01',
+    }
     useStore.setState({
       trades: [archiveCandidate],
       closeTradeRequest: { tradeId: archiveCandidate.id },

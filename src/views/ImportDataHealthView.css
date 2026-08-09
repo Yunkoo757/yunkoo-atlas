@@ -201,7 +201,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .idh-row {
     grid-template-columns: 1fr;
   }
