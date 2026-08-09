@@ -180,6 +180,30 @@ export function testCompleteReviewFreezesRiskFromOneState(): void {
   assert(completed.review.riskSnapshot.overrideEvents[0]?.linkState === 'unresolved', '必须保留冻结的关联状态')
 }
 
+export function testCompletionExcludesFutureTradesFromMetricsAndEvidence(): void {
+  const state = stateAtRevision(7)
+  state.trades.push({
+    ...trade(8),
+    id: 'FX-CLOSE-FUTURE',
+    ref: 'TRD-FUTURE',
+    pnl: -9_000,
+    closedAt: '2026-07-22T09:00:00.000+08:00',
+    closedTradingDayKey: '2026-07-22',
+  })
+
+  const completed = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-21T23:00:00.000+08:00'),
+  ).review
+
+  assert(completed.metricsSnapshot?.tradeCount === 1, '新完成快照不得纳入冻结业务日之后的交易')
+  assert(
+    completed.evidenceSnapshot?.trades.map((item) => item.id).join() === 'trade-1',
+    '新完成证据不得冻结未来平仓事实',
+  )
+}
+
 export function testReopenClearsBothSnapshots(): void {
   const reopened = reopenCompletedReview(completedFixture())
   assert(!reopened.metricsSnapshot && !reopened.riskSnapshot, '重开必须同时清除两类快照')

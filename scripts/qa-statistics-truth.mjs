@@ -16,6 +16,9 @@ export const STATISTICS_TRUTH_ACCEPTANCE_IDS = [
   'T-CURRENCY-001', 'T-DRILL-001',
 ]
 
+export const STATISTICS_TRUTH_FIXTURE_PATH = 'src/test/fixtures/performanceTruthFixture.ts'
+export const STATISTICS_TRUTH_FIXTURE_SAMPLE_COUNT = 56
+
 const UNIT_ENTRIES = [
   'src/lib/performanceSelection.test.ts',
   'src/lib/analysisScope.test.ts',
@@ -33,7 +36,7 @@ const UNIT_ENTRIES = [
   'src/store/useStoreCurrencyAssumption.test.ts',
 ]
 
-const BROWSER_TEST_IDS = [
+export const BROWSER_TEST_IDS = [
   'src/views/DashboardScope.browser.test.html#__dashboardAnalysisScopeTest',
   'src/components/NotionImportModal.browser.test.html#__notionImportPersistenceTest',
   'src/views/ImportDataHealthView.browser.test.html#__importDataHealthViewTest@1280x900',
@@ -43,7 +46,7 @@ const BROWSER_TEST_IDS = [
 
 const UNIT_TEST = (file, name) => `${file}#${name}`
 
-const ACCEPTANCE_TESTS = {
+export const ACCEPTANCE_TESTS = {
   'T-SCOPE-001': [UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionFreezesEveryGoldenTruthCollection')],
   'T-SCOPE-002': [UNIT_TEST('src/lib/analysisScope.test.ts', 'testAnalysisScopeMatchesDashboardResultSet')],
   'T-SCOPE-003': [UNIT_TEST('src/lib/workspaceFacetConsistency.test.ts', 'testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive')],
@@ -84,6 +87,16 @@ const ACCEPTANCE_TESTS = {
   ],
 }
 
+export const UNIT_REQUIRED_TEST_IDS = [...new Set(
+  Object.values(ACCEPTANCE_TESTS).flat().filter((id) => !id.includes('.browser.test.html#')),
+)]
+const UNIT_COMMAND = `node scripts/run-regression-tests.mjs --unit-only ${UNIT_ENTRIES.join(' ')}`
+const BROWSER_COMMAND = `browser-runner ${BROWSER_TEST_IDS.join(' ')}`
+const COMMAND_TEST_CONTRACTS = new Map([
+  [UNIT_COMMAND, UNIT_REQUIRED_TEST_IDS],
+  [BROWSER_COMMAND, BROWSER_TEST_IDS],
+])
+
 function difference(expected, actual) {
   const actualSet = new Set(actual)
   const expectedSet = new Set(expected)
@@ -109,13 +122,24 @@ export function validateStatisticsTruthEvidence(evidence) {
   const errors = []
   if (evidence?.schemaVersion !== 1) errors.push('schemaVersion 必须为 1')
   if (!/^[0-9a-f]{40}$/i.test(evidence?.candidateSha ?? '')) errors.push('candidateSha 必须是完整 Git SHA')
+  if (evidence?.fixture?.path !== STATISTICS_TRUTH_FIXTURE_PATH) errors.push('fixture path 与规范路径不一致')
   if (!/^[0-9a-f]{64}$/i.test(evidence?.fixture?.checksumSha256 ?? '')) errors.push('fixture checksum 必须为 SHA-256')
-  if (!Number.isInteger(evidence?.fixture?.sampleCount) || evidence.fixture.sampleCount <= 0) errors.push('golden fixture 样本不得为空')
+  if (evidence?.fixture?.sampleCount !== STATISTICS_TRUTH_FIXTURE_SAMPLE_COUNT) {
+    errors.push(`golden fixture 样本数必须为 ${STATISTICS_TRUTH_FIXTURE_SAMPLE_COUNT}`)
+  }
 
   if (!Array.isArray(evidence?.commands) || evidence.commands.length === 0) {
     errors.push('命令证据不得为空')
   } else {
+    const commandNames = evidence.commands.map((command) => command.command)
+    pushDifferenceErrors(errors, 'command contract', [...COMMAND_TEST_CONTRACTS.keys()], commandNames)
     for (const command of evidence.commands) {
+      const canonicalExpectedIds = COMMAND_TEST_CONTRACTS.get(command.command)
+      if (!canonicalExpectedIds) {
+        errors.push(`未知命令证据：${command.command}`)
+        continue
+      }
+      pushDifferenceErrors(errors, `命令 ${command.command} expected`, canonicalExpectedIds, command.expectedTestIds ?? [])
       if (command.exitCode !== 0) errors.push(`命令失败：${command.command}`)
       if (!Array.isArray(command.expectedTestIds) || command.expectedTestIds.length === 0) errors.push(`命令测试样本为空：${command.command}`)
       const actualTestIds = Array.isArray(command.actualTestIds) ? command.actualTestIds : []
@@ -124,18 +148,40 @@ export function validateStatisticsTruthEvidence(evidence) {
       if ((command.missingTestIds?.length ?? 0) > 0) errors.push(`命令报告 missing：${command.missingTestIds.join(',')}`)
       if ((command.skippedTestIds?.length ?? 0) > 0 || /\bskip(?:ped)?\b/i.test(command.outputSummary ?? '')) errors.push(`命令包含 skip：${command.command}`)
       if ((command.todoTestIds?.length ?? 0) > 0 || /\btodo\b/i.test(command.outputSummary ?? '')) errors.push(`命令包含 TODO：${command.command}`)
+      if (!sameArray(diff.missingIds, command.missingTestIds ?? [])) {
+        errors.push(`命令 ${command.command} 声明的 missing 与实际不一致`)
+      }
     }
   }
 
   const acceptanceExpected = evidence?.acceptance?.expectedIds ?? []
-  const acceptanceActual = (evidence?.acceptance?.actual ?? []).map((item) => item.id)
+  const acceptanceItems = evidence?.acceptance?.actual ?? []
+  const acceptanceActual = acceptanceItems.map((item) => item.id)
   pushDifferenceErrors(errors, 'acceptance', STATISTICS_TRUTH_ACCEPTANCE_IDS, acceptanceExpected)
-  pushDifferenceErrors(errors, 'acceptance actual', STATISTICS_TRUTH_ACCEPTANCE_IDS, acceptanceActual)
-  for (const item of evidence?.acceptance?.actual ?? []) {
-    if (item.status !== 'pass') errors.push(`${item.id} 未通过`)
-    if (!Array.isArray(item.expectedTestIds) || item.expectedTestIds.length === 0) errors.push(`${item.id} 没有测试合同`)
-    const diff = difference(item.expectedTestIds ?? [], item.actualTestIds ?? [])
-    if (diff.missingIds.length > 0 || (item.missingTestIds?.length ?? 0) > 0) errors.push(`${item.id} 缺少测试：${diff.missingIds.join(',')}`)
+  const acceptanceDiff = pushDifferenceErrors(errors, 'acceptance actual', STATISTICS_TRUTH_ACCEPTANCE_IDS, acceptanceActual)
+  if (!sameArray(acceptanceDiff.missingIds, evidence?.acceptance?.missingIds ?? []) ||
+      !sameArray(acceptanceDiff.unexpectedIds, evidence?.acceptance?.unexpectedIds ?? [])) {
+    errors.push('acceptance 声明的 missing/unexpected 与实际不一致')
+  }
+  const passedCommandTestIds = new Set(
+    (evidence?.commands ?? [])
+      .filter((command) => command.exitCode === 0 && COMMAND_TEST_CONTRACTS.has(command.command))
+      .flatMap((command) => command.actualTestIds ?? []),
+  )
+  for (const item of acceptanceItems) {
+    const canonicalExpectedIds = ACCEPTANCE_TESTS[item.id]
+    if (!canonicalExpectedIds) {
+      errors.push(`未知 acceptance：${item.id}`)
+      continue
+    }
+    pushDifferenceErrors(errors, `${item.id} expected`, canonicalExpectedIds, item.expectedTestIds ?? [])
+    const canonicalActualIds = canonicalExpectedIds.filter((testId) => passedCommandTestIds.has(testId))
+    pushDifferenceErrors(errors, `${item.id} actual`, canonicalActualIds, item.actualTestIds ?? [])
+    const diff = difference(canonicalExpectedIds, canonicalActualIds)
+    const expectedStatus = diff.missingIds.length === 0 ? 'pass' : 'fail'
+    if (item.status !== expectedStatus) errors.push(`${item.id} 状态与实际命令证据不一致`)
+    if (!sameArray(diff.missingIds, item.missingTestIds ?? [])) errors.push(`${item.id} 声明的 missing 与实际不一致`)
+    if (diff.missingIds.length > 0) errors.push(`${item.id} 缺少测试：${diff.missingIds.join(',')}`)
     if (!Array.isArray(item.evidencePaths) || item.evidencePaths.length === 0) errors.push(`${item.id} 没有 JSON 证据路径`)
   }
 
@@ -189,6 +235,25 @@ export function validateStatisticsTruthEvidence(evidence) {
   return errors
 }
 
+async function validateCandidateFixture(root, evidence) {
+  const errors = []
+  if (!/^[0-9a-f]{40}$/i.test(evidence?.candidateSha ?? '')) return errors
+  const result = await runCapture(
+    'git',
+    ['show', `${evidence.candidateSha}:${STATISTICS_TRUTH_FIXTURE_PATH}`],
+    root,
+  )
+  if (result.exitCode !== 0) {
+    errors.push('candidate 不存在或候选提交缺少规范 fixture')
+    return errors
+  }
+  const candidateChecksum = crypto.createHash('sha256').update(result.stdout).digest('hex')
+  if (candidateChecksum !== evidence.fixture?.checksumSha256) {
+    errors.push('fixture checksum 与 candidate git show 内容不一致')
+  }
+  return errors
+}
+
 async function runStreaming(command, args, cwd) {
   const started = Date.now()
   return await new Promise((resolve) => {
@@ -207,6 +272,18 @@ async function runStreaming(command, args, cwd) {
     })
     child.on('error', (error) => resolve({ exitCode: 1, stdout, stderr: `${stderr}${error.message}`, durationMs: Date.now() - started }))
     child.on('close', (code) => resolve({ exitCode: code ?? 1, stdout, stderr, durationMs: Date.now() - started }))
+  })
+}
+
+async function runCapture(command, args, cwd) {
+  return await new Promise((resolve) => {
+    const child = spawn(command, args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = Buffer.alloc(0)
+    let stderr = Buffer.alloc(0)
+    child.stdout.on('data', (chunk) => { stdout = Buffer.concat([stdout, chunk]) })
+    child.stderr.on('data', (chunk) => { stderr = Buffer.concat([stderr, chunk]) })
+    child.on('error', (error) => resolve({ exitCode: 1, stdout, stderr: Buffer.from(error.message) }))
+    child.on('close', (code) => resolve({ exitCode: code ?? 1, stdout, stderr }))
   })
 }
 
@@ -377,8 +454,7 @@ async function runGate(root) {
   const unitResult = await runStreaming(process.execPath, unitArgs, root)
   const unitOutput = `${unitResult.stdout}\n${unitResult.stderr}`
   const unitActualIds = [...unitOutput.matchAll(/^PASS (.+) :: (.+)$/gm)].map((match) => `${match[1]}#${match[2]}`)
-  const unitExpectedIds = [...new Set(Object.values(ACCEPTANCE_TESTS).flat().filter((id) => !id.includes('.browser.test.html#')))]
-  const unitEvidence = commandEvidence(unitCommand, unitResult, unitExpectedIds, unitActualIds)
+  const unitEvidence = commandEvidence(unitCommand, unitResult, UNIT_REQUIRED_TEST_IDS, unitActualIds)
 
   const browserStarted = Date.now()
   const browserResult = await runBrowserRegressionTests(root, {
@@ -391,7 +467,7 @@ async function runGate(root) {
       if (event.type === 'fail') process.stderr.write(`GATE FAIL ${event.testId}: ${event.reason}\n`)
     },
   })
-  const browserCommand = `browser-runner ${BROWSER_TEST_IDS.join(' ')}`
+  const browserCommand = BROWSER_COMMAND
   const browserEvidence = commandEvidence(
     browserCommand,
     {
@@ -428,7 +504,7 @@ async function runGate(root) {
     schemaVersion: 1,
     candidateSha,
     fixture: {
-      path: 'src/test/fixtures/performanceTruthFixture.ts',
+      path: STATISTICS_TRUTH_FIXTURE_PATH,
       checksumSha256: crypto.createHash('sha256').update(fixtureSource).digest('hex'),
       sampleCount: golden.sampleCount,
     },
@@ -443,7 +519,10 @@ async function runGate(root) {
     kpiTruth: golden.kpiTruth,
     failureReasons: [],
   }
-  const errors = validateStatisticsTruthEvidence(evidence)
+  const errors = [
+    ...validateStatisticsTruthEvidence(evidence),
+    ...await validateCandidateFixture(root, evidence),
+  ]
   evidence.failureReasons = errors
   await fs.writeFile(path.join(root, jsonRelativePath), `${JSON.stringify(evidence, null, 2)}\n`, 'utf8')
   await fs.mkdir(path.dirname(path.join(root, reportRelativePath)), { recursive: true })
@@ -464,7 +543,10 @@ async function main() {
     const evidencePath = process.argv[validateIndex + 1]
     if (!evidencePath) throw new Error('--validate-evidence requires a JSON path')
     const evidence = JSON.parse(await fs.readFile(evidencePath, 'utf8'))
-    const errors = validateStatisticsTruthEvidence(evidence)
+    const errors = [
+      ...validateStatisticsTruthEvidence(evidence),
+      ...await validateCandidateFixture(process.cwd(), evidence),
+    ]
     if (errors.length > 0) {
       console.error('STATISTICS_TRUTH_GATE_FAILED')
       for (const error of errors) console.error(`- ${error}`)

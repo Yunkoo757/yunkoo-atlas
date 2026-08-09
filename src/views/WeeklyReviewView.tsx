@@ -209,8 +209,15 @@ export function WeeklyReviewView() {
   if (requestedReturnWeek) verifiedReturnWeekRef.current = requestedReturnWeek
   const [returnRestoreActive, setReturnRestoreActive] = useState(Boolean(returnRequest))
   const availableWeeks = useMemo(
-    () => deriveWeeklyReviewWeeks(trades, reviews, currentWeek, tradingDayStartHour),
-    [trades, reviews, currentWeek, tradingDayStartHour],
+    () => deriveWeeklyReviewWeeks(
+      trades,
+      reviews,
+      currentWeek,
+      tradingDayStartHour,
+      12,
+      businessDateAnchor.currentTradingDayKey,
+    ),
+    [trades, reviews, currentWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
   )
   const routeResolution = useMemo(
     () => resolveWeeklyReviewRouteState(
@@ -316,16 +323,19 @@ export function WeeklyReviewView() {
       trades,
       selectedWeek,
       tradingDayStartHour,
+      businessDateAnchor.currentTradingDayKey,
     ),
-    [trades, selectedWeek, tradingDayStartHour],
+    [trades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
   )
   const weekMissedTrades = useMemo(
     () => missedTradesInWeek(
       trades,
       selectedWeek,
       tradingDayStartHour,
+      null,
+      businessDateAnchor.currentTradingDayKey,
     ),
-    [trades, selectedWeek, tradingDayStartHour],
+    [trades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
   )
   const liveMetrics = useMemo(
     () => buildWeeklyReviewMetrics(

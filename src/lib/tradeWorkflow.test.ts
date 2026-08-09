@@ -262,7 +262,7 @@ export function testTodayClosedMetricsUsesCloseDateLiveOnly(): void {
     today,
   )
 
-  assert(metrics.closedCount === 2, 'today metrics count only live closed-on-today trades')
+  assert(metrics.closedCount === 1, 'today metrics count only complete live closed-on-today results')
   assert(metrics.winRate === 100, 'evaluated win rate ignores open and non-today closes')
   assert(metrics.pnlCount === 1, 'unverified pnl must not inflate pnlCount')
   assert(metrics.totalPnl === 100, 'total pnl sums verified amounts only')
@@ -311,6 +311,38 @@ export function testTodayClosedMetricsUsesUsdOnlyWithExplicitLegacyAssumption():
     { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
   )
   assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, '今日总计的 legacy 假设只能作用于缺字段旧记录')
+}
+
+export function testTodayClosedMetricsRejectsUnreliableFutureAndConflictingFacts(): void {
+  const today = '2026-08-09'
+  const valid = {
+    ...base,
+    id: 'today-valid',
+    status: 'win',
+    openedAt: today,
+    closedAt: '2026-08-09T06:00:00+08:00',
+    exit: 110,
+    pnl: 100,
+    cashCurrency: 'USD',
+    rMultiple: 2,
+    resultSource: 'imported',
+  } as Trade
+  const beforeBoundary = { ...valid, id: 'before-boundary', closedAt: '2026-08-09T05:59:00+08:00' }
+  const missing = { ...valid, id: 'missing', closedAt: null }
+  const invalid = { ...valid, id: 'invalid', closedAt: '2026-02-30T12:00:00+08:00' }
+  const future = { ...valid, id: 'future', closedTradingDayKey: '2026-08-10' }
+  const conflict = { ...valid, id: 'conflict', pnl: -50, rMultiple: 1 }
+
+  const metrics = buildTodayClosedMetrics(
+    [valid, beforeBoundary, missing, invalid, future, conflict],
+    today,
+    6,
+  )
+
+  assert(metrics.closedCount === 1, '今日战绩只能消费选择器的完整可靠结果 ID')
+  assert(metrics.winRate === 100, '结果冲突不得污染今日胜率')
+  assert(metrics.pnlCount === 1 && metrics.totalPnl === 100, '今日 USD 总计只能消费 pnlIds')
+  assert(metrics.rCount === 1 && metrics.averageR === 2, '今日 R 汇总只能消费 rIds')
 }
 
 export function testTodayCompletedReviewHonorsTradingDayBoundary(): void {

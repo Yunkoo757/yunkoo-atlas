@@ -142,6 +142,32 @@ export function testPerformanceSelectionFreezesTheSixAmCloseDayBoundary(): void 
   assert.deepEqual(selection.eligibleMetricIds, ['FX-CLOSE-0600'])
 }
 
+export function testPerformanceSelectionSupportsAnInternalTodayWindowWithoutChangingTheRouteContract(): void {
+  const close0559 = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-0559')!
+  const close0600 = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-0600')!
+  const missing = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-MISSING')!
+  const invalid = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-INVALID')!
+  const future = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-FUTURE')!
+  const conflict = fixture.trades.find((trade) => trade.id === 'FX-CONFLICT')!
+  const usd = fixture.trades.find((trade) => trade.id === 'FX-USD')!
+  const rOnly = fixture.trades.find((trade) => trade.id === 'FX-R-ONLY')!
+  const selection = buildPerformanceSelection(
+    [close0559, close0600, missing, invalid, future, conflict, usd, rOnly],
+    {
+      scope: { kind: 'live', range: 'all' },
+      liveScope: fixture.currentLiveScope,
+      anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
+      legacyCashCurrencyAssumption: null,
+      internalRange: 'today',
+    } as Parameters<typeof buildPerformanceSelection>[1] & { internalRange: 'today' },
+  )
+
+  assert.deepEqual(selection.eligibleMetricIds, ['FX-CLOSE-0600', 'FX-USD', 'FX-R-ONLY'])
+  assert.deepEqual(selection.pnlIds, ['FX-USD'])
+  assert.deepEqual(selection.rIds, ['FX-CLOSE-0600', 'FX-USD', 'FX-R-ONLY'])
+  assert.equal(selection.drilldownTarget, '?kind=live&range=all')
+}
+
 export function testPerformanceSelectionDrilldownReproducesArchiveScope(): void {
   const trade = fixture.trades.find((item) => item.id === 'tr-1001')!
   const base = {

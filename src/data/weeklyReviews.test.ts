@@ -142,6 +142,23 @@ export function testWeeklyReviewWeeksUseConfiguredTradingDayBoundary(): void {
   assert(result.join() === '2026-07-27,2026-07-20', '周列表必须按配置后的交易日归属跨周记录')
 }
 
+export function testWeeklyReviewWeeksAndTradesRejectFactsAfterTheFrozenBusinessDay(): void {
+  const current = trade({ id: 'current', closedAt: '2026-08-09', closedTradingDayKey: '2026-08-09' })
+  const future = trade({ id: 'FX-CLOSE-FUTURE', closedAt: '2026-08-10', closedTradingDayKey: '2026-08-10' })
+  const weeks = deriveWeeklyReviewWeeks(
+    [current, future],
+    [],
+    '2026-08-03',
+    0,
+    12,
+    '2026-08-09',
+  )
+  const closed = tradesClosedInWeek([current, future], '2026-08-03', 0, '2026-08-09')
+
+  assert(weeks.join() === '2026-08-03', '未来平仓事实不得创建未来周入口')
+  assert(closed.map((item) => item.id).join() === 'current', '实时周指标与证据必须冻结在当前业务日')
+}
+
 export function testWeeklyReviewMetricsPreserveCoverageAndMistakeEvidence(): void {
   const metrics = buildWeeklyReviewMetrics([
     trade({ id: 'win', reviewStatus: 'reviewed', mistakeTags: ['追价'] }),

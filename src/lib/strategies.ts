@@ -54,6 +54,11 @@ export function computeStrategyStats(
   options?: {
     tradeKind?: TradeKind | 'all'
     legacyCashCurrencyAssumption?: LegacyCashCurrencyAssumption | null
+    eligibility?: {
+      eligibleMetricIds: readonly string[]
+      pnlIds: readonly string[]
+      rIds: readonly string[]
+    }
   },
 ) {
   const activeTrades = trades.filter((trade) => !trade.deletedAt)
@@ -62,10 +67,29 @@ export function computeStrategyStats(
     kind === 'all'
       ? activeTrades.filter((t) => t.strategyId === strategyId && isAccountTrade(t))
       : activeTrades.filter((t) => t.strategyId === strategyId && t.tradeKind === kind)
-  const closed = all.filter((t) => isExecutedClosed(t.status))
+  const eligibility = options?.eligibility
+  const eligibleIds = eligibility ? new Set(eligibility.eligibleMetricIds) : null
+  const pnlIds = eligibility ? new Set(eligibility.pnlIds) : null
+  const rIds = eligibility ? new Set(eligibility.rIds) : null
+  const closed = eligibleIds
+    ? all.filter((trade) => eligibleIds.has(trade.id))
+    : all.filter((t) => isExecutedClosed(t.status))
   const result = summarizeTradeResults(closed)
-  const usd = summarizeUsdPnl(closed, options?.legacyCashCurrencyAssumption ?? null)
+  const usd = pnlIds
+    ? (() => {
+        const pnlTrades = all.filter((trade) => pnlIds.has(trade.id))
+        return {
+          pnlCount: pnlTrades.length,
+          totalPnl: pnlTrades.reduce((sum, trade) => sum + (trade.pnl ?? 0), 0),
+        }
+      })()
+    : summarizeUsdPnl(closed, options?.legacyCashCurrencyAssumption ?? null)
   const performance = summarizeStrategyPerformance(activeTrades, strategyId, options)
+  const rTrades = rIds ? all.filter((trade) => rIds.has(trade.id)) : closed
+  const rValues = rTrades
+    .map((trade) => trade.rMultiple)
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  const totalR = rValues.reduce((sum, value) => sum + value, 0)
   return {
     ...performance,
     tradeCount: all.length,
@@ -73,10 +97,12 @@ export function computeStrategyStats(
     evaluatedCount: result.evaluatedCount,
     conflictCount: result.conflictCount,
     pnlCount: usd.pnlCount,
-    rCount: result.rCount,
+    rCount: rValues.length,
     winRate: result.winRate,
     totalPnl: usd.pnlCount > 0 ? usd.totalPnl : null,
-    totalR: result.rCount > 0 ? performance.totalR : null,
+    totalR: rValues.length > 0 ? totalR : null,
+    averageR: rValues.length > 0 ? totalR / rValues.length : null,
+    worstR: rValues.length > 0 ? Math.min(...rValues) : null,
   }
 }
 

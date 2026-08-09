@@ -5,13 +5,13 @@ import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { computeStrategyStats, formatStrategyMetricCoverage } from '@/lib/strategies'
 import { fmtMoney, fmtR } from '@/lib/format'
 import {
-  filterTradesByAnalysisScope,
   type AnalysisScope,
 } from '@/lib/analysisScope'
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
 import { resolveLiveRoute } from '@/lib/livePerformanceCycleRoute'
-import { filterLivePerformanceRecords } from '@/lib/liveStatisticsArchive'
+import { filterLiveLogRecords } from '@/lib/liveStatisticsArchive'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
 
@@ -50,25 +50,32 @@ export function StrategyHeader({
   }, [canonicalPerformanceSearch, needsPerformanceReplace, setSearchParams])
 
   const stats = useMemo(() => {
-    const cycleScopedTrades = performanceRoute.target.kind === 'archive-home'
-      ? []
-      : (() => {
-          const scoped = filterLivePerformanceRecords(trades, performanceRoute.target.scope, tradingDayStartHour)
-          const ids = new Set(scoped.map((trade) => trade.id))
-          return trades.filter((trade) => trade.tradeKind !== 'live' || ids.has(trade.id))
-        })()
-    const scoped = analysisScope
-      ? filterTradesByAnalysisScope(
-        cycleScopedTrades,
-        analysisScope,
-        businessDateAnchor,
-        tradingDayStartHour,
-      )
-      : cycleScopedTrades
+    if (performanceRoute.target.kind === 'archive-home') {
+      return computeStrategyStats([], strategyId, {
+        tradeKind: analysisScope?.kind ?? 'live',
+        eligibility: { eligibleMetricIds: [], pnlIds: [], rIds: [] },
+      })
+    }
+    const facetScoped = filterTradesByFacets(trades, facets, tradingDayStartHour, businessDateAnchor)
+    const scope = analysisScope ?? { kind: 'live' as const, range: 'all' as const }
+    const selection = buildPerformanceSelection(facetScoped, {
+      scope,
+      liveScope: scope.kind === 'paper' ? null : performanceRoute.target.scope,
+      anchor: businessDateAnchor,
+      legacyCashCurrencyAssumption,
+    })
+    const eligibleIds = new Set(selection.eligibleMetricIds)
+    const associationTrades = analysisScope
+      ? facetScoped.filter((trade) => eligibleIds.has(trade.id))
+      : filterLiveLogRecords(facetScoped, performanceRoute.target.scope, tradingDayStartHour)
     return computeStrategyStats(
-      filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor),
+      associationTrades,
       strategyId,
-      { tradeKind: analysisScope ? 'all' : 'live', legacyCashCurrencyAssumption },
+      {
+        tradeKind: scope.kind,
+        legacyCashCurrencyAssumption,
+        eligibility: selection,
+      },
     )
   }, [
       trades,
@@ -113,8 +120,8 @@ export function StrategyHeader({
   return (
     <header className="sh" aria-label={`${strategy.name} 统计`}>
       <p className="sh-sub">
-        {scopeLabel ? `${scopeLabel} · ${stats.closedCount} 笔已平` : `${stats.tradeCount} 笔交易`}
-        {!scopeLabel && stats.closedCount > 0 ? ` · ${stats.closedCount} 笔已平` : ''}
+        {scopeLabel ? `${scopeLabel} · ${stats.closedCount} 笔绩效样本` : `${stats.tradeCount} 笔当前实盘关联`}
+        {!scopeLabel && stats.closedCount > 0 ? ` · ${stats.closedCount} 笔绩效样本` : ''}
         {pendingResultCount > 0 ? ` · ${pendingResultCount} 笔待补结果` : ''}
         {stats.conflictCount > 0 ? ` · ${stats.conflictCount} 笔结果冲突` : ''}
       </p>

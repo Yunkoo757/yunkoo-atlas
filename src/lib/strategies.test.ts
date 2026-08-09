@@ -224,6 +224,34 @@ export function testStrategyStatsAggregateUsdOnlyAndRespectLegacyFact(): void {
   assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, '策略 legacy 假设只纳入缺字段旧记录')
 }
 
+export function testStrategyStatsConsumeCallerEligibilityWithoutReclassifyingFacts(): void {
+  const future = { ...closedLiveTrade, id: 'future', pnl: 900, rMultiple: 9 }
+  const missing = { ...closedLiveTrade, id: 'missing', pnl: 800, rMultiple: 8, closedAt: null }
+  const invalid = { ...closedLiveTrade, id: 'invalid', pnl: 700, rMultiple: 7, closedAt: '2026-02-30' }
+  const conflict = { ...closedLiveTrade, id: 'conflict', pnl: -600, rMultiple: 6 }
+  const cny = { ...closedLiveTrade, id: 'cny', pnl: 500, rMultiple: 5, cashCurrency: 'CNY' }
+  const rOnly = { ...closedLiveTrade, id: 'r-only', pnl: null, rMultiple: 3, resultSource: 'r' as const }
+  const stats = computeStrategyStats(
+    [closedLiveTrade, future, missing, invalid, conflict, cny, rOnly],
+    strategyId,
+    {
+      tradeKind: 'live',
+      eligibility: {
+        eligibleMetricIds: ['live-win', 'cny', 'r-only'],
+        pnlIds: ['live-win'],
+        rIds: ['live-win', 'cny', 'r-only'],
+      },
+    } as Parameters<typeof computeStrategyStats>[2] & {
+      eligibility: { eligibleMetricIds: string[], pnlIds: string[], rIds: string[] }
+    },
+  )
+
+  assert(stats.tradeCount === 7, '关联交易数必须与绩效样本数分开')
+  assert(stats.closedCount === 3, '策略已平绩效样本必须等于 eligibleMetricIds')
+  assert(stats.pnlCount === 1 && stats.totalPnl === 100, '策略 USD 总计必须只消费 pnlIds')
+  assert(stats.rCount === 3 && stats.totalR === 10, '策略 R 汇总必须只消费 rIds')
+}
+
 export function testStrategyMigrationPreservesExplicitNullCloseDate(): void {
   const migrated = migrateTradeStrategy(
     { ...closedLiveTrade, closedAt: null, closedTradingDayKey: undefined },

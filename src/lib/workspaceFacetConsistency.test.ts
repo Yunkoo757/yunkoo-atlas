@@ -520,10 +520,6 @@ export function testCrossTypeFacetsShareOneProductionPipelineAndExposeUnsupporte
     path.resolve('src/components/trades/TradeFilters.tsx'),
     'utf8',
   )
-  const strategyHeader = readFileSync(
-    path.resolve('src/components/StrategyHeader.tsx'),
-    'utf8',
-  )
 
   assert(
     hook.includes('deriveWorkbenchVisibleTrades({'),
@@ -537,9 +533,5 @@ export function testCrossTypeFacetsShareOneProductionPipelineAndExposeUnsupporte
     filters.includes('未支持的筛选条件，可移除') &&
       filters.includes("item.key.startsWith('unsupported:')"),
     '未知保存条件必须可见且可清除，不能静默改变列表语义',
-  )
-  assert(
-    strategyHeader.includes('filterTradesByFacets(scoped, facets, tradingDayStartHour, businessDateAnchor)'),
-    '策略头部统计必须与当前列表 facets 使用同一记录集合',
   )
 }

@@ -15,6 +15,7 @@ import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTrad
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import { RiskStatusStrip } from '@/components/RiskStatusStrip'
+import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import './TodayWorkspace.css'
 
 function dateLabel(date: string): string {
@@ -71,6 +72,7 @@ export function TodayWorkspace() {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
+  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
@@ -81,8 +83,14 @@ export function TodayWorkspace() {
     [trades, today, tradingDayStartHour],
   )
   const todayMetrics = useMemo(
-    () => buildTodayClosedMetrics(trades, today, tradingDayStartHour, legacyCashCurrencyAssumption),
-    [trades, today, tradingDayStartHour, legacyCashCurrencyAssumption],
+    () => buildTodayClosedMetrics(
+      trades,
+      today,
+      tradingDayStartHour,
+      legacyCashCurrencyAssumption,
+      resolveLiveArchiveScope(livePerformanceCycles, null),
+    ),
+    [trades, today, tradingDayStartHour, legacyCashCurrencyAssumption, livePerformanceCycles],
   )
   const visibleWorkflowGroups = useMemo(
     () => queueFilter === 'all'

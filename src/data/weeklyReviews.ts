@@ -13,6 +13,7 @@ import { activeRiskPolicy } from '@/lib/riskPolicy'
 import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 import type { LegacyCashCurrencyAssumption, UserProfile } from '@/storage/types'
 import { eligibleUsdPnlIds } from '@/lib/cashCurrency'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
@@ -166,13 +167,24 @@ export function tradesClosedInWeek(
   trades: Trade[],
   weekStart: string,
   tradingDayStartHour = 0,
+  currentTradingDayKey = weekEndFor(weekStart),
 ): Trade[] {
   const weekEnd = weekEndFor(weekStart)
+  const selection = buildPerformanceSelection(trades, {
+    scope: { kind: 'live', range: 'all' },
+    liveScope: null,
+    anchor: {
+      now: parseLocalDate(currentTradingDayKey),
+      tradingDayStartHour,
+      currentTradingDayKey,
+    },
+    legacyCashCurrencyAssumption: null,
+  })
+  const eligibleIds = new Set(selection.eligibleMetricIds)
   return trades.filter((trade) => {
-    if (trade.deletedAt || trade.tradeKind !== 'live' || !isExecutedClosed(trade.status)) return false
+    if (!eligibleIds.has(trade.id)) return false
     const date = closedTradingDayKey(trade, tradingDayStartHour)
-    if (!date) return false
-    return date >= weekStart && date <= weekEnd
+    return date !== null && date >= weekStart && date <= weekEnd
   })
 }
 
@@ -181,12 +193,14 @@ export function missedTradesInWeek(
   weekStart: string,
   tradingDayStartHour = 0,
   performanceBounds: LivePerformanceCycleBounds | null = null,
+  currentTradingDayKey = weekEndFor(weekStart),
 ): Trade[] {
   const weekEnd = weekEndFor(weekStart)
   return trades.filter((trade) => {
     if (trade.deletedAt || trade.tradeKind !== 'live' || !isMissed(trade.status)) return false
     const date = closedTradingDayKey(trade, tradingDayStartHour)
     if (!date) return false
+    if (date > currentTradingDayKey) return false
     if (
       performanceBounds !== null &&
       (performanceBounds.startInclusive !== null && date < performanceBounds.startInclusive ||
@@ -196,10 +210,17 @@ export function missedTradesInWeek(
   })
 }
 
-function reviewActivityWeek(trade: Trade, tradingDayStartHour: number): string | null {
+function reviewActivityWeek(
+  trade: Trade,
+  tradingDayStartHour: number,
+  eligibleMetricIds: ReadonlySet<string>,
+  currentTradingDayKey: string,
+): string | null {
   if (trade.deletedAt || trade.tradeKind !== 'live') return null
   if (!isExecutedClosed(trade.status) && !isMissed(trade.status)) return null
+  if (isExecutedClosed(trade.status) && !eligibleMetricIds.has(trade.id)) return null
   const day = closedTradingDayKey(trade, tradingDayStartHour)
+  if (day !== null && day > currentTradingDayKey) return null
   return day ? weekStartFor(parseLocalDate(day)) : null
 }
 
@@ -209,10 +230,23 @@ export function deriveWeeklyReviewWeeks(
   currentWeek: string,
   tradingDayStartHour = 0,
   activityLimit = 12,
+  currentTradingDayKey = weekEndFor(currentWeek),
 ): string[] {
   const limit = Math.max(0, Math.trunc(activityLimit))
+  const eligibleMetricIds = new Set(buildPerformanceSelection(trades, {
+    scope: { kind: 'live', range: 'all' },
+    liveScope: null,
+    anchor: {
+      now: parseLocalDate(currentTradingDayKey),
+      tradingDayStartHour,
+      currentTradingDayKey,
+    },
+    legacyCashCurrencyAssumption: null,
+  }).eligibleMetricIds)
   const activityWeeks = [...new Set(trades.flatMap((trade) => {
-    const week = reviewActivityWeek(trade, tradingDayStartHour)
+    const week = reviewActivityWeek(
+      trade, tradingDayStartHour, eligibleMetricIds, currentTradingDayKey,
+    )
     return week ? [week] : []
   }))]
     .sort((left, right) => right.localeCompare(left))
@@ -362,15 +396,19 @@ export function completeWeeklyReviewCandidate(
     }
   }
   const completedAt = now.toISOString()
+  const completionTradingDay = getTradingDayKey(now, state.display.tradingDayStartHour)
   const trades = tradesClosedInWeek(
     state.trades,
     existing.weekStart,
     state.display.tradingDayStartHour,
+    completionTradingDay,
   )
   const missedTrades = missedTradesInWeek(
     state.trades,
     existing.weekStart,
     state.display.tradingDayStartHour,
+    null,
+    completionTradingDay,
   )
   const review: WeeklyReview = {
     ...existing,

@@ -15,6 +15,9 @@ import type { Strategy } from '@/data/strategies'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Select } from '@/components/ui/Select'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import '@/views/StrategiesView.css'
 
 export function StrategiesPanel() {
@@ -24,6 +27,27 @@ export function StrategiesPanel() {
   const updateStrategy = useStore((s) => s.updateStrategy)
   const removeStrategy = useStore((s) => s.removeStrategy)
   const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
+  const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
+  const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
+  const businessDateAnchor = useBusinessDateAnchor()
+
+  const currentLiveScope = useMemo(
+    () => resolveLiveArchiveScope(livePerformanceCycles, null),
+    [livePerformanceCycles],
+  )
+  const performanceSelection = useMemo(
+    () => buildPerformanceSelection(trades, {
+      scope: { kind: 'live', range: 'all' },
+      liveScope: currentLiveScope,
+      anchor: businessDateAnchor,
+      legacyCashCurrencyAssumption,
+    }),
+    [trades, currentLiveScope, businessDateAnchor, legacyCashCurrencyAssumption],
+  )
+  const currentLiveAssociations = useMemo(
+    () => filterLiveLogRecords(trades, currentLiveScope, tradingDayStartHour),
+    [trades, currentLiveScope, tradingDayStartHour],
+  )
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Strategy | null>(null)
@@ -36,7 +60,11 @@ export function StrategiesPanel() {
       [...strategies]
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
         .map((s) => {
-          const stats = computeStrategyStats(trades, s.id, { tradeKind: 'live', legacyCashCurrencyAssumption })
+          const stats = computeStrategyStats(currentLiveAssociations, s.id, {
+            tradeKind: 'live',
+            legacyCashCurrencyAssumption,
+            eligibility: performanceSelection,
+          })
           return {
             ...s,
             count: stats.tradeCount,
@@ -50,7 +78,7 @@ export function StrategiesPanel() {
             stats,
           }
         }),
-    [strategies, trades, legacyCashCurrencyAssumption],
+    [strategies, trades, currentLiveAssociations, performanceSelection, legacyCashCurrencyAssumption],
   )
 
   const existingNames = strategies.map((s) => s.name)
@@ -118,7 +146,7 @@ export function StrategiesPanel() {
                 <Link to={`/strategy/${s.id}`} className="st-row-name" style={{ color: s.color }}>
                   {s.name}
                 </Link>
-                <span className="st-row-meta">{s.count} 笔实盘交易</span>
+                <span className="st-row-meta">{s.count} 笔当前实盘关联 · {s.stats.closedCount} 笔绩效样本</span>
                 <div className="st-row-stats">
                   <span>{s.stats.winRate == null ? '胜率 —' : `${s.stats.winRate.toFixed(0)}% 胜率`}</span>
                   <span>{s.stats.totalR == null ? '总R —' : `${fmtR(s.stats.totalR)} 总R`}</span>

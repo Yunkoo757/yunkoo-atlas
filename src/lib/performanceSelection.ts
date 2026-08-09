@@ -25,6 +25,8 @@ export type PerformanceSelectionInput = {
   liveScope: LiveArchiveScope | null
   anchor: BusinessDateAnchor
   legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
+  /** 仅供非路由统计面使用；不会序列化到 drilldownTarget。 */
+  internalRange?: 'today'
 }
 
 export type CurrencyMergeStatus = 'usd-only' | 'usd-with-exclusions' | 'no-usd-data'
@@ -105,7 +107,9 @@ export function buildPerformanceSelection(
   const rIds: string[] = []
   const unknownCurrencyIds: string[] = []
   const currencyGroups = new Map<string, string[]>()
-  const naturalStart = naturalRangeStart(input.scope.range, input.anchor)
+  const naturalStart = input.internalRange === 'today'
+    ? input.anchor.currentTradingDayKey
+    : naturalRangeStart(input.scope.range, input.anchor)
 
   for (const trade of trades) {
     if (trade.deletedAt || !isAccountTrade(trade) || !isExecutedClosed(trade.status)) continue

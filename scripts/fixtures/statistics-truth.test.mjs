@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -13,94 +14,31 @@ const ACCEPTANCE_IDS = [
   'T-CURRENCY-001', 'T-DRILL-001',
 ]
 
-function validEvidence() {
-  const testId = 'src/lib/performanceSelection.test.ts#testPerformanceSelectionFreezesEveryGoldenTruthCollection'
-  return {
-    schemaVersion: 1,
-    candidateSha: 'a'.repeat(40),
-    fixture: {
-      path: 'src/test/fixtures/performanceTruthFixture.ts',
-      checksumSha256: 'b'.repeat(64),
-      sampleCount: 56,
-    },
-    commands: [{
-      command: 'node scripts/run-regression-tests.mjs --unit-only src/lib/performanceSelection.test.ts',
-      exitCode: 0,
-      expectedTestIds: [testId],
-      actualTestIds: [testId],
-      missingTestIds: [],
-      skippedTestIds: [],
-      todoTestIds: [],
-      outputSummary: 'PASS performance truth contract',
-    }],
-    acceptance: {
-      expectedIds: [...ACCEPTANCE_IDS],
-      actual: ACCEPTANCE_IDS.map((id) => ({
-        id,
-        status: 'pass',
-        expectedTestIds: [testId],
-        actualTestIds: [testId],
-        missingTestIds: [],
-        evidencePaths: ['golden.collections.eligibleMetricIds'],
-      })),
-      missingIds: [],
-      unexpectedIds: [],
-    },
-    golden: {
-      collections: {
-        eligibleMetricIds: {
-          expectedIds: ['USD'],
-          actualIds: ['USD'],
-          missingIds: [],
-          unexpectedIds: [],
-        },
-        pnlIds: {
-          expectedIds: ['USD'],
-          actualIds: ['USD'],
-          missingIds: [],
-          unexpectedIds: [],
-        },
-      },
-      drilldownTarget: {
-        expected: '?kind=all&range=all',
-        actual: '?kind=all&range=all',
-      },
-    },
-    kpiTruth: {
-      futureCloseDayIds: ['FUTURE'],
-      missingCloseDayIds: ['MISSING'],
-      invalidCloseDayIds: ['INVALID'],
-      usdTradeFacts: [{ id: 'USD', currency: 'USD', pnl: 100 }],
-      expected: {
-        eligibleMetricIds: ['USD'],
-        pnlIds: ['USD'],
-        pnlCount: 1,
-        totalPnl: 100,
-        curveTradeIds: ['USD'],
-      },
-      actual: {
-        eligibleMetricIds: ['USD'],
-        pnlIds: ['USD'],
-        pnlCount: 1,
-        totalPnl: 100,
-        curveTradeIds: ['USD'],
-      },
-      contamination: {
-        futureInKpiIds: [],
-        missingInKpiIds: [],
-        invalidInKpiIds: [],
-        nonUsdInUsdTotalIds: [],
-        unknownCurrencyInUsdTotalIds: [],
-      },
-    },
-    failureReasons: [],
-  }
+async function validEvidence() {
+  const evidence = JSON.parse(await fs.readFile(
+    path.resolve('test-results/statistics-truth/statistics-truth-gate.json'),
+    'utf8',
+  ))
+  const candidate = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: process.cwd(), encoding: 'utf8',
+  }).stdout.trim()
+  const fixtureSource = spawnSync(
+    'git',
+    ['show', `${candidate}:src/test/fixtures/performanceTruthFixture.ts`],
+    { cwd: process.cwd(), encoding: null },
+  ).stdout
+  evidence.candidateSha = candidate
+  evidence.fixture.path = 'src/test/fixtures/performanceTruthFixture.ts'
+  evidence.fixture.sampleCount = 56
+  evidence.fixture.checksumSha256 = crypto.createHash('sha256').update(fixtureSource).digest('hex')
+  evidence.failureReasons = []
+  return evidence
 }
 
 async function runContractCase(mutate) {
   const root = await fs.mkdtemp(path.join(process.cwd(), 'test-results', '.tmp-statistics-truth-contract-'))
   try {
-    const evidence = validEvidence()
+    const evidence = await validEvidence()
     mutate?.(evidence)
     const evidencePath = path.join(root, 'evidence.json')
     await fs.writeFile(evidencePath, `${JSON.stringify(evidence)}\n`, 'utf8')
@@ -120,6 +58,24 @@ test('statistics truth validator accepts complete non-empty evidence', async () 
 })
 
 const invalidCases = [
+  ['forged command expected and actual IDs', (evidence) => {
+    evidence.commands[0].expectedTestIds = ['forged#unit']
+    evidence.commands[0].actualTestIds = ['forged#unit']
+  }],
+  ['forged acceptance expected and actual test IDs', (evidence) => {
+    for (const item of evidence.acceptance.actual) {
+      item.expectedTestIds = ['forged#acceptance']
+      item.actualTestIds = ['forged#acceptance']
+    }
+  }],
+  ['forged declared acceptance differences', (evidence) => {
+    evidence.acceptance.missingIds = ['forged-missing']
+    evidence.acceptance.unexpectedIds = ['forged-unexpected']
+  }],
+  ['forged fixture path', (evidence) => { evidence.fixture.path = 'src/test/fixtures/forged.ts' }],
+  ['forged fixture sample count', (evidence) => { evidence.fixture.sampleCount = 55 }],
+  ['forged fixture checksum', (evidence) => { evidence.fixture.checksumSha256 = 'c'.repeat(64) }],
+  ['candidate does not exist', (evidence) => { evidence.candidateSha = 'f'.repeat(40) }],
   ['missing test', (evidence) => {
     evidence.commands[0].actualTestIds = []
     evidence.commands[0].missingTestIds = [...evidence.commands[0].expectedTestIds]

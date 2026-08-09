@@ -1,10 +1,11 @@
 import { isReviewCompleted, type Trade } from '@/data/trades'
-import { getTradingDayKey } from '@/lib/periods'
+import { createBusinessDateAnchor, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKey } from '@/lib/riskBudget'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
-import { summarizeUsdPnl } from '@/lib/cashCurrency'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 
 export interface TodayWorkflowBuckets {
   active: Trade[]
@@ -55,22 +56,34 @@ function workflowDate(trade: Trade, tradingDayStartHour: number): string {
   return tradingDayKeyFromStoredValue(trade.openedAt, tradingDayStartHour) ?? ''
 }
 
-/** 今日已平仓实盘（按平仓日；无 closedAt 时回退 openedAt），供战绩条统计。 */
+function todayPerformanceSelection(
+  trades: readonly Trade[],
+  today: string,
+  tradingDayStartHour: number,
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null,
+  liveScope: LiveArchiveScope | null,
+) {
+  const anchorNow = new Date(`${today}T12:00:00`)
+  return buildPerformanceSelection(trades, {
+    scope: { kind: 'live', range: 'all' },
+    liveScope,
+    anchor: createBusinessDateAnchor(anchorNow, tradingDayStartHour),
+    legacyCashCurrencyAssumption,
+    internalRange: 'today',
+  })
+}
+
+/** 今日已平仓实盘只消费共享绩效选择器的可靠完整结果。 */
 export function filterTodayClosedLiveTrades(
   trades: readonly Trade[],
   today: string,
   tradingDayStartHour = 0,
+  liveScope: LiveArchiveScope | null = null,
 ): Trade[] {
-  return trades.filter(
-    (trade) => {
-      if (trade.tradeKind !== 'live' || trade.deletedAt || !isExecutedClosed(trade.status)) return false
-      const closedDay = closedTradingDayKey(trade, tradingDayStartHour)
-      const legacyFallback = trade.closedTradingDayKey === undefined && !trade.closedAt
-        ? tradingDayKeyFromStoredValue(trade.openedAt, tradingDayStartHour)
-        : null
-      return (closedDay ?? legacyFallback) === today
-    },
-  )
+  const eligible = new Set(todayPerformanceSelection(
+    trades, today, tradingDayStartHour, null, liveScope,
+  ).eligibleMetricIds)
+  return trades.filter((trade) => eligible.has(trade.id))
 }
 
 /** 今日战绩：仅实盘 + 今日平仓日 + summarizeTradeResults。 */
@@ -79,11 +92,27 @@ export function buildTodayClosedMetrics(
   today: string,
   tradingDayStartHour = 0,
   legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null = null,
+  liveScope: LiveArchiveScope | null = null,
 ): TodayClosedMetrics {
-  const closed = filterTodayClosedLiveTrades(trades, today, tradingDayStartHour)
+  const selection = todayPerformanceSelection(
+    trades, today, tradingDayStartHour, legacyCashCurrencyAssumption, liveScope,
+  )
+  const eligibleIds = new Set(selection.eligibleMetricIds)
+  const pnlIds = new Set(selection.pnlIds)
+  const rIds = new Set(selection.rIds)
+  const closed = trades.filter((trade) => eligibleIds.has(trade.id))
   const result = summarizeTradeResults(closed)
-  const usd = summarizeUsdPnl(closed, legacyCashCurrencyAssumption)
-  return { ...result, pnlCount: usd.pnlCount, totalPnl: usd.totalPnl }
+  const pnlTrades = trades.filter((trade) => pnlIds.has(trade.id))
+  const rTrades = trades.filter((trade) => rIds.has(trade.id))
+  return {
+    ...result,
+    pnlCount: pnlTrades.length,
+    totalPnl: pnlTrades.reduce((sum, trade) => sum + (trade.pnl ?? 0), 0),
+    rCount: rTrades.length,
+    averageR: rTrades.length
+      ? rTrades.reduce((sum, trade) => sum + (trade.rMultiple ?? 0), 0) / rTrades.length
+      : null,
+  }
 }
 
 /** 把交易库投影为互斥的今日行动队列，避免同一笔交易在多个区块重复出现。 */
