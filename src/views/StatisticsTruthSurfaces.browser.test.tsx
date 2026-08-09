@@ -80,8 +80,9 @@ function trade(overrides: Partial<Trade>): Trade {
     cashCurrency: 'USD',
     rMultiple: 2,
     resultSource: 'imported',
-    openedAt: '2026-08-09T06:00:00+08:00',
-    closedAt: '2026-08-09T06:00:00+08:00',
+    openedAt: '2026-08-09',
+    closedAt: '2026-08-09',
+    closedTradingDayKey: '2026-08-09',
     note: '',
     ...overrides,
   }
@@ -90,9 +91,20 @@ function trade(overrides: Partial<Trade>): Trade {
 function truthTrades(): Trade[] {
   return [
     trade({}),
-    trade({ id: 'truth-0559', ref: 'TRD-0559', closedAt: '2026-08-09T05:59:00+08:00' }),
-    trade({ id: 'truth-missing', ref: 'TRD-MISSING', closedAt: null }),
-    trade({ id: 'truth-invalid', ref: 'TRD-INVALID', closedAt: '2026-02-30T12:00:00+08:00' }),
+    trade({
+      id: 'truth-0559',
+      ref: 'TRD-0559',
+      openedAt: '2026-08-08',
+      closedAt: '2026-08-08',
+      closedTradingDayKey: '2026-08-08',
+    }),
+    trade({ id: 'truth-missing', ref: 'TRD-MISSING', closedAt: null, closedTradingDayKey: undefined }),
+    trade({
+      id: 'truth-invalid',
+      ref: 'TRD-INVALID',
+      closedAt: '2026-02-30',
+      closedTradingDayKey: undefined,
+    }),
     trade({ id: 'truth-future', ref: 'TRD-FUTURE', closedTradingDayKey: '2026-08-10', pnl: 900, rMultiple: 9 }),
     trade({ id: 'truth-conflict', ref: 'TRD-CONFLICT', pnl: -500, rMultiple: 1 }),
     trade({ id: 'truth-cny', ref: 'TRD-CNY', pnl: 700, cashCurrency: 'CNY', rMultiple: 3 }),
@@ -104,7 +116,8 @@ async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
   const previous = useStore.getState()
-  const date = installCurrentDate(new Date('2026-08-09T12:00:00+08:00').getTime())
+    // 使用本地正午，避免 CI（UTC）把 +08:00 锚点解析到前一交易日。
+    const date = installCurrentDate(new Date('2026-08-09T12:00:00').getTime())
   const root = createRoot(rootElement)
 
   try {
@@ -142,7 +155,7 @@ async function run(): Promise<void> {
     assert(panelText.includes('6 笔当前实盘关联 · 4 笔绩效样本'), 'StrategiesPanel 必须分开关联数与资格样本数')
     assert(panelText.includes('+11.0R') && !panelText.includes('900'), 'StrategiesPanel 不得纳入未来或冲突绩效')
 
-    date.set(new Date('2026-08-04T12:00:00+08:00').getTime())
+    date.set(new Date('2026-08-04T12:00:00').getTime())
     useStore.setState({
       trades: [
         trade({ id: 'weekly-valid', ref: 'TRD-WEEKLY-VALID', openedAt: '2026-08-03', closedAt: '2026-08-03', closedTradingDayKey: '2026-08-03' }),
