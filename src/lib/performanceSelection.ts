@@ -9,6 +9,7 @@ import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { writeTradeListPerformanceCycle } from '@/lib/livePerformanceCycleRoute'
+import { LIVE_PERFORMANCE_CYCLE_RESERVED_IDS } from '@/lib/livePerformanceCycles'
 
 export const PERFORMANCE_REPORT_CURRENCY = 'USD'
 
@@ -157,7 +158,7 @@ export function buildPerformanceSelection(
     ? null
     : input.liveScope?.missingRequestedKey
       ?? (input.liveScope?.kind === 'archive' ? input.liveScope.archiveId : null)
-      ?? (input.liveScope?.kind === 'all-archives' ? 'pre-cycle' : null)
+      ?? (input.liveScope?.kind === 'all-archives' ? LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all : null)
       ?? (input.liveScope?.kind === 'pending' ? 'pending' : null)
   const query = writeTradeListPerformanceCycle(
     writeAnalysisScope('', input.scope),

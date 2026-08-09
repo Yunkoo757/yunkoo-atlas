@@ -375,6 +375,59 @@ async function run(): Promise<void> {
     await assertRealListMatchesSelection('/list?kind=all&range=this-week', { kind: 'all', range: 'this-week' }, null, 'all/this-week')
     await assertRealListMatchesSelection('/list?kind=live&range=all&statsCycle=archive-cycle', { kind: 'live', range: 'all' }, 'archive-cycle', '历史 archive/all')
 
+    const dayBefore = (days: number) => {
+      const date = new Date(`${currentDay}T12:00:00`)
+      date.setDate(date.getDate() - days)
+      return formatYmd(date)
+    }
+    const multiCycles: LivePerformanceCycle[] = [
+      { id: 'first-cycle', name: '第一段', startTradingDayKey: dayBefore(45), createdAt: `${dayBefore(45)}T00:00:00.000Z` },
+      { id: 'middle-cycle', name: '中间段', startTradingDayKey: dayBefore(20), createdAt: `${dayBefore(20)}T00:00:00.000Z` },
+      { id: 'multi-current', name: '当前段', startTradingDayKey: currentDay, createdAt: `${currentDay}T00:00:00.000Z` },
+    ]
+    const preCycleTrade: Trade = { ...archivedLive, id: 'pre-cycle-trade', ref: 'TRD-PRE', openedAt: dayBefore(60), closedAt: dayBefore(60), closedTradingDayKey: dayBefore(60) }
+    const firstArchiveTrade: Trade = { ...archivedLive, id: 'first-archive-trade', ref: 'TRD-FIRST', openedAt: dayBefore(30), closedAt: dayBefore(30), closedTradingDayKey: dayBefore(30) }
+    const middleArchiveTrade: Trade = { ...archivedLive, id: 'middle-archive-trade', ref: 'TRD-MIDDLE', openedAt: dayBefore(10), closedAt: dayBefore(10), closedTradingDayKey: dayBefore(10) }
+    const multiCurrentTrade: Trade = { ...currentLive, id: 'multi-current-trade', ref: 'TRD-MULTI-CURRENT', openedAt: currentDay, closedAt: currentDay, closedTradingDayKey: currentDay }
+    useStore.setState({ trades: [preCycleTrade, firstArchiveTrade, middleArchiveTrade, multiCurrentTrade], livePerformanceCycles: multiCycles })
+    const allArchivesSelection = buildPerformanceSelection(useStore.getState().trades, {
+      scope: { kind: 'live', range: 'all' },
+      liveScope: resolveLiveArchiveScope(multiCycles, 'all'),
+      anchor,
+      legacyCashCurrencyAssumption: 'USD',
+    })
+    assert(allArchivesSelection.drilldownTarget.includes('statsCycle=all'), 'all-archives 下钻必须使用 reserved all')
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={[`/list${allArchivesSelection.drilldownTarget}`]}>
+        <Routes>
+          <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
+          <Route path="/live-archive" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelectorAll('[data-trade-id]').length === allArchivesSelection.eligibleMetricIds.length,
+      'all-archives 真实列表必须包含全部历史范围',
+    )
+    const allArchiveActualIds = new Set(
+      [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
+        .map((row) => row.dataset.tradeId!)
+        .filter(Boolean),
+    )
+    const allArchiveExpectedIds = new Set(allArchivesSelection.eligibleMetricIds)
+    const allArchiveDelta = [
+      ...allArchivesSelection.eligibleMetricIds.filter((id) => !allArchiveActualIds.has(id)),
+      ...[...allArchiveActualIds].filter((id) => !allArchiveExpectedIds.has(id)),
+    ]
+    assert(allArchiveDelta.length === 0, `all-archives Dashboard/List 双向差集必须为 0，实际 ${allArchiveDelta.join(',')}`)
+    assert(allArchiveActualIds.has('pre-cycle-trade'), 'all-archives 必须包含规则前记录')
+    assert(allArchiveActualIds.has('middle-archive-trade'), 'all-archives 必须包含中间 archive 记录')
+    assert(!allArchiveActualIds.has('multi-current-trade'), 'all-archives 必须排除 current 记录')
+
+    useStore.setState({ trades: [archivedLive, currentLive, historicalPaper], livePerformanceCycles: cycles })
+
     root.unmount()
     root = createRoot(rootElement)
     root.render(

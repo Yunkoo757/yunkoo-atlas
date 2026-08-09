@@ -227,6 +227,25 @@ export function testTradeListKeepsExplicitCurrentIdAndCanClearInvalidSelection()
   assert(cleared.get('visual') === 'x', '删除列表周期不得丢失无关参数')
 }
 
+export function testAnalysisTradeListResolvesAllArchivesWithoutChangingArchiveNavigation(): void {
+  const analysisList = resolveTradeListPerformanceCycleRoute(
+    '?kind=live&range=all&statsCycle=all',
+    cycles,
+    true,
+  )
+  const disabledList = resolveTradeListPerformanceCycleRoute(
+    '?kind=live&range=all&statsCycle=all',
+    cycles,
+    false,
+  )
+  const archiveRoute = resolveLiveRoute('?kind=live&range=all&statsCycle=all', cycles, 'archive')
+
+  assert(analysisList.resolved?.key === 'all', '显式分析列表必须把 reserved all 解析为全部历史周期')
+  assert(analysisList.canonicalSearch === '?kind=live&range=all&statsCycle=all', '分析列表的 all URL 必须稳定')
+  assert(disabledList.resolved === null && !disabledList.canonicalSearch.includes('statsCycle'), 'reserved all 只能在 enabled 分支启用')
+  assert(archiveRoute.target.kind === 'archive-home', '普通归档路由的 statsCycle=all 必须继续进入归档首页')
+}
+
 export function testTradeListRouteAlreadyClearsStatsCycleWhenTheLibraryIsEmpty(): void {
   const route = resolveTradeListPerformanceCycleRoute(
     '?statsCycle=pre-cycle&liveCycle=pre-cycle&symbol=BTCUSDT',

@@ -216,6 +216,7 @@ export function resolveTradeListPerformanceCycleRoute(
   // 外部 URL 同时给出两种周期时，显式绩效周期拥有优先权；即便 ID 已失效也不回落到风险筛选。
   removeRiskCycle(params)
   const valid = enabled && (
+    requested === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all ||
     (requested === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.preCycle && cycles.length > 0) ||
     cycles.some((cycle) => cycle.id === requested)
   )

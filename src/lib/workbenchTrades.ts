@@ -8,9 +8,20 @@ import type {
 } from '@/data/trades'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
-import { resolveLiveRoute, type LiveRouteTarget } from '@/lib/livePerformanceCycleRoute'
-import { filterLiveLogRecords, filterLivePerformanceRecords } from '@/lib/liveStatisticsArchive'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
+import {
+  resolveLiveRoute,
+  resolveTradeListPerformanceCycleRoute,
+  type LiveRouteTarget,
+} from '@/lib/livePerformanceCycleRoute'
+import {
+  filterLiveLogRecords,
+  filterLivePerformanceRecords,
+  resolveLiveArchiveScope,
+} from '@/lib/liveStatisticsArchive'
+import {
+  LIVE_PERFORMANCE_CYCLE_RESERVED_IDS,
+  type LivePerformanceCycle,
+} from '@/lib/livePerformanceCycles'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
@@ -225,6 +236,26 @@ function filterWorkbenchCycles(
   tradingDayStartHour: number,
 ): { trades: Trade[]; archiveHome?: ArchiveHomeTarget } {
   const cycles = options.livePerformanceCycles ?? []
+  const requestedCycle = new URLSearchParams(options.search).get('statsCycle')?.trim() ?? ''
+  if (
+    options.filter.analysisScope
+    && requestedCycle === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all
+  ) {
+    const analysisListRoute = resolveTradeListPerformanceCycleRoute(
+      options.search,
+      cycles,
+      true,
+    )
+    if (analysisListRoute.resolved?.key === LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all) {
+      const scopedLive = filterLivePerformanceRecords(
+        trades,
+        resolveLiveArchiveScope(cycles, LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all),
+        tradingDayStartHour,
+      )
+      const liveIds = new Set(scopedLive.map((trade) => trade.id))
+      return { trades: trades.filter((trade) => trade.tradeKind !== 'live' || liveIds.has(trade.id)) }
+    }
+  }
   const context = options.filter.analysisScope ? 'dashboard' : 'trade-list'
   const route = resolveLiveRoute(options.search, cycles, context)
   if (route.target.kind === 'archive-home') return { trades: [], archiveHome: route.target }

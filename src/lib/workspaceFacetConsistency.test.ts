@@ -218,6 +218,7 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
     { search: '?kind=all&range=all', scope: { kind: 'all' as const, range: 'all' as const }, archiveKey: null },
     { search: '?kind=all&range=30d', scope: { kind: 'all' as const, range: '30d' as const }, archiveKey: null },
     { search: '?kind=live&range=all&statsCycle=archive-id', scope: { kind: 'live' as const, range: 'all' as const }, archiveKey: 'archive-id' },
+    { search: '?kind=live&range=all&statsCycle=all', scope: { kind: 'live' as const, range: 'all' as const }, archiveKey: 'all' },
   ]
   for (const entry of matrix) {
     const expected = buildPerformanceSelection(trades, {

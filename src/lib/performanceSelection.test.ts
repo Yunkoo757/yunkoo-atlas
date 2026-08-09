@@ -105,6 +105,7 @@ export function testPerformanceSelectionUsesThePreCurrentBoundaryForAllArchives(
     },
   })
   assert.deepEqual(archives.eligibleMetricIds, ['tr-1001'])
+  assert.equal(archives.drilldownTarget, '?kind=live&range=all&statsCycle=all')
 }
 
 export function testPerformanceSelectionExcludesReliableDaysFromPendingLiveScope(): void {

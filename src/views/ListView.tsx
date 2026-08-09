@@ -37,8 +37,10 @@ import {
   resolveLiveRoute,
   resolveLiveRouteNavigation,
   resolvePerformanceAnalysisRoute,
+  resolveTradeListPerformanceCycleRoute,
 } from '@/lib/livePerformanceCycleRoute'
 import { filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { LIVE_PERFORMANCE_CYCLE_RESERVED_IDS } from '@/lib/livePerformanceCycles'
 import './ListView.css'
 
 export function ListView({
@@ -90,6 +92,16 @@ export function ListView({
       : null,
     [filter.analysisScope?.kind, livePerformanceCycles, location.search],
   )
+  const allArchivesAnalysisRoute = useMemo(() => {
+    if (!filter.analysisScope || filter.analysisScope.kind === 'paper') return null
+    const requested = new URLSearchParams(location.search).get('statsCycle')?.trim()
+    if (requested !== LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all) return null
+    return resolveTradeListPerformanceCycleRoute(
+      location.search,
+      livePerformanceCycles,
+      true,
+    )
+  }, [filter.analysisScope, livePerformanceCycles, location.search])
   const pendingCount = useMemo(() => {
     if (filter.tradeKind !== 'live') return 0
     return filterLiveLogRecords(
@@ -107,6 +119,12 @@ export function ListView({
       navigate({ search: paperAnalysisRoute.canonicalSearch }, { replace: true })
       return
     }
+    if (allArchivesAnalysisRoute) {
+      if (allArchivesAnalysisRoute.needsReplace) {
+        navigate({ search: allArchivesAnalysisRoute.canonicalSearch }, { replace: true })
+      }
+      return
+    }
     if (!liveRoute) return
     if (filter.analysisScope && liveRoute.needsReplace) {
       navigate({ search: liveRoute.canonicalSearch }, { replace: true })
@@ -115,7 +133,7 @@ export function ListView({
     const leavesWorkbench = liveRoute.target.kind === 'archive-home'
       || (liveRoute.target.kind === 'archive' && !filter.analysisScope)
     if (leavesWorkbench) navigate(resolveLiveRouteNavigation(liveRoute), { replace: true })
-  }, [filter.analysisScope, liveRoute, navigate, paperAnalysisRoute])
+  }, [allArchivesAnalysisRoute, filter.analysisScope, liveRoute, navigate, paperAnalysisRoute])
 
   useListContextSync(filter)
   useTradeReturnAnchor()
