@@ -369,7 +369,8 @@ export async function runDashboard10kQa({
     const loadedChecksum = await readFixtureChecksum(page)
     const cardCount = await page.locator('.db-card').count()
     const panelCount = await page.locator('.db-panel').count()
-    const hasDataHealth = await page.locator('.db-data-health').isVisible().catch(() => false)
+    // 滚动面内的健康条可能不在首屏；以 DOM 存在为准，不要求先滚入视口。
+    const hasDataHealth = (await page.locator('.db-data-health').count()) > 0
     const dashboardText = await page.locator('.db-scroll').innerText()
     const renderedClosedCount = Number(/(\d+) 笔已平仓/.exec(dashboardText)?.[1] ?? Number.NaN)
     const svgElementCount = await page.locator('.db-chart svg *').count()
