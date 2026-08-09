@@ -6,6 +6,7 @@ export type CalendarPeriod =
   | 'last-week'
   | 'this-month'
   | 'last-month'
+  | 'ytd'
 
 export const CALENDAR_PERIODS: CalendarPeriod[] = [
   'today',
@@ -13,6 +14,7 @@ export const CALENDAR_PERIODS: CalendarPeriod[] = [
   'last-week',
   'this-month',
   'last-month',
+  'ytd',
 ]
 
 export const PERIOD_LABELS: Record<CalendarPeriod, string> = {
@@ -21,6 +23,7 @@ export const PERIOD_LABELS: Record<CalendarPeriod, string> = {
   'last-week': '上周',
   'this-month': '本月',
   'last-month': '上月',
+  ytd: '本年',
 }
 
 export const WEEK_STARTS_ON = 1 // 周一
@@ -192,6 +195,12 @@ export function getPeriodBounds(
         end: formatYmd(endOfMonth(prev)),
       }
     }
+    case 'ytd':
+      return {
+        start: formatYmd(new Date(today.getFullYear(), 0, 1)),
+        // CalendarPeriod 是日志范围：上界必须是当前业务交易日，不能借用整月/未来日期语义。
+        end: anchor.currentTradingDayKey,
+      }
   }
 }
 

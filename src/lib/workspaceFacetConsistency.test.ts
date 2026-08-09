@@ -22,7 +22,10 @@ import {
   searchForWorkspaceViewTarget,
 } from '@/lib/workspaceViews'
 import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
-import { resolveTradeLogFilter } from '@/lib/tradeFilters'
+import {
+  describeListFilterDateField,
+  resolveTradeLogFilter,
+} from '@/lib/tradeFilters'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { createBusinessDateAnchor } from '@/lib/periods'
 import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
@@ -186,6 +189,56 @@ export function testTradeLogEnablesAnalysisOnlyForExplicitKindOrRange(): void {
 
   const app = readFileSync(path.resolve('src/App.tsx'), 'utf8')
   assert(app.includes('resolveTradeLogFilter(search)'), '/list 与 /board 路由必须消费同一个显式分析 filter 解析器')
+}
+
+export function testCalendarPeriodsAndDashboardPerformanceKeepDifferentDateFields(): void {
+  const anchor = createBusinessDateAnchor(new Date(2026, 7, 9, 12), 6)
+  const display = { ...DEFAULT_DISPLAY, hideClosed: false, tradingDayStartHour: 6 }
+  const openedThisYear = {
+    ...caseTrade,
+    id: 'opened-this-year',
+    ref: 'TRD-OPENED-YTD',
+    tradeKind: 'live' as const,
+    openedAt: '2026-01-02',
+    closedAt: '2025-12-31',
+    closedTradingDayKey: '2025-12-31',
+  }
+  const closedThisYear = {
+    ...openedThisYear,
+    id: 'closed-this-year',
+    ref: 'TRD-CLOSED-YTD',
+    openedAt: '2025-12-31',
+    closedAt: '2026-01-02',
+    closedTradingDayKey: '2026-01-02',
+  }
+
+  const calendarIds = getWorkbenchVisibleTrades({
+    trades: [openedThisYear, closedThisYear],
+    filter: { type: 'period', period: 'ytd', tradeKind: 'live' },
+    starredIds: [],
+    display,
+    search: '',
+    businessDateAnchor: anchor,
+  }).map((trade) => trade.id)
+  const performanceIds = getWorkbenchVisibleTrades({
+    trades: [openedThisYear, closedThisYear],
+    filter: resolveTradeLogFilter('?kind=live&range=ytd'),
+    starredIds: [],
+    display,
+    search: '?kind=live&range=ytd',
+    businessDateAnchor: anchor,
+  }).map((trade) => trade.id)
+
+  assert(calendarIds.join() === 'opened-this-year', '普通 /period/ytd 必须按开仓日筛选')
+  assert(performanceIds.join() === 'closed-this-year', 'Dashboard 本年下钻必须继续按可靠平仓日筛选')
+  assert(
+    describeListFilterDateField({ type: 'period', period: 'ytd', tradeKind: 'live' }) === '按开仓日',
+    '普通 period 副标题必须说明开仓日字段',
+  )
+  assert(
+    describeListFilterDateField(resolveTradeLogFilter('?kind=live&range=ytd')) === '按可靠平仓日',
+    '绩效下钻副标题必须说明可靠平仓日字段',
+  )
 }
 
 export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(): void {

@@ -36,6 +36,22 @@ export function testTodayPeriodBoundsFollowTradingDay(): void {
   assert(bounds.start === '2026-07-21' && bounds.end === '2026-07-21', '今日周期应按交易日')
 }
 
+export function testYtdPeriodBoundsStartAtTheBusinessYearAndNeverIncludeFutureDays(): void {
+  const beforeBoundary = createBusinessDateAnchor(new Date(2026, 6, 22, 3, 30), 6)
+  const bounds = getPeriodBounds('ytd', beforeBoundary)
+  assert(
+    bounds.start === '2026-01-01' && bounds.end === '2026-07-21',
+    '本年范围必须从当前交易年的首日截至当前交易日，不能纳入未来日期',
+  )
+
+  const newYearBeforeBoundary = createBusinessDateAnchor(new Date(2027, 0, 1, 3, 30), 6)
+  const priorYearBounds = getPeriodBounds('ytd', newYearBeforeBoundary)
+  assert(
+    priorYearBounds.start === '2026-01-01' && priorYearBounds.end === '2026-12-31',
+    '元旦切日前的本年必须仍以归属交易年为准',
+  )
+}
+
 export function testAllCalendarPeriodBoundsUseTheSameBusinessDateAnchor(): void {
   const beforeBoundary = createBusinessDateAnchor(new Date(2026, 7, 3, 3, 59, 59, 999), 4)
   assert(beforeBoundary.currentTradingDayKey === '2026-08-02', '边界前 1ms 必须仍锚定前一交易日')

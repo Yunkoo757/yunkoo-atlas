@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  Link,
   useNavigate,
   useLocation,
   useParams,
@@ -42,7 +43,7 @@ import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
 import { resolveTradeLogFilter, type ListFilter, type ReviewCaseScope } from './lib/tradeFilters'
-import { isValidPeriodSlug } from './lib/periods'
+import { isValidPeriodSlug, PERIOD_LABELS } from './lib/periods'
 import { tradeDetailPath, tradeDetailNavState } from './lib/tradeRoute'
 import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath, workbenchModeFromPathname } from './lib/routeContext'
@@ -248,15 +249,23 @@ export function StrategyPage() {
   )
 }
 
-function PeriodPage() {
+export function PeriodPage() {
   const { slug } = useParams()
   if (!slug || !isValidPeriodSlug(slug)) {
-    return <Navigate to="/period/today" replace />
+    const requestedPath = `/period/${slug ?? ''}`
+    return (
+      <main className="route-state" data-invalid-period role="alert">
+        <h1>范围不存在</h1>
+        <p>无法识别范围“{requestedPath}”，原请求未被改写。</p>
+        <p>请选择有效范围，或返回今日交易日志。</p>
+        <Link to="/period/today">返回今日</Link>
+      </main>
+    )
   }
   const listPath = `/period/${slug}`
   return (
     <TradesPage
-      title="交易日志"
+      title={PERIOD_LABELS[slug]}
       filter={{ type: 'period', period: slug, tradeKind: 'live' }}
       listPath={listPath}
     />

@@ -11,7 +11,7 @@ import { DetailView } from '@/views/DetailView'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { createBusinessDateAnchor } from '@/lib/periods'
-import { TradeLogPage } from '@/App'
+import { PeriodPage, TradeLogPage } from '@/App'
 
 declare global {
   interface Window {
@@ -331,7 +331,7 @@ async function run(): Promise<void> {
 
     const assertRealListMatchesSelection = async (
       entry: string,
-      scope: { kind: 'live' | 'paper' | 'all', range: 'all' | 'this-week' },
+      scope: { kind: 'live' | 'paper' | 'all', range: 'all' | 'this-week' | 'ytd' },
       archiveKey: string | null,
       label: string,
     ) => {
@@ -374,6 +374,84 @@ async function run(): Promise<void> {
     await assertRealListMatchesSelection('/list?kind=all&range=all', { kind: 'all', range: 'all' }, null, 'all/all')
     await assertRealListMatchesSelection('/list?kind=all&range=this-week', { kind: 'all', range: 'this-week' }, null, 'all/this-week')
     await assertRealListMatchesSelection('/list?kind=live&range=all&statsCycle=archive-cycle', { kind: 'live', range: 'all' }, 'archive-cycle', '历史 archive/all')
+    await assertRealListMatchesSelection('/list?kind=live&range=ytd&statsCycle=archive-cycle', { kind: 'live', range: 'ytd' }, 'archive-cycle', '历史 archive/ytd')
+
+    const ytdDay = getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour)
+    const ytdTrade: Trade = {
+      ...currentLive,
+      id: 'calendar-and-performance-ytd',
+      ref: 'TRD-YTD',
+      openedAt: ytdDay,
+      closedAt: ytdDay,
+      closedTradingDayKey: ytdDay,
+    }
+    useStore.setState({ trades: [ytdTrade], livePerformanceCycles: [] })
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=ytd']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => Boolean(document.querySelector('[data-kpi-drilldown]')), '本年 Dashboard 必须展示 KPI 下钻')
+    const ytdDrilldown = document.querySelector<HTMLAnchorElement>('[data-kpi-drilldown]')
+    assert(
+      ytdDrilldown?.getAttribute('href') === '/list?kind=live&range=ytd',
+      'Dashboard 本年下钻必须保留 kind/range，当前实盘不伪造 statsCycle',
+    )
+    ytdDrilldown.click()
+    await waitFor(
+      () => document.querySelectorAll('[data-trade-id]').length === 1,
+      'Dashboard 本年下钻必须通过可靠平仓日选择器进入真实列表',
+    )
+    const dashboardYtdIds = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
+      .map((row) => row.dataset.tradeId)
+      .filter(Boolean)
+      .join(',')
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/period/ytd']}>
+        <Routes>
+          <Route path="/period/:slug" element={<><PeriodPage /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.querySelector('h1')?.textContent === '本年'
+        && document.querySelectorAll('[data-trade-id]').length === 1,
+      '/period/ytd 必须保留本年标题并渲染真实列表 DOM',
+    )
+    assert(
+      document.querySelector('[data-testid="location"]')?.textContent === '/period/ytd',
+      '/period/ytd 不得静默跳转到 today',
+    )
+    assert(document.body.textContent?.includes('按开仓日'), '/period/ytd 副标题必须说明按开仓日')
+    const calendarYtdIds = [...document.querySelectorAll<HTMLElement>('[data-trade-id]')]
+      .map((row) => row.dataset.tradeId)
+      .filter(Boolean)
+      .join(',')
+    assert(calendarYtdIds === dashboardYtdIds, '本年路由与 Dashboard 本年下钻在同一交易样本上必须展示同一 ID')
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
+      <MemoryRouter initialEntries={['/period/not-a-period']}>
+        <Routes>
+          <Route path="/period/:slug" element={<><PeriodPage /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => Boolean(document.querySelector('[data-invalid-period]')),
+      '非法 period slug 必须显示可解释的恢复页',
+    )
+    assert(document.body.textContent?.includes('/period/not-a-period'), '恢复页必须解释用户原始请求')
+    assert(document.querySelector('[data-testid="location"]')?.textContent === '/period/not-a-period', '非法 slug 不得静默跳转 today')
 
     const dayBefore = (days: number) => {
       const date = new Date(`${currentDay}T12:00:00`)

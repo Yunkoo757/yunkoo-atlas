@@ -156,6 +156,7 @@ function matchesListFilter(
       if (filter.period && !tradeInPeriod(
         trade,
         filter.period,
+        // CalendarPeriod 路由始终按开仓日；Dashboard 绩效范围会在下方走可靠平仓日选择器。
         'openedAt',
         businessDateAnchor ?? new Date(),
         tradingDayStartHour,

@@ -38,6 +38,13 @@ export interface ListFilter {
   reviewCaseScope?: ReviewCaseScope
 }
 
+/**
+ * 普通日志时间范围与 Dashboard 绩效下钻属于不同的问题：前者看开仓记录，后者看可靠平仓结果。
+ */
+export function describeListFilterDateField(filter: ListFilter): '按开仓日' | '按可靠平仓日' {
+  return filter.analysisScope ? '按可靠平仓日' : '按开仓日'
+}
+
 /** 普通交易日志保持 live 工作区；只有合法 kind/range 参数才启用 Dashboard 绩效下钻。 */
 export function resolveTradeLogFilter(search: string | URLSearchParams): ListFilter {
   const parsed = parseAnalysisScope(search)
