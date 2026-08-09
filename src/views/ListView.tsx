@@ -7,7 +7,7 @@ import { TradeFilters } from '@/components/trades/TradeFilters'
 import { TradeList, type TradeListGroup } from '@/components/trades/TradeList'
 import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import { isReviewCompleted, type Trade } from '@/data/trades'
-import { describeListFilterDateField, type ListFilter } from '@/lib/tradeFilters'
+import type { ListFilter } from '@/lib/tradeFilters'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { getStrategyName } from '@/lib/strategies'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
@@ -381,14 +381,7 @@ export function ListView({
 
   return (
     <>
-      <Topbar
-        title={title}
-        subtitle={filter.analysisScope
-          ? `仪表盘绩效下钻 · ${describeListFilterDateField(filter)}`
-          : getTradesPageSubtitle(filter, businessDateAnchor)}
-        view={view}
-        onView={onView}
-      />
+      <Topbar title={title} subtitle={getTradesPageSubtitle(filter, businessDateAnchor)} view={view} onView={onView} />
       {showPendingLink ? (
         <div className="list-pending-entry">
           <Link

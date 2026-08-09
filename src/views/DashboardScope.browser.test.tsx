@@ -415,6 +415,25 @@ async function run(): Promise<void> {
     root.unmount()
     root = createRoot(rootElement)
     root.render(
+      <MemoryRouter initialEntries={['/board?kind=live&range=ytd']}>
+        <Routes>
+          <Route path="/board" element={<><TradeLogPage /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.body.textContent?.includes('仪表盘绩效下钻 · 按可靠平仓日')
+        && document.querySelectorAll('[data-trade-id]').length === 1,
+      'Dashboard 本年下钻到 BoardView 必须保留可靠平仓日口径与真实交易 DOM',
+    )
+    assert(
+      document.querySelector('[data-testid="location"]')?.textContent === '/board?kind=live&range=ytd',
+      'Dashboard 本年 Board 下钻不得丢失分析 URL',
+    )
+
+    root.unmount()
+    root = createRoot(rootElement)
+    root.render(
       <MemoryRouter initialEntries={['/period/ytd']}>
         <Routes>
           <Route path="/period/:slug" element={<><PeriodPage /><LocationProbe /></>} />
@@ -440,9 +459,9 @@ async function run(): Promise<void> {
     root.unmount()
     root = createRoot(rootElement)
     root.render(
-      <MemoryRouter initialEntries={['/period/not-a-period']}>
+      <MemoryRouter initialEntries={['/period/bad/board?symbol=BTCUSDT']}>
         <Routes>
-          <Route path="/period/:slug" element={<><PeriodPage /><LocationProbe /></>} />
+          <Route path="/period/:slug/board" element={<><PeriodPage /><LocationProbe /></>} />
         </Routes>
       </MemoryRouter>,
     )
@@ -450,8 +469,14 @@ async function run(): Promise<void> {
       () => Boolean(document.querySelector('[data-invalid-period]')),
       '非法 period slug 必须显示可解释的恢复页',
     )
-    assert(document.body.textContent?.includes('/period/not-a-period'), '恢复页必须解释用户原始请求')
-    assert(document.querySelector('[data-testid="location"]')?.textContent === '/period/not-a-period', '非法 slug 不得静默跳转 today')
+    assert(
+      document.body.textContent?.includes('/period/bad/board?symbol=BTCUSDT'),
+      '恢复页必须完整解释用户原始 pathname 与 query',
+    )
+    assert(
+      document.querySelector('[data-testid="location"]')?.textContent === '/period/bad/board?symbol=BTCUSDT',
+      '非法 slug 不得静默跳转 today 或丢失 board/query',
+    )
 
     const dayBefore = (days: number) => {
       const date = new Date(`${currentDay}T12:00:00`)

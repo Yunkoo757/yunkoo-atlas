@@ -251,8 +251,9 @@ export function StrategyPage() {
 
 export function PeriodPage() {
   const { slug } = useParams()
+  const location = useLocation()
   if (!slug || !isValidPeriodSlug(slug)) {
-    const requestedPath = `/period/${slug ?? ''}`
+    const requestedPath = `${location.pathname}${location.search}`
     return (
       <main className="route-state" data-invalid-period role="alert">
         <h1>范围不存在</h1>

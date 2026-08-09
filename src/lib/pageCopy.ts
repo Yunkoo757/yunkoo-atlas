@@ -1,4 +1,4 @@
-import type { ListFilter } from '@/lib/tradeFilters'
+import { describeListFilterDateField, type ListFilter } from '@/lib/tradeFilters'
 import { formatPeriodSubtitle, type BusinessDateAnchor } from '@/lib/periods'
 
 export const MISSED_PAGE_TITLE = '错过的机会'
@@ -7,6 +7,9 @@ export function getTradesPageSubtitle(
   filter: ListFilter,
   businessDateAnchor?: BusinessDateAnchor,
 ): string | undefined {
+  if (filter.analysisScope) {
+    return `仪表盘绩效下钻 · ${describeListFilterDateField(filter)}`
+  }
   if (filter.type === 'active') return '进行中 · 计划中 + 持仓中'
   if (filter.type === 'starred') return '星标交易'
   if (filter.type === 'missed') return '未实际执行的机会 · 假设盈亏'
