@@ -14,7 +14,7 @@
  */
 
 import type { CaseType, Trade, TradeKind, TradeStatus, TradeSide, Conviction } from '@/data/trades'
-import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
+import { normalizeCashCurrency, normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import type { CsvParseResult } from '@/lib/csvImport'
 import { parseCsv } from '@/lib/csvImport'
@@ -181,9 +181,23 @@ function mapNotionConviction(raw: string): Conviction {
 function parseNotionMoney(raw: string): number | null {
   const v = raw.trim()
   if (!v || v === '—' || v === '-') return null
-  const cleaned = v.replace(/^US\$/, '').replace(/^[$¥€£￥]/, '').replace(/[,，\s]/g, '')
+  const cleaned = v
+    .replace(/^[A-Za-z]{3}(?=\s|[-+]?\d)\s*/, '')
+    .replace(/^US\$/, '')
+    .replace(/^[$¥€£￥]/, '')
+    .replace(/[,，\s]/g, '')
   const n = parseFloat(cleaned)
   return isNaN(n) ? null : n
+}
+
+function parseNotionCashCurrency(rawMoney: string, declaredCurrency: string): string | null {
+  const money = rawMoney.trim()
+  if (/^(?:¥|￥)/.test(money)) return 'CNY'
+  if (/^€/.test(money)) return 'EUR'
+  if (/^£/.test(money)) return 'GBP'
+  if (/^US\$/i.test(money)) return 'USD'
+  const prefixedCode = /^([A-Za-z]{3})(?:\s|[-+]?\d)/.exec(money)?.[1]
+  return normalizeCashCurrency(prefixedCode ?? declaredCurrency)
 }
 
 export function parseNotionDate(raw: string): string | null {
@@ -522,7 +536,17 @@ function buildTradeFromFrontmatter(
   if ((status === 'planned' || status === 'open') && plStatus) status = plStatus
 
   // PnL
-  const pnl = parseNotionMoney(stripNotionUrl(fm['net pnl'] ?? ''))
+  const pnlRaw = stripNotionUrl(fm['net pnl'] ?? '')
+  const pnl = parseNotionMoney(pnlRaw)
+  const cashCurrency = parseNotionCashCurrency(
+    pnlRaw,
+    stripNotionUrl(fm['cash currency'] ?? fm['currency'] ?? ''),
+  )
+
+  const closeDateStr = stripNotionUrl(
+    fm['close date'] ?? fm['closed date'] ?? fm['平仓日期'] ?? fm['平仓日'] ?? '',
+  )
+  const sourceClosedAt = parseNotionDate(closeDateStr)
 
   // R
   const parsedR = parseFloat(stripNotionUrl(fm['max r/r'] ?? ''))
@@ -583,6 +607,13 @@ function buildTradeFromFrontmatter(
 
   // Missing execution metrics warning
   warnings.push('Notion 数据缺少仓位等执行字段，结果字段会标记为待校验')
+  const isTerminalStatus = status === 'win' || status === 'loss' || status === 'breakeven'
+  if (isTerminalStatus && !sourceClosedAt) {
+    warnings.push('缺少平仓日，将进入待整理且不计入绩效')
+  }
+  if (pnl !== null && cashCurrency === null) {
+    warnings.push('币种未知，不进入 USD 总计')
+  }
 
   return {
     sourceId: stripNotionUrl(fm['id'] ?? '') || undefined,
@@ -601,10 +632,11 @@ function buildTradeFromFrontmatter(
       exit: null,
       size: 0,
       pnl,
+      cashCurrency,
       rMultiple,
       stopLoss,
       openedAt: openedAt ?? '',
-      closedAt: status === 'win' || status === 'loss' || status === 'breakeven' ? openedAt : null,
+      closedAt: isTerminalStatus ? sourceClosedAt : null,
       tags: collectedTags,
       mistakeTags,
       reviewStatus: 'unreviewed',
@@ -896,7 +928,7 @@ export async function parseNotionZip(
 
 type NotionField =
   | 'id' | 'symbol' | 'date' | 'position' | 'status' | 'profitLoss'
-  | 'pnl' | 'rMultiple' | 'stopLoss' | 'model' | 'weight'
+  | 'closedDate' | 'pnl' | 'cashCurrency' | 'rMultiple' | 'stopLoss' | 'model' | 'weight'
   | 'confluences' | 'entrySignal' | 'timeFrame' | 'session'
   | 'mistakes' | 'narrative' | 'psychology' | 'orderType'
   | 'tradeType' | 'entryPerformance' | 'newsImpact'
@@ -904,8 +936,10 @@ type NotionField =
 const NOTION_FIELD_PATTERNS: [RegExp, NotionField][] = [
   [/^ID$/i, 'id'],
   [/^Symbol$/i, 'symbol'], [/^Date$/i, 'date'], [/^Position$/i, 'position'],
+  [/^(?:Close|Closed) Date$/i, 'closedDate'], [/^平仓(?:日期|日)$/i, 'closedDate'],
   [/^Status$/i, 'status'], [/^Profit\/Loss$/i, 'profitLoss'],
   [/^Net PnL$/i, 'pnl'], [/^Max R\/R$/i, 'rMultiple'],
+  [/^(?:Cash )?Currency$/i, 'cashCurrency'], [/^(?:币种|货币)$/i, 'cashCurrency'],
   [/^S\/L Pips$/i, 'stopLoss'], [/^Model$/i, 'model'],
   [/^Weight$/i, 'weight'], [/^Confluences$/i, 'confluences'],
   [/^Entry Signal$/i, 'entrySignal'], [/^Time Frame$/i, 'timeFrame'],
@@ -938,8 +972,22 @@ function mapCsvRowToPreview(
 ): Omit<NotionTradePreview, 'images' | 'imageCount'> {
   // Build a synthetic frontmatter from CSV fields
   const fm: MdFrontmatter = {}
+  const frontmatterKeyByField: Partial<Record<NotionField, string>> = {
+    profitLoss: 'profit/loss',
+    closedDate: 'close date',
+    pnl: 'net pnl',
+    cashCurrency: 'cash currency',
+    rMultiple: 'max r/r',
+    stopLoss: 's/l pips',
+    timeFrame: 'time frame',
+    entrySignal: 'entry signal',
+    orderType: 'order type',
+    tradeType: 'type of trade',
+    entryPerformance: 'entry performance',
+    newsImpact: 'news impact',
+  }
   for (const [field, colIdx] of fields.entries()) {
-    fm[field] = getCell(row, colIdx)
+    fm[frontmatterKeyByField[field] ?? field] = getCell(row, colIdx)
   }
   return buildTradeFromFrontmatter(fm, rowIndex, [])
 }
@@ -1170,7 +1218,8 @@ export function executeNotionImport(
       rMultiple: preview.trade.rMultiple ?? 0,
       openedAt: preview.trade.openedAt ?? now.slice(0, 10),
       recordedAt: tradeKind === 'case' ? now : undefined,
-      closedAt: isTerminalStatus ? preview.trade.openedAt ?? null : null,
+      closedAt: isTerminalStatus ? preview.trade.closedAt ?? null : null,
+      cashCurrency: preview.trade.cashCurrency ?? null,
       note: preview.noteHtml || '',
     }
 

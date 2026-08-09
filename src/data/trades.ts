@@ -101,6 +101,8 @@ export interface Trade {
   initialStopLoss?: number | null // 首次按价格平仓时冻结，避免后续移动止损改写历史 R
   size: number // 仓位
   pnl: number | null // 盈亏金额；null 表示尚未填写，0 表示真实保本
+  /** 现金盈亏的来源币种；大写 ISO 4217 三字母代码，null 表示来源无法确认。 */
+  cashCurrency?: string | null
   rMultiple: number | null // R 倍数；null 表示尚未填写，0 表示真实保本
   resultSource?: TradeResultSource // 用户确认的结果依据；旧数据在载入时推断
   openedAt: string // ISO date
@@ -114,6 +116,23 @@ export interface Trade {
   activities?: ActivityEvent[]
   deletedAt?: string // 删除时间（ISO 格式），undefined 表示未删除
   deletedBy?: string // 删除操作来源（可选，用于审计）
+}
+
+const ISO_4217_CODES = new Set(`
+AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB BOV BRL BSD BTN BWP BYN BZD
+CAD CDF CHE CHF CHW CLF CLP CNY COP COU CRC CUC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP
+GEL GHS GIP GMD GNF GTQ GYD HKD HNL HRK HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR KMF KPW
+KRW KWD KYD KZT LAK LBP LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MXV MYR MZN
+NAD NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP
+SLE SLL SOS SRD SSP STN SVC SYP SZL THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD USN UYI UYU UYW UZS
+VED VES VND VUV WST XAF XAG XAU XBA XBB XBC XBD XCD XCG XDR XOF XPD XPF XPT XSU XTS XUA XXX YER ZAR ZMW ZWL
+`.trim().split(/\s+/))
+
+/** 将来源币种规范为 ISO 4217 大写代码；无法确认时返回 null。 */
+export function normalizeCashCurrency(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim().toUpperCase()
+  return ISO_4217_CODES.has(normalized) ? normalized : null
 }
 
 export const STATUS_META: Record<

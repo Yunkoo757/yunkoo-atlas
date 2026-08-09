@@ -286,6 +286,16 @@ export function NotionImportModal({ open, onClose }: Props) {
       return count
     }, 0)
   }, [result, duplicateByRow, skipDuplicates, forceImportRows])
+  const importFactCounts = useMemo(() => {
+    if (!result) return { missingCloseDate: 0, unknownCurrency: 0 }
+    return result.previews.reduce((counts, preview) => {
+      const status = preview.trade.status
+      const terminal = status === 'win' || status === 'loss' || status === 'breakeven'
+      if (terminal && !preview.trade.closedAt) counts.missingCloseDate += 1
+      if (preview.trade.pnl != null && preview.trade.cashCurrency === null) counts.unknownCurrency += 1
+      return counts
+    }, { missingCloseDate: 0, unknownCurrency: 0 })
+  }, [result])
 
   const handleImport = async () => {
     if (!result || dupScanState !== 'done') return
@@ -521,6 +531,18 @@ export function NotionImportModal({ open, onClose }: Props) {
               <>
                 {' · '}
                 <span className="nim-dup-count">{duplicateCount} 笔疑似重复</span>
+              </>
+            )}
+            {importFactCounts.missingCloseDate > 0 && (
+              <>
+                {' · '}
+                <span className="nim-bad">{importFactCounts.missingCloseDate} 笔缺少平仓日</span>
+              </>
+            )}
+            {importFactCounts.unknownCurrency > 0 && (
+              <>
+                {' · '}
+                <span className="nim-bad">{importFactCounts.unknownCurrency} 笔币种未知</span>
               </>
             )}
             {result.totalImages > 0 && (

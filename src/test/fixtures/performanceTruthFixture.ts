@@ -1,9 +1,7 @@
 import type { Trade, TradeKind, TradeResultSource, TradeStatus } from '@/data/trades'
 import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 
-export type PerformanceFixtureTrade = Trade & {
-  currency?: string | null
-}
+export type PerformanceFixtureTrade = Trade
 
 type Fact = {
   id: string
@@ -15,7 +13,7 @@ type Fact = {
   rMultiple?: number | null
   resultSource?: TradeResultSource
   deletedAt?: string
-  currency?: string | null
+  cashCurrency?: string | null
 }
 
 const hasOwn = (value: object, property: string): boolean => Object.prototype.hasOwnProperty.call(value, property)
@@ -47,7 +45,7 @@ function fact(input: Fact): PerformanceFixtureTrade {
     note: '',
     deletedAt: input.deletedAt,
   }
-  if (hasOwn(input, 'currency')) trade.currency = input.currency
+  if (hasOwn(input, 'cashCurrency')) trade.cashCurrency = input.cashCurrency
   return trade
 }
 
@@ -112,9 +110,9 @@ const edgeCases: PerformanceFixtureTrade[] = [
   fact({ id: 'FX-PNL-ONLY', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 12, resultSource: 'pnl' }),
   fact({ id: 'FX-R-ONLY', tradeKind: 'live', status: 'loss', closedTradingDayKey: '2026-08-09', rMultiple: -1.2, resultSource: 'r' }),
   fact({ id: 'FX-CONFLICT', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 12, rMultiple: -1.2, resultSource: 'imported' }),
-  fact({ id: 'FX-USD', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 100, rMultiple: 1, resultSource: 'imported', currency: 'USD' }),
-  fact({ id: 'FX-CNY', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 700, rMultiple: 1, resultSource: 'imported', currency: 'CNY' }),
-  fact({ id: 'FX-CURRENCY-UNKNOWN', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 10, rMultiple: 1, resultSource: 'imported', currency: null }),
+  fact({ id: 'FX-USD', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 100, rMultiple: 1, resultSource: 'imported', cashCurrency: 'USD' }),
+  fact({ id: 'FX-CNY', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 700, rMultiple: 1, resultSource: 'imported', cashCurrency: 'CNY' }),
+  fact({ id: 'FX-CURRENCY-UNKNOWN', tradeKind: 'live', status: 'win', closedTradingDayKey: '2026-08-09', pnl: 10, rMultiple: 1, resultSource: 'imported', cashCurrency: null }),
 ]
 
 export const performanceTruthFixture = {

@@ -1,4 +1,4 @@
-import type { Trade } from '@/data/trades'
+import { normalizeCashCurrency, type Trade } from '@/data/trades'
 import type { AnalysisRange, AnalysisScope } from '@/lib/analysisScope'
 import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
 import { formatYmd, getPeriodBounds, parseLocalDate, type BusinessDateAnchor } from '@/lib/periods'
@@ -13,7 +13,6 @@ import { LIVE_PERFORMANCE_CYCLE_RESERVED_IDS } from '@/lib/livePerformanceCycles
 
 export const PERFORMANCE_REPORT_CURRENCY = 'USD'
 
-type CurrencyTrade = Trade & { currency?: string | null }
 const hasOwn = (value: object, property: string): boolean => Object.prototype.hasOwnProperty.call(value, property)
 
 type CloseDayResolution =
@@ -85,15 +84,13 @@ function matchesLiveScope(trade: Trade, liveScope: LiveArchiveScope | null, day:
     && (endExclusive === null || day < endExclusive)
 }
 
-function normalizedCurrency(trade: CurrencyTrade, fallback: string | null): string | null {
-  const value = hasOwn(trade, 'currency') ? trade.currency : fallback
-  if (typeof value !== 'string') return null
-  const normalized = value.trim().toUpperCase()
-  return normalized || null
+function normalizedCurrency(trade: Trade, fallback: string | null): string | null {
+  const value = hasOwn(trade, 'cashCurrency') ? trade.cashCurrency : fallback
+  return normalizeCashCurrency(value)
 }
 
 export function buildPerformanceSelection(
-  trades: readonly CurrencyTrade[],
+  trades: readonly Trade[],
   input: PerformanceSelectionInput,
 ): PerformanceSelection {
   const futureCloseDayIds: string[] = []

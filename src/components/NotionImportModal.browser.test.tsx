@@ -72,7 +72,14 @@ async function run(): Promise<void> {
   const originalGetAssetStats = storage.getAssetStats.bind(storage)
   const originalConsoleError = console.error
   const attemptedCommits: Array<{
-    trades: Array<{ id: string; ref: string; tradeKind: string }>
+    trades: Array<{
+      id: string
+      ref: string
+      tradeKind: string
+      closedAt: string | null
+      closedTradingDayKey?: string
+      cashCurrency?: string | null
+    }>
     strategyIds: string[]
     assets: { id: string; mime: string; data: string }[]
   }> = []
@@ -135,6 +142,9 @@ async function run(): Promise<void> {
         id: trade.id,
         ref: trade.ref,
         tradeKind: trade.tradeKind,
+        closedAt: trade.closedAt,
+        closedTradingDayKey: trade.closedTradingDayKey,
+        cashCurrency: trade.cashCurrency,
       })),
       strategyIds: snapshot.strategies.map((strategy) => strategy.id),
       assets,
@@ -163,7 +173,7 @@ async function run(): Promise<void> {
       'Model: 新策略',
       'Position: Buy',
       'Status: Closed by T/P',
-      'Net PnL: US$20.00',
+      'Net PnL: 20.00',
       '',
       ...imageLines,
     ].join('\n'))
@@ -172,6 +182,11 @@ async function run(): Promise<void> {
     files.items.add(new File([zipBlob], 'notion.zip', { type: 'application/zip' }))
     Object.defineProperty(input, 'files', { configurable: true, value: files.files })
     input.dispatchEvent(new Event('change', { bubbles: true }))
+
+    await waitForBodyText('缺少平仓日，将进入待整理且不计入绩效')
+    await waitForBodyText('币种未知，不进入 USD 总计')
+    await waitForBodyText('1 笔缺少平仓日')
+    await waitForBodyText('1 笔币种未知')
 
     const caseTarget = await waitForButton('案例记录')
     assert(caseTarget.getAttribute('role') === 'radio', 'Notion 导入目标应使用可访问的单选语义')
@@ -214,6 +229,9 @@ async function run(): Promise<void> {
       importedCase?.tradeKind === 'case' && importedCase.ref === 'CAS-1',
       '选择案例记录后，原子快照必须写入案例域并使用 CAS 编号',
     )
+    assert(importedCase?.closedAt === null, '只有开仓日的 Notion 终态必须保留缺失平仓日')
+    assert(importedCase?.closedTradingDayKey === undefined, '缺少来源平仓日不得生成业务日')
+    assert(importedCase?.cashCurrency === null, '无符号金额必须以未知币种提交')
     assert(attempted?.assets.length === 10, '10 张图片必须作为同一个原子批次提交')
     attempted?.assets.forEach((asset, index) => {
       const decoded = Uint8Array.from(atob(asset.data), (char) => char.charCodeAt(0))

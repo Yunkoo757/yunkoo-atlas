@@ -23,6 +23,7 @@ import type {
   PersistedSnapshot,
 } from '@/storage/types'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
+import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { useStore } from '@/store/useStore'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
@@ -260,7 +261,7 @@ export async function testNotionSuccessPublishesOnlyTheAtomicallyCommittedBatch(
   assert(getPersistSuspendDepth() === 0, '成功提交后必须恢复自动保存')
 }
 
-export async function testNotionTerminalTimestampImportFreezesTradingDayAtCommitBoundary(): Promise<void> {
+export async function testNotionTerminalWithOnlyOpenDateStaysWithoutCloseDayAtCommitBoundary(): Promise<void> {
   disablePersistWrites()
   const previous = useStore.getState()
   const adapter = new AtomicMemoryAdapter(snapshot('旧快照'))
@@ -273,13 +274,15 @@ export async function testNotionTerminalTimestampImportFreezesTradingDayAtCommit
 
     await commitNotionImportBatch([terminal], { storage: adapter })
 
+    const committed = adapter.committedSnapshot.trades[0]
+    const published = useStore.getState().trades[0]
+    assert(committed?.closedAt === null, '只有开仓日的 Notion 终态不得伪造平仓日')
+    assert(committed?.closedTradingDayKey === undefined, '缺少来源平仓日时不得生成业务日')
+    assert(published?.closedAt === null, '发布到 store 的交易必须保留缺失平仓日')
+    assert(published?.closedTradingDayKey === undefined, '发布到 store 时不得补造业务日')
     assert(
-      adapter.committedSnapshot.trades[0]?.closedTradingDayKey === '2026-07-13',
-      'Notion 终态时间戳必须在原子提交快照前按当前交易日边界固化',
-    )
-    assert(
-      useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-13',
-      '导入发布到 store 的交易必须复用同一已固化业务日',
+      published && resolveLiveRecordBucket(published, [], 6) === 'pending',
+      '提交后缺少平仓日的实盘终态必须出现在待整理入口',
     )
   } finally {
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, display: previous.display })

@@ -74,8 +74,8 @@ export function testPerformanceSelectionUsesTheExplicitLegacyCashCurrencyAssumpt
 export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitted(): void {
   const legacyTrade = fixture.trades.find((trade) => trade.id === 'tr-1011')!
   const explicitUnknownTrade = fixture.trades.find((trade) => trade.id === 'FX-CURRENCY-UNKNOWN')!
-  assert.equal(hasOwn(legacyTrade, 'currency'), false)
-  assert.equal(hasOwn(explicitUnknownTrade, 'currency'), true)
+  assert.equal(hasOwn(legacyTrade, 'cashCurrency'), false)
+  assert.equal(hasOwn(explicitUnknownTrade, 'cashCurrency'), true)
 
   const selection = buildPerformanceSelection([legacyTrade, explicitUnknownTrade], {
     scope: { kind: 'all', range: 'all' },
