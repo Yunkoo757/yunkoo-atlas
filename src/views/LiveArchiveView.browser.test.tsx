@@ -174,6 +174,7 @@ async function run() {
         trade('explicit-cny', '2026-01-15', { pnl: 700, cashCurrency: 'CNY' }),
         legacyUsd,
         trade('explicit-unknown', '2026-01-15', { pnl: 80, cashCurrency: null }),
+        trade('result-conflict', '2026-01-15', { status: 'win', pnl: -10, rMultiple: -1, resultSource: 'imported', cashCurrency: 'USD' }),
       ],
       livePerformanceCycles: cycles,
       profile: {

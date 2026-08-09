@@ -321,10 +321,11 @@ export function testCompletedWeeklyReviewCannotBeRewritten(): void {
 export function testWeeklyReviewCompletionFreezesOnlyUsdCashFacts(): void {
   const state = stateAtRevision(7)
   state.trades = [
-    { ...trade(7), id: 'usd', pnl: 100, cashCurrency: 'USD' },
-    { ...trade(7), id: 'cny', pnl: 700, cashCurrency: 'CNY' },
-    { ...trade(7), id: 'legacy', pnl: 50 },
-    { ...trade(7), id: 'unknown', pnl: 80, cashCurrency: null },
+    { ...trade(7), id: 'usd', status: 'win', pnl: 100, cashCurrency: 'USD' },
+    { ...trade(7), id: 'cny', status: 'win', pnl: 700, cashCurrency: 'CNY' },
+    { ...trade(7), id: 'legacy', status: 'win', pnl: 50 },
+    { ...trade(7), id: 'unknown', status: 'win', pnl: 80, cashCurrency: null },
+    { ...trade(7), id: 'conflict', status: 'win', pnl: -10, cashCurrency: 'USD', rMultiple: -1, resultSource: 'imported' },
   ]
   delete state.trades[2]!.cashCurrency
 

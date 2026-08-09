@@ -63,18 +63,27 @@ export function testCashCurrencyResolverOnlyAppliesLegacyUsdToMissingField(): vo
 }
 
 export function testUsdEligibilityAndTotalsShareOneCurrencyFactRule(): void {
+  const conflict = {
+    ...trade('conflict', -10, 'USD'),
+    status: 'win',
+    rMultiple: -1,
+    resultSource: 'imported',
+  } as Trade
   const trades = [
     trade('usd', 100, 'USD'),
     trade('cny', 700, 'CNY'),
     trade('legacy', 50, undefined, false),
     trade('unknown', 80, null),
     trade('invalid', 90, 'US'),
+    conflict,
   ]
 
   assert(eligibleUsdPnlIds(trades, null).join(',') === 'usd', '无假设时只有显式 USD 可进入总计')
   assert(eligibleUsdPnlIds(trades, assumption).join(',') === 'usd,legacy', '假设仅应加入真正缺字段旧记录')
   const summary = summarizeUsdPnl(trades, assumption)
-  assert(summary.pnlCount === 2 && summary.totalPnl === 150, '共享 USD 汇总必须排除 CNY、显式 null 与非法币种')
+  assert(summary.pnlCount === 2 && summary.totalPnl === 150, '共享 USD 汇总必须排除 CNY、显式 null、非法币种与结果冲突')
+  const conflictOnly = summarizeUsdPnl([conflict], assumption)
+  assert(conflictOnly.pnlCount === 0 && conflictOnly.totalPnl === 0, '单独的 USD 结果冲突必须冻结为零覆盖、零总计')
 }
 
 export function testSingleTradeCashPresentationExplainsLegacyAssumption(): void {

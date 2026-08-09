@@ -1,5 +1,6 @@
 import { normalizeCashCurrency, type Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
+import { resolveTradeTruth } from '@/lib/tradeTruth'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 
 export type CashCurrencyFactSource = 'explicit' | 'legacy-assumption' | 'unknown'
@@ -11,7 +12,6 @@ export interface CashCurrencyFactResolution {
 }
 
 type CashCurrencyTrade = Partial<Pick<Trade, 'pnl' | 'cashCurrency'>>
-type IdentifiedCashCurrencyTrade = CashCurrencyTrade & Pick<Trade, 'id'>
 
 const hasOwn = (value: object, property: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, property)
@@ -34,10 +34,11 @@ export function resolveTradeCashCurrencyFact(
 }
 
 export function eligibleUsdPnlIds(
-  trades: readonly IdentifiedCashCurrencyTrade[],
+  trades: readonly Trade[],
   assumption: LegacyCashCurrencyAssumption | null,
 ): string[] {
   return trades.flatMap((trade) => (
+    resolveTradeTruth(trade).isResultComplete &&
     typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
     resolveTradeCashCurrencyFact(trade, assumption).isUsdEligible
       ? [trade.id]
@@ -46,7 +47,7 @@ export function eligibleUsdPnlIds(
 }
 
 export function summarizeUsdPnl(
-  trades: readonly IdentifiedCashCurrencyTrade[],
+  trades: readonly Trade[],
   assumption: LegacyCashCurrencyAssumption | null,
 ): { pnlCount: number, totalPnl: number, pnlIds: string[] } {
   const pnlIds = eligibleUsdPnlIds(trades, assumption)

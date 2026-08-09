@@ -300,11 +300,12 @@ export function testTodayClosedMetricsUsesUsdOnlyWithExplicitLegacyAssumption():
   const legacy = { ...usd, id: 'legacy', pnl: 50 }
   delete legacy.cashCurrency
   const unknown = { ...usd, id: 'unknown', pnl: 80, cashCurrency: null }
+  const conflict = { ...usd, id: 'conflict', status: 'win', pnl: -10, rMultiple: -1, resultSource: 'imported', cashCurrency: 'USD' } as Trade
 
-  const withoutAssumption = buildTodayClosedMetrics([usd, cny, legacy, unknown], today)
+  const withoutAssumption = buildTodayClosedMetrics([usd, cny, legacy, unknown, conflict], today)
   assert(withoutAssumption.pnlCount === 1 && withoutAssumption.totalPnl === 100, '今日 USD 总计必须排除 CNY 与未知币种')
   const withAssumption = buildTodayClosedMetrics(
-    [usd, cny, legacy, unknown],
+    [usd, cny, legacy, unknown, conflict],
     today,
     0,
     { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
