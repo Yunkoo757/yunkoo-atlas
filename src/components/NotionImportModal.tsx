@@ -536,13 +536,17 @@ export function NotionImportModal({ open, onClose }: Props) {
             {importFactCounts.missingCloseDate > 0 && (
               <>
                 {' · '}
-                <span className="nim-bad">{importFactCounts.missingCloseDate} 笔缺少平仓日</span>
+                <span className="nim-bad">
+                  {importFactCounts.missingCloseDate} 笔缺少平仓日：将进入待整理且不计入绩效
+                </span>
               </>
             )}
             {importFactCounts.unknownCurrency > 0 && (
               <>
                 {' · '}
-                <span className="nim-bad">{importFactCounts.unknownCurrency} 笔币种未知</span>
+                <span className="nim-bad">
+                  {importFactCounts.unknownCurrency} 笔币种未知：不进入 USD 总计
+                </span>
               </>
             )}
             {result.totalImages > 0 && (
@@ -734,7 +738,7 @@ function PreviewRow({
       </td>
       <td className="nim-err-cell">
         {preview.errors.join('; ')}
-        {hasWarning && !hasError && !duplicate ? preview.warnings.join('; ') : ''}
+        {hasWarning && !hasError ? preview.warnings.join('; ') : ''}
         {(preview.imageIssues?.length ?? 0) > 0 && (
           <span>
             {preview.errors.length > 0 || preview.warnings.length > 0 ? '; ' : ''}
@@ -745,6 +749,7 @@ function PreviewRow({
         )}
         {duplicate && (
           <span className="nim-dup-msg">
+            {!hasError && (preview.warnings.length > 0 || (preview.imageIssues?.length ?? 0) > 0) ? '; ' : ''}
             与 {duplicate.tradeRef} {duplicateReasonLabel(duplicate.reason)}
             {showForce && (
               <>

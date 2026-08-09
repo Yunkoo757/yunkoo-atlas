@@ -53,6 +53,26 @@ export function testNotionImportNormalizesOnlyIsoCurrencyDeclaredByTheSource(): 
   )
 }
 
+export function testNotionImportUsesTheCurrentActiveIsoCurrencySnapshot(): void {
+  const result = parseRows([
+    'ZWG,2026-08-01,2026-08-02,Buy,Closed by T/P,ZWG 123.45,',
+    'ZWL,2026-08-01,2026-08-02,Buy,Closed by T/P,ZWL 123.45,',
+    'NOT-ISO,2026-08-01,2026-08-02,Buy,Closed by T/P,ABC 123.45,',
+  ])
+
+  assert.deepEqual(
+    result.previews.map((preview) => ({
+      pnl: preview.trade.pnl,
+      cashCurrency: preview.trade.cashCurrency,
+    })),
+    [
+      { pnl: 123.45, cashCurrency: 'ZWG' },
+      { pnl: 123.45, cashCurrency: null },
+      { pnl: 123.45, cashCurrency: null },
+    ],
+  )
+}
+
 export function testNotionTerminalTradeWithoutSourceCloseDateStaysPending(): void {
   const result = parseRows([
     'BTCUSDT,2026-08-01,,Buy,Closed by T/P,USD 20,',
@@ -71,7 +91,7 @@ export function testNotionTerminalTradeWithoutSourceCloseDateStaysPending(): voi
 export function testNotionImportPreservesOnlyValidSourceCloseDates(): void {
   const result = parseRows([
     'VALID,2026-08-01,2026-08-03,Buy,Closed by T/P,€20,',
-    'INVALID,2026-08-01,2026-02-30,Buy,Closed by T/P,£20,',
+    'INVALID,2026-08-01,02/30/2026,Buy,Closed by T/P,£20,',
   ])
 
   assert.deepEqual(

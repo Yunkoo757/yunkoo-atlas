@@ -61,6 +61,16 @@ async function waitForBodyText(text: string): Promise<void> {
   throw new Error(`页面未出现预期文本：${text}；当前页面：${document.body.textContent?.trim()}`)
 }
 
+async function waitForSelector(selector: string): Promise<Element> {
+  const deadline = performance.now() + 2000
+  while (performance.now() < deadline) {
+    const element = document.querySelector(selector)
+    if (element) return element
+    await waitForFrame()
+  }
+  throw new Error(`页面未出现预期元素：${selector}`)
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -117,7 +127,7 @@ async function run(): Promise<void> {
       rMultiple: null,
       openedAt: '2026-07-13',
       closedAt: null,
-      note: '',
+      note: '<p>这是用于验证重复记录仍显示导入事实影响的足够长正文内容。</p>',
     }],
     strategies: [{
       id: 'existing-strategy',
@@ -175,6 +185,7 @@ async function run(): Promise<void> {
       'Status: Closed by T/P',
       'Net PnL: 20.00',
       '',
+      '这是用于验证重复记录仍显示导入事实影响的足够长正文内容。',
       ...imageLines,
     ].join('\n'))
     const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' })
@@ -185,8 +196,18 @@ async function run(): Promise<void> {
 
     await waitForBodyText('缺少平仓日，将进入待整理且不计入绩效')
     await waitForBodyText('币种未知，不进入 USD 总计')
-    await waitForBodyText('1 笔缺少平仓日')
-    await waitForBodyText('1 笔币种未知')
+    await waitForBodyText('1 笔缺少平仓日：将进入待整理且不计入绩效')
+    await waitForBodyText('1 笔币种未知：不进入 USD 总计')
+    await waitForBodyText('与 TRD-1 正文相同')
+    const duplicateWarningCell = await waitForSelector('.nim-row-dup .nim-err-cell')
+    assert(
+      duplicateWarningCell.textContent?.includes('缺少平仓日，将进入待整理且不计入绩效'),
+      '可继续导入的重复行仍必须显示缺少平仓日影响',
+    )
+    assert(
+      duplicateWarningCell.textContent?.includes('币种未知，不进入 USD 总计'),
+      '可继续导入的重复行仍必须显示未知币种影响',
+    )
 
     const caseTarget = await waitForButton('案例记录')
     assert(caseTarget.getAttribute('role') === 'radio', 'Notion 导入目标应使用可访问的单选语义')

@@ -203,6 +203,7 @@ function parseNotionCashCurrency(rawMoney: string, declaredCurrency: string): st
 export function parseNotionDate(raw: string): string | null {
   const v = raw.trim()
   if (!v) return null
+  const timeSuffix = '(?:(?:T| )(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|[+-](?:[01]\\d|2[0-3]):?[0-5]\\d)?)?'
   const normalizedCalendarDate = (year: string, month: string, day: string): string | null => {
     const y = Number(year)
     const m = Number(month)
@@ -217,20 +218,22 @@ export function parseNotionDate(raw: string): string | null {
     ) return null
     return `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
   }
-  const isoMatch = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/)
+  const isoMatch = v.match(new RegExp(`^(\\d{4})-(\\d{1,2})-(\\d{1,2})${timeSuffix}$`))
   if (isoMatch) {
     return normalizedCalendarDate(isoMatch[1], isoMatch[2], isoMatch[3])
   }
-  const slashMatch = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:$|[T\s])/)
+  const slashMatch = v.match(new RegExp(`^(\\d{4})/(\\d{1,2})/(\\d{1,2})${timeSuffix}$`))
   if (slashMatch) {
     return normalizedCalendarDate(slashMatch[1], slashMatch[2], slashMatch[3])
   }
-  const cnMatch = v.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日(?:$|[T\s])/)
+  const monthFirstMatch = v.match(new RegExp(`^(\\d{1,2})/(\\d{1,2})/(\\d{4})${timeSuffix}$`))
+  if (monthFirstMatch) {
+    return normalizedCalendarDate(monthFirstMatch[3], monthFirstMatch[1], monthFirstMatch[2])
+  }
+  const cnMatch = v.match(new RegExp(`^(\\d{4})年(\\d{1,2})月(\\d{1,2})日${timeSuffix}$`))
   if (cnMatch) {
     return normalizedCalendarDate(cnMatch[1], cnMatch[2], cnMatch[3])
   }
-  const d = new Date(v)
-  if (!isNaN(d.getTime())) return formatYmd(d)
   return null
 }
 
