@@ -1,4 +1,4 @@
-import type { Trade } from '@/data/trades'
+import type { ReviewCategory, Trade } from '@/data/trades'
 
 export type ReviewCaseScope = 'all' | 'focus' | 'mistakes' | 'unreviewed' | 'reviewed'
 
@@ -39,4 +39,16 @@ export function matchesReviewCaseScope(
     trade.reviewCategory === 'mastered' ||
     trade.reviewStatus === 'reviewed'
   )
+}
+
+/** 仅用于案例旧查询兼容；账户交易仍由 facet 保持 reviewCategory 精确匹配。 */
+export function matchesLegacyCaseReviewCategory(
+  trade: Trade,
+  category: ReviewCategory,
+  starredIds: ReadonlySet<string>,
+): boolean {
+  if (category === 'focus') {
+    return matchesReviewCaseScope(trade, 'focus', starredIds)
+  }
+  return trade.reviewCategory === category
 }

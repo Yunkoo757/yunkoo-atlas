@@ -307,6 +307,7 @@ export function deriveWorkbenchVisibleTrades(
     ? { ...options.display, hideClosed: false }
     : options.display
   const preferred = applyDisplayPrefs(analysisFiltered, prefs, options.filter)
+  const starred = new Set(options.starredIds)
   return {
     trades: cycleFiltered,
     visible: filterTradesByFacets(
@@ -314,6 +315,7 @@ export function deriveWorkbenchVisibleTrades(
       facets,
       tradingDayStartHour,
       options.businessDateAnchor,
+      starred,
     ),
   }
 }
@@ -377,6 +379,7 @@ export function countWorkbenchVisibleTrades(options: {
       facets,
       tradingDayStartHour,
       options.businessDateAnchor,
+      starred,
     )) continue
     count += 1
   }

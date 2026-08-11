@@ -8,6 +8,9 @@ import type {
   TradeStatus,
 } from '@/data/trades'
 import { DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
+import { matchesLegacyCaseReviewCategory } from '@/lib/reviewCaseScope'
+
+const EMPTY_STARRED_IDS: ReadonlySet<string> = new Set()
 
 /** 日期分组生命力：当下最醒目，近况次之，更早记录保持低对比度。 */
 export type GroupRecency = 'current' | 'recent' | 'archive'
@@ -357,6 +360,7 @@ export function matchesTradeFacets(
   facets: TradeFacetFilters,
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
   businessDateAnchor?: BusinessDateAnchor,
+  starredIds: ReadonlySet<string> = EMPTY_STARRED_IDS,
 ): boolean {
   if (facets.tradeKind && trade.tradeKind !== facets.tradeKind) return false
   if (facets.symbol && trade.symbol !== facets.symbol) return false
@@ -364,7 +368,12 @@ export function matchesTradeFacets(
   if (facets.status && trade.status !== facets.status) return false
   if (facets.tag && !trade.tags.includes(facets.tag)) return false
   if (facets.mistakeTag && !trade.mistakeTags.includes(facets.mistakeTag)) return false
-  if (facets.reviewCategory && trade.reviewCategory !== facets.reviewCategory) return false
+  if (
+    facets.reviewCategory &&
+    (trade.tradeKind === 'case'
+      ? !matchesLegacyCaseReviewCategory(trade, facets.reviewCategory, starredIds)
+      : trade.reviewCategory !== facets.reviewCategory)
+  ) return false
   if (facets.caseType && trade.caseType !== facets.caseType) return false
   if (facets.masteryState && trade.masteryState !== facets.masteryState) return false
   if (facets.session && getTradeSessionMeta(trade)?.kind !== facets.session) return false
@@ -389,12 +398,14 @@ export function filterTradesByFacets(
   facets: TradeFacetFilters,
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
   businessDateAnchor?: BusinessDateAnchor,
+  starredIds: ReadonlySet<string> = EMPTY_STARRED_IDS,
 ): Trade[] {
   return trades.filter((trade) => matchesTradeFacets(
     trade,
     facets,
     tradingDayStartHour,
     businessDateAnchor,
+    starredIds,
   ))
 }
 

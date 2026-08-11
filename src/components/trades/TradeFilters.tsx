@@ -49,6 +49,7 @@ const KNOWN_TRADE_VIEW_PARAMS = new Set([
   'session',
   'tag',
   'mistakeTag',
+  // reviewCategory 仅保留为旧“复盘分类”查询 / 保存视图兼容，不再作为案例对话框的常规分类轴。
   'reviewCategory',
   'caseType',
   'masteryState',
@@ -232,8 +233,13 @@ export function TradeFilters({
   )
   const baselineParams = new URLSearchParams(activeWorkspaceView?.search ?? '')
   for (const [key, label] of facetLabels) {
-    if (label && baselineParams.get(key) !== searchParams.get(key)) {
-      activeFilters.push({ key, label, onRemove: () => setParam(key, '') })
+    const isLegacyCaseReviewCategory = key === 'reviewCategory' && isCaseWorkspace
+    if (label && (isLegacyCaseReviewCategory || baselineParams.get(key) !== searchParams.get(key))) {
+      activeFilters.push({
+        key,
+        label: isLegacyCaseReviewCategory ? `旧分类：${label}` : label,
+        onRemove: () => setParam(key, ''),
+      })
     }
   }
   for (const [key, value] of searchParams) {
@@ -249,7 +255,10 @@ export function TradeFilters({
     savedViewMatchesLocation(view, location.pathname, searchText, livePerformanceCycles),
   )
   const visibleActiveFilters = currentSavedView
-    ? activeFilters.filter((item) => item.key.startsWith('unsupported:'))
+    ? activeFilters.filter(
+        (item) => item.key.startsWith('unsupported:') ||
+          (isCaseWorkspace && item.key === 'reviewCategory'),
+      )
     : activeFilters
 
   const go = (path: string) => {
@@ -439,17 +448,6 @@ export function TradeFilters({
                           ['', '全部状态'],
                           ...(Object.keys(MASTERY_STATE_META) as MasteryState[]).map(
                             (value) => [value, MASTERY_STATE_META[value].label] as [string, string],
-                          ),
-                        ]}
-                      />
-                      <FilterSelect
-                        label="复盘分类"
-                        value={searchParams.get('reviewCategory') ?? ''}
-                        onChange={(value) => setParam('reviewCategory', value)}
-                        options={[
-                          ['', '全部分类'],
-                          ...(Object.keys(REVIEW_CATEGORY_META) as ReviewCategory[]).map(
-                            (value) => [value, REVIEW_CATEGORY_META[value].label] as [string, string],
                           ),
                         ]}
                       />
