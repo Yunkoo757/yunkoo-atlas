@@ -108,3 +108,16 @@ export function testLegacyFocusPromotionIsLimitedToOriginalFocusCases(): void {
   assert(statusFocus.promoteLegacyFocusToStar, '旧版 focus 状态必须请求迁移为收藏')
   assert(!ordinary.promoteLegacyFocusToStar, '非 focus 案例不得请求迁移为收藏')
 }
+
+export function testEmptyMutationPreservesCaseContentWithoutLegacyFocusPromotion(): void {
+  const legacyFocusCase = { ...caseTrade, reviewCategory: 'focus' as const, reviewStatus: 'focus' as const }
+  const ordinary = applyCaseClassificationMutation(caseTrade, {})
+  const legacyFocus = applyCaseClassificationMutation(legacyFocusCase, {})
+
+  assert(ordinary.ok && !ordinary.changed, '普通案例的空 mutation 必须是未变化操作')
+  assert(JSON.stringify(ordinary.trade) === JSON.stringify(caseTrade), '普通案例的空 mutation 不得改写交易内容')
+  assert(!ordinary.promoteLegacyFocusToStar, '普通案例的空 mutation 不得请求迁移为收藏')
+  assert(legacyFocus.ok && !legacyFocus.changed, '旧版 focus 案例的空 mutation 必须是未变化操作')
+  assert(JSON.stringify(legacyFocus.trade) === JSON.stringify(legacyFocusCase), '旧版 focus 案例的空 mutation 不得改写兼容字段')
+  assert(!legacyFocus.promoteLegacyFocusToStar, '旧版 focus 案例的空 mutation 不得请求迁移为收藏')
+}

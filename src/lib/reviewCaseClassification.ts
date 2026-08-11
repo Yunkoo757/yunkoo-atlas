@@ -68,14 +68,21 @@ export function applyCaseClassificationMutation(
     }
   }
 
-  const caseType = hasOwn(mutation, 'caseType') ? mutation.caseType : trade.caseType
-  const masteryState = hasOwn(mutation, 'masteryState') ? mutation.masteryState : trade.masteryState
+  const hasCaseType = hasOwn(mutation, 'caseType')
+  const hasMasteryState = hasOwn(mutation, 'masteryState')
+  const hasNextReviewAt = hasOwn(mutation, 'nextReviewAt')
+  if (!hasCaseType && !hasMasteryState && !hasNextReviewAt) {
+    return { ok: true, changed: false, trade, promoteLegacyFocusToStar: false }
+  }
+
+  const caseType = hasCaseType ? mutation.caseType : trade.caseType
+  const masteryState = hasMasteryState ? mutation.masteryState : trade.masteryState
   const mirror = resolveReviewMirror(masteryState, caseType)
   const next: Trade = {
     ...trade,
-    ...(hasOwn(mutation, 'caseType') ? { caseType } : {}),
-    ...(hasOwn(mutation, 'masteryState') ? { masteryState } : {}),
-    ...(hasOwn(mutation, 'nextReviewAt') ? { nextReviewAt: mutation.nextReviewAt } : {}),
+    ...(hasCaseType ? { caseType } : {}),
+    ...(hasMasteryState ? { masteryState } : {}),
+    ...(hasNextReviewAt ? { nextReviewAt: mutation.nextReviewAt } : {}),
     ...mirror,
   }
 
