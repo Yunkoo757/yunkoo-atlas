@@ -28,10 +28,19 @@ interface PersistedRevision {
   references: readonly unknown[]
 }
 
+type ComposerState = ReturnType<typeof useStore.getState>
+
+export interface ComposerTradeCandidate {
+  trade: Trade
+  statePatch?: Pick<ComposerState, 'starredIds'>
+}
+
+export type ComposerTradeBuildResult = Trade | ComposerTradeCandidate | null
+
 interface CommitComposerOptions {
   images: readonly ComposerImageInput[]
   targetTradeId: string
-  buildTrade: (state: ReturnType<typeof useStore.getState>, imageHtml: string) => Trade | null
+  buildTrade: (state: ComposerState, imageHtml: string) => ComposerTradeBuildResult
   storage?: StorageAdapter
   createAssetId?: () => string
 }
@@ -99,7 +108,13 @@ function sameRevision(left: PersistedRevision, right: PersistedRevision): boolea
   return left.references.every((value, index) => value === right.references[index])
 }
 
-function buildTradePatch(state: ReturnType<typeof useStore.getState>, trade: Trade) {
+function resolveComposerCandidate(result: ComposerTradeBuildResult): ComposerTradeCandidate | null {
+  if (!result) return null
+  return 'trade' in result ? result : { trade: result }
+}
+
+function buildTradePatch(state: ComposerState, candidate: ComposerTradeCandidate) {
+  const { trade } = candidate
   const patch = applyTradeUpsertsToSlice({
     trades: state.trades,
     strategies: state.strategies,
@@ -109,6 +124,7 @@ function buildTradePatch(state: ReturnType<typeof useStore.getState>, trade: Tra
   }, [trade], state.display.tradingDayStartHour)
   return {
     ...patch,
+    ...candidate.statePatch,
     trades: cascadeReviewCaseSourceSnapshot(patch.trades, trade.id),
   }
 }
@@ -134,14 +150,14 @@ export async function commitComposerTradeBatch({
     suspendPersist()
     suspended = true
     const revision = captureRevision()
-    const trade = buildTrade(revision.state, prepared.imageHtml)
-    if (!trade) {
+    const candidate = resolveComposerCandidate(buildTrade(revision.state, prepared.imageHtml))
+    if (!candidate) {
       discardPendingAndResumePersist()
       suspended = false
       released = true
       return { trade: null, imageCount: 0, trailingSaveFailed: false }
     }
-    const patch = buildTradePatch(revision.state, trade)
+    const patch = buildTradePatch(revision.state, candidate)
     const snapshot = pickPersisted({ ...revision.state, ...patch }, revision.bindings)
 
     await storage.commitImport(snapshot, prepared.assets)
@@ -157,12 +173,13 @@ export async function commitComposerTradeBatch({
       suspended = false
       throw new TradeComposerConcurrentEditError()
     }
-    const finalTrade = sameRevision(revision, latest)
-      ? trade
-      : buildTrade(latest.state, prepared.imageHtml) ?? trade
+    const finalCandidate = sameRevision(revision, latest)
+      ? candidate
+      : resolveComposerCandidate(buildTrade(latest.state, prepared.imageHtml)) ?? candidate
+    const finalTrade = finalCandidate.trade
     const finalPatch = sameRevision(revision, latest)
       ? patch
-      : buildTradePatch(latest.state, finalTrade)
+      : buildTradePatch(latest.state, finalCandidate)
     useStore.setState(finalPatch)
 
     let trailingSaveFailed = false

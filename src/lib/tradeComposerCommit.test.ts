@@ -58,6 +58,20 @@ const sourceCase: Trade = {
   activities: [{ id: 'case-note-activity', kind: 'note', timestamp: '2026-07-31T00:00:00.000Z' }],
 }
 
+const legacyFocusCase: Trade = {
+  ...sourceCase,
+  id: 'composer-legacy-focus',
+  ref: 'CAS-LEGACY-FOCUS',
+  sourceTradeId: undefined,
+  sourceNoteHtml: undefined,
+  deletedAt: undefined,
+  caseType: 'mistake',
+  masteryState: 'new',
+  nextReviewAt: '2026-08-18',
+  reviewCategory: 'focus',
+  reviewStatus: 'focus',
+}
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
@@ -129,6 +143,90 @@ export async function testComposerCommitFailurePublishesNeitherTradeNorAssets():
     assert(error instanceof Error && error.message.includes('CAS'), 'CAS 错误应返回调用方')
     assert(useStore.getState().trades === initialTrades, '提交失败不得发布候选交易到 store')
     useStore.setState({ trades: previous.trades })
+  }
+}
+
+export async function testComposerCandidatePatchCommitsTradeAndLegacyFocusStarAtomically(): Promise<void> {
+  const previous = useStore.getState()
+  const initialTrades = [legacyFocusCase]
+  useStore.setState({ trades: initialTrades, starredIds: [] })
+  let committedSnapshot: PersistedSnapshot | undefined
+  const notifications: Array<{ category: Trade['reviewCategory']; starred: boolean }> = []
+  const unsubscribe = useStore.subscribe((state) => {
+    const current = state.trades.find((trade) => trade.id === legacyFocusCase.id)
+    if (current) {
+      notifications.push({
+        category: current.reviewCategory,
+        starred: state.starredIds.includes(legacyFocusCase.id),
+      })
+    }
+  })
+  try {
+    await commitComposerTradeBatch({
+      targetTradeId: legacyFocusCase.id,
+      images: [],
+      storage: {
+        commitImport: async (snapshot: PersistedSnapshot) => {
+          committedSnapshot = snapshot
+          assert(useStore.getState().trades === initialTrades, '持久化成功前不得发布规范化 trade')
+          assert(!useStore.getState().starredIds.includes(legacyFocusCase.id), '持久化成功前不得提前升星')
+        },
+      } as unknown as StorageAdapter,
+      buildTrade: () => ({
+        trade: {
+          ...legacyFocusCase,
+          reviewCategory: 'mistake',
+          reviewStatus: 'unreviewed',
+        },
+        statePatch: { starredIds: [legacyFocusCase.id] },
+      }),
+    })
+
+    const committedTrade = committedSnapshot?.trades.find((trade) => trade.id === legacyFocusCase.id)
+    const published = useStore.getState()
+    assert(committedTrade?.reviewCategory === 'mistake', '候选快照必须包含规范化 trade')
+    assert(committedSnapshot?.starredIds.includes(legacyFocusCase.id), '候选快照必须同时包含 legacy focus 星标')
+    assert(published.trades[0]?.reviewCategory === 'mistake', '成功后必须发布规范化 trade')
+    assert(published.starredIds.includes(legacyFocusCase.id), '成功后必须在同一 patch 发布星标')
+    assert(
+      !notifications.some((state) => state.category === 'mistake' && !state.starred),
+      '不得通知规范化已完成但 focus 尚未升星的中间状态',
+    )
+  } finally {
+    unsubscribe()
+    useStore.setState({ trades: previous.trades, starredIds: previous.starredIds })
+  }
+}
+
+export async function testComposerCandidatePatchFailurePublishesNeitherTradeNorLegacyFocusStar(): Promise<void> {
+  const previous = useStore.getState()
+  const initialTrades = [legacyFocusCase]
+  const initialStarredIds: string[] = []
+  useStore.setState({ trades: initialTrades, starredIds: initialStarredIds })
+  let error: unknown
+  try {
+    await commitComposerTradeBatch({
+      targetTradeId: legacyFocusCase.id,
+      images: [],
+      storage: {
+        commitImport: async () => { throw new Error('forced legacy focus commit failure') },
+      } as unknown as StorageAdapter,
+      buildTrade: () => ({
+        trade: {
+          ...legacyFocusCase,
+          reviewCategory: 'mistake',
+          reviewStatus: 'unreviewed',
+        },
+        statePatch: { starredIds: [legacyFocusCase.id] },
+      }),
+    })
+  } catch (caught) {
+    error = caught
+  } finally {
+    assert(error instanceof Error && error.message.includes('legacy focus'), '提交失败必须返回调用方')
+    assert(useStore.getState().trades === initialTrades, '提交失败不得发布规范化 trade')
+    assert(useStore.getState().starredIds === initialStarredIds, '提交失败不得发布 legacy focus 星标')
+    useStore.setState({ trades: previous.trades, starredIds: previous.starredIds })
   }
 }
 

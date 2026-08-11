@@ -142,6 +142,48 @@ async function run(): Promise<void> {
     assert(saved.masteryState === 'recheck', 'Composer 保存不得改写原掌握状态')
     assert(saved.reviewCategory === 'recheck', 'Composer 必须由统一边界派生兼容分类')
     assert(saved.reviewStatus === 'unreviewed', 'Composer 必须由统一边界派生兼容状态')
+
+    const legacyFocusCase: Trade = {
+      ...recheckCase,
+      id: 'composer-legacy-focus-case',
+      ref: 'CAS-2',
+      masteryState: 'new',
+      reviewCategory: 'focus',
+      reviewStatus: 'focus',
+    }
+    useStore.setState({
+      trades: [legacyFocusCase],
+      starredIds: [],
+      composerOpen: true,
+      composerTrade: legacyFocusCase,
+      composerKind: 'case',
+    })
+    const notifications: Array<{ category: Trade['reviewCategory']; starred: boolean }> = []
+    const unsubscribe = useStore.subscribe((state) => {
+      const current = state.trades.find((trade) => trade.id === legacyFocusCase.id)
+      if (current) {
+        notifications.push({
+          category: current.reviewCategory,
+          starred: state.starredIds.includes(legacyFocusCase.id),
+        })
+      }
+    })
+    try {
+      await waitFor(() => Boolean(findButton('保存')), 'legacy focus 案例 Composer 未就绪')
+      findButton('保存')?.click()
+      await waitFor(() => !useStore.getState().composerOpen, 'legacy focus 案例 Composer 未完成保存')
+    } finally {
+      unsubscribe()
+    }
+    const promotedState = useStore.getState()
+    const promoted = promotedState.trades.find((trade) => trade.id === legacyFocusCase.id)!
+    assert(promoted.reviewCategory === 'mistake', 'legacy focus Composer 保存必须规范化兼容分类')
+    assert(promoted.reviewStatus === 'unreviewed', 'legacy focus Composer 保存必须规范化兼容状态')
+    assert(promotedState.starredIds.includes(legacyFocusCase.id), 'legacy focus Composer 保存必须同次升星')
+    assert(
+      !notifications.some((state) => state.category === 'mistake' && !state.starred),
+      'Composer 不得通知规范化已完成但 focus 未升星的中间状态',
+    )
   } finally {
     root?.unmount()
     rootElement?.remove()

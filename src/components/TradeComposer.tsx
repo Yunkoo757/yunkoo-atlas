@@ -267,9 +267,14 @@ export function TradeComposer() {
               ...fields,
               note: [latest.note, appendedNote].filter(Boolean).join('\n'),
             }
-            return kind === 'case'
-              ? applyCaseClassificationMutation(candidate, { caseType }).trade
-              : candidate
+            if (kind !== 'case') return candidate
+            const classified = applyCaseClassificationMutation(candidate, { caseType })
+            return classified.promoteLegacyFocusToStar && !state.starredIds.includes(candidate.id)
+              ? {
+                  trade: classified.trade,
+                  statePatch: { starredIds: [...state.starredIds, candidate.id] },
+                }
+              : classified.trade
           }
           const candidate: Trade = {
             id: newTradeId,
