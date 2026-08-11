@@ -172,3 +172,38 @@ export function testAccountTradeMasteryHandlersNoOpWhileSkipAndBackRemainAvailab
   assert(skips === 1, '账户交易仍应支持跳到下一条')
   assert(backs === 1, '账户交易仍应支持返回上一条')
 }
+
+export function testLightboxExclusivelyOwnsShortcutScopeOverReviewSession(): void {
+  const previousLightbox = useShortcutStore.getState().lightbox
+  const previousBindings = useShortcutStore.getState().bindings
+  let imageMoves = 0
+  let assessments = 0
+  let skips = 0
+  let backs = 0
+  useShortcutStore.setState({
+    bindings: {},
+    lightbox: { images: ['first', 'second'], index: 0 },
+  })
+  setShortcutHandlers({ 'image.next': () => { imageMoves += 1 } })
+  const unregister = registerShortcutHandlers(reviewSessionView.createReviewSessionShortcutHandlers({
+    current: { tradeKind: 'case' },
+    onAssess: () => { assessments += 1 },
+    onSkip: () => { skips += 1 },
+    onBack: () => { backs += 1 },
+  }))
+
+  try {
+    for (const key of ['1', '2', '3', 'n', 'p']) {
+      const event = keyboardEvent(key)
+      assert(!handleShortcutKeydown(event, '/review-session'), `灯箱打开时 ${key} 不得落入背景随机复盘 scope`)
+      assert(event.prevented === 0, `灯箱未绑定的 ${key} 不得被背景动作消费`)
+    }
+    assert(assessments === 0 && skips === 0 && backs === 0, '灯箱期间不得写评估或移动复盘游标')
+    assert(handleShortcutKeydown(keyboardEvent('s'), '/review-session'), '灯箱自身下一张快捷键必须继续工作')
+    assert(imageMoves === 1, '灯箱自身 handler 必须执行一次')
+  } finally {
+    unregister()
+    setShortcutHandlers({})
+    useShortcutStore.setState({ lightbox: previousLightbox, bindings: previousBindings })
+  }
+}

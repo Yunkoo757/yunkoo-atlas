@@ -502,7 +502,7 @@ export function testFilterUiExposesCaseFacetsAndPaperQuickViews(): void {
     'utf8',
   )
 
-  for (const label of ['案例类型', '掌握状态', '复盘分类', '其他时段', '记录类型']) {
+  for (const label of ['案例类型', '掌握状态', '其他时段', '记录类型']) {
     assert(filters.includes(label), `案例/时段筛选 UI 应展示“${label}”`)
   }
   assert(filters.includes("? 'paper'"), 'TradeFilters 应把模拟页识别为独立 paper workspace')

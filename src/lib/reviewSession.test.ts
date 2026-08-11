@@ -7,6 +7,7 @@ import {
   clearReviewSessionStorage,
   loadReviewSession,
   reconcileReviewSession,
+  reviewFiltersForNextRound,
   reviewSessionStorageKey,
   saveReviewSession,
   shuffleReviewSessionIds,
@@ -337,6 +338,10 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
   const legacy = loadReviewSession('legacy-library', storage)
   if (!legacy) throw new Error('旧会话必须能够加载')
   assert(legacy.filters.reviewTiming === 'all', '旧会话缺少时间范围时必须规范为全部案例')
+  assert(legacy.restoredLegacyReviewTiming, '旧会话必须保留仅限当前恢复轮次的 timing 兼容标记')
+  assert(saveReviewSession('legacy-library', legacy, storage), '恢复中的旧轮必须可以继续保存进度')
+  const resavedLegacy = JSON.parse(storage.getItem(reviewSessionStorageKey('legacy-library')) ?? '{}')
+  assert(resavedLegacy.filters?.reviewTiming === undefined, '恢复中的旧轮不得因自动保存而丢失 legacy all 语义')
   const reconciledLegacy = reconcileReviewSession(
     legacy,
     [{ ...baseTrade, id: 'future-case', tradeKind: 'case', masteryState: 'mastered', nextReviewAt: '2099-01-01' }],
@@ -345,6 +350,46 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
     FIXED_TRADING_DAY_START_HOUR,
   )
   assert(reconciledLegacy?.ids.join(',') === 'future-case', '旧会话的未来或已掌握成员不得在恢复时被静默删减')
+
+  const nextFilters = reviewFiltersForNextRound({
+    ...legacy,
+    filters: {
+      ...legacy.filters,
+      includeAccountTrades: true,
+      caseScope: 'mistakes',
+      requireContent: true,
+    },
+  })
+  assert(nextFilters.reviewTiming === 'due', '旧轮完成后的新轮必须恢复默认 due')
+  assert(
+    nextFilters.includeAccountTrades && nextFilters.caseScope === 'mistakes' && nextFilters.requireContent,
+    '新轮只重置 timing，必须保留其他合法筛选',
+  )
+  const nextRoundPool = buildReviewSessionPool([
+    { ...baseTrade, id: 'today-case', tradeKind: 'case', caseType: 'mistake', masteryState: 'new', nextReviewAt: FIXED_TRADING_DAY_KEY },
+    { ...baseTrade, id: 'future-case', tradeKind: 'case', caseType: 'mistake', masteryState: 'new', nextReviewAt: '2099-01-01' },
+    { ...baseTrade, id: 'mastered-case', tradeKind: 'case', caseType: 'mistake', masteryState: 'mastered', nextReviewAt: FIXED_TRADING_DAY_KEY },
+  ], nextFilters, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  assert(nextRoundPool.map((trade) => trade.id).join() === 'today-case', '旧轮后的新轮必须排除未来与已掌握案例')
+  assert(
+    reviewFiltersForNextRound({ ...legacy, restoredLegacyReviewTiming: undefined }).reviewTiming === 'all',
+    '显式选择 all 的现代轮次结束后必须保留用户筛选，不能被 legacy 兼容逻辑重置',
+  )
+}
+
+export function testReviewAssessmentSchedulesFromBusinessDayBeforeAndAfterBoundary(): void {
+  const reviewCase = { ...baseTrade, id: 'business-day-case', tradeKind: 'case' } as Trade
+  const beforeBoundary = new Date(2026, 7, 12, 5, 30)
+  const afterBoundary = new Date(2026, 7, 12, 6, 30)
+  const beforeUnfamiliar = buildReviewAssessmentPatch(reviewCase, 'unfamiliar', beforeBoundary, 6)
+  const beforeRecheck = buildReviewAssessmentPatch(reviewCase, 'recheck', beforeBoundary, 6)
+  const afterUnfamiliar = buildReviewAssessmentPatch(reviewCase, 'unfamiliar', afterBoundary, 6)
+  const afterRecheck = buildReviewAssessmentPatch(reviewCase, 'recheck', afterBoundary, 6)
+
+  assert(beforeUnfamiliar.nextReviewAt === '2026-08-14', '起始小时前的不熟悉必须按前一业务日 +3')
+  assert(beforeRecheck.nextReviewAt === '2026-08-18', '起始小时前的待复看必须按前一业务日 +7')
+  assert(afterUnfamiliar.nextReviewAt === '2026-08-15', '起始小时后的不熟悉必须按当前业务日 +3')
+  assert(afterRecheck.nextReviewAt === '2026-08-19', '起始小时后的待复看必须按当前业务日 +7')
 }
 
 export function testReviewSessionStorageFailuresDegradeSafely(): void {

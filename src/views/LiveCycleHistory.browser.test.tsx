@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, useNavigate } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { TradeRow } from '@/components/trades/TradeRow'
 import { TradeFilters } from '@/components/trades/TradeFilters'
@@ -122,6 +122,17 @@ function EmptyCaseScopeProbe() {
   )
 }
 
+function CaseFiltersProbe() {
+  const location = useLocation()
+  const filter = { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' } as const
+  return (
+    <>
+      <TradeFilters filter={filter} trades={[mistakeCase]} strategies={[]} />
+      <span data-case-filter-search={location.search} />
+    </>
+  )
+}
+
 async function run(): Promise<void> {
   const element = document.getElementById('root')
   assert(element, '缺少测试挂载节点')
@@ -205,6 +216,28 @@ async function run(): Promise<void> {
     assert(emptyCaseScope?.getAttribute('data-total-count') === '1', '资料库总数不得受当前案例分类影响')
     assert(emptyCaseScope?.getAttribute('data-workspace-count') === '1', '案例工作区总数不得受当前分类影响')
     assert(emptyCaseScope?.getAttribute('data-visible-count') === '0', '重点分类应保持为空以覆盖回归场景')
+
+    root.render(
+      <MemoryRouter key="case-filter-contract" initialEntries={['/review-cases?reviewCategory=focus']}>
+        <CaseFiltersProbe />
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => Boolean(document.querySelector<HTMLButtonElement>('[aria-label="移除 旧分类：重点"]')),
+      'legacy reviewCategory 必须渲染为可移除的旧分类 chip',
+    )
+    await waitFor(() => Boolean(document.querySelector<HTMLButtonElement>('.ui-filter-trigger')), '案例筛选入口未渲染')
+    document.querySelector<HTMLButtonElement>('.ui-filter-trigger')!.click()
+    await waitFor(() => Boolean(document.querySelector('.trade-filter-panel[aria-label="案例筛选"]')), '案例筛选面板未打开')
+    assert(document.querySelector('[role="combobox"][aria-label="案例类型"]'), '案例筛选必须真实渲染案例类型')
+    assert(document.querySelector('[role="combobox"][aria-label="掌握状态"]'), '案例筛选必须真实渲染掌握状态')
+    assert(document.querySelector('[role="combobox"][aria-label="错误标签"]'), '案例筛选必须真实渲染错误标签')
+    assert(!document.querySelector('[role="combobox"][aria-label="复盘分类"]'), '普通案例筛选不得渲染 reviewCategory selector')
+    document.querySelector<HTMLButtonElement>('[aria-label="移除 旧分类：重点"]')?.click()
+    await waitFor(
+      () => document.querySelector('[data-case-filter-search]')?.getAttribute('data-case-filter-search') === '',
+      '移除 legacy chip 必须真实清除 reviewCategory 查询',
+    )
   } finally {
     root.unmount()
     useStore.setState({

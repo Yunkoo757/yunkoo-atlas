@@ -1,4 +1,5 @@
 import {
+  addDaysToCurrentTradingDay,
   DEFAULT_TRADING_DAY_START_HOUR,
   createBusinessDateAnchor,
   classifyDateBucket,
@@ -10,6 +11,16 @@ import {
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+export function testReviewScheduleOffsetsUseTheConfiguredTradingDayBoundary(): void {
+  const beforeBoundary = new Date(2026, 7, 12, 5, 30, 0)
+  const afterBoundary = new Date(2026, 7, 12, 6, 30, 0)
+
+  assert(addDaysToCurrentTradingDay(beforeBoundary, 6, 3) === '2026-08-14', '起始小时前的 +3 必须从前一业务日计算')
+  assert(addDaysToCurrentTradingDay(beforeBoundary, 6, 7) === '2026-08-18', '起始小时前的 +7 必须从前一业务日计算')
+  assert(addDaysToCurrentTradingDay(afterBoundary, 6, 3) === '2026-08-15', '起始小时后的 +3 必须从当前业务日计算')
+  assert(addDaysToCurrentTradingDay(afterBoundary, 6, 7) === '2026-08-19', '起始小时后的 +7 必须从当前业务日计算')
 }
 
 export function testTradingDayKeyRollsBeforeStartHour(): void {

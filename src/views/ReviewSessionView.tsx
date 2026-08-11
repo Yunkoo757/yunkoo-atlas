@@ -42,6 +42,7 @@ import {
   hasEffectiveReviewContent,
   loadReviewSession,
   reconcileReviewSession,
+  reviewFiltersForNextRound,
   saveReviewSession,
   shuffleReviewSessionIds,
   type ReviewSessionAssessment,
@@ -304,7 +305,12 @@ export function ReviewSessionView() {
   const assess = useCallback((assessment: ReviewSessionAssessment) => {
     if (!current || current.tradeKind !== 'case') return
     const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
-    updateTradeData(current.id, buildReviewAssessmentPatch(current, assessment))
+    updateTradeData(current.id, buildReviewAssessmentPatch(
+      current,
+      assessment,
+      businessDateAnchor.now,
+      tradingDayStartHour,
+    ))
     const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
     const actionId = latestActionId !== previousActionId ? latestActionId : null
     focusAfterTransitionRef.current = true
@@ -335,7 +341,7 @@ export function ReviewSessionView() {
     } else {
       toast('已记录评估')
     }
-  }, [current, updateTradeData])
+  }, [businessDateAnchor.now, current, tradingDayStartHour, updateTradeData])
 
   const extractCurrentAsCase = useCallback(() => {
     if (!current || current.tradeKind === 'case') return
@@ -391,29 +397,31 @@ export function ReviewSessionView() {
 
   const reshuffle = () => {
     if (!session) return
+    const nextFilters = reviewFiltersForNextRound(session)
     const nextPool = buildReviewSessionPool(
       trades,
-      session.filters,
+      nextFilters,
       starred,
       businessDateAnchor.currentTradingDayKey,
       tradingDayStartHour,
     )
     if (nextPool.length === 0) {
-      clearActiveSession(session.filters)
+      clearActiveSession(nextFilters)
       return
     }
     focusAfterTransitionRef.current = true
+    setFilters(nextFilters)
     setSession({
       ids: shuffleReviewSessionIds(nextPool.map((trade) => trade.id)),
       cursor: 0,
-      filters: session.filters,
+      filters: nextFilters,
       assessments: {},
     })
   }
 
   const adjustFinishedSession = () => {
     if (!session) return
-    const previousFilters = { ...session.filters }
+    const previousFilters = { ...reviewFiltersForNextRound(session) }
     clearActiveSession(previousFilters)
     setSettingsDraft(previousFilters)
   }
@@ -456,7 +464,7 @@ export function ReviewSessionView() {
             <span className="review-session-progress" aria-live="polite">
               {session.cursor + 1} / {session.ids.length}
             </span>
-            <Button type="button" variant="bordered" onClick={() => clearActiveSession(session.filters)}>结束本轮</Button>
+            <Button type="button" variant="bordered" onClick={() => clearActiveSession(reviewFiltersForNextRound(session))}>结束本轮</Button>
           </div>
         ) : <span />}
       </header>
@@ -786,7 +794,7 @@ function ReviewSessionItem({
                 aria-keyshortcuts={skipShortcut.hint ?? undefined}
                 onClick={onSkip}
               >
-                下一条
+                下一条 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
               </button>
             </div>
           </footer>
@@ -920,12 +928,15 @@ function ReviewSessionFinished({
     mastered: results.filter((value) => value === 'mastered').length,
     skipped: session.ids.length - results.length,
   }
+  const completionMessage = results.length > 0
+    ? '掌握度已经写回记录，需要复看的内容会按计划重新出现。'
+    : '本轮没有写入案例掌握度，浏览进度只保留在本轮会话中。'
   return (
     <section className="review-session-finished" data-review-session-finished-focus tabIndex={-1} role="status" aria-live="polite" aria-atomic="true">
       <span className="review-session-finished-icon"><CheckCircle size={26} aria-hidden /></span>
       <span className="review-session-eyebrow">本轮完成</span>
       <h1>已复盘 {session.ids.length} 条交易</h1>
-      <p>掌握度已经写回记录，需要复看的内容会按计划重新出现。</p>
+      <p>{completionMessage}</p>
       <div className="review-session-result-grid">
         <span><strong>{counts.unfamiliar}</strong><small>还没掌握</small></span>
         <span><strong>{counts.recheck}</strong><small>基本理解</small></span>

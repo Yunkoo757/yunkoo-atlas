@@ -62,15 +62,17 @@ function armSequenceTimer(): void {
 }
 
 function getActiveScopes(pathname?: string): Set<ShortcutScope> {
-  const scopes = new Set<ShortcutScope>(['global', 'navigation'])
   const { lightbox, cmdkOpen, modalOverlayCount } = useShortcutStore.getState()
   const { composerOpen, closeTradeRequest } = useStore.getState()
   const modalOpen = modalOverlayCount > 0
+  const p = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : undefined)
 
+  if (lightbox && p === '/review-session') return new Set<ShortcutScope>(['lightbox'])
+
+  const scopes = new Set<ShortcutScope>(['global', 'navigation'])
   if (lightbox) scopes.add('lightbox')
   if (cmdkOpen || modalOpen || composerOpen || closeTradeRequest) scopes.add('overlay')
 
-  const p = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : undefined)
   if (p) {
     if (p.startsWith('/trade/')) scopes.add('detail')
     if (p === '/review-session') scopes.add('reviewSession')

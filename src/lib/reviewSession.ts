@@ -1,5 +1,9 @@
 import { isReviewCompleted, type Trade } from '@/data/trades'
-import { formatYmd, getTradingDayKey } from '@/lib/periods'
+import {
+  addDaysToCurrentTradingDay,
+  DEFAULT_TRADING_DAY_START_HOUR,
+  getTradingDayKey,
+} from '@/lib/periods'
 import {
   matchesReviewCaseScope,
   type ReviewCaseScope,
@@ -35,6 +39,8 @@ export type ReviewSessionSnapshot = {
   /** 评估前的交易快照，供会话内「上一条」还原 */
   /** @deprecated 旧会话兼容读取；不得再用于整条 Trade 覆盖。 */
   assessmentPrev?: Partial<Record<string, Trade>>
+  /** 仅用于正在恢复的升级前轮次；保存时继续省略 timing，直到该轮结束。 */
+  restoredLegacyReviewTiming?: true
 }
 
 export type ReviewSessionAssessment = 'unfamiliar' | 'recheck' | 'mastered'
@@ -43,6 +49,7 @@ export function buildReviewAssessmentPatch(
   trade: Trade,
   assessment: ReviewSessionAssessment,
   now: Date = new Date(),
+  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ) {
   if (trade.tradeKind !== 'case') {
     return {}
@@ -57,12 +64,15 @@ export function buildReviewAssessmentPatch(
     }
   }
 
-  const nextReview = new Date(now)
-  nextReview.setDate(nextReview.getDate() + (assessment === 'unfamiliar' ? 3 : 7))
+  const nextReviewAt = addDaysToCurrentTradingDay(
+    now,
+    tradingDayStartHour,
+    assessment === 'unfamiliar' ? 3 : 7,
+  )
   if (assessment === 'recheck') {
     return {
       masteryState: 'recheck' as const,
-      nextReviewAt: formatYmd(nextReview),
+      nextReviewAt,
       reviewStatus: 'unreviewed' as const,
       reviewCategory: 'recheck' as const,
     }
@@ -77,7 +87,7 @@ export function buildReviewAssessmentPatch(
         : 'normal' as const
   return {
     masteryState: 'new' as const,
-    nextReviewAt: formatYmd(nextReview),
+    nextReviewAt,
     reviewStatus: 'unreviewed' as const,
     reviewCategory,
   }
@@ -99,6 +109,16 @@ export const DEFAULT_REVIEW_SESSION_FILTERS: ReviewSessionFilters = {
   caseScope: 'all',
   requireContent: false,
   reviewTiming: 'due',
+}
+
+export function reviewFiltersForNextRound(
+  snapshot: ReviewSessionSnapshot,
+): ReviewSessionFilters {
+  if (!snapshot.restoredLegacyReviewTiming) return snapshot.filters
+  return {
+    ...snapshot.filters,
+    reviewTiming: DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming,
+  }
 }
 
 export function hasEffectiveReviewContent(note: string | null | undefined): boolean {
@@ -249,6 +269,7 @@ export function reconcileReviewSession(
     assessments: Object.fromEntries(
       Object.entries(snapshot.assessments).filter(([id]) => eligibleIds.has(id)),
     ),
+    ...(snapshot.restoredLegacyReviewTiming ? { restoredLegacyReviewTiming: true as const } : {}),
   }
 }
 
@@ -279,7 +300,9 @@ export function saveReviewSession(
         includeAccountTrades: snapshot.filters.includeAccountTrades,
         caseScope: snapshot.filters.caseScope,
         requireContent: snapshot.filters.requireContent,
-        reviewTiming: snapshot.filters.reviewTiming,
+        ...(snapshot.restoredLegacyReviewTiming
+          ? {}
+          : { reviewTiming: snapshot.filters.reviewTiming }),
       },
       assessments: snapshot.assessments,
     }))
@@ -303,12 +326,14 @@ export function loadReviewSession(
       try { storage.removeItem(key) } catch { /* storage may be read-only */ }
       return null
     }
+    const restoredLegacyReviewTiming = value.filters.reviewTiming === undefined
     return {
       ...value,
       filters: {
         ...value.filters,
         reviewTiming: value.filters.reviewTiming ?? 'all',
       },
+      ...(restoredLegacyReviewTiming ? { restoredLegacyReviewTiming: true } : {}),
     }
   } catch {
     try { storage.removeItem(key) } catch { /* storage may be unavailable */ }

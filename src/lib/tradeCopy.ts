@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
 import { formatYmd } from '@/lib/periods'
+import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 
 export interface SafeTradeCopyOptions {
   now: Date
@@ -57,7 +58,7 @@ function copyReviewCase(
   ref: string,
   now: Date,
 ): Trade {
-  return {
+  const resetCase: Trade = {
     ...source,
     id,
     ref,
@@ -67,7 +68,7 @@ function copyReviewCase(
     mistakeTags: [...source.mistakeTags],
     reviewStatus: 'unreviewed',
     reviewedAt: null,
-    reviewCategory: source.reviewCategory,
+    reviewCategory: 'normal',
     masteryState: 'new',
     nextReviewAt: null,
     recordedAt: now.toISOString(),
@@ -76,6 +77,11 @@ function copyReviewCase(
     deletedAt: undefined,
     deletedBy: undefined,
   }
+  return applyCaseClassificationMutation(resetCase, {
+    caseType: resetCase.caseType,
+    masteryState: 'new',
+    nextReviewAt: null,
+  }).trade
 }
 
 /**

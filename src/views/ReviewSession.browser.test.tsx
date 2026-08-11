@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
+import { ImageLightbox } from '@/components/ImageLightbox'
 import {
   clearReviewSessionStorage,
   loadReviewSession,
@@ -98,10 +99,13 @@ function DetailProbe() {
 function TestApp() {
   useShortcutHost({ onToggleCmdk: () => {} })
   return (
-    <Routes>
-      <Route path="/review-session" element={<ReviewSessionView />} />
-      <Route path="/trade/:id" element={<DetailProbe />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/review-session" element={<ReviewSessionView />} />
+        <Route path="/trade/:id" element={<DetailProbe />} />
+      </Routes>
+      <ImageLightbox />
+    </>
   )
 }
 
@@ -232,6 +236,33 @@ async function run(): Promise<void> {
       '默认掌握度 accessible name 必须同时保留评估标签、后果说明和真实快捷键',
     )
 
+    useShortcutStore.getState().openLightbox([
+      'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22%3E%3Crect width=%22400%22 height=%22200%22 fill=%22%235e6ad2%22/%3E%3C/svg%3E',
+    ], 0)
+    await waitFor(() => Boolean(useShortcutStore.getState().lightbox), '随机复盘没有打开真实灯箱')
+    const beforeLightboxShortcut = JSON.stringify(useStore.getState().trades.find((item) => item.id === reviewCase.id))
+    const beforeLightboxCursor = loadReviewSession(manifest.libraryId)?.cursor
+    for (const key of ['1', '2', '3', 'n', 'p']) {
+      const acceptedWhileLightbox = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
+        key,
+        bubbles: true,
+        cancelable: true,
+      }))
+      assert(acceptedWhileLightbox, `灯箱打开时 ${key} 不得被背景随机复盘动作消费`)
+    }
+    assert(
+      JSON.stringify(useStore.getState().trades.find((item) => item.id === reviewCase.id)) === beforeLightboxShortcut,
+      '灯箱打开时 1/2/3 不得写入背景案例字段',
+    )
+    assert(loadReviewSession(manifest.libraryId)?.cursor === beforeLightboxCursor, '灯箱打开时 N/P 不得移动背景游标')
+    const closeAccepted = (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }))
+    assert(!closeAccepted, '灯箱自身 Escape 快捷键必须继续工作')
+    await waitFor(() => useShortcutStore.getState().lightbox === null, '灯箱 Escape 没有关闭预览')
+
     useShortcutStore.setState({
       bindings: {
         'reviewSession.unfamiliar': { key: 'x' },
@@ -329,6 +360,7 @@ async function run(): Promise<void> {
     )
     assert(document.querySelector('[data-review-session-finished-focus]')?.getAttribute('role') === 'status', '完成状态必须向读屏播报')
     assert(document.body.textContent?.includes('基本理解') === true, '完成页没有汇总掌握度')
+    assert(document.body.textContent?.includes('掌握度已经写回记录') === true, '存在案例评估时完成文案必须说明掌握度已写回')
 
     findButton('再随机一轮')?.click()
     await waitFor(() => Boolean(document.querySelector('.review-session-workspace')), '无法再次随机开始')
@@ -402,7 +434,20 @@ async function run(): Promise<void> {
     assert(!findButton('还没掌握') && !findButton('基本理解') && !findButton('已经掌握'),
       '账户交易不得渲染案例掌握度按钮')
     assert(findButton('提炼为案例'), '账户交易缺少提炼为案例动作')
-    assert(findButton('下一条'), '账户交易缺少下一条动作')
+    const accountNextButton = document.querySelector<HTMLButtonElement>('.review-session-account-actions .review-session-skip')
+    assert(accountNextButton, '账户交易缺少下一条动作')
+    assert(accountNextButton.querySelector('kbd')?.textContent === 'N', '账户下一条必须显示默认快捷键提示')
+    assert(accountNextButton.getAttribute('aria-keyshortcuts') === 'N', '账户下一条默认 aria-keyshortcuts 必须真实')
+    useShortcutStore.setState({ bindings: { 'reviewSession.skip': { key: 'x' } } })
+    await waitFor(() => accountNextButton.querySelector('kbd')?.textContent === 'X', '账户下一条改绑后可见提示没有更新')
+    assert(!accountNextButton.textContent?.includes('N'), '账户下一条改绑后不得显示旧默认键')
+    assert(accountNextButton.getAttribute('aria-keyshortcuts') === 'X', '账户下一条改绑后 aria-keyshortcuts 没有更新')
+    useShortcutStore.setState({ bindings: { 'reviewSession.skip': null } })
+    await waitFor(() => !accountNextButton.querySelector('kbd'), '账户下一条禁用绑定后仍显示伪造快捷键')
+    assert(!accountNextButton.hasAttribute('aria-keyshortcuts'), '账户下一条禁用绑定后不得保留 aria-keyshortcuts')
+    assert(accountNextButton.getAttribute('aria-label') === '下一条（未设置快捷键）', '账户下一条禁用绑定必须明确说明未设置快捷键')
+    useShortcutStore.setState({ bindings: {} })
+    await waitFor(() => accountNextButton.querySelector('kbd')?.textContent === 'N', '账户下一条恢复默认绑定后提示没有更新')
     const caseCountBeforeExtraction = useStore.getState().trades.filter((item) => item.tradeKind === 'case').length
     findButton('提炼为案例')?.click()
     await waitFor(
@@ -412,8 +457,10 @@ async function run(): Promise<void> {
     const accountAfterExtraction = useStore.getState().trades.find((item) => item.id === accountTrade.id)
     assert(accountAfterExtraction?.caseType === undefined && accountAfterExtraction?.masteryState === undefined && accountAfterExtraction?.nextReviewAt === undefined,
       '账户交易提炼动作不得写入案例掌握字段')
-    findButton('下一条')?.click()
+    accountNextButton.click()
     await waitFor(() => document.body.textContent?.includes('本轮完成') === true, '账户交易下一条没有完成本轮')
+    assert(!document.body.textContent?.includes('掌握度已经写回记录'), '账户专属轮次不得声称掌握度已写回')
+    assert(document.body.textContent?.includes('本轮没有写入案例掌握度') === true, '账户专属轮次必须显示真实的未写入文案')
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)

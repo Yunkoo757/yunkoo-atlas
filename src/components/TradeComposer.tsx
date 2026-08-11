@@ -27,7 +27,7 @@ import { tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
 import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
-import { formatYmd, getTradingDayKey } from '@/lib/periods'
+import { addDaysToCurrentTradingDay, getTradingDayKey } from '@/lib/periods'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
@@ -91,6 +91,7 @@ export function TradeComposer() {
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
   const submittingRef = useRef(false)
+  const caseTypeDirtyRef = useRef(false)
   const defaultKind = defaultTradeKindForPath(location.pathname)
   const activeKind = editing?.tradeKind ?? requestedKind ?? defaultKind
   const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
@@ -102,6 +103,7 @@ export function TradeComposer() {
 
   useEffect(() => {
     if (!open) return
+    caseTypeDirtyRef.current = false
     previousFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null
@@ -235,8 +237,7 @@ export function TradeComposer() {
 
     const operation = (async () => {
       const kind = activeKind
-      const nextReview = new Date()
-      nextReview.setDate(nextReview.getDate() + 3)
+      const now = new Date()
 
       const fields = {
         symbol: symbol.trim().toUpperCase(),
@@ -247,7 +248,7 @@ export function TradeComposer() {
         openedAt,
       }
       const newTradeId = crypto.randomUUID()
-      const recordedAt = new Date().toISOString()
+      const recordedAt = now.toISOString()
       const result = await commitComposerTradeBatch({
         targetTradeId: editing?.id ?? newTradeId,
         images: images.map((image) => ({
@@ -268,6 +269,7 @@ export function TradeComposer() {
               note: [latest.note, appendedNote].filter(Boolean).join('\n'),
             }
             if (kind !== 'case') return candidate
+            if (!caseTypeDirtyRef.current) return candidate
             const classified = applyCaseClassificationMutation(candidate, { caseType })
             return classified.promoteLegacyFocusToStar && !state.starredIds.includes(candidate.id)
               ? {
@@ -289,7 +291,7 @@ export function TradeComposer() {
             ...(kind === 'case'
               ? {
                   masteryState: 'new' as const,
-                  nextReviewAt: formatYmd(nextReview),
+                  nextReviewAt: addDaysToCurrentTradingDay(now, tradingDayStartHour, 3),
                 }
               : {}),
             entry: 0,
@@ -487,7 +489,12 @@ export function TradeComposer() {
                 <span className="composer-essential-label">案例类型</span>
                 <Select
                   value={caseType}
-                  onValueChange={(value) => setCaseType(value as CaseType)}
+                  onValueChange={(value) => {
+                    const nextCaseType = value as CaseType
+                    if (nextCaseType === caseType) return
+                    caseTypeDirtyRef.current = true
+                    setCaseType(nextCaseType)
+                  }}
                   ariaLabel="案例类型"
                   options={CASE_TYPES.map((value) => ({
                     value,

@@ -1,5 +1,8 @@
 import type { CaseType, Trade } from '@/data/trades'
-import { formatYmd } from '@/lib/periods'
+import {
+  addDaysToCurrentTradingDay,
+  DEFAULT_TRADING_DAY_START_HOUR,
+} from '@/lib/periods'
 import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 
 export function getNextReviewCaseRef(trades: Trade[]): string {
@@ -12,7 +15,12 @@ export function getNextReviewCaseRef(trades: Trade[]): string {
 
 export function buildReviewCaseFromTrade(
   source: Trade,
-  options: { id: string; ref: string },
+  options: {
+    id: string
+    ref: string
+    now?: Date
+    tradingDayStartHour?: number
+  },
 ): Trade {
   const { deletedAt: _deletedAt, deletedBy: _deletedBy, ...activeSource } = source
   const caseType: CaseType =
@@ -23,8 +31,8 @@ export function buildReviewCaseFromTrade(
         : source.mistakeTags.length > 0 || source.reviewCategory === 'mistake'
           ? 'mistake'
           : 'exemplar'
-  const nextReview = new Date()
-  nextReview.setDate(nextReview.getDate() + 3)
+  const now = options.now ?? new Date()
+  const tradingDayStartHour = options.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
 
   const baseCase: Trade = {
     ...activeSource,
@@ -35,10 +43,10 @@ export function buildReviewCaseFromTrade(
     sourceNoteHtml: source.note,
     caseType: undefined,
     masteryState: 'new',
-    nextReviewAt: formatYmd(nextReview),
+    nextReviewAt: addDaysToCurrentTradingDay(now, tradingDayStartHour, 3),
     reviewStatus: 'unreviewed',
     reviewCategory: 'normal',
-    recordedAt: new Date().toISOString(),
+    recordedAt: now.toISOString(),
     note: '',
     comments: [],
     activities: [],

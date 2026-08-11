@@ -140,8 +140,8 @@ async function run(): Promise<void> {
     await waitFor(() => !useStore.getState().composerOpen, '案例 Composer 未完成保存')
     const saved = useStore.getState().trades.find((trade) => trade.id === recheckCase.id)!
     assert(saved.masteryState === 'recheck', 'Composer 保存不得改写原掌握状态')
-    assert(saved.reviewCategory === 'recheck', 'Composer 必须由统一边界派生兼容分类')
-    assert(saved.reviewStatus === 'unreviewed', 'Composer 必须由统一边界派生兼容状态')
+    assert(saved.reviewCategory === 'recheck', 'Composer 普通保存必须原样保留兼容分类')
+    assert(saved.reviewStatus === 'unreviewed', 'Composer 普通保存必须原样保留兼容状态')
 
     const legacyFocusCase: Trade = {
       ...recheckCase,
@@ -158,6 +158,20 @@ async function run(): Promise<void> {
       composerTrade: legacyFocusCase,
       composerKind: 'case',
     })
+    await waitFor(() => Boolean(findButton('保存')), 'legacy focus 案例 Composer 未就绪')
+    findButton('保存')?.click()
+    await waitFor(() => !useStore.getState().composerOpen, 'legacy focus 案例 Composer 未完成普通保存')
+    const preservedState = useStore.getState()
+    const preserved = preservedState.trades.find((trade) => trade.id === legacyFocusCase.id)!
+    assert(preserved.reviewCategory === 'focus', 'legacy focus 普通保存不得洗掉兼容分类')
+    assert(preserved.reviewStatus === 'focus', 'legacy focus 普通保存不得洗掉兼容状态')
+    assert(!preservedState.starredIds.includes(legacyFocusCase.id), 'legacy focus 普通保存不得误升星')
+
+    useStore.setState({
+      composerOpen: true,
+      composerTrade: preserved,
+      composerKind: 'case',
+    })
     const notifications: Array<{ category: Trade['reviewCategory']; starred: boolean }> = []
     const unsubscribe = useStore.subscribe((state) => {
       const current = state.trades.find((trade) => trade.id === legacyFocusCase.id)
@@ -169,19 +183,33 @@ async function run(): Promise<void> {
       }
     })
     try {
-      await waitFor(() => Boolean(findButton('保存')), 'legacy focus 案例 Composer 未就绪')
+      await waitFor(
+        () => Boolean(document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="案例类型"]')),
+        'legacy focus 分类编辑 Composer 未就绪',
+      )
+      document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="案例类型"]')?.click()
+      await waitFor(
+        () => Boolean(document.querySelector<HTMLButtonElement>('[role="option"][data-value="ambiguous"]')),
+        '案例类型选项未打开',
+      )
+      document.querySelector<HTMLButtonElement>('[role="option"][data-value="ambiguous"]')?.click()
+      await waitFor(
+        () => document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="案例类型"]')?.dataset.value === 'ambiguous',
+        '显式案例类型修改没有进入 Composer 状态',
+      )
       findButton('保存')?.click()
-      await waitFor(() => !useStore.getState().composerOpen, 'legacy focus 案例 Composer 未完成保存')
+      await waitFor(() => !useStore.getState().composerOpen, 'legacy focus 分类修改未完成保存')
     } finally {
       unsubscribe()
     }
     const promotedState = useStore.getState()
     const promoted = promotedState.trades.find((trade) => trade.id === legacyFocusCase.id)!
-    assert(promoted.reviewCategory === 'mistake', 'legacy focus Composer 保存必须规范化兼容分类')
-    assert(promoted.reviewStatus === 'unreviewed', 'legacy focus Composer 保存必须规范化兼容状态')
-    assert(promotedState.starredIds.includes(legacyFocusCase.id), 'legacy focus Composer 保存必须同次升星')
+    assert(promoted.caseType === 'ambiguous', '显式案例类型修改必须保存新分类字段')
+    assert(promoted.reviewCategory === 'ambiguous', '显式分类修改必须规范化兼容分类')
+    assert(promoted.reviewStatus === 'unreviewed', '显式分类修改必须规范化兼容状态')
+    assert(promotedState.starredIds.includes(legacyFocusCase.id), '显式分类修改必须同次升星 legacy focus')
     assert(
-      !notifications.some((state) => state.category === 'mistake' && !state.starred),
+      !notifications.some((state) => state.category === 'ambiguous' && !state.starred),
       'Composer 不得通知规范化已完成但 focus 未升星的中间状态',
     )
   } finally {

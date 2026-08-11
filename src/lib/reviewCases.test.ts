@@ -14,11 +14,17 @@ const source = {
 } satisfies Trade
 
 export function testReviewCaseStartsWithSourceSnapshotAndEmptyCaseNote(): void {
-  const reviewCase = buildReviewCaseFromTrade(source, { id: 'case-1', ref: 'CAS-1' })
+  const reviewCase = buildReviewCaseFromTrade(source, {
+    id: 'case-1',
+    ref: 'CAS-1',
+    now: new Date(2026, 7, 12, 5, 30),
+    tradingDayStartHour: 6,
+  })
   assert(reviewCase.sourceNoteHtml === source.note, '案例必须保存来源快照')
   assert(reviewCase.note === '', '案例沉淀正文必须独立且初始为空')
   assert(reviewCase.sourceTradeId === source.id, '案例必须保持来源关联')
   assert(!reviewCase.note.includes('来源交易：'), '系统来源行不得混入案例沉淀正文')
+  assert(reviewCase.nextReviewAt === '2026-08-14', '起始小时前提炼案例必须按当前业务日安排 3 天后复看')
 }
 
 export function testMissedSourceCreatesMissedCaseThroughClassificationBoundary(): void {

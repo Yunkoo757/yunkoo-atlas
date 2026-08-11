@@ -1544,6 +1544,8 @@ export const useStore = create<State>()((set, get) => ({
           const reviewCase = buildReviewCaseFromTrade(source, {
             id: crypto.randomUUID(),
             ref: getNextReviewCaseRef(state.trades),
+            now: new Date(),
+            tradingDayStartHour: state.display.tradingDayStartHour,
           })
           result = { status: 'created', reviewCase }
           return upsertTradeIntoSlice(state, reviewCase, state.display.tradingDayStartHour)

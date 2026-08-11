@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { getWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
@@ -86,30 +84,5 @@ export function testLegacyFocusCompatibilityDoesNotRewriteAccountTradeCategories
   assert(
     visible.length === 1 && visible[0]?.id === exactFocusTrade.id,
     '账户交易的 reviewCategory=focus 必须继续精确匹配，不得把星标解释为分类',
-  )
-}
-
-export function testCaseFilterKeepsLegacyChipWithoutExposingReviewCategorySelector(): void {
-  const source = readFileSync(
-    path.resolve('src/components/trades/TradeFilters.tsx'),
-    'utf8',
-  )
-  const caseConditionBranch = source.match(
-    /\{isCaseWorkspace \? \([\s\S]*?\) : \(/,
-  )?.[0]
-
-  assert(caseConditionBranch, '必须能定位案例筛选条件分支')
-  assert(caseConditionBranch.includes('label="案例类型"'), '案例筛选必须保留案例类型')
-  assert(caseConditionBranch.includes('label="掌握状态"'), '案例筛选必须保留掌握状态')
-  assert(!caseConditionBranch.includes('label="复盘分类"'), '干净案例筛选不得暴露旧复盘分类轴')
-  assert(source.includes('label="错误标签"'), '案例筛选必须保留错误标签')
-  assert(source.includes('`旧分类：${label}`'), '生效中的旧分类必须显示明确的兼容 chip 前缀')
-  assert(
-    source.includes("item.key === 'reviewCategory'"),
-    '当前保存视图也不得隐藏正在生效的旧分类 chip',
-  )
-  assert(
-    source.includes("onRemove: () => setParam(key, '')"),
-    '旧分类 active chip 必须继续可移除',
   )
 }

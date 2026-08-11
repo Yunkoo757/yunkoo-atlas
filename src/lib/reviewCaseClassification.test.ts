@@ -33,12 +33,18 @@ const caseTrade: Trade = {
 
 export function testCaseClassificationTruthTable(): void {
   const cases = [
-    ['mastered', 'mistake', 'mastered', 'reviewed'],
-    ['recheck', 'exemplar', 'recheck', 'unreviewed'],
+    ['new', 'exemplar', 'normal', 'unreviewed'],
     ['new', 'mistake', 'mistake', 'unreviewed'],
     ['new', 'ambiguous', 'ambiguous', 'unreviewed'],
-    ['new', 'exemplar', 'normal', 'unreviewed'],
     ['new', 'missed', 'normal', 'unreviewed'],
+    ['recheck', 'exemplar', 'recheck', 'unreviewed'],
+    ['recheck', 'mistake', 'recheck', 'unreviewed'],
+    ['recheck', 'ambiguous', 'recheck', 'unreviewed'],
+    ['recheck', 'missed', 'recheck', 'unreviewed'],
+    ['mastered', 'exemplar', 'mastered', 'reviewed'],
+    ['mastered', 'mistake', 'mastered', 'reviewed'],
+    ['mastered', 'ambiguous', 'mastered', 'reviewed'],
+    ['mastered', 'missed', 'mastered', 'reviewed'],
   ] as const
   for (const [masteryState, caseType, reviewCategory, reviewStatus] of cases) {
     const result = applyCaseClassificationMutation(caseTrade, { masteryState, caseType })

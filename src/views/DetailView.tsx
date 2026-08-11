@@ -84,7 +84,7 @@ import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
 import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
-import { formatYmd } from '@/lib/periods'
+import { addDaysToCurrentTradingDay } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getDetailNavigation } from '@/shortcuts/listNav'
@@ -736,11 +736,15 @@ export function DetailView() {
   }
 
   const updateCaseMastery = (masteryState: MasteryState) => {
-    const nextReview = new Date()
-    nextReview.setDate(nextReview.getDate() + (masteryState === 'new' ? 3 : 7))
     updateTradeData(trade.id, {
       masteryState,
-      nextReviewAt: masteryState === 'mastered' ? null : formatYmd(nextReview),
+      nextReviewAt: masteryState === 'mastered'
+        ? null
+        : addDaysToCurrentTradingDay(
+            businessDateAnchor.now,
+            tradingDayStartHour,
+            masteryState === 'new' ? 3 : 7,
+          ),
     })
   }
 

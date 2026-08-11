@@ -150,7 +150,7 @@ export function testCaseCopyPreservesKnowledgeProvenanceButStaysOutOfPerformance
   assert(copy.sourceTradeId === caseSource.sourceTradeId, '案例副本必须保留原始交易追溯')
   assert(copy.caseType === caseSource.caseType && copy.note === caseSource.note, '案例副本必须保留案例类型和正文')
   assert(copy.masteryState === 'new' && copy.nextReviewAt === null, '案例副本必须回到未排期的新案例')
-  assert(copy.reviewStatus === 'unreviewed' && copy.reviewCategory === caseSource.reviewCategory, '案例副本必须待复盘并保留知识分类')
+  assert(copy.reviewStatus === 'unreviewed' && copy.reviewCategory === 'normal', '案例副本必须按重置后的领域字段重新派生兼容分类')
   assert(copy.reviewedAt === null && copy.mistakeTags.join(',') === caseSource.mistakeTags.join(','), '案例副本必须重置完成时间并保留错误知识')
   assert(copy.comments?.length === 0 && copy.activities?.length === 0, '案例副本不得继承评论与活动历史')
   assert(!copy.deletedAt && !copy.deletedBy, '案例副本不得继承删除状态')
@@ -160,6 +160,39 @@ export function testCaseCopyPreservesKnowledgeProvenanceButStaysOutOfPerformance
 
   const after = computeStrategyStats([liveSource, copy], liveSource.strategyId)
   assert(JSON.stringify(after) === JSON.stringify(before), '复制案例不得改变任何策略统计指标')
+}
+
+export function testCaseCopyNeverInheritsLegacyFocusOrMasteryMirrors(): void {
+  const legacyFocus = {
+    ...caseSource,
+    id: 'case-legacy-focus',
+    caseType: 'mistake' as const,
+    masteryState: 'mastered' as const,
+    reviewCategory: 'focus' as const,
+    reviewStatus: 'focus' as const,
+  }
+  const recheck = {
+    ...caseSource,
+    id: 'case-recheck',
+    caseType: 'ambiguous' as const,
+    masteryState: 'recheck' as const,
+    reviewCategory: 'recheck' as const,
+    reviewStatus: 'unreviewed' as const,
+  }
+  const [focusCopy, recheckCopy] = buildSafeTradeCopies(
+    [legacyFocus, recheck],
+    [legacyFocus, recheck],
+    { now, createId: idFactory('classification-copy') },
+  )
+
+  assert(
+    focusCopy?.masteryState === 'new' && focusCopy.reviewCategory === 'mistake' && focusCopy.reviewStatus === 'unreviewed',
+    'legacy focus 副本必须按 new/mistake 重新分类，不得继承 focus 或 mastered 镜像',
+  )
+  assert(
+    recheckCopy?.masteryState === 'new' && recheckCopy.reviewCategory === 'ambiguous' && recheckCopy.reviewStatus === 'unreviewed',
+    'recheck 副本必须按 new/ambiguous 重新分类，不得继承 recheck 镜像',
+  )
 }
 
 export function testAccountCopiesDoNotDuplicateClosedPerformanceAndCommitOnce(): void {

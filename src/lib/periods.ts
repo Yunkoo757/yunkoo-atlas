@@ -129,6 +129,18 @@ export function formatYmd(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+/** 从配置后的当前业务交易日起偏移日历天，用于生成规范 YYYY-MM-DD 排期。 */
+export function addDaysToCurrentTradingDay(
+  now: Date,
+  tradingDayStartHour: number,
+  days: number,
+): string {
+  const currentTradingDayKey = getTradingDayKey(now, tradingDayStartHour)
+  const target = parseLocalDate(currentTradingDayKey)
+  target.setDate(target.getDate() + days)
+  return formatYmd(target)
+}
+
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
