@@ -125,8 +125,14 @@ async function run(): Promise<void> {
     nextReviewAt: null,
     note: '<p>案例结论：等待结构确认。</p>',
   }
+  const futureReviewCase: Trade = {
+    ...reviewCase,
+    id: 'review-session-future-case',
+    ref: 'CAS-RANDOM-FUTURE',
+    nextReviewAt: '2099-01-01',
+  }
   useStore.setState({
-    trades: [accountTrade, reviewCase],
+    trades: [accountTrade, reviewCase, futureReviewCase],
     strategies: [strategy],
     starredIds: [],
     composerOpen: false,
@@ -164,7 +170,21 @@ async function run(): Promise<void> {
     const sourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
     assert(sourceInputs.length === 2, '复盘设置缺少来源选项')
     assert(sourceInputs[1]?.checked === false, '账户交易默认必须未选中')
-    sourceInputs[1]?.click()
+    const timingSelect = document.querySelector<HTMLButtonElement>('[aria-label="复盘时间范围"]')
+    assert(timingSelect, '复盘设置缺少时间范围')
+    assert(timingSelect.textContent?.includes('到期案例'), '复盘设置必须默认明确显示到期案例')
+    timingSelect.click()
+    await waitFor(() => Boolean(findButton('全部案例（含未到期与已掌握）')), '复盘设置缺少全部案例时间范围')
+    findButton('全部案例（含未到期与已掌握）')?.click()
+    await waitFor(() => document.body.textContent?.includes('当前设置可复盘 2 条') === true, '全部案例范围没有包含未来案例')
+    useStore.setState({ trades: [accountTrade, reviewCase] })
+    await waitFor(
+      () => document.body.textContent?.includes('当前设置可复盘 1 条') === true,
+      '移除未来案例后全部范围数量没有刷新',
+    )
+    const refreshedSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    refreshedSourceInputs[1]?.click()
+    await waitFor(() => refreshedSourceInputs[1]?.checked === true, '账户交易来源没有启用')
     findButton('应用设置')?.click()
     await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '启用账户交易后预览没有包含两条记录')
 
@@ -319,6 +339,28 @@ async function run(): Promise<void> {
     const cancelledContentOnlyInput = document.querySelector<HTMLInputElement>('.review-session-content-toggle input[type="checkbox"]')
     assert(cancelledSourceInputs[1]?.checked === false, '取消后账户交易草稿污染了完成轮次快照')
     assert(cancelledContentOnlyInput?.checked === true, '取消后图文草稿污染了完成轮次快照')
+
+    cancelledSourceInputs[0]?.click()
+    cancelledSourceInputs[1]?.click()
+    findButton('应用设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '账户交易单独范围数量不准确')
+    findButton('开启一轮新的复盘')?.click()
+    await waitFor(() => document.body.textContent?.includes(accountTrade.ref) === true, '账户交易没有进入随机复盘')
+    assert(!findButton('还没掌握') && !findButton('基本理解') && !findButton('已经掌握'),
+      '账户交易不得渲染案例掌握度按钮')
+    assert(findButton('提炼为案例'), '账户交易缺少提炼为案例动作')
+    assert(findButton('下一条'), '账户交易缺少下一条动作')
+    const caseCountBeforeExtraction = useStore.getState().trades.filter((item) => item.tradeKind === 'case').length
+    findButton('提炼为案例')?.click()
+    await waitFor(
+      () => useStore.getState().trades.filter((item) => item.tradeKind === 'case').length === caseCountBeforeExtraction + 1,
+      '账户交易没有调用当前提炼路径创建案例',
+    )
+    const accountAfterExtraction = useStore.getState().trades.find((item) => item.id === accountTrade.id)
+    assert(accountAfterExtraction?.caseType === undefined && accountAfterExtraction?.masteryState === undefined && accountAfterExtraction?.nextReviewAt === undefined,
+      '账户交易提炼动作不得写入案例掌握字段')
+    findButton('下一条')?.click()
+    await waitFor(() => document.body.textContent?.includes('本轮完成') === true, '账户交易下一条没有完成本轮')
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)

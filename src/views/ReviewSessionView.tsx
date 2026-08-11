@@ -25,6 +25,7 @@ import { Menu } from '@/components/Menu'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Select } from '@/components/ui/Select'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { getStrategyName } from '@/lib/strategies'
 import {
@@ -73,6 +74,11 @@ const CASE_SCOPE_OPTIONS: Array<{ value: ReviewCaseScope; label: string }> = [
   { value: 'reviewed', label: '已掌握' },
 ]
 
+const REVIEW_TIMING_OPTIONS = [
+  { value: 'due', label: '到期案例' },
+  { value: 'all', label: '全部案例（含未到期与已掌握）' },
+]
+
 const ASSESSMENT_OPTIONS: Array<{
   value: ReviewSessionAssessment
   label: string
@@ -114,9 +120,11 @@ export function ReviewSessionView() {
   const strategies = useStore((state) => state.strategies)
   const starredIds = useStore((state) => state.starredIds)
   const privacyMode = useStore((state) => state.display.privacyMode)
+  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const updateTradeData = useStore((state) => state.updateTradeData)
   const starred = useMemo(() => new Set(starredIds), [starredIds])
+  const businessDateAnchor = useBusinessDateAnchor()
   const [filters, setFilters] = useState<ReviewSessionFilters>(DEFAULT_REVIEW_SESSION_FILTERS)
   const [settingsDraft, setSettingsDraft] = useState<ReviewSessionFilters | null>(null)
   const [session, setSession] = useState<ReviewSessionSnapshot | null>(null)
@@ -133,12 +141,24 @@ export function ReviewSessionView() {
   sessionRef.current = session
 
   const pool = useMemo(
-    () => buildReviewSessionPool(trades, filters, starred),
-    [filters, starred, trades],
+    () => buildReviewSessionPool(
+      trades,
+      filters,
+      starred,
+      businessDateAnchor.currentTradingDayKey,
+      tradingDayStartHour,
+    ),
+    [businessDateAnchor.currentTradingDayKey, filters, starred, trades, tradingDayStartHour],
   )
   const settingsPoolSize = useMemo(
-    () => settingsDraft ? buildReviewSessionPool(trades, settingsDraft, starred).length : 0,
-    [settingsDraft, starred, trades],
+    () => settingsDraft ? buildReviewSessionPool(
+      trades,
+      settingsDraft,
+      starred,
+      businessDateAnchor.currentTradingDayKey,
+      tradingDayStartHour,
+    ).length : 0,
+    [businessDateAnchor.currentTradingDayKey, settingsDraft, starred, trades, tradingDayStartHour],
   )
   const tradeById = useMemo(
     () => new Map(trades.filter((trade) => !trade.deletedAt).map((trade) => [trade.id, trade])),
@@ -156,7 +176,13 @@ export function ReviewSessionView() {
       if (cancelled) return
       const stored = loadReviewSession(manifest.libraryId)
       const restored = stored
-        ? reconcileReviewSession(stored, latestTradesRef.current, latestStarredRef.current)
+        ? reconcileReviewSession(
+          stored,
+          latestTradesRef.current,
+          latestStarredRef.current,
+          businessDateAnchor.currentTradingDayKey,
+          tradingDayStartHour,
+        )
         : null
       setLibraryId(manifest.libraryId)
       if (restored) {
@@ -172,7 +198,7 @@ export function ReviewSessionView() {
       setPersistenceWarning(true)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [businessDateAnchor.currentTradingDayKey, tradingDayStartHour])
 
   useEffect(() => {
     if (!libraryId || !session || restoreStatus !== 'ready') return
@@ -249,7 +275,7 @@ export function ReviewSessionView() {
   }, [])
 
   const assess = useCallback((assessment: ReviewSessionAssessment) => {
-    if (!current) return
+    if (!current || current.tradeKind !== 'case') return
     const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
     updateTradeData(current.id, buildReviewAssessmentPatch(current, assessment))
     const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
@@ -284,6 +310,16 @@ export function ReviewSessionView() {
     }
   }, [current, updateTradeData])
 
+  const extractCurrentAsCase = useCallback(() => {
+    if (!current || current.tradeKind === 'case') return
+    const result = useStore.getState().createReviewCaseFromTrade(current.id)
+    if (result.status !== 'created') {
+      toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+      return
+    }
+    toast('已提炼为案例')
+  }, [current])
+
   useEffect(() => {
     if (!focusAfterTransitionRef.current) return
     focusAfterTransitionRef.current = false
@@ -317,7 +353,7 @@ export function ReviewSessionView() {
       event.stopImmediatePropagation()
       if (action === 'skip') advance()
       else if (action === 'back') rewind()
-      else assess(action)
+      else if (current.tradeKind === 'case') assess(action)
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
@@ -342,7 +378,13 @@ export function ReviewSessionView() {
 
   const reshuffle = () => {
     if (!session) return
-    const nextPool = buildReviewSessionPool(trades, session.filters, starred)
+    const nextPool = buildReviewSessionPool(
+      trades,
+      session.filters,
+      starred,
+      businessDateAnchor.currentTradingDayKey,
+      tradingDayStartHour,
+    )
     if (nextPool.length === 0) {
       clearActiveSession(session.filters)
       return
@@ -429,6 +471,7 @@ export function ReviewSessionView() {
           strategyName={getStrategyName(strategies, current.strategyId)}
           note={resolvedNote.tradeId === current.id ? resolvedNote : EMPTY_NOTE_STATE}
           onAssess={assess}
+          onExtractCase={extractCurrentAsCase}
           onSkip={advance}
           onBack={session.cursor > 0 ? rewind : undefined}
           onOpenDetail={openDetail}
@@ -467,7 +510,8 @@ function ReviewSessionStart({
     filters.includeCases === DEFAULT_REVIEW_SESSION_FILTERS.includeCases &&
     filters.includeAccountTrades === DEFAULT_REVIEW_SESSION_FILTERS.includeAccountTrades &&
     filters.caseScope === DEFAULT_REVIEW_SESSION_FILTERS.caseScope &&
-    filters.requireContent === DEFAULT_REVIEW_SESSION_FILTERS.requireContent
+    filters.requireContent === DEFAULT_REVIEW_SESSION_FILTERS.requireContent &&
+    filters.reviewTiming === DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming
   )
   const emptyMessage = usesDefaultFilters
     ? '还没有可复盘的案例，请先创建案例'
@@ -553,6 +597,17 @@ function ReviewSessionSettingsModal({
         </label>
       </fieldset>
       <div className="review-session-settings-options">
+        <label className="review-session-timing-filter">
+          <span>时间范围</span>
+          <Select
+            className="review-session-timing-select"
+            value={filters.reviewTiming}
+            disabled={!filters.includeCases}
+            ariaLabel="复盘时间范围"
+            options={REVIEW_TIMING_OPTIONS}
+            onValueChange={(value) => patchFilters({ reviewTiming: value as ReviewSessionFilters['reviewTiming'] })}
+          />
+        </label>
         <label className="review-session-case-scope">
           <span>案例范围</span>
           <Select
@@ -590,6 +645,7 @@ function ReviewSessionItem({
   strategyName,
   note,
   onAssess,
+  onExtractCase,
   onSkip,
   onBack,
   onOpenDetail,
@@ -600,6 +656,7 @@ function ReviewSessionItem({
   strategyName: string
   note: ResolvedNoteState
   onAssess: (assessment: ReviewSessionAssessment) => void
+  onExtractCase: () => void
   onSkip: () => void
   onBack?: () => void
   onOpenDetail: () => void
@@ -637,27 +694,40 @@ function ReviewSessionItem({
 
         <ReviewSessionNote note={note} />
 
-        <footer className="review-session-assessment">
-          <div>
-            <strong>这套做法你掌握到什么程度？</strong>
-            <span>选择后记录掌握度并进入下一条</span>
-          </div>
-          <div className="review-session-assessment-actions">
-            {ASSESSMENT_OPTIONS.map((option) => (
-              <button key={option.value} type="button" className={`is-${option.value}`} onClick={() => onAssess(option.value)}>
-                <span>{option.label}</span>
-                <small>{option.hint}</small>
-                <Kbd>{option.key}</Kbd>
-              </button>
-            ))}
-            <button type="button" className="review-session-skip" onClick={onSkip}>跳过 <Kbd>N</Kbd></button>
-            {onBack ? (
-              <button type="button" className="review-session-skip" onClick={onBack}>
-                上一条 <Kbd>P</Kbd>
-              </button>
-            ) : null}
-          </div>
-        </footer>
+        {trade.tradeKind === 'case' ? (
+          <footer className="review-session-assessment">
+            <div>
+              <strong>这套做法你掌握到什么程度？</strong>
+              <span>选择后记录掌握度并进入下一条</span>
+            </div>
+            <div className="review-session-assessment-actions">
+              {ASSESSMENT_OPTIONS.map((option) => (
+                <button key={option.value} type="button" className={`is-${option.value}`} onClick={() => onAssess(option.value)}>
+                  <span>{option.label}</span>
+                  <small>{option.hint}</small>
+                  <Kbd>{option.key}</Kbd>
+                </button>
+              ))}
+              <button type="button" className="review-session-skip" onClick={onSkip}>跳过 <Kbd>N</Kbd></button>
+              {onBack ? (
+                <button type="button" className="review-session-skip" onClick={onBack}>
+                  上一条 <Kbd>P</Kbd>
+                </button>
+              ) : null}
+            </div>
+          </footer>
+        ) : (
+          <footer className="review-session-assessment is-account-trade">
+            <div>
+              <strong>把这笔交易沉淀成可复看的知识</strong>
+              <span>账户交易不记录案例掌握度</span>
+            </div>
+            <div className="review-session-assessment-actions review-session-account-actions">
+              <button type="button" onClick={onExtractCase}>提炼为案例</button>
+              <button type="button" className="review-session-skip" onClick={onSkip}>下一条</button>
+            </div>
+          </footer>
+        )}
       </article>
     </section>
   )

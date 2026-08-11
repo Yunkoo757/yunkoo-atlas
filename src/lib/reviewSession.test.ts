@@ -42,6 +42,9 @@ const baseTrade: Trade = {
   note: '<p>等待确认后入场</p>',
 }
 
+const FIXED_TRADING_DAY_KEY = '2026-08-11'
+const FIXED_TRADING_DAY_START_HOUR = 6
+
 class MemoryStorage {
   private values = new Map<string, string>()
 
@@ -77,6 +80,55 @@ function keyEvent(
   } as KeyboardEvent
 }
 
+export function testReviewSessionTimingFiltersDueCasesDeterministically(): void {
+  const reviewCase = {
+    ...baseTrade,
+    tradeKind: 'case',
+    masteryState: 'new',
+  } as Trade
+  const trades: Trade[] = [
+    { ...reviewCase, id: 'today', nextReviewAt: '2026-08-11' },
+    { ...reviewCase, id: 'overdue', nextReviewAt: '2026-08-10' },
+    { ...reviewCase, id: 'future', nextReviewAt: '2026-08-12' },
+    { ...reviewCase, id: 'mastered', masteryState: 'mastered', nextReviewAt: '2026-08-10' },
+    { ...reviewCase, id: 'missing', nextReviewAt: null },
+    { ...reviewCase, id: 'invalid', nextReviewAt: 'not-a-date' },
+    { ...reviewCase, id: 'invalid-ymd', nextReviewAt: '2099-02-30' },
+    { ...reviewCase, id: 'legacy-due', nextReviewAt: '2026-08-11T05:59:00' },
+    { ...reviewCase, id: 'legacy-future', nextReviewAt: '2026-08-12T06:00:00' },
+    { ...reviewCase, id: 'deleted', deletedAt: '2026-08-11T10:00:00.000Z' },
+    { ...baseTrade, id: 'account' },
+  ]
+  const filters = {
+    ...DEFAULT_REVIEW_SESSION_FILTERS,
+    includeAccountTrades: true,
+  }
+
+  const duePool = buildReviewSessionPool(
+    trades,
+    filters,
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+  )
+  assert(
+    duePool.map((trade) => trade.id).join(',') === 'today,overdue,missing,invalid,invalid-ymd,legacy-due,account',
+    '到期范围必须精确包含今天、逾期、缺失/无效日期、按业务日到期的旧 ISO 案例与合格账户交易',
+  )
+
+  const allPool = buildReviewSessionPool(
+    trades,
+    { ...filters, reviewTiming: 'all' },
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+  )
+  assert(
+    allPool.map((trade) => trade.id).join(',') === 'today,overdue,future,mastered,missing,invalid,invalid-ymd,legacy-due,legacy-future,account',
+    '全部范围必须包含未来与已掌握案例，同时继续排除已删除记录',
+  )
+}
+
 export function testReviewSessionDefaultPoolIncludesCasesOnly(): void {
   const trades: Trade[] = [
     baseTrade,
@@ -90,14 +142,14 @@ export function testReviewSessionDefaultPoolIncludesCasesOnly(): void {
     },
   ]
 
-  const defaultPool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set())
+  const defaultPool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
   assert(defaultPool.map((trade) => trade.id).join(',') === 'case-1',
     '默认随机复盘池只能包含案例')
 
   const expandedPool = buildReviewSessionPool(trades, {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: true,
-  }, new Set())
+  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
   assert(expandedPool.map((trade) => trade.id).join(',') === 'live-1,paper-1,case-1',
     '复盘设置仍应允许显式加入账户交易')
 }
@@ -121,7 +173,7 @@ export function testReviewSessionAccountTradesRequireClosedReviewedContent(): vo
   const pool = buildReviewSessionPool(trades, {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: true,
-  }, new Set())
+  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
 
   assert(pool.map((trade) => trade.id).join(',') === 'eligible,missed',
     '账户交易必须已结束、已正式复盘且有有效内容才可进入随机复盘')
@@ -139,7 +191,7 @@ export function testReviewSessionContentFilterKeepsTextAndImageNotes(): void {
     { ...baseTrade, id: 'image', note: '<p></p><img src="journal-asset://chart-1">' },
   ]
 
-  const pool = buildReviewSessionPool(trades, filters, new Set())
+  const pool = buildReviewSessionPool(trades, filters, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
 
   assert(pool.map((trade) => trade.id).join(',') === 'text,image',
     '仅含有效图文应保留正文笔记和纯图片笔记')
@@ -176,7 +228,7 @@ export function testReviewSessionCaseScopeUsesSharedStarredFocusRule(): void {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: false,
     caseScope: 'focus',
-  }, new Set(['starred-case']))
+  }, new Set(['starred-case']), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
 
   assert(pool.map((trade) => trade.id).join(',') === 'starred-case',
     '重点 scope 应与案例页一致地包含星标案例')
@@ -210,7 +262,7 @@ export function testReviewSessionMistakesScopeExcludesMissedCases(): void {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: false,
     caseScope: 'mistakes',
-  }, new Set())
+  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
 
   assert(pool.map((trade) => trade.id).join(',') === 'mistake-case',
     '随机复盘错题 scope 不得抽到带错误标签的错过机会')
@@ -227,27 +279,12 @@ export function testReviewSessionShufflePreservesUniqueMembershipAndInput(): voi
 
 export function testReviewAssessmentBuildsMasteryAndRecheckPlans(): void {
   const now = new Date(2026, 6, 16, 12)
-  const unfamiliar = buildReviewAssessmentPatch(
-    { ...baseTrade, reviewCategory: 'mistake' },
-    'unfamiliar',
-    now,
-  )
-  assert(unfamiliar.masteryState === 'new' && unfamiliar.nextReviewAt === '2026-07-19',
-    '还没掌握应安排 3 天后复看')
-  assert(!('reviewStatus' in unfamiliar) && !('reviewCategory' in unfamiliar),
-    '账户交易还没掌握也不得改写正式复盘状态或分类')
-
-  const recheck = buildReviewAssessmentPatch(baseTrade, 'recheck', now)
-  assert(recheck.masteryState === 'recheck' && recheck.nextReviewAt === '2026-07-23',
-    '基本理解应安排 7 天后复看')
-  assert(!('reviewStatus' in recheck) && !('reviewCategory' in recheck),
-    '账户交易的记忆评估不得改写正式复盘状态或分类')
-
-  const mastered = buildReviewAssessmentPatch(baseTrade, 'mastered', now)
-  assert(mastered.masteryState === 'mastered' && mastered.nextReviewAt === null,
-    '已经掌握应清空复看日期')
-  assert(!('reviewStatus' in mastered) && !('reviewCategory' in mastered),
-    '账户交易已掌握不得冒充正式复盘完成')
+  for (const assessment of ['unfamiliar', 'recheck', 'mastered'] as const) {
+    assert(
+      Object.keys(buildReviewAssessmentPatch(baseTrade, assessment, now)).length === 0,
+      `账户交易的 ${assessment} 评估不得写入案例字段`,
+    )
+  }
 
   const reviewCase = { ...baseTrade, id: 'case', tradeKind: 'case' } as Trade
   const caseRecheck = buildReviewAssessmentPatch(reviewCase, 'recheck', now)
@@ -276,6 +313,30 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
   const raw = storage.getItem(reviewSessionStorageKey('library-a')) ?? ''
   assert(Object.keys(JSON.parse(raw)).sort().join(',') === 'assessments,cursor,filters,ids',
     '会话只应保存随机队列、游标、范围与本轮评估')
+  assert(JSON.parse(raw).filters.reviewTiming === 'due', '新会话必须明确保存默认的到期范围')
+
+  storage.setItem(reviewSessionStorageKey('legacy-library'), JSON.stringify({
+    ids: ['future-case'],
+    cursor: 0,
+    filters: {
+      includeCases: true,
+      includeAccountTrades: false,
+      caseScope: 'all',
+      requireContent: false,
+    },
+    assessments: {},
+  }))
+  const legacy = loadReviewSession('legacy-library', storage)
+  if (!legacy) throw new Error('旧会话必须能够加载')
+  assert(legacy.filters.reviewTiming === 'all', '旧会话缺少时间范围时必须规范为全部案例')
+  const reconciledLegacy = reconcileReviewSession(
+    legacy,
+    [{ ...baseTrade, id: 'future-case', tradeKind: 'case', masteryState: 'mastered', nextReviewAt: '2099-01-01' }],
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+  )
+  assert(reconciledLegacy?.ids.join(',') === 'future-case', '旧会话的未来或已掌握成员不得在恢复时被静默删减')
 }
 
 export function testReviewSessionStorageFailuresDegradeSafely(): void {
@@ -354,7 +415,13 @@ export function testReviewSessionRestoreDropsUnavailableRecordsWithoutLosingCurr
     baseTrade,
   ]
 
-  const restored = reconcileReviewSession(snapshot, trades, new Set())
+  const restored = reconcileReviewSession(
+    snapshot,
+    trades,
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+  )
 
   assert(restored?.ids.join(',') === 'case-1,live-1', '恢复时应剔除删除或不存在的记录')
   assert(restored?.cursor === 1, '剔除前序记录后仍应停留在同一张卡')

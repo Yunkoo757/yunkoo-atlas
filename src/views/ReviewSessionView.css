@@ -179,6 +179,7 @@
 
 .review-session-settings-options {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
@@ -201,7 +202,14 @@
   width: 164px;
 }
 
-.review-session-scope-select .ui-select-trigger { min-height: 32px; }
+.review-session-timing-filter {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.review-session-timing-select { width: 270px; }
+.review-session-scope-select .ui-select-trigger,
+.review-session-timing-select .ui-select-trigger { min-height: 32px; }
 .review-session-content-toggle { cursor: pointer; }
 
 .review-session-settings-count {
@@ -534,6 +542,14 @@ button.review-session-gallery-slot.is-ready {
   color: var(--text-tertiary);
 }
 
+.review-session-account-actions button {
+  display: inline-flex;
+  min-width: 128px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 .review-session-finished {
   display: flex;
   width: min(560px, calc(100% - 40px));
@@ -613,6 +629,7 @@ button.review-session-gallery-slot.is-ready {
   .review-session-start-footer { align-items: stretch; flex-direction: column; }
   .review-session-settings-options > label,
   .review-session-case-scope { justify-content: space-between; }
+  .review-session-timing-select { width: min(270px, 64vw); }
   .review-session-start-actions { align-items: stretch; flex-direction: column-reverse; }
   .review-session-start-actions .ui-btn:last-child { width: 100%; }
   .review-session-assessed { display: none; }
@@ -633,6 +650,8 @@ button.review-session-gallery-slot.is-ready {
   .review-session-assessment-actions button > small,
   .review-session-assessment-actions .ui-kbd { display: none; }
   .review-session-assessment-actions .review-session-skip { grid-column: 1 / -1; min-height: 34px; justify-content: center; }
+  .review-session-account-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-session-account-actions .review-session-skip { grid-column: auto; min-height: 46px; }
   .review-session-result-grid { grid-template-columns: repeat(2, 1fr); }
   .review-session-finished { padding: 30px var(--sp-5); }
   .review-session-finished-actions { width: 100%; flex-direction: column; }

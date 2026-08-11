@@ -1,5 +1,5 @@
 import { isReviewCompleted, type Trade } from '@/data/trades'
-import { formatYmd } from '@/lib/periods'
+import { formatYmd, getTradingDayKey } from '@/lib/periods'
 import {
   matchesReviewCaseScope,
   type ReviewCaseScope,
@@ -12,6 +12,17 @@ export type ReviewSessionFilters = {
   includeAccountTrades: boolean
   caseScope: ReviewCaseScope
   requireContent: boolean
+  reviewTiming: ReviewTiming
+}
+
+export type ReviewTiming = 'due' | 'all'
+
+type StoredReviewSessionFilters = Omit<ReviewSessionFilters, 'reviewTiming'> & {
+  reviewTiming?: ReviewTiming
+}
+
+type StoredReviewSessionSnapshot = Omit<ReviewSessionSnapshot, 'filters'> & {
+  filters: StoredReviewSessionFilters
 }
 
 export type ReviewSessionSnapshot = {
@@ -35,19 +46,7 @@ export function buildReviewAssessmentPatch(
   now: Date = new Date(),
 ) {
   if (trade.tradeKind !== 'case') {
-    if (assessment === 'mastered') {
-      return {
-        masteryState: 'mastered' as const,
-        nextReviewAt: null,
-      }
-    }
-
-    const nextReview = new Date(now)
-    nextReview.setDate(nextReview.getDate() + (assessment === 'unfamiliar' ? 3 : 7))
-    return {
-      masteryState: assessment === 'recheck' ? 'recheck' as const : 'new' as const,
-      nextReviewAt: formatYmd(nextReview),
-    }
+    return {}
   }
 
   if (assessment === 'mastered') {
@@ -101,6 +100,7 @@ export const DEFAULT_REVIEW_SESSION_FILTERS: ReviewSessionFilters = {
   includeAccountTrades: false,
   caseScope: 'all',
   requireContent: false,
+  reviewTiming: 'due',
 }
 
 export function hasEffectiveReviewContent(note: string | null | undefined): boolean {
@@ -135,13 +135,18 @@ export function buildReviewSessionPool(
   trades: readonly Trade[],
   filters: ReviewSessionFilters,
   starredIds: ReadonlySet<string>,
+  currentTradingDayKey: string,
+  tradingDayStartHour: number,
 ): Trade[] {
   return trades.filter((trade) => {
     if (trade.deletedAt) return false
     const content = getReviewSessionContent(trade)
     if (filters.requireContent && !hasEffectiveReviewContent(content)) return false
     if (trade.tradeKind === 'case') {
-      return filters.includeCases && matchesReviewCaseScope(trade, filters.caseScope, starredIds)
+      if (!filters.includeCases || !matchesReviewCaseScope(trade, filters.caseScope, starredIds)) return false
+      if (filters.reviewTiming === 'all') return true
+      if (trade.masteryState === 'mastered') return false
+      return isReviewCaseDue(trade.nextReviewAt, currentTradingDayKey, tradingDayStartHour)
     }
     if (!filters.includeAccountTrades || (trade.tradeKind !== 'live' && trade.tradeKind !== 'paper')) return false
     const executionState = resolveTradeTruth(trade).executionState
@@ -151,6 +156,27 @@ export function buildReviewSessionPool(
       hasEffectiveReviewContent(content)
     )
   })
+}
+
+function isReviewCaseDue(
+  nextReviewAt: string | null | undefined,
+  currentTradingDayKey: string,
+  tradingDayStartHour: number,
+): boolean {
+  if (!nextReviewAt) return true
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nextReviewAt)
+  if (ymd) {
+    const year = Number(ymd[1])
+    const month = Number(ymd[2])
+    const day = Number(ymd[3])
+    const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+    const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]!) return true
+    return nextReviewAt <= currentTradingDayKey
+  }
+  const legacyDate = new Date(nextReviewAt)
+  if (!Number.isFinite(legacyDate.getTime())) return true
+  return getTradingDayKey(legacyDate, tradingDayStartHour) <= currentTradingDayKey
 }
 
 /** Fisher–Yates；返回新数组并允许测试注入随机源。 */
@@ -170,9 +196,17 @@ export function reconcileReviewSession(
   snapshot: ReviewSessionSnapshot,
   trades: readonly Trade[],
   starredIds: ReadonlySet<string>,
+  currentTradingDayKey: string,
+  tradingDayStartHour: number,
 ): ReviewSessionSnapshot | null {
   const eligibleIds = new Set(
-    buildReviewSessionPool(trades, snapshot.filters, starredIds).map((trade) => trade.id),
+    buildReviewSessionPool(
+      trades,
+      snapshot.filters,
+      starredIds,
+      currentTradingDayKey,
+      tradingDayStartHour,
+    ).map((trade) => trade.id),
   )
   const ids = snapshot.ids.filter((id) => eligibleIds.has(id))
   if (ids.length === 0) return null
@@ -248,6 +282,7 @@ export function saveReviewSession(
         includeAccountTrades: snapshot.filters.includeAccountTrades,
         caseScope: snapshot.filters.caseScope,
         requireContent: snapshot.filters.requireContent,
+        reviewTiming: snapshot.filters.reviewTiming,
       },
       assessments: snapshot.assessments,
     }))
@@ -271,7 +306,13 @@ export function loadReviewSession(
       try { storage.removeItem(key) } catch { /* storage may be read-only */ }
       return null
     }
-    return value
+    return {
+      ...value,
+      filters: {
+        ...value.filters,
+        reviewTiming: value.filters.reviewTiming ?? 'all',
+      },
+    }
   } catch {
     try { storage.removeItem(key) } catch { /* storage may be unavailable */ }
     return null
@@ -298,7 +339,7 @@ export function clearReviewSession(
   return clearReviewSessionStorage(libraryId, storage)
 }
 
-function isReviewSessionSnapshot(value: unknown): value is ReviewSessionSnapshot {
+function isReviewSessionSnapshot(value: unknown): value is StoredReviewSessionSnapshot {
   if (!value || typeof value !== 'object') return false
   const snapshot = value as Partial<ReviewSessionSnapshot>
   if (!Array.isArray(snapshot.ids) || !snapshot.ids.every((id) => typeof id === 'string' && id.length > 0)) {
@@ -319,13 +360,14 @@ function isReviewSessionAssessments(
   return Object.entries(value).every(([id, assessment]) => id.length > 0 && valid.has(assessment as ReviewSessionAssessment))
 }
 
-function isReviewSessionFilters(value: unknown): value is ReviewSessionFilters {
+function isReviewSessionFilters(value: unknown): value is StoredReviewSessionFilters {
   if (!value || typeof value !== 'object') return false
   const filters = value as Partial<ReviewSessionFilters>
   return (
     typeof filters.includeCases === 'boolean' &&
     typeof filters.includeAccountTrades === 'boolean' &&
     typeof filters.requireContent === 'boolean' &&
+    (filters.reviewTiming === undefined || filters.reviewTiming === 'due' || filters.reviewTiming === 'all') &&
     REVIEW_SESSION_SCOPES.includes(filters.caseScope as ReviewCaseScope)
   )
 }
