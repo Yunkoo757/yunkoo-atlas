@@ -21,6 +21,7 @@ const SCOPE_PRIORITY: Record<ShortcutScope, number> = {
   lightbox: 100,
   overlay: 90,
   detail: 50,
+  reviewSession: 50,
   navigation: 30,
   global: 10,
 }
@@ -69,9 +70,10 @@ function getActiveScopes(pathname?: string): Set<ShortcutScope> {
   if (lightbox) scopes.add('lightbox')
   if (cmdkOpen || modalOpen || composerOpen || closeTradeRequest) scopes.add('overlay')
 
-  if (typeof window !== 'undefined') {
-    const p = pathname ?? window.location.pathname
+  const p = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : undefined)
+  if (p) {
     if (p.startsWith('/trade/')) scopes.add('detail')
+    if (p === '/review-session') scopes.add('reviewSession')
   }
 
   return scopes

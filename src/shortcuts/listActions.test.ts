@@ -5,6 +5,8 @@ import {
   setShortcutHandlers,
 } from '@/shortcuts/engine'
 import { createWorkbenchListShortcutHandlers } from '@/hooks/useWorkbenchListKeyboard'
+import { getActionMeta } from '@/shortcuts/actions'
+import { bindingKey } from '@/shortcuts/chords'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -29,6 +31,17 @@ function keyboardEvent(
   return event as unknown as KeyboardEvent & { prevented: number }
 }
 
+export function testListNavigationDefaultsMatchDetailDirection(): void {
+  assert(
+    bindingKey(getActionMeta('list.focusPrev')!.defaultBinding) === 'q',
+    '列表上一条默认快捷键应与详情上一条统一为 Q',
+  )
+  assert(
+    bindingKey(getActionMeta('list.focusNext')!.defaultBinding) === 'e',
+    '列表下一条默认快捷键应与详情下一条统一为 E',
+  )
+}
+
 export function testConfiguredListBindingRunsRegisteredHandlerExactlyOnce(): void {
   const previousBindings = useShortcutStore.getState().bindings
   useShortcutStore.setState({
@@ -51,7 +64,7 @@ export function testConfiguredListBindingRunsRegisteredHandlerExactlyOnce(): voi
     assert(configured.prevented === 1, '已处理的列表快捷键应阻止浏览器默认行为')
     assert(calls === 1, '一次按键只能触发一次列表动作')
 
-    const oldDefault = keyboardEvent('q')
+    const oldDefault = keyboardEvent('e')
     assert(!handleShortcutKeydown(oldDefault, '/list'), '改绑后旧默认键不得继续触发')
     assert(calls === 1, '旧默认键不得造成隐藏的第二次动作')
 

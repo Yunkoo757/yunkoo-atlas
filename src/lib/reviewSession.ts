@@ -4,7 +4,6 @@ import {
   matchesReviewCaseScope,
   type ReviewCaseScope,
 } from '@/lib/reviewCaseScope'
-import { isTypingTarget, normalizeKey } from '@/shortcuts/chords'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 
 export type ReviewSessionFilters = {
@@ -85,7 +84,6 @@ export function buildReviewAssessmentPatch(
 }
 
 export type ReviewSessionStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-export type ReviewSessionKeyAction = ReviewSessionAssessment | 'skip' | 'back'
 
 const REVIEW_SESSION_SCOPES: ReviewCaseScope[] = [
   'all',
@@ -252,36 +250,6 @@ export function reconcileReviewSession(
       Object.entries(snapshot.assessments).filter(([id]) => eligibleIds.has(id)),
     ),
   }
-}
-
-export function reviewSessionKeyAction(event: KeyboardEvent): ReviewSessionKeyAction | null {
-  if (
-    event.defaultPrevented ||
-    event.repeat ||
-    event.isComposing ||
-    event.keyCode === 229 ||
-    event.ctrlKey ||
-    event.metaKey ||
-    event.altKey ||
-    event.shiftKey
-  ) {
-    return null
-  }
-  const target = event.target as HTMLElement | null
-  if (
-    isTypingTarget(target) ||
-    target?.closest?.(
-      'button, a[href], select, summary, [role="button"], [role="link"], [role="combobox"]',
-    )
-  ) return null
-
-  const key = normalizeKey(event.key)
-  if (key === '1') return 'unfamiliar'
-  if (key === '2') return 'recheck'
-  if (key === '3') return 'mastered'
-  if (key === 'n' || key === 'arrowright') return 'skip'
-  if (key === 'p' || key === 'arrowleft') return 'back'
-  return null
 }
 
 export function reviewSessionStorageKey(libraryId: string): string {

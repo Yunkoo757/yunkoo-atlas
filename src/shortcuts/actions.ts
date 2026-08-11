@@ -242,6 +242,42 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
 
   {
+    id: 'reviewSession.unfamiliar',
+    label: '还没掌握',
+    category: '随机复盘',
+    scope: 'reviewSession',
+    defaultBinding: getDefaultShortcutBinding('reviewSession.unfamiliar'),
+  },
+  {
+    id: 'reviewSession.recheck',
+    label: '基本理解',
+    category: '随机复盘',
+    scope: 'reviewSession',
+    defaultBinding: getDefaultShortcutBinding('reviewSession.recheck'),
+  },
+  {
+    id: 'reviewSession.mastered',
+    label: '已经掌握',
+    category: '随机复盘',
+    scope: 'reviewSession',
+    defaultBinding: getDefaultShortcutBinding('reviewSession.mastered'),
+  },
+  {
+    id: 'reviewSession.skip',
+    label: '下一条',
+    category: '随机复盘',
+    scope: 'reviewSession',
+    defaultBinding: getDefaultShortcutBinding('reviewSession.skip'),
+  },
+  {
+    id: 'reviewSession.back',
+    label: '上一条',
+    category: '随机复盘',
+    scope: 'reviewSession',
+    defaultBinding: getDefaultShortcutBinding('reviewSession.back'),
+  },
+
+  {
     id: 'image.prev',
     label: '上一张图片',
     category: '图片',

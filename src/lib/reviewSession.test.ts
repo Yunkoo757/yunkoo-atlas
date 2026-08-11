@@ -7,7 +7,6 @@ import {
   clearReviewSessionStorage,
   loadReviewSession,
   reconcileReviewSession,
-  reviewSessionKeyAction,
   reviewSessionStorageKey,
   saveReviewSession,
   shuffleReviewSessionIds,
@@ -59,25 +58,6 @@ class MemoryStorage {
   removeItem(key: string): void {
     this.values.delete(key)
   }
-}
-
-function keyEvent(
-  key: string,
-  overrides: Partial<KeyboardEvent> = {},
-): KeyboardEvent {
-  return {
-    key,
-    keyCode: 0,
-    target: null,
-    defaultPrevented: false,
-    repeat: false,
-    isComposing: false,
-    ctrlKey: false,
-    metaKey: false,
-    altKey: false,
-    shiftKey: false,
-    ...overrides,
-  } as KeyboardEvent
 }
 
 export function testReviewSessionTimingFiltersDueCasesDeterministically(): void {
@@ -403,31 +383,6 @@ export function testReviewSessionStorageClearIsScopedToCurrentLibrary(): void {
   assert(clearReviewSessionStorage('library-a', storage), '当前资料库会话应可安全清理')
   assert(loadReviewSession('library-a', storage) === null, '整库恢复后不得恢复旧队列')
   assert(loadReviewSession('library-b', storage) !== null, '清理不得影响其他资料库的隔离会话')
-}
-
-export function testReviewSessionKeyboardActionsExcludeEditingAndModifiedInput(): void {
-  assert(reviewSessionKeyAction(keyEvent('1')) === 'unfamiliar', '1 应记录还没掌握')
-  assert(reviewSessionKeyAction(keyEvent('2')) === 'recheck', '2 应记录基本理解')
-  assert(reviewSessionKeyAction(keyEvent('3')) === 'mastered', '3 应记录已经掌握')
-  assert(reviewSessionKeyAction(keyEvent(' ')) === null, 'Space 不再承担翻面操作')
-  assert(reviewSessionKeyAction(keyEvent('n')) === 'skip', 'N 应跳过当前记录')
-  assert(reviewSessionKeyAction(keyEvent('ArrowRight')) === 'skip', '右方向键应跳过当前记录')
-  assert(reviewSessionKeyAction(keyEvent('p')) === 'back', 'P 应回到上一条')
-  assert(reviewSessionKeyAction(keyEvent('ArrowLeft')) === 'back', '左方向键应回到上一条')
-  assert(reviewSessionKeyAction(keyEvent('n', { repeat: true })) === null, '长按重复事件应忽略')
-  assert(reviewSessionKeyAction(keyEvent('n', { isComposing: true })) === null, '输入法组合态应忽略')
-  assert(reviewSessionKeyAction(keyEvent('n', { keyCode: 229 })) === null, '输入法 229 事件应忽略')
-  assert(reviewSessionKeyAction(keyEvent('n', { ctrlKey: true })) === null, '带修饰键事件应忽略')
-  assert(reviewSessionKeyAction(keyEvent('n', {
-    target: { tagName: 'INPUT', isContentEditable: false, closest: () => null } as unknown as EventTarget,
-  })) === null, '输入框中的 N 不得推进卡片')
-  assert(reviewSessionKeyAction(keyEvent(' ', {
-    target: {
-      tagName: 'BUTTON',
-      isContentEditable: false,
-      closest: (selector: string) => selector.includes('button') ? {} : null,
-    } as unknown as EventTarget,
-  })) === null, '按钮获得焦点时 Space 必须保留原生激活行为')
 }
 
 export function testReviewSessionRestoreDropsUnavailableRecordsWithoutLosingCurrentCard(): void {

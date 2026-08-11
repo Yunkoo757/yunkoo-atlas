@@ -49,6 +49,17 @@ export function testTradeAndCaseShortcutsHaveSeparateConfigurableBindings(): voi
   assert(!getActionMeta('global.switchModule'), '不应继续暴露结果不稳定的模块切换动作')
 }
 
+export function testTradeDetailNavigationKeepsQForPreviousAndEForNext(): void {
+  assert(
+    bindingKey(getActionMeta('trade.prev')!.defaultBinding) === 'q',
+    '交易详情上一条默认快捷键应保持 Q',
+  )
+  assert(
+    bindingKey(getActionMeta('trade.next')!.defaultBinding) === 'e',
+    '交易详情下一条默认快捷键应保持 E',
+  )
+}
+
 export function testNewTradeAndCaseActionsChooseTheirRecordKindExplicitly(): void {
   const previous = useStore.getState()
   try {

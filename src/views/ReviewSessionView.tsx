@@ -42,7 +42,6 @@ import {
   hasEffectiveReviewContent,
   loadReviewSession,
   reconcileReviewSession,
-  reviewSessionKeyAction,
   saveReviewSession,
   shuffleReviewSessionIds,
   type ReviewSessionAssessment,
@@ -55,6 +54,10 @@ import { toast } from '@/lib/toast'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
 import { useShortcutStore } from '@/store/shortcutStore'
+import {
+  registerShortcutHandlers,
+  type ShortcutHandlerMap,
+} from '@/shortcuts/engine'
 import { useStore } from '@/store/useStore'
 import './ReviewSessionView.css'
 
@@ -94,6 +97,29 @@ const EMPTY_NOTE_STATE: ResolvedNoteState = {
   tradeId: null,
   status: 'idle',
   html: '',
+}
+
+export function createReviewSessionShortcutHandlers({
+  current,
+  onAssess,
+  onSkip,
+  onBack,
+}: {
+  current: Pick<Trade, 'tradeKind'> | undefined
+  onAssess: (assessment: ReviewSessionAssessment) => void
+  onSkip: () => void
+  onBack: () => void
+}): ShortcutHandlerMap {
+  const assessCase = (assessment: ReviewSessionAssessment) => {
+    if (current?.tradeKind === 'case') onAssess(assessment)
+  }
+  return {
+    'reviewSession.unfamiliar': () => assessCase('unfamiliar'),
+    'reviewSession.recheck': () => assessCase('recheck'),
+    'reviewSession.mastered': () => assessCase('mastered'),
+    'reviewSession.skip': onSkip,
+    'reviewSession.back': onBack,
+  }
 }
 
 export function splitReviewNoteHtml(html: string): ReviewNotePresentation {
@@ -337,26 +363,12 @@ export function ReviewSessionView() {
 
   useEffect(() => {
     if (!session || roundEnded || !current) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      const action = reviewSessionKeyAction(event)
-      if (!action) return
-      const shortcutState = useShortcutStore.getState()
-      const appState = useStore.getState()
-      if (
-        shortcutState.lightbox ||
-        shortcutState.cmdkOpen ||
-        shortcutState.modalOverlayCount > 0 ||
-        appState.composerOpen ||
-        appState.closeTradeRequest
-      ) return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      if (action === 'skip') advance()
-      else if (action === 'back') rewind()
-      else if (current.tradeKind === 'case') assess(action)
-    }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
+    return registerShortcutHandlers(createReviewSessionShortcutHandlers({
+      current,
+      onAssess: assess,
+      onSkip: advance,
+      onBack: rewind,
+    }))
   }, [advance, assess, current, rewind, roundEnded, session])
 
   const start = () => {

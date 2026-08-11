@@ -12,6 +12,16 @@ import {
 } from './test-discovery.mjs'
 import { runBrowserRegressionTests } from './run-browser-tests.mjs'
 
+test('default desktop test gate excludes mobile QA while keeping it explicitly callable', async () => {
+  const pkg = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'))
+
+  assert.doesNotMatch(pkg.scripts.test, /(?:^|&&)\s*pnpm qa:risk-management-mobile(?:\s*(?:&&|$))/)
+  assert.equal(
+    pkg.scripts['qa:risk-management-mobile'],
+    'node scripts/qa-risk-management-mobile.mjs',
+  )
+})
+
 async function withFixture(run) {
   const fixtureParent = path.join(process.cwd(), 'test-results')
   await fs.mkdir(fixtureParent, { recursive: true })
