@@ -165,6 +165,11 @@ function runAction(id: string): boolean {
 }
 
 export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): boolean {
+  if (e.defaultPrevented || e.repeat || e.isComposing || e.keyCode === 229) {
+    clearSequence()
+    return false
+  }
+
   // Guard against race: host 与当前页面都还没注册动作。
   if (Object.keys(handlers).length === 0 && registeredHandlerMaps.length === 0) return false
 

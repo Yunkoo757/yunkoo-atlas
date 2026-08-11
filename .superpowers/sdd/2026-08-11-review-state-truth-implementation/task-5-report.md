@@ -103,3 +103,43 @@ runner contract 输出中的 empty/unknown/stalled fixture `FAIL` 行是 3 个�
 
 - 提交：本报告所在提交，message 为 `fix: align desktop review shortcuts`；最终提交哈希见任务交付消息。
 - Concerns：无已知功能问题。完整 browser runner 仍执行仓库历史 viewport fixtures，这不扩展产品适配范围；显式 mobile QA 脚本仍按要求保留但不再属于默认桌面 `test` 门禁。
+
+## Fix round 1/5：动态提示与统一事件保护
+
+### 审查修复
+
+- 删除 `ASSESSMENT_OPTIONS` 的静态 `key` 字段以及按钮内硬编码的 `1/2/3/N/P`。
+- `ReviewSessionItem` 分别通过 `useShortcutHint()` 解析 `reviewSession.unfamiliar/recheck/mastered/skip/back`；自定义绑定同步更新可见 `<kbd>`、`aria-keyshortcuts` 和 aria-label。
+- 禁用绑定时不渲染旧 `<kbd>`，不保留 `aria-keyshortcuts`，aria-label 明确显示“未设置快捷键”。案例 skip 使用“跳过”标签覆盖，账户交易仍使用“下一条”。
+- `handleShortcutKeydown()` 在任何动作匹配前统一拒绝 `defaultPrevented`、`repeat`、`isComposing` 和 `keyCode === 229`，并清理可能存在的序列缓冲。
+
+### RED / GREEN
+
+RED（基于 `9615c33`）：
+
+```powershell
+node scripts/run-regression-tests.mjs --unit-only src/shortcuts/reviewSessionActions.test.ts
+# exit 1：repeat/defaultPrevented/isComposing/keyCode 229 仍会执行 skip
+
+# 通过 runBrowserRegressionTests 精确请求 ReviewSession browser stable test ID
+# exit 1：自定义 unfamiliar=X 后可见提示仍为 1
+```
+
+GREEN：
+
+| 命令 | 结果 |
+| --- | --- |
+| `node scripts/run-regression-tests.mjs --unit-only src/shortcuts/reviewSessionActions.test.ts src/shortcuts/listActions.test.ts src/shortcuts/workspaceActions.test.ts` | exit 0，22/22 PASS |
+| ReviewSession browser stable test ID（默认 + 4 个声明 viewport） | exit 0，5/5 PASS |
+| `pnpm typecheck` | exit 0 |
+| `pnpm test` | exit 0（97.4 秒） |
+
+### 本轮文件、提交与 concerns
+
+- `src/shortcuts/engine.ts`
+- `src/shortcuts/reviewSessionActions.test.ts`
+- `src/views/ReviewSessionView.tsx`
+- `src/views/ReviewSession.browser.test.tsx`
+- 本报告
+- 提交：窄修复 commit，message 为 `fix: honor review shortcut state`；最终提交哈希见任务交付消息。
+- Concerns：无已知问题。事件保护是统一引擎级安全契约，会阻止所有 scope 对已消费、重复或输入法组合事件的处理；这与旧随机复盘 helper 的既有保护一致。未修改 Batch 1、schema 或 mobile 产品功能。

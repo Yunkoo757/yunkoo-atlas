@@ -13,20 +13,59 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-function keyboardEvent(key: string): KeyboardEvent & { prevented: number } {
+function keyboardEvent(
+  key: string,
+  overrides: Partial<KeyboardEvent> = {},
+): KeyboardEvent & { prevented: number } {
   const event = {
     key,
+    keyCode: 0,
     ctrlKey: false,
     metaKey: false,
     shiftKey: false,
     altKey: false,
+    repeat: false,
+    isComposing: false,
+    defaultPrevented: false,
     target: null,
     prevented: 0,
     preventDefault() {
       this.prevented += 1
     },
+    ...overrides,
   }
   return event as unknown as KeyboardEvent & { prevented: number }
+}
+
+export function testReviewSessionRejectsHandledRepeatAndCompositionEvents(): void {
+  const previousBindings = useShortcutStore.getState().bindings
+  useShortcutStore.setState({ bindings: {} })
+  setShortcutHandlers({})
+  let calls = 0
+  const unregister = registerShortcutHandlers({
+    'reviewSession.skip': () => { calls += 1 },
+  })
+
+  try {
+    const rejected = [
+      keyboardEvent('n', { defaultPrevented: true }),
+      keyboardEvent('n', { repeat: true }),
+      keyboardEvent('n', { isComposing: true }),
+      keyboardEvent('n', { keyCode: 229 }),
+    ]
+    for (const event of rejected) {
+      assert(
+        !handleShortcutKeydown(event, '/review-session'),
+        '已处理、重复或输入法组合事件不得执行随机复盘动作',
+      )
+      assert(event.prevented === 0, '被拒绝的事件不得再次调用 preventDefault')
+    }
+    assert(calls === 0, '被拒绝的事件不得推进随机复盘会话')
+  } finally {
+    unregister()
+    setShortcutHandlers({})
+    useShortcutStore.setState({ bindings: previousBindings })
+  }
 }
 
 export function testReviewSessionActionsExposeStableDefaultsAndScope(): void {

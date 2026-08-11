@@ -139,6 +139,7 @@ async function run(): Promise<void> {
     closeTradeRequest: null,
   })
   useShortcutStore.setState({
+    bindings: {},
     lightbox: null,
     cmdkOpen: false,
     modalOverlayCount: 0,
@@ -221,6 +222,34 @@ async function run(): Promise<void> {
       '完整交易没有直接显示复盘正文',
     )
     assert(!document.querySelector('.review-session-card.is-front, .review-session-card.is-back'), '随机复盘不得再出现正反面卡片')
+
+    useShortcutStore.setState({
+      bindings: {
+        'reviewSession.unfamiliar': { key: 'x' },
+        'reviewSession.skip': null,
+      },
+    })
+    const unfamiliarButton = document.querySelector<HTMLButtonElement>('.review-session-assessment-actions .is-unfamiliar')
+    const skipButton = document.querySelector<HTMLButtonElement>('.review-session-assessment-actions .review-session-skip')
+    assert(unfamiliarButton, '随机复盘缺少还没掌握动作')
+    assert(skipButton, '随机复盘缺少跳过动作')
+    await waitFor(
+      () => unfamiliarButton.textContent?.includes('X') === true,
+      '自定义掌握度快捷键没有更新可见提示',
+    )
+    assert(!unfamiliarButton.textContent?.includes('1'), '自定义绑定后不得继续显示旧默认键')
+    assert(unfamiliarButton.getAttribute('aria-keyshortcuts') === 'X', '自定义绑定没有更新 aria-keyshortcuts')
+    await waitFor(
+      () => !skipButton.querySelector('kbd'),
+      '禁用跳过快捷键后仍显示旧默认键',
+    )
+    assert(!skipButton.hasAttribute('aria-keyshortcuts'), '禁用绑定后不得保留 aria-keyshortcuts')
+    assert(skipButton.getAttribute('aria-label') === '跳过（未设置快捷键）', '禁用绑定应明确说明未设置快捷键')
+    useShortcutStore.setState({ bindings: {} })
+    await waitFor(
+      () => unfamiliarButton.textContent?.includes('1') === true && skipButton.textContent?.includes('N') === true,
+      '恢复默认绑定后随机复盘提示没有同步刷新',
+    )
 
     const openDetail = findButton('打开详情')
     assert(openDetail, '完整复盘缺少详情入口')
@@ -374,6 +403,7 @@ async function run(): Promise<void> {
       closeTradeRequest: previous.closeTradeRequest,
     })
     useShortcutStore.setState({
+      bindings: previousShortcuts.bindings,
       lightbox: previousShortcuts.lightbox,
       cmdkOpen: previousShortcuts.cmdkOpen,
       modalOverlayCount: previousShortcuts.modalOverlayCount,

@@ -58,6 +58,7 @@ import {
   registerShortcutHandlers,
   type ShortcutHandlerMap,
 } from '@/shortcuts/engine'
+import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { useStore } from '@/store/useStore'
 import './ReviewSessionView.css'
 
@@ -86,11 +87,10 @@ const ASSESSMENT_OPTIONS: Array<{
   value: ReviewSessionAssessment
   label: string
   hint: string
-  key: string
 }> = [
-  { value: 'unfamiliar', label: '还没掌握', hint: '3 天后再看', key: '1' },
-  { value: 'recheck', label: '基本理解', hint: '7 天后复看', key: '2' },
-  { value: 'mastered', label: '已经掌握', hint: '完成本条', key: '3' },
+  { value: 'unfamiliar', label: '还没掌握', hint: '3 天后再看' },
+  { value: 'recheck', label: '基本理解', hint: '7 天后复看' },
+  { value: 'mastered', label: '已经掌握', hint: '完成本条' },
 ]
 
 const EMPTY_NOTE_STATE: ResolvedNoteState = {
@@ -678,6 +678,19 @@ function ReviewSessionItem({
   const rTone = metricTone(trade.rMultiple)
   const rawPnlTone = metricTone(trade.pnl)
   const pnlTone = privacyMode ? 'zero' : rawPnlTone
+  const unfamiliarShortcut = useShortcutHint('reviewSession.unfamiliar')
+  const recheckShortcut = useShortcutHint('reviewSession.recheck')
+  const masteredShortcut = useShortcutHint('reviewSession.mastered')
+  const skipShortcut = useShortcutHint(
+    'reviewSession.skip',
+    trade.tradeKind === 'case' ? '跳过' : '下一条',
+  )
+  const backShortcut = useShortcutHint('reviewSession.back')
+  const assessmentShortcuts: Record<ReviewSessionAssessment, typeof unfamiliarShortcut> = {
+    unfamiliar: unfamiliarShortcut,
+    recheck: recheckShortcut,
+    mastered: masteredShortcut,
+  }
   return (
     <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
@@ -713,17 +726,41 @@ function ReviewSessionItem({
               <span>选择后记录掌握度并进入下一条</span>
             </div>
             <div className="review-session-assessment-actions">
-              {ASSESSMENT_OPTIONS.map((option) => (
-                <button key={option.value} type="button" className={`is-${option.value}`} onClick={() => onAssess(option.value)}>
-                  <span>{option.label}</span>
-                  <small>{option.hint}</small>
-                  <Kbd>{option.key}</Kbd>
-                </button>
-              ))}
-              <button type="button" className="review-session-skip" onClick={onSkip}>跳过 <Kbd>N</Kbd></button>
+              {ASSESSMENT_OPTIONS.map((option) => {
+                const shortcut = assessmentShortcuts[option.value]
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`is-${option.value}`}
+                    aria-label={shortcut.ariaLabel}
+                    aria-keyshortcuts={shortcut.hint ?? undefined}
+                    onClick={() => onAssess(option.value)}
+                  >
+                    <span>{option.label}</span>
+                    <small>{option.hint}</small>
+                    {shortcut.hint ? <Kbd>{shortcut.hint}</Kbd> : null}
+                  </button>
+                )
+              })}
+              <button
+                type="button"
+                className="review-session-skip"
+                aria-label={skipShortcut.ariaLabel}
+                aria-keyshortcuts={skipShortcut.hint ?? undefined}
+                onClick={onSkip}
+              >
+                跳过 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
+              </button>
               {onBack ? (
-                <button type="button" className="review-session-skip" onClick={onBack}>
-                  上一条 <Kbd>P</Kbd>
+                <button
+                  type="button"
+                  className="review-session-skip"
+                  aria-label={backShortcut.ariaLabel}
+                  aria-keyshortcuts={backShortcut.hint ?? undefined}
+                  onClick={onBack}
+                >
+                  上一条 {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
                 </button>
               ) : null}
             </div>
@@ -736,7 +773,15 @@ function ReviewSessionItem({
             </div>
             <div className="review-session-assessment-actions review-session-account-actions">
               <button type="button" onClick={onExtractCase}>提炼为案例</button>
-              <button type="button" className="review-session-skip" onClick={onSkip}>下一条</button>
+              <button
+                type="button"
+                className="review-session-skip"
+                aria-label={skipShortcut.ariaLabel}
+                aria-keyshortcuts={skipShortcut.hint ?? undefined}
+                onClick={onSkip}
+              >
+                下一条
+              </button>
             </div>
           </footer>
         )}
