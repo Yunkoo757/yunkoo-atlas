@@ -1,6 +1,6 @@
 import type { CaseType, MasteryState, Trade } from '@/data/trades'
 
-export interface CaseClassificationMutation {
+export interface CaseClassificationMutation extends Record<string, unknown> {
   caseType?: CaseType
   masteryState?: MasteryState
   nextReviewAt?: string | null | undefined
@@ -24,6 +24,10 @@ export type CaseClassificationMutationResult =
 
 function hasOwn<K extends PropertyKey>(value: object, key: K): value is Record<K, unknown> {
   return Object.prototype.hasOwnProperty.call(value, key)
+}
+
+export function containsCaseClassificationMutation(patch: Record<string, unknown>): boolean {
+  return hasOwn(patch, 'caseType') || hasOwn(patch, 'masteryState') || hasOwn(patch, 'nextReviewAt')
 }
 
 function resolveReviewMirror(
@@ -68,13 +72,13 @@ export function applyCaseClassificationMutation(
     }
   }
 
-  const hasCaseType = hasOwn(mutation, 'caseType')
-  const hasMasteryState = hasOwn(mutation, 'masteryState')
-  const hasNextReviewAt = hasOwn(mutation, 'nextReviewAt')
-  if (!hasCaseType && !hasMasteryState && !hasNextReviewAt) {
+  if (!containsCaseClassificationMutation(mutation)) {
     return { ok: true, changed: false, trade, promoteLegacyFocusToStar: false }
   }
 
+  const hasCaseType = hasOwn(mutation, 'caseType')
+  const hasMasteryState = hasOwn(mutation, 'masteryState')
+  const hasNextReviewAt = hasOwn(mutation, 'nextReviewAt')
   const caseType = hasCaseType ? mutation.caseType : trade.caseType
   const masteryState = hasMasteryState ? mutation.masteryState : trade.masteryState
   const mirror = resolveReviewMirror(masteryState, caseType)

@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
+import { applyCaseClassificationMutation, containsCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -120,4 +120,15 @@ export function testEmptyMutationPreservesCaseContentWithoutLegacyFocusPromotion
   assert(legacyFocus.ok && !legacyFocus.changed, '旧版 focus 案例的空 mutation 必须是未变化操作')
   assert(JSON.stringify(legacyFocus.trade) === JSON.stringify(legacyFocusCase), '旧版 focus 案例的空 mutation 不得改写兼容字段')
   assert(!legacyFocus.promoteLegacyFocusToStar, '旧版 focus 案例的空 mutation 不得请求迁移为收藏')
+}
+
+export function testContainsCaseClassificationMutationUsesOnlyOwnClassificationProperties(): void {
+  const inheritedCaseType = Object.create({ caseType: 'mistake' }) as Record<string, unknown>
+
+  assert(!containsCaseClassificationMutation({}), '空对象不得被识别为案例分类 mutation')
+  assert(containsCaseClassificationMutation({ caseType: undefined }), 'own caseType 即使为 undefined 也必须被识别')
+  assert(containsCaseClassificationMutation({ masteryState: undefined }), 'own masteryState 即使为 undefined 也必须被识别')
+  assert(containsCaseClassificationMutation({ nextReviewAt: undefined }), 'own nextReviewAt 即使为 undefined 也必须被识别')
+  assert(!containsCaseClassificationMutation({ reviewCategory: 'focus' }), '不相关字段不得被识别为案例分类 mutation')
+  assert(!containsCaseClassificationMutation(inheritedCaseType), '原型链字段不得被识别为案例分类 mutation')
 }
