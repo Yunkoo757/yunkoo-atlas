@@ -1,5 +1,6 @@
 import type { CaseType, Trade } from '@/data/trades'
 import { formatYmd } from '@/lib/periods'
+import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 
 export function getNextReviewCaseRef(trades: Trade[]): string {
   const maxNum = trades.reduce((max, trade) => {
@@ -25,26 +26,23 @@ export function buildReviewCaseFromTrade(
   const nextReview = new Date()
   nextReview.setDate(nextReview.getDate() + 3)
 
-  return {
+  const baseCase: Trade = {
     ...activeSource,
     id: options.id,
     ref: options.ref,
     tradeKind: 'case',
     sourceTradeId: source.id,
     sourceNoteHtml: source.note,
-    caseType,
+    caseType: undefined,
     masteryState: 'new',
     nextReviewAt: formatYmd(nextReview),
     reviewStatus: 'unreviewed',
-    reviewCategory:
-      caseType === 'mistake'
-        ? 'mistake'
-        : caseType === 'ambiguous'
-          ? 'ambiguous'
-          : 'normal',
+    reviewCategory: 'normal',
     recordedAt: new Date().toISOString(),
     note: '',
     comments: [],
     activities: [],
   }
+  const classified = applyCaseClassificationMutation(baseCase, { caseType })
+  return classified.trade
 }

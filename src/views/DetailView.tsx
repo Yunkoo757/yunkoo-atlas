@@ -741,17 +741,6 @@ export function DetailView() {
     updateTradeData(trade.id, {
       masteryState,
       nextReviewAt: masteryState === 'mastered' ? null : formatYmd(nextReview),
-      reviewStatus: masteryState === 'mastered' ? 'reviewed' : 'unreviewed',
-      reviewCategory:
-        masteryState === 'mastered'
-          ? 'mastered'
-          : masteryState === 'recheck'
-            ? 'recheck'
-            : trade.caseType === 'mistake'
-              ? 'mistake'
-              : trade.caseType === 'ambiguous'
-                ? 'ambiguous'
-                : 'normal',
     })
   }
 

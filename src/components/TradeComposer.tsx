@@ -25,6 +25,7 @@ import {
 } from '@/lib/tradeView'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
+import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
 import { formatYmd, getTradingDayKey } from '@/lib/periods'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
@@ -236,8 +237,6 @@ export function TradeComposer() {
       const kind = activeKind
       const nextReview = new Date()
       nextReview.setDate(nextReview.getDate() + 3)
-      const legacyReviewCategory: Trade['reviewCategory'] =
-        caseType === 'mistake' ? 'mistake' : caseType === 'ambiguous' ? 'ambiguous' : 'normal'
 
       const fields = {
         symbol: symbol.trim().toUpperCase(),
@@ -246,7 +245,6 @@ export function TradeComposer() {
         session: normalizeSession(session),
         strategyId,
         openedAt,
-        ...(kind === 'case' ? { caseType, reviewCategory: legacyReviewCategory } : {}),
       }
       const newTradeId = crypto.randomUUID()
       const recordedAt = new Date().toISOString()
@@ -264,13 +262,16 @@ export function TradeComposer() {
           if (editing) {
             const latest = state.trades.find((item) => item.id === editing.id)
             if (!latest) return null
-            return {
+            const candidate: Trade = {
               ...latest,
               ...fields,
               note: [latest.note, appendedNote].filter(Boolean).join('\n'),
             }
+            return kind === 'case'
+              ? applyCaseClassificationMutation(candidate, { caseType }).trade
+              : candidate
           }
-          return {
+          const candidate: Trade = {
             id: newTradeId,
             ref: getNextRef(state.trades, kind),
             status: 'planned',
@@ -279,10 +280,9 @@ export function TradeComposer() {
             tags: [],
             mistakeTags: [],
             reviewStatus: 'unreviewed',
-            reviewCategory: kind === 'case' ? legacyReviewCategory : 'normal',
+            reviewCategory: 'normal',
             ...(kind === 'case'
               ? {
-                  caseType,
                   masteryState: 'new' as const,
                   nextReviewAt: formatYmd(nextReview),
                 }
@@ -297,7 +297,10 @@ export function TradeComposer() {
             closedAt: null,
             note: appendedNote,
             ...fields,
-          } satisfies Trade
+          }
+          return kind === 'case'
+            ? applyCaseClassificationMutation(candidate, { caseType }).trade
+            : candidate
         },
       })
       const trade = result.trade

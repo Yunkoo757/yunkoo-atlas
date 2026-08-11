@@ -145,6 +145,10 @@ import {
 } from '@/lib/tradeOpenRiskGate'
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
+import {
+  applyCaseClassificationMutation,
+  containsCaseClassificationMutation,
+} from '@/lib/reviewCaseClassification'
 import { cascadeReviewCaseSourceSnapshot } from '@/lib/reviewCaseSourceSync'
 import type {
   CommitCopiedCloseDateCleanupResult,
@@ -1346,7 +1350,7 @@ export const useStore = create<State>()((set, get) => ({
                     : new Date().toISOString(),
                 }
               : { reviewedAt: null }
-          const updated = reopenReviewAfterResultChange(previous, {
+          const regularUpdated = reopenReviewAfterResultChange(previous, {
             ...previous,
             ...patch,
             ...reviewPatch,
@@ -1359,6 +1363,20 @@ export const useStore = create<State>()((set, get) => ({
                 }
               : {}),
           })
+          let updated = regularUpdated
+          let promoteLegacyFocusToStar = false
+          if (
+            previous.tradeKind === 'case' &&
+            containsCaseClassificationMutation(patch as Record<string, unknown>)
+          ) {
+            const classified = applyCaseClassificationMutation({
+              ...regularUpdated,
+              reviewCategory: previous.reviewCategory,
+              reviewStatus: previous.reviewStatus,
+            }, patch)
+            updated = classified.trade
+            promoteLegacyFocusToStar = classified.promoteLegacyFocusToStar
+          }
           const action = createStoreUndoAction('更新交易字段', [previous], [updated])
           if (!action) return s
           const trades = s.trades.slice()
@@ -1367,6 +1385,9 @@ export const useStore = create<State>()((set, get) => ({
             undoStack: appendBoundedHistory(s.undoStack, action),
             redoStack: [],
             trades,
+            ...(promoteLegacyFocusToStar && !s.starredIds.includes(id)
+              ? { starredIds: [...s.starredIds, id] }
+              : {}),
           }
         }),
       transitionTradeKind: (id, target) => {

@@ -20,3 +20,23 @@ export function testReviewCaseStartsWithSourceSnapshotAndEmptyCaseNote(): void {
   assert(reviewCase.sourceTradeId === source.id, '案例必须保持来源关联')
   assert(!reviewCase.note.includes('来源交易：'), '系统来源行不得混入案例沉淀正文')
 }
+
+export function testMissedSourceCreatesMissedCaseThroughClassificationBoundary(): void {
+  const reviewCase = buildReviewCaseFromTrade(
+    {
+      ...source,
+      status: 'missed',
+      reviewCategory: 'mistake',
+      reviewStatus: 'reviewed',
+      mistakeTags: ['冲动追单'],
+    },
+    { id: 'case-missed', ref: 'CAS-2' },
+  )
+
+  assert(reviewCase.status === 'missed', '错过来源提炼后必须保持 missed 状态')
+  assert(reviewCase.caseType === 'missed', '错过来源提炼后必须归类为 missed 案例')
+  assert(reviewCase.masteryState === 'new', '新案例必须从 new 掌握状态开始')
+  assert(Boolean(reviewCase.nextReviewAt), '新案例必须带有预定的下次复看日期')
+  assert(reviewCase.reviewCategory === 'normal', '兼容分类必须由 missed/new 的统一真值派生')
+  assert(reviewCase.reviewStatus === 'unreviewed', '兼容状态必须由 missed/new 的统一真值派生')
+}

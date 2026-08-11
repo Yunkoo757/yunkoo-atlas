@@ -1,8 +1,13 @@
+import { createElement } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { MemoryRouter } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
+import { TradeComposer } from '@/components/TradeComposer'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
 import { pickPersisted } from '@/storage/persist'
 import { StorageRevisionConflictError } from '@/storage/adapter'
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
+import { getStorage } from '@/storage/provider'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 
@@ -14,6 +19,24 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
+}
+
+function waitForFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
+}
+
+async function waitFor(condition: () => boolean, message: string): Promise<void> {
+  const deadline = performance.now() + 5_000
+  while (performance.now() < deadline) {
+    if (condition()) return
+    await waitForFrame()
+  }
+  throw new Error(message)
+}
+
+function findButton(label: string): HTMLButtonElement | undefined {
+  return [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find((button) => button.textContent?.trim() === label)
 }
 
 function candidateTrade(id: string, imageHtml: string): Trade {
@@ -48,9 +71,13 @@ async function run(): Promise<void> {
   const databaseName = `composer-cas-${crypto.randomUUID()}`
   const staleComposer = new IndexedDbStorageAdapter(databaseName)
   const winner = new IndexedDbStorageAdapter(databaseName)
+  const composerStorage = getStorage()
   await staleComposer.open()
   await winner.open()
-  const originalTrades = useStore.getState().trades
+  await composerStorage.open()
+  const originalState = useStore.getState()
+  let root: Root | null = null
+  let rootElement: HTMLDivElement | null = null
   try {
     useStore.setState({ trades: [] })
     const initial = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
@@ -86,8 +113,39 @@ async function run(): Promise<void> {
     assert(observed.snapshot?.trades.length === 0, 'Composer 冲突不得部分新增交易')
     assert(await winner.getAssetForExport('composer-stale-asset') === null, 'Composer 冲突不得留下新孤儿附件')
     assert(useStore.getState().trades.length === 0, 'Composer 冲突不得发布候选交易到 Store')
+
+    const recheckCase: Trade = {
+      ...candidateTrade('composer-recheck-case', ''),
+      ref: 'CAS-1',
+      status: 'win',
+      tradeKind: 'case',
+      caseType: 'mistake',
+      masteryState: 'recheck',
+      nextReviewAt: '2026-08-18',
+      reviewCategory: 'recheck',
+    }
+    useStore.setState({
+      trades: [recheckCase],
+      symbolCatalog: ['BTCUSDT'],
+      composerOpen: true,
+      composerTrade: recheckCase,
+      composerKind: 'case',
+    })
+    rootElement = document.createElement('div')
+    document.body.append(rootElement)
+    root = createRoot(rootElement)
+    root.render(createElement(MemoryRouter, null, createElement(TradeComposer)))
+    await waitFor(() => Boolean(findButton('保存')), '案例 Composer 未就绪')
+    findButton('保存')?.click()
+    await waitFor(() => !useStore.getState().composerOpen, '案例 Composer 未完成保存')
+    const saved = useStore.getState().trades.find((trade) => trade.id === recheckCase.id)!
+    assert(saved.masteryState === 'recheck', 'Composer 保存不得改写原掌握状态')
+    assert(saved.reviewCategory === 'recheck', 'Composer 必须由统一边界派生兼容分类')
+    assert(saved.reviewStatus === 'unreviewed', 'Composer 必须由统一边界派生兼容状态')
   } finally {
-    useStore.setState({ trades: originalTrades })
+    root?.unmount()
+    rootElement?.remove()
+    useStore.setState(originalState)
     staleComposer.close()
     winner.close()
     await new Promise<void>((resolve, reject) => {
