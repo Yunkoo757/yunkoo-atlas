@@ -140,20 +140,20 @@ export function testReviewSessionRejectsLooseLegacyDateStringsAsDue(): void {
     { ...reviewCase, id: 'slash-date', nextReviewAt: '2099/01/01' },
     { ...reviewCase, id: 'natural-language', nextReviewAt: 'August 1, 2099' },
     { ...reviewCase, id: 'overflowing-iso', nextReviewAt: '2099-02-30T06:00:00' },
-    { ...reviewCase, id: 'zoned-legacy-due', nextReviewAt: '2026-08-11T05:59:00+08:00' },
+    { ...reviewCase, id: 'zoned-legacy-future', nextReviewAt: '2099-01-01T12:00:00+08:00' },
   ]
 
   const pool = buildReviewSessionPool(
     trades,
     DEFAULT_REVIEW_SESSION_FILTERS,
     new Set(),
-    '2026-08-10',
+    FIXED_TRADING_DAY_KEY,
     FIXED_TRADING_DAY_START_HOUR,
   )
 
   assert(
-    pool.map((trade) => trade.id).join(',') === 'loose-month,slash-date,natural-language,overflowing-iso,zoned-legacy-due',
-    '仅严格且日历有效的 legacy ISO datetime 可转换业务日，其他宽松或溢出日期必须视为到期',
+    pool.map((trade) => trade.id).join(',') === 'loose-month,slash-date,natural-language,overflowing-iso',
+    '严格且日历有效的远期 legacy ISO datetime 必须被解析并排除，其他宽松或溢出日期必须视为到期',
   )
 }
 
