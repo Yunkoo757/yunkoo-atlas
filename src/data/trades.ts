@@ -83,9 +83,17 @@ export interface Trade {
   psychology?: string
   tags: string[]
   mistakeTags: string[]
+  /**
+   * 兼容镜像字段。案例的规范状态由 caseType 与 masteryState 推导，
+   * 通过 reviewCaseClassification 边界同步写入。
+   */
   reviewStatus: ReviewStatus
   /** 最近一次完成复盘的时间；用于今日闭环，不以开/平仓日期代替。 */
   reviewedAt?: string | null
+  /**
+   * 兼容镜像字段。案例的规范分类由 caseType 与 masteryState 推导，
+   * 通过 reviewCaseClassification 边界同步写入。
+   */
   reviewCategory: ReviewCategory
   tradeKind: TradeKind
   /** 案例来源交易；仅案例记录使用，保证知识条目可追溯。 */
