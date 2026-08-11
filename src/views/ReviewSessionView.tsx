@@ -84,13 +84,14 @@ const REVIEW_TIMING_OPTIONS = [
 ]
 
 const ASSESSMENT_OPTIONS: Array<{
+  actionId: string
   value: ReviewSessionAssessment
   label: string
   hint: string
 }> = [
-  { value: 'unfamiliar', label: '还没掌握', hint: '3 天后再看' },
-  { value: 'recheck', label: '基本理解', hint: '7 天后复看' },
-  { value: 'mastered', label: '已经掌握', hint: '完成本条' },
+  { actionId: 'reviewSession.unfamiliar', value: 'unfamiliar', label: '还没掌握', hint: '3 天后再看' },
+  { actionId: 'reviewSession.recheck', value: 'recheck', label: '基本理解', hint: '7 天后复看' },
+  { actionId: 'reviewSession.mastered', value: 'mastered', label: '已经掌握', hint: '完成本条' },
 ]
 
 const EMPTY_NOTE_STATE: ResolvedNoteState = {
@@ -652,6 +653,29 @@ function metricTone(value: number | null | undefined): 'zero' | 'positive' | 'ne
   return value == null || value === 0 ? 'zero' : value > 0 ? 'positive' : 'negative'
 }
 
+function ReviewSessionAssessmentButton({
+  option,
+  onAssess,
+}: {
+  option: (typeof ASSESSMENT_OPTIONS)[number]
+  onAssess: (assessment: ReviewSessionAssessment) => void
+}) {
+  const shortcut = useShortcutHint(option.actionId, `${option.label}，${option.hint}`)
+  return (
+    <button
+      type="button"
+      className={`is-${option.value}`}
+      aria-label={shortcut.ariaLabel}
+      aria-keyshortcuts={shortcut.hint ?? undefined}
+      onClick={() => onAssess(option.value)}
+    >
+      <span>{option.label}</span>
+      <small>{option.hint}</small>
+      {shortcut.hint ? <Kbd>{shortcut.hint}</Kbd> : null}
+    </button>
+  )
+}
+
 function ReviewSessionItem({
   trade,
   strategyName,
@@ -678,19 +702,11 @@ function ReviewSessionItem({
   const rTone = metricTone(trade.rMultiple)
   const rawPnlTone = metricTone(trade.pnl)
   const pnlTone = privacyMode ? 'zero' : rawPnlTone
-  const unfamiliarShortcut = useShortcutHint('reviewSession.unfamiliar')
-  const recheckShortcut = useShortcutHint('reviewSession.recheck')
-  const masteredShortcut = useShortcutHint('reviewSession.mastered')
   const skipShortcut = useShortcutHint(
     'reviewSession.skip',
     trade.tradeKind === 'case' ? '跳过' : '下一条',
   )
   const backShortcut = useShortcutHint('reviewSession.back')
-  const assessmentShortcuts: Record<ReviewSessionAssessment, typeof unfamiliarShortcut> = {
-    unfamiliar: unfamiliarShortcut,
-    recheck: recheckShortcut,
-    mastered: masteredShortcut,
-  }
   return (
     <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
@@ -726,23 +742,13 @@ function ReviewSessionItem({
               <span>选择后记录掌握度并进入下一条</span>
             </div>
             <div className="review-session-assessment-actions">
-              {ASSESSMENT_OPTIONS.map((option) => {
-                const shortcut = assessmentShortcuts[option.value]
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`is-${option.value}`}
-                    aria-label={shortcut.ariaLabel}
-                    aria-keyshortcuts={shortcut.hint ?? undefined}
-                    onClick={() => onAssess(option.value)}
-                  >
-                    <span>{option.label}</span>
-                    <small>{option.hint}</small>
-                    {shortcut.hint ? <Kbd>{shortcut.hint}</Kbd> : null}
-                  </button>
-                )
-              })}
+              {ASSESSMENT_OPTIONS.map((option) => (
+                <ReviewSessionAssessmentButton
+                  key={option.value}
+                  option={option}
+                  onAssess={onAssess}
+                />
+              ))}
               <button
                 type="button"
                 className="review-session-skip"

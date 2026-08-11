@@ -143,3 +143,27 @@ GREEN：
 - 本报告
 - 提交：窄修复 commit，message 为 `fix: honor review shortcut state`；最终提交哈希见任务交付消息。
 - Concerns：无已知问题。事件保护是统一引擎级安全契约，会阻止所有 scope 对已消费、重复或输入法组合事件的处理；这与旧随机复盘 helper 的既有保护一致。未修改 Batch 1、schema 或 mobile 产品功能。
+
+## Fix round 2/5：保留评估后果的 accessible name
+
+### RED / GREEN
+
+先在 `src/views/ReviewSession.browser.test.tsx` 增加默认、自定义与禁用三态契约，再精确运行 ReviewSession browser stable test ID。
+
+- RED（exit 1）：默认“还没掌握”按钮的 aria-label 只有 `还没掌握（1）`，没有保留可见后果“3 天后再看”。
+- GREEN：评估按钮统一用 `option.label + option.hint` 作为提示 label override，再由 `useShortcutHint()` 附加当前快捷键或“未设置快捷键”；aria-label 覆盖子内容，因此标签和后果只朗读一次。
+- 自定义 X：`还没掌握，3 天后再看（X）`，并同步 `aria-keyshortcuts=X`。
+- 禁用：`还没掌握，3 天后再看（未设置快捷键）`，不渲染旧 `<kbd>`，不保留 `aria-keyshortcuts`。
+
+| 命令 | 结果 |
+| --- | --- |
+| ReviewSession browser stable test ID（默认 + 4 个声明 viewport） | exit 0，5/5 PASS |
+| `pnpm typecheck` | exit 0 |
+
+### 本轮文件、提交与 concerns
+
+- `src/views/ReviewSessionView.tsx`
+- `src/views/ReviewSession.browser.test.tsx`
+- 本报告
+- 提交：窄修复 commit，message 为 `fix: preserve review assessment context`；最终提交哈希见任务交付消息。
+- Concerns：无已知问题。未修改 engine、registry、Batch 1、schema 或 mobile 产品功能。

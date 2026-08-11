@@ -223,28 +223,52 @@ async function run(): Promise<void> {
     )
     assert(!document.querySelector('.review-session-card.is-front, .review-session-card.is-back'), '随机复盘不得再出现正反面卡片')
 
+    const unfamiliarButton = document.querySelector<HTMLButtonElement>('.review-session-assessment-actions .is-unfamiliar')
+    const skipButton = document.querySelector<HTMLButtonElement>('.review-session-assessment-actions .review-session-skip')
+    assert(unfamiliarButton, '随机复盘缺少还没掌握动作')
+    assert(skipButton, '随机复盘缺少跳过动作')
+    assert(
+      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看（1）',
+      '默认掌握度 accessible name 必须同时保留评估标签、后果说明和真实快捷键',
+    )
+
     useShortcutStore.setState({
       bindings: {
         'reviewSession.unfamiliar': { key: 'x' },
         'reviewSession.skip': null,
       },
     })
-    const unfamiliarButton = document.querySelector<HTMLButtonElement>('.review-session-assessment-actions .is-unfamiliar')
-    const skipButton = document.querySelector<HTMLButtonElement>('.review-session-assessment-actions .review-session-skip')
-    assert(unfamiliarButton, '随机复盘缺少还没掌握动作')
-    assert(skipButton, '随机复盘缺少跳过动作')
     await waitFor(
       () => unfamiliarButton.textContent?.includes('X') === true,
       '自定义掌握度快捷键没有更新可见提示',
     )
     assert(!unfamiliarButton.textContent?.includes('1'), '自定义绑定后不得继续显示旧默认键')
     assert(unfamiliarButton.getAttribute('aria-keyshortcuts') === 'X', '自定义绑定没有更新 aria-keyshortcuts')
+    assert(
+      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看（X）',
+      '自定义绑定的 accessible name 必须保留评估标签、后果说明和真实快捷键',
+    )
     await waitFor(
       () => !skipButton.querySelector('kbd'),
       '禁用跳过快捷键后仍显示旧默认键',
     )
     assert(!skipButton.hasAttribute('aria-keyshortcuts'), '禁用绑定后不得保留 aria-keyshortcuts')
     assert(skipButton.getAttribute('aria-label') === '跳过（未设置快捷键）', '禁用绑定应明确说明未设置快捷键')
+    useShortcutStore.setState({
+      bindings: {
+        'reviewSession.unfamiliar': null,
+        'reviewSession.skip': null,
+      },
+    })
+    await waitFor(
+      () => !unfamiliarButton.querySelector('kbd'),
+      '禁用掌握度快捷键后仍显示旧默认键',
+    )
+    assert(!unfamiliarButton.hasAttribute('aria-keyshortcuts'), '禁用掌握度绑定后不得保留 aria-keyshortcuts')
+    assert(
+      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看（未设置快捷键）',
+      '禁用绑定的 accessible name 必须保留评估标签与后果说明且不得伪造快捷键',
+    )
     useShortcutStore.setState({ bindings: {} })
     await waitFor(
       () => unfamiliarButton.textContent?.includes('1') === true && skipButton.textContent?.includes('N') === true,
