@@ -55,10 +55,11 @@ export function testCashCurrencyResolverOnlyAppliesLegacyUsdToMissingField(): vo
   const explicitNull = trade('null', 80, null)
   const explicitCny = trade('cny', 700, 'CNY')
 
-  assert(resolveTradeCashCurrencyFact(legacyMissing, assumption).source === 'legacy-assumption', '缺字段旧记录应使用资料库假设')
-  assert(resolveTradeCashCurrencyFact(legacyMissing, assumption).currency === 'USD', '缺字段旧记录应解析为 USD')
-  assert(resolveTradeCashCurrencyFact(explicitNull, assumption).currency === null, '显式 null 不得被假设覆盖')
-  assert(resolveTradeCashCurrencyFact(explicitCny, assumption).currency === 'CNY', '显式 CNY 不得被假设覆盖')
+  assert(resolveTradeCashCurrencyFact(legacyMissing, null).source === 'legacy-assumption', '缺字段旧记录应默认按 USD 解释')
+  assert(resolveTradeCashCurrencyFact(legacyMissing, null).currency === 'USD', '缺字段旧记录应解析为 USD')
+  assert(resolveTradeCashCurrencyFact(legacyMissing, assumption).currency === 'USD', '资料库假设字段不再改变缺字段默认口径')
+  assert(resolveTradeCashCurrencyFact(explicitNull, null).currency === null, '显式 null 不得被默认覆盖')
+  assert(resolveTradeCashCurrencyFact(explicitCny, null).currency === 'CNY', '显式 CNY 不得被默认覆盖')
   assert(!Object.prototype.hasOwnProperty.call(legacyMissing, 'cashCurrency'), '解析不得回写旧记录的原始币种事实')
 }
 
@@ -78,19 +79,19 @@ export function testUsdEligibilityAndTotalsShareOneCurrencyFactRule(): void {
     conflict,
   ]
 
-  assert(eligibleUsdPnlIds(trades, null).join(',') === 'usd', '无假设时只有显式 USD 可进入总计')
-  assert(eligibleUsdPnlIds(trades, assumption).join(',') === 'usd,legacy', '假设仅应加入真正缺字段旧记录')
-  const summary = summarizeUsdPnl(trades, assumption)
+  assert(eligibleUsdPnlIds(trades, null).join(',') === 'usd,legacy', '缺字段旧记录默认进入 USD 总计，显式 null/CNY/非法币种仍排除')
+  assert(eligibleUsdPnlIds(trades, assumption).join(',') === 'usd,legacy', 'assumption 参数不得再分叉 USD 资格')
+  const summary = summarizeUsdPnl(trades, null)
   assert(summary.pnlCount === 2 && summary.totalPnl === 150, '共享 USD 汇总必须排除 CNY、显式 null、非法币种与结果冲突')
-  const conflictOnly = summarizeUsdPnl([conflict], assumption)
+  const conflictOnly = summarizeUsdPnl([conflict], null)
   assert(conflictOnly.pnlCount === 0 && conflictOnly.totalPnl === 0, '单独的 USD 结果冲突必须冻结为零覆盖、零总计')
 }
 
 export function testSingleTradeCashPresentationUsesResolvedCurrency(): void {
   assert(
-    formatTradeCashPnl(trade('legacy', 50, undefined, false), assumption) === '+$50',
-    '单笔旧记录按资料库假设展示为 USD，不再附加解释后缀',
+    formatTradeCashPnl(trade('legacy', 50, undefined, false), null) === '+$50',
+    '单笔旧记录默认展示为 USD，不再附加解释后缀',
   )
-  assert(formatTradeCashPnl(trade('null', 80, null), assumption) === '+80', '显式 null 只展示数值，不附加币种未知标签')
-  assert(formatTradeCashPnl(trade('cny', 700, 'CNY'), assumption) === '+CN¥700', '显式 CNY 必须展示自身币种')
+  assert(formatTradeCashPnl(trade('null', 80, null), null) === '+80', '显式 null 只展示数值，不附加币种未知标签')
+  assert(formatTradeCashPnl(trade('cny', 700, 'CNY'), null) === '+CN¥700', '显式 CNY 必须展示自身币种')
 }

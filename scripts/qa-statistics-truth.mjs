@@ -36,7 +36,6 @@ export const STATISTICS_TRUTH_UNIT_ENTRIES = [
   'src/lib/cashCurrency.test.ts',
   'src/storage/snapshotCodec.test.ts',
   'src/storage/snapshotValidation.test.ts',
-  'src/store/useStoreCurrencyAssumption.test.ts',
 ]
 
 export const BROWSER_TEST_IDS = [
@@ -44,7 +43,6 @@ export const BROWSER_TEST_IDS = [
   'src/components/NotionImportModal.browser.test.html#__notionImportPersistenceTest',
   'src/views/ImportDataHealthView.browser.test.html#__importDataHealthViewTest@1280x900',
   'src/views/WeeklyReviewView.browser.test.html#__weeklyReviewFlowTest@1280x900',
-  'src/views/settings/ProfileSettingsCurrency.browser.test.html#__profileSettingsCurrencyTest',
   'src/views/StatisticsTruthSurfaces.browser.test.html#__statisticsTruthSurfacesTest',
 ]
 
@@ -57,7 +55,7 @@ export const ACCEPTANCE_TESTS = {
   ],
   'T-SCOPE-002': [UNIT_TEST('src/lib/analysisScope.test.ts', 'testAnalysisScopeMatchesDashboardResultSet')],
   'T-SCOPE-003': [UNIT_TEST('src/lib/workspaceFacetConsistency.test.ts', 'testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive')],
-  'T-SCOPE-004': [BROWSER_TEST_IDS[0], BROWSER_TEST_IDS[5]],
+  'T-SCOPE-004': [BROWSER_TEST_IDS[0], BROWSER_TEST_IDS[4]],
   'T-DATE-001': [
     UNIT_TEST('src/lib/analysisScope.test.ts', 'testPaperTerminalWithoutCloseFactNeverEntersPerformanceRanges'),
     UNIT_TEST('src/lib/notionImportTradeFacts.test.ts', 'testNotionTerminalTradeWithoutSourceCloseDateStaysPending'),
@@ -87,7 +85,7 @@ export const ACCEPTANCE_TESTS = {
     UNIT_TEST('src/data/weeklyReviews.test.ts', 'testWeeklyReviewEvidenceKeepsReliableConflictAndPendingResultsWithoutMetrics'),
     UNIT_TEST('src/lib/weeklyReviewSnapshot.test.ts', 'testCompletionFreezesConflictAndPendingEvidenceWithoutPerformance'),
   ],
-  'T-REVIEW-002': [BROWSER_TEST_IDS[3], BROWSER_TEST_IDS[5]],
+  'T-REVIEW-002': [BROWSER_TEST_IDS[3], BROWSER_TEST_IDS[4]],
   'T-ROUTE-001': [UNIT_TEST('src/lib/periods.test.ts', 'testYtdPeriodBoundsStartAtTheBusinessYearAndNeverIncludeFutureDays')],
   'T-ROUTE-002': [
     UNIT_TEST('src/lib/workspaceFacetConsistency.test.ts', 'testCalendarPeriodsAndDashboardPerformanceKeepDifferentDateFields'),
@@ -98,7 +96,6 @@ export const ACCEPTANCE_TESTS = {
     UNIT_TEST('src/lib/tradeWorkflow.test.ts', 'testTodayClosedMetricsUsesUsdOnlyWithExplicitLegacyAssumption'),
     UNIT_TEST('src/lib/strategies.test.ts', 'testStrategyStatsAggregateUsdOnlyAndRespectLegacyFact'),
     BROWSER_TEST_IDS[4],
-    BROWSER_TEST_IDS[5],
   ],
   'T-DRILL-001': [
     UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionDrilldownReproducesArchiveScope'),

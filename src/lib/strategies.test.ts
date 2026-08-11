@@ -217,11 +217,11 @@ export function testStrategyStatsAggregateUsdOnlyAndRespectLegacyFact(): void {
   const conflict = { ...closedLiveTrade, id: 'conflict', status: 'win', pnl: -10, rMultiple: -1, resultSource: 'imported', cashCurrency: 'USD' } as Trade
 
   const withoutAssumption = computeStrategyStats([closedLiveTrade, cny, legacy, unknown, conflict], strategyId)
-  assert(withoutAssumption.pnlCount === 1 && withoutAssumption.totalPnl === 100, '策略 USD 总计必须排除其他币种与未知币种')
+  assert(withoutAssumption.pnlCount === 2 && withoutAssumption.totalPnl === 150, '缺字段旧记录默认按 USD；显式 CNY/未知币种与结果冲突仍排除')
   const withAssumption = computeStrategyStats([closedLiveTrade, cny, legacy, unknown, conflict], strategyId, {
     legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
   })
-  assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, '策略 legacy 假设只纳入缺字段旧记录')
+  assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, 'assumption 参数不得再改变策略 USD 总计口径')
 }
 
 export function testStrategyStatsConsumeCallerEligibilityWithoutReclassifyingFacts(): void {

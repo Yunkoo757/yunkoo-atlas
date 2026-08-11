@@ -16,17 +16,16 @@ type CashCurrencyTrade = Partial<Pick<Trade, 'pnl' | 'cashCurrency'>>
 const hasOwn = (value: object, property: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, property)
 
-/** 资料库假设只解释真正缺字段的旧记录，不覆盖显式 null、非法值或其他币种。 */
+/**
+ * 缺 cashCurrency 字段的旧记录默认按 USD 解释；不再依赖用户确认。
+ * 显式 null、非法值或其他币种不会被覆盖。assumption 参数保留以兼容调用方签名，已不再参与决议。
+ */
 export function resolveTradeCashCurrencyFact(
   trade: CashCurrencyTrade,
-  assumption: LegacyCashCurrencyAssumption | null,
+  _assumption: LegacyCashCurrencyAssumption | null = null,
 ): CashCurrencyFactResolution {
   if (!hasOwn(trade, 'cashCurrency')) {
-    const assumed = normalizeCashCurrency(assumption?.currency)
-    if (assumed === 'USD') {
-      return { currency: 'USD', source: 'legacy-assumption', isUsdEligible: true }
-    }
-    return { currency: null, source: 'unknown', isUsdEligible: false }
+    return { currency: 'USD', source: 'legacy-assumption', isUsdEligible: true }
   }
   const currency = normalizeCashCurrency(trade.cashCurrency)
   if (currency === null) return { currency: null, source: 'unknown', isUsdEligible: false }

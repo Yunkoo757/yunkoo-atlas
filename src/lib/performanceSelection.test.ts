@@ -53,27 +53,22 @@ export function testPerformanceSelectionIntersectsNaturalRangeAfterTheLiveBounda
 }
 
 export function testPerformanceSelectionUsesTheExplicitLegacyCashCurrencyAssumption(): void {
-  const selection = buildPerformanceSelection(fixture.trades, {
+  const withAssumption = buildPerformanceSelection(fixture.trades, {
     scope: { kind: 'all', range: 'all' },
     liveScope: fixture.currentLiveScope,
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
     legacyCashCurrencyAssumption: legacyUsdAssumption,
   })
+  const withoutAssumption = selectionFor()
 
-  const expectedUsdIds = [
-    ...fixture.expected.unknownCurrencyIds.slice(0, -1),
-    'FX-USD',
-  ]
-  assert.deepEqual(selection.unknownCurrencyIds, ['FX-CURRENCY-UNKNOWN'])
-  assert.deepEqual(selection.pnlIds, expectedUsdIds)
-  assert.deepEqual(selection.currencyGroups, [
-    { currency: 'USD', ids: expectedUsdIds },
-    { currency: 'CNY', ids: ['FX-CNY'] },
-  ])
-  assert.equal(selection.currencyMergeStatus, 'usd-with-exclusions')
-  assert.equal(selection.usdCoveredCount, expectedUsdIds.length)
-  assert.deepEqual(selection.excludedCurrencyCounts, [{ currency: 'CNY', count: 1 }])
-  assert.equal(selection.excludedUnknownCount, 1)
+  assert.deepEqual(withAssumption.pnlIds, withoutAssumption.pnlIds, 'assumption 不得再改变缺字段默认 USD 口径')
+  assert.deepEqual(withAssumption.unknownCurrencyIds, ['FX-CURRENCY-UNKNOWN'])
+  assert.deepEqual(withAssumption.pnlIds, fixture.expected.pnlIds)
+  assert.deepEqual(withAssumption.currencyGroups, fixture.expected.currencyGroups)
+  assert.equal(withAssumption.currencyMergeStatus, 'usd-with-exclusions')
+  assert.equal(withAssumption.usdCoveredCount, fixture.expected.pnlIds.length)
+  assert.deepEqual(withAssumption.excludedCurrencyCounts, [{ currency: 'CNY', count: 1 }])
+  assert.equal(withAssumption.excludedUnknownCount, 1)
 }
 
 export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitted(): void {
@@ -86,10 +81,10 @@ export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitt
     scope: { kind: 'all', range: 'all' },
     liveScope: null,
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
-    legacyCashCurrencyAssumption: legacyUsdAssumption,
+    legacyCashCurrencyAssumption: null,
   })
 
-  assert.deepEqual(selection.pnlIds, ['tr-1011'])
+  assert.deepEqual(selection.pnlIds, ['tr-1011'], '缺字段旧记录默认按 USD，显式 null 仍排除')
   assert.deepEqual(selection.unknownCurrencyIds, ['FX-CURRENCY-UNKNOWN'])
 }
 
@@ -163,7 +158,7 @@ export function testPerformanceSelectionSupportsAnInternalTodayWindowWithoutChan
   )
 
   assert.deepEqual(selection.eligibleMetricIds, ['FX-CLOSE-0600', 'FX-USD', 'FX-R-ONLY'])
-  assert.deepEqual(selection.pnlIds, ['FX-USD'])
+  assert.deepEqual(selection.pnlIds, ['FX-CLOSE-0600', 'FX-USD'])
   assert.deepEqual(selection.rIds, ['FX-CLOSE-0600', 'FX-USD', 'FX-R-ONLY'])
   assert.equal(selection.drilldownTarget, '?kind=live&range=all')
 }

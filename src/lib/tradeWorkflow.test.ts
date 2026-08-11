@@ -343,14 +343,14 @@ export function testTodayClosedMetricsUsesUsdOnlyWithExplicitLegacyAssumption():
   const conflict = { ...usd, id: 'conflict', status: 'win', pnl: -10, rMultiple: -1, resultSource: 'imported', cashCurrency: 'USD' } as Trade
 
   const withoutAssumption = buildTodayClosedMetrics([usd, cny, legacy, unknown, conflict], today)
-  assert(withoutAssumption.pnlCount === 1 && withoutAssumption.totalPnl === 100, '今日 USD 总计必须排除 CNY 与未知币种')
+  assert(withoutAssumption.pnlCount === 2 && withoutAssumption.totalPnl === 150, '缺字段旧记录默认按 USD；显式 CNY/未知币种与结果冲突仍排除')
   const withAssumption = buildTodayClosedMetrics(
     [usd, cny, legacy, unknown, conflict],
     today,
     0,
     { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
   )
-  assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, '今日总计的 legacy 假设只能作用于缺字段旧记录')
+  assert(withAssumption.pnlCount === 2 && withAssumption.totalPnl === 150, 'assumption 参数不得再改变今日 USD 总计口径')
 }
 
 export function testTodayClosedMetricsRejectsUnreliableFutureAndConflictingFacts(): void {

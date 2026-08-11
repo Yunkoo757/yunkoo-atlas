@@ -393,8 +393,8 @@ export function testWeeklyReviewCompletionFreezesOnlyUsdCashFacts(): void {
   delete state.trades[2]!.cashCurrency
 
   const withoutAssumption = completeWeeklyReviewCandidate(state, 'review-1').review
-  assert(withoutAssumption.metricsSnapshot?.pnlCount === 1, '无假设时冻结快照只能纳入显式 USD')
-  assert(withoutAssumption.metricsSnapshot?.totalPnl === 100, 'CNY、缺字段和显式 null 不得混入 USD 快照')
+  assert(withoutAssumption.metricsSnapshot?.pnlCount === 2, '缺字段旧记录默认按 USD 纳入冻结快照')
+  assert(withoutAssumption.metricsSnapshot?.totalPnl === 150, '显式 CNY 与显式 null 仍不得混入 USD 快照')
 
   const assumedState = {
     ...state,
@@ -408,7 +408,7 @@ export function testWeeklyReviewCompletionFreezesOnlyUsdCashFacts(): void {
   }
   const assumedCandidate = completeWeeklyReviewCandidate(assumedState, 'review-assumed')
   const assumed = assumedCandidate.review
-  assert(assumed.metricsSnapshot?.pnlCount === 2, '资料库假设只能额外纳入真正缺字段旧记录')
+  assert(assumed.metricsSnapshot?.pnlCount === 2, 'assumption 参数不得再改变冻结快照 USD 口径')
   assert(assumed.metricsSnapshot?.totalPnl === 150, '显式 CNY 与显式 null 仍必须排除')
   assert(
     assumedCandidate.weeklyReviews[0]?.evidenceSnapshot?.legacyCashCurrencyAssumption?.currency === 'USD',

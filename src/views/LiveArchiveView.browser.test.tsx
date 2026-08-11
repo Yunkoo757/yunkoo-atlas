@@ -157,7 +157,7 @@ async function run() {
       },
     }))
     root.render(<MemoryRouter key="archive-currency-facts" initialEntries={['/live-archive']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
-    await waitFor(() => document.body.textContent?.includes('+$150') ?? false, '摘要必须只汇总显式 USD 与已确认的 legacy USD')
+    await waitFor(() => document.body.textContent?.includes('+$150') ?? false, '摘要必须汇总显式 USD 与缺字段旧记录默认 USD')
     assert(!document.body.textContent?.includes('+$930'), '摘要不得混入 CNY 与显式 unknown')
     assert(document.querySelector('[data-trade-id="legacy-usd"]'), '旧记录行必须存在')
     assert(document.body.textContent?.includes('+CN¥700') || document.body.textContent?.includes('CN¥700'), '单笔 CNY 必须展示自身币种')
