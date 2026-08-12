@@ -58,6 +58,7 @@ interface CommitOptions {
   storage?: StorageAdapter
   createAssetId?: () => string
   targetKind?: TradeKind
+  now?: Date
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -179,7 +180,11 @@ export async function commitNotionImportBatch(
       previews,
       revision.state.strategies,
       revision.state.trades,
-      { tradeKind: options.targetKind },
+      {
+        tradeKind: options.targetKind,
+        now: options.now,
+        tradingDayStartHour: revision.state.display.tradingDayStartHour,
+      },
     )
     const importablePreviews = getImportableNotionPreviews(previews)
     const importedTrades = imported.trades.map((trade, index) => {

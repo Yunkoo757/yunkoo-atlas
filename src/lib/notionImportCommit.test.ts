@@ -289,6 +289,27 @@ export async function testNotionTerminalWithOnlyOpenDateStaysWithoutCloseDayAtCo
   }
 }
 
+export async function testNotionCaseCommitUsesRevisionTradingDayStartHour(): Promise<void> {
+  disablePersistWrites()
+  const previous = useStore.getState()
+  const adapter = new AtomicMemoryAdapter(snapshot('旧快照'))
+
+  try {
+    seedStore()
+    useStore.setState({ display: { ...DEFAULT_DISPLAY, tradingDayStartHour: 6 } })
+    const result = await commitNotionImportBatch([previewWithImages(0)], {
+      storage: adapter,
+      targetKind: 'case',
+      now: new Date(2026, 7, 12, 5, 30),
+    })
+
+    assert(result.importedTrades[0]?.nextReviewAt === '2026-08-14', '提交路径必须用 revision 中 06:00 起始配置计算业务日 +3')
+    assert(adapter.committedSnapshot.trades[0]?.nextReviewAt === '2026-08-14', '原子快照必须保存同一业务日排期')
+  } finally {
+    useStore.setState({ trades: previous.trades, strategies: previous.strategies, display: previous.display })
+  }
+}
+
 export function testNotionImportRevisionKeysMatchSharedPersistedKeys(): void {
   assert(
     PERSISTED_STATE_REFERENCE_KEYS.includes('quickNotes')

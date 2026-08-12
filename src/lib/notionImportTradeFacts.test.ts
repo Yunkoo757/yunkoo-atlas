@@ -103,3 +103,28 @@ export function testNotionImportPreservesOnlyValidSourceCloseDates(): void {
     ['2026-08-03', null],
   )
 }
+
+export function testNotionCaseReviewDateUsesConfiguredBusinessDayBoundary(): void {
+  const result = parseRows([
+    'BTCUSDT,2026-08-01,,Buy,Open,0,USD',
+  ])
+  const beforeBoundary = executeNotionImport(result.previews, [], [], {
+    tradeKind: 'case',
+    now: new Date(2026, 7, 12, 5, 30),
+    tradingDayStartHour: 6,
+  }).trades[0]!
+  const afterBoundary = executeNotionImport(result.previews, [], [], {
+    tradeKind: 'case',
+    now: new Date(2026, 7, 12, 6, 30),
+    tradingDayStartHour: 6,
+  }).trades[0]!
+  const accountTrade = executeNotionImport(result.previews, [], [], {
+    tradeKind: 'live',
+    now: new Date(2026, 7, 12, 5, 30),
+    tradingDayStartHour: 6,
+  }).trades[0]!
+
+  assert.equal(beforeBoundary.nextReviewAt, '2026-08-14')
+  assert.equal(afterBoundary.nextReviewAt, '2026-08-15')
+  assert.equal(accountTrade.nextReviewAt, undefined)
+}

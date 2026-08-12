@@ -50,6 +50,20 @@ export function testNormalizeReviewFields(): void {
     reviewCategory: undefined,
   } as unknown as Trade)
   assert(missed.reviewCategory === 'normal', 'missed opportunities are not mistakes by default')
+
+  const legacyCaseWithoutSchedule = normalizeReviewFields({
+    ...baseTrade,
+    id: 'legacy-case-without-schedule',
+    ref: 'CAS-1',
+    tradeKind: 'case',
+    masteryState: 'new',
+    nextReviewAt: undefined,
+    recordedAt: '2099-01-01T05:30:00+08:00',
+  })
+  assert(
+    legacyCaseWithoutSchedule.nextReviewAt === undefined,
+    'legacy 案例缺少排期时必须保持立即到期语义，不得按墙钟日期另补 +3',
+  )
 }
 
 export function testSummarizeStrategyPerformance(): void {

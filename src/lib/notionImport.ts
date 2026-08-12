@@ -19,7 +19,11 @@ import type { Strategy } from '@/data/strategies'
 import type { CsvParseResult } from '@/lib/csvImport'
 import { parseCsv } from '@/lib/csvImport'
 import { normalizeSession, normalizeNarrative, normalizePsychology } from '@/lib/tradeView'
-import { formatYmd } from '@/lib/periods'
+import {
+  addDaysToCurrentTradingDay,
+  DEFAULT_TRADING_DAY_START_HOUR,
+  formatYmd,
+} from '@/lib/periods'
 import JSZip from 'jszip'
 import {
   assertNotionImageByteAddition,
@@ -1077,6 +1081,8 @@ export interface NotionImportOptions {
   defaultIcon?: string
   defaultColor?: string
   tradeKind?: TradeKind
+  now?: Date
+  tradingDayStartHour?: number
 }
 
 export interface NotionImageGroup {
@@ -1155,9 +1161,15 @@ export function executeNotionImport(
     if (match) maxNum = Math.max(maxNum, parseInt(match[1]!, 10))
   }
 
-  const now = new Date().toISOString()
-  const nextReview = new Date(now)
-  nextReview.setDate(nextReview.getDate() + 3)
+  const currentTime = opts.now ?? new Date()
+  const now = currentTime.toISOString()
+  const nextReviewAt = tradeKind === 'case'
+    ? addDaysToCurrentTradingDay(
+        currentTime,
+        opts.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR,
+        3,
+      )
+    : undefined
   const newTrades: Trade[] = []
 
   for (const preview of validPreviews) {
@@ -1212,7 +1224,7 @@ export function executeNotionImport(
       tradeKind,
       caseType,
       masteryState: tradeKind === 'case' ? 'new' : undefined,
-      nextReviewAt: tradeKind === 'case' ? formatYmd(nextReview) : undefined,
+      nextReviewAt,
       entry: preview.trade.entry ?? 0,
       exit: null,
       stopLoss: preview.trade.stopLoss ?? null,
