@@ -21,7 +21,7 @@ import {
 import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
 import { Menu } from '@/components/Menu'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/IconButton'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
@@ -750,8 +750,9 @@ export function DetailView() {
 
   const favoriteButton = (
     <IconButton
-      title={starred ? '取消星标' : '星标'}
-      active={starred}
+      label={starred ? '取消星标' : '星标'}
+      tooltip={starred ? '取消星标' : '星标'}
+      pressed={starred}
       onClick={() => {
         toggleStar(trade.id)
         toast(starred ? '已取消星标' : '已加入星标')
@@ -784,7 +785,7 @@ export function DetailView() {
         else if (v === 'delete') onDelete()
       }}
       trigger={
-        <IconButton ariaLabel="更多" title="更多">
+        <IconButton label="更多" tooltip="更多">
           <MoreHorizontal size={15} />
         </IconButton>
       }
