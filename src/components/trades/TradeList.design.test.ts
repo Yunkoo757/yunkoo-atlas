@@ -49,6 +49,10 @@ export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<
   assert(columns.includes('role="row"'), '列标题必须暴露 row 语义')
   assert(columns.includes('role="columnheader"'), '各列必须暴露 columnheader 语义')
   assert(css.includes('grid-template-columns: var(--trade-list-columns)'), '标题和交易行必须共享同一列模板')
+  assert(
+    /:where\(\.trade-list-columns, \.trade-row\)\s*\{[\s\S]*?--trade-select-column:\s*24px;[\s\S]*?--trade-ref-column:\s*72px;/.test(css),
+    '共享列模板必须在标题和行自身作用域内声明列宽，不能依赖仅存在于列表容器的继承变量',
+  )
   assert(source.includes("top: isSticky ? 'var(--trade-list-columns-height)'"), '月份标题必须吸附在列标题下方')
 }
 

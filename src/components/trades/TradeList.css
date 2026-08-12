@@ -1,11 +1,12 @@
 .trade-list {
   --trade-list-columns-height: 28px;
-  --trade-select-column: 24px;
 
   min-width: 0;
 }
 
 :where(.trade-list-columns, .trade-row) {
+  --trade-select-column: 24px;
+  --trade-ref-column: 72px;
   --trade-list-columns:
     var(--trade-select-column) 16px var(--trade-ref-column, 72px) minmax(251px, 0.85fr)
     minmax(260px, 1.6fr) 62px 80px 72px 72px 24px;
@@ -268,8 +269,6 @@
 }
 
 .trade-row {
-  --trade-ref-column: 72px;
-
   position: relative;
   display: grid;
   /* check | status | ref | identity(固定) | tags(flex) | tf | pnl | R | date | end */
