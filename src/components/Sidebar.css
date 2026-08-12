@@ -20,7 +20,7 @@
   --sb-ws-paper: var(--nav-icon-ws-paper);
   --sb-ws-case: var(--nav-icon-ws-case);
 
-  width: var(--sidebar-width);
+  width: var(--app-sidebar-width, var(--sidebar-width));
   flex-shrink: 0;
   height: 100%;
   min-height: 0;
@@ -294,8 +294,8 @@ html[data-ui-settled='1'] .sb-item {
   opacity: 1;
 }
 .sb-item:focus-visible {
-  outline: none;
-  box-shadow: none;
+  outline: var(--focus-ring-outline);
+  outline-offset: 1px;
 }
 .sb-item.is-active {
   background: var(--sb-selected-bg);
@@ -348,6 +348,12 @@ html[data-ui-settled='1'] .sb-item {
 }
 .sb-item[data-ws-icon='case-view'].is-active > svg {
   color: var(--sb-ws-case);
+}
+
+/* 产品导航只保留一个强调来源，避免页面切换时形成彩色图标矩阵。 */
+.sidebar .sb-item.is-active > svg,
+.sidebar .sb-item.is-active .is-nav {
+  color: var(--accent);
 }
 
 /* 策略项：默认灰，选中才显策略色 */
@@ -433,13 +439,7 @@ html[data-ui-settled='1'] .sb-item {
   color: var(--text-tertiary);
 }
 
-@media (max-width: 899px) {
-  .sidebar {
-    display: none;
-  }
-}
-
-@media (max-width: 899px), (pointer: coarse) {
+@media (pointer: coarse) {
   .sb-workspace-capability-menu {
     width: var(--control-height-lg);
     height: var(--control-height-lg);

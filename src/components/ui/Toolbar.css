@@ -74,37 +74,34 @@
   gap: var(--sp-2);
   max-width: min(50%, 360px);
   margin-left: var(--sp-3);
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-
-.ui-toolbar-actions::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 
 .ui-toolbar-actions > * {
   flex: 0 0 auto;
 }
 
-@media (max-width: 640px) {
-  .ui-toolbar {
-    flex-basis: 48px;
-    height: 48px;
-    padding: 0 var(--sp-2);
+.ui-toolbar-overflow-wide {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.ui-toolbar-overflow-compact {
+  display: none;
+}
+
+@media (max-width: 1099px) {
+  .ui-toolbar-actions {
+    max-width: 48%;
+    margin-left: var(--sp-2);
   }
 
-  .ui-toolbar-main {
-    gap: var(--sp-2);
-  }
-
-  .ui-toolbar-sep,
-  .ui-toolbar-context {
+  .ui-toolbar-overflow-wide {
     display: none;
   }
 
-  .ui-toolbar-actions {
-    max-width: 56%;
-    margin-left: var(--sp-2);
+  .ui-toolbar-overflow-compact {
+    display: block;
   }
 }

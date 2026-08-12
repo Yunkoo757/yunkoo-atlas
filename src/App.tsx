@@ -20,7 +20,6 @@ import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
-import { MobileNavigation } from './components/MobileNavigation'
 import { AppFrame } from './components/ui/AppFrame'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
@@ -353,7 +352,6 @@ function Shell() {
     <>
       <AppFrame
         sidebar={<Sidebar onOpenSearch={() => openCmdk()} />}
-        mobileNavigation={<MobileNavigation onOpenSearch={openCmdk} />}
       >
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
           <Suspense fallback={<DelayedRouteFallback />}>

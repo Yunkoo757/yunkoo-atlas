@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
@@ -63,6 +63,27 @@ import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
 const WORKSPACE_DRAG_THRESHOLD_PX = 5
+
+type SidebarDensity = 'standard' | 'compact'
+
+function currentSidebarDensity(): SidebarDensity {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'standard'
+  return window.matchMedia('(max-width: 1099px)').matches ? 'compact' : 'standard'
+}
+
+function useSidebarDensity(): SidebarDensity {
+  const [density, setDensity] = useState<SidebarDensity>(currentSidebarDensity)
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 1099px)')
+    const update = () => setDensity(query.matches ? 'compact' : 'standard')
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  return density
+}
 
 type SidebarDragState = {
   id: string
@@ -241,6 +262,7 @@ export function useSidebarNavigationModel() {
 }
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+  const density = useSidebarDensity()
   const navigate = useNavigate()
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
@@ -536,7 +558,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   return (
-    <nav className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')} aria-label="主导航">
+    <nav
+      className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')}
+      data-density={density}
+      aria-label="主导航"
+    >
       <div className="sb-header">
         <Menu
           align="left"

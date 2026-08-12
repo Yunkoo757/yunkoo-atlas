@@ -571,7 +571,7 @@
     width: 100%;
     max-height: none;
     overflow-x: hidden;
-    padding: max(var(--sp-4), env(safe-area-inset-top)) var(--sp-3) max(var(--sp-4), env(safe-area-inset-bottom));
+    padding: var(--sp-4) var(--sp-3);
     border: 0;
     border-radius: 0;
   }

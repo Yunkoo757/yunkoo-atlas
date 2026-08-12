@@ -76,8 +76,9 @@ const checks = [
       /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
   ],
   [
-    'sidebar navigation suppresses the shortcut focus highlight',
-    /\.sb-item:focus-visible\s*\{[^}]*outline:\s*none;[^}]*box-shadow:\s*none;/s.test(sidebarStyles),
+    'sidebar navigation uses the global keyboard focus frame',
+    /\.sb-item:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring-outline\);[^}]*outline-offset:\s*1px;/s.test(sidebarStyles) &&
+      !/\.sb-item:focus-visible\s*\{[^}]*outline:\s*none;/s.test(sidebarStyles),
   ],
   [
     'sidebar avatar uses the rounded-square shape',

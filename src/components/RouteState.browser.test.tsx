@@ -39,7 +39,7 @@ function BrokenPage(): never {
 function ErrorBoundaryFixture() {
   const location = useLocation()
   return (
-    <AppFrame sidebar={<nav>工作区导航</nav>} mobileNavigation={null}>
+    <AppFrame sidebar={<nav>工作区导航</nav>}>
       <RouteErrorBoundary resetKey={location.pathname}>
         <Routes>
           <Route path="/broken" element={<BrokenPage />} />

@@ -642,7 +642,7 @@ button.review-session-gallery-slot.is-ready {
   .review-session-gallery.is-multiple { grid-template-columns: 1fr; }
   .review-session-gallery.is-single .review-session-gallery-slot { height: min(48vh, 440px); }
   .review-session-gallery.is-multiple .review-session-gallery-slot { height: 260px; }
-  .review-session-assessment { padding: 10px var(--sp-3) calc(10px + env(safe-area-inset-bottom)); }
+  .review-session-assessment { padding: 10px var(--sp-3); }
   .review-session-assessment > div:first-child span { display: none; }
   .review-session-assessment-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .review-session-assessment-actions button { min-width: 0; min-height: 46px; padding: 6px; }

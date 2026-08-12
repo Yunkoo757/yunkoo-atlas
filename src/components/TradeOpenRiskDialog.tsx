@@ -48,7 +48,7 @@ function focusFallback(request: StorePendingTradeOpenRequest): void {
     return
   }
   const commandEntry = document.querySelector<HTMLElement>(
-    '[data-command-palette-trigger], .sb-hbtn-search, .mobile-navigation-action[aria-label="更多"]',
+    '[data-command-palette-trigger], .sb-hbtn-search',
   )
   if (commandEntry?.isConnected) {
     commandEntry.focus()

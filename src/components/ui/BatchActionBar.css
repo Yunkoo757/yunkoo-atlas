@@ -51,7 +51,7 @@
 @media (max-width: 899px), (pointer: coarse) {
   .batch-action-bar {
     left: 50%;
-    bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
+    bottom: 12px;
     max-width: calc(100vw - 24px);
     overflow-x: auto;
   }
