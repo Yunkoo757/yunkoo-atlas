@@ -44,6 +44,7 @@
     "qa:statistics-truth": "node scripts/qa-statistics-truth.mjs",
     "qa:desktop-visual": "node scripts/qa-desktop-visual.mjs --renderer",
     "qa:desktop-visual:electron": "node scripts/qa-desktop-visual.mjs --electron",
+    "qa:desktop-visual:packaged": "node scripts/qa-packaged-desktop-visual.mjs",
     "benchmark:analytics": "pnpm build && node scripts/benchmark-analytics.mjs",
     "benchmark:persistence": "node scripts/benchmark-persistence.mjs",
     "benchmark:persistence:release": "node scripts/run-persistence-release-gate.mjs",
