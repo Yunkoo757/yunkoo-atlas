@@ -1,12 +1,13 @@
 .trade-list {
   --trade-list-columns-height: 28px;
+  --trade-select-column: 24px;
 
   min-width: 0;
 }
 
 :where(.trade-list-columns, .trade-row) {
   --trade-list-columns:
-    var(--trade-select-column, 24px) 16px var(--trade-ref-column, 72px) minmax(251px, 0.85fr)
+    var(--trade-select-column) 16px var(--trade-ref-column, 72px) minmax(251px, 0.85fr)
     minmax(260px, 1.6fr) 62px 80px 72px 72px 24px;
 }
 
@@ -165,7 +166,7 @@
 /* button:hover CollapseArrow → fill lch(100 0 272)，高亮瞬间到位 */
 .trade-list-group-toggle:hover .trade-list-group-chevron,
 .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
-  color: lch(100% 0 272 / 1);
+  color: var(--accent-text);
   transition-duration: 0s;
 }
 
@@ -175,7 +176,7 @@
 
 .trade-list-group-header.is-collapsed .trade-list-group-toggle:hover .trade-list-group-chevron,
 .trade-list-group-header.is-collapsed .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
-  color: lch(100% 0 272 / 1);
+  color: var(--accent-text);
   transition-duration: 0s;
 }
 
@@ -250,12 +251,12 @@
 /* 圆底 lch(13.456% 0.943 272) 压在未抬亮的 surface-group 上才显得「亮起」 */
 .trade-list-group-add:hover,
 .trade-list-group-add:focus-visible {
-  color: lch(100% 0 272);
+  color: var(--accent-text);
   background-color: var(--group-add-hover-bg);
 }
 
 .trade-list-group-add:active {
-  color: lch(100% 0 272);
+  color: var(--accent-text);
   background-color: color-mix(in lch, var(--group-add-hover-bg) 88%, white 12%);
 }
 
@@ -778,144 +779,7 @@
   }
 }
 
-@media (max-width: 899px) {
-  :where(.trade-list-columns, .trade-row) {
-    --trade-list-columns:
-      44px 16px minmax(140px, 1fr) minmax(80px, 1fr)
-      48px 48px 54px 44px;
-  }
-
-  .trade-list-columns,
-  .trade-row { column-gap: var(--sp-2); }
-}
 
 .trade-list-mobile-select-toggle {
   display: none;
-}
-
-@media (max-width: 899px), (pointer: coarse) {
-  .trade-list-mobile-select-toggle {
-    position: sticky;
-    z-index: var(--z-content-overlay);
-    top: var(--sp-2);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 64px;
-    min-height: 44px;
-    margin: var(--sp-2) var(--sp-2) 0 auto;
-    padding: 0 var(--sp-3);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-6);
-    color: var(--text-secondary);
-    background: var(--bg-elevated);
-  }
-
-  .trade-row {
-    --trade-select-column: 44px;
-  }
-
-  .trade-row-check,
-  .trade-row-check-spacer {
-    width: 44px;
-    height: 44px;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .trade-list.is-selection-mode .trade-row-check {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .trade-row-star {
-    width: 44px;
-    height: 44px;
-  }
-
-  .trade-row-star:not(.is-starred) {
-    opacity: 0;
-    pointer-events: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .trade-list-group-header {
-    height: 44px;
-    padding-right: var(--sp-1);
-  }
-  .trade-list-group-add {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    flex-basis: 44px;
-    border-radius: var(--radius-full);
-    opacity: 1;
-  }
-  .trade-row {
-    column-gap: 6px;
-    padding: 0 var(--sp-2);
-  }
-
-  :where(.trade-list-columns, .trade-row) {
-    --trade-list-columns: 44px 16px minmax(0, 1fr) max-content 54px 44px;
-  }
-
-  .trade-row-ref,
-  .trade-row-strategy,
-  .trade-row-tags,
-  .trade-row-timeframe-slot,
-  .trade-row-pnl {
-    display: none;
-  }
-
-  .trade-list-column:is(.is-ref, .is-tags, .is-timeframe, .is-pnl) { display: none; }
-
-  /* 聚合项来源留在共享 tags 槽内；窄屏仅保留这枚必要语义标签。 */
-  .missed-opportunity-row .trade-row-tags {
-    display: flex;
-  }
-
-  .missed-opportunity-row .trade-row-tags > :not(.missed-opportunity-source) {
-    display: none;
-  }
-
-  .missed-opportunity-row .trade-row-r {
-    display: none;
-  }
-
-  .trade-row .missed-row-menu button {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    min-height: 44px;
-  }
-
-  .trade-row-symbol strong {
-    font-size: var(--fs-mini);
-  }
-
-  .trade-row-symbol,
-  .trade-row-symbol.trade-row-primary {
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .trade-row-symbol-main {
-    flex: 1 1 auto;
-    overflow: hidden;
-  }
-
-  .trade-row-symbol strong {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .trade-row-star {
-    width: 44px;
-    height: 44px;
-  }
 }

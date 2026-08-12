@@ -1,3 +1,4 @@
+import { ICON_2XL, ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -442,7 +443,7 @@ export function ReviewSessionView() {
   if (restoreStatus === 'loading') {
     return (
       <div className="review-session-loading" role="status" aria-live="polite">
-        <RotateCcw size={20} aria-hidden />
+        <RotateCcw size={ICON_XL} aria-hidden />
         <span>正在恢复复盘会话…</span>
       </div>
     )
@@ -452,11 +453,11 @@ export function ReviewSessionView() {
     <div className="review-session-view">
       <header className="review-session-topbar">
         <Button type="button" variant="ghost" className="review-session-back" onClick={() => navigate('/today-record')}>
-          <ChevronLeft size={16} aria-hidden />
+          <ChevronLeft size={ICON_MD} aria-hidden />
           <span>退出复盘</span>
         </Button>
         <div className="review-session-heading">
-          <RotateCcw size={16} aria-hidden />
+          <RotateCcw size={ICON_MD} aria-hidden />
           <strong>随机复盘</strong>
         </div>
         {session && !roundEnded ? (
@@ -556,12 +557,12 @@ function ReviewSessionStart({
         <div className="review-session-start-actions">
           <Button type="button" variant="primary" size="lg" disabled={poolSize === 0} onClick={onStart}>
             开启一轮新的复盘
-            <ChevronRight size={16} aria-hidden />
+            <ChevronRight size={ICON_MD} aria-hidden />
           </Button>
           <Menu
             align="right"
-            trigger={<Button type="button" variant="ghost"><MoreHorizontal size={16} aria-hidden />更多</Button>}
-            options={[{ value: 'settings', label: '复盘设置', icon: <SlidersHorizontal size={16} /> }]}
+            trigger={<Button type="button" variant="ghost"><MoreHorizontal size={ICON_MD} aria-hidden />更多</Button>}
+            options={[{ value: 'settings', label: '复盘设置', icon: <SlidersHorizontal size={ICON_MD} /> }]}
             onSelect={(value) => { if (value === 'settings') onOpenSettings() }}
           />
         </div>
@@ -605,7 +606,7 @@ function ReviewSessionSettingsModal({
             checked={filters.includeCases}
             onChange={(event) => patchFilters({ includeCases: event.target.checked })}
           />
-          <BookOpen size={19} aria-hidden />
+          <BookOpen size={ICON_XL} aria-hidden />
           <span><strong>案例记录</strong><small>优秀范例、错题与待复看案例</small></span>
         </label>
         <label className={filters.includeAccountTrades ? 'is-selected' : undefined}>
@@ -614,7 +615,7 @@ function ReviewSessionSettingsModal({
             checked={filters.includeAccountTrades}
             onChange={(event) => patchFilters({ includeAccountTrades: event.target.checked })}
           />
-          <ListTodo size={19} aria-hidden />
+          <ListTodo size={ICON_XL} aria-hidden />
           <span><strong>账户交易</strong><small>实盘与模拟盘记录</small></span>
         </label>
       </fieldset>
@@ -647,7 +648,7 @@ function ReviewSessionSettingsModal({
             checked={filters.requireContent}
             onChange={(event) => patchFilters({ requireContent: event.target.checked })}
           />
-          <Image size={17} aria-hidden />
+          <Image size={ICON_LG} aria-hidden />
           <span>仅含有效图文</span>
         </label>
       </div>
@@ -832,7 +833,7 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   if (note.status === 'error') {
     return (
       <div className="review-session-reading review-session-note-state is-error" role="alert">
-        <AlertCircle size={18} aria-hidden />
+        <AlertCircle size={ICON_LG} aria-hidden />
         <span>本条图文暂时无法读取，你仍可评估或跳过。</span>
       </div>
     )
@@ -840,7 +841,7 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   if (!hasBody && presentation.images.length === 0) {
     return (
       <div className="review-session-reading review-session-note-state">
-        <Image size={20} aria-hidden />
+        <Image size={ICON_XL} aria-hidden />
         <span>暂无复盘笔记</span>
       </div>
     )
@@ -891,7 +892,7 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
               </button>
             ) : (
               <div className="review-session-gallery-slot is-error" key={`${slot.src}-${index}`} role="img" aria-label={`${slot.alt}加载失败`}>
-                <AlertCircle size={18} aria-hidden />
+                <AlertCircle size={ICON_LG} aria-hidden />
                 <span>图片暂时无法显示</span>
               </div>
             )
@@ -932,7 +933,7 @@ function ReviewSessionFinished({
     : '本轮没有写入案例掌握度，浏览进度只保留在本轮会话中。'
   return (
     <section className="review-session-finished" data-review-session-finished-focus tabIndex={-1} role="status" aria-live="polite" aria-atomic="true">
-      <span className="review-session-finished-icon"><CheckCircle size={26} aria-hidden /></span>
+      <span className="review-session-finished-icon"><CheckCircle size={ICON_2XL} aria-hidden /></span>
       <span className="review-session-eyebrow">本轮完成</span>
       <h1>已复盘 {session.ids.length} 条交易</h1>
       <p>{completionMessage}</p>
@@ -943,9 +944,9 @@ function ReviewSessionFinished({
         <span><strong>{counts.skipped}</strong><small>跳过</small></span>
       </div>
       <div className="review-session-finished-actions">
-        <Button type="button" variant="bordered" onClick={onBack}><ChevronLeft size={16} aria-hidden />上一条</Button>
-        <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={16} aria-hidden />再随机一轮</Button>
-        <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={16} aria-hidden />重新设置</Button>
+        <Button type="button" variant="bordered" onClick={onBack}><ChevronLeft size={ICON_MD} aria-hidden />上一条</Button>
+        <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={ICON_MD} aria-hidden />再随机一轮</Button>
+        <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={ICON_MD} aria-hidden />重新设置</Button>
       </div>
     </section>
   )

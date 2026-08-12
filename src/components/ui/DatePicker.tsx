@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import {
   forwardRef,
   useEffect,
@@ -267,7 +268,7 @@ export const DatePicker = forwardRef<
         }}
       >
         <span className={!formattedValue ? 'is-placeholder' : undefined}>{displayValue}</span>
-        <Calendar size={15} aria-hidden />
+        <Calendar size={ICON_MD} aria-hidden />
       </FieldTrigger>
 
       {open && createPortal(
@@ -284,8 +285,8 @@ export const DatePicker = forwardRef<
           <div className="ui-date-head">
             <strong>{viewDate.getFullYear()}年{viewDate.getMonth() + 1}月</strong>
             <div>
-              <button type="button" aria-label="上个月" onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
-              <button type="button" aria-label="下个月" onClick={() => changeMonth(1)}><ChevronRight size={16} /></button>
+              <button type="button" aria-label="上个月" onClick={() => changeMonth(-1)}><ChevronLeft size={ICON_MD} /></button>
+              <button type="button" aria-label="下个月" onClick={() => changeMonth(1)}><ChevronRight size={ICON_MD} /></button>
             </div>
           </div>
           <div className="ui-date-weekdays" aria-hidden>

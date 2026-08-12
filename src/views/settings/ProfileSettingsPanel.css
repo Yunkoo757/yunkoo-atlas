@@ -180,18 +180,3 @@
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
 }
-
-@media (max-width: 480px) {
-  .profile-name-input {
-    min-height: 44px;
-  }
-  .profile-avatar-grid {
-    grid-template-columns: repeat(4, 62px);
-  }
-}
-
-@media (min-width: 481px) and (max-width: 899px) {
-  .profile-avatar-grid {
-    grid-template-columns: repeat(4, 62px);
-  }
-}

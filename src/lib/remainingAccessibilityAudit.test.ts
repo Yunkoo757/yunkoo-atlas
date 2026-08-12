@@ -34,21 +34,18 @@ export async function testWeeklyReviewScoreActionsUseInteractiveContrast(): Prom
 
 export async function testCustomOverlaysCaptureAndRestoreFocus(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const sources = await Promise.all([
-    fs.readFile('src/components/TradeComposer.tsx', 'utf8'),
-    fs.readFile('src/components/StrategyFormModal.tsx', 'utf8'),
+  const [shell, lightbox] = await Promise.all([
+    fs.readFile('src/components/ui/ModalShell.tsx', 'utf8'),
     fs.readFile('src/components/ImageLightbox.tsx', 'utf8'),
   ])
 
-  for (const [index, source] of sources.entries()) {
-    assert(source.includes('previousFocusRef'), `自建浮层 ${index + 1} 必须记录打开前焦点`)
-    assert(source.includes('document.activeElement'), `自建浮层 ${index + 1} 必须从真实活动元素捕获焦点`)
-    assert(source.includes('previousFocusRef.current?.focus()'), `自建浮层 ${index + 1} 关闭后必须归还焦点`)
-  }
   assert(
-    sources[0].includes('dialogRef.current?.querySelector<HTMLElement>') &&
-      sources[0].includes('initialFocus?.focus()'),
-    '新建交易打开后必须把焦点送入弹窗，才能启用现有焦点陷阱',
+    shell.includes('returnFocusRef') &&
+      shell.includes('document.activeElement') &&
+      shell.includes('if (target?.isConnected) target.focus()'),
+    '共享弹层必须捕获并恢复打开前焦点',
   )
-  assert(sources[2].includes("if (event.key !== 'Tab') return"), '图片预览必须把 Tab 限制在模态浮层内')
+  assert(shell.includes('focusableElements(panel)'), '共享弹层必须维护焦点陷阱')
+  assert(lightbox.includes('previousFocusRef.current?.focus()'), '图片预览关闭后必须归还焦点')
+  assert(lightbox.includes("if (event.key !== 'Tab') return"), '图片预览必须把 Tab 限制在模态浮层内')
 }

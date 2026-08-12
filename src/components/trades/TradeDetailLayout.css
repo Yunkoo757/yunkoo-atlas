@@ -26,7 +26,7 @@
   min-width: 0;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: lch(35% 0.75 272) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .trade-detail-layout .dv-props {
@@ -47,14 +47,14 @@
 
 .trade-detail-layout .dv-main::-webkit-scrollbar-thumb {
   min-height: 40px;
-  background: lch(35% 0.75 272);
+  background: var(--scrollbar-thumb);
   background-clip: padding-box;
   border: 3px solid transparent;
   border-radius: var(--radius-full);
 }
 
 .trade-detail-layout .dv-main::-webkit-scrollbar-thumb:hover {
-  background: lch(43% 0.75 272);
+  background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
 }
 

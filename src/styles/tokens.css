@@ -189,6 +189,7 @@
   --surface-row-selected: lch(10.691% 0.493 272 / 1);
   --surface-control: lch(6.449% 0.493 272 / 1);
   --surface-control-active: lch(12.234% 0.879 272 / 1);
+  --surface-control-hover: lch(15.32% 0.879 272 / 1);
   --surface-control-border: lch(100% 0 0 / 0.045);
   --surface-control-border-active: lch(100% 0 0 / 0.113);
   --surface-control-shadow:
@@ -200,6 +201,8 @@
   /* Tooltip / 浮层内抬升面（如快捷键 kbd） */
   --surface-raised: color-mix(in srgb, var(--popover-bg) 72%, white 14%);
   --skeleton-highlight: color-mix(in srgb, var(--bg-hover) 58%, var(--text-quaternary) 12%);
+  --scrollbar-thumb: lch(35% 0.75 272);
+  --scrollbar-thumb-hover: lch(43% 0.75 272);
 
   /* 列表排版校准 */
   --list-text-strong: lch(90.35% 1.15 272 / 1);

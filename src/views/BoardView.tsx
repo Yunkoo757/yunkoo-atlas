@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -167,7 +168,7 @@ export function BoardView({
               onDrop={() => onDropToColumn(c.status)}
             >
               <div className="bd-col-header">
-                <StatusIcon status={c.status} size={15} />
+                <StatusIcon status={c.status} size={ICON_MD} />
                 <span className="bd-col-title">{STATUS_META[c.status].label}</span>
                 <span className="bd-col-count">{c.items.length}</span>
                 <span className="bd-col-add-wrap">
@@ -177,7 +178,7 @@ export function BoardView({
                       aria-label={`新建${recordLabel}`}
                       onClick={() => openComposer()}
                     >
-                      <Plus size={15} />
+                      <Plus size={ICON_MD} />
                     </button>
                   </Tooltip>
                 </span>
@@ -370,7 +371,7 @@ function BoardColumnBody({
                 </div>
                 <div className="bd-card-title">
                   <span className="bd-card-symbol">
-                    <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={16} />
+                    <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={ICON_MD} />
                     {t.symbol}
                   </span>
                   <SideTag side={t.side} />

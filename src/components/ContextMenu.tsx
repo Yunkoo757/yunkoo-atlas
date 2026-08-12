@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import {
   useEffect,
   useLayoutEffect,
@@ -153,7 +154,7 @@ export function ContextMenu({
             {it.icon && <span className="ctx-item-icon">{it.icon}</span>}
             <span className="ctx-item-label">{it.label}</span>
             {it.hint && <span className="ctx-item-hint">{it.hint}</span>}
-            {it.checked ? <Check size={14} className="ctx-item-check" aria-hidden="true" /> : null}
+            {it.checked ? <Check size={ICON_SM} className="ctx-item-check" aria-hidden="true" /> : null}
           </button>
         )
       })}

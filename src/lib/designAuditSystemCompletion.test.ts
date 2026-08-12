@@ -126,16 +126,22 @@ export async function testNestedRadiiFollowTheOuterRadiusMinusGapRule(): Promise
 
 export async function testCustomModalsConsumeTheSharedSurfaceMetrics(): Promise<void> {
   const fs = await import('node:fs/promises')
+  const shellCss = await fs.readFile('src/components/ui/ModalShell.css', 'utf8')
+  for (const token of [
+    'var(--modal-overlay-padding)',
+    'var(--modal-header-padding)',
+    'var(--modal-border-radius)',
+  ]) {
+    assert(shellCss.includes(token), `共享弹层骨架缺少 ${token}`)
+  }
   const files = [
-    'src/components/TradeComposer.css',
-    'src/components/TradeCloseDialog.css',
-    'src/components/StrategyFormModal.css',
+    'src/components/TradeComposer.tsx',
+    'src/components/TradeCloseDialog.tsx',
+    'src/components/StrategyFormModal.tsx',
   ]
   for (const file of files) {
-    const css = await fs.readFile(file, 'utf8')
-    assert(css.includes('var(--modal-overlay-padding)'), `${file} 未复用模态遮罩间距`)
-    assert(css.includes('var(--modal-header-padding)'), `${file} 未复用模态标题区间距`)
-    assert(css.includes('var(--modal-border-radius)'), `${file} 未复用模态圆角`)
+    const source = await fs.readFile(file, 'utf8')
+    assert(source.includes('<ModalShell'), `${file} 未复用共享弹层骨架`)
   }
 }
 

@@ -118,9 +118,3 @@
   flex: 1;
   min-height: 0;
 }
-
-@media (max-width: 768px) {
-  .la-filter-grid {
-    grid-template-columns: 1fr;
-  }
-}

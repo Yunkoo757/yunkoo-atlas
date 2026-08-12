@@ -2,7 +2,7 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-export async function testTradeListKeepsReferencesReadableAndHidesMobileSelectionChromeUntilRequested(): Promise<void> {
+export async function testTradeListKeepsReferencesReadableAndRevealsSelectionChromeOnIntent(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [css, listSource] = await Promise.all([
     fs.readFile('src/components/trades/TradeList.css', 'utf8'),
@@ -11,10 +11,7 @@ export async function testTradeListKeepsReferencesReadableAndHidesMobileSelectio
 
   assert(css.includes('--trade-ref-column: 72px'), '桌面交易编号列必须始终容纳完整 ref')
   assert(listSource.includes("selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : ''"), '交易列表必须暴露明确的选择模式状态')
-  assert(
-    /@media \(max-width: 899px\), \(pointer: coarse\)[\s\S]*?\.trade-row-check,[\s\S]*?opacity:\s*0/.test(css),
-    '移动端未进入选择模式时不得常驻复选框',
-  )
+  assert(/\.trade-row-check,[\s\S]*?opacity:\s*0/.test(css), '桌面列表默认必须压低选择控件噪音')
   assert(css.includes('.trade-list.is-selection-mode .trade-row-check'), '选择模式下必须重新显示复选框')
   assert(css.includes('.trade-row-star.is-starred'), '已收藏状态必须始终可见')
 }
@@ -118,5 +115,21 @@ export async function testStrategyPerformanceKeepsDataMoreProminentThanDecoratio
   assert(source.includes('transform: `scaleX('), '策略条必须用 transform 表达比例，避免布局动画')
   assert(!css.includes('transition: width var(--dur-slow)'), '策略条不得动画 width')
   assert(css.includes('max-width: 240px'), '策略条必须限制装饰宽度，把空间还给统计信息')
-  assert(/@media \(max-width: 899px\)[\s\S]*?\.db-strat-bar\s*\{[\s\S]*?display:\s*none/.test(css), '窄屏应直接收起装饰条，保留名称、统计和盈亏')
+  assert(!/@media[^\{]*max-width:\s*(?:[1-8]\d\d|899)px/.test(css), '策略表现不得维护不受支持的手机宽度分支')
+}
+
+export async function testBusinessModalsUseTheSharedDesktopShell(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const modalFiles = [
+    'src/components/TradeComposer.tsx',
+    'src/components/TradeCloseDialog.tsx',
+    'src/components/StrategyFormModal.tsx',
+  ]
+  const sources = await Promise.all(modalFiles.map((file) => fs.readFile(file, 'utf8')))
+  for (const [index, source] of sources.entries()) {
+    assert(source.includes('<ModalShell'), `${modalFiles[index]} 必须复用共享桌面弹层骨架`)
+    assert(!source.includes('createPortal'), `${modalFiles[index]} 不得保留私有 portal`)
+    assert(!source.includes('acquireModalOverlay'), `${modalFiles[index]} 不得重复维护弹层快捷键状态`)
+    assert(!source.includes('role="dialog"'), `${modalFiles[index]} 不得重复声明 dialog 语义`)
+  }
 }

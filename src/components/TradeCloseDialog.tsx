@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { X } from '@/icons/appIcons'
 import { DatePicker } from '@/components/ui/DatePicker'
 import type { Trade, TradeStatus } from '@/data/trades'
 import { pnlToStatus } from '@/lib/tradeCalc'
@@ -7,14 +6,13 @@ import {
   prepareTradeClose,
   type CloseOutcome,
 } from '@/lib/tradeClose'
-import { fmtMoney, fmtR } from '@/lib/format'
+import { fmtR } from '@/lib/format'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { getTradingDayKey } from '@/lib/periods'
-import { useShortcutStore } from '@/store/shortcutStore'
-import { useExitClone } from '@/components/ui/useExitClone'
 import { Button } from '@/components/ui/Button'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import './TradeCloseDialog.css'
@@ -70,17 +68,6 @@ export function TradeCloseDialog() {
     status: CloseOutcome
     patch: Partial<Trade>
   } | null>(null)
-  const exitRef = useExitClone<HTMLDivElement>(Boolean(request && trade))
-
-  useEffect(() => {
-    if (!request) return
-    const target = request.returnFocus
-    return () => {
-      requestAnimationFrame(() => {
-        if (target?.isConnected) target.focus()
-      })
-    }
-  }, [request])
 
   useEffect(() => {
     if (!trade || !request) return
@@ -97,19 +84,6 @@ export function TradeCloseDialog() {
     setError('')
     setArchiveConfirm(null)
   }, [trade?.id, request?.targetStatus, tradingDayStartHour])
-
-  useEffect(() => {
-    if (!request) return
-    useShortcutStore.getState().acquireModalOverlay()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') cancelTradeClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      useShortcutStore.getState().releaseModalOverlay()
-    }
-  }, [request, cancelTradeClose])
 
   const previewResult = useMemo(() => {
     if (!trade) return null
@@ -185,51 +159,32 @@ export function TradeCloseDialog() {
   })()
 
   return (
-    <div
-      ref={exitRef}
-      className="trade-close-overlay"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) cancelTradeClose()
-      }}
-    >
-      <form
-        className="trade-close-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="trade-close-title"
-        onSubmit={submit}
-        onKeyDown={(event) => {
-          if (event.key !== 'Tab') return
-          const focusable = Array.from(
-            event.currentTarget.querySelectorAll<HTMLElement>(
-              'button:not(:disabled), input:not(:disabled)',
-            ),
-          ).filter((element) => element.getClientRects().length > 0)
-          const first = focusable[0]
-          const last = focusable[focusable.length - 1]
-          if (!first || !last) return
-
-          if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault()
-            last.focus()
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault()
-            first.focus()
-          }
-        }}
-      >
-        <header className="trade-close-header">
+    <ModalShell
+      title="完成平仓"
+      description={`${trade.ref} · ${trade.symbol}`}
+      panelClassName="trade-close-dialog"
+      bodyClassName="trade-close-body"
+      footerClassName="trade-close-footer"
+      initialFocusSelector=".trade-close-fields input:not(:disabled), .trade-close-outcome"
+      onClose={cancelTradeClose}
+      footer={(
+        <>
+          <span>保存后进入「待复盘」</span>
           <div>
-            <span className="trade-close-eyebrow">{trade.ref} · {trade.symbol}</span>
-            <h2 id="trade-close-title">完成平仓</h2>
+            <Button type="button" variant="bordered" size="lg" onClick={() => {
+              if (archiveConfirm) setArchiveConfirm(null)
+              else cancelTradeClose()
+            }}>取消</Button>
+            {archiveConfirm ? (
+              <Button type="button" variant="primary" size="lg" onClick={() => commitClose(archiveConfirm.status, archiveConfirm.patch)}>确认保存</Button>
+            ) : (
+              <Button type="submit" form="trade-close-form" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
+            )}
           </div>
-          <button type="button" className="trade-close-dismiss" aria-label="关闭" onClick={cancelTradeClose}>
-            <X size={16} />
-          </button>
-        </header>
-
-        <div className="trade-close-body">
+        </>
+      )}
+    >
+      <form id="trade-close-form" className="trade-close-form" onSubmit={submit}>
           {archiveConfirm ? (
             <section className="trade-close-section" aria-live="polite">
               <span className="trade-close-label">归属将改变</span>
@@ -310,23 +265,7 @@ export function TradeCloseDialog() {
           </div>
             </>
           )}
-        </div>
-
-        <footer className="trade-close-footer">
-          <span>保存后进入「待复盘」</span>
-          <div>
-            <Button type="button" variant="bordered" size="lg" onClick={() => {
-              if (archiveConfirm) setArchiveConfirm(null)
-              else cancelTradeClose()
-            }}>取消</Button>
-            {archiveConfirm ? (
-              <Button type="button" variant="primary" size="lg" onClick={() => commitClose(archiveConfirm.status, archiveConfirm.patch)}>确认保存</Button>
-            ) : (
-              <Button type="submit" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
-            )}
-          </div>
-        </footer>
       </form>
-    </div>
+    </ModalShell>
   )
 }

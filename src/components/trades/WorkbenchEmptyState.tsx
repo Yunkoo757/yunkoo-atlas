@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { Link } from 'react-router-dom'
 import { Plus, RotateCcw } from '@/icons/appIcons'
 import { EmptyState } from '@/components/EmptyState'
@@ -27,7 +28,7 @@ export function WorkbenchEmptyState({
             className="empty-btn workbench-empty-primary"
             onClick={create ? onCreate : onReset}
           >
-            {create ? <Plus size={15} /> : <RotateCcw size={15} />}
+            {create ? <Plus size={ICON_MD} /> : <RotateCcw size={ICON_MD} />}
             <span>{primary.label}</span>
           </button>
           {state.secondaryActions.map((action) => (

@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle } from '@/icons/appIcons'
@@ -163,10 +164,10 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
               <div><strong>无法判断 {preview.unresolved.length} 笔</strong><span>需先修正开仓日期</span></div>
             </div>
             {preview.unresolved.length > 0 ? (
-              <p className="live-cycle-warning" role="alert"><AlertCircle size={16} />存在无法判断开仓日期的实盘记录，修正后才能保存。</p>
+              <p className="live-cycle-warning" role="alert"><AlertCircle size={ICON_MD} />存在无法判断开仓日期的实盘记录，修正后才能保存。</p>
             ) : null}
             {draftLacksRiskPolicyCoverage ? (
-              <p className="live-cycle-warning" role="status"><AlertCircle size={16} />所选起点当日没有生效的风险规则；周期内缺少规则覆盖的交易仍会显示为覆盖未知。此提示不阻止保存。</p>
+              <p className="live-cycle-warning" role="status"><AlertCircle size={ICON_MD} />所选起点当日没有生效的风险规则；周期内缺少规则覆盖的交易仍会显示为覆盖未知。此提示不阻止保存。</p>
             ) : null}
             <div className="live-cycle-preview-list">
               {[...preview.preCycle, ...preview.current, ...preview.unresolved].slice(0, PREVIEW_LIMIT).map((trade) => (

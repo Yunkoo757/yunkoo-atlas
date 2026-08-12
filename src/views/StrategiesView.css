@@ -114,24 +114,3 @@
   border-radius: var(--radius-6);
   font-size: var(--fs-mini);
 }
-
-@media (max-width: 640px) {
-  .st-row-name {
-    display: flex;
-    align-items: center;
-    min-height: 44px;
-  }
-
-  .st-add,
-  .st-act {
-    min-height: 44px;
-  }
-
-  .st-act {
-    width: 44px;
-  }
-
-  .st-del-select .ui-select-trigger {
-    height: 44px;
-  }
-}

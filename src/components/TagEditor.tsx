@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react'
 import { Tag, X } from '@/icons/appIcons'
 import './TagEditor.css'
@@ -108,7 +109,7 @@ export function TagEditor({
               aria-label={`移除标签「${t}」`}
               onClick={() => onRemove(t)}
             >
-              <X size={11} />
+              <X size={ICON_SM} />
             </button>
           </span>
         ))}
@@ -148,7 +149,7 @@ export function TagEditor({
           </div>
         ) : (
           <button type="button" className="tag-add-btn" onClick={() => setEditing(true)}>
-            <Tag size={14} />
+            <Tag size={ICON_SM} />
             <span>添加标签</span>
           </button>
         )}

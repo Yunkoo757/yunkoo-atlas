@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { Fragment } from 'react'
 import { ArrowRight } from '@/icons/appIcons'
 import { chordKey, isSequence } from '@/shortcuts/chords'
@@ -18,7 +19,7 @@ export function ShortcutKeycaps({ binding }: { binding: ShortcutBinding | null }
     <span className="shortcuts-keycap-list" aria-hidden="true">
       {chords.map((chord, chordIndex) => (
         <Fragment key={chordKey(chord)}>
-          {chordIndex > 0 && <ArrowRight className="shortcuts-sequence-arrow" size={12} />}
+          {chordIndex > 0 && <ArrowRight className="shortcuts-sequence-arrow" size={ICON_SM} />}
           <span className="shortcuts-chord">
             {splitChordLabel(chord).map((label) => (
               <kbd key={label} className="shortcuts-keycap">

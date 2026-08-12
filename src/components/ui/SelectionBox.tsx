@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { Check } from '@/icons/appIcons'
 import './SelectionBox.css'
 
@@ -35,7 +36,7 @@ export function SelectionBox({
         onToggle()
       }}
     >
-      {checked ? <Check size={11} /> : null}
+      {checked ? <Check size={ICON_SM} /> : null}
     </button>
   )
 }

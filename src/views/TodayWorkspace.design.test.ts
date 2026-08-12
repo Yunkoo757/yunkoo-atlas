@@ -52,22 +52,13 @@ export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
   }
 }
 
-export function testTodayWorkspaceKeepsMobileQueueAndPrimaryActionSafe(): void {
+export function testTodayWorkspaceRejectsUnsupportedPhoneAndTouchBranches(): void {
   const today = read('src/views/TodayWorkspace.css')
-  const tabletStart = today.indexOf('@media (max-width: 899px)')
-  const mobileStart = today.indexOf('@media (max-width: 768px)')
-  const tablet = tabletStart === -1 || mobileStart === -1 ? '' : today.slice(tabletStart, mobileStart)
-  const mobile = mobileStart === -1 ? '' : today.slice(mobileStart)
-  const mobilePrimaryAction = rule(mobile, '\\.today-focus \\.empty-btn')
-
-  if (!tablet.includes('.today-queue-tabs') || !tablet.includes('overflow-x: auto')) {
-    throw new Error('today queue tabs must scroll horizontally below 899px instead of compressing into three columns')
+  if (/@media[^\{]*max-width:\s*(?:[1-8]\d\d|899)px/.test(today)) {
+    throw new Error('today workspace must not maintain unsupported phone-width branches')
   }
-  if (!mobilePrimaryAction.includes('min-height: 44px')) {
-    throw new Error('today primary action must reach 44px on mobile')
-  }
-  if (!mobile.includes('overflow-x: hidden')) {
-    throw new Error('today workspace must prevent horizontal overflow below 768px')
+  if (/pointer:\s*coarse|hover:\s*none/.test(today)) {
+    throw new Error('today workspace must not maintain touch-product branches')
   }
 }
 

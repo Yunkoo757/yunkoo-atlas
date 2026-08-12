@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import {
   useCallback,
   useEffect,
@@ -120,7 +121,7 @@ function GroupLeadingIcon({
         <StrategyIcon
           icon={strategy.icon}
           color={strategy.color}
-          size={14}
+          size={ICON_SM}
           variant="nav"
           className="trade-list-group-icon"
         />
@@ -131,7 +132,7 @@ function GroupLeadingIcon({
     return (
       <StatusIndicator
         state="todo"
-        size={14}
+        size={ICON_SM}
         color="var(--text-tertiary)"
         className="trade-list-group-icon"
       />
@@ -141,13 +142,13 @@ function GroupLeadingIcon({
     return (
       <StatusIndicator
         state="completed"
-        size={14}
+        size={ICON_SM}
         color="var(--status-completed)"
         className="trade-list-group-icon"
       />
     )
   }
-  return <CalendarDays size={14} className="trade-list-group-icon" />
+  return <CalendarDays size={ICON_SM} className="trade-list-group-icon" />
 }
 
 export function TradeList({
@@ -510,7 +511,7 @@ export function TradeList({
                     onClick={() => onCreate()}
                     aria-label={`在本组新建${recordLabel}`}
                   >
-                    <Plus size={16} />
+                    <Plus size={ICON_MD} />
                   </button>
                 </Tooltip>
               </div>

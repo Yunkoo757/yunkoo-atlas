@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useState } from 'react'
 import { useStore } from '@/store/useStore'
 import { Tag, X, Plus } from '@/icons/appIcons'
@@ -117,7 +118,7 @@ function TagSection({
           disabled={!input.trim()}
           aria-label={`添加${title}`}
         >
-          <Plus size={14} />
+          <Plus size={ICON_SM} />
           <span>添加</span>
         </button>
       </div>
@@ -151,7 +152,7 @@ function TagSection({
         <div className="tag-list">
           {presets.map((t) => (
             <span className="settings-tag-chip" key={t}>
-              <Tag size={12} />
+              <Tag size={ICON_SM} />
               {t}
               <Tooltip content="删除" label={`删除「${t}」`}>
                 <button
@@ -160,7 +161,7 @@ function TagSection({
                   aria-label={`删除「${t}」`}
                   onClick={() => onRemove(t)}
                 >
-                  <X size={11} />
+                  <X size={ICON_SM} />
                 </button>
               </Tooltip>
             </span>

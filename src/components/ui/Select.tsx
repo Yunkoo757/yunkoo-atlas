@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import {
   forwardRef,
   useEffect,
@@ -249,7 +250,7 @@ export const Select = forwardRef<
           {selected?.icon ? <span className="ui-select-option-icon">{selected.icon}</span> : null}
           <span className="ui-select-option-label">{selected?.label ?? placeholder}</span>
         </span>
-        <ChevronDown className="ui-select-chevron" size={14} />
+        <ChevronDown className="ui-select-chevron" size={ICON_SM} />
       </FieldTrigger>
 
       {open && createPortal(
@@ -282,7 +283,7 @@ export const Select = forwardRef<
                 {option.icon ? <span className="ui-select-option-icon">{option.icon}</span> : null}
                 <span className="ui-select-option-label">{option.label}</span>
               </span>
-              {option.value === value && <Check size={13} />}
+              {option.value === value && <Check size={ICON_SM} />}
             </button>
           ))}
         </PopoverSurface>,

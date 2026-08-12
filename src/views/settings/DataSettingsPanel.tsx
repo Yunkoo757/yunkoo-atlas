@@ -1,3 +1,4 @@
+import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback } from 'react'
 import { DataIOContent } from '@/components/DataIOContent'
 import { LiveCycleSettings } from '@/components/LiveCycleSettings'
@@ -382,7 +383,7 @@ export function DataSettingsPanel({
 
         {healthError && (
           <div className="health-card health-warn" role="alert">
-            <AlertCircle size={18} />
+            <AlertCircle size={ICON_LG} />
             <span className="health-label">附件清单读取失败</span>
             <span className="health-note">{healthError}</span>
           </div>
@@ -391,7 +392,7 @@ export function DataSettingsPanel({
         {health && (
           <div className="health-grid">
             <div className="health-card">
-              <Database size={18} />
+              <Database size={ICON_LG} />
               <span className="health-label">交易数</span>
               <span className="health-value">{health.storage.tradeCount}</span>
             </div>
@@ -404,7 +405,7 @@ export function DataSettingsPanel({
                 ? ' health-warn'
                 : ''
             )}>
-              <Image size={18} />
+              <Image size={ICON_LG} />
               <span className="health-label">笔记图片</span>
               <span className="health-value">
                 {health.storage.attachmentStats.count} 张 · {health.storage.attachmentStats.formattedSize}
@@ -433,7 +434,7 @@ export function DataSettingsPanel({
             </div>
             {electron && (
               <div className={'health-card' + (health.backupTotalSize > WARN_BACKUP_SIZE ? ' health-warn' : '')}>
-                <HardDrive size={18} />
+                <HardDrive size={ICON_LG} />
                 <span className="health-label">备份占用</span>
                 <span className="health-value">
                   {health.backupCount} 份 · {fmtBackupSize(health.backupTotalSize)}
@@ -460,7 +461,7 @@ export function DataSettingsPanel({
               disabled={purgeBusy}
               onClick={() => void handlePreviewAssetPurge()}
             >
-              <Trash2 size={14} />
+              <Trash2 size={ICON_SM} />
               <span>{purgeBusy ? '扫描中…' : '清理孤立附件'}</span>
             </button>
             <p className="data-support-note">
@@ -487,7 +488,7 @@ export function DataSettingsPanel({
               onClick={handleCreateBackup}
               disabled={backing}
             >
-              <Save size={14} />
+              <Save size={ICON_SM} />
               <span>{backing ? '备份并验证中…' : '立即备份'}</span>
             </button>
             <button
@@ -495,7 +496,7 @@ export function DataSettingsPanel({
               onClick={handleVerifyAll}
               disabled={backups.length === 0 || verifying !== null || restoring !== null}
             >
-              <CheckCircle size={14} />
+              <CheckCircle size={ICON_SM} />
               <span>{verifying === 'all' ? '验证中…' : '验证全部'}</span>
             </button>
           </div>
@@ -508,7 +509,7 @@ export function DataSettingsPanel({
             <div className="backup-list">
               {backups.map((b) => (
                 <div key={b.name} className="backup-row">
-                  <Clock size={14} className="backup-icon" />
+                  <Clock size={ICON_SM} className="backup-icon" />
                   <span className="backup-time">{fmtBackupTime(b.timestamp)}</span>
                   <span className="backup-meta">
                     {b.tradeCount != null ? `${b.tradeCount} 笔交易` : ''}
@@ -522,7 +523,7 @@ export function DataSettingsPanel({
                       label={`已验证，${fmtBackupTime(b.verification.checkedAt)}`}
                     >
                       <span className="backup-verification is-verified">
-                        <CheckCircle size={13} />
+                        <CheckCircle size={ICON_SM} />
                         已验证
                       </span>
                     </Tooltip>
@@ -533,7 +534,7 @@ export function DataSettingsPanel({
                       label={`验证失败：${b.verification.error ?? '未知原因'}`}
                     >
                       <span className="backup-verification is-invalid">
-                        <AlertCircle size={13} />
+                        <AlertCircle size={ICON_SM} />
                         验证失败
                       </span>
                     </Tooltip>
@@ -545,7 +546,7 @@ export function DataSettingsPanel({
                       onClick={() => handleVerify(b.name)}
                       disabled={verifying !== null || restoring !== null}
                     >
-                      <CheckCircle size={13} />
+                      <CheckCircle size={ICON_SM} />
                       <span>{verifying === b.name ? '验证中…' : '验证'}</span>
                     </button>
                     <button
@@ -553,7 +554,7 @@ export function DataSettingsPanel({
                       onClick={() => setConfirmRequest({ kind: 'restore', name: b.name })}
                       disabled={verifying !== null || restoring !== null || b.verification?.status === 'invalid'}
                     >
-                      <RotateCcw size={13} />
+                      <RotateCcw size={ICON_SM} />
                       <span>{restoring === b.name ? '恢复中…' : '恢复'}</span>
                     </button>
                     <Tooltip content="删除备份" label="删除此备份">
@@ -563,7 +564,7 @@ export function DataSettingsPanel({
                         onClick={() => setConfirmRequest({ kind: 'delete', name: b.name })}
                         disabled={restoring !== null}
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={ICON_SM} />
                       </button>
                     </Tooltip>
                   </div>

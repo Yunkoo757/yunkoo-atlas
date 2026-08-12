@@ -1,7 +1,5 @@
-import { createPortal } from 'react-dom'
+import { ICON_LG } from '@/icons/iconSize'
 import { useEffect, useState, useRef } from 'react'
-import { useShortcutStore } from '@/store/shortcutStore'
-import { X } from '@/icons/appIcons'
 import {
   STRATEGY_COLOR_PRESETS,
   STRATEGY_ICON_OPTIONS,
@@ -11,7 +9,7 @@ import {
 } from '@/data/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { useExitClone } from '@/components/ui/useExitClone'
+import { ModalShell } from '@/components/ui/ModalShell'
 import './StrategyFormModal.css'
 
 export function StrategyFormModal({
@@ -31,8 +29,6 @@ export function StrategyFormModal({
   const [icon, setIcon] = useState<StrategyIconId>('target')
   const [color, setColor] = useState<string>(STRATEGY_COLOR_PRESETS[0])
   const nameInputRef = useRef<HTMLInputElement>(null)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
-  const exitRef = useExitClone<HTMLDivElement>(open)
 
   useEffect(() => {
     if (open) {
@@ -47,21 +43,6 @@ export function StrategyFormModal({
       })
     }
   }, [open, initial])
-
-  useEffect(() => {
-    if (!open) return
-    previousFocusRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
-    useShortcutStore.getState().acquireModalOverlay()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      useShortcutStore.getState().releaseModalOverlay()
-      previousFocusRef.current?.focus()
-    }
-  }, [open, onClose])
 
   if (!open) return null
 
@@ -78,47 +59,35 @@ export function StrategyFormModal({
     onClose()
   }
 
-  return createPortal(
-    <div ref={exitRef} className="sfm-overlay" role="presentation" onMouseDown={onClose}>
-      <div
-        className="sfm"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="strategy-form-title"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(event) => {
-          if (event.key !== 'Tab') return
-          const focusable = Array.from(
-            event.currentTarget.querySelectorAll<HTMLElement>(
-              'button:not(:disabled), input:not(:disabled), [contenteditable="true"]',
-            ),
-          ).filter((element) => element.offsetParent !== null)
-          const first = focusable[0]
-          const last = focusable[focusable.length - 1]
-          if (!first || !last) return
-
-          if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault()
-            last.focus()
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault()
-            first.focus()
-          }
-        }}
-      >
-        <div className="sfm-head">
-          <h2 id="strategy-form-title">{initial ? '编辑策略' : '新建策略'}</h2>
-          <button className="sfm-close" onClick={onClose} aria-label="关闭策略表单">
-            <X size={16} />
+  return (
+    <ModalShell
+      title={initial ? '编辑策略' : '新建策略'}
+      size="compact"
+      bodyClassName="sfm-body"
+      footerClassName="sfm-foot"
+      onClose={onClose}
+      footer={(
+        <>
+          <button type="button" className="ui-btn ui-btn-bordered ui-btn-lg" onClick={onClose}>
+            取消
           </button>
-        </div>
-
-        <div className="sfm-body">
+          <button
+            type="button"
+            className="ui-btn ui-btn-primary ui-btn-lg"
+            disabled={!trimmed || !!nameTaken}
+            onClick={save}
+          >
+            {initial ? '保存' : '创建'}
+          </button>
+        </>
+      )}
+    >
           <label className="sfm-field">
             <span className="sfm-label">名称</span>
             <input
               ref={nameInputRef}
               className="sfm-input"
+              data-autofocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="如 Breakout、波段趋势"
@@ -146,7 +115,7 @@ export function StrategyFormModal({
                         : undefined
                     }
                   >
-                    <Icon size={18} />
+                    <Icon size={ICON_LG} />
                   </button>
                 </Tooltip>
               ))}
@@ -169,28 +138,11 @@ export function StrategyFormModal({
               ))}
             </div>
             <div className="sfm-preview">
-              <StrategyIcon icon={icon} color={color} size={18} />
+              <StrategyIcon icon={icon} color={color} size={ICON_LG} />
               <span style={{ color }}>{trimmed || '预览'}</span>
             </div>
           </div>
-        </div>
-
-        <div className="sfm-foot">
-          <button type="button" className="ui-btn ui-btn-bordered ui-btn-lg" onClick={onClose}>
-            取消
-          </button>
-          <button
-            type="button"
-            className="ui-btn ui-btn-primary ui-btn-lg"
-            disabled={!trimmed || !!nameTaken}
-            onClick={save}
-          >
-            {initial ? '保存' : '创建'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+    </ModalShell>
   )
 }
 

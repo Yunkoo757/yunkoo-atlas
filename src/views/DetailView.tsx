@@ -1,3 +1,4 @@
+import { ICON_2XL, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import {
@@ -504,10 +505,10 @@ export function DetailView() {
               className="dv-back"
               aria-label={backAriaLabel}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={ICON_MD} />
             </Link>
             <span className="dv-crumb">{recordLabel}</span>
-            <ChevronRight size={13} className="dv-crumb-sep" />
+            <ChevronRight size={ICON_SM} className="dv-crumb-sep" />
             <span className="dv-crumb dv-crumb-active">
               {deletedTrade ? '已移至回收站' : '未找到'}
             </span>
@@ -515,7 +516,7 @@ export function DetailView() {
         </header>
         <div className="dv-empty">
           <div className="dv-empty-card">
-            <AlertCircle size={20} aria-hidden />
+            <AlertCircle size={ICON_XL} aria-hidden />
             <h1>{deletedTrade ? `该${recordLabel}已移至回收站` : `未找到该${recordLabel}`}</h1>
             <p>
               {deletedTrade
@@ -759,23 +760,23 @@ export function DetailView() {
         toast(starred ? '已取消星标' : '已加入星标')
       }}
     >
-      <Star size={16} fill={starred ? 'currentColor' : 'none'} />
+      <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
     </IconButton>
   )
 
   const moreMenu = (
     <Menu
       options={[
-        { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={16} /> },
+        { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={ICON_MD} /> },
         ...(trade.tradeKind === 'case'
           ? []
-          : [{ value: 'review-case', label: '提炼为案例', icon: <BookOpen size={16} /> }]),
+          : [{ value: 'review-case', label: '提炼为案例', icon: <BookOpen size={ICON_MD} /> }]),
         ...(reviewComplete
-          ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={16} /> }]
+          ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={ICON_MD} /> }]
           : []),
-        { value: 'copy-link', label: '复制链接', icon: <Link2 size={16} /> },
-        { value: 'copy', label: '复制编号', icon: <Copy size={16} /> },
-        { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={16} /> },
+        { value: 'copy-link', label: '复制链接', icon: <Link2 size={ICON_MD} /> },
+        { value: 'copy', label: '复制编号', icon: <Copy size={ICON_MD} /> },
+        { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={ICON_MD} /> },
       ]}
       onSelect={(v) => {
         if (v === 'edit') openComposer(trade)
@@ -787,7 +788,7 @@ export function DetailView() {
       }}
       trigger={
         <IconButton label="更多" tooltip="更多">
-          <MoreHorizontal size={15} />
+          <MoreHorizontal size={ICON_MD} />
         </IconButton>
       }
     />
@@ -805,10 +806,10 @@ export function DetailView() {
             className="dv-back"
             aria-label={backAriaLabel}
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={ICON_MD} />
           </Link>
           <span className="dv-crumb">{detailCrumb}</span>
-          <ChevronRight size={13} className="dv-crumb-sep" />
+          <ChevronRight size={ICON_SM} className="dv-crumb-sep" />
           <span className="dv-crumb dv-crumb-active">{trade.ref}</span>
           <div className="dv-detail-crumb-actions">
             {favoriteButton}
@@ -823,7 +824,7 @@ export function DetailView() {
               label={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
             >
               <span className="dv-review-complete-meta">
-                <CheckCircle size={13} aria-hidden />
+                <CheckCircle size={ICON_SM} aria-hidden />
                 <span>已复盘</span>
               </span>
             </Tooltip>
@@ -846,7 +847,7 @@ export function DetailView() {
                   disabled={!detailNavigation.nextId}
                   onClick={() => navigateDetail(detailNavigation.nextId)}
                 >
-                  <ChevronDown size={14} />
+                  <ChevronDown size={ICON_SM} />
                 </IconButton>
               </ShortcutTooltip>
               <ShortcutTooltip actionId="trade.prev" label={`上一个${detailUnit}`}>
@@ -856,7 +857,7 @@ export function DetailView() {
                   disabled={!detailNavigation.prevId}
                   onClick={() => navigateDetail(detailNavigation.prevId)}
                 >
-                  <ChevronUp size={14} />
+                  <ChevronUp size={ICON_SM} />
                 </IconButton>
               </ShortcutTooltip>
             </nav>
@@ -868,14 +869,14 @@ export function DetailView() {
           <div className="dv-main-inner">
             <div className="dv-title-row">
               <h1 className="dv-title">
-                <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={22} />
+                <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_2XL} />
                 {trade.symbol}
                 <SideTag side={trade.side} />
               </h1>
             </div>
             {trade.tradeKind === 'case' && trade.sourceTradeId && (
               <section className="dv-case-source" aria-label="案例来源">
-                <BookOpen size={15} aria-hidden />
+                <BookOpen size={ICON_MD} aria-hidden />
                 <div>
                   <span>来源交易</span>
                   <strong>{sourceTrade ? `${sourceTrade.ref} · ${sourceTrade.symbol}` : '来源已删除（来源不可用）'}</strong>
@@ -900,7 +901,7 @@ export function DetailView() {
                 )}
                 {activeSourceNoteLoad.status === 'error' && (
                   <div className="dv-note-load is-error" role="alert">
-                    <AlertCircle size={16} aria-hidden />
+                    <AlertCircle size={ICON_MD} aria-hidden />
                     <div className="dv-note-load-copy">
                       <strong>来源附件未完整载入</strong>
                       <span>图片附件读取失败，最后保存的文字与可用附件仍以只读方式展示。</span>
@@ -926,7 +927,7 @@ export function DetailView() {
                 aria-label="交易闭环状态"
               >
                 <span className="dv-review-stage-icon">
-                  <AlertCircle size={16} />
+                  <AlertCircle size={ICON_MD} />
                 </span>
                 <div className="dv-review-stage-copy">
                   <strong>
@@ -981,7 +982,7 @@ export function DetailView() {
                     disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
                     onClick={() => void completeReview()}
                   >
-                    <CheckCircle size={15} aria-hidden />
+                    <CheckCircle size={ICON_MD} aria-hidden />
                     {reviewSubmitting ? '正在保存…' : '完成复盘'}
                   </Button>
                 </Tooltip>
@@ -1007,7 +1008,7 @@ export function DetailView() {
                 )}
                 {activeNoteLoad.status === 'error' && (
                   <div className="dv-note-load is-error" role="alert">
-                    <AlertCircle size={16} aria-hidden />
+                    <AlertCircle size={ICON_MD} aria-hidden />
                     <div className="dv-note-load-copy">
                       <strong>复盘笔记未完整载入</strong>
                       <span>
@@ -1043,7 +1044,7 @@ export function DetailView() {
                           setNoteLoadAttempt((value) => value + 1)
                         }}
                       >
-                        <RotateCcw size={14} aria-hidden />
+                        <RotateCcw size={ICON_SM} aria-hidden />
                         {noteRetrying ? '正在载入…' : '重新载入'}
                       </button>
                     </div>
@@ -1118,7 +1119,7 @@ export function DetailView() {
                         onClick={sendComment}
                         aria-label="保存追记"
                       >
-                        <Send size={14} />
+                        <Send size={ICON_SM} />
                       </button>
                     </Tooltip>
                   </div>
@@ -1135,7 +1136,7 @@ export function DetailView() {
                   onClick={() => setActivityOpen((open) => !open)}
                 >
                   <span>活动记录 · {activities.system.length}</span>
-                  <ChevronDown size={13} className={activityOpen ? 'is-open' : ''} />
+                  <ChevronDown size={ICON_SM} className={activityOpen ? 'is-open' : ''} />
                 </button>
                 {activityOpen && (
                   <div className="dv-activity-panel">
@@ -1171,11 +1172,11 @@ export function DetailView() {
               options={STATUS_OPTS.map((s) => ({
                 value: s,
                 label: STATUS_META[s].label,
-                icon: <StatusIcon status={s} size={16} />,
+                icon: <StatusIcon status={s} size={ICON_MD} />,
               }))}
               trigger={
                 <PropTrigger label="状态">
-                  <StatusIcon status={trade.status} size={15} />
+                  <StatusIcon status={trade.status} size={ICON_MD} />
                   <span>{STATUS_META[trade.status].label}</span>
                 </PropTrigger>
               }
@@ -1186,11 +1187,11 @@ export function DetailView() {
               options={CONV_OPTS.map((c) => ({
                 value: c,
                 label: CONVICTION_META[c].label,
-                icon: <ConvictionIcon conviction={c} size={16} />,
+                icon: <ConvictionIcon conviction={c} size={ICON_MD} />,
               }))}
               trigger={
                 <PropTrigger label="信心度">
-                  <ConvictionIcon conviction={trade.conviction} size={15} />
+                  <ConvictionIcon conviction={trade.conviction} size={ICON_MD} />
                   <span>{CONVICTION_META[trade.conviction].label}</span>
                 </PropTrigger>
               }
@@ -1528,7 +1529,7 @@ export function DetailView() {
               options={strategies.map((s) => ({
                 value: s.id,
                 label: s.name,
-                icon: <StrategyIcon icon={s.icon} color={s.color} size={16} />,
+                icon: <StrategyIcon icon={s.icon} color={s.color} size={ICON_MD} />,
               }))}
               trigger={
                 <button className="dv-pitem dv-pitem-ghost">
@@ -1544,7 +1545,7 @@ export function DetailView() {
           {trade.tradeKind !== 'case' ? (
             <div className="dv-props-foot">
               <button type="button" className="dv-copy-id" onClick={copyRef}>
-                <Copy size={13} aria-hidden />
+                <Copy size={ICON_SM} aria-hidden />
                 <span>复制 {trade.ref}</span>
               </button>
             </div>
@@ -1596,7 +1597,7 @@ function Section({
       <button className="dv-section-head" onClick={() => setOpen((o) => !o)}>
         <span>{title}</span>
         <ChevronDown
-          size={13}
+          size={ICON_SM}
           className={'dv-section-chev' + (open ? '' : ' is-closed')}
         />
       </button>
@@ -1879,7 +1880,7 @@ function FeedItem({
               aria-label="删除追记"
               onClick={() => setDeleteOpen(true)}
             >
-              <X size={13} />
+              <X size={ICON_SM} />
             </button>
           </Tooltip>
         )}

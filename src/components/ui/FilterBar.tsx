@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import type { ReactNode, RefObject } from 'react'
 import { SlidersHorizontal, X } from '@/icons/appIcons'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
@@ -49,7 +50,7 @@ export function FilterBar({
       aria-haspopup="dialog"
       aria-label={label}
     >
-      <SlidersHorizontal size={14} />
+      <SlidersHorizontal size={ICON_SM} />
       <span>{activeFilters.length > 0 ? `筛选 · ${activeFilters.length}` : '筛选'}</span>
     </button>
   )
@@ -71,7 +72,7 @@ export function FilterBar({
                   aria-label={`移除 ${filter.label}`}
                 >
                   <span>{filter.label}</span>
-                  <X size={11} />
+                  <X size={ICON_SM} />
                 </button>
               ) : (
                 <span className="ui-filter-chip ui-filter-chip-static" key={filter.key}>

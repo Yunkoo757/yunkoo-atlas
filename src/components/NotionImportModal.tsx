@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react'
 import { Upload, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
-import { ICON_HERO } from '@/icons/iconSize'
+import { ICON_HERO, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
@@ -415,7 +415,7 @@ export function NotionImportModal({ open, onClose }: Props) {
           确认导入
           {selectedPreviewCount > 0 ? ` ${selectedPreviewCount} 笔` : ''}
           {`到${targetLabel}`}
-          {result.totalImages > 0 ? '（含截图）' : ''} <ArrowRight size={16} />
+          {result.totalImages > 0 ? '（含截图）' : ''} <ArrowRight size={ICON_MD} />
         </Button>
       </>
     ) : step === 'done' ? (
@@ -464,7 +464,7 @@ export function NotionImportModal({ open, onClose }: Props) {
             aria-label="拖放或选择 Notion 导出文件"
           >
             <div className="nim-drop-icon">
-              <Upload size={16} />
+              <Upload size={ICON_MD} />
             </div>
             <p className="nim-drop-title">拖放或选择文件</p>
             <p className="nim-drop-hint">.zip · .csv</p>
@@ -498,7 +498,7 @@ export function NotionImportModal({ open, onClose }: Props) {
       {step === 'preview' && result && (
         <div className="nim-preview-area">
           <div className="nim-preview-summary">
-            <FileText size={14} />
+            <FileText size={ICON_SM} />
             <span className="nim-file-name">{fileName}</span>
           </div>
           <div className="nim-import-target">
@@ -554,7 +554,7 @@ export function NotionImportModal({ open, onClose }: Props) {
               <>
                 {' · '}
                 <span className="nim-img-count">
-                  <Image size={13} /> {result.totalImages} 张截图
+                  <Image size={ICON_SM} /> {result.totalImages} 张截图
                 </span>
               </>
             )}
@@ -643,13 +643,13 @@ export function NotionImportModal({ open, onClose }: Props) {
       {/* Step 3: Done */}
       {step === 'done' && (
         <div className="nim-done-area">
-          <CheckCircle size={40} className="nim-ok" />
+          <CheckCircle size={ICON_HERO} className="nim-ok" />
           <p>
             已导入 {imported} {IMPORT_TARGETS.find((target) => target.kind === targetKind)!.recordLabel}
           </p>
           {importedImages > 0 && (
             <p className="nim-done-images">
-              <Image size={15} /> {importedImages} 张截图已离线保存
+              <Image size={ICON_MD} /> {importedImages} 张截图已离线保存
             </p>
           )}
           <p className="nim-done-hint">
@@ -691,11 +691,11 @@ function PreviewRow({
       <td>{preview.rowIndex + 1}</td>
       <td>
         {hasError ? (
-          <AlertCircle size={14} className="nim-bad" />
+          <AlertCircle size={ICON_SM} className="nim-bad" />
         ) : duplicate ? (
-          <AlertCircle size={14} className="nim-dup" />
+          <AlertCircle size={ICON_SM} className="nim-dup" />
         ) : (
-          <CheckCircle size={14} className="nim-ok" />
+          <CheckCircle size={ICON_SM} className="nim-ok" />
         )}
       </td>
       <td className="nim-cell-symbol">{t.symbol}</td>
@@ -716,7 +716,7 @@ function PreviewRow({
       <td>
         {preview.imageCount > 0 || (preview.imageIssues?.length ?? 0) > 0 ? (
           <span className="nim-img-badge">
-            <Image size={11} /> {preview.imageCount}
+            <Image size={ICON_SM} /> {preview.imageCount}
             {(preview.imageIssues?.length ?? 0) > 0 ? ` / 缺失 ${preview.imageIssues!.length}` : ''}
           </span>
         ) : (

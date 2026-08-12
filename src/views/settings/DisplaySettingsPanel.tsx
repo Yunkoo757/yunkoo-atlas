@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState } from 'react'
 import { Check } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
@@ -197,7 +198,7 @@ export function DisplaySettingsPanel() {
                       <span className="display-row-desc">{preset.description}</span>
                     </span>
                     <span className="display-choice-check">
-                      {selected ? <Check size={14} /> : null}
+                      {selected ? <Check size={ICON_SM} /> : null}
                     </span>
                   </button>
                 )
@@ -288,7 +289,7 @@ function ChoiceSection<T extends string | number>({
               <span className="display-row-desc">{option.description}</span>
             </span>
             <span className="display-choice-check">
-              {value === option.value && <Check size={14} />}
+              {value === option.value && <Check size={ICON_SM} />}
             </span>
           </button>
         ))}

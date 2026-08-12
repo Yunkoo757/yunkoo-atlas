@@ -200,17 +200,3 @@
   font-size: var(--type-metadata-size);
   font-variant-numeric: tabular-nums;
 }
-
-@media (max-width: 899px) {
-  .idh-row {
-    grid-template-columns: 1fr;
-  }
-
-  .idh-facts {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .idh-actions {
-    justify-content: space-between;
-  }
-}

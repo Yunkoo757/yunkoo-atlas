@@ -304,24 +304,6 @@
 }
 
 .today-workflow-group.is-completed { opacity: 0.78; }
-.today-completed { margin-top: var(--sp-5); }
-
-@media (max-width: 899px) {
-  .today-workspace-inner { padding-right: 18px; padding-left: 18px; }
-  .today-stats-metrics { grid-template-columns: 1fr; gap: 14px; }
-  .today-queue-tabs button { min-height: var(--control-height-lg); }
-  .today-queue-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
-  .today-risk-alert { min-height: var(--control-height-lg); }
+.today-completed {
+  margin-top: var(--sp-5);
 }
-
-@media (max-width: 768px) {
-  .today-workspace-scroll { overflow-x: hidden; }
-  .today-workspace-inner { padding: 18px 10px 56px; }
-  .today-focus { align-items: flex-start; flex-direction: column; gap: var(--sp-4); }
-  .today-focus .empty-btn { width: 100%; min-height: 44px; justify-content: center; }
-}
-

@@ -238,7 +238,7 @@
 .dv-props .tag-preset-chip:hover,
 .dv-props .tag-add-btn:hover {
   color: var(--text-primary);
-  background: lch(13.456% 0.943 272);
+  background: var(--group-add-hover-bg);
   border-color: var(--border-default);
 }
 

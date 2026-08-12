@@ -183,11 +183,7 @@
   margin: 10px 0 0;
 }
 
-@media (max-width: 899px) {
-  .db-week-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+
 
 .db-cards {
   display: grid;
@@ -551,61 +547,5 @@ a.db-strat:hover {
 @media (max-width: 1200px) {
   .db-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 899px) {
-  a.db-strat {
-    grid-template-columns: 1fr auto;
-    gap: 10px var(--sp-4);
-  }
-  .db-strat-bar {
-    display: none;
-  }
-
-  .db-week-link,
-  .db-chart-data summary {
-    min-height: 44px;
-  }
-}
-
-@media (max-width: 640px) {
-  .db-scroll {
-    padding: var(--sp-4);
-  }
-  .db-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0;
-  }
-  .db-card {
-    padding: var(--sp-3) 14px;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  .db-card:nth-child(2n) {
-    border-right: 0;
-  }
-  .db-card:nth-last-child(-n + 2) {
-    border-bottom: 0;
-  }
-  .db-empty {
-    min-height: 320px;
-    padding: 48px var(--sp-6);
-  }
-  .db-empty-action {
-    min-height: 44px;
-    padding: 0 var(--sp-4);
-  }
-  .db-panel-head {
-    align-items: flex-start;
-    padding: var(--sp-3) var(--sp-4);
-  }
-  .db-panel-hint {
-    display: none;
-  }
-  a.db-strat {
-    grid-template-columns: 1fr;
-  }
-  .db-strat-pnl {
-    text-align: left;
   }
 }

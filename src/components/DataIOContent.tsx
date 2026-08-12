@@ -1,3 +1,4 @@
+import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useRef, useState } from 'react'
 import {
   Download,
@@ -337,7 +338,7 @@ export function DataIOContent({
               disabled={dataBusy}
               onClick={() => void onSwitchLibrary('open')}
             >
-              <FolderOpen size={15} />
+              <FolderOpen size={ICON_MD} />
               <span>{libraryBusy ? '切换中…' : '打开其他资料库…'}</span>
             </button>
             <button
@@ -346,7 +347,7 @@ export function DataIOContent({
               disabled={dataBusy}
               onClick={() => void onSwitchLibrary('create')}
             >
-              <Plus size={15} />
+              <Plus size={ICON_MD} />
               <span>在此新建资料库…</span>
             </button>
           </div>
@@ -360,7 +361,7 @@ export function DataIOContent({
         </div>
         <div className="dio-task-list">
           <div className="dio-task">
-            <Database size={18} className="dio-task-icon" />
+            <Database size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">自动保存到当前资料库</div>
               <div className="dio-task-meta">
@@ -373,7 +374,7 @@ export function DataIOContent({
           </div>
           {electron && (
             <div className="dio-task">
-              <Shield size={18} className="dio-task-icon" />
+              <Shield size={ICON_LG} className="dio-task-icon" />
               <div className="dio-task-copy">
                 <div className="dio-task-title">自动备份</div>
                 <div className="dio-task-meta">
@@ -383,7 +384,7 @@ export function DataIOContent({
             </div>
           )}
           <div className="dio-task">
-            <LockKeyhole size={18} className="dio-task-icon" />
+            <LockKeyhole size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">{electron ? '仅保留在这台电脑' : '仅保留在当前浏览器'}</div>
               <div className="dio-task-meta">
@@ -405,7 +406,7 @@ export function DataIOContent({
         </div>
         <div className="dio-task-list">
           <div className="dio-task dio-task-primary">
-            <Package size={18} className="dio-task-icon" />
+            <Package size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">完整备份</div>
               <div className="dio-task-meta">交易、设置、快捷键与原始笔记图片 · 推荐</div>
@@ -415,7 +416,7 @@ export function DataIOContent({
             </button>
           </div>
           <div className="dio-task">
-            <Download size={18} className="dio-task-icon" />
+            <Download size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">JSON 数据副本</div>
               <div className="dio-task-meta">交易、策略、标签与嵌入图片；不含个人资料和快捷键</div>
@@ -452,7 +453,7 @@ export function DataIOContent({
         )}
         <div className="dio-task-list">
           <div className="dio-task">
-            <Upload size={18} className="dio-task-icon" />
+            <Upload size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">Yunkoo JSON</div>
               <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
@@ -462,7 +463,7 @@ export function DataIOContent({
             </button>
           </div>
           <div className="dio-task">
-            <FileSpreadsheet size={18} className="dio-task-icon" />
+            <FileSpreadsheet size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">其他交易日志</div>
               <div className="dio-task-meta">导入 CSV，自动识别中英文列名</div>
@@ -472,7 +473,7 @@ export function DataIOContent({
             </button>
           </div>
           <div className="dio-task">
-            <FileSpreadsheet size={18} className="dio-task-icon" />
+            <FileSpreadsheet size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">Notion</div>
               <div className="dio-task-meta">导入数据库、页面正文与截图</div>
@@ -495,7 +496,7 @@ export function DataIOContent({
         </div>
         <div className="dio-task-list">
           <div className="dio-task">
-            <Search size={18} className="dio-task-icon" />
+            <Search size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">扫描资料库内重复</div>
               <div className="dio-task-meta">对照笔记正文与截图指纹</div>
@@ -548,7 +549,7 @@ export function DataIOContent({
                   onClick={onCleanDuplicates}
                   disabled={dupCleaning}
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={ICON_MD} />
                   <span>
                     {dupCleaning
                       ? '清理中…'
@@ -563,7 +564,7 @@ export function DataIOContent({
 
       <section className="dio-group dio-group-danger">
         <div className="dio-task">
-          <Archive size={18} className="dio-task-icon" />
+          <Archive size={ICON_LG} className="dio-task-icon" />
           <div className="dio-task-copy">
             <div className="dio-task-title">恢复完整资料库</div>
             <div className="dio-task-meta">
@@ -584,7 +585,7 @@ export function DataIOContent({
       </section>
 
       <p className="dio-safety-note">
-        <AlertTriangle size={15} />
+        <AlertTriangle size={ICON_MD} />
         <span>
           仅导入可信文件。
           {electron
@@ -660,7 +661,7 @@ export function DataIOContent({
           )}
         >
           <div className="dio-restore-warning" role="alert">
-            <AlertTriangle size={17} />
+            <AlertTriangle size={ICON_LG} />
             <span>当前记录、设置、快捷键和附件都会被归档内容替换；此操作不是合并。</span>
           </div>
           <dl className="dio-restore-grid">

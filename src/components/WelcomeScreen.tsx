@@ -1,3 +1,4 @@
+import { ICON_HERO, ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useState } from 'react'
 import { FolderOpen, Plus, HardDrive } from '@/icons/appIcons'
 import './WelcomeScreen.css'
@@ -63,7 +64,7 @@ export function WelcomeScreen({ onReady }: Props) {
     <div className="welcome-overlay">
       <div className="welcome-card">
         <div className="welcome-icon">
-          <HardDrive size={40} />
+          <HardDrive size={ICON_HERO} />
         </div>
         <h1 className="welcome-title">欢迎使用 Trader Atlas</h1>
         <p className="welcome-desc">
@@ -77,7 +78,7 @@ export function WelcomeScreen({ onReady }: Props) {
             disabled={busy}
             type="button"
           >
-            <FolderOpen size={16} />
+            <FolderOpen size={ICON_MD} />
             <span>{pickedPath || '点击选择目录…'}</span>
           </button>
         </div>
@@ -90,7 +91,7 @@ export function WelcomeScreen({ onReady }: Props) {
               disabled={busy}
               type="button"
             >
-              <Plus size={18} />
+              <Plus size={ICON_LG} />
               <span>在此创建新资料库</span>
             </button>
             <button
@@ -99,7 +100,7 @@ export function WelcomeScreen({ onReady }: Props) {
               disabled={busy}
               type="button"
             >
-              <FolderOpen size={18} />
+              <FolderOpen size={ICON_LG} />
               <span>打开已有资料库</span>
             </button>
           </div>

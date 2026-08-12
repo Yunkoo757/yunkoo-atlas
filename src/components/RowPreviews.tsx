@@ -1,3 +1,4 @@
+import { ICON_LG } from '@/icons/iconSize'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { fmtMoney, fmtR, fmtDate } from '@/lib/format'
@@ -100,7 +101,7 @@ export function StrategyPreview({
   return (
     <div className="sp-card">
       <PreviewHeader
-        icon={strategy ? <StrategyIcon icon={strategy.icon} color={strategy.color} size={18} /> : undefined}
+        icon={strategy ? <StrategyIcon icon={strategy.icon} color={strategy.color} size={ICON_LG} /> : undefined}
         title={strategyName}
       />
       <div className="rp-divider" />

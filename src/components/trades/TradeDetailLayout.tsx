@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { PanelRight, X } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -117,7 +118,7 @@ export function TradeDetailLayout({
           aria-expanded={propertiesOpen}
           aria-label={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
         >
-          {propertiesOpen ? <X size={16} /> : <PanelRight size={16} />}
+          {propertiesOpen ? <X size={ICON_MD} /> : <PanelRight size={ICON_MD} />}
         </button>
       </Tooltip>
       <div className="dv-body">
@@ -148,7 +149,7 @@ export function TradeDetailLayout({
               onClick={closeProperties}
               aria-label="关闭交易属性"
             >
-              <X size={16} />
+              <X size={ICON_MD} />
             </button>
           </Tooltip>
           {properties}

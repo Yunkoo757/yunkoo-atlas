@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, GripVertical, Trash2 } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
@@ -205,7 +206,7 @@ export function SidebarWorkspaceEditor({
             }
           }}
         >
-          <GripVertical size={15} aria-hidden="true" />
+          <GripVertical size={ICON_MD} aria-hidden="true" />
         </button>
         <span id={descriptionId} className="sb-screen-reader">
           {placement === 'pinned' ? '常驻' : '更多'}第 {indexInGroup + 1} 项，共 {group.length}{' '}
@@ -241,7 +242,7 @@ export function SidebarWorkspaceEditor({
           aria-label={`删除 ${resolved.label}`}
           onClick={() => removeItem(item, resolved.label)}
         >
-          <Trash2 size={14} />
+          <Trash2 size={ICON_SM} />
         </button>
       </div>
     )
@@ -288,7 +289,7 @@ export function SidebarWorkspaceEditor({
               aria-label="返回管理列表"
               onClick={() => setPickerOpen(false)}
             >
-              <ChevronLeft size={16} aria-hidden="true" />
+              <ChevronLeft size={ICON_MD} aria-hidden="true" />
               <span>返回</span>
             </button>
             <div className="sb-workspace-editor-title-row">

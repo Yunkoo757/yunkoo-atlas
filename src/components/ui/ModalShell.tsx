@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import {
   useEffect,
   useId,
@@ -24,6 +25,10 @@ export function ModalShell({
   busy = false,
   dismissible = true,
   size = 'default',
+  panelClassName,
+  bodyClassName,
+  footerClassName,
+  initialFocusSelector,
   describedById,
   onClose,
 }: {
@@ -34,6 +39,10 @@ export function ModalShell({
   busy?: boolean
   dismissible?: boolean
   size?: 'default' | 'compact' | 'wide'
+  panelClassName?: string
+  bodyClassName?: string
+  footerClassName?: string
+  initialFocusSelector?: string
   describedById?: string
   onClose: () => void
 }) {
@@ -53,7 +62,9 @@ export function ModalShell({
     const frame = requestAnimationFrame(() => {
       const panel = panelRef.current
       if (!panel) return
-      const preferred = panel.querySelector<HTMLElement>('[data-autofocus]')
+      const preferred = initialFocusSelector
+        ? panel.querySelector<HTMLElement>(initialFocusSelector)
+        : panel.querySelector<HTMLElement>('[data-autofocus]')
       ;(preferred ?? focusableElements(panel)[0] ?? panel).focus()
     })
     return () => {
@@ -65,7 +76,14 @@ export function ModalShell({
         if (target?.isConnected) target.focus()
       })
     }
-  }, [])
+  }, [initialFocusSelector])
+
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
+    if (busy) panel.setAttribute('inert', '')
+    else panel.removeAttribute('inert')
+  }, [busy])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -118,6 +136,7 @@ export function ModalShell({
           'modal-shell',
           size === 'compact' ? 'is-compact' : '',
           size === 'wide' ? 'is-wide' : '',
+          panelClassName ?? '',
         ].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"
@@ -142,12 +161,20 @@ export function ModalShell({
               disabled={busy}
               onClick={onClose}
             >
-              <X size={16} />
+              <X size={ICON_MD} />
             </button>
           ) : null}
         </header>
-        {children ? <div className="modal-shell-body">{children}</div> : null}
-        {footer ? <footer className="modal-shell-footer">{footer}</footer> : null}
+        {children ? (
+          <div className={['modal-shell-body', bodyClassName ?? ''].filter(Boolean).join(' ')}>
+            {children}
+          </div>
+        ) : null}
+        {footer ? (
+          <footer className={['modal-shell-footer', footerClassName ?? ''].filter(Boolean).join(' ')}>
+            {footer}
+          </footer>
+        ) : null}
       </div>
     </div>,
     document.body,

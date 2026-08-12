@@ -104,9 +104,3 @@
   outline: none;
 }
 .trade-open-risk-error svg { flex: 0 0 auto; margin-top: 1px; }
-
-@media (max-width: 640px) {
-  .trade-open-risk-periods { grid-template-columns: 1fr; }
-  .trade-open-risk-policy { grid-template-columns: 1fr; }
-  .trade-open-risk-policy p { grid-column: auto; }
-}

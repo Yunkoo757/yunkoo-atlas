@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -290,7 +291,7 @@ export function Dashboard() {
               align="right"
               trigger={(
                 <IconButton label="更多统计操作" size="sm">
-                  <MoreHorizontal size={16} aria-hidden />
+                  <MoreHorizontal size={ICON_MD} aria-hidden />
                 </IconButton>
               )}
               options={[{ value: 'manage-cycle', label: '管理统计周期' }]}
@@ -414,7 +415,7 @@ export function Dashboard() {
                 </button>
               ) : (
                 <button type="button" className="empty-btn" onClick={() => openComposer()}>
-                  <Plus size={15} />
+                  <Plus size={ICON_MD} />
                   新建交易
                 </button>
               )
@@ -580,7 +581,7 @@ export function Dashboard() {
                 <Link to={strategyAnalysisHref(s.id, scope, strategyStatsCycle)} className="db-strat" key={s.id}>
                   <div className="db-strat-head">
                     {s.meta && (
-                      <StrategyIcon icon={s.meta.icon} color={s.meta.color} size={16} />
+                      <StrategyIcon icon={s.meta.icon} color={s.meta.color} size={ICON_MD} />
                     )}
                     <div className="db-strat-name">{s.name}</div>
                   </div>

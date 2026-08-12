@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertCircle, BookOpen, CheckCircle, Clock, Plus } from '@/icons/appIcons'
@@ -231,7 +232,7 @@ export function TodayWorkspace() {
               className={`empty-btn${buckets.actionCount > 0 ? ' is-secondary' : ''}`}
               onClick={() => openComposer()}
             >
-              <Plus size={15} />
+              <Plus size={ICON_MD} />
               新建交易
             </button>
           </section>
@@ -274,7 +275,7 @@ export function TodayWorkspace() {
                     return (
                       <section className="today-workflow-group" key={key}>
                         <header>
-                          <span className="today-group-icon"><Icon size={15} /></span>
+                          <span className="today-group-icon"><Icon size={ICON_MD} /></span>
                           <div>
                             <h2>{title}</h2>
                             <p>{description}</p>
@@ -357,7 +358,7 @@ export function TodayWorkspace() {
           {buckets.completedToday.length > 0 ? (
             <section className="today-workflow-group today-completed is-completed">
               <header>
-                <span className="today-group-icon"><CheckCircle size={15} /></span>
+                <span className="today-group-icon"><CheckCircle size={ICON_MD} /></span>
                 <div>
                   <h2>今日已完成</h2>
                   <p>今天已完成结果与复盘，不再需要处理的记录。</p>

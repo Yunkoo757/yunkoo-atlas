@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { MoreHorizontal } from '@/icons/appIcons'
 import { Menu } from '@/components/Menu'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
@@ -129,7 +130,7 @@ export function MissedOpportunityRow({
       symbol={
         <>
           <span className="trade-row-symbol-main">
-            <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={14} />
+            <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={ICON_SM} />
             <strong>{primary.symbol}</strong>
           </span>
           <SideTag side={primary.side} quiet />
@@ -162,7 +163,7 @@ export function MissedOpportunityRow({
                 data-trade-primary-action
                 aria-label={`更多操作：${primary.symbol}`}
               >
-                <MoreHorizontal size={16} aria-hidden="true" />
+                <MoreHorizontal size={ICON_MD} aria-hidden="true" />
               </button>
             )}
             options={menuOptions}

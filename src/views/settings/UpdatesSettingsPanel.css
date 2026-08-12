@@ -147,17 +147,3 @@
   flex: 0 0 auto;
   margin-top: 1px;
 }
-
-@media (max-width: 768px) {
-  .update-section-head,
-  .update-token-row {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .update-status,
-  .update-credential-state {
-    align-self: flex-start;
-  }
-}

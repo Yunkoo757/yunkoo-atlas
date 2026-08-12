@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { LayoutGrid, List } from '@/icons/appIcons'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
@@ -42,7 +43,7 @@ export function Topbar({
                 {
                   value: 'list',
                   label: '列表视图',
-                  content: <List size={15} />,
+                  content: <List size={ICON_MD} />,
                   wrap: (button) => (
                     <ShortcutTooltip key="list" actionId="view.list" label="列表视图">
                       {button}
@@ -52,7 +53,7 @@ export function Topbar({
                 {
                   value: 'board',
                   label: '看板视图',
-                  content: <LayoutGrid size={15} />,
+                  content: <LayoutGrid size={ICON_MD} />,
                   wrap: (button) => (
                     <ShortcutTooltip key="board" actionId="view.board" label="看板视图">
                       {button}

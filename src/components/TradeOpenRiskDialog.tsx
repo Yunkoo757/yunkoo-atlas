@@ -1,3 +1,4 @@
+import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AlertCircle, Shield } from '@/icons/appIcons'
 import type { RiskPeriodScope } from '@/data/riskManagement'
@@ -222,7 +223,7 @@ export function TradeOpenRiskDialog() {
         onSubmit={submit}
       >
         <section className={`trade-open-risk-callout is-${request.decisionType}`}>
-          <Shield size={18} aria-hidden />
+          <Shield size={ICON_LG} aria-hidden />
           <div>
             <strong>
               {request.decisionType === 'unknown'
@@ -285,7 +286,7 @@ export function TradeOpenRiskDialog() {
 
         {error ? (
           <div id={errorId} className="trade-open-risk-error" role="alert" tabIndex={-1}>
-            <AlertCircle size={15} aria-hidden />
+            <AlertCircle size={ICON_MD} aria-hidden />
             <span>{error}</span>
           </div>
         ) : null}

@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import type { ReactNode } from 'react'
 import { MoreHorizontal } from '@/icons/appIcons'
 import { Menu } from '@/components/Menu'
@@ -70,7 +71,7 @@ export function Toolbar({
                   align="right"
                   trigger={(
                     <IconButton label="更多操作" size="sm">
-                      <MoreHorizontal size={16} aria-hidden />
+                      <MoreHorizontal size={ICON_MD} aria-hidden />
                     </IconButton>
                   )}
                   options={overflowActions.map(({ value, label, icon }) => ({ value, label, icon }))}

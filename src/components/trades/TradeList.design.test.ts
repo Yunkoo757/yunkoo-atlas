@@ -21,7 +21,7 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   assert(css.includes('--trade-group-chevron'), '分组三角应按状态/远近 tint，而非整条换底色')
   assert(
     css.includes('.trade-list-group-toggle:hover .trade-list-group-chevron') &&
-      css.includes('lch(100% 0 272 / 1)'),
+      css.includes('color: var(--accent-text)'),
     '分组三角悬停应保持清晰的纯白高亮',
   )
   assert(tokens.includes('--group-chevron-started:'), '当前状态三角色必须使用专用色值')

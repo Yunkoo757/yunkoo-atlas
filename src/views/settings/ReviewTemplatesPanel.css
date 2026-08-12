@@ -277,39 +277,3 @@
 .review-template-empty span {
   font-size: var(--fs-mini);
 }
-
-@media (max-width: 768px) {
-  .review-templates-head {
-    display: block;
-  }
-
-  .review-templates-head .dio-btn {
-    margin-top: 14px;
-  }
-
-  .review-templates-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .review-pin-setting {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .review-template-list {
-    display: flex;
-    gap: var(--sp-1);
-    overflow-x: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .review-template-list-item {
-    width: auto;
-    min-width: 130px;
-  }
-
-  .review-template-editor {
-    padding: 18px var(--sp-4);
-  }
-}

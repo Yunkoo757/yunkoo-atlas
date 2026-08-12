@@ -893,7 +893,7 @@
     color var(--dur-fast) var(--ease-out);
 }
 .dv-prop-row:hover .dv-prop-value {
-  background: lch(13.456% 0.943 272);
+  background: var(--group-add-hover-bg);
 }
 .dv-prop-empty {
   color: var(--text-quaternary);
@@ -1045,7 +1045,7 @@
 }
 .dv-pitem:hover {
   color: var(--text-primary);
-  background: lch(13.456% 0.943 272);
+  background: var(--group-add-hover-bg);
   border-color: var(--border-default);
 }
 .dv-pitem-ghost svg {
@@ -1096,7 +1096,7 @@
   background: transparent;
 }
 .dv-datarow-btn:hover .dv-datarow-value {
-  background: lch(13.456% 0.943 272);
+  background: var(--group-add-hover-bg);
 }
 .dv-datarow-edit {
   gap: 0;
@@ -1121,36 +1121,7 @@
   text-align: left;
 }
 
-@media (max-width: 768px) {
-  .dv-topbar {
-    height: 52px;
-    padding-inline: var(--sp-1) var(--sp-2);
-  }
-  .dv-back,
-  .dv-tb-right .icon-btn {
-    width: 44px;
-    height: 44px;
-    flex: 0 0 44px;
-  }
-  .dv-tb-right {
-    gap: 0;
-    max-width: none;
-  }
-  .dv-main-inner {
-    padding-left: var(--sp-6);
-    padding-right: var(--sp-6);
-  }
-  .dv-comment-send {
-    width: 44px;
-    height: 44px;
-  }
-  .dv-activity-toggle {
-    min-height: 44px;
-  }
-  .dv-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+
 .dv-tags-row {
   display: flex;
   flex-wrap: wrap;
@@ -1238,27 +1209,7 @@
   color: var(--text-tertiary);
 }
 
-@media (max-width: 480px) {
-  .dv-review-complete-meta > span {
-    display: none;
-  }
-  .dv-review-stage {
-    grid-template-columns: 30px minmax(0, 1fr);
-    align-items: start;
-  }
-  .dv-review-stage-copy > span {
-    overflow: visible;
-    white-space: normal;
-  }
-  .dv-review-stage-actions {
-    grid-column: 2;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
-  .dv-review-stage-actions > button {
-    min-height: 44px;
-  }
-}
+
 .dv-empty-card {
   display: flex;
   width: min(100%, 380px);

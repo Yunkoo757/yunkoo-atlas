@@ -1,3 +1,4 @@
+import { ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   Link,
@@ -591,8 +592,8 @@ export function WeeklyReviewView() {
                 </div>
                 {hasReviewHistory ? (
                   <>
-                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={16} /></button>
-                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={16} /></button>
+                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={ICON_MD} /></button>
+                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={ICON_MD} /></button>
                   </>
                 ) : null}
               </div>
@@ -638,9 +639,9 @@ export function WeeklyReviewView() {
 
               {review.status === 'completed' ? (
                 usesCompleteSnapshot ? (
-                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成时快照</div>
+                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成时快照</div>
                 ) : (
-                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用（缺少：{missingSnapshotLabels.join('、')}）</div>
+                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用（缺少：{missingSnapshotLabels.join('、')}）</div>
                 )
               ) : null}
 
@@ -691,7 +692,7 @@ export function WeeklyReviewView() {
                 <section className="wr-section wr-previous" data-weekly-section="previous-commitment" data-invalid="false">
                   <div className="wr-section-head"><div><span>02</span><h2>上次承诺验证</h2></div><small>{formatWeekRange(previousReview.weekStart)}</small></div>
                   <div className="wr-previous-body">
-                    <Target size={19} />
+                    <Target size={ICON_XL} />
                     <div><strong>{previousReview.commitmentText}</strong><p>{previousReview.commitmentCriteria}</p></div>
                     <div className="wr-result-choice">
                       {COMMITMENT_RESULTS.map((option) => (
@@ -826,8 +827,8 @@ export function WeeklyReviewView() {
               <div className="wr-footer-action">
                 <div><strong>{review.status === 'completed' ? '这周已经形成闭环' : '完成后会冻结本周事实，并带入下周验证'}</strong></div>
                 {review.status === 'completed'
-                  ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={15} /> 重新打开</button>
-                  : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={15} /> 完成本周复盘</button>}
+                  ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={ICON_MD} /> 重新打开</button>
+                  : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={ICON_MD} /> 完成本周复盘</button>}
               </div>
             </div>
           )}
@@ -860,7 +861,7 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
         <div><span>最常见错误</span><strong>{mistakes.sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'}</strong><small>固定分类</small></div>
       </section>
       <section className="wr-section">
-        <div className="wr-section-head"><div><TrendingUp size={17} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
+        <div className="wr-section-head"><div><TrendingUp size={ICON_LG} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
         {data.length >= 2 ? (
           <Suspense fallback={(
             <div className="wr-chart wr-chart-loading" role="status" aria-live="polite">

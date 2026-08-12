@@ -55,21 +55,3 @@
 .live-performance-cycle-control.is-empty {
   flex: 0 0 auto;
 }
-
-@media (max-width: 899px) {
-  .live-performance-cycle-control {
-    flex: 1 0 100%;
-    flex-wrap: wrap;
-    width: 100%;
-  }
-
-  .live-performance-cycle-current {
-    margin-right: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .live-performance-cycle-current {
-    flex: 1 0 100%;
-  }
-}

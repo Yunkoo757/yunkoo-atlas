@@ -1,3 +1,4 @@
+import { ICON_2XL, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Maximize2, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -268,7 +269,7 @@ export function ImageLightbox() {
             {hasMany && <span className="img-lightbox-counter">{lightbox.index + 1} / {lightbox.images.length}</span>}
             <Tooltip asChild content={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'} label="适合窗口">
               <button type="button" className="img-lightbox-action" onClick={fitImage} aria-label="适合窗口">
-                <Maximize2 size={14} aria-hidden />
+                <Maximize2 size={ICON_SM} aria-hidden />
               </button>
             </Tooltip>
             <Tooltip asChild content="源像素与屏幕物理像素 1:1" label="原图像素 1:1">
@@ -289,7 +290,7 @@ export function ImageLightbox() {
                 onClick={requestClose}
                 aria-label={closeShortcut ? `关闭预览（${closeShortcut}）` : '关闭预览'}
               >
-                <X size={16} />
+                <X size={ICON_MD} />
               </button>
             </Tooltip>
           </div>
@@ -298,12 +299,12 @@ export function ImageLightbox() {
           <>
             <Tooltip asChild content={previousShortcut ? `上一张 · ${previousShortcut}` : '上一张'} label="上一张">
               <button type="button" className="img-lightbox-nav is-prev" onClick={lightboxPrev} aria-label="上一张">
-                <ChevronLeft size={22} />
+                <ChevronLeft size={ICON_2XL} />
               </button>
             </Tooltip>
             <Tooltip asChild content={nextShortcut ? `下一张 · ${nextShortcut}` : '下一张'} label="下一张">
               <button type="button" className="img-lightbox-nav is-next" onClick={lightboxNext} aria-label="下一张">
-                <ChevronRight size={22} />
+                <ChevronRight size={ICON_2XL} />
               </button>
             </Tooltip>
           </>

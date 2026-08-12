@@ -1,3 +1,4 @@
+import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Pencil, Trash2, ChevronRight } from '@/icons/appIcons'
@@ -133,7 +134,7 @@ export function StrategiesPanel() {
             </p>
           </div>
           <button type="button" className="st-add" onClick={openCreate}>
-            <Plus size={16} />
+            <Plus size={ICON_MD} />
             <span>新建策略</span>
           </button>
         </div>
@@ -141,7 +142,7 @@ export function StrategiesPanel() {
         <div className="st-list">
           {rows.map((s) => (
             <div className="st-row" key={s.id}>
-              <StrategyIcon icon={s.icon} color={s.color} size={18} />
+              <StrategyIcon icon={s.icon} color={s.color} size={ICON_LG} />
               <div className="st-row-main">
                 <Link to={`/strategy/${s.id}`} className="st-row-name" style={{ color: s.color }}>
                   {s.name}
@@ -168,7 +169,7 @@ export function StrategiesPanel() {
               <div className="st-row-actions">
                 <Tooltip content="编辑" label={`编辑 ${s.name}`}>
                   <button type="button" className="st-act" aria-label={`编辑 ${s.name}`} onClick={() => openEdit(s)}>
-                    <Pencil size={15} />
+                    <Pencil size={ICON_MD} />
                   </button>
                 </Tooltip>
                 <Tooltip content="删除" label={`删除 ${s.name}`}>
@@ -183,12 +184,12 @@ export function StrategiesPanel() {
                     }}
                     disabled={strategies.length <= 1}
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={ICON_MD} />
                   </button>
                 </Tooltip>
                 <Tooltip content="查看交易" label={`查看 ${s.name} 交易`}>
                   <Link to={`/strategy/${s.id}`} className="st-act" aria-label={`查看 ${s.name} 交易`}>
-                    <ChevronRight size={15} />
+                    <ChevronRight size={ICON_MD} />
                   </Link>
                 </Tooltip>
               </div>

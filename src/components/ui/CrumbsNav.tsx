@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from '@/icons/appIcons'
@@ -29,11 +30,11 @@ export function CrumbsNav({
   const backClass = 'crumbs-back'
   const back = to ? (
     <Link to={to} state={linkState} className={backClass} aria-label={backLabel}>
-      <ChevronLeft size={16} />
+      <ChevronLeft size={ICON_MD} />
     </Link>
   ) : (
     <button type="button" className={backClass} aria-label={backLabel} onClick={onBack}>
-      <ChevronLeft size={16} />
+      <ChevronLeft size={ICON_MD} />
     </button>
   )
 
@@ -44,7 +45,7 @@ export function CrumbsNav({
         {crumbs.map((crumb, index) => (
           <span key={`${crumb.label}-${index}`} className="crumbs-nav-item">
             {index > 0 ? (
-              <ChevronRight size={13} className="crumbs-sep" aria-hidden="true" />
+              <ChevronRight size={ICON_SM} className="crumbs-sep" aria-hidden="true" />
             ) : null}
             {crumb.active ? (
               <h1 className="crumbs-label is-active">{crumb.label}</h1>
