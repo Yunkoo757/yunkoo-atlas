@@ -568,6 +568,14 @@ async function run(): Promise<void> {
     }))
     await waitFor(() => document.querySelectorAll('.wr-history button').length === 0, '清除活动历史后首次复盘状态没有恢复')
 
+    clickButton('完成本周复盘')
+    await waitFor(() => Boolean(document.querySelector('.wr-issue-summary')), '缺少必填项时没有显示持久错误摘要')
+    assert(document.querySelector('[data-weekly-section="scores"]')?.getAttribute('data-invalid') === 'true', '评分区没有标记错误状态')
+    assert(document.querySelector('[data-weekly-section="commitment"]')?.getAttribute('data-invalid') === 'true', '承诺区没有标记错误状态')
+    assert(document.activeElement?.closest('[data-weekly-field="score-execution"]'), '完成失败后焦点没有落到第一项评分')
+    assert(useStore.getState().weeklyReviews.every((item) => item.status !== 'completed'), '缺少必填项时不得完成复盘')
+    assert(!document.querySelector('.toast'), '完成失败不得使用瞬时 Toast 代替持久错误摘要')
+
     for (const group of document.querySelectorAll<HTMLElement>('.wr-score-row [role="radiogroup"]')) {
       const score = [...group.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '4')
       score?.click()
@@ -582,6 +590,15 @@ async function run(): Promise<void> {
     setInputValue(inputs[0], '等待确认后再入场')
     setInputValue(inputs[1], '每笔入场截图都有确认信号')
     await waitFor(() => useStore.getState().weeklyReviews[0]?.commitmentText === '等待确认后再入场', '行动承诺未写入独立周复盘实体')
+    await waitFor(() => !document.querySelector('.wr-issue-summary'), '字段有效后错误摘要没有自动清除')
+    inputs[1]?.scrollIntoView({ block: 'center' })
+    await waitForFrame()
+    if (window.innerWidth === 960) {
+      const actionRail = document.querySelector<HTMLElement>('.wr-footer-action')
+      assert(actionRail, '周复盘缺少底部操作栏')
+      const actionRect = actionRail.getBoundingClientRect()
+      assert(actionRect.top >= 0 && actionRect.bottom <= window.innerHeight, '960×640 下底部操作栏没有保持可见')
+    }
 
     clickButton('完成本周复盘')
     await waitFor(() => useStore.getState().weeklyReviews[0]?.status === 'completed', '周复盘未完成')
