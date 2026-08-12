@@ -60,6 +60,18 @@
   --popover-radius: 10px;
   --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
     0 1px 1px lch(0 0 0 / 0.125);
+  --popover-menu-bg: var(--popover-bg);
+  --popover-menu-border: var(--popover-border);
+  --popover-menu-radius: var(--popover-radius);
+  --popover-menu-shadow: var(--popover-shadow);
+  --popover-tooltip-bg: var(--popover-bg);
+  --popover-tooltip-border: var(--popover-border);
+  --popover-tooltip-radius: var(--radius-6);
+  --popover-tooltip-shadow: var(--popover-shadow);
+  --popover-modal-bg: var(--popover-bg);
+  --popover-modal-border: var(--popover-border);
+  --popover-modal-radius: var(--modal-border-radius);
+  --popover-modal-shadow: var(--popover-shadow-deep);
 
   /* —— 字体栈（Geist 承载拉丁；CJK 回退桌面系统黑体）—— */
   --font-ui-base: "Geist Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",

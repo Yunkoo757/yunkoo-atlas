@@ -95,10 +95,14 @@ export async function testSmallInteractionCopyAndContrastContracts(): Promise<vo
     '选中头像标签应使用足够对比度',
   )
 
-  const inter = tokens.indexOf('"Inter Variable"')
-  const cjk = tokens.indexOf('"PingFang SC"', inter)
-  const westernFallback = tokens.indexOf('Inter, -apple-system', inter)
-  assert(inter >= 0 && cjk > inter && westernFallback > cjk, '字体栈应保留 Inter Variable 首位，并优先使用 CJK 系统回退')
+  const geist = tokens.indexOf('"Geist Sans"')
+  const cjk = tokens.indexOf('"PingFang SC"', geist)
+  const windowsCjk = tokens.indexOf('"Microsoft YaHei"', cjk)
+  const westernFallback = tokens.indexOf('-apple-system', windowsCjk)
+  assert(
+    geist >= 0 && cjk > geist && windowsCjk > cjk && westernFallback > windowsCjk,
+    '字体栈应使用 Geist 首位，并在通用西文字体前优先使用 macOS/Windows CJK 系统回退',
+  )
 }
 
 export async function testConfirmationsUseTheSharedModalLanguage(): Promise<void> {

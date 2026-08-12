@@ -4,25 +4,7 @@
 }
 
 .ui-date-trigger {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  height: var(--field-height-md);
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  padding: 0 9px;
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
-  background: var(--field-bg);
-  color: var(--text-secondary);
-  font-size: var(--fs-mini);
-  text-align: left;
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
+  padding-inline: 9px;
 }
 
 .ui-date-trigger > span {
@@ -37,26 +19,6 @@
   flex-shrink: 0;
 }
 
-.ui-date-trigger:hover:not(:disabled) {
-  border-color: var(--field-border-hover);
-  background: var(--field-bg-hover);
-  color: var(--text-primary);
-}
-
-.ui-date-trigger[aria-expanded='true'],
-.ui-date-trigger:focus-visible {
-  outline: none;
-  border-color: var(--field-border-focus);
-  background: var(--field-bg-focus);
-  box-shadow: var(--field-focus-shadow);
-  color: var(--text-primary);
-}
-
-.ui-date-trigger:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-
 .ui-date-trigger .is-placeholder,
 .ui-date-trigger > svg {
   color: var(--text-tertiary);
@@ -67,12 +29,7 @@
   z-index: var(--z-popover);
   width: 286px;
   padding: var(--sp-2);
-  border: 0.8px solid var(--popover-border);
-  border-radius: var(--radius-8);
-  background: var(--popover-bg);
-  box-shadow: var(--popover-shadow-deep);
-  color: var(--text-secondary);
-  animation: uiDateIn 90ms var(--ease-out) both;
+  animation: uiDateIn var(--motion-menu) var(--ease-out) both;
 }
 
 .ui-date-popover-top {

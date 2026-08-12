@@ -78,9 +78,3 @@
   color: var(--text-secondary);
   flex-shrink: 0;
 }
-
-@media (max-width: 899px), (pointer: coarse) {
-  .menu-item {
-    min-height: 44px;
-  }
-}

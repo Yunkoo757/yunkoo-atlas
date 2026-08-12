@@ -74,19 +74,14 @@ export async function testReducedMotionLoadingIndicatorsDoNotFreezeAsSpinners():
   }
 }
 
-export async function testSafeAreasCoverPortraitAndLandscapeInsets(): Promise<void> {
+export async function testDesktopFrameAvoidsMobileSafeAreaDependencies(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [frameCss, navigationCss] = await Promise.all([
-    fs.readFile('src/components/ui/AppFrame.css', 'utf8'),
-    fs.readFile('src/components/MobileNavigation.css', 'utf8'),
-  ])
-  for (const inset of ['safe-area-inset-left', 'safe-area-inset-right']) {
-    assert(frameCss.includes(inset), `主内容缺少横屏安全区 ${inset}`)
-    assert(navigationCss.includes(inset), `移动导航缺少横屏安全区 ${inset}`)
-  }
+  const frameCss = await fs.readFile('src/components/ui/AppFrame.css', 'utf8')
+  assert(frameCss.includes('--sidebar-w'), '桌面主框架必须消费侧栏宽度 token')
+  assert(frameCss.includes('--main-inset'), '桌面主框架必须消费窗口内缩 token')
 }
 
-export async function testPrimaryControlsExposePressedDisabledAndCoarsePointerStates(): Promise<void> {
+export async function testPrimaryControlsExposePressedDisabledAndDesktopScaleStates(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [buttonCss, menuCss, contextCss, selectCss] = await Promise.all([
     fs.readFile('src/components/ui/Button.css', 'utf8'),
@@ -101,11 +96,11 @@ export async function testPrimaryControlsExposePressedDisabledAndCoarsePointerSt
   assert(selectCss.includes('.ui-select-option:active:not(:disabled)'), '下拉选项必须提供按下反馈')
   for (const [name, css] of [['menu', menuCss], ['context', contextCss], ['select', selectCss]] as const) {
     assert(css.includes('cursor: not-allowed'), `${name} 禁用态必须明确不可操作`)
-    assert(
-      /@media \(max-width: 899px\), \(pointer: coarse\)[\s\S]*?min-height:\s*44px/.test(css),
-      `${name} 必须为粗指针提供至少 44px 触摸目标`,
-    )
+    assert(!css.includes('(pointer: coarse)'), `${name} 不得为桌面控件维护粗指针尺寸分支`)
   }
+  assert(buttonCss.includes('.ui-btn-sm') && buttonCss.includes('var(--control-height-sm)'), '按钮必须提供 28px 紧凑档')
+  assert(buttonCss.includes('.ui-btn-md') && buttonCss.includes('var(--control-height-md)'), '按钮必须提供 32px 标准档')
+  assert(buttonCss.includes('.ui-btn-lg') && buttonCss.includes('var(--control-height-lg)'), '按钮必须提供 36px 强调档')
 }
 
 export async function testStrategyPerformanceKeepsDataMoreProminentThanDecoration(): Promise<void> {
