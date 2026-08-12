@@ -205,11 +205,11 @@
   align-items: center;
   gap: var(--sp-3);
   min-height: 62px;
-  padding: 10px var(--sp-3);
+  padding: 10px 0;
   border-bottom: 1px solid var(--border-subtle);
 }
 .dio-task:last-child { border-bottom: 0; }
-.dio-task-primary { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.dio-task-primary { background: transparent; }
 .dio-task-icon { flex: 0 0 auto; color: var(--text-tertiary); }
 .dio-task-primary .dio-task-icon { color: var(--accent); }
 .dio-task-copy { flex: 1; min-width: 0; }

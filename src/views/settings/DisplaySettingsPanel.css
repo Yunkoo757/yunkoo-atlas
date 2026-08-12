@@ -1,5 +1,5 @@
 .display-settings-card {
-  max-width: 620px;
+  max-width: var(--settings-content-width);
   padding: 0;
   background: transparent;
   border: 0;

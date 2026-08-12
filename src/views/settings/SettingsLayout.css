@@ -56,6 +56,8 @@
 }
 
 .settings-panel {
+  --settings-content-width: 680px;
+
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -65,8 +67,31 @@
 }
 
 .settings-page {
+  box-sizing: border-box;
+  width: min(100%, calc(var(--settings-content-width) + 80px));
+  max-width: none;
+  margin: 0 auto;
   padding: var(--sp-8) 40px 56px;
-  max-width: 820px;
+}
+
+.settings-page.has-aside {
+  width: min(100%, calc(var(--settings-content-width) + 320px));
+  display: grid;
+  grid-template-columns: minmax(0, var(--settings-content-width)) 240px;
+  align-items: start;
+  gap: var(--sp-8);
+}
+
+.settings-page.has-aside > :not(.settings-aside) { grid-column: 1; }
+
+.settings-aside {
+  grid-column: 2;
+  grid-row: 1 / span 99;
+  position: sticky;
+  top: var(--sp-6);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  line-height: 1.55;
 }
 
 .settings-page-head {

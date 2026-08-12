@@ -14,6 +14,7 @@ import {
 } from '@/icons/appIcons'
 import {
   REVIEW_CATEGORY_META,
+  STATUS_META,
   TRADE_KIND_META,
   type Trade,
 } from '@/data/trades'
@@ -553,16 +554,16 @@ function ReviewSessionStart({
           <span>{poolSize > 0 ? '使用当前设置直接开始，本轮随机排序且不重复。' : emptyHint}</span>
         </div>
         <div className="review-session-start-actions">
+          <Button type="button" variant="primary" size="lg" disabled={poolSize === 0} onClick={onStart}>
+            开启一轮新的复盘
+            <ChevronRight size={16} aria-hidden />
+          </Button>
           <Menu
             align="right"
             trigger={<Button type="button" variant="ghost"><MoreHorizontal size={16} aria-hidden />更多</Button>}
             options={[{ value: 'settings', label: '复盘设置', icon: <SlidersHorizontal size={16} /> }]}
             onSelect={(value) => { if (value === 'settings') onOpenSettings() }}
           />
-          <Button type="button" variant="primary" size="lg" disabled={poolSize === 0} onClick={onStart}>
-            开启一轮新的复盘
-            <ChevronRight size={16} aria-hidden />
-          </Button>
         </div>
       </div>
     </section>
@@ -719,20 +720,18 @@ function ReviewSessionItem({
     <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
         <header className="review-session-item-header">
-          <div className="review-session-item-identity">
-            <div className="review-session-item-badges">
-              <Chip size="sm" variant="soft">{TRADE_KIND_META[trade.tradeKind].label}</Chip>
-              {trade.reviewCategory !== 'normal' ? (
-                <Chip size="sm" variant="outline">{REVIEW_CATEGORY_META[trade.reviewCategory].label}</Chip>
-              ) : null}
-            </div>
-            <div>
-              <span className="review-session-card-ref">{trade.ref}</span>
-              <h1>{trade.symbol}</h1>
-              <p>{strategyName}</p>
-            </div>
+          <div className="review-session-item-primary">
+            <Chip size="sm" variant="soft">{TRADE_KIND_META[trade.tradeKind].label}</Chip>
+            <h1>{trade.symbol}</h1>
+            <Chip size="sm" variant="outline">
+              {trade.tradeKind === 'case'
+                ? REVIEW_CATEGORY_META[trade.reviewCategory].label
+                : STATUS_META[trade.status].label}
+            </Chip>
           </div>
-          <div className="review-session-item-meta">
+          <div className="review-session-summary" aria-label="当前记录摘要">
+            <span className="review-session-card-ref">{trade.ref}</span>
+            <span>{strategyName}</span>
             <span>{trade.side === 'long' ? '做多' : '做空'}</span>
             <span>{fmtDate(trade.recordedAt ?? trade.openedAt)}</span>
             <span className={`is-${rTone}`}>{fmtR(trade.rMultiple)}</span>
@@ -828,11 +827,11 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   }, [note.tradeId, note.status, presentation.images])
 
   if (note.status === 'loading' || note.status === 'idle') {
-    return <div className="review-session-note-state" role="status">正在载入完整复盘…</div>
+    return <div className="review-session-reading review-session-note-state" role="status">正在载入完整复盘…</div>
   }
   if (note.status === 'error') {
     return (
-      <div className="review-session-note-state is-error" role="alert">
+      <div className="review-session-reading review-session-note-state is-error" role="alert">
         <AlertCircle size={18} aria-hidden />
         <span>本条图文暂时无法读取，你仍可评估或跳过。</span>
       </div>
@@ -840,7 +839,7 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   }
   if (!hasBody && presentation.images.length === 0) {
     return (
-      <div className="review-session-note-state">
+      <div className="review-session-reading review-session-note-state">
         <Image size={20} aria-hidden />
         <span>暂无复盘笔记</span>
       </div>
@@ -848,7 +847,7 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   }
 
   return (
-    <section className={`review-session-content${hasBody && presentation.images.length > 0 ? ' has-split-content' : ''}`} aria-label="完整复盘内容">
+    <section className={`review-session-reading review-session-content${hasBody && presentation.images.length > 0 ? ' has-split-content' : ''}`} aria-label="完整复盘内容">
       {presentation.images.length > 0 ? (
         <div
           className={`review-session-gallery is-${presentation.images.length === 1 ? 'single' : 'multiple'}`}
