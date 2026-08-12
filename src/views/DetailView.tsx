@@ -22,6 +22,7 @@ import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
 import { Menu } from '@/components/Menu'
 import { IconButton } from '@/components/ui/IconButton'
+import { Button } from '@/components/ui/Button'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
@@ -839,24 +840,24 @@ export function DetailView() {
                 {detailNavigation.orderedIds.length}
               </span>
               <ShortcutTooltip actionId="trade.next" label={`下一个${detailUnit}`}>
-                <button
-                  type="button"
+                <IconButton
+                  label={`下一个${detailUnit}`}
                   className="dv-detail-nav-button"
                   disabled={!detailNavigation.nextId}
                   onClick={() => navigateDetail(detailNavigation.nextId)}
                 >
                   <ChevronDown size={14} />
-                </button>
+                </IconButton>
               </ShortcutTooltip>
               <ShortcutTooltip actionId="trade.prev" label={`上一个${detailUnit}`}>
-                <button
-                  type="button"
+                <IconButton
+                  label={`上一个${detailUnit}`}
                   className="dv-detail-nav-button"
                   disabled={!detailNavigation.prevId}
                   onClick={() => navigateDetail(detailNavigation.prevId)}
                 >
                   <ChevronUp size={14} />
-                </button>
+                </IconButton>
               </ShortcutTooltip>
             </nav>
           )}
@@ -871,36 +872,6 @@ export function DetailView() {
                 {trade.symbol}
                 <SideTag side={trade.side} />
               </h1>
-              {needsReview && !needsResult && (
-                <Tooltip
-                  asChild
-                  content={
-                    reviewSubmitting
-                      ? '正在保存…'
-                      : reviewIssue ?? (reviewReadiness.ready ? '完成复盘' : '完成前请留下结论、勾选检查项或加入截图证据')
-                  }
-                  label={reviewSubmitting ? '正在保存…' : '完成复盘'}
-                >
-                  <button
-                    type="button"
-                    className={
-                      'dv-review-chip' +
-                      (reviewReadiness.ready ? '' : ' is-muted') +
-                      (reviewSubmitting ? ' is-busy' : '')
-                    }
-                    aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
-                    disabled={
-                      activeNoteLoad.status !== 'ready' ||
-                      !reviewReadiness.ready ||
-                      reviewSubmitting
-                    }
-                    onClick={() => void completeReview()}
-                  >
-                    <span className="dv-review-chip-dot" aria-hidden />
-                    {reviewSubmitting ? '正在保存…' : '完成复盘'}
-                  </button>
-                </Tooltip>
-              )}
             </div>
             {trade.tradeKind === 'case' && trade.sourceTradeId && (
               <section className="dv-case-source" aria-label="案例来源">
@@ -982,8 +953,42 @@ export function DetailView() {
                 </div>
               </section>
             )}
+            <div className="dv-review-content-head">
+              <div className="dv-review-content-label">
+                <span>{trade.tradeKind === 'case' ? '案例沉淀' : '复盘正文'}</span>
+                {needsReview && !needsResult ? (
+                  <span className="dv-review-state" data-review-state={reviewReadiness.ready ? 'ready' : 'pending'}>
+                    {reviewReadiness.ready ? '可以完成' : '待复盘'}
+                  </span>
+                ) : null}
+              </div>
+              {needsReview && !needsResult ? (
+                <Tooltip
+                  asChild
+                  content={
+                    reviewSubmitting
+                      ? '正在保存…'
+                      : reviewIssue ?? (reviewReadiness.ready ? '完成复盘' : '完成前请留下结论、勾选检查项或加入截图证据')
+                  }
+                  label={reviewSubmitting ? '正在保存…' : '完成复盘'}
+                >
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="dv-review-complete-action"
+                    busy={reviewSubmitting}
+                    aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
+                    disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
+                    onClick={() => void completeReview()}
+                  >
+                    <CheckCircle size={15} aria-hidden />
+                    {reviewSubmitting ? '正在保存…' : '完成复盘'}
+                  </Button>
+                </Tooltip>
+              ) : null}
+            </div>
             <div
-              className={'dv-document'
+              className={'dv-document dv-editor'
                 + (activeNoteLoad.status === 'loading' ? ' is-note-loading' : '')
                 + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}
             >
@@ -1048,7 +1053,7 @@ export function DetailView() {
               <Editor
                 content={noteEditorContent}
                 onChange={onEditorChange}
-                ariaLabel={trade.tradeKind === 'case' ? '案例沉淀正文' : '交易复盘笔记'}
+                ariaLabel={trade.tradeKind === 'case' ? '案例沉淀正文' : '复盘正文'}
                 noteDraftId={trade.id}
                 readOnly={activeNoteLoad.status !== 'ready'}
                 reviewContextTools
@@ -1089,7 +1094,7 @@ export function DetailView() {
                   <textarea
                     ref={commentRef}
                     className="dv-comment-input"
-                    aria-label="新增复盘追记"
+                    aria-label="补充追记"
                     placeholder="补充观察…"
                     value={comment}
                     onChange={(event) => {

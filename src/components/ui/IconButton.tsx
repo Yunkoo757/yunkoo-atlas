@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './IconButton.css'
 
@@ -12,7 +12,7 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
   pressed?: boolean
 }
 
-export function IconButton({
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({
   children,
   label,
   tooltip,
@@ -21,7 +21,7 @@ export function IconButton({
   className = '',
   type = 'button',
   ...rest
-}: IconButtonProps) {
+}: IconButtonProps, ref) {
   const classes = [
     'ui-icon-btn',
     `ui-icon-btn-${size}`,
@@ -30,6 +30,7 @@ export function IconButton({
   ].filter(Boolean).join(' ')
   const button = (
     <button
+      ref={ref}
       {...rest}
       type={type}
       className={classes}
@@ -45,4 +46,4 @@ export function IconButton({
       {button}
     </Tooltip>
   ) : button
-}
+})

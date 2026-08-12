@@ -7,6 +7,8 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { DetailView } from '@/views/DetailView'
 import { ImageLightbox } from '@/components/ImageLightbox'
+import '@/styles/tokens.css'
+import '@/styles/global.css'
 
 declare global {
   interface Window {
@@ -176,6 +178,7 @@ async function run(): Promise<void> {
     assert(caseNavigation?.textContent?.replace(/\s/g, '') === '2/3', '案例顶部栏应显示当前序号与总数')
     assert(previousCaseButton && !previousCaseButton.disabled, '中间案例应可前往上一个案例')
     assert(nextCaseButton && !nextCaseButton.disabled, '中间案例应可前往下一个案例')
+    assert(previousCaseButton.classList.contains('ui-icon-btn') && nextCaseButton.classList.contains('ui-icon-btn'), '前后导航必须使用共享 IconButton')
     nextCaseButton.click()
     await waitFor(
       () => document.body.textContent?.includes('CAS-3') ?? false,

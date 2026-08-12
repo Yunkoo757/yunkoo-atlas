@@ -130,30 +130,8 @@
   color: var(--text-quaternary);
 }
 .dv-detail-nav-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 28px;
-  padding: 0;
-  border: 0;
   border-left: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-tertiary);
-  line-height: 0;
-  transition: background-color var(--motion-ui), color var(--motion-ui), opacity var(--motion-ui);
-}
-.dv-detail-nav-button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-.dv-detail-nav-button:active:not(:disabled) {
-  background: var(--bg-selected);
-}
-.dv-detail-nav-button:disabled {
-  color: var(--text-quaternary);
-  opacity: 0.38;
-  cursor: default;
+  border-radius: 0;
 }
 .dv-review-complete-meta {
   display: inline-flex;
@@ -205,46 +183,40 @@
   margin: 0;
   line-height: 1.33;
 }
-.dv-review-chip {
+.dv-review-content-head {
+  min-height: var(--control-height-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin: var(--sp-5) 0 var(--sp-2);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.dv-review-content-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  height: 26px;
-  padding: 0 10px 0 var(--sp-2);
+  gap: var(--sp-2);
+  color: var(--text-primary);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--font-weight-semibold);
+}
+.dv-review-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 var(--sp-2);
   border-radius: var(--radius-full);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: color-mix(in srgb, var(--accent) 55%, var(--text-primary));
-  font-size: var(--fs-mini);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
-}
-.dv-review-chip:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-.dv-review-chip:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.dv-review-chip.is-muted {
-  border-color: var(--border-default);
-  background: transparent;
+  border: 1px solid var(--border-default);
+  background: var(--bg-inset);
   color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
 }
-.dv-review-chip.is-muted .dv-review-chip-dot {
-  background: var(--text-quaternary);
-}
-.dv-review-chip.is-busy {
-  opacity: 0.7;
-}
-.dv-review-chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
+.dv-review-state[data-review-state="ready"] {
+  border-color: color-mix(in srgb, var(--pos) 32%, var(--border-default));
+  background: var(--pos-bg);
+  color: var(--pos);
 }
 .dv-summary {
   display: grid;
@@ -454,10 +426,12 @@
 .dv-document {
   position: relative;
   width: 100%;
-  min-height: 240px;
 }
-.dv-document .editor .ProseMirror {
-  min-height: 240px;
+.dv-editor {
+  min-height: 96px;
+}
+.dv-editor .editor .ProseMirror {
+  min-height: 96px;
 }
 /* D4：空白备注近乎隐身，hover / focus 才加重 */
 .dv-document .editor .ProseMirror p.is-editor-empty:first-child::before {
@@ -816,6 +790,7 @@
   gap: 0;
   background: var(--bg-surface);
   border: 0;
+  border-left: 1px solid var(--border-subtle);
   border-radius: 0;
 }
 

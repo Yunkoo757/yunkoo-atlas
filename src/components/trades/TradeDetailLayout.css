@@ -18,7 +18,7 @@
 .trade-detail-layout .dv-body {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(620px, 1fr) 336px;
   min-height: 0;
 }
 
@@ -33,7 +33,7 @@
   min-width: 0;
   overflow-y: auto;
   background: var(--bg-surface);
-  border-left: 0;
+  border-left: 1px solid var(--border-subtle);
   scrollbar-width: none;
 }
 
@@ -62,12 +62,6 @@
   display: none;
 }
 
-@media (max-width: 1200px) {
-  .trade-detail-layout .dv-body {
-    grid-template-columns: minmax(0, 1fr) 336px;
-  }
-}
-
 @media (max-width: 1024px) {
   .trade-detail-layout .dv-body {
     display: block;
@@ -85,7 +79,7 @@
     right: 8px;
     bottom: 8px;
     z-index: var(--z-navigation-panel);
-    width: min(360px, 92vw);
+    width: min(336px, calc(100% - 16px));
     overflow-y: auto;
     background: var(--bg-surface);
     border-top: 0;
@@ -110,9 +104,9 @@
     z-index: var(--z-content);
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
-    flex: 0 0 44px;
+    width: var(--control-height-md);
+    height: var(--control-height-md);
+    flex: 0 0 var(--control-height-md);
     margin: var(--sp-2) var(--sp-2) 0 auto;
     color: var(--text-secondary);
     background: var(--bg-elevated);
@@ -127,8 +121,8 @@
     z-index: var(--z-navigation-action);
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: var(--control-height-md);
+    height: var(--control-height-md);
     color: var(--text-secondary);
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
