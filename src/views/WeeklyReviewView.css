@@ -106,19 +106,19 @@
   .wr-result-choice button,
   .wr-tag-group button,
   .wr-trade-roles button {
-    min-height: var(--touch-target);
+    min-height: var(--control-height-lg);
   }
 
   .wr-score-options {
-    grid-template-columns: repeat(5, var(--touch-target));
+    grid-template-columns: repeat(5, var(--control-height-lg));
   }
 
   .wr-score-row button {
-    width: var(--touch-target);
-    height: var(--touch-target);
+    width: var(--control-height-lg);
+    height: var(--control-height-lg);
   }
 
   .wr-commitment input {
-    height: var(--touch-target);
+    height: var(--control-height-lg);
   }
 }

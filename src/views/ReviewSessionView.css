@@ -409,7 +409,7 @@ button.review-session-gallery-slot.is-ready {
 }
 
 .review-session-gallery-slot.is-loading {
-  background: linear-gradient(90deg, var(--bg-hover), var(--bg-active), var(--bg-hover));
+  background: linear-gradient(90deg, var(--bg-hover), var(--skeleton-highlight), var(--bg-hover));
   background-size: 200% 100%;
   animation: reviewSessionSkeleton 1.2s ease-in-out infinite;
 }

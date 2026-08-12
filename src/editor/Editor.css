@@ -227,9 +227,9 @@
 @media (max-width: 899px), (pointer: coarse) {
   .editor ul[data-type='taskList'] li > label {
     display: grid;
-    width: var(--touch-target);
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
+    width: var(--control-height-lg);
+    min-width: var(--control-height-lg);
+    min-height: var(--control-height-lg);
     place-items: center;
     margin-top: 0;
   }

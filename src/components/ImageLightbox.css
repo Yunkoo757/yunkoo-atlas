@@ -193,7 +193,7 @@
 @media (max-width: 899px), (pointer: coarse) {
   .img-lightbox-action,
   .img-lightbox-close {
-    width: var(--touch-target);
-    height: var(--touch-target);
+    width: var(--control-height-lg);
+    height: var(--control-height-lg);
   }
 }

@@ -302,13 +302,13 @@
 @media (max-width: 899px) {
   .today-workspace-inner { padding-right: 18px; padding-left: 18px; }
   .today-stats-metrics { grid-template-columns: 1fr; gap: 14px; }
-  .today-queue-tabs button { min-height: var(--touch-target); }
+  .today-queue-tabs button { min-height: var(--control-height-lg); }
   .today-queue-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: thin;
   }
-  .today-risk-alert { min-height: var(--touch-target); }
+  .today-risk-alert { min-height: var(--control-height-lg); }
 }
 
 @media (max-width: 768px) {

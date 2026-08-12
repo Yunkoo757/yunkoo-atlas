@@ -3,6 +3,8 @@ import fs from 'node:fs'
 const read = (file) => fs.readFileSync(file, 'utf8')
 const tokens = read('src/styles/tokens.css')
 const globalStyles = read('src/styles/global.css')
+const main = read('src/main.tsx')
+const iconSize = read('src/icons/iconSize.ts')
 const emptyStateStyles = read('src/components/EmptyState.css')
 const editorStyles = read('src/editor/Editor.css')
 const strategyModalStyles = read('src/components/StrategyFormModal.css')
@@ -45,6 +47,26 @@ const tradesPage =
     ? app.slice(tradesPageStart, tradesPageEnd)
     : null
 
+const collectFiles = (directory, matcher) => fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+  const target = `${directory}/${entry.name}`
+  return entry.isDirectory() ? collectFiles(target, matcher) : matcher.test(entry.name) ? [target] : []
+})
+const sourceFiles = collectFiles('src', /\.(?:css|ts|tsx)$/).filter((file) => !file.includes('.test.'))
+const completeSource = sourceFiles.map(read).join('\n')
+const completeCssSource = sourceFiles.filter((file) => file.endsWith('.css')).map(read).join('\n')
+const customPropertyDefinitions = new Set(
+  [...completeSource.matchAll(/(--[a-z0-9_-]+)["']?\s*:/gi)].map((match) => match[1]),
+)
+const customPropertyUses = new Set(
+  [...completeCssSource.matchAll(/var\((--[a-z0-9_-]+)/gi)].map((match) => match[1]),
+)
+const undefinedCustomProperties = [...customPropertyUses]
+  .filter((property) => !customPropertyDefinitions.has(property))
+  .sort()
+const sharedUiRawColorFiles = collectFiles('src/components/ui', /\.css$/).filter((file) =>
+  /(?:#[\da-f]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(|\blch\()/i.test(read(file)),
+)
+
 const checks = [
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
   [
@@ -65,8 +87,39 @@ const checks = [
       sidebarComponent.includes('navigate(\'/trade-trash\')') &&
       !sidebarComponent.includes('sb-utility'),
   ],
-  ['control height', tokens.includes('--control-height: 28px')],
+  ['control height', tokens.includes('--control-height: var(--control-height-sm)')],
   ['field height md', tokens.includes('--field-height-md: 32px')],
+  [
+    'desktop controls expose the canonical 28 32 36 height scale',
+    tokens.includes('--control-height-sm: 28px') &&
+      tokens.includes('--control-height-md: 32px') &&
+      tokens.includes('--control-height-lg: 36px') &&
+      !tokens.includes('--touch-target') &&
+      !tokens.includes('(pointer: coarse)'),
+  ],
+  [
+    'desktop typography uses bundled Geist with CJK system fallbacks',
+    main.includes("@fontsource/geist-sans/400.css") &&
+      main.includes("@fontsource/geist-sans/500.css") &&
+      main.includes("@fontsource/geist-sans/600.css") &&
+      !main.includes('@fontsource-variable/inter') &&
+      tokens.includes('"Geist Sans"') &&
+      tokens.includes('"PingFang SC"') &&
+      tokens.includes('"Microsoft YaHei"'),
+  ],
+  [
+    'desktop icon constants match the 14 16 18 20 24 optical scale',
+    ['ICON_SM = 14', 'ICON_MD = 16', 'ICON_LG = 18', 'ICON_XL = 20', 'ICON_2XL = 24']
+      .every((contract) => iconSize.includes(contract)) && !iconSize.includes('ICON_XS = 12'),
+  ],
+  [
+    'shared UI components only consume semantic colors',
+    sharedUiRawColorFiles.length === 0,
+  ],
+  [
+    'every consumed custom property has a source definition',
+    undefinedCustomProperties.length === 0,
+  ],
   [
     'portaled UI keeps the calibrated application font',
     tokens.includes('--font-ui: var(--font-ui-base)') &&

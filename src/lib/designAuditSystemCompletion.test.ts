@@ -11,7 +11,6 @@ const CSS_FILES = [
   'src/components/DisplayMenu.css',
   'src/components/ImageLightbox.css',
   'src/components/Menu.css',
-  'src/components/MobileNavigation.css',
   'src/components/Sidebar.css',
   'src/components/StrategyFormModal.css',
   'src/components/TradeCloseDialog.css',
@@ -57,7 +56,6 @@ export async function testGlobalLayersUseNamedZIndexTokens(): Promise<void> {
     'src/components/DisplayMenu.css',
     'src/components/ImageLightbox.css',
     'src/components/Menu.css',
-    'src/components/MobileNavigation.css',
     'src/components/StrategyFormModal.css',
     'src/components/TradeCloseDialog.css',
     'src/components/TradeComposer.css',
@@ -158,21 +156,59 @@ export async function testModalPrimaryActionsShareOneSizeContract(): Promise<voi
   }
 }
 
-export async function testRemainingSmallTouchTargetsHaveCoarsePointerCompensation(): Promise<void> {
+export async function testDesktopControlMetricsNeverSwitchToTouchTargets(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const files = [
-    'src/editor/Editor.css',
-    'src/components/TradeComposer.css',
-    'src/components/Sidebar.css',
-    'src/components/ImageLightbox.css',
-  ]
+  const css = await fs.readFile('src/styles/tokens.css', 'utf8')
+  assert(!css.includes('(pointer: coarse)'), '桌面令牌不得按粗指针切换控件尺寸')
+  assert(!css.includes('--touch-target'), '桌面令牌不得保留 44px 触摸热区角色')
+  assert(css.includes('--control-height-sm: 28px'), '紧凑控件高度必须为 28px')
+  assert(css.includes('--control-height-md: 32px'), '标准控件高度必须为 32px')
+  assert(css.includes('--control-height-lg: 36px'), '强调控件高度必须为 36px')
+}
+
+export async function testSharedUiComponentsOnlyConsumeSemanticColors(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const path = await import('node:path')
+  const files: string[] = []
+  async function collect(directory: string): Promise<void> {
+    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+      const target = path.join(directory, entry.name)
+      if (entry.isDirectory()) await collect(target)
+      else if (entry.name.endsWith('.css')) files.push(target)
+    }
+  }
+  await collect('src/components/ui')
   for (const file of files) {
     const css = await fs.readFile(file, 'utf8')
     assert(
-      /@media \(max-width: 899px\), \(pointer: coarse\)[\s\S]*?(44px|var\(--touch-target\))/.test(css),
-      `${file} 仍缺少粗指针触摸热区补偿`,
+      !/(?:#[\da-f]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(|\blch\()/i.test(css),
+      `${file} 绕过语义色 token 使用了原始颜色`,
     )
   }
+}
+
+export async function testEveryConsumedCustomPropertyHasASourceDefinition(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const path = await import('node:path')
+  const files: string[] = []
+  async function collect(directory: string): Promise<void> {
+    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+      const target = path.join(directory, entry.name)
+      if (entry.isDirectory()) await collect(target)
+      else if (/\.(?:css|ts|tsx)$/.test(entry.name)) files.push(target)
+    }
+  }
+  await collect('src')
+  const sourceFiles = files.filter((file) => !file.includes('.test.'))
+  const sources = await Promise.all(sourceFiles.map((file) => fs.readFile(file, 'utf8')))
+  const source = sources.join('\n')
+  const cssSource = sourceFiles
+    .map((file, index) => file.endsWith('.css') ? sources[index] : '')
+    .join('\n')
+  const definitions = new Set([...source.matchAll(/(--[a-z0-9_-]+)["']?\s*:/gi)].map((match) => match[1]))
+  const consumed = new Set([...cssSource.matchAll(/var\((--[a-z0-9_-]+)/gi)].map((match) => match[1]))
+  const undefinedProperties = [...consumed].filter((property) => !definitions.has(property)).sort()
+  assert(undefinedProperties.length === 0, `存在未定义自定义属性：${undefinedProperties.join(', ')}`)
 }
 
 export async function testSpacingScaleIsUsedForCanonicalSpacingValues(): Promise<void> {
@@ -197,7 +233,7 @@ export async function testSpacingScaleIsUsedForCanonicalSpacingValues(): Promise
   }
 }
 
-export async function testMissedOpportunityInsetsUseSharedResponsiveSpacingTokens(): Promise<void> {
+export async function testMissedOpportunityInsetsUseSharedDesktopSpacingTokens(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = (await fs.readFile('src/views/MissedOpportunitiesView.css', 'utf8'))
     .replace(/\r\n?/g, '\n')
@@ -209,16 +245,6 @@ export async function testMissedOpportunityInsetsUseSharedResponsiveSpacingToken
   assert(
     /\.missed-filter-panel\s*\{[^}]*left:\s*var\(--sp-4\);/s.test(css),
     '错过机会桌面筛选面板必须使用 16px 的 --sp-4 左侧 inset',
-  )
-
-  const mobile = css.slice(css.indexOf('@media (max-width: 768px)'))
-  assert(
-    /\.missed-merge-note\s*\{[^}]*margin-right:\s*var\(--sp-3\);[^}]*margin-left:\s*var\(--sp-3\);/s.test(mobile),
-    '错过机会移动合并说明必须使用 12px 的 --sp-3 横向间距',
-  )
-  assert(
-    /\.missed-filter-panel\s*\{[^}]*right:\s*var\(--sp-3\);[^}]*left:\s*var\(--sp-3\);/s.test(mobile),
-    '错过机会移动筛选面板必须使用 12px 的 --sp-3 横向 inset',
   )
 }
 

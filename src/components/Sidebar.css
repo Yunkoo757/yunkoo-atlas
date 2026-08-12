@@ -441,8 +441,8 @@ html[data-ui-settled='1'] .sb-item {
 
 @media (max-width: 899px), (pointer: coarse) {
   .sb-workspace-capability-menu {
-    width: var(--touch-target);
-    height: var(--touch-target);
+    width: var(--control-height-lg);
+    height: var(--control-height-lg);
     opacity: 1;
     pointer-events: auto;
   }

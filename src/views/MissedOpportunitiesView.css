@@ -326,8 +326,8 @@
     content: '';
     position: absolute;
     inset: 50%;
-    width: max(100%, var(--touch-target));
-    height: var(--touch-target);
+    width: max(100%, var(--control-height-lg));
+    height: var(--control-height-lg);
     transform: translate(-50%, -50%);
   }
 }
