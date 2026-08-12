@@ -41,7 +41,6 @@ import { ListView } from './views/ListView'
 import { BoardView } from './views/BoardView'
 import { SettingsLayout } from './views/settings/SettingsLayout'
 import { TradeTrashView } from './views/TradeTrashView'
-import { TodayWorkspace } from './views/TodayWorkspace'
 import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
@@ -152,6 +151,9 @@ export function WindowsClosePrompt({
 
 const Dashboard = lazy(() =>
   import('./views/Dashboard').then((module) => ({ default: module.Dashboard })),
+)
+const TodayWorkspace = lazy(() =>
+  import('./views/TodayWorkspace').then((module) => ({ default: module.TodayWorkspace })),
 )
 const DetailView = lazy(() =>
   import('./views/DetailView').then((module) => ({ default: module.DetailView })),

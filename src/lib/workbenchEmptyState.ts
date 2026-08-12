@@ -15,6 +15,25 @@ export type WorkbenchEmptyState = {
   hint: string
   action: 'create' | 'reset'
   actionLabel: string
+  primaryAction: WorkbenchEmptyAction
+  secondaryActions: WorkbenchEmptyAction[]
+}
+
+export type WorkbenchEmptyAction = {
+  id: 'create-trade' | 'create-case' | 'create-paper' | 'clear-filters' | 'import-backup' | 'configure-strategy'
+  label: string
+  intent: 'create' | 'reset' | 'link'
+  href?: string
+}
+
+function createAction(recordKind?: TradeKind): WorkbenchEmptyAction {
+  if (recordKind === 'case') {
+    return { id: 'create-case', label: '新建案例记录', intent: 'create' }
+  }
+  if (recordKind === 'paper') {
+    return { id: 'create-paper', label: '新建模拟盘记录', intent: 'create' }
+  }
+  return { id: 'create-trade', label: '新建第一笔交易', intent: 'create' }
 }
 
 export function resolveWorkbenchEmptyState(options: {
@@ -30,31 +49,47 @@ export function resolveWorkbenchEmptyState(options: {
       ? '模拟盘记录'
       : '交易'
   if (options.totalCount === 0) {
+    const primaryAction = createAction(options.recordKind)
     return {
       kind: 'library',
       title: '还没有任何记录',
       hint: `新建${recordLabel}、导入备份，或先配置策略，开始建立你的复盘交易库。`,
       action: 'create',
       actionLabel: `新建${recordLabel}`,
+      primaryAction,
+      secondaryActions: [
+        { id: 'import-backup', label: '导入备份', intent: 'link', href: '/settings/data' },
+        { id: 'configure-strategy', label: '配置策略', intent: 'link', href: '/settings/strategies' },
+      ],
     }
   }
 
   if (options.workspaceCount === 0) {
+    const primaryAction = createAction(options.recordKind)
     return {
       kind: 'workspace',
       title: `当前工作区暂无${recordLabel}`,
       hint: `资料库中已有其他类型的记录；你可以新建${recordLabel}，开始积累这一类复盘样本。`,
       action: 'create',
       actionLabel: `新建${recordLabel}`,
+      primaryAction,
+      secondaryActions: [],
     }
   }
 
+  const primaryAction: WorkbenchEmptyAction = {
+    id: 'clear-filters',
+    label: '清除筛选',
+    intent: 'reset',
+  }
   return {
     kind: 'filtered',
     title: `没有符合当前条件的${recordLabel}`,
     hint: '当前视图、筛选或显示偏好隐藏了已有记录。',
     action: 'reset',
     actionLabel: `查看全部${recordLabel}`,
+    primaryAction,
+    secondaryActions: [],
   }
 }
 

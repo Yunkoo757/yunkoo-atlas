@@ -185,6 +185,13 @@
   margin-top: 18px;
 }
 
+.today-trade-columns {
+  position: relative;
+  margin-top: var(--sp-2);
+  background: transparent;
+  backdrop-filter: none;
+}
+
 .today-queue-tabs {
   display: flex;
   flex-wrap: wrap;

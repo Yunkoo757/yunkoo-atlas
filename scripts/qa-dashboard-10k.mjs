@@ -212,8 +212,9 @@ async function measureDashboardEntry(page) {
 
 async function measureRangeSwitch(page, rangeName) {
   return page.evaluate(async (label) => {
-    const button = [...document.querySelectorAll('button.db-seg')]
-      .find((candidate) => candidate.textContent?.trim() === label)
+    const rangeControl = document.querySelector('[role="group"][aria-label="统计周期"]')
+    const button = [...(rangeControl?.querySelectorAll('button') ?? [])]
+      .find((candidate) => candidate.getAttribute('aria-label') === label)
     if (!(button instanceof HTMLButtonElement)) throw new Error(`Missing range button: ${label}`)
     const startedAt = performance.now()
     button.click()
