@@ -23,57 +23,48 @@
 .app-storage-error-card {
   width: min(520px, 100%);
   padding: var(--sp-7);
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  background: var(--bg-surface);
-  box-shadow: var(--popover-shadow);
+  grid-template-columns: auto minmax(0, 1fr);
+  border-color: var(--border-default);
+  border-radius: var(--main-radius);
+  background: var(--surface-pane);
+  box-shadow: var(--popover-menu-shadow);
 }
 
-.app-storage-error-eyebrow,
-.app-storage-error-card small {
+.app-storage-error-eyebrow {
+  display: block;
+  margin-bottom: var(--sp-2);
   color: var(--text-tertiary);
-  font-size: var(--fs-xs);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
 }
 
 .app-storage-error-card h1 {
-  margin: var(--sp-2) 0 10px;
-  font-size: var(--fs-title);
+  margin: 0;
+  font-size: var(--type-page-title-size);
   line-height: 1.35;
 }
 
-.app-storage-error-card p {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.65;
-  overflow-wrap: anywhere;
+.app-storage-error-card .ui-inline-status-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  line-height: var(--type-body-line-height);
+}
+
+.app-storage-error-card small {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+}
+
+.app-storage-error-card > .ui-inline-status-action {
+  grid-column: 2;
 }
 
 .app-storage-error-actions {
   display: flex;
   gap: var(--sp-2);
-  margin: 22px 0 14px;
-}
-
-.app-storage-error-actions button {
-  min-height: 34px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 68%, var(--border-default));
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--accent-text);
-  font: inherit;
-  cursor: pointer;
-}
-
-.app-storage-error-actions button.is-secondary {
-  border-color: var(--border-default);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-
-.app-storage-error-actions button:disabled {
-  opacity: 0.55;
-  cursor: default;
+  margin-top: var(--sp-4);
 }
 
 .app-close-save {
@@ -88,12 +79,8 @@
 }
 
 .app-close-save-panel {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   min-height: 42px;
   max-width: min(560px, calc(100vw - 32px));
-  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-10);
   background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
@@ -101,117 +88,21 @@
   color: var(--text-primary);
   backdrop-filter: blur(14px);
   pointer-events: auto;
-  animation: app-close-save-in var(--motion-ui) var(--ease-out);
-}
-
-.app-close-save-mark {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-  border: 1.5px solid var(--text-quaternary);
-  border-radius: 50%;
-}
-
-.app-close-save.is-saving .app-close-save-mark {
-  border-color: var(--text-quaternary);
-  border-top-color: var(--text-primary);
-  animation: app-close-save-spin 0.7s linear infinite;
-}
-
-.app-close-save.is-saved .app-close-save-mark {
-  position: relative;
-  border-color: var(--success);
-  background: var(--success);
-}
-
-.app-close-save.is-saved .app-close-save-mark::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 2px;
-  width: 5px;
-  height: 3px;
-  border: solid var(--bg-app);
-  border-width: 0 0 1.5px 1.5px;
-  transform: rotate(-45deg);
+  animation: app-close-save-in var(--motion-dialog-in) var(--ease-out);
 }
 
 .app-close-save.is-error .app-close-save-panel {
   border-color: color-mix(in srgb, var(--danger) 38%, var(--border-default));
 }
 
-.app-close-save.is-error .app-close-save-mark {
-  position: relative;
-  border-color: var(--danger);
-}
-
-.app-close-save.is-error .app-close-save-mark::after {
-  content: '!';
-  position: absolute;
-  inset: 0;
-  color: var(--danger);
-  font-size: var(--fs-micro);
-  font-weight: 700;
-  line-height: 12px;
-  text-align: center;
-}
-
-.app-close-save-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 1px;
-  font-size: var(--fs-sm);
-  line-height: 1.35;
-}
-
-.app-close-save-copy strong {
-  font-weight: var(--font-weight-medium);
-}
-
-.app-close-save-copy span {
+.app-close-save-panel .ui-inline-status-detail {
   overflow: hidden;
   max-width: 320px;
-  color: var(--text-tertiary);
-  font-size: var(--fs-mini);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.app-close-save-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-  margin-left: var(--sp-2);
-}
-
-.app-close-save-actions button {
-  height: 28px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: var(--radius-6);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--fs-mini);
-  cursor: pointer;
-}
-
-.app-close-save-actions button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.app-close-save-actions button.is-primary {
-  background: var(--accent);
-  color: var(--accent-text);
 }
 
 @keyframes app-close-save-in {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes app-close-save-spin {
-  to { transform: rotate(360deg); }
 }

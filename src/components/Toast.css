@@ -1,60 +1,76 @@
-/* 定位层与动画层拆开：不要在同一节点上既用 transform 居中又播入场动画，
-   否则 Windows / Electron 合成层容易留下错位残影，看起来像两个 toast 重叠。 */
 .toast-host {
   position: fixed;
-  bottom: 24px;
-  left: 0;
-  right: 0;
+  right: var(--sp-6);
+  bottom: var(--sp-6);
   z-index: var(--z-toast);
   display: flex;
-  justify-content: center;
+  width: min(420px, calc(100vw - 48px));
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-2);
   pointer-events: none;
 }
 
 .toast-panel {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--sp-3);
-  max-width: calc(100vw - 24px);
-  padding: var(--sp-2) 10px var(--sp-2) 14px;
+  gap: var(--sp-2);
+  min-height: var(--control-height-lg);
+  padding: var(--sp-2);
+  border: 1px solid var(--popover-menu-border);
   border-radius: var(--radius-8);
-  background: var(--popover-bg);
-  border: 0.8px solid var(--popover-border);
-  box-shadow: var(--popover-shadow);
-  font-size: var(--fs-sm);
   color: var(--text-primary);
-  animation: toastIn 0.2s var(--ease-out) both;
+  background: var(--popover-menu-bg);
+  box-shadow: var(--popover-menu-shadow);
+  font-size: var(--type-data-size);
+  animation: toastIn var(--motion-dialog-in) var(--ease-out) both;
   pointer-events: auto;
 }
 
-.toast-panel button {
-  min-height: 30px;
-  padding: 0 var(--sp-2);
-  color: var(--accent);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-6);
+.toast-panel.is-error {
+  border-color: color-mix(in srgb, var(--neg) 38%, var(--border-default));
 }
 
-.toast-panel button:hover {
-  background: var(--bg-hover);
+.toast-panel.is-warning {
+  border-color: color-mix(in srgb, var(--warn) 28%, var(--border-default));
 }
 
-@media (max-width: 899px), (pointer: coarse) {
-  .toast-host {
-    bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
-  }
+.toast-icon {
+  color: var(--text-tertiary);
+}
 
-  .toast-panel button {
-    min-width: 44px;
-    min-height: 44px;
-  }
+.toast-panel.is-success .toast-icon {
+  color: var(--pos);
+}
+
+.toast-panel.is-warning .toast-icon {
+  color: var(--warn);
+}
+
+.toast-panel.is-error .toast-icon {
+  color: var(--neg);
+}
+
+.toast-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast-action {
+  color: var(--accent-readable);
+}
+
+.toast-close {
+  color: var(--text-tertiary);
+  background: transparent;
+  box-shadow: none;
 }
 
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;

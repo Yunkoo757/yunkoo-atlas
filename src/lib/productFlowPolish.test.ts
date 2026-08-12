@@ -148,7 +148,8 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
   ])
 
   assert(
-    [lightbox, saveStatus, tradeRow, tradeList].every((source) => source.includes('Tooltip')),
+    [lightbox, tradeRow, tradeList].every((source) => source.includes('Tooltip')) &&
+      saveStatus.includes('InlineStatus'),
     '主要图标操作应复用统一 Tooltip，而不是浏览器原生提示',
   )
   assert(

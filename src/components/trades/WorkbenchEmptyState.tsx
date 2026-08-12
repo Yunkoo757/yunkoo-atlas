@@ -16,6 +16,7 @@ export function WorkbenchEmptyState({
   const create = state.action === 'create'
   return (
     <EmptyState
+      variant={state.kind === 'library' ? 'first-use' : state.kind === 'filtered' ? 'filtered' : 'missing'}
       title={state.title}
       hint={state.hint}
       action={(

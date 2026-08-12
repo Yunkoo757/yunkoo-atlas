@@ -123,7 +123,12 @@ export async function testAutomaticBackupFailuresReachTheVisibleWorkspace(): Pro
   assert(preload.includes("ipcRenderer.on('backup:auto-failed'"), '预加载桥必须安全转发自动备份失败事件')
   assert(bridge.includes('onAutoBackupFailure(callback:'), '类型桥必须声明自动备份失败订阅')
   assert(app.includes('bridge.onAutoBackupFailure'), '工作台必须订阅自动备份失败')
-  assert(app.includes("toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份')"), '工作台必须给出可操作的中文提示')
+  assert(
+    app.includes("toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份', {") &&
+      app.includes("tone: 'error'") &&
+      app.includes("dedupeKey: 'automatic-backup-failure'"),
+    '工作台必须给出可操作、持久且可去重的中文错误提示',
+  )
 }
 
 export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Promise<void> {

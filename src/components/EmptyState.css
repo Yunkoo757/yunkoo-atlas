@@ -14,6 +14,23 @@
   opacity: 0.9;
 }
 
+.empty.is-filtered,
+.empty.is-missing,
+.empty.is-complete {
+  height: auto;
+  min-height: 180px;
+  padding: var(--sp-6);
+}
+
+.empty.is-filtered {
+  min-height: 120px;
+}
+
+.empty-complete-icon {
+  margin-bottom: var(--sp-2);
+  color: var(--pos);
+}
+
 .empty-art path {
   stroke: var(--text-quaternary);
 }
@@ -42,8 +59,7 @@
   margin-top: var(--sp-3);
 }
 
-@media (max-width: 640px) {
-  .empty {
-    padding: var(--sp-6) var(--sp-4);
-  }
+.empty-secondary-action {
+  margin-top: var(--sp-1);
+  color: var(--text-tertiary);
 }

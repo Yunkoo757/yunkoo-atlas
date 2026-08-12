@@ -2,23 +2,21 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { flushPersistNow } from '@/storage/persist'
 import { useSaveStatus } from '@/store/saveStatus'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { InlineStatus } from '@/components/ui/InlineStatus'
+import { Button } from '@/components/ui/Button'
 import './SaveStatusIndicator.css'
 
 const LABELS = {
-  idle: '',
   dirty: '未保存',
   saving: '保存中…',
   saved: '已保存',
-  error: '保存失败',
 } as const
 
 const SAVED_VISIBLE_MS = 1600
 
 export function SaveStatusIndicator() {
-  const status = useSaveStatus((s) => s.status)
-  const errorMessage = useSaveStatus((s) => s.errorMessage)
-  const label = LABELS[status]
+  const status = useSaveStatus((state) => state.status)
+  const errorMessage = useSaveStatus((state) => state.errorMessage)
 
   useEffect(() => {
     if (status !== 'saved') return
@@ -28,39 +26,42 @@ export function SaveStatusIndicator() {
     return () => window.clearTimeout(timer)
   }, [status])
 
+  if (status === 'idle') return <span className="save-status-slot" aria-hidden />
+
   if (status === 'error') {
     const reason = errorMessage ?? '无法写入本地资料库'
     return (
-      <span className="save-status-recovery" role="status" aria-live="assertive">
-        <Tooltip asChild content={`保存失败：${reason}`} label="保存失败，点击重试">
-          <button
-            type="button"
-            className="save-status is-error is-action"
-            aria-label={`保存失败：${reason}。点击重试`}
-            onClick={() => void flushPersistNow().catch(() => {})}
-          >
-            保存失败 · 重试
-          </button>
-        </Tooltip>
-        <Tooltip asChild content="打开数据与备份设置" label="打开数据与备份设置">
-          <Link
-            className="save-status-recovery-link"
-            to="/settings/data"
-          >
-            数据与备份
-          </Link>
-        </Tooltip>
-      </span>
+      <InlineStatus
+        compact
+        className="save-status-recovery"
+        tone="error"
+        title="保存失败"
+        detail={reason}
+        action={(
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`保存失败：${reason}。点击重试`}
+              onClick={() => void flushPersistNow().catch(() => {})}
+            >
+              重试
+            </Button>
+            <Link className="save-status-recovery-link" to="/settings/data">
+              数据与备份
+            </Link>
+          </>
+        )}
+      />
     )
   }
 
   return (
-    <span
+    <InlineStatus
+      compact
       className={`save-status is-${status}`}
-      aria-live="polite"
-      aria-hidden={!label}
-    >
-      {label || '\u00a0'}
-    </span>
+      tone={status === 'saved' ? 'success' : status === 'saving' ? 'progress' : 'neutral'}
+      title={LABELS[status]}
+    />
   )
 }

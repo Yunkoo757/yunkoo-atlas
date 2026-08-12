@@ -1,21 +1,28 @@
 import type { ReactNode } from 'react'
+import { CheckCircle } from '@/icons/appIcons'
+import { ICON_2XL } from '@/icons/iconSize'
 import './EmptyState.css'
 
-// 空状态：原创线条插画 + 标题 + 提示 + 可选动作。
+export type EmptyStateVariant = 'first-use' | 'filtered' | 'missing' | 'complete'
+
 export function EmptyState({
   title,
   hint,
   action,
+  secondaryAction,
+  variant = 'first-use',
   className,
 }: {
   title: string
   hint?: string
   action?: ReactNode
+  secondaryAction?: ReactNode
+  variant?: EmptyStateVariant
   className?: string
 }) {
   return (
-    <div className={`empty${className ? ` ${className}` : ''}`}>
-      <div className="empty-art" aria-hidden>
+    <div className={`empty is-${variant}${className ? ` ${className}` : ''}`}>
+      {variant === 'first-use' ? <div className="empty-art" aria-hidden>
         <svg width="92" height="72" viewBox="0 0 92 72" fill="none">
           {/* 托盘外形（原创绘制）*/}
           <path
@@ -41,12 +48,16 @@ export function EmptyState({
             fill="var(--border-default)"
           />
         </svg>
-      </div>
+      </div> : null}
+      {variant === 'complete' ? (
+        <CheckCircle className="empty-complete-icon" size={ICON_2XL} aria-hidden />
+      ) : null}
       <div role="status" aria-live="polite" aria-atomic="true">
         <h2 className="empty-title">{title}</h2>
         {hint && <div className="empty-hint">{hint}</div>}
       </div>
       {action && <div className="empty-action">{action}</div>}
+      {secondaryAction && <div className="empty-secondary-action">{secondaryAction}</div>}
     </div>
   )
 }

@@ -1,55 +1,33 @@
+.save-status-slot,
 .save-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
   min-width: 4.5em;
-  min-height: 1.2em;
-  padding: 2px 6px;
-  border-radius: var(--radius-4);
+}
+
+.save-status {
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
-.save-status.is-dirty {
-  color: var(--text-secondary);
-}
-
-.save-status.is-saving {
-  color: var(--text-secondary);
-}
-
-.save-status.is-saved {
-  color: var(--text-tertiary);
-}
-
-.save-status.is-error {
-  color: var(--neg);
+.save-status .ui-inline-status-copy,
+.save-status-recovery .ui-inline-status-copy {
+  font-size: var(--type-metadata-size);
 }
 
 .save-status-recovery {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
   white-space: nowrap;
 }
 
-.save-status.is-action {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.save-status.is-action:hover,
-.save-status.is-action:focus-visible {
-  color: var(--neg-strong);
+.save-status-recovery .ui-inline-status-detail {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .save-status-recovery-link {
-  padding: 2px var(--sp-1);
+  padding: var(--sp-1);
   color: var(--text-secondary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   text-decoration: none;
 }
 
@@ -58,28 +36,4 @@
   color: var(--text-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.save-status.is-idle {
-  visibility: hidden;
-}
-
-@media (max-width: 640px) {
-  .save-status.is-idle {
-    width: 0;
-    min-width: 0;
-    padding: 0;
-  }
-
-  .save-status.is-saved {
-    width: 24px;
-    min-width: 24px;
-    padding: 0;
-    font-size: 0;
-  }
-
-  .save-status.is-saved::before {
-    content: '✓';
-    font-size: var(--fs-mini);
-  }
 }

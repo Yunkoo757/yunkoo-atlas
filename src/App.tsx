@@ -27,6 +27,8 @@ import { TradeComposer } from './components/TradeComposer'
 import { TradeCloseDialog } from './components/TradeCloseDialog'
 import { TradeOpenRiskDialog } from './components/TradeOpenRiskDialog'
 import { ToastHost } from './components/Toast'
+import { Button } from './components/ui/Button'
+import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
 import { toast } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { ImageLightbox } from './components/ImageLightbox'
@@ -83,26 +85,26 @@ function CloseSaveReceipt({
     : state.phase === 'saved'
       ? '已安全保存'
       : '保存未完成，已取消退出'
+  const tone: InlineStatusTone = state.phase === 'saving'
+    ? 'progress'
+    : state.phase === 'saved'
+      ? 'success'
+      : 'error'
 
   return (
-    <div
-      className={`app-close-save is-${state.phase}`}
-      role={state.phase === 'error' ? 'alert' : 'status'}
-      aria-live={state.phase === 'error' ? 'assertive' : 'polite'}
-    >
-      <div className="app-close-save-panel">
-        <span className="app-close-save-mark" aria-hidden />
-        <div className="app-close-save-copy">
-          <strong>{message}</strong>
-          {state.phase === 'error' && <span>{state.message}</span>}
-        </div>
-        {state.phase === 'error' && (
-          <div className="app-close-save-actions">
-            <button type="button" onClick={onDismiss}>继续使用</button>
-            <button type="button" className="is-primary" onClick={onRetry}>重试退出</button>
-          </div>
-        )}
-      </div>
+    <div className={`app-close-save is-${state.phase}`}>
+      <InlineStatus
+        className="app-close-save-panel"
+        tone={tone}
+        title={message}
+        detail={state.phase === 'error' ? state.message : undefined}
+        action={state.phase === 'error' ? (
+          <>
+            <Button size="sm" onClick={onDismiss}>继续使用</Button>
+            <Button size="sm" variant="primary" onClick={onRetry}>重试退出</Button>
+          </>
+        ) : undefined}
+      />
     </div>
   )
 }
@@ -644,7 +646,10 @@ export function App() {
         }
         if (bridge?.onAutoBackupFailure) {
           unsubscribeAutoBackupFailure = bridge.onAutoBackupFailure(() => {
-            toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份')
+            toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份', {
+              tone: 'error',
+              dedupeKey: 'automatic-backup-failure',
+            })
           })
         }
         if (bridge?.onCloseSaveError) {
@@ -676,31 +681,48 @@ export function App() {
 
   if (storageError) {
     return (
-      <div className="app-storage-error" role="alert" aria-live="assertive">
-        <div className="app-storage-error-card">
-          <span className="app-storage-error-eyebrow">本地资料库未打开</span>
-          <h1>已停止进入工作区，避免覆盖现有数据</h1>
-          <p>{storageError}</p>
-          <div className="app-storage-error-actions">
-            <button type="button" onClick={() => void handleStorageRetry()} disabled={retryingStorage}>
-              {retryingStorage ? '正在重试…' : '重试打开'}
-            </button>
-            {isElectron() && (
-              <button
-                type="button"
-                className="is-secondary"
-                onClick={() => {
-                  setStorageError(null)
-                  setNeedsWelcome(true)
-                  setReady(true)
-                }}
+      <div className="app-storage-error">
+        <InlineStatus
+          className="app-storage-error-card"
+          tone="error"
+          title={(
+            <>
+              <span className="app-storage-error-eyebrow">本地资料库未打开</span>
+              <h1>已停止进入工作区，避免覆盖现有数据</h1>
+            </>
+          )}
+          detail={(
+            <>
+              <span>{storageError}</span>
+              <small>软件不会在加载失败时创建空数据或继续保存。</small>
+            </>
+          )}
+          action={(
+            <div className="app-storage-error-actions">
+              <Button
+                size="lg"
+                variant="primary"
+                onClick={() => void handleStorageRetry()}
+                disabled={retryingStorage}
               >
-                选择其他资料库
-              </button>
-            )}
-          </div>
-          <small>软件不会在加载失败时创建空数据或继续保存。</small>
-        </div>
+                {retryingStorage ? '正在重试…' : '重试打开'}
+              </Button>
+              {isElectron() && (
+                <Button
+                  size="lg"
+                  variant="bordered"
+                  onClick={() => {
+                    setStorageError(null)
+                    setNeedsWelcome(true)
+                    setReady(true)
+                  }}
+                >
+                  选择其他资料库
+                </Button>
+              )}
+            </div>
+          )}
+        />
       </div>
     )
   }

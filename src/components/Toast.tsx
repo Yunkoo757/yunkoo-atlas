@@ -1,31 +1,63 @@
 import { createPortal } from 'react-dom'
-import { useToast } from '@/lib/toast'
+import { AlertCircle, AlertTriangle, CheckCircle, CircleDot, X } from '@/icons/appIcons'
+import { ICON_MD } from '@/icons/iconSize'
+import { useToast, type ToastTone } from '@/lib/toast'
+import { Button } from '@/components/ui/Button'
+import { IconButton } from '@/components/ui/IconButton'
 import './Toast.css'
 
+const TONE_ICONS = {
+  info: CircleDot,
+  success: CheckCircle,
+  warning: AlertTriangle,
+  error: AlertCircle,
+} satisfies Record<ToastTone, typeof AlertCircle>
+
 export function ToastHost() {
-  const id = useToast((s) => s.id)
-  const message = useToast((s) => s.message)
-  const actionLabel = useToast((s) => s.actionLabel)
-  const onAction = useToast((s) => s.onAction)
-  const dismiss = useToast((s) => s.dismiss)
-  if (!message) return null
+  const items = useToast((state) => state.items)
+  const dismiss = useToast((state) => state.dismiss)
+  if (items.length === 0) return null
+
   return createPortal(
-    <div className="toast-host" role="status" aria-live="polite" aria-atomic="true">
-      {/* key 保证换文案时整卡重挂，避免 transform 动画与定位叠在同一层产生残影 */}
-      <div key={id} className="toast-panel">
-        <span>{message}</span>
-        {actionLabel && onAction ? (
-          <button
-            type="button"
-            onClick={() => {
-              dismiss()
-              onAction()
-            }}
+    <div className="toast-host" aria-label="系统通知">
+      {items.map((item) => {
+        const Icon = TONE_ICONS[item.tone]
+        const isError = item.tone === 'error'
+        return (
+          <div
+            key={item.id}
+            className={`toast-panel is-${item.tone}`}
+            role={isError ? 'alert' : 'status'}
+            aria-live={isError ? 'assertive' : 'polite'}
+            aria-atomic="true"
           >
-            {actionLabel}
-          </button>
-        ) : null}
-      </div>
+            <Icon className="toast-icon" size={ICON_MD} aria-hidden />
+            <span className="toast-message">{item.message}</span>
+            {item.actionLabel && item.onAction ? (
+              <Button
+                size="sm"
+                className="toast-action"
+                onClick={() => {
+                  dismiss(item.id)
+                  item.onAction?.()
+                }}
+              >
+                {item.actionLabel}
+              </Button>
+            ) : null}
+            {item.persistent ? (
+              <IconButton
+                size="sm"
+                className="toast-close"
+                label="关闭通知"
+                onClick={() => dismiss(item.id)}
+              >
+                <X size={ICON_MD} aria-hidden />
+              </IconButton>
+            ) : null}
+          </div>
+        )
+      })}
     </div>,
     document.body,
   )
