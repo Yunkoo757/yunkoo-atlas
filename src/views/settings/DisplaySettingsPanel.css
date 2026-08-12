@@ -90,10 +90,3 @@
   width: 24px;
   color: var(--accent);
 }
-
-@media (max-width: 640px) {
-  .display-settings-card .display-toggle,
-  .display-choice {
-    min-height: 56px;
-  }
-}

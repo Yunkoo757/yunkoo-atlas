@@ -77,8 +77,14 @@ export async function testReducedMotionLoadingIndicatorsDoNotFreezeAsSpinners():
 export async function testDesktopFrameAvoidsMobileSafeAreaDependencies(): Promise<void> {
   const fs = await import('node:fs/promises')
   const frameCss = await fs.readFile('src/components/ui/AppFrame.css', 'utf8')
-  assert(frameCss.includes('--sidebar-w'), '桌面主框架必须消费侧栏宽度 token')
+  assert(
+    frameCss.includes('--app-sidebar-width: 244px') &&
+      frameCss.includes('--app-sidebar-width: 208px') &&
+      frameCss.includes('var(--app-sidebar-width)'),
+    '桌面主框架必须消费标准与紧凑侧栏宽度 token',
+  )
   assert(frameCss.includes('--main-inset'), '桌面主框架必须消费窗口内缩 token')
+  assert(!frameCss.includes('safe-area-inset'), '桌面主框架不得依赖移动设备安全区')
 }
 
 export async function testPrimaryControlsExposePressedDisabledAndDesktopScaleStates(): Promise<void> {

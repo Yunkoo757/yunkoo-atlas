@@ -91,6 +91,24 @@
   animation: app-close-save-in var(--motion-dialog-in) var(--ease-out);
 }
 
+.app-windows-close-remember {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  cursor: default;
+}
+
+.app-windows-close-remember input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .app-close-save.is-error .app-close-save-panel {
   border-color: color-mix(in srgb, var(--danger) 38%, var(--border-default));
 }

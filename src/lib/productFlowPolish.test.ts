@@ -207,16 +207,15 @@ export async function testTodayNavigationAndDateBoundaryRemainInsideTheWorkspace
   )
 }
 
-export async function testRestoresAndMobileControlsPreserveSafeInteractionState(): Promise<void> {
+export async function testRestoresAndDesktopControlsPreserveSafeInteractionState(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [dataIO, dashboard, dashboardCss, quickView, quickViewCss, reviewCss, dataSettings] =
+  const [dataIO, dashboard, dashboardCss, quickView, appFrame, dataSettings] =
     await Promise.all([
       fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
       fs.readFile('src/views/Dashboard.tsx', 'utf8'),
       fs.readFile('src/views/Dashboard.css', 'utf8'),
       fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8'),
-      fs.readFile('src/components/trades/QuickViewBar.css', 'utf8'),
-      fs.readFile('src/views/ReviewSessionView.css', 'utf8'),
+      fs.readFile('src/components/ui/AppFrame.css', 'utf8'),
       fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8'),
     ])
 
@@ -233,7 +232,7 @@ export async function testRestoresAndMobileControlsPreserveSafeInteractionState(
   )
   assert(
     dashboard.includes('className="db-empty"') && /\.db-empty\s*\{[^}]*height:\s*auto;/s.test(dashboardCss),
-    '移动端仪表盘空态必须脱离通用 100% 高度，避免主操作被底栏遮挡',
+    '仪表盘空态必须脱离通用 100% 高度，避免主操作被桌面窗口裁切',
   )
   assert(
     quickView.includes("['ArrowLeft', 'ArrowRight', 'Home', 'End']") &&
@@ -241,12 +240,10 @@ export async function testRestoresAndMobileControlsPreserveSafeInteractionState(
     '快速视图 tablist 必须支持方向键与 roving tabindex',
   )
   assert(
-    /@media \(max-width: 899px\), \(pointer: coarse\)[\s\S]*\.quick-view-save-entry[\s\S]*min-height:\s*44px;/s.test(quickViewCss),
-    '移动端快速视图弹层内部操作区不得小于 44px',
-  )
-  assert(
-    /@media \(max-width: 899px\)[\s\S]*\.review-session-content-toggle[\s\S]*min-height:\s*44px;/s.test(reviewCss),
-    '移动端随机复盘内容开关不得小于 44px',
+    appFrame.includes('--app-sidebar-width: 208px') &&
+      !appFrame.includes('ui-mobile-navigation') &&
+      !appFrame.includes('safe-area-inset'),
+    '紧凑桌面壳层必须保留侧栏，并移除移动导航与安全区补偿',
   )
   assert(!dataSettings.includes('建议启用列表虚拟化'), '已启用虚拟列表时不得继续展示失真的性能建议')
 }
@@ -278,11 +275,12 @@ export async function testResultConflictsAndReviewShortcutsHaveDedicatedRecovery
   )
 }
 
-export async function testMobileSafeCopyDashboardAndSavedViewsRemainOperable(): Promise<void> {
+export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [tradeListCss, batchCss, dashboard, quickView, toastSource, toastCss, emptyState] = await Promise.all([
-    fs.readFile('src/components/trades/TradeList.css', 'utf8'),
+  const [sidebar, batchCss, toolbar, dashboard, quickView, toastSource, toastCss, emptyState] = await Promise.all([
+    fs.readFile('src/components/Sidebar.tsx', 'utf8'),
     fs.readFile('src/components/ui/BatchActionBar.css', 'utf8'),
+    fs.readFile('src/components/ui/Toolbar.tsx', 'utf8'),
     fs.readFile('src/views/Dashboard.tsx', 'utf8'),
     fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8'),
     fs.readFile('src/lib/toast.ts', 'utf8'),
@@ -291,14 +289,15 @@ export async function testMobileSafeCopyDashboardAndSavedViewsRemainOperable(): 
   ])
 
   assert(
-    /@media \(max-width: 899px\), \(pointer: coarse\)[\s\S]*\.trade-row-check[\s\S]*width:\s*44px;/s.test(tradeListCss) &&
-      !/@media \(max-width: 700px\)[\s\S]*\.trade-row-check,[\s\S]*display:\s*none;/s.test(tradeListCss),
-    '移动端必须保留可见且可触达的批量选择入口',
+    sidebar.includes("type SidebarDensity = 'standard' | 'compact'") &&
+      sidebar.includes('data-density={density}'),
+    '桌面侧栏必须公开标准与紧凑密度状态',
   )
   assert(
-    batchCss.includes('calc(64px + env(safe-area-inset-bottom) + 12px)') &&
-      batchCss.includes('white-space: nowrap'),
-    '移动批量操作条必须避开底部导航且保持操作文案完整',
+    !batchCss.includes('safe-area-inset') &&
+      toolbar.includes('label="更多操作"') &&
+      toolbar.includes("align=\"right\""),
+    '桌面批量操作不得保留移动底栏补偿，工具栏溢出动作必须可达',
   )
   assert(
     dashboard.includes('role="group"') &&

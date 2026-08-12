@@ -28,6 +28,8 @@ import { TradeOpenRiskDialog } from './components/TradeOpenRiskDialog'
 import { ToastHost } from './components/Toast'
 import { Button } from './components/ui/Button'
 import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
+import { ModalShell } from './components/ui/ModalShell'
+import type { WindowsCloseChoice } from './types/journalBridge'
 import { toast } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { ImageLightbox } from './components/ImageLightbox'
@@ -105,6 +107,46 @@ function CloseSaveReceipt({
         ) : undefined}
       />
     </div>
+  )
+}
+
+export function WindowsClosePrompt({
+  remember,
+  onRememberChange,
+  onChoose,
+}: {
+  remember: boolean
+  onRememberChange: (remember: boolean) => void
+  onChoose: (choice: WindowsCloseChoice) => void
+}) {
+  return (
+    <ModalShell
+      title="关闭 Trader Atlas"
+      description="选择关闭主窗口后软件在 Windows 中的行为。"
+      size="compact"
+      dismissible={false}
+      onClose={() => {}}
+      footer={(
+        <>
+          <Button variant="bordered" onClick={() => onChoose('quit')}>彻底退出</Button>
+          <Button data-autofocus variant="primary" onClick={() => onChoose('tray')}>隐藏到托盘</Button>
+        </>
+      )}
+    >
+      <InlineStatus
+        tone="info"
+        title="隐藏后仍会继续保护和自动备份本地资料库"
+        detail="你可以从系统托盘重新打开；选择彻底退出会先完成安全保存。"
+      />
+      <label className="app-windows-close-remember">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(event) => onRememberChange(event.currentTarget.checked)}
+        />
+        <span>记住此选择，可在“设置 → 显示”中修改</span>
+      </label>
+    </ModalShell>
   )
 }
 
@@ -479,6 +521,8 @@ export function App() {
   const [storageError, setStorageError] = useState<string | null>(null)
   const [retryingStorage, setRetryingStorage] = useState(false)
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
+  const [windowsClosePromptOpen, setWindowsClosePromptOpen] = useState(false)
+  const [rememberWindowsClose, setRememberWindowsClose] = useState(false)
   const closeSaveGeneration = useRef(new AsyncGeneration())
 
   useEffect(() => {
@@ -617,6 +661,7 @@ export function App() {
       let unsubscribeBeforeClose: (() => void) | undefined
       let unsubscribeCloseError: (() => void) | undefined
       let unsubscribeAutoBackupFailure: (() => void) | undefined
+      let unsubscribeWindowsCloseExplanation: (() => void) | undefined
       try {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
@@ -658,6 +703,12 @@ export function App() {
             setCloseSaveState({ phase: 'error', message })
           })
         }
+        if (bridge?.onWindowsCloseExplanation) {
+          unsubscribeWindowsCloseExplanation = bridge.onWindowsCloseExplanation(() => {
+            setRememberWindowsClose(false)
+            setWindowsClosePromptOpen(true)
+          })
+        }
       } catch { /* bridge not available */ }
 
       return () => {
@@ -667,6 +718,7 @@ export function App() {
         unsubscribeBeforeClose?.()
         unsubscribeCloseError?.()
         unsubscribeAutoBackupFailure?.()
+        unsubscribeWindowsCloseExplanation?.()
       }
     }
 
@@ -752,6 +804,17 @@ export function App() {
           if (bridge?.requestClose) void bridge.requestClose()
         }}
       />
+      {windowsClosePromptOpen ? (
+        <WindowsClosePrompt
+          remember={rememberWindowsClose}
+          onRememberChange={setRememberWindowsClose}
+          onChoose={(choice) => {
+            setWindowsClosePromptOpen(false)
+            const bridge = window.journalBridge
+            if (bridge) void bridge.resolveWindowsClose(choice, rememberWindowsClose)
+          }}
+        />
+      ) : null}
       {!isElectron() ? <WebStorageGuard /> : null}
     </>
   )

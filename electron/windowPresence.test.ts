@@ -28,6 +28,8 @@ function createPresenceFixture(options: {
   trayFailure?: boolean
   quitResult?: { ok: true } | { ok: false; error?: string }
   exitAuthorized?: boolean
+  platform?: 'win32' | 'darwin'
+  closePreference?: 'ask' | 'tray' | 'quit'
 } = {}): PresenceFixture {
   const calls: string[] = []
   let visible = options.visible ?? true
@@ -95,7 +97,14 @@ function createPresenceFixture(options: {
       calls.push('quit')
       return options.quitResult ?? { ok: true }
     },
+    requestWindowClose: async () => {
+      calls.push('close-window')
+      return options.quitResult ?? { ok: true }
+    },
     isExitAuthorized: () => options.exitAuthorized ?? false,
+    platform: options.platform ?? 'win32',
+    getWindowsClosePreference: () => options.closePreference ?? 'ask',
+    explainWindowsClose: () => { calls.push('close:explain') },
     showDock: () => { calls.push('dock:show') },
     hideDock: () => { calls.push('dock:hide') },
     reportError: (code) => { calls.push(`error:${code}`) },
@@ -166,7 +175,7 @@ export function testMissingWindowIsCreatedShownAndFocused(): void {
 }
 
 export function testCloseWithTrayHidesInsteadOfQuitting(): void {
-  const fixture = createPresenceFixture()
+  const fixture = createPresenceFixture({ closePreference: 'tray' })
   fixture.controller.initialize()
   fixture.controller.attachWindow(fixture.window)
 
@@ -180,8 +189,36 @@ export function testCloseWithTrayHidesInsteadOfQuitting(): void {
   assert(!fixture.calls.includes('quit'), '隐藏到托盘不得请求退出')
 }
 
+export function testWindowsFirstCloseEmitsRendererExplanation(): void {
+  const fixture = createPresenceFixture({ platform: 'win32', closePreference: 'ask' })
+  fixture.controller.initialize()
+  fixture.controller.attachWindow(fixture.window)
+
+  const event = fixture.window.emitClose()
+
+  assert(event.prevented, 'Windows 首次关闭必须等待用户选择')
+  assert(
+    fixture.calls.join('|') === 'tray:create|close:prevent|close:explain',
+    'Windows 首次关闭必须发送解释事件，不能直接隐藏或退出',
+  )
+}
+
+export async function testMacCloseKeepsDockVisibleAndClosesOnlyWindow(): Promise<void> {
+  const fixture = createPresenceFixture({ platform: 'darwin' })
+  fixture.controller.initialize()
+  fixture.controller.attachWindow(fixture.window)
+
+  const event = fixture.window.emitClose()
+  await Promise.resolve()
+
+  assert(event.prevented, 'macOS 关闭窗口前仍需完成可靠保存')
+  assert(fixture.calls.includes('close-window'), 'macOS 必须只关闭当前窗口')
+  assert(!fixture.calls.includes('quit'), 'macOS 关闭窗口不得退出应用')
+  assert(!fixture.calls.includes('dock:hide'), 'macOS 关闭窗口不得隐藏 Dock')
+}
+
 export async function testTrayFailureFallsBackToReliableClose(): Promise<void> {
-  const fixture = createPresenceFixture({ trayFailure: true })
+  const fixture = createPresenceFixture({ trayFailure: true, closePreference: 'tray' })
   fixture.controller.initialize()
   fixture.controller.attachWindow(fixture.window)
 
@@ -210,6 +247,7 @@ export async function testQuitFailureRestoresVisibleFocusedWindow(): Promise<voi
     visible: false,
     focused: false,
     trayFailure: true,
+    closePreference: 'quit',
     quitResult: { ok: false, error: 'backup failed' },
   })
   fixture.controller.initialize()

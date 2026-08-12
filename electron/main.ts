@@ -45,7 +45,12 @@ import {
   type WindowHotkeyUpdateResult,
 } from '@/lib/windowHotkeyBinding'
 import { FileWindowHotkeyStorage, WindowHotkeyService } from './windowHotkey'
-import { createElectronTrayFactory, WindowPresenceController } from './windowPresence'
+import {
+  createElectronTrayFactory,
+  WindowPresenceController,
+  type WindowsCloseChoice,
+  type WindowsClosePreference,
+} from './windowPresence'
 import {
   disposeOwnedLifecycle,
   initializeOwnedResource,
@@ -122,9 +127,34 @@ let windowPresence: WindowPresenceController | null = null
 let windowHotkey: WindowHotkeyService | null = null
 let lifecycleServicesDisposed = false
 let gracefulExitAuthorized = false
+let windowsClosePreference: WindowsClosePreference = 'ask'
+const WINDOWS_CLOSE_PREFERENCE_FILE = 'windows-close-preference.json'
 const forcedKillMode = process.env.TRADER_ATLAS_FORCED_KILL_MODE
 const hasSingleInstanceLock =
   process.env.TRADER_ATLAS_QA === '1' || forcedKillMode || app.requestSingleInstanceLock()
+
+function windowsClosePreferencePath(): string {
+  return path.join(app.getPath('userData'), WINDOWS_CLOSE_PREFERENCE_FILE)
+}
+
+function normalizeWindowsClosePreference(value: unknown): WindowsClosePreference {
+  return value === 'tray' || value === 'quit' ? value : 'ask'
+}
+
+function loadWindowsClosePreference(): WindowsClosePreference {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(windowsClosePreferencePath(), 'utf8')) as unknown
+    return normalizeWindowsClosePreference(parsed)
+  } catch {
+    return 'ask'
+  }
+}
+
+function persistWindowsClosePreference(preference: WindowsClosePreference): void {
+  const target = windowsClosePreferencePath()
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  fs.writeFileSync(target, JSON.stringify(preference), 'utf8')
+}
 
 function ensureMainWindow(): BrowserWindow {
   if (!mainWindow || mainWindow.isDestroyed()) createWindow()
@@ -176,6 +206,7 @@ async function disposeLifecycleServices(): Promise<void> {
 
 function initializeWindowPresence(): void {
   try {
+    windowsClosePreference = loadWindowsClosePreference()
     const candidate = initializeOwnedResource({
       create: () => new WindowPresenceController({
         ensureWindow: ensureMainWindow,
@@ -193,7 +224,14 @@ function initializeWindowPresence(): void {
           buildMenu: (items) => Menu.buildFromTemplate([...items]),
         }),
         requestQuit: () => quitCoordinator.request('quit'),
+        requestWindowClose: () => quitCoordinator.request('close'),
         isExitAuthorized: () => gracefulExitAuthorized,
+        platform: process.platform === 'darwin' ? 'darwin' : 'win32',
+        getWindowsClosePreference: () => windowsClosePreference,
+        explainWindowsClose: () => {
+          if (!mainWindow || mainWindow.isDestroyed()) return
+          mainWindow.webContents.send('app:windows-close-explanation')
+        },
         showDock: () => { void app.dock?.show() },
         hideDock: () => { app.dock?.hide() },
         reportError: (code, error) => logDiagnostic('error', code, error),
@@ -541,6 +579,25 @@ if (!hasSingleInstanceLock) {
 
     registerLibraryIpc()
     registerWindowIpc()
+    ipcMain.handle('app:get-windows-close-preference', () => windowsClosePreference)
+    ipcMain.handle('app:set-windows-close-preference', (_event, input: unknown) => {
+      windowsClosePreference = normalizeWindowsClosePreference(input)
+      persistWindowsClosePreference(windowsClosePreference)
+      return windowsClosePreference
+    })
+    ipcMain.handle('app:resolve-windows-close', (_event, input: unknown) => {
+      if (process.platform !== 'win32' || !input || typeof input !== 'object') return
+      const request = input as { choice?: unknown; remember?: unknown }
+      const choice: WindowsCloseChoice | null = request.choice === 'tray' || request.choice === 'quit'
+        ? request.choice
+        : null
+      if (!choice) return
+      if (request.remember === true) {
+        windowsClosePreference = choice
+        persistWindowsClosePreference(choice)
+      }
+      windowPresence?.resolveWindowsClose(choice)
+    })
     ipcMain.handle('app:request-close', () => quitCoordinator.request('close'))
     ipcMain.handle('app:toggle-fullscreen', () => {
       if (!mainWindow || mainWindow.isDestroyed()) return false
