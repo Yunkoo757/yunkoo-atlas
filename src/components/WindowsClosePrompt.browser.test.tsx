@@ -21,7 +21,8 @@ async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
   const root = createRoot(rootElement)
-  let selection: { choice: WindowsCloseChoice; remember: boolean } | null = null
+  let selectedChoice: WindowsCloseChoice | undefined
+  let selectedRemember = false
 
   function Harness() {
     const [remember, setRemember] = useState(false)
@@ -29,7 +30,10 @@ async function run(): Promise<void> {
       <WindowsClosePrompt
         remember={remember}
         onRememberChange={setRemember}
-        onChoose={(choice) => { selection = { choice, remember } }}
+        onChoose={(choice) => {
+          selectedChoice = choice
+          selectedRemember = remember
+        }}
       />
     )
   }
@@ -54,7 +58,7 @@ async function run(): Promise<void> {
   remember.click()
   await nextFrame()
   hide.click()
-  assert(selection?.choice === 'tray' && selection.remember, '必须提交选择及记住状态')
+  assert(selectedChoice === 'tray' && selectedRemember, '必须提交选择及记住状态')
 
   root.unmount()
 }
