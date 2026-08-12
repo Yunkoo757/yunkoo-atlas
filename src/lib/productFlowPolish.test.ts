@@ -277,11 +277,12 @@ export async function testResultConflictsAndReviewShortcutsHaveDedicatedRecovery
 
 export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [sidebar, batchCss, toolbar, dashboard, quickView, toastSource, toastCss, emptyState] = await Promise.all([
+  const [sidebar, batchCss, toolbar, dashboard, segmentedControl, quickView, toastSource, toastCss, emptyState] = await Promise.all([
     fs.readFile('src/components/Sidebar.tsx', 'utf8'),
     fs.readFile('src/components/ui/BatchActionBar.css', 'utf8'),
     fs.readFile('src/components/ui/Toolbar.tsx', 'utf8'),
     fs.readFile('src/views/Dashboard.tsx', 'utf8'),
+    fs.readFile('src/components/ui/SegmentedControl.tsx', 'utf8'),
     fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8'),
     fs.readFile('src/lib/toast.ts', 'utf8'),
     fs.readFile('src/components/Toast.css', 'utf8'),
@@ -300,8 +301,10 @@ export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Pr
     '桌面批量操作不得保留移动底栏补偿，工具栏溢出动作必须可达',
   )
   assert(
-    dashboard.includes('role="group"') &&
-      dashboard.includes('aria-pressed=') &&
+    dashboard.includes('<SegmentedControl') &&
+      dashboard.includes('label="统计周期"') &&
+      segmentedControl.includes('role="group"') &&
+      segmentedControl.includes('aria-pressed={selected}') &&
       !dashboard.includes('role="tablist"') &&
       dashboard.includes('db-chart-data'),
     '仪表盘范围按钮应使用真实筛选语义，并为图表提供键盘数据入口',

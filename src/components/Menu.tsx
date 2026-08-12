@@ -230,6 +230,8 @@ export function Menu({
                 role={isSelectionMenu ? 'menuitemradio' : 'menuitem'}
                 aria-checked={isSelectionMenu ? o.value === value : undefined}
                 onClick={() => {
+                  const control = resolveTriggerControl() ?? triggerControlRef.current
+                  control?.focus()
                   onSelect(o.value)
                   setOpen(false)
                 }}

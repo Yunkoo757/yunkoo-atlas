@@ -13,10 +13,12 @@ import {
 } from 'recharts'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
-import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
 import { LivePerformanceCycleManager } from '@/components/LivePerformanceCycleManager'
 import { StrategyIcon } from '@/components/StrategyIcon'
-import { Plus } from '@/icons/appIcons'
+import { Menu } from '@/components/Menu'
+import { IconButton } from '@/components/ui/IconButton'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { MoreHorizontal, Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { fmtMoney } from '@/lib/format'
@@ -260,24 +262,41 @@ export function Dashboard() {
     <>
       <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD" showDisplay={false} />
       <div className="db-scroll">
-        <div className="db-toolbar">
-          <span className="db-toolbar-label">时间</span>
-          <div className="db-segmented" role="group" aria-label="时间范围">
-            {RANGE_OPTS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={scope.range === o.value}
-                className={'db-seg' + (scope.range === o.value ? ' is-on' : '')}
-                onClick={() => updateScope({ range: o.value })}
-              >
-                {o.label}
-              </button>
-            ))}
+        <div className="db-analysis-rail">
+        <div className="db-toolbar" aria-label="分析控制">
+          <div className="db-toolbar-group" aria-label="数据范围">
+            <span className="db-toolbar-label">数据范围</span>
+            <strong className="db-toolbar-current">当前实盘</strong>
           </div>
-          <LivePerformanceCycleControl
-            onManage={() => setCycleManagerOpen(true)}
-          />
+          <div className="db-toolbar-group" aria-label="统计周期">
+            <span className="db-toolbar-label">统计周期</span>
+            <SegmentedControl
+              className="db-range-control"
+              label="统计周期"
+              value={scope.range}
+              options={RANGE_OPTS}
+              onChange={(range) => updateScope({ range })}
+            />
+          </div>
+          <div className="db-toolbar-actions">
+            <Link
+              to="/list?kind=live&range=all"
+              className="db-toolbar-link"
+              data-current-live-trade-link
+            >
+              查看交易
+            </Link>
+            <Menu
+              align="right"
+              trigger={(
+                <IconButton label="更多统计操作" size="sm">
+                  <MoreHorizontal size={16} aria-hidden />
+                </IconButton>
+              )}
+              options={[{ value: 'manage-cycle', label: '管理统计周期' }]}
+              onSelect={() => setCycleManagerOpen(true)}
+            />
+          </div>
         </div>
 
         {cycleManagerOpen ? (
@@ -288,80 +307,15 @@ export function Dashboard() {
           />
         ) : null}
 
-        <section className={'db-week' + (weekCardEmpty ? ' is-empty' : '')} aria-label="本周交易分析">
-          <div className="db-week-head">
-            <div>
-              <span className="db-week-title">本周交易分析</span>
-              <div className="db-week-sub">
-                {weekCardEmpty
-                  ? hasClosedTrades
-                    ? '本周暂无已平仓交易 · 下方继续显示当前筛选范围的历史统计'
-                    : '本周尚无已平仓交易 · 平仓后汇总胜率、盈亏与平均 R'
-                  : `${weekRangeLabel} · 按平仓日${weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}`}
-              </div>
-            </div>
-            <div className="db-week-actions">
-              <Link to="/weekly-review" className="db-week-link">
-                打开周复盘
-              </Link>
-            </div>
+        <header className="db-current-range-head">
+          <div>
+            <span className="db-current-range-eyebrow">当前分析范围</span>
+            <h2 className="db-current-range-title" data-dashboard-current-range>
+              {rangeLabel} · 当前实盘
+            </h2>
           </div>
-          {!weekCardEmpty ? (
-            <div className="db-week-metrics">
-              <div className="db-week-metric">
-                <span>平仓</span>
-                <strong>{weekMetrics.tradeCount}</strong>
-                <small>{weekMetrics.reviewedCount} 笔已复盘</small>
-              </div>
-              <div className="db-week-metric">
-                <span>胜率</span>
-                <strong>{weekMetrics.winRate == null ? '—' : `${weekMetrics.winRate.toFixed(0)}%`}</strong>
-                <small>
-                  {weekMetrics.winCount} 赢 · {weekMetrics.lossCount} 亏 · {weekMetrics.breakevenCount} 平
-                </small>
-              </div>
-              <div className="db-week-metric">
-                <span>净盈亏</span>
-                <strong
-                  style={{
-                    color: privacyMode || weekMetrics.pnlCount === 0 || weekMetrics.totalPnl === 0
-                      ? undefined
-                      : weekMetrics.totalPnl > 0
-                        ? 'var(--pos)'
-                        : 'var(--neg)',
-                  }}
-                >
-                  {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
-                </strong>
-                <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small>
-              </div>
-              <div className="db-week-metric">
-                <span>平均 R</span>
-                <strong
-                  style={{
-                    color: weekMetrics.averageR == null || weekMetrics.averageR === 0
-                      ? undefined
-                      : weekMetrics.averageR > 0
-                        ? 'var(--pos)'
-                        : 'var(--neg)',
-                  }}
-                >
-                  {weekMetrics.averageR == null
-                    ? '—'
-                    : `${weekMetrics.averageR > 0 ? '+' : ''}${weekMetrics.averageR.toFixed(2)}`}
-                </strong>
-                <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small>
-              </div>
-            </div>
-          ) : null}
-          {weekMetrics.missedCount > 0 && missedReasonSummary ? (
-            <p className="db-week-missed">执行缺口：{missedReasonSummary}</p>
-          ) : null}
-        </section>
-
-        <div className="db-live-links" aria-label="实盘统计入口">
           <Link to="/live-archive" className="db-live-link">历史记录</Link>
-        </div>
+        </header>
 
         <div className="db-cards" aria-label={`当前范围指标 · ${rangeLabel}`}>
           <Card
@@ -467,7 +421,6 @@ export function Dashboard() {
             }
           />
         ) : (
-          <>
         <section className="db-panel">
           <div className="db-panel-head">
             <div>
@@ -560,6 +513,60 @@ export function Dashboard() {
             )}
           </div>
         </section>
+
+        )}
+
+        <section className={'db-week' + (weekCardEmpty ? ' is-empty' : '')} aria-label="本周交易分析">
+          <div className="db-week-head">
+            <div>
+              <span className="db-week-title">本周交易分析</span>
+              <div className="db-week-sub">
+                {weekCardEmpty
+                  ? hasClosedTrades
+                    ? '本周暂无已平仓交易 · 当前范围仍保留上方历史统计'
+                    : '本周尚无已平仓交易 · 平仓后汇总胜率、盈亏与平均 R'
+                  : `${weekRangeLabel} · 按平仓日${weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}`}
+              </div>
+            </div>
+            <div className="db-week-actions">
+              <Link to="/weekly-review" className="db-week-link">打开周复盘</Link>
+            </div>
+          </div>
+          {!weekCardEmpty ? (
+            <div className="db-week-metrics">
+              <div className="db-week-metric">
+                <span>平仓</span>
+                <strong>{weekMetrics.tradeCount}</strong>
+                <small>{weekMetrics.reviewedCount} 笔已复盘</small>
+              </div>
+              <div className="db-week-metric">
+                <span>胜率</span>
+                <strong>{weekMetrics.winRate == null ? '—' : `${weekMetrics.winRate.toFixed(0)}%`}</strong>
+                <small>{weekMetrics.winCount} 赢 · {weekMetrics.lossCount} 亏 · {weekMetrics.breakevenCount} 平</small>
+              </div>
+              <div className="db-week-metric">
+                <span>净盈亏</span>
+                <strong style={{ color: privacyMode || weekMetrics.pnlCount === 0 || weekMetrics.totalPnl === 0 ? undefined : weekMetrics.totalPnl > 0 ? 'var(--pos)' : 'var(--neg)' }}>
+                  {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
+                </strong>
+                <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small>
+              </div>
+              <div className="db-week-metric">
+                <span>平均 R</span>
+                <strong style={{ color: weekMetrics.averageR == null || weekMetrics.averageR === 0 ? undefined : weekMetrics.averageR > 0 ? 'var(--pos)' : 'var(--neg)' }}>
+                  {weekMetrics.averageR == null ? '—' : `${weekMetrics.averageR > 0 ? '+' : ''}${weekMetrics.averageR.toFixed(2)}`}
+                </strong>
+                <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small>
+              </div>
+            </div>
+          ) : null}
+          {weekMetrics.missedCount > 0 && missedReasonSummary ? (
+            <p className="db-week-missed">执行缺口：{missedReasonSummary}</p>
+          ) : null}
+        </section>
+
+        {hasClosedTrades ? (
+          <>
 
         <section className="db-panel">
           <div className="db-panel-head">
@@ -673,7 +680,8 @@ export function Dashboard() {
           </div>
         </section>
           </>
-        )}
+        ) : null}
+        </div>
       </div>
     </>
   )

@@ -185,7 +185,7 @@ async function run(): Promise<void> {
     assert(!text().includes('+$750'), '不得混入历史归档实盘')
     assert(text().includes('当前实盘统计'), '纠偏后仍必须说明实盘统计采用当前范围')
     assert(
-      ![...document.querySelectorAll('.db-seg')].some((button) => button.textContent?.includes('模拟盘')),
+      ![...document.querySelectorAll('.db-range-control button')].some((button) => button.textContent?.includes('模拟盘')),
       '仪表盘不得再提供模拟盘切换',
     )
 
@@ -217,7 +217,15 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [], livePerformanceCycles: [] })
     mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
     await waitFor(() => text().includes('还没有已平仓交易'), '无周期且无已平仓交易必须保留通用空状态')
-    assert(text().includes('重置统计'), '无周期时必须保留重置统计入口')
+    const moreActions = document.querySelector<HTMLButtonElement>('[aria-label="更多统计操作"]')
+    assert(moreActions, '无周期时必须保留统计管理入口')
+    moreActions.click()
+    await waitFor(() => text().includes('管理统计周期'), '统计管理动作必须进入溢出菜单')
+    const manage = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+      .find((button) => button.textContent?.trim() === '管理统计周期')
+    assert(manage, '溢出菜单必须提供管理统计周期动作')
+    manage.click()
+    await waitFor(() => Boolean(document.querySelector('[role="dialog"]')), '统计管理动作必须打开对话框')
   } finally {
     mounted?.root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles })
