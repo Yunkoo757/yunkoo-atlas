@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import test from 'node:test'
 import { spawnSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 
 import {
   discoverBrowserTests,
@@ -410,6 +411,116 @@ test('workbench QA follows enabled modal controls and the live-only dashboard co
   assert.match(source, /const closeDialogLastFocusable = closeDialog\.locator\('button:not\(:disabled\):visible, input:not\(:disabled\):visible'\)\.last\(\)/)
   assert.match(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.count\(\)/)
   assert.doesNotMatch(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.click\(\)/)
+})
+
+test('workbench QA probe records focus, review flow, and sticky trade-group metrics from the page', async () => {
+  await withFixture(async (root) => {
+    const fixturePath = path.join(root, 'workbench-probe.html')
+    const reportPath = path.join(root, 'workbench-probe-report.json')
+    await write(root, 'workbench-probe.html', `<!doctype html>
+      <meta charset="utf-8">
+      <style>
+        html[data-keyboard-focus-rings="off"] #main-content:focus { outline: none; }
+        html[data-keyboard-focus-rings="on"] #main-content:focus { outline: 2px solid rgb(124, 58, 237); }
+        [data-qa-view][hidden] { display: none; }
+        #main-content { width: 720px; min-height: 320px; }
+        [data-review-context] { height: 40px; margin: 0 0 16px; }
+        [data-review-image] { display: block; width: 160px; height: 90px; margin: 0 0 16px; }
+        [data-trade-scroll] { width: 640px; height: 180px; overflow: auto; }
+        .trade-list-columns { height: 32px; position: sticky; top: 0; background: white; }
+        .trade-list-virtual-item.is-sticky { position: sticky; top: 32px; }
+        .trade-list-group-header { height: 36px; margin-top: 8px; background: #eee; }
+        .trade-row { height: 64px; }
+      </style>
+      <main id="main-content" tabindex="-1">
+        <section data-qa-view="settings">
+          <button type="button" role="switch" aria-label="显示键盘焦点高光" aria-checked="false">显示键盘焦点高光</button>
+        </section>
+        <section data-qa-view="list" hidden>
+          <div data-trade-scroll>
+            <div class="trade-list-columns" role="row"><span role="columnheader">交易</span></div>
+            <div class="trade-list-virtual-item is-header">
+              <div class="trade-list-group-header">
+                <button class="trade-list-group-toggle" type="button" aria-expanded="true">折叠 2026 年 8 月（2）</button>
+              </div>
+            </div>
+            <div data-trade-rows><div class="trade-row"></div><div class="trade-row"></div></div>
+            <div class="trade-list-virtual-item is-header">
+              <div class="trade-list-group-header"><strong>2026 年 7 月</strong></div>
+            </div>
+            <div class="trade-row"></div><div class="trade-row"></div><div class="trade-row"></div>
+          </div>
+        </section>
+        <section data-qa-view="review" hidden aria-label="已复盘交易详情">
+          <div class="dv-review-complete-meta" aria-label="复盘已完成">已复盘</div>
+          <div class="editor">
+            <div class="ProseMirror">
+              <section data-review-context="true"><p>4H 顺势，等待回调。</p></section>
+              <img data-review-image alt="盘面截图" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='90'/%3E">
+              <p>等待下一次确认。</p>
+            </div>
+          </div>
+        </section>
+      </main>
+      <script>
+        const show = (name) => {
+          document.querySelectorAll('[data-qa-view]').forEach((view) => { view.hidden = view.dataset.qaView !== name })
+        }
+        window.__qaWorkbenchShowView = show
+        const focusSwitch = document.querySelector('[role="switch"]')
+        const applyFocusPreference = (enabled) => {
+          focusSwitch.setAttribute('aria-checked', String(enabled))
+          document.documentElement.dataset.keyboardFocusRings = enabled ? 'on' : 'off'
+        }
+        focusSwitch.addEventListener('click', () => applyFocusPreference(focusSwitch.getAttribute('aria-checked') !== 'true'))
+        applyFocusPreference(false)
+        document.querySelector('.trade-list-group-toggle').addEventListener('click', (event) => {
+          const expanded = event.currentTarget.getAttribute('aria-expanded') === 'true'
+          event.currentTarget.setAttribute('aria-expanded', String(!expanded))
+          document.querySelector('[data-trade-rows]').hidden = expanded
+        })
+        document.querySelector('[data-trade-scroll]').addEventListener('scroll', (event) => {
+          const headers = document.querySelectorAll('.trade-list-virtual-item.is-header')
+          headers.forEach((header) => header.classList.remove('is-sticky'))
+          if (event.currentTarget.scrollTop > 0) headers[1].classList.add('is-sticky')
+        })
+      </script>`)
+
+    const result = spawnSync(process.execPath, [path.resolve('scripts/qa-workbench.mjs')], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      timeout: 30_000,
+      env: {
+        ...process.env,
+        QA_WORKBENCH_PROBE_URL: pathToFileURL(fixturePath).href,
+        QA_WORKBENCH_REPORT_PATH: reportPath,
+      },
+    })
+    assert.equal(result.status, 0, `probe output:\n${result.stdout}\n${result.stderr}`)
+
+    const report = JSON.parse(await fs.readFile(reportPath, 'utf8'))
+    assert.deepEqual(report.metrics.focusOff, {
+      focusPreference: 'off',
+      activeElement: 'main-content',
+      focusOutlineWidth: 0,
+    })
+    assert.equal(report.metrics.focusOn.focusPreference, 'on')
+    assert.equal(report.metrics.focusOn.activeElement, 'main-content')
+    assert(report.metrics.focusOn.focusOutlineWidth >= 2)
+    assert.equal(report.metrics.review.reviewVisualHeadingCount, 0)
+    assert.equal(report.metrics.review.reviewContextImageGap, 16)
+    assert.match(report.metrics.review.reviewHtmlOrderHash, /^[a-f0-9]{64}$/)
+    assert.equal(report.metrics.tradeList.tradeGroupTopGap, 8)
+    assert.equal(report.metrics.tradeList.collapsed, true)
+    assert.equal(report.metrics.tradeList.expanded, true)
+    assert.equal(report.metrics.tradeList.scrolledBackToTop, true)
+    assert.deepEqual(report.diagnostics, {
+      consoleErrors: [],
+      pageErrors: [],
+      horizontalOverflow: [],
+    })
+    assert.equal(report.steps.every((step) => typeof step.screenshotPath === 'string'), true)
+  })
 })
 // Quality-Scenario: Q-DISCOVERY
 // Quality-Scenario: Q-PAGEERROR

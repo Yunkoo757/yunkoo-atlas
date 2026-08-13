@@ -1,10 +1,217 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
-import { mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
 const BASELINE_OUT = join(process.cwd(), '.gstack', 'qa-reports', 'trader-atlas-baseline')
+const CONTROLLED_PROBE_URL = process.env.QA_WORKBENCH_PROBE_URL
+const PRESENTATION_REPORT_PATH = process.env.QA_WORKBENCH_REPORT_PATH
+  ?? join(BASELINE_OUT, 'workbench-presentation.json')
+const PRESENTATION_SCREENSHOT_OUT = join(dirname(PRESENTATION_REPORT_PATH), 'workbench-presentation')
+
+function createDiagnostics() {
+  return { consoleErrors: [], pageErrors: [], horizontalOverflow: [] }
+}
+
+function trackDiagnostics(targetPage, diagnostics, combinedErrors = undefined) {
+  targetPage.on('pageerror', (error) => {
+    diagnostics.pageErrors.push(error.message)
+    combinedErrors?.push(`pageerror: ${error.message}`)
+  })
+  targetPage.on('console', (message) => {
+    if (message.type() !== 'error') return
+    diagnostics.consoleErrors.push(message.text())
+    combinedErrors?.push(`console: ${message.text()}`)
+  })
+}
+
+async function collectPresentationMetrics(targetPage, {
+  navigate,
+  setFocusPreference,
+  screenshotOut = PRESENTATION_SCREENSHOT_OUT,
+  diagnostics,
+}) {
+  mkdirSync(screenshotOut, { recursive: true })
+  const steps = []
+
+  async function captureStep(name) {
+    const overflow = await targetPage.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    if (overflow.scrollWidth > overflow.clientWidth) {
+      diagnostics.horizontalOverflow.push({ step: name, ...overflow })
+    }
+    const screenshotPath = join(screenshotOut, `${name}.png`)
+    await targetPage.screenshot({ path: screenshotPath, fullPage: false })
+    steps.push({ name, screenshotPath })
+  }
+
+  async function measureFocus(focusPreference) {
+    await navigate('settings')
+    await setFocusPreference(focusPreference === 'on')
+    await navigate('list')
+    const main = targetPage.locator('#main-content')
+    await main.waitFor({ state: 'visible', timeout: 10_000 })
+    await main.focus()
+    const metric = await main.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        focusPreference: document.documentElement.dataset.keyboardFocusRings ?? '',
+        activeElement: document.activeElement?.id ?? '',
+        focusOutlineWidth: style.outlineStyle === 'none'
+          ? 0
+          : Number.parseFloat(style.outlineWidth) || 0,
+      }
+    })
+    await captureStep(`focus-${focusPreference}`)
+    return metric
+  }
+
+  const focusOff = await measureFocus('off')
+  const focusOn = await measureFocus('on')
+
+  await navigate('review')
+  await targetPage.locator('.dv-review-complete-meta').waitFor({ state: 'visible', timeout: 10_000 })
+  const reviewDom = await targetPage.evaluate(() => {
+    const visualHeadings = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')]
+      .filter((element) => {
+        const style = getComputedStyle(element)
+        return element.textContent?.trim() === '复盘正文'
+          && style.display !== 'none'
+          && style.visibility !== 'hidden'
+      })
+    const context = document.querySelector('section[data-review-context]')
+    const image = context?.nextElementSibling
+    const following = image?.nextElementSibling
+    if (!(context instanceof HTMLElement) || !(image instanceof HTMLImageElement)) {
+      throw new Error('已复盘交易缺少连续的盘面摘要与首图')
+    }
+    const contextRect = context.getBoundingClientRect()
+    const imageRect = image.getBoundingClientRect()
+    const followingRect = following instanceof HTMLElement ? following.getBoundingClientRect() : null
+    return {
+      reviewVisualHeadingCount: visualHeadings.length,
+      reviewContextImageGap: Math.round(imageRect.top - contextRect.bottom),
+      reviewImageFollowingGap: followingRect ? Math.round(followingRect.top - imageRect.bottom) : null,
+      reviewHtml: document.querySelector('.editor .ProseMirror')?.innerHTML ?? '',
+      order: [context.tagName, image.tagName, following?.tagName ?? ''],
+    }
+  })
+  const review = {
+    reviewVisualHeadingCount: reviewDom.reviewVisualHeadingCount,
+    reviewContextImageGap: reviewDom.reviewContextImageGap,
+    reviewImageFollowingGap: reviewDom.reviewImageFollowingGap,
+    reviewHtmlOrderHash: createHash('sha256').update(reviewDom.reviewHtml, 'utf8').digest('hex'),
+    order: reviewDom.order,
+  }
+  await captureStep('review-document-flow')
+
+  await navigate('list')
+  const columns = targetPage.locator('.trade-list-columns').first()
+  const firstHeader = targetPage.locator('.trade-list-group-header').first()
+  await columns.waitFor({ state: 'visible', timeout: 10_000 })
+  await firstHeader.waitFor({ state: 'visible', timeout: 10_000 })
+  const tradeGroupTopGap = await targetPage.evaluate(() => {
+    const columnRow = document.querySelector('.trade-list-columns')
+    const groupHeader = document.querySelector('.trade-list-group-header')
+    if (!(columnRow instanceof HTMLElement) || !(groupHeader instanceof HTMLElement)) {
+      throw new Error('交易日志缺少列标题或首个月份条')
+    }
+    return Math.round(groupHeader.getBoundingClientRect().top - columnRow.getBoundingClientRect().bottom)
+  })
+  const toggle = firstHeader.locator('.trade-list-group-toggle')
+  await toggle.click()
+  await targetPage.waitForFunction(() => (
+    document.querySelector('.trade-list-group-toggle')?.getAttribute('aria-expanded') === 'false'
+  ))
+  const collapsed = await toggle.getAttribute('aria-expanded') === 'false'
+  await toggle.click()
+  await targetPage.waitForFunction(() => (
+    document.querySelector('.trade-list-group-toggle')?.getAttribute('aria-expanded') === 'true'
+  ))
+  const expanded = await toggle.getAttribute('aria-expanded') === 'true'
+
+  const scrollHost = targetPage.locator('[data-trade-scroll], .list-scroll').first()
+  await scrollHost.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+    element.dispatchEvent(new Event('scroll'))
+  })
+  await targetPage.waitForTimeout(100)
+  const stickyHeader = targetPage.locator(
+    '.trade-list-virtual-item.is-sticky .trade-list-group-header',
+  ).first()
+  await stickyHeader.waitFor({ state: 'visible', timeout: 10_000 })
+  const stickyTradeGroupTopGap = await targetPage.evaluate(() => {
+    const columnRow = document.querySelector('.trade-list-columns')
+    const groupHeader = document.querySelector(
+      '.trade-list-virtual-item.is-sticky .trade-list-group-header',
+    )
+    if (!(columnRow instanceof HTMLElement) || !(groupHeader instanceof HTMLElement)) {
+      throw new Error('滚动后缺少吸顶月份条')
+    }
+    return Math.round(groupHeader.getBoundingClientRect().top - columnRow.getBoundingClientRect().bottom)
+  })
+  await captureStep('trade-list-sticky')
+  await scrollHost.evaluate((element) => {
+    element.scrollTop = 0
+    element.dispatchEvent(new Event('scroll'))
+  })
+  await targetPage.waitForTimeout(50)
+  const scrolledBackToTop = await scrollHost.evaluate((element) => element.scrollTop === 0)
+  await captureStep('trade-list-top')
+
+  return {
+    metrics: {
+      focusOff,
+      focusOn,
+      review,
+      tradeList: {
+        tradeGroupTopGap,
+        stickyTradeGroupTopGap,
+        collapsed,
+        expanded,
+        scrolledBackToTop,
+      },
+    },
+    diagnostics,
+    steps,
+  }
+}
+
+async function runControlledProbe() {
+  const diagnostics = createDiagnostics()
+  const probeBrowser = await chromium.launch({ headless: true })
+  const probePage = await probeBrowser.newPage({ viewport: { width: 1280, height: 800 } })
+  trackDiagnostics(probePage, diagnostics)
+  try {
+    await probePage.goto(CONTROLLED_PROBE_URL, { waitUntil: 'domcontentloaded' })
+    const report = await collectPresentationMetrics(probePage, {
+      diagnostics,
+      navigate: async (view) => {
+        await probePage.evaluate((nextView) => window.__qaWorkbenchShowView(nextView), view)
+      },
+      setFocusPreference: async (enabled) => {
+        const toggle = probePage.getByRole('switch', { name: '显示键盘焦点高光' })
+        const expected = String(enabled)
+        if (await toggle.getAttribute('aria-checked') !== expected) await toggle.click()
+        await probePage.waitForFunction((value) => (
+          document.documentElement.dataset.keyboardFocusRings === value
+        ), enabled ? 'on' : 'off')
+      },
+    })
+    mkdirSync(dirname(PRESENTATION_REPORT_PATH), { recursive: true })
+    writeFileSync(PRESENTATION_REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
+  } finally {
+    await probeBrowser.close()
+  }
+}
+
+if (CONTROLLED_PROBE_URL) {
+  await runControlledProbe()
+} else {
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
 await context.addInitScript(() => {
@@ -13,16 +220,13 @@ await context.addInitScript(() => {
 let page = await context.newPage()
 const results = []
 const runtimeErrors = []
+const diagnostics = createDiagnostics()
+let presentationReport = null
 
 mkdirSync(BASELINE_OUT, { recursive: true })
 
 function trackRuntimeErrors(targetPage) {
-  targetPage.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`))
-  targetPage.on('console', (message) => {
-    if (message.type() === 'error') {
-      runtimeErrors.push(`console: ${message.text()}`)
-    }
-  })
+  trackDiagnostics(targetPage, diagnostics, runtimeErrors)
 }
 
 trackRuntimeErrors(page)
@@ -331,8 +535,25 @@ try {
   await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
   const completeReviewButton = page.getByRole('button', { name: '完成复盘', exact: true })
   await completeReviewButton.waitFor({ state: 'visible' })
-  await editor.click()
-  await editor.fill('复盘证据：确认入场依据，并记录下一次执行改进。')
+  await editor.evaluate((element) => {
+    const tiptap = element.editor
+    if (!tiptap) throw new Error('复盘编辑器实例不可用')
+    tiptap.commands.setContent(
+      '<section data-review-context="true"><p>4H 顺势，等待回调极端 POI。</p><p>15m 出现结构确认。</p></section>'
+      + '<img src="/src/views/fixtures/browser-test-image.svg?qa-workbench-chart.png">'
+      + '<p>复盘证据：确认入场依据，并记录下一次执行改进。</p>',
+      { emitUpdate: true },
+    )
+  })
+  await page.waitForFunction(() => {
+    const context = document.querySelector('section[data-review-context]')
+    return context?.nextElementSibling instanceof HTMLImageElement
+  })
+  await completeReviewButton.waitFor({ state: 'visible' })
+  await page.waitForFunction(() => {
+    const button = document.querySelector('.dv-review-complete-action')
+    return button instanceof HTMLButtonElement && !button.disabled
+  })
   await completeReviewButton.click()
   await page.locator('.dv-review-complete-meta').waitFor({ state: 'visible' })
   const reviewedStageText = await page.locator('.dv-review-complete-meta').innerText()
@@ -371,6 +592,92 @@ try {
     '案例记录不计入仪表盘统计',
     dashboardClosedCount.endsWith('1/1 笔结果有效'),
     dashboardClosedCount,
+  )
+
+  await page.evaluate(async (sourceRef) => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    const source = useStore.getState().trades.find((trade) => trade.ref === sourceRef)
+    if (!source) throw new Error(`隔离资料缺少源交易：${sourceRef}`)
+    const copies = Array.from({ length: 24 }, (_, index) => {
+      const month = index < 12 ? '06' : '05'
+      const day = String((index % 12) + 1).padStart(2, '0')
+      const openedAt = `2025-${month}-${day}`
+      return {
+        ...source,
+        id: crypto.randomUUID(),
+        ref: `TRD-QA-${month}-${day}-${index}`,
+        openedAt,
+        closedAt: openedAt,
+        createdAt: `${openedAt}T08:00:00.000Z`,
+        updatedAt: `${openedAt}T09:00:00.000Z`,
+      }
+    })
+    useStore.setState((state) => ({ trades: [...state.trades, ...copies] }))
+    await flushPersistNow()
+  }, reviewedTradeRef)
+
+  presentationReport = await collectPresentationMetrics(page, {
+    diagnostics,
+    navigate: async (view) => {
+      const route = view === 'settings'
+        ? '/settings/display'
+        : view === 'review'
+          ? `/trade/${encodeURIComponent(reviewedTradeRef)}`
+          : '/list'
+      await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
+      await waitForApp()
+      if (view === 'settings') {
+        await page.getByRole('switch', { name: /显示键盘焦点高光/ }).waitFor({ state: 'visible' })
+      } else if (view === 'review') {
+        await page.locator('section[data-review-context]').waitFor({ state: 'visible' })
+      } else {
+        await page.locator('.trade-list-columns').waitFor({ state: 'visible' })
+      }
+    },
+    setFocusPreference: async (enabled) => {
+      const toggle = page.getByRole('switch', { name: /显示键盘焦点高光/ })
+      const expected = String(enabled)
+      if (await toggle.getAttribute('aria-checked') !== expected) await toggle.click()
+      await page.waitForFunction((value) => (
+        document.documentElement.dataset.keyboardFocusRings === value
+      ), enabled ? 'on' : 'off')
+      await page.evaluate(async () => {
+        const { flushPersistNow } = await import('/src/storage/persist.ts')
+        await flushPersistNow()
+      })
+    },
+  })
+  record(
+    '关闭焦点高光后主内容仍获得焦点且无轮廓',
+    presentationReport.metrics.focusOff.focusPreference === 'off'
+      && presentationReport.metrics.focusOff.activeElement === 'main-content'
+      && presentationReport.metrics.focusOff.focusOutlineWidth === 0,
+    JSON.stringify(presentationReport.metrics.focusOff),
+  )
+  record(
+    '开启焦点高光后主内容焦点保持且恢复清晰轮廓',
+    presentationReport.metrics.focusOn.focusPreference === 'on'
+      && presentationReport.metrics.focusOn.activeElement === 'main-content'
+      && presentationReport.metrics.focusOn.focusOutlineWidth >= 2,
+    JSON.stringify(presentationReport.metrics.focusOn),
+  )
+  record(
+    '已复盘图文保持连续文档流',
+    presentationReport.metrics.review.reviewVisualHeadingCount === 0
+      && presentationReport.metrics.review.reviewContextImageGap === 16
+      && presentationReport.metrics.review.reviewImageFollowingGap === 16
+      && presentationReport.metrics.review.order.join('>') === 'SECTION>IMG>P',
+    JSON.stringify(presentationReport.metrics.review),
+  )
+  record(
+    '月份条在首组与吸顶状态均保持 8px 且折叠展开稳定',
+    presentationReport.metrics.tradeList.tradeGroupTopGap === 8
+      && presentationReport.metrics.tradeList.stickyTradeGroupTopGap === 8
+      && presentationReport.metrics.tradeList.collapsed
+      && presentationReport.metrics.tradeList.expanded
+      && presentationReport.metrics.tradeList.scrolledBackToTop,
+    JSON.stringify(presentationReport.metrics.tradeList),
   )
 
   await page.goto(`${BASE}/review-cases/mistakes`, { waitUntil: 'domcontentloaded' })
@@ -771,8 +1078,13 @@ try {
   record('工作台回归脚本完成', false, String(error))
 } finally {
   await browser.close()
+  if (presentationReport) {
+    mkdirSync(dirname(PRESENTATION_REPORT_PATH), { recursive: true })
+    writeFileSync(PRESENTATION_REPORT_PATH, `${JSON.stringify(presentationReport, null, 2)}\n`, 'utf8')
+  }
 }
 
 const passed = results.filter((result) => result.pass).length
 console.log(`\n工作台回归：${passed}/${results.length}`)
 process.exitCode = passed === results.length ? 0 : 1
+}

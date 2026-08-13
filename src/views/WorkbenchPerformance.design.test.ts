@@ -105,8 +105,12 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (!list.includes('--trade-group-chevron')) {
     throw new Error('group headers must tint CollapseArrow by status/recency, not repaint the bar')
   }
-  if (!listRuntime.includes('const HEADER_HEIGHT = 36')) {
-    throw new Error('virtual group header estimate must match the 36px visual header')
+  if (
+    !listRuntime.includes('const HEADER_CONTENT_HEIGHT = 36')
+    || !listRuntime.includes('const HEADER_TOP_GAP = 8')
+    || !listRuntime.includes('const HEADER_HEIGHT = HEADER_CONTENT_HEIGHT + HEADER_TOP_GAP')
+  ) {
+    throw new Error('virtual group header estimate must preserve the 36px content + 8px top gap = 44px contract')
   }
   if (list.includes('box-shadow: inset 2px 0 0 var(--accent)')) {
     throw new Error('selected rows must not retain the old blue leading rail')
