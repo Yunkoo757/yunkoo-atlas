@@ -46,6 +46,25 @@ export async function testExplicitSaveFailuresPropagateAndCancelWindowClose(): P
   assert(!updater.includes('quitAndInstall(false, true), 500'), '更新安装不得在固定 500ms 后强制退出')
 }
 
+export async function testWindowsClosePreferenceFailureCannotDisappearDuringQuit(): Promise<void> {
+  const main = await fs.readFile('electron/main.ts', 'utf8')
+  const reporter = main.slice(
+    main.indexOf('function reportWindowsClosePreferenceError'),
+    main.indexOf('function ensureMainWindow'),
+  )
+  const resolveHandler = main.slice(
+    main.indexOf("ipcMain.handle('app:resolve-windows-close'"),
+    main.indexOf("ipcMain.handle('app:request-close'"),
+  )
+
+  assert(reporter.includes("choice === 'quit'"), '退出分支必须使用不会被关闭流程清除的独立反馈')
+  assert(reporter.includes('dialog.showMessageBoxSync'), '退出前必须同步展示桌面原生失败回执')
+  assert(
+    resolveHandler.includes('reportWindowsClosePreferenceError(error, choice)'),
+    '关闭解析器必须把本次 tray/quit 选择传给失败反馈策略',
+  )
+}
+
 export async function testBootstrapFailureCannotExposeAnUnsavableWorkspace(): Promise<void> {
   const app = await fs.readFile('src/App.tsx', 'utf8')
   assert(app.includes('setStorageError'), '资料库启动失败必须进入显式错误状态')
@@ -123,7 +142,12 @@ export async function testAutomaticBackupFailuresReachTheVisibleWorkspace(): Pro
   assert(preload.includes("ipcRenderer.on('backup:auto-failed'"), '预加载桥必须安全转发自动备份失败事件')
   assert(bridge.includes('onAutoBackupFailure(callback:'), '类型桥必须声明自动备份失败订阅')
   assert(app.includes('bridge.onAutoBackupFailure'), '工作台必须订阅自动备份失败')
-  assert(app.includes("toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份')"), '工作台必须给出可操作的中文提示')
+  assert(
+    app.includes("toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份', {") &&
+      app.includes("tone: 'error'") &&
+      app.includes("dedupeKey: 'automatic-backup-failure'"),
+    '工作台必须给出可操作、持久且可去重的中文错误提示',
+  )
 }
 
 export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Promise<void> {

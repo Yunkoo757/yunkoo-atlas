@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { CommandPalette } from '@/components/CommandPalette'
-import { MobileNavigation } from '@/components/MobileNavigation'
+import { Sidebar } from '@/components/Sidebar'
+import { AppFrame } from '@/components/ui/AppFrame'
 
 declare global {
   interface Window {
@@ -38,16 +39,23 @@ function Harness() {
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null)
   return (
     <MemoryRouter initialEntries={['/list']}>
-      <button id="command-opener" type="button" onClick={() => {
-        setReturnFocusTo(null)
-        setOpen(true)
-      }}>
-        打开命令面板
-      </button>
-      <MobileNavigation onOpenSearch={(target) => {
-        setReturnFocusTo(target ?? null)
-        setOpen(true)
-      }} />
+      <AppFrame
+        sidebar={(
+          <Sidebar
+            onOpenSearch={() => {
+              setReturnFocusTo(document.activeElement as HTMLElement | null)
+              setOpen(true)
+            }}
+          />
+        )}
+      >
+        <button id="command-opener" type="button" onClick={() => {
+          setReturnFocusTo(null)
+          setOpen(true)
+        }}>
+          打开命令面板
+        </button>
+      </AppFrame>
       <CommandPalette
         open={open}
         onClose={() => setOpen(false)}
@@ -98,24 +106,17 @@ async function run(): Promise<void> {
     await waitFor(() => !document.querySelector('[role="dialog"]'), 'Escape 没有关闭命令面板')
     await waitFor(() => document.activeElement === opener, '关闭命令面板后没有恢复触发器焦点')
 
-    const more = document.querySelector<HTMLButtonElement>('.mobile-navigation-action[aria-label="更多"]')
-    assert(more, '移动端更多入口没有渲染')
-    more.click()
-    await waitFor(
-      () => Boolean(document.querySelector('section[role="dialog"][aria-label="更多"]')),
-      '移动端更多面板没有打开',
-    )
-    const search = [...document.querySelectorAll<HTMLButtonElement>('[data-mobile-drawer-item]')]
-      .find((button) => button.textContent?.trim() === '搜索')
-    assert(search, '移动端更多面板缺少搜索入口')
+    const search = document.querySelector<HTMLButtonElement>('.sb-hbtn-search')
+    assert(search, '桌面侧栏缺少搜索入口')
+    search.focus()
     search.click()
-    await waitFor(() => Boolean(document.querySelector('.cmdk')), '移动端搜索没有打开命令面板')
-    const mobileInput = document.querySelector<HTMLInputElement>('.cmdk [role="combobox"]')
-    assert(mobileInput, '移动端命令面板缺少搜索框')
-    await waitFor(() => document.activeElement === mobileInput, '移动端命令面板没有聚焦搜索框')
-    pressKey(mobileInput, 'Escape')
-    await waitFor(() => !document.querySelector('.cmdk'), '移动端命令面板没有关闭')
-    await waitFor(() => document.activeElement === more, '移动端命令面板关闭后没有返回“更多”入口')
+    await waitFor(() => Boolean(document.querySelector('.cmdk')), '桌面侧栏搜索没有打开命令面板')
+    const sidebarInput = document.querySelector<HTMLInputElement>('.cmdk [role="combobox"]')
+    assert(sidebarInput, '桌面命令面板缺少搜索框')
+    await waitFor(() => document.activeElement === sidebarInput, '桌面命令面板没有聚焦搜索框')
+    pressKey(sidebarInput, 'Escape')
+    await waitFor(() => !document.querySelector('.cmdk'), '桌面命令面板没有关闭')
+    await waitFor(() => document.activeElement === search, '桌面命令面板关闭后没有返回侧栏搜索入口')
   } finally {
     root.unmount()
   }

@@ -1,3 +1,4 @@
+import { ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useEffect, useState } from 'react'
 import { FileText, GripVertical, Plus, Trash2 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
@@ -55,7 +56,7 @@ export function ReviewTemplatesPanel() {
           </p>
         </div>
         <button type="button" className="dio-btn dio-btn-primary" onClick={handleAdd}>
-          <Plus size={14} aria-hidden />
+          <Plus size={ICON_SM} aria-hidden />
           新建模板
         </button>
       </div>
@@ -139,14 +140,14 @@ export function ReviewTemplatesPanel() {
                     }
                   }}
                 >
-                  <GripVertical size={14} aria-hidden />
+                  <GripVertical size={ICON_SM} aria-hidden />
                 </button>
                 <button
                   type="button"
                   className="review-template-select"
                   onClick={() => setSelectedId(template.id)}
                 >
-                  <FileText size={14} aria-hidden />
+                  <FileText size={ICON_SM} aria-hidden />
                   <span>{template.name}</span>
                 </button>
               </div>
@@ -163,7 +164,7 @@ export function ReviewTemplatesPanel() {
                   aria-label={`删除模板「${selected.name}」`}
                   onClick={handleRemove}
                 >
-                  <Trash2 size={14} aria-hidden />
+                  <Trash2 size={ICON_SM} aria-hidden />
                 </button>
               </Tooltip>
             </div>
@@ -195,7 +196,7 @@ export function ReviewTemplatesPanel() {
         </div>
       ) : (
         <button type="button" className="review-template-empty" onClick={handleAdd}>
-          <FileText size={20} aria-hidden />
+          <FileText size={ICON_XL} aria-hidden />
           <strong>还没有复盘起稿模板</strong>
           <span>新建一个模板，把重复的盘面叙述结构保存下来。</span>
         </button>

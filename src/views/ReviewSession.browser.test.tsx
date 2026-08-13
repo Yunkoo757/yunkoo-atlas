@@ -127,7 +127,7 @@ async function run(): Promise<void> {
     caseType: 'exemplar',
     masteryState: 'new',
     nextReviewAt: null,
-    note: '<p>案例结论：等待结构确认。</p>',
+    note: '<p>案例结论：等待结构确认。</p><p>执行要求：只在回踩确认后进入。</p>',
   }
   const futureReviewCase: Trade = {
     ...reviewCase,
@@ -225,6 +225,10 @@ async function run(): Promise<void> {
       () => document.body.textContent?.includes('案例结论') === true,
       '完整交易没有直接显示复盘正文',
     )
+    const reading = document.querySelector<HTMLElement>('.review-session-reading')?.getBoundingClientRect()
+    const assessment = document.querySelector<HTMLElement>('.review-session-assessment')?.getBoundingClientRect()
+    assert(reading && assessment, '短内容复盘必须同时呈现阅读区与评估区')
+    assert(assessment.top - reading.bottom <= 240, '短内容的评估区不得与正文脱节超过 240px')
     assert(!document.querySelector('.review-session-card.is-front, .review-session-card.is-back'), '随机复盘不得再出现正反面卡片')
 
     const unfamiliarButton = document.querySelector<HTMLButtonElement>('.review-session-assessment-actions .is-unfamiliar')

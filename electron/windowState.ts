@@ -5,7 +5,10 @@ import { safeConsoleError } from './diagnosticSanitizer'
 import {
   normalizeWindowState,
   DEFAULT_WINDOW_BOUNDS,
+  MIN_WINDOW_BOUNDS,
+  fitBoundsToWorkArea,
   fitWindowSizeToWorkArea,
+  resolveWindowMinimumBounds,
   matchWindowSizePreset,
   resolveWindowSizePreset,
   type PersistedWindowState,
@@ -18,6 +21,7 @@ export {
   WINDOW_SIZE_PRESETS,
   normalizeWindowState,
   matchWindowSizePreset,
+  resolveWindowMinimumBounds,
 } from '../src/lib/windowBounds'
 
 const STATE_FILE = 'window-state.json'
@@ -31,7 +35,9 @@ export function loadWindowState(): PersistedWindowState {
   try {
     const raw = JSON.parse(fs.readFileSync(statePath(), 'utf8')) as unknown
     const displays = screen.getAllDisplays().map((display) => display.workArea)
-    return normalizeWindowState(raw, displays)
+    const normalized = normalizeWindowState(raw, displays)
+    const fitted = fitBoundsToWorkArea(normalized, displays, MIN_WINDOW_BOUNDS)
+    return { ...fitted, isMaximized: normalized.isMaximized }
   } catch {
     return {
       width: DEFAULT_WINDOW_BOUNDS.width,

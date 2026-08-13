@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState } from 'react'
 import { Check } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
@@ -8,7 +9,7 @@ import {
   type WindowSizePresetId,
 } from '@/lib/windowBounds'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
-import type { WindowFrameState } from '@/types/journal-bridge'
+import type { WindowFrameState, WindowsClosePreference } from '@/types/journal-bridge'
 import '@/components/DisplayMenu.css'
 import './DisplaySettingsPanel.css'
 
@@ -32,11 +33,25 @@ const GROUP_OPTS: { value: GroupMode; label: string; description: string }[] = [
   { value: 'none', label: '不分组', description: '连续显示全部交易' },
 ]
 
+const WINDOWS_CLOSE_OPTIONS: {
+  value: WindowsClosePreference
+  label: string
+  description: string
+}[] = [
+  { value: 'ask', label: '每次询问', description: '首次关闭时说明差异并让你选择' },
+  { value: 'tray', label: '隐藏到系统托盘', description: '关闭主窗口后继续保护和自动备份资料库' },
+  { value: 'quit', label: '彻底退出', description: '安全保存完成后结束 Trader Atlas' },
+]
+
 export function DisplaySettingsPanel() {
   const display = useStore((s) => s.display)
   const setDisplay = useStore((s) => s.setDisplay)
   const electron = isElectron()
+  const bridge = getJournalBridge()
+  const windows = electron && bridge?.platform === 'win32'
   const [windowState, setWindowState] = useState<WindowFrameState | null>(null)
+  const [windowsClosePreference, setWindowsClosePreference] =
+    useState<WindowsClosePreference>('ask')
   const [windowMessage, setWindowMessage] = useState('')
   const groupMode: GroupMode = display.groupByDate
     ? 'date'
@@ -67,6 +82,15 @@ export function DisplaySettingsPanel() {
     }
   }, [electron])
 
+  useEffect(() => {
+    if (!windows || !bridge) return
+    let cancelled = false
+    void bridge.getWindowsClosePreference().then((preference) => {
+      if (!cancelled) setWindowsClosePreference(preference)
+    })
+    return () => { cancelled = true }
+  }, [bridge, windows])
+
   const applyWindowPreset = async (presetId: WindowSizePresetId) => {
     const bridge = getJournalBridge()
     if (!bridge) return
@@ -84,6 +108,12 @@ export function DisplaySettingsPanel() {
       ? '当前：最大化'
       : `当前：${windowState.width} × ${windowState.height}`
     : ''
+
+  const applyWindowsClosePreference = async (preference: WindowsClosePreference) => {
+    if (!bridge) return
+    const saved = await bridge.setWindowsClosePreference(preference)
+    setWindowsClosePreference(saved)
+  }
 
   return (
     <div className="settings-page display-settings">
@@ -168,7 +198,7 @@ export function DisplaySettingsPanel() {
                       <span className="display-row-desc">{preset.description}</span>
                     </span>
                     <span className="display-choice-check">
-                      {selected ? <Check size={14} /> : null}
+                      {selected ? <Check size={ICON_SM} /> : null}
                     </span>
                   </button>
                 )
@@ -180,6 +210,16 @@ export function DisplaySettingsPanel() {
               </p>
             ) : null}
           </section>
+        ) : null}
+
+        {windows ? (
+          <ChoiceSection
+            title="关闭主窗口"
+            hint="仅适用于 Windows。macOS 遵循系统习惯：关闭窗口后保留 Dock，使用 ⌘Q 才退出应用。"
+            options={WINDOWS_CLOSE_OPTIONS}
+            value={windowsClosePreference}
+            onChange={(preference) => void applyWindowsClosePreference(preference)}
+          />
         ) : null}
       </div>
     </div>
@@ -249,7 +289,7 @@ function ChoiceSection<T extends string | number>({
               <span className="display-row-desc">{option.description}</span>
             </span>
             <span className="display-choice-check">
-              {value === option.value && <Check size={14} />}
+              {value === option.value && <Check size={ICON_SM} />}
             </span>
           </button>
         ))}

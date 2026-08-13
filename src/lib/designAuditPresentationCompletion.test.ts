@@ -24,12 +24,13 @@ export async function testWeeklyTrendFallbackIsAnInformativeSkeleton(): Promise<
 
 export async function testWeeklyHeaderSharesTheContentLeftRail(): Promise<void> {
   const css = await read('src/views/WeeklyReviewView.css')
-  assert(/\.wr-page-head-inner\s*\{[^}]*width:\s*min\(876px, calc\(100% - 92px\)\)/s.test(css), '周复盘页头应与带内边距的内容卡片共用左轨')
+  assert(/\.wr-page-head-inner\s*\{[^}]*width:\s*min\(920px, calc\(100% - 48px\)\)/s.test(css), '周复盘页头应与正文共用 920px 左轨')
+  assert(/\.wr-content,\.wr-year\s*\{[^}]*width:\s*min\(920px, calc\(100% - 48px\)\)/s.test(css), '周复盘正文应与页头共用 920px 左轨')
 }
 
 export async function testDashboardExplainsWeekEmptyAgainstHistoricalScope(): Promise<void> {
   const source = await read('src/views/Dashboard.tsx')
-  assert(source.includes('本周暂无已平仓交易 · 下方继续显示当前筛选范围的历史统计'), '本周为空但筛选范围有历史数据时必须解释两个统计口径')
+  assert(source.includes('本周暂无已平仓交易 · 当前范围仍保留上方历史统计'), '本周为空但筛选范围有历史数据时必须解释两个统计口径')
 }
 
 export async function testFieldOverridesUseTheSharedFieldHeight(): Promise<void> {

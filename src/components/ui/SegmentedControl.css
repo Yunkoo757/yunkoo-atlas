@@ -1,0 +1,56 @@
+.ui-segmented {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 1px;
+  padding: 1px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  background: transparent;
+}
+
+.ui-segmented-option {
+  display: inline-grid;
+  place-items: center;
+  min-width: calc(var(--control-height-sm) - 4px);
+  height: calc(var(--control-height-sm) - 4px);
+  padding-inline: var(--sp-2);
+  border-radius: var(--radius-4);
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  transition: background-color var(--motion-state) var(--ease-out),
+    color var(--motion-state) var(--ease-out);
+}
+
+.ui-segmented-md .ui-segmented-option {
+  min-width: calc(var(--control-height-md) - 4px);
+  height: calc(var(--control-height-md) - 4px);
+}
+
+.ui-segmented-lg .ui-segmented-option {
+  min-width: calc(var(--control-height-lg) - 4px);
+  height: calc(var(--control-height-lg) - 4px);
+}
+
+.ui-segmented-option:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.ui-segmented-option[aria-pressed='true'] {
+  color: var(--text-primary);
+  background: var(--bg-selected);
+}
+
+.ui-segmented-option:focus-visible {
+  outline: var(--focus-ring-outline);
+  outline-offset: 1px;
+}
+
+.ui-segmented-option:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}

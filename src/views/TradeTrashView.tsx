@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
@@ -163,14 +164,14 @@ export function TradeTrashView() {
         },
         {
           type: 'item',
-          icon: <RotateCcw size={15} />,
+          icon: <RotateCcw size={ICON_MD} />,
           label: '恢复记录',
           onClick: () => handleRestore(trade.id),
         },
         { type: 'divider' },
         {
           type: 'item',
-          icon: <Trash2 size={15} />,
+          icon: <Trash2 size={ICON_MD} />,
           label: '彻底删除',
           danger: true,
           onClick: () => requestPurge(trade),
@@ -228,7 +229,7 @@ export function TradeTrashView() {
           <div className="trash-groups">
             <div className="trash-selection-bar">
               <label className="trash-search">
-                <Search size={14} />
+                <Search size={ICON_SM} />
                 <input
                   type="search"
                   aria-label="搜索回收站"
@@ -239,7 +240,7 @@ export function TradeTrashView() {
                 />
                 {searchQuery && (
                   <button type="button" className="trash-search-clear" aria-label="清除搜索" onClick={() => setSearchQuery('')}>
-                    <X size={13} />
+                    <X size={ICON_SM} />
                   </button>
                 )}
               </label>
@@ -320,7 +321,7 @@ export function TradeTrashView() {
                             <StrategyLabel
                               strategyId={trade.strategyId}
                               strategies={strategies}
-                              size={14}
+                              size={ICON_SM}
                             />
                           </div>
                         </div>
@@ -334,7 +335,7 @@ export function TradeTrashView() {
                           label={`${days} 天后自动清空`}
                         >
                           <div className={'trash-item-days' + (isUrgent ? ' is-urgent' : '')}>
-                            {isUrgent && <AlertTriangle size={11} />}
+                            {isUrgent && <AlertTriangle size={ICON_SM} />}
                             <span>{days} 天</span>
                           </div>
                         </Tooltip>
@@ -347,7 +348,7 @@ export function TradeTrashView() {
                               aria-label={`恢复 ${trade.ref}`}
                               onClick={() => handleRestore(trade.id)}
                             >
-                              <RotateCcw size={14} />
+                              <RotateCcw size={ICON_SM} />
                             </button>
                           </Tooltip>
                           <Tooltip content="彻底删除" label={`彻底删除 ${trade.ref}`}>
@@ -357,7 +358,7 @@ export function TradeTrashView() {
                               aria-label={`彻底删除 ${trade.ref}`}
                               onClick={() => requestPurge(trade)}
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={ICON_SM} />
                             </button>
                           </Tooltip>
                         </div>
@@ -373,7 +374,7 @@ export function TradeTrashView() {
 
       <BatchActionBar count={selected.size}>
         <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
-          <RotateCcw size={14} />
+          <RotateCcw size={ICON_SM} />
           <span>恢复</span>
         </button>
         <button
@@ -381,7 +382,7 @@ export function TradeTrashView() {
           className="batch-bar-action-btn batch-bar-action-btn-danger"
           onClick={handleBatchPurge}
         >
-          <Trash2 size={14} />
+          <Trash2 size={ICON_SM} />
           <span>彻底删除</span>
         </button>
       </BatchActionBar>

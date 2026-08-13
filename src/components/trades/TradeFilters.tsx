@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useExitClone } from '@/components/ui/useExitClone'
@@ -359,7 +360,7 @@ export function TradeFilters({
             <div className="trade-filter-head-actions">
               <Tooltip content="清除全部条件" label="清除全部条件">
                 <button type="button" onClick={resetFilters} aria-label="清除全部条件">
-                  <RotateCcw size={14} />
+                  <RotateCcw size={ICON_SM} />
                 </button>
               </Tooltip>
               <Tooltip content="关闭" label="关闭筛选器">
@@ -368,7 +369,7 @@ export function TradeFilters({
                   onClick={closeFilters}
                   aria-label="关闭筛选器"
                 >
-                  <X size={14} />
+                  <X size={ICON_SM} />
                 </button>
               </Tooltip>
             </div>
@@ -460,7 +461,7 @@ export function TradeFilters({
                           ...symbols.map((value) => ({
                             value,
                             label: value,
-                            icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={14} />,
+                            icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={ICON_SM} />,
                           })),
                         ]}
                       />
@@ -494,7 +495,7 @@ export function TradeFilters({
                           ...symbols.map((value) => ({
                             value,
                             label: value,
-                            icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={14} />,
+                            icon: <SymbolIcon symbol={value} overrides={symbolIcons} size={ICON_SM} />,
                           })),
                         ]}
                       />

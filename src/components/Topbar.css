@@ -4,30 +4,6 @@
   gap: 6px;
   flex-shrink: 0;
 }
-.tb-segmented {
-  display: flex;
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-6);
-  padding: 1px;
-}
-.tb-seg {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 24px;
-  border-radius: var(--radius-4);
-  color: var(--text-tertiary);
-}
-
-html[data-ui-settled='1'] .tb-seg {
-  transition: background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-}
-.tb-seg.is-on {
-  background: var(--bg-selected);
-  color: var(--text-primary);
-}
 .tb-btn {
   display: flex;
   align-items: center;
@@ -43,31 +19,4 @@ html[data-ui-settled='1'] .tb-seg {
 .tb-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-}
-@media (max-width: 640px) {
-  .tb-right {
-    gap: 2px;
-  }
-
-  .tb-seg {
-    width: 44px;
-    height: 44px;
-  }
-
-  .tb-btn {
-    justify-content: center;
-    width: 44px;
-    min-height: 44px;
-    padding: 0;
-  }
-
-  .tb-btn span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
 }

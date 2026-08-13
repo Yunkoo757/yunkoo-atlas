@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { Pencil, Trash2, Star, Ban, BookOpen } from '@/icons/appIcons'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
@@ -30,7 +31,7 @@ export function buildTradeCtxItems(
     ...STATUS_ORDER.map(
       (s): CtxItem => ({
         type: 'item',
-        icon: <StatusIcon status={s} size={15} />,
+        icon: <StatusIcon status={s} size={ICON_MD} />,
         label: STATUS_META[s].label,
         onClick: () => applyStatus(s),
       }),
@@ -42,7 +43,7 @@ export function buildTradeCtxItems(
       { type: 'divider' },
       {
         type: 'item',
-        icon: <Ban size={15} />,
+        icon: <Ban size={ICON_MD} />,
         label: '标记为错过',
         onClick: () => applyStatus('missed'),
       },
@@ -53,13 +54,13 @@ export function buildTradeCtxItems(
     { type: 'divider' },
     {
       type: 'item',
-      icon: <Star size={15} fill={starred ? 'currentColor' : 'none'} />,
+      icon: <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />,
       label: starred ? '取消星标' : '加入星标',
       onClick: () => a.toggleStar?.(trade.id),
     },
     {
       type: 'item',
-      icon: <Pencil size={15} />,
+      icon: <Pencil size={ICON_MD} />,
       label: '编辑',
       onClick: () => a.openComposer(trade),
     },
@@ -68,7 +69,7 @@ export function buildTradeCtxItems(
       : [
           {
             type: 'item' as const,
-            icon: <BookOpen size={15} />,
+            icon: <BookOpen size={ICON_MD} />,
             label: '提炼为案例',
             onClick: () => a.createReviewCase?.(trade),
           },
@@ -76,7 +77,7 @@ export function buildTradeCtxItems(
     { type: 'divider' },
     {
       type: 'item',
-      icon: <Trash2 size={15} />,
+      icon: <Trash2 size={ICON_MD} />,
       label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易',
       danger: true,
       onClick: () => {

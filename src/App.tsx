@@ -20,13 +20,16 @@ import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
-import { MobileNavigation } from './components/MobileNavigation'
 import { AppFrame } from './components/ui/AppFrame'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
 import { TradeCloseDialog } from './components/TradeCloseDialog'
 import { TradeOpenRiskDialog } from './components/TradeOpenRiskDialog'
 import { ToastHost } from './components/Toast'
+import { Button } from './components/ui/Button'
+import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
+import { ModalShell } from './components/ui/ModalShell'
+import type { WindowsCloseChoice } from './types/journalBridge'
 import { toast } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { ImageLightbox } from './components/ImageLightbox'
@@ -38,7 +41,6 @@ import { ListView } from './views/ListView'
 import { BoardView } from './views/BoardView'
 import { SettingsLayout } from './views/settings/SettingsLayout'
 import { TradeTrashView } from './views/TradeTrashView'
-import { TodayWorkspace } from './views/TodayWorkspace'
 import { StrategyHeader } from './components/StrategyHeader'
 import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
@@ -83,32 +85,75 @@ function CloseSaveReceipt({
     : state.phase === 'saved'
       ? '已安全保存'
       : '保存未完成，已取消退出'
+  const tone: InlineStatusTone = state.phase === 'saving'
+    ? 'progress'
+    : state.phase === 'saved'
+      ? 'success'
+      : 'error'
 
   return (
-    <div
-      className={`app-close-save is-${state.phase}`}
-      role={state.phase === 'error' ? 'alert' : 'status'}
-      aria-live={state.phase === 'error' ? 'assertive' : 'polite'}
-    >
-      <div className="app-close-save-panel">
-        <span className="app-close-save-mark" aria-hidden />
-        <div className="app-close-save-copy">
-          <strong>{message}</strong>
-          {state.phase === 'error' && <span>{state.message}</span>}
-        </div>
-        {state.phase === 'error' && (
-          <div className="app-close-save-actions">
-            <button type="button" onClick={onDismiss}>继续使用</button>
-            <button type="button" className="is-primary" onClick={onRetry}>重试退出</button>
-          </div>
-        )}
-      </div>
+    <div className={`app-close-save is-${state.phase}`}>
+      <InlineStatus
+        className="app-close-save-panel"
+        tone={tone}
+        title={message}
+        detail={state.phase === 'error' ? state.message : undefined}
+        action={state.phase === 'error' ? (
+          <>
+            <Button size="sm" onClick={onDismiss}>继续使用</Button>
+            <Button size="sm" variant="primary" onClick={onRetry}>重试退出</Button>
+          </>
+        ) : undefined}
+      />
     </div>
+  )
+}
+
+export function WindowsClosePrompt({
+  remember,
+  onRememberChange,
+  onChoose,
+}: {
+  remember: boolean
+  onRememberChange: (remember: boolean) => void
+  onChoose: (choice: WindowsCloseChoice) => void
+}) {
+  return (
+    <ModalShell
+      title="关闭 Trader Atlas"
+      description="选择关闭主窗口后软件在 Windows 中的行为。"
+      size="compact"
+      dismissible={false}
+      onClose={() => {}}
+      footer={(
+        <>
+          <Button variant="bordered" onClick={() => onChoose('quit')}>彻底退出</Button>
+          <Button data-autofocus variant="primary" onClick={() => onChoose('tray')}>隐藏到托盘</Button>
+        </>
+      )}
+    >
+      <InlineStatus
+        tone="info"
+        title="隐藏后仍会继续保护和自动备份本地资料库"
+        detail="你可以从系统托盘重新打开；选择彻底退出会先完成安全保存。"
+      />
+      <label className="app-windows-close-remember">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(event) => onRememberChange(event.currentTarget.checked)}
+        />
+        <span>记住此选择，可在“设置 → 显示”中修改</span>
+      </label>
+    </ModalShell>
   )
 }
 
 const Dashboard = lazy(() =>
   import('./views/Dashboard').then((module) => ({ default: module.Dashboard })),
+)
+const TodayWorkspace = lazy(() =>
+  import('./views/TodayWorkspace').then((module) => ({ default: module.TodayWorkspace })),
 )
 const DetailView = lazy(() =>
   import('./views/DetailView').then((module) => ({ default: module.DetailView })),
@@ -351,7 +396,6 @@ function Shell() {
     <>
       <AppFrame
         sidebar={<Sidebar onOpenSearch={() => openCmdk()} />}
-        mobileNavigation={<MobileNavigation onOpenSearch={openCmdk} />}
       >
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
           <Suspense fallback={<DelayedRouteFallback />}>
@@ -479,6 +523,8 @@ export function App() {
   const [storageError, setStorageError] = useState<string | null>(null)
   const [retryingStorage, setRetryingStorage] = useState(false)
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
+  const [windowsClosePromptOpen, setWindowsClosePromptOpen] = useState(false)
+  const [rememberWindowsClose, setRememberWindowsClose] = useState(false)
   const closeSaveGeneration = useRef(new AsyncGeneration())
 
   useEffect(() => {
@@ -617,6 +663,8 @@ export function App() {
       let unsubscribeBeforeClose: (() => void) | undefined
       let unsubscribeCloseError: (() => void) | undefined
       let unsubscribeAutoBackupFailure: (() => void) | undefined
+      let unsubscribeWindowsCloseExplanation: (() => void) | undefined
+      let unsubscribeWindowsClosePreferenceError: (() => void) | undefined
       try {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
@@ -644,7 +692,15 @@ export function App() {
         }
         if (bridge?.onAutoBackupFailure) {
           unsubscribeAutoBackupFailure = bridge.onAutoBackupFailure(() => {
-            toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份')
+            toast('自动备份失败，请检查磁盘空间或在设置中手动创建备份', {
+              tone: 'error',
+              dedupeKey: 'automatic-backup-failure',
+            })
+          })
+        }
+        if (bridge?.onWindowsClosePreferenceError) {
+          unsubscribeWindowsClosePreferenceError = bridge.onWindowsClosePreferenceError((message: string) => {
+            toast(message, { tone: 'error', dedupeKey: 'windows-close-preference-save' })
           })
         }
         if (bridge?.onCloseSaveError) {
@@ -653,6 +709,12 @@ export function App() {
             lockBottomChrome()
             // 错误回执已覆盖底部通知，不再额外 toast，避免双条重叠
             setCloseSaveState({ phase: 'error', message })
+          })
+        }
+        if (bridge?.onWindowsCloseExplanation) {
+          unsubscribeWindowsCloseExplanation = bridge.onWindowsCloseExplanation(() => {
+            setRememberWindowsClose(false)
+            setWindowsClosePromptOpen(true)
           })
         }
       } catch { /* bridge not available */ }
@@ -664,6 +726,8 @@ export function App() {
         unsubscribeBeforeClose?.()
         unsubscribeCloseError?.()
         unsubscribeAutoBackupFailure?.()
+        unsubscribeWindowsCloseExplanation?.()
+        unsubscribeWindowsClosePreferenceError?.()
       }
     }
 
@@ -676,31 +740,48 @@ export function App() {
 
   if (storageError) {
     return (
-      <div className="app-storage-error" role="alert" aria-live="assertive">
-        <div className="app-storage-error-card">
-          <span className="app-storage-error-eyebrow">本地资料库未打开</span>
-          <h1>已停止进入工作区，避免覆盖现有数据</h1>
-          <p>{storageError}</p>
-          <div className="app-storage-error-actions">
-            <button type="button" onClick={() => void handleStorageRetry()} disabled={retryingStorage}>
-              {retryingStorage ? '正在重试…' : '重试打开'}
-            </button>
-            {isElectron() && (
-              <button
-                type="button"
-                className="is-secondary"
-                onClick={() => {
-                  setStorageError(null)
-                  setNeedsWelcome(true)
-                  setReady(true)
-                }}
+      <div className="app-storage-error">
+        <InlineStatus
+          className="app-storage-error-card"
+          tone="error"
+          title={(
+            <>
+              <span className="app-storage-error-eyebrow">本地资料库未打开</span>
+              <h1>已停止进入工作区，避免覆盖现有数据</h1>
+            </>
+          )}
+          detail={(
+            <>
+              <span>{storageError}</span>
+              <small>软件不会在加载失败时创建空数据或继续保存。</small>
+            </>
+          )}
+          action={(
+            <div className="app-storage-error-actions">
+              <Button
+                size="lg"
+                variant="primary"
+                onClick={() => void handleStorageRetry()}
+                disabled={retryingStorage}
               >
-                选择其他资料库
-              </button>
-            )}
-          </div>
-          <small>软件不会在加载失败时创建空数据或继续保存。</small>
-        </div>
+                {retryingStorage ? '正在重试…' : '重试打开'}
+              </Button>
+              {isElectron() && (
+                <Button
+                  size="lg"
+                  variant="bordered"
+                  onClick={() => {
+                    setStorageError(null)
+                    setNeedsWelcome(true)
+                    setReady(true)
+                  }}
+                >
+                  选择其他资料库
+                </Button>
+              )}
+            </div>
+          )}
+        />
       </div>
     )
   }
@@ -732,6 +813,17 @@ export function App() {
           if (bridge?.requestClose) void bridge.requestClose()
         }}
       />
+      {windowsClosePromptOpen ? (
+        <WindowsClosePrompt
+          remember={rememberWindowsClose}
+          onRememberChange={setRememberWindowsClose}
+          onChoose={(choice) => {
+            setWindowsClosePromptOpen(false)
+            const bridge = window.journalBridge
+            if (bridge) void bridge.resolveWindowsClose(choice, rememberWindowsClose)
+          }}
+        />
+      ) : null}
       {!isElectron() ? <WebStorageGuard /> : null}
     </>
   )

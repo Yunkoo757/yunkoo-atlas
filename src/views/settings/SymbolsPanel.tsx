@@ -1,3 +1,4 @@
+import { ICON_HERO, ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useMemo, useRef, useState } from 'react'
 import { GripVertical, ImagePlus, RotateCcw, Shapes, Trash2 } from '@/icons/appIcons'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -158,14 +159,14 @@ export function SymbolsPanel() {
                       }
                     }}
                   >
-                    <GripVertical size={14} aria-hidden />
+                    <GripVertical size={ICON_SM} aria-hidden />
                   </button>
                   <button
                     type="button"
                     className="symbols-item-select"
                     onClick={() => setSelected(symbol)}
                   >
-                    <SymbolIcon symbol={symbol} overrides={symbolIcons} size={18} />
+                    <SymbolIcon symbol={symbol} overrides={symbolIcons} size={ICON_LG} />
                     <span>{symbol}</span>
                   </button>
                 </li>
@@ -178,7 +179,7 @@ export function SymbolsPanel() {
           {active ? (
             <>
               <div className="symbols-preview">
-                <SymbolIcon symbol={active} overrides={symbolIcons} size={40} />
+                <SymbolIcon symbol={active} overrides={symbolIcons} size={ICON_HERO} />
                 <div>
                   <div className="symbols-preview-name">{active}</div>
                   <div className="symbols-preview-hint">
@@ -188,7 +189,7 @@ export function SymbolsPanel() {
               </div>
 
               <div className="symbols-section-label">
-                <Shapes size={14} />
+                <Shapes size={ICON_SM} />
                 <span>预设图标</span>
               </div>
               <div className="symbols-preset-grid">
@@ -212,7 +213,7 @@ export function SymbolsPanel() {
                       style={{ color: preset.color, background: preset.background }}
                     >
                       {preset.svgId ? (
-                        <SymbolPresetSvg id={preset.svgId} size={14} />
+                        <SymbolPresetSvg id={preset.svgId} size={ICON_SM} />
                       ) : (
                         preset.glyph
                       )}
@@ -238,7 +239,7 @@ export function SymbolsPanel() {
                   className="symbols-btn symbols-btn-primary"
                   onClick={() => fileRef.current?.click()}
                 >
-                  <ImagePlus size={14} />
+                  <ImagePlus size={ICON_SM} />
                   <span>上传图标</span>
                 </button>
                 <button
@@ -249,11 +250,11 @@ export function SymbolsPanel() {
                     toast(`已恢复 ${active} 默认图标`)
                   }}
                 >
-                  <RotateCcw size={14} />
+                  <RotateCcw size={ICON_SM} />
                   <span>恢复默认</span>
                 </button>
                 <button type="button" className="symbols-btn" onClick={removeSymbol}>
-                  <Trash2 size={14} />
+                  <Trash2 size={ICON_SM} />
                   <span>删除品种</span>
                 </button>
               </div>

@@ -118,28 +118,3 @@
   .modal-shell-overlay,
   .modal-shell { animation: none; }
 }
-
-@media (max-width: 640px) {
-  .modal-shell-overlay {
-    align-items: end;
-    padding: 0;
-  }
-
-  .modal-shell {
-    width: 100%;
-    max-height: calc(100vh - 20px);
-    border-right: 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: var(--modal-border-radius) var(--modal-border-radius) 0 0;
-  }
-
-}
-
-@media (max-width: 899px), (pointer: coarse) {
-  .modal-shell-close,
-  .modal-shell-footer button {
-    min-width: 44px;
-    min-height: 44px;
-  }
-}

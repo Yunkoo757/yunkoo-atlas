@@ -30,7 +30,7 @@ export function testDetailStarActionUsesOneStarMetaphor(): void {
   if (detail.includes('Favorite')) {
     throw new Error('detail star action must not switch to a heart icon when inactive')
   }
-  if (!detail.includes("<Star size={16} fill={starred ? 'currentColor' : 'none'} />")) {
+  if (!detail.includes("<Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />")) {
     throw new Error('detail star action must use one outlined/filled star icon')
   }
 }
@@ -146,7 +146,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   }
   if (
     !sidebar.includes('.sb-hbtn-create') ||
-    !sidebar.includes('lch(10.691% 0.493 272 / 1)') ||
+    !sidebar.includes('background: var(--surface-row-selected)') ||
     !tokens.includes('--sidebar-create-shadow: 0 0 0 1px lch(100% 0 0 / 0.088)') ||
     !sidebar.includes('box-shadow: var(--sidebar-create-shadow)') ||
     !sidebar.includes('border-radius: var(--radius-full)')
@@ -160,7 +160,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     throw new Error('sidebar must scroll in .sb-scroll so header Create overlay is not clipped')
   }
   if (
-    !sidebar.includes('lch(60.307% 1 272 / 1)') ||
+    !sidebar.includes('color: var(--text-tertiary)') ||
     sidebar.includes('.sb-hbtn:hover {\n  background: var(--bg-hover)')
   ) {
     throw new Error('sidebar search must use the dedicated ghost IconButton colors')

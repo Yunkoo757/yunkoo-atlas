@@ -17,7 +17,7 @@ import {
   FileText,
   Quote,
 } from '@/icons/appIcons'
-import { ICON_TOOLBAR } from '@/icons/iconSize'
+import { ICON_SM, ICON_TOOLBAR } from '@/icons/iconSize'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'
@@ -273,7 +273,7 @@ export function Editor({
         aria-label="选择复盘起稿"
         onMouseDown={(event) => event.preventDefault()}
       >
-        <FileText size={13} aria-hidden />
+        <FileText size={ICON_SM} aria-hidden />
         复盘起稿
       </button>
     </Tooltip>

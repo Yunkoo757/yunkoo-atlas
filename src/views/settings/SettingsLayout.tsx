@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes, Download, FileText, Shield } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
@@ -30,7 +31,7 @@ export function SettingsLayout() {
               onDragStart={(event) => event.preventDefault()}
               className={({ isActive }) => 'settings-nav-item' + (isActive ? ' is-active' : '')}
             >
-              <Icon size={16} />
+              <Icon size={ICON_MD} />
               <span>{label}</span>
             </NavLink>
           ))}

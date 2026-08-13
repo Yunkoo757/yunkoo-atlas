@@ -16,6 +16,24 @@ export type DisplayBounds = {
   height: number
 }
 
+export type WindowBounds = DisplayBounds
+
+export function resolveWindowMinimumBounds(
+  restored: { width: number; height: number },
+): { width: number; height: number } {
+  return {
+    width: Math.min(MIN_WINDOW_BOUNDS.width, Math.max(1, Math.round(restored.width))),
+    height: Math.min(MIN_WINDOW_BOUNDS.height, Math.max(1, Math.round(restored.height))),
+  }
+}
+
+type WindowBoundsInput = {
+  x?: number
+  y?: number
+  width: number
+  height: number
+}
+
 export type WindowSizePresetId =
   | 'default'
   | 'comfort'
@@ -86,6 +104,69 @@ function intersects(a: DisplayBounds, b: DisplayBounds): boolean {
     a.y < b.y + b.height &&
     a.y + a.height > b.y
   )
+}
+
+function intersectionArea(a: DisplayBounds, b: DisplayBounds): number {
+  const width = Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x))
+  const height = Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y))
+  return width * height
+}
+
+function squaredCenterDistance(a: DisplayBounds, b: DisplayBounds): number {
+  const dx = a.x + a.width / 2 - (b.x + b.width / 2)
+  const dy = a.y + a.height / 2 - (b.y + b.height / 2)
+  return dx * dx + dy * dy
+}
+
+/**
+ * 把已保存窗口完整放回某个显示器工作区。
+ * 工作区小于产品最小尺寸时以工作区为准，避免标题栏或退出入口落到屏幕外。
+ */
+export function fitBoundsToWorkArea(
+  saved: WindowBoundsInput,
+  workAreas: DisplayBounds[],
+  minimum: { width: number; height: number },
+): WindowBounds {
+  const width = Math.max(1, Math.round(saved.width))
+  const height = Math.max(1, Math.round(saved.height))
+  if (workAreas.length === 0) {
+    return {
+      x: Math.round(saved.x ?? 0),
+      y: Math.round(saved.y ?? 0),
+      width: Math.max(minimum.width, width),
+      height: Math.max(minimum.height, height),
+    }
+  }
+
+  const hasPosition = isFiniteNumber(saved.x) && isFiniteNumber(saved.y)
+  const candidate: DisplayBounds = {
+    x: Math.round(saved.x ?? workAreas[0]!.x),
+    y: Math.round(saved.y ?? workAreas[0]!.y),
+    width,
+    height,
+  }
+  const ranked = [...workAreas].sort((left, right) => {
+    const overlap = intersectionArea(candidate, right) - intersectionArea(candidate, left)
+    if (overlap !== 0) return overlap
+    return squaredCenterDistance(candidate, left) - squaredCenterDistance(candidate, right)
+  })
+  const workArea = hasPosition ? ranked[0]! : workAreas[0]!
+  const fittedWidth = workArea.width < minimum.width
+    ? workArea.width
+    : clamp(width, minimum.width, workArea.width)
+  const fittedHeight = workArea.height < minimum.height
+    ? workArea.height
+    : clamp(height, minimum.height, workArea.height)
+  const centeredX = workArea.x + Math.round((workArea.width - fittedWidth) / 2)
+  const centeredY = workArea.y + Math.round((workArea.height - fittedHeight) / 2)
+  const x = hasPosition
+    ? clamp(candidate.x, workArea.x, workArea.x + workArea.width - fittedWidth)
+    : centeredX
+  const y = hasPosition
+    ? clamp(candidate.y, workArea.y, workArea.y + workArea.height - fittedHeight)
+    : centeredY
+
+  return { x, y, width: fittedWidth, height: fittedHeight }
 }
 
 /** 规范化窗口状态，并把已移出屏幕的坐标丢弃 */

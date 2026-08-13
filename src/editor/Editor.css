@@ -224,16 +224,7 @@
   transform: rotate(45deg);
 }
 
-@media (max-width: 899px), (pointer: coarse) {
-  .editor ul[data-type='taskList'] li > label {
-    display: grid;
-    width: var(--touch-target);
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
-    place-items: center;
-    margin-top: 0;
-  }
-}
+
 .editor ul[data-type='taskList'] li[data-checked='true'] > div {
   color: var(--text-tertiary);
   text-decoration: line-through;

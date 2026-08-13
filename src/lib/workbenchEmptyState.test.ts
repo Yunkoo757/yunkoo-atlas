@@ -5,6 +5,24 @@ import {
 } from '@/lib/workbenchEmptyState'
 import type { Trade } from '@/data/trades'
 
+export function testFirstUseHasOnePrimaryAction(): void {
+  const state = resolveWorkbenchEmptyState({
+    totalCount: 0,
+    workspaceCount: 0,
+    visibleCount: 0,
+    recordKind: 'live',
+  })
+
+  if (!state) throw new Error('空资料库必须返回空状态模型')
+  if (state.primaryAction.id !== 'create-trade') {
+    throw new Error('首次使用必须只有一个新建交易主动作')
+  }
+  const secondaryIds = state.secondaryActions.map((item) => item.id)
+  if (secondaryIds.join(',') !== 'import-backup,configure-strategy') {
+    throw new Error(`首次使用次动作顺序错误：${secondaryIds.join(',')}`)
+  }
+}
+
 const closedTrade: Trade = {
   id: 'closed-1',
   ref: 'TRD-1',
@@ -100,6 +118,9 @@ export function testFilteredEmptyStateOffersARecoveryPath(): void {
   }
   if (!state.hint.includes('筛选') || !state.hint.includes('显示偏好')) {
     throw new Error('The recovery copy must explain both filtering and display preferences')
+  }
+  if (state.primaryAction.id !== 'clear-filters' || state.primaryAction.label !== '清除筛选') {
+    throw new Error('Filtered empty states must offer one explicit filter reset action')
   }
 }
 

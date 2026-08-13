@@ -1,11 +1,3 @@
-@font-face {
-  font-family: "Inter Atlas UI";
-  src: url('/fonts/inter-variable.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-}
-
 *,
 *::before,
 *::after {
@@ -34,9 +26,9 @@ body {
   background: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Inter / Notion 常用数字与连字特性 */
+  /* Geist 常用数字与连字特性 */
   font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
-  /* 减少系统字体与 Inter 切换时的合成字形跳动 */
+  /* 减少系统字体与 Geist 切换时的合成字形跳动 */
   font-synthesis: none;
   user-select: none;
 }

@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import assert from 'node:assert/strict'
+import { todayHeadingForTab } from '@/views/TodayWorkspace'
 
 function read(relativePath: string): string {
   return readFileSync(path.resolve(relativePath), 'utf8').replace(/\r\n?/g, '\n')
@@ -7,6 +9,22 @@ function read(relativePath: string): string {
 
 function rule(source: string, selector: string): string {
   return source.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] ?? ''
+}
+
+export function testTodayHeadingFollowsActiveQueue(): void {
+  const counts = { all: 10, open: 3, results: 1, review: 6 }
+  assert.equal(todayHeadingForTab('all', counts), '还有 10 项需要处理')
+  assert.equal(todayHeadingForTab('review', counts), '6 项待复盘')
+  assert.equal(todayHeadingForTab('results', counts), '1 项等待结果')
+  assert.equal(todayHeadingForTab('open', counts), '3 项进行中')
+}
+
+export function testTodayQueueShowsRiskAndColumnContextBeforeRows(): void {
+  const workspace = read('src/views/TodayWorkspace.tsx')
+  const riskIndex = workspace.indexOf('<RiskStatusStrip')
+  const queueIndex = workspace.indexOf('<section className="today-action-queue"')
+  assert.ok(riskIndex > 0 && riskIndex < queueIndex, '风险摘要必须出现在行动队列之前')
+  assert.ok(workspace.includes('<TradeListColumns'), '今日队列必须共享交易日志列标题')
 }
 
 export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
@@ -34,22 +52,13 @@ export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
   }
 }
 
-export function testTodayWorkspaceKeepsMobileQueueAndPrimaryActionSafe(): void {
+export function testTodayWorkspaceRejectsUnsupportedPhoneAndTouchBranches(): void {
   const today = read('src/views/TodayWorkspace.css')
-  const tabletStart = today.indexOf('@media (max-width: 899px)')
-  const mobileStart = today.indexOf('@media (max-width: 768px)')
-  const tablet = tabletStart === -1 || mobileStart === -1 ? '' : today.slice(tabletStart, mobileStart)
-  const mobile = mobileStart === -1 ? '' : today.slice(mobileStart)
-  const mobilePrimaryAction = rule(mobile, '\\.today-focus \\.empty-btn')
-
-  if (!tablet.includes('.today-queue-tabs') || !tablet.includes('overflow-x: auto')) {
-    throw new Error('today queue tabs must scroll horizontally below 899px instead of compressing into three columns')
+  if (/@media[^\{]*max-width:\s*(?:[1-8]\d\d|899)px/.test(today)) {
+    throw new Error('today workspace must not maintain unsupported phone-width branches')
   }
-  if (!mobilePrimaryAction.includes('min-height: 44px')) {
-    throw new Error('today primary action must reach 44px on mobile')
-  }
-  if (!mobile.includes('overflow-x: hidden')) {
-    throw new Error('today workspace must prevent horizontal overflow below 768px')
+  if (/pointer:\s*coarse|hover:\s*none/.test(today)) {
+    throw new Error('today workspace must not maintain touch-product branches')
   }
 }
 

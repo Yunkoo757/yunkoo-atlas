@@ -1,7 +1,9 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { LayoutGrid, List } from '@/icons/appIcons'
 import { DisplayMenu } from '@/components/DisplayMenu'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { Toolbar } from '@/components/ui/Toolbar'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import './Topbar.css'
 
@@ -31,32 +33,37 @@ export function Topbar({
       context={subtitle}
       actions={(
         <div className="tb-right">
-        {showSaveStatus && <SaveStatusIndicator />}
-        {onView && (
-          <div className="tb-segmented" role="group" aria-label="视图切换">
-            <ShortcutTooltip actionId="view.list" label="列表视图">
-              <button
-                type="button"
-                className={'tb-seg' + (view === 'list' ? ' is-on' : '')}
-                aria-pressed={view === 'list'}
-                onClick={() => onView('list')}
-              >
-                <List size={15} />
-              </button>
-            </ShortcutTooltip>
-            <ShortcutTooltip actionId="view.board" label="看板视图">
-              <button
-                type="button"
-                className={'tb-seg' + (view === 'board' ? ' is-on' : '')}
-                aria-pressed={view === 'board'}
-                onClick={() => onView('board')}
-              >
-                <LayoutGrid size={15} />
-              </button>
-            </ShortcutTooltip>
-          </div>
-        )}
-        {showDisplay && <DisplayMenu view={view ?? 'list'} />}
+          {showSaveStatus && <SaveStatusIndicator />}
+          {onView && view && (
+            <SegmentedControl
+              label="视图切换"
+              value={view}
+              onChange={onView}
+              options={[
+                {
+                  value: 'list',
+                  label: '列表视图',
+                  content: <List size={ICON_MD} />,
+                  wrap: (button) => (
+                    <ShortcutTooltip key="list" actionId="view.list" label="列表视图">
+                      {button}
+                    </ShortcutTooltip>
+                  ),
+                },
+                {
+                  value: 'board',
+                  label: '看板视图',
+                  content: <LayoutGrid size={ICON_MD} />,
+                  wrap: (button) => (
+                    <ShortcutTooltip key="board" actionId="view.board" label="看板视图">
+                      {button}
+                    </ShortcutTooltip>
+                  ),
+                },
+              ]}
+            />
+          )}
+          {showDisplay && <DisplayMenu view={view ?? 'list'} />}
         </div>
       )}
     />

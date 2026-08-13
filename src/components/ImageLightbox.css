@@ -189,11 +189,3 @@
   .img-lightbox-chrome,
   .img-lightbox-nav { transition: none; }
 }
-
-@media (max-width: 899px), (pointer: coarse) {
-  .img-lightbox-action,
-  .img-lightbox-close {
-    width: var(--touch-target);
-    height: var(--touch-target);
-  }
-}

@@ -40,17 +40,3 @@
 .live-cycle-preview-list > div > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-cycle-preview-list code { display: block; color: var(--text-primary); font: inherit; }
 .live-cycle-preview-more { margin: calc(var(--sp-3) * -1) 0 0; color: var(--text-tertiary); font-size: var(--type-metadata-size); }
-
-@media (max-width: 640px) {
-  .live-cycle-settings,
-  .live-cycle-prompt { align-items: stretch; flex-direction: column; }
-  .live-cycle-settings-actions,
-  .live-cycle-prompt .ui-btn { width: 100%; }
-  .live-cycle-settings-actions { flex-direction: column; }
-  .live-cycle-settings-actions .ui-btn { width: 100%; }
-  .live-cycle-clear-confirm { flex-wrap: wrap; }
-  .live-cycle-clear-confirm span { width: 100%; }
-  .live-cycle-counts { grid-template-columns: 1fr; }
-  .live-cycle-preview-list > div { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .live-cycle-preview-list time { grid-column: 1 / -1; }
-}

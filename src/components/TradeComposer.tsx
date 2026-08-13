@@ -1,5 +1,5 @@
+import { ICON_2XL, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, X } from '@/icons/appIcons'
 import { Select } from '@/components/ui/Select'
@@ -31,9 +31,8 @@ import { addDaysToCurrentTradingDay, getTradingDayKey } from '@/lib/periods'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
-import { useExitClone } from '@/components/ui/useExitClone'
 import { Button } from '@/components/ui/Button'
-import { useShortcutStore } from '@/store/shortcutStore'
+import { ModalShell } from '@/components/ui/ModalShell'
 import './TradeComposer.css'
 
 const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
@@ -84,12 +83,8 @@ export function TradeComposer() {
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const exitRef = useExitClone<HTMLDivElement>(open)
-
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
   const submittingRef = useRef(false)
   const caseTypeDirtyRef = useRef(false)
   const defaultKind = defaultTradeKindForPath(location.pathname)
@@ -97,28 +92,8 @@ export function TradeComposer() {
   const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
 
   useEffect(() => {
-    if (submitting) dialogRef.current?.setAttribute('inert', '')
-    else dialogRef.current?.removeAttribute('inert')
-  }, [submitting])
-
-  useEffect(() => {
     if (!open) return
     caseTypeDirtyRef.current = false
-    previousFocusRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
-    useShortcutStore.getState().acquireModalOverlay()
-    const focusFrame = requestAnimationFrame(() => {
-      const initialFocus = dialogRef.current?.querySelector<HTMLElement>(
-        '.composer-body-quick button:not(:disabled), .composer-body-quick input:not(:disabled)',
-      )
-      initialFocus?.focus()
-    })
-    return () => {
-      cancelAnimationFrame(focusFrame)
-      useShortcutStore.getState().releaseModalOverlay()
-      previousFocusRef.current?.focus()
-    }
   }, [open])
 
   useEffect(() => {
@@ -338,52 +313,39 @@ export function TradeComposer() {
 
   if (!open) return null
 
-  return createPortal(
-    <div ref={exitRef} className="composer-overlay" role="presentation" onMouseDown={requestClose}>
-      <div
-        ref={dialogRef}
-        className="composer-modal composer-quick"
-        role="dialog"
-        aria-modal="true"
-        aria-busy={submitting}
-        aria-labelledby="trade-composer-title"
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' && !event.defaultPrevented) {
-            event.stopPropagation()
-            requestClose()
-            return
-          }
-          if (event.key !== 'Tab') return
-
-          const focusable = Array.from(
-            event.currentTarget.querySelectorAll<HTMLElement>(
-              'button:not(:disabled), input:not(:disabled), [role="button"][tabindex="0"]',
-            ),
-          ).filter((element) => element.offsetParent !== null)
-          const first = focusable[0]
-          const last = focusable[focusable.length - 1]
-          if (!first || !last) return
-
-          if (event.shiftKey && document.activeElement === first) {
-            event.preventDefault()
-            last.focus()
-          } else if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault()
-            first.focus()
-          }
-        }}
-      >
-        <div className="composer-header">
-          <h3 id="trade-composer-title">
-            {editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}
-          </h3>
-          <button type="button" className="composer-close" onClick={requestClose} aria-label="关闭" disabled={submitting}>
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="composer-body-quick">
+  return (
+    <ModalShell
+      title={editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}
+      busy={submitting}
+      panelClassName="composer-modal"
+      bodyClassName="composer-body-quick"
+      footerClassName="composer-footer-quick"
+      initialFocusSelector=".composer-body-quick button:not(:disabled), .composer-body-quick input:not(:disabled)"
+      onClose={requestClose}
+      footer={(
+        <>
+          {!editing && (
+            <span className="composer-footer-hint">
+              状态默认「计划中」，价格与仓位可稍后在详情补充
+            </span>
+          )}
+          <div className="composer-footer-actions">
+            <Button variant="bordered" size="lg" onClick={requestClose} disabled={submitting}>
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              className="composer-btn-primary"
+              onClick={handleQuickCreate}
+              disabled={!symbol.trim() || submitting}
+            >
+              {submitting ? '保存中…' : editing ? '保存' : `创建${recordLabel}`}
+            </Button>
+          </div>
+        </>
+      )}
+    >
           <section className="composer-hero" aria-label={`${recordLabel}身份`}>
             <div className="composer-field-quick">
               <label>品种</label>
@@ -400,7 +362,7 @@ export function TradeComposer() {
                     !symbolCatalog.includes(preset)
                       ? `${preset}（历史）`
                       : preset,
-                  icon: <SymbolIcon symbol={preset} overrides={symbolIcons} size={22} />,
+                  icon: <SymbolIcon symbol={preset} overrides={symbolIcons} size={ICON_2XL} />,
                 }))}
               />
             </div>
@@ -535,7 +497,7 @@ export function TradeComposer() {
               aria-label="拖入或粘贴图表截图"
             >
               <span className="composer-drop-zone-icon" aria-hidden>
-                <Plus size={20} />
+                <Plus size={ICON_XL} />
               </span>
               <span>
                 {images.length > 0
@@ -554,38 +516,13 @@ export function TradeComposer() {
                       onClick={() => removeImage(img.id)}
                       aria-label="删除图片"
                     >
-                      <X size={12} />
+                      <X size={ICON_SM} />
                     </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </div>
-
-        <div className="composer-footer-quick">
-          {!editing && (
-            <span className="composer-footer-hint">
-              状态默认「计划中」，价格与仓位可稍后在详情补充
-            </span>
-          )}
-          <div className="composer-footer-actions">
-            <Button variant="bordered" size="lg" onClick={requestClose} disabled={submitting}>
-              取消
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              className="composer-btn-primary"
-              onClick={handleQuickCreate}
-              disabled={!symbol.trim() || submitting}
-            >
-              {submitting ? '保存中…' : editing ? '保存' : `创建${recordLabel}`}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+    </ModalShell>
   )
 }

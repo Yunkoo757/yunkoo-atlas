@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import {
   forwardRef,
   useEffect,
@@ -7,11 +8,14 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type MutableRefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { Calendar, ChevronLeft, ChevronRight } from '@/icons/appIcons'
+import { FieldTrigger } from '@/components/ui/FieldTrigger'
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import './DatePicker.css'
 
 type CalendarDay = {
@@ -55,6 +59,16 @@ function buildCalendarDays(viewDate: Date): CalendarDay[] {
   })
 }
 
+function addDays(date: Date, amount: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount)
+}
+
+function addMonthsClamped(date: Date, amount: number): Date {
+  const target = new Date(date.getFullYear(), date.getMonth() + amount, 1)
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
+  return new Date(target.getFullYear(), target.getMonth(), Math.min(date.getDate(), lastDay))
+}
+
 export const DatePicker = forwardRef<
   HTMLButtonElement,
   {
@@ -90,6 +104,7 @@ export const DatePicker = forwardRef<
   const [open, setOpen] = useState(false)
   const popoverExitRef = useExitClone<HTMLDivElement>(open)
   const [viewDate, setViewDate] = useState(() => parseYmd(value) ?? new Date())
+  const [activeDayKey, setActiveDayKey] = useState(() => toYmd(parseYmd(value) ?? new Date()))
   const [position, setPosition] = useState({ left: 0, top: 0, placement: 'bottom' as 'top' | 'bottom' })
   const days = useMemo(() => buildCalendarDays(viewDate), [viewDate])
 
@@ -130,12 +145,44 @@ export const DatePicker = forwardRef<
 
   const openPicker = () => {
     if (disabled) return
-    setViewDate(parseYmd(value) ?? new Date())
+    const activeDate = parseYmd(value) ?? new Date()
+    setViewDate(activeDate)
+    setActiveDayKey(toYmd(activeDate))
     changeOpen(true)
   }
 
   const changeMonth = (offset: number) => {
-    setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
+    const current = parseYmd(activeDayKey) ?? viewDate
+    const next = addMonthsClamped(current, offset)
+    setActiveDayKey(toYmd(next))
+    setViewDate(next)
+  }
+
+  const moveActiveDate = (next: Date) => {
+    setActiveDayKey(toYmd(next))
+    setViewDate(next)
+  }
+
+  const handleCalendarKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const active = parseYmd(activeDayKey)
+    if (!active) return
+    let next: Date | null = null
+    if (event.key === 'ArrowLeft') next = addDays(active, -1)
+    else if (event.key === 'ArrowRight') next = addDays(active, 1)
+    else if (event.key === 'ArrowUp') next = addDays(active, -7)
+    else if (event.key === 'ArrowDown') next = addDays(active, 7)
+    else if (event.key === 'Home') next = addDays(active, -((active.getDay() + 6) % 7))
+    else if (event.key === 'End') next = addDays(active, 6 - ((active.getDay() + 6) % 7))
+    else if (event.key === 'PageUp') next = addMonthsClamped(active, -1)
+    else if (event.key === 'PageDown') next = addMonthsClamped(active, 1)
+    else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      selectDate(activeDayKey)
+      return
+    }
+    if (!next) return
+    event.preventDefault()
+    moveActiveDate(next)
   }
 
   const selectDate = (next: string) => {
@@ -154,6 +201,13 @@ export const DatePicker = forwardRef<
   useLayoutEffect(() => {
     if (open) updatePosition()
   }, [open, viewDate])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    popoverRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-day-key="${activeDayKey}"]`)
+      ?.focus()
+  }, [activeDayKey, days, open])
 
   useEffect(() => {
     if (!open) return
@@ -195,10 +249,10 @@ export const DatePicker = forwardRef<
 
   return (
     <div className={`ui-date-picker${className ? ` ${className}` : ''}`}>
-      <button
+      <FieldTrigger
         ref={assignTriggerRef}
-        type="button"
         className="ui-date-trigger"
+        expanded={open}
         aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -214,12 +268,13 @@ export const DatePicker = forwardRef<
         }}
       >
         <span className={!formattedValue ? 'is-placeholder' : undefined}>{displayValue}</span>
-        <Calendar size={15} aria-hidden />
-      </button>
+        <Calendar size={ICON_MD} aria-hidden />
+      </FieldTrigger>
 
       {open && createPortal(
-        <div
+        <PopoverSurface
           ref={assignPopoverRef}
+          kind="menu"
           id={id}
           role="dialog"
           aria-modal="false"
@@ -230,14 +285,14 @@ export const DatePicker = forwardRef<
           <div className="ui-date-head">
             <strong>{viewDate.getFullYear()}年{viewDate.getMonth() + 1}月</strong>
             <div>
-              <button type="button" aria-label="上个月" onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
-              <button type="button" aria-label="下个月" onClick={() => changeMonth(1)}><ChevronRight size={16} /></button>
+              <button type="button" aria-label="上个月" onClick={() => changeMonth(-1)}><ChevronLeft size={ICON_MD} /></button>
+              <button type="button" aria-label="下个月" onClick={() => changeMonth(1)}><ChevronRight size={ICON_MD} /></button>
             </div>
           </div>
           <div className="ui-date-weekdays" aria-hidden>
             {['一', '二', '三', '四', '五', '六', '日'].map((day) => <span key={day}>{day}</span>)}
           </div>
-          <div className="ui-date-grid" role="grid">
+          <div className="ui-date-grid" role="grid" onKeyDown={handleCalendarKeyDown}>
             {days.map((day) => (
               <button
                 type="button"
@@ -245,6 +300,8 @@ export const DatePicker = forwardRef<
                 key={day.key}
                 aria-label={day.value}
                 aria-selected={day.value === value}
+                data-day-key={day.key}
+                tabIndex={day.key === activeDayKey ? 0 : -1}
                 className={`${day.currentMonth ? '' : 'is-outside'}${day.today ? ' is-today' : ''}`}
                 onClick={() => selectDate(day.value)}
               >
@@ -258,7 +315,7 @@ export const DatePicker = forwardRef<
             )}
             <button type="button" className="ui-date-today" onClick={() => selectDate(toYmd(new Date()))}>今天</button>
           </div>
-        </div>,
+        </PopoverSurface>,
         document.body,
       )}
     </div>

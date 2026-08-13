@@ -1,3 +1,4 @@
+import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CheckCircle, Shield } from '@/icons/appIcons'
 import type { RiskPolicyDraft } from '@/data/riskManagement'
@@ -133,7 +134,7 @@ export function WeeklyRiskPreparationCard({
         data-reviewed="true"
         aria-labelledby="risk-preparation-title"
       >
-        <div className="risk-preparation-summary-icon" aria-hidden><CheckCircle size={16} /></div>
+        <div className="risk-preparation-summary-icon" aria-hidden><CheckCircle size={ICON_MD} /></div>
         <div className="risk-preparation-summary-copy">
           <h2 id="risk-preparation-title">本周风险规则已复核</h2>
           <p className="risk-preparation-summary-limits">
@@ -159,7 +160,7 @@ export function WeeklyRiskPreparationCard({
       aria-labelledby="risk-preparation-title"
     >
       <header className="risk-preparation-header">
-        <span className="risk-preparation-icon" aria-hidden><Shield size={17} /></span>
+        <span className="risk-preparation-icon" aria-hidden><Shield size={ICON_LG} /></span>
         <div>
           <span className="risk-preparation-eyebrow">本周准备</span>
           <h2 id="risk-preparation-title">{reviewed ? '修改本周风险规则' : '先复核本周风险规则'}</h2>

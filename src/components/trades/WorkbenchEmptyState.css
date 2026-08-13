@@ -1,18 +1,22 @@
 .workbench-empty-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1) var(--sp-3);
 }
 
-@media (max-width: 480px) {
-  .workbench-empty-actions {
-    flex-direction: column;
-    width: min(100%, 220px);
-  }
+.workbench-empty-secondary {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  font-weight: 600;
+  line-height: var(--control-height-sm);
+  text-decoration: none;
+}
 
-  .workbench-empty-actions > * {
-    width: 100%;
-    min-height: 44px;
-  }
+.workbench-empty-secondary:hover,
+.workbench-empty-secondary:focus-visible {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

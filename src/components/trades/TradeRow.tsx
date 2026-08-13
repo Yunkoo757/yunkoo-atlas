@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { memo } from 'react'
 import { Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
@@ -95,7 +96,7 @@ export const TradeRow = memo(function TradeRow({
       symbol={
         <>
           <span className="trade-row-symbol-main">
-            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={14} />
+            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_SM} />
             <strong>{trade.symbol}</strong>
           </span>
           <SideTag side={trade.side} quiet />
@@ -214,7 +215,7 @@ export const TradeRow = memo(function TradeRow({
               onToggleStar(trade)
             }}
           >
-            <Star size={13} fill={starred ? 'currentColor' : 'none'} />
+            <Star size={ICON_SM} fill={starred ? 'currentColor' : 'none'} />
           </button>
         </Tooltip>
       }

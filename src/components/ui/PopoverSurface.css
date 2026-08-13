@@ -1,0 +1,26 @@
+.ui-popover-surface {
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-synthesis: none;
+}
+
+.ui-popover-menu {
+  border: 1px solid var(--popover-menu-border);
+  border-radius: var(--popover-menu-radius);
+  background: var(--popover-menu-bg);
+  box-shadow: var(--popover-menu-shadow);
+}
+
+.ui-popover-tooltip {
+  border: 1px solid var(--popover-tooltip-border);
+  border-radius: var(--popover-tooltip-radius);
+  background: var(--popover-tooltip-bg);
+  box-shadow: var(--popover-tooltip-shadow);
+}
+
+.ui-popover-modal {
+  border: 1px solid var(--popover-modal-border);
+  border-radius: var(--popover-modal-radius);
+  background: var(--popover-modal-bg);
+  box-shadow: var(--popover-modal-shadow);
+}

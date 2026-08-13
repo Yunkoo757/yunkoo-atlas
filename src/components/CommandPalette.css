@@ -192,19 +192,3 @@
   line-height: 20px;
   text-align: center;
 }
-
-@media (max-width: 899px), (pointer: coarse) {
-  .cmdk-input {
-    height: 44px;
-    line-height: 44px;
-  }
-
-  .cmdk-clear,
-  .cmdk-item {
-    height: 44px;
-  }
-
-  .cmdk-clear {
-    width: 44px;
-  }
-}

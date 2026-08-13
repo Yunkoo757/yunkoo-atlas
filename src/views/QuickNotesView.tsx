@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Editor } from '@/editor/Editor'
@@ -160,7 +161,7 @@ export function QuickNotesView() {
         context="记录想法、观察与截图，不参与交易统计"
         actions={(
           <button type="button" className="empty-btn" onClick={createNote}>
-            <Plus size={15} />
+            <Plus size={ICON_MD} />
             新建随记
           </button>
         )}
@@ -169,7 +170,7 @@ export function QuickNotesView() {
       <div className="quick-notes-workspace">
         <aside className="quick-notes-list-pane" aria-label="随记列表">
           <label className="quick-notes-search">
-            <Search size={14} aria-hidden="true" />
+            <Search size={ICON_SM} aria-hidden="true" />
             <input
               type="search"
               autoComplete="off"
@@ -190,7 +191,7 @@ export function QuickNotesView() {
                   onClick={() => navigate(`/notes/${encodeURIComponent(note.id)}`)}
                 >
                   <span className="quick-notes-list-title">
-                    {note.pinned ? <Pin size={13} aria-label="已置顶" /> : null}
+                    {note.pinned ? <Pin size={ICON_SM} aria-label="已置顶" /> : null}
                     <strong>{note.title}</strong>
                     <time>{formatNoteTime(note.updatedAt)}</time>
                   </span>
@@ -230,7 +231,7 @@ export function QuickNotesView() {
                     aria-label={selectedNote.pinned ? '取消置顶' : '置顶随记'}
                     onClick={() => updateNote(selectedNote.id, { pinned: !selectedNote.pinned })}
                   >
-                    {selectedNote.pinned ? <PinOff size={16} /> : <Pin size={16} />}
+                    {selectedNote.pinned ? <PinOff size={ICON_MD} /> : <Pin size={ICON_MD} />}
                   </button>
                   <button
                     type="button"
@@ -238,7 +239,7 @@ export function QuickNotesView() {
                     aria-label="删除随记"
                     onClick={() => setDeleteOpen(true)}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={ICON_MD} />
                   </button>
                 </div>
               </header>
@@ -269,7 +270,7 @@ export function QuickNotesView() {
               hint="不用先决定它属于哪笔交易，先把想法和证据保存下来。"
               action={(
                 <button type="button" className="empty-btn" onClick={createNote}>
-                  <Plus size={15} />
+                  <Plus size={ICON_MD} />
                   新建随记
                 </button>
               )}

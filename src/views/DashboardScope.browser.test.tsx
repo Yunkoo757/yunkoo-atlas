@@ -128,17 +128,24 @@ async function run(): Promise<void> {
         '/dashboard?kind=live&range=this-week',
       '仪表盘必须把 kind=paper 纠偏为 live',
     )
-    const kindButtons = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
+    const kindButtons = [...document.querySelectorAll<HTMLButtonElement>('.db-range-control button')]
       .map((button) => button.textContent?.trim())
     assert(!kindButtons.includes('模拟盘'), '仪表盘不得再提供模拟盘切换')
     assert(!kindButtons.includes('实盘 + 模拟盘'), '仪表盘不得再提供实盘+模拟盘切换')
     assert(!kindButtons.includes('实盘'), '仪表盘不应再显示单独的实盘分段（固定仅实盘）')
-    const selectedRange = [...document.querySelectorAll<HTMLButtonElement>('.db-seg')]
+    const selectedRange = [...document.querySelectorAll<HTMLButtonElement>('.db-range-control button')]
       .find((button) => button.textContent?.trim() === '本周')
     assert(selectedRange?.getAttribute('aria-pressed') === 'true', '仪表盘必须从 URL 恢复时间范围')
     await waitFor(() => Boolean(document.querySelector('a.db-strat')), '策略分析链接未出现')
     assert(document.body.textContent?.includes('+$250'), '仪表盘纠偏后只统计实盘')
     assert(!document.body.textContent?.includes('实盘 + 模拟盘'), '界面不得再出现合并范围文案')
+    const currentRangeHeading = document.querySelector<HTMLElement>('[data-dashboard-current-range]')
+    const weekContext = document.querySelector<HTMLElement>('[aria-label="本周交易分析"]')
+    assert(currentRangeHeading && weekContext, '仪表盘必须标明当前分析范围与本周上下文')
+    assert(
+      Boolean(currentRangeHeading.compareDocumentPosition(weekContext) & Node.DOCUMENT_POSITION_FOLLOWING),
+      '当前分析范围必须先于本周交易分析',
+    )
 
     const link = document.querySelector<HTMLAnchorElement>('a.db-strat')
     assert(

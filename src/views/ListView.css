@@ -83,11 +83,3 @@
   font-size: var(--type-body-size);
   line-height: 1.55;
 }
-
-@media (max-width: 899px) {
-  .copy-preview-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 3px;
-  }
-}

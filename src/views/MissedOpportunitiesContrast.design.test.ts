@@ -38,17 +38,7 @@ export function testMissedOpportunityActionsUseTheSharedToolbarControl(): void {
   if (!tokens.includes('--toolbar-action-height: var(--field-height-md);')) {
     throw new Error('工具栏动作高度必须复用共享 field-height-md token')
   }
-  const mobileStyles = mediaBlock(viewStyles, '@media (max-width: 768px)')
-  const mobilePillSelector = `.missed-scope-trigger::before,
-  .missed-view > .ui-filter-shell .ui-filter-trigger::before,
-  .missed-view > .ui-filter-shell .ui-filter-chip:not(.ui-filter-chip-static)::before`
-  const mobilePillStart = mobileStyles?.indexOf(mobilePillSelector) ?? -1
-  const mobilePillStyles = mobilePillStart >= 0 && mobileStyles
-    ? ruleBlock(mobileStyles, mobilePillStart)
-    : null
-  const mobileActionPillUsesSharedHeight = mobilePillStyles !== null
-    && /(?:^|\n)\s*height:\s*var\(--toolbar-action-height\);/.test(mobilePillStyles)
-  if (!mobileActionPillUsesSharedHeight) {
-    throw new Error('移动端范围与筛选按钮的胶囊层必须保留共享高度 token')
+  if (/@media[^\{]*max-width:\s*(?:[1-8]\d\d|899)px/.test(viewStyles)) {
+    throw new Error('错过机会页不得维护不受支持的手机宽度分支')
   }
 }

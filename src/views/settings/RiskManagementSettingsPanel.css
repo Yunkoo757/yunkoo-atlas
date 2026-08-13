@@ -57,19 +57,3 @@
 .risk-management-settings .risk-preparation-actions {
   justify-content: flex-end;
 }
-
-@media (max-width: 899px) {
-  .risk-management-settings .risk-preparation-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .risk-management-settings .risk-preparation-card.is-reviewed { min-height: 56px; }
-}
-
-@media (max-width: 640px) {
-  .risk-management-settings .risk-preparation-fields { grid-template-columns: 1fr; }
-  .risk-data-issues-head { align-items: flex-start; flex-direction: column; }
-  .risk-data-issues-summary { justify-content: flex-start; }
-  .risk-data-issue { grid-template-columns: 1fr; gap: var(--sp-2); }
-  .risk-data-issue-action { width: 100%; }
-  .risk-data-complete { align-items: flex-start; flex-direction: column; gap: var(--sp-1); }
-}

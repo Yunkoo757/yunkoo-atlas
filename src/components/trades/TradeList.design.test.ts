@@ -21,7 +21,7 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   assert(css.includes('--trade-group-chevron'), '分组三角应按状态/远近 tint，而非整条换底色')
   assert(
     css.includes('.trade-list-group-toggle:hover .trade-list-group-chevron') &&
-      css.includes('lch(100% 0 272 / 1)'),
+      css.includes('color: var(--accent-text)'),
     '分组三角悬停应保持清晰的纯白高亮',
   )
   assert(tokens.includes('--group-chevron-started:'), '当前状态三角色必须使用专用色值')
@@ -37,4 +37,30 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   ]) {
     if (css.includes(forbidden)) throw new Error(`不得恢复整行高亮：${forbidden}`)
   }
+}
+
+export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/components/trades/TradeList.tsx', 'utf8')
+  const columns = await fs.readFile('src/components/trades/TradeListColumns.tsx', 'utf8')
+  const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
+
+  assert(source.includes('<TradeListColumns'), '交易日志必须提供稳定列标题')
+  assert(columns.includes('role="row"'), '列标题必须暴露 row 语义')
+  assert(columns.includes('role="columnheader"'), '各列必须暴露 columnheader 语义')
+  assert(css.includes('grid-template-columns: var(--trade-list-columns)'), '标题和交易行必须共享同一列模板')
+  assert(
+    /:where\(\.trade-list-columns, \.trade-row\)\s*\{[\s\S]*?--trade-select-column:\s*24px;[\s\S]*?--trade-ref-column:\s*72px;/.test(css),
+    '共享列模板必须在标题和行自身作用域内声明列宽，不能依赖仅存在于列表容器的继承变量',
+  )
+  assert(source.includes("top: isSticky ? 'var(--trade-list-columns-height)'"), '月份标题必须吸附在列标题下方')
+}
+
+export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
+
+  assert(css.includes('.trade-row:focus-within .trade-row-check'), '键盘焦点进入行时必须显示选择框')
+  assert(css.includes('.trade-list.is-selection-mode .trade-row-check'), '选择模式必须持续显示选择框')
+  assert(css.includes('.trade-row-star.is-starred'), '星标状态必须保持可见但不抢夺主信息')
 }

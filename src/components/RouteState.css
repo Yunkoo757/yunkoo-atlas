@@ -71,14 +71,3 @@
   font-size: var(--fs-mini);
   overflow-wrap: anywhere;
 }
-
-@media (max-width: 640px) {
-  .app-route-state {
-    padding: var(--sp-7) var(--sp-5);
-  }
-
-  .app-route-state-actions {
-    flex-direction: column;
-    width: min(240px, 100%);
-  }
-}

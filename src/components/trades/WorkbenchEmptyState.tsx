@@ -1,3 +1,4 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { Link } from 'react-router-dom'
 import { Plus, RotateCcw } from '@/icons/appIcons'
 import { EmptyState } from '@/components/EmptyState'
@@ -13,27 +14,33 @@ export function WorkbenchEmptyState({
   onCreate: () => void
   onReset: () => void
 }) {
-  const create = state.action === 'create'
+  const primary = state.primaryAction
+  const create = primary.intent === 'create'
   return (
     <EmptyState
+      variant={state.kind === 'library' ? 'first-use' : state.kind === 'filtered' ? 'filtered' : 'missing'}
       title={state.title}
       hint={state.hint}
       action={(
-        state.kind === 'library' ? (
-          <div className="workbench-empty-actions">
-            <button type="button" className="empty-btn" onClick={onCreate}>
-              <Plus size={15} />
-              <span>{state.actionLabel}</span>
-            </button>
-            <Link className="ui-btn ui-btn-bordered" to="/settings/data">导入备份</Link>
-            <Link className="ui-btn ui-btn-bordered" to="/settings/strategies">配置策略</Link>
-          </div>
-        ) : (
-          <button type="button" className="empty-btn" onClick={create ? onCreate : onReset}>
-            {create ? <Plus size={15} /> : <RotateCcw size={15} />}
-            <span>{state.actionLabel}</span>
+        <div className="workbench-empty-actions">
+          <button
+            type="button"
+            className="empty-btn workbench-empty-primary"
+            onClick={create ? onCreate : onReset}
+          >
+            {create ? <Plus size={ICON_MD} /> : <RotateCcw size={ICON_MD} />}
+            <span>{primary.label}</span>
           </button>
-        )
+          {state.secondaryActions.map((action) => (
+            <Link
+              key={action.id}
+              className="workbench-empty-secondary"
+              to={action.href ?? '/'}
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
       )}
     />
   )

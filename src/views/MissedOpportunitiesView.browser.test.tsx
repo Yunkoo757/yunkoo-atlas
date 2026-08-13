@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { MobileNavigation } from '@/components/MobileNavigation'
+import { Sidebar } from '@/components/Sidebar'
 import { ToastHost } from '@/components/Toast'
 import { AppFrame } from '@/components/ui/AppFrame'
 import { TradeRow } from '@/components/trades/TradeRow'
@@ -527,7 +527,7 @@ const missedWorkspace: SidebarWorkspaceItem = {
 function FixtureApp() {
   return (
     <>
-      <AppFrame sidebar={null} mobileNavigation={<MobileNavigation />}>
+      <AppFrame sidebar={<Sidebar />}>
         <Routes>
           <Route path="/missed" element={<MissedOpportunitiesView />} />
           <Route path="/trade/:id" element={<DetailView />} />

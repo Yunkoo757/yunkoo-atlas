@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import {
   forwardRef,
   useEffect,
@@ -12,6 +13,8 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from '@/icons/appIcons'
+import { FieldTrigger } from '@/components/ui/FieldTrigger'
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { useExitClone } from '@/components/ui/useExitClone'
 import './Select.css'
 
@@ -228,11 +231,11 @@ export const Select = forwardRef<
 
   return (
     <div className={`ui-select${className ? ` ${className}` : ''}`}>
-      <button
+      <FieldTrigger
         ref={assignTriggerRef}
-        type="button"
         role="combobox"
         className="ui-select-trigger"
+        expanded={open}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         data-value={value}
@@ -247,12 +250,13 @@ export const Select = forwardRef<
           {selected?.icon ? <span className="ui-select-option-icon">{selected.icon}</span> : null}
           <span className="ui-select-option-label">{selected?.label ?? placeholder}</span>
         </span>
-        <ChevronDown className="ui-select-chevron" size={14} />
-      </button>
+        <ChevronDown className="ui-select-chevron" size={ICON_SM} />
+      </FieldTrigger>
 
       {open && createPortal(
-        <div
+        <PopoverSurface
           ref={assignMenuRef}
+          kind="menu"
           id={id}
           role="listbox"
           aria-label={ariaLabel}
@@ -279,10 +283,10 @@ export const Select = forwardRef<
                 {option.icon ? <span className="ui-select-option-icon">{option.icon}</span> : null}
                 <span className="ui-select-option-label">{option.label}</span>
               </span>
-              {option.value === value && <Check size={13} />}
+              {option.value === value && <Check size={ICON_SM} />}
             </button>
           ))}
-        </div>,
+        </PopoverSurface>,
         document.body,
       )}
     </div>

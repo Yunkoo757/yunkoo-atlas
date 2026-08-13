@@ -1,0 +1,58 @@
+.ui-icon-btn {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  color: var(--list-text-secondary);
+  background: var(--surface-control);
+  box-shadow: var(--surface-control-shadow);
+  transition: border-color var(--motion-state) var(--ease-out),
+    background-color var(--motion-state) var(--ease-out),
+    color var(--motion-state) var(--ease-out),
+    opacity var(--motion-state) var(--ease-out),
+    box-shadow var(--motion-state) var(--ease-out);
+}
+
+.ui-icon-btn-sm {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+}
+
+.ui-icon-btn-md {
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+}
+
+.ui-icon-btn-lg {
+  width: var(--control-height-lg);
+  height: var(--control-height-lg);
+}
+
+.ui-icon-btn:hover:not(:disabled) {
+  color: var(--list-text-primary);
+  background-color: var(--surface-control-active);
+  box-shadow: var(--surface-control-shadow-active);
+}
+
+.ui-icon-btn:active:not(:disabled) {
+  background-color: var(--bg-selected);
+  transform: translateY(1px);
+}
+
+.ui-icon-btn.is-pressed {
+  color: var(--star-color);
+}
+
+.ui-icon-btn:focus-visible {
+  outline: var(--focus-ring-outline);
+  outline-offset: 2px;
+}
+
+.ui-icon-btn:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  opacity: 0.64;
+}

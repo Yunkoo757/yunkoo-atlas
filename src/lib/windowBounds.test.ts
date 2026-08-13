@@ -3,6 +3,8 @@ import {
   normalizeWindowState,
   matchWindowSizePreset,
   fitWindowSizeToWorkArea,
+  fitBoundsToWorkArea,
+  resolveWindowMinimumBounds,
   DEFAULT_WINDOW_BOUNDS,
   MIN_WINDOW_BOUNDS,
 } from './windowBounds'
@@ -17,6 +19,39 @@ export function testNormalizeWindowStateKeepsValidBounds(): void {
   assert.equal(state.x, 120)
   assert.equal(state.y, 80)
   assert.equal(state.isMaximized, true)
+}
+
+export function testRestoredWindowFitsSmallerWorkAreaAndKeepsTitleBarVisible(): void {
+  assert.deepEqual(
+    fitBoundsToWorkArea(
+      { x: 1600, y: 0, width: 1920, height: 1080 },
+      [{ x: 0, y: 0, width: 1366, height: 768 }],
+      { width: 960, height: 640 },
+    ),
+    { x: 0, y: 0, width: 1366, height: 768 },
+  )
+}
+
+export function testRestoredWindowUsesAvailableAreaBelowDesktopMinimum(): void {
+  assert.deepEqual(
+    fitBoundsToWorkArea(
+      { x: -2000, y: -1200, width: 700, height: 500 },
+      [{ x: 20, y: 30, width: 800, height: 600 }],
+      { width: 960, height: 640 },
+    ),
+    { x: 20, y: 30, width: 800, height: 600 },
+  )
+}
+
+export function testWindowMinimumFollowsAWorkAreaBelowTheDesktopContract(): void {
+  assert.deepEqual(
+    resolveWindowMinimumBounds({ width: 820, height: 576 }),
+    { width: 820, height: 576 },
+  )
+  assert.deepEqual(
+    resolveWindowMinimumBounds({ width: 1280, height: 860 }),
+    MIN_WINDOW_BOUNDS,
+  )
 }
 
 export function testNormalizeWindowStateDropsOffscreenPosition(): void {

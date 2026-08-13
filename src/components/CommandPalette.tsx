@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -135,42 +136,42 @@ function CommandPaletteDialog({
     const shortcutHint = (actionId: string) =>
       getShortcutHintModel(actionId, shortcutBindings).hint ?? undefined
     const viewNav: Cmd[] = [
-      { id: 'n-today', group: '导航', icon: <Calendar size={16} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
-      { id: 'n-quick-notes', group: '导航', icon: <FileText size={16} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
-      { id: 'n-list', group: '导航', icon: <ListTodo size={16} />, label: '交易日志', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
-      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={16} />, label: '案例记录', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
-      { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={16} />, label: '周复盘', keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go('/weekly-review') },
-      { id: 'n-review-session', group: '导航', icon: <RotateCcw size={16} />, label: '随机复盘', keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
-      { id: 'n-active', group: '导航', icon: <Clock size={16} />, label: '进行中', hint: shortcutHint('nav.active'), run: go('/active') },
-      { id: 'n-dash', group: '导航', icon: <BarChart3 size={16} />, label: '仪表盘', hint: shortcutHint('nav.dashboard'), run: go('/dashboard') },
-      { id: 'n-fav', group: '导航', icon: <Star size={16} />, label: '星标交易', hint: shortcutHint('nav.favorites'), run: go('/favorites') },
-      { id: 'n-missed', group: '导航', icon: <Ban size={16} />, label: '错过的机会', hint: shortcutHint('nav.missed'), run: go('/missed') },
-      { id: 'n-sim', group: '导航', icon: <FlaskConical size={16} />, label: '模拟盘', hint: shortcutHint('nav.sim'), run: go('/sim') },
+      { id: 'n-today', group: '导航', icon: <Calendar size={ICON_MD} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
+      { id: 'n-quick-notes', group: '导航', icon: <FileText size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
+      { id: 'n-list', group: '导航', icon: <ListTodo size={ICON_MD} />, label: '交易日志', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
+      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: '案例记录', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
+      { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={ICON_MD} />, label: '周复盘', keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go('/weekly-review') },
+      { id: 'n-review-session', group: '导航', icon: <RotateCcw size={ICON_MD} />, label: '随机复盘', keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
+      { id: 'n-active', group: '导航', icon: <Clock size={ICON_MD} />, label: '进行中', hint: shortcutHint('nav.active'), run: go('/active') },
+      { id: 'n-dash', group: '导航', icon: <BarChart3 size={ICON_MD} />, label: '仪表盘', hint: shortcutHint('nav.dashboard'), run: go('/dashboard') },
+      { id: 'n-fav', group: '导航', icon: <Star size={ICON_MD} />, label: '星标交易', hint: shortcutHint('nav.favorites'), run: go('/favorites') },
+      { id: 'n-missed', group: '导航', icon: <Ban size={ICON_MD} />, label: '错过的机会', hint: shortcutHint('nav.missed'), run: go('/missed') },
+      { id: 'n-sim', group: '导航', icon: <FlaskConical size={ICON_MD} />, label: '模拟盘', hint: shortcutHint('nav.sim'), run: go('/sim') },
     ]
     const periodNav: Cmd[] = CALENDAR_PERIODS.map((slug) => ({
       id: 'n-period-' + slug,
       group: '时间',
-      icon: <Calendar size={16} />,
+      icon: <Calendar size={ICON_MD} />,
       label: PERIOD_LABELS[slug],
       keywords: `period ${slug}`,
       run: go(`/period/${slug}`),
     }))
     const settingsNav: Cmd[] = [
-      { id: 'n-strat', group: '设置', icon: <Settings2 size={16} />, label: '编辑策略', run: go('/settings/strategies') },
-      { id: 'n-settings', group: '设置', icon: <Keyboard size={16} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
+      { id: 'n-strat', group: '设置', icon: <Settings2 size={ICON_MD} />, label: '编辑策略', run: go('/settings/strategies') },
+      { id: 'n-settings', group: '设置', icon: <Keyboard size={ICON_MD} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
       {
         id: 'a-io',
         group: '设置',
-        icon: <HardDriveDownload size={16} />,
+        icon: <HardDriveDownload size={ICON_MD} />,
         label: '导入/导出数据',
         keywords: '备份 恢复 backup export import',
         run: () => { requestClose(); navigate('/settings/data') },
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={16} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, newTradeKindForPath(pathname)) } },
-      { id: 'a-new-case', group: '操作', icon: <BookOpen size={16} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } },
-      { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={16} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
+      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '新建交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, newTradeKindForPath(pathname)) } },
+      { id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } },
+      { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()
         const bridge = window.journalBridge
         if (bridge?.toggleFullscreen) void bridge.toggleFullscreen()
@@ -185,7 +186,7 @@ function CommandPaletteDialog({
       contextActions.push({
         id: 'a-toggle-star',
         group: '当前记录',
-        icon: <Star size={16} />,
+        icon: <Star size={ICON_MD} />,
         label: starred ? '取消星标' : '加入星标',
         keywords: '收藏 星标 star',
         run: () => {
@@ -199,7 +200,7 @@ function CommandPaletteDialog({
         contextActions.push({
           id: `a-status-${status}`,
           group: '当前记录',
-          icon: <StatusIcon status={status} size={16} />,
+          icon: <StatusIcon status={status} size={ICON_MD} />,
           label: `改为${STATUS_META[status].label}`,
           keywords: `状态 ${STATUS_META[status].label}`,
           run: () => {
@@ -246,7 +247,7 @@ function CommandPaletteDialog({
       (strategy): Cmd => ({
         id: 'strat-' + strategy.id,
         group: '策略',
-        icon: <StrategyIcon icon={strategy.icon} color={strategy.color} size={16} variant="nav" />,
+        icon: <StrategyIcon icon={strategy.icon} color={strategy.color} size={ICON_MD} variant="nav" />,
         label: strategy.name,
         hint: `${strategyCounts.get(strategy.id) ?? 0} 笔交易`,
         keywords: `strategy ${strategy.name}`,
@@ -282,7 +283,7 @@ function CommandPaletteDialog({
         return {
           id: `tag-${candidate.kind}-${tag}`,
           group: candidate.group,
-          icon: <Tag size={16} />,
+          icon: <Tag size={ICON_MD} />,
           label: tag,
           hint: `${candidate.count} ${candidate.unit}`,
           keywords: tag,
@@ -309,7 +310,7 @@ function CommandPaletteDialog({
         return {
           id: 't-' + trade.id,
           group: '交易',
-          icon: <StatusIcon status={trade.status} size={16} />,
+          icon: <StatusIcon status={trade.status} size={ICON_MD} />,
           label: `${trade.symbol} · ${strategyName}`,
           hint: trade.ref,
           keywords: `${trade.ref} ${trade.symbol} ${strategyName} ${trade.tags.join(' ')}`,
@@ -437,7 +438,7 @@ function CommandPaletteDialog({
         }}
       >
         <div className={'cmdk-input-row' + (q ? ' has-value' : '')}>
-          <Search size={16} className="cmdk-search-icon" />
+          <Search size={ICON_MD} className="cmdk-search-icon" />
           <input
             ref={inputRef}
             className="cmdk-input"
@@ -459,7 +460,7 @@ function CommandPaletteDialog({
               onClick={() => { setQ(''); inputRef.current?.focus() }}
               aria-label="清除搜索"
             >
-              <X size={14} />
+              <X size={ICON_SM} />
             </button>
           ) : null}
         </div>
@@ -495,7 +496,7 @@ function CommandPaletteDialog({
                   <span className="cmdk-item-label">{c.label}</span>
                   {c.hint && <span className="cmdk-item-hint">{c.hint}</span>}
                   {idx === active && (
-                    <CornerDownLeft size={13} className="cmdk-item-enter" />
+                    <CornerDownLeft size={ICON_SM} className="cmdk-item-enter" />
                   )}
                 </button>
               </div>

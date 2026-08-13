@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Copy, Trash2 } from '@/icons/appIcons'
@@ -426,11 +427,11 @@ export function ListView({
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       <BatchActionBar count={selectedIds.size}>
         <button type="button" className="batch-bar-action-btn" onClick={requestBatchCopy}>
-          <Copy size={14} />
+          <Copy size={ICON_SM} />
           <span>{copyActionLabel}</span>
         </button>
         <button type="button" className="batch-bar-action-btn batch-bar-action-btn-danger" onClick={batchDelete}>
-          <Trash2 size={14} />
+          <Trash2 size={ICON_SM} />
           <span>删除</span>
         </button>
       </BatchActionBar>

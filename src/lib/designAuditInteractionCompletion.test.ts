@@ -2,7 +2,7 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-export async function testTradeListKeepsReferencesReadableAndHidesMobileSelectionChromeUntilRequested(): Promise<void> {
+export async function testTradeListKeepsReferencesReadableAndRevealsSelectionChromeOnIntent(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [css, listSource] = await Promise.all([
     fs.readFile('src/components/trades/TradeList.css', 'utf8'),
@@ -11,10 +11,7 @@ export async function testTradeListKeepsReferencesReadableAndHidesMobileSelectio
 
   assert(css.includes('--trade-ref-column: 72px'), '桌面交易编号列必须始终容纳完整 ref')
   assert(listSource.includes("selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : ''"), '交易列表必须暴露明确的选择模式状态')
-  assert(
-    /@media \(max-width: 899px\), \(pointer: coarse\)[\s\S]*?\.trade-row-check,[\s\S]*?opacity:\s*0/.test(css),
-    '移动端未进入选择模式时不得常驻复选框',
-  )
+  assert(/\.trade-row-check,[\s\S]*?opacity:\s*0/.test(css), '桌面列表默认必须压低选择控件噪音')
   assert(css.includes('.trade-list.is-selection-mode .trade-row-check'), '选择模式下必须重新显示复选框')
   assert(css.includes('.trade-row-star.is-starred'), '已收藏状态必须始终可见')
 }
@@ -74,19 +71,20 @@ export async function testReducedMotionLoadingIndicatorsDoNotFreezeAsSpinners():
   }
 }
 
-export async function testSafeAreasCoverPortraitAndLandscapeInsets(): Promise<void> {
+export async function testDesktopFrameAvoidsMobileSafeAreaDependencies(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [frameCss, navigationCss] = await Promise.all([
-    fs.readFile('src/components/ui/AppFrame.css', 'utf8'),
-    fs.readFile('src/components/MobileNavigation.css', 'utf8'),
-  ])
-  for (const inset of ['safe-area-inset-left', 'safe-area-inset-right']) {
-    assert(frameCss.includes(inset), `主内容缺少横屏安全区 ${inset}`)
-    assert(navigationCss.includes(inset), `移动导航缺少横屏安全区 ${inset}`)
-  }
+  const frameCss = await fs.readFile('src/components/ui/AppFrame.css', 'utf8')
+  assert(
+    frameCss.includes('--app-sidebar-width: 244px') &&
+      frameCss.includes('--app-sidebar-width: 208px') &&
+      frameCss.includes('var(--app-sidebar-width)'),
+    '桌面主框架必须消费标准与紧凑侧栏宽度 token',
+  )
+  assert(frameCss.includes('--main-inset'), '桌面主框架必须消费窗口内缩 token')
+  assert(!frameCss.includes('safe-area-inset'), '桌面主框架不得依赖移动设备安全区')
 }
 
-export async function testPrimaryControlsExposePressedDisabledAndCoarsePointerStates(): Promise<void> {
+export async function testPrimaryControlsExposePressedDisabledAndDesktopScaleStates(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [buttonCss, menuCss, contextCss, selectCss] = await Promise.all([
     fs.readFile('src/components/ui/Button.css', 'utf8'),
@@ -101,11 +99,11 @@ export async function testPrimaryControlsExposePressedDisabledAndCoarsePointerSt
   assert(selectCss.includes('.ui-select-option:active:not(:disabled)'), '下拉选项必须提供按下反馈')
   for (const [name, css] of [['menu', menuCss], ['context', contextCss], ['select', selectCss]] as const) {
     assert(css.includes('cursor: not-allowed'), `${name} 禁用态必须明确不可操作`)
-    assert(
-      /@media \(max-width: 899px\), \(pointer: coarse\)[\s\S]*?min-height:\s*44px/.test(css),
-      `${name} 必须为粗指针提供至少 44px 触摸目标`,
-    )
+    assert(!css.includes('(pointer: coarse)'), `${name} 不得为桌面控件维护粗指针尺寸分支`)
   }
+  assert(buttonCss.includes('.ui-btn-sm') && buttonCss.includes('var(--control-height-sm)'), '按钮必须提供 28px 紧凑档')
+  assert(buttonCss.includes('.ui-btn-md') && buttonCss.includes('var(--control-height-md)'), '按钮必须提供 32px 标准档')
+  assert(buttonCss.includes('.ui-btn-lg') && buttonCss.includes('var(--control-height-lg)'), '按钮必须提供 36px 强调档')
 }
 
 export async function testStrategyPerformanceKeepsDataMoreProminentThanDecoration(): Promise<void> {
@@ -117,5 +115,21 @@ export async function testStrategyPerformanceKeepsDataMoreProminentThanDecoratio
   assert(source.includes('transform: `scaleX('), '策略条必须用 transform 表达比例，避免布局动画')
   assert(!css.includes('transition: width var(--dur-slow)'), '策略条不得动画 width')
   assert(css.includes('max-width: 240px'), '策略条必须限制装饰宽度，把空间还给统计信息')
-  assert(/@media \(max-width: 899px\)[\s\S]*?\.db-strat-bar\s*\{[\s\S]*?display:\s*none/.test(css), '窄屏应直接收起装饰条，保留名称、统计和盈亏')
+  assert(!/@media[^\{]*max-width:\s*(?:[1-8]\d\d|899)px/.test(css), '策略表现不得维护不受支持的手机宽度分支')
+}
+
+export async function testBusinessModalsUseTheSharedDesktopShell(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const modalFiles = [
+    'src/components/TradeComposer.tsx',
+    'src/components/TradeCloseDialog.tsx',
+    'src/components/StrategyFormModal.tsx',
+  ]
+  const sources = await Promise.all(modalFiles.map((file) => fs.readFile(file, 'utf8')))
+  for (const [index, source] of sources.entries()) {
+    assert(source.includes('<ModalShell'), `${modalFiles[index]} 必须复用共享桌面弹层骨架`)
+    assert(!source.includes('createPortal'), `${modalFiles[index]} 不得保留私有 portal`)
+    assert(!source.includes('acquireModalOverlay'), `${modalFiles[index]} 不得重复维护弹层快捷键状态`)
+    assert(!source.includes('role="dialog"'), `${modalFiles[index]} 不得重复声明 dialog 语义`)
+  }
 }

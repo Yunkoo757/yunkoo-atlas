@@ -1,3 +1,4 @@
+import { ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   Link,
@@ -48,6 +49,7 @@ import {
   type WeeklyReviewTab,
 } from '@/lib/weeklyReviewRouteState'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { InlineStatus } from '@/components/ui/InlineStatus'
 import {
   tradeDetailNavState,
   tradeDetailPath,
@@ -68,6 +70,11 @@ import {
   rememberTradeReturnAnchor,
   useTradeReturnAnchor,
 } from '@/hooks/useTradeReturnAnchor'
+import {
+  focusWeeklyIssue,
+  getWeeklyVisualIssues,
+  type WeeklyVisualIssue,
+} from '@/lib/weeklyReviewVisualState'
 import './WeeklyReviewView.css'
 
 const WeeklyReviewScoreChart = lazy(() =>
@@ -76,9 +83,9 @@ const WeeklyReviewScoreChart = lazy(() =>
 
 const STRENGTH_TAGS = ['耐心等待', '计划内交易', '执行果断', '仓位克制', '及时止损', '复盘充分']
 const SCORE_FIELDS = [
-  { key: 'executionScore', label: '执行纪律' },
-  { key: 'riskScore', label: '风险管理' },
-  { key: 'emotionScore', label: '情绪稳定' },
+  { key: 'executionScore', fieldId: 'score-execution', label: '执行纪律' },
+  { key: 'riskScore', fieldId: 'score-risk', label: '风险管理' },
+  { key: 'emotionScore', fieldId: 'score-emotion', label: '情绪稳定' },
 ] as const
 const SCORE_LEVELS = [
   { value: 1, label: '明显偏离' },
@@ -97,6 +104,13 @@ const SNAPSHOT_CATEGORY_LABELS = {
   metrics: '指标快照',
   evidence: '交易证据快照',
   risk: '风控快照',
+}
+
+const UNSAVED_CONTENT_ISSUE: WeeklyVisualIssue = {
+  key: 'review-content-unsaved',
+  sectionId: 'judgment',
+  fieldId: 'review-content',
+  message: '正文或图片尚未保存，请重试',
 }
 
 type ReviewPatch = Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>
@@ -234,6 +248,8 @@ export function WeeklyReviewView() {
   const [editorHtml, setEditorHtml] = useState('')
   const mainContentRef = useRef<HTMLElement>(null)
   const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
+  const [visualIssues, setVisualIssues] = useState<WeeklyVisualIssue[]>([])
+  const pendingIssueFocusRef = useRef<WeeklyVisualIssue | null>(null)
   const editorReadyRef = useRef(false)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const routeIntentGenerationRef = useRef(0)
@@ -382,6 +398,42 @@ export function WeeklyReviewView() {
   const olderWeek = selectedWeekIndex >= 0 ? availableWeeks[selectedWeekIndex + 1] : undefined
   const newerWeek = selectedWeekIndex > 0 ? availableWeeks[selectedWeekIndex - 1] : undefined
   const hasReviewHistory = availableWeeks.length > 1
+  const weeklyFieldIssues = useMemo(
+    () => getWeeklyVisualIssues(review),
+    [
+      review.executionScore,
+      review.riskScore,
+      review.emotionScore,
+      review.commitmentText,
+      review.commitmentCriteria,
+    ],
+  )
+  const completedRequiredFields = 5 - weeklyFieldIssues.length
+  const sectionHasIssue = (sectionId: string) => visualIssues.some((issue) => issue.sectionId === sectionId)
+
+  useEffect(() => {
+    setVisualIssues([])
+  }, [selectedWeek])
+
+  useEffect(() => {
+    const pendingIssue = pendingIssueFocusRef.current
+    if (!pendingIssue) return
+    pendingIssueFocusRef.current = null
+    focusWeeklyIssue(pendingIssue)
+  }, [visualIssues])
+
+  useEffect(() => {
+    setVisualIssues((previous) => {
+      if (previous.length === 0) return previous
+      const next = [
+        ...previous.filter((issue) => issue.key === UNSAVED_CONTENT_ISSUE.key),
+        ...weeklyFieldIssues,
+      ]
+      return next.length === previous.length && next.every((issue, index) => issue.key === previous[index]?.key)
+        ? previous
+        : next
+    })
+  }, [weeklyFieldIssues])
 
   const commitPatch = useCallback((patch: ReviewPatch) => {
     const existing = useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek)
@@ -468,9 +520,14 @@ export function WeeklyReviewView() {
     const latest = useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek) ?? review
     const issue = getWeeklyReviewCompletionIssue(latest, draftSaved)
     if (issue) {
-      toast(issue)
+      const nextIssues = draftSaved
+        ? getWeeklyVisualIssues(latest)
+        : [UNSAVED_CONTENT_ISSUE, ...getWeeklyVisualIssues(latest)]
+      pendingIssueFocusRef.current = nextIssues[0] ?? null
+      setVisualIssues(nextIssues)
       return
     }
+    setVisualIssues([])
     completeWeeklyReview(latest.id)
     toast('本周复盘已完成，指标已冻结')
   }
@@ -535,8 +592,8 @@ export function WeeklyReviewView() {
                 </div>
                 {hasReviewHistory ? (
                   <>
-                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={16} /></button>
-                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={16} /></button>
+                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={ICON_MD} /></button>
+                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={ICON_MD} /></button>
                   </>
                 ) : null}
               </div>
@@ -547,15 +604,48 @@ export function WeeklyReviewView() {
             <YearTrend year={year} reviews={yearReviews} data={trendData} />
           ) : (
             <div className={`wr-content${locked ? ' is-locked' : ''}`}>
+              <div className="wr-progress-summary" aria-label={`周复盘必填项已完成 ${completedRequiredFields} / 5`}>
+                <span>{locked ? '完成快照' : '复盘进度'}</span>
+                <strong>{locked ? '已形成闭环' : `${completedRequiredFields} / 5 项必填`}</strong>
+                {!locked ? (
+                  <span
+                    className="wr-progress-track"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={5}
+                    aria-valuenow={completedRequiredFields}
+                  >
+                    <i style={{ width: `${completedRequiredFields / 5 * 100}%` }} />
+                  </span>
+                ) : null}
+              </div>
+
+              {visualIssues.length > 0 ? (
+                <InlineStatus
+                  tone="error"
+                  title="还需完成以下内容"
+                  className="wr-issue-summary"
+                  detail={(
+                    <ul>
+                      {visualIssues.map((issue) => (
+                        <li key={issue.key}>
+                          <button type="button" onClick={() => focusWeeklyIssue(issue)}>{issue.message}</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                />
+              ) : null}
+
               {review.status === 'completed' ? (
                 usesCompleteSnapshot ? (
-                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成时快照</div>
+                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成时快照</div>
                 ) : (
-                  <div className="wr-complete-banner"><Check size={16} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用（缺少：{missingSnapshotLabels.join('、')}）</div>
+                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用（缺少：{missingSnapshotLabels.join('、')}）</div>
                 )
               ) : null}
 
-              <section className="wr-section wr-metrics">
+              <section className="wr-section wr-metrics" data-weekly-section="facts" data-invalid="false">
                 <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{usesCompleteSnapshot ? '完成时快照' : review.status === 'completed' ? '指标与交易证据为实时重算' : '随交易记录实时更新'}</small></div>
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
@@ -599,10 +689,10 @@ export function WeeklyReviewView() {
               />
 
               {previousReview ? (
-                <section className="wr-section wr-previous">
+                <section className="wr-section wr-previous" data-weekly-section="previous-commitment" data-invalid="false">
                   <div className="wr-section-head"><div><span>02</span><h2>上次承诺验证</h2></div><small>{formatWeekRange(previousReview.weekStart)}</small></div>
                   <div className="wr-previous-body">
-                    <Target size={19} />
+                    <Target size={ICON_XL} />
                     <div><strong>{previousReview.commitmentText}</strong><p>{previousReview.commitmentCriteria}</p></div>
                     <div className="wr-result-choice">
                       {COMMITMENT_RESULTS.map((option) => (
@@ -613,15 +703,20 @@ export function WeeklyReviewView() {
                 </section>
               ) : null}
 
-              <section className="wr-section">
+              <section className="wr-section" data-weekly-section="scores" data-invalid={sectionHasIssue('scores')}>
                 <div className="wr-section-head"><div><span>{previousReview ? '03' : '02'}</span><h2>给做法打分</h2></div><small>评价执行，不评价盈亏</small></div>
                 <div className="wr-score-grid">
-                  {SCORE_FIELDS.map(({ key, label }) => {
+                  {SCORE_FIELDS.map(({ key, fieldId, label }) => {
                     const selectedScore = review[key]
                     const selectedLevel = SCORE_LEVELS.find((level) => level.value === selectedScore)
                     const tone = selectedScore === null ? 'is-unset' : selectedScore <= 2 ? 'is-low' : selectedScore >= 4 ? 'is-high' : 'is-mid'
                     return (
-                      <div className="wr-score-row" key={key}>
+                      <div
+                        className="wr-score-row"
+                        key={key}
+                        data-weekly-field={fieldId}
+                        data-invalid={visualIssues.some((issue) => issue.fieldId === fieldId)}
+                      >
                         <label>{label}</label>
                         <div className="wr-score-control">
                           <div className="wr-score-options" role="radiogroup" aria-label={label}>
@@ -646,7 +741,7 @@ export function WeeklyReviewView() {
                 </div>
               </section>
 
-              <section className="wr-section">
+              <section className="wr-section" data-weekly-section="patterns" data-invalid="false">
                 <div className="wr-section-head"><div><span>{previousReview ? '04' : '03'}</span><h2>模式识别</h2></div><small>用于跨周统计，而不是替代你的判断</small></div>
                 <TagGroup tone="strength" title="做得好的" options={STRENGTH_TAGS} selected={review.strengthTags} onChange={(strengthTags) => commitPatch({ strengthTags })} />
                 <TagGroup
@@ -667,7 +762,7 @@ export function WeeklyReviewView() {
                 ) : null}
               </section>
 
-              <section className="wr-section">
+              <section className="wr-section" data-weekly-section="evidence" data-invalid="false">
                 <div className="wr-section-head"><div><span>{previousReview ? '05' : '04'}</span><h2>关键交易证据</h2></div><small>标记角色后，可在年度复盘中回看</small></div>
                 {evidenceTrades.length || evidenceMissedTrades.length ? (
                   <div className="wr-evidence-groups">
@@ -709,9 +804,9 @@ export function WeeklyReviewView() {
                 ) : <div className="wr-empty">本周没有实盘已平仓交易或错过机会。仍可记录无交易决策、观察与下周行动。</div>}
               </section>
 
-              <section className="wr-section">
+              <section className="wr-section" data-weekly-section="judgment" data-invalid={sectionHasIssue('judgment')}>
                 <div className="wr-section-head"><div><span>{previousReview ? '06' : '05'}</span><h2>判断与截图</h2></div><small>支持清单、引用和直接粘贴截图</small></div>
-                <div className="wr-editor-wrap">
+                <div className="wr-editor-wrap" data-weekly-field="review-content" data-invalid={sectionHasIssue('judgment')}>
                   <Editor
                     content={editorHtml}
                     onChange={onEditorChange}
@@ -723,17 +818,17 @@ export function WeeklyReviewView() {
                 </div>
               </section>
 
-              <section className="wr-section wr-commitment">
+              <section className="wr-section wr-commitment" data-weekly-section="commitment" data-invalid={sectionHasIssue('commitment')}>
                 <div className="wr-section-head"><div><span>{previousReview ? '07' : '06'}</span><h2>下周只改变一件事</h2></div><small>必须可以被下一次复盘验证</small></div>
-                <label>行动承诺<input readOnly={locked} value={review.commitmentText} onChange={(event) => commitPatch({ commitmentText: event.target.value })} placeholder="例如：没有触发确认前不提前入场" /></label>
-                <label>验收标准<input readOnly={locked} value={review.commitmentCriteria} onChange={(event) => commitPatch({ commitmentCriteria: event.target.value })} placeholder="例如：所有入场截图中都能看到确认信号" /></label>
+                <label>行动承诺<input data-weekly-field="commitment-text" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-text')} readOnly={locked} value={review.commitmentText} onChange={(event) => commitPatch({ commitmentText: event.target.value })} placeholder="例如：没有触发确认前不提前入场" /></label>
+                <label>验收标准<input data-weekly-field="commitment-criteria" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-criteria')} readOnly={locked} value={review.commitmentCriteria} onChange={(event) => commitPatch({ commitmentCriteria: event.target.value })} placeholder="例如：所有入场截图中都能看到确认信号" /></label>
               </section>
 
               <div className="wr-footer-action">
                 <div><strong>{review.status === 'completed' ? '这周已经形成闭环' : '完成后会冻结本周事实，并带入下周验证'}</strong></div>
                 {review.status === 'completed'
-                  ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={15} /> 重新打开</button>
-                  : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={15} /> 完成本周复盘</button>}
+                  ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={ICON_MD} /> 重新打开</button>
+                  : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={ICON_MD} /> 完成本周复盘</button>}
               </div>
             </div>
           )}
@@ -766,7 +861,7 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
         <div><span>最常见错误</span><strong>{mistakes.sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'}</strong><small>固定分类</small></div>
       </section>
       <section className="wr-section">
-        <div className="wr-section-head"><div><TrendingUp size={17} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
+        <div className="wr-section-head"><div><TrendingUp size={ICON_LG} /><h2>{year} 做法评分趋势</h2></div><small>完成周才进入年度统计</small></div>
         {data.length >= 2 ? (
           <Suspense fallback={(
             <div className="wr-chart wr-chart-loading" role="status" aria-live="polite">

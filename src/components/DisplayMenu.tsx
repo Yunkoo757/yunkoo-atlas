@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useExitClone } from '@/components/ui/useExitClone'
@@ -68,7 +69,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
         aria-label="显示选项"
         onClick={() => setOpen((o) => !o)}
       >
-        <SlidersHorizontal size={14} />
+        <SlidersHorizontal size={ICON_SM} />
         <span>显示</span>
       </button>
       {open &&
@@ -127,7 +128,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                     onClick={() => setDisplay({ sortBy: o.value })}
                   >
                     <span>{o.label}</span>
-                    {display.sortBy === o.value && <Check size={14} />}
+                    {display.sortBy === o.value && <Check size={ICON_SM} />}
                   </button>
                 ))}
               </>

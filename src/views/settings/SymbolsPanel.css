@@ -194,21 +194,3 @@
   flex-wrap: wrap;
   gap: var(--sp-2);
 }
-
-@media (max-width: 899px) {
-  .symbols-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .symbols-input,
-  .symbols-btn,
-  .symbols-item {
-    height: 44px;
-  }
-
-  .symbols-preset {
-    min-height: 44px;
-  }
-}

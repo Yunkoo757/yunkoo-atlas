@@ -297,3 +297,17 @@ export function testWeeklyRiskStylesTargetTheEvidenceDom(): void {
     }
   }
 }
+
+export function testWeeklyReviewNarrativeLimitsElevatedSectionRoles(): void {
+  const css = readFileSync(path.resolve('src/views/WeeklyReviewView.css'), 'utf8').replace(/\r\n?/g, '\n')
+  const sectionRule = css.match(/\.wr-section\s*\{[^}]+\}/s)?.[0] ?? ''
+  const pairedExceptionRule = css.match(/\.wr-previous,\.wr-commitment\s*\{[^}]+\}/s)?.[0] ?? ''
+  const riskExceptionRule = css.match(/\.wr-risk-evidence\s*\{[^}]+\}/s)?.[0] ?? ''
+
+  if (!sectionRule.includes('border: 0') || !sectionRule.includes('background: transparent')) {
+    throw new Error('周复盘普通章节必须使用连续分隔叙事，而不是等权卡片')
+  }
+  if (!pairedExceptionRule.includes('background: var(--bg-elevated)') || !riskExceptionRule.includes('background: var(--bg-elevated)')) {
+    throw new Error('只有风控、上次承诺和下周承诺可以保留抬升容器')
+  }
+}

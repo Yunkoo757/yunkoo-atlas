@@ -10,6 +10,8 @@ import {
   resetNoteDraftsForTests,
   setNoteDraft,
 } from '@/storage/noteDrafts'
+import '@/styles/tokens.css'
+import '@/styles/global.css'
 
 declare global {
   interface Window {
@@ -112,6 +114,31 @@ async function run(): Promise<void> {
     )
 
     await waitFor(() => Boolean(findButton('完成复盘')), '完成复盘操作未出现')
+    const pendingState = document.querySelector<HTMLElement>('.dv-review-state')
+    const completionAction = findButton('完成复盘')
+    assert(pendingState?.textContent?.trim() === '待复盘', '复盘状态没有独立显示为待复盘')
+    assert(completionAction, '完成复盘操作未出现')
+    assert(completionAction.classList.contains('ui-btn-primary') && completionAction.classList.contains('ui-btn-md'), '完成复盘必须使用中等尺寸主按钮')
+    assert(!pendingState.contains(completionAction), '复盘状态与完成命令不得合并为同一节点')
+    assert(document.querySelector('[aria-label="复盘正文"]'), '复盘正文编辑器缺少准确名称')
+    assert(document.querySelector('[aria-label="补充追记"]'), '复盘追记输入框缺少准确名称')
+    const detailMain = document.querySelector<HTMLElement>('.trade-detail-layout .dv-main')
+    const detailProperties = document.querySelector<HTMLElement>('.trade-detail-layout .dv-props')
+    assert(detailMain && detailProperties, '详情页缺少正文或属性区域')
+    if (window.innerWidth <= 1024) {
+      const propertiesToggle = document.querySelector<HTMLButtonElement>('button[aria-label="打开交易属性"]')
+      assert(propertiesToggle && getComputedStyle(propertiesToggle).display !== 'none', '960px 紧凑桌面缺少属性抽屉入口')
+      propertiesToggle.click()
+      await waitFor(() => detailProperties.getAttribute('role') === 'dialog', '属性抽屉没有打开为模态面板')
+      assert(detailProperties.getBoundingClientRect().width <= 336, '紧凑桌面属性抽屉不得扩张为底部面板')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await waitFor(() => detailProperties.getAttribute('role') !== 'dialog', 'Escape 没有关闭属性抽屉')
+    } else {
+      assert(detailMain.getBoundingClientRect().width >= 620, '宽屏复盘正文不足 620px')
+      assert(Math.abs(detailProperties.getBoundingClientRect().width - 336) < 1, '宽屏属性栏没有稳定为 336px')
+      const dividerWidth = getComputedStyle(detailProperties).borderLeftWidth
+      assert(Math.abs(Number.parseFloat(dividerWidth) - 1) < 0.1, `正文与属性栏缺少 1px 分隔线：${dividerWidth}`)
+    }
     findButton('完成复盘')?.click()
     await waitForFrame()
     assert(
@@ -143,7 +170,7 @@ async function run(): Promise<void> {
       '写下复盘结论后仍无法完成复盘',
     )
     assert(!document.querySelector('.dv-review-stage'), '已完成状态不应继续占据正文首屏')
-    assert(!document.querySelector('.dv-review-chip'), '已完成状态不应继续显示待复盘 chip')
+    assert(!document.querySelector('.dv-review-complete-action'), '已完成状态不应继续显示完成命令')
     assert(
       document.querySelector('.dv-review-complete-meta')?.textContent?.trim() === '已复盘',
       '已完成状态应收敛到顶部应用栏',

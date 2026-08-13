@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useState, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { AVATAR_PRESETS, getAvatarPreset, resizeAvatarImage } from '@/lib/avatars'
@@ -79,7 +80,7 @@ export function ProfileSettingsPanel() {
             onClick={handleNameSave}
             disabled={!nameDraft.trim() || nameDraft.trim() === profile.displayName}
           >
-            <Check size={14} />
+            <Check size={ICON_SM} />
             <span>{saved ? '已保存' : '保存'}</span>
           </button>
         </div>
@@ -105,7 +106,7 @@ export function ProfileSettingsPanel() {
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
           >
-            <Upload size={14} />
+            <Upload size={ICON_SM} />
             <span>{uploading ? '处理中…' : '上传图片'}</span>
           </button>
           {hasCustom && (
@@ -114,7 +115,7 @@ export function ProfileSettingsPanel() {
               className="dio-btn dio-btn-warn"
               onClick={() => setCustomAvatar(null)}
             >
-              <X size={14} />
+              <X size={ICON_SM} />
               <span>移除自定义头像</span>
             </button>
           )}

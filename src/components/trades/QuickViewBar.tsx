@@ -1,3 +1,4 @@
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { BookmarkPlus, Check, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from '@/icons/appIcons'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -306,7 +307,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
             aria-label="视图选项"
             aria-expanded={panel === 'more'}
           >
-            <MoreHorizontal size={15} />
+            <MoreHorizontal size={ICON_MD} />
           </button>
         </Tooltip>
 
@@ -318,7 +319,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
             style={{ left: popoverLeft }}
           >
             <button type="button" className="quick-view-save-entry" onClick={openSave}>
-              <BookmarkPlus size={14} />
+              <BookmarkPlus size={ICON_SM} />
               <span>保存当前视图</span>
             </button>
             {moreGroups.length > 0 && (
@@ -329,7 +330,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                     {group.items.map((item) => (
                       <button type="button" key={item.id} onClick={() => goTarget(item)}>
                         <span>{item.label}</span>
-                        {matchesWorkspaceView(item, location.pathname, location.search) && <Check size={13} />}
+                        {matchesWorkspaceView(item, location.pathname, location.search) && <Check size={ICON_SM} />}
                       </button>
                     ))}
                   </section>
@@ -357,7 +358,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                     ) : (
                       <button type="button" className="quick-view-manage-name" onClick={() => goSavedView(view)}>
                         <span>{view.name}</span>
-                        {savedViewMatchesLocation(view, location.pathname, location.search, livePerformanceCycles) && <Check size={13} />}
+                        {savedViewMatchesLocation(view, location.pathname, location.search, livePerformanceCycles) && <Check size={ICON_SM} />}
                       </button>
                     )}
                     <Tooltip content="重命名" label={`重命名 ${view.name}`}>
@@ -370,7 +371,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                         }}
                         aria-label={`重命名 ${view.name}`}
                       >
-                        <Pencil size={12} />
+                        <Pencil size={ICON_SM} />
                       </button>
                     </Tooltip>
                     <Tooltip content={view.pinned ? '取消固定' : '固定到顶部'} label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}>
@@ -386,12 +387,12 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                         }}
                         aria-label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}
                       >
-                        {view.pinned ? <PinOff size={12} /> : <Pin size={12} />}
+                        {view.pinned ? <PinOff size={ICON_SM} /> : <Pin size={ICON_SM} />}
                       </button>
                     </Tooltip>
                     <Tooltip content="删除" label={`删除 ${view.name}`}>
                       <button type="button" className="quick-view-icon is-danger" onClick={() => deleteSavedView(view)} aria-label={`删除 ${view.name}`}>
-                        <Trash2 size={12} />
+                        <Trash2 size={ICON_SM} />
                       </button>
                     </Tooltip>
                   </div>

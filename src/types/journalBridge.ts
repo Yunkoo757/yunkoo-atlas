@@ -39,6 +39,9 @@ export type WindowFrameState = {
   presetId: WindowSizePresetId | null
 }
 
+export type WindowsClosePreference = 'ask' | 'tray' | 'quit'
+export type WindowsCloseChoice = Exclude<WindowsClosePreference, 'ask'>
+
 export type LibraryLocationState =
   | { kind: 'unset' }
   | {
@@ -53,9 +56,15 @@ export type LibraryLocationState =
 
 export interface JournalBridge {
   isElectron: true
+  platform: 'win32' | 'darwin' | 'other'
   onBeforeClose(callback: () => void | Promise<void>): () => void
   onCloseSaveError(callback: (message: string) => void): () => void
   onAutoBackupFailure(callback: () => void): () => void
+  onWindowsCloseExplanation(callback: () => void): () => void
+  onWindowsClosePreferenceError(callback: (message: string) => void): () => void
+  resolveWindowsClose(choice: WindowsCloseChoice, remember: boolean): Promise<void>
+  getWindowsClosePreference(): Promise<WindowsClosePreference>
+  setWindowsClosePreference(preference: WindowsClosePreference): Promise<WindowsClosePreference>
   requestClose(): Promise<void>
   toggleFullscreen(): Promise<boolean>
   getWindowHotkey(): Promise<WindowHotkeyState>

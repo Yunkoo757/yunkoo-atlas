@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
@@ -11,6 +11,7 @@ import {
   FlaskConical,
   Compose,
   MoreHorizontal,
+  Plus,
   Search,
   Settings2,
   Star,
@@ -54,7 +55,7 @@ import {
   SIDEBAR_WORKSPACE_EDITOR_ID,
   SidebarWorkspaceEditor,
 } from '@/components/sidebar/SidebarWorkspaceEditor'
-import { ICON_MD } from '@/icons/iconSize'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { createQuickNote } from '@/data/quickNotes'
 import { useExitClone } from '@/components/ui/useExitClone'
@@ -63,6 +64,27 @@ import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
 
 const WORKSPACE_DRAG_THRESHOLD_PX = 5
+
+type SidebarDensity = 'standard' | 'compact'
+
+function currentSidebarDensity(): SidebarDensity {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'standard'
+  return window.matchMedia('(max-width: 1099px)').matches ? 'compact' : 'standard'
+}
+
+function useSidebarDensity(): SidebarDensity {
+  const [density, setDensity] = useState<SidebarDensity>(currentSidebarDensity)
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 1099px)')
+    const update = () => setDensity(query.matches ? 'compact' : 'standard')
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  return density
+}
 
 type SidebarDragState = {
   id: string
@@ -241,6 +263,7 @@ export function useSidebarNavigationModel() {
 }
 
 export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+  const density = useSidebarDensity()
   const navigate = useNavigate()
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
@@ -527,7 +550,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               openCapabilityMenu(rect.left, rect.bottom + 4)
             }}
           >
-            <MoreHorizontal size={14} aria-hidden="true" />
+            <MoreHorizontal size={ICON_SM} aria-hidden="true" />
           </button>
         ) : null}
         <Count value={item.count} />
@@ -536,7 +559,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   return (
-    <nav className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')} aria-label="主导航">
+    <nav
+      className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')}
+      data-density={density}
+      aria-label="主导航"
+    >
       <div className="sb-header">
         <Menu
           align="left"
@@ -548,19 +575,19 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             >
               <UserAvatar className="sb-ws-avatar" shape="rounded-square" />
               <span className="sb-ws-name">{profile.displayName}</span>
-              <ChevronDown size={14} className="sb-ws-chevron" aria-hidden />
+              <ChevronDown size={ICON_SM} className="sb-ws-chevron" aria-hidden />
             </button>
           }
           options={[
             {
               value: 'settings',
               label: '设置',
-              icon: <Settings2 size={15} />,
+              icon: <Settings2 size={ICON_MD} />,
             },
             {
               value: 'trash',
               label: trashCount > 0 ? `回收站 · ${trashCount}` : '回收站',
-              icon: <Trash2 size={15} />,
+              icon: <Trash2 size={ICON_MD} />,
             },
           ]}
           onSelect={(value) => {
@@ -633,7 +660,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
             onClick={(event) => openWorkspaceEditor(event.currentTarget)}
           >
-            ···
+            <MoreHorizontal size={ICON_SM} aria-hidden="true" />
           </button>
         </div>
         {pinnedWorkspaceItems.map(renderWorkspaceLink)}
@@ -663,7 +690,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
           onClick={(event) => openWorkspaceEditor(event.currentTarget)}
         >
-          <span aria-hidden="true">＋</span>
+          <Plus size={ICON_SM} aria-hidden="true" />
           <span>添加或管理</span>
         </button>
       </nav>

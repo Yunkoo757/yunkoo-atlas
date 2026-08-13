@@ -84,12 +84,45 @@ export type PresenceQuitResult =
   | { ok: true }
   | { ok: false; error?: string }
 
+export type WindowsClosePreference = 'ask' | 'tray' | 'quit'
+export type WindowsCloseChoice = Exclude<WindowsClosePreference, 'ask'>
+
+export function resolveRememberedWindowsClose({
+  choice,
+  remember,
+  persist,
+  apply,
+  reportPersistenceError,
+}: {
+  choice: WindowsCloseChoice
+  remember: boolean
+  persist: (choice: WindowsCloseChoice) => void
+  apply: (choice: WindowsCloseChoice) => void
+  reportPersistenceError: (error: unknown) => void
+}): { preferenceSaved: boolean } {
+  let preferenceSaved = !remember
+  if (remember) {
+    try {
+      persist(choice)
+      preferenceSaved = true
+    } catch (error) {
+      reportPersistenceError(error)
+    }
+  }
+  apply(choice)
+  return { preferenceSaved }
+}
+
 export interface WindowPresenceDependencies {
   ensureWindow(): PresenceWindow
   getWindow(): PresenceWindow | null
   createTray(actions: PresenceTrayActions): PresenceTray
   requestQuit(): Promise<PresenceQuitResult>
+  requestWindowClose?(): Promise<PresenceQuitResult>
   isExitAuthorized(): boolean
+  platform?: 'win32' | 'darwin'
+  getWindowsClosePreference?(): WindowsClosePreference
+  explainWindowsClose?(): void
   showDock(): void
   hideDock(): void
   reportError(code: string, error: unknown): void
@@ -99,14 +132,27 @@ export class WindowPresenceController {
   private tray: PresenceTray | null = null
   private attachedWindow: PresenceWindow | null = null
   private disposed = false
+  private windowsCloseExplanationPending = false
   private readonly closeListener = (event: PresenceWindowCloseEvent): void => {
     if (this.dependencies.isExitAuthorized()) return
     event.preventDefault()
-    if (this.tray) {
-      this.hide()
+
+    if (this.dependencies.platform === 'darwin') {
+      void this.requestCloseAndRecover(
+        this.dependencies.requestWindowClose ?? this.dependencies.requestQuit,
+      )
       return
     }
-    void this.requestQuitAndRecover()
+
+    const preference = this.dependencies.getWindowsClosePreference?.() ?? 'tray'
+    if (preference === 'ask' && this.dependencies.explainWindowsClose) {
+      if (!this.windowsCloseExplanationPending) {
+        this.windowsCloseExplanationPending = true
+        this.dependencies.explainWindowsClose()
+      }
+      return
+    }
+    this.resolveWindowsClose(preference === 'ask' ? 'tray' : preference)
   }
 
   constructor(private readonly dependencies: WindowPresenceDependencies) {}
@@ -151,6 +197,7 @@ export class WindowPresenceController {
     if (this.attachedWindow === window) return
     this.attachedWindow?.removeListener('close', this.closeListener)
     this.attachedWindow = window
+    this.windowsCloseExplanationPending = false
     window.on('close', this.closeListener)
   }
 
@@ -170,7 +217,17 @@ export class WindowPresenceController {
     if (!this.tray || !window || window.isDestroyed()) return
     if (!this.refreshTrayMenu(false)) return
     window.hide()
-    this.dependencies.hideDock()
+    if (this.dependencies.platform !== 'darwin') this.dependencies.hideDock()
+  }
+
+  resolveWindowsClose(choice: WindowsCloseChoice): void {
+    if (this.disposed) return
+    this.windowsCloseExplanationPending = false
+    if (choice === 'tray' && this.tray) {
+      this.hide()
+      return
+    }
+    void this.requestQuitAndRecover()
   }
 
   dispose(): void {
@@ -208,8 +265,14 @@ export class WindowPresenceController {
   }
 
   private async requestQuitAndRecover(): Promise<void> {
+    await this.requestCloseAndRecover(this.dependencies.requestQuit)
+  }
+
+  private async requestCloseAndRecover(
+    request: () => Promise<PresenceQuitResult>,
+  ): Promise<void> {
     try {
-      const result = await this.dependencies.requestQuit()
+      const result = await request()
       if (!result.ok && !this.disposed) this.show()
     } catch (error) {
       this.dependencies.reportError('quit-request-failed', error)

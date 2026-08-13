@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { writeFileAtomicallySync } from './atomicFile'
+import { renameFileWithRetrySync, writeFileAtomicallySync } from './atomicFile'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -42,4 +42,29 @@ export function testAtomicFileHookRunsAfterDurableTempAndBeforeReplace(): void {
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
+}
+
+export function testWindowsAtomicReplaceRetriesTransientFileLocks(): void {
+  const calls: string[] = []
+  let attempts = 0
+
+  renameFileWithRetrySync('pending.tmp', 'journal.db', {
+    platform: 'win32',
+    rename: () => {
+      attempts += 1
+      calls.push(`rename:${attempts}`)
+      if (attempts < 3) {
+        const error = new Error('temporarily locked') as NodeJS.ErrnoException
+        error.code = 'EPERM'
+        throw error
+      }
+    },
+    wait: (delayMs) => { calls.push(`wait:${delayMs}`) },
+  })
+
+  assert(attempts === 3, 'Windows 原子替换必须重试短暂的文件锁')
+  assert(
+    calls.join('|') === 'rename:1|wait:25|rename:2|wait:50|rename:3',
+    'Windows 原子替换必须使用有界递增等待后再重试',
+  )
 }

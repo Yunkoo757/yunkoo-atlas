@@ -131,6 +131,7 @@ export function MissedOpportunitiesView() {
   const emptyContent = summary.rawTotal === 0 ? (
     <EmptyState
       className="missed-empty"
+      variant="missing"
       title="所选工作区暂无错过记录"
       hint="可以前往已包含的工作区查看或补充原始记录。"
       action={(
@@ -144,6 +145,7 @@ export function MissedOpportunitiesView() {
   ) : visibleItems.length === 0 ? (
     <EmptyState
       className="missed-empty"
+      variant="filtered"
       title="没有符合当前筛选的机会"
       action={<button type="button" className="ui-btn ui-btn-bordered" onClick={clearFilters}>清除筛选</button>}
     />

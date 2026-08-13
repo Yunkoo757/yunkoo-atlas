@@ -44,8 +44,11 @@ function closedLive(id: string, day: string, patch: Partial<Trade> = {}): Trade 
   return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy-1', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 10, rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch }
 }
 async function openManager(): Promise<void> {
-  const trigger = button('重置统计')
+  const trigger = document.querySelector<HTMLButtonElement>('button[aria-label="更多统计操作"]')
+  assert(trigger, '找不到统计周期管理入口')
   trigger.focus(); trigger.click()
+  await waitFor(() => text().includes('管理统计周期'), '统计操作菜单未打开')
+  button('管理统计周期').click()
   await waitFor(() => Boolean(document.querySelector('[data-cycle-manager]')), '重置统计弹窗未打开')
 }
 
@@ -89,8 +92,8 @@ async function run(): Promise<void> {
     })
     const immutableTrades = JSON.stringify(useStore.getState().trades)
     root.render(<RouterProvider router={router} />)
-    await waitFor(() => text().includes('重置统计'), '空库没有显示重置入口')
-    const trigger = button('重置统计'); await openManager()
+    await waitFor(() => Boolean(document.querySelector('button[aria-label="更多统计操作"]')), '空库没有显示统计周期管理入口')
+    const trigger = document.querySelector<HTMLButtonElement>('button[aria-label="更多统计操作"]'); assert(trigger, '找不到统计周期管理入口'); await openManager()
     await waitFor(() => document.activeElement === document.querySelector('button[aria-label="开始日期"]'), '重置弹窗必须聚焦日期')
     assert(text().includes('重置实盘统计'), '弹窗标题必须是重置实盘统计')
     assert(!text().includes('开启新一轮'), '不得再暴露开启新一轮文案')
@@ -123,7 +126,7 @@ async function run(): Promise<void> {
 
     await openManager()
     await waitFor(() => Boolean(document.querySelector('button[aria-label="开始日期"]')), '再次打开必须直接进入重置确认')
-    click('取消'); await waitFor(() => !document.querySelector('[data-cycle-manager]') && document.activeElement === [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.textContent?.trim() === '重置统计'), '取消必须关闭弹窗并恢复焦点')
+    click('取消'); await waitFor(() => !document.querySelector('[data-cycle-manager]') && document.activeElement === document.querySelector('button[aria-label="更多统计操作"]'), '取消必须关闭弹窗并恢复焦点')
 
     await openManager(); await selectDate(day)
     const beforeFailure = JSON.stringify({

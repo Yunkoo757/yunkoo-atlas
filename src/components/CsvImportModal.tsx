@@ -1,3 +1,4 @@
+import { ICON_HERO, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useMemo, useRef, type DragEvent } from 'react'
 import { Upload, ArrowRight, AlertCircle, CheckCircle } from '@/icons/appIcons'
 import { ModalShell } from '@/components/ui/ModalShell'
@@ -321,7 +322,7 @@ export function CsvImportModal({ open, onClose }: Props) {
           onClick={handlePreview}
           disabled={Object.keys(mapping).length === 0}
         >
-          预览导入 <ArrowRight size={16} />
+          预览导入 <ArrowRight size={ICON_MD} />
         </Button>
       </>
     ) : step === 'preview' ? (
@@ -389,7 +390,7 @@ export function CsvImportModal({ open, onClose }: Props) {
               aria-label="拖放或选择 CSV 文件"
             >
               <div className="csv-drop-icon">
-                <Upload size={16} />
+                <Upload size={ICON_MD} />
               </div>
               <p className="csv-drop-title">拖放或选择文件</p>
               <p className="csv-drop-hint">.csv · .tsv · .txt</p>
@@ -508,12 +509,12 @@ export function CsvImportModal({ open, onClose }: Props) {
                         <td>
                           {p.errors.length === 0 ? (
                             dup ? (
-                              <AlertCircle size={14} className="csv-dup" />
+                              <AlertCircle size={ICON_SM} className="csv-dup" />
                             ) : (
-                              <CheckCircle size={14} className="csv-ok" />
+                              <CheckCircle size={ICON_SM} className="csv-ok" />
                             )
                           ) : (
-                            <AlertCircle size={14} className="csv-bad" />
+                            <AlertCircle size={ICON_SM} className="csv-bad" />
                           )}
                         </td>
                         <td>{p.trade.symbol ?? ''}</td>
@@ -564,7 +565,7 @@ export function CsvImportModal({ open, onClose }: Props) {
         {/* Step 4: Done */}
         {step === 'done' && (
           <div className="csv-done-area">
-            <CheckCircle size={40} className="csv-ok" />
+            <CheckCircle size={ICON_HERO} className="csv-ok" />
             <p>导入完成</p>
           </div>
         )}

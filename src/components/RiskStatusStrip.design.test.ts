@@ -37,9 +37,12 @@ export function testRiskStatusStripUsesProjectTokensAndNoConfigurationCopy(): vo
   }
 }
 
-export function testRiskStatusStripStacksWithoutHorizontalScrolling(): void {
+export function testRiskStatusStripKeepsDesktopGridWithoutPhoneBranches(): void {
   const css = read('src/components/RiskStatusStrip.css')
-  const mobile = css.slice(css.indexOf('@media (max-width: 899px)'))
-  if (!mobile.includes('grid-template-columns: 1fr')) throw new Error('risk periods must stack below 899px')
-  if (mobile.includes('overflow-x: auto')) throw new Error('risk periods must not require horizontal scrolling')
+  if (!css.includes('grid-template-columns: repeat(3, minmax(0, 1fr))')) {
+    throw new Error('risk periods must retain the dense three-column desktop grid')
+  }
+  if (/@media[^\{]*max-width:\s*(?:[1-8]\d\d|899)px/.test(css)) {
+    throw new Error('risk strip must not maintain unsupported phone-width branches')
+  }
 }

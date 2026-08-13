@@ -94,6 +94,20 @@ async function run(): Promise<void> {
     )
 
     await waitFor(() => document.body.textContent?.includes('本周交易标签') ?? false, '自定义交易标签证据区未显示')
+    const pageHead = document.querySelector<HTMLElement>('.wr-page-head-inner')
+    const content = document.querySelector<HTMLElement>('.wr-content')
+    assert(pageHead && content, '周复盘缺少页头或正文轨道')
+    const pageHeadRect = pageHead.getBoundingClientRect()
+    const contentRect = content.getBoundingClientRect()
+    assert(Math.abs(pageHeadRect.left - contentRect.left) < 1, '页头与正文左轨没有对齐')
+    assert(Math.abs(pageHeadRect.width - contentRect.width) < 1, '页头与正文宽度没有对齐')
+    const elevatedSections = [...document.querySelectorAll<HTMLElement>('.wr-section')].filter((section) => {
+      const style = getComputedStyle(section)
+      return style.borderTopWidth !== '0px' && style.borderRadius !== '0px'
+    })
+    assert(elevatedSections.length <= 3, '周复盘保留了超过三块抬升章节')
+    assert(document.querySelector('.wr-progress-summary'), '周复盘缺少紧凑进度摘要')
+    assert(getComputedStyle(document.querySelector<HTMLElement>('.wr-footer-action')!).position === 'sticky', '周复盘主操作栏没有保持 sticky')
     assert(![...document.querySelectorAll<HTMLButtonElement>('.wr-tag-group button')].some((button) => button.textContent?.startsWith('FOMO')), '自定义交易标签不应成为统计选项')
     assert(document.querySelector('.wr-evidence-tags')?.textContent?.includes('FOMO×1'), '自定义标签及次数没有作为证据显示')
     const frozenPnl = [...document.querySelectorAll<HTMLElement>('.wr-metric')]

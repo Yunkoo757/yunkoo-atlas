@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from '@/icons/appIcons'
@@ -93,7 +94,7 @@ export function ImportDataHealthView() {
       <main className="idh-view">
         <div className="list-pending-entry idh-toolbar">
           <Link className="list-pending-link" to="/live-archive">
-            <ArrowLeft size={14} aria-hidden />
+            <ArrowLeft size={ICON_SM} aria-hidden />
             返回历史记录
           </Link>
           <p className="idh-toolbar-meta" id="import-health-title">

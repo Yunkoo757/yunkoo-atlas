@@ -1,0 +1,65 @@
+.ui-inline-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  color: var(--text-secondary);
+  background: var(--surface-inset);
+}
+
+.ui-inline-status.is-compact {
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.ui-inline-status-icon {
+  display: inline-flex;
+  color: var(--text-tertiary);
+}
+
+.ui-inline-status.is-success .ui-inline-status-icon {
+  color: var(--pos);
+}
+
+.ui-inline-status.is-warning .ui-inline-status-icon {
+  color: var(--warn);
+}
+
+.ui-inline-status.is-error .ui-inline-status-icon {
+  color: var(--neg);
+}
+
+.ui-inline-status.is-info .ui-inline-status-icon {
+  color: var(--pending);
+}
+
+.ui-inline-status-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--type-data-size);
+  line-height: var(--type-data-line-height);
+}
+
+.ui-inline-status-title {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.ui-inline-status-detail {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  overflow-wrap: anywhere;
+}
+
+.ui-inline-status-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}

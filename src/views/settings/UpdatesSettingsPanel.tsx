@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Download, LockKeyhole, RotateCcw, Shield } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ProgressIndicator } from '@/icons/ProgressIndicator'
-import { ICON_SM } from '@/icons/iconSize'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { AppUpdateState } from '@/lib/appUpdate'
 import { toast } from '@/lib/toast'
@@ -142,7 +142,7 @@ export function UpdatesSettingsPanel() {
               className="dio-btn dio-btn-primary"
               onClick={() => void getJournalBridge()?.downloadUpdate()}
             >
-              <Download size={14} />
+              <Download size={ICON_SM} />
               下载更新
             </button>
           ) : state.phase === 'downloading' ? (
@@ -152,7 +152,7 @@ export function UpdatesSettingsPanel() {
             </button>
           ) : state.phase === 'downloaded' ? (
             <button className="dio-btn dio-btn-primary" onClick={() => void installUpdate()}>
-              <RotateCcw size={14} />
+              <RotateCcw size={ICON_SM} />
               备份并重启更新
             </button>
           ) : (
@@ -164,7 +164,7 @@ export function UpdatesSettingsPanel() {
               {state.phase === 'checking' ? (
                 <LoadingIndicator size={ICON_SM} aria-hidden />
               ) : (
-                <RotateCcw size={14} />
+                <RotateCcw size={ICON_SM} />
               )}
               {state.phase === 'checking' ? '检查中…' : '检查更新'}
             </button>
@@ -179,7 +179,7 @@ export function UpdatesSettingsPanel() {
             <p>令牌仅保存在这台电脑，并由系统安全存储加密。</p>
           </div>
           <span className={'update-credential-state' + (hasCredential ? ' is-ready' : '')}>
-            <LockKeyhole size={13} />
+            <LockKeyhole size={ICON_SM} />
             {hasCredential ? '已配置' : '未配置'}
           </span>
         </div>
@@ -215,7 +215,7 @@ export function UpdatesSettingsPanel() {
       </section>
 
       <div className="update-security-note">
-        <Shield size={15} />
+        <Shield size={ICON_MD} />
         <span>自动检查每 6 小时执行一次；不会在开发版或 Windows 便携版中下载更新。</span>
       </div>
     </div>

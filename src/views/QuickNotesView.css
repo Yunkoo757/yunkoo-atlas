@@ -208,35 +208,3 @@
 .quick-notes-empty {
   min-height: 0;
 }
-
-@media (max-width: 768px) {
-  .quick-notes-workspace {
-    grid-template-columns: 112px minmax(0, 1fr);
-  }
-
-  .quick-notes-search {
-    margin-inline: var(--sp-2);
-  }
-
-  .quick-notes-list-item {
-    padding: var(--sp-2);
-  }
-
-  .quick-notes-list-title time,
-  .quick-notes-list-summary {
-    display: none;
-  }
-
-  .quick-notes-editor-header {
-    padding-inline: var(--sp-4);
-  }
-
-  .quick-notes-editor-header > input {
-    font-size: var(--fs-lg);
-  }
-
-  .quick-notes-editor-meta,
-  .quick-notes-editor-body {
-    padding-inline: var(--sp-4);
-  }
-}

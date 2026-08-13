@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Check } from '@/icons/appIcons'
 import {
@@ -90,7 +91,7 @@ export function MissedOpportunityScopeMenu({
               }}
             >
               <span className="missed-scope-check" aria-hidden="true">
-                {sources.includes(source) ? <Check size={11} /> : null}
+                {sources.includes(source) ? <Check size={ICON_SM} /> : null}
               </span>
               <span>{SOURCE_LABELS[source]}</span>
               <span className="missed-scope-count" aria-hidden="true">{rawCounts[source]}</span>

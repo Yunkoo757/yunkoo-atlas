@@ -4,4 +4,6 @@ export type {
   JournalBridge,
   LibraryLocationState,
   WindowFrameState,
+  WindowsCloseChoice,
+  WindowsClosePreference,
 } from '@/types/journalBridge'

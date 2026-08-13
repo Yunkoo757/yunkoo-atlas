@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import {
   useCallback,
   useEffect,
@@ -230,6 +231,8 @@ export function Menu({
                 role={isSelectionMenu ? 'menuitemradio' : 'menuitem'}
                 aria-checked={isSelectionMenu ? o.value === value : undefined}
                 onClick={() => {
+                  const control = resolveTriggerControl() ?? triggerControlRef.current
+                  control?.focus()
                   onSelect(o.value)
                   setOpen(false)
                 }}
@@ -237,7 +240,7 @@ export function Menu({
                 {o.icon && <span className="menu-item-icon">{o.icon}</span>}
                 <span className="menu-item-label">{o.label}</span>
                 {isSelectionMenu && o.value === value && (
-                  <Check size={14} className="menu-item-check" />
+                  <Check size={ICON_SM} className="menu-item-check" />
                 )}
               </button>
             ))}

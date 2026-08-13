@@ -25,8 +25,8 @@ try {
   assert.match(await page.locator('.db-empty-action').innerText(), /新建交易/)
 
   await page.locator('.db-empty-action').click()
-  await page.locator('.composer-overlay, .trade-composer').first().waitFor()
-  assert.equal(await page.locator('.composer-overlay, .trade-composer').count() > 0, true)
+  await page.locator('.composer-modal, .trade-composer').first().waitFor()
+  assert.equal(await page.locator('.composer-modal, .trade-composer').count() > 0, true)
 
   console.log('PASS dashboard empty state guides users into creating a trade')
 } finally {

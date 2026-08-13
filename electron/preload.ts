@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppUpdateState } from '../src/lib/appUpdate'
 import type { JournalBridge } from '../src/types/journalBridge'
+import type { WindowsClosePreference } from '../src/types/journalBridge'
 import { AsyncGeneration } from '../src/lib/asyncGeneration'
 
 const closeFlushGeneration = new AsyncGeneration()
@@ -11,10 +12,15 @@ export type {
   JournalBridge,
   LibraryLocationState,
   WindowFrameState,
+  WindowsCloseChoice,
+  WindowsClosePreference,
 } from '../src/types/journalBridge'
 
 const bridge: JournalBridge = {
   isElectron: true,
+  platform: process.platform === 'win32' || process.platform === 'darwin'
+    ? process.platform
+    : 'other',
   onBeforeClose: (callback) => {
     const listener = async (
       _event: Electron.IpcRendererEvent,
@@ -51,6 +57,21 @@ const bridge: JournalBridge = {
     ipcRenderer.on('backup:auto-failed', listener)
     return () => ipcRenderer.removeListener('backup:auto-failed', listener)
   },
+  onWindowsCloseExplanation: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('app:windows-close-explanation', listener)
+    return () => ipcRenderer.removeListener('app:windows-close-explanation', listener)
+  },
+  onWindowsClosePreferenceError: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message)
+    ipcRenderer.on('app:windows-close-preference-error', listener)
+    return () => ipcRenderer.removeListener('app:windows-close-preference-error', listener)
+  },
+  resolveWindowsClose: (choice, remember) =>
+    ipcRenderer.invoke('app:resolve-windows-close', { choice, remember }),
+  getWindowsClosePreference: () => ipcRenderer.invoke('app:get-windows-close-preference'),
+  setWindowsClosePreference: (preference: WindowsClosePreference) =>
+    ipcRenderer.invoke('app:set-windows-close-preference', preference),
   requestClose: () => ipcRenderer.invoke('app:request-close'),
   toggleFullscreen: () => ipcRenderer.invoke('app:toggle-fullscreen'),
   getWindowHotkey: () => ipcRenderer.invoke('window-hotkey:get'),

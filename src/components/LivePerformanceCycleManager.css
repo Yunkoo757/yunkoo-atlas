@@ -121,18 +121,3 @@
 .live-performance-cycle-undo p {
   margin-top: var(--sp-2);
 }
-
-@media (max-width: 640px) {
-  .live-performance-cycle-manager-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .live-performance-cycle-manager-actions .ui-btn {
-    width: 100%;
-  }
-
-  .live-performance-cycle-counts {
-    grid-template-columns: 1fr;
-  }
-}

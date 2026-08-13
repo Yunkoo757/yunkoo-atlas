@@ -1,9 +1,11 @@
+import { ICON_MD } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertCircle, BookOpen, CheckCircle, Clock, Plus } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { Topbar } from '@/components/Topbar'
 import { TradeRow } from '@/components/trades/TradeRow'
+import { TradeListColumns } from '@/components/trades/TradeListColumns'
 import type { Trade } from '@/data/trades'
 import { fmtMoney } from '@/lib/format'
 import { toast } from '@/lib/toast'
@@ -31,24 +33,40 @@ const WORKFLOW_GROUPS = [
   {
     key: 'active',
     title: '进行中的交易',
-    description: '打开交易，继续执行持仓或已到期计划；未来计划会在到期日出现。',
+    description: '继续执行持仓与到期计划。',
     icon: Clock,
   },
   {
     key: 'resultPending',
     title: '待补交易结果',
-    description: '打开交易，补齐盈亏或 R 倍数，纳入有效统计。',
+    description: '补齐盈亏或 R，恢复统计完整性。',
     icon: AlertCircle,
   },
   {
     key: 'reviewPending',
     title: '待完成复盘',
-    description: '打开交易，继续记录判断、执行偏差和下一次行动。',
+    description: '记录判断、偏差与下一次行动。',
     icon: BookOpen,
   },
 ] as const
 
 type QueueFilter = 'all' | 'active' | 'resultPending' | 'reviewPending'
+
+type TodayHeadingTab = 'all' | 'open' | 'results' | 'review'
+
+type QueueCounts = {
+  all: number
+  open: number
+  results: number
+  review: number
+}
+
+export function todayHeadingForTab(tab: TodayHeadingTab, counts: QueueCounts): string {
+  if (tab === 'open') return `${counts.open} 项进行中`
+  if (tab === 'results') return `${counts.results} 项等待结果`
+  if (tab === 'review') return `${counts.review} 项待复盘`
+  return counts.all > 0 ? `还有 ${counts.all} 项需要处理` : '今日没有交易待办'
+}
 
 const QUEUE_TABS: ReadonlyArray<{ key: QueueFilter; label: string }> = [
   { key: 'all', label: '全部' },
@@ -103,6 +121,19 @@ export function TodayWorkspace() {
     [queueFilter],
   )
   const visibleActionCount = queueFilter === 'all' ? buckets.actionCount : buckets[queueFilter].length
+  const queueCounts: QueueCounts = {
+    all: buckets.actionCount,
+    open: buckets.active.length,
+    results: buckets.resultPending.length,
+    review: buckets.reviewPending.length,
+  }
+  const headingTab: TodayHeadingTab = queueFilter === 'active'
+    ? 'open'
+    : queueFilter === 'resultPending'
+      ? 'results'
+      : queueFilter === 'reviewPending'
+        ? 'review'
+        : 'all'
   const starredIdSet = useMemo(() => new Set(starredIds), [starredIds])
   // 队列 tab 只更新筛选状态，不再用 scrollIntoView 跳转到模糊的分组目标。
   useTradeReturnAnchor()
@@ -180,9 +211,7 @@ export function TodayWorkspace() {
             <div>
               <span className="today-focus-eyebrow">行动队列</span>
               <h1 id="today-focus-title">
-                {buckets.actionCount > 0
-                  ? `还有 ${buckets.actionCount} 项需要处理`
-                  : '今日没有交易待办'}
+                {todayHeadingForTab(headingTab, queueCounts)}
               </h1>
               <p>
                 {buckets.actionCount > 0
@@ -203,10 +232,12 @@ export function TodayWorkspace() {
               className={`empty-btn${buckets.actionCount > 0 ? ' is-secondary' : ''}`}
               onClick={() => openComposer()}
             >
-              <Plus size={15} />
+              <Plus size={ICON_MD} />
               新建交易
             </button>
           </section>
+
+          <RiskStatusStrip currentTradingDayKey={today} />
 
           <section className="today-action-queue" data-today-action-queue aria-label="行动队列">
             <div className="today-queue-tabs" role="tablist" aria-label="行动队列筛选">
@@ -235,14 +266,16 @@ export function TodayWorkspace() {
               {visibleActionCount === 0 ? (
                 <div className="today-queue-empty">当前筛选下没有待处理事项</div>
               ) : (
-                <div className="today-workflow-groups">
-                  {visibleWorkflowGroups.map(({ key, title, description, icon: Icon }) => {
+                <>
+                  <TradeListColumns className="today-trade-columns" />
+                  <div className="today-workflow-groups">
+                    {visibleWorkflowGroups.map(({ key, title, description, icon: Icon }) => {
                     const items = buckets[key]
                     if (items.length === 0) return null
                     return (
                       <section className="today-workflow-group" key={key}>
                         <header>
-                          <span className="today-group-icon"><Icon size={15} /></span>
+                          <span className="today-group-icon"><Icon size={ICON_MD} /></span>
                           <div>
                             <h2>{title}</h2>
                             <p>{description}</p>
@@ -268,13 +301,12 @@ export function TodayWorkspace() {
                         </div>
                       </section>
                     )
-                  })}
-                </div>
+                    })}
+                  </div>
+                </>
               )}
             </div>
           </section>
-
-          <RiskStatusStrip currentTradingDayKey={today} />
 
           {todayMetrics.closedCount > 0 ? (
             <section className="today-stats" aria-label="今日战绩">
@@ -326,7 +358,7 @@ export function TodayWorkspace() {
           {buckets.completedToday.length > 0 ? (
             <section className="today-workflow-group today-completed is-completed">
               <header>
-                <span className="today-group-icon"><CheckCircle size={15} /></span>
+                <span className="today-group-icon"><CheckCircle size={ICON_MD} /></span>
                 <div>
                   <h2>今日已完成</h2>
                   <p>今天已完成结果与复盘，不再需要处理的记录。</p>

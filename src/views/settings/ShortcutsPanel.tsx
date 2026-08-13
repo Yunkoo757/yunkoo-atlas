@@ -1,3 +1,4 @@
+import { ICON_SM } from '@/icons/iconSize'
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -114,7 +115,7 @@ export function ShortcutsPanel() {
             }
           }}
         >
-          <RotateCcw size={14} />
+          <RotateCcw size={ICON_SM} />
           恢复全部默认
         </button>
       </div>
@@ -145,7 +146,7 @@ export function ShortcutsPanel() {
                           aria-label={`${bindingLabel}，固定快捷键`}
                         >
                           <ShortcutKeycaps binding={binding} />
-                          <LockKeyhole size={12} />
+                          <LockKeyhole size={ICON_SM} />
                         </span>
                       </Tooltip>
                     ) : (
@@ -204,7 +205,7 @@ export function ShortcutsPanel() {
                               toast('已恢复默认')
                             }}
                           >
-                            <RotateCcw size={14} />
+                            <RotateCcw size={ICON_SM} />
                           </button>
                         </Tooltip>
                       )}
@@ -220,7 +221,7 @@ export function ShortcutsPanel() {
                               toast('已禁用')
                             }}
                           >
-                            <Ban size={14} />
+                            <Ban size={ICON_SM} />
                           </button>
                         </Tooltip>
                       )}
