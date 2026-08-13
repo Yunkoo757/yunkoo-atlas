@@ -149,6 +149,18 @@ export function DisplaySettingsPanel() {
           />
         </section>
 
+        <section className="display-settings-section">
+          <div className="display-settings-section-heading display-section-head">
+            <h2>交互反馈</h2>
+          </div>
+          <ToggleRow
+            label="显示键盘焦点高光"
+            description="使用 Tab 或键盘导航时，以轮廓标出当前控件。关闭后仍可使用全部键盘操作。"
+            checked={display.showKeyboardFocusRings}
+            onChange={(checked) => setDisplay({ showKeyboardFocusRings: checked })}
+          />
+        </section>
+
         <ChoiceSection
           title="交易日开始于"
           hint="凌晨开平仓仍算前一交易日。影响今日工作台、今日筛选与新建默认日期；仪表盘「本周」等仍按日历周。"
