@@ -192,6 +192,14 @@ try {
       })) ?? null,
     }
   })
+  process.stdout.write(`${JSON.stringify({
+    pathIsolation: {
+      temporaryRoot,
+      requestedUserDataPath: userDataPath,
+      actualUserDataPath: runtime.userDataPath,
+      libraryPath,
+    },
+  })}\n`)
   assertSafePackagedEvidencePaths({
     temporaryRoot,
     userDataPath: runtime.userDataPath,
