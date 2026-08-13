@@ -51,6 +51,10 @@
   box-sizing: border-box;
 }
 
+.trade-list-virtual-item.is-header {
+  padding-top: var(--sp-2);
+}
+
 .trade-list-virtual-item.is-row > * {
   width: 100%;
 }
