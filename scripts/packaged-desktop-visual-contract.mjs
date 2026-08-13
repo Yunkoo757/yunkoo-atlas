@@ -1,6 +1,17 @@
 import { realpathSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
+export function isWindowRestorationVisible(bounds, workArea, platform) {
+  if (!bounds || !workArea) return false
+  // Windows 的 BrowserWindow bounds 包含不可见 resize frame；高 DPI 下可比
+  // workArea 多出数个逻辑像素，但标题栏和客户区仍完整可操作。
+  const tolerance = platform === 'win32' ? 8 : 1
+  return bounds.x >= workArea.x - tolerance &&
+    bounds.y >= workArea.y - tolerance &&
+    bounds.x + bounds.width <= workArea.x + workArea.width + tolerance &&
+    bounds.y + bounds.height <= workArea.y + workArea.height + tolerance
+}
+
 const REQUIRED_PLATFORM_CHECKS = Object.freeze({
   win32: Object.freeze([
     'native-platform',

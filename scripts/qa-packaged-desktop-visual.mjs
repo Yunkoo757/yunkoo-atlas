@@ -16,6 +16,7 @@ import { _electron as electron } from 'playwright'
 import {
   assertSafePackagedEvidencePaths,
   assertSafePackagedVisualOutputPath,
+  isWindowRestorationVisible,
   normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
@@ -105,13 +106,6 @@ async function waitForVisualSettlement(page, selector) {
     null,
     { timeout: 30_000 },
   )
-}
-
-function withinWorkArea(bounds, workArea, tolerance = 1) {
-  return bounds.x >= workArea.x - tolerance &&
-    bounds.y >= workArea.y - tolerance &&
-    bounds.x + bounds.width <= workArea.x + workArea.width + tolerance &&
-    bounds.y + bounds.height <= workArea.y + workArea.height + tolerance
 }
 
 async function waitForProcessExit(child, timeoutMs = 10_000) {
@@ -239,7 +233,7 @@ try {
   record('native-platform', await page.evaluate(() => window.journalBridge?.platform) === hostPlatform, hostPlatform)
   record(
     'window-restore-visible',
-    Boolean(runtime.bounds && withinWorkArea(runtime.bounds, runtime.workArea)),
+    isWindowRestorationVisible(runtime.bounds, runtime.workArea, hostPlatform),
     JSON.stringify({ bounds: runtime.bounds, workArea: runtime.workArea }),
   )
 

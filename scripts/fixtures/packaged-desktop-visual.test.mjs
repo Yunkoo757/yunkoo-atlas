@@ -9,6 +9,7 @@ import {
   assertSafePackagedVisualOutputPath,
   buildRequiredPlatformChecks,
   normalizePackagedScaleFactor,
+  isWindowRestorationVisible,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
   validatePackagedVisualReport,
@@ -90,6 +91,26 @@ test('packaged visual waits for hydrated UI before routing the first scenario', 
 
   assert.ok(hydration >= 0, 'packaged visual must wait for hydration after reloading the fixture')
   assert.ok(hydration < scenarioLoop, 'hydration must complete before routing the first visual scenario')
+})
+
+test('Windows window restoration allows only the native resize-frame overhang', () => {
+  const workArea = { x: 0, y: 0, width: 820, height: 576 }
+  assert.equal(
+    isWindowRestorationVisible(
+      { x: 0, y: 0, width: 820, height: 579 },
+      workArea,
+      'win32',
+    ),
+    true,
+  )
+  assert.equal(
+    isWindowRestorationVisible(
+      { x: 0, y: 0, width: 820, height: 589 },
+      workArea,
+      'win32',
+    ),
+    false,
+  )
 })
 
 test('evidence isolation rejects application data and accepts unique temporary children', () => {
