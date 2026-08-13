@@ -35,7 +35,7 @@ async function run(): Promise<void> {
 
   root.render(
     <Editor
-      content="<p>4H 顺势，等待回调极端 POI。</p><p>15m 出现结构确认。</p><img src='/src/views/fixtures/browser-test-image.svg?chart.png'>"
+      content="<p>4H 顺势，等待回调极端 POI。</p><p>15m 出现结构确认。</p><img src='/src/views/fixtures/browser-test-image.svg?chart.png'><p>等待下一次回调确认。</p>"
       onChange={(html) => { latestHtml = html }}
       reviewContextTools
       reviewContextPinned
@@ -48,17 +48,28 @@ async function run(): Promise<void> {
 
   const context = host.querySelector<HTMLElement>('section[data-review-context]')
   const image = context?.nextElementSibling as HTMLImageElement | null
+  const followingParagraph = image?.nextElementSibling as HTMLParagraphElement | null
   assert(context && image?.tagName === 'IMG', '首图必须保持在摘要之后')
+  assert(followingParagraph?.tagName === 'P', '图片后的正文必须保持原有顺序')
   assert(context.querySelectorAll(':scope > p').length === 2, '摘要只应包含截图前的开头文字')
   const gap = image.getBoundingClientRect().top - context.getBoundingClientRect().bottom
   assert(Math.abs(gap - 16) <= 1, `摘要到首图应为 16px，实际 ${gap}px`)
+  const followingGap = followingParagraph.getBoundingClientRect().top - image.getBoundingClientRect().bottom
+  assert(Math.abs(followingGap - 16) <= 1, `图片到后续正文应为 16px，实际 ${followingGap}px`)
   const contextStyle = getComputedStyle(context)
   assert(Math.abs(Number.parseFloat(contextStyle.marginBottom) - 16) <= 1, '摘要自身的下方节奏必须统一为 16px')
   assert(contextStyle.position === 'sticky', '盘面摘要必须在浏览截图时保持可见')
   assert(contextStyle.overflowY !== 'auto' && contextStyle.overflowY !== 'scroll', '盘面摘要不得出现内部滚动条')
+  assert(contextStyle.backgroundColor === 'rgba(0, 0, 0, 0)', '盘面摘要必须使用透明背景')
+  assert(
+    [contextStyle.borderTopWidth, contextStyle.borderRightWidth, contextStyle.borderBottomWidth, contextStyle.borderLeftWidth]
+      .every((width) => Number.parseFloat(width) === 0),
+    '盘面摘要不得保留容器边框',
+  )
   assert(contextStyle.boxShadow === 'none', '盘面摘要应与正文连续，不得呈现浮窗阴影')
   assert(latestHtml.includes('data-review-context="true"'), '保存 HTML 必须保留摘要数据节点')
   assert(latestHtml.indexOf('data-review-context') < latestHtml.indexOf('<img'), '保存 HTML 不得改变摘要与图片顺序')
+  assert(latestHtml.indexOf('<img') < latestHtml.indexOf('等待下一次回调确认。'), '保存 HTML 不得改变图片与后续正文顺序')
   assert(!host.querySelector('.editor-review-tools'), '已有正文时不应继续显示逐笔固定操作')
 
   root.render(
@@ -74,7 +85,8 @@ async function run(): Promise<void> {
     '全局不固定模式未自动恢复普通正文',
   )
   assert(!host.querySelector('section[data-review-context]'), '取消固定后不得残留摘要容器')
-  assert(host.querySelector('.ProseMirror')?.children[2]?.tagName === 'IMG', '取消固定不得改变图文顺序')
+  const restoredChildren = host.querySelector('.ProseMirror')?.children
+  assert(restoredChildren?.[2]?.tagName === 'IMG' && restoredChildren[3]?.textContent === '等待下一次回调确认。', '取消固定不得改变图文顺序')
 
   latestHtml = ''
   const renderBlankEditor = (content: string) => {
