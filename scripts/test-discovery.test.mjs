@@ -464,10 +464,22 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
         </section>
       </main>
       <script>
+        const fault = new URLSearchParams(location.search).get('fault')
         const show = (name) => {
           document.querySelectorAll('[data-qa-view]').forEach((view) => { view.hidden = view.dataset.qaView !== name })
         }
         window.__qaWorkbenchShowView = show
+        const editorRoot = document.querySelector('.editor .ProseMirror')
+        const normalizedReviewHtml = editorRoot.innerHTML
+        let editorHtmlReads = 0
+        editorRoot.editor = {
+          getHTML() {
+            editorHtmlReads += 1
+            return fault === 'html-mutation' && editorHtmlReads > 1
+              ? normalizedReviewHtml.replace('等待下一次确认。', '已被受控变异。')
+              : normalizedReviewHtml
+          },
+        }
         const focusSwitch = document.querySelector('[role="switch"]')
         const applyFocusPreference = (enabled) => {
           focusSwitch.setAttribute('aria-checked', String(enabled))
@@ -485,7 +497,6 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
           headers.forEach((header) => header.classList.remove('is-sticky'))
           if (event.currentTarget.scrollTop > 0) headers[1].classList.add('is-sticky')
         })
-        const fault = new URLSearchParams(location.search).get('fault')
         if (fault === 'console') console.error('controlled workbench console failure')
         if (fault === 'page') setTimeout(() => { throw new Error('controlled workbench page failure') })
         if (fault === 'overflow') {
@@ -521,7 +532,13 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
     assert.equal(report.metrics.review.reviewContextImageGap, 16)
     assert.equal(report.metrics.review.reviewImageFollowingGap, 16)
     assert.deepEqual(report.metrics.review.order, ['SECTION', 'IMG', 'P'])
-    assert.match(report.metrics.review.reviewHtmlOrderHash, /^[a-f0-9]{64}$/)
+    assert.match(report.metrics.review.reviewHtmlBaselineHash, /^[a-f0-9]{64}$/)
+    assert.match(report.metrics.review.reviewHtmlReloadedHash, /^[a-f0-9]{64}$/)
+    assert.equal(
+      report.metrics.review.reviewHtmlReloadedHash,
+      report.metrics.review.reviewHtmlBaselineHash,
+    )
+    assert.equal(report.metrics.review.htmlRoundTripMatches, true)
     assert.equal(report.metrics.tradeList.tradeGroupTopGap, 8)
     assert.equal(report.metrics.tradeList.stickyTradeGroupTopGap, 8)
     assert.equal(report.metrics.tradeList.collapsed, true)
@@ -538,7 +555,7 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
       assert.equal((await fs.stat(step.screenshotPath)).isFile(), true)
     }
 
-    for (const fault of ['console', 'page', 'overflow']) {
+    for (const fault of ['console', 'page', 'overflow', 'html-mutation']) {
       const faultReportPath = path.join(root, `workbench-probe-${fault}-report.json`)
       const faultUrl = new URL(pathToFileURL(fixturePath))
       faultUrl.searchParams.set('fault', fault)
@@ -558,12 +575,16 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
         `${fault} diagnostic must fail closed:\n${faultResult.stdout}\n${faultResult.stderr}`,
       )
       const faultReport = JSON.parse(await fs.readFile(faultReportPath, 'utf8'))
-      const diagnosticKey = fault === 'console'
-        ? 'consoleErrors'
-        : fault === 'page'
-          ? 'pageErrors'
-          : 'horizontalOverflow'
-      assert(faultReport.diagnostics[diagnosticKey].length > 0)
+      if (fault === 'html-mutation') {
+        assert.equal(faultReport.metrics.review.htmlRoundTripMatches, false)
+      } else {
+        const diagnosticKey = fault === 'console'
+          ? 'consoleErrors'
+          : fault === 'page'
+            ? 'pageErrors'
+            : 'horizontalOverflow'
+        assert(faultReport.diagnostics[diagnosticKey].length > 0)
+      }
     }
   })
 })

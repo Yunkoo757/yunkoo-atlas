@@ -143,7 +143,8 @@ function isWorkspaceMemoryEntry(value: unknown): boolean {
 function isDisplayPrefs(value: unknown): boolean {
   if (value === undefined) return true
   if (!isRecord(value)) return false
-  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'privacyMode', 'showKeyboardFocusRings', 'reviewContextPinned']) {
+  // 旧显示字段继续严格校验；新增焦点字段由 normalizeDisplay 将缺失或非法值回退为 false。
+  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'privacyMode', 'reviewContextPinned']) {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') return false
   }
   if (value.sortBy !== undefined && !DISPLAY_SORTS.has(String(value.sortBy))) return false

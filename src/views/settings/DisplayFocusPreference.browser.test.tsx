@@ -32,6 +32,79 @@ async function waitFor(
   throw new Error(message)
 }
 
+async function verifyDocumentFocusRingOwnershipAcrossUnmountOrders(): Promise<void> {
+  const documentRoot = document.documentElement
+  const initialValue = documentRoot.dataset.keyboardFocusRings
+  const originalDisplay = useStore.getState().display
+  useStore.setState({
+    display: { ...originalDisplay, showKeyboardFocusRings: false },
+  })
+
+  try {
+    for (const firstToUnmount of ['earlier', 'later'] as const) {
+      documentRoot.dataset.keyboardFocusRings = 'initial-owner-sentinel'
+      const earlierContainer = document.createElement('div')
+      const laterContainer = document.createElement('div')
+      document.body.append(earlierContainer, laterContainer)
+      const earlierRoot = createRoot(earlierContainer)
+      const laterRoot = createRoot(laterContainer)
+      let earlierMounted = true
+      let laterMounted = true
+
+      try {
+        earlierRoot.render(<AppFrame sidebar={<div>早挂载侧栏</div>}>早挂载内容</AppFrame>)
+        await nextFrame()
+        laterRoot.render(<AppFrame sidebar={<div>晚挂载侧栏</div>}>晚挂载内容</AppFrame>)
+        await nextFrame()
+        await nextFrame()
+        assert(
+          documentRoot.dataset.keyboardFocusRings === 'off',
+          `${firstToUnmount} 顺序挂载后必须由存活 AppFrame 控制文档属性`,
+        )
+
+        if (firstToUnmount === 'earlier') {
+          earlierRoot.unmount()
+          earlierMounted = false
+        } else {
+          laterRoot.unmount()
+          laterMounted = false
+        }
+        await nextFrame()
+        assert(
+          documentRoot.dataset.keyboardFocusRings === 'off',
+          `先卸载 ${firstToUnmount} 实例后，存活 AppFrame 必须继续控制文档属性`,
+        )
+
+        if (earlierMounted) {
+          earlierRoot.unmount()
+          earlierMounted = false
+        }
+        if (laterMounted) {
+          laterRoot.unmount()
+          laterMounted = false
+        }
+        await nextFrame()
+        assert(
+          documentRoot.getAttribute('data-keyboard-focus-rings') === 'initial-owner-sentinel',
+          `按 ${firstToUnmount} 顺序卸载最后实例后必须恢复初始文档属性`,
+        )
+      } finally {
+        if (earlierMounted) earlierRoot.unmount()
+        if (laterMounted) laterRoot.unmount()
+        earlierContainer.remove()
+        laterContainer.remove()
+      }
+    }
+  } finally {
+    useStore.setState({ display: originalDisplay })
+    if (initialValue === undefined) {
+      delete documentRoot.dataset.keyboardFocusRings
+    } else {
+      documentRoot.dataset.keyboardFocusRings = initialValue
+    }
+  }
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -179,6 +252,8 @@ async function run(): Promise<void> {
     root.unmount()
     useStore.setState({ display: originalDisplay })
   }
+
+  await verifyDocumentFocusRingOwnershipAcrossUnmountOrders()
 }
 
 window.__displayFocusPreferenceTest = run()

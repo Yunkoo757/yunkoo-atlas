@@ -21,6 +21,28 @@ function diagnosticsAreEmpty(diagnostics) {
     && diagnostics.horizontalOverflow.length === 0
 }
 
+function hashNormalizedEditorHtml(html) {
+  return createHash('sha256').update(html, 'utf8').digest('hex')
+}
+
+async function readNormalizedEditorHtml(targetPage) {
+  const editorRoot = targetPage.locator('.editor .ProseMirror')
+  await editorRoot.waitFor({ state: 'attached', timeout: 10_000 })
+  return editorRoot.evaluate((element) => {
+    const editor = element.editor
+    if (!editor || typeof editor.getHTML !== 'function') {
+      throw new Error('复盘编辑器未暴露 TipTap editor.getHTML()')
+    }
+    const html = editor.getHTML()
+    if (typeof html !== 'string') throw new Error('TipTap editor.getHTML() 未返回 HTML 字符串')
+    return html
+  })
+}
+
+async function normalizedEditorHtmlHash(targetPage) {
+  return hashNormalizedEditorHtml(await readNormalizedEditorHtml(targetPage))
+}
+
 function trackDiagnostics(targetPage, diagnostics, combinedErrors = undefined) {
   targetPage.on('pageerror', (error) => {
     diagnostics.pageErrors.push(error.message)
@@ -36,6 +58,7 @@ function trackDiagnostics(targetPage, diagnostics, combinedErrors = undefined) {
 async function collectPresentationMetrics(targetPage, {
   navigate,
   setFocusPreference,
+  reviewHtmlBaselineHash,
   screenshotOut = PRESENTATION_SCREENSHOT_OUT,
   diagnostics,
 }) {
@@ -81,6 +104,7 @@ async function collectPresentationMetrics(targetPage, {
 
   await navigate('review')
   await targetPage.locator('.dv-review-complete-meta').waitFor({ state: 'visible', timeout: 10_000 })
+  const reviewHtmlReloadedHash = await normalizedEditorHtmlHash(targetPage)
   const reviewDom = await targetPage.evaluate(() => {
     const visualHeadings = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')]
       .filter((element) => {
@@ -102,7 +126,6 @@ async function collectPresentationMetrics(targetPage, {
       reviewVisualHeadingCount: visualHeadings.length,
       reviewContextImageGap: Math.round(imageRect.top - contextRect.bottom),
       reviewImageFollowingGap: followingRect ? Math.round(followingRect.top - imageRect.bottom) : null,
-      reviewHtml: document.querySelector('.editor .ProseMirror')?.innerHTML ?? '',
       order: [context.tagName, image.tagName, following?.tagName ?? ''],
     }
   })
@@ -110,7 +133,9 @@ async function collectPresentationMetrics(targetPage, {
     reviewVisualHeadingCount: reviewDom.reviewVisualHeadingCount,
     reviewContextImageGap: reviewDom.reviewContextImageGap,
     reviewImageFollowingGap: reviewDom.reviewImageFollowingGap,
-    reviewHtmlOrderHash: createHash('sha256').update(reviewDom.reviewHtml, 'utf8').digest('hex'),
+    reviewHtmlBaselineHash,
+    reviewHtmlReloadedHash,
+    htmlRoundTripMatches: reviewHtmlBaselineHash === reviewHtmlReloadedHash,
     order: reviewDom.order,
   }
   await captureStep('review-document-flow')
@@ -194,8 +219,10 @@ async function runControlledProbe() {
   trackDiagnostics(probePage, diagnostics)
   try {
     await probePage.goto(CONTROLLED_PROBE_URL, { waitUntil: 'domcontentloaded' })
+    const reviewHtmlBaselineHash = await normalizedEditorHtmlHash(probePage)
     const report = await collectPresentationMetrics(probePage, {
       diagnostics,
+      reviewHtmlBaselineHash,
       navigate: async (view) => {
         await probePage.evaluate((nextView) => window.__qaWorkbenchShowView(nextView), view)
       },
@@ -210,7 +237,9 @@ async function runControlledProbe() {
     })
     mkdirSync(dirname(PRESENTATION_REPORT_PATH), { recursive: true })
     writeFileSync(PRESENTATION_REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
-    if (!diagnosticsAreEmpty(diagnostics)) process.exitCode = 1
+    if (!diagnosticsAreEmpty(diagnostics) || !report.metrics.review.htmlRoundTripMatches) {
+      process.exitCode = 1
+    }
   } finally {
     await probeBrowser.close()
   }
@@ -229,6 +258,7 @@ const results = []
 const runtimeErrors = []
 const diagnostics = createDiagnostics()
 let presentationReport = null
+let reviewHtmlBaselineHash = null
 
 mkdirSync(BASELINE_OUT, { recursive: true })
 
@@ -561,6 +591,7 @@ try {
     const button = document.querySelector('.dv-review-complete-action')
     return button instanceof HTMLButtonElement && !button.disabled
   })
+  reviewHtmlBaselineHash = await normalizedEditorHtmlHash(page)
   await completeReviewButton.click()
   await page.locator('.dv-review-complete-meta').waitFor({ state: 'visible' })
   const reviewedStageText = await page.locator('.dv-review-complete-meta').innerText()
@@ -626,6 +657,7 @@ try {
 
   presentationReport = await collectPresentationMetrics(page, {
     diagnostics,
+    reviewHtmlBaselineHash,
     navigate: async (view) => {
       const route = view === 'settings'
         ? '/settings/display'
@@ -676,6 +708,14 @@ try {
       && presentationReport.metrics.review.reviewImageFollowingGap === 16
       && presentationReport.metrics.review.order.join('>') === 'SECTION>IMG>P',
     JSON.stringify(presentationReport.metrics.review),
+  )
+  record(
+    '复盘 HTML 经保存重载后与 TipTap 规范化基线严格一致',
+    presentationReport.metrics.review.htmlRoundTripMatches,
+    JSON.stringify({
+      baseline: presentationReport.metrics.review.reviewHtmlBaselineHash,
+      reloaded: presentationReport.metrics.review.reviewHtmlReloadedHash,
+    }),
   )
   record(
     '月份条在首组与吸顶状态均保持 8px 且折叠展开稳定',
