@@ -1,6 +1,8 @@
 import { createRoot } from 'react-dom/client'
 import type { Editor as TiptapEditor } from '@tiptap/core'
 import { Editor } from './Editor'
+import '@/styles/tokens.css'
+import '@/styles/global.css'
 
 declare global {
   interface Window {
@@ -45,14 +47,18 @@ async function run(): Promise<void> {
   )
 
   const context = host.querySelector<HTMLElement>('section[data-review-context]')
-  assert(context, '固定后必须生成盘面摘要容器')
+  const image = context?.nextElementSibling as HTMLImageElement | null
+  assert(context && image?.tagName === 'IMG', '首图必须保持在摘要之后')
   assert(context.querySelectorAll(':scope > p').length === 2, '摘要只应包含截图前的开头文字')
-  assert(context.nextElementSibling?.tagName === 'IMG', '截图必须留在摘要区下方')
+  const gap = image.getBoundingClientRect().top - context.getBoundingClientRect().bottom
+  assert(Math.abs(gap - 16) <= 1, `摘要到首图应为 16px，实际 ${gap}px`)
   const contextStyle = getComputedStyle(context)
+  assert(Math.abs(Number.parseFloat(contextStyle.marginBottom) - 16) <= 1, '摘要自身的下方节奏必须统一为 16px')
   assert(contextStyle.position === 'sticky', '盘面摘要必须在浏览截图时保持可见')
   assert(contextStyle.overflowY !== 'auto' && contextStyle.overflowY !== 'scroll', '盘面摘要不得出现内部滚动条')
   assert(contextStyle.boxShadow === 'none', '盘面摘要应与正文连续，不得呈现浮窗阴影')
-  assert(latestHtml.includes('data-review-context="true"'), '固定状态必须保存在同一份复盘笔记中')
+  assert(latestHtml.includes('data-review-context="true"'), '保存 HTML 必须保留摘要数据节点')
+  assert(latestHtml.indexOf('data-review-context') < latestHtml.indexOf('<img'), '保存 HTML 不得改变摘要与图片顺序')
   assert(!host.querySelector('.editor-review-tools'), '已有正文时不应继续显示逐笔固定操作')
 
   root.render(

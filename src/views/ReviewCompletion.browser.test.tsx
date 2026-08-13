@@ -114,10 +114,13 @@ async function run(): Promise<void> {
     )
 
     await waitFor(() => Boolean(findButton('完成复盘')), '完成复盘操作未出现')
+    const pendingToolbar = document.querySelector<HTMLElement>('.dv-review-toolbar')
     const pendingState = document.querySelector<HTMLElement>('.dv-review-state')
     const completionAction = findButton('完成复盘')
+    assert(pendingToolbar, '待复盘交易必须保留状态/动作工具行')
     assert(pendingState?.textContent?.trim() === '待复盘', '复盘状态没有独立显示为待复盘')
     assert(completionAction, '完成复盘操作未出现')
+    assert(pendingToolbar.contains(completionAction), '完成复盘动作必须留在轻量工具行内')
     assert(completionAction.classList.contains('ui-btn-primary') && completionAction.classList.contains('ui-btn-md'), '完成复盘必须使用中等尺寸主按钮')
     assert(!pendingState.contains(completionAction), '复盘状态与完成命令不得合并为同一节点')
     assert(document.querySelector('[aria-label="复盘正文"]'), '复盘正文编辑器缺少准确名称')
@@ -169,6 +172,9 @@ async function run(): Promise<void> {
       () => useStore.getState().trades[0]?.reviewStatus === 'reviewed',
       '写下复盘结论后仍无法完成复盘',
     )
+    assert(!document.querySelector('.dv-review-toolbar'), '已复盘正文不得保留空工具行')
+    assert(!document.querySelector('.dv-main')?.textContent?.includes('复盘正文'), '普通已复盘交易不得显示重复视觉标题')
+    assert(document.querySelector('[aria-label="复盘正文"]'), '去除视觉标题后必须保留编辑器可访问名称')
     assert(!document.querySelector('.dv-review-stage'), '已完成状态不应继续占据正文首屏')
     assert(!document.querySelector('.dv-review-complete-action'), '已完成状态不应继续显示完成命令')
     assert(

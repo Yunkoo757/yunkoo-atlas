@@ -954,16 +954,9 @@ export function DetailView() {
                 </div>
               </section>
             )}
-            <div className="dv-review-content-head">
-              <div className="dv-review-content-label">
-                <span>{trade.tradeKind === 'case' ? '案例沉淀' : '复盘正文'}</span>
-                {needsReview && !needsResult ? (
-                  <span className="dv-review-state" data-review-state={reviewReadiness.ready ? 'ready' : 'pending'}>
-                    {reviewReadiness.ready ? '可以完成' : '待复盘'}
-                  </span>
-                ) : null}
-              </div>
-              {needsReview && !needsResult ? (
+            {needsReview && !needsResult ? (
+              <div className="dv-review-toolbar" aria-label="复盘状态与操作">
+                <span className="dv-review-state">待复盘</span>
                 <Tooltip
                   asChild
                   content={
@@ -986,8 +979,8 @@ export function DetailView() {
                     {reviewSubmitting ? '正在保存…' : '完成复盘'}
                   </Button>
                 </Tooltip>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
             <div
               className={'dv-document dv-editor'
                 + (activeNoteLoad.status === 'loading' ? ' is-note-loading' : '')
