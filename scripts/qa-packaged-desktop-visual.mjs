@@ -334,10 +334,11 @@ try {
     const menuHasCommandQuit = Boolean(
       quitMenuItem && /(?:CommandOrControl|Command|Cmd)\+Q/i.test(quitAccelerator),
     )
+    const menuUsesProductName = quitMenuItem?.label.includes(packageJson.productName) === true
     record(
       'mac-command-labels',
-      commandShortcutLabel?.includes('⌘K') === true && menuHasCommandQuit,
-      JSON.stringify({ commandShortcutLabel, quitMenuItem, menuHasCommandQuit }),
+      commandShortcutLabel?.includes('⌘K') === true && menuHasCommandQuit && menuUsesProductName,
+      JSON.stringify({ commandShortcutLabel, quitMenuItem, menuHasCommandQuit, menuUsesProductName }),
     )
 
     const closePage = page.waitForEvent('close', { timeout: 15_000 })
@@ -366,21 +367,10 @@ try {
     const child = application.process()
     // 主进程的安全退出合同最长 15 秒；留出终态事件传播余量后再判失败。
     const exited = waitForProcessExit(child, 20_000)
-    const nativeQuitInvoked = await application.evaluate(({ BrowserWindow, Menu }) => {
-      const findQuitItem = (items) => {
-        for (const item of items) {
-          if (item.role === 'quit' || /Quit/i.test(item.label)) return item
-          if (item.submenu) {
-            const nested = findQuitItem(item.submenu.items)
-            if (nested) return nested
-          }
-        }
-        return null
-      }
-      const menu = Menu.getApplicationMenu()
-      const quitMenuItem = menu ? findQuitItem(menu.items) : null
-      if (!quitMenuItem || typeof quitMenuItem.click !== 'function') return false
-      quitMenuItem.click(quitMenuItem, BrowserWindow.getFocusedWindow(), {})
+    const nativeQuitInvoked = await application.evaluate(({ app }) => {
+      // Electron 官方将 app.quit() 与用户 Cmd+Q 定义为同一退出生命周期；
+      // role 菜单项会忽略 click 属性，不能用 MenuItem.click() 模拟原生角色行为。
+      setImmediate(() => app.quit())
       return true
     })
     applicationExitedByQuitCommand = nativeQuitInvoked && await exited

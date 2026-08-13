@@ -65,16 +65,19 @@ test('platform check plans demand direct native lifecycle evidence', () => {
 
 test('macOS packaged evidence uses native display, shortcut settings, and menu quit probes', () => {
   const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+  assert.equal(packageJson.productName, 'Trader Atlas')
   assert.match(source, /Math\.abs\(dpr - runtime\.displayScaleFactor\)/)
   assert.match(source, /#\/settings\/shortcuts/)
   assert.match(source, /getDefaultRoleAccelerator/)
-  assert.match(source, /quitMenuItem\.click/)
+  assert.match(source, /app\.quit\(\)/)
   assert.match(source, /\.save-status\.is-dirty/)
   assert.match(source, /requestedViewport: viewport/)
   assert.match(source, /viewport: metrics\.actualViewport/)
   assert.match(source, /page\.locator\(selector\)\.first\(\)\.waitFor/)
   assert.match(source, /waitForProcessExit\(child, 20_000\)/)
   assert.doesNotMatch(source, /page\.keyboard\.press\('Meta\+q'\)/)
+  assert.doesNotMatch(source, /quitMenuItem\.click/)
 })
 
 test('evidence isolation rejects application data and accepts unique temporary children', () => {

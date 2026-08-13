@@ -1,5 +1,6 @@
 {
   "name": "yunkoo-atlas",
+  "productName": "Trader Atlas",
   "private": true,
   "version": "1.3.3",
   "description": "Trader Atlas — trading journal with IndexedDB and Electron desktop support",
