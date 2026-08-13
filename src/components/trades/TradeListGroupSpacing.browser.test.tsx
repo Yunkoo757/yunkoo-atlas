@@ -80,6 +80,10 @@ const fixtureTrades = [
   trade('august-2', '2026-08-11T09:00:00.000Z', 'short'),
   trade('july-1', '2026-07-31T09:00:00.000Z', 'long'),
   trade('july-2', '2026-07-30T09:00:00.000Z', 'short'),
+  trade('july-3', '2026-07-29T09:00:00.000Z', 'long'),
+  trade('july-4', '2026-07-28T09:00:00.000Z', 'short'),
+  trade('july-5', '2026-07-27T09:00:00.000Z', 'long'),
+  trade('july-6', '2026-07-26T09:00:00.000Z', 'short'),
 ]
 
 const groups: TradeListGroup[] = [
@@ -171,6 +175,7 @@ async function run(): Promise<void> {
       secondVirtualHeader.classList.contains('trade-list-virtual-item'),
       '后续月份条必须由真实虚拟项承载',
     )
+    const secondHeaderStart = secondVirtualHeader.offsetTop
     assert(
       Math.abs(firstVirtualHeader.getBoundingClientRect().height - 44) <= 1,
       `月份虚拟项必须测量为 44px，实际 ${firstVirtualHeader.getBoundingClientRect().height}px`,
@@ -213,11 +218,20 @@ async function run(): Promise<void> {
     scrollHost.dispatchEvent(new Event('scroll'))
     await frame()
     await frame()
+    assert(
+      scrollHost.scrollTop >= secondHeaderStart,
+      `fixture 必须滚过第二组 sticky 阈值 ${secondHeaderStart}px，实际 ${scrollHost.scrollTop}px`,
+    )
 
     const stickyHeader = host.querySelector<HTMLElement>(
       '.trade-list-virtual-item.is-sticky .trade-list-group-header',
     )
     assert(stickyHeader, '滚动到第二组后必须保留吸顶月份条')
+    const stickyLabel = stickyHeader.querySelector('strong')?.textContent?.trim()
+    assert(
+      stickyLabel === '2026 年 7 月',
+      `滚动到底部后必须由第二个月份接管 sticky，实际为 ${stickyLabel ?? '未知月份'}`,
+    )
     const stickyGap = stickyHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom
     assert(
       stickyHeader.getBoundingClientRect().top >= columns.getBoundingClientRect().bottom + 7,
