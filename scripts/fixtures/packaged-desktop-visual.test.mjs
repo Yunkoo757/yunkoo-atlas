@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
 import test from 'node:test'
-import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 
 import {
   assertSafePackagedEvidencePaths,
@@ -84,6 +86,25 @@ test('evidence isolation rejects application data and accepts unique temporary c
     libraryPath: join('Users', 'trader', 'AppData', 'Trader Atlas'),
     applicationDataRoots: [join('Users', 'trader', 'AppData', 'Trader Atlas')],
   }), /real application data/)
+})
+
+test('evidence isolation accepts canonical aliases of the same temporary root', (context) => {
+  const physicalRoot = mkdtempSync(join(tmpdir(), 'atlas-packaged-evidence-physical-'))
+  const aliasRoot = join(dirname(physicalRoot), `${physicalRoot.split(/[\\/]/).at(-1)}-alias`)
+  mkdirSync(join(physicalRoot, 'user-data'), { recursive: true })
+  mkdirSync(join(physicalRoot, 'library'), { recursive: true })
+  symlinkSync(physicalRoot, aliasRoot, process.platform === 'win32' ? 'junction' : 'dir')
+  context.after(() => {
+    rmSync(aliasRoot, { force: true })
+    rmSync(physicalRoot, { recursive: true, force: true })
+  })
+
+  assert.doesNotThrow(() => assertSafePackagedEvidencePaths({
+    temporaryRoot: aliasRoot,
+    userDataPath: join(physicalRoot, 'user-data'),
+    libraryPath: join(aliasRoot, 'library'),
+    applicationDataRoots: [],
+  }))
 })
 
 test('report validation fails closed when screenshots or native platform checks are missing', () => {

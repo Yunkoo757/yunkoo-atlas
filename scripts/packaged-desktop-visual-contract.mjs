@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 const REQUIRED_PLATFORM_CHECKS = Object.freeze({
@@ -23,8 +24,20 @@ const REQUIRED_PLATFORM_CHECKS = Object.freeze({
   ]),
 })
 
+function canonicalPath(value) {
+  const resolved = resolve(value)
+  const canonical = (() => {
+    try {
+      return realpathSync.native(resolved)
+    } catch {
+      return resolved
+    }
+  })()
+  return process.platform === 'win32' ? canonical.toLowerCase() : canonical
+}
+
 function isSameOrDescendant(target, root) {
-  const delta = relative(resolve(root), resolve(target))
+  const delta = relative(canonicalPath(root), canonicalPath(target))
   return delta === '' || (delta !== '..' && !delta.startsWith(`..${sep}`) && !isAbsolute(delta))
 }
 
@@ -88,11 +101,11 @@ export function assertSafePackagedEvidencePaths({
     if ((applicationDataRoots ?? []).some((root) => isSameOrDescendant(value, root))) {
       throw new Error(`${label} resolves inside real application data`)
     }
-    if (resolve(value) === resolve(temporaryRoot) || !isSameOrDescendant(value, temporaryRoot)) {
+    if (canonicalPath(value) === canonicalPath(temporaryRoot) || !isSameOrDescendant(value, temporaryRoot)) {
       throw new Error(`${label} must be a unique child of temporaryRoot`)
     }
   }
-  if (resolve(userDataPath) === resolve(libraryPath)) {
+  if (canonicalPath(userDataPath) === canonicalPath(libraryPath)) {
     throw new Error('userDataPath and libraryPath must be unique children')
   }
 }
