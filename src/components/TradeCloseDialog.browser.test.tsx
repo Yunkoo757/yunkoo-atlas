@@ -62,11 +62,15 @@ async function run(): Promise<void> {
   assert(rootElement, '缺少测试挂载节点')
   const previous = useStore.getState()
   const root = createRoot(rootElement)
+  const returnFocus = document.createElement('button')
+  returnFocus.textContent = '平仓触发入口'
+  document.body.append(returnFocus)
+  returnFocus.focus()
 
   try {
     useStore.setState({
       trades: [trade],
-      closeTradeRequest: { tradeId: trade.id },
+      closeTradeRequest: { tradeId: trade.id, returnFocus },
       undoStack: [],
       redoStack: [],
     })
@@ -85,6 +89,7 @@ async function run(): Promise<void> {
 
     ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')?.click()
     await waitFor(() => useStore.getState().closeTradeRequest === null, '普通平仓弹窗的取消必须关闭请求')
+    await waitFor(() => document.activeElement === returnFocus, '平仓弹窗关闭后必须归还焦点到显式触发入口')
     useStore.getState().requestTradeClose(trade.id)
     await waitFor(() => Boolean(document.querySelector('input[aria-label="盈亏金额"]')), '取消后必须能再次打开平仓弹窗')
 
@@ -93,8 +98,11 @@ async function run(): Promise<void> {
     assert(submit, '缺少保存平仓按钮')
     assert(submit.disabled, '缺少盈亏金额和 R 倍数时主按钮必须禁用')
 
-    enterValue(pnlInput, '500')
-    enterValue(rInput, '2')
+    const reopenedPnlInput = document.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')
+    const reopenedRInput = document.querySelector<HTMLInputElement>('input[aria-label="R 倍数"]')
+    assert(reopenedPnlInput && reopenedRInput, '重开平仓弹窗后必须重新渲染结果输入框')
+    enterValue(reopenedPnlInput, '500')
+    enterValue(reopenedRInput, '2')
     await waitFor(() => !submit.disabled, '填写有效结果后主按钮没有启用')
     submit.click()
 
@@ -156,6 +164,7 @@ async function run(): Promise<void> {
     assert(useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-01', '确认后必须按选择的平仓日归属历史范围')
   } finally {
     root.unmount()
+    returnFocus.remove()
     useToast.getState().dismiss()
     useStore.setState({
       trades: previous.trades,

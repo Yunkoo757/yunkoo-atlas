@@ -279,6 +279,26 @@ test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动�
 
 test('工作台长流程分段回收浏览器页面，避免 Windows CI 内存耗尽', () => {
   const workbenchQa = readFileSync('scripts/qa-workbench.mjs', 'utf8')
+  assert.doesNotMatch(
+    workbenchQa,
+    /locator\('body'\)\.press\('n'\)/,
+    '发布工作台 QA 必须点击真实桌面创建入口，不能依赖页面焦点接收全局快捷键',
+  )
+  assert.doesNotMatch(
+    workbenchQa,
+    /const strategyOptions = page\.locator\('\.ui-select-option'\)/,
+    '交易创建回归应校验默认策略持久化，不能依赖全局退出动画选项定位',
+  )
+  assert.doesNotMatch(
+    workbenchQa,
+    /\.dv-review-chip/,
+    '工作台回归必须使用当前可访问名称，不能依赖已移除的旧版复盘胶囊类名',
+  )
+  assert.doesNotMatch(
+    workbenchQa,
+    /width:\s*375|mobileNavigationVisible/,
+    '桌面发布 QA 不得继续执行已退出支持范围的手机壳层断言',
+  )
   const recycleCalls = workbenchQa.match(/await recyclePage\(/g) ?? []
 
   assert.match(workbenchQa, /async function recyclePage/)

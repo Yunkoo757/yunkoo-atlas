@@ -74,6 +74,15 @@ async function waitForApp(targetPage = page) {
   await targetPage.locator('.ui-main-frame').waitFor({ state: 'visible', timeout: 30000 })
 }
 
+async function openComposer(label, dialogName) {
+  const accessibleName = new RegExp(`^${label}(?:（.*）)?$`)
+  await page.getByRole('button', { name: accessibleName }).first().click()
+  await page.getByRole('dialog', { name: dialogName, exact: true }).waitFor({
+    state: 'visible',
+    timeout: 10_000,
+  })
+}
+
 async function readSystemActivity() {
   const toggle = page.getByRole('button', { name: /活动记录/ })
   await toggle.waitFor({ state: 'visible', timeout: 10000 })
@@ -186,18 +195,12 @@ try {
 
   await page.goto(`${BASE}/today-record`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.locator('body').press('n')
+  await openComposer('新建交易', '新建交易')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
   await selectDate(page.getByRole('button', { name: '交易日期' }), '2025-06-15')
-  const strategySelect = page.getByRole('combobox', { name: '交易策略' })
-  await strategySelect.click()
-  const strategyOptions = page.locator('.ui-select-option')
-  if ((await strategyOptions.count()) > 1) {
-    await strategyOptions.nth(1).click()
-  } else {
-    await page.keyboard.press('Escape')
-  }
+  const composerDialog = page.getByRole('dialog', { name: '新建交易', exact: true })
+  const strategySelect = composerDialog.getByRole('combobox', { name: '交易策略' })
   const selectedStrategyId = await strategySelect.getAttribute('data-value')
   const selectedStrategyName = await strategySelect.locator('.ui-select-value').innerText()
   await page.locator('.composer-btn-primary').click()
@@ -326,10 +329,11 @@ try {
   await closeDialog.getByRole('textbox', { name: 'R 倍数', exact: true }).fill('2')
   await closeDialog.getByRole('button', { name: '保存并待复盘', exact: true }).click()
   await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
-  await page.locator('.dv-review-chip').waitFor({ state: 'visible' })
+  const completeReviewButton = page.getByRole('button', { name: '完成复盘', exact: true })
+  await completeReviewButton.waitFor({ state: 'visible' })
   await editor.click()
   await editor.fill('复盘证据：确认入场依据，并记录下一次执行改进。')
-  await page.getByRole('button', { name: '完成复盘', exact: true }).click()
+  await completeReviewButton.click()
   await page.locator('.dv-review-complete-meta').waitFor({ state: 'visible' })
   const reviewedStageText = await page.locator('.dv-review-complete-meta').innerText()
   const reviewedPropertiesText = await page.locator('.dv-props').innerText()
@@ -347,7 +351,7 @@ try {
 
   await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await page.locator('body').press('n')
+  await openComposer('新建交易', '新建交易')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'EURUSD')
   await page.locator('.composer-btn-primary').click()
   await page.waitForURL(/\/trade\/TRD-/, { timeout: 10000 })
@@ -423,34 +427,29 @@ try {
   await waitForApp()
   await page.locator('.trade-row').first().waitFor({ state: 'visible', timeout: 5000 })
 
-  await page.setViewportSize({ width: 375, height: 812 })
+  await page.setViewportSize({ width: 900, height: 800 })
   const row = page.locator('.trade-row').first()
   await row.click()
-  const mobileOpened = await page.waitForURL(/\/trade\/CAS-/, { timeout: 2000 }).then(() => true).catch(() => false)
-  record('窄屏点击案例可进入详情', mobileOpened, page.url())
-  const mobileShell = await page.evaluate(() => {
+  const compactDesktopOpened = await page.waitForURL(/\/trade\/CAS-/, { timeout: 2000 }).then(() => true).catch(() => false)
+  record('紧凑桌面窗口点击案例可进入详情', compactDesktopOpened, page.url())
+  const compactDesktopShell = await page.evaluate(() => {
     const frame = document.querySelector('.ui-app-frame')
     const sidebar = document.querySelector('.sidebar')
-    const mobileNavigation = document.querySelector('.mobile-navigation')
     const main = document.querySelector('.ui-main-frame')
     return {
       frameDirection: frame ? getComputedStyle(frame).flexDirection : '',
       sidebarWidth: Math.round(sidebar?.getBoundingClientRect().width ?? 0),
-      mobileNavigationVisible: Boolean(
-        mobileNavigation && mobileNavigation.getBoundingClientRect().height > 0,
-      ),
       mainVisible: Boolean(main && main.getBoundingClientRect().height > 0),
       hasOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     }
   })
   record(
-    '窄屏壳层保持可用且无页面横向溢出',
-    mobileShell.frameDirection === 'column' &&
-      mobileShell.sidebarWidth === 0 &&
-      mobileShell.mobileNavigationVisible &&
-      mobileShell.mainVisible &&
-      !mobileShell.hasOverflow,
-    JSON.stringify(mobileShell),
+    '900px 桌面壳层保持侧栏与主内容且无横向溢出',
+    compactDesktopShell.frameDirection === 'row' &&
+      compactDesktopShell.sidebarWidth > 0 &&
+      compactDesktopShell.mainVisible &&
+      !compactDesktopShell.hasOverflow,
+    JSON.stringify(compactDesktopShell),
   )
 
   const detailPath = new URL(page.url()).pathname
@@ -572,8 +571,7 @@ try {
     reviewSurface.toolbarRadius === '0px' && reviewSurface.toolbarMarginLeft === '0px',
     JSON.stringify(reviewSurface),
   )
-  await page.locator('body').press('n')
-  await page.locator('.composer-overlay, .composer-panel, [class*="composer"]').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+  await openComposer('新建案例记录', '新建案例记录')
   const composerVisible = await page.locator('.composer-btn-primary').isVisible().catch(() => false)
   if (composerVisible) {
     await page.keyboard.press('Escape')
@@ -661,8 +659,8 @@ try {
   const masterySelectorCount = await page.getByRole('combobox', { name: '掌握状态', exact: true }).count()
   const reviewCategorySelectorCount = await page.getByRole('combobox', { name: '复盘分类', exact: true }).count()
   record(
-    '案例筛选器覆盖类型、掌握状态与复盘分类',
-    caseTypeSelectorCount === 1 && masterySelectorCount === 1 && reviewCategorySelectorCount === 1,
+    '案例筛选器使用类型与掌握状态两条当前分类轴',
+    caseTypeSelectorCount === 1 && masterySelectorCount === 1 && reviewCategorySelectorCount === 0,
   )
   await page.keyboard.press('Escape')
 

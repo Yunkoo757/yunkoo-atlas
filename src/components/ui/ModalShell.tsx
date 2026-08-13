@@ -29,6 +29,7 @@ export function ModalShell({
   bodyClassName,
   footerClassName,
   initialFocusSelector,
+  returnFocusTo,
   describedById,
   onClose,
 }: {
@@ -43,6 +44,7 @@ export function ModalShell({
   bodyClassName?: string
   footerClassName?: string
   initialFocusSelector?: string
+  returnFocusTo?: HTMLElement | null
   describedById?: string
   onClose: () => void
 }) {
@@ -54,9 +56,9 @@ export function ModalShell({
 
   useEffect(() => {
     useShortcutStore.getState().acquireModalOverlay()
-    returnFocusRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
+    returnFocusRef.current = returnFocusTo ?? (
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    )
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const frame = requestAnimationFrame(() => {
@@ -76,7 +78,7 @@ export function ModalShell({
         if (target?.isConnected) target.focus()
       })
     }
-  }, [initialFocusSelector])
+  }, [initialFocusSelector, returnFocusTo])
 
   useEffect(() => {
     const panel = panelRef.current

@@ -166,6 +166,7 @@ export function TradeCloseDialog() {
       bodyClassName="trade-close-body"
       footerClassName="trade-close-footer"
       initialFocusSelector=".trade-close-fields input:not(:disabled), .trade-close-outcome"
+      returnFocusTo={request.returnFocus}
       onClose={cancelTradeClose}
       footer={(
         <>
