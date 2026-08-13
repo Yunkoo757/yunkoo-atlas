@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import test from 'node:test'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -52,15 +52,27 @@ test('platform check plans demand direct native lifecycle evidence', () => {
   ])
   assert.deepEqual(buildRequiredPlatformChecks('darwin'), [
     'native-platform',
-    'retina-scale',
+    'native-scale',
     'native-file-picker',
     'save-error-recovery',
     'mac-command-labels',
     'mac-close-keeps-app',
     'mac-no-windows-copy',
     'window-restore-visible',
-    'mac-cmd-q',
+    'mac-quit-command',
   ])
+})
+
+test('macOS packaged evidence uses native display, shortcut settings, and menu quit probes', () => {
+  const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  assert.match(source, /Math\.abs\(dpr - runtime\.displayScaleFactor\)/)
+  assert.match(source, /#\/settings\/shortcuts/)
+  assert.match(source, /getDefaultRoleAccelerator/)
+  assert.match(source, /quitMenuItem\.click/)
+  assert.match(source, /\.save-status\.is-dirty/)
+  assert.match(source, /requestedViewport: viewport/)
+  assert.match(source, /viewport: metrics\.actualViewport/)
+  assert.doesNotMatch(source, /page\.keyboard\.press\('Meta\+q'\)/)
 })
 
 test('evidence isolation rejects application data and accepts unique temporary children', () => {
@@ -123,8 +135,8 @@ test('report validation fails closed when screenshots or native platform checks 
     /exactly 35/,
   )
   assert.throws(
-    () => validatePackagedVisualReport({ ...complete, checks: complete.checks.filter((entry) => entry.id !== 'mac-cmd-q') }),
-    /mac-cmd-q/,
+    () => validatePackagedVisualReport({ ...complete, checks: complete.checks.filter((entry) => entry.id !== 'mac-quit-command') }),
+    /mac-quit-command/,
   )
   assert.throws(
     () => validatePackagedVisualReport({ ...complete, source: { ...complete.source, dirty: true } }),

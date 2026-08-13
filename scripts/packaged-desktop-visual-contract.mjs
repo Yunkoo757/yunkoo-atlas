@@ -13,14 +13,14 @@ const REQUIRED_PLATFORM_CHECKS = Object.freeze({
   ]),
   darwin: Object.freeze([
     'native-platform',
-    'retina-scale',
+    'native-scale',
     'native-file-picker',
     'save-error-recovery',
     'mac-command-labels',
     'mac-close-keeps-app',
     'mac-no-windows-copy',
     'window-restore-visible',
-    'mac-cmd-q',
+    'mac-quit-command',
   ]),
 })
 

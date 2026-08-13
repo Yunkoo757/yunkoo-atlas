@@ -86,6 +86,11 @@ async function waitForVisualSettlement(page, selector) {
     if (document.fonts?.ready) await document.fonts.ready
     await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)))
   })
+  await page.waitForFunction(
+    () => !document.querySelector('.save-status.is-dirty, .save-status.is-saving'),
+    null,
+    { timeout: 30_000 },
+  )
 }
 
 function withinWorkArea(bounds, workArea, tolerance = 1) {
@@ -146,7 +151,7 @@ writeFileSync(join(userDataPath, 'window-state.json'), JSON.stringify({
 
 let application
 let page
-let applicationExitedByShortcut = false
+let applicationExitedByQuitCommand = false
 const captures = []
 const checks = []
 const source = {
@@ -179,17 +184,24 @@ try {
     const window = BrowserWindow.getAllWindows()[0]
     const bounds = window?.getBounds() ?? null
     const display = bounds ? screen.getDisplayMatching(bounds) : screen.getPrimaryDisplay()
+    const serializeMenu = (items) => items.flatMap((item) => [
+      {
+        label: item.label,
+        role: item.role,
+        accelerator: item.accelerator,
+        defaultAccelerator: item.getDefaultRoleAccelerator?.(),
+      },
+      ...(item.submenu ? serializeMenu(item.submenu.items) : []),
+    ])
     return {
       appPath: app.getAppPath(),
       userDataPath: app.getPath('userData'),
       bounds,
       workArea: display.workArea,
       displayScaleFactor: display.scaleFactor,
-      applicationMenu: Menu.getApplicationMenu()?.items.map((item) => ({
-        label: item.label,
-        role: item.role,
-        accelerator: item.accelerator,
-      })) ?? null,
+      applicationMenu: Menu.getApplicationMenu()
+        ? serializeMenu(Menu.getApplicationMenu().items)
+        : null,
     }
   })
   process.stdout.write(`${JSON.stringify({
@@ -224,11 +236,11 @@ try {
   diagnostics = bindDiagnostics(page)
 
   const dpr = await page.evaluate(() => window.devicePixelRatio)
-  if (hostPlatform === 'darwin') {
-    record('retina-scale', dpr >= 2, `devicePixelRatio=${dpr}; displayScaleFactor=${runtime.displayScaleFactor}`)
-  } else {
-    record('native-scale', dpr >= 1, `devicePixelRatio=${dpr}; displayScaleFactor=${runtime.displayScaleFactor}`)
-  }
+  record(
+    'native-scale',
+    dpr >= 1 && runtime.displayScaleFactor >= 1 && Math.abs(dpr - runtime.displayScaleFactor) < 0.01,
+    `devicePixelRatio=${dpr}; displayScaleFactor=${runtime.displayScaleFactor}`,
+  )
 
   for (const viewport of DESKTOP_VISUAL_VIEWPORTS) {
     await application.evaluate(({ BrowserWindow }, size) => {
@@ -242,6 +254,10 @@ try {
       await page.evaluate((path) => { window.location.hash = `#${path}` }, scenario.path)
       await waitForVisualSettlement(page, scenario.ready)
       const metrics = await page.evaluate(() => ({
+        actualViewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
         horizontalOverflowPx: Math.max(
@@ -255,7 +271,8 @@ try {
       await page.screenshot({ path: screenshotPath, animations: 'disabled' })
       captures.push({
         id: `${viewport.width}x${viewport.height}/${scenario.id}`,
-        viewport,
+        requestedViewport: viewport,
+        viewport: metrics.actualViewport,
         scenario: scenario.id,
         screenshot: relative(root, screenshotPath).replaceAll('\\', '/'),
         errors: [...diagnostics],
@@ -303,16 +320,25 @@ try {
     await page.keyboard.press('Meta+k')
     const commandDialog = page.getByRole('dialog', { name: '搜索与命令' })
     await commandDialog.waitFor({ state: 'visible', timeout: 10_000 })
-    const commandHints = await page.locator('.cmdk-item-hint').allTextContents()
-    const menuHasQuit = runtime.applicationMenu?.some((item) =>
+    await page.keyboard.press('Escape')
+    await page.evaluate(() => { window.location.hash = '#/settings/shortcuts' })
+    await waitForVisualSettlement(page, '.shortcuts-table')
+    const commandShortcutLabel = await page.locator('.shortcuts-row')
+      .filter({ hasText: '命令面板（Ctrl+K）' })
+      .locator('.shortcuts-capture')
+      .getAttribute('aria-label')
+    const quitMenuItem = runtime.applicationMenu?.find((item) =>
       item.role === 'appMenu' || item.role === 'quit' || /Quit/i.test(item.label),
-    ) ?? false
+    )
+    const quitAccelerator = quitMenuItem?.accelerator ?? quitMenuItem?.defaultAccelerator ?? ''
+    const menuHasCommandQuit = Boolean(
+      quitMenuItem && /(?:CommandOrControl|Command|Cmd)\+Q/i.test(quitAccelerator),
+    )
     record(
       'mac-command-labels',
-      commandHints.some((hint) => hint.includes('⌘')) && menuHasQuit,
-      JSON.stringify({ commandHints: commandHints.filter((hint) => hint.includes('⌘')), menuHasQuit }),
+      commandShortcutLabel?.includes('⌘K') === true && menuHasCommandQuit,
+      JSON.stringify({ commandShortcutLabel, quitMenuItem, menuHasCommandQuit }),
     )
-    await page.keyboard.press('Escape')
 
     const closePage = page.waitForEvent('close', { timeout: 15_000 })
     await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close())
@@ -339,12 +365,32 @@ try {
     await page.waitForLoadState('domcontentloaded')
     const child = application.process()
     const exited = waitForProcessExit(child)
-    await page.keyboard.press('Meta+q')
-    applicationExitedByShortcut = await exited
-    record('mac-cmd-q', applicationExitedByShortcut, 'Meta+Q terminated the packaged application')
+    const nativeQuitInvoked = await application.evaluate(({ BrowserWindow, Menu }) => {
+      const findQuitItem = (items) => {
+        for (const item of items) {
+          if (item.role === 'quit' || /Quit/i.test(item.label)) return item
+          if (item.submenu) {
+            const nested = findQuitItem(item.submenu.items)
+            if (nested) return nested
+          }
+        }
+        return null
+      }
+      const menu = Menu.getApplicationMenu()
+      const quitMenuItem = menu ? findQuitItem(menu.items) : null
+      if (!quitMenuItem || typeof quitMenuItem.click !== 'function') return false
+      quitMenuItem.click(quitMenuItem, BrowserWindow.getFocusedWindow(), {})
+      return true
+    })
+    applicationExitedByQuitCommand = nativeQuitInvoked && await exited
+    record(
+      'mac-quit-command',
+      applicationExitedByQuitCommand,
+      `native Quit menu command invoked=${nativeQuitInvoked}; application exited=${applicationExitedByQuitCommand}`,
+    )
   }
 } finally {
-  if (!applicationExitedByShortcut) await application?.close().catch(() => {})
+  if (!applicationExitedByQuitCommand) await application?.close().catch(() => {})
   rmSync(temporaryRoot, { recursive: true, force: true })
 }
 
