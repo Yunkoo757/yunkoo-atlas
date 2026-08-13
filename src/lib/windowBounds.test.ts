@@ -4,6 +4,7 @@ import {
   matchWindowSizePreset,
   fitWindowSizeToWorkArea,
   fitBoundsToWorkArea,
+  resolveWindowMinimumBounds,
   DEFAULT_WINDOW_BOUNDS,
   MIN_WINDOW_BOUNDS,
 } from './windowBounds'
@@ -39,6 +40,17 @@ export function testRestoredWindowUsesAvailableAreaBelowDesktopMinimum(): void {
       { width: 960, height: 640 },
     ),
     { x: 20, y: 30, width: 800, height: 600 },
+  )
+}
+
+export function testWindowMinimumFollowsAWorkAreaBelowTheDesktopContract(): void {
+  assert.deepEqual(
+    resolveWindowMinimumBounds({ width: 820, height: 576 }),
+    { width: 820, height: 576 },
+  )
+  assert.deepEqual(
+    resolveWindowMinimumBounds({ width: 1280, height: 860 }),
+    MIN_WINDOW_BOUNDS,
   )
 }
 

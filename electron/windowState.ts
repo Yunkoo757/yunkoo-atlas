@@ -8,6 +8,7 @@ import {
   MIN_WINDOW_BOUNDS,
   fitBoundsToWorkArea,
   fitWindowSizeToWorkArea,
+  resolveWindowMinimumBounds,
   matchWindowSizePreset,
   resolveWindowSizePreset,
   type PersistedWindowState,
@@ -20,6 +21,7 @@ export {
   WINDOW_SIZE_PRESETS,
   normalizeWindowState,
   matchWindowSizePreset,
+  resolveWindowMinimumBounds,
 } from '../src/lib/windowBounds'
 
 const STATE_FILE = 'window-state.json'

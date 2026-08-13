@@ -18,6 +18,15 @@ export type DisplayBounds = {
 
 export type WindowBounds = DisplayBounds
 
+export function resolveWindowMinimumBounds(
+  restored: { width: number; height: number },
+): { width: number; height: number } {
+  return {
+    width: Math.min(MIN_WINDOW_BOUNDS.width, Math.max(1, Math.round(restored.width))),
+    height: Math.min(MIN_WINDOW_BOUNDS.height, Math.max(1, Math.round(restored.height))),
+  }
+}
+
 type WindowBoundsInput = {
   x?: number
   y?: number

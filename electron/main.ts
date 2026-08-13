@@ -26,7 +26,12 @@ import {
   registerAppUpdater,
   scheduleAutomaticUpdateChecks,
 } from './updater'
-import { loadWindowState, registerWindowIpc, trackWindowState } from './windowState'
+import {
+  loadWindowState,
+  registerWindowIpc,
+  resolveWindowMinimumBounds,
+  trackWindowState,
+} from './windowState'
 import { initializeDiagnostics, logDiagnostic } from './diagnostics'
 import { safeConsoleError } from './diagnosticSanitizer'
 import { beginOperation, type OperationLogHandle } from './operationLogger'
@@ -494,6 +499,7 @@ function isTrustedAppNavigation(rawUrl: string, devUrl: string | undefined, inde
 function createWindow(): BrowserWindow {
   const icon = getWindowIconPath()
   const windowState = loadWindowState()
+  const minimumBounds = resolveWindowMinimumBounds(windowState)
   const devUrl = process.env.VITE_DEV_SERVER_URL
   const indexHtml = getIndexHtmlPath()
   mainWindow = new BrowserWindow({
@@ -502,8 +508,8 @@ function createWindow(): BrowserWindow {
     ...(typeof windowState.x === 'number' && typeof windowState.y === 'number'
       ? { x: windowState.x, y: windowState.y }
       : {}),
-    minWidth: 960,
-    minHeight: 640,
+    minWidth: minimumBounds.width,
+    minHeight: minimumBounds.height,
     title: 'Trader Atlas',
     backgroundColor: WINDOW_BG,
     autoHideMenuBar: true,
