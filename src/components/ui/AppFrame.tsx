@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useStore } from '@/store/useStore'
 import './AppFrame.css'
 
@@ -11,6 +11,20 @@ export function AppFrame({ sidebar, children }: AppFrameProps) {
   const showKeyboardFocusRings = useStore(
     (state) => state.display.showKeyboardFocusRings,
   )
+
+  useEffect(() => {
+    const documentRoot = document.documentElement
+    const previousValue = documentRoot.dataset.keyboardFocusRings
+    documentRoot.dataset.keyboardFocusRings = showKeyboardFocusRings ? 'on' : 'off'
+
+    return () => {
+      if (previousValue === undefined) {
+        delete documentRoot.dataset.keyboardFocusRings
+      } else {
+        documentRoot.dataset.keyboardFocusRings = previousValue
+      }
+    }
+  }, [showKeyboardFocusRings])
 
   return (
     <div

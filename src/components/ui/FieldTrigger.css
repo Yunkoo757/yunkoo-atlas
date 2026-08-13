@@ -33,7 +33,14 @@
   color: var(--text-primary);
   background: var(--field-bg-focus);
   border-color: var(--field-border-focus);
+}
+
+.ui-field-trigger[aria-expanded='true'] {
   box-shadow: var(--field-focus-shadow);
+}
+
+.ui-field-trigger:focus-visible:not([aria-expanded='true']) {
+  box-shadow: var(--focus-ring-shadow);
 }
 
 .ui-field-trigger:disabled {

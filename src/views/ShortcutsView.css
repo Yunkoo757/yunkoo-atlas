@@ -220,6 +220,13 @@ button.shortcuts-capture[aria-pressed='true'] {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border-default));
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
+}
+
+button.shortcuts-capture:focus-visible:not([aria-pressed='true']) {
+  box-shadow: var(--focus-ring-shadow);
+}
+
+button.shortcuts-capture[aria-pressed='true'] {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 

@@ -537,7 +537,7 @@
   color: var(--list-text-primary);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: var(--focus-ring-shadow);
 }
 
 .trade-row-strategy .strategy-label {

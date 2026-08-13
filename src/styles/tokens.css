@@ -32,6 +32,8 @@
   --focus-ring-color: color-mix(in srgb, var(--accent) 78%, white);
   --focus-ring-width: 2px;
   --focus-ring-outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  --focus-ring-shadow: 0 0 0 var(--focus-ring-width)
+    color-mix(in srgb, var(--accent) 18%, transparent);
 
   /* —— 全局浮层层级 —— */
   --z-local-base: 0;

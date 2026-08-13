@@ -255,7 +255,11 @@ a:focus:not(:focus-visible) {
 }
 
 /* 仅隐藏可选的键盘轮廓；保留真实焦点与控件的编辑/错误/选中反馈。 */
-.ui-app-frame[data-keyboard-focus-rings='off']
+html[data-keyboard-focus-rings='off'] {
+  --focus-ring-shadow: none;
+}
+
+html[data-keyboard-focus-rings='off']
   :focus-visible:not(input):not(textarea):not(select):not([contenteditable='true']) {
   outline: none;
 }
