@@ -428,7 +428,8 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
         [data-review-image] { display: block; width: 160px; height: 90px; margin: 0 0 16px; }
         [data-trade-scroll] { width: 640px; height: 180px; overflow: auto; }
         .trade-list-columns { height: 32px; position: sticky; top: 0; background: white; }
-        .trade-list-virtual-item.is-sticky { position: sticky; top: 32px; }
+        .trade-list-virtual-item.is-sticky { position: sticky; top: 32px; padding-top: 8px; }
+        .trade-list-virtual-item.is-sticky .trade-list-group-header { margin-top: 0; }
         .trade-list-group-header { height: 36px; margin-top: 8px; background: #eee; }
         .trade-row { height: 64px; }
       </style>
@@ -484,6 +485,15 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
           headers.forEach((header) => header.classList.remove('is-sticky'))
           if (event.currentTarget.scrollTop > 0) headers[1].classList.add('is-sticky')
         })
+        const fault = new URLSearchParams(location.search).get('fault')
+        if (fault === 'console') console.error('controlled workbench console failure')
+        if (fault === 'page') setTimeout(() => { throw new Error('controlled workbench page failure') })
+        if (fault === 'overflow') {
+          const overflow = document.createElement('div')
+          overflow.style.width = '2000px'
+          overflow.textContent = 'controlled horizontal overflow'
+          document.body.append(overflow)
+        }
       </script>`)
 
     const result = spawnSync(process.execPath, [path.resolve('scripts/qa-workbench.mjs')], {
@@ -509,8 +519,11 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
     assert(report.metrics.focusOn.focusOutlineWidth >= 2)
     assert.equal(report.metrics.review.reviewVisualHeadingCount, 0)
     assert.equal(report.metrics.review.reviewContextImageGap, 16)
+    assert.equal(report.metrics.review.reviewImageFollowingGap, 16)
+    assert.deepEqual(report.metrics.review.order, ['SECTION', 'IMG', 'P'])
     assert.match(report.metrics.review.reviewHtmlOrderHash, /^[a-f0-9]{64}$/)
     assert.equal(report.metrics.tradeList.tradeGroupTopGap, 8)
+    assert.equal(report.metrics.tradeList.stickyTradeGroupTopGap, 8)
     assert.equal(report.metrics.tradeList.collapsed, true)
     assert.equal(report.metrics.tradeList.expanded, true)
     assert.equal(report.metrics.tradeList.scrolledBackToTop, true)
@@ -519,7 +532,39 @@ test('workbench QA probe records focus, review flow, and sticky trade-group metr
       pageErrors: [],
       horizontalOverflow: [],
     })
-    assert.equal(report.steps.every((step) => typeof step.screenshotPath === 'string'), true)
+    assert(report.steps.length > 0, 'workbench probe 必须至少产出一个真实截图步骤')
+    for (const step of report.steps) {
+      assert.equal(typeof step.screenshotPath, 'string')
+      assert.equal((await fs.stat(step.screenshotPath)).isFile(), true)
+    }
+
+    for (const fault of ['console', 'page', 'overflow']) {
+      const faultReportPath = path.join(root, `workbench-probe-${fault}-report.json`)
+      const faultUrl = new URL(pathToFileURL(fixturePath))
+      faultUrl.searchParams.set('fault', fault)
+      const faultResult = spawnSync(process.execPath, [path.resolve('scripts/qa-workbench.mjs')], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        timeout: 30_000,
+        env: {
+          ...process.env,
+          QA_WORKBENCH_PROBE_URL: faultUrl.href,
+          QA_WORKBENCH_REPORT_PATH: faultReportPath,
+        },
+      })
+      assert.equal(
+        faultResult.status,
+        1,
+        `${fault} diagnostic must fail closed:\n${faultResult.stdout}\n${faultResult.stderr}`,
+      )
+      const faultReport = JSON.parse(await fs.readFile(faultReportPath, 'utf8'))
+      const diagnosticKey = fault === 'console'
+        ? 'consoleErrors'
+        : fault === 'page'
+          ? 'pageErrors'
+          : 'horizontalOverflow'
+      assert(faultReport.diagnostics[diagnosticKey].length > 0)
+    }
   })
 })
 // Quality-Scenario: Q-DISCOVERY

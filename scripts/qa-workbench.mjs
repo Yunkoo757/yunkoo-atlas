@@ -15,6 +15,12 @@ function createDiagnostics() {
   return { consoleErrors: [], pageErrors: [], horizontalOverflow: [] }
 }
 
+function diagnosticsAreEmpty(diagnostics) {
+  return diagnostics.consoleErrors.length === 0
+    && diagnostics.pageErrors.length === 0
+    && diagnostics.horizontalOverflow.length === 0
+}
+
 function trackDiagnostics(targetPage, diagnostics, combinedErrors = undefined) {
   targetPage.on('pageerror', (error) => {
     diagnostics.pageErrors.push(error.message)
@@ -204,6 +210,7 @@ async function runControlledProbe() {
     })
     mkdirSync(dirname(PRESENTATION_REPORT_PATH), { recursive: true })
     writeFileSync(PRESENTATION_REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
+    if (!diagnosticsAreEmpty(diagnostics)) process.exitCode = 1
   } finally {
     await probeBrowser.close()
   }
@@ -1070,9 +1077,9 @@ try {
   }
   record('核心页面基准截图已生成', true, `${baselineRoutes.length * baselineViewports.length} 张`)
   record(
-    '基准流程无页面或控制台错误',
-    runtimeErrors.length === 0,
-    runtimeErrors.join(' | '),
+    '基准流程无页面、控制台错误或横向溢出',
+    diagnosticsAreEmpty(diagnostics),
+    JSON.stringify(diagnostics),
   )
 } catch (error) {
   record('工作台回归脚本完成', false, String(error))
