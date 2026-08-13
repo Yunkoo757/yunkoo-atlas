@@ -364,7 +364,8 @@ try {
     page = await reopened
     await page.waitForLoadState('domcontentloaded')
     const child = application.process()
-    const exited = waitForProcessExit(child)
+    // 主进程的安全退出合同最长 15 秒；留出终态事件传播余量后再判失败。
+    const exited = waitForProcessExit(child, 20_000)
     const nativeQuitInvoked = await application.evaluate(({ BrowserWindow, Menu }) => {
       const findQuitItem = (items) => {
         for (const item of items) {

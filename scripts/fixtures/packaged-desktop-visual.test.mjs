@@ -73,6 +73,7 @@ test('macOS packaged evidence uses native display, shortcut settings, and menu q
   assert.match(source, /requestedViewport: viewport/)
   assert.match(source, /viewport: metrics\.actualViewport/)
   assert.match(source, /page\.locator\(selector\)\.first\(\)\.waitFor/)
+  assert.match(source, /waitForProcessExit\(child, 20_000\)/)
   assert.doesNotMatch(source, /page\.keyboard\.press\('Meta\+q'\)/)
 })
 
