@@ -87,11 +87,15 @@ function bindDiagnostics(page) {
   return errors
 }
 
-async function waitForVisualSettlement(page, selector) {
-  await page.locator(selector).first().waitFor({ state: 'visible', timeout: 30_000 })
+async function waitForUiHydration(page) {
   await page.waitForFunction(() => document.documentElement.dataset.uiSettled === '1', null, {
     timeout: 30_000,
   })
+}
+
+async function waitForVisualSettlement(page, selector) {
+  await waitForUiHydration(page)
+  await page.locator(selector).first().waitFor({ state: 'visible', timeout: 30_000 })
   await page.evaluate(async () => {
     if (document.fonts?.ready) await document.fonts.ready
     await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)))
@@ -248,6 +252,7 @@ try {
   if (!imported) throw new Error('Unable to import packaged desktop visual fixture')
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 })
   diagnostics = bindDiagnostics(page)
+  await waitForUiHydration(page)
 
   const dpr = await page.evaluate(() => window.devicePixelRatio)
   scaleEvidence = {

@@ -82,6 +82,16 @@ test('macOS packaged evidence uses native display, shortcut settings, and menu q
   assert.doesNotMatch(source, /quitMenuItem\.click/)
 })
 
+test('packaged visual waits for hydrated UI before routing the first scenario', () => {
+  const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  const afterReload = source.slice(source.indexOf("await page.reload({ waitUntil: 'domcontentloaded'"))
+  const hydration = afterReload.indexOf('await waitForUiHydration(page)')
+  const scenarioLoop = afterReload.indexOf('for (const viewport of DESKTOP_VISUAL_VIEWPORTS)')
+
+  assert.ok(hydration >= 0, 'packaged visual must wait for hydration after reloading the fixture')
+  assert.ok(hydration < scenarioLoop, 'hydration must complete before routing the first visual scenario')
+})
+
 test('evidence isolation rejects application data and accepts unique temporary children', () => {
   const temporaryRoot = join('tmp', 'atlas-packaged-evidence-123')
   const userDataPath = join(temporaryRoot, 'user-data')
