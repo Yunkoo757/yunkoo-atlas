@@ -1,6 +1,6 @@
 import type { Strategy } from '@/data/strategies'
 import { getTradeRemainingDays, isTradeExpired, type Trade } from '@/data/trades'
-import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs } from '@/lib/tradeFilters'
+import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs, type DisplayPrefs } from '@/lib/tradeFilters'
 import {
   buildExportPayloadFromState,
   mergeImportPayload,
@@ -2193,6 +2193,26 @@ export function testSymbolCatalogSyncsComposerAndSettings(): void {
 export function testNormalizeDisplayPersistsPrivacyModeSafely(): void {
   assert(normalizeDisplay({ privacyMode: true }).privacyMode, '直播模式必须随显示偏好持久化')
   assert(!normalizeDisplay({}).privacyMode, '旧资料库缺少直播模式字段时必须默认关闭')
+}
+
+export function testNormalizeDisplayPersistsKeyboardFocusRingVisibilitySafely(): void {
+  assert(
+    DEFAULT_DISPLAY.showKeyboardFocusRings === false,
+    '新资料库必须默认关闭键盘焦点高光',
+  )
+  assert(
+    normalizeDisplay({}).showKeyboardFocusRings === false,
+    '旧资料库缺少键盘焦点高光字段时必须默认关闭',
+  )
+  assert(
+    normalizeDisplay({ showKeyboardFocusRings: true }).showKeyboardFocusRings === true,
+    '显式开启的键盘焦点高光必须持久化保留',
+  )
+  assert(
+    normalizeDisplay({ showKeyboardFocusRings: 'yes' } as unknown as Partial<DisplayPrefs>)
+      .showKeyboardFocusRings === false,
+    '非法键盘焦点高光值必须回退为关闭',
+  )
 }
 
 export async function testPrivacyModeIsOnlyExposedInDisplaySettings(): Promise<void> {

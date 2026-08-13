@@ -269,6 +269,7 @@ export function testTransientUiStateDoesNotScheduleAFullSnapshotRewrite(): void 
       groupByDate: true,
       sortBy: 'date',
       privacyMode: false,
+      showKeyboardFocusRings: false,
       tradingDayStartHour: 6,
       sidebarPins: [],
       sidebarWorkspaceItems: [],

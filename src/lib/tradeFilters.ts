@@ -65,6 +65,8 @@ export interface DisplayPrefs {
   sortBy: 'date' | 'pnl' | 'conviction'
   /** 直播/演示时隐藏所有现金盈亏与权益金额。 */
   privacyMode: boolean
+  /** 是否显示键盘焦点高光。 */
+  showKeyboardFocusRings: boolean
   /**
    * 交易日从本地几点开始（0–23）。
    * 未到该时刻仍算前一交易日；影响今日工作台、今日筛选与新建默认日期。
@@ -92,6 +94,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   groupByDate: DEFAULT_PROFILE_DISPLAY.groupMode === 'date',
   sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
   privacyMode: false,
+  showKeyboardFocusRings: false,
   tradingDayStartHour: DEFAULT_TRADING_DAY_START_HOUR,
   reviewContextPinned: true,
   sidebarPrimaryOrder: [...DEFAULT_PRIMARY_SIDEBAR_ORDER],
@@ -149,6 +152,10 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
       : DEFAULT_DISPLAY.sortBy,
     privacyMode:
       typeof d.privacyMode === 'boolean' ? d.privacyMode : DEFAULT_DISPLAY.privacyMode,
+    showKeyboardFocusRings:
+      typeof d.showKeyboardFocusRings === 'boolean'
+        ? d.showKeyboardFocusRings
+        : DEFAULT_DISPLAY.showKeyboardFocusRings,
     tradingDayStartHour: normalizeTradingDayStartHour(d.tradingDayStartHour),
     reviewContextPinned:
       typeof d.reviewContextPinned === 'boolean'

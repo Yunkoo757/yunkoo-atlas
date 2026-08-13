@@ -143,7 +143,7 @@ function isWorkspaceMemoryEntry(value: unknown): boolean {
 function isDisplayPrefs(value: unknown): boolean {
   if (value === undefined) return true
   if (!isRecord(value)) return false
-  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'privacyMode', 'reviewContextPinned']) {
+  for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'privacyMode', 'showKeyboardFocusRings', 'reviewContextPinned']) {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') return false
   }
   if (value.sortBy !== undefined && !DISPLAY_SORTS.has(String(value.sortBy))) return false
