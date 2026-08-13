@@ -47,6 +47,7 @@ import {
 import { FileWindowHotkeyStorage, WindowHotkeyService } from './windowHotkey'
 import {
   createElectronTrayFactory,
+  resolveRememberedWindowsClose,
   WindowPresenceController,
   type WindowsCloseChoice,
   type WindowsClosePreference,
@@ -154,6 +155,15 @@ function persistWindowsClosePreference(preference: WindowsClosePreference): void
   const target = windowsClosePreferencePath()
   fs.mkdirSync(path.dirname(target), { recursive: true })
   fs.writeFileSync(target, JSON.stringify(preference), 'utf8')
+}
+
+function reportWindowsClosePreferenceError(error: unknown): void {
+  logDiagnostic('error', 'windows-close-preference-save-failed', error)
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send(
+    'app:windows-close-preference-error',
+    '本次关闭操作已执行，但未能保存关闭偏好。请检查磁盘空间或资料目录权限。',
+  )
 }
 
 function ensureMainWindow(): BrowserWindow {
@@ -581,8 +591,13 @@ if (!hasSingleInstanceLock) {
     registerWindowIpc()
     ipcMain.handle('app:get-windows-close-preference', () => windowsClosePreference)
     ipcMain.handle('app:set-windows-close-preference', (_event, input: unknown) => {
-      windowsClosePreference = normalizeWindowsClosePreference(input)
-      persistWindowsClosePreference(windowsClosePreference)
+      const nextPreference = normalizeWindowsClosePreference(input)
+      try {
+        persistWindowsClosePreference(nextPreference)
+        windowsClosePreference = nextPreference
+      } catch (error) {
+        reportWindowsClosePreferenceError(error)
+      }
       return windowsClosePreference
     })
     ipcMain.handle('app:resolve-windows-close', (_event, input: unknown) => {
@@ -592,11 +607,16 @@ if (!hasSingleInstanceLock) {
         ? request.choice
         : null
       if (!choice) return
-      if (request.remember === true) {
-        windowsClosePreference = choice
-        persistWindowsClosePreference(choice)
-      }
-      windowPresence?.resolveWindowsClose(choice)
+      return resolveRememberedWindowsClose({
+        choice,
+        remember: request.remember === true,
+        persist: (preference) => {
+          persistWindowsClosePreference(preference)
+          windowsClosePreference = preference
+        },
+        apply: (selectedChoice) => windowPresence?.resolveWindowsClose(selectedChoice),
+        reportPersistenceError: reportWindowsClosePreferenceError,
+      })
     })
     ipcMain.handle('app:request-close', () => quitCoordinator.request('close'))
     ipcMain.handle('app:toggle-fullscreen', () => {

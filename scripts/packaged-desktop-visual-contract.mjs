@@ -24,6 +24,8 @@ const REQUIRED_PLATFORM_CHECKS = Object.freeze({
   ]),
 })
 
+const WINDOWS_PACKAGED_SCALE_FACTORS = Object.freeze([1, 1.25, 1.5])
+
 function canonicalPath(value) {
   const resolved = resolve(value)
   const canonical = (() => {
@@ -39,6 +41,31 @@ function canonicalPath(value) {
 function isSameOrDescendant(target, root) {
   const delta = relative(canonicalPath(root), canonicalPath(target))
   return delta === '' || (delta !== '..' && !delta.startsWith(`..${sep}`) && !isAbsolute(delta))
+}
+
+export function assertSafePackagedVisualOutputPath({ root, outputPath }) {
+  if (typeof root !== 'string' || !root.trim()) throw new Error('Repository root is required')
+  if (typeof outputPath !== 'string' || !outputPath.trim()) {
+    throw new Error('Packaged visual output path is required')
+  }
+  const evidenceRoot = resolve(root, 'test-results', 'desktop-visual-packaged')
+  const target = resolve(outputPath)
+  if (canonicalPath(target) === canonicalPath(evidenceRoot) || !isSameOrDescendant(target, evidenceRoot)) {
+    throw new Error(`Unsafe packaged visual output path: ${target}`)
+  }
+  return target
+}
+
+export function normalizePackagedScaleFactor(value, platform) {
+  if (platform !== 'win32') {
+    if (value == null || value === '') return null
+    throw new Error('Packaged scale factor override is supported only on Windows')
+  }
+  const parsed = value == null || value === '' ? 1 : Number(value)
+  if (!WINDOWS_PACKAGED_SCALE_FACTORS.includes(parsed)) {
+    throw new Error(`Unsupported Windows packaged scale factor: ${value}`)
+  }
+  return parsed
 }
 
 export function buildRequiredPlatformChecks(platform) {
@@ -120,6 +147,14 @@ export function validatePackagedVisualReport(report) {
   }
   if (!Array.isArray(report.captures) || report.captures.length !== 35) {
     throw new Error('Packaged visual evidence requires exactly 35 core captures')
+  }
+  if (report.platform === 'win32') {
+    const requested = report.scale?.requested
+    const actual = report.scale?.devicePixelRatio
+    if (!WINDOWS_PACKAGED_SCALE_FACTORS.includes(requested) ||
+        !Number.isFinite(actual) || Math.abs(actual - requested) >= 0.01) {
+      throw new Error('Windows packaged visual evidence requires a supported verified scale factor')
+    }
   }
   for (const capture of report.captures) {
     if (!Array.isArray(capture.errors) || capture.errors.length > 0) {

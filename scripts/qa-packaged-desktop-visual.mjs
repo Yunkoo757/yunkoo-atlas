@@ -15,6 +15,8 @@ import { _electron as electron } from 'playwright'
 
 import {
   assertSafePackagedEvidencePaths,
+  assertSafePackagedVisualOutputPath,
+  normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
   validatePackagedVisualReport,
@@ -30,6 +32,10 @@ const root = process.cwd()
 const hostPlatform = platform()
 const hostArch = arch()
 const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
+const requestedScaleFactor = normalizePackagedScaleFactor(
+  process.env.ATLAS_PACKAGED_SCALE_FACTOR,
+  hostPlatform,
+)
 const candidates = resolvePackagedExecutableCandidates({
   root,
   platform: hostPlatform,
@@ -41,10 +47,14 @@ if (!executablePath) {
   throw new Error(`Packaged executable is missing. Checked: ${candidates.join(', ')}`)
 }
 
-const runtimeId = `${hostPlatform}-${hostArch}`
-const outputRoot = resolve(
+const scaleId = requestedScaleFactor == null ? '' : `-scale-${Math.round(requestedScaleFactor * 100)}`
+const runtimeId = `${hostPlatform}-${hostArch}${scaleId}`
+const outputRoot = assertSafePackagedVisualOutputPath({
+  root,
+  outputPath: resolve(
   process.env.ATLAS_PACKAGED_VISUAL_OUTPUT ?? join('test-results', 'desktop-visual-packaged', runtimeId),
-)
+  ),
+})
 rmSync(outputRoot, { recursive: true, force: true })
 mkdirSync(outputRoot, { recursive: true })
 
@@ -152,6 +162,7 @@ writeFileSync(join(userDataPath, 'window-state.json'), JSON.stringify({
 let application
 let page
 let applicationExitedByQuitCommand = false
+let scaleEvidence = null
 const captures = []
 const checks = []
 const source = {
@@ -167,7 +178,10 @@ function record(id, pass, detail) {
 try {
   application = await electron.launch({
     executablePath,
-    args: [`--user-data-dir=${userDataPath}`],
+    args: [
+      `--user-data-dir=${userDataPath}`,
+      ...(requestedScaleFactor == null ? [] : [`--force-device-scale-factor=${requestedScaleFactor}`]),
+    ],
     cwd: root,
     env: {
       ...process.env,
@@ -236,10 +250,17 @@ try {
   diagnostics = bindDiagnostics(page)
 
   const dpr = await page.evaluate(() => window.devicePixelRatio)
+  scaleEvidence = {
+    requested: requestedScaleFactor,
+    devicePixelRatio: dpr,
+    displayScaleFactor: runtime.displayScaleFactor,
+  }
   record(
     'native-scale',
-    dpr >= 1 && runtime.displayScaleFactor >= 1 && Math.abs(dpr - runtime.displayScaleFactor) < 0.01,
-    `devicePixelRatio=${dpr}; displayScaleFactor=${runtime.displayScaleFactor}`,
+    requestedScaleFactor == null
+      ? dpr >= 1 && runtime.displayScaleFactor >= 1 && Math.abs(dpr - runtime.displayScaleFactor) < 0.01
+      : Math.abs(dpr - requestedScaleFactor) < 0.01,
+    `requested=${requestedScaleFactor ?? 'native'}; devicePixelRatio=${dpr}; displayScaleFactor=${runtime.displayScaleFactor}`,
   )
 
   for (const viewport of DESKTOP_VISUAL_VIEWPORTS) {
@@ -399,6 +420,7 @@ const report = {
     arch: hostArch,
     node: process.version,
   },
+  scale: scaleEvidence,
   artifact: {
     path: relative(root, artifactPath).replaceAll('\\', '/'),
     bytes: readFileSync(artifactPath).byteLength,

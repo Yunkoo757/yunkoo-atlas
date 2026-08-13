@@ -1,5 +1,6 @@
 import {
   createElectronTrayFactory,
+  resolveRememberedWindowsClose,
   WindowPresenceController,
   type ElectronTrayMenuItem,
   type PresenceWindow,
@@ -200,6 +201,23 @@ export function testWindowsFirstCloseEmitsRendererExplanation(): void {
   assert(
     fixture.calls.join('|') === 'tray:create|close:prevent|close:explain',
     'Windows 首次关闭必须发送解释事件，不能直接隐藏或退出',
+  )
+}
+
+export function testRememberFailureStillResolvesCurrentWindowsCloseChoice(): void {
+  const calls: string[] = []
+  const result = resolveRememberedWindowsClose({
+    choice: 'tray',
+    remember: true,
+    persist: () => { throw new Error('disk is read-only') },
+    apply: (choice) => { calls.push(`apply:${choice}`) },
+    reportPersistenceError: (error) => { calls.push(`error:${(error as Error).message}`) },
+  })
+
+  assert(result.preferenceSaved === false, '写盘失败必须返回显式保存失败状态')
+  assert(
+    calls.join('|') === 'error:disk is read-only|apply:tray',
+    '偏好写盘失败后仍必须清除等待态并执行本次关闭选择',
   )
 }
 

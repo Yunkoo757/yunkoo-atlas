@@ -62,6 +62,11 @@ const bridge: JournalBridge = {
     ipcRenderer.on('app:windows-close-explanation', listener)
     return () => ipcRenderer.removeListener('app:windows-close-explanation', listener)
   },
+  onWindowsClosePreferenceError: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message)
+    ipcRenderer.on('app:windows-close-preference-error', listener)
+    return () => ipcRenderer.removeListener('app:windows-close-preference-error', listener)
+  },
   resolveWindowsClose: (choice, remember) =>
     ipcRenderer.invoke('app:resolve-windows-close', { choice, remember }),
   getWindowsClosePreference: () => ipcRenderer.invoke('app:get-windows-close-preference'),

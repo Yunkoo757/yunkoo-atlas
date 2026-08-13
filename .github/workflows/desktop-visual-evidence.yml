@@ -26,6 +26,70 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows-packaged-visual:
+    name: Windows packaged visual (100/125/150%)
+    runs-on: windows-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Electron runtime
+        run: pnpm exec install-electron
+
+      - name: Run source quality gates
+        run: |
+          pnpm check:desktop-visual
+          pnpm typecheck
+          node --test scripts/fixtures/packaged-desktop-visual.test.mjs
+
+      - name: Build production application
+        run: pnpm build:app
+
+      - name: Package native Windows artifact
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+
+      - name: Run Windows packaged evidence at 100%
+        env:
+          ATLAS_PACKAGED_SCALE_FACTOR: '1'
+        run: pnpm qa:desktop-visual:packaged
+
+      - name: Run Windows packaged evidence at 125%
+        env:
+          ATLAS_PACKAGED_SCALE_FACTOR: '1.25'
+        run: pnpm qa:desktop-visual:packaged
+
+      - name: Run Windows packaged evidence at 150%
+        env:
+          ATLAS_PACKAGED_SCALE_FACTOR: '1.5'
+        run: pnpm qa:desktop-visual:packaged
+
+      - name: Upload Windows packaged visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-visual-Windows-x64-scales-attempt-${{ github.run_attempt }}
+          path: test-results/desktop-visual-packaged/win32-x64-scale-*/
+          if-no-files-found: warn
+          retention-days: 30
+
   macos-packaged-visual:
     name: macOS ${{ matrix.arch }} packaged visual
     strategy:

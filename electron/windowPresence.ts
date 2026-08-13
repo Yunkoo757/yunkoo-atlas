@@ -87,6 +87,32 @@ export type PresenceQuitResult =
 export type WindowsClosePreference = 'ask' | 'tray' | 'quit'
 export type WindowsCloseChoice = Exclude<WindowsClosePreference, 'ask'>
 
+export function resolveRememberedWindowsClose({
+  choice,
+  remember,
+  persist,
+  apply,
+  reportPersistenceError,
+}: {
+  choice: WindowsCloseChoice
+  remember: boolean
+  persist: (choice: WindowsCloseChoice) => void
+  apply: (choice: WindowsCloseChoice) => void
+  reportPersistenceError: (error: unknown) => void
+}): { preferenceSaved: boolean } {
+  let preferenceSaved = !remember
+  if (remember) {
+    try {
+      persist(choice)
+      preferenceSaved = true
+    } catch (error) {
+      reportPersistenceError(error)
+    }
+  }
+  apply(choice)
+  return { preferenceSaved }
+}
+
 export interface WindowPresenceDependencies {
   ensureWindow(): PresenceWindow
   getWindow(): PresenceWindow | null

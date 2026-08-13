@@ -6,7 +6,9 @@ import { dirname, join } from 'node:path'
 
 import {
   assertSafePackagedEvidencePaths,
+  assertSafePackagedVisualOutputPath,
   buildRequiredPlatformChecks,
+  normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
   validatePackagedVisualReport,
@@ -147,4 +149,47 @@ test('report validation fails closed when screenshots or native platform checks 
     () => validatePackagedVisualReport({ ...complete, source: { ...complete.source, dirty: true } }),
     /clean source commit/,
   )
+
+  const windows = {
+    ...complete,
+    platform: 'win32',
+    scale: { requested: 1.25, devicePixelRatio: 1.25, displayScaleFactor: 1 },
+    checks: buildRequiredPlatformChecks('win32').map((id) => ({ id, pass: true })),
+  }
+  assert.doesNotThrow(() => validatePackagedVisualReport(windows))
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...windows,
+      scale: { ...windows.scale, devicePixelRatio: 1 },
+    }),
+    /verified scale factor/,
+  )
+})
+
+test('packaged visual output is restricted to its evidence root', () => {
+  const root = join('workspace', 'trader-atlas')
+  const evidenceRoot = join(root, 'test-results', 'desktop-visual-packaged')
+
+  assert.doesNotThrow(() => assertSafePackagedVisualOutputPath({
+    root,
+    outputPath: join(evidenceRoot, 'win32-x64-scale-125'),
+  }))
+  assert.throws(() => assertSafePackagedVisualOutputPath({ root, outputPath: root }), /output path/i)
+  assert.throws(
+    () => assertSafePackagedVisualOutputPath({ root, outputPath: join(root, 'release') }),
+    /output path/i,
+  )
+})
+
+test('Windows packaged evidence accepts only the supported 100 125 150 percent scale matrix', () => {
+  assert.equal(normalizePackagedScaleFactor('1', 'win32'), 1)
+  assert.equal(normalizePackagedScaleFactor('1.25', 'win32'), 1.25)
+  assert.equal(normalizePackagedScaleFactor('1.5', 'win32'), 1.5)
+  assert.throws(() => normalizePackagedScaleFactor('2', 'win32'), /scale factor/i)
+  assert.equal(normalizePackagedScaleFactor(undefined, 'darwin'), null)
+
+  const workflow = readFileSync('.github/workflows/desktop-visual-evidence.yml', 'utf8')
+  assert.match(workflow, /name:\s*Windows packaged visual \(100\/125\/150%\)/)
+  assert.match(workflow, /ATLAS_PACKAGED_SCALE_FACTOR:\s*'1\.25'/)
+  assert.match(workflow, /ATLAS_PACKAGED_SCALE_FACTOR:\s*'1\.5'/)
 })

@@ -61,6 +61,7 @@ export interface JournalBridge {
   onCloseSaveError(callback: (message: string) => void): () => void
   onAutoBackupFailure(callback: () => void): () => void
   onWindowsCloseExplanation(callback: () => void): () => void
+  onWindowsClosePreferenceError(callback: (message: string) => void): () => void
   resolveWindowsClose(choice: WindowsCloseChoice, remember: boolean): Promise<void>
   getWindowsClosePreference(): Promise<WindowsClosePreference>
   setWindowsClosePreference(preference: WindowsClosePreference): Promise<WindowsClosePreference>

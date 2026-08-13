@@ -5,7 +5,10 @@ import {
   DESKTOP_VISUAL_SCENARIOS,
   DESKTOP_VISUAL_VIEWPORTS,
 } from '../desktop-visual-scenarios.mjs'
-import { assertSafeElectronIsolationPaths } from '../qa-desktop-visual.mjs'
+import {
+  assertSafeElectronIsolationPaths,
+  desktopVisualReportHasFailures,
+} from '../qa-desktop-visual.mjs'
 import { createDesktopVisualSnapshot } from './desktop-visual-seed.mjs'
 
 test('desktop visual matrix owns every supported window and core route', () => {
@@ -63,4 +66,22 @@ test('desktop visual Electron mode rejects real application data paths', () => {
     temporaryRoot: realApplicationData,
     realApplicationDataRoots: [realApplicationData],
   }), /real application data/i)
+})
+
+test('desktop visual report fails closed on runtime errors or horizontal overflow', () => {
+  const clean = {
+    consoleErrors: [],
+    pageErrors: [],
+    metrics: { overflowCaptureCount: 0 },
+  }
+
+  assert.equal(desktopVisualReportHasFailures(clean), false)
+  assert.equal(desktopVisualReportHasFailures({
+    ...clean,
+    metrics: { overflowCaptureCount: 1 },
+  }), true)
+  assert.equal(desktopVisualReportHasFailures({
+    ...clean,
+    pageErrors: ['render failed'],
+  }), true)
 })

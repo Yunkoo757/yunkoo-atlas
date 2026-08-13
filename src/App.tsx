@@ -664,6 +664,7 @@ export function App() {
       let unsubscribeCloseError: (() => void) | undefined
       let unsubscribeAutoBackupFailure: (() => void) | undefined
       let unsubscribeWindowsCloseExplanation: (() => void) | undefined
+      let unsubscribeWindowsClosePreferenceError: (() => void) | undefined
       try {
         const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
@@ -697,6 +698,11 @@ export function App() {
             })
           })
         }
+        if (bridge?.onWindowsClosePreferenceError) {
+          unsubscribeWindowsClosePreferenceError = bridge.onWindowsClosePreferenceError((message: string) => {
+            toast(message, { tone: 'error', dedupeKey: 'windows-close-preference-save' })
+          })
+        }
         if (bridge?.onCloseSaveError) {
           unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
             closeSaveGeneration.current.invalidate()
@@ -721,6 +727,7 @@ export function App() {
         unsubscribeCloseError?.()
         unsubscribeAutoBackupFailure?.()
         unsubscribeWindowsCloseExplanation?.()
+        unsubscribeWindowsClosePreferenceError?.()
       }
     }
 
