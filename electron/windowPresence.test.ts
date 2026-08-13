@@ -221,6 +221,23 @@ export function testRememberFailureStillResolvesCurrentWindowsCloseChoice(): voi
   )
 }
 
+export function testRememberFailureReceiptPrecedesCurrentWindowsQuit(): void {
+  const calls: string[] = []
+  const result = resolveRememberedWindowsClose({
+    choice: 'quit',
+    remember: true,
+    persist: () => { throw new Error('disk is read-only') },
+    apply: (choice) => { calls.push(`apply:${choice}`) },
+    reportPersistenceError: () => { calls.push('native-receipt') },
+  })
+
+  assert(result.preferenceSaved === false, '退出偏好写盘失败必须返回显式保存失败状态')
+  assert(
+    calls.join('|') === 'native-receipt|apply:quit',
+    '退出前必须先让用户确认原生失败回执，再继续执行本次退出',
+  )
+}
+
 export async function testMacCloseKeepsDockVisibleAndClosesOnlyWindow(): Promise<void> {
   const fixture = createPresenceFixture({ platform: 'darwin' })
   fixture.controller.initialize()

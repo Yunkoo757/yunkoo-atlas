@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   globalShortcut,
   ipcMain,
   Menu,
@@ -157,8 +158,28 @@ function persistWindowsClosePreference(preference: WindowsClosePreference): void
   fs.writeFileSync(target, JSON.stringify(preference), 'utf8')
 }
 
-function reportWindowsClosePreferenceError(error: unknown): void {
+function reportWindowsClosePreferenceError(
+  error: unknown,
+  choice?: WindowsCloseChoice,
+): void {
   logDiagnostic('error', 'windows-close-preference-save-failed', error)
+  if (choice === 'quit') {
+    const options = {
+      type: 'warning' as const,
+      title: '关闭偏好未保存',
+      message: '本次仍将退出，但关闭偏好未能保存。',
+      detail: '下次启动时仍会再次询问。请检查磁盘空间或资料目录权限。',
+      buttons: ['知道了'],
+      defaultId: 0,
+      noLink: true,
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBoxSync(mainWindow, options)
+    } else {
+      dialog.showMessageBoxSync(options)
+    }
+    return
+  }
   if (!mainWindow || mainWindow.isDestroyed()) return
   mainWindow.webContents.send(
     'app:windows-close-preference-error',
@@ -615,7 +636,7 @@ if (!hasSingleInstanceLock) {
           windowsClosePreference = preference
         },
         apply: (selectedChoice) => windowPresence?.resolveWindowsClose(selectedChoice),
-        reportPersistenceError: reportWindowsClosePreferenceError,
+        reportPersistenceError: (error) => reportWindowsClosePreferenceError(error, choice),
       })
     })
     ipcMain.handle('app:request-close', () => quitCoordinator.request('close'))
