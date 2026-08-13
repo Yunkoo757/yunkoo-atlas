@@ -207,7 +207,9 @@ const checks = [
   ],
   [
     'virtual trade rows preserve native text rasterization',
-    tradeListComponent.includes("top: isSticky ? 0 : virtualRow.start") &&
+    /top:\s*isSticky\s*\?\s*['"]var\(--trade-list-columns-height\)['"]\s*:\s*virtualRow\.start/.test(
+      tradeListComponent,
+    ) &&
       !tradeListComponent.includes('translateY(${virtualRow.start}px)'),
   ],
 
