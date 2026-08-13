@@ -18,11 +18,83 @@ on:
       - 'scripts/file-system-type.mjs'
       - 'scripts/fixtures/forced-kill-evidence.test.mjs'
       - '.github/workflows/forced-kill-evidence.yml'
+      - '.github/workflows/desktop-visual-evidence.yml'
+      - 'scripts/desktop-visual-scenarios.mjs'
+      - 'scripts/packaged-desktop-visual-contract.mjs'
+      - 'scripts/qa-packaged-desktop-visual.mjs'
+      - 'scripts/fixtures/packaged-desktop-visual.test.mjs'
 
 permissions:
   contents: read
 
 jobs:
+  macos-packaged-visual:
+    if: github.event_name == 'workflow_dispatch'
+    name: macOS ${{ matrix.arch }} packaged visual
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            arch: arm64
+            executable: release/mac-arm64/Trader Atlas.app/Contents/MacOS/Trader Atlas
+          - runner: macos-26-intel
+            arch: x64
+            executable: release/mac/Trader Atlas.app/Contents/MacOS/Trader Atlas
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Electron runtime
+        run: pnpm exec install-electron
+
+      - name: Run source quality gates
+        run: |
+          pnpm check:desktop-visual
+          pnpm typecheck
+          node --test scripts/fixtures/packaged-desktop-visual.test.mjs
+
+      - name: Build production application
+        run: pnpm build:app
+
+      - name: Package native macOS artifact
+        run: pnpm exec electron-builder --mac zip --${{ matrix.arch }} --publish never
+
+      - name: Run packaged visual and lifecycle evidence
+        env:
+          ATLAS_PACKAGED_EXECUTABLE: ${{ matrix.executable }}
+        run: pnpm qa:desktop-visual:packaged
+
+      - name: Upload macOS packaged visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-visual-macOS-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
+          path: test-results/desktop-visual-packaged/darwin-${{ matrix.arch }}/
+          if-no-files-found: warn
+          retention-days: 30
+
   platform-evidence:
     strategy:
       fail-fast: false
