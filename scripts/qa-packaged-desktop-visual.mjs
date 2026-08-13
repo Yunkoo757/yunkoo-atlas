@@ -78,7 +78,7 @@ function bindDiagnostics(page) {
 }
 
 async function waitForVisualSettlement(page, selector) {
-  await page.locator(selector).waitFor({ state: 'visible', timeout: 30_000 })
+  await page.locator(selector).first().waitFor({ state: 'visible', timeout: 30_000 })
   await page.waitForFunction(() => document.documentElement.dataset.uiSettled === '1', null, {
     timeout: 30_000,
   })
