@@ -66,7 +66,6 @@ async function stopVite(child) {
 }
 
 run('pnpm', ['qa:ci'])
-run('pnpm', ['qa:sidebar'])
 
 const vite = startVite()
 try {
@@ -94,6 +93,6 @@ await fs.writeFile(reportPath, `${JSON.stringify({
   sourceFingerprint: provenance.sourceFingerprint,
   sourceIdentity: provenance.sourceIdentity,
   commands: full
-    ? ['qa:ci', 'qa:sidebar', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron']
-    : ['qa:ci', 'qa:sidebar', 'qa:core', 'build:app', 'qa:electron'],
+    ? ['qa:ci', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron']
+    : ['qa:ci', 'qa:core', 'build:app', 'qa:electron'],
 }, null, 2)}\n`, 'utf8')

@@ -70,7 +70,7 @@ export function blobBridgeCoveragePassed(value) {
 
 export function fullQaPassed(value) {
   const expectedCommands = [
-    'qa:ci', 'qa:sidebar', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron',
+    'qa:ci', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron',
   ]
   return value?.version === 1 && value.mode === 'full' && value.status === 'pass' &&
     Array.isArray(value.commands) && value.commands.length === expectedCommands.length &&

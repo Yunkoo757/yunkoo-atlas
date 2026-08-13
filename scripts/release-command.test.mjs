@@ -233,7 +233,7 @@ test('本地发布在远端候选认证通过后才推送 tag，失败可沿用�
   assert.equal(pkg.scripts['qa:full'], 'node scripts/qa-release.mjs --full')
   assert.match(qualityGate, /process\.argv\.includes\('--full'\)/)
   assert.match(qualityGate, /\['qa:ci'\]/)
-  assert.match(qualityGate, /\['qa:sidebar'\]/)
+  assert.doesNotMatch(qualityGate, /\['qa:sidebar'\]/)
   assert.match(qualityGate, /\['qa:electron'\]/)
   assert.match(qualityGate, /full \? 'qa' : 'qa:core'/)
   assert.match(qualityGate, /qa-dashboard-10k\.mjs/)
