@@ -74,7 +74,7 @@
 
 ### Verification record
 
-- Create `docs/superpowers/reports/2026-08-15-linear-typography-verification.md`: 记录测试、构建、Windows 三档缩放、macOS Retina、截图与产物哈希。
+- Create `docs/superpowers/reports/2026-08-15-desktop-typography-verification.md`: 记录测试、构建、Windows 三档缩放、macOS Retina、截图与产物哈希。
 
 ---
 
@@ -672,7 +672,7 @@ git commit -m "test: verify native typography and geometry"
 ## Task 6: Complete visual iteration, platform gates, and Windows build
 
 **Files:**
-- Create: `docs/superpowers/reports/2026-08-15-linear-typography-verification.md`
+- Create: `docs/superpowers/reports/2026-08-15-desktop-typography-verification.md`
 - Evidence only: `.gstack/qa-reports/desktop-visual-convergence/**`
 - Evidence only: `test-results/desktop-visual-packaged/**`
 - Build artifacts only: `release/**`
@@ -751,12 +751,12 @@ $unpacked | Select-Object FullName,Length
 $unpackedHash
 ```
 
-`2026-08-15-linear-typography-verification.md` 必须包含 Source、Gates、Typography、Frozen Geometry、Artifacts 五节，并写入上述命令及 Windows/macOS QA 报告产生的真实值。固定内容为：Inter loaded PASS；角色 11/12/13/15/20 与 400/500/600 PASS；月份条 36px、顶部间距 8px、虚拟总高度 44px、布局漂移 0px。不得留下示例值或未执行状态。
+`2026-08-15-desktop-typography-verification.md` 必须包含 Source、Gates、Typography、Frozen Geometry、Artifacts 五节，并写入上述命令及 Windows/macOS QA 报告产生的真实值。固定内容为：Inter loaded PASS；角色 11/12/13/15/20 与 400/500/600 PASS；月份条 36px、顶部间距 8px、虚拟总高度 44px、布局漂移 0px。不得留下示例值或未执行状态。
 
 - [ ] **Step 6: Commit the verification record and audit the tree**
 
 ```powershell
-git add docs/superpowers/reports/2026-08-15-linear-typography-verification.md
+git add docs/superpowers/reports/2026-08-15-desktop-typography-verification.md
 git diff --cached --check
 git commit -m "docs: verify Linear typography system"
 git status --short
