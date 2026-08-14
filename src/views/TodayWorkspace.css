@@ -33,17 +33,17 @@
 .today-focus h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(22px, 1.65vw, 26px);
+  font-size: var(--type-page-title-size);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.03em;
-  line-height: 1.2;
+  letter-spacing: -0.012em;
+  line-height: var(--type-page-title-line-height);
 }
 
 .today-focus p {
   margin: 7px 0 0;
   color: var(--text-secondary);
   font-size: var(--type-row-size);
-  line-height: 1.55;
+  line-height: var(--type-body-line-height);
 }
 
 .today-risk-alert {
@@ -82,7 +82,7 @@
 
 .today-focus .empty-btn {
   min-height: 36px;
-  font-size: 13px;
+  font-size: var(--type-row-size);
 }
 
 .today-focus .empty-btn.is-secondary {
@@ -124,7 +124,7 @@
   margin: var(--sp-1) 0 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
 }
 
 .today-stats-link {
@@ -165,11 +165,11 @@
 
 .today-stats-metric strong {
   color: var(--text-strong);
-  font-size: var(--fs-title);
+  font-size: var(--type-financial-size);
   font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  font-variant-numeric: var(--numeric-tabular);
+  letter-spacing: -0.012em;
+  line-height: var(--type-financial-line-height);
 }
 
 .today-stats-metric strong.is-pos { color: var(--pos); }
@@ -178,7 +178,7 @@
 .today-stats-metric small {
   color: var(--text-faint);
   font-size: var(--type-metadata-size);
-  line-height: 1.35;
+  line-height: var(--type-metadata-line-height);
 }
 
 .today-action-queue {
@@ -208,7 +208,7 @@
   padding: 0 10px;
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   background: transparent;
   border: 0;
@@ -224,9 +224,9 @@
 .today-queue-tabs button.is-selected { color: var(--text-primary); background: var(--bg-hover); }
 .today-queue-tabs strong {
   color: var(--text-quaternary);
-  font-size: 13px;
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
 }
 .today-queue-tabs button.is-selected strong { color: var(--text-primary); }
 
@@ -284,7 +284,7 @@
   margin: 2px 0 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
 }
 
 .today-workflow-list {

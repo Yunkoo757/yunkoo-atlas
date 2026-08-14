@@ -31,14 +31,14 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 .bd-col-title {
-  font-size: var(--fs-sm);
+  font-size: var(--type-section-title-size);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   transition: color var(--dur-fast) var(--ease-out);
 }
 .bd-col-header:hover .bd-col-title { color: var(--text-primary); }
 .bd-col-count {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
 }
 .bd-col-add-wrap {
@@ -119,9 +119,9 @@
   justify-content: space-between;
 }
 .bd-card-ref {
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
 }
 .bd-card-title {
   display: flex;
@@ -132,12 +132,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--fs-base);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 .bd-card-timeframe {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
   letter-spacing: 0.02em;
 }
 
@@ -165,20 +165,20 @@
   border-color: var(--border-subtle);
 }
 .bd-card-strategy {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-secondary);
 }
 .bd-card-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
   margin-top: 2px;
 }
 .bd-card-r {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
 }
 
@@ -201,7 +201,7 @@
 }
 
 .board-scroll-case .bd-col-title {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 
 .board-scroll-case .bd-col-body {
@@ -223,7 +223,7 @@
 }
 
 .bd-card-case .bd-card-symbol {
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .bd-card-case .bd-card-strategy {
@@ -232,7 +232,7 @@
 
 .bd-card-case .bd-card-foot {
   margin-top: 0;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 
 
@@ -249,7 +249,7 @@
   border-radius: var(--radius-4);
   background: var(--bg-surface);
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;

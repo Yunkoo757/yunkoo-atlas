@@ -56,3 +56,24 @@ export async function testBothStartupPathsWaitForUiFontsWithTimeout(): Promise<v
   assert(app.includes('document.fonts?.ready'), '字体等待必须使用 Font Loading API')
   assert(app.includes('window.setTimeout(resolve, 1200)'), '字体等待必须保留 1200ms 降级超时')
 }
+
+export async function testShellTypographyUsesCanonicalWeightsAndTracking(): Promise<void> {
+  const shellSources = await Promise.all([
+    'src/components/Sidebar.css',
+    'src/components/sidebar/SidebarWorkspace.css',
+    'src/components/Topbar.css',
+    'src/components/trades/TradeList.css',
+    'src/components/trades/QuickViewBar.css',
+    'src/components/RowPreviews.css',
+    'src/views/TodayWorkspace.css',
+    'src/views/BoardView.css',
+    'src/views/ListView.css',
+  ].map((path) => fs.readFile(path, 'utf8')))
+
+  for (const source of shellSources) {
+    assert(!source.includes('font-weight: 700'), 'shell 角色不得使用未批准的 700 字重')
+    assert(!source.includes('font-weight: 620'), 'shell 角色不得使用未批准的 620 字重')
+    assert(!source.includes('letter-spacing: 1px'), 'shell 角色不得使用扩张的 1px 字距')
+    assert(!source.includes('letter-spacing: 0.04em'), 'shell 角色不得使用未批准的 0.04em 字距')
+  }
+}

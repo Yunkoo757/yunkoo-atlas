@@ -30,8 +30,9 @@
   height: var(--toolbar-chip-height);
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
-  font-weight: 500;
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-metadata-line-height);
   /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
   border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-full);
@@ -124,7 +125,8 @@
   height: 30px;
   padding: 0 var(--sp-2);
   color: var(--text-primary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
   text-align: left;
   border-radius: var(--radius-4);
 }
@@ -147,8 +149,8 @@
   margin: 0 0 var(--sp-1);
   padding: 0 7px;
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
-  font-weight: 500;
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
 }
 
 .quick-view-group button,
@@ -160,7 +162,8 @@
   height: 28px;
   padding: 0 7px;
   color: var(--text-secondary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
   text-align: left;
   border-radius: var(--radius-4);
 }
@@ -192,7 +195,7 @@
   padding: 0 7px;
   color: var(--text-primary);
   font: inherit;
-  font-size: var(--fs-mini);
+  font-size: var(--type-row-size);
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-4);
@@ -234,8 +237,8 @@
   display: block;
   margin-bottom: var(--sp-2);
   color: var(--text-primary);
-  font-size: var(--fs-mini);
-  font-weight: 600;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .quick-view-save input {
@@ -251,14 +254,14 @@
 
 .quick-view-save-actions span {
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .quick-view-save-actions button {
   height: 26px;
   padding: 0 10px;
   color: var(--accent-text);
-  font-size: var(--fs-mini);
+  font-size: var(--type-row-size);
   background: var(--accent);
   border-radius: var(--radius-6);
 }

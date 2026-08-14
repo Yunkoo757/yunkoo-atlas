@@ -10,8 +10,8 @@
   margin-right: -4px;
   border-radius: var(--radius-6);
   color: var(--sb-text);
-  font-size: var(--fs-sm);
-  letter-spacing: 1px;
+  font-size: var(--type-row-size);
+  letter-spacing: 0;
 }
 
 .sb-workspace-menu:hover,
@@ -29,7 +29,7 @@
   padding: 0 var(--sp-2);
   border-radius: var(--radius-6);
   color: var(--sb-text);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   text-align: left;
 }
@@ -89,7 +89,7 @@
   padding: 2px 6px;
   border-radius: var(--radius-6);
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .sb-workspace-overflow-manage:hover {
@@ -116,15 +116,15 @@
 .sb-editor-group-header h3 {
   margin: 0;
   color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
 .sb-editor-group-header span {
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .sb-editor-empty {
@@ -133,8 +133,8 @@
   border-radius: var(--radius-6);
   background: var(--bg-hover);
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
-  line-height: 1.45;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 .sb-workspace-editor-portal {
@@ -196,15 +196,15 @@
 .sb-workspace-editor-header h2 {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--fs-md);
-  font-weight: 600;
+  font-size: var(--type-dialog-title-size);
+  font-weight: var(--type-dialog-title-weight);
 }
 
 .sb-workspace-editor-title-row > span {
   flex-shrink: 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--type-caption-size);
+  font-variant-numeric: var(--numeric-tabular);
 }
 
 .sb-editor-back {
@@ -219,8 +219,8 @@
   border-radius: var(--radius-6);
   background: transparent;
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
-  font-weight: 500;
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
 }
 
@@ -248,8 +248,8 @@
   border-radius: var(--radius-8);
   background: color-mix(in srgb, var(--bg-hover) 70%, transparent);
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
-  font-weight: 500;
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
 }
 
@@ -264,8 +264,8 @@
 .sb-editor-help {
   margin: 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
-  line-height: 1.45;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 .sb-editor-list {
@@ -283,7 +283,7 @@
   padding: 3px 5px;
   border-radius: var(--radius-6);
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .sb-editor-item:hover,
@@ -305,7 +305,7 @@
   padding: var(--sp-1) 7px;
   border-radius: var(--radius-6);
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .sb-editor-mobile-moves {
@@ -320,13 +320,13 @@
 
 .sb-editor-invalid {
   color: var(--neg);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .sb-editor-message {
   margin: var(--sp-2) 0;
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .sb-editor-message button {
@@ -339,7 +339,7 @@
   gap: 6px;
   min-height: 34px;
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .sb-editor-actions {
@@ -356,8 +356,8 @@
   padding: 0 var(--sp-3);
   border-radius: var(--radius-6);
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
-  font-weight: 500;
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
 }
 
 .sb-editor-actions button:hover {
@@ -393,7 +393,7 @@
   border-radius: var(--radius-8);
   background: var(--field-bg);
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   outline: none;
 }
 
@@ -421,9 +421,9 @@
   margin: 0;
   padding: 0 6px 6px;
   color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -438,7 +438,7 @@
   border-radius: var(--radius-6);
   background: transparent;
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   text-align: left;
   cursor: pointer;
 }
@@ -468,7 +468,7 @@
 .sb-target-row-domain {
   overflow: hidden;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--type-caption-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -490,16 +490,16 @@
 
 .sb-capability-title {
   color: var(--text-primary);
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
 }
 
 .sb-capability-hint {
   margin: 0;
   padding: 0 var(--sp-1) 2px;
   color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 .sb-capability-options {
@@ -532,7 +532,7 @@
 .sb-capability-option-label {
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -543,9 +543,9 @@
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--text-quaternary) 14%, transparent);
   color: var(--text-quaternary);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-caption-line-height);
 }
 
 .sb-target-row-state.is-pinned {
