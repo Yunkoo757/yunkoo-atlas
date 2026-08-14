@@ -94,7 +94,7 @@
 
 .risk-preparation-card.is-reviewed .ui-btn {
   min-height: 32px;
-  font-size: 13px;
+  font-size: var(--type-row-size);
 }
 
 .risk-preparation-form { margin-top: 14px; }
@@ -170,7 +170,7 @@
 
 .risk-preparation-actions .ui-btn {
   min-height: 32px;
-  font-size: 13px;
+  font-size: var(--type-row-size);
 }
 
 .risk-preparation-actions .ui-btn-primary { min-height: 36px; }

@@ -2,6 +2,24 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+function assertThrows(action: () => void, expected: RegExp): void {
+  try {
+    action()
+  } catch (error) {
+    assert(error instanceof Error && expected.test(error.message), `应抛出匹配 ${expected} 的错误`)
+    return
+  }
+  throw new Error(`应抛出匹配 ${expected} 的错误`)
+}
+
+function assertDoesNotThrow(action: () => void): void {
+  try {
+    action()
+  } catch (error) {
+    throw new Error(`不应抛出错误：${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 const CSS_FILES = [
   'src/App.css',
   'src/styles/global.css',
@@ -23,6 +41,75 @@ const CSS_FILES = [
   'src/views/BoardView.css',
   'src/views/Dashboard.css',
 ] as const
+
+const APPROVED_FONT_SIZE_TOKENS = [
+  '--font-size-large',
+  '--font-size-micro',
+  '--font-size-mini',
+  '--font-size-regular',
+  '--font-size-small',
+  '--font-size-title2',
+  '--font-size-title3',
+]
+
+const APPROVED_TYPE_SIZE_TOKENS = [
+  '--type-body-size',
+  '--type-caption-size',
+  '--type-data-size',
+  '--type-dialog-title-size',
+  '--type-financial-size',
+  '--type-metadata-size',
+  '--type-page-title-size',
+  '--type-row-size',
+  '--type-section-title-size',
+  '--type-ui-base-size',
+]
+
+const APPROVED_TYPE_LINE_HEIGHT_TOKENS = [
+  '--type-body-line-height',
+  '--type-caption-line-height',
+  '--type-data-line-height',
+  '--type-financial-line-height',
+  '--type-metadata-line-height',
+  '--type-page-title-line-height',
+  '--type-row-line-height',
+]
+
+function assertApprovedTokenNames(names: string[], approved: string[], label: string): void {
+  assert(names.every((name) => approved.includes(name)), `${label} 不得包含未批准名称`)
+}
+
+function assertExactTokenNames(tokens: string, tokenPattern: string, approved: string[], label: string): void {
+  const names = [...tokens.matchAll(new RegExp(`^\\s*(${tokenPattern})\\s*:`, 'gm'))]
+    .map((match) => match[1])
+    .sort()
+  assertApprovedTokenNames(names, approved, label)
+  assert(names.join('\n') === [...approved].sort().join('\n'), `${label} 必须使用完整批准的名称集合`)
+}
+
+function assertCanonicalTypographyTokenNames(tokens: string): void {
+  assertExactTokenNames(tokens, '--font-size-[a-z0-9-]+', APPROVED_FONT_SIZE_TOKENS, 'font-size token')
+  assertExactTokenNames(tokens, '--type-[a-z0-9-]+-size(?:-lg)?', APPROVED_TYPE_SIZE_TOKENS, 'type size token')
+  assertExactTokenNames(tokens, '--type-[a-z0-9-]+-line-height', APPROVED_TYPE_LINE_HEIGHT_TOKENS, 'type line-height token')
+}
+
+function assertNoDirectCoreFontSizes(css: string): void {
+  const declarations = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  assert(
+    !/(?:^|[;{}])\s*font-size\s*:\s*(?:11|12|13|15|20)px\s*(?:!important\s*)?(?=;|\})/im.test(declarations),
+    '产品 CSS 不得直接声明核心字号，必须消费角色 var',
+  )
+}
+
+export function testTypographyContractRejectsRogueNamesAndDirectCorePixels(): void {
+  assertThrows(() => assertApprovedTokenNames(['--font-size-rogue'], APPROVED_FONT_SIZE_TOKENS, 'font-size token'), /未批准名称/)
+  assertThrows(() => assertApprovedTokenNames(['--type-financial-size-lg'], APPROVED_TYPE_SIZE_TOKENS, 'type size token'), /未批准名称/)
+  assertThrows(() => assertApprovedTokenNames(['--type-rogue-line-height'], APPROVED_TYPE_LINE_HEIGHT_TOKENS, 'type line-height token'), /未批准名称/)
+  for (const size of [11, 12, 13, 15, 20]) {
+    assertThrows(() => assertNoDirectCoreFontSizes(`.bad { font-size: ${size}px; }`), /直接声明核心字号/)
+  }
+  assertDoesNotThrow(() => assertNoDirectCoreFontSizes('.ok { height: 13px; padding: 0 11px; }'))
+}
 
 export async function testResponsiveBreakpointsUseTheSharedViewportSet(): Promise<void> {
   const fs = await import('node:fs/promises')
@@ -75,7 +162,14 @@ export async function testTypographyAndTokenNamesHaveOneCanonicalBaseline(): Pro
   const sources = await Promise.all(CSS_FILES.map((file) => fs.readFile(file, 'utf8')))
   const all = sources.join('\n')
   const tokens = sources[2]
-  const productCss = sources.filter((_, index) => index !== 2).join('\n')
+  const productCssFiles: string[] = []
+  for await (const path of fs.glob('src/**/*.css')) productCssFiles.push(path)
+  const productCss = (await Promise.all(
+    productCssFiles
+      .filter((path) => path.replace(/\\/g, '/') !== 'src/styles/tokens.css')
+      .sort()
+      .map((path) => fs.readFile(path, 'utf8')),
+  )).join('\n')
 
   for (const [role, fontSize, expectedSize, lineHeight, expectedLineHeight] of [
     ['--type-caption-size', '--font-size-micro', '11px', '--type-caption-line-height', '16px'],
@@ -88,27 +182,12 @@ export async function testTypographyAndTokenNamesHaveOneCanonicalBaseline(): Pro
     assert(tokens.includes(`${role}: var(${fontSize})`), `${role} 必须复用 ${fontSize}`)
     assert(tokens.includes(`${lineHeight}: ${expectedLineHeight}`), `${lineHeight} 必须定义为 ${expectedLineHeight}`)
   }
-  const typeSizeTokens = [...tokens.matchAll(/^\s*(--type-[a-z0-9-]+-size)\s*:/gm)].map((match) => match[1]).sort()
-  const approvedTypeSizeTokens = [
-    '--type-body-size',
-    '--type-caption-size',
-    '--type-data-size',
-    '--type-dialog-title-size',
-    '--type-financial-size',
-    '--type-metadata-size',
-    '--type-page-title-size',
-    '--type-row-size',
-    '--type-section-title-size',
-    '--type-ui-base-size',
-  ].sort()
-  assert(
-    typeSizeTokens.join('\n') === approvedTypeSizeTokens.join('\n'),
-    '文字尺寸 token 必须使用批准的 canonical 角色名称',
-  )
+  assert(tokens.includes('--type-ui-base-size: var(--font-size-small)'), 'UI 基线必须明确复用 13px small token')
+  assertCanonicalTypographyTokenNames(tokens)
   for (const obsolete of ['largePlus', 'regularPlus', 'smallPlus', 'miniPlus', 'quickTransition', '--font-monospace', '--bg-border-color']) {
     assert(!all.includes(obsolete), `仍存在重复或非 kebab-case token：${obsolete}`)
   }
-  assert(!/font-size:\s*(10|11\.5|15|16)px/.test(productCss), '产品 CSS 不得绕过字号角色建立第二套基准')
+  assertNoDirectCoreFontSizes(productCss)
   assert(!/border-radius:\s*(999|9999)px/.test(all), '胶囊圆角必须统一使用 radius-full')
 }
 
