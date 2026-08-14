@@ -1,6 +1,11 @@
 import { realpathSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
+import {
+  DESKTOP_VISUAL_SCENARIOS,
+  DESKTOP_VISUAL_VIEWPORTS,
+} from './desktop-visual-scenarios.mjs'
+
 export function isWindowRestorationVisible(bounds, workArea, platform) {
   if (!bounds || !workArea) return false
   // Windows 的 BrowserWindow bounds 包含不可见 resize frame；高 DPI 下可比
@@ -114,6 +119,105 @@ export function isPlatformCjkGlyphFont(font, platform) {
   return false
 }
 
+function exactPixels(value, expected) {
+  const parsed = Number.parseFloat(value)
+  return Number.isFinite(parsed) && Math.abs(parsed - expected) < 0.01
+}
+
+function fontIdentity(font) {
+  return [font?.familyName, font?.postScriptName, font?.isCustomFont].join('|').toLowerCase()
+}
+
+function isUniqueFontList(fonts) {
+  if (!Array.isArray(fonts) || fonts.length === 0) return false
+  return new Set(fonts.map(fontIdentity)).size === fonts.length
+}
+
+function validateTypographyGlyphFonts({ platform, computed, glyphFonts }) {
+  const isInter = (id, font) => isInterVariableGlyphFont(font, computed?.probes?.[id]?.fontFamily)
+  const isCjk = (font) => isPlatformCjkGlyphFont(font, platform)
+  const only = (id, predicate) => isUniqueFontList(glyphFonts?.[id]) && glyphFonts[id].every(predicate)
+  const mixed = glyphFonts?.mixed
+  const mixedKinds = Array.isArray(mixed)
+    ? mixed.map((font) => isInter('mixed', font) ? 'inter' : isCjk(font) ? 'cjk' : 'unknown')
+    : []
+  const mixedValid = isUniqueFontList(mixed) && !mixedKinds.includes('unknown') &&
+    new Set(mixedKinds).size === 2
+  return {
+    latinInter: only('latin', (font) => isInter('latin', font)) &&
+      only('numeric', (font) => isInter('numeric', font)) && mixedValid,
+    cjkSans: only('cjk', isCjk) && mixedValid,
+  }
+}
+
+export function buildTypographyCheckResult({ platform, computed, glyphFonts }) {
+  const probesRendered = ['latin', 'cjk', 'mixed', 'numeric']
+    .every((id) => computed?.probeRendering?.[id]?.rendered === true)
+  const glyphs = validateTypographyGlyphFonts({ platform, computed, glyphFonts })
+  const checks = [
+    {
+      id: 'typography-inter-loaded',
+      pass: computed?.interLoaded === true,
+      detail: `document.fonts.check=${computed?.interLoaded}`,
+    },
+    {
+      id: 'typography-latin-inter',
+      pass: probesRendered && glyphs.latinInter,
+      detail: JSON.stringify({
+        latin: glyphFonts?.latin,
+        mixed: glyphFonts?.mixed,
+        numeric: glyphFonts?.numeric,
+      }),
+    },
+    {
+      id: 'typography-cjk-sans',
+      pass: probesRendered && glyphs.cjkSans,
+      detail: JSON.stringify({ platform, cjk: glyphFonts?.cjk, mixed: glyphFonts?.mixed }),
+    },
+    {
+      id: 'typography-role-metrics',
+      pass: exactPixels(computed?.row?.fontSize, 13) && exactPixels(computed?.row?.lineHeight, 20) &&
+        computed?.row?.fontWeight === '400' &&
+        exactPixels(computed?.metadata?.fontSize, 12) &&
+        exactPixels(computed?.metadata?.lineHeight, 16) &&
+        computed?.metadata?.fontWeight === '500' &&
+        exactPixels(computed?.group?.fontSize, 13) && exactPixels(computed?.group?.lineHeight, 20) &&
+        computed?.group?.fontWeight === '600',
+      detail: JSON.stringify({ row: computed?.row, metadata: computed?.metadata, group: computed?.group }),
+    },
+    {
+      id: 'month-group-geometry',
+      pass: Math.abs(computed?.monthGroupHeight - 36) < 0.01 &&
+        exactPixels(computed?.monthTopGap, 8) && Math.abs(computed?.monthVirtualHeight - 44) < 0.01,
+      detail: JSON.stringify({
+        height: computed?.monthGroupHeight,
+        topGap: computed?.monthTopGap,
+        virtualHeight: computed?.monthVirtualHeight,
+      }),
+    },
+  ]
+  return { checks, failureCount: checks.filter(({ pass }) => pass !== true).length }
+}
+
+export function hasExactDesktopVisualCaptureMatrix(captures, { packaged = false } = {}) {
+  if (!Array.isArray(captures)) return false
+  const expected = new Set(DESKTOP_VISUAL_VIEWPORTS.flatMap((viewport) =>
+    DESKTOP_VISUAL_SCENARIOS.map((scenario) =>
+      `${viewport.width}x${viewport.height}/${scenario.id}`)))
+  if (captures.length !== expected.size) return false
+  const actual = []
+  for (const capture of captures) {
+    const viewport = packaged ? capture?.requestedViewport : capture?.viewport
+    const scenario = packaged
+      ? capture?.scenario
+      : typeof capture?.scenario === 'string' ? capture.scenario : capture?.scenario?.id
+    const key = `${viewport?.width}x${viewport?.height}/${scenario}`
+    if (!expected.has(key)) return false
+    actual.push(key)
+  }
+  return new Set(actual).size === expected.size
+}
+
 export function resolvePackagedExecutableCandidates({
   root,
   platform,
@@ -185,8 +289,8 @@ export function validatePackagedVisualReport(report) {
   if (!report.source || !/^[0-9a-f]{40}$/i.test(report.source.commit ?? '') || report.source.dirty !== false) {
     throw new Error('Packaged visual evidence requires a clean source commit')
   }
-  if (!Array.isArray(report.captures) || report.captures.length !== 35) {
-    throw new Error('Packaged visual evidence requires exactly 35 core captures')
+  if (!hasExactDesktopVisualCaptureMatrix(report.captures, { packaged: true })) {
+    throw new Error('Packaged visual evidence requires the exact unique 5 by 7 capture matrix')
   }
   if (report.typography?.failureCount !== 0) {
     throw new Error('Packaged visual evidence requires complete passing typography evidence')
@@ -210,7 +314,7 @@ export function validatePackagedVisualReport(report) {
   if (!Array.isArray(report.checks)) throw new Error('Packaged visual platform checks are required')
   for (const id of requiredChecks) {
     const match = report.checks.find((entry) => entry?.id === id)
-    if (!match?.pass) throw new Error(`Missing or failed packaged platform check: ${id}`)
+    if (match?.pass !== true) throw new Error(`Missing or failed packaged platform check: ${id}`)
   }
   return report
 }

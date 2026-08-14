@@ -16,9 +16,8 @@ import { _electron as electron } from 'playwright'
 import {
   assertSafePackagedEvidencePaths,
   assertSafePackagedVisualOutputPath,
+  buildTypographyCheckResult,
   isWindowRestorationVisible,
-  isInterVariableGlyphFont,
-  isPlatformCjkGlyphFont,
   normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
@@ -116,15 +115,6 @@ async function waitForVisualSettlement(page, selector) {
   )
 }
 
-function isForbiddenTypographyFont(familyName) {
-  const normalized = familyName.toLowerCase().replaceAll('sans-serif', '')
-  return normalized.includes('simsun') || normalized.includes('songti') || normalized.includes('serif')
-}
-
-function exactPixels(value, expected) {
-  return Number.isFinite(Number.parseFloat(value)) && Math.abs(Number.parseFloat(value) - expected) < 0.01
-}
-
 async function collectTypographyEvidence(page, nativePlatform) {
   await page.evaluate(() => {
     document.querySelector('#atlas-typography-probes')?.remove()
@@ -204,54 +194,12 @@ async function collectTypographyEvidence(page, nativePlatform) {
     await page.evaluate(() => document.querySelector('#atlas-typography-probes')?.remove())
   }
 
-  const allFonts = Object.values(glyphFonts).flat()
-  const probesRendered = Object.values(computed.probeRendering).every((probe) => probe.rendered)
-  const noForbiddenFonts = allFonts.every((font) => !isForbiddenTypographyFont(font.familyName))
-  const hasInter = (id) => glyphFonts[id].some((font) =>
-    isInterVariableGlyphFont(font, computed.probes[id].fontFamily))
-  const hasPlatformCjk = (id) => glyphFonts[id].some((font) =>
-    isPlatformCjkGlyphFont(font, nativePlatform))
-  const typographyChecks = [
-    {
-      id: 'typography-inter-loaded',
-      pass: computed.interLoaded === true,
-      detail: `document.fonts.check=${computed.interLoaded}`,
-    },
-    {
-      id: 'typography-latin-inter',
-      pass: probesRendered && hasInter('latin') && hasInter('mixed') && hasInter('numeric'),
-      detail: JSON.stringify({ latin: glyphFonts.latin, mixed: glyphFonts.mixed, numeric: glyphFonts.numeric }),
-    },
-    {
-      id: 'typography-cjk-sans',
-      pass: probesRendered && noForbiddenFonts && hasPlatformCjk('cjk') && hasPlatformCjk('mixed'),
-      detail: JSON.stringify({ platform: nativePlatform, cjk: glyphFonts.cjk, mixed: glyphFonts.mixed }),
-    },
-    {
-      id: 'typography-role-metrics',
-      pass: exactPixels(computed.row.fontSize, 13) && exactPixels(computed.row.lineHeight, 20) &&
-        exactPixels(computed.metadata.fontSize, 12) && exactPixels(computed.metadata.lineHeight, 16) &&
-        exactPixels(computed.group.fontSize, 13) && exactPixels(computed.group.lineHeight, 20) &&
-        computed.group.fontWeight === '600',
-      detail: JSON.stringify({ row: computed.row, metadata: computed.metadata, group: computed.group }),
-    },
-    {
-      id: 'month-group-geometry',
-      pass: Math.abs(computed.monthGroupHeight - 36) < 0.01 && exactPixels(computed.monthTopGap, 8) &&
-        Math.abs(computed.monthVirtualHeight - 44) < 0.01,
-      detail: JSON.stringify({
-        height: computed.monthGroupHeight,
-        topGap: computed.monthTopGap,
-        virtualHeight: computed.monthVirtualHeight,
-      }),
-    },
-  ]
+  const result = buildTypographyCheckResult({ platform: nativePlatform, computed, glyphFonts })
   return {
     platform: nativePlatform,
     computed,
     glyphFonts,
-    checks: typographyChecks,
-    failureCount: typographyChecks.filter(({ pass }) => !pass).length,
+    ...result,
   }
 }
 
@@ -421,6 +369,10 @@ try {
       diagnostics.length = 0
       await page.evaluate((path) => { window.location.hash = `#${path}` }, scenario.path)
       await waitForVisualSettlement(page, scenario.ready)
+      if (!typography && scenario.id === 'trades') {
+        typography = await collectTypographyEvidence(page, hostPlatform)
+        for (const check of typography.checks) record(check.id, check.pass, check.detail)
+      }
       const metrics = await page.evaluate(() => ({
         actualViewport: {
           width: window.innerWidth,
@@ -446,10 +398,6 @@ try {
         errors: [...diagnostics],
         horizontalOverflowPx: metrics.horizontalOverflowPx,
       })
-      if (!typography && scenario.id === 'trades') {
-        typography = await collectTypographyEvidence(page, hostPlatform)
-        for (const check of typography.checks) record(check.id, check.pass, check.detail)
-      }
     }
   }
 

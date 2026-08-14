@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import {
@@ -10,6 +11,11 @@ import {
   desktopVisualReportHasFailures,
 } from '../qa-desktop-visual.mjs'
 import { createDesktopVisualSnapshot } from './desktop-visual-seed.mjs'
+
+function createDesktopCaptures() {
+  return DESKTOP_VISUAL_VIEWPORTS.flatMap((viewport) =>
+    DESKTOP_VISUAL_SCENARIOS.map((scenario) => ({ viewport, scenario })))
+}
 
 test('desktop visual matrix owns every supported window and core route', () => {
   assert.deepEqual(DESKTOP_VISUAL_VIEWPORTS, [
@@ -69,11 +75,13 @@ test('desktop visual Electron mode rejects real application data paths', () => {
 })
 
 test('desktop visual report fails closed on runtime errors or horizontal overflow', () => {
+  const captures = createDesktopCaptures()
   const clean = {
     consoleErrors: [],
     pageErrors: [],
     metrics: { overflowCaptureCount: 0 },
     typography: { failureCount: 0 },
+    captures,
   }
 
   assert.equal(desktopVisualReportHasFailures(clean), false)
@@ -85,6 +93,7 @@ test('desktop visual report fails closed on runtime errors or horizontal overflo
     consoleErrors: [],
     pageErrors: [],
     metrics: { overflowCaptureCount: 0 },
+    captures,
   }), true)
   assert.equal(desktopVisualReportHasFailures({
     ...clean,
@@ -94,4 +103,48 @@ test('desktop visual report fails closed on runtime errors or horizontal overflo
     ...clean,
     pageErrors: ['render failed'],
   }), true)
+})
+
+test('desktop visual report requires the exact unique 5 by 7 capture matrix', () => {
+  const captures = createDesktopCaptures()
+  const clean = {
+    consoleErrors: [],
+    pageErrors: [],
+    metrics: { overflowCaptureCount: 0 },
+    typography: { failureCount: 0 },
+    captures,
+  }
+
+  assert.equal(desktopVisualReportHasFailures({ ...clean, captures: captures.slice(1) }), true)
+  assert.equal(desktopVisualReportHasFailures({
+    ...clean,
+    captures: [captures[0], ...captures.slice(0, -1)],
+  }), true)
+  assert.equal(desktopVisualReportHasFailures({
+    ...clean,
+    captures: captures.map((capture, index) => index === 0
+      ? { ...capture, viewport: { width: 1111, height: 777 } }
+      : capture),
+  }), true)
+  assert.equal(desktopVisualReportHasFailures({
+    ...clean,
+    captures: captures.map((capture, index) => index === 0
+      ? { ...capture, scenario: { ...capture.scenario, id: 'unknown-scenario' } }
+      : capture),
+  }), true)
+})
+
+test('desktop typography diagnostics are snapshotted after the probe collection', () => {
+  const source = readFileSync('scripts/qa-desktop-visual.mjs', 'utf8')
+  const captureScenario = source.slice(
+    source.indexOf('async function captureScenario'),
+    source.indexOf('function bindDiagnostics'),
+  )
+  const typographyProbe = captureScenario.indexOf('await afterSettlement?.()')
+  const consoleSnapshot = captureScenario.indexOf('consoleErrors: [...diagnostics.console]')
+  const pageSnapshot = captureScenario.indexOf('pageErrors: [...diagnostics.page]')
+
+  assert.ok(typographyProbe >= 0, 'captureScenario must collect typography before diagnostics are frozen')
+  assert.ok(typographyProbe < consoleSnapshot, 'probe console errors must belong to the current capture')
+  assert.ok(typographyProbe < pageSnapshot, 'probe page errors must belong to the current capture')
 })

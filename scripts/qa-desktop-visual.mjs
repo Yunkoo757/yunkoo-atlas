@@ -21,8 +21,8 @@ import {
 } from './desktop-visual-scenarios.mjs'
 import { createDesktopVisualSnapshot } from './fixtures/desktop-visual-seed.mjs'
 import {
-  isInterVariableGlyphFont,
-  isPlatformCjkGlyphFont,
+  buildTypographyCheckResult,
+  hasExactDesktopVisualCaptureMatrix,
 } from './packaged-desktop-visual-contract.mjs'
 
 const require = createRequire(import.meta.url)
@@ -149,19 +149,6 @@ async function waitForVisualSettlement(page, readySelector) {
   })
 }
 
-function typographyCheck(id, pass, detail) {
-  return { id, pass, detail }
-}
-
-function isForbiddenTypographyFont(familyName) {
-  const normalized = familyName.toLowerCase().replaceAll('sans-serif', '')
-  return normalized.includes('simsun') || normalized.includes('songti') || normalized.includes('serif')
-}
-
-function exactPixels(value, expected) {
-  return Number.isFinite(Number.parseFloat(value)) && Math.abs(Number.parseFloat(value) - expected) < 0.01
-}
-
 async function collectTypographyEvidence(page, hostPlatform) {
   await page.evaluate(() => {
     document.querySelector('#atlas-typography-probes')?.remove()
@@ -241,57 +228,12 @@ async function collectTypographyEvidence(page, hostPlatform) {
     await page.evaluate(() => document.querySelector('#atlas-typography-probes')?.remove())
   }
 
-  const allFonts = Object.values(glyphFonts).flat()
-  const noForbiddenFonts = allFonts.every((font) => !isForbiddenTypographyFont(font.familyName))
-  const hasInter = (id) => glyphFonts[id].some((font) =>
-    isInterVariableGlyphFont(font, computed.probes[id].fontFamily))
-  const hasPlatformCjk = (id) => glyphFonts[id].some((font) =>
-    isPlatformCjkGlyphFont(font, hostPlatform))
-  const checks = [
-    typographyCheck(
-      'typography-inter-loaded',
-      computed.interLoaded === true,
-      `document.fonts.check=${computed.interLoaded}`,
-    ),
-    typographyCheck(
-      'typography-latin-inter',
-      hasInter('latin') && hasInter('mixed') && hasInter('numeric'),
-      JSON.stringify({ latin: glyphFonts.latin, mixed: glyphFonts.mixed, numeric: glyphFonts.numeric }),
-    ),
-    typographyCheck(
-      'typography-cjk-sans',
-      noForbiddenFonts && hasPlatformCjk('cjk') && hasPlatformCjk('mixed'),
-      JSON.stringify({ platform: hostPlatform, cjk: glyphFonts.cjk, mixed: glyphFonts.mixed }),
-    ),
-    typographyCheck(
-      'typography-role-metrics',
-      exactPixels(computed.row.fontSize, 13) && exactPixels(computed.row.lineHeight, 20) &&
-        exactPixels(computed.metadata.fontSize, 12) && exactPixels(computed.metadata.lineHeight, 16) &&
-        exactPixels(computed.group.fontSize, 13) && exactPixels(computed.group.lineHeight, 20) &&
-        computed.group.fontWeight === '600',
-      JSON.stringify({ row: computed.row, metadata: computed.metadata, group: computed.group }),
-    ),
-    typographyCheck(
-      'month-group-geometry',
-      Math.abs(computed.monthGroupHeight - 36) < 0.01 && exactPixels(computed.monthTopGap, 8) &&
-        Math.abs(computed.monthVirtualHeight - 44) < 0.01,
-      JSON.stringify({
-        height: computed.monthGroupHeight,
-        topGap: computed.monthTopGap,
-        virtualHeight: computed.monthVirtualHeight,
-      }),
-    ),
-  ]
-  if (!Object.values(computed.probeRendering).every((probe) => probe.rendered)) {
-    const glyphChecks = checks.filter(({ id }) => id === 'typography-latin-inter' || id === 'typography-cjk-sans')
-    for (const check of glyphChecks) check.pass = false
-  }
+  const result = buildTypographyCheckResult({ platform: hostPlatform, computed, glyphFonts })
   return {
     platform: hostPlatform,
     computed,
     glyphFonts,
-    checks,
-    failureCount: checks.filter(({ pass }) => !pass).length,
+    ...result,
   }
 }
 
@@ -353,11 +295,13 @@ async function captureScenario({
   build,
   navigate,
   diagnostics,
+  afterSettlement,
 }) {
   diagnostics.console.length = 0
   diagnostics.page.length = 0
   await navigate(scenario.path)
   await waitForVisualSettlement(page, scenario.ready)
+  await afterSettlement?.()
   const metrics = await collectMetrics(page)
   await page.screenshot({ path: screenshot, fullPage: false, animations: 'disabled' })
   return {
@@ -424,6 +368,9 @@ async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
             screenshot,
             build,
             diagnostics,
+            afterSettlement: !typography && scenario.id === 'trades'
+              ? async () => { typography = await collectTypographyEvidence(page, platform()) }
+              : undefined,
             navigate: async (pathname) => {
               if (!applicationStarted) {
                 await page.goto(new URL(pathname, baseUrl).href, {
@@ -440,9 +387,6 @@ async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
             },
           })
           captures.push(capture)
-          if (!typography && scenario.id === 'trades') {
-            typography = await collectTypographyEvidence(page, platform())
-          }
         }
       } finally {
         await context.close()
@@ -548,6 +492,9 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
           screenshot,
           build,
           diagnostics,
+          afterSettlement: !typography && scenario.id === 'trades'
+            ? async () => { typography = await collectTypographyEvidence(page, platform()) }
+            : undefined,
           navigate: async (pathname) => {
             await page.evaluate((nextPath) => {
               window.location.hash = `#${nextPath}`
@@ -555,9 +502,6 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
           },
         })
         captures.push(capture)
-        if (!typography && scenario.id === 'trades') {
-          typography = await collectTypographyEvidence(page, platform())
-        }
       }
     }
   } finally {
@@ -635,7 +579,8 @@ export function desktopVisualReportHasFailures(report) {
   return report.consoleErrors.length > 0 ||
     report.pageErrors.length > 0 ||
     report.metrics.overflowCaptureCount > 0 ||
-    report.typography?.failureCount !== 0
+    report.typography?.failureCount !== 0 ||
+    !hasExactDesktopVisualCaptureMatrix(report.captures)
 }
 
 async function main() {

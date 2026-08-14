@@ -5,6 +5,11 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import {
+  DESKTOP_VISUAL_SCENARIOS,
+  DESKTOP_VISUAL_VIEWPORTS,
+} from '../desktop-visual-scenarios.mjs'
+
+import {
   assertSafePackagedEvidencePaths,
   assertSafePackagedVisualOutputPath,
   buildRequiredPlatformChecks,
@@ -15,6 +20,64 @@ import {
   validatePackagedVisualReport,
 } from '../packaged-desktop-visual-contract.mjs'
 import * as packagedVisualContract from '../packaged-desktop-visual-contract.mjs'
+
+const customInter = Object.freeze({
+  familyName: 'Inter',
+  postScriptName: 'Inter',
+  isCustomFont: true,
+  glyphCount: 8,
+})
+const windowsCjk = Object.freeze({
+  familyName: 'Microsoft YaHei UI',
+  postScriptName: 'MicrosoftYaHeiUI',
+  isCustomFont: false,
+  glyphCount: 8,
+})
+
+function createPackagedCaptures() {
+  return DESKTOP_VISUAL_VIEWPORTS.flatMap((requestedViewport) =>
+    DESKTOP_VISUAL_SCENARIOS.map((scenario) => ({
+      id: `${requestedViewport.width}x${requestedViewport.height}/${scenario.id}`,
+      requestedViewport,
+      scenario: scenario.id,
+      errors: [],
+      horizontalOverflowPx: 0,
+    })))
+}
+
+function createTypographyInput() {
+  const fontFamily = '"Inter Variable", Inter, system-ui, "Microsoft YaHei", sans-serif'
+  return {
+    platform: 'win32',
+    computed: {
+      interLoaded: true,
+      row: { fontSize: '13px', lineHeight: '20px', fontWeight: '400' },
+      metadata: { fontSize: '12px', lineHeight: '16px', fontWeight: '500' },
+      group: { fontSize: '13px', lineHeight: '20px', fontWeight: '600' },
+      probes: {
+        latin: { fontFamily },
+        cjk: { fontFamily },
+        mixed: { fontFamily },
+        numeric: { fontFamily },
+      },
+      probeRendering: {
+        latin: { rendered: true },
+        cjk: { rendered: true },
+        mixed: { rendered: true },
+        numeric: { rendered: true },
+      },
+      monthGroupHeight: 36,
+      monthTopGap: '8px',
+      monthVirtualHeight: 44,
+    },
+    glyphFonts: {
+      latin: [{ ...customInter, glyphCount: 23 }],
+      cjk: [{ ...windowsCjk, glyphCount: 8 }],
+      mixed: [{ ...customInter, glyphCount: 15 }, { ...windowsCjk, glyphCount: 3 }],
+      numeric: [{ ...customInter, glyphCount: 20 }],
+    },
+  }
+}
 
 test('typography glyph matching binds Chromium internal names to declared native families', () => {
   assert.equal(typeof packagedVisualContract.isInterVariableGlyphFont, 'function')
@@ -35,6 +98,68 @@ test('typography glyph matching binds Chromium internal names to declared native
     { familyName: 'PingFang SC' },
     'darwin',
   ), true)
+})
+
+test('typography glyph checks reject unknown duplicate empty and incomplete probe fonts', () => {
+  assert.equal(typeof packagedVisualContract.buildTypographyCheckResult, 'function')
+  const clean = createTypographyInput()
+  assert.equal(packagedVisualContract.buildTypographyCheckResult(clean).failureCount, 0)
+
+  const invalidGlyphSets = [
+    { latin: [customInter, { familyName: 'Arial', postScriptName: 'Arial', isCustomFont: false }] },
+    { numeric: [] },
+    { latin: [customInter, { ...customInter }] },
+    { cjk: [windowsCjk, { familyName: 'SimSun', postScriptName: 'SimSun', isCustomFont: false }] },
+    { cjk: [{ familyName: 'Songti SC', postScriptName: 'SongtiSC', isCustomFont: false }] },
+    { mixed: [customInter] },
+    { mixed: [windowsCjk] },
+    { mixed: [customInter, { familyName: 'serif', postScriptName: 'serif', isCustomFont: false }] },
+  ]
+  for (const glyphFonts of invalidGlyphSets) {
+    const result = packagedVisualContract.buildTypographyCheckResult({
+      ...clean,
+      glyphFonts: { ...clean.glyphFonts, ...glyphFonts },
+    })
+    assert.ok(result.failureCount > 0, `invalid glyph set must fail: ${JSON.stringify(glyphFonts)}`)
+    assert.equal(
+      result.checks
+        .filter(({ id }) => id === 'typography-latin-inter' || id === 'typography-cjk-sans')
+        .every(({ pass }) => pass === true),
+      false,
+    )
+  }
+})
+
+test('typography role metrics fail closed on every required size line height and weight drift', () => {
+  assert.equal(typeof packagedVisualContract.buildTypographyCheckResult, 'function')
+  const clean = createTypographyInput()
+  const drifts = [
+    ['row', 'fontSize', '14px'],
+    ['row', 'lineHeight', '21px'],
+    ['row', 'fontWeight', '500'],
+    ['metadata', 'fontSize', '13px'],
+    ['metadata', 'lineHeight', '17px'],
+    ['metadata', 'fontWeight', '400'],
+    ['group', 'fontSize', '12px'],
+    ['group', 'lineHeight', '19px'],
+    ['group', 'fontWeight', '500'],
+  ]
+
+  for (const [role, property, value] of drifts) {
+    const result = packagedVisualContract.buildTypographyCheckResult({
+      ...clean,
+      computed: {
+        ...clean.computed,
+        [role]: { ...clean.computed[role], [property]: value },
+      },
+    })
+    assert.equal(
+      result.checks.find(({ id }) => id === 'typography-role-metrics')?.pass,
+      false,
+      `${role}.${property} drift must fail`,
+    )
+    assert.equal(result.failureCount, 1, `${role}.${property} drift must increment failureCount`)
+  }
 })
 
 test('packaged executable candidates cover native Windows and both macOS architectures', () => {
@@ -125,6 +250,16 @@ test('packaged visual waits for hydrated UI before routing the first scenario', 
   assert.ok(hydration < scenarioLoop, 'hydration must complete before routing the first visual scenario')
 })
 
+test('packaged typography diagnostics are captured in the same trade capture', () => {
+  const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  const scenarioLoop = source.slice(source.indexOf('for (const viewport of DESKTOP_VISUAL_VIEWPORTS)'))
+  const typographyProbe = scenarioLoop.indexOf('typography = await collectTypographyEvidence')
+  const diagnosticSnapshot = scenarioLoop.indexOf('errors: [...diagnostics]')
+
+  assert.ok(typographyProbe >= 0, 'packaged trade scenario must collect typography')
+  assert.ok(typographyProbe < diagnosticSnapshot, 'probe errors must be snapshotted in the trade capture')
+})
+
 test('Windows window restoration allows only the native resize-frame overhang', () => {
   const workArea = { x: 0, y: 0, width: 820, height: 576 }
   assert.equal(
@@ -190,12 +325,13 @@ test('evidence isolation accepts canonical aliases of the same temporary root', 
 })
 
 test('report validation fails closed when screenshots or native platform checks are missing', () => {
+  const captures = createPackagedCaptures()
   const complete = {
     schemaVersion: 1,
     runtime: 'packaged-electron',
     platform: 'darwin',
     source: { commit: 'a'.repeat(40), dirty: false },
-    captures: Array.from({ length: 35 }, (_, index) => ({ id: `capture-${index}`, errors: [], horizontalOverflowPx: 0 })),
+    captures,
     checks: buildRequiredPlatformChecks('darwin').map((id) => ({ id, pass: true })),
     typography: { failureCount: 0 },
   }
@@ -203,7 +339,32 @@ test('report validation fails closed when screenshots or native platform checks 
   assert.doesNotThrow(() => validatePackagedVisualReport(complete))
   assert.throws(
     () => validatePackagedVisualReport({ ...complete, captures: complete.captures.slice(1) }),
-    /exactly 35/,
+    /capture matrix/i,
+  )
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...complete,
+      captures: [captures[0], ...captures.slice(0, -1)],
+    }),
+    /capture matrix/i,
+  )
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...complete,
+      captures: captures.map((capture, index) => index === 0
+        ? { ...capture, requestedViewport: { width: 1111, height: 777 } }
+        : capture),
+    }),
+    /capture matrix/i,
+  )
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...complete,
+      captures: captures.map((capture, index) => index === 0
+        ? { ...capture, scenario: 'unknown-scenario' }
+        : capture),
+    }),
+    /capture matrix/i,
   )
   assert.throws(
     () => validatePackagedVisualReport({ ...complete, checks: complete.checks.filter((entry) => entry.id !== 'mac-quit-command') }),
@@ -224,6 +385,18 @@ test('report validation fails closed when screenshots or native platform checks 
     () => validatePackagedVisualReport({ ...complete, typography: undefined }),
     /typography/i,
   )
+  for (const pass of [false, 'false', 1]) {
+    assert.throws(
+      () => validatePackagedVisualReport({
+        ...complete,
+        checks: complete.checks.map((entry) => entry.id === 'typography-role-metrics'
+          ? { ...entry, pass }
+          : entry),
+      }),
+      /typography-role-metrics/,
+      `required checks must reject pass=${JSON.stringify(pass)}`,
+    )
+  }
 
   const windows = {
     ...complete,
