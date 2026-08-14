@@ -12,7 +12,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .ui-date-trigger > svg {
@@ -52,7 +54,7 @@
 .ui-date-head strong {
   color: var(--text-primary);
   font-size: var(--fs-xs);
-  font-weight: 620;
+  font-weight: var(--font-weight-semibold);
 }
 
 .ui-date-head > div {
@@ -100,8 +102,10 @@
 .ui-date-grid button {
   height: 32px;
   color: var(--text-secondary);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--fs-xs);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .ui-date-grid button.is-outside {

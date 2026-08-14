@@ -20,9 +20,11 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-strong);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--type-body-size);
   font-weight: var(--font-weight-semibold);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   text-overflow: ellipsis;
 }
 

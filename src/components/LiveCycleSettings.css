@@ -36,7 +36,7 @@
 .live-cycle-warning { display: flex; align-items: flex-start; gap: 7px; margin: 0; padding: var(--sp-3); color: var(--text-secondary); background: color-mix(in srgb, var(--warn-action) 7%, var(--bg-surface)); border: 1px solid color-mix(in srgb, var(--warn-action) 28%, var(--border-subtle)); font-size: var(--type-metadata-size); line-height: 1.45; }
 .live-cycle-warning svg { flex: 0 0 auto; color: var(--warn-action); }
 .live-cycle-preview-list { display: grid; max-height: 154px; overflow: auto; border-top: 1px solid var(--border-subtle); }
-.live-cycle-preview-list > div { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(70px, 1fr) minmax(100px, 1.4fr); gap: var(--sp-2); min-width: 0; padding: var(--sp-2) 0; color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--type-metadata-size); border-bottom: 1px solid var(--border-subtle); }
+.live-cycle-preview-list > div { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(70px, 1fr) minmax(100px, 1.4fr); gap: var(--sp-2); min-width: 0; padding: var(--sp-2) 0; color: var(--text-secondary); font-family: var(--font-ui); font-size: var(--type-metadata-size); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; border-bottom: 1px solid var(--border-subtle); }
 .live-cycle-preview-list > div > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-cycle-preview-list code { display: block; color: var(--text-primary); font: inherit; }
 .live-cycle-preview-more { margin: calc(var(--sp-3) * -1) 0 0; color: var(--text-tertiary); font-size: var(--type-metadata-size); }

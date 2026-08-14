@@ -173,3 +173,38 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     }
   }
 }
+
+export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promise<void> {
+  const businessNumericFiles = [
+    'src/components/LiveCycleSettings.css',
+    'src/components/LivePerformanceCycleControl.css',
+    'src/components/LivePerformanceCycleManager.css',
+    'src/components/RiskStatusStrip.css',
+    'src/components/TradeOpenRiskDialog.css',
+    'src/components/WeeklyRiskPreparationCard.css',
+    'src/components/ui/DatePicker.css',
+    'src/views/Dashboard.css',
+    'src/views/ReviewSessionView.css',
+    'src/views/TrashView.css',
+    'src/views/WeeklyReviewView.css',
+  ]
+  const businessNumericSources = await Promise.all(businessNumericFiles.map((path) => fs.readFile(path, 'utf8')))
+
+  for (const [index, css] of businessNumericSources.entries()) {
+    assert(!css.includes('font-family: var(--font-mono)'), `${businessNumericFiles[index]} uses mono for business data`)
+  }
+
+  const [kbd, editor, routeState, dataIo, notionImport] = await Promise.all([
+    fs.readFile('src/components/ui/Kbd.css', 'utf8'),
+    fs.readFile('src/editor/Editor.css', 'utf8'),
+    fs.readFile('src/components/RouteState.css', 'utf8'),
+    fs.readFile('src/components/DataIOContent.css', 'utf8'),
+    fs.readFile('src/components/NotionImportModal.css', 'utf8'),
+  ])
+  assert(cssRule(kbd, '.ui-kbd').includes('font-family: var(--font-mono)'), '快捷键按键必须保留 mono')
+  assert(cssRule(editor, '.editor code').includes('font-family: var(--font-mono)'), '编辑器 code 必须保留 mono')
+  assert(cssRule(editor, '.editor pre').includes('font-family: var(--font-mono)'), '编辑器 pre 必须保留 mono')
+  assert(cssRule(routeState, '.app-route-state-code').includes('font-family: var(--font-mono)'), '路由错误码必须保留 mono')
+  assert(cssRule(dataIo, '.dio-mono').includes('font-family: var(--font-mono)'), '原始数据预览必须保留 mono')
+  assert(cssRule(notionImport, '.nim-file-name').includes('font-family: var(--font-mono)'), 'Notion 导入原始文件预览必须保留 mono')
+}

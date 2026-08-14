@@ -112,9 +112,11 @@
 }
 .trash-search-count {
   margin-left: var(--sp-1);
+  font-family: var(--font-ui);
   font-size: var(--fs-mini);
   color: var(--text-quaternary);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .trash-group + .trash-group {
@@ -144,8 +146,10 @@
 }
 .trash-group-count {
   color: var(--text-quaternary);
+  font-family: var(--font-ui);
   font-size: var(--fs-micro);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 /* 对齐交易列表：check | status | ref | identity | pnl | R | date | expiry | actions */
@@ -183,9 +187,10 @@
 
 .trash-item-id {
   overflow: hidden;
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--fs-mini);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   color: var(--text-tertiary);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -204,7 +209,7 @@
 .trash-item-symbol {
   font-size: var(--fs-sm);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
   color: var(--text-primary);
 }
 .trash-item-meta .strategy-label,
@@ -214,7 +219,9 @@
 
 .trash-item-pnl,
 .trash-item-r {
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   text-align: right;
   white-space: nowrap;
 }
@@ -237,7 +244,9 @@
 .trash-item-date {
   font-size: var(--fs-mini);
   color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   white-space: nowrap;
 }
 
@@ -252,7 +261,9 @@
   border: 1px solid var(--border-default);
   font-size: 11px;
   color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   white-space: nowrap;
   background: transparent;
 }

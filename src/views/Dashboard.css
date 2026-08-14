@@ -165,9 +165,11 @@
 
 .db-week-metric strong {
   color: var(--text-strong);
+  font-family: var(--font-ui);
   font-size: var(--fs-title);
   font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -221,9 +223,11 @@
   font-size: var(--type-metadata-size);
 }
 .db-card-value {
+  font-family: var(--font-ui);
   font-size: var(--fs-h);
   font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   letter-spacing: 0;
   line-height: 1.1;
   overflow: hidden;
@@ -263,7 +267,9 @@
 
 .db-data-health-copy,
 .db-data-health-state {
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .db-data-health.has-conflict .db-data-health-state {
@@ -385,7 +391,9 @@
 .db-chart-data table {
   width: 100%;
   border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .db-chart-data th,
@@ -462,7 +470,9 @@
 }
 .db-chart-tip.is-compact .db-chart-tip-symbol {
   margin-bottom: 6px;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 .db-chart-tip-row {
   display: flex;
@@ -473,7 +483,9 @@
 }
 .db-chart-tip-row span:last-child,
 .db-chart-tip-row strong {
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   font-weight: var(--font-weight-medium);
   color: var(--text-primary);
 }
@@ -538,9 +550,11 @@ a.db-strat:hover {
   transition: transform var(--dur-slow) var(--ease-out);
 }
 .db-strat-pnl {
+  font-family: var(--font-ui);
   font-size: var(--fs-sm);
   font-weight: var(--font-weight-medium);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   text-align: right;
 }
 

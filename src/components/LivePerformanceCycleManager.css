@@ -41,8 +41,10 @@
 
 .live-performance-cycle-row span {
   color: var(--text-tertiary);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .live-performance-cycle-form,
@@ -80,7 +82,9 @@
 
 .live-performance-cycle-preview strong {
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .live-performance-cycle-counts {

@@ -53,8 +53,8 @@
   font-size: var(--type-caption-size);
   font-style: normal;
 }
-.trade-open-risk-periods strong { color: var(--text-primary); font-family: var(--font-mono); font-size: var(--type-row-size); }
-.trade-open-risk-periods small { grid-column: 1 / -1; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.trade-open-risk-periods strong { color: var(--text-primary); font-family: var(--font-ui); font-size: var(--type-row-size); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
+.trade-open-risk-periods small { grid-column: 1 / -1; font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
 .trade-open-risk-periods em { grid-column: 1 / -1; color: var(--text-quaternary); }
 .trade-open-risk-periods .is-triggered em { color: var(--neg); }
 .trade-open-risk-periods .is-unknown em { color: var(--warn-action); }

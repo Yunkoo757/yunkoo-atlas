@@ -45,7 +45,8 @@
 .review-session-assessed {
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   font-size: var(--fs-xs);
 }
 
@@ -100,7 +101,7 @@
   font-size: var(--type-page-title-size);
   font-weight: var(--type-page-title-weight);
   line-height: 1.18;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.012em;
 }
 
 .review-session-intro p,
@@ -295,15 +296,17 @@
 
 .review-session-card-ref {
   color: var(--text-quaternary);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--fs-xs);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   white-space: nowrap;
 }
 
 .review-session-item-header h1 {
   margin: 0;
   font-size: var(--fs-title);
-  letter-spacing: -0.025em;
+  letter-spacing: -0.012em;
 }
 
 .review-session-summary > span {
@@ -313,7 +316,8 @@
   background: var(--bg-hover);
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
@@ -435,8 +439,10 @@ button.review-session-gallery-slot.is-ready {
   border-radius: var(--radius-rounded);
   background: var(--overlay-dark);
   color: var(--accent-text);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--fs-micro);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 @keyframes reviewSessionSkeleton {
@@ -592,7 +598,7 @@ button.review-session-gallery-slot.is-ready {
   background: var(--bg-hover);
 }
 
-.review-session-result-grid strong { font-family: var(--font-mono); font-size: var(--fs-h); }
+.review-session-result-grid strong { font-family: var(--font-ui); font-size: var(--fs-h); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
 .review-session-result-grid small { color: var(--text-tertiary); font-size: var(--fs-micro); }
 
 .review-session-finished-actions {

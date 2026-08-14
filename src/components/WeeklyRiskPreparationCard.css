@@ -123,7 +123,9 @@
   color: var(--text-primary);
   font: inherit;
   font-size: var(--type-body-size);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
@@ -176,9 +178,10 @@
 .risk-preparation-risk-amount {
   margin-right: 3px;
   color: var(--text-tertiary);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
 .risk-preparation-risk-amount label {

@@ -29,8 +29,8 @@
 .risk-status-period-head strong { color: var(--text-tertiary); font-size: var(--type-row-size); }
 .risk-status-track { height: 3px; margin: 9px 0 7px; overflow: hidden; background: var(--bg-inset); border-radius: var(--radius-rounded); }
 .risk-status-track > span { display: block; height: 100%; background: var(--pos); }
-.risk-status-values { color: var(--text-muted); font-size: var(--type-metadata-size); font-variant-numeric: tabular-nums; }
-.risk-status-values strong { color: var(--text-primary); font-family: var(--font-mono); }
+.risk-status-values { color: var(--text-muted); font-family: var(--font-ui); font-size: var(--type-metadata-size); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
+.risk-status-values strong { color: var(--text-primary); }
 .risk-status-period.is-near .risk-status-period-head strong,
 .risk-status-period.is-constrained .risk-status-period-head strong,
 .risk-status-period.is-partial .risk-status-period-head strong,
