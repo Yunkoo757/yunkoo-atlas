@@ -11,6 +11,11 @@ function rule(source: string, selector: string): string {
   return source.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1] ?? ''
 }
 
+function assertRuleDeclaration(source: string, selector: string, property: string, expected: string, message: string): void {
+  const actual = rule(source, selector).match(new RegExp(`${property}\\s*:\\s*([^;\\n]+)`))?.[1]?.trim()
+  assert.equal(actual, expected, message)
+}
+
 export function testTodayHeadingFollowsActiveQueue(): void {
   const counts = { all: 10, open: 3, results: 1, review: 6 }
   assert.equal(todayHeadingForTab('all', counts), '还有 10 项需要处理')
@@ -35,18 +40,19 @@ export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
     throw new Error('today workspace must retain the compact risk status strip')
   }
 
-  if (!rule(today, '\\.today-queue-tabs button').includes('min-height: 32px')) {
-    throw new Error('today queue tabs must keep the 32px regular-control contract')
-  }
-  if (!rule(today, '\\.today-focus \\.empty-btn').includes('min-height: 36px')) {
-    throw new Error('today primary action must keep the 36px control contract')
-  }
-  if (!rule(today, '\\.today-queue-tabs button').includes('font-size: 13px')) {
-    throw new Error('today queue controls must keep 13px core text')
-  }
-  if (!rule(today, '\\.today-stats-link').includes('font-size: var(--type-row-size)')) {
-    throw new Error('today stats link must keep 13px actionable text')
-  }
+  assertRuleDeclaration(today, '\\.today-queue-tabs button', 'min-height', '32px', 'today queue tabs must keep the 32px regular-control contract')
+  assertRuleDeclaration(today, '\\.today-queue-tabs button', 'font-size', 'var(--type-row-size)', 'today queue tabs must use the 13px Row role')
+  assertRuleDeclaration(today, '\\.today-queue-tabs button', 'line-height', 'var(--type-row-line-height)', 'today queue tabs must use the 20px Row line height')
+  assertRuleDeclaration(today, '\\.today-focus \\.empty-btn', 'min-height', '36px', 'today primary action must keep the 36px control contract')
+  assertRuleDeclaration(today, '\\.today-focus \\.empty-btn', 'font-size', 'var(--type-row-size)', 'today primary action must use the 13px Row role')
+  assertRuleDeclaration(today, '\\.today-focus \\.empty-btn', 'line-height', 'var(--type-row-line-height)', 'today primary action must use the 20px Row line height')
+  assertRuleDeclaration(today, '\\.today-stats-link', 'min-height', '32px', 'today stats link must keep the 32px actionable-control contract')
+  assertRuleDeclaration(today, '\\.today-stats-link', 'font-size', 'var(--type-row-size)', 'today stats link must use the 13px Row role')
+  assertRuleDeclaration(today, '\\.today-stats-link', 'line-height', 'var(--type-row-line-height)', 'today stats link must use the 20px Row line height')
+  assertRuleDeclaration(today, '\\.today-stats-sub', 'font-size', 'var(--type-metadata-size)', 'today stats description must use the 12px Metadata role')
+  assertRuleDeclaration(today, '\\.today-stats-sub', 'line-height', 'var(--type-metadata-line-height)', 'today stats description must use the 16px Metadata line height')
+  assertRuleDeclaration(today, '\\.today-stats-title', 'font-size', 'var(--type-section-title-size)', 'today stats title must use the approved Section title role')
+  assertRuleDeclaration(today, '\\.today-stats-title', 'font-weight', 'var(--font-weight-semibold)', 'today stats title must keep the semibold title hierarchy')
   if (today.includes('var(--type-caption-size)')) {
     throw new Error('today workspace core styles must not consume the 11px caption token')
   }

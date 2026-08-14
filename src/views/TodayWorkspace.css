@@ -83,6 +83,7 @@
 .today-focus .empty-btn {
   min-height: 36px;
   font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .today-focus .empty-btn.is-secondary {
@@ -137,6 +138,7 @@
   border-radius: var(--radius-6);
   color: var(--text-secondary);
   font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
   text-decoration: none;
 }
 
@@ -210,6 +212,7 @@
   font-family: inherit;
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   background: transparent;
   border: 0;
   border-radius: var(--radius-6);

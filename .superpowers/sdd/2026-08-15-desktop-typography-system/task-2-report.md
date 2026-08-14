@@ -58,3 +58,10 @@
 - GREEN：allowlist 内容必须匹配受控 ASCII 微标签字符集且至少含一个 `A-Z`；`2026`、`15/30`、中文和中英混排均被拒绝。
 - 归属证明：未来例外条目必须提供 CSS `path + selector`、`renderSourcePath`、同一 JSX 元素中含该 `className` 与精确文本的 `renderedJsx`。测试先校验 JSX 的 selector/text 绑定，再校验完整片段真实存在于该 render source，未再使用宽泛的文本包含判断。
 - 生产视觉与月份分组均未修改；九文件负向合同和 selector 正向角色合同保持不变。
+
+## Integration Fix Round 4/5
+
+- RED：`TodayWorkspace.design.test.ts` 的旧 `font-size: 13px` 字面合同在 canonical token 迁移后失败；收紧为 Row 13/20 后，明确发现队列 Tab 缺少 Row 20px 行高。
+- GREEN：在已授权的 `.today-queue-tabs button`、`.today-focus .empty-btn`、`.today-stats-link` 添加 `line-height: var(--type-row-line-height)`，未修改字号、height/min-height、padding、display 或布局。
+- 合同：三个控件分别保留 32px/36px 最小几何并精确断言 Row 13/20；`.today-stats-sub` 断言 Metadata 12/16，`.today-stats-title` 断言批准的 Section title/semibold 层级，避免将所有控件归并为同一角色。
+- 月份分组与其他生产文件未改动。
