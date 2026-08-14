@@ -59,7 +59,8 @@ export async function testBothStartupPathsWaitForUiFontsWithTimeout(): Promise<v
 
 function cssRule(css: string, selector: string): string {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const rule = css.match(new RegExp(`(?:^|\\n)${escapedSelector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1]
+  const rules = [...css.matchAll(new RegExp(`(?:^|\\n|\\})\\s*${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`, 'gm'))]
+  const rule = rules.map((match) => match[1]).join('\n')
   assert(rule, `缺少 ${selector} 的字体角色声明`)
   return rule
 }
@@ -69,6 +70,10 @@ function assertRoleDeclarations(rule: string, selector: string, declarations: Ar
     const actual = rule.match(new RegExp(`${property}\\s*:\\s*([^;\\n]+)`))?.[1]?.trim()
     assert.equal(actual, expected, `${selector} 的 ${property} 必须为 ${expected}`)
   }
+}
+
+function usesBusinessMonoStack(css: string): boolean {
+  return /font(?:-family)?\s*:\s*[^;{}]*(?:var\(\s*--font-mono\s*\)|JetBrains(?:\s+Mono)?|monospace)/i.test(css)
 }
 
 type TrackingApproval = {
@@ -106,6 +111,13 @@ export function testTrackingAllowlistRejectsBusinessNumbersAndRequiresExactSelec
   }
   assert.equal(isExactSelectorRender(approval), true)
   assert.equal(isExactSelectorRender({ ...approval, renderedJsx: '<span className="other-label">USD 15M</span>' }), false)
+}
+
+export function testBusinessNumericContractRejectsMonoFontShorthandsAndStacks(): void {
+  assert.equal(usesBusinessMonoStack('value { font-family: var(--font-mono); }'), true)
+  assert.equal(usesBusinessMonoStack('value { font: 500 12px "JetBrains Mono"; }'), true)
+  assert.equal(usesBusinessMonoStack('value { font-family: ui-monospace, monospace; }'), true)
+  assert.equal(usesBusinessMonoStack('value { font-family: var(--font-ui); }'), false)
 }
 
 export async function testShellTypographyUsesSemanticRolesAndApprovedTracking(): Promise<void> {
@@ -188,23 +200,62 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
     'src/views/TrashView.css',
     'src/views/WeeklyReviewView.css',
   ]
-  const businessNumericSources = await Promise.all(businessNumericFiles.map((path) => fs.readFile(path, 'utf8')))
+  const businessNumericSources = Object.fromEntries(await Promise.all(
+    businessNumericFiles.map(async (path) => [path, await fs.readFile(path, 'utf8')] as const),
+  ))
 
-  for (const [index, css] of businessNumericSources.entries()) {
-    assert(!css.includes('font-family: var(--font-mono)'), `${businessNumericFiles[index]} uses mono for business data`)
+  for (const [path, css] of Object.entries(businessNumericSources)) {
+    assert(!usesBusinessMonoStack(css), `${path} uses mono for business data`)
+    assert(!/letter-spacing\s*:\s*-(?:0)?\.(?:03|025|01)em\b/.test(css), `${path} uses unapproved title tracking`)
   }
 
-  const [kbd, editor, routeState, dataIo, notionImport] = await Promise.all([
+  const numericRoleSelectors: Array<readonly [string, string]> = [
+    ['src/components/LiveCycleSettings.css', '.live-cycle-preview-list > div'],
+    ['src/components/LivePerformanceCycleControl.css', '.live-performance-cycle-current strong'],
+    ['src/components/LivePerformanceCycleManager.css', '.live-performance-cycle-row span'],
+    ['src/components/RiskStatusStrip.css', '.risk-status-values'],
+    ['src/components/TradeOpenRiskDialog.css', '.trade-open-risk-periods strong'],
+    ['src/components/WeeklyRiskPreparationCard.css', '.risk-preparation-risk-amount'],
+    ['src/components/ui/DatePicker.css', '.ui-date-grid button'],
+    ['src/views/Dashboard.css', '.db-card-value'],
+    ['src/views/ReviewSessionView.css', '.review-session-result-grid strong'],
+    ['src/views/TrashView.css', '.trash-item-date'],
+    ['src/views/WeeklyReviewView.css', '.wr-risk-remaining b'],
+  ]
+  for (const [path, selector] of numericRoleSelectors) {
+    assertRoleDeclarations(cssRule(businessNumericSources[path], selector), selector, [
+      ['font-family', 'var(--font-ui)'],
+      ['font-variant-numeric', 'var(--numeric-tabular)'],
+      ['font-feature-settings', '"tnum" 1, "kern" 1'],
+    ])
+  }
+
+  const [kbd, editor, routeState, routeStateView, dataIo, notionImport, riskManagement] = await Promise.all([
     fs.readFile('src/components/ui/Kbd.css', 'utf8'),
     fs.readFile('src/editor/Editor.css', 'utf8'),
     fs.readFile('src/components/RouteState.css', 'utf8'),
+    fs.readFile('src/components/RouteState.tsx', 'utf8'),
     fs.readFile('src/components/DataIOContent.css', 'utf8'),
     fs.readFile('src/components/NotionImportModal.css', 'utf8'),
+    fs.readFile('src/views/settings/RiskManagementSettingsPanel.css', 'utf8'),
   ])
   assert(cssRule(kbd, '.ui-kbd').includes('font-family: var(--font-mono)'), '快捷键按键必须保留 mono')
   assert(cssRule(editor, '.editor code').includes('font-family: var(--font-mono)'), '编辑器 code 必须保留 mono')
   assert(cssRule(editor, '.editor pre').includes('font-family: var(--font-mono)'), '编辑器 pre 必须保留 mono')
   assert(cssRule(routeState, '.app-route-state-code').includes('font-family: var(--font-mono)'), '路由错误码必须保留 mono')
+  assertRoleDeclarations(cssRule(routeState, '.app-route-state-label'), '.app-route-state-label', [
+    ['font-family', 'var(--font-ui)'],
+  ])
+  assert(routeStateView.includes('<span className="app-route-state-label">页面异常</span>'), '页面异常必须使用 UI 标签样式')
+  assert(routeStateView.includes('<span className="app-route-state-code">404</span>'), '404 必须保留技术错误码样式')
   assert(cssRule(dataIo, '.dio-mono').includes('font-family: var(--font-mono)'), '原始数据预览必须保留 mono')
   assert(cssRule(notionImport, '.nim-file-name').includes('font-family: var(--font-mono)'), 'Notion 导入原始文件预览必须保留 mono')
+  assertRoleDeclarations(cssRule(riskManagement, '.risk-data-issue-title strong'), '.risk-data-issue-title strong', [
+    ['font-family', 'var(--font-ui)'],
+    ['font-variant-numeric', 'var(--numeric-tabular)'],
+    ['font-feature-settings', '"tnum" 1, "kern" 1'],
+  ])
+  assertRoleDeclarations(cssRule(riskManagement, '.risk-data-issue.is-global strong'), '.risk-data-issue.is-global strong', [
+    ['font-family', 'var(--font-ui)'],
+  ])
 }

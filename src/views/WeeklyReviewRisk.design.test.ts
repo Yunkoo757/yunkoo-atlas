@@ -83,7 +83,7 @@ function riskRuleBlocks(source: string): string[] {
 
 const APPROVED_RISK_TOKENS = new Set([
   '--accent', '--bg-elevated', '--bg-inset', '--bg-surface', '--border-strong', '--border-subtle',
-  '--font-mono', '--neg', '--pos', '--radius-6', '--radius-8', '--risk-progress',
+  '--font-ui', '--neg', '--numeric-tabular', '--pos', '--radius-6', '--radius-8', '--risk-progress',
   '--sp-1', '--sp-2', '--sp-3', '--sp-4', '--sp-5', '--text-body', '--text-muted', '--text-strong',
   '--type-body-size', '--type-metadata-size', '--type-section-title-size', '--warn',
 ])
@@ -91,7 +91,7 @@ const APPROVED_RISK_COLOR_TOKENS = new Set([
   '--accent', '--bg-elevated', '--bg-inset', '--bg-surface', '--border-strong', '--border-subtle',
   '--neg', '--pos', '--text-body', '--text-muted', '--text-strong', '--warn',
 ])
-const REQUIRED_RISK_TOKENS = ['--bg-inset', '--border-subtle', '--text-strong', '--text-muted', '--font-mono']
+const REQUIRED_RISK_TOKENS = ['--bg-inset', '--border-subtle', '--text-strong', '--text-muted', '--font-ui', '--numeric-tabular']
 const TOKEN_ONLY_PROPERTIES = new Set([
   'font-size', 'gap', 'row-gap', 'column-gap', 'padding', 'padding-block', 'padding-inline',
   'padding-block-start', 'padding-block-end', 'padding-inline-start', 'padding-inline-end',
@@ -158,8 +158,8 @@ function validateRiskStyles(css: string): void {
         throw new Error('风控区不得使用私有图像颜色入口')
       }
       if (property === 'font') throw new Error('风控区不得使用 font 简写')
-      if (property === 'font-family' && !/^var\(\s*--font-mono\s*\)$/.test(value)) {
-        throw new Error('风控区字体族必须使用 --font-mono')
+      if (property === 'font-family' && !/^var\(\s*--font-ui\s*\)$/.test(value)) {
+        throw new Error('风控区字体族必须使用 --font-ui')
       }
       if (TOKEN_ONLY_PROPERTIES.has(property) && !/^var\(--[\w-]+\)$/.test(value)) {
         throw new Error(`${property} 必须直接消费 token`)
@@ -189,7 +189,9 @@ export function testWeeklyRiskStyleContractRejectsTokenAndVisualBypasses(): void
       background: var(--bg-elevated);
       color: var(--text-strong);
       border: 1px solid var(--border-subtle);
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
+      font-variant-numeric: var(--numeric-tabular);
+      font-feature-settings: "tnum" 1, "kern" 1;
     }
     .wr-risk-period.is-primary { background: var(--bg-inset); }
     .wr-risk-period small { color: var(--text-muted); }
@@ -249,7 +251,9 @@ export function testWeeklyRiskStyleContractCannotBeBypassedWithComments(): void 
       background: var(--bg-elevated);
       color: var(--text-strong);
       border: 1px solid var(--border-subtle);
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
+      font-variant-numeric: var(--numeric-tabular);
+      font-feature-settings: "tnum" 1, "kern" 1;
     }
     .wr-risk-period.is-primary { background: var(--bg-inset); }
     .wr-risk-period small { color: var(--text-muted); }
@@ -271,7 +275,7 @@ export function testWeeklyRiskStyleContractCannotBeBypassedWithComments(): void 
     .wr-risk-comment {
       /* 合法说明；可以换行 */
       color: var(--text-strong);
-      font-family: var(--font-mono);
+      font-family: var(--font-ui);
     }
   `)
 }
@@ -284,8 +288,14 @@ export function testWeeklyRiskStylesTargetTheEvidenceDom(): void {
     (block) => block.includes('.wr-risk-audit p') && block.includes('.wr-risk-audit article'),
   ) ?? ''
 
-  if (!dailyValueRule.includes('font-family: var(--font-mono)') || !dailyValueRule.includes('font-variant-numeric: tabular-nums')) {
-    throw new Error('每日风险的实际 strong 元素必须继承等宽数字样式')
+  for (const declaration of [
+    'font-family: var(--font-ui)',
+    'font-variant-numeric: var(--numeric-tabular)',
+    'font-feature-settings: "tnum" 1, "kern" 1',
+  ]) {
+    if (!dailyValueRule.includes(declaration)) {
+      throw new Error(`每日风险的实际 strong 元素必须使用 UI 等宽数字样式：${declaration}`)
+    }
   }
   for (const declaration of [
     'padding-block-end: var(--sp-3)',

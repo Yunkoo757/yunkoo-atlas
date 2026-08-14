@@ -61,7 +61,7 @@ function RouteFailure({
       <div className="app-route-state-icon" aria-hidden>
         <AlertCircle size={ICON_LG} />
       </div>
-      <span className="app-route-state-code">页面异常</span>
+      <span className="app-route-state-label">页面异常</span>
       <h1>页面暂时无法显示</h1>
       <p>交易数据仍保留在本地。你可以返回交易日志，或重新加载后再试。</p>
       <div className="app-route-state-actions">

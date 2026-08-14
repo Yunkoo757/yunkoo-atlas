@@ -42,6 +42,12 @@
   text-transform: uppercase;
 }
 
+.app-route-state-label {
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-mini);
+}
+
 .app-route-state h1 {
   margin: var(--sp-2) 0 0;
   font-size: var(--fs-title);
