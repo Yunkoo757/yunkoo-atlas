@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 
-async function readAllProductCss(): Promise<string> {
+type ProductCssSource = {
+  path: string
+  css: string
+}
+
+async function readAllProductCssSources(): Promise<ProductCssSource[]> {
   const files: string[] = []
   for await (const path of fs.glob('src/**/*.css')) files.push(path)
-  return (await Promise.all(files.sort().map((path) => fs.readFile(path, 'utf8')))).join('\n')
+  return Promise.all(files.sort().map(async (path) => ({ path, css: await fs.readFile(path, 'utf8') })))
+}
+
+async function readAllProductCss(): Promise<string> {
+  return (await readAllProductCssSources()).map(({ css }) => css).join('\n')
 }
 
 function assertCssUsesOnlyBundledSansFonts(css: string): void {
@@ -95,6 +104,57 @@ function isExactSelectorRender(approval: TrackingApproval): boolean {
   return new RegExp(`<[^>]+\\bclassName=(['"])${className}\\1[^>]*>\\s*${escapedContent}\\s*</`).test(approval.renderedJsx)
 }
 
+const approvedLatinUppercaseTracking: TrackingApproval[] = []
+
+type TrackingDeclaration = {
+  path: string
+  selector: string
+  value: string
+}
+
+function normalizeTrackingValue(value: string): string | null {
+  const compact = value.trim().replace(/\s+/g, '').toLowerCase()
+  if (compact === 'normal') return 'normal'
+  if (/^-?(?:0|0?\.0+)$/.test(compact)) return '0'
+  const em = /^(-?)(?:0?)(\.\d+)em$/.exec(compact)
+  return em ? `${em[1]}0${em[2]}em` : null
+}
+
+function findTrackingDeclarations(sources: ProductCssSource[]): TrackingDeclaration[] {
+  const declarations: TrackingDeclaration[] = []
+  for (const { path, css } of sources) {
+    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const rule of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const selector = rule[1].trim()
+      const body = rule[2]
+      for (const declaration of body.matchAll(/(?:^|;)\s*letter-spacing\s*:\s*([^;{}]+)(?=;|$)/gi)) {
+        declarations.push({ path, selector, value: declaration[1].trim() })
+      }
+    }
+  }
+  return declarations
+}
+
+function assertApprovedTracking(
+  sources: ProductCssSource[],
+  approvals: TrackingApproval[],
+  renderSources: Record<string, string>,
+): void {
+  for (const declaration of findTrackingDeclarations(sources)) {
+    const normalized = normalizeTrackingValue(declaration.value)
+    if (normalized === '0' || normalized === '-0.012em' || normalized === 'normal') continue
+    if (normalized === '0.02em') {
+      const approval = approvals.find((entry) => entry.path === declaration.path && entry.selector === declaration.selector)
+      assert(approval, `${declaration.path} ${declaration.selector} 使用了未批准的 0.02em 字距`)
+      assert(isLatinUppercaseMicroLabel(approval.content), `${declaration.selector} 的例外内容必须是拉丁大写微标签`)
+      assert(isExactSelectorRender(approval), `${declaration.selector} 的 allowlist 必须提供该 selector 渲染精确文本的 JSX 片段`)
+      assert(renderSources[approval.renderSourcePath]?.includes(approval.renderedJsx), `${declaration.selector} 的 allowlist JSX 片段必须存在于 render source`)
+      continue
+    }
+    assert.fail(`${declaration.path} ${declaration.selector} has unapproved letter-spacing: ${declaration.value}`)
+  }
+}
+
 export function testTrackingAllowlistRejectsBusinessNumbersAndRequiresExactSelectorRender(): void {
   assert.equal(isLatinUppercaseMicroLabel('USD 15M'), true)
   assert.equal(isLatinUppercaseMicroLabel('2026'), false)
@@ -111,6 +171,25 @@ export function testTrackingAllowlistRejectsBusinessNumbersAndRequiresExactSelec
   }
   assert.equal(isExactSelectorRender(approval), true)
   assert.equal(isExactSelectorRender({ ...approval, renderedJsx: '<span className="other-label">USD 15M</span>' }), false)
+
+  const source = [{ path: approval.path, css: '.qa-latin-label { letter-spacing: .02em; }' }]
+  assert.throws(
+    () => assertApprovedTracking(source, [], {}),
+    /未批准的 0\.02em 字距/,
+  )
+  assert.doesNotThrow(() => assertApprovedTracking(source, [approval], { [approval.renderSourcePath]: approval.renderedJsx }))
+  for (const css of [
+    '.bad { letter-spacing: .04em; }',
+    '.bad{letter-spacing:.04em;}',
+    '.bad { LETTER-SPACING: 0.04em; }',
+    '.bad { letter-spacing: calc(0.02em); }',
+    '.bad { letter-spacing: var(--tracking); }',
+  ]) {
+    assert.throws(() => assertApprovedTracking([{ path: 'src/components/example.css', css }], [], {}), /unapproved letter-spacing/)
+  }
+  assert.doesNotThrow(() => assertApprovedTracking([
+    { path: 'src/components/example.css', css: '.ok { letter-spacing: 0; } .title { letter-spacing: -.012em; } .native { letter-spacing: NORMAL; }' },
+  ], [], {}))
 }
 
 export function testBusinessNumericContractRejectsMonoFontShorthandsAndStacks(): void {
@@ -172,18 +251,6 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     ['line-height', 'var(--type-row-line-height)'],
   ])
 
-  const approvedLatinUppercaseTracking: TrackingApproval[] = []
-  for (const [path, css] of Object.entries(sources)) {
-    for (const match of css.matchAll(/(?:^|\n)([^{}]+)\{([^{}]*letter-spacing:\s*0\.02em[^{}]*)\}/g)) {
-      const selector = match[1].trim()
-      const approval = approvedLatinUppercaseTracking.find((entry) => entry.path === path && entry.selector === selector)
-      assert(approval, `${path} ${selector} 使用了未批准的 0.02em 字距`)
-      assert(isLatinUppercaseMicroLabel(approval.content), `${selector} 的例外内容必须是拉丁大写微标签`)
-      assert(isExactSelectorRender(approval), `${selector} 的 allowlist 必须提供该 selector 渲染精确文本的 JSX 片段`)
-      const renderSource = await fs.readFile(approval.renderSourcePath, 'utf8')
-      assert(renderSource.includes(approval.renderedJsx), `${selector} 的 allowlist JSX 片段必须存在于 render source`)
-    }
-  }
 }
 
 export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promise<void> {
@@ -261,26 +328,15 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
 }
 
 export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEditorInheritance(): Promise<void> {
-  const [allProductCss, editor] = await Promise.all([
-    readAllProductCss(),
+  const [allProductCssSources, editor] = await Promise.all([
+    readAllProductCssSources(),
     fs.readFile('src/editor/Editor.css', 'utf8'),
   ])
-  const forbiddenTracking = [
-    'letter-spacing: -0.26px',
-    'letter-spacing: -0.1px',
-    'letter-spacing: -0.00666667em',
-    'letter-spacing: -0.01em',
-    'letter-spacing: 1px',
-    'letter-spacing: 0.04em',
-    'letter-spacing: 0.05em',
-    'letter-spacing: 0.06em',
-    'letter-spacing: -0.02em',
-    'letter-spacing: -0.025em',
-    'letter-spacing: -0.03em',
-  ]
-  for (const token of forbiddenTracking) {
-    assert(!allProductCss.includes(token), `unapproved tracking remains: ${token}`)
-  }
+  const renderSources = Object.fromEntries(await Promise.all(approvedLatinUppercaseTracking.map(async (approval) => [
+    approval.renderSourcePath,
+    await fs.readFile(approval.renderSourcePath, 'utf8'),
+  ] as const)))
+  assertApprovedTracking(allProductCssSources, approvedLatinUppercaseTracking, renderSources)
   assert(editor.includes('font-family: var(--font-ui)'))
   assert(editor.includes('font-size: var(--type-body-size)'))
   assert(editor.includes('line-height: var(--type-body-line-height)'))
@@ -300,11 +356,10 @@ export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEd
     ['line-height', 'var(--type-body-line-height)'],
     ['letter-spacing', '0'],
   ])
-  assert(editor.includes('.ProseMirror :where(p, li, blockquote, h1, h2, h3, span):not(pre *)'), '可见富文本必须隔离粘贴字体')
-  assert(editor.includes('.ProseMirror :where(code, pre, pre *)'), '代码节点必须保持 mono 字体')
+  assert(editor.includes('.ProseMirror :where(p, li, blockquote, h1, h2, h3, span):not(pre *, code *)'), '可见富文本必须隔离粘贴字体且不得覆盖代码后代')
+  assert(editor.includes('.ProseMirror :where(code, code *, pre, pre *)'), '代码节点及其后代必须保持 mono 字体')
 
   const sources = Object.fromEntries(await Promise.all([
-    'src/views/DetailView.css',
     'src/components/CsvImportModal.css',
     'src/components/NotionImportModal.css',
     'src/components/DisplayMenu.css',
@@ -316,11 +371,19 @@ export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEd
     'src/components/EmptyState.css',
     'src/components/RouteState.css',
   ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)))
-  assertRoleDeclarations(cssRule(sources['src/views/DetailView.css'], '.dv-summary-label'), '.dv-summary-label', [
+  assertRoleDeclarations(cssRule(editor, '.editor [data-review-context]'), '.editor [data-review-context]', [
+    ['font-family', 'var(--font-ui)'],
+    ['font-size', 'var(--type-body-size)'],
+    ['font-weight', 'var(--font-weight-normal)'],
+    ['line-height', 'var(--type-body-line-height)'],
+    ['letter-spacing', '0'],
+  ])
+  assertRoleDeclarations(cssRule(editor, '.editor [data-review-context]::before'), '.editor [data-review-context]::before', [
     ['font-size', 'var(--type-metadata-size)'],
+    ['font-weight', 'var(--type-metadata-weight)'],
     ['line-height', 'var(--type-metadata-line-height)'],
   ])
-  assertRoleDeclarations(cssRule(sources['src/views/DetailView.css'], '.dv-summary-value'), '.dv-summary-value', [
+  assertRoleDeclarations(cssRule(editor, '.editor [data-review-context] strong'), '.editor [data-review-context] strong', [
     ['font-size', 'var(--type-body-size)'],
     ['font-weight', 'var(--font-weight-medium)'],
     ['line-height', 'var(--type-body-line-height)'],

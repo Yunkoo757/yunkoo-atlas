@@ -14,6 +14,51 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+function assertFontFamily(element: Element, expectedFamily: string, message: string): void {
+  assert(getComputedStyle(element).fontFamily.includes(expectedFamily), `${message}，实际 ${getComputedStyle(element).fontFamily}`)
+}
+
+function assertReviewContextTypography(context: HTMLElement): void {
+  const contextStyle = getComputedStyle(context)
+  const labelStyle = getComputedStyle(context, '::before')
+  const ordinaryText = context.querySelector<HTMLElement>('p')
+  const keySentence = context.querySelector<HTMLElement>('strong')
+  assertFontFamily(context, 'Inter Variable', '盘面摘要容器必须使用 UI 字体')
+  assert(contextStyle.fontSize === '15px', `盘面摘要正文必须使用 Body 15px，实际 ${contextStyle.fontSize}`)
+  assert(contextStyle.fontWeight === '400', `盘面摘要正文必须使用正常字重，实际 ${contextStyle.fontWeight}`)
+  assert(contextStyle.lineHeight === '23px', `盘面摘要正文必须使用 Body 行高，实际 ${contextStyle.lineHeight}`)
+  assert(labelStyle.fontSize === '12px', `盘面摘要标签必须使用 Metadata 12px，实际 ${labelStyle.fontSize}`)
+  assert(labelStyle.fontWeight === '500', `盘面摘要标签必须使用 Metadata 字重，实际 ${labelStyle.fontWeight}`)
+  assert(labelStyle.lineHeight === '16px', `盘面摘要标签必须使用 Metadata 行高，实际 ${labelStyle.lineHeight}`)
+  assert(ordinaryText && getComputedStyle(ordinaryText).fontWeight === '400', '普通摘要正文必须保持 Body/normal')
+  assert(keySentence && getComputedStyle(keySentence).fontWeight === '500', '摘要关键句必须使用 Body/500')
+}
+
+function assertFontInheritance(context: HTMLElement): void {
+  const ordinaryText = context.querySelector<HTMLElement>('p')
+  const inlineCode = context.querySelector<HTMLElement>('code')
+  assert(ordinaryText && inlineCode, '真实 TipTap 摘要必须提供普通文本与 inline code 节点')
+  const normal = document.createElement('span')
+  normal.textContent = ' UI span'
+  ordinaryText.append(normal)
+  const inlineCodeDescendant = document.createElement('span')
+  inlineCodeDescendant.textContent = ' mono descendant'
+  inlineCode.append(inlineCodeDescendant)
+  const pre = document.createElement('pre')
+  const preCode = document.createElement('code')
+  const preDescendant = document.createElement('span')
+  preDescendant.textContent = 'pre descendant'
+  preCode.append(preDescendant)
+  pre.append(preCode)
+  context.append(pre)
+  assertFontFamily(normal, 'Inter Variable', '普通 span 必须继承 UI 字体')
+  assertFontFamily(inlineCodeDescendant, 'JetBrains Mono', 'inline code 后代必须使用 mono 字体')
+  assertFontFamily(preDescendant, 'JetBrains Mono', 'pre 后代必须使用 mono 字体')
+  normal.remove()
+  inlineCodeDescendant.remove()
+  pre.remove()
+}
+
 function waitForFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
@@ -35,7 +80,7 @@ async function run(): Promise<void> {
 
   root.render(
     <Editor
-      content="<p>4H 顺势，等待回调极端 POI。</p><p>15m 出现结构确认。</p><img src='/src/views/fixtures/browser-test-image.svg?chart.png'><p>等待下一次回调确认。</p>"
+      content="<p><strong>关键句：</strong>4H 顺势，等待 <code>POI</code> 回调。</p><p>15m 出现结构确认。</p><img src='/src/views/fixtures/browser-test-image.svg?chart.png'><p>等待下一次回调确认。</p>"
       onChange={(html) => { latestHtml = html }}
       reviewContextTools
       reviewContextPinned
@@ -52,6 +97,8 @@ async function run(): Promise<void> {
   assert(context && image?.tagName === 'IMG', '首图必须保持在摘要之后')
   assert(followingParagraph?.tagName === 'P', '图片后的正文必须保持原有顺序')
   assert(context.querySelectorAll(':scope > p').length === 2, '摘要只应包含截图前的开头文字')
+  assertReviewContextTypography(context)
+  assertFontInheritance(context)
   const gap = image.getBoundingClientRect().top - context.getBoundingClientRect().bottom
   assert(Math.abs(gap - 16) <= 1, `摘要到首图应为 16px，实际 ${gap}px`)
   const followingGap = followingParagraph.getBoundingClientRect().top - image.getBoundingClientRect().bottom
@@ -71,6 +118,32 @@ async function run(): Promise<void> {
   assert(latestHtml.indexOf('data-review-context') < latestHtml.indexOf('<img'), '保存 HTML 不得改变摘要与图片顺序')
   assert(latestHtml.indexOf('<img') < latestHtml.indexOf('等待下一次回调确认。'), '保存 HTML 不得改变图片与后续正文顺序')
   assert(!host.querySelector('.editor-review-tools'), '已有正文时不应继续显示逐笔固定操作')
+
+  const activeEditable = host.querySelector<HTMLElement>('.ProseMirror')
+  const activeEditor = (activeEditable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor
+  const savedHtml = activeEditor?.getHTML()
+  assert(savedHtml === latestHtml, '字体探针不得改变 TipTap 保存 HTML')
+
+  root.render(
+    <Editor
+      content={savedHtml ?? ''}
+      onChange={(html) => { latestHtml = html }}
+      readOnly
+      reviewContextTools
+      reviewContextPinned
+    />,
+  )
+  await waitFor(
+    () => Boolean(host.querySelector('section[data-review-context]')),
+    '只读编辑器必须保留盘面摘要',
+  )
+  const readonlyContext = host.querySelector<HTMLElement>('section[data-review-context]')
+  assert(readonlyContext, '只读编辑器必须渲染盘面摘要')
+  assertReviewContextTypography(readonlyContext)
+  assertFontInheritance(readonlyContext)
+  const readonlyEditable = host.querySelector<HTMLElement>('.ProseMirror')
+  const readonlyEditor = (readonlyEditable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor
+  assert(readonlyEditor?.getHTML() === savedHtml, '只读字体渲染不得改写保存 HTML')
 
   root.render(
     <Editor
