@@ -115,7 +115,8 @@
   gap: 2px;
   color: var(--text-muted);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   font-variant-numeric: tabular-nums;
 }
 
@@ -147,9 +148,9 @@
 }
 
 .img-lightbox-ratio {
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 1;
 }
 

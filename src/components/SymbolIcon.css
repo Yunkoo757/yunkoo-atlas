@@ -17,7 +17,7 @@
 
 .symbol-icon.is-glyph {
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .symbol-icon.is-svg {

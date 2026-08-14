@@ -23,7 +23,8 @@
   color: var(--text-primary);
   background: var(--popover-menu-bg);
   box-shadow: var(--popover-menu-shadow);
-  font-size: var(--type-data-size);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   animation: toastIn var(--motion-dialog-in) var(--ease-out) both;
   pointer-events: auto;
 }
@@ -54,6 +55,9 @@
 
 .toast-message {
   min-width: 0;
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-row-line-height);
   overflow-wrap: anywhere;
 }
 

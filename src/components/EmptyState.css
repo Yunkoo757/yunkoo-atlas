@@ -46,8 +46,9 @@
 }
 .empty-title {
   margin: 0;
-  font-size: var(--fs-base);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-body-line-height);
   color: var(--text-secondary);
 }
 .empty-hint {

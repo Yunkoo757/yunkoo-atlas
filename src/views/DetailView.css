@@ -396,12 +396,15 @@
 }
 .dv-summary-label {
   margin-bottom: var(--sp-1);
-  font-size: var(--fs-micro);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
   color: var(--text-quaternary);
 }
 .dv-summary-value {
-  font-size: var(--fs-sm);
+  font-size: var(--type-body-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-body-line-height);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }

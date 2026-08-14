@@ -35,7 +35,7 @@
   font-size: var(--type-page-title-size);
   font-weight: var(--type-page-title-weight);
   color: var(--text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
 }
 
 .welcome-desc {

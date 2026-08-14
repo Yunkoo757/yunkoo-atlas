@@ -1,12 +1,27 @@
 .editor {
-  font-size: var(--editor-font-size);
-  line-height: var(--editor-line-height);
-  letter-spacing: var(--editor-letter-spacing);
+  font-family: var(--font-ui);
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--type-body-line-height);
+  letter-spacing: 0;
   color: var(--editor-text-color);
 }
 .editor .ProseMirror {
   outline: none;
   min-height: 120px;
+  font-family: var(--font-ui);
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--type-body-line-height);
+  letter-spacing: 0;
+}
+
+.ProseMirror :where(p, li, blockquote, h1, h2, h3, span):not(pre *) {
+  font-family: var(--font-ui) !important;
+}
+
+.ProseMirror :where(code, pre, pre *) {
+  font-family: var(--font-mono) !important;
 }
 
 .editor-shell {
@@ -88,6 +103,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   line-height: 1.3;
+  letter-spacing: -0.012em;
 }
 .editor h1 {
   font-size: var(--font-size-title3);

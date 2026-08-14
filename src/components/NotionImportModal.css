@@ -3,6 +3,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  font-family: var(--font-ui);
 }
 
 .nim-drop {
@@ -36,14 +37,16 @@
 
 .nim-drop-title {
   margin: 0 0 var(--sp-1);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-row-size);
+  font-weight: var(--type-row-weight);
+  line-height: var(--type-row-line-height);
   color: var(--text-primary);
 }
 
 .nim-drop-hint {
   margin: 0;
-  font-size: var(--fs-mini);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
   color: var(--text-quaternary);
 }
 
@@ -78,7 +81,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   color: var(--text-tertiary);
 }
 
@@ -94,16 +98,17 @@
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--pos) 14%, transparent);
   color: var(--pos);
-  font-size: var(--fs-micro);
-  font-weight: 600;
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-caption-line-height);
 }
 
 .nim-upload-tip {
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid var(--border-subtle);
-  font-size: var(--fs-mini);
-  line-height: 1.5;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
   color: var(--text-quaternary);
 }
 
@@ -121,6 +126,7 @@
   flex-direction: column;
   gap: var(--sp-3);
   overflow: hidden;
+  font-family: var(--font-ui);
 }
 
 .nim-preview-summary {
@@ -131,7 +137,7 @@
 }
 
 .nim-file-name {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
   font-size: var(--fs-mini);
 }
@@ -146,7 +152,8 @@
 .nim-import-target-label {
   padding-top: 9px;
   color: var(--text-quaternary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .nim-import-target-options {
@@ -188,7 +195,7 @@
 
 .nim-import-target-options strong {
   overflow: hidden;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -197,14 +204,15 @@
 .nim-import-target-options span {
   overflow: hidden;
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .nim-preview-stats {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-body-size);
   color: var(--text-secondary);
   line-height: 1.5;
 }
@@ -219,7 +227,8 @@
 .nim-preview-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-size: var(--type-row-size);
 }
 
 .nim-preview-table th,
@@ -231,10 +240,11 @@
 }
 
 .nim-preview-table th {
-  font-size: var(--fs-mini);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
   color: var(--text-quaternary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   background: var(--bg-elevated);
   position: sticky;
   top: 0;
@@ -284,7 +294,7 @@
 }
 
 .nim-cell-symbol {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   color: var(--text-primary);
 }
 
@@ -313,12 +323,12 @@
 
 .nim-pnl-pos {
   color: var(--pos);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .nim-pnl-neg {
   color: var(--neg);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .nim-new-badge {
@@ -345,8 +355,8 @@
   border-radius: var(--radius-4);
   background: var(--accent-bg);
   color: var(--accent);
-  font-size: var(--fs-micro);
-  font-weight: 500;
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-medium);
 }
 
 .nim-done-area .nim-done-images {

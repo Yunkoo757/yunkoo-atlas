@@ -143,6 +143,7 @@
   color: var(--text-body);
   font-size: var(--type-row-size);
   font-weight: var(--type-row-weight);
+  line-height: var(--type-row-line-height);
   text-align: left;
   transition: background 0.1s var(--ease-out), color 0.1s var(--ease-out);
 }
@@ -167,6 +168,7 @@
 .cmdk-item-hint {
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
@@ -189,6 +191,6 @@
   background: var(--popover-bg);
   color: var(--text-muted);
   font-size: var(--type-caption-size);
-  line-height: 20px;
+  line-height: var(--type-caption-line-height);
   text-align: center;
 }

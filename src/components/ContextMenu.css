@@ -17,7 +17,9 @@
   height: 32px;
   padding: 0 var(--sp-2);
   border-radius: var(--radius-6);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
+  font-weight: var(--type-row-weight);
+  line-height: var(--type-row-line-height);
   color: var(--text-secondary);
   text-align: left;
   transition: background var(--dur-fast) var(--ease-out),
@@ -49,7 +51,8 @@
   white-space: nowrap;
 }
 .ctx-item-hint {
-  font-size: var(--fs-mini);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
   color: var(--text-quaternary);
   flex-shrink: 0;
 }
@@ -73,8 +76,9 @@
   margin: var(--sp-1) 0;
 }
 .ctx-label {
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-caption-line-height);
   color: var(--text-tertiary);
   padding: 6px var(--sp-2) var(--sp-1);
 }

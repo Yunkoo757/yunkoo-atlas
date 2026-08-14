@@ -259,3 +259,101 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
     ['font-family', 'var(--font-ui)'],
   ])
 }
+
+export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEditorInheritance(): Promise<void> {
+  const [allProductCss, editor] = await Promise.all([
+    readAllProductCss(),
+    fs.readFile('src/editor/Editor.css', 'utf8'),
+  ])
+  const forbiddenTracking = [
+    'letter-spacing: -0.26px',
+    'letter-spacing: -0.1px',
+    'letter-spacing: -0.00666667em',
+    'letter-spacing: -0.01em',
+    'letter-spacing: 1px',
+    'letter-spacing: 0.04em',
+    'letter-spacing: 0.05em',
+    'letter-spacing: 0.06em',
+    'letter-spacing: -0.02em',
+    'letter-spacing: -0.025em',
+    'letter-spacing: -0.03em',
+  ]
+  for (const token of forbiddenTracking) {
+    assert(!allProductCss.includes(token), `unapproved tracking remains: ${token}`)
+  }
+  assert(editor.includes('font-family: var(--font-ui)'))
+  assert(editor.includes('font-size: var(--type-body-size)'))
+  assert(editor.includes('line-height: var(--type-body-line-height)'))
+  assert(editor.includes('code') && editor.includes('font-family: var(--font-mono)'))
+
+  assertRoleDeclarations(cssRule(editor, '.editor'), '.editor', [
+    ['font-family', 'var(--font-ui)'],
+    ['font-size', 'var(--type-body-size)'],
+    ['font-weight', 'var(--font-weight-normal)'],
+    ['line-height', 'var(--type-body-line-height)'],
+    ['letter-spacing', '0'],
+  ])
+  assertRoleDeclarations(cssRule(editor, '.editor .ProseMirror'), '.editor .ProseMirror', [
+    ['font-family', 'var(--font-ui)'],
+    ['font-size', 'var(--type-body-size)'],
+    ['font-weight', 'var(--font-weight-normal)'],
+    ['line-height', 'var(--type-body-line-height)'],
+    ['letter-spacing', '0'],
+  ])
+  assert(editor.includes('.ProseMirror :where(p, li, blockquote, h1, h2, h3, span):not(pre *)'), '可见富文本必须隔离粘贴字体')
+  assert(editor.includes('.ProseMirror :where(code, pre, pre *)'), '代码节点必须保持 mono 字体')
+
+  const sources = Object.fromEntries(await Promise.all([
+    'src/views/DetailView.css',
+    'src/components/CsvImportModal.css',
+    'src/components/NotionImportModal.css',
+    'src/components/DisplayMenu.css',
+    'src/components/ImageLightbox.css',
+    'src/components/ContextMenu.css',
+    'src/components/Menu.css',
+    'src/components/CommandPalette.css',
+    'src/components/Toast.css',
+    'src/components/EmptyState.css',
+    'src/components/RouteState.css',
+  ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)))
+  assertRoleDeclarations(cssRule(sources['src/views/DetailView.css'], '.dv-summary-label'), '.dv-summary-label', [
+    ['font-size', 'var(--type-metadata-size)'],
+    ['line-height', 'var(--type-metadata-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/views/DetailView.css'], '.dv-summary-value'), '.dv-summary-value', [
+    ['font-size', 'var(--type-body-size)'],
+    ['font-weight', 'var(--font-weight-medium)'],
+    ['line-height', 'var(--type-body-line-height)'],
+  ])
+  for (const [path, selector] of [
+    ['src/components/DisplayMenu.css', '.display-toggle'],
+    ['src/components/DisplayMenu.css', '.display-item'],
+    ['src/components/ContextMenu.css', '.ctx-item'],
+    ['src/components/Menu.css', '.menu-item'],
+    ['src/components/CommandPalette.css', '.cmdk-item'],
+  ] as const) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-row-size)'],
+      ['font-weight', 'var(--type-row-weight)'],
+      ['line-height', 'var(--type-row-line-height)'],
+    ])
+  }
+  assertRoleDeclarations(cssRule(sources['src/components/Toast.css'], '.toast-panel'), '.toast-panel', [
+    ['font-size', 'var(--type-metadata-size)'],
+    ['line-height', 'var(--type-metadata-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/Toast.css'], '.toast-message'), '.toast-message', [
+    ['font-size', 'var(--type-row-size)'],
+    ['font-weight', 'var(--font-weight-semibold)'],
+    ['line-height', 'var(--type-row-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/EmptyState.css'], '.empty-title'), '.empty-title', [
+    ['font-size', 'var(--type-body-size)'],
+    ['font-weight', 'var(--font-weight-semibold)'],
+    ['line-height', 'var(--type-body-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/RouteState.css'], '.app-route-state-code'), '.app-route-state-code', [
+    ['font-family', 'var(--font-mono)'],
+    ['letter-spacing', '0'],
+  ])
+}

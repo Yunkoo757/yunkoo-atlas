@@ -48,7 +48,9 @@
   height: 30px;
   padding: 0 var(--sp-2);
   border-radius: var(--radius-5);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
+  font-weight: var(--type-row-weight);
+  line-height: var(--type-row-line-height);
   color: var(--text-secondary);
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
