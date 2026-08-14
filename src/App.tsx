@@ -369,6 +369,15 @@ function storageBootstrapErrorMessage(error: unknown): string {
   return '本地资料库暂时无法打开，请重试。'
 }
 
+async function waitForUiFonts(): Promise<void> {
+  if (typeof document !== 'undefined' && document.fonts?.ready) {
+    await Promise.race([
+      document.fonts.ready,
+      new Promise((resolve) => window.setTimeout(resolve, 1200)),
+    ])
+  }
+}
+
 function Shell() {
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [cmdkReturnFocus, setCmdkReturnFocus] = useState<HTMLElement | null>(null)
@@ -562,12 +571,7 @@ export function App() {
       await bootstrapStorage()
 
       // 等字体就绪再亮屏，避免 Inter swap 导致列表从左到右重排
-      if (typeof document !== 'undefined' && document.fonts?.ready) {
-        await Promise.race([
-          document.fonts.ready,
-          new Promise((resolve) => window.setTimeout(resolve, 1200)),
-        ])
-      }
+      await waitForUiFonts()
 
       setReady(true)
       requestAnimationFrame(() => {
@@ -592,12 +596,7 @@ export function App() {
     document.documentElement.removeAttribute('data-ui-settled')
     try {
       await bootstrapStorage()
-      if (typeof document !== 'undefined' && document.fonts?.ready) {
-        await Promise.race([
-          document.fonts.ready,
-          new Promise((resolve) => window.setTimeout(resolve, 1200)),
-        ])
-      }
+      await waitForUiFonts()
     } catch (e) {
       console.error('Storage bootstrap failed after welcome', e)
       setStorageError(storageBootstrapErrorMessage(e))
