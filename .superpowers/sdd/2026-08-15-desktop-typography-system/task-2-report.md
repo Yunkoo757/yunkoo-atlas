@@ -37,3 +37,10 @@
 
 - `WorkbenchPerformance.design.test.ts` 的 36px/8px/44px 合同在本任务开始前已存在且通过；没有将 `36px` 复制到 `TradeList.css`，避免把 canonical geometry token 硬编码回生产样式。
 - 未触碰 `height`、`min-height`、`padding`、`grid-template-columns`、`top`、`transform` 或虚拟列表常量。范围仅面向 Windows 与 macOS 桌面端。
+
+## Fix Round 1/5
+
+- RED：selector 级合同精确比较属性值后，`today-focus-eyebrow` 的 `letter-spacing` 以 `0.02em` 对 `0` 失败；该中文“行动队列”眉标不属于全大写微标签。合同还覆盖 Board 时间周期、Sidebar 中文分区和 `rp-note` 的完整角色度量。
+- GREEN：`.today-focus-eyebrow`、`.bd-card-timeframe` 与 `.sb-section-label` 的字距均为 `0`；`.bd-card-timeframe` 继续显式使用 `--numeric-tabular`；`.rp-note` 采用完整 Row `13/20` 映射。
+- 测试：原先的全文件禁词扫描已替换为 selector 级属性值精确比较，并验证交易行、月份分组标题的 canonical Row 角色。剩余 `0.02em` 规则必须同时是 Caption 并带 `text-transform: uppercase`。
+- 几何：本轮只修改 `letter-spacing` 与 `line-height`，未修改月份分组、任何 box metric 或虚拟列表常量。

@@ -138,7 +138,7 @@
 }
 .bd-card-timeframe {
   font-variant-numeric: var(--numeric-tabular);
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 .bd-card-timeframe.is-minute {

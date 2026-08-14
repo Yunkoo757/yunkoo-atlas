@@ -57,23 +57,63 @@ export async function testBothStartupPathsWaitForUiFontsWithTimeout(): Promise<v
   assert(app.includes('window.setTimeout(resolve, 1200)'), '字体等待必须保留 1200ms 降级超时')
 }
 
-export async function testShellTypographyUsesCanonicalWeightsAndTracking(): Promise<void> {
-  const shellSources = await Promise.all([
+function cssRule(css: string, selector: string): string {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const rule = css.match(new RegExp(`(?:^|\\n)${escapedSelector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))?.[1]
+  assert(rule, `缺少 ${selector} 的字体角色声明`)
+  return rule
+}
+
+function assertRoleDeclarations(rule: string, selector: string, declarations: Array<readonly [string, string]>): void {
+  for (const [property, expected] of declarations) {
+    const actual = rule.match(new RegExp(`${property}\\s*:\\s*([^;\\n]+)`))?.[1]?.trim()
+    assert.equal(actual, expected, `${selector} 的 ${property} 必须为 ${expected}`)
+  }
+}
+
+export async function testShellTypographyUsesSemanticRolesAndApprovedTracking(): Promise<void> {
+  const sources = Object.fromEntries(await Promise.all([
     'src/components/Sidebar.css',
     'src/components/sidebar/SidebarWorkspace.css',
-    'src/components/Topbar.css',
     'src/components/trades/TradeList.css',
-    'src/components/trades/QuickViewBar.css',
     'src/components/RowPreviews.css',
     'src/views/TodayWorkspace.css',
     'src/views/BoardView.css',
-    'src/views/ListView.css',
-  ].map((path) => fs.readFile(path, 'utf8')))
+  ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)))
 
-  for (const source of shellSources) {
-    assert(!source.includes('font-weight: 700'), 'shell 角色不得使用未批准的 700 字重')
-    assert(!source.includes('font-weight: 620'), 'shell 角色不得使用未批准的 620 字重')
-    assert(!source.includes('letter-spacing: 1px'), 'shell 角色不得使用扩张的 1px 字距')
-    assert(!source.includes('letter-spacing: 0.04em'), 'shell 角色不得使用未批准的 0.04em 字距')
+  assertRoleDeclarations(cssRule(sources['src/views/TodayWorkspace.css'], '.today-focus-eyebrow'), '.today-focus-eyebrow', [
+    ['font-size', 'var(--type-metadata-size)'],
+    ['font-weight', 'var(--font-weight-medium)'],
+    ['letter-spacing', '0'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/views/BoardView.css'], '.bd-card-timeframe'), '.bd-card-timeframe', [
+    ['font-variant-numeric', 'var(--numeric-tabular)'],
+    ['letter-spacing', '0'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/Sidebar.css'], '.sb-section-label'), '.sb-section-label', [
+    ['font-size', 'var(--type-metadata-size)'],
+    ['letter-spacing', '0'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/RowPreviews.css'], '.rp-note'), '.rp-note', [
+    ['font-size', 'var(--type-row-size)'],
+    ['line-height', 'var(--type-row-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/trades/TradeList.css'], '.trade-row'), '.trade-row', [
+    ['font-size', 'var(--type-row-size)'],
+    ['font-weight', 'var(--font-weight-normal)'],
+    ['line-height', 'var(--type-row-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/trades/TradeList.css'], '.trade-list-group-header strong'), '.trade-list-group-header strong', [
+    ['font-size', 'var(--type-row-size)'],
+    ['font-weight', 'var(--font-weight-semibold)'],
+    ['line-height', 'var(--type-row-line-height)'],
+  ])
+
+  const allShellCss = Object.values(sources).join('\n')
+  const trackedRules = [...allShellCss.matchAll(/[^{}]+\{[^{}]*letter-spacing:\s*0\.02em[^{}]*\}/g)]
+  assert(trackedRules.length > 0, '全大写微标签必须保留受控的 0.02em 字距')
+  for (const match of trackedRules) {
+    assert(match[0].includes('font-size: var(--type-caption-size)'), '0.02em 字距只能用于 Caption 微标签')
+    assert(match[0].includes('text-transform: uppercase'), '0.02em 字距只能用于全大写微标签')
   }
 }

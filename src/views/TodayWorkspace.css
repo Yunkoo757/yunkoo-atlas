@@ -27,7 +27,7 @@
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 .today-focus h1 {

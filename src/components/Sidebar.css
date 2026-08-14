@@ -219,7 +219,7 @@
   margin-bottom: var(--sp-1);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--sb-text);
 }
 
