@@ -95,13 +95,13 @@ export async function testSmallInteractionCopyAndContrastContracts(): Promise<vo
     '选中头像标签应使用足够对比度',
   )
 
-  const geist = tokens.indexOf('"Geist Sans"')
-  const cjk = tokens.indexOf('"PingFang SC"', geist)
-  const windowsCjk = tokens.indexOf('"Microsoft YaHei"', cjk)
-  const westernFallback = tokens.indexOf('-apple-system', windowsCjk)
+  const inter = tokens.indexOf('"Inter Variable"')
+  const system = tokens.indexOf('system-ui', inter)
+  const macCjk = tokens.indexOf('"PingFang SC"', system)
+  const windowsCjk = tokens.indexOf('"Microsoft YaHei UI"', macCjk)
   assert(
-    geist >= 0 && cjk > geist && windowsCjk > cjk && westernFallback > windowsCjk,
-    '字体栈应使用 Geist 首位，并在通用西文字体前优先使用 macOS/Windows CJK 系统回退',
+    inter >= 0 && system > inter && macCjk > system && windowsCjk > macCjk,
+    '字体栈应依次使用 Inter、system-ui 与 macOS/Windows 显式 CJK 回退',
   )
 }
 

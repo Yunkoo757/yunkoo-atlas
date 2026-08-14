@@ -19,16 +19,17 @@ body,
 
 body {
   font-family: var(--font-ui);
-  font-size: var(--type-ui-base-size);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
-  line-height: var(--line-height-body);
+  line-height: var(--type-row-line-height);
   color: var(--text-primary);
   background: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Geist 常用数字与连字特性 */
+  font-optical-sizing: auto;
+  /* Inter 常用数字与连字特性 */
   font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
-  /* 减少系统字体与 Geist 切换时的合成字形跳动 */
+  /* 减少系统字体与 Inter 切换时的合成字形跳动 */
   font-synthesis: none;
   user-select: none;
 }

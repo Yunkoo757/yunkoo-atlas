@@ -75,29 +75,31 @@
   --popover-modal-radius: var(--modal-border-radius);
   --popover-modal-shadow: var(--popover-shadow-deep);
 
-  /* —— 字体栈（Geist 承载拉丁；CJK 回退桌面系统黑体）—— */
-  --font-ui-base: "Geist Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-    "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* —— 字体栈（Inter 承载拉丁；CJK 回退桌面系统黑体）—— */
+  --font-ui-base: "Inter Variable", Inter, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei",
+    "Noto Sans SC", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
     Menlo, Courier, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
     monospace;
 
-  /* —— 字号阶梯（真实值）—— */
+  /* —— 字号阶梯（桌面像素基准）—— */
   --font-size-title2: 1.5rem;
-  --font-size-title3: 1.25rem;
+  --font-size-title3: 20px;
   --font-size-large: 1.125rem;
-  --font-size-regular: 0.9375rem;     /* 15px —— UI 主字号 */
-  --font-size-small: 0.8125rem;       /* 13px */
-  --font-size-mini: 0.75rem;          /* 12px */
-  --font-size-micro: 0.6875rem;       /* 11px */
-  --type-ui-base-size: 1rem;
+  --font-size-regular: 15px;
+  --font-size-small: 13px;
+  --font-size-mini: 12px;
+  --font-size-micro: 11px;
+  --type-ui-base-size: var(--font-size-small);
   --line-height-body: 1.5;
 
   /* —— 字重（对齐 Notion：常规 400）—— */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
-  --font-weight-bold: 700;
+  --font-weight-bold: var(--font-weight-semibold);
 
   /* —— 圆角 —— */
   --control-border-radius: 8px;
@@ -151,10 +153,10 @@
   --motion-panel: 220ms;
 
   /* —— 编辑器（真实值）—— */
-  --editor-font-size: 0.9375rem;
+  --editor-font-size: var(--font-size-regular);
   --editor-text-color: #e2e3e5;
   --editor-line-height: 1.6;
-  --editor-letter-spacing: -0.00666667em;
+  --editor-letter-spacing: 0;
   --editor-block-spacing: 1rem;
   --editor-list-inset: 1.5rem;
 
@@ -368,26 +370,29 @@
 
   /* 字体角色：页面、弹窗、区块与数据行共享同一层级 */
   --type-page-title-size: var(--font-size-title3);
+  --type-page-title-line-height: 28px;
   --type-page-title-weight: var(--font-weight-semibold);
   --type-dialog-title-size: var(--font-size-regular);
   --type-dialog-title-weight: var(--font-weight-semibold);
   --type-section-title-size: var(--font-size-small);
   --type-section-title-weight: var(--font-weight-semibold);
   --type-row-size: var(--font-size-small);
+  --type-row-line-height: 20px;
   --type-row-weight: var(--font-weight-medium);
-  --type-body-size: 0.9375rem;
-  --type-body-line-height: 1.5;
+  --type-body-size: var(--font-size-regular);
+  --type-body-line-height: 23px;
   --type-data-size: 0.8125rem;
   --type-data-line-height: 1.35;
   --type-data-weight: var(--font-weight-medium);
-  --type-metadata-size: 0.75rem;
-  --type-metadata-line-height: 1.35;
+  --type-metadata-size: var(--font-size-mini);
+  --type-metadata-line-height: 16px;
   --type-metadata-weight: var(--font-weight-medium);
   --type-caption-size: var(--font-size-micro);
-  --type-caption-line-height: 1.3;
+  --type-caption-line-height: 16px;
   --type-financial-size: 1.25rem;
   --type-financial-size-lg: 1.5rem;
   --type-financial-line-height: 1.15;
+  --numeric-tabular: tabular-nums;
 
   /* 阴影（多层叠加柔光） */
   --shadow-low: 0 1px 1px #0000001f;
