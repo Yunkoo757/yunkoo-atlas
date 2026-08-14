@@ -75,12 +75,40 @@ export async function testTypographyAndTokenNamesHaveOneCanonicalBaseline(): Pro
   const sources = await Promise.all(CSS_FILES.map((file) => fs.readFile(file, 'utf8')))
   const all = sources.join('\n')
   const tokens = sources[2]
+  const productCss = sources.filter((_, index) => index !== 2).join('\n')
 
-  assert(tokens.includes('--type-ui-base-size: 1rem'), '必须定义唯一的 16px UI 继承基准')
+  for (const [role, fontSize, expectedSize, lineHeight, expectedLineHeight] of [
+    ['--type-caption-size', '--font-size-micro', '11px', '--type-caption-line-height', '16px'],
+    ['--type-metadata-size', '--font-size-mini', '12px', '--type-metadata-line-height', '16px'],
+    ['--type-row-size', '--font-size-small', '13px', '--type-row-line-height', '20px'],
+    ['--type-body-size', '--font-size-regular', '15px', '--type-body-line-height', '23px'],
+    ['--type-page-title-size', '--font-size-title3', '20px', '--type-page-title-line-height', '28px'],
+  ] as const) {
+    assert(tokens.includes(`${fontSize}: ${expectedSize}`), `${fontSize} 必须定义为 ${expectedSize}`)
+    assert(tokens.includes(`${role}: var(${fontSize})`), `${role} 必须复用 ${fontSize}`)
+    assert(tokens.includes(`${lineHeight}: ${expectedLineHeight}`), `${lineHeight} 必须定义为 ${expectedLineHeight}`)
+  }
+  const typeSizeTokens = [...tokens.matchAll(/^\s*(--type-[a-z0-9-]+-size)\s*:/gm)].map((match) => match[1]).sort()
+  const approvedTypeSizeTokens = [
+    '--type-body-size',
+    '--type-caption-size',
+    '--type-data-size',
+    '--type-dialog-title-size',
+    '--type-financial-size',
+    '--type-metadata-size',
+    '--type-page-title-size',
+    '--type-row-size',
+    '--type-section-title-size',
+    '--type-ui-base-size',
+  ].sort()
+  assert(
+    typeSizeTokens.join('\n') === approvedTypeSizeTokens.join('\n'),
+    '文字尺寸 token 必须使用批准的 canonical 角色名称',
+  )
   for (const obsolete of ['largePlus', 'regularPlus', 'smallPlus', 'miniPlus', 'quickTransition', '--font-monospace', '--bg-border-color']) {
     assert(!all.includes(obsolete), `仍存在重复或非 kebab-case token：${obsolete}`)
   }
-  assert(!/font-size:\s*(10|11\.5|15|16)px/.test(all), '字体尺寸不得绕过字号 token 建立第二套基准')
+  assert(!/font-size:\s*(10|11\.5|15|16)px/.test(productCss), '产品 CSS 不得绕过字号角色建立第二套基准')
   assert(!/border-radius:\s*(999|9999)px/.test(all), '胶囊圆角必须统一使用 radius-full')
 }
 
