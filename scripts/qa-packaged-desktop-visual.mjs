@@ -17,6 +17,8 @@ import {
   assertSafePackagedEvidencePaths,
   assertSafePackagedVisualOutputPath,
   isWindowRestorationVisible,
+  isInterVariableGlyphFont,
+  isPlatformCjkGlyphFont,
   normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
@@ -29,6 +31,12 @@ import {
 import { createDesktopVisualSnapshot } from './fixtures/desktop-visual-seed.mjs'
 
 const SCHEMA_VERSION = 1
+const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
+  latin: '.qa-type-latin',
+  cjk: '.qa-type-cjk',
+  mixed: '.qa-type-mixed',
+  numeric: '.qa-type-numeric',
+})
 const root = process.cwd()
 const hostPlatform = platform()
 const hostArch = arch()
@@ -108,6 +116,145 @@ async function waitForVisualSettlement(page, selector) {
   )
 }
 
+function isForbiddenTypographyFont(familyName) {
+  const normalized = familyName.toLowerCase().replaceAll('sans-serif', '')
+  return normalized.includes('simsun') || normalized.includes('songti') || normalized.includes('serif')
+}
+
+function exactPixels(value, expected) {
+  return Number.isFinite(Number.parseFloat(value)) && Math.abs(Number.parseFloat(value) - expected) < 0.01
+}
+
+async function collectTypographyEvidence(page, nativePlatform) {
+  await page.evaluate(() => {
+    document.querySelector('#atlas-typography-probes')?.remove()
+    const root = document.createElement('div')
+    root.id = 'atlas-typography-probes'
+    root.style.cssText = 'position:fixed;left:-10000px;top:0;opacity:0;pointer-events:none;'
+    root.innerHTML = [
+      '<span class="qa-type-latin">Trader Atlas EURUSD 123</span>',
+      '<span class="qa-type-cjk">交易日志盘面摘要</span>',
+      '<span class="qa-type-mixed">XAUUSD 多 15M 8月13日</span>',
+      '<span class="qa-type-numeric">+2.4R 2,346.80 21:45</span>',
+    ].join('')
+    document.body.append(root)
+  })
+
+  const computed = await page.evaluate((selectors) => {
+    const pickStyle = (element) => {
+      if (!(element instanceof HTMLElement)) throw new Error('typography probe is missing')
+      const style = getComputedStyle(element)
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        lineHeight: style.lineHeight,
+        letterSpacing: style.letterSpacing,
+        fontVariantNumeric: style.fontVariantNumeric,
+      }
+    }
+    const probeRendering = Object.fromEntries(Object.entries(selectors).map(([id, selector]) => {
+      const element = document.querySelector(selector)
+      if (!(element instanceof HTMLElement)) throw new Error(`typography probe is missing: ${selector}`)
+      const style = getComputedStyle(element)
+      const bounds = element.getBoundingClientRect()
+      return [id, {
+        display: style.display,
+        width: bounds.width,
+        height: bounds.height,
+        rendered: style.display !== 'none' && bounds.width > 0 && bounds.height > 0,
+      }]
+    }))
+    const group = document.querySelector('.trade-list-group-header')
+    const headerItem = document.querySelector('.trade-list-virtual-item.is-header')
+    if (!(group instanceof HTMLElement) || !(headerItem instanceof HTMLElement)) {
+      throw new Error('month group geometry probe is missing')
+    }
+    return {
+      interLoaded: document.fonts.check('13px "Inter Variable"', 'Trader Atlas 123'),
+      body: pickStyle(document.body),
+      row: pickStyle(document.querySelector('.trade-row')),
+      metadata: pickStyle(document.querySelector('.trade-list-column')),
+      group: pickStyle(group.querySelector('strong')),
+      probes: Object.fromEntries(Object.entries(selectors).map(([id, selector]) => [
+        id,
+        pickStyle(document.querySelector(selector)),
+      ])),
+      probeRendering,
+      monthGroupHeight: group.getBoundingClientRect().height,
+      monthTopGap: getComputedStyle(headerItem).paddingTop,
+      monthVirtualHeight: headerItem.getBoundingClientRect().height,
+    }
+  }, TYPOGRAPHY_PROBE_SELECTORS)
+
+  const session = await page.context().newCDPSession(page)
+  const glyphFonts = {}
+  try {
+    await session.send('DOM.enable')
+    await session.send('CSS.enable')
+    const { root } = await session.send('DOM.getDocument')
+    for (const [id, selector] of Object.entries(TYPOGRAPHY_PROBE_SELECTORS)) {
+      const { nodeId } = await session.send('DOM.querySelector', { nodeId: root.nodeId, selector })
+      if (!nodeId) throw new Error(`typography CDP probe is missing: ${selector}`)
+      const { fonts } = await session.send('CSS.getPlatformFontsForNode', { nodeId })
+      glyphFonts[id] = fonts
+    }
+  } finally {
+    await session.detach().catch(() => {})
+    await page.evaluate(() => document.querySelector('#atlas-typography-probes')?.remove())
+  }
+
+  const allFonts = Object.values(glyphFonts).flat()
+  const probesRendered = Object.values(computed.probeRendering).every((probe) => probe.rendered)
+  const noForbiddenFonts = allFonts.every((font) => !isForbiddenTypographyFont(font.familyName))
+  const hasInter = (id) => glyphFonts[id].some((font) =>
+    isInterVariableGlyphFont(font, computed.probes[id].fontFamily))
+  const hasPlatformCjk = (id) => glyphFonts[id].some((font) =>
+    isPlatformCjkGlyphFont(font, nativePlatform))
+  const typographyChecks = [
+    {
+      id: 'typography-inter-loaded',
+      pass: computed.interLoaded === true,
+      detail: `document.fonts.check=${computed.interLoaded}`,
+    },
+    {
+      id: 'typography-latin-inter',
+      pass: probesRendered && hasInter('latin') && hasInter('mixed') && hasInter('numeric'),
+      detail: JSON.stringify({ latin: glyphFonts.latin, mixed: glyphFonts.mixed, numeric: glyphFonts.numeric }),
+    },
+    {
+      id: 'typography-cjk-sans',
+      pass: probesRendered && noForbiddenFonts && hasPlatformCjk('cjk') && hasPlatformCjk('mixed'),
+      detail: JSON.stringify({ platform: nativePlatform, cjk: glyphFonts.cjk, mixed: glyphFonts.mixed }),
+    },
+    {
+      id: 'typography-role-metrics',
+      pass: exactPixels(computed.row.fontSize, 13) && exactPixels(computed.row.lineHeight, 20) &&
+        exactPixels(computed.metadata.fontSize, 12) && exactPixels(computed.metadata.lineHeight, 16) &&
+        exactPixels(computed.group.fontSize, 13) && exactPixels(computed.group.lineHeight, 20) &&
+        computed.group.fontWeight === '600',
+      detail: JSON.stringify({ row: computed.row, metadata: computed.metadata, group: computed.group }),
+    },
+    {
+      id: 'month-group-geometry',
+      pass: Math.abs(computed.monthGroupHeight - 36) < 0.01 && exactPixels(computed.monthTopGap, 8) &&
+        Math.abs(computed.monthVirtualHeight - 44) < 0.01,
+      detail: JSON.stringify({
+        height: computed.monthGroupHeight,
+        topGap: computed.monthTopGap,
+        virtualHeight: computed.monthVirtualHeight,
+      }),
+    },
+  ]
+  return {
+    platform: nativePlatform,
+    computed,
+    glyphFonts,
+    checks: typographyChecks,
+    failureCount: typographyChecks.filter(({ pass }) => !pass).length,
+  }
+}
+
 async function waitForProcessExit(child, timeoutMs = 10_000) {
   if (child.exitCode != null) return true
   return new Promise((resolveExit) => {
@@ -161,6 +308,7 @@ let application
 let page
 let applicationExitedByQuitCommand = false
 let scaleEvidence = null
+let typography = null
 const captures = []
 const checks = []
 const source = {
@@ -298,6 +446,10 @@ try {
         errors: [...diagnostics],
         horizontalOverflowPx: metrics.horizontalOverflowPx,
       })
+      if (!typography && scenario.id === 'trades') {
+        typography = await collectTypographyEvidence(page, hostPlatform)
+        for (const check of typography.checks) record(check.id, check.pass, check.detail)
+      }
     }
   }
 
@@ -420,6 +572,7 @@ const report = {
     node: process.version,
   },
   scale: scaleEvidence,
+  typography,
   artifact: {
     path: relative(root, artifactPath).replaceAll('\\', '/'),
     bytes: readFileSync(artifactPath).byteLength,

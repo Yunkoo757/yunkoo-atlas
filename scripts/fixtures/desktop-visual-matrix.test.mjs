@@ -73,9 +73,19 @@ test('desktop visual report fails closed on runtime errors or horizontal overflo
     consoleErrors: [],
     pageErrors: [],
     metrics: { overflowCaptureCount: 0 },
+    typography: { failureCount: 0 },
   }
 
   assert.equal(desktopVisualReportHasFailures(clean), false)
+  assert.equal(desktopVisualReportHasFailures({
+    ...clean,
+    typography: { failureCount: 1 },
+  }), true)
+  assert.equal(desktopVisualReportHasFailures({
+    consoleErrors: [],
+    pageErrors: [],
+    metrics: { overflowCaptureCount: 0 },
+  }), true)
   assert.equal(desktopVisualReportHasFailures({
     ...clean,
     metrics: { overflowCaptureCount: 1 },

@@ -21,6 +21,11 @@ const REQUIRED_PLATFORM_CHECKS = Object.freeze({
     'windows-close-explanation',
     'windows-close-to-tray',
     'window-restore-visible',
+    'typography-inter-loaded',
+    'typography-latin-inter',
+    'typography-cjk-sans',
+    'typography-role-metrics',
+    'month-group-geometry',
   ]),
   darwin: Object.freeze([
     'native-platform',
@@ -32,6 +37,11 @@ const REQUIRED_PLATFORM_CHECKS = Object.freeze({
     'mac-no-windows-copy',
     'window-restore-visible',
     'mac-quit-command',
+    'typography-inter-loaded',
+    'typography-latin-inter',
+    'typography-cjk-sans',
+    'typography-role-metrics',
+    'month-group-geometry',
   ]),
 })
 
@@ -83,6 +93,25 @@ export function buildRequiredPlatformChecks(platform) {
   const checks = REQUIRED_PLATFORM_CHECKS[platform]
   if (!checks) throw new Error(`Unsupported packaged visual platform: ${platform}`)
   return [...checks]
+}
+
+export function isInterVariableGlyphFont(font, declaredFontFamily) {
+  if (!font || typeof declaredFontFamily !== 'string') return false
+  const declaresInterVariable = /(^|,)\s*["']?Inter Variable["']?\s*(,|$)/i.test(declaredFontFamily)
+  const internalName = `${font.familyName ?? ''} ${font.postScriptName ?? ''}`.trim()
+  return declaresInterVariable && font.isCustomFont === true &&
+    /^(?:Inter|Inter Variable)(?:\s+(?:Inter|Inter Variable))?$/i.test(internalName)
+}
+
+export function isPlatformCjkGlyphFont(font, platform) {
+  const familyName = font?.familyName?.toLowerCase()
+  if (platform === 'win32') {
+    return familyName === 'microsoft yahei' || familyName === 'microsoft yahei ui'
+  }
+  if (platform === 'darwin') {
+    return familyName === 'pingfang sc' || familyName === 'hiragino sans gb'
+  }
+  return false
 }
 
 export function resolvePackagedExecutableCandidates({
@@ -158,6 +187,9 @@ export function validatePackagedVisualReport(report) {
   }
   if (!Array.isArray(report.captures) || report.captures.length !== 35) {
     throw new Error('Packaged visual evidence requires exactly 35 core captures')
+  }
+  if (report.typography?.failureCount !== 0) {
+    throw new Error('Packaged visual evidence requires complete passing typography evidence')
   }
   if (report.platform === 'win32') {
     const requested = report.scale?.requested

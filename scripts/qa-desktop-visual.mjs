@@ -20,11 +20,21 @@ import {
   DESKTOP_VISUAL_VIEWPORTS,
 } from './desktop-visual-scenarios.mjs'
 import { createDesktopVisualSnapshot } from './fixtures/desktop-visual-seed.mjs'
+import {
+  isInterVariableGlyphFont,
+  isPlatformCjkGlyphFont,
+} from './packaged-desktop-visual-contract.mjs'
 
 const require = createRequire(import.meta.url)
 const REPORT_SCHEMA_VERSION = 1
 const SNAPSHOT_SCHEMA_VERSION = 11
 const DEFAULT_OUTPUT_ROOT = resolve('.gstack/qa-reports/desktop-visual-convergence')
+const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
+  latin: '.qa-type-latin',
+  cjk: '.qa-type-cjk',
+  mixed: '.qa-type-mixed',
+  numeric: '.qa-type-numeric',
+})
 
 function isSameOrDescendant(target, root) {
   const delta = relative(resolve(root), resolve(target))
@@ -139,6 +149,152 @@ async function waitForVisualSettlement(page, readySelector) {
   })
 }
 
+function typographyCheck(id, pass, detail) {
+  return { id, pass, detail }
+}
+
+function isForbiddenTypographyFont(familyName) {
+  const normalized = familyName.toLowerCase().replaceAll('sans-serif', '')
+  return normalized.includes('simsun') || normalized.includes('songti') || normalized.includes('serif')
+}
+
+function exactPixels(value, expected) {
+  return Number.isFinite(Number.parseFloat(value)) && Math.abs(Number.parseFloat(value) - expected) < 0.01
+}
+
+async function collectTypographyEvidence(page, hostPlatform) {
+  await page.evaluate(() => {
+    document.querySelector('#atlas-typography-probes')?.remove()
+    const root = document.createElement('div')
+    root.id = 'atlas-typography-probes'
+    root.style.cssText = 'position:fixed;left:-10000px;top:0;opacity:0;pointer-events:none;'
+    root.innerHTML = [
+      '<span class="qa-type-latin">Trader Atlas EURUSD 123</span>',
+      '<span class="qa-type-cjk">交易日志盘面摘要</span>',
+      '<span class="qa-type-mixed">XAUUSD 多 15M 8月13日</span>',
+      '<span class="qa-type-numeric">+2.4R 2,346.80 21:45</span>',
+    ].join('')
+    document.body.append(root)
+  })
+
+  const computed = await page.evaluate((selectors) => {
+    const pickStyle = (element) => {
+      if (!(element instanceof HTMLElement)) throw new Error('typography probe is missing')
+      const style = getComputedStyle(element)
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        lineHeight: style.lineHeight,
+        letterSpacing: style.letterSpacing,
+        fontVariantNumeric: style.fontVariantNumeric,
+      }
+    }
+    const probeRendering = Object.fromEntries(Object.entries(selectors).map(([id, selector]) => {
+      const element = document.querySelector(selector)
+      if (!(element instanceof HTMLElement)) throw new Error(`typography probe is missing: ${selector}`)
+      const style = getComputedStyle(element)
+      const bounds = element.getBoundingClientRect()
+      return [id, {
+        display: style.display,
+        width: bounds.width,
+        height: bounds.height,
+        rendered: style.display !== 'none' && bounds.width > 0 && bounds.height > 0,
+      }]
+    }))
+    const group = document.querySelector('.trade-list-group-header')
+    const headerItem = document.querySelector('.trade-list-virtual-item.is-header')
+    if (!(group instanceof HTMLElement) || !(headerItem instanceof HTMLElement)) {
+      throw new Error('month group geometry probe is missing')
+    }
+    return {
+      interLoaded: document.fonts.check('13px "Inter Variable"', 'Trader Atlas 123'),
+      body: pickStyle(document.body),
+      row: pickStyle(document.querySelector('.trade-row')),
+      metadata: pickStyle(document.querySelector('.trade-list-column')),
+      group: pickStyle(group.querySelector('strong')),
+      probes: Object.fromEntries(Object.entries(selectors).map(([id, selector]) => [
+        id,
+        pickStyle(document.querySelector(selector)),
+      ])),
+      probeRendering,
+      monthGroupHeight: group.getBoundingClientRect().height,
+      monthTopGap: getComputedStyle(headerItem).paddingTop,
+      monthVirtualHeight: headerItem.getBoundingClientRect().height,
+    }
+  }, TYPOGRAPHY_PROBE_SELECTORS)
+
+  const session = await page.context().newCDPSession(page)
+  const glyphFonts = {}
+  try {
+    await session.send('DOM.enable')
+    await session.send('CSS.enable')
+    const { root } = await session.send('DOM.getDocument')
+    for (const [id, selector] of Object.entries(TYPOGRAPHY_PROBE_SELECTORS)) {
+      const { nodeId } = await session.send('DOM.querySelector', { nodeId: root.nodeId, selector })
+      if (!nodeId) throw new Error(`typography CDP probe is missing: ${selector}`)
+      const { fonts } = await session.send('CSS.getPlatformFontsForNode', { nodeId })
+      glyphFonts[id] = fonts
+    }
+  } finally {
+    await session.detach().catch(() => {})
+    await page.evaluate(() => document.querySelector('#atlas-typography-probes')?.remove())
+  }
+
+  const allFonts = Object.values(glyphFonts).flat()
+  const noForbiddenFonts = allFonts.every((font) => !isForbiddenTypographyFont(font.familyName))
+  const hasInter = (id) => glyphFonts[id].some((font) =>
+    isInterVariableGlyphFont(font, computed.probes[id].fontFamily))
+  const hasPlatformCjk = (id) => glyphFonts[id].some((font) =>
+    isPlatformCjkGlyphFont(font, hostPlatform))
+  const checks = [
+    typographyCheck(
+      'typography-inter-loaded',
+      computed.interLoaded === true,
+      `document.fonts.check=${computed.interLoaded}`,
+    ),
+    typographyCheck(
+      'typography-latin-inter',
+      hasInter('latin') && hasInter('mixed') && hasInter('numeric'),
+      JSON.stringify({ latin: glyphFonts.latin, mixed: glyphFonts.mixed, numeric: glyphFonts.numeric }),
+    ),
+    typographyCheck(
+      'typography-cjk-sans',
+      noForbiddenFonts && hasPlatformCjk('cjk') && hasPlatformCjk('mixed'),
+      JSON.stringify({ platform: hostPlatform, cjk: glyphFonts.cjk, mixed: glyphFonts.mixed }),
+    ),
+    typographyCheck(
+      'typography-role-metrics',
+      exactPixels(computed.row.fontSize, 13) && exactPixels(computed.row.lineHeight, 20) &&
+        exactPixels(computed.metadata.fontSize, 12) && exactPixels(computed.metadata.lineHeight, 16) &&
+        exactPixels(computed.group.fontSize, 13) && exactPixels(computed.group.lineHeight, 20) &&
+        computed.group.fontWeight === '600',
+      JSON.stringify({ row: computed.row, metadata: computed.metadata, group: computed.group }),
+    ),
+    typographyCheck(
+      'month-group-geometry',
+      Math.abs(computed.monthGroupHeight - 36) < 0.01 && exactPixels(computed.monthTopGap, 8) &&
+        Math.abs(computed.monthVirtualHeight - 44) < 0.01,
+      JSON.stringify({
+        height: computed.monthGroupHeight,
+        topGap: computed.monthTopGap,
+        virtualHeight: computed.monthVirtualHeight,
+      }),
+    ),
+  ]
+  if (!Object.values(computed.probeRendering).every((probe) => probe.rendered)) {
+    const glyphChecks = checks.filter(({ id }) => id === 'typography-latin-inter' || id === 'typography-cjk-sans')
+    for (const check of glyphChecks) check.pass = false
+  }
+  return {
+    platform: hostPlatform,
+    computed,
+    glyphFonts,
+    checks,
+    failureCount: checks.filter(({ pass }) => !pass).length,
+  }
+}
+
 async function collectMetrics(page) {
   return page.evaluate(() => {
     const visible = (element) => {
@@ -241,6 +397,7 @@ async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
   })
   let browser
   const captures = []
+  let typography = null
   try {
     await server.listen()
     const baseUrl = server.resolvedUrls?.local?.[0]
@@ -259,7 +416,7 @@ async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
         let applicationStarted = false
         for (const scenario of DESKTOP_VISUAL_SCENARIOS) {
           const screenshot = capturePath(runtimeRoot, viewport, scenario)
-          captures.push(await captureScenario({
+          const capture = await captureScenario({
             page,
             runtime: 'renderer',
             viewport,
@@ -281,7 +438,11 @@ async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
                 dispatchEvent(new PopStateEvent('popstate'))
               }, pathname)
             },
-          }))
+          })
+          captures.push(capture)
+          if (!typography && scenario.id === 'trades') {
+            typography = await collectTypographyEvidence(page, platform())
+          }
         }
       } finally {
         await context.close()
@@ -293,6 +454,7 @@ async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
   }
   return {
     captures,
+    typography,
     isolation: {
       browserContexts: DESKTOP_VISUAL_VIEWPORTS.length,
       database: 'trader-atlas-v3 inside ephemeral Playwright contexts',
@@ -322,6 +484,7 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
   const executablePath = require('electron')
   let application
   const captures = []
+  let typography = null
   let actualUserDataPath = null
   let actualLibraryPath = null
   try {
@@ -377,7 +540,7 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
       }, viewport)
       for (const scenario of DESKTOP_VISUAL_SCENARIOS) {
         const screenshot = capturePath(runtimeRoot, viewport, scenario)
-        captures.push(await captureScenario({
+        const capture = await captureScenario({
           page,
           runtime: 'electron',
           viewport,
@@ -390,7 +553,11 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
               window.location.hash = `#${nextPath}`
             }, pathname)
           },
-        }))
+        })
+        captures.push(capture)
+        if (!typography && scenario.id === 'trades') {
+          typography = await collectTypographyEvidence(page, platform())
+        }
       }
     }
   } finally {
@@ -399,6 +566,7 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
   }
   return {
     captures,
+    typography,
     isolation: {
       temporaryRoot,
       requestedUserDataPath: userDataPath,
@@ -452,6 +620,7 @@ export async function runDesktopVisualQa({
       captureCount: result.captures.length,
       overflowCaptureCount: result.captures.filter((capture) => capture.metrics.horizontalOverflowPx > 0).length,
     },
+    typography: result.typography,
     isolation: result.isolation,
     captures: result.captures,
   }, resolvedRoot)
@@ -465,7 +634,8 @@ export async function runDesktopVisualQa({
 export function desktopVisualReportHasFailures(report) {
   return report.consoleErrors.length > 0 ||
     report.pageErrors.length > 0 ||
-    report.metrics.overflowCaptureCount > 0
+    report.metrics.overflowCaptureCount > 0 ||
+    report.typography?.failureCount !== 0
 }
 
 async function main() {
@@ -477,6 +647,7 @@ async function main() {
     consoleErrors: report.consoleErrors.length,
     pageErrors: report.pageErrors.length,
     overflowCaptures: report.metrics.overflowCaptureCount,
+    typographyChecks: report.typography?.checks ?? [],
   }, null, 2)}\n`)
   if (desktopVisualReportHasFailures(report)) process.exitCode = 1
 }

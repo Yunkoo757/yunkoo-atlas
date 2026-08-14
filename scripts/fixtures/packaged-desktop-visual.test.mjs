@@ -14,6 +14,28 @@ import {
   resolvePackagedExecutableCandidates,
   validatePackagedVisualReport,
 } from '../packaged-desktop-visual-contract.mjs'
+import * as packagedVisualContract from '../packaged-desktop-visual-contract.mjs'
+
+test('typography glyph matching binds Chromium internal names to declared native families', () => {
+  assert.equal(typeof packagedVisualContract.isInterVariableGlyphFont, 'function')
+  assert.equal(typeof packagedVisualContract.isPlatformCjkGlyphFont, 'function')
+  assert.equal(packagedVisualContract.isInterVariableGlyphFont(
+    { familyName: 'Inter', postScriptName: 'Inter', isCustomFont: true },
+    '"Inter Variable", Inter, system-ui, sans-serif',
+  ), true)
+  assert.equal(packagedVisualContract.isInterVariableGlyphFont(
+    { familyName: 'Inter', postScriptName: 'Inter', isCustomFont: false },
+    '"Inter Variable", Inter, system-ui, sans-serif',
+  ), false)
+  assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
+    { familyName: 'Microsoft YaHei UI' },
+    'win32',
+  ), true)
+  assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
+    { familyName: 'PingFang SC' },
+    'darwin',
+  ), true)
+})
 
 test('packaged executable candidates cover native Windows and both macOS architectures', () => {
   const root = join('workspace', 'trader-atlas')
@@ -52,6 +74,11 @@ test('platform check plans demand direct native lifecycle evidence', () => {
     'windows-close-explanation',
     'windows-close-to-tray',
     'window-restore-visible',
+    'typography-inter-loaded',
+    'typography-latin-inter',
+    'typography-cjk-sans',
+    'typography-role-metrics',
+    'month-group-geometry',
   ])
   assert.deepEqual(buildRequiredPlatformChecks('darwin'), [
     'native-platform',
@@ -63,6 +90,11 @@ test('platform check plans demand direct native lifecycle evidence', () => {
     'mac-no-windows-copy',
     'window-restore-visible',
     'mac-quit-command',
+    'typography-inter-loaded',
+    'typography-latin-inter',
+    'typography-cjk-sans',
+    'typography-role-metrics',
+    'month-group-geometry',
   ])
 })
 
@@ -165,6 +197,7 @@ test('report validation fails closed when screenshots or native platform checks 
     source: { commit: 'a'.repeat(40), dirty: false },
     captures: Array.from({ length: 35 }, (_, index) => ({ id: `capture-${index}`, errors: [], horizontalOverflowPx: 0 })),
     checks: buildRequiredPlatformChecks('darwin').map((id) => ({ id, pass: true })),
+    typography: { failureCount: 0 },
   }
 
   assert.doesNotThrow(() => validatePackagedVisualReport(complete))
@@ -177,8 +210,19 @@ test('report validation fails closed when screenshots or native platform checks 
     /mac-quit-command/,
   )
   assert.throws(
+    () => validatePackagedVisualReport({
+      ...complete,
+      checks: complete.checks.filter((entry) => entry.id !== 'typography-cjk-sans'),
+    }),
+    /typography-cjk-sans/,
+  )
+  assert.throws(
     () => validatePackagedVisualReport({ ...complete, source: { ...complete.source, dirty: true } }),
     /clean source commit/,
+  )
+  assert.throws(
+    () => validatePackagedVisualReport({ ...complete, typography: undefined }),
+    /typography/i,
   )
 
   const windows = {
@@ -188,6 +232,13 @@ test('report validation fails closed when screenshots or native platform checks 
     checks: buildRequiredPlatformChecks('win32').map((id) => ({ id, pass: true })),
   }
   assert.doesNotThrow(() => validatePackagedVisualReport(windows))
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...windows,
+      checks: windows.checks.filter((entry) => entry.id !== 'month-group-geometry'),
+    }),
+    /month-group-geometry/,
+  )
   assert.throws(
     () => validatePackagedVisualReport({
       ...windows,
