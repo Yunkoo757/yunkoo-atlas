@@ -51,3 +51,10 @@
 - GREEN：`.sb-editor-group-header h3` 与 `.sb-target-group h4` 均使用 `letter-spacing: 0`，并删除对中文无效的 `text-transform: uppercase`。后者的分组标签同样均为中文。
 - 测试：完整九文件清单重新覆盖 `700`、`620`、`1px`、`0.04em` 四项禁值；原 selector 级正向角色合同仍保留。`0.02em` 只接受 `path + selector + 内容源 + 拉丁大写内容` 的显式 allowlist，本轮 allowlist 为空，因此所有残留 0.02em 均会失败。
 - 几何：仅删除无效文本转换并归零字距，未改月份分组或任何 box metric。
+
+## Fix Round 3/5
+
+- RED：allowlist 内容 helper 的基线规则错误接受纯数字 `2026`，新增 fail-closed 样例因此失败。
+- GREEN：allowlist 内容必须匹配受控 ASCII 微标签字符集且至少含一个 `A-Z`；`2026`、`15/30`、中文和中英混排均被拒绝。
+- 归属证明：未来例外条目必须提供 CSS `path + selector`、`renderSourcePath`、同一 JSX 元素中含该 `className` 与精确文本的 `renderedJsx`。测试先校验 JSX 的 selector/text 绑定，再校验完整片段真实存在于该 render source，未再使用宽泛的文本包含判断。
+- 生产视觉与月份分组均未修改；九文件负向合同和 selector 正向角色合同保持不变。

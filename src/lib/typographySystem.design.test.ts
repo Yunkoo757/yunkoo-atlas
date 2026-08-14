@@ -71,6 +71,43 @@ function assertRoleDeclarations(rule: string, selector: string, declarations: Ar
   }
 }
 
+type TrackingApproval = {
+  path: string
+  selector: string
+  renderSourcePath: string
+  renderedJsx: string
+  content: string
+}
+
+function isLatinUppercaseMicroLabel(content: string): boolean {
+  return /^[A-Z0-9][A-Z0-9 &/._-]*$/.test(content) && /[A-Z]/.test(content)
+}
+
+function isExactSelectorRender(approval: TrackingApproval): boolean {
+  const className = approval.selector.match(/^\.([A-Za-z0-9_-]+)$/)?.[1]
+  if (!className) return false
+  const escapedContent = approval.content.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`<[^>]+\\bclassName=(['"])${className}\\1[^>]*>\\s*${escapedContent}\\s*</`).test(approval.renderedJsx)
+}
+
+export function testTrackingAllowlistRejectsBusinessNumbersAndRequiresExactSelectorRender(): void {
+  assert.equal(isLatinUppercaseMicroLabel('USD 15M'), true)
+  assert.equal(isLatinUppercaseMicroLabel('2026'), false)
+  assert.equal(isLatinUppercaseMicroLabel('15/30'), false)
+  assert.equal(isLatinUppercaseMicroLabel('交易'), false)
+  assert.equal(isLatinUppercaseMicroLabel('USD 交易'), false)
+
+  const approval: TrackingApproval = {
+    path: 'src/components/example.css',
+    selector: '.qa-latin-label',
+    renderSourcePath: 'src/components/Example.tsx',
+    renderedJsx: '<span className="qa-latin-label">USD 15M</span>',
+    content: 'USD 15M',
+  }
+  assert.equal(isExactSelectorRender(approval), true)
+  assert.equal(isExactSelectorRender({ ...approval, renderedJsx: '<span className="other-label">USD 15M</span>' }), false)
+}
+
 export async function testShellTypographyUsesSemanticRolesAndApprovedTracking(): Promise<void> {
   const shellPaths = [
     'src/components/Sidebar.css',
@@ -123,20 +160,16 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     ['line-height', 'var(--type-row-line-height)'],
   ])
 
-  const approvedLatinUppercaseTracking: Array<{
-    path: string
-    selector: string
-    contentPath: string
-    content: string
-  }> = []
+  const approvedLatinUppercaseTracking: TrackingApproval[] = []
   for (const [path, css] of Object.entries(sources)) {
     for (const match of css.matchAll(/(?:^|\n)([^{}]+)\{([^{}]*letter-spacing:\s*0\.02em[^{}]*)\}/g)) {
       const selector = match[1].trim()
       const approval = approvedLatinUppercaseTracking.find((entry) => entry.path === path && entry.selector === selector)
       assert(approval, `${path} ${selector} 使用了未批准的 0.02em 字距`)
-      assert(/^[A-Z0-9][A-Z0-9 &/._-]*$/.test(approval.content), `${selector} 的例外内容必须是拉丁大写微标签`)
-      const contentSource = await fs.readFile(approval.contentPath, 'utf8')
-      assert(contentSource.includes(approval.content), `${selector} 的例外内容必须在渲染源中明确存在`)
+      assert(isLatinUppercaseMicroLabel(approval.content), `${selector} 的例外内容必须是拉丁大写微标签`)
+      assert(isExactSelectorRender(approval), `${selector} 的 allowlist 必须提供该 selector 渲染精确文本的 JSX 片段`)
+      const renderSource = await fs.readFile(approval.renderSourcePath, 'utf8')
+      assert(renderSource.includes(approval.renderedJsx), `${selector} 的 allowlist JSX 片段必须存在于 render source`)
     }
   }
 }
