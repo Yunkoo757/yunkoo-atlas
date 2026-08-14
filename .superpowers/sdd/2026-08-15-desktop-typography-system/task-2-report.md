@@ -44,3 +44,10 @@
 - GREEN：`.today-focus-eyebrow`、`.bd-card-timeframe` 与 `.sb-section-label` 的字距均为 `0`；`.bd-card-timeframe` 继续显式使用 `--numeric-tabular`；`.rp-note` 采用完整 Row `13/20` 映射。
 - 测试：原先的全文件禁词扫描已替换为 selector 级属性值精确比较，并验证交易行、月份分组标题的 canonical Row 角色。剩余 `0.02em` 规则必须同时是 Caption 并带 `text-transform: uppercase`。
 - 几何：本轮只修改 `letter-spacing` 与 `line-height`，未修改月份分组、任何 box metric 或虚拟列表常量。
+
+## Fix Round 2/5
+
+- RED：恢复九文件范围的负向合同并改用真实内容 allowlist 后，`.sb-editor-group-header h3` 因未批准的 `0.02em` 明确失败；其渲染内容为中文“常驻侧栏/更多”。
+- GREEN：`.sb-editor-group-header h3` 与 `.sb-target-group h4` 均使用 `letter-spacing: 0`，并删除对中文无效的 `text-transform: uppercase`。后者的分组标签同样均为中文。
+- 测试：完整九文件清单重新覆盖 `700`、`620`、`1px`、`0.04em` 四项禁值；原 selector 级正向角色合同仍保留。`0.02em` 只接受 `path + selector + 内容源 + 拉丁大写内容` 的显式 allowlist，本轮 allowlist 为空，因此所有残留 0.02em 均会失败。
+- 几何：仅删除无效文本转换并归零字距，未改月份分组或任何 box metric。

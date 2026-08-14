@@ -72,14 +72,28 @@ function assertRoleDeclarations(rule: string, selector: string, declarations: Ar
 }
 
 export async function testShellTypographyUsesSemanticRolesAndApprovedTracking(): Promise<void> {
-  const sources = Object.fromEntries(await Promise.all([
+  const shellPaths = [
     'src/components/Sidebar.css',
     'src/components/sidebar/SidebarWorkspace.css',
+    'src/components/Topbar.css',
     'src/components/trades/TradeList.css',
+    'src/components/trades/QuickViewBar.css',
     'src/components/RowPreviews.css',
     'src/views/TodayWorkspace.css',
     'src/views/BoardView.css',
-  ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)))
+    'src/views/ListView.css',
+  ]
+  const sources = Object.fromEntries(await Promise.all(
+    shellPaths.map(async (path) => [path, await fs.readFile(path, 'utf8')] as const),
+  ))
+
+  for (const path of shellPaths) {
+    const source = sources[path]
+    assert(!source.includes('font-weight: 700'), `${path} 不得使用未批准的 700 字重`)
+    assert(!source.includes('font-weight: 620'), `${path} 不得使用未批准的 620 字重`)
+    assert(!source.includes('letter-spacing: 1px'), `${path} 不得使用扩张的 1px 字距`)
+    assert(!source.includes('letter-spacing: 0.04em'), `${path} 不得使用未批准的 0.04em 字距`)
+  }
 
   assertRoleDeclarations(cssRule(sources['src/views/TodayWorkspace.css'], '.today-focus-eyebrow'), '.today-focus-eyebrow', [
     ['font-size', 'var(--type-metadata-size)'],
@@ -109,11 +123,20 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     ['line-height', 'var(--type-row-line-height)'],
   ])
 
-  const allShellCss = Object.values(sources).join('\n')
-  const trackedRules = [...allShellCss.matchAll(/[^{}]+\{[^{}]*letter-spacing:\s*0\.02em[^{}]*\}/g)]
-  assert(trackedRules.length > 0, '全大写微标签必须保留受控的 0.02em 字距')
-  for (const match of trackedRules) {
-    assert(match[0].includes('font-size: var(--type-caption-size)'), '0.02em 字距只能用于 Caption 微标签')
-    assert(match[0].includes('text-transform: uppercase'), '0.02em 字距只能用于全大写微标签')
+  const approvedLatinUppercaseTracking: Array<{
+    path: string
+    selector: string
+    contentPath: string
+    content: string
+  }> = []
+  for (const [path, css] of Object.entries(sources)) {
+    for (const match of css.matchAll(/(?:^|\n)([^{}]+)\{([^{}]*letter-spacing:\s*0\.02em[^{}]*)\}/g)) {
+      const selector = match[1].trim()
+      const approval = approvedLatinUppercaseTracking.find((entry) => entry.path === path && entry.selector === selector)
+      assert(approval, `${path} ${selector} 使用了未批准的 0.02em 字距`)
+      assert(/^[A-Z0-9][A-Z0-9 &/._-]*$/.test(approval.content), `${selector} 的例外内容必须是拉丁大写微标签`)
+      const contentSource = await fs.readFile(approval.contentPath, 'utf8')
+      assert(contentSource.includes(approval.content), `${selector} 的例外内容必须在渲染源中明确存在`)
+    }
   }
 }

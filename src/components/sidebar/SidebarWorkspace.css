@@ -118,8 +118,7 @@
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .sb-editor-group-header span {
@@ -423,8 +422,7 @@
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .sb-target-row {
