@@ -91,6 +91,23 @@ type SidebarDragState = {
   overId: string | null
 }
 
+function hiddenWorkspaceLocation(pathname: string, hasWorkspaceSelection: boolean) {
+  if (hasWorkspaceSelection) return null
+  if (pathname === '/sim' || pathname.startsWith('/sim/')) {
+    return { label: '模拟盘', icon: FlaskConical }
+  }
+  if (pathname === '/missed' || pathname.startsWith('/missed/')) {
+    return { label: '错过的机会', icon: Ban }
+  }
+  if (pathname === '/active' || pathname.startsWith('/active/')) {
+    return { label: '进行中', icon: Clock }
+  }
+  if (pathname === '/favorites' || pathname.startsWith('/favorites/')) {
+    return { label: '星标交易', icon: Star }
+  }
+  return null
+}
+
 function Count({ value }: { value?: number }) {
   return (
     <span
@@ -302,6 +319,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const overflowWorkspaceItems = workspaceItems.filter(
     (item) => item.item.placement === 'overflow',
   )
+  const hiddenWorkspace = hiddenWorkspaceLocation(path, Boolean(selection.activeWorkspaceItemId))
 
   const inReviewCases = path.startsWith('/review-cases')
   const inQuickNotes = path === '/notes' || path.startsWith('/notes/')
@@ -638,9 +656,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             to={primaryHref(id, to)}
             draggable={false}
             onDragStart={(event) => event.preventDefault()}
-            className={() => `sb-item${selection.activePrimaryId === id ? ' is-active' : ''}`}
+            className={() => `sb-item${selection.activePrimaryId === id && !hiddenWorkspace ? ' is-active' : ''}`}
             data-primary-id={id}
-            aria-current={selection.activePrimaryId === id ? 'page' : undefined}
+            aria-current={selection.activePrimaryId === id && !hiddenWorkspace ? 'page' : undefined}
           >
             <Icon size={ICON_MD} />
             <span className="sb-item-label">{label}</span>
@@ -663,6 +681,18 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <MoreHorizontal size={ICON_SM} aria-hidden="true" />
           </button>
         </div>
+        {hiddenWorkspace ? (
+          <div
+            className="sb-item sb-route-ghost is-active"
+            data-sidebar-hidden-route
+            aria-current="page"
+            aria-label={`${hiddenWorkspace.label}；当前页面，已从侧栏隐藏`}
+          >
+            <hiddenWorkspace.icon size={ICON_MD} />
+            <span className="sb-item-label">{hiddenWorkspace.label}</span>
+            <span className="sb-route-ghost-note">已隐藏</span>
+          </div>
+        ) : null}
         {pinnedWorkspaceItems.map(renderWorkspaceLink)}
         {overflowWorkspaceItems.length > 0 ? (
           <div className="sb-workspace-overflow" data-sidebar-overflow>

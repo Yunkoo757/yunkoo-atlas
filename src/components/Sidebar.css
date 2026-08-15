@@ -309,6 +309,17 @@ html[data-ui-settled='1'] .sb-item {
   opacity: 1;
 }
 
+.sb-route-ghost {
+  cursor: default;
+}
+
+.sb-route-ghost-note {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-normal);
+}
+
 /* 工作台 / 我的空间：默认灰阶；仅当前选中项亮出色相 */
 .sb-item[data-primary-id='today'].is-active > svg {
   color: var(--sb-nav-today);
