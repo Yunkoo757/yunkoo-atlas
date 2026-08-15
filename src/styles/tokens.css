@@ -120,6 +120,10 @@
   --sidebar-width: 244px;
   --main-inset: 8px;
   --main-radius: 12px;
+  --page-rail-wide: 1240px;
+  --page-rail-standard: 1180px;
+  --page-rail-reading: 920px;
+  --page-rail-form: 680px;
   --control-height-sm: 28px;
   --control-height-md: 32px;
   --control-height-lg: 36px;
@@ -335,9 +339,12 @@
   --space-control-gap: 6px;
   --space-row-gap: var(--sp-2);
   --space-section-gap: var(--sp-6);
-  --space-page-inset-compact: var(--sp-5);
-  --space-page-inset-default: var(--sp-7);
-  --space-page-inset-wide: var(--sp-8);
+  --page-inset-compact: var(--sp-5);
+  --page-inset-default: var(--sp-7);
+  --page-inset-wide: var(--sp-8);
+  --space-page-inset-compact: var(--page-inset-compact);
+  --space-page-inset-default: var(--page-inset-default);
+  --space-page-inset-wide: var(--page-inset-wide);
   --space-optical-icon-gap: 7px;
 
   /* 内容标 tile（A1：品种/策略同级软色 chip） */
