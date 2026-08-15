@@ -24,8 +24,8 @@ export async function testWeeklyTrendFallbackIsAnInformativeSkeleton(): Promise<
 
 export async function testWeeklyHeaderSharesTheContentLeftRail(): Promise<void> {
   const css = await read('src/views/WeeklyReviewView.css')
-  assert(/\.wr-page-head-inner\s*\{[^}]*width:\s*min\(920px, calc\(100% - 48px\)\)/s.test(css), '周复盘页头应与正文共用 920px 左轨')
-  assert(/\.wr-content,\.wr-year\s*\{[^}]*width:\s*min\(920px, calc\(100% - 48px\)\)/s.test(css), '周复盘正文应与页头共用 920px 左轨')
+  assert(/\.wr-page-head-inner\s*\{[^}]*width:\s*min\(var\(--page-rail-reading\), calc\(100% - var\(--page-inset-default\) - var\(--page-inset-default\)\)\)/s.test(css), '周复盘页头应与正文共用阅读语义轨道')
+  assert(/\.wr-content,\.wr-year\s*\{[^}]*width:\s*min\(var\(--page-rail-reading\), calc\(100% - var\(--page-inset-default\) - var\(--page-inset-default\)\)\)/s.test(css), '周复盘正文应与页头共用阅读语义轨道')
 }
 
 export async function testDashboardExplainsWeekEmptyAgainstHistoricalScope(): Promise<void> {
