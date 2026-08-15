@@ -159,12 +159,12 @@ export function QuickNotesView() {
       <Toolbar
         title="随记"
         context="记录想法、观察与截图，不参与交易统计"
-        actions={(
+        actions={notes.length > 0 ? (
           <button type="button" className="empty-btn" onClick={createNote}>
             <Plus size={ICON_MD} />
             新建随记
           </button>
-        )}
+        ) : undefined}
       />
 
       <div className="quick-notes-workspace">

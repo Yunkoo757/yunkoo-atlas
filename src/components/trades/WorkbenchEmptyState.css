@@ -7,16 +7,23 @@
 }
 
 .workbench-empty-secondary {
-  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--sp-2);
+  color: var(--text-secondary);
   font-size: var(--type-metadata-size);
   font-weight: 600;
   line-height: var(--control-height-sm);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-6);
+  background: var(--bg-elevated);
   text-decoration: none;
 }
 
 .workbench-empty-secondary:hover,
 .workbench-empty-secondary:focus-visible {
-  color: var(--text-secondary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
