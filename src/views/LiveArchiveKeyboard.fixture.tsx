@@ -28,8 +28,7 @@ createRoot(root).render(
   <HashRouter>
     <Routes>
       <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
-      <Route path="/live-archive" element={<><LiveArchiveView /><LocationProbe /></>} />
-      <Route path="/live-archive/:archiveId" element={<><LiveArchiveView /><LocationProbe /></>} />
+      <Route path="/live-history" element={<><LiveArchiveView /><LocationProbe /></>} />
     </Routes>
   </HashRouter>,
 )

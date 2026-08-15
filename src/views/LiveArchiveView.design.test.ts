@@ -23,3 +23,25 @@ export async function testLiveArchiveNarrowLayoutCannotForceHorizontalOverflow()
   assert(css.includes('var(--field-bg)'), '筛选输入必须使用 field token')
   assert(css.includes('overflow-wrap: anywhere'), '长交易编号和链接必须可断行，避免横向溢出')
 }
+
+export async function testHistoricalLiveUsesCanonicalRouteAndProductName(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [app, sidebar, archive, dashboard, detail, importHealth] = await Promise.all([
+    fs.readFile('src/App.tsx', 'utf8'),
+    fs.readFile('src/components/Sidebar.tsx', 'utf8'),
+    fs.readFile('src/views/LiveArchiveView.tsx', 'utf8'),
+    fs.readFile('src/views/Dashboard.tsx', 'utf8'),
+    fs.readFile('src/views/DetailView.tsx', 'utf8'),
+    fs.readFile('src/views/ImportDataHealthView.tsx', 'utf8'),
+  ])
+
+  assert(app.includes('path="/live-history"'), '应用必须注册历史实盘规范路由')
+  assert(app.includes('LegacyLiveArchiveRedirect'), '旧历史路由必须有显式兼容跳转')
+  assert(sidebar.includes('to="/live-history"'), '侧栏必须使用历史实盘规范路由')
+  assert(sidebar.includes('aria-label="历史实盘"'), '侧栏导航语义必须统一为历史实盘')
+  assert(archive.includes('title="历史实盘"'), '历史实盘页面必须使用新模块名')
+  assert(archive.includes('重置起点前的实盘与关联案例会保留在这里'), '页面副标题必须说明双视图范围')
+  assert(dashboard.includes('to="/live-history"'), '仪表盘必须进入历史实盘规范路由')
+  assert(detail.includes("from?.pathname === '/live-history'"), '详情必须识别历史实盘返回来源')
+  assert(importHealth.includes('to="/live-history"'), '导入日期核对必须返回历史实盘')
+}

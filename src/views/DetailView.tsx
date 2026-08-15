@@ -266,7 +266,9 @@ export function DetailView() {
 
   const from = (location.state as TradeDetailLocationState | null)?.from
   const fromMissedOpportunities = from?.pathname === '/missed'
-  const fromLiveArchive = from?.pathname === '/live-archive' || from?.pathname.startsWith('/live-archive/')
+  const fromLiveArchive = from?.pathname === '/live-history'
+    || from?.pathname === '/live-archive'
+    || from?.pathname.startsWith('/live-archive/')
   const detailKind = trade?.tradeKind ?? deletedTrade?.tradeKind
   const detailReturn = useMemo(() => {
     return resolveTradeDetailReturn({
@@ -280,7 +282,7 @@ export function DetailView() {
   const detailCrumb = fromMissedOpportunities
     ? '错过的机会'
     : fromLiveArchive
-      ? '历史记录'
+      ? '历史实盘'
     : fromWeeklyReview
       ? '周复盘'
       : detailKind === 'case'
@@ -291,14 +293,14 @@ export function DetailView() {
   const backAriaLabel = fromMissedOpportunities
     ? '返回错过的机会'
     : fromLiveArchive
-      ? '返回历史记录'
+      ? '返回历史实盘'
     : fromWeeklyReview
       ? '返回周复盘'
       : '返回列表'
   const returnDestinationLabel = fromMissedOpportunities
     ? '错过的机会'
     : fromLiveArchive
-      ? '历史记录'
+      ? '历史实盘'
     : fromWeeklyReview
       ? '周复盘'
       : detailKind === 'case'

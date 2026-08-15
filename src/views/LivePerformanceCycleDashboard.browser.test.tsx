@@ -173,7 +173,7 @@ async function run(): Promise<void> {
     assert(text().includes('+$250'), '主统计只应包含当前实盘及跨边界平仓交易')
     assert(document.querySelector('[aria-label="本周交易分析"] .db-week-metric strong')?.textContent === '2', '本周卡片必须复用当前实盘范围')
     assert(!document.querySelector('button[role="combobox"]'), 'Dashboard 不得提供统计周期选择器')
-    assert(text().includes('历史记录'), 'Dashboard 必须提供历史记录入口')
+    assert(text().includes('历史实盘'), 'Dashboard 必须提供历史实盘入口')
     assert(!text().includes('绩效阶段'), 'Dashboard 不得暴露绩效阶段术语')
     assert(document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href') === '/list?kind=live&range=all', '当前实盘链接必须跟随当前范围')
     assert(document.querySelector<HTMLAnchorElement>('a.db-strat')?.getAttribute('href')?.includes('statsCycle=') === false, '策略下钻不得固定历史归档 ID')

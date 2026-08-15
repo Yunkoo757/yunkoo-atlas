@@ -113,7 +113,7 @@ export function resolveLiveRouteNavigation(route: LiveRouteState): LiveRouteNavi
 
   if (route.target.kind === 'archive' && route.target.scope.archiveId) {
     return {
-      pathname: `/live-archive/${encodeURIComponent(route.target.scope.archiveId)}`,
+      pathname: '/live-history',
       search: searchForDestination(),
     }
   }
@@ -124,10 +124,7 @@ export function resolveLiveRouteNavigation(route: LiveRouteState): LiveRouteNavi
       params.set('archiveReason', route.target.reason)
       if (route.target.requestedKey) params.set('requestedKey', route.target.requestedKey)
     }
-    if (route.target.reason === 'pre-cycle' && route.archiveHomeDestination !== 'home') {
-      return { pathname: '/live-archive/pre-cycle', search: searchForDestination() }
-    }
-    return { pathname: '/live-archive', search: searchForDestination() }
+    return { pathname: '/live-history', search: searchForDestination() }
   }
   if (route.target.kind === 'pending') return { pathname: '/list', search: searchForDestination() }
   return { pathname: '/list', search: searchForDestination() }

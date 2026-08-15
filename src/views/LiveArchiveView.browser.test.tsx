@@ -111,19 +111,19 @@ async function run() {
     root.unmount(); root = createRoot(element)
 
     root.render(<MemoryRouter key="missing-archive" initialEntries={['/live-archive?archiveReason=missing&requestedKey=gone-cycle']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
-    await waitFor(() => document.body.textContent?.includes('历史记录') ?? false, '失效请求必须回到历史记录首页')
+    await waitFor(() => document.body.textContent?.includes('历史实盘') ?? false, '失效请求必须回到历史实盘首页')
     assert(document.body.textContent?.includes('gone-cycle'), '失效提示必须保留原请求 ID')
-    assert(document.body.textContent?.includes('已合并到统一历史记录'), '失效提示必须说明已合并')
+    assert(document.body.textContent?.includes('已合并到历史实盘'), '失效提示必须说明已合并')
     root.unmount(); root = createRoot(element)
 
     useStore.setState((state) => ({ trades: [], livePerformanceCycles: [{ id: 'only-boundary', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }], display: { ...state.display, tradingDayStartHour: 0 } }))
-    root.render(<MemoryRouter key="empty-pre-cycle" initialEntries={['/live-archive/pre-cycle']}><Routes><Route path="/live-archive" element={<><LiveArchiveView /><LocationProbe /></>} /><Route path="/live-archive/:archiveId" element={<><LiveArchiveView /><LocationProbe /></>} /></Routes></MemoryRouter>)
-    await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/live-archive', '旧归档详情路由必须 replace 到扁平首页')
-    assert(document.body.textContent?.includes('历史记录'), '旧详情路由必须回到历史记录')
+    root.render(<MemoryRouter key="empty-pre-cycle" initialEntries={['/live-archive/pre-cycle']}><Routes><Route path="/live-history" element={<><LiveArchiveView /><LocationProbe /></>} /><Route path="/live-archive/:archiveId" element={<><LiveArchiveView /><LocationProbe /></>} /></Routes></MemoryRouter>)
+    await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/live-history', '旧归档详情路由必须 replace 到历史实盘首页')
+    assert(document.body.textContent?.includes('历史实盘'), '旧详情路由必须回到历史实盘')
     root.unmount(); root = createRoot(element)
 
-    root.render(<MemoryRouter key="stale-bookmark" initialEntries={['/live-archive/stale-cycle']}><Routes><Route path="/live-archive" element={<><LiveArchiveView /><LocationProbe /></>} /><Route path="/live-archive/:archiveId" element={<><LiveArchiveView /><LocationProbe /></>} /></Routes></MemoryRouter>)
-    await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/live-archive', '陈旧书签必须 replace 到扁平首页')
+    root.render(<MemoryRouter key="stale-bookmark" initialEntries={['/live-archive/stale-cycle']}><Routes><Route path="/live-history" element={<><LiveArchiveView /><LocationProbe /></>} /><Route path="/live-archive/:archiveId" element={<><LiveArchiveView /><LocationProbe /></>} /></Routes></MemoryRouter>)
+    await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/live-history', '陈旧书签必须 replace 到历史实盘首页')
     assert(document.body.textContent?.includes('stale-cycle'), '陈旧书签必须显示原范围提示')
     root.unmount(); root = createRoot(element)
 
@@ -165,7 +165,7 @@ async function run() {
     document.querySelector<HTMLButtonElement>(`button[aria-label="${archiveRepairDay}"]`)?.click()
     await waitFor(() => useStore.getState().trades.find((item) => item.id === 'pending')?.closedTradingDayKey === archiveRepairDay, '修复待整理详情必须先更新事实')
     document.querySelector<HTMLAnchorElement>('.dv-back')?.click()
-    await waitFor(() => document.body.textContent?.includes('重置前的实盘记录会保留在这里') ?? false, '修复后返回必须恢复历史首页语境')
+    await waitFor(() => document.body.textContent?.includes('重置起点前的实盘与关联案例会保留在这里') ?? false, '修复后返回必须恢复历史实盘语境')
 
     await openFilters()
     const query = document.querySelector<HTMLInputElement>('[data-archive-query]')

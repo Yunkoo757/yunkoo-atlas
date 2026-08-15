@@ -694,14 +694,14 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <span>添加或管理</span>
         </button>
       </nav>
-      <nav className="sb-section" aria-label="历史记录">
+      <nav className="sb-section" aria-label="历史实盘">
         <NavLink
-          to="/live-archive"
+          to="/live-history"
           data-primary-id="liveArchive"
           className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}
         >
           <Archive size={ICON_MD} />
-          <span className="sb-item-label">历史记录</span>
+          <span className="sb-item-label">历史实盘</span>
         </NavLink>
       </nav>
       </div>

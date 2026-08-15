@@ -161,6 +161,23 @@ const DetailView = lazy(() =>
 const LiveArchiveView = lazy(() =>
   import('./views/LiveArchiveView').then((module) => ({ default: module.LiveArchiveView })),
 )
+
+function LegacyLiveArchiveRedirect() {
+  const location = useLocation()
+  const { archiveId } = useParams()
+  const params = new URLSearchParams(location.search)
+  if (archiveId) {
+    params.set('archiveReason', 'missing')
+    params.set('requestedKey', archiveId)
+  }
+  const search = params.toString()
+  return (
+    <Navigate
+      to={{ pathname: '/live-history', search: search ? `?${search}` : '' }}
+      replace
+    />
+  )
+}
 const ImportDataHealthView = lazy(() =>
   import('./views/ImportDataHealthView').then((module) => ({ default: module.ImportDataHealthView })),
 )
@@ -485,8 +502,9 @@ function Shell() {
           <Route path="/strategy/:id" element={<StrategyPage />} />
           <Route path="/strategy/:id/board" element={<StrategyPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/live-archive" element={<LiveArchiveView />} />
-          <Route path="/live-archive/:archiveId" element={<LiveArchiveView />} />
+          <Route path="/live-history" element={<LiveArchiveView />} />
+          <Route path="/live-archive" element={<LegacyLiveArchiveRedirect />} />
+          <Route path="/live-archive/:archiveId" element={<LegacyLiveArchiveRedirect />} />
           <Route path="/import-data-health" element={<ImportDataHealthView />} />
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/cases" element={<Navigate to="/list" replace />} />

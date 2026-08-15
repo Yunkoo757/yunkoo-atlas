@@ -93,9 +93,9 @@ export function ImportDataHealthView() {
       />
       <main className="idh-view">
         <div className="list-pending-entry idh-toolbar">
-          <Link className="list-pending-link" to="/live-archive">
+          <Link className="list-pending-link" to="/live-history">
             <ArrowLeft size={ICON_SM} aria-hidden />
-            返回历史记录
+            返回历史实盘
           </Link>
           <p className="idh-toolbar-meta" id="import-health-title">
             平仓日待核对 <span>{candidates.length}</span>
@@ -131,10 +131,10 @@ export function ImportDataHealthView() {
           {candidates.length === 0 ? (
             <EmptyState
               title="当前没有待核对记录"
-              hint="没有历史记录会被自动修改。高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。"
+              hint="没有历史实盘记录会被自动修改。高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。"
               action={(
-                <Link className="ui-btn ui-btn-bordered" to="/live-archive">
-                  返回历史记录
+                <Link className="ui-btn ui-btn-bordered" to="/live-history">
+                  返回历史实盘
                 </Link>
               )}
             />
@@ -195,7 +195,7 @@ export function ImportDataHealthView() {
       {confirming ? (
         <ModalShell
           title="确认清空平仓日？"
-          description={`将清空 ${selectedCount} 条历史记录的平仓日；提交前会先进入现有备份与持久化边界。`}
+          description={`将清空 ${selectedCount} 条历史实盘记录的平仓日；提交前会先进入现有备份与持久化边界。`}
           busy={busy}
           dismissible={!busy}
           onClose={() => setConfirming(false)}

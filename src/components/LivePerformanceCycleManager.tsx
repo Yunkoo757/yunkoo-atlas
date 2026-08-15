@@ -122,7 +122,7 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
   return (
     <ModalShell
       title="重置实盘统计"
-      description="在保留交易、案例、图片与复盘内容的前提下，清空当前绩效与风险计算，并恢复默认风险设置。重置前的已结束与进行中实盘会离开今日工作台和当前交易日志，可在历史记录中回看。"
+      description="在保留交易、案例、图片与复盘内容的前提下，清空当前绩效与风险计算，并恢复默认风险设置。重置前的已结束与进行中实盘会离开今日工作台和当前交易日志，可在历史实盘中回看。"
       describedById={preview ? summaryId : undefined}
       busy={busy}
       onClose={onClose}

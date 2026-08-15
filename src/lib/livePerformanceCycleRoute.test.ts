@@ -62,7 +62,7 @@ export function testLiveRouteSendsReservedScopesToArchiveHomeWithoutDrifting(): 
   }
 }
 
-export function testLiveRouteNavigationUsesArchiveDetailPathsAndPreservesInvalidReasons(): void {
+export function testLiveRouteNavigationUsesHistoricalLiveAndPreservesInvalidReasons(): void {
   const archive = resolveLiveRoute('?statsCycle=old-id&symbol=BTCUSDT', cycles, 'strategy')
   const preCycle = resolveLiveRoute('?statsCycle=pre-cycle&symbol=BTCUSDT', cycles, 'trade-list')
   const invalid = resolveLiveRoute('?statsCycle=missing&symbol=BTCUSDT', cycles, 'trade-list')
@@ -73,11 +73,11 @@ export function testLiveRouteNavigationUsesArchiveDetailPathsAndPreservesInvalid
   const invalidDestination = resolveLiveRouteNavigation(invalid)
   const pendingDestination = resolveLiveRouteNavigation(pending)
 
-  assert(archiveDestination.pathname === '/live-archive/old-id', '有效历史范围必须进入对应归档详情路径')
-  assert(archiveDestination.search === '?symbol=BTCUSDT', '归档详情路径必须保留无关筛选')
-  assert(preCycleDestination.pathname === '/live-archive/pre-cycle', '存在周期时规则前范围必须进入稳定归档详情')
-  assert(preCycleDestination.search === '?symbol=BTCUSDT', '规则前详情路径必须保留无关筛选')
-  assert(invalidDestination.pathname === '/live-archive', '失效范围必须进入归档首页')
+  assert(archiveDestination.pathname === '/live-history', '有效历史范围必须进入统一历史实盘')
+  assert(archiveDestination.search === '?symbol=BTCUSDT', '历史实盘路径必须保留无关筛选')
+  assert(preCycleDestination.pathname === '/live-history', '规则前范围必须进入统一历史实盘')
+  assert(preCycleDestination.search === '?symbol=BTCUSDT', '规则前历史实盘路径必须保留无关筛选')
+  assert(invalidDestination.pathname === '/live-history', '失效范围必须进入历史实盘首页')
   assert(invalidDestination.search.includes('archiveReason=missing'), '失效范围必须保留统一失效原因')
   assert(invalidDestination.search.includes('requestedKey=missing'), '失效范围必须保留请求键')
   assert(!invalidDestination.search.includes('statsCycle='), '失效导航不得继续携带内部周期键')
@@ -104,7 +104,7 @@ export function testEmptyCyclesPreCycleFallsBackToArchiveHomeWithReason(): void 
     assert(route.target.reason === 'pre-cycle', '空周期集合必须保留规则前原因')
   }
   const destination = resolveLiveRouteNavigation(route)
-  assert(destination.pathname === '/live-archive', '空周期集合的规则前导航必须回到归档首页')
+  assert(destination.pathname === '/live-history', '空周期集合的规则前导航必须回到历史实盘首页')
   assert(destination.search.includes('archiveReason=pre-cycle'), '归档首页必须保留规则前失效原因')
   assert(destination.search.includes('requestedKey=pre-cycle'), '归档首页必须保留规则前请求键')
 }

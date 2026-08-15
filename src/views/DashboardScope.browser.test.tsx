@@ -239,7 +239,7 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('当前实盘统计') ?? false, 'Dashboard 必须明确显示当前实盘统计')
     assert(document.body.textContent?.includes('+$100'), '主统计只能包含当前实盘交易')
     assert(!document.body.textContent?.includes('+$900'), '历史归档实盘不得混入当前主统计')
-    assert(document.body.textContent?.includes('历史记录'), 'Dashboard 必须提供历史记录入口')
+    assert(document.body.textContent?.includes('历史实盘'), 'Dashboard 必须提供历史实盘入口')
     assert(!document.body.textContent?.includes('绩效阶段'), 'Dashboard 不得暴露实现术语')
     const currentHref = document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href')
     assert(currentHref === '/list?kind=live&range=all', `查看当前实盘必须只进入当前范围，实际 ${currentHref}`)
@@ -302,14 +302,13 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={['/dashboard?kind=live&statsCycle=archive-cycle&symbol=BTCUSDT']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
-          <Route path="/live-archive" element={<LocationProbe />} />
-          <Route path="/live-archive/:archiveId" element={<LocationProbe />} />
+          <Route path="/live-history" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     )
     await waitFor(
-      () => document.querySelector('[data-testid="location"]')?.textContent === '/live-archive/archive-cycle?kind=live&symbol=BTCUSDT',
-      '历史归档深链不得静默展示当前 Dashboard，必须安全转到历史归档入口',
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/live-history?kind=live&symbol=BTCUSDT',
+      '历史范围深链不得静默展示当前 Dashboard，必须安全转到历史实盘入口',
     )
 
     root.unmount()
@@ -319,8 +318,7 @@ async function run(): Promise<void> {
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
           <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
-          <Route path="/live-archive" element={<LocationProbe />} />
-          <Route path="/live-archive/:archiveId" element={<LocationProbe />} />
+          <Route path="/live-history" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     )
@@ -379,8 +377,7 @@ async function run(): Promise<void> {
         <MemoryRouter initialEntries={[entry]}>
           <Routes>
             <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
-            <Route path="/live-archive" element={<LocationProbe />} />
-            <Route path="/live-archive/:archiveId" element={<LocationProbe />} />
+            <Route path="/live-history" element={<LocationProbe />} />
           </Routes>
         </MemoryRouter>,
       )
@@ -538,7 +535,7 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={[`/list${allArchivesSelection.drilldownTarget}`]}>
         <Routes>
           <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
-          <Route path="/live-archive" element={<LocationProbe />} />
+          <Route path="/live-history" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     )
@@ -569,13 +566,13 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={['/list?kind=live&range=all&statsCycle=removed-archive']}>
         <Routes>
           <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
-          <Route path="/live-archive" element={<LocationProbe />} />
+          <Route path="/live-history" element={<LocationProbe />} />
         </Routes>
       </MemoryRouter>,
     )
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent?.includes(
-        '/live-archive?kind=live&range=all&archiveReason=missing&requestedKey=removed-archive',
+        '/live-history?kind=live&range=all&archiveReason=missing&requestedKey=removed-archive',
       ) ?? false,
       '失效 archive 下钻必须经统一路由进入带解释原因的历史归档首页',
     )

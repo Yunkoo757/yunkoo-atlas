@@ -142,7 +142,8 @@ export function ListView({
 
   const openTrade = useCallback((trade: Trade) => {
     const inheritedFrom = (location.state as TradeDetailLocationState | null)?.from
-    const inheritedArchive = inheritedFrom?.pathname === '/live-archive'
+    const inheritedArchive = inheritedFrom?.pathname === '/live-history'
+      || inheritedFrom?.pathname === '/live-archive'
       || inheritedFrom?.pathname.startsWith('/live-archive/')
     const from = {
       pathname: inheritedArchive ? inheritedFrom!.pathname : location.pathname,

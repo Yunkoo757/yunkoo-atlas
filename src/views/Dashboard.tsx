@@ -315,7 +315,7 @@ export function Dashboard() {
               {rangeLabel} · 当前实盘
             </h2>
           </div>
-          <Link to="/live-archive" className="db-live-link">历史记录</Link>
+          <Link to="/live-history" className="db-live-link">历史实盘</Link>
         </header>
 
         <div className="db-cards" aria-label={`当前范围指标 · ${rangeLabel}`}>
@@ -404,7 +404,7 @@ export function Dashboard() {
                 ? '当前时间范围暂无已平仓实盘'
                 : '还没有已平仓交易'}
             hint={selectedPerformanceCycleIsEmpty
-                  ? '历史记录仍完整保留，可从历史记录查看。'
+                  ? '重置前记录仍完整保留，可从历史实盘查看。'
               : hasPerformanceBounds
                 ? '当前实盘有已平仓记录，可以切换时间范围查看。'
                 : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}

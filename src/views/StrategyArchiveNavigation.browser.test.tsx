@@ -32,34 +32,31 @@ async function run(): Promise<void> {
     useStore.setState({ strategies: [strategy], trades: [preCycleTrade, oldTrade, currentTrade], livePerformanceCycles: cycles })
     const router = createMemoryRouter([
       { path: '/strategy/:id', element: <><StrategyPage /><RouteProbe /></> },
-      { path: '/live-archive', element: <><LiveArchiveView /><RouteProbe /></> },
-      { path: '/live-archive/:archiveId', element: <><LiveArchiveView /><RouteProbe /></> },
+      { path: '/live-history', element: <><LiveArchiveView /><RouteProbe /></> },
     ], { initialEntries: ['/strategy/archive-strategy?kind=live&range=all&statsCycle=archive-cycle'] })
     root.render(<RouterProvider router={router} />)
     await waitFor(
-      () => router.state.location.pathname === '/live-archive'
-        && router.state.location.search.includes('archiveReason=missing')
-        && router.state.location.search.includes('requestedKey=archive-cycle')
-        && (document.body.textContent?.includes('历史记录') ?? false)
+      () => router.state.location.pathname === '/live-history'
+        && (document.body.textContent?.includes('历史实盘') ?? false)
         && (document.body.textContent?.includes('TRD-STRATEGY-ARCHIVE') ?? false),
-      '策略历史深链必须合并到统一历史记录并展示对应交易',
+      '策略历史深链必须进入历史实盘并展示对应交易',
     )
 
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=all')
-    await waitFor(() => router.state.location.pathname === '/live-archive' && router.state.location.search === '?kind=live&range=all' && (document.body.textContent?.includes('历史记录') ?? false), '策略 all 深链必须回到归档首页并保留分析范围')
+    await waitFor(() => router.state.location.pathname === '/live-history' && router.state.location.search === '?kind=live&range=all' && (document.body.textContent?.includes('历史实盘') ?? false), '策略 all 深链必须进入历史实盘并保留分析范围')
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=missing-archive')
-    await waitFor(() => router.state.location.pathname === '/live-archive' && router.state.location.search.includes('archiveReason=missing') && (document.body.textContent?.includes('历史记录') ?? false), '策略无效深链必须回到归档首页并保留失效原因')
+    await waitFor(() => router.state.location.pathname === '/live-history' && router.state.location.search.includes('archiveReason=missing') && (document.body.textContent?.includes('历史实盘') ?? false), '策略无效深链必须进入历史实盘并保留失效原因')
 
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=pre-cycle')
     await waitFor(
-      () => router.state.location.pathname === '/live-archive'
+      () => router.state.location.pathname === '/live-history'
         && (document.body.textContent?.includes('TRD-STRATEGY-PRE') ?? false),
       '规则前成员深链必须合并到统一历史并展示对应交易',
     )
 
     useStore.setState({ trades: [oldTrade, currentTrade] })
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&statsCycle=pre-cycle')
-    await waitFor(() => router.state.location.pathname === '/live-archive' && (document.body.textContent?.includes('历史记录') ?? false), '规则前没有成员时必须回到归档首页')
+    await waitFor(() => router.state.location.pathname === '/live-history' && (document.body.textContent?.includes('历史实盘') ?? false), '规则前没有成员时必须回到历史实盘首页')
   } finally { root.unmount(); useStore.setState({ strategies: previous.strategies, trades: previous.trades, livePerformanceCycles: previous.livePerformanceCycles }) }
 }
 window.__strategyArchiveNavigationTest = run()

@@ -129,7 +129,7 @@ export function LiveArchiveView() {
 
   const requestedKey = searchParams.get('requestedKey')
   const routeNotice = searchParams.get('archiveReason') === 'missing' && (requestedKey || archiveId)
-    ? `原历史范围“${requestedKey ?? archiveId}”已合并到统一历史记录。`
+    ? `原历史范围“${requestedKey ?? archiveId}”已合并到历史实盘。`
     : null
 
   useEffect(() => {
@@ -137,7 +137,7 @@ export function LiveArchiveView() {
     const params = new URLSearchParams()
     params.set('archiveReason', 'missing')
     params.set('requestedKey', archiveId)
-    navigate(`/live-archive?${params.toString()}`, { replace: true })
+    navigate(`/live-history?${params.toString()}`, { replace: true })
   }, [archiveId, navigate])
 
   const closeFilters = useCallback((restoreFocus = true) => {
@@ -266,9 +266,9 @@ export function LiveArchiveView() {
   if (archiveId) {
     return (
       <>
-        <Topbar title="历史记录" showDisplay={false} />
+        <Topbar title="历史实盘" showDisplay={false} />
         <main className="la-view">
-          <p className="la-route-notice" role="status">正在合并到统一历史记录…</p>
+          <p className="la-route-notice" role="status">正在合并到历史实盘…</p>
         </main>
       </>
     )
@@ -277,8 +277,8 @@ export function LiveArchiveView() {
   return (
     <>
       <Topbar
-        title="历史记录"
-        subtitle="重置前的实盘记录会保留在这里"
+        title="历史实盘"
+        subtitle="重置起点前的实盘与关联案例会保留在这里"
         showDisplay={false}
       />
       <main className="la-view">
@@ -291,7 +291,7 @@ export function LiveArchiveView() {
               data-pending-log-link
               className="list-pending-link"
               to="/list?statsCycle=pending"
-              state={tradeDetailNavState({ pathname: '/live-archive' })}
+              state={tradeDetailNavState({ pathname: location.pathname, search: location.search })}
               aria-label={`查看待整理记录，共 ${pendingCount} 条`}
             >
               待整理 {pendingCount}
