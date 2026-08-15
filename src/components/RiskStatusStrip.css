@@ -57,7 +57,7 @@
 }
 .risk-status-summary a { color: var(--accent-readable); }
 
-@media (max-width: 1099px) {
+@media (max-width: 799px) {
   .risk-status-periods {
     grid-template-columns: minmax(0, 1fr);
   }
