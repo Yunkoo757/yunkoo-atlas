@@ -57,6 +57,22 @@ function createPackagedCaptures() {
     })))
 }
 
+function createValidPackagedReport({ githubSha = null } = {}) {
+  const commit = 'a'.repeat(40)
+  return {
+    schemaVersion: 1,
+    runtime: 'packaged-electron',
+    platform: 'darwin',
+    scale: { requested: 2, devicePixelRatio: 2, displayScaleFactor: 2 },
+    source: { commit, dirty: false },
+    repository: { head: commit },
+    ci: { githubSha },
+    captures: createPackagedCaptures(),
+    checks: buildRequiredPlatformChecks('darwin').map((id) => ({ id, pass: true })),
+    typography: { failureCount: 0 },
+  }
+}
+
 function createTypographyInput() {
   const fontFamily = '"Inter Variable", Inter, system-ui, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif'
   return {
@@ -426,6 +442,32 @@ test('packaged typography diagnostics are captured in the same trade capture', (
   assert.ok(typographyProbe < diagnosticSnapshot, 'probe errors must be snapshotted in the trade capture')
 })
 
+test('packaged identity source is compiled into the renderer and read from the running app', () => {
+  const viteConfig = readFileSync('vite.config.ts', 'utf8')
+  const rendererEntry = readFileSync('src/main.tsx', 'utf8')
+  const qaSource = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+
+  assert.match(
+    viteConfig,
+    /'__ATLAS_BUILD_IDENTITY__':\s*JSON\.stringify\(embeddedBuildIdentity\)/,
+  )
+  assert.match(viteConfig, /execFileSync\('git'/)
+  assert.match(viteConfig, /git\(\['rev-parse', 'HEAD'\]\)/)
+  assert.match(
+    viteConfig,
+    /git\(\['status', '--porcelain=v1', '--untracked-files=normal'\]\)/,
+  )
+  assert.match(rendererEntry, /Object\.defineProperty\(window,\s*'__ATLAS_BUILD_IDENTITY__'/)
+  assert.match(rendererEntry, /__ATLAS_BUILD_IDENTITY__/)
+  assert.match(qaSource, /page\.evaluate\(\(\)\s*=>\s*window\.__ATLAS_BUILD_IDENTITY__\)/)
+
+  const rendererRead = qaSource.indexOf(
+    'page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__)',
+  )
+  const reportAssembly = qaSource.indexOf('const report = {')
+  assert.ok(rendererRead >= 0 && rendererRead < reportAssembly)
+})
+
 test('Windows window restoration allows only the native resize-frame overhang', () => {
   const workArea = { x: 0, y: 0, width: 820, height: 576 }
   assert.equal(
@@ -491,17 +533,8 @@ test('evidence isolation accepts canonical aliases of the same temporary root', 
 })
 
 test('report validation fails closed when screenshots or native platform checks are missing', () => {
-  const captures = createPackagedCaptures()
-  const complete = {
-    schemaVersion: 1,
-    runtime: 'packaged-electron',
-    platform: 'darwin',
-    scale: { requested: 2, devicePixelRatio: 2, displayScaleFactor: 2 },
-    source: { commit: 'a'.repeat(40), dirty: false },
-    captures,
-    checks: buildRequiredPlatformChecks('darwin').map((id) => ({ id, pass: true })),
-    typography: { failureCount: 0 },
-  }
+  const complete = createValidPackagedReport()
+  const captures = complete.captures
 
   assert.doesNotThrow(() => validatePackagedVisualReport(complete))
   assert.throws(
@@ -656,6 +689,62 @@ test('Windows packaged evidence accepts only the supported 100 125 150 percent s
   assert.match(workflow, /name:\s*Windows packaged visual \(100\/125\/150%\)/)
   assert.match(workflow, /ATLAS_PACKAGED_SCALE_FACTOR:\s*'1\.25'/)
   assert.match(workflow, /ATLAS_PACKAGED_SCALE_FACTOR:\s*'1\.5'/)
+})
+
+test('packaged report identity rejects stale dirty malformed and CI-mismatched binaries', () => {
+  const commitA = 'a'.repeat(40)
+  const commitB = 'b'.repeat(40)
+  const local = createValidPackagedReport()
+  const ci = createValidPackagedReport({ githubSha: commitA })
+
+  assert.doesNotThrow(() => validatePackagedVisualReport(local))
+  assert.doesNotThrow(() => validatePackagedVisualReport(ci))
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...local,
+      source: { commit: commitA, dirty: false },
+      repository: { head: commitB },
+    }),
+    /embedded commit.*repository HEAD/i,
+  )
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...ci,
+      ci: { githubSha: commitB },
+    }),
+    /embedded commit.*GITHUB_SHA/i,
+  )
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...local,
+      source: { ...local.source, dirty: true },
+    }),
+    /embedded.*dirty/i,
+  )
+  for (const source of [
+    undefined,
+    {},
+    { commit: 'not-a-sha', dirty: false },
+    { commit: commitA, dirty: 'false' },
+    { commit: commitA, dirty: 0 },
+  ]) {
+    assert.throws(
+      () => validatePackagedVisualReport({ ...local, source }),
+      /embedded identity/i,
+    )
+  }
+  for (const repository of [undefined, {}, { head: 'not-a-sha' }]) {
+    assert.throws(
+      () => validatePackagedVisualReport({ ...local, repository }),
+      /repository HEAD/i,
+    )
+  }
+  for (const githubSha of [undefined, '', 'not-a-sha', true]) {
+    assert.throws(
+      () => validatePackagedVisualReport({ ...local, ci: { githubSha } }),
+      /GITHUB_SHA/i,
+    )
+  }
 })
 
 test('macOS packaged workflow runs both architectures at explicit Retina scale', () => {

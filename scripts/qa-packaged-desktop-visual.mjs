@@ -21,6 +21,7 @@ import {
   normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
+  validatePackagedIdentityEvidence,
   validatePackagedVisualReport,
 } from './packaged-desktop-visual-contract.mjs'
 import {
@@ -259,10 +260,9 @@ let scaleEvidence = null
 let typography = null
 const captures = []
 const checks = []
-const source = {
-  commit: git(['rev-parse', 'HEAD']),
-  dirty: git(['status', '--porcelain=v1']).length > 0,
-}
+let source = null
+const repository = { head: git(['rev-parse', 'HEAD']) }
+const ci = { githubSha: process.env.GITHUB_SHA ?? null }
 
 function record(id, pass, detail) {
   checks.push({ id, pass, detail })
@@ -286,6 +286,8 @@ try {
   })
   page = await application.firstWindow({ timeout: 30_000 })
   await page.waitForLoadState('domcontentloaded')
+  source = await page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__)
+  validatePackagedIdentityEvidence({ source, repository, ci })
   let diagnostics = bindDiagnostics(page)
 
   const runtime = await application.evaluate(({ app, BrowserWindow, Menu, screen }) => {
@@ -513,6 +515,8 @@ const report = {
   platform: hostPlatform,
   architecture: hostArch,
   source,
+  repository,
+  ci,
   machine: {
     platform: hostPlatform,
     release: release(),

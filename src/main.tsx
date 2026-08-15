@@ -10,6 +10,13 @@ import './components/ui/Button.css'
 import './components/ui/Chip.css'
 import './components/ui/Kbd.css'
 
+Object.defineProperty(window, '__ATLAS_BUILD_IDENTITY__', {
+  value: Object.freeze({ ...__ATLAS_BUILD_IDENTITY__ }),
+  writable: false,
+  configurable: false,
+  enumerable: false,
+})
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

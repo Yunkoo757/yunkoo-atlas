@@ -311,14 +311,42 @@ export function assertSafePackagedEvidencePaths({
   }
 }
 
+const SOURCE_COMMIT_PATTERN = /^[0-9a-f]{40}$/
+
+export function validatePackagedIdentityEvidence({ source, repository, ci }) {
+  if (!source || typeof source !== 'object' ||
+      !SOURCE_COMMIT_PATTERN.test(source.commit ?? '') ||
+      typeof source.dirty !== 'boolean') {
+    throw new Error('Packaged visual evidence requires a valid embedded identity')
+  }
+  if (source.dirty !== false) {
+    throw new Error('Embedded build is dirty; packaged visual evidence requires a clean source commit')
+  }
+  if (!repository || typeof repository !== 'object' ||
+      !SOURCE_COMMIT_PATTERN.test(repository.head ?? '')) {
+    throw new Error('Packaged visual evidence requires a valid repository HEAD')
+  }
+  if (source.commit !== repository.head) {
+    throw new Error('Packaged visual embedded commit must equal repository HEAD')
+  }
+  if (!ci || typeof ci !== 'object' || !Object.hasOwn(ci, 'githubSha')) {
+    throw new Error('Packaged visual GITHUB_SHA evidence must be explicit')
+  }
+  if (ci.githubSha !== null && !SOURCE_COMMIT_PATTERN.test(ci.githubSha ?? '')) {
+    throw new Error('Packaged visual GITHUB_SHA must be null or a valid commit')
+  }
+  if (ci.githubSha !== null && source.commit !== ci.githubSha) {
+    throw new Error('Packaged visual embedded commit must equal GITHUB_SHA')
+  }
+  return { source, repository, ci }
+}
+
 export function validatePackagedVisualReport(report) {
   if (!report || typeof report !== 'object') throw new Error('Packaged visual report is required')
   if (report.schemaVersion !== 1) throw new Error('Unsupported packaged visual report schema')
   if (report.runtime !== 'packaged-electron') throw new Error('Report runtime must be packaged-electron')
   const requiredChecks = buildRequiredPlatformChecks(report.platform)
-  if (!report.source || !/^[0-9a-f]{40}$/i.test(report.source.commit ?? '') || report.source.dirty !== false) {
-    throw new Error('Packaged visual evidence requires a clean source commit')
-  }
+  validatePackagedIdentityEvidence(report)
   if (!hasExactDesktopVisualCaptureMatrix(report.captures, { packaged: true })) {
     throw new Error('Packaged visual evidence requires the exact unique 5 by 7 capture matrix')
   }
