@@ -119,6 +119,75 @@ export function createDesktopVisualSnapshot() {
     reviewStatus: 'unreviewed',
   })
 
+  const historicalSource = trades[20]
+  const caseTemplate = trades[2]
+  if (!historicalSource || !caseTemplate) {
+    throw new Error('Desktop visual fixture is missing historical case sources')
+  }
+  trades.push(
+    {
+      ...caseTemplate,
+      id: 'desktop-history-case-focus',
+      ref: 'CASE-HISTORY-FOCUS',
+      sourceTradeId: historicalSource.id,
+      caseType: 'exemplar',
+      masteryState: 'new',
+      reviewStatus: 'focus',
+      reviewCategory: 'focus',
+      note: '<p>历史实盘重点案例：结构、时机与风险预算均符合计划。</p>',
+    },
+    {
+      ...caseTemplate,
+      id: 'desktop-history-case-mistake',
+      ref: 'CASE-HISTORY-MISTAKE',
+      sourceTradeId: historicalSource.id,
+      caseType: 'mistake',
+      masteryState: 'new',
+      reviewStatus: 'unreviewed',
+      reviewCategory: 'mistake',
+      mistakeTags: ['提前进场'],
+      note: '<p>历史实盘错题：确认完成前提前执行。</p>',
+    },
+    {
+      ...caseTemplate,
+      id: 'desktop-history-case-missed',
+      ref: 'CASE-HISTORY-MISSED',
+      sourceTradeId: historicalSource.id,
+      caseType: 'missed',
+      masteryState: 'new',
+      reviewStatus: 'unreviewed',
+      reviewCategory: 'normal',
+      status: 'missed',
+      pnl: null,
+      rMultiple: null,
+      resultSource: undefined,
+      mistakeTags: ['犹豫'],
+      note: '<p>历史实盘错过机会：信号出现后未执行计划。</p>',
+    },
+    {
+      ...caseTemplate,
+      id: 'desktop-history-case-recheck',
+      ref: 'CASE-HISTORY-RECHECK',
+      sourceTradeId: historicalSource.id,
+      caseType: 'ambiguous',
+      masteryState: 'recheck',
+      reviewStatus: 'unreviewed',
+      reviewCategory: 'recheck',
+      note: '<p>历史实盘待复看案例：需要重新确认决策边界。</p>',
+    },
+    {
+      ...caseTemplate,
+      id: 'desktop-history-case-mastered',
+      ref: 'CASE-HISTORY-MASTERED',
+      sourceTradeId: historicalSource.id,
+      caseType: 'exemplar',
+      masteryState: 'mastered',
+      reviewStatus: 'reviewed',
+      reviewCategory: 'mastered',
+      note: '<p>历史实盘已掌握案例：复盘结论已经稳定。</p>',
+    },
+  )
+
   return {
     ...snapshot,
     trades,

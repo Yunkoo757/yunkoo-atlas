@@ -38,7 +38,8 @@ test('desktop visual matrix owns every supported window and core route', () => {
       ['missed', '/missed'],
       ['review-cases', '/review-cases'],
       ['paper-trades', '/sim'],
-      ['live-archive', '/live-archive'],
+      ['live-archive', '/live-history'],
+      ['live-history-cases', '/live-history?view=cases'],
       ['trash', '/trade-trash'],
       ['settings-profile', '/settings/profile'],
       ['settings-shortcuts', '/settings/shortcuts'],
@@ -69,6 +70,11 @@ test('desktop visual fixture covers populated desktop workflows without user dat
   assert.equal(snapshot.weeklyReviews.some((review) => review.weekStart === '2026-08-10'), true)
   assert.equal(snapshot.profile.displayName, '桌面视觉样本')
   assert.equal(snapshot.display.tradingDayStartHour, 0)
+  const historicalSourceIds = new Set(snapshot.trades
+    .filter((trade) => trade.tradeKind === 'live' && trade.closedTradingDayKey < '2026-07-01')
+    .map((trade) => trade.id))
+  assert.equal(snapshot.trades.some((trade) =>
+    trade.tradeKind === 'case' && historicalSourceIds.has(trade.sourceTradeId)), true)
 })
 
 test('desktop visual Electron mode rejects real application data paths', () => {
@@ -120,7 +126,7 @@ test('desktop visual report fails closed on runtime errors or horizontal overflo
   }), true)
 })
 
-test('desktop visual report requires the exact unique 5 by 22 capture matrix', () => {
+test('desktop visual report requires the exact unique 5 by 23 capture matrix', () => {
   const captures = createDesktopCaptures()
   const clean = {
     consoleErrors: [],

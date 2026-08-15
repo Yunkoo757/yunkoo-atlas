@@ -5,9 +5,10 @@ const server = await createServer({ server: { host: '127.0.0.1', port: 4191 } })
 await server.listen()
 const browser = await chromium.launch({ headless: true })
 
-async function expectRoute(page, route) {
-  await page.waitForFunction((expected) => document.querySelector('[data-keyboard-route]')?.textContent === expected, route)
-  if (new URL(page.url()).hash !== `#${route}`) throw new Error(`键盘路由 URL 不正确：期望 #${route}，实际 ${new URL(page.url()).hash}`)
+async function expectRoute(page, pathname, search = '') {
+  await page.waitForFunction((expected) => document.querySelector('[data-keyboard-route]')?.textContent === expected, pathname)
+  const expectedHash = `#${pathname}${search}`
+  if (new URL(page.url()).hash !== expectedHash) throw new Error(`键盘路由 URL 不正确：期望 ${expectedHash}，实际 ${new URL(page.url()).hash}`)
 }
 
 try {
@@ -20,18 +21,21 @@ try {
 
   await page.locator('.db-live-link').focus()
   await page.keyboard.press('Enter')
-  await expectRoute(page, '/live-archive')
+  await expectRoute(page, '/live-history')
 
-  await page.locator('[data-archive-detail-link]').focus()
+  await page.getByRole('tab', { name: '关联案例' }).focus()
   await page.keyboard.press('Enter')
-  await expectRoute(page, '/live-archive/keyboard-archive')
+  await expectRoute(page, '/live-history', '?view=cases')
+  await page.getByRole('tab', { name: '错题' }).focus()
+  await page.keyboard.press('Enter')
+  await page.getByText('CASE-KEYBOARD-HISTORY').waitFor()
 
-  await page.locator('[data-archive-return]').focus()
+  await page.getByRole('tab', { name: '实盘记录' }).focus()
   await page.keyboard.press('Enter')
-  await expectRoute(page, '/live-archive')
+  await expectRoute(page, '/live-history')
 
   if (diagnostics.length) throw new Error(`键盘验收出现浏览器错误：${diagnostics.join(' | ')}`)
-  console.log('PASS live archive trusted keyboard: dashboard → archive → detail → archive @1280x900')
+  console.log('PASS historical live keyboard: dashboard → cases → mistakes → trades @1280x900')
 } finally {
   await browser.close()
   await server.close()

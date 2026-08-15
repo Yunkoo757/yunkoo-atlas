@@ -14,8 +14,19 @@ const archivedTrade: Trade = {
   id: 'keyboard-archive-trade', ref: 'TRD-KEYBOARD-ARCHIVE', symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'keyboard', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, rMultiple: 1, resultSource: 'imported', openedAt: '2026-01-15', closedAt: '2026-01-15', closedTradingDayKey: '2026-01-15', note: '',
 }
 
+const archivedCase: Trade = {
+  ...archivedTrade,
+  id: 'keyboard-history-case',
+  ref: 'CASE-KEYBOARD-HISTORY',
+  tradeKind: 'case',
+  sourceTradeId: archivedTrade.id,
+  caseType: 'mistake',
+  masteryState: 'recheck',
+  mistakeTags: ['提前进场'],
+}
+
 useStore.setState({
-  trades: [archivedTrade],
+  trades: [archivedTrade, archivedCase],
   livePerformanceCycles: [
     { id: 'keyboard-archive', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' },
     { id: 'keyboard-current', name: '实盘-2026-02-01', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' },
