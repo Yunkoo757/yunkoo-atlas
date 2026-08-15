@@ -314,6 +314,42 @@ function usesApprovedShorthandFontSize(shorthand: string): boolean {
   return familyStart !== undefined && isPlausibleShorthandFamilyStart(familyStart)
 }
 
+function hasTopLevelBang(value: string): boolean {
+  let depth = 0
+  let quote: '"' | "'" | null = null
+  let escaped = false
+
+  for (const character of value) {
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (character === '\\') {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (character === quote) quote = null
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      continue
+    }
+    if (character === '(') {
+      depth += 1
+      continue
+    }
+    if (character === ')') {
+      if (depth > 0) depth -= 1
+      continue
+    }
+    if (depth === 0 && character === '!') return true
+  }
+
+  return false
+}
+
 function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFontSizeDeclaration[] {
   const declarations: LiteralFontSizeDeclaration[] = []
   for (const { path, css } of sources) {
@@ -331,6 +367,10 @@ function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFo
       const selector = declaration.parent?.type === 'rule' ? declaration.parent.selector.trim() : ''
       const value = declaration.value.trim()
       const important = declaration.important
+      if (hasTopLevelBang(value)) {
+        declarations.push({ path, selector, property, value, important })
+        return
+      }
       if (property === 'font-size') {
         if (!isApprovedLonghandFontSize(value)) declarations.push({ path, selector, property, value, important })
         return
@@ -444,6 +484,10 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.bad { font: var(--FONT-WEIGHT-SEMIBOLD) var(--type-row-size) var(--font-ui); }',
     '.bad { font: var(--font-weight-semibold) var(--type-row-size) var(--FONT-UI); }',
     '.bad { font: 500 22px / var(--type-row-size) var(--font-ui) !important; }',
+    '.bad { font: 500 var(--type-row-size) var(--font-ui) !urgent; }',
+    '.bad { font: 500 var(--type-row-size) var(--font-ui) !important !important; }',
+    '.bad { font: 500 var(--type-row-size) var(--font-ui) !important garbage; }',
+    '.bad { font: 500 var(--type-row-size)/var(--type-row-line-height) var(--font-ui) !urgent; }',
     '.bad { font: inherit !important !important; }',
     '.bad { font: inherit !urgent; }',
     '.bad { font: inherit !important garbage; }',
@@ -502,6 +546,9 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.ok { font: revert-layer; }',
     '.ok { font: InHeRiT !important; }',
     '.ok { font: 500 var(--type-row-size)/var(--type-row-line-height) var(--font-ui) ! IMPORTANT; }',
+    '.ok { font: 500 var(--type-row-size) "Bang! Family"; }',
+    '.ok { font: 500 var(--type-row-size) var(--font-ui) \\!escaped; }',
+    '.ok { font: 500 var(--type-row-size) var(--font-ui) var(--fallback, "!"); }',
   ]) assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], []))
 }
 
