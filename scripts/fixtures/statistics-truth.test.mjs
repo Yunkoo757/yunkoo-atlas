@@ -50,7 +50,9 @@ async function validEvidence() {
 }
 
 async function runContractCase(mutate) {
-  const root = await fs.mkdtemp(path.join(process.cwd(), 'test-results', '.tmp-statistics-truth-contract-'))
+  const fixtureParent = path.join(process.cwd(), 'test-results')
+  await fs.mkdir(fixtureParent, { recursive: true })
+  const root = await fs.mkdtemp(path.join(fixtureParent, '.tmp-statistics-truth-contract-'))
   try {
     const evidence = await validEvidence()
     mutate?.(evidence)
