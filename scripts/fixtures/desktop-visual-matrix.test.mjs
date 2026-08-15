@@ -34,7 +34,22 @@ test('desktop visual matrix owns every supported window and core route', () => {
       ['dashboard', '/dashboard'],
       ['weekly', '/weekly-review'],
       ['review-session', '/review-session'],
+      ['notes', '/notes'],
+      ['missed', '/missed'],
+      ['review-cases', '/review-cases'],
+      ['paper-trades', '/sim'],
+      ['live-archive', '/live-archive'],
+      ['trash', '/trade-trash'],
+      ['settings-profile', '/settings/profile'],
+      ['settings-shortcuts', '/settings/shortcuts'],
+      ['settings-strategies', '/settings/strategies'],
+      ['settings-risk', '/settings/risk'],
+      ['settings-tags', '/settings/tags'],
+      ['settings-symbols', '/settings/symbols'],
+      ['settings-review-templates', '/settings/review-templates'],
+      ['settings-display', '/settings/display'],
       ['settings-data', '/settings/data'],
+      ['settings-updates', '/settings/updates'],
     ],
   )
 })
@@ -105,7 +120,7 @@ test('desktop visual report fails closed on runtime errors or horizontal overflo
   }), true)
 })
 
-test('desktop visual report requires the exact unique 5 by 7 capture matrix', () => {
+test('desktop visual report requires the exact unique 5 by 22 capture matrix', () => {
   const captures = createDesktopCaptures()
   const clean = {
     consoleErrors: [],
