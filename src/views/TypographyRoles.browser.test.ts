@@ -11,7 +11,18 @@ import './TrashView.css'
 import './WeeklyReviewView.css'
 import '@/components/ui/FieldTrigger.css'
 import '@/components/ui/DatePicker.css'
+import '@/components/ui/Button.css'
+import '@/components/ui/Select.css'
 import '@/components/trades/TradeList.css'
+import '@/components/TagEditor.css'
+import '@/components/NotionImportModal.css'
+import '@/components/Sidebar.css'
+import '@/components/sidebar/SidebarWorkspace.css'
+import '@/editor/Editor.css'
+import './ShortcutsView.css'
+import './settings/TagPresetsPanel.css'
+import './settings/ReviewTemplatesPanel.css'
+import './settings/SymbolsPanel.css'
 
 declare global {
   interface Window {
@@ -44,6 +55,16 @@ function assertComputedTextRole(selector: string, token: string): void {
   assert(getComputedStyle(element).color === expected, `${selector} 计算后必须使用 ${token}`)
 }
 
+async function assertFocusReveal(hiddenSelector: string, focusSelector: string, label: string): Promise<void> {
+  const hidden = document.querySelector<HTMLElement>(hiddenSelector)
+  const focusTarget = document.querySelector<HTMLButtonElement>(focusSelector)
+  assert(hidden && focusTarget, `缺少${label}样例`)
+  assert(getComputedStyle(hidden).opacity === '0', `${label} 应在未聚焦时隐藏`)
+  focusTarget.focus()
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 120))
+  assert(getComputedStyle(hidden).opacity === '1', `${label} 必须通过键盘焦点显现`)
+}
+
 async function run(): Promise<void> {
   document.body.innerHTML = `
     <h1 class="dv-title">交易详情</h1>
@@ -65,6 +86,19 @@ async function run(): Promise<void> {
       <div class="trade-row">交易行辅助信息</div>
     </section>
     <div class="dv-feed-item-deletable"><button class="dv-feed-delete">删除</button></div>
+    <button class="tag-chip-remove">删除标签</button>
+    <div class="nim-import-target-options"><button>交易日志</button></div>
+    <div class="editor-review-tools"><button>插入起稿</button></div>
+    <button class="settings-tag-chip-remove">删除预设标签</button>
+    <button class="review-template-delete">删除起稿</button>
+    <input disabled value="禁用输入" />
+    <button class="ui-select-option" disabled>禁用选项</button>
+    <button class="empty-btn" disabled>禁用按钮</button>
+    <button class="review-template-drag-handle" disabled>禁用起稿拖拽</button>
+    <button class="symbols-drag-handle" disabled>禁用品种拖拽</button>
+    <div class="sb-item"><button class="sb-workspace-capability-menu">菜单</button></div>
+    <div class="shortcuts-row"><div class="shortcuts-actions"><button class="shortcuts-action">快捷键操作</button></div></div>
+    <div class="trash-item"><div class="trash-item-actions"><button class="trash-btn-purge">删除</button></div></div>
   `
   for (const selector of [
     '.dv-title',
@@ -100,12 +134,25 @@ async function run(): Promise<void> {
   assertComputedTextRole('.trade-row', '--text-tertiary')
   assertComputedTextRole('.trade-list-group-header', '--text-primary')
   assertComputedTextRole('.dv-feed-delete', '--text-tertiary')
-  const feedDelete = document.querySelector<HTMLButtonElement>('.dv-feed-delete')
-  assert(feedDelete, '缺少活动记录删除操作样例')
-  assert(getComputedStyle(feedDelete).opacity === '0', '活动记录删除操作应在未聚焦时保持隐藏')
-  feedDelete.focus()
-  await new Promise<void>((resolve) => window.setTimeout(resolve, 120))
-  assert(getComputedStyle(feedDelete).opacity === '1', '活动记录删除操作必须可通过键盘焦点显现')
+  for (const selector of [
+    '.tag-chip-remove',
+    '.nim-import-target-options button',
+    '.editor-review-tools button',
+    '.settings-tag-chip-remove',
+    '.review-template-delete',
+  ]) assertComputedTextRole(selector, '--text-tertiary')
+  for (const selector of [
+    'input:disabled',
+    '.ui-select-option:disabled',
+    '.empty-btn:disabled',
+    '.review-template-drag-handle:disabled',
+    '.symbols-drag-handle:disabled',
+  ]) assertComputedTextRole(selector, '--text-disabled')
+  assert(getComputedStyle(document.querySelector<HTMLElement>('.tag-chip-remove')!).opacity === '1', '标签移除操作不得常驻弱化')
+  await assertFocusReveal('.dv-feed-delete', '.dv-feed-delete', '活动记录删除操作')
+  await assertFocusReveal('.sb-workspace-capability-menu', '.sb-workspace-capability-menu', '侧栏能力菜单操作')
+  await assertFocusReveal('.shortcuts-actions', '.shortcuts-action', '快捷键行操作')
+  await assertFocusReveal('.trash-item-actions', '.trash-btn-purge', '回收站行操作')
 }
 
 window.__typographyRolesTest = run()

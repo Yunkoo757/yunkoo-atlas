@@ -175,7 +175,7 @@
   display: grid;
   align-content: center;
   gap: 2px;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   text-align: left;
   transition: color var(--dur-fast) var(--ease-out),
     background var(--dur-fast) var(--ease-out),

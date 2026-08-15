@@ -155,7 +155,7 @@
 }
 
 .review-template-drag-handle:disabled {
-  color: var(--text-quaternary);
+  color: var(--text-disabled);
   cursor: default;
   opacity: 0.45;
 }
@@ -192,7 +192,7 @@
   place-items: center;
   width: var(--control-height);
   height: var(--control-height);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   border-radius: var(--radius-6);
 }
 

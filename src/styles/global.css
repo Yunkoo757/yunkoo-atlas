@@ -192,7 +192,7 @@ button {
 
 :where(input, textarea):disabled {
   cursor: not-allowed;
-  color: var(--text-quaternary);
+  color: var(--text-disabled);
   background: var(--field-bg-disabled);
   opacity: 0.7;
 }

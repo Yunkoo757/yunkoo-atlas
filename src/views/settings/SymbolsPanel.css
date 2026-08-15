@@ -99,7 +99,7 @@
 }
 
 .symbols-drag-handle:disabled {
-  color: var(--text-quaternary);
+  color: var(--text-disabled);
   cursor: default;
   opacity: 0.45;
 }

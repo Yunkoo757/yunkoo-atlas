@@ -1,185 +1,121 @@
-function assert(condition: unknown, message: string): void {
+import postcss, { type Root, type Rule } from 'postcss'
+
+type CssSheet = { path: string; root: Root }
+
+function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+function normalizeSelector(selector: string): string {
+  return selector.replace(/\s+/g, ' ').trim()
 }
 
-function readCssRules(css: string, selector: string): string[] {
-  const selectorPattern = selector.trim().split(/\s+/).map(escapeRegExp).join('\\s+')
-  const matches = [...css.matchAll(new RegExp(`(?:^|[}\\r\\n])\\s*${selectorPattern}\\s*\\{([^}]*)\\}`, 'g'))]
-  return matches.map((match) => match[1])
+async function readCss(path: string): Promise<CssSheet> {
+  const fs = await import('node:fs/promises')
+  return { path, root: postcss.parse(await fs.readFile(path, 'utf8'), { from: path }) }
 }
 
-function readCssRule(css: string, selector: string, label: string): string {
-  const match = readCssRules(css, selector).at(0)
-  if (!match) throw new Error(`${label} 必须保留 ${selector} 规则`)
-  return match
+function findRules(sheet: CssSheet, selector: string): Rule[] {
+  const expected = normalizeSelector(selector)
+  const rules: Rule[] = []
+  sheet.root.walkRules((rule) => {
+    if (normalizeSelector(rule.selector) === expected) rules.push(rule)
+  })
+  assert(rules.length > 0, `${sheet.path} 必须保留 ${selector} 规则`)
+  return rules
 }
 
-function assertReadableRule(
-  css: string,
-  selector: string,
-  expectedColor: string,
-  label: string,
-  allowsExistingOpacity = false,
-): void {
-  const rules = readCssRules(css, selector)
-  assert(rules.length > 0, `${label} 必须保留 ${selector} 规则`)
-  const rule = rules.find((candidate) => candidate.includes(`color: ${expectedColor};`))
-  if (!rule) throw new Error(`${label} 必须使用 ${expectedColor}`)
-  assert(!/var\(--text-(?:quaternary|disabled)\)/.test(rule), `${label} 不得降为四级或禁用文字`)
-  if (!allowsExistingOpacity) assert(!/\bopacity\s*:/.test(rule), `${label} 不得额外降低文字不透明度`)
+function declaration(rule: Rule, property: string): string | undefined {
+  let value: string | undefined
+  rule.walkDecls(property, (decl) => { value = decl.value.trim() })
+  return value
+}
+
+function rootDeclaration(sheet: CssSheet, property: string): string | undefined {
+  let value: string | undefined
+  sheet.root.walkRules(':root', (rule) => { value ??= declaration(rule, property) })
+  return value
+}
+
+function assertInteractiveColor(sheet: CssSheet, selector: string, expectedColor: string, label: string, contextRevealed = false): void {
+  const rules = findRules(sheet, selector)
+  const colors = rules.map((rule) => declaration(rule, 'color')).filter((value): value is string => Boolean(value))
+  assert(colors.includes(expectedColor), `${label} 必须使用 ${expectedColor}`)
+  assert(!colors.some((value) => value === 'var(--text-quaternary)' || value === 'var(--text-disabled)'), `${label} 不得使用四级或禁用文字`)
+  for (const rule of rules) {
+    const opacity = declaration(rule, 'opacity')
+    assert(contextRevealed || opacity === undefined || opacity === '1', `${label} 不得常驻降低不透明度`)
+  }
+}
+
+function assertDisabledColor(sheet: CssSheet, selector: string, label: string): void {
+  const rules = findRules(sheet, selector)
+  assert(rules.some((rule) => declaration(rule, 'color') === 'var(--text-disabled)'), `${label} 必须使用 disabled token`)
+}
+
+function assertContextReveal(sheet: CssSheet, hiddenSelector: string, revealSelector: string, label: string): void {
+  assert(findRules(sheet, hiddenSelector).some((rule) => declaration(rule, 'opacity') === '0'), `${label} 必须明确在上下文外隐藏`)
+  assert(findRules(sheet, revealSelector).some((rule) => declaration(rule, 'opacity') === '1'), `${label} 必须具备 hover 或键盘焦点显现路径`)
 }
 
 export async function testMutedTextAndGroupChevronsRemainReadable(): Promise<void> {
-  const fs = await import('node:fs/promises')
-  const tokens = await fs.readFile('src/styles/tokens.css', 'utf8')
-
-  for (const contract of [
-    '--text-primary: lch(92% 0.8 272 / 1)',
-    '--text-secondary: lch(70% 1 272 / 1)',
-    '--text-tertiary: lch(56% 1 272 / 1)',
-    '--text-quaternary: lch(44% 1 272 / 1)',
-    '--text-disabled: lch(34% 1 272 / 1)',
-    '--color-text-primary: var(--text-primary)',
-    '--color-text-secondary: var(--text-secondary)',
-    '--color-text-tertiary: var(--text-tertiary)',
-    '--color-text-quaternary: var(--text-quaternary)',
-    '--color-text-disabled: var(--text-disabled)',
-    '--text-body: var(--color-text-secondary)',
-    '--text-muted: var(--color-text-tertiary)',
-    '--list-text-secondary: var(--text-tertiary)',
-    '--list-group-title: var(--text-primary)',
-  ]) assert(tokens.includes(contract), `缺少已批准的桌面文字合同：${contract}`)
-
-  for (const [role, value] of [
-    ['started', 'lch(50% 7 78)'],
-    ['todo', 'lch(50% 7 272)'],
-    ['backlog', 'lch(50% 7 270)'],
-    ['done', 'lch(50% 7 283)'],
-  ]) {
-    assert(tokens.includes(`--group-chevron-${role}: ${value}`), `分组折叠图标 ${role} 必须保留独立的非文字对比 token`)
-  }
+  const tokens = await readCss('src/styles/tokens.css')
+  for (const [property, value] of [
+    ['--text-primary', 'lch(92% 0.8 272 / 1)'], ['--text-secondary', 'lch(70% 1 272 / 1)'],
+    ['--text-tertiary', 'lch(56% 1 272 / 1)'], ['--text-quaternary', 'lch(44% 1 272 / 1)'],
+    ['--text-disabled', 'lch(34% 1 272 / 1)'], ['--color-text-primary', 'var(--text-primary)'],
+    ['--color-text-secondary', 'var(--text-secondary)'], ['--color-text-tertiary', 'var(--text-tertiary)'],
+    ['--color-text-quaternary', 'var(--text-quaternary)'], ['--color-text-disabled', 'var(--text-disabled)'],
+    ['--text-body', 'var(--color-text-secondary)'], ['--text-muted', 'var(--color-text-tertiary)'],
+    ['--list-text-secondary', 'var(--text-tertiary)'], ['--list-group-title', 'var(--text-primary)'],
+    ['--group-chevron-started', 'lch(50% 7 78)'], ['--group-chevron-todo', 'lch(50% 7 272)'],
+    ['--group-chevron-backlog', 'lch(50% 7 270)'], ['--group-chevron-done', 'lch(50% 7 283)'],
+  ]) assert(rootDeclaration(tokens, property) === value, `缺少已批准的桌面文字合同：${property}`)
 }
 
-export async function testCriticalTextRolesDoNotUseLowEmphasisTokens(): Promise<void> {
+export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [
-    weeklyReview,
-    detail,
-    fieldTrigger,
-    tradeList,
-    datePicker,
-    datePickerSource,
-    filterBar,
-    tradeFilters,
-    quickViewBar,
-    tagEditor,
-    shortcuts,
-    select,
-    button,
-    sidebarWorkspace,
-    sidebar,
-    trash,
-  ] = await Promise.all([
-    fs.readFile('src/views/WeeklyReviewView.css', 'utf8'),
-    fs.readFile('src/views/DetailView.css', 'utf8'),
-    fs.readFile('src/components/ui/FieldTrigger.css', 'utf8'),
-    fs.readFile('src/components/trades/TradeList.css', 'utf8'),
-    fs.readFile('src/components/ui/DatePicker.css', 'utf8'),
-    fs.readFile('src/components/ui/DatePicker.tsx', 'utf8'),
-    fs.readFile('src/components/ui/FilterBar.css', 'utf8'),
-    fs.readFile('src/components/trades/TradeFilters.css', 'utf8'),
-    fs.readFile('src/components/trades/QuickViewBar.css', 'utf8'),
-    fs.readFile('src/components/TagEditor.css', 'utf8'),
-    fs.readFile('src/views/ShortcutsView.css', 'utf8'),
-    fs.readFile('src/components/ui/Select.css', 'utf8'),
-    fs.readFile('src/components/ui/Button.css', 'utf8'),
-    fs.readFile('src/components/sidebar/SidebarWorkspace.css', 'utf8'),
-    fs.readFile('src/components/Sidebar.css', 'utf8'),
-    fs.readFile('src/views/TrashView.css', 'utf8'),
+  const [weeklyReview, detail, fieldTrigger, tradeList, datePicker, filterBar, tradeFilters, quickViewBar, tagEditor, shortcuts, select, button, sidebarWorkspace, sidebar, trash, notionImport, editor, tagPresets, reviewTemplates, global, symbols] = await Promise.all([
+    readCss('src/views/WeeklyReviewView.css'), readCss('src/views/DetailView.css'), readCss('src/components/ui/FieldTrigger.css'), readCss('src/components/trades/TradeList.css'), readCss('src/components/ui/DatePicker.css'), readCss('src/components/ui/FilterBar.css'), readCss('src/components/trades/TradeFilters.css'), readCss('src/components/trades/QuickViewBar.css'), readCss('src/components/TagEditor.css'), readCss('src/views/ShortcutsView.css'), readCss('src/components/ui/Select.css'), readCss('src/components/ui/Button.css'), readCss('src/components/sidebar/SidebarWorkspace.css'), readCss('src/components/Sidebar.css'), readCss('src/views/TrashView.css'), readCss('src/components/NotionImportModal.css'), readCss('src/editor/Editor.css'), readCss('src/views/settings/TagPresetsPanel.css'), readCss('src/views/settings/ReviewTemplatesPanel.css'), readCss('src/styles/global.css'), readCss('src/views/settings/SymbolsPanel.css'),
   ])
 
-  assertReadableRule(weeklyReview, '.wr-score-row button', 'var(--text-secondary)', '周复盘评分交互文字')
-  assertReadableRule(detail, '.dv-comment-input', 'var(--text-body)', '评论输入正文')
-  assertReadableRule(fieldTrigger, '.ui-field-trigger', 'var(--text-secondary)', '字段触发器文字')
-  assertReadableRule(tradeList, '.trade-row', 'var(--list-text-secondary)', '交易行辅助信息')
-  assertReadableRule(tradeList, '.trade-list-group-header', 'var(--list-group-title)', '交易分组标题')
-  assertReadableRule(datePicker, '.ui-date-grid button.is-outside', 'var(--text-tertiary)', '可点击的跨月日期')
-  assertReadableRule(tradeFilters, '.trade-filter-head-actions button', 'var(--text-tertiary)', '筛选面板头部操作')
-  assertReadableRule(quickViewBar, '.quick-view-icon', 'var(--text-tertiary)', '快捷视图图标操作')
-  assertReadableRule(tagEditor, '.tag-chip-remove', 'var(--text-tertiary)', '标签移除操作', true)
-  assertReadableRule(shortcuts, '.shortcuts-action', 'var(--text-tertiary)', '快捷键行操作')
-  assertReadableRule(sidebarWorkspace, '.sb-workspace-overflow-manage', 'var(--text-tertiary)', '工作区管理操作')
-  assertReadableRule(sidebarWorkspace, '.sb-editor-item button, .sb-editor-defaults button', 'var(--text-tertiary)', '工作区编辑操作')
-  assertReadableRule(sidebar, '.sb-workspace-capability-menu', 'var(--text-tertiary)', '侧栏能力菜单操作')
-  assertReadableRule(detail, '.dv-activity-toggle', 'var(--text-tertiary)', '活动记录展开操作')
-  assertReadableRule(trash, '.trash-btn-purge', 'var(--text-tertiary)', '回收站彻底删除操作')
+  for (const [sheet, selector, color, label] of [
+    [weeklyReview, '.wr-score-row button', 'var(--text-secondary)', '周复盘评分交互文字'], [detail, '.dv-comment-input', 'var(--text-body)', '评论输入正文'], [fieldTrigger, '.ui-field-trigger', 'var(--text-secondary)', '字段触发器文字'], [tradeList, '.trade-row', 'var(--list-text-secondary)', '交易行辅助信息'], [tradeList, '.trade-list-group-header', 'var(--list-group-title)', '交易分组标题'], [datePicker, '.ui-date-grid button.is-outside', 'var(--text-tertiary)', '可点击的跨月日期'], [tradeFilters, '.trade-filter-head-actions button', 'var(--text-tertiary)', '筛选面板头部操作'], [quickViewBar, '.quick-view-icon', 'var(--text-tertiary)', '快捷视图图标操作'], [tagEditor, '.tag-chip-remove', 'var(--text-tertiary)', '标签移除操作'], [shortcuts, '.shortcuts-action', 'var(--text-tertiary)', '快捷键行操作'], [sidebarWorkspace, '.sb-workspace-overflow-manage', 'var(--text-tertiary)', '工作区管理操作'], [sidebarWorkspace, '.sb-editor-item button, .sb-editor-defaults button', 'var(--text-tertiary)', '工作区编辑操作'], [sidebar, '.sb-workspace-capability-menu', 'var(--text-tertiary)', '侧栏能力菜单操作'], [detail, '.dv-activity-toggle', 'var(--text-tertiary)', '活动记录展开操作'], [trash, '.trash-btn-purge', 'var(--text-tertiary)', '回收站彻底删除操作'], [notionImport, '.nim-import-target-options button', 'var(--text-tertiary)', 'Notion 导入目标单选操作'], [editor, '.editor-review-tools button', 'var(--text-tertiary)', '编辑器起稿操作'], [tagPresets, '.settings-tag-chip-remove', 'var(--text-tertiary)', '设置标签删除操作'], [reviewTemplates, '.review-template-delete', 'var(--text-tertiary)', '起稿模板删除操作'],
+  ] as const) assertInteractiveColor(sheet, selector, color, label, selector === '.sb-workspace-capability-menu')
+  assertInteractiveColor(detail, '.dv-feed-delete', 'var(--text-tertiary)', '活动记录删除操作', true)
+
+  for (const [sheet, selector, label] of [
+    [fieldTrigger, '.ui-field-trigger:disabled', '禁用日期触发器'], [select, '.ui-select-option:disabled', '禁用下拉选项'], [button, '.ui-btn:disabled, .dio-btn:disabled, .symbols-btn:disabled, .st-add:disabled, .empty-btn:disabled, .csv-btn:disabled, .nim-btn:disabled', '禁用通用按钮'], [button, '.ui-btn-primary:disabled, .dio-btn-primary:disabled, .symbols-btn-primary:disabled, .st-add:disabled, .empty-btn:disabled, .csv-btn-primary:disabled, .nim-btn-primary:disabled', '禁用主按钮'], [global, ':where(input, textarea):disabled', '禁用全局输入框'], [reviewTemplates, '.review-template-drag-handle:disabled', '禁用起稿拖拽手柄'], [symbols, '.symbols-drag-handle:disabled', '禁用品种拖拽手柄'],
+  ] as const) assertDisabledColor(sheet, selector, label)
+
+  assertContextReveal(detail, '.dv-feed-delete', '.dv-feed-item-deletable:hover .dv-feed-delete, .dv-feed-item-deletable:focus-within .dv-feed-delete', '活动记录删除操作')
+  assertContextReveal(sidebar, '.sb-workspace-capability-menu', '.sb-item:hover .sb-workspace-capability-menu, .sb-item:focus-within .sb-workspace-capability-menu, .sb-item.is-capability-menu-open .sb-workspace-capability-menu', '侧栏能力菜单操作')
+  assertContextReveal(shortcuts, '.shortcuts-actions', '.shortcuts-row:hover .shortcuts-actions, .shortcuts-row:focus-within .shortcuts-actions, .shortcuts-row.is-recording .shortcuts-actions', '快捷键行操作区')
+  assertContextReveal(trash, '.trash-item-actions', '.trash-item:hover .trash-item-actions, .trash-item-actions:focus-within', '回收站行操作区')
+
+  for (const [sheet, selector, label] of [[datePicker, '.ui-date-weekdays', '日期选择器星期标题'], [filterBar, '.ui-filter-empty', '筛选器空态提示']] as const) {
+    assert(findRules(sheet, selector).some((rule) => declaration(rule, 'color') === 'var(--text-quaternary)'), `${label} 必须保持明确的四级文字 allowlist`)
+  }
+
+  const datePickerSource = await fs.readFile('src/components/ui/DatePicker.tsx', 'utf8')
   assert(datePickerSource.includes('onClick={() => selectDate(day.value)}'), '跨月日期必须保留选日交互')
   assert(!datePickerSource.includes('disabled={!day.currentMonth}'), '跨月日期不是禁用日期，不得使用禁用文字 token')
-  const disabledFieldTrigger = readCssRule(fieldTrigger, '.ui-field-trigger:disabled', '禁用日期触发器')
-  assert(disabledFieldTrigger.includes('color: var(--text-disabled);'), '真正禁用的日期触发器必须使用 disabled token')
-  const disabledSelect = readCssRule(select, '.ui-select-option:disabled', '禁用下拉选项')
-  assert(disabledSelect.includes('color: var(--text-disabled);'), '禁用下拉选项必须使用 disabled token')
-  for (const selector of [
-    '.empty-btn:disabled, .csv-btn:disabled, .nim-btn:disabled',
-    '.empty-btn:disabled, .csv-btn-primary:disabled, .nim-btn-primary:disabled',
-  ]) {
-    const rule = readCssRule(button, selector, '禁用按钮')
-    assert(rule.includes('color: var(--text-disabled);'), `${selector} 必须使用 disabled token`)
-  }
-
-  const hiddenFeedDelete = readCssRule(detail, '.dv-feed-delete', '活动记录删除操作')
-  assert(hiddenFeedDelete.includes('color: var(--text-tertiary);'), '活动记录删除操作默认必须使用 tertiary token')
-  assert(hiddenFeedDelete.includes('opacity: 0;'), '活动记录删除操作仅允许在上下文未聚焦时隐藏')
-  const feedDeleteReveal = readCssRule(
-    detail,
-    '.dv-feed-item-deletable:hover .dv-feed-delete, .dv-feed-item-deletable:focus-within .dv-feed-delete',
-    '活动记录删除操作键盘可达性',
-  )
-  assert(feedDeleteReveal.includes('opacity: 1;'), '活动记录删除操作必须在 hover 与 focus-within 时显现')
-
-  const nonCriticalQuaternaryAllowlist = [
-    { css: datePicker, selector: '.ui-date-weekdays', label: '日期选择器星期标题（非交互日历上下文）' },
-    { css: filterBar, selector: '.ui-filter-empty', label: '筛选器空态提示（极低强调）' },
-  ]
-  for (const { css, selector, label } of nonCriticalQuaternaryAllowlist) {
-    const rule = readCssRule(css, selector, label)
-    assert(rule.includes('color: var(--text-quaternary);'), `${label} 仅可按明确 allowlist 使用四级文字`)
-    assert(!/\bopacity\s*:/.test(rule), `${label} 不得在四级文字上叠加透明度`)
-  }
 }
 
 export async function testEditorPlaceholderDoesNotUndoTheReadableTextToken(): Promise<void> {
-  const fs = await import('node:fs/promises')
-  const css = await fs.readFile('src/views/DetailView.css', 'utf8')
-  const placeholder = css.match(/\.dv-document \.editor \.ProseMirror p\.is-editor-empty:first-child::before\s*\{[^}]*\}/)?.[0] ?? ''
-  assert(!placeholder.includes('opacity: 0.38'), '编辑器占位提示不得把可读颜色再次压暗到不可见')
-  assert(placeholder.includes('opacity: 0.72'), '编辑器占位提示应保持清晰但低于正文')
+  const detail = await readCss('src/views/DetailView.css')
+  const rule = findRules(detail, '.dv-document .editor .ProseMirror p.is-editor-empty:first-child::before').at(0)
+  assert(rule && declaration(rule, 'opacity') === '0.72', '编辑器占位提示应保持清晰但低于正文')
 }
 
 export async function testWeeklyReviewScoreActionsUseInteractiveContrast(): Promise<void> {
-  const fs = await import('node:fs/promises')
-  const css = await fs.readFile('src/views/WeeklyReviewView.css', 'utf8')
-  const scoreRule = css.match(/\.wr-score-row button\s*\{[^}]*\}/)?.[0] ?? ''
-  assert(scoreRule.includes('color: var(--text-secondary)'), '周复盘评分数字必须比辅助说明更醒目')
+  assertInteractiveColor(await readCss('src/views/WeeklyReviewView.css'), '.wr-score-row button', 'var(--text-secondary)', '周复盘评分数字')
 }
 
 export async function testCustomOverlaysCaptureAndRestoreFocus(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [shell, lightbox] = await Promise.all([
-    fs.readFile('src/components/ui/ModalShell.tsx', 'utf8'),
-    fs.readFile('src/components/ImageLightbox.tsx', 'utf8'),
-  ])
-
-  assert(
-    shell.includes('returnFocusRef') &&
-      shell.includes('document.activeElement') &&
-      shell.includes('if (target?.isConnected) target.focus()'),
-    '共享弹层必须捕获并恢复打开前焦点',
-  )
+  const [shell, lightbox] = await Promise.all([fs.readFile('src/components/ui/ModalShell.tsx', 'utf8'), fs.readFile('src/components/ImageLightbox.tsx', 'utf8')])
+  assert(shell.includes('returnFocusRef') && shell.includes('document.activeElement') && shell.includes('if (target?.isConnected) target.focus()'), '共享弹层必须捕获并恢复打开前焦点')
   assert(shell.includes('focusableElements(panel)'), '共享弹层必须维护焦点陷阱')
   assert(lightbox.includes('previousFocusRef.current?.focus()'), '图片预览关闭后必须归还焦点')
   assert(lightbox.includes("if (event.key !== 'Tab') return"), '图片预览必须把 Tab 限制在模态浮层内')
