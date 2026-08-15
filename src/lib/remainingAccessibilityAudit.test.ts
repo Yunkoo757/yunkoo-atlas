@@ -101,6 +101,18 @@ function assertExactQuaternaryInventory(sheets: CssSheet[], allowlist: Inventory
   assert(actual.join('\n') === expected.join('\n'), `四级文字声明清单不封闭：\n实际 ${actual.join('\n')}\n允许 ${expected.join('\n')}`)
 }
 
+function assertDisabledRulesUseDisabledToken(sheets: CssSheet[]): void {
+  for (const sheet of sheets) {
+    sheet.root.walkRules((rule) => {
+      const selector = rule.selector.replace(/:not\(:disabled\)/g, '')
+      if (!selector.includes(':disabled') && !selector.includes('[aria-disabled')) return
+      const color = declaration(rule, 'color')
+      assert(color !== 'var(--text-quaternary)', `${sheet.path} ${rule.selector} 的禁用态不得使用四级文字`)
+      assert(color === 'var(--text-disabled)', `${sheet.path} ${rule.selector} 的禁用态必须显式使用 disabled token`)
+    })
+  }
+}
+
 export async function testMutedTextAndGroupChevronsRemainReadable(): Promise<void> {
   const tokens = await readCss('src/styles/tokens.css')
   for (const [property, value] of [
@@ -132,7 +144,7 @@ export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): 
   assertInteractiveColor(detail, '.dv-feed-delete', 'var(--text-tertiary)', '活动记录删除操作', true)
 
   for (const [sheet, selector, label] of [
-    [fieldTrigger, '.ui-field-trigger:disabled', '禁用日期触发器'], [select, '.ui-select-option:disabled', '禁用下拉选项'], [button, '.ui-btn:disabled, .dio-btn:disabled, .symbols-btn:disabled, .st-add:disabled, .empty-btn:disabled, .csv-btn:disabled, .nim-btn:disabled', '禁用通用按钮'], [button, '.ui-btn-primary:disabled, .dio-btn-primary:disabled, .symbols-btn-primary:disabled, .st-add:disabled, .empty-btn:disabled, .csv-btn-primary:disabled, .nim-btn-primary:disabled', '禁用主按钮'], [global, ':where(input, textarea):disabled', '禁用全局输入框'], [reviewTemplates, '.review-template-drag-handle:disabled', '禁用起稿拖拽手柄'], [symbols, '.symbols-drag-handle:disabled', '禁用品种拖拽手柄'],
+    [fieldTrigger, '.ui-field-trigger:disabled', '禁用日期触发器'], [select, '.ui-select-option:disabled', '禁用下拉选项'], [button, '.ui-btn:disabled, .dio-btn:disabled, .symbols-btn:disabled, .st-io:disabled, .st-add:disabled, .st-del-btn:disabled, .empty-btn:disabled, .csv-btn:disabled, .nim-btn:disabled, .sfm-btn:disabled, .batch-action-btn:disabled', '禁用通用按钮'], [button, '.ui-btn-primary:disabled, .dio-btn-primary:disabled, .symbols-btn-primary:disabled, .st-add:disabled, .empty-btn:disabled, .csv-btn-primary:disabled, .nim-btn-primary:disabled', '禁用主按钮'], [global, ':where(input, textarea):disabled', '禁用全局输入框'], [reviewTemplates, '.review-template-drag-handle:disabled', '禁用起稿拖拽手柄'], [symbols, '.symbols-drag-handle:disabled', '禁用品种拖拽手柄'],
   ] as const) assertDisabledColor(sheet, selector, label)
 
   assertContextReveal(detail, '.dv-feed-delete', '.dv-feed-item-deletable:hover .dv-feed-delete, .dv-feed-item-deletable:focus-within .dv-feed-delete', '活动记录删除操作')
@@ -186,16 +198,7 @@ export async function testQuaternaryDeclarationInventoryIsClosedAndDisabledNever
     ...allow('src/views/WeeklyReviewView.css', 'edge metadata', 'color', ['.wr-history-title', '.wr-history button small', '.wr-section-head small', '.wr-metric small', '.wr-missed-summary > div > span', '.wr-missed-summary small', '.wr-missed-summary b', '.wr-evidence-tags small', '.wr-evidence-tags b', '.wr-evidence-group-title small', '.wr-footer-action span', '.wr-chart-loading-label', '.wr-trend-start span']),
   ]
   assertExactQuaternaryInventory(sheets, allowlist)
-
-  for (const sheet of sheets) {
-    sheet.root.walkRules((rule) => {
-      const selector = rule.selector.replace(/:not\(:disabled\)/g, '')
-      if (!selector.includes(':disabled') && !selector.includes('[aria-disabled')) return
-      const color = declaration(rule, 'color')
-      assert(color !== 'var(--text-quaternary)', `${sheet.path} ${rule.selector} 的禁用态不得使用四级文字`)
-      assert(color === undefined || color === 'var(--text-disabled)', `${sheet.path} ${rule.selector} 的显式禁用色必须使用 disabled token`)
-    })
-  }
+  assertDisabledRulesUseDisabledToken(sheets)
 }
 
 export async function testPostCssInventoryRejectsUnlistedInteractiveMutations(): Promise<void> {
@@ -209,6 +212,14 @@ export async function testPostCssInventoryRejectsUnlistedInteractiveMutations():
 
   const commentOnly: CssSheet = { path: 'fixture.css', root: postcss.parse('/* button { color: var(--text-quaternary); } */ .edge { color: var(--text-quaternary); }') }
   assertExactQuaternaryInventory([commentOnly], allow('fixture.css', 'edge metadata', 'color', ['.edge']))
+
+  const disabledWithoutColor: CssSheet = { path: 'fixture.css', root: postcss.parse('button:disabled { opacity: .5; }') }
+  let disabledRejected = false
+  try { assertDisabledRulesUseDisabledToken([disabledWithoutColor]) } catch { disabledRejected = true }
+  assert(disabledRejected, '仅降低禁用按钮透明度的变异必须失败')
+
+  const explicitDisabled: CssSheet = { path: 'fixture.css', root: postcss.parse('button:disabled { color: var(--text-disabled); opacity: .5; }') }
+  assertDisabledRulesUseDisabledToken([explicitDisabled])
 }
 
 export async function testEditorPlaceholderDoesNotUndoTheReadableTextToken(): Promise<void> {

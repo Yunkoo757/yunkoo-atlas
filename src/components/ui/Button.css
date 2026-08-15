@@ -67,10 +67,14 @@
 .ui-btn:disabled,
 .dio-btn:disabled,
 .symbols-btn:disabled,
+.st-io:disabled,
 .st-add:disabled,
+.st-del-btn:disabled,
 .empty-btn:disabled,
 .csv-btn:disabled,
-.nim-btn:disabled {
+.nim-btn:disabled,
+.sfm-btn:disabled,
+.batch-action-btn:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;
   opacity: 0.64;

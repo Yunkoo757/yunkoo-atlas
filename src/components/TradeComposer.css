@@ -282,6 +282,7 @@
 
 .composer-btn-secondary:disabled,
 .composer-btn-primary:disabled {
+  color: var(--text-disabled);
   cursor: default;
   opacity: 0.45;
 }

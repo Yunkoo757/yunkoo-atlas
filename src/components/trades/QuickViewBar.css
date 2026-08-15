@@ -267,6 +267,7 @@
 }
 
 .quick-view-save-actions button:disabled {
+  color: var(--text-disabled);
   opacity: 0.45;
 }
 

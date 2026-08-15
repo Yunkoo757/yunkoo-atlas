@@ -85,6 +85,7 @@
 }
 
 .modal-shell-close:disabled {
+  color: var(--text-disabled);
   cursor: default;
   opacity: 0.45;
 }

@@ -370,6 +370,7 @@
 }
 
 .data-purge-confirm input:disabled {
+  color: var(--text-disabled);
   cursor: wait;
 }
 

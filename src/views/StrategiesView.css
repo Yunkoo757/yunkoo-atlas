@@ -99,6 +99,7 @@
   color: var(--neg);
 }
 .st-act:disabled {
+  color: var(--text-disabled);
   opacity: 0.35;
   pointer-events: none;
 }
