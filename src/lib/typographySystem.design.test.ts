@@ -956,9 +956,9 @@ export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEd
     ['line-height', 'var(--type-row-line-height)'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/EmptyState.css'], '.empty-title'), '.empty-title', [
-    ['font-size', 'var(--type-body-size)'],
-    ['font-weight', 'var(--font-weight-semibold)'],
-    ['line-height', 'var(--type-body-line-height)'],
+    ['font-size', 'var(--type-section-title-size)'],
+    ['font-weight', 'var(--type-section-title-weight)'],
+    ['line-height', '1.5'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/RouteState.css'], '.app-route-state-code'), '.app-route-state-code', [
     ['font-family', 'var(--font-mono)'],
