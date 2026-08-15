@@ -136,6 +136,36 @@ const approvedLiteralFontSizes: LiteralFontSizeApproval[] = [
   },
 ]
 
+const approvedShorthandFontSizeTokens = new Set([
+  '--fs-base',
+  '--fs-h',
+  '--fs-lg',
+  '--fs-md',
+  '--fs-micro',
+  '--fs-mini',
+  '--fs-sm',
+  '--fs-title',
+  '--fs-xs',
+  '--type-body-size',
+  '--type-caption-size',
+  '--type-data-size',
+  '--type-dialog-title-size',
+  '--type-financial-size',
+  '--type-metadata-size',
+  '--type-page-title-size',
+  '--type-row-size',
+  '--type-section-title-size',
+  '--type-ui-base-size',
+])
+
+function usesApprovedShorthandFontSize(shorthand: string): boolean {
+  for (const match of shorthand.matchAll(/(?:^|\s)var\(\s*(--[a-z0-9-]+)\s*\)(?=\s*\/|\s|$)/gi)) {
+    const token = match[1].toLowerCase()
+    if (approvedShorthandFontSizeTokens.has(token)) return true
+  }
+  return false
+}
+
 function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFontSizeDeclaration[] {
   const declarations: LiteralFontSizeDeclaration[] = []
   for (const { path, css } of sources) {
@@ -148,8 +178,10 @@ function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFo
       }
       for (const declaration of rule[2].matchAll(/(?:^|;)\s*font\s*:\s*([^;{}]+)(?=;|$)/gi)) {
         const shorthand = declaration[1].trim()
-        const size = shorthand.match(/(?:^|\s)((?:\d+(?:\.\d+)?|\.\d+)(?:px|em|rem|%|pt|pc|in|cm|mm|q|vw|vh|vmin|vmax|ch|ex|lh|rlh|cap|ic))(?:\s*\/\s*[^\s]+)?(?=\s|$)/i)?.[1]
-        if (size) declarations.push({ path, selector, property: 'font', value: size })
+        if (/^(?:inherit|initial|unset|revert|revert-layer)$/i.test(shorthand)) continue
+        if (!usesApprovedShorthandFontSize(shorthand)) {
+          declarations.push({ path, selector, property: 'font', value: shorthand })
+        }
       }
     }
   }
@@ -181,6 +213,11 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
   for (const css of [
     '.bad { font: 500 22px/28px var(--font-ui); }',
     '.bad { font: .85em var(--font-ui); }',
+    '.bad { font: 500 calc(22px)/28px var(--font-ui); }',
+    '.bad { font: 500 clamp(20px, 2vw, 22px)/28px var(--font-ui); }',
+    '.bad { font: 500 large/28px var(--font-ui); }',
+    '.bad { font: 500 0/28px var(--font-ui); }',
+    '.bad { font: 500 var(--type-rogue-size) var(--font-ui); }',
   ]) {
     assert.throws(
       () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
@@ -190,6 +227,12 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
   assert.doesNotThrow(
     () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.ok { height: 22px; padding: 0 12.5px; }' }], []),
   )
+  for (const css of [
+    '.ok { font: 500 var(--type-row-size)/var(--type-row-line-height) var(--font-ui); }',
+    '.ok { font: var(--font-weight-semibold) var(--fs-mini) var(--font-ui); }',
+    '.ok { font: inherit; }',
+    '.ok { font: revert-layer; }',
+  ]) assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], []))
 }
 
 export async function testProductFontSizesUseCanonicalRolesOrNamedExceptions(): Promise<void> {

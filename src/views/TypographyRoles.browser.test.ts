@@ -67,11 +67,11 @@ async function run(): Promise<void> {
 
   const rootStyle = getComputedStyle(document.documentElement)
   for (const [token, value] of [
-    ['--text-primary', 'lch(92% 0.8 260)'],
-    ['--text-secondary', 'lch(70% 1 260)'],
-    ['--text-tertiary', 'lch(56% 1 260)'],
-    ['--text-quaternary', 'lch(44% 1 260)'],
-    ['--text-disabled', 'lch(34% 1 260)'],
+    ['--text-primary', 'lch(92% 0.8 272 / 1)'],
+    ['--text-secondary', 'lch(70% 1 272 / 1)'],
+    ['--text-tertiary', 'lch(56% 1 272 / 1)'],
+    ['--text-quaternary', 'lch(44% 1 272 / 1)'],
+    ['--text-disabled', 'lch(34% 1 272 / 1)'],
   ]) assert(rootStyle.getPropertyValue(token).trim() === value, `${token} 必须保留精确 LCH 灰阶`)
 }
 
