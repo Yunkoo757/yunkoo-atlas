@@ -83,9 +83,16 @@ export function assertSafePackagedVisualOutputPath({ root, outputPath }) {
 }
 
 export function normalizePackagedScaleFactor(value, platform) {
+  if (platform === 'darwin') {
+    if (value == null || value === '') return null
+    if (Number(value) !== 2) {
+      throw new Error(`Unsupported macOS packaged scale factor: ${value}`)
+    }
+    return 2
+  }
   if (platform !== 'win32') {
     if (value == null || value === '') return null
-    throw new Error('Packaged scale factor override is supported only on Windows')
+    throw new Error(`Unsupported packaged scale factor platform: ${platform}`)
   }
   const parsed = value == null || value === '' ? 1 : Number(value)
   if (!WINDOWS_PACKAGED_SCALE_FACTORS.includes(parsed)) {
@@ -324,6 +331,16 @@ export function validatePackagedVisualReport(report) {
     if (!WINDOWS_PACKAGED_SCALE_FACTORS.includes(requested) ||
         !Number.isFinite(actual) || Math.abs(actual - requested) >= 0.01) {
       throw new Error('Windows packaged visual evidence requires a supported verified scale factor')
+    }
+  } else if (report.platform === 'darwin') {
+    const retinaScaleValues = [
+      report.scale?.requested,
+      report.scale?.devicePixelRatio,
+      report.scale?.displayScaleFactor,
+    ]
+    if (!retinaScaleValues.every((value) =>
+      Number.isFinite(value) && Math.abs(value - 2) < 0.01)) {
+      throw new Error('macOS packaged visual evidence requires a verified Retina scale factor')
     }
   }
   for (const capture of report.captures) {

@@ -496,6 +496,7 @@ test('report validation fails closed when screenshots or native platform checks 
     schemaVersion: 1,
     runtime: 'packaged-electron',
     platform: 'darwin',
+    scale: { requested: 2, devicePixelRatio: 2, displayScaleFactor: 2 },
     source: { commit: 'a'.repeat(40), dirty: false },
     captures,
     checks: buildRequiredPlatformChecks('darwin').map((id) => ({ id, pass: true })),
@@ -503,6 +504,49 @@ test('report validation fails closed when screenshots or native platform checks 
   }
 
   assert.doesNotThrow(() => validatePackagedVisualReport(complete))
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...complete,
+      scale: { requested: 1, devicePixelRatio: 1, displayScaleFactor: 1 },
+    }),
+    /Retina scale factor/i,
+  )
+  for (const field of ['requested', 'devicePixelRatio', 'displayScaleFactor']) {
+    const one = { ...complete.scale, [field]: 1 }
+    assert.throws(
+      () => validatePackagedVisualReport({ ...complete, scale: one }),
+      /Retina scale factor/i,
+      `macOS Retina evidence must reject ${field}=1`,
+    )
+
+    const missing = { ...complete.scale }
+    delete missing[field]
+    assert.throws(
+      () => validatePackagedVisualReport({ ...complete, scale: missing }),
+      /Retina scale factor/i,
+      `macOS Retina evidence must reject missing ${field}`,
+    )
+
+    assert.throws(
+      () => validatePackagedVisualReport({
+        ...complete,
+        scale: { ...complete.scale, [field]: '2' },
+      }),
+      /Retina scale factor/i,
+      `macOS Retina evidence must reject string ${field}`,
+    )
+  }
+  assert.doesNotThrow(() => validatePackagedVisualReport({
+    ...complete,
+    scale: { requested: 2.005, devicePixelRatio: 1.995, displayScaleFactor: 2.005 },
+  }))
+  assert.throws(
+    () => validatePackagedVisualReport({
+      ...complete,
+      scale: { ...complete.scale, displayScaleFactor: 2.02 },
+    }),
+    /Retina scale factor/i,
+  )
   assert.throws(
     () => validatePackagedVisualReport({ ...complete, captures: complete.captures.slice(1) }),
     /capture matrix/i,
@@ -607,10 +651,27 @@ test('Windows packaged evidence accepts only the supported 100 125 150 percent s
   assert.equal(normalizePackagedScaleFactor('1.25', 'win32'), 1.25)
   assert.equal(normalizePackagedScaleFactor('1.5', 'win32'), 1.5)
   assert.throws(() => normalizePackagedScaleFactor('2', 'win32'), /scale factor/i)
-  assert.equal(normalizePackagedScaleFactor(undefined, 'darwin'), null)
 
   const workflow = readFileSync('.github/workflows/desktop-visual-evidence.yml', 'utf8')
   assert.match(workflow, /name:\s*Windows packaged visual \(100\/125\/150%\)/)
   assert.match(workflow, /ATLAS_PACKAGED_SCALE_FACTOR:\s*'1\.25'/)
   assert.match(workflow, /ATLAS_PACKAGED_SCALE_FACTOR:\s*'1\.5'/)
+})
+
+test('macOS packaged workflow runs both architectures at explicit Retina scale', () => {
+  assert.equal(normalizePackagedScaleFactor('2', 'darwin'), 2)
+  assert.equal(normalizePackagedScaleFactor(undefined, 'darwin'), null)
+  assert.throws(() => normalizePackagedScaleFactor('1', 'darwin'), /scale factor/i)
+
+  const workflow = readFileSync('.github/workflows/desktop-visual-evidence.yml', 'utf8')
+  const macJob = workflow.match(/^  macos-packaged-visual:\r?\n([\s\S]*)$/m)?.[0] ?? ''
+  const architectures = [...macJob.matchAll(/^\s{12}arch:\s*(arm64|x64)\s*$/gm)]
+    .map((match) => match[1])
+    .sort()
+  assert.deepEqual(architectures, ['arm64', 'x64'])
+
+  const packagedStep = macJob.match(
+    /^\s{6}- name: Run packaged visual and lifecycle evidence\r?\n([\s\S]*?)(?=^\s{6}- name:)/m,
+  )?.[0] ?? ''
+  assert.match(packagedStep, /^\s{10}ATLAS_PACKAGED_SCALE_FACTOR:\s*'2'\s*$/m)
 })

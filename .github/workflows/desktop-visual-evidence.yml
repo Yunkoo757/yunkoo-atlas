@@ -145,6 +145,7 @@ jobs:
       - name: Run packaged visual and lifecycle evidence
         env:
           ATLAS_PACKAGED_EXECUTABLE: ${{ matrix.executable }}
+          ATLAS_PACKAGED_SCALE_FACTOR: '2'
         run: pnpm qa:desktop-visual:packaged
 
       - name: Upload macOS packaged visual evidence
