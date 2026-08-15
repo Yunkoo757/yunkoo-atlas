@@ -111,8 +111,8 @@
 .settings-page-desc {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line-height);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .settings-section-title {
@@ -126,8 +126,8 @@
 .settings-section-desc {
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line-height);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .settings-page-section > .settings-page-head {
