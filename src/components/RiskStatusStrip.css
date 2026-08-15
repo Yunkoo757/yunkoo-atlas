@@ -56,3 +56,19 @@
   font-size: var(--type-metadata-size);
 }
 .risk-status-summary a { color: var(--accent-readable); }
+
+@media (max-width: 1099px) {
+  .risk-status-strip { margin-top: var(--sp-2); }
+  .risk-status-head { min-height: 36px; padding-inline: var(--sp-2); }
+  .risk-status-periods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .risk-status-period {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--sp-2);
+  }
+  .risk-status-summary {
+    min-height: 32px;
+    padding-inline: var(--sp-2);
+    border-top: 1px solid var(--border-subtle);
+  }
+}
