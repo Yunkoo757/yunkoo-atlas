@@ -243,7 +243,7 @@ function tokenizeTopLevelFontShorthand(shorthand: string): string[] | null {
 }
 
 function customPropertyTokenName(token: string): string | null {
-  return /^var\(\s*(--[a-z0-9-]+)\s*\)$/i.exec(token)?.[1].toLowerCase() ?? null
+  return /^var\(\s*(--[a-z0-9-]+)\s*\)$/i.exec(token)?.[1] ?? null
 }
 
 function isApprovedShorthandFontSize(token: string): boolean {
@@ -349,6 +349,10 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.bad { font: var(--type-row-size); }',
     '.bad { font: var(--type-row-size)/1.2; }',
     '.bad { font: inherit var(--type-row-size) var(--font-ui); }',
+    ':root { --TYPE-ROW-SIZE: 22px; } .bad { font: 500 var(--TYPE-ROW-SIZE) var(--font-ui); }',
+    ':root { --Type-Row-Size: 22px; } .bad { font: 500 var(--Type-Row-Size) var(--font-ui); }',
+    '.bad { font: var(--FONT-WEIGHT-SEMIBOLD) var(--type-row-size) var(--font-ui); }',
+    '.bad { font: var(--font-weight-semibold) var(--type-row-size) var(--FONT-UI); }',
   ]) {
     assert.throws(
       () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
@@ -363,7 +367,9 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.ok { font: var(--font-weight-semibold) var(--fs-mini) var(--font-ui); }',
     '.ok { font: italic small-caps var(--font-weight-semibold) condensed var(--type-row-size) var(--font-ui); }',
     '.ok { font: 500 var(--type-row-size) / calc(var(--type-row-line-height) / 1) var(--font-ui); }',
+    '.ok { font: VAR(--font-weight-semibold) VAR(--type-row-size) VAR(--font-ui); }',
     '.ok { font: inherit; }',
+    '.ok { font: InHeRiT; }',
     '.ok { font: initial; }',
     '.ok { font: unset; }',
     '.ok { font: revert; }',

@@ -101,3 +101,38 @@ exit 0
 UTF-8 fatal decode + BOM check
 exit 0; scoped files UTF-8 without BOM
 ```
+
+## Fix Round 2/5：custom property 大小写合同
+
+- 父提交：`397ec0425fc72887fa69611ccda6775f46675adf`
+- 范围：仅 `src/lib/typographySystem.design.test.ts` 与本报告。
+
+### RED
+
+先加入三类大小写敏感负向 fixtures：已定义为 `22px` 的 `--TYPE-ROW-SIZE`/混合大小写 size、`--FONT-WEIGHT-SEMIBOLD` modifier、`--FONT-UI` family；同时加入 canonical identifier 与大小写混合 `VAR(...)`/CSS-wide keyword 正向对照。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 1
+--TYPE-ROW-SIZE fixture: Missing expected exception.
+```
+
+### GREEN
+
+- `customPropertyTokenName()` 保留捕获到的 custom property identifier 原始大小写，与有限 allowlist 精确比较。
+- `var` 函数名和 CSS-wide keyword 继续按 CSS 语法做大小写不敏感匹配。
+- 真实仓库的 canonical 小写 token 继续通过产品 CSS 扫描。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 0; 11 tests PASS
+
+pnpm typecheck
+exit 0
+
+git diff --check + exact scope check
+exit 0
+
+UTF-8 fatal decode + BOM check
+exit 0; scoped files UTF-8 without BOM
+```
