@@ -90,6 +90,7 @@ export function AppFrame({ sidebar, children }: AppFrameProps) {
     focusRingOwnerRef.current = { value: focusRingState }
   }
   const focusRingOwner = focusRingOwnerRef.current
+  const frameRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     return registerDocumentFocusRingOwner(focusRingOwner)
@@ -99,9 +100,32 @@ export function AppFrame({ sidebar, children }: AppFrameProps) {
     updateDocumentFocusRingOwner(focusRingOwner, focusRingState)
   }, [focusRingOwner, focusRingState])
 
+  useEffect(() => {
+    const documentRoot = document.documentElement
+    const initialDocumentValue = documentRoot.dataset.keyboardNavigation
+    const markKeyboardNavigation = (event: KeyboardEvent) => {
+      if (!['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+      documentRoot.dataset.keyboardNavigation = 'true'
+      frameRef.current?.setAttribute('data-keyboard-navigation', 'true')
+    }
+    const clearKeyboardNavigation = () => {
+      delete documentRoot.dataset.keyboardNavigation
+      frameRef.current?.removeAttribute('data-keyboard-navigation')
+    }
+    document.addEventListener('keydown', markKeyboardNavigation, true)
+    document.addEventListener('pointerdown', clearKeyboardNavigation, true)
+    return () => {
+      document.removeEventListener('keydown', markKeyboardNavigation, true)
+      document.removeEventListener('pointerdown', clearKeyboardNavigation, true)
+      if (initialDocumentValue === undefined) delete documentRoot.dataset.keyboardNavigation
+      else documentRoot.dataset.keyboardNavigation = initialDocumentValue
+    }
+  }, [])
+
   return (
     <div
       className="ui-app-frame"
+      ref={frameRef}
       data-keyboard-focus-rings={focusRingState}
     >
       <a className="skip-link" href="#main-content">跳到主内容</a>

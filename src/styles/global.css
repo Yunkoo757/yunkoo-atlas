@@ -255,12 +255,17 @@ a:focus:not(:focus-visible) {
   outline-offset: 2px;
 }
 
-/* 关闭增强高光时仍保留低干扰的键盘定位线，避免桌面端 Tab 导航失去当前位置。 */
+/* 关闭增强高光时仅在真实键盘导航期间保留低干扰定位线。 */
 html[data-keyboard-focus-rings='off'] {
   --focus-ring-shadow: none;
 }
 
 html[data-keyboard-focus-rings='off']
+  :focus-visible:not(input):not(textarea):not(select):not([contenteditable='true']) {
+  outline: none;
+}
+
+html[data-keyboard-focus-rings='off'][data-keyboard-navigation='true']
   :focus-visible:not(input):not(textarea):not(select):not([contenteditable='true']) {
   outline: 1px solid color-mix(in srgb, var(--text-tertiary) 72%, transparent);
   outline-offset: 1px;
