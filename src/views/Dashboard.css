@@ -1,12 +1,12 @@
 .db-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: var(--sp-4) var(--sp-5) 40px;
+  padding: var(--sp-4) var(--page-inset-compact) 40px;
 }
 
 .db-analysis-rail {
   width: 100%;
-  max-width: 1240px;
+  max-width: var(--page-rail-wide);
   margin: 0 auto;
 }
 

@@ -11,10 +11,27 @@ function assert(condition: unknown, message: string): void {
 
 export function testSettingsPagesOwnOneCenteredContentRail(): void {
   const css = read('src/views/settings/SettingsLayout.css')
-  assert(css.includes('--settings-content-width: 680px'), '设置页必须冻结 680px 主内容轨道')
+  assert(
+    css.includes('--settings-content-width: var(--page-rail-form)'),
+    '设置页必须消费语义化表单内容轨道',
+  )
   assert(css.includes('.settings-aside'), '设置页必须为解释或预览保留可选辅助轨道')
   assert(css.includes('margin: 0 auto'), '设置内容必须在宽桌面窗口中保持居中')
   assert(!css.includes('safe-area-inset'), '桌面设置页不得保留手机安全区布局')
+}
+
+export function testCoreDesktopPagesConsumeSemanticRails(): void {
+  const contracts = [
+    ['src/views/Dashboard.css', '--page-rail-wide'],
+    ['src/views/TodayWorkspace.css', '--page-rail-standard'],
+    ['src/views/WeeklyReviewView.css', '--page-rail-reading'],
+    ['src/views/DetailView.css', '--page-rail-standard'],
+    ['src/views/settings/SettingsLayout.css', '--page-rail-form'],
+  ] as const
+  for (const [file, token] of contracts) {
+    const css = read(file)
+    assert(css.includes(`var(${token})`), `${file} 必须消费 ${token}`)
+  }
 }
 
 export function testReviewWorkspaceUsesContentDrivenReadingHeight(): void {

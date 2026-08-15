@@ -160,9 +160,9 @@
   overflow-y: auto;
 }
 .dv-main-inner {
-  max-width: 1040px;
+  max-width: var(--page-rail-standard);
   margin: 0 auto;
-  padding: var(--sp-6) clamp(var(--sp-6), 3vw, 36px) 48px;
+  padding: var(--sp-6) clamp(var(--page-inset-compact), 3vw, var(--page-inset-wide)) 48px;
 }
 .dv-title-row {
   display: flex;

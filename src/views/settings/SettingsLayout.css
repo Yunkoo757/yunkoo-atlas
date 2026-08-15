@@ -57,7 +57,7 @@
 }
 
 .settings-panel {
-  --settings-content-width: 680px;
+  --settings-content-width: var(--page-rail-form);
 
   flex: 1;
   min-width: 0;
@@ -69,14 +69,14 @@
 
 .settings-page {
   box-sizing: border-box;
-  width: min(100%, calc(var(--settings-content-width) + 80px));
+  width: min(100%, calc(var(--settings-content-width) + var(--page-inset-wide) + var(--page-inset-wide)));
   max-width: none;
   margin: 0 auto;
-  padding: var(--sp-8) 40px 56px;
+  padding: var(--sp-8) var(--page-inset-wide) 56px;
 }
 
 .settings-page.has-aside {
-  width: min(100%, calc(var(--settings-content-width) + 320px));
+  width: min(100%, calc(var(--settings-content-width) + 240px + var(--sp-8) + var(--page-inset-wide) + var(--page-inset-wide)));
   display: grid;
   grid-template-columns: minmax(0, var(--settings-content-width)) 240px;
   align-items: start;

@@ -7,9 +7,9 @@
 
 .today-workspace-inner {
   width: 100%;
-  max-width: 1180px;
+  max-width: var(--page-rail-standard);
   margin: 0 auto;
-  padding: 22px var(--sp-7) 72px;
+  padding: 22px var(--page-inset-default) 72px;
 }
 
 .today-focus {
