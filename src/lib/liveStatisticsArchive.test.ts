@@ -3,11 +3,14 @@ import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import {
   buildLiveArchiveProjection,
   buildLiveArchiveSummary,
+  filterAssociatedLiveArchiveCases,
   filterLiveLogRecords,
   filterLivePerformanceRecords,
   listLiveArchiveProjections,
+  matchesHistoricalCaseCategory,
   resolveLiveArchiveScope,
   resolveLiveRecordBucket,
+  type HistoricalCaseCategory,
 } from '@/lib/liveStatisticsArchive'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -126,6 +129,75 @@ export function testNoCycleBoundaryTreatsAllHistoryAsCurrent(): void {
   const historical = trade('historical', { openedAt: '2020-01-01', closedAt: '2020-01-02' })
   assert(resolveLiveArchiveScope([], null).kind === 'current', '无边界时缺省 scope 仍是当前')
   assert(resolveLiveRecordBucket(historical, [], 0) === 'current', '无边界时全部历史实盘都属于当前')
+}
+
+export function testAssociatedCasesOnlyFollowArchivedLiveSources(): void {
+  const archived = [
+    trade('archived-source'),
+    trade('archived-missed', { status: 'missed' }),
+  ]
+  const candidates = [
+    trade('linked', {
+      tradeKind: 'case',
+      sourceTradeId: 'archived-source',
+      caseType: 'exemplar',
+    }),
+    trade('linked-missed', {
+      tradeKind: 'case',
+      sourceTradeId: 'archived-missed',
+      caseType: 'missed',
+    }),
+    trade('current-source-case', { tradeKind: 'case', sourceTradeId: 'current-source' }),
+    trade('unlinked', { tradeKind: 'case', sourceTradeId: undefined }),
+    trade('deleted-case', {
+      tradeKind: 'case',
+      sourceTradeId: 'archived-source',
+      deletedAt: '2026-01-02',
+    }),
+    trade('not-a-case', { sourceTradeId: 'archived-source' }),
+  ]
+
+  assert(
+    ids(filterAssociatedLiveArchiveCases(candidates, archived)) === 'linked,linked-missed',
+    '历史实盘案例只能按未删除案例的 sourceTradeId 投影',
+  )
+}
+
+export function testHistoricalCaseCategoriesReuseCanonicalCaseSemantics(): void {
+  const starred = new Set(['starred'])
+  const fixtures = [
+    trade('starred', { tradeKind: 'case', caseType: 'exemplar' }),
+    trade('mistake', {
+      tradeKind: 'case',
+      caseType: 'mistake',
+      mistakeTags: ['追单'],
+    }),
+    trade('missed', {
+      tradeKind: 'case',
+      caseType: 'missed',
+      status: 'missed',
+      mistakeTags: ['犹豫'],
+    }),
+    trade('recheck', {
+      tradeKind: 'case',
+      masteryState: 'recheck',
+      reviewStatus: 'unreviewed',
+    }),
+    trade('mastered', {
+      tradeKind: 'case',
+      masteryState: 'mastered',
+      reviewStatus: 'reviewed',
+    }),
+  ]
+  const matching = (category: HistoricalCaseCategory) => fixtures
+    .filter((item) => matchesHistoricalCaseCategory(item, category, starred))
+    .map((item) => item.id)
+
+  assert(matching('focus').includes('starred'), '重点必须兼容星标案例')
+  assert(matching('mistakes').join(',') === 'mistake', '错题必须排除错过机会')
+  assert(matching('missed').join(',') === 'missed', '错过机会必须按规范 caseType 命中')
+  assert(matching('unreviewed').includes('recheck'), '待复看必须复用案例掌握状态')
+  assert(matching('reviewed').includes('mastered'), '已掌握必须复用案例掌握状态')
 }
 
 export function testArchiveProjectionsKeepPreBoundaryHistoryWithOneCycle(): void {
