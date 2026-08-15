@@ -129,6 +129,9 @@ importers:
       playwright:
         specifier: ^1.60.0
         version: 1.60.0
+      postcss:
+        specifier: 8.5.18
+        version: 8.5.18
       puppeteer-core:
         specifier: ^25.1.0
         version: 25.1.0

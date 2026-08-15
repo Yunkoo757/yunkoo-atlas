@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
+import postcss from 'postcss'
 
 type ProductCssSource = {
   path: string
@@ -125,6 +126,7 @@ type LiteralFontSizeDeclaration = {
   selector: string
   property: 'font-size' | 'font'
   value: string
+  important: boolean
 }
 
 const approvedLiteralFontSizes: LiteralFontSizeApproval[] = [
@@ -312,84 +314,30 @@ function usesApprovedShorthandFontSize(shorthand: string): boolean {
   return familyStart !== undefined && isPlausibleShorthandFamilyStart(familyStart)
 }
 
-type ParsedDeclarationPriority = {
-  value: string
-  important: boolean
-}
-
-function trimCssWhitespace(value: string): string {
-  return value.replace(/^[ \t\r\n\f]+|[ \t\r\n\f]+$/g, '')
-}
-
-function parseDeclarationPriority(rawValue: string): ParsedDeclarationPriority | null {
-  const value = trimCssWhitespace(rawValue)
-  const exclamationIndexes: number[] = []
-  let depth = 0
-  let quote: '"' | "'" | null = null
-  let escaped = false
-
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index]
-    if (quote) {
-      if (escaped) escaped = false
-      else if (character === '\\') escaped = true
-      else if (character === quote) quote = null
-      continue
-    }
-    if (character === '"' || character === "'") {
-      quote = character
-      continue
-    }
-    if (character === '(') {
-      depth += 1
-      continue
-    }
-    if (character === ')') {
-      if (depth === 0) return null
-      depth -= 1
-      continue
-    }
-    if (depth === 0 && character === '!') exclamationIndexes.push(index)
-  }
-
-  if (quote || depth !== 0 || value.length === 0) return null
-  if (exclamationIndexes.length === 0) return { value, important: false }
-  if (exclamationIndexes.length !== 1) return null
-
-  const priorityIndex = exclamationIndexes[0]
-  if (!/^![ \t\r\n\f]*important$/i.test(value.slice(priorityIndex))) return null
-  const declarationValue = value.slice(0, priorityIndex).replace(/[ \t\r\n\f]+$/, '')
-  return declarationValue ? { value: declarationValue, important: true } : null
-}
-
 function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFontSizeDeclaration[] {
   const declarations: LiteralFontSizeDeclaration[] = []
   for (const { path, css } of sources) {
-    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
-    for (const rule of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      const selector = rule[1].trim()
-      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font-size\s*:\s*([^;{}]*)(?=;|$)/gi)) {
-        const parsed = parseDeclarationPriority(declaration[1])
-        if (!parsed) {
-          declarations.push({ path, selector, property: 'font-size', value: trimCssWhitespace(declaration[1]) })
-          continue
-        }
-        const value = parsed.value
-        if (!isApprovedLonghandFontSize(value)) declarations.push({ path, selector, property: 'font-size', value })
-      }
-      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font\s*:\s*([^;{}]*)(?=;|$)/gi)) {
-        const parsed = parseDeclarationPriority(declaration[1])
-        if (!parsed) {
-          declarations.push({ path, selector, property: 'font', value: trimCssWhitespace(declaration[1]) })
-          continue
-        }
-        const shorthand = parsed.value
-        if (/^(?:inherit|initial|unset|revert|revert-layer)$/i.test(shorthand)) continue
-        if (!usesApprovedShorthandFontSize(shorthand)) {
-          declarations.push({ path, selector, property: 'font', value: shorthand })
-        }
-      }
+    let root: postcss.Root
+    try {
+      root = postcss.parse(css, { from: path })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`${path}: CSS parse failed: ${message}`)
     }
+    root.walkDecls((declaration) => {
+      const property = declaration.prop.toLowerCase()
+      if (property !== 'font-size' && property !== 'font') return
+
+      const selector = declaration.parent?.type === 'rule' ? declaration.parent.selector.trim() : ''
+      const value = declaration.value.trim()
+      const important = declaration.important
+      if (property === 'font-size') {
+        if (!isApprovedLonghandFontSize(value)) declarations.push({ path, selector, property, value, important })
+        return
+      }
+      if (/^(?:inherit|initial|unset|revert|revert-layer)$/i.test(value)) return
+      if (!usesApprovedShorthandFontSize(value)) declarations.push({ path, selector, property, value, important })
+    })
   }
   return declarations
 }
@@ -403,7 +351,8 @@ function assertApprovedLiteralFontSizes(
       declaration.property === 'font-size' && entry.path === declaration.path.replace(/\\/g, '/') && entry.selector === declaration.selector && entry.value === declaration.value,
     )
     const location = declaration.property === 'font' ? 'font shorthand' : 'font-size'
-    assert(approval?.reason, `${declaration.path} ${declaration.selector} has unapproved literal ${location}: ${declaration.value}`)
+    const priority = declaration.important ? ' !important' : ''
+    assert(approval?.reason, `${declaration.path} ${declaration.selector} has unapproved literal ${location}: ${declaration.value}${priority}`)
   }
 }
 
@@ -506,6 +455,38 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
   }
   assert.doesNotThrow(
     () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.ok { height: 22px; padding: 0 12.5px; }' }], []),
+  )
+  assert.doesNotThrow(
+    () => assertApprovedLiteralFontSizes([{
+      path: 'src/views/example.css',
+      css: '.ok::before { content: ";font-size:;"; }',
+    }], []),
+  )
+  for (const css of [
+    '.ok::before { content: ";font:;"; }',
+    '.ok { --font-example: ";font-size:;;font:;"; }',
+    '.ok { background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg%3E;font-size:;%3C/svg%3E"); }',
+    '.ok::before { content: ".fake { font-size: 22px; font: 500 22px serif; }"; }',
+  ]) assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], []))
+  assert.throws(
+    () => assertApprovedLiteralFontSizes([{
+      path: 'src/views/malformed.css',
+      css: '.bad { font-size: 22px;',
+    }], []),
+    /src[\\/]views[\\/]malformed\.css: CSS parse failed/,
+  )
+  assert.throws(
+    () => assertApprovedLiteralFontSizes([{
+      path: 'src/views/example.css',
+      css: '.bad { FoNt-SiZe: 22px; }',
+    }], []),
+    /unapproved literal font-size: 22px/,
+  )
+  assert.doesNotThrow(
+    () => assertApprovedLiteralFontSizes([{
+      path: 'src/views/example.css',
+      css: '.ok { FoNt: InHeRiT !IMPORTANT; }',
+    }], []),
   )
   for (const css of [
     '.ok { font: 500 var(--type-row-size)/var(--type-row-line-height) var(--font-ui); }',
