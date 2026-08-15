@@ -1332,6 +1332,57 @@ export function testPendingWorkbenchRouteStillFiltersWithoutArchiveBoundaries():
   assert(derived.visible.map((item) => item.id).join() === 'pending-close-day', '无周期时待整理日志不得回退为全部实盘')
 }
 
+export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChanged(): void {
+  const cycles: LivePerformanceCycle[] = [
+    { id: 'archive', name: '历史', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' },
+    { id: 'current', name: '当前', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' },
+  ]
+  const historical = {
+    ...trade,
+    id: 'historical-live',
+    openedAt: '2026-01-15',
+    closedAt: '2026-01-15',
+    closedTradingDayKey: '2026-01-15',
+  }
+  const current = {
+    ...trade,
+    id: 'current-live',
+    openedAt: '2026-02-15',
+    closedAt: '2026-02-15',
+    closedTradingDayKey: '2026-02-15',
+  }
+  const linkedCase = {
+    ...trade,
+    id: 'historical-case',
+    tradeKind: 'case' as const,
+    sourceTradeId: historical.id,
+  }
+  const currentCase = {
+    ...linkedCase,
+    id: 'current-case',
+    sourceTradeId: current.id,
+  }
+  const options = {
+    trades: [historical, current, linkedCase, currentCase],
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    livePerformanceCycles: cycles,
+    search: '',
+  }
+
+  const history = deriveWorkbenchVisibleTrades({
+    ...options,
+    filter: { type: 'all', tradeKind: 'live', historicalLiveScope: 'trades' },
+  })
+  assert(history.visible.map((item) => item.id).join() === 'historical-live', '历史实盘工作台只能显示重置前实盘')
+
+  const cases = deriveWorkbenchVisibleTrades({
+    ...options,
+    filter: { type: 'all', tradeKind: 'case', historicalLiveScope: 'cases' },
+  })
+  assert(cases.visible.map((item) => item.id).join() === 'historical-case', '历史实盘案例工作台只能显示历史来源案例')
+}
+
 export function testExplicitPerformanceCycleListRoutesStayStableAndClearInvalidIds(): void {
   const cycles: LivePerformanceCycle[] = [
     {

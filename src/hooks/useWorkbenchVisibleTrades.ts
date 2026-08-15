@@ -47,6 +47,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     filter.strategyId,
     filter.period,
     filter.reviewCaseScope,
+    filter.historicalLiveScope,
     filter.analysisScope?.kind,
     filter.analysisScope?.range,
     localDateKey,
@@ -68,8 +69,11 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
         workspace += 1
       }
     }
-    return { totalCount: total, workspaceCount: workspace }
-  }, [storedTrades, filter.tradeKind])
+    return {
+      totalCount: total,
+      workspaceCount: filter.historicalLiveScope ? trades.length : workspace,
+    }
+  }, [storedTrades, filter.tradeKind, filter.historicalLiveScope, trades.length])
 
   return { trades, visible, facets, totalCount, workspaceCount, businessDateAnchor }
 }

@@ -96,6 +96,27 @@ const PAPER_MORE_GROUPS: ViewGroup[] = [
   },
 ]
 
+const HISTORICAL_TRADE_MORE_GROUPS: ViewGroup[] = [
+  {
+    label: '结果',
+    items: [
+      { id: 'win', label: '盈利', pathname: '/live-history', search: '?status=win' },
+      { id: 'breakeven', label: '保本', pathname: '/live-history', search: '?status=breakeven' },
+      { id: 'missed', label: '错过机会', pathname: '/live-history', search: '?status=missed' },
+    ],
+  },
+  {
+    label: '交易时段',
+    items: [
+      { id: 'london', label: '伦敦盘', pathname: '/live-history', search: '?session=london' },
+      { id: 'new-york', label: '纽约盘', pathname: '/live-history', search: '?session=new-york' },
+      { id: 'asia', label: '亚盘', pathname: '/live-history', search: '?session=asia' },
+      { id: 'outside', label: '盘外时段', pathname: '/live-history', search: '?session=outside' },
+      { id: 'other', label: '其他时段', pathname: '/live-history', search: '?session=other' },
+    ],
+  },
+]
+
 export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -119,9 +140,11 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const primaryViews = getWorkspacePrimaryViews(kind, sidebarWorkspaceItems)
   const moreGroups = (kind === 'trade'
     ? TRADE_MORE_GROUPS
-    : kind === 'paper'
-      ? PAPER_MORE_GROUPS
-      : []
+    : kind === 'historical-trade'
+      ? HISTORICAL_TRADE_MORE_GROUPS
+      : kind === 'paper'
+        ? PAPER_MORE_GROUPS
+        : []
   )
     .map((group) => ({
       ...group,
@@ -130,9 +153,13 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     .filter((group) => group.items.length > 0)
   const workspaceLabel = kind === 'case'
     ? '案例视图'
-    : kind === 'paper'
-      ? '模拟视图'
-      : '交易视图'
+    : kind === 'historical-case'
+      ? '历史案例视图'
+      : kind === 'historical-trade'
+        ? '历史实盘视图'
+        : kind === 'paper'
+          ? '模拟视图'
+          : '交易视图'
   const workspaceSavedViews = savedViews.filter((view) => isSavedViewInWorkspace(view, kind))
   const pinned = workspaceSavedViews.filter((view) => view.pinned).slice(0, 4)
   const activeSavedViewId = pinned.find((view) =>

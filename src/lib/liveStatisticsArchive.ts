@@ -7,17 +7,8 @@ import {
 } from '@/lib/livePerformanceCycles'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
-import { matchesReviewCaseScope } from '@/lib/reviewCaseScope'
 
 export type LiveRecordBucket = 'current' | 'archive' | 'pending' | 'excluded'
-
-export type HistoricalCaseCategory =
-  | 'all'
-  | 'focus'
-  | 'mistakes'
-  | 'missed'
-  | 'unreviewed'
-  | 'reviewed'
 
 export type LiveArchiveScope = {
   kind: 'current' | 'archive' | 'all-archives' | 'pending'
@@ -190,16 +181,6 @@ export function filterAssociatedLiveArchiveCases(
     && Boolean(trade.sourceTradeId)
     && archivedSourceIds.has(trade.sourceTradeId!),
   )
-}
-
-export function matchesHistoricalCaseCategory(
-  trade: Trade,
-  category: HistoricalCaseCategory,
-  starredIds: ReadonlySet<string>,
-): boolean {
-  if (category === 'all') return trade.tradeKind === 'case'
-  if (category === 'missed') return trade.tradeKind === 'case' && trade.caseType === 'missed'
-  return matchesReviewCaseScope(trade, category, starredIds)
 }
 
 export function filterLivePerformanceRecords(

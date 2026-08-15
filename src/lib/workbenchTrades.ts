@@ -14,6 +14,7 @@ import {
   type LiveRouteTarget,
 } from '@/lib/livePerformanceCycleRoute'
 import {
+  filterAssociatedLiveArchiveCases,
   filterLiveLogRecords,
   filterLivePerformanceRecords,
   resolveLiveArchiveScope,
@@ -280,18 +281,21 @@ export function deriveWorkbenchVisibleTrades(
     : parsedFacets
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
-  const routeFiltered = filterTrades(
+  const sourceTrades = scopeHistoricalLiveTrades(
     options.trades.filter((trade) => !trade.deletedAt),
+    options,
+    tradingDayStartHour,
+  )
+  const routeFiltered = filterTrades(
+    sourceTrades,
     options.filter,
     options.starredIds,
     tradingDayStartHour,
     options.businessDateAnchor,
   )
-  const cycleResult = filterWorkbenchCycles(
-    routeFiltered,
-    options,
-    tradingDayStartHour,
-  )
+  const cycleResult = options.filter.historicalLiveScope
+    ? { trades: routeFiltered }
+    : filterWorkbenchCycles(routeFiltered, options, tradingDayStartHour)
   if (cycleResult.archiveHome) return { trades: [], visible: [], archiveHome: cycleResult.archiveHome }
   const cycleFiltered = cycleResult.trades
   const analysisFiltered = options.filter.analysisScope
@@ -320,6 +324,21 @@ export function deriveWorkbenchVisibleTrades(
   }
 }
 
+function scopeHistoricalLiveTrades(
+  trades: Trade[],
+  options: WorkbenchTradeDerivationOptions,
+  tradingDayStartHour: number,
+): Trade[] {
+  if (!options.filter.historicalLiveScope) return trades
+  const historicalLive = filterLiveLogRecords(
+    trades,
+    resolveLiveArchiveScope(options.livePerformanceCycles ?? [], 'all-archives'),
+    tradingDayStartHour,
+  )
+  if (options.filter.historicalLiveScope === 'trades') return historicalLive
+  return filterAssociatedLiveArchiveCases(trades, historicalLive)
+}
+
 export function getWorkbenchVisibleTrades(options: WorkbenchTradeDerivationOptions): Trade[] {
   return deriveWorkbenchVisibleTrades(options).visible
 }
@@ -343,7 +362,12 @@ export function countWorkbenchVisibleTrades(options: {
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
   const starred = new Set(options.starredIds)
-  const routeFiltered = options.trades.filter((trade) =>
+  const scopedInputTrades = scopeHistoricalLiveTrades(
+    options.trades.filter((trade) => !trade.deletedAt),
+    options,
+    tradingDayStartHour,
+  )
+  const routeFiltered = scopedInputTrades.filter((trade) =>
     !trade.deletedAt && matchesListFilter(
       trade,
       options.filter,
@@ -352,11 +376,9 @@ export function countWorkbenchVisibleTrades(options: {
       options.businessDateAnchor,
     ),
   )
-  const cycleResult = filterWorkbenchCycles(
-    routeFiltered,
-    options,
-    tradingDayStartHour,
-  )
+  const cycleResult = options.filter.historicalLiveScope
+    ? { trades: routeFiltered }
+    : filterWorkbenchCycles(routeFiltered, options, tradingDayStartHour)
   if (cycleResult.archiveHome) return 0
   const cycleScopedTrades = cycleResult.trades
   const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'

@@ -58,6 +58,10 @@ const KNOWN_TRADE_VIEW_PARAMS = new Set([
   'range',
   'liveCycle',
   'statsCycle',
+  'view',
+  'caseScope',
+  'archiveReason',
+  'requestedKey',
 ])
 
 export function TradeFilters({
@@ -90,14 +94,18 @@ export function TradeFilters({
     panelRef.current = node
     panelExitRef(node)
   }
-  const workspaceKind: WorkspaceKind = filter.tradeKind === 'case'
-    ? 'case'
-    : filter.tradeKind === 'paper'
-      ? 'paper'
-      : 'trade'
-  const isCaseWorkspace = workspaceKind === 'case'
+  const workspaceKind: WorkspaceKind = filter.historicalLiveScope === 'cases'
+    ? 'historical-case'
+    : filter.historicalLiveScope === 'trades'
+      ? 'historical-trade'
+      : filter.tradeKind === 'case'
+        ? 'case'
+        : filter.tradeKind === 'paper'
+          ? 'paper'
+          : 'trade'
+  const isCaseWorkspace = workspaceKind === 'case' || workspaceKind === 'historical-case'
   const isPaperWorkspace = workspaceKind === 'paper'
-  const usesQueryScope = isCaseWorkspace || isPaperWorkspace
+  const usesQueryScope = isCaseWorkspace || isPaperWorkspace || Boolean(filter.historicalLiveScope)
   const allowsTradeKindFacet = !filter.tradeKind && (
     !filter.analysisScope || filter.analysisScope.kind === 'all'
   )
@@ -161,7 +169,11 @@ export function TradeFilters({
     activeFilters.push({ key: 'missed-route', label: '错过的机会' })
   }
   if (filter.tradeKind === 'paper') activeFilters.push({ key: 'kind-route', label: '模拟' })
-  if (filter.tradeKind === 'case' && !location.pathname.startsWith('/review-cases')) {
+  if (
+    filter.tradeKind === 'case'
+    && !filter.historicalLiveScope
+    && !location.pathname.startsWith('/review-cases')
+  ) {
     activeFilters.push({ key: 'kind-route', label: '案例记录' })
   }
 
@@ -268,10 +280,18 @@ export function TradeFilters({
   }
 
   const resetFilters = () => {
-    const base =
-      filter.tradeKind === 'paper' ? '/sim' : filter.tradeKind === 'case' ? '/review-cases' : '/list'
+    const base = filter.historicalLiveScope
+      ? '/live-history'
+      : filter.tradeKind === 'paper'
+        ? '/sim'
+        : filter.tradeKind === 'case'
+          ? '/review-cases'
+          : '/list'
     const mode = workbenchModeFromPathname(location.pathname)
-    navigate(pathWithWorkbenchMode(base, mode), { replace: true })
+    navigate({
+      pathname: pathWithWorkbenchMode(base, mode),
+      search: filter.historicalLiveScope === 'cases' ? '?view=cases' : '',
+    }, { replace: true })
   }
 
   const closeFilters = useCallback(() => {

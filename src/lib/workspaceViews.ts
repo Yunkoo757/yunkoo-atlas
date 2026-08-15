@@ -9,8 +9,8 @@ import {
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 
-export type WorkspaceKind = 'today' | 'trade' | 'paper' | 'case'
-export type RememberableWorkspaceKind = Exclude<WorkspaceKind, 'paper'>
+export type WorkspaceKind = 'today' | 'trade' | 'paper' | 'case' | 'historical-trade' | 'historical-case'
+export type RememberableWorkspaceKind = 'today' | 'trade' | 'case'
 
 export type WorkspaceRouteMemory = {
   pathname: string
@@ -35,6 +35,8 @@ export const WORKSPACE_VIEW_QUERY_KEYS = [
   // 仅在仪表盘/策略分析页生效；切换到普通工作区后必须移除，避免无效 URL 条件。
   'kind',
   'range',
+  'view',
+  'caseScope',
 ] as const
 
 const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
@@ -60,12 +62,28 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'unreviewed', label: '待复看', pathname: '/review-cases/unreviewed' },
     { id: 'reviewed', label: '已掌握', pathname: '/review-cases/reviewed' },
   ],
+  'historical-trade': [
+    { id: 'all', label: '全部', pathname: '/live-history' },
+    { id: 'week', label: '本周', pathname: '/live-history', search: '?period=this-week' },
+    { id: 'month', label: '本月', pathname: '/live-history', search: '?period=this-month' },
+    { id: 'loss', label: '亏损', pathname: '/live-history', search: '?status=loss' },
+    { id: 'historical-cases', label: '关联案例', pathname: '/live-history', search: '?view=cases' },
+  ],
+  'historical-case': [
+    { id: 'historical-trades', label: '实盘记录', pathname: '/live-history' },
+    { id: 'cases-all', label: '全部', pathname: '/live-history', search: '?view=cases' },
+    { id: 'focus', label: '重点', pathname: '/live-history', search: '?view=cases&caseScope=focus' },
+    { id: 'mistakes', label: '错题', pathname: '/live-history', search: '?view=cases&caseScope=mistakes' },
+    { id: 'missed', label: '错过机会', pathname: '/live-history', search: '?view=cases&caseType=missed' },
+    { id: 'unreviewed', label: '待复看', pathname: '/live-history', search: '?view=cases&caseScope=unreviewed' },
+    { id: 'reviewed', label: '已掌握', pathname: '/live-history', search: '?view=cases&caseScope=reviewed' },
+  ],
 }
 
 function quickWorkspaceForKind(kind: WorkspaceKind): SidebarQuickWorkspace | null {
-  if (kind === 'trade') return 'trade'
+  if (kind === 'trade' || kind === 'historical-trade') return 'trade'
   if (kind === 'paper') return 'paper'
-  if (kind === 'case') return 'case'
+  if (kind === 'case' || kind === 'historical-case') return 'case'
   return null
 }
 
@@ -153,6 +171,7 @@ export function isSavedViewInWorkspace(
   kind: WorkspaceKind,
 ): boolean {
   const pathname = normalizeSavedViewPath(view.pathname)
+  if (kind === 'historical-trade' || kind === 'historical-case') return pathname === '/live-history'
   if (kind === 'today') return pathname === '/today-record'
   if (kind === 'case') return pathname.startsWith('/review-cases')
   if (kind === 'paper') return pathname === '/sim'

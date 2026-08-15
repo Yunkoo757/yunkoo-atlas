@@ -36,6 +36,8 @@ export interface ListFilter {
   /** 仅用于仪表盘下钻：按平仓日、交易类型与日期范围锁定分析样本。 */
   analysisScope?: AnalysisScope
   reviewCaseScope?: ReviewCaseScope
+  /** 历史实盘仍使用标准工作台，只在数据源层限定为重置前实盘或其关联案例。 */
+  historicalLiveScope?: 'trades' | 'cases'
 }
 
 /**

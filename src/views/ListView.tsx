@@ -378,6 +378,13 @@ export function ListView({
     })) {
       setDisplay({ hideClosed: false })
     }
+    if (filter.historicalLiveScope) {
+      navigate({
+        pathname: '/live-history',
+        search: filter.historicalLiveScope === 'cases' ? '?view=cases' : '',
+      }, { replace: true })
+      return
+    }
     navigate(getWorkbenchResetPath(location.pathname, filter.tradeKind), { replace: true })
   }
 

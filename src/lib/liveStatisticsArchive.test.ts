@@ -7,10 +7,8 @@ import {
   filterLiveLogRecords,
   filterLivePerformanceRecords,
   listLiveArchiveProjections,
-  matchesHistoricalCaseCategory,
   resolveLiveArchiveScope,
   resolveLiveRecordBucket,
-  type HistoricalCaseCategory,
 } from '@/lib/liveStatisticsArchive'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -161,43 +159,6 @@ export function testAssociatedCasesOnlyFollowArchivedLiveSources(): void {
     ids(filterAssociatedLiveArchiveCases(candidates, archived)) === 'linked,linked-missed',
     '历史实盘案例只能按未删除案例的 sourceTradeId 投影',
   )
-}
-
-export function testHistoricalCaseCategoriesReuseCanonicalCaseSemantics(): void {
-  const starred = new Set(['starred'])
-  const fixtures = [
-    trade('starred', { tradeKind: 'case', caseType: 'exemplar' }),
-    trade('mistake', {
-      tradeKind: 'case',
-      caseType: 'mistake',
-      mistakeTags: ['追单'],
-    }),
-    trade('missed', {
-      tradeKind: 'case',
-      caseType: 'missed',
-      status: 'missed',
-      mistakeTags: ['犹豫'],
-    }),
-    trade('recheck', {
-      tradeKind: 'case',
-      masteryState: 'recheck',
-      reviewStatus: 'unreviewed',
-    }),
-    trade('mastered', {
-      tradeKind: 'case',
-      masteryState: 'mastered',
-      reviewStatus: 'reviewed',
-    }),
-  ]
-  const matching = (category: HistoricalCaseCategory) => fixtures
-    .filter((item) => matchesHistoricalCaseCategory(item, category, starred))
-    .map((item) => item.id)
-
-  assert(matching('focus').includes('starred'), '重点必须兼容星标案例')
-  assert(matching('mistakes').join(',') === 'mistake', '错题必须排除错过机会')
-  assert(matching('missed').join(',') === 'missed', '错过机会必须按规范 caseType 命中')
-  assert(matching('unreviewed').includes('recheck'), '待复看必须复用案例掌握状态')
-  assert(matching('reviewed').includes('mastered'), '已掌握必须复用案例掌握状态')
 }
 
 export function testArchiveProjectionsKeepPreBoundaryHistoryWithOneCycle(): void {

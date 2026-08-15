@@ -1,5 +1,7 @@
 # Historical Live Module Implementation Plan
 
+> **2026-08-16 实施修订：** 原计划中的独立 `LiveArchiveView` 页面壳、KPI 摘要、专属筛选状态与 `LiveArchiveView.css` 已取消。最终架构把 `historicalLiveScope` 下沉到统一工作台派生层，并由共享 `TradesPage` 渲染列表、看板、筛选、快捷视图和月份分组；历史模块只负责选择“重置前实盘 / 其关联案例”数据范围。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 将现有“历史记录”升级为“历史实盘”，在同一桌面模块中分别展示并筛选重置起点前的实盘记录及其关联案例。

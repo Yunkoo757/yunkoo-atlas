@@ -9,7 +9,7 @@ import {
   useLocation,
   useParams,
 } from 'react-router-dom'
-import { Suspense, lazy, useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, useCallback } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
@@ -37,22 +37,18 @@ import { WebStorageGuard } from './components/WebStorageGuard'
 import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
 import { LoadingIndicator } from './icons/LoadingIndicator'
 import { ICON_XL } from './icons/iconSize'
-import { ListView } from './views/ListView'
-import { BoardView } from './views/BoardView'
+import { TradesPage } from './views/TradesPage'
 import { SettingsLayout } from './views/settings/SettingsLayout'
 import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
-import type { WorkbenchView } from './components/Topbar'
 import { getStrategyName } from './lib/strategies'
-import { resolveTradeLogFilter, type ListFilter, type ReviewCaseScope } from './lib/tradeFilters'
+import { resolveTradeLogFilter, type ReviewCaseScope } from './lib/tradeFilters'
 import { isValidPeriodSlug, PERIOD_LABELS } from './lib/periods'
-import { tradeDetailPath, tradeDetailNavState } from './lib/tradeRoute'
 import { routeWithSearch } from './lib/tradeView'
-import { listPathFromLegacyTablePath, workbenchModeFromPathname } from './lib/routeContext'
+import { listPathFromLegacyTablePath } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
-import { rememberTradeReturnAnchor } from './hooks/useTradeReturnAnchor'
 import { parseAnalysisScope } from './lib/analysisScope'
 import { resolveLiveRoute, resolveLiveRouteNavigation } from './lib/livePerformanceCycleRoute'
 import './App.css'
@@ -223,46 +219,6 @@ const ReviewTemplatesPanel = lazy(() =>
 const MissedOpportunitiesView = lazy(() =>
   import('./views/MissedOpportunitiesView').then((module) => ({ default: module.MissedOpportunitiesView })),
 )
-
-function TradesPage({
-  title,
-  filter = { type: 'all' },
-  listPath,
-  header,
-}: {
-  title: string
-  filter?: ListFilter
-  listPath: string
-  header?: ReactNode
-}) {
-  const navigate = useNavigate()
-  const { pathname, search } = useLocation()
-  const boardPath = listPath === '/list' ? '/board' : `${listPath}/board`
-  const view: WorkbenchView = workbenchModeFromPathname(pathname)
-  const setView = (v: WorkbenchView) => {
-    const target = v === 'board' ? boardPath : listPath
-    navigate(routeWithSearch(target, search))
-  }
-  return view === 'list' ? (
-    <ListView title={title} view={view} onView={setView} filter={filter} header={header} />
-  ) : (
-    <BoardView
-      title={title}
-      view={view}
-      onView={setView}
-      filter={filter}
-      header={header}
-      onOpen={(id) => {
-        const t = useStore.getState().trades.find((x) => x.id === id)
-        const from = { pathname, search, anchorTradeId: t?.id ?? id }
-        rememberTradeReturnAnchor(from)
-        navigate(t ? tradeDetailPath(t) : `/trade/${id}`, {
-          state: tradeDetailNavState(from),
-        })
-      }}
-    />
-  )
-}
 
 export function TradeLogPage() {
   const { search } = useLocation()
@@ -503,6 +459,7 @@ function Shell() {
           <Route path="/strategy/:id/board" element={<StrategyPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/live-history" element={<LiveArchiveView />} />
+          <Route path="/live-history/board" element={<LiveArchiveView />} />
           <Route path="/live-archive" element={<LegacyLiveArchiveRedirect />} />
           <Route path="/live-archive/:archiveId" element={<LegacyLiveArchiveRedirect />} />
           <Route path="/import-data-health" element={<ImportDataHealthView />} />
