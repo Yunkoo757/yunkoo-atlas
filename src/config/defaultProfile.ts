@@ -7,7 +7,7 @@ type DefaultGroupMode = 'date' | 'strategy' | 'none'
 type DefaultSort = 'date' | 'pnl' | 'conviction'
 
 interface DefaultProfile {
-  schema: 'yunkoo-atlas-default-profile'
+  schema: 'trader-atlas-default-profile'
   schemaVersion: 1
   app: 'Trader Atlas'
   profile: {

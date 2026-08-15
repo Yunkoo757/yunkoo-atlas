@@ -453,7 +453,7 @@ export function runAnalyticsBenchmark({ smoke = false } = {}) {
 }
 
 function writeReport(report) {
-  const outputDir = join(tmpdir(), 'yunkoo-atlas', 'analytics-baseline')
+  const outputDir = join(tmpdir(), 'trader-atlas', 'analytics-baseline')
   mkdirSync(outputDir, { recursive: true })
   const outputPath = join(
     outputDir,

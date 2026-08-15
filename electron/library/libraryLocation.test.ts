@@ -27,7 +27,7 @@ function dependencies(options: {
   return {
     configPath,
     environmentPath: options.environmentPath,
-    defaultPath: options.defaultPath ?? 'C:\\Documents\\Yunkoo Atlas',
+    defaultPath: options.defaultPath ?? 'C:\\Documents\\Trader Atlas',
     readTextFile(filePath) {
       if (filePath !== configPath || options.config === undefined) {
         throw Object.assign(new Error('missing'), { code: 'ENOENT' })
@@ -64,7 +64,7 @@ export async function testCorruptConfigurationFailsClosedWithoutDefaultProbe(): 
   const probes: string[] = []
   const state = await resolveLibraryLocation(dependencies({ config: '{broken', probes }))
   assert(state.kind === 'invalid', '损坏配置必须返回 invalid')
-  assert(!probes.includes('C:\\Documents\\Yunkoo Atlas'), '损坏配置后不得探测或回退默认库')
+  assert(!probes.includes('C:\\Documents\\Trader Atlas'), '损坏配置后不得探测或回退默认库')
 }
 
 export async function testMissingConfiguredLibraryDoesNotFallBack(): Promise<void> {
@@ -76,7 +76,7 @@ export async function testMissingConfiguredLibraryDoesNotFallBack(): Promise<voi
   }))
   assert(state.kind === 'unavailable', '配置目标丢失必须返回 unavailable')
   assert(state.kind !== 'unset' && state.configuredPath === configuredPath, '错误状态必须保留原配置路径')
-  assert(!probes.includes('C:\\Documents\\Yunkoo Atlas'), '配置目标丢失后不得回退默认库')
+  assert(!probes.includes('C:\\Documents\\Trader Atlas'), '配置目标丢失后不得回退默认库')
 }
 
 export async function testEnvironmentPathFailsClosed(): Promise<void> {
@@ -145,7 +145,7 @@ export async function testValidLegacyAndDefaultLibrariesAreReady(): Promise<void
     '内部验证结果必须携带 libraryId 供正式打开时二次比对',
   )
 
-  const defaultPath = 'C:\\Documents\\Yunkoo Atlas'
+  const defaultPath = 'C:\\Documents\\Trader Atlas'
   const fallback = await resolveLibraryLocation(dependencies({
     entries: { [defaultPath]: 'directory' },
     validation: { [defaultPath]: { libraryId: 'default-id' } },

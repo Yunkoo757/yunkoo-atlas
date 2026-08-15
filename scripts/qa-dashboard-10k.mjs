@@ -266,7 +266,7 @@ async function browserHeapMetrics(session) {
 }
 
 function reportPath(version) {
-  const outputDir = join(tmpdir(), 'yunkoo-atlas', 'analytics-baseline')
+  const outputDir = join(tmpdir(), 'trader-atlas', 'analytics-baseline')
   mkdirSync(outputDir, { recursive: true })
   return join(outputDir, `dashboard-10k-${version}-${platform()}-${arch()}.json`)
 }

@@ -476,7 +476,7 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
       windows: { decision: 'NO_GO_ON_THIS_PLATFORM' },
       macos: { decision: 'GO_ELIGIBLE_ON_THIS_PLATFORM' },
     },
-    adr: 'docs/architecture/decisions/ADR-0001-electron-generation-layout.md',
+    adr: 'generation-layout-no-go',
   }
   assert.equal(generationDecisionPassed(decision), true)
   assert.equal(generationDecisionPassed({ ...decision, platforms: { windows: decision.platforms.windows, macos: null } }), false)

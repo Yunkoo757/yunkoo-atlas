@@ -275,5 +275,5 @@ export function generationDecisionPassed(value) {
     value.workingTreeDirty === false && Array.isArray(value.failures) && value.failures.length === 0 &&
     value.platforms?.windows?.decision === 'NO_GO_ON_THIS_PLATFORM' &&
     ['NO_GO_ON_THIS_PLATFORM', 'GO_ELIGIBLE_ON_THIS_PLATFORM'].includes(value.platforms?.macos?.decision) &&
-    value.adr === 'docs/architecture/decisions/ADR-0001-electron-generation-layout.md'
+    value.adr === 'generation-layout-no-go'
 }

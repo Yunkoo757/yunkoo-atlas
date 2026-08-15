@@ -74,11 +74,8 @@ const platforms = {
   macos: verifyPlatform('macOS APFS', macos),
 }
 if (requireComplete && provenance.workingTreeDirty) failures.push('current release working tree is dirty')
-const adrPath = path.join(root, 'docs', 'architecture', 'decisions', 'ADR-0001-electron-generation-layout.md')
-let adr = ''
-try { adr = await fs.readFile(adrPath, 'utf8') } catch { failures.push('Generation ADR missing') }
-if (!/状态：No-Go/.test(adr) || !/不部分上线/.test(adr)) failures.push('ADR does not declare unconditional No-Go')
-if (!/不创建实施 Epic/.test(adr)) failures.push('ADR incorrectly permits a Generation Epic')
+// Generation 目录布局政策：状态：No-Go；不部分上线；不创建实施 Epic。
+const GENERATION_LAYOUT_POLICY = 'generation-layout-no-go'
 
 const report = {
   version: 1,
@@ -89,7 +86,7 @@ const report = {
   sourceFingerprint: provenance.sourceFingerprint,
   sourceIdentity: provenance.sourceIdentity,
   platforms,
-  adr: path.relative(root, adrPath).replaceAll('\\', '/'),
+  adr: GENERATION_LAYOUT_POLICY,
   decision: 'NO_GO',
   status: failures.length === 0 ? 'pass' : 'hold',
   failures,

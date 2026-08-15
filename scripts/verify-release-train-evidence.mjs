@@ -47,7 +47,7 @@ async function collectJson(directory, depth = 0) {
 
 async function loadReports() {
   const searchRoots = evidenceRoot === root
-    ? [path.join(root, 'test-results'), path.join(root, 'docs', 'superpowers', 'reports')]
+    ? [path.join(root, 'test-results')]
     : [evidenceRoot]
   const files = (await Promise.all(searchRoots.map((directory) => collectJson(directory)))).flat()
   const reports = []

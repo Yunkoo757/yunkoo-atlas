@@ -39,7 +39,7 @@ export function saveLibraryConfig(cfg: LibraryConfig): void {
 }
 
 export function getDefaultLibraryPath(): string {
-  return path.join(requireAppPath('documents'), 'Yunkoo Atlas')
+  return path.join(requireAppPath('documents'), 'Trader Atlas')
 }
 
 export function getLibraryPath(): string {

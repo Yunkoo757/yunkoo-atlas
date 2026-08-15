@@ -548,7 +548,7 @@ async function runGate(root) {
   const resultDir = path.join(root, 'test-results', 'statistics-truth')
   const fixturePath = path.join(root, 'src', 'test', 'fixtures', 'performanceTruthFixture.ts')
   const jsonRelativePath = 'test-results/statistics-truth/statistics-truth-gate.json'
-  const reportRelativePath = 'docs/superpowers/reports/2026-08-09-statistics-truth-gate-result.md'
+  const reportRelativePath = 'test-results/statistics-truth/statistics-truth-gate-result.md'
   await fs.mkdir(resultDir, { recursive: true })
 
   const candidateSha = await gitSha(root)
