@@ -26,7 +26,7 @@
 .live-cycle-settings-copy { min-width: 0; }
 .live-cycle-settings-copy h2 { margin: 0; color: var(--text-primary); font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); }
 .live-cycle-settings-copy p,
-.live-cycle-prompt p { margin: var(--sp-1) 0 0; color: var(--text-muted); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.live-cycle-prompt p { margin: var(--sp-1) 0 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
 .live-cycle-prompt strong { color: var(--text-primary); font-size: var(--type-row-size); }
 .live-cycle-settings-row {
   display: flex;

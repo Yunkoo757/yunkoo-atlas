@@ -705,8 +705,17 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
     ['src/views/settings/SettingsLayout.css', '.settings-page-desc'],
     ['src/views/settings/SettingsLayout.css', '.settings-section-desc'],
     ['src/components/DataIOContent.css', '.dio-desc'],
-    ['src/components/DataIOContent.css', '.health-value'],
+    ['src/components/DataIOContent.css', '.dio-group-desc'],
     ['src/components/LiveCycleSettings.css', '.live-cycle-settings-copy p,\n.live-cycle-prompt p'],
+  ] as const) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-metadata-size)'],
+      ['line-height', 'var(--type-metadata-line-height)'],
+    ])
+  }
+
+  for (const [path, selector] of [
+    ['src/components/DataIOContent.css', '.health-value'],
     ['src/views/WeeklyReviewView.css', '.wr-page-head p'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [
@@ -728,13 +737,21 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
 
   for (const [path, selector] of [
     ['src/views/Dashboard.css', '.db-current-range-title'],
-    ['src/views/settings/ProfileSettingsPanel.css', '.profile-preview-name'],
     ['src/views/QuickNotesView.css', '.quick-notes-editor-header > input'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [
       ['font-size', 'var(--type-page-title-size)'],
     ])
   }
+
+  assertRoleDeclarations(
+    cssRule(sources['src/views/settings/ProfileSettingsPanel.css'], '.profile-preview-name'),
+    '.profile-preview-name',
+    [
+      ['font-size', 'var(--type-body-size)'],
+      ['line-height', 'var(--type-body-line-height)'],
+    ],
+  )
 }
 
 export function testBusinessNumericContractRejectsMonoFontShorthandsAndStacks(): void {

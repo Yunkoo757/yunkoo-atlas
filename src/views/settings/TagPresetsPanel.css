@@ -17,7 +17,8 @@
 
 .tag-section-desc {
   color: var(--text-muted);
-  font-size: var(--type-body-size);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   margin-bottom: var(--sp-4);
 }
 

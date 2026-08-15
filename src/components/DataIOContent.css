@@ -13,8 +13,8 @@
 
 .dio-desc {
   margin: 0 0 var(--sp-3);
-  font-size: var(--type-body-size);
-  line-height: 1.5;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   color: var(--text-muted);
 }
 
@@ -195,8 +195,8 @@
 }
 .dio-group-desc {
   margin: 0;
-  font-size: var(--type-body-size);
-  line-height: 1.5;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   color: var(--text-muted);
 }
 .dio-task-list {
