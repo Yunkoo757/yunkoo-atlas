@@ -5,6 +5,7 @@ import '@/components/RouteState.css'
 import '@/components/WelcomeScreen.css'
 import './DetailView.css'
 import './ReviewSessionView.css'
+import './settings/SettingsLayout.css'
 import './TodayWorkspace.css'
 import './TrashView.css'
 import './WeeklyReviewView.css'
@@ -39,6 +40,9 @@ async function run(): Promise<void> {
     <h1 class="welcome-title">欢迎使用 Trader Atlas</h1>
     <section class="app-storage-error-card"><h1>本地资料库未打开</h1></section>
     <section class="app-route-state"><h1>页面异常</h1></section>
+    <section class="dv-empty-card"><h1>未找到该交易</h1></section>
+    <h1 class="settings-page-title">显示偏好</h1>
+    <main class="route-state"><h1 class="route-state-title">范围不存在</h1></main>
     <span class="trash-item-pnl">+123.45</span>
   `
   for (const selector of [
@@ -50,6 +54,9 @@ async function run(): Promise<void> {
     '.welcome-title',
     '.app-storage-error-card h1',
     '.app-route-state h1',
+    '.dv-empty-card h1',
+    '.settings-page-title',
+    '.route-state-title',
   ]) assertPageTitle(selector)
 
   const pnl = document.querySelector<HTMLElement>('.trash-item-pnl')
@@ -60,11 +67,11 @@ async function run(): Promise<void> {
 
   const rootStyle = getComputedStyle(document.documentElement)
   for (const [token, value] of [
-    ['--text-primary', 'lch(92% 0.6 272 / 1)'],
-    ['--text-secondary', 'lch(70% 1.1 272 / 1)'],
-    ['--text-tertiary', 'lch(56% 1.15 272 / 1)'],
-    ['--text-quaternary', 'lch(44% 1.15 272 / 1)'],
-    ['--text-disabled', 'lch(34% 1.15 272 / 1)'],
+    ['--text-primary', 'lch(92% 0.8 260)'],
+    ['--text-secondary', 'lch(70% 1 260)'],
+    ['--text-tertiary', 'lch(56% 1 260)'],
+    ['--text-quaternary', 'lch(44% 1 260)'],
+    ['--text-disabled', 'lch(34% 1 260)'],
   ]) assert(rootStyle.getPropertyValue(token).trim() === value, `${token} 必须保留精确 LCH 灰阶`)
 }
 

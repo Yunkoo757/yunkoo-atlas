@@ -123,6 +123,7 @@ type LiteralFontSizeApproval = {
 type LiteralFontSizeDeclaration = {
   path: string
   selector: string
+  property: 'font-size' | 'font'
   value: string
 }
 
@@ -143,7 +144,12 @@ function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFo
       const selector = rule[1].trim()
       for (const declaration of rule[2].matchAll(/(?:^|;)\s*font-size\s*:\s*([^;{}]+)(?=;|$)/gi)) {
         const value = declaration[1].trim()
-        if (!/^(?:var\(|inherit|initial|unset)/.test(value)) declarations.push({ path, selector, value })
+        if (!/^(?:var\(|inherit|initial|unset)/.test(value)) declarations.push({ path, selector, property: 'font-size', value })
+      }
+      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font\s*:\s*([^;{}]+)(?=;|$)/gi)) {
+        const shorthand = declaration[1].trim()
+        const size = shorthand.match(/(?:^|\s)((?:\d+(?:\.\d+)?|\.\d+)(?:px|em|rem|%|pt|pc|in|cm|mm|q|vw|vh|vmin|vmax|ch|ex|lh|rlh|cap|ic))(?:\s*\/\s*[^\s]+)?(?=\s|$)/i)?.[1]
+        if (size) declarations.push({ path, selector, property: 'font', value: size })
       }
     }
   }
@@ -156,9 +162,10 @@ function assertApprovedLiteralFontSizes(
 ): void {
   for (const declaration of findLiteralFontSizeDeclarations(sources)) {
     const approval = approvals.find((entry) =>
-      entry.path === declaration.path.replace(/\\/g, '/') && entry.selector === declaration.selector && entry.value === declaration.value,
+      declaration.property === 'font-size' && entry.path === declaration.path.replace(/\\/g, '/') && entry.selector === declaration.selector && entry.value === declaration.value,
     )
-    assert(approval?.reason, `${declaration.path} ${declaration.selector} has unapproved literal font-size: ${declaration.value}`)
+    const location = declaration.property === 'font' ? 'font shorthand' : 'font-size'
+    assert(approval?.reason, `${declaration.path} ${declaration.selector} has unapproved literal ${location}: ${declaration.value}`)
   }
 }
 
@@ -171,6 +178,15 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.bad { font-size: 12.5px; }' }], []),
     /unapproved literal font-size: 12.5px/,
   )
+  for (const css of [
+    '.bad { font: 500 22px/28px var(--font-ui); }',
+    '.bad { font: .85em var(--font-ui); }',
+  ]) {
+    assert.throws(
+      () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
+      /unapproved literal font shorthand/,
+    )
+  }
   assert.doesNotThrow(
     () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.ok { height: 22px; padding: 0 12.5px; }' }], []),
   )
@@ -265,23 +281,28 @@ export function testTrackingAllowlistRejectsBusinessNumbersAndRequiresExactSelec
 }
 
 export async function testPageTitleSelectorsUseTheCanonical20PxRole(): Promise<void> {
-  const sources = Object.fromEntries(await Promise.all([
+  const [app, sources] = await Promise.all([fs.readFile('src/App.tsx', 'utf8'), Promise.all([
     'src/views/DetailView.css',
     'src/views/TodayWorkspace.css',
     'src/views/ReviewSessionView.css',
     'src/views/WeeklyReviewView.css',
+    'src/views/settings/SettingsLayout.css',
     'src/components/WelcomeScreen.css',
     'src/App.css',
     'src/components/RouteState.css',
-  ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)))
+  ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)).then((entries) => Object.fromEntries(entries))])
+  assert(app.includes('<h1 className="route-state-title">范围不存在</h1>'), 'invalid period 路由必须使用可审计的 Page title selector')
   for (const [path, selector] of [
     ['src/views/DetailView.css', '.dv-title'],
+    ['src/views/DetailView.css', '.dv-empty-card h1'],
     ['src/views/TodayWorkspace.css', '.today-focus h1'],
     ['src/views/ReviewSessionView.css', '.review-session-intro h1,\n.review-session-finished h1'],
     ['src/views/ReviewSessionView.css', '.review-session-item-header h1'],
     ['src/views/WeeklyReviewView.css', '.wr-page-head h1'],
+    ['src/views/settings/SettingsLayout.css', '.settings-page-title'],
     ['src/components/WelcomeScreen.css', '.welcome-title'],
     ['src/App.css', '.app-storage-error-card h1'],
+    ['src/App.css', '.route-state-title'],
     ['src/components/RouteState.css', '.app-route-state h1'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [

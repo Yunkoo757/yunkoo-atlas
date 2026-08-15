@@ -102,7 +102,9 @@
   margin: 0 0 6px;
   color: var(--text-strong);
   font-size: var(--type-page-title-size);
-  font-weight: var(--type-page-title-weight);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
 }
 
 .settings-page-desc {

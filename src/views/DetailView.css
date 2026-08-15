@@ -1211,8 +1211,10 @@
 .dv-empty-card h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--font-size-large);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-page-title-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
 }
 .dv-empty-card p {
   margin: 7px 0 18px;
