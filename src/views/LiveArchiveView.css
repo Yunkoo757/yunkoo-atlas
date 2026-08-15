@@ -1,1 +1,36 @@
-/* 历史实盘已复用标准 TradesPage 工作台；保留空文件仅兼容仓库文本治理清单。 */
+.live-archive-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: 0 15px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.live-archive-mode-label {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.live-archive-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  background: var(--bg-inset);
+}
+
+.live-archive-mode-switch .live-archive-mode-option {
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-4);
+  background: transparent;
+}
+
+.live-archive-mode-switch .live-archive-mode-option.is-active {
+  color: var(--text-primary);
+  background: var(--bg-selected);
+}

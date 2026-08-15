@@ -67,10 +67,8 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'week', label: '本周', pathname: '/live-history', search: '?period=this-week' },
     { id: 'month', label: '本月', pathname: '/live-history', search: '?period=this-month' },
     { id: 'loss', label: '亏损', pathname: '/live-history', search: '?status=loss' },
-    { id: 'historical-cases', label: '关联案例', pathname: '/live-history', search: '?view=cases' },
   ],
   'historical-case': [
-    { id: 'historical-trades', label: '实盘记录', pathname: '/live-history' },
     { id: 'cases-all', label: '全部', pathname: '/live-history', search: '?view=cases' },
     { id: 'focus', label: '重点', pathname: '/live-history', search: '?view=cases&caseScope=focus' },
     { id: 'mistakes', label: '错题', pathname: '/live-history', search: '?view=cases&caseScope=mistakes' },
