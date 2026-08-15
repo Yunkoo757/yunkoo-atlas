@@ -137,7 +137,9 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const overflowAnchorRef = useRef<HTMLDivElement>(null)
   const overflowButtonRef = useRef<HTMLButtonElement>(null)
-  const primaryViews = getWorkspacePrimaryViews(kind, sidebarWorkspaceItems)
+  const primaryViews = getWorkspacePrimaryViews(kind, sidebarWorkspaceItems).filter((view) => (
+    view.id !== 'historical-cases' && view.id !== 'historical-trades'
+  ))
   const moreGroups = (kind === 'trade'
     ? TRADE_MORE_GROUPS
     : kind === 'historical-trade'
