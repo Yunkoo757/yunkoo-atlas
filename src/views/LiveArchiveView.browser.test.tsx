@@ -18,8 +18,8 @@ function LocationProbe() {
 }
 function trade(id: string, day: string, patch: Partial<Trade> = {}): Trade { return { id, ref: `TRD-${id}`, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'strategy', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, cashCurrency: 'USD', rMultiple: 1, resultSource: 'imported', openedAt: day, closedAt: day, closedTradingDayKey: day, note: '', ...patch } }
 async function openFilters(): Promise<void> {
-  const trigger = [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.getAttribute('aria-label') === '筛选历史记录')
-  assert(trigger, '找不到历史记录筛选按钮')
+  const trigger = [...document.querySelectorAll<HTMLButtonElement>('button')].find((node) => node.getAttribute('aria-label') === '筛选历史实盘记录')
+  assert(trigger, '找不到历史实盘筛选按钮')
   trigger.click()
   await waitFor(() => Boolean(document.querySelector('[data-archive-query]')), '筛选面板必须打开')
 }
@@ -30,6 +30,86 @@ async function run() {
   const old = Array.from({ length: 126 }, (_, i) => trade(`old-${i}`, '2026-01-15'))
   const source = old[0]!
   try {
+    const currentSource = trade('current-source', '2026-02-02')
+    useStore.setState((state) => ({
+      trades: [
+        source,
+        currentSource,
+        trade('case-linked', '2026-01-15', {
+          ref: 'CAS-LINKED',
+          tradeKind: 'case',
+          sourceTradeId: source.id,
+          caseType: 'exemplar',
+        }),
+        trade('case-mistake', '2026-01-15', {
+          ref: 'CAS-MISTAKE',
+          tradeKind: 'case',
+          sourceTradeId: source.id,
+          caseType: 'mistake',
+          mistakeTags: ['追单'],
+        }),
+        trade('case-missed', '2026-01-15', {
+          ref: 'CAS-MISSED',
+          tradeKind: 'case',
+          sourceTradeId: source.id,
+          caseType: 'missed',
+          status: 'missed',
+          mistakeTags: ['犹豫'],
+        }),
+        trade('case-recheck', '2026-01-15', {
+          ref: 'CAS-RECHECK',
+          tradeKind: 'case',
+          sourceTradeId: source.id,
+          masteryState: 'recheck',
+          reviewStatus: 'unreviewed',
+        }),
+        trade('case-mastered', '2026-01-15', {
+          ref: 'CAS-MASTERED',
+          tradeKind: 'case',
+          sourceTradeId: source.id,
+          masteryState: 'mastered',
+          reviewStatus: 'reviewed',
+        }),
+        trade('case-current', '2026-02-02', {
+          ref: 'CAS-CURRENT',
+          tradeKind: 'case',
+          sourceTradeId: currentSource.id,
+        }),
+        trade('case-unlinked', '2026-01-15', {
+          ref: 'CAS-UNLINKED',
+          tradeKind: 'case',
+          sourceTradeId: undefined,
+        }),
+      ],
+      strategies: [{ id: 'strategy', name: '测试策略', icon: 'target', color: '#5e6ad2' }],
+      livePerformanceCycles: cycles,
+      display: { ...state.display, tradingDayStartHour: 0 },
+    }))
+    root.render(
+      <MemoryRouter key="historical-cases" initialEntries={['/live-history?view=cases']}>
+        <Routes>
+          <Route path="/live-history" element={<LiveArchiveView />} />
+          <Route path="/trade/:id" element={<><DetailView /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('关联案例') ?? false, '历史实盘必须提供关联案例视图')
+    assert(document.querySelector('[data-trade-id="case-linked"]'), '必须显示历史来源案例')
+    assert(!document.querySelector('[data-trade-id="case-current"]'), '不得显示当前来源案例')
+    assert(!document.querySelector('[data-trade-id="case-unlinked"]'), '不得显示无来源案例')
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === '错题')?.click()
+    await waitFor(() => Boolean(document.querySelector('[data-trade-id="case-mistake"]')), '错题筛选必须显示错误案例')
+    assert(!document.querySelector('[data-trade-id="case-missed"]'), '错题快捷筛选必须排除错过机会')
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === '已掌握')?.click()
+    await waitFor(() => Boolean(document.querySelector('[data-trade-id="case-mastered"]')), '已掌握筛选必须恢复掌握状态')
+    document.querySelector<HTMLButtonElement>('[data-trade-id="case-mastered"] .trade-row-open')?.click()
+    await waitFor(() => document.querySelector('[data-route-path]')?.textContent === '/trade/CAS-MASTERED', '关联案例必须进入现有详情')
+    document.querySelector<HTMLAnchorElement>('.dv-back')?.click()
+    await waitFor(() => Boolean(document.querySelector('[data-trade-id="case-mastered"]')), '详情返回必须恢复案例视图及分类')
+    root.unmount(); root = createRoot(element)
+
     root.render(<MemoryRouter key="missing-archive" initialEntries={['/live-archive?archiveReason=missing&requestedKey=gone-cycle']}><Routes><Route path="/live-archive" element={<LiveArchiveView />} /><Route path="/live-archive/:archiveId" element={<LiveArchiveView />} /></Routes></MemoryRouter>)
     await waitFor(() => document.body.textContent?.includes('历史记录') ?? false, '失效请求必须回到历史记录首页')
     assert(document.body.textContent?.includes('gone-cycle'), '失效提示必须保留原请求 ID')

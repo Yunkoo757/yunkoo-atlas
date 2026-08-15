@@ -1,4 +1,4 @@
-/* 历史记录：复用交易日志 / 错过机会的列表壳与 FilterBar，仅补本页差异。 */
+/* 历史实盘：复用交易日志 / 错过机会的列表壳与 FilterBar，仅补本页差异。 */
 
 .la-view {
   display: flex;
@@ -50,6 +50,60 @@
   min-width: 0;
 }
 
+.la-filter-leading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.la-view-switch,
+.la-case-categories {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.la-view-switch button,
+.la-case-categories button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: var(--toolbar-chip-height);
+  padding: 0 10px;
+  color: var(--list-text-secondary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-metadata-line-height);
+  white-space: nowrap;
+  border: 1px solid var(--surface-control-border);
+  border-radius: var(--radius-full);
+  background: var(--surface-control);
+}
+
+.la-view-switch button:hover,
+.la-view-switch button.is-active,
+.la-case-categories button:hover,
+.la-case-categories button.is-active {
+  color: var(--list-text-strong);
+  border-color: var(--surface-control-border-active);
+  background: var(--surface-control-active);
+}
+
+.la-case-categories {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-4);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  scrollbar-width: none;
+}
+
+.la-case-categories::-webkit-scrollbar {
+  display: none;
+}
+
 .la-results-heading h2 {
   margin: 0;
   color: var(--text-secondary);
@@ -85,6 +139,13 @@
   grid-template-columns: minmax(160px, 1.4fr) repeat(2, minmax(120px, 1fr));
 }
 
+.la-filter-select-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+
 .la-filter-input {
   width: 100%;
   min-width: 0;
@@ -117,4 +178,18 @@
 .la-content {
   flex: 1;
   min-height: 0;
+}
+
+@media (max-width: 1099px) {
+  .la-results-meta {
+    display: none;
+  }
+
+  .la-filter-leading {
+    gap: var(--sp-2);
+  }
+
+  .la-filter-select-grid {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
 }
