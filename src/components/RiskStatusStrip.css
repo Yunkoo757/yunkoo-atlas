@@ -56,14 +56,3 @@
   font-size: var(--type-metadata-size);
 }
 .risk-status-summary a { color: var(--accent-readable); }
-
-@media (max-width: 799px) {
-  .risk-status-periods {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .risk-status-period + .risk-status-period {
-    border-top: 1px solid color-mix(in srgb, var(--border-subtle) 72%, transparent);
-    border-left: 0;
-  }
-}
