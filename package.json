@@ -2,7 +2,7 @@
   "name": "yunkoo-atlas",
   "productName": "Trader Atlas",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Trader Atlas — trading journal with IndexedDB and Electron desktop support",
   "author": "Trader Atlas",
   "type": "module",
