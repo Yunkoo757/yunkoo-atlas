@@ -68,7 +68,8 @@ export async function testBothStartupPathsWaitForUiFontsWithTimeout(): Promise<v
 
 function cssRule(css: string, selector: string): string {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const rules = [...css.matchAll(new RegExp(`(?:^|\\n|\\})\\s*${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`, 'gm'))]
+  const normalizedCss = css.replace(/\r\n/g, '\n')
+  const rules = [...normalizedCss.matchAll(new RegExp(`(?:^|\\n|\\})\\s*${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`, 'gm'))]
   const rule = rules.map((match) => match[1]).join('\n')
   assert(rule, `缺少 ${selector} 的字体角色声明`)
   return rule
@@ -112,6 +113,73 @@ type TrackingDeclaration = {
   value: string
 }
 
+type LiteralFontSizeApproval = {
+  path: string
+  selector: string
+  value: string
+  reason: string
+}
+
+type LiteralFontSizeDeclaration = {
+  path: string
+  selector: string
+  value: string
+}
+
+const approvedLiteralFontSizes: LiteralFontSizeApproval[] = [
+  {
+    path: 'src/editor/Editor.css',
+    selector: '.editor code',
+    value: '0.85em',
+    reason: '内联代码需相对正文缩小，且不属于应用 UI 文字角色。',
+  },
+]
+
+function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFontSizeDeclaration[] {
+  const declarations: LiteralFontSizeDeclaration[] = []
+  for (const { path, css } of sources) {
+    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const rule of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const selector = rule[1].trim()
+      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font-size\s*:\s*([^;{}]+)(?=;|$)/gi)) {
+        const value = declaration[1].trim()
+        if (!/^(?:var\(|inherit|initial|unset)/.test(value)) declarations.push({ path, selector, value })
+      }
+    }
+  }
+  return declarations
+}
+
+function assertApprovedLiteralFontSizes(
+  sources: ProductCssSource[],
+  approvals: LiteralFontSizeApproval[],
+): void {
+  for (const declaration of findLiteralFontSizeDeclarations(sources)) {
+    const approval = approvals.find((entry) =>
+      entry.path === declaration.path.replace(/\\/g, '/') && entry.selector === declaration.selector && entry.value === declaration.value,
+    )
+    assert(approval?.reason, `${declaration.path} ${declaration.selector} has unapproved literal font-size: ${declaration.value}`)
+  }
+}
+
+export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
+  assert.throws(
+    () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.bad { font-size: 22px; }' }], []),
+    /unapproved literal font-size: 22px/,
+  )
+  assert.throws(
+    () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.bad { font-size: 12.5px; }' }], []),
+    /unapproved literal font-size: 12.5px/,
+  )
+  assert.doesNotThrow(
+    () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.ok { height: 22px; padding: 0 12.5px; }' }], []),
+  )
+}
+
+export async function testProductFontSizesUseCanonicalRolesOrNamedExceptions(): Promise<void> {
+  assertApprovedLiteralFontSizes(await readAllProductCssSources(), approvedLiteralFontSizes)
+}
+
 function normalizeTrackingValue(value: string): string | null {
   const compact = value.trim().replace(/\s+/g, '').toLowerCase()
   if (compact === 'normal') return 'normal'
@@ -142,7 +210,7 @@ function assertApprovedTracking(
 ): void {
   for (const declaration of findTrackingDeclarations(sources)) {
     const normalized = normalizeTrackingValue(declaration.value)
-    if (normalized === '0' || normalized === '-0.012em' || normalized === 'normal') continue
+    if (normalized === '0' || normalized === 'normal') continue
     if (normalized === '0.02em') {
       const approval = approvals.find((entry) => entry.path === declaration.path && entry.selector === declaration.selector)
       assert(approval, `${declaration.path} ${declaration.selector} 使用了未批准的 0.02em 字距`)
@@ -187,9 +255,42 @@ export function testTrackingAllowlistRejectsBusinessNumbersAndRequiresExactSelec
   ]) {
     assert.throws(() => assertApprovedTracking([{ path: 'src/components/example.css', css }], [], {}), /unapproved letter-spacing/)
   }
+  assert.throws(
+    () => assertApprovedTracking([{ path: 'src/components/example.css', css: '.title { letter-spacing: -.012em; }' }], [], {}),
+    /unapproved letter-spacing/,
+  )
   assert.doesNotThrow(() => assertApprovedTracking([
-    { path: 'src/components/example.css', css: '.ok { letter-spacing: 0; } .title { letter-spacing: -.012em; } .native { letter-spacing: NORMAL; }' },
+    { path: 'src/components/example.css', css: '.ok { letter-spacing: 0; } .native { letter-spacing: NORMAL; }' },
   ], [], {}))
+}
+
+export async function testPageTitleSelectorsUseTheCanonical20PxRole(): Promise<void> {
+  const sources = Object.fromEntries(await Promise.all([
+    'src/views/DetailView.css',
+    'src/views/TodayWorkspace.css',
+    'src/views/ReviewSessionView.css',
+    'src/views/WeeklyReviewView.css',
+    'src/components/WelcomeScreen.css',
+    'src/App.css',
+    'src/components/RouteState.css',
+  ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)))
+  for (const [path, selector] of [
+    ['src/views/DetailView.css', '.dv-title'],
+    ['src/views/TodayWorkspace.css', '.today-focus h1'],
+    ['src/views/ReviewSessionView.css', '.review-session-intro h1,\n.review-session-finished h1'],
+    ['src/views/ReviewSessionView.css', '.review-session-item-header h1'],
+    ['src/views/WeeklyReviewView.css', '.wr-page-head h1'],
+    ['src/components/WelcomeScreen.css', '.welcome-title'],
+    ['src/App.css', '.app-storage-error-card h1'],
+    ['src/components/RouteState.css', '.app-route-state h1'],
+  ] as const) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-page-title-size)'],
+      ['font-weight', 'var(--font-weight-semibold)'],
+      ['line-height', 'var(--type-page-title-line-height)'],
+      ['letter-spacing', '0'],
+    ])
+  }
 }
 
 export function testBusinessNumericContractRejectsMonoFontShorthandsAndStacks(): void {

@@ -9,11 +9,20 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--font-size-small: 13px',
     '--font-size-regular: 15px',
     '--font-size-title3: 20px',
-    '--color-text-primary: lch(96% 0.6 272 / 1)',
-    '--color-text-secondary: lch(82% 1.1 272 / 1)',
-    '--color-text-tertiary: lch(61.399% 1.15 272 / 1)',
-    '--color-text-quaternary: lch(55% 1.15 272 / 1)',
-    '--color-text-disabled: lch(36.308% 1.15 272 / 1)',
+    '--text-primary: lch(92% 0.6 272 / 1)',
+    '--text-secondary: lch(70% 1.1 272 / 1)',
+    '--text-tertiary: lch(56% 1.15 272 / 1)',
+    '--text-quaternary: lch(44% 1.15 272 / 1)',
+    '--text-disabled: lch(34% 1.15 272 / 1)',
+    '--color-text-primary: var(--text-primary)',
+    '--color-text-secondary: var(--text-secondary)',
+    '--color-text-tertiary: var(--text-tertiary)',
+    '--color-text-quaternary: var(--text-quaternary)',
+    '--color-text-disabled: var(--text-disabled)',
+    '--list-text-strong: var(--text-primary)',
+    '--list-text-primary: var(--text-primary)',
+    '--list-text-secondary: var(--text-tertiary)',
+    '--list-group-title: var(--text-primary)',
     '--type-caption-size: var(--font-size-micro)',
     '--type-caption-line-height: 16px',
     '--type-metadata-size: var(--font-size-mini)',
@@ -42,6 +51,7 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--surface-floating:',
     '--skeleton-highlight:',
   ]) assert(css.includes(token), `missing ${token}`)
+  assert(!/--list-(?:text-(?:strong|primary|secondary)|group-title):\s*lch\(/.test(css), '列表文字不得保留独立 LCH 灰阶')
   assert(!css.includes('--header-h: 43.5714px'), 'header height must use the 44px canonical role')
 }
 

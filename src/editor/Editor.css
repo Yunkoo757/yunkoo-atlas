@@ -112,7 +112,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   line-height: 1.3;
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
 }
 .editor h1 {
   font-size: var(--font-size-title3);

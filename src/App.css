@@ -41,7 +41,9 @@
 .app-storage-error-card h1 {
   margin: 0;
   font-size: var(--type-page-title-size);
-  line-height: 1.35;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
 }
 
 .app-storage-error-card .ui-inline-status-detail {

@@ -209,7 +209,7 @@
 .trash-item-symbol {
   font-size: var(--fs-sm);
   font-weight: 600;
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
   color: var(--text-primary);
 }
 .trash-item-meta .strategy-label,
@@ -226,8 +226,9 @@
   white-space: nowrap;
 }
 .trash-item-pnl {
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   color: var(--text-tertiary);
 }
 .trash-item-pnl.is-positive {

@@ -99,9 +99,9 @@
 .review-session-finished h1 {
   margin: 0;
   font-size: var(--type-page-title-size);
-  font-weight: var(--type-page-title-weight);
-  line-height: 1.18;
-  letter-spacing: -0.012em;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
 }
 
 .review-session-intro p,
@@ -305,8 +305,10 @@
 
 .review-session-item-header h1 {
   margin: 0;
-  font-size: var(--fs-title);
-  letter-spacing: -0.012em;
+  font-size: var(--type-page-title-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
 }
 
 .review-session-summary > span {

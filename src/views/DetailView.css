@@ -176,12 +176,12 @@
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
-  font-size: 22px;
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-page-title-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-page-title-line-height);
   letter-spacing: 0;
   color: var(--text-primary);
   margin: 0;
-  line-height: 1.33;
 }
 .dv-review-toolbar {
   display: flex;

@@ -15,11 +15,11 @@
   --bg-sidebar-color: var(--bg-color);
 
   /* —— 文字 —— */
-  --color-text-primary: lch(96% 0.6 272 / 1);
-  --color-text-secondary: lch(82% 1.1 272 / 1);
-  --color-text-tertiary: lch(61.399% 1.15 272 / 1);
-  --color-text-quaternary: lch(55% 1.15 272 / 1);
-  --color-text-disabled: lch(36.308% 1.15 272 / 1);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-quaternary: var(--text-quaternary);
+  --color-text-disabled: var(--text-disabled);
 
   /* —— 边框 —— */
   --color-border-primary: lch(8.84% 1.38 272 / 1);
@@ -209,10 +209,10 @@
   --scrollbar-thumb-hover: lch(43% 0.75 272);
 
   /* 列表排版校准 */
-  --list-text-strong: lch(90.35% 1.15 272 / 1);
-  --list-text-primary: lch(90.35% 1.15 272 / 1);
-  --list-text-secondary: lch(61.399% 1.15 272 / 1);
-  --list-group-title: lch(90.668% 1.375 272 / 1);
+  --list-text-strong: var(--text-primary);
+  --list-text-primary: var(--text-primary);
+  --list-text-secondary: var(--text-tertiary);
+  --list-group-title: var(--text-primary);
 
   /* 表单控件表面 */
   --field-bg: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-surface));
@@ -231,17 +231,17 @@
   --border-strong: var(--color-border-tertiary);
 
   /* 文字 */
-  --text-primary: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --text-tertiary: var(--color-text-tertiary);
-  --text-quaternary: var(--color-text-quaternary);
+  --text-primary: lch(92% 0.6 272 / 1);
+  --text-secondary: lch(70% 1.1 272 / 1);
+  --text-tertiary: lch(56% 1.15 272 / 1);
+  --text-quaternary: lch(44% 1.15 272 / 1);
 
   /* 角色型文字层级：可读内容不直接消费 disabled 灰阶 */
   --text-strong: var(--color-text-primary);
   --text-body: var(--color-text-secondary);
   --text-muted: var(--color-text-tertiary);
   --text-faint: color-mix(in srgb, var(--color-text-tertiary) 72%, var(--color-text-quaternary));
-  --text-disabled: var(--color-text-disabled);
+  --text-disabled: lch(34% 1.15 272 / 1);
 
   /* 品牌 */
   --accent-hover: color-mix(in srgb, var(--accent) 90%, black 10%);

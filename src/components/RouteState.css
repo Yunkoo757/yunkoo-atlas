@@ -50,9 +50,10 @@
 
 .app-route-state h1 {
   margin: var(--sp-2) 0 0;
-  font-size: var(--fs-title);
+  font-size: var(--type-page-title-size);
   font-weight: var(--font-weight-semibold);
-  line-height: 1.35;
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
 }
 
 .app-route-state p {

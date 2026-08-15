@@ -35,7 +35,7 @@
   color: var(--text-primary);
   font-size: var(--type-page-title-size);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
   line-height: var(--type-page-title-line-height);
 }
 
@@ -170,7 +170,7 @@
   font-size: var(--type-financial-size);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: var(--numeric-tabular);
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
   line-height: var(--type-financial-line-height);
 }
 
