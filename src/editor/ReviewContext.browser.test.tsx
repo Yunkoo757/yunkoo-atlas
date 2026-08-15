@@ -130,6 +130,26 @@ async function run(): Promise<void> {
   const savedHtml = activeEditor?.getHTML()
   assert(savedHtml === latestHtml, '字体探针不得改变 TipTap 保存 HTML')
 
+  let imagePosition: number | undefined
+  activeEditor?.state.doc.descendants((node, position) => {
+    if (imagePosition === undefined && node.type.name === 'image') imagePosition = position
+  })
+  assert(imagePosition !== undefined, '真实 TipTap 文档必须包含待选中的截图节点')
+  activeEditor?.commands.setNodeSelection(imagePosition)
+  await waitFor(
+    () => image.classList.contains('ProseMirror-selectednode'),
+    '截图节点必须进入图片选中状态',
+  )
+  const selectedImageStyle = getComputedStyle(image)
+  const externalHighlightWidth = Math.max(
+    0,
+    Number.parseFloat(selectedImageStyle.outlineWidth) + Number.parseFloat(selectedImageStyle.outlineOffset),
+  )
+  assert(
+    externalHighlightWidth <= 0,
+    `图片选中高光不得向外溢出并覆盖固定盘面摘要，实际外溢 ${externalHighlightWidth}px`,
+  )
+
   root.render(
     <Editor
       content={savedHtml ?? ''}

@@ -146,7 +146,7 @@
 }
 .editor img.ProseMirror-selectednode {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
 .editor .ProseMirror img.editor-image-load-failed {
   display: none;
