@@ -103,9 +103,9 @@ export function buildRequiredPlatformChecks(platform) {
 export function isInterVariableGlyphFont(font, declaredFontFamily) {
   if (!font || typeof declaredFontFamily !== 'string') return false
   const declaresInterVariable = /(^|,)\s*["']?Inter Variable["']?\s*(,|$)/i.test(declaredFontFamily)
-  const internalName = `${font.familyName ?? ''} ${font.postScriptName ?? ''}`.trim()
-  return declaresInterVariable && font.isCustomFont === true &&
-    /^(?:Inter|Inter Variable)(?:\s+(?:Inter|Inter Variable))?$/i.test(internalName)
+  const approvedPostScriptNames = new Set(['Inter', 'Inter-Regular'])
+  return declaresInterVariable && font.isCustomFont === true && font.familyName === 'Inter' &&
+    approvedPostScriptNames.has(font.postScriptName)
 }
 
 export function isPlatformCjkGlyphFont(font, platform) {
@@ -114,7 +114,12 @@ export function isPlatformCjkGlyphFont(font, platform) {
     return familyName === 'microsoft yahei' || familyName === 'microsoft yahei ui'
   }
   if (platform === 'darwin') {
-    return familyName === 'pingfang sc' || familyName === 'hiragino sans gb'
+    const approvedPairs = new Set([
+      'PingFang SC|PingFangSC-Regular',
+      '蘋方-簡|PingFangSC-Regular',
+      'Hiragino Sans GB|HiraginoSansGB-W3',
+    ])
+    return approvedPairs.has(`${font?.familyName}|${font?.postScriptName}`)
   }
   return false
 }

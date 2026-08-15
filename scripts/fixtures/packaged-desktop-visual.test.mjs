@@ -33,6 +33,18 @@ const windowsCjk = Object.freeze({
   isCustomFont: false,
   glyphCount: 8,
 })
+const macInter = Object.freeze({
+  familyName: 'Inter',
+  postScriptName: 'Inter-Regular',
+  isCustomFont: true,
+  glyphCount: 8,
+})
+const macCjk = Object.freeze({
+  familyName: '蘋方-簡',
+  postScriptName: 'PingFangSC-Regular',
+  isCustomFont: false,
+  glyphCount: 8,
+})
 
 function createPackagedCaptures() {
   return DESKTOP_VISUAL_VIEWPORTS.flatMap((requestedViewport) =>
@@ -79,6 +91,20 @@ function createTypographyInput() {
   }
 }
 
+function createMacTypographyInput() {
+  const input = createTypographyInput()
+  return {
+    ...input,
+    platform: 'darwin',
+    glyphFonts: {
+      latin: [{ ...macInter, glyphCount: 23 }],
+      cjk: [{ ...macCjk, glyphCount: 8 }],
+      mixed: [{ ...macInter, glyphCount: 15 }, { ...macCjk, glyphCount: 3 }],
+      numeric: [{ ...macInter, glyphCount: 20 }],
+    },
+  }
+}
+
 test('typography glyph matching binds Chromium internal names to declared native families', () => {
   assert.equal(typeof packagedVisualContract.isInterVariableGlyphFont, 'function')
   assert.equal(typeof packagedVisualContract.isPlatformCjkGlyphFont, 'function')
@@ -95,9 +121,55 @@ test('typography glyph matching binds Chromium internal names to declared native
     'win32',
   ), true)
   assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
-    { familyName: 'PingFang SC' },
+    { familyName: 'PingFang SC', postScriptName: 'PingFangSC-Regular' },
     'darwin',
   ), true)
+})
+
+test('macOS typography accepts only approved Inter and localized CJK family PostScript pairs', () => {
+  const clean = createMacTypographyInput()
+  assert.equal(packagedVisualContract.buildTypographyCheckResult(clean).failureCount, 0)
+
+  const invalidGlyphSets = [
+    {
+      latin: [{ ...macInter, postScriptName: 'Unknown-Regular' }],
+    },
+    {
+      latin: [{ ...macInter, familyName: 'Unknown Inter' }],
+    },
+    {
+      cjk: [{ ...macCjk, postScriptName: 'UnknownCJK-Regular' }],
+    },
+    {
+      cjk: [{ ...macCjk, familyName: '未知黑体' }],
+    },
+    {
+      cjk: [{ ...macCjk, familyName: '未知本地化字体', postScriptName: 'Unknown-Regular' }],
+    },
+    {
+      mixed: [macInter, macCjk, {
+        familyName: 'Songti SC',
+        postScriptName: 'SongtiSC-Regular',
+        isCustomFont: false,
+      }],
+    },
+    {
+      mixed: [macInter, {
+        familyName: '未知黑体',
+        postScriptName: 'PingFangSC-Regular',
+        isCustomFont: false,
+      }],
+    },
+  ]
+  for (const glyphFonts of invalidGlyphSets) {
+    const result = packagedVisualContract.buildTypographyCheckResult({
+      ...clean,
+      glyphFonts: { ...clean.glyphFonts, ...glyphFonts },
+    })
+    assert.ok(result.failureCount > 0, `forged macOS glyph set must fail: ${JSON.stringify(glyphFonts)}`)
+  }
+
+  assert.equal(packagedVisualContract.buildTypographyCheckResult(createTypographyInput()).failureCount, 0)
 })
 
 test('typography glyph checks reject unknown duplicate empty and incomplete probe fonts', () => {
