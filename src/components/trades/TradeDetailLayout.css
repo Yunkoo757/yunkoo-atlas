@@ -119,14 +119,23 @@
     top: 60px;
     right: 18px;
     z-index: var(--z-navigation-action);
-    display: grid;
-    place-items: center;
-    width: var(--control-height-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
     height: var(--control-height-md);
+    padding: 0 10px;
     color: var(--text-secondary);
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-6);
+  }
+
+  .trade-detail-properties-toggle::after {
+    content: '属性';
+    font-size: var(--type-metadata-size);
+    font-weight: var(--font-weight-medium);
   }
 
   .trade-detail-properties-backdrop {
