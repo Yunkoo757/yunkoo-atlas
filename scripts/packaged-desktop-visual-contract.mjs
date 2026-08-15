@@ -108,18 +108,32 @@ export function isInterVariableGlyphFont(font, declaredFontFamily) {
     approvedPostScriptNames.has(font.postScriptName)
 }
 
-export function isPlatformCjkGlyphFont(font, platform) {
+function declaredFontFamilyIncludes(declaredFontFamily, expectedFamily) {
+  if (typeof declaredFontFamily !== 'string') return false
+  return declaredFontFamily.split(',')
+    .map((family) => family.trim().replace(/^["']|["']$/g, '').toLowerCase())
+    .includes(expectedFamily.toLowerCase())
+}
+
+export function isPlatformCjkGlyphFont(font, platform, declaredFontFamily) {
+  if (font?.isCustomFont !== false) return false
   const familyName = font?.familyName?.toLowerCase()
   if (platform === 'win32') {
-    return familyName === 'microsoft yahei' || familyName === 'microsoft yahei ui'
+    const expectedFamily = familyName === 'microsoft yahei ui'
+      ? 'Microsoft YaHei UI'
+      : familyName === 'microsoft yahei'
+        ? 'Microsoft YaHei'
+        : null
+    return expectedFamily != null && declaredFontFamilyIncludes(declaredFontFamily, expectedFamily)
   }
   if (platform === 'darwin') {
-    const approvedPairs = new Set([
-      'PingFang SC|PingFangSC-Regular',
-      '蘋方-簡|PingFangSC-Regular',
-      'Hiragino Sans GB|HiraginoSansGB-W3',
+    const approvedPairs = new Map([
+      ['PingFang SC|PingFangSC-Regular', 'PingFang SC'],
+      ['蘋方-簡|PingFangSC-Regular', 'PingFang SC'],
+      ['Hiragino Sans GB|HiraginoSansGB-W3', 'Hiragino Sans GB'],
     ])
-    return approvedPairs.has(`${font?.familyName}|${font?.postScriptName}`)
+    const expectedFamily = approvedPairs.get(`${font?.familyName}|${font?.postScriptName}`)
+    return expectedFamily != null && declaredFontFamilyIncludes(declaredFontFamily, expectedFamily)
   }
   return false
 }
@@ -140,18 +154,22 @@ function isUniqueFontList(fonts) {
 
 function validateTypographyGlyphFonts({ platform, computed, glyphFonts }) {
   const isInter = (id, font) => isInterVariableGlyphFont(font, computed?.probes?.[id]?.fontFamily)
-  const isCjk = (font) => isPlatformCjkGlyphFont(font, platform)
+  const isCjk = (id, font) => isPlatformCjkGlyphFont(
+    font,
+    platform,
+    computed?.probes?.[id]?.fontFamily,
+  )
   const only = (id, predicate) => isUniqueFontList(glyphFonts?.[id]) && glyphFonts[id].every(predicate)
   const mixed = glyphFonts?.mixed
   const mixedKinds = Array.isArray(mixed)
-    ? mixed.map((font) => isInter('mixed', font) ? 'inter' : isCjk(font) ? 'cjk' : 'unknown')
+    ? mixed.map((font) => isInter('mixed', font) ? 'inter' : isCjk('mixed', font) ? 'cjk' : 'unknown')
     : []
   const mixedValid = isUniqueFontList(mixed) && !mixedKinds.includes('unknown') &&
     new Set(mixedKinds).size === 2
   return {
     latinInter: only('latin', (font) => isInter('latin', font)) &&
       only('numeric', (font) => isInter('numeric', font)) && mixedValid,
-    cjkSans: only('cjk', isCjk) && mixedValid,
+    cjkSans: only('cjk', (font) => isCjk('cjk', font)) && mixedValid,
   }
 }
 

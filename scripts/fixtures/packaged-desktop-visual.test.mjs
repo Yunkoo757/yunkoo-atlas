@@ -58,7 +58,7 @@ function createPackagedCaptures() {
 }
 
 function createTypographyInput() {
-  const fontFamily = '"Inter Variable", Inter, system-ui, "Microsoft YaHei", sans-serif'
+  const fontFamily = '"Inter Variable", Inter, system-ui, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif'
   return {
     platform: 'win32',
     computed: {
@@ -93,9 +93,19 @@ function createTypographyInput() {
 
 function createMacTypographyInput() {
   const input = createTypographyInput()
+  const fontFamily = '"Inter Variable", Inter, system-ui, "PingFang SC", "Hiragino Sans GB", sans-serif'
   return {
     ...input,
     platform: 'darwin',
+    computed: {
+      ...input.computed,
+      probes: {
+        latin: { fontFamily },
+        cjk: { fontFamily },
+        mixed: { fontFamily },
+        numeric: { fontFamily },
+      },
+    },
     glyphFonts: {
       latin: [{ ...macInter, glyphCount: 23 }],
       cjk: [{ ...macCjk, glyphCount: 8 }],
@@ -117,12 +127,14 @@ test('typography glyph matching binds Chromium internal names to declared native
     '"Inter Variable", Inter, system-ui, sans-serif',
   ), false)
   assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
-    { familyName: 'Microsoft YaHei UI' },
+    { familyName: 'Microsoft YaHei UI', isCustomFont: false },
     'win32',
+    '"Inter Variable", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif',
   ), true)
   assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
-    { familyName: 'PingFang SC', postScriptName: 'PingFangSC-Regular' },
+    { familyName: 'PingFang SC', postScriptName: 'PingFangSC-Regular', isCustomFont: false },
     'darwin',
+    '"Inter Variable", "PingFang SC", "Hiragino Sans GB", sans-serif',
   ), true)
 })
 
@@ -170,6 +182,88 @@ test('macOS typography accepts only approved Inter and localized CJK family Post
   }
 
   assert.equal(packagedVisualContract.buildTypographyCheckResult(createTypographyInput()).failureCount, 0)
+})
+
+test('platform CJK glyph evidence requires a non-custom font and its matching computed stack family', () => {
+  const mac = createMacTypographyInput()
+  const withoutMacCjk = '"Inter Variable", Inter, system-ui, sans-serif'
+  const windowsStack = '"Inter Variable", Inter, system-ui, "Microsoft YaHei UI", sans-serif'
+  const invalidMacEvidence = [
+    {
+      glyphFonts: {
+        ...mac.glyphFonts,
+        cjk: [{ ...macCjk, isCustomFont: true }],
+      },
+    },
+    {
+      computed: {
+        ...mac.computed,
+        probes: {
+          ...mac.computed.probes,
+          cjk: { fontFamily: withoutMacCjk },
+        },
+      },
+    },
+    {
+      computed: {
+        ...mac.computed,
+        probes: {
+          ...mac.computed.probes,
+          cjk: { fontFamily: withoutMacCjk },
+        },
+      },
+      glyphFonts: {
+        ...mac.glyphFonts,
+        cjk: [{
+          familyName: 'Hiragino Sans GB',
+          postScriptName: 'HiraginoSansGB-W3',
+          isCustomFont: false,
+          glyphCount: 8,
+        }],
+      },
+    },
+    {
+      computed: {
+        ...mac.computed,
+        probes: {
+          ...mac.computed.probes,
+          mixed: { fontFamily: withoutMacCjk },
+        },
+      },
+    },
+    {
+      computed: {
+        ...mac.computed,
+        probes: {
+          ...mac.computed.probes,
+          cjk: { fontFamily: windowsStack },
+          mixed: { fontFamily: windowsStack },
+        },
+      },
+    },
+  ]
+  for (const evidence of invalidMacEvidence) {
+    const result = packagedVisualContract.buildTypographyCheckResult({ ...mac, ...evidence })
+    assert.equal(
+      result.checks.find(({ id }) => id === 'typography-cjk-sans')?.pass,
+      false,
+      `invalid macOS CJK evidence must fail: ${JSON.stringify(evidence)}`,
+    )
+  }
+
+  const windows = createTypographyInput()
+  const result = packagedVisualContract.buildTypographyCheckResult({
+    ...windows,
+    computed: {
+      ...windows.computed,
+      probes: {
+        ...windows.computed.probes,
+        cjk: { fontFamily: mac.computed.probes.cjk.fontFamily },
+        mixed: { fontFamily: mac.computed.probes.mixed.fontFamily },
+      },
+    },
+  })
+  assert.equal(result.checks.find(({ id }) => id === 'typography-cjk-sans')?.pass, false)
 })
 
 test('typography glyph checks reject unknown duplicate empty and incomplete probe fonts', () => {
