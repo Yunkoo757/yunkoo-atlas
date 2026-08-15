@@ -158,6 +158,19 @@ const approvedShorthandFontSizeTokens = new Set([
   '--type-ui-base-size',
 ])
 
+const approvedLonghandFontSizeTokens = new Set([
+  ...approvedShorthandFontSizeTokens,
+  '--editor-font-size',
+  '--font-size-large',
+  '--font-size-micro',
+  '--font-size-mini',
+  '--font-size-regular',
+  '--font-size-small',
+  '--font-size-title2',
+  '--font-size-title3',
+  '--modal-cta-font-size',
+])
+
 const approvedShorthandModifierKeywords = new Set([
   '400',
   '500',
@@ -246,6 +259,12 @@ function customPropertyTokenName(token: string): string | null {
   return /^var\(\s*(--[a-z0-9-]+)\s*\)$/i.exec(token)?.[1] ?? null
 }
 
+function isApprovedLonghandFontSize(value: string): boolean {
+  if (/^(?:inherit|initial|unset|revert|revert-layer)$/i.test(value)) return true
+  const property = customPropertyTokenName(value)
+  return property !== null && approvedLonghandFontSizeTokens.has(property)
+}
+
 function isApprovedShorthandFontSize(token: string): boolean {
   const property = customPropertyTokenName(token)
   return property !== null && approvedShorthandFontSizeTokens.has(property)
@@ -295,7 +314,7 @@ function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFo
       const selector = rule[1].trim()
       for (const declaration of rule[2].matchAll(/(?:^|;)\s*font-size\s*:\s*([^;{}]+)(?=;|$)/gi)) {
         const value = declaration[1].trim()
-        if (!/^(?:var\(|inherit|initial|unset)/.test(value)) declarations.push({ path, selector, property: 'font-size', value })
+        if (!isApprovedLonghandFontSize(value)) declarations.push({ path, selector, property: 'font-size', value })
       }
       for (const declaration of rule[2].matchAll(/(?:^|;)\s*font\s*:\s*([^;{}]+)(?=;|$)/gi)) {
         const shorthand = declaration[1].trim()
@@ -330,6 +349,36 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
   assert.throws(
     () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.bad { font-size: 12.5px; }' }], []),
     /unapproved literal font-size: 12.5px/,
+  )
+  for (const css of [
+    '.bad { font-size: inherit 22px; }',
+    '.bad { font-size: VAR(--type-rogue-size); }',
+    ':root { --TYPE-ROW-SIZE: 22px; } .bad { font-size: var(--TYPE-ROW-SIZE); }',
+    '.bad { font-size: revert 12px; }',
+  ]) {
+    assert.throws(
+      () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
+      /unapproved literal font-size/,
+    )
+  }
+  for (const css of [
+    '.ok { font-size: VAR(--type-row-size); }',
+    '.ok { font-size: InHeRiT; }',
+    '.ok { font-size: InItIaL; }',
+    '.ok { font-size: UnSeT; }',
+    '.ok { font-size: ReVeRt; }',
+    '.ok { font-size: ReVeRt-LaYeR; }',
+  ]) assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], []))
+  assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{
+    path: 'src/editor/Editor.css',
+    css: '.editor code { font-size: 0.85em; }',
+  }], approvedLiteralFontSizes))
+  assert.throws(
+    () => assertApprovedLiteralFontSizes([{
+      path: 'src/editor/Editor.css',
+      css: '.editor pre { font-size: 0.85em; }',
+    }], approvedLiteralFontSizes),
+    /unapproved literal font-size: 0.85em/,
   )
   for (const css of [
     '.bad { font: 500 22px/28px var(--font-ui); }',

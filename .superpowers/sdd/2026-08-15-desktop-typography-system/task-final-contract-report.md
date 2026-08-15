@@ -102,6 +102,42 @@ UTF-8 fatal decode + BOM check
 exit 0; scoped files UTF-8 without BOM
 ```
 
+## Fix Round 3/5：font-size longhand fail-closed
+
+- 父提交：`c777e4a101d17892d138dadd42cb0c6349fc6894`
+- 范围：仅 `src/lib/typographySystem.design.test.ts` 与本报告。
+
+### RED
+
+先加入 longhand 负向 fixtures：`inherit 22px`、`VAR(--type-rogue-size)`、已定义为 `22px` 的 `var(--TYPE-ROW-SIZE)`、`revert 12px`；同时加入 mixed-case `VAR(--type-row-size)`、五个 mixed-case CSS-wide keywords，以及 Editor 唯一 path+selector 例外对照。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 1
+font-size: inherit 22px: Missing expected exception.
+```
+
+### GREEN
+
+- `font-size` 的 `var(...)` 使用大小写不敏感函数名匹配，但捕获的 custom property identifier 保持原样并与 longhand 有限 allowlist 精确比较。
+- `inherit|initial|unset|revert|revert-layer` 仅允许整值，keyword 本身大小写不敏感。
+- `0.85em` 仍只通过 `src/editor/Editor.css` 的 `.editor code` approval；相同值换 selector 会被拒绝。
+- 产品 CSS 全量扫描继续通过，未误杀真实 canonical token。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 0; 11 tests PASS
+
+pnpm typecheck
+exit 0
+
+git diff --check + exact scope check
+exit 0
+
+UTF-8 fatal decode + BOM check
+exit 0; scoped files UTF-8 without BOM
+```
+
 ## Fix Round 2/5：custom property 大小写合同
 
 - 父提交：`397ec0425fc72887fa69611ccda6775f46675adf`
