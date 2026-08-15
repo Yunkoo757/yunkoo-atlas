@@ -141,3 +141,27 @@
 .settings-page > :not(.settings-page-head) + .settings-page-section {
   margin-top: var(--sp-8);
 }
+
+@media (max-width: 1099px) {
+  .settings-nav {
+    width: 164px;
+    padding-inline: var(--sp-2);
+  }
+
+  .settings-page,
+  .settings-page.has-aside {
+    width: min(100%, calc(var(--settings-content-width) + var(--page-inset-compact) + var(--page-inset-compact)));
+    padding-inline: var(--page-inset-compact);
+  }
+
+  .settings-page.has-aside {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-5);
+  }
+
+  .settings-aside {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+  }
+}

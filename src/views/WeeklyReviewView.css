@@ -15,7 +15,7 @@
 .wr-page-head-inner { width: min(var(--page-rail-reading), calc(100% - var(--page-inset-default) - var(--page-inset-default))); margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-end; gap: var(--sp-5); padding: var(--sp-6) 0 var(--sp-4); }
 .wr-kicker { margin-bottom: 6px; color: var(--accent); font-size: var(--fs-mini); font-weight: var(--font-weight-semibold); }
 .wr-page-head h1 { margin: 0; font-size: var(--type-page-title-size); font-weight: var(--font-weight-semibold); line-height: var(--type-page-title-line-height); letter-spacing: 0; }.wr-page-head p { margin: 7px 0 0; color: var(--text-tertiary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
-.wr-head-actions { display: flex; gap: 6px; align-items: center; }.wr-tab-switch { display: flex; padding: 1px; border: 1px solid var(--border-default); border-radius: var(--radius-6); background: var(--bg-elevated); }.wr-tab-switch button,.wr-week-nav { min-height: var(--control-height); border: 0; border-radius: var(--radius-4); background: transparent; color: var(--text-tertiary); font: inherit; font-size: var(--fs-mini); cursor: pointer; }.wr-tab-switch button { padding: 0 10px; }.wr-tab-switch button[aria-selected="true"] { background: var(--bg-hover); color: var(--text-primary); box-shadow: var(--shadow-low); }.wr-week-nav { width: 30px; display: grid; place-items: center; border: 1px solid var(--border-default); }.wr-week-nav:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }.wr-week-nav:disabled { color: var(--text-disabled); opacity: .35; cursor: default; }
+.wr-head-actions { display: flex; gap: 6px; align-items: center; }.wr-tab-switch { display: flex; padding: 1px; border: 1px solid var(--border-default); border-radius: var(--radius-6); background: var(--bg-elevated); }.wr-tab-switch button,.wr-week-nav { min-height: var(--control-height); border: 0; border-radius: var(--radius-4); background: transparent; color: var(--text-tertiary); font: inherit; font-size: var(--fs-mini); cursor: pointer; }.wr-tab-switch button { padding: 0 10px; white-space: nowrap; }.wr-tab-switch button[aria-selected="true"] { background: var(--bg-hover); color: var(--text-primary); box-shadow: var(--shadow-low); }.wr-week-nav { width: 30px; display: grid; place-items: center; border: 1px solid var(--border-default); }.wr-week-nav:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }.wr-week-nav:disabled { color: var(--text-disabled); opacity: .35; cursor: default; }
 .wr-content,.wr-year { width: min(var(--page-rail-reading), calc(100% - var(--page-inset-default) - var(--page-inset-default))); margin: 0 auto; padding: var(--sp-5) 0 96px; }
 .wr-section { margin: 0; padding: var(--sp-6) 0; border: 0; border-top: 1px solid var(--border-subtle); border-radius: 0; background: transparent; }
 .wr-previous,.wr-commitment { margin: var(--sp-4) 0; padding: var(--sp-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--bg-elevated); }
@@ -95,3 +95,22 @@
 .wr-year-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; padding: 0; overflow: hidden; background: var(--border-subtle); }.wr-year-summary > div { padding: var(--sp-5); background: var(--bg-surface); }.wr-year-summary span,.wr-year-summary small { display: block; color: var(--text-tertiary); font-size: var(--type-metadata-size); }.wr-year-summary strong { display: block; margin: var(--sp-2) 0 var(--sp-1); font-size: var(--type-financial-size); font-weight: var(--font-weight-semibold); line-height: var(--type-financial-line-height); }.wr-chart { height: 300px; }.wr-chart-loading { position: relative; min-height: 300px; overflow: hidden; border: 1px solid var(--border-subtle); background: var(--bg-elevated); border-radius: var(--radius-8); }.wr-chart-loading-label { position: absolute; top: var(--sp-4); left: var(--sp-4); color: var(--text-quaternary); font-size: var(--fs-mini); }.wr-chart-skeleton-grid { position: absolute; inset: 52px var(--sp-4) var(--sp-7); background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(25% - 1px), var(--border-subtle) 25%); }.wr-chart-skeleton-line { width: 100%; height: 100%; overflow: visible; opacity: .58; animation: wr-skeleton-pulse 1.4s var(--ease-in-out-cubic) infinite alternate; }.wr-chart-skeleton-line polyline { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }.wr-chart text { font-family: var(--font-ui); }.wr-trend-start { min-height: 150px; display: flex; align-items: center; justify-content: center; gap: var(--sp-7); color: var(--text-tertiary); }.wr-trend-start > div { display: grid; grid-template-columns: auto auto; align-items: baseline; column-gap: 7px; }.wr-trend-start span { grid-column: 1 / -1; margin-bottom: 6px; color: var(--text-quaternary); font-size: var(--fs-mini); }.wr-trend-start strong { color: var(--text-primary); font-family: var(--font-ui); font-size: var(--fs-h); font-weight: var(--font-weight-semibold); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }.wr-trend-start small { font-size: var(--fs-mini); }.wr-trend-start p { max-width: 240px; margin: 0; font-size: var(--fs-sm); line-height: 1.6; }.wr-heatmap { display: grid; grid-template-columns: repeat(18, 1fr); gap: 6px; }.wr-heatmap i { aspect-ratio: 1; border: 1px solid var(--border-subtle); border-radius: var(--radius-4); background: var(--bg-elevated); }.wr-heatmap i.is-filled { border-color: color-mix(in srgb, var(--accent) calc(var(--level) * 70%), var(--border-default)); background: color-mix(in srgb, var(--accent) calc(var(--level) * 70%), var(--bg-elevated)); }
 @keyframes wr-skeleton-pulse { from { opacity: .35; } to { opacity: .72; } }
 @media (prefers-reduced-motion: reduce) { .wr-chart-skeleton-line { animation: none; opacity: .58; } }
+
+@media (max-width: 1099px) {
+  .wr-page-head-inner {
+    width: calc(100% - var(--page-inset-compact) - var(--page-inset-compact));
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding-top: var(--sp-5);
+  }
+
+  .wr-head-actions {
+    margin-left: auto;
+  }
+
+  .wr-content,
+  .wr-year {
+    width: calc(100% - var(--page-inset-compact) - var(--page-inset-compact));
+  }
+}
