@@ -80,14 +80,19 @@ function assertQaUsesCollectedBuildIdentity(qaSource) {
     1,
     'QA must collect packaged build identity exactly once through the shared entry point',
   )
-  const reportAssembly = qaSource.slice(qaSource.indexOf('const report = {'))
-  assert.match(
-    reportAssembly,
-    /\.\.\.identityEvidence,/,
-    'report must consume the collected renderer identity evidence',
+  assert.equal(
+    qaSource.split('const report = buildPackagedVisualReport(identityEvidence, {').length - 1,
+    1,
+    'QA must assemble the report exactly once through the guarded builder',
+  )
+  assert.equal(
+    qaSource.indexOf('const report = {'),
+    -1,
+    'QA must not rebuild the report with an object initializer',
   )
   assert.doesNotMatch(qaSource, /\b(?:const|let)\s+source\s*=/)
   assert.doesNotMatch(qaSource, /source\s*:\s*\{[^}]*commit\s*:\s*git\(/s)
+  assert.doesNotMatch(qaSource, /\.\.\.identityEvidence/)
 }
 
 function createTypographyInput() {
@@ -481,6 +486,45 @@ test('packaged identity collector returns renderer source independently from rep
   )
 })
 
+test('packaged report builder rejects identity keys introduced before after or by a second spread', () => {
+  const commitA = 'a'.repeat(40)
+  const commitB = 'b'.repeat(40)
+  const identityEvidence = {
+    source: { commit: commitA, dirty: false },
+    repository: { head: commitA },
+    ci: { githubSha: null },
+  }
+  const otherFields = { schemaVersion: 1, runtime: 'packaged-electron' }
+  assert.equal(typeof packagedVisualContract.buildPackagedVisualReport, 'function')
+
+  const report = packagedVisualContract.buildPackagedVisualReport(identityEvidence, otherFields)
+  assert.deepEqual(report, { ...otherFields, ...identityEvidence })
+  assert.strictEqual(report.source, identityEvidence.source)
+
+  const source = { commit: commitB, dirty: false }
+  const repository = { head: commitB }
+  const ci = { githubSha: commitB }
+  const secondIdentity = { source, repository, ci }
+  const mutants = [
+    ['post-spread source and repository override', {
+      ...otherFields,
+      ...identityEvidence,
+      source,
+      ['repository']: repository,
+    }],
+    ['post-spread quoted CI override', { ...otherFields, ...identityEvidence, 'ci': ci }],
+    ['pre-spread source override', { source, ...otherFields }],
+    ['second identity spread', { ...otherFields, ...identityEvidence, ...secondIdentity }],
+  ]
+  for (const [name, mutantFields] of mutants) {
+    assert.throws(
+      () => packagedVisualContract.buildPackagedVisualReport(identityEvidence, mutantFields),
+      /reserved identity field/i,
+      name,
+    )
+  }
+})
+
 test('packaged identity source is compiled into the renderer and report consumes its collector', () => {
   const viteConfig = readFileSync('vite.config.ts', 'utf8')
   const rendererEntry = readFileSync('src/main.tsx', 'utf8')
@@ -501,12 +545,12 @@ test('packaged identity source is compiled into the renderer and report consumes
   assertQaUsesCollectedBuildIdentity(qaSource)
 
   const mutant = qaSource.replace(
-    '...identityEvidence,',
-    "source: { commit: git(['rev-parse', 'HEAD']), dirty: false },",
+    'const report = buildPackagedVisualReport(identityEvidence, {',
+    "const report = { ...buildPackagedVisualReport(identityEvidence, {}), source: process.env.SOURCE }\nconst ignoredReport = buildPackagedVisualReport(identityEvidence, {",
   )
   assert.throws(
     () => assertQaUsesCollectedBuildIdentity(mutant),
-    /report must consume the collected renderer identity evidence/,
+    /assemble the report exactly once through the guarded builder/,
   )
 })
 

@@ -16,6 +16,7 @@ import { _electron as electron } from 'playwright'
 import {
   assertSafePackagedEvidencePaths,
   assertSafePackagedVisualOutputPath,
+  buildPackagedVisualReport,
   buildTypographyCheckResult,
   collectPackagedBuildIdentity,
   isWindowRestorationVisible,
@@ -509,13 +510,12 @@ try {
 }
 
 const artifactPath = locateArtifact()
-const report = {
+const report = buildPackagedVisualReport(identityEvidence, {
   schemaVersion: SCHEMA_VERSION,
   generatedAt: new Date().toISOString(),
   runtime: 'packaged-electron',
   platform: hostPlatform,
   architecture: hostArch,
-  ...identityEvidence,
   machine: {
     platform: hostPlatform,
     release: release(),
@@ -542,7 +542,7 @@ const report = {
   scenarios: DESKTOP_VISUAL_SCENARIOS,
   captures,
   checks,
-}
+})
 
 const reportPath = join(outputRoot, 'report.json')
 writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')

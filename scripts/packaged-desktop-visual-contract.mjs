@@ -325,6 +325,20 @@ export async function collectPackagedBuildIdentity(page, repositoryHead, githubS
   }
 }
 
+const PACKAGED_IDENTITY_FIELDS = new Set(['source', 'repository', 'ci'])
+
+export function buildPackagedVisualReport(identityEvidence, otherFields) {
+  if (!otherFields || typeof otherFields !== 'object' || Array.isArray(otherFields)) {
+    throw new Error('Packaged visual report fields are required')
+  }
+  for (const field of Reflect.ownKeys(otherFields)) {
+    if (typeof field === 'string' && PACKAGED_IDENTITY_FIELDS.has(field)) {
+      throw new Error(`Packaged visual report contains reserved identity field: ${field}`)
+    }
+  }
+  return { ...otherFields, ...identityEvidence }
+}
+
 export function validatePackagedIdentityEvidence({ source, repository, ci }) {
   if (!source || typeof source !== 'object' ||
       !SOURCE_COMMIT_PATTERN.test(source.commit ?? '') ||
