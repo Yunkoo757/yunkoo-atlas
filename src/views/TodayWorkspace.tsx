@@ -17,6 +17,7 @@ import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTrad
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import { RiskStatusStrip } from '@/components/RiskStatusStrip'
+import { Button } from '@/components/ui/Button'
 import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import './TodayWorkspace.css'
 
@@ -227,14 +228,15 @@ export function TodayWorkspace() {
                 风险状态待处理 · 前往设置
               </Link>
             </div>
-            <button
-              type="button"
-              className={`empty-btn${buckets.actionCount > 0 ? ' is-secondary' : ''}`}
+            <Button
+              variant={buckets.actionCount > 0 ? 'bordered' : 'primary'}
+              size="lg"
+              className="today-create-trade"
               onClick={() => openComposer()}
             >
               <Plus size={ICON_MD} />
               新建交易
-            </button>
+            </Button>
           </section>
 
           <RiskStatusStrip currentTradingDayKey={today} />

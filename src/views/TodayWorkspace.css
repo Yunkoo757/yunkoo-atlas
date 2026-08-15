@@ -80,22 +80,8 @@
   border-color: var(--border-strong);
 }
 
-.today-focus .empty-btn {
-  min-height: 36px;
-  font-size: var(--type-row-size);
-  line-height: var(--type-row-line-height);
-}
-
-.today-focus .empty-btn.is-secondary {
-  color: var(--text-secondary);
-  background: transparent;
-  border-color: var(--border-default);
-}
-
-.today-focus .empty-btn.is-secondary:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
+.today-create-trade {
+  flex-shrink: 0;
 }
 
 .today-stats {

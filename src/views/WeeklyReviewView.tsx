@@ -50,6 +50,7 @@ import {
 } from '@/lib/weeklyReviewRouteState'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { InlineStatus } from '@/components/ui/InlineStatus'
+import { IconButton } from '@/components/ui/IconButton'
 import {
   tradeDetailNavState,
   tradeDetailPath,
@@ -592,8 +593,8 @@ export function WeeklyReviewView() {
                 </div>
                 {hasReviewHistory ? (
                   <>
-                    <button type="button" className="wr-week-nav" aria-label="上一条复盘" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={ICON_MD} /></button>
-                    <button type="button" className="wr-week-nav" aria-label="下一条复盘" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={ICON_MD} /></button>
+                    <IconButton label="上一条复盘" size="md" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={ICON_MD} /></IconButton>
+                    <IconButton label="下一条复盘" size="md" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={ICON_MD} /></IconButton>
                   </>
                 ) : null}
               </div>

@@ -2,6 +2,7 @@ import { ICON_MD } from '@/icons/iconSize'
 import { Link } from 'react-router-dom'
 import { Plus, RotateCcw } from '@/icons/appIcons'
 import { EmptyState } from '@/components/EmptyState'
+import { Button } from '@/components/ui/Button'
 import type { WorkbenchEmptyState as WorkbenchEmptyStateModel } from '@/lib/workbenchEmptyState'
 import './WorkbenchEmptyState.css'
 
@@ -23,14 +24,14 @@ export function WorkbenchEmptyState({
       hint={state.hint}
       action={(
         <div className="workbench-empty-actions">
-          <button
-            type="button"
-            className="empty-btn workbench-empty-primary"
+          <Button
+            variant="primary"
+            className="workbench-empty-primary"
             onClick={create ? onCreate : onReset}
           >
             {create ? <Plus size={ICON_MD} /> : <RotateCcw size={ICON_MD} />}
             <span>{primary.label}</span>
-          </button>
+          </Button>
           {state.secondaryActions.map((action) => (
             <Link
               key={action.id}
