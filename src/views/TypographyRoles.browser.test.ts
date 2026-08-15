@@ -9,6 +9,9 @@ import './settings/SettingsLayout.css'
 import './TodayWorkspace.css'
 import './TrashView.css'
 import './WeeklyReviewView.css'
+import '@/components/ui/FieldTrigger.css'
+import '@/components/ui/DatePicker.css'
+import '@/components/trades/TradeList.css'
 
 declare global {
   interface Window {
@@ -30,6 +33,17 @@ function assertPageTitle(selector: string): void {
   assert(style.letterSpacing === 'normal' || style.letterSpacing === '0px', `${selector} 计算后字距必须为 0`)
 }
 
+function assertComputedTextRole(selector: string, token: string): void {
+  const element = document.querySelector<HTMLElement>(selector)
+  assert(element, `缺少 ${selector} 文字角色样例`)
+  const tokenProbe = document.createElement('span')
+  tokenProbe.style.color = `var(${token})`
+  document.body.append(tokenProbe)
+  const expected = getComputedStyle(tokenProbe).color
+  tokenProbe.remove()
+  assert(getComputedStyle(element).color === expected, `${selector} 计算后必须使用 ${token}`)
+}
+
 async function run(): Promise<void> {
   document.body.innerHTML = `
     <h1 class="dv-title">交易详情</h1>
@@ -44,6 +58,13 @@ async function run(): Promise<void> {
     <h1 class="settings-page-title">显示偏好</h1>
     <main class="route-state"><h1 class="route-state-title">范围不存在</h1></main>
     <span class="trash-item-pnl">+123.45</span>
+    <button class="ui-field-trigger">筛选条件</button>
+    <div class="ui-date-grid"><button class="is-outside">31</button></div>
+    <section class="trade-list">
+      <div class="trade-list-group-header"><button class="trade-list-group-toggle"><strong>本周交易</strong></button></div>
+      <div class="trade-row">交易行辅助信息</div>
+    </section>
+    <div class="dv-feed-item-deletable"><button class="dv-feed-delete">删除</button></div>
   `
   for (const selector of [
     '.dv-title',
@@ -73,6 +94,18 @@ async function run(): Promise<void> {
     ['--text-quaternary', 'lch(44% 1 272 / 1)'],
     ['--text-disabled', 'lch(34% 1 272 / 1)'],
   ]) assert(rootStyle.getPropertyValue(token).trim() === value, `${token} 必须保留精确 LCH 灰阶`)
+
+  assertComputedTextRole('.ui-field-trigger', '--text-secondary')
+  assertComputedTextRole('.ui-date-grid button.is-outside', '--text-tertiary')
+  assertComputedTextRole('.trade-row', '--text-tertiary')
+  assertComputedTextRole('.trade-list-group-header', '--text-primary')
+  assertComputedTextRole('.dv-feed-delete', '--text-tertiary')
+  const feedDelete = document.querySelector<HTMLButtonElement>('.dv-feed-delete')
+  assert(feedDelete, '缺少活动记录删除操作样例')
+  assert(getComputedStyle(feedDelete).opacity === '0', '活动记录删除操作应在未聚焦时保持隐藏')
+  feedDelete.focus()
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 120))
+  assert(getComputedStyle(feedDelete).opacity === '1', '活动记录删除操作必须可通过键盘焦点显现')
 }
 
 window.__typographyRolesTest = run()

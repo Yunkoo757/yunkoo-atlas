@@ -88,7 +88,7 @@
   flex-shrink: 0;
   padding: 2px 6px;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--type-caption-size);
 }
 
@@ -303,7 +303,7 @@
 .sb-editor-defaults button {
   padding: var(--sp-1) 7px;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--type-caption-size);
 }
 

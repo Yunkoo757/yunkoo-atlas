@@ -556,9 +556,8 @@
   width: auto;
   max-width: 100%;
   padding: var(--sp-1) 0;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--fs-mini);
-  opacity: 0.85;
 }
 .dv-activity-toggle:hover {
   color: var(--text-tertiary);
@@ -596,7 +595,8 @@
   gap: 10px;
   position: relative;
 }
-.dv-feed-item-deletable:hover .dv-feed-delete {
+.dv-feed-item-deletable:hover .dv-feed-delete,
+.dv-feed-item-deletable:focus-within .dv-feed-delete {
   opacity: 1;
 }
 .dv-feed-dot {
@@ -637,7 +637,7 @@
   width: 22px;
   height: 22px;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   opacity: 0;
   flex-shrink: 0;
   transition: opacity var(--dur-fast) var(--ease-out),

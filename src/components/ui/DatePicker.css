@@ -109,7 +109,7 @@
 }
 
 .ui-date-grid button.is-outside {
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 
 .ui-date-grid button.is-today {

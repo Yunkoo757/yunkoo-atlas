@@ -84,7 +84,7 @@
   width: 16px;
   height: 16px;
   border-radius: var(--radius-full);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   opacity: 0.55;
   transition:
     background var(--dur-fast) var(--ease-out),

@@ -299,7 +299,7 @@
 .trash-btn-purge {
   width: 26px;
   height: 26px;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 .trash-btn-purge:hover {
   background: var(--error-action-bg);

@@ -327,7 +327,7 @@ button.shortcuts-capture[aria-pressed='true'] {
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   background: transparent;
   transition:
     color var(--dur-fast) var(--ease-out),

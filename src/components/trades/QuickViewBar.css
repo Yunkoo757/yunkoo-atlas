@@ -215,7 +215,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   border-radius: var(--radius-4);
 }
 

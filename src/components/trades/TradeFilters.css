@@ -42,7 +42,7 @@
   width: 26px;
   height: 26px;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 
 .trade-filter-head-actions button:hover {

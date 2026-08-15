@@ -109,7 +109,7 @@
 
 .ui-select-option:disabled {
   cursor: not-allowed;
-  color: var(--text-quaternary);
+  color: var(--text-disabled);
   background: transparent;
   opacity: 0.55;
 }

@@ -263,7 +263,7 @@ html[data-ui-settled='1'] .sb-item {
   height: 22px;
   margin-right: 2px;
   border-radius: var(--radius-6);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 @media (hover: hover) and (pointer: fine) {
   .sb-workspace-capability-menu {
