@@ -327,16 +327,31 @@ export async function collectPackagedBuildIdentity(page, repositoryHead, githubS
 
 const PACKAGED_IDENTITY_FIELDS = new Set(['source', 'repository', 'ci'])
 
+function deepFreezeIdentityTree(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value
+  for (const field of Reflect.ownKeys(value)) deepFreezeIdentityTree(value[field])
+  return Object.freeze(value)
+}
+
 export function buildPackagedVisualReport(identityEvidence, otherFields) {
   if (!otherFields || typeof otherFields !== 'object' || Array.isArray(otherFields)) {
     throw new Error('Packaged visual report fields are required')
   }
   for (const field of Reflect.ownKeys(otherFields)) {
+    if (typeof field === 'symbol') {
+      throw new Error('Packaged visual report fields must not contain symbol keys')
+    }
     if (typeof field === 'string' && PACKAGED_IDENTITY_FIELDS.has(field)) {
       throw new Error(`Packaged visual report contains reserved identity field: ${field}`)
     }
   }
-  return { ...otherFields, ...identityEvidence }
+  validatePackagedIdentityEvidence(identityEvidence)
+  const immutableIdentity = deepFreezeIdentityTree(structuredClone({
+    source: identityEvidence.source,
+    repository: identityEvidence.repository,
+    ci: identityEvidence.ci,
+  }))
+  return Object.freeze({ ...otherFields, ...immutableIdentity })
 }
 
 export function validatePackagedIdentityEvidence({ source, repository, ci }) {

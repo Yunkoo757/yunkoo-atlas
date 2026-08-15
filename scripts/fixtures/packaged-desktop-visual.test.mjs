@@ -93,6 +93,11 @@ function assertQaUsesCollectedBuildIdentity(qaSource) {
   assert.doesNotMatch(qaSource, /\b(?:const|let)\s+source\s*=/)
   assert.doesNotMatch(qaSource, /source\s*:\s*\{[^}]*commit\s*:\s*git\(/s)
   assert.doesNotMatch(qaSource, /\.\.\.identityEvidence/)
+  assert.doesNotMatch(
+    qaSource,
+    /\breport(?:\.(?:source|repository|ci)(?:\.commit)?|\[['"](?:source|repository|ci)['"]\])\s*=/,
+    'QA must not mutate identity after the guarded report builder returns',
+  )
 }
 
 function createTypographyInput() {
@@ -499,7 +504,7 @@ test('packaged report builder rejects identity keys introduced before after or b
 
   const report = packagedVisualContract.buildPackagedVisualReport(identityEvidence, otherFields)
   assert.deepEqual(report, { ...otherFields, ...identityEvidence })
-  assert.strictEqual(report.source, identityEvidence.source)
+  assert.notStrictEqual(report.source, identityEvidence.source)
 
   const source = { commit: commitB, dirty: false }
   const repository = { head: commitB }
@@ -521,6 +526,74 @@ test('packaged report builder rejects identity keys introduced before after or b
       () => packagedVisualContract.buildPackagedVisualReport(identityEvidence, mutantFields),
       /reserved identity field/i,
       name,
+    )
+  }
+})
+
+test('packaged report builder clones and deep freezes its identity tree', () => {
+  const commitA = 'a'.repeat(40)
+  const commitB = 'b'.repeat(40)
+  const identityEvidence = {
+    source: {
+      commit: commitA,
+      dirty: false,
+      provenance: { build: { channel: 'stable' } },
+    },
+    repository: { head: commitA },
+    ci: { githubSha: null, provenance: { provider: 'local' } },
+  }
+  const report = packagedVisualContract.buildPackagedVisualReport(identityEvidence, {
+    schemaVersion: 1,
+    runtime: 'packaged-electron',
+  })
+
+  assert.equal(Object.isFrozen(report), true)
+  assert.equal(Object.isFrozen(report.source), true)
+  assert.equal(Object.isFrozen(report.source.provenance), true)
+  assert.equal(Object.isFrozen(report.source.provenance.build), true)
+  assert.equal(Object.isFrozen(report.repository), true)
+  assert.equal(Object.isFrozen(report.ci), true)
+  assert.equal(Object.isFrozen(report.ci.provenance), true)
+
+  for (const mutation of [
+    () => { report.source = { commit: commitB, dirty: false } },
+    () => { report.repository = { head: commitB } },
+    () => { report.ci = { githubSha: commitB } },
+    () => { report.source.commit = commitB },
+    () => { report.source.provenance.build.channel = 'mutated' },
+  ]) {
+    assert.throws(mutation, TypeError)
+  }
+  identityEvidence.source.commit = commitB
+  identityEvidence.ci.provenance.provider = 'mutated'
+  assert.equal(report.source.commit, commitA)
+  assert.equal(report.ci.provenance.provider, 'local')
+  assert.doesNotThrow(() => packagedVisualContract.validatePackagedVisualReport({
+    ...report,
+    platform: 'darwin',
+    scale: { requested: 2, devicePixelRatio: 2, displayScaleFactor: 2 },
+    captures: createPackagedCaptures(),
+    checks: buildRequiredPlatformChecks('darwin').map((id) => ({ id, pass: true })),
+    typography: { failureCount: 0 },
+  }))
+})
+
+test('packaged report builder rejects enumerable and non-enumerable symbol fields', () => {
+  const commit = 'a'.repeat(40)
+  const identityEvidence = {
+    source: { commit, dirty: false },
+    repository: { head: commit },
+    ci: { githubSha: null },
+  }
+  for (const enumerable of [true, false]) {
+    const otherFields = { schemaVersion: 1, runtime: 'packaged-electron' }
+    Object.defineProperty(otherFields, Symbol('runtime-override'), {
+      value: 'forged',
+      enumerable,
+    })
+    assert.throws(
+      () => packagedVisualContract.buildPackagedVisualReport(identityEvidence, otherFields),
+      /symbol/i,
     )
   }
 })
@@ -551,6 +624,14 @@ test('packaged identity source is compiled into the renderer and report consumes
   assert.throws(
     () => assertQaUsesCollectedBuildIdentity(mutant),
     /assemble the report exactly once through the guarded builder/,
+  )
+  const assignmentMutant = qaSource.replace(
+    'const reportPath = join(outputRoot, \'report.json\')',
+    "report.source.commit = process.env.SOURCE_COMMIT\nconst reportPath = join(outputRoot, 'report.json')",
+  )
+  assert.throws(
+    () => assertQaUsesCollectedBuildIdentity(assignmentMutant),
+    /must not mutate identity after the guarded report builder returns/,
   )
 })
 
