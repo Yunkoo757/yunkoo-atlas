@@ -72,8 +72,8 @@ const checks = [
   [
     'sidebar navigation keeps the measured hierarchy',
     sidebarStyles.includes('--sb-text: var(--text-tertiary)') &&
-      /\.sb-item\s*\{[^}]*height:\s*var\(--control-height\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*color:\s*var\(--sb-text\);/s.test(sidebarStyles) &&
-      /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--fs-mini\);/s.test(sidebarStyles),
+      /\.sb-item\s*\{[^}]*height:\s*var\(--control-height\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*color:\s*var\(--sb-text\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(sidebarStyles) &&
+      /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*letter-spacing:\s*0;/s.test(sidebarStyles),
   ],
   [
     'sidebar navigation uses the global keyboard focus frame',
@@ -99,14 +99,12 @@ const checks = [
       !tokens.includes('(pointer: coarse)'),
   ],
   [
-    'desktop typography uses bundled Geist with CJK system fallbacks',
-    main.includes("@fontsource/geist-sans/400.css") &&
-      main.includes("@fontsource/geist-sans/500.css") &&
-      main.includes("@fontsource/geist-sans/600.css") &&
-      !main.includes('@fontsource-variable/inter') &&
-      tokens.includes('"Geist Sans"') &&
+    'desktop typography uses bundled Inter Variable with CJK system fallbacks',
+    main.includes("@fontsource-variable/inter") &&
+      !main.includes('@fontsource/geist-sans') &&
+      tokens.includes('"Inter Variable"') &&
       tokens.includes('"PingFang SC"') &&
-      tokens.includes('"Microsoft YaHei"'),
+      tokens.includes('"Microsoft YaHei UI"'),
   ],
   [
     'desktop icon constants match the 14 16 18 20 24 optical scale',
@@ -179,29 +177,29 @@ const checks = [
     /\.sb-workspace-menu\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;/s.test(sidebarWorkspaceStyles),
   ],
   [
-    'trade chips match the quick-filter typography',
-    /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--fs-mini\);[\s\S]*?font-weight:\s*500;[\s\S]*?font-feature-settings:\s*normal;/s.test(
+    'trade chips use the canonical caption typography',
+    /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--type-caption-size\);[\s\S]*?font-weight:\s*var\(--font-weight-medium\);[\s\S]*?font-feature-settings:\s*normal;[\s\S]*?line-height:\s*var\(--type-caption-line-height\);/s.test(
       tradeListStyles,
     ),
   ],
   [
-    'filter chips match the quick-view typography',
-    /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-mini\);[^}]*font-weight:\s*500;/s.test(
+    'filters and actions use their canonical semantic typography roles',
+    /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
       filterBarStyles,
     ) &&
-      /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-mini\);[^}]*font-weight:\s*500;/s.test(
+      /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
         quickViewStyles,
       ) &&
-      /\.tb-btn\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-mini\);[^}]*font-weight:\s*var\(--font-weight-medium\);/s.test(
+      /\.tb-btn\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(
         topbarStyles,
       ) &&
-      /\.ui-btn,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--fs-mini\);[\s\S]*?font-weight:\s*var\(--font-weight-medium\);/s.test(
+      /\.ui-btn,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--type-row-size\);[\s\S]*?font-weight:\s*var\(--font-weight-medium\);[\s\S]*?line-height:\s*var\(--type-row-line-height\);/s.test(
         buttonStyles,
       ),
   ],
   [
     'trade group counts keep canonical numeric metrics',
-    /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--fs-sm\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*tabular-nums;/s.test(
+    /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*var\(--numeric-tabular\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
       tradeListStyles,
     ),
   ],

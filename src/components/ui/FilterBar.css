@@ -20,9 +20,10 @@
   height: var(--toolbar-chip-height);
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
-  font-weight: 500;
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
   font-feature-settings: normal;
+  line-height: var(--type-metadata-line-height);
   /* 描边必须画在盒子内侧：外扩 box-shadow 会被 overflow-x:auto 连带裁掉上下沿 */
   border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-full);

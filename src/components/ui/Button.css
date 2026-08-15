@@ -21,8 +21,9 @@
   padding: 0 10px;
   border-radius: var(--radius-6);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   color: var(--text-secondary);
   white-space: nowrap;
   transition: background var(--dur-fast) var(--ease-out),
