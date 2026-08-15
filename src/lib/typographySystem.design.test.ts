@@ -368,7 +368,7 @@ function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFo
     const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '')
     for (const rule of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const selector = rule[1].trim()
-      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font-size\s*:\s*([^;{}]+)(?=;|$)/gi)) {
+      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font-size\s*:\s*([^;{}]*)(?=;|$)/gi)) {
         const parsed = parseDeclarationPriority(declaration[1])
         if (!parsed) {
           declarations.push({ path, selector, property: 'font-size', value: trimCssWhitespace(declaration[1]) })
@@ -377,7 +377,7 @@ function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFo
         const value = parsed.value
         if (!isApprovedLonghandFontSize(value)) declarations.push({ path, selector, property: 'font-size', value })
       }
-      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font\s*:\s*([^;{}]+)(?=;|$)/gi)) {
+      for (const declaration of rule[2].matchAll(/(?:^|;)\s*font\s*:\s*([^;{}]*)(?=;|$)/gi)) {
         const parsed = parseDeclarationPriority(declaration[1])
         if (!parsed) {
           declarations.push({ path, selector, property: 'font', value: trimCssWhitespace(declaration[1]) })
@@ -416,6 +416,21 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css: '.bad { font-size: 12.5px; }' }], []),
     /unapproved literal font-size: 12.5px/,
   )
+  for (const css of [
+    '.bad{font-size:;}',
+    '.bad{font:;}',
+    '.bad{font-size:/**/;}',
+    '.bad{font:/**/;}',
+    '.bad{font-size:   ;}',
+    '.bad{font:\t;}',
+    '.bad{font-size:!important;}',
+    '.bad{font:! important;}',
+  ]) {
+    assert.throws(
+      () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
+      /unapproved literal/,
+    )
+  }
   for (const css of [
     '.bad { font-size: inherit 22px; }',
     '.bad { font-size: VAR(--type-rogue-size); }',

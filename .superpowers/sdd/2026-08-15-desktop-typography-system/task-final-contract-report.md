@@ -209,3 +209,39 @@ exit 0
 UTF-8 fatal decode + BOM check
 exit 0; scoped files UTF-8 without BOM
 ```
+
+## Fix Round 5/5：empty declaration capture
+
+- 父提交：`2fcdd1b0ac92e9b3d392b98e161d05fa104c2e3c`
+- 范围：仅 `src/lib/typographySystem.design.test.ts` 与本报告。
+
+### RED
+
+先加入四个真正空值 fixtures：`font-size:;`、`font:;`、comment-only `font-size:/**/;` 与 `font:/**/;`；并加入纯 CSS 空白及 priority-only 回归样例。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 1
+font-size empty fixture: Missing expected exception.
+```
+
+### GREEN
+
+- 两处 declaration value 捕获由 `([^;{}]+)` 改为 `([^;{}]*)`，使零长度 value 进入现有 priority parser 并 fail closed。
+- 捕获字符集仍明确排除 `;`、`{`、`}`，不会跨声明或样式块吞并。
+- comment-only 声明在注释剥离后变为空值；纯空白和 priority-only 声明同样被 parser 拒绝。
+- 既有合法 longhand、shorthand、priority 与产品 CSS 全量扫描继续通过。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 0; 11 tests PASS
+
+pnpm typecheck
+exit 0
+
+git diff --check + exact scope check
+exit 0
+
+UTF-8 fatal decode + BOM check
+exit 0; scoped files UTF-8 without BOM
+```
