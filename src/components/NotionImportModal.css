@@ -389,7 +389,7 @@
 
 .nim-done-area > p {
   margin: 0;
-  font-size: var(--fs-lg);
+  font-size: var(--type-body-size);
   font-weight: var(--font-weight-medium);
 }
 

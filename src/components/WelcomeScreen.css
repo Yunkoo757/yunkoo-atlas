@@ -41,9 +41,9 @@
 
 .welcome-desc {
   margin: 0;
-  font-size: var(--fs-base);
+  font-size: var(--type-body-size);
   color: var(--text-tertiary);
-  line-height: 1.6;
+  line-height: var(--type-body-line-height);
   max-width: 360px;
 }
 
@@ -63,7 +63,7 @@
   border: 1px dashed var(--border-default);
   background: var(--bg-elevated);
   color: var(--text-tertiary);
-  font-size: var(--fs-base);
+  font-size: var(--type-body-size);
   cursor: pointer;
   transition: border-color var(--dur-fast) var(--ease-out),
     background var(--dur-fast) var(--ease-out),

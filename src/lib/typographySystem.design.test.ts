@@ -674,6 +674,69 @@ export async function testPageTitleSelectorsUseTheCanonical20PxRole(): Promise<v
   }
 }
 
+export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void> {
+  const sources = Object.fromEntries(await Promise.all([
+    'src/views/settings/SettingsLayout.css',
+    'src/components/DataIOContent.css',
+    'src/components/LiveCycleSettings.css',
+    'src/views/WeeklyReviewView.css',
+    'src/views/Dashboard.css',
+    'src/views/TodayWorkspace.css',
+    'src/views/ReviewSessionView.css',
+    'src/views/settings/ProfileSettingsPanel.css',
+    'src/views/QuickNotesView.css',
+  ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)))
+
+  for (const [path, selector] of [
+    ['src/views/settings/SettingsLayout.css', '.settings-section-title'],
+    ['src/components/DataIOContent.css', '.dio-section-title'],
+    ['src/components/DataIOContent.css', '.dio-group-title'],
+    ['src/components/LiveCycleSettings.css', '.live-cycle-settings-copy h2'],
+    ['src/views/WeeklyReviewView.css', '.wr-section-head h2'],
+    ['src/views/Dashboard.css', '.db-week-title'],
+    ['src/views/TodayWorkspace.css', '.today-stats-title'],
+  ] as const) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-section-title-size)'],
+    ])
+  }
+
+  for (const [path, selector] of [
+    ['src/views/settings/SettingsLayout.css', '.settings-page-desc'],
+    ['src/views/settings/SettingsLayout.css', '.settings-section-desc'],
+    ['src/components/DataIOContent.css', '.dio-desc'],
+    ['src/components/DataIOContent.css', '.health-value'],
+    ['src/components/LiveCycleSettings.css', '.live-cycle-settings-copy p,\n.live-cycle-prompt p'],
+    ['src/views/WeeklyReviewView.css', '.wr-page-head p'],
+  ] as const) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-body-size)'],
+    ])
+  }
+
+  for (const [path, selector] of [
+    ['src/views/Dashboard.css', '.db-card-value'],
+    ['src/views/Dashboard.css', '.db-week-metric strong'],
+    ['src/views/TodayWorkspace.css', '.today-stats-metric strong'],
+    ['src/views/ReviewSessionView.css', '.review-session-result-grid strong'],
+    ['src/views/WeeklyReviewView.css', '.wr-year-summary strong'],
+  ] as const) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-financial-size)'],
+    ])
+  }
+
+  for (const [path, selector] of [
+    ['src/views/Dashboard.css', '.db-current-range-title'],
+    ['src/views/settings/ProfileSettingsPanel.css', '.profile-preview-name'],
+    ['src/views/QuickNotesView.css', '.quick-notes-editor-header > input'],
+  ] as const) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-page-title-size)'],
+    ])
+  }
+}
+
 export function testBusinessNumericContractRejectsMonoFontShorthandsAndStacks(): void {
   assert.equal(usesBusinessMonoStack('value { font-family: var(--font-mono); }'), true)
   assert.equal(usesBusinessMonoStack('value { font: 500 12px "JetBrains Mono"; }'), true)

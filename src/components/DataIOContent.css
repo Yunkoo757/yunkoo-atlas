@@ -1,7 +1,7 @@
 .dio-content {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-7);
+  gap: var(--sp-8);
 }
 
 .dio-section-title {
@@ -46,7 +46,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--sp-2);
-  margin: -8px 0 0;
+  margin: calc(var(--sp-3) * -1) 0 0;
   font-size: var(--type-metadata-size);
   line-height: 1.5;
   color: var(--text-muted);
@@ -85,7 +85,7 @@
 }
 
 .backup-time {
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -93,7 +93,7 @@
 
 .backup-meta {
   flex: 1;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
@@ -101,7 +101,7 @@
 }
 
 .backup-size {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
@@ -111,7 +111,7 @@
   align-items: center;
   gap: var(--sp-1);
   min-width: 62px;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
   white-space: nowrap;
 }
@@ -157,8 +157,12 @@
 .health-card > svg { grid-row: 1 / span 2; margin-top: 2px; color: var(--text-tertiary); }
 
 .health-card.health-warn {
-  background: var(--warn-action-bg);
-  border-color: color-mix(in srgb, var(--warn-action) 25%, transparent);
+  --health-note-color: var(--warn-action);
+  background: transparent;
+  border-color: var(--border-subtle);
+}
+.health-card.health-warn > svg {
+  color: var(--warn-action);
 }
 
 .health-label {
@@ -167,15 +171,16 @@
 }
 
 .health-value {
-  font-size: var(--fs-base);
+  font-size: var(--type-body-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-body-line-height);
   color: var(--text-primary);
 }
 
 .health-note {
   grid-column: 2;
   min-width: 0;
-  color: var(--text-faint);
+  color: var(--health-note-color, var(--text-faint));
   font-size: var(--type-caption-size);
   line-height: 1.45;
 }
@@ -212,17 +217,16 @@
 .dio-task-primary .dio-task-icon { color: var(--accent); }
 .dio-task-copy { flex: 1; min-width: 0; }
 .dio-task-title {
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-row-size);
+  font-weight: var(--type-row-weight);
   color: var(--text-primary);
 }
 .dio-task-meta {
   margin-top: 2px;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   line-height: 1.4;
   color: var(--text-muted);
 }
-.dio-group-danger { margin-top: -12px; border: 1px solid var(--warn-action-border); }
 
 .dio-dup-panel {
   margin-top: 10px;
@@ -241,7 +245,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-secondary);
   line-height: 1.45;
 }

@@ -107,7 +107,13 @@ async function run(): Promise<void> {
   assert(Math.abs(Number.parseFloat(contextStyle.marginBottom) - 16) <= 1, '摘要自身的下方节奏必须统一为 16px')
   assert(contextStyle.position === 'sticky', '盘面摘要必须在浏览截图时保持可见')
   assert(contextStyle.overflowY !== 'auto' && contextStyle.overflowY !== 'scroll', '盘面摘要不得出现内部滚动条')
-  assert(contextStyle.backgroundColor === 'rgba(0, 0, 0, 0)', '盘面摘要必须使用透明背景')
+  const surfaceProbe = document.createElement('div')
+  surfaceProbe.style.background = 'var(--bg-surface)'
+  document.body.append(surfaceProbe)
+  const surfaceColor = getComputedStyle(surfaceProbe).backgroundColor
+  surfaceProbe.remove()
+  assert(contextStyle.backgroundColor === surfaceColor, '盘面摘要必须使用页面表面底色，避免截图透出')
+  assert(contextStyle.backgroundColor !== 'rgba(0, 0, 0, 0)', '盘面摘要不得使用透明背景')
   assert(
     [contextStyle.borderTopWidth, contextStyle.borderRightWidth, contextStyle.borderBottomWidth, contextStyle.borderLeftWidth]
       .every((width) => Number.parseFloat(width) === 0),

@@ -600,7 +600,7 @@ button.review-session-gallery-slot.is-ready {
   background: var(--bg-hover);
 }
 
-.review-session-result-grid strong { font-family: var(--font-ui); font-size: var(--fs-h); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
+.review-session-result-grid strong { font-family: var(--font-ui); font-size: var(--type-financial-size); line-height: var(--type-financial-line-height); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
 .review-session-result-grid small { color: var(--text-tertiary); font-size: var(--fs-micro); }
 
 .review-session-finished-actions {

@@ -85,8 +85,10 @@
 .db-current-range-title {
   margin: 0;
   color: var(--text-strong);
-  font-size: var(--fs-title);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
 }
 
 .db-live-link {
@@ -166,11 +168,11 @@
 .db-week-metric strong {
   color: var(--text-strong);
   font-family: var(--font-ui);
-  font-size: var(--fs-title);
+  font-size: var(--type-financial-size);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
-  line-height: 1.15;
+  line-height: var(--type-financial-line-height);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -224,17 +226,14 @@
 }
 .db-card-value {
   font-family: var(--font-ui);
-  font-size: var(--fs-h);
+  font-size: var(--type-financial-size);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
   letter-spacing: 0;
-  line-height: 1.1;
+  line-height: var(--type-financial-line-height);
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.db-card:first-child .db-card-value {
-  font-size: var(--font-size-title2);
 }
 .db-card-sub {
   color: var(--text-muted);

@@ -66,7 +66,7 @@
   font-weight: var(--font-weight-normal);
   line-height: var(--type-body-line-height);
   letter-spacing: 0;
-  background: transparent;
+  background: var(--bg-surface);
   border: 0;
   border-radius: 0;
   box-shadow: none;

@@ -132,7 +132,7 @@
 
 .symbols-preview-name {
   color: var(--text-primary);
-  font-size: var(--fs-base);
+  font-size: var(--type-body-size);
   font-weight: var(--font-weight-medium);
 }
 

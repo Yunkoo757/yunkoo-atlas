@@ -37,8 +37,10 @@
 }
 
 .profile-preview-name {
-  font-size: var(--fs-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-page-title-size);
+  font-weight: var(--type-page-title-weight);
+  line-height: var(--type-page-title-line-height);
+  letter-spacing: 0;
   color: var(--text-primary);
 }
 

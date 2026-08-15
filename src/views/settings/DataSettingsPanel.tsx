@@ -484,7 +484,7 @@ export function DataSettingsPanel({
 
           <div className="data-actions-row">
             <button
-              className="dio-btn dio-btn-primary"
+              className="dio-btn"
               onClick={handleCreateBackup}
               disabled={backing}
             >

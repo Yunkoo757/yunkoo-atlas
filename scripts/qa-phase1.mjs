@@ -108,7 +108,7 @@ try {
   await page.waitForURL(/\/settings\/data/)
   const dataPage = page.locator('.data-settings')
   await dataPage.waitFor({ timeout: 5000 })
-  const hasExportBtn = await page.locator('.dio-btn-primary').first().isVisible()
+  const hasExportBtn = await page.getByRole('button', { name: '导出 .journal.zip' }).isVisible()
   record('数据设置页可访问', await dataPage.isVisible())
   record('导出按钮可见', hasExportBtn)
   await page.screenshot({ path: join(OUT, '05-data-io.png') })

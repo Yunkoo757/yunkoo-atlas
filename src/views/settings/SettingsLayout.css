@@ -34,8 +34,9 @@
   height: var(--field-height-md);
   padding: 0 10px;
   border-radius: var(--radius-6);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-row-size);
+  font-weight: var(--type-row-weight);
+  line-height: var(--type-row-line-height);
   color: var(--text-secondary);
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
@@ -111,7 +112,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--type-body-size);
-  line-height: 1.5;
+  line-height: var(--type-body-line-height);
 }
 
 .settings-section-title {
@@ -126,7 +127,7 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--type-body-size);
-  line-height: 1.5;
+  line-height: var(--type-body-line-height);
 }
 
 .settings-page-section > .settings-page-head {

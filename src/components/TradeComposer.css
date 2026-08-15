@@ -60,8 +60,8 @@
   height: 52px;
   padding: 0 var(--sp-3);
   color: var(--text-strong);
-  font-size: var(--fs-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-dialog-title-size);
+  font-weight: var(--type-dialog-title-weight);
 }
 
 .composer-essential-field .ui-select-trigger,
@@ -104,7 +104,7 @@
 .composer-side-control button {
   min-width: 0;
   color: var(--text-muted);
-  font-size: var(--fs-md);
+  font-size: var(--type-body-size);
   font-family: inherit;
   background: transparent;
   border: 0;

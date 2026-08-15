@@ -80,9 +80,9 @@
 .hp-title {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: var(--fs-base);
+  font-size: var(--type-body-size);
   font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
+  line-height: var(--type-body-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

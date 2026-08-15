@@ -1,7 +1,7 @@
-import { ICON_MD } from '@/icons/iconSize'
+import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle } from '@/icons/appIcons'
+import { AlertCircle, CalendarDays } from '@/icons/appIcons'
 import {
   buildLiveCyclePreview,
   isValidLiveCycleDayKey,
@@ -108,13 +108,22 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
           ? `风险额度与开仓门禁从 ${currentStart} 起核算；交易日志、策略与绩效统计仍保留全部历史。`
           : '未设置起点，风险核算会检查全部实盘历史。'}</p>
       </div>
-      <div className="live-cycle-settings-actions">
-        <button type="button" className="ui-btn ui-btn-primary" onClick={openPreview}>
-          {currentStart ? '调整风险核算起点' : '建立风险核算起点'}
-        </button>
-        {currentStart ? (
-          <button type="button" className="ui-btn ui-btn-bordered" onClick={() => setConfirmClear(true)}>清除风险核算起点</button>
-        ) : null}
+      <div className="live-cycle-settings-row">
+        <CalendarDays size={ICON_LG} className="live-cycle-settings-icon" />
+        <div className="live-cycle-settings-row-copy">
+          <div className="live-cycle-settings-row-title">核算起点</div>
+          <div className="live-cycle-settings-row-meta">
+            {currentStart ? `当前为 ${currentStart}` : '未设置，检查全部实盘历史'}
+          </div>
+        </div>
+        <div className="live-cycle-settings-actions">
+          <button type="button" className="ui-btn ui-btn-bordered" onClick={openPreview}>
+            {currentStart ? '调整风险核算起点' : '建立风险核算起点'}
+          </button>
+          {currentStart ? (
+            <button type="button" className="ui-btn ui-btn-bordered" onClick={() => setConfirmClear(true)}>清除风险核算起点</button>
+          ) : null}
+        </div>
       </div>
       {confirmClear ? (
         <div className="live-cycle-clear-confirm" role="status">

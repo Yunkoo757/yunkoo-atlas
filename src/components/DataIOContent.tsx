@@ -4,6 +4,7 @@ import {
   Download,
   Upload,
   AlertTriangle,
+  BookOpen,
   FileSpreadsheet,
   Package,
   Archive,
@@ -334,7 +335,7 @@ export function DataIOContent({
           <div className="dio-lib-actions">
             <button
               type="button"
-              className="dio-btn dio-btn-primary"
+              className="dio-btn"
               disabled={dataBusy}
               onClick={() => void onSwitchLibrary('open')}
             >
@@ -411,7 +412,7 @@ export function DataIOContent({
               <div className="dio-task-title">完整备份</div>
               <div className="dio-task-meta">交易、设置、快捷键与原始笔记图片 · 推荐</div>
             </div>
-            <button type="button" className="dio-btn dio-btn-primary" onClick={onExportZip}>
+            <button type="button" className="dio-btn" onClick={onExportZip}>
               <span>导出 .journal.zip</span>
             </button>
           </div>
@@ -473,7 +474,7 @@ export function DataIOContent({
             </button>
           </div>
           <div className="dio-task">
-            <FileSpreadsheet size={ICON_LG} className="dio-task-icon" />
+            <BookOpen size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">Notion</div>
               <div className="dio-task-meta">导入数据库、页面正文与截图</div>
@@ -562,25 +563,33 @@ export function DataIOContent({
         )}
       </section>
 
-      <section className="dio-group dio-group-danger">
-        <div className="dio-task">
-          <Archive size={ICON_LG} className="dio-task-icon" />
-          <div className="dio-task-copy">
-            <div className="dio-task-title">恢复完整资料库</div>
-            <div className="dio-task-meta">
-              {electron
-                ? '替换当前桌面资料库与附件，操作前请先备份'
-                : '校验浏览器完整备份后，精确替换当前数据、设置与附件'}
+      <section className="dio-group" aria-labelledby="dio-restore-title">
+        <div className="dio-group-head">
+          <h2 id="dio-restore-title" className="dio-group-title">
+            恢复完整资料库
+          </h2>
+          <p className="dio-group-desc">
+            {electron
+              ? '替换当前桌面资料库与附件，操作前请先备份。'
+              : '校验浏览器完整备份后，精确替换当前数据、设置与附件。'}
+          </p>
+        </div>
+        <div className="dio-task-list">
+          <div className="dio-task">
+            <Archive size={ICON_LG} className="dio-task-icon" />
+            <div className="dio-task-copy">
+              <div className="dio-task-title">选择归档文件</div>
+              <div className="dio-task-meta">仅导入可信的 .journal.zip</div>
             </div>
+            <button
+              type="button"
+              className="dio-btn dio-btn-warn"
+              disabled={dataBusy}
+              onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
+            >
+              <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
+            </button>
           </div>
-          <button
-            type="button"
-            className="dio-btn dio-btn-warn"
-            disabled={dataBusy}
-            onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
-          >
-            <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
-          </button>
         </div>
       </section>
 
