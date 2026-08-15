@@ -199,7 +199,7 @@ async function run(): Promise<void> {
     assert(!document.querySelector('[data-risk-preparation]'), '工作台不得渲染风险配置表单')
     assert(!document.body.textContent?.includes('修改规则'), '工作台不得提供规则编辑动作')
     assert(!document.body.textContent?.includes('确认本周规则'), '工作台不得提供每周确认动作')
-    assert(document.querySelector('.today-focus .empty-btn'), '工作台主动作不得因未复核而消失')
+    assert(document.querySelector('.today-focus .today-create-trade'), '工作台主动作不得因未复核而消失')
     assert(
       status.querySelector<HTMLAnchorElement>('a[href="/settings/risk"]')?.textContent?.trim() === '前往风险管理',
       '未复核状态必须提供唯一设置恢复动作',

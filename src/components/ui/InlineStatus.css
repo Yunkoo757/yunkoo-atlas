@@ -43,18 +43,19 @@
   min-width: 0;
   flex-direction: column;
   gap: 2px;
-  font-size: var(--type-data-size);
-  line-height: var(--type-data-line-height);
 }
 
 .ui-inline-status-title {
   color: var(--text-primary);
+  font-size: var(--type-data-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-data-line-height);
 }
 
 .ui-inline-status-detail {
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   overflow-wrap: anywhere;
 }
 

@@ -12,6 +12,7 @@ import './WeeklyReviewView.css'
 import '@/components/ui/FieldTrigger.css'
 import '@/components/ui/DatePicker.css'
 import '@/components/ui/Button.css'
+import '@/components/ui/IconButton.css'
 import '@/components/ui/Select.css'
 import '@/components/trades/TradeList.css'
 import '@/components/TagEditor.css'
@@ -104,7 +105,7 @@ async function run(): Promise<void> {
     <button class="welcome-btn" disabled>禁用欢迎操作</button>
     <button class="shortcuts-reset-all" disabled>禁用快捷键重置</button>
     <div class="dv-review-stage-actions"><button disabled>禁用复盘阶段操作</button></div>
-    <button class="wr-week-nav" disabled>禁用周复盘导航</button>
+    <button class="ui-icon-btn ui-icon-btn-md" disabled>禁用周复盘导航</button>
     <div class="sb-item"><button class="sb-workspace-capability-menu">菜单</button></div>
     <div class="shortcuts-row"><div class="shortcuts-actions"><button class="shortcuts-action">快捷键操作</button></div></div>
     <div class="trash-item"><div class="trash-item-actions"><button class="trash-btn-purge">删除</button></div></div>
@@ -165,7 +166,7 @@ async function run(): Promise<void> {
     '.welcome-btn:disabled',
     '.shortcuts-reset-all:disabled',
     '.dv-review-stage-actions > button:disabled',
-    '.wr-week-nav:disabled',
+    '.ui-icon-btn:disabled',
   ]) assertComputedTextRole(selector, '--text-disabled')
   assert(getComputedStyle(document.querySelector<HTMLElement>('.tag-chip-remove')!).opacity === '1', '标签移除操作不得常驻弱化')
   await assertFocusReveal('.dv-feed-delete', '.dv-feed-delete', '活动记录删除操作')

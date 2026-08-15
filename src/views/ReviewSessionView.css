@@ -72,7 +72,8 @@
   justify-content: center;
   gap: 9px;
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .review-session-start {
@@ -477,7 +478,8 @@ button.review-session-gallery-slot.is-ready {
   justify-content: center;
   gap: var(--sp-2);
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .review-session-note-state.is-error { color: var(--warn); }

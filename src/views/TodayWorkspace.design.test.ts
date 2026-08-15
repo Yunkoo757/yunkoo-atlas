@@ -35,6 +35,8 @@ export function testTodayQueueShowsRiskAndColumnContextBeforeRows(): void {
 export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
   const today = read('src/views/TodayWorkspace.css')
   const workspace = read('src/views/TodayWorkspace.tsx')
+  const button = read('src/components/ui/Button.css')
+  const sharedButtonRule = button.match(/\.ui-btn,\s*\n[\s\S]*?\{([\s\S]*?)\n\}/m)?.[1] ?? ''
 
   if (!workspace.includes('<RiskStatusStrip')) {
     throw new Error('today workspace must retain the compact risk status strip')
@@ -43,9 +45,10 @@ export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
   assertRuleDeclaration(today, '\\.today-queue-tabs button', 'min-height', '32px', 'today queue tabs must keep the 32px regular-control contract')
   assertRuleDeclaration(today, '\\.today-queue-tabs button', 'font-size', 'var(--type-row-size)', 'today queue tabs must use the 13px Row role')
   assertRuleDeclaration(today, '\\.today-queue-tabs button', 'line-height', 'var(--type-row-line-height)', 'today queue tabs must use the 20px Row line height')
-  assertRuleDeclaration(today, '\\.today-focus \\.empty-btn', 'min-height', '36px', 'today primary action must keep the 36px control contract')
-  assertRuleDeclaration(today, '\\.today-focus \\.empty-btn', 'font-size', 'var(--type-row-size)', 'today primary action must use the 13px Row role')
-  assertRuleDeclaration(today, '\\.today-focus \\.empty-btn', 'line-height', 'var(--type-row-line-height)', 'today primary action must use the 20px Row line height')
+  assert.ok(workspace.includes('size="lg"'), 'today primary action must consume the shared 36px control size')
+  assertRuleDeclaration(button, '\\.ui-btn-lg', 'height', 'var(--control-height-lg)', 'shared large button must keep the 36px control contract')
+  assert.ok(sharedButtonRule.includes('font-size: var(--type-row-size)'), 'shared button must use the 13px Row role')
+  assert.ok(sharedButtonRule.includes('line-height: var(--type-row-line-height)'), 'shared button must use the 20px Row line height')
   assertRuleDeclaration(today, '\\.today-stats-link', 'min-height', '32px', 'today stats link must keep the 32px actionable-control contract')
   assertRuleDeclaration(today, '\\.today-stats-link', 'font-size', 'var(--type-row-size)', 'today stats link must use the 13px Row role')
   assertRuleDeclaration(today, '\\.today-stats-link', 'line-height', 'var(--type-row-line-height)', 'today stats link must use the 20px Row line height')

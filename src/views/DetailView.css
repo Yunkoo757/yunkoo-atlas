@@ -442,7 +442,8 @@
   align-items: center;
   min-height: 42px;
   color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 .dv-note-load.is-loading {
   position: absolute;
@@ -498,6 +499,8 @@
 }
 .dv-note-load.is-error span {
   color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 .dv-note-load-actions {
   display: flex;

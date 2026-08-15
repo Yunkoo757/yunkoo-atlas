@@ -13,7 +13,8 @@
 .app-route-loading {
   gap: 10px;
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
   animation: fadeIn var(--dur-slow) var(--ease-out) both;
 }
 
@@ -60,8 +61,8 @@
   max-width: 420px;
   margin: var(--sp-2) 0 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
-  line-height: 1.6;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
 }
 
 .app-route-state-actions {
