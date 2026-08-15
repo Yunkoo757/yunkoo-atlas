@@ -158,12 +158,133 @@ const approvedShorthandFontSizeTokens = new Set([
   '--type-ui-base-size',
 ])
 
-function usesApprovedShorthandFontSize(shorthand: string): boolean {
-  for (const match of shorthand.matchAll(/(?:^|\s)var\(\s*(--[a-z0-9-]+)\s*\)(?=\s*\/|\s|$)/gi)) {
-    const token = match[1].toLowerCase()
-    if (approvedShorthandFontSizeTokens.has(token)) return true
+const approvedShorthandModifierKeywords = new Set([
+  '400',
+  '500',
+  '600',
+  'condensed',
+  'expanded',
+  'extra-condensed',
+  'extra-expanded',
+  'italic',
+  'normal',
+  'oblique',
+  'semi-condensed',
+  'semi-expanded',
+  'small-caps',
+  'ultra-condensed',
+  'ultra-expanded',
+])
+
+const approvedShorthandModifierTokens = new Set([
+  '--font-weight-bold',
+  '--font-weight-medium',
+  '--font-weight-normal',
+  '--font-weight-semibold',
+])
+
+const approvedShorthandFamilyTokens = new Set([
+  '--font-mono',
+  '--font-ui',
+  '--font-ui-base',
+])
+
+function tokenizeTopLevelFontShorthand(shorthand: string): string[] | null {
+  const tokens: string[] = []
+  let current = ''
+  let depth = 0
+  let quote: '"' | "'" | null = null
+  let escaped = false
+
+  const flush = (): void => {
+    if (current) tokens.push(current)
+    current = ''
   }
-  return false
+
+  for (const character of shorthand) {
+    if (quote) {
+      current += character
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === quote) quote = null
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      current += character
+      continue
+    }
+    if (character === '(') {
+      depth += 1
+      current += character
+      continue
+    }
+    if (character === ')') {
+      if (depth === 0) return null
+      depth -= 1
+      current += character
+      continue
+    }
+    if (depth === 0 && /\s/.test(character)) {
+      flush()
+      continue
+    }
+    if (depth === 0 && character === '/') {
+      flush()
+      tokens.push('/')
+      continue
+    }
+    current += character
+  }
+
+  if (quote || depth !== 0) return null
+  flush()
+  return tokens
+}
+
+function customPropertyTokenName(token: string): string | null {
+  return /^var\(\s*(--[a-z0-9-]+)\s*\)$/i.exec(token)?.[1].toLowerCase() ?? null
+}
+
+function isApprovedShorthandFontSize(token: string): boolean {
+  const property = customPropertyTokenName(token)
+  return property !== null && approvedShorthandFontSizeTokens.has(property)
+}
+
+function isApprovedShorthandModifier(token: string): boolean {
+  const property = customPropertyTokenName(token)
+  return approvedShorthandModifierKeywords.has(token.toLowerCase()) || (
+    property !== null && approvedShorthandModifierTokens.has(property)
+  )
+}
+
+function isPlausibleShorthandFamilyStart(token: string): boolean {
+  const property = customPropertyTokenName(token)
+  if (property !== null) return approvedShorthandFamilyTokens.has(property)
+  if (/^(["']).*\1,?$/.test(token)) return true
+  return /^-?[a-z_][a-z0-9_-]*,?$/i.test(token) && !/^(?:inherit|initial|revert|revert-layer|unset)$/i.test(token)
+}
+
+function usesApprovedShorthandFontSize(shorthand: string): boolean {
+  const tokens = tokenizeTopLevelFontShorthand(shorthand)
+  if (!tokens || tokens.length === 0) return false
+
+  const slashIndexes = tokens.flatMap((token, index) => token === '/' ? [index] : [])
+  const sizeIndexes = tokens.flatMap((token, index) => isApprovedShorthandFontSize(token) ? [index] : [])
+  if (slashIndexes.length > 1 || sizeIndexes.length !== 1) return false
+
+  const slashIndex = slashIndexes[0]
+  const sizeIndex = sizeIndexes[0]
+  if (slashIndex !== undefined) {
+    if (sizeIndex !== slashIndex - 1) return false
+    if (!tokens.slice(0, sizeIndex).every(isApprovedShorthandModifier)) return false
+    const familyStart = tokens[slashIndex + 2]
+    return familyStart !== undefined && isPlausibleShorthandFamilyStart(familyStart)
+  }
+
+  if (!tokens.slice(0, sizeIndex).every(isApprovedShorthandModifier)) return false
+  const familyStart = tokens[sizeIndex + 1]
+  return familyStart !== undefined && isPlausibleShorthandFamilyStart(familyStart)
 }
 
 function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFontSizeDeclaration[] {
@@ -218,6 +339,16 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.bad { font: 500 large/28px var(--font-ui); }',
     '.bad { font: 500 0/28px var(--font-ui); }',
     '.bad { font: 500 var(--type-rogue-size) var(--font-ui); }',
+    '.bad { font: 500 22px / var(--type-row-size) var(--font-ui); }',
+    '.bad { font: var(--font-weight-semibold) 22px var(--type-row-size) var(--font-ui); }',
+    '.bad { font: var(--type-row-size) 22px var(--font-ui); }',
+    '.bad { font: var(--font-weight-semibold) var(--type-row-size) var(--type-caption-size); }',
+    '.bad { font: 500 calc(22px + var(--type-row-size)) var(--font-ui); }',
+    '.bad { font: fantasy-modifier var(--type-row-size) var(--font-ui); }',
+    '.bad { font: 700 var(--type-row-size) var(--font-ui); }',
+    '.bad { font: var(--type-row-size); }',
+    '.bad { font: var(--type-row-size)/1.2; }',
+    '.bad { font: inherit var(--type-row-size) var(--font-ui); }',
   ]) {
     assert.throws(
       () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
@@ -230,7 +361,12 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
   for (const css of [
     '.ok { font: 500 var(--type-row-size)/var(--type-row-line-height) var(--font-ui); }',
     '.ok { font: var(--font-weight-semibold) var(--fs-mini) var(--font-ui); }',
+    '.ok { font: italic small-caps var(--font-weight-semibold) condensed var(--type-row-size) var(--font-ui); }',
+    '.ok { font: 500 var(--type-row-size) / calc(var(--type-row-line-height) / 1) var(--font-ui); }',
     '.ok { font: inherit; }',
+    '.ok { font: initial; }',
+    '.ok { font: unset; }',
+    '.ok { font: revert; }',
     '.ok { font: revert-layer; }',
   ]) assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], []))
 }
