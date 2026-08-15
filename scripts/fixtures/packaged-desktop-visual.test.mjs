@@ -73,6 +73,23 @@ function createValidPackagedReport({ githubSha = null } = {}) {
   }
 }
 
+function assertQaUsesCollectedBuildIdentity(qaSource) {
+  const collection = 'identityEvidence = await collectPackagedBuildIdentity(page, repositoryHead, githubSha)'
+  assert.equal(
+    qaSource.split(collection).length - 1,
+    1,
+    'QA must collect packaged build identity exactly once through the shared entry point',
+  )
+  const reportAssembly = qaSource.slice(qaSource.indexOf('const report = {'))
+  assert.match(
+    reportAssembly,
+    /\.\.\.identityEvidence,/,
+    'report must consume the collected renderer identity evidence',
+  )
+  assert.doesNotMatch(qaSource, /\b(?:const|let)\s+source\s*=/)
+  assert.doesNotMatch(qaSource, /source\s*:\s*\{[^}]*commit\s*:\s*git\(/s)
+}
+
 function createTypographyInput() {
   const fontFamily = '"Inter Variable", Inter, system-ui, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif'
   return {
@@ -442,7 +459,29 @@ test('packaged typography diagnostics are captured in the same trade capture', (
   assert.ok(typographyProbe < diagnosticSnapshot, 'probe errors must be snapshotted in the trade capture')
 })
 
-test('packaged identity source is compiled into the renderer and read from the running app', () => {
+test('packaged identity collector returns renderer source independently from repository HEAD', async () => {
+  const commitA = 'a'.repeat(40)
+  const commitB = 'b'.repeat(40)
+  assert.equal(typeof packagedVisualContract.collectPackagedBuildIdentity, 'function')
+
+  const evidence = await packagedVisualContract.collectPackagedBuildIdentity(
+    { evaluate: async () => ({ commit: commitA, dirty: false }) },
+    commitB,
+    null,
+  )
+
+  assert.deepEqual(evidence, {
+    source: { commit: commitA, dirty: false },
+    repository: { head: commitB },
+    ci: { githubSha: null },
+  })
+  assert.throws(
+    () => packagedVisualContract.validatePackagedIdentityEvidence(evidence),
+    /embedded commit.*repository HEAD/i,
+  )
+})
+
+test('packaged identity source is compiled into the renderer and report consumes its collector', () => {
   const viteConfig = readFileSync('vite.config.ts', 'utf8')
   const rendererEntry = readFileSync('src/main.tsx', 'utf8')
   const qaSource = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
@@ -459,13 +498,16 @@ test('packaged identity source is compiled into the renderer and read from the r
   )
   assert.match(rendererEntry, /Object\.defineProperty\(window,\s*'__ATLAS_BUILD_IDENTITY__'/)
   assert.match(rendererEntry, /__ATLAS_BUILD_IDENTITY__/)
-  assert.match(qaSource, /page\.evaluate\(\(\)\s*=>\s*window\.__ATLAS_BUILD_IDENTITY__\)/)
+  assertQaUsesCollectedBuildIdentity(qaSource)
 
-  const rendererRead = qaSource.indexOf(
-    'page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__)',
+  const mutant = qaSource.replace(
+    '...identityEvidence,',
+    "source: { commit: git(['rev-parse', 'HEAD']), dirty: false },",
   )
-  const reportAssembly = qaSource.indexOf('const report = {')
-  assert.ok(rendererRead >= 0 && rendererRead < reportAssembly)
+  assert.throws(
+    () => assertQaUsesCollectedBuildIdentity(mutant),
+    /report must consume the collected renderer identity evidence/,
+  )
 })
 
 test('Windows window restoration allows only the native resize-frame overhang', () => {
@@ -801,4 +843,21 @@ test('macOS packaged workflow uploads both scale-200 artifacts and fails closed 
     /^\s{10}path:\s*test-results\/desktop-visual-packaged\/win32-x64-scale-\*\/\s*$/m,
   )
   assert.match(windowsUpload, /^\s{10}if-no-files-found:\s*warn\s*$/m)
+})
+
+test('packaged Electron evidence workflows rerun when the Vite identity injection changes', () => {
+  for (const workflowPath of [
+    '.github/workflows/desktop-visual-evidence.yml',
+    '.github/workflows/forced-kill-evidence.yml',
+  ]) {
+    const workflow = readFileSync(workflowPath, 'utf8')
+    const pullRequestPaths = workflow.match(
+      /^\s{2}pull_request:\r?\n([\s\S]*?)(?=^\s{2}[a-z_]+:|^permissions:)/m,
+    )?.[0] ?? ''
+    assert.match(
+      pullRequestPaths,
+      /^\s{6}- 'vite\.config\.ts'\s*$/m,
+      `${workflowPath} must include the build identity injection source`,
+    )
+  }
 })

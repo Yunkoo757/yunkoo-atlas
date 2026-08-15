@@ -17,6 +17,7 @@ import {
   assertSafePackagedEvidencePaths,
   assertSafePackagedVisualOutputPath,
   buildTypographyCheckResult,
+  collectPackagedBuildIdentity,
   isWindowRestorationVisible,
   normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
@@ -260,9 +261,9 @@ let scaleEvidence = null
 let typography = null
 const captures = []
 const checks = []
-let source = null
-const repository = { head: git(['rev-parse', 'HEAD']) }
-const ci = { githubSha: process.env.GITHUB_SHA ?? null }
+let identityEvidence = null
+const repositoryHead = git(['rev-parse', 'HEAD'])
+const githubSha = process.env.GITHUB_SHA ?? null
 
 function record(id, pass, detail) {
   checks.push({ id, pass, detail })
@@ -286,8 +287,8 @@ try {
   })
   page = await application.firstWindow({ timeout: 30_000 })
   await page.waitForLoadState('domcontentloaded')
-  source = await page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__)
-  validatePackagedIdentityEvidence({ source, repository, ci })
+  identityEvidence = await collectPackagedBuildIdentity(page, repositoryHead, githubSha)
+  validatePackagedIdentityEvidence(identityEvidence)
   let diagnostics = bindDiagnostics(page)
 
   const runtime = await application.evaluate(({ app, BrowserWindow, Menu, screen }) => {
@@ -514,9 +515,7 @@ const report = {
   runtime: 'packaged-electron',
   platform: hostPlatform,
   architecture: hostArch,
-  source,
-  repository,
-  ci,
+  ...identityEvidence,
   machine: {
     platform: hostPlatform,
     release: release(),

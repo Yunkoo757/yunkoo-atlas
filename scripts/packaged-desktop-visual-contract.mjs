@@ -313,6 +313,18 @@ export function assertSafePackagedEvidencePaths({
 
 const SOURCE_COMMIT_PATTERN = /^[0-9a-f]{40}$/
 
+export async function collectPackagedBuildIdentity(page, repositoryHead, githubSha) {
+  if (!page || typeof page.evaluate !== 'function') {
+    throw new Error('Packaged visual identity collection requires a running renderer page')
+  }
+  const source = await page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__)
+  return {
+    source,
+    repository: { head: repositoryHead },
+    ci: { githubSha },
+  }
+}
+
 export function validatePackagedIdentityEvidence({ source, repository, ci }) {
   if (!source || typeof source !== 'object' ||
       !SOURCE_COMMIT_PATTERN.test(source.commit ?? '') ||

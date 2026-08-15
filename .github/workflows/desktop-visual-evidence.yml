@@ -8,6 +8,7 @@ on:
     paths:
       - 'electron/**'
       - 'src/**'
+      - 'vite.config.ts'
       - 'scripts/desktop-visual-scenarios.mjs'
       - 'scripts/packaged-desktop-visual-contract.mjs'
       - 'scripts/qa-desktop-visual.mjs'

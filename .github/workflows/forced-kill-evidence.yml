@@ -6,6 +6,7 @@ on:
     paths:
       - 'electron/main.ts'
       - 'electron/forcedKillQa.ts'
+      - 'vite.config.ts'
       - 'electron/library/storage.ts'
       - 'electron/library/atomicFile.ts'
       - 'electron/library/atomicFile.test.ts'
