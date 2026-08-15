@@ -447,12 +447,14 @@ export function ListView({
         <ModalShell
           title="确认安全复制"
           description={`将为已选 ${copyCandidates.length} 条记录创建独立副本；源记录不会改变。`}
+          size="compact"
+          panelClassName="copy-confirm-modal"
           onClose={() => setCopyCandidateIds(null)}
           footer={(
             <>
               <button
                 type="button"
-                className="dio-btn"
+                className="ui-btn ui-btn-bordered"
                 data-autofocus
                 onClick={() => setCopyCandidateIds(null)}
               >
@@ -460,7 +462,7 @@ export function ListView({
               </button>
               <button
                 type="button"
-                className="dio-btn dio-btn-primary"
+                className="ui-btn ui-btn-primary"
                 disabled={copyCandidates.length !== copyCandidateIds.length}
                 onClick={confirmBatchCopy}
               >
