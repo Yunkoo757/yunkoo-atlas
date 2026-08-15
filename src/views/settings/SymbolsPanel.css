@@ -84,7 +84,7 @@
   place-items: center;
   flex: 0 0 26px;
   align-self: stretch;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   cursor: grab;
   border-radius: var(--radius-6);
 }

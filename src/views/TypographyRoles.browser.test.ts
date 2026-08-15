@@ -87,15 +87,19 @@ async function run(): Promise<void> {
     </section>
     <div class="dv-feed-item-deletable"><button class="dv-feed-delete">删除</button></div>
     <button class="tag-chip-remove">删除标签</button>
-    <div class="nim-import-target-options"><button>交易日志</button></div>
+    <div class="nim-import-target-options"><button><strong>交易日志</strong><span>计入实盘统计</span></button></div>
     <div class="editor-review-tools"><button>插入起稿</button></div>
     <button class="settings-tag-chip-remove">删除预设标签</button>
     <button class="review-template-delete">删除起稿</button>
+    <button class="review-template-select"><svg aria-hidden="true"></svg><span>选择起稿模板</span></button>
+    <button class="review-template-drag-handle">拖拽起稿模板</button>
+    <button class="symbols-drag-handle">拖拽品种</button>
     <input disabled value="禁用输入" />
     <button class="ui-select-option" disabled>禁用选项</button>
     <button class="empty-btn" disabled>禁用按钮</button>
     <button class="review-template-drag-handle" disabled>禁用起稿拖拽</button>
     <button class="symbols-drag-handle" disabled>禁用品种拖拽</button>
+    <button class="dv-comment-send" disabled>禁用发送</button>
     <div class="sb-item"><button class="sb-workspace-capability-menu">菜单</button></div>
     <div class="shortcuts-row"><div class="shortcuts-actions"><button class="shortcuts-action">快捷键操作</button></div></div>
     <div class="trash-item"><div class="trash-item-actions"><button class="trash-btn-purge">删除</button></div></div>
@@ -137,9 +141,13 @@ async function run(): Promise<void> {
   for (const selector of [
     '.tag-chip-remove',
     '.nim-import-target-options button',
+    '.nim-import-target-options span',
     '.editor-review-tools button',
     '.settings-tag-chip-remove',
     '.review-template-delete',
+    '.review-template-select svg',
+    '.review-template-drag-handle',
+    '.symbols-drag-handle',
   ]) assertComputedTextRole(selector, '--text-tertiary')
   for (const selector of [
     'input:disabled',
@@ -147,6 +155,7 @@ async function run(): Promise<void> {
     '.empty-btn:disabled',
     '.review-template-drag-handle:disabled',
     '.symbols-drag-handle:disabled',
+    '.dv-comment-send:disabled',
   ]) assertComputedTextRole(selector, '--text-disabled')
   assert(getComputedStyle(document.querySelector<HTMLElement>('.tag-chip-remove')!).opacity === '1', '标签移除操作不得常驻弱化')
   await assertFocusReveal('.dv-feed-delete', '.dv-feed-delete', '活动记录删除操作')

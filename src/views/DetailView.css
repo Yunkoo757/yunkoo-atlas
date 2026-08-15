@@ -759,7 +759,7 @@
     opacity var(--dur-fast) var(--ease-out);
 }
 .dv-comment-send:disabled {
-  color: var(--text-faint);
+  color: var(--text-disabled);
   background: transparent;
   cursor: default;
 }

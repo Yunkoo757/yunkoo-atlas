@@ -203,7 +203,7 @@
 
 .nim-import-target-options span {
   overflow: hidden;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
   text-overflow: ellipsis;

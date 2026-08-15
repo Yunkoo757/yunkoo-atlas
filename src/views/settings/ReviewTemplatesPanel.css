@@ -113,7 +113,7 @@
 
 .review-template-select svg {
   flex: 0 0 auto;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 
 .review-template-list-item:hover {
@@ -140,7 +140,7 @@
   place-items: center;
   flex: 0 0 26px;
   align-self: stretch;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   cursor: grab;
   border-radius: var(--radius-6);
 }

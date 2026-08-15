@@ -1,4 +1,6 @@
 import postcss, { type Root, type Rule } from 'postcss'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
 type CssSheet = { path: string; root: Root }
 
@@ -11,7 +13,6 @@ function normalizeSelector(selector: string): string {
 }
 
 async function readCss(path: string): Promise<CssSheet> {
-  const fs = await import('node:fs/promises')
   return { path, root: postcss.parse(await fs.readFile(path, 'utf8'), { from: path }) }
 }
 
@@ -58,6 +59,48 @@ function assertContextReveal(sheet: CssSheet, hiddenSelector: string, revealSele
   assert(findRules(sheet, revealSelector).some((rule) => declaration(rule, 'opacity') === '1'), `${label} 必须具备 hover 或键盘焦点显现路径`)
 }
 
+type InventoryEntry = { path: string; selector: string; property: 'color' | 'fill' | 'stroke'; role: 'decoration' | 'edge metadata' }
+
+function allow(path: string, role: InventoryEntry['role'], property: InventoryEntry['property'], selectors: string[]): InventoryEntry[] {
+  return selectors.map((selector) => ({ path, selector: normalizeSelector(selector), property, role }))
+}
+
+function inventoryKey(entry: Pick<InventoryEntry, 'path' | 'selector' | 'property'>): string {
+  return `${entry.path}::${entry.selector}::${entry.property}`
+}
+
+async function walkCssFiles(directory: string): Promise<string[]> {
+  const entries = await fs.readdir(directory, { withFileTypes: true })
+  const files: string[] = []
+  for (const entry of entries) {
+    const candidate = path.join(directory, entry.name)
+    if (entry.isDirectory()) files.push(...await walkCssFiles(candidate))
+    else if (entry.name.endsWith('.css')) files.push(candidate)
+  }
+  return files
+}
+
+function quaternaryInventory(sheets: CssSheet[]): InventoryEntry[] {
+  const entries: InventoryEntry[] = []
+  for (const sheet of sheets) {
+    sheet.root.walkRules((rule) => {
+      rule.walkDecls((decl) => {
+        if ((decl.prop === 'color' || decl.prop === 'fill' || decl.prop === 'stroke') && decl.value.trim() === 'var(--text-quaternary)') {
+          entries.push({ path: sheet.path.replace(/\\/g, '/'), selector: normalizeSelector(rule.selector), property: decl.prop, role: 'edge metadata' })
+        }
+      })
+    })
+  }
+  return entries
+}
+
+function assertExactQuaternaryInventory(sheets: CssSheet[], allowlist: InventoryEntry[]): void {
+  for (const item of allowlist) assert(item.role === 'decoration' || item.role === 'edge metadata', `${item.selector} 必须声明四级文字的非交互角色`)
+  const actual = quaternaryInventory(sheets).map(inventoryKey).sort()
+  const expected = allowlist.map(inventoryKey).sort()
+  assert(actual.join('\n') === expected.join('\n'), `四级文字声明清单不封闭：\n实际 ${actual.join('\n')}\n允许 ${expected.join('\n')}`)
+}
+
 export async function testMutedTextAndGroupChevronsRemainReadable(): Promise<void> {
   const tokens = await readCss('src/styles/tokens.css')
   for (const [property, value] of [
@@ -82,6 +125,10 @@ export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): 
   for (const [sheet, selector, color, label] of [
     [weeklyReview, '.wr-score-row button', 'var(--text-secondary)', '周复盘评分交互文字'], [detail, '.dv-comment-input', 'var(--text-body)', '评论输入正文'], [fieldTrigger, '.ui-field-trigger', 'var(--text-secondary)', '字段触发器文字'], [tradeList, '.trade-row', 'var(--list-text-secondary)', '交易行辅助信息'], [tradeList, '.trade-list-group-header', 'var(--list-group-title)', '交易分组标题'], [datePicker, '.ui-date-grid button.is-outside', 'var(--text-tertiary)', '可点击的跨月日期'], [tradeFilters, '.trade-filter-head-actions button', 'var(--text-tertiary)', '筛选面板头部操作'], [quickViewBar, '.quick-view-icon', 'var(--text-tertiary)', '快捷视图图标操作'], [tagEditor, '.tag-chip-remove', 'var(--text-tertiary)', '标签移除操作'], [shortcuts, '.shortcuts-action', 'var(--text-tertiary)', '快捷键行操作'], [sidebarWorkspace, '.sb-workspace-overflow-manage', 'var(--text-tertiary)', '工作区管理操作'], [sidebarWorkspace, '.sb-editor-item button, .sb-editor-defaults button', 'var(--text-tertiary)', '工作区编辑操作'], [sidebar, '.sb-workspace-capability-menu', 'var(--text-tertiary)', '侧栏能力菜单操作'], [detail, '.dv-activity-toggle', 'var(--text-tertiary)', '活动记录展开操作'], [trash, '.trash-btn-purge', 'var(--text-tertiary)', '回收站彻底删除操作'], [notionImport, '.nim-import-target-options button', 'var(--text-tertiary)', 'Notion 导入目标单选操作'], [editor, '.editor-review-tools button', 'var(--text-tertiary)', '编辑器起稿操作'], [tagPresets, '.settings-tag-chip-remove', 'var(--text-tertiary)', '设置标签删除操作'], [reviewTemplates, '.review-template-delete', 'var(--text-tertiary)', '起稿模板删除操作'],
   ] as const) assertInteractiveColor(sheet, selector, color, label, selector === '.sb-workspace-capability-menu')
+  assertInteractiveColor(notionImport, '.nim-import-target-options span', 'var(--text-tertiary)', 'Notion 导入目标说明')
+  assertInteractiveColor(reviewTemplates, '.review-template-select svg', 'var(--text-tertiary)', '起稿模板选择图标')
+  assertInteractiveColor(reviewTemplates, '.review-template-drag-handle', 'var(--text-tertiary)', '起稿模板拖拽操作')
+  assertInteractiveColor(symbols, '.symbols-drag-handle', 'var(--text-tertiary)', '品种拖拽操作')
   assertInteractiveColor(detail, '.dv-feed-delete', 'var(--text-tertiary)', '活动记录删除操作', true)
 
   for (const [sheet, selector, label] of [
@@ -100,6 +147,68 @@ export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): 
   const datePickerSource = await fs.readFile('src/components/ui/DatePicker.tsx', 'utf8')
   assert(datePickerSource.includes('onClick={() => selectDate(day.value)}'), '跨月日期必须保留选日交互')
   assert(!datePickerSource.includes('disabled={!day.currentMonth}'), '跨月日期不是禁用日期，不得使用禁用文字 token')
+}
+
+export async function testQuaternaryDeclarationInventoryIsClosedAndDisabledNeverUsesIt(): Promise<void> {
+  const sheets = await Promise.all((await walkCssFiles('src')).map(readCss))
+  const allowlist: InventoryEntry[] = [
+    ...allow('src/components/ContextMenu.css', 'edge metadata', 'color', ['.ctx-item-hint']),
+    ...allow('src/components/CsvImportModal.css', 'edge metadata', 'color', ['.csv-drop-hint', '.csv-upload-tip', '.csv-map-table th', '.csv-map-sample', '.csv-preview-table th']),
+    ...allow('src/components/DisplayMenu.css', 'edge metadata', 'color', ['.display-label']),
+    ...allow('src/components/EmptyState.css', 'decoration', 'stroke', ['.empty-art path']),
+    ...allow('src/components/EmptyState.css', 'decoration', 'fill', ['.empty-art rect']),
+    ...allow('src/components/NotionImportModal.css', 'edge metadata', 'color', ['.nim-drop-hint', '.nim-upload-tip', '.nim-import-target-label', '.nim-preview-table th', '.nim-tag-more']),
+    ...allow('src/components/RouteState.css', 'edge metadata', 'color', ['.app-route-error-detail']),
+    ...allow('src/components/RowPreviews.css', 'edge metadata', 'color', ['.rp-meta-label']),
+    ...allow('src/components/sidebar/SidebarWorkspace.css', 'edge metadata', 'color', ['.sb-editor-group-header span', '.sb-editor-empty', '.sb-target-row-state', '.sb-target-row-state.is-idle']),
+    ...allow('src/components/Sidebar.css', 'decoration', 'color', ['.sb-ws-chevron']),
+    ...allow('src/components/StrategyHeader.css', 'edge metadata', 'color', ['.sh-stat-label']),
+    ...allow('src/components/TradeOpenRiskDialog.css', 'edge metadata', 'color', ['.trade-open-risk-periods em', '.trade-open-risk-reason small']),
+    ...allow('src/components/trades/QuickViewBar.css', 'edge metadata', 'color', ['.quick-view-group h3, .quick-view-manage h3', '.quick-view-save-actions span']),
+    ...allow('src/components/trades/TradeList.css', 'edge metadata', 'color', ['.trade-row-tag, .trade-row-more, .trade-row-session, .trade-row-timeframe', '.trade-row-more']),
+    ...allow('src/components/ui/CrumbsNav.css', 'decoration', 'color', ['.crumbs-sep']),
+    ...allow('src/components/ui/DatePicker.css', 'edge metadata', 'color', ['.ui-date-weekdays']),
+    ...allow('src/components/ui/FilterBar.css', 'edge metadata', 'color', ['.ui-filter-empty']),
+    ...allow('src/components/ui/Toolbar.css', 'decoration', 'color', ['.ui-toolbar-sep']),
+    ...allow('src/components/WeeklyRiskPreparationCard.css', 'edge metadata', 'color', ['.risk-preparation-inline-input small', '.risk-preparation-month-lock']),
+    ...allow('src/components/WelcomeScreen.css', 'edge metadata', 'color', ['.welcome-hint']),
+    ...allow('src/editor/Editor.css', 'edge metadata', 'color', ['.editor [data-review-context]::before', '.editor .ProseMirror p.is-editor-empty:first-child::before']),
+    ...allow('src/views/Dashboard.css', 'edge metadata', 'color', ['.db-chart-tip-hint']),
+    ...allow('src/views/DetailView.css', 'edge metadata', 'color', ['.dv-crumb-sep', '.dv-detail-position > span', '.dv-summary-label', '.dv-comments-title', '.dv-section-chev', '.dv-prop-empty']),
+    ...allow('src/views/DetailView.css', 'decoration', 'color', ['.dv-empty-card > svg']),
+    ...allow('src/views/ReviewSessionView.css', 'edge metadata', 'color', ['.review-session-card-ref']),
+    ...allow('src/views/settings/ReviewTemplatesPanel.css', 'edge metadata', 'color', ['.review-template-content-label span']),
+    ...allow('src/views/settings/RiskManagementSettingsPanel.css', 'edge metadata', 'color', ['.risk-data-issue-note']),
+    ...allow('src/views/ShortcutsView.css', 'decoration', 'color', ['.shortcuts-capture.is-fixed > svg', '.shortcuts-sequence-arrow']),
+    ...allow('src/views/ShortcutsView.css', 'edge metadata', 'color', ['.shortcuts-unassigned']),
+    ...allow('src/views/TodayWorkspace.css', 'edge metadata', 'color', ['.today-queue-tabs strong']),
+    ...allow('src/views/TrashView.css', 'edge metadata', 'color', ['.trash-search', '.trash-search-input::placeholder', '.trash-search-count', '.trash-group-count']),
+    ...allow('src/views/WeeklyReviewView.css', 'edge metadata', 'color', ['.wr-history-title', '.wr-history button small', '.wr-section-head small', '.wr-metric small', '.wr-missed-summary > div > span', '.wr-missed-summary small', '.wr-missed-summary b', '.wr-evidence-tags small', '.wr-evidence-tags b', '.wr-evidence-group-title small', '.wr-footer-action span', '.wr-chart-loading-label', '.wr-trend-start span']),
+  ]
+  assertExactQuaternaryInventory(sheets, allowlist)
+
+  for (const sheet of sheets) {
+    sheet.root.walkRules((rule) => {
+      const selector = rule.selector.replace(/:not\(:disabled\)/g, '')
+      if (!selector.includes(':disabled') && !selector.includes('[aria-disabled')) return
+      const color = declaration(rule, 'color')
+      assert(color !== 'var(--text-quaternary)', `${sheet.path} ${rule.selector} 的禁用态不得使用四级文字`)
+      assert(color === undefined || color === 'var(--text-disabled)', `${sheet.path} ${rule.selector} 的显式禁用色必须使用 disabled token`)
+    })
+  }
+}
+
+export async function testPostCssInventoryRejectsUnlistedInteractiveMutations(): Promise<void> {
+  const illegalSelectors = ['button', 'button span', 'button svg', '.drag-handle']
+  for (const selector of illegalSelectors) {
+    const sheet: CssSheet = { path: 'fixture.css', root: postcss.parse(`${selector} { color: var(--text-quaternary); }`) }
+    let rejected = false
+    try { assertExactQuaternaryInventory([sheet], []) } catch { rejected = true }
+    assert(rejected, `${selector} 的未列入交互四级文字变异必须失败`)
+  }
+
+  const commentOnly: CssSheet = { path: 'fixture.css', root: postcss.parse('/* button { color: var(--text-quaternary); } */ .edge { color: var(--text-quaternary); }') }
+  assertExactQuaternaryInventory([commentOnly], allow('fixture.css', 'edge metadata', 'color', ['.edge']))
 }
 
 export async function testEditorPlaceholderDoesNotUndoTheReadableTextToken(): Promise<void> {
