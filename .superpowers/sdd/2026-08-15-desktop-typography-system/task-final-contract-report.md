@@ -102,6 +102,43 @@ UTF-8 fatal decode + BOM check
 exit 0; scoped files UTF-8 without BOM
 ```
 
+## Fix Round 4/5：declaration priority
+
+- 父提交：`28ea0405c9e230e5a7c989d633448fef478a7fd0`
+- 范围：仅 `src/lib/typographySystem.design.test.ts` 与本报告。
+
+### RED
+
+先加入合法 priority 正向 fixtures：canonical longhand、mixed-case CSS-wide、Editor `.85em ! important`、global shorthand 与 canonical shorthand；并加入重复、错位、未知 priority、priority 后垃圾及 token-smuggling 负向 fixtures。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 1
+font-size: VAR(--type-row-size) !important: Got unwanted exception.
+```
+
+### GREEN
+
+- 声明提取后先用独立 helper 校验 priority；只移除末尾唯一合法、大小写不敏感的 `! important`，其中只接受 CSS whitespace。
+- 重复 `!important`、`!important 22px`、`!urgent`、priority 后尾随垃圾或空 value 都返回无效，不能进入 size helper。
+- value/priority 边界只裁剪 CSS whitespace，不使用宽泛 `trim()`；顶层 `!` 扫描尊重括号与引号。
+- `font-size` 与 `font` 的纯 value 再交给原有 exact helper；token-smuggling 不因 priority 获得授权。
+- `.85em` 作为 `0.85em` 的 CSS 等价字面值，仅增加相同 Editor path+selector approval。
+
+```text
+node scripts/run-regression-tests.mjs --unit-only src/lib/typographySystem.design.test.ts
+exit 0; 11 tests PASS
+
+pnpm typecheck
+exit 0
+
+git diff --check + exact scope check
+exit 0
+
+UTF-8 fatal decode + BOM check
+exit 0; scoped files UTF-8 without BOM
+```
+
 ## Fix Round 3/5：font-size longhand fail-closed
 
 - 父提交：`c777e4a101d17892d138dadd42cb0c6349fc6894`

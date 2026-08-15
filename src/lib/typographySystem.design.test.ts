@@ -134,6 +134,12 @@ const approvedLiteralFontSizes: LiteralFontSizeApproval[] = [
     value: '0.85em',
     reason: '内联代码需相对正文缩小，且不属于应用 UI 文字角色。',
   },
+  {
+    path: 'src/editor/Editor.css',
+    selector: '.editor code',
+    value: '.85em',
+    reason: '内联代码 0.85em 的等价 CSS 数值写法，仍严格限定在相同 path 与 selector。',
+  },
 ]
 
 const approvedShorthandFontSizeTokens = new Set([
@@ -306,6 +312,56 @@ function usesApprovedShorthandFontSize(shorthand: string): boolean {
   return familyStart !== undefined && isPlausibleShorthandFamilyStart(familyStart)
 }
 
+type ParsedDeclarationPriority = {
+  value: string
+  important: boolean
+}
+
+function trimCssWhitespace(value: string): string {
+  return value.replace(/^[ \t\r\n\f]+|[ \t\r\n\f]+$/g, '')
+}
+
+function parseDeclarationPriority(rawValue: string): ParsedDeclarationPriority | null {
+  const value = trimCssWhitespace(rawValue)
+  const exclamationIndexes: number[] = []
+  let depth = 0
+  let quote: '"' | "'" | null = null
+  let escaped = false
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (quote) {
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === quote) quote = null
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      continue
+    }
+    if (character === '(') {
+      depth += 1
+      continue
+    }
+    if (character === ')') {
+      if (depth === 0) return null
+      depth -= 1
+      continue
+    }
+    if (depth === 0 && character === '!') exclamationIndexes.push(index)
+  }
+
+  if (quote || depth !== 0 || value.length === 0) return null
+  if (exclamationIndexes.length === 0) return { value, important: false }
+  if (exclamationIndexes.length !== 1) return null
+
+  const priorityIndex = exclamationIndexes[0]
+  if (!/^![ \t\r\n\f]*important$/i.test(value.slice(priorityIndex))) return null
+  const declarationValue = value.slice(0, priorityIndex).replace(/[ \t\r\n\f]+$/, '')
+  return declarationValue ? { value: declarationValue, important: true } : null
+}
+
 function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFontSizeDeclaration[] {
   const declarations: LiteralFontSizeDeclaration[] = []
   for (const { path, css } of sources) {
@@ -313,11 +369,21 @@ function findLiteralFontSizeDeclarations(sources: ProductCssSource[]): LiteralFo
     for (const rule of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const selector = rule[1].trim()
       for (const declaration of rule[2].matchAll(/(?:^|;)\s*font-size\s*:\s*([^;{}]+)(?=;|$)/gi)) {
-        const value = declaration[1].trim()
+        const parsed = parseDeclarationPriority(declaration[1])
+        if (!parsed) {
+          declarations.push({ path, selector, property: 'font-size', value: trimCssWhitespace(declaration[1]) })
+          continue
+        }
+        const value = parsed.value
         if (!isApprovedLonghandFontSize(value)) declarations.push({ path, selector, property: 'font-size', value })
       }
       for (const declaration of rule[2].matchAll(/(?:^|;)\s*font\s*:\s*([^;{}]+)(?=;|$)/gi)) {
-        const shorthand = declaration[1].trim()
+        const parsed = parseDeclarationPriority(declaration[1])
+        if (!parsed) {
+          declarations.push({ path, selector, property: 'font', value: trimCssWhitespace(declaration[1]) })
+          continue
+        }
+        const shorthand = parsed.value
         if (/^(?:inherit|initial|unset|revert|revert-layer)$/i.test(shorthand)) continue
         if (!usesApprovedShorthandFontSize(shorthand)) {
           declarations.push({ path, selector, property: 'font', value: shorthand })
@@ -355,6 +421,11 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.bad { font-size: VAR(--type-rogue-size); }',
     ':root { --TYPE-ROW-SIZE: 22px; } .bad { font-size: var(--TYPE-ROW-SIZE); }',
     '.bad { font-size: revert 12px; }',
+    '.bad { font-size: inherit 22px !important; }',
+    '.bad { font-size: !important 22px; }',
+    '.bad { font-size: VAR(--type-row-size) !important !important; }',
+    '.bad { font-size: VAR(--type-row-size) !urgent; }',
+    '.bad { font-size: VAR(--type-row-size) !important garbage; }',
   ]) {
     assert.throws(
       () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
@@ -368,10 +439,16 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.ok { font-size: UnSeT; }',
     '.ok { font-size: ReVeRt; }',
     '.ok { font-size: ReVeRt-LaYeR; }',
+    '.ok { font-size: VAR(--type-row-size) !important; color: red; }',
+    '.ok { font-size: InHeRiT !IMPORTANT; }',
   ]) assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], []))
   assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{
     path: 'src/editor/Editor.css',
     css: '.editor code { font-size: 0.85em; }',
+  }], approvedLiteralFontSizes))
+  assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{
+    path: 'src/editor/Editor.css',
+    css: '.editor code { font-size:.85em ! important; }',
   }], approvedLiteralFontSizes))
   assert.throws(
     () => assertApprovedLiteralFontSizes([{
@@ -402,6 +479,10 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     ':root { --Type-Row-Size: 22px; } .bad { font: 500 var(--Type-Row-Size) var(--font-ui); }',
     '.bad { font: var(--FONT-WEIGHT-SEMIBOLD) var(--type-row-size) var(--font-ui); }',
     '.bad { font: var(--font-weight-semibold) var(--type-row-size) var(--FONT-UI); }',
+    '.bad { font: 500 22px / var(--type-row-size) var(--font-ui) !important; }',
+    '.bad { font: inherit !important !important; }',
+    '.bad { font: inherit !urgent; }',
+    '.bad { font: inherit !important garbage; }',
   ]) {
     assert.throws(
       () => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], approvedLiteralFontSizes),
@@ -423,6 +504,8 @@ export function testLiteralFontSizeContractRejectsRogueUiPixels(): void {
     '.ok { font: unset; }',
     '.ok { font: revert; }',
     '.ok { font: revert-layer; }',
+    '.ok { font: InHeRiT !important; }',
+    '.ok { font: 500 var(--type-row-size)/var(--type-row-line-height) var(--font-ui) ! IMPORTANT; }',
   ]) assert.doesNotThrow(() => assertApprovedLiteralFontSizes([{ path: 'src/views/example.css', css }], []))
 }
 
