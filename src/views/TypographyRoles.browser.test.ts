@@ -6,6 +6,8 @@ import '@/components/WelcomeScreen.css'
 import './DetailView.css'
 import './ReviewSessionView.css'
 import './settings/SettingsLayout.css'
+import './settings/ProfileSettingsPanel.css'
+import './settings/DisplaySettingsPanel.css'
 import './TodayWorkspace.css'
 import './TrashView.css'
 import './WeeklyReviewView.css'
@@ -24,6 +26,7 @@ import './ShortcutsView.css'
 import './settings/TagPresetsPanel.css'
 import './settings/ReviewTemplatesPanel.css'
 import './settings/SymbolsPanel.css'
+import '@/components/DataIOContent.css'
 
 declare global {
   interface Window {
@@ -78,6 +81,13 @@ async function run(): Promise<void> {
     <section class="app-route-state"><h1>页面异常</h1></section>
     <section class="dv-empty-card"><h1>未找到该交易</h1></section>
     <h1 class="settings-page-title">显示偏好</h1>
+    <p class="settings-page-desc">设置页说明</p>
+    <h2 class="settings-section-title">设置区块</h2>
+    <p class="settings-section-desc">设置区块说明</p>
+    <strong class="profile-preview-name">桌面视觉样本</strong>
+    <div class="display-section-head"><p>显示设置说明</p></div>
+    <p class="tag-section-desc">标签设置说明</p>
+    <p class="dio-group-desc">资料库设置说明</p>
     <main class="route-state"><h1 class="route-state-title">范围不存在</h1></main>
     <span class="trash-item-pnl">+123.45</span>
     <button class="ui-field-trigger">筛选条件</button>
@@ -123,6 +133,25 @@ async function run(): Promise<void> {
     '.settings-page-title',
     '.route-state-title',
   ]) assertPageTitle(selector)
+
+  const profileName = getComputedStyle(document.querySelector<HTMLElement>('.profile-preview-name')!)
+  assert(profileName.fontSize === '15px', '个人资料预览名称计算后字号必须为 15px')
+  assert(profileName.lineHeight === '23px', '个人资料预览名称计算后行高必须为 23px')
+
+  for (const selector of [
+    '.settings-page-desc',
+    '.settings-section-desc',
+    '.display-section-head p',
+    '.tag-section-desc',
+    '.dio-group-desc',
+  ]) {
+    const style = getComputedStyle(document.querySelector<HTMLElement>(selector)!)
+    assert(style.fontSize === '12px', `${selector} 计算后字号必须为 12px`)
+    assert(style.lineHeight === '16px', `${selector} 计算后行高必须为 16px`)
+  }
+
+  const settingsSectionTitle = getComputedStyle(document.querySelector<HTMLElement>('.settings-section-title')!)
+  assert(settingsSectionTitle.fontSize === '13px', '设置区块标题计算后字号必须为 13px')
 
   const pnl = document.querySelector<HTMLElement>('.trash-item-pnl')
   assert(pnl, '缺少回收站盈亏样例')
