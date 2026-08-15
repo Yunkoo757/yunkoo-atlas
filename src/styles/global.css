@@ -255,14 +255,15 @@ a:focus:not(:focus-visible) {
   outline-offset: 2px;
 }
 
-/* 仅隐藏可选的键盘轮廓；保留真实焦点与控件的编辑/错误/选中反馈。 */
+/* 关闭增强高光时仍保留低干扰的键盘定位线，避免桌面端 Tab 导航失去当前位置。 */
 html[data-keyboard-focus-rings='off'] {
   --focus-ring-shadow: none;
 }
 
 html[data-keyboard-focus-rings='off']
   :focus-visible:not(input):not(textarea):not(select):not([contenteditable='true']) {
-  outline: none;
+  outline: 1px solid color-mix(in srgb, var(--text-tertiary) 72%, transparent);
+  outline-offset: 1px;
 }
 
 a {
