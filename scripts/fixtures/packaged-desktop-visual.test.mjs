@@ -675,3 +675,41 @@ test('macOS packaged workflow runs both architectures at explicit Retina scale',
   )?.[0] ?? ''
   assert.match(packagedStep, /^\s{10}ATLAS_PACKAGED_SCALE_FACTOR:\s*'2'\s*$/m)
 })
+
+test('macOS packaged workflow uploads both scale-200 artifacts and fails closed when missing', () => {
+  const workflow = readFileSync('.github/workflows/desktop-visual-evidence.yml', 'utf8')
+  const windowsJob = workflow.match(
+    /^  windows-packaged-visual:\r?\n([\s\S]*?)(?=^  macos-packaged-visual:)/m,
+  )?.[0] ?? ''
+  const macJob = workflow.match(/^  macos-packaged-visual:\r?\n([\s\S]*)$/m)?.[0] ?? ''
+  const architectures = [...macJob.matchAll(/^\s{12}arch:\s*(arm64|x64)\s*$/gm)]
+    .map((match) => match[1])
+    .sort()
+  assert.deepEqual(architectures, ['arm64', 'x64'])
+
+  const macUpload = macJob.match(
+    /^\s{6}- name: Upload macOS packaged visual evidence\r?\n([\s\S]*)$/m,
+  )?.[0] ?? ''
+  assert.match(
+    macUpload,
+    /^\s{10}name:\s*desktop-visual-macOS-\$\{\{ matrix\.arch \}\}-attempt-\$\{\{ github\.run_attempt \}\}\s*$/m,
+  )
+  assert.match(
+    macUpload,
+    /^\s{10}path:\s*test-results\/desktop-visual-packaged\/darwin-\$\{\{ matrix\.arch \}\}-scale-200\/\s*$/m,
+  )
+  assert.doesNotMatch(
+    macUpload,
+    /^\s{10}path:\s*test-results\/desktop-visual-packaged\/darwin-\$\{\{ matrix\.arch \}\}\/\s*$/m,
+  )
+  assert.match(macUpload, /^\s{10}if-no-files-found:\s*error\s*$/m)
+
+  const windowsUpload = windowsJob.match(
+    /^\s{6}- name: Upload Windows packaged visual evidence\r?\n([\s\S]*)$/m,
+  )?.[0] ?? ''
+  assert.match(
+    windowsUpload,
+    /^\s{10}path:\s*test-results\/desktop-visual-packaged\/win32-x64-scale-\*\/\s*$/m,
+  )
+  assert.match(windowsUpload, /^\s{10}if-no-files-found:\s*warn\s*$/m)
+})
