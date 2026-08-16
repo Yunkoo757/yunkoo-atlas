@@ -62,6 +62,22 @@ type QueueCounts = {
   review: number
 }
 
+type TodayPrimaryAction = {
+  kind: Exclude<QueueFilter, 'all'> | 'create'
+  label: string
+}
+
+export function resolveTodayPrimaryAction(counts: {
+  active: number
+  resultPending: number
+  reviewPending: number
+}): TodayPrimaryAction {
+  if (counts.resultPending > 0) return { kind: 'resultPending', label: '补齐交易结果' }
+  if (counts.reviewPending > 0) return { kind: 'reviewPending', label: '完成交易复盘' }
+  if (counts.active > 0) return { kind: 'active', label: '继续当前交易' }
+  return { kind: 'create', label: '新建交易' }
+}
+
 export function todayHeadingForTab(tab: TodayHeadingTab, counts: QueueCounts): string {
   if (tab === 'open') return `${counts.open} 项进行中`
   if (tab === 'results') return `${counts.results} 项等待结果`
@@ -128,6 +144,11 @@ export function TodayWorkspace() {
     results: buckets.resultPending.length,
     review: buckets.reviewPending.length,
   }
+  const primaryAction = resolveTodayPrimaryAction({
+    active: buckets.active.length,
+    resultPending: buckets.resultPending.length,
+    reviewPending: buckets.reviewPending.length,
+  })
   const headingTab: TodayHeadingTab = queueFilter === 'active'
     ? 'open'
     : queueFilter === 'resultPending'
@@ -147,6 +168,15 @@ export function TodayWorkspace() {
     }
     rememberTradeReturnAnchor(from)
     navigate(tradeDetailPath(trade), { state: tradeDetailNavState(from) })
+  }
+
+  const runPrimaryAction = () => {
+    if (primaryAction.kind === 'create') {
+      openComposer()
+      return
+    }
+    const trade = buckets[primaryAction.kind][0]
+    if (trade) openTrade(trade)
   }
 
   const openContextMenu = (event: React.MouseEvent, trade: Trade) => {
@@ -208,7 +238,11 @@ export function TodayWorkspace() {
       />
       <div className="today-workspace-scroll">
         <div className="today-workspace-inner">
-          <section className="today-focus" aria-labelledby="today-focus-title">
+          <section
+            className="today-focus"
+            aria-labelledby="today-focus-title"
+            data-has-workflow-actions={primaryAction.kind !== 'create'}
+          >
             <div>
               <span className="today-focus-eyebrow">行动队列</span>
               <h1 id="today-focus-title">
@@ -221,25 +255,47 @@ export function TodayWorkspace() {
                     : '按执行、结果、复盘的顺序完成闭环；统计会自动保持可信。'
                   : '没有遗留的平仓结果或复盘任务，可以开始记录新机会。'}
               </p>
-              <Link to="/settings/risk" className="today-risk-alert is-triggered">
-                风险已超限 · 开仓前先查看
-              </Link>
-              <Link to="/settings/risk" className="today-risk-alert is-unready">
-                风险状态待处理 · 前往设置
-              </Link>
             </div>
-            <Button
-              variant={buckets.actionCount > 0 ? 'bordered' : 'primary'}
-              size="lg"
-              className="today-create-trade"
-              onClick={() => openComposer()}
-            >
-              <Plus size={ICON_MD} />
-              新建交易
-            </Button>
+            <div className="today-focus-actions">
+              <Link
+                to="/settings/risk"
+                className="ui-btn ui-btn-primary ui-btn-lg today-risk-action is-triggered"
+                data-today-risk-action
+              >
+                处理风险
+              </Link>
+              <Link
+                to="/settings/risk"
+                className="ui-btn ui-btn-primary ui-btn-lg today-risk-action is-unready"
+                data-today-risk-action
+              >
+                处理风险状态
+              </Link>
+              {primaryAction.kind !== 'create' ? (
+                <Button
+                  data-today-primary-action
+                  variant="primary"
+                  size="lg"
+                  className="today-workflow-primary"
+                  onClick={runPrimaryAction}
+                >
+                  {primaryAction.label}
+                </Button>
+              ) : null}
+              <Button
+                data-today-primary-action={primaryAction.kind === 'create' ? '' : undefined}
+                variant={primaryAction.kind === 'create' ? 'primary' : 'bordered'}
+                size="lg"
+                className="today-create-trade"
+                onClick={() => openComposer()}
+              >
+                <Plus size={ICON_MD} />
+                新建交易
+              </Button>
+            </div>
           </section>
 
-          <RiskStatusStrip currentTradingDayKey={today} />
+          <RiskStatusStrip currentTradingDayKey={today} density="workbench" />
 
           <section className="today-action-queue" data-today-action-queue aria-label="行动队列">
             <div className="today-queue-tabs" role="tablist" aria-label="行动队列筛选">

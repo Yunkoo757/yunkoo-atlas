@@ -46,42 +46,60 @@
   line-height: var(--type-body-line-height);
 }
 
-.today-risk-alert {
+.today-risk-action {
   display: none;
   align-items: center;
-  width: max-content;
-  min-height: 28px;
-  margin-top: var(--sp-2);
-  padding: 0 var(--sp-2);
-  color: var(--warn-action);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
   text-decoration: none;
-  border: 1px solid color-mix(in srgb, currentColor 24%, var(--border-subtle));
-  border-radius: var(--radius-6);
-  background: color-mix(in srgb, currentColor 4%, transparent);
 }
 
-.today-workspace-inner:has(.risk-status-period.is-triggered) .today-risk-alert.is-triggered {
+.today-workspace-inner:has(.risk-status-period.is-triggered) .today-risk-action.is-triggered {
   display: inline-flex;
-  color: var(--neg);
 }
 
 .today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
-    .risk-status-period:is(.is-unknown, .is-partial, .is-unconfigured, .is-unreviewed)
+    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
   )
-  .today-risk-alert.is-unready {
+  .today-risk-action.is-unready {
   display: inline-flex;
 }
 
-.today-risk-alert:hover {
+.today-workspace-inner:has(.risk-status-period.is-triggered) .today-workflow-primary,
+.today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
+    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
+  )
+  .today-workflow-primary {
+  display: none;
+}
+
+.today-workspace-inner:has(.risk-status-period.is-triggered) .today-create-trade.ui-btn-primary,
+.today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
+    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
+  )
+  .today-create-trade.ui-btn-primary {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-default);
+}
+
+.today-workspace-inner:has(.risk-status-period.is-triggered) .today-create-trade.ui-btn-primary:hover,
+.today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
+    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
+  )
+  .today-create-trade.ui-btn-primary:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
-  border-color: var(--border-strong);
 }
 
 .today-create-trade {
   flex-shrink: 0;
+}
+
+.today-focus-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  gap: var(--sp-2);
 }
 
 .today-stats {

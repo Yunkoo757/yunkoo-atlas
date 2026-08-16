@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
-import { todayHeadingForTab } from '@/views/TodayWorkspace'
+import { resolveTodayPrimaryAction, todayHeadingForTab } from '@/views/TodayWorkspace'
 
 function read(relativePath: string): string {
   return readFileSync(path.resolve(relativePath), 'utf8').replace(/\r\n?/g, '\n')
@@ -22,6 +22,29 @@ export function testTodayHeadingFollowsActiveQueue(): void {
   assert.equal(todayHeadingForTab('review', counts), '6 项待复盘')
   assert.equal(todayHeadingForTab('results', counts), '1 项等待结果')
   assert.equal(todayHeadingForTab('open', counts), '3 项进行中')
+}
+
+export function testTodayPrimaryActionFollowsWorkflowPriority(): void {
+  assert.deepEqual(
+    resolveTodayPrimaryAction({ active: 3, resultPending: 1, reviewPending: 6 }),
+    { kind: 'resultPending', label: '补齐交易结果' },
+    '待补结果必须优先于复盘和进行中交易',
+  )
+  assert.deepEqual(
+    resolveTodayPrimaryAction({ active: 3, resultPending: 0, reviewPending: 6 }),
+    { kind: 'reviewPending', label: '完成交易复盘' },
+    '待复盘必须优先于进行中交易',
+  )
+  assert.deepEqual(
+    resolveTodayPrimaryAction({ active: 3, resultPending: 0, reviewPending: 0 }),
+    { kind: 'active', label: '继续当前交易' },
+    '没有结果和复盘任务时必须继续进行中的交易',
+  )
+  assert.deepEqual(
+    resolveTodayPrimaryAction({ active: 0, resultPending: 0, reviewPending: 0 }),
+    { kind: 'create', label: '新建交易' },
+    '没有交易待办时必须引导新建交易',
+  )
 }
 
 export function testTodayQueueShowsRiskAndColumnContextBeforeRows(): void {

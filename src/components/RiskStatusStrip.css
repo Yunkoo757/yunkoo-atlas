@@ -72,3 +72,19 @@
     border-top: 1px solid var(--border-subtle);
   }
 }
+
+.risk-status-strip.is-workbench:not(:has(.risk-status-period.is-triggered)) {
+  margin-top: var(--sp-2);
+  background: transparent;
+  box-shadow: none;
+}
+
+.risk-status-strip.is-workbench:not(:has(.risk-status-period.is-triggered)) .risk-status-head,
+.risk-status-strip.is-workbench:not(:has(.risk-status-period.is-triggered)) .risk-status-periods {
+  display: none;
+}
+
+.risk-status-strip.is-workbench:not(:has(.risk-status-period.is-triggered)) .risk-status-summary {
+  min-height: 36px;
+  border-top: 0;
+}

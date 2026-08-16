@@ -84,8 +84,13 @@ function RiskPeriod({
         detail: `${detailCopy(outcome)}${requiresReview ? ' · 本周规则未确认' : ''}`,
       }
   const percentage = Math.round(Math.min(1, Math.max(0, outcome.progress)) * 100)
+  const unreviewedClass = requiresReview && presentation.label === '待复核' ? ' is-unreviewed' : ''
   return (
-    <div className={`risk-status-period is-${display.kind}`} data-risk-period data-risk-state={display.kind}>
+    <div
+      className={`risk-status-period is-${display.kind}${unreviewedClass}`}
+      data-risk-period
+      data-risk-state={display.kind}
+    >
       <div className="risk-status-period-head">
         <span>{label}</span>
         <strong>{display.label}</strong>
@@ -108,7 +113,13 @@ function RiskPeriod({
   )
 }
 
-export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey?: string }) {
+export function RiskStatusStrip({
+  currentTradingDayKey,
+  density = 'full',
+}: {
+  currentTradingDayKey?: string
+  density?: 'full' | 'workbench'
+}) {
   const liveTradingDay = useLocalDateKey()
   const tradingDay = currentTradingDayKey ?? liveTradingDay
   const trades = useStore((state) => state.trades)
@@ -172,7 +183,11 @@ export function RiskStatusStrip({ currentTradingDayKey }: { currentTradingDayKey
     : summarizeRiskStatus(summaryRows)
 
   return (
-    <section className="risk-status-strip" data-risk-status aria-labelledby="risk-status-title">
+    <section
+      className={`risk-status-strip${density === 'workbench' ? ' is-workbench' : ''}`}
+      data-risk-status
+      aria-labelledby="risk-status-title"
+    >
       <header className="risk-status-head"><h2 id="risk-status-title">风险状态</h2></header>
       <div className="risk-status-periods">
         {rows.map((row) => (

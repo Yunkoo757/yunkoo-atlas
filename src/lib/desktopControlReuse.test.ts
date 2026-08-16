@@ -19,8 +19,11 @@ export function testLowRiskDesktopActionsReuseSharedControls(): void {
   if (!today.includes("import { Button } from '@/components/ui/Button'")) {
     throw new Error('今日工作台新建交易必须复用 Button')
   }
-  if (!today.includes("variant={buckets.actionCount > 0 ? 'bordered' : 'primary'}")) {
-    throw new Error('今日工作台新建交易必须根据行动队列保持既有强调层级')
+  if (!today.includes("variant={primaryAction.kind === 'create' ? 'primary' : 'bordered'}")) {
+    throw new Error('今日工作台新建交易必须让位于唯一的下一步主动作')
+  }
+  if (!today.includes('className="today-workflow-primary"')) {
+    throw new Error('今日工作台队列动作必须复用共享主按钮')
   }
   if (!weekly.includes("import { IconButton } from '@/components/ui/IconButton'")) {
     throw new Error('周复盘前后导航必须复用 IconButton')
