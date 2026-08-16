@@ -24,6 +24,7 @@ export const DESKTOP_VISUAL_SCENARIOS = Object.freeze([
   Object.freeze({ id: 'settings-shortcuts', path: '/settings/shortcuts', ready: '.shortcuts-panel' }),
   Object.freeze({ id: 'settings-strategies', path: '/settings/strategies', ready: '.strategies-panel' }),
   Object.freeze({ id: 'settings-risk', path: '/settings/risk', ready: '.risk-management-settings' }),
+  Object.freeze({ id: 'settings-risk-repair', path: '/settings/risk/data-repair', ready: '.risk-data-repair-view' }),
   Object.freeze({ id: 'settings-tags', path: '/settings/tags', ready: '.tag-presets-panel' }),
   Object.freeze({ id: 'settings-symbols', path: '/settings/symbols', ready: '.symbols-panel' }),
   Object.freeze({ id: 'settings-review-templates', path: '/settings/review-templates', ready: '.review-templates-panel' }),
