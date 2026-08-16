@@ -20,7 +20,7 @@ import {
   CheckCircle,
 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
-import { Editor } from '@/editor/Editor'
+import { Editor, type EditorChangeMeta } from '@/editor/Editor'
 import { Menu, type MenuOption } from '@/components/Menu'
 import { IconButton } from '@/components/ui/IconButton'
 import { Button } from '@/components/ui/Button'
@@ -436,8 +436,9 @@ export function DetailView() {
   }, [])
 
   const onEditorChange = useCallback(
-    (html: string) => {
+    (html: string, meta: EditorChangeMeta) => {
       setEditorHtml(html)
+      if (meta.origin === 'presentation') return
       setReviewIssue(null)
       if (!trade?.id) return
       if (!noteResolvedRef.current) return  // 初始内容尚未加载，拒绝保存空/占位内容

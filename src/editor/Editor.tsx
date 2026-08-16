@@ -1,4 +1,5 @@
 import { useEditor, EditorContent, BubbleMenu, type Editor as TiptapEditor } from '@tiptap/react'
+import type { Content } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
@@ -36,7 +37,7 @@ import {
 } from './reviewContext'
 import './Editor.css'
 
-function setContentWithoutHistory(editor: TiptapEditor, content: string): void {
+function setContentWithoutHistory(editor: TiptapEditor, content: Content): void {
   editor
     .chain()
     .setContent(content, false)
@@ -55,6 +56,10 @@ export function syncEditorLightboxEditable(
   editor.setEditable(!lightboxOpen && !readOnly, false)
 }
 
+export type EditorChangeMeta = Readonly<{
+  origin: 'user' | 'presentation'
+}>
+
 export function Editor({
   content,
   onChange,
@@ -69,7 +74,7 @@ export function Editor({
   onHistoryFallback,
 }: {
   content: string
-  onChange: (html: string) => void
+  onChange: (html: string, meta: EditorChangeMeta) => void
   placeholder?: string
   readOnly?: boolean
   noteDraftId?: string
@@ -211,7 +216,9 @@ export function Editor({
       const doc = editor.getJSON()
       setHasReviewContext(hasReviewContextDocument(doc))
       setHasLeadingReviewText(hasLeadingReviewParagraphs(doc))
-      if (!readOnlyRef.current) onChangeRef.current(editor.getHTML())
+      if (!readOnlyRef.current) {
+        onChangeRef.current(editor.getHTML(), { origin: 'user' })
+      }
     },
     onCreate: ({ editor }) => {
       const doc = editor.getJSON()
@@ -244,7 +251,10 @@ export function Editor({
       const next = toggleReviewContextDocument(doc)
       setHasReviewContext(hasReviewContextDocument(next))
       setHasLeadingReviewText(hasLeadingReviewParagraphs(next))
-      const frame = requestAnimationFrame(() => editor.commands.setContent(next, true))
+      const frame = requestAnimationFrame(() => {
+        setContentWithoutHistory(editor, next)
+        onChangeRef.current(editor.getHTML(), { origin: 'presentation' })
+      })
       return () => cancelAnimationFrame(frame)
     }
   }, [editor, readOnly, reviewContextPinned, reviewContextTools])
