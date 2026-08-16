@@ -859,7 +859,7 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
     ])
   }
 
-  const [kbd, editor, routeState, routeStateView, dataIo, notionImport, riskManagement] = await Promise.all([
+  const [kbd, editor, routeState, routeStateView, dataIo, notionImport, riskManagement, riskRepair] = await Promise.all([
     fs.readFile('src/components/ui/Kbd.css', 'utf8'),
     fs.readFile('src/editor/Editor.css', 'utf8'),
     fs.readFile('src/components/RouteState.css', 'utf8'),
@@ -867,6 +867,7 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
     fs.readFile('src/components/DataIOContent.css', 'utf8'),
     fs.readFile('src/components/NotionImportModal.css', 'utf8'),
     fs.readFile('src/views/settings/RiskManagementSettingsPanel.css', 'utf8'),
+    fs.readFile('src/views/settings/RiskDataRepairView.css', 'utf8'),
   ])
   assert(cssRule(kbd, '.ui-kbd').includes('font-family: var(--font-mono)'), '快捷键按键必须保留 mono')
   assert(cssRule(editor, '.editor code').includes('font-family: var(--font-mono)'), '编辑器 code 必须保留 mono')
@@ -879,13 +880,19 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
   assert(routeStateView.includes('<span className="app-route-state-code">404</span>'), '404 必须保留技术错误码样式')
   assert(cssRule(dataIo, '.dio-mono').includes('font-family: var(--font-mono)'), '原始数据预览必须保留 mono')
   assert(cssRule(notionImport, '.nim-file-name').includes('font-family: var(--font-mono)'), 'Notion 导入原始文件预览必须保留 mono')
-  assertRoleDeclarations(cssRule(riskManagement, '.risk-data-issue-title strong'), '.risk-data-issue-title strong', [
+  assertRoleDeclarations(cssRule(riskManagement, '.risk-data-summary-counts span'), '.risk-data-summary-counts span', [
     ['font-family', 'var(--font-ui)'],
+    ['font-size', 'var(--fs-micro)'],
     ['font-variant-numeric', 'var(--numeric-tabular)'],
-    ['font-feature-settings', '"tnum" 1, "kern" 1'],
   ])
-  assertRoleDeclarations(cssRule(riskManagement, '.risk-data-issue.is-global strong'), '.risk-data-issue.is-global strong', [
+  assertRoleDeclarations(cssRule(riskRepair, '.risk-repair-row-title strong'), '.risk-repair-row-title strong', [
     ['font-family', 'var(--font-ui)'],
+    ['font-size', 'var(--fs-sm)'],
+    ['font-variant-numeric', 'var(--numeric-tabular)'],
+  ])
+  assertRoleDeclarations(cssRule(riskRepair, '.risk-repair-row-title small'), '.risk-repair-row-title small', [
+    ['font-family', 'var(--font-ui)'],
+    ['font-size', 'var(--fs-micro)'],
   ])
 }
 

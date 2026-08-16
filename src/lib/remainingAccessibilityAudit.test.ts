@@ -130,8 +130,8 @@ export async function testMutedTextAndGroupChevronsRemainReadable(): Promise<voi
 
 export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [weeklyReview, detail, fieldTrigger, tradeList, datePicker, filterBar, tradeFilters, quickViewBar, tagEditor, shortcuts, select, button, sidebarWorkspace, sidebar, trash, notionImport, editor, tagPresets, reviewTemplates, global, symbols] = await Promise.all([
-    readCss('src/views/WeeklyReviewView.css'), readCss('src/views/DetailView.css'), readCss('src/components/ui/FieldTrigger.css'), readCss('src/components/trades/TradeList.css'), readCss('src/components/ui/DatePicker.css'), readCss('src/components/ui/FilterBar.css'), readCss('src/components/trades/TradeFilters.css'), readCss('src/components/trades/QuickViewBar.css'), readCss('src/components/TagEditor.css'), readCss('src/views/ShortcutsView.css'), readCss('src/components/ui/Select.css'), readCss('src/components/ui/Button.css'), readCss('src/components/sidebar/SidebarWorkspace.css'), readCss('src/components/Sidebar.css'), readCss('src/views/TrashView.css'), readCss('src/components/NotionImportModal.css'), readCss('src/editor/Editor.css'), readCss('src/views/settings/TagPresetsPanel.css'), readCss('src/views/settings/ReviewTemplatesPanel.css'), readCss('src/styles/global.css'), readCss('src/views/settings/SymbolsPanel.css'),
+  const [weeklyReview, detail, fieldTrigger, tradeList, datePicker, filterBar, tradeFilters, quickViewBar, tagEditor, shortcuts, select, button, sidebarWorkspace, sidebar, trash, notionImport, editor, tagPresets, reviewTemplates, global, symbols, riskManagement, riskRepair] = await Promise.all([
+    readCss('src/views/WeeklyReviewView.css'), readCss('src/views/DetailView.css'), readCss('src/components/ui/FieldTrigger.css'), readCss('src/components/trades/TradeList.css'), readCss('src/components/ui/DatePicker.css'), readCss('src/components/ui/FilterBar.css'), readCss('src/components/trades/TradeFilters.css'), readCss('src/components/trades/QuickViewBar.css'), readCss('src/components/TagEditor.css'), readCss('src/views/ShortcutsView.css'), readCss('src/components/ui/Select.css'), readCss('src/components/ui/Button.css'), readCss('src/components/sidebar/SidebarWorkspace.css'), readCss('src/components/Sidebar.css'), readCss('src/views/TrashView.css'), readCss('src/components/NotionImportModal.css'), readCss('src/editor/Editor.css'), readCss('src/views/settings/TagPresetsPanel.css'), readCss('src/views/settings/ReviewTemplatesPanel.css'), readCss('src/styles/global.css'), readCss('src/views/settings/SymbolsPanel.css'), readCss('src/views/settings/RiskManagementSettingsPanel.css'), readCss('src/views/settings/RiskDataRepairView.css'),
   ])
 
   for (const [sheet, selector, color, label] of [
@@ -141,7 +141,12 @@ export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): 
   assertInteractiveColor(reviewTemplates, '.review-template-select svg', 'var(--text-tertiary)', '起稿模板选择图标')
   assertInteractiveColor(reviewTemplates, '.review-template-drag-handle', 'var(--text-tertiary)', '起稿模板拖拽操作')
   assertInteractiveColor(symbols, '.symbols-drag-handle', 'var(--text-tertiary)', '品种拖拽操作')
+  assertInteractiveColor(riskManagement, '.risk-data-summary-status a', 'var(--text-secondary)', '风险数据摘要修复入口')
   assertInteractiveColor(detail, '.dv-feed-delete', 'var(--text-tertiary)', '活动记录删除操作', true)
+
+  assert(findRules(riskManagement, '.risk-data-summary-status a').some((rule) => declaration(rule, 'min-height') === 'var(--control-height)'), '风险数据摘要修复入口必须保留桌面可点击高度')
+  assert(findRules(riskManagement, '.risk-data-summary-status a:focus-visible').some((rule) => declaration(rule, 'outline') === 'var(--focus-ring-outline)'), '风险数据摘要修复入口必须提供键盘焦点样式')
+  assert(riskRepair.root.toString().includes('.risk-repair-action:focus-visible'), '修复中心动作必须提供键盘焦点样式')
 
   for (const [sheet, selector, label] of [
     [fieldTrigger, '.ui-field-trigger:disabled', '禁用日期触发器'], [select, '.ui-select-option:disabled', '禁用下拉选项'], [button, '.ui-btn:disabled, .dio-btn:disabled, .symbols-btn:disabled, .st-io:disabled, .st-add:disabled, .st-del-btn:disabled, .empty-btn:disabled, .csv-btn:disabled, .nim-btn:disabled, .sfm-btn:disabled, .batch-action-btn:disabled', '禁用通用按钮'], [button, '.ui-btn-primary:disabled, .dio-btn-primary:disabled, .symbols-btn-primary:disabled, .st-add:disabled, .empty-btn:disabled, .csv-btn-primary:disabled, .nim-btn-primary:disabled', '禁用主按钮'], [global, ':where(input, textarea):disabled', '禁用全局输入框'], [reviewTemplates, '.review-template-drag-handle:disabled', '禁用起稿拖拽手柄'], [symbols, '.symbols-drag-handle:disabled', '禁用品种拖拽手柄'],
@@ -190,7 +195,7 @@ export async function testQuaternaryDeclarationInventoryIsClosedAndDisabledNever
     ...allow('src/views/DetailView.css', 'decoration', 'color', ['.dv-empty-card > svg']),
     ...allow('src/views/ReviewSessionView.css', 'edge metadata', 'color', ['.review-session-card-ref']),
     ...allow('src/views/settings/ReviewTemplatesPanel.css', 'edge metadata', 'color', ['.review-template-content-label span']),
-    ...allow('src/views/settings/RiskManagementSettingsPanel.css', 'edge metadata', 'color', ['.risk-data-issue-note']),
+    ...allow('src/views/settings/RiskDataRepairView.css', 'edge metadata', 'color', ['.risk-repair-retained-note']),
     ...allow('src/views/ShortcutsView.css', 'decoration', 'color', ['.shortcuts-capture.is-fixed > svg', '.shortcuts-sequence-arrow']),
     ...allow('src/views/ShortcutsView.css', 'edge metadata', 'color', ['.shortcuts-unassigned']),
     ...allow('src/views/TodayWorkspace.css', 'edge metadata', 'color', ['.today-queue-tabs strong']),
