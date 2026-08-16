@@ -122,6 +122,7 @@
   display: block;
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
+  line-height: var(--type-section-title-line-height);
   font-weight: var(--font-weight-semibold);
 }
 

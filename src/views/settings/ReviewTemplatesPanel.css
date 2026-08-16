@@ -40,6 +40,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
+  line-height: var(--type-section-title-line-height);
 }
 
 .review-pin-setting p {
@@ -185,6 +186,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
+  line-height: var(--type-section-title-line-height);
 }
 
 .review-template-delete {
@@ -227,6 +229,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
+  line-height: var(--type-section-title-line-height);
 }
 
 .review-template-content-label span {

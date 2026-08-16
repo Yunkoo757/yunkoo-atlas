@@ -132,6 +132,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
+  line-height: var(--type-section-title-line-height);
 }
 
 .db-week-sub {
@@ -292,6 +293,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
+  line-height: var(--type-section-title-line-height);
 }
 
 .db-empty p {
@@ -343,6 +345,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
+  line-height: var(--type-section-title-line-height);
 }
 .db-panel-sub {
   margin-top: var(--sp-1);

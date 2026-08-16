@@ -382,6 +382,7 @@
   --type-dialog-title-size: var(--font-size-regular);
   --type-dialog-title-weight: var(--font-weight-semibold);
   --type-section-title-size: var(--font-size-small);
+  --type-section-title-line-height: 20px;
   --type-section-title-weight: var(--font-weight-semibold);
   --type-row-size: var(--font-size-small);
   --type-row-line-height: 20px;
