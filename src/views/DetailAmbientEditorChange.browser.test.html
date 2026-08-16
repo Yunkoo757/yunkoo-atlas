@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="atlas-browser-viewports" content="960x640, 1440x900, 1920x1080" />
+    <title>Detail ambient editor change browser test</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/views/DetailAmbientEditorChange.browser.test.tsx"></script>
+  </body>
+</html>
