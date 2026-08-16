@@ -1996,6 +1996,22 @@ export function testTradeDetailReturnRemembersListView(): void {
   assert(riskRepairReturn.pathname === '/settings/risk/data-repair', '实盘详情必须接受风险修复中心来源')
   assert(riskRepairReturn.search === '?group=priority%3Amissing-loss-pnl', '风险修复中心返回必须保留展开分组')
 
+  const missingRiskRepairTradeReturn = resolveTradeDetailReturn({
+    from: {
+      pathname: '/settings/risk/data-repair',
+      search: '?group=priority%3Amissing-close-date',
+      anchorTradeId: 'risk-repair:purged-live-1',
+    },
+  })
+  assert(
+    missingRiskRepairTradeReturn.pathname === '/settings/risk/data-repair',
+    '已彻底不存在的风险修复来源交易仍须返回修复中心',
+  )
+  assert(
+    missingRiskRepairTradeReturn.search === '?group=priority%3Amissing-close-date',
+    '缺失交易返回修复中心时不得丢失展开分组',
+  )
+
   const invalidCaseRepairSource = resolveTradeDetailReturn({
     from: { pathname: '/settings/risk/data-repair', anchorTradeId: trade.id },
     tradeKind: 'case',

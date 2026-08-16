@@ -71,8 +71,9 @@ function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | u
   if (pathname === '/live-archive' || pathname.startsWith('/live-archive/')) return true
   if (pathname === '/missed') return true
   if (pathname === '/review-session') return true
-  if (pathname === '/settings/risk' || pathname === '/settings/risk/data-repair') {
-    return tradeKind === 'live'
+  if (pathname === '/settings/risk') return tradeKind === 'live'
+  if (pathname === '/settings/risk/data-repair') {
+    return tradeKind === 'live' || tradeKind === undefined
   }
   if (pathname === '/weekly-review') return tradeKind === 'live' || tradeKind === undefined
   if (tradeKind === 'case') return isCaseWorkspaceEntryPath(pathname)
