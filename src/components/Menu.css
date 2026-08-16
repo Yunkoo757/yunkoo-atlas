@@ -80,3 +80,15 @@
   color: var(--text-secondary);
   flex-shrink: 0;
 }
+.menu-item-danger {
+  color: var(--neg);
+}
+.menu-item-danger:hover {
+  color: var(--neg);
+  background: color-mix(in srgb, var(--neg) 14%, transparent);
+}
+.menu-separator {
+  height: 1px;
+  margin: var(--sp-1) var(--sp-2);
+  background: var(--border-subtle);
+}

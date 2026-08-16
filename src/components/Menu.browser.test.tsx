@@ -56,8 +56,9 @@ async function run(): Promise<void> {
         trigger={<OpaqueTrigger />}
         options={[
           { value: 'first', label: '第一项' },
+          { type: 'separator' },
           { value: 'second', label: '第二项' },
-          { value: 'third', label: '第三项' },
+          { value: 'third', label: '第三项', danger: true },
         ]}
         onSelect={(value) => {
           selected = value
@@ -83,6 +84,9 @@ async function run(): Promise<void> {
     assert(trigger.getAttribute('aria-expanded') === 'true', '打开态真实触发控件缺少 aria-expanded="true"')
     const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
     assert(items.length === 3, '共享菜单必须渲染三个真实菜单项')
+    const separator = document.querySelector<HTMLElement>('[role="separator"]')
+    assert(separator && separator.tagName !== 'BUTTON', '菜单分隔符必须存在且不可成为按钮')
+    assert(items[2].classList.contains('menu-item-danger'), '危险动作必须显示统一的危险语义样式')
     assert(document.activeElement === items[0], '共享菜单打开后首项必须自然获得焦点')
 
     pressKey('ArrowDown')

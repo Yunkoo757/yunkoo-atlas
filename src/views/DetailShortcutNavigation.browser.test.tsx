@@ -157,6 +157,20 @@ async function run(): Promise<void> {
     assert(!document.querySelector('.dv-copy-id'), '案例正文右侧不得显示复制编号按钮')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
     await waitFor(() => Boolean(findButton('复制编号')), '更多菜单缺少复制编号')
+    assert(findButton('复制案例'), '案例详情更多菜单缺少复制案例')
+    const caseMenuLabels = [...document.querySelectorAll<HTMLButtonElement>('.menu-pop [role="menuitem"]')]
+      .map((button) => button.textContent?.trim())
+    const expectedCaseActions = ['编辑案例记录', '复制案例', '加入星标', '复制链接', '复制编号', '删除案例记录']
+    const caseActionIndexes = expectedCaseActions.map((label) => caseMenuLabels.indexOf(label))
+    assert(
+      caseActionIndexes.every((index, position) => index >= 0 && (position === 0 || index > caseActionIndexes[position - 1])),
+      '案例详情动作顺序必须与统一动作契约一致',
+    )
+    assert(
+      document.querySelectorAll('.menu-pop [role="separator"]').length === 2,
+      '详情菜单必须明确分隔业务动作、工具动作和危险动作',
+    )
+    assert(findButton('删除案例记录')?.classList.contains('menu-item-danger'), '详情删除动作必须使用危险语义样式')
     findButton('复制编号')?.click()
     await waitFor(() => copied.at(-1) === 'CAS-2', '更多菜单没有复制当前案例编号')
     const tagsSection = [...document.querySelectorAll<HTMLButtonElement>('.dv-section-head')]
@@ -278,6 +292,16 @@ async function run(): Promise<void> {
       () => document.querySelector('[aria-label="返回周复盘"]') !== null,
       '真实详情页没有显示周复盘返回名称',
     )
+    document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
+    await waitFor(() => Boolean(findButton('复制为新计划')), '实盘详情更多菜单缺少复制为新计划')
+    findButton('复制为新计划')?.click()
+    await waitFor(
+      () => useStore.getState().trades.some((trade) => trade.id !== weeklyTrade.id && trade.status === 'planned'),
+      '实盘详情没有直接创建新计划',
+    )
+    const copiedPlan = useStore.getState().trades.find((trade) => trade.id !== weeklyTrade.id)
+    assert(copiedPlan?.pnl === null && copiedPlan.reviewStatus === 'unreviewed', '详情复制的新计划必须清空结果与复盘状态')
+    assert(useStore.getState().trades.find((trade) => trade.id === weeklyTrade.id)?.status === 'win', '详情复制不得修改源交易')
     const liveInlineCopy = document.querySelector<HTMLButtonElement>('.dv-copy-id')
     assert(liveInlineCopy?.textContent?.trim() === `复制 ${weeklyTrade.ref}`, '实盘详情必须保留正文侧栏复制编号入口')
     liveInlineCopy.click()

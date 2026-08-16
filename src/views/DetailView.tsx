@@ -21,7 +21,7 @@ import {
 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { Editor } from '@/editor/Editor'
-import { Menu } from '@/components/Menu'
+import { Menu, type MenuOption } from '@/components/Menu'
 import { IconButton } from '@/components/ui/IconButton'
 import { Button } from '@/components/ui/Button'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -72,6 +72,8 @@ import {
   normalizeNarrative,
 } from '@/lib/tradeView'
 import { toast } from '@/lib/toast'
+import { buildRecordActionDescriptors, type RecordActionId } from '@/lib/tradeActionContract'
+import { copyTradeRecordWithFeedback } from '@/lib/tradeCopyAction'
 import { STATUS_ORDER, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { getStorage } from '@/storage/bootstrap'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
@@ -766,26 +768,49 @@ export function DetailView() {
     </IconButton>
   )
 
+  const recordActionIcon = (actionId: RecordActionId) => {
+    if (actionId === 'edit') return <Pencil size={ICON_MD} />
+    if (actionId === 'copy') return <Copy size={ICON_MD} />
+    if (actionId === 'extract-case') return <BookOpen size={ICON_MD} />
+    if (actionId === 'star') return <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
+    return <Trash2 size={ICON_MD} />
+  }
+  const detailRecordActions = buildRecordActionDescriptors(trade, { starred })
+  const deleteAction = detailRecordActions.find((action) => action.id === 'delete')
+  const moreMenuOptions: MenuOption[] = [
+    ...detailRecordActions
+      .filter((action) => action.id !== 'delete')
+      .map((action) => ({
+        value: action.id === 'copy' ? 'copy-record' : action.id,
+        label: action.label,
+        icon: recordActionIcon(action.id),
+      })),
+    { type: 'separator' },
+    ...(reviewComplete
+      ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={ICON_MD} /> }]
+      : []),
+    { value: 'copy-link', label: '复制链接', icon: <Link2 size={ICON_MD} /> },
+    { value: 'copy-ref', label: '复制编号', icon: <Copy size={ICON_MD} /> },
+    { type: 'separator' },
+    ...(deleteAction
+      ? [{ value: 'delete', label: deleteAction.label, icon: recordActionIcon('delete'), danger: true }]
+      : []),
+  ]
+
   const moreMenu = (
     <Menu
-      options={[
-        { value: 'edit', label: trade.tradeKind === 'case' ? '编辑案例记录' : '编辑交易', icon: <Pencil size={ICON_MD} /> },
-        ...(trade.tradeKind === 'case'
-          ? []
-          : [{ value: 'review-case', label: '提炼为案例', icon: <BookOpen size={ICON_MD} /> }]),
-        ...(reviewComplete
-          ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={ICON_MD} /> }]
-          : []),
-        { value: 'copy-link', label: '复制链接', icon: <Link2 size={ICON_MD} /> },
-        { value: 'copy', label: '复制编号', icon: <Copy size={ICON_MD} /> },
-        { value: 'delete', label: trade.tradeKind === 'case' ? '删除案例记录' : '删除交易', icon: <Trash2 size={ICON_MD} /> },
-      ]}
+      options={moreMenuOptions}
       onSelect={(v) => {
         if (v === 'edit') openComposer(trade)
-        else if (v === 'review-case') void createCaseFromCurrentTrade()
+        else if (v === 'copy-record') copyTradeRecordWithFeedback(trade.id)
+        else if (v === 'extract-case') void createCaseFromCurrentTrade()
+        else if (v === 'star') {
+          toggleStar(trade.id)
+          toast(starred ? '已取消星标' : '已加入星标')
+        }
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
         else if (v === 'copy-link') copyLink()
-        else if (v === 'copy') copyRef()
+        else if (v === 'copy-ref') copyRef()
         else if (v === 'delete') onDelete()
       }}
       trigger={

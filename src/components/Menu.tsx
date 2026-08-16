@@ -15,11 +15,19 @@ import { Check } from '@/icons/appIcons'
 import { useExitClone } from '@/components/ui/useExitClone'
 import './Menu.css'
 
-export interface MenuOption {
+export interface MenuItemOption {
+  type?: 'item'
   value: string
   label: string
   icon?: ReactNode
+  danger?: boolean
 }
+
+export interface MenuSeparatorOption {
+  type: 'separator'
+}
+
+export type MenuOption = MenuItemOption | MenuSeparatorOption
 
 type MenuPosition = {
   left: number
@@ -224,22 +232,24 @@ export function Menu({
             data-menu-id={menuId}
             onKeyDown={onMenuKeyDown}
           >
-            {options.map((o) => (
+            {options.map((option, index) => option.type === 'separator' ? (
+              <div key={`separator-${index}`} className="menu-separator" role="separator" />
+            ) : (
               <button
-                key={o.value}
-                className="menu-item"
+                key={option.value}
+                className={`menu-item${option.danger ? ' menu-item-danger' : ''}`}
                 role={isSelectionMenu ? 'menuitemradio' : 'menuitem'}
-                aria-checked={isSelectionMenu ? o.value === value : undefined}
+                aria-checked={isSelectionMenu ? option.value === value : undefined}
                 onClick={() => {
                   const control = resolveTriggerControl() ?? triggerControlRef.current
                   control?.focus()
-                  onSelect(o.value)
+                  onSelect(option.value)
                   setOpen(false)
                 }}
               >
-                {o.icon && <span className="menu-item-icon">{o.icon}</span>}
-                <span className="menu-item-label">{o.label}</span>
-                {isSelectionMenu && o.value === value && (
+                {option.icon && <span className="menu-item-icon">{option.icon}</span>}
+                <span className="menu-item-label">{option.label}</span>
+                {isSelectionMenu && option.value === value && (
                   <Check size={ICON_SM} className="menu-item-check" />
                 )}
               </button>

@@ -66,3 +66,26 @@ export function testContextMenuCopiesOneTradeIntoANewPlan(): void {
     useStore.setState(previous, true)
   }
 }
+
+export function testContextMenuUsesTheCanonicalBusinessActionOrder(): void {
+  const items = buildTradeCtxItems(source, {
+    setStatus: () => {},
+    requestTradeOpen: () => {},
+    openComposer: () => {},
+    removeTrade: () => {},
+    createReviewCase: () => {},
+    toggleStar: () => {},
+    isStarred: () => false,
+  })
+  const labels = items
+    .filter((item) => item.type === 'item')
+    .map((item) => item.label)
+  const businessLabels = ['编辑交易', '复制为新计划', '提炼为案例', '加入星标', '删除交易']
+  const businessIndexes = businessLabels.map((label) => labels.indexOf(label))
+
+  assert(businessIndexes.every((index) => index >= 0), '右键菜单必须包含全部适用的统一业务动作')
+  assert(
+    businessIndexes.every((index, position) => position === 0 || index > businessIndexes[position - 1]),
+    '右键菜单业务动作必须遵循编辑、复制、提炼、星标、删除的固定顺序',
+  )
+}

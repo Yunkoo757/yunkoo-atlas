@@ -7,7 +7,7 @@ export function testMenuUsesActionSemanticsWhenNoSelectionValueIsProvided() {
   if (!source.includes("role={isSelectionMenu ? 'menuitemradio' : 'menuitem'}")) {
     throw new Error('Menu actions must not be announced as radio items')
   }
-  if (!source.includes('aria-checked={isSelectionMenu ? o.value === value : undefined}')) {
+  if (!source.includes('aria-checked={isSelectionMenu ? option.value === value : undefined}')) {
     throw new Error('Only selection menus may expose aria-checked')
   }
 }

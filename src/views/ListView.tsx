@@ -11,6 +11,7 @@ import { isReviewCompleted, type Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { getStrategyName } from '@/lib/strategies'
+import { getBatchCopyActionLabel } from '@/lib/tradeActionContract'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { toast } from '@/lib/toast'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
@@ -287,13 +288,13 @@ export function ListView({
         now: new Date(),
         createId: () => crypto.randomUUID(),
       })
-      upsertTrades(copies)
+      if (upsertTrades(copies) !== 'updated') throw new Error('复制失败，请重试')
 
       const hasCases = sources.some((trade) => trade.tradeKind === 'case')
       const hasAccountTrades = sources.some((trade) => trade.tradeKind !== 'case')
       toast(
         hasCases && hasAccountTrades
-          ? `已安全复制 ${copies.length} 条记录`
+          ? `已复制 ${copies.length} 条记录`
           : hasCases
             ? `已复制 ${copies.length} 个案例`
             : `已将 ${copies.length} 笔交易复制为新计划`,
@@ -301,25 +302,19 @@ export function ListView({
       setSelectedIds(new Set())
       setCopyCandidateIds(null)
     } catch (error) {
-      toast(error instanceof Error ? error.message : '安全复制失败，源记录未改变')
+      toast(error instanceof Error ? error.message : '复制失败，源记录未改变')
       setCopyCandidateIds(null)
     }
   }
 
   const selectedSources = visible.filter((trade) => selectedIds.has(trade.id))
-  const selectionHasCases = selectedSources.some((trade) => trade.tradeKind === 'case')
-  const selectionHasAccountTrades = selectedSources.some((trade) => trade.tradeKind !== 'case')
-  const copyActionLabel = selectionHasCases && selectionHasAccountTrades
-    ? '安全复制'
-    : selectionHasCases
-      ? '复制案例'
-      : '复制为新计划'
+  const copyActionLabel = getBatchCopyActionLabel(selectedSources)
   const copyCandidateSet = new Set(copyCandidateIds ?? [])
   const copyCandidates = trades.filter((trade) => copyCandidateSet.has(trade.id))
   const copyAccountCount = copyCandidates.filter((trade) => trade.tradeKind !== 'case').length
   const copyCaseCount = copyCandidates.length - copyAccountCount
   const copyConfirmLabel = copyAccountCount > 0 && copyCaseCount > 0
-    ? `创建 ${copyCandidates.length} 条安全副本`
+    ? `复制 ${copyCandidates.length} 条记录`
     : copyCaseCount > 0
       ? `复制 ${copyCaseCount} 个案例`
       : `创建 ${copyAccountCount} 笔新计划`
@@ -445,7 +440,7 @@ export function ListView({
       </BatchActionBar>
       {copyCandidateIds ? (
         <ModalShell
-          title="确认安全复制"
+          title="确认复制所选记录"
           description={`将为已选 ${copyCandidates.length} 条记录创建独立副本；源记录不会改变。`}
           size="compact"
           panelClassName="copy-confirm-modal"
