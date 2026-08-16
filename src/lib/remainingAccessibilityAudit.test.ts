@@ -146,7 +146,7 @@ export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): 
 
   assert(findRules(riskManagement, '.risk-data-summary-status a').some((rule) => declaration(rule, 'min-height') === 'var(--control-height)'), '风险数据摘要修复入口必须保留桌面可点击高度')
   assert(findRules(riskManagement, '.risk-data-summary-status a:focus-visible').some((rule) => declaration(rule, 'outline') === 'var(--focus-ring-outline)'), '风险数据摘要修复入口必须提供键盘焦点样式')
-  assert(riskRepair.root.toString().includes('.risk-repair-action:focus-visible'), '修复中心动作必须提供键盘焦点样式')
+  assert(findRules(riskRepair, '.risk-repair-action:focus-visible').some((rule) => declaration(rule, 'outline') === 'var(--focus-ring-outline)'), '修复中心动作必须提供键盘焦点样式')
 
   for (const [sheet, selector, label] of [
     [fieldTrigger, '.ui-field-trigger:disabled', '禁用日期触发器'], [select, '.ui-select-option:disabled', '禁用下拉选项'], [button, '.ui-btn:disabled, .dio-btn:disabled, .symbols-btn:disabled, .st-io:disabled, .st-add:disabled, .st-del-btn:disabled, .empty-btn:disabled, .csv-btn:disabled, .nim-btn:disabled, .sfm-btn:disabled, .batch-action-btn:disabled', '禁用通用按钮'], [button, '.ui-btn-primary:disabled, .dio-btn-primary:disabled, .symbols-btn-primary:disabled, .st-add:disabled, .empty-btn:disabled, .csv-btn-primary:disabled, .nim-btn-primary:disabled', '禁用主按钮'], [global, ':where(input, textarea):disabled', '禁用全局输入框'], [reviewTemplates, '.review-template-drag-handle:disabled', '禁用起稿拖拽手柄'], [symbols, '.symbols-drag-handle:disabled', '禁用品种拖拽手柄'],

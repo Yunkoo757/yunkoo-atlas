@@ -884,11 +884,13 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
     ['font-family', 'var(--font-ui)'],
     ['font-size', 'var(--fs-micro)'],
     ['font-variant-numeric', 'var(--numeric-tabular)'],
+    ['font-feature-settings', '"tnum" 1, "kern" 1'],
   ])
   assertRoleDeclarations(cssRule(riskRepair, '.risk-repair-row-title strong'), '.risk-repair-row-title strong', [
     ['font-family', 'var(--font-ui)'],
     ['font-size', 'var(--fs-sm)'],
     ['font-variant-numeric', 'var(--numeric-tabular)'],
+    ['font-feature-settings', '"tnum" 1, "kern" 1'],
   ])
   assertRoleDeclarations(cssRule(riskRepair, '.risk-repair-row-title small'), '.risk-repair-row-title small', [
     ['font-family', 'var(--font-ui)'],

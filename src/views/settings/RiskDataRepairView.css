@@ -63,7 +63,7 @@
 .risk-repair-row + .risk-repair-row { border-top: 1px solid var(--border-subtle); }
 .risk-repair-row-copy { min-width: 0; }
 .risk-repair-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
-.risk-repair-row-title strong { color: var(--text-primary); font-family: var(--font-ui); font-size: var(--fs-sm); font-weight: var(--font-weight-semibold); font-variant-numeric: var(--numeric-tabular); }
+.risk-repair-row-title strong { color: var(--text-primary); font-family: var(--font-ui); font-size: var(--fs-sm); font-weight: var(--font-weight-semibold); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
 .risk-repair-row-title span { color: var(--text-secondary); font-size: var(--fs-sm); }
 .risk-repair-row-title small { padding: 2px 6px; border-radius: var(--radius-full); background: var(--bg-inset); color: var(--text-muted); font-family: var(--font-ui); font-size: var(--fs-micro); }
 .risk-repair-row.is-blocking .risk-repair-row-title small { background: var(--neg-bg); color: var(--neg); }
@@ -75,7 +75,7 @@
 .risk-repair-complete strong { color: var(--pos); font-size: var(--fs-sm); }
 .risk-repair-complete span { color: var(--text-muted); font-size: var(--fs-mini); }
 
-.risk-repair-group-toggle:focus-visible,
+.risk-repair-group-toggle:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
 .risk-repair-action:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
 
 @media (max-width: 1099px) {
