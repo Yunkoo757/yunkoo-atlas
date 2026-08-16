@@ -1,23 +1,9 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import type {
-  RiskDataIssueReason,
-  RiskPartialReason,
-  RiskUnknownReason,
-} from '@/data/riskManagement'
 import { resolveRiskDataIssues } from '@/lib/riskBudget'
-import {
-  RISK_PARTIAL_REASON_COPY,
-  RISK_UNKNOWN_REASON_COPY,
-} from '@/lib/riskUnknownReasonPresentation'
+import { riskDataIssueReasonCopy } from '@/lib/riskUnknownReasonPresentation'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { useStore } from '@/store/useStore'
-
-function reasonCopy(reason: RiskDataIssueReason): string {
-  return reason.startsWith('partial-')
-    ? RISK_PARTIAL_REASON_COPY[reason as RiskPartialReason]
-    : RISK_UNKNOWN_REASON_COPY[reason as RiskUnknownReason]
-}
 
 export function RiskDataIssuesSection({ currentTradingDayKey }: { currentTradingDayKey: string }) {
   const trades = useStore((state) => state.trades)
@@ -65,7 +51,7 @@ export function RiskDataIssuesSection({ currentTradingDayKey }: { currentTrading
                 <article className="risk-data-issue is-global" key={`global:${issue.reasons.join(',')}`}>
                   <div>
                     <strong>全局设置</strong>
-                    <p>{issue.reasons.map(reasonCopy).join('；')}</p>
+                    <p>{issue.reasons.map(riskDataIssueReasonCopy).join('；')}</p>
                   </div>
                   <Link className="risk-data-issue-action" to="/settings/data">调整核算起点</Link>
                 </article>
@@ -81,7 +67,7 @@ export function RiskDataIssuesSection({ currentTradingDayKey }: { currentTrading
                     <span>{trade.symbol}</span>
                     <small>{issue.severity === 'blocking' ? '阻断判断' : '影响完整度'}</small>
                   </div>
-                  <p>{issue.reasons.map(reasonCopy).join('；')}</p>
+                  <p>{issue.reasons.map(riskDataIssueReasonCopy).join('；')}</p>
                   {issue.reasons.includes('missing-policy') ? (
                     <small className="risk-data-issue-note">历史规则无法通过编辑交易补建，请先核对交易事实。</small>
                   ) : null}

@@ -1,4 +1,4 @@
-import type { RiskPartialReason, RiskUnknownReason } from '@/data/riskManagement'
+import type { RiskDataIssueReason, RiskPartialReason, RiskUnknownReason } from '@/data/riskManagement'
 
 export const RISK_UNKNOWN_REASON_COPY: Readonly<Record<RiskUnknownReason, string>> = {
   'missing-loss-pnl': '亏损交易缺少盈亏金额',
@@ -16,4 +16,10 @@ export const RISK_PARTIAL_REASON_COPY: Readonly<Record<RiskPartialReason, string
   'partial-invalid-close-date': '平仓日期无效',
   'partial-future-close-date': '平仓日期晚于当前交易日',
   'partial-missing-policy': '该平仓日没有生效的风险规则',
+}
+
+export function riskDataIssueReasonCopy(reason: RiskDataIssueReason): string {
+  return reason.startsWith('partial-')
+    ? RISK_PARTIAL_REASON_COPY[reason as RiskPartialReason]
+    : RISK_UNKNOWN_REASON_COPY[reason as RiskUnknownReason]
 }
