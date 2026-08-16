@@ -374,3 +374,9 @@ button.shortcuts-capture[aria-pressed='true'] {
     animation: none;
   }
 }
+
+@media (max-width: 1099px) {
+  .shortcuts-panel-head {
+    padding-inline: 0;
+  }
+}
