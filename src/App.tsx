@@ -189,6 +189,9 @@ const StrategiesPanel = lazy(() =>
 const RiskManagementSettingsPanel = lazy(() =>
   import('./views/settings/RiskManagementSettingsPanel').then((module) => ({ default: module.RiskManagementSettingsPanel })),
 )
+const RiskDataRepairView = lazy(() =>
+  import('./views/settings/RiskDataRepairView').then((module) => ({ default: module.RiskDataRepairView })),
+)
 const QuickNotesView = lazy(() =>
   import('./views/QuickNotesView').then((module) => ({ default: module.QuickNotesView })),
 )
@@ -473,6 +476,7 @@ function Shell() {
             <Route path="shortcuts" element={<ShortcutsPanel />} />
             <Route path="strategies" element={<StrategiesPanel />} />
             <Route path="risk" element={<RiskManagementSettingsPanel />} />
+            <Route path="risk/data-repair" element={<RiskDataRepairView />} />
             <Route path="tags" element={<TagPresetsPanel />} />
             <Route path="symbols" element={<SymbolsPanel />} />
             <Route path="review-templates" element={<ReviewTemplatesPanel />} />
