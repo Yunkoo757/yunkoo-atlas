@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
@@ -61,12 +61,6 @@ function dirtyLoss(currentDay: string): Trade {
   }
 }
 
-function TradeRouteProbe() {
-  const location = useLocation()
-  const source = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? ''
-  return <div data-trade-route-source={source}>交易详情<Link to="/settings/risk">返回风险设置</Link></div>
-}
-
 function Harness() {
   const [panelKey, setPanelKey] = useState(0)
   return (
@@ -77,9 +71,7 @@ function Harness() {
       <Routes>
         <Route path="/settings" element={<SettingsLayout />}>
           <Route path="risk" element={<RiskManagementSettingsPanel key={panelKey} />} />
-          <Route path="data" element={<div>数据管理</div>} />
         </Route>
-        <Route path="/trade/:id" element={<TradeRouteProbe />} />
       </Routes>
     </MemoryRouter>
   )
@@ -121,24 +113,21 @@ async function run(): Promise<void> {
       throw new Error('风险管理设置页缺少周期限额')
     }
     if (!panel.textContent?.includes('确认本周规则')) throw new Error('设置页缺少每周确认动作')
-    await waitFor(() => panel?.textContent?.includes('阻断风险判断 1 条') ?? false, '没有显示阻断风险数据摘要')
-    if (!panel.textContent?.includes('影响完整度 1 条')) throw new Error('没有显示部分覆盖数据摘要')
-    if (!panel.textContent?.includes('亏损交易缺少盈亏金额')) throw new Error('阻断项缺少具体修复原因')
-    if (!panel.textContent?.includes('缺少可用于风险核算的盈亏金额')) throw new Error('部分覆盖项缺少具体原因')
-    const openTrade = panel.querySelector<HTMLAnchorElement>('[data-risk-issue-trade]')
-    if (!openTrade?.textContent?.includes('打开交易')) throw new Error('缺少交易修复入口')
-    openTrade.click()
-    await waitFor(() => document.querySelector('[data-trade-route-source]') !== null, '没有进入问题交易')
-    if (document.querySelector('[data-trade-route-source]')?.getAttribute('data-trade-route-source') !== '/settings/risk') {
-      throw new Error('问题交易没有携带风险设置返回上下文')
+    await waitFor(() => panel?.querySelector('[data-risk-data-summary]') !== null, '设置页没有显示风险数据摘要')
+    const preparation = panel.querySelector<HTMLElement>('[data-risk-preparation]')
+    const summary = panel.querySelector<HTMLElement>('[data-risk-data-summary]')
+    if (!preparation || !summary) throw new Error('风险设置页缺少规则或数据摘要')
+    if (!(preparation.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+      throw new Error('本周风险规则必须显示在数据摘要之前')
     }
-    const returnLink = [...document.querySelectorAll<HTMLAnchorElement>('a')]
-      .find((link) => link.textContent?.trim() === '返回风险设置')
-    if (!returnLink) throw new Error('交易测试路由缺少返回入口')
-    returnLink.click()
-    await waitFor(() => document.querySelector('[data-risk-management-settings]') !== null, '没有返回风险设置')
-    panel = document.querySelector<HTMLElement>('[data-risk-management-settings]')
-    if (!panel) throw new Error('返回后风险管理设置页没有渲染')
+    if (!summary.textContent?.includes('全局设置 0') || !summary.textContent?.includes('阻断判断 1') || !summary.textContent?.includes('影响完整度 1')) {
+      throw new Error('风险数据摘要没有显示三类独立计数')
+    }
+    if (panel.textContent?.includes('亏损交易缺少盈亏金额')) {
+      throw new Error('风险设置页不得继续渲染逐条问题原因')
+    }
+    const repairLink = summary.querySelector<HTMLAnchorElement>('a[href="/settings/risk/data-repair"]')
+    if (repairLink?.textContent?.trim() !== '开始修复') throw new Error('可修复问题必须提供开始修复入口')
 
     if (new URLSearchParams(location.search).get('visual') === 'cards') {
       await new Promise<void>(() => {})
@@ -214,6 +203,8 @@ async function run(): Promise<void> {
       ],
     })
     await waitFor(() => document.querySelector('[data-risk-data-complete]') !== null, '修复交易后问题没有自动消失')
+    const completeSummary = panel.querySelector<HTMLElement>('[data-risk-data-summary]')
+    if (completeSummary?.querySelector('a')) throw new Error('风险数据完整时不应提供修复入口')
 
     const reviewedPolicyCount = useStore.getState().riskPolicyVersions.length
     const edit = [...panel.querySelectorAll<HTMLButtonElement>('button')]
@@ -293,12 +284,23 @@ async function run(): Promise<void> {
       ?.querySelector<HTMLInputElement>('input')
     if (privateCapital?.type !== 'password') throw new Error('隐私模式没有掩码资金基准')
 
-    const nextDay = parseLocalDate(currentDay)
-    nextDay.setDate(nextDay.getDate() + 1)
-    useStore.setState({ liveStatsStartTradingDayKey: getTradingDayKey(nextDay, 0) })
-    await waitFor(() => panel?.textContent?.includes('风险核算起点晚于当前交易日') ?? false, '全局核算起点问题没有出现')
-    const cycleSettings = panel.querySelector<HTMLAnchorElement>('a[href="/settings/data"]')
-    if (!cycleSettings?.textContent?.includes('调整核算起点')) throw new Error('全局问题缺少数据设置入口')
+    useStore.setState((state) => ({
+      trades: [{
+        ...incompleteTrade,
+        id: 'risk-retained-history',
+        pnl: -1_000,
+        rMultiple: null,
+        resultSource: 'pnl',
+        closedAt: getTradingDayKey(priorDay, 0),
+        closedTradingDayKey: getTradingDayKey(priorDay, 0),
+      }],
+      liveStatsStartTradingDayKey: getTradingDayKey(priorDay, 0),
+      display: { ...state.display, privacyMode: false },
+    }))
+    await waitFor(() => panel?.querySelector('[data-risk-data-summary]')?.textContent?.includes('仍会如实影响完整度') ?? false, '纯历史缺口没有持续影响完整度')
+    const retainedSummary = panel.querySelector<HTMLElement>('[data-risk-data-summary]')
+    const retainedLink = retainedSummary?.querySelector<HTMLAnchorElement>('a[href="/settings/risk/data-repair"]')
+    if (retainedLink?.textContent?.trim() !== '查看历史缺口') throw new Error('纯历史规则缺口必须提供查看历史缺口入口')
   } finally {
     root.unmount()
     useStore.setState(previous, true)
