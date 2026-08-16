@@ -1,11 +1,12 @@
 import { ICON_MD } from '@/icons/iconSize'
-import { Pencil, Trash2, Star, Ban, BookOpen } from '@/icons/appIcons'
+import { Pencil, Trash2, Star, Ban, BookOpen, Copy } from '@/icons/appIcons'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import type { CtxItem } from '@/components/ContextMenu'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
+import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 
 export function buildTradeCtxItems(
   trade: Trade,
@@ -63,6 +64,33 @@ export function buildTradeCtxItems(
       icon: <Pencil size={ICON_MD} />,
       label: '编辑',
       onClick: () => a.openComposer(trade),
+    },
+    {
+      type: 'item',
+      icon: <Copy size={ICON_MD} />,
+      label: trade.tradeKind === 'case' ? '复制案例' : '复制为新计划',
+      onClick: () => {
+        const state = useStore.getState()
+        const source = state.trades.find((candidate) => candidate.id === trade.id && !candidate.deletedAt)
+        if (!source) {
+          toast('源记录已变更，无法复制', { tone: 'error' })
+          return
+        }
+        try {
+          const copies = buildSafeTradeCopies([source], state.trades, {
+            now: new Date(),
+            createId: () => crypto.randomUUID(),
+          })
+          const result = state.upsertTrades(copies)
+          if (result !== 'updated') {
+            toast('复制失败，请重试', { tone: 'error' })
+            return
+          }
+          toast(source.tradeKind === 'case' ? '已复制为新案例' : '已复制为新计划', { tone: 'success' })
+        } catch {
+          toast('复制失败，请重试', { tone: 'error' })
+        }
+      },
     },
     ...(trade.tradeKind === 'case' || !a.createReviewCase
       ? []

@@ -48,6 +48,7 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
+import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
@@ -247,6 +248,7 @@ export function useSidebarNavigationModel() {
       trades,
       businessDateAnchor.currentTradingDayKey,
       display.tradingDayStartHour,
+      resolveLiveArchiveScope(livePerformanceCycles, null),
     ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
