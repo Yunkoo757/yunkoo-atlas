@@ -32,7 +32,7 @@
 }
 .bd-col-title {
   font-size: var(--type-section-title-size);
-  line-height: var(--type-section-title-line-height);
+  line-height: var(--type-row-line-height);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   transition: color var(--dur-fast) var(--ease-out);

@@ -17,7 +17,7 @@
   color: var(--text-primary);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
-  line-height: var(--type-section-title-line-height);
+  line-height: var(--type-row-line-height);
 }
 .risk-status-periods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .risk-status-period { min-width: 0; padding: 11px var(--sp-3) 10px; background: transparent; }

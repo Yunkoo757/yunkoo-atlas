@@ -120,7 +120,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
-  line-height: var(--type-section-title-line-height);
+  line-height: var(--type-row-line-height);
 }
 
 .settings-section-desc {

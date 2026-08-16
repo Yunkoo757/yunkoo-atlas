@@ -8,7 +8,7 @@
   margin: 0 0 6px;
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
-  line-height: var(--type-section-title-line-height);
+  line-height: var(--type-row-line-height);
   color: var(--text-strong);
 }
 
@@ -192,7 +192,7 @@
   margin: 0 0 3px;
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
-  line-height: var(--type-section-title-line-height);
+  line-height: var(--type-row-line-height);
   color: var(--text-strong);
 }
 .dio-group-desc {
