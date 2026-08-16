@@ -1981,6 +1981,23 @@ export function testTradeDetailReturnRemembersListView(): void {
   })
   assert(invalidCaseRiskSource.pathname === '/review-cases', '案例详情不得接受风险设置作为来源')
 
+  const riskRepairReturn = resolveTradeDetailReturn({
+    from: {
+      pathname: '/settings/risk/data-repair',
+      search: '?group=priority%3Amissing-loss-pnl',
+      anchorTradeId: trade.id,
+    },
+    tradeKind: 'live',
+  })
+  assert(riskRepairReturn.pathname === '/settings/risk/data-repair', '实盘详情必须接受风险修复中心来源')
+  assert(riskRepairReturn.search === '?group=priority%3Amissing-loss-pnl', '风险修复中心返回必须保留展开分组')
+
+  const invalidCaseRepairSource = resolveTradeDetailReturn({
+    from: { pathname: '/settings/risk/data-repair', anchorTradeId: trade.id },
+    tradeKind: 'case',
+  })
+  assert(invalidCaseRepairSource.pathname === '/review-cases', '案例详情不得接受风险修复中心来源')
+
   const weeklyReviewReturn = resolveTradeDetailReturn({
     from: {
       pathname: '/weekly-review',
