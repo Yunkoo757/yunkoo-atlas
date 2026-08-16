@@ -197,6 +197,10 @@ async function run(): Promise<void> {
     if (!view.textContent?.includes('历史风险规则不可回填')) {
       throw new Error('保留型历史缺口缺少真实说明')
     }
+    const counts = view.querySelector<HTMLElement>('[data-risk-repair-counts]')
+    if (counts?.textContent?.replace(/\s+/g, ' ').trim() !== '全局设置 0阻断判断 2影响完整度 1') {
+      throw new Error('修复中心顶部必须显示全局、阻断和完整度统计')
+    }
     const next = view.querySelector<HTMLAnchorElement>('[data-risk-repair-next]')
     if (!next?.textContent?.includes('处理下一项')) throw new Error('缺少唯一下一项动作')
     const expanded = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group]')]

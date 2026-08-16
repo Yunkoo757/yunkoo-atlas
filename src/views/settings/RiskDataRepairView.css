@@ -7,6 +7,9 @@
   gap: var(--sp-4);
 }
 
+.risk-repair-counts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+.risk-repair-counts span { padding: var(--sp-1) var(--sp-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); color: var(--text-muted); font-family: var(--font-ui); font-size: var(--fs-micro); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; white-space: nowrap; }
+
 .risk-repair-action {
   min-height: var(--control-height);
   display: inline-flex;

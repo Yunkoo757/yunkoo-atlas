@@ -146,6 +146,11 @@ export function RiskDataRepairView() {
         <div>
           <h1 className="settings-page-title" tabIndex={-1}>风险数据修复中心</h1>
           <p className="settings-page-desc">集中处理影响风险判断与完整度的数据缺口；历史规则缺口会持续如实反映。</p>
+          <div className="risk-repair-counts" data-risk-repair-counts aria-label="风险数据缺口摘要">
+            <span>全局设置 {queue.counts.global}</span>
+            <span>阻断判断 {queue.counts.blocking}</span>
+            <span>影响完整度 {queue.counts.partial}</span>
+          </div>
         </div>
         {queue.nextItem ? (
           <RepairAction
