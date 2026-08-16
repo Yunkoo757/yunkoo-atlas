@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { flushPersistNow } from '@/storage/persist'
 import { useSaveStatus } from '@/store/saveStatus'
@@ -13,10 +13,23 @@ const LABELS = {
 } as const
 
 const SAVED_VISIBLE_MS = 1600
+const DIRTY_VISIBLE_DELAY_MS = 600
 
 export function SaveStatusIndicator() {
   const status = useSaveStatus((state) => state.status)
   const errorMessage = useSaveStatus((state) => state.errorMessage)
+  const [dirtyVisible, setDirtyVisible] = useState(false)
+
+  useEffect(() => {
+    if (status !== 'dirty') {
+      setDirtyVisible(false)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      setDirtyVisible(true)
+    }, DIRTY_VISIBLE_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [status])
 
   useEffect(() => {
     if (status !== 'saved') return
@@ -26,7 +39,9 @@ export function SaveStatusIndicator() {
     return () => window.clearTimeout(timer)
   }, [status])
 
-  if (status === 'idle') return <span className="save-status-slot" aria-hidden />
+  if (status === 'idle' || (status === 'dirty' && !dirtyVisible)) {
+    return <span className="save-status-slot" aria-hidden />
+  }
 
   if (status === 'error') {
     const reason = errorMessage ?? '无法写入本地资料库'
