@@ -39,6 +39,16 @@ export function testRepairQueueSkipsRetainedHistoryAndGroupsOnce(): void {
   assert(queue.groups.find((group) => group.items.some((item) => item.issue.tradeId === 'mixed'))?.reason === 'missing-close-date', '主分组必须选择第一个可修复原因')
 }
 
+export function testRepairQueueRetainedOnlyKeepsGroupsWithoutNextAction(): void {
+  const queue = buildRiskDataRepairQueue([
+    issue({ tradeId: 'history', tradeRef: 'TRD-6', severity: 'blocking', reasons: ['missing-policy'] }),
+  ])
+
+  assert(queue.retainedOnly, '纯历史缺口必须标记为 retainedOnly')
+  assert(queue.groups.length === 1 && queue.groups[0]?.retained, '纯历史缺口必须保留在历史原因分组中')
+  assert(queue.nextItem === null, '纯历史缺口不得生成处理下一项动作')
+}
+
 export function testRepairQueueCountsGlobalBlockingAndPartialSeparately(): void {
   const queue = buildRiskDataRepairQueue([
     issue({ severity: 'global', reasons: ['invalid-live-cycle-start'] }),

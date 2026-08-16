@@ -123,7 +123,13 @@ export function RiskDataRepairView() {
   const requestedGroup = searchParams.get('group')
   const defaultGroup = queue.groups.find((group) => !group.retained) ?? queue.groups[0] ?? null
   const activeGroup = queue.groups.find((group) => group.key === requestedGroup) ?? defaultGroup
-  useTradeReturnAnchor()
+  useTradeReturnAnchor({
+    onMissing: () => {
+      const nextAction = document.querySelector<HTMLElement>('[data-risk-repair-next]')
+      const heading = document.querySelector<HTMLElement>('[data-risk-data-repair-view] h1')
+      ;(nextAction ?? heading)?.focus({ preventScroll: true })
+    },
+  })
 
   function openGroup(key: string) {
     const next = new URLSearchParams(searchParams)
@@ -138,10 +144,17 @@ export function RiskDataRepairView() {
     <div className="settings-page risk-data-repair-view" data-risk-data-repair-view>
       <div className="settings-page-head risk-repair-hero">
         <div>
-          <h1 className="settings-page-title">风险数据修复中心</h1>
+          <h1 className="settings-page-title" tabIndex={-1}>风险数据修复中心</h1>
           <p className="settings-page-desc">集中处理影响风险判断与完整度的数据缺口；历史规则缺口会持续如实反映。</p>
         </div>
-        {queue.nextItem ? <RepairAction item={queue.nextItem} className="risk-repair-action risk-repair-next" label="处理下一项" isNext /> : null}
+        {queue.nextItem ? (
+          <RepairAction
+            item={queue.nextItem}
+            className="risk-repair-action risk-repair-next"
+            label={queue.nextItem.actionKind === 'data-settings' ? '调整核算起点' : '处理下一项'}
+            isNext
+          />
+        ) : null}
       </div>
 
       {queue.groups.length === 0 ? (
