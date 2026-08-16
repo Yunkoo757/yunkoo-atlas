@@ -112,6 +112,34 @@ function TradeRouteProbe() {
       >
         修复后返回
       </button>
+      <button
+        type="button"
+        data-trade-route-complete-return
+        onClick={() => {
+          if (from?.anchorTradeId) {
+            useStore.setState((state) => ({
+              trades: state.trades.map((trade) => trade.id === from.anchorTradeId ? {
+                ...trade,
+                pnl: -100,
+                rMultiple: null,
+                resultSource: 'pnl',
+                closedAt: trade.openedAt,
+                closedTradingDayKey: trade.openedAt.slice(0, 10),
+              } : trade),
+            }))
+          }
+          navigate(
+            { pathname: from?.pathname ?? '/list', search: from?.search ?? '' },
+            { state: tradeReturnLocationState(from?.pathname ? {
+              pathname: from.pathname,
+              search: from.search,
+              anchorTradeId: from.anchorTradeId,
+            } : undefined) },
+          )
+        }}
+      >
+        完成修复后返回
+      </button>
     </section>
   )
 }
@@ -150,6 +178,15 @@ async function run(): Promise<void> {
       pnl: null,
       rMultiple: -1,
       resultSource: 'r',
+      closedAt: null,
+      closedTradingDayKey: undefined,
+    })
+    const blockingSibling = liveTrade(currentDay, {
+      id: 'risk-repair-loss-sibling',
+      ref: 'TRD-REPAIR-LOSS-SIBLING',
+      pnl: null,
+      rMultiple: -1,
+      resultSource: 'r',
     })
     const completenessTrade = liveTrade(currentDay, {
       id: 'risk-repair-win',
@@ -167,7 +204,7 @@ async function run(): Promise<void> {
       resultSource: 'pnl',
     })
     useStore.setState((state) => ({
-      trades: [blockingTrade, completenessTrade, retainedHistory],
+      trades: [blockingTrade, blockingSibling, completenessTrade, retainedHistory],
       weeklyRiskPreparations: [],
       riskPolicyVersions: [{
         id: 'risk-repair-current-policy',
@@ -191,21 +228,40 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('[data-risk-data-repair-view]') !== null, '风险数据修复中心没有渲染')
     let view = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')
     if (!view) throw new Error('风险数据修复中心没有渲染')
+    const riskManagementReturn = view.querySelector<HTMLAnchorElement>('a[href="/settings/risk"]')
+    if (riskManagementReturn?.textContent?.trim() !== '返回风险管理') {
+      throw new Error('修复中心顶部缺少返回风险管理入口')
+    }
     if (!view.textContent?.includes('优先处理') || !view.textContent?.includes('补全数据')) {
       throw new Error('修复中心缺少两级问题区域')
     }
     if (!view.textContent?.includes('历史风险规则不可回填')) {
       throw new Error('保留型历史缺口缺少真实说明')
     }
+    const identityRow = view.querySelector<HTMLElement>('[data-trade-id="risk-repair-loss-sibling"]')
+    if (!identityRow?.textContent?.includes('做多')) {
+      throw new Error('修复交易行缺少方向身份信息')
+    }
+    if (!identityRow.textContent.includes(currentDay)) {
+      throw new Error('修复交易行缺少平仓交易日身份信息')
+    }
     const counts = view.querySelector<HTMLElement>('[data-risk-repair-counts]')
-    if (counts?.textContent?.replace(/\s+/g, ' ').trim() !== '全局设置 0阻断判断 2影响完整度 1') {
-      throw new Error('修复中心顶部必须显示全局、阻断和完整度统计')
+    if (counts?.textContent?.replace(/\s+/g, ' ').trim() !== '问题总数 4阻断判断 3影响完整度 1') {
+      throw new Error('修复中心顶部必须显示问题总数、阻断和完整度统计')
     }
     const next = view.querySelector<HTMLAnchorElement>('[data-risk-repair-next]')
     if (!next?.textContent?.includes('处理下一项')) throw new Error('缺少唯一下一项动作')
     const expanded = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group]')]
       .filter((group) => group.getAttribute('data-expanded') === 'true')
     if (expanded.length !== 1) throw new Error('修复中心必须只展开一个原因分组')
+    const groupSummaries = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group] .risk-repair-group-toggle small')]
+    if (groupSummaries.some((summary) => !/\d+ 项/.test(summary.textContent ?? ''))) {
+      throw new Error('每个原因分组标题都必须保留项目计数')
+    }
+    const retainedSummary = view.querySelector<HTMLElement>('[data-risk-repair-group="priority:missing-policy"] .risk-repair-group-toggle small')
+    if (retainedSummary?.textContent?.trim() !== '1 项 · 历史风险规则不可回填') {
+      throw new Error('历史原因分组标题必须同时显示计数与不可回填说明')
+    }
 
     const alternateGroup = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group]')]
       .find((group) => group.getAttribute('data-expanded') === 'false')
@@ -249,20 +305,40 @@ async function run(): Promise<void> {
     if (!repairableGroup || !repairableToggle) throw new Error('修复中心缺少可补齐的亏损交易分组')
     repairableToggle.click()
     await waitFor(() => repairableGroup.getAttribute('data-expanded') === 'true', '没有展开可补齐的亏损交易分组')
-    const repairedTradeId = repairableGroup.querySelector<HTMLElement>('[data-trade-id]')?.dataset.tradeId
-    const repairLink = repairableGroup.querySelector<HTMLAnchorElement>('a')
+    const repairTarget = repairableGroup.querySelector<HTMLElement>('[data-trade-id="risk-repair-loss"]')
+    const repairedTradeId = repairTarget?.dataset.tradeId
+    const repairLink = repairTarget?.querySelector<HTMLAnchorElement>('a')
     if (!repairedTradeId || !repairLink) throw new Error('可补齐交易缺少详情动作')
     repairLink.click()
     await waitFor(() => document.querySelector('[data-trade-route-probe]') !== null, '没有进入可补齐交易详情')
     document.querySelector<HTMLButtonElement>('[data-trade-route-repair-return]')?.click()
     await waitFor(() => document.querySelector('[data-risk-data-repair-view]') !== null, '修复交易后没有返回修复中心')
     await waitFor(() => {
+      const target = document.querySelector<HTMLElement>(`[data-trade-id="${repairedTradeId}"]`)
+      return Boolean(target) && (document.activeElement === target || Boolean(target?.contains(document.activeElement)))
+    }, '部分修复迁组后没有恢复到同一笔交易')
+    const migratedGroup = document.querySelector<HTMLElement>('[data-risk-repair-group="priority:missing-close-date"]')
+    if (migratedGroup?.getAttribute('data-expanded') !== 'true') {
+      throw new Error('部分修复迁组后没有展开交易当前所在分组')
+    }
+    if (document.querySelector('[data-location-search]')?.textContent !== '?group=priority%3Amissing-close-date') {
+      throw new Error('部分修复迁组后 URL 没有更新到当前分组')
+    }
+    if (!document.querySelector('[data-risk-repair-group="priority:missing-loss-pnl"]')) {
+      throw new Error('部分修复迁组后原分组应由同类交易继续保留')
+    }
+
+    document.querySelector<HTMLElement>(`[data-trade-id="${repairedTradeId}"] a`)?.click()
+    await waitFor(() => document.querySelector('[data-trade-route-probe]') !== null, '没有再次进入迁组后的交易详情')
+    document.querySelector<HTMLButtonElement>('[data-trade-route-complete-return]')?.click()
+    await waitFor(() => document.querySelector('[data-risk-data-repair-view]') !== null, '完整修复交易后没有返回修复中心')
+    await waitFor(() => {
       const nextAction = document.querySelector<HTMLElement>('[data-risk-repair-next]')
       const heading = document.querySelector<HTMLElement>('[data-risk-data-repair-view] h1')
       return document.activeElement === nextAction || document.activeElement === heading
-    }, '修复交易移除原行后没有聚焦下一项或页面标题')
+    }, '问题确实消失后没有聚焦下一项或页面标题')
     if (document.querySelector(`[data-trade-id="${repairedTradeId}"]`)) {
-      throw new Error('修复后的交易仍停留在风险数据修复队列')
+      throw new Error('完整修复后的交易仍停留在风险数据修复队列')
     }
 
     const nextDay = parseLocalDate(currentDay)
@@ -288,6 +364,9 @@ async function run(): Promise<void> {
     view = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')
     if (!view) throw new Error('纯历史缺口阶段缺少修复中心')
     if (!view.textContent?.includes('完整度')) throw new Error('纯历史缺口没有持续影响完整度')
+    if (!view.textContent?.includes('没有可直接修复的问题，仍有历史规则缺口影响完整度')) {
+      throw new Error('纯历史缺口阶段缺少准确结论')
+    }
     if (view.querySelector('[data-risk-repair-next]')) throw new Error('纯历史缺口不应显示处理下一项动作')
   } finally {
     root.unmount()

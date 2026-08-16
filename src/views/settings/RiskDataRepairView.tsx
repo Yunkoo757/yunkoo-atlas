@@ -47,6 +47,10 @@ function RepairRow({ item }: { item: RiskRepairItem }) {
   const isGlobal = item.issue.severity === 'global'
   const title = isGlobal ? '全局设置' : trade?.ref ?? item.issue.tradeRef ?? '交易记录'
   const subtitle = isGlobal ? '修正设置后将重新核算当前风险周期。' : trade?.symbol
+  const direction = trade ? (trade.side === 'long' ? '做多' : '做空') : null
+  const closedDate = trade
+    ? item.issue.tradingDayKey ?? trade.closedTradingDayKey ?? trade.closedAt?.slice(0, 10) ?? null
+    : null
 
   return (
     <article className={`risk-repair-row is-${item.issue.severity}`} {...(!isGlobal && trade ? { 'data-trade-id': trade.id } : {})}>
@@ -54,6 +58,12 @@ function RepairRow({ item }: { item: RiskRepairItem }) {
         <div className="risk-repair-row-title">
           <strong>{title}</strong>
           {subtitle ? <span>{subtitle}</span> : null}
+          {direction ? <span data-risk-repair-direction>{direction}</span> : null}
+          {trade ? (
+            <span data-risk-repair-close-date>
+              {closedDate ? `平仓 ${closedDate}` : trade.closedAt ? '平仓日期无效' : '平仓日期待补'}
+            </span>
+          ) : null}
           {!isGlobal ? <small>{item.issue.severity === 'blocking' ? '阻断判断' : '影响完整度'}</small> : null}
         </div>
         <p>{item.issue.reasons.map(riskDataIssueReasonCopy).join('；')}</p>
@@ -81,7 +91,7 @@ function RepairGroup({ group, expanded, onOpen }: {
         onClick={() => onOpen(group.key)}
       >
         <span>{description}</span>
-        <small>{group.retained ? '历史风险规则不可回填' : `${group.items.length} 项`}</small>
+        <small>{`${group.items.length} 项${group.retained ? ' · 历史风险规则不可回填' : ''}`}</small>
       </button>
       {expanded ? (
         <div className="risk-repair-group-items">
@@ -124,6 +134,15 @@ export function RiskDataRepairView() {
   const defaultGroup = queue.groups.find((group) => !group.retained) ?? queue.groups[0] ?? null
   const activeGroup = queue.groups.find((group) => group.key === requestedGroup) ?? defaultGroup
   useTradeReturnAnchor({
+    resolveRestoreSearch: (tradeId, restoreSearch) => {
+      const currentGroup = queue.groups.find((group) => (
+        group.items.some((item) => item.issue.tradeId === tradeId)
+      ))
+      if (!currentGroup) return restoreSearch
+      const next = new URLSearchParams(restoreSearch ?? '')
+      next.set('group', currentGroup.key)
+      return `?${next.toString()}`
+    },
     onMissing: () => {
       const nextAction = document.querySelector<HTMLElement>('[data-risk-repair-next]')
       const heading = document.querySelector<HTMLElement>('[data-risk-data-repair-view] h1')
@@ -144,10 +163,11 @@ export function RiskDataRepairView() {
     <div className="settings-page risk-data-repair-view" data-risk-data-repair-view>
       <div className="settings-page-head risk-repair-hero">
         <div>
+          <Link className="risk-repair-back" to="/settings/risk">返回风险管理</Link>
           <h1 className="settings-page-title" tabIndex={-1}>风险数据修复中心</h1>
           <p className="settings-page-desc">集中处理影响风险判断与完整度的数据缺口；历史规则缺口会持续如实反映。</p>
           <div className="risk-repair-counts" data-risk-repair-counts aria-label="风险数据缺口摘要">
-            <span>全局设置 {queue.counts.global}</span>
+            <span>问题总数 {queue.counts.total}</span>
             <span>阻断判断 {queue.counts.blocking}</span>
             <span>影响完整度 {queue.counts.partial}</span>
           </div>
@@ -161,6 +181,12 @@ export function RiskDataRepairView() {
           />
         ) : null}
       </div>
+
+      {queue.retainedOnly ? (
+        <p className="risk-repair-retained-conclusion" role="status">
+          没有可直接修复的问题，仍有历史规则缺口影响完整度
+        </p>
+      ) : null}
 
       {queue.groups.length === 0 ? (
         <div className="risk-repair-complete">

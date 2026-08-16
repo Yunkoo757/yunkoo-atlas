@@ -57,7 +57,7 @@
 }
 
 .today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
-    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
+    .risk-status-period:is(.is-partial, .is-unknown, .is-unconfigured, .is-unreviewed)
   )
   .today-risk-action.is-unready {
   display: inline-flex;
@@ -65,7 +65,7 @@
 
 .today-workspace-inner:has(.risk-status-period.is-triggered) .today-workflow-primary,
 .today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
-    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
+    .risk-status-period:is(.is-partial, .is-unknown, .is-unconfigured, .is-unreviewed)
   )
   .today-workflow-primary {
   display: none;
@@ -73,7 +73,7 @@
 
 .today-workspace-inner:has(.risk-status-period.is-triggered) .today-create-trade.ui-btn-primary,
 .today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
-    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
+    .risk-status-period:is(.is-partial, .is-unknown, .is-unconfigured, .is-unreviewed)
   )
   .today-create-trade.ui-btn-primary {
   color: var(--text-secondary);
@@ -83,7 +83,7 @@
 
 .today-workspace-inner:has(.risk-status-period.is-triggered) .today-create-trade.ui-btn-primary:hover,
 .today-workspace-inner:not(:has(.risk-status-period.is-triggered)):has(
-    .risk-status-period:is(.is-unknown, .is-unconfigured, .is-unreviewed)
+    .risk-status-period:is(.is-partial, .is-unknown, .is-unconfigured, .is-unreviewed)
   )
   .today-create-trade.ui-btn-primary:hover {
   color: var(--text-primary);

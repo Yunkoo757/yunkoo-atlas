@@ -59,7 +59,13 @@ import {
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
-import { findTradeByRouteParam, tradeDetailPath, resolveTradeDetailReturn, type TradeDetailLocationState } from '@/lib/tradeRoute'
+import {
+  findTradeByRouteParam,
+  resolveTradeDetailReturn,
+  tradeDetailPath,
+  type TradeDetailLocationState,
+} from '@/lib/tradeRoute'
+import { resolveTradeDetailSourceCopy } from '@/views/detailSourceCopy'
 import { tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
 import {
   SESSION_PRESETS,
@@ -267,10 +273,6 @@ export function DetailView() {
   }, [trade, routeParam, navigate, location.state])
 
   const from = (location.state as TradeDetailLocationState | null)?.from
-  const fromMissedOpportunities = from?.pathname === '/missed'
-  const fromLiveArchive = from?.pathname === '/live-history'
-    || from?.pathname === '/live-archive'
-    || from?.pathname.startsWith('/live-archive/')
   const detailKind = trade?.tradeKind ?? deletedTrade?.tradeKind
   const detailReturn = useMemo(() => {
     return resolveTradeDetailReturn({
@@ -280,34 +282,15 @@ export function DetailView() {
       tradeKind: detailKind,
     })
   }, [from, listContext?.listPath, listContext?.listSearch, detailKind])
-  const fromWeeklyReview = detailReturn.pathname === '/weekly-review'
-  const detailCrumb = fromMissedOpportunities
-    ? '错过的机会'
-    : fromLiveArchive
-      ? '历史实盘'
-    : fromWeeklyReview
-      ? '周复盘'
-      : detailKind === 'case'
-        ? '案例记录'
-        : detailKind === 'paper'
-          ? '模拟'
-          : '交易日志'
-  const backAriaLabel = fromMissedOpportunities
-    ? '返回错过的机会'
-    : fromLiveArchive
-      ? '返回历史实盘'
-    : fromWeeklyReview
-      ? '返回周复盘'
-      : '返回列表'
-  const returnDestinationLabel = fromMissedOpportunities
-    ? '错过的机会'
-    : fromLiveArchive
-      ? '历史实盘'
-    : fromWeeklyReview
-      ? '周复盘'
-      : detailKind === 'case'
-        ? '案例记录'
-        : '交易日志'
+  const {
+    breadcrumb: detailCrumb,
+    backAriaLabel,
+    returnDestinationLabel,
+  } = resolveTradeDetailSourceCopy({
+    fromPathname: from?.pathname,
+    returnPathname: detailReturn.pathname,
+    tradeKind: detailKind,
+  })
 
   const persistEditorNote = useCallback((html: string, tradeId: string) => {
     pendingHtmlRef.current = html

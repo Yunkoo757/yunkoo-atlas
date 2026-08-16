@@ -26,6 +26,7 @@ export type UseTradeReturnAnchorOptions = {
   onMissing?: (tradeId: string) => void
   onRestoreStart?: (tradeId: string) => void
   onRestoreFinish?: (tradeId?: string) => void
+  resolveRestoreSearch?: (tradeId: string, restoreSearch?: string) => string | undefined
 }
 
 const DEFAULT_RETURN_ANCHOR_OPTIONS: UseTradeReturnAnchorOptions = {}
@@ -248,6 +249,7 @@ export function useTradeReturnAnchor(
   const onMissingRef = useRef(options.onMissing)
   const onRestoreStartRef = useRef(options.onRestoreStart)
   const onRestoreFinishRef = useRef(options.onRestoreFinish)
+  const resolveRestoreSearchRef = useRef(options.resolveRestoreSearch)
 
   useEffect(() => {
     onMissingRef.current = options.onMissing
@@ -260,6 +262,10 @@ export function useTradeReturnAnchor(
   useEffect(() => {
     onRestoreFinishRef.current = options.onRestoreFinish
   }, [options.onRestoreFinish])
+
+  useEffect(() => {
+    resolveRestoreSearchRef.current = options.resolveRestoreSearch
+  }, [options.resolveRestoreSearch])
 
   useEffect(() => {
     const currentStorageKey = storageKey({ pathname: location.pathname, search: location.search })
@@ -318,7 +324,11 @@ export function useTradeReturnAnchor(
     const pending = pendingRef.current
     if (!pending) return
 
-    const restoreSearch = pending.request.restoreSearch
+    const requestedTradeId = pending.request.tradeId
+    const restoreSearch = requestedTradeId
+      ? resolveRestoreSearchRef.current?.(requestedTradeId, pending.request.restoreSearch)
+        ?? pending.request.restoreSearch
+      : pending.request.restoreSearch
     const hasExplicitState = Boolean(
       location.state &&
       typeof location.state === 'object' &&

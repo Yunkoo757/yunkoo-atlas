@@ -155,6 +155,14 @@ async function run(): Promise<void> {
     assert(riskStatus && riskPeriods, '今日工作台缺少风险摘要')
     assert(riskStatus.classList.contains('is-workbench'), '今日工作台必须使用专用风险摘要密度')
     assert(getComputedStyle(riskPeriods).display === 'none', '未超限时风险详情必须收敛为单行摘要')
+    await waitFor(
+      () => Boolean(riskStatus.querySelector('.risk-status-period.is-partial')),
+      '普通部分覆盖风险状态没有渲染',
+    )
+    const partialRiskAction = [...document.querySelectorAll<HTMLElement>('[data-today-risk-action]')]
+      .find((item) => getComputedStyle(item).display !== 'none')
+    assert(partialRiskAction?.textContent?.trim() === '处理风险状态', '普通部分覆盖必须让风险恢复动作成为主动作')
+    assert(getComputedStyle(action).display === 'none', '普通部分覆盖时交易队列动作必须停止争夺主视觉')
 
     useStore.setState({ riskPolicyVersions: [], monthlyRiskLimits: [] })
     await waitFor(
@@ -188,15 +196,24 @@ async function run(): Promise<void> {
     )
     assert(getComputedStyle(riskPeriods).display === 'grid', '风险超限时必须展开三个周期详情')
 
+    const activeTrade = closedTrade('active-trade', 'TRD-ACTIVE', {
+      status: 'open',
+      exit: null,
+      pnl: null,
+      rMultiple: null,
+      resultSource: undefined,
+      closedAt: null,
+      closedTradingDayKey: undefined,
+    })
     useStore.setState({
-      trades: [reviewPending, resultPending],
+      trades: [activeTrade],
       riskPolicyVersions: [riskPolicy],
       monthlyRiskLimits: [monthlyLimit],
     })
     await waitFor(
       () => {
         const currentAction = document.querySelector<HTMLButtonElement>('[data-today-primary-action]')
-        return currentAction?.textContent?.trim() === '补齐交易结果' &&
+        return currentAction?.textContent?.trim() === '继续当前交易' &&
           getComputedStyle(currentAction).display !== 'none'
       },
       '风险恢复后交易主动作没有恢复',
@@ -205,7 +222,7 @@ async function run(): Promise<void> {
     assert(restoredAction && getComputedStyle(restoredAction).display !== 'none', '恢复后的交易主动作不可见')
     restoredAction.click()
     await waitFor(
-      () => document.querySelector('[data-current-path]')?.textContent === '/trade/TRD-RESULT',
+      () => document.querySelector('[data-current-path]')?.textContent === '/trade/TRD-ACTIVE',
       '主动作没有直接打开第一笔待补结果交易',
     )
   } finally {

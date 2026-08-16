@@ -89,7 +89,11 @@ import {
   filterTrades as filterWorkbenchTrades,
   getWorkbenchVisibleTrades,
 } from '@/lib/workbenchTrades'
-import { resolveTradeDetailReturn, tradeDetailNavState } from '@/lib/tradeRoute'
+import {
+  resolveTradeDetailReturn,
+  tradeDetailNavState,
+} from '@/lib/tradeRoute'
+import { resolveTradeDetailSourceCopy } from '@/views/detailSourceCopy'
 import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog } from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
 import { bindingKey, chordFromEvent } from '@/shortcuts/chords'
@@ -2035,19 +2039,47 @@ export function testTradeDetailReturnRemembersListView(): void {
   assert(missingWeeklyTradeReturn.search === '?week=2026-07-20', '缺失交易返回时不得丢失原周')
 }
 
-export async function testWeeklyReviewDetailSourceUsesDedicatedReturnCopy(): Promise<void> {
+export async function testTradeDetailSourceCopyNamesRiskRepairCenter(): Promise<void> {
+  const riskRepairCopy = resolveTradeDetailSourceCopy({
+    fromPathname: '/settings/risk/data-repair',
+    returnPathname: '/settings/risk/data-repair',
+    tradeKind: 'live',
+  })
+  assert(riskRepairCopy.breadcrumb === '风险数据修复中心', '风险修复来源必须使用完整面包屑名称')
+  assert(riskRepairCopy.backAriaLabel === '返回修复中心', '风险修复来源返回图标必须使用修复中心标签')
+  assert(riskRepairCopy.returnDestinationLabel === '修复中心', '风险修复来源空状态动作必须显示返回修复中心')
+
+  const missedCopy = resolveTradeDetailSourceCopy({
+    fromPathname: '/missed',
+    returnPathname: '/missed',
+    tradeKind: 'live',
+  })
+  assert(missedCopy.breadcrumb === '错过的机会', '其他详情来源的面包屑不得改变')
+  assert(missedCopy.backAriaLabel === '返回错过的机会', '其他详情来源的返回标签不得改变')
+  assert(missedCopy.returnDestinationLabel === '错过的机会', '其他详情来源的空状态动作不得改变')
+
   const fs = await import('node:fs/promises')
   const detailView = await fs.readFile('src/views/DetailView.tsx', 'utf8')
-  assert(
-    detailView.includes("const fromWeeklyReview = detailReturn.pathname === '/weekly-review'"),
-    '详情页周复盘文案资格必须使用已经过类型门禁的返回目标',
-  )
-  assert(
-    !detailView.includes("const fromWeeklyReview = from?.pathname === '/weekly-review'"),
-    '详情页不得直接信任未经类型门禁的周复盘来源',
-  )
-  assert(detailView.includes("'周复盘'"), '详情面包屑必须显示周复盘')
-  assert(detailView.includes("'返回周复盘'"), '详情返回按钮必须使用周复盘专属名称')
+  const missingSurface = detailView.slice(detailView.indexOf('if (!trade) {'), detailView.indexOf('const activeNoteLoad'))
+  assert(missingSurface.includes('aria-label={backAriaLabel}'), '缺失或已删除详情的返回图标必须使用来源标签')
+  assert(missingSurface.includes('返回{returnDestinationLabel}'), '缺失或已删除详情的返回动作必须使用来源标签')
+}
+
+export async function testWeeklyReviewDetailSourceUsesDedicatedReturnCopy(): Promise<void> {
+  const weeklyCopy = resolveTradeDetailSourceCopy({
+    fromPathname: '/weekly-review',
+    returnPathname: '/weekly-review',
+    tradeKind: 'live',
+  })
+  assert(weeklyCopy.breadcrumb === '周复盘', '详情面包屑必须显示周复盘')
+  assert(weeklyCopy.backAriaLabel === '返回周复盘', '详情返回按钮必须使用周复盘专属名称')
+
+  const rejectedWeeklyCopy = resolveTradeDetailSourceCopy({
+    fromPathname: '/weekly-review',
+    returnPathname: '/list',
+    tradeKind: 'paper',
+  })
+  assert(rejectedWeeklyCopy.breadcrumb === '模拟', '详情页周复盘文案资格必须使用已经过类型门禁的返回目标')
 }
 
 export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(): Promise<void> {
@@ -2060,10 +2092,16 @@ export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(
   ])
 
   assert(
-    detailView.includes("from?.pathname === '/missed'") && detailView.includes("'错过的机会'"),
+    detailView.includes('resolveTradeDetailSourceCopy({'),
     '聚合来源详情必须显示“错过的机会”面包屑',
   )
-  assert(detailView.includes("'返回错过的机会'"), '聚合来源详情返回按钮必须提供专属 aria-label')
+  const missedCopy = resolveTradeDetailSourceCopy({
+    fromPathname: '/missed',
+    returnPathname: '/missed',
+    tradeKind: 'live',
+  })
+  assert(missedCopy.breadcrumb === '错过的机会', '聚合来源详情必须显示“错过的机会”面包屑')
+  assert(missedCopy.backAriaLabel === '返回错过的机会', '聚合来源详情返回按钮必须提供专属 aria-label')
   assert(
     returnAnchor.includes('findTradeReturnFocusTarget(target)') &&
       returnAnchor.includes('focus({ preventScroll: true })'),
