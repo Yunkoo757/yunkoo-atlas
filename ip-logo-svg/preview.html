@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<title>Random Ten</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --ground: #EDEBE4;
+    --surface: #E6E3DA;
+    --ink: #1B1E26;
+    --ink-soft: #5C6069;
+    --accent: #4E46A5;
+    --line: rgba(27, 30, 38, 0.14);
+    --chip-line: rgba(27, 30, 38, 0.2);
+    --chip-ink: #1B1E26;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #14161C;
+      --surface: #1D2028;
+      --ink: #ECEAE3;
+      --ink-soft: #A5A8B0;
+      --accent: #9C93E8;
+      --line: rgba(236, 234, 227, 0.14);
+      --chip-line: rgba(236, 234, 227, 0.22);
+      --chip-ink: #ECEAE3;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #14161C;
+    --surface: #1D2028;
+    --ink: #ECEAE3;
+    --ink-soft: #A5A8B0;
+    --accent: #9C93E8;
+    --line: rgba(236, 234, 227, 0.14);
+    --chip-line: rgba(236, 234, 227, 0.22);
+    --chip-ink: #ECEAE3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 40px) 48px; }
+  header { max-width: 62ch; margin-bottom: clamp(28px, 5vw, 44px); }
+  .eyebrow {
+    font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(34px, 5vw, 52px);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  .lede { font-size: 15.5px; color: var(--ink-soft); margin: 0; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+    gap: clamp(14px, 2vw, 22px);
+  }
+  figure {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface);
+    transition: transform 120ms ease;
+  }
+  figure:hover { transform: translateY(-2px); }
+  .art { display: block; width: 100%; height: auto; }
+  figcaption {
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--line);
+  }
+  .cap-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .num {
+    font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .name { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+  .name .zh { font-weight: 500; color: var(--ink-soft); margin-left: 6px; }
+  .chips { display: flex; gap: 6px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+    font-size: 10.5px;
+    color: var(--chip-ink);
+    border: 1px solid var(--chip-line);
+    border-radius: 999px;
+    padding: 2px 8px 2px 4px;
+  }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(127, 127, 127, 0.35); }
+  section.mini { margin-top: clamp(36px, 6vw, 56px); }
+  h2 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 16px;
+  }
+  .minirow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 22px;
+    align-items: flex-end;
+  }
+  .mini-item { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .mini-art { width: 32px; height: 32px; display: block; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+  .mini-label {
+    font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+  footer {
+    margin-top: 40px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    figure { transition: none; }
+    figure:hover { transform: none; }
+  }
+</style>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="m-ghost" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#F4E3C1"/>
+    <ellipse cx="150" cy="150" rx="46" ry="60" fill="#9A8CE8" opacity="0.25"/>
+    <path d="M 15 512 L 15 235 C 15 90 85 55 200 55 C 315 55 385 90 385 235 L 385 435 L 15 435 Z" fill="#7B6CDE"/>
+    <circle cx="75" cy="480" r="52" fill="#7B6CDE"/>
+    <circle cx="200" cy="480" r="52" fill="#7B6CDE"/>
+    <circle cx="325" cy="480" r="52" fill="#7B6CDE"/>
+    <ellipse cx="155" cy="200" rx="17" ry="23" fill="#3B3363"/>
+    <ellipse cx="245" cy="200" rx="17" ry="23" fill="#3B3363"/>
+    <ellipse cx="200" cy="268" rx="11" ry="15" fill="#3B3363"/>
+  </symbol>
+  <symbol id="m-penguin" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#EF8354"/>
+    <path d="M 150 512 L 150 290 C 150 140 245 100 345 100 C 445 100 500 160 500 300 L 500 512 Z" fill="#2E3A59"/>
+    <ellipse cx="140" cy="335" rx="32" ry="68" transform="rotate(-16 140 335)" fill="#2E3A59"/>
+    <ellipse cx="478" cy="335" rx="30" ry="64" transform="rotate(16 478 335)" fill="#2E3A59"/>
+    <ellipse cx="250" cy="235" rx="38" ry="72" fill="#46547C" opacity="0.3"/>
+    <ellipse cx="345" cy="385" rx="95" ry="105" fill="#F4E9D5"/>
+    <ellipse cx="300" cy="195" rx="15" ry="19" fill="#F4E9D5"/>
+    <ellipse cx="390" cy="195" rx="15" ry="19" fill="#F4E9D5"/>
+    <circle cx="300" cy="200" r="7" fill="#2E3A59"/>
+    <circle cx="390" cy="200" r="7" fill="#2E3A59"/>
+    <ellipse cx="345" cy="250" rx="30" ry="17" fill="#F4E9D5"/>
+  </symbol>
+  <symbol id="m-cactus" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#F6D9A8"/>
+    <rect x="58" y="298" width="52" height="132" rx="26" transform="rotate(-18 84 364)" fill="#58A270"/>
+    <rect x="252" y="298" width="52" height="132" rx="26" transform="rotate(18 278 364)" fill="#58A270"/>
+    <rect x="130" y="210" width="120" height="302" rx="55" fill="#58A270"/>
+    <ellipse cx="160" cy="270" rx="24" ry="72" fill="#7BC28F" opacity="0.3"/>
+    <circle cx="190" cy="168" r="40" fill="#FF7F9C"/>
+    <circle cx="190" cy="168" r="18" fill="#FF5E82"/>
+    <ellipse cx="160" cy="330" rx="11" ry="15" fill="#2F7A4E"/>
+    <ellipse cx="220" cy="330" rx="11" ry="15" fill="#2F7A4E"/>
+    <path d="M 168 372 Q 190 390 212 372" stroke="#2F7A4E" stroke-width="13" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="m-octopus" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#2A4D6E"/>
+    <rect x="32" y="330" width="56" height="190" rx="28" fill="#FF8C5A"/>
+    <rect x="107" y="330" width="56" height="190" rx="28" fill="#FF8C5A"/>
+    <rect x="227" y="330" width="56" height="190" rx="28" fill="#FF8C5A"/>
+    <rect x="302" y="330" width="56" height="190" rx="28" fill="#FF8C5A"/>
+    <circle cx="195" cy="210" r="135" fill="#FF8C5A"/>
+    <ellipse cx="165" cy="150" rx="45" ry="60" fill="#FFA878" opacity="0.3"/>
+    <ellipse cx="195" cy="345" rx="100" ry="55" fill="#FFE9D6"/>
+    <ellipse cx="145" cy="200" rx="16" ry="20" fill="#7A3B1E"/>
+    <ellipse cx="245" cy="200" rx="16" ry="20" fill="#7A3B1E"/>
+    <path d="M 168 252 Q 195 274 222 252" stroke="#7A3B1E" stroke-width="13" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="m-robot" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#F1E6D2"/>
+    <rect x="357" y="78" width="16" height="60" rx="8" fill="#7FA8C9"/>
+    <circle cx="365" cy="62" r="25" fill="#FFCF5C"/>
+    <path d="M 200 512 L 200 330 C 200 170 285 130 365 130 C 445 130 490 180 490 340 L 490 512 Z" fill="#7FA8C9"/>
+    <ellipse cx="300" cy="215" rx="32" ry="55" fill="#9DBED9" opacity="0.3"/>
+    <rect x="152" y="330" width="52" height="120" rx="26" transform="rotate(-12 178 390)" fill="#7FA8C9"/>
+    <rect x="452" y="330" width="52" height="120" rx="26" transform="rotate(12 478 390)" fill="#7FA8C9"/>
+    <rect x="278" y="215" width="174" height="92" rx="46" fill="#33475E"/>
+    <circle cx="318" cy="261" r="13" fill="#FFCF5C"/>
+    <circle cx="412" cy="261" r="13" fill="#FFCF5C"/>
+    <path d="M 330 345 Q 365 368 400 345" stroke="#FFCF5C" stroke-width="13" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="m-mushroom" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#3E6B4F"/>
+    <rect x="165" y="300" width="170" height="212" rx="55" fill="#F7EBD8"/>
+    <path d="M 95 340 C 95 160 160 115 250 115 C 340 115 405 160 405 340 C 370 365 335 350 250 350 C 165 350 130 365 95 340 Z" fill="#E25B4A"/>
+    <ellipse cx="200" cy="178" rx="44" ry="30" fill="#ED7A68" opacity="0.35"/>
+    <circle cx="165" cy="200" r="24" fill="#F7EBD8"/>
+    <circle cx="290" cy="235" r="20" fill="#F7EBD8"/>
+    <ellipse cx="200" cy="392" rx="12" ry="16" fill="#5E231A"/>
+    <ellipse cx="300" cy="392" rx="12" ry="16" fill="#5E231A"/>
+    <path d="M 212 430 Q 250 452 288 430" stroke="#5E231A" stroke-width="12" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="m-koala" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#E8B4A0"/>
+    <circle cx="240" cy="225" r="58" fill="#8A94A8"/>
+    <circle cx="455" cy="225" r="56" fill="#8A94A8"/>
+    <path d="M 205 512 L 205 320 C 205 160 290 120 380 120 C 470 120 495 190 495 330 L 495 512 Z" fill="#8A94A8"/>
+    <ellipse cx="300" cy="200" rx="32" ry="48" fill="#A3ADC0" opacity="0.3"/>
+    <ellipse cx="375" cy="345" rx="100" ry="85" fill="#F1E9DC"/>
+    <ellipse cx="315" cy="252" rx="13" ry="17" fill="#454B59"/>
+    <ellipse cx="435" cy="252" rx="13" ry="17" fill="#454B59"/>
+    <ellipse cx="375" cy="350" rx="28" ry="22" fill="#454B59"/>
+    <path d="M 352 392 Q 375 410 398 392" stroke="#454B59" stroke-width="10" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="m-sun" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#3D7DC4"/>
+    <g fill="#FFE29A">
+      <rect x="184" y="70" width="42" height="110" rx="21"/>
+      <rect x="184" y="70" width="42" height="110" rx="21" transform="rotate(60 205 255)"/>
+      <rect x="184" y="70" width="42" height="110" rx="21" transform="rotate(120 205 255)"/>
+      <rect x="184" y="70" width="42" height="110" rx="21" transform="rotate(180 205 255)"/>
+      <rect x="184" y="70" width="42" height="110" rx="21" transform="rotate(240 205 255)"/>
+      <rect x="184" y="70" width="42" height="110" rx="21" transform="rotate(300 205 255)"/>
+    </g>
+    <circle cx="205" cy="255" r="135" fill="#FFB347"/>
+    <ellipse cx="160" cy="200" rx="30" ry="40" fill="#FFC46B" opacity="0.3"/>
+    <ellipse cx="165" cy="245" rx="12" ry="16" fill="#D17B1E"/>
+    <ellipse cx="245" cy="245" rx="12" ry="16" fill="#D17B1E"/>
+    <path d="M 180 285 Q 205 307 230 285" stroke="#D17B1E" stroke-width="13" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="m-frog" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#8E6FB8"/>
+    <path d="M 55 512 L 55 340 C 55 160 150 115 235 115 C 320 115 415 160 415 340 L 415 512 Z" fill="#6DBE6A"/>
+    <circle cx="85" cy="452" r="46" fill="#6DBE6A"/>
+    <circle cx="385" cy="452" r="46" fill="#6DBE6A"/>
+    <circle cx="165" cy="92" r="46" fill="#6DBE6A"/>
+    <circle cx="305" cy="92" r="46" fill="#6DBE6A"/>
+    <circle cx="165" cy="85" r="17" fill="#2F6E3B"/>
+    <circle cx="305" cy="85" r="17" fill="#2F6E3B"/>
+    <ellipse cx="185" cy="260" rx="40" ry="60" fill="#8BD188" opacity="0.3"/>
+    <ellipse cx="235" cy="390" rx="110" ry="78" fill="#EAF5DC"/>
+    <path d="M 160 372 Q 235 418 310 372" stroke="#2F6E3B" stroke-width="14" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="m-whale" viewBox="0 0 512 512">
+    <rect width="512" height="512" fill="#F7C98A"/>
+    <ellipse cx="180" cy="305" rx="55" ry="26" transform="rotate(-32 180 305)" fill="#3E6C9E"/>
+    <ellipse cx="175" cy="360" rx="55" ry="26" transform="rotate(32 175 360)" fill="#3E6C9E"/>
+    <circle cx="370" cy="360" r="150" fill="#3E6C9E"/>
+    <ellipse cx="330" cy="285" rx="45" ry="60" fill="#5A87B5" opacity="0.3"/>
+    <ellipse cx="370" cy="425" rx="110" ry="68" fill="#BFE3E8"/>
+    <ellipse cx="222" cy="428" rx="20" ry="48" transform="rotate(-38 222 428)" fill="#3E6C9E"/>
+    <circle cx="415" cy="280" r="15" fill="#2A4A6E"/>
+    <path d="M 383 310 Q 407 323 430 310" stroke="#2A4A6E" stroke-width="11" stroke-linecap="round" fill="none"/>
+  </symbol>
+</svg>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">IP-as-Logo Skill · Batch 01</p>
+    <h1>Random Ten</h1>
+    <p class="lede">Ten mascots drawn to one rule set — flat-first geometry, two IP colors over one solid background, thick rounded forms, readable at 32 × 32.</p>
+  </header>
+  <main class="grid">
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-ghost"/></svg>
+      <figcaption><div class="cap-top"><span class="num">01</span><span class="name">Ghost<span class="zh">幽灵</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#7B6CDE"></span>#7B6CDE</span><span class="chip"><span class="swatch" style="background:#3B3363"></span>#3B3363</span><span class="chip"><span class="swatch" style="background:#F4E3C1"></span>#F4E3C1</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-penguin"/></svg>
+      <figcaption><div class="cap-top"><span class="num">02</span><span class="name">Penguin<span class="zh">企鹅</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#2E3A59"></span>#2E3A59</span><span class="chip"><span class="swatch" style="background:#F4E9D5"></span>#F4E9D5</span><span class="chip"><span class="swatch" style="background:#EF8354"></span>#EF8354</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-cactus"/></svg>
+      <figcaption><div class="cap-top"><span class="num">03</span><span class="name">Cactus<span class="zh">仙人掌</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#58A270"></span>#58A270</span><span class="chip"><span class="swatch" style="background:#FF7F9C"></span>#FF7F9C</span><span class="chip"><span class="swatch" style="background:#F6D9A8"></span>#F6D9A8</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-octopus"/></svg>
+      <figcaption><div class="cap-top"><span class="num">04</span><span class="name">Octopus<span class="zh">章鱼</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#FF8C5A"></span>#FF8C5A</span><span class="chip"><span class="swatch" style="background:#FFE9D6"></span>#FFE9D6</span><span class="chip"><span class="swatch" style="background:#2A4D6E"></span>#2A4D6E</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-robot"/></svg>
+      <figcaption><div class="cap-top"><span class="num">05</span><span class="name">Robot<span class="zh">机器人</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#7FA8C9"></span>#7FA8C9</span><span class="chip"><span class="swatch" style="background:#FFCF5C"></span>#FFCF5C</span><span class="chip"><span class="swatch" style="background:#F1E6D2"></span>#F1E6D2</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-mushroom"/></svg>
+      <figcaption><div class="cap-top"><span class="num">06</span><span class="name">Mushroom<span class="zh">蘑菇</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#E25B4A"></span>#E25B4A</span><span class="chip"><span class="swatch" style="background:#F7EBD8"></span>#F7EBD8</span><span class="chip"><span class="swatch" style="background:#3E6B4F"></span>#3E6B4F</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-koala"/></svg>
+      <figcaption><div class="cap-top"><span class="num">07</span><span class="name">Koala<span class="zh">考拉</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#8A94A8"></span>#8A94A8</span><span class="chip"><span class="swatch" style="background:#F1E9DC"></span>#F1E9DC</span><span class="chip"><span class="swatch" style="background:#E8B4A0"></span>#E8B4A0</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-sun"/></svg>
+      <figcaption><div class="cap-top"><span class="num">08</span><span class="name">Sun<span class="zh">太阳</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#FFB347"></span>#FFB347</span><span class="chip"><span class="swatch" style="background:#FFE29A"></span>#FFE29A</span><span class="chip"><span class="swatch" style="background:#3D7DC4"></span>#3D7DC4</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-frog"/></svg>
+      <figcaption><div class="cap-top"><span class="num">09</span><span class="name">Frog<span class="zh">青蛙</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#6DBE6A"></span>#6DBE6A</span><span class="chip"><span class="swatch" style="background:#EAF5DC"></span>#EAF5DC</span><span class="chip"><span class="swatch" style="background:#8E6FB8"></span>#8E6FB8</span></div></figcaption></figure>
+    <figure><svg class="art" viewBox="0 0 512 512"><use href="#m-whale"/></svg>
+      <figcaption><div class="cap-top"><span class="num">10</span><span class="name">Whale<span class="zh">鲸鱼</span></span></div>
+      <div class="chips"><span class="chip"><span class="swatch" style="background:#3E6C9E"></span>#3E6C9E</span><span class="chip"><span class="swatch" style="background:#BFE3E8"></span>#BFE3E8</span><span class="chip"><span class="swatch" style="background:#F7C98A"></span>#F7C98A</span></div></figcaption></figure>
+  </main>
+  <section class="mini">
+    <h2>At 32 × 32</h2>
+    <div class="minirow">
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-ghost"/></svg><span class="mini-label">01</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-penguin"/></svg><span class="mini-label">02</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-cactus"/></svg><span class="mini-label">03</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-octopus"/></svg><span class="mini-label">04</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-robot"/></svg><span class="mini-label">05</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-mushroom"/></svg><span class="mini-label">06</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-koala"/></svg><span class="mini-label">07</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-sun"/></svg><span class="mini-label">08</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-frog"/></svg><span class="mini-label">09</span></div>
+      <div class="mini-item"><svg class="mini-art" viewBox="0 0 512 512"><use href="#m-whale"/></svg><span class="mini-label">10</span></div>
+    </div>
+  </section>
+  <footer>10 SVGs · 512 × 512 · saved in ip-logo-svg/ · flat-first per ip-as-logo skill</footer>
+</div>
+</body>

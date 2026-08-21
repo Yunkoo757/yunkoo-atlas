@@ -1,6 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Trader Atlas">
   <rect width="128" height="128" rx="28" fill="#12141a"/>
-  <path d="M38 86 C38 46 90 40 90 40" fill="none" stroke="#5e6ad2" stroke-width="8" stroke-linecap="round"/>
-  <path d="M38 42 V94" stroke="#e8eaf6" stroke-width="9" stroke-linecap="round"/>
-  <path d="M38 68 H72" stroke="#e8eaf6" stroke-width="8" stroke-linecap="round"/>
+  <path
+    d="M16 128V78C14 46 29 21 60 13C94 4 119 22 129 52C135 69 132 104 128 128Z"
+    fill="#5e6ad2"
+  />
+  <path
+    d="M31 72C26 58 30 45 42 37C51 31 62 33 69 38C77 31 91 30 101 38C114 47 120 64 115 80C110 95 95 102 75 103C54 104 38 98 32 90C28 84 27 77 31 72Z"
+    fill="#e8eaf6"
+  />
+  <circle cx="57" cy="66" r="9" fill="#12141a"/>
+  <circle cx="91" cy="64" r="9" fill="#12141a"/>
+  <circle cx="60" cy="63" r="2.7" fill="#e8eaf6"/>
+  <circle cx="94" cy="61" r="2.7" fill="#e8eaf6"/>
+  <path d="M74 72C77 69 83 69 86 73C87 77 84 81 80 84C76 82 73 78 74 72Z" fill="#5e6ad2"/>
 </svg>

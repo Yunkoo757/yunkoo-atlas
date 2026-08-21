@@ -13,6 +13,7 @@ import sharp from 'sharp'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const svgPath = path.join(root, 'build/icon.svg')
+const traySvgPath = path.join(root, 'build/trayTemplate.svg')
 const buildDir = path.join(root, 'build')
 const publicDir = path.join(root, 'public')
 
@@ -177,6 +178,7 @@ async function buildInstallerHeader(iconPng) {
 
 async function main() {
   if (!fs.existsSync(svgPath)) throw new Error(`Missing ${svgPath}`)
+  if (!fs.existsSync(traySvgPath)) throw new Error(`Missing ${traySvgPath}`)
   fs.mkdirSync(buildDir, { recursive: true })
   fs.mkdirSync(publicDir, { recursive: true })
 
@@ -205,6 +207,12 @@ async function main() {
   fs.writeFileSync(path.join(buildDir, 'installerSidebar.bmp'), sidebarBmp)
   fs.writeFileSync(path.join(buildDir, 'installerHeader.bmp'), headerBmp)
 
+  const traySvg = fs.readFileSync(traySvgPath)
+  const tray1x = await sharp(traySvg, { density: 384 }).resize(18, 18).png().toBuffer()
+  const tray2x = await sharp(traySvg, { density: 384 }).resize(36, 36).png().toBuffer()
+  fs.writeFileSync(path.join(buildDir, 'trayTemplate.png'), tray1x)
+  fs.writeFileSync(path.join(buildDir, 'trayTemplate@2x.png'), tray2x)
+
   const sidebarW = SIDEBAR_LOGIC.w * NSIS_BMP_SCALE
   const sidebarH = SIDEBAR_LOGIC.h * NSIS_BMP_SCALE
   const headerW = HEADER_LOGIC.w * NSIS_BMP_SCALE
@@ -216,6 +224,8 @@ async function main() {
   console.log('  build/icon.ico (16–256)')
   console.log(`  build/installerSidebar.bmp (${sidebarW}×${sidebarH}, 24-bit, ${NSIS_BMP_SCALE}× for HiDPI)`)
   console.log(`  build/installerHeader.bmp (${headerW}×${headerH}, 24-bit, ${NSIS_BMP_SCALE}× for HiDPI)`)
+  console.log('  build/trayTemplate.png (18, monochrome template)')
+  console.log('  build/trayTemplate@2x.png (36, monochrome template)')
   console.log('  public/favicon.svg')
   console.log('  public/favicon-32.png')
   console.log('  public/apple-touch-icon.png')
