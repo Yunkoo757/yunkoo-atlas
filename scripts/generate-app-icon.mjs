@@ -1,5 +1,5 @@
 /**
- * Generate Electron / favicon / NSIS installer assets from build/icon.svg
+ * Generate Electron / favicon / NSIS installer assets from the selected A2 PNG master.
  * Usage: node scripts/generate-app-icon.mjs
  *
  * NSIS 侧栏/顶栏按逻辑尺寸的 3× 出图：高 DPI 下 StretchBlt 接近 1:1 或轻度缩小，
@@ -13,6 +13,7 @@ import sharp from 'sharp'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const svgPath = path.join(root, 'build/icon.svg')
+const masterPngPath = path.join(root, 'ip-logo-candidates/2026-08-21/A2-owl-indigo-ivory-lower-right.png')
 const traySvgPath = path.join(root, 'build/trayTemplate.svg')
 const buildDir = path.join(root, 'build')
 const publicDir = path.join(root, 'public')
@@ -64,6 +65,17 @@ function pngsToIco(pngBuffers) {
 function readPngSize(buf) {
   if (buf[0] !== 0x89 || buf[1] !== 0x50) throw new Error('Not a PNG')
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) }
+}
+
+async function pngAsSvg(pngBuffer) {
+  const metadata = await sharp(pngBuffer).metadata()
+  if (!metadata.width || !metadata.height) throw new Error('Selected Logo PNG has no dimensions')
+  const base64 = pngBuffer.toString('base64')
+  return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${metadata.width}" height="${metadata.height}" viewBox="0 0 ${metadata.width} ${metadata.height}">
+  <image href="data:image/png;base64,${base64}" width="${metadata.width}" height="${metadata.height}" preserveAspectRatio="xMidYMid slice"/>
+</svg>
+`, 'utf8')
 }
 
 /** NSIS 需要 24-bit BMP；从 RGBA raw 编码（无 alpha）。 */
@@ -177,19 +189,20 @@ async function buildInstallerHeader(iconPng) {
 }
 
 async function main() {
-  if (!fs.existsSync(svgPath)) throw new Error(`Missing ${svgPath}`)
+  if (!fs.existsSync(masterPngPath)) throw new Error(`Missing selected Logo master ${masterPngPath}`)
   if (!fs.existsSync(traySvgPath)) throw new Error(`Missing ${traySvgPath}`)
   fs.mkdirSync(buildDir, { recursive: true })
   fs.mkdirSync(publicDir, { recursive: true })
 
-  const svg = fs.readFileSync(svgPath)
-  const master = sharp(svg, { density: 384 })
-  const png512 = await master.clone().resize(512, 512).png().toBuffer()
+  const masterPng = fs.readFileSync(masterPngPath)
+  const svg = await pngAsSvg(masterPng)
+  fs.writeFileSync(svgPath, svg)
+  const png512 = await sharp(masterPng).resize(512, 512).png().toBuffer()
   fs.writeFileSync(path.join(buildDir, 'icon.png'), png512)
 
   // Web favicon + apple touch + runtime window icon (copied into dist/)
-  const png32 = await sharp(svg, { density: 384 }).resize(32, 32).png().toBuffer()
-  const png180 = await sharp(svg, { density: 384 }).resize(180, 180).png().toBuffer()
+  const png32 = await sharp(masterPng).resize(32, 32).png().toBuffer()
+  const png180 = await sharp(masterPng).resize(180, 180).png().toBuffer()
   fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svg)
   fs.writeFileSync(path.join(publicDir, 'favicon-32.png'), png32)
   fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), png180)
@@ -198,7 +211,7 @@ async function main() {
   const icoSizes = [16, 24, 32, 48, 64, 128, 256]
   const icoPngs = []
   for (const size of icoSizes) {
-    icoPngs.push(await sharp(svg, { density: 384 }).resize(size, size).png().toBuffer())
+    icoPngs.push(await sharp(masterPng).resize(size, size).png().toBuffer())
   }
   fs.writeFileSync(path.join(buildDir, 'icon.ico'), pngsToIco(icoPngs))
 
