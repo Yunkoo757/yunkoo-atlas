@@ -138,13 +138,16 @@ async function runBootstrapStorage(): Promise<void> {
   useStore.subscribe((state) => {
     if (!hydrated) return
     const nextPersisted = pickPersisted(state, useShortcutStore.getState().bindings)
-    coordinator.observe(nextPersisted)
+    coordinator.observe(nextPersisted, { source: 'store' })
   })
 
   useShortcutStore.subscribe((state, prev) => {
     if (!hydrated) return
     if (state.bindings === prev.bindings) return
-    coordinator.observe(pickPersisted(useStore.getState(), state.bindings))
+    coordinator.observe(
+      pickPersisted(useStore.getState(), state.bindings),
+      { source: 'shortcuts' },
+    )
   })
   if (reconciledWindowHotkeyConflict) schedulePersist(capturePersisted())
 }

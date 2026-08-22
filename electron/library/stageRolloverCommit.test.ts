@@ -306,7 +306,7 @@ export async function testCommittedReloadReconcilesStoreWithoutStaleAutosave(): 
   const previousShortcuts = useShortcutStore.getState()
   const current = eligibleSnapshot()
   current.tagPresets = ['主进程并发新增']
-  current.shortcuts = { 'new-trade': { key: 'n', mod: true } }
+  current.shortcuts = { 'global.newTrade': { key: 'n', mod: true } }
   const harness = createHarness(current)
   const result = await commitDueStageRollover(commitInput(), harness.deps)
   assert(result.ok, 'cross-layer fixture must commit')
@@ -321,8 +321,8 @@ export async function testCommittedReloadReconcilesStoreWithoutStaleAutosave(): 
       capture,
       schedule: (snapshot) => { scheduledAutosaves.push(structuredClone(snapshot)) },
     })
-    unsubscribeStore = useStore.subscribe(() => coordinator.observe(capture()))
-    unsubscribeShortcuts = useShortcutStore.subscribe(() => coordinator.observe(capture()))
+    unsubscribeStore = useStore.subscribe(() => coordinator.observe(capture(), { source: 'store' }))
+    unsubscribeShortcuts = useShortcutStore.subscribe(() => coordinator.observe(capture(), { source: 'shortcuts' }))
 
     await reconcileCommittedStageRollover(result.publish, {
       reloadAuthoritativeSnapshot: async () => structuredClone(durable),
@@ -334,7 +334,23 @@ export async function testCommittedReloadReconcilesStoreWithoutStaleAutosave(): 
 
     assert(useStore.getState().tagPresets.includes('主进程并发新增'), 'renderer store must adopt reloaded non-stage fields')
     assert(!useStore.getState().tagPresets.includes('renderer 陈旧值'), 'renderer stale non-stage fields must be replaced')
+    const refreshedBinding = useShortcutStore.getState().bindings['global.newTrade']
+    assert(
+      refreshedBinding !== null && !Array.isArray(refreshedBinding) && refreshedBinding?.key === 'n',
+      'renderer shortcuts must adopt the valid authoritative binding',
+    )
     assert(scheduledAutosaves.length === 0, 'durable refresh must not schedule a second stale full snapshot write')
+
+    useShortcutStore.getState().setBinding('global.newTrade', { key: 'r', shift: true })
+    assert(Number(scheduledAutosaves.length) === 1, 'a shortcut-only edit must schedule persistence once')
+    assert(
+      scheduledAutosaves[0]?.tagPresets?.includes('主进程并发新增') && (() => {
+        const binding = scheduledAutosaves[0]?.shortcuts?.['global.newTrade']
+        return binding !== null && !Array.isArray(binding) && binding?.key === 'r'
+      })(),
+      'shortcut persistence must contain the full authoritative Store and the new binding',
+    )
+    scheduledAutosaves.splice(0)
 
     useStore.setState({ starredIds: ['later-edit'] })
     assert(Number(scheduledAutosaves.length) === 1, 'a later real edit must still schedule persistence')
