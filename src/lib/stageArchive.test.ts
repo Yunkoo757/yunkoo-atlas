@@ -218,6 +218,45 @@ export function testStageArchiveIntegrityExcludesPaperCloseDayDefects(): void {
   )
 }
 
+export function testAllStagePerformanceKeepsPaperButUsesLiveOnlyIntegrity(): void {
+  const currentLive = { ...liveTrade('current-live', 'stage-current'), pnl: 100, rMultiple: 2 }
+  const archivedLive = { ...liveTrade('archived-live', 'stage-old'), pnl: 900, rMultiple: 9 }
+  const validPaper = { ...paperTrade('paper-valid'), pnl: 50, rMultiple: 1 }
+  const participation = buildStagePerformanceProjection({
+    trades: [currentLive, archivedLive, validPaper],
+    stageScope: { kind: 'current', stageId: 'stage-current' },
+    analysisScope: { kind: 'all', range: 'all' },
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  })
+  const paperBase = paperTrade('paper-base')
+  const integrity = buildStagePerformanceProjection({
+    trades: [
+      currentLive,
+      { ...paperBase, id: 'paper-missing', closedAt: null, closedTradingDayKey: undefined },
+      { ...paperBase, id: 'paper-invalid', closedTradingDayKey: 'not-a-day' },
+      { ...paperBase, id: 'paper-future', closedTradingDayKey: '2099-01-01' },
+    ],
+    stageScope: { kind: 'current', stageId: 'stage-current' },
+    analysisScope: { kind: 'all', range: 'all' },
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  })
+
+  const contract = JSON.stringify({
+    records: participation.records.map((trade) => trade.id),
+    samples: participation.selection.eligibleMetricIds,
+    pnl: participation.selection.pnlIds,
+    missing: integrity.selection.missingCloseDayIds,
+    invalid: integrity.selection.invalidCloseDayIds,
+    future: integrity.selection.futureCloseDayIds,
+  })
+  assert(
+    contract === '{"records":["current-live","paper-valid"],"samples":["current-live","paper-valid"],"pnl":["current-live","paper-valid"],"missing":[],"invalid":[],"future":[]}',
+    `全部类型必须合并 stage live 与 paper 绩效，但完整性只归因 live stage：${contract}`,
+  )
+}
+
 export function testPaperStrategyPreviewKeepsCurrentStageScope(): void {
   const stageScope = resolveStrategyStageScope(undefined, 'stage-current')
   const projection = buildStagePerformanceProjection({

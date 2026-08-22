@@ -80,15 +80,36 @@ export function buildStagePerformanceProjection(options: {
   anchor: BusinessDateAnchor
   legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
 }) {
-  const records = options.stageScope
+  const liveRecords = options.stageScope
     ? filterStageTrades(options.trades, options.stageScope)
-    : [...options.trades]
-  const selection = buildPerformanceSelection(records, {
+    : options.trades.filter((trade) => trade.tradeKind === 'live')
+  const liveIds = new Set(liveRecords.map((trade) => trade.id))
+  const records = options.analysisScope.kind === 'live'
+    ? liveRecords
+    : options.analysisScope.kind === 'paper'
+      ? options.trades.filter((trade) => trade.tradeKind === 'paper')
+      : options.trades.filter((trade) => trade.tradeKind === 'paper' || liveIds.has(trade.id))
+  const selectionInput = {
     scope: options.analysisScope,
     liveScope: null,
     anchor: options.anchor,
     legacyCashCurrencyAssumption: options.legacyCashCurrencyAssumption,
-  })
+  }
+  const performanceSelection = buildPerformanceSelection(records, selectionInput)
+  const selection = options.analysisScope.kind !== 'all'
+    ? performanceSelection
+    : (() => {
+        const liveIntegrity = buildPerformanceSelection(liveRecords, {
+          ...selectionInput,
+          scope: { ...options.analysisScope, kind: 'live' },
+        })
+        return {
+          ...performanceSelection,
+          missingCloseDayIds: liveIntegrity.missingCloseDayIds,
+          invalidCloseDayIds: liveIntegrity.invalidCloseDayIds,
+          futureCloseDayIds: liveIntegrity.futureCloseDayIds,
+        }
+      })()
   return { records, selection }
 }
 

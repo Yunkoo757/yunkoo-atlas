@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
-import type { Trade } from '@/data/trades'
+import type { PaperTrade, Trade } from '@/data/trades'
 import { StrategyHeader } from '@/components/StrategyHeader'
 import { useStore } from '@/store/useStore'
 import { TodayWorkspace } from '@/views/TodayWorkspace'
@@ -89,6 +89,13 @@ function trade(overrides: Partial<Trade>): Trade {
   }
 }
 
+function paperTrade(overrides: Partial<PaperTrade>): PaperTrade {
+  const base = trade(overrides)
+  if (base.tradeKind !== 'live') throw new Error('paper fixture base must be live')
+  const { liveStageId: _liveStageId, tradeKind: _tradeKind, ...fields } = base
+  return { ...fields, ...overrides, tradeKind: 'paper' }
+}
+
 function truthTrades(): Trade[] {
   return [
     trade({}),
@@ -145,6 +152,24 @@ async function run(): Promise<void> {
     assert(headerText.includes('8 笔当前实盘关联 · 4 笔绩效样本'), `StrategyHeader 必须按 stage 统计关联并分开绩效资格样本：${headerText}`)
     assert(headerText.includes('+$200') && headerText.includes('+11.0R'), 'StrategyHeader 必须分别消费 pnlIds 与 rIds')
 
+    useStore.setState({
+      trades: [
+        trade({ id: 'all-current-live', ref: 'TRD-ALL-LIVE', pnl: 100, rMultiple: 2 }),
+        trade({ id: 'all-archived-live', ref: 'TRD-ALL-ARCHIVED', liveStageId: 'stage-archived', pnl: 900, rMultiple: 9 }),
+        paperTrade({ id: 'all-paper', ref: 'TRD-ALL-PAPER', pnl: 50, rMultiple: 1 }),
+      ],
+    })
+    root.render(
+      <MemoryRouter>
+        <StrategyHeader strategyId={strategy.id} analysisScope={{ kind: 'all', range: 'all' }} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.querySelector('.sh-sub')?.textContent?.includes('全部类型') ?? false, 'StrategyHeader 全部类型口径未渲染')
+    const allHeaderText = document.querySelector('.sh')?.textContent ?? ''
+    assert(allHeaderText.includes('2 笔绩效样本'), `全部类型必须保留 current live 与 paper 两个样本：${allHeaderText}`)
+    assert(allHeaderText.includes('+$150') && allHeaderText.includes('+3.0R') && !allHeaderText.includes('1050'), '全部类型策略表现必须合并 current live 与 paper，并排除归档 live')
+
+    useStore.setState({ trades: truthTrades() })
     root.render(<MemoryRouter><StrategiesPanel /></MemoryRouter>)
     await waitFor(() => document.querySelector('.st-row') !== null, 'StrategiesPanel 未渲染')
     const panelText = document.querySelector('.st-row')?.textContent ?? ''
