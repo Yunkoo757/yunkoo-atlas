@@ -167,3 +167,43 @@ export function testSuccessfulCandidateArchivesOldAndCreatesBlankCurrent(): void
   assert(candidate.liveStages[0]?.status === 'archived' && candidate.liveStages[1]?.id === 'stage-2', 'candidate must archive only the previous current stage and append a new one')
   assert(candidate.trades === state.trades && candidate.weeklyReviews === state.weeklyReviews, 'candidate must retain old entities without deleting or rewriting them')
 }
+
+export function testCandidateRejectsAnArchivedStageIdWithoutMutatingInput(): void {
+  const archived: LiveStage = {
+    ...currentStage,
+    id: 'stage-archived',
+    name: '实盘阶段 1',
+    status: 'archived',
+    startsOn: '2026-07-01',
+    endsOn: '2026-07-31',
+    archivedAt: '2026-08-01T00:00:00.000Z',
+  }
+  const current: LiveStage = {
+    ...currentStage,
+    id: 'stage-current',
+    sequence: 2,
+  }
+  const archivedPolicy: RiskPolicyVersion = {
+    ...eligibleState().riskPolicyVersions[0]!,
+    liveStageId: archived.id,
+  }
+  const state: StageRolloverState = {
+    ...baseState(),
+    liveStages: [archived, current],
+    currentLiveStageId: current.id,
+    riskPolicyVersions: [archivedPolicy],
+  }
+  let message = ''
+  try {
+    buildStageRolloverCandidate(state, {
+      effectiveWeekStart: '2026-08-31',
+      now: '2026-08-31T00:10:00.000Z',
+      nextStageId: archived.id,
+    })
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  assert(message.includes('已存在'), 'an existing archived stage ID must be rejected before building a candidate')
+  assert(state.liveStages[0] === archived && archived.status === 'archived', 'rejected candidate must not rewrite archived stages')
+  assert(state.riskPolicyVersions[0] === archivedPolicy && archivedPolicy.liveStageId === archived.id, 'rejected candidate must not rewrite archived risk policies')
+}

@@ -141,6 +141,9 @@ export function buildStageRolloverCandidate(
   state: StageRolloverState,
   options: BuildStageRolloverCandidateOptions,
 ): StageRolloverCandidate {
+  if (state.liveStages.some((stage) => stage.id === options.nextStageId)) {
+    throw new Error(`新实盘阶段 ID 已存在：${options.nextStageId}`)
+  }
   const current = getCurrentLiveStage([...state.liveStages], state.currentLiveStageId)
   const next = createNextLiveStage(current, options.effectiveWeekStart, options.now, options.nextStageId)
   return {
