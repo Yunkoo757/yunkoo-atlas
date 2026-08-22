@@ -509,7 +509,8 @@ function isRiskPolicyDraft(value: unknown): boolean {
 function isWeeklyRiskPreparation(value: unknown): boolean {
   return isRecord(value) &&
     isCanonicalDate(value.weekStart) &&
-    value.id === `weekly-risk-preparation:${value.weekStart}` &&
+    (value.id === `weekly-risk-preparation:${value.weekStart}` ||
+      value.id === `weekly-risk-preparation:${value.liveStageId}:${value.weekStart}`) &&
     isRiskPolicyDraft(value.draft) &&
     (value.reviewedAt === null || isTimestamp(value.reviewedAt)) &&
     (value.confirmedPolicyVersionId === null || isNonEmptyString(value.confirmedPolicyVersionId)) &&
@@ -550,7 +551,8 @@ function isRiskPolicyVersion(value: unknown): boolean {
 function isMonthlyRiskLimit(value: unknown): boolean {
   return isRecord(value) &&
     isCanonicalMonth(value.monthKey) &&
-    value.id === `monthly-risk-limit:${value.monthKey}` &&
+    (value.id === `monthly-risk-limit:${value.monthKey}` ||
+      value.id === `monthly-risk-limit:${value.liveStageId}:${value.monthKey}`) &&
     isPositiveFiniteNumber(value.limitR) &&
     isNonEmptyString(value.sourcePolicyVersionId) &&
     isTimestamp(value.lockedAt)

@@ -100,6 +100,7 @@ function makeTrade(id: string, status: 'win' | 'loss' | 'missed', pnl: number | 
     reviewStatus: status === 'win' ? 'reviewed' : 'unreviewed',
     reviewCategory: status === 'loss' ? 'mistake' : 'normal',
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     entry: 100,
     exit: null,
     size: 1,
@@ -230,6 +231,7 @@ function riskEvent(): RiskOverrideEvent {
   const outcome = riskOutcome(-1, 2)
   return {
     id: 'override-1',
+    liveStageId: useStore.getState().currentLiveStageId,
     tradeId: 'two',
     tradeIdentityAtDecision: { ref: 'TRD-two', symbol: 'ETHUSDT', tradeKind: 'live' },
     linkState: 'unresolved',
@@ -454,11 +456,15 @@ async function run(): Promise<void> {
   const capturePageError = (event: ErrorEvent) => pageErrors.push(event.error?.message ?? event.message)
   window.addEventListener('error', capturePageError)
   try {
-    useStore.setState({
+    useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: activeWeekStart }
+        : stage),
       trades: [makeTrade('one', 'win', 150), makeTrade('two', 'loss', -50), makeTrade('three', 'missed', null)],
       weeklyReviews: [],
       riskPolicyVersions: [{
         id: browserPolicyId,
+        liveStageId: state.currentLiveStageId,
         sourceWeekStart: activeWeekStart,
         effectiveTradingDay: activeWeekStart,
         capitalBase: 10_000,
@@ -472,13 +478,14 @@ async function run(): Promise<void> {
       }],
       monthlyRiskLimits: [{
         id: `monthly-risk-limit:${activeWeekStart.slice(0, 7)}`,
+        liveStageId: state.currentLiveStageId,
         monthKey: activeWeekStart.slice(0, 7),
         limitR: 10,
         sourcePolicyVersionId: browserPolicyId,
         lockedAt: `${activeWeekStart}T07:00:00.000Z`,
       }],
       riskOverrideEvents: [riskEvent(), resolvedRiskEvent()],
-    })
+    }))
     root.render(
       <MemoryRouter initialEntries={['/weekly-review']}>
         <Routes>

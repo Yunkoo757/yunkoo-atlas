@@ -10,7 +10,7 @@ export function RiskManagementSettingsPanel() {
     <div className="settings-page risk-management-settings" data-risk-management-settings>
       <div className="settings-page-head">
         <h1 className="settings-page-title">风险管理</h1>
-        <p className="settings-page-desc">配置资金基准、周期止损限额，并完成本周风险规则确认。</p>
+        <p className="settings-page-desc">为当前实盘阶段配置资金基准、周期止损限额，并完成本周风险规则确认。</p>
       </div>
       <section className="settings-page-section">
         <div className="settings-page-head">

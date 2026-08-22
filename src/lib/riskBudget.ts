@@ -96,7 +96,10 @@ export interface ResolveRiskOutcomesInput {
   trades: Trade[]
   policies: RiskPolicyVersion[]
   monthlyLimits: MonthlyRiskLimit[]
+  liveStageId: string
+  liveStageStartsOn: string
   currentTradingDayKey: string
+  /** @deprecated 运行时风险起点由 liveStageStartsOn 决定。 */
   liveStatsStartTradingDayKey?: string | null
   tradingDayStartHour?: number
 }
@@ -202,16 +205,17 @@ function makeSnapshot(
 
 function evaluateRiskCandidates(input: ResolveRiskOutcomesInput): RiskCandidateEvaluation {
   if (
-    input.liveStatsStartTradingDayKey &&
-    input.liveStatsStartTradingDayKey > input.currentTradingDayKey
+    input.liveStageStartsOn > input.currentTradingDayKey
   ) {
     return { results: [], globalReasons: ['invalid-live-cycle-start'] }
   }
   const results: CandidateResult[] = []
   const currentCycleTrades = filterTradesForLiveCycle(
-    input.trades,
+    input.trades.filter((trade) =>
+      trade.tradeKind === 'live' && trade.liveStageId === input.liveStageId,
+    ),
     'current',
-    input.liveStatsStartTradingDayKey ?? null,
+    input.liveStageStartsOn,
     input.tradingDayStartHour ?? 0,
   )
 
@@ -248,7 +252,7 @@ function evaluateRiskCandidates(input: ResolveRiskOutcomesInput): RiskCandidateE
 
     let budgetR: number | null = null
     if (trustedPnl !== null && date && reasons.length === 0) {
-      const policy = activeRiskPolicy(input.policies, date)
+      const policy = activeRiskPolicy(input.policies, date, input.liveStageId)
       if (!policy || !Number.isFinite(policy.riskAmount) || toMoneyCents(policy.riskAmount) <= 0) {
         if (trustedPnl < 0) reasons.push('missing-policy')
         else partialReasons.push('partial-missing-policy')
@@ -271,10 +275,12 @@ function evaluateRiskCandidates(input: ResolveRiskOutcomesInput): RiskCandidateE
 }
 
 function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRiskOutcomes {
-  const currentPolicy = activeRiskPolicy(input.policies, input.currentTradingDayKey)
+  const currentPolicy = activeRiskPolicy(input.policies, input.currentTradingDayKey, input.liveStageId)
   const currentWeekStart = weekStart(input.currentTradingDayKey)
   const currentMonth = input.currentTradingDayKey.slice(0, 7)
-  const monthlyLimit = input.monthlyLimits.find((limit) => limit.monthKey === currentMonth)
+  const monthlyLimit = input.monthlyLimits.find((limit) =>
+    limit.liveStageId === input.liveStageId && limit.monthKey === currentMonth,
+  )
   const evaluation = evaluateRiskCandidates(input)
   if (evaluation.globalReasons.length > 0) {
     const invalidResult: CandidateResult = {

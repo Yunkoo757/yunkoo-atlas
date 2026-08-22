@@ -13,6 +13,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const policy: RiskPolicyVersion = {
   id: 'policy-2026-07',
+  liveStageId: 'stage-current',
   sourceWeekStart: '2026-07-27',
   effectiveTradingDay: '2026-07-01',
   capitalBase: 100_000,
@@ -27,6 +28,7 @@ const policy: RiskPolicyVersion = {
 
 const monthlyLimit: MonthlyRiskLimit = {
   id: 'monthly-risk-limit:2026-07',
+  liveStageId: 'stage-current',
   monthKey: '2026-07',
   limitR: 10,
   sourcePolicyVersionId: policy.id,
@@ -47,6 +49,7 @@ function trade(id: string, status: TradeStatus, pnl: number | null = null): Trad
     reviewStatus: 'unreviewed',
     reviewCategory: 'normal',
     tradeKind: 'live',
+    liveStageId: 'stage-current',
     entry: 100,
     exit: status === 'loss' ? 98 : null,
     size: 1,
@@ -73,10 +76,42 @@ function triggeredState(source: 'planned' | 'missed' | 'loss'): TradeOpenRiskGat
     trades: source === 'loss' ? [target] : [target, loss],
     riskPolicyVersions: [policy],
     monthlyRiskLimits: [monthlyLimit],
+    currentLiveStageId: 'stage-current',
+    currentLiveStageStartsOn: '2026-07-01',
     currentTradingDayKey: '2026-07-27',
-    liveStatsStartTradingDayKey: null,
     tradingDayStartHour: 0,
   }
+}
+
+export function testFirstOpenRequiresCurrentStageRiskSetupBeforeUnknownOrLimitOverride(): void {
+  const state = {
+    ...triggeredState('planned'),
+    currentLiveStageId: 'stage-new',
+    currentLiveStageStartsOn: '2026-07-27',
+    trades: triggeredState('planned').trades.map((item) => ({ ...item, liveStageId: 'stage-new' })),
+    riskPolicyVersions: [{ ...policy, liveStageId: 'stage-old' }],
+    monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: 'stage-old', limitR: 1 }],
+  }
+
+  const result = requestTradeOpenCandidate(state, 'target')
+
+  assert(result.kind === 'risk-setup-required', '新阶段第一次开仓必须先完成风险建档')
+}
+
+export function testRiskSetupRequirementWinsOverArchivedPendingConfirmation(): void {
+  const oldState = triggeredState('planned')
+  const oldPending = requestTradeOpenCandidate(oldState, 'target')
+  assert(oldPending.kind === 'confirmation-required', '旧阶段 fixture 必须产生确认请求')
+  const newState = {
+    ...oldState,
+    currentLiveStageId: 'stage-new',
+    currentLiveStageStartsOn: '2026-07-27',
+    trades: oldState.trades.map((item) => ({ ...item, liveStageId: 'stage-new' })),
+  }
+
+  const result = requestTradeOpenCandidate(newState, 'target', { existingPending: oldPending.request })
+
+  assert(result.kind === 'risk-setup-required', '新阶段风险建档必须早于旧 pending/override 判断')
 }
 
 export function testEveryFirstLiveOpenRequiresDomainGate(): void {
@@ -159,7 +194,7 @@ export function testRiskBecomingBelowStillInvalidatesOldConfirmation(): void {
   )
 }
 
-export function testBelowAndUnconfiguredCleanOpenWithoutOverride(): void {
+export function testBelowOpensButUnconfiguredRequiresRiskSetup(): void {
   const belowState = {
     ...triggeredState('planned'),
     trades: [trade('target', 'planned'), trade('small-loss', 'loss', -500)],
@@ -179,8 +214,8 @@ export function testBelowAndUnconfiguredCleanOpenWithoutOverride(): void {
     monthlyRiskLimits: [],
   }, 'target')
   assert(
-    unconfigured.kind === 'opened' && unconfigured.decision === 'unconfigured-clean',
-    '无规则且无未知风险时应直接生成 open 候选',
+    unconfigured.kind === 'risk-setup-required',
+    '无规则且无未知风险时也必须先完成阶段风险建档',
   )
 }
 
@@ -246,7 +281,7 @@ export function testHistoricalMonthlyPolicyGapCannotHideKnownMonthlyBreach(): vo
 export function testFutureRiskCycleStartFailsClosed(): void {
   const state = {
     ...triggeredState('planned'),
-    liveStatsStartTradingDayKey: '2099-01-01',
+    currentLiveStageStartsOn: '2099-01-01',
   }
 
   const result = requestTradeOpenCandidate(state, 'target')
@@ -448,7 +483,7 @@ export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClose
         closedTradingDayKey: '2026-07-27',
       },
     ],
-    liveStatsStartTradingDayKey: '2026-07-27',
+    currentLiveStageStartsOn: '2026-07-27',
     tradingDayStartHour: 0,
   }
 
@@ -471,7 +506,7 @@ export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClose
   )
 }
 
-export function testChangingLiveCycleStartInvalidatesPendingConfirmation(): void {
+export function testChangingLiveStageStartInvalidatesPendingConfirmation(): void {
   const state = {
     ...triggeredState('planned'),
     trades: [trade('target', 'planned')],
@@ -482,7 +517,7 @@ export function testChangingLiveCycleStartInvalidatesPendingConfirmation(): void
 
   const validation = validatePendingFingerprint(candidate.request, {
     ...state,
-    liveStatsStartTradingDayKey: '2026-07-27',
+    currentLiveStageStartsOn: '2026-07-27',
   })
 
   assert(validation.kind === 'needs-reconfirmation', '周期起点变化必须使既有确认失效')

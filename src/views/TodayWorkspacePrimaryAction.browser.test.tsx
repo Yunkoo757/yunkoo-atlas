@@ -49,6 +49,7 @@ function closedTrade(id: string, ref: string, patch: Partial<Trade>): Trade {
     conviction: 'medium',
     strategyId: 'uncategorized',
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     tags: [],
     mistakeTags: [],
     reviewStatus: 'unreviewed',
@@ -81,6 +82,7 @@ const riskDraft: RiskPolicyDraft = {
 }
 const riskPolicy: RiskPolicyVersion = {
   id: 'today-primary-risk-policy',
+  liveStageId: useStore.getState().currentLiveStageId,
   sourceWeekStart: weekStart,
   effectiveTradingDay: today,
   capitalBase: 100_000,
@@ -94,6 +96,7 @@ const riskPolicy: RiskPolicyVersion = {
 }
 const monthlyLimit: MonthlyRiskLimit = {
   id: `monthly-risk-limit:${today.slice(0, 7)}`,
+  liveStageId: useStore.getState().currentLiveStageId,
   monthKey: today.slice(0, 7),
   limitR: 10,
   sourcePolicyVersionId: riskPolicy.id,
@@ -116,6 +119,9 @@ async function run(): Promise<void> {
 
   try {
     useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: today }
+        : stage),
       trades: [reviewPending, resultPending],
       livePerformanceCycles: [],
       liveStatsStartTradingDayKey: null,
@@ -123,6 +129,7 @@ async function run(): Promise<void> {
       monthlyRiskLimits: [monthlyLimit],
       weeklyRiskPreparations: [{
         id: `weekly-risk-preparation:${weekStart}`,
+        liveStageId: state.currentLiveStageId,
         weekStart,
         draft: riskDraft,
         reviewedAt: confirmedAt,

@@ -16,6 +16,7 @@ function assert(condition: unknown, message: string): asserts condition {
 function fixture(options: { pnls?: number[]; lossWithoutClosedAt?: boolean } = {}): ResolveRiskOutcomesInput {
   const policy: RiskPolicyVersion = {
     id: 'policy-1',
+    liveStageId: 'stage-current',
     sourceWeekStart: '2026-07-27',
     effectiveTradingDay: '2026-07-01',
     capitalBase: 100_000,
@@ -29,6 +30,7 @@ function fixture(options: { pnls?: number[]; lossWithoutClosedAt?: boolean } = {
   }
   const monthlyLimit: MonthlyRiskLimit = {
     id: 'monthly-risk-limit:2026-07',
+    liveStageId: 'stage-current',
     monthKey: '2026-07',
     limitR: 10,
     sourcePolicyVersionId: policy.id,
@@ -44,6 +46,7 @@ function fixture(options: { pnls?: number[]; lossWithoutClosedAt?: boolean } = {
     conviction: 'medium',
     strategyId: 'strategy-1',
     tradeKind: 'live',
+    liveStageId: 'stage-current',
     tags: [],
     mistakeTags: [],
     reviewStatus: 'unreviewed',
@@ -59,13 +62,56 @@ function fixture(options: { pnls?: number[]; lossWithoutClosedAt?: boolean } = {
     closedTradingDayKey: options.lossWithoutClosedAt && pnl < 0 ? undefined : '2026-07-27',
     note: '',
   }))
-  return { trades, policies: [policy], monthlyLimits: [monthlyLimit], currentTradingDayKey: '2026-07-27' }
+  return {
+    trades,
+    policies: [policy],
+    monthlyLimits: [monthlyLimit],
+    liveStageId: 'stage-current',
+    liveStageStartsOn: '2026-07-01',
+    currentTradingDayKey: '2026-07-27',
+  }
 }
 
 export function testRiskBudgetReturnsProfitCredit(): void {
   const result = resolveRiskOutcomes(fixture({ pnls: [-1000, 2000] }))
   assert(result.day.netBudgetR === 1, '净值应为 +1R')
   assert(result.day.consumedR === 0, '盈利后已用额度应返还到 0R')
+}
+
+export function testRiskBudgetUsesOnlySelectedStageEntitiesAndStart(): void {
+  const input = fixture({ pnls: [-2_000] })
+  input.trades[0] = {
+    ...input.trades[0]!,
+    tradeKind: 'live',
+    liveStageId: 'stage-old',
+    openedAt: '2026-07-01',
+  }
+  input.trades.push({
+    ...input.trades[0]!,
+    tradeKind: 'live',
+    id: 'trade-current',
+    ref: 'TRD-current',
+    liveStageId: 'stage-current',
+    openedAt: '2026-07-27',
+    pnl: -1_000,
+  })
+  input.policies = [
+    { ...input.policies[0]!, liveStageId: 'stage-old', riskAmount: 100 },
+    { ...input.policies[0]!, id: 'policy-current', liveStageId: 'stage-current', riskAmount: 1_000 },
+  ]
+  input.monthlyLimits = [
+    { ...input.monthlyLimits[0]!, liveStageId: 'stage-old', limitR: 1 },
+    { ...input.monthlyLimits[0]!, id: 'limit-current', liveStageId: 'stage-current', limitR: 10 },
+  ]
+  input.liveStageId = 'stage-current'
+  input.liveStageStartsOn = '2026-07-27'
+  input.liveStatsStartTradingDayKey = '2026-07-01'
+
+  const result = resolveRiskOutcomes(input)
+
+  assert(result.day.netBudgetR === -1, '预算只能使用所选阶段交易与策略')
+  assert(result.month.limitR === 10, '月限额只能来自所选阶段')
+  assert(!result.month.triggered, '归档阶段触线记录不得影响当前阶段')
 }
 
 export function testLossWithMissingCloseDateIsUnknown(): void {
@@ -233,7 +279,7 @@ export function testHistoricalDirtyResultDoesNotPoisonCurrentRiskCoverage(): voi
 
 export function testRiskBudgetExcludesPreCycleTradeByOpenDay(): void {
   const input = fixture({ pnls: [-1_000, -1_000] })
-  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.liveStageStartsOn = '2026-07-27'
   input.tradingDayStartHour = 0
   input.trades[0] = {
     ...input.trades[0]!,
@@ -252,7 +298,7 @@ export function testRiskBudgetExcludesPreCycleTradeByOpenDay(): void {
 export function testMonthlyBudgetResetsAtCalendarMonthWhileWeekCanCrossMonth(): void {
   const input = fixture({ pnls: [-1_000] })
   input.currentTradingDayKey = '2026-08-01'
-  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.liveStageStartsOn = '2026-07-27'
   input.monthlyLimits = [{
     ...input.monthlyLimits[0]!,
     id: 'monthly-risk-limit:2026-08',
@@ -275,7 +321,7 @@ export function testMonthlyBudgetResetsAtCalendarMonthWhileWeekCanCrossMonth(): 
 
 export function testRiskBudgetKeepsCurrentCycleUnknownFailClosed(): void {
   const input = fixture({ pnls: [-1_000] })
-  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.liveStageStartsOn = '2026-07-27'
   input.trades[0] = { ...input.trades[0]!, pnl: null, resultSource: 'r', rMultiple: -1 }
 
   const result = resolveRiskOutcomes(input)
@@ -286,7 +332,7 @@ export function testRiskBudgetKeepsCurrentCycleUnknownFailClosed(): void {
 export function testRiskBudgetIncludesPlanOpenedAfterCycleStart(): void {
   const input = fixture({ pnls: [-1_000] })
   input.currentTradingDayKey = '2026-07-28'
-  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.liveStageStartsOn = '2026-07-27'
   input.tradingDayStartHour = 0
   input.trades[0] = {
     ...input.trades[0]!,
@@ -351,7 +397,7 @@ export function testRiskDataIssuesMergeReasonsAndKeepStableOrder(): void {
 
 export function testRiskDataIssuesExposeGlobalCycleStartProblem(): void {
   const input = fixture({ pnls: [-1_000] })
-  input.liveStatsStartTradingDayKey = '2026-07-28'
+  input.liveStageStartsOn = '2026-07-28'
 
   const issues = resolveRiskDataIssues(input)
 
@@ -383,7 +429,7 @@ export function testRiskDataIssuesExplainEveryPartialCoverageCause(): void {
 
 export function testRiskDataIssuesExcludeNonCurrentLiveCycleRecords(): void {
   const input = fixture({ pnls: [-1_000, -1_000, -1_000, -1_000] })
-  input.liveStatsStartTradingDayKey = '2026-07-27'
+  input.liveStageStartsOn = '2026-07-27'
   input.trades = input.trades.map((item) => ({ ...item, pnl: null, resultSource: 'r', rMultiple: -1 }))
   input.trades[0] = { ...input.trades[0]!, openedAt: '2026-07-26' }
   input.trades[1] = { ...input.trades[1]!, tradeKind: 'paper' }

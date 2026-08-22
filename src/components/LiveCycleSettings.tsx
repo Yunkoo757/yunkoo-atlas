@@ -30,10 +30,12 @@ function resetDraft(current: string | null, suggested: string | null, fallback: 
 export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt = false }: LiveCycleSettingsProps) {
   const trades = useStore((state) => state.trades)
   const policies = useStore((state) => state.riskPolicyVersions)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const currentStart = useStore((state) => state.liveStatsStartTradingDayKey)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const saveStart = useStore((state) => state.setLiveStatsStartTradingDayKey)
-  const suggested = suggestLiveCycleStartTradingDayKey(policies)
+  const currentPolicies = policies.filter((policy) => policy.liveStageId === currentLiveStageId)
+  const suggested = suggestLiveCycleStartTradingDayKey(currentPolicies)
   const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get('visual') === 'dialog')
   const [busy, setBusy] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -44,7 +46,8 @@ export function LiveCycleSettings({ variant, currentTradingDayKey, forcePrompt =
       : { current: [], preCycle: [], unresolved: [] },
     [draft, trades, tradingDayStartHour],
   )
-  const draftLacksRiskPolicyCoverage = isValidLiveCycleDayKey(draft) && activeRiskPolicy(policies, draft) === null
+  const draftLacksRiskPolicyCoverage = isValidLiveCycleDayKey(draft) &&
+    activeRiskPolicy(currentPolicies, draft, currentLiveStageId) === null
   const promptEligible = currentStart === null && suggested !== null &&
     (preview.preCycle.length > 0 || preview.unresolved.length > 0)
   if (variant === 'prompt' && !promptEligible && !forcePrompt) return null

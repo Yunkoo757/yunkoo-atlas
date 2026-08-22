@@ -27,6 +27,7 @@ import {
 } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
 import type { PersistedSnapshot } from '@/storage/types'
+import { getCurrentLiveStage } from '@/lib/liveStages'
 
 export interface RiskGateCommitState {
   trades: Trade[]
@@ -266,12 +267,17 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
     if (!stateMatchesSnapshot(baseline.state, baseline.snapshot)) {
       return { kind: 'needs-reconfirmation' }
     }
+    const currentStage = getCurrentLiveStage(
+      baseline.snapshot.liveStages,
+      baseline.state.currentLiveStageId,
+    )
     const gateState: TradeOpenRiskGateState = {
       trades: baseline.state.trades,
       riskPolicyVersions: baseline.state.riskPolicyVersions,
       monthlyRiskLimits: baseline.state.monthlyRiskLimits,
+      currentLiveStageId: currentStage.id,
+      currentLiveStageStartsOn: currentStage.startsOn,
       currentTradingDayKey: baseline.currentTradingDayKey,
-      liveStatsStartTradingDayKey: baseline.state.liveStatsStartTradingDayKey,
       tradingDayStartHour: baseline.state.display.tradingDayStartHour,
     }
     const validation = validatePendingFingerprint(input.request, gateState)

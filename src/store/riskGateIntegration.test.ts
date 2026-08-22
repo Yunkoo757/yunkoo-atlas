@@ -12,6 +12,7 @@ const monthKey = today.slice(0, 7)
 
 const policy: RiskPolicyVersion = {
   id: 'policy-task-6',
+  liveStageId: 'stage-current',
   sourceWeekStart: '2026-07-20',
   effectiveTradingDay: '2026-07-01',
   capitalBase: 100_000,
@@ -26,6 +27,7 @@ const policy: RiskPolicyVersion = {
 
 const monthlyLimit: MonthlyRiskLimit = {
   id: `monthly-risk-limit:${monthKey}`,
+  liveStageId: 'stage-current',
   monthKey,
   limitR: 10,
   sourcePolicyVersionId: policy.id,
@@ -74,6 +76,7 @@ function restore(previous: ReturnType<typeof useStore.getState>): void {
     riskOverrideEvents: previous.riskOverrideEvents,
     liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
     pendingTradeOpenRequest: previous.pendingTradeOpenRequest,
+    riskSetupTradeOpenRequest: previous.riskSetupTradeOpenRequest,
     undoStack: previous.undoStack,
     redoStack: previous.redoStack,
     display: previous.display,
@@ -82,13 +85,14 @@ function restore(previous: ReturnType<typeof useStore.getState>): void {
 
 function setGateFixture(trades: Trade[]): void {
   useStore.setState((state) => ({
-    trades,
+    trades: trades.map((item) => ({ ...item, liveStageId: state.currentLiveStageId })),
     weeklyRiskPreparations: [],
-    riskPolicyVersions: [policy],
-    monthlyRiskLimits: [monthlyLimit],
+    riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],
+    monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: state.currentLiveStageId }],
     riskOverrideEvents: [],
     liveStatsStartTradingDayKey: null,
     pendingTradeOpenRequest: null,
+    riskSetupTradeOpenRequest: null,
     undoStack: [],
     redoStack: [],
     display: { ...state.display, tradingDayStartHour: 0 },
@@ -108,6 +112,33 @@ export function testPublicSetStatusFailsClosedForEveryFirstLiveOpenSource(): voi
       assert(useStore.getState().trades[0]?.status === source, `${source} → open 不得提前改状态`)
       assert(useStore.getState().pendingTradeOpenRequest === null, '通用 setStatus 不得偷偷打开确认框')
     }
+  } finally {
+    restore(previous)
+  }
+}
+
+export function testFirstOpenIsBlockedUntilCurrentStageRiskSetup(): void {
+  const previous = useStore.getState()
+  try {
+    const currentStage = previous.liveStages.find((stage) => stage.id === previous.currentLiveStageId)
+    assert(currentStage, 'fixture 必须存在当前阶段')
+    const target = { ...trade('stage-new-target', 'planned'), liveStageId: currentStage.id }
+    useStore.setState((state) => ({
+      trades: [target, { ...trade('stage-new-unknown', 'loss'), liveStageId: currentStage.id, closedAt: null }],
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [{ ...policy, liveStageId: 'stage-old' }],
+      monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: 'stage-old', limitR: 1 }],
+      riskOverrideEvents: [],
+      liveStatsStartTradingDayKey: '2000-01-01',
+      pendingTradeOpenRequest: null,
+      display: { ...state.display, tradingDayStartHour: 0 },
+    }))
+
+    const result = useStore.getState().requestTradeOpen(target.id)
+
+    assert(result === 'requires-risk-setup', '新阶段第一次开仓必须先返回 requires-risk-setup')
+    assert(useStore.getState().trades[0]?.status === 'planned', '未建档不得开仓')
+    assert(useStore.getState().pendingTradeOpenRequest === null, '未建档不得提供填写原因绕过入口')
   } finally {
     restore(previous)
   }

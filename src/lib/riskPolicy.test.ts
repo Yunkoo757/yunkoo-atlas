@@ -31,6 +31,7 @@ function draft(): RiskPolicyDraft {
 
 function emptyState(): RiskPolicyState {
   return {
+    currentLiveStageId: 'stage-current',
     weeklyRiskPreparations: [],
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
@@ -98,7 +99,7 @@ export function testActivePolicyUsesStablePrecedence(): void {
     { ...base, id: 'policy-future', effectiveTradingDay: '2026-07-29', confirmedAt: '2026-07-27T11:00:00.000Z' },
   ]
   const originalOrder = policies.map((policy) => policy.id).join(',')
-  assert(activeRiskPolicy(policies, '2026-07-28')?.id === 'policy-b', '同日必须按 confirmedAt/id 稳定选择')
+  assert(activeRiskPolicy(policies, '2026-07-28', 'stage-current')?.id === 'policy-b', '同日必须按 confirmedAt/id 稳定选择')
   assert(policies.map((policy) => policy.id).join(',') === originalOrder, 'active policy 纯读取不得改变输入顺序')
 }
 
@@ -110,7 +111,7 @@ export function testActivePolicyComparesConfirmedAtByInstant(): void {
   ]
   const originalOrder = policies.map((policy) => policy.id).join(',')
 
-  assert(activeRiskPolicy(policies, '2026-07-27')?.id === 'zulu', '真实较晚的确认瞬时必须胜出')
+  assert(activeRiskPolicy(policies, '2026-07-27', 'stage-current')?.id === 'zulu', '真实较晚的确认瞬时必须胜出')
   assert(policies.map((policy) => policy.id).join(',') === originalOrder, 'offset 排序不得改变输入数组')
 }
 
@@ -120,7 +121,7 @@ export function testActivePolicyUsesIdWhenConfirmedInstantsMatch(): void {
     { ...base, id: 'policy-a', confirmedAt: '2026-07-27T11:00:00+08:00' },
     { ...base, id: 'policy-b', confirmedAt: '2026-07-27T03:00:00Z' },
   ]
-  assert(activeRiskPolicy(policies, '2026-07-27')?.id === 'policy-b', '同一瞬时必须按 id 决胜')
+  assert(activeRiskPolicy(policies, '2026-07-27', 'stage-current')?.id === 'policy-b', '同一瞬时必须按 id 决胜')
 }
 
 export function testActivePolicyIgnoresInvalidConfirmedAt(): void {
@@ -129,7 +130,35 @@ export function testActivePolicyIgnoresInvalidConfirmedAt(): void {
     { ...base, id: 'valid-policy' },
     { ...base, id: 'invalid-policy', confirmedAt: 'invalid' },
   ]
-  assert(activeRiskPolicy(policies, '2026-07-27')?.id === 'valid-policy', '非法确认时间的 policy 不得成为 active')
+  assert(activeRiskPolicy(policies, '2026-07-27', 'stage-current')?.id === 'valid-policy', '非法确认时间的 policy 不得成为 active')
+}
+
+export function testArchivedPolicyAndMonthlyLimitDoNotAffectCurrentStageConfirmation(): void {
+  const archived = confirmWeeklyRiskPreparation(
+    { ...emptyState(), currentLiveStageId: 'stage-old' },
+    confirmation('2026-07-27'),
+  )
+  const currentInput = confirmation('2026-07-27', {
+    policyVersionId: 'policy-current',
+    confirmedAt: '2026-07-27T09:00:00.000Z',
+  })
+  const current = confirmWeeklyRiskPreparation({
+    ...archived,
+    currentLiveStageId: 'stage-current',
+    monthlyRiskLimits: [{
+      id: 'monthly-risk-limit:stage-old:2026-07',
+      liveStageId: 'stage-old',
+      monthKey: '2026-07',
+      limitR: 10,
+      sourcePolicyVersionId: 'policy-1',
+      lockedAt: '2026-07-27T08:00:00.000Z',
+    }],
+  }, currentInput)
+  const withLimit = ensureRiskPeriodRecords(current, '2026-07-27')
+
+  assert(current.riskPolicyVersions.at(-1)?.effectiveTradingDay === '2026-07-27', '新阶段首版应按本阶段首次确认处理')
+  assert(withLimit.monthlyRiskLimits.length === 2, '旧阶段同月限额不得阻止当前阶段锁定')
+  assert(withLimit.monthlyRiskLimits.at(-1)?.liveStageId === 'stage-current', '新月限额必须属于当前阶段')
 }
 
 export function testMonthlyLimitMaterializesOnce(): void {
@@ -412,7 +441,14 @@ export function testStoreCopiesSavedDraft(): void {
 }
 
 export function testDraftChangesInvalidateReviewOnlyWhenContentChanges(): void {
-  const confirmed = stateWithPolicy()
+  const currentLiveStageId = useStore.getState().currentLiveStageId
+  const source = stateWithPolicy()
+  const confirmed = {
+    ...source,
+    currentLiveStageId,
+    weeklyRiskPreparations: source.weeklyRiskPreparations.map((item) => ({ ...item, liveStageId: currentLiveStageId })),
+    riskPolicyVersions: source.riskPolicyVersions.map((item) => ({ ...item, liveStageId: currentLiveStageId })),
+  }
   const preparation = confirmed.weeklyRiskPreparations[0]!
   useStore.setState({
     weeklyRiskPreparations: confirmed.weeklyRiskPreparations,
@@ -426,7 +462,7 @@ export function testDraftChangesInvalidateReviewOnlyWhenContentChanges(): void {
     { ...preparation.draft },
     '2026-07-27T09:00:00.000Z',
   )
-  const unchanged = useStore.getState().weeklyRiskPreparations[0]!
+  const unchanged = useStore.getState().weeklyRiskPreparations.find((item) => item.liveStageId === currentLiveStageId)!
   assert(unchanged.reviewedAt === preparation.reviewedAt, '相同内容不得无意义清除复核时间')
   assert(
     unchanged.confirmedPolicyVersionId === preparation.confirmedPolicyVersionId,
@@ -438,7 +474,7 @@ export function testDraftChangesInvalidateReviewOnlyWhenContentChanges(): void {
     { ...preparation.draft, dailyLossLimitR: 3 },
     '2026-07-27T10:00:00.000Z',
   )
-  const changed = useStore.getState().weeklyRiskPreparations[0]!
+  const changed = useStore.getState().weeklyRiskPreparations.find((item) => item.liveStageId === currentLiveStageId)!
   assert(changed.reviewedAt === null, '草稿内容变化后必须重新复核')
   assert(changed.confirmedPolicyVersionId === null, '草稿内容变化后必须清除已确认版本关联')
 }

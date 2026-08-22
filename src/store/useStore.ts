@@ -460,6 +460,10 @@ interface State {
     returnFocus?: HTMLElement | null
   } | null
   pendingTradeOpenRequest: StorePendingTradeOpenRequest | null
+  riskSetupTradeOpenRequest: {
+    tradeId: string
+    returnFocus?: HTMLElement | null
+  } | null
   undoStack: UndoAction[]
   redoStack: UndoAction[]
   undo: (actionId?: string) => boolean
@@ -664,6 +668,7 @@ export const useStore = create<State>()((set, get) => ({
       composerKind: null,
       closeTradeRequest: null,
       pendingTradeOpenRequest: null,
+      riskSetupTradeOpenRequest: null,
       undoStack: [],
       redoStack: [],
       undo: (actionId) => {
@@ -875,6 +880,8 @@ export const useStore = create<State>()((set, get) => ({
         scheduledStageRollover: publish.scheduledStageRollover,
         liveStatsStartTradingDayKey: publish.liveStatsStartTradingDayKey,
         livePerformanceCycles: publish.livePerformanceCycles,
+        pendingTradeOpenRequest: null,
+        riskSetupTradeOpenRequest: null,
       }),
       upsertWeeklyReview: (review) =>
         set((state) => {
@@ -1128,12 +1135,15 @@ export const useStore = create<State>()((set, get) => ({
         })),
       saveWeeklyRiskDraft: (weekStart, draft, updatedAt) =>
         set((s) => {
-          const id = `weekly-risk-preparation:${weekStart}`
-          const existing = s.weeklyRiskPreparations.find((item) => item.id === id)
+          const currentLiveStageId = currentLiveStageIdForWrite(s)
+          const id = `weekly-risk-preparation:${currentLiveStageId}:${weekStart}`
+          const existing = s.weeklyRiskPreparations.find((item) =>
+            item.liveStageId === currentLiveStageId && item.weekStart === weekStart,
+          )
           const contentChanged = existing ? !sameRiskPolicyDraft(existing.draft, draft) : false
           const preparation: WeeklyRiskPreparation = {
             id,
-            liveStageId: existing ? existing.liveStageId : currentLiveStageIdForWrite(s),
+            liveStageId: currentLiveStageId,
             weekStart,
             draft: { ...draft },
             reviewedAt: contentChanged ? null : existing?.reviewedAt ?? null,
@@ -1145,15 +1155,18 @@ export const useStore = create<State>()((set, get) => ({
           }
           return {
             weeklyRiskPreparations: existing
-              ? s.weeklyRiskPreparations.map((item) => item.id === id ? preparation : item)
+              ? s.weeklyRiskPreparations.map((item) => item === existing ? preparation : item)
               : [...s.weeklyRiskPreparations, preparation],
           }
         }),
       confirmWeeklyRiskPreparation: (input) =>
         set((s) => {
-          const isFirstPolicy = s.riskPolicyVersions.length === 0
+          const currentLiveStageId = currentLiveStageIdForWrite(s)
+          const isFirstPolicy = !s.riskPolicyVersions.some((policy) =>
+            policy.liveStageId === currentLiveStageId,
+          )
           const riskState: RiskPolicyState = {
-            currentLiveStageId: currentLiveStageIdForWrite(s),
+            currentLiveStageId,
             weeklyRiskPreparations: s.weeklyRiskPreparations,
             riskPolicyVersions: s.riskPolicyVersions,
             monthlyRiskLimits: s.monthlyRiskLimits,
@@ -1173,8 +1186,8 @@ export const useStore = create<State>()((set, get) => ({
             hasClosedLiveTradeOnDay,
           })
           return isFirstPolicy
-            ? ensureRiskPolicyPeriodRecords(confirmed, input.currentTradingDayKey)
-            : confirmed
+            ? { ...ensureRiskPolicyPeriodRecords(confirmed, input.currentTradingDayKey), riskSetupTradeOpenRequest: null }
+            : { ...confirmed, riskSetupTradeOpenRequest: null }
         }),
       ensureRiskPeriodRecords: (tradingDay) =>
         set((s) => ensureRiskPolicyPeriodRecords({
@@ -1188,7 +1201,11 @@ export const useStore = create<State>()((set, get) => ({
         if (value !== null && !isValidLiveCycleDayKey(value)) {
           throw new Error('风险核算起点必须是有效交易日')
         }
-        set({ liveStatsStartTradingDayKey: value, pendingTradeOpenRequest: null })
+        set({
+          liveStatsStartTradingDayKey: value,
+          pendingTradeOpenRequest: null,
+          riskSetupTradeOpenRequest: null,
+        })
       },
       replaceLivePerformanceCycles: (cycles) => {
         const next = cloneLivePerformanceCycles(cycles)
@@ -1221,6 +1238,7 @@ export const useStore = create<State>()((set, get) => ({
           monthlyRiskLimits: [],
           riskOverrideEvents: [],
           pendingTradeOpenRequest: null,
+          riskSetupTradeOpenRequest: null,
         })
       },
       setStatus: (id, status) => {
@@ -1267,13 +1285,28 @@ export const useStore = create<State>()((set, get) => ({
       requestTradeOpen: (id, returnFocus) => {
         let result: TradeOpenRequestResult = 'not-found'
         set((s) => {
+          const currentStage = getCurrentLiveStage(s.liveStages, s.currentLiveStageId)
           const candidate = requestTradeOpenCandidate({
             ...s,
+            currentLiveStageId: currentStage.id,
+            currentLiveStageStartsOn: currentStage.startsOn,
             currentTradingDayKey: getTradingDayKey(new Date(), s.display.tradingDayStartHour),
-            liveStatsStartTradingDayKey: s.liveStatsStartTradingDayKey,
             tradingDayStartHour: s.display.tradingDayStartHour,
           }, id, { existingPending: s.pendingTradeOpenRequest })
           if (candidate.kind === 'not-found') return s
+          if (candidate.kind === 'risk-setup-required') {
+            const active = typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null
+            result = 'requires-risk-setup'
+            return {
+              riskSetupTradeOpenRequest: {
+                tradeId: candidate.trade.id,
+                returnFocus: returnFocus ?? active,
+              },
+              pendingTradeOpenRequest: null,
+            }
+          }
           if (candidate.kind === 'pending-exists') {
             result = 'pending-confirmation'
             return s
@@ -1296,7 +1329,7 @@ export const useStore = create<State>()((set, get) => ({
         })
         return result
       },
-      cancelTradeOpen: () => set({ pendingTradeOpenRequest: null }),
+      cancelTradeOpen: () => set({ pendingTradeOpenRequest: null, riskSetupTradeOpenRequest: null }),
       confirmTradeOpen: async (rawReason) => {
         const reason = rawReason.trim()
         if (reason.length < 1 || reason.length > 500) {
@@ -1353,6 +1386,7 @@ export const useStore = create<State>()((set, get) => ({
           liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
           livePerformanceCycles: cloneLivePerformanceCycles(snapshot.livePerformanceCycles ?? []),
           pendingTradeOpenRequest: null,
+          riskSetupTradeOpenRequest: null,
         })
       },
       completeTradeClose: (id, status, patch) =>

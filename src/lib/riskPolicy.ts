@@ -12,8 +12,7 @@ import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 
 export interface RiskPolicyState {
-  /** Store 写入路径必须提供；纯计算旧调用可暂不提供以兼容历史测试。 */
-  currentLiveStageId?: string
+  currentLiveStageId: string
   weeklyRiskPreparations: WeeklyRiskPreparation[]
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
@@ -66,7 +65,7 @@ function positiveFinite(value: number | null, label: string): number {
   return value
 }
 
-function canonicalDraft(draft: RiskPolicyDraft): Omit<RiskPolicyVersion, 'id' | 'sourceWeekStart' | 'effectiveTradingDay' | 'confirmedAt'> {
+function canonicalDraft(draft: RiskPolicyDraft): Omit<RiskPolicyVersion, 'id' | 'liveStageId' | 'sourceWeekStart' | 'effectiveTradingDay' | 'confirmedAt'> {
   const capitalBase = positiveFinite(draft.capitalBase, '资金基准')
   const riskPercent = positiveFinite(draft.riskPercent, 'R 百分比')
   const dailyLossLimitR = positiveFinite(draft.dailyLossLimitR, '日止损线')
@@ -98,28 +97,26 @@ export function confirmWeeklyRiskPreparation(
   }
   const policyValues = canonicalDraft(input.draft)
   const firstConfirmationForWeek = !state.riskPolicyVersions.some(
-    (policy) => policy.sourceWeekStart === input.weekStart,
+    (policy) => policy.liveStageId === state.currentLiveStageId && policy.sourceWeekStart === input.weekStart,
   )
   const effectiveTradingDay = firstConfirmationForWeek && !input.hasClosedLiveTradeOnDay
     ? input.currentTradingDayKey
     : nextTradingDay(input.currentTradingDayKey)
   const policy: RiskPolicyVersion = {
     id: input.policyVersionId,
-    ...(state.currentLiveStageId ? { liveStageId: state.currentLiveStageId } : {}),
+    liveStageId: state.currentLiveStageId,
     sourceWeekStart: input.weekStart,
     effectiveTradingDay,
     ...policyValues,
     confirmedAt: input.confirmedAt,
   }
-  const preparationId = `weekly-risk-preparation:${input.weekStart}`
-  const existingPreparation = state.weeklyRiskPreparations.find((item) => item.id === preparationId)
+  const preparationId = `weekly-risk-preparation:${state.currentLiveStageId}:${input.weekStart}`
+  const existingPreparation = state.weeklyRiskPreparations.find((item) =>
+    item.liveStageId === state.currentLiveStageId && item.weekStart === input.weekStart,
+  )
   const preparation: WeeklyRiskPreparation = {
     id: preparationId,
-    ...(existingPreparation?.liveStageId !== undefined
-      ? { liveStageId: existingPreparation.liveStageId }
-      : state.currentLiveStageId
-        ? { liveStageId: state.currentLiveStageId }
-        : {}),
+    liveStageId: state.currentLiveStageId,
     weekStart: input.weekStart,
     draft: { ...input.draft, riskAmount: policy.riskAmount },
     reviewedAt: input.confirmedAt,
@@ -130,7 +127,7 @@ export function confirmWeeklyRiskPreparation(
   return {
     ...state,
     weeklyRiskPreparations: existingPreparation
-      ? state.weeklyRiskPreparations.map((item) => item.id === preparationId ? preparation : item)
+      ? state.weeklyRiskPreparations.map((item) => item === existingPreparation ? preparation : item)
       : [...state.weeklyRiskPreparations, preparation],
     riskPolicyVersions: [...state.riskPolicyVersions, policy],
   }
@@ -144,12 +141,8 @@ function appendLockedMonthlyLimit(
   return {
     ...state,
     monthlyRiskLimits: [...state.monthlyRiskLimits, {
-      id: `monthly-risk-limit:${monthKey}`,
-      ...(state.currentLiveStageId
-        ? { liveStageId: state.currentLiveStageId }
-        : policy.liveStageId !== undefined
-          ? { liveStageId: policy.liveStageId }
-          : {}),
+      id: `monthly-risk-limit:${state.currentLiveStageId}:${monthKey}`,
+      liveStageId: state.currentLiveStageId,
       monthKey,
       limitR: policy.monthlyLossLimitRDefault,
       sourcePolicyVersionId: policy.id,
@@ -164,7 +157,9 @@ export function ensureRiskPeriodRecords(
 ): RiskPolicyState {
   requireCanonicalDay(tradingDay, 'tradingDay')
   const monthKey = tradingDay.slice(0, 7)
-  if (state.monthlyRiskLimits.some((item) => item.monthKey === monthKey)) return state
-  const policy = activeRiskPolicy(state.riskPolicyVersions, tradingDay)
+  if (state.monthlyRiskLimits.some((item) =>
+    item.liveStageId === state.currentLiveStageId && item.monthKey === monthKey,
+  )) return state
+  const policy = activeRiskPolicy(state.riskPolicyVersions, tradingDay, state.currentLiveStageId)
   return policy ? appendLockedMonthlyLimit(state, monthKey, policy) : state
 }

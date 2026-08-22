@@ -48,6 +48,7 @@ function dirtyLoss(currentDay: string): Trade {
     reviewStatus: 'unreviewed',
     reviewCategory: 'normal',
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     entry: 100,
     exit: 90,
     size: 1,
@@ -96,6 +97,9 @@ async function run(): Promise<void> {
       rMultiple: 1,
     }
     useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: incompleteTrade.openedAt.slice(0, 10) }
+        : stage),
       trades: [incompleteTrade, partialTrade],
       weeklyRiskPreparations: [],
       riskPolicyVersions: [],

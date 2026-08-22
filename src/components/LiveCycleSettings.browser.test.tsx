@@ -45,6 +45,7 @@ function click(label: string, scope: ParentNode = document): void {
 const oldLiveTrade: Trade = {
   id: 'live-before-cycle', ref: 'TRD-OLD-LIVE-REFERENCE-WITH-A-LONG-IDENTIFIER-20260726', symbol: 'BTCUSDT-PERPETUAL-LONG-SYMBOL', side: 'long', status: 'loss',
   conviction: 'medium', strategyId: 'strategy-1', tradeKind: 'live', tags: [], mistakeTags: [],
+  liveStageId: useStore.getState().currentLiveStageId,
   reviewStatus: 'unreviewed', reviewCategory: 'normal', entry: 100, exit: 98, size: 1,
   pnl: -200, rMultiple: -1, resultSource: 'pnl', openedAt: '2026-07-26', closedAt: '2026-07-26', note: '',
 }
@@ -59,6 +60,7 @@ const currentLiveTrade: Trade = {
 
 const policyEffectiveOn20260727: RiskPolicyVersion = {
   id: 'policy-20260727', sourceWeekStart: '2026-07-27', effectiveTradingDay: '2026-07-27',
+  liveStageId: useStore.getState().currentLiveStageId,
   capitalBase: 100_000, riskPercent: 1, riskAmount: 1_000, dailyLossLimitR: 2,
   weeklyLossLimitR: 5, monthlyLossLimitRDefault: 10, disciplineText: '触线后暂停开仓。',
   confirmedAt: '2026-07-27T08:00:00.000Z',

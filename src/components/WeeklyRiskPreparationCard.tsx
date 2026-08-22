@@ -9,6 +9,7 @@ import { activeRiskPolicy } from '@/lib/riskPolicy'
 import { parseLocalDate } from '@/lib/periods'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
+import { getCurrentLiveStage } from '@/lib/liveStages'
 import { Button } from '@/components/ui/Button'
 import './WeeklyRiskPreparationCard.css'
 
@@ -77,29 +78,38 @@ export function WeeklyRiskPreparationCard({
   const preparations = useStore((state) => state.weeklyRiskPreparations)
   const policies = useStore((state) => state.riskPolicyVersions)
   const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const currentStage = getCurrentLiveStage(liveStages, currentLiveStageId)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const saveDraft = useStore((state) => state.saveWeeklyRiskDraft)
   const confirmPreparation = useStore((state) => state.confirmWeeklyRiskPreparation)
-  const preparation = preparations.find((item) => item.weekStart === weekStart)
+  const preparation = preparations.find((item) =>
+    item.liveStageId === currentStage.id && item.weekStart === weekStart,
+  )
   const policy = useMemo(
-    () => activeRiskPolicy(policies, tradingDay),
-    [policies, tradingDay],
+    () => activeRiskPolicy(policies, tradingDay, currentStage.id),
+    [policies, tradingDay, currentStage.id],
   )
   const reviewed = Boolean(preparation?.reviewedAt && preparation.confirmedPolicyVersionId)
   const confirmedPolicy = preparation?.confirmedPolicyVersionId
-    ? policies.find((item) => item.id === preparation.confirmedPolicyVersionId)
+    ? policies.find((item) =>
+        item.liveStageId === currentStage.id && item.id === preparation.confirmedPolicyVersionId,
+      )
     : null
   const sourceDraft = preparation?.draft ?? draftFromPolicy(policy)
   const [draft, setDraft] = useState<RiskPolicyDraft>(() => sourceDraft)
   const [editingReviewed, setEditingReviewed] = useState(false)
   const [error, setError] = useState('')
   const currentMonthKey = tradingDay.slice(0, 7)
-  const currentMonthLimit = monthlyLimits.find((item) => item.monthKey === currentMonthKey)
+  const currentMonthLimit = monthlyLimits.find((item) =>
+    item.liveStageId === currentStage.id && item.monthKey === currentMonthKey,
+  )
 
   useEffect(() => {
     setDraft(sourceDraft)
     if (!reviewed) setEditingReviewed(false)
-  }, [preparation?.updatedAt, policy?.id, weekStart, reviewed])
+  }, [preparation?.updatedAt, policy?.id, currentStage.id, weekStart, reviewed])
 
   const updateDraft = (patch: Partial<RiskPolicyDraft>) => {
     const next = withCalculatedRiskAmount({ ...draft, ...patch })

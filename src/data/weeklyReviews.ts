@@ -11,6 +11,7 @@ import { summarizeTradeResults } from '@/lib/tradeTruth'
 import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
 import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
+import type { LiveStage } from '@/lib/liveStages'
 import type { LegacyCashCurrencyAssumption, UserProfile } from '@/storage/types'
 import { buildPerformanceSelection, type PerformanceSelection } from '@/lib/performanceSelection'
 
@@ -104,6 +105,7 @@ export function resolveWeeklyReviewDataSource(review: WeeklyReview): WeeklyRevie
 
 export interface CompleteWeeklyReviewState {
   trades: Trade[]
+  liveStages: LiveStage[]
   weeklyReviews: WeeklyReview[]
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
@@ -401,6 +403,9 @@ function buildWeeklyRiskReviewSnapshot(
   review: WeeklyReview,
   frozenAt: string,
 ): WeeklyRiskReviewSnapshot {
+  const liveStageId = review.liveStageId
+  const liveStage = state.liveStages.find((stage) => stage.id === liveStageId)
+  if (!liveStageId || !liveStage) throw new Error('周复盘缺少有效的实盘阶段归属')
   const completionTradingDay = getTradingDayKey(new Date(frozenAt), state.display.tradingDayStartHour)
   const outcomeEnd = completionTradingDay < review.weekEnd ? completionTradingDay : review.weekEnd
   const reviewDays = daysThrough(review.weekStart, outcomeEnd)
@@ -410,7 +415,7 @@ function buildWeeklyRiskReviewSnapshot(
     return dayKey ? { ...trade, closedTradingDayKey: dayKey } : trade
   })
   const policyVersions = [...new Map(reviewDays.flatMap((date) => {
-    const policy = activeRiskPolicy(state.riskPolicyVersions, date)
+    const policy = activeRiskPolicy(state.riskPolicyVersions, date, liveStageId)
     return policy ? [[policy.id, policy] as const] : []
   })).values()]
   const dailyOutcomes = reviewDays.map((date) => ({
@@ -421,8 +426,9 @@ function buildWeeklyRiskReviewSnapshot(
       }),
       policies: state.riskPolicyVersions,
       monthlyLimits: state.monthlyRiskLimits,
+      liveStageId,
+      liveStageStartsOn: liveStage.startsOn,
       currentTradingDayKey: date,
-      liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
       tradingDayStartHour: state.display.tradingDayStartHour,
     }).day,
     date,
@@ -431,21 +437,24 @@ function buildWeeklyRiskReviewSnapshot(
     trades: riskTrades,
     policies: state.riskPolicyVersions,
     monthlyLimits: state.monthlyRiskLimits,
+    liveStageId,
+    liveStageStartsOn: liveStage.startsOn,
     currentTradingDayKey: outcomeEnd,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
     tradingDayStartHour: state.display.tradingDayStartHour,
   }).week
   const monthlyOutcomeAtCompletion = resolveRiskOutcomes({
     trades: riskTrades,
     policies: state.riskPolicyVersions,
     monthlyLimits: state.monthlyRiskLimits,
+    liveStageId,
+    liveStageStartsOn: liveStage.startsOn,
     currentTradingDayKey: completionTradingDay,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
     tradingDayStartHour: state.display.tradingDayStartHour,
   }).month
   const overrideEvents = state.riskOverrideEvents.filter((event) =>
+    event.liveStageId === liveStageId &&
     event.tradingDayKeyAtDecision >= review.weekStart && event.tradingDayKeyAtDecision <= review.weekEnd &&
-    (!state.liveStatsStartTradingDayKey || event.tradingDayKeyAtDecision >= state.liveStatsStartTradingDayKey),
+    event.tradingDayKeyAtDecision >= liveStage.startsOn,
   )
   return structuredClone({
     policyVersions,

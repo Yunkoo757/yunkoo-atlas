@@ -9,6 +9,7 @@ import { activeRiskPolicy } from '@/lib/riskPolicy'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { presentRiskOutcome, summarizeRiskStatus, type RiskStatusPresentation } from '@/lib/riskStatus'
 import { useStore } from '@/store/useStore'
+import { getCurrentLiveStage } from '@/lib/liveStages'
 import './RiskStatusStrip.css'
 
 const PERIODS: ReadonlyArray<{ scope: RiskPeriodScope; label: string; ariaLabel: string }> = [
@@ -126,7 +127,9 @@ export function RiskStatusStrip({
   const policies = useStore((state) => state.riskPolicyVersions)
   const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
   const preparations = useStore((state) => state.weeklyRiskPreparations)
-  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const currentStage = getCurrentLiveStage(liveStages, currentLiveStageId)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const ensureRiskPeriodRecords = useStore((state) => state.ensureRiskPeriodRecords)
 
@@ -136,14 +139,17 @@ export function RiskStatusStrip({
     trades,
     policies,
     monthlyLimits,
+    liveStageId: currentStage.id,
+    liveStageStartsOn: currentStage.startsOn,
     currentTradingDayKey: tradingDay,
-    liveStatsStartTradingDayKey,
     tradingDayStartHour,
-  }), [trades, policies, monthlyLimits, tradingDay, liveStatsStartTradingDayKey, tradingDayStartHour])
+  }), [trades, policies, monthlyLimits, currentStage.id, currentStage.startsOn, tradingDay, tradingDayStartHour])
   const currentWeek = weekStartFor(parseLocalDate(tradingDay))
   const reviewed = preparations.some((item) =>
-    item.weekStart === currentWeek && Boolean(item.reviewedAt && item.confirmedPolicyVersionId))
-  const policy = activeRiskPolicy(policies, tradingDay)
+    item.liveStageId === currentStage.id &&
+    item.weekStart === currentWeek &&
+    Boolean(item.reviewedAt && item.confirmedPolicyVersionId))
+  const policy = activeRiskPolicy(policies, tradingDay, currentStage.id)
   const rows = PERIODS.map((period) => {
     const outcome = outcomes[period.scope]
     const resolvedPresentation = presentRiskOutcome(outcome)
@@ -155,7 +161,7 @@ export function RiskStatusStrip({
       : resolvedPresentation
     return {
       ...period,
-      displayLabel: scopedPeriodLabel(period.scope, period.label, liveStatsStartTradingDayKey, tradingDay),
+      displayLabel: scopedPeriodLabel(period.scope, period.label, currentStage.startsOn, tradingDay),
       outcome,
       presentation,
       requiresReview,

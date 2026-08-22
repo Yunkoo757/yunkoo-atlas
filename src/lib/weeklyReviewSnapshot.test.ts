@@ -20,6 +20,7 @@ function assert(condition: unknown, message: string): asserts condition {
 function policy(revision: number): RiskPolicyVersion {
   return {
     id: `policy-${revision}`,
+    liveStageId: 'stage-current',
     sourceWeekStart: '2026-07-20',
     effectiveTradingDay: '2026-07-20',
     capitalBase: 100_000,
@@ -47,6 +48,7 @@ function trade(revision: number): Trade {
     reviewStatus: 'reviewed',
     reviewCategory: 'mistake',
     tradeKind: 'live',
+    liveStageId: 'stage-current',
     entry: 100,
     exit: 90,
     size: 1,
@@ -76,6 +78,7 @@ function overrideEvent(revision: number): RiskOverrideEvent {
   }
   return {
     id: `event-${revision}`,
+    liveStageId: 'stage-current',
     tradeId: 'trade-1',
     tradeIdentityAtDecision: { ref: `TRD-${revision}`, symbol: 'BTCUSDT', tradeKind: 'live' },
     linkState: revision === 7 ? 'unresolved' : 'resolved',
@@ -93,6 +96,7 @@ function overrideEvent(revision: number): RiskOverrideEvent {
 function monthlyLimit(revision: number): MonthlyRiskLimit {
   return {
     id: 'monthly-risk-limit:2026-07',
+    liveStageId: 'stage-current',
     monthKey: '2026-07',
     limitR: 10,
     sourcePolicyVersionId: `policy-${revision}`,
@@ -104,9 +108,20 @@ function stateAtRevision(revision: number): CompleteWeeklyReviewState {
   const review = {
     ...createWeeklyReview('2026-07-20', new Date('2026-07-20T00:00:00.000Z')),
     id: 'review-1',
+    liveStageId: 'stage-current',
   }
   return {
     trades: [trade(revision)],
+    liveStages: [{
+      id: 'stage-current',
+      sequence: 1,
+      name: '当前阶段',
+      status: 'current',
+      startsOn: '2026-07-01',
+      endsOn: null,
+      createdAt: '2026-07-01T00:00:00.000Z',
+      archivedAt: null,
+    }],
     weeklyReviews: [review],
     riskPolicyVersions: [policy(revision)],
     monthlyRiskLimits: [monthlyLimit(revision)],
@@ -337,9 +352,10 @@ export function testLossAfterReviewCompletionRemainsUnknown(): void {
   )
 }
 
-export function testWeeklyReviewSeparatesPerformanceEvidenceFromRiskCycle(): void {
+export function testWeeklyReviewSeparatesPerformanceEvidenceFromStageRiskStart(): void {
   const state = stateAtRevision(7)
-  state.liveStatsStartTradingDayKey = '2026-07-21'
+  state.liveStatsStartTradingDayKey = '2026-07-20'
+  state.liveStages[0] = { ...state.liveStages[0]!, startsOn: '2026-07-21' }
   state.trades = [
     { ...trade(7), id: 'old', openedAt: '2026-07-20T08:00:00.000Z' },
     { ...trade(7), id: 'new', openedAt: '2026-07-21T08:00:00.000Z' },
@@ -347,8 +363,8 @@ export function testWeeklyReviewSeparatesPerformanceEvidenceFromRiskCycle(): voi
 
   const completed = completeWeeklyReviewCandidate(state, 'review-1').review
 
-  assert(completed.metricsSnapshot?.tradeCount === 2, '风险核算起点不得截断周复盘事实与绩效')
-  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照仍必须只核算起点后的交易')
+  assert(completed.metricsSnapshot?.tradeCount === 2, '阶段风险起点不得截断周复盘事实与绩效')
+  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照必须只核算阶段起点后的交易')
 }
 
 export function testWeeklyReviewEvidenceStoresOnlyDisplayFacts(): void {

@@ -1,5 +1,6 @@
 import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { AlertCircle, Shield } from '@/icons/appIcons'
 import type { RiskPeriodScope } from '@/data/riskManagement'
 import { fmtMoney, fmtR } from '@/lib/format'
@@ -22,7 +23,7 @@ function fmtBudgetR(value: number): string {
   return fmtR(Math.abs(value)).replace(/^\+/, '')
 }
 
-function focusFallback(request: StorePendingTradeOpenRequest): void {
+function focusFallback(request: { tradeId: string; returnFocus?: HTMLElement | null }): void {
   const original = request.returnFocus
   if (
     original?.isConnected &&
@@ -64,11 +65,16 @@ function focusFallback(request: StorePendingTradeOpenRequest): void {
 
 export function TradeOpenRiskDialog() {
   const request = useStore((state) => state.pendingTradeOpenRequest)
-  const trade = useStore((state) => request
-    ? state.trades.find((item) => item.id === request.tradeId)
+  const setupRequest = useStore((state) => state.riskSetupTradeOpenRequest)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const activeRequest = request ?? setupRequest
+  const trade = useStore((state) => activeRequest
+    ? state.trades.find((item) => item.id === activeRequest.tradeId)
     : undefined)
   const policy = useStore((state) => request?.policyVersionId
-    ? state.riskPolicyVersions.find((item) => item.id === request.policyVersionId)
+    ? state.riskPolicyVersions.find((item) =>
+        item.liveStageId === currentLiveStageId && item.id === request.policyVersionId,
+      )
     : undefined)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const cancelTradeOpen = useStore((state) => state.cancelTradeOpen)
@@ -84,15 +90,15 @@ export function TradeOpenRiskDialog() {
     setReason('')
     setCommitState('idle')
     setError('')
-  }, [request?.tradeId])
+  }, [activeRequest?.tradeId])
 
   useEffect(() => {
-    if (!request) return
-    const requestAtOpen = request
+    if (!activeRequest) return
+    const requestAtOpen = activeRequest
     return () => {
       requestAnimationFrame(() => requestAnimationFrame(() => focusFallback(requestAtOpen)))
     }
-  }, [request?.tradeId])
+  }, [activeRequest?.tradeId])
 
   useEffect(() => {
     if (commitState !== 'reload-required') return
@@ -104,7 +110,7 @@ export function TradeOpenRiskDialog() {
     ? request.unknownReasons.map((item) => RISK_UNKNOWN_REASON_COPY[item]).join('、')
     : '', [request])
 
-  if (!request || !trade) return null
+  if (!activeRequest || !trade) return null
 
   const close = () => {
     if (commitState === 'committing') return
@@ -170,6 +176,37 @@ export function TradeOpenRiskDialog() {
   }
 
   const reloadRequired = commitState === 'reload-required'
+
+  if (setupRequest) {
+    return (
+      <ModalShell
+        title="先完成当前阶段风险设置"
+        description={`${trade.ref} · ${trade.symbol} · 首次进入持仓前必须建立本阶段风险规则`}
+        onClose={close}
+        size="compact"
+        footer={(
+          <>
+            <Button variant="bordered" size="lg" onClick={close}>取消开仓</Button>
+            <Link className="ui-btn ui-btn-primary ui-btn-lg" to="/settings/risk" onClick={close}>
+              前往风险设置
+            </Link>
+          </>
+        )}
+      >
+        <section className="trade-open-risk-dialog" data-risk-setup-dialog>
+          <div className="trade-open-risk-callout is-unknown">
+            <Shield size={ICON_LG} aria-hidden />
+            <div>
+              <strong>当前实盘阶段尚未建立风险规则</strong>
+              <p>请先设置资金基准、日周月止损线并确认本周规则；完成后再重新开仓。</p>
+            </div>
+          </div>
+        </section>
+      </ModalShell>
+    )
+  }
+
+  if (!request) return null
 
   const triggeredPeriods = PERIODS
     .filter(({ scope }) => request.outcomes[scope].triggered)

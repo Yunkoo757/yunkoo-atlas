@@ -354,6 +354,50 @@ export function testWeeklyAndRiskCreationUseCurrentStage(): void {
   }
 }
 
+export function testNewStageRiskDraftDoesNotReuseArchivedStageDraft(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore()
+    useStore.setState({
+      weeklyRiskPreparations: [{
+        id: 'weekly-risk-preparation:2026-08-17',
+        liveStageId: 'stage-old',
+        weekStart: '2026-08-17',
+        draft: {
+          capitalBase: 99_999,
+          riskPercent: 9,
+          riskAmount: 9_000,
+          dailyLossLimitR: 9,
+          weeklyLossLimitR: 9,
+          monthlyLossLimitRDefault: 9,
+          disciplineText: '旧阶段草稿',
+        },
+        reviewedAt: '2026-08-17T00:00:00.000Z',
+        confirmedPolicyVersionId: 'policy-old',
+        createdAt: '2026-08-17T00:00:00.000Z',
+        updatedAt: '2026-08-17T00:00:00.000Z',
+      }],
+    })
+
+    useStore.getState().saveWeeklyRiskDraft('2026-08-17', {
+      capitalBase: 10_000,
+      riskPercent: 1,
+      riskAmount: null,
+      dailyLossLimitR: 2,
+      weeklyLossLimitR: 5,
+      monthlyLossLimitRDefault: 10,
+      disciplineText: '新阶段草稿',
+    }, '2026-08-17T01:00:00.000Z')
+
+    const preparations = useStore.getState().weeklyRiskPreparations
+    assert(preparations.length === 2, '新阶段同周草稿必须独立新建')
+    assert(preparations.at(-1)?.liveStageId === 'stage-current', '新草稿必须属于当前阶段')
+    assert(preparations.at(-1)?.reviewedAt === null, '新阶段不得继承旧阶段已复核状态')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
 export function testCurrentStageForWriteRejectsInvalidStageState(): void {
   let message = ''
   try {

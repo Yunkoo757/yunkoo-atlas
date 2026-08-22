@@ -46,6 +46,7 @@ function liveTrade(currentDay: string, overrides: Partial<Trade>): Trade {
     reviewStatus: 'unreviewed',
     reviewCategory: 'normal',
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     entry: 100,
     exit: 90,
     size: 1,
@@ -204,10 +205,14 @@ async function run(): Promise<void> {
       resultSource: 'pnl',
     })
     useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: closedDay }
+        : stage),
       trades: [blockingTrade, blockingSibling, completenessTrade, retainedHistory],
       weeklyRiskPreparations: [],
       riskPolicyVersions: [{
         id: 'risk-repair-current-policy',
+        liveStageId: state.currentLiveStageId,
         sourceWeekStart: currentDay,
         effectiveTradingDay: currentDay,
         capitalBase: 10_000,
@@ -343,7 +348,13 @@ async function run(): Promise<void> {
 
     const nextDay = parseLocalDate(currentDay)
     nextDay.setDate(nextDay.getDate() + 1)
-    useStore.setState({ liveStatsStartTradingDayKey: getTradingDayKey(nextDay, 0) })
+    const nextDayKey = getTradingDayKey(nextDay, 0)
+    useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: nextDayKey }
+        : stage),
+      liveStatsStartTradingDayKey: nextDayKey,
+    }))
     await waitFor(() => {
       const page = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')
       return page?.textContent?.includes('风险核算起点晚于当前交易日') ?? false
@@ -359,7 +370,13 @@ async function run(): Promise<void> {
       .find((link) => link.textContent?.includes('调整核算起点'))
     if (!cycleSettings) throw new Error('全局问题缺少核算起点动作')
 
-    useStore.setState({ trades: [retainedHistory], liveStatsStartTradingDayKey: closedDay })
+    useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: closedDay }
+        : stage),
+      trades: [retainedHistory],
+      liveStatsStartTradingDayKey: closedDay,
+    }))
     await waitFor(() => document.querySelector('[data-trade-id="risk-repair-history"]') !== null, '纯历史缺口分组没有保留')
     view = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')
     if (!view) throw new Error('纯历史缺口阶段缺少修复中心')

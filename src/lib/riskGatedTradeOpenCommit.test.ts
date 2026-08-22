@@ -78,12 +78,15 @@ function baseline(): PersistedSnapshot & RiskGateCommitState {
 }
 
 function pending(snapshot: PersistedSnapshot) {
+  const currentStage = snapshot.liveStages.find((stage) => stage.id === snapshot.currentLiveStageId)
+  assert(currentStage, 'fixture 必须存在当前阶段')
   const result = requestTradeOpenCandidate({
     trades: snapshot.trades,
     riskPolicyVersions: snapshot.riskPolicyVersions,
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
+    currentLiveStageId: currentStage.id,
+    currentLiveStageStartsOn: currentStage.startsOn,
     currentTradingDayKey: '2026-07-27',
-    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
     tradingDayStartHour: snapshot.display.tradingDayStartHour,
   }, 'target')
   assert(result.kind === 'confirmation-required', 'fixture 必须触发 Gate')

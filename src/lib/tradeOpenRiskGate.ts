@@ -11,6 +11,7 @@ import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
+import { riskSetupStateForStage } from '@/lib/stageRisk'
 
 const ACTIVITY_KINDS = new Set<ActivityEvent['kind']>([
   'create',
@@ -34,15 +35,17 @@ export interface TradeOpenRiskGateState {
   trades: Trade[]
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
+  currentLiveStageId: string
+  currentLiveStageStartsOn: string
   currentTradingDayKey: string
-  liveStatsStartTradingDayKey: string | null
   tradingDayStartHour: number
 }
 
 export interface RiskGateFingerprintInput {
   trade: Trade
+  liveStageId: string
+  liveStageStartsOn: string
   currentTradingDayKey: string
-  liveStatsStartTradingDayKey: string | null
   tradingDayStartHour: number
   policy: RiskPolicyVersion | null
   monthlyLimit: MonthlyRiskLimit | null
@@ -65,6 +68,7 @@ export type TradeOpenRequestResult =
   | 'opened'
   | 'pending-confirmation'
   | 'requires-risk-gate'
+  | 'requires-risk-setup'
   | 'not-found'
 
 export type PendingFingerprintValidation =
@@ -74,6 +78,7 @@ export type PendingFingerprintValidation =
 
 export type TradeOpenCandidateResult<State extends TradeOpenRiskGateState = TradeOpenRiskGateState> =
   | { kind: 'not-found' }
+  | { kind: 'risk-setup-required'; trade: Trade }
   | {
       kind: 'opened'
       decision: 'not-required' | 'already-open' | 'below' | 'unconfigured-clean'
@@ -183,8 +188,9 @@ function selectTargetIdentity(trade: Trade): Record<string, unknown> {
 export function buildRiskGateFingerprint(input: RiskGateFingerprintInput): string {
   return stableHash(canonicalJson({
     target: selectTargetIdentity(input.trade),
+    liveStageId: input.liveStageId,
+    liveStageStartsOn: input.liveStageStartsOn,
     tradingDay: input.currentTradingDayKey,
-    liveStatsStartTradingDayKey: input.liveStatsStartTradingDayKey,
     tradingDayStartHour: input.tradingDayStartHour,
     policyVersionId: input.policy?.id ?? null,
     monthlyLimitId: input.monthlyLimit?.id ?? null,
@@ -195,13 +201,14 @@ export function buildRiskGateFingerprint(input: RiskGateFingerprintInput): strin
 
 function riskResultRefs(
   trades: readonly Trade[],
-  liveStatsStartTradingDayKey: string | null,
+  liveStageId: string,
+  liveStageStartsOn: string,
   tradingDayStartHour: number,
 ): readonly unknown[] {
   return filterTradesForLiveCycle(
-    trades,
+    trades.filter((trade) => trade.tradeKind === 'live' && trade.liveStageId === liveStageId),
     'current',
-    liveStatsStartTradingDayKey,
+    liveStageStartsOn,
     tradingDayStartHour,
   )
     .filter((trade) =>
@@ -248,16 +255,22 @@ function createPendingRequest(
   state: TradeOpenRiskGateState,
   trade: Trade,
 ): PendingTradeOpenRequest | null {
-  const policy = activeRiskPolicy(state.riskPolicyVersions, state.currentTradingDayKey)
+  const policy = activeRiskPolicy(
+    state.riskPolicyVersions,
+    state.currentTradingDayKey,
+    state.currentLiveStageId,
+  )
   const monthlyLimit = state.monthlyRiskLimits.find(
-    (item) => item.monthKey === state.currentTradingDayKey.slice(0, 7),
+    (item) => item.liveStageId === state.currentLiveStageId &&
+      item.monthKey === state.currentTradingDayKey.slice(0, 7),
   ) ?? null
   const resolved = resolveRiskOutcomes({
     trades: state.trades,
     policies: state.riskPolicyVersions,
     monthlyLimits: state.monthlyRiskLimits,
+    liveStageId: state.currentLiveStageId,
+    liveStageStartsOn: state.currentLiveStageStartsOn,
     currentTradingDayKey: state.currentTradingDayKey,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
     tradingDayStartHour: state.tradingDayStartHour,
   })
   const outcomes = {
@@ -277,15 +290,17 @@ function createPendingRequest(
   if (!decisionType) return null
   const fingerprint = buildRiskGateFingerprint({
     trade,
+    liveStageId: state.currentLiveStageId,
+    liveStageStartsOn: state.currentLiveStageStartsOn,
     currentTradingDayKey: state.currentTradingDayKey,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
     tradingDayStartHour: state.tradingDayStartHour,
     policy,
     monthlyLimit,
     outcomes,
     resultRefs: riskResultRefs(
       state.trades,
-      state.liveStatsStartTradingDayKey,
+      state.currentLiveStageId,
+      state.currentLiveStageStartsOn,
       state.tradingDayStartHour,
     ),
   })
@@ -337,9 +352,6 @@ export function requestTradeOpenCandidate<State extends TradeOpenRiskGateState>(
   tradeId: string,
   options: RequestTradeOpenCandidateOptions = {},
 ): TradeOpenCandidateResult<State> {
-  if (options.existingPending) {
-    return { kind: 'pending-exists', request: options.existingPending }
-  }
   const trade = state.trades.find((item) => item.id === tradeId && !item.deletedAt)
   if (!trade) return { kind: 'not-found' }
   if (trade.status === 'open') return { kind: 'opened', decision: 'already-open', state, trade }
@@ -347,9 +359,20 @@ export function requestTradeOpenCandidate<State extends TradeOpenRiskGateState>(
     return { kind: 'opened', decision: 'not-required', ...openedState(state, trade, options) }
   }
 
+  if (riskSetupStateForStage(state, state.currentLiveStageId) === 'unconfigured') {
+    return { kind: 'risk-setup-required', trade }
+  }
+  if (options.existingPending) {
+    return { kind: 'pending-exists', request: options.existingPending }
+  }
+
   const request = createPendingRequest(state, trade)
   if (request) return { kind: 'confirmation-required', request }
-  const policy = activeRiskPolicy(state.riskPolicyVersions, state.currentTradingDayKey)
+  const policy = activeRiskPolicy(
+    state.riskPolicyVersions,
+    state.currentTradingDayKey,
+    state.currentLiveStageId,
+  )
   return {
     kind: 'opened',
     decision: policy ? 'below' : 'unconfigured-clean',

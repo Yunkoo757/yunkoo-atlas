@@ -86,6 +86,7 @@ const draft: RiskPolicyDraft = {
 
 const policy: RiskPolicyVersion = {
   id: 'policy-browser',
+  liveStageId: useStore.getState().currentLiveStageId,
   sourceWeekStart: weekStart,
   effectiveTradingDay: day,
   capitalBase: 100_000,
@@ -100,6 +101,7 @@ const policy: RiskPolicyVersion = {
 
 const monthlyLimit: MonthlyRiskLimit = {
   id: `monthly-risk-limit:${monthKey}`,
+  liveStageId: useStore.getState().currentLiveStageId,
   monthKey,
   limitR: 10,
   sourcePolicyVersionId: policy.id,
@@ -120,6 +122,7 @@ function trade(id: string, status: 'planned' | 'loss', options: { unknown?: bool
     reviewStatus: 'unreviewed',
     reviewCategory: 'normal',
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     entry: 100,
     exit: status === 'loss' ? 98 : null,
     size: 1,
@@ -168,9 +171,13 @@ async function run(): Promise<void> {
   const root = createRoot(rootElement)
   try {
     useStore.setState((state) => ({
-      trades: [trade('target', 'planned')],
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: day }
+        : stage),
+      trades: [{ ...trade('target', 'planned'), liveStageId: state.currentLiveStageId }],
       weeklyRiskPreparations: [{
         id: `weekly-risk-preparation:${weekStart}`,
+        liveStageId: state.currentLiveStageId,
         weekStart,
         draft,
         reviewedAt: null,
@@ -178,8 +185,8 @@ async function run(): Promise<void> {
         createdAt: confirmedAt,
         updatedAt: confirmedAt,
       }],
-      riskPolicyVersions: [policy],
-      monthlyRiskLimits: [monthlyLimit],
+      riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],
+      monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: state.currentLiveStageId }],
       riskOverrideEvents: [],
       liveStatsStartTradingDayKey: null,
       pendingTradeOpenRequest: null,
@@ -205,9 +212,25 @@ async function run(): Promise<void> {
       '未复核状态必须提供唯一设置恢复动作',
     )
     assert(status.querySelectorAll('a[href="/settings/risk"]').length === 1, '未复核状态必须只有一个设置恢复链接')
+
+    useStore.setState({ riskPolicyVersions: [], monthlyRiskLimits: [] })
+    assert(useStore.getState().requestTradeOpen('target') === 'requires-risk-setup', '未建档 fixture 必须返回设置要求')
+    await waitFor(() => Boolean(document.querySelector('[data-risk-setup-dialog]')), '未建档开仓没有显示风险设置引导')
+    assert(!document.querySelector('[aria-label="继续开仓原因"]'), '未建档引导绝不能提供填写原因绕过入口')
+    assert(document.querySelector<HTMLAnchorElement>('[role="dialog"] a[href="/settings/risk"]'), '未建档引导必须链接风险设置')
+    click('取消开仓')
+    await waitFor(() => !document.querySelector('[data-risk-setup-dialog]'), '取消没有关闭风险设置引导')
+    useStore.setState((state) => ({
+      riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],
+      monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: state.currentLiveStageId }],
+    }))
+    await waitFor(
+      () => document.querySelectorAll('[data-risk-state="normal"]').length >= 2,
+      '恢复当前阶段风险配置后状态没有刷新',
+    )
     const initialPeriods = [...status.querySelectorAll<HTMLElement>('[data-risk-period]')]
     const initialPeriod = (label: string) => initialPeriods.find((period) =>
-      period.querySelector('.risk-status-period-head span')?.textContent?.trim() === label)
+      period.querySelector('.risk-status-period-head span')?.textContent?.trim().startsWith(label))
     const initialDay = initialPeriod('今日')
     const initialWeek = initialPeriod('本周')
     const initialMonth = initialPeriod('本月')
@@ -219,10 +242,9 @@ async function run(): Promise<void> {
     const previousMonthLastDate = parseLocalDate(`${monthKey}-01`)
     previousMonthLastDate.setDate(previousMonthLastDate.getDate() - 1)
     useStore.setState({ liveStatsStartTradingDayKey: formatYmd(previousMonthLastDate) })
-    await waitFor(
-      () => initialMonth.textContent?.includes(`${Number(monthKey.slice(5, 7))}月1日重置`) ?? false,
-      '核算起点早于当前月时，月度状态必须说明自然月已重置',
-    )
+    await frame()
+    assert(initialMonth.textContent?.includes('自8月2日起'), '风险卡必须展示当前阶段起点')
+    assert(!initialMonth.textContent?.includes('月1日重置'), '旧 liveStatsStartTradingDayKey 不得改写当前阶段风险范围')
     useStore.setState({ liveStatsStartTradingDayKey: null })
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
     assert(status.querySelectorAll('[data-risk-period]').length === 3, '风险状态必须始终展示日周月')
@@ -285,11 +307,14 @@ async function run(): Promise<void> {
         })),
       }
     })
-    useStore.setState({
+    useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: previousMonthTradingDay }
+        : stage),
       trades: [trade('target', 'planned'), ...previousMonthLosses],
       riskPolicyVersions: [{ ...policy, effectiveTradingDay: previousMonthTradingDay }],
       liveStatsStartTradingDayKey: previousMonthTradingDay,
-    })
+    }))
     await waitFor(
       () => initialWeek.dataset.riskState === 'triggered',
       '跨月周夹具必须先真实触发周限额',
@@ -304,11 +329,14 @@ async function run(): Promise<void> {
     assert(status.textContent?.includes('本周已超限，当前暂停开仓'), '风险摘要必须先给出当前行动约束')
     assert(status.textContent?.includes('月度重置不会解除本周限制'), '跨月周必须解释月度重置与周限额的联合约束')
 
-    useStore.setState({
+    useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
+        ? { ...stage, startsOn: day }
+        : stage),
       trades: [trade('target', 'planned')],
       riskPolicyVersions: [policy],
       liveStatsStartTradingDayKey: null,
-    })
+    }))
     await waitFor(() => initialWeek.dataset.riskState === 'normal', '跨月周场景清理失败')
 
     const cases = [
