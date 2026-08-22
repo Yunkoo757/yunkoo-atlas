@@ -13,10 +13,10 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
-import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import {
   collectReliableLegacyStageRecordDays,
   migrateLegacyStageSnapshot,
+  type LegacyStageSnapshot,
   type LegacyStageMigrationOptions,
 } from '@/lib/stageMigration'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
@@ -143,12 +143,12 @@ function decodeLiveCycleStart(raw: Record<string, unknown>): string | null {
 function decodeLivePerformanceCycles(
   raw: Record<string, unknown>,
   version: number,
-): unknown[] {
+): NonNullable<LegacyStageSnapshot['livePerformanceCycles']> {
   const value = raw.livePerformanceCycles
   // 周期边界是可选的资料库设置；缺失时保留旧资料库的全历史当前语义。
   if (value === undefined) return []
   if (!Array.isArray(value)) throw new Error('livePerformanceCycles 必须是数组')
-  return value
+  return value as NonNullable<LegacyStageSnapshot['livePerformanceCycles']>
 }
 
 function decodeProfile(raw: Record<string, unknown>, version: number): unknown {
@@ -237,7 +237,7 @@ export function decodeCanonicalSnapshot(
   const versionedTrades = options.version <= 8
     ? backfillClosedTradingDayKeys(raw.trades, display?.tradingDayStartHour)
     : raw.trades
-  const candidate: PersistedSnapshot = {
+  const candidate = {
     trades: (versionedTrades === undefined ? [] : versionedTrades) as PersistedSnapshot['trades'],
     liveStages: raw.liveStages as PersistedSnapshot['liveStages'],
     currentLiveStageId: raw.currentLiveStageId as PersistedSnapshot['currentLiveStageId'],
@@ -246,8 +246,6 @@ export function decodeCanonicalSnapshot(
     riskPolicyVersions: decodeVersionedArray(raw, 'riskPolicyVersions', options.version) as PersistedSnapshot['riskPolicyVersions'],
     monthlyRiskLimits: decodeVersionedArray(raw, 'monthlyRiskLimits', options.version) as PersistedSnapshot['monthlyRiskLimits'],
     riskOverrideEvents: decodeVersionedArray(raw, 'riskOverrideEvents', options.version) as PersistedSnapshot['riskOverrideEvents'],
-    liveStatsStartTradingDayKey: decodeLiveCycleStart(raw),
-    livePerformanceCycles: decodeLivePerformanceCycles(raw, options.version) as PersistedSnapshot['livePerformanceCycles'],
     weeklyReviews: (raw.weeklyReviews === undefined ? [] : raw.weeklyReviews) as PersistedSnapshot['weeklyReviews'],
     quickNotes: (raw.quickNotes === undefined ? [] : raw.quickNotes) as PersistedSnapshot['quickNotes'],
     strategies: (raw.strategies === undefined ? [] : raw.strategies) as PersistedSnapshot['strategies'],
@@ -263,13 +261,23 @@ export function decodeCanonicalSnapshot(
     symbolIcons: raw.symbolIcons as PersistedSnapshot['symbolIcons'],
     symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
     reviewTemplates: raw.reviewTemplates as PersistedSnapshot['reviewTemplates'],
-  }
+  } as PersistedSnapshot
   const stagedCandidate = options.version <= 11
     ? migrateLegacyStageSnapshot(
-        candidate as unknown as Record<string, unknown>,
+        {
+          ...candidate,
+          liveStatsStartTradingDayKey: decodeLiveCycleStart(raw),
+          livePerformanceCycles: decodeLivePerformanceCycles(raw, options.version),
+        },
         options.stageMigration ?? defaultStageMigrationOptions(raw),
       )
-    : candidate
+    : (() => {
+        if (
+          Object.prototype.hasOwnProperty.call(raw, 'liveStatsStartTradingDayKey') ||
+          Object.prototype.hasOwnProperty.call(raw, 'livePerformanceCycles')
+        ) throw new Error('v12 快照不得包含旧实盘周期字段')
+        return candidate
+      })()
   assertSnapshotContract(stagedCandidate, options.label ?? 'snapshot')
 
   const normalizedRelations = normalizeTradeStrategyReferences(
@@ -305,8 +313,6 @@ export function decodeCanonicalSnapshot(
       },
       unknownReasons: [...item.unknownReasons],
     })),
-    liveStatsStartTradingDayKey: stagedCandidate.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: cloneLivePerformanceCycles(stagedCandidate.livePerformanceCycles),
     weeklyReviews: normalizeWeeklyReviews(stagedCandidate.weeklyReviews),
     quickNotes: normalizeQuickNotes(stagedCandidate.quickNotes),
     strategies: normalizedRelations.strategies,

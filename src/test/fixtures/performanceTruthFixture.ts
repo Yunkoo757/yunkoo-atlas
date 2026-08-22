@@ -1,5 +1,5 @@
 import type { Trade, TradeKind, TradeResultSource, TradeStatus } from '@/data/trades'
-import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import type { PerformanceDateBounds } from '@/lib/performanceSelection'
 
 export type PerformanceFixtureTrade = Trade
 
@@ -118,12 +118,10 @@ const edgeCases: PerformanceFixtureTrade[] = [
 export const performanceTruthFixture = {
   now: new Date('2026-08-09T12:00:00+08:00'),
   tradingDayStartHour: 6,
-  currentLiveScope: {
-    kind: 'current',
-    archiveId: 'fixture-current',
-    bounds: { startInclusive: '2026-07-01', endExclusive: null },
-    label: '当前实盘',
-  } satisfies LiveArchiveScope,
+  currentDateBounds: {
+    startInclusive: '2026-07-01',
+    endExclusive: null,
+  } satisfies PerformanceDateBounds,
   trades: [...auditSeeds, ...edgeCases],
   expected: {
     futureCloseDayIds: ['FX-CLOSE-FUTURE'],

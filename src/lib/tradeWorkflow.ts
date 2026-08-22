@@ -5,7 +5,6 @@ import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
-import { filterLiveLogRecords, type LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 
 export interface TodayWorkflowBuckets {
   active: Trade[]
@@ -61,12 +60,10 @@ function todayPerformanceSelection(
   today: string,
   tradingDayStartHour: number,
   legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null,
-  liveScope: LiveArchiveScope | null,
 ) {
   const anchorNow = new Date(`${today}T12:00:00`)
   return buildPerformanceSelection(trades, {
     scope: { kind: 'live', range: 'all' },
-    liveScope,
     anchor: createBusinessDateAnchor(anchorNow, tradingDayStartHour),
     legacyCashCurrencyAssumption,
     internalRange: 'today',
@@ -78,10 +75,9 @@ export function filterTodayClosedLiveTrades(
   trades: readonly Trade[],
   today: string,
   tradingDayStartHour = 0,
-  liveScope: LiveArchiveScope | null = null,
 ): Trade[] {
   const eligible = new Set(todayPerformanceSelection(
-    trades, today, tradingDayStartHour, null, liveScope,
+    trades, today, tradingDayStartHour, null,
   ).eligibleMetricIds)
   return trades.filter((trade) => eligible.has(trade.id))
 }
@@ -92,10 +88,9 @@ export function buildTodayClosedMetrics(
   today: string,
   tradingDayStartHour = 0,
   legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null = null,
-  liveScope: LiveArchiveScope | null = null,
 ): TodayClosedMetrics {
   const selection = todayPerformanceSelection(
-    trades, today, tradingDayStartHour, legacyCashCurrencyAssumption, liveScope,
+    trades, today, tradingDayStartHour, legacyCashCurrencyAssumption,
   )
   const eligibleIds = new Set(selection.eligibleMetricIds)
   const pnlIds = new Set(selection.pnlIds)
@@ -120,13 +115,9 @@ export function getTodayWorkflowBuckets(
   trades: readonly Trade[],
   today: string,
   tradingDayStartHour = 0,
-  liveScope: LiveArchiveScope | null = null,
 ): TodayWorkflowBuckets {
   const liveCandidates = trades.filter((trade) => trade.tradeKind === 'live' && !trade.deletedAt)
-  // 与交易日志当前实盘同一口径，避免重置后仍堆积历史遗留任务。
-  const live = liveScope
-    ? filterLiveLogRecords(liveCandidates, liveScope, tradingDayStartHour)
-    : liveCandidates
+  const live = liveCandidates
   const active: Trade[] = []
   const resultPending: Trade[] = []
   const reviewPending: Trade[] = []

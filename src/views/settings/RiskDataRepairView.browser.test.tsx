@@ -225,7 +225,6 @@ async function run(): Promise<void> {
         confirmedAt: `${currentDay}T00:00:00.000Z`,
       }],
       monthlyRiskLimits: [],
-      liveStatsStartTradingDayKey: closedDay,
       display: { ...state.display, privacyMode: false, tradingDayStartHour: 0 },
     }))
     root.render(<Harness />)
@@ -353,7 +352,6 @@ async function run(): Promise<void> {
       liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
         ? { ...stage, startsOn: nextDayKey }
         : stage),
-      liveStatsStartTradingDayKey: nextDayKey,
     }))
     await waitFor(() => {
       const page = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')
@@ -375,7 +373,6 @@ async function run(): Promise<void> {
         ? { ...stage, startsOn: closedDay }
         : stage),
       trades: [retainedHistory],
-      liveStatsStartTradingDayKey: closedDay,
     }))
     await waitFor(() => document.querySelector('[data-trade-id="risk-repair-history"]') !== null, '纯历史缺口分组没有保留')
     view = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')

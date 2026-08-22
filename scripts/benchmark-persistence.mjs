@@ -54,7 +54,8 @@ function addAttachmentDomains(snapshot) {
     note: `${snapshot.trades[0].note}<img src="journal-asset://${sharedId}">`,
   }
   snapshot.weeklyReviews = [{
-    id: 'weekly-review:2026-07-20',
+    id: `weekly-review:${snapshot.currentLiveStageId}:2026-07-20`,
+    liveStageId: snapshot.currentLiveStageId,
     weekStart: '2026-07-20',
     weekEnd: '2026-07-26',
     status: 'draft',

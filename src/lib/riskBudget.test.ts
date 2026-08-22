@@ -105,7 +105,6 @@ export function testRiskBudgetUsesOnlySelectedStageEntitiesAndStart(): void {
   ]
   input.liveStageId = 'stage-current'
   input.liveStageStartsOn = '2026-07-27'
-  input.liveStatsStartTradingDayKey = '2026-07-01'
 
   const result = resolveRiskOutcomes(input)
 
@@ -278,12 +277,14 @@ export function testHistoricalDirtyResultDoesNotPoisonCurrentRiskCoverage(): voi
   assert(!result.unknownReasons.includes('missing-loss-pnl'), '当前闸门原因不得混入其他月份问题')
 }
 
-export function testRiskBudgetExcludesPreCycleTradeByOpenDay(): void {
+export function testRiskBudgetExcludesTradeOwnedByAnotherStage(): void {
   const input = fixture({ pnls: [-1_000, -1_000] })
   input.liveStageStartsOn = '2026-07-27'
   input.tradingDayStartHour = 0
   input.trades[0] = {
     ...input.trades[0]!,
+    tradeKind: 'live',
+    liveStageId: 'stage-archived',
     openedAt: '2026-07-26',
     closedAt: '2026-07-27',
     closedTradingDayKey: '2026-07-27',
@@ -291,9 +292,9 @@ export function testRiskBudgetExcludesPreCycleTradeByOpenDay(): void {
 
   const result = resolveRiskOutcomes(input)
 
-  assert(result.month.coverage === 'complete', '规则前交易不得制造当前周期未知覆盖')
-  assert(result.month.netBudgetR === -1, '只应计入边界日开仓的当前周期交易')
-  assert(result.month.includedTradeCount === 1, '规则前交易不得显示为当前周期未计入')
+  assert(result.month.coverage === 'complete', '其他阶段交易不得制造当前阶段未知覆盖')
+  assert(result.month.netBudgetR === -1, '只应计入显式归属当前阶段的交易')
+  assert(result.month.includedTradeCount === 1, '其他阶段交易不得显示为当前阶段未计入')
 }
 
 export function testMonthlyBudgetResetsAtCalendarMonthWhileWeekCanCrossMonth(): void {
@@ -428,16 +429,21 @@ export function testRiskDataIssuesExplainEveryPartialCoverageCause(): void {
   }
 }
 
-export function testRiskDataIssuesExcludeNonCurrentLiveCycleRecords(): void {
+export function testRiskDataIssuesExcludeNonCurrentStageRecords(): void {
   const input = fixture({ pnls: [-1_000, -1_000, -1_000, -1_000] })
   input.liveStageStartsOn = '2026-07-27'
   input.trades = input.trades.map((item) => ({ ...item, pnl: null, resultSource: 'r', rMultiple: -1 }))
-  input.trades[0] = { ...input.trades[0]!, openedAt: '2026-07-26' }
+  input.trades[0] = {
+    ...input.trades[0]!,
+    tradeKind: 'live',
+    liveStageId: 'stage-archived',
+    openedAt: '2026-07-26',
+  }
   input.trades[1] = { ...input.trades[1]!, tradeKind: 'paper' }
   input.trades[2] = { ...input.trades[2]!, tradeKind: 'case' }
   input.trades[3] = { ...input.trades[3]!, deletedAt: '2026-07-27T12:00:00.000Z' }
 
-  assert(resolveRiskDataIssues(input).length === 0, '规则前、模拟、案例和已删除记录不得进入风险修复清单')
+  assert(resolveRiskDataIssues(input).length === 0, '其他阶段、模拟、案例和已删除记录不得进入风险修复清单')
 }
 
 export function testRiskDataIssuesAreEmptyForCompleteCurrentCycle(): void {

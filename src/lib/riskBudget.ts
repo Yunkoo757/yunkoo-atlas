@@ -9,7 +9,6 @@ import type {
 } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
-import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isExecutedClosed } from '@/lib/tradeStatus'
@@ -67,8 +66,6 @@ export interface ResolveRiskOutcomesInput {
   liveStageId: string
   liveStageStartsOn: string
   currentTradingDayKey: string
-  /** @deprecated 运行时风险起点由 liveStageStartsOn 决定。 */
-  liveStatsStartTradingDayKey?: string | null
   tradingDayStartHour?: number
 }
 
@@ -178,13 +175,8 @@ function evaluateRiskCandidates(input: ResolveRiskOutcomesInput): RiskCandidateE
     return { results: [], globalReasons: ['invalid-live-cycle-start'] }
   }
   const results: CandidateResult[] = []
-  const currentCycleTrades = filterTradesForLiveCycle(
-    input.trades.filter((trade) =>
-      trade.tradeKind === 'live' && trade.liveStageId === input.liveStageId,
-    ),
-    'current',
-    input.liveStageStartsOn,
-    input.tradingDayStartHour ?? 0,
+  const currentCycleTrades = input.trades.filter((trade) =>
+    trade.tradeKind === 'live' && trade.liveStageId === input.liveStageId,
   )
 
   for (const trade of currentCycleTrades

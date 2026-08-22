@@ -4,7 +4,6 @@ import {
   commitCopiedCloseDateCleanup,
   commitCopiedCloseDateCleanupThroughBoundary,
 } from '@/lib/importDataHealth'
-import { filterLivePerformanceRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot, PersistedTrade } from '@/storage/types'
 import { applyUndoAction, buildUndoAction, undoValuesEqual } from '@/lib/tradeUndo'
@@ -133,13 +132,6 @@ export async function testCleanupPersistsBeforePublishingAndUndoPatchRestoresExa
   const committedTrades: Trade[] = published ?? []
   assert(committedTrades[0]?.closedAt === null, '发布后 closedAt 必须为 null')
   assert(committedTrades[0]?.closedTradingDayKey === undefined, '发布后冻结平仓业务日必须移除')
-  const cycles = [{ id: 'current', name: '当前', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }]
-  const archiveScope = resolveLiveArchiveScope(cycles, 'all-archives')
-  assert(filterLivePerformanceRecords([original], archiveScope, 6).length === 1, '测试前污染记录应被统一绩效选择器纳入')
-  assert(
-    filterLivePerformanceRecords(committedTrades, archiveScope, 6).length === 0,
-    '清理后统一归档选择器必须排除该记录',
-  )
   assert(result.before[0]?.closedAt === '2025-11-03', '撤销 patch 必须保留原始 closedAt')
   assert(result.before[0]?.closedTradingDayKey === '2025-11-03', '撤销 patch 必须保留原始冻结业务日')
   const action = buildUndoAction({

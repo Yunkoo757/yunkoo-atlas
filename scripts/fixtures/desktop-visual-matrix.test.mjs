@@ -10,7 +10,9 @@ import {
   assertSafeElectronIsolationPaths,
   desktopVisualReportHasFailures,
 } from '../qa-desktop-visual.mjs'
-import { createDesktopVisualSnapshot } from './desktop-visual-seed.mjs'
+import * as desktopVisualSeed from './desktop-visual-seed.mjs'
+
+const { createDesktopVisualSnapshot } = desktopVisualSeed
 
 function createDesktopCaptures() {
   return DESKTOP_VISUAL_VIEWPORTS.flatMap((viewport) =>
@@ -76,6 +78,20 @@ test('desktop visual fixture covers populated desktop workflows without user dat
     .map((trade) => trade.id))
   assert.equal(snapshot.trades.some((trade) =>
     trade.tradeKind === 'case' && historicalSourceIds.has(trade.sourceTradeId)), true)
+  const stageIds = new Set(snapshot.liveStages.map((stage) => stage.id))
+  assert.deepEqual(
+    snapshot.trades
+      .filter((trade) => trade.tradeKind !== 'paper')
+      .filter((trade) => trade.liveStageId !== null && !stageIds.has(trade.liveStageId))
+      .map((trade) => trade.id),
+    [],
+  )
+})
+
+test('desktop visual archive readiness matches the native stage overview route', () => {
+  const archive = DESKTOP_VISUAL_SCENARIOS.find((scenario) => scenario.id === 'live-archive')
+  assert.equal(archive?.path, '/live-history')
+  assert.equal(archive?.ready, '.live-archive-scroll')
 })
 
 test('desktop visual Electron mode rejects real application data paths', () => {
@@ -169,4 +185,35 @@ test('desktop typography diagnostics are snapshotted after the probe collection'
   assert.ok(typographyProbe >= 0, 'captureScenario must collect typography before diagnostics are frozen')
   assert.ok(typographyProbe < consoleSnapshot, 'probe console errors must belong to the current capture')
   assert.ok(typographyProbe < pageSnapshot, 'probe page errors must belong to the current capture')
+})
+
+test('desktop visual seed envelope keeps schema v12 and native-stage ownership atomic', () => {
+  assert.equal(
+    typeof desktopVisualSeed.createDesktopVisualSeedEnvelope,
+    'function',
+    '视觉 QA 必须从同一 envelope 读取 schema 与快照，避免二者独立漂移',
+  )
+
+  const envelope = desktopVisualSeed.createDesktopVisualSeedEnvelope()
+  const { snapshot } = envelope
+  const stageIds = new Set(snapshot.liveStages.map((stage) => stage.id))
+
+  assert.equal(envelope.schemaVersion, 12)
+  assert.equal(snapshot.liveStages.filter((stage) => stage.status === 'current').length, 1)
+  assert.equal(stageIds.has(snapshot.currentLiveStageId), true)
+  assert.equal(Object.hasOwn(snapshot, 'livePerformanceCycles'), false)
+  assert.equal(Object.hasOwn(snapshot, 'liveStatsStartTradingDayKey'), false)
+  assert.deepEqual(
+    snapshot.trades
+      .filter((trade) => trade.tradeKind !== 'paper')
+      .filter((trade) => typeof trade.liveStageId !== 'string' || !stageIds.has(trade.liveStageId))
+      .map((trade) => trade.id),
+    [],
+  )
+  assert.deepEqual(
+    snapshot.weeklyReviews
+      .filter((review) => !stageIds.has(review.liveStageId))
+      .map((review) => review.id),
+    [],
+  )
 })

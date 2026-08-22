@@ -58,6 +58,7 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.match(browser, /loaded\.revision !== expectedRevision/)
   assert.match(browser, /verifyAssets\(adapter, input\.assets\)/)
   assert.match(browser, /input\.expectedHash/)
+  assert.match(runner, /weeklyReviews = \[\{[\s\S]*?liveStageId: snapshot\.currentLiveStageId/)
   assert.match(electron, /new LibraryStorage/)
   assert.match(electron, /storage\.saveSnapshot/)
   assert.match(electron, /allowCreate: false/)

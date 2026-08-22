@@ -3,7 +3,6 @@ import type { Trade } from '@/data/trades'
 import {
   savedViewSearch,
   normalizeSavedViewPath,
-  resolveTradeViewPerformanceCycleLabel,
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
 import {
@@ -17,7 +16,6 @@ import { isValidPeriodSlug, type BusinessDateAnchor } from '@/lib/periods'
 import { parseAnalysisScope } from '@/lib/analysisScope'
 import { buildMissedOpportunitySummary } from '@/lib/missedOpportunities'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
 
 /** 可跨工作区配置可见范围的侧栏能力 */
@@ -83,8 +81,6 @@ export type SidebarCountContext = {
   starredIds: string[]
   display: DisplayPrefs
   businessDateAnchor?: BusinessDateAnchor
-  liveStatsStartTradingDayKey?: string | null
-  livePerformanceCycles?: readonly LivePerformanceCycle[]
   currentLiveStageId?: string
 }
 
@@ -428,7 +424,6 @@ export function resolveSidebarWorkspaceItem(
   sources: {
     savedViews: SavedTradeView[]
     strategies: Strategy[]
-    livePerformanceCycles?: readonly LivePerformanceCycle[]
   },
   currentPathname = '/list',
 ): ResolvedSidebarWorkspaceItem {
@@ -464,29 +459,15 @@ export function resolveSidebarWorkspaceItem(
   }
   if (target.kind === 'saved-view') {
     const view = sources.savedViews.find((candidate) => candidate.id === target.viewId)
-    const requestedStatsCycle = view
-      ? new URLSearchParams(view.search).get('statsCycle')
-      : null
-    const inactive = Boolean(
-      view &&
-      sources.livePerformanceCycles !== undefined &&
-      requestedStatsCycle !== null &&
-      requestedStatsCycle !== sources.livePerformanceCycles.at(-1)?.id &&
-      requestedStatsCycle !== 'current' &&
-      resolveTradeViewPerformanceCycleLabel(
-        view.search,
-        sources.livePerformanceCycles,
-      ) === null,
-    )
     return {
       item,
       key,
       label: view?.name ?? '已删除的保存视图',
       pathname: view?.pathname ?? '/list',
-      search: view ? savedViewSearch(view, sources.livePerformanceCycles) : '',
+      search: view ? savedViewSearch(view) : '',
       icon: 'saved-view',
       invalid: !view,
-      inactive,
+      inactive: false,
     }
   }
   if (target.kind === 'strategy') {

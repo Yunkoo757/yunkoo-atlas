@@ -73,7 +73,6 @@ function baseline(): PersistedSnapshot & RiskGateCommitState {
       weeklyLossLimitR: 4.5,
     })),
     riskOverrideEvents: [],
-    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
   }
 }
 
@@ -99,12 +98,14 @@ function electronAdapter(commit: (snapshot: PersistedSnapshot) => Promise<void>)
   } as unknown as StorageAdapter
 }
 
-export async function testCycleSettingsSnapshotMismatchRequiresReconfirmation(): Promise<void> {
+export async function testTradingDaySettingsSnapshotMismatchRequiresReconfirmation(): Promise<void> {
   const original = baseline()
   const state = {
     ...original,
-    liveStatsStartTradingDayKey: null,
-    display: { ...original.display, tradingDayStartHour: original.display.tradingDayStartHour },
+    display: {
+      ...original.display,
+      tradingDayStartHour: (original.display.tradingDayStartHour + 1) % 24,
+    },
   }
   let writes = 0
 
@@ -120,7 +121,7 @@ export async function testCycleSettingsSnapshotMismatchRequiresReconfirmation():
     publish: () => undefined,
   })
 
-  assert(result.kind === 'needs-reconfirmation', '周期设置与持久化快照不一致时必须重新确认')
+  assert(result.kind === 'needs-reconfirmation', '交易日设置与持久化快照不一致时必须重新确认')
   assert(writes === 0, '快照不一致时不得写盘')
 }
 

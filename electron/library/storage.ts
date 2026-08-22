@@ -381,16 +381,12 @@ export class LibraryStorage {
   }
 
   saveSnapshot(snapshot: PersistedSnapshot): void {
-    const canonicalSnapshot: PersistedSnapshot = {
-      ...snapshot,
-      livePerformanceCycles: snapshot.livePerformanceCycles ?? [],
-    }
-    assertValidPersistedSnapshot(canonicalSnapshot, 'Library snapshot')
+    assertValidPersistedSnapshot(snapshot, 'Library snapshot')
     const db = this.requireDb()
     db.run(
       `INSERT INTO meta (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [SNAPSHOT_KEY, JSON.stringify(canonicalSnapshot)],
+      [SNAPSHOT_KEY, JSON.stringify(snapshot)],
     )
     this.persistDb()
   }

@@ -1,6 +1,5 @@
 import { createFullPersistedSnapshotFixture } from '../src/storage/fixtures/fullPersistedSnapshot'
 import { LibraryStorage } from './library/storage'
-import { resolveLiveRecordBucket } from '../src/lib/liveStatisticsArchive'
 import { createHash } from 'node:crypto'
 
 function snapshotRevision(snapshot: unknown): string {
@@ -9,6 +8,24 @@ function snapshotRevision(snapshot: unknown): string {
 
 function snapshot(label: string, noteBytes = 0) {
   const value = createFullPersistedSnapshotFixture()
+  const archivedStage = {
+    ...value.liveStages[0]!,
+    status: 'archived' as const,
+    endsOn: '2026-07-13',
+    archivedAt: '2026-07-14T00:00:00.000Z',
+  }
+  const currentStage = {
+    id: 'live-stage-current-contract',
+    sequence: 2,
+    name: '当前强杀验证阶段',
+    status: 'current' as const,
+    startsOn: '2026-07-14',
+    endsOn: null,
+    createdAt: '2026-07-14T00:00:00.000Z',
+    archivedAt: null,
+  }
+  value.liveStages = [archivedStage, currentStage]
+  value.currentLiveStageId = currentStage.id
   value.profile = {
     avatarId: value.profile?.avatarId ?? null,
     displayName: label,
@@ -22,7 +39,7 @@ function snapshot(label: string, noteBytes = 0) {
     }
   }
   value.trades = [
-    ...value.trades,
+    ...value.trades.map((trade) => ({ ...trade, liveStageId: currentStage.id })),
     {
       ...value.trades[0],
       id: 'trade-archive-contract',
@@ -30,6 +47,7 @@ function snapshot(label: string, noteBytes = 0) {
       openedAt: '2026-07-12T08:00:00.000Z',
       closedAt: '2026-07-13T08:00:00.000Z',
       closedTradingDayKey: '2026-07-13',
+      liveStageId: archivedStage.id,
     },
   ]
   return value
@@ -58,14 +76,18 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
 
   if (mode === 'seed') {
     const confirmed = snapshot('confirmed-revision-1')
-    const cycles = confirmed.livePerformanceCycles ?? []
     storage.saveSnapshot(confirmed)
+    const confirmedStored = storage.loadSnapshot()
+    if (!confirmedStored) {
+      storage.release()
+      throw new Error('无法重读最后确认 revision')
+    }
     storage.release()
     send({
       type: 'seeded',
       confirmed: 'confirmed-revision-1',
-      snapshotRevision: snapshotRevision(confirmed),
-      livePerformanceCycleIds: cycles.map((cycle) => cycle.id),
+      snapshotRevision: snapshotRevision(confirmedStored),
+      liveStageIds: confirmedStored.liveStages.map((stage) => stage.id),
     })
     return
   }
@@ -83,20 +105,20 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
   if (mode === 'verify') {
     const loaded = storage.loadSnapshot()
     storage.release()
-    const cycles = loaded?.livePerformanceCycles ?? []
+    const stages = loaded?.liveStages ?? []
     const trades = loaded?.trades ?? []
-    const tradingDayStartHour = loaded?.display?.tradingDayStartHour ?? 0
+    const archivedStageIds = new Set(stages.filter((stage) => stage.status === 'archived').map((stage) => stage.id))
     send({
       type: 'verified',
       displayName: loaded?.profile?.displayName ?? null,
       noteLength: loaded?.trades[0]?.note.length ?? null,
       snapshotRevision: loaded ? snapshotRevision(loaded) : null,
-      livePerformanceCycleIds: cycles.map((cycle) => cycle.id),
+      liveStageIds: stages.map((stage) => stage.id),
       currentTradeIds: trades
-        .filter((trade) => resolveLiveRecordBucket(trade, cycles, tradingDayStartHour) === 'current')
+        .filter((trade) => trade.tradeKind === 'live' && trade.liveStageId === loaded?.currentLiveStageId)
         .map((trade) => trade.id) ?? [],
       archiveTradeIds: trades
-        .filter((trade) => resolveLiveRecordBucket(trade, cycles, tradingDayStartHour) === 'archive')
+        .filter((trade) => trade.tradeKind === 'live' && typeof trade.liveStageId === 'string' && archivedStageIds.has(trade.liveStageId))
         .map((trade) => trade.id) ?? [],
     })
     return

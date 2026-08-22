@@ -82,13 +82,6 @@ const authoritativePublish: StageRolloverPublishState = {
   }],
   currentLiveStageId: 'stage-main-2',
   scheduledStageRollover: null,
-  liveStatsStartTradingDayKey: '2026-08-31',
-  livePerformanceCycles: [{
-    id: 'legacy-stage-2',
-    name: '实盘阶段 2',
-    startTradingDayKey: '2026-08-31',
-    createdAt: '2026-08-31T00:10:00.000Z',
-  }],
 }
 
 function stageState(snapshot: ReturnType<typeof createEmptyPersistedSnapshot>): StageRolloverCapture['state'] {

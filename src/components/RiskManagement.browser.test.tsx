@@ -188,7 +188,6 @@ async function run(): Promise<void> {
       riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],
       monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: state.currentLiveStageId }],
       riskOverrideEvents: [],
-      liveStatsStartTradingDayKey: null,
       pendingTradeOpenRequest: null,
       undoStack: [],
       redoStack: [],
@@ -254,13 +253,8 @@ async function run(): Promise<void> {
     assert(initialWeek?.dataset.riskState === 'partial', '未复核时本周必须使用 partial 警告语义')
     assert(initialWeek.textContent?.includes('待复核'), '未复核本周必须使用待复核标签')
     assert(initialWeek.textContent?.includes('本周规则未确认'), '未复核本周必须说明规则未确认')
-    const previousMonthLastDate = parseLocalDate(`${monthKey}-01`)
-    previousMonthLastDate.setDate(previousMonthLastDate.getDate() - 1)
-    useStore.setState({ liveStatsStartTradingDayKey: formatYmd(previousMonthLastDate) })
     await frame()
     assert(initialMonth.textContent?.includes('自8月2日起'), '风险卡必须展示当前阶段起点')
-    assert(!initialMonth.textContent?.includes('月1日重置'), '旧 liveStatsStartTradingDayKey 不得改写当前阶段风险范围')
-    useStore.setState({ liveStatsStartTradingDayKey: null })
     assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
     assert(status.querySelectorAll('[data-risk-period]').length === 3, '风险状态必须始终展示日周月')
     assert(!status.querySelector('details'), '风险状态不得折叠')
@@ -308,6 +302,8 @@ async function run(): Promise<void> {
     })
     await waitFor(() => initialWeek.dataset.riskState === 'normal', '已复核状态没有生效')
 
+    const previousMonthLastDate = parseLocalDate(`${monthKey}-01`)
+    previousMonthLastDate.setDate(previousMonthLastDate.getDate() - 1)
     const previousMonthTradingDay = formatYmd(previousMonthLastDate)
     const previousMonthLosses = ['cross-month-loss-1', 'cross-month-loss-2', 'cross-month-loss-3'].map((id) => {
       const loss = trade(id, 'loss')
@@ -328,7 +324,6 @@ async function run(): Promise<void> {
         : stage),
       trades: [trade('target', 'planned'), ...previousMonthLosses],
       riskPolicyVersions: [{ ...policy, effectiveTradingDay: previousMonthTradingDay }],
-      liveStatsStartTradingDayKey: previousMonthTradingDay,
     }))
     await waitFor(
       () => initialWeek.dataset.riskState === 'triggered',
@@ -350,7 +345,6 @@ async function run(): Promise<void> {
         : stage),
       trades: [trade('target', 'planned')],
       riskPolicyVersions: [policy],
-      liveStatsStartTradingDayKey: null,
     }))
     await waitFor(() => initialWeek.dataset.riskState === 'normal', '跨月周场景清理失败')
 

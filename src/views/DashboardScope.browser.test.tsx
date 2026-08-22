@@ -107,8 +107,6 @@ async function run(): Promise<void> {
       strategies: [strategy],
       liveStages: stages,
       currentLiveStageId: 'stage-current',
-      liveStatsStartTradingDayKey: '2099-01-01',
-      livePerformanceCycles: [{ id: 'legacy-current', name: '旧周期', startTradingDayKey: '2099-01-01', createdAt: '2099-01-01T00:00:00.000Z' }],
     })
     root.render(
       <MemoryRouter initialEntries={['/dashboard?kind=paper&range=all&liveStage=stage-old&symbol=BTCUSDT']}>
@@ -262,8 +260,6 @@ async function run(): Promise<void> {
       strategies: previous.strategies,
       liveStages: previous.liveStages,
       currentLiveStageId: previous.currentLiveStageId,
-      liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
-      livePerformanceCycles: previous.livePerformanceCycles,
       profile: previous.profile,
     })
   }

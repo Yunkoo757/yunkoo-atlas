@@ -77,7 +77,6 @@ export function TradeFilters({
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const savedViews = useStore((state) => state.savedTradeViews)
-  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const symbolIcons = useStore((state) => state.symbolIcons)
@@ -142,13 +141,12 @@ export function TradeFilters({
 
   useEffect(() => {
     const current = searchParams.toString()
-    const canonical = canonicalizeTradeViewSearch(searchParams, livePerformanceCycles)
+    const canonical = canonicalizeTradeViewSearch(searchParams)
     if (!allowsTradeKindFacet) canonical.delete('tradeKind')
     canonical.delete('liveCycle')
     if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
   }, [
     allowsTradeKindFacet,
-    livePerformanceCycles,
     searchParams,
     setSearchParams,
   ])
@@ -265,7 +263,7 @@ export function TradeFilters({
   }
   const searchText = searchParams.toString()
   const currentSavedView = savedViews.some((view) =>
-    savedViewMatchesLocation(view, location.pathname, searchText, livePerformanceCycles),
+    savedViewMatchesLocation(view, location.pathname, searchText),
   )
   const visibleActiveFilters = currentSavedView
     ? activeFilters.filter(

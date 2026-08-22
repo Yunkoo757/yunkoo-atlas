@@ -73,7 +73,6 @@ async function run() {
         { id: 'stage-current', sequence: 2, name: '当前阶段', status: 'current', startsOn: '2026-02-01', endsOn: null, createdAt: '2026-02-01T00:00:00.000Z', archivedAt: null },
       ],
       currentLiveStageId: 'stage-current',
-      livePerformanceCycles: [],
       display: { ...state.display, hideClosed: false },
     }))
 
@@ -105,7 +104,6 @@ async function run() {
       strategies: previous.strategies,
       liveStages: previous.liveStages,
       currentLiveStageId: previous.currentLiveStageId,
-      livePerformanceCycles: previous.livePerformanceCycles,
       display: previous.display,
     })
   }

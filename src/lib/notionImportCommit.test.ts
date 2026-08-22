@@ -23,7 +23,6 @@ import type {
   PersistedSnapshot,
 } from '@/storage/types'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
-import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { useStore } from '@/store/useStore'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
@@ -330,8 +329,8 @@ export async function testNotionTerminalWithOnlyOpenDateStaysWithoutCloseDayAtCo
     assert(published?.closedAt === null, '发布到 store 的交易必须保留缺失平仓日')
     assert(published?.closedTradingDayKey === undefined, '发布到 store 时不得补造业务日')
     assert(
-      published && resolveLiveRecordBucket(published, [], 6) === 'pending',
-      '提交后缺少平仓日的实盘终态必须出现在待整理入口',
+      published?.tradeKind === 'live' && published.liveStageId === useStore.getState().currentLiveStageId,
+      '提交后记录必须保留显式当前阶段归属',
     )
   } finally {
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, display: previous.display })

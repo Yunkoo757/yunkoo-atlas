@@ -14,7 +14,6 @@ import {
   canonicalContractJson,
 } from '@/storage/fixtures/fullPersistedSnapshot'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
-import { filterLivePerformanceRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -329,16 +328,25 @@ export function testVersionTwelveCodecAndJsonImportPreservePendingOwnershipAcros
   assert(imported.data.weeklyReviews?.[0]?.liveStageId === null, 'JSON import 必须逐字保留待整理归属')
 }
 
-export function testVersionTenSnapshotWithoutPerformanceCyclesUsesEmptyBoundaries(): void {
+export function testVersionElevenSnapshotWithoutCycleMetadataStillProducesCanonicalStages(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const missing = { ...fixture }
   delete (missing as { livePerformanceCycles?: unknown }).livePerformanceCycles
-  const decoded = decodeCanonicalSnapshot(missing, { version: SCHEMA_VERSION })
-  assert(decoded.livePerformanceCycles.length === 0, 'v10 缺少实盘边界必须恢复为空数组')
+  delete (missing as unknown as Record<string, unknown>).liveStages
+  delete (missing as unknown as Record<string, unknown>).currentLiveStageId
+  delete (missing as unknown as Record<string, unknown>).scheduledStageRollover
+  const decoded = decodeCanonicalSnapshot(missing, { version: 11 })
+  assert(decoded.liveStages.length > 0, 'v11 缺少周期元数据也必须迁移为规范阶段图')
+  const stripOwnership = (review: Record<string, unknown>) => {
+    const { liveStageId: _liveStageId, ...facts } = review
+    return facts
+  }
   assert(
-    canonicalContractJson(decoded.weeklyReviews) === canonicalContractJson(fixture.weeklyReviews),
-    '补齐缺省边界不得改写周复盘快照',
+    canonicalContractJson(decoded.weeklyReviews.map((review) => stripOwnership(review as unknown as Record<string, unknown>))) ===
+      canonicalContractJson((fixture.weeklyReviews ?? []).map((review) => stripOwnership(review as unknown as Record<string, unknown>))),
+    '补齐缺省边界除显式阶段归属外不得改写周复盘快照',
   )
+  assert(decoded.weeklyReviews.every((review) => typeof review.liveStageId === 'string'), '迁移必须为周复盘建立显式阶段归属')
 }
 
 export function testLegacySnapshotLoadsWithNoCashCurrencyAssumptionAndPreservesTradeFacts(): void {
@@ -413,11 +421,6 @@ export function testExplicitNullCloseDateSurvivesFullSnapshotReload(): void {
   assert(Object.prototype.hasOwnProperty.call(reloaded, 'closedAt'), '重载后必须保留显式 closedAt own property')
   assert(reloaded.closedAt === null, '清理后的显式 null 不得被旧迁移重新复制 openedAt')
   assert(reloaded.closedTradingDayKey === undefined, '重载后不得重新生成冻结平仓业务日')
-  const cycles = [{ id: 'current', name: '当前', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' }]
-  assert(
-    filterLivePerformanceRecords(decoded.trades, resolveLiveArchiveScope(cycles, 'all-archives'), 6).length === 0,
-    '重启加载后统一绩效选择器仍必须排除清理记录',
-  )
 }
 
 export function testV1DecodeKeepsMissingAndExplicitNullCloseDatesDistinctAcrossRoundTrip(): void {
@@ -613,49 +616,32 @@ export function testV9DefaultsMissingLiveCycleStartAndPreservesValidValue(): voi
   const fixture = createFullPersistedSnapshotFixture()
   const missing = { ...fixture } as Record<string, unknown>
   delete missing.liveStatsStartTradingDayKey
-  assert(
-    decodeCanonicalSnapshot(missing, { version: 9 }).liveStatsStartTradingDayKey === null,
-    '缺失起点必须规范化为 null',
-  )
-  assert(
-    decodeCanonicalSnapshot(
-      { ...fixture, liveStatsStartTradingDayKey: '2026-07-27' },
-      { version: 9 },
-    ).liveStatsStartTradingDayKey === '2026-07-27',
-    '合法起点必须往返',
-  )
+  assert(decodeCanonicalSnapshot(missing, { version: 9 }).liveStages.length > 0, '缺失旧起点仍必须产生规范阶段图')
+  assert(decodeCanonicalSnapshot(
+    { ...fixture, liveStatsStartTradingDayKey: '2026-07-27' },
+    { version: 9 },
+  ).liveStages.length > 0, '合法旧起点必须迁移为规范阶段图')
 }
 
-export function testV10SnapshotCodecRejectsUnaddressablePerformanceCycleIds(): void {
+export function testV10SnapshotCodecQuarantinesRetiredCycleIdsBehindCanonicalStages(): void {
   const fixture = createFullPersistedSnapshotFixture()
-  const accepted: string[] = []
   for (const id of [' padded-id ', 'all', 'pre-cycle', 'current']) {
-    try {
-      decodeCanonicalSnapshot({
-        ...fixture,
-        livePerformanceCycles: [{ ...fixture.livePerformanceCycles![0]!, id }],
-      }, { version: 10, label: 'v10 import snapshot' })
-      accepted.push(id)
-    } catch (error) {
-      assert(
-        /livePerformanceCycles.*周期 ID/.test(error instanceof Error ? error.message : String(error)),
-        `v10 拒绝 ${id} 时必须指出周期 ID 契约`,
-      )
-    }
+    const decoded = decodeCanonicalSnapshot({
+      ...fixture,
+      livePerformanceCycles: [{ id, name: '旧周期', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' }],
+    }, { version: 10, label: 'v10 import snapshot' })
+    assert(decoded.liveStages.length > 0, `v10 输入 ${id} 必须迁移为原生阶段图`)
+    assert(decoded.liveStages.every((stage) => stage.id !== id), `退役周期 ID ${id} 不得成为运行时阶段 ID`)
   }
-  assert(accepted.length === 0, `v10 恢复/导入必须拒绝不可寻址周期 ID，实际接受：${accepted.join(',')}`)
 }
 
 export function testV10AndV9DefaultMissingCyclesToEmptyBoundaries(): void {
   const full = createFullPersistedSnapshotFixture()
   const missing = { ...full } as Record<string, unknown>
   delete missing.livePerformanceCycles
-  assert(
-    decodeCanonicalSnapshot(missing, { version: 10 }).livePerformanceCycles.length === 0,
-    'v10 缺少周期字段必须保持空边界兼容语义',
-  )
+  assert(decodeCanonicalSnapshot(missing, { version: 10 }).liveStages.length > 0, 'v10 缺少周期字段必须迁移为规范阶段图')
   const legacy = decodeCanonicalSnapshot(missing, { version: 9 })
-  assert(legacy.livePerformanceCycles.length === 0, 'v9 必须迁移为空周期且保持全部历史')
+  assert(legacy.liveStages.length > 0, 'v9 必须迁移为规范阶段图且保持全部历史')
 }
 
 export function testV8BackfillsRiskFields(): void {

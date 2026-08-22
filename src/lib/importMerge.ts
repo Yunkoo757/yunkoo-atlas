@@ -7,7 +7,6 @@ import { mergeSymbolCatalog, mergeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
-import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { mergeRiskImport } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
@@ -47,9 +46,8 @@ function assignImportOwnership(
   current: PersistedSlice,
   payload: ExportPayload,
 ): ExportPayload {
-  if (!current.liveStages || !current.currentLiveStageId) return payload
   const currentStageId = getCurrentLiveStage(current.liveStages, current.currentLiveStageId).id
-  validateImportedStageReferences(payload, current.liveStages)
+  if (payload.version >= 12) validateImportedStageReferences(payload, current.liveStages)
   const localStageIds = new Set(current.liveStages.map((stage) => stage.id))
 
   const accountTrades = payload.trades.map((trade): Trade => {
@@ -177,7 +175,14 @@ export function mergeImportPayload(
   ).trades
   const riskMerged = mergeRiskImport(
     current,
-    { ...ownedPayload, trades: migrated, strategies },
+    {
+      ...ownedPayload,
+      trades: migrated,
+      strategies,
+      liveStages: current.liveStages,
+      currentLiveStageId: current.currentLiveStageId,
+      scheduledStageRollover: current.scheduledStageRollover,
+    },
     payloadDigest,
     identityTrades,
   )
@@ -192,14 +197,11 @@ export function mergeImportPayload(
   return {
     strategies,
     trades: normalizeTrades(riskMerged.trades),
-    liveStages: current.liveStages?.map((stage) => ({ ...stage })),
+    liveStages: current.liveStages.map((stage) => ({ ...stage })),
     currentLiveStageId: current.currentLiveStageId,
     scheduledStageRollover: current.scheduledStageRollover
       ? { ...current.scheduledStageRollover }
       : current.scheduledStageRollover,
-    liveStatsStartTradingDayKey: current.liveStatsStartTradingDayKey ?? null,
-    // 周期边界属于本资料库：空集合也有明确的“尚未分段”语义，不能被导入覆盖。
-    livePerformanceCycles: cloneLivePerformanceCycles(current.livePerformanceCycles ?? []),
     weeklyRiskPreparations: riskMerged.weeklyRiskPreparations,
     riskPolicyVersions: riskMerged.riskPolicyVersions,
     monthlyRiskLimits: riskMerged.monthlyRiskLimits,

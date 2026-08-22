@@ -10,7 +10,7 @@ const legacyUsdAssumption = { currency: 'USD' as const, confirmedAt: '2026-08-09
 function selectionFor(range: 'all' | '30d' = 'all') {
   return buildPerformanceSelection(fixture.trades, {
     scope: { kind: 'all', range },
-    liveScope: fixture.currentLiveScope,
+    dateBounds: fixture.currentDateBounds,
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
     legacyCashCurrencyAssumption: null,
   })
@@ -55,7 +55,7 @@ export function testPerformanceSelectionIntersectsNaturalRangeAfterTheLiveBounda
 export function testPerformanceSelectionUsesTheExplicitLegacyCashCurrencyAssumption(): void {
   const withAssumption = buildPerformanceSelection(fixture.trades, {
     scope: { kind: 'all', range: 'all' },
-    liveScope: fixture.currentLiveScope,
+    dateBounds: fixture.currentDateBounds,
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
     legacyCashCurrencyAssumption: legacyUsdAssumption,
   })
@@ -79,7 +79,6 @@ export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitt
 
   const selection = buildPerformanceSelection([legacyTrade, explicitUnknownTrade], {
     scope: { kind: 'all', range: 'all' },
-    liveScope: null,
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
     legacyCashCurrencyAssumption: null,
   })
@@ -88,7 +87,7 @@ export function testPerformanceSelectionAppliesLegacyCashOnlyWhenCurrencyIsOmitt
   assert.deepEqual(selection.unknownCurrencyIds, ['FX-CURRENCY-UNKNOWN'])
 }
 
-export function testPerformanceSelectionUsesThePreCurrentBoundaryForAllArchives(): void {
+export function testPerformanceSelectionSupportsExplicitHistoricalDateBounds(): void {
   const early = fixture.trades.find((trade) => trade.id === 'tr-1001')!
   const current = fixture.trades.find((trade) => trade.id === 'tr-1011')!
   const input = {
@@ -99,26 +98,10 @@ export function testPerformanceSelectionUsesThePreCurrentBoundaryForAllArchives(
 
   const archives = buildPerformanceSelection([early, current], {
     ...input,
-    liveScope: {
-      kind: 'all-archives', archiveId: null,
-      bounds: { startInclusive: '2026-07-01', endExclusive: null }, label: '全部归档',
-    },
+    dateBounds: { startInclusive: null, endExclusive: '2026-07-01' },
   })
   assert.deepEqual(archives.eligibleMetricIds, ['tr-1001'])
-  assert.equal(archives.drilldownTarget, '?kind=live&range=all&statsCycle=all')
-}
-
-export function testPerformanceSelectionExcludesReliableDaysFromPendingLiveScope(): void {
-  const early = fixture.trades.find((trade) => trade.id === 'tr-1001')!
-  const current = fixture.trades.find((trade) => trade.id === 'tr-1011')!
-  const pending = buildPerformanceSelection([early, current], {
-    scope: { kind: 'live', range: 'all' },
-    liveScope: { kind: 'pending', archiveId: null, bounds: null, label: '待整理' },
-    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
-    legacyCashCurrencyAssumption: null,
-  })
-
-  assert.deepEqual(pending.eligibleMetricIds, [])
+  assert.equal(archives.drilldownTarget, '?kind=live&range=all')
 }
 
 export function testPerformanceSelectionFreezesTheSixAmCloseDayBoundary(): void {
@@ -126,10 +109,7 @@ export function testPerformanceSelectionFreezesTheSixAmCloseDayBoundary(): void 
   const close0600 = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-0600')!
   const selection = buildPerformanceSelection([close0559, close0600], {
     scope: { kind: 'live', range: 'all' },
-    liveScope: {
-      kind: 'current', archiveId: 'day-nine',
-      bounds: { startInclusive: '2026-08-09', endExclusive: null }, label: '当前实盘',
-    },
+    dateBounds: { startInclusive: '2026-08-09', endExclusive: null },
     anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
     legacyCashCurrencyAssumption: null,
   })
@@ -150,7 +130,7 @@ export function testPerformanceSelectionSupportsAnInternalTodayWindowWithoutChan
     [close0559, close0600, missing, invalid, future, conflict, usd, rOnly],
     {
       scope: { kind: 'live', range: 'all' },
-      liveScope: fixture.currentLiveScope,
+      dateBounds: fixture.currentDateBounds,
       anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
       legacyCashCurrencyAssumption: null,
       internalRange: 'today',
@@ -161,37 +141,6 @@ export function testPerformanceSelectionSupportsAnInternalTodayWindowWithoutChan
   assert.deepEqual(selection.pnlIds, ['FX-CLOSE-0600', 'FX-USD'])
   assert.deepEqual(selection.rIds, ['FX-CLOSE-0600', 'FX-USD', 'FX-R-ONLY'])
   assert.equal(selection.drilldownTarget, '?kind=live&range=all')
-}
-
-export function testPerformanceSelectionDrilldownReproducesArchiveScope(): void {
-  const trade = fixture.trades.find((item) => item.id === 'tr-1001')!
-  const base = {
-    scope: { kind: 'live' as const, range: 'all' as const },
-    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
-    legacyCashCurrencyAssumption: null,
-  }
-  const archive = buildPerformanceSelection([trade], {
-    ...base,
-    liveScope: {
-      kind: 'archive',
-      archiveId: 'archive-alpha',
-      bounds: { startInclusive: '2026-06-01', endExclusive: '2026-07-01' },
-      label: '历史归档',
-    },
-  })
-  const stale = buildPerformanceSelection([trade], {
-    ...base,
-    liveScope: {
-      kind: 'current',
-      archiveId: null,
-      bounds: null,
-      label: '当前实盘',
-      missingRequestedKey: 'removed-archive',
-    },
-  })
-
-  assert.equal(archive.drilldownTarget, '?kind=live&range=all&statsCycle=archive-alpha')
-  assert.equal(stale.drilldownTarget, '?kind=live&range=all&statsCycle=removed-archive')
 }
 
 export function testDashboardWeekSelectionDoesNotReuseTheCurrentYtdRange(): void {
@@ -210,7 +159,6 @@ export function testDashboardWeekSelectionDoesNotReuseTheCurrentYtdRange(): void
   }
   const input = {
     scope: { kind: 'all' as const, range: 'ytd' as const },
-    liveScope: null,
     anchor: createBusinessDateAnchor(new Date('2027-01-01T12:00:00+08:00'), 6),
     legacyCashCurrencyAssumption: null,
   }

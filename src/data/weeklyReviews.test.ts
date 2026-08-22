@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
+import type { PerformanceDateBounds } from '@/lib/performanceSelection'
 import {
   buildWeeklyReviewMetrics,
   buildWeeklyReviewTradeSelection,
@@ -97,7 +97,7 @@ export function testMissedTradesInWeekIntersectsPerformanceBounds(): void {
   ], '2026-07-13', 0, {
     startInclusive: '2026-07-14',
     endExclusive: '2026-07-21',
-  } satisfies LivePerformanceCycleBounds)
+  } satisfies PerformanceDateBounds)
 
   assert(result.map((item) => item.id).join(',') === 'current-missed', '本周错过机会必须与当前实盘表现边界取交集')
 }

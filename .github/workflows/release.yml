@@ -76,6 +76,9 @@ jobs:
           VITE_ENABLE_ASSET_PURGE_COMMIT: ${{ vars.ATLAS_ENABLE_ASSET_PURGE_COMMIT }}
         run: pnpm build:app
 
+      - name: Verify schema migration, stage rollover, and library switching on Windows
+        run: pnpm test:live-stage:desktop
+
       - name: Verify forced-kill recovery on Windows
         run: pnpm test:forced-kill:electron
 
@@ -188,6 +191,9 @@ jobs:
           ATLAS_ENABLE_ASSET_PURGE_COMMIT: ${{ vars.ATLAS_ENABLE_ASSET_PURGE_COMMIT }}
           VITE_ENABLE_ASSET_PURGE_COMMIT: ${{ vars.ATLAS_ENABLE_ASSET_PURGE_COMMIT }}
         run: pnpm build:app
+
+      - name: Verify schema migration, stage rollover, and library switching on macOS
+        run: pnpm test:live-stage:desktop
 
       - name: Verify Electron data path on macOS
         run: pnpm qa:electron

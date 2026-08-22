@@ -345,7 +345,9 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
   }), false)
 
   const forced = {
-    status: 'pass', scenarioId: 'E-FORCED-KILL', platform: 'win32', fileSystem: 'NTFS',
+    status: 'pass', scenarioId: 'E-FORCED-KILL', schemaVersion: 12,
+    platform: 'win32', fileSystem: 'NTFS',
+    gitCommit: 'stage-commit', gitTree: 'stage-tree', sourceIdentity: 'stage-source',
     process: {
       runtime: 'electron-main',
       electronVersion: '43.1.0',
@@ -363,12 +365,30 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
       lastConfirmedRecovered: true,
       unconfirmedMemoryEditPromised: false,
       unconfirmedPendingRevisionAbsent: true,
+      liveStageIds: ['stage-old', 'stage-current'],
+      expectedLiveStageIds: ['stage-old', 'stage-current'],
+      currentTradeIds: ['trade-contract'],
+      archiveTradeIds: ['trade-archive-contract'],
+      liveArchiveScopeRecovered: true,
+      snapshotRevision: 'snapshot-sha',
+      expectedSnapshotRevision: 'snapshot-sha',
+      snapshotRevisionRecovered: true,
     },
+    schemaMigration: [
+      { boundary: 'before-database-replace', recoveredSchemaVersion: 12, status: 'pass' },
+      { boundary: 'after-database-replace', recoveredSchemaVersion: 12, status: 'pass' },
+      { boundary: 'after-manifest-replace', recoveredSchemaVersion: 12, status: 'pass' },
+    ],
   }
   assert.equal(forcedKillPassed(forced, 'win32', 'NTFS'), true)
   assert.equal(forcedKillPassed({ ...forced, fileSystem: 'exFAT' }, 'win32', 'NTFS'), false)
   assert.equal(forcedKillPassed({ ...forced, process: { ...forced.process, killSignalSent: false } }, 'win32', 'NTFS'), false)
   assert.equal(forcedKillPassed({ ...forced, process: { ...forced.process, signal: null } }, 'win32', 'NTFS'), false)
+  assert.equal(forcedKillPassed({ ...forced, schemaVersion: 11 }, 'win32', 'NTFS'), false)
+  assert.equal(forcedKillPassed({ ...forced, sourceIdentity: '' }, 'win32', 'NTFS'), false)
+  assert.equal(forcedKillPassed({ ...forced, recovery: { ...forced.recovery, liveArchiveScopeRecovered: false } }, 'win32', 'NTFS'), false)
+  assert.equal(forcedKillPassed({ ...forced, recovery: { ...forced.recovery, snapshotRevisionRecovered: false } }, 'win32', 'NTFS'), false)
+  assert.equal(forcedKillPassed({ ...forced, schemaMigration: forced.schemaMigration.slice(1) }, 'win32', 'NTFS'), false)
 
   const asset = {
     status: 'pass', exitCode: 0, platform: 'darwin', fileSystem: 'APFS',

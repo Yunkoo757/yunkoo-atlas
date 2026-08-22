@@ -34,6 +34,23 @@ function reorderedKeys<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).reverse()) as T
 }
 
+function nativeStageState() {
+  return {
+    liveStages: [{
+      id: 'stage-current',
+      sequence: 1,
+      name: '当前阶段',
+      status: 'current' as const,
+      startsOn: '2026-01-01',
+      endsOn: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      archivedAt: null,
+    }],
+    currentLiveStageId: 'stage-current',
+    scheduledStageRollover: null,
+  }
+}
+
 function createHistoricalRiskImportFixture(): PersistedSnapshot {
   const fixture = createFullPersistedSnapshotFixture()
   const historical = {
@@ -63,58 +80,16 @@ function createHistoricalRiskImportFixture(): PersistedSnapshot {
   }
 }
 
-export function testMergeImportKeepsCurrentLibraryLiveCycleStart(): void {
-  const current = createFullPersistedSnapshotFixture()
-  current.liveStatsStartTradingDayKey = '2026-07-27'
-  const imported = {
-    ...createFullPersistedSnapshotFixture(),
-    liveStatsStartTradingDayKey: '2026-06-01',
-    version: 9,
-  }
-  const merged = mergeImportPayload(current, imported)
-  assert(
-    merged.liveStatsStartTradingDayKey === '2026-07-27',
-    '普通合并导入不得改变当前资料库统计起点',
-  )
-}
-
-export function testMergeImportPrefersNonemptyLocalLivePerformanceCycles(): void {
+export function testMergeImportPreservesTheLocalCanonicalStageGraph(): void {
   const current = createFullPersistedSnapshotFixture()
   const imported = createFullPersistedSnapshotFixture()
-  current.livePerformanceCycles = [{
-    id: 'local-cycle',
-    name: '本地统计周期',
-    startTradingDayKey: '2026-07-20',
-    createdAt: '2026-07-20T00:00:00.000Z',
-  }]
-  imported.livePerformanceCycles = [{
-    id: 'imported-cycle',
-    name: '导入统计周期',
-    startTradingDayKey: '2026-07-21',
-    createdAt: '2026-07-21T00:00:00.000Z',
-  }]
+  imported.liveStages = imported.liveStages.map((stage) => ({ ...stage, name: '导入阶段名' }))
 
   const merged = mergeImportPayload(current, { version: 10, ...imported })
 
-  assert(merged.livePerformanceCycles?.[0]?.id === 'local-cycle', '非空本地周期必须优先于导入周期')
-  assert(merged.trades.length === 1, '周期优先级不得改变交易合并行为')
-  assert(merged.riskPolicyVersions?.length === 1, '周期优先级不得改变风险合并行为')
-}
-
-export function testMergeImportPreservesEmptyLocalLivePerformanceCycles(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
-  current.livePerformanceCycles = []
-  imported.livePerformanceCycles = [{
-    id: 'imported-cycle',
-    name: '导入统计周期',
-    startTradingDayKey: '2026-07-21',
-    createdAt: '2026-07-21T00:00:00.000Z',
-  }]
-
-  const merged = mergeImportPayload(current, { version: 10, ...imported })
-  assert(merged.livePerformanceCycles?.length === 0, '空本地周期也必须优先保留，不得被导入周期覆盖')
-  assert(merged.livePerformanceCycles !== current.livePerformanceCycles, '本地周期集合必须通过独立数组克隆')
+  assert(merged.liveStages[0]?.name === current.liveStages[0]?.name, '合并导入不得覆盖本机阶段图')
+  assert(merged.liveStages !== current.liveStages, '本机阶段图必须通过独立数组克隆')
+  assert(merged.currentLiveStageId === current.currentLiveStageId, '合并导入不得覆盖本机当前阶段指针')
 }
 
 export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
@@ -152,6 +127,7 @@ const trade: Trade = {
   conviction: 'medium',
   strategyId: 'breakout',
   tradeKind: 'live',
+  liveStageId: 'stage-current',
   tags: [],
   mistakeTags: [],
   reviewStatus: 'reviewed',
@@ -177,6 +153,7 @@ const strategy: Strategy = {
 export async function testJsonExportIncludesReferencedAssets(): Promise<void> {
   const payload = await buildExportPayloadFromState(
     {
+      ...nativeStageState(),
       trades: [trade],
       strategies: [strategy],
       starredIds: [],
@@ -199,6 +176,7 @@ export async function testWeeklyReviewTextAndImagesRoundTripThroughJsonBackup():
   }
   const payload = await buildExportPayloadFromState(
     {
+      ...nativeStageState(),
       trades: [{ ...trade, note: '' }],
       weeklyReviews: [review],
       strategies: [strategy],
@@ -310,6 +288,7 @@ export async function testQuickNoteTextAndImagesRoundTripWithoutEnteringTrades()
   }
   const payload = await buildExportPayloadFromState(
     {
+      ...nativeStageState(),
       trades: [],
       quickNotes: [note],
       strategies: [strategy],
@@ -362,6 +341,7 @@ export async function testTwoTradesKeepTheirOwnAssetsAcrossJsonNormalization(): 
   }
   const payload = await buildExportPayloadFromState(
     {
+      ...nativeStageState(),
       trades: [trade, secondTrade],
       strategies: [strategy],
       starredIds: [],
@@ -417,6 +397,7 @@ export function testJsonImportRejectsMismatchedDeclaredResultAuthority(): void {
 export function testPortableSnapshotIncludesWorkflowSettingsAndShortcutOverrides(): void {
   const snapshot = buildPortableSnapshotFromState(
     {
+      ...nativeStageState(),
       trades: [trade],
       strategies: [strategy],
       starredIds: [],
@@ -441,6 +422,7 @@ export function testPortableSnapshotIncludesWorkflowSettingsAndShortcutOverrides
 export async function testJsonBackupRoundTripsProfileAndShortcutOverrides(): Promise<void> {
   const payload = await buildExportPayloadFromState(
     {
+      ...nativeStageState(),
       trades: [{ ...trade, note: '' }],
       strategies: [strategy],
       starredIds: [],
@@ -555,31 +537,6 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
       JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
     'Web ZIP portable writer 序列化后也必须显式拥有全部 22 字段',
   )
-}
-
-export function testPortableWriterUsesExplicitCurrentTradingDayForLegacyStageFallback(): void {
-  const fixture = createFullPersistedSnapshotFixture()
-  const legacy = structuredClone(fixture) as unknown as Record<string, unknown>
-  delete legacy.liveStages
-  delete legacy.currentLiveStageId
-  delete legacy.scheduledStageRollover
-  legacy.livePerformanceCycles = []
-  legacy.liveStatsStartTradingDayKey = null
-  const trades = legacy.trades as PersistedSnapshot['trades']
-  legacy.trades = [{ ...trades[0]!, closedAt: '2026-07-17', closedTradingDayKey: '2026-07-17' }]
-
-  const snapshot = buildPortableSnapshotFromState(
-    legacy as unknown as Parameters<typeof buildPortableSnapshotFromState>[0],
-    {}, {
-    now: '2026-08-22T10:00:00.000Z',
-    currentTradingDayKey: '2026-08-22',
-    idFactory: (sequence) => `portable-stage-${sequence}`,
-    },
-  )
-
-  assert(snapshot.liveStages.at(-1)?.startsOn === '2026-08-22', 'portable writer fallback 必须使用显式当前交易日')
-  assert(snapshot.liveStages[0]?.name === '更早记录', 'portable writer 必须分离历史记录与当前阶段')
-  assert(snapshot.trades[0]?.tradeKind === 'live' && snapshot.trades[0].liveStageId === 'portable-stage-1', 'portable writer 必须保留历史归属')
 }
 
 export function testLegacyJsonImportUsesExplicitCurrentTradingDayForStageMigration(): void {
@@ -755,6 +712,7 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
   if (!parsed.ok) return
 
   const merged = mergeImportPayload({
+    ...nativeStageState(),
     trades: [],
     strategies: [],
     starredIds: [],

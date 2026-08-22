@@ -6,6 +6,10 @@ import { discoverBrowserTests, discoverUnitTestEntries } from './test-discovery.
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import { importsTarget, importsWithinTarget } from './governance-imports.mjs'
+import {
+  findForbiddenLegacyRuntimeMatches,
+  isExecutableProductionSource,
+} from './legacy-runtime-governance.mjs'
 
 const root = process.cwd()
 const failures = []
@@ -165,6 +169,14 @@ async function main() {
     try { decoder.decode(bytes) } catch { failures.push(`文件不是有效 UTF-8：${file}`) }
   }
   files = textFiles
+
+  const executableSources = []
+  for (const file of files.filter(isExecutableProductionSource)) {
+    executableSources.push({ path: file, source: await fs.readFile(path.join(root, file), 'utf8') })
+  }
+  for (const match of findForbiddenLegacyRuntimeMatches(executableSources)) {
+    failures.push(`legacy runtime truth 禁止：${match.path}:${match.line} → ${match.token}`)
+  }
 }
 
 try {

@@ -13,14 +13,10 @@ import {
 } from './test-discovery.mjs'
 import { runBrowserRegressionTests } from './run-browser-tests.mjs'
 
-test('default desktop test gate excludes mobile QA while keeping it explicitly callable', async () => {
+test('desktop-only package scripts do not publish the retired mobile risk QA', async () => {
   const pkg = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'))
 
-  assert.doesNotMatch(pkg.scripts.test, /(?:^|&&)\s*pnpm qa:risk-management-mobile(?:\s*(?:&&|$))/)
-  assert.equal(
-    pkg.scripts['qa:risk-management-mobile'],
-    'node scripts/qa-risk-management-mobile.mjs',
-  )
+  assert.equal(pkg.scripts['qa:risk-management-mobile'], undefined)
 })
 
 async function withFixture(run) {

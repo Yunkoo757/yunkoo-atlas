@@ -678,7 +678,6 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
   const sources = Object.fromEntries(await Promise.all([
     'src/views/settings/SettingsLayout.css',
     'src/components/DataIOContent.css',
-    'src/components/LiveCycleSettings.css',
     'src/views/WeeklyReviewView.css',
     'src/views/Dashboard.css',
     'src/views/TodayWorkspace.css',
@@ -691,7 +690,6 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
     ['src/views/settings/SettingsLayout.css', '.settings-section-title'],
     ['src/components/DataIOContent.css', '.dio-section-title'],
     ['src/components/DataIOContent.css', '.dio-group-title'],
-    ['src/components/LiveCycleSettings.css', '.live-cycle-settings-copy h2'],
     ['src/views/WeeklyReviewView.css', '.wr-section-head h2'],
     ['src/views/Dashboard.css', '.db-week-title'],
     ['src/views/TodayWorkspace.css', '.today-stats-title'],
@@ -706,7 +704,6 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
     ['src/views/settings/SettingsLayout.css', '.settings-section-desc'],
     ['src/components/DataIOContent.css', '.dio-desc'],
     ['src/components/DataIOContent.css', '.dio-group-desc'],
-    ['src/components/LiveCycleSettings.css', '.live-cycle-settings-copy p,\n.live-cycle-prompt p'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [
       ['font-size', 'var(--type-metadata-size)'],
@@ -817,7 +814,6 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
 
 export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promise<void> {
   const businessNumericFiles = [
-    'src/components/LiveCycleSettings.css',
     'src/components/LivePerformanceCycleControl.css',
     'src/components/LiveStageManager.css',
     'src/components/StageRolloverBanner.css',
@@ -840,7 +836,6 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
   }
 
   const numericRoleSelectors: Array<readonly [string, string]> = [
-    ['src/components/LiveCycleSettings.css', '.live-cycle-preview-list > div'],
     ['src/components/LivePerformanceCycleControl.css', '.live-performance-cycle-current strong'],
     ['src/components/LiveStageManager.css', '.live-stage-manager-counts strong'],
     ['src/components/StageRolloverBanner.css', '.stage-rollover-banner-title strong'],

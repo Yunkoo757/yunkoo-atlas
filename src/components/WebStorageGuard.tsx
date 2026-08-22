@@ -3,10 +3,10 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import {
   applySnapshotToStore,
   clearSessionUiAfterLibrarySwitch,
-  downloadWebConflictRecoveryCopy,
   resetEmptyLibraryIntoStore,
-} from '@/lib/importExport'
+} from '@/lib/snapshotStore'
 import { useSaveStatus } from '@/store/saveStatus'
+import { publishDurableStoreRefresh } from '@/storage/bootstrap'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { discardAllNoteDrafts } from '@/storage/noteDrafts'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
@@ -39,9 +39,11 @@ export function WebStorageGuard() {
       await waitForPendingStorageOperations()
       const envelope = await getIndexedDbAdapter().loadSnapshotEnvelope()
       discardAllNoteDrafts()
-      if (envelope.snapshot) applySnapshotToStore(envelope.snapshot)
-      else resetEmptyLibraryIntoStore()
-      clearSessionUiAfterLibrarySwitch()
+      publishDurableStoreRefresh(() => {
+        if (envelope.snapshot) applySnapshotToStore(envelope.snapshot)
+        else resetEmptyLibraryIntoStore()
+        clearSessionUiAfterLibrarySwitch()
+      })
       discardPendingAndResumePersist()
       clearWebWriteConflictAfterReload(envelope.revision)
       useSaveStatus.getState().reset()
@@ -71,7 +73,9 @@ export function WebStorageGuard() {
               onClick={() => {
                 setBusy('export')
                 setMessage(null)
-                void downloadWebConflictRecoveryCopy().then((result) => {
+                void import('@/lib/importExport')
+                  .then(({ downloadWebConflictRecoveryCopy }) => downloadWebConflictRecoveryCopy())
+                  .then((result) => {
                   setMessage(result.missingAssetIds.length > 0
                     ? `已导出不完整抢救副本；明确缺少 ${result.missingAssetIds.length} 个附件。`
                     : '已导出本标签页未保存副本。')

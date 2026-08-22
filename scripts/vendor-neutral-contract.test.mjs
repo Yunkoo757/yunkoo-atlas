@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const trackedPaths = execFileSync('git', ['ls-files'], { encoding: 'utf8' })
@@ -28,7 +28,7 @@ test('project-owned paths are vendor neutral', () => {
 test('active project text is vendor neutral', () => {
   const violations = []
   for (const filePath of trackedPaths) {
-    if (compatibilityFiles.has(filePath) || binaryExtensions.test(filePath)) continue
+    if (!existsSync(filePath) || compatibilityFiles.has(filePath) || binaryExtensions.test(filePath)) continue
     const source = readFileSync(filePath, 'utf8')
     if (vendorText.test(source) || vendorIdentifier.test(source)) violations.push(filePath)
   }

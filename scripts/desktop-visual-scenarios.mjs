@@ -17,7 +17,7 @@ export const DESKTOP_VISUAL_SCENARIOS = Object.freeze([
   Object.freeze({ id: 'missed', path: '/missed', ready: '.missed-view' }),
   Object.freeze({ id: 'review-cases', path: '/review-cases', ready: '.trade-list' }),
   Object.freeze({ id: 'paper-trades', path: '/sim', ready: '.list-scroll' }),
-  Object.freeze({ id: 'live-archive', path: '/live-history', ready: '.list-scroll' }),
+  Object.freeze({ id: 'live-archive', path: '/live-history', ready: '.live-archive-scroll' }),
   Object.freeze({ id: 'live-history-cases', path: '/live-history?view=cases', ready: '.list-scroll' }),
   Object.freeze({ id: 'trash', path: '/trade-trash', ready: '.trash-view' }),
   Object.freeze({ id: 'settings-profile', path: '/settings/profile', ready: '.profile-settings' }),

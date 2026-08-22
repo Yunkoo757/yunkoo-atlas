@@ -98,10 +98,8 @@ import {
   type JsonImportErrorCode,
 } from '@/lib/importLimits'
 import { OperationalError } from '@/lib/operationalError'
-import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import {
   createLegacyStageMigrationOptions,
-  migrateLegacyStageSnapshot,
   type LegacyStageMigrationOptions,
 } from '@/lib/stageMigration'
 import { assertValidLiveStageState } from '@/lib/liveStages'
@@ -111,9 +109,19 @@ export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { canonicalImportValue, mergeImportPayload } from '@/lib/importMerge'
 import { isSameTradeIdentity, stableImportedTradeId } from '@/lib/riskImportMerge'
+import {
+  applySnapshotToStore,
+  clearSessionUiAfterLibrarySwitch,
+  resetEmptyLibraryIntoStore,
+} from '@/lib/snapshotStore'
 
 export type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
 export { mergeImportPayload } from '@/lib/importMerge'
+export {
+  applySnapshotToStore,
+  clearSessionUiAfterLibrarySwitch,
+  resetEmptyLibraryIntoStore,
+} from '@/lib/snapshotStore'
 
 interface ExportState extends PersistedSlice {
   shortcuts?: PersistedSnapshot['shortcuts']
@@ -128,11 +136,9 @@ interface ExportState extends PersistedSlice {
 
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
-  liveStages?: PersistedSnapshot['liveStages']
-  currentLiveStageId?: PersistedSnapshot['currentLiveStageId']
-  scheduledStageRollover?: PersistedSnapshot['scheduledStageRollover']
-  liveStatsStartTradingDayKey?: PersistedSnapshot['liveStatsStartTradingDayKey']
-  livePerformanceCycles?: PersistedSnapshot['livePerformanceCycles']
+  liveStages: PersistedSnapshot['liveStages']
+  currentLiveStageId: PersistedSnapshot['currentLiveStageId']
+  scheduledStageRollover: PersistedSnapshot['scheduledStageRollover']
   weeklyRiskPreparations?: PersistedSnapshot['weeklyRiskPreparations']
   riskPolicyVersions?: PersistedSnapshot['riskPolicyVersions']
   monthlyRiskLimits?: PersistedSnapshot['monthlyRiskLimits']
@@ -156,13 +162,15 @@ interface PortableSnapshotState {
 export function buildPortableSnapshotFromState(
   state: PortableSnapshotState,
   shortcutBindings: Parameters<typeof bindingsForPersist>[0],
-  stageMigration?: LegacyStageMigrationOptions,
 ): PersistedSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings)
-  const candidate = {
+  return {
     trades: state.trades,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: cloneLivePerformanceCycles(state.livePerformanceCycles),
+    liveStages: state.liveStages.map((stage) => ({ ...stage })),
+    currentLiveStageId: state.currentLiveStageId,
+    scheduledStageRollover: state.scheduledStageRollover
+      ? { ...state.scheduledStageRollover }
+      : null,
     weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
     riskPolicyVersions: state.riskPolicyVersions ?? [],
     monthlyRiskLimits: state.monthlyRiskLimits ?? [],
@@ -183,24 +191,6 @@ export function buildPortableSnapshotFromState(
     reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
     shortcuts,
   }
-  if (
-    state.liveStages !== undefined &&
-    state.currentLiveStageId !== undefined &&
-    state.scheduledStageRollover !== undefined
-  ) {
-    return {
-      ...candidate,
-      liveStages: state.liveStages.map((stage) => ({ ...stage })),
-      currentLiveStageId: state.currentLiveStageId,
-      scheduledStageRollover: state.scheduledStageRollover
-        ? { ...state.scheduledStageRollover }
-        : null,
-    }
-  }
-  return migrateLegacyStageSnapshot(
-    candidate,
-    stageMigration ?? createLegacyStageMigrationOptions(candidate, new Date()),
-  )
 }
 
 export type ImportResult =
@@ -327,11 +317,10 @@ function normalizeAndValidateImportAssets(
 export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
-  stageMigration?: LegacyStageMigrationOptions,
 ): Promise<ExportPayload> {
   const assetIds = new Set(collectAssetIdsFromSnapshot(state))
   const assets = await loadReferencedAssetsForExport(assetIds, getAssetForExport)
-  const portable = buildPortableSnapshotFromState(state, state.shortcuts ?? {}, stageMigration)
+  const portable = buildPortableSnapshotFromState(state, state.shortcuts ?? {})
   return {
     version: EXPORT_VERSION,
     ...portable,
@@ -373,18 +362,19 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, liveStatsStartTradingDayKey, livePerformanceCycles, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
     {
       trades,
+      liveStages,
+      currentLiveStageId,
+      scheduledStageRollover,
       weeklyRiskPreparations,
       riskPolicyVersions,
       monthlyRiskLimits,
       riskOverrideEvents,
-      liveStatsStartTradingDayKey,
-      livePerformanceCycles,
       weeklyReviews,
       quickNotes,
       strategies,
@@ -967,24 +957,6 @@ interface PersistedStateRevision {
   references: readonly unknown[]
 }
 
-interface LivePerformanceCycleImportDecision {
-  preservesCurrent: boolean
-  adoptsImported: boolean
-  adoptedCount: number
-}
-
-function resolveLivePerformanceCycleImportDecision(
-  _current: PersistedSlice,
-  _payload: ExportPayload,
-): LivePerformanceCycleImportDecision {
-  return {
-    // 本地（包括空数组）始终是唯一的边界语境；导入摘要必须明确这一点。
-    preservesCurrent: true,
-    adoptsImported: false,
-    adoptedCount: 0,
-  }
-}
-
 function capturePersistedStateRevision(): PersistedStateRevision {
   const state = useStore.getState()
   const shortcutBindings = useShortcutStore.getState().bindings
@@ -1141,11 +1113,6 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     suspendPersist()
     suspended = true
     let revision = capturePersistedStateRevision()
-    const initialLivePerformanceCycleDecision = resolveLivePerformanceCycleImportDecision(
-      revision.state,
-      prepared.payload,
-    )
-    let finalLivePerformanceCycleDecision = initialLivePerformanceCycleDecision
     const importedTradeBaseline = captureImportedTradeBaseline(
       revision,
       prepared.payload,
@@ -1153,10 +1120,6 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
       payload,
     )
     while (true) {
-      finalLivePerformanceCycleDecision = resolveLivePerformanceCycleImportDecision(
-        revision.state,
-        prepared.payload,
-      )
       const immutableRiskBaseline = captureImmutableRiskImportBaseline(
         revision.state,
         prepared.payload,
@@ -1204,111 +1167,12 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
 
     const parts: string[] = [`${prepared.payload.trades.length} 笔交易`]
     if (prepared.assets.length > 0) parts.push(`${prepared.assets.length} 个附件`)
-    if (finalLivePerformanceCycleDecision.preservesCurrent) {
-      parts.push('保留当前统计与历史归档设置')
-    } else if (finalLivePerformanceCycleDecision.adoptsImported) {
-      parts.push(`${finalLivePerformanceCycleDecision.adoptedCount} 个历史归档设置`)
-    }
+    parts.push('保留当前实盘阶段与历史阶段')
     return { summary: `已导入 ${parts.join('、')}` }
   } finally {
     if (suspended) await resumePersistAndFlush()
     unlockInteraction()
   }
-}
-
-export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
-  assertValidLiveStageState(snapshot)
-  const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
-  const trades = normalizeTrades(normalized.trades)
-  useStore.setState({
-    trades,
-    liveStages: snapshot.liveStages.map((stage) => ({ ...stage })),
-    currentLiveStageId: snapshot.currentLiveStageId,
-    scheduledStageRollover: snapshot.scheduledStageRollover
-      ? { ...snapshot.scheduledStageRollover }
-      : null,
-    weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
-    riskPolicyVersions: snapshot.riskPolicyVersions,
-    monthlyRiskLimits: snapshot.monthlyRiskLimits,
-    riskOverrideEvents: snapshot.riskOverrideEvents,
-    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: cloneLivePerformanceCycles(snapshot.livePerformanceCycles ?? []),
-    weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
-    quickNotes: normalizeQuickNotes(snapshot.quickNotes),
-    strategies: normalized.strategies,
-    starredIds: snapshot.starredIds,
-    subscribedIds: snapshot.subscribedIds,
-    pinnedStrategyIds: snapshot.pinnedStrategyIds,
-    display: normalizeDisplay(snapshot.display),
-    tagPresets: mergeTagPresets(snapshot.tagPresets ?? []),
-    mistakeTagPresets: mergeTagPresets(snapshot.mistakeTagPresets ?? []),
-    savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
-    symbolIcons: normalizeSymbolIcons(snapshot.symbolIcons),
-    symbolCatalog: normalizeSymbolCatalog(
-      snapshot.symbolCatalog ?? [
-        ...Object.keys(normalizeSymbolIcons(snapshot.symbolIcons)),
-        ...trades.map((trade) => trade.symbol),
-      ],
-    ),
-    reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
-    undoStack: [],
-    redoStack: [],
-  })
-  useStore.getState().hydrateProfile(snapshot.profile ?? createDefaultUserProfile())
-  useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
-}
-
-/** 空库 / 新建库时重置到默认内存状态。 */
-export function resetEmptyLibraryIntoStore(): void {
-  const empty = createEmptyPersistedSnapshot()
-  useStore.setState({
-    trades: [],
-    liveStages: empty.liveStages,
-    currentLiveStageId: empty.currentLiveStageId,
-    scheduledStageRollover: empty.scheduledStageRollover,
-    weeklyRiskPreparations: [],
-    riskPolicyVersions: [],
-    monthlyRiskLimits: [],
-    riskOverrideEvents: [],
-    liveStatsStartTradingDayKey: null,
-    livePerformanceCycles: [],
-    weeklyReviews: [],
-    quickNotes: [],
-    strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
-    selectedId: null,
-    composerOpen: false,
-    composerTrade: null,
-    composerKind: null,
-    closeTradeRequest: null,
-    undoStack: [],
-    redoStack: [],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    tagPresets: createDefaultTagPresets(),
-    mistakeTagPresets: createDefaultMistakeTagPresets(),
-    display: { ...DEFAULT_DISPLAY },
-    savedTradeViews: [],
-    symbolIcons: {},
-    symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
-    reviewTemplates: createDefaultReviewTemplates(),
-  })
-  useStore.getState().hydrateProfile(createDefaultUserProfile())
-  useShortcutStore.getState().hydrateBindings({})
-}
-
-export function clearSessionUiAfterLibrarySwitch(): void {
-  useStore.setState({
-    selectedId: null,
-    composerOpen: false,
-    composerTrade: null,
-    composerKind: null,
-    closeTradeRequest: null,
-    undoStack: [],
-    redoStack: [],
-  })
-  useShortcutStore.setState({ listContext: null, lightbox: null })
-  useSaveStatus.getState().reset()
 }
 
 async function flushCurrentLibraryAtStableRevision(): Promise<PersistedStateRevision> {

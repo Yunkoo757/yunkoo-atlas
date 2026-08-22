@@ -72,7 +72,14 @@ test('10k 快照可作为隔离存储的完整输入', () => {
   assert.ok(Array.isArray(snapshot.riskPolicyVersions))
   assert.ok(Array.isArray(snapshot.monthlyRiskLimits))
   assert.ok(Array.isArray(snapshot.riskOverrideEvents))
-  assert.deepEqual(snapshot.livePerformanceCycles, [], 'v10 基准快照必须携带实盘统计周期字段')
+  assert.equal(snapshot.liveStages.length, 1, '基准快照必须携带原生阶段图')
+  assert.equal(snapshot.liveStages[0].id, snapshot.currentLiveStageId, '基准快照的当前阶段指针必须有效')
+  assert.equal(snapshot.scheduledStageRollover, null, '基准快照默认不得存在待执行切换')
+  assert.ok(snapshot.trades.every((trade) => (
+    trade.tradeKind === 'paper'
+      ? !Object.prototype.hasOwnProperty.call(trade, 'liveStageId')
+      : trade.liveStageId === snapshot.currentLiveStageId
+  )), '基准快照必须为所有非纸面交易提供已知阶段归属')
   assert.equal(typeof snapshot.display, 'object')
   assert.equal(typeof snapshot.profile.displayName, 'string')
   assert.ok(snapshot.trades.every((trade) => (

@@ -13,7 +13,6 @@ import {
 } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
-import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -57,7 +56,7 @@ export function testPickPersistedAlwaysWritesEveryCanonicalField(): void {
   const empty = pickPersisted(state, {})
   assert(
     JSON.stringify(Object.keys(empty).sort()) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
-    'autosave writer 的字段集合必须始终与 20 字段注册表完全一致',
+    'autosave writer 的字段集合必须始终与规范字段注册表完全一致',
   )
   assert(Object.prototype.hasOwnProperty.call(empty, 'shortcuts'), '空快捷键也必须显式写出 shortcuts')
   assert(JSON.stringify(empty.shortcuts) === '{}', '空快捷键必须序列化为空对象')
@@ -67,33 +66,6 @@ export function testPickPersistedAlwaysWritesEveryCanonicalField(): void {
   })
   const binding = custom.shortcuts['nav.list']
   assert(!Array.isArray(binding) && binding?.key === 'j', '自定义快捷键覆盖必须保留')
-}
-
-export function testPickPersistedUsesExplicitCurrentTradingDayForLegacyStageFallback(): void {
-  const fixture = createFullPersistedSnapshotFixture()
-  const liveTrade = fixture.trades.find((trade) => trade.tradeKind === 'live')
-  assert(liveTrade !== undefined, '测试前提必须包含实盘交易')
-  const legacy = {
-    ...fixture,
-    trades: [{ ...liveTrade, closedAt: '2026-07-17', closedTradingDayKey: '2026-07-17' }],
-    liveStatsStartTradingDayKey: null,
-    livePerformanceCycles: [],
-    liveStages: undefined,
-    currentLiveStageId: undefined,
-    scheduledStageRollover: undefined,
-  }
-  const persisted = pickPersisted(
-    legacy as unknown as Parameters<typeof pickPersisted>[0],
-    {}, {
-    now: '2026-08-22T10:00:00.000Z',
-    currentTradingDayKey: '2026-08-22',
-    idFactory: (sequence) => `persist-stage-${sequence}`,
-    },
-  )
-
-  assert(persisted.liveStages.at(-1)?.startsOn === '2026-08-22', 'autosave fallback 必须使用显式当前交易日')
-  assert(persisted.liveStages[0]?.name === '更早记录', '历史记录必须与当前阶段分离')
-  assert(persisted.trades[0]?.tradeKind === 'live' && persisted.trades[0].liveStageId === 'persist-stage-1', '历史交易必须归入更早记录')
 }
 
 export async function testExplicitFlushPersistsChangesScheduledDuringAnActiveSave(): Promise<void> {
@@ -450,10 +422,9 @@ export async function testDiscardPendingResumeCannotWriteThePreviousLibrarySnaps
   }
 }
 
-export async function testLiveArchiveBoundaryFlushNeverSerializesAPartialCycleSet(): Promise<void> {
+export async function testLiveStageBoundaryFlushSerializesTheCompleteCanonicalGraph(): Promise<void> {
   const storage = getStorage()
   const originalSaveSnapshot = storage.saveSnapshot.bind(storage)
-  const originalCycles = useStore.getState().livePerformanceCycles
   const originalStages = useStore.getState().liveStages
   const originalCurrentStageId = useStore.getState().currentLiveStageId
   const originalRollover = useStore.getState().scheduledStageRollover
@@ -478,11 +449,6 @@ export async function testLiveArchiveBoundaryFlushNeverSerializesAPartialCycleSe
       }],
       currentLiveStageId: 'current-after',
       scheduledStageRollover: null,
-      // 故意放入冲突旧镜像，证明 writer 只从规范阶段图派生兼容字段。
-      livePerformanceCycles: [{
-        id: 'stale-legacy-cycle', name: '旧镜像', startTradingDayKey: '2026-07-01',
-        createdAt: '2026-07-01T00:00:00.000Z',
-      }],
     })
     enablePersistWrites()
     await flushPersistNow()
@@ -494,12 +460,6 @@ export async function testLiveArchiveBoundaryFlushNeverSerializesAPartialCycleSe
       'Web 与 Electron 共用的快照必须以规范阶段图完整保存旧/新边界',
     )
     assert(snapshot.currentLiveStageId === 'current-after', '规范当前阶段指针必须与完整阶段图一起保存')
-    assert(
-      snapshot.livePerformanceCycles?.length === 1
-        && snapshot.livePerformanceCycles[0]?.id === 'legacy-stage-2'
-        && snapshot.livePerformanceCycles[0]?.startTradingDayKey === '2026-08-08',
-      '兼容镜像必须由规范当前阶段派生，不得反向采用旧镜像',
-    )
   } finally {
     disablePersistWrites()
     setPreFlushCallback(null)
@@ -508,7 +468,6 @@ export async function testLiveArchiveBoundaryFlushNeverSerializesAPartialCycleSe
       liveStages: originalStages,
       currentLiveStageId: originalCurrentStageId,
       scheduledStageRollover: originalRollover,
-      livePerformanceCycles: originalCycles,
     })
     useSaveStatus.getState().reset()
   }

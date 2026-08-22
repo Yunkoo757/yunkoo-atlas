@@ -254,7 +254,6 @@ async function run() {
       riskPolicyVersions: [policy, { ...policy, id: 'policy-current', liveStageId: 'stage-current', disciplineText: '当前阶段风险纪律' }],
       monthlyRiskLimits: [monthlyLimit, { ...monthlyLimit, id: 'limit-current', liveStageId: 'stage-current', monthKey: '2026-09' }],
       riskOverrideEvents: [override, { ...override, id: 'override-current', liveStageId: 'stage-current', reason: '当前阶段人工覆盖' }],
-      livePerformanceCycles: [],
       display: {
         ...state.display,
         hideClosed: false,
@@ -382,7 +381,6 @@ async function run() {
       riskPolicyVersions: previous.riskPolicyVersions,
       monthlyRiskLimits: previous.monthlyRiskLimits,
       riskOverrideEvents: previous.riskOverrideEvents,
-      livePerformanceCycles: previous.livePerformanceCycles,
       display: previous.display,
     })
   }

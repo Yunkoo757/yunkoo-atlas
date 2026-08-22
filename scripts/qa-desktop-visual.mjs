@@ -19,7 +19,7 @@ import {
   DESKTOP_VISUAL_SCENARIOS,
   DESKTOP_VISUAL_VIEWPORTS,
 } from './desktop-visual-scenarios.mjs'
-import { createDesktopVisualSnapshot } from './fixtures/desktop-visual-seed.mjs'
+import { createDesktopVisualSeedEnvelope } from './fixtures/desktop-visual-seed.mjs'
 import {
   buildTypographyCheckResult,
   hasExactDesktopVisualCaptureMatrix,
@@ -27,7 +27,6 @@ import {
 
 const require = createRequire(import.meta.url)
 const REPORT_SCHEMA_VERSION = 1
-const SNAPSHOT_SCHEMA_VERSION = 11
 const DEFAULT_OUTPUT_ROOT = resolve('.gstack/qa-reports/desktop-visual-convergence')
 const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
   latin: '.qa-type-latin',
@@ -101,7 +100,7 @@ function ensureRuntimeOutput(outputRoot, runtime) {
   return { root, runtimeRoot }
 }
 
-async function seedBrowserDatabase(page, snapshot) {
+async function seedBrowserDatabase(page, seed) {
   await page.evaluate(async ({ payload, schemaVersion }) => {
     await new Promise((resolveDelete) => {
       const request = indexedDB.deleteDatabase('trader-atlas-v3')
@@ -135,7 +134,7 @@ async function seedBrowserDatabase(page, snapshot) {
       transaction.onabort = () => reject(transaction.error)
     })
     database.close()
-  }, { payload: snapshot, schemaVersion: SNAPSHOT_SCHEMA_VERSION })
+  }, { payload: seed.snapshot, schemaVersion: seed.schemaVersion })
 }
 
 async function waitForVisualSettlement(page, readySelector) {
@@ -327,7 +326,7 @@ function bindDiagnostics(page) {
   return diagnostics
 }
 
-async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
+async function runRendererQa({ root, runtimeRoot, build, seed }) {
   const server = await createServer({
     root,
     configFile: resolve(root, 'vite.config.ts'),
@@ -356,7 +355,7 @@ async function runRendererQa({ root, runtimeRoot, build, snapshot }) {
           waitUntil: 'domcontentloaded',
           timeout: 30_000,
         })
-        await seedBrowserDatabase(page, snapshot)
+        await seedBrowserDatabase(page, seed)
         let applicationStarted = false
         for (const scenario of DESKTOP_VISUAL_SCENARIOS) {
           const screenshot = capturePath(runtimeRoot, viewport, scenario)
@@ -544,11 +543,17 @@ export async function runDesktopVisualQa({
   const resolvedRoot = resolve(root)
   const packageJson = JSON.parse(readFileSync(resolve(resolvedRoot, 'package.json'), 'utf8'))
   const build = sourceBuild(resolvedRoot, packageJson)
-  const snapshot = createDesktopVisualSnapshot()
+  const seed = createDesktopVisualSeedEnvelope()
   const output = ensureRuntimeOutput(outputRoot, runtime)
   const result = runtime === 'renderer'
-    ? await runRendererQa({ root: resolvedRoot, runtimeRoot: output.runtimeRoot, build, snapshot })
-    : await runElectronQa({ root: resolvedRoot, runtimeRoot: output.runtimeRoot, build, snapshot, packageJson })
+    ? await runRendererQa({ root: resolvedRoot, runtimeRoot: output.runtimeRoot, build, seed })
+    : await runElectronQa({
+        root: resolvedRoot,
+        runtimeRoot: output.runtimeRoot,
+        build,
+        snapshot: seed.snapshot,
+        packageJson,
+      })
   const report = normalizeScreenshotPaths({
     schemaVersion: REPORT_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),

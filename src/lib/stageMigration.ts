@@ -1,17 +1,24 @@
 import type { Trade } from '@/data/trades'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import { isValidLiveCycleDayKey, openedTradingDayKey } from '@/lib/liveCycle'
-import {
-  resolveLivePerformanceCloseTradingDayKey,
-  type LivePerformanceCycle,
-} from '@/lib/livePerformanceCycles'
 import type { LiveStage } from '@/lib/liveStages'
 import { assertValidLiveStageState, normalizeLiveStageName } from '@/lib/liveStages'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { createBusinessDateAnchor } from '@/lib/periods'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { PersistedSnapshot } from '@/storage/types'
 
-export type LegacyStageSnapshot = Record<string, unknown> & Partial<PersistedSnapshot>
+export interface LegacyPerformanceCycle {
+  id: string
+  name: string
+  startTradingDayKey: string
+  createdAt: string
+}
+
+export type LegacyStageSnapshot = Record<string, unknown> & Partial<PersistedSnapshot> & {
+  liveStatsStartTradingDayKey?: string | null
+  livePerformanceCycles?: LegacyPerformanceCycle[]
+}
 
 export interface LegacyStageMigrationOptions {
   now: string
@@ -48,7 +55,7 @@ function tradingDayStartHour(raw: LegacyStageSnapshot): number {
     : 6
 }
 
-function legacyCycles(raw: LegacyStageSnapshot): LivePerformanceCycle[] {
+function legacyCycles(raw: LegacyStageSnapshot): LegacyPerformanceCycle[] {
   const cycles = raw.livePerformanceCycles ?? []
   if (!Array.isArray(cycles)) throw new Error('旧实盘周期必须是数组')
   let previousStart: string | null = null
@@ -78,9 +85,14 @@ function reliableCaseDay(trade: Trade, startHour: number): string | null {
 function reliableTradeDay(trade: Trade, startHour: number): string | null {
   if (trade.tradeKind !== 'live' && trade.tradeKind !== 'case') return null
   if (trade.tradeKind === 'case') return reliableCaseDay(trade, startHour)
-  return isExecutedClosed(trade.status) || isMissed(trade.status)
-    ? resolveLivePerformanceCloseTradingDayKey(trade, startHour)
-    : openedTradingDayKey(trade, startHour)
+  if (!isExecutedClosed(trade.status) && !isMissed(trade.status)) {
+    return openedTradingDayKey(trade, startHour)
+  }
+  if (trade.closedTradingDayKey !== undefined) {
+    return isValidLiveCycleDayKey(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
+  }
+  const day = closedTradingDayKeyFromClosedAt(trade.closedAt, startHour)
+  return day !== null && isValidLiveCycleDayKey(day) ? day : null
 }
 
 export function collectReliableLegacyStageRecordDays(
@@ -243,7 +255,7 @@ export function migrateLegacyStageSnapshot(
   const trades = migrateTrades(raw.trades ?? [], liveStages, startHour)
   const weeklyReviews = migrateWeeklyReviews(raw.weeklyReviews ?? [], liveStages, currentLiveStageId)
 
-  return {
+  const migrated = {
     ...(raw as unknown as Omit<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'weeklyRiskPreparations' | 'riskPolicyVersions' | 'monthlyRiskLimits' | 'riskOverrideEvents'>),
     trades,
     weeklyReviews,
@@ -255,4 +267,7 @@ export function migrateLegacyStageSnapshot(
     currentLiveStageId,
     scheduledStageRollover: null,
   }
+  delete (migrated as LegacyStageSnapshot).liveStatsStartTradingDayKey
+  delete (migrated as LegacyStageSnapshot).livePerformanceCycles
+  return migrated
 }

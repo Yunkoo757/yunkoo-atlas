@@ -75,13 +75,6 @@ async function run(): Promise<void> {
       trades: [legacyPlan, currentPlan],
       strategies: [],
       savedTradeViews: [],
-      liveStatsStartTradingDayKey: today,
-      livePerformanceCycles: [{
-        id: 'current-cycle',
-        name: '当前实盘',
-        startTradingDayKey: today,
-        createdAt: `${today}T00:00:00.000Z`,
-      }],
       display: {
         ...state.display,
         tradingDayStartHour: 0,

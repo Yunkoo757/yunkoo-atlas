@@ -72,6 +72,12 @@ export async function testBootstrapFailureCannotExposeAnUnsavableWorkspace(): Pr
   assert(!app.includes("setReady(true)\n      document.documentElement.dataset.uiSettled = '1'"), '启动失败不得继续显示普通工作区')
 }
 
+export async function testWebStorageConflictShellDoesNotPullImportWorkflowIntoStartup(): Promise<void> {
+  const guard = await fs.readFile('src/components/WebStorageGuard.tsx', 'utf8')
+  assert(guard.includes("from '@/lib/snapshotStore'"), 'WebStorageGuard 必须使用窄快照发布模块')
+  assert(!guard.includes("from '@/lib/importExport'"), 'WebStorageGuard 不得把完整导入导出 workflow 拉入首屏')
+}
+
 export async function testAttachmentPreviewCachesAreBoundedAndInvalidatedOnImport(): Promise<void> {
   const [indexedDb, electron, importExport] = await Promise.all([
     fs.readFile('src/storage/indexedDbAdapter.ts', 'utf8'),

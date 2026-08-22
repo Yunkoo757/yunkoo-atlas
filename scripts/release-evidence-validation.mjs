@@ -150,9 +150,26 @@ export function releaseTrainDrillsPassed(value) {
 }
 
 export function forcedKillPassed(value, platform, fileSystem) {
+  const expectedMigrationBoundaries = [
+    'before-database-replace',
+    'after-database-replace',
+    'after-manifest-replace',
+  ]
+  const migrationBoundaries = Array.isArray(value?.schemaMigration)
+    ? value.schemaMigration.map((item) => item?.boundary)
+    : []
+  const sameStageGraph = Array.isArray(value?.recovery?.liveStageIds) &&
+    Array.isArray(value?.recovery?.expectedLiveStageIds) &&
+    value.recovery.liveStageIds.length > 0 &&
+    JSON.stringify(value.recovery.liveStageIds) === JSON.stringify(value.recovery.expectedLiveStageIds)
+
   return value?.status === 'pass' &&
     value.scenarioId === 'E-FORCED-KILL' &&
+    value.schemaVersion === 12 &&
     value.platform === platform && value.fileSystem === fileSystem &&
+    typeof value.gitCommit === 'string' && value.gitCommit.length > 0 &&
+    typeof value.gitTree === 'string' && value.gitTree.length > 0 &&
+    typeof value.sourceIdentity === 'string' && value.sourceIdentity.length > 0 &&
     value.process?.runtime === 'electron-main' &&
     typeof value.process?.electronVersion === 'string' && value.process.electronVersion.length > 0 &&
     value.process?.mainProcessPid === value.process?.childPid &&
@@ -164,7 +181,16 @@ export function forcedKillPassed(value, platform, fileSystem) {
     value.process?.saveCompletedAcknowledged === false &&
     value.recovery?.lastConfirmedRecovered === true &&
     value.recovery?.unconfirmedMemoryEditPromised === false &&
-    value.recovery?.unconfirmedPendingRevisionAbsent === true
+    value.recovery?.unconfirmedPendingRevisionAbsent === true &&
+    sameStageGraph &&
+    Array.isArray(value.recovery.currentTradeIds) && value.recovery.currentTradeIds.includes('trade-contract') &&
+    Array.isArray(value.recovery.archiveTradeIds) && value.recovery.archiveTradeIds.includes('trade-archive-contract') &&
+    value.recovery.liveArchiveScopeRecovered === true &&
+    typeof value.recovery.snapshotRevision === 'string' && value.recovery.snapshotRevision.length > 0 &&
+    value.recovery.snapshotRevision === value.recovery.expectedSnapshotRevision &&
+    value.recovery.snapshotRevisionRecovered === true &&
+    JSON.stringify(migrationBoundaries) === JSON.stringify(expectedMigrationBoundaries) &&
+    value.schemaMigration.every((item) => item?.status === 'pass' && item?.recoveredSchemaVersion === 12)
 }
 
 export function assetLifecyclePassed(value, platform, fileSystem) {

@@ -1,12 +1,11 @@
 import type { Trade } from '@/data/trades'
 import {
   filterTradesByAnalysisScope,
-  intersectLiveScopeWithNaturalRange,
+  intersectPerformanceDateBoundsWithNaturalRange,
   parseAnalysisScope,
   strategyAnalysisHref,
   writeAnalysisScope,
 } from '@/lib/analysisScope'
-import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { createBusinessDateAnchor } from '@/lib/periods'
 
 function assert(condition: unknown, message: string): void {
@@ -324,13 +323,11 @@ export function testPerformanceBoundsApplyOnlyToLiveAnalysis(): void {
   assert(all.map((trade) => trade.id).join() === 'inside,paper', '全部类型必须只给实盘应用当前周期边界')
 }
 
-export function testNaturalRangesIntersectTheCurrentLiveArchive(): void {
-  const scope = resolveLiveArchiveScope([
-    { id: 'current', name: '当前', startTradingDayKey: '2026-07-10', createdAt: '2026-07-10T00:00:00.000Z' },
-  ], null)
+export function testNaturalRangesIntersectExplicitPerformanceDateBounds(): void {
+  const bounds = { startInclusive: '2026-07-10', endExclusive: null }
   const anchor = createBusinessDateAnchor(new Date(2026, 6, 16, 12), 4)
-  const week = intersectLiveScopeWithNaturalRange(scope, 'this-week', anchor)
-  const month = intersectLiveScopeWithNaturalRange(scope, 'this-month', anchor)
+  const week = intersectPerformanceDateBoundsWithNaturalRange(bounds, 'this-week', anchor)
+  const month = intersectPerformanceDateBoundsWithNaturalRange(bounds, 'this-month', anchor)
 
   assert(week?.startInclusive === '2026-07-13' && week?.endExclusive === '2026-07-17', '本周必须与当前范围求交集')
   assert(month?.startInclusive === '2026-07-10' && month?.endExclusive === '2026-07-17', '本月必须与当前范围求交集')

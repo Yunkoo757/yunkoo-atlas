@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { importsTarget, importsWithinTarget } from '../governance-imports.mjs'
+import {
+  findForbiddenLegacyRuntimeMatches,
+  isExecutableProductionSource,
+  LEGACY_RUNTIME_COMPATIBILITY_ALLOWLIST,
+} from '../legacy-runtime-governance.mjs'
 
 test('场景注册表冻结完整且无重复的发布质量合同', () => {
   const expectedIds = [
@@ -46,6 +52,11 @@ test('场景注册表冻结完整且无重复的发布质量合同', () => {
     'I-NOTION-SLOT',
     'I-COMPOSER-N',
     'I-COMPOSER-CAS',
+    'LS-V11-MIGRATION',
+    'LS-OWNERSHIP-STABLE',
+    'LS-ROLLOVER-ATOMIC',
+    'LS-HISTORY-SCOPE',
+    'LS-REVIEW-DEFAULT',
     'A-INVENTORY-SHARED',
     'A-INVENTORY-MISSING',
     'A-WEB-DELETE-N',
@@ -111,4 +122,37 @@ test('治理门冻结最小依赖边界、UTF-8 fatal decode 与无 BOM 规则',
   assert.match(execution, /sourceIdentity: provenance\.sourceIdentity/)
   assert.equal(pkg.scripts['check:governance'], 'node scripts/check-governance.mjs')
   assert.match(pkg.scripts.test, /check-governance\.mjs/)
+})
+
+test('旧阶段字段只允许存在于逐文件逐字段的 v11 解码边界', () => {
+  const files = [
+    { path: 'src/lib/stageMigration.ts', source: 'raw.livePerformanceCycles; raw.liveStatsStartTradingDayKey' },
+    { path: 'src/storage/snapshotCodec.ts', source: 'raw.livePerformanceCycles' },
+    { path: 'src/store/useStore.ts', source: 'state.livePerformanceCycles' },
+    { path: 'electron/library/storage.ts', source: 'snapshot.liveStatsStartTradingDayKey' },
+    { path: 'scripts/runtime.mjs', source: 'const copy = "重置实盘统计"' },
+  ]
+  assert.deepEqual(findForbiddenLegacyRuntimeMatches(files), [
+    { path: 'src/store/useStore.ts', line: 1, token: 'livePerformanceCycles' },
+    { path: 'electron/library/storage.ts', line: 1, token: 'liveStatsStartTradingDayKey' },
+    { path: 'scripts/runtime.mjs', line: 1, token: '重置实盘统计' },
+  ])
+  assert.deepEqual(
+    [...LEGACY_RUNTIME_COMPATIBILITY_ALLOWLIST.keys()],
+    ['src/lib/stageMigration.ts', 'src/storage/snapshotCodec.ts'],
+    'allowlist 必须保持为两个精确迁移边界，不能放宽到目录或运行时消费者',
+  )
+})
+
+test('全部可执行生产源码不再消费旧阶段真值或展示旧重置文案', () => {
+  const paths = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
+    encoding: 'utf8',
+  })
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((path) => path.replaceAll('\\', '/'))
+    .filter(existsSync)
+    .filter(isExecutableProductionSource)
+  const files = paths.map((path) => ({ path, source: readFileSync(path, 'utf8') }))
+  assert.deepEqual(findForbiddenLegacyRuntimeMatches(files), [])
 })

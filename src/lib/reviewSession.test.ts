@@ -749,3 +749,5 @@ export function testReviewSessionIsAValidDetailReturnForCasesAndTrades(): void {
     assert(target.pathname === '/review-session', `${tradeKind} 详情应返回随机复盘`)
   }
 }
+
+// Quality-Scenario: LS-REVIEW-DEFAULT

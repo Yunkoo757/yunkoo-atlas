@@ -96,7 +96,6 @@ export function Dashboard() {
     () => filterStageOwnedRecords(allTrades, { kind: 'current', stageId: currentLiveStageId }),
     [allTrades, currentLiveStageId],
   )
-  const currentLiveScope = null
   const performanceBounds = null
   const hasPerformanceBounds = false
 
@@ -116,7 +115,6 @@ export function Dashboard() {
   const performanceSelection = useMemo(
     () => buildPerformanceSelection(currentStageTrades, {
       scope,
-      liveScope: currentLiveScope,
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
@@ -125,7 +123,6 @@ export function Dashboard() {
       scope,
       localDateKey,
       tradingDayStartHour,
-      currentLiveScope,
       profile.legacyCashCurrencyAssumption,
     ],
   )
@@ -168,7 +165,6 @@ export function Dashboard() {
   const weekPerformanceSelection = useMemo(
     () => buildThisWeekPerformanceSelection(currentStageTrades, {
       scope,
-      liveScope: currentLiveScope,
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),

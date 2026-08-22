@@ -157,10 +157,6 @@ async function run(): Promise<void> {
         startsOn: '2026-07-25', endsOn: '2026-07-27', createdAt: '2026-07-25T00:00:00.000Z',
         archivedAt: '2026-07-28T00:00:00.000Z',
       }, ...state.liveStages],
-      livePerformanceCycles: [
-        { id: 'archive-cycle', name: '实盘-2026-07-25', startTradingDayKey: '2026-07-25', createdAt: '2026-07-25T00:00:00.000Z' },
-        { id: 'current-cycle', name: '实盘-2026-07-28', startTradingDayKey: '2026-07-28', createdAt: '2026-07-28T00:00:00.000Z' },
-      ],
       display: { ...state.display, hideClosed: false, tradingDayStartHour: 0 },
     }))
     root.render(<MemoryRouter initialEntries={['/live-history?liveStage=all-history']}><HistoryProbe /></MemoryRouter>)
@@ -190,7 +186,6 @@ async function run(): Promise<void> {
     )
 
     useStore.setState((state) => ({
-      livePerformanceCycles: [],
       trades: [
         { ...oldLiveTrade, liveStageId: 'stage-archived' },
         { ...currentLiveTrade, liveStageId: state.currentLiveStageId },
@@ -288,7 +283,6 @@ async function run(): Promise<void> {
       trades: previous.trades,
       liveStages: previous.liveStages,
       currentLiveStageId: previous.currentLiveStageId,
-      livePerformanceCycles: previous.livePerformanceCycles,
       display: previous.display,
     })
   }

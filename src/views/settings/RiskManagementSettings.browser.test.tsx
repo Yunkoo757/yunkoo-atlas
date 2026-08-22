@@ -298,7 +298,6 @@ async function run(): Promise<void> {
         closedAt: getTradingDayKey(priorDay, 0),
         closedTradingDayKey: getTradingDayKey(priorDay, 0),
       }],
-      liveStatsStartTradingDayKey: getTradingDayKey(priorDay, 0),
       display: { ...state.display, privacyMode: false },
     }))
     await waitFor(() => panel?.querySelector('[data-risk-data-summary]')?.textContent?.includes('仍会如实影响完整度') ?? false, '纯历史缺口没有持续影响完整度')

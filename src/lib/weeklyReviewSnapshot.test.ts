@@ -126,7 +126,6 @@ function stateAtRevision(revision: number): CompleteWeeklyReviewState {
     riskPolicyVersions: [policy(revision)],
     monthlyRiskLimits: [monthlyLimit(revision)],
     riskOverrideEvents: [overrideEvent(revision)],
-    liveStatsStartTradingDayKey: null,
     profile: { legacyCashCurrencyAssumption: null },
     display: { tradingDayStartHour: 0 },
   }
@@ -352,9 +351,8 @@ export function testLossAfterReviewCompletionRemainsUnknown(): void {
   )
 }
 
-export function testWeeklyReviewSeparatesPerformanceEvidenceFromStageRiskStart(): void {
+export function testWeeklyReviewUsesStageOwnershipWithoutDateBasedMembership(): void {
   const state = stateAtRevision(7)
-  state.liveStatsStartTradingDayKey = '2026-07-20'
   state.liveStages[0] = { ...state.liveStages[0]!, startsOn: '2026-07-21' }
   state.trades = [
     { ...trade(7), id: 'old', openedAt: '2026-07-20T08:00:00.000Z' },
@@ -363,8 +361,8 @@ export function testWeeklyReviewSeparatesPerformanceEvidenceFromStageRiskStart()
 
   const completed = completeWeeklyReviewCandidate(state, 'review-1').review
 
-  assert(completed.metricsSnapshot?.tradeCount === 2, '阶段风险起点不得截断周复盘事实与绩效')
-  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 1, '风险快照必须只核算阶段起点后的交易')
+  assert(completed.metricsSnapshot?.tradeCount === 2, '阶段日期不得截断周复盘事实与绩效')
+  assert(completed.riskSnapshot?.weeklyOutcome.includedTradeCount === 2, '风险快照必须按稳定阶段归属核算交易')
 }
 
 export function testWeeklyReviewEvidenceStoresOnlyDisplayFacts(): void {

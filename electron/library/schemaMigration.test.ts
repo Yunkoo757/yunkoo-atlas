@@ -87,6 +87,7 @@ async function createV9LibraryFixture(): Promise<V8LibraryFixture> {
   const db = new SQL.Database(fs.readFileSync(dbFile))
   try {
     const snapshot = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
+    stripV12StageFields(snapshot)
     delete snapshot.livePerformanceCycles
     db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
     db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '9') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
@@ -154,6 +155,11 @@ async function createV11LibraryFixture(options: {
   try {
     const snapshot = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
     stripV12StageFields(snapshot)
+    snapshot.liveStatsStartTradingDayKey = '2026-07-01'
+    snapshot.livePerformanceCycles = [
+      { id: 'legacy-first', name: '第一阶段', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' },
+      { id: 'legacy-second', name: '第二阶段', startTradingDayKey: '2026-07-15', createdAt: '2026-07-15T00:00:00.000Z' },
+    ]
     if (options.withoutLegacyBoundary) {
       snapshot.liveStatsStartTradingDayKey = null
       snapshot.livePerformanceCycles = []
@@ -301,17 +307,15 @@ export async function testNormalV10OpenAddsNullCurrencyAssumptionWithoutChanging
   } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
 }
 
-export async function testNormalV9OpenMigratesCyclesAndDirectLegacySaveRemainsReadable(): Promise<void> {
+export async function testNormalV9OpenMigratesCanonicalStageGraph(): Promise<void> {
   const library = await createV9LibraryFixture()
   try {
     const storage = new LibraryStorage(library.path, { allowCreate: false })
     await storage.open()
     const migrated = storage.loadSnapshot()!
-    assert(migrated.livePerformanceCycles?.length === 0, 'v9 打开必须迁移为空周期')
-    const legacy = { ...migrated } as Record<string, unknown>
-    delete legacy.livePerformanceCycles
-    storage.saveSnapshot(legacy as unknown as typeof migrated)
-    assert(storage.loadSnapshot()?.livePerformanceCycles?.length === 0, '直接保存旧形状后必须仍可读取')
+    assert(migrated.liveStages.length > 0, 'v9 打开必须迁移为原生阶段图')
+    assert(migrated.liveStages.some((stage) => stage.id === migrated.currentLiveStageId), 'v9 迁移后的当前阶段指针必须有效')
+    assert(migrated.liveStages.filter((stage) => stage.status === 'current').length === 1, 'v9 迁移后必须只有一个当前阶段')
     storage.release()
   } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
 }

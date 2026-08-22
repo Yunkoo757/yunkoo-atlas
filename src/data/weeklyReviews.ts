@@ -10,10 +10,13 @@ import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
 import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
-import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 import type { LiveStage } from '@/lib/liveStages'
 import type { LegacyCashCurrencyAssumption, UserProfile } from '@/storage/types'
-import { buildPerformanceSelection, type PerformanceSelection } from '@/lib/performanceSelection'
+import {
+  buildPerformanceSelection,
+  type PerformanceDateBounds,
+  type PerformanceSelection,
+} from '@/lib/performanceSelection'
 
 export type WeeklyReviewStatus = 'draft' | 'completed'
 export type WeeklyCommitmentResult = 'done' | 'partial' | 'missed' | 'not-applicable'
@@ -110,7 +113,6 @@ export interface CompleteWeeklyReviewState {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
-  liveStatsStartTradingDayKey: string | null
   profile: Pick<UserProfile, 'legacyCashCurrencyAssumption'>
   display: { tradingDayStartHour: number }
 }
@@ -216,7 +218,6 @@ export function buildWeeklyReviewTradeSelection(
   const weekEnd = weekEndFor(weekStart)
   const selection = buildPerformanceSelection(trades, {
     scope: { kind: 'live', range: 'all' },
-    liveScope: null,
     anchor: {
       now: parseLocalDate(currentTradingDayKey),
       tradingDayStartHour,
@@ -250,7 +251,7 @@ export function missedTradesInWeek(
   trades: Trade[],
   weekStart: string,
   tradingDayStartHour = 0,
-  performanceBounds: LivePerformanceCycleBounds | null = null,
+  performanceBounds: PerformanceDateBounds | null = null,
   currentTradingDayKey = weekEndFor(weekStart),
 ): Trade[] {
   const weekEnd = weekEndFor(weekStart)
@@ -293,7 +294,6 @@ export function deriveWeeklyReviewWeeks(
   const limit = Math.max(0, Math.trunc(activityLimit))
   const selection = buildPerformanceSelection(trades, {
     scope: { kind: 'live', range: 'all' },
-    liveScope: null,
     anchor: {
       now: parseLocalDate(currentTradingDayKey),
       tradingDayStartHour,

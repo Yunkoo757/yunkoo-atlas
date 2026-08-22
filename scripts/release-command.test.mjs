@@ -99,6 +99,8 @@ test('发布候选先认证精确 SHA，tag 流水线只做双平台安全构建
   const certification = workflowJob(workflow, 'certification')
   const windows = workflowJob(workflow, 'build-windows')
   const macos = workflowJob(workflow, 'build-macos')
+  const platformEvidence = readFileSync('.github/workflows/forced-kill-evidence.yml', 'utf8')
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 
   assert.match(workflow, /permissions:\s*\r?\n\s+contents:\s*read/)
   assert.match(candidate, /workflow_dispatch:/)
@@ -118,6 +120,13 @@ test('发布候选先认证精确 SHA，tag 流水线只做双平台安全构建
   assert.match(macos, /pnpm qa:electron/)
   assert(macos.indexOf('pnpm build:app') < macos.indexOf('pnpm qa:electron'))
   assert.match(macos, /pnpm test:asset-lifecycle:electron/)
+  assert.match(windows, /pnpm test:live-stage:desktop/)
+  assert.match(macos, /pnpm test:live-stage:desktop/)
+  assert.match(platformEvidence, /pnpm test:live-stage:desktop/)
+  assert.equal(
+    pkg.scripts['test:live-stage:desktop'],
+    'node scripts/run-regression-tests.mjs --unit-only electron/library/schemaMigration.test.ts electron/library/stageRolloverCommit.test.ts src/lib/librarySwitchRace.test.ts',
+  )
   assert.match(windows, /pnpm test:forced-kill:electron/)
   assert.match(macos, /pnpm test:forced-kill:electron/)
   assert.match(windows, /pnpm test:asset-lifecycle:electron/)

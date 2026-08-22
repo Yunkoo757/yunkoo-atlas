@@ -292,12 +292,8 @@ export async function testSuccessfulCommitOrderAndAuthoritativePublishState(): P
   assert(result.publish.liveStages.length === saved.liveStages.length, 'publish stages must come from durable candidate')
   assert(result.publish.scheduledStageRollover === null, 'successful publish must clear the schedule')
   assert(
-    result.publish.liveStatsStartTradingDayKey === saved.liveStatsStartTradingDayKey,
-    'publish state must include the durable compatibility start key',
-  )
-  assert(
-    result.publish.livePerformanceCycles[0]?.id === saved.livePerformanceCycles?.[0]?.id,
-    'publish state must include the durable compatibility cycle mirror',
+    result.publish.liveStages.find((stage) => stage.id === result.publish.currentLiveStageId)?.status === 'current',
+    'publish state must expose the durable canonical current stage',
   )
 }
 
@@ -393,3 +389,5 @@ export function testTypedBridgeCarriesIntentWithoutSnapshotOrClock(): void {
   assert(!preload.includes('stage:createBackup'), 'renderer must not receive a stage backup primitive')
   assert(!preload.includes('stage:verifyBackup'), 'renderer must not receive a stage verification primitive')
 }
+
+// Quality-Scenario: LS-ROLLOVER-ATOMIC

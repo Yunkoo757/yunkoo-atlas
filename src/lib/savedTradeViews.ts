@@ -1,6 +1,5 @@
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 
 export type TradeViewScopeMode = 'current' | 'archive'
 
@@ -64,11 +63,6 @@ const TRADE_KIND_LABELS: Record<string, string> = {
   paper: '模拟',
 }
 
-const LIVE_CYCLE_LABELS: Record<string, string> = {
-  current: '当前周期',
-  'pre-cycle': '规则前',
-}
-
 const ENUM_FACET_VALUES: Record<string, readonly string[]> = {
   tradeKind: Object.keys(TRADE_KIND_LABELS),
   side: ['long', 'short'],
@@ -78,7 +72,6 @@ const ENUM_FACET_VALUES: Record<string, readonly string[]> = {
   masteryState: Object.keys(MASTERY_LABELS),
   session: Object.keys(SESSION_LABELS),
   period: CALENDAR_PERIODS,
-  liveCycle: Object.keys(LIVE_CYCLE_LABELS),
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -88,8 +81,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** 清理已知单选 facet，保留 symbol/tag/source 等自由文本或未来参数。 */
 export function canonicalizeTradeViewSearch(
   search: string | URLSearchParams | Record<string, string>,
-  cycles?: readonly LivePerformanceCycle[],
-  options: TradeViewCanonicalizationOptions = {},
+  _legacyContext?: unknown,
+  _options: TradeViewCanonicalizationOptions = {},
 ): URLSearchParams {
   const params = new URLSearchParams(
     search instanceof URLSearchParams ? search.toString() : search,
@@ -105,27 +98,8 @@ export function canonicalizeTradeViewSearch(
   }
   // liveCycle 是旧风险核算筛选，不得继续参与实盘归档保存视图。
   params.delete('liveCycle')
-  const rawStatsCycle = params.get('statsCycle')
-  const statsCycle = rawStatsCycle?.trim() ?? ''
-  if (rawStatsCycle !== null) {
-    // 显式绩效周期始终优先，避免失效 ID 清理后意外启用风险周期。
-    const current = cycles?.at(-1)?.id === statsCycle || statsCycle === 'current'
-    if (!statsCycle || current || options.mode === 'current') params.delete('statsCycle')
-    else if (rawStatsCycle !== statsCycle || params.getAll('statsCycle').length > 1) {
-      params.set('statsCycle', statsCycle)
-    }
-  }
+  params.delete('statsCycle')
   return params
-}
-
-export function resolveTradeViewPerformanceCycleLabel(
-  search: string | URLSearchParams | Record<string, string>,
-  cycles: readonly LivePerformanceCycle[],
-): string | null {
-  const statsCycle = canonicalizeTradeViewSearch(search, cycles).get('statsCycle')
-  if (statsCycle === 'pre-cycle') return '早期实盘记录'
-  const cycle = cycles.find((candidate) => candidate.id === statsCycle)
-  return cycle ? `实盘归档：${cycle.name}` : null
 }
 
 export function normalizeSavedViewPath(pathname: string): string {
@@ -158,42 +132,26 @@ function normalizeSearch(search: unknown): Record<string, string> {
 
 export function searchParamsToRecord(
   searchParams: URLSearchParams,
-  cycles?: readonly LivePerformanceCycle[],
+  _legacyContext?: unknown,
 ): Record<string, string> {
   return Object.fromEntries(
-    [...canonicalizeTradeViewSearch(searchParams, cycles).entries()]
+    [...canonicalizeTradeViewSearch(searchParams).entries()]
       .filter(([key, value]) => Boolean(key.trim()) && Boolean(value.trim()))
       .sort(([left], [right]) => left.localeCompare(right)),
   )
 }
 
-function isLegacyDynamicCurrentSavedView(
-  view: SavedTradeView,
-  cycles: readonly LivePerformanceCycle[] | undefined,
-): boolean {
-  if (!cycles?.length) return false
-  const requested = new URLSearchParams(view.search).get('statsCycle')?.trim()
-  if (!requested) return false
-  const currentWhenSaved = cycles
-    .filter((cycle) => cycle.createdAt <= view.updatedAt)
-    .at(-1)
-  return currentWhenSaved?.id === requested
-}
-
 function canonicalizeSavedViewSearch(
   view: SavedTradeView,
-  cycles?: readonly LivePerformanceCycle[],
 ): URLSearchParams {
-  const params = canonicalizeTradeViewSearch(view.search, cycles)
-  if (isLegacyDynamicCurrentSavedView(view, cycles)) params.delete('statsCycle')
-  return params
+  return canonicalizeTradeViewSearch(view.search)
 }
 
 export function savedViewSearch(
   view: SavedTradeView,
-  cycles?: readonly LivePerformanceCycle[],
+  _legacyContext?: unknown,
 ): string {
-  const search = canonicalizeSavedViewSearch(view, cycles).toString()
+  const search = canonicalizeSavedViewSearch(view).toString()
   return search ? `?${search}` : ''
 }
 
@@ -241,22 +199,13 @@ export function savedViewMatchesLocation(
   view: SavedTradeView,
   pathname: string,
   search: string | URLSearchParams,
-  cycles?: readonly LivePerformanceCycle[],
+  _legacyContext?: unknown,
 ): boolean {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
-  const requestedStatsCycle = new URLSearchParams(view.search).get('statsCycle')
-  if (
-    cycles !== undefined &&
-    requestedStatsCycle !== null &&
-    resolveTradeViewPerformanceCycleLabel(view.search, cycles) === null &&
-    !isLegacyDynamicCurrentSavedView(view, cycles)
-  ) {
-    return false
-  }
   return (
     normalizeSavedViewPath(view.pathname) === normalizeSavedViewPath(pathname) &&
-    new URLSearchParams(searchParamsToRecord(canonicalizeSavedViewSearch(view, cycles), cycles)).toString() ===
-      new URLSearchParams(searchParamsToRecord(params, cycles)).toString()
+    new URLSearchParams(searchParamsToRecord(canonicalizeSavedViewSearch(view))).toString() ===
+      new URLSearchParams(searchParamsToRecord(params)).toString()
   )
 }
 
@@ -292,7 +241,6 @@ export function suggestSavedViewName(
   const caseType = canonical.get('caseType')
   const masteryState = canonical.get('masteryState')
   const tradeKind = canonical.get('tradeKind')
-  const liveCycle = canonical.get('liveCycle')
   if (period) {
     labels.push(PERIOD_LABELS[period as keyof typeof PERIOD_LABELS] ?? period)
   }
@@ -302,7 +250,6 @@ export function suggestSavedViewName(
   if (caseType) labels.push(CASE_TYPE_LABELS[caseType] ?? caseType)
   if (masteryState) labels.push(MASTERY_LABELS[masteryState] ?? masteryState)
   if (tradeKind) labels.push(TRADE_KIND_LABELS[tradeKind] ?? tradeKind)
-  if (liveCycle) labels.push(LIVE_CYCLE_LABELS[liveCycle] ?? liveCycle)
   if (session) labels.push(SESSION_LABELS[session] ?? session)
   for (const key of ['symbol', 'side', 'tag', 'mistakeTag']) {
     const value = canonical.get(key)

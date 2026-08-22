@@ -244,7 +244,6 @@ export function useSidebarNavigationModel() {
       filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId }),
       businessDateAnchor.currentTradingDayKey,
       display.tradingDayStartHour,
-      null,
     ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),

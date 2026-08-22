@@ -11,7 +11,7 @@ function LocationProbe() {
 }
 
 const archivedTrade: Trade = {
-  id: 'keyboard-archive-trade', ref: 'TRD-KEYBOARD-ARCHIVE', symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'keyboard', tradeKind: 'live', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, rMultiple: 1, resultSource: 'imported', openedAt: '2026-01-15', closedAt: '2026-01-15', closedTradingDayKey: '2026-01-15', note: '',
+  id: 'keyboard-archive-trade', ref: 'TRD-KEYBOARD-ARCHIVE', symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium', strategyId: 'keyboard', tradeKind: 'live', liveStageId: 'keyboard-archive', tags: [], mistakeTags: [], reviewStatus: 'reviewed', reviewCategory: 'normal', entry: 100, exit: 110, size: 1, pnl: 100, rMultiple: 1, resultSource: 'imported', openedAt: '2026-01-15', closedAt: '2026-01-15', closedTradingDayKey: '2026-01-15', note: '',
 }
 
 const archivedCase: Trade = {
@@ -27,10 +27,11 @@ const archivedCase: Trade = {
 
 useStore.setState({
   trades: [archivedTrade, archivedCase],
-  livePerformanceCycles: [
-    { id: 'keyboard-archive', name: '实盘-2026-01-01', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' },
-    { id: 'keyboard-current', name: '实盘-2026-02-01', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' },
+  liveStages: [
+    { id: 'keyboard-archive', sequence: 1, name: '实盘-2026-01-01', status: 'archived', startsOn: '2026-01-01', endsOn: '2026-01-31', createdAt: '2026-01-01T00:00:00.000Z', archivedAt: '2026-02-01T00:00:00.000Z' },
+    { id: 'keyboard-current', sequence: 2, name: '实盘-2026-02-01', status: 'current', startsOn: '2026-02-01', endsOn: null, createdAt: '2026-02-01T00:00:00.000Z', archivedAt: null },
   ],
+  currentLiveStageId: 'keyboard-current',
 })
 
 const root = document.getElementById('root')

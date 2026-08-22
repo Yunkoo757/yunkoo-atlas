@@ -74,7 +74,6 @@ function restore(previous: ReturnType<typeof useStore.getState>): void {
     riskPolicyVersions: previous.riskPolicyVersions,
     monthlyRiskLimits: previous.monthlyRiskLimits,
     riskOverrideEvents: previous.riskOverrideEvents,
-    liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
     pendingTradeOpenRequest: previous.pendingTradeOpenRequest,
     riskSetupTradeOpenRequest: previous.riskSetupTradeOpenRequest,
     undoStack: previous.undoStack,

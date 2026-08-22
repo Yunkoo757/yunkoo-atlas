@@ -8,7 +8,6 @@ import type {
 } from '@/data/trades'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
@@ -207,9 +206,6 @@ type WorkbenchTradeDerivationOptions = {
   display: DisplayPrefs
   search: string | URLSearchParams
   businessDateAnchor?: BusinessDateAnchor
-  /** Task 12 前保留输入兼容；阶段投影不得消费这两个旧字段。 */
-  liveStatsStartTradingDayKey?: string | null
-  livePerformanceCycles?: readonly LivePerformanceCycle[]
   stageScope?: StageScope
 }
 
@@ -291,9 +287,6 @@ export function countWorkbenchVisibleTrades(options: {
   display: DisplayPrefs
   search: string | URLSearchParams
   businessDateAnchor?: BusinessDateAnchor
-  /** Task 12 前保留输入兼容；阶段投影不得消费这两个旧字段。 */
-  liveStatsStartTradingDayKey?: string | null
-  livePerformanceCycles?: readonly LivePerformanceCycle[]
   stageScope?: StageScope
 }): number {
   const parsedFacets = parseTradeFacets(options.search)

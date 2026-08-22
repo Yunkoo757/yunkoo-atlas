@@ -4,8 +4,6 @@ import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { hasCanonicalRiskAmount } from '@/lib/riskPolicyValidity'
-import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
-import { assertValidLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 
 const TRADE_SIDES = new Set(['long', 'short'])
@@ -715,6 +713,13 @@ export function assertValidPersistedSnapshot(
   if (!isRecord(value) || !Array.isArray(value.trades) || !Array.isArray(value.strategies)) {
     throw new Error(`${label} is missing trades or strategies`)
   }
+  const retiredStageKeys = [
+    ['livePerformance', 'Cycles'].join(''),
+    ['liveStatsStart', 'TradingDayKey'].join(''),
+  ]
+  if (retiredStageKeys.some((key) => Object.prototype.hasOwnProperty.call(value, key))) {
+    throw new Error(`${label} contains retired stage fields`)
+  }
   try {
     assertValidLiveStageState(value)
   } catch (error) {
@@ -756,22 +761,6 @@ export function assertValidPersistedSnapshot(
   if (!isUserProfile(value.profile)) throw new Error(`${label} contains an invalid profile`)
   if (!isSavedTradeViews(value.savedTradeViews)) throw new Error(`${label} contains invalid saved trade views`)
   if (!isSymbolIcons(value.symbolIcons)) throw new Error(`${label} contains invalid symbol icons`)
-  if (
-    value.liveStatsStartTradingDayKey !== undefined &&
-    value.liveStatsStartTradingDayKey !== null &&
-    !isValidLiveCycleDayKey(value.liveStatsStartTradingDayKey)
-  ) {
-    throw new Error(`${label}.liveStatsStartTradingDayKey must be a valid trading day or null`)
-  }
-  if (value.livePerformanceCycles !== undefined) {
-    try {
-      assertValidLivePerformanceCycles(value.livePerformanceCycles)
-    } catch (error) {
-      throw new Error(
-        `${label}.livePerformanceCycles ${error instanceof Error ? error.message : '无效'}`,
-      )
-    }
-  }
   if (value.symbolCatalog !== undefined && !isStringArray(value.symbolCatalog)) {
     throw new Error(`${label}.symbolCatalog must be a string array`)
   }

@@ -2,18 +2,20 @@ import type { Trade } from '@/data/trades'
 import type { AnalysisRange, AnalysisScope } from '@/lib/analysisScope'
 import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
 import { formatYmd, getPeriodBounds, parseLocalDate, type BusinessDateAnchor } from '@/lib/periods'
-import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
-import { writeTradeListPerformanceCycle } from '@/lib/livePerformanceCycleRoute'
-import { LIVE_PERFORMANCE_CYCLE_RESERVED_IDS } from '@/lib/livePerformanceCycles'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { resolveTradeCashCurrencyFact } from '@/lib/cashCurrency'
 
 export const PERFORMANCE_REPORT_CURRENCY = 'USD'
+
+export type PerformanceDateBounds = {
+  startInclusive: string | null
+  endExclusive: string | null
+}
 
 type CloseDayResolution =
   | { kind: 'valid', day: string }
@@ -22,7 +24,8 @@ type CloseDayResolution =
 
 export type PerformanceSelectionInput = {
   scope: AnalysisScope
-  liveScope: LiveArchiveScope | null
+  /** 可选的展示/绩效日期窗口；实体归属必须在调用前按 liveStageId 选择。 */
+  dateBounds?: PerformanceDateBounds | null
   anchor: BusinessDateAnchor
   legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
   /** 仅供非路由统计面使用；不会序列化到 drilldownTarget。 */
@@ -78,16 +81,9 @@ function matchesKind(trade: Trade, scope: AnalysisScope): boolean {
   return scope.kind === 'all' || trade.tradeKind === scope.kind
 }
 
-function matchesLiveScope(trade: Trade, liveScope: LiveArchiveScope | null, day: string): boolean {
-  if (trade.tradeKind !== 'live' || liveScope === null) return true
-  if (liveScope.kind === 'pending') return false
-  if (liveScope.kind === 'all-archives') {
-    return liveScope.bounds?.startInclusive !== null
-      && liveScope.bounds?.startInclusive !== undefined
-      && day < liveScope.bounds.startInclusive
-  }
-  if (liveScope.bounds === null) return liveScope.kind === 'current'
-  const { startInclusive, endExclusive } = liveScope.bounds
+function matchesDateBounds(bounds: PerformanceDateBounds | null | undefined, day: string): boolean {
+  if (!bounds) return true
+  const { startInclusive, endExclusive } = bounds
   return (startInclusive === null || day >= startInclusive)
     && (endExclusive === null || day < endExclusive)
 }
@@ -127,7 +123,7 @@ export function buildPerformanceSelection(
       continue
     }
     if (!matchesKind(trade, input.scope)) continue
-    if (!matchesLiveScope(trade, input.liveScope, closeDay.day)) continue
+    if (trade.tradeKind === 'live' && !matchesDateBounds(input.dateBounds, closeDay.day)) continue
     if (naturalStart !== null && closeDay.day < naturalStart) continue
 
     const truth = resolveTradeTruth(trade)
@@ -156,16 +152,7 @@ export function buildPerformanceSelection(
     if (currency === PERFORMANCE_REPORT_CURRENCY) pnlIds.push(trade.id)
   }
 
-  const archiveKey = input.scope.kind === 'paper'
-    ? null
-    : input.liveScope?.missingRequestedKey
-      ?? (input.liveScope?.kind === 'archive' ? input.liveScope.archiveId : null)
-      ?? (input.liveScope?.kind === 'all-archives' ? LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all : null)
-      ?? (input.liveScope?.kind === 'pending' ? 'pending' : null)
-  const query = writeTradeListPerformanceCycle(
-    writeAnalysisScope('', input.scope),
-    archiveKey,
-  ).toString()
+  const query = writeAnalysisScope('', input.scope).toString()
   const excludedCurrencyCounts = [...currencyGroups]
     .filter(([currency]) => currency !== PERFORMANCE_REPORT_CURRENCY)
     .map(([currency, ids]) => ({ currency, count: ids.length }))

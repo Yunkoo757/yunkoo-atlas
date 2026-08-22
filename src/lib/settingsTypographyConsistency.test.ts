@@ -40,7 +40,6 @@ export function testSettingsDescriptionsUseMetadataWithoutFlatteningImportantVal
   const display = read('src/views/settings/DisplaySettingsPanel.css')
   const tags = read('src/views/settings/TagPresetsPanel.css')
   const data = read('src/components/DataIOContent.css')
-  const liveCycle = read('src/components/LiveCycleSettings.css')
 
   expectRole(display, '.display-section-head p', 'font-size: var(--type-metadata-size)')
   expectRole(display, '.display-section-head p', 'line-height: var(--type-metadata-line-height)')
@@ -48,7 +47,6 @@ export function testSettingsDescriptionsUseMetadataWithoutFlatteningImportantVal
   expectRole(tags, '.tag-section-desc', 'line-height: var(--type-metadata-line-height)')
   expectRole(data, '.dio-desc', 'font-size: var(--type-metadata-size)')
   expectRole(data, '.dio-group-desc', 'font-size: var(--type-metadata-size)')
-  expectRole(liveCycle, '.live-cycle-settings-copy p,\n.live-cycle-prompt p', 'font-size: var(--type-metadata-size)')
 
   expectRole(data, '.health-value', 'font-size: var(--type-body-size)')
   expectRole(data, '.dio-restore-warning', 'font-size: var(--type-body-size)')

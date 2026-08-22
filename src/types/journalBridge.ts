@@ -5,7 +5,6 @@ import type { WindowSizePresetId } from '@/lib/windowBounds'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import type { PhysicalAssetRecord } from '@/storage/adapter'
 import type { AssetPurgePreview, AssetPurgeRecovery, AssetPurgeResult } from '@/storage/adapter'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 
 export interface BackupInfo {
@@ -42,8 +41,6 @@ export interface StageRolloverPublishState {
   liveStages: LiveStage[]
   currentLiveStageId: string
   scheduledStageRollover: null
-  liveStatsStartTradingDayKey: string
-  livePerformanceCycles: LivePerformanceCycle[]
 }
 
 export type StageRolloverCommitResult =

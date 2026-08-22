@@ -134,7 +134,7 @@ try {
     throw new Error(`无法建立最后确认 revision：${seed.stderr}`)
   }
   const seeded = seed.messages.find((message) => message?.type === 'seeded')
-  const expectedLivePerformanceCycleIds = seeded?.livePerformanceCycleIds ?? []
+  const expectedLiveStageIds = seeded?.liveStageIds ?? []
   const expectedSnapshotRevision = seeded?.snapshotRevision ?? null
 
   let tempFileObserved = null
@@ -185,7 +185,7 @@ try {
   if (verify.code !== 0 || !verified) throw new Error(`强杀后无法重新打开资料库：${verify.stderr}`)
   const lastConfirmedRecovered = verified.displayName === 'confirmed-revision-1'
   const unconfirmedAbsent = verified.displayName !== 'unconfirmed-revision-2'
-  const livePerformanceCycleIdsRecovered = JSON.stringify(verified.livePerformanceCycleIds) === JSON.stringify(expectedLivePerformanceCycleIds)
+  const liveStageIdsRecovered = JSON.stringify(verified.liveStageIds) === JSON.stringify(expectedLiveStageIds)
   const currentTradeIdsRecovered = verified.currentTradeIds?.includes('trade-contract') === true
   const archiveTradeIdsRecovered = verified.archiveTradeIds?.includes('trade-archive-contract') === true
   const snapshotRevisionRecovered = verified.snapshotRevision === expectedSnapshotRevision
@@ -203,6 +203,7 @@ try {
   const report = {
     version: 1,
     scenarioId: 'E-FORCED-KILL',
+    schemaVersion: SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     platform: process.platform,
     release: os.release(),
@@ -235,11 +236,11 @@ try {
       unconfirmedPendingRevisionAbsent: unconfirmedAbsent,
       snapshotRevision: verified.snapshotRevision,
       expectedSnapshotRevision,
-      livePerformanceCycleIds: verified.livePerformanceCycleIds,
-      expectedLivePerformanceCycleIds,
+      liveStageIds: verified.liveStageIds,
+      expectedLiveStageIds,
       currentTradeIds: verified.currentTradeIds,
       archiveTradeIds: verified.archiveTradeIds,
-      liveArchiveScopeRecovered: livePerformanceCycleIdsRecovered && currentTradeIdsRecovered && archiveTradeIdsRecovered,
+      liveArchiveScopeRecovered: liveStageIdsRecovered && currentTradeIdsRecovered && archiveTradeIdsRecovered,
       snapshotRevisionRecovered,
     },
     schemaMigration,
@@ -247,7 +248,7 @@ try {
       saveStartingMessage?.processId === crash.pid &&
       typeof saveStartingMessage?.electronVersion === 'string' && saveStartingMessage.electronVersion.length > 0 &&
       killSignalSent && crash.signal === 'SIGKILL' && crash.code === null &&
-      lastConfirmedRecovered && unconfirmedAbsent && livePerformanceCycleIdsRecovered &&
+      lastConfirmedRecovered && unconfirmedAbsent && liveStageIdsRecovered &&
       currentTradeIdsRecovered && archiveTradeIdsRecovered && snapshotRevisionRecovered &&
       schemaMigrationRecovered ? 'pass' : 'fail',
   }

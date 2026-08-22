@@ -127,6 +127,9 @@ jobs:
       - name: Build production Electron application
         run: pnpm build:app
 
+      - name: Run schema migration, stage rollover, and library switching evidence
+        run: pnpm test:live-stage:desktop
+
       - name: Run forced-kill process evidence
         run: pnpm test:forced-kill:electron
 

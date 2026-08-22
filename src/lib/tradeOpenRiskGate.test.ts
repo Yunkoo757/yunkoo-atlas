@@ -483,13 +483,14 @@ export function testDomainOpenCandidateNeverCreatesUndoRedoEntries(): void {
   assert(opened.state.redoStack === state.redoStack, '首次 open 领域命令不得创建可绕过 Gate 的 Redo')
 }
 
-export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClosed(): void {
+export function testRiskGateExcludesArchivedStageLossButKeepsCurrentUnknownFailClosed(): void {
   const state = {
     ...triggeredState('planned'),
     trades: [
       trade('target', 'planned'),
       {
         ...trade('old-loss', 'loss', -2_000),
+        liveStageId: 'stage-archived',
         openedAt: '2026-07-26',
         closedAt: '2026-07-27T09:00:00.000Z',
         closedTradingDayKey: '2026-07-27',
@@ -500,12 +501,13 @@ export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClose
   }
 
   const below = requestTradeOpenCandidate(state, 'target')
-  assert(below.kind === 'opened' && below.decision === 'below', '起点前开仓的旧亏损不得触发当前 Gate')
+  assert(below.kind === 'opened' && below.decision === 'below', '归档阶段旧亏损不得触发当前 Gate')
 
   const boundaryUnknown = requestTradeOpenCandidate({
     ...state,
     trades: state.trades.map((item) => item.id === 'old-loss' ? {
       ...item,
+      liveStageId: 'stage-current',
       openedAt: '2026-07-27',
       pnl: null,
       resultSource: 'r' as const,
@@ -514,7 +516,7 @@ export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClose
   }, 'target')
   assert(
     boundaryUnknown.kind === 'confirmation-required' && boundaryUnknown.request.decisionType === 'unknown',
-    '起点日开仓的未知亏损必须继续 fail-closed',
+    '当前阶段未知亏损必须继续 fail-closed',
   )
 }
 

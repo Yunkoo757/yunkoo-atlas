@@ -104,8 +104,6 @@ import {
   savedViewMatchesLocation,
   suggestSavedViewName,
 } from '@/lib/savedTradeViews'
-import { resolveTradeListPerformanceCycleRoute } from '@/lib/livePerformanceCycleRoute'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import {
   filterTradesByFacets,
   getReviewCaseActivityTime,
@@ -900,6 +898,7 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
   ]
   const display = { ...DEFAULT_DISPLAY, sidebarWorkspaceItems: rawItems }
   const exported = await buildExportPayloadFromState({
+    ...nativeStageState(),
     trades: [],
     strategies: [strategy],
     starredIds: [],
@@ -913,6 +912,7 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
   if (!parsed.ok) return
 
   const merged = mergeImportPayload({
+    ...nativeStageState(),
     trades: [],
     strategies: [],
     starredIds: [],
@@ -953,6 +953,7 @@ export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
     { id: 'active', target: { kind: 'system', id: 'favorites' }, placement: 'pinned', order: 101 },
   ] as SidebarWorkspaceItem[]
   const merged = mergeImportPayload({
+    ...nativeStageState(),
     trades: [],
     strategies: [],
     starredIds: [],
@@ -1272,8 +1273,6 @@ export function testLiveWorkbenchAndSidebarCountsUseCurrentArchiveByDefault(): v
     trades,
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
-    liveStatsStartTradingDayKey: '2026-07-27',
-    livePerformanceCycles: [{ id: 'current', name: '当前', startTradingDayKey: '2026-07-27', createdAt: '2026-07-27T00:00:00.000Z' }],
     currentLiveStageId: 'stage-current',
   }
   const live = getWorkbenchVisibleTrades({
@@ -1317,12 +1316,22 @@ export function testLegacyCycleQueryCannotOverrideExplicitCurrentStageScope(): v
     filter: { type: 'all', tradeKind: 'live' } as const,
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
-    livePerformanceCycles: [{ id: 'legacy', name: '旧周期', startTradingDayKey: '2099-01-01', createdAt: '2099-01-01T00:00:00.000Z' }],
     stageScope: { kind: 'current' as const, stageId: 'stage-current' },
   }
   for (const requested of ['all', 'pre-cycle', 'missing']) {
     const derived = deriveWorkbenchVisibleTrades({ ...options, search: `?statsCycle=${requested}` })
     assert(derived.visible.map((item) => item.id).join() === 'current-live', `${requested} 不得覆盖显式 current stage`)
+  }
+}
+
+function nativeStageState() {
+  return {
+    liveStages: [{
+      id: 'stage-current', sequence: 1, name: '当前阶段', status: 'current' as const,
+      startsOn: '2026-01-01', endsOn: null, createdAt: '2026-01-01T00:00:00.000Z', archivedAt: null,
+    }],
+    currentLiveStageId: 'stage-current',
+    scheduledStageRollover: null,
   }
 }
 
@@ -1334,7 +1343,6 @@ export function testPendingWorkbenchScopeOnlyIncludesNullOwnership(): void {
     filter: { type: 'all', tradeKind: 'live' },
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
-    livePerformanceCycles: [],
     search: '?statsCycle=pending',
     stageScope: { kind: 'pending' },
   })
@@ -1342,10 +1350,6 @@ export function testPendingWorkbenchScopeOnlyIncludesNullOwnership(): void {
 }
 
 export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChanged(): void {
-  const cycles: LivePerformanceCycle[] = [
-    { id: 'archive', name: '历史', startTradingDayKey: '2026-01-01', createdAt: '2026-01-01T00:00:00.000Z' },
-    { id: 'current', name: '当前', startTradingDayKey: '2026-02-01', createdAt: '2026-02-01T00:00:00.000Z' },
-  ]
   const historical = {
     ...trade,
     id: 'historical-live',
@@ -1379,7 +1383,6 @@ export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChan
     trades: [historical, current, linkedCase, currentCase],
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
-    livePerformanceCycles: cycles,
     search: '',
   }
 
@@ -1398,75 +1401,7 @@ export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChan
   assert(cases.visible.map((item) => item.id).join() === 'historical-case', '历史实盘案例工作台只能显示历史来源案例')
 }
 
-export function testExplicitPerformanceCycleListRoutesStayStableAndClearInvalidIds(): void {
-  const cycles: LivePerformanceCycle[] = [
-    {
-      id: 'first-cycle-id',
-      name: '第一期',
-      startTradingDayKey: '2026-04-01',
-      createdAt: '2026-04-01T00:00:00.000Z',
-    },
-    {
-      id: 'second-cycle-id',
-      name: '第二期',
-      startTradingDayKey: '2026-07-01',
-      createdAt: '2026-07-01T00:00:00.000Z',
-    },
-  ]
-  const selected = resolveTradeListPerformanceCycleRoute(
-    '?statsCycle=second-cycle-id&liveCycle=pre-cycle&symbol=BTCUSDT',
-    cycles,
-    true,
-  )
-  assert(selected.resolved?.cycleId === 'second-cycle-id', '交易列表必须解析显式真实周期 ID')
-  assert(!selected.canonicalSearch.includes('liveCycle'), '统计周期必须优先并移除风险周期')
-  assert(selected.canonicalSearch.includes('symbol=BTCUSDT'), '列表规范化必须保留无关条件')
-
-  const withNewCurrent = resolveTradeListPerformanceCycleRoute(
-    selected.canonicalSearch,
-    [
-      ...cycles,
-      {
-        id: 'third-cycle-id',
-        name: '第三期',
-        startTradingDayKey: '2026-08-01',
-        createdAt: '2026-08-01T00:00:00.000Z',
-      },
-    ],
-    true,
-  )
-  assert(
-    withNewCurrent.resolved?.cycleId === 'second-cycle-id' &&
-      withNewCurrent.canonicalSearch.includes('statsCycle=second-cycle-id'),
-    '新周期创建后既有显式列表 URL 不得漂移到 current',
-  )
-
-  const removed = resolveTradeListPerformanceCycleRoute(
-    selected.canonicalSearch,
-    [cycles[0]!],
-    true,
-  )
-  assert(removed.resolved === null, '失效列表周期不得回退到当前周期')
-  assert(!removed.canonicalSearch.includes('statsCycle'), '失效列表周期必须只清除 statsCycle')
-  assert(removed.canonicalSearch.includes('symbol=BTCUSDT'), '失效周期清理不得丢失无关筛选')
-  assert(removed.needsReplace, '失效周期清理必须使用 replace 规范化')
-}
-
 export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCurrentStage(): void {
-  const cycles: LivePerformanceCycle[] = [
-    {
-      id: 'old-strategy-cycle',
-      name: '策略旧周期',
-      startTradingDayKey: '2026-01-01',
-      createdAt: '2026-01-01T00:00:00.000Z',
-    },
-    {
-      id: 'current-strategy-cycle',
-      name: '策略当前周期',
-      startTradingDayKey: '2026-07-01',
-      createdAt: '2026-07-01T00:00:00.000Z',
-    },
-  ]
   const strategyTrades: Trade[] = [
     {
       ...trade,
@@ -1511,7 +1446,6 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
     trades: strategyTrades,
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
-    livePerformanceCycles: cycles,
   }
   const plain = getWorkbenchVisibleTrades({
     ...context,
@@ -2532,6 +2466,7 @@ export function testMergeImportPayloadKeepsOnlyExplicitPresetData(): void {
   }
   const merged = mergeImportPayload(
     {
+      ...nativeStageState(),
       trades: [],
       strategies: [strategy],
       starredIds: [],
@@ -2811,9 +2746,8 @@ export async function testQuickViewBarHonorsCapabilityVisibility(): Promise<void
   const source = await fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8')
   assert(source.includes('filterViewsBySidebarCapabilities'), '快捷视图应按能力可见范围过滤')
   assert(source.includes('sidebarWorkspaceItems'), '快捷视图应读取侧栏工作区配置')
-  assert(source.includes('state.livePerformanceCycles'), '保存视图必须读取当前归档列表')
-  assert(source.includes('savedViewSearch(view, livePerformanceCycles)'), '恢复保存视图必须按当前归档解析')
-  assert(source.includes('searchParamsToRecord(searchParams, livePerformanceCycles)'), '保存当前视图必须压缩当前归档 ID')
+  assert(source.includes('savedViewSearch(view)'), '恢复保存视图必须使用原生阶段查询边界')
+  assert(source.includes('searchParamsToRecord(searchParams)'), '保存当前视图必须使用原生阶段查询边界')
 }
 
 export function testHideClosedDisplayPrefDoesNotHideReviewCases(): void {

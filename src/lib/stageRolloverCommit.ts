@@ -1,5 +1,4 @@
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import {
   inspectDueStageRollover,
   postponeStageRollover,
@@ -63,30 +62,19 @@ function sameStage(left: LiveStage, right: LiveStage): boolean {
     left.archivedAt === right.archivedAt
 }
 
-function sameCycle(left: LivePerformanceCycle, right: LivePerformanceCycle): boolean {
-  return left.id === right.id &&
-    left.name === right.name &&
-    left.startTradingDayKey === right.startTradingDayKey &&
-    left.createdAt === right.createdAt
-}
-
 function snapshotMatchesPublish(
   snapshot: PersistedSnapshot,
   publish: StageRolloverPublishState,
 ): boolean {
-  const cycles = snapshot.livePerformanceCycles ?? []
   return snapshot.currentLiveStageId === publish.currentLiveStageId &&
     snapshot.scheduledStageRollover === null &&
-    snapshot.liveStatsStartTradingDayKey === publish.liveStatsStartTradingDayKey &&
     snapshot.liveStages.length === publish.liveStages.length &&
-    snapshot.liveStages.every((stage, index) => sameStage(stage, publish.liveStages[index]!)) &&
-    cycles.length === publish.livePerformanceCycles.length &&
-    cycles.every((cycle, index) => sameCycle(cycle, publish.livePerformanceCycles[index]!))
+    snapshot.liveStages.every((stage, index) => sameStage(stage, publish.liveStages[index]!))
 }
 
 /**
  * durable ok 后重新读取完整权威快照，使 renderer 的非阶段字段也与主进程 reload 基线对齐。
- * 五个阶段字段必须与 commit 返回的安全 publish payload 完全一致。
+ * 三个阶段字段必须与 commit 返回的安全 publish payload 完全一致。
  */
 export async function reconcileCommittedStageRollover(
   publish: StageRolloverPublishState,

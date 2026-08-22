@@ -35,7 +35,6 @@ export interface RiskGateCommitState {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
-  liveStatsStartTradingDayKey: string | null
   display: { tradingDayStartHour: number }
 }
 
@@ -150,7 +149,6 @@ function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSna
     riskPolicyVersions: state.riskPolicyVersions,
     monthlyRiskLimits: state.monthlyRiskLimits,
     riskOverrideEvents: state.riskOverrideEvents,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey,
     tradingDayStartHour: state.display.tradingDayStartHour,
   }) === canonicalJson({
     trades: snapshot.trades,
@@ -158,7 +156,6 @@ function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSna
     riskPolicyVersions: snapshot.riskPolicyVersions,
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
     riskOverrideEvents: snapshot.riskOverrideEvents,
-    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
     tradingDayStartHour: snapshot.display.tradingDayStartHour,
   })
 }

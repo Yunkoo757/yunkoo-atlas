@@ -118,7 +118,7 @@ export function TodayWorkspace() {
     [currentLiveStageId, trades],
   )
   const buckets = useMemo(
-    () => getTodayWorkflowBuckets(currentStageTrades, today, tradingDayStartHour, null),
+    () => getTodayWorkflowBuckets(currentStageTrades, today, tradingDayStartHour),
     [currentStageTrades, today, tradingDayStartHour],
   )
   const todayMetrics = useMemo(
@@ -127,7 +127,6 @@ export function TodayWorkspace() {
       today,
       tradingDayStartHour,
       legacyCashCurrencyAssumption,
-      null,
     ),
     [currentStageTrades, today, tradingDayStartHour, legacyCashCurrencyAssumption],
   )

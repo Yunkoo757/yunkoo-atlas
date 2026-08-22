@@ -41,19 +41,6 @@ import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
 import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
-import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
-import {
-  appendLivePerformanceCycle,
-  cloneLivePerformanceCycles,
-  createLiveStatisticsResetEpoch,
-  renameLivePerformanceCycle as renameLivePerformanceCycleInList,
-  undoLatestLivePerformanceCycle as undoLatestLivePerformanceCycleInList,
-  type LivePerformanceCycle,
-} from '@/lib/livePerformanceCycles'
-import {
-  filterLiveLogRecords,
-  resolveLiveArchiveScope,
-} from '@/lib/liveStatisticsArchive'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
   assignWeeklyReviewStage,
@@ -93,48 +80,6 @@ import {
   type RollbackAssignedStageOwnershipRequest,
 } from '@/lib/stageOwnershipRepair'
 
-export type LivePerformanceRestartPreview = {
-  startTradingDayKey: string
-  archivedClosedCount: number
-  currentClosedCount: number
-  activeCount: number
-  pendingCount: number
-  associatedCaseCount: number
-}
-
-/** 在写入新边界前，用同一归属内核生成重新开始统计的确认摘要。 */
-export function buildLivePerformanceRestartPreview(
-  trades: readonly Trade[],
-  _cycles: readonly LivePerformanceCycle[],
-  startTradingDayKey: string,
-  tradingDayStartHour: number,
-): LivePerformanceRestartPreview {
-  const previewCycle: LivePerformanceCycle = {
-    id: '__restart-preview__',
-    name: '统计预览',
-    startTradingDayKey,
-    createdAt: '2026-01-01T00:00:00.000Z',
-  }
-  // 重置采用单边界替换：历史统一进入「重置前」，不再叠加多轮。
-  const nextCycles = [previewCycle]
-  const currentScope = resolveLiveArchiveScope(nextCycles, 'current')
-  const historyScope = resolveLiveArchiveScope(nextCycles, 'all-archives')
-  const pendingScope = resolveLiveArchiveScope(nextCycles, 'pending')
-  const archiveCandidates = filterLiveLogRecords(trades, historyScope, tradingDayStartHour)
-  const currentLogRecords = filterLiveLogRecords(trades, currentScope, tradingDayStartHour)
-  const archivedSourceIds = new Set(archiveCandidates.map((trade) => trade.id))
-
-  return {
-    startTradingDayKey,
-    archivedClosedCount: archiveCandidates.filter((trade) => isExecutedClosed(trade.status)).length,
-    currentClosedCount: currentLogRecords.filter((trade) => isExecutedClosed(trade.status)).length,
-    activeCount: currentLogRecords.filter((trade) => isActive(trade.status)).length,
-    pendingCount: filterLiveLogRecords(trades, pendingScope, tradingDayStartHour).length,
-    associatedCaseCount: trades.filter((trade) =>
-      trade.tradeKind === 'case' && !trade.deletedAt && !!trade.sourceTradeId && archivedSourceIds.has(trade.sourceTradeId),
-    ).length,
-  }
-}
 import {
   applyUndoAction,
   buildUndoAction,
@@ -462,8 +407,6 @@ interface State {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
-  liveStatsStartTradingDayKey: string | null
-  livePerformanceCycles: LivePerformanceCycle[]
   quickNotes: QuickNote[]
   strategies: Strategy[]
   selectedId: string | null
@@ -528,13 +471,6 @@ interface State {
     input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
   ) => void
   ensureRiskPeriodRecords: (tradingDay: string) => void
-  setLiveStatsStartTradingDayKey: (value: string | null) => void
-  replaceLivePerformanceCycles: (cycles: readonly LivePerformanceCycle[]) => void
-  createLivePerformanceCycle: (cycle: LivePerformanceCycle, currentTradingDayKey: string) => void
-  renameLivePerformanceCycle: (id: string, name: string) => void
-  undoLatestLivePerformanceCycle: () => void
-  /** 重置实盘绩效与风险统计：单边界替换 + 风险设置清回默认；不删交易/案例。 */
-  resetLiveStatistics: (startTradingDayKey: string, currentTradingDayKey: string) => void
   scheduleLiveStageRollover: (currentTradingDayKey: string, now: string) => void
   cancelLiveStageRollover: () => void
   renameLiveStage: (id: string, name: string) => boolean
@@ -692,8 +628,6 @@ export const useStore = create<State>()((set, get) => ({
       riskPolicyVersions: [],
       monthlyRiskLimits: [],
       riskOverrideEvents: [],
-      liveStatsStartTradingDayKey: null,
-      livePerformanceCycles: [],
       quickNotes: [],
       strategies: [],
       selectedId: null,
@@ -935,8 +869,6 @@ export const useStore = create<State>()((set, get) => ({
         liveStages: publish.liveStages,
         currentLiveStageId: publish.currentLiveStageId,
         scheduledStageRollover: publish.scheduledStageRollover,
-        liveStatsStartTradingDayKey: publish.liveStatsStartTradingDayKey,
-        livePerformanceCycles: publish.livePerformanceCycles,
         pendingTradeOpenRequest: null,
         riskSetupTradeOpenRequest: null,
       }),
@@ -1292,50 +1224,6 @@ export const useStore = create<State>()((set, get) => ({
           monthlyRiskLimits: s.monthlyRiskLimits,
           riskOverrideEvents: s.riskOverrideEvents,
         }, tradingDay)),
-      setLiveStatsStartTradingDayKey: (value) => {
-        if (value !== null && !isValidLiveCycleDayKey(value)) {
-          throw new Error('风险核算起点必须是有效交易日')
-        }
-        set({
-          liveStatsStartTradingDayKey: value,
-          pendingTradeOpenRequest: null,
-          riskSetupTradeOpenRequest: null,
-        })
-      },
-      replaceLivePerformanceCycles: (cycles) => {
-        const next = cloneLivePerformanceCycles(cycles)
-        set((s) => next === s.livePerformanceCycles ? s : { livePerformanceCycles: next })
-      },
-      createLivePerformanceCycle: (cycle, currentTradingDayKey) => set((s) => {
-        const next = appendLivePerformanceCycle(s.livePerformanceCycles, cycle, currentTradingDayKey)
-        return next === s.livePerformanceCycles ? s : { livePerformanceCycles: next }
-      }),
-      renameLivePerformanceCycle: (id, name) => set((s) => {
-        const next = renameLivePerformanceCycleInList(s.livePerformanceCycles, id, name)
-        return next === s.livePerformanceCycles ? s : { livePerformanceCycles: next }
-      }),
-      undoLatestLivePerformanceCycle: () => set((s) => {
-        const next = undoLatestLivePerformanceCycleInList(s.livePerformanceCycles)
-        return next === s.livePerformanceCycles ? s : { livePerformanceCycles: next }
-      }),
-      resetLiveStatistics: (startTradingDayKey, currentTradingDayKey) => {
-        const nextCycles = createLiveStatisticsResetEpoch(
-          startTradingDayKey,
-          currentTradingDayKey,
-          new Date().toISOString(),
-          globalThis.crypto.randomUUID(),
-        )
-        set({
-          livePerformanceCycles: nextCycles,
-          liveStatsStartTradingDayKey: startTradingDayKey,
-          weeklyRiskPreparations: [],
-          riskPolicyVersions: [],
-          monthlyRiskLimits: [],
-          riskOverrideEvents: [],
-          pendingTradeOpenRequest: null,
-          riskSetupTradeOpenRequest: null,
-        })
-      },
       setStatus: (id, status) => {
         const current = get().trades.find((trade) => trade.id === id)
         if (!current) return 'not-found'
@@ -1498,8 +1386,6 @@ export const useStore = create<State>()((set, get) => ({
           riskPolicyVersions: snapshot.riskPolicyVersions,
           monthlyRiskLimits: snapshot.monthlyRiskLimits,
           riskOverrideEvents: snapshot.riskOverrideEvents,
-          liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey ?? null,
-          livePerformanceCycles: cloneLivePerformanceCycles(snapshot.livePerformanceCycles ?? []),
           pendingTradeOpenRequest: null,
           riskSetupTradeOpenRequest: null,
         })

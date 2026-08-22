@@ -91,7 +91,6 @@ export function buildStagePerformanceProjection(options: {
       : options.trades.filter((trade) => trade.tradeKind === 'paper' || liveIds.has(trade.id))
   const selectionInput = {
     scope: options.analysisScope,
-    liveScope: null,
     anchor: options.anchor,
     legacyCashCurrencyAssumption: options.legacyCashCurrencyAssumption,
   }

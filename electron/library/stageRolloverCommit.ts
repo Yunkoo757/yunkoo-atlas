@@ -91,8 +91,6 @@ function publishState(snapshot: PersistedSnapshot): StageRolloverPublishState {
     liveStages: snapshot.liveStages,
     currentLiveStageId: snapshot.currentLiveStageId,
     scheduledStageRollover: null,
-    liveStatsStartTradingDayKey: snapshot.liveStatsStartTradingDayKey!,
-    livePerformanceCycles: snapshot.livePerformanceCycles!,
   }
 }
 
@@ -171,20 +169,11 @@ export async function commitDueStageRollover(
           now: committedAt.toISOString(),
           nextStageId: dependencies.createStageId(),
         })
-        const nextStage = rollover.liveStages.find((stage) => stage.id === rollover.currentLiveStageId)
-        if (!nextStage) throw new Error('阶段切换候选缺少当前阶段')
         candidate = {
           ...current,
           liveStages: rollover.liveStages,
           currentLiveStageId: rollover.currentLiveStageId,
           scheduledStageRollover: null,
-          liveStatsStartTradingDayKey: nextStage.startsOn,
-          livePerformanceCycles: [{
-            id: `legacy-stage-${nextStage.sequence}`,
-            name: nextStage.name,
-            startTradingDayKey: nextStage.startsOn,
-            createdAt: nextStage.createdAt,
-          }],
         }
         dependencies.validateSnapshot(candidate)
       } catch (error) {

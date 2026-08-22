@@ -196,7 +196,6 @@ export function DetailView() {
   const performanceSelection = useMemo(
     () => buildPerformanceSelection(trade ? [trade] : [], {
       scope: { kind: 'all', range: 'all' },
-      liveScope: null,
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),

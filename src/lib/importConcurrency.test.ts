@@ -2,7 +2,6 @@ import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { applyImport } from '@/lib/importExport'
-import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
 import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
@@ -607,7 +606,7 @@ export async function testSameValueImmutableRiskReplacementRetriesWithoutConflic
   }
 }
 
-export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLatestLocalConfiguration(): Promise<void> {
+export async function testConcurrentLiveStageRenameRetriesAndKeepsLatestLocalConfiguration(): Promise<void> {
   const commitStarted = deferred()
   const allowCommit = deferred()
   const savedSnapshots: PersistedSnapshot[] = []
@@ -617,7 +616,8 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
     value: {
       journalBridge: {
         isElectron: true,
-        commitImport: async () => {
+        commitImport: async (snapshot: PersistedSnapshot) => {
+          savedSnapshots.push(snapshot)
           commitCount += 1
           if (commitCount === 1) {
             commitStarted.resolve()
@@ -634,22 +634,10 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
   })
 
   const previous = useStore.getState()
-  const localDuringImport = {
-    id: 'local-during-import-cycle',
-    name: '等待期间本地周期',
-    startTradingDayKey: '2026-08-05',
-    createdAt: '2026-08-05T00:00:00.000Z',
-  }
-  const importedCycle = {
-    id: 'imported-cycle',
-    name: '导入周期',
-    startTradingDayKey: '2026-08-01',
-    createdAt: '2026-08-01T00:00:00.000Z',
-  }
   useStore.setState({
     trades: [], strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
     display: { ...DEFAULT_DISPLAY }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
-    symbolIcons: {}, symbolCatalog: [], livePerformanceCycles: [],
+    symbolIcons: {}, symbolCatalog: [],
   })
   const canonicalStage = useStore.getState().liveStages.find((stage) =>
     stage.id === useStore.getState().currentLiveStageId,
@@ -659,26 +647,25 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
   try {
     const importing = applyImport({
       version: 10,
+      liveStages: useStore.getState().liveStages,
+      currentLiveStageId: useStore.getState().currentLiveStageId,
+      scheduledStageRollover: null,
       trades: [], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
       strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: { ...DEFAULT_DISPLAY },
-      livePerformanceCycles: [importedCycle],
     })
     await commitStarted.promise
-    useStore.getState().replaceLivePerformanceCycles([localDuringImport])
+    useStore.getState().renameLiveStage(canonicalStage.id, '等待期间本地阶段名')
     allowCommit.resolve()
     const result = await importing
 
-    assert(commitCount === 2, '并发本地周期修改必须触发基于最新状态的重试')
-    assert(useStore.getState().livePerformanceCycles[0]?.id === localDuringImport.id, '最终状态必须保留最新本地周期配置')
+    assert(commitCount === 2, '并发本地阶段修改必须触发基于最新状态的重试')
+    assert(useStore.getState().liveStages.find((stage) => stage.id === canonicalStage.id)?.name === '等待期间本地阶段名', '最终状态必须保留最新本地阶段配置')
     assert(
       savedSnapshots.at(-1)?.currentLiveStageId === canonicalStage.id,
       '最终落盘必须保留规范当前阶段',
     )
-    assert(
-      savedSnapshots.at(-1)?.livePerformanceCycles?.[0]?.id === `legacy-stage-${canonicalStage.sequence}`,
-      '过渡兼容镜像必须从规范阶段派生，不得反向覆盖阶段真相',
-    )
-    assert(result.summary.includes('保留当前统计与历史归档设置'), '本地设置保留时摘要必须使用可理解的当前统计与历史归档文案')
+    assert(savedSnapshots.at(-1)?.liveStages.find((stage) => stage.id === canonicalStage.id)?.name === '等待期间本地阶段名', '最终落盘必须保留最新阶段名称')
+    assert(result.summary.includes('保留当前实盘阶段与历史阶段'), '导入摘要必须说明保留本机阶段图')
   } finally {
     disablePersistWrites()
     useStore.setState(previous)
@@ -686,7 +673,7 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
   }
 }
 
-export async function testJsonImportSummaryPreservesEmptyLocalLivePerformanceCycles(): Promise<void> {
+export async function testJsonImportSummaryPreservesLocalStageGraph(): Promise<void> {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: { journalBridge: { isElectron: true, commitImport: async () => true, saveSnapshot: async () => true } },
@@ -695,20 +682,22 @@ export async function testJsonImportSummaryPreservesEmptyLocalLivePerformanceCyc
   useStore.setState({
     trades: [], strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
     display: { ...DEFAULT_DISPLAY }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
-    symbolIcons: {}, symbolCatalog: [], livePerformanceCycles: [],
+    symbolIcons: {}, symbolCatalog: [],
   })
   enablePersistWrites()
   try {
     const result = await applyImport({
       version: 10,
+      liveStages: useStore.getState().liveStages,
+      currentLiveStageId: useStore.getState().currentLiveStageId,
+      scheduledStageRollover: null,
       trades: [], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
       strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: { ...DEFAULT_DISPLAY },
     })
     assert(
-      result.summary.includes('保留当前统计与历史归档设置'),
-      '空本地边界也必须明确告知保留当前统计与历史归档设置',
+      result.summary.includes('保留当前实盘阶段与历史阶段'),
+      '导入摘要必须明确告知保留本机阶段图',
     )
-    assert(useStore.getState().livePerformanceCycles.length === 0, '导入周期不得覆盖本地空边界')
   } finally {
     disablePersistWrites()
     useStore.setState(previous)
@@ -716,15 +705,12 @@ export async function testJsonImportSummaryPreservesEmptyLocalLivePerformanceCyc
   }
 }
 
-export async function testImportedTradesUseLocalBoundaries(): Promise<void> {
+export async function testImportedTradesUseLocalCurrentStageOwnership(): Promise<void> {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: { journalBridge: { isElectron: true, commitImport: async () => true, saveSnapshot: async () => true } },
   })
   const previous = useStore.getState()
-  const localCycle = {
-    id: 'local-boundary', name: '本地统计', startTradingDayKey: '2026-08-10', createdAt: '2026-08-10T00:00:00.000Z',
-  }
   const imported = {
     ...trade('imported-local-boundary', 'BTCUSDT'),
     status: 'win' as const,
@@ -738,19 +724,24 @@ export async function testImportedTradesUseLocalBoundaries(): Promise<void> {
   useStore.setState({
     trades: [], strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
     display: { ...DEFAULT_DISPLAY, tradingDayStartHour: 0 }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
-    symbolIcons: {}, symbolCatalog: [], livePerformanceCycles: [localCycle],
+    symbolIcons: {}, symbolCatalog: [],
   })
   enablePersistWrites()
   try {
     await applyImport({
-      version: 10, trades: [imported], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
+      version: 10,
+      liveStages: useStore.getState().liveStages,
+      currentLiveStageId: useStore.getState().currentLiveStageId,
+      scheduledStageRollover: null,
+      trades: [imported], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
       strategies: [strategy], starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: { ...DEFAULT_DISPLAY },
-      livePerformanceCycles: [{ id: 'external-boundary', name: '外部统计', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' }],
     })
     const merged = useStore.getState()
     const actual = merged.trades.find((item) => item.id === imported.id)
-    assert(merged.livePerformanceCycles[0]?.id === localCycle.id, '导入必须保留本地统计边界')
-    assert(actual && resolveLiveRecordBucket(actual, merged.livePerformanceCycles, 0) === 'archive', '导入交易必须按本地边界重新投影')
+    assert(
+      actual?.tradeKind === 'live' && actual.liveStageId === merged.currentLiveStageId,
+      '导入实盘交易必须显式归入本机当前阶段',
+    )
   } finally {
     disablePersistWrites()
     useStore.setState(previous)

@@ -44,6 +44,13 @@
   { "id": "I-NOTION-SLOT", "testId": "src/lib/notionImportImageSlots.test.ts#testNotionMissingMiddleImageKeepsOriginalSlotsAndVisibleIssue", "evidence": ["src/lib/notionImportImageSlots.test.ts"] },
   { "id": "I-COMPOSER-N", "testId": "src/lib/tradeComposerCommit.test.ts#testComposerPreparationFailureNeverCallsStorage", "evidence": ["src/lib/tradeComposerCommit.test.ts"] },
   { "id": "I-COMPOSER-CAS", "testId": "src/components/TradeComposerBatch.browser.test.html#__tradeComposerBatchTest", "evidence": ["src/components/TradeComposerBatch.browser.test.html"] },
+
+  { "id": "LS-V11-MIGRATION", "testId": "src/lib/stageMigration.test.ts#testV11CyclesBecomeStableV12Stages", "evidence": ["src/lib/stageMigration.test.ts"] },
+  { "id": "LS-OWNERSHIP-STABLE", "testId": "src/store/liveStageOwnership.test.ts#testEditingHistoricalDateDoesNotMoveStage", "evidence": ["src/store/liveStageOwnership.test.ts"] },
+  { "id": "LS-ROLLOVER-ATOMIC", "testId": "electron/library/stageRolloverCommit.test.ts#testSuccessfulCommitOrderAndAuthoritativePublishState", "evidence": ["electron/library/stageRolloverCommit.test.ts"] },
+  { "id": "LS-HISTORY-SCOPE", "testId": "src/lib/stageArchive.test.ts#testAllHistoryExcludesCurrentAndPending", "evidence": ["src/lib/stageArchive.test.ts"] },
+  { "id": "LS-REVIEW-DEFAULT", "testId": "src/lib/reviewSession.test.ts#testDefaultReviewPoolIncludesCurrentAndEveryHistoricalStageByOwnership", "evidence": ["src/lib/reviewSession.test.ts"] },
+
   { "id": "A-INVENTORY-SHARED", "testId": "src/storage/assetInventory.test.ts#testAssetInventoryDeduplicatesSharedReferencesAcrossAllRichTextDomains", "evidence": ["src/storage/assetInventory.test.ts"] },
   { "id": "A-INVENTORY-MISSING", "testId": "electron/library/assetInventory.test.ts#testElectronAssetInventoryCrossChecksDatabaseRowsAndAttachmentFiles", "evidence": ["src/storage/AssetInventory.browser.test.html", "electron/library/assetInventory.test.ts"] },
   { "id": "A-WEB-DELETE-N", "testId": "src/storage/IndexedDbAssetGc.browser.test.html#__indexedDbAssetGcTest", "evidence": ["src/storage/IndexedDbAssetGc.browser.test.html"] },

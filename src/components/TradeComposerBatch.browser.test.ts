@@ -49,6 +49,7 @@ function candidateTrade(id: string, imageHtml: string): Trade {
     conviction: 'medium',
     strategyId: useStore.getState().strategies[0]?.id ?? '',
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     tags: [],
     mistakeTags: [],
     reviewStatus: 'unreviewed',
@@ -106,7 +107,10 @@ async function run(): Promise<void> {
       error = caught
     }
 
-    assert(error instanceof StorageRevisionConflictError, 'Composer stale commit 必须返回 typed CAS conflict')
+    assert(
+      error instanceof StorageRevisionConflictError,
+      `Composer stale commit 必须返回 typed CAS conflict；实际为 ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`,
+    )
     const observed = await winner.loadSnapshotEnvelope()
     assert(observed.revision === 2, 'Composer 冲突不得推进赢家 revision')
     assert(observed.snapshot?.profile?.displayName === '并发赢家', 'Composer 冲突不得覆盖赢家快照')

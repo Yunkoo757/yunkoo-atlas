@@ -132,7 +132,6 @@ async function run(): Promise<void> {
     useStore.setState({
       trades: truthTrades(),
       strategies: [strategy],
-      livePerformanceCycles: [],
       profile: { ...previous.profile, legacyCashCurrencyAssumption: null },
       display: { ...previous.display, tradingDayStartHour: 6 },
     })

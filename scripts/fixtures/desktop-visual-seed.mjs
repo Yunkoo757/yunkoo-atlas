@@ -9,6 +9,8 @@ function patchTrade(trades, index, patch) {
 
 export function createDesktopVisualSnapshot() {
   const snapshot = createAnalyticsSnapshot({ count: 44, noteProfile: 'short' })
+  const archivedStageId = 'desktop-visual-archived'
+  const currentStageId = 'desktop-visual-current'
   const trades = snapshot.trades.map((trade) => ({ ...trade }))
 
   patchTrade(trades, 0, {
@@ -187,6 +189,21 @@ export function createDesktopVisualSnapshot() {
       note: '<p>历史实盘已掌握案例：复盘结论已经稳定。</p>',
     },
   )
+  for (const trade of trades) {
+    if (trade.tradeKind === 'live') {
+      trade.liveStageId = trade.closedTradingDayKey < '2026-07-01' ? archivedStageId : currentStageId
+    } else if (trade.tradeKind === 'paper') {
+      delete trade.liveStageId
+    }
+  }
+  const liveStageByTradeId = new Map(trades
+    .filter((trade) => trade.tradeKind === 'live')
+    .map((trade) => [trade.id, trade.liveStageId]))
+  for (const trade of trades) {
+    if (trade.tradeKind !== 'case') continue
+    trade.liveStageId = liveStageByTradeId.get(trade.sourceTradeId) ??
+      (trade.closedTradingDayKey < '2026-07-01' ? archivedStageId : currentStageId)
+  }
 
   return {
     ...snapshot,
@@ -202,17 +219,34 @@ export function createDesktopVisualSnapshot() {
       ...snapshot.profile,
       displayName: '桌面视觉样本',
     },
-    livePerformanceCycles: [
+    liveStages: [
       {
-        id: 'desktop-visual-current',
-        name: '当前实盘周期',
-        startTradingDayKey: '2026-07-01',
+        id: archivedStageId,
+        sequence: 1,
+        name: '历史阶段',
+        status: 'archived',
+        startsOn: '2026-01-01',
+        endsOn: '2026-06-30',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        archivedAt: '2026-07-01T00:00:00.000Z',
+      },
+      {
+        id: currentStageId,
+        sequence: 2,
+        name: '当前阶段',
+        status: 'current',
+        startsOn: '2026-07-01',
+        endsOn: null,
         createdAt: '2026-07-01T00:00:00.000Z',
+        archivedAt: null,
       },
     ],
+    currentLiveStageId: currentStageId,
+    scheduledStageRollover: null,
     weeklyReviews: [
       {
         id: `weekly-review:${CURRENT_WEEK_START}`,
+        liveStageId: currentStageId,
         weekStart: CURRENT_WEEK_START,
         weekEnd: '2026-08-16',
         status: 'draft',
@@ -234,5 +268,12 @@ export function createDesktopVisualSnapshot() {
         completedAt: null,
       },
     ],
+  }
+}
+
+export function createDesktopVisualSeedEnvelope() {
+  return {
+    schemaVersion: 12,
+    snapshot: createDesktopVisualSnapshot(),
   }
 }

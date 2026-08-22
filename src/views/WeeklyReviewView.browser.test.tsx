@@ -863,12 +863,15 @@ async function run(): Promise<void> {
 
     const frozenEvidence = [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
       .map((row) => row.textContent)
-    const nextCycleDate = new Date(`${activeWeekStart}T12:00:00`)
-    nextCycleDate.setDate(nextCycleDate.getDate() + 7)
-    useStore.setState({ liveStatsStartTradingDayKey: getTradingDayKey(nextCycleDate) })
+    useStore.setState({
+      liveStages: useStore.getState().liveStages.map((stage) => ({
+        ...stage,
+        name: `${stage.name}（已更新）`,
+      })),
+    })
     await waitFor(
       () => document.querySelectorAll('.wr-trade-row').length === frozenEvidence.length,
-      '调整统计周期后冻结证据列表被实时数据改写',
+      '调整阶段展示名称后冻结证据列表被实时数据改写',
     )
     assert(
       [...document.querySelectorAll<HTMLElement>('.wr-trade-row')]
@@ -1636,7 +1639,6 @@ async function run(): Promise<void> {
       riskPolicyVersions: previous.riskPolicyVersions,
       monthlyRiskLimits: previous.monthlyRiskLimits,
       riskOverrideEvents: previous.riskOverrideEvents,
-      liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
     })
   }
 }

@@ -126,7 +126,6 @@ export function testPaperAnalysisIgnoresLiveCycleUrl(): void {
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false, tradingDayStartHour: 0 },
     search: '?liveCycle=pre-cycle',
-    liveStatsStartTradingDayKey: '2026-07-27',
   })
   assert(visible.map((item) => item.id).join() === 'paper', '纯模拟分析不得受实盘周期 URL 影响')
 }

@@ -216,3 +216,5 @@ export function testLegacyTradeWithoutKindRemainsPaperAndHasNoStageOwnership(): 
   assert(trade.tradeKind === undefined, '阶段迁移不得把缺失种类的旧交易提前解释为实盘')
   assert(!Object.prototype.hasOwnProperty.call(trade, 'liveStageId'), '缺失种类的旧交易不得携带阶段归属')
 }
+
+// Quality-Scenario: LS-V11-MIGRATION

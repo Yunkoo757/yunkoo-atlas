@@ -111,6 +111,18 @@ export function testSameIdImportCannotChangeTradeKindButNewIdKeepsItsKind(): voi
   const importedCase = trade('new-case', { tradeKind: 'case', sourceTradeId: original.id })
   const strategy = { id: 'strategy-1', name: '策略', icon: 'target' as const, color: '#000000' }
   const merged = mergeImportPayload({
+    liveStages: [{
+      id: 'stage-current',
+      sequence: 1,
+      name: '当前阶段',
+      status: 'current',
+      startsOn: '2026-01-01',
+      endsOn: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      archivedAt: null,
+    }],
+    currentLiveStageId: 'stage-current',
+    scheduledStageRollover: null,
     trades: [original],
     strategies: [strategy],
     starredIds: [],

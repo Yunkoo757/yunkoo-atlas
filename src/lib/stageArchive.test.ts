@@ -273,3 +273,5 @@ export function testPaperStrategyPreviewKeepsCurrentStageScope(): void {
   assert(stageScope.kind === 'current', 'paper 列表策略预览必须保持基线 current 实盘口径')
   assert(projection.selection.pnlIds.join() === 'current-live', 'paper 列表策略预览不得扩大到归档 live stage')
 }
+
+// Quality-Scenario: LS-HISTORY-SCOPE

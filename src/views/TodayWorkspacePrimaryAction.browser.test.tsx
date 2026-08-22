@@ -123,8 +123,6 @@ async function run(): Promise<void> {
         ? { ...stage, startsOn: today }
         : stage),
       trades: [reviewPending, resultPending],
-      livePerformanceCycles: [],
-      liveStatsStartTradingDayKey: null,
       riskPolicyVersions: [riskPolicy],
       monthlyRiskLimits: [monthlyLimit],
       weeklyRiskPreparations: [{

@@ -51,13 +51,33 @@ async function run(): Promise<void> {
   await adapter.open()
   const preparedId = await adapter.saveAsset(new Blob(['prepared'], { type: 'image/png' }), 'image/png')
   const originalQuickNotes = useStore.getState().quickNotes
-  const originalCycles = useStore.getState().livePerformanceCycles
-  const remoteCycles = [{ id: 'remote-current', name: '实盘-远端', startTradingDayKey: '2026-08-08', createdAt: '2026-08-08T00:00:00.000Z' }]
-  const localCycles = [{ id: 'local-current', name: '实盘-本地', startTradingDayKey: '2026-08-09', createdAt: '2026-08-09T00:00:00.000Z' }]
-  useStore.setState({ livePerformanceCycles: remoteCycles })
+  const originalStages = useStore.getState().liveStages
+  const originalCurrentStageId = useStore.getState().currentLiveStageId
+  const remoteStages = [{
+    id: 'remote-current',
+    sequence: 1,
+    name: '实盘-远端',
+    status: 'current' as const,
+    startsOn: '2026-08-08',
+    endsOn: null,
+    createdAt: '2026-08-08T00:00:00.000Z',
+    archivedAt: null,
+  }]
+  const localStages = [{
+    id: 'local-current',
+    sequence: 1,
+    name: '实盘-本地',
+    status: 'current' as const,
+    startsOn: '2026-08-09',
+    endsOn: null,
+    createdAt: '2026-08-09T00:00:00.000Z',
+    archivedAt: null,
+  }]
+  useStore.setState({ liveStages: remoteStages, currentLiveStageId: remoteStages[0]!.id })
   await adapter.saveSnapshot(pickPersisted(useStore.getState(), useShortcutStore.getState().bindings))
   useStore.setState({
-    livePerformanceCycles: localCycles,
+    liveStages: localStages,
+    currentLiveStageId: localStages[0]!.id,
     quickNotes: [{
       id: 'conflict-recovery-note',
       title: '抢救导出',
@@ -116,8 +136,10 @@ async function run(): Promise<void> {
     assert(capturedBlob instanceof Blob, '恢复导出必须生成真实 JSON Blob')
     const recoveryPayload = JSON.parse(await capturedBlob.text()) as {
       assets?: Array<{ id: string }>
+      liveStages?: Array<{ id: string }>
       recovery?: { missingAssetIds?: string[] }
     }
+    assert(recoveryPayload.liveStages?.[0]?.id === localStages[0]!.id, '恢复副本必须保留本标签页未确认的阶段边界')
     assert(recoveryPayload.assets?.some((asset) => asset.id === preparedId), '恢复副本必须包含本标签页 prepared 附件')
     assert(
       JSON.stringify(recoveryPayload.recovery?.missingAssetIds) === JSON.stringify(['missing-recovery-asset']),
@@ -129,18 +151,25 @@ async function run(): Promise<void> {
     assert(reloadButton, '冲突 modal 必须提供加载完整远端快照的操作')
     reloadButton.click()
     await waitFor(
-      () => JSON.stringify(useStore.getState().livePerformanceCycles) === JSON.stringify(remoteCycles),
+      () => JSON.stringify(useStore.getState().liveStages) === JSON.stringify(remoteStages),
       '加载远端最新版后必须恢复完整远端边界集合，不能留下本地/远端混合集合',
     )
     assert(
-      useStore.getState().livePerformanceCycles.every((cycle) => cycle.id !== localCycles[0]!.id),
+      useStore.getState().liveStages.every((stage) => stage.id !== localStages[0]!.id),
       '远端恢复后本地未确认边界不得残留',
     )
+    assert(useStore.getState().currentLiveStageId === remoteStages[0]!.id, '远端恢复必须同步替换当前阶段指针')
+    assert(!useStore.getState().quickNotes.some((note) => note.id === 'conflict-recovery-note'), '抢救导出后加载最新版必须丢弃本地未确认集合')
+    assert(useSaveStatus.getState().status === 'idle', '加载权威快照后脏状态必须回到耐久基线')
   } finally {
     URL.createObjectURL = originalCreateObjectUrl
     URL.revokeObjectURL = originalRevokeObjectUrl
     HTMLAnchorElement.prototype.click = originalAnchorClick
-    useStore.setState({ quickNotes: originalQuickNotes, livePerformanceCycles: originalCycles })
+    useStore.setState({
+      quickNotes: originalQuickNotes,
+      liveStages: originalStages,
+      currentLiveStageId: originalCurrentStageId,
+    })
     adapter.close()
   }
 

@@ -20,8 +20,6 @@ export function createEmptyPersistedSnapshot(): PersistedSnapshot {
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
-    liveStatsStartTradingDayKey: null,
-    livePerformanceCycles: [],
     strategies: [],
     starredIds: [],
     subscribedIds: [],

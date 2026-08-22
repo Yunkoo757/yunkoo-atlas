@@ -16,8 +16,6 @@ export const PERSISTED_SNAPSHOT_FIELDS = [
   'riskPolicyVersions',
   'monthlyRiskLimits',
   'riskOverrideEvents',
-  'liveStatsStartTradingDayKey',
-  'livePerformanceCycles',
   'weeklyReviews',
   'quickNotes',
   'strategies',

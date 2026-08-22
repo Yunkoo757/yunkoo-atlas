@@ -16,11 +16,10 @@ import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 
 export interface ExportPayload {
   version: number
+  /** 解析器会补齐；手工构造的 merge 输入不以导入阶段图作为本机归属真值。 */
   liveStages?: PersistedSnapshot['liveStages']
   currentLiveStageId?: PersistedSnapshot['currentLiveStageId']
   scheduledStageRollover?: PersistedSnapshot['scheduledStageRollover']
-  liveStatsStartTradingDayKey?: string | null
-  livePerformanceCycles?: PersistedSnapshot['livePerformanceCycles']
   trades: (Trade & { strategy?: string })[]
   weeklyRiskPreparations: WeeklyRiskPreparation[]
   riskPolicyVersions: RiskPolicyVersion[]
@@ -51,11 +50,9 @@ export interface ImportIdentityPayload {
 
 export interface PersistedSlice {
   trades: Trade[]
-  liveStages?: PersistedSnapshot['liveStages']
-  currentLiveStageId?: PersistedSnapshot['currentLiveStageId']
-  scheduledStageRollover?: PersistedSnapshot['scheduledStageRollover']
-  liveStatsStartTradingDayKey?: string | null
-  livePerformanceCycles?: PersistedSnapshot['livePerformanceCycles']
+  liveStages: PersistedSnapshot['liveStages']
+  currentLiveStageId: PersistedSnapshot['currentLiveStageId']
+  scheduledStageRollover: PersistedSnapshot['scheduledStageRollover']
   weeklyRiskPreparations?: WeeklyRiskPreparation[]
   riskPolicyVersions?: RiskPolicyVersion[]
   monthlyRiskLimits?: MonthlyRiskLimit[]

@@ -28,8 +28,6 @@ import {
 } from '@/lib/tradeFilters'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { createBusinessDateAnchor } from '@/lib/periods'
-import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
-import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -242,10 +240,6 @@ export function testCalendarPeriodsAndDashboardPerformanceKeepDifferentDateField
 }
 
 export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(): void {
-  const cycles: LivePerformanceCycle[] = [
-    { id: 'archive-id', name: '历史', startTradingDayKey: '2026-04-01', createdAt: '2026-04-01T00:00:00.000Z' },
-    { id: 'current-id', name: '当前', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' },
-  ]
   const archivedLive = { ...caseTrade, id: 'archived-live', ref: 'TRD-ARCHIVED', tradeKind: 'live' as const, liveStageId: 'stage-old', openedAt: '2099-06-15', closedAt: '2099-06-15', closedTradingDayKey: '2099-06-15' }
   const currentLive = { ...archivedLive, id: 'current-live', ref: 'TRD-CURRENT', liveStageId: 'stage-current', openedAt: '2026-08-08', closedAt: '2026-08-08', closedTradingDayKey: '2026-08-08' }
   const openCurrent = { ...currentLive, id: 'open-current', ref: 'TRD-OPEN', status: 'open' as const, closedAt: null, closedTradingDayKey: undefined, pnl: null, rMultiple: null, resultSource: undefined }
@@ -261,7 +255,6 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
     display,
     search: '',
     businessDateAnchor: anchor,
-    livePerformanceCycles: cycles,
     stageScope: { kind: 'current', stageId: 'stage-current' },
   })
   assert(ordinary.map((trade) => trade.id).sort().join() === 'current-live,open-current', '普通 /list 必须保留当前实盘日志并包含未平仓记录')
@@ -276,7 +269,6 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
     const stageTrades = trades.filter((item) => item.tradeKind === 'paper' || item.liveStageId === 'stage-current')
     const expected = buildPerformanceSelection(stageTrades, {
       scope: entry.scope,
-      liveScope: null,
       anchor,
       legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
     }).eligibleMetricIds
@@ -287,7 +279,6 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
       display,
       search: entry.search,
       businessDateAnchor: anchor,
-      livePerformanceCycles: cycles,
       stageScope: { kind: 'current', stageId: 'stage-current' },
     }).map((trade) => trade.id)
     const expectedIds = new Set(expected)

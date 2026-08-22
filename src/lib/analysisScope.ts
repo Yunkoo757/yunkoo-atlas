@@ -7,9 +7,10 @@ import {
   DEFAULT_TRADING_DAY_START_HOUR,
   type BusinessDateAnchor,
 } from '@/lib/periods'
-import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
-import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
-import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import {
+  buildPerformanceSelection,
+  type PerformanceDateBounds,
+} from '@/lib/performanceSelection'
 import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
 import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
 
@@ -61,36 +62,28 @@ export function filterTradesByAnalysisScope(
   scope: AnalysisScope,
   now: Date | BusinessDateAnchor = new Date(),
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
-  performanceBounds: LivePerformanceCycleBounds | null = null,
+  performanceBounds: PerformanceDateBounds | null = null,
   stageScope?: StageScope,
 ): Trade[] {
   const anchor = now instanceof Date
     ? createBusinessDateAnchor(now, tradingDayStartHour)
     : now
-  const liveScope: LiveArchiveScope | null = performanceBounds === null
-    ? null
-    : {
-        kind: 'current',
-        archiveId: null,
-        bounds: performanceBounds,
-        label: '当前实盘',
-      }
   const stageTrades = stageScope ? filterStageOwnedRecords(trades, stageScope) : trades
   const eligibleIds = new Set(buildPerformanceSelection(stageTrades, {
     scope,
-    liveScope,
+    dateBounds: performanceBounds,
     anchor,
     legacyCashCurrencyAssumption: null,
   }).eligibleMetricIds)
   return stageTrades.filter((trade) => eligibleIds.has(trade.id))
 }
 
-export function intersectLiveScopeWithNaturalRange(
-  scope: LiveArchiveScope,
+export function intersectPerformanceDateBoundsWithNaturalRange(
+  bounds: PerformanceDateBounds | null,
   range: AnalysisRange,
   anchor: BusinessDateAnchor,
-): LivePerformanceCycleBounds | null {
-  if (scope.bounds === null || range === 'all') return scope.bounds
+): PerformanceDateBounds | null {
+  if (bounds === null || range === 'all') return bounds
   const end = parseLocalDate(anchor.currentTradingDayKey)
   const today = anchor.currentTradingDayKey
   let start: string
@@ -106,10 +99,10 @@ export function intersectLiveScopeWithNaturalRange(
   const tomorrow = new Date(end)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const endExclusive = formatYmd(tomorrow)
-  const intersectedStart = scope.bounds.startInclusive && scope.bounds.startInclusive > start
-    ? scope.bounds.startInclusive : start
-  const intersectedEnd = scope.bounds.endExclusive && scope.bounds.endExclusive < endExclusive
-    ? scope.bounds.endExclusive : endExclusive
+  const intersectedStart = bounds.startInclusive && bounds.startInclusive > start
+    ? bounds.startInclusive : start
+  const intersectedEnd = bounds.endExclusive && bounds.endExclusive < endExclusive
+    ? bounds.endExclusive : endExclusive
   return intersectedStart >= intersectedEnd ? null : { startInclusive: intersectedStart, endExclusive: intersectedEnd }
 }
 

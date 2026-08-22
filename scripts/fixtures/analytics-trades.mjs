@@ -119,7 +119,10 @@ export function checksumFixture(value) {
 }
 
 export function createAnalyticsSnapshot(options = {}) {
-  const trades = createAnalyticsTrades(options)
+  const currentLiveStageId = 'analytics-stage-current'
+  const trades = createAnalyticsTrades(options).map((trade) => (
+    trade.tradeKind === 'paper' ? trade : { ...trade, liveStageId: currentLiveStageId }
+  ))
   return {
     trades,
     strategies: ANALYTICS_FIXTURE_STRATEGIES.map((strategy) => ({ ...strategy })),
@@ -150,7 +153,18 @@ export function createAnalyticsSnapshot(options = {}) {
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
-    livePerformanceCycles: [],
+    liveStages: [{
+      id: currentLiveStageId,
+      sequence: 1,
+      name: '当前阶段',
+      status: 'current',
+      startsOn: '2026-01-01',
+      endsOn: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      archivedAt: null,
+    }],
+    currentLiveStageId,
+    scheduledStageRollover: null,
   }
 }
 

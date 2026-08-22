@@ -121,7 +121,7 @@ function buildTradePatch(state: ComposerState, candidate: ComposerTradeCandidate
     symbolCatalog: state.symbolCatalog,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
-  }, [trade], state.display.tradingDayStartHour)
+  }, [trade], state.display.tradingDayStartHour, state.currentLiveStageId)
   return {
     ...patch,
     ...candidate.statePatch,

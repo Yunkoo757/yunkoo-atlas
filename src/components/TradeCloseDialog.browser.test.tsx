@@ -140,7 +140,6 @@ async function run(): Promise<void> {
       closeTradeRequest: { tradeId: archiveCandidate.id },
       undoStack: [],
       redoStack: [],
-      livePerformanceCycles: [{ id: 'current-boundary', name: '当前', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' }],
       display: { ...previous.display, tradingDayStartHour: 0 },
     })
     root.render(<TradeCloseDialog />)
@@ -168,7 +167,6 @@ async function run(): Promise<void> {
       closeTradeRequest: previous.closeTradeRequest,
       undoStack: previous.undoStack,
       redoStack: previous.redoStack,
-      livePerformanceCycles: previous.livePerformanceCycles,
       display: previous.display,
     })
   }
