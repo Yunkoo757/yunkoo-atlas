@@ -1173,9 +1173,6 @@ export const useStore = create<State>()((set, get) => ({
       confirmWeeklyRiskPreparation: (input) =>
         set((s) => {
           const currentLiveStageId = currentLiveStageIdForWrite(s)
-          const isFirstPolicy = !s.riskPolicyVersions.some((policy) =>
-            policy.liveStageId === currentLiveStageId,
-          )
           const riskState: RiskPolicyState = {
             currentLiveStageId,
             weeklyRiskPreparations: s.weeklyRiskPreparations,
@@ -1197,9 +1194,10 @@ export const useStore = create<State>()((set, get) => ({
             ...input,
             hasClosedLiveTradeOnDay,
           })
-          return isFirstPolicy
-            ? { ...ensureRiskPolicyPeriodRecords(confirmed, input.currentTradingDayKey), riskSetupTradeOpenRequest: null }
-            : { ...confirmed, riskSetupTradeOpenRequest: null }
+          return {
+            ...ensureRiskPolicyPeriodRecords(confirmed, input.currentTradingDayKey),
+            riskSetupTradeOpenRequest: null,
+          }
         }),
       ensureRiskPeriodRecords: (tradingDay) =>
         set((s) => ensureRiskPolicyPeriodRecords({

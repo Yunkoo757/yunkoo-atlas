@@ -11,6 +11,7 @@ import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { mergeRiskImport } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
+import { isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
 import type { Trade } from '@/data/trades'
 
 function mergeStrategies(current: Strategy[], imported: Strategy[]): Strategy[] {
@@ -68,17 +69,47 @@ function assignImportOwnership(
     return { ...trade, liveStageId: inherited }
   })
   const own = <T extends StageOwned>(entity: T): T => ({ ...entity, liveStageId: currentStageId })
-  const historicalRiskOnly = <T extends StageOwned>(entities: readonly T[]): T[] => entities
+  const historicalRiskOnly = <T extends StageOwned>(
+    entities: readonly T[],
+  ): Array<T & { liveStageId: string }> => entities
     .filter((entity): entity is T & { liveStageId: string } =>
       typeof entity.liveStageId === 'string' &&
       entity.liveStageId !== currentStageId &&
       localStageIds.has(entity.liveStageId),
     )
     .map((entity) => ({ ...entity }))
-  const weeklyRiskPreparations = historicalRiskOnly(payload.weeklyRiskPreparations)
   const riskPolicyVersions = historicalRiskOnly(payload.riskPolicyVersions)
+    .filter(isUsableRiskPolicy)
+  const policiesById = new Map(
+    [...(current.riskPolicyVersions ?? []), ...riskPolicyVersions]
+      .map((policy) => [policy.id, policy]),
+  )
+  const hasPolicyInStage = (policyId: string, liveStageId: string): boolean => {
+    const policy = policiesById.get(policyId)
+    return Boolean(policy && policy.liveStageId === liveStageId && isUsableRiskPolicy(policy))
+  }
+  const weeklyRiskPreparations = historicalRiskOnly(payload.weeklyRiskPreparations)
+    .filter((preparation) =>
+      preparation.confirmedPolicyVersionId === null ||
+      hasPolicyInStage(preparation.confirmedPolicyVersionId, preparation.liveStageId),
+    )
   const monthlyRiskLimits = historicalRiskOnly(payload.monthlyRiskLimits)
+    .filter((limit) => hasPolicyInStage(limit.sourcePolicyVersionId, limit.liveStageId))
+  const importedTradeIds = new Set(payload.trades.map((trade) => trade.id))
+  const localTradesById = new Map(current.trades.map((trade) => [trade.id, trade]))
   const riskOverrideEvents = historicalRiskOnly(payload.riskOverrideEvents)
+    .filter((event) => {
+      if (importedTradeIds.has(event.tradeId)) return false
+      const trade = localTradesById.get(event.tradeId)
+      if (
+        trade?.tradeKind !== 'live' ||
+        trade.liveStageId !== event.liveStageId ||
+        trade.ref !== event.tradeIdentityAtDecision.ref ||
+        trade.symbol !== event.tradeIdentityAtDecision.symbol
+      ) return false
+      return event.policyVersionId === null ||
+        hasPolicyInStage(event.policyVersionId, event.liveStageId)
+    })
   const skippedRiskCount = payload.weeklyRiskPreparations.length +
     payload.riskPolicyVersions.length +
     payload.monthlyRiskLimits.length +

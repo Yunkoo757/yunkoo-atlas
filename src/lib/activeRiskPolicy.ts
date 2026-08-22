@@ -1,5 +1,6 @@
 import type { RiskPolicyVersion } from '@/data/riskManagement'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
+import { hasCanonicalRiskAmount } from '@/lib/riskPolicyValidity'
 
 function isCanonicalDay(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
@@ -15,9 +16,7 @@ export function isUsableRiskPolicy(policy: RiskPolicyVersion): boolean {
   return Boolean(policy.id.trim()) &&
     isCanonicalDay(policy.sourceWeekStart) &&
     isCanonicalDay(policy.effectiveTradingDay) &&
-    isPositiveFinite(policy.capitalBase) &&
-    isPositiveFinite(policy.riskPercent) &&
-    isPositiveFinite(policy.riskAmount) &&
+    hasCanonicalRiskAmount(policy) &&
     isPositiveFinite(policy.dailyLossLimitR) &&
     isPositiveFinite(policy.weeklyLossLimitR) &&
     isPositiveFinite(policy.monthlyLossLimitRDefault) &&

@@ -775,6 +775,7 @@ export function testMonthlyRiskLimitSameIdWithDifferentContentRejectsImport(): v
 export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): void {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
+  imported.trades = []
   imported.riskOverrideEvents = [reorderedKeys(imported.riskOverrideEvents[0]!)]
   const merged = mergeImportPayload(current, { version: 9, ...imported })
   assert(merged.riskOverrideEvents?.length === 1, '相同 override event 不得重复追加')
@@ -784,6 +785,7 @@ export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): vo
 export function testRiskOverrideEventSameIdWithDifferentContentRejectsImport(): void {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
+  imported.trades = []
   imported.riskOverrideEvents = [{
     ...imported.riskOverrideEvents[0]!,
     reason: '冲突的覆盖原因',

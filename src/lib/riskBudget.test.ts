@@ -228,6 +228,7 @@ export function testMonthlyBudgetUsesPolicyAtEachTradeCloseDate(): void {
     ...input.policies[0]!,
     id: 'policy-2',
     effectiveTradingDay: '2026-07-20',
+    riskPercent: 2,
     riskAmount: 2_000,
     confirmedAt: '2026-07-20T00:00:00.000Z',
   })

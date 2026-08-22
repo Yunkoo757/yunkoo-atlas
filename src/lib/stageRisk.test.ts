@@ -76,6 +76,10 @@ export function testRiskSetupRequiresActiveValidPolicyAndLockedCurrentMonth(): v
     '非法风险数值不得完成风险建档',
   )
   assert(
+    riskSetupStateForStage({ ...base, riskPolicyVersions: [{ ...valid, riskAmount: 999 }] }, 'stage-current', '2026-08-17') === 'unconfigured',
+    '与资金基数和风险比例不一致的风险金额不得完成风险建档',
+  )
+  assert(
     riskSetupStateForStage({ riskPolicyVersions: [valid], monthlyRiskLimits: [] }, 'stage-current', '2026-08-17') === 'unconfigured',
     '首个有效策略尚未锁定当月限额时仍未完成建档',
   )

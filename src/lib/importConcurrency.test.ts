@@ -306,6 +306,8 @@ export async function testImmutableRiskConflictRejectsBeforeCommitWithoutPartial
         ...imported,
         trades: imported.trades.map((item) => ({
           ...item,
+          id: `imported-conflict-${item.id}`,
+          ref: `IMPORTED-${item.ref}`,
           note: '<img src="data:image/png;base64,aW5saW5l">',
         })),
         weeklyReviews: [],

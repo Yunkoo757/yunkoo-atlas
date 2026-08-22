@@ -2,7 +2,8 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeCashCurrency } from '@/data/trades'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
-import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { hasCanonicalRiskAmount } from '@/lib/riskPolicyValidity'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { assertValidLivePerformanceCycles } from '@/lib/livePerformanceCycles'
 import { assertValidLiveStageState } from '@/lib/liveStages'
@@ -516,23 +517,6 @@ function isWeeklyRiskPreparation(value: unknown): boolean {
     (value.confirmedPolicyVersionId === null || isNonEmptyString(value.confirmedPolicyVersionId)) &&
     isTimestamp(value.createdAt) &&
     isTimestamp(value.updatedAt)
-}
-
-function hasCanonicalRiskAmount(value: Record<string, unknown>): boolean {
-  try {
-    if (!isPositiveFiniteNumber(value.capitalBase) || !isPositiveFiniteNumber(value.riskPercent)) {
-      return false
-    }
-    if (!isPositiveFiniteNumber(value.riskAmount)) return false
-    const capitalCents = toMoneyCents(value.capitalBase)
-    const expectedCents = toMoneyCents((capitalCents / 100) * value.riskPercent / 100)
-    return capitalCents > 0 &&
-      value.capitalBase === capitalCents / 100 &&
-      expectedCents > 0 &&
-      value.riskAmount === expectedCents / 100
-  } catch {
-    return false
-  }
 }
 
 function isRiskPolicyVersion(value: unknown): boolean {

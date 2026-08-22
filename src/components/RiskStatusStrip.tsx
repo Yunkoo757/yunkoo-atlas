@@ -133,7 +133,10 @@ export function RiskStatusStrip({
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const ensureRiskPeriodRecords = useStore((state) => state.ensureRiskPeriodRecords)
 
-  useEffect(() => ensureRiskPeriodRecords(tradingDay), [ensureRiskPeriodRecords, tradingDay])
+  useEffect(
+    () => ensureRiskPeriodRecords(tradingDay),
+    [ensureRiskPeriodRecords, tradingDay, policies, monthlyLimits, currentStage.id],
+  )
 
   const outcomes = useMemo(() => resolveRiskOutcomes({
     trades,

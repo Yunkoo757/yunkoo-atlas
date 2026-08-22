@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import { mergeImportPayload } from '@/lib/importMerge'
 import { riskSetupStateForStage } from '@/lib/stageRisk'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
+import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -123,18 +124,27 @@ export function testMergeImportAssignsUnknownLiveRecordsToCurrentStage(): void {
 export function testMergeImportPreservesExplicitKnownHistoricalRiskWithoutConfiguringCurrentStage(): void {
   const current = currentState()
   const fixture = createFullPersistedSnapshotFixture()
+  const localTrade = { ...fixture.trades[0]!, liveStageId: 'stage-old' }
+  current.trades = [localTrade]
   const policy = { ...fixture.riskPolicyVersions[0]!, id: 'historical-policy', liveStageId: 'stage-old' }
   const preparation = {
     ...fixture.weeklyRiskPreparations[0]!,
-    id: 'historical-preparation',
+    id: 'weekly-risk-preparation:stage-old:2026-07-13',
     liveStageId: 'stage-old',
     confirmedPolicyVersionId: policy.id,
   }
   const monthlyLimit = {
     ...fixture.monthlyRiskLimits[0]!,
-    id: 'historical-limit',
+    id: 'monthly-risk-limit:stage-old:2026-07',
     liveStageId: 'stage-old',
     sourcePolicyVersionId: policy.id,
+  }
+  const override = {
+    ...fixture.riskOverrideEvents[0]!,
+    id: 'historical-override',
+    liveStageId: 'stage-old',
+    tradeId: localTrade.id,
+    policyVersionId: policy.id,
   }
 
   const merged = mergeImportPayload(current, {
@@ -143,7 +153,7 @@ export function testMergeImportPreservesExplicitKnownHistoricalRiskWithoutConfig
     weeklyRiskPreparations: [preparation],
     riskPolicyVersions: [policy],
     monthlyRiskLimits: [monthlyLimit],
-    riskOverrideEvents: [],
+    riskOverrideEvents: [override],
     strategies: current.strategies,
     starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
   })
@@ -151,10 +161,124 @@ export function testMergeImportPreservesExplicitKnownHistoricalRiskWithoutConfig
   assert(merged.riskPolicyVersions?.some((item) => item.id === policy.id && item.liveStageId === 'stage-old'), '已知本地历史阶段风险策略必须保留原归属')
   assert(merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id && item.liveStageId === 'stage-old'), '已知历史草稿必须保留原归属')
   assert(merged.monthlyRiskLimits?.some((item) => item.id === monthlyLimit.id && item.liveStageId === 'stage-old'), '已知历史月限额必须保留原归属')
+  assert(merged.riskOverrideEvents?.some((item) => item.id === override.id && item.liveStageId === 'stage-old'), '引用本地历史交易的完整 override 必须保留原归属')
   assert(riskSetupStateForStage({
     riskPolicyVersions: merged.riskPolicyVersions ?? [],
     monthlyRiskLimits: merged.monthlyRiskLimits ?? [],
   }, 'stage-current', '2026-08-20') === 'unconfigured', '历史风险资料不得完成当前阶段建档')
+  assertValidPersistedSnapshot(merged, '完整历史风险导入结果')
+}
+
+export function testMergeImportDropsHistoricalOverrideWhenImportedTradeMovesToCurrentStage(): void {
+  const current = currentState()
+  const fixture = createFullPersistedSnapshotFixture()
+  const trade = { ...fixture.trades[0]!, liveStageId: 'stage-old' }
+  const policy = { ...fixture.riskPolicyVersions[0]!, id: 'override-policy', liveStageId: 'stage-old' }
+  const override = {
+    ...fixture.riskOverrideEvents[0]!,
+    id: 'override-for-remapped-trade',
+    liveStageId: 'stage-old',
+    tradeId: trade.id,
+    policyVersionId: policy.id,
+  }
+
+  const merged = mergeImportPayload(current, {
+    version: 12,
+    trades: [trade],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [policy],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [override],
+    strategies: current.strategies,
+    starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
+  })
+
+  const mergedTrade = merged.trades.find((item) => item.id === trade.id)
+  assert(mergedTrade?.tradeKind === 'live' && mergedTrade.liveStageId === 'stage-current', '导入 live 交易必须进入当前阶段')
+  assert(!merged.riskOverrideEvents?.some((item) => item.id === override.id), '旧阶段 override 不得指向已归入当前阶段的导入交易')
+  assertValidPersistedSnapshot(merged, '交易重归后的导入结果')
+}
+
+export function testMergeImportDropsHistoricalDependentsWhenSourcePolicyIsSkipped(): void {
+  const current = currentState()
+  const fixture = createFullPersistedSnapshotFixture()
+  const skippedPolicy = { ...fixture.riskPolicyVersions[0]!, id: 'skipped-current-policy', liveStageId: 'stage-current' }
+  const preparation = {
+    ...fixture.weeklyRiskPreparations[0]!,
+    id: 'weekly-risk-preparation:stage-old:2026-07-13',
+    liveStageId: 'stage-old',
+    confirmedPolicyVersionId: skippedPolicy.id,
+  }
+  const monthlyLimit = {
+    ...fixture.monthlyRiskLimits[0]!,
+    id: 'monthly-risk-limit:stage-old:2026-07',
+    liveStageId: 'stage-old',
+    sourcePolicyVersionId: skippedPolicy.id,
+  }
+
+  const merged = mergeImportPayload(current, {
+    version: 12,
+    trades: [],
+    weeklyRiskPreparations: [preparation],
+    riskPolicyVersions: [skippedPolicy],
+    monthlyRiskLimits: [monthlyLimit],
+    riskOverrideEvents: [],
+    strategies: current.strategies,
+    starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
+  })
+
+  assert(!merged.riskPolicyVersions?.some((item) => item.id === skippedPolicy.id), '当前阶段导入 policy 必须跳过')
+  assert(!merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id), '来源 policy 被跳过时 preparation 也必须跳过')
+  assert(!merged.monthlyRiskLimits?.some((item) => item.id === monthlyLimit.id), '来源 policy 被跳过时 monthly limit 也必须跳过')
+  assertValidPersistedSnapshot(merged, '依赖闭包导入结果')
+}
+
+export function testMergeImportRetainsHistoricalRiskClosedByLocalArchivedReferents(): void {
+  const current = currentState()
+  const fixture = createFullPersistedSnapshotFixture()
+  const localTrade = { ...fixture.trades[0]!, liveStageId: 'stage-old' }
+  const localPolicy = { ...fixture.riskPolicyVersions[0]!, id: 'local-archived-policy', liveStageId: 'stage-old' }
+  current.trades = [localTrade]
+  current.riskPolicyVersions = [localPolicy]
+  const preparation = {
+    ...fixture.weeklyRiskPreparations[0]!,
+    id: 'weekly-risk-preparation:stage-old:2026-07-13',
+    liveStageId: 'stage-old',
+    confirmedPolicyVersionId: localPolicy.id,
+  }
+  const monthlyLimit = {
+    ...fixture.monthlyRiskLimits[0]!,
+    id: 'monthly-risk-limit:stage-old:2026-07',
+    liveStageId: 'stage-old',
+    sourcePolicyVersionId: localPolicy.id,
+  }
+  const override = {
+    ...fixture.riskOverrideEvents[0]!,
+    id: 'local-closed-override',
+    liveStageId: 'stage-old',
+    tradeId: localTrade.id,
+    policyVersionId: localPolicy.id,
+  }
+
+  const merged = mergeImportPayload(current, {
+    version: 12,
+    trades: [],
+    weeklyRiskPreparations: [preparation],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [monthlyLimit],
+    riskOverrideEvents: [override],
+    strategies: current.strategies,
+    starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
+  })
+
+  assert(merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id), '本地历史 policy 必须能闭合 preparation 引用')
+  assert(merged.monthlyRiskLimits?.some((item) => item.id === monthlyLimit.id), '本地历史 policy 必须能闭合 monthly limit 引用')
+  assert(merged.riskOverrideEvents?.some((item) => item.id === override.id), '本地历史交易与 policy 必须能闭合 override 引用')
+  assert(riskSetupStateForStage({
+    riskPolicyVersions: merged.riskPolicyVersions ?? [],
+    monthlyRiskLimits: merged.monthlyRiskLimits ?? [],
+  }, 'stage-current', '2026-08-20') === 'unconfigured', '保留完整历史包也不得配置当前阶段')
+  assertValidPersistedSnapshot(merged, '本地历史引用闭包导入结果')
 }
 
 export function testMergeImportRejectsUnknownLocalStageReference(): void {

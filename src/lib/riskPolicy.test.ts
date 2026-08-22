@@ -11,6 +11,8 @@ import {
   type ConfirmWeeklyRiskPreparationInput,
   type RiskPolicyState,
 } from '@/lib/riskPolicy'
+import { riskSetupStateForStage } from '@/lib/stageRisk'
+import { requestTradeOpenCandidate } from '@/lib/tradeOpenRiskGate'
 import { useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -301,6 +303,60 @@ export function testStoreFirstSameDayPolicyMaterializesCurrentMonth(): void {
     useStore.getState().monthlyRiskLimits[0]?.sourcePolicyVersionId === 'same-day-policy',
     '当天生效的全局首个 policy 必须自动物化当前月',
   )
+}
+
+export function testStoreReconfirmationRepairsMissingCurrentMonthLimitIdempotently(): void {
+  const liveStageId = useStore.getState().currentLiveStageId
+  const existingPolicy: RiskPolicyVersion = {
+    ...stateWithPolicy().riskPolicyVersions[0]!,
+    id: 'existing-active-policy',
+    liveStageId,
+    sourceWeekStart: '2026-07-20',
+    effectiveTradingDay: '2026-07-20',
+    confirmedAt: '2026-07-20T08:00:00.000Z',
+  }
+  const target = { ...closedLiveTrade(), id: 'recovery-target', status: 'planned' as const, liveStageId }
+  useStore.setState({
+    trades: [target],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [existingPolicy],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
+  })
+
+  useStore.getState().confirmWeeklyRiskPreparation({
+    currentTradingDayKey: '2026-07-27',
+    weekStart: '2026-07-27',
+    draft: draft(),
+    confirmedAt: '2026-07-27T08:00:00.000Z',
+    policyVersionId: 'repair-policy-1',
+  })
+
+  const repaired = useStore.getState()
+  assert(repaired.monthlyRiskLimits.length === 1, '已有 active policy 时再次确认必须补齐当月限额')
+  assert(
+    riskSetupStateForStage(repaired, liveStageId, '2026-07-27') === 'configured',
+    '补齐当月限额后当前阶段必须完成建档',
+  )
+  const ordinaryGate = requestTradeOpenCandidate({
+    trades: repaired.trades,
+    riskPolicyVersions: repaired.riskPolicyVersions,
+    monthlyRiskLimits: repaired.monthlyRiskLimits,
+    currentLiveStageId: liveStageId,
+    currentLiveStageStartsOn: '2026-07-01',
+    currentTradingDayKey: '2026-07-27',
+    tradingDayStartHour: 0,
+  }, target.id)
+  assert(ordinaryGate.kind !== 'risk-setup-required', '补齐后首开必须进入普通风险 gate')
+
+  useStore.getState().confirmWeeklyRiskPreparation({
+    currentTradingDayKey: '2026-07-27',
+    weekStart: '2026-07-27',
+    draft: draft(),
+    confirmedAt: '2026-07-27T09:00:00.000Z',
+    policyVersionId: 'repair-policy-2',
+  })
+  assert(useStore.getState().monthlyRiskLimits.length === 1, '重复确认不得重复创建同阶段同月限额')
 }
 
 export function testStoreSavesWeeklyDraftWithoutCreatingPolicy(): void {

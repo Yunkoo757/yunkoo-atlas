@@ -242,3 +242,98 @@ Task 6 实现完成；聚焦风险、直接消费者、相关浏览器与 typech
 ### 修复轮次 1 短状态合同
 
 Task 6 修复轮次 1 完成：完整 unit-only、聚焦风险/归档 browser、typecheck 通过；完整 browser 仅剩两项已隔离复现且与本轮无代码交集的既存 CAS/WebStorage 失败。
+
+---
+
+## 修复轮次 2/5（2026-08-22）
+
+### 修复结果
+
+- Store 的每次周风险确认现在都会在同一状态更新中幂等执行当前阶段、当前业务月的 `ensureRiskPeriodRecords`。已有合法 active policy 但缺月限额的存量状态可通过再次确认立即补齐并进入普通开仓 gate；重复确认不会产生同阶段同月重复限额。
+- `RiskStatusStrip` 的自愈 effect 依赖已包含 policy、monthly limit 与当前阶段 ID，异步载入或确认后的风险集合变化不会留下只在首次 mount 运行的脆弱窗口。
+- runtime policy selector 与 production snapshot validator 现在共用 `hasCanonicalRiskAmount`：资金基数必须精确到分，`riskAmount` 必须等于按分规范化的 `capitalBase × riskPercent`。运行时不再接受 validator 会拒绝的金额不一致 policy。
+- merge 导入新增历史风险引用闭包：仅保留本地已知 archived stage 的合法 policy；preparation/monthly limit 的来源 policy 必须在最终本地或保留集合中存在且同阶段；override 必须指向最终保留的本地 archived live trade、身份一致，并且其可选 policy 也同阶段闭合。
+- 导入 live trade 继续统一归入 current stage；因此任何指向该导入 trade ID 的 archived override 都会安全跳过。闭包失败实体统一计入原有只含条数的非敏感 warning，绝不重归当前阶段。
+
+### RED 证据
+
+金额合同与再次确认恢复：
+
+`node scripts/run-regression-tests.mjs --unit-only src/lib/stageRisk.test.ts src/lib/riskPolicy.test.ts`
+
+结果：exit 1；新增 `riskAmount=999` 不一致 policy 仍错误完成建档，且“已有 active policy + 缺当月限额”再次确认后 `monthlyRiskLimits` 仍为空。
+
+导入引用闭包：
+
+`node scripts/run-regression-tests.mjs --unit-only src/lib/importMerge.test.ts`
+
+结果：exit 1；新增用例证明来源 policy 被跳过后 preparation/monthly limit 仍残留，以及 imported live 被归 current 后 archived override 仍指向该交易。
+
+### GREEN 与实际门禁输出
+
+首轮最小实现复验：
+
+`node scripts/run-regression-tests.mjs --unit-only src/lib/stageRisk.test.ts src/lib/riskPolicy.test.ts src/lib/importMerge.test.ts src/lib/riskBudget.test.ts`
+
+结果：新增三组回归转绿；同时发现旧 `riskBudget` fixture 只改 `riskAmount`、未同步 `riskPercent`，被新的 canonical runtime 合同正确拒绝。fixture 改为 validator 合法的 2%/2000 后通过。
+
+关联导入门第一次复验发现两项旧 override conflict fixture 没有 archived trade 引用闭包，按新合同会在冲突比较前被安全跳过。随后把 fixture 补成 production-valid、同阶段且由本地 archived trade 闭合的风险包，保留原不可变冲突语义。
+
+最终风险、Store、open gate、validation/codec 与导入聚焦命令：
+
+`node scripts/run-regression-tests.mjs --unit-only src/lib/stageRisk.test.ts src/lib/riskBudget.test.ts src/lib/tradeOpenRiskGate.test.ts src/store/riskGateIntegration.test.ts src/lib/riskPolicy.test.ts src/lib/riskGatedTradeOpenCommit.test.ts src/store/liveStageOwnership.test.ts src/storage/snapshotValidation.test.ts src/storage/snapshotCodec.test.ts src/lib/importMerge.test.ts src/lib/riskImportMerge.test.ts src/lib/importConcurrency.test.ts src/lib/importExportAssets.test.ts`
+
+结果：`FOCUSED_UNIT_EXIT=0`，全部 PASS。导入闭包用例覆盖：完整历史 risk bundle 可保留、导入交易重归 current 后 override 丢弃、来源 policy 丢弃后 preparation/limit 连带丢弃、本地 archived trade/policy 可闭合引用；测试合并结果均通过 production validator，当前阶段仍为 `unconfigured`。
+
+完整 unit-only：
+
+`node scripts/run-regression-tests.mjs --unit-only`
+
+结果：`UNIT_EXIT=0`，完整 unit 门全部 PASS。
+
+风险与归档 browser 聚焦：
+
+`runBrowserRegressionTests(... requestedTestIds: RiskManagement + RiskManagementSettings + DataIOWebArchive + IndexedDbArchiveReplace)`
+
+结果：四项全部 PASS，`FOCUSED_BROWSER_FAILED=0`。
+
+完整 browser：
+
+`node scripts/run-browser-tests.mjs . vite.config.ts`
+
+结果：`BROWSER_EXIT=1`；本轮风险、归档及其他 browser 均 PASS，仅剩：
+
+- `TradeComposerBatch.browser.test.html`：`Composer stale commit 必须返回 typed CAS conflict`
+- `WebStorageConflict.browser.test.html`：`加载远端最新版后必须恢复完整远端边界集合`
+
+使用上述两个 `requestedTestIds` 单独隔离复验，结果 `ISOLATED_UNRELATED_FAILED=2`，两项稳定复现。本轮 diff 未修改 `TradeComposerBatch`、`WebStorageConflict`、`indexedDbAdapter.ts`、`webWriteGuard.ts` 或 `persistedSnapshotCoordinator.ts`；没有 Windows 临时端口耗尽。
+
+类型与 whitespace：
+
+- `pnpm typecheck`：`TYPECHECK_EXIT=0`。
+- `git diff --check`：`DIFF_CHECK_EXIT=0`；仅 Git 的 LF→CRLF 工作树提示，无 whitespace error。
+
+### 必要直接消费者与测试扩展
+
+- `src/lib/money.ts`、`src/lib/riskPolicyValidity.ts`：抽出无循环依赖的金额分值规范化与 canonical risk amount 合同；`riskBudget.ts` 保留原公开 re-export。
+- `src/storage/snapshotValidation.ts`：复用与 runtime 相同的 canonical 金额合同，不放宽 validator。
+- `src/components/RiskStatusStrip.tsx`：自愈 effect 跟踪 policy/monthly/stage 变化。
+- `src/lib/riskBudget.test.ts`：把旧双 policy fixture 修正为 canonical 的 2%/2000 组合。
+- `src/lib/importConcurrency.test.ts`、`src/lib/importExportAssets.test.ts`：不可变 override conflict/dedup fixture 改为通过本地 archived referent 闭合，继续验证原冲突与原子提交合同。
+
+### 自审
+
+- 再确认恢复：确认动作无 `isFirstPolicy` 分支；每次都以 `currentTradingDayKey` 调用幂等 ensure。当前月已有记录时保持单条不覆盖；缺失时使用当天 active、合法、当前阶段 policy 创建。
+- 首开顺序：本轮未改变 `tradeOpenRiskGate` 顺序；补齐月限额前仍只能 `requires-risk-setup`，补齐后才进入普通 below/unknown/limit gate。新增 Store 回归同时断言修复后不再返回 setup。
+- 金额一致性：active selector 和 snapshot validator 指向同一个 `hasCanonicalRiskAmount`，不存在 runtime 接受而持久化拒绝的两份算法；金额基础函数独立在 `money.ts`，避免 `riskBudget -> activeRiskPolicy -> validity -> riskBudget` 循环。
+- 历史隔离：imported live 永不作为 archived override 的最终 referent；历史 preparation/monthly/override 只在引用同阶段、最终存在的本地/保留实体时进入 merge。无法闭合时只跳过并计数，不迁移、不伪造关联。
+- 完整性：完整历史风险包、局部包通过本地 referent 闭合、依赖丢弃和 trade 重归四条路径均有 production-valid v12 测试；最终 snapshot 通过 validator，current setup 保持未配置。
+
+### Concerns
+
+- 完整 browser 仍只有上一轮已记录的两项 CAS/WebStorage 失败，隔离结果与代码无交集证据未变化；按授权未扩张到无关并发存储修复。
+- `console.warn` 仍是当前 import merge 唯一警告渠道；内容仅含被跳过风险实体条数，不含交易、账户、策略或原因明细。
+
+### 修复轮次 2 短状态合同
+
+Task 6 修复轮次 2 完成：再次确认可幂等修复当月限额，runtime/validator 共用金额合法性，历史风险导入具备引用闭包；完整 unit-only、风险/归档 browser 聚焦、typecheck 全部通过，完整 browser 仅剩两项已隔离且与本轮无关的既存 CAS/WebStorage 失败。
